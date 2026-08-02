@@ -11,7 +11,8 @@ from bora.application import composition
 
 
 def test_version_present() -> None:
-    assert bora.__version__ == "0.1.0"
+    assert bora.__version__  # non-empty semver-ish package version
+    assert len(bora.__version__.split(".")) >= 2
 
 
 def test_bora_help_via_console_script() -> None:

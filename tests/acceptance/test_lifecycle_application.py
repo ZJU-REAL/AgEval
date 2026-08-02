@@ -126,6 +126,7 @@ async def test_retry_identity() -> None:
         ScriptedLifecycleStages(),
         identity_factory=factory,
         retry_of=first.attempt,
+        previous_record=first,
     )
     assert second.attempt.value != first.attempt.value
     assert second.attempt.retry_of_attempt_id == first.attempt.value

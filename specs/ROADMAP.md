@@ -116,18 +116,20 @@ Lifecycle Core 在不启动真实 Harness 的前提下拥有 Run / Trial / Attem
 
 ### 关键交付
 
-- [ ] Run / Trial / Attempt identity 及其不可混用约束。
-- [ ] `created → preparing → running_harness → harness_terminal → sealing_inputs → evaluating → binding_result → cleaning_up → terminal` 外层状态模型。
-- [ ] prepare、Harness、evaluation、cleanup 结果保持为独立事实；尚未实现的边界由显式 test double 占位，不进入 production composition。
-- [ ] retry 创建新 Attempt identity；取消、超时与异常收敛到同一 cleanup 路径。
+- [x] Run / Trial / Attempt identity 及其不可混用约束。
+- [x] `created → preparing → running_harness → harness_terminal → sealing_inputs → evaluating → binding_result → cleaning_up → terminal` 外层状态模型。
+- [x] prepare、Harness、evaluation、cleanup 结果保持为独立事实；尚未实现的边界由显式 test double 占位，不进入 production composition。
+- [x] retry 创建新 Attempt identity；取消、超时与异常收敛到同一 cleanup 路径。
 
 ### 验收标准
 
-- [ ] Success：application 集成测试从合法 lock 创建唯一 Run / Trial / Attempt，并按允许顺序到达测试终态。
-- [ ] Expected failure：非法状态跳转或跨 Attempt identity 复用被拒绝，旧状态与 evidence 不被改写。
-- [ ] Failure paths：prepare、run、evaluate 任一阶段故障都进入一次有界 cleanup；cleanup warning 不覆盖既有阶段事实。
-- [ ] Regression：`v0.1` success、expected failure 与 determinism 全部通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 通过；Architecture lifecycle Current/Target 描述同步。
+- [x] Success：application 集成测试从合法 lock 创建唯一 Run / Trial / Attempt，并按允许顺序到达测试终态。
+- [x] Expected failure：非法状态跳转或跨 Attempt identity 复用被拒绝，旧状态与 evidence 不被改写。
+- [x] Failure paths：prepare、run、evaluate 任一阶段故障都进入一次有界 cleanup；cleanup warning 不覆盖既有阶段事实。
+- [x] Regression：`v0.1` success、expected failure 与 determinism 全部通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 通过；Architecture lifecycle Current/Target 描述同步。
+
+> **Version Index `v0.2` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 

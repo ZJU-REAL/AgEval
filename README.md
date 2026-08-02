@@ -12,7 +12,7 @@ BORA 是 *Harness 的 Harness*：在统一的配置锁定、Attempt 生命周期
 | --- | --- |
 | 代际 | v2 greenfield（不兼容归档 v1） |
 | 设计 | 已写入 [`docs/design/`](docs/design/)（自包含） |
-| 实现 | **v0.1 Config 工程检查点已实现**（待用户最终验收 Version Index） |
+| 实现 | **v0.1–v0.2 Core 检查点已实现**（Config + Lifecycle；待用户最终验收 Version Index） |
 | 公开 entrypoint | `bora lock`（Config only） |
 | 证据 | `design-only`（`bora lock` **不是** `runnable-mvp`） |
 | 交付方法 | Spec-Driven Delivery（`$spec-driven-delivery`） |
@@ -58,6 +58,16 @@ uv run bora lock examples/config-invalid --task config-invalid
 - Exit `2`
 - Stderr：稳定 `unknown_profile`（及 package-relative location）
 - Stdout 为空；不创建成功 lock 产物
+
+## Lifecycle 检查点（v0.2）
+
+公开产品入口仍是 `bora lock`。Lifecycle Core 通过 application acceptance 验证：
+
+```bash
+uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q
+```
+
+test double 仅在 `tests/doubles/`，不进入 production composition，不声明 `runnable-mvp`。
 
 ## 从哪里读起
 

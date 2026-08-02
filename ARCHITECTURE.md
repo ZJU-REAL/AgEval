@@ -13,7 +13,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **v0.1 Config checkpoint** — `bora lock` + Config Core；无 Lifecycle/Agent 产品路径 |
+| 实现状态 | **v0.1–v0.2 Core checkpoints** — Config (`bora lock`) + Lifecycle application probe；无 Provider 子进程 / `bora run` |
 | 证据等级 | `design-only` |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
@@ -72,7 +72,8 @@ Task Package
 | Smoke journey | `uv run bora lock examples/config-minimal --task config-minimal`（exit 0，确定性 JSON 摘要） |
 | Expected failure | `uv run bora lock examples/config-invalid --task config-invalid`（exit 2，`unknown_profile`） |
 | Observable result | 无 secret 的 lock summary + digest；无 Run/Attempt/Agent/Evaluator |
-| 证据等级 | `design-only`（Config 工程检查点，**不是** `runnable-mvp`） |
+| Lifecycle checkpoint | `uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q` |
+| 证据等级 | `design-only`（Config + Lifecycle 工程检查点，**不是** `runnable-mvp`） |
 
 文档门禁仍须通过：
 
@@ -109,9 +110,11 @@ BORA/
 │   ├── cli/                   # Typer：argv、help、exit code
 │   │   └── main.py            # `bora` / `bora lock`
 │   ├── application/           # use cases + composition root
-│   │   ├── composition.py     # 唯一 production 装配点
-│   │   └── lock_command.py
-│   ├── config/                # Core 1：model、load_and_lock、catalog、errors
+│   │   ├── composition.py     # 唯一 production 装配点（仅 Config CLI）
+│   │   ├── lock_command.py
+│   │   └── run_lifecycle.py   # Lifecycle use case（无 CLI 暴露）
+│   ├── config/                # Core 1
+│   ├── runtime/               # Core 2：identity、lifecycle、coordinator
 │   └── adapters/
 │       └── package_fs.py      # 本地只读 Package reader
 ├── examples/

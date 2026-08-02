@@ -23,7 +23,7 @@ async def run_lifecycle(
     cleanup_wait_budget: float = 5.0,
     deadline_monotonic: float | None = None,
     retry_of: AttemptIdentity | None = None,
-    trial_for_retry: AttemptIdentity | None = None,
+    previous_record: AttemptRecord | None = None,
 ) -> AttemptRecord:
     """Create identity and drive the Coordinator once.
 
@@ -38,9 +38,17 @@ async def run_lifecycle(
     mono = clock or default_monotonic_clock
 
     if retry_of is not None:
+        if previous_record is not None:
+            assert_retryable(previous_record)
+            if previous_record.attempt != retry_of:
+                from bora.runtime.errors import ERROR_INVALID_RETRY, LifecycleError
+
+                raise LifecycleError(
+                    ERROR_INVALID_RETRY,
+                    "previous_record.attempt must equal retry_of",
+                )
         trial = retry_of.trial
         if trial.locked_config_digest != lock.digest:
-            # Locked digest is part of Trial identity; refuse digest drift.
             from bora.runtime.errors import ERROR_INVALID_RETRY, LifecycleError
 
             raise LifecycleError(

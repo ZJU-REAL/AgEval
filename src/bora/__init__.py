@@ -1,7 +1,10 @@
 """BORA — Bounded Orchestration for Runtime Agents.
 
-v0.1 delivers Config Core only (``load_and_lock`` + ``bora lock``).
-Higher Core surfaces (Lifecycle, Provider, Capability, Evaluation) arrive later.
+Delivered checkpoints:
+- v0.1 Config Core (``load_and_lock`` + ``bora lock``)
+- v0.2 Lifecycle Core (identity + coordinator; application probe, no ``bora run``)
+
+Evidence remains ``design-only`` until Roadmap product verticals land.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
