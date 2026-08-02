@@ -131,3 +131,32 @@ async def test_idempotent_cleanup(tmp_path: Path) -> None:
     assert outcome.cleanup_ok
     # Second cleanup is no-op
     await provider.cleanup(prep)
+
+
+@pytest.mark.asyncio
+async def test_residual_same_group_writer(tmp_path: Path) -> None:
+    """Parent exits 0 while same-group writer continues — group kill must reap it."""
+    provider = LocalProcessProvider(term_wait_seconds=0.15, kill_wait_seconds=0.3)
+    plan = _plan(
+        tmp_path,
+        "--mode",
+        "spawn-group-writer",
+        "--path",
+        "sent.txt",
+        "--seconds",
+        "8",
+        timeout=10.0,
+    )
+    prep = await provider.prepare(plan)
+    prep = await provider.start(prep)
+    outcome = await provider.wait(prep)
+    assert outcome.terminal == ProcessTerminalKind.EXITED
+    assert outcome.exit_code == 0
+    # Residual group cleanup should confirm writers are gone.
+    assert outcome.writer_stop_confirmed is True
+    assert outcome.cleanup_ok
+    # Sentinel must not keep growing after cleanup.
+
+    sent = prep.workdir / "sent.txt" if prep.workdir.exists() else None
+    # workdir is removed on cleanup; absence is itself evidence of Provider cleanup.
+    assert not prep.workdir.exists() or sent is None

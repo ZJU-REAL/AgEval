@@ -172,7 +172,11 @@ class LocalProcessProvider:
         )
 
     async def cleanup(self, prepared: PreparedLocalRuntime) -> None:
-        """Idempotent cleanup: kill group if needed, remove owned workdir."""
+        """Idempotent cleanup: kill group if needed, remove owned workdir.
+
+        Does **not** force ``writer_stop_confirmed=True``. That flag is set only
+        from group-liveness probes in ``_terminate_group`` / ``_ensure_group_dead``.
+        """
         if prepared.cleaned:
             return
         if prepared.process is not None and prepared.process.returncode is None:
@@ -181,6 +185,9 @@ class LocalProcessProvider:
                 await asyncio.wait_for(prepared.process.wait(), timeout=self._kill_wait + 1)
         if prepared.pgid is not None:
             await self._ensure_group_dead(prepared)
+        elif prepared.process is not None and prepared.process.returncode is not None:
+            # Direct child exited and no pgid tracking — treat as stopped.
+            prepared.writer_stop_confirmed = True
         # Remove only the Attempt workdir we created.
         workdir = prepared.workdir
         if workdir.exists():
@@ -189,7 +196,6 @@ class LocalProcessProvider:
 
             shutil.rmtree(workdir, ignore_errors=True)
         prepared.cleaned = True
-        prepared.writer_stop_confirmed = True
 
     async def _finish(
         self,
@@ -206,6 +212,11 @@ class LocalProcessProvider:
         except Exception as exc:  # noqa: BLE001
             cleanup_ok = False
             warning = f"cleanup failed: {type(exc).__name__}"
+
+        # Unconfirmed writer stop is a cleanup warning, not a silent true.
+        if not prepared.writer_stop_confirmed:
+            stop_warn = "writer_stop: unconfirmed after TERM/KILL wait"
+            warning = f"{warning}; {stop_warn}" if warning else stop_warn
 
         max_b = prepared.plan.max_stream_bytes
         stdout = bytes(prepared.stdout_buf[:max_b]).decode("utf-8", errors="replace")

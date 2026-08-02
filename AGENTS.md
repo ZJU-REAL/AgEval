@@ -62,7 +62,7 @@ specs/BLOCKED.md
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/design/00`–`10` 已自包含迁入；日常**不**再以 vault 为权威 |
-| production 源码 | 有 Config + Lifecycle + Provider L0（`src/bora/runtime/`、`run_lifecycle`）；尚无 Provider 子进程/Capability/SDK/Evaluation 产品路径 |
+| production 源码 | Config + Lifecycle + Provider L0 真实子进程 + Capability authority + task worker + `bora run` + `bora-sdk`；完整 Spec 全文仍有简化面（见 Active Spec Honesty notes） |
 | 公开 entrypoint | `bora lock`（Config Core 工程检查点） |
 | production composition root | `src/bora/application/composition.py` |
 | 证据等级 | `design-only`（`bora lock` **不得**称为 `runnable-mvp`） |

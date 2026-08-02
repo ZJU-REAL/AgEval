@@ -13,7 +13,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **v0.1–v0.7 Core checkpoints** — Config (`bora lock`) + Lifecycle application probe；无 Provider 子进程 / `bora run` |
+| 实现状态 | **v0.1–v0.7 engineering checkpoints** — Config/`bora lock`、Lifecycle probe、Provider L0 子进程、Capability authority、task worker、`bora run`、SDK helpers；证据仍以 `design-only`/L0 为主 |
 | 证据等级 | `design-only` |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
@@ -114,12 +114,19 @@ BORA/
 │   │   ├── lock_command.py
 │   │   └── run_lifecycle.py   # Lifecycle use case（无 CLI 暴露）
 │   ├── config/                # Core 1
-│   ├── runtime/               # Core 2：identity、lifecycle、coordinator
+│   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker
+│   ├── provider/              # Core 3：L0 contract / workspace plan / outcomes
+│   ├── capabilities/          # Core 4：Attempt authority（进程内）
+│   ├── evaluation/            # Core 5：flat Result binder
 │   └── adapters/
-│       └── package_fs.py      # 本地只读 Package reader
+│       ├── package_fs.py
+│       ├── provider_local.py  # LocalProcessProvider
+│       └── agent_codex.py     # Codex Executor（可选网络）
+├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── examples/
-│   ├── config-minimal/        # success smoke package
-│   └── config-invalid/        # expected-failure (unknown_profile)
+│   ├── config-minimal/ / config-invalid/
+│   ├── harness-minimal/ / agent-eval/ / evaluator-negative/
+│   └── sdk-tool-guard* / sdk-agent-session/
 ├── tests/
 │   ├── acceptance/
 │   ├── config/
