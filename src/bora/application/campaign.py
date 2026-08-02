@@ -67,9 +67,12 @@ async def run_campaign(
     variants = expand_matrix(axes)
     trials: list[dict[str, Any]] = []
     for idx, variant in enumerate(variants):
-        # v0.11 MVP: matrix values are recorded; full override injection into lock
-        # is deferred — each trial reuses same package and records variant metadata.
-        code, result, details = await run_task(package_root, task_id)
+        # Each variant becomes independent lock overrides + evidence directory.
+        code, result, details = await run_task(
+            package_root,
+            task_id,
+            overrides=variant if variant else None,
+        )
         trials.append(
             {
                 "trial_index": idx,
@@ -78,7 +81,8 @@ async def run_campaign(
                 "status": result.status,
                 "score": result.score,
                 "evidence_path": result.evidence_path,
-                "digest_note": details.get("run_dir"),
+                "run_dir": details.get("run_dir"),
+                "digest": getattr(result, "digest", None) or details.get("digest"),
             }
         )
         if code == 2 and result.status == "ERROR" and not variant:

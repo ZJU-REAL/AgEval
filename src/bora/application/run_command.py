@@ -23,6 +23,7 @@ async def run_task(
     *,
     evidence_root: Path | None = None,
     allow_offline_agent: bool = False,
+    overrides: dict[str, Any] | None = None,
 ) -> tuple[int, FlatResult, dict[str, Any]]:
     """Run one foreground Attempt and return (exit_code, result, details)."""
     package_root = package_root.resolve()
@@ -31,6 +32,7 @@ async def run_task(
         lock = config.load_and_lock(
             package_root,
             task_id,
+            overrides=overrides,
             capabilities=DeclarationCapabilityCatalog(),
         )
     except ConfigError:
