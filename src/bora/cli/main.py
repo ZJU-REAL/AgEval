@@ -56,9 +56,10 @@ def campaign_command(
     """Foreground serial campaign over a parameter matrix (v0.11)."""
     import asyncio
 
-    from bora.application.campaign import run_campaign
+    from bora.application.composition import build_campaign_runner
     from bora.config.errors import ConfigError
 
+    run_campaign = build_campaign_runner()
     try:
         summary = asyncio.run(run_campaign(package, task, matrix_args=list(matrix or [])))
     except ConfigError as exc:
@@ -83,9 +84,10 @@ def run_command(
     """Run one foreground Attempt (v0.6 vertical slice). Evidence: L0 only."""
     import asyncio
 
-    from bora.application.run_command import run_task
+    from bora.application.composition import build_run_task
     from bora.config.errors import ConfigError
 
+    run_task = build_run_task()
     try:
         code, result, _details = asyncio.run(run_task(package, task))
     except ConfigError as exc:

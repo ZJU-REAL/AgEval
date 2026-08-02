@@ -7,10 +7,17 @@ singletons at import time.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
+from typing import Any
+
 from bora.adapters.package_fs import LocalPackageReader
 from bora.application.lock_command import LockCommand
 from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.load_and_lock import ConfigCore
+from bora.evaluation.result_binding import FlatResult
+
+# Public use-case type: one foreground Attempt.
+RunTask = Callable[..., Coroutine[Any, Any, tuple[int, FlatResult, dict[str, Any]]]]
 
 
 def build_config_core() -> ConfigCore:
@@ -33,3 +40,22 @@ def build_lock_command() -> LockCommand:
         config_core=build_config_core(),
         capabilities=build_declaration_catalog(),
     )
+
+
+def build_run_task() -> RunTask:
+    """Wire the production ``bora run`` use case through the composition root.
+
+    Concrete adapters remain inside the use case module for now; the CLI must
+    not import ``run_command.run_task`` directly. Full lifecycle/authority
+    assembly is still residual vs Spec 05 text.
+    """
+    from bora.application.run_command import run_task
+
+    return run_task
+
+
+def build_campaign_runner() -> Callable[..., Coroutine[Any, Any, dict[str, Any]]]:
+    """Wire the production ``bora campaign`` sketch through the composition root."""
+    from bora.application.campaign import run_campaign
+
+    return run_campaign
