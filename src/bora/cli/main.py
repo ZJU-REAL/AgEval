@@ -35,6 +35,46 @@ def _root() -> None:
     """Root callback (no global options in v0.1)."""
 
 
+@app.command("run")
+def run_command(
+    package: Annotated[
+        Path,
+        typer.Argument(help="Path to the Task Package root directory."),
+    ],
+    task: Annotated[
+        str,
+        typer.Option("--task", help="Task id that must match bora.yaml task_id."),
+    ],
+) -> None:
+    """Run one foreground Attempt (v0.6 vertical slice). Evidence: L0 only."""
+    import asyncio
+
+    from bora.application.run_command import run_task
+    from bora.config.errors import ConfigError
+
+    try:
+        code, result, _details = asyncio.run(run_task(package, task))
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(f"runtime_error: {type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    summary = {
+        "status": result.status,
+        "score": result.score,
+        "assurance": result.assurance,
+        "harness_kind": result.harness_kind,
+        "runtime_kind": result.runtime_kind,
+        "agent_invocations": result.agent_invocations,
+        "evidence_path": result.evidence_path,
+        "cleanup_warning": result.cleanup_warning,
+    }
+    typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    raise typer.Exit(code=code)
+
+
 @app.command("lock")
 def lock_command(
     package: Annotated[
