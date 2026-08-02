@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# BORA runtime state
+.bora/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node (website, if added later)
+node_modules/
+.next/
+out/
+
+# Secrets / local overrides
+.env
+.env.*
+!.env.example
+*.pem
+credentials/
