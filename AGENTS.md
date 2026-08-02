@@ -62,13 +62,13 @@ specs/BLOCKED.md
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/design/00`–`10` 已自包含迁入；日常**不**再以 vault 为权威 |
-| production 源码 | Config + Lifecycle + Provider L0 真实子进程 + Capability authority + task worker + `bora run` + `bora-sdk`；完整 Spec 全文仍有简化面（见 Active Spec Honesty notes） |
-| 公开 entrypoint | `bora lock`（Config Core 工程检查点） |
-| production composition root | `src/bora/application/composition.py` |
-| 证据等级 | `design-only`（`bora lock` **不得**称为 `runnable-mvp`） |
-| Roadmap | Version Index `v0.1`–`v0.12` 均未勾选（`v0.1` 内部交付/验收可已勾选，等待用户最终验收） |
-| 活动 Spec | [specs/active/00](specs/active/00-core-batch0-and-batch1-plan.md)–[06](specs/active/06-v0.7-harness-core-session-tool-plan.md)；实施顺序 v0.1→… |
-| Constitution 条目 | 0 |
+| production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→`bora run`/`bora campaign`→SDK；Docker L1 **preflight only**；OpenAI HTTP / Postgres / ControlStore 为**未接入或草图**（见 Spec 07–11 Implementation Progress） |
+| 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露） |
+| 证据等级 | **限定 `runnable-mvp`**（仅 L0 `examples/agent-eval` + `examples/echo-contract` 真实 Codex PASS；Version Index **全部未勾选**；无 `isolated`） |
+| Roadmap | Version Index `v0.1`–`v0.12` **未勾选**；内部工程勾选不得单独升级证据 |
+| 活动 Spec | `specs/active/00`–`11`；07–11 已回写 Decision Summary / Implementation Progress |
+| Constitution 条目 | 2 — critic-checkbox-authority；[core-not-bench-adapters](specs/constitution/2026-08-03-core-not-bench-adapters.md) |
+
 
 **禁止**从文档存在、Active Spec 存在、`bora lock` 成功或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
 
@@ -117,7 +117,9 @@ specs/BLOCKED.md
 | 改产品/机制设计 | 先改 `docs/design/*`（及必要时 PRD/glossary），再改 Architecture/Roadmap/Spec/代码 |
 | 改模块树/依赖/composition root | 先改 [ARCHITECTURE.md](ARCHITECTURE.md) |
 | 改版本结果或验收 | 先改 [specs/ROADMAP.md](specs/ROADMAP.md) |
-| 实现一个增量 | 只在所属 Active Spec 内推进 Phase；末 Phase 同步 docs/README/Architecture/Roadmap 投影 |
+| 实现一个增量 | 只在所属 Active Spec 内推进 Phase；**边做边勾选** Decision Summary / Phase / AC / gates；末 Phase 同步 docs/README/Architecture/Roadmap |
+| Critic 通过 | **立即**勾选对应 Spec 完成项与（条件满足时）Roadmap 关键交付/验收/Version Index；**无需**再等用户验收（见 [specs/constitution/2026-08-03-critic-checkbox-authority.md](specs/constitution/2026-08-03-critic-checkbox-authority.md)） |
+| Critic 不通过 | 不得勾选；修代码或诚实回退勾选并记差距 |
 | 用户点名固化一条实现决策 | 新建 `specs/constitution/YYYY-MM-DD-<topic>.md`，并链回 docs 相关节 |
 | 未授权实现 | **不**创建 `src/` / 不跑「假装完成」的 smoke 声明 |
 
@@ -129,8 +131,8 @@ specs/BLOCKED.md
 
 | 等级 | 含义 | 何时可声称 |
 | --- | --- | --- |
-| `design-only` | 仅文档/Specs | **当前** |
-| `runnable-mvp` | 真实 public entrypoint + 真实 Agent 路径 | Roadmap 对应项与公开 smoke 通过后 |
+| `design-only` | 仅文档/Specs | 被限定 `runnable-mvp` 覆盖的 journey 之外仍适用 |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent 路径 | **当前：仅** `examples/agent-eval` + `examples/echo-contract`（L0）；Version Index 未勾 |
 | `isolated` | 隔离 Attempt + 隔离红线 | 通常 `v0.8` 类验收后 |
 | `real-benchmark-verified` | 固定 upstream + 限定范围公开 journey | 对应 APP/版本验收后；不得扩写成全 suite |
 

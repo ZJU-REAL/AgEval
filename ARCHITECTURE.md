@@ -13,8 +13,8 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **v0.1–v0.7 engineering checkpoints** — Config/`bora lock`、Lifecycle probe、Provider L0 子进程、Capability authority、task worker、`bora run`、SDK helpers；证据仍以 `design-only`/L0 为主 |
-| 证据等级 | `design-only` |
+| 实现状态 | **v0.1–v0.7 L0 竖切原型 + v0.8–v0.12 草图** — `bora lock`/`run`/`campaign`；Docker L1 preflight only；OpenAI HTTP / Postgres / ControlStore 未全闭合 Spec |
+| 证据等级 | **限定 `runnable-mvp`**（仅 L0 `agent-eval` / `echo-contract`；Version Index 全未勾；无 `isolated`） |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
 | 近端目标结构依据 | [docs/design/01](docs/design/01-bora-core.md)、[docs/design/09](docs/design/09-owner-matrix-and-structure.md)、[ROADMAP v0.1–v0.6](specs/ROADMAP.md) |
@@ -67,13 +67,13 @@ Task Package
 
 | 项 | 值 |
 | --- | --- |
-| Public entrypoint | `uv run bora lock <package> --task <task-id>` |
+| Public entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露；campaign/L1 草图边界见 Spec 07–11） |
 | Production composition root | `src/bora/application/composition.py` |
 | Smoke journey | `uv run bora lock examples/config-minimal --task config-minimal`（exit 0，确定性 JSON 摘要） |
 | Expected failure | `uv run bora lock examples/config-invalid --task config-invalid`（exit 2，`unknown_profile`） |
 | Observable result | 无 secret 的 lock summary + digest；无 Run/Attempt/Agent/Evaluator |
 | Lifecycle checkpoint | `uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q` |
-| 证据等级 | `design-only`（Config + Lifecycle + Provider L0 工程检查点，**不是** `runnable-mvp`） |
+| 证据等级 | **限定 `runnable-mvp`**（仅上述 L0 真实 Codex journeys；非 full Spec 闭合 / 非 Version Index） |
 
 文档门禁仍须通过：
 
@@ -293,8 +293,8 @@ created
 
 | 等级 | 含义 |
 | --- | --- |
-| `design-only` | 仅文档（**当前**） |
-| `runnable-mvp` | 真实 public entrypoint + 真实 Agent |
+| `design-only` | 仅文档 / 未跑通真实 Agent 的表面 |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent（**当前限定** agent-eval / echo-contract） |
 | `isolated` | 隔离 Attempt + 红线负向 |
 | `real-benchmark-verified` | 固定 upstream、限定范围公开 journey |
 
