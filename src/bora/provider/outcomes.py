@@ -39,6 +39,6 @@ class ProcessOutcome:
     detail: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.assurance != "l0":
-            # L0 provider must not claim higher assurance.
+        # Only allow known assurance labels; providers set actual grade.
+        if self.assurance not in {"l0", "l1"}:
             object.__setattr__(self, "assurance", "l0")
