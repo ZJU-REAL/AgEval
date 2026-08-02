@@ -26,13 +26,15 @@ def _bora(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_agent_eval_success() -> None:
+def test_agent_eval_offline_fail_closed() -> None:
+    """With BORA_OFFLINE_AGENT=1, do not fabricate PASS for Codex packages."""
     result = _bora("run", str(REPO / "examples" / "agent-eval"), "--task", "agent-eval")
-    assert result.returncode == 0, result.stderr + result.stdout
-    data = json.loads(result.stdout)
-    assert data["status"] == "PASS"
-    assert data["assurance"] == "l0"
-    assert data["harness_kind"] == "completed"
+    # Fail-closed: harness missing agent result or evaluation ERROR — never silent PASS.
+    assert result.returncode != 0, result.stdout
+    if result.stdout.strip():
+        data = json.loads(result.stdout)
+        assert data["status"] in {"ERROR", "FAIL"}
+        assert data.get("harness_kind") in {"failed", "completed", "unknown"}
 
 
 def test_unknown_task() -> None:

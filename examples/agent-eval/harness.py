@@ -16,10 +16,8 @@ from bora_sdk import HarnessContext, HarnessTerminal
 async def run(ctx: HarnessContext) -> HarnessTerminal:
     # Prefer parent-provided agent materialization (Agent Service path).
     agent_path = ctx.workspace_root / ".bora_agent_result.json"
-    if agent_path.is_file():
-        data = json.loads(agent_path.read_text(encoding="utf-8"))
-    else:
-        # Deterministic offline fallback for environments without Codex.
-        data = {"answer": 42, "source": "offline-fallback"}
+    if not agent_path.is_file():
+        return HarnessTerminal.failed("agent_result_missing")
+    data = json.loads(agent_path.read_text(encoding="utf-8"))
     ctx.publish_json("agent-output", data)
     return HarnessTerminal.completed("agent-eval")

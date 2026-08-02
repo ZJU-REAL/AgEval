@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import shutil
 import sys
@@ -24,7 +23,7 @@ async def run_task(
     task_id: str,
     *,
     evidence_root: Path | None = None,
-    allow_offline_agent: bool = True,
+    allow_offline_agent: bool = False,
 ) -> tuple[int, FlatResult, dict[str, Any]]:
     """Run one foreground Attempt and return (exit_code, result, details)."""
     package_root = package_root.resolve()
@@ -66,15 +65,20 @@ async def run_task(
             "ok": result.ok,
             "error": result.error,
         }
-        payload = result.structured if result.structured else {"answer": 42, "source": "codex-text"}
-        if not result.ok and allow_offline_agent:
-            payload = {"answer": 42, "source": "offline-fallback", "error": result.error}
-            agent_meta["offline_fallback"] = True
-        # Materialize for harness (not a credential).
-        (package_root / ".bora_agent_result.json").write_text(
-            json.dumps(payload, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        if not result.ok:
+            # Fail closed: do not invent PASS-path agent payloads.
+            if allow_offline_agent:
+                agent_meta["offline_fallback"] = True
+            # No materialization — harness must not see a fabricated answer.
+        else:
+            payload = result.structured if result.structured else {
+                "answer": 42,
+                "source": "codex-text",
+            }
+            (package_root / ".bora_agent_result.json").write_text(
+                json.dumps(payload, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
 
     harness_out = await run_harness_package(lock, package_root, timeout_seconds=60.0)
     envelope = harness_out.get("envelope") or {}
@@ -161,23 +165,46 @@ def _run_evaluator_worker(
     lock: Any,
     artifacts_map: dict[str, str],
 ) -> dict[str, Any]:
-    """Import evaluator only inside this helper (dedicated call site).
+    """Run package evaluator in a dedicated subprocess (not parent import)."""
+    import os
+    import subprocess
+    import tempfile
 
-    Parent Control Plane module import of task evaluator is avoided in the
-    CLI composition path by loading from a file path in a fresh module name.
-    """
     path = package_root / "evaluator.py"
-    spec = importlib.util.spec_from_file_location("bora_task_evaluator", path)
-    if spec is None or spec.loader is None:
+    if not path.is_file():
         return {"status": "ERROR", "score": None, "metrics": {}}
-    mod = importlib.util.module_from_spec(spec)
-    # Ensure we do not leak into parent sys.modules permanently under a package name.
-    spec.loader.exec_module(mod)
-    fn = mod.evaluate
-    raw = fn({"artifacts": artifacts_map})
-    # Drop module reference
-    if "bora_task_evaluator" in sys.modules:
-        del sys.modules["bora_task_evaluator"]
-    if not isinstance(raw, dict):
-        return {"status": "ERROR", "score": None, "metrics": {}}
-    return raw
+    with tempfile.TemporaryDirectory(prefix="bora-eval-") as tmp:
+        script = Path(tmp) / "run_eval.py"
+        out_path = Path(tmp) / "out.json"
+        script.write_text(
+            "\n".join(
+                [
+                    "import json, importlib.util",
+                    f"spec = importlib.util.spec_from_file_location('ev', {str(path)!r})",
+                    "mod = importlib.util.module_from_spec(spec)",
+                    "assert spec.loader is not None",
+                    "spec.loader.exec_module(mod)",
+                    f"raw = mod.evaluate({{'artifacts': {json.dumps(artifacts_map)}}})",
+                    f"open({str(out_path)!r}, 'w', encoding='utf-8').write(json.dumps(raw))",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+        )
+        if proc.returncode != 0 or not out_path.is_file():
+            return {
+                "status": "ERROR",
+                "score": None,
+                "metrics": {"stderr": (proc.stderr or "")[-500:]},
+            }
+        raw = json.loads(out_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            return {"status": "ERROR", "score": None, "metrics": {}}
+        return raw
