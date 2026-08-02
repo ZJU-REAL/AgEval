@@ -52,6 +52,7 @@ async def run_harness_package(
     identity_factory: IdentityFactory | None = None,
     timeout_seconds: float = 30.0,
     artifact_hold_dir: Path | None = None,
+    agent_service_sock: str | None = None,
 ) -> dict[str, Any]:
     """Start task worker under L0 Provider and return terminal envelope.
 
@@ -92,6 +93,8 @@ async def run_harness_package(
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "PYTHONPATH": os.pathsep.join(p for p in sys.path if p and not p.endswith("zip")),
         }
+        if agent_service_sock:
+            env["BORA_AGENT_SERVICE_SOCK"] = agent_service_sock
         prepared = await provider.prepare(
             ProcessLaunchPlan(
                 attempt=attempt,
@@ -103,6 +106,9 @@ async def run_harness_package(
             )
         )
 
+        child_env = {**os.environ, **env}
+        if agent_service_sock:
+            child_env["BORA_AGENT_SERVICE_SOCK"] = agent_service_sock
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
@@ -110,7 +116,7 @@ async def run_harness_package(
             "--fd",
             str(child_fd),
             cwd=str(prepared.workdir),
-            env={**os.environ, **env},
+            env=child_env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,

@@ -6,6 +6,7 @@ harness:
   entrypoint: harness:run
 
 parameters:
+  use_agent_session: true
   models:
     default: codex-mini
 
@@ -19,8 +20,8 @@ agent_profiles:
     model: gpt-5.4-mini
 
 limits:
-  wall_time_seconds: 120
-  agent_invocations: 1
+  wall_time_seconds: 300
+  agent_invocations: 2
   environment_actions: 0
 
 artifacts:
