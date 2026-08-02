@@ -142,19 +142,24 @@ class DockerProvider:
             "--tmpfs",
             "/tmp:rw,noexec,nosuid,size=64m",
         ]
-        # Network: default none unless allowed.
+        # Network: default none unless allowed. No silent policy downgrade.
         if not network or runtime.network_id is None:
             cmd.extend(["--network", "none"])
         else:
             cmd.extend(["--network", runtime.network_id])
 
-        # Mount package read-only; exclude evaluation by staging filtered tree if needed.
+        # Package mount: when hide_evaluation is set, mount a filtered tree without
+        # evaluation/ and gold-like paths (physical hide for container probes).
         package_mount = runtime.package_host
-        if runtime.policy_digests.get("hide_evaluation") == "True":
-            # Bind mount whole package RO; evaluation hide is enforced by mount
-            # layout for attempt workspace only — package evaluation path access
-            # is tested separately via view checks when filtered tree is used.
-            pass
+        if (
+            runtime.policy_digests.get("hide_evaluation") == "True"
+            and runtime.workdir_host is not None
+            and runtime.package_host is not None
+        ):
+            filtered = runtime.workdir_host / "package_view"
+            if not filtered.exists():
+                _copy_package_filtered(runtime.package_host, filtered)
+            package_mount = filtered
         cmd.extend(
             [
                 "-v",
@@ -187,11 +192,22 @@ class DockerProvider:
             )
         except subprocess.TimeoutExpired:
             runtime.termination_actions.append("timeout_kill")
-            subprocess.run(["docker", "rm", "-f", name], check=False, capture_output=True)
-            runtime.writer_stop_confirmed = True
+            kill = subprocess.run(
+                ["docker", "rm", "-f", name], check=False, capture_output=True, text=True
+            )
+            # Only confirm stop if the named container is gone.
+            gone = (
+                subprocess.run(
+                    ["docker", "inspect", name],
+                    check=False,
+                    capture_output=True,
+                ).returncode
+                != 0
+            )
+            runtime.writer_stop_confirmed = gone and kill.returncode == 0
             return ProcessOutcome(
                 attempt=runtime.attempt,
-                assurance="l1",
+                assurance="l0",  # single-container probe; not full L1 Attempt isolation
                 terminal=ProcessTerminalKind.TIMED_OUT,
                 exit_code=None,
                 signal=None,
@@ -201,13 +217,17 @@ class DockerProvider:
                 pid=None,
                 pgid=None,
                 termination_actions=tuple(runtime.termination_actions),
-                writer_stop_confirmed=True,
+                writer_stop_confirmed=runtime.writer_stop_confirmed,
                 cleanup_ok=True,
+                cleanup_warning=None
+                if runtime.writer_stop_confirmed
+                else "writer_stop: unconfirmed after timeout kill",
             )
         except OSError as exc:
             raise ProviderL1Error(ERROR_SPAWN_FAILED, f"docker run failed: {exc}") from exc
 
-        runtime.writer_stop_confirmed = True
+        # docker run --rm waits for main process exit; that is one writer, not a tree.
+        runtime.writer_stop_confirmed = proc.returncode is not None
         terminal = (
             ProcessTerminalKind.EXITED
             if proc.returncode is not None
@@ -215,7 +235,8 @@ class DockerProvider:
         )
         return ProcessOutcome(
             attempt=runtime.attempt,
-            assurance="l1",
+            # Probe/container helper grade: do not claim full Attempt L1 isolation here.
+            assurance="l0",
             terminal=terminal,
             exit_code=proc.returncode,
             signal=None,
@@ -225,11 +246,12 @@ class DockerProvider:
             pid=None,
             pgid=None,
             termination_actions=tuple(runtime.termination_actions),
-            writer_stop_confirmed=True,
+            writer_stop_confirmed=runtime.writer_stop_confirmed,
             cleanup_ok=True,
             detail={
                 "image": runtime.image_lock.image_digest,
                 "platform": runtime.image_lock.platform,
+                "containment": "single_container_probe",
             },
         )
 
@@ -243,7 +265,7 @@ class DockerProvider:
                 capture_output=True,
             )
         runtime.cleaned = True
-        runtime.writer_stop_confirmed = True
+        # Do not force writer_stop_confirmed; leave last probe fact intact.
 
     @staticmethod
     def _docker_ok() -> bool:
@@ -261,6 +283,7 @@ class DockerProvider:
 
     @staticmethod
     def _create_network(attempt: AttemptIdentity) -> str:
+        """Create Attempt-scoped internal network; fail closed (no non-internal fallback)."""
         name = f"bora-net-{attempt.value[-16:]}"
         proc = subprocess.run(
             ["docker", "network", "create", "--internal", name],
@@ -269,19 +292,27 @@ class DockerProvider:
             text=True,
         )
         if proc.returncode != 0:
-            # fallback non-internal if internal unsupported
-            proc = subprocess.run(
-                ["docker", "network", "create", name],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-        if proc.returncode != 0:
             raise ProviderL1Error(
-                "provider_l1_unavailable",
-                f"cannot create network: {proc.stderr}",
+                "network_projection_denied",
+                f"cannot create internal network: {proc.stderr or proc.stdout}",
             )
-        return name.strip() or (proc.stdout or "").strip()
+        return (proc.stdout or name).strip() or name
+
+
+def _copy_package_filtered(src: Path, dest: Path) -> None:
+    """Copy package tree excluding evaluation/ and common gold locations."""
+    import shutil
+
+    dest.mkdir(parents=True, exist_ok=True)
+    for item in src.iterdir():
+        name = item.name
+        if name in {"evaluation", ".bora", "__pycache__"}:
+            continue
+        target = dest / name
+        if item.is_dir():
+            shutil.copytree(item, target, dirs_exist_ok=True)
+        else:
+            shutil.copy2(item, target)
 
 
 def ensure_image_lock(repo_root: Path | None = None) -> Path:

@@ -1,4 +1,4 @@
-"""DockerProvider unit/integration tests."""
+"""Filtered package mount hides evaluation/ from container view."""
 
 from __future__ import annotations
 
@@ -31,43 +31,37 @@ def _docker_ok() -> bool:
 pytestmark = pytest.mark.skipif(not _docker_ok(), reason="Docker daemon unavailable")
 
 
-def _attempt():
-    f = IdentityFactory()
-    run = f.new_run()
-    trial = f.new_trial(run, "sha256:" + "d" * 64)
-    return f.new_attempt(trial)
-
-
-def test_prepare_run_cleanup(tmp_path: Path) -> None:
+def test_evaluation_hidden_in_filtered_mount(tmp_path: Path) -> None:
     lock = ensure_image_lock(REPO)
     provider = DockerProvider(image_lock_path=lock)
-    attempt = _attempt()
-    # Use a tiny package dir
+    f = IdentityFactory()
+    attempt = f.new_attempt(f.new_trial(f.new_run(), "sha256:" + "e" * 64))
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    (pkg / "hello.txt").write_text("hi\n", encoding="utf-8")
+    (pkg / "visible.txt").write_text("ok\n", encoding="utf-8")
+    (pkg / "evaluation").mkdir()
+    (pkg / "evaluation" / "gold.json").write_text('{"secret":1}\n', encoding="utf-8")
     work = tmp_path / "work"
     runtime = provider.prepare(
         attempt,
         package_root=pkg,
         work_root=work,
         network_mode="none",
+        hide_evaluation=True,
     )
     outcome = provider.run_command(
         runtime,
         [
             "python",
             "-c",
-            "from pathlib import Path; print(Path('/attempt/package/hello.txt').read_text())",
+            "from pathlib import Path; "
+            "print('eval', Path('/attempt/package/evaluation').exists()); "
+            "print('vis', Path('/attempt/package/visible.txt').exists())",
         ],
-        timeout_seconds=60,
         network=False,
+        timeout_seconds=60,
     )
-    # Single-container probe is not full L1 Attempt isolation.
-    assert outcome.assurance == "l0"
-    assert outcome.exit_code == 0
-    assert "hi" in outcome.stdout_summary
-    assert outcome.writer_stop_confirmed is True  # docker run waited for exit
-    assert outcome.detail.get("containment") == "single_container_probe"
     provider.cleanup(runtime)
-    assert runtime.cleaned
+    assert outcome.exit_code == 0
+    assert "eval False" in outcome.stdout_summary
+    assert "vis True" in outcome.stdout_summary

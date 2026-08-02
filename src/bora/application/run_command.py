@@ -98,14 +98,13 @@ async def run_task(
             )
 
     if provider_kind == "docker":
-        # L1 path: ensure image lock + DockerProvider prepare; run harness via
-        # existing worker but record actual assurance l1 and isolation metadata.
+        # Docker preflight / scaffolding only until harness+evaluator run inside L1.
+        # Honest grade remains l0 (or ERROR on preflight failure) — never stamp
+        # assurance:l1 while workload still uses host LocalProcessProvider.
         from bora.adapters.provider_docker import DockerProvider, ensure_image_lock
         from bora.runtime.identity import IdentityFactory
 
         try:
-            lock_path = ensure_image_lock(package_root.parents[1] if False else Path.cwd())
-            # Prefer repo root image lock
             repo_lock = Path.cwd() / ".bora" / "runtime-images" / "provider-l1.json"
             lock_path = repo_lock if repo_lock.is_file() else ensure_image_lock(Path.cwd())
             docker = DockerProvider(image_lock_path=lock_path)
@@ -121,9 +120,6 @@ async def run_task(
                 network_mode=str(provider_cfg.get("network") or "none"),
                 hide_evaluation=True,
             )
-            # Visibility probe: evaluation/ should not be readable if we use filtered mount.
-            # For harness execution we still use L0 worker until full containerized worker lands;
-            # L1 evidence includes image/platform from prepare + network none container probe.
             probe = docker.run_command(
                 runtime,
                 [
@@ -136,29 +132,34 @@ async def run_task(
                 network=False,
                 timeout_seconds=60,
             )
+            # Fail closed if filtered mount still exposes evaluation/.
+            if "eval_exists True" in (probe.stdout_summary or ""):
+                docker.cleanup(runtime)
+                raise RuntimeError("workspace_view_denied: evaluation/ visible in package mount")
             l1_meta = {
                 "image": (runtime.image_lock.image_digest if runtime.image_lock else ""),
                 "platform": (runtime.image_lock.platform if runtime.image_lock else ""),
                 "probe_exit": probe.exit_code,
                 "probe_stdout": probe.stdout_summary.strip(),
                 "writer_stop_confirmed": probe.writer_stop_confirmed,
+                "containment": "docker_preflight_only",
+                "assurance_note": "workload remains host L0 until containerized harness/evaluator",
             }
-            assurance = "l1"
+            # Honest: preflight scaffolding is not L1 Attempt isolation.
+            assurance = "l0"
             docker.cleanup(runtime)
         except Exception as exc:  # noqa: BLE001
-            # Fail closed for docker kind — do not silently fall back to L0 success.
             flat = bind_result(
                 evaluator_raw=None,
                 harness_kind="failed",
-                runtime_kind="docker_l1",
+                runtime_kind="local_l0",
                 agent_invocations=0,
                 evidence_path=str(run_dir),
                 error_phase="provider",
                 cleanup_warning=f"{type(exc).__name__}: {exc}",
             )
-            # Override assurance in output dict below via detail
             summary = flat.as_dict()
-            summary["assurance"] = "l1"
+            summary["assurance"] = "l0"
             summary["status"] = "ERROR"
             summary["error"] = {
                 "phase": "provider",
@@ -169,7 +170,7 @@ async def run_task(
                 json.dumps(summary, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
-            return 2, flat, {"l1": {"error": str(exc)}}
+            return 2, flat, {"l1": {"error": str(exc), "containment": "docker_preflight_only"}}
 
     harness_out = await run_harness_package(lock, package_root, timeout_seconds=60.0)
     envelope = harness_out.get("envelope") or {}
@@ -222,7 +223,8 @@ async def run_task(
     flat = bind_result(
         evaluator_raw=evaluator_raw,
         harness_kind=harness_kind,
-        runtime_kind="docker_l1" if provider_kind == "docker" else "local_l0",
+        # docker kind preflight does not upgrade isolation grade until full L1 workload.
+        runtime_kind="local_l0",
         agent_invocations=agent_invocations,
         evidence_path=str(
             run_dir.relative_to(package_root) if run_dir.is_relative_to(package_root) else run_dir
