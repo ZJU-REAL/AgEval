@@ -396,6 +396,7 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 - [Provider](../docs/design/05-runtime-core.md#83-provider)
 - [物理可见性投影](../docs/design/06-capability-adapter-visibility.md#104-prompt-隔离与物理隔离可见性投影)
 - [安全与信任边界](../docs/design/08-conversion-security-testing.md#18-安全与信任边界)
+- [Spec 07](active/07-v0.8-provider-l1-isolation-plan.md)
 
 ### 关键交付
 
@@ -437,6 +438,7 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 - [可分发插件](../docs/design/05-runtime-core.md#846-扩展模型core-开放接口--可分发插件)
 - [AgentExecutor](../docs/design/05-runtime-core.md#847-示例接口agentexecutoragent-扩展面)
 - [Adapter 准入](../docs/design/06-capability-adapter-visibility.md#93-adapter-准入)
+- [Spec 08](active/08-v0.9-plugin-agent-executor-plan.md)
 
 ### 关键交付
 
@@ -473,6 +475,7 @@ Harness 可通过 Environment Capability 使用一种真实 Attempt-local 资源
 - [Environment Manager](../docs/design/05-runtime-core.md#85-environment-manager)
 - [Benchmark 转换](../docs/design/08-conversion-security-testing.md#16-benchmark-转换)
 - [Adapter 第二领域绑定](../docs/design/08-conversion-security-testing.md#173-adapter-第二领域绑定)
+- [Spec 09](active/09-v0.10-environment-capability-plan.md)
 
 ### 关键交付
 
@@ -512,6 +515,7 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 - [Campaign Coordinator](../docs/design/05-runtime-core.md#89-campaign-coordinator)
 - [Budget 与限制](../docs/design/07-budget-evaluation-failure.md#13-budget-与限制)
+- [Spec 10](active/10-v0.11-campaign-matrix-plan.md)
 
 ### 关键交付
 
@@ -545,6 +549,12 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 ### 演进增量
 
 本版本保持条件性：Research 必须先证明后台控制或 durable/reopen 的真实用户需求、authority scope、并发模型与恢复窗口；未完成该闭包时不创建 implementation-ready Spec。
+
+### 设计
+
+- [Core 默认排除 durable/reopen](../docs/design/01-bora-core.md#29-core-明确不包含什么)
+- [进程内限制的适用范围](../docs/design/07-budget-evaluation-failure.md#132-进程内限制的适用范围)
+- [Spec 11](active/11-v0.12-durable-authority-plan.md)
 
 ### 关键交付
 
