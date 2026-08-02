@@ -106,9 +106,22 @@ async def run_harness_package(
             )
         )
 
-        child_env = {**os.environ, **env}
+        # Production worker: least-privilege env projection (not full host dump).
+        child_env = {
+            "PATH": env.get("PATH", os.environ.get("PATH", "/usr/bin:/bin")),
+            "PYTHONPATH": env.get("PYTHONPATH", ""),
+            "HOME": os.environ.get("HOME", ""),
+            "LANG": os.environ.get("LANG", "C"),
+        }
+        # Codex/login may need user config; keep only when not offline.
+        if os.environ.get("BORA_OFFLINE_AGENT") != "1":
+            for key in ("CODEX_HOME", "OPENAI_API_KEY", "TERM"):
+                if key in os.environ:
+                    child_env[key] = os.environ[key]
         if agent_service_sock:
             child_env["BORA_AGENT_SERVICE_SOCK"] = agent_service_sock
+        # Never allow unit stubs on production public path.
+        child_env.pop("BORA_SDK_SESSION_STUB", None)
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",

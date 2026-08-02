@@ -23,7 +23,13 @@ class OpenAIHTTPExecutor:
     base_url: str = "https://api.openai.com/v1"
     api_key_env: str = "OPENAI_API_KEY"
 
-    def invoke(self, prompt: str, *, timeout: float = 60.0, workdir: str | None = None) -> AgentResult:
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float = 60.0,
+        workdir: str | None = None,
+    ) -> AgentResult:
         key = os.environ.get(self.api_key_env, "")
         if not key:
             return AgentResult(

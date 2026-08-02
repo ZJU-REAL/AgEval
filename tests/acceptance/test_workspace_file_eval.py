@@ -1,4 +1,4 @@
-"""Type B terminal workspace package acceptance (offline fail-closed)."""
+"""Workspace file-eval package acceptance (offline fail-closed)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+PKG = REPO / "examples" / "workspace-file-eval"
 
 
 def _bora(*args: str) -> subprocess.CompletedProcess[str]:
@@ -25,15 +26,15 @@ def _bora(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_lock_terminal_package() -> None:
-    r = _bora("lock", str(REPO / "examples" / "workspace-file-eval"), "--task", "workspace-file-eval")
+def test_lock_workspace_package() -> None:
+    r = _bora("lock", str(PKG), "--task", "workspace-file-eval")
     assert r.returncode == 0, r.stderr
     data = json.loads(r.stdout)
     assert data["task_id"] == "workspace-file-eval"
 
 
 def test_offline_not_pass() -> None:
-    r = _bora("run", str(REPO / "examples" / "workspace-file-eval"), "--task", "workspace-file-eval")
+    r = _bora("run", str(PKG), "--task", "workspace-file-eval")
     assert r.returncode != 0, r.stdout
     data = json.loads(r.stdout)
     assert data["status"] != "PASS"

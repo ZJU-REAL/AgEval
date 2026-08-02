@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import shutil
 import sys
@@ -81,10 +82,17 @@ async def run_task(
             inv_limit = int(thaw(lock.limits).get("agent_invocations") or 1)  # type: ignore[union-attr]
         except Exception:
             inv_limit = 1
+        # One Runtime identity chain for Agent Service + evidence (Attempt is parent-owned).
+        factory = IdentityFactory()
+        run_ident = factory.new_run()
+        # Bind session to a Runtime-owned Attempt (evidence dir already uses run_id).
+        trial_ident = factory.new_trial(run_ident, lock.digest)
+        attempt_ident = factory.new_attempt(trial_ident)
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
             resolve_executor=lambda kind, model: resolve_executor(kind, model=model),
+            attempt_id=attempt_ident.value,
         )
         # Unix socket path must stay short on macOS (~104 bytes).
         import tempfile
@@ -93,6 +101,8 @@ async def run_task(
         agent_sock_path = short
         agent_server = AgentServiceServer(agent_service, agent_sock_path)
         agent_server.start()
+        agent_meta["attempt_id"] = attempt_ident.value
+        agent_meta["trial_id"] = trial_ident.value
     elif agent_profile is not None:
         from bora.adapters.agent_openai_http import resolve_executor
 
@@ -130,6 +140,28 @@ async def run_task(
             if instruction_path.is_file():
                 question = instruction_path.read_text(encoding="utf-8")
             out_name = str(params.get("workspace_output") or "aggregates.json")
+            out_path = Path(out_name)
+            if out_path.is_absolute() or ".." in out_path.parts:
+                flat = bind_result(
+                    evaluator_raw=None,
+                    harness_kind="failed",
+                    runtime_kind="local_l0",
+                    agent_invocations=0,
+                    evidence_path=str(run_dir),
+                    error_phase="config",
+                )
+                summary = flat.as_dict()
+                summary["status"] = "ERROR"
+                summary["error"] = {
+                    "phase": "config",
+                    "kind": "workspace_output_invalid",
+                    "message": "workspace_output must be a relative non-escaping path",
+                }
+                (run_dir / "result.json").write_text(
+                    json.dumps(summary, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                return 2, flat, {"error": summary["error"]}
             # Longer timeout for file-writing agents.
             invoke_timeout = float(params.get("agent_timeout_seconds") or 180)
             result = executor.invoke(
@@ -347,8 +379,8 @@ async def run_task(
     # Generic Environment resource prepare (postgresql) — resource-type named only.
     env_resource = str(params.get("environment_resource") or "")
     if env_resource == "postgresql":
+
         from bora.adapters.environment_postgres import PostgresEnvironment
-        import uuid as _uuid
 
         env_meta: dict[str, Any] = {"resource": "postgresql"}
         pg = PostgresEnvironment(container_name=f"bora-env-{run_id[:10]}")
@@ -356,7 +388,8 @@ async def run_task(
             pg.start(timeout=90.0)
             # Seed a tiny table and query via adapter actions.
             # Adapter API: execute/query if present; else health only.
-            r1 = pg.action("execute", {"sql": "CREATE TABLE IF NOT EXISTS smoke(id INT PRIMARY KEY, label TEXT)"})
+            create_sql = "CREATE TABLE IF NOT EXISTS smoke(id INT PRIMARY KEY, label TEXT)"
+            r1 = pg.action("execute", {"sql": create_sql})
             r2 = pg.action(
                 "execute",
                 {"sql": "INSERT INTO smoke(id, label) VALUES (1, 'bora') ON CONFLICT DO NOTHING"},
@@ -402,15 +435,12 @@ async def run_task(
             (run_dir / "result.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
             )
-            try:
+            with contextlib.suppress(Exception):
                 pg.stop()
-            except Exception:
-                pass
             return 2, flat, {"environment": env_meta, "assurance": "l0"}
         # ensure cleanup later
         agent_meta["environment"] = env_meta
         # stash for cleanup
-        globals_env = pg  # type: ignore[assignment]
         # attach to details via nonlocal pattern — use run_dir marker file
         (run_dir / "env_container_name.txt").write_text(pg.container_name, encoding="utf-8")
 
@@ -442,16 +472,12 @@ async def run_task(
                 PostgresEnvironment(container_name=name).stop()
             except Exception:
                 pass
-            try:
+            with contextlib.suppress(OSError):
                 marker.unlink()
-            except OSError:
-                pass
         env_handoff = package_root / ".bora_env_result.json"
         if env_handoff.exists():
-            try:
+            with contextlib.suppress(OSError):
                 env_handoff.unlink()
-            except OSError:
-                pass
 
     envelope = harness_out.get("envelope") or {}
     harness_kind = "failed"
@@ -542,6 +568,7 @@ async def run_task(
         "harness": harness_out,
         "run_dir": str(run_dir),
         "assurance": assurance,
+        "digest": lock.digest,
     }
     if l1_meta:
         details["l1"] = l1_meta

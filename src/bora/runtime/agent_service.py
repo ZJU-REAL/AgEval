@@ -6,15 +6,17 @@ Shared application code does not branch on benchmark/task names.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import socket
 import struct
 import threading
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass
@@ -33,7 +35,8 @@ class ParentAgentService:
 
     profiles: list[dict[str, Any]]
     agent_invocation_limit: int
-    resolve_executor: Callable[[str], Any]
+    resolve_executor: Callable[..., Any]
+    attempt_id: str  # Runtime-owned; never taken from Harness client
     offline_env: str = "BORA_OFFLINE_AGENT"
     _remaining: int = field(init=False)
     _sessions: dict[str, SessionBinding] = field(default_factory=dict)
@@ -43,7 +46,7 @@ class ParentAgentService:
     def __post_init__(self) -> None:
         self._remaining = max(0, int(self.agent_invocation_limit))
 
-    def open_session(self, *, attempt_id: str, profile_id: str) -> dict[str, Any]:
+    def open_session(self, *, profile_id: str) -> dict[str, Any]:
         profile = next((p for p in self.profiles if p.get("id") == profile_id), None)
         if profile is None:
             return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
@@ -51,7 +54,7 @@ class ParentAgentService:
             sid = f"sess_{uuid.uuid4().hex[:16]}"
             binding = SessionBinding(
                 session_id=sid,
-                attempt_id=attempt_id,
+                attempt_id=self.attempt_id,
                 profile_id=profile_id,
                 model=str(profile.get("model") or "gpt-5.4-mini"),
                 executor_kind=str(profile.get("executor") or "codex"),
@@ -61,17 +64,18 @@ class ParentAgentService:
                 "ok": True,
                 "session_id": sid,
                 "profile_id": profile_id,
+                "attempt_id": self.attempt_id,
                 "provider_session_handle": None,
             }
 
-    def invoke(self, *, session_id: str, prompt: str, attempt_id: str) -> dict[str, Any]:
+    def invoke(self, *, session_id: str, prompt: str) -> dict[str, Any]:
         with self._lock:
             binding = self._sessions.get(session_id)
             if binding is None:
                 return {"ok": False, "error": "unknown_session"}
             if binding.closed:
                 return {"ok": False, "error": "session_closed"}
-            if binding.attempt_id != attempt_id:
+            if binding.attempt_id != self.attempt_id:
                 return {"ok": False, "error": "cross_attempt_session"}
             if self._remaining <= 0:
                 return {"ok": False, "error": "agent_invocation_limit"}
@@ -81,7 +85,7 @@ class ParentAgentService:
             model = binding.model
 
         try:
-            executor = self.resolve_executor(kind, model=model)
+            executor = self.resolve_executor(kind, model=model)  # kind + model kwargs
         except KeyError:
             return {"ok": False, "error": "executor_unknown", "executor": kind}
 
@@ -158,15 +162,11 @@ class AgentServiceServer:
         if self._thread is not None:
             self._thread.join(timeout=2.0)
         if self._server is not None:
-            try:
+            with contextlib.suppress(OSError):
                 self._server.close()
-            except OSError:
-                pass
         if self.sock_path.exists():
-            try:
+            with contextlib.suppress(OSError):
                 self.sock_path.unlink()
-            except OSError:
-                pass
 
     def _loop(self) -> None:
         assert self._server is not None
@@ -183,23 +183,25 @@ class AgentServiceServer:
                     resp = self._handle(req)
                     _send_msg(conn, resp)
             except Exception as exc:  # noqa: BLE001
-                try:
-                    _send_msg(conn, {"ok": False, "error": type(exc).__name__, "message": str(exc)})
-                except Exception:  # noqa: BLE001
-                    pass
+                with contextlib.suppress(Exception):
+                    _send_msg(
+                        conn,
+                        {
+                            "ok": False,
+                            "error": type(exc).__name__,
+                            "message": str(exc),
+                        },
+                    )
 
     def _handle(self, req: dict[str, Any]) -> dict[str, Any]:
         op = req.get("op")
         if op == "open":
-            return self.service.open_session(
-                attempt_id=str(req.get("attempt_id") or ""),
-                profile_id=str(req.get("profile_id") or ""),
-            )
+            # Client-supplied attempt_id is ignored; parent binding is authoritative.
+            return self.service.open_session(profile_id=str(req.get("profile_id") or ""))
         if op == "invoke":
             return self.service.invoke(
                 session_id=str(req.get("session_id") or ""),
                 prompt=str(req.get("prompt") or ""),
-                attempt_id=str(req.get("attempt_id") or ""),
             )
         if op == "close":
             return self.service.close_session(session_id=str(req.get("session_id") or ""))

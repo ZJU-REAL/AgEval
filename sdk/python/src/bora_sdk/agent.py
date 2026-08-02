@@ -60,7 +60,10 @@ class AgentSession:
     def _ensure_open(self) -> Mapping[str, Any]:
         if self._session_id is not None:
             return {"ok": True, "session_id": self._session_id}
-        if os.environ.get("BORA_SDK_SESSION_STUB") == "1":
+        if (
+            os.environ.get("BORA_SDK_SESSION_STUB") == "1"
+            and not os.environ.get("BORA_AGENT_SERVICE_SOCK")
+        ):
             self._session_id = "stub-session"
             return {"ok": True, "session_id": self._session_id}
         resp = _parent_call(
@@ -85,7 +88,22 @@ class AgentSession:
             raise RuntimeError("local max_turns exceeded")
         self._turns += 1
 
-        if os.environ.get("BORA_SDK_SESSION_STUB") == "1":
+        # Public/offline paths: never allow stub success (even if stub env is inherited).
+        if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+            return {
+                "text": "",
+                "structured": None,
+                "provider_session_handle": None,
+                "turn": self._turns,
+                "ok": False,
+                "error": "offline_forced",
+            }
+
+        # Stub only when no production agent service socket is configured.
+        if (
+            os.environ.get("BORA_SDK_SESSION_STUB") == "1"
+            and not os.environ.get("BORA_AGENT_SERVICE_SOCK")
+        ):
             return {
                 "text": "",
                 "structured": {"answer": 42, "source": "session-stub"},
