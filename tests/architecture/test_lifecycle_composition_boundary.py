@@ -28,7 +28,7 @@ def test_composition_has_no_lifecycle_double() -> None:
     assert "run_lifecycle" not in composition  # not wired into production CLI composition
 
 
-def test_cli_has_no_run_command() -> None:
+def test_cli_has_lock_and_run() -> None:
     from typer.testing import CliRunner
 
     from bora.cli.main import app
@@ -36,8 +36,7 @@ def test_cli_has_no_run_command() -> None:
     result = CliRunner().invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "lock" in result.stdout
-    # No product run command in v0.2
-    assert " run " not in f" {result.stdout} " or "bora run" not in result.stdout.lower()
-    # Safer: list commands
+    # v0.6+ exposes product run; v0.2 composition still does not wire stage doubles.
+    assert "run" in result.stdout
     result2 = CliRunner().invoke(app, ["lock", "--help"])
     assert result2.exit_code == 0

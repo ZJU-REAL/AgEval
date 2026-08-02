@@ -7,4 +7,4 @@ Delivered checkpoints:
 Evidence remains ``design-only`` until Roadmap product verticals land.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.7.0"

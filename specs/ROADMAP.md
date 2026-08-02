@@ -161,18 +161,21 @@ Provider Core 以真实本地子进程提供 L0 运行位置、最小 workspace 
 
 ### 关键交付
 
-- [ ] `LocalProcessProvider` 或等价机制按 locked workdir 启动真实子进程，并捕获 exit、timeout、cancel 与 stderr 摘要。
-- [ ] workspace root 与 package root 引用经路径校验；子进程不取得 Docker socket 或未声明宿主控制面。
-- [ ] timeout / cancel 执行 terminate→bounded wait→kill，并确认 writer 进程已停止。
-- [ ] evidence 明确记录 `assurance: l0` 与未提供的 L1/L2 保证。
+- [x] `LocalProcessProvider` 或等价机制按 locked workdir 启动真实子进程，并捕获 exit、timeout、cancel 与 stderr 摘要。
+- [x] workspace root 与 package root 引用经路径校验；子进程不取得 Docker socket 或未声明宿主控制面。
+- [x] timeout / cancel 执行 terminate→bounded wait→kill，并确认 writer 进程已停止。
+- [x] evidence 明确记录 `assurance: l0` 与未提供的 L1/L2 保证。
 
 ### 验收标准
 
-- [ ] Success：Provider integration probe 在 L0 workdir 启动真实子进程、写入允许路径、返回结构化 process outcome 并完成 cleanup。
-- [ ] Expected failure：越界 workdir 或未声明可执行入口在进程启动前失败，不创建孤儿进程。
-- [ ] Timeout：超时子进程被终止，后续检测不到持续 writer；cleanup 为幂等。
-- [ ] Regression：`v0.1` Config 与 `v0.2` lifecycle 全部通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、进程/路径集成测试、strict Specs validator 与 `git diff --check` 通过；证据等级不升级为 `isolated`。
+- [x] Success：Provider integration probe 在 L0 workdir 启动真实子进程、写入允许路径、返回结构化 process outcome 并完成 cleanup。
+- [x] Expected failure：越界 workdir 或未声明可执行入口在进程启动前失败，不创建孤儿进程。
+- [x] Timeout：超时子进程被终止，后续检测不到持续 writer；cleanup 为幂等。
+- [x] Regression：`v0.1` Config 与 `v0.2` lifecycle 全部通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、进程/路径集成测试、strict Specs validator 与 `git diff --check` 通过；证据等级不升级为 `isolated`。
+
+
+> **Version Index `v0.3` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 
@@ -204,18 +207,21 @@ Runtime 向 Attempt 注入受限 Capability，并在 Harness terminal 后关闭�
 
 ### 关键交付
 
-- [ ] `HarnessParameterView` 只读投影与 Attempt-scoped `RunScope`。
-- [ ] Agent、Environment、Workspace、Artifact、Event capability 的统一 open/closed 与 scope 检查。
-- [ ] `limits.agent_invocations` / `limits.environment_actions` 在受控 effect 前 authorize 或 reject；不支持的 dimension 不伪装成硬顶。
-- [ ] capability 不可序列化后跨 Attempt 复用，Harness terminal 后调用失败。
+- [x] `HarnessParameterView` 只读投影与 Attempt-scoped `RunScope`。
+- [x] Agent、Environment、Workspace、Artifact、Event capability 的统一 open/closed 与 scope 检查。
+- [x] `limits.agent_invocations` / `limits.environment_actions` 在受控 effect 前 authorize 或 reject；不支持的 dimension 不伪装成硬顶。
+- [x] capability 不可序列化后跨 Attempt 复用，Harness terminal 后调用失败。
 
 ### 验收标准
 
-- [ ] Success：integration harness client 在同一 Attempt 内读取 params、发布声明 output 并写通用事件，receipt/evidence 绑定正确 identity。
-- [ ] Expected failure：未声明 artifact/environment action、跨 Attempt capability 或 closed capability 在 Adapter 开始前失败，外部状态保持不变。
-- [ ] Hard ceiling：以 test-only sink 证明最后一个允许的 Agent/Environment 请求可执行、下一请求在 effect 前拒绝；production 缺少真实 delegate 时保持 unavailable，当前版本只声称进程内单 Attempt authority。
-- [ ] Regression：`v0.1`–`v0.3` 的所有 acceptance suites 通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、negative capability tests、strict Specs validator 与 `git diff --check` 通过；权限/限制措辞与 docs 同步。
+- [x] Success：integration harness client 在同一 Attempt 内读取 params、发布声明 output 并写通用事件，receipt/evidence 绑定正确 identity。
+- [x] Expected failure：未声明 artifact/environment action、跨 Attempt capability 或 closed capability 在 Adapter 开始前失败，外部状态保持不变。
+- [x] Hard ceiling：以 test-only sink 证明最后一个允许的 Agent/Environment 请求可执行、下一请求在 effect 前拒绝；production 缺少真实 delegate 时保持 unavailable，当前版本只声称进程内单 Attempt authority。
+- [x] Regression：`v0.1`–`v0.3` 的所有 acceptance suites 通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、negative capability tests、strict Specs validator 与 `git diff --check` 通过；权限/限制措辞与 docs 同步。
+
+
+> **Version Index `v0.4` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 
@@ -248,18 +254,21 @@ Runtime 能通过 L0 Provider 启动 package Harness，并向其注入最小 `Ha
 
 ### 关键交付
 
-- [ ] `bora_sdk` 暴露最小 `HarnessContext`、`HarnessParameterView`、`RunScope`、`HarnessTerminal` 与 publish helper。
-- [ ] task runtime bootstrap 解析 `harness.entrypoint`，在 L0 process 内加载 package code，并注入当前 Attempt capability。
-- [ ] example harness 从 `ctx.params` 构造 typed params、发布 declared output 并返回 `HarnessTerminal`。
-- [ ] 缺失入口、错误签名、Harness 异常或 terminal 后 capability 调用形成明确 runtime failure。
+- [x] `bora_sdk` 暴露最小 `HarnessContext`、`HarnessParameterView`、`RunScope`、`HarnessTerminal` 与 publish helper。
+- [x] task runtime bootstrap 解析 `harness.entrypoint`，在 L0 process 内加载 package code，并注入当前 Attempt capability。
+- [x] example harness 从 `ctx.params` 构造 typed params、发布 declared output 并返回 `HarnessTerminal`。
+- [x] 缺失入口、错误签名、Harness 异常或 terminal 后 capability 调用形成明确 runtime failure。
 
 ### 验收标准
 
-- [ ] Success：application integration path 启动 `examples/harness-minimal`，读取 locked params、发布 declared JSON、返回 terminal 并停止 writer。
-- [ ] Expected failure：缺失/错误 Harness entrypoint 在 evaluator 之前失败并进入 cleanup；Control Plane 未 import package 模块。
-- [ ] Boundary：Harness 看不到完整 `LockedTaskConfig`、host credential、Docker socket、evaluator-only material 或 final verdict API。
-- [ ] Regression：`v0.1`–`v0.4` acceptance suites 全部通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、process-boundary integration tests、strict Specs validator 与 `git diff --check` 通过；SDK/API 文档同步。
+- [x] Success：application integration path 启动 `examples/harness-minimal`，读取 locked params、发布 declared JSON、返回 terminal 并停止 writer。
+- [x] Expected failure：缺失/错误 Harness entrypoint 在 evaluator 之前失败并进入 cleanup；Control Plane 未 import package 模块。
+- [x] Boundary：Harness 看不到完整 `LockedTaskConfig`、host credential、Docker socket、evaluator-only material 或 final verdict API。
+- [x] Regression：`v0.1`–`v0.4` acceptance suites 全部通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、process-boundary integration tests、strict Specs validator 与 `git diff --check` 通过；SDK/API 文档同步。
+
+
+> **Version Index `v0.5` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 
@@ -292,20 +301,23 @@ Runtime 能通过 L0 Provider 启动 package Harness，并向其注入最小 `Ha
 
 ### 关键交付
 
-- [ ] `bora run <package> --task <id>` 通过 production composition root 驱动 Core 1–5。
-- [ ] 内置 Codex Executor 使用 Runtime credential binding 与 locked profile；只有 Executor child 获得用户接受的 host locator，Runtime 不复制、序列化或重写 auth bytes，真实调用结果归一化为 `AgentResult`。
-- [ ] Harness terminal 后 close capability、停止 writers、只 materialize `evaluation.inputs`、独立运行 evaluator 并校验 raw output。
-- [ ] flat Result 分离 `status`、`score`、`metrics`、`error.phase`、`cleanup_warning` 与 evidence locator；secret 不进入 lock/log/evidence。
+- [x] `bora run <package> --task <id>` 通过 production composition root 驱动 Core 1–5。
+- [x] 内置 Codex Executor 使用 Runtime credential binding 与 locked profile；只有 Executor child 获得用户接受的 host locator，Runtime 不复制、序列化或重写 auth bytes，真实调用结果归一化为 `AgentResult`。
+- [x] Harness terminal 后 close capability、停止 writers、只 materialize `evaluation.inputs`、独立运行 evaluator 并校验 raw output。
+- [x] flat Result 分离 `status`、`score`、`metrics`、`error.phase`、`cleanup_warning` 与 evidence locator；secret 不进入 lock/log/evidence。
 
 ### 验收标准
 
-- [ ] Success：frozen install 与真实 Codex 预检后，`uv run bora run examples/agent-eval --task agent-eval` 返回 0，evaluator 独立形成 PASS/score，CLI 显示 runtime、evaluation、cleanup 与 evidence path。
-- [ ] Expected failure：`uv run bora run examples/agent-eval --task unknown` 在 Agent 调用前返回 2，不创建伪 PASS。
-- [ ] Evaluator negative control：`uv run bora run examples/evaluator-negative --task evaluator-negative` 完成 Harness 后由独立 evaluator 给出合法 FAIL/低分，证明 `HarnessTerminal.completed` 不等于 PASS。
-- [ ] Barrier：缺失 declared output 或未停止 writer 时 evaluator 不启动；cleanup 仍执行且失败只形成 warning。
-- [ ] Regression：`v0.1`–`v0.5` acceptance suites 全部通过。
-- [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、公开 success/expected-failure/negative-control smokes、strict Specs validator、`git diff --check` 与文档同步全部通过。
-- [ ] Evidence：用户验收真实 CLI 输出与 `.bora/runs/<run-id>/` 后，证据等级才可从 `design-only` 升为限定范围 `runnable-mvp`。
+- [x] Success：frozen install 与真实 Codex 预检后，`uv run bora run examples/agent-eval --task agent-eval` 返回 0，evaluator 独立形成 PASS/score，CLI 显示 runtime、evaluation、cleanup 与 evidence path。
+- [x] Expected failure：`uv run bora run examples/agent-eval --task unknown` 在 Agent 调用前返回 2，不创建伪 PASS。
+- [x] Evaluator negative control：`uv run bora run examples/evaluator-negative --task evaluator-negative` 完成 Harness 后由独立 evaluator 给出合法 FAIL/低分，证明 `HarnessTerminal.completed` 不等于 PASS。
+- [x] Barrier：缺失 declared output 或未停止 writer 时 evaluator 不启动；cleanup 仍执行且失败只形成 warning。
+- [x] Regression：`v0.1`–`v0.5` acceptance suites 全部通过。
+- [x] Engineering gates：frozen install、Ruff、Pyright、pytest、公开 success/expected-failure/negative-control smokes、strict Specs validator、`git diff --check` 与文档同步全部通过。
+- [x] Evidence：用户验收真实 CLI 输出与 `.bora/runs/<run-id>/` 后，证据等级才可从 `design-only` 升为限定范围 `runnable-mvp`。
+
+
+> **Version Index `v0.6` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 
@@ -339,19 +351,22 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 
 ### 关键交付
 
-- [ ] `AgentSession` 由 parent Agent Service 在创建时绑定 Attempt、profile 与 workspace view；跨 Attempt、closed session 或中途换 profile 失败，Codex provider continuation 保持 null/unsupported。
-- [ ] `ToolSet` 完成 schema 校验、hook 顺序、callable 调用与 `Observation` 归一化。
-- [ ] `AllowList` / `CallLimit` 从 `ctx.params` 构造并在本地 Tool 调用前拒绝；Runtime `limits.agent_invocations` / `environment_actions` 仍不可绕过。
-- [ ] `bounded_gather` 等 helper 只做进程内组合，不创建第二套 Run/Trial scheduler 或 durable authority。
+- [x] `AgentSession` 由 parent Agent Service 在创建时绑定 Attempt、profile 与 workspace view；跨 Attempt、closed session 或中途换 profile 失败，Codex provider continuation 保持 null/unsupported。
+- [x] `ToolSet` 完成 schema 校验、hook 顺序、callable 调用与 `Observation` 归一化。
+- [x] `AllowList` / `CallLimit` 从 `ctx.params` 构造并在本地 Tool 调用前拒绝；Runtime `limits.agent_invocations` / `environment_actions` 仍不可绕过。
+- [x] `bounded_gather` 等 helper 只做进程内组合，不创建第二套 Run/Trial scheduler 或 durable authority。
 
 ### 验收标准
 
-- [ ] Success：`uv run bora run examples/sdk-agent-session --task sdk-agent-session` 通过真实 Codex 与 `AgentSession` 形成 evaluator PASS。
-- [ ] Tool success：`uv run bora run examples/sdk-tool-guard --task sdk-tool-guard` 使用 `ToolSet` 在限额内调用 declared local Tool 并形成可评测 artifact。
-- [ ] Expected failure（policy denial）：同一 public package 的负向 task 超过 `CallLimit`，第三次调用在 callable 前变成明确 denied Observation，副作用计数保持在 2；独立 evaluator 确认该拒绝符合 task 预期，因此 public run 为 PASS / exit 0。
-- [ ] Authority regression：SDK 无法提升 Runtime hard ceiling、访问未投影 secret、发布 final verdict、跨 Attempt 复用 capability/session，或把 BORA binding 伪装成 provider resume token。
-- [ ] Regression：`v0.1`–`v0.6` 全部 acceptance suites 与公开 Codex smokes 通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、SDK contract/negative tests、公开 smokes、strict Specs validator 与 `git diff --check` 通过；SDK 文档和 example README 同步。
+- [x] Success：`uv run bora run examples/sdk-agent-session --task sdk-agent-session` 通过真实 Codex 与 `AgentSession` 形成 evaluator PASS。
+- [x] Tool success：`uv run bora run examples/sdk-tool-guard --task sdk-tool-guard` 使用 `ToolSet` 在限额内调用 declared local Tool 并形成可评测 artifact。
+- [x] Expected failure（policy denial）：同一 public package 的负向 task 超过 `CallLimit`，第三次调用在 callable 前变成明确 denied Observation，副作用计数保持在 2；独立 evaluator 确认该拒绝符合 task 预期，因此 public run 为 PASS / exit 0。
+- [x] Authority regression：SDK 无法提升 Runtime hard ceiling、访问未投影 secret、发布 final verdict、跨 Attempt 复用 capability/session，或把 BORA binding 伪装成 provider resume token。
+- [x] Regression：`v0.1`–`v0.6` 全部 acceptance suites 与公开 Codex smokes 通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、SDK contract/negative tests、公开 smokes、strict Specs validator 与 `git diff --check` 通过；SDK 文档和 example README 同步。
+
+
+> **Version Index `v0.7` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 

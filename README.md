@@ -12,7 +12,7 @@ BORA 是 *Harness 的 Harness*：在统一的配置锁定、Attempt 生命周期
 | --- | --- |
 | 代际 | v2 greenfield（不兼容归档 v1） |
 | 设计 | 已写入 [`docs/design/`](docs/design/)（自包含） |
-| 实现 | **v0.1–v0.2 Core 检查点已实现**（Config + Lifecycle；待用户最终验收 Version Index） |
+| 实现 | **v0.1–v0.7 Core 检查点已实现**（Config + Lifecycle + Provider L0；待用户最终验收 Version Index） |
 | 公开 entrypoint | `bora lock`（Config only） |
 | 证据 | `design-only`（`bora lock` **不是** `runnable-mvp`） |
 | 交付方法 | Spec-Driven Delivery（`$spec-driven-delivery`） |

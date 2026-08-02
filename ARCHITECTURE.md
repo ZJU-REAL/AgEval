@@ -13,7 +13,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **v0.1–v0.2 Core checkpoints** — Config (`bora lock`) + Lifecycle application probe；无 Provider 子进程 / `bora run` |
+| 实现状态 | **v0.1–v0.7 Core checkpoints** — Config (`bora lock`) + Lifecycle application probe；无 Provider 子进程 / `bora run` |
 | 证据等级 | `design-only` |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
@@ -73,7 +73,7 @@ Task Package
 | Expected failure | `uv run bora lock examples/config-invalid --task config-invalid`（exit 2，`unknown_profile`） |
 | Observable result | 无 secret 的 lock summary + digest；无 Run/Attempt/Agent/Evaluator |
 | Lifecycle checkpoint | `uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q` |
-| 证据等级 | `design-only`（Config + Lifecycle 工程检查点，**不是** `runnable-mvp`） |
+| 证据等级 | `design-only`（Config + Lifecycle + Provider L0 工程检查点，**不是** `runnable-mvp`） |
 
 文档门禁仍须通过：
 
