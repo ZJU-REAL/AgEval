@@ -37,6 +37,36 @@ def test_agent_eval_offline_fail_closed() -> None:
         assert data.get("harness_kind") in {"failed", "completed", "unknown"}
 
 
+def test_stale_agent_result_cannot_force_pass(tmp_path: Path) -> None:
+    """Pre-placed .bora_agent_result.json must not produce offline PASS (Codex B-01)."""
+    import shutil
+
+    pkg = tmp_path / "agent-eval"
+    shutil.copytree(REPO / "examples" / "agent-eval", pkg)
+    stale = pkg / ".bora_agent_result.json"
+    stale.write_text(json.dumps({"answer": 42, "source": "stale"}) + "\n", encoding="utf-8")
+    result = _bora("run", str(pkg), "--task", "agent-eval")
+    assert result.returncode != 0, result.stdout
+    data = json.loads(result.stdout)
+    assert data["status"] != "PASS"
+    assert data["status"] in {"ERROR", "FAIL"}
+    # Stale file must be cleared before attempt; must not survive as success material.
+    assert not stale.is_file() or data["status"] != "PASS"
+
+
+def test_sdk_agent_session_offline_no_stub_pass() -> None:
+    """AgentSession must not manufacture answer:42 offline (Codex B-01)."""
+    result = _bora(
+        "run",
+        str(REPO / "examples" / "sdk-agent-session"),
+        "--task",
+        "sdk-agent-session",
+    )
+    assert result.returncode != 0, result.stdout
+    data = json.loads(result.stdout)
+    assert data["status"] != "PASS"
+
+
 def test_unknown_task() -> None:
     result = _bora("run", str(REPO / "examples" / "agent-eval"), "--task", "unknown")
     assert result.returncode == 2

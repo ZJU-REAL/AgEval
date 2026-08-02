@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Iterable, Sequence
-from typing import Any, TypeVar
-
-T = TypeVar("T")
+from typing import Any
 
 
-async def bounded_gather(
+async def bounded_gather[T](
     aws: Sequence[Awaitable[T]],
     *,
     limit: int,
@@ -38,7 +36,7 @@ async def bounded_gather(
     return results
 
 
-async def first_success(aws: Iterable[Awaitable[T]]) -> T:
+async def first_success[T](aws: Iterable[Awaitable[T]]) -> T:
     tasks = [asyncio.create_task(aw) for aw in aws]
     try:
         while tasks:

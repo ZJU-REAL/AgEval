@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Mapping
-
+from typing import Any
 
 Observation = dict[str, Any]
 ToolFn = Callable[[Mapping[str, Any]], Any | Awaitable[Any]]

@@ -29,7 +29,13 @@ class CodexExecutor:
         self.model = model
         self.binary = binary or shutil.which("codex") or "codex"
 
-    def invoke(self, prompt: str, *, timeout: float = 45.0) -> AgentResult:
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float = 45.0,
+        workdir: str | None = None,
+    ) -> AgentResult:
         # Tests/CI can force offline to avoid long-running network calls.
         if os.environ.get("BORA_OFFLINE_AGENT") == "1":
             return AgentResult(
@@ -56,6 +62,7 @@ class CodexExecutor:
             "--ephemeral",
             prompt,
         ]
+        cwd = workdir if workdir else None
         try:
             proc = subprocess.run(
                 cmd,
@@ -64,6 +71,7 @@ class CodexExecutor:
                 text=True,
                 timeout=timeout,
                 env=os.environ.copy(),
+                cwd=cwd,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             return AgentResult(

@@ -50,7 +50,18 @@ class DeclarationCapabilityCatalog:
 
     HARNESS_RUNTIMES: frozenset[str] = frozenset({"python"})
     PROVIDER_KINDS: frozenset[str] = frozenset({"local", "docker"})
-    EXECUTOR_KINDS: frozenset[str] = frozenset({"codex", "claude", "pi", "mock"})
+    EXECUTOR_KINDS: frozenset[str] = frozenset(
+        {
+            "codex",
+            "claude",
+            "pi",
+            "mock",
+            # v0.9 second-backend kinds (HTTP adapter; not a full plugin wheel yet)
+            "openai",
+            "openai-http",
+            "openai_responses",
+        }
+    )
     ENVIRONMENT_KINDS: frozenset[str] = frozenset(
         {"none", "multi-service", "single-service", "local-process"}
     )

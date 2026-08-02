@@ -52,7 +52,7 @@ class DockerRuntime:
     cleaned: bool = False
     writer_stop_confirmed: bool = False
     termination_actions: list[str] = field(default_factory=list)
-    assurance: str = "l1"
+    assurance: str = "l0"  # default honest; only upgrade after full L1 workload
     policy_digests: dict[str, str] = field(default_factory=dict)
 
 
