@@ -36,3 +36,4 @@ out/
 *.pem
 credentials/
 COMMIT.md
+.bora/
