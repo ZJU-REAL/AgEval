@@ -1,0 +1,39 @@
+format: bora.task/1
+task_id: hidden-material-denied
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  probe: hidden
+
+provider:
+  kind: docker
+  assurance: l1
+  platform: linux/arm64
+  network: none
+
+agent_profiles: []
+
+limits:
+  wall_time_seconds: 60
+  agent_invocations: 0
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: probe
+      producer: harness
+      path: artifacts/probe.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - package_path: evaluation/gold.json
+      target: gold.json
+  output:
+    format: json

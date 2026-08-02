@@ -61,6 +61,7 @@ def run_command(
         typer.echo(f"runtime_error: {type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(code=2) from exc
 
+    # Prefer result.json written by use case when present (may include L1 fields).
     summary = {
         "status": result.status,
         "score": result.score,
@@ -71,6 +72,12 @@ def run_command(
         "evidence_path": result.evidence_path,
         "cleanup_warning": result.cleanup_warning,
     }
+    if _details.get("l1"):
+        summary["l1"] = _details["l1"]
+    # Re-read assurance from details/result if use case overrode
+    for key in ("assurance", "l1"):
+        if key in _details:
+            summary[key] = _details[key]
     typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
     raise typer.Exit(code=code)
 
