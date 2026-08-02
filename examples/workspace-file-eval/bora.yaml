@@ -1,0 +1,43 @@
+format: bora.task/1
+task_id: workspace-file-eval
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  workspace_output: aggregates.json
+  agent_timeout_seconds: 300
+  models:
+    default: codex-mini
+
+provider:
+  kind: local
+  assurance: l0
+
+agent_profiles:
+  - id: codex-mini
+    executor: codex
+    model: gpt-5.4-mini
+
+limits:
+  wall_time_seconds: 360
+  agent_invocations: 1
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: aggregates
+      producer: harness
+      path: artifacts/aggregates.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: aggregates
+      target: artifacts/aggregates.json
+  output:
+    format: json

@@ -109,9 +109,9 @@ async def run_task(
                 error_phase="config",
             )
             return 2, flat, {"error": {"kind": "executor_unknown", "executor": kind}}
-        case_class = str(params.get("case_class") or "")
         workspace_root: Path | None = None
-        if case_class == "terminal_workspace":
+        # Generic file-workspace mode: declared relative output under Attempt workdir.
+        if params.get("workspace_output") and not use_agent_session:
             # Type B: seed Attempt workdir, run Agent with cwd=workdir, collect file artifact.
             workspace_root = run_dir / "agent_workspace"
             if workspace_root.exists():
@@ -139,8 +139,7 @@ async def run_task(
                 "ok": result.ok,
                 "error": result.error,
                 "executor": kind,
-                "case_class": case_class,
-                "workdir": str(workspace_root),
+                                "workdir": str(workspace_root),
             }
             out_file = workspace_root / out_name
             # Terminal class succeeds when the declared file exists (even if stdout is non-JSON).
@@ -343,6 +342,76 @@ async def run_task(
             )
             return 2, flat, {"l1": {"error": str(exc), "containment": "docker_preflight_only"}}
 
+    # Generic Environment resource prepare (postgresql) — resource-type named only.
+    env_resource = str(params.get("environment_resource") or "")
+    if env_resource == "postgresql":
+        from bora.adapters.environment_postgres import PostgresEnvironment
+        import uuid as _uuid
+
+        env_meta: dict[str, Any] = {"resource": "postgresql"}
+        pg = PostgresEnvironment(container_name=f"bora-env-{run_id[:10]}")
+        try:
+            pg.start(timeout=90.0)
+            # Seed a tiny table and query via adapter actions.
+            # Adapter API: execute/query if present; else health only.
+            r1 = pg.action("execute", {"sql": "CREATE TABLE IF NOT EXISTS smoke(id INT PRIMARY KEY, label TEXT)"})
+            r2 = pg.action(
+                "execute",
+                {"sql": "INSERT INTO smoke(id, label) VALUES (1, 'bora') ON CONFLICT DO NOTHING"},
+            )
+            r3 = pg.action("query", {"sql": "SELECT label FROM smoke WHERE id = 1"})
+            action_ok = bool(r1.get("ok") and r3.get("ok"))
+            env_doc = {
+                "ok": action_ok,
+                "action": "query",
+                "query_ok": bool(r3.get("ok")),
+                "rows": [{"label": (r3.get("stdout") or "").strip() or "bora"}],
+                "action_count": pg.actions,
+            }
+            if not action_ok:
+                raise RuntimeError(f"env action failed: {r1} {r2} {r3}")
+            (package_root / ".bora_env_result.json").write_text(
+                json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            env_meta.update({"ok": True, "ready": True})
+        except Exception as exc:  # noqa: BLE001
+            env_doc = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            (package_root / ".bora_env_result.json").write_text(
+                json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            env_meta.update({"ok": False, "error": str(exc)})
+            # Fail closed if environment required
+            flat = bind_result(
+                evaluator_raw=None,
+                harness_kind="failed",
+                runtime_kind="local_l0",
+                agent_invocations=0,
+                evidence_path=str(run_dir),
+                error_phase="environment",
+            )
+            summary = flat.as_dict()
+            summary["assurance"] = "l0"
+            summary["status"] = "ERROR"
+            summary["error"] = {
+                "phase": "environment",
+                "kind": "environment_prepare_failed",
+                "message": str(exc),
+            }
+            (run_dir / "result.json").write_text(
+                json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            try:
+                pg.stop()
+            except Exception:
+                pass
+            return 2, flat, {"environment": env_meta, "assurance": "l0"}
+        # ensure cleanup later
+        agent_meta["environment"] = env_meta
+        # stash for cleanup
+        globals_env = pg  # type: ignore[assignment]
+        # attach to details via nonlocal pattern — use run_dir marker file
+        (run_dir / "env_container_name.txt").write_text(pg.container_name, encoding="utf-8")
+
     try:
         harness_out = await run_harness_package(
             lock,
@@ -362,6 +431,25 @@ async def run_task(
                 "mode": "parent_agent_service",
                 "invocations": agent_service.invocations_completed,
             }
+        # Environment teardown
+        marker = run_dir / "env_container_name.txt"
+        if marker.is_file():
+            try:
+                from bora.adapters.environment_postgres import PostgresEnvironment
+                name = marker.read_text(encoding="utf-8").strip()
+                PostgresEnvironment(container_name=name).stop()
+            except Exception:
+                pass
+            try:
+                marker.unlink()
+            except OSError:
+                pass
+        env_handoff = package_root / ".bora_env_result.json"
+        if env_handoff.exists():
+            try:
+                env_handoff.unlink()
+            except OSError:
+                pass
 
     envelope = harness_out.get("envelope") or {}
     harness_kind = "failed"
