@@ -70,19 +70,21 @@ Config Core 成为 `bora.yaml` 的唯一规范读取者，并通过可安装 CLI
 
 ### 关键交付
 
-- [ ] 可复现安装、`bora --help` 与 production composition root 可调用。
-- [ ] Package 一级布局、`bora.yaml` 定位与未知路径策略符合 design/02。
-- [ ] `load_and_lock` 完成读取、合并、校验、canonicalize、digest 与不可变 lock。
-- [ ] `bora lock examples/config-minimal --task config-minimal` 输出无 secret 的锁定摘要。
-- [ ] 非法格式、未知 task、未知 profile、越界路径或不支持 capability 在 Attempt 之前 fail-closed。
+- [x] 可复现安装、`bora --help` 与 production composition root 可调用。
+- [x] Package 一级布局、`bora.yaml` 定位与未知路径策略符合 design/02。
+- [x] `load_and_lock` 完成读取、合并、校验、canonicalize、digest 与不可变 lock。
+- [x] `bora lock examples/config-minimal --task config-minimal` 输出无 secret 的锁定摘要。
+- [x] 非法格式、未知 task、未知 profile、越界路径或不支持 capability 在 Attempt 之前 fail-closed。
 
 ### 验收标准
 
-- [ ] Success：从 clean checkout 执行 frozen install 后，`uv run bora lock examples/config-minimal --task config-minimal` 返回 0，并输出稳定 `task_id`、format、resolved references 与 digest。
-- [ ] Expected failure：`uv run bora lock examples/config-invalid --task config-invalid` 返回 2，且不写成功 lock 或伪造后续阶段。
-- [ ] Determinism：同一输入两次 lock 的 canonical payload 与 digest 相同；合法 override 改变 digest 并进入 resolution record。
-- [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 全部通过。
-- [ ] Documentation：README、Architecture Current 树、root/specs AGENTS 当前事实与实际入口同步；证据等级仍为 `design-only`，不得声称 `runnable-mvp`。
+- [x] Success：从 clean checkout 执行 frozen install 后，`uv run bora lock examples/config-minimal --task config-minimal` 返回 0，并输出稳定 `task_id`、format、resolved references 与 digest。
+- [x] Expected failure：`uv run bora lock examples/config-invalid --task config-invalid` 返回 2，且不写成功 lock 或伪造后续阶段。
+- [x] Determinism：同一输入两次 lock 的 canonical payload 与 digest 相同；合法 override 改变 digest 并进入 resolution record。
+- [x] Engineering gates：frozen install、Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 全部通过。
+- [x] Documentation：README、Architecture Current 树、root/specs AGENTS 当前事实与实际入口同步；证据等级仍为 `design-only`，不得声称 `runnable-mvp`。
+
+> **Version Index `v0.1` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 

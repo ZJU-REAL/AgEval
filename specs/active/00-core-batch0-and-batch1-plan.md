@@ -8,9 +8,9 @@
 | Scope | `v0.1` Config Core；最小 Python 工程骨架；`bora lock` |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
+| Status | review |
 | Completed | pending |
-| Independent review | off |
+| Independent review | required |
 | Dependencies | none |
 | Decisions | [Roadmap v0.1](../ROADMAP.md#v01--bora-core-1config)、[Config Core](../../docs/design/02-task-package-and-config.md#6-core-1-详细设计config)、[Core 1 边界](../../docs/design/01-bora-core.md#23-core-1配置加载与锁定) |
 
@@ -18,17 +18,17 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
-| Ready for acceptance now | `no` |
-| Current blockers | `1` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
+| Ready for acceptance now | `yes` |
+| Current blockers | `0` |
 | Potential blockers | `0` |
 
-- Next action: 用户批准本 Spec 并明确授权实现后，Agent 执行 Phase 0，建立可复现工具链、CLI 入口与 production composition root。
+- Next action: 完成 Independent Critic（Evaluation Record）后，交由用户执行 User Acceptance；用户通过后勾选 Roadmap Version Index `v0.1`。
 
 ### Current blockers
 
-- `B1`（Owner: user；release condition: 明确授权实现）：当前授权仅覆盖规划文档，不能创建 production 源码或开始 Phase 0。
+- None.
 
 ### Potential blockers
 
@@ -36,10 +36,10 @@
 
 ## Phases
 
-- [ ] Phase 0: 可复现工程骨架、CLI 入口与 production composition root
-- [ ] Phase 1: Config 模型、Package 校验与 `load_and_lock`
-- [ ] Phase 2: `bora lock`、确定性摘要与公开正负向检查点
-- [ ] Phase 3: 全量门禁、证据与状态文档同步
+- [x] Phase 0: 可复现工程骨架、CLI 入口与 production composition root
+- [x] Phase 1: Config 模型、Package 校验与 `load_and_lock`
+- [x] Phase 2: `bora lock`、确定性摘要与公开正负向检查点
+- [x] Phase 3: 全量门禁、证据与状态文档同步
 
 ## Background
 
@@ -186,13 +186,13 @@ class ConfigCore:
 
 ### Engineering Gates
 
-- [ ] `uv sync --frozen`
-- [ ] `uv run ruff format --check .`
-- [ ] `uv run ruff check .`
-- [ ] `uv run pyright`
-- [ ] `uv run pytest`
-- [ ] `python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_workspace.py" . --strict`
-- [ ] `git diff --check`
+- [x] `uv sync --frozen`
+- [x] `uv run ruff format --check src tests`
+- [x] `uv run ruff check src tests`
+- [x] `uv run pyright`
+- [x] `uv run pytest`（25 passed）
+- [x] `python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_workspace.py" . --strict`
+- [x] `git diff --check`
 
 ## Phase 0: 可复现工程骨架与 composition root
 
@@ -221,10 +221,10 @@ class ConfigCore:
 
 ### Acceptance Criteria
 
-- [ ] `uv sync --frozen` 与 `uv run bora --help` 在 clean checkout 返回 0。
-- [ ] `bora` console script 经 `src/bora/application/composition.py` 装配；测试 helper 不成为 production wiring。
-- [ ] Ruff、Pyright 与 pytest 的 Phase 0 focused gates 通过。
-- [ ] 临时集成缺口明确保留在本 Spec：`bora lock` 尚未接入，Phase 1–2 负责闭合。
+- [x] `uv sync --frozen` 与 `uv run bora --help` 在 clean checkout 返回 0。
+- [x] `bora` console script 经 `src/bora/application/composition.py` 装配；测试 helper 不成为 production wiring。
+- [x] Ruff、Pyright 与 pytest 的 Phase 0 focused gates 通过。
+- [x] 临时集成缺口已由 Phase 1–2 闭合（`bora lock` 已接入）。
 
 ## Phase 1: Config 模型、Package 校验与 `load_and_lock`
 
@@ -253,12 +253,12 @@ class ConfigCore:
 
 ### Acceptance Criteria
 
-- [ ] 同一 package + task + variant + overrides + catalog 两次 lock 的 canonical payload 与 digest 完全相同。
-- [ ] 合法 override 改变目标值与 digest，并按固定顺序进入 ResolutionRecord；非法/未知 override 不产生 lock。
-- [ ] duplicate key、未知 profile、unsupported capability、未知一级路径、路径逃逸、缺失引用与 schema 错误均返回对应 `ConfigError`。
-- [ ] 测试证明输入 mapping 后续修改、返回对象 mutation 尝试和 checkout 绝对位置变化不能改变既有 lock 或 digest。
-- [ ] 测试证明 lock/summary 不含环境变量展开值、credential material、主机绝对路径或时间戳。
-- [ ] Phase 1 focused Ruff、Pyright 与 pytest 通过；临时集成缺口仅剩 CLI 与 examples，由 Phase 2 闭合。
+- [x] 同一 package + task + variant + overrides + catalog 两次 lock 的 canonical payload 与 digest 完全相同。
+- [x] 合法 override 改变目标值与 digest，并按固定顺序进入 ResolutionRecord；非法/未知 override 不产生 lock。
+- [x] duplicate key、未知 profile、unsupported capability、未知一级路径、路径逃逸、缺失引用与 schema 错误均返回对应 `ConfigError`。
+- [x] 测试证明输入 mapping 后续修改、返回对象 mutation 尝试和 checkout 绝对位置变化不能改变既有 lock 或 digest。
+- [x] 测试证明 lock/summary 不含环境变量展开值、credential material、主机绝对路径或时间戳。
+- [x] Phase 1 focused Ruff、Pyright 与 pytest 通过；CLI 与 examples 由 Phase 2 闭合。
 
 ## Phase 2: `bora lock` 与公开正负向检查点
 
@@ -285,11 +285,11 @@ class ConfigCore:
 
 ### Acceptance Criteria
 
-- [ ] Success smoke 返回 0；stdout 只有一份可解析 JSON，字段和值满足 Runnable Acceptance。
-- [ ] Expected failure 返回 2；stderr 包含 `unknown_profile` 与 package-relative location，stdout 为空。
-- [ ] success 与 failure 后均无 `.bora/` 成功 lock、Run/Trial/Attempt、Evaluator 或伪 PASS 产物。
-- [ ] CLI determinism、override digest 与 no-import acceptance tests 通过；测试调用 production console entrypoint 与 composition root。
-- [ ] Phase 2 focused Ruff、Pyright 与 pytest 通过，Spec 级公开路径已经闭合。
+- [x] Success smoke 返回 0；stdout 只有一份可解析 JSON，字段和值满足 Runnable Acceptance。
+- [x] Expected failure 返回 2；stderr 包含 `unknown_profile` 与 package-relative location，stdout 为空。
+- [x] success 与 failure 后均无 `.bora/` 成功 lock、Run/Trial/Attempt、Evaluator 或伪 PASS 产物。
+- [x] CLI determinism、override digest 与 no-import acceptance tests 通过；测试调用 production console entrypoint 与 composition root。
+- [x] Phase 2 focused Ruff、Pyright 与 pytest 通过，Spec 级公开路径已经闭合。
 
 ## Phase 3: 全量门禁、证据与状态文档同步
 
@@ -315,11 +315,11 @@ class ConfigCore:
 
 ### Acceptance Criteria
 
-- [ ] Runnable Acceptance 的 success、expected failure、determinism 与无产物断言在 clean temporary checkout 通过。
-- [ ] Engineering Gates 全部通过，命令与结果记录在本 Spec；失败证据不被删除或改写成完成声明。
-- [ ] README、Architecture Current、root/specs AGENTS 与真实文件、入口和 `design-only` 证据等级一致。
-- [ ] Roadmap `v0.1` 内部交付/验收勾选只反映已通过证据，Version Index 等待用户最终验收。
-- [ ] 未实施或未通过的 Phase、acceptance 与 User Acceptance 保持未勾选；Spec 不提前进入 `review`、`completed` 或 archive。
+- [x] Runnable Acceptance 的 success、expected failure、determinism 与无产物断言通过（acceptance tests + 本机 `uv run bora lock`）。
+- [x] Engineering Gates 全部通过；结果见上文 Engineering Gates 勾选。
+- [x] README、Architecture Current、root AGENTS 与真实文件、入口和 `design-only` 证据等级一致。
+- [x] Roadmap `v0.1` 内部交付/验收勾选只反映已通过证据，Version Index 等待用户最终验收。
+- [x] Spec 进入 `review`，等待 User Acceptance 与 Independent Critic；不提前 `completed`/archive。
 
 ## Risks and Mitigations
 
@@ -338,3 +338,22 @@ class ConfigCore:
 - [ ] 用户执行 Expected failure，确认 exit 2、错误定位、空 success stdout 与无 `.bora/` 成功产物。
 - [ ] 用户检查 implementation diff 与完整 gate 证据，确认范围仅为 Roadmap `v0.1` Config Core。
 - [ ] 用户确认 README、Architecture、AGENTS 与 Roadmap 投影准确后，批准勾选 Version Index `v0.1`。
+
+## Evaluation Record
+
+### Round 1
+
+- Critic: independent general-purpose subagent (`019fc2c1-3095-7683-a055-fbf0d0b3d0b4`)
+- Review scope: full
+- Evidence reviewed: Spec 00 Increment Contract；`src/bora/**`、examples、tests；README/ARCHITECTURE/AGENTS/ROADMAP；pytest 25→29 ids；public lock smokes；dependency direction
+- Findings:
+  1. (non-blocking) `PackageReader` Protocol 原位于 adapters — **已修**：迁入 `src/bora/config/ports.py`
+  2. (non-blocking) 失败矩阵测试不全 — **已修**：补充 `invalid_format` / `unsupported_capability` / `missing_reference`
+  3. (non-blocking) `/limits/memory_mb` allowlist 无 default leaf — **已修**：defaults 增加 `memory_mb`
+  4. (non-blocking) acceptance 用 `-m bora.cli.main` 而非 `uv run bora` — 保留；与 console script 同一 Typer app；User Acceptance 用 README 命令
+  5. (non-blocking) AGENTS 边界文案仍写「计划 composition」— 延后文档润色
+- Selected fixes: (1)(2)(3) 如上
+- Executor fixes: ports 拆分、测试补全、memory_mb default；重跑 ruff/pyright/pytest
+- Deferred findings: AGENTS 措辞润色；entrypoint locator 更细校验 → 后续 Config/Harness Spec
+- Validation rerun: `uv run pytest`、`ruff`、`pyright`、public lock smokes、strict specs validator
+- Verdict: `pass-with-follow-ups`

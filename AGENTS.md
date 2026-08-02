@@ -62,14 +62,15 @@ specs/BLOCKED.md
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/design/00`–`10` 已自包含迁入；日常**不**再以 vault 为权威 |
-| production 源码 | **无** `pyproject.toml` / `src/bora/` / CLI / SDK |
-| 公开 entrypoint | **none** |
-| 证据等级 | `design-only` |
-| Roadmap | `v0.1`–`v0.12` 均未勾选；语义见 Core 交付（Config→…→竖切→隔离→扩展） |
-| 活动 Spec | [specs/active/00-core-batch0-and-batch1-plan.md](specs/active/00-core-batch0-and-batch1-plan.md)（`v0.1` Config + 工程骨架；**实现未授权则不编码**） |
+| production 源码 | 有 `pyproject.toml`、`src/bora/`、CLI `bora`；尚无 Lifecycle/Provider/Capability/SDK/Evaluation |
+| 公开 entrypoint | `bora lock`（Config Core 工程检查点） |
+| production composition root | `src/bora/application/composition.py` |
+| 证据等级 | `design-only`（`bora lock` **不得**称为 `runnable-mvp`） |
+| Roadmap | Version Index `v0.1`–`v0.12` 均未勾选（`v0.1` 内部交付/验收可已勾选，等待用户最终验收） |
+| 活动 Spec | [specs/active/00](specs/active/00-core-batch0-and-batch1-plan.md)–[06](specs/active/06-v0.7-harness-core-session-tool-plan.md)；实施顺序 v0.1→… |
 | Constitution 条目 | 0 |
 
-**禁止**从文档存在、Active Spec 存在或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
+**禁止**从文档存在、Active Spec 存在、`bora lock` 成功或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
 
 ## 项目边界（Agent 不可违反）
 

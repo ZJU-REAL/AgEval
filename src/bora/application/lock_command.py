@@ -1,0 +1,47 @@
+"""Application use case for ``bora lock``.
+
+Parses CLI override strings, invokes Config Core, and projects a public
+``LockSummary`` dict. No side effects beyond reading the package.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any
+
+from bora.config.capabilities import CapabilityCatalog
+from bora.config.load_and_lock import ConfigCore, parse_set_override
+from bora.config.model import locked_to_summary
+
+
+class LockCommand:
+    """Production lock use case assembled by the composition root."""
+
+    def __init__(self, config_core: ConfigCore, capabilities: CapabilityCatalog) -> None:
+        self._config_core = config_core
+        self._capabilities = capabilities
+
+    def run(
+        self,
+        *,
+        package_root: Path,
+        task_id: str,
+        set_overrides: Sequence[str] = (),
+        variant: Mapping[str, object] | None = None,
+    ) -> dict[str, Any]:
+        """Execute load_and_lock and return a JSON-serializable summary dict."""
+        overrides: dict[str, object] = {}
+        for raw in set_overrides:
+            pointer, value = parse_set_override(raw)
+            overrides[pointer] = value
+
+        locked = self._config_core.load_and_lock(
+            package_root,
+            task_id,
+            variant=variant,
+            overrides=overrides or None,
+            capabilities=self._capabilities,
+        )
+        summary = locked_to_summary(locked)
+        return summary.as_dict()

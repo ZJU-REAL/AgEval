@@ -13,7 +13,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **scaffolding only** — 工作树无 production 源码 |
+| 实现状态 | **v0.1 Config checkpoint** — `bora lock` + Config Core；无 Lifecycle/Agent 产品路径 |
 | 证据等级 | `design-only` |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
@@ -67,18 +67,18 @@ Task Package
 
 | 项 | 值 |
 | --- | --- |
-| Public entrypoint | **none** |
-| Production composition root | **none** |
-| Smoke journey | **none** |
-| Observable result | 文档与 Specs 工作区；`design-only` |
+| Public entrypoint | `uv run bora lock <package> --task <task-id>` |
+| Production composition root | `src/bora/application/composition.py` |
+| Smoke journey | `uv run bora lock examples/config-minimal --task config-minimal`（exit 0，确定性 JSON 摘要） |
+| Expected failure | `uv run bora lock examples/config-invalid --task config-invalid`（exit 2，`unknown_profile`） |
+| Observable result | 无 secret 的 lock summary + digest；无 Run/Attempt/Agent/Evaluator |
+| 证据等级 | `design-only`（Config 工程检查点，**不是** `runnable-mvp`） |
 
-当前仓库可运行的「校验路径」仅为文档门禁，例如：
+文档门禁仍须通过：
 
 ```bash
 python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_workspace.py" . --strict
 ```
-
-这**不是**产品 smoke，不得记为 `runnable-mvp`。
 
 ### Target — 首条产品竖切（Roadmap `v0.6`，依赖 `v0.1`–`v0.5`）
 
@@ -101,33 +101,30 @@ BORA/
 ├── ARCHITECTURE.md
 ├── README.md
 ├── .gitignore
-├── docs/
-│   ├── README.md              # 文档权威索引
-│   ├── PRD.md
-│   ├── glossary.md
-│   ├── design/                # 00–10 自包含设计全文
-│   │   ├── 00-overview-and-product.md
-│   │   ├── 01-bora-core.md
-│   │   ├── 02-task-package-and-config.md
-│   │   ├── 03-harness-layer.md
-│   │   ├── 04-harness-core-sdk.md
-│   │   ├── 05-runtime-core.md
-│   │   ├── 06-capability-adapter-visibility.md
-│   │   ├── 07-budget-evaluation-failure.md
-│   │   ├── 08-conversion-security-testing.md
-│   │   ├── 09-owner-matrix-and-structure.md
-│   │   └── 10-examples-database-52.md
-│   └── reference/             # 非权威：可选 vault 软链接说明
-├── specs/
-│   ├── AGENTS.md
-│   ├── BLOCKED.md
-│   ├── ROADMAP.md
-│   ├── constitution/           # 可为空
-│   ├── research/
-│   ├── active/
-│   └── archive/               # 可为空
-└── scripts/                   # 预留；当前可无文件
+├── .python-version
+├── pyproject.toml
+├── uv.lock
+├── src/bora/
+│   ├── __init__.py
+│   ├── cli/                   # Typer：argv、help、exit code
+│   │   └── main.py            # `bora` / `bora lock`
+│   ├── application/           # use cases + composition root
+│   │   ├── composition.py     # 唯一 production 装配点
+│   │   └── lock_command.py
+│   ├── config/                # Core 1：model、load_and_lock、catalog、errors
+│   └── adapters/
+│       └── package_fs.py      # 本地只读 Package reader
+├── examples/
+│   ├── config-minimal/        # success smoke package
+│   └── config-invalid/        # expected-failure (unknown_profile)
+├── tests/
+│   ├── acceptance/
+│   ├── config/
+│   └── test_package_baseline.py
+├── docs/                      # 设计权威（00–10）
+└── specs/                     # Roadmap / Active Specs / BLOCKED
 ```
+
 
 ### Target Source Layout（planned — 随 Core 交付出现）
 
