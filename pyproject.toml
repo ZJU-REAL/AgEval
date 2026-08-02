@@ -35,6 +35,7 @@ dev = [
     "pytest>=8.3.0",
     "ruff>=0.12.0",
     "pyright>=1.1.400",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [tool.ruff]
@@ -51,7 +52,9 @@ quote-style = "double"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.pyright]
 include = ["src", "tests"]
