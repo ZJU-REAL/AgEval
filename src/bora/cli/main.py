@@ -35,6 +35,40 @@ def _root() -> None:
     """Root callback (no global options in v0.1)."""
 
 
+@app.command("campaign")
+def campaign_command(
+    package: Annotated[
+        Path,
+        typer.Argument(help="Task Package root for campaign matrix."),
+    ],
+    task: Annotated[
+        str,
+        typer.Option("--task", help="Base task id."),
+    ],
+    matrix: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--matrix",
+            help="Axis as /parameters/...=[json-array]; only /parameters/* allowed in v0.11.",
+        ),
+    ] = None,
+) -> None:
+    """Foreground serial campaign over a parameter matrix (v0.11)."""
+    import asyncio
+
+    from bora.application.campaign import run_campaign
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = asyncio.run(run_campaign(package, task, matrix_args=list(matrix or [])))
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    code = 0 if summary.get("all_pass") else 1
+    raise typer.Exit(code=code)
+
+
 @app.command("run")
 def run_command(
     package: Annotated[

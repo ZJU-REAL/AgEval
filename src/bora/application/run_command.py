@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from bora.adapters.agent_codex import CodexExecutor
 from bora.adapters.package_fs import LocalPackageReader
 from bora.application.run_harness import run_harness_package
 from bora.config.capabilities import DeclarationCapabilityCatalog
@@ -54,33 +53,43 @@ async def run_task(
     evaluation = thaw(lock.evaluation)
     provider_cfg = thaw(lock.provider)
     provider_kind = str(provider_cfg.get("kind") or "local")
-    codex_profile = next(
-        (p for p in profiles if isinstance(p, dict) and p.get("executor") == "codex"),
-        None,
-    )
-    if codex_profile is not None:
-        model = str(codex_profile.get("model") or "gpt-5.4-mini")
+    agent_profile = next((p for p in profiles if isinstance(p, dict)), None)
+    if agent_profile is not None:
+        from bora.adapters.agent_openai_http import resolve_executor
+
+        model = str(agent_profile.get("model") or "gpt-5.4-mini")
+        kind = str(agent_profile.get("executor") or "codex")
         question = str(params.get("question") or 'Return {"answer": 42}')
-        executor = CodexExecutor(model=model)
+        try:
+            executor = resolve_executor(kind, model=model)
+        except KeyError:
+            flat = bind_result(
+                evaluator_raw=None,
+                harness_kind="failed",
+                runtime_kind="local_l0",
+                agent_invocations=0,
+                evidence_path=str(run_dir),
+                error_phase="config",
+            )
+            return 2, flat, {"error": {"kind": "executor_unknown", "executor": kind}}
         result = executor.invoke(question)
         agent_invocations = 1
         agent_meta = {
             "model": result.model,
             "ok": result.ok,
             "error": result.error,
+            "executor": kind,
         }
         if not result.ok:
-            # Fail closed: do not invent PASS-path agent payloads.
             if allow_offline_agent:
                 agent_meta["offline_fallback"] = True
-            # No materialization — harness must not see a fabricated answer.
         else:
             payload = (
                 result.structured
                 if result.structured
                 else {
                     "answer": 42,
-                    "source": "codex-text",
+                    "source": f"{kind}-text",
                 }
             )
             (package_root / ".bora_agent_result.json").write_text(
