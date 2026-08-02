@@ -449,8 +449,8 @@ class ConfigCore:
             ) from exc
 
         for name in names:
-            if name.startswith("."):
-                # Hidden tooling files are ignored (not part of package contract).
+            if name.startswith(".") or name == "__pycache__":
+                # Hidden / interpreter caches are ignored (not package contract).
                 continue
             path = root / name
             if path.is_dir():

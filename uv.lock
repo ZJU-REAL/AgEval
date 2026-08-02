@@ -13,9 +13,10 @@ wheels = [
 
 [[package]]
 name = "bora"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bora-sdk" },
     { name = "pyyaml" },
     { name = "typer" },
 ]
@@ -37,6 +38,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bora-sdk", editable = "sdk/python" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.400" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
@@ -52,6 +54,11 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "ruff", specifier = ">=0.12.0" },
 ]
+
+[[package]]
+name = "bora-sdk"
+version = "0.5.0"
+source = { editable = "sdk/python" }
 
 [[package]]
 name = "colorama"

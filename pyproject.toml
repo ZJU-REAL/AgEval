@@ -1,12 +1,13 @@
 [project]
 name = "bora"
-version = "0.2.0"
+version = "0.7.0"
 description = "Bounded Orchestration for Runtime Agents — Config Core (v0.1)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pyyaml>=6.0.2",
     "typer>=0.16.0",
+    "bora-sdk",
 ]
 
 [project.optional-dependencies]
@@ -62,3 +63,6 @@ pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"
+
+[tool.uv.sources]
+bora-sdk = { path = "sdk/python", editable = true }
