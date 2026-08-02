@@ -35,3 +35,4 @@ out/
 !.env.example
 *.pem
 credentials/
+COMMIT.md
