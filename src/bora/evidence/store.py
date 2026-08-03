@@ -14,10 +14,10 @@ from typing import Any
 
 from bora.evidence.redaction import (
     RedactionError,
+    assert_clean,
     redact_and_assert,
     redact_text,
     redact_value,
-    scan_for_secrets,
 )
 from bora.evidence.schema import (
     METADATA_SCHEMA_VERSION,
@@ -78,7 +78,34 @@ class InvocationHandle:
         return f"agent/invocations/{self.directory.name}"
 
     def write_request(self, request: dict[str, Any]) -> None:
-        self.store._write_invocation_json(self, "request.json", request)
+        """Write redacted request; on residual secret seal redaction_failed and re-raise."""
+        try:
+            self.store._write_invocation_json(self, "request.json", request)
+        except RedactionError:
+            finished = _utc_now()
+            fail_meta = {
+                "schema": METADATA_SCHEMA_VERSION,
+                "invocation_id": self.invocation_id,
+                "attempt_id": self.attempt_id,
+                "profile_id": self.profile_id,
+                "executor_kind": self.executor_kind,
+                "model": self.model,
+                "seq": self.seq,
+                "started_at": self.started_at,
+                "finished_at": finished,
+                "status": "redaction_failed",
+                "latency_ms": None,
+                "error": "redaction_failed",
+                "event_count": self._event_seq,
+            }
+            self.store._write_json_raw(
+                self.directory / "request.json",
+                {"redacted": True, "reason": "redaction_failed"},
+            )
+            self.store._write_json_raw(self.directory / "metadata.json", fail_meta)
+            self.status = "redaction_failed"
+            self.sealed = True
+            raise
 
     def append_event(self, event: dict[str, Any]) -> None:
         with self._lock:
@@ -137,35 +164,34 @@ class InvocationHandle:
                 "event_count": self._event_seq,
             }
             try:
-                # Fail closed: any pre-redaction secret/sentinel hit refuses success trajectory.
-                pre_hits = scan_for_secrets(meta, extra_sentinels=self.store.sentinels)
-                if final_response is not None:
-                    pre_hits.extend(
-                        scan_for_secrets(
-                            final_response, extra_sentinels=self.store.sentinels
-                        )
-                    )
-                if pre_hits:
-                    raise RedactionError(
-                        "secret residual after redaction; refusing to seal trajectory",
-                        hits=sorted(set(pre_hits)),
-                    )
+                # Redact first; fail closed only on residual secrets after redaction.
                 cleaned_meta = redact_value(meta, extra_sentinels=self.store.sentinels)
+                assert_clean(cleaned_meta, extra_sentinels=self.store.sentinels)
                 if final_response is not None and status == "completed":
                     cleaned_resp = redact_value(
                         final_response, extra_sentinels=self.store.sentinels
                     )
+                    assert_clean(cleaned_resp, extra_sentinels=self.store.sentinels)
                     self.store._write_json_raw(
                         self.directory / "final-response.json", cleaned_resp
                     )
                 elif final_response is not None and status != "completed":
-                    # Partial: do not write a fake final-response as success payload.
-                    self.append_event(
+                    # Partial: do not write final-response; append lifecycle under lock
+                    # without re-entering append_event (non-reentrant lock).
+                    self._event_seq += 1
+                    partial = normalize_event(
                         {
                             "type": "partial_result",
                             "status": status,
                             "has_payload": True,
-                        }
+                        },
+                        seq=self._event_seq,
+                    )
+                    cleaned_partial = redact_value(
+                        partial, extra_sentinels=self.store.sentinels
+                    )
+                    self.store._append_jsonl(
+                        self.directory / "events.jsonl", cleaned_partial
                     )
                 self.store._write_json_raw(self.directory / "metadata.json", cleaned_meta)
                 self.status = status
@@ -196,9 +222,13 @@ class InvocationHandle:
                     "redaction_hits": exc.hits,
                     "event_count": self._event_seq,
                 }
-                # Fail closed: remove unsealed request/events that may contain secrets
-                # by overwriting with sanitized stubs only.
-                for name in ("request.json", "events.jsonl", "final-response.json", "stderr.txt"):
+                # Fail closed: scrub unsealed files and backend_raw.
+                for name in (
+                    "request.json",
+                    "events.jsonl",
+                    "final-response.json",
+                    "stderr.txt",
+                ):
                     p = self.directory / name
                     if p.exists():
                         if name.endswith(".jsonl"):
@@ -209,6 +239,11 @@ class InvocationHandle:
                             self.store._write_json_raw(
                                 p, {"redacted": True, "reason": "redaction_failed"}
                             )
+                backend_raw = self.directory / "backend_raw"
+                if backend_raw.is_dir():
+                    for p in backend_raw.rglob("*"):
+                        if p.is_file():
+                            p.write_text("[REDACTED:secret]\n", encoding="utf-8")
                 self.store._write_json_raw(self.directory / "metadata.json", fail_meta)
                 self.status = "redaction_failed"
                 self.sealed = True

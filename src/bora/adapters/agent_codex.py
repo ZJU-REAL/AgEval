@@ -46,6 +46,7 @@ class CodexExecutor:
         timeout: float = 45.0,
         workdir: str | None = None,
         collect_dir: str | Path | None = None,
+        redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
         # Tests/CI can force offline to avoid long-running network calls.
         if os.environ.get("BORA_OFFLINE_AGENT") == "1":
@@ -119,7 +120,9 @@ class CodexExecutor:
                     "source": "codex_adapter",
                 },
             )
-            refs = _maybe_persist_raw(collect_root, stdout, stderr)
+            refs = _maybe_persist_raw(
+                collect_root, stdout, stderr, extra_sentinels=redaction_sentinels
+            )
             return AgentResult(
                 model=self.model,
                 text=text[-8000:],
@@ -162,7 +165,12 @@ class CodexExecutor:
                 "source": "codex_adapter",
             },
         )
-        refs = _maybe_persist_raw(collect_root, proc.stdout or "", proc.stderr or "")
+        refs = _maybe_persist_raw(
+            collect_root,
+            proc.stdout or "",
+            proc.stderr or "",
+            extra_sentinels=redaction_sentinels,
+        )
         return AgentResult(
             model=self.model,
             text=(text or "")[-8000:],
@@ -185,17 +193,29 @@ def _as_text(value: str | bytes | None) -> str:
 
 
 def _maybe_persist_raw(
-    collect_root: Path | None, stdout: str, stderr: str
+    collect_root: Path | None,
+    stdout: str,
+    stderr: str,
+    *,
+    extra_sentinels: tuple[str, ...] | list[str] | None = None,
 ) -> tuple[dict[str, str], ...]:
+    """Persist backend raw under evidence only after redaction (fail-closed policy).
+
+    Digest is over the redacted body so evidence never stores plain secrets.
+    """
     if collect_root is None:
         return ()
+    from bora.evidence.redaction import redact_text
+
+    sent = tuple(s for s in (extra_sentinels or ()) if s)
     refs: list[dict[str, str]] = []
     for name, body in (("backend-stdout.jsonl", stdout), ("backend-stderr.txt", stderr)):
         if not body:
             continue
+        cleaned = redact_text(body, extra_sentinels=sent)
         path = collect_root / name
-        path.write_text(body, encoding="utf-8")
-        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        path.write_text(cleaned, encoding="utf-8")
+        digest = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
         refs.append({"kind": name, "path": str(path), "digest": f"sha256:{digest}"})
     return tuple(refs)
 

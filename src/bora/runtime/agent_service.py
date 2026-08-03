@@ -205,17 +205,24 @@ class ParentAgentService:
                 "evidence_relative": handle.relative_path if handle else None,
             }
 
+        sentinels = tuple(self.evidence_store.sentinels) if self.evidence_store else ()
         try:
             # Multi-invoke sessions need headroom beyond the codex default 45s.
             try:
                 result = executor.invoke(
-                    prompt, timeout=300.0, collect_dir=collect_dir
+                    prompt,
+                    timeout=300.0,
+                    collect_dir=collect_dir,
+                    redaction_sentinels=sentinels,
                 )
             except TypeError:
                 try:
-                    result = executor.invoke(prompt, timeout=300.0)
+                    result = executor.invoke(prompt, timeout=300.0, collect_dir=collect_dir)
                 except TypeError:
-                    result = executor.invoke(prompt)
+                    try:
+                        result = executor.invoke(prompt, timeout=300.0)
+                    except TypeError:
+                        result = executor.invoke(prompt)
         except Exception as exc:  # noqa: BLE001 — executor crash must leave partial evidence
             latency = (time.monotonic() - started) * 1000.0
             if handle is not None:

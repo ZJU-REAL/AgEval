@@ -12,12 +12,27 @@ from bora.runtime.agent_service import ParentAgentService
 
 
 class _LeakyExecutor:
-    """Executor that would try to leak a sentinel via events/response."""
+    """Executor that would try to leak a sentinel via events/response and collect_dir."""
 
     def __init__(self, sentinel: str) -> None:
         self.sentinel = sentinel
 
     def invoke(self, prompt: str, **kwargs: object) -> AgentResult:
+        collect = kwargs.get("collect_dir")
+        if collect is not None:
+            from pathlib import Path
+
+            from bora.adapters.agent_codex import _maybe_persist_raw
+
+            sent = kwargs.get("redaction_sentinels") or (self.sentinel,)
+            refs = _maybe_persist_raw(
+                Path(str(collect)),
+                f'{{"secret":"{self.sentinel}"}}\n',
+                f"cookie={self.sentinel}\n",
+                extra_sentinels=sent,  # type: ignore[arg-type]
+            )
+        else:
+            refs = ()
         return AgentResult(
             model="fake",
             text=f'{{"answer": 1, "note": "{self.sentinel}"}}',
@@ -31,6 +46,7 @@ class _LeakyExecutor:
                 },
             ),
             stderr=f"auth cookie={self.sentinel}\n",
+            source_refs=refs,
         )
 
 
