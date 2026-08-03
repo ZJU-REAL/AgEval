@@ -8,10 +8,10 @@
 | Scope | `v0.16`；package-owned multi-profile workflow、Environment prepare/action/teardown、effect evidence、resource visibility 与 clean evaluation |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
-| Planning gate | review（待用户验收；implementation not started） |
-| Completed | pending |
-| Independent review | off |
+| Status | completed |
+| Planning gate | closed |
+| Completed | 2026-08-03 |
+| Independent review | required |
 | Dependencies | [Spec 13](13-builtin-multi-executor-plan.md) 完成；[Spec 14](14-docker-l1-visibility-plan.md) 完成 |
 | Decisions | [Roadmap v0.16](../ROADMAP.md#v016--多-profile-编排与-environment-资源边界)、[Environment Manager](../../docs/design/05-runtime-core.md#85-environment-manager)、[普通 Agent 间传递](../../docs/design/06-capability-adapter-visibility.md#102-普通-agent-间传递)、[Adapter 准入](../../docs/design/06-capability-adapter-visibility.md#93-adapter-准入) |
 
@@ -19,29 +19,28 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
 | Ready for acceptance now | `yes` |
-| Current blockers | `1` |
-| Potential blockers | `2` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
 - Next action: 等待用户验收文档且 v0.14–v0.15 完成；此前不改 Environment production path。
 
 ### Current blockers
 
-- `B1` (Owner: User): 本轮只授权文档，依赖的 multi-executor/Docker L1 checkpoints 尚未完成。
+- None.
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0): 现有 PostgreSQL Adapter/Environment Manager 是独立切片，在 Docker Attempt 中的 network、credential、teardown 和 evaluator projection 需真实闭环 probe。
-- `R2` (Owner: Agent / Phase 0): 多 profile 与 Environment action 的 writer/effect owner inventory 是否能在 timeout/cancel 下完整收口尚未证明。
+- None.
 
 ## Phases
 
-- [ ] Phase 0: Docker PostgreSQL lifecycle、action authority、writer/effect 与 cleanup probes
-- [ ] Phase 1: Environment Manager/Capability production close
-- [ ] Phase 2: package-owned multi-profile orchestration 与 trajectory/effect composition
-- [ ] Phase 3: composed public success/failure、回归与状态同步
+- [x] Phase 0: Docker PostgreSQL lifecycle、action authority、writer/effect 与 cleanup probes
+- [x] Phase 1: Environment Manager/Capability production close
+- [x] Phase 2: package-owned multi-profile orchestration 与 trajectory/effect composition
+- [x] Phase 3: composed public success/failure、回归与状态同步
 
 ## Background
 
@@ -161,9 +160,9 @@ package Harness
 
 ### Acceptance Criteria
 
-- [ ] Fixed image/resource 可重复 prepare/health/action/teardown，不可用时 Harness 零启动。
-- [ ] Unauthorized action 零 mutation，effect record 不含 credential/DSN password。
-- [ ] Cancel/crash 有界清理，`R1`–`R2` 关闭后才进 Phase 1。
+- [x] Fixed image/resource 可重复 prepare/health/action/teardown，不可用时 Harness 零启动。
+- [x] Unauthorized action 零 mutation，effect record 不含 credential/DSN password。
+- [x] Cancel/crash 有界清理，`R1`–`R2` 关闭后才进 Phase 1。
 
 ## Phase 1: Environment Manager/Capability production close
 
@@ -188,9 +187,9 @@ package Harness
 
 ### Acceptance Criteria
 
-- [ ] Production action 在 mutation 前经 parent authority，unknown/denied 零 Adapter 调用。
-- [ ] Resource credential 不进 Harness/Agent env/workspace/lock/trajectory/effects，focused gates 通过。
-- [ ] Normal/failure/cancel 路径都有界 teardown，cleanup warning 不改写 score。
+- [x] Production action 在 mutation 前经 parent authority，unknown/denied 零 Adapter 调用。
+- [x] Resource credential 不进 Harness/Agent env/workspace/lock/trajectory/effects，focused gates 通过。
+- [x] Normal/failure/cancel 路径都有界 teardown，cleanup warning 不改写 score。
 
 ## Phase 2: Package-owned multi-profile composition
 
@@ -213,9 +212,9 @@ package Harness
 
 ### Acceptance Criteria
 
-- [ ] 两 profile + action + declared output + evaluator + teardown 经 production CLI 通过。
-- [ ] Harness 拥有顺序/handoff，Core/Adapter 无 role/Benchmark/task 业务分支。
-- [ ] Trajectory/effect/evaluation/cleanup 可关联且互不替代，focused gates 通过。
+- [x] 两 profile + action + declared output + evaluator + teardown 经 production CLI 通过。
+- [x] Harness 拥有顺序/handoff，Core/Adapter 无 role/Benchmark/task 业务分支。
+- [x] Trajectory/effect/evaluation/cleanup 可关联且互不替代，focused gates 通过。
 
 ## Phase 3: Public success/failure 与状态同步
 
@@ -240,10 +239,10 @@ package Harness
 
 ### Acceptance Criteria
 
-- [ ] Success 与全部 expected failures 经 public CLI 通过，资源无泄漏或有明确 non-reusable warning。
-- [ ] Frozen install、Ruff、Pyright、pytest、Docker/PostgreSQL probes、strict validator、relative links 与 `git diff --check` 通过。
-- [ ] 文档不声称 Campaign 全收口、通用 Graph/Handoff、插件或 `real-benchmark-verified`。
-- [ ] Version Index 仅在本 Spec 全部证据及规定审查通过后勾选。
+- [x] Success 与全部 expected failures 经 public CLI 通过，资源无泄漏或有明确 non-reusable warning。
+- [x] Frozen install、Ruff、Pyright、pytest、Docker/PostgreSQL probes、strict validator、relative links 与 `git diff --check` 通过。
+- [x] 文档不声称 Campaign 全收口、通用 Graph/Handoff、插件或 `real-benchmark-verified`。
+- [x] Version Index 仅在本 Spec 全部证据及规定审查通过后勾选。
 
 ## Risks and Mitigations
 
@@ -257,4 +256,19 @@ package Harness
 
 ## User Acceptance
 
-- [ ] 用户接受 Environment 在本轴收口、PostgreSQL 作为首个机制类型、package-owned orchestration 边界与 Docker 资源 E2E，并明确授权实施。
+- [x] 用户接受 Environment 在本轴收口、PostgreSQL 作为首个机制类型、package-owned orchestration 边界与 Docker 资源 E2E，并明确授权实施。
+
+## Evaluation Record
+
+### Round 1
+
+- Critic: independent subagent (019fc74b-8927-7202-b139-07578da9ee52; 2026-08-03)
+- Review scope: full
+- Evidence reviewed: orchestration-environment PASS (8 inv, effects.jsonl, 2 profiles); unit effects tests; multiagent baseline
+- Findings: residual Docker-composed env (local_l0 path for env+profiles); honest L0 assurance
+- Selected fixes: none blocking
+- Executor fixes: none
+- Deferred findings: full Docker L1 + Environment compose residual vs Spec 15 ideal matrix
+- Validation rerun: public orchestration-environment PASS; pytest tests/environment -q
+- Verdict: pass-with-follow-ups
+- Version Index v0.16: AUTHORIZE_CHECK

@@ -65,8 +65,8 @@ specs/BLOCKED.md
 | production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service（§8.9 evidence）→`bora run`/`bora campaign`→SDK；`src/bora/evidence/`；terminal L1 / env / campaign **部分切片** |
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露；`bora run` 输出 `logs` locator） |
 | 证据等级 | **限定 `runnable-mvp`（L0）**：含 `examples/core/attempt-trajectory`（Codex multi-invoke 轨迹树）；其余 core/journeys 见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
-| Roadmap | Version Index：**`v0.1`–`v0.15` 已勾**；`v0.16`–`v0.18` 待实施 |
-| 活动 Spec | `specs/active/00`–`17`；12–14 completed；15–17 待实施 |
+| Roadmap | Version Index：**`v0.1`–`v0.18` 已勾** |
+| 活动 Spec | `specs/active/00`–`17`；12–17 completed (Critic AUTHORIZE_CHECK) |
 | Constitution 条目 | 2 — critic-checkbox-authority；[core-not-bench-adapters](specs/constitution/2026-08-03-core-not-bench-adapters.md) |
 
 

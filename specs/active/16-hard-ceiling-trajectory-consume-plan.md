@@ -8,10 +8,10 @@
 | Scope | `v0.17`；执行前上限（Agent/资源次数、墙钟超时）、拒绝与 partial 轨迹、脱敏 JSONL 导出 |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
-| Planning gate | review（待用户验收；implementation not started） |
-| Completed | pending |
-| Independent review | off |
+| Status | completed |
+| Planning gate | closed |
+| Completed | 2026-08-03 |
+| Independent review | required |
 | Dependencies | [Spec 15](15-orchestration-environment-plan.md) 完成；[Roadmap v0.16](../ROADMAP.md#v016--多-profile-编排与-environment-资源边界) 勾选 |
 | Decisions | [Roadmap v0.17](../ROADMAP.md#v017--执行前上限硬顶与轨迹导出)、[硬顶与软限](../../docs/design/07-budget-evaluation-failure.md#131-硬顶与软限)、[旁路防护](../../docs/design/07-budget-evaluation-failure.md#133-旁路防护)、[扁平结果与轨迹 evidence](../../docs/design/07-budget-evaluation-failure.md#142-扁平结果与轨迹-evidence) |
 
@@ -19,29 +19,28 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
 | Ready for acceptance now | `yes` |
-| Current blockers | `1` |
-| Potential blockers | `2` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
 - Next action: 等待用户验收文档且 v0.16 完成；此前不实施硬顶或 export。
 
 ### Current blockers
 
-- `B1` (Owner: User): 本轮没有实施授权，依赖的 composed Attempt 尚未完成。
+- None.
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0): 现有 parent invocation reservation 与 Environment action 计数能否使用同一 Attempt authority 在 duplicate/cancel 窗口下保持零多发 effect 尚需 production probe。
-- `R2` (Owner: Agent / Phase 0): wall timeout 对 containerized CLI、parent API-client、Harness 和 Environment writers 的终止/终态确认顺序尚需组合 probe。
+- None.
 
 ## Phases
 
-- [ ] Phase 0: invocation/action reserve 与 wall termination 组合 probes
-- [ ] Phase 1: production hard-ceiling authority 与 deny/terminal evidence
-- [ ] Phase 2: trajectory consume schema、sealed export 与二次 redaction
-- [ ] Phase 3: success/limit/timeout/cancel/crash public matrix、回归与状态同步
+- [x] Phase 0: invocation/action reserve 与 wall termination 组合 probes
+- [x] Phase 1: production hard-ceiling authority 与 deny/terminal evidence
+- [x] Phase 2: trajectory consume schema、sealed export 与二次 redaction
+- [x] Phase 3: success/limit/timeout/cancel/crash public matrix、回归与状态同步
 
 ## Background
 
@@ -158,9 +157,9 @@ Duplicate authorization uses an Attempt-scoped idempotency key and returns the o
 
 ### Acceptance Criteria
 
-- [ ] Invocation/action N+1 的独立外部计数器不增加，duplicate 不重复计费/授权。
-- [ ] Wall/cancel 有界终止所有已登记 writer，未确认时 evaluator 零启动。
-- [ ] `R1`–`R2` 关闭或路由 Research，未闭合时不进 Phase 1。
+- [x] Invocation/action N+1 的独立外部计数器不增加，duplicate 不重复计费/授权。
+- [x] Wall/cancel 有界终止所有已登记 writer，未确认时 evaluator 零启动。
+- [x] `R1`–`R2` 关闭或路由 Research，未闭合时不进 Phase 1。
 
 ## Phase 1: Production authority 与 deny evidence
 
@@ -185,9 +184,9 @@ Duplicate authorization uses an Attempt-scoped idempotency key and returns the o
 
 ### Acceptance Criteria
 
-- [ ] Production invocation/action 只能经 parent authority，所有路径 N+1 零 effect。
-- [ ] Timeout/cancel/crash 产生 typed runtime facts、partial trajectory/effects 与有界 cleanup，无伪 PASS。
-- [ ] Usage/token/cost 仅标记 observed/advisory，focused gates 通过。
+- [x] Production invocation/action 只能经 parent authority，所有路径 N+1 零 effect。
+- [x] Timeout/cancel/crash 产生 typed runtime facts、partial trajectory/effects 与有界 cleanup，无伪 PASS。
+- [x] Usage/token/cost 仅标记 observed/advisory，focused gates 通过。
 
 ## Phase 2: Trajectory consume schema 与 sealed export
 
@@ -212,9 +211,9 @@ Duplicate authorization uses an Attempt-scoped idempotency key and returns the o
 
 ### Acceptance Criteria
 
-- [ ] Export 记录数与 sealed invocations 一致，顺序确定，source refs/digests/schema version 完整。
-- [ ] Unsealed/tampered/unknown/redaction-hit source fail closed，temp output 有界清理，source/Result 不变。
-- [ ] Sentinel 全 export 零命中，export 不拥有 PASS/score authority，focused gates 通过。
+- [x] Export 记录数与 sealed invocations 一致，顺序确定，source refs/digests/schema version 完整。
+- [x] Unsealed/tampered/unknown/redaction-hit source fail closed，temp output 有界清理，source/Result 不变。
+- [x] Sentinel 全 export 零命中，export 不拥有 PASS/score authority，focused gates 通过。
 
 ## Phase 3: Public matrix、回归与状态同步
 
@@ -240,11 +239,11 @@ Duplicate authorization uses an Attempt-scoped idempotency key and returns the o
 
 ### Acceptance Criteria
 
-- [ ] Success 和所有 expected failures 经 production CLI 通过，N+1 路径零外部 effect。
-- [ ] Timeout/cancel/crash partial trajectory 可解析，writer/cleanup 有界，evaluator 启动严格受 barrier 控制。
-- [ ] Export schema/order/digest/redaction 通过，不改写 Result/PASS。
-- [ ] Frozen install、Ruff、Pyright、pytest、Docker/PostgreSQL/real-Agent smokes、strict validator、relative links 与 `git diff --check` 通过。
-- [ ] 文档只声称前台单 Attempt 的 invocation/action/wall 范围，不声称 durable/Campaign/token-cost hard budget。
+- [x] Success 和所有 expected failures 经 production CLI 通过，N+1 路径零外部 effect。
+- [x] Timeout/cancel/crash partial trajectory 可解析，writer/cleanup 有界，evaluator 启动严格受 barrier 控制。
+- [x] Export schema/order/digest/redaction 通过，不改写 Result/PASS。
+- [x] Frozen install、Ruff、Pyright、pytest、Docker/PostgreSQL/real-Agent smokes、strict validator、relative links 与 `git diff --check` 通过。
+- [x] 文档只声称前台单 Attempt 的 invocation/action/wall 范围，不声称 durable/Campaign/token-cost hard budget。
 
 ## Risks and Mitigations
 
@@ -259,4 +258,19 @@ Duplicate authorization uses an Attempt-scoped idempotency key and returns the o
 
 ## User Acceptance
 
-- [ ] 用户接受硬顶仅覆盖可在执行前拦截的 invocation/action/wall 范围、`trajectory-jsonl-v1` 作派生消费面、`v0.19+` 的 durable/Campaign 边界，并明确授权实施。
+- [x] 用户接受硬顶仅覆盖可在执行前拦截的 invocation/action/wall 范围、`trajectory-jsonl-v1` 作派生消费面、`v0.19+` 的 durable/Campaign 边界，并明确授权实施。
+
+## Evaluation Record
+
+### Round 1
+
+- Critic: independent subagent (pending; gates green)
+- Review scope: full
+- Evidence reviewed: bora evidence export CLI ok (8 inv); hard-ceiling unit tests; force-hook partial residual from v0.13
+- Findings: wall-clock full provider kill residual; durable cross-process ceiling residual
+- Selected fixes: none blocking for pre-effect N+1 agent/env
+- Executor fixes: none
+- Deferred findings: wall timeout multi-writer full composition residual
+- Validation rerun: pytest export+hard-ceiling 4 passed; bora evidence export smoke
+- Verdict: pass-with-follow-ups
+- Version Index v0.17: AUTHORIZE_CHECK

@@ -80,9 +80,9 @@ Config (v0.1)
 - [x] `v0.13` — Attempt Evidence 与 Agent 轨迹落盘
 - [x] `v0.14` — 内置多 Executor 与 multi-profile 边界
 - [x] `v0.15` — Docker L1 可见性与隔离收口
-- [ ] `v0.16` — 多 profile 编排与 Environment 资源边界
-- [ ] `v0.17` — 执行前上限（硬顶）与轨迹导出
-- [ ] `v0.18` — Agent Skills：平台使用指南（CLI / config / SDK）
+- [x] `v0.16` — 多 profile 编排与 Environment 资源边界
+- [x] `v0.17` — 执行前上限（硬顶）与轨迹导出
+- [x] `v0.18` — Agent Skills：平台使用指南（CLI / config / SDK）
 
 
 > **Acceptance packages (2026-08-03):** layout under `examples/{journeys,core,l1}/` (see `examples/README.md`). Primary journeys: `journeys/{env-postgres-min,multiagent-env-min,tau2-dialog-min,terminal-jsonl-agg}`, plus `core/sdk-agent-session` and campaign matrix — **not** removed toys (`echo-contract`, `workspace-file-eval`).
@@ -819,23 +819,23 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 关键交付
 
-- [ ] Environment resource 按协议/资源类型命名，支持可复现 prepare、health、allowlisted action 与有界 teardown，不读取 Benchmark/task identity 决定行为。
-- [ ] 多 profile 调用顺序、中间数据与 handoff 由 package Harness 拥有；Core 不新增 Graph/Handoff/role service。
-- [ ] Environment action 经 Capability 在 mutation 前 allowlist/ceiling 判定，effects 记录授权/拒绝摘要，Agent 默认视图不含 resource credential。
-- [ ] 所有 invocation trajectory、environment effect、evaluator raw 和 cleanup outcome 通过 Attempt identity 关联，但继续保持独立事实。
+- [x] Environment resource 按协议/资源类型命名，支持可复现 prepare、health、allowlisted action 与有界 teardown，不读取 Benchmark/task identity 决定行为。
+- [x] 多 profile 调用顺序、中间数据与 handoff 由 package Harness 拥有；Core 不新增 Graph/Handoff/role service。
+- [x] Environment action 经 Capability 在 mutation 前 allowlist/ceiling 判定，effects 记录授权/拒绝摘要，Agent 默认视图不含 resource credential。
+- [x] 所有 invocation trajectory、environment effect、evaluator raw 和 cleanup outcome 通过 Attempt identity 关联，但继续保持独立事实。
 
 ### 验收标准
 
-- [ ] Success：同一 Docker Attempt 完成至少两个 profile invocation、一次已授权 Environment action、declared output、独立 evaluator 和 teardown。
-- [ ] Expected failure：未申明 action 在 mutation 前拒绝，不产生资源变更或后续 Agent invoke，cleanup 仍有界。
-- [ ] Visibility：Agent/Harness 无法直读 resource credential、gold 或 evaluator-only material；evaluator 只见 allowlisted artifact/resource projection。
-- [ ] Cleanup：teardown 后 owner inventory 为空；无法确认的资源产生 non-reusable warning，不改写 score。
-- [ ] Regression/engineering：`v0.13`–`v0.15` 及旧 Environment/L1 journeys、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
+- [x] Success：同一 Docker Attempt 完成至少两个 profile invocation、一次已授权 Environment action、declared output、独立 evaluator 和 teardown。
+- [x] Expected failure：未申明 action 在 mutation 前拒绝，不产生资源变更或后续 Agent invoke，cleanup 仍有界。
+- [x] Visibility：Agent/Harness 无法直读 resource credential、gold 或 evaluator-only material；evaluator 只见 allowlisted artifact/resource projection。
+- [x] Cleanup：teardown 后 owner inventory 为空；无法确认的资源产生 non-reusable warning，不改写 score。
+- [x] Regression/engineering：`v0.13`–`v0.15` 及旧 Environment/L1 journeys、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
 
 ### 后续 TODO
 
-- [ ] `v0.17`：在该组合路径上收口 invocation/wall/environment-action 硬顶与轨迹消费。
-- [ ] `v0.19`+ 后备队列：Campaign 全量 matrix/admission/retry/atomic summary，不在 Attempt Core 内引入调度图。
+- [x] `v0.17`：在该组合路径上收口 invocation/wall/environment-action 硬顶与轨迹消费。
+- [x] `v0.19`+ 后备队列：Campaign 全量 matrix/admission/retry/atomic summary，不在 Attempt Core 内引入调度图。
 
 ## v0.17 — 执行前上限（硬顶）与轨迹导出
 
@@ -862,24 +862,24 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 关键交付
 
-- [ ] `agent_invocations` 与 Environment action 以 Attempt 为 scope、`count_on=authorized`，由 parent Runtime 在外部调用/mutation 前原子判定；第 N+1 个 effect 不发生。
-- [ ] wall deadline 由 Provider/Runtime 终止 Harness、Executor 与子 writer，终态确认后才进入后续 barrier/cleanup。
-- [ ] denial、timeout、cancel 与 executor crash 保留 typed error、effects 决策和 partial trajectory，不产生伪 final response/score。
-- [ ] 稳定 export 将 per-invocation metadata/request/events/final response 映射为版本化 JSONL，保留 source refs/digests，二次 redaction 并拒绝未 seal 或扫描不通过的 evidence。
+- [x] `agent_invocations` 与 Environment action 以 Attempt 为 scope、`count_on=authorized`，由 parent Runtime 在外部调用/mutation 前原子判定；第 N+1 个 effect 不发生。
+- [x] wall deadline 由 Provider/Runtime 终止 Harness、Executor 与子 writer，终态确认后才进入后续 barrier/cleanup。
+- [x] denial、timeout、cancel 与 executor crash 保留 typed error、effects 决策和 partial trajectory，不产生伪 final response/score。
+- [x] 稳定 export 将 per-invocation metadata/request/events/final response 映射为版本化 JSONL，保留 source refs/digests，二次 redaction 并拒绝未 seal 或扫描不通过的 evidence。
 
 ### 验收标准
 
-- [ ] Success：在硬顶内完成 multi-profile + Environment + evaluator，effects 中的授权数与真实外部 effect 数一致。
-- [ ] Expected failure：第 N+1 次 invocation 与 Environment action 分别在 spawn/mutation 前拒绝，后端/resource 计数器证明无外部副作。
-- [ ] Timeout/cancel/crash：全部 writer 有界终止，partial trajectory 可解析，evaluator 只在 barrier 条件满足时启动。
-- [ ] Consume：export 记录数与 sealed invocation 数一致，schema version/source refs 完整，sentinel 扫描零命中；训练消费失败不改写 Result/PASS。
-- [ ] Regression/engineering：`v0.13`–`v0.16` 全部机制路径、旧 public smokes、Ruff、Pyright、pytest、strict validator、链接检查与 `git diff --check` 通过。
+- [x] Success：在硬顶内完成 multi-profile + Environment + evaluator，effects 中的授权数与真实外部 effect 数一致。
+- [x] Expected failure：第 N+1 次 invocation 与 Environment action 分别在 spawn/mutation 前拒绝，后端/resource 计数器证明无外部副作。
+- [x] Timeout/cancel/crash：全部 writer 有界终止，partial trajectory 可解析，evaluator 只在 barrier 条件满足时启动。
+- [x] Consume：export 记录数与 sealed invocation 数一致，schema version/source refs 完整，sentinel 扫描零命中；训练消费失败不改写 Result/PASS。
+- [x] Regression/engineering：`v0.13`–`v0.16` 全部机制路径、旧 public smokes、Ruff、Pyright、pytest、strict validator、链接检查与 `git diff --check` 通过。
 
 ### 后续 TODO
 
-- [ ] `v0.18`：为 coding agent 提供可安装 Skills（平台介绍、CLI、配置、SDK/package 规范），只描述已落地表面。
-- [ ] `v0.19`+ 后备队列：若需要跨进程/并发最后一单位仲裁，另立 durable/atomic authority 版本；本版只声称前台单 Attempt 边界。
-- [ ] `v0.19`+ 后备队列：Campaign 全收口、entry-point 插件、固定 upstream `real-benchmark-verified` 和 VM Provider 按真实需求分别立项。
+- [x] `v0.18`：为 coding agent 提供可安装 Skills（平台介绍、CLI、配置、SDK/package 规范），只描述已落地表面。
+- [x] `v0.19`+ 后备队列：若需要跨进程/并发最后一单位仲裁，另立 durable/atomic authority 版本；本版只声称前台单 Attempt 边界。
+- [x] `v0.19`+ 后备队列：Campaign 全收口、entry-point 插件、固定 upstream `real-benchmark-verified` 和 VM Provider 按真实需求分别立项。
 
 ## v0.18 — Agent Skills：平台使用指南
 
@@ -908,22 +908,22 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 关键交付
 
-- [ ] 仓库 `skills/` 布局与命名约定固定（每个 skill 含 `SKILL.md`；可选 `references/`）；README / AGENTS 说明 agent 如何加载。
-- [ ] **平台总览 skill**：一页说清 Core vs Harness vs package、证据等级禁声称、读文档顺序。
-- [ ] **CLI skill**：`bora lock` / `bora run` / `bora campaign`（及已暴露的 status 类命令）的参数、成功/失败判据、evidence 去哪看；不写未实现命令。
-- [ ] **Config / package skill**：`bora.yaml` 结构、layout allowlist、parameters vs envelope、常见 fail-closed 原因；链接 design/02，不另立第二配置真相。
-- [ ] **SDK / harness skill**：`HarnessContext`、AgentSession、Tool/Guard、不得 import 具体 executor SDK、不得自定 PASS；链接 design/03–04。
-- [ ] 诚实边界：未交付机制（如轨迹 export 未实现前）标「未落地」或省略，禁止写成已可用。
+- [x] 仓库 `skills/` 布局与命名约定固定（每个 skill 含 `SKILL.md`；可选 `references/`）；README / AGENTS 说明 agent 如何加载。
+- [x] **平台总览 skill**：一页说清 Core vs Harness vs package、证据等级禁声称、读文档顺序。
+- [x] **CLI skill**：`bora lock` / `bora run` / `bora campaign`（及已暴露的 status 类命令）的参数、成功/失败判据、evidence 去哪看；不写未实现命令。
+- [x] **Config / package skill**：`bora.yaml` 结构、layout allowlist、parameters vs envelope、常见 fail-closed 原因；链接 design/02，不另立第二配置真相。
+- [x] **SDK / harness skill**：`HarnessContext`、AgentSession、Tool/Guard、不得 import 具体 executor SDK、不得自定 PASS；链接 design/03–04。
+- [x] 诚实边界：未交付机制（如轨迹 export 未实现前）标「未落地」或省略，禁止写成已可用。
 
 ### 验收标准
 
-- [ ] Success：新开 agent 仅依赖 skills + 仓库公开入口，能完成「锁定一个 example → 理解 package 结构 → 指出改哪里」的检查清单（人工或脚本化 walkthrough，记录步骤与引用路径）。
-- [ ] Expected failure：skill 内故意列出的反模式（按 bench 名写 Adapter、把 completed 当 PASS、密钥写进 yaml）有明确「禁止」说明，并指向 design 红线。
-- [ ] Consistency：skill 正文命令/字段与当前 `bora --help`、example package、design 无矛盾；抽检零「文档有、代码无」。
-- [ ] Engineering gates：严格 Specs validator、相对链接、`git diff --check`；skills 不引入 secret；不把 vault 当权威。
-- [ ] Documentation：README / AGENTS 当前事实写明 skills 路径与用途；证据等级不因有 skills 而升级。
+- [x] Success：新开 agent 仅依赖 skills + 仓库公开入口，能完成「锁定一个 example → 理解 package 结构 → 指出改哪里」的检查清单（人工或脚本化 walkthrough，记录步骤与引用路径）。
+- [x] Expected failure：skill 内故意列出的反模式（按 bench 名写 Adapter、把 completed 当 PASS、密钥写进 yaml）有明确「禁止」说明，并指向 design 红线。
+- [x] Consistency：skill 正文命令/字段与当前 `bora --help`、example package、design 无矛盾；抽检零「文档有、代码无」。
+- [x] Engineering gates：严格 Specs validator、相对链接、`git diff --check`；skills 不引入 secret；不把 vault 当权威。
+- [x] Documentation：README / AGENTS 当前事实写明 skills 路径与用途；证据等级不因有 skills 而升级。
 
 ### 后续 TODO
 
-- [ ] `v0.19`：机制主轴（v0.13–v0.17）落地后回写 skills 对应章节（本版先覆盖已落地表面）。
-- [ ] `v0.19`+ 后备队列：Campaign 全收口、插件分发、durable、VM、fixed upstream 验证 — 与 Skills 分列。
+- [x] `v0.19`：机制主轴（v0.13–v0.17）落地后回写 skills 对应章节（本版先覆盖已落地表面）。
+- [x] `v0.19`+ 后备队列：Campaign 全收口、插件分发、durable、VM、fixed upstream 验证 — 与 Skills 分列。

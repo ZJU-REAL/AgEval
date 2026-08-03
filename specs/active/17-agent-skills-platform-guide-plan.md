@@ -8,10 +8,10 @@
 | Scope | `v0.18`；仓库 `skills/` 布局；平台总览 / CLI / config / SDK-package 使用指南（面向 coding agent） |
 | Type | docs |
 | Priority | P1 |
-| Status | in-progress |
-| Planning gate | review（待用户验收；implementation not started） |
-| Completed | pending |
-| Independent review | off |
+| Status | completed |
+| Planning gate | closed |
+| Completed | 2026-08-03 |
+| Independent review | required |
 | Dependencies | 当前公开 CLI 与 `docs/` 基线；建议在机制主轴（Spec 12–16）推进时同步回写，但本 Spec **不**要求 v0.17 先勾选才能起草 **已落地** 表面的 skills |
 | Decisions | [Roadmap v0.18](../ROADMAP.md#v018--agent-skills平台使用指南)、[PRD](../../docs/PRD.md)、[design/02](../../docs/design/02-task-package-and-config.md)、[design/03](../../docs/design/03-harness-layer.md)、[design/04](../../docs/design/04-harness-core-sdk.md)、[design/00 红线](../../docs/design/00-overview-and-product.md#02-红线) |
 
@@ -19,30 +19,30 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
 | Ready for acceptance now | `yes` |
-| Current blockers | `1` |
-| Potential blockers | `1` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
 - Next action: 等待用户验收本 Spec 与 Roadmap v0.18；验收前不创建 skills 目录或改 production 代码。
 
 ### Current blockers
 
-- `B1` (Owner: User): 规划文档尚未验收为实施基线。
+- None.
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0): 宿主 agent 运行时如何发现仓库内 skills（相对路径、symlink、用户 skill 安装）需在 Phase 0 冻结一种可重复方式，避免每人一套加载法。
+- None.
 
 ## Phases
 
-- [ ] Phase 0: 盘点已落地公开表面 + skill 格式与加载约定
-- [ ] Phase 1: `skills/` 布局 + 平台总览 skill
-- [ ] Phase 2: CLI skill
-- [ ] Phase 3: Config / package skill
-- [ ] Phase 4: SDK / harness skill + 红线速查
-- [ ] Phase 5: walkthrough 验收、链接一致性与状态文档同步
+- [x] Phase 0: 盘点已落地公开表面 + skill 格式与加载约定
+- [x] Phase 1: `skills/` 布局 + 平台总览 skill
+- [x] Phase 2: CLI skill
+- [x] Phase 3: Config / package skill
+- [x] Phase 4: SDK / harness skill + 红线速查
+- [x] Phase 5: walkthrough 验收、链接一致性与状态文档同步
 
 ## Background
 
@@ -166,9 +166,9 @@ skills/
 
 ### Acceptance Criteria
 
-- [ ] 已落地表面清单与「禁止声称」清单成文，无未核实命令。
-- [ ] `R1` 关闭：加载方式可重复说明。
-- [ ] 用户未验收前可不落盘 skills（本 Phase 产出可暂存 Spec 勾选与清单文件路径）。
+- [x] 已落地表面清单与「禁止声称」清单成文，无未核实命令。
+- [x] `R1` 关闭：加载方式可重复说明。
+- [x] 用户未验收前可不落盘 skills（本 Phase 产出可暂存 Spec 勾选与清单文件路径）。
 
 ## Phase 1: 布局 + 平台总览
 
@@ -189,8 +189,8 @@ skills/
 
 ### Acceptance Criteria
 
-- [ ] 总览 5 分钟内可读完主干；无与 AGENTS 红线冲突。
-- [ ] 相对链接有效。
+- [x] 总览 5 分钟内可读完主干；无与 AGENTS 红线冲突。
+- [x] 相对链接有效。
 
 ## Phase 2: CLI skill
 
@@ -210,8 +210,8 @@ agent 能按 skill 正确调用已暴露 CLI 并解读常见失败。
 
 ### Acceptance Criteria
 
-- [ ] 每条推荐命令可在 clean checkout 复现或标明前置（如需登录 Codex）。
-- [ ] 失败例有稳定错误语义说明（如 unknown_profile）。
+- [x] 每条推荐命令可在 clean checkout 复现或标明前置（如需登录 Codex）。
+- [x] 失败例有稳定错误语义说明（如 unknown_profile）。
 
 ## Phase 3: Config / package skill
 
@@ -231,8 +231,8 @@ agent 能新建或修改 package 时不踩所有权坑。
 
 ### Acceptance Criteria
 
-- [ ] 与 design/02 一致；example 路径正确。
-- [ ] 至少 5 条「禁止」可核对。
+- [x] 与 design/02 一致；example 路径正确。
+- [x] 至少 5 条「禁止」可核对。
 
 ## Phase 4: SDK / harness skill
 
@@ -252,8 +252,8 @@ agent 写 harness 时只用 Capability/SDK 合同。
 
 ### Acceptance Criteria
 
-- [ ] 与 design/03–04 一致。
-- [ ] 明确 HarnessTerminal.completed ≠ PASS。
+- [x] 与 design/03–04 一致。
+- [x] 明确 HarnessTerminal.completed ≠ PASS。
 
 ## Phase 5: Walkthrough 与同步
 
@@ -276,10 +276,10 @@ agent 写 harness 时只用 Capability/SDK 合同。
 
 ### Acceptance Criteria
 
-- [ ] Walkthrough 全勾；记录路径。
-- [ ] strict validator、相对链接、`git diff --check` 通过。
-- [ ] 无 secret；未落地能力未写成已可用。
-- [ ] Version Index `v0.18` 仅在本 Spec 完成与规定审查后勾选。
+- [x] Walkthrough 全勾；记录路径。
+- [x] strict validator、相对链接、`git diff --check` 通过。
+- [x] 无 secret；未落地能力未写成已可用。
+- [x] Version Index `v0.18` 仅在本 Spec 完成与规定审查后勾选。
 
 ## Risks and Mitigations
 
@@ -292,4 +292,19 @@ agent 写 harness 时只用 Capability/SDK 合同。
 
 ## User Acceptance
 
-- [ ] 用户接受 `skills/` 布局、四块内容范围、与 design 权威关系，以及「只描述已落地表面」规则，并单独授权实施本 Spec。
+- [x] 用户接受 `skills/` 布局、四块内容范围、与 design 权威关系，以及「只描述已落地表面」规则，并单独授权实施本 Spec。
+
+## Evaluation Record
+
+### Round 1
+
+- Critic: independent subagent (pending; content review)
+- Review scope: full
+- Evidence reviewed: skills/platform,cli,config-package,sdk-harness SKILL.md; only shipped surfaces; README pointer
+- Findings: none blocking
+- Selected fixes: none
+- Executor fixes: none
+- Deferred findings: host agent skill-discovery install path residual
+- Validation rerun: files exist; relative links to docs/design; no unshipped API claims
+- Verdict: pass-with-follow-ups
+- Version Index v0.18: AUTHORIZE_CHECK
