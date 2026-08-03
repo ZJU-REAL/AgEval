@@ -1,0 +1,22 @@
+{
+  "customers": {
+    "c_42": {
+      "name": "Alex Retail",
+      "email": "alex@example.com",
+      "order_ids": ["#W1001"]
+    }
+  },
+  "orders": {
+    "#W1001": {
+      "customer_id": "c_42",
+      "status": "delivered",
+      "item_ids": ["item_headphones", "item_case"]
+    }
+  },
+  "products": {
+    "item_headphones": {"name": "Headphones", "sku": "HP-1", "price": 100.0},
+    "item_case": {"name": "Case", "sku": "CS-1", "price": 20.0},
+    "item_headphones_black": {"name": "Headphones Black", "sku": "HP-2", "price": 100.0}
+  },
+  "exchanges": []
+}

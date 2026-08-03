@@ -355,34 +355,47 @@ async def run_task(
             if not opened.get("ok"):
                 raise RuntimeError(opened.get("error") or "open_resource_failed")
             rid = str(opened["resource_id"])
-            r1 = env_manager.action(
-                rid,
-                "execute",
-                {"sql": "CREATE TABLE IF NOT EXISTS smoke(id INT PRIMARY KEY, label TEXT)"},
-            )
-            r2 = env_manager.action(
-                rid,
-                "execute",
-                {"sql": "INSERT INTO smoke(id, label) VALUES (1, 'bora') ON CONFLICT DO NOTHING"},
-            )
-            r3 = env_manager.action(rid, "query", {"sql": "SELECT label FROM smoke WHERE id = 1"})
-            action_ok = bool(r1.get("ok") and r3.get("ok"))
+            # Resource-type handoff only: container locator for package Tools.
+            # No Benchmark/task/domain branch; package may ship environment/seed.sql.
+            container = rid.split(":", 1)[-1] if ":" in rid else rid
+            seed_file = package_root / "environment" / "seed.sql"
+            seed_applied = False
+            if seed_file.is_file():
+                for stmt in _split_sql_statements(seed_file.read_text(encoding="utf-8")):
+                    r = env_manager.action(rid, "execute", {"sql": stmt})
+                    if not r.get("ok"):
+                        raise RuntimeError(f"environment seed failed: {r}")
+                seed_applied = True
+            # Generic readiness probe (resource protocol only — no package table names).
+            health = env_manager.action(rid, "query", {"sql": "SELECT 1"})
+            if not health.get("ok"):
+                raise RuntimeError(f"environment health failed: {health}")
             snap = env_manager.freeze_snapshot(rid)
+            # Connection recipe for Harness Tools — never gold / business answers.
             env_doc = {
-                "ok": action_ok,
-                "action": "query",
-                "query_ok": bool(r3.get("ok")),
-                "rows": [{"label": (r3.get("stdout") or "").strip() or "bora"}],
-                "action_count": env_manager._actions,
+                "ok": True,
+                "resource": "postgresql",
                 "resource_id": rid,
+                "container": container,
+                "user": "bora",
+                "password": "bora-attempt",
+                "database": "bora",
+                "seed_applied": seed_applied,
                 "snapshot": snap,
+                "action_count": env_manager._actions,
             }
-            if not action_ok:
-                raise RuntimeError(f"env action failed: {r1} {r2} {r3}")
             (package_root / ".bora_env_result.json").write_text(
                 json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
             )
-            env_meta.update({"ok": True, "ready": True, "resource_id": rid})
+            env_meta.update(
+                {
+                    "ok": True,
+                    "ready": True,
+                    "resource_id": rid,
+                    "container": container,
+                    "seed_applied": seed_applied,
+                }
+            )
         except Exception as exc:  # noqa: BLE001
             env_doc = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
             (package_root / ".bora_env_result.json").write_text(
@@ -556,6 +569,26 @@ async def run_task(
     if l1_meta:
         details["l1"] = l1_meta
     return code, flat, details
+
+
+def _split_sql_statements(sql_text: str) -> list[str]:
+    """Split package seed.sql into single statements (strip comments/empties)."""
+    stmts: list[str] = []
+    buf: list[str] = []
+    for line in sql_text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("--"):
+            continue
+        buf.append(line)
+        if stripped.endswith(";"):
+            stmt = "\n".join(buf).strip().rstrip(";").strip()
+            if stmt:
+                stmts.append(stmt)
+            buf = []
+    tail = "\n".join(buf).strip().rstrip(";").strip()
+    if tail:
+        stmts.append(tail)
+    return stmts
 
 
 def _run_evaluator_worker(

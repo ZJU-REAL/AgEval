@@ -14,8 +14,8 @@ from bora.config.load_and_lock import ConfigCore, digest_payload, parse_set_over
 from bora.config.model import thaw
 
 REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "config-minimal"
-INVALID = REPO / "examples" / "config-invalid"
+MINIMAL = REPO / "examples" / "core" / "config-minimal"
+INVALID = REPO / "examples" / "core" / "config-invalid"
 
 
 @pytest.fixture

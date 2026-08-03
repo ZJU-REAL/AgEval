@@ -53,7 +53,7 @@ def test_plugin_agent_executor_http_public_pass() -> None:
                 "-m",
                 "bora.cli.main",
                 "run",
-                str(REPO / "examples" / "plugin-agent-executor"),
+                str(REPO / "examples" / "core" / "plugin-agent-executor"),
                 "--task",
                 "plugin-agent-executor",
             ],

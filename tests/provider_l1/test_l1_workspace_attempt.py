@@ -32,7 +32,7 @@ def test_terminal_jsonl_agg_l1_solution_seed_pass() -> None:
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples" / "terminal-jsonl-agg"),
+            str(REPO / "examples" / "journeys" / "terminal-jsonl-agg"),
             "--task",
             "terminal-jsonl-agg",
         ],

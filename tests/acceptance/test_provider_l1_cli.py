@@ -38,7 +38,7 @@ def _run(package: str, task: str, *, env: dict | None = None) -> dict:
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples" / package),
+            str(REPO / "examples" / ("journeys" if package.startswith("terminal-") else "l1") / package),
             "--task",
             task,
         ],

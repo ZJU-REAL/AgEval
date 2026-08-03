@@ -1,4 +1,0 @@
-{"user": "alice", "amount": 100.1, "items": 3, "tags": ["a", "b"]}
-{"user": "bob", "amount": 80.0, "items": 2, "tags": ["b"]}
-{"user": "dave", "amount": 60.5, "items": 2, "tags": ["d"]}
-{"user": "grace", "amount": 5.0, "items": 1, "tags": ["y"]}

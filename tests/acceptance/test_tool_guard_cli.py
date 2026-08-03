@@ -20,7 +20,7 @@ def _run(package: str, task: str) -> dict:
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples" / package),
+            str(REPO / "examples" / "core" / package),
             "--task",
             task,
         ],

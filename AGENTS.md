@@ -64,7 +64,7 @@ specs/BLOCKED.md
 | 设计 | `docs/design/00`–`10` 已自包含迁入；日常**不**再以 vault 为权威 |
 | production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service→`bora run`/`bora campaign`→SDK；terminal-class L1 harness+clean eval（`run_l1`）；Postgres env handoff / plugin registry / campaign matrix 为**部分切片**（见 Spec 07–11 Implementation Progress） |
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露） |
-| 证据等级 | **限定 `runnable-mvp`（L0）**：`sdk-agent-session` multi-invoke、`agent-eval`/echo、tool-guard、env/multiagent/tau2 类 journey；terminal-jsonl-agg 可声明 **切片 `assurance:l1`**（非全量 `isolated`） |
+| 证据等级 | **限定 `runnable-mvp`（L0）**：`examples/core/`（agent-eval、sdk-agent-session、tool-guard）与 `examples/journeys/`（env/multiagent/tau2）；`journeys/terminal-jsonl-agg` 可声明 **切片 `assurance:l1`**（非全量 `isolated`）。布局见 [examples/README.md](examples/README.md) |
 | Roadmap | Version Index：**`v0.1`–`v0.12` 已勾**（按 Critic 授权收口；各版 residual 见 Active Spec Evaluation Record） |
 | 活动 Spec | `specs/active/00`–`11`；06 review（HC-2/3 surfaces closed）；07–11 partial + honesty |
 | Constitution 条目 | 2 — critic-checkbox-authority；[core-not-bench-adapters](specs/constitution/2026-08-03-core-not-bench-adapters.md) |

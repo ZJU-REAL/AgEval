@@ -96,7 +96,7 @@ As a BORA operator, I can install the repository and run `bora lock` against a T
 | Frozen 依赖图与工程门禁配置 | `phase-produced` | Agent / Phase 0；`pyproject.toml`、`uv.lock`、`.python-version` | Phase 0 执行 `uv lock`，随后 `uv sync --frozen` | clean checkout 中 `uv sync --frozen` 成功；Ruff、Pyright、pytest 命令可调用 | 移除 `.venv/` 与工具缓存；tracked lock 保留 |
 | Production CLI 与 composition root | `phase-produced` | Agent / Phase 0；`src/bora/cli/main.py`、`src/bora/application/composition.py` | `uv sync --frozen` 安装 `bora` console script | `uv run bora --help` 返回 0，且入口经 application composition 装配 | 无常驻进程或外部资源 |
 | Config 模型、声明 catalog 与 Package 文件读取 | `phase-produced` | Agent / Phase 1；`src/bora/config/`、`src/bora/adapters/package_fs.py` | 由 Phase 1 随 production package 安装 | 单元测试证明 schema、引用、路径、override、canonicalization、digest 与不可变性；Config 不 import/execute `harness.py` 或 evaluator | 仅内存对象；无外部资源 |
-| 正负向 Task Package | `phase-produced` | Agent / Phase 2；`examples/config-minimal/`、`examples/config-invalid/` | tracked example 随 clean checkout 提供 | success 与 expected-failure 命令分别返回 0 与 2；测试确认失败不生成 `.bora/` 成功产物 | example 为 tracked 文件；命令不创建 `.bora/` |
+| 正负向 Task Package | `phase-produced` | Agent / Phase 2；`examples/core/config-minimal/`、`examples/core/config-invalid/` | tracked example 随 clean checkout 提供 | success 与 expected-failure 命令分别返回 0 与 2；测试确认失败不生成 `.bora/` 成功产物 | example 为 tracked 文件；命令不创建 `.bora/` |
 
 </details>
 
@@ -107,8 +107,8 @@ As a BORA operator, I can install the repository and run `bora lock` against a T
 - Public entrypoint: `uv run bora lock <package> --task <task-id> [--set <json-pointer>=<json-value>]`。
 - Production composition root: `src/bora/application/composition.py`。
 - Clean setup: `uv sync --frozen`。
-- Success smoke: `uv run bora lock examples/config-minimal --task config-minimal` 返回 0，并只向 stdout 输出一份确定性 JSON 摘要。
-- Expected failure: `uv run bora lock examples/config-invalid --task config-invalid` 返回 2，stderr 给出稳定错误码与可理解说明，stdout 无成功摘要，且不创建 `.bora/` 成功 lock。
+- Success smoke: `uv run bora lock examples/core/config-minimal --task config-minimal` 返回 0，并只向 stdout 输出一份确定性 JSON 摘要。
+- Expected failure: `uv run bora lock examples/core/config-invalid --task config-invalid` 返回 2，stderr 给出稳定错误码与可理解说明，stdout 无成功摘要，且不创建 `.bora/` 成功 lock。
 - Determinism: `uv run pytest tests/acceptance/test_config_lock_cli.py -k determinism` 证明同一输入两次产生相同 canonical payload 与 digest；`--set /parameters/seed=7` 改变 digest，并在 resolution record 中记录来源与 JSON Pointer。
 - Regression smokes: none；这是 greenfield 仓库的首个 production 工程检查点。
 - Observable evidence: stdout JSON 至少包含 `format`、`task_id`、`resolved_references`、`resolution` 与 `digest`；字段顺序、路径表示和 digest 在相同输入下稳定，且不含 secret value、主机绝对路径或时间戳。
@@ -277,10 +277,10 @@ class ConfigCore:
 
 - `src/bora/application/lock_command.py`
 - `src/bora/cli/main.py`
-- `examples/config-minimal/bora.yaml`
-- `examples/config-minimal/harness.py`
-- `examples/config-invalid/bora.yaml`
-- `examples/config-invalid/harness.py`
+- `examples/core/config-minimal/bora.yaml`
+- `examples/core/config-minimal/harness.py`
+- `examples/core/config-invalid/bora.yaml`
+- `examples/core/config-invalid/harness.py`
 - `tests/acceptance/test_config_lock_cli.py`
 
 ### Acceptance Criteria

@@ -12,7 +12,7 @@ from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.load_and_lock import ConfigCore
 
 REPO = Path(__file__).resolve().parents[2]
-PKG = REPO / "examples" / "harness-minimal"
+PKG = REPO / "examples" / "core" / "harness-minimal"
 
 
 def _lock():

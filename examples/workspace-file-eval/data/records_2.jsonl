@@ -1,3 +1,0 @@
-{"user": "alice", "amount": 50.05, "items": 1, "tags": ["a"]}
-{"user": "bob", "amount": 40.0, "items": 1, "tags": ["a", "b"]}
-{"user": "eve", "amount": 55.0, "items": 1, "tags": ["e", "a"]}

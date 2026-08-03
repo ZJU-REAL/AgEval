@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "config-minimal"
-INVALID = REPO / "examples" / "config-invalid"
+MINIMAL = REPO / "examples" / "core" / "config-minimal"
+INVALID = REPO / "examples" / "core" / "config-invalid"
 
 
 def _run_bora(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -95,7 +95,7 @@ from pathlib import Path
 from bora.application.composition import build_lock_command
 repo = Path({str(REPO)!r})
 cmd = build_lock_command()
-summary = cmd.run(package_root=repo / "examples" / "config-minimal", task_id="config-minimal")
+summary = cmd.run(package_root=repo / "examples" / "core" / "config-minimal", task_id="config-minimal")
 assert summary["task_id"] == "config-minimal"
 # harness.py is not a Python package import path under examples
 assert not any("config-minimal" in m and m.endswith("harness") for m in sys.modules)

@@ -28,7 +28,7 @@ def _bora(*args: str) -> subprocess.CompletedProcess[str]:
 
 def test_agent_eval_offline_fail_closed() -> None:
     """With BORA_OFFLINE_AGENT=1, do not fabricate PASS for Codex packages."""
-    result = _bora("run", str(REPO / "examples" / "agent-eval"), "--task", "agent-eval")
+    result = _bora("run", str(REPO / "examples" / "core" / "agent-eval"), "--task", "agent-eval")
     # Fail-closed: harness missing agent result or evaluation ERROR — never silent PASS.
     assert result.returncode != 0, result.stdout
     if result.stdout.strip():
@@ -42,7 +42,7 @@ def test_stale_agent_result_cannot_force_pass(tmp_path: Path) -> None:
     import shutil
 
     pkg = tmp_path / "agent-eval"
-    shutil.copytree(REPO / "examples" / "agent-eval", pkg)
+    shutil.copytree(REPO / "examples" / "core" / "agent-eval", pkg)
     stale = pkg / ".bora_agent_result.json"
     stale.write_text(json.dumps({"answer": 42, "source": "stale"}) + "\n", encoding="utf-8")
     result = _bora("run", str(pkg), "--task", "agent-eval")
@@ -58,7 +58,7 @@ def test_sdk_agent_session_offline_no_stub_pass() -> None:
     """AgentSession must not manufacture answer:42 offline (Codex B-01)."""
     result = _bora(
         "run",
-        str(REPO / "examples" / "sdk-agent-session"),
+        str(REPO / "examples" / "core" / "sdk-agent-session"),
         "--task",
         "sdk-agent-session",
     )
@@ -68,7 +68,7 @@ def test_sdk_agent_session_offline_no_stub_pass() -> None:
 
 
 def test_unknown_task() -> None:
-    result = _bora("run", str(REPO / "examples" / "agent-eval"), "--task", "unknown")
+    result = _bora("run", str(REPO / "examples" / "core" / "agent-eval"), "--task", "unknown")
     assert result.returncode == 2
     assert "unknown_task" in result.stderr
     assert result.stdout.strip() == ""
@@ -77,7 +77,7 @@ def test_unknown_task() -> None:
 def test_evaluator_negative() -> None:
     result = _bora(
         "run",
-        str(REPO / "examples" / "evaluator-negative"),
+        str(REPO / "examples" / "core" / "evaluator-negative"),
         "--task",
         "evaluator-negative",
     )

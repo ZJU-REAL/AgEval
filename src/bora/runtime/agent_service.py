@@ -91,7 +91,7 @@ class ParentAgentService:
 
         # Multi-invoke sessions need headroom beyond the codex default 45s.
         try:
-            result = executor.invoke(prompt, timeout=180.0)
+            result = executor.invoke(prompt, timeout=300.0)
         except TypeError:
             result = executor.invoke(prompt)
         with self._lock:

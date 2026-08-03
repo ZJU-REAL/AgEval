@@ -47,7 +47,7 @@ Config (v0.1)
 - [x] `v0.12` — 后台控制与耐久 authority（按需）
 
 
-> **Acceptance packages (2026-08-03):** primary public journeys are `sdk-agent-session`, `terminal-jsonl-agg` (L1), `multiagent-env-min`, `tau2-dialog-min`, `env-postgres-min`, and `bora campaign` matrix — **not** `echo-contract` / ultra-thin toys.
+> **Acceptance packages (2026-08-03):** layout under `examples/{journeys,core,l1}/` (see `examples/README.md`). Primary journeys: `journeys/{env-postgres-min,multiagent-env-min,tau2-dialog-min,terminal-jsonl-agg}`, plus `core/sdk-agent-session` and campaign matrix — **not** removed toys (`echo-contract`, `workspace-file-eval`).
 
 ## Core 能力缺口 → v1 同类 case（不是 bench adapter）
 
@@ -108,13 +108,13 @@ Config Core 成为 `bora.yaml` 的唯一规范读取者，并通过可安装 CLI
 - [x] 可复现安装、`bora --help` 与 production composition root 可调用。
 - [x] Package 一级布局、`bora.yaml` 定位与未知路径策略符合 design/02。
 - [x] `load_and_lock` 完成读取、合并、校验、canonicalize、digest 与不可变 lock。
-- [x] `bora lock examples/config-minimal --task config-minimal` 输出无 secret 的锁定摘要。
+- [x] `bora lock examples/core/config-minimal --task config-minimal` 输出无 secret 的锁定摘要。
 - [x] 非法格式、未知 task、未知 profile、越界路径或不支持 capability 在 Attempt 之前 fail-closed。
 
 ### 验收标准
 
-- [x] Success：从 clean checkout 执行 frozen install 后，`uv run bora lock examples/config-minimal --task config-minimal` 返回 0，并输出稳定 `task_id`、format、resolved references 与 digest。
-- [x] Expected failure：`uv run bora lock examples/config-invalid --task config-invalid` 返回 2，且不写成功 lock 或伪造后续阶段。
+- [x] Success：从 clean checkout 执行 frozen install 后，`uv run bora lock examples/core/config-minimal --task config-minimal` 返回 0，并输出稳定 `task_id`、format、resolved references 与 digest。
+- [x] Expected failure：`uv run bora lock examples/core/config-invalid --task config-invalid` 返回 2，且不写成功 lock 或伪造后续阶段。
 - [x] Determinism：同一输入两次 lock 的 canonical payload 与 digest 相同；合法 override 改变 digest 并进入 resolution record。
 - [x] Engineering gates：frozen install、Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 全部通过。
 - [x] Documentation：README、Architecture Current 树、root/specs AGENTS 当前事实与实际入口同步；证据等级仍为 `design-only`，不得声称 `runnable-mvp`。
@@ -135,7 +135,7 @@ Lifecycle Core 在不启动真实 Harness 的前提下拥有 Run / Trial / Attem
 ### 起始可运行基线
 
 - Public entrypoint: `bora lock`。
-- Baseline smoke: `uv run bora lock examples/config-minimal --task config-minimal`。
+- Baseline smoke: `uv run bora lock examples/core/config-minimal --task config-minimal`。
 - Observable result: 可复盘 `LockedTaskConfig` 摘要；尚无 Attempt、Harness 或评价结果。
 
 ### 演进增量
@@ -298,7 +298,7 @@ Runtime 能通过 L0 Provider 启动 package Harness，并向其注入最小 `Ha
 
 ### 验收标准
 
-- [x] Success：application integration path 启动 `examples/harness-minimal`，读取 locked params、发布 declared JSON、返回 terminal 并停止 writer。
+- [x] Success：application integration path 启动 `examples/core/harness-minimal`，读取 locked params、发布 declared JSON、返回 terminal 并停止 writer。
 - [x] Expected failure：缺失/错误 Harness entrypoint 在 evaluator 之前失败并进入 cleanup；Control Plane 未 import package 模块。
 - [x] Boundary：Harness 看不到完整 `LockedTaskConfig`、host credential、Docker socket、evaluator-only material 或 final verdict API。
 - [x] Regression：`v0.1`–`v0.4` acceptance suites 全部通过。
@@ -347,13 +347,13 @@ Runtime 能通过 L0 Provider 启动 package Harness，并向其注入最小 `Ha
 
 ### 验收标准
 
-- [x] Success：真实 Codex 公开 journey — 本机已记录 `bora run examples/agent-eval` 与 `examples/echo-contract` exit 0 / PASS / score 1.0 / assurance l0（Codex re-verdict 2026-08-02）；**不**据此勾选 Version Index。
-- [x] Expected failure：`uv run bora run examples/agent-eval --task unknown` 在 Agent 调用前返回 2，不创建伪 PASS。
-- [x] Evaluator negative control：`uv run bora run examples/evaluator-negative --task evaluator-negative` 完成 Harness 后由独立 evaluator 给出合法 FAIL/低分，证明 `HarnessTerminal.completed` 不等于 PASS。
+- [x] Success：真实 Codex 公开 journey — 本机已记录 `bora run examples/core/agent-eval` exit 0 / PASS / score 1.0 / assurance l0（Codex re-verdict 2026-08-02；`echo-contract` 已并入/删除，见 `examples/README.md`）；**不**据此勾选 Version Index。
+- [x] Expected failure：`uv run bora run examples/core/agent-eval --task unknown` 在 Agent 调用前返回 2，不创建伪 PASS。
+- [x] Evaluator negative control：`uv run bora run examples/core/evaluator-negative --task evaluator-negative` 完成 Harness 后由独立 evaluator 给出合法 FAIL/低分，证明 `HarnessTerminal.completed` 不等于 PASS。
 - [x] Barrier：缺失 declared output 或未停止 writer 时 evaluator 不启动；cleanup 仍执行且失败只形成 warning（stale-file fail-closed 已证；full writer inventory 未闭合）。
 - [x] Regression：`v0.1`–`v0.5` acceptance suites 全部通过（需每次发版前重跑并记录）。
 - [x] Engineering gates：frozen install、Ruff、Pyright、pytest、公开 smokes、strict Specs validator、`git diff --check` 与文档同步全部通过（需与当前树同批记录）。
-- [x] Evidence：Codex 委托复审允许**限定** `runnable-mvp`（仅 L0 `agent-eval` / `echo-contract`）；不得扩写 `isolated` / Version Index。
+- [x] Evidence：Codex 委托复审允许**限定** `runnable-mvp`（L0 `examples/core/agent-eval` 等；`echo-contract` 已移除）；不得扩写 `isolated` / Version Index。
 
 > **Version Index `v0.6` 保持未勾选**。**Codex re-verdict honesty:** 公开 Success 可勾；关键交付 1–4 与 Barrier/Regression/Engineering 保持 `[ ]`。
 
@@ -396,8 +396,8 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 
 ### 验收标准
 
-- [x] Success：`uv run bora run examples/sdk-agent-session --task sdk-agent-session` 真实 Codex parent-bound multi-invoke（`agent_invocations: 2`）+ independent Evaluator PASS；offline 不静默 PASS；禁止 stub PASS。
-- [x] Tool success：`uv run bora run examples/sdk-tool-guard --task sdk-tool-guard` 使用 `ToolSet` 在限额内调用 declared local Tool 并形成可评测 artifact。
+- [x] Success：`uv run bora run examples/core/sdk-agent-session --task sdk-agent-session` 真实 Codex parent-bound multi-invoke（`agent_invocations: 2`）+ independent Evaluator PASS；offline 不静默 PASS；禁止 stub PASS。
+- [x] Tool success：`uv run bora run examples/core/sdk-tool-guard --task sdk-tool-guard` 使用 `ToolSet` 在限额内调用 declared local Tool 并形成可评测 artifact。
 - [x] Expected failure（policy denial）：负向 CallLimit package 在 callable 前拒绝（本地 Tool soft policy）。
 - [x] Authority regression：parent hard ceiling pre-spawn reserve（unit + production limit=2）；SDK 无 Runtime authority imports。
 - [x] Regression：focused + full pytest package green with named e2e/sdk/architecture/security suites。

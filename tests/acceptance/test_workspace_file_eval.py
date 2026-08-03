@@ -1,4 +1,7 @@
-"""Workspace file-eval package acceptance (offline fail-closed)."""
+"""Workspace file-eval acceptance (formerly workspace-file-eval; package removed).
+
+Retargeted to ``examples/journeys/terminal-jsonl-agg`` — workspace aggregates path.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +12,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PKG = REPO / "examples" / "workspace-file-eval"
+PKG = REPO / "examples" / "journeys" / "terminal-jsonl-agg"
 
 
 def _bora(*args: str) -> subprocess.CompletedProcess[str]:
@@ -26,15 +29,15 @@ def _bora(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_lock_workspace_package() -> None:
-    r = _bora("lock", str(PKG), "--task", "workspace-file-eval")
+def test_lock_terminal_package() -> None:
+    r = _bora("lock", str(PKG), "--task", "terminal-jsonl-agg")
     assert r.returncode == 0, r.stderr
     data = json.loads(r.stdout)
-    assert data["task_id"] == "workspace-file-eval"
+    assert data["task_id"] == "terminal-jsonl-agg"
 
 
 def test_offline_not_pass() -> None:
-    r = _bora("run", str(PKG), "--task", "workspace-file-eval")
+    r = _bora("run", str(PKG), "--task", "terminal-jsonl-agg")
     assert r.returncode != 0, r.stdout
     data = json.loads(r.stdout)
     assert data["status"] != "PASS"

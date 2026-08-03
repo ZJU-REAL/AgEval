@@ -1,4 +1,7 @@
-"""v1-like echo-contract acceptance (thin structured exact match)."""
+"""Thin agent structured-output acceptance (formerly echo-contract; package removed).
+
+Retargeted to ``examples/core/agent-eval`` — same surface: lock + offline fail-closed.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +12,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+PKG = REPO / "examples" / "core" / "agent-eval"
 
 
 def _bora(*args: str, offline: bool = True) -> subprocess.CompletedProcess[str]:
@@ -25,16 +29,16 @@ def _bora(*args: str, offline: bool = True) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_echo_contract_lock() -> None:
-    result = _bora("lock", str(REPO / "examples" / "echo-contract"), "--task", "echo-contract")
+def test_agent_eval_lock() -> None:
+    result = _bora("lock", str(PKG), "--task", "agent-eval")
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
-    assert data["task_id"] == "echo-contract"
+    assert data["task_id"] == "agent-eval"
     assert "digest" in data
 
 
-def test_echo_contract_offline_fail_closed() -> None:
-    result = _bora("run", str(REPO / "examples" / "echo-contract"), "--task", "echo-contract")
+def test_agent_eval_offline_fail_closed() -> None:
+    result = _bora("run", str(PKG), "--task", "agent-eval")
     assert result.returncode != 0, result.stdout
     data = json.loads(result.stdout)
     assert data["status"] != "PASS"

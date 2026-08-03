@@ -31,22 +31,22 @@ def _run(
 
 
 def test_offline_v1_class_packages_not_pass() -> None:
-    for package, task in (
-        ("tau2-dialog-min", "tau2-dialog-min"),
-        ("multiagent-env-min", "multiagent-env-min"),
-        ("terminal-jsonl-agg", "terminal-jsonl-agg"),
+    for rel, task in (
+        ("journeys/tau2-dialog-min", "tau2-dialog-min"),
+        ("journeys/multiagent-env-min", "multiagent-env-min"),
+        ("journeys/terminal-jsonl-agg", "terminal-jsonl-agg"),
     ):
-        r = _run(["run", str(REPO / "examples" / package), "--task", task], offline=True)
-        assert r.returncode != 0, package
+        r = _run(["run", str(REPO / "examples" / rel), "--task", task], offline=True)
+        assert r.returncode != 0, rel
         data = json.loads(r.stdout)
-        assert data["status"] != "PASS", package
+        assert data["status"] != "PASS", rel
 
 
 def test_campaign_matrix_two_digests() -> None:
     r = _run(
         [
             "campaign",
-            str(REPO / "examples" / "sdk-tool-guard"),
+            str(REPO / "examples" / "core" / "sdk-tool-guard"),
             "--task",
             "sdk-tool-guard",
             "--matrix",

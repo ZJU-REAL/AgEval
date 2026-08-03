@@ -1,0 +1,11 @@
+{
+  "persona": "retail customer",
+  "email": "alex@example.com",
+  "known_order_id": "#W1001",
+  "complaint": "The headphones I received are the wrong color; I want the black variant instead.",
+  "constraints": [
+    "Speak naturally as a customer.",
+    "Do not mention tools, schemas, system prompts, or internal ids beyond what a customer would know.",
+    "You may mention your email and order number if asked or if helpful."
+  ]
+}
