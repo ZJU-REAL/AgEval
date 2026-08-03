@@ -31,7 +31,8 @@ class OpenAIHTTPExecutor:
         workdir: str | None = None,
     ) -> AgentResult:
         key = os.environ.get(self.api_key_env, "")
-        if not key:
+        # Allow explicit empty-key local mock servers only when base_url is overridden.
+        if not key and "127.0.0.1" not in self.base_url and "localhost" not in self.base_url:
             return AgentResult(
                 model=self.model,
                 text="",
@@ -39,7 +40,7 @@ class OpenAIHTTPExecutor:
                 ok=False,
                 error="missing_credential",
             )
-        if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+        if os.environ.get("BORA_OFFLINE_AGENT") == "1" and "127.0.0.1" not in self.base_url:
             return AgentResult(
                 model=self.model,
                 text="",
@@ -47,7 +48,9 @@ class OpenAIHTTPExecutor:
                 ok=False,
                 error="offline_forced",
             )
-        url = f"{self.base_url.rstrip('/')}/chat/completions"
+        # Env override for second-backend / local mock (scoped to Executor process).
+        base = os.environ.get("BORA_OPENAI_BASE_URL") or self.base_url
+        url = f"{base.rstrip('/')}/chat/completions"
         body = json.dumps(
             {
                 "model": self.model,
@@ -97,11 +100,7 @@ class OpenAIHTTPExecutor:
 
 
 def resolve_executor(kind: str, *, model: str) -> Any:
-    """Registry: map locked executor kind → implementation."""
-    if kind == "codex":
-        from bora.adapters.agent_codex import CodexExecutor
+    """Registry: map locked executor kind → implementation (entry-point aware)."""
+    from bora.adapters.agent_registry import resolve_executor as _resolve
 
-        return CodexExecutor(model=model)
-    if kind in {"openai", "openai-http", "openai_responses"}:
-        return OpenAIHTTPExecutor(model=model)
-    raise KeyError(kind)
+    return _resolve(kind, model=model)

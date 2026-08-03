@@ -62,12 +62,38 @@ async def run_campaign(
     *,
     matrix_args: list[str],
 ) -> dict[str, Any]:
-    """Serially run each matrix variant via production run_task."""
+    """Serially run each matrix variant via production run_task.
+
+    Pre-admits all variants by dry-lock (load_and_lock) before any Trial runs;
+    writes an atomic campaign summary under the package ``.bora/campaigns/``.
+    """
+    from bora.adapters.package_fs import LocalPackageReader
+    from bora.config.capabilities import DeclarationCapabilityCatalog
+    from bora.config.load_and_lock import ConfigCore
+
     axes = [parse_matrix_arg(a) for a in matrix_args]
     variants = expand_matrix(axes)
-    trials: list[dict[str, Any]] = []
+    # Pre-admit: every variant must lock successfully before first Trial.
+    config = ConfigCore(package_reader=LocalPackageReader())
+    admitted: list[dict[str, Any]] = []
     for idx, variant in enumerate(variants):
-        # Each variant becomes independent lock overrides + evidence directory.
+        lock = config.load_and_lock(
+            package_root,
+            task_id,
+            overrides=variant if variant else None,
+            capabilities=DeclarationCapabilityCatalog(),
+        )
+        admitted.append(
+            {
+                "trial_index": idx,
+                "variant": variant,
+                "digest": lock.digest,
+                "trial_id": f"trial_plan_{idx}_{lock.digest[-12:]}",
+            }
+        )
+    trials: list[dict[str, Any]] = []
+    for plan in admitted:
+        variant = plan["variant"]
         code, result, details = await run_task(
             package_root,
             task_id,
@@ -75,23 +101,39 @@ async def run_campaign(
         )
         trials.append(
             {
-                "trial_index": idx,
+                "trial_index": plan["trial_index"],
+                "trial_id": plan["trial_id"],
                 "variant": variant,
                 "exit_code": code,
                 "status": result.status,
                 "score": result.score,
                 "evidence_path": result.evidence_path,
                 "run_dir": details.get("run_dir"),
-                "digest": getattr(result, "digest", None) or details.get("digest"),
+                "digest": getattr(result, "digest", None)
+                or details.get("digest")
+                or plan["digest"],
             }
         )
         if code == 2 and result.status == "ERROR" and not variant:
             break
+    digests = [t.get("digest") for t in trials if t.get("digest")]
     summary = {
         "campaign": True,
         "task_id": task_id,
         "trial_count": len(trials),
         "trials": trials,
         "all_pass": all(t.get("status") == "PASS" for t in trials) if trials else False,
+        "unique_digests": len(set(digests)),
+        "admission": "preflight_all_variants_then_serial",
+        "admitted_count": len(admitted),
+        "stop_on_config_error": True,
     }
+    # Atomic summary write
+    camp_dir = package_root / ".bora" / "campaigns"
+    camp_dir.mkdir(parents=True, exist_ok=True)
+    out = camp_dir / f"summary_{task_id}_{len(admitted)}.json"
+    tmp = out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp.replace(out)
+    summary["summary_path"] = str(out)
     return summary

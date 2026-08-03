@@ -335,45 +335,60 @@ async def run_task(
         )
         return code, flat, details
 
-    # Generic Environment resource prepare (postgresql) — resource-type named only.
+    # Environment Manager (Spec 09) — resource-type named only (postgresql).
     env_resource = str(params.get("environment_resource") or "")
+    env_manager = None
     if env_resource == "postgresql":
-        from bora.adapters.environment_postgres import PostgresEnvironment
+        from bora.environment.manager import EnvironmentManager
 
-        env_meta: dict[str, Any] = {"resource": "postgresql"}
-        pg = PostgresEnvironment(container_name=f"bora-env-{run_id[:10]}")
+        env_meta: dict[str, Any] = {"resource": "postgresql", "manager": True}
         try:
-            pg.start(timeout=90.0)
-            # Seed a tiny table and query via adapter actions.
-            # Adapter API: execute/query if present; else health only.
-            create_sql = "CREATE TABLE IF NOT EXISTS smoke(id INT PRIMARY KEY, label TEXT)"
-            r1 = pg.action("execute", {"sql": create_sql})
-            r2 = pg.action(
+            limits_map = thaw(lock.limits) if hasattr(lock, "limits") else {}
+            action_limit = int(
+                (limits_map or {}).get("environment_actions") or 10  # type: ignore[union-attr]
+            )
+            env_manager = EnvironmentManager(
+                attempt_id=str(agent_meta.get("attempt_id") or run_id),
+                action_limit=max(1, action_limit),
+            )
+            opened = env_manager.open_resource("postgresql", name=f"bora-env-{run_id[:10]}")
+            if not opened.get("ok"):
+                raise RuntimeError(opened.get("error") or "open_resource_failed")
+            rid = str(opened["resource_id"])
+            r1 = env_manager.action(
+                rid,
+                "execute",
+                {"sql": "CREATE TABLE IF NOT EXISTS smoke(id INT PRIMARY KEY, label TEXT)"},
+            )
+            r2 = env_manager.action(
+                rid,
                 "execute",
                 {"sql": "INSERT INTO smoke(id, label) VALUES (1, 'bora') ON CONFLICT DO NOTHING"},
             )
-            r3 = pg.action("query", {"sql": "SELECT label FROM smoke WHERE id = 1"})
+            r3 = env_manager.action(rid, "query", {"sql": "SELECT label FROM smoke WHERE id = 1"})
             action_ok = bool(r1.get("ok") and r3.get("ok"))
+            snap = env_manager.freeze_snapshot(rid)
             env_doc = {
                 "ok": action_ok,
                 "action": "query",
                 "query_ok": bool(r3.get("ok")),
                 "rows": [{"label": (r3.get("stdout") or "").strip() or "bora"}],
-                "action_count": pg.actions,
+                "action_count": env_manager._actions,
+                "resource_id": rid,
+                "snapshot": snap,
             }
             if not action_ok:
                 raise RuntimeError(f"env action failed: {r1} {r2} {r3}")
             (package_root / ".bora_env_result.json").write_text(
                 json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
             )
-            env_meta.update({"ok": True, "ready": True})
+            env_meta.update({"ok": True, "ready": True, "resource_id": rid})
         except Exception as exc:  # noqa: BLE001
             env_doc = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
             (package_root / ".bora_env_result.json").write_text(
                 json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
             )
             env_meta.update({"ok": False, "error": str(exc)})
-            # Fail closed if environment required
             flat = bind_result(
                 evaluator_raw=None,
                 harness_kind="failed",
@@ -393,14 +408,15 @@ async def run_task(
             (run_dir / "result.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
             )
-            with contextlib.suppress(Exception):
-                pg.stop()
+            if env_manager is not None:
+                with contextlib.suppress(Exception):
+                    env_manager.close()
             return 2, flat, {"environment": env_meta, "assurance": "l0"}
-        # ensure cleanup later
         agent_meta["environment"] = env_meta
-        # stash for cleanup
-        # attach to details via nonlocal pattern — use run_dir marker file
-        (run_dir / "env_container_name.txt").write_text(pg.container_name, encoding="utf-8")
+        (run_dir / "env_manager.json").write_text(
+            json.dumps({"resource_id": env_meta.get("resource_id")}, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
     try:
         harness_timeout = (
@@ -426,7 +442,10 @@ async def run_task(
                 "mode": "parent_agent_service",
                 "invocations": agent_service.invocations_completed,
             }
-        # Environment teardown
+        # Environment Manager teardown
+        if env_manager is not None:
+            with contextlib.suppress(Exception):
+                env_manager.close()
         marker = run_dir / "env_container_name.txt"
         if marker.is_file():
             try:
@@ -438,10 +457,10 @@ async def run_task(
                 pass
             with contextlib.suppress(OSError):
                 marker.unlink()
-        env_handoff = package_root / ".bora_env_result.json"
-        if env_handoff.exists():
-            with contextlib.suppress(OSError):
-                env_handoff.unlink()
+        for handoff in (package_root / ".bora_env_result.json", run_dir / "env_manager.json"):
+            if handoff.exists():
+                with contextlib.suppress(OSError):
+                    handoff.unlink()
 
     envelope = harness_out.get("envelope") or {}
     harness_kind = "failed"

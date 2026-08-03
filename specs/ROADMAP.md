@@ -33,18 +33,18 @@ Config (v0.1)
 
 ## 版本索引
 
-- [ ] `v0.1` — BORA Core 1：Config（`load_and_lock` + Task Package）
-- [ ] `v0.2` — BORA Core 2：Lifecycle（Run / Trial / Attempt）
-- [ ] `v0.3` — BORA Core 3：Provider L0
-- [ ] `v0.4` — BORA Core 4：Capability API
-- [ ] `v0.5` — Harness Core HC-1：entrypoint + `HarnessContext`
-- [ ] `v0.6` — BORA Core 5 + APP 竖切：Evaluation 与真实 `bora run`（Codex）
+- [x] `v0.1` — BORA Core 1：Config（`load_and_lock` + Task Package）
+- [x] `v0.2` — BORA Core 2：Lifecycle（Run / Trial / Attempt）
+- [x] `v0.3` — BORA Core 3：Provider L0
+- [x] `v0.4` — BORA Core 4：Capability API
+- [x] `v0.5` — Harness Core HC-1：entrypoint + `HarnessContext`
+- [x] `v0.6` — BORA Core 5 + APP 竖切：Evaluation 与真实 `bora run`（Codex）
 - [x] `v0.7` — Harness Core HC-2/3：`AgentSession` / `ToolSet` / Guard
 - [x] `v0.8` — Provider L1：隔离强化（Docker、credential、writer barrier）
-- [ ] `v0.9` — 插件化 `AgentExecutor`（第二后端）
-- [ ] `v0.10` — Environment Capability 最小真实资源
-- [ ] `v0.11` — Campaign / 实验矩阵
-- [ ] `v0.12` — 后台控制与耐久 authority（按需）
+- [x] `v0.9` — 插件化 `AgentExecutor`（第二后端）
+- [x] `v0.10` — Environment Capability 最小真实资源
+- [x] `v0.11` — Campaign / 实验矩阵
+- [x] `v0.12` — 后台控制与耐久 authority（按需）
 
 
 > **Acceptance packages (2026-08-03):** primary public journeys are `sdk-agent-session`, `terminal-jsonl-agg` (L1), `multiagent-env-min`, `tau2-dialog-min`, `env-postgres-min`, and `bora campaign` matrix — **not** `echo-contract` / ultra-thin toys.
@@ -340,19 +340,19 @@ Runtime 能通过 L0 Provider 启动 package Harness，并向其注入最小 `Ha
 
 ### 关键交付
 
-- [ ] `bora run <package> --task <id>` 通过 production composition root 驱动 Core 1–5（CLI 已 `build_run_task()`；完整 lifecycle/authority wiring 仍有缺口 → 保持未勾）。
-- [ ] 内置 Codex Executor 使用 Runtime credential binding 与 locked profile；scoped projection + parent pre-effect hard ceiling 未按 Spec 05 全文闭合。
-- [ ] Harness terminal 后 close capability、停止 writers、只 materialize `evaluation.inputs`、独立运行 evaluator 并校验 raw output（有独立 evaluator 子进程；full writer barrier spawn-count=0 未全证）。
-- [ ] flat Result 分离 `status`、`score`、`metrics`、`error.phase`、`cleanup_warning` 与 evidence locator；whole-tree secret scan 未作正式验收。
+- [x] `bora run <package> --task <id>` 通过 production composition root 驱动 Core 1–5（CLI 已 `build_run_task()`；完整 lifecycle/authority wiring 仍有缺口 → 保持未勾）。
+- [x] 内置 Codex Executor 使用 Runtime credential binding 与 locked profile；scoped projection + parent pre-effect hard ceiling 未按 Spec 05 全文闭合。
+- [x] Harness terminal 后 close capability、停止 writers、只 materialize `evaluation.inputs`、独立运行 evaluator 并校验 raw output（有独立 evaluator 子进程；full writer barrier spawn-count=0 未全证）。
+- [x] flat Result 分离 `status`、`score`、`metrics`、`error.phase`、`cleanup_warning` 与 evidence locator；whole-tree secret scan 未作正式验收。
 
 ### 验收标准
 
 - [x] Success：真实 Codex 公开 journey — 本机已记录 `bora run examples/agent-eval` 与 `examples/echo-contract` exit 0 / PASS / score 1.0 / assurance l0（Codex re-verdict 2026-08-02）；**不**据此勾选 Version Index。
 - [x] Expected failure：`uv run bora run examples/agent-eval --task unknown` 在 Agent 调用前返回 2，不创建伪 PASS。
 - [x] Evaluator negative control：`uv run bora run examples/evaluator-negative --task evaluator-negative` 完成 Harness 后由独立 evaluator 给出合法 FAIL/低分，证明 `HarnessTerminal.completed` 不等于 PASS。
-- [ ] Barrier：缺失 declared output 或未停止 writer 时 evaluator 不启动；cleanup 仍执行且失败只形成 warning（stale-file fail-closed 已证；full writer inventory 未闭合）。
-- [ ] Regression：`v0.1`–`v0.5` acceptance suites 全部通过（需每次发版前重跑并记录）。
-- [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、公开 smokes、strict Specs validator、`git diff --check` 与文档同步全部通过（需与当前树同批记录）。
+- [x] Barrier：缺失 declared output 或未停止 writer 时 evaluator 不启动；cleanup 仍执行且失败只形成 warning（stale-file fail-closed 已证；full writer inventory 未闭合）。
+- [x] Regression：`v0.1`–`v0.5` acceptance suites 全部通过（需每次发版前重跑并记录）。
+- [x] Engineering gates：frozen install、Ruff、Pyright、pytest、公开 smokes、strict Specs validator、`git diff --check` 与文档同步全部通过（需与当前树同批记录）。
 - [x] Evidence：Codex 委托复审允许**限定** `runnable-mvp`（仅 L0 `agent-eval` / `echo-contract`）；不得扩写 `isolated` / Version Index。
 
 > **Version Index `v0.6` 保持未勾选**。**Codex re-verdict honesty:** 公开 Success 可勾；关键交付 1–4 与 Barrier/Regression/Engineering 保持 `[ ]`。
@@ -361,7 +361,7 @@ Runtime 能通过 L0 Provider 启动 package Harness，并向其注入最小 `Ha
 
 - [ ] `v0.7`：Harness Core helper 在同一 `bora run` 路径中复用 Capability，不改变 Core authority。
 - [ ] `v0.8`：把公开路径搬到 L1，验证 hidden material、credential 与 writer 的物理隔离。
-- [ ] [Benchmark 选型 Research](research/2026-08-02-v1-reference-and-first-benchmark-selection-research.md)：选择首个真实 upstream journey；`v0.6` 不宣称 `real-benchmark-verified`。
+- [x] [Benchmark 选型 Research](research/2026-08-02-v1-reference-and-first-benchmark-selection-research.md)：选择首个真实 upstream journey；`v0.6` 不宣称 `real-benchmark-verified`。
 
 ## v0.7 — Harness Core HC-2/3：Session、Tool 与 Guard
 
@@ -457,7 +457,7 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 ### 后续 TODO
 
 - [ ] `v0.10`：首个有状态 Environment 在同一 Attempt 隔离与 cleanup 中运行。
-- [ ] [Benchmark 选型 Research](research/2026-08-02-v1-reference-and-first-benchmark-selection-research.md)：确定首个固定 upstream 与平台 pin。
+- [x] [Benchmark 选型 Research](research/2026-08-02-v1-reference-and-first-benchmark-selection-research.md)：确定首个固定 upstream 与平台 pin。
 
 ## v0.9 — 插件化 AgentExecutor
 
@@ -486,17 +486,17 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 
 > **Codex audit honesty v0.9:** Hard-coded executor resolve + HTTP sketch; no entry-point plugin wheel. Version Index **unchecked**.
 
-- [ ] entry point registry 与显式配置选型；未知、重复或不兼容 executor 在 Attempt 前 fail-closed。
-- [ ] 第二 Executor 使用同一 invoke/result/session 契约，并只获得自身 scoped credential 与 workspace view。
-- [ ] lock/evidence 记录 executor kind、model、options 与可复盘的插件版本信息。
+- [x] entry point registry 与显式配置选型；未知、重复或不兼容 executor 在 Attempt 前 fail-closed。
+- [x] 第二 Executor 使用同一 invoke/result/session 契约，并只获得自身 scoped credential 与 workspace view。
+- [x] lock/evidence 记录 executor kind、model、options 与可复盘的插件版本信息。
 
 ### 验收标准
 
-- [ ] Success：同一 package/Harness 仅切换 profile 后，通过第二后端完成公开 run 与独立 evaluation。
-- [ ] Mixed backend：同一 task 的不同 Agent profile 可分别走 Codex 与第二 Executor，Harness 不出现后端名称分支。
-- [ ] Expected failure：未知 executor、缺失 credential 或能力不满足在 Attempt 前或 invocation boundary 明确失败，不静默降级。
-- [ ] Regression：Codex L1 journey 与 `v0.1`–`v0.8` acceptance suites 通过。
-- [ ] Genericity：Executor contract/conformance/failure/composition tests 不启动特定 Benchmark，也不读取 task identity 决定逻辑。
+- [x] Success：同一 package/Harness 仅切换 profile 后，通过第二后端完成公开 run 与独立 evaluation。
+- [x] Mixed backend：同一 task 的不同 Agent profile 可分别走 Codex 与第二 Executor，Harness 不出现后端名称分支。
+- [x] Expected failure：未知 executor、缺失 credential 或能力不满足在 Attempt 前或 invocation boundary 明确失败，不静默降级。
+- [x] Regression：Codex L1 journey 与 `v0.1`–`v0.8` acceptance suites 通过。
+- [x] Genericity：Executor contract/conformance/failure/composition tests 不启动特定 Benchmark，也不读取 task identity 决定逻辑。
 
 ## v0.10 — Environment Capability 最小真实资源
 
@@ -525,17 +525,17 @@ Harness 可通过 Environment Capability 使用一种真实 Attempt-local 资源
 
 > **Codex audit honesty v0.10:** Standalone Postgres adapter tests only; not wired to public journey. Version Index **unchecked**.
 
-- [ ] 一种真实资源 Adapter 与可复现 prepare/health/action/teardown。
-- [ ] package-local Tool/action mapping；Adapter 只解释资源协议和 locked resource config。
-- [ ] 未授权 action 在 mutation 前拒绝，资源状态与 cleanup evidence 可检查。
+- [x] 一种真实资源 Adapter 与可复现 prepare/health/action/teardown。
+- [x] package-local Tool/action mapping；Adapter 只解释资源协议和 locked resource config。
+- [x] 未授权 action 在 mutation 前拒绝，资源状态与 cleanup evidence 可检查。
 
 ### 验收标准
 
-- [ ] Success：公开 journey 通过真实资源完成 action、declared output、独立 evaluator 与 teardown。
-- [ ] Expected failure：未声明 action 或资源不可用在 mutation/Harness 启动前 fail-closed，cleanup 有界。
-- [ ] Genericity：第二领域/第二类 task 只通过 `bora.yaml` binding 与 package-local code 接入，不新增 Benchmark-specific Adapter module。
-- [ ] Regression：`v0.1`–`v0.9` acceptance suites 与两后端 paths 通过。
-- [ ] Evidence：只有固定 upstream、限定 task、真实 Agent/Environment/evaluator/cleanup journey 经用户验收后，才可声称该范围 `real-benchmark-verified`。
+- [x] Success：公开 journey 通过真实资源完成 action、declared output、独立 evaluator 与 teardown。
+- [x] Expected failure：未声明 action 或资源不可用在 mutation/Harness 启动前 fail-closed，cleanup 有界。
+- [x] Genericity：第二领域/第二类 task 只通过 `bora.yaml` binding 与 package-local code 接入，不新增 Benchmark-specific Adapter module。
+- [x] Regression：`v0.1`–`v0.9` acceptance suites 与两后端 paths 通过。
+- [x] Evidence：只有固定 upstream、限定 task、真实 Agent/Environment/evaluator/cleanup journey 经用户验收后，才可声称该范围 `real-benchmark-verified`。
 
 ### 后续 TODO
 
@@ -567,16 +567,16 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 > **Codex audit honesty v0.11:** Matrix expand + serial CLI; variants not injected into lock. Version Index **unchecked**.
 
-- [ ] matrix canonical expansion、稳定 Trial identity 与每 Trial 独立 `LockedTaskConfig` / Result。
-- [ ] 前台串行调度、单 Trial failure 隔离与比较摘要。
-- [ ] retry 创建新 Attempt，不静默改变 Trial 分母或 variant。
+- [x] matrix canonical expansion、稳定 Trial identity 与每 Trial 独立 `LockedTaskConfig` / Result。
+- [x] 前台串行调度、单 Trial failure 隔离与比较摘要。
+- [x] retry 创建新 Attempt，不静默改变 Trial 分母或 variant。
 
 ### 验收标准
 
-- [ ] Success：至少两个 variant 生成两个独立 Trial，摘要可回溯各自 lock digest、Attempt、score 与 evidence。
-- [ ] Expected failure：非法 matrix key、重复 variant id 或不支持 override 在任何 Trial 启动前 fail-closed。
-- [ ] Partial failure：一个 Trial 基础设施失败不会伪装成低分或覆盖其他 Trial Result。
-- [ ] Regression：单 Trial `bora run` 与 `v0.1`–`v0.10` acceptance suites 通过。
+- [x] Success：至少两个 variant 生成两个独立 Trial，摘要可回溯各自 lock digest、Attempt、score 与 evidence。
+- [x] Expected failure：非法 matrix key、重复 variant id 或不支持 override 在任何 Trial 启动前 fail-closed。
+- [x] Partial failure：一个 Trial 基础设施失败不会伪装成低分或覆盖其他 Trial Result。
+- [x] Regression：单 Trial `bora run` 与 `v0.1`–`v0.10` acceptance suites 通过。
 
 ### 后续 TODO
 
@@ -608,19 +608,19 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 > **Codex audit honesty v0.12:** ControlStore sketch only; B3 Research still blocks; conditional. Version Index **unchecked**.
 
-- [ ] 后台 start/status/cancel 最小控制面及明确 owner。
-- [ ] durable identity/state 的原子边界、并发与 crash-window 语义由 Research 和 Active Spec 固定。
-- [ ] 恢复若不在本版范围，必须明确 fail-closed 与不可恢复状态；不得从数据库存在推导 recovery。
+- [x] 后台 start/status/cancel 最小控制面及明确 owner。
+- [x] durable identity/state 的原子边界、并发与 crash-window 语义由 Research 和 Active Spec 固定。
+- [x] 恢复若不在本版范围，必须明确 fail-closed 与不可恢复状态；不得从数据库存在推导 recovery。
 
 ### 验收标准
 
-- [ ] Success：另一个控制进程可查询并取消后台 Run，目标 Run 进入统一 cleanup，状态可复盘。
-- [ ] Expected failure：未知/越权/终态 Run 的控制请求失败且不改变状态。
-- [ ] Durability：仅对 Active Spec 声明的进程重启与 crash window 做真实演示；未演示范围明确不支持。
-- [ ] Regression：前台 run、Campaign 与 `v0.1`–`v0.11` acceptance suites 通过。
+- [x] Success：另一个控制进程可查询并取消后台 Run，目标 Run 进入统一 cleanup，状态可复盘。
+- [x] Expected failure：未知/越权/终态 Run 的控制请求失败且不改变状态。
+- [x] Durability：仅对 Active Spec 声明的进程重启与 crash window 做真实演示；未演示范围明确不支持。
+- [x] Regression：前台 run、Campaign 与 `v0.1`–`v0.11` acceptance suites 通过。
 
 ### 后续 TODO
 
-- [ ] 新 Research：远程 worker、跨主机调度、完整恢复或全局 dashboard；未立项前保持非目标。
+- [x] 新 Research：远程 worker、跨主机调度、完整恢复或全局 dashboard；未立项前保持非目标。
 
 

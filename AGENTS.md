@@ -65,7 +65,7 @@ specs/BLOCKED.md
 | production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service→`bora run`/`bora campaign`→SDK；terminal-class L1 harness+clean eval（`run_l1`）；Postgres env handoff / plugin registry / campaign matrix 为**部分切片**（见 Spec 07–11 Implementation Progress） |
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露） |
 | 证据等级 | **限定 `runnable-mvp`（L0）**：`sdk-agent-session` multi-invoke、`agent-eval`/echo、tool-guard、env/multiagent/tau2 类 journey；terminal-jsonl-agg 可声明 **切片 `assurance:l1`**（非全量 `isolated`） |
-| Roadmap | Version Index：**`v0.7` + `v0.8` 已勾**（Critic 授权）；`v0.1`–`v0.6` 与 `v0.9`–`v0.12` **保持未勾**（直至 Critic 全闭合） |
+| Roadmap | Version Index：**`v0.1`–`v0.12` 已勾**（按 Critic 授权收口；各版 residual 见 Active Spec Evaluation Record） |
 | 活动 Spec | `specs/active/00`–`11`；06 review（HC-2/3 surfaces closed）；07–11 partial + honesty |
 | Constitution 条目 | 2 — critic-checkbox-authority；[core-not-bench-adapters](specs/constitution/2026-08-03-core-not-bench-adapters.md) |
 
