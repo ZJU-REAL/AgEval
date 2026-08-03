@@ -60,6 +60,8 @@ projection, residual writer). Not substitutes for the journey packages.
 | Package | Role |
 | --- | --- |
 | [`provider-l1-agent-eval`](l1/provider-l1-agent-eval/) | L1 Attempt + agent + clean evaluator PASS |
+| [`builtin-executor-visibility`](l1/builtin-executor-visibility/) | Spec 14: execution_location + assurance:l1 |
+| [`builtin-executor-visibility-denied`](l1/builtin-executor-visibility-denied/) | Spec 14: gold/hidden denial |
 | [`provider-l1-denied`](l1/provider-l1-denied/) | Hidden material / view denial |
 | [`provider-l1-projection-denied`](l1/provider-l1-projection-denied/) | Credential / network projection denial |
 | [`provider-l1-residual-writer`](l1/provider-l1-residual-writer/) | Residual writer stop before evaluator |

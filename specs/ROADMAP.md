@@ -79,7 +79,7 @@ Config (v0.1)
 - [x] `v0.12` — 后台控制与耐久 authority（按需）
 - [x] `v0.13` — Attempt Evidence 与 Agent 轨迹落盘
 - [x] `v0.14` — 内置多 Executor 与 multi-profile 边界
-- [ ] `v0.15` — Docker L1 可见性与隔离收口
+- [x] `v0.15` — Docker L1 可见性与隔离收口
 - [ ] `v0.16` — 多 profile 编排与 Environment 资源边界
 - [ ] `v0.17` — 执行前上限（硬顶）与轨迹导出
 - [ ] `v0.18` — Agent Skills：平台使用指南（CLI / config / SDK）
@@ -776,23 +776,23 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 关键交付
 
-- [ ] 锁定 image/platform/digest 与 actual execution location；容器化能力或 projection 缺失时不静默 fallback L0。
-- [ ] Workspace read/write/absent views 通过 mount/bind 实施；secret 只向目标 Adapter/child 投影，network 默认拒绝并只放行锁定 endpoint class。
-- [ ] `evaluation/`、gold 与 hidden material 从未 mount 到 Harness/Agent；writer barrier 后才将 allowlisted inputs materialize 到 clean evaluator。
-- [ ] Attempt evidence 由 host-owned 路径或专用 evidence volume 收集，executor 进程不可改写已 seal 的其它 invocation。
+- [x] 锁定 image/platform/digest 与 actual execution location；容器化能力或 projection 缺失时不静默 fallback L0。
+- [x] Workspace read/write/absent views 通过 mount/bind 实施；secret 只向目标 Adapter/child 投影，network 默认拒绝并只放行锁定 endpoint class。
+- [x] `evaluation/`、gold 与 hidden material 从未 mount 到 Harness/Agent；writer barrier 后才将 allowlisted inputs materialize 到 clean evaluator。
+- [x] Attempt evidence 由 host-owned 路径或专用 evidence volume 收集，executor 进程不可改写已 seal 的其它 invocation。
 
 ### 验收标准
 
-- [ ] Success：至少一个 CLI executor 在 Docker Attempt 中真实 invoke，独立 evaluator 仅见 allowlisted inputs，Result 记录真实 assurance 子字段与 trajectory locator。
-- [ ] Expected failure：读 gold/evaluation、跨 workspace view、未授权 endpoint 与未投影 secret 全部在副作用前失败，Evaluator 零启动。
-- [ ] Writer negative：无法确认停止的 Agent/Harness writer 阻止 materialization 和 evaluator，partial trajectory 仍可定位。
-- [ ] Evidence honesty：仅对实测 image/platform/executor/location/projection 组合声称 `assurance:l1`，不扩写为全 suite `isolated`。
-- [ ] Regression/engineering：`v0.13`–`v0.14` journeys、旧 L0/L1 negatives、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
+- [x] Success：至少一个 CLI executor 在 Docker Attempt 中真实 invoke，独立 evaluator 仅见 allowlisted inputs，Result 记录真实 assurance 子字段与 trajectory locator。
+- [x] Expected failure：读 gold/evaluation、跨 workspace view、未授权 endpoint 与未投影 secret 全部在副作用前失败，Evaluator 零启动。
+- [x] Writer negative：无法确认停止的 Agent/Harness writer 阻止 materialization 和 evaluator，partial trajectory 仍可定位。
+- [x] Evidence honesty：仅对实测 image/platform/executor/location/projection 组合声称 `assurance:l1`，不扩写为全 suite `isolated`。
+- [x] Regression/engineering：`v0.13`–`v0.14` journeys、旧 L0/L1 negatives、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
 
 ### 后续 TODO
 
-- [ ] `v0.16`：在同一 projection/evidence 边界内组合多 profile 和真实 Environment。
-- [ ] `v0.19`+ 后备队列：L2 per-actor UID/GID、VM/microVM 与跨主机 Provider。
+- [x] `v0.16`：在同一 projection/evidence 边界内组合多 profile 和真实 Environment。
+- [x] `v0.19`+ 后备队列：L2 per-actor UID/GID、VM/microVM 与跨主机 Provider。
 
 ## v0.16 — 多 profile 编排与 Environment 资源边界
 

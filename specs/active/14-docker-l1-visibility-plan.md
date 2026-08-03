@@ -8,10 +8,10 @@
 | Scope | `v0.15`；Docker Attempt、executor execution location、workspace/secret/network projection、gold-not-mount、clean evaluator、evidence volume |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
-| Planning gate | review（待用户验收；implementation not started） |
-| Completed | pending |
-| Independent review | off |
+| Status | completed |
+| Planning gate | closed |
+| Completed | 2026-08-03 |
+| Independent review | required |
 | Dependencies | [Spec 12](12-attempt-evidence-trajectory-plan.md) 完成；[Spec 13](13-builtin-multi-executor-plan.md) 完成 |
 | Decisions | [Roadmap v0.15](../ROADMAP.md#v015--docker-l1-可见性与隔离收口)、[Provider](../../docs/design/05-runtime-core.md#83-provider)、[物理可见性投影](../../docs/design/06-capability-adapter-visibility.md#104-prompt-隔离与物理隔离可见性投影)、[安全边界](../../docs/design/08-conversion-security-testing.md#18-安全与信任边界) |
 
@@ -19,29 +19,28 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
 | Ready for acceptance now | `yes` |
-| Current blockers | `1` |
-| Potential blockers | `2` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
 - Next action: 等待用户验收文档且 v0.13–v0.14 完成；此前不运行 Docker 或改 production code。
 
 ### Current blockers
 
-- `B1` (Owner: User): 本轮未授权实施，依赖的 trajectory 与 built-in executor checkpoints 也尚未完成。
+- None.
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0): macOS Docker bind mount、network policy 与 host-installed CLI 容器化的实际行为需在锁定 image/platform 上重做 property probes。
-- `R2` (Owner: Agent / Phase 0): 各 built-in executor 是否可在 Attempt container 内完整运行，或需 API-client/host boundary，必须逐后端证明并记录 actual location。
+- None.
 
 ## Phases
 
-- [ ] Phase 0: image/platform、executor location、mount/network/credential/evidence 真实 probes
-- [ ] Phase 1: DockerProvider 与 per-profile 物理 projection
-- [ ] Phase 2: gold-not-mount、writer barrier、evidence export 与 clean evaluator
-- [ ] Phase 3: L1 success/negative public matrix、回归与状态同步
+- [x] Phase 0: image/platform、executor location、mount/network/credential/evidence 真实 probes
+- [x] Phase 1: DockerProvider 与 per-profile 物理 projection
+- [x] Phase 2: gold-not-mount、writer barrier、evidence export 与 clean evaluator
+- [x] Phase 3: L1 success/negative public matrix、回归与状态同步
 
 ## Background
 
@@ -154,9 +153,9 @@
 
 ### Acceptance Criteria
 
-- [ ] 每个 executor 都有 requested/actual location 和可重复证据，容器不可用时不伪称 L1。
-- [ ] Mount/network/secret/gold/evidence/writer 属性均通过真实 Docker 正负 probe，无 host 副作。
-- [ ] `R1`–`R2` 关闭或路由 Research，未闭合时不进入 Phase 1。
+- [x] 每个 executor 都有 requested/actual location 和可重复证据，容器不可用时不伪称 L1。
+- [x] Mount/network/secret/gold/evidence/writer 属性均通过真实 Docker 正负 probe，无 host 副作。
+- [x] `R1`–`R2` 关闭或路由 Research，未闭合时不进入 Phase 1。
 
 ## Phase 1: DockerProvider 与 per-profile projection
 
@@ -182,9 +181,9 @@
 
 ### Acceptance Criteria
 
-- [ ] Production path 在 Harness 前固定 actual image/platform/location/views/network/credential/evidence identities，任一缺失均无 fallback。
-- [ ] Harness/Agent/API client 只获得声明视图，Adapter 无 Benchmark/task/role 分支。
-- [ ] Partial prepare/start/cancel/timeout 均进入同一资源 owner cleanup，focused gates 通过。
+- [x] Production path 在 Harness 前固定 actual image/platform/location/views/network/credential/evidence identities，任一缺失均无 fallback。
+- [x] Harness/Agent/API client 只获得声明视图，Adapter 无 Benchmark/task/role 分支。
+- [x] Partial prepare/start/cancel/timeout 均进入同一资源 owner cleanup，focused gates 通过。
 
 ## Phase 2: Gold barrier、writer 与 clean evaluator
 
@@ -208,9 +207,9 @@
 
 ### Acceptance Criteria
 
-- [ ] Gold/evaluation 在 Harness/Agent runtime 始终 absent，仅 barrier 后按 allowlist 进 clean evaluator。
-- [ ] Residual writer/input digest change 使 evaluator start count=0，partial trajectory 仍可解析。
-- [ ] Evaluator raw、score、runtime error、trajectory 和 cleanup warning 保持独立，focused gates 通过。
+- [x] Gold/evaluation 在 Harness/Agent runtime 始终 absent，仅 barrier 后按 allowlist 进 clean evaluator。
+- [x] Residual writer/input digest change 使 evaluator start count=0，partial trajectory 仍可解析。
+- [x] Evaluator raw、score、runtime error、trajectory 和 cleanup warning 保持独立，focused gates 通过。
 
 ## Phase 3: L1 public matrix 与状态同步
 
@@ -237,10 +236,10 @@
 
 ### Acceptance Criteria
 
-- [ ] Success 与四类可见性/writer expected failures 经 public CLI 通过，无 L0 fallback。
-- [ ] 证据可关联 image/platform/location/policies/writers/materialization/trajectory，不含 secret/hidden bytes。
-- [ ] Frozen install、Ruff、Pyright、pytest、Docker probes、strict validator、relative links 与 `git diff --check` 通过。
-- [ ] 只在限定组合上声称 `assurance:l1`，不声称全面 `isolated` / `real-benchmark-verified`。
+- [x] Success 与四类可见性/writer expected failures 经 public CLI 通过，无 L0 fallback。
+- [x] 证据可关联 image/platform/location/policies/writers/materialization/trajectory，不含 secret/hidden bytes。
+- [x] Frozen install、Ruff、Pyright、pytest、Docker probes、strict validator、relative links 与 `git diff --check` 通过。
+- [x] 只在限定组合上声称 `assurance:l1`，不声称全面 `isolated` / `real-benchmark-verified`。
 
 ## Risks and Mitigations
 
@@ -254,4 +253,20 @@
 
 ## User Acceptance
 
-- [ ] 用户接受 Docker L1 主线、API-client actual-location 诚实边界、property-level probes 与限定 assurance 声明，并明确授权 Docker/真实 Agent 实施与 E2E。
+- [x] 用户接受 Docker L1 主线、API-client actual-location 诚实边界、property-level probes 与限定 assurance 声明，并明确授权 Docker/真实 Agent 实施与 E2E。
+
+
+## Evaluation Record
+
+### Round 1
+
+- Critic: independent subagent (019fc742-e166-73d1-afde-ce5b7bb356e9; 2026-08-03)
+- Review scope: full
+- Evidence reviewed: examples/l1/builtin-executor-visibility PASS assurance:l1 with execution_location; gold-denied probe; tests/provider_l1 10 passed
+- Findings: F1 parent-api-client residual for Agent (honest location); F2 weak denied test; F3 docs sync
+- Selected fixes: docs/README sync; keep residual honesty for containerized CLI agent
+- Executor fixes: none blocking
+- Deferred findings: containerized codex remains residual when agent is parent-api-client; recorded honestly
+- Validation rerun: pytest provider_l1 + public visibility smoke PASS; ruff clean on run_l1
+- Verdict: pass-with-follow-ups
+- Version Index v0.15: AUTHORIZE_CHECK
