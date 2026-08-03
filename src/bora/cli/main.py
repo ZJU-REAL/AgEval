@@ -136,6 +136,37 @@ def run_command(
     raise typer.Exit(code=code)
 
 
+@app.command("evidence")
+def evidence_export_command(
+    evidence_root: Annotated[
+        Path,
+        typer.Argument(help="Attempt evidence root (Result.logs path)."),
+    ],
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Destination directory for versioned export."),
+    ],
+) -> None:
+    """Export sealed trajectory as re-redacted copy (v0.17). Does not change score."""
+    from bora.evidence.export import export_trajectory
+
+    result = export_trajectory(evidence_root, out)
+    typer.echo(
+        json.dumps(
+            {
+                "ok": result.ok,
+                "export_path": result.export_path,
+                "invocation_count": result.invocation_count,
+                "error": result.error,
+                "schema": "bora.trajectory.export/1",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
+    raise typer.Exit(code=0 if result.ok else 2)
+
+
 @app.command("status")
 def status_command(
     run_id: Annotated[str, typer.Argument(help="Run id from ControlStore.")],
