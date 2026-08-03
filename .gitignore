@@ -37,3 +37,4 @@ out/
 credentials/
 COMMIT.md
 .bora/
+*.bora_env_result.json
