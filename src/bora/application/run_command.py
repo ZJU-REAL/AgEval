@@ -381,6 +381,7 @@ async def run_task(
     env_manager = None
     if env_resource == "postgresql":
         from bora.environment.manager import EnvironmentManager
+        from bora.evidence.store import AttemptEvidenceStore
 
         env_meta: dict[str, Any] = {"resource": "postgresql", "manager": True}
         try:
@@ -388,9 +389,17 @@ async def run_task(
             action_limit = int(
                 (limits_map or {}).get("environment_actions") or 10  # type: ignore[union-attr]
             )
+            # Ensure §8.9 evidence root exists for effects.jsonl even without Agent Session.
+            if evidence_store is None:
+                evidence_store = AttemptEvidenceStore(
+                    root=run_dir,
+                    attempt_id=str(agent_meta.get("attempt_id") or run_id),
+                    run_id=run_id,
+                )
             env_manager = EnvironmentManager(
                 attempt_id=str(agent_meta.get("attempt_id") or run_id),
                 action_limit=max(1, action_limit),
+                evidence_store=evidence_store,
             )
             opened = env_manager.open_resource("postgresql", name=f"bora-env-{run_id[:10]}")
             if not opened.get("ok"):
