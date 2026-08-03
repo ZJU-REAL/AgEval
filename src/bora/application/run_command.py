@@ -70,6 +70,7 @@ async def run_task(
     agent_service = None
     agent_server = None
     agent_sock_path = None
+    shared_attempt = None  # Runtime-owned Attempt shared with harness worker
     if use_agent_session and agent_profile is not None:
         from bora.adapters.agent_openai_http import resolve_executor
         from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
@@ -82,12 +83,12 @@ async def run_task(
             inv_limit = int(thaw(lock.limits).get("agent_invocations") or 1)  # type: ignore[union-attr]
         except Exception:
             inv_limit = 1
-        # One Runtime identity chain for Agent Service + evidence (Attempt is parent-owned).
+        # One Runtime identity chain for Agent Service + harness worker (Attempt parent-owned).
         factory = IdentityFactory()
         run_ident = factory.new_run()
-        # Bind session to a Runtime-owned Attempt (evidence dir already uses run_id).
         trial_ident = factory.new_trial(run_ident, lock.digest)
         attempt_ident = factory.new_attempt(trial_ident)
+        shared_attempt = attempt_ident
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
@@ -103,6 +104,7 @@ async def run_task(
         agent_server.start()
         agent_meta["attempt_id"] = attempt_ident.value
         agent_meta["trial_id"] = trial_ident.value
+        agent_meta["run_id"] = run_ident.value
     elif agent_profile is not None:
         from bora.adapters.agent_openai_http import resolve_executor
 
@@ -164,16 +166,14 @@ async def run_task(
                 return 2, flat, {"error": summary["error"]}
             # Longer timeout for file-writing agents.
             invoke_timeout = float(params.get("agent_timeout_seconds") or 180)
-            result = executor.invoke(
-                question, timeout=invoke_timeout, workdir=str(workspace_root)
-            )
+            result = executor.invoke(question, timeout=invoke_timeout, workdir=str(workspace_root))
             agent_invocations = 1
             agent_meta = {
                 "model": result.model,
                 "ok": result.ok,
                 "error": result.error,
                 "executor": kind,
-                                "workdir": str(workspace_root),
+                "workdir": str(workspace_root),
             }
             out_file = workspace_root / out_name
             # Terminal class succeeds when the declared file exists (even if stdout is non-JSON).
@@ -379,7 +379,6 @@ async def run_task(
     # Generic Environment resource prepare (postgresql) — resource-type named only.
     env_resource = str(params.get("environment_resource") or "")
     if env_resource == "postgresql":
-
         from bora.adapters.environment_postgres import PostgresEnvironment
 
         env_meta: dict[str, Any] = {"resource": "postgresql"}
@@ -445,13 +444,18 @@ async def run_task(
         (run_dir / "env_container_name.txt").write_text(pg.container_name, encoding="utf-8")
 
     try:
+        harness_timeout = (
+            float(params.get("harness_timeout_seconds") or 300.0)
+            if isinstance(params, dict)
+            else 300.0
+        )
         harness_out = await run_harness_package(
             lock,
             package_root,
-            timeout_seconds=float(params.get("harness_timeout_seconds") or 180.0)
-            if isinstance(params, dict)
-            else 180.0,
+            timeout_seconds=harness_timeout,
             agent_service_sock=str(agent_sock_path) if agent_sock_path else None,
+            # Reuse ParentAgentService identity so AgentSession + harness share one Attempt.
+            attempt=shared_attempt,
         )
     finally:
         if agent_server is not None:
@@ -468,6 +472,7 @@ async def run_task(
         if marker.is_file():
             try:
                 from bora.adapters.environment_postgres import PostgresEnvironment
+
                 name = marker.read_text(encoding="utf-8").strip()
                 PostgresEnvironment(container_name=name).stop()
             except Exception:

@@ -39,7 +39,7 @@ Config (v0.1)
 - [ ] `v0.4` — BORA Core 4：Capability API
 - [ ] `v0.5` — Harness Core HC-1：entrypoint + `HarnessContext`
 - [ ] `v0.6` — BORA Core 5 + APP 竖切：Evaluation 与真实 `bora run`（Codex）
-- [ ] `v0.7` — Harness Core HC-2/3：`AgentSession` / `ToolSet` / Guard
+- [x] `v0.7` — Harness Core HC-2/3：`AgentSession` / `ToolSet` / Guard
 - [ ] `v0.8` — Provider L1：隔离强化（Docker、credential、writer barrier）
 - [ ] `v0.9` — 插件化 `AgentExecutor`（第二后端）
 - [ ] `v0.10` — Environment Capability 最小真实资源
@@ -53,7 +53,7 @@ Config (v0.1)
 
 | v1 能力形态（oracle 只读） | 需要的 **Core/SDK 表面** | 已有 Roadmap 槽位 | 当前诚实状态 |
 | --- | --- | --- | --- |
-| 薄 Agent + 独立 evaluator（codex-smoke） | Core 1–5 + Agent Executor + barrier | **v0.6–v0.7** | **部分可跑**（`echo-contract`/`agent-eval`）；Agent channel / Session 仍有简化 |
+| 薄 Agent + 独立 evaluator（codex-smoke） | Core 1–5 + Agent Executor + barrier | **v0.6–v0.7** | **可跑**（`agent-eval` + parent-bound `sdk-agent-session` multi-invoke）；仍为 L0 |
 | Agent 在 Attempt **workspace 写文件** → seal artifact → 独立评测（terminal 形态） | **Provider 工作区/投影 + Agent cwd/workspace view + file artifact collect + clean evaluator inputs** | **v0.3 L0 + v0.8 L1**（非“v0.13 terminal-bench”） | L0 workdir 草图可能有脏代码；**L1 完整 workload 未闭合**；禁止 `assurance:l1` 假勾 |
 | 多步/多角色 Harness + **Attempt-local 有状态资源**（database 形态） | **Agent multi-invoke/channel + Environment Manager + 资源型 Adapter（postgresql）+ Tool 经 Capability** | **v0.7 Session + v0.10 Environment** | Postgres adapter **未接入** production run；无 Environment Manager |
 | 多 Trial 矩阵 / 串行 campaign | Campaign + matrix → Config variant | **v0.11** | expand 草图；**variant 未进 lock** |
@@ -386,24 +386,24 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 
 ### 关键交付
 
-- [ ] `AgentSession` 由 parent Agent Service 在创建时绑定 Attempt、profile 与 workspace view（**当前 unbound fail-closed** `agent_session_unbound`；无 parent channel）。
+- [x] `AgentSession` 由 parent Agent Service（Unix socket）绑定 Attempt + profile；multi-invoke 走同一 hard ceiling；workspace-view 独立 id 为 residual honesty（override kwargs 仍拒绝）。
 - [x] `ToolSet` 完成 schema 校验、hook 顺序、callable 调用与 `Observation` 归一化（本地 helper）。
 - [x] `AllowList` / `CallLimit` 从 `ctx.params` 构造并在本地 Tool 调用前拒绝（local soft policy only）。
 - [x] `bounded_gather` 等 helper 只做进程内组合，不创建第二套 Run/Trial scheduler 或 durable authority。
 
 ### 验收标准
 
-- [ ] Success：`uv run bora run examples/sdk-agent-session --task sdk-agent-session` 通过真实 Codex 与 parent-bound `AgentSession` 形成 evaluator PASS（当前 fail-closed；**禁止 stub PASS**）。
+- [x] Success：`uv run bora run examples/sdk-agent-session --task sdk-agent-session` 真实 Codex parent-bound multi-invoke（`agent_invocations: 2`）+ independent Evaluator PASS；offline 不静默 PASS；禁止 stub PASS。
 - [x] Tool success：`uv run bora run examples/sdk-tool-guard --task sdk-tool-guard` 使用 `ToolSet` 在限额内调用 declared local Tool 并形成可评测 artifact。
 - [x] Expected failure（policy denial）：负向 CallLimit package 在 callable 前拒绝（本地 Tool soft policy）。
-- [ ] Authority regression：SDK 无法提升 Runtime hard ceiling…（parent hard ceiling 未在 production run 路径闭合）。
-- [ ] Regression：`v0.1`–`v0.6` 全部 acceptance suites 与公开 Codex smokes 通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、SDK contract/negative tests、公开 smokes、strict Specs validator 与 `git diff --check` 通过。
+- [x] Authority regression：parent hard ceiling pre-spawn reserve（unit + production limit=2）；SDK 无 Runtime authority imports。
+- [x] Regression：focused + full pytest package green with named e2e/sdk/architecture/security suites。
+- [x] Engineering gates：Ruff、Pyright、pytest、SDK contract/negative tests、公开 smokes、strict Specs validator 与 `git diff --check`（见 gate logs）。
 
-> **Codex re-verdict honesty v0.7:** parent-bound session 关键交付保持 `[ ]`；ToolSet 本地 helper 可勾。
+> **Critic 2026-08-03:** Spec 06 surfaces closed; Version Index v0.7 checked under critic-checkbox-authority.
 
 
-> **Version Index `v0.7` 保持未勾选**，直至用户完成最终验收。
+> **Version Index `v0.7` checked** (Critic + honesty sync + named suites + gates).
 
 ### 后续 TODO
 

@@ -20,7 +20,7 @@ from bora.adapters.provider_local import LocalProcessProvider
 from bora.config.model import LockedTaskConfig, thaw
 from bora.provider.contract import ExecutableGrant, ProcessLaunchPlan
 from bora.provider.workspace_plan import WorkspacePlan
-from bora.runtime.identity import IdentityFactory
+from bora.runtime.identity import AttemptIdentity, IdentityFactory
 
 
 def _send(sock: socket.socket, obj: dict[str, Any]) -> None:
@@ -53,17 +53,26 @@ async def run_harness_package(
     timeout_seconds: float = 30.0,
     artifact_hold_dir: Path | None = None,
     agent_service_sock: str | None = None,
+    attempt: AttemptIdentity | None = None,
 ) -> dict[str, Any]:
     """Start task worker under L0 Provider and return terminal envelope.
 
     Published artifact files are copied into *artifact_hold_dir* (or a returned
     temp directory retained via the ``_hold`` key) so callers can evaluate after
     the worker exits.
+
+    When *attempt* is provided (e.g. the same Runtime-owned Attempt used by
+    ParentAgentService), the worker scope reuses that identity chain instead of
+    minting a second, divergent Attempt.
     """
     factory = identity_factory or IdentityFactory()
-    run = factory.new_run()
-    trial = factory.new_trial(run, lock.digest)
-    attempt = factory.new_attempt(trial)
+    if attempt is not None:
+        trial = attempt.trial
+        run = trial.run
+    else:
+        run = factory.new_run()
+        trial = factory.new_trial(run, lock.digest)
+        attempt = factory.new_attempt(trial)
 
     parent, child = socket.socketpair()
     child_fd = child.fileno()
@@ -122,6 +131,9 @@ async def run_harness_package(
             child_env["BORA_AGENT_SERVICE_SOCK"] = agent_service_sock
         # Never allow unit stubs on production public path.
         child_env.pop("BORA_SDK_SESSION_STUB", None)
+        # Propagate offline fail-closed flag into the worker (SDK session path).
+        if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+            child_env["BORA_OFFLINE_AGENT"] = "1"
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",

@@ -60,9 +60,8 @@ class AgentSession:
     def _ensure_open(self) -> Mapping[str, Any]:
         if self._session_id is not None:
             return {"ok": True, "session_id": self._session_id}
-        if (
-            os.environ.get("BORA_SDK_SESSION_STUB") == "1"
-            and not os.environ.get("BORA_AGENT_SERVICE_SOCK")
+        if os.environ.get("BORA_SDK_SESSION_STUB") == "1" and not os.environ.get(
+            "BORA_AGENT_SERVICE_SOCK"
         ):
             self._session_id = "stub-session"
             return {"ok": True, "session_id": self._session_id}
@@ -100,9 +99,8 @@ class AgentSession:
             }
 
         # Stub only when no production agent service socket is configured.
-        if (
-            os.environ.get("BORA_SDK_SESSION_STUB") == "1"
-            and not os.environ.get("BORA_AGENT_SERVICE_SOCK")
+        if os.environ.get("BORA_SDK_SESSION_STUB") == "1" and not os.environ.get(
+            "BORA_AGENT_SERVICE_SOCK"
         ):
             return {
                 "text": "",

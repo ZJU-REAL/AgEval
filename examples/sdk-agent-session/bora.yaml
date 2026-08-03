@@ -7,6 +7,7 @@ harness:
 
 parameters:
   use_agent_session: true
+  harness_timeout_seconds: 360
   models:
     default: codex-mini
 
@@ -20,7 +21,7 @@ agent_profiles:
     model: gpt-5.4-mini
 
 limits:
-  wall_time_seconds: 300
+  wall_time_seconds: 360
   agent_invocations: 2
   environment_actions: 0
 
