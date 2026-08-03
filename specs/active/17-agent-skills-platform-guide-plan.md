@@ -298,7 +298,7 @@ agent 写 harness 时只用 Capability/SDK 合同。
 
 ### Round 1
 
-- Critic: independent subagent (pending; content review)
+- Critic: independent subagent (019fc74e-6a1e-7851-8703-1eca9e4f6c66; 2026-08-03)
 - Review scope: full
 - Evidence reviewed: skills/platform,cli,config-package,sdk-harness SKILL.md; only shipped surfaces; README pointer
 - Findings: none blocking

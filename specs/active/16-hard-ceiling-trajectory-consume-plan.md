@@ -264,7 +264,7 @@ Duplicate authorization uses an Attempt-scoped idempotency key and returns the o
 
 ### Round 1
 
-- Critic: independent subagent (pending; gates green)
+- Critic: independent subagent (019fc74e-6a1e-7851-8703-1eca9e4f6c66; 2026-08-03)
 - Review scope: full
 - Evidence reviewed: bora evidence export CLI ok (8 inv); hard-ceiling unit tests; force-hook partial residual from v0.13
 - Findings: wall-clock full provider kill residual; durable cross-process ceiling residual
