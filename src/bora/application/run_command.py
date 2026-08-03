@@ -371,7 +371,9 @@ async def run_task(
             harness_kind=str(result_doc.get("harness_kind") or "failed"),
             agent_invocations=int(result_doc.get("agent_invocations") or 0),
             assurance=str(result_doc.get("assurance") or "l0"),
+            logs=str(result_doc.get("logs") or run_dir),
         )
+        details = {**details, "logs": flat.logs}
         return code, flat, details
 
     # Environment Manager (Spec 09) — resource-type named only (postgresql).

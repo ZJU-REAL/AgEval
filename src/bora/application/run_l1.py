@@ -1056,6 +1056,29 @@ def _write_evidence(
     l1_meta: dict[str, Any],
 ) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
+    # Result.logs locator (design §8.9) — evidence root on host, never secrets.
+    # Mutate in place so caller-returned doc/details stay aligned with disk.
+    result_doc.setdefault("logs", str(run_dir))
+    # Honest execution location facts (Spec 14 / v0.15).
+    containment = str(
+        agent_meta.get("executor_containment")
+        or l1_meta.get("executor_containment")
+        or "unknown"
+    )
+    if containment in {"container", "attempt-container"}:
+        exec_loc = "attempt-container"
+    elif containment.startswith("parent"):
+        exec_loc = "parent-api-client"
+    else:
+        # Harness/eval containers still run under Docker even when Agent is parent.
+        exec_loc = str(l1_meta.get("execution_location") or "mixed")
+    l1_meta = {
+        **l1_meta,
+        "execution_location": exec_loc,
+        "executor_containment": containment,
+        "evidence_volume": str(run_dir),
+    }
+    result_doc["l1"] = {**(result_doc.get("l1") or {}), **l1_meta}
     (run_dir / "result.json").write_text(
         json.dumps(result_doc, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8"
     )
@@ -1069,3 +1092,26 @@ def _write_evidence(
         if needle in blob:
             blob = blob.replace(needle, "[REDACTED]")
     (run_dir / "l1.json").write_text(blob, encoding="utf-8")
+    # §8.9 summary + skeletons (trajectory body still owned by Agent Service when used).
+    summary = {
+        "schema": "bora.evidence.summary/1",
+        "status": result_doc.get("status"),
+        "score": result_doc.get("score"),
+        "assurance": result_doc.get("assurance"),
+        "logs": result_doc.get("logs"),
+        "execution_location": exec_loc,
+        "l1": safe,
+    }
+    (run_dir / "summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    for rel in ("effects.jsonl", "agent/events.jsonl"):
+        path = run_dir / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.write_text("", encoding="utf-8")
+    (run_dir / "cleanup.json").write_text(
+        json.dumps({"ok": True, "warning": result_doc.get("cleanup_warning")}, indent=2)
+        + "\n",
+        encoding="utf-8",
+    )
