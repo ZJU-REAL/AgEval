@@ -54,7 +54,7 @@ Config (v0.1)
 | v1 能力形态（oracle 只读） | 需要的 **Core/SDK 表面** | 已有 Roadmap 槽位 | 当前诚实状态 |
 | --- | --- | --- | --- |
 | 薄 Agent + 独立 evaluator（codex-smoke） | Core 1–5 + Agent Executor + barrier | **v0.6–v0.7** | **可跑**（`agent-eval` + parent-bound `sdk-agent-session` multi-invoke）；仍为 L0 |
-| Agent 在 Attempt **workspace 写文件** → seal artifact → 独立评测（terminal 形态） | **Provider 工作区/投影 + Agent cwd/workspace view + file artifact collect + clean evaluator inputs** | **v0.3 L0 + v0.8 L1**（非“v0.13 terminal-bench”） | L0 workdir 草图可能有脏代码；**L1 完整 workload 未闭合**；禁止 `assurance:l1` 假勾 |
+| Agent 在 Attempt **workspace 写文件** → seal artifact → 独立评测（terminal 形态） | **Provider 工作区/投影 + Agent cwd/workspace view + file artifact collect + clean evaluator inputs** | **v0.3 L0 + v0.8 L1**（非“v0.13 terminal-bench”） | **terminal-jsonl-agg L1 PASS**（harness+clean eval container, `assurance:l1` when full_l1）；Agent 仍为 parent Executor + workspace-only cwd；Version Index v0.8 未勾 |
 | 多步/多角色 Harness + **Attempt-local 有状态资源**（database 形态） | **Agent multi-invoke/channel + Environment Manager + 资源型 Adapter（postgresql）+ Tool 经 Capability** | **v0.7 Session + v0.10 Environment** | Postgres adapter **未接入** production run；无 Environment Manager |
 | 多 Trial 矩阵 / 串行 campaign | Campaign + matrix → Config variant | **v0.11** | expand 草图；**variant 未进 lock** |
 | 多轮 review / budget 负向 | hard ceiling + multi-invoke + 负向 public path | **v0.4/v0.6/v0.7** | 硬顶未在 production run 全闭合 |

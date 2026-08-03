@@ -105,7 +105,8 @@ async def run_task(
         agent_meta["attempt_id"] = attempt_ident.value
         agent_meta["trial_id"] = trial_ident.value
         agent_meta["run_id"] = run_ident.value
-    elif agent_profile is not None:
+    elif agent_profile is not None and provider_kind != "docker":
+        # Docker/L1 packages own agent+workspace orchestration in the docker branch.
         from bora.adapters.agent_openai_http import resolve_executor
 
         model = str(agent_profile.get("model") or "gpt-5.4-mini")
@@ -302,9 +303,43 @@ async def run_task(
                 )
 
     if provider_kind == "docker":
-        # Docker preflight / scaffolding only until harness+evaluator run inside L1.
-        # Honest grade remains l0 (or ERROR on preflight failure) — never stamp
-        # assurance:l1 while workload still uses host LocalProcessProvider.
+        # Full L1 for terminal/workspace packages; otherwise fail closed (no fake l1).
+        workspace_out = str(params.get("workspace_output") or "")
+        if workspace_out:
+            from bora.application.run_l1 import run_l1_workspace_attempt
+
+            code, result_doc, details = run_l1_workspace_attempt(
+                package_root=package_root,
+                lock=lock,
+                run_dir=run_dir,
+                agent_meta=agent_meta,
+                agent_invocations=agent_invocations,
+                workspace_output_name=workspace_out,
+                allow_offline_agent=allow_offline_agent,
+            )
+            from bora.evaluation.result_binding import FlatResult
+
+            score_raw = result_doc.get("score")
+            score_f = float(score_raw) if isinstance(score_raw, int | float) else None
+            metrics_raw = (
+                result_doc.get("metrics") if isinstance(result_doc.get("metrics"), dict) else {}
+            )
+            err = result_doc.get("error") if isinstance(result_doc.get("error"), dict) else None
+            flat = FlatResult(
+                status=str(result_doc.get("status") or "ERROR"),
+                score=score_f,
+                metrics=metrics_raw or {},
+                error_phase=(err or {}).get("phase") if err else None,
+                cleanup_warning=result_doc.get("cleanup_warning"),  # type: ignore[arg-type]
+                evidence_path=str(result_doc.get("evidence_path") or run_dir),
+                runtime_kind=str(result_doc.get("runtime_kind") or "docker_l1"),
+                harness_kind=str(result_doc.get("harness_kind") or "failed"),
+                agent_invocations=int(result_doc.get("agent_invocations") or 0),
+                assurance=str(result_doc.get("assurance") or "l0"),
+            )
+            return code, flat, details
+
+        # Non-workspace docker packages: still refuse to stamp l1 without full path.
         from bora.adapters.provider_docker import DockerProvider, ensure_image_lock
         from bora.runtime.identity import IdentityFactory
 
@@ -336,7 +371,6 @@ async def run_task(
                 network=False,
                 timeout_seconds=60,
             )
-            # Fail closed if filtered mount still exposes evaluation/.
             if "eval_exists True" in (probe.stdout_summary or ""):
                 docker.cleanup(runtime)
                 raise RuntimeError("workspace_view_denied: evaluation/ visible in package mount")
@@ -347,9 +381,8 @@ async def run_task(
                 "probe_stdout": probe.stdout_summary.strip(),
                 "writer_stop_confirmed": probe.writer_stop_confirmed,
                 "containment": "docker_preflight_only",
-                "assurance_note": "workload remains host L0 until containerized harness/evaluator",
+                "assurance_note": "non-workspace docker packages stay preflight-only",
             }
-            # Honest: preflight scaffolding is not L1 Attempt isolation.
             assurance = "l0"
             docker.cleanup(runtime)
         except Exception as exc:  # noqa: BLE001
