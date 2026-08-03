@@ -36,13 +36,37 @@ def _builtin_openai_factory(model: str = "gpt-4.1-mini", **_kw: Any) -> Any:
     return OpenAIHTTPExecutor(model=model)
 
 
+def _builtin_pi_factory(model: str = "claude-haiku-4-5", **_kw: Any) -> Any:
+    from bora.adapters.agent_pi import PiExecutor
+
+    return PiExecutor(model=model)
+
+
+def _builtin_opencode_factory(model: str = "zai-coding-plan/glm-4.7", **_kw: Any) -> Any:
+    from bora.adapters.agent_opencode import OpenCodeExecutor
+
+    return OpenCodeExecutor(model=model)
+
+
 def _load_builtins() -> None:
     if _BUILTIN:
         return
     _BUILTIN["codex"] = _builtin_codex_factory
+    _BUILTIN["pi"] = _builtin_pi_factory
+    _BUILTIN["opencode"] = _builtin_opencode_factory
     _BUILTIN["openai-http"] = _builtin_openai_factory
     _BUILTIN["openai"] = _builtin_openai_factory
     _BUILTIN["openai_responses"] = _builtin_openai_factory
+    # claude-code residual: register only when binary exists (honest residual otherwise).
+    import shutil
+
+    if shutil.which("claude") or shutil.which("claude-code"):
+        def _claude_factory(model: str = "claude-haiku-4-5", **_kw: Any) -> Any:
+            from bora.adapters.agent_claude_code import ClaudeCodeExecutor
+
+            return ClaudeCodeExecutor(model=model)
+
+        _BUILTIN["claude-code"] = _claude_factory
 
 
 def discover_executor_kinds() -> set[str]:
