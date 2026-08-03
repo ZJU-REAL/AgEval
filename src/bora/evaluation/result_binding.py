@@ -19,6 +19,8 @@ class FlatResult:
     harness_kind: str
     agent_invocations: int
     assurance: str = "l0"
+    # Result.logs is a locator to Attempt evidence root (design §8.9); not a score input.
+    logs: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -28,6 +30,7 @@ class FlatResult:
             "error": {"phase": self.error_phase} if self.error_phase else None,
             "evidence_path": self.evidence_path,
             "harness_kind": self.harness_kind,
+            "logs": self.logs or self.evidence_path,
             "metrics": dict(self.metrics),
             "runtime_kind": self.runtime_kind,
             "score": self.score,
@@ -44,7 +47,10 @@ def bind_result(
     evidence_path: str,
     cleanup_warning: str | None = None,
     error_phase: str | None = None,
+    logs: str | None = None,
+    assurance: str = "l0",
 ) -> FlatResult:
+    locator = logs if logs is not None else evidence_path
     if error_phase:
         return FlatResult(
             status="ERROR",
@@ -56,6 +62,8 @@ def bind_result(
             runtime_kind=runtime_kind,
             harness_kind=harness_kind,
             agent_invocations=agent_invocations,
+            assurance=assurance,
+            logs=locator,
         )
     if evaluator_raw is None:
         return FlatResult(
@@ -68,6 +76,8 @@ def bind_result(
             runtime_kind=runtime_kind,
             harness_kind=harness_kind,
             agent_invocations=agent_invocations,
+            assurance=assurance,
+            logs=locator,
         )
     status = str(evaluator_raw.get("status", "FAIL"))
     score = evaluator_raw.get("score")
@@ -84,4 +94,6 @@ def bind_result(
         runtime_kind=runtime_kind,
         harness_kind=harness_kind,
         agent_invocations=agent_invocations,
+        assurance=assurance,
+        logs=locator,
     )

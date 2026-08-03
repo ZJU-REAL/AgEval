@@ -43,6 +43,7 @@ async def run_task(
     evidence_root = (evidence_root or (package_root / ".bora" / "runs")).resolve()
     evidence_root.mkdir(parents=True, exist_ok=True)
     # Unique Run identity per invocation — never overwrite prior evidence by lock digest alone.
+    from bora.evidence.store import AttemptEvidenceStore
     from bora.runtime.identity import IdentityFactory
 
     run_id = IdentityFactory().new_run().value
@@ -53,6 +54,7 @@ async def run_task(
     agent_meta: dict[str, Any] = {}
     assurance = "l0"
     l1_meta: dict[str, Any] = {}
+    evidence_store: AttemptEvidenceStore | None = None
 
     # Never trust residual agent materialization from a previous run/package tree.
     agent_file = package_root / ".bora_agent_result.json"
@@ -89,11 +91,34 @@ async def run_task(
         trial_ident = factory.new_trial(run_ident, lock.digest)
         attempt_ident = factory.new_attempt(trial_ident)
         shared_attempt = attempt_ident
+        evidence_store = AttemptEvidenceStore(
+            root=run_dir,
+            attempt_id=attempt_ident.value,
+            run_id=run_ident.value,
+        )
+        # Lock summary without secrets (digest + profile ids only).
+        with contextlib.suppress(Exception):
+            evidence_store.write_lock_summary(
+                {
+                    "digest": lock.digest,
+                    "task_id": task_id,
+                    "profiles": [
+                        {
+                            "id": p.get("id"),
+                            "executor": p.get("executor"),
+                            "model": p.get("model"),
+                        }
+                        for p in profiles
+                        if isinstance(p, dict)
+                    ],
+                }
+            )
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
             resolve_executor=lambda kind, model: resolve_executor(kind, model=model),
             attempt_id=attempt_ident.value,
+            evidence_store=evidence_store,
         )
         # Unix socket path must stay short on macOS (~104 bytes).
         import tempfile
@@ -525,16 +550,43 @@ async def run_task(
     if workspace_handoff.exists():
         workspace_handoff.unlink()
 
+    evidence_locator = str(run_dir)
+    relative_evidence = str(
+        run_dir.relative_to(package_root) if run_dir.is_relative_to(package_root) else run_dir
+    )
+    # Finalize §8.9 evidence tree when store was created (session path).
+    if evidence_store is not None:
+        with contextlib.suppress(Exception):
+            evidence_store.write_harness_terminal(
+                {
+                    "kind": harness_kind,
+                    "envelope_ok": bool(envelope.get("ok")),
+                    "terminal": envelope.get("terminal"),
+                }
+            )
+        if evaluator_raw is not None:
+            with contextlib.suppress(Exception):
+                evidence_store.write_evaluation("raw", dict(evaluator_raw))
+        with contextlib.suppress(Exception):
+            evidence_store.write_cleanup(
+                {
+                    "ok": True,
+                    "warning": None,
+                    "agent_invocations": agent_invocations,
+                }
+            )
+        evidence_locator = evidence_store.locator
+
     flat = bind_result(
         evaluator_raw=evaluator_raw,
         harness_kind=harness_kind,
         # docker kind preflight does not upgrade isolation grade until full L1 workload.
         runtime_kind="local_l0",
         agent_invocations=agent_invocations,
-        evidence_path=str(
-            run_dir.relative_to(package_root) if run_dir.is_relative_to(package_root) else run_dir
-        ),
+        evidence_path=relative_evidence,
         error_phase=error_phase,
+        logs=evidence_locator,
+        assurance=assurance,
     )
     result_doc = flat.as_dict()
     result_doc["assurance"] = assurance
@@ -552,6 +604,18 @@ async def run_task(
         json.dumps(agent_meta, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
     )
+    if evidence_store is not None:
+        with contextlib.suppress(Exception):
+            evidence_store.write_summary(
+                {
+                    "status": flat.status,
+                    "score": flat.score,
+                    "agent_invocations": agent_invocations,
+                    "harness_kind": harness_kind,
+                    "logs": evidence_locator,
+                    "result": result_doc,
+                }
+            )
 
     if flat.status == "PASS":
         code = 0
@@ -565,6 +629,7 @@ async def run_task(
         "run_dir": str(run_dir),
         "assurance": assurance,
         "digest": lock.digest,
+        "logs": evidence_locator,
     }
     if l1_meta:
         details["l1"] = l1_meta

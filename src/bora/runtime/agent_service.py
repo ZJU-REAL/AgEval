@@ -1,7 +1,8 @@
-"""Parent-owned Agent Service: session bind + pre-spawn hard ceiling.
+"""Parent-owned Agent Service: session bind + pre-spawn hard ceiling + trajectory.
 
 Worker/SDK only holds an opaque session id and talks over a Unix socket.
 Shared application code does not branch on benchmark/task names.
+Each parent-bound invoke writes per-invocation evidence before returning.
 """
 
 from __future__ import annotations
@@ -12,11 +13,15 @@ import os
 import socket
 import struct
 import threading
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from bora.evidence.redaction import RedactionError
+from bora.evidence.store import AttemptEvidenceStore
 
 
 @dataclass
@@ -38,6 +43,7 @@ class ParentAgentService:
     resolve_executor: Callable[..., Any]
     attempt_id: str  # Runtime-owned; never taken from Harness client
     offline_env: str = "BORA_OFFLINE_AGENT"
+    evidence_store: AttemptEvidenceStore | None = None
     _remaining: int = field(init=False)
     _sessions: dict[str, SessionBinding] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
@@ -83,17 +89,228 @@ class ParentAgentService:
             self._remaining -= 1
             kind = binding.executor_kind
             model = binding.model
+            profile_id = binding.profile_id
+
+        handle = None
+        started = time.monotonic()
+        if self.evidence_store is not None:
+            handle = self.evidence_store.begin_invocation(
+                profile_id=profile_id,
+                executor_kind=kind,
+                model=model,
+            )
+            try:
+                handle.write_request(
+                    {
+                        "messages": [{"role": "user", "content": prompt}],
+                        "profile_id": profile_id,
+                        "executor_kind": kind,
+                        "model": model,
+                        "schema_hint": None,
+                        "tool_specs": [],
+                    }
+                )
+                handle.append_event(
+                    {
+                        "type": "lifecycle",
+                        "phase": "invoke_start",
+                        "source": "agent_service",
+                    }
+                )
+            except RedactionError:
+                # Already sealed as redaction_failed by store.
+                with self._lock:
+                    self.invocations_completed += 1
+                return {
+                    "ok": False,
+                    "error": "redaction_failed",
+                    "model": model,
+                    "text": "",
+                    "structured": None,
+                    "provider_session_handle": None,
+                    "remaining_after": self._remaining,
+                    "invocation_id": handle.invocation_id if handle else None,
+                    "evidence_relative": handle.relative_path if handle else None,
+                }
 
         try:
             executor = self.resolve_executor(kind, model=model)  # kind + model kwargs
         except KeyError:
-            return {"ok": False, "error": "executor_unknown", "executor": kind}
+            self._seal_failure(
+                handle,
+                status="failed",
+                error="executor_unknown",
+                latency_ms=(time.monotonic() - started) * 1000.0,
+            )
+            return {
+                "ok": False,
+                "error": "executor_unknown",
+                "executor": kind,
+                "invocation_id": handle.invocation_id if handle else None,
+                "evidence_relative": handle.relative_path if handle else None,
+            }
 
-        # Multi-invoke sessions need headroom beyond the codex default 45s.
+        collect_dir = None
+        if handle is not None:
+            collect_dir = handle.directory / "backend_raw"
+            collect_dir.mkdir(parents=True, exist_ok=True)
+
+        # Mechanism test hook: force typed partial terminal on N-th invocation
+        # (1-based). Values: crash | timeout | cancel | failed. Never invents PASS.
+        force_err = os.environ.get("BORA_FORCE_INVOCATION_ERROR", "").strip()
+        force_n = os.environ.get("BORA_FORCE_INVOCATION_N", "2").strip()
         try:
-            result = executor.invoke(prompt, timeout=300.0)
-        except TypeError:
-            result = executor.invoke(prompt)
+            force_at = int(force_n)
+        except ValueError:
+            force_at = 2
+        next_n = self.invocations_completed + 1
+        if force_err and next_n == force_at:
+            latency = (time.monotonic() - started) * 1000.0
+            status = _map_error_status(force_err if force_err != "crash" else "crash")
+            if force_err == "crash":
+                status = "crash"
+            if handle is not None:
+                handle.append_event(
+                    {
+                        "type": "lifecycle",
+                        "phase": status,
+                        "source": "force_hook",
+                        "forced": force_err,
+                    }
+                )
+                if force_err == "crash":
+                    self._seal_failure(
+                        handle, status="crash", error="forced_crash", latency_ms=latency
+                    )
+                else:
+                    allowed = {"timeout", "cancelled", "failed", "crash"}
+                    seal_status = status if status in allowed else "failed"
+                    self._seal_failure(
+                        handle,
+                        status=seal_status,
+                        error=f"forced_{force_err}",
+                        latency_ms=latency,
+                    )
+            with self._lock:
+                self.invocations_completed += 1
+            return {
+                "ok": False,
+                "error": f"forced_{force_err}",
+                "model": model,
+                "text": "",
+                "structured": None,
+                "provider_session_handle": None,
+                "remaining_after": self._remaining,
+                "invocation_id": handle.invocation_id if handle else None,
+                "evidence_relative": handle.relative_path if handle else None,
+            }
+
+        try:
+            # Multi-invoke sessions need headroom beyond the codex default 45s.
+            try:
+                result = executor.invoke(
+                    prompt, timeout=300.0, collect_dir=collect_dir
+                )
+            except TypeError:
+                try:
+                    result = executor.invoke(prompt, timeout=300.0)
+                except TypeError:
+                    result = executor.invoke(prompt)
+        except Exception as exc:  # noqa: BLE001 — executor crash must leave partial evidence
+            latency = (time.monotonic() - started) * 1000.0
+            if handle is not None:
+                handle.append_event(
+                    {
+                        "type": "lifecycle",
+                        "phase": "crash",
+                        "error_type": type(exc).__name__,
+                        "source": "agent_service",
+                    }
+                )
+                self._seal_failure(
+                    handle,
+                    status="crash",
+                    error=type(exc).__name__,
+                    latency_ms=latency,
+                )
+            with self._lock:
+                self.invocations_completed += 1
+            return {
+                "ok": False,
+                "error": type(exc).__name__,
+                "model": model,
+                "text": "",
+                "structured": None,
+                "provider_session_handle": None,
+                "remaining_after": self._remaining,
+                "invocation_id": handle.invocation_id if handle else None,
+                "evidence_relative": handle.relative_path if handle else None,
+            }
+
+        latency = (time.monotonic() - started) * 1000.0
+        if handle is not None:
+            # Stream backend events into invocation events.jsonl.
+            events = getattr(result, "events", ()) or ()
+            for ev in events:
+                if isinstance(ev, dict):
+                    handle.append_event(ev)
+            stderr = getattr(result, "stderr", "") or ""
+            if stderr:
+                handle.write_stderr(stderr)
+            # Source refs as events (digests only — paths are under evidence root).
+            for ref in getattr(result, "source_refs", ()) or ():
+                if isinstance(ref, dict):
+                    handle.append_event(
+                        {
+                            "type": "source_ref",
+                            "kind": ref.get("kind"),
+                            "digest": ref.get("digest"),
+                            "source": "executor",
+                        }
+                    )
+
+            status = "completed" if result.ok else _map_error_status(result.error)
+            try:
+                if result.ok:
+                    final = {
+                        "content": (result.text or "")[-8000:],
+                        "structured_output": (
+                            result.structured if isinstance(result.structured, dict) else None
+                        ),
+                        "usage": getattr(result, "usage", None),
+                        "session": {
+                            "reusable": False,
+                            "handle": None,
+                            "note": "ephemeral; no reusable session secret",
+                        },
+                    }
+                    handle.seal(
+                        status="completed",
+                        final_response=final,
+                        latency_ms=latency,
+                    )
+                else:
+                    handle.seal(
+                        status=status,
+                        final_response=None,
+                        error=result.error,
+                        latency_ms=latency,
+                    )
+            except RedactionError:
+                with self._lock:
+                    self.invocations_completed += 1
+                return {
+                    "ok": False,
+                    "error": "redaction_failed",
+                    "model": result.model,
+                    "text": "",
+                    "structured": None,
+                    "provider_session_handle": None,
+                    "remaining_after": self._remaining,
+                    "invocation_id": handle.invocation_id,
+                    "evidence_relative": handle.relative_path,
+                }
+
         with self._lock:
             self.invocations_completed += 1
         return {
@@ -104,6 +321,8 @@ class ParentAgentService:
             "structured": result.structured if isinstance(result.structured, dict) else None,
             "provider_session_handle": None,
             "remaining_after": self._remaining,
+            "invocation_id": handle.invocation_id if handle else None,
+            "evidence_relative": handle.relative_path if handle else None,
         }
 
     def close_session(self, *, session_id: str) -> dict[str, Any]:
@@ -113,6 +332,38 @@ class ParentAgentService:
                 return {"ok": True, "already": "missing"}
             binding.closed = True
             return {"ok": True}
+
+    def _seal_failure(
+        self,
+        handle: Any,
+        *,
+        status: str,
+        error: str,
+        latency_ms: float,
+    ) -> None:
+        if handle is None:
+            return
+        with contextlib.suppress(RedactionError):
+            handle.seal(
+                status=status,
+                final_response=None,
+                error=error,
+                latency_ms=latency_ms,
+            )
+
+
+def _map_error_status(error: str | None) -> str:
+    if not error:
+        return "failed"
+    if error in {"TimeoutExpired", "timeout"}:
+        return "timeout"
+    if error in {"CancelledError", "cancelled", "KeyboardInterrupt"}:
+        return "cancelled"
+    if error in {"offline_forced", "codex_binary_missing", "missing_credential"}:
+        return "failed"
+    if error.startswith("exit_"):
+        return "failed"
+    return "failed"
 
 
 def _recv_msg(conn: socket.socket) -> dict[str, Any]:

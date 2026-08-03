@@ -106,12 +106,13 @@ def run_command(
         "runtime_kind": result.runtime_kind,
         "agent_invocations": result.agent_invocations,
         "evidence_path": result.evidence_path,
+        "logs": result.logs or result.evidence_path,
         "cleanup_warning": result.cleanup_warning,
     }
     if _details.get("l1"):
         summary["l1"] = _details["l1"]
     # Re-read assurance from details/result if use case overrode
-    for key in ("assurance", "l1"):
+    for key in ("assurance", "l1", "logs"):
         if key in _details:
             summary[key] = _details[key]
     typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
