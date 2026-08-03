@@ -11,7 +11,8 @@ examples/
 └── l1/                       ← Provider L1 isolation probes
 ```
 
-Each leaf package is a self-contained Task Package (`bora.yaml` + entrypoints).
+Each leaf package is a self-contained Task Package (`bora.yaml` + entrypoints)
+with a local **`README.md`** that explains what the task is for (user-facing).
 Run from the **repo root** with the package directory as the path argument:
 
 ```bash
@@ -90,4 +91,4 @@ uv run bora run examples/journeys/tau2-dialog-min --task tau2-dialog-min
 uv run bora run examples/journeys/terminal-jsonl-agg --task terminal-jsonl-agg
 ```
 
-See each package’s local `README.md` (when present) for layout and constraints.
+See each package’s local `README.md` for purpose, constraints, and run commands.
