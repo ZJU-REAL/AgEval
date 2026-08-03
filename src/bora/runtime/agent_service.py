@@ -89,7 +89,11 @@ class ParentAgentService:
         except KeyError:
             return {"ok": False, "error": "executor_unknown", "executor": kind}
 
-        result = executor.invoke(prompt)
+        # Multi-invoke sessions need headroom beyond the codex default 45s.
+        try:
+            result = executor.invoke(prompt, timeout=180.0)
+        except TypeError:
+            result = executor.invoke(prompt)
         with self._lock:
             self.invocations_completed += 1
         return {

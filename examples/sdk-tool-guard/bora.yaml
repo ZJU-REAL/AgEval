@@ -6,6 +6,7 @@ harness:
   entrypoint: harness:run
 
 parameters:
+  seed: 1
   call_limit: 2
   mode: success
 

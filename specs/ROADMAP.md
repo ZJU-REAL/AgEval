@@ -46,6 +46,9 @@ Config (v0.1)
 - [ ] `v0.11` — Campaign / 实验矩阵
 - [ ] `v0.12` — 后台控制与耐久 authority（按需）
 
+
+> **Acceptance packages (2026-08-03):** primary public journeys are `sdk-agent-session`, `terminal-jsonl-agg` (L1), `multiagent-env-min`, `tau2-dialog-min`, `env-postgres-min`, and `bora campaign` matrix — **not** `echo-contract` / ultra-thin toys.
+
 ## Core 能力缺口 → v1 同类 case（不是 bench adapter）
 
 **产品目标：** 补齐 **BORA Core / Harness Core** 通用机制，使 *任意* 符合契约的 Task Package 能表达 v1 里那几类能力。  
@@ -55,8 +58,8 @@ Config (v0.1)
 | --- | --- | --- | --- |
 | 薄 Agent + 独立 evaluator（codex-smoke） | Core 1–5 + Agent Executor + barrier | **v0.6–v0.7** | **可跑**（`agent-eval` + parent-bound `sdk-agent-session` multi-invoke）；仍为 L0 |
 | Agent 在 Attempt **workspace 写文件** → seal artifact → 独立评测（terminal 形态） | **Provider 工作区/投影 + Agent cwd/workspace view + file artifact collect + clean evaluator inputs** | **v0.3 L0 + v0.8 L1**（非“v0.13 terminal-bench”） | **terminal-jsonl-agg L1 PASS**（harness+clean eval container, `assurance:l1` when full_l1）；Agent 仍为 parent Executor + workspace-only cwd；Version Index v0.8 未勾 |
-| 多步/多角色 Harness + **Attempt-local 有状态资源**（database 形态） | **Agent multi-invoke/channel + Environment Manager + 资源型 Adapter（postgresql）+ Tool 经 Capability** | **v0.7 Session + v0.10 Environment** | Postgres adapter **未接入** production run；无 Environment Manager |
-| 多 Trial 矩阵 / 串行 campaign | Campaign + matrix → Config variant | **v0.11** | expand 草图；**variant 未进 lock** |
+| 多步/多角色 Harness + **Attempt-local 有状态资源**（database 形态） | **Agent multi-invoke/channel + Environment Manager + 资源型 Adapter（postgresql）+ Tool 经 Capability** | **v0.7 Session + v0.10 Environment** | **env-postgres-min + multiagent-env-min PASS**（parent-prepared Postgres handoff）；Environment Manager/Capability proxy residual；Version Index v0.10 unchecked |
+| 多 Trial 矩阵 / 串行 campaign | Campaign + matrix → Config variant | **v0.11** | **bora campaign seed matrix all_pass + distinct digests**；admission/retry residual；Version Index v0.11 unchecked |
 | 多轮 review / budget 负向 | hard ceiling + multi-invoke + 负向 public path | **v0.4/v0.6/v0.7** | 硬顶未在 production run 全闭合 |
 | 可选后台/耐久 | ControlStore + supervisor | **v0.12 条件性** | 草图；Research B3 |
 
