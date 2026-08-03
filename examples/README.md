@@ -46,6 +46,8 @@ SDK helpers — not as full case fidelity demos.
 | [`agent-eval`](core/agent-eval/) | Single real Agent invoke + independent PASS |
 | [`sdk-agent-session`](core/sdk-agent-session/) | Parent-bound multi-invoke `AgentSession` |
 | [`attempt-trajectory`](core/attempt-trajectory/) | §8.9 per-invocation trajectory + `Result.logs`（Codex） |
+| [`builtin-executor-conformance`](core/builtin-executor-conformance/) | Profile-only switch：`codex` / `pi` / `opencode` |
+| [`builtin-executor-mixed`](core/builtin-executor-mixed/) | Same Attempt 双 profile 独立轨迹（codex+pi） |
 | [`sdk-tool-guard`](core/sdk-tool-guard/) | `ToolSet` + call limit success |
 | [`sdk-tool-guard-denied`](core/sdk-tool-guard-denied/) | Tool policy denial (pre-callable) |
 | [`plugin-agent-executor`](core/plugin-agent-executor/) | Second executor profile (e.g. OpenAI HTTP) via same harness |

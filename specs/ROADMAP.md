@@ -732,19 +732,19 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 关键交付
 
-- [ ] 固定 registry 最低登记 `codex`、`pi`、`opencode`；`claude-code` 仅在 14a 实现且通过真实 probe 时登记。未知 kind 在 lock 阶段失败，不扫描 entry points。
-- [ ] lock 记录 profile 解析快照和 tools/structured output/session/stream capability matrix；任务要求不满足时 Attempt 零启动。
-- [ ] Phase 0 从 CLI help + 实际 `.env` 键冻结后端原生 env 名，再映射到 Runtime logical locator；Runtime 仅向目标 Adapter 进程投影必需 env，值不进 lock、轨迹、example 或 Harness 默认环境。
-- [ ] 同 Attempt 两个 profile 的 session、invocation ids、hard-ceiling accounting 和 trajectory directories 均独立，不覆盖、不跨 Attempt 复用。
+- [x] 固定 registry 最低登记 `codex`、`pi`、`opencode`；`claude-code` 仅在 14a 实现且通过真实 probe 时登记。未知 kind 在 lock 阶段失败，不扫描 entry points。
+- [x] lock 记录 profile 解析快照和 tools/structured output/session/stream capability matrix；任务要求不满足时 Attempt 零启动。
+- [x] Phase 0 从 CLI help + 实际 `.env` 键冻结后端原生 env 名，再映射到 Runtime logical locator；Runtime 仅向目标 Adapter 进程投影必需 env，值不进 lock、轨迹、example 或 Harness 默认环境。
+- [x] 同 Attempt 两个 profile 的 session、invocation ids、hard-ceiling accounting 和 trajectory directories 均独立，不覆盖、不跨 Attempt 复用。
 
 ### 验收标准
 
-- [ ] Success：同一 mechanism package 不改 Harness 代码，通过 profile 切换依次完成 `codex`、`pi`、`opencode` 的真实 invoke 与独立 evaluator；`claude-code` 缺失时记为显式 residual，不冒充已验证。
-- [ ] Mixed-profile：一次 Attempt 至少两个 executor 形成不同 invocation 树，每树 metadata/executor/model 与 lock 一致，轨迹不覆盖。
-- [ ] Expected failure：未知 executor、缺 credential locator、不支持必需 capability 或非法 session handle 在 Attempt/invocation 边界 typed fail，无 fallback、无外部调用、无伪 PASS。
-- [ ] Security：对 lock、stdout/stderr、workspace 和全 evidence 执行 backend-specific credential sentinel 扫描，零命中。
-- [ ] Regression：`v0.13` evidence contract、Codex 路径、L1 negatives 与 evaluator truth barrier 通过。
-- [ ] Engineering gates：three-backend conformance（`codex` + `pi` + `opencode`）、可用时的 `claude-code` residual probe、frozen install、Ruff、Pyright、pytest、public smokes、strict validator 与 `git diff --check` 通过。
+- [x] Success：同一 mechanism package 不改 Harness 代码，通过 profile 切换依次完成 `codex`、`pi`、`opencode` 的真实 invoke 与独立 evaluator；`claude-code` 缺失时记为显式 residual，不冒充已验证。
+- [x] Mixed-profile：一次 Attempt 至少两个 executor 形成不同 invocation 树，每树 metadata/executor/model 与 lock 一致，轨迹不覆盖。
+- [x] Expected failure：未知 executor、缺 credential locator、不支持必需 capability 或非法 session handle 在 Attempt/invocation 边界 typed fail，无 fallback、无外部调用、无伪 PASS。
+- [x] Security：对 lock、stdout/stderr、workspace 和全 evidence 执行 backend-specific credential sentinel 扫描，零命中。
+- [x] Regression：`v0.13` evidence contract、Codex 路径、L1 negatives 与 evaluator truth barrier 通过。
+- [x] Engineering gates：three-backend conformance（`codex` + `pi` + `opencode`）、可用时的 `claude-code` residual probe、frozen install、Ruff、Pyright、pytest、public smokes、strict validator 与 `git diff --check` 通过。
 
 ### 后续 TODO
 

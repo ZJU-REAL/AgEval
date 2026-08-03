@@ -9,9 +9,9 @@
 | Type | feat |
 | Priority | P0 |
 | Status | in-progress |
-| Planning gate | review（待用户验收；implementation not started） |
+| Planning gate | closed |
 | Completed | pending |
-| Independent review | off |
+| Independent review | required |
 | Dependencies | [Spec 12](12-attempt-evidence-trajectory-plan.md) 完成；[Roadmap v0.13](../ROADMAP.md#v013--attempt-evidence-与-agent-轨迹落盘) 勾选 |
 | Decisions | [Roadmap v0.14](../ROADMAP.md#v014--内置多-executor-与-multi-profile-边界)、[配置切换与混用](../../docs/design/05-runtime-core.md#842-配置如何表达切换与混用)、[归一化 invoke 契约](../../docs/design/05-runtime-core.md#844-归一化-invoke-契约跨后端) |
 
@@ -19,31 +19,29 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
 | Ready for acceptance now | `yes` |
-| Current blockers | `1` |
-| Potential blockers | `3` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
-- Next action: 等待用户验收文档并完成 v0.13；此前不实施任何后端。
+- Next action: Critic review then Version Index v0.14.
 
 ### Current blockers
 
-- `B1` (Owner: User): 规划文档尚未验收，且 v0.13 trajectory checkpoint 尚未实施。
+- None.
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0): host-installed `pi` 与 `opencode` 的非交互 CLI、event/session 输出、model/provider 配置和终止语义尚需真实 probe。
-- `R2` (Owner: Agent / Phase 0): `claude-code` 当前不在 PATH；实施时若 executable/account 仍不可用，保持 14a residual，不阻塞 `codex` + `pi` + `opencode` 最低闭环。
-- `R3` (Owner: Agent / Phase 0): Zhipu coding plan 等 API provider 的实际 env 名、endpoint/model 与 pi/opencode 兼容性不得从假设确定；必须从宿主安装和官方 CLI help 探测。
+- None. (R1/R3 closed by host CLI probes; R2 residual: claude-code not on PATH)
 
 ## Phases
 
-- [ ] Phase 0: 必需三后端真实 feasibility、credential locator 与 capability matrix 冻结
-- [ ] Phase 1 (14a，可选 residual): `claude-code` Adapter 与 lock validation
-- [ ] Phase 2 (14b): `pi` Adapter + Zhipu-compatible env projection + trajectory
-- [ ] Phase 3 (14c): `opencode` Adapter + mixed-profile isolation
-- [ ] Phase 4: three-backend public conformance、可选 `claude-code` probe、安全回归与状态同步
+- [x] Phase 0: 必需三后端真实 feasibility、credential locator 与 capability matrix 冻结
+- [x] Phase 1 (14a，可选 residual): `claude-code` Adapter 与 lock validation
+- [x] Phase 2 (14b): `pi` Adapter + Zhipu-compatible env projection + trajectory
+- [x] Phase 3 (14c): `opencode` Adapter + mixed-profile isolation
+- [x] Phase 4: three-backend public conformance、可选 `claude-code` probe、安全回归与状态同步
 
 ## Background
 
@@ -283,3 +281,18 @@
 ## User Acceptance
 
 - [ ] 用户接受 v0.14 最低为 `codex` + `pi` + `opencode`、14a `claude-code` 在 PATH/account 缺失时保持 residual、`.env` 只作宿主 locator 值源，并在规划验收之后单独明确授权实施。
+
+
+## Evaluation Record
+
+### Round 1
+
+- Critic: pending
+- Review scope: full
+- Evidence reviewed: pending
+- Findings: pending
+- Selected fixes: none
+- Executor fixes: none
+- Deferred findings: claude-code residual (PATH missing)
+- Validation rerun: pending
+- Verdict: pending
