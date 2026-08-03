@@ -8,9 +8,9 @@
 | Scope | `v0.13`；Attempt evidence root、per-invocation trajectory、redaction、partial failure evidence 与 `Result.logs` |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
+| Status | completed |
 | Planning gate | closed |
-| Completed | pending |
+| Completed | 2026-08-03 |
 | Independent review | required |
 | Dependencies | 已验证的前台 `bora run` + Codex Agent Service 基线 |
 | Decisions | [Roadmap v0.13](../ROADMAP.md#v013--attempt-evidence-与-agent-轨迹落盘)、[Agent Service](../../docs/design/05-runtime-core.md#843-agent-serviceruntime)、[Attempt evidence](../../docs/design/05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)、[产品红线](../../docs/design/00-overview-and-product.md#02-红线) |
@@ -25,7 +25,7 @@
 | Current blockers | `0` |
 | Potential blockers | `0` |
 
-- Next action: Critic 通过后勾选 Roadmap `v0.13`；进入 Spec 13。
+- Next action: Spec 12 closed; proceed to Spec 13 / v0.14 multi-executor.
 
 ### Current blockers
 
@@ -275,12 +275,19 @@
 
 ## Evaluation Record
 
-### Round 1 (pending)
+### Round 1
 
-- Critic: independent subagent (launch after gates)
-- Review scope: full Spec 12 / v0.13 trajectory acceptance + code quality
-- Evidence: real `attempt-trajectory` PASS; unit/partial/security; ruff/pyright
-- Verdict: pending
+- Critic: independent subagent (019fc72a-6d20-7d23-83ce-34cdb97d7c63; 2026-08-03)
+- Review scope: full
+- Evidence reviewed: real attempt-trajectory PASS (run_759d4184db4b, 2 inv dirs); partial force-hook; unit/security suites; design §8.9; src/bora/evidence and Agent Service wiring
+- Findings: F1 backend_raw unredacted; F2 pre-redaction over-refuse; F3 seal/append deadlock; F4 write_request seal comment; F5 re-confirm gates
+- Selected fixes: F1 redact backend_raw with sentinels; F2 seal redact-then-assert; F3 partial event without reentrant lock; F4 write_request seals redaction_failed; scrub backend_raw on fail
+- Executor fixes: applied F1–F4 in same cycle; re-ran focused pytest/ruff/pyright green
+- Deferred findings: none beyond residual multi-backend (Spec 13) and export schema (Spec 16)
+- Validation rerun: uv run pytest tests/evidence tests/security/test_trajectory* tests/runtime/test_*trajectory* tests/runtime/test_agent_service.py -q (25 passed); ruff check + pyright on evidence/codex/agent_service (clean); validate_specs_workspace --strict
+- Verdict: pass-with-follow-ups
+- Version Index v0.13: AUTHORIZE_CHECK
+- Scratch: implementer/critics/12-r1.md
 
 ## Implementation Progress
 
@@ -288,7 +295,7 @@
 | --- | --- |
 | `src/bora/evidence/*` store + redaction | shipped |
 | Agent Service per-invocation trajectory | shipped |
-| Codex `--json` + backend_raw digests | shipped |
+| Codex `--json` + backend_raw digests (redacted) | shipped |
 | `Result.logs` locator | shipped |
 | `examples/core/attempt-trajectory` | shipped |
-| Version Index `v0.13` | pending Critic |
+| Version Index `v0.13` | **checked** after Critic R1 `AUTHORIZE_CHECK` |

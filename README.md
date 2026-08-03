@@ -14,7 +14,7 @@ BORA 是 *Harness 的 Harness*：在统一的配置锁定、Attempt 生命周期
 | 设计 | 已写入 [`docs/design/`](docs/design/)（自包含） |
 | 实现 | **v0.13 Attempt evidence / Codex 轨迹落盘可跑**（§8.9）；v0.14+ multi-executor / L1 visibility 等见 Active Spec 12–17 |
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（经 `application/composition.py` 装配） |
-| 证据 | L0 named packages + parent-bound multi-invoke trajectory（`attempt-trajectory`）+ L1/env/campaign 部分切片；Version Index **`v0.1`–`v0.12` 已勾**，`v0.13` 待 Critic；**不得**扩写全 suite `isolated` / `real-benchmark-verified` |
+| 证据 | L0 named packages + parent-bound multi-invoke trajectory（`attempt-trajectory`）+ L1/env/campaign 部分切片；Version Index **`v0.1`–`v0.13` 已勾**；**不得**扩写全 suite `isolated` / `real-benchmark-verified` |
 | 交付方法 | Spec-Driven Delivery（`$spec-driven-delivery`） |
 | 活动 Spec | [specs/active/00-core-batch0-and-batch1-plan.md](specs/active/00-core-batch0-and-batch1-plan.md) 起；依赖链见 Roadmap |
 | v1 参考 | `Developer/Archived/bora-v1`（只读） |
