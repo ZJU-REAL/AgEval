@@ -79,7 +79,17 @@ test double 仅在 `tests/doubles/`，不进入 production composition，不声�
 
 ## Agent Skills
 
-Start at [`skills/README.md`](skills/README.md). Design remains authority.
+Coding-agent Skills live under [`skills/`](skills/) and are discoverable after clone via [`.agents/skills`](.agents/skills) (symlink → `skills/`).
+
+| Skill | Path |
+| --- | --- |
+| Platform | [`skills/bora-platform/`](skills/bora-platform/) |
+| CLI | [`skills/bora-cli/`](skills/bora-cli/) |
+| Config / package | [`skills/bora-config-package/`](skills/bora-config-package/) |
+| SDK / harness | [`skills/bora-sdk-harness/`](skills/bora-sdk-harness/) |
+
+Design authority remains [`docs/design/`](docs/design/). Skills describe **shipped** surfaces only.
+
 
 ## 从哪里读起
 

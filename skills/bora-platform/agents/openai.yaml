@@ -1,0 +1,4 @@
+interface:
+  display_name: "BORA Platform"
+  short_description: "Authority, ownership, red lines map"
+  default_prompt: "Use $bora-platform to orient on BORA authority order, Core vs package ownership, and red lines before changing this repo."

@@ -1,0 +1,26 @@
+# bora_sdk public surface (shipped)
+
+Package: `bora_sdk` (see `sdk/python/src/bora_sdk/`).
+
+## Types
+
+| Symbol | Role |
+| --- | --- |
+| `HarnessContext` | params, scope, publish helpers |
+| `RunScope` | attempt/trial/run identity (parent-owned) |
+| `Agent` | factory for sessions bound to attempt |
+| `AgentSession` | `open` / `invoke` / `close` via parent socket |
+| `Tool` / `ToolSet` | local tools |
+| `AllowList` / `CallLimit` | soft local guards |
+| `HarnessTerminal` | completed / failed |
+| `bounded_gather` / `collect_results` / `first_success` | workflow helpers |
+
+## AgentSession.invoke return keys (parent path)
+
+Includes `ok`, `error`, `text`, `structured`, `provider_session_handle`, `invocation_id`, `evidence_relative` when parent provides them.
+
+## Offline
+
+When `BORA_OFFLINE_AGENT=1`, invoke fails closed (`offline_forced`) — never stub PASS on public paths.
+
+Design: `docs/design/03-harness-layer.md`, `docs/design/04-harness-core-sdk.md`.
