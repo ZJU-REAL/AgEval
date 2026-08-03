@@ -67,6 +67,7 @@ specs/BLOCKED.md
 | 证据等级 | **限定 `runnable-mvp`（L0）**：`examples/core/`（agent-eval、sdk-agent-session、tool-guard）与 `examples/journeys/`（env/multiagent/tau2）；`journeys/terminal-jsonl-agg` 可声明 **切片 `assurance:l1`**（非全量 `isolated`）。布局见 [examples/README.md](examples/README.md) |
 | Roadmap | Version Index：**`v0.1`–`v0.12` 已勾**（按 Critic 授权收口；各版 residual 见 Active Spec Evaluation Record） |
 | 活动 Spec | `specs/active/00`–`11`；06 review（HC-2/3 surfaces closed）；07–11 partial + honesty |
+| v0.13+ 规划 | `specs/active/12`–`17` 与 Roadmap v0.13–v0.18 已写入审查；**待用户验收，实施未开始** |
 | Constitution 条目 | 2 — critic-checkbox-authority；[core-not-bench-adapters](specs/constitution/2026-08-03-core-not-bench-adapters.md) |
 
 

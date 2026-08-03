@@ -23,5 +23,9 @@
 | **Evaluator** | task-local 真值所有者 |
 | **Evaluator barrier** | stop writers → materialize → evaluate → bind |
 | **Campaign** | 多 Trial 调度（Application 层） |
-| **硬顶 / 软限** | 硬顶 Runtime 强制；软限在 parameters 内由 Harness 使用 |
+| **硬顶（hard ceiling）** | **执行前上限**：次数/时长等限制在「还没真正调 Agent、还没改外部资源」之前就必须拦住；拦不住的（如事后 token 统计）不算硬顶，只算观测 |
+| **软限** | 写在 `parameters` 里、由 Harness 自己控制的策略上限（如 max turns）；可被 Harness 改口，不替代 Runtime 硬顶 |
 | **assurance** | 隔离档位（L0/L1/L2…）；Result 记录实际档位 |
+| **Attempt evidence** | 一次 Attempt 的 filesystem 事实树（`.bora/runs/<id>/`）；含 Result 投影与轨迹 |
+| **Agent 轨迹落盘** | 每次 Agent invocation 的 metadata / request / events.jsonl / final-response 等；供复盘与训练；≠ PASS |
+| **`Result.logs`** | 指向 Attempt evidence 根的 locator；必须可解析 |

@@ -26,11 +26,12 @@ BORA v2 的成功标准是：面对结构不同的 Agent Benchmark，转换者�
 
 成功度量是可转换 Harness 的覆盖面与单个转换的人工/代码成本，不是 Roadmap 示例数量；`database-52*` 只承担回归样例职责。
 
-转换能力同时满足三项要求：
+转换能力同时满足四项要求：
 
-1. **精简：** 只去掉讨论过的过度设计与过度防御仪式（例如 Config 多阶段公开 DTO、Artifact 用户类型阶梯、未证明必要的九步/四提交叙事）。**不**精简核心且实现成本合理的机制——包括**可见性控制（projection / view / mount / materialize）**。package 作者仍主要面对一份 `bora.yaml`、一个 Harness 入口、一个 Evaluator 入口和少量 Capability。
+1. **精简：** 只去掉讨论过的过度设计与过度防御仪式（例如 Config 多阶段公开 DTO、Artifact 用户类型阶梯、未证明必要的九步/四提交叙事）。**不**精简核心且实现成本合理的机制——包括**可见性控制（projection / view / mount / materialize）**与**Attempt evidence / Agent 轨迹落盘**。package 作者仍主要面对一份 `bora.yaml`、一个 Harness 入口、一个 Evaluator 入口和少量 Capability。
 2. **可拓展：** 隔离、Environment 终态和 transport 按档位或策略增加，不要求每个 task 预先配置能力全集。
 3. **泛化转换：** §16 规定自动、半自动与手工 bridge 的判断方式；shared 实现以第二领域绑定证明通用性。
+4. **可观察与可训练：** 一次 Attempt 结束后，操作者与训练管线必须能从固定 evidence 目录读取 Agent 执行轨迹（请求/事件流/归一化输出/usage 等），用于人工复盘、失败分析与轨迹训练数据导出。扁平 `Result` 不够；**轨迹落盘是 Core 义务**，不是 Harness 可选副作用。
 
 ### 0.2. 红线
 
@@ -44,6 +45,7 @@ BORA v2 的成功标准是：面对结构不同的 Agent Benchmark，转换者�
 | 独立 Evaluator | `HarnessTerminal.completed` 不等于 PASS，评分只能由独立 evaluator 形成 |
 | 硬顶与 allowlist | Runtime 强制 wall time、memory、Agent invocation、Environment action，并在执行前拒绝未声明 action |
 | hidden material | gold、hidden test 和 evaluator-only material 不挂载给 Agent，也不挂载给 Harness |
+| **Agent 轨迹落盘** | 每次经 Agent Service 的真实 invocation 必须在 Attempt evidence 树中落盘（默认 per-invocation JSONL 事件流 + 归一化摘要）；`Result.logs` 指向该树；轨迹不得含 host credential；轨迹**不得**代替 evaluator verdict |
 
 ### 0.3. MVP 假设与非目标
 
@@ -56,8 +58,9 @@ MVP 默认单 Attempt、前台串行、进程内 Harness。Environment 的最小
 - 九步评测仪式和四个公开 commit point；
 - 不把 Port 提升为 package 作者必学层，也不强制 Capability → Port → Adapter → Service 四层主叙事；对外只讲 Capability + Adapter；
 - 每次 Agent invocation 重复核验已经绑定的 Attempt/profile/workspace；
-- 对外完整阶段结果树（内部 evidence 可保存）；
-- 所有 task **强制** freeze、per-actor UID/GID、durable/reopen 或 JSONL transport（按档位/策略可选）；
+- 对外完整**阶段结果树**作为聚合器必选 schema（内部/操作者 evidence 树**必须**存在，见 §0.2 轨迹落盘）；
+- 所有 task **强制** freeze、per-actor UID/GID、durable/reopen；
+- 默认把 **Capability transport** 做成 JSONL/stdio 跨进程（与 evidence 目录里的 JSONL **不是同一件事**；轨迹落盘默认 JSONL 文件）；
 - 通用 Handoff、BranchAuthority、Graph IR 和 workflow receipt 系统。
 
 ### 0.4. 可见性投影（保留的一等机制）

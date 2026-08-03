@@ -29,7 +29,39 @@ Config (v0.1)
                                   → Environment 资源 (v0.10)
                                       → Campaign/matrix (v0.11)
                                           → 后台/耐久 authority (v0.12，按需)
+                                              ⇒ Attempt trajectory (v0.13)
+                                                  → built-in multi-executor (v0.14)
+                                                      → Docker L1 visibility (v0.15)
+                                                          → multi-profile + Environment (v0.16)
+                                                              → hard ceilings + trajectory consume (v0.17)
+                                                                  → Agent Skills 平台使用指南 (v0.18)
+                                                                      → Campaign / plugins / durable / VM / upstream verification (v0.19+，按需)
 ```
+
+`v0.13`–`v0.17` 是从已有前台 `bora run` 基线引出的机制主轴；`v0.18` 交付**给 coding agent 用的平台 Skills**（怎么跑 CLI、怎么写配置/SDK），不新增 Runtime authority。后一版实施与完成仍以前一版可运行 checkpoint 为依赖（Skills 正文只描述**已实现**表面，未落地能力不得写成已可用）。
+
+## 后续阶段约束
+
+- Provider 主线为 Docker L1；不交付 VM、远程多机或 L2 全量隔离。
+- 每次经 Agent Service 的真实 invocation 必须同步写入 Attempt evidence；轨迹是产品交付物，不是 PASS 来源。
+- `codex`、`pi`、`opencode` 是 v0.14 最低 built-in executor 闭环；`claude-code` 在 CLI/account 可用时作 14a residual 接入，当前 PATH 缺失不阻塞三后端 Version Index。本阶段不实现 entry-point 发现、第三方 wheel 分发或插件市场。
+- Executor capability matrix 进入 lock；缺少 tool、structured output、session 或 stream 等必需能力时，在 Attempt 前 fail closed，禁止静默降级或切换后端。
+- Credential 值由宿主/用户管理，环境变量只作 locator；secret 不进 lock、package、Harness 默认视图、轨迹或 example。
+- 多角色顺序、branch 与 handoff 属于 package Harness；Core 只拥有 profile binding、调用/外部动作边界、可见性、**执行前上限（硬顶）**、evidence 与 evaluator barrier。
+- gold、hidden test 与 evaluator-only material 必须通过不 mount + barrier 后 materialize 隔离；删配置字段或 prompt 过滤不构成物理隔离。
+- Campaign 全量收口、durable/background/reopen、插件发现、VM Provider 与固定 upstream 验证统一转入 `v0.19+`，未触发新版本或 Research 前不扩展。
+- `v0.18` Skills **不是**第二套设计权威：路由与操作说明可进 `skills/`，机制语义仍以 `docs/design/` 为准；Skills 不得发明与 design 冲突的命令、字段或红线。
+
+### 设计不偏离清单
+
+- [x] trajectory 仅是 evidence/产品交付物，始终不等于 PASS；PASS 只由独立 evaluator 形成。
+- [x] v0.13–v0.17 不实现或宣称插件/entry-point 发现。
+- [x] production Adapter 只按 executor、协议、资源类型或执行机制命名，不出现 Benchmark/task/domain 分支。
+- [x] 从 v0.15 起，gold/hidden/evaluator-only material 必须不 mount 给 Harness/Agent，仅在 barrier 后按 allowlist materialize 给 clean evaluator。
+- [x] 本轴 Provider 只交付 Docker，不交付或宣称 VM/microVM。
+- [x] secret 值不进 lock、trajectory、example、跟踪文件或 Git；env 名只是 locator，实际值只作受控 runtime input。
+
+> 机制主轴与 Skills 规划见 Active Spec **12–17** 与本文件 `v0.13`–`v0.18` 节。待用户验收后才可开始实施。
 
 ## 版本索引
 
@@ -45,6 +77,12 @@ Config (v0.1)
 - [x] `v0.10` — Environment Capability 最小真实资源
 - [x] `v0.11` — Campaign / 实验矩阵
 - [x] `v0.12` — 后台控制与耐久 authority（按需）
+- [ ] `v0.13` — Attempt Evidence 与 Agent 轨迹落盘
+- [ ] `v0.14` — 内置多 Executor 与 multi-profile 边界
+- [ ] `v0.15` — Docker L1 可见性与隔离收口
+- [ ] `v0.16` — 多 profile 编排与 Environment 资源边界
+- [ ] `v0.17` — 执行前上限（硬顶）与轨迹导出
+- [ ] `v0.18` — Agent Skills：平台使用指南（CLI / config / SDK）
 
 
 > **Acceptance packages (2026-08-03):** layout under `examples/{journeys,core,l1}/` (see `examples/README.md`). Primary journeys: `journeys/{env-postgres-min,multiagent-env-min,tau2-dialog-min,terminal-jsonl-agg}`, plus `core/sdk-agent-session` and campaign matrix — **not** removed toys (`echo-contract`, `workspace-file-eval`).
@@ -559,7 +597,7 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 设计
 
-- [Campaign Coordinator](../docs/design/05-runtime-core.md#89-campaign-coordinator)
+- [Campaign Coordinator](../docs/design/05-runtime-core.md#810-campaign-coordinator)
 - [Budget 与限制](../docs/design/07-budget-evaluation-failure.md#13-budget-与限制)
 - [Spec 10](active/10-v0.11-campaign-matrix-plan.md)
 
@@ -623,4 +661,267 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 - [x] 新 Research：远程 worker、跨主机调度、完整恢复或全局 dashboard；未立项前保持非目标。
 
+## v0.13 — Attempt Evidence 与 Agent 轨迹落盘
 
+### 目标
+
+跑完 `bora run` 后，操作者能在 evidence 目录里**按顺序打开每一次 Agent 调用**（请求、事件、最终回复，已脱敏），用来复盘；这些文件**不**代替 PASS/FAIL。
+
+### 起始可运行基线
+
+- Public entrypoint: `uv run bora run <package> --task <task-id>`。
+- Baseline smoke: 真实 Codex multi-invoke、evaluator negative control 与现有 L0/L1 acceptance suites。
+- Observable result: CLI 可返回 Runtime/Evaluation/Cleanup 事实和 evidence locator，但尚未保证每条 invocation 按 §8.9 落盘。
+
+### 演进增量
+
+在现有 Codex 真实路径上引入 Attempt-owned evidence writer：每条 invocation 拥有独立目录、append-only events、归一化 request/final response、终态 metadata 和统一 redaction；失败与取消也保留 partial evidence。
+
+### 设计
+
+- [Agent Service](../docs/design/05-runtime-core.md#843-agent-serviceruntime)
+- [Attempt evidence 与 Agent 轨迹落盘](../docs/design/05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)
+- [红线](../docs/design/00-overview-and-product.md#02-红线)
+- [Spec 12](active/12-attempt-evidence-trajectory-plan.md)
+
+### 关键交付
+
+- [ ] `Result.logs` 稳定指向 `.bora/runs/<run-or-attempt-id>/`，`summary.json`、lock 摘要、`agent/`、`effects.jsonl`、`evaluation/`、`harness/`、`cleanup.json` 的语义与 §8.9 一致。
+- [ ] 每条 invocation 在 `agent/invocations/<nnnn>-<invocation-id>/` 中生成 `metadata.json`、`request.json`、`events.jsonl`、`final-response.json` 及可选 `stderr.txt`，失败路径留下可解析 partial state。
+- [ ] 脱敏覆盖 credential value、Authorization/Bearer、cookie、DSN password 与已注册 sentinel；原始与派生文件使用同一 fail-closed policy。
+- [ ] 现有 Codex multi-invoke production path 证明 store 合同；Harness `ctx.events` 只作补充，不是唯一轨迹源。
+
+### 验收标准
+
+- [ ] Success：一次真实 Codex multi-invoke Attempt 的 invocation 数与目录数相等，每目录 metadata/request 可解析，且 events/final response 至少一个含有可复盘内容。
+- [ ] Expected failure：executor crash/timeout/cancel 后仍有独立 invocation id、typed status、时间和 partial events，无伪 final response 或 PASS。
+- [ ] Security negative：向 message、environment、stderr 与 backend event 注入随机 sentinel，全 evidence 字节扫描零命中。
+- [ ] Regression：evaluator verdict、runtime outcome、Agent result 和 cleanup warning 仍为独立事实；旧 public smokes 通过。
+- [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、public smokes、strict Specs validator、相对链接检查与 `git diff --check` 通过，状态文档同步。
+
+### 后续 TODO
+
+- [ ] `v0.14`：必需 `codex` + `pi` + `opencode` 与可用时的 `claude-code` residual 复用该 evidence contract 和 redaction。
+- [ ] `v0.17`：交付稳定轨迹消费 schema 与脱敏 export。
+
+## v0.14 — 内置多 Executor 与 multi-profile 边界
+
+### 目标
+
+同一套 harness **只改配置**就能换或并用 Codex / pi / OpenCode；各后端各自落盘轨迹、各自用密钥，缺 key 就明确失败。本机没有 `claude-code` 时记 residual，不挡三后端验收。
+
+### 起始可运行基线
+
+- Public entrypoint: `uv run bora run <package> --task <task-id>`。
+- Baseline smoke: `v0.13` 真实 Codex multi-invoke trajectory success/redaction/failure。
+- Observable result: Codex invocation 有稳定 evidence；其他 CLI/API executor 尚未经统一 contract 证明。
+- Planning host probe: 2026-08-03 只读观察到 `pi` 和 `opencode` 在 PATH、`codex` 存在、`claude`/`claude-code` 缺失；`.env` 当前仅观察键名 `zhipu_coding_api_key`。这些是 Phase 0 输入，不是已冻结 production locator 合同，未读取或记录任何值。
+
+### 演进增量
+
+建立主仓固定 built-in registry 和进 lock 的 capability matrix，以 14b `pi` + 14c `opencode` 完成最低三后端闭环；14a `claude-code` 仅在 executable/account 可用时实施。每个 Adapter 将后端差异归一为 `AgentResult` 和 §8.9 evidence，不让 Harness 按 executor kind 分支。
+
+### 设计
+
+- [配置切换与混用](../docs/design/05-runtime-core.md#842-配置如何表达切换与混用)
+- [归一化 invoke 契约](../docs/design/05-runtime-core.md#844-归一化-invoke-契约跨后端)
+- [热路径与限制](../docs/design/05-runtime-core.md#845-热路径与限制)
+- [Spec 13](active/13-builtin-multi-executor-plan.md)
+
+### 关键交付
+
+- [ ] 固定 registry 最低登记 `codex`、`pi`、`opencode`；`claude-code` 仅在 14a 实现且通过真实 probe 时登记。未知 kind 在 lock 阶段失败，不扫描 entry points。
+- [ ] lock 记录 profile 解析快照和 tools/structured output/session/stream capability matrix；任务要求不满足时 Attempt 零启动。
+- [ ] Phase 0 从 CLI help + 实际 `.env` 键冻结后端原生 env 名，再映射到 Runtime logical locator；Runtime 仅向目标 Adapter 进程投影必需 env，值不进 lock、轨迹、example 或 Harness 默认环境。
+- [ ] 同 Attempt 两个 profile 的 session、invocation ids、hard-ceiling accounting 和 trajectory directories 均独立，不覆盖、不跨 Attempt 复用。
+
+### 验收标准
+
+- [ ] Success：同一 mechanism package 不改 Harness 代码，通过 profile 切换依次完成 `codex`、`pi`、`opencode` 的真实 invoke 与独立 evaluator；`claude-code` 缺失时记为显式 residual，不冒充已验证。
+- [ ] Mixed-profile：一次 Attempt 至少两个 executor 形成不同 invocation 树，每树 metadata/executor/model 与 lock 一致，轨迹不覆盖。
+- [ ] Expected failure：未知 executor、缺 credential locator、不支持必需 capability 或非法 session handle 在 Attempt/invocation 边界 typed fail，无 fallback、无外部调用、无伪 PASS。
+- [ ] Security：对 lock、stdout/stderr、workspace 和全 evidence 执行 backend-specific credential sentinel 扫描，零命中。
+- [ ] Regression：`v0.13` evidence contract、Codex 路径、L1 negatives 与 evaluator truth barrier 通过。
+- [ ] Engineering gates：three-backend conformance（`codex` + `pi` + `opencode`）、可用时的 `claude-code` residual probe、frozen install、Ruff、Pyright、pytest、public smokes、strict validator 与 `git diff --check` 通过。
+
+### 后续 TODO
+
+- [ ] `v0.15`：将可容器化 CLI executor 放入 Docker Attempt，对 API-only 形态记录真实运行位置与 network projection。
+- [ ] `v0.19`+ 后备队列：需要第三方独立包时，另立插件/entry-point 交付版本。
+
+## v0.15 — Docker L1 可见性与隔离收口
+
+### 目标
+
+在 Docker Attempt 里跑内置后端时，操作者能从 Result 看清：**Agent 实际跑在哪**、读不到 gold、网和密钥按声明收紧；做不到的隔离不标 `assurance:l1`。
+
+### 起始可运行基线
+
+- Public entrypoint: `uv run bora run <package> --task <task-id>` with locked built-in profile。
+- Baseline smoke: `v0.14` single/mixed executor success 与 capability/credential negatives。
+- Observable result: 多后端与 trajectory 可运行，但各 executor 的 container/host 位置和 projection 尚未统一闭合。
+
+### 演进增量
+
+将 Harness 和可容器化 CLI executor 放入 Attempt container；对无法同形的 API client 明确记录 agent execution location 和最小 network/credential projection。只有声明的 L1 属性全部通过 property probe 时才输出 `assurance:l1`。
+
+### 设计
+
+- [Provider](../docs/design/05-runtime-core.md#83-provider)
+- [Workspace 与 Artifact Owner](../docs/design/05-runtime-core.md#86-workspace-与-artifact-owner)
+- [物理隔离与可见性投影](../docs/design/06-capability-adapter-visibility.md#104-prompt-隔离与物理隔离可见性投影)
+- [Spec 14](active/14-docker-l1-visibility-plan.md)
+
+### 关键交付
+
+- [ ] 锁定 image/platform/digest 与 actual execution location；容器化能力或 projection 缺失时不静默 fallback L0。
+- [ ] Workspace read/write/absent views 通过 mount/bind 实施；secret 只向目标 Adapter/child 投影，network 默认拒绝并只放行锁定 endpoint class。
+- [ ] `evaluation/`、gold 与 hidden material 从未 mount 到 Harness/Agent；writer barrier 后才将 allowlisted inputs materialize 到 clean evaluator。
+- [ ] Attempt evidence 由 host-owned 路径或专用 evidence volume 收集，executor 进程不可改写已 seal 的其它 invocation。
+
+### 验收标准
+
+- [ ] Success：至少一个 CLI executor 在 Docker Attempt 中真实 invoke，独立 evaluator 仅见 allowlisted inputs，Result 记录真实 assurance 子字段与 trajectory locator。
+- [ ] Expected failure：读 gold/evaluation、跨 workspace view、未授权 endpoint 与未投影 secret 全部在副作用前失败，Evaluator 零启动。
+- [ ] Writer negative：无法确认停止的 Agent/Harness writer 阻止 materialization 和 evaluator，partial trajectory 仍可定位。
+- [ ] Evidence honesty：仅对实测 image/platform/executor/location/projection 组合声称 `assurance:l1`，不扩写为全 suite `isolated`。
+- [ ] Regression/engineering：`v0.13`–`v0.14` journeys、旧 L0/L1 negatives、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
+
+### 后续 TODO
+
+- [ ] `v0.16`：在同一 projection/evidence 边界内组合多 profile 和真实 Environment。
+- [ ] `v0.19`+ 后备队列：L2 per-actor UID/GID、VM/microVM 与跨主机 Provider。
+
+## v0.16 — 多 profile 编排与 Environment 资源边界
+
+### 目标
+
+同一次 Attempt 里：package 自己编排多角色（多个 profile），Runtime 管数据库等真实资源的启停、允许的改动、密钥与清理，并独立评测——Core 不抢走 harness 剧本。
+
+### 起始可运行基线
+
+- Public entrypoint: Docker L1 `uv run bora run <package> --task <task-id>` with built-in profiles。
+- Baseline smoke: `v0.15` containerized executor success、visibility negatives 与 clean evaluator。
+- Observable result: 多 profile 和 Environment 切片分别存在，尚未在同一 production Attempt 中形成可验收组合。
+
+### 演进增量
+
+收口 Environment Manager 的 prepare/allowlisted action/teardown 与 resource-scoped credential，并用 package-owned 多角色 workflow 调用至少两个 profile。Runtime 不理解 role、handoff 或 branch，只对每个 invoke/effect 强制边界并落盘。
+
+### 设计
+
+- [Environment Manager](../docs/design/05-runtime-core.md#85-environment-manager)
+- [Agent Service](../docs/design/05-runtime-core.md#843-agent-serviceruntime)
+- [普通 Agent 间传递](../docs/design/06-capability-adapter-visibility.md#102-普通-agent-间传递)
+- [Spec 15](active/15-orchestration-environment-plan.md)
+
+### 关键交付
+
+- [ ] Environment resource 按协议/资源类型命名，支持可复现 prepare、health、allowlisted action 与有界 teardown，不读取 Benchmark/task identity 决定行为。
+- [ ] 多 profile 调用顺序、中间数据与 handoff 由 package Harness 拥有；Core 不新增 Graph/Handoff/role service。
+- [ ] Environment action 经 Capability 在 mutation 前 allowlist/ceiling 判定，effects 记录授权/拒绝摘要，Agent 默认视图不含 resource credential。
+- [ ] 所有 invocation trajectory、environment effect、evaluator raw 和 cleanup outcome 通过 Attempt identity 关联，但继续保持独立事实。
+
+### 验收标准
+
+- [ ] Success：同一 Docker Attempt 完成至少两个 profile invocation、一次已授权 Environment action、declared output、独立 evaluator 和 teardown。
+- [ ] Expected failure：未申明 action 在 mutation 前拒绝，不产生资源变更或后续 Agent invoke，cleanup 仍有界。
+- [ ] Visibility：Agent/Harness 无法直读 resource credential、gold 或 evaluator-only material；evaluator 只见 allowlisted artifact/resource projection。
+- [ ] Cleanup：teardown 后 owner inventory 为空；无法确认的资源产生 non-reusable warning，不改写 score。
+- [ ] Regression/engineering：`v0.13`–`v0.15` 及旧 Environment/L1 journeys、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
+
+### 后续 TODO
+
+- [ ] `v0.17`：在该组合路径上收口 invocation/wall/environment-action 硬顶与轨迹消费。
+- [ ] `v0.19`+ 后备队列：Campaign 全量 matrix/admission/retry/atomic summary，不在 Attempt Core 内引入调度图。
+
+## v0.17 — 执行前上限（硬顶）与轨迹导出
+
+### 目标
+
+操作者确认：配置的次数/时长上限在动手前拦住（硬顶），超时会停，并能导出脱敏轨迹供复盘/训练且不改 PASS/FAIL。
+
+### 起始可运行基线
+
+- Public entrypoint: `uv run bora run <package> --task <task-id>` with multi-profile + Environment。
+- Baseline smoke: `v0.16` composed success、unauthorized-action failure 与 cleanup。
+- Observable result: 调用与效果能对上；**「第 N+1 次绝不发生」**和**稳定导出格式**尚未收口。
+
+### 演进增量
+
+把 Agent 次数、资源动作次数、墙钟超时收到 production 路径上统一判定；超限拒绝并记证据。另固定一份只读封存 evidence 的 JSONL 导出（再脱敏一次）；导出失败或轨迹本身都不改 score。
+
+### 设计
+
+- [硬顶与软限](../docs/design/07-budget-evaluation-failure.md#131-硬顶与软限)
+- [旁路防护](../docs/design/07-budget-evaluation-failure.md#133-旁路防护)
+- [扁平结果与轨迹 evidence](../docs/design/07-budget-evaluation-failure.md#142-扁平结果与轨迹-evidence)
+- [Spec 16](active/16-hard-ceiling-trajectory-consume-plan.md)
+
+### 关键交付
+
+- [ ] `agent_invocations` 与 Environment action 以 Attempt 为 scope、`count_on=authorized`，由 parent Runtime 在外部调用/mutation 前原子判定；第 N+1 个 effect 不发生。
+- [ ] wall deadline 由 Provider/Runtime 终止 Harness、Executor 与子 writer，终态确认后才进入后续 barrier/cleanup。
+- [ ] denial、timeout、cancel 与 executor crash 保留 typed error、effects 决策和 partial trajectory，不产生伪 final response/score。
+- [ ] 稳定 export 将 per-invocation metadata/request/events/final response 映射为版本化 JSONL，保留 source refs/digests，二次 redaction 并拒绝未 seal 或扫描不通过的 evidence。
+
+### 验收标准
+
+- [ ] Success：在硬顶内完成 multi-profile + Environment + evaluator，effects 中的授权数与真实外部 effect 数一致。
+- [ ] Expected failure：第 N+1 次 invocation 与 Environment action 分别在 spawn/mutation 前拒绝，后端/resource 计数器证明无外部副作。
+- [ ] Timeout/cancel/crash：全部 writer 有界终止，partial trajectory 可解析，evaluator 只在 barrier 条件满足时启动。
+- [ ] Consume：export 记录数与 sealed invocation 数一致，schema version/source refs 完整，sentinel 扫描零命中；训练消费失败不改写 Result/PASS。
+- [ ] Regression/engineering：`v0.13`–`v0.16` 全部机制路径、旧 public smokes、Ruff、Pyright、pytest、strict validator、链接检查与 `git diff --check` 通过。
+
+### 后续 TODO
+
+- [ ] `v0.18`：为 coding agent 提供可安装 Skills（平台介绍、CLI、配置、SDK/package 规范），只描述已落地表面。
+- [ ] `v0.19`+ 后备队列：若需要跨进程/并发最后一单位仲裁，另立 durable/atomic authority 版本；本版只声称前台单 Attempt 边界。
+- [ ] `v0.19`+ 后备队列：Campaign 全收口、entry-point 插件、固定 upstream `real-benchmark-verified` 和 VM Provider 按真实需求分别立项。
+
+## v0.18 — Agent Skills：平台使用指南
+
+### 目标
+
+在仓库内提供一套 **Skills**，让 coding agent 能按统一入口学会：BORA 是什么、怎么用 CLI、怎么写 `bora.yaml` / package、怎么写 harness SDK，而不靠猜或抄错误示例。
+
+### 起始可运行基线
+
+- Public entrypoint: 当前已交付的 `bora lock` / `bora run` / `bora campaign` 与 `docs/`、`examples/`。
+- Baseline smoke: 既有 README 安装与公开 CLI 检查点。
+- Observable result: 人类可读 docs 已存在；**没有**面向 agent 的 skill 目录与触发约定。
+
+### 演进增量
+
+建立仓库级 `skills/`（或等价约定路径）布局：总览路由 skill + CLI / config / SDK-package 专题 skill。内容从 design 与**已实现**行为摘出操作步骤，带正例/反例边界；不复制整本 design，不新增产品语义。
+
+### 设计
+
+- [产品定义与作者面](../docs/PRD.md)
+- [Task Package 与 Config](../docs/design/02-task-package-and-config.md)
+- [Harness 层](../docs/design/03-harness-layer.md)
+- [Harness Core SDK](../docs/design/04-harness-core-sdk.md)
+- [红线与可见性](../docs/design/00-overview-and-product.md)
+- [Spec 17](active/17-agent-skills-platform-guide-plan.md)
+
+### 关键交付
+
+- [ ] 仓库 `skills/` 布局与命名约定固定（每个 skill 含 `SKILL.md`；可选 `references/`）；README / AGENTS 说明 agent 如何加载。
+- [ ] **平台总览 skill**：一页说清 Core vs Harness vs package、证据等级禁声称、读文档顺序。
+- [ ] **CLI skill**：`bora lock` / `bora run` / `bora campaign`（及已暴露的 status 类命令）的参数、成功/失败判据、evidence 去哪看；不写未实现命令。
+- [ ] **Config / package skill**：`bora.yaml` 结构、layout allowlist、parameters vs envelope、常见 fail-closed 原因；链接 design/02，不另立第二配置真相。
+- [ ] **SDK / harness skill**：`HarnessContext`、AgentSession、Tool/Guard、不得 import 具体 executor SDK、不得自定 PASS；链接 design/03–04。
+- [ ] 诚实边界：未交付机制（如轨迹 export 未实现前）标「未落地」或省略，禁止写成已可用。
+
+### 验收标准
+
+- [ ] Success：新开 agent 仅依赖 skills + 仓库公开入口，能完成「锁定一个 example → 理解 package 结构 → 指出改哪里」的检查清单（人工或脚本化 walkthrough，记录步骤与引用路径）。
+- [ ] Expected failure：skill 内故意列出的反模式（按 bench 名写 Adapter、把 completed 当 PASS、密钥写进 yaml）有明确「禁止」说明，并指向 design 红线。
+- [ ] Consistency：skill 正文命令/字段与当前 `bora --help`、example package、design 无矛盾；抽检零「文档有、代码无」。
+- [ ] Engineering gates：严格 Specs validator、相对链接、`git diff --check`；skills 不引入 secret；不把 vault 当权威。
+- [ ] Documentation：README / AGENTS 当前事实写明 skills 路径与用途；证据等级不因有 skills 而升级。
+
+### 后续 TODO
+
+- [ ] `v0.19`：机制主轴（v0.13–v0.17）落地后回写 skills 对应章节（本版先覆盖已落地表面）。
+- [ ] `v0.19`+ 后备队列：Campaign 全收口、插件分发、durable、VM、fixed upstream 验证 — 与 Skills 分列。
