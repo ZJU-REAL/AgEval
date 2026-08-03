@@ -62,12 +62,11 @@ specs/BLOCKED.md
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/design/00`–`10` 已自包含迁入；日常**不**再以 vault 为权威 |
-| production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service→`bora run`/`bora campaign`→SDK；terminal-class L1 harness+clean eval（`run_l1`）；Postgres env handoff / plugin registry / campaign matrix 为**部分切片**（见 Spec 07–11 Implementation Progress） |
-| 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露） |
-| 证据等级 | **限定 `runnable-mvp`（L0）**：`examples/core/`（agent-eval、sdk-agent-session、tool-guard）与 `examples/journeys/`（env/multiagent/tau2）；`journeys/terminal-jsonl-agg` 可声明 **切片 `assurance:l1`**（非全量 `isolated`）。布局见 [examples/README.md](examples/README.md) |
-| Roadmap | Version Index：**`v0.1`–`v0.12` 已勾**（按 Critic 授权收口；各版 residual 见 Active Spec Evaluation Record） |
-| 活动 Spec | `specs/active/00`–`11`；06 review（HC-2/3 surfaces closed）；07–11 partial + honesty |
-| v0.13+ 规划 | `specs/active/12`–`17` 与 Roadmap v0.13–v0.18 已写入审查；**待用户验收，实施未开始** |
+| production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service（§8.9 evidence）→`bora run`/`bora campaign`→SDK；`src/bora/evidence/`；terminal L1 / env / campaign **部分切片** |
+| 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露；`bora run` 输出 `logs` locator） |
+| 证据等级 | **限定 `runnable-mvp`（L0）**：含 `examples/core/attempt-trajectory`（Codex multi-invoke 轨迹树）；其余 core/journeys 见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
+| Roadmap | Version Index：**`v0.1`–`v0.12` 已勾**；`v0.13` 实现完成、待 Critic 勾选；`v0.14`–`v0.18` 实施中/未开始 |
+| 活动 Spec | `specs/active/00`–`17`；12 completed（Critic pending）；13–17 待实施 |
 | Constitution 条目 | 2 — critic-checkbox-authority；[core-not-bench-adapters](specs/constitution/2026-08-03-core-not-bench-adapters.md) |
 
 

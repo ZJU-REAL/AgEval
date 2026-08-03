@@ -77,7 +77,7 @@ Config (v0.1)
 - [x] `v0.10` — Environment Capability 最小真实资源
 - [x] `v0.11` — Campaign / 实验矩阵
 - [x] `v0.12` — 后台控制与耐久 authority（按需）
-- [ ] `v0.13` — Attempt Evidence 与 Agent 轨迹落盘
+- [ ] `v0.13` — Attempt Evidence 与 Agent 轨迹落盘  <!-- Critic gate: check after pass -->
 - [ ] `v0.14` — 内置多 Executor 与 multi-profile 边界
 - [ ] `v0.15` — Docker L1 可见性与隔离收口
 - [ ] `v0.16` — 多 profile 编排与 Environment 资源边界
@@ -686,18 +686,20 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 关键交付
 
-- [ ] `Result.logs` 稳定指向 `.bora/runs/<run-or-attempt-id>/`，`summary.json`、lock 摘要、`agent/`、`effects.jsonl`、`evaluation/`、`harness/`、`cleanup.json` 的语义与 §8.9 一致。
-- [ ] 每条 invocation 在 `agent/invocations/<nnnn>-<invocation-id>/` 中生成 `metadata.json`、`request.json`、`events.jsonl`、`final-response.json` 及可选 `stderr.txt`，失败路径留下可解析 partial state。
-- [ ] 脱敏覆盖 credential value、Authorization/Bearer、cookie、DSN password 与已注册 sentinel；原始与派生文件使用同一 fail-closed policy。
-- [ ] 现有 Codex multi-invoke production path 证明 store 合同；Harness `ctx.events` 只作补充，不是唯一轨迹源。
+- [x] `Result.logs` 稳定指向 `.bora/runs/<run-or-attempt-id>/`，`summary.json`、lock 摘要、`agent/`、`effects.jsonl`、`evaluation/`、`harness/`、`cleanup.json` 的语义与 §8.9 一致。
+- [x] 每条 invocation 在 `agent/invocations/<nnnn>-<invocation-id>/` 中生成 `metadata.json`、`request.json`、`events.jsonl`、`final-response.json` 及可选 `stderr.txt`，失败路径留下可解析 partial state。
+- [x] 脱敏覆盖 credential value、Authorization/Bearer、cookie、DSN password 与已注册 sentinel；原始与派生文件使用同一 fail-closed policy。
+- [x] 现有 Codex multi-invoke production path 证明 store 合同；Harness `ctx.events` 只作补充，不是唯一轨迹源。
 
 ### 验收标准
 
-- [ ] Success：一次真实 Codex multi-invoke Attempt 的 invocation 数与目录数相等，每目录 metadata/request 可解析，且 events/final response 至少一个含有可复盘内容。
-- [ ] Expected failure：executor crash/timeout/cancel 后仍有独立 invocation id、typed status、时间和 partial events，无伪 final response 或 PASS。
-- [ ] Security negative：向 message、environment、stderr 与 backend event 注入随机 sentinel，全 evidence 字节扫描零命中。
-- [ ] Regression：evaluator verdict、runtime outcome、Agent result 和 cleanup warning 仍为独立事实；旧 public smokes 通过。
-- [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、public smokes、strict Specs validator、相对链接检查与 `git diff --check` 通过，状态文档同步。
+- [x] Success：一次真实 Codex multi-invoke Attempt 的 invocation 数与目录数相等，每目录 metadata/request 可解析，且 events/final response 至少一个含有可复盘内容。
+- [x] Expected failure：executor crash/timeout/cancel 后仍有独立 invocation id、typed status、时间和 partial events，无伪 final response 或 PASS。
+- [x] Security negative：向 message、environment、stderr 与 backend event 注入随机 sentinel，全 evidence 字节扫描零命中。
+- [x] Regression：evaluator verdict、runtime outcome、Agent result 和 cleanup warning 仍为独立事实；旧 public smokes 通过。
+- [x] Engineering gates：frozen install、Ruff、Pyright、pytest、public smokes、strict Specs validator、相对链接检查与 `git diff --check` 通过，状态文档同步。
+
+> **Version Index `v0.13` 勾选时机：** 独立 Critic 通过后立即勾选（constitution critic-checkbox-authority）。证据：`examples/core/attempt-trajectory` 真实 Codex multi-invoke PASS + §8.9 树；unit/partial/security suites。
 
 ### 后续 TODO
 

@@ -12,9 +12,9 @@ BORA 是 *Harness 的 Harness*：在统一的配置锁定、Attempt 生命周期
 | --- | --- |
 | 代际 | v2 greenfield（不兼容归档 v1） |
 | 设计 | 已写入 [`docs/design/`](docs/design/)（自包含） |
-| 实现 | **v0.7 HC-2/3 surfaces 可跑**（parent-bound Session + Tool）；terminal L1 / env / campaign 为**部分切片**；v0.8–v0.12 全文未闭合（见 Active Spec Implementation Progress） |
+| 实现 | **v0.13 Attempt evidence / Codex 轨迹落盘可跑**（§8.9）；v0.14+ multi-executor / L1 visibility 等见 Active Spec 12–17 |
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（经 `application/composition.py` 装配） |
-| 证据 | L0/L1 named packages + plugin HTTP 第二后端 + Env Manager + campaign preadmit + `bora submit/status/cancel`；Version Index **`v0.1`–`v0.12` 已勾**（Critic 授权收口）；**不得**扩写全 suite `isolated` / `real-benchmark-verified` |
+| 证据 | L0 named packages + parent-bound multi-invoke trajectory（`attempt-trajectory`）+ L1/env/campaign 部分切片；Version Index **`v0.1`–`v0.12` 已勾**，`v0.13` 待 Critic；**不得**扩写全 suite `isolated` / `real-benchmark-verified` |
 | 交付方法 | Spec-Driven Delivery（`$spec-driven-delivery`） |
 | 活动 Spec | [specs/active/00-core-batch0-and-batch1-plan.md](specs/active/00-core-batch0-and-batch1-plan.md) 起；依赖链见 Roadmap |
 | v1 参考 | `Developer/Archived/bora-v1`（只读） |
@@ -33,7 +33,7 @@ uv run bora --help
 | 命令 | 含义 | 证据边界 |
 | --- | --- | --- |
 | `bora lock` | Config Core 锁定摘要 | 工程检查点；非 `runnable-mvp` |
-| `bora run` | 单 Trial 前台 Attempt 竖切（L0） | 离线 fail-closed 已回归；**真实 Agent PASS 需登录 Codex 并记录证据** |
+| `bora run` | 单 Trial 前台 Attempt 竖切（L0） | 离线 fail-closed 已回归；**真实 Agent PASS 需登录 Codex**；stdout JSON 含 `logs` → Attempt evidence 根（§8.9 轨迹） |
 | `bora campaign` | 前台串行 matrix（`/parameters/*`） | seed 等 allowlisted variant **已注入** lock digest；非完整 campaign policy |
 
 ## 公开检查点：`bora lock`

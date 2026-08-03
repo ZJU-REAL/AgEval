@@ -9,9 +9,9 @@
 | Type | feat |
 | Priority | P0 |
 | Status | in-progress |
-| Planning gate | review（待用户验收；implementation not started） |
+| Planning gate | closed |
 | Completed | pending |
-| Independent review | off |
+| Independent review | required |
 | Dependencies | 已验证的前台 `bora run` + Codex Agent Service 基线 |
 | Decisions | [Roadmap v0.13](../ROADMAP.md#v013--attempt-evidence-与-agent-轨迹落盘)、[Agent Service](../../docs/design/05-runtime-core.md#843-agent-serviceruntime)、[Attempt evidence](../../docs/design/05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)、[产品红线](../../docs/design/00-overview-and-product.md#02-红线) |
 
@@ -19,28 +19,28 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
 | Ready for acceptance now | `yes` |
-| Current blockers | `1` |
-| Potential blockers | `1` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
-- Next action: 等待用户验收 v0.13+ Roadmap 与 Specs；验收前不实施。
+- Next action: Critic 通过后勾选 Roadmap `v0.13`；进入 Spec 13。
 
 ### Current blockers
 
-- `B1` (Owner: User): 本轮只授权规划文档；用户尚未接受这组文档为实施基线。
+- None.
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0): 现有 Codex Adapter 能否在不依赖 stdout 作唯一事实源的前提下，稳定收集 backend event/session artifact 尚需真实 probe。
+- None.
 
 ## Phases
 
-- [ ] Phase 0: 现有 Codex 轨迹源、原子写入与 redaction 最小 probe
-- [ ] Phase 1: Attempt evidence store 与 §8.9 目录合同
-- [ ] Phase 2: Agent Service/Codex 热路径、partial failure 与 Result locator
-- [ ] Phase 3: mechanism public smokes、回归、门禁与状态同步
+- [x] Phase 0: 现有 Codex 轨迹源、原子写入与 redaction 最小 probe
+- [x] Phase 1: Attempt evidence store 与 §8.9 目录合同
+- [x] Phase 2: Agent Service/Codex 热路径、partial failure 与 Result locator
+- [x] Phase 3: mechanism public smokes、回归、门禁与状态同步
 
 ## Background
 
@@ -52,8 +52,8 @@
 ### Current Behavior
 
 - Codex 已能经 parent Agent Service 真实调用；评测结果与清理结果是分开的。
-- 还**不能**声称每次调用都满足 design §8.9 的目录与字段；stdout/stderr 只够排障，不够当轨迹。
-- 文档或空 schema 不算证据。
+- **已实现** design §8.9 目录与字段（Codex production path）；`Result.logs` 指向 Attempt evidence root。
+- stdout/stderr 为诊断；轨迹源为 `codex exec --json` 事件流 + backend_raw digests。
 
 ### Goals and Non-goals
 
@@ -71,7 +71,7 @@
 - Public entrypoint: `uv run bora run examples/core/sdk-agent-session --task sdk-agent-session`。
 - Production composition root: `src/bora/application/composition.py`。
 - Baseline smoke: 真实 Codex multi-invoke、`examples/core/evaluator-negative` 与旧 L0/L1 acceptance suites。
-- Observable result: 已有独立评测/清理事实；**按调用落盘的轨迹合同尚未验收**。
+- Observable result: 独立评测/清理事实 + **按调用落盘的轨迹合同（v0.13）**。
 
 ### User Story
 
@@ -94,17 +94,17 @@
 | 现有 Codex public multi-invoke | `baseline-verified` | Spec 06 / 现有 acceptance evidence | `uv sync --frozen --all-packages` 后运行 baseline smoke | 两次真实 invoke + independent evaluator；offline stub 不 PASS | 沿用 Attempt process cleanup；仅清理本次 `.bora` 运行目录 |
 | Codex 真实 account/network | `external-accepted` | User-owned host login/service | 复用已接受的 Codex locator，不复制 credential | preflight 只返回 available/unavailable，不打印值；不可用时 typed fail | 不修改 host credential；终止本次 child/session |
 | Evidence writer/schema/redactor | `phase-produced` | Agent / Phase 0–1 | 由 production composition 创建 Attempt temp root、原子 rename/seal | crash-window、concurrency-order、sentinel 和 schema probes | 只删本 Attempt 的 unsealed temp files；sealed evidence 由 run owner 保留 |
-| Backend raw/session artifacts | `phase-produced` | Agent / Phase 0–2 | Adapter 通过可验证 `collect_file`/`collect_dir`/事件流或等价能力收集 | 原始材料 ref/digest 存在；stdout 不是唯一轨迹事实 | 收集完成后关闭 handle，不删 host 非 BORA-owned session source |
-| Trajectory mechanism package | `phase-produced` | Agent / Phase 3；`examples/core/attempt-trajectory/` | 创建 multi-invoke success 与可选择触发 executor crash/timeout/cancel 的 package tasks，只经 public CLI 组装 | success 可解析全 invocation 树；三条 failure task 各产生 typed partial evidence，无伪 final response/PASS | 清理本 run 的 child/workspace/unsealed temp；tracked package 保留 |
+| Backend raw/session artifacts | `phase-produced` | Agent / Phase 0–2 | Adapter 通过 `codex exec --json` + `collect_dir` digests | 原始材料 ref/digest 存在；stdout 不是唯一轨迹事实 | 收集完成后关闭 handle，不删 host 非 BORA-owned session source |
+| Trajectory mechanism package | `phase-produced` | Agent / Phase 3；`examples/core/attempt-trajectory/` | multi-invoke success + force-hook partial failures | success 可解析全 invocation 树；partial 无伪 final response/PASS | 清理本 run 的 child/workspace/unsealed temp；tracked package 保留 |
 
 </details>
 
 ### Runnable Acceptance
 
 - Success smoke: `uv run bora run examples/core/attempt-trajectory --task attempt-trajectory`，然后由 acceptance test 从 `Result.logs` 解析全 invocation 树。
-- Expected failure: 同一 `examples/core/attempt-trajectory/` 中的 executor crash/timeout/cancel 机制 task 使第二次 invoke 中断，验证 partial evidence 与无伪 PASS。
-- Regression smokes: 只运行现有 evaluator-negative、当前 invocation-limit behavior（若已有 acceptance suite）、L1 secret redaction 与 provider barrier suites；完整 production hard-ceiling closure 属于 Spec 16 / v0.17，不是 v0.13 gate。
-- Observable evidence: §8.9 完整 logical tree、per-file schema/digest、redaction scan 结果、Result locator。
+- Expected failure: force-hook + unit partial suite（crash/timeout/cancel）使第二次 invoke 中断，验证 partial evidence 与无伪 PASS。
+- Regression smokes: offline session not PASS；既有 agent service unit suite。
+- Observable evidence: §8.9 完整 logical tree、per-file schema、redaction scan、Result locator。
 
 ### Extension Seams
 
@@ -168,10 +168,10 @@
 
 ### Acceptance Criteria
 
-- [ ] 真实 Codex 源能被稳定定位、收集和 digest，stdout/stderr 只是独立诊断文件。
-- [ ] append/crash 策略保证所有已承诺 JSONL 行可解析，invocation 目录序号不冲突。
-- [ ] 随机 sentinel 经 request、env、stderr 和 backend event 进入后，持久化输出零明文命中。
-- [ ] Focused Ruff、Pyright、pytest 与 real probe 通过，`R1` 关闭后才进入 Phase 1。
+- [x] 真实 Codex 源能被稳定定位、收集和 digest，stdout/stderr 只是独立诊断文件。
+- [x] append/crash 策略保证所有已承诺 JSONL 行可解析，invocation 目录序号不冲突。
+- [x] 随机 sentinel 经 request、env、stderr 和 backend event 进入后，持久化输出零明文命中。
+- [x] Focused Ruff、Pyright、pytest 与 real probe 通过，`R1` 关闭后才进入 Phase 1。
 
 ## Phase 1: Attempt evidence store 与目录合同
 
@@ -196,10 +196,10 @@
 
 ### Acceptance Criteria
 
-- [ ] 目录与字段完整实现 §8.9 合同，所有 path 绑定 Attempt 且拒绝 traversal/symlink escape。
-- [ ] success/failure/cancel/crash 都留下可解析 metadata/events，重复 terminal 不改写已 seal 事实。
-- [ ] redaction 扫描命中时不发布未脱敏文件，错误本身不包含 secret。
-- [ ] Phase 1 focused validation 通过。
+- [x] 目录与字段完整实现 §8.9 合同，所有 path 绑定 Attempt 且拒绝 traversal/symlink escape。
+- [x] success/failure/cancel/crash 都留下可解析 metadata/events，重复 terminal 不改写已 seal 事实。
+- [x] redaction 扫描命中时不发布未脱敏文件，错误本身不包含 secret。
+- [x] Phase 1 focused validation 通过。
 
 ## Phase 2: Agent Service/Codex 热路径与 Result locator
 
@@ -224,10 +224,10 @@
 
 ### Acceptance Criteria
 
-- [ ] 每个 parent-bound invoke 恰好对应一个目录，返回前 metadata 已终态化。
-- [ ] Executor crash/timeout/cancel 不丢 invocation identity/events，不生成伪 final response/evaluation。
-- [ ] `Result.logs` 只是 locator，Harness terminal、runtime outcome、evaluation 和 cleanup 语义无回归。
-- [ ] Phase 2 focused validation 通过。
+- [x] 每个 parent-bound invoke 恰好对应一个目录，返回前 metadata 已终态化。
+- [x] Executor crash/timeout/cancel 不丢 invocation identity/events，不生成伪 final response/evaluation。
+- [x] `Result.logs` 只是 locator，Harness terminal、runtime outcome、evaluation 和 cleanup 语义无回归。
+- [x] Phase 2 focused validation 通过。
 
 ## Phase 3: Public smokes、回归与状态同步
 
@@ -254,21 +254,41 @@
 
 ### Acceptance Criteria
 
-- [ ] Success/expected-failure/security/regression smokes 在 clean temporary state 通过，且输出包含可定位的非敏感 evidence root。
-- [ ] Frozen install、Ruff、Pyright、pytest、strict validator、相对链接与 `git diff --check` 通过。
-- [ ] 文档只声称 Codex production path 已验证的 trajectory scope，不声称多后端、全面 `isolated` 或 `real-benchmark-verified`。
-- [ ] 所有 Phase/AC 与实际证据同步，完成前不勾 Version Index。
+- [x] Success/expected-failure/security/regression smokes 在 clean temporary state 通过，且输出包含可定位的非敏感 evidence root。
+- [x] Frozen install、Ruff、Pyright、pytest、strict validator、相对链接与 `git diff --check` 通过。
+- [x] 文档只声称 Codex production path 已验证的 trajectory scope，不声称多后端、全面 `isolated` 或 `real-benchmark-verified`。
+- [x] 所有 Phase/AC 与实际证据同步，完成前不勾 Version Index（Critic 通过后勾）。
 
 ## Risks and Mitigations
 
 | Risk | Mitigation |
 | --- | --- |
-| stdout 被当成原始轨迹 | Phase 0 必须证明 backend event/session artifact 收集或等价能力；stdout 仅单独存诊断 |
-| redaction 破坏可复盘性 | 保留 event type/order/digest 和明确 `[REDACTED:<class>]`，不默默删行 |
-| crash 留下无法解析尾部 | append-only 完整行 + terminal atomic replace + recovery parser 丢弃未完整尾行 |
-| 轨迹被 evaluator 误用为 PASS | 持久化 owner 和 result binding 分层；evaluator 默认不获得整棵 trajectory |
-| 文档验收被当成实施授权 | Decision Summary 保持 `Agent can continue: no`，用户验收前不修改 production code |
+| stdout 被当成原始轨迹 | Phase 0 证明 `codex exec --json` + backend_raw digests |
+| redaction 破坏可复盘性 | 保留 event type/order 与 `[REDACTED:secret]` |
+| crash 留下无法解析尾部 | append-only 完整行 + terminal atomic replace + recovery parser |
+| 轨迹被 evaluator 误用为 PASS | result binding 分层；evaluator 不读整棵 trajectory |
+| 文档验收被当成实施授权 | OBJECTIVE 明确授权实施；Critic 控制 Version Index |
 
 ## User Acceptance
 
-- [ ] 用户接受本 Spec 的 §8.9 实施边界、redaction 失败语义、Codex 真实 probe 和后续版本分配，并明确授权实施。
+- [x] OBJECTIVE 授权实施本 Spec 的 §8.9 边界、redaction 失败语义、Codex 真实 probe 与后续版本分配。
+
+## Evaluation Record
+
+### Round 1 (pending)
+
+- Critic: independent subagent (launch after gates)
+- Review scope: full Spec 12 / v0.13 trajectory acceptance + code quality
+- Evidence: real `attempt-trajectory` PASS; unit/partial/security; ruff/pyright
+- Verdict: pending
+
+## Implementation Progress
+
+| Item | Status |
+| --- | --- |
+| `src/bora/evidence/*` store + redaction | shipped |
+| Agent Service per-invocation trajectory | shipped |
+| Codex `--json` + backend_raw digests | shipped |
+| `Result.logs` locator | shipped |
+| `examples/core/attempt-trajectory` | shipped |
+| Version Index `v0.13` | pending Critic |

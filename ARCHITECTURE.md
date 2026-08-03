@@ -13,7 +13,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **v0.1–v0.7 L0 竖切原型 + v0.8–v0.12 草图** — `bora lock`/`run`/`campaign`；Docker L1 full attempt (named packages; assurance:l1)；OpenAI HTTP / Postgres / ControlStore 未全闭合 Spec |
+| 实现状态 | **v0.1–v0.13 L0 竖切 + Attempt evidence** — `bora lock`/`run`/`campaign`；§8.9 trajectory store（Codex path）；Docker L1 / multi-executor / env 部分切片 |
 | 证据等级 | **限定 `runnable-mvp`**（L0 core/journeys 烟测；见 `examples/README.md`；Version Index 以 Roadmap 为准） |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
@@ -117,11 +117,12 @@ BORA/
 │   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker
 │   ├── provider/              # Core 3：L0 contract / workspace plan / outcomes
 │   ├── capabilities/          # Core 4：Attempt authority（进程内）
-│   ├── evaluation/            # Core 5：flat Result binder
+│   ├── evaluation/            # Core 5：flat Result binder（含 Result.logs locator）
+│   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
 │   └── adapters/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
-│       └── agent_codex.py     # Codex Executor（可选网络）
+│       └── agent_codex.py     # Codex Executor（--json 事件流）
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal
