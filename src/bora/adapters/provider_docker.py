@@ -54,6 +54,15 @@ class DockerRuntime:
     termination_actions: list[str] = field(default_factory=list)
     assurance: str = "l0"  # default honest; only upgrade after full L1 workload
     policy_digests: dict[str, str] = field(default_factory=dict)
+    writer_inventory: list[str] = field(default_factory=list)
+    writer_stops: list[bool] = field(default_factory=list)
+
+    def register_writer(self, name: str) -> None:
+        self.writer_inventory.append(name)
+
+    def record_writer_stop(self, confirmed: bool) -> None:
+        self.writer_stops.append(confirmed)
+        self.writer_stop_confirmed = all(self.writer_stops) if self.writer_stops else False
 
 
 class DockerProvider:
@@ -119,7 +128,14 @@ class DockerProvider:
         timeout_seconds: float = 120.0,
         env: dict[str, str] | None = None,
         network: bool = False,
+        network_mode: str | None = None,
         mounts: list[tuple[str, str, str]] | None = None,
+        include_package: bool = True,
+        include_workspace: bool = True,
+        user: str = "10001:10001",
+        writer_name: str = "container",
+        workdir: str = "/attempt/workspace",
+        read_only_root: bool = True,
     ) -> ProcessOutcome:
         """Run argv inside a new container; reap and return L1 outcome facts."""
         if runtime.cleaned:
@@ -127,6 +143,7 @@ class DockerProvider:
         if runtime.image_lock is None or runtime.package_host is None:
             raise ProviderL1Error("invalid_plan", "runtime not prepared")
 
+        runtime.register_writer(writer_name)
         name = f"bora-{runtime.attempt.value[-12:]}-{uuid.uuid4().hex[:8]}"
         cmd = [
             "docker",
@@ -135,52 +152,51 @@ class DockerProvider:
             "--name",
             name,
             "--user",
-            "10001:10001",
+            user,
             "--security-opt",
             "no-new-privileges",
-            "--read-only",
-            "--tmpfs",
-            "/tmp:rw,noexec,nosuid,size=64m",
         ]
-        # Network: default none unless allowed. No silent policy downgrade.
-        if not network or runtime.network_id is None:
-            cmd.extend(["--network", "none"])
-        else:
+        if read_only_root:
+            cmd.extend(["--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m"])
+        # Network: default none. bridge = agent provider egress (declared).
+        # internal network_id only when network=True and mode not bridge.
+        mode = network_mode or ("bridge" if network and runtime.network_id is None else None)
+        if mode == "bridge":
+            cmd.extend(["--network", "bridge"])
+        elif network and runtime.network_id is not None:
             cmd.extend(["--network", runtime.network_id])
+        else:
+            cmd.extend(["--network", "none"])
 
-        # Package mount: when hide_evaluation is set, mount a filtered tree without
-        # evaluation/ and gold-like paths (physical hide for container probes).
-        package_mount = runtime.package_host
-        if (
-            runtime.policy_digests.get("hide_evaluation") == "True"
-            and runtime.workdir_host is not None
-            and runtime.package_host is not None
-        ):
-            filtered = runtime.workdir_host / "package_view"
-            if not filtered.exists():
-                _copy_package_filtered(runtime.package_host, filtered)
-            package_mount = filtered
-        cmd.extend(
-            [
-                "-v",
-                f"{package_mount}:/attempt/package:ro",
-                "-v",
-                f"{runtime.workdir_host}/workspace:/attempt/workspace:rw",
-                "-v",
-                f"{runtime.workdir_host}/artifacts:/attempt/artifacts:rw",
-            ]
-        )
+        # Package mount: filtered tree without evaluation/ when hide_evaluation.
+        if include_package and runtime.workdir_host is not None:
+            package_mount = runtime.package_host
+            if runtime.policy_digests.get("hide_evaluation") == "True":
+                filtered = runtime.workdir_host / "package_view"
+                if not filtered.exists():
+                    _copy_package_filtered(runtime.package_host, filtered)
+                package_mount = filtered
+            cmd.extend(["-v", f"{package_mount}:/attempt/package:ro"])
+        if include_workspace and runtime.workdir_host is not None:
+            cmd.extend(
+                [
+                    "-v",
+                    f"{runtime.workdir_host}/workspace:/attempt/workspace:rw",
+                    "-v",
+                    f"{runtime.workdir_host}/artifacts:/attempt/artifacts:rw",
+                ]
+            )
         if mounts:
-            for src, dst, mode in mounts:
-                cmd.extend(["-v", f"{src}:{dst}:{mode}"])
+            for src, dst, mode_m in mounts:
+                cmd.extend(["-v", f"{src}:{dst}:{mode_m}"])
 
-        # Never mount Docker socket.
+        # Never mount Docker socket / never pass DOCKER_* to task.
         for key, val in (env or {}).items():
             if key.upper() in {"DOCKER_HOST", "DOCKER_SOCK"}:
                 continue
             cmd.extend(["-e", f"{key}={val}"])
 
-        cmd.extend(["--workdir", "/attempt/workspace", runtime.image_lock.image_tag, *argv])
+        cmd.extend(["--workdir", workdir, runtime.image_lock.image_tag, *argv])
 
         try:
             proc = subprocess.run(
@@ -204,7 +220,8 @@ class DockerProvider:
                 ).returncode
                 != 0
             )
-            runtime.writer_stop_confirmed = gone and kill.returncode == 0
+            confirmed = gone and kill.returncode == 0
+            runtime.record_writer_stop(confirmed)
             return ProcessOutcome(
                 attempt=runtime.attempt,
                 assurance="l0",  # single-container probe; not full L1 Attempt isolation
@@ -226,8 +243,8 @@ class DockerProvider:
         except OSError as exc:
             raise ProviderL1Error(ERROR_SPAWN_FAILED, f"docker run failed: {exc}") from exc
 
-        # docker run --rm waits for main process exit; that is one writer, not a tree.
-        runtime.writer_stop_confirmed = proc.returncode is not None
+        # docker run --rm waits for main process exit → writer stop confirmed.
+        runtime.record_writer_stop(proc.returncode is not None)
         terminal = (
             ProcessTerminalKind.EXITED
             if proc.returncode is not None
@@ -235,7 +252,6 @@ class DockerProvider:
         )
         return ProcessOutcome(
             attempt=runtime.attempt,
-            # Probe/container helper grade: do not claim full Attempt L1 isolation here.
             assurance="l0",
             terminal=terminal,
             exit_code=proc.returncode,
@@ -249,9 +265,10 @@ class DockerProvider:
             writer_stop_confirmed=runtime.writer_stop_confirmed,
             cleanup_ok=True,
             detail={
-                "image": runtime.image_lock.image_digest,
-                "platform": runtime.image_lock.platform,
+                "image": runtime.image_lock.image_digest if runtime.image_lock else "",
+                "platform": runtime.image_lock.platform if runtime.image_lock else "",
                 "containment": "single_container_probe",
+                "writer": writer_name,
             },
         )
 

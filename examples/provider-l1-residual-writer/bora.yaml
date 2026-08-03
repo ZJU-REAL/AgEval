@@ -1,0 +1,26 @@
+format: bora.task/1
+task_id: residual-writer
+harness:
+  runtime: python
+  entrypoint: harness:run
+parameters:
+  probe: residual_writer
+provider:
+  kind: docker
+  assurance: l1
+  platform: linux/arm64
+  network: none
+agent_profiles: []
+limits:
+  wall_time_seconds: 60
+  agent_invocations: 0
+  environment_actions: 0
+artifacts:
+  publishable: []
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs: []
+  output:
+    format: json

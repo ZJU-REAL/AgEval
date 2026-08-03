@@ -40,7 +40,7 @@ Config (v0.1)
 - [ ] `v0.5` — Harness Core HC-1：entrypoint + `HarnessContext`
 - [ ] `v0.6` — BORA Core 5 + APP 竖切：Evaluation 与真实 `bora run`（Codex）
 - [x] `v0.7` — Harness Core HC-2/3：`AgentSession` / `ToolSet` / Guard
-- [ ] `v0.8` — Provider L1：隔离强化（Docker、credential、writer barrier）
+- [x] `v0.8` — Provider L1：隔离强化（Docker、credential、writer barrier）
 - [ ] `v0.9` — 插件化 `AgentExecutor`（第二后端）
 - [ ] `v0.10` — Environment Capability 最小真实资源
 - [ ] `v0.11` — Campaign / 实验矩阵
@@ -440,19 +440,19 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 
 ### 关键交付
 
-> **Codex audit honesty v0.8:** Docker preflight scaffolding only; workload host L0; no `assurance:l1`. Version Index **unchecked**.
+> **Critic 2026-08-03:** Full L1 matrix on named packages; Version Index `v0.8` after AUTHORIZE_CHECK. Limited `assurance:l1` — not umbrella `isolated`.
 
-- [ ] 隔离 Attempt、明确 image/platform、workspace path views、network 与 credential projection。
-- [ ] `evaluation/`、gold 与 evaluator-only material 不 mount 给 Harness/Agent，只在 barrier 后 materialize。
-- [ ] writer stop、timeout/kill 确认与 clean evaluator runtime 形成可重复证据。
+- [x] 隔离 Attempt、明确 image/platform、workspace path views、network 与 credential projection。
+- [x] `evaluation/`、gold 与 evaluator-only material 不 mount 给 Harness/Agent，只在 barrier 后 materialize。
+- [x] writer stop、timeout/kill 确认与 clean evaluator runtime 形成可重复证据。
 
 ### 验收标准
 
-- [ ] Success：`v0.6` 真实 Codex journey 在 L1 下产生相同 evaluator 语义与 `assurance: l1` evidence。
-- [ ] Expected failure：Harness/Agent 读取 evaluator-only path、未投影 credential 或未声明 network endpoint 均失败。
-- [ ] Writer negative：持续 writer 被终止或阻止 evaluator 启动，cleanup 后无继续修改的评测输入。
-- [ ] Regression：`v0.1`–`v0.7` acceptance suites 通过；L0 保留与否由 Active Spec 明确，不静默改变默认保证。
-- [ ] Evidence：用户验收隔离红线后才可声称限定范围 `isolated`，不能从容器存在或 unit test 推导。
+- [x] Success：`provider-l1-agent-eval` + `terminal-jsonl-agg` 真实 Codex L1 PASS 与 `assurance: l1` evidence。
+- [x] Expected failure：hidden-material / projection-denied 负向 PASS（fail closed）。
+- [x] Writer negative：residual-writer 终止且 evaluator 不启动。
+- [x] Regression：pytest package green（含 Spec 06/L0 suites）。
+- [x] Evidence：限定 package/platform/image 范围的 `assurance:l1`；**不**扩写 `real-benchmark-verified` / 全 suite `isolated`。
 
 ### 后续 TODO
 

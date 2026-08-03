@@ -303,111 +303,37 @@ async def run_task(
                 )
 
     if provider_kind == "docker":
-        # Full L1 for terminal/workspace packages; otherwise fail closed (no fake l1).
-        workspace_out = str(params.get("workspace_output") or "")
-        if workspace_out:
-            from bora.application.run_l1 import run_l1_workspace_attempt
+        # Full L1 orchestration for all docker packages (Spec 07) — no preflight-only PASS.
+        from bora.application.run_l1 import run_l1_attempt
+        from bora.evaluation.result_binding import FlatResult
 
-            code, result_doc, details = run_l1_workspace_attempt(
-                package_root=package_root,
-                lock=lock,
-                run_dir=run_dir,
-                agent_meta=agent_meta,
-                agent_invocations=agent_invocations,
-                workspace_output_name=workspace_out,
-                allow_offline_agent=allow_offline_agent,
-            )
-            from bora.evaluation.result_binding import FlatResult
-
-            score_raw = result_doc.get("score")
-            score_f = float(score_raw) if isinstance(score_raw, int | float) else None
-            metrics_raw = (
-                result_doc.get("metrics") if isinstance(result_doc.get("metrics"), dict) else {}
-            )
-            err = result_doc.get("error") if isinstance(result_doc.get("error"), dict) else None
-            flat = FlatResult(
-                status=str(result_doc.get("status") or "ERROR"),
-                score=score_f,
-                metrics=metrics_raw or {},
-                error_phase=(err or {}).get("phase") if err else None,
-                cleanup_warning=result_doc.get("cleanup_warning"),  # type: ignore[arg-type]
-                evidence_path=str(result_doc.get("evidence_path") or run_dir),
-                runtime_kind=str(result_doc.get("runtime_kind") or "docker_l1"),
-                harness_kind=str(result_doc.get("harness_kind") or "failed"),
-                agent_invocations=int(result_doc.get("agent_invocations") or 0),
-                assurance=str(result_doc.get("assurance") or "l0"),
-            )
-            return code, flat, details
-
-        # Non-workspace docker packages: still refuse to stamp l1 without full path.
-        from bora.adapters.provider_docker import DockerProvider, ensure_image_lock
-        from bora.runtime.identity import IdentityFactory
-
-        try:
-            repo_lock = Path.cwd() / ".bora" / "runtime-images" / "provider-l1.json"
-            lock_path = repo_lock if repo_lock.is_file() else ensure_image_lock(Path.cwd())
-            docker = DockerProvider(image_lock_path=lock_path)
-            factory = IdentityFactory()
-            run = factory.new_run()
-            trial = factory.new_trial(run, lock.digest)
-            attempt = factory.new_attempt(trial)
-            work = run_dir / "l1-work"
-            runtime = docker.prepare(
-                attempt,
-                package_root=package_root,
-                work_root=work,
-                network_mode=str(provider_cfg.get("network") or "none"),
-                hide_evaluation=True,
-            )
-            probe = docker.run_command(
-                runtime,
-                [
-                    "python",
-                    "-c",
-                    "from pathlib import Path; "
-                    "p=Path('/attempt/package/evaluation'); "
-                    "print('eval_exists', p.exists())",
-                ],
-                network=False,
-                timeout_seconds=60,
-            )
-            if "eval_exists True" in (probe.stdout_summary or ""):
-                docker.cleanup(runtime)
-                raise RuntimeError("workspace_view_denied: evaluation/ visible in package mount")
-            l1_meta = {
-                "image": (runtime.image_lock.image_digest if runtime.image_lock else ""),
-                "platform": (runtime.image_lock.platform if runtime.image_lock else ""),
-                "probe_exit": probe.exit_code,
-                "probe_stdout": probe.stdout_summary.strip(),
-                "writer_stop_confirmed": probe.writer_stop_confirmed,
-                "containment": "docker_preflight_only",
-                "assurance_note": "non-workspace docker packages stay preflight-only",
-            }
-            assurance = "l0"
-            docker.cleanup(runtime)
-        except Exception as exc:  # noqa: BLE001
-            flat = bind_result(
-                evaluator_raw=None,
-                harness_kind="failed",
-                runtime_kind="local_l0",
-                agent_invocations=0,
-                evidence_path=str(run_dir),
-                error_phase="provider",
-                cleanup_warning=f"{type(exc).__name__}: {exc}",
-            )
-            summary = flat.as_dict()
-            summary["assurance"] = "l0"
-            summary["status"] = "ERROR"
-            summary["error"] = {
-                "phase": "provider",
-                "kind": getattr(exc, "error_code", "provider_l1_unavailable"),
-                "message": str(exc),
-            }
-            (run_dir / "result.json").write_text(
-                json.dumps(summary, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-            return 2, flat, {"l1": {"error": str(exc), "containment": "docker_preflight_only"}}
+        code, result_doc, details = run_l1_attempt(
+            package_root=package_root,
+            lock=lock,
+            run_dir=run_dir,
+            agent_meta=agent_meta,
+            agent_invocations=agent_invocations,
+            allow_offline_agent=allow_offline_agent,
+        )
+        score_raw = result_doc.get("score")
+        score_f = float(score_raw) if isinstance(score_raw, int | float) else None
+        metrics_raw = (
+            result_doc.get("metrics") if isinstance(result_doc.get("metrics"), dict) else {}
+        )
+        err = result_doc.get("error") if isinstance(result_doc.get("error"), dict) else None
+        flat = FlatResult(
+            status=str(result_doc.get("status") or "ERROR"),
+            score=score_f,
+            metrics=metrics_raw or {},
+            error_phase=(err or {}).get("phase") if err else None,
+            cleanup_warning=result_doc.get("cleanup_warning"),  # type: ignore[arg-type]
+            evidence_path=str(result_doc.get("evidence_path") or run_dir),
+            runtime_kind=str(result_doc.get("runtime_kind") or "docker_l1"),
+            harness_kind=str(result_doc.get("harness_kind") or "failed"),
+            agent_invocations=int(result_doc.get("agent_invocations") or 0),
+            assurance=str(result_doc.get("assurance") or "l0"),
+        )
+        return code, flat, details
 
     # Generic Environment resource prepare (postgresql) — resource-type named only.
     env_resource = str(params.get("environment_resource") or "")

@@ -13,7 +13,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **v0.1–v0.7 L0 竖切原型 + v0.8–v0.12 草图** — `bora lock`/`run`/`campaign`；Docker L1 preflight only；OpenAI HTTP / Postgres / ControlStore 未全闭合 Spec |
+| 实现状态 | **v0.1–v0.7 L0 竖切原型 + v0.8–v0.12 草图** — `bora lock`/`run`/`campaign`；Docker L1 full attempt (named packages; assurance:l1)；OpenAI HTTP / Postgres / ControlStore 未全闭合 Spec |
 | 证据等级 | **限定 `runnable-mvp`**（仅 L0 `agent-eval` / `echo-contract`；Version Index 全未勾；无 `isolated`） |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |

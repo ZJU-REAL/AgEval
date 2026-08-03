@@ -14,7 +14,7 @@ BORA 是 *Harness 的 Harness*：在统一的配置锁定、Attempt 生命周期
 | 设计 | 已写入 [`docs/design/`](docs/design/)（自包含） |
 | 实现 | **v0.7 HC-2/3 surfaces 可跑**（parent-bound Session + Tool）；terminal L1 / env / campaign 为**部分切片**；v0.8–v0.12 全文未闭合（见 Active Spec Implementation Progress） |
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（经 `application/composition.py` 装配） |
-| 证据 | **限定 `runnable-mvp`（L0）** + terminal-jsonl-agg 切片 `assurance:l1`；验收 package 以 `sdk-agent-session` / `terminal-jsonl-agg` / `multiagent-env-min` / `tau2-dialog-min` 为主（**非** echo toys）；Version Index **`v0.7` 已勾**（Critic R3）；`v0.8`–`v0.12` 未勾；**不得**扩写全量 `isolated` / `real-benchmark-verified` |
+| 证据 | **L0 `runnable-mvp`** + named L1 packages `assurance:l1`（terminal-jsonl-agg / provider-l1-*）；验收以 session / L1 / multiagent / tau2 为主（**非** echo toys）；Version Index **`v0.7`+`v0.8` 已勾**；`v0.9`–`v0.12` 未勾；**不得**扩写全 suite `isolated` / `real-benchmark-verified` |
 | 交付方法 | Spec-Driven Delivery（`$spec-driven-delivery`） |
 | 活动 Spec | [specs/active/00-core-batch0-and-batch1-plan.md](specs/active/00-core-batch0-and-batch1-plan.md) 起；依赖链见 Roadmap |
 | v1 参考 | `Developer/Archived/bora-v1`（只读） |
