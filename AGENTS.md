@@ -153,6 +153,7 @@ Skill 路径若本机不同，以已安装的 `spec-driven-delivery` 包内 `scr
 
 | 文档 | 用途 |
 | --- | --- |
+| [skills/README.md](skills/README.md) | coding agent 短路径（平台 / CLI / config / SDK） |
 | [README.md](README.md) | 人类入口与状态 |
 | [docs/design/01-bora-core.md](docs/design/01-bora-core.md) | Core 五组 |
 | [docs/design/09-owner-matrix-and-structure.md](docs/design/09-owner-matrix-and-structure.md) | Owner 矩阵 |

@@ -77,6 +77,10 @@ uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q
 
 test double 仅在 `tests/doubles/`，不进入 production composition，不声明 `runnable-mvp`。
 
+## Agent Skills
+
+Start at [`skills/README.md`](skills/README.md). Design remains authority.
+
 ## 从哪里读起
 
 ### 给 Agent / 贡献者
