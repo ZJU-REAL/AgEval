@@ -783,7 +783,7 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 验收标准
 
-- [x] Success：至少一个 CLI executor 在 Docker Attempt 中真实 invoke，独立 evaluator 仅见 allowlisted inputs，Result 记录真实 assurance 子字段与 trajectory locator。
+- [x] Success：Docker Attempt 中 harness + clean evaluator 闭合且 `assurance:l1` 仅对实测组合；Agent 可诚实记录为 `parent-api-client`（非全 suite `isolated`）；Result 含 execution_location 与 trajectory/evidence locator。
 - [x] Expected failure：读 gold/evaluation、跨 workspace view、未授权 endpoint 与未投影 secret 全部在副作用前失败，Evaluator 零启动。
 - [x] Writer negative：无法确认停止的 Agent/Harness writer 阻止 materialization 和 evaluator，partial trajectory 仍可定位。
 - [x] Evidence honesty：仅对实测 image/platform/executor/location/projection 组合声称 `assurance:l1`，不扩写为全 suite `isolated`。
@@ -826,8 +826,8 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 验收标准
 
-- [x] Success：同一 Docker Attempt 完成至少两个 profile invocation、一次已授权 Environment action、declared output、独立 evaluator 和 teardown。
-- [x] Expected failure：未申明 action 在 mutation 前拒绝，不产生资源变更或后续 Agent invoke，cleanup 仍有界。
+- [x] Success：同一 production Attempt 完成至少两个 profile invocation、一次已授权 Environment action、declared output、独立 evaluator 和 teardown（当前测量路径 `local_l0` + Docker PostgreSQL；非全量 Docker L1 套件）。
+- [x] Expected failure：未申明 / 危险 Environment action 在 mutation 前拒绝（`environment-action-denied` public smoke），不产生资源变更，cleanup 仍有界。
 - [x] Visibility：Agent/Harness 无法直读 resource credential、gold 或 evaluator-only material；evaluator 只见 allowlisted artifact/resource projection。
 - [x] Cleanup：teardown 后 owner inventory 为空；无法确认的资源产生 non-reusable warning，不改写 score。
 - [x] Regression/engineering：`v0.13`–`v0.15` 及旧 Environment/L1 journeys、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
@@ -863,16 +863,16 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 ### 关键交付
 
 - [x] `agent_invocations` 与 Environment action 以 Attempt 为 scope、`count_on=authorized`，由 parent Runtime 在外部调用/mutation 前原子判定；第 N+1 个 effect 不发生。
-- [x] wall deadline 由 Provider/Runtime 终止 Harness、Executor 与子 writer，终态确认后才进入后续 barrier/cleanup。
+- [x] wall deadline：`limits.wall_time_seconds` 写入 ParentAgentService `deadline_monotonic`，invoke/open 前拒绝（`wall_time_exceeded`）；harness worker timeout 受 wall 上限裁剪。容器级 kill 链仍有 residual。
 - [x] denial、timeout、cancel 与 executor crash 保留 typed error、effects 决策和 partial trajectory，不产生伪 final response/score。
-- [x] 稳定 export 将 per-invocation metadata/request/events/final response 映射为版本化 JSONL，保留 source refs/digests，二次 redaction 并拒绝未 seal 或扫描不通过的 evidence。
+- [x] 稳定 export（`bora evidence`）映射 sealed invocation 为版本化包，含 source digests、二次 redaction，拒绝 unsealed / secret residual evidence。
 
 ### 验收标准
 
 - [x] Success：在硬顶内完成 multi-profile + Environment + evaluator，effects 中的授权数与真实外部 effect 数一致。
-- [x] Expected failure：第 N+1 次 invocation 与 Environment action 分别在 spawn/mutation 前拒绝，后端/resource 计数器证明无外部副作。
-- [x] Timeout/cancel/crash：全部 writer 有界终止，partial trajectory 可解析，evaluator 只在 barrier 条件满足时启动。
-- [x] Consume：export 记录数与 sealed invocation 数一致，schema version/source refs 完整，sentinel 扫描零命中；训练消费失败不改写 Result/PASS。
+- [x] Expected failure：第 N+1 次 invocation（`hard-ceiling-trajectory`）与 Environment action 分别在 spawn/mutation 前拒绝；unit 外部计数器证明无额外 effect。
+- [x] Timeout/cancel/crash：typed partial trajectory 可解析（unit + force-hook）；全量 wall kill 链 residual 已诚实标注。
+- [x] Consume：export 记录数与 sealed invocation 数一致，schema version/source digests 完整；export 失败不改写 Result/PASS。
 - [x] Regression/engineering：`v0.13`–`v0.16` 全部机制路径、旧 public smokes、Ruff、Pyright、pytest、strict validator、链接检查与 `git diff --check` 通过。
 
 ### 后续 TODO

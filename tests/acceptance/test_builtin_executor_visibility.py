@@ -40,29 +40,51 @@ def test_visibility_success_records_location() -> None:
     assert data["status"] == "PASS"
     assert data.get("assurance") == "l1"
     l1 = data.get("l1") or {}
-    assert "execution_location" in l1 or "full_l1" in l1
+    # Honest location: parent-api-client or attempt-container when measured.
+    assert l1.get("execution_location") in {
+        "parent-api-client",
+        "attempt-container",
+        "mixed",
+    } or l1.get("full_l1") is True
     logs = data.get("logs") or data.get("evidence_path")
     root = Path(logs)
     assert root.is_dir()
     assert (root / "summary.json").is_file() or (root / "l1.json").is_file()
-    # Secret needles
     blob = (root / "l1.json").read_text(encoding="utf-8") if (root / "l1.json").is_file() else ""
     assert "sk-" not in blob
     assert "OPENAI_API_KEY=" not in blob
 
 
 @pytest.mark.skipif(os.environ.get("BORA_SKIP_DOCKER") == "1", reason="docker skipped")
-def test_visibility_gold_denied() -> None:
+def test_visibility_gold_denied_not_seen() -> None:
+    """Security negative: harness must not see gold; probe records seen_gold=false."""
     result = _run(
         "builtin-executor-visibility-denied",
         "builtin-executor-visibility-denied",
         timeout=180,
     )
-    # denied package: exit may be 0 when denial probe succeeds (security negative)
-    data = json.loads(result.stdout) if result.stdout.strip().startswith("{") else {}
-    # Either explicit FAIL/ERROR on gold leak path or documented denial PASS semantics
-    assert data.get("status") != "PASS" or data.get("assurance") in {"l1", "l0"}
-    # Must not claim PASS with gold visible — existing provider-l1-denied semantics
-    if data.get("status") == "PASS":
-        l1 = data.get("l1") or {}
-        assert l1.get("full_l1") is not False or "denied" in str(l1).lower() or True
+    assert result.stdout.strip(), (result.stdout, result.stderr)
+    data = json.loads(result.stdout.strip().splitlines()[-1])
+    # Denial success path: PASS with assurance l1 means probe succeeded (gold not visible).
+    # Or ERROR if harness failed for other reasons — still must not claim gold was seen.
+    l1 = data.get("l1") or {}
+    probe = l1.get("probe") if isinstance(l1.get("probe"), dict) else {}
+    # Prefer probe field from run_l1 hidden path
+    if probe:
+        assert probe.get("seen_gold") is False
+        assert probe.get("eval_visible") is False
+    else:
+        # Fall back to artifact under evidence
+        logs = data.get("logs") or data.get("evidence_path")
+        root = Path(logs) if logs else None
+        if root and root.is_dir():
+            # search probe json in result/l1
+            l1_path = root / "l1.json"
+            if l1_path.is_file():
+                doc = json.loads(l1_path.read_text(encoding="utf-8"))
+                p2 = doc.get("probe") or {}
+                assert p2.get("seen_gold") is False, doc
+        else:
+            # Last resort: must not be a success that claims gold visibility
+            assert "seen_gold\": true" not in result.stdout.lower().replace(" ", "")
+            assert data.get("status") in {"PASS", "FAIL", "ERROR"}

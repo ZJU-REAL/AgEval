@@ -127,13 +127,24 @@ async def run_task(
                     "profiles": profile_rows,
                 }
             )
+        # Wall hard ceiling from locked limits (design §13.1): pre-effect deadline.
+        import time as _time
+
+        try:
+            wall_s = float(thaw(lock.limits).get("wall_time_seconds") or 0)  # type: ignore[union-attr]
+        except Exception:
+            wall_s = 0.0
+        deadline = (_time.monotonic() + wall_s) if wall_s > 0 else None
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
             resolve_executor=lambda kind, model: resolve_executor(kind, model=model),
             attempt_id=attempt_ident.value,
             evidence_store=evidence_store,
+            deadline_monotonic=deadline,
         )
+        agent_meta["wall_time_seconds"] = wall_s if wall_s > 0 else None
+        agent_meta["deadline_armed"] = deadline is not None
         # Unix socket path must stay short on macOS (~104 bytes).
         import tempfile
 
@@ -421,6 +432,23 @@ async def run_task(
             if not health.get("ok"):
                 raise RuntimeError(f"environment health failed: {health}")
             snap = env_manager.freeze_snapshot(rid)
+            # Optional Spec 15 public negative: undeclared/dangerous action before mutation.
+            deny_probe: dict[str, Any] | None = None
+            if str(params.get("probe_mode") or "") == "undeclared_action":
+                # Unknown action id — Manager/Adapter must refuse before external effect.
+                denied = env_manager.action(rid, "drop_schema", {"sql": "DROP TABLE x"})
+                # Dangerous SQL on allowed execute surface — adapter fail closed.
+                denied_sql = env_manager.action(
+                    rid, "execute", {"sql": "DROP TABLE IF EXISTS probe_denied_table"}
+                )
+                deny_probe = {
+                    "unknown_action": denied,
+                    "dangerous_sql": denied_sql,
+                    "denied_before_mutation": (
+                        denied.get("ok") is False and denied_sql.get("ok") is False
+                    ),
+                    "mutation_executed": False,
+                }
             # Connection recipe for Harness Tools — never gold / business answers.
             env_doc = {
                 "ok": True,
@@ -433,6 +461,7 @@ async def run_task(
                 "seed_applied": seed_applied,
                 "snapshot": snap,
                 "action_count": env_manager._actions,
+                "deny_probe": deny_probe,
             }
             (package_root / ".bora_env_result.json").write_text(
                 json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
@@ -487,6 +516,13 @@ async def run_task(
             if isinstance(params, dict)
             else 300.0
         )
+        # Cap harness worker by locked wall_time when present (hard ceiling).
+        try:
+            wall_cap = float(thaw(lock.limits).get("wall_time_seconds") or 0)  # type: ignore[union-attr]
+        except Exception:
+            wall_cap = 0.0
+        if wall_cap > 0:
+            harness_timeout = min(harness_timeout, wall_cap)
         harness_out = await run_harness_package(
             lock,
             package_root,

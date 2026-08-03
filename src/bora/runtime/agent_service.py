@@ -44,6 +44,8 @@ class ParentAgentService:
     attempt_id: str  # Runtime-owned; never taken from Harness client
     offline_env: str = "BORA_OFFLINE_AGENT"
     evidence_store: AttemptEvidenceStore | None = None
+    # Wall hard ceiling (monotonic seconds); checked before each external invoke.
+    deadline_monotonic: float | None = None
     _remaining: int = field(init=False)
     _sessions: dict[str, SessionBinding] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
@@ -52,7 +54,15 @@ class ParentAgentService:
     def __post_init__(self) -> None:
         self._remaining = max(0, int(self.agent_invocation_limit))
 
+    def _wall_expired(self) -> bool:
+        return (
+            self.deadline_monotonic is not None
+            and time.monotonic() >= self.deadline_monotonic
+        )
+
     def open_session(self, *, profile_id: str) -> dict[str, Any]:
+        if self._wall_expired():
+            return {"ok": False, "error": "wall_time_exceeded", "profile_id": profile_id}
         profile = next((p for p in self.profiles if p.get("id") == profile_id), None)
         if profile is None:
             return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
@@ -75,6 +85,15 @@ class ParentAgentService:
             }
 
     def invoke(self, *, session_id: str, prompt: str) -> dict[str, Any]:
+        # Wall hard ceiling: refuse before external executor effect.
+        if self._wall_expired():
+            return {
+                "ok": False,
+                "error": "wall_time_exceeded",
+                "text": "",
+                "structured": None,
+                "provider_session_handle": None,
+            }
         with self._lock:
             binding = self._sessions.get(session_id)
             if binding is None:
