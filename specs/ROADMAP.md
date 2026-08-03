@@ -403,7 +403,7 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 - [x] Regression：focused + full pytest package green with named e2e/sdk/architecture/security suites。
 - [x] Engineering gates：Ruff、Pyright、pytest、SDK contract/negative tests、公开 smokes、strict Specs validator 与 `git diff --check`（见 gate logs）。
 
-> **Critic 2026-08-03:** Spec 06 surfaces closed; Version Index v0.7 checked under critic-checkbox-authority.
+> **Critic 2026-08-03 R2+R3:** Spec 06 surfaces closed; R3 **Version Index v0.7 `AUTHORIZE_CHECK`** after honesty + `gates/06-full.log` (ruff/pyright/pytest/validate/git-diff).
 
 
 > **Version Index `v0.7` checked** (Critic + honesty sync + named suites + gates).

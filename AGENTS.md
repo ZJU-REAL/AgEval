@@ -62,11 +62,11 @@ specs/BLOCKED.md
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/design/00`–`10` 已自包含迁入；日常**不**再以 vault 为权威 |
-| production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→`bora run`/`bora campaign`→SDK；Docker L1 **preflight only**；OpenAI HTTP / Postgres / ControlStore 为**未接入或草图**（见 Spec 07–11 Implementation Progress） |
+| production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service→`bora run`/`bora campaign`→SDK；terminal-class L1 harness+clean eval（`run_l1`）；Postgres env handoff / plugin registry / campaign matrix 为**部分切片**（见 Spec 07–11 Implementation Progress） |
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露） |
-| 证据等级 | **限定 `runnable-mvp`**（仅 L0 `examples/agent-eval` + `examples/echo-contract` 真实 Codex PASS；Version Index **全部未勾选**；无 `isolated`） |
-| Roadmap | Version Index `v0.1`–`v0.12` **未勾选**；内部工程勾选不得单独升级证据 |
-| 活动 Spec | `specs/active/00`–`11`；07–11 已回写 Decision Summary / Implementation Progress |
+| 证据等级 | **限定 `runnable-mvp`（L0）**：`sdk-agent-session` multi-invoke、`agent-eval`/echo、tool-guard、env/multiagent/tau2 类 journey；terminal-jsonl-agg 可声明 **切片 `assurance:l1`**（非全量 `isolated`） |
+| Roadmap | Version Index：**`v0.7` 已勾**（Critic R3 `AUTHORIZE_CHECK` 2026-08-03）；`v0.1`–`v0.6` 与 `v0.8`–`v0.12` **保持未勾** |
+| 活动 Spec | `specs/active/00`–`11`；06 review（HC-2/3 surfaces closed）；07–11 partial + honesty |
 | Constitution 条目 | 2 — critic-checkbox-authority；[core-not-bench-adapters](specs/constitution/2026-08-03-core-not-bench-adapters.md) |
 
 
@@ -132,7 +132,7 @@ specs/BLOCKED.md
 | 等级 | 含义 | 何时可声称 |
 | --- | --- | --- |
 | `design-only` | 仅文档/Specs | 被限定 `runnable-mvp` 覆盖的 journey 之外仍适用 |
-| `runnable-mvp` | 真实 public entrypoint + 真实 Agent 路径 | **当前：仅** `examples/agent-eval` + `examples/echo-contract`（L0）；Version Index 未勾 |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent 路径 | **当前（L0）**：`sdk-agent-session` multi-invoke、`agent-eval`、tool-guard、env/multiagent/tau2 类；Version Index **`v0.7` 已勾** |
 | `isolated` | 隔离 Attempt + 隔离红线 | 通常 `v0.8` 类验收后 |
 | `real-benchmark-verified` | 固定 upstream + 限定范围公开 journey | 对应 APP/版本验收后；不得扩写成全 suite |
 
