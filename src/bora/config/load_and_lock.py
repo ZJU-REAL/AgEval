@@ -70,6 +70,7 @@ ALLOWED_TOP_LEVEL_DIRS = frozenset(
 ALLOWLISTED_OVERRIDE_POINTERS = frozenset(
     {
         "/parameters/seed",
+        "/parameters/active_profile",
         "/limits/wall_time_seconds",
         "/limits/agent_invocations",
         "/limits/environment_actions",

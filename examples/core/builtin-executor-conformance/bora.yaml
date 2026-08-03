@@ -1,0 +1,51 @@
+format: bora.task/1
+task_id: builtin-executor-conformance
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  use_agent_session: true
+  harness_timeout_seconds: 360
+  # Active profile selected for this package run (profile-only switch).
+  active_profile: codex-mini
+  models:
+    default: codex-mini
+
+provider:
+  kind: local
+  assurance: l0
+
+agent_profiles:
+  - id: codex-mini
+    executor: codex
+    model: gpt-5.4-mini
+  - id: pi-mini
+    executor: pi
+    model: claude-haiku-4-5
+  - id: opencode-mini
+    executor: opencode
+    model: zai-coding-plan/glm-4.7
+
+limits:
+  wall_time_seconds: 360
+  agent_invocations: 1
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: session-output
+      producer: harness
+      path: artifacts/session-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: session-output
+      target: artifacts/session-output.json
+  output:
+    format: json

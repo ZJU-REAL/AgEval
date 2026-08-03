@@ -54,7 +54,9 @@ class DeclarationCapabilityCatalog:
         {
             "codex",
             "claude",
+            "claude-code",
             "pi",
+            "opencode",
             "mock",
             # v0.9 second-backend kinds (HTTP adapter; not a full plugin wheel yet)
             "openai",

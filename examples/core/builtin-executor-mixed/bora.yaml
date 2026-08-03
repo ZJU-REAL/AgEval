@@ -1,0 +1,44 @@
+format: bora.task/1
+task_id: builtin-executor-mixed
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  use_agent_session: true
+  harness_timeout_seconds: 480
+
+provider:
+  kind: local
+  assurance: l0
+
+agent_profiles:
+  - id: codex-mini
+    executor: codex
+    model: gpt-5.4-mini
+  - id: pi-mini
+    executor: pi
+    model: claude-haiku-4-5
+
+limits:
+  wall_time_seconds: 480
+  agent_invocations: 2
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: session-output
+      producer: harness
+      path: artifacts/session-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: session-output
+      target: artifacts/session-output.json
+  output:
+    format: json

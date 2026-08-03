@@ -80,16 +80,33 @@ def run_command(
         str,
         typer.Option("--task", help="Task id that must match bora.yaml task_id."),
     ],
+    set_overrides: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--set",
+            help=(
+                "Repeatable override as <JSON Pointer>=<JSON value>, e.g. "
+                "`/parameters/active_profile=\"pi-mini\"`. Allowlisted pointers only."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Run one foreground Attempt (v0.6 vertical slice). Evidence: L0 only."""
     import asyncio
 
     from bora.application.composition import build_run_task
     from bora.config.errors import ConfigError
+    from bora.config.load_and_lock import parse_set_override
 
     run_task = build_run_task()
     try:
-        code, result, _details = asyncio.run(run_task(package, task))
+        overrides: dict[str, object] = {}
+        for raw in set_overrides or ():
+            pointer, value = parse_set_override(raw)
+            overrides[pointer] = value
+        code, result, _details = asyncio.run(
+            run_task(package, task, overrides=overrides or None)
+        )
     except ConfigError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
