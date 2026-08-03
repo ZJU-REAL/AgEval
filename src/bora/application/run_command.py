@@ -98,19 +98,33 @@ async def run_task(
         )
         # Lock summary without secrets (digest + profile ids only).
         with contextlib.suppress(Exception):
+            from bora.adapters.executor_capabilities import get_capabilities
+
+            profile_rows: list[dict[str, Any]] = []
+            for p in profiles:
+                if not isinstance(p, dict):
+                    continue
+                kind = str(p.get("executor") or "")
+                cap = get_capabilities(kind)
+                row: dict[str, Any] = {
+                    "id": p.get("id"),
+                    "executor": kind,
+                    "model": p.get("model"),
+                }
+                if cap is not None:
+                    row["capabilities"] = {
+                        "tools": cap.tools,
+                        "structured_output": cap.structured_output,
+                        "session": cap.session,
+                        "stream": cap.stream,
+                        "execution_mode": cap.execution_mode,
+                    }
+                profile_rows.append(row)
             evidence_store.write_lock_summary(
                 {
                     "digest": lock.digest,
                     "task_id": task_id,
-                    "profiles": [
-                        {
-                            "id": p.get("id"),
-                            "executor": p.get("executor"),
-                            "model": p.get("model"),
-                        }
-                        for p in profiles
-                        if isinstance(p, dict)
-                    ],
+                    "profiles": profile_rows,
                 }
             )
         agent_service = ParentAgentService(

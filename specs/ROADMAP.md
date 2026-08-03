@@ -78,7 +78,7 @@ Config (v0.1)
 - [x] `v0.11` — Campaign / 实验矩阵
 - [x] `v0.12` — 后台控制与耐久 authority（按需）
 - [x] `v0.13` — Attempt Evidence 与 Agent 轨迹落盘
-- [ ] `v0.14` — 内置多 Executor 与 multi-profile 边界
+- [x] `v0.14` — 内置多 Executor 与 multi-profile 边界
 - [ ] `v0.15` — Docker L1 可见性与隔离收口
 - [ ] `v0.16` — 多 profile 编排与 Environment 资源边界
 - [ ] `v0.17` — 执行前上限（硬顶）与轨迹导出

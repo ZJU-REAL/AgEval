@@ -32,9 +32,12 @@ def _child_env() -> dict[str, str]:
         "TERM": "dumb",
         "PI_OFFLINE": os.environ.get("PI_OFFLINE", ""),
     }
-    # Map common host alias → ZAI for Zhipu coding plan without logging values.
-    if os.environ.get("ZHIPU_API_KEY") and not os.environ.get("ZAI_API_KEY"):
-        env["ZAI_API_KEY"] = os.environ["ZHIPU_API_KEY"]
+    # Map common host aliases → ZAI without logging values.
+    if not os.environ.get("ZAI_API_KEY"):
+        for alias in ("ZHIPU_API_KEY", "zhipu_coding_api_key", "ZHIPU_CODING_API_KEY"):
+            if os.environ.get(alias):
+                env["ZAI_API_KEY"] = os.environ[alias]
+                break
     for name in caps.credential_env_names:
         val = os.environ.get(name)
         if val:

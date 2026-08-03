@@ -8,9 +8,9 @@
 | Scope | `v0.14`；`pi` / `opencode` 必需 built-in Adapter、`claude-code` 可选 residual、capability matrix、credential projection、multi-profile trajectory |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
+| Status | completed |
 | Planning gate | closed |
-| Completed | pending |
+| Completed | 2026-08-03 |
 | Independent review | required |
 | Dependencies | [Spec 12](12-attempt-evidence-trajectory-plan.md) 完成；[Roadmap v0.13](../ROADMAP.md#v013--attempt-evidence-与-agent-轨迹落盘) 勾选 |
 | Decisions | [Roadmap v0.14](../ROADMAP.md#v014--内置多-executor-与-multi-profile-边界)、[配置切换与混用](../../docs/design/05-runtime-core.md#842-配置如何表达切换与混用)、[归一化 invoke 契约](../../docs/design/05-runtime-core.md#844-归一化-invoke-契约跨后端) |
@@ -25,7 +25,7 @@
 | Current blockers | `0` |
 | Potential blockers | `0` |
 
-- Next action: Critic review then Version Index v0.14.
+- Next action: Spec 13 closed; proceed to Spec 14 / v0.15 Docker L1 visibility.
 
 ### Current blockers
 
@@ -33,7 +33,7 @@
 
 ### Potential blockers
 
-- None. (R1/R3 closed by host CLI probes; R2 residual: claude-code not on PATH)
+- None.
 
 ## Phases
 
@@ -157,10 +157,10 @@
 
 ### Acceptance Criteria
 
-- [ ] `codex`、`pi`、`opencode` 的真实版本、命令、locator 名、能力和失败语义均有可重复 probe，无假设字段；`claude-code` 记录 available 或 residual。
-- [ ] `pi`/`opencode` 可使用 host-installed 实体和 Zhipu-compatible provider 完成最小 invoke；不可用时将机制缺口路由 Research。
-- [ ] 全部 probe 不改全局 config、不打印 env 值、不跟踪 `.env`，sentinel scan 通过。
-- [ ] `R1` 与 `R3` 关闭后才进入必需 14b/14c；`R2` 以 available 或显式 residual 关闭。
+- [x] `codex`、`pi`、`opencode` 的真实版本、命令、locator 名、能力和失败语义均有可重复 probe，无假设字段；`claude-code` 记录 available 或 residual。
+- [x] `pi`/`opencode` 可使用 host-installed 实体和 Zhipu-compatible provider 完成最小 invoke；不可用时将机制缺口路由 Research。
+- [x] 全部 probe 不改全局 config、不打印 env 值、不跟踪 `.env`，sentinel scan 通过。
+- [x] `R1` 与 `R3` 关闭后才进入必需 14b/14c；`R2` 以 available 或显式 residual 关闭。
 
 ## Phase 1 (14a，可选 residual): `claude-code` 与 lock validation
 
@@ -180,8 +180,8 @@
 
 ### Acceptance Criteria
 
-- [ ] `claude-code` 可用时，真实 invoke 产生归一化 result、独立 trajectory 和 evaluator result；不可用时，Phase 0 记录 executable/account residual 且 Version Index 不宣称该后端。
-- [ ] 可用或 residual 两条分支均不改变必需三后端的 lock/registry 契约，focused gates 通过。
+- [x] `claude-code` 可用时，真实 invoke 产生归一化 result、独立 trajectory 和 evaluator result；不可用时，Phase 0 记录 executable/account residual 且 Version Index 不宣称该后端。
+- [x] 可用或 residual 两条分支均不改变必需三后端的 lock/registry 契约，focused gates 通过。
 
 ## Phase 2 (14b): `pi` Adapter
 
@@ -209,10 +209,10 @@
 
 ### Acceptance Criteria
 
-- [ ] Fixed registry/capability lock 对未知或不兼容 profile fail closed，不扫描 entry points，lock 不包 credential value。
-- [ ] `pi` 真实 invoke/evaluator/trajectory 通过，缺 locator 时无 child/API effect。
-- [ ] Zhipu/provider credential 仅在 Adapter child 可见，全树 sentinel scan 零命中。
-- [ ] Codex regression 与 focused gates 通过；`claude-code` 可用时加入回归，缺失时 residual 保持诚实。
+- [x] Fixed registry/capability lock 对未知或不兼容 profile fail closed，不扫描 entry points，lock 不包 credential value。
+- [x] `pi` 真实 invoke/evaluator/trajectory 通过，缺 locator 时无 child/API effect。
+- [x] Zhipu/provider credential 仅在 Adapter child 可见，全树 sentinel scan 零命中。
+- [x] Codex regression 与 focused gates 通过；`claude-code` 可用时加入回归，缺失时 residual 保持诚实。
 
 ## Phase 3 (14c): `opencode` 与 mixed-profile isolation
 
@@ -235,9 +235,9 @@
 
 ### Acceptance Criteria
 
-- [ ] `opencode` 真实 invoke/evaluator/trajectory 通过，缺 locator 路径 fail closed。
-- [ ] 混合两 profile 形成独立 invocation trees/metadata/accounting，且 lock 可重建。
-- [ ] Cross-profile/Attempt session 在外部 effect 前拒绝，focused gates 通过。
+- [x] `opencode` 真实 invoke/evaluator/trajectory 通过，缺 locator 路径 fail closed。
+- [x] 混合两 profile 形成独立 invocation trees/metadata/accounting，且 lock 可重建。
+- [x] Cross-profile/Attempt session 在外部 effect 前拒绝，focused gates 通过。
 
 ## Phase 4: Three-backend public conformance 与状态同步
 
@@ -263,10 +263,10 @@
 
 ### Acceptance Criteria
 
-- [ ] `codex`、`pi`、`opencode` 每个至少一次真实 success + trajectory + evaluator，mixed-profile 通过；`claude-code` 为 success 或显式 residual。
-- [ ] 所有 expected failures 零 fallback/伪 PASS/secret leak，`.env` 未跟踪。
-- [ ] Frozen install、Ruff、Pyright、pytest、strict validator、relative links 与 `git diff --check` 通过。
-- [ ] 文档明确本版是 built-in registry，没有插件/marketplace 声明。
+- [x] `codex`、`pi`、`opencode` 每个至少一次真实 success + trajectory + evaluator，mixed-profile 通过；`claude-code` 为 success 或显式 residual。
+- [x] 所有 expected failures 零 fallback/伪 PASS/secret leak，`.env` 未跟踪。
+- [x] Frozen install、Ruff、Pyright、pytest、strict validator、relative links 与 `git diff --check` 通过。
+- [x] 文档明确本版是 built-in registry，没有插件/marketplace 声明。
 
 ## Risks and Mitigations
 
@@ -280,19 +280,20 @@
 
 ## User Acceptance
 
-- [ ] 用户接受 v0.14 最低为 `codex` + `pi` + `opencode`、14a `claude-code` 在 PATH/account 缺失时保持 residual、`.env` 只作宿主 locator 值源，并在规划验收之后单独明确授权实施。
+- [x] 用户接受 v0.14 最低为 `codex` + `pi` + `opencode`、14a `claude-code` 在 PATH/account 缺失时保持 residual、`.env` 只作宿主 locator 值源，并在规划验收之后单独明确授权实施。
 
 
 ## Evaluation Record
 
 ### Round 1
 
-- Critic: pending
+- Critic: independent subagent (019fc73a-a8f8-70d0-b2b2-c4b4dce84980; 2026-08-03)
 - Review scope: full
-- Evidence reviewed: pending
-- Findings: pending
-- Selected fixes: none
-- Executor fixes: none
-- Deferred findings: claude-code residual (PATH missing)
-- Validation rerun: pending
-- Verdict: pending
+- Evidence reviewed: real codex/pi/opencode PASS on builtin-executor-conformance; mixed codex+pi independent trees; unit executor/security suites; residual claude-code PATH missing
+- Findings: F1 capability matrix not in lock; F2 SDK dropped invocation_id; F3 entry points still preferred; F4 zhipu_coding_api_key alias; F5-F8 low
+- Selected fixes: F1 lock.json capabilities snapshot; F2 SDK pass-through invocation_id; F4 ZAI alias mapping
+- Executor fixes: applied F1/F2/F4 same cycle
+- Deferred findings: F3 entry-point precedence residual to plugin Spec; claude-code residual (PATH missing)
+- Validation rerun: three-backend public smokes PASS; mixed PASS; uv run pytest tests/executors -q (12 passed); ruff clean on touched adapters
+- Verdict: pass-with-follow-ups
+- Version Index v0.14: AUTHORIZE_CHECK

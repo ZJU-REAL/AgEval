@@ -136,6 +136,8 @@ class AgentSession:
             "turn": self._turns,
             "ok": bool(resp.get("ok")),
             "error": resp.get("error"),
+            "invocation_id": resp.get("invocation_id"),
+            "evidence_relative": resp.get("evidence_relative"),
         }
 
     async def close(self) -> None:
