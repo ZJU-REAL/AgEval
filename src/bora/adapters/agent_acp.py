@@ -297,7 +297,12 @@ class AcpExecutor:
             self._cm = self._process_launcher(client, command, *args, env=env, cwd=cwd)
             self._conn, self._process = await self._cm.__aenter__()
         else:
-            self._cm = spawn_agent_process(client, command, *args, env=env, cwd=cwd)
+            # Host entry uses package workdir. docker-exec override must not
+            # chdir the docker client into a container path.
+            spawn_cwd = None if self._command_override else cwd
+            self._cm = spawn_agent_process(
+                client, command, *args, env=env, cwd=spawn_cwd
+            )
             self._conn, self._process = await self._cm.__aenter__()
 
         from acp.schema import Implementation
@@ -481,9 +486,12 @@ class AcpExecutor:
                 return "session_closed"
             if self._conn is not None and self._acp_session_id is not None:
                 return None
-        ready = readiness_for(self.descriptor)
-        if ready["readiness"] != "ready":
-            return str(ready["readiness"]).replace("-", "_")
+        # Host PATH readiness only when launching locally. L1 uses command_override
+        # (docker exec) and image BOM preflight for entry presence.
+        if self._command_override is None and self._process_launcher is None:
+            ready = readiness_for(self.descriptor)
+            if ready["readiness"] != "ready":
+                return str(ready["readiness"]).replace("-", "_")
         cwd = workdir or self.workdir or os.getcwd()
         try:
             self._run(self._spawn_and_init(cwd=cwd), timeout=min(timeout, 120.0))

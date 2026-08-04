@@ -173,13 +173,13 @@ def run_l1_sdk_session_attempt(
     import tempfile
     import time
 
-    from bora.adapters.agent_container import ContainerCLIExecutor
     from bora.application.run_harness import run_harness_package
     from bora.config.model import thaw
     from bora.evaluation.result_binding import bind_result
     from bora.evidence.store import AttemptEvidenceStore
     from bora.provider.isolation import parse_logical_topology
     from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
+
     package_root = package_root.resolve()
     params = thaw(lock.parameters)
     profiles = [p for p in thaw(lock.agent_profiles) if isinstance(p, dict)]
@@ -296,7 +296,11 @@ def run_l1_sdk_session_attempt(
             "generation": binding.generation,
         }
 
-    def make_target_executor(binding: Any) -> ContainerCLIExecutor:
+    def make_target_executor(binding: Any) -> Any:
+        from bora.adapters.acp_registry import get_entry
+        from bora.adapters.agent_acp import AcpExecutor
+        from bora.adapters.agent_container import ContainerCLIExecutor
+
         actor_id = binding.actor_id
         if not actor_id:
             raise RuntimeError("actor_id_required")
@@ -323,6 +327,53 @@ def run_l1_sdk_session_attempt(
             else None
         )
         kind = str(binding.executor_kind)
+        # Spec 19: ACP profiles use parent typed client + docker exec placement.
+        if kind == "acp":
+            entry_id = getattr(binding, "acp_entry_id", None)
+            if not entry_id:
+                options = profile.get("options") if isinstance(profile, dict) else {}
+                if isinstance(options, dict):
+                    entry_id = options.get("entry")
+            if not entry_id:
+                raise RuntimeError("acp_entry_required")
+            desc = get_entry(str(entry_id))
+            if desc is None:
+                raise RuntimeError("unknown_acp_entry")
+            child_env = _cli_env_for_container(
+                str(entry_id), api_key_env=api_key_env, base_url=base_url
+            )
+            child_env["HOME"] = phys.home_container
+            child_env["CODEX_HOME"] = f"{phys.home_container}/.codex"
+            child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
+            child_env.setdefault("TERM", "xterm")
+            child_env.setdefault("NO_BROWSER", "1")
+            # Project descriptor fixed_env into container.
+            for k, v in desc.fixed_env.items():
+                child_env.setdefault(str(k), str(v))
+            workdir = "/attempt/workspace"
+            docker_cmd: list[str] = [
+                "docker",
+                "exec",
+                "-i",
+                "-u",
+                f"{phys.uid}:{phys.gid}",
+                "-w",
+                workdir,
+            ]
+            for ek, ev in child_env.items():
+                docker_cmd.extend(["-e", f"{ek}={ev}"])
+            docker_cmd.append(str(target.container_id))
+            docker_cmd.extend(list(desc.acp_command))
+            return AcpExecutor(
+                entry_id=str(entry_id),
+                model=str(binding.model),
+                descriptor=desc,
+                workdir=workdir,
+                api_key_env=api_key_env,
+                base_url=base_url,
+                command_override=docker_cmd,
+            )
+
         child_env = _cli_env_for_container(
             kind, api_key_env=api_key_env, base_url=base_url
         )

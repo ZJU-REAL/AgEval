@@ -23,11 +23,11 @@
 | User decision required | `no` |
 | Ready for acceptance now | `no` |
 | Current blockers | `0` |
-| Potential blockers | `2` |
+| Potential blockers | `0` |
 
-- Next action: Phase 3 五 entry host smoke（Codex/Claude/Pi/Grok）+ Phase 4 L1 placement package + Phase 5 migration。
-- **已完成切片（2026-08-04）**：Phase 0 probes；Phase 1 registry/inventory/lock；Phase 2 OpenCode public PASS；L1 image BOM bake-in 五 entry + actor UID PATH probe ok。
-- Spec 整包尚未 acceptance：Mode 1/3 real smokes、L1 public package、private scrape 迁移仍未完成。
+- Next action: Phase 5 — migrate residual private CLI examples、architecture scrape gate、docs/Skills 同步；不勾 Roadmap Version Index 直至整包 gate。
+- **已完成切片（2026-08-04）**：Phase 0–4 — registry/client；host OpenCode/Codex/Pi public PASS；L1 BOM 五 entry；`examples/l1/acp-agent-placement` PASS (`assurance:l1`, `host_fallback_count:0`)。
+- Spec 整包尚未 acceptance：Phase 5 private scrape 删除与全 example 迁移、architecture gate、Skills/docs 收口。
 
 ### Current blockers
 
@@ -35,10 +35,10 @@
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 2): **closed** — OpenCode initialize/session + public `bora run` PASS（batch auto-approve path）。
-- `R2` (Owner: Agent / Phase 3): Codex/Claude/Pi Mode 1 public smokes 与 auth/model 仍须逐 entry 证据。
-- `R3` (Owner: Agent / Phase 3): Grok pin `0.2.120` 已 npm/host 安装并 inventory ready；public smoke 仍待。
-- `R4` (Owner: Agent / Phase 4): L1 image BOM bake-in 已通过 actor UID PATH；ACP session lifecycle 在 container 内仍待 public package。
+- `R1` **closed** — OpenCode public PASS。
+- `R2` **closed** — Codex/Claude/Pi Mode 1 public PASS。
+- `R3` **closed** — Grok pin `0.2.120` public PASS。
+- `R4` **closed** — L1 BOM + `examples/l1/acp-agent-placement` PASS（`host_fallback_count:0`）。
 
 ### Local decisions（已接受 — 实施边界）
 
@@ -64,8 +64,8 @@
 - [x] Phase 0: 设计权威、配置表面与 protocol/pin probe 同步
 - [x] Phase 1: ACP entry registry、lock snapshot 与 inventory readiness
 - [x] Phase 2: 单一 ACP client MVP（Mode 2 OpenCode）
-- [ ] Phase 3: Mode 1 Codex/Claude 与 Mode 3 Grok Build
-- [ ] Phase 4: Docker L1 placement 与 host/container client parity
+- [x] Phase 3: Mode 1 Codex/Claude 与 Mode 3 Grok Build
+- [x] Phase 4: Docker L1 placement 与 host/container client parity
 - [ ] Phase 5: 迁移 examples、弃用 vendor private scrape 与状态收口
 
 ## Background
@@ -679,3 +679,19 @@ git diff --check
 - [x] 用户批准 Constitution 与本 Spec local decisions 1–8（会话确认 2026-08-04：entry 形态、Pi 纳入、L1 bake-in、permission auto-approve + OS 边界）。
 - [x] 用户授权按本 Spec 推进 production 实施（同一会话；非「仅文档」）。
 - [ ] Spec 整包 acceptance（Phase 0–5 证据齐）— 实现后勾选，**不**再要求新的产品决策。
+
+
+## Evidence (implementation progress)
+
+| Smoke | Result |
+| --- | --- |
+| Host `opencode-acp` | PASS |
+| Host `codex-acp` | PASS |
+| Host `pi-acp` | PASS |
+| Host `claude-acp` | PASS |
+| Host `grok-build-acp` | PASS |
+| L1 `examples/l1/acp-agent-placement` | PASS, `assurance:l1`, `execution_location=attempt-container`, `host_fallback_count=0` |
+| Image BOM actor UID PATH | codex, codex-acp, pi, pi-acp, opencode, claude, claude-agent-acp, grok |
+| Inventory five ACP entries | all `ready` on implementer host after pin install |
+
+**Not claimed:** Roadmap `v0.19` Version Index; suite-wide `isolated`; Phase 5 private scrape removal complete.
