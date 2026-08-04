@@ -84,6 +84,8 @@ class ExecutionTarget:
     generation: int
     container_id: str | None = None  # private
     container_name: str | None = None  # private
+    # Docker volume name for workspace when using real Linux perms (private).
+    workspace_volume: str | None = None
     state: str = "pending"  # pending | ready | dead | cleaned
     image_digest: str = ""
     image_tag: str = ""

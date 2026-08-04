@@ -122,11 +122,19 @@ class ContainerCLIExecutor:
             )
 
         # docker exec — never host binary.
+        # When shared_write is granted, primary group is the shared GID so
+        # 2770 shared paths are writable; HOME remains owner-writable (0700).
+        # docker exec has no --group-add; primary-group switch is the v1 grant.
+        run_gid = (
+            self.actor.shared_gid
+            if self.actor.shared_gid is not None and self.actor.shared_write
+            else self.actor.gid
+        )
         cmd = [
             "docker",
             "exec",
             "-u",
-            f"{self.actor.uid}:{self.actor.gid}",
+            f"{self.actor.uid}:{run_gid}",
             "-w",
             workdir or self.workdir,
         ]
@@ -135,7 +143,11 @@ class ContainerCLIExecutor:
                 continue
             cmd.extend(["-e", f"{key}={val}"])
         cmd.append(self.container_id)
-        cmd.extend(binary_cmd)
+        # Collaborative shared_write needs group-writable new files (umask 002).
+        if self.actor.shared_gid is not None and self.actor.shared_write:
+            cmd.extend(["sh", "-c", 'umask 002; exec "$@"', "bora-actor", *binary_cmd])
+        else:
+            cmd.extend(binary_cmd)
 
         try:
             proc = subprocess.run(

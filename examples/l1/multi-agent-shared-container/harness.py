@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from bora_sdk import Agent, HarnessContext, HarnessTerminal
 
 
@@ -13,17 +11,9 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     planner_profile = str(models.get("planner") or "planner-codex")
     reviewer_profile = str(models.get("reviewer") or "reviewer-codex")
 
-    # Optional shared_write probe (same container, shared GID grant).
-    team_dir = Path(ctx.workspace_root) / "workspace" / "team"
-    # Host harness workspace may differ; record intent for evaluator metrics.
-    shared_note = "team-notes"
-    try:
-        # When running as host worker, workspace is provider temp; shared_write
-        # is enforced inside agent containers only.
-        team_dir.mkdir(parents=True, exist_ok=True)
-        (team_dir / "note.txt").write_text(shared_note, encoding="utf-8")
-    except OSError:
-        pass
+    # Mid-loop collaboration uses Harness memory; shared_write (team/) is
+    # enforced only inside the Agent container (shared GID), not on the host
+    # harness workspace.
 
     async with agent.session(
         planner_profile, actor_id="planner", max_turns=2

@@ -339,7 +339,7 @@ class DockerProvider:
 
         try:
             if topology.mode == IsolationMode.SHARED_CONTAINER:
-                # One container for all actors in the topology.
+                # One container for all actors; shared host workspace is intentional.
                 group_id = topology.groups[0].group_id if topology.groups else "default"
                 target = self._start_long_lived_target(
                     runtime,
@@ -347,12 +347,15 @@ class DockerProvider:
                     network_mode=net,
                     cred_root=cred_root,
                     generation=1,
+                    isolation_mode=IsolationMode.SHARED_CONTAINER,
                 )
                 created.append(target.container_id or "")
                 ledger.targets[target.target_id] = target
                 shared_gid = _SHARED_GID_BASE
+                bindings: list[ActorPhysicalBinding] = []
                 for idx, actor in enumerate(topology.actors):
                     uid = _ACTOR_UID_BASE + idx
+                    has_shared = bool(actor.shared_write)
                     binding = ActorPhysicalBinding(
                         actor_id=actor.actor_id,
                         group_id=actor.group_id,
@@ -360,14 +363,16 @@ class DockerProvider:
                         uid=uid,
                         gid=uid,  # private primary group
                         home_container=f"/actor-homes/{actor.actor_id}",
-                        shared_gid=shared_gid if actor.shared_write else None,
+                        shared_gid=shared_gid if has_shared else None,
                         shared_write=actor.shared_write,
                         generation=target.generation,
                     )
                     ledger.actors[actor.actor_id] = binding
-                self._bootstrap_actor_fs(target, list(ledger.actors.values()))
+                    bindings.append(binding)
+                self._bootstrap_actor_fs(target, bindings, shared_gid=shared_gid)
             else:
-                # container-per-group: one target per logical group.
+                # container-per-group: one target per group; per-group workspace only
+                # (no cross-container shared RW volumes — constitution §5).
                 actor_index = 0
                 for gidx, group in enumerate(topology.groups):
                     target = self._start_long_lived_target(
@@ -376,6 +381,7 @@ class DockerProvider:
                         network_mode=net,
                         cred_root=cred_root,
                         generation=1,
+                        isolation_mode=IsolationMode.CONTAINER_PER_GROUP,
                     )
                     created.append(target.container_id or "")
                     ledger.targets[target.target_id] = target
@@ -389,6 +395,7 @@ class DockerProvider:
                             )
                         uid = _ACTOR_UID_BASE + actor_index
                         actor_index += 1
+                        has_shared = bool(actor.shared_write)
                         binding = ActorPhysicalBinding(
                             actor_id=aid,
                             group_id=group.group_id,
@@ -396,18 +403,26 @@ class DockerProvider:
                             uid=uid,
                             gid=uid,
                             home_container=f"/actor-homes/{aid}",
-                            shared_gid=shared_gid if actor.shared_write else None,
+                            shared_gid=shared_gid if has_shared else None,
                             shared_write=actor.shared_write,
                             generation=target.generation,
                         )
                         ledger.actors[aid] = binding
                         group_bindings.append(binding)
-                    self._bootstrap_actor_fs(target, group_bindings)
+                    self._bootstrap_actor_fs(
+                        target, group_bindings, shared_gid=shared_gid
+                    )
 
             runtime.target_ledger = ledger
             runtime.agent_container_ids = [c for c in created if c]
             for cid in runtime.agent_container_ids:
                 runtime.register_writer(f"agent_target:{cid[:12]}")
+            # Public mount inventory (no host paths / docker ids).
+            runtime.policy_digests["agent_workspace_mode"] = (
+                "shared"
+                if topology.mode == IsolationMode.SHARED_CONTAINER
+                else "per_group"
+            )
             return ledger
         except Exception:
             # Partial prepare: reverse cleanup before Harness start.
@@ -429,6 +444,7 @@ class DockerProvider:
             if not cid:
                 target.state = "dead"
                 runtime.record_writer_stop(True)
+                self._rm_target_volumes(target)
                 continue
             kill = subprocess.run(
                 ["docker", "rm", "-f", cid],
@@ -447,7 +463,23 @@ class DockerProvider:
             runtime.record_writer_stop(confirmed)
             target.state = "cleaned" if confirmed else "dead"
             target.container_id = None
+            self._rm_target_volumes(target)
         runtime.agent_container_ids.clear()
+
+    @staticmethod
+    def _rm_target_volumes(target: ExecutionTarget) -> None:
+        raw = target.workspace_volume
+        if not raw:
+            return
+        for name in raw.split(","):
+            name = name.strip()
+            if name:
+                subprocess.run(
+                    ["docker", "volume", "rm", "-f", name],
+                    check=False,
+                    capture_output=True,
+                )
+        target.workspace_volume = None
 
     def mark_target_dead(self, runtime: DockerRuntime, target_id: str) -> None:
         """Fence a target after unexpected death (generation stays; state=dead)."""
@@ -473,6 +505,7 @@ class DockerProvider:
         network_mode: str,
         cred_root: Path,
         generation: int,
+        isolation_mode: IsolationMode,
     ) -> ExecutionTarget:
         assert runtime.image_lock is not None
         assert runtime.workdir_host is not None
@@ -510,20 +543,52 @@ class DockerProvider:
 
         if package_mount is not None:
             cmd.extend(["-v", f"{package_mount}:/attempt/package:ro"])
-        cmd.extend(
-            [
-                "-v",
-                f"{runtime.workdir_host}/workspace:/attempt/workspace:rw",
-                "-v",
-                f"{runtime.workdir_host}/artifacts:/attempt/artifacts:rw",
-                "-v",
-                f"{cred_root}:/creds:ro",
-            ]
+
+        # Workspace mount policy:
+        # - shared-container: Docker named volume (real Linux UID/GID ACLs for
+        #   shared_write). Host bind mounts on Docker Desktop often ignore perms.
+        # - container-per-group: dedicated host dir per group — no cross-group RW.
+        workspace_volume: str | None = None
+        if isolation_mode == IsolationMode.CONTAINER_PER_GROUP:
+            group_ws = runtime.workdir_host / "group_ws" / group_id
+            group_ws.mkdir(parents=True, exist_ok=True)
+            cmd.extend(["-v", f"{group_ws}:/attempt/workspace:rw"])
+        else:
+            workspace_volume = f"bora-ws-{runtime.attempt.value[-12:]}-{group_id[:8]}-{uuid.uuid4().hex[:6]}"
+            vol = subprocess.run(
+                ["docker", "volume", "create", workspace_volume],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if vol.returncode != 0:
+                raise ProviderL1Error(
+                    ERROR_SPAWN_FAILED,
+                    f"workspace volume create failed: {(vol.stderr or '')[-500:]}",
+                )
+            cmd.extend(["-v", f"{workspace_volume}:/attempt/workspace:rw"])
+
+        cmd.extend(["-v", f"{cred_root}:/creds:ro"])
+        # Actor private homes: named volume for real 0700 isolation.
+        home_vol = f"bora-home-{runtime.attempt.value[-12:]}-{group_id[:8]}-{uuid.uuid4().hex[:6]}"
+        hv = subprocess.run(
+            ["docker", "volume", "create", home_vol],
+            check=False,
+            capture_output=True,
+            text=True,
         )
-        # Actor private homes + shared_write dirs live on a writable volume.
-        actor_fs = runtime.workdir_host / "actor_fs" / group_id
-        actor_fs.mkdir(parents=True, exist_ok=True)
-        cmd.extend(["-v", f"{actor_fs}:/actor-homes:rw"])
+        if hv.returncode != 0:
+            if workspace_volume:
+                subprocess.run(
+                    ["docker", "volume", "rm", "-f", workspace_volume],
+                    check=False,
+                    capture_output=True,
+                )
+            raise ProviderL1Error(
+                ERROR_SPAWN_FAILED,
+                f"home volume create failed: {(hv.stderr or '')[-500:]}",
+            )
+        cmd.extend(["-v", f"{home_vol}:/actor-homes:rw"])
 
         # Long-lived sleeper; never mount docker.sock.
         cmd.extend(
@@ -537,6 +602,17 @@ class DockerProvider:
         )
         proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
         if proc.returncode != 0:
+            subprocess.run(
+                ["docker", "volume", "rm", "-f", home_vol],
+                check=False,
+                capture_output=True,
+            )
+            if workspace_volume:
+                subprocess.run(
+                    ["docker", "volume", "rm", "-f", workspace_volume],
+                    check=False,
+                    capture_output=True,
+                )
             raise ProviderL1Error(
                 ERROR_SPAWN_FAILED,
                 f"agent target start failed: {(proc.stderr or proc.stdout or '')[-1500:]}",
@@ -544,12 +620,16 @@ class DockerProvider:
         cid = (proc.stdout or "").strip()
         if not cid:
             raise ProviderL1Error(ERROR_SPAWN_FAILED, "agent target missing container id")
+        # Stash home volume name on container_name side-channel via labels? Keep
+        # both volume names in workspace_volume field joined for cleanup.
+        vol_ledger = home_vol if not workspace_volume else f"{workspace_volume},{home_vol}"
         return ExecutionTarget(
             target_id=target_id,
             group_id=group_id,
             generation=generation,
             container_id=cid,
             container_name=name,
+            workspace_volume=vol_ledger,
             state="ready",
             image_digest=runtime.image_lock.image_digest,
             image_tag=runtime.image_lock.image_tag,
@@ -559,12 +639,37 @@ class DockerProvider:
         self,
         target: ExecutionTarget,
         bindings: list[ActorPhysicalBinding],
+        *,
+        shared_gid: int,
     ) -> None:
-        """Create private HOME 0700 and shared_write dirs with correct ownership."""
+        """Create private HOME 0700 and shared_write dirs with real GID grants.
+
+        Workspace root is root-owned 0755 so non-shared paths deny actor writes.
+        Explicit shared_write paths are 2770 root:shared_gid; actors must exec
+        with supplementary shared_gid to write them.
+        """
         if not target.container_id:
             raise ProviderL1Error(ERROR_SPAWN_FAILED, "bootstrap without container")
-        # Script runs as root inside target.
-        lines = ["set -e", "mkdir -p /actor-homes"]
+        # Collect union of shared_write paths for this target.
+        shared_paths: set[str] = set()
+        for b in bindings:
+            shared_paths.update(b.shared_write)
+
+        lines = [
+            "set -e",
+            "mkdir -p /actor-homes /attempt/workspace",
+            # Fail closed on non-shared writes: root owns workspace root.
+            "chown root:root /attempt/workspace",
+            "chmod 0755 /attempt/workspace",
+            # Ensure shared GID exists (numeric group only is enough for chown).
+            f"groupadd -g {shared_gid} bora-shared-{shared_gid} 2>/dev/null || true",
+        ]
+        for rel in sorted(shared_paths):
+            sp = f"/attempt/workspace/{rel}"
+            lines.append(f"mkdir -p '{sp}'")
+            lines.append(f"chown root:{shared_gid} '{sp}'")
+            lines.append(f"chmod 2770 '{sp}'")
+
         for b in bindings:
             home = b.home_container
             lines.append(f"mkdir -p '{home}'")
@@ -580,15 +685,21 @@ class DockerProvider:
                 f"if [ -f /creds/codex_home/config.toml ]; then "
                 f"cp /creds/codex_home/config.toml '{home}/.codex/config.toml'; fi"
             )
-            lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.codex' || true")
-            lines.append(f"chmod 0700 '{home}/.codex' || true")
-            for rel in b.shared_write:
-                # shared_write is workspace-relative under /attempt/workspace
-                sp = f"/attempt/workspace/{rel}"
-                lines.append(f"mkdir -p '{sp}'")
-                if b.shared_gid is not None:
-                    lines.append(f"chown :{b.shared_gid} '{sp}' || true")
-                    lines.append(f"chmod 2770 '{sp}' || true")
+            lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.codex'")
+            lines.append(f"chmod 0700 '{home}/.codex'")
+            # Create private primary group if needed (numeric chown works without).
+            lines.append(
+                f"groupadd -g {b.gid} actor-g-{b.gid} 2>/dev/null || true"
+            )
+            lines.append(
+                f"useradd -u {b.uid} -g {b.gid} -d '{home}' -M "
+                f"actor-{b.uid} 2>/dev/null || true"
+            )
+            if b.shared_gid is not None:
+                lines.append(
+                    f"usermod -aG {b.shared_gid} actor-{b.uid} 2>/dev/null || true"
+                )
+
         script = "\n".join(lines)
         proc = subprocess.run(
             ["docker", "exec", "-u", "0:0", target.container_id, "sh", "-c", script],
