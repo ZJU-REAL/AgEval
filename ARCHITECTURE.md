@@ -123,8 +123,9 @@ BORA/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
 │       ├── provider_docker.py # Docker L1 + multi-actor ExecutionTarget
-│       ├── agent_container.py # container-bound CLI exec (no host fallback)
-│       └── agent_codex.py     # Codex Executor（--json 事件流）
+│       ├── agent_container.py # L1 placement / docker exec（Current: CLI；Target: ACP entry attach）
+│       ├── agent_codex.py     # Current residual: Codex private CLI JSONL
+│       └── …                  # Target: agent_acp.py + acp_entries.json（Spec 19）
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal
@@ -155,11 +156,16 @@ BORA/
 │   ├── capabilities/          # Core 4：agent/env/workspace/artifacts/events 契约
 │   ├── evaluation/            # Core 5：barrier、bind、result 模型
 │   ├── domain/                # 薄共享 value types / 错误类型
-│   └── adapters/              # 具体 I/O：package fs、codex、docker、evidence、credentials…
+│   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
+│       ├── agent_acp.py       # 唯一 ACP client（parent；Spec 19 Target）
+│       ├── acp_entries.json   # entry descriptor + exact pins
+│       ├── agent_container.py # L1 AcpProcessLauncher / placement only
+│       ├── agent_openai_http.py
+│       └── agent_pi.py        # 迁移前 residual private CLI；Target 改 entry: pi + pi-acp
 ├── sdk/python/bora_sdk/       # Harness Core：HarnessContext 等（可选 import）
 ├── examples/                  # 仓库拥有的回归 package
 ├── tests/                     # unit / integration / opt-in e2e
-├── docker/                    # v0.8+ 隔离镜像与 runtime lock
+├── docker/attempt/            # L1 基座：install-executors + acp-entries.lock（engine+ACP bake-in）
 └── （可选）benchmarks/ website/
 ```
 
@@ -182,7 +188,7 @@ BORA/
 | `provider/`（契约） | 隔离档、workspace plan、进程/容器生命周期接口 | Benchmark 名分支 |
 | `capabilities/` | Capability 面与 Attempt 注入契约 | 具体 Codex/DB 实现 |
 | `evaluation/` | barrier 顺序、raw 校验、扁平 Result、与 evidence 衔接 | package 内评分逻辑 |
-| `adapters/*` | 文件系统 package、Codex CLI、Docker、credentials 投影、evidence 落盘等 | 解释 Benchmark 业务 action catalog |
+| `adapters/*` | package fs、Docker、credentials、evidence；**Target** ACP client + entry registry；Current residual private CLI adapters | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape |
 | `domain/` | 跨模块稳定值对象与错误分类 | I/O、Typer、Docker SDK |
 | `bora_sdk` | Harness 侧类型与薄 helper | Control Plane 内部类型、verdict |
 | `examples/` | 可信回归 package | 声称支持完整 upstream suite |

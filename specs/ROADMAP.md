@@ -35,21 +35,23 @@ Config (v0.1)
                                                           → multi-profile + Environment (v0.16)
                                                               → hard ceilings + trajectory consume (v0.17)
                                                                   → Agent Skills 平台使用指南 (v0.18)
-                                                                      → Campaign / plugins / durable / VM / upstream verification (v0.19+，按需)
+                                                                      → ACP 统一 Agent 后端 (v0.19，Spec 19)
+                                                                          → Campaign / plugins / durable / VM / upstream (v0.20+，按需)
 ```
 
-`v0.13`–`v0.17` 是从已有前台 `bora run` 基线引出的机制主轴；`v0.18` 交付**给 coding agent 用的平台 Skills**（怎么跑 CLI、怎么写配置/SDK），不新增 Runtime authority。后一版实施与完成仍以前一版可运行 checkpoint 为依赖（Skills 正文只描述**已实现**表面，未落地能力不得写成已可用）。
+`v0.13`–`v0.17` 是从已有前台 `bora run` 基线引出的机制主轴；`v0.18` 交付**给 coding agent 用的平台 Skills**（怎么跑 CLI、怎么写配置/SDK），不新增 Runtime authority。`v0.19` 将 coding-agent inlet 收敛为 **ACP client + entry registry**，并在 L1 基座 bake-in engine/ACP 入口（[Spec 19](active/19-acp-agent-executor-plan.md) / [Issue #3](https://github.com/ffy6511/BORA/issues/3)）。后一版实施与完成仍以前一版可运行 checkpoint 为依赖（Skills 正文只描述**已实现**表面，未落地能力不得写成已可用）。
 
 ## 后续阶段约束
 
 - Provider 主线为 Docker L1；不交付 VM、远程多机或 L2 全量隔离。
 - 每次经 Agent Service 的真实 invocation 必须同步写入 Attempt evidence；轨迹是产品交付物，不是 PASS 来源。
 - `codex`、`pi`、`opencode` 是 v0.14 最低 built-in executor 闭环；`claude-code` 在 CLI/account 可用时作 14a residual 接入，当前 PATH 缺失不阻塞三后端 Version Index。本阶段不实现 entry-point 发现、第三方 wheel 分发或插件市场。
+- **v0.19（规划中，Version Index 未勾）：** coding-agent Target 为 `executor: acp` + `options.entry`；最低集含 Codex、Claude、**Pi（`pi-acp`）**、OpenCode、Grok；L1 官方基座 build 期安装 Mode 1 engine+adapter、Mode 2 native ACP、Mode 3 vendor pin；parent 唯一 ACP client；禁止第二套 container scrape 与 runtime `npx`。详见 Spec 19。
 - Executor capability matrix 进入 lock；缺少 tool、structured output、session 或 stream 等必需能力时，在 Attempt 前 fail closed，禁止静默降级或切换后端。
 - Credential 值由宿主/用户管理，环境变量只作 locator；secret 不进 lock、package、Harness 默认视图、轨迹或 example。
 - 多角色顺序、branch 与 handoff 属于 package Harness；Core 只拥有 profile binding、调用/外部动作边界、可见性、**执行前上限（硬顶）**、evidence 与 evaluator barrier。
 - gold、hidden test 与 evaluator-only material 必须通过不 mount + barrier 后 materialize 隔离；删配置字段或 prompt 过滤不构成物理隔离。
-- Campaign 全量收口、durable/background/reopen、插件发现、VM Provider 与固定 upstream 验证统一转入 `v0.19+`，未触发新版本或 Research 前不扩展。
+- Campaign 全量收口、durable/background/reopen、插件发现、VM Provider 与固定 upstream 验证统一转入 `v0.20+`（原笼统 `v0.19+` 顺延），未触发新版本或 Research 前不扩展。
 - `v0.18` Skills **不是**第二套设计权威：路由与操作说明可进 `skills/`，机制语义仍以 `docs/design/` 为准；Skills 不得发明与 design 冲突的命令、字段或红线。
 
 ### 设计不偏离清单
@@ -61,7 +63,7 @@ Config (v0.1)
 - [x] 本轴 Provider 只交付 Docker，不交付或宣称 VM/microVM。
 - [x] secret 值不进 lock、trajectory、example、跟踪文件或 Git；env 名只是 locator，实际值只作受控 runtime input。
 
-> 机制主轴与 Skills 规划见 Active Spec **12–17** 与本文件 `v0.13`–`v0.18` 节。待用户验收后才可开始实施。
+> 机制主轴见 Active Spec **12–18** 与本文件 `v0.13`–`v0.18` 节。ACP 统一见 **Spec 19 / v0.19**（规划未勾）。未授权不得实施生产代码。
 
 ## 版本索引
 
@@ -83,6 +85,7 @@ Config (v0.1)
 - [x] `v0.16` — 多 profile 编排与 Environment 资源边界
 - [x] `v0.17` — 执行前上限（硬顶）与轨迹导出
 - [x] `v0.18` — Agent Skills：平台使用指南（CLI / config / SDK）
+- [ ] `v0.19` — ACP 统一 Agent 后端（parent client + entry registry + L1 BOM；[Spec 19](active/19-acp-agent-executor-plan.md) / [Issue #3](https://github.com/ffy6511/BORA/issues/3)）
 
 
 > **Acceptance packages (2026-08-03):** layout under `examples/{journeys,core,l1}/` (see `examples/README.md`). Primary journeys: `journeys/{env-postgres-min,multiagent-env-min,tau2-dialog-min,terminal-jsonl-agg}`, plus `core/sdk-agent-session` and campaign matrix — **not** removed toys (`echo-contract`, `workspace-file-eval`).
@@ -925,5 +928,54 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 后续 TODO
 
-- [x] `v0.19`：机制主轴（v0.13–v0.17）落地后回写 skills 对应章节（本版先覆盖已落地表面）。
-- [x] `v0.19`+ 后备队列：Campaign 全收口、插件分发、durable、VM、fixed upstream 验证 — 与 Skills 分列。
+- [x] 机制主轴（v0.13–v0.17）落地后回写 skills 对应章节（本版先覆盖已落地表面）。
+- [x] 后备队列（Campaign / 插件 / durable / VM / upstream）与 Skills 分列立项；编号见 `v0.20`+。
+
+## v0.19 — ACP 统一 Agent 后端
+
+### 目标
+
+将声明 ACP 的 coding-agent 后端收敛为 **parent 侧单一 ACP client + entry registry**；L1 官方基座 **build 期 bake-in** 最低 **五** entry（含 Pi/`pi-acp`）的 engine 与 ACP 入口（Mode 1 双装）；删除 BORA 内第二套 vendor stdout scrape。出口仍为 `AgentResult` + §8.9 evidence；PASS 仍仅独立 evaluator。
+
+### 起始可运行基线
+
+- Public entrypoint: `bora lock` / `bora run` / `bora executors`；L1 multi-actor Spec 18。
+- Baseline: 私有 CLI multi-executor（v0.14）与 Docker L1（v0.8/v0.15/Spec 18）。
+- Observable gap: per-CLI parser、L1 镜像仅私有 CLI、无 `adapter-missing` inventory。
+
+### 演进增量
+
+- Config：`executor: acp` + `options.entry`；descriptor digest 进 lock。
+- Runtime：typed ACP client（parent only）；permission fail-closed；structured 禁 regex scrape。
+- Docker：`install-executors.sh` + `acp-entries.lock.json` 安装 Mode 1/2/3 pins；numeric UID PATH。
+- Migration：examples/tests 迁离 `executor: codex|opencode|claude-code` private path；`pi` residual 诚实。
+
+### 设计
+
+- [Agent Service / §8.4.3a ACP](../docs/design/05-runtime-core.md#843a-acp-作为-coding-agent-统一-inlettarget)
+- [Task Package / L1 基座](../docs/design/02-task-package-and-config.md)
+- [Adapter 准入](../docs/design/06-capability-adapter-visibility.md)
+- [ACP constitution](constitution/2026-08-04-acp-agent-executor-unification.md)
+- [Spec 19](active/19-acp-agent-executor-plan.md)
+- [Issue #3](https://github.com/ffy6511/BORA/issues/3)
+
+### 关键交付
+
+- [ ] Parent 唯一 ACP client + 静态 entry registry / pins（Codex、Claude、**Pi**、OpenCode、Grok）。
+- [ ] Inventory：`engine_ready` × `acp_entry_ready`（含 Mode 1 `adapter-missing`，含仅有 `pi` 无 `pi-acp`）。
+- [ ] L1 官方基座 bake-in **五** entry；actor UID 下 PATH 可执行；无 runtime install。
+- [ ] Host 五 entry 与 L1 至少一 entry 真实 public smoke + expected-failure matrix。
+- [ ] Architecture gate：无第二 ACP client / 无 vendor scrape / host↔L1 mapper 同一。
+
+### 验收标准
+
+- [ ] Success：`examples/core/acp-agent-conformance` 五 profile（含 `pi-acp`）+ `examples/l1/acp-agent-placement`；`execution_location` / `host_fallback_count=0` 诚实。
+- [ ] Expected failure：adapter/engine missing、auth/model/permission/protocol/timeout/target fail closed，无 private fallback。
+- [ ] Security：lock/evidence/image 无 credential；PASS 不来自 ACP end_turn。
+- [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、strict Specs validator、`git diff --check`。
+- [ ] Documentation：design / Architecture / AGENTS / Skills 与行为同步；Version Index 仅在本版验收后勾选。
+
+### 后续 TODO
+
+- [ ] ACP 落地后回写 Skills（executor / L1 BOM / `options.entry`）；未落地前 Skills 不得宣称 ACP 已可用。
+- [ ] `v0.20`+：Campaign 全收口、插件分发、durable、VM、fixed upstream 验证 — 与 ACP 分列。

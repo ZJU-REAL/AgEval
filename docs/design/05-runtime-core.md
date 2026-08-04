@@ -55,9 +55,11 @@ Provider 负责代码运行位置和 OS 级限制：
 **Docker L1 镜像来源（package 拥有 Dockerfile）：**
 
 1. `provider.kind: docker` 时，package 必须提供 **`environment/Dockerfile`**（或 `provider.dockerfile` 指向的 package 内路径）。
-2. Runtime prepare：**确保官方基座** `bora-attempt:l1`（仓库 `docker/attempt`，预装已声明支持的 CLI executor：codex、pi、opencode、claude-code）→ **`docker build -f <package Dockerfile>`** 得到 Attempt 用 image → digest 写入 evidence。
-3. 官方基座构建一次、多处 `FROM` 复用；上游基座由 package Dockerfile 自行 `FROM` 并安装 CLI。
-4. Agent CLI **在容器内**执行（不依赖挂载宿主 Homebrew binary）；缺 binary 则 fail closed，不以 parent residual 冒充 L1 PASS。
+2. Runtime prepare：**确保官方基座** `bora-attempt:l1`（仓库 `docker/attempt`）→ **`docker build -f <package Dockerfile>`** 得到 Attempt 用 image → digest 写入 evidence。
+3. 官方基座构建一次、多处 `FROM` 复用；上游基座由 package Dockerfile 自行 `FROM` 并安装**同一 pin 表**声明的入口（禁止 package 自选 floating 版本）。
+4. **基座预装（Target / Spec 19）：** 最低 coding-agent 验收 entry 的 **engine + ACP 入口**（Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；Mode 2：`opencode` 含 `acp` 子命令；Mode 3：exact Grok pin 的 `grok agent stdio`）。**Current** 镜像可能仍只预装私有 CLI；迁移前不得声称 L1 ACP ready。
+5. Agent **ACP entry（或 residual CLI）在容器内**执行（不依赖挂载宿主 Homebrew binary）；缺 engine/adapter 则 fail closed，不以 parent residual 冒充 L1 PASS，**禁止** invoke 时 `npm i` / `npx latest`。
+6. **Parent 侧**运行 BORA ACP client（typed JSON-RPC）；Attempt 镜像**不**安装 Python ACP SDK。L1 通过 `docker exec` 附着容器内 entry 的 stdio。
 
 #### L1 多 Actor 隔离与 SDK 调度面
 
@@ -78,8 +80,9 @@ Loop 中间文本和结构化上下文由 Harness memory 保存并拼入下一�
 | 概念 | 是什么 | 谁拥有 |
 | --- | --- | --- |
 | **Task Harness** | package 的 `harness.py` / upstream workflow | Task Package |
-| **Agent 后端 / Executor** | 真正执行一次模型/agent 调用的实现（`codex`、`claude-code`、`pi`、HTTP API…） | Runtime **Agent Service** + Executor Adapter |
+| **Agent 后端 / Executor** | 真正执行一次模型/agent 调用的实现。**Target：** 声明 ACP 的 coding-agent 走 `executor: acp` + entry；另保留 `openai-http` 与 residual `pi` 等 | Runtime **Agent Service** + Executor Adapter |
 | **agent_profile** | 命名绑定：`executor` + `model` + `options` + `workspace_view` | `bora.yaml` → LockedTaskConfig |
+| **ACP entry** | 标准 ACP stdio 入口（官方 shim / 原生 `acp` 子命令 / 厂商包）；翻译 vendor 私有协议 | 进程外二进制；由 registry pin，L1 镜像 bake-in |
 | **profile 引用** | Harness 使用的逻辑名（如 `parameters.models.planner`） | `parameters`（可被 Campaign override） |
 
 口语里的「换 agent harness」在 BORA 里指 **换 Agent Executor / profile**，不是换 `harness.py`。Task workflow 保持稳定，后端可替换，这是可比实验的基础。
@@ -88,28 +91,42 @@ Loop 中间文本和结构化上下文由 Harness memory 保存并拼入下一�
 
 ```yaml
 agent_profiles:
+  # Target（Spec 19）：coding-agent 走统一 ACP client
   - id: specialist-codex
-    executor: codex              # Executor Adapter kind
-    model: o4-mini              # 该 executor 认识的模型标识
+    executor: acp
+    model: o4-mini
     workspace_view: agents
-    options: {}                 # executor 专有旋钮（温度、超时等），进入 lock
-
-  - id: planner-pi
-    executor: pi
-    model: default
-    workspace_view: agents
+    options:
+      entry: codex              # registry entry_id；非 package 自带 command
 
   - id: specialist-cc
-    executor: claude-code
+    executor: acp
     model: claude-sonnet-4
     workspace_view: agents
+    options:
+      entry: claude-code
+
+  - id: planner-opencode
+    executor: acp
+    model: entry-default        # 或 entry 支持的 exact model id
+    workspace_view: agents
+    options:
+      entry: opencode
+
+  # Residual / 非 ACP
+  - id: planner-pi
+    executor: acp
+    model: entry-default
+    workspace_view: agents
+    options:
+      entry: pi                 # Mode 1: engine pi + pi-acp
 
   # Optional per-profile upstream routing (same level as model):
   # - base_url: non-secret endpoint (enters lock digest)
   # - api_key: environment variable *name* only (locator); value from host/.env
   #   projected into Executor at invoke time — never written into lock/evidence.
   - id: glm-coding-http
-    executor: openai-http
+    executor: openai-http       # api-client；不被 ACP 取代
     model: glm-4.7
     base_url: https://open.bigmodel.cn/api/coding/paas/v4
     api_key: zhipu_coding_api_key
@@ -117,16 +134,18 @@ agent_profiles:
 parameters:
   models:
     specialist: specialist-codex   # 或 specialist-cc
-    planner: planner-pi            # 同 task 内混用不同后端
+    planner: planner-opencode      # 同 task 内混用不同 ACP entry / residual
     reducer: specialist-codex
 ```
 
-- **整 task 换后端（Codex → Claude Code）：** Campaign variant 改写 `parameters.models.*` 指向另一组 profile，或 override 现有 profile 的 `executor`/`model`；**不必改** `harness.py`。
-- **同 task 不同 Agent 用不同后端：** 各 role 引用不同 profile id 即可；specialist 走 Codex、planner 走 Pi 合法。
-- **同 executor 不同模型：** 只改 profile 的 `model` 字段，或增加并列 profile。
-- **上游 endpoint / 密钥定位：** 可选 `base_url` 与 `api_key`（env 名）与 `model` 同级；`bora run` 从 package/cwd/repo `.env` 注入宿主环境后，Runtime 按 locator 投影给 Executor。
+- **整 task 换后端（Codex → Claude）：** 改 profile 的 `options.entry` / `model` 或 `parameters.models.*` 引用；**不必改** `harness.py`。
+- **同 task 不同 Agent 用不同后端：** 各 role 引用不同 profile id；specialist=Codex entry、planner=OpenCode entry 合法。
+- **同 entry 不同模型：** 改 `model`（经 ACP config option 绑定）或并列 profile。
+- **上游 endpoint / 密钥定位：** 可选 `base_url` 与 `api_key`（env 名）与 `model` 同级；`bora run` 从 package/cwd/repo `.env` 注入宿主环境后，Runtime 按 locator 投影给 Executor / ACP child env。
 
-`load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/model/base_url/api_key(locator) 的解析快照，进入 Trial identity / digest。
+`load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`executor: acp` 必须有 registry 内 `options.entry`；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/entry/model/base_url/api_key(locator) 与 descriptor digest 的解析快照，进入 Trial identity / digest。
+
+> **Current residual：** 迁移完成前，仓库仍可能接受 `executor: codex|opencode|claude-code` 私有 CLI 路径；Target 与新 acceptance 以 `executor: acp` 为准（见 [Spec 19](../../specs/active/19-acp-agent-executor-plan.md) / [Issue #3](https://github.com/ffy6511/BORA/issues/3)）。
 
 #### 8.4.3. Agent Service（Runtime）
 
@@ -137,7 +156,10 @@ ctx.agent.invoke(profile_id, messages, ...)
   → 查 LockedTaskConfig.agent_profiles[profile_id]
   → 选 Executor Adapter(executor kind)
   → 注入 credential / workspace view / network projection
-  → 调后端（CLI 子进程、API、或受控 agent runtime）
+  → 调后端：
+       acp  → parent typed ACP client ↔ host/L1 ACP entry stdio
+       openai-http → API client
+       residual pi / 迁移前私有 CLI → 既有 adapter（应收敛）
   → 归一化为 AgentResult（content / structured / usage / session）
 ```
 
@@ -145,14 +167,27 @@ ctx.agent.invoke(profile_id, messages, ...)
 
 | 职责 | 说明 |
 | --- | --- |
-| Profile 解析 | 把逻辑 profile 绑到具体 executor + model + options |
-| Executor 路由 | `codex` / `claude-code` / `pi` / … 各一 Adapter |
+| Profile 解析 | 把逻辑 profile 绑到具体 executor + model + options（含 `options.entry`） |
+| Executor 路由 | **Target：** `acp`（单一 client + entry registry）、`openai-http`、residual kinds；不是每个 vendor 一套 stdout parser |
 | Session 绑定 | 创建时固定 Attempt + profile + workspace；禁止跨 Attempt 复用 |
-| 统一 invoke 契约 | Harness 只见 messages / schema / tools 意图，不见各 CLI 细节 |
+| 统一 invoke 契约 | Harness 只见 messages / schema / tools 意图，不见各 CLI/ACP 细节 |
 | 额度与安全 | `limits.agent_invocations`、capability close、secret 不进 package 代码 |
-| 可观测与落盘 | 每次 invoke **同步**写入 Attempt evidence：identity、profile/executor/model、请求摘要、后端事件流、归一化 content/structured、usage、latency、失败 kind；供复盘与轨迹训练（§8.9） |
+| 可观测与落盘 | 每次 invoke **同步**写入 Attempt evidence：identity、profile/executor/entry/model、请求摘要、后端事件流、归一化 content/structured、usage、latency、失败 kind；供复盘与轨迹训练（§8.9） |
 
 Harness / Harness Core 的 `Agent(..., model_profile=params.planner_model)` **只传 profile id**；不得 `import` 某个具体 agent CLI SDK 写死后端。
+
+#### 8.4.3a. ACP 作为 coding-agent 统一 inlet（Target）
+
+声明 [Agent Client Protocol](https://agentclientprotocol.com/) wire 的 coding-agent 后端：
+
+1. **一个** BORA ACP client（parent process），出口恒为 `AgentResult` + §8.9 events。
+2. Vendor 差异只在 **entry descriptor**（Mode 1 官方 shim / Mode 2 原生 `acp` / Mode 3 厂商包）与 **镜像/host pin**，不在 BORA 内复制私有 stdout scrape。
+3. Host 与 L1 **共享** session/result mapper；L1 只做 placement（`docker exec`、UID/GID、env）。缺 entry/engine → fail closed，**禁止**回退私有 CLI 或 host binary。
+4. L1 官方基座 **build 期 bake-in** 最低验收 entry 的 engine 与 ACP 入口（Mode 1 双装，含 **Pi：`pi` + `pi-acp`**）；见 [ACP constitution](../../specs/constitution/2026-08-04-acp-agent-executor-unification.md#l1-官方基座-bom必须-bake-in) 与 [Spec 19](../../specs/active/19-acp-agent-executor-plan.md)。
+5. `openai-http` 保持独立 `api-client`。Pi 的 Target 为 ACP entry（registry `pi-acp` / npm `pi-acp`），不是私有 `--mode json` scrape。
+6. ACP `end_turn` / 完整轨迹 **≠** PASS；PASS 仍仅独立 evaluator。
+
+实施与验收门禁以 Active Spec 19 为准；未完成迁移前 Current 代码可仍含 per-CLI parser，但不得再扩大第二套 container scrape。
 
 #### 8.4.4. 归一化 invoke 契约（跨后端）
 
@@ -196,7 +231,7 @@ BORA **允许用户与第三方按 Core 契约实现定制化插件**，并以 P
 
 | 扩展面 | Core 开放的契约（方向） | 配置选型（例） | 示例实现 |
 | --- | --- | --- | --- |
-| **Agent 后端** | `AgentExecutor.invoke`（§8.4.7） | `agent_profiles.executor` | `pi` / `codex` / `claude-code` |
+| **Agent 后端** | `AgentExecutor.invoke`（§8.4.7） | `agent_profiles.executor`（+ `options.entry` for `acp`） | Target: `acp`；residual `pi`；`openai-http` |
 | **Provider** | 隔离与 workspace 执行协议 | `provider.kind` | `docker` / `local` |
 | **Environment** | prepare / action / teardown（+ 可选 freeze） | component / resource kind | `postgres` / `browser` |
 | **Artifact** | publish / materialize 策略 | `artifacts` 与 materializer 实现 | filesystem 等 |
