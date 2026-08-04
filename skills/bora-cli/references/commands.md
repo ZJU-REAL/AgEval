@@ -34,6 +34,9 @@ Stdout JSON:
 - One foreground Attempt via production composition root.
 - Creates evidence under package `.bora/runs/...` unless overridden internally.
 - `logs` is absolute path to Attempt evidence root when available.
+- Per invocation (ACP path): `agent/invocations/<nnnn>-*/trajectory.jsonl` is **turn-level**
+  (user + merged assistant/thought + terminal). Stream chunks are not the training default;
+  see `docs/design/05-runtime-core.md` §8.9.4a.
 - Docker packages use L1 path when `provider.kind: docker`.
 
 ## `bora evidence`

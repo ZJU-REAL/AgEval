@@ -46,7 +46,7 @@ agent_profiles:
 
 limits:
   wall_time_seconds: 360
-  agent_invocations: 2
+  agent_invocations: 3
   environment_actions: 0
 
 artifacts:

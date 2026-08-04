@@ -75,7 +75,7 @@ Value after `=` is JSON (strings need quotes): `--set '/parameters/active_profil
 
 Typical stdout fields: `status`, `score`, `assurance`, `agent_invocations`, `evidence_path`, **`logs`** (Attempt evidence root).
 
-- Inspect trajectory: open `$logs/agent/invocations/`
+- Inspect trajectory: open `$logs/agent/invocations/<nnnn>-*/trajectory.jsonl` (**turn-level** training rows) and `events.jsonl` (optional stream/debug)
 - Export: `uv run bora evidence "$logs" --out /tmp/bora-export`
 - Trajectory presence **never** upgrades score
 

@@ -459,6 +459,37 @@ class ParentAgentService:
                         }
                     )
 
+            # Training trajectory: turn-level (one invoke = one turn unit).
+            # Prefer executor-written file; else synthesize. Stamp turn_index
+            # from completed+1 (this invocation's 1-based seq within attempt).
+            meta = getattr(result, "metadata", None)
+            if not isinstance(meta, dict):
+                meta = {}
+            else:
+                meta = dict(meta)
+            meta.setdefault("turn_index", self.invocations_completed + 1)
+            is_acp = meta.get("executor_kind") == "acp" or kind == "acp"
+            traj_path = handle.directory / "trajectory.jsonl"
+            if is_acp:
+                from bora.adapters.agent_acp import write_trajectory_jsonl
+
+                # Always rewrite with turn_index even if executor already wrote.
+                write_trajectory_jsonl(
+                    handle.directory,
+                    prompt=prompt,
+                    events=tuple(events) if not isinstance(events, tuple) else events,
+                    final_text=str(getattr(result, "text", "") or ""),
+                    structured=(
+                        result.structured
+                        if isinstance(getattr(result, "structured", None), dict)
+                        else None
+                    ),
+                    usage=getattr(result, "usage", None),
+                    ok=bool(result.ok),
+                    error=result.error,
+                    metadata=meta,
+                )
+
             status = "completed" if result.ok else _map_error_status(result.error)
             try:
                 if result.ok:

@@ -25,6 +25,142 @@ from bora.adapters.agent_contract import AgentResult, parse_validated_text_struc
 ProcessLauncher = Callable[..., Any]
 
 
+def write_trajectory_jsonl(
+    inv_dir: Path,
+    *,
+    prompt: str,
+    events: tuple[dict[str, Any], ...] | list[dict[str, Any]],
+    final_text: str,
+    structured: dict[str, object] | None,
+    usage: dict[str, Any] | None,
+    ok: bool,
+    error: str | None,
+    metadata: dict[str, Any] | None = None,
+) -> Path:
+    """Write **turn-level** training trajectory for one BORA invoke.
+
+    One ``session/prompt`` (one invoke) → one training turn unit:
+
+    1. ``user`` — full prompt
+    2. ``assistant`` (optional ``part=thought``) — merged thought text
+    3. ``assistant`` — merged message text (prefer ``final_text``)
+    4. ``terminal`` — ok / error / structured / usage / stop metadata
+
+    Stream chunks are merged; raw token-level ACP updates are not written here.
+    Optional debug stream stays out of this file (see ``events.jsonl`` if needed).
+    Not PASS authority.
+    """
+    inv_dir.mkdir(parents=True, exist_ok=True)
+    path = inv_dir / "trajectory.jsonl"
+
+    thought_parts: list[str] = []
+    assistant_parts: list[str] = []
+    permission_events: list[dict[str, Any]] = []
+    acp_session_id: str | None = None
+
+    for ev in events:
+        if not isinstance(ev, dict):
+            continue
+        sid = ev.get("session_id")
+        if isinstance(sid, str) and sid:
+            acp_session_id = sid
+        if ev.get("type") == "permission_decision":
+            permission_events.append(
+                {
+                    "type": "permission_decision",
+                    "outcome": ev.get("outcome"),
+                    "option_id": ev.get("option_id"),
+                    "policy": ev.get("policy"),
+                    "source": "acp",
+                }
+            )
+            continue
+        channel = ev.get("channel")
+        text = ev.get("text")
+        if not isinstance(text, str):
+            continue
+        if channel == "thought":
+            thought_parts.append(text)
+        elif channel == "assistant":
+            assistant_parts.append(text)
+
+    merged_thought = "".join(thought_parts)
+    merged_assistant = final_text if final_text else "".join(assistant_parts)
+
+    turn_index = 1
+    if isinstance(metadata, dict):
+        # Optional: callers may pass bora turn index later.
+        raw_ti = metadata.get("turn_index")
+        if isinstance(raw_ti, int) and raw_ti > 0:
+            turn_index = raw_ti
+
+    lines: list[dict[str, Any]] = [
+        {
+            "type": "turn",
+            "role": "user",
+            "content": prompt,
+            "turn_index": turn_index,
+            "acp_session_id": acp_session_id,
+            "source": "bora",
+        }
+    ]
+    if merged_thought:
+        lines.append(
+            {
+                "type": "turn",
+                "role": "assistant",
+                "part": "thought",
+                "content": merged_thought,
+                "turn_index": turn_index,
+                "acp_session_id": acp_session_id,
+                "source": "acp",
+            }
+        )
+    lines.append(
+        {
+            "type": "turn",
+            "role": "assistant",
+            "content": merged_assistant,
+            "turn_index": turn_index,
+            "acp_session_id": acp_session_id,
+            "source": "acp",
+        }
+    )
+    for pe in permission_events:
+        pe = {**pe, "turn_index": turn_index, "acp_session_id": acp_session_id}
+        lines.append(pe)
+    lines.append(
+        {
+            "type": "terminal",
+            "ok": ok,
+            "error": error,
+            "turn_index": turn_index,
+            "acp_session_id": acp_session_id,
+            "structured": structured,
+            "usage": usage,
+            "stop_reason": (metadata or {}).get("stop_reason") if metadata else None,
+            "metadata": {
+                k: (metadata or {}).get(k)
+                for k in (
+                    "executor_kind",
+                    "acp_entry_id",
+                    "acp_version",
+                    "protocol_version",
+                    "actual_model",
+                    "locked_model",
+                )
+                if metadata and k in metadata
+            },
+            "source": "bora",
+        }
+    )
+    path.write_text(
+        "\n".join(json.dumps(x, ensure_ascii=False, sort_keys=True) for x in lines) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def _offline_result(model: str) -> AgentResult:
     return AgentResult(
         model=model,
@@ -110,7 +246,12 @@ class _BoraAcpClient:
         return resp
 
     async def session_update(self, session_id: str, update: Any, **kwargs: Any) -> None:
-        # Collect agent message text chunks only for final text.
+        """Record full ACP stream for trajectory.jsonl (training-grade).
+
+        Intermediate AgentMessageChunk / thought text is preserved on the event
+        payload (not only text_len). Operators who run local smokes want the
+        raw stream for post-hoc training export.
+        """
         update_type = type(update).__name__
         event: dict[str, Any] = {
             "type": "session_update",
@@ -118,13 +259,35 @@ class _BoraAcpClient:
             "update_type": update_type,
             "source": "acp",
         }
-        # AgentMessageChunk / text
+        # Prefer typed dump when available (full structured update).
+        with contextlib_suppress(Exception):
+            if hasattr(update, "model_dump"):
+                dumped = update.model_dump(by_alias=True, exclude_none=True)
+                if isinstance(dumped, dict):
+                    event["update"] = dumped
+
         content = getattr(update, "content", None)
         text = getattr(content, "text", None) if content is not None else None
-        is_agent_msg = "AgentMessage" in update_type or update_type.endswith("AgentMessageChunk")
-        if isinstance(text, str) and is_agent_msg:
-            self.text_chunks.append(text)
+        is_agent_msg = "AgentMessage" in update_type or update_type.endswith(
+            "AgentMessageChunk"
+        )
+        is_thought = "Thought" in update_type or update_type.endswith("AgentThoughtChunk")
+        if isinstance(text, str):
+            event["text"] = text
             event["text_len"] = len(text)
+            if is_agent_msg:
+                self.text_chunks.append(text)
+            if is_thought:
+                event["channel"] = "thought"
+            elif is_agent_msg:
+                event["channel"] = "assistant"
+        # Tool call updates: keep id/title/kind when present.
+        for attr in ("tool_call_id", "toolCallId", "title", "kind", "status"):
+            val = getattr(update, attr, None)
+            if val is not None and attr not in event:
+                # normalize camelCase keys already in model_dump; keep flat helpers
+                key = "tool_call_id" if attr in {"tool_call_id", "toolCallId"} else attr
+                event[key] = val if not hasattr(val, "value") else str(val)
         # UsageUpdate
         if "Usage" in update_type:
             usage_obj = getattr(update, "usage", None) or update
@@ -133,6 +296,8 @@ class _BoraAcpClient:
                     self.usage = usage_obj.model_dump(by_alias=True, exclude_none=True)
                 elif isinstance(usage_obj, dict):
                     self.usage = usage_obj
+            if self.usage is not None:
+                event["usage"] = self.usage
             event["has_usage"] = True
         self.events.append(event)
 
@@ -411,8 +576,12 @@ class AcpExecutor:
 
         assert self._conn is not None and self._client is not None
         assert self._acp_session_id is not None
+        # Per-prompt isolation: chunks + event buffer reset each invoke so
+        # turn-level trajectory merge does not pull prior turns' stream.
         self._client.text_chunks.clear()
-        # Keep permission decisions across invokes but mark new ones.
+        self._client.events.clear()
+        self._client.permission_decisions.clear()
+        self._client.usage = None
 
         try:
             resp = await self._conn.prompt(
@@ -586,13 +755,31 @@ class AcpExecutor:
                 },
             )
 
-        if collect_dir is not None and result.events:
+        if collect_dir is not None:
             root = Path(collect_dir)
             root.mkdir(parents=True, exist_ok=True)
-            (root / "acp_events.jsonl").write_text(
-                "\n".join(json.dumps(e, ensure_ascii=False, sort_keys=True) for e in result.events)
-                + "\n",
-                encoding="utf-8",
+            if result.events:
+                (root / "acp_events.jsonl").write_text(
+                    "\n".join(
+                        json.dumps(e, ensure_ascii=False, sort_keys=True)
+                        for e in result.events
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            # Training-oriented full stream (parent of collect_dir is invocation dir
+            # when collect_dir is .../backend_raw).
+            inv_dir = root.parent if root.name == "backend_raw" else root
+            write_trajectory_jsonl(
+                inv_dir,
+                prompt=prompt,
+                events=result.events,
+                final_text=result.text,
+                structured=result.structured,
+                usage=result.usage,
+                ok=result.ok,
+                error=result.error,
+                metadata=result.metadata,
             )
         return result
 
