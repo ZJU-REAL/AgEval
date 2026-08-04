@@ -12,22 +12,11 @@ import json
 import os
 import shutil
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
-@dataclass(frozen=True, slots=True)
-class AgentResult:
-    model: str
-    text: str
-    structured: dict[str, object] | None
-    ok: bool
-    error: str | None = None
-    stderr: str = ""
-    events: tuple[dict[str, Any], ...] = ()
-    source_refs: tuple[dict[str, str], ...] = ()
-    usage: dict[str, Any] | None = None
+# Stable outlet (Spec 19) — re-export for temporary residual imports.
+from bora.adapters.agent_contract import AgentResult
 
 
 class CodexExecutor:

@@ -23,11 +23,11 @@
 | User decision required | `no` |
 | Ready for acceptance now | `no` |
 | Current blockers | `0` |
-| Potential blockers | `4` |
+| Potential blockers | `2` |
 
-- Next action: 关 Phase 0 余下工程项——`uv run bora executors -v` baseline + 本机 pin/protocol probe（R1–R3）；通过后 Phase 1 写 registry/`src/`。
-- **产品决策已关（2026-08-04 会话）**：local decisions 1–8 + Constitution + 实施授权均已确认。表内曾长期写 `User decision required: yes` 是**过时关闸**，不是还有悬案。
-- Spec 整包尚未 acceptance：Phase 0 probe / 实现未完；**不**再要求新的产品选择。
+- Next action: Phase 3 五 entry host smoke（Codex/Claude/Pi/Grok）+ Phase 4 L1 placement package + Phase 5 migration。
+- **已完成切片（2026-08-04）**：Phase 0 probes；Phase 1 registry/inventory/lock；Phase 2 OpenCode public PASS；L1 image BOM bake-in 五 entry + actor UID PATH probe ok。
+- Spec 整包尚未 acceptance：Mode 1/3 real smokes、L1 public package、private scrape 迁移仍未完成。
 
 ### Current blockers
 
@@ -35,10 +35,10 @@
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0–2): OpenCode native ACP 在 batch policy 下尚未 real probe。
-- `R2` (Owner: Agent / Phase 0–3): Codex/Claude/Pi Mode 1 auth/model 与 actor-UID 工具执行须 real probe。
-- `R3` (Owner: Agent / Phase 0–3): Grok pin `0.2.120` vs npm stable 须 real probe；失败再记 `BLOCKED` 问用户改 pin。
-- `R4` (Owner: Agent / Phase 4): L1 容器内 ACP entry lifecycle 须 real Docker probe。
+- `R1` (Owner: Agent / Phase 2): **closed** — OpenCode initialize/session + public `bora run` PASS（batch auto-approve path）。
+- `R2` (Owner: Agent / Phase 3): Codex/Claude/Pi Mode 1 public smokes 与 auth/model 仍须逐 entry 证据。
+- `R3` (Owner: Agent / Phase 3): Grok pin `0.2.120` 已 npm/host 安装并 inventory ready；public smoke 仍待。
+- `R4` (Owner: Agent / Phase 4): L1 image BOM bake-in 已通过 actor UID PATH；ACP session lifecycle 在 container 内仍待 public package。
 
 ### Local decisions（已接受 — 实施边界）
 
@@ -61,9 +61,9 @@
 
 ## Phases
 
-- [ ] Phase 0: 设计权威、配置表面与 protocol/pin probe 同步
-- [ ] Phase 1: ACP entry registry、lock snapshot 与 inventory readiness
-- [ ] Phase 2: 单一 ACP client MVP（Mode 2 OpenCode）
+- [x] Phase 0: 设计权威、配置表面与 protocol/pin probe 同步
+- [x] Phase 1: ACP entry registry、lock snapshot 与 inventory readiness
+- [x] Phase 2: 单一 ACP client MVP（Mode 2 OpenCode）
 - [ ] Phase 3: Mode 1 Codex/Claude 与 Mode 3 Grok Build
 - [ ] Phase 4: Docker L1 placement 与 host/container client parity
 - [ ] Phase 5: 迁移 examples、弃用 vendor private scrape 与状态收口

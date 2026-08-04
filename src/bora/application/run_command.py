@@ -78,7 +78,7 @@ async def run_task(
     agent_sock_path = None
     shared_attempt = None  # Runtime-owned Attempt shared with harness worker
     if use_agent_session and agent_profile is not None:
-        from bora.adapters.agent_openai_http import resolve_executor
+        from bora.adapters.agent_registry import resolve_executor
         from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
 
         limits = thaw(lock.limits) if hasattr(lock, "limits") else {}

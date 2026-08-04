@@ -72,9 +72,32 @@ def _builtin_opencode_factory(
     return OpenCodeExecutor(model=model, base_url=base_url, api_key_env=api_key)
 
 
+def _builtin_acp_factory(
+    model: str = "entry-default",
+    *,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    entry: str | None = None,
+    entry_id: str | None = None,
+    **_kw: Any,
+) -> Any:
+    from bora.adapters.agent_acp import AcpExecutor
+
+    eid = entry or entry_id
+    if not eid:
+        raise KeyError("acp_entry_required")
+    return AcpExecutor(
+        entry_id=str(eid),
+        model=model,
+        base_url=base_url,
+        api_key_env=api_key,
+    )
+
+
 def _load_builtins() -> None:
     if _BUILTIN:
         return
+    _BUILTIN["acp"] = _builtin_acp_factory
     _BUILTIN["codex"] = _builtin_codex_factory
     _BUILTIN["pi"] = _builtin_pi_factory
     _BUILTIN["opencode"] = _builtin_opencode_factory
@@ -121,12 +144,15 @@ def resolve_executor(
     model: str,
     base_url: str | None = None,
     api_key: str | None = None,
+    entry: str | None = None,
+    entry_id: str | None = None,
     **_kw: Any,
 ) -> Any:
     """Resolve locked executor kind → entry point first, then builtin.
 
     ``api_key`` is an environment variable *name* (locator), never a secret value.
     ``base_url`` is optional non-secret upstream endpoint routing.
+    ``entry`` / ``entry_id`` select the ACP registry row when ``kind == \"acp\"``.
     """
     _load_builtins()
     kwargs: dict[str, Any] = {"model": model}
@@ -134,6 +160,10 @@ def resolve_executor(
         kwargs["base_url"] = base_url
     if api_key:
         kwargs["api_key"] = api_key
+    if entry:
+        kwargs["entry"] = entry
+    if entry_id:
+        kwargs["entry_id"] = entry_id
     # Entry points take precedence so third-party wheels can override/extend.
     try:
         eps = entry_points(group="bora.agent_executors")
