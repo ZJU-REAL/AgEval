@@ -9,47 +9,55 @@
 | Type | feat |
 | Priority | P0 |
 | Status | in-progress |
-| Planning gate | open — pending user review of local decisions + Constitution; does **not** authorize production `src/` or image rebuild until B1 cleared |
+| Planning gate | **closed for product decisions** (2026-08-04 user session)；实施可继续；Phase 勾选仍按证据 |
 | Completed | pending |
 | Independent review | off |
-| Dependencies | [ACP constitution draft](../constitution/2026-08-04-acp-agent-executor-unification.md) must be accepted；[Spec 18](18-l1-multi-agent-docker-scheduling-plan.md) SDK/L1 target placement baseline；v0.13–v0.17 trajectory/ceiling/evaluator baseline；[GitHub Issue #3](https://github.com/ffy6511/BORA/issues/3) |
+| Dependencies | [ACP constitution](../constitution/2026-08-04-acp-agent-executor-unification.md) accepted；[Spec 18](18-l1-multi-agent-docker-scheduling-plan.md) SDK/L1 baseline；v0.13–v0.17 trajectory/ceiling baseline；[GitHub Issue #3](https://github.com/ffy6511/BORA/issues/3) |
 | Decisions | [Agent Service](../../docs/design/05-runtime-core.md#843-agent-serviceruntime)、[归一化 invoke 契约](../../docs/design/05-runtime-core.md#844-归一化-invoke-契约跨后端)、[Attempt evidence](../../docs/design/05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)、[ACP implementation decision](../constitution/2026-08-04-acp-agent-executor-unification.md#decision) |
 
 ## Decision Summary
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
 | Ready for acceptance now | `no` |
-| Current blockers | `1` |
+| Current blockers | `0` |
 | Potential blockers | `4` |
 
-- Next action: 用户接受本 draft 并明确授权 production implementation 后，执行 `uv run bora executors -v` 固定 baseline，再从 Phase 0 同步设计权威。
+- Next action: 关 Phase 0 余下工程项——`uv run bora executors -v` baseline + 本机 pin/protocol probe（R1–R3）；通过后 Phase 1 写 registry/`src/`。
+- **产品决策已关（2026-08-04 会话）**：local decisions 1–8 + Constitution + 实施授权均已确认。表内曾长期写 `User decision required: yes` 是**过时关闸**，不是还有悬案。
+- Spec 整包尚未 acceptance：Phase 0 probe / 实现未完；**不**再要求新的产品选择。
 
 ### Current blockers
 
-- `B1` (Owner: User): 批准本 Spec 的 local decisions、Constitution draft 与 production implementation；批准前不得修改 `src/`、Docker image、examples business logic、Roadmap 完成态或 Phase checkbox。
+- None
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0–2): OpenCode native ACP 在 text-only、无 client filesystem/terminal capability 的 batch policy 下尚未通过真实 `initialize → session/new → session/prompt` probe。
-- `R2` (Owner: Agent / Phase 0–3): Codex/Claude Mode 1 entry 的 auth、model config option 与 permission request 行为可能要求本 Spec 未授权的交互或 client-side effect；必须先 real probe，不能自动 approve。
-- `R3` (Owner: Agent / Phase 0–3): Grok Build registry 指向 `0.2.120`，npm stable dist-tag 在起草时仍为 `0.2.118`；采用的 exact pin 必须通过 protocol/session probe，禁止 invocation 时 floating `npx latest`。
-- `R4` (Owner: Agent / Phase 4): pinned ACP entry 在 Docker L1 actor numeric UID/private HOME 下的启动、cancel、process-group stop 与 writer confirmation 尚未经真实 container probe。
+- `R1` (Owner: Agent / Phase 0–2): OpenCode native ACP 在 batch policy 下尚未 real probe。
+- `R2` (Owner: Agent / Phase 0–3): Codex/Claude/Pi Mode 1 auth/model 与 actor-UID 工具执行须 real probe。
+- `R3` (Owner: Agent / Phase 0–3): Grok pin `0.2.120` vs npm stable 须 real probe；失败再记 `BLOCKED` 问用户改 pin。
+- `R4` (Owner: Agent / Phase 4): L1 容器内 ACP entry lifecycle 须 real Docker probe。
 
-### Local decisions proposed for acceptance
+### Local decisions（已接受 — 实施边界）
 
-用户批准本 draft 后，下列选择直接成为实施边界；实现 Agent 无需再次选择替代方案：
+以下由用户在 2026-08-04 会话确认，**无需再问**：
 
 1. Canonical profile 使用 `executor: acp` + `options.entry: <entry_id>`。`codex`、`opencode`、`claude-code` 不作为 ACP alias；它们在 Phase 5 迁移后不得触发 private parser。`openai-http` 保持独立 `api-client`。
 2. BORA 使用 `agent-client-protocol==0.12.0` 的 typed stdio client，并固定 ACP protocol v1 stable surface。禁止手写第二个 JSON-RPC transport/parser。
-3. MVP client→agent surface 固定为 `initialize`、`session/new`、可选且标准化的 `session/set_config_option`、`session/prompt`、`session/cancel`、`session/close`；agent→client 只消费 `session/update` 与必要的 permission/elicitation request。`load/list/fork/resume`、MCP、client filesystem/terminal 与 extension methods 不在本增量。
-4. BORA 不广告 client filesystem/terminal capability。`session/request_permission` 一律返回 cancelled 并使当前 invoke 以 `acp_permission_required` 失败；elicitation 一律 decline。禁止 unattended auto-approve。
+3. MVP client→agent surface 固定为 `initialize`、`session/new`、可选且标准化的 `session/set_config_option`、`session/prompt`、`session/cancel`、`session/close`；agent→client 消费 `session/update` 与 `session/request_permission`（及 elicitation）。`load/list/fork/resume`、MCP、以及 **client 代持** filesystem/terminal 能力（IDE 式 fs/pty RPC）不在本增量默认路径。
+4. **Permission 与可见性分层（用户确认 2026-08-04）：**
+   - **物理可见性 / 隔离**：与既有 L0/L1 相同——Provider mount、PathGrant、`docker exec -u uid:gid -w <workspace>`、actor HOME、credential 投影。ACP **不**替代 OS DAC。
+   - **`session/request_permission`：batch 默认 auto-approve**（allow / selected 全部通过），evidence 记录每次 decision；**不**弹交互 UI。
+   - **Approve 不提权**：ACP approve 只是协议层放行 tool call，**不能**获得 root、`CAP_DAC_OVERRIDE`、或读写未 mount / 对当前 UID 无权限的路径（如 root 私有目录仍 EACCES）。
+   - 工具执行落在 **ACP entry 子进程**（L1 即 container 内 actor 身份），不靠 parent 在 host 上代读代写。
+   - Client **不**把「完整 IDE filesystem/terminal 代理」作为默认 capability 广告；读写边界靠投影 + 进程身份。
+   - `elicitation`（要人类填空）默认 **decline**（batch 无操作员）；与 permission auto-approve 分离。
 5. Prompt 仅发送 text content block。输出只拼接有序 `AgentMessageChunk` text；`AgentResult.structured` 只接受完整 trimmed final text 为 JSON object 的 `validated-text`，禁止 substring/reverse-scan/regex 提取。Image/audio/resource 输入延后。
 6. Exact initial pins 固定为：Python SDK `0.12.0`；Codex ACP `1.1.9`；Claude ACP `0.64.2`；**Pi ACP `pi-acp@0.0.33`**（官方 registry id `pi-acp`，npm 包名 `pi-acp`，**不是** `@agentclientprotocol/pi-acp`）；OpenCode `1.18.12`；Grok Build `0.2.120`。Engine pin（`pi` / `codex` / `claude` 等）与 adapter pin 写在同一 lock。若 Phase 0 real probe 证明 pin 不可用，按 `BLOCKED.md` 记录并回到用户，不得静默改为其它版本或 floating tag。L1 与 host 使用**同一 pin 表**。
 7. **`pi` 纳入最低 ACP 验收集**（Mode 1：`engine=pi` + `acp_entry=pi-acp`）。Target profile：`executor: acp` + `options.entry: pi`。迁移完成前私有 `executor: pi` + stdout parser 仅 temporary residual，**不得** ACP→private fallback。注意勿与 `pi-shell-acp`（pi 调用其它 backend 的反向桥）混淆。
-8. **L1 官方基座 bake-in**：`bora-attempt:l1` 在 build 期安装最低 **五** entry 的 engine + ACP 入口（Mode 1 含 codex/claude/**pi** 双装）；`bora run` 永不 runtime install。typed ACP **Python client 只在 parent**，不进 Attempt 镜像。numeric non-root actor 下 ACP command 必须在 PATH 上可执行。package Dockerfile 不得覆盖 pin/command。
+8. **L1 官方基座 bake-in**：`bora-attempt:l1` 在 build 期安装最低 **五** entry 的 engine + ACP 入口（Mode 1 含 codex/claude/**pi** 双装）；`bora run` 永不 runtime install。typed ACP **Python client 只在 parent**，不进 Attempt 镜像。numeric non-root actor 下 ACP command 必须在 PATH 上可执行。package Dockerfile 不得覆盖 pin/command。`session/new.cwd` **必须**等于已投影 workspace 根（容器内绝对路径）。
 
 ## Phases
 
@@ -78,9 +86,10 @@
 
 - Goal: 一个 typed ACP client 处理所有 `acp-stdio` entry，并把标准 event/stop/usage 归一为 `AgentResult` + §8.9 evidence。
 - Goal: 增加数据化 Mode 1/2/3 registry、descriptor digest、capability/model binding 与 `engine_ready × acp_entry_ready` inventory。
-- Goal: 同一 client 在 host 和 Docker L1 运行；placement failure、entry missing、auth/model/permission/protocol failure全部 fail closed，无 private/host fallback。
-- Goal: 真实 public smoke 覆盖 Codex、Claude Code、OpenCode、Grok Build；需要凭据的 smoke 可 env-gated，但完成证据必须至少各有一次真实 run。
-- Non-goal: 替换 `openai-http`、把 ACP 用作 Harness Capability transport、实现 IDE permission UI、跨 Attempt resume/reopen、client-side fs/terminal/MCP、多模态、动态远程 registry 或插件市场。
+- Goal: 同一 client 在 host 和 Docker L1 运行；placement failure、entry missing、auth/model/protocol failure 全部 fail closed，无 private/host fallback。
+- Goal: 可见性继续靠 mount + `docker exec` UID/GID；ACP permission **默认 approve**，且不突破 OS/投影边界。
+- Goal: 真实 public smoke 覆盖 Codex、Claude、Pi、OpenCode、Grok；需要凭据的 smoke 可 env-gated，但完成证据必须至少各有一次真实 run。
+- Non-goal: 替换 `openai-http`、把 ACP 用作 Harness Capability transport、实现 IDE 交互 permission UI、跨 Attempt resume/reopen、parent 代持 host fs、多模态、动态远程 registry 或插件市场。
 - Non-goal: 由本 Spec 提升全 suite `isolated` / `real-benchmark-verified`；ACP trajectory、stop reason 与 Harness terminal 均不决定 PASS。
 
 ### Key Insight
@@ -98,12 +107,12 @@ Vendor 差异只进入 entry descriptor 和外部 ACP process。BORA 内唯一�
 
 ### User Story
 
-作为 BORA 操作者，我只选择一个 locked ACP entry，就能让同一 Harness 在 host 或 Docker L1 中调用 Codex、Claude Code、OpenCode 或 Grok Build，并从统一 `AgentResult` 与 evidence 查看标准 ACP 事件；entry、credential、model、permission、protocol 或 target 不满足时 run 明确失败，且不会改走私有 parser、宿主 CLI 或其它 backend。
+作为 BORA 操作者，我只选择一个 locked ACP entry，就能让同一 Harness 在 host 或 Docker L1 中调用 Codex、Claude、Pi、OpenCode 或 Grok，并从统一 `AgentResult` 与 evidence 查看标准 ACP 事件；agent 工具在投影 workspace 与 actor UID 权限内运行（permission 默认放行）；entry、credential、model、protocol 或 target 不满足时 run 明确失败，且不会改走私有 parser、宿主 CLI 或突破未 mount 路径。
 
 ### Scope Boundary
 
 - Included: `executor: acp` profile schema、entry registry/pin/digest、inventory readiness、typed ACP stdio session、text/validated-text mapping、credential/model preflight、host/L1 launcher、Mode 1/2/3 real smokes、现有 ACP-capable vendor parser migration。
-- Deferred: Gemini/Qoder 等新 rows；interactive permission policy；image/audio/resource prompt；client fs/terminal/MCP；cross-Attempt resume；ACP v2；dynamic remote registry。
+- Deferred: Gemini/Qoder 等新 rows；细粒度 permission deny 策略 / IDE 交互 UI；image/audio/resource prompt；parent 代持 MCP/fs；cross-Attempt resume；ACP v2；dynamic remote registry。
 - Compatibility: v2 greenfield 不保留 `executor: codex|opencode|claude-code|pi` 私有 CLI alias。Phase 5 同批迁移仓库 examples/tests 到 `executor: acp` + `options.entry`；`openai-http` 保持 `api-client`。
 - Status boundary: 本 Spec 完成只证明列出的 entry/pin/platform journeys 使用统一 ACP client，不扩大 Provider 或 benchmark assurance。
 
@@ -140,7 +149,7 @@ uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance
 ```
 
 - L1 success command: `uv run bora run examples/l1/acp-agent-placement --task acp-agent-placement`，至少完成两次 SDK invoke，`execution_location=attempt-container`，`host_fallback_count=0`。
-- Expected failure command: `uv run pytest tests/acceptance/test_acp_public_failures.py -q`；通过真实 CLI 子进程分别证明 unknown entry、Mode 1 adapter missing、auth/model unavailable、permission required、protocol mismatch、timeout/dead target 均非零退出、无 Agent effect fallback、Evaluator 零启动或保持独立 error phase。
+- Expected failure command: `uv run pytest tests/acceptance/test_acp_public_failures.py -q`；通过真实 CLI 子进程分别证明 unknown entry、Mode 1 adapter missing、auth/model unavailable、protocol mismatch、timeout/dead target、**越权路径 EACCES（approve 后仍不可读 root 私有/未 mount）** 均非零或 tool 失败可观测、无 Agent effect fallback 冒充 PASS、Evaluator 规则仍独立。
 - Regression commands:
 
 ```bash
@@ -239,18 +248,36 @@ vendor engine + auth (env projection only)
 
 `install_command` 只在 verbose inventory/文档展示，CLI 不执行。Readiness probe 不读取 credential value、不启动模型请求，也不把 PATH absolute hit 写入 lock。
 
+### Visibility vs ACP permission（硬边界）
+
+| 层 | 机制 | 默认策略 |
+| --- | --- | --- |
+| 物理可见 / 可写 | Provider mount、PathGrant、`docker exec -u/-w`、UID/GID/`shared_write` | 与 Spec 18 / 既有 L1 相同；gold 不 mount |
+| 协议 permission | `session/request_permission` | **auto-approve**；evidence 记 outcome |
+| 进程身份 | ACP entry 在 actor UID 下执行工具 | approve **不**提权为 root |
+| 逻辑 cwd | `session/new.cwd` = 投影 workspace 绝对路径 | 禁止 agent 自选 host 路径扩大根 |
+
+```text
+agent tool wants path P
+  → ACP permission: approved (batch default)
+  → open(P) under actor UID + mount set
+       ├─ P in workspace & mode allows → success
+       └─ P not mounted / root-only / wrong UID → EACCES or ENOENT
+```
+
 ### ACP Client Control Flow
 
 ```text
 ParentAgentService reserve invocation ceiling
   → resolve locked AcpEntryDescriptor
-  → launcher.spawn(host | bound Docker target)
-  → initialize(protocol v1, minimal client capabilities)
-  → session/new(cwd, no MCP/additional dirs)
+  → launcher.spawn(host | docker exec -u actor -w workspace)
+  → initialize(protocol v1; no IDE fs/terminal proxy capability)
+  → session/new(cwd=projected_workspace, no MCP/additional dirs by default)
   → bind exact model through standard config option or verify entry-default-only
   → session/prompt([TextContentBlock])
       ↔ session/update → ordered evidence events
-      ↔ permission request → cancelled + acp_permission_required
+      ↔ session/request_permission → auto-approve + evidence record
+      ↔ elicitation → decline (batch)
   → map stop reason + message chunks + usage to AgentResult
   → session/close when supported; close pipes; bounded terminate/kill
   → seal invocation trajectory
@@ -267,7 +294,9 @@ ParentAgentService reserve invocation ceiling
 | `max_turn_requests` | `ok=false`, `error=acp_stop_max_turn_requests` |
 | `refusal` | `ok=false`, `error=acp_stop_refusal` |
 | `cancelled` | `ok=false`, `error=acp_cancelled` |
-| permission request | 返回 cancelled outcome；`ok=false`, `error=acp_permission_required` |
+| permission request | **auto-approve**；evidence 追加 permission decision 事件；不单独因此 fail invoke |
+| elicitation | decline；`ok=false`, `error=acp_elicitation_required`（batch 无人工输入） |
+| tool 因 OS 权限失败（EACCES 等） | 保留 backend events；最终 `ok` 依 stop reason / 是否有可用 text；**不得**因曾 approve 而伪造文件 effect |
 | auth required / model unavailable | `acp_auth_required` / `acp_model_unavailable`；prompt 零发送 |
 | invalid JSON-RPC / version mismatch / unexpected EOF | `acp_protocol_error` / `acp_protocol_mismatch` / `acp_unexpected_eof` |
 | timeout / target death | send cancel if possible，随后 terminate/kill；`acp_timeout` / existing target kind；partial evidence |
@@ -381,10 +410,11 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 ### Tasks
 
 - exact pin `agent-client-protocol==0.12.0`，创建稳定 `AgentResult`/`AgentExecutor` contract，保留临时 import alias 到 Phase 5。
-- 实现唯一 `AcpExecutor`/client session：spawn streams、initialize、new/model bind、prompt/update、permission decline、cancel/close、timeout/kill、result mapping。
+- 实现唯一 `AcpExecutor`/client session：spawn streams、initialize、new/model bind、prompt/update、**permission auto-approve**、elicitation decline、cancel/close、timeout/kill、result mapping。
 - 将 ParentAgentService 的 BORA session 绑定到 ACP process/session；同 session prompts 串行，不使用 load/resume，不跨 Attempt。
-- 将 ACP update/stop/usage/agent info/entry metadata送入现有 trajectory store；全路径 redaction，stdout protocol-only，stderr diagnostic-only。
-- 创建 deterministic ACP fixture servers 覆盖 echo/multi-turn、malformed、unexpected EOF、permission、unsupported content、hang/cancel；fixture 不代替真实 OpenCode public smoke。
+- 将 ACP update/stop/usage/permission decision/agent info/entry metadata 送入现有 trajectory store；全路径 redaction，stdout protocol-only，stderr diagnostic-only。
+- 创建 deterministic ACP fixture servers 覆盖 echo/multi-turn、malformed、unexpected EOF、permission-approved、unsupported content、hang/cancel；fixture 不代替真实 OpenCode public smoke。
+- 安全/隔离属性测：approve 后对 root 私有路径或未 mount 路径 tool 仍失败（EACCES/ENOENT），无伪写成功。
 - 创建 `examples/core/acp-agent-conformance`，Phase 2 先启用 `opencode-acp` profile；Harness 不读取 entry/executor name。
 
 ### Files
@@ -417,7 +447,8 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 
 #### Expected failure
 
-- [ ] Malformed stdout、version mismatch、unexpected EOF、permission request、image/audio/resource、non-object final text、timeout/cancel 各映射到冻结 error kind并保留 partial evidence，无伪 final response/PASS。
+- [ ] Malformed stdout、version mismatch、unexpected EOF、elicitation、image/audio/resource、non-object final text、timeout/cancel 各映射到冻结 error kind并保留 partial evidence，无伪 final response/PASS。
+- [ ] Permission request 被 auto-approve 且写入 evidence；**不**因此单独 fail invoke。
 - [ ] `{"answer": 42}` 周围出现 prose 或嵌套文本片段时 `structured=None`；禁止 regex/last-object salvage。
 
 #### Gates
@@ -434,7 +465,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 
 ### Tasks
 
-- 实现 descriptor-driven auth/model/non-interactive env preflight；禁止 browser login、permission auto-approve 与 vendor field branch。
+- 实现 descriptor-driven auth/model/non-interactive env preflight；禁止 browser login 与 vendor field branch；permission 遵循默认 auto-approve（见 decision 4）。
 - 为 Codex/Claude/**Pi** 区分 engine present 与 adapter present（`pi-acp`）；为 Grok 使用已安装 exact `grok agent stdio`，不在 invoke 时执行 `npx latest`。
 - 扩展 conformance package **五个**冻结 profile（含 `pi-acp`），逐个运行真实 prompt/evaluator/evidence/secret scan。
 - 验证同一 Harness/profile-only switch；新增 Mode 1 adapter-missing（含仅有 `pi` 无 `pi-acp`）、auth-required、model-unavailable、Grok pin mismatch failures。
@@ -462,8 +493,8 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 
 #### Expected failure
 
-- [ ] Engine missing、adapter missing、auth required、model unavailable、permission required、pin mismatch 各在 prompt前或当前 invoke boundary typed fail，无其它 executor/private parser/host fallback effect。
-- [ ] 任一 entry 只能靠 client filesystem/terminal、interactive approval 或 floating install 才能成功时，本 Phase 保持 open并路由 Research，不降低 policy。
+- [ ] Engine missing、adapter missing、auth required、model unavailable、pin mismatch 各在 prompt前或当前 invoke boundary typed fail，无其它 executor/private parser/host fallback effect。
+- [ ] 任一 entry 只能靠 parent 代持 host fs、interactive human UI 或 floating install 才能成功时，本 Phase 保持 open并路由 Research，不降低「工具在 actor 投影内执行」policy。
 
 #### Gates
 
@@ -621,7 +652,7 @@ git diff --check
 
 - [ ] Host real success：Codex、Claude Code、**Pi**、OpenCode、Grok Build 各一次，entry/pin/model/Result/logs可核对。
 - [ ] L1 real success：image BOM **五** entry PATH（actor UID，含 `pi-acp`）+ 至少 Codex/OpenCode/Pi 之一 multi-invoke；host fallback 为零；Python ACP SDK 不在 attempt image。
-- [ ] Expected failures：adapter/engine missing、auth/model/permission/protocol/timeout/target/writer全部 fail closed。
+- [ ] Expected failures：adapter/engine missing、auth/model/protocol/timeout/target/writer 全部 fail closed；越权路径在 approve 后仍 OS-denied。
 - [ ] Regression：Spec 13–18受影响 smokes、Pi residual、`openai-http`、evaluator negative与trajectory export通过。
 - [ ] Security：lock、stdout/stderr、workspace、image history与全 evidence credential sentinel扫描零命中。
 - [ ] Documentation：design、Architecture、Roadmap child acceptance、README/examples/Skills与实际行为同步；无未实现 ACP capability claim。
@@ -634,7 +665,8 @@ git diff --check
 | `executor: acp` 隐藏实际 backend与版本 | lock/evidence强制 entry id、exact version、descriptor digest、agent info、model与execution location |
 | Mode 1 engine present被误报 ready | inventory独立 `engine_ready`/`acp_entry_ready`；`adapter-missing` public negative |
 | Runtime auto-install或 floating `npx`破坏复现 | install command documentation-only；host显式供应；L1 build exact pin并记录digest |
-| Permission request被自动批准绕过BORA边界 | client统一 cancelled + typed failure；不广告 fs/terminal；未来policy另立Spec |
+| 误以为 ACP approve = root / 突破 mount | 文档+测试：approve 后 EACCES/ENOENT；工具在 actor UID 下执行；不广告 parent 代持 fs |
+| Permission 无审计 | 每次 auto-approve 写入 evidence permission decision 事件 |
 | ACP output又退化为 JSON猜测 | 只接受完整final text JSON object；prose/substring/reverse-scan negatives |
 | L1借placement重写第二 client | launcher只供应streams/process；host/container mapper identity和source scan作gate |
 | ACP session id污染Core identity或跨Attempt复用 | ParentAgentService保持BORA session/Attempt binding；ACP id私有、Attempt teardown即销毁 |
@@ -644,5 +676,6 @@ git diff --check
 
 ## User Acceptance
 
-- [ ] 用户批准 Constitution draft 与本 Spec 七项 local decisions。
-- [ ] 用户明确授权 Phase 0–5 production implementation；本次起草任务本身不构成授权。
+- [x] 用户批准 Constitution 与本 Spec local decisions 1–8（会话确认 2026-08-04：entry 形态、Pi 纳入、L1 bake-in、permission auto-approve + OS 边界）。
+- [x] 用户授权按本 Spec 推进 production 实施（同一会话；非「仅文档」）。
+- [ ] Spec 整包 acceptance（Phase 0–5 证据齐）— 实现后勾选，**不**再要求新的产品决策。

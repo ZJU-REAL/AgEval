@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Decision date | 2026-08-04 |
-| Owner | User review required |
-| Status | **draft — pending user review** |
+| Owner | User accepted (session 2026-08-04) |
+| Status | **active — user reviewed** |
 | Scope | coding-agent backend 的 ACP stdio 入口、注册描述、host/L1 镜像 BOM 与 placement、`AgentResult` / evidence 出口 |
 | Related issue | [GitHub Issue #3](https://github.com/ffy6511/BORA/issues/3) |
 | Related spec | [Spec 19 — ACP 统一 Agent 后端](../active/19-acp-agent-executor-plan.md) |
@@ -77,7 +77,11 @@ Exact 版本号以 [Spec 19](../active/19-acp-agent-executor-plan.md) pin 表与
 
 ### Host 与 L1 placement
 
-Host launcher 直接启动 descriptor 的 ACP stdio entry。L1 launcher 在已绑定 `ExecutionTarget` 中以 actor UID/GID、private HOME、locked workdir、network 和 scoped env 启动 **同一 entry command**。两者把 stdin/stdout streams 与 process lifecycle 交给同一 parent ACP client。
+Host launcher 直接启动 descriptor 的 ACP stdio entry。L1 launcher 在已绑定 `ExecutionTarget` 中以 actor UID/GID、private HOME、locked workdir、network 和 scoped env 启动 **同一 entry command**（`docker exec -u uid:gid -w <workspace>`）。两者把 stdin/stdout streams 与 process lifecycle 交给同一 parent ACP client。
+
+**可见性（与 ACP 解耦）：** 进程能看见/写什么仍由 Provider mount、PathGrant、UID/GID/`shared_write` 决定——与 private-CLI 时代同一模型。`session/new.cwd` 必须等于已投影 workspace 根。
+
+**ACP permission（batch）：** `session/request_permission` **默认 auto-approve**，并写入 evidence。Approve 只是协议层放行 tool call，**不**提权、**不**突破未 mount 路径或对当前 UID 无权限的 root 私有目录（Linux DAC 仍拒绝）。工具在 entry 子进程（L1 内即 actor 身份）执行，不靠 parent 在 host 代读写。Elicitation（要人类输入）默认 decline。
 
 Timeout、cancel、relay failure 或 target death 先停止新 effect，发送 ACP cancellation（仍可通信时），随后有界 terminate/kill 并确认 writer stop。无法确认停止时 evaluator barrier 拒绝启动。L1 failure 的 host fallback counter 必须保持零。
 
@@ -95,7 +99,8 @@ Timeout、cancel、relay failure 或 target death 先停止新 effect，发送 A
 | 项 | Spec 19 裁决 |
 | --- | --- |
 | Public profile | `executor: acp` + `options.entry`；无 vendor alias 兼容层 |
-| Protocol surface | initialize / session new·prompt·cancel·close + updates；permission → cancelled |
+| Protocol surface | initialize / session new·prompt·cancel·close + updates；**permission → batch auto-approve**；elicitation → decline |
+| Visibility | mount + `docker exec` UID/GID；approve **不**突破 OS/投影 |
 | Structured | 完整 final text JSON object 才写 `structured`；禁止 regex scrape |
 | Multimodal input | 本增量不支持；收到则 `acp_unsupported_content` |
 | Pins / SDK | Spec 19 exact pin 表 + Python `agent-client-protocol` 固定版本 |
@@ -103,7 +108,7 @@ Timeout、cancel、relay failure 或 target death 先停止新 effect，发送 A
 
 ## Non-decisions
 
-本决策不要求用 ACP 替换 `openai-http`，不把 ACP 变成 Harness↔Runtime Capability transport，不引入 IDE 交互式 permission UX、跨 Attempt resume、插件市场或动态远程 registry。Gemini/Qoder 等可复用同一 descriptor 机制扩展，但不进入本决策最低 acceptance。
+本决策不要求用 ACP 替换 `openai-http`，不把 ACP 变成 Harness↔Runtime Capability transport，不要求 IDE 交互式 permission UI（batch 用 auto-approve 代替点选）、跨 Attempt resume、插件市场或动态远程 registry。Gemini/Qoder 等可复用同一 descriptor 机制扩展，但不进入本决策最低 acceptance。
 
 **Pi ACP 证据（2026-08-04）：** 官方 agents 列表与 [agentclientprotocol/registry `pi-acp`](https://github.com/agentclientprotocol/registry) 登记 `pi-acp`；npm 包名 `pi-acp`（起草时 pin 见 Spec 19）；桥接 `pi --mode rpc`（见 [svkozak/pi-acp](https://github.com/svkozak/pi-acp)）。注意：`@junghanacs/pi-shell-acp` 是 **反向**（pi 调用其它 ACP backend），**不是** BORA 所需的「client→pi」adapter。
 
@@ -132,6 +137,8 @@ Timeout、cancel、relay failure 或 target death 先停止新 effect，发送 A
 - 禁止向 Harness/Agent 暴露 Docker handle、socket、raw target mapping 或 host HOME。
 - 禁止让 ACP SDK、entry package 或 session id 成为 Core identity、hard-ceiling、effect、cleanup、evaluator 或 PASS authority。
 - 禁止把 ACP transport 描述成 Harness Capability transport，或从 ACP journey 推导全 suite `isolated` / `real-benchmark-verified`。
+- 禁止把 ACP permission approve 解释为 root/capability 提权，或用 parent 代持 host 路径绕过 Attempt 投影。
+- 禁止省略 permission decision 的 evidence 记录（batch auto-approve 仍须可审计）。
 
 ## Integration Mode Registry
 
@@ -161,3 +168,5 @@ Timeout、cancel、relay failure 或 target death 先停止新 effect，发送 A
 | 2026-08-04 | 创建 draft | Issue #3 |
 | 2026-08-04 | 收口 Open Q 到 Spec 19；显式 L1 BOM、parent client 边界、Mode 1 双装、PATH/no-runtime-install | 审查补全 Docker/ACP 适配器 bake-in 与文档可执行性 |
 | 2026-08-04 | 最低集纳入 Pi：Mode 1 `pi` + `pi-acp`（registry/npm 已证实） | 用户要求；官方 ACP registry 已登记 |
+| 2026-08-04 | Permission：batch 默认 auto-approve；可见性仍靠 mount/UID；approve 不提权 | 用户确认：docker exec+用户组控可见 + 组内 full approve |
+| 2026-08-04 | Status → active；产品决策关闸；实施授权 | 用户质询「还有什么决策」——确认无悬案，仅余技术 probe |

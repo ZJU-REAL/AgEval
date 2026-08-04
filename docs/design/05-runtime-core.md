@@ -182,10 +182,21 @@ Harness / Harness Core 的 `Agent(..., model_profile=params.planner_model)` **�
 
 1. **一个** BORA ACP client（parent process），出口恒为 `AgentResult` + §8.9 events。
 2. Vendor 差异只在 **entry descriptor**（Mode 1 官方 shim / Mode 2 原生 `acp` / Mode 3 厂商包）与 **镜像/host pin**，不在 BORA 内复制私有 stdout scrape。
-3. Host 与 L1 **共享** session/result mapper；L1 只做 placement（`docker exec`、UID/GID、env）。缺 entry/engine → fail closed，**禁止**回退私有 CLI 或 host binary。
+3. Host 与 L1 **共享** session/result mapper；L1 只做 placement（`docker exec -u/-w`、UID/GID、env）。缺 entry/engine → fail closed，**禁止**回退私有 CLI 或 host binary。
 4. L1 官方基座 **build 期 bake-in** 最低验收 entry 的 engine 与 ACP 入口（Mode 1 双装，含 **Pi：`pi` + `pi-acp`**）；见 [ACP constitution](../../specs/constitution/2026-08-04-acp-agent-executor-unification.md#l1-官方基座-bom必须-bake-in) 与 [Spec 19](../../specs/active/19-acp-agent-executor-plan.md)。
 5. `openai-http` 保持独立 `api-client`。Pi 的 Target 为 ACP entry（registry `pi-acp` / npm `pi-acp`），不是私有 `--mode json` scrape。
 6. ACP `end_turn` / 完整轨迹 **≠** PASS；PASS 仍仅独立 evaluator。
+
+**可见性与 permission（两层）：**
+
+| 层 | 含义 | 策略 |
+| --- | --- | --- |
+| 物理上下文 | 进程看到/写入的路径 | Provider mount + actor UID/GID + `docker exec -w`（与 private CLI 时代相同） |
+| ACP permission | tool call 协议放行 | batch **默认 auto-approve**；记入 evidence；**不**提权、**不**突破未 mount / 无权限路径 |
+| 工具落点 | 谁执行 open/write | ACP entry 子进程（L1 容器内 actor），非 parent 代持 host fs |
+| `session/new.cwd` | 逻辑工程根 | 必须等于已投影 workspace 绝对路径 |
+
+`session/request_permission` 的 approve 只是「允许 agent 继续该 tool」；Linux DAC 与容器 mount 仍是硬边界（non-root 无法写 root 私有目录）。Elicitation 默认 decline。
 
 实施与验收门禁以 Active Spec 19 为准；未完成迁移前 Current 代码可仍含 per-CLI parser，但不得再扩大第二套 container scrape。
 

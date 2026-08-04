@@ -66,8 +66,8 @@ specs/BLOCKED.md
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露；`bora run` 输出 `logs` locator） |
 | 证据等级 | **限定 `runnable-mvp`（L0）**：含 `examples/core/attempt-trajectory`（Codex multi-invoke 轨迹树）；其余 core/journeys 见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
 | Roadmap | Version Index：**`v0.1`–`v0.18` 已勾**；**`v0.19` ACP 未勾** |
-| 活动 Spec | `specs/active/00`–`19`；12–18 completed；**19 ACP**（planning gate open，未授权 `src/`） |
-| Constitution 条目 | 含 critic-checkbox-authority、core-not-bench-adapters、L1 multi-agent isolation、**ACP unification draft** |
+| 活动 Spec | `specs/active/00`–`19`；12–18 completed；**19 ACP**（产品决策已关；Phase 0 probe / 实现进行中） |
+| Constitution 条目 | 含 critic-checkbox-authority、core-not-bench-adapters、L1 multi-agent isolation、**ACP unification active** |
 
 
 **禁止**从文档存在、Active Spec 存在、`bora lock` 成功或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
@@ -99,7 +99,8 @@ specs/BLOCKED.md
 - Vendor 私有格式翻译在 **进程外** ACP entry（Mode 1 shim / Mode 2 原生 / Mode 3 厂商包）；**禁止**在 BORA 内再写第二套 vendor stdout scrape（含 `agent_container` heuristic JSON）。
 - **L1 官方基座** `docker/attempt` 在 **build 期** bake-in 最低 **五** entry 的 engine + ACP 入口（Mode 1 **双装**：codex/claude/**pi**+各自 adapter）；禁止 invoke 时 `npm i` / floating `npx`。Python ACP SDK **只在 parent**，不进 Attempt 镜像。
 - Pi：官方 registry **`pi-acp`**（npm `pi-acp`，桥 `pi --mode rpc`）纳入最低集；勿与反向桥 `pi-shell-acp` 混淆。
-- 权威：`docs/design/05` §8.4.3a、[constitution ACP](specs/constitution/2026-08-04-acp-agent-executor-unification.md)、[Spec 19](specs/active/19-acp-agent-executor-plan.md)、[Issue #3](https://github.com/ffy6511/BORA/issues/3)。**未授权不得改 `src/` / 镜像完成态。**
+- **可见性**：仍靠 mount + `docker exec -u/-w` + UID/GID（与以前类似）。**Permission**：batch 默认 ACP auto-approve，**不**提权、**不**突破未投影路径；evidence 记录 decision。
+- 权威：`docs/design/05` §8.4.3a、[constitution ACP](specs/constitution/2026-08-04-acp-agent-executor-unification.md)、[Spec 19](specs/active/19-acp-agent-executor-plan.md)、[Issue #3](https://github.com/ffy6511/BORA/issues/3)。产品决策已接受；按 Spec 推进实现，**不**勾 Version Index 直至 Phase 证据齐。
 
 ### Package 与配置
 

@@ -946,8 +946,8 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 ### 演进增量
 
 - Config：`executor: acp` + `options.entry`；descriptor digest 进 lock。
-- Runtime：typed ACP client（parent only）；permission fail-closed；structured 禁 regex scrape。
-- Docker：`install-executors.sh` + `acp-entries.lock.json` 安装 Mode 1/2/3 pins；numeric UID PATH。
+- Runtime：typed ACP client（parent only）；permission **batch auto-approve**（不突破 mount/UID）；structured 禁 regex scrape。
+- Docker：`install-executors.sh` + `acp-entries.lock.json` 安装 Mode 1/2/3 pins；`docker exec -u/-w` 控可见；numeric UID PATH。
 - Migration：examples/tests 迁离 `executor: codex|opencode|claude-code` private path；`pi` residual 诚实。
 
 ### 设计
@@ -970,8 +970,8 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 ### 验收标准
 
 - [ ] Success：`examples/core/acp-agent-conformance` 五 profile（含 `pi-acp`）+ `examples/l1/acp-agent-placement`；`execution_location` / `host_fallback_count=0` 诚实。
-- [ ] Expected failure：adapter/engine missing、auth/model/permission/protocol/timeout/target fail closed，无 private fallback。
-- [ ] Security：lock/evidence/image 无 credential；PASS 不来自 ACP end_turn。
+- [ ] Expected failure：adapter/engine missing、auth/model/protocol/timeout/target fail closed；越权路径 approve 后仍 OS-denied；无 private fallback。
+- [ ] Security：lock/evidence/image 无 credential；permission decision 可审计；PASS 不来自 ACP end_turn。
 - [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、strict Specs validator、`git diff --check`。
 - [ ] Documentation：design / Architecture / AGENTS / Skills 与行为同步；Version Index 仅在本版验收后勾选。
 
