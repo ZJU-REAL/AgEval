@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bora.adapters.agent_codex import AgentResult
+from bora.adapters.agent_contract import AgentResult
 from bora.provider.targets import ActorPhysicalBinding, ExecutionTarget
 
 

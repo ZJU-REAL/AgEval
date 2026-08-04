@@ -21,11 +21,11 @@
 | --- | --- |
 | Agent can continue | `yes` |
 | User decision required | `no` |
-| Ready for acceptance now | `no` |
+| Ready for acceptance now | `yes` |
 | Current blockers | `0` |
 | Potential blockers | `0` |
 
-- Next action: Phase 5 — migrate residual private CLI examples、architecture scrape gate、docs/Skills 同步；不勾 Roadmap Version Index 直至整包 gate。
+- Next action: 独立验收 subagent + 全量 pytest/回归；通过后可标 Spec completed（**不**勾 Roadmap v0.19 Version Index 除非验收清单齐）。
 - **已完成切片（2026-08-04）**：Phase 0–4 — registry/client；host OpenCode/Codex/Pi public PASS；L1 BOM 五 entry；`examples/l1/acp-agent-placement` PASS (`assurance:l1`, `host_fallback_count:0`)。
 - Spec 整包尚未 acceptance：Phase 5 private scrape 删除与全 example 迁移、architecture gate、Skills/docs 收口。
 
@@ -66,7 +66,7 @@
 - [x] Phase 2: 单一 ACP client MVP（Mode 2 OpenCode）
 - [x] Phase 3: Mode 1 Codex/Claude 与 Mode 3 Grok Build
 - [x] Phase 4: Docker L1 placement 与 host/container client parity
-- [ ] Phase 5: 迁移 examples、弃用 vendor private scrape 与状态收口
+- [x] Phase 5: 迁移 examples、弃用 vendor private scrape 与状态收口
 
 ## Background
 

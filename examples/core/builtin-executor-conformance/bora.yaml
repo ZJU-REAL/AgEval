@@ -19,13 +19,19 @@ provider:
 
 agent_profiles:
   - id: codex-mini
-    executor: codex
+    executor: acp
+    options:
+      entry: codex
     model: gpt-5.4-mini
   - id: pi-mini
-    executor: pi
+    executor: acp
+    options:
+      entry: pi
     model: claude-haiku-4-5
   - id: opencode-mini
-    executor: opencode
+    executor: acp
+    options:
+      entry: opencode
     model: zai-coding-plan/glm-4.7
 
 limits:

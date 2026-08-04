@@ -16,14 +16,18 @@ provider:
 agent_profiles:
   # Two different executors, same Attempt — independent sessions / trajectories.
   - id: opencode-glm
-    executor: opencode
+    executor: acp
+    options:
+      entry: opencode
     model: zai-coding-plan/glm-5.2
     api_key: glm_coding_api_key
   # pi: must use provider-qualified model. Bare "glm-5.2" fuzzy-matches OpenCode
   # Zen and demands OPENCODE_API_KEY (wrong for 智谱 coding plan).
   # China coding plan → zai-coding-cn + ZAI_CODING_CN_API_KEY (projected from api_key).
   - id: pi-glm
-    executor: pi
+    executor: acp
+    options:
+      entry: pi
     model: zai-coding-cn/glm-5.2
     api_key: glm_coding_api_key
 
