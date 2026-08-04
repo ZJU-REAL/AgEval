@@ -545,6 +545,29 @@ class ConfigCore:
                 f"unsupported provider.kind: {kind!r}",
                 location="/provider/kind",
             )
+        # L1 docker: package must ship environment/Dockerfile (or provider.dockerfile).
+        if kind == "docker":
+            df_raw = provider.get("dockerfile", "environment/Dockerfile")
+            if not isinstance(df_raw, str) or not df_raw.strip():
+                raise ConfigError(
+                    ERROR_INVALID_SCHEMA,
+                    "provider.dockerfile must be a non-empty relative path when set",
+                    location="/provider/dockerfile",
+                )
+            df_rel = df_raw.strip().lstrip("./")
+            if df_rel.startswith("/") or ".." in Path(df_rel).parts:
+                raise ConfigError(
+                    ERROR_PATH_OUTSIDE_PACKAGE,
+                    "provider.dockerfile must stay inside the package",
+                    location="/provider/dockerfile",
+                )
+            if not self._reader.exists(root, df_rel):
+                raise ConfigError(
+                    ERROR_MISSING_REFERENCE,
+                    "docker L1 package requires Dockerfile at "
+                    f"{df_rel!r} (default environment/Dockerfile)",
+                    location=f"/provider/dockerfile:{df_rel}",
+                )
 
         profiles = doc.get("agent_profiles") or []
         if not isinstance(profiles, list):

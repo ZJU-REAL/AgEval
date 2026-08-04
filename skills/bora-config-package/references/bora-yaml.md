@@ -6,6 +6,8 @@
 - `task_id`: must match `--task`
 - `harness.runtime` / `harness.entrypoint`
 - `provider.kind`: `local` | `docker`
+- When `provider.kind: docker`: package file **`environment/Dockerfile`** (or
+  `provider.dockerfile` override) **required** at lock time
 - `agent_profiles`: list of `{id, executor, model}`
 - `limits`: wall / agent_invocations / environment_actions / memory_mb
 - `evaluation`: runtime, entrypoint, inputs, output.format

@@ -9,7 +9,11 @@
 ## Provider
 
 - `provider.kind: local` — L0 path; assurance claims stay l0 unless package is L1.
-- `provider.kind: docker` — L1 orchestration; Result may still show `execution_location: parent-api-client` for Agent honestly.
+- `provider.kind: docker` — L1 orchestration. **Package must ship `environment/Dockerfile`**
+  (or `provider.dockerfile` relative path). Default official base:
+  `FROM bora-attempt:l1` (preinstalls codex / pi / opencode / claude-code).
+  Upstream base: `FROM <image>` then install required CLIs in that Dockerfile.
+  Secrets never baked into image layers.
 
 ## Do not
 

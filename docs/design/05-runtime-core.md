@@ -52,6 +52,13 @@ Provider 负责代码运行位置和 OS 级限制：
 - process start、timeout、cancel 和 kill；
 - 停止 writers；timeout/kill 后确认不再写入即可，不要求独立的干净退出证明。
 
+**Docker L1 镜像来源（package 拥有 Dockerfile）：**
+
+1. `provider.kind: docker` 时，package 必须提供 **`environment/Dockerfile`**（或 `provider.dockerfile` 指向的 package 内路径）。
+2. Runtime prepare：**确保官方基座** `bora-attempt:l1`（仓库 `docker/attempt`，预装已声明支持的 CLI executor：codex、pi、opencode、claude-code）→ **`docker build -f <package Dockerfile>`** 得到 Attempt 用 image → digest 写入 evidence。
+3. 官方基座构建一次、多处 `FROM` 复用；上游基座由 package Dockerfile 自行 `FROM` 并安装 CLI。
+4. Agent CLI **在容器内**执行（不依赖挂载宿主 Homebrew binary）；缺 binary 则 fail closed，不以 parent residual 冒充 L1 PASS。
+
 所有 Agent 使用同一个 Attempt volume 只有在配置明确授予相同 WorkspaceView 时才成立。不同 Agent 需要不同可见性时，Provider 使用独立 mount、PathGrant 或 OS permission。Actor 名称本身不会产生隔离。
 
 ### 8.4. Agent capability、Agent Service 与多后端切换
