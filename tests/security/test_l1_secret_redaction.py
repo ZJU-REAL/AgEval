@@ -16,5 +16,8 @@ def test_projection_locator_has_no_raw_secret_in_keys_list(tmp_path: Path) -> No
         # locator keys are path names only
         for k in proj.locator_keys:
             assert not k.startswith("sk-")
+        # Scoped home for container — never host tree mount marker
+        assert (proj.root / "home").is_dir()
+        assert "home/" in proj.locator_keys
     finally:
         proj.cleanup()

@@ -280,6 +280,7 @@ def run_l1_workspace_attempt(
                     if isinstance(profile.get("base_url"), str) and profile.get("base_url")
                     else None
                 ),
+                evidence_root=run_dir,
             )
             agent_meta = {**agent_meta, "source": "executor_container"}
             if not agent_ok and not allow_offline_agent:
@@ -420,6 +421,7 @@ def _run_l1_agent_eval(
                 if isinstance(profile.get("base_url"), str) and profile.get("base_url")
                 else None
             ),
+            evidence_root=run_dir,
         )
         if not agent_ok and not allow_offline_agent:
             docker.cleanup(runtime)
@@ -722,6 +724,7 @@ def _run_agent_executor_container(
     timeout: float,
     api_key_env: str | None = None,
     base_url: str | None = None,
+    evidence_root: Path | None = None,
 ) -> tuple[bool, int, dict[str, Any]]:
     """Run agent CLI inside the package Attempt image (no host Homebrew mount)."""
     if os.environ.get("BORA_OFFLINE_AGENT") == "1":
@@ -748,6 +751,7 @@ def _run_agent_executor_container(
             timeout=timeout,
             api_key_env=api_key_env,
             base_url=base_url,
+            evidence_root=evidence_root,
         )
 
     # HTTP / unknown: parent workspace-only residual (not L1 CLI containment).
@@ -818,6 +822,140 @@ def _cli_env_for_container(
     return out
 
 
+def _persist_l1_agent_trajectory(
+    *,
+    evidence_root: Path,
+    kind: str,
+    model: str,
+    prompt: str,
+    exit_code: int | None,
+    stream_dir: Path,
+    ok: bool,
+    error: str | None,
+) -> dict[str, Any]:
+    """Write §8.9-style invocation layout under run_dir/agent/invocations/."""
+    import uuid
+
+    inv_id = f"inv_{uuid.uuid4().hex[:16]}"
+    inv_root = evidence_root / "agent" / "invocations"
+    inv_root.mkdir(parents=True, exist_ok=True)
+    # Sequential prefix for human scan order.
+    seq = len([p for p in inv_root.iterdir() if p.is_dir()]) + 1
+    inv_dir = inv_root / f"{seq:04d}-{inv_id}"
+    backend = inv_dir / "backend_raw"
+    backend.mkdir(parents=True, exist_ok=True)
+
+    stdout_src = stream_dir / "stdout.txt"
+    stderr_src = stream_dir / "stderr.txt"
+    stdout = stdout_src.read_text(encoding="utf-8") if stdout_src.is_file() else ""
+    stderr = stderr_src.read_text(encoding="utf-8") if stderr_src.is_file() else ""
+    # Canonical names aligned with L0 adapters.
+    (backend / "backend-stdout.jsonl").write_text(stdout, encoding="utf-8")
+    (backend / "backend-stderr.txt").write_text(stderr, encoding="utf-8")
+
+    (inv_dir / "request.json").write_text(
+        json.dumps(
+            {
+                "executor_kind": kind,
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (inv_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "schema": "bora.trajectory.metadata/1",
+                "invocation_id": inv_id,
+                "seq": seq,
+                "executor_kind": kind,
+                "model": model,
+                "status": "completed" if ok else "failed",
+                "error": error,
+                "container_exit": exit_code,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    # Lifecycle + one source_ref per raw stream for export tools.
+    events_path = inv_dir / "events.jsonl"
+    with events_path.open("w", encoding="utf-8") as fh:
+        fh.write(
+            json.dumps(
+                {
+                    "type": "lifecycle",
+                    "phase": "invoke_start",
+                    "source": "l1_agent_executor",
+                    "schema": "bora.trajectory.event/1",
+                    "seq": 1,
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+        fh.write(
+            json.dumps(
+                {
+                    "type": "lifecycle",
+                    "phase": "terminal",
+                    "source": "l1_agent_executor",
+                    "returncode": exit_code,
+                    "schema": "bora.trajectory.event/1",
+                    "seq": 2,
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+        fh.write(
+            json.dumps(
+                {
+                    "type": "source_ref",
+                    "kind": "backend-stdout.jsonl",
+                    "source": "executor",
+                    "schema": "bora.trajectory.event/1",
+                    "seq": 3,
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+    # Append-only root agent events index.
+    root_events = evidence_root / "agent" / "events.jsonl"
+    root_events.parent.mkdir(parents=True, exist_ok=True)
+    with root_events.open("a", encoding="utf-8") as fh:
+        fh.write(
+            json.dumps(
+                {
+                    "type": "invocation_sealed",
+                    "invocation_id": inv_id,
+                    "relative": str(inv_dir.relative_to(evidence_root)),
+                    "executor_kind": kind,
+                    "ok": ok,
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+    return {
+        "invocation_id": inv_id,
+        "evidence_relative": str(inv_dir.relative_to(evidence_root)),
+        "backend_stdout": str(
+            (backend / "backend-stdout.jsonl").relative_to(evidence_root)
+        ),
+        "backend_stderr": str(
+            (backend / "backend-stderr.txt").relative_to(evidence_root)
+        ),
+    }
+
+
 def _run_builtin_cli_in_container(
     *,
     docker: DockerProvider,
@@ -830,10 +968,10 @@ def _run_builtin_cli_in_container(
     timeout: float,
     api_key_env: str | None = None,
     base_url: str | None = None,
+    evidence_root: Path | None = None,
 ) -> tuple[bool, int, dict[str, Any]]:
     """Invoke codex/pi/opencode/claude from PATH inside the package image."""
     assert runtime.workdir_host is not None
-    workspace = runtime.workdir_host / "workspace"
     binary = {
         "codex": "codex",
         "pi": "pi",
@@ -851,7 +989,6 @@ def _run_builtin_cli_in_container(
             prompt,
         ]
     elif kind == "pi":
-        # model may be provider/model
         cmd = [
             binary,
             "-p",
@@ -888,17 +1025,26 @@ def _run_builtin_cli_in_container(
     child_env = _cli_env_for_container(
         kind, api_key_env=api_key_env, base_url=base_url
     )
-    child_env.setdefault("HOME", "/creds_home")
+    # Scoped HOME from credential projection (empty dir), never host $HOME.
+    child_env["HOME"] = "/creds/home"
     child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
     if kind == "codex":
-        child_env.setdefault("CODEX_HOME", "/creds/codex_home")
+        child_env["CODEX_HOME"] = "/creds/codex_home"
+    # Point optional CLI auth paths at projected allowlisted files when present.
+    if (cred_root / "pi_home" / "agent" / "auth.json").is_file():
+        child_env.setdefault("PI_CONFIG_DIR", "/creds/pi_home")
+    if (cred_root / "opencode" / "auth.json").is_file():
+        child_env.setdefault("XDG_DATA_HOME", "/creds")
 
     mounts = [
         (str(cred_root), "/creds", "ro"),
-        (str(Path.home()), "/creds_home", "ro"),
     ]
     uid = os.getuid()
     gid = os.getgid()
+    stream_dir = runtime.workdir_host / "agent_stream"
+    if stream_dir.exists():
+        shutil.rmtree(stream_dir)
+    stream_dir.mkdir(parents=True, exist_ok=True)
     out = docker.run_command(
         runtime,
         cmd,
@@ -910,25 +1056,44 @@ def _run_builtin_cli_in_container(
         timeout_seconds=timeout + 30,
         read_only_root=False,
         env=child_env,
+        stream_dir=stream_dir,
     )
-    # Persist backend raw under evidence is optional; success if exit 0.
-    # Workspace output may be produced by harness after agent; agent ok = CLI exit 0
-    # or structured path for packages that only need text (agent-eval style).
     ok = out.exit_code == 0
     del workspace_output_name  # structured path writes agent_result separately
+    error = None if ok else f"exit_{out.exit_code}"
+    traj: dict[str, Any] = {}
+    if evidence_root is not None:
+        traj = _persist_l1_agent_trajectory(
+            evidence_root=evidence_root,
+            kind=kind,
+            model=model,
+            prompt=prompt,
+            exit_code=out.exit_code,
+            stream_dir=stream_dir,
+            ok=ok,
+            error=error,
+        )
+    # Prefer full stream for structured parse when available.
+    full_stdout = ""
+    stdout_file = stream_dir / "stdout.txt"
+    if stdout_file.is_file():
+        full_stdout = stdout_file.read_text(encoding="utf-8")
+    else:
+        full_stdout = out.stdout_summary or ""
     return (
         ok,
         1,
         {
             "ok": ok,
-            "error": None if ok else f"exit_{out.exit_code}",
+            "error": error,
             "model": model,
             "executor_kind": kind,
             "executor_containment": "container",
             "container_exit": out.exit_code,
             "container_stderr": (out.stderr_summary or "")[-500:],
-            "container_stdout": (out.stdout_summary or "")[-8000:],
-            "container_stdout_tail": (out.stdout_summary or "")[-500:],
+            # Full stream under agent/invocations/*/backend_raw/ — not agent.json.
+            "container_stdout_tail": full_stdout[-500:],
+            **traj,
         },
     )
 
@@ -944,6 +1109,7 @@ def _run_agent_structured(
     allow_offline: bool,
     api_key_env: str | None = None,
     base_url: str | None = None,
+    evidence_root: Path | None = None,
 ) -> tuple[bool, int, dict[str, Any]]:
     if os.environ.get("BORA_OFFLINE_AGENT") == "1" and not allow_offline:
         return False, 0, {"ok": False, "error": "offline_forced"}
@@ -963,11 +1129,18 @@ def _run_agent_structured(
             timeout=180.0,
             api_key_env=api_key_env,
             base_url=base_url,
+            evidence_root=evidence_root,
         )
         if ok:
-            structured = _parse_json_from_text(
-                str(meta.get("container_stdout") or meta.get("container_stdout_tail") or "")
-            )
+            # Prefer full backend-stdout when trajectory was persisted.
+            parse_src = str(meta.get("container_stdout_tail") or "")
+            rel = meta.get("backend_stdout")
+            if evidence_root is not None and isinstance(rel, str):
+                full_path = evidence_root / rel
+                if full_path.is_file():
+                    parse_src = full_path.read_text(encoding="utf-8")
+            structured = _parse_json_from_text(parse_src)
+
             if isinstance(structured, dict):
                 (workspace / "agent_result.json").write_text(
                     json.dumps(structured, sort_keys=True) + "\n", encoding="utf-8"

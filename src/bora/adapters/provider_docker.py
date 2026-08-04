@@ -145,8 +145,13 @@ class DockerProvider:
         writer_name: str = "container",
         workdir: str = "/attempt/workspace",
         read_only_root: bool = True,
+        stream_dir: Path | None = None,
     ) -> ProcessOutcome:
-        """Run argv inside a new container; reap and return L1 outcome facts."""
+        """Run argv inside a new container; reap and return L1 outcome facts.
+
+        When ``stream_dir`` is set, full stdout/stderr are written there
+        (``stdout.txt`` / ``stderr.txt``) before summary truncation.
+        """
         if runtime.cleaned:
             raise ProviderL1Error("already_cleaned", "runtime cleaned")
         if runtime.image_lock is None or runtime.package_host is None:
@@ -259,15 +264,21 @@ class DockerProvider:
             if proc.returncode is not None
             else ProcessTerminalKind.KILLED
         )
+        full_out = proc.stdout or ""
+        full_err = proc.stderr or ""
+        if stream_dir is not None:
+            stream_dir.mkdir(parents=True, exist_ok=True)
+            (stream_dir / "stdout.txt").write_text(full_out, encoding="utf-8")
+            (stream_dir / "stderr.txt").write_text(full_err, encoding="utf-8")
         return ProcessOutcome(
             attempt=runtime.attempt,
             assurance="l0",
             terminal=terminal,
             exit_code=proc.returncode,
             signal=None,
-            stdout_summary=(proc.stdout or "")[-8000:],
-            stderr_summary=(proc.stderr or "")[-8000:],
-            truncated=False,
+            stdout_summary=full_out[-8000:],
+            stderr_summary=full_err[-8000:],
+            truncated=len(full_out) > 8000 or len(full_err) > 8000,
             pid=None,
             pgid=None,
             termination_actions=tuple(runtime.termination_actions),
@@ -278,8 +289,14 @@ class DockerProvider:
                 "platform": runtime.image_lock.platform if runtime.image_lock else "",
                 "containment": "single_container_probe",
                 "writer": writer_name,
+                **(
+                    {"stream_dir": str(stream_dir)}
+                    if stream_dir is not None
+                    else {}
+                ),
             },
         )
+
 
     def cleanup(self, runtime: DockerRuntime) -> None:
         if runtime.cleaned:
