@@ -19,6 +19,16 @@ def test_pi_child_env_only_allowlisted_keys(monkeypatch: object) -> None:
     # Values never asserted in logs — only key presence.
 
 
+def test_shared_project_cli_child_env_allowlist(monkeypatch: object) -> None:
+    from bora.adapters.child_env import project_cli_child_env
+
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "SENTINEL_CLAUDE")  # type: ignore[attr-defined]
+    monkeypatch.setenv("UNRELATED_SECRET", "nope")  # type: ignore[attr-defined]
+    env = project_cli_child_env("claude-code")
+    assert env.get("ANTHROPIC_AUTH_TOKEN") == "SENTINEL_CLAUDE"
+    assert "UNRELATED_SECRET" not in env
+
+
 def test_agent_service_with_pi_offline_no_secret_in_evidence(
     tmp_path: Path, monkeypatch: object
 ) -> None:

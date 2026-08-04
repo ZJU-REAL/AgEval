@@ -35,9 +35,19 @@ class CodexExecutor:
 
     kind: str = "codex"
 
-    def __init__(self, *, model: str = "gpt-5.4-mini", binary: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        model: str = "gpt-5.4-mini",
+        binary: str | None = None,
+        base_url: str | None = None,
+        api_key_env: str | None = None,
+    ) -> None:
         self.model = model
         self.binary = binary or shutil.which("codex") or "codex"
+        # Accepted for profile parity; Codex primarily uses host login / CODEX_HOME.
+        self.base_url = base_url
+        self.api_key_env = api_key_env
 
     def invoke(
         self,

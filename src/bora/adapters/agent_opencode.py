@@ -19,34 +19,27 @@ from bora.adapters.agent_codex import (
     _maybe_persist_raw,
     _try_parse_json_object,
 )
-from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES
+from bora.adapters.child_env import cli_credential_available, project_cli_child_env
 
 
-def _child_env() -> dict[str, str]:
-    caps = BUILTIN_CAPABILITIES["opencode"]
-    env: dict[str, str] = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": os.environ.get("HOME", ""),
-        "LANG": os.environ.get("LANG", "C"),
-        "TERM": "dumb",
-        "XDG_DATA_HOME": os.environ.get("XDG_DATA_HOME", ""),
-        "XDG_CONFIG_HOME": os.environ.get("XDG_CONFIG_HOME", ""),
-    }
-    for name in caps.credential_env_names:
-        val = os.environ.get(name)
-        if val:
-            env[name] = val
-    return {k: v for k, v in env.items() if v}
+def _child_env(
+    *,
+    api_key_env: str | None = None,
+    base_url: str | None = None,
+) -> dict[str, str]:
+    return project_cli_child_env(
+        "opencode", api_key_env=api_key_env, base_url=base_url
+    )
 
 
-def credential_available() -> bool:
-    env = _child_env()
-    for name in BUILTIN_CAPABILITIES["opencode"].credential_env_names:
-        if env.get(name):
-            return True
+def credential_available(*, api_key_env: str | None = None) -> bool:
     # Host may store opencode auth under XDG (values never read into evidence).
     auth = Path.home() / ".local/share/opencode/auth.json"
-    return auth.is_file()
+    return cli_credential_available(
+        "opencode",
+        api_key_env=api_key_env,
+        extra_ok=auth.is_file(),
+    )
 
 
 
@@ -72,9 +65,13 @@ class OpenCodeExecutor:
         *,
         model: str = "zai-coding-plan/glm-4.7",
         binary: str | None = None,
+        base_url: str | None = None,
+        api_key_env: str | None = None,
     ) -> None:
         self.model = model
         self.binary = binary or shutil.which("opencode") or "opencode"
+        self.base_url = base_url
+        self.api_key_env = api_key_env
 
     def invoke(
         self,
@@ -120,7 +117,7 @@ class OpenCodeExecutor:
         # Prefer env locators; allow host auth.json residual via full HOME for opencode only
         # when no env key — still never copy secrets into evidence.
         auth_json = Path.home() / ".local/share/opencode/auth.json"
-        if not credential_available() and not auth_json.is_file():
+        if not credential_available(api_key_env=self.api_key_env) and not auth_json.is_file():
             return AgentResult(
                 model=self.model,
                 text="",
@@ -152,8 +149,8 @@ class OpenCodeExecutor:
             collect_root.mkdir(parents=True, exist_ok=True)
 
         # Opencode may need HOME for auth.json; still restrict env keys we inject.
-        env = _child_env()
-        if not credential_available():
+        env = _child_env(api_key_env=self.api_key_env, base_url=self.base_url)
+        if not credential_available(api_key_env=self.api_key_env):
             # Fall back to host HOME only (auth.json path); do not dump entire os.environ.
             env["HOME"] = os.environ.get("HOME", "")
             env["PATH"] = os.environ.get("PATH", "")

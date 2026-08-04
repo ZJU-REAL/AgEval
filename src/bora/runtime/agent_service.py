@@ -31,6 +31,9 @@ class SessionBinding:
     profile_id: str
     model: str
     executor_kind: str
+    # Optional profile routing (lock-safe): base_url + api_key env *locator* name.
+    base_url: str | None = None
+    api_key: str | None = None
     closed: bool = False
 
 
@@ -66,6 +69,18 @@ class ParentAgentService:
         profile = next((p for p in self.profiles if p.get("id") == profile_id), None)
         if profile is None:
             return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
+        base_url_raw = profile.get("base_url")
+        base_url = (
+            str(base_url_raw).strip()
+            if isinstance(base_url_raw, str) and base_url_raw.strip()
+            else None
+        )
+        api_key_raw = profile.get("api_key")
+        api_key = (
+            str(api_key_raw).strip()
+            if isinstance(api_key_raw, str) and api_key_raw.strip()
+            else None
+        )
         with self._lock:
             sid = f"sess_{uuid.uuid4().hex[:16]}"
             binding = SessionBinding(
@@ -74,6 +89,8 @@ class ParentAgentService:
                 profile_id=profile_id,
                 model=str(profile.get("model") or "gpt-5.4-mini"),
                 executor_kind=str(profile.get("executor") or "codex"),
+                base_url=base_url,
+                api_key=api_key,
             )
             self._sessions[sid] = binding
             return {
@@ -109,6 +126,8 @@ class ParentAgentService:
             kind = binding.executor_kind
             model = binding.model
             profile_id = binding.profile_id
+            base_url = binding.base_url
+            api_key = binding.api_key
 
         handle = None
         started = time.monotonic()
@@ -119,16 +138,20 @@ class ParentAgentService:
                 model=model,
             )
             try:
-                handle.write_request(
-                    {
-                        "messages": [{"role": "user", "content": prompt}],
-                        "profile_id": profile_id,
-                        "executor_kind": kind,
-                        "model": model,
-                        "schema_hint": None,
-                        "tool_specs": [],
-                    }
-                )
+                req_doc: dict[str, Any] = {
+                    "messages": [{"role": "user", "content": prompt}],
+                    "profile_id": profile_id,
+                    "executor_kind": kind,
+                    "model": model,
+                    "schema_hint": None,
+                    "tool_specs": [],
+                }
+                # Locator/name only — never secret values.
+                if base_url:
+                    req_doc["base_url"] = base_url
+                if api_key:
+                    req_doc["api_key"] = api_key
+                handle.write_request(req_doc)
                 handle.append_event(
                     {
                         "type": "lifecycle",
@@ -153,7 +176,16 @@ class ParentAgentService:
                 }
 
         try:
-            executor = self.resolve_executor(kind, model=model)  # kind + model kwargs
+            try:
+                executor = self.resolve_executor(
+                    kind,
+                    model=model,
+                    base_url=base_url,
+                    api_key=api_key,
+                )
+            except TypeError:
+                # Older resolve_executor callables may only accept kind/model.
+                executor = self.resolve_executor(kind, model=model)
         except KeyError:
             self._seal_failure(
                 handle,
