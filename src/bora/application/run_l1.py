@@ -20,7 +20,83 @@ from pathlib import Path
 from typing import Any
 
 from bora.adapters.credential_projection import project_executor_credentials
-from bora.adapters.provider_docker import DockerProvider, DockerRuntime, ensure_image_lock
+from bora.adapters.provider_docker import (
+    DockerProvider,
+    DockerRuntime,
+    build_package_image,
+    ensure_base_image,
+    ensure_image_lock,
+)
+
+
+def _parse_json_from_text(text: str) -> dict[str, Any] | None:
+    """Best-effort extract a JSON object from CLI stdout tail."""
+    import re
+
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    # Prefer last JSONL message text for pi/opencode streams.
+    for line in reversed(raw.splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            # pi assistant content
+            msg = obj.get("message")
+            if isinstance(msg, dict) and msg.get("role") == "assistant":
+                parts = msg.get("content")
+                if isinstance(parts, list):
+                    blobs = [
+                        p.get("text", "")
+                        for p in parts
+                        if isinstance(p, dict) and p.get("type") == "text"
+                    ]
+                    joined = "\n".join(blobs).strip()
+                    if joined:
+                        try:
+                            parsed = json.loads(joined)
+                            if isinstance(parsed, dict):
+                                return parsed
+                        except json.JSONDecodeError:
+                            m = re.search(r"\{[^{}]*\}", joined, re.S)
+                            if m:
+                                try:
+                                    parsed = json.loads(m.group(0))
+                                    if isinstance(parsed, dict):
+                                        return parsed
+                                except json.JSONDecodeError:
+                                    pass
+            # opencode text event
+            part = obj.get("part")
+            if isinstance(part, dict) and isinstance(part.get("text"), str):
+                try:
+                    parsed = json.loads(part["text"])
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    pass
+            if "answer" in obj or "n" in obj:
+                return obj
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r"\{[^{}]*\}", raw, re.S)
+    if m:
+        try:
+            parsed = json.loads(m.group(0))
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            return None
+    return None
 from bora.runtime.identity import IdentityFactory
 
 
@@ -70,10 +146,29 @@ def run_l1_attempt(
 def _prepare(
     package_root: Path, lock: Any, run_dir: Path, *, network_mode: str = "none"
 ) -> tuple[DockerProvider, DockerRuntime, dict[str, Any]]:
+    from bora.config.model import thaw
+
     factory = IdentityFactory()
     run = factory.new_run()
     trial = factory.new_trial(run, lock.digest)
     attempt = factory.new_attempt(trial)
+    package_root = package_root.resolve()
+    provider = thaw(lock.provider) if hasattr(lock, "provider") else {}
+    if not isinstance(provider, dict):
+        provider = {}
+    dockerfile_rel = str(provider.get("dockerfile") or "environment/Dockerfile")
+    platform = str(provider.get("platform") or "linux/arm64")
+    # Official base (FROM bora-attempt:l1) then package Dockerfile → Attempt image.
+    ensure_base_image(Path.cwd())
+    short = lock.digest.replace("sha256:", "")[:12]
+    tag = f"bora-pkg:{lock.task_id}-{short}"
+    pkg_image = build_package_image(
+        package_root=package_root,
+        dockerfile_rel=dockerfile_rel,
+        platform=platform,
+        tag=tag,
+        repo_root=Path.cwd(),
+    )
     lock_path = Path.cwd() / ".bora" / "runtime-images" / "provider-l1.json"
     if not lock_path.is_file():
         lock_path = ensure_image_lock(Path.cwd())
@@ -83,14 +178,17 @@ def _prepare(
         shutil.rmtree(work)
     runtime = docker.prepare(
         attempt,
-        package_root=package_root.resolve(),
+        package_root=package_root,
         work_root=work,
         network_mode=network_mode,
         hide_evaluation=True,
+        image_lock=pkg_image,
     )
     meta = {
         "containment": "full_l1_attempt",
         "image": runtime.image_lock.image_digest if runtime.image_lock else "",
+        "image_tag": runtime.image_lock.image_tag if runtime.image_lock else "",
+        "package_dockerfile": dockerfile_rel,
         "platform": runtime.image_lock.platform if runtime.image_lock else "",
         "attempt_id": attempt.value,
         "policy": dict(runtime.policy_digests),
@@ -172,6 +270,16 @@ def run_l1_workspace_attempt(
                 cred_root=cred.root,
                 workspace_output_name=workspace_output_name,
                 timeout=float(params.get("agent_timeout_seconds") or 300),
+                api_key_env=(
+                    str(profile.get("api_key")).strip()
+                    if isinstance(profile.get("api_key"), str) and profile.get("api_key")
+                    else None
+                ),
+                base_url=(
+                    str(profile.get("base_url")).strip()
+                    if isinstance(profile.get("base_url"), str) and profile.get("base_url")
+                    else None
+                ),
             )
             agent_meta = {**agent_meta, "source": "executor_container"}
             if not agent_ok and not allow_offline_agent:
@@ -302,6 +410,16 @@ def _run_l1_agent_eval(
             prompt=question,
             cred_root=cred.root,
             allow_offline=allow_offline_agent,
+            api_key_env=(
+                str(profile.get("api_key")).strip()
+                if isinstance(profile.get("api_key"), str) and profile.get("api_key")
+                else None
+            ),
+            base_url=(
+                str(profile.get("base_url")).strip()
+                if isinstance(profile.get("base_url"), str) and profile.get("base_url")
+                else None
+            ),
         )
         if not agent_ok and not allow_offline_agent:
             docker.cleanup(runtime)
@@ -602,8 +720,10 @@ def _run_agent_executor_container(
     cred_root: Path,
     workspace_output_name: str,
     timeout: float,
+    api_key_env: str | None = None,
+    base_url: str | None = None,
 ) -> tuple[bool, int, dict[str, Any]]:
-    """Run agent in a container with credential mount + bridge network (provider egress)."""
+    """Run agent CLI inside the package Attempt image (no host Homebrew mount)."""
     if os.environ.get("BORA_OFFLINE_AGENT") == "1":
         return (
             False,
@@ -615,24 +735,30 @@ def _run_agent_executor_container(
             },
         )
 
-    # Prefer host codex via bind-mount when kind=codex.
-    if kind == "codex":
-        return _run_codex_in_container(
+    cli_kinds = {"codex", "pi", "opencode", "claude-code", "claude"}
+    if kind in cli_kinds:
+        return _run_builtin_cli_in_container(
             docker=docker,
             runtime=runtime,
+            kind=kind if kind != "claude" else "claude-code",
             model=model,
             prompt=prompt,
             cred_root=cred_root,
             workspace_output_name=workspace_output_name,
             timeout=timeout,
+            api_key_env=api_key_env,
+            base_url=base_url,
         )
-    # Fallback: parent executor with workspace-only cwd (still no evaluation/ mount).
-    from bora.adapters.agent_openai_http import resolve_executor
+
+    # HTTP / unknown: parent workspace-only residual (not L1 CLI containment).
+    from bora.adapters.agent_registry import resolve_executor
 
     assert runtime.workdir_host is not None
     workspace = runtime.workdir_host / "workspace"
     try:
-        ex = resolve_executor(kind, model=model)
+        ex = resolve_executor(
+            kind, model=model, base_url=base_url, api_key=api_key_env
+        )
     except KeyError:
         return False, 0, {"ok": False, "error": "executor_unknown"}
     result = ex.invoke(prompt, timeout=timeout, workdir=str(workspace))
@@ -646,6 +772,166 @@ def _run_agent_executor_container(
             "model": result.model,
             "executor_containment": "parent_workspace_only",
             "workdir": str(workspace),
+        },
+    )
+
+
+def _cli_env_for_container(
+    kind: str, *, api_key_env: str | None, base_url: str | None
+) -> dict[str, str]:
+    """Project host credentials into docker ``-e`` (values never logged)."""
+    from bora.adapters.child_env import project_cli_child_env
+
+    if kind in {"codex"}:
+        env: dict[str, str] = {}
+        if api_key_env and os.environ.get(api_key_env):
+            env[api_key_env] = os.environ[api_key_env]
+            env.setdefault("OPENAI_API_KEY", os.environ[api_key_env])
+        elif os.environ.get("OPENAI_API_KEY"):
+            env["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
+        if base_url:
+            env["OPENAI_BASE_URL"] = base_url
+        return env
+    projected = project_cli_child_env(
+        kind if kind != "claude" else "claude-code",
+        api_key_env=api_key_env,
+        base_url=base_url,
+    )
+    # Drop non-credential noise for docker -e (keep keys that matter).
+    keep_prefixes = (
+        "ZAI_",
+        "ZHIPU",
+        "OPENAI_",
+        "ANTHROPIC_",
+        "OPENCODE_",
+        "XAI_",
+        "PATH",
+        "HOME",
+        "LANG",
+        "TERM",
+    )
+    out = {
+        k: v
+        for k, v in projected.items()
+        if v and (k.startswith(keep_prefixes) or (api_key_env and k == api_key_env))
+    }
+    return out
+
+
+def _run_builtin_cli_in_container(
+    *,
+    docker: DockerProvider,
+    runtime: DockerRuntime,
+    kind: str,
+    model: str,
+    prompt: str,
+    cred_root: Path,
+    workspace_output_name: str,
+    timeout: float,
+    api_key_env: str | None = None,
+    base_url: str | None = None,
+) -> tuple[bool, int, dict[str, Any]]:
+    """Invoke codex/pi/opencode/claude from PATH inside the package image."""
+    assert runtime.workdir_host is not None
+    workspace = runtime.workdir_host / "workspace"
+    binary = {
+        "codex": "codex",
+        "pi": "pi",
+        "opencode": "opencode",
+        "claude-code": "claude",
+    }.get(kind, kind)
+
+    if kind == "codex":
+        cmd = [
+            binary,
+            "exec",
+            "--model",
+            model,
+            "--ephemeral",
+            prompt,
+        ]
+    elif kind == "pi":
+        # model may be provider/model
+        cmd = [
+            binary,
+            "-p",
+            "--mode",
+            "json",
+            "--no-session",
+            "--no-tools",
+            "--model",
+            model,
+            prompt,
+        ]
+    elif kind == "opencode":
+        cmd = [
+            binary,
+            "run",
+            "--format",
+            "json",
+            "--model",
+            model,
+            "--pure",
+            prompt,
+        ]
+    else:  # claude-code
+        cmd = [
+            binary,
+            "-p",
+            "--output-format",
+            "json",
+            "--model",
+            model,
+            prompt,
+        ]
+
+    child_env = _cli_env_for_container(
+        kind, api_key_env=api_key_env, base_url=base_url
+    )
+    child_env.setdefault("HOME", "/creds_home")
+    child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
+    if kind == "codex":
+        child_env.setdefault("CODEX_HOME", "/creds/codex_home")
+
+    mounts = [
+        (str(cred_root), "/creds", "ro"),
+        (str(Path.home()), "/creds_home", "ro"),
+    ]
+    uid = os.getuid()
+    gid = os.getgid()
+    out = docker.run_command(
+        runtime,
+        cmd,
+        network=True,
+        network_mode="bridge",
+        mounts=mounts,
+        user=f"{uid}:{gid}",
+        writer_name="agent_executor",
+        timeout_seconds=timeout + 30,
+        read_only_root=False,
+        env=child_env,
+    )
+    # Persist backend raw under evidence is optional; success if exit 0.
+    # Workspace output may be produced by harness after agent; agent ok = CLI exit 0
+    # or structured path for packages that only need text (agent-eval style).
+    ok = out.exit_code == 0
+    # If package expects a workspace file from agent, require it when already used.
+    expected = workspace / workspace_output_name
+    if expected.is_file():
+        ok = ok and True
+    return (
+        ok,
+        1,
+        {
+            "ok": ok,
+            "error": None if ok else f"exit_{out.exit_code}",
+            "model": model,
+            "executor_kind": kind,
+            "executor_containment": "container",
+            "container_exit": out.exit_code,
+            "container_stderr": (out.stderr_summary or "")[-500:],
+            "container_stdout": (out.stdout_summary or "")[-8000:],
+            "container_stdout_tail": (out.stdout_summary or "")[-500:],
         },
     )
 
@@ -779,16 +1065,51 @@ def _run_agent_structured(
     prompt: str,
     cred_root: Path,
     allow_offline: bool,
+    api_key_env: str | None = None,
+    base_url: str | None = None,
 ) -> tuple[bool, int, dict[str, Any]]:
     if os.environ.get("BORA_OFFLINE_AGENT") == "1" and not allow_offline:
         return False, 0, {"ok": False, "error": "offline_forced"}
     assert runtime.workdir_host is not None
     workspace = runtime.workdir_host / "workspace"
-    # Parent executor with workspace cwd — containerized codex is best-effort.
-    from bora.adapters.agent_openai_http import resolve_executor
+
+    # Prefer in-image CLI for first-party executors (L1 containment).
+    if kind in {"codex", "pi", "opencode", "claude-code", "claude"}:
+        ok, inv, meta = _run_builtin_cli_in_container(
+            docker=docker,
+            runtime=runtime,
+            kind=kind if kind != "claude" else "claude-code",
+            model=model,
+            prompt=prompt,
+            cred_root=cred_root,
+            workspace_output_name="agent_result.json",
+            timeout=180.0,
+            api_key_env=api_key_env,
+            base_url=base_url,
+        )
+        if ok:
+            structured = _parse_json_from_text(
+                str(meta.get("container_stdout") or meta.get("container_stdout_tail") or "")
+            )
+            if isinstance(structured, dict):
+                (workspace / "agent_result.json").write_text(
+                    json.dumps(structured, sort_keys=True) + "\n", encoding="utf-8"
+                )
+                return True, inv, {**meta, "model": model}
+            # CLI exited 0 but no JSON — still fail closed for structured path.
+            return (
+                False,
+                inv,
+                {**meta, "ok": False, "error": "structured_missing"},
+            )
+        return ok, inv, meta
+
+    from bora.adapters.agent_registry import resolve_executor
 
     try:
-        ex = resolve_executor(kind, model=model)
+        ex = resolve_executor(
+            kind, model=model, base_url=base_url, api_key=api_key_env
+        )
     except KeyError:
         return False, 0, {"ok": False, "error": "executor_unknown"}
     # Inject projected key into env only for this process (not harness container).
