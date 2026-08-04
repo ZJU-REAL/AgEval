@@ -21,11 +21,11 @@
 | --- | --- |
 | Agent can continue | `yes` |
 | User decision required | `no` |
-| Ready for acceptance now | `yes` |
+| Ready for acceptance now | `no` |
 | Current blockers | `0` |
 | Potential blockers | `0` |
 
-- Next action: 独立验收 subagent + 全量 pytest/回归；通过后可标 Spec completed（**不**勾 Roadmap v0.19 Version Index 除非验收清单齐）。
+- Next action: 关闭 Phase 5 余下项——private 模块 quarantine / architecture 强化 / Spec-required 测试矩阵 / ARCHITECTURE Current 同步；修复后重跑验收。
 - **已完成切片（2026-08-04）**：Phase 0–4 — registry/client；host OpenCode/Codex/Pi public PASS；L1 BOM 五 entry；`examples/l1/acp-agent-placement` PASS (`assurance:l1`, `host_fallback_count:0`)。
 - Spec 整包尚未 acceptance：Phase 5 private scrape 删除与全 example 迁移、architecture gate、Skills/docs 收口。
 
@@ -35,10 +35,7 @@
 
 ### Potential blockers
 
-- `R1` **closed** — OpenCode public PASS。
-- `R2` **closed** — Codex/Claude/Pi Mode 1 public PASS。
-- `R3` **closed** — Grok pin `0.2.120` public PASS。
-- `R4` **closed** — L1 BOM + `examples/l1/acp-agent-placement` PASS（`host_fallback_count:0`）。
+- None
 
 ### Local decisions（已接受 — 实施边界）
 
@@ -66,7 +63,7 @@
 - [x] Phase 2: 单一 ACP client MVP（Mode 2 OpenCode）
 - [x] Phase 3: Mode 1 Codex/Claude 与 Mode 3 Grok Build
 - [x] Phase 4: Docker L1 placement 与 host/container client parity
-- [x] Phase 5: 迁移 examples、弃用 vendor private scrape 与状态收口
+- [ ] Phase 5: 迁移 examples、弃用 vendor private scrape 与状态收口
 
 ## Background
 
@@ -680,6 +677,10 @@ git diff --check
 - [x] 用户授权按本 Spec 推进 production 实施（同一会话；非「仅文档」）。
 - [ ] Spec 整包 acceptance（Phase 0–5 证据齐）— 实现后勾选，**不**再要求新的产品决策。
 
+
+### Closed risks (audit; not potential blockers)
+
+- R1–R4 closed via host five-entry PASS + L1 placement PASS + image BOM (2026-08-04).
 
 ## Evidence (implementation progress)
 

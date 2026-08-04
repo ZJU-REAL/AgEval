@@ -36,3 +36,28 @@ def test_agent_acp_imports_typed_sdk() -> None:
     assert "agent-client-protocol" in src or "import acp" in src or "from acp" in src
     tree = ast.parse(src)
     assert any(isinstance(n, (ast.Import, ast.ImportFrom)) for n in tree.body)
+
+
+def test_private_executor_factories_are_tombstones() -> None:
+    """Spec 19 Phase 5: private kinds must not construct working parsers."""
+    from bora.adapters.agent_registry import resolve_executor
+
+    for kind, entry in (
+        ("codex", "codex"),
+        ("pi", "pi"),
+        ("opencode", "opencode"),
+        ("claude-code", "claude-code"),
+    ):
+        try:
+            resolve_executor(kind, model="x")
+            raise AssertionError(f"{kind} factory must raise KeyError migration tombstone")
+        except KeyError as exc:
+            msg = str(exc)
+            assert "migrated" in msg.lower() or "acp" in msg.lower()
+            assert entry in msg
+
+
+def test_docker_image_does_not_install_python_acp_sdk() -> None:
+    install = (REPO / "docker/attempt/install-executors.sh").read_text(encoding="utf-8")
+    assert "agent-client-protocol" not in install
+    assert "pip install" not in install
