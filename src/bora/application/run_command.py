@@ -28,6 +28,10 @@ async def run_task(
 ) -> tuple[int, FlatResult, dict[str, Any]]:
     """Run one foreground Attempt and return (exit_code, result, details)."""
     package_root = package_root.resolve()
+    # Host credential locators from .env (values never enter lock/evidence).
+    from bora.application.env_bootstrap import load_host_env_files
+
+    load_host_env_files(package_root=package_root)
     config = ConfigCore(package_reader=LocalPackageReader())
     try:
         lock = config.load_and_lock(
@@ -111,6 +115,11 @@ async def run_task(
                     "executor": kind,
                     "model": p.get("model"),
                 }
+                if p.get("base_url"):
+                    row["base_url"] = p.get("base_url")
+                if p.get("api_key"):
+                    # Env locator name only — never secret values.
+                    row["api_key"] = p.get("api_key")
                 if cap is not None:
                     row["capabilities"] = {
                         "tools": cap.tools,
@@ -138,7 +147,9 @@ async def run_task(
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
-            resolve_executor=lambda kind, model: resolve_executor(kind, model=model),
+            resolve_executor=lambda kind, model, **kw: resolve_executor(
+                kind, model=model, **kw
+            ),
             attempt_id=attempt_ident.value,
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
@@ -163,7 +174,20 @@ async def run_task(
         kind = str(agent_profile.get("executor") or "codex")
         question = str(params.get("question") or 'Return JSON {"answer": 42}')
         try:
-            executor = resolve_executor(kind, model=model)
+            executor = resolve_executor(
+                kind,
+                model=model,
+                base_url=(
+                    str(agent_profile.get("base_url"))
+                    if agent_profile.get("base_url")
+                    else None
+                ),
+                api_key=(
+                    str(agent_profile.get("api_key"))
+                    if agent_profile.get("api_key")
+                    else None
+                ),
+            )
         except KeyError:
             flat = bind_result(
                 evaluator_raw=None,
