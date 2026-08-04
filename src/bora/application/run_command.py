@@ -171,7 +171,7 @@ async def run_task(
         from bora.adapters.agent_openai_http import resolve_executor
 
         model = str(agent_profile.get("model") or "gpt-5.4-mini")
-        kind = str(agent_profile.get("executor") or "codex")
+        kind = str(agent_profile.get("executor") or "acp")
         question = str(params.get("question") or 'Return JSON {"answer": 42}')
         try:
             executor = resolve_executor(

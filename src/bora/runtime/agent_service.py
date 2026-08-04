@@ -127,7 +127,7 @@ class ParentAgentService:
             if isinstance(api_key_raw, str) and api_key_raw.strip()
             else None
         )
-        executor_kind = str(profile.get("executor") or "codex")
+        executor_kind = str(profile.get("executor") or "acp")
         acp_entry_id: str | None = None
         if executor_kind == "acp":
             options = profile.get("options") if isinstance(profile.get("options"), dict) else {}
