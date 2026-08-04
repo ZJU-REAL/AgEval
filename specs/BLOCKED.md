@@ -14,3 +14,12 @@ Allowed status: `resolved-autonomously` | `awaiting-user` | `resolved-by-user`.
 Insert each new entry **immediately below** the marker.
 
 <!-- BLOCKED_ENTRIES_START -->
+
+## 2026-08-04T18:00:00+08:00 — Spec 18 implementation authorized
+
+- Status: resolved-by-user
+- Spec / Phase: [Spec 18 Phase 0](active/18-l1-multi-agent-docker-scheduling-plan.md#phase-0-sdk-l1-parity--single-actor)
+- Blocker: Prior planning gate blocked production code until explicit user authorization
+- Decision: User authorized full Spec 18 implementation, Docker/real Agent gates, and Spec completion without ROADMAP edits
+- Rationale: User request to execute all phases and run post-completion subagent acceptance
+- Impact / Follow-up: L1 multi-actor SDK scheduling landed; Roadmap unchanged; user reviews public smokes

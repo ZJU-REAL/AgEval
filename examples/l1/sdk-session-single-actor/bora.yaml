@@ -1,0 +1,46 @@
+format: bora.task/1
+task_id: sdk-session-single-actor
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  use_agent_session: true
+  harness_timeout_seconds: 360
+  models:
+    default: codex-mini
+
+provider:
+  kind: docker
+  assurance: l1
+  platform: linux/arm64
+  network: bridge
+  # Implicit single-actor topology (Phase 0) when agent_isolation omitted.
+
+agent_profiles:
+  - id: codex-mini
+    executor: codex
+    model: gpt-5.4-mini
+
+limits:
+  wall_time_seconds: 360
+  agent_invocations: 2
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: session-output
+      producer: harness
+      path: artifacts/session-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: session-output
+      target: artifacts/session-output.json
+  output:
+    format: json

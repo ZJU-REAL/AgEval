@@ -568,6 +568,13 @@ class ConfigCore:
                     f"{df_rel!r} (default environment/Dockerfile)",
                     location=f"/provider/dockerfile:{df_rel}",
                 )
+            net = provider.get("network")
+            if net is not None and net not in {"bridge", "none"}:
+                raise ConfigError(
+                    ERROR_INVALID_SCHEMA,
+                    "provider.network must be bridge|none",
+                    location="/provider/network",
+                )
 
         profiles = doc.get("agent_profiles") or []
         if not isinstance(profiles, list):
@@ -639,6 +646,12 @@ class ConfigCore:
                         "profile.api_key looks like a secret value; use env var name only",
                         location=f"{loc}/api_key",
                     )
+
+        # L1 multi-actor logical topology (lock-safe only; no physical fields).
+        if isinstance(provider, dict) and provider.get("agent_isolation") is not None:
+            from bora.provider.isolation import validate_agent_isolation_in_provider
+
+            validate_agent_isolation_in_provider(provider, profile_ids=profile_ids)
 
         # parameters.models.* must reference known profile ids when present.
         models = parameters.get("models") if isinstance(parameters, dict) else None

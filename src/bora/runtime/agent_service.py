@@ -34,6 +34,10 @@ class SessionBinding:
     # Optional profile routing (lock-safe): base_url + api_key env *locator* name.
     base_url: str | None = None
     api_key: str | None = None
+    # L1 multi-actor binding (opaque target id only — no docker handle).
+    actor_id: str | None = None
+    target_id: str | None = None
+    generation: int | None = None
     closed: bool = False
 
 
@@ -49,10 +53,20 @@ class ParentAgentService:
     evidence_store: AttemptEvidenceStore | None = None
     # Wall hard ceiling (monotonic seconds); checked before each external invoke.
     deadline_monotonic: float | None = None
+    # L1: require actor_id; validate against logical topology; bind target generation.
+    require_actor_id: bool = False
+    # Callable(actor_id, profile_id) -> dict with ok/error/target_id/generation or fail.
+    validate_actor_profile: Callable[[str, str], dict[str, Any]] | None = None
+    # When set, builds container-bound executor from SessionBinding (L1 only).
+    # Signature: (binding: SessionBinding) -> executor with .invoke(...)
+    make_target_executor: Callable[[SessionBinding], Any] | None = None
+    # Forbid host resolve_executor path (L1 no-fallback).
+    l1_container_only: bool = False
     _remaining: int = field(init=False)
     _sessions: dict[str, SessionBinding] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
     invocations_completed: int = 0
+    host_fallback_count: int = 0
 
     def __post_init__(self) -> None:
         self._remaining = max(0, int(self.agent_invocation_limit))
@@ -63,12 +77,40 @@ class ParentAgentService:
             and time.monotonic() >= self.deadline_monotonic
         )
 
-    def open_session(self, *, profile_id: str) -> dict[str, Any]:
+    def open_session(
+        self, *, profile_id: str, actor_id: str | None = None
+    ) -> dict[str, Any]:
         if self._wall_expired():
             return {"ok": False, "error": "wall_time_exceeded", "profile_id": profile_id}
+        if self.require_actor_id and (not actor_id or not str(actor_id).strip()):
+            return {
+                "ok": False,
+                "error": "actor_id_required",
+                "profile_id": profile_id,
+            }
+        actor_id_n = str(actor_id).strip() if actor_id else None
         profile = next((p for p in self.profiles if p.get("id") == profile_id), None)
         if profile is None:
             return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
+
+        target_id: str | None = None
+        generation: int | None = None
+        if actor_id_n is not None and self.validate_actor_profile is not None:
+            check = self.validate_actor_profile(actor_id_n, profile_id)
+            if not check.get("ok"):
+                return {
+                    "ok": False,
+                    "error": str(check.get("error") or "actor_profile_denied"),
+                    "profile_id": profile_id,
+                    "actor_id": actor_id_n,
+                }
+            target_id = check.get("target_id")  # type: ignore[assignment]
+            generation = check.get("generation")  # type: ignore[assignment]
+            if target_id is not None:
+                target_id = str(target_id)
+            if generation is not None:
+                generation = int(generation)
+
         base_url_raw = profile.get("base_url")
         base_url = (
             str(base_url_raw).strip()
@@ -91,12 +133,18 @@ class ParentAgentService:
                 executor_kind=str(profile.get("executor") or "codex"),
                 base_url=base_url,
                 api_key=api_key,
+                actor_id=actor_id_n,
+                target_id=target_id,
+                generation=generation,
             )
             self._sessions[sid] = binding
             return {
                 "ok": True,
                 "session_id": sid,
                 "profile_id": profile_id,
+                "actor_id": actor_id_n,
+                "target_id": target_id,  # opaque only
+                "generation": generation,
                 "attempt_id": self.attempt_id,
                 "provider_session_handle": None,
             }
@@ -128,6 +176,10 @@ class ParentAgentService:
             profile_id = binding.profile_id
             base_url = binding.base_url
             api_key = binding.api_key
+            binding_snap = binding
+            actor_id = binding.actor_id
+            target_id = binding.target_id
+            generation = binding.generation
 
         handle = None
         started = time.monotonic()
@@ -151,12 +203,25 @@ class ParentAgentService:
                     req_doc["base_url"] = base_url
                 if api_key:
                     req_doc["api_key"] = api_key
+                if actor_id:
+                    req_doc["actor_id"] = actor_id
+                if target_id:
+                    req_doc["target_id"] = target_id
+                if generation is not None:
+                    req_doc["generation"] = generation
                 handle.write_request(req_doc)
                 handle.append_event(
                     {
                         "type": "lifecycle",
                         "phase": "invoke_start",
                         "source": "agent_service",
+                        **(
+                            {"execution_location": "attempt-container"}
+                            if self.l1_container_only
+                            else {}
+                        ),
+                        **({"actor_id": actor_id} if actor_id else {}),
+                        **({"target_id": target_id} if target_id else {}),
                     }
                 )
             except RedactionError:
@@ -176,16 +241,34 @@ class ParentAgentService:
                 }
 
         try:
-            try:
-                executor = self.resolve_executor(
-                    kind,
-                    model=model,
-                    base_url=base_url,
-                    api_key=api_key,
+            if self.make_target_executor is not None and binding_snap is not None:
+                # L1 container path — never fall through to host resolve_executor.
+                executor = self.make_target_executor(binding_snap)
+            elif self.l1_container_only:
+                self._seal_failure(
+                    handle,
+                    status="failed",
+                    error="l1_executor_unbound",
+                    latency_ms=(time.monotonic() - started) * 1000.0,
                 )
-            except TypeError:
-                # Older resolve_executor callables may only accept kind/model.
-                executor = self.resolve_executor(kind, model=model)
+                return {
+                    "ok": False,
+                    "error": "l1_executor_unbound",
+                    "executor": kind,
+                    "invocation_id": handle.invocation_id if handle else None,
+                    "evidence_relative": handle.relative_path if handle else None,
+                }
+            else:
+                try:
+                    executor = self.resolve_executor(
+                        kind,
+                        model=model,
+                        base_url=base_url,
+                        api_key=api_key,
+                    )
+                except TypeError:
+                    # Older resolve_executor callables may only accept kind/model.
+                    executor = self.resolve_executor(kind, model=model)
         except KeyError:
             self._seal_failure(
                 handle,
@@ -200,6 +283,24 @@ class ParentAgentService:
                 "invocation_id": handle.invocation_id if handle else None,
                 "evidence_relative": handle.relative_path if handle else None,
             }
+        except Exception as exc:  # noqa: BLE001 — target bind failures fail closed
+            if self.l1_container_only:
+                # Explicitly never host-fallback.
+                err = getattr(exc, "error", None) or type(exc).__name__
+                self._seal_failure(
+                    handle,
+                    status="failed",
+                    error=str(err),
+                    latency_ms=(time.monotonic() - started) * 1000.0,
+                )
+                return {
+                    "ok": False,
+                    "error": str(err),
+                    "executor": kind,
+                    "invocation_id": handle.invocation_id if handle else None,
+                    "evidence_relative": handle.relative_path if handle else None,
+                }
+            raise
 
         collect_dir = None
         if handle is not None:
@@ -510,7 +611,16 @@ class AgentServiceServer:
         op = req.get("op")
         if op == "open":
             # Client-supplied attempt_id is ignored; parent binding is authoritative.
-            return self.service.open_session(profile_id=str(req.get("profile_id") or ""))
+            actor_raw = req.get("actor_id")
+            actor_id = (
+                str(actor_raw).strip()
+                if isinstance(actor_raw, str) and actor_raw.strip()
+                else None
+            )
+            return self.service.open_session(
+                profile_id=str(req.get("profile_id") or ""),
+                actor_id=actor_id,
+            )
         if op == "invoke":
             return self.service.invoke(
                 session_id=str(req.get("session_id") or ""),

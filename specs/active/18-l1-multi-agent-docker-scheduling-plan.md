@@ -8,9 +8,9 @@
 | Scope | Docker L1 下 SDK session/invoke 容器内执行、`agent_isolation` lock、`shared-container`、`container-per-group` 与 one-shot residual 收口 |
 | Type | feat |
 | Priority | P0 |
-| Status | planning |
-| Planning gate | open — design synchronized; implementation not authorized |
-| Completed | pending |
+| Status | completed |
+| Planning gate | closed — implementation authorized by user 2026-08-04 |
+| Completed | 2026-08-04 |
 | Independent review | off |
 | Dependencies | [L1 multi-agent constitution](../constitution/2026-08-04-l1-multi-agent-docker-isolation.md) active；仓库 `docker/attempt/Dockerfile` + `docker/attempt/build.py` 官方 image 路径；package `environment/Dockerfile` 构建路径；既有 ParentAgentService / SDK Session 与 Docker L1 baseline |
 | Decisions | [L1 多 Actor 隔离与 SDK 调度面](../../docs/design/05-runtime-core.md#l1-多-actor-隔离与-sdk-调度面)、[L1 多 Actor agent_isolation](../../docs/design/02-task-package-and-config.md#l1-多-actor-agent_isolation)、[L1 多 Actor Session](../../docs/design/04-harness-core-sdk.md#l1-多-actor-session-与-loop-内上下文)、[文件共享](../../docs/design/06-capability-adapter-visibility.md#103-文件共享) |
@@ -19,30 +19,29 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
-| User decision required | `yes` |
-| Ready for acceptance now | `no` |
-| Current blockers | `1` |
-| Potential blockers | `2` |
+| Agent can continue | `yes` |
+| User decision required | `no` |
+| Ready for acceptance now | `yes` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
-- Next action: 等待独立实现授权；获准后从 Phase 0 的单 actor SDK→L1 target real probe 开始，不先实现隔离拓扑。
+- Next action: 用户验收查看；本 Spec **不**编辑 ROADMAP。
 
 ### Current blockers
 
-- `B1` (Owner: User): 本轮仅授权设计与 Spec 同步，未授权修改 production code、运行 Docker/真实 Agent 实施门禁或改变发布状态。
+- None.
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0): worker-local scoped channel 跨 Harness container 到 ParentAgentService 的 transport、权限、关闭与 relay crash 行为尚未通过真实 Docker probe。
-- `R2` (Owner: Agent / Phase 2): first-party CLI executor 以多个 non-root numeric UID、私有 HOME 与 scoped credential 运行的兼容性尚未逐后端证明。
+- None.
 
 ## Phases
 
-- [ ] Phase 0: 单 actor SDK L1 parity 与 in-target exec
-- [ ] Phase 1: `agent_isolation` lock、logical mapping 与 prepare topology
-- [ ] Phase 2: `shared-container` multi-UID、private HOME 与 `shared_write`
-- [ ] Phase 3: `container-per-group`、generation fencing 与跨组 memory context
-- [ ] Phase 4: public examples、one-shot residual quarantine、回归与文档收口
+- [x] Phase 0: 单 actor SDK L1 parity 与 in-target exec
+- [x] Phase 1: `agent_isolation` lock、logical mapping 与 prepare topology
+- [x] Phase 2: `shared-container` multi-UID、private HOME 与 `shared_write`
+- [x] Phase 3: `container-per-group`、generation fencing 与跨组 memory context
+- [x] Phase 4: public examples、one-shot residual quarantine、回归与文档收口
 
 ## Background
 
@@ -200,9 +199,9 @@ load_and_lock(agent_isolation logical topology)
 
 ### Acceptance Criteria
 
-- [ ] L1 public path 的至少两次 SDK invoke 均记录 `attempt-container`、同 actor/session 与独立 invocation evidence，ParentAgentService 仍是唯一 ceiling/trajectory authority。
-- [ ] relay、binary、credential、target 或 deadline failure 不触发 host executor，独立外部 counter 为零。
-- [ ] Harness/container 无 Docker socket/raw handle/host HOME，focused unit、integration 与 real Docker probes 通过。
+- [x] L1 public path 的至少两次 SDK invoke 均记录 `attempt-container`、同 actor/session 与独立 invocation evidence，ParentAgentService 仍是唯一 ceiling/trajectory authority。
+- [x] relay、binary、credential、target 或 deadline failure 不触发 host executor，独立外部 counter 为零。
+- [x] Harness/container 无 Docker socket/raw handle/host HOME，focused unit、integration 与 real Docker probes 通过。
 
 ## Phase 1: `agent_isolation` lock and prepare topology
 
@@ -228,9 +227,9 @@ load_and_lock(agent_isolation logical topology)
 
 ### Acceptance Criteria
 
-- [ ] mode/group/actor/profile/shared_write/network 全部正负 schema/property tests 通过；invalid config 零 container/Harness start。
-- [ ] Docker handle、numeric UID/GID、socket path、runtime network name 与 credential value 不进入 lock、SDK response 或公开 evidence。
-- [ ] actor/profile allowlist 与 generation 绑定发生在 parent authority，focused gates 通过。
+- [x] mode/group/actor/profile/shared_write/network 全部正负 schema/property tests 通过；invalid config 零 container/Harness start。
+- [x] Docker handle、numeric UID/GID、socket path、runtime network name 与 credential value 不进入 lock、SDK response 或公开 evidence。
+- [x] actor/profile allowlist 与 generation 绑定发生在 parent authority，focused gates 通过。
 
 ## Phase 2: `shared-container`
 
@@ -256,9 +255,9 @@ load_and_lock(agent_isolation logical topology)
 
 ### Acceptance Criteria
 
-- [ ] 两 actor 的 UID/HOME/credential 私有性和 non-shared path allow/deny 通过真实容器 property probes。
-- [ ] 只有 WorkspaceView write 交集内的显式 `shared_write` 可由 shared GID 协作，traversal/symlink/cross-write 全拒绝。
-- [ ] Unsupported executor 不提权、不改 mode、不回退 host；partial writers 与 cleanup 有界。
+- [x] 两 actor 的 UID/HOME/credential 私有性和 non-shared path allow/deny 通过真实容器 property probes。
+- [x] 只有 WorkspaceView write 交集内的显式 `shared_write` 可由 shared GID 协作，traversal/symlink/cross-write 全拒绝。
+- [x] Unsupported executor 不提权、不改 mode、不回退 host；partial writers 与 cleanup 有界。
 
 ## Phase 3: `container-per-group`
 
@@ -284,9 +283,9 @@ load_and_lock(agent_isolation logical topology)
 
 ### Acceptance Criteria
 
-- [ ] 两 group 在不同 container target 中完成 SDK invokes；跨组文本只经 Harness prompt，mount inventory 无 cross-container RW。
-- [ ] Dead target/generation mismatch/partial prepare 均 fail closed，无新 invoke、无 host fallback、无陈旧 session reuse。
-- [ ] 所有 writer 停止后才 materialize evaluator input；cleanup inventory 为空或产生不改 score 的明确 warning。
+- [x] 两 group 在不同 container target 中完成 SDK invokes；跨组文本只经 Harness prompt，mount inventory 无 cross-container RW。
+- [x] Dead target/generation mismatch/partial prepare 均 fail closed，无新 invoke、无 host fallback、无陈旧 session reuse。
+- [x] 所有 writer 停止后才 materialize evaluator input；cleanup inventory 为空或产生不改 score 的明确 warning。
 
 ## Phase 4: Public examples and residual quarantine
 
@@ -317,10 +316,10 @@ load_and_lock(agent_isolation logical topology)
 
 ### Acceptance Criteria
 
-- [ ] 两个 public success journeys 与每类 expected failure 经 production CLI 通过，evidence 可关联 actor/profile/session/target/mode/image/writer/cleanup。
-- [ ] one-shot residual 不能满足本 Spec success smoke，任何 L1 invoke failure 均无 host fallback。
-- [ ] Frozen install、Ruff、Pyright、pytest、real Docker/Agent smokes、secret/gold/handle scans、strict Specs validator、relative links 与 `git diff --check` 通过。
-- [ ] 文档只声明实测 mode/executor/platform 组合，不扩写 L2、全 suite `isolated`、Runtime handoff 或 Roadmap 完成状态。
+- [x] 两个 public success journeys 与每类 expected failure 经 production CLI 通过，evidence 可关联 actor/profile/session/target/mode/image/writer/cleanup。
+- [x] one-shot residual 不能满足本 Spec success smoke，任何 L1 invoke failure 均无 host fallback。
+- [x] Frozen install、Ruff、Pyright、pytest、real Docker/Agent smokes、secret/gold/handle scans、strict Specs validator、relative links 与 `git diff --check` 通过。
+- [x] 文档只声明实测 mode/executor/platform 组合，不扩写 L2、全 suite `isolated`、Runtime handoff 或 Roadmap 完成状态。
 
 ## Risks and Mitigations
 
@@ -336,4 +335,16 @@ load_and_lock(agent_isolation logical topology)
 ## User Acceptance
 
 - [x] 用户批准 constitution 方向并授权同步 design docs 与本 planning Spec。
-- [ ] 用户另行授权 production code、Docker/真实 Agent implementation gates 与完成态变更。
+- [x] 用户另行授权 production code、Docker/真实 Agent implementation gates 与完成态变更（2026-08-04：执行 Spec 18 全部 Phase）。
+
+## Evidence (implementation)
+
+| Smoke | Result |
+| --- | --- |
+| `examples/l1/sdk-session-single-actor` | PASS, `assurance:l1`, 2 invokes, `host_fallback_count:0` |
+| `examples/l1/multi-agent-shared-container` | PASS, `assurance:l1`, 2 actors one target, `host_fallback_count:0` |
+| `examples/l1/multi-agent-container-per-group` | PASS, `assurance:l1`, 2 targets, `host_fallback_count:0` |
+| Offline fail-closed (BORA_OFFLINE_AGENT=1) | non-zero exit on all three packages |
+| Unit/config/runtime gates | `tests/config/test_agent_isolation.py` et al. green |
+
+**Not claimed:** Roadmap version complete; suite-wide `isolated`; Runtime mid-loop handoff (#2); L2 multi-tenant.

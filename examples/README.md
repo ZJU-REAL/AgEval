@@ -71,6 +71,11 @@ projection, residual writer). Not substitutes for the journey packages.
 | [`provider-l1-denied`](l1/provider-l1-denied/) | Hidden material / view denial |
 | [`provider-l1-projection-denied`](l1/provider-l1-projection-denied/) | Credential / network projection denial |
 | [`provider-l1-residual-writer`](l1/provider-l1-residual-writer/) | Residual writer stop before evaluator |
+| [`sdk-session-single-actor`](l1/sdk-session-single-actor/) | Spec 18 Phase 0: SDK session → attempt-container (implicit actor) |
+| [`multi-agent-shared-container`](l1/multi-agent-shared-container/) | Spec 18: shared-container multi-UID + SDK memory handoff |
+| [`multi-agent-container-per-group`](l1/multi-agent-container-per-group/) | Spec 18: container-per-group + cross-group memory |
+
+> **Residual:** packages that use Runtime one-shot `parameters.question` (without `use_agent_session`) remain compatibility smokes only — not multi-agent SDK scheduling.
 
 ## What was removed
 

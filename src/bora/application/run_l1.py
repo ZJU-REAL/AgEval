@@ -11,6 +11,7 @@ Containment rules:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -27,6 +28,7 @@ from bora.adapters.provider_docker import (
     ensure_base_image,
     ensure_image_lock,
 )
+from bora.runtime.identity import IdentityFactory
 
 
 def _parse_json_from_text(text: str) -> dict[str, Any] | None:
@@ -97,7 +99,6 @@ def _parse_json_from_text(text: str) -> dict[str, Any] | None:
         except json.JSONDecodeError:
             return None
     return None
-from bora.runtime.identity import IdentityFactory
 
 
 def run_l1_attempt(
@@ -117,6 +118,16 @@ def run_l1_attempt(
     probe = str(params.get("probe") or "")
     workspace_out = str(params.get("workspace_output") or "")
 
+    # SDK multi-actor scheduling path (Spec 18) — not residual one-shot.
+    if bool(params.get("use_agent_session")):
+        return run_l1_sdk_session_attempt(
+            package_root=package_root,
+            lock=lock,
+            run_dir=run_dir,
+            agent_meta=agent_meta,
+            allow_offline_agent=allow_offline_agent,
+        )
+
     if probe == "hidden" or task_id == "hidden-material-denied":
         return _run_l1_hidden_denied(package_root=package_root, lock=lock, run_dir=run_dir)
     if probe == "projection" or task_id == "projection-denied":
@@ -133,13 +144,404 @@ def run_l1_attempt(
             workspace_output_name=workspace_out,
             allow_offline_agent=allow_offline_agent,
         )
-    # Structured agent-eval class L1.
+    # Residual one-shot structured agent-eval class L1 (compatibility smoke only).
+    # Not multi-agent SDK scheduling; see Spec 18 residual quarantine.
     return _run_l1_agent_eval(
         package_root=package_root,
         lock=lock,
         run_dir=run_dir,
-        agent_meta=agent_meta,
+        agent_meta={**agent_meta, "residual_one_shot": True, "scheduling": "parameters.question"},
         allow_offline_agent=allow_offline_agent,
+    )
+
+
+def run_l1_sdk_session_attempt(
+    *,
+    package_root: Path,
+    lock: Any,
+    run_dir: Path,
+    agent_meta: dict[str, Any],
+    allow_offline_agent: bool,
+) -> tuple[int, dict[str, Any], dict[str, Any]]:
+    """L1 multi-actor SDK path: ParentAgentService → docker exec targets.
+
+    Harness runs as host task worker (same as L0 session path) with scoped
+    agent service socket. All Agent CLI effects execute inside prepared targets.
+    Residual one-shot ``parameters.question`` is not used here.
+    """
+    import asyncio
+    import tempfile
+    import time
+
+    from bora.adapters.agent_container import ContainerCLIExecutor
+    from bora.application.run_harness import run_harness_package
+    from bora.config.model import thaw
+    from bora.evaluation.result_binding import bind_result
+    from bora.evidence.store import AttemptEvidenceStore
+    from bora.provider.isolation import parse_logical_topology
+    from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
+    package_root = package_root.resolve()
+    params = thaw(lock.parameters)
+    profiles = [p for p in thaw(lock.agent_profiles) if isinstance(p, dict)]
+    provider_cfg = thaw(lock.provider) if hasattr(lock, "provider") else {}
+    if not isinstance(provider_cfg, dict):
+        provider_cfg = {}
+    network_mode = str(provider_cfg.get("network") or "bridge")
+
+    profile_ids = {str(p.get("id")) for p in profiles if p.get("id")}
+    # Explicit topology or Phase-0 implicit single actor.
+    try:
+        topology = parse_logical_topology(
+            provider_cfg,
+            profile_ids=profile_ids,
+            implicit_profiles=[str(p.get("id")) for p in profiles if p.get("id")],
+        )
+    except Exception as exc:  # ConfigError or validation
+        return _err(
+            run_dir,
+            "config",
+            {"error": str(exc), "kind": "agent_isolation_invalid"},
+            agent_meta,
+            0,
+            kind="agent_isolation_invalid",
+        )
+    if topology is None:
+        return _err(
+            run_dir,
+            "config",
+            {"error": "missing agent topology"},
+            agent_meta,
+            0,
+            kind="agent_isolation_invalid",
+        )
+
+    docker, runtime, l1_meta = _prepare(
+        package_root, lock, run_dir, network_mode=network_mode
+    )
+    assert runtime.workdir_host is not None
+    assert runtime.attempt is not None
+
+    # Reuse prepare attempt identity for ParentAgentService + harness.
+    attempt_ident = runtime.attempt
+    run_ident = attempt_ident.trial.run
+    trial_ident = attempt_ident.trial
+
+    evidence_store = AttemptEvidenceStore(
+        root=run_dir,
+        attempt_id=attempt_ident.value,
+        run_id=run_ident.value,
+    )
+    with contextlib.suppress(Exception):
+        evidence_store.write_lock_summary(
+            {
+                "digest": lock.digest,
+                "task_id": lock.task_id,
+                "topology": topology.public_summary(),
+                "profiles": [
+                    {
+                        "id": p.get("id"),
+                        "executor": p.get("executor"),
+                        "model": p.get("model"),
+                    }
+                    for p in profiles
+                ],
+            }
+        )
+
+    cred = project_executor_credentials(work_root=runtime.workdir_host)
+    l1_meta["credential_projection"] = {
+        "keys": list(cred.locator_keys),
+        "has_material": cred.has_material,
+    }
+    l1_meta["isolation"] = topology.public_summary()
+    l1_meta["scheduling"] = "sdk_session"
+    l1_meta["residual_one_shot"] = False
+
+    try:
+        ledger = docker.prepare_agent_targets(
+            runtime,
+            topology,
+            cred_root=cred.root,
+            network_mode=network_mode,
+        )
+    except Exception as exc:  # noqa: BLE001
+        docker.cleanup(runtime)
+        cred.cleanup()
+        return _err(
+            run_dir,
+            "provider",
+            {**l1_meta, "prepare_error": type(exc).__name__, "message": str(exc)[:500]},
+            agent_meta,
+            0,
+            kind="target_prepare_failed",
+        )
+
+    l1_meta["targets"] = [t.public_view() for t in ledger.targets.values()]
+    l1_meta["actors"] = [a.public_view() for a in ledger.actors.values()]
+
+    def validate_actor_profile(actor_id: str, profile_id: str) -> dict[str, Any]:
+        if not topology.allowed_profile(actor_id, profile_id):
+            if topology.actor(actor_id) is None:
+                return {"ok": False, "error": "unknown_actor"}
+            return {"ok": False, "error": "profile_not_allowed"}
+        binding = ledger.actors.get(actor_id)
+        if binding is None:
+            return {"ok": False, "error": "unknown_actor"}
+        target = ledger.targets.get(binding.target_id)
+        if target is None or target.state != "ready":
+            return {"ok": False, "error": "target_dead"}
+        return {
+            "ok": True,
+            "target_id": binding.target_id,
+            "generation": binding.generation,
+        }
+
+    def make_target_executor(binding: Any) -> ContainerCLIExecutor:
+        actor_id = binding.actor_id
+        if not actor_id:
+            raise RuntimeError("actor_id_required")
+        phys = ledger.actors.get(actor_id)
+        if phys is None:
+            raise RuntimeError("unknown_actor")
+        target = ledger.targets.get(phys.target_id)
+        if target is None or target.state != "ready" or not target.container_id:
+            raise RuntimeError("target_dead")
+        if binding.generation is not None and binding.generation != target.generation:
+            raise RuntimeError("generation_mismatch")
+        if binding.target_id and binding.target_id != target.target_id:
+            raise RuntimeError("target_mismatch")
+
+        profile = next((p for p in profiles if p.get("id") == binding.profile_id), {})
+        api_key_env = (
+            str(profile.get("api_key")).strip()
+            if isinstance(profile.get("api_key"), str) and profile.get("api_key")
+            else None
+        )
+        base_url = (
+            str(profile.get("base_url")).strip()
+            if isinstance(profile.get("base_url"), str) and profile.get("base_url")
+            else None
+        )
+        kind = str(binding.executor_kind)
+        child_env = _cli_env_for_container(
+            kind, api_key_env=api_key_env, base_url=base_url
+        )
+        # Actor-private HOME — never host $HOME.
+        child_env["HOME"] = phys.home_container
+        child_env["CODEX_HOME"] = f"{phys.home_container}/.codex"
+        child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
+        child_env.setdefault("TERM", "xterm")
+        return ContainerCLIExecutor(
+            kind=kind if kind != "claude" else "claude-code",
+            model=str(binding.model),
+            container_id=target.container_id,
+            actor=phys,
+            target=target,
+            env=child_env,
+            api_key_env=api_key_env,
+            base_url=base_url,
+            host_fallback_counter=[ledger.host_fallback_count],
+        )
+
+    try:
+        limits = thaw(lock.limits) if hasattr(lock, "limits") else {}
+        inv_limit = int((limits or {}).get("agent_invocations") or 1)
+    except Exception:
+        inv_limit = 1
+    try:
+        wall_s = float((limits or {}).get("wall_time_seconds") or 0)
+    except Exception:
+        wall_s = 0.0
+    deadline = (time.monotonic() + wall_s) if wall_s > 0 else None
+
+    def _host_resolve(*_a: Any, **_k: Any) -> Any:
+        # L1 path must never call host CLI — mark counter and fail.
+        ledger.host_fallback_count += 1
+        raise RuntimeError("host_fallback_forbidden")
+
+    agent_service = ParentAgentService(
+        profiles=profiles,
+        agent_invocation_limit=inv_limit,
+        resolve_executor=_host_resolve,
+        attempt_id=attempt_ident.value,
+        evidence_store=evidence_store,
+        deadline_monotonic=deadline,
+        require_actor_id=True,
+        validate_actor_profile=validate_actor_profile,
+        make_target_executor=make_target_executor,
+        l1_container_only=True,
+    )
+    short = Path(tempfile.gettempdir()) / f"bora-ags-{run_ident.value[:12]}.sock"
+    agent_server = AgentServiceServer(agent_service, short)
+    agent_server.start()
+
+    agent_meta = {
+        **agent_meta,
+        "mode": "parent_agent_service_l1",
+        "attempt_id": attempt_ident.value,
+        "trial_id": trial_ident.value,
+        "run_id": run_ident.value,
+        "executor_containment": "attempt-container",
+        "scheduling": "sdk_session",
+    }
+
+    try:
+        harness_timeout = float(params.get("harness_timeout_seconds") or 360.0)
+        if wall_s > 0:
+            harness_timeout = min(harness_timeout, wall_s)
+        harness_coro = run_harness_package(
+            lock,
+            package_root,
+            timeout_seconds=harness_timeout,
+            agent_service_sock=str(short),
+            attempt=attempt_ident,
+        )
+        # run_task is already async; nest safely without asyncio.run in-loop.
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            harness_out = asyncio.run(harness_coro)
+        else:
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                harness_out = pool.submit(asyncio.run, harness_coro).result()
+    finally:
+        agent_server.stop()
+        inv_count = agent_service.invocations_completed
+        agent_meta["invocations"] = inv_count
+        agent_meta["host_fallback_count"] = (
+            agent_service.host_fallback_count + ledger.host_fallback_count
+        )
+        docker.stop_agent_targets(runtime)
+
+    envelope = harness_out.get("envelope") or {}
+    harness_kind = "completed" if envelope.get("ok") else "failed"
+    if envelope.get("terminal") and isinstance(envelope["terminal"], dict):
+        harness_kind = str(envelope["terminal"].get("kind") or harness_kind)
+
+    # Materialize published artifacts for clean evaluator.
+    published = envelope.get("published") or {}
+    hold = harness_out.get("artifact_hold")
+    staging = run_dir / "eval_staging"
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True)
+
+    eval_inputs = thaw(lock.evaluation).get("inputs") or []
+    artifact_filename = "session-output.json"
+    artifact_key = "session-output"
+    if isinstance(eval_inputs, list) and eval_inputs:
+        first = eval_inputs[0]
+        if isinstance(first, dict):
+            artifact_key = str(first.get("artifact") or artifact_key)
+            target = str(first.get("target") or f"artifacts/{artifact_key}.json")
+            artifact_filename = Path(target).name
+
+    # Copy from durable hold (run_harness rewrites published to hold paths).
+    src_art: Path | None = None
+    if isinstance(published, dict) and artifact_key in published:
+        cand = Path(str(published[artifact_key]))
+        if cand.is_file():
+            src_art = cand
+    if src_art is None and hold:
+        hold_path = Path(str(hold))
+        for p in hold_path.glob(f"{artifact_key}*"):
+            if p.is_file():
+                src_art = p
+                break
+    if src_art is None or not src_art.is_file():
+        docker.cleanup(runtime)
+        cred.cleanup()
+        return _err(
+            run_dir,
+            "harness" if not envelope.get("ok") else "evaluation_input",
+            {
+                **l1_meta,
+                "harness": envelope,
+                "host_fallback_count": agent_meta.get("host_fallback_count", 0),
+            },
+            agent_meta,
+            inv_count,
+        )
+
+    (staging / artifact_filename).write_bytes(src_art.read_bytes())
+    eval_py = package_root / "evaluator.py"
+    if eval_py.is_file():
+        (staging / "evaluator.py").write_bytes(eval_py.read_bytes())
+
+    # Wait for writer stop before evaluator.
+    if not runtime.writer_stop_confirmed:
+        docker.cleanup(runtime)
+        cred.cleanup()
+        return _err(
+            run_dir,
+            "evaluation_input",
+            {
+                **l1_meta,
+                "error_kind": "residual_writer",
+                "writer_stop_confirmed": False,
+            },
+            agent_meta,
+            inv_count,
+            kind="residual_writer",
+        )
+
+    eval_raw, eval_meta = _run_clean_evaluator_container(
+        image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
+        staging=staging,
+        artifact_filename=artifact_filename,
+        artifact_key=artifact_key,
+        expected_filename=None,
+    )
+    l1_meta["evaluator"] = eval_meta
+    l1_meta["writer_inventory"] = list(runtime.writer_inventory)
+    l1_meta["writer_stop_confirmed"] = runtime.writer_stop_confirmed and bool(
+        eval_meta.get("writer_stop_confirmed")
+    )
+    l1_meta["host_fallback_count"] = int(agent_meta.get("host_fallback_count") or 0)
+    l1_meta["executor_containment"] = "attempt-container"
+    l1_meta["execution_location"] = "attempt-container"
+    docker.cleanup(runtime)
+    cred.cleanup()
+
+    full_l1 = bool(
+        harness_kind == "completed"
+        and eval_meta.get("ok")
+        and eval_meta.get("writer_stop_confirmed")
+        and l1_meta["host_fallback_count"] == 0
+        and inv_count >= 1
+    )
+    flat = bind_result(
+        evaluator_raw=eval_raw,
+        harness_kind=harness_kind,
+        runtime_kind="docker_l1",
+        agent_invocations=inv_count,
+        evidence_path=str(run_dir),
+        error_phase=None
+        if eval_raw and eval_raw.get("status") in {"PASS", "FAIL"}
+        else "evaluation",
+    )
+    doc = flat.as_dict()
+    doc["assurance"] = "l1" if full_l1 else "l0"
+    doc["l1"] = {**l1_meta, "full_l1": full_l1}
+    _write_evidence(run_dir, doc, agent_meta, doc["l1"])
+    code = 0 if flat.status == "PASS" else (1 if flat.status == "FAIL" else 2)
+    # Offline path: expected failure for real-agent smoke when offline.
+    if allow_offline_agent and inv_count == 0 and not envelope.get("ok"):
+        code = 2
+    return (
+        code,
+        doc,
+        {
+            "agent": agent_meta,
+            "harness": envelope,
+            "l1": doc["l1"],
+            "assurance": doc["assurance"],
+            "run_dir": str(run_dir),
+            "digest": lock.digest,
+            "host_fallback_count": l1_meta["host_fallback_count"],
+        },
     )
 
 
