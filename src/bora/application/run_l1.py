@@ -1431,10 +1431,11 @@ def _run_acp_in_package_image(
     child_env = _cli_env_for_container(
         entry_id, api_key_env=api_key_env, base_url=base_url
     )
-    child_env["HOME"] = "/creds/home"
+    # Writable actor HOME (not under RO /creds mount) — engines need RW state dirs.
+    child_env["HOME"] = "/actor-home"
     child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
     child_env.setdefault("NO_BROWSER", "1")
-    child_env["CODEX_HOME"] = "/creds/codex_home"
+    child_env["CODEX_HOME"] = "/actor-home/.codex"
     if (cred_root / "pi_home" / "agent" / "auth.json").is_file():
         child_env.setdefault("PI_CONFIG_DIR", "/creds/pi_home")
     if (cred_root / "opencode" / "auth.json").is_file():
@@ -1444,6 +1445,21 @@ def _run_acp_in_package_image(
 
     workspace = runtime.workdir_host / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
+    actor_home = runtime.workdir_host / "actor_home"
+    if actor_home.exists():
+        shutil.rmtree(actor_home)
+    actor_home.mkdir(parents=True, exist_ok=True)
+    (actor_home / ".codex").mkdir(parents=True, exist_ok=True)
+    # Seed allowlisted auth material into writable HOME when projected.
+    for src_name, dest_rel in (
+        ("codex_home", ".codex"),
+        ("pi_home", ".pi"),
+    ):
+        src = cred_root / src_name
+        if src.is_dir():
+            dest = actor_home / dest_rel
+            if not dest.exists():
+                shutil.copytree(src, dest, dirs_exist_ok=True)
     name = f"bora-acp-residual-{runtime.attempt.value[:12]}"
     # Long-lived container; ACP client attaches via docker exec -i.
     start = [
@@ -1458,6 +1474,8 @@ def _run_acp_in_package_image(
         "/attempt/workspace",
         "-v",
         f"{workspace}:/attempt/workspace",
+        "-v",
+        f"{actor_home}:/actor-home",
         "-v",
         f"{cred_root}:/creds:ro",
     ]
@@ -1501,6 +1519,11 @@ def _run_acp_in_package_image(
             api_key_env=api_key_env,
             base_url=base_url,
             command_override=docker_cmd,
+            env={
+                "HOME": "/actor-home",
+                "CODEX_HOME": "/actor-home/.codex",
+                "NO_BROWSER": "1",
+            },
         )
         try:
             result = ex.invoke(prompt, timeout=timeout, workdir="/attempt/workspace")
