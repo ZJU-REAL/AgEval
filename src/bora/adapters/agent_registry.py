@@ -31,9 +31,8 @@ def _builtin_codex_factory(
     api_key: str | None = None,
     **_kw: Any,
 ) -> Any:
-    from bora.adapters.agent_codex import CodexExecutor
-
-    return CodexExecutor(model=model, base_url=base_url, api_key_env=api_key)
+    # Spec 19 Phase 5: no private codex stdout path.
+    raise KeyError("executor 'codex' migrated to executor: acp with options.entry='codex'")
 
 
 def _builtin_openai_factory(
@@ -55,9 +54,7 @@ def _builtin_pi_factory(
     api_key: str | None = None,
     **_kw: Any,
 ) -> Any:
-    from bora.adapters.agent_pi import PiExecutor
-
-    return PiExecutor(model=model, base_url=base_url, api_key_env=api_key)
+    raise KeyError("executor 'pi' migrated to executor: acp with options.entry='pi'")
 
 
 def _builtin_opencode_factory(
@@ -67,9 +64,9 @@ def _builtin_opencode_factory(
     api_key: str | None = None,
     **_kw: Any,
 ) -> Any:
-    from bora.adapters.agent_opencode import OpenCodeExecutor
-
-    return OpenCodeExecutor(model=model, base_url=base_url, api_key_env=api_key)
+    raise KeyError(
+        "executor 'opencode' migrated to executor: acp with options.entry='opencode'"
+    )
 
 
 def _builtin_acp_factory(
@@ -105,23 +102,20 @@ def _load_builtins() -> None:
     _BUILTIN["openai"] = _builtin_openai_factory
     _BUILTIN["openai_responses"] = _builtin_openai_factory
     # claude-code residual: register only when binary exists (honest residual otherwise).
-    import shutil
 
-    if shutil.which("claude") or shutil.which("claude-code"):
-        def _claude_factory(
-            model: str = "claude-haiku-4-5",
-            *,
-            base_url: str | None = None,
-            api_key: str | None = None,
-            **_kw: Any,
-        ) -> Any:
-            from bora.adapters.agent_claude_code import ClaudeCodeExecutor
+    # Residual kind name kept for inventory discoverability only; invoke is tombstone.
+    def _claude_factory(
+        model: str = "claude-haiku-4-5",
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        **_kw: Any,
+    ) -> Any:
+        raise KeyError(
+            "executor 'claude-code' migrated to executor: acp with options.entry='claude-code'"
+        )
 
-            return ClaudeCodeExecutor(
-                model=model, base_url=base_url, api_key_env=api_key
-            )
-
-        _BUILTIN["claude-code"] = _claude_factory
+    _BUILTIN["claude-code"] = _claude_factory
 
 
 def discover_executor_kinds() -> set[str]:
