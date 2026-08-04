@@ -1,4 +1,4 @@
-"""Phase 0 feasibility: offline paths + binary presence (no secret output)."""
+"""ACP entry feasibility: offline paths + PATH readiness (no secret output)."""
 
 from __future__ import annotations
 
@@ -7,25 +7,15 @@ import shutil
 
 import pytest
 
-from bora.adapters.agent_opencode import OpenCodeExecutor
-from bora.adapters.agent_pi import PiExecutor
+from bora.adapters.acp_registry import get_entry, list_entry_ids, readiness_for
+from bora.adapters.agent_acp import AcpExecutor
 from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES
 
 
-def test_pi_offline_forced() -> None:
+def test_acp_offline_forced() -> None:
     os.environ["BORA_OFFLINE_AGENT"] = "1"
     try:
-        r = PiExecutor(model="claude-haiku-4-5").invoke("hi")
-        assert r.ok is False
-        assert r.error == "offline_forced"
-    finally:
-        os.environ.pop("BORA_OFFLINE_AGENT", None)
-
-
-def test_opencode_offline_forced() -> None:
-    os.environ["BORA_OFFLINE_AGENT"] = "1"
-    try:
-        r = OpenCodeExecutor().invoke("hi")
+        r = AcpExecutor(entry_id="opencode", model="entry-default").invoke("hi")
         assert r.ok is False
         assert r.error == "offline_forced"
     finally:
@@ -38,21 +28,32 @@ def test_capability_credential_names_are_locators_only() -> None:
             assert name.isupper() or "_" in name
             assert not name.startswith("sk-")
             assert "=" not in name
+    for eid in list_entry_ids():
+        desc = get_entry(eid)
+        assert desc is not None
+        for name in desc.credential_env_names:
+            assert not name.startswith("sk-")
 
 
 @pytest.mark.skipif(shutil.which("pi") is None, reason="pi not on PATH")
-def test_pi_binary_present() -> None:
+def test_pi_engine_present() -> None:
     assert shutil.which("pi")
 
 
 @pytest.mark.skipif(shutil.which("opencode") is None, reason="opencode not on PATH")
-def test_opencode_binary_present() -> None:
+def test_opencode_entry_present() -> None:
     assert shutil.which("opencode")
 
 
-def test_claude_code_residual_when_missing() -> None:
-    from bora.adapters.agent_registry import discover_executor_kinds
-
-    kinds = discover_executor_kinds()
-    # Required three always registered; claude-code is residual when binary missing.
-    assert {"codex", "pi", "opencode"}.issubset(kinds)
+def test_five_acp_entries_registered() -> None:
+    ids = set(list_entry_ids())
+    assert {"codex", "claude-code", "pi", "opencode", "grok-build"} <= ids
+    for eid in ids:
+        row = readiness_for(get_entry(eid))  # type: ignore[arg-type]
+        assert row["readiness"] in {
+            "ready",
+            "engine-missing",
+            "adapter-missing",
+            "entry-missing",
+            "unsupported-platform",
+        }

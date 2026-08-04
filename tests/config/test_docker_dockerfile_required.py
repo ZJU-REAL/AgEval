@@ -33,8 +33,10 @@ provider:
 
 agent_profiles:
   - id: p1
-    executor: pi
-    model: zai-coding-cn/glm-5.2
+    executor: acp
+    model: entry-default
+    options:
+      entry: pi
 
 limits:
   wall_time_seconds: 60

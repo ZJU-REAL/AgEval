@@ -22,7 +22,7 @@ dev = [
 bora = "bora.cli.main:app"
 
 [project.entry-points."bora.agent_executors"]
-codex = "bora.adapters.agent_registry:_builtin_codex_factory"
+acp = "bora.adapters.agent_registry:_builtin_acp_factory"
 openai-http = "bora.adapters.agent_registry:_builtin_openai_factory"
 
 [build-system]

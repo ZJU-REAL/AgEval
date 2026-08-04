@@ -1,7 +1,7 @@
-"""Built-in executor capability matrix (v0.14).
+"""Built-in executor capability matrix.
 
-Declared capabilities enter lock snapshots; mismatches fail closed before
-Attempt external effects. No benchmark/task branching.
+Spec 19: coding-agent surface is ``acp`` only; ``openai-http`` remains api-client.
+Private vendor CLI kinds are not first-class.
 """
 
 from __future__ import annotations
@@ -24,7 +24,6 @@ class ExecutorCapabilities:
     session: SessionCap
     stream: StreamCap
     execution_mode: ExecutionMode
-    # Host-native credential env names (locators only — never values).
     credential_env_names: tuple[str, ...]
     binary: str
 
@@ -32,7 +31,6 @@ class ExecutorCapabilities:
         return asdict(self)
 
 
-# Frozen from Phase 0 host CLI probes (2026-08-03) + Spec 19 ACP inlet.
 BUILTIN_CAPABILITIES: Final[dict[str, ExecutorCapabilities]] = {
     "acp": ExecutorCapabilities(
         kind="acp",
@@ -44,63 +42,6 @@ BUILTIN_CAPABILITIES: Final[dict[str, ExecutorCapabilities]] = {
         # Entry-specific credential allowlists live on AcpEntryDescriptor.
         credential_env_names=(),
         binary="",
-    ),
-    "codex": ExecutorCapabilities(
-        kind="codex",
-        tools="native",
-        structured_output="validated-text",
-        session="new-only",
-        stream="native-events",
-        execution_mode="cli-process",
-        credential_env_names=(),  # host login / CODEX_* via existing session
-        binary="codex",
-    ),
-    "pi": ExecutorCapabilities(
-        kind="pi",
-        tools="native",
-        structured_output="validated-text",
-        session="new-only",
-        stream="native-events",
-        execution_mode="cli-process",
-        # From `pi --help` Environment Variables; Zhipu coding plan aliases.
-        credential_env_names=(
-            "ZAI_API_KEY",
-            "ZAI_CODING_CN_API_KEY",
-            "ZHIPU_API_KEY",
-            "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY",
-            "ANTHROPIC_AUTH_TOKEN",
-            "XAI_API_KEY",
-        ),
-        binary="pi",
-    ),
-    "opencode": ExecutorCapabilities(
-        kind="opencode",
-        tools="native",
-        structured_output="validated-text",
-        session="new-only",
-        stream="native-events",
-        execution_mode="cli-process",
-        credential_env_names=(
-            "ZHIPU_API_KEY",
-            "OPENAI_API_KEY",
-            "ANTHROPIC_API_KEY",
-            "ANTHROPIC_AUTH_TOKEN",
-            "OPENCODE_API_KEY",
-            "XAI_API_KEY",
-        ),
-        binary="opencode",
-    ),
-    # Residual: registered only when executable is on PATH (Phase 1 optional).
-    "claude-code": ExecutorCapabilities(
-        kind="claude-code",
-        tools="native",
-        structured_output="validated-text",
-        session="new-only",
-        stream="synthetic-lifecycle",
-        execution_mode="cli-process",
-        credential_env_names=("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"),
-        binary="claude",
     ),
     "openai-http": ExecutorCapabilities(
         kind="openai-http",
@@ -120,8 +61,9 @@ def get_capabilities(kind: str) -> ExecutorCapabilities | None:
 
 
 def required_kinds_for_v014() -> frozenset[str]:
-    return frozenset({"codex", "pi", "opencode"})
+    """Historical name: coding-agent surface is now ACP."""
+    return frozenset({"acp"})
 
 
 def residual_kinds() -> frozenset[str]:
-    return frozenset({"claude-code"})
+    return frozenset()

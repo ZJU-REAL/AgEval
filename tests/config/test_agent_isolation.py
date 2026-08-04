@@ -48,8 +48,10 @@ provider:
         shared_write: [workspace/team]
 agent_profiles:
   - id: p1
-    executor: codex
-    model: gpt-5.4-mini
+    executor: acp
+    model: entry-default
+    options:
+      entry: codex
 limits:
   wall_time_seconds: 60
   agent_invocations: 2

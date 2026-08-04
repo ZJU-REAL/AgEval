@@ -126,8 +126,7 @@ BORA/
 │       ├── agent_acp.py       # Current: 唯一 typed ACP client（parent）
 │       ├── acp_entries.json   # Current: static entry pins / descriptors
 │       ├── acp_registry.py    # Current: registry + readiness
-│       ├── agent_container.py # L1 residual private CLI; ACP path uses docker exec attach
-│       ├── agent_codex.py     # Residual module (factory tombstone → acp)
+│       ├── agent_container.py # L1 placement helpers / opaque target id
 │       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── examples/                  # 见 examples/README.md
@@ -162,9 +161,8 @@ BORA/
 │   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
 │       ├── agent_acp.py       # 唯一 ACP client（parent；Spec 19 Current）
 │       ├── acp_entries.json   # entry descriptor + exact pins
-│       ├── agent_container.py # L1 placement residual; ACP attach via docker exec
-│       ├── agent_openai_http.py
-│       └── agent_* residual   # private CLI modules quarantine / tombstone
+│       ├── agent_container.py # L1 placement helpers
+│       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core：HarnessContext 等（可选 import）
 ├── examples/                  # 仓库拥有的回归 package
 ├── tests/                     # unit / integration / opt-in e2e

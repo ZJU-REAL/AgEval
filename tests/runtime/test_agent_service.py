@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from bora.adapters.agent_codex import AgentResult
+from bora.adapters.agent_contract import AgentResult
 from bora.runtime.agent_service import (
     AgentServiceServer,
     ParentAgentService,

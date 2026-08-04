@@ -1,7 +1,4 @@
-"""Stable Agent outlet contract shared by ACP and residual executors.
-
-``AgentResult`` previously lived in ``agent_codex``; Spec 19 moves the type to a
-vendor-neutral module so ACP / openai-http / temporary residuals share one outlet.
+"""Stable Agent outlet contract shared by ACP and openai-http executors.
 """
 
 from __future__ import annotations

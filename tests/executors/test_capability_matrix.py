@@ -1,7 +1,8 @@
-"""Built-in executor capability matrix freeze (v0.14 Phase 0)."""
+"""Executor capability matrix — ACP + openai-http only."""
 
 from __future__ import annotations
 
+from bora.adapters.agent_acp import AcpExecutor
 from bora.adapters.agent_registry import discover_executor_kinds, resolve_executor
 from bora.adapters.executor_capabilities import (
     BUILTIN_CAPABILITIES,
@@ -10,19 +11,25 @@ from bora.adapters.executor_capabilities import (
 )
 
 
-def test_required_kinds_registered() -> None:
+def test_acp_kind_registered() -> None:
     kinds = discover_executor_kinds()
-    for k in required_kinds_for_v014():
-        assert k in kinds
-        assert get_capabilities(k) is not None
+    assert "acp" in kinds
+    assert "openai-http" in kinds
+    assert "codex" not in kinds
+    assert "pi" not in kinds
+    assert get_capabilities("acp") is not None
+    assert get_capabilities("acp").execution_mode == "acp-stdio"  # type: ignore[union-attr]
+
+
+def test_required_surface_is_acp() -> None:
+    assert required_kinds_for_v014() == frozenset({"acp"})
 
 
 def test_capability_fields_frozen() -> None:
-    for kind in ("codex", "pi", "opencode"):
+    for kind in ("acp", "openai-http"):
         cap = BUILTIN_CAPABILITIES[kind]
         assert cap.stream in {"native-events", "synthetic-lifecycle"}
-        assert cap.execution_mode in {"cli-process", "api-client"}
-        assert cap.structured_output in {"native", "validated-text", "unsupported"}
+        assert cap.execution_mode in {"cli-process", "api-client", "acp-stdio"}
 
 
 def test_unknown_kind_keyerror() -> None:
@@ -33,8 +40,16 @@ def test_unknown_kind_keyerror() -> None:
         pass
 
 
-def test_resolve_pi_and_opencode_constructors() -> None:
-    pi = resolve_executor("pi", model="claude-haiku-4-5")
-    assert getattr(pi, "kind", None) == "pi" or type(pi).__name__ == "PiExecutor"
-    oc = resolve_executor("opencode", model="zai-coding-plan/glm-4.7")
-    assert getattr(oc, "kind", None) == "opencode" or type(oc).__name__ == "OpenCodeExecutor"
+def test_private_kinds_gone() -> None:
+    for kind in ("codex", "pi", "opencode", "claude-code"):
+        try:
+            resolve_executor(kind, model="x")
+            raise AssertionError(f"{kind} must KeyError")
+        except KeyError:
+            pass
+
+
+def test_resolve_acp_constructor() -> None:
+    ex = resolve_executor("acp", model="entry-default", entry="opencode")
+    assert isinstance(ex, AcpExecutor)
+    assert ex.entry_id == "opencode"
