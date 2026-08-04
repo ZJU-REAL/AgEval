@@ -356,6 +356,27 @@ def submit_command(
     )
 
 
+@app.command("executors")
+def executors_command(
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Include capability detail (tools/session + default credential env names).",
+        ),
+    ] = False,
+) -> None:
+    """List supported agent executor kinds and whether host binaries are on PATH.
+
+    Thin CLI: inventory logic lives in ``bora.adapters.executor_inventory``.
+    """
+    from bora.adapters.executor_inventory import build_executor_inventory
+
+    summary = build_executor_inventory(verbose=verbose)
+    typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+
+
 @app.command("lock")
 def lock_command(
     package: Annotated[
