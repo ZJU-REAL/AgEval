@@ -13,7 +13,7 @@ ToolsCap = Literal["native", "adapter-loop", "unsupported"]
 StructuredCap = Literal["native", "validated-text", "unsupported"]
 SessionCap = Literal["new-only", "resume-within-attempt", "unsupported"]
 StreamCap = Literal["native-events", "synthetic-lifecycle"]
-ExecutionMode = Literal["cli-process", "api-client"]
+ExecutionMode = Literal["cli-process", "api-client", "acp-stdio"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,8 +32,19 @@ class ExecutorCapabilities:
         return asdict(self)
 
 
-# Frozen from Phase 0 host CLI probes (2026-08-03).
+# Frozen from Phase 0 host CLI probes (2026-08-03) + Spec 19 ACP inlet.
 BUILTIN_CAPABILITIES: Final[dict[str, ExecutorCapabilities]] = {
+    "acp": ExecutorCapabilities(
+        kind="acp",
+        tools="native",
+        structured_output="validated-text",
+        session="new-only",
+        stream="native-events",
+        execution_mode="acp-stdio",
+        # Entry-specific credential allowlists live on AcpEntryDescriptor.
+        credential_env_names=(),
+        binary="",
+    ),
     "codex": ExecutorCapabilities(
         kind="codex",
         tools="native",

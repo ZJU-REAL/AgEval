@@ -52,6 +52,7 @@ class DeclarationCapabilityCatalog:
     PROVIDER_KINDS: frozenset[str] = frozenset({"local", "docker"})
     EXECUTOR_KINDS: frozenset[str] = frozenset(
         {
+            "acp",  # Spec 19: coding-agent unified inlet
             "codex",
             "claude",
             "claude-code",
