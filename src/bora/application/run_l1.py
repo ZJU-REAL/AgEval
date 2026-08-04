@@ -346,11 +346,17 @@ def run_l1_sdk_session_attempt(
         child_env = _cli_env_for_container(
             str(entry_id), api_key_env=api_key_env, base_url=base_url
         )
-        child_env["HOME"] = phys.home_container
-        child_env["CODEX_HOME"] = f"{phys.home_container}/.codex"
-        child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
+        home = phys.home_container
+        child_env["HOME"] = home
+        child_env["CODEX_HOME"] = f"{home}/.codex"
+        # Force container PATH (projection never carries host PATH after fix).
+        child_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
         child_env.setdefault("TERM", "xterm")
-        child_env.setdefault("NO_BROWSER", "1")
+        child_env["NO_BROWSER"] = "1"
+        child_env.setdefault("XDG_CONFIG_HOME", f"{home}/.config")
+        child_env.setdefault("XDG_CACHE_HOME", f"{home}/.cache")
+        child_env.setdefault("XDG_STATE_HOME", f"{home}/.local/state")
+        child_env.setdefault("XDG_DATA_HOME", f"{home}/.local/share")
         for k, v in desc.fixed_env.items():
             child_env.setdefault(str(k), str(v))
         workdir = "/attempt/workspace"
@@ -1229,7 +1235,12 @@ def _run_agent_executor_container(
 def _cli_env_for_container(
     kind: str, *, api_key_env: str | None, base_url: str | None
 ) -> dict[str, str]:
-    """Project host credentials into docker ``-e`` (values never logged)."""
+    """Project host credentials into docker ``-e`` (values never logged).
+
+    Never copy host ``PATH`` / ``HOME`` / ``XDG_*`` — those are macOS/Linux host
+    paths and break in-container engines (e.g. opencode ``mkdir /Users``).
+    Callers set container ``HOME`` / ``PATH`` after this returns.
+    """
     from bora.adapters.child_env import project_cli_child_env
 
     if kind in {"codex"}:
@@ -1247,7 +1258,7 @@ def _cli_env_for_container(
         api_key_env=api_key_env,
         base_url=base_url,
     )
-    # Drop non-credential noise for docker -e (keep keys that matter).
+    # Credential + terminal locale only — no host filesystem path env.
     keep_prefixes = (
         "ZAI_",
         "ZHIPU",
@@ -1255,15 +1266,27 @@ def _cli_env_for_container(
         "ANTHROPIC_",
         "OPENCODE_",
         "XAI_",
-        "PATH",
-        "HOME",
         "LANG",
         "TERM",
+        "LC_",
     )
+    host_path_denylist = {
+        "PATH",
+        "HOME",
+        "XDG_DATA_HOME",
+        "XDG_CONFIG_HOME",
+        "XDG_CACHE_HOME",
+        "XDG_STATE_HOME",
+        "TMPDIR",
+        "TEMP",
+        "TMP",
+    }
     out = {
         k: v
         for k, v in projected.items()
-        if v and (k.startswith(keep_prefixes) or (api_key_env and k == api_key_env))
+        if v
+        and k not in host_path_denylist
+        and (k.startswith(keep_prefixes) or (api_key_env and k == api_key_env))
     }
     return out
 
@@ -1432,14 +1455,20 @@ def _run_acp_in_package_image(
         entry_id, api_key_env=api_key_env, base_url=base_url
     )
     # Writable actor HOME (not under RO /creds mount) — engines need RW state dirs.
+    # Force container paths (never host PATH/HOME from projection).
     child_env["HOME"] = "/actor-home"
-    child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
-    child_env.setdefault("NO_BROWSER", "1")
+    child_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
+    child_env["NO_BROWSER"] = "1"
     child_env["CODEX_HOME"] = "/actor-home/.codex"
+    child_env["XDG_CONFIG_HOME"] = "/actor-home/.config"
+    child_env["XDG_CACHE_HOME"] = "/actor-home/.cache"
+    child_env["XDG_STATE_HOME"] = "/actor-home/.local/state"
     if (cred_root / "pi_home" / "agent" / "auth.json").is_file():
-        child_env.setdefault("PI_CONFIG_DIR", "/creds/pi_home")
+        child_env["PI_CONFIG_DIR"] = "/creds/pi_home"
     if (cred_root / "opencode" / "auth.json").is_file():
-        child_env.setdefault("XDG_DATA_HOME", "/creds")
+        child_env["XDG_DATA_HOME"] = "/creds"
+    else:
+        child_env["XDG_DATA_HOME"] = "/actor-home/.local/share"
     for k, v in desc.fixed_env.items():
         child_env.setdefault(str(k), str(v))
 
@@ -1534,12 +1563,29 @@ def _run_acp_in_package_image(
         if structured is None and result.text:
             structured = _parse_json_from_text(result.text)
         ok = bool(result.ok)
-        if write_workspace_file and isinstance(structured, dict):
-            (workspace / workspace_output_name).write_text(
-                json.dumps(structured, sort_keys=True) + "\n", encoding="utf-8"
-            )
-        elif write_workspace_file and not isinstance(structured, dict):
-            ok = False
+        if write_workspace_file:
+            out_path = workspace / workspace_output_name
+            # Terminal-class: prefer agent-written workspace file when present
+            # (instruction asks for aggregates.json + optional status JSON).
+            # Only materialize from ACP structured when it looks like the artifact
+            # (not a bare {"status":"completed"} ack).
+            if out_path.is_file():
+                ok = True
+            elif isinstance(structured, dict) and (
+                "status" not in structured
+                or len(structured) > 1
+                or any(k != "status" for k in structured)
+            ):
+                # Heuristic: multi-key or non-status payload → treat as artifact.
+                if "status" in structured and set(structured.keys()) <= {"status", "note"}:
+                    ok = False
+                else:
+                    out_path.write_text(
+                        json.dumps(structured, sort_keys=True) + "\n", encoding="utf-8"
+                    )
+                    ok = True
+            else:
+                ok = False
         traj: dict[str, Any] = {}
         if evidence_root is not None:
             traj = _persist_l1_agent_trajectory(
