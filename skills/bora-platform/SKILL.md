@@ -36,9 +36,10 @@ Conflict → stop; fix the highest authority artifact first, then sync downstrea
 
 1. **Trajectory ≠ PASS** — only independent evaluator may form PASS. Missing trajectory must not invent PASS.
 2. **No secrets** in lock, package yaml, evidence, export, or examples. Env vars are locators only.
-3. **Adapters** named by mechanism/protocol/resource (`codex`, `pi`, `postgresql`, docker) — never Benchmark/task/domain names.
+3. **Adapters** named by mechanism/protocol/resource (`acp`, `openai-http`, `postgresql`, docker; ACP **entries** `codex`/`pi`/…) — never Benchmark/task/domain names.
 4. **Do not claim** suite-wide `isolated` or `real-benchmark-verified` from one happy path.
 5. **Skills only describe shipped surfaces** — never invent CLI flags or Core APIs.
+6. **Coding-agent Target:** `executor: acp` + `options.entry` — not private CLI `executor: codex|pi|…`.
 
 ## Evidence grades (honest)
 

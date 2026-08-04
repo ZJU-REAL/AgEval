@@ -3,7 +3,8 @@
 | Antipattern | Do instead |
 | --- | --- |
 | Treat `completed` as PASS | Independent evaluator only |
-| `if executor == "codex":` in harness for Core policy | Switch `agent_profiles` / `active_profile` |
+| `if executor == "codex":` / `if entry == "pi":` for Core policy | Switch `agent_profiles` / `active_profile` / `parameters.roles` |
+| Write `executor: codex` in package yaml | `executor: acp` + `options.entry: codex` (etc.) |
 | Read `~/.codex/auth.json` or print secrets | Rely on Runtime projection |
 | Write training JSON by hand under package | Use Agent Service trajectory under Result.logs |
 | Soft CallLimit as the only hard ceiling | `limits.agent_invocations` in yaml (Runtime) |

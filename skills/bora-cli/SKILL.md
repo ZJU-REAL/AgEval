@@ -4,10 +4,10 @@ description: >
   Operate BORA public CLI (bora lock/run/executors/campaign/evidence/status/submit/cancel):
   install with uv, command flags, allowlisted --set pointers, exit codes, Result.logs
   trajectory locator, offline fail-closed (BORA_OFFLINE_AGENT), list supported executor
-  kinds and host binary readiness, and which example packages to run. Use when the agent
-  must lock a package, run an Attempt, list agent_profiles.executor values, export
-  trajectory, interpret PASS/FAIL/ERROR, debug CLI output, or choose a public smoke.
-  Trigger phrases: "bora run", "bora lock", "bora executors", "which executor",
+  kinds and ACP entry readiness, and which example packages to run. Use when the agent
+  must lock a package, run an Attempt, list agent_profiles.executor / options.entry values,
+  export trajectory, interpret PASS/FAIL/ERROR, debug CLI output, or choose a public smoke.
+  Trigger phrases: "bora run", "bora lock", "bora executors", "which executor", "ACP entry",
   "export trajectory", "Result.logs", "exit code", "offline agent", "switch profile".
   Do not invent flags not in production.
 ---
@@ -27,28 +27,38 @@ uv run bora --help
 
 | Command | Use for |
 | --- | --- |
-| `bora executors` | Supported `executor:` kinds + host PATH binary probe (JSON) |
-| `bora executors -v` | Same + tools/session + default credential env *names* |
+| `bora executors` | Supported `executor:` kinds + host readiness; ACP entry probe (JSON) |
+| `bora executors -v` | Same + tools/session + default credential env *names* + entry detail |
 | `bora lock <package> --task <id>` | Config lock summary (no Agent) |
 | `bora lock ... --set /parameters/seed=7` | Allowlisted override |
 | `bora run <package> --task <id>` | One foreground Attempt |
-| `bora run ... --set '/parameters/active_profile="pi-mini"'` | Profile switch (allowlisted) |
+| `bora run ... --set '/parameters/active_profile="pi-acp"'` | Profile switch (allowlisted) |
 | `bora campaign <package> --task <id> --matrix ...` | Serial parameter matrix (partial) |
 | `bora evidence <logs-path> --out <dir>` | Sealed trajectory export (no score change) |
 | `bora submit` / `bora status` / `bora cancel` | Durable control sketch (v0.12) |
 
 Discover flags with `uv run bora <cmd> --help`. Source of truth: `src/bora/cli/main.py`.
 
-### Which `executor:` values can I use?
+### Which `executor:` / ACP `entry` values?
 
 ```bash
 uv run bora executors
-# .supported     = adapters this install provides (yaml executor values)
-# .host_ready    = kinds that can actually run here (CLI on PATH, or api-client)
-# .missing_binary = CLI kinds whose binary is not on PATH
+# .supported     = agent_profiles[].executor values (e.g. acp, openai-http)
+# .acp_entries   = options.entry ids + engine/acp binary readiness
+# .host_ready    = kinds that can actually run here
+# .missing_binary = (legacy CLI kinds only; ACP uses per-entry readiness)
 ```
 
-Do **not** hardcode a fixed list; entry-point plugins can extend `supported`.
+Coding-agent packages use:
+
+```yaml
+executor: acp
+options:
+  entry: opencode   # or codex | claude-code | pi | grok-build | …
+```
+
+Do **not** hardcode a fixed list; inventory is authoritative. Do **not** use
+`executor: codex|pi|opencode|claude-code` (migrated to ACP entry).
 
 ## Allowlisted `--set` pointers
 
@@ -61,7 +71,7 @@ Only these (see Config Core):
 - `/limits/environment_actions`
 - `/limits/memory_mb`
 
-Value after `=` is JSON (strings need quotes): `--set '/parameters/active_profile="codex-mini"'`.
+Value after `=` is JSON (strings need quotes): `--set '/parameters/active_profile="opencode-acp"'`.
 
 ## Exit codes
 
@@ -91,11 +101,13 @@ Must not PASS agent packages. Typed errors only.
 
 | Goal | Command |
 | --- | --- |
-| List executors | `uv run bora executors` |
+| List executors / ACP entries | `uv run bora executors` / `uv run bora executors -v` |
 | Lock only | `uv run bora lock examples/core/config-minimal --task config-minimal` |
+| ACP multi-turn (host) | `uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance` |
+| ACP entry switch | `… --set '/parameters/active_profile="pi-acp"'` (or `opencode-acp` / `grok-build-acp` / …) |
 | Trajectory | `uv run bora run examples/core/attempt-trajectory --task attempt-trajectory` |
-| Profile switch | `uv run bora run examples/core/builtin-executor-conformance --task builtin-executor-conformance --set '/parameters/active_profile="pi-mini"'` |
 | Hard ceiling | `uv run bora run examples/core/hard-ceiling-trajectory --task hard-ceiling-trajectory` |
+| L1 ACP placement | `uv run bora run examples/l1/acp-agent-placement --task acp-agent-placement` |
 | L1 visibility | `uv run bora run examples/l1/builtin-executor-visibility --task builtin-executor-visibility` |
 
 ## Detail
