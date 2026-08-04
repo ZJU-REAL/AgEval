@@ -18,10 +18,14 @@ provider:
 
 agent_profiles:
   - id: codex-mini
-    executor: codex
+    executor: acp
+    options:
+      entry: codex
     model: gpt-5.4-mini
   - id: codex-reviewer
-    executor: codex
+    executor: acp
+    options:
+      entry: codex
     model: gpt-5.4-mini
 
 limits:

@@ -13,7 +13,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
-from bora.adapters.agent_codex import AgentResult
+from bora.adapters.agent_contract import AgentResult
 
 _DEFAULT_BASE = "https://api.openai.com/v1"
 _DEFAULT_KEY_ENV = "OPENAI_API_KEY"

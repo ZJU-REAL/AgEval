@@ -6,24 +6,43 @@ harness:
   entrypoint: harness:run
 
 parameters:
+  # Type-B terminal class: Runtime seeds workspace from data/, runs ACP agent
+  # with cwd=workspace, collects declared relative file (not use_agent_session).
   workspace_output: aggregates.json
-  agent_timeout_seconds: 300
+  agent_timeout_seconds: 420
   models:
-    default: codex-mini
+    default: terminal-pi
 
 provider:
   kind: docker
   assurance: l1
   platform: linux/arm64
-  network: none
+  # Residual ACP agent container uses bridge for model API; package policy
+  # still filters evaluation/ from the harness mount.
+  network: bridge
 
 agent_profiles:
-  - id: codex-mini
-    executor: codex
-    model: gpt-5.4-mini
+  # Default L1 coding agent via unified ACP (pi Mode 1 — host-proven in image).
+  - id: terminal-pi
+    executor: acp
+    options:
+      entry: pi
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key
+  - id: terminal-opencode
+    executor: acp
+    options:
+      entry: opencode
+    model: zai-coding-plan/glm-5.2
+    api_key: glm_coding_api_key
+  - id: terminal-grok
+    executor: acp
+    options:
+      entry: grok-build
+    model: entry-default
 
 limits:
-  wall_time_seconds: 600
+  wall_time_seconds: 720
   agent_invocations: 1
   environment_actions: 0
 

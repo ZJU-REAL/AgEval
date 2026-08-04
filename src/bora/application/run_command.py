@@ -78,7 +78,7 @@ async def run_task(
     agent_sock_path = None
     shared_attempt = None  # Runtime-owned Attempt shared with harness worker
     if use_agent_session and agent_profile is not None:
-        from bora.adapters.agent_openai_http import resolve_executor
+        from bora.adapters.agent_registry import resolve_executor
         from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
 
         limits = thaw(lock.limits) if hasattr(lock, "limits") else {}
@@ -171,7 +171,7 @@ async def run_task(
         from bora.adapters.agent_openai_http import resolve_executor
 
         model = str(agent_profile.get("model") or "gpt-5.4-mini")
-        kind = str(agent_profile.get("executor") or "codex")
+        kind = str(agent_profile.get("executor") or "acp")
         question = str(params.get("question") or 'Return JSON {"answer": 42}')
         try:
             executor = resolve_executor(

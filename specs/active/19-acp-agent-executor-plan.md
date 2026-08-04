@@ -23,11 +23,11 @@
 | User decision required | `no` |
 | Ready for acceptance now | `no` |
 | Current blockers | `0` |
-| Potential blockers | `4` |
+| Potential blockers | `0` |
 
-- Next action: 关 Phase 0 余下工程项——`uv run bora executors -v` baseline + 本机 pin/protocol probe（R1–R3）；通过后 Phase 1 写 registry/`src/`。
-- **产品决策已关（2026-08-04 会话）**：local decisions 1–8 + Constitution + 实施授权均已确认。表内曾长期写 `User decision required: yes` 是**过时关闸**，不是还有悬案。
-- Spec 整包尚未 acceptance：Phase 0 probe / 实现未完；**不**再要求新的产品选择。
+- Next action: 关闭 Phase 5 余下项——private 模块 quarantine / architecture 强化 / Spec-required 测试矩阵 / ARCHITECTURE Current 同步；修复后重跑验收。
+- **已完成切片（2026-08-04）**：Phase 0–4 — registry/client；host OpenCode/Codex/Pi public PASS；L1 BOM 五 entry；`examples/l1/acp-agent-placement` PASS (`assurance:l1`, `host_fallback_count:0`)。
+- Spec 整包尚未 acceptance：Phase 5 private scrape 删除与全 example 迁移、architecture gate、Skills/docs 收口。
 
 ### Current blockers
 
@@ -35,10 +35,7 @@
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 0–2): OpenCode native ACP 在 batch policy 下尚未 real probe。
-- `R2` (Owner: Agent / Phase 0–3): Codex/Claude/Pi Mode 1 auth/model 与 actor-UID 工具执行须 real probe。
-- `R3` (Owner: Agent / Phase 0–3): Grok pin `0.2.120` vs npm stable 须 real probe；失败再记 `BLOCKED` 问用户改 pin。
-- `R4` (Owner: Agent / Phase 4): L1 容器内 ACP entry lifecycle 须 real Docker probe。
+- None
 
 ### Local decisions（已接受 — 实施边界）
 
@@ -61,11 +58,11 @@
 
 ## Phases
 
-- [ ] Phase 0: 设计权威、配置表面与 protocol/pin probe 同步
-- [ ] Phase 1: ACP entry registry、lock snapshot 与 inventory readiness
-- [ ] Phase 2: 单一 ACP client MVP（Mode 2 OpenCode）
-- [ ] Phase 3: Mode 1 Codex/Claude 与 Mode 3 Grok Build
-- [ ] Phase 4: Docker L1 placement 与 host/container client parity
+- [x] Phase 0: 设计权威、配置表面与 protocol/pin probe 同步
+- [x] Phase 1: ACP entry registry、lock snapshot 与 inventory readiness
+- [x] Phase 2: 单一 ACP client MVP（Mode 2 OpenCode）
+- [x] Phase 3: Mode 1 Codex/Claude 与 Mode 3 Grok Build
+- [x] Phase 4: Docker L1 placement 与 host/container client parity
 - [ ] Phase 5: 迁移 examples、弃用 vendor private scrape 与状态收口
 
 ## Background
@@ -679,3 +676,23 @@ git diff --check
 - [x] 用户批准 Constitution 与本 Spec local decisions 1–8（会话确认 2026-08-04：entry 形态、Pi 纳入、L1 bake-in、permission auto-approve + OS 边界）。
 - [x] 用户授权按本 Spec 推进 production 实施（同一会话；非「仅文档」）。
 - [ ] Spec 整包 acceptance（Phase 0–5 证据齐）— 实现后勾选，**不**再要求新的产品决策。
+
+
+### Closed risks (audit; not potential blockers)
+
+- R1–R4 closed via host five-entry PASS + L1 placement PASS + image BOM (2026-08-04).
+
+## Evidence (implementation progress)
+
+| Smoke | Result |
+| --- | --- |
+| Host `opencode-acp` | PASS |
+| Host `codex-acp` | PASS |
+| Host `pi-acp` | PASS |
+| Host `claude-acp` | PASS |
+| Host `grok-build-acp` | PASS |
+| L1 `examples/l1/acp-agent-placement` | PASS, `assurance:l1`, `execution_location=attempt-container`, `host_fallback_count=0` |
+| Image BOM actor UID PATH | codex, codex-acp, pi, pi-acp, opencode, claude, claude-agent-acp, grok |
+| Inventory five ACP entries | all `ready` on implementer host after pin install |
+
+**Not claimed:** Roadmap `v0.19` Version Index; suite-wide `isolated`; Phase 5 private scrape removal complete.

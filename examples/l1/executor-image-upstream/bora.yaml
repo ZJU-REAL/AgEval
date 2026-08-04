@@ -16,7 +16,9 @@ provider:
 
 agent_profiles:
   - id: pi-glm
-    executor: pi
+    executor: acp
+    options:
+      entry: pi
     model: zai-coding-cn/glm-5.2
     api_key: glm_coding_api_key
 

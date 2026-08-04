@@ -8,6 +8,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "typer>=0.16.0",
     "bora-sdk",
+    "agent-client-protocol==0.12.0",
 ]
 
 [project.optional-dependencies]
@@ -21,7 +22,7 @@ dev = [
 bora = "bora.cli.main:app"
 
 [project.entry-points."bora.agent_executors"]
-codex = "bora.adapters.agent_registry:_builtin_codex_factory"
+acp = "bora.adapters.agent_registry:_builtin_acp_factory"
 openai-http = "bora.adapters.agent_registry:_builtin_openai_factory"
 
 [build-system]

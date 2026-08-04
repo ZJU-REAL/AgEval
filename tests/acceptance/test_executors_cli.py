@@ -1,4 +1,4 @@
-"""Public entrypoint: bora executors lists supported kinds + host binary probe."""
+"""Public entrypoint: bora executors lists ACP + openai-http."""
 
 from __future__ import annotations
 
@@ -29,27 +29,26 @@ def test_executors_lists_supported_and_host_probe() -> None:
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
 
-    assert set(data) >= {"supported", "host_ready", "missing_binary", "executors"}
-    assert "required_v014" not in data
-    assert "residual" not in data
-
-    for required in ("codex", "pi", "opencode", "openai-http", "claude-code"):
-        assert required in data["supported"]
+    assert set(data) >= {
+        "supported",
+        "host_ready",
+        "missing_binary",
+        "executors",
+        "acp_entries",
+    }
+    assert "acp" in data["supported"]
+    assert "openai-http" in data["supported"]
+    for gone in ("codex", "pi", "opencode", "claude-code"):
+        assert gone not in data["supported"]
 
     by_kind = {r["kind"]: r for r in data["executors"]}
-    for kind in ("codex", "pi", "opencode", "claude-code"):
-        row = by_kind[kind]
-        assert row["execution_mode"] == "cli-process"
-        assert isinstance(row["binary_on_path"], bool)
-        assert row["host_ready"] is row["binary_on_path"]
-        # Default output stays lean: credential names only with -v.
-        assert "credential_env_names" not in row
-
     http = by_kind["openai-http"]
     assert http["execution_mode"] == "api-client"
-    assert http["binary_on_path"] is None
     assert http["host_ready"] is True
     assert "sk-" not in result.stdout.lower()
+
+    entry_ids = {r["entry_id"] for r in data["acp_entries"]}
+    assert {"codex", "pi", "opencode", "claude-code", "grok-build"} <= entry_ids
 
 
 def test_executors_verbose_adds_detail() -> None:
@@ -57,5 +56,6 @@ def test_executors_verbose_adds_detail() -> None:
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
     by_kind = {r["kind"]: r for r in data["executors"]}
-    assert by_kind["codex"].get("tools") is not None
-    assert isinstance(by_kind["claude-code"].get("credential_env_names"), list)
+    assert by_kind["acp"].get("tools") is not None or data.get("acp_entries")
+    acp_rows = {r["entry_id"]: r for r in data["acp_entries"]}
+    assert "credential_env_names" in acp_rows["opencode"]

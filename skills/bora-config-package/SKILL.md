@@ -21,7 +21,7 @@ my-package/
 ├── bora.yaml              # required
 ├── harness.py             # or path from harness.entrypoint
 ├── evaluator.py           # independent scorer
-├── environment/           # optional seed.sql (resource protocol)
+├── environment/           # optional seed.sql (resource protocol); Docker L1 needs Dockerfile
 ├── evaluation/            # gold / hidden — not for Agent mount
 ├── lib/                   # package-local tools/helpers
 └── data/                  # optional seeds for workspace tasks
@@ -39,16 +39,25 @@ harness:
 
 parameters:
   use_agent_session: true   # parent Agent Service multi-invoke
-  # active_profile: codex-mini   # optional; overridable via CLI --set
+  # active_profile: opencode-acp   # optional; overridable via CLI --set
 
 provider:
   kind: local               # or docker for L1
   assurance: l0             # docker L1 packages use assurance: l1 intent
 
 agent_profiles:
-  - id: codex-mini
-    executor: codex         # see: uv run bora executors  → .supported
-    model: gpt-5.4-mini
+  # Coding agents (Spec 19): executor: acp + options.entry — NOT executor: codex|pi|…
+  - id: opencode-acp
+    executor: acp
+    model: entry-default    # or a provider-qualified model id
+    options:
+      entry: opencode       # registry: codex | claude-code | pi | opencode | grok-build
+  - id: pi-acp
+    executor: acp
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key   # env *locator name* only
+    options:
+      entry: pi
 
 limits:
   wall_time_seconds: 300
@@ -73,6 +82,16 @@ evaluation:
     format: json
 ```
 
+HTTP / non-ACP profile example:
+
+```yaml
+  - id: glm-coding
+    executor: openai-http
+    model: glm-4.7
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
+    api_key: zhipu_coding_api_key
+```
+
 ## Ownership rules
 
 | Field | Consumer |
@@ -82,26 +101,31 @@ evaluation:
 | gold under `evaluation/` | Clean evaluator after barrier — **not** Agent/Harness mount |
 
 - Never put API keys or passwords in yaml.
-- Do not branch harness on executor kind for Core behavior; switch profile instead.
-- Adapter modules must stay mechanism-named.
+- Do not branch harness on executor kind / ACP entry for Core behavior; switch profile instead.
+- Adapter modules must stay mechanism-named (`acp`, `postgresql`, docker) — not benchmark names.
 
-## Which `executor` values?
+## Which `executor` / ACP `entry` values?
 
 ```bash
-uv run bora executors          # .supported + PATH binary probe
-uv run bora executors -v       # + capability fields
+uv run bora executors          # .supported + host readiness
+uv run bora executors -v       # + acp_entries[] (entry_id, engine/acp readiness, credential env *names*)
 ```
 
-- `.supported` — kinds this BORA install provides (write these in yaml)
-- `.host_ready` — can actually run here (binary on PATH, or pure HTTP adapter)
-- `.missing_binary` — need to install/export that CLI first
+| Surface | Meaning |
+| --- | --- |
+| `.supported` | Valid `agent_profiles[].executor` values (this install): typically `acp`, `openai-http`, … |
+| `.acp_entries[]` | When `executor: acp`, valid `options.entry` ids + host binary readiness |
+| `.host_ready` | Kinds that can run here (ACP needs at least one ready entry; HTTP needs no CLI) |
 
-Do not invent kinds.
+**Target (coding agents):** `executor: acp` + `options.entry: <registry-id>`.  
+**Do not** write `executor: codex|pi|opencode|claude-code` — lock fails (`unsupported_capability`) or L1 fails (`migrated_to_acp`).
+
+Do not invent kinds or entry ids.
 
 ## Profile switch without harness edits
 
-1. Add/edit `agent_profiles` entries.
-2. Or CLI: `bora run ... --set '/parameters/active_profile="pi-mini"'` (allowlisted).
+1. Add/edit `agent_profiles` entries (and optional `parameters.roles` / `active_profile`).
+2. Or CLI: `bora run ... --set '/parameters/active_profile="pi-acp"'` (allowlisted).
 
 ## Detail
 

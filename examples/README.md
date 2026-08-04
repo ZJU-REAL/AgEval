@@ -25,12 +25,15 @@ uv run bora run  examples/<category>/<package> --task <task_id>
 Product-shaped packages that map v1 benchmark *classes* onto BORA Core surfaces
 (not `*BenchAdapter` clones). Prefer these when validating “can we run real work”.
 
-| Package | Case class | Surfaces |
-| --- | --- | --- |
-| [`env-postgres-min`](journeys/env-postgres-min/) | Environment + DB tool smoke | Environment Manager, package seed, `lib/` tools, no agent on default path |
-| [`multiagent-env-min`](journeys/multiagent-env-min/) | multiagentbench / database-52 class | Multi-invoke roles, real SQL tools, sealed gold labels |
-| [`tau2-dialog-min`](journeys/tau2-dialog-min/) | tau2-bench retail class | User-sim + service tools, mutable state, order gate |
-| [`terminal-jsonl-agg`](journeys/terminal-jsonl-agg/) | terminal-bench / jsonl-aggregator | Workspace file output, L1 filtered mounts + clean evaluator |
+Default coding-agent path is **`executor: acp` + `options.entry`** (Spec 19). Journeys
+mix `opencode` / `pi` / `grok-build` across roles where the case has multiple agents.
+
+| Package | Case class | Surfaces | ACP mix (default) |
+| --- | --- | --- | --- |
+| [`env-postgres-min`](journeys/env-postgres-min/) | Environment + DB tool smoke | Environment Manager, package seed, `lib/` tools | *(none — no agent)* |
+| [`multiagent-env-min`](journeys/multiagent-env-min/) | multiagentbench / database-52 class | Multi-session roles, real SQL tools, sealed gold | specialist=`pi`, planner=`opencode`, reducer=`grok-build` |
+| [`tau2-dialog-min`](journeys/tau2-dialog-min/) | tau2-bench retail class | User-sim + service tools, mutable state, order gate | user=`grok-build`, service=`opencode` |
+| [`terminal-jsonl-agg`](journeys/terminal-jsonl-agg/) | terminal-bench / jsonl-aggregator | Workspace file output, L1 filtered mounts + clean evaluator | L1 `pi` (alts: `opencode`, `grok-build`) |
 
 ## `core/` — Core surface gates
 

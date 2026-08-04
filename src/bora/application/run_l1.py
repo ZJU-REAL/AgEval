@@ -173,13 +173,13 @@ def run_l1_sdk_session_attempt(
     import tempfile
     import time
 
-    from bora.adapters.agent_container import ContainerCLIExecutor
     from bora.application.run_harness import run_harness_package
     from bora.config.model import thaw
     from bora.evaluation.result_binding import bind_result
     from bora.evidence.store import AttemptEvidenceStore
     from bora.provider.isolation import parse_logical_topology
     from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
+
     package_root = package_root.resolve()
     params = thaw(lock.parameters)
     profiles = [p for p in thaw(lock.agent_profiles) if isinstance(p, dict)]
@@ -296,7 +296,11 @@ def run_l1_sdk_session_attempt(
             "generation": binding.generation,
         }
 
-    def make_target_executor(binding: Any) -> ContainerCLIExecutor:
+    def make_target_executor(binding: Any) -> Any:
+        from bora.adapters.acp_registry import get_entry
+        from bora.adapters.agent_acp import AcpExecutor
+        from bora.adapters.agent_container import effective_run_gid
+
         actor_id = binding.actor_id
         if not actor_id:
             raise RuntimeError("actor_id_required")
@@ -323,24 +327,70 @@ def run_l1_sdk_session_attempt(
             else None
         )
         kind = str(binding.executor_kind)
+        # Spec 19: L1 coding-agent path is ACP only — no private CLI scrape residual.
+        if kind != "acp":
+            raise RuntimeError(
+                f"migrated_to_acp: L1 executor {kind!r} requires "
+                "executor: acp + options.entry"
+            )
+        entry_id = getattr(binding, "acp_entry_id", None)
+        if not entry_id:
+            options = profile.get("options") if isinstance(profile, dict) else {}
+            if isinstance(options, dict):
+                entry_id = options.get("entry")
+        if not entry_id:
+            raise RuntimeError("acp_entry_required")
+        desc = get_entry(str(entry_id))
+        if desc is None:
+            raise RuntimeError("unknown_acp_entry")
         child_env = _cli_env_for_container(
-            kind, api_key_env=api_key_env, base_url=base_url
+            str(entry_id), api_key_env=api_key_env, base_url=base_url
         )
-        # Actor-private HOME — never host $HOME.
-        child_env["HOME"] = phys.home_container
-        child_env["CODEX_HOME"] = f"{phys.home_container}/.codex"
-        child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
+        home = phys.home_container
+        child_env["HOME"] = home
+        child_env["CODEX_HOME"] = f"{home}/.codex"
+        # Force container PATH (projection never carries host PATH after fix).
+        child_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
         child_env.setdefault("TERM", "xterm")
-        return ContainerCLIExecutor(
-            kind=kind if kind != "claude" else "claude-code",
+        child_env["NO_BROWSER"] = "1"
+        child_env.setdefault("XDG_CONFIG_HOME", f"{home}/.config")
+        child_env.setdefault("XDG_CACHE_HOME", f"{home}/.cache")
+        child_env.setdefault("XDG_STATE_HOME", f"{home}/.local/state")
+        child_env.setdefault("XDG_DATA_HOME", f"{home}/.local/share")
+        for k, v in desc.fixed_env.items():
+            child_env.setdefault(str(k), str(v))
+        workdir = "/attempt/workspace"
+        run_gid = effective_run_gid(phys)
+        docker_cmd: list[str] = [
+            "docker",
+            "exec",
+            "-i",
+            "-u",
+            f"{phys.uid}:{run_gid}",
+            "-w",
+            workdir,
+        ]
+        for ek, ev in child_env.items():
+            if str(ek).upper() in {"DOCKER_HOST", "DOCKER_SOCK"}:
+                continue
+            docker_cmd.extend(["-e", f"{ek}={ev}"])
+        docker_cmd.append(str(target.container_id))
+        # shared_write collaboration: group-writable new files under shared GID.
+        acp_argv = list(desc.acp_command)
+        if phys.shared_gid is not None and phys.shared_write:
+            docker_cmd.extend(
+                ["sh", "-c", 'umask 002; exec "$@"', "bora-actor", *acp_argv]
+            )
+        else:
+            docker_cmd.extend(acp_argv)
+        return AcpExecutor(
+            entry_id=str(entry_id),
             model=str(binding.model),
-            container_id=target.container_id,
-            actor=phys,
-            target=target,
-            env=child_env,
+            descriptor=desc,
+            workdir=workdir,
             api_key_env=api_key_env,
             base_url=base_url,
-            host_fallback_counter=[ledger.host_fallback_count],
+            command_override=docker_cmd,
         )
 
     try:
@@ -629,8 +679,14 @@ def run_l1_workspace_attempt(
         docker.cleanup(runtime)
         return _err(run_dir, "config", l1_meta, agent_meta, 0)
 
-    model = str(profile.get("model") or "gpt-5.4-mini")
-    kind = str(profile.get("executor") or "codex")
+    model = str(profile.get("model") or "entry-default")
+    kind = str(profile.get("executor") or "acp")
+    options = profile.get("options") if isinstance(profile.get("options"), dict) else {}
+    entry_id = (
+        str(options.get("entry")).strip()
+        if isinstance(options, dict) and options.get("entry")
+        else None
+    )
     instruction = ""
     if (workspace / "instruction.md").is_file():
         instruction = (workspace / "instruction.md").read_text(encoding="utf-8")
@@ -667,6 +723,7 @@ def run_l1_workspace_attempt(
                 docker=docker,
                 runtime=runtime,
                 kind=kind,
+                entry_id=entry_id,
                 model=model,
                 prompt=instruction or str(params.get("question") or 'Return JSON {"answer": 42}'),
                 cred_root=cred.root,
@@ -795,8 +852,14 @@ def _run_l1_agent_eval(
         docker.cleanup(runtime)
         return _err(run_dir, "config", l1_meta, agent_meta, 0)
 
-    model = str(profile.get("model") or "gpt-5.4-mini")
-    kind = str(profile.get("executor") or "codex")
+    model = str(profile.get("model") or "entry-default")
+    kind = str(profile.get("executor") or "acp")
+    options = profile.get("options") if isinstance(profile.get("options"), dict) else {}
+    entry_id = (
+        str(options.get("entry")).strip()
+        if isinstance(options, dict) and options.get("entry")
+        else None
+    )
     question = str(params.get("question") or 'Return JSON {"answer": 42}')
     cred = project_executor_credentials(work_root=runtime.workdir_host)
     l1_meta["credential_projection"] = {
@@ -809,6 +872,7 @@ def _run_l1_agent_eval(
             docker=docker,
             runtime=runtime,
             kind=kind,
+            entry_id=entry_id,
             model=model,
             prompt=question,
             cred_root=cred.root,
@@ -1127,8 +1191,9 @@ def _run_agent_executor_container(
     api_key_env: str | None = None,
     base_url: str | None = None,
     evidence_root: Path | None = None,
+    entry_id: str | None = None,
 ) -> tuple[bool, int, dict[str, Any]]:
-    """Run agent CLI inside the package Attempt image (no host Homebrew mount)."""
+    """Residual one-shot: ACP entry via docker exec into package image (Spec 19)."""
     if os.environ.get("BORA_OFFLINE_AGENT") == "1":
         return (
             False,
@@ -1139,53 +1204,43 @@ def _run_agent_executor_container(
                 "executor_containment": "container",
             },
         )
-
-    cli_kinds = {"codex", "pi", "opencode", "claude-code", "claude"}
-    if kind in cli_kinds:
-        return _run_builtin_cli_in_container(
-            docker=docker,
-            runtime=runtime,
-            kind=kind if kind != "claude" else "claude-code",
-            model=model,
-            prompt=prompt,
-            cred_root=cred_root,
-            workspace_output_name=workspace_output_name,
-            timeout=timeout,
-            api_key_env=api_key_env,
-            base_url=base_url,
-            evidence_root=evidence_root,
+    if kind != "acp":
+        return (
+            False,
+            0,
+            {
+                "ok": False,
+                "error": "migrated_to_acp",
+                "executor_containment": "container",
+            },
         )
-
-    # HTTP / unknown: parent workspace-only residual (not L1 CLI containment).
-    from bora.adapters.agent_registry import resolve_executor
-
-    assert runtime.workdir_host is not None
-    workspace = runtime.workdir_host / "workspace"
-    try:
-        ex = resolve_executor(
-            kind, model=model, base_url=base_url, api_key=api_key_env
-        )
-    except KeyError:
-        return False, 0, {"ok": False, "error": "executor_unknown"}
-    result = ex.invoke(prompt, timeout=timeout, workdir=str(workspace))
-    ok = bool(result.ok and (workspace / workspace_output_name).is_file())
-    return (
-        ok,
-        1,
-        {
-            "ok": result.ok,
-            "error": result.error,
-            "model": result.model,
-            "executor_containment": "parent_workspace_only",
-            "workdir": str(workspace),
-        },
+    if not entry_id:
+        return False, 0, {"ok": False, "error": "acp_entry_required"}
+    return _run_acp_in_package_image(
+        docker=docker,
+        runtime=runtime,
+        entry_id=entry_id,
+        model=model,
+        prompt=prompt,
+        cred_root=cred_root,
+        workspace_output_name=workspace_output_name,
+        timeout=timeout,
+        api_key_env=api_key_env,
+        base_url=base_url,
+        evidence_root=evidence_root,
+        write_workspace_file=True,
     )
 
 
 def _cli_env_for_container(
     kind: str, *, api_key_env: str | None, base_url: str | None
 ) -> dict[str, str]:
-    """Project host credentials into docker ``-e`` (values never logged)."""
+    """Project host credentials into docker ``-e`` (values never logged).
+
+    Never copy host ``PATH`` / ``HOME`` / ``XDG_*`` — those are macOS/Linux host
+    paths and break in-container engines (e.g. opencode ``mkdir /Users``).
+    Callers set container ``HOME`` / ``PATH`` after this returns.
+    """
     from bora.adapters.child_env import project_cli_child_env
 
     if kind in {"codex"}:
@@ -1203,7 +1258,7 @@ def _cli_env_for_container(
         api_key_env=api_key_env,
         base_url=base_url,
     )
-    # Drop non-credential noise for docker -e (keep keys that matter).
+    # Credential + terminal locale only — no host filesystem path env.
     keep_prefixes = (
         "ZAI_",
         "ZHIPU",
@@ -1211,15 +1266,27 @@ def _cli_env_for_container(
         "ANTHROPIC_",
         "OPENCODE_",
         "XAI_",
-        "PATH",
-        "HOME",
         "LANG",
         "TERM",
+        "LC_",
     )
+    host_path_denylist = {
+        "PATH",
+        "HOME",
+        "XDG_DATA_HOME",
+        "XDG_CONFIG_HOME",
+        "XDG_CACHE_HOME",
+        "XDG_STATE_HOME",
+        "TMPDIR",
+        "TEMP",
+        "TMP",
+    }
     out = {
         k: v
         for k, v in projected.items()
-        if v and (k.startswith(keep_prefixes) or (api_key_env and k == api_key_env))
+        if v
+        and k not in host_path_denylist
+        and (k.startswith(keep_prefixes) or (api_key_env and k == api_key_env))
     }
     return out
 
@@ -1358,11 +1425,11 @@ def _persist_l1_agent_trajectory(
     }
 
 
-def _run_builtin_cli_in_container(
+def _run_acp_in_package_image(
     *,
     docker: DockerProvider,
     runtime: DockerRuntime,
-    kind: str,
+    entry_id: str,
     model: str,
     prompt: str,
     cred_root: Path,
@@ -1371,133 +1438,182 @@ def _run_builtin_cli_in_container(
     api_key_env: str | None = None,
     base_url: str | None = None,
     evidence_root: Path | None = None,
+    write_workspace_file: bool = False,
 ) -> tuple[bool, int, dict[str, Any]]:
-    """Invoke codex/pi/opencode/claude from PATH inside the package image."""
-    assert runtime.workdir_host is not None
-    binary = {
-        "codex": "codex",
-        "pi": "pi",
-        "opencode": "opencode",
-        "claude-code": "claude",
-    }.get(kind, kind)
+    """Residual one-shot: parent AcpExecutor attached to package-image ACP entry."""
+    from bora.adapters.acp_registry import get_entry
+    from bora.adapters.agent_acp import AcpExecutor
 
-    if kind == "codex":
-        cmd = [
-            binary,
-            "exec",
-            "--model",
-            model,
-            "--ephemeral",
-            prompt,
-        ]
-    elif kind == "pi":
-        cmd = [
-            binary,
-            "-p",
-            "--mode",
-            "json",
-            "--no-session",
-            "--no-tools",
-            "--model",
-            model,
-            prompt,
-        ]
-    elif kind == "opencode":
-        cmd = [
-            binary,
-            "run",
-            "--format",
-            "json",
-            "--model",
-            model,
-            "--pure",
-            prompt,
-        ]
-    else:  # claude-code
-        cmd = [
-            binary,
-            "-p",
-            "--output-format",
-            "json",
-            "--model",
-            model,
-            prompt,
-        ]
+    del docker  # image/runtime used; long-lived container via docker CLI
+    assert runtime.workdir_host is not None
+    assert runtime.image_lock is not None
+    desc = get_entry(entry_id)
+    if desc is None:
+        return False, 0, {"ok": False, "error": "unknown_acp_entry"}
 
     child_env = _cli_env_for_container(
-        kind, api_key_env=api_key_env, base_url=base_url
+        entry_id, api_key_env=api_key_env, base_url=base_url
     )
-    # Scoped HOME from credential projection (empty dir), never host $HOME.
-    child_env["HOME"] = "/creds/home"
-    child_env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
-    if kind == "codex":
-        child_env["CODEX_HOME"] = "/creds/codex_home"
-    # Point optional CLI auth paths at projected allowlisted files when present.
+    # Writable actor HOME (not under RO /creds mount) — engines need RW state dirs.
+    # Force container paths (never host PATH/HOME from projection).
+    child_env["HOME"] = "/actor-home"
+    child_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
+    child_env["NO_BROWSER"] = "1"
+    child_env["CODEX_HOME"] = "/actor-home/.codex"
+    child_env["XDG_CONFIG_HOME"] = "/actor-home/.config"
+    child_env["XDG_CACHE_HOME"] = "/actor-home/.cache"
+    child_env["XDG_STATE_HOME"] = "/actor-home/.local/state"
     if (cred_root / "pi_home" / "agent" / "auth.json").is_file():
-        child_env.setdefault("PI_CONFIG_DIR", "/creds/pi_home")
+        child_env["PI_CONFIG_DIR"] = "/creds/pi_home"
     if (cred_root / "opencode" / "auth.json").is_file():
-        child_env.setdefault("XDG_DATA_HOME", "/creds")
-
-    mounts = [
-        (str(cred_root), "/creds", "ro"),
-    ]
-    uid = os.getuid()
-    gid = os.getgid()
-    stream_dir = runtime.workdir_host / "agent_stream"
-    if stream_dir.exists():
-        shutil.rmtree(stream_dir)
-    stream_dir.mkdir(parents=True, exist_ok=True)
-    out = docker.run_command(
-        runtime,
-        cmd,
-        network=True,
-        network_mode="bridge",
-        mounts=mounts,
-        user=f"{uid}:{gid}",
-        writer_name="agent_executor",
-        timeout_seconds=timeout + 30,
-        read_only_root=False,
-        env=child_env,
-        stream_dir=stream_dir,
-    )
-    ok = out.exit_code == 0
-    del workspace_output_name  # structured path writes agent_result separately
-    error = None if ok else f"exit_{out.exit_code}"
-    traj: dict[str, Any] = {}
-    if evidence_root is not None:
-        traj = _persist_l1_agent_trajectory(
-            evidence_root=evidence_root,
-            kind=kind,
-            model=model,
-            prompt=prompt,
-            exit_code=out.exit_code,
-            stream_dir=stream_dir,
-            ok=ok,
-            error=error,
-        )
-    # Prefer full stream for structured parse when available.
-    full_stdout = ""
-    stdout_file = stream_dir / "stdout.txt"
-    if stdout_file.is_file():
-        full_stdout = stdout_file.read_text(encoding="utf-8")
+        child_env["XDG_DATA_HOME"] = "/creds"
     else:
-        full_stdout = out.stdout_summary or ""
-    return (
-        ok,
-        1,
-        {
-            "ok": ok,
-            "error": error,
-            "model": model,
-            "executor_kind": kind,
-            "executor_containment": "container",
-            "container_exit": out.exit_code,
-            "container_stderr": (out.stderr_summary or "")[-500:],
-            # Full stream under agent/invocations/*/backend_raw/ — not agent.json.
-            "container_stdout_tail": full_stdout[-500:],
-            **traj,
-        },
-    )
+        child_env["XDG_DATA_HOME"] = "/actor-home/.local/share"
+    for k, v in desc.fixed_env.items():
+        child_env.setdefault(str(k), str(v))
+
+    workspace = runtime.workdir_host / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    actor_home = runtime.workdir_host / "actor_home"
+    if actor_home.exists():
+        shutil.rmtree(actor_home)
+    actor_home.mkdir(parents=True, exist_ok=True)
+    (actor_home / ".codex").mkdir(parents=True, exist_ok=True)
+    # Seed allowlisted auth material into writable HOME when projected.
+    for src_name, dest_rel in (
+        ("codex_home", ".codex"),
+        ("pi_home", ".pi"),
+    ):
+        src = cred_root / src_name
+        if src.is_dir():
+            dest = actor_home / dest_rel
+            if not dest.exists():
+                shutil.copytree(src, dest, dirs_exist_ok=True)
+    name = f"bora-acp-residual-{runtime.attempt.value[:12]}"
+    # Long-lived container; ACP client attaches via docker exec -i.
+    start = [
+        "docker",
+        "run",
+        "-d",
+        "--name",
+        name,
+        "--network",
+        "bridge",
+        "-w",
+        "/attempt/workspace",
+        "-v",
+        f"{workspace}:/attempt/workspace",
+        "-v",
+        f"{actor_home}:/actor-home",
+        "-v",
+        f"{cred_root}:/creds:ro",
+    ]
+    for ek, ev in child_env.items():
+        if str(ek).upper() in {"DOCKER_HOST", "DOCKER_SOCK"}:
+            continue
+        start.extend(["-e", f"{ek}={ev}"])
+    start.extend([runtime.image_lock.image_tag, "sleep", "infinity"])
+    proc = subprocess.run(start, check=False, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return (
+            False,
+            0,
+            {
+                "ok": False,
+                "error": "spawn_failed",
+                "stderr": (proc.stderr or "")[-500:],
+                "executor_containment": "container",
+            },
+        )
+    cid = (proc.stdout or "").strip()
+    try:
+        docker_cmd: list[str] = [
+            "docker",
+            "exec",
+            "-i",
+            "-w",
+            "/attempt/workspace",
+        ]
+        for ek, ev in child_env.items():
+            if str(ek).upper() in {"DOCKER_HOST", "DOCKER_SOCK"}:
+                continue
+            docker_cmd.extend(["-e", f"{ek}={ev}"])
+        docker_cmd.append(cid)
+        docker_cmd.extend(list(desc.acp_command))
+        ex = AcpExecutor(
+            entry_id=entry_id,
+            model=model,
+            descriptor=desc,
+            workdir="/attempt/workspace",
+            api_key_env=api_key_env,
+            base_url=base_url,
+            command_override=docker_cmd,
+            env={
+                "HOME": "/actor-home",
+                "CODEX_HOME": "/actor-home/.codex",
+                "NO_BROWSER": "1",
+            },
+        )
+        try:
+            result = ex.invoke(prompt, timeout=timeout, workdir="/attempt/workspace")
+        finally:
+            ex.close()
+
+        structured = result.structured
+        if structured is None and result.text:
+            structured = _parse_json_from_text(result.text)
+        ok = bool(result.ok)
+        if write_workspace_file:
+            out_path = workspace / workspace_output_name
+            # Terminal-class: prefer agent-written workspace file when present
+            # (instruction asks for aggregates.json + optional status JSON).
+            # Only materialize from ACP structured when it looks like the artifact
+            # (not a bare {"status":"completed"} ack).
+            if out_path.is_file():
+                ok = True
+            elif isinstance(structured, dict) and (
+                "status" not in structured
+                or len(structured) > 1
+                or any(k != "status" for k in structured)
+            ):
+                # Heuristic: multi-key or non-status payload → treat as artifact.
+                if "status" in structured and set(structured.keys()) <= {"status", "note"}:
+                    ok = False
+                else:
+                    out_path.write_text(
+                        json.dumps(structured, sort_keys=True) + "\n", encoding="utf-8"
+                    )
+                    ok = True
+            else:
+                ok = False
+        traj: dict[str, Any] = {}
+        if evidence_root is not None:
+            traj = _persist_l1_agent_trajectory(
+                evidence_root=evidence_root,
+                kind="acp",
+                model=model,
+                prompt=prompt,
+                exit_code=0 if result.ok else 1,
+                stream_dir=runtime.workdir_host / "agent_stream",
+                ok=result.ok,
+                error=result.error,
+            )
+        return (
+            ok,
+            1,
+            {
+                "ok": ok,
+                "error": result.error if not ok else None,
+                "model": result.model,
+                "executor_kind": "acp",
+                "acp_entry_id": entry_id,
+                "executor_containment": "container",
+                "text_tail": (result.text or "")[-500:],
+                **traj,
+            },
+        )
+    finally:
+        subprocess.run(["docker", "rm", "-f", name], check=False, capture_output=True)
 
 
 def _run_agent_structured(
@@ -1512,122 +1628,37 @@ def _run_agent_structured(
     api_key_env: str | None = None,
     base_url: str | None = None,
     evidence_root: Path | None = None,
+    entry_id: str | None = None,
 ) -> tuple[bool, int, dict[str, Any]]:
     if os.environ.get("BORA_OFFLINE_AGENT") == "1" and not allow_offline:
         return False, 0, {"ok": False, "error": "offline_forced"}
     assert runtime.workdir_host is not None
     workspace = runtime.workdir_host / "workspace"
 
-    # Prefer in-image CLI for first-party executors (L1 containment).
-    if kind in {"codex", "pi", "opencode", "claude-code", "claude"}:
-        ok, inv, meta = _run_builtin_cli_in_container(
-            docker=docker,
-            runtime=runtime,
-            kind=kind if kind != "claude" else "claude-code",
-            model=model,
-            prompt=prompt,
-            cred_root=cred_root,
-            workspace_output_name="agent_result.json",
-            timeout=180.0,
-            api_key_env=api_key_env,
-            base_url=base_url,
-            evidence_root=evidence_root,
-        )
-        if ok:
-            # Prefer full backend-stdout when trajectory was persisted.
-            parse_src = str(meta.get("container_stdout_tail") or "")
-            rel = meta.get("backend_stdout")
-            if evidence_root is not None and isinstance(rel, str):
-                full_path = evidence_root / rel
-                if full_path.is_file():
-                    parse_src = full_path.read_text(encoding="utf-8")
-            structured = _parse_json_from_text(parse_src)
+    if kind != "acp":
+        return False, 0, {"ok": False, "error": "migrated_to_acp"}
+    if not entry_id:
+        return False, 0, {"ok": False, "error": "acp_entry_required"}
 
-            if isinstance(structured, dict):
-                (workspace / "agent_result.json").write_text(
-                    json.dumps(structured, sort_keys=True) + "\n", encoding="utf-8"
-                )
-                return True, inv, {**meta, "model": model}
-            # CLI exited 0 but no JSON — still fail closed for structured path.
-            return (
-                False,
-                inv,
-                {**meta, "ok": False, "error": "structured_missing"},
-            )
-        return ok, inv, meta
-
-    from bora.adapters.agent_registry import resolve_executor
-
-    try:
-        ex = resolve_executor(
-            kind, model=model, base_url=base_url, api_key=api_key_env
-        )
-    except KeyError:
-        return False, 0, {"ok": False, "error": "executor_unknown"}
-    # Inject projected key into env only for this process (not harness container).
-    key_file = cred_root / "openai_api_key"
-    old_key = os.environ.get("OPENAI_API_KEY")
-    if key_file.is_file() and key_file.read_text(encoding="utf-8").strip():
-        os.environ["OPENAI_API_KEY"] = key_file.read_text(encoding="utf-8").strip()
-    try:
-        result = ex.invoke(prompt, timeout=180.0, workdir=str(workspace))
-    finally:
-        if old_key is None:
-            os.environ.pop("OPENAI_API_KEY", None)
-        else:
-            os.environ["OPENAI_API_KEY"] = old_key
-    if result.ok and isinstance(result.structured, dict):
-        (workspace / "agent_result.json").write_text(
-            json.dumps(result.structured, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        return (
-            True,
-            1,
-            {
-                "ok": True,
-                "model": result.model,
-                "executor_containment": "parent_workspace_credential_scoped",
-            },
-        )
-    if result.ok and result.text:
-        # best-effort parse
-        import json as _json
-        import re
-
-        structured = None
-        try:
-            structured = _json.loads(result.text)
-        except Exception:
-            m = re.search(r"\{.*\}", result.text, re.S)
-            if m:
-                try:
-                    structured = _json.loads(m.group(0))
-                except Exception:
-                    structured = None
-        if not isinstance(structured, dict):
-            structured = None
-        if isinstance(structured, dict):
-            (workspace / "agent_result.json").write_text(
-                json.dumps(structured, sort_keys=True) + "\n", encoding="utf-8"
-            )
-            return (
-                True,
-                1,
-                {
-                    "ok": True,
-                    "model": result.model,
-                    "executor_containment": "parent_workspace_credential_scoped",
-                },
-            )
-    return (
-        False,
-        1,
-        {
-            "ok": False,
-            "error": result.error or "agent_output_unstructured",
-            "executor_containment": "parent_workspace_credential_scoped",
-        },
+    ok, inv, meta = _run_acp_in_package_image(
+        docker=docker,
+        runtime=runtime,
+        entry_id=entry_id,
+        model=model,
+        prompt=prompt,
+        cred_root=cred_root,
+        workspace_output_name="agent_result.json",
+        timeout=180.0,
+        api_key_env=api_key_env,
+        base_url=base_url,
+        evidence_root=evidence_root,
+        write_workspace_file=True,
     )
+    if ok and (workspace / "agent_result.json").is_file():
+        return True, inv, {**meta, "model": model}
+    if ok:
+        return False, inv, {**meta, "ok": False, "error": "structured_missing"}
+    return ok, inv, meta
 
 
 def _run_harness_publish(

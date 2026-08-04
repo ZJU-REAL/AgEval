@@ -123,9 +123,11 @@ BORA/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
 │       ├── provider_docker.py # Docker L1 + multi-actor ExecutionTarget
-│       ├── agent_container.py # L1 placement / docker exec（Current: CLI；Target: ACP entry attach）
-│       ├── agent_codex.py     # Current residual: Codex private CLI JSONL
-│       └── …                  # Target: agent_acp.py + acp_entries.json（Spec 19）
+│       ├── agent_acp.py       # Current: 唯一 typed ACP client（parent）
+│       ├── acp_entries.json   # Current: static entry pins / descriptors
+│       ├── acp_registry.py    # Current: registry + readiness
+│       ├── agent_container.py # L1 placement helpers / opaque target id
+│       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal
@@ -157,11 +159,10 @@ BORA/
 │   ├── evaluation/            # Core 5：barrier、bind、result 模型
 │   ├── domain/                # 薄共享 value types / 错误类型
 │   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
-│       ├── agent_acp.py       # 唯一 ACP client（parent；Spec 19 Target）
+│       ├── agent_acp.py       # 唯一 ACP client（parent；Spec 19 Current）
 │       ├── acp_entries.json   # entry descriptor + exact pins
-│       ├── agent_container.py # L1 AcpProcessLauncher / placement only
-│       ├── agent_openai_http.py
-│       └── agent_pi.py        # 迁移前 residual private CLI；Target 改 entry: pi + pi-acp
+│       ├── agent_container.py # L1 placement helpers
+│       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core：HarnessContext 等（可选 import）
 ├── examples/                  # 仓库拥有的回归 package
 ├── tests/                     # unit / integration / opt-in e2e

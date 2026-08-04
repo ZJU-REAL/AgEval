@@ -1,8 +1,8 @@
-"""Unit: ContainerCLIExecutor fails closed on dead/generation mismatch."""
+"""Unit: ContainerCLIExecutor fails closed on dead/generation / migration."""
 
 from __future__ import annotations
 
-from bora.adapters.agent_container import ContainerCLIExecutor
+from bora.adapters.agent_container import ContainerCLIExecutor, effective_run_gid
 from bora.provider.targets import ActorPhysicalBinding, ExecutionTarget
 
 
@@ -62,7 +62,7 @@ def test_generation_mismatch_fail_closed() -> None:
     assert r.error == "generation_mismatch"
 
 
-def test_unsupported_executor_kind() -> None:
+def test_private_cli_invoke_refused() -> None:
     target = ExecutionTarget(
         target_id="tgt_1",
         group_id="g1",
@@ -71,7 +71,7 @@ def test_unsupported_executor_kind() -> None:
         state="ready",
     )
     ex = ContainerCLIExecutor(
-        kind="not-a-real-cli",
+        kind="codex",
         model="m",
         container_id="cid",
         actor=_binding(),
@@ -80,4 +80,11 @@ def test_unsupported_executor_kind() -> None:
     )
     r = ex.invoke("hi")
     assert r.ok is False
-    assert r.error == "unsupported_capability"
+    assert r.error == "migrated_to_acp"
+
+
+def test_effective_run_gid_shared_write() -> None:
+    actor = _binding(shared_gid=13000, shared_write=("workspace/team",))
+    assert effective_run_gid(actor) == 13000
+    actor2 = _binding(shared_gid=None, shared_write=())
+    assert effective_run_gid(actor2) == 12000

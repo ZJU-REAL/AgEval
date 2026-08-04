@@ -527,7 +527,8 @@ BORA 的一次成功或失败 Attempt，必须在 filesystem evidence 根下留�
 │       └── <nnnn>-<invocation-id>/
 │           ├── metadata.json    # profile、executor kind、model、timing、status
 │           ├── request.json     # 归一化 messages / schema / tool specs 摘要（已 redact）
-│           ├── events.jsonl     # 后端原始或 Adapter 归一化事件流（一行一事件）
+│           ├── events.jsonl     # 后端 stream/event 的 append-only 记录（一行一事件；可含流式片）
+│           ├── trajectory.jsonl # **turn 级**训练/导出轨迹（见 §8.9.4a；ACP 默认写出）
 │           ├── final-response.json  # 归一化 content / structured_output / usage
 │           └── stderr.txt       # 可选；进程型 executor
 ├── effects.jsonl                # Runtime 边界 effect 决策摘要（tool/env/process 等，若有）
@@ -541,10 +542,34 @@ BORA 的一次成功或失败 Attempt，必须在 filesystem evidence 根下留�
 | 文件 / 字段 | 要求 |
 | --- | --- |
 | `metadata.json` | `invocation_id`、Attempt id、`profile_id`、executor kind、model、started/finished、status、latency |
-| `request.json` | 送入后端的归一化 messages（可截断策略在 Spec 冻结）；**禁止**写入 host credential / raw token |
+| `request.json` | 送入后端的归一化 messages（可截断策略在 Spec 冻结）；**禁止**写入 host credential / raw token 值（env locator 名可记） |
 | `events.jsonl` | 后端 stream/event 的 append-only 记录；Adapter 可归一化 `type` 字段，但不得丢弃导致无法复盘的关键 turn |
+| `trajectory.jsonl` | **Turn 级**训练友好轨迹（§8.9.4a）；**不是** token/chunk 流；**不**决定 PASS |
 | `final-response.json` | `content`、可选 `structured_output`、`usage`、session handle 摘要 |
 | redaction | secret、Authorization、cookie、DSN password 等不得进入任何轨迹文件 |
+
+#### 8.9.4a. `trajectory.jsonl`（turn 级，训练默认）
+
+**单位：** 一次 BORA `invoke`（一次 ACP `session/prompt`）= **一个 turn unit**，写在该 invocation 目录下。
+
+**与流式 chunk 的关系：**
+
+| 层 | 谁产出 | 是否进 `trajectory.jsonl` |
+| --- | --- | --- |
+| ACP `session/update` 流式片（token/片级） | entry → parent client | **否**（仅内存拼接；可选仍进 `events.jsonl`） |
+| Turn 全文 | Parent 合并 chunk 后写出 | **是** |
+| 同一 BORA session 多轮 `invoke` | 多个 `invocations/000n-…/` | 每轮一个目录；可共享同一 ACP `session_id` |
+
+**推荐行类型（JSONL，一行一对象）：**
+
+1. `type=turn` · `role=user` · `content=<完整 prompt>` · `turn_index` · 可选 `acp_session_id`
+2. `type=turn` · `role=assistant` · `part=thought` · `content=<合并后的 thought>`（有则写）
+3. `type=turn` · `role=assistant` · `content=<合并后的最终 assistant 文本>`
+4. `type=terminal` · `ok` / `error` / `structured` / `usage` / `stop_reason` / entry·model 元数据摘要
+
+**多轮会话：** `turn_index` 为 Attempt 内 invoke 序号（1-based）；跨 turn 的 ACP `session_id` 可相同。合并训练样本时以 **invocation / turn_index** 为边界，不要把整个 `session_id` 当成单 turn。
+
+**非目标：** 用 `trajectory.jsonl` 替代 evaluator；要求 harness 自己写训练文件；把 ACP skills 目录类 `AvailableCommandsUpdate` 灌进训练轨迹（应过滤）。
 
 #### 8.9.5. 所有权与非目标
 
@@ -556,7 +581,7 @@ BORA 的一次成功或失败 Attempt，必须在 filesystem evidence 根下留�
 | Harness `ctx.events` | 可选业务侧事件（不得成为唯一轨迹源） |
 | Evaluator | 可读 allowlisted 输入；**默认不**把完整 agent 轨迹当作 score 必要条件 |
 
-**非目标（本机制）：** 用轨迹文件替代 evaluator PASS；全局跨 Run 搜索 dashboard；实时 Web UI；保证任意第三方 CLI 的私有日志格式 100% 无损（Adapter 必须至少产出归一化 `final-response` + 尽力 `events.jsonl`）。
+**非目标（本机制）：** 用轨迹文件替代 evaluator PASS；全局跨 Run 搜索 dashboard；实时 Web UI；保证任意第三方 CLI 的私有日志格式 100% 无损（Adapter 必须至少产出归一化 `final-response` + 尽力 `events.jsonl`，ACP 路径另应产出 turn 级 `trajectory.jsonl`）。
 
 ### 8.10. Campaign Coordinator
 
