@@ -915,10 +915,7 @@ def _run_builtin_cli_in_container(
     # Workspace output may be produced by harness after agent; agent ok = CLI exit 0
     # or structured path for packages that only need text (agent-eval style).
     ok = out.exit_code == 0
-    # If package expects a workspace file from agent, require it when already used.
-    expected = workspace / workspace_output_name
-    if expected.is_file():
-        ok = ok and True
+    del workspace_output_name  # structured path writes agent_result separately
     return (
         ok,
         1,
@@ -932,126 +929,6 @@ def _run_builtin_cli_in_container(
             "container_stderr": (out.stderr_summary or "")[-500:],
             "container_stdout": (out.stdout_summary or "")[-8000:],
             "container_stdout_tail": (out.stdout_summary or "")[-500:],
-        },
-    )
-
-
-def _run_codex_in_container(
-    *,
-    docker: DockerProvider,
-    runtime: DockerRuntime,
-    model: str,
-    prompt: str,
-    cred_root: Path,
-    workspace_output_name: str,
-    timeout: float,
-) -> tuple[bool, int, dict[str, Any]]:
-    """Codex exec inside Docker with bridge network + credential projection."""
-    import shutil as sh
-
-    assert runtime.workdir_host is not None
-    codex_bin = sh.which("codex")
-    if not codex_bin:
-        # Fallback parent workspace-only
-        from bora.adapters.agent_codex import CodexExecutor
-
-        ex = CodexExecutor(model=model)
-        r = ex.invoke(prompt, timeout=timeout, workdir=str(runtime.workdir_host / "workspace"))
-        ok = bool(r.ok and (runtime.workdir_host / "workspace" / workspace_output_name).is_file())
-        return (
-            ok,
-            1,
-            {
-                "ok": r.ok,
-                "error": r.error,
-                "executor_containment": "parent_fallback_no_codex_bin",
-            },
-        )
-
-    # Script: run codex, leave workspace files; do not print secrets.
-    script = textwrap.dedent(
-        f"""
-        import os, subprocess, sys
-        os.environ["HOME"] = "/creds_home"
-        os.environ["CODEX_HOME"] = "/creds/codex_home"
-        key = Path_read = None
-        from pathlib import Path
-        kp = Path("/creds/openai_api_key")
-        if kp.is_file() and kp.read_text().strip():
-            os.environ["OPENAI_API_KEY"] = kp.read_text().strip()
-        cmd = ["codex", "exec", "--model", {model!r}, "--ephemeral", {prompt!r}]
-        p = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout={int(timeout)})
-        sys.stdout.write(p.stdout or "")
-        sys.stderr.write(p.stderr or "")
-        raise SystemExit(p.returncode)
-        """
-    )
-    # Fix script - use Path properly
-    script = textwrap.dedent(
-        f"""
-        import os, subprocess, sys
-        from pathlib import Path
-        os.environ["HOME"] = "/creds_home"
-        ch = Path("/creds/codex_home")
-        if ch.is_dir():
-            os.environ["CODEX_HOME"] = str(ch)
-        kp = Path("/creds/openai_api_key")
-        if kp.is_file() and kp.read_text(encoding="utf-8").strip():
-            os.environ["OPENAI_API_KEY"] = kp.read_text(encoding="utf-8").strip()
-        cmd = ["codex", "exec", "--model", {model!r}, "--ephemeral", {prompt!r}]
-        p = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout={int(timeout)})
-        print(p.stdout or "")
-        print(p.stderr or "", file=sys.stderr)
-        raise SystemExit(p.returncode)
-        """
-    )
-    uid = os.getuid()
-    gid = os.getgid()
-    mounts = [
-        (str(cred_root), "/creds", "ro"),
-        (str(Path.home()), "/creds_home", "ro"),
-        (codex_bin, "/usr/local/bin/codex", "ro"),
-    ]
-    # Also need node/runtime deps for codex - mount may fail. Prefer parent if container fails.
-    out = docker.run_command(
-        runtime,
-        ["python", "-c", script],
-        network=True,
-        network_mode="bridge",
-        mounts=mounts,
-        user=f"{uid}:{gid}",
-        writer_name="agent_executor",
-        timeout_seconds=timeout + 30,
-        read_only_root=False,
-        env={"PATH": "/usr/local/bin:/usr/bin:/bin"},
-    )
-    workspace = runtime.workdir_host / "workspace"
-    ok = out.exit_code == 0 and (workspace / workspace_output_name).is_file()
-    if not ok:
-        # Parent fallback workspace-only (still not mounting evaluation/)
-        from bora.adapters.agent_codex import CodexExecutor
-
-        ex = CodexExecutor(model=model)
-        r = ex.invoke(prompt, timeout=timeout, workdir=str(workspace))
-        ok2 = bool(r.ok and (workspace / workspace_output_name).is_file())
-        return (
-            ok2,
-            1,
-            {
-                "ok": r.ok,
-                "error": r.error,
-                "executor_containment": "parent_fallback_after_container",
-                "container_exit": out.exit_code,
-                "container_stderr": (out.stderr_summary or "")[-500:],
-            },
-        )
-    return (
-        True,
-        1,
-        {
-            "ok": True,
-            "executor_containment": "container",
-            "writer_stop": out.writer_stop_confirmed,
         },
     )
 
