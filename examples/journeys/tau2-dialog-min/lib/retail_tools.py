@@ -18,12 +18,14 @@ WORKFLOW_PREFIX = (
 TOOL_CATALOG = """
 Tools (results only via harness execution — never invent observations):
 - find_customer(email)
-- get_order(order_id)  # ids may look like #W....
-- get_product(item_id)
+- get_order(order_id)  # ids may look like #W....; result includes line_items + product_catalog
+- get_product(item_id)  # also returns other_products for variants
 - request_exchange(order_id, from_item_ids, to_item_ids)
 - done(note?)
 Harness enforces order: find_customer → get_order → get_product → request_exchange → done.
-Copy identifiers byte-for-byte from customer message or prior tool results.
+Copy identifiers byte-for-byte from customer message or tool results (never invent).
+For color/variant exchanges: from_item_ids = item currently on the order;
+to_item_ids = catalog id whose name matches the requested variant (e.g. black).
 """
 
 
@@ -63,14 +65,43 @@ def build_tools(state: dict[str, Any]) -> ToolSet:
         order = (state.get("orders") or {}).get(oid)
         if not isinstance(order, dict):
             return {"ok": False, "error": "not_found"}
-        return {"ok": True, "order_id": oid, "order": order}
+        products = state.get("products") if isinstance(state.get("products"), dict) else {}
+        line_items: list[dict[str, Any]] = []
+        for iid in order.get("item_ids") or []:
+            meta = products.get(str(iid)) if isinstance(products.get(str(iid)), dict) else {}
+            line_items.append({"item_id": str(iid), **meta})
+        # Full catalog so exchange targets (e.g. color variants) are discoverable.
+        catalog = {
+            str(k): v
+            for k, v in products.items()
+            if isinstance(v, dict)
+        }
+        return {
+            "ok": True,
+            "order_id": oid,
+            "order": order,
+            "line_items": line_items,
+            "product_catalog": catalog,
+        }
 
     def get_product(args: dict[str, Any]) -> dict[str, Any]:
         pid = str(args.get("item_id") or "")
-        prod = (state.get("products") or {}).get(pid)
+        products = state.get("products") if isinstance(state.get("products"), dict) else {}
+        prod = products.get(pid)
         if not isinstance(prod, dict):
             return {"ok": False, "error": "not_found"}
-        return {"ok": True, "item_id": pid, "product": prod}
+        # Surface siblings so black/color variants are visible after a get_product.
+        siblings = {
+            str(k): v
+            for k, v in products.items()
+            if isinstance(v, dict) and str(k) != pid
+        }
+        return {
+            "ok": True,
+            "item_id": pid,
+            "product": prod,
+            "other_products": siblings,
+        }
 
     def request_exchange(args: dict[str, Any]) -> dict[str, Any]:
         oid = str(args.get("order_id") or "")

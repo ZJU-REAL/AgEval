@@ -1,12 +1,14 @@
 """Multiagent + Environment — orchestration only.
 
-Tools / diagnostics constants live under ``lib/``. Gold is only under ``evaluation/``.
+Tools / diagnostics live under ``lib/``. Gold is only under ``evaluation/``.
+Roles open independent ACP sessions (pi / opencode / grok-build) via profile ids.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from bora_sdk import Agent, HarnessContext, HarnessTerminal
 from lib.agent_json import agent_struct
@@ -14,25 +16,37 @@ from lib.db_tools import build_db_toolset, load_env_meta
 from lib.diagnostics import ALLOWED_LABELS, SPECIALIST_SQL
 
 
+def _role_profile(params: dict[str, Any], role: str, default: str) -> str:
+    roles = params.get("roles") if isinstance(params.get("roles"), dict) else {}
+    raw = roles.get(role) if isinstance(roles, dict) else None
+    return str(raw or default)
+
+
 async def run(ctx: HarnessContext) -> HarnessTerminal:
     package_dir = Path(__file__).resolve().parent
+    params = ctx.params if isinstance(ctx.params, dict) else {}
     try:
         env = load_env_meta(package_dir, ctx.workspace_root)
     except (OSError, RuntimeError, json.JSONDecodeError, FileNotFoundError) as exc:
         return HarnessTerminal.failed(str(exc))
 
+    specialist_profile = _role_profile(params, "specialist", "specialist-pi")
+    planner_profile = _role_profile(params, "planner", "planner-opencode")
+    reducer_profile = _role_profile(params, "reducer", "reducer-grok")
+
     tools = build_db_toolset(env)
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     findings: list[dict] = []
 
-    async with agent.session("codex-mini", max_turns=12) as session:
+    # --- specialists (pi ACP): one session, multi-invoke ---
+    async with agent.session(specialist_profile, max_turns=12) as specialist:
         for name, sql in SPECIALIST_SQL.items():
             obs = await tools.call("db_query", {"sql": sql})
             raw = obs.get("result") if isinstance(obs.get("result"), dict) else obs
             if obs.get("status") != "ok" or not isinstance(raw, dict) or not raw.get("ok"):
                 return HarnessTerminal.failed(f"specialist_tool_failed:{name}:{obs}")
             rows = str(raw.get("stdout") or "")
-            inv = await session.invoke(
+            inv = await specialist.invoke(
                 f"Specialist role: {name}. Allowed labels: {list(ALLOWED_LABELS)}.\n"
                 f"Read-only SQL already executed:\n{sql}\n"
                 f"ROWS (authoritative):\n{rows}\n"
@@ -54,7 +68,9 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             finding["tool_rows"] = rows[:400]
             findings.append(finding)
 
-        plan_inv = await session.invoke(
+    # --- planner (opencode ACP): independent session ---
+    async with agent.session(planner_profile, max_turns=2) as planner:
+        plan_inv = await planner.invoke(
             "You are the **planner**. Here are specialist findings JSON:\n"
             + json.dumps(
                 [{k: v for k, v in f.items() if k != "tool_rows"} for f in findings],
@@ -75,7 +91,9 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             if isinstance(fraw, dict) and fraw.get("ok"):
                 follow_rows = str(fraw.get("stdout") or "")
 
-        red_inv = await session.invoke(
+    # --- reducer (grok-build ACP): independent session ---
+    async with agent.session(reducer_profile, max_turns=2) as reducer:
+        red_inv = await reducer.invoke(
             "You are the **reducer**.\n"
             "Specialist findings:\n"
             + json.dumps(findings, ensure_ascii=False)
@@ -109,7 +127,12 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
                 "findings": findings,
                 "planner": plan,
                 "follow_up_rows": follow_rows,
-                "provider_session_handle": session.provider_session_handle,
+                "profiles": {
+                    "specialist": specialist_profile,
+                    "planner": planner_profile,
+                    "reducer": reducer_profile,
+                },
+                "provider_session_handle": None,
                 "env_resource_id": env.get("resource_id"),
                 "tool_calls": tools.side_effect_counter,
             },

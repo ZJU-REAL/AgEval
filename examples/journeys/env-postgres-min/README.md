@@ -2,7 +2,8 @@
 
 Minimal Environment Manager + package seed + package-local DB tool smoke.
 
-No Agent on the default path — validates Core env handoff and package `lib/` tools.
+No Agent on the default path — validates Core env handoff and package `lib/` tools
+before agent-backed journeys (`multiagent-env-min`, …).
 
 ## Package layout
 
@@ -17,5 +18,7 @@ Non-orchestration functional code lives under **`lib/`**.
 
 ```bash
 uv run bora lock examples/journeys/env-postgres-min --task env-postgres-min
-uv run bora run examples/journeys/env-postgres-min --task env-postgres-min
+uv run bora run  examples/journeys/env-postgres-min --task env-postgres-min
 ```
+
+Requires Docker for Attempt-local PostgreSQL. No ACP binary needed on this path.
