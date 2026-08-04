@@ -87,6 +87,16 @@ agent_profiles:
     model: claude-sonnet-4
     workspace_view: agents
 
+  # Optional per-profile upstream routing (same level as model):
+  # - base_url: non-secret endpoint (enters lock digest)
+  # - api_key: environment variable *name* only (locator); value from host/.env
+  #   projected into Executor at invoke time — never written into lock/evidence.
+  - id: glm-coding-http
+    executor: openai-http
+    model: glm-4.7
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
+    api_key: zhipu_coding_api_key
+
 parameters:
   models:
     specialist: specialist-codex   # 或 specialist-cc
@@ -97,8 +107,9 @@ parameters:
 - **整 task 换后端（Codex → Claude Code）：** Campaign variant 改写 `parameters.models.*` 指向另一组 profile，或 override 现有 profile 的 `executor`/`model`；**不必改** `harness.py`。
 - **同 task 不同 Agent 用不同后端：** 各 role 引用不同 profile id 即可；specialist 走 Codex、planner 走 Pi 合法。
 - **同 executor 不同模型：** 只改 profile 的 `model` 字段，或增加并列 profile。
+- **上游 endpoint / 密钥定位：** 可选 `base_url` 与 `api_key`（env 名）与 `model` 同级；`bora run` 从 package/cwd/repo `.env` 注入宿主环境后，Runtime 按 locator 投影给 Executor。
 
-`load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`workspace_view` 存在。锁定结果含 profile → executor/model 的解析快照，进入 Trial identity / digest。
+`load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/model/base_url/api_key(locator) 的解析快照，进入 Trial identity / digest。
 
 #### 8.4.3. Agent Service（Runtime）
 

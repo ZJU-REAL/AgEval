@@ -576,6 +576,46 @@ class ConfigCore:
                 raise ConfigError(
                     ERROR_INVALID_SCHEMA, "profile.model required", location=f"{loc}/model"
                 )
+            # Optional upstream routing (non-secret). api_key is an env *locator name*
+            # only — values live in host/.env and are projected at invoke time.
+            base_url = profile.get("base_url")
+            if base_url is not None:
+                if not isinstance(base_url, str) or not base_url.strip():
+                    raise ConfigError(
+                        ERROR_INVALID_SCHEMA,
+                        "profile.base_url must be a non-empty string when set",
+                        location=f"{loc}/base_url",
+                    )
+                if not (
+                    base_url.startswith("https://") or base_url.startswith("http://")
+                ):
+                    raise ConfigError(
+                        ERROR_INVALID_SCHEMA,
+                        "profile.base_url must start with http:// or https://",
+                        location=f"{loc}/base_url",
+                    )
+            api_key = profile.get("api_key")
+            if api_key is not None:
+                if not isinstance(api_key, str) or not api_key:
+                    raise ConfigError(
+                        ERROR_INVALID_SCHEMA,
+                        "profile.api_key must be a non-empty env locator name when set",
+                        location=f"{loc}/api_key",
+                    )
+                if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", api_key):
+                    raise ConfigError(
+                        ERROR_INVALID_SCHEMA,
+                        "profile.api_key must be an environment variable name "
+                        "(locator only; never a secret value)",
+                        location=f"{loc}/api_key",
+                    )
+                # Fail closed on values that look like embedded secrets, not locators.
+                if api_key.startswith("sk-") or len(api_key) > 64:
+                    raise ConfigError(
+                        ERROR_INVALID_SCHEMA,
+                        "profile.api_key looks like a secret value; use env var name only",
+                        location=f"{loc}/api_key",
+                    )
 
         # parameters.models.* must reference known profile ids when present.
         models = parameters.get("models") if isinstance(parameters, dict) else None
