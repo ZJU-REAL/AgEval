@@ -161,11 +161,11 @@ Harness 内按最轻的方式传递数据：
 
 1. 同一函数调用：Python value；
 2. 同一 Harness 进程：dataclass、Pydantic model 或 JSON-compatible object；
-3. 同一 workspace：相对路径；
-4. 不同 Agent sandbox：publish declared path，由 Runtime materialize read-only copy；
-5. Harness 到 Evaluator：Harness 停止后由 Runtime 固定并 materialize allowlisted input。
+3. 多角色 loop：Harness / upstream memory 保存结果并序列化进下一轮 prompt，Core 不感知；
+4. `shared-container` 同 group 文件协作：只使用 lock 中显式授权的 `shared_write` 相对路径；
+5. Harness 到 Evaluator：使用 `publish_*` 提交终局 declared output，Harness 停止后由 Runtime 固定并 materialize allowlisted input。
 
-普通 Agent 交接不要求通用 `HandoffRef`。多个独立进程真的需要 durable mailbox、恢复或 reopen 时，再设计对应 authority。
+`container-per-group` v1 不挂跨容器共享可写 volume。跨容器中途物理交接延后到 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2) 的独立 `handoff_*` 设计；它与终局 `publish_*`、Evaluator input 和 PASS authority 分离。
 
 ### 3.9. 参数进入 Harness
 

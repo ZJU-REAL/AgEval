@@ -103,6 +103,10 @@ Writer workspace
 
 两个 Agent 明确共享同一 workspace 时，Harness 可以直接传相对路径。共享 workspace 等于授予相同 filesystem visibility，必须在 `provider.workspace.views` 中明确表达。
 
+`shared-container` 的可写协作还必须受 `provider.agent_isolation.groups[].shared_write` 收紧：路径必须是 workspace-relative、无 `..` / absolute / symlink escape，并落在同 group 参与 actor 的 locked WorkspaceView **write 交集**内。WorkspaceView 允许某 actor 写入，不会自动把该路径提升为 group shared；只有同时满足 WorkspaceView 与 `shared_write` 才可配置 shared GID。`container-per-group` v1 禁止跨 container 共享 RW volume，中途文本由 Harness memory / prompt 转发，物理 handoff 延后到 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2)。
+
+`evaluation/`、gold、hidden test 与 evaluator-only material 永远不能成为 handoff source，也不得通过 `shared_write`、workspace 交集或 publish side channel 暴露给 Harness/Agent。`publish_*` 只接收已声明的终局 output，并在 writer barrier 后按 `evaluation.inputs` allowlist materialize。
+
 ### 10.4. Prompt 隔离与物理隔离（可见性投影）
 
 本节落实 §0.4：多 Agent / Harness / Evaluator 的**控制可见性**由明确的 projection 机制完成，属于 Core 必保能力。

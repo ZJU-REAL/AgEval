@@ -59,6 +59,16 @@ Provider 负责代码运行位置和 OS 级限制：
 3. 官方基座构建一次、多处 `FROM` 复用；上游基座由 package Dockerfile 自行 `FROM` 并安装 CLI。
 4. Agent CLI **在容器内**执行（不依赖挂载宿主 Homebrew binary）；缺 binary 则 fail closed，不以 parent residual 冒充 L1 PASS。
 
+#### L1 多 Actor 隔离与 SDK 调度面
+
+L1 多 Actor 的最终调用面与 L0 一致：Harness 通过 `Agent.session(profile_id, actor_id=..., max_turns=...)` 获得 opaque session，再执行 `invoke` / `close`。Runtime 直接读取 `parameters.question` 并发起一次 CLI 调用只可保留为兼容或 smoke residual，不能替代 SDK 多轮、多 profile 调度。
+
+`provider.agent_isolation.mode` 支持 `shared-container` 与 `container-per-group`。`actor_id` 是隔离 principal，profile 只选择 executor、model 与 credential binding；Config lock 仅保存 actor、group、profile allowlist 与 `shared_write` 等逻辑拓扑。Provider 在 Attempt prepare 时建立 `actor_id → ExecutionTarget`，ParentAgentService 再建立 opaque `session_id → actor_id + profile_id + target_id + generation` 绑定。Docker container id、UID/GID、socket path 与 live handle 只进入 Runtime 私有 cleanup ledger；Harness、SDK、lock 与公开 evidence 均不得获得 raw handle，evidence 至多记录 opaque `target_id`、image digest 与实际 isolation mode。
+
+`shared-container` 为各 actor 分配不同 numeric UID 与私有 HOME；同 group 只有显式 `shared_write` 可经 shared GID 写入。`container-per-group` 为每个 group 建立独立 container，单 actor group 即 per-agent container，v1 不提供跨 container 共享可写 volume。SDK 经 worker-local scoped channel 把 open/invoke/close 交给 ParentAgentService；父侧校验 actor/profile 绑定、执行前 hard ceiling 与 credential projection，再要求 Provider 在已绑定 target 中以对应 UID/GID 执行。target 创建失败、unknown actor、profile 越权、credential 缺失、relay 中断、generation 不匹配或容器内 executor 不可用均 fail closed，禁止改走 host CLI。
+
+Loop 中间文本和结构化上下文由 Harness memory 保存并拼入下一轮 prompt，Core 不感知。`shared_write` 只覆盖同容器显式文件协作；跨容器物理 handoff 延后到 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2)，终局产物继续使用 `publish_*`。绑定决策见 [L1 多 Agent Docker 隔离与 SDK 调度面](../../specs/constitution/2026-08-04-l1-multi-agent-docker-isolation.md)。
+
 所有 Agent 使用同一个 Attempt volume 只有在配置明确授予相同 WorkspaceView 时才成立。不同 Agent 需要不同可见性时，Provider 使用独立 mount、PathGrant 或 OS permission。Actor 名称本身不会产生隔离。
 
 ### 8.4. Agent capability、Agent Service 与多后端切换
