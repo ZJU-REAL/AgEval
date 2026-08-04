@@ -51,7 +51,7 @@ SDK helpers — not as full case fidelity demos.
 | [`environment-action-denied`](core/environment-action-denied/) | Undeclared/dangerous env action deny-before-mutation |
 | [`orchestration-environment`](core/orchestration-environment/) | Multi-profile + PostgreSQL + effects.jsonl |
 | [`builtin-executor-conformance`](core/builtin-executor-conformance/) | Profile-only switch：`codex` / `pi` / `opencode` |
-| [`builtin-executor-mixed`](core/builtin-executor-mixed/) | Same Attempt 双 profile 独立轨迹（codex+pi） |
+| [`builtin-executor-mixed`](core/builtin-executor-mixed/) | Same Attempt 双 profile 独立轨迹（codex + claude-code/glm-5.2） |
 | [`sdk-tool-guard`](core/sdk-tool-guard/) | `ToolSet` + call limit success |
 | [`sdk-tool-guard-denied`](core/sdk-tool-guard-denied/) | Tool policy denial (pre-callable) |
 | [`plugin-agent-executor`](core/plugin-agent-executor/) | Second executor profile (e.g. OpenAI HTTP) via same harness |

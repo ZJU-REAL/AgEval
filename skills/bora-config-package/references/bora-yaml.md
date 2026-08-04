@@ -10,10 +10,19 @@
 - `limits`: wall / agent_invocations / environment_actions / memory_mb
 - `evaluation`: runtime, entrypoint, inputs, output.format
 
-## Executors recognized at lock (declaration ≠ ready)
+## Executors (`agent_profiles[].executor`)
 
-Includes `codex`, `pi`, `opencode`, `claude-code`, `openai-http`, `mock`, …  
-Unknown kind fails at lock (`unsupported_capability`).
+**Authoritative discovery (do not hardcode):**
+
+```bash
+uv run bora executors      # .supported + host PATH probe
+uv run bora executors -v   # + tools/session/stream when known
+```
+
+- **`.supported`**: adapters this BORA install provides (yaml values).
+- **`.host_ready` / per-row `binary_on_path`**: host has `pi` / `opencode` / `codex` / `claude` on PATH (HTTP adapters need no binary).
+- Unknown kind fails at lock (`unsupported_capability`).
+
 
 ## Allowlisted CLI overrides
 
@@ -31,6 +40,26 @@ Unknown kind fails at lock (`unsupported_capability`).
 | --- | --- |
 | `use_agent_session` | Parent Agent Service + multi-invoke |
 | `active_profile` | Which profile id harness should open |
+
+### Optional profile upstream fields
+
+Same level as `model` (optional):
+
+| Field | Meaning |
+| --- | --- |
+| `base_url` | Non-secret HTTP(S) endpoint; enters lock digest |
+| `api_key` | **Environment variable name only** (locator). Value from host/repo `.env` at `bora run`; never a secret string in yaml |
+
+Example:
+
+```yaml
+agent_profiles:
+  - id: glm-coding
+    executor: openai-http
+    model: glm-4.7
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
+    api_key: zhipu_coding_api_key
+```
 | `harness_timeout_seconds` | Worker timeout (capped by wall) |
 | `workspace_output` | Terminal-class file under Attempt workspace |
 | `environment_resource` | e.g. `postgresql` |

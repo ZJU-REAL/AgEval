@@ -14,12 +14,18 @@ provider:
   assurance: l0
 
 agent_profiles:
-  - id: codex-mini
-    executor: codex
-    model: gpt-5.4-mini
-  - id: pi-mini
+  # Two different executors, same Attempt — independent sessions / trajectories.
+  - id: opencode-glm
+    executor: opencode
+    model: zai-coding-plan/glm-5.2
+    api_key: glm_coding_api_key
+  # pi: must use provider-qualified model. Bare "glm-5.2" fuzzy-matches OpenCode
+  # Zen and demands OPENCODE_API_KEY (wrong for 智谱 coding plan).
+  # China coding plan → zai-coding-cn + ZAI_CODING_CN_API_KEY (projected from api_key).
+  - id: pi-glm
     executor: pi
-    model: claude-haiku-4-5
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key
 
 limits:
   wall_time_seconds: 480

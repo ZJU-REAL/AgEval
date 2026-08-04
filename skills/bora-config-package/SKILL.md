@@ -47,7 +47,7 @@ provider:
 
 agent_profiles:
   - id: codex-mini
-    executor: codex         # codex | pi | opencode | openai-http | ...
+    executor: codex         # see: uv run bora executors  → .supported
     model: gpt-5.4-mini
 
 limits:
@@ -84,6 +84,19 @@ evaluation:
 - Never put API keys or passwords in yaml.
 - Do not branch harness on executor kind for Core behavior; switch profile instead.
 - Adapter modules must stay mechanism-named.
+
+## Which `executor` values?
+
+```bash
+uv run bora executors          # .supported + PATH binary probe
+uv run bora executors -v       # + capability fields
+```
+
+- `.supported` — kinds this BORA install provides (write these in yaml)
+- `.host_ready` — can actually run here (binary on PATH, or pure HTTP adapter)
+- `.missing_binary` — need to install/export that CLI first
+
+Do not invent kinds.
 
 ## Profile switch without harness edits
 
