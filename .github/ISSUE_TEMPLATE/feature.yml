@@ -1,0 +1,42 @@
+name: Feature / change
+description: 新能力、行为变更或设计对齐需求
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决什么
+      description: 用户/开发者场景，不要只写实现方案。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方向
+      description: 可选。涉及机制时请指向 docs/design 或说明需先改设计。
+      placeholder: |
+        相关：docs/design/…
+        Active Spec / ROADMAP（如有）：
+    validations:
+      required: false
+
+  - type: dropdown
+    id: design_impact
+    attributes:
+      label: 是否动产品/机制语义
+      options:
+        - 否（实现/文档/示例）
+        - 是（需先对齐 docs/ 再实现）
+        - 不确定
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: redlines
+    attributes:
+      label: 自检
+      options:
+        - label: 不要求把 secret 写入 yaml / lock / evidence
+        - label: 不要求用 trajectory 或 harness completed 充当 PASS

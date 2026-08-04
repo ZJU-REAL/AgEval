@@ -1,0 +1,48 @@
+name: Bug
+description: 可复现的行为错误（CLI / runtime / package / docs 偏差）
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 现象
+      description: 一句话说明实际 vs 期望。
+      placeholder: e.g. bora run 在 X 包上 ERROR，期望 PASS
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现
+      description: 最小命令与环境。不要粘贴 secret / token。
+      placeholder: |
+        uv run bora run examples/core/... --task ...
+        # 相关版本：bora / executor / OS
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据
+      description: exit code、stdout 摘要、`Result.logs` 路径下非敏感文件（result.json / metadata）。勿贴 key。
+    validations:
+      required: false
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: 表面
+      options:
+        - CLI (lock/run/campaign/evidence/…)
+        - Config / package
+        - Runtime / Provider
+        - Agent executor
+        - SDK / harness
+        - Evidence / evaluation
+        - Docs / examples
+        - Other
+    validations:
+      required: true
