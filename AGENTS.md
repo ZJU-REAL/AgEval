@@ -62,14 +62,15 @@ specs/BLOCKED.md
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/design/00`–`10` 已自包含迁入；日常**不**再以 vault 为权威 |
-| production 源码 | **无** `pyproject.toml` / `src/bora/` / CLI / SDK |
-| 公开 entrypoint | **none** |
-| 证据等级 | `design-only` |
-| Roadmap | `v0.1`–`v0.12` 均未勾选；语义见 Core 交付（Config→…→竖切→隔离→扩展） |
-| 活动 Spec | [specs/active/00-core-batch0-and-batch1-plan.md](specs/active/00-core-batch0-and-batch1-plan.md)（`v0.1` Config + 工程骨架；**实现未授权则不编码**） |
-| Constitution 条目 | 0 |
+| production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service（§8.9 evidence）→`bora run`/`bora campaign`→SDK；`src/bora/evidence/`；terminal L1 / env / campaign **部分切片** |
+| 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露；`bora run` 输出 `logs` locator） |
+| 证据等级 | **限定 `runnable-mvp`（L0）**：含 `examples/core/attempt-trajectory`（Codex multi-invoke 轨迹树）；其余 core/journeys 见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
+| Roadmap | Version Index：**`v0.1`–`v0.18` 已勾** |
+| 活动 Spec | `specs/active/00`–`17`；12–17 completed (Critic AUTHORIZE_CHECK) |
+| Constitution 条目 | 2 — critic-checkbox-authority；[core-not-bench-adapters](specs/constitution/2026-08-03-core-not-bench-adapters.md) |
 
-**禁止**从文档存在、Active Spec 存在或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
+
+**禁止**从文档存在、Active Spec 存在、`bora lock` 成功或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
 
 ## 项目边界（Agent 不可违反）
 
@@ -116,7 +117,9 @@ specs/BLOCKED.md
 | 改产品/机制设计 | 先改 `docs/design/*`（及必要时 PRD/glossary），再改 Architecture/Roadmap/Spec/代码 |
 | 改模块树/依赖/composition root | 先改 [ARCHITECTURE.md](ARCHITECTURE.md) |
 | 改版本结果或验收 | 先改 [specs/ROADMAP.md](specs/ROADMAP.md) |
-| 实现一个增量 | 只在所属 Active Spec 内推进 Phase；末 Phase 同步 docs/README/Architecture/Roadmap 投影 |
+| 实现一个增量 | 只在所属 Active Spec 内推进 Phase；**边做边勾选** Decision Summary / Phase / AC / gates；末 Phase 同步 docs/README/Architecture/Roadmap |
+| Critic 通过 | **立即**勾选对应 Spec 完成项与（条件满足时）Roadmap 关键交付/验收/Version Index；**无需**再等用户验收（见 [specs/constitution/2026-08-03-critic-checkbox-authority.md](specs/constitution/2026-08-03-critic-checkbox-authority.md)） |
+| Critic 不通过 | 不得勾选；修代码或诚实回退勾选并记差距 |
 | 用户点名固化一条实现决策 | 新建 `specs/constitution/YYYY-MM-DD-<topic>.md`，并链回 docs 相关节 |
 | 未授权实现 | **不**创建 `src/` / 不跑「假装完成」的 smoke 声明 |
 
@@ -128,8 +131,8 @@ specs/BLOCKED.md
 
 | 等级 | 含义 | 何时可声称 |
 | --- | --- | --- |
-| `design-only` | 仅文档/Specs | **当前** |
-| `runnable-mvp` | 真实 public entrypoint + 真实 Agent 路径 | Roadmap 对应项与公开 smoke 通过后 |
+| `design-only` | 仅文档/Specs | 被限定 `runnable-mvp` 覆盖的 journey 之外仍适用 |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent 路径 | **当前（L0）**：`sdk-agent-session` multi-invoke、`agent-eval`、tool-guard、env/multiagent/tau2 类；Version Index **`v0.7` 已勾** |
 | `isolated` | 隔离 Attempt + 隔离红线 | 通常 `v0.8` 类验收后 |
 | `real-benchmark-verified` | 固定 upstream + 限定范围公开 journey | 对应 APP/版本验收后；不得扩写成全 suite |
 
@@ -150,6 +153,7 @@ Skill 路径若本机不同，以已安装的 `spec-driven-delivery` 包内 `scr
 
 | 文档 | 用途 |
 | --- | --- |
+| [`.agents/skills/`](.agents/skills/) → [`skills/`](skills/) | clone 后可发现的 coding agent Skills（bora-platform / cli / config-package / sdk-harness） |
 | [README.md](README.md) | 人类入口与状态 |
 | [docs/design/01-bora-core.md](docs/design/01-bora-core.md) | Core 五组 |
 | [docs/design/09-owner-matrix-and-structure.md](docs/design/09-owner-matrix-and-structure.md) | Owner 矩阵 |

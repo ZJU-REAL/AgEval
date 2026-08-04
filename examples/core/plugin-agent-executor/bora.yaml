@@ -1,0 +1,42 @@
+format: bora.task/1
+task_id: plugin-agent-executor
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  question: "Return JSON {\"answer\": 42}"
+  models:
+    default: openai-mini
+
+provider:
+  kind: local
+  assurance: l0
+
+agent_profiles:
+  - id: openai-mini
+    executor: openai-http
+    model: gpt-4.1-mini
+
+limits:
+  wall_time_seconds: 120
+  agent_invocations: 1
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: agent-output
+      producer: harness
+      path: artifacts/agent-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: agent-output
+      target: artifacts/agent-output.json
+  output:
+    format: json

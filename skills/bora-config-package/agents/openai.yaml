@@ -1,0 +1,4 @@
+interface:
+  display_name: "BORA Config Package"
+  short_description: "bora.yaml and package layout rules"
+  default_prompt: "Use $bora-config-package to author or review a Task Package bora.yaml without secrets or ownership violations."

@@ -1,0 +1,50 @@
+format: bora.task/1
+task_id: builtin-executor-mixed
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  use_agent_session: true
+  harness_timeout_seconds: 480
+
+provider:
+  kind: local
+  assurance: l0
+
+agent_profiles:
+  # Two different executors, same Attempt — independent sessions / trajectories.
+  - id: opencode-glm
+    executor: opencode
+    model: zai-coding-plan/glm-5.2
+    api_key: glm_coding_api_key
+  # pi: must use provider-qualified model. Bare "glm-5.2" fuzzy-matches OpenCode
+  # Zen and demands OPENCODE_API_KEY (wrong for 智谱 coding plan).
+  # China coding plan → zai-coding-cn + ZAI_CODING_CN_API_KEY (projected from api_key).
+  - id: pi-glm
+    executor: pi
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key
+
+limits:
+  wall_time_seconds: 480
+  agent_invocations: 2
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: session-output
+      producer: harness
+      path: artifacts/session-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: session-output
+      target: artifacts/session-output.json
+  output:
+    format: json

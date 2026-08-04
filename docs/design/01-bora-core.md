@@ -116,9 +116,10 @@ Capability Core 包含：
 | `environment` | 绑定 resource，执行 allowlisted action | namespace、secret projection、外部 action ceiling、teardown，以及按需 freeze/getter |
 | `workspace` | 选择已声明 actor/invocation 的 **path view** | mount、PathGrant、L2 时的 UID/GID——物理可见性投影 |
 | `artifacts` | 按 logical name publish declared output | path 检查、consumer scope、materialize 只读视图与固定 evaluator 输入 |
-| `events` | 记录少量 Agent、Tool 和 Harness 事件 | Attempt identity 和正式 evidence boundary |
+| `events` | 记录少量 Agent、Tool 和 Harness 事件 | Attempt identity 和正式 evidence boundary；**不能**替代 Agent Service 的 per-invocation 轨迹落盘（见 [05 §8.9](05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)） |
 
-MVP 使用进程内对象。未来可用 JSONL、stdio 或 scoped socket 承载同一 Capability，但 transport 不进入 Harness API，也不作为本轮默认实现目标。
+MVP 使用进程内对象。未来可用 JSONL、stdio 或 scoped socket 承载同一 **Capability transport**，但 transport 不进入 Harness API，也不作为本轮默认实现目标。  
+**注意：** 「默认不做 Capability JSONL transport」≠「不做 evidence 目录 JSONL 轨迹」。后者是产品红线（design/00 §0.2）。
 
 ### 2.7. Core 5：Evaluator 与结果绑定
 
@@ -166,7 +167,7 @@ stateDiagram-v2
 - 为每个内部函数生成 receipt 的审计体系；
 - 按 Benchmark 名称分支的 Adapter。
 
-MVP 也不承诺 durable/reopen、默认 JSONL transport、所有 task 强制 freeze/per-actor UID/GID、公开 Artifact 用户类型阶梯、或对外完整阶段结果树。**可见性投影（workspace / secret / network / params / materialize）始终保留。** 不要求的是「六路 Config projection DTO」这类配置仪式，不是「不做投影」。隔离档、input strategy 与内部 digest 可以存在；只有出现真实跨进程共享、并发竞争、崩溃恢复或后台 reopen 后，才重新评估 durable platform authority。
+MVP 也不承诺 durable/reopen、默认 **Capability** JSONL/stdio transport、所有 task 强制 freeze/per-actor UID/GID、公开 Artifact 用户类型阶梯、或对外完整**阶段结果**聚合 schema。**可见性投影**与 **Attempt evidence / Agent 轨迹落盘**始终保留。不要求的是「六路 Config projection DTO」这类配置仪式，不是「不做投影」或「不落盘轨迹」。隔离档、input strategy 与内部 digest 可以存在；只有出现真实跨进程共享、并发竞争、崩溃恢复或后台 reopen 后，才重新评估 durable platform authority。
 
 ### 2.10. Core 模块布局
 

@@ -71,7 +71,8 @@ BLOCKED.md —— 低于权威链；改语义时必须回写权威文件
 - Fixture/mock ≠ 公开 smoke（当版本要求真实 Agent 时）。  
 - 证据等级：`design-only` | `runnable-mvp` | `isolated` | `real-benchmark-verified`；不得从单测升级。  
 - 每个 implementation Spec 收口：production public entrypoint（或该版本约定的可调用入口）、success、expected failure、受影响 regression、工程门禁、文档同步。  
-- 独立评审默认 **off**；仅 `Independent review: required` 时写 Evaluation Record 并作为完成 gate。  
+- 独立评审默认 **off**；`Independent review: required` 或实现流程中的 Critic 通过后，**立即**勾选对应 Spec/Roadmap 项（含 Version Index，条件满足时）；**无需**再等用户验收（见 [constitution/2026-08-03-critic-checkbox-authority.md](constitution/2026-08-03-critic-checkbox-authority.md)）。  
+- Spec 完成态与实现**同步回写**；禁止积压勾选。  
 - Decision Summary 五项布尔/计数必须与列表一致；Current blockers 只含挡住下一步的项；Phase TODO 不算 blocker。  
 - 前置条件表六列、三类：`baseline-verified` | `phase-produced` | `external-accepted`；env 只作 locator。  
 - 执行期安全可逆选择：先 `BLOCKED.md` `resolved-autonomously`；否则 `awaiting-user`。  
@@ -85,7 +86,7 @@ BLOCKED.md —— 低于权威链；改语义时必须回写权威文件
 | Active Spec | `NN-<topic>-plan.md` | `in-progress` → `completed`/archive；或 `review`；或 `cancelled`/archive |
 | Roadmap 版本 | Index 中 `- [ ] \`v0.x\` — …` | 仅 Index 勾选表示版本完成 |
 
-完成 Spec 前：新 success、expected failure、受影响 regression、工程 gates、docs 同步、明确要求的 User Acceptance。  
+完成 Spec 前：新 success、expected failure、受影响 regression、工程 gates、docs 同步；**Critic 通过即勾选**，User Acceptance 表若仍写“用户”则以 Critic 为委托权威。  
 `completed` 后写入完成日与延期项，再移入 `archive/`，并更新所有入链。
 
 ## 同步矩阵（本仓）

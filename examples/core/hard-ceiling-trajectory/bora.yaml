@@ -1,0 +1,42 @@
+format: bora.task/1
+task_id: hard-ceiling-trajectory
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  use_agent_session: true
+  harness_timeout_seconds: 120
+  ceiling_mode: invoke_limit
+
+provider:
+  kind: local
+  assurance: l0
+
+agent_profiles:
+  - id: codex-mini
+    executor: codex
+    model: gpt-5.4-mini
+
+limits:
+  wall_time_seconds: 120
+  agent_invocations: 1
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: ceiling-output
+      producer: harness
+      path: artifacts/ceiling-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: ceiling-output
+      target: artifacts/ceiling-output.json
+  output:
+    format: json

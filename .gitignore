@@ -35,3 +35,6 @@ out/
 !.env.example
 *.pem
 credentials/
+COMMIT.md
+.bora/
+*.bora_env_result.json

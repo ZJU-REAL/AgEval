@@ -1,0 +1,6 @@
+{
+  "order_id": "#W1001",
+  "exchange_completed": true,
+  "from_item_ids": ["item_headphones"],
+  "to_item_ids": ["item_headphones_black"]
+}

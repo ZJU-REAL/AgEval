@@ -64,11 +64,20 @@ BORA 统一 evaluator 的运行和结果 binding，不统一评分算法。Evalu
 - task-local rubric；
 - trajectory 或 communication metrics。
 
-### 14.2. 扁平结果
+### 14.2. 扁平结果与轨迹 evidence
 
-公共结果只要求 `status`、`score`、`metrics`，可选 `error.phase` / `error.kind`、`cleanup_warning` 与 logs 指针。Runtime 可以内部保存阶段 evidence，但 CLI、网站和聚合器不依赖完整结果树。
+公共**扁平结果**只要求 `status`、`score`、`metrics`，可选 `error.phase` / `error.kind`、`cleanup_warning` 与 **`logs` 指针**。CLI、网站和聚合器**不**依赖完整内部阶段树来判定 pass/fail。
 
-Tool denial、预算耗尽、Evaluator 低分、Evaluator crash 和 cleanup failure 仍是不同事实：基础设施错误通过 `status/error` 表达，cleanup 失败通过 warning 表达，不能覆盖有效 score。
+`logs` **必须**解析到本 Attempt 的 evidence 根（见 [05 §8.9](05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)）。evidence 树中的 **Agent invocation 轨迹（JSONL 等）是产品必选交付物**，用于观察与轨迹训练；它与 score **正交**：
+
+| 事实 | 权威 |
+| --- | --- |
+| PASS / score | 独立 Evaluator |
+| Agent 说了什么 / 后端事件 / usage | Agent Service 落盘轨迹 |
+| 基础设施 error.phase | Runtime |
+| cleanup 失败 | `cleanup_warning`，不覆盖 score |
+
+Tool denial、预算耗尽、Evaluator 低分、Evaluator crash 和 cleanup failure 仍是不同事实：基础设施错误通过 `status/error` 表达，cleanup 失败通过 warning 表达，不能覆盖有效 score。**缺少轨迹落盘是 Runtime 产品缺口，不是 evaluator fail。**
 
 ### 14.3. Evaluator barrier
 

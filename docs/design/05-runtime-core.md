@@ -22,7 +22,8 @@ Runtime Core 保留 Harness 无法可靠强制的外部职责：
 - declared Artifact 的 publish registry 与内部 materialization；
 - writer barrier、独立 evaluator、hidden material 和结果绑定；
 - wall time、memory、process、Agent invocation 和外部 action ceiling；
-- Runtime、Harness、Evaluation 和 Cleanup 事实的分离。
+- Runtime、Harness、Evaluation 和 Cleanup 事实的分离；
+- **Attempt evidence 与 Agent 轨迹落盘**（观察复盘与轨迹训练的数据源；见 §8.9）。
 
 Runtime 不解释 Retail action、AgentVerse memory、MARBLE branch、Planner、Reducer 或 Tool 业务名称。
 
@@ -36,7 +37,8 @@ Evaluate: stop writers → materialize allowlisted inputs → Evaluator
 Finish: bind flat Result → record evidence → cleanup
 ```
 
-Coordinator 只观察阶段结果。它不保存 Harness messages，也不监听每一个本地 Tool call。
+Coordinator 只观察阶段结果。它**不**解析 Harness 内部业务 messages，也**不**要求拦截每一个本地 Tool call。  
+但它**必须**保证：经 Agent Service 的每次 invocation、Runtime 边界上的关键 effect 摘要、以及 evaluation/cleanup 事实，在 Attempt evidence 目录中可定位（见 §8.9）。
 
 ### 8.3. Provider
 
@@ -49,6 +51,13 @@ Provider 负责代码运行位置和 OS 级限制：
 - network 和 secret projection；
 - process start、timeout、cancel 和 kill；
 - 停止 writers；timeout/kill 后确认不再写入即可，不要求独立的干净退出证明。
+
+**Docker L1 镜像来源（package 拥有 Dockerfile）：**
+
+1. `provider.kind: docker` 时，package 必须提供 **`environment/Dockerfile`**（或 `provider.dockerfile` 指向的 package 内路径）。
+2. Runtime prepare：**确保官方基座** `bora-attempt:l1`（仓库 `docker/attempt`，预装已声明支持的 CLI executor：codex、pi、opencode、claude-code）→ **`docker build -f <package Dockerfile>`** 得到 Attempt 用 image → digest 写入 evidence。
+3. 官方基座构建一次、多处 `FROM` 复用；上游基座由 package Dockerfile 自行 `FROM` 并安装 CLI。
+4. Agent CLI **在容器内**执行（不依赖挂载宿主 Homebrew binary）；缺 binary 则 fail closed，不以 parent residual 冒充 L1 PASS。
 
 所有 Agent 使用同一个 Attempt volume 只有在配置明确授予相同 WorkspaceView 时才成立。不同 Agent 需要不同可见性时，Provider 使用独立 mount、PathGrant 或 OS permission。Actor 名称本身不会产生隔离。
 
@@ -85,6 +94,16 @@ agent_profiles:
     model: claude-sonnet-4
     workspace_view: agents
 
+  # Optional per-profile upstream routing (same level as model):
+  # - base_url: non-secret endpoint (enters lock digest)
+  # - api_key: environment variable *name* only (locator); value from host/.env
+  #   projected into Executor at invoke time — never written into lock/evidence.
+  - id: glm-coding-http
+    executor: openai-http
+    model: glm-4.7
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
+    api_key: zhipu_coding_api_key
+
 parameters:
   models:
     specialist: specialist-codex   # 或 specialist-cc
@@ -95,8 +114,9 @@ parameters:
 - **整 task 换后端（Codex → Claude Code）：** Campaign variant 改写 `parameters.models.*` 指向另一组 profile，或 override 现有 profile 的 `executor`/`model`；**不必改** `harness.py`。
 - **同 task 不同 Agent 用不同后端：** 各 role 引用不同 profile id 即可；specialist 走 Codex、planner 走 Pi 合法。
 - **同 executor 不同模型：** 只改 profile 的 `model` 字段，或增加并列 profile。
+- **上游 endpoint / 密钥定位：** 可选 `base_url` 与 `api_key`（env 名）与 `model` 同级；`bora run` 从 package/cwd/repo `.env` 注入宿主环境后，Runtime 按 locator 投影给 Executor。
 
-`load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`workspace_view` 存在。锁定结果含 profile → executor/model 的解析快照，进入 Trial identity / digest。
+`load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/model/base_url/api_key(locator) 的解析快照，进入 Trial identity / digest。
 
 #### 8.4.3. Agent Service（Runtime）
 
@@ -120,7 +140,7 @@ ctx.agent.invoke(profile_id, messages, ...)
 | Session 绑定 | 创建时固定 Attempt + profile + workspace；禁止跨 Attempt 复用 |
 | 统一 invoke 契约 | Harness 只见 messages / schema / tools 意图，不见各 CLI 细节 |
 | 额度与安全 | `limits.agent_invocations`、capability close、secret 不进 package 代码 |
-| 可观测 | usage、executor kind、model、latency 写入 evidence（供对比后端） |
+| 可观测与落盘 | 每次 invoke **同步**写入 Attempt evidence：identity、profile/executor/model、请求摘要、后端事件流、归一化 content/structured、usage、latency、失败 kind；供复盘与轨迹训练（§8.9） |
 
 Harness / Harness Core 的 `Agent(..., model_profile=params.planner_model)` **只传 profile id**；不得 `import` 某个具体 agent CLI SDK 写死后端。
 
@@ -408,9 +428,81 @@ cleanup_warning: "..." # 可选
 logs: run://attempt-id
 ```
 
-Runtime 仍可在 evidence store 中保存 Harness terminal、Agent invocations、evaluator raw output 和 cleanup outcome，但它们不成为 package 作者与聚合器必须消费的完整公开树。Evaluator score、基础设施错误与 cleanup warning 不互相改写。
+**扁平 Result 与 evidence 树分工：**
 
-### 8.9. Campaign Coordinator
+| 产物 | 消费者 | 是否必选 |
+| --- | --- | --- |
+| 扁平 `Result`（status/score/metrics/error/cleanup_warning/`logs`） | CLI、Campaign 聚合、比较报表 | **必选** |
+| Attempt evidence 树（含 Agent 轨迹） | 操作者复盘、失败诊断、轨迹训练导出 | **必选** |
+| 完整内部阶段树 / 九步仪式 DTO | package 作者 / 公开聚合 schema | **非必选** |
+
+Runtime **必须**在 evidence store 中保存至少：Harness terminal 摘要、**每次 Agent invocation 的轨迹文件**、evaluator raw output、cleanup outcome。它们**不是** package 作者必学的公开 Result 树，但**是**产品级交付物：`Result.logs` 必须解析到该 Attempt 的 evidence 根。Evaluator score、基础设施错误与 cleanup warning 不互相改写；**轨迹存在与否不得改变 score 语义**。
+
+### 8.9. Attempt evidence 与 Agent 轨迹落盘
+
+#### 8.9.1. 产品要求
+
+BORA 的一次成功或失败 Attempt，必须在 filesystem evidence 根下留下可机器读取的 **Agent 执行轨迹**，用途包括：
+
+1. **观察 / 复盘：** 人读一次 run 里 Agent 说了什么、调用了什么、在哪一步失败；  
+2. **轨迹训练 / 离线分析：** 导出 per-invocation 事件与归一化 turn，作为 SFT / preference / offline RL 等数据源；  
+3. **后端对比：** 同一 Harness 换 executor 时，比较 latency、usage、事件形态（不比较 business score 时仍可对比轨迹）。
+
+这是 **Runtime / Agent Service 的义务**，不得要求 Harness 自己 `open()` 写训练文件。Harness 经 `ctx.events` 追加的业务事件是**补充**，不能替代 Agent Service 的 invocation 落盘。
+
+#### 8.9.2. 与「JSONL transport」的区分
+
+| 概念 | 是否 MVP 默认 | 含义 |
+| --- | --- | --- |
+| **Evidence JSONL 文件** | **是** | Attempt 目录下的落盘轨迹格式 |
+| **Capability JSONL/stdio transport** | 否 | 未来把 Capability 跨进程序列化；见 design/01，非本轮默认 |
+
+#### 8.9.3. 最小目录契约（logical layout）
+
+路径名可在 Active Spec 中微调；**语义与所有权**固定：
+
+```text
+.bora/runs/<run-or-attempt-id>/
+├── summary.json                 # 扁平 Result 投影 + evidence locator
+├── lock.json / TaskLocked 摘要  # 无 secret 的锁定引用
+├── agent/
+│   ├── events.jsonl             # Attempt 级 agent 边界事件索引（可选但推荐）
+│   └── invocations/
+│       └── <nnnn>-<invocation-id>/
+│           ├── metadata.json    # profile、executor kind、model、timing、status
+│           ├── request.json     # 归一化 messages / schema / tool specs 摘要（已 redact）
+│           ├── events.jsonl     # 后端原始或 Adapter 归一化事件流（一行一事件）
+│           ├── final-response.json  # 归一化 content / structured_output / usage
+│           └── stderr.txt       # 可选；进程型 executor
+├── effects.jsonl                # Runtime 边界 effect 决策摘要（tool/env/process 等，若有）
+├── evaluation/                  # evaluator raw + binding inputs refs
+├── harness/                     # HarnessTerminal 等（可选）
+└── cleanup.json                 # cleanup outcome / warning
+```
+
+#### 8.9.4. 每条 Agent invocation 最小字段
+
+| 文件 / 字段 | 要求 |
+| --- | --- |
+| `metadata.json` | `invocation_id`、Attempt id、`profile_id`、executor kind、model、started/finished、status、latency |
+| `request.json` | 送入后端的归一化 messages（可截断策略在 Spec 冻结）；**禁止**写入 host credential / raw token |
+| `events.jsonl` | 后端 stream/event 的 append-only 记录；Adapter 可归一化 `type` 字段，但不得丢弃导致无法复盘的关键 turn |
+| `final-response.json` | `content`、可选 `structured_output`、`usage`、session handle 摘要 |
+| redaction | secret、Authorization、cookie、DSN password 等不得进入任何轨迹文件 |
+
+#### 8.9.5. 所有权与非目标
+
+| 谁 | 写什么 |
+| --- | --- |
+| Agent Service + Executor Adapter | per-invocation 轨迹（上表） |
+| Capability / Runtime effect gate | `effects.jsonl` 中授权/拒绝决策摘要 |
+| Evaluation Core | evaluator raw + Result binding |
+| Harness `ctx.events` | 可选业务侧事件（不得成为唯一轨迹源） |
+| Evaluator | 可读 allowlisted 输入；**默认不**把完整 agent 轨迹当作 score 必要条件 |
+
+**非目标（本机制）：** 用轨迹文件替代 evaluator PASS；全局跨 Run 搜索 dashboard；实时 Web UI；保证任意第三方 CLI 的私有日志格式 100% 无损（Adapter 必须至少产出归一化 `final-response` + 尽力 `events.jsonl`）。
+
+### 8.10. Campaign Coordinator
 
 Campaign 把 experiment matrix 展开成 Trial，每个 Trial 使用一份 resolved `LockedTaskConfig`。Retry 创建新的 Attempt identity，不静默修改 Trial 分母或 Harness 参数。
 
@@ -455,7 +547,7 @@ stateDiagram-v2
 | --- | --- | --- |
 | Prepare + Run | `load_and_lock()`、创建 Attempt、准备 Provider/Environment、注入 Capability、运行 Harness | reset、复杂 healthcheck、upstream process bridge |
 | Stop + Evaluate | 关闭 Harness Capability、停止 writers、materialize allowlisted inputs、运行独立 Evaluator | Artifact digest/副本、Environment freeze/getter/snapshot、clean evaluator container |
-| Record + cleanup | 绑定扁平 Result、保存内部 evidence、teardown Provider/Environment | 归档 raw output、保留失败现场、资源复用判定 |
+| Record + cleanup | 绑定扁平 Result、**落盘 Agent 轨迹与 Attempt evidence 树**、teardown Provider/Environment | 归档 raw output、保留失败现场、资源复用判定；轨迹契约见 §8.9 |
 
 ### 11.3. 不变量
 

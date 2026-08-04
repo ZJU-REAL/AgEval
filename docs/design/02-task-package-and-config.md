@@ -63,7 +63,7 @@ Package **一级目录只允许从已知集合取用**；除固定根文件外�
 | --- | --- | --- | --- |
 | `prompts/` | 角色自然语言；进入模型的文案权威 | Harness 组装 messages | 是 |
 | `schemas/` | 结构化输出契约 | Harness / Agent structured output | 是 |
-| `environment/` | Environment lifecycle 资产（SQL seed、fixture 文件等） | `environment.setup_steps` 的 `input_ref` 等 | 是（setup） |
+| `environment/` | Environment / Provider 资产：SQL seed、fixture、**L1 `Dockerfile`** 等 | `environment.setup_steps` 的 `input_ref`；`provider.kind: docker` 时的 Attempt 镜像构建 | 是（setup / L1 prepare） |
 | `evaluation/` | Evaluator-only 输入（gold labels、task contract） | `evaluation.inputs` 的 `package_path` | 是（评测阶段） |
 | `data/` | Agent 可见任务数据（可选） | workspace mount / Harness 读取 | 视 task |
 | `lib/` | **package-local Python 支撑**（task 作者编写、仅本 package 使用） | `harness.py` / `evaluator.py` import | 是 |
@@ -137,6 +137,18 @@ v2 推荐将配置分成七个明确区域：
 
 **Agent 后端可切换、可混用**是一等需求（见 §8.4）：`parameters.models.*`（或等价引用）只点 **profile id**；真正跑 Codex / Claude Code / Pi-agent 的细节写在 `agent_profiles`。Campaign 换后端时优先改 profile 的 `executor`/`model` 或改引用，不必改 `harness.py`。
 
+#### L1 / `provider.kind: docker` 与 package Dockerfile
+
+当 `provider.kind` 为 **`docker`**（L1 Attempt）时：
+
+1. **Package 必须提供 Dockerfile**，默认路径 **`environment/Dockerfile`**（相对 package 根）。可用 `provider.dockerfile` 覆盖为 package 内相对路径（仍须落在 package 内）。
+2. Dockerfile **不在 package 根**作为一级自由文件名推广；与 Environment / Provider 资产同属 `environment/`。
+3. 两种合法形态（均由 package Dockerfile 表达，不由 Core 代写）：
+   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用；预装 **codex / pi / opencode / claude-code** 等已声明内置 CLI executor）。
+   - **上游基座**：`FROM <upstream>` 再安装本次需要的 executor（或等价复制二进制）。
+4. `load_and_lock`：docker 且 Dockerfile 缺失 → fail closed（`missing_reference`）。
+5. 镜像 **构建与 digest** 在 Attempt prepare 时发生；secret **不得** bake 进镜像层（credential 仅 run 时投影）。
+
 ### 5.3. MVP 配置示例
 
 下面使用文档内的 `database-52-mvp/` 概念 package 说明默认路径。它与 `database-52/` 表示同一个 benchmark task，但只保留当前诊断实际需要的 PostgreSQL、L1 path views、Attempt 硬顶和完整 evaluator contract；下方 YAML 即本设计的完整规范示例。
@@ -176,6 +188,7 @@ provider:
   platform: linux/arm64
   network: agent-provider-only
   assurance: l1
+  # dockerfile: environment/Dockerfile  # 默认；package 内必填（见 §5.x L1）
   workspace:
     views:
       harness:

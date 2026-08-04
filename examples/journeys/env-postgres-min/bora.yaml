@@ -1,0 +1,41 @@
+format: bora.task/1
+task_id: env-postgres-min
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+# Env + package-local tool smoke. No agent required on the default path:
+# Core only one-shot-invokes when agent_profiles is non-empty and
+# use_agent_session is false — omit profiles so harness owns the whole path.
+parameters:
+  use_agent_session: false
+  environment_resource: postgresql
+
+provider:
+  kind: local
+  assurance: l0
+
+agent_profiles: []
+
+limits:
+  wall_time_seconds: 300
+  agent_invocations: 0
+  environment_actions: 5
+
+artifacts:
+  publishable:
+    - id: env-result
+      producer: harness
+      path: artifacts/env-result.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: env-result
+      target: artifacts/env-result.json
+  output:
+    format: json

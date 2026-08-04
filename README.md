@@ -12,49 +12,118 @@ BORA 是 *Harness 的 Harness*：在统一的配置锁定、Attempt 生命周期
 | --- | --- |
 | 代际 | v2 greenfield（不兼容归档 v1） |
 | 设计 | 已写入 [`docs/design/`](docs/design/)（自包含） |
-| 实现 | **未开始**（无 `src/` / CLI） |
-| 证据 | `design-only` |
+| 实现 | **v0.13 Attempt evidence / Codex 轨迹落盘可跑**（§8.9）；v0.14+ multi-executor / L1 visibility 等见 Active Spec 12–17 |
+| 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（经 `application/composition.py` 装配） |
+| 证据 | L0 named packages + parent-bound multi-invoke trajectory（`attempt-trajectory`）+ L1/env/campaign 部分切片；Version Index **`v0.1`–`v0.18` 已勾**；**不得**扩写全 suite `isolated` / `real-benchmark-verified` |
 | 交付方法 | Spec-Driven Delivery（`$spec-driven-delivery`） |
-| 活动 Spec | [specs/active/00-core-batch0-and-batch1-plan.md](specs/active/00-core-batch0-and-batch1-plan.md)（`v0.1` Config；实现需授权） |
+| 活动 Spec | [specs/active/00-core-batch0-and-batch1-plan.md](specs/active/00-core-batch0-and-batch1-plan.md) 起；依赖链见 Roadmap |
 | v1 参考 | `Developer/Archived/bora-v1`（只读） |
+
+## 安装（v0.1）
+
+需要 [uv](https://docs.astral.sh/uv/) 与 CPython 3.12：
+
+```bash
+uv sync --frozen
+uv run bora --help
+```
+
+## 公开 CLI（当前事实）
+
+| 命令 | 含义 | 证据边界 |
+| --- | --- | --- |
+| `bora lock` | Config Core 锁定摘要 | 工程检查点；非 `runnable-mvp` |
+| `bora run` | 单 Trial 前台 Attempt 竖切（L0） | 离线 fail-closed 已回归；**真实 Agent PASS 需登录 Codex**；stdout JSON 含 `logs` → Attempt evidence 根（§8.9 轨迹） |
+| `bora campaign` | 前台串行 matrix（`/parameters/*`） | seed 等 allowlisted variant **已注入** lock digest；非完整 campaign policy |
+
+## 公开检查点：`bora lock`
+
+从 clean checkout 锁定一份 Task Package，得到**确定性、无 secret** 的 JSON 摘要（stdout）。
+这是 Config Core 工程检查点，**不**创建 Run/Attempt、**不**启动 Agent/Evaluator。
+
+### Success
+
+```bash
+uv run bora lock examples/core/config-minimal --task config-minimal
+```
+
+- Exit `0`
+- Stdout：单一 JSON，含 `format`、`task_id`、`resolved_references`、`resolution`、`digest`
+- 不默认写入 `.bora/` 成功 lock
+
+可选覆盖（allowlisted JSON Pointer）：
+
+```bash
+uv run bora lock examples/core/config-minimal --task config-minimal --set /parameters/seed=7
+```
+
+### Expected failure
+
+```bash
+uv run bora lock examples/core/config-invalid --task config-invalid
+```
+
+- Exit `2`
+- Stderr：稳定 `unknown_profile`（及 package-relative location）
+- Stdout 为空；不创建成功 lock 产物
+
+## Lifecycle 检查点（v0.2）
+
+公开产品入口仍是 `bora lock`。Lifecycle Core 通过 application acceptance 验证：
+
+```bash
+uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q
+```
+
+test double 仅在 `tests/doubles/`，不进入 production composition，不声明 `runnable-mvp`。
+
+## Agent Skills
+
+Coding-agent Skills live under [`skills/`](skills/) and are discoverable after clone via [`.agents/skills`](.agents/skills) (symlink → `skills/`).
+
+| Skill | Path |
+| --- | --- |
+| Platform | [`skills/bora-platform/`](skills/bora-platform/) |
+| CLI | [`skills/bora-cli/`](skills/bora-cli/) |
+| Config / package | [`skills/bora-config-package/`](skills/bora-config-package/) |
+| SDK / harness | [`skills/bora-sdk-harness/`](skills/bora-sdk-harness/) |
+
+Design authority remains [`docs/design/`](docs/design/). Skills describe **shipped** surfaces only.
+
 
 ## 从哪里读起
 
-### 给 Agent / 贡献者（交付 harness）
+### 给 Agent / 贡献者
 
-1. [AGENTS.md](AGENTS.md) — 权威链、当前事实、红线、校验  
-2. [ARCHITECTURE.md](ARCHITECTURE.md) — 当前/目标结构、所有权、依赖、生命周期、数据流  
-3. [specs/AGENTS.md](specs/AGENTS.md) — Specs 局部政策  
-4. [specs/ROADMAP.md](specs/ROADMAP.md) — Core 交付顺序与验收  
-5. 当前 Active Spec  
+1. [AGENTS.md](AGENTS.md)
+2. [ARCHITECTURE.md](ARCHITECTURE.md)
+3. [specs/AGENTS.md](specs/AGENTS.md)
+4. [specs/ROADMAP.md](specs/ROADMAP.md)
+5. 当前 Active Spec
 
 ### 给设计读者
 
-1. [docs/README.md](docs/README.md)  
-2. [docs/design/00-overview-and-product.md](docs/design/00-overview-and-product.md)  
-3. [docs/design/01-bora-core.md](docs/design/01-bora-core.md)  
-4. 其余 `docs/design/02`–`10` 按需  
+1. [docs/README.md](docs/README.md)
+2. [docs/design/00-overview-and-product.md](docs/design/00-overview-and-product.md)
+3. [docs/design/01-bora-core.md](docs/design/01-bora-core.md)
+4. 其余 `docs/design/02`–`10` 按需
 
-### 权威顺序（摘要）
+## 工程门禁
 
-```text
-docs/design（机制） → ARCHITECTURE（结构） → ROADMAP（验收） → Active Spec → 代码/smoke
-constitution/ 可选且默认空 —— 仅实现期用户点名决策
+```bash
+uv sync --frozen
+uv run ruff format --check src tests
+uv run ruff check src tests
+uv run pyright
+uv run pytest
+python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_workspace.py" . --strict
+git diff --check
 ```
 
-Obsidian vault **不是**日常权威。`docs/reference/` 仅历史备份说明。
-
-## 交付如何组织
-
-- **设计已定**，按 **BORA Core + Harness Core** 表面稳步实现（见 Roadmap）。  
-- `v0.x` 是索引号；语义是 Config → Lifecycle → Provider → Capability → Harness Core → Evaluation + `bora run` → …  
-- 每个 Active Spec：一个可验证增量、Decision Summary、前置条件闭包、success/expected-failure、工程门禁。  
-- 通用写法与清单：skill `$spec-driven-delivery`。  
-
-## 目标主路径（未实现）
+## 目标主路径（尚未作为产品路径交付）
 
 ```text
-bora run <package> --task <id>
+bora run <package> --task <id>    # Roadmap v0.6
   → load_and_lock
   → Attempt + Provider views
   → harness(ctx) via Capability
@@ -62,25 +131,17 @@ bora run <package> --task <id>
   → flat Result + .bora/runs/<run-id>/
 ```
 
-当前公开入口：**无**。
+当前公开入口：仅 **`bora lock`**（Config checkpoint）。
 
-## 校验
-
-```bash
-python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_workspace.py" . --strict
-git diff --check
-```
-
-## 目录
+## 目录（实现相关）
 
 ```text
-docs/     设计权威
-specs/    Roadmap / Active Specs / BLOCKED / 可选 constitution
-AGENTS.md / ARCHITECTURE.md  交付与结构 harness
+src/bora/     production package（cli / application / config / adapters）
+examples/     Task Package fixtures（见 examples/README.md）
+              journeys/  case-class 旅程
+              core/      Core 门禁烟测
+              l1/        Provider L1 隔离探针
+tests/        unit + acceptance
+docs/         设计权威
+specs/        Roadmap / Active Specs / BLOCKED
 ```
-
-实现代码目录将在 Spec 授权后出现（见 Architecture Target 树）。
-
-## 许可
-
-私有研发工作区；公开发布策略未定。

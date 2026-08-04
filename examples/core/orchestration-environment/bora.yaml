@@ -1,0 +1,47 @@
+format: bora.task/1
+task_id: orchestration-environment
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  use_agent_session: true
+  harness_timeout_seconds: 900
+  environment_resource: postgresql
+  models:
+    default: codex-mini
+
+provider:
+  kind: local
+  assurance: l0
+
+agent_profiles:
+  - id: codex-mini
+    executor: codex
+    model: gpt-5.4-mini
+  - id: codex-reviewer
+    executor: codex
+    model: gpt-5.4-mini
+
+limits:
+  wall_time_seconds: 900
+  agent_invocations: 14
+  environment_actions: 20
+
+artifacts:
+  publishable:
+    - id: reducer-output
+      producer: harness
+      path: artifacts/reducer-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: reducer-output
+      target: artifacts/reducer-output.json
+  output:
+    format: json

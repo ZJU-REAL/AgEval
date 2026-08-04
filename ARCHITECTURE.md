@@ -13,8 +13,8 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **scaffolding only** — 工作树无 production 源码 |
-| 证据等级 | `design-only` |
+| 实现状态 | **v0.1–v0.13 L0 竖切 + Attempt evidence** — `bora lock`/`run`/`campaign`；§8.9 trajectory store（Codex path）；Docker L1 / multi-executor / env 部分切片 |
+| 证据等级 | **限定 `runnable-mvp`**（L0 core/journeys 烟测；见 `examples/README.md`；Version Index 以 Roadmap 为准） |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
 | 近端目标结构依据 | [docs/design/01](docs/design/01-bora-core.md)、[docs/design/09](docs/design/09-owner-matrix-and-structure.md)、[ROADMAP v0.1–v0.6](specs/ROADMAP.md) |
@@ -67,18 +67,19 @@ Task Package
 
 | 项 | 值 |
 | --- | --- |
-| Public entrypoint | **none** |
-| Production composition root | **none** |
-| Smoke journey | **none** |
-| Observable result | 文档与 Specs 工作区；`design-only` |
+| Public entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露；campaign/L1 草图边界见 Spec 07–11） |
+| Production composition root | `src/bora/application/composition.py` |
+| Smoke journey | `uv run bora lock examples/core/config-minimal --task config-minimal`（exit 0，确定性 JSON 摘要） |
+| Expected failure | `uv run bora lock examples/core/config-invalid --task config-invalid`（exit 2，`unknown_profile`） |
+| Observable result | 无 secret 的 lock summary + digest；无 Run/Attempt/Agent/Evaluator |
+| Lifecycle checkpoint | `uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q` |
+| 证据等级 | **限定 `runnable-mvp`**（仅上述 L0 真实 Codex journeys；非 full Spec 闭合 / 非 Version Index） |
 
-当前仓库可运行的「校验路径」仅为文档门禁，例如：
+文档门禁仍须通过：
 
 ```bash
 python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_workspace.py" . --strict
 ```
-
-这**不是**产品 smoke，不得记为 `runnable-mvp`。
 
 ### Target — 首条产品竖切（Roadmap `v0.6`，依赖 `v0.1`–`v0.5`）
 
@@ -101,33 +102,40 @@ BORA/
 ├── ARCHITECTURE.md
 ├── README.md
 ├── .gitignore
-├── docs/
-│   ├── README.md              # 文档权威索引
-│   ├── PRD.md
-│   ├── glossary.md
-│   ├── design/                # 00–10 自包含设计全文
-│   │   ├── 00-overview-and-product.md
-│   │   ├── 01-bora-core.md
-│   │   ├── 02-task-package-and-config.md
-│   │   ├── 03-harness-layer.md
-│   │   ├── 04-harness-core-sdk.md
-│   │   ├── 05-runtime-core.md
-│   │   ├── 06-capability-adapter-visibility.md
-│   │   ├── 07-budget-evaluation-failure.md
-│   │   ├── 08-conversion-security-testing.md
-│   │   ├── 09-owner-matrix-and-structure.md
-│   │   └── 10-examples-database-52.md
-│   └── reference/             # 非权威：可选 vault 软链接说明
-├── specs/
-│   ├── AGENTS.md
-│   ├── BLOCKED.md
-│   ├── ROADMAP.md
-│   ├── constitution/           # 可为空
-│   ├── research/
-│   ├── active/
-│   └── archive/               # 可为空
-└── scripts/                   # 预留；当前可无文件
+├── .python-version
+├── pyproject.toml
+├── uv.lock
+├── src/bora/
+│   ├── __init__.py
+│   ├── cli/                   # Typer：argv、help、exit code
+│   │   └── main.py            # `bora` / `bora lock`
+│   ├── application/           # use cases + composition root
+│   │   ├── composition.py     # 唯一 production 装配点（仅 Config CLI）
+│   │   ├── lock_command.py
+│   │   └── run_lifecycle.py   # Lifecycle use case（无 CLI 暴露）
+│   ├── config/                # Core 1
+│   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker
+│   ├── provider/              # Core 3：L0 contract / workspace plan / outcomes
+│   ├── capabilities/          # Core 4：Attempt authority（进程内）
+│   ├── evaluation/            # Core 5：flat Result binder（含 Result.logs locator）
+│   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
+│   └── adapters/
+│       ├── package_fs.py
+│       ├── provider_local.py  # LocalProcessProvider
+│       └── agent_codex.py     # Codex Executor（--json 事件流）
+├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
+├── examples/                  # 见 examples/README.md
+│   ├── journeys/              # case-class：env / multiagent / tau2 / terminal
+│   ├── core/                  # config / harness / eval / agent / SDK / plugin
+│   └── l1/                    # Provider L1 isolation probes
+├── tests/
+│   ├── acceptance/
+│   ├── config/
+│   └── test_package_baseline.py
+├── docs/                      # 设计权威（00–10）
+└── specs/                     # Roadmap / Active Specs / BLOCKED
 ```
+
 
 ### Target Source Layout（planned — 随 Core 交付出现）
 
@@ -286,8 +294,8 @@ created
 
 | 等级 | 含义 |
 | --- | --- |
-| `design-only` | 仅文档（**当前**） |
-| `runnable-mvp` | 真实 public entrypoint + 真实 Agent |
+| `design-only` | 仅文档 / 未跑通真实 Agent 的表面 |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent（**当前限定** `examples/core/agent-eval` 与 journeys 类；见 `examples/README.md`） |
 | `isolated` | 隔离 Attempt + 红线负向 |
 | `real-benchmark-verified` | 固定 upstream、限定范围公开 journey |
 

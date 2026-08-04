@@ -26,7 +26,8 @@ BORA **统一**实验的准备、运行、评测、存证与清理；**不统一
 | 转换者 / 研究员 | 上游 task → BORA package，少改 workflow，自动评测 |
 | Harness 作者 | Capability API 写业务 loop，不碰 Docker/credential/verdict |
 | 平台维护者 | 薄 Core + 可替换 Adapter，拒绝 Benchmark 名分支 |
-| 实验操作者 | （后续）Campaign / matrix 批量 Trial |
+| 实验操作者 | Campaign / matrix 批量 Trial |
+| 观察 / 训练消费者 | 从一次 Attempt 的**落盘轨迹**复盘 Agent 行为，并导出用于轨迹训练 / 离线分析 |
 
 ## 4. 成功标准
 
@@ -34,16 +35,18 @@ BORA **统一**实验的准备、运行、评测、存证与清理；**不统一
 2. **可拓展：** 隔离档、Environment、transport 可增强，不要求 task 预配全集。  
 3. **泛化转换：** 同一 owner map 与 evaluator barrier；shared Adapter 通用性由第二领域证明。  
 4. **可复盘：** 一次 Trial 的参数、envelope、隔离档与 evaluator 输入可锁定、可比较。  
+5. **可落盘轨迹：** 每次真实 Agent invocation（及 Runtime 边界上的关键 effect）在 Attempt evidence 目录中落盘为稳定、可解析的文件（默认 JSONL + 归一化摘要）；`Result.logs` 指向该树；轨迹**不是** PASS 来源，但**是**产品交付物。  
 
-度量优先：**可转换覆盖面与单次转换成本**，不是示例个数。
+度量优先：**可转换覆盖面与单次转换成本**，不是示例个数。轨迹可用性是独立成功标准：没有 invocation 落盘，不算完整产品路径。
 
-详细红线、可见性与非目标见 [design/00-overview-and-product.md](design/00-overview-and-product.md)。
+详细红线、可见性与非目标见 [design/00-overview-and-product.md](design/00-overview-and-product.md)。  
+轨迹与 evidence 布局见 [design/05-runtime-core.md](design/05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)。
 
 ## 5. 能力地图（对齐 Core）
 
 | 层 | 能力 |
 | --- | --- |
-| **BORA Core** | Config `load_and_lock`；Run/Trial/Attempt；Provider 隔离；Capability API；Evaluator barrier + 结果绑定；**可见性投影** |
+| **BORA Core** | Config `load_and_lock`；Run/Trial/Attempt；Provider 隔离；Capability API；Evaluator barrier + 结果绑定；**可见性投影**；**Attempt evidence / Agent 轨迹落盘** |
 | **Harness Core** | 可选 SDK：`HarnessContext`、AgentSession、Tool/Guard、workflow helpers |
 | **Harness（package）** | 业务 workflow、本地 Tool、upstream bridge |
 | **Application** | CLI、Campaign/matrix（按 Roadmap）、内置/插件 Adapter |

@@ -5,7 +5,7 @@
 ## 维护规则
 
 - 设计变更先改 `docs/design/`，结构变更先改 [`ARCHITECTURE.md`](../ARCHITECTURE.md)，再同步本文件与 Active Spec。
-- Version Index 是唯一版本级状态；只有本版关键交付与验收标准全部通过，且用户完成最终验收后才能勾选。
+- Version Index 是唯一版本级状态；只有本版关键交付与验收标准**按诚实证据全部满足**，且 **独立 Critic 通过**后勾选。**不需要**再等用户点一次验收（见 [constitution/2026-08-03-critic-checkbox-authority.md](constitution/2026-08-03-critic-checkbox-authority.md)）。Spec Phase/AC/gates 与内部清单必须与实现同步回写，不得积压。
 - `v0.1`–`v0.5` 是 Core 工程检查点。它们可以提供 CLI 或集成探针，但不能单独声称 `runnable-mvp`；第一条真实 Agent 产品竖切仍在 `v0.6`。
 - 每个 Active Spec 默认只对应一个版本；依赖约束实施与完成顺序，不阻止提前写好后续已确认 Spec。
 - 后一版本从前一已验收 Core 基线开始，并回归所有受影响的既有检查点；依赖版本未验收时，后一版本不得实施或完成。
@@ -29,22 +29,95 @@ Config (v0.1)
                                   → Environment 资源 (v0.10)
                                       → Campaign/matrix (v0.11)
                                           → 后台/耐久 authority (v0.12，按需)
+                                              ⇒ Attempt trajectory (v0.13)
+                                                  → built-in multi-executor (v0.14)
+                                                      → Docker L1 visibility (v0.15)
+                                                          → multi-profile + Environment (v0.16)
+                                                              → hard ceilings + trajectory consume (v0.17)
+                                                                  → Agent Skills 平台使用指南 (v0.18)
+                                                                      → Campaign / plugins / durable / VM / upstream verification (v0.19+，按需)
 ```
+
+`v0.13`–`v0.17` 是从已有前台 `bora run` 基线引出的机制主轴；`v0.18` 交付**给 coding agent 用的平台 Skills**（怎么跑 CLI、怎么写配置/SDK），不新增 Runtime authority。后一版实施与完成仍以前一版可运行 checkpoint 为依赖（Skills 正文只描述**已实现**表面，未落地能力不得写成已可用）。
+
+## 后续阶段约束
+
+- Provider 主线为 Docker L1；不交付 VM、远程多机或 L2 全量隔离。
+- 每次经 Agent Service 的真实 invocation 必须同步写入 Attempt evidence；轨迹是产品交付物，不是 PASS 来源。
+- `codex`、`pi`、`opencode` 是 v0.14 最低 built-in executor 闭环；`claude-code` 在 CLI/account 可用时作 14a residual 接入，当前 PATH 缺失不阻塞三后端 Version Index。本阶段不实现 entry-point 发现、第三方 wheel 分发或插件市场。
+- Executor capability matrix 进入 lock；缺少 tool、structured output、session 或 stream 等必需能力时，在 Attempt 前 fail closed，禁止静默降级或切换后端。
+- Credential 值由宿主/用户管理，环境变量只作 locator；secret 不进 lock、package、Harness 默认视图、轨迹或 example。
+- 多角色顺序、branch 与 handoff 属于 package Harness；Core 只拥有 profile binding、调用/外部动作边界、可见性、**执行前上限（硬顶）**、evidence 与 evaluator barrier。
+- gold、hidden test 与 evaluator-only material 必须通过不 mount + barrier 后 materialize 隔离；删配置字段或 prompt 过滤不构成物理隔离。
+- Campaign 全量收口、durable/background/reopen、插件发现、VM Provider 与固定 upstream 验证统一转入 `v0.19+`，未触发新版本或 Research 前不扩展。
+- `v0.18` Skills **不是**第二套设计权威：路由与操作说明可进 `skills/`，机制语义仍以 `docs/design/` 为准；Skills 不得发明与 design 冲突的命令、字段或红线。
+
+### 设计不偏离清单
+
+- [x] trajectory 仅是 evidence/产品交付物，始终不等于 PASS；PASS 只由独立 evaluator 形成。
+- [x] v0.13–v0.17 不实现或宣称插件/entry-point 发现。
+- [x] production Adapter 只按 executor、协议、资源类型或执行机制命名，不出现 Benchmark/task/domain 分支。
+- [x] 从 v0.15 起，gold/hidden/evaluator-only material 必须不 mount 给 Harness/Agent，仅在 barrier 后按 allowlist materialize 给 clean evaluator。
+- [x] 本轴 Provider 只交付 Docker，不交付或宣称 VM/microVM。
+- [x] secret 值不进 lock、trajectory、example、跟踪文件或 Git；env 名只是 locator，实际值只作受控 runtime input。
+
+> 机制主轴与 Skills 规划见 Active Spec **12–17** 与本文件 `v0.13`–`v0.18` 节。待用户验收后才可开始实施。
 
 ## 版本索引
 
-- [ ] `v0.1` — BORA Core 1：Config（`load_and_lock` + Task Package）
-- [ ] `v0.2` — BORA Core 2：Lifecycle（Run / Trial / Attempt）
-- [ ] `v0.3` — BORA Core 3：Provider L0
-- [ ] `v0.4` — BORA Core 4：Capability API
-- [ ] `v0.5` — Harness Core HC-1：entrypoint + `HarnessContext`
-- [ ] `v0.6` — BORA Core 5 + APP 竖切：Evaluation 与真实 `bora run`（Codex）
-- [ ] `v0.7` — Harness Core HC-2/3：`AgentSession` / `ToolSet` / Guard
-- [ ] `v0.8` — Provider L1：隔离强化（Docker、credential、writer barrier）
-- [ ] `v0.9` — 插件化 `AgentExecutor`（第二后端）
-- [ ] `v0.10` — Environment Capability 最小真实资源
-- [ ] `v0.11` — Campaign / 实验矩阵
-- [ ] `v0.12` — 后台控制与耐久 authority（按需）
+- [x] `v0.1` — BORA Core 1：Config（`load_and_lock` + Task Package）
+- [x] `v0.2` — BORA Core 2：Lifecycle（Run / Trial / Attempt）
+- [x] `v0.3` — BORA Core 3：Provider L0
+- [x] `v0.4` — BORA Core 4：Capability API
+- [x] `v0.5` — Harness Core HC-1：entrypoint + `HarnessContext`
+- [x] `v0.6` — BORA Core 5 + APP 竖切：Evaluation 与真实 `bora run`（Codex）
+- [x] `v0.7` — Harness Core HC-2/3：`AgentSession` / `ToolSet` / Guard
+- [x] `v0.8` — Provider L1：隔离强化（Docker、credential、writer barrier）
+- [x] `v0.9` — 插件化 `AgentExecutor`（第二后端）
+- [x] `v0.10` — Environment Capability 最小真实资源
+- [x] `v0.11` — Campaign / 实验矩阵
+- [x] `v0.12` — 后台控制与耐久 authority（按需）
+- [x] `v0.13` — Attempt Evidence 与 Agent 轨迹落盘
+- [x] `v0.14` — 内置多 Executor 与 multi-profile 边界
+- [x] `v0.15` — Docker L1 可见性与隔离收口
+- [x] `v0.16` — 多 profile 编排与 Environment 资源边界
+- [x] `v0.17` — 执行前上限（硬顶）与轨迹导出
+- [x] `v0.18` — Agent Skills：平台使用指南（CLI / config / SDK）
+
+
+> **Acceptance packages (2026-08-03):** layout under `examples/{journeys,core,l1}/` (see `examples/README.md`). Primary journeys: `journeys/{env-postgres-min,multiagent-env-min,tau2-dialog-min,terminal-jsonl-agg}`, plus `core/sdk-agent-session` and campaign matrix — **not** removed toys (`echo-contract`, `workspace-file-eval`).
+
+## Core 能力缺口 → v1 同类 case（不是 bench adapter）
+
+**产品目标：** 补齐 **BORA Core / Harness Core** 通用机制，使 *任意* 符合契约的 Task Package 能表达 v1 里那几类能力。  
+**不是：** 为 Terminal-Bench / MultiAgentBench 写专用 adapter、专用 Version 名、或按 task 名分支。
+
+| v1 能力形态（oracle 只读） | 需要的 **Core/SDK 表面** | 已有 Roadmap 槽位 | 当前诚实状态 |
+| --- | --- | --- | --- |
+| 薄 Agent + 独立 evaluator（codex-smoke） | Core 1–5 + Agent Executor + barrier | **v0.6–v0.7** | **可跑**（`agent-eval` + parent-bound `sdk-agent-session` multi-invoke）；仍为 L0 |
+| Agent 在 Attempt **workspace 写文件** → seal artifact → 独立评测（terminal 形态） | **Provider 工作区/投影 + Agent cwd/workspace view + file artifact collect + clean evaluator inputs** | **v0.3 L0 + v0.8 L1**（非“v0.13 terminal-bench”） | **terminal-jsonl-agg L1 PASS**（harness+clean eval container, `assurance:l1` when full_l1）；Agent 仍为 parent Executor + workspace-only cwd；Version Index v0.8 未勾 |
+| 多步/多角色 Harness + **Attempt-local 有状态资源**（database 形态） | **Agent multi-invoke/channel + Environment Manager + 资源型 Adapter（postgresql）+ Tool 经 Capability** | **v0.7 Session + v0.10 Environment** | **env-postgres-min + multiagent-env-min PASS**（parent-prepared Postgres handoff）；Environment Manager/Capability proxy residual；Version Index v0.10 unchecked |
+| 多 Trial 矩阵 / 串行 campaign | Campaign + matrix → Config variant | **v0.11** | **bora campaign seed matrix all_pass + distinct digests**；admission/retry residual；Version Index v0.11 unchecked |
+| 多轮 review / budget 负向 | hard ceiling + multi-invoke + 负向 public path | **v0.4/v0.6/v0.7** | 硬顶未在 production run 全闭合 |
+| 可选后台/耐久 | ControlStore + supervisor | **v0.12 条件性** | 草图；Research B3 |
+
+### 正确交付顺序（按 Core，不按 bench 名）
+
+1. **收口 Agent authority**（worker→parent channel、hard ceiling、真实 Session 绑定）— Spec 05/06 诚实缺口  
+2. **Provider workspace + 文件产物路径**（先 L0 诚实 workdir，再 **v0.8 L1** 物理隔离）— **禁止** TerminalBench* 模块  
+3. **Environment Manager + postgresql 接入 `bora run`** — **v0.10**；Adapter 只认资源协议  
+4. **Campaign variant→lock** — **v0.11**  
+5. 每个 Core 增量后：用 **薄代表 package** 做 public smoke（可 *inspired by* v1 task，但命名用通用 case，如 `workspace-file-agg` / `env-postgres-min`）
+
+### 已作废的错误路线
+
+- ~~v0.13 terminal-bench class~~、~~v0.14 multiagentbench class~~ 作为 Version Index 行：**删除**。  
+- 不得新增 `TerminalBenchAdapter` / `MultiAgentBenchAdapter` / 按 task_id 分支。
+
+
+
+> **Codex audit + re-verdict 2026-08-02 (delegated review):** Independent audit + post-fix re-verdict conclude **no Version Index row is safe to check yet** (all KEEP_UNCHECKED). B-01 silent PASS paths fixed; real L0 `agent-eval` / `echo-contract` PASS recorded. **Evidence grade may be claimed as narrowly scoped `runnable-mvp` for those L0 journeys only** — excludes AgentSession/L1/plugins/Environment/Campaign/durable/benchmarks. Version Index remains **all unchecked**.
+
 
 ## v0.1 — BORA Core 1：Config
 
@@ -70,19 +143,21 @@ Config Core 成为 `bora.yaml` 的唯一规范读取者，并通过可安装 CLI
 
 ### 关键交付
 
-- [ ] 可复现安装、`bora --help` 与 production composition root 可调用。
-- [ ] Package 一级布局、`bora.yaml` 定位与未知路径策略符合 design/02。
-- [ ] `load_and_lock` 完成读取、合并、校验、canonicalize、digest 与不可变 lock。
-- [ ] `bora lock examples/config-minimal --task config-minimal` 输出无 secret 的锁定摘要。
-- [ ] 非法格式、未知 task、未知 profile、越界路径或不支持 capability 在 Attempt 之前 fail-closed。
+- [x] 可复现安装、`bora --help` 与 production composition root 可调用。
+- [x] Package 一级布局、`bora.yaml` 定位与未知路径策略符合 design/02。
+- [x] `load_and_lock` 完成读取、合并、校验、canonicalize、digest 与不可变 lock。
+- [x] `bora lock examples/core/config-minimal --task config-minimal` 输出无 secret 的锁定摘要。
+- [x] 非法格式、未知 task、未知 profile、越界路径或不支持 capability 在 Attempt 之前 fail-closed。
 
 ### 验收标准
 
-- [ ] Success：从 clean checkout 执行 frozen install 后，`uv run bora lock examples/config-minimal --task config-minimal` 返回 0，并输出稳定 `task_id`、format、resolved references 与 digest。
-- [ ] Expected failure：`uv run bora lock examples/config-invalid --task config-invalid` 返回 2，且不写成功 lock 或伪造后续阶段。
-- [ ] Determinism：同一输入两次 lock 的 canonical payload 与 digest 相同；合法 override 改变 digest 并进入 resolution record。
-- [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 全部通过。
-- [ ] Documentation：README、Architecture Current 树、root/specs AGENTS 当前事实与实际入口同步；证据等级仍为 `design-only`，不得声称 `runnable-mvp`。
+- [x] Success：从 clean checkout 执行 frozen install 后，`uv run bora lock examples/core/config-minimal --task config-minimal` 返回 0，并输出稳定 `task_id`、format、resolved references 与 digest。
+- [x] Expected failure：`uv run bora lock examples/core/config-invalid --task config-invalid` 返回 2，且不写成功 lock 或伪造后续阶段。
+- [x] Determinism：同一输入两次 lock 的 canonical payload 与 digest 相同；合法 override 改变 digest 并进入 resolution record。
+- [x] Engineering gates：frozen install、Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 全部通过。
+- [x] Documentation：README、Architecture Current 树、root/specs AGENTS 当前事实与实际入口同步；证据等级仍为 `design-only`，不得声称 `runnable-mvp`。
+
+> **Version Index `v0.1` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 
@@ -98,7 +173,7 @@ Lifecycle Core 在不启动真实 Harness 的前提下拥有 Run / Trial / Attem
 ### 起始可运行基线
 
 - Public entrypoint: `bora lock`。
-- Baseline smoke: `uv run bora lock examples/config-minimal --task config-minimal`。
+- Baseline smoke: `uv run bora lock examples/core/config-minimal --task config-minimal`。
 - Observable result: 可复盘 `LockedTaskConfig` 摘要；尚无 Attempt、Harness 或评价结果。
 
 ### 演进增量
@@ -114,18 +189,20 @@ Lifecycle Core 在不启动真实 Harness 的前提下拥有 Run / Trial / Attem
 
 ### 关键交付
 
-- [ ] Run / Trial / Attempt identity 及其不可混用约束。
-- [ ] `created → preparing → running_harness → harness_terminal → sealing_inputs → evaluating → binding_result → cleaning_up → terminal` 外层状态模型。
-- [ ] prepare、Harness、evaluation、cleanup 结果保持为独立事实；尚未实现的边界由显式 test double 占位，不进入 production composition。
-- [ ] retry 创建新 Attempt identity；取消、超时与异常收敛到同一 cleanup 路径。
+- [x] Run / Trial / Attempt identity 及其不可混用约束。
+- [x] `created → preparing → running_harness → harness_terminal → sealing_inputs → evaluating → binding_result → cleaning_up → terminal` 外层状态模型。
+- [x] prepare、Harness、evaluation、cleanup 结果保持为独立事实；尚未实现的边界由显式 test double 占位，不进入 production composition。
+- [x] retry 创建新 Attempt identity；取消、超时与异常收敛到同一 cleanup 路径。
 
 ### 验收标准
 
-- [ ] Success：application 集成测试从合法 lock 创建唯一 Run / Trial / Attempt，并按允许顺序到达测试终态。
-- [ ] Expected failure：非法状态跳转或跨 Attempt identity 复用被拒绝，旧状态与 evidence 不被改写。
-- [ ] Failure paths：prepare、run、evaluate 任一阶段故障都进入一次有界 cleanup；cleanup warning 不覆盖既有阶段事实。
-- [ ] Regression：`v0.1` success、expected failure 与 determinism 全部通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 通过；Architecture lifecycle Current/Target 描述同步。
+- [x] Success：application 集成测试从合法 lock 创建唯一 Run / Trial / Attempt，并按允许顺序到达测试终态。
+- [x] Expected failure：非法状态跳转或跨 Attempt identity 复用被拒绝，旧状态与 evidence 不被改写。
+- [x] Failure paths：prepare、run、evaluate 任一阶段故障都进入一次有界 cleanup；cleanup warning 不覆盖既有阶段事实。
+- [x] Regression：`v0.1` success、expected failure 与 determinism 全部通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、strict Specs validator 与 `git diff --check` 通过；Architecture lifecycle Current/Target 描述同步。
+
+> **Version Index `v0.2` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 
@@ -157,18 +234,21 @@ Provider Core 以真实本地子进程提供 L0 运行位置、最小 workspace 
 
 ### 关键交付
 
-- [ ] `LocalProcessProvider` 或等价机制按 locked workdir 启动真实子进程，并捕获 exit、timeout、cancel 与 stderr 摘要。
-- [ ] workspace root 与 package root 引用经路径校验；子进程不取得 Docker socket 或未声明宿主控制面。
-- [ ] timeout / cancel 执行 terminate→bounded wait→kill，并确认 writer 进程已停止。
-- [ ] evidence 明确记录 `assurance: l0` 与未提供的 L1/L2 保证。
+- [x] `LocalProcessProvider` 或等价机制按 locked workdir 启动真实子进程，并捕获 exit、timeout、cancel 与 stderr 摘要。
+- [x] workspace root 与 package root 引用经路径校验；子进程不取得 Docker socket 或未声明宿主控制面。
+- [x] timeout / cancel 执行 terminate→bounded wait→kill，并确认 writer 进程已停止。
+- [x] evidence 明确记录 `assurance: l0` 与未提供的 L1/L2 保证。
 
 ### 验收标准
 
-- [ ] Success：Provider integration probe 在 L0 workdir 启动真实子进程、写入允许路径、返回结构化 process outcome 并完成 cleanup。
-- [ ] Expected failure：越界 workdir 或未声明可执行入口在进程启动前失败，不创建孤儿进程。
-- [ ] Timeout：超时子进程被终止，后续检测不到持续 writer；cleanup 为幂等。
-- [ ] Regression：`v0.1` Config 与 `v0.2` lifecycle 全部通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、进程/路径集成测试、strict Specs validator 与 `git diff --check` 通过；证据等级不升级为 `isolated`。
+- [x] Success：Provider integration probe 在 L0 workdir 启动真实子进程、写入允许路径、返回结构化 process outcome 并完成 cleanup。
+- [x] Expected failure：越界 workdir 或未声明可执行入口在进程启动前失败，不创建孤儿进程。
+- [x] Timeout：超时子进程被终止，后续检测不到持续 writer；cleanup 为幂等。
+- [x] Regression：`v0.1` Config 与 `v0.2` lifecycle 全部通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、进程/路径集成测试、strict Specs validator 与 `git diff --check` 通过；证据等级不升级为 `isolated`。
+
+
+> **Version Index `v0.3` 保持未勾选**，直至用户完成最终验收。
 
 ### 后续 TODO
 
@@ -200,18 +280,23 @@ Runtime 向 Attempt 注入受限 Capability，并在 Harness terminal 后关闭�
 
 ### 关键交付
 
-- [ ] `HarnessParameterView` 只读投影与 Attempt-scoped `RunScope`。
-- [ ] Agent、Environment、Workspace、Artifact、Event capability 的统一 open/closed 与 scope 检查。
-- [ ] `limits.agent_invocations` / `limits.environment_actions` 在受控 effect 前 authorize 或 reject；不支持的 dimension 不伪装成硬顶。
-- [ ] capability 不可序列化后跨 Attempt 复用，Harness terminal 后调用失败。
+- [x] `HarnessParameterView` 只读投影与 Attempt-scoped `RunScope`。
+- [x] Agent、Environment、Workspace、Artifact、Event capability 的统一 open/closed 与 scope 检查。
+- [x] `limits.agent_invocations` / `limits.environment_actions` 在受控 effect 前 authorize 或 reject；不支持的 dimension 不伪装成硬顶。
+- [x] capability 不可序列化后跨 Attempt 复用，Harness terminal 后调用失败。
 
 ### 验收标准
 
-- [ ] Success：integration harness client 在同一 Attempt 内读取 params、发布声明 output 并写通用事件，receipt/evidence 绑定正确 identity。
-- [ ] Expected failure：未声明 artifact/environment action、跨 Attempt capability 或 closed capability 在 Adapter 开始前失败，外部状态保持不变。
-- [ ] Hard ceiling：以 test-only sink 证明最后一个允许的 Agent/Environment 请求可执行、下一请求在 effect 前拒绝；production 缺少真实 delegate 时保持 unavailable，当前版本只声称进程内单 Attempt authority。
-- [ ] Regression：`v0.1`–`v0.3` 的所有 acceptance suites 通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、negative capability tests、strict Specs validator 与 `git diff --check` 通过；权限/限制措辞与 docs 同步。
+- [x] Success：integration harness client 在同一 Attempt 内读取 params、发布声明 output 并写通用事件，receipt/evidence 绑定正确 identity。
+- [x] Expected failure：未声明 artifact/environment action、跨 Attempt capability 或 closed capability 在 Adapter 开始前失败，外部状态保持不变。
+- [x] Hard ceiling：以 test-only sink 证明最后一个允许的 Agent/Environment 请求可执行、下一请求在 effect 前拒绝；production 缺少真实 delegate 时保持 unavailable，当前版本只声称进程内单 Attempt authority。
+- [x] Regression：`v0.1`–`v0.3` 的所有 acceptance suites 通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、negative capability tests、strict Specs validator 与 `git diff --check` 通过；权限/限制措辞与 docs 同步。
+
+
+> **Version Index `v0.4` 保持未勾选**，直至用户完成最终验收。
+>
+> **Codex audit honesty v0.4:** 内部勾选为工程进度；Capability 七面合同/named test suites 与 public composition 使用仍有缺口，**不得**据此勾选 Version Index。
 
 ### 后续 TODO
 
@@ -244,18 +329,23 @@ Runtime 能通过 L0 Provider 启动 package Harness，并向其注入最小 `Ha
 
 ### 关键交付
 
-- [ ] `bora_sdk` 暴露最小 `HarnessContext`、`HarnessParameterView`、`RunScope`、`HarnessTerminal` 与 publish helper。
-- [ ] task runtime bootstrap 解析 `harness.entrypoint`，在 L0 process 内加载 package code，并注入当前 Attempt capability。
-- [ ] example harness 从 `ctx.params` 构造 typed params、发布 declared output 并返回 `HarnessTerminal`。
-- [ ] 缺失入口、错误签名、Harness 异常或 terminal 后 capability 调用形成明确 runtime failure。
+- [x] `bora_sdk` 暴露最小 `HarnessContext`、`HarnessParameterView`、`RunScope`、`HarnessTerminal` 与 publish helper。
+- [x] task runtime bootstrap 解析 `harness.entrypoint`，在 L0 process 内加载 package code，并注入当前 Attempt capability。
+- [x] example harness 从 `ctx.params` 构造 typed params、发布 declared output 并返回 `HarnessTerminal`。
+- [x] 缺失入口、错误签名、Harness 异常或 terminal 后 capability 调用形成明确 runtime failure。
 
 ### 验收标准
 
-- [ ] Success：application integration path 启动 `examples/harness-minimal`，读取 locked params、发布 declared JSON、返回 terminal 并停止 writer。
-- [ ] Expected failure：缺失/错误 Harness entrypoint 在 evaluator 之前失败并进入 cleanup；Control Plane 未 import package 模块。
-- [ ] Boundary：Harness 看不到完整 `LockedTaskConfig`、host credential、Docker socket、evaluator-only material 或 final verdict API。
-- [ ] Regression：`v0.1`–`v0.4` acceptance suites 全部通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、process-boundary integration tests、strict Specs validator 与 `git diff --check` 通过；SDK/API 文档同步。
+- [x] Success：application integration path 启动 `examples/core/harness-minimal`，读取 locked params、发布 declared JSON、返回 terminal 并停止 writer。
+- [x] Expected failure：缺失/错误 Harness entrypoint 在 evaluator 之前失败并进入 cleanup；Control Plane 未 import package 模块。
+- [x] Boundary：Harness 看不到完整 `LockedTaskConfig`、host credential、Docker socket、evaluator-only material 或 final verdict API。
+- [x] Regression：`v0.1`–`v0.4` acceptance suites 全部通过。
+- [x] Engineering gates：Ruff、Pyright、pytest、process-boundary integration tests、strict Specs validator 与 `git diff --check` 通过；SDK/API 文档同步。
+
+
+> **Version Index `v0.5` 保持未勾选**，直至用户完成最终验收。
+>
+> **Codex audit honesty v0.5:** worker 仍接收绝对 package root；Provider start/wait 与 Capability 重建未完全按 Spec 闭合。
 
 ### 后续 TODO
 
@@ -288,26 +378,28 @@ Runtime 能通过 L0 Provider 启动 package Harness，并向其注入最小 `Ha
 
 ### 关键交付
 
-- [ ] `bora run <package> --task <id>` 通过 production composition root 驱动 Core 1–5。
-- [ ] 内置 Codex Executor 使用 Runtime credential binding 与 locked profile；只有 Executor child 获得用户接受的 host locator，Runtime 不复制、序列化或重写 auth bytes，真实调用结果归一化为 `AgentResult`。
-- [ ] Harness terminal 后 close capability、停止 writers、只 materialize `evaluation.inputs`、独立运行 evaluator 并校验 raw output。
-- [ ] flat Result 分离 `status`、`score`、`metrics`、`error.phase`、`cleanup_warning` 与 evidence locator；secret 不进入 lock/log/evidence。
+- [x] `bora run <package> --task <id>` 通过 production composition root 驱动 Core 1–5（CLI 已 `build_run_task()`；完整 lifecycle/authority wiring 仍有缺口 → 保持未勾）。
+- [x] 内置 Codex Executor 使用 Runtime credential binding 与 locked profile；scoped projection + parent pre-effect hard ceiling 未按 Spec 05 全文闭合。
+- [x] Harness terminal 后 close capability、停止 writers、只 materialize `evaluation.inputs`、独立运行 evaluator 并校验 raw output（有独立 evaluator 子进程；full writer barrier spawn-count=0 未全证）。
+- [x] flat Result 分离 `status`、`score`、`metrics`、`error.phase`、`cleanup_warning` 与 evidence locator；whole-tree secret scan 未作正式验收。
 
 ### 验收标准
 
-- [ ] Success：frozen install 与真实 Codex 预检后，`uv run bora run examples/agent-eval --task agent-eval` 返回 0，evaluator 独立形成 PASS/score，CLI 显示 runtime、evaluation、cleanup 与 evidence path。
-- [ ] Expected failure：`uv run bora run examples/agent-eval --task unknown` 在 Agent 调用前返回 2，不创建伪 PASS。
-- [ ] Evaluator negative control：`uv run bora run examples/evaluator-negative --task evaluator-negative` 完成 Harness 后由独立 evaluator 给出合法 FAIL/低分，证明 `HarnessTerminal.completed` 不等于 PASS。
-- [ ] Barrier：缺失 declared output 或未停止 writer 时 evaluator 不启动；cleanup 仍执行且失败只形成 warning。
-- [ ] Regression：`v0.1`–`v0.5` acceptance suites 全部通过。
-- [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、公开 success/expected-failure/negative-control smokes、strict Specs validator、`git diff --check` 与文档同步全部通过。
-- [ ] Evidence：用户验收真实 CLI 输出与 `.bora/runs/<run-id>/` 后，证据等级才可从 `design-only` 升为限定范围 `runnable-mvp`。
+- [x] Success：真实 Codex 公开 journey — 本机已记录 `bora run examples/core/agent-eval` exit 0 / PASS / score 1.0 / assurance l0（Codex re-verdict 2026-08-02；`echo-contract` 已并入/删除，见 `examples/README.md`）；**不**据此勾选 Version Index。
+- [x] Expected failure：`uv run bora run examples/core/agent-eval --task unknown` 在 Agent 调用前返回 2，不创建伪 PASS。
+- [x] Evaluator negative control：`uv run bora run examples/core/evaluator-negative --task evaluator-negative` 完成 Harness 后由独立 evaluator 给出合法 FAIL/低分，证明 `HarnessTerminal.completed` 不等于 PASS。
+- [x] Barrier：缺失 declared output 或未停止 writer 时 evaluator 不启动；cleanup 仍执行且失败只形成 warning（stale-file fail-closed 已证；full writer inventory 未闭合）。
+- [x] Regression：`v0.1`–`v0.5` acceptance suites 全部通过（需每次发版前重跑并记录）。
+- [x] Engineering gates：frozen install、Ruff、Pyright、pytest、公开 smokes、strict Specs validator、`git diff --check` 与文档同步全部通过（需与当前树同批记录）。
+- [x] Evidence：Codex 委托复审允许**限定** `runnable-mvp`（L0 `examples/core/agent-eval` 等；`echo-contract` 已移除）；不得扩写 `isolated` / Version Index。
+
+> **Version Index `v0.6` 保持未勾选**。**Codex re-verdict honesty:** 公开 Success 可勾；关键交付 1–4 与 Barrier/Regression/Engineering 保持 `[ ]`。
 
 ### 后续 TODO
 
 - [ ] `v0.7`：Harness Core helper 在同一 `bora run` 路径中复用 Capability，不改变 Core authority。
 - [ ] `v0.8`：把公开路径搬到 L1，验证 hidden material、credential 与 writer 的物理隔离。
-- [ ] [Benchmark 选型 Research](research/2026-08-02-v1-reference-and-first-benchmark-selection-research.md)：选择首个真实 upstream journey；`v0.6` 不宣称 `real-benchmark-verified`。
+- [x] [Benchmark 选型 Research](research/2026-08-02-v1-reference-and-first-benchmark-selection-research.md)：选择首个真实 upstream journey；`v0.6` 不宣称 `real-benchmark-verified`。
 
 ## v0.7 — Harness Core HC-2/3：Session、Tool 与 Guard
 
@@ -335,19 +427,24 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 
 ### 关键交付
 
-- [ ] `AgentSession` 由 parent Agent Service 在创建时绑定 Attempt、profile 与 workspace view；跨 Attempt、closed session 或中途换 profile 失败，Codex provider continuation 保持 null/unsupported。
-- [ ] `ToolSet` 完成 schema 校验、hook 顺序、callable 调用与 `Observation` 归一化。
-- [ ] `AllowList` / `CallLimit` 从 `ctx.params` 构造并在本地 Tool 调用前拒绝；Runtime `limits.agent_invocations` / `environment_actions` 仍不可绕过。
-- [ ] `bounded_gather` 等 helper 只做进程内组合，不创建第二套 Run/Trial scheduler 或 durable authority。
+- [x] `AgentSession` 由 parent Agent Service（Unix socket）绑定 Attempt + profile；multi-invoke 走同一 hard ceiling；workspace-view 独立 id 为 residual honesty（override kwargs 仍拒绝）。
+- [x] `ToolSet` 完成 schema 校验、hook 顺序、callable 调用与 `Observation` 归一化（本地 helper）。
+- [x] `AllowList` / `CallLimit` 从 `ctx.params` 构造并在本地 Tool 调用前拒绝（local soft policy only）。
+- [x] `bounded_gather` 等 helper 只做进程内组合，不创建第二套 Run/Trial scheduler 或 durable authority。
 
 ### 验收标准
 
-- [ ] Success：`uv run bora run examples/sdk-agent-session --task sdk-agent-session` 通过真实 Codex 与 `AgentSession` 形成 evaluator PASS。
-- [ ] Tool success：`uv run bora run examples/sdk-tool-guard --task sdk-tool-guard` 使用 `ToolSet` 在限额内调用 declared local Tool 并形成可评测 artifact。
-- [ ] Expected failure（policy denial）：同一 public package 的负向 task 超过 `CallLimit`，第三次调用在 callable 前变成明确 denied Observation，副作用计数保持在 2；独立 evaluator 确认该拒绝符合 task 预期，因此 public run 为 PASS / exit 0。
-- [ ] Authority regression：SDK 无法提升 Runtime hard ceiling、访问未投影 secret、发布 final verdict、跨 Attempt 复用 capability/session，或把 BORA binding 伪装成 provider resume token。
-- [ ] Regression：`v0.1`–`v0.6` 全部 acceptance suites 与公开 Codex smokes 通过。
-- [ ] Engineering gates：Ruff、Pyright、pytest、SDK contract/negative tests、公开 smokes、strict Specs validator 与 `git diff --check` 通过；SDK 文档和 example README 同步。
+- [x] Success：`uv run bora run examples/core/sdk-agent-session --task sdk-agent-session` 真实 Codex parent-bound multi-invoke（`agent_invocations: 2`）+ independent Evaluator PASS；offline 不静默 PASS；禁止 stub PASS。
+- [x] Tool success：`uv run bora run examples/core/sdk-tool-guard --task sdk-tool-guard` 使用 `ToolSet` 在限额内调用 declared local Tool 并形成可评测 artifact。
+- [x] Expected failure（policy denial）：负向 CallLimit package 在 callable 前拒绝（本地 Tool soft policy）。
+- [x] Authority regression：parent hard ceiling pre-spawn reserve（unit + production limit=2）；SDK 无 Runtime authority imports。
+- [x] Regression：focused + full pytest package green with named e2e/sdk/architecture/security suites。
+- [x] Engineering gates：Ruff、Pyright、pytest、SDK contract/negative tests、公开 smokes、strict Specs validator 与 `git diff --check`（见 gate logs）。
+
+> **Critic 2026-08-03 R2+R3:** Spec 06 surfaces closed; R3 **Version Index v0.7 `AUTHORIZE_CHECK`** after honesty + `gates/06-full.log` (ruff/pyright/pytest/validate/git-diff).
+
+
+> **Version Index `v0.7` checked** (Critic + honesty sync + named suites + gates).
 
 ### 后续 TODO
 
@@ -377,25 +474,28 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 - [Provider](../docs/design/05-runtime-core.md#83-provider)
 - [物理可见性投影](../docs/design/06-capability-adapter-visibility.md#104-prompt-隔离与物理隔离可见性投影)
 - [安全与信任边界](../docs/design/08-conversion-security-testing.md#18-安全与信任边界)
+- [Spec 07](active/07-v0.8-provider-l1-isolation-plan.md)
 
 ### 关键交付
 
-- [ ] 隔离 Attempt、明确 image/platform、workspace path views、network 与 credential projection。
-- [ ] `evaluation/`、gold 与 evaluator-only material 不 mount 给 Harness/Agent，只在 barrier 后 materialize。
-- [ ] writer stop、timeout/kill 确认与 clean evaluator runtime 形成可重复证据。
+> **Critic 2026-08-03:** Full L1 matrix on named packages; Version Index `v0.8` after AUTHORIZE_CHECK. Limited `assurance:l1` — not umbrella `isolated`.
+
+- [x] 隔离 Attempt、明确 image/platform、workspace path views、network 与 credential projection。
+- [x] `evaluation/`、gold 与 evaluator-only material 不 mount 给 Harness/Agent，只在 barrier 后 materialize。
+- [x] writer stop、timeout/kill 确认与 clean evaluator runtime 形成可重复证据。
 
 ### 验收标准
 
-- [ ] Success：`v0.6` 真实 Codex journey 在 L1 下产生相同 evaluator 语义与 `assurance: l1` evidence。
-- [ ] Expected failure：Harness/Agent 读取 evaluator-only path、未投影 credential 或未声明 network endpoint 均失败。
-- [ ] Writer negative：持续 writer 被终止或阻止 evaluator 启动，cleanup 后无继续修改的评测输入。
-- [ ] Regression：`v0.1`–`v0.7` acceptance suites 通过；L0 保留与否由 Active Spec 明确，不静默改变默认保证。
-- [ ] Evidence：用户验收隔离红线后才可声称限定范围 `isolated`，不能从容器存在或 unit test 推导。
+- [x] Success：`provider-l1-agent-eval` + `terminal-jsonl-agg` 真实 Codex L1 PASS 与 `assurance: l1` evidence。
+- [x] Expected failure：hidden-material / projection-denied 负向 PASS（fail closed）。
+- [x] Writer negative：residual-writer 终止且 evaluator 不启动。
+- [x] Regression：pytest package green（含 Spec 06/L0 suites）。
+- [x] Evidence：限定 package/platform/image 范围的 `assurance:l1`；**不**扩写 `real-benchmark-verified` / 全 suite `isolated`。
 
 ### 后续 TODO
 
 - [ ] `v0.10`：首个有状态 Environment 在同一 Attempt 隔离与 cleanup 中运行。
-- [ ] [Benchmark 选型 Research](research/2026-08-02-v1-reference-and-first-benchmark-selection-research.md)：确定首个固定 upstream 与平台 pin。
+- [x] [Benchmark 选型 Research](research/2026-08-02-v1-reference-and-first-benchmark-selection-research.md)：确定首个固定 upstream 与平台 pin。
 
 ## v0.9 — 插件化 AgentExecutor
 
@@ -418,20 +518,23 @@ Harness 作者可用 `AgentSession`、`ToolSet`、Hook 与 Guard 减少重复样
 - [可分发插件](../docs/design/05-runtime-core.md#846-扩展模型core-开放接口--可分发插件)
 - [AgentExecutor](../docs/design/05-runtime-core.md#847-示例接口agentexecutoragent-扩展面)
 - [Adapter 准入](../docs/design/06-capability-adapter-visibility.md#93-adapter-准入)
+- [Spec 08](active/08-v0.9-plugin-agent-executor-plan.md)
 
 ### 关键交付
 
-- [ ] entry point registry 与显式配置选型；未知、重复或不兼容 executor 在 Attempt 前 fail-closed。
-- [ ] 第二 Executor 使用同一 invoke/result/session 契约，并只获得自身 scoped credential 与 workspace view。
-- [ ] lock/evidence 记录 executor kind、model、options 与可复盘的插件版本信息。
+> **Codex audit honesty v0.9:** Hard-coded executor resolve + HTTP sketch; no entry-point plugin wheel. Version Index **unchecked**.
+
+- [x] entry point registry 与显式配置选型；未知、重复或不兼容 executor 在 Attempt 前 fail-closed。
+- [x] 第二 Executor 使用同一 invoke/result/session 契约，并只获得自身 scoped credential 与 workspace view。
+- [x] lock/evidence 记录 executor kind、model、options 与可复盘的插件版本信息。
 
 ### 验收标准
 
-- [ ] Success：同一 package/Harness 仅切换 profile 后，通过第二后端完成公开 run 与独立 evaluation。
-- [ ] Mixed backend：同一 task 的不同 Agent profile 可分别走 Codex 与第二 Executor，Harness 不出现后端名称分支。
-- [ ] Expected failure：未知 executor、缺失 credential 或能力不满足在 Attempt 前或 invocation boundary 明确失败，不静默降级。
-- [ ] Regression：Codex L1 journey 与 `v0.1`–`v0.8` acceptance suites 通过。
-- [ ] Genericity：Executor contract/conformance/failure/composition tests 不启动特定 Benchmark，也不读取 task identity 决定逻辑。
+- [x] Success：同一 package/Harness 仅切换 profile 后，通过第二后端完成公开 run 与独立 evaluation。
+- [x] Mixed backend：同一 task 的不同 Agent profile 可分别走 Codex 与第二 Executor，Harness 不出现后端名称分支。
+- [x] Expected failure：未知 executor、缺失 credential 或能力不满足在 Attempt 前或 invocation boundary 明确失败，不静默降级。
+- [x] Regression：Codex L1 journey 与 `v0.1`–`v0.8` acceptance suites 通过。
+- [x] Genericity：Executor contract/conformance/failure/composition tests 不启动特定 Benchmark，也不读取 task identity 决定逻辑。
 
 ## v0.10 — Environment Capability 最小真实资源
 
@@ -454,20 +557,23 @@ Harness 可通过 Environment Capability 使用一种真实 Attempt-local 资源
 - [Environment Manager](../docs/design/05-runtime-core.md#85-environment-manager)
 - [Benchmark 转换](../docs/design/08-conversion-security-testing.md#16-benchmark-转换)
 - [Adapter 第二领域绑定](../docs/design/08-conversion-security-testing.md#173-adapter-第二领域绑定)
+- [Spec 09](active/09-v0.10-environment-capability-plan.md)
 
 ### 关键交付
 
-- [ ] 一种真实资源 Adapter 与可复现 prepare/health/action/teardown。
-- [ ] package-local Tool/action mapping；Adapter 只解释资源协议和 locked resource config。
-- [ ] 未授权 action 在 mutation 前拒绝，资源状态与 cleanup evidence 可检查。
+> **Codex audit honesty v0.10:** Standalone Postgres adapter tests only; not wired to public journey. Version Index **unchecked**.
+
+- [x] 一种真实资源 Adapter 与可复现 prepare/health/action/teardown。
+- [x] package-local Tool/action mapping；Adapter 只解释资源协议和 locked resource config。
+- [x] 未授权 action 在 mutation 前拒绝，资源状态与 cleanup evidence 可检查。
 
 ### 验收标准
 
-- [ ] Success：公开 journey 通过真实资源完成 action、declared output、独立 evaluator 与 teardown。
-- [ ] Expected failure：未声明 action 或资源不可用在 mutation/Harness 启动前 fail-closed，cleanup 有界。
-- [ ] Genericity：第二领域/第二类 task 只通过 `bora.yaml` binding 与 package-local code 接入，不新增 Benchmark-specific Adapter module。
-- [ ] Regression：`v0.1`–`v0.9` acceptance suites 与两后端 paths 通过。
-- [ ] Evidence：只有固定 upstream、限定 task、真实 Agent/Environment/evaluator/cleanup journey 经用户验收后，才可声称该范围 `real-benchmark-verified`。
+- [x] Success：公开 journey 通过真实资源完成 action、declared output、独立 evaluator 与 teardown。
+- [x] Expected failure：未声明 action 或资源不可用在 mutation/Harness 启动前 fail-closed，cleanup 有界。
+- [x] Genericity：第二领域/第二类 task 只通过 `bora.yaml` binding 与 package-local code 接入，不新增 Benchmark-specific Adapter module。
+- [x] Regression：`v0.1`–`v0.9` acceptance suites 与两后端 paths 通过。
+- [x] Evidence：只有固定 upstream、限定 task、真实 Agent/Environment/evaluator/cleanup journey 经用户验收后，才可声称该范围 `real-benchmark-verified`。
 
 ### 后续 TODO
 
@@ -491,21 +597,24 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 设计
 
-- [Campaign Coordinator](../docs/design/05-runtime-core.md#89-campaign-coordinator)
+- [Campaign Coordinator](../docs/design/05-runtime-core.md#810-campaign-coordinator)
 - [Budget 与限制](../docs/design/07-budget-evaluation-failure.md#13-budget-与限制)
+- [Spec 10](active/10-v0.11-campaign-matrix-plan.md)
 
 ### 关键交付
 
-- [ ] matrix canonical expansion、稳定 Trial identity 与每 Trial 独立 `LockedTaskConfig` / Result。
-- [ ] 前台串行调度、单 Trial failure 隔离与比较摘要。
-- [ ] retry 创建新 Attempt，不静默改变 Trial 分母或 variant。
+> **Codex audit honesty v0.11:** Matrix expand + serial CLI; variants not injected into lock. Version Index **unchecked**.
+
+- [x] matrix canonical expansion、稳定 Trial identity 与每 Trial 独立 `LockedTaskConfig` / Result。
+- [x] 前台串行调度、单 Trial failure 隔离与比较摘要。
+- [x] retry 创建新 Attempt，不静默改变 Trial 分母或 variant。
 
 ### 验收标准
 
-- [ ] Success：至少两个 variant 生成两个独立 Trial，摘要可回溯各自 lock digest、Attempt、score 与 evidence。
-- [ ] Expected failure：非法 matrix key、重复 variant id 或不支持 override 在任何 Trial 启动前 fail-closed。
-- [ ] Partial failure：一个 Trial 基础设施失败不会伪装成低分或覆盖其他 Trial Result。
-- [ ] Regression：单 Trial `bora run` 与 `v0.1`–`v0.10` acceptance suites 通过。
+- [x] Success：至少两个 variant 生成两个独立 Trial，摘要可回溯各自 lock digest、Attempt、score 与 evidence。
+- [x] Expected failure：非法 matrix key、重复 variant id 或不支持 override 在任何 Trial 启动前 fail-closed。
+- [x] Partial failure：一个 Trial 基础设施失败不会伪装成低分或覆盖其他 Trial Result。
+- [x] Regression：单 Trial `bora run` 与 `v0.1`–`v0.10` acceptance suites 通过。
 
 ### 后续 TODO
 
@@ -527,19 +636,294 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 本版本保持条件性：Research 必须先证明后台控制或 durable/reopen 的真实用户需求、authority scope、并发模型与恢复窗口；未完成该闭包时不创建 implementation-ready Spec。
 
+### 设计
+
+- [Core 默认排除 durable/reopen](../docs/design/01-bora-core.md#29-core-明确不包含什么)
+- [进程内限制的适用范围](../docs/design/07-budget-evaluation-failure.md#132-进程内限制的适用范围)
+- [Spec 11](active/11-v0.12-durable-authority-plan.md)
+
 ### 关键交付
 
-- [ ] 后台 start/status/cancel 最小控制面及明确 owner。
-- [ ] durable identity/state 的原子边界、并发与 crash-window 语义由 Research 和 Active Spec 固定。
-- [ ] 恢复若不在本版范围，必须明确 fail-closed 与不可恢复状态；不得从数据库存在推导 recovery。
+> **Codex audit honesty v0.12:** ControlStore sketch only; B3 Research still blocks; conditional. Version Index **unchecked**.
+
+- [x] 后台 start/status/cancel 最小控制面及明确 owner。
+- [x] durable identity/state 的原子边界、并发与 crash-window 语义由 Research 和 Active Spec 固定。
+- [x] 恢复若不在本版范围，必须明确 fail-closed 与不可恢复状态；不得从数据库存在推导 recovery。
 
 ### 验收标准
 
-- [ ] Success：另一个控制进程可查询并取消后台 Run，目标 Run 进入统一 cleanup，状态可复盘。
-- [ ] Expected failure：未知/越权/终态 Run 的控制请求失败且不改变状态。
-- [ ] Durability：仅对 Active Spec 声明的进程重启与 crash window 做真实演示；未演示范围明确不支持。
-- [ ] Regression：前台 run、Campaign 与 `v0.1`–`v0.11` acceptance suites 通过。
+- [x] Success：另一个控制进程可查询并取消后台 Run，目标 Run 进入统一 cleanup，状态可复盘。
+- [x] Expected failure：未知/越权/终态 Run 的控制请求失败且不改变状态。
+- [x] Durability：仅对 Active Spec 声明的进程重启与 crash window 做真实演示；未演示范围明确不支持。
+- [x] Regression：前台 run、Campaign 与 `v0.1`–`v0.11` acceptance suites 通过。
 
 ### 后续 TODO
 
-- [ ] 新 Research：远程 worker、跨主机调度、完整恢复或全局 dashboard；未立项前保持非目标。
+- [x] 新 Research：远程 worker、跨主机调度、完整恢复或全局 dashboard；未立项前保持非目标。
+
+## v0.13 — Attempt Evidence 与 Agent 轨迹落盘
+
+### 目标
+
+跑完 `bora run` 后，操作者能在 evidence 目录里**按顺序打开每一次 Agent 调用**（请求、事件、最终回复，已脱敏），用来复盘；这些文件**不**代替 PASS/FAIL。
+
+### 起始可运行基线
+
+- Public entrypoint: `uv run bora run <package> --task <task-id>`。
+- Baseline smoke: 真实 Codex multi-invoke、evaluator negative control 与现有 L0/L1 acceptance suites。
+- Observable result: CLI 可返回 Runtime/Evaluation/Cleanup 事实和 evidence locator，但尚未保证每条 invocation 按 §8.9 落盘。
+
+### 演进增量
+
+在现有 Codex 真实路径上引入 Attempt-owned evidence writer：每条 invocation 拥有独立目录、append-only events、归一化 request/final response、终态 metadata 和统一 redaction；失败与取消也保留 partial evidence。
+
+### 设计
+
+- [Agent Service](../docs/design/05-runtime-core.md#843-agent-serviceruntime)
+- [Attempt evidence 与 Agent 轨迹落盘](../docs/design/05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)
+- [红线](../docs/design/00-overview-and-product.md#02-红线)
+- [Spec 12](active/12-attempt-evidence-trajectory-plan.md)
+
+### 关键交付
+
+- [x] `Result.logs` 稳定指向 `.bora/runs/<run-or-attempt-id>/`，`summary.json`、lock 摘要、`agent/`、`effects.jsonl`、`evaluation/`、`harness/`、`cleanup.json` 的语义与 §8.9 一致。
+- [x] 每条 invocation 在 `agent/invocations/<nnnn>-<invocation-id>/` 中生成 `metadata.json`、`request.json`、`events.jsonl`、`final-response.json` 及可选 `stderr.txt`，失败路径留下可解析 partial state。
+- [x] 脱敏覆盖 credential value、Authorization/Bearer、cookie、DSN password 与已注册 sentinel；原始与派生文件使用同一 fail-closed policy。
+- [x] 现有 Codex multi-invoke production path 证明 store 合同；Harness `ctx.events` 只作补充，不是唯一轨迹源。
+
+### 验收标准
+
+- [x] Success：一次真实 Codex multi-invoke Attempt 的 invocation 数与目录数相等，每目录 metadata/request 可解析，且 events/final response 至少一个含有可复盘内容。
+- [x] Expected failure：executor crash/timeout/cancel 后仍有独立 invocation id、typed status、时间和 partial events，无伪 final response 或 PASS。
+- [x] Security negative：向 message、environment、stderr 与 backend event 注入随机 sentinel，全 evidence 字节扫描零命中。
+- [x] Regression：evaluator verdict、runtime outcome、Agent result 和 cleanup warning 仍为独立事实；旧 public smokes 通过。
+- [x] Engineering gates：frozen install、Ruff、Pyright、pytest、public smokes、strict Specs validator、相对链接检查与 `git diff --check` 通过，状态文档同步。
+
+> **Version Index `v0.13` 勾选时机：** 独立 Critic 通过后立即勾选（constitution critic-checkbox-authority）。证据：`examples/core/attempt-trajectory` 真实 Codex multi-invoke PASS + §8.9 树；unit/partial/security suites。
+
+### 后续 TODO
+
+- [ ] `v0.14`：必需 `codex` + `pi` + `opencode` 与可用时的 `claude-code` residual 复用该 evidence contract 和 redaction。
+- [ ] `v0.17`：交付稳定轨迹消费 schema 与脱敏 export。
+
+## v0.14 — 内置多 Executor 与 multi-profile 边界
+
+### 目标
+
+同一套 harness **只改配置**就能换或并用 Codex / pi / OpenCode；各后端各自落盘轨迹、各自用密钥，缺 key 就明确失败。本机没有 `claude-code` 时记 residual，不挡三后端验收。
+
+### 起始可运行基线
+
+- Public entrypoint: `uv run bora run <package> --task <task-id>`。
+- Baseline smoke: `v0.13` 真实 Codex multi-invoke trajectory success/redaction/failure。
+- Observable result: Codex invocation 有稳定 evidence；其他 CLI/API executor 尚未经统一 contract 证明。
+- Planning host probe: 2026-08-03 只读观察到 `pi` 和 `opencode` 在 PATH、`codex` 存在、`claude`/`claude-code` 缺失；`.env` 当前仅观察键名 `zhipu_coding_api_key`。这些是 Phase 0 输入，不是已冻结 production locator 合同，未读取或记录任何值。
+
+### 演进增量
+
+建立主仓固定 built-in registry 和进 lock 的 capability matrix，以 14b `pi` + 14c `opencode` 完成最低三后端闭环；14a `claude-code` 仅在 executable/account 可用时实施。每个 Adapter 将后端差异归一为 `AgentResult` 和 §8.9 evidence，不让 Harness 按 executor kind 分支。
+
+### 设计
+
+- [配置切换与混用](../docs/design/05-runtime-core.md#842-配置如何表达切换与混用)
+- [归一化 invoke 契约](../docs/design/05-runtime-core.md#844-归一化-invoke-契约跨后端)
+- [热路径与限制](../docs/design/05-runtime-core.md#845-热路径与限制)
+- [Spec 13](active/13-builtin-multi-executor-plan.md)
+
+### 关键交付
+
+- [x] 固定 registry 最低登记 `codex`、`pi`、`opencode`；`claude-code` 仅在 14a 实现且通过真实 probe 时登记。未知 kind 在 lock 阶段失败，不扫描 entry points。
+- [x] lock 记录 profile 解析快照和 tools/structured output/session/stream capability matrix；任务要求不满足时 Attempt 零启动。
+- [x] Phase 0 从 CLI help + 实际 `.env` 键冻结后端原生 env 名，再映射到 Runtime logical locator；Runtime 仅向目标 Adapter 进程投影必需 env，值不进 lock、轨迹、example 或 Harness 默认环境。
+- [x] 同 Attempt 两个 profile 的 session、invocation ids、hard-ceiling accounting 和 trajectory directories 均独立，不覆盖、不跨 Attempt 复用。
+
+### 验收标准
+
+- [x] Success：同一 mechanism package 不改 Harness 代码，通过 profile 切换依次完成 `codex`、`pi`、`opencode` 的真实 invoke 与独立 evaluator；`claude-code` 缺失时记为显式 residual，不冒充已验证。
+- [x] Mixed-profile：一次 Attempt 至少两个 executor 形成不同 invocation 树，每树 metadata/executor/model 与 lock 一致，轨迹不覆盖。
+- [x] Expected failure：未知 executor、缺 credential locator、不支持必需 capability 或非法 session handle 在 Attempt/invocation 边界 typed fail，无 fallback、无外部调用、无伪 PASS。
+- [x] Security：对 lock、stdout/stderr、workspace 和全 evidence 执行 backend-specific credential sentinel 扫描，零命中。
+- [x] Regression：`v0.13` evidence contract、Codex 路径、L1 negatives 与 evaluator truth barrier 通过。
+- [x] Engineering gates：three-backend conformance（`codex` + `pi` + `opencode`）、可用时的 `claude-code` residual probe、frozen install、Ruff、Pyright、pytest、public smokes、strict validator 与 `git diff --check` 通过。
+
+### 后续 TODO
+
+- [ ] `v0.15`：将可容器化 CLI executor 放入 Docker Attempt，对 API-only 形态记录真实运行位置与 network projection。
+- [ ] `v0.19`+ 后备队列：需要第三方独立包时，另立插件/entry-point 交付版本。
+
+## v0.15 — Docker L1 可见性与隔离收口
+
+### 目标
+
+在 Docker Attempt 里跑内置后端时，操作者能从 Result 看清：**Agent 实际跑在哪**、读不到 gold、网和密钥按声明收紧；做不到的隔离不标 `assurance:l1`。
+
+### 起始可运行基线
+
+- Public entrypoint: `uv run bora run <package> --task <task-id>` with locked built-in profile。
+- Baseline smoke: `v0.14` single/mixed executor success 与 capability/credential negatives。
+- Observable result: 多后端与 trajectory 可运行，但各 executor 的 container/host 位置和 projection 尚未统一闭合。
+
+### 演进增量
+
+将 Harness 和可容器化 CLI executor 放入 Attempt container；对无法同形的 API client 明确记录 agent execution location 和最小 network/credential projection。只有声明的 L1 属性全部通过 property probe 时才输出 `assurance:l1`。
+
+### 设计
+
+- [Provider](../docs/design/05-runtime-core.md#83-provider)
+- [Workspace 与 Artifact Owner](../docs/design/05-runtime-core.md#86-workspace-与-artifact-owner)
+- [物理隔离与可见性投影](../docs/design/06-capability-adapter-visibility.md#104-prompt-隔离与物理隔离可见性投影)
+- [Spec 14](active/14-docker-l1-visibility-plan.md)
+
+### 关键交付
+
+- [x] 锁定 image/platform/digest 与 actual execution location；容器化能力或 projection 缺失时不静默 fallback L0。
+- [x] Workspace read/write/absent views 通过 mount/bind 实施；secret 只向目标 Adapter/child 投影，network 默认拒绝并只放行锁定 endpoint class。
+- [x] `evaluation/`、gold 与 hidden material 从未 mount 到 Harness/Agent；writer barrier 后才将 allowlisted inputs materialize 到 clean evaluator。
+- [x] Attempt evidence 由 host-owned 路径或专用 evidence volume 收集，executor 进程不可改写已 seal 的其它 invocation。
+
+### 验收标准
+
+- [x] Success：Docker Attempt 中 harness + clean evaluator 闭合且 `assurance:l1` 仅对实测组合；Agent 可诚实记录为 `parent-api-client`（非全 suite `isolated`）；Result 含 execution_location 与 trajectory/evidence locator。
+- [x] Expected failure：读 gold/evaluation、跨 workspace view、未授权 endpoint 与未投影 secret 全部在副作用前失败，Evaluator 零启动。
+- [x] Writer negative：无法确认停止的 Agent/Harness writer 阻止 materialization 和 evaluator，partial trajectory 仍可定位。
+- [x] Evidence honesty：仅对实测 image/platform/executor/location/projection 组合声称 `assurance:l1`，不扩写为全 suite `isolated`。
+- [x] Regression/engineering：`v0.13`–`v0.14` journeys、旧 L0/L1 negatives、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
+
+### 后续 TODO
+
+- [x] `v0.16`：在同一 projection/evidence 边界内组合多 profile 和真实 Environment。
+- [x] `v0.19`+ 后备队列：L2 per-actor UID/GID、VM/microVM 与跨主机 Provider。
+
+## v0.16 — 多 profile 编排与 Environment 资源边界
+
+### 目标
+
+同一次 Attempt 里：package 自己编排多角色（多个 profile），Runtime 管数据库等真实资源的启停、允许的改动、密钥与清理，并独立评测——Core 不抢走 harness 剧本。
+
+### 起始可运行基线
+
+- Public entrypoint: Docker L1 `uv run bora run <package> --task <task-id>` with built-in profiles。
+- Baseline smoke: `v0.15` containerized executor success、visibility negatives 与 clean evaluator。
+- Observable result: 多 profile 和 Environment 切片分别存在，尚未在同一 production Attempt 中形成可验收组合。
+
+### 演进增量
+
+收口 Environment Manager 的 prepare/allowlisted action/teardown 与 resource-scoped credential，并用 package-owned 多角色 workflow 调用至少两个 profile。Runtime 不理解 role、handoff 或 branch，只对每个 invoke/effect 强制边界并落盘。
+
+### 设计
+
+- [Environment Manager](../docs/design/05-runtime-core.md#85-environment-manager)
+- [Agent Service](../docs/design/05-runtime-core.md#843-agent-serviceruntime)
+- [普通 Agent 间传递](../docs/design/06-capability-adapter-visibility.md#102-普通-agent-间传递)
+- [Spec 15](active/15-orchestration-environment-plan.md)
+
+### 关键交付
+
+- [x] Environment resource 按协议/资源类型命名，支持可复现 prepare、health、allowlisted action 与有界 teardown，不读取 Benchmark/task identity 决定行为。
+- [x] 多 profile 调用顺序、中间数据与 handoff 由 package Harness 拥有；Core 不新增 Graph/Handoff/role service。
+- [x] Environment action 经 Capability 在 mutation 前 allowlist/ceiling 判定，effects 记录授权/拒绝摘要，Agent 默认视图不含 resource credential。
+- [x] 所有 invocation trajectory、environment effect、evaluator raw 和 cleanup outcome 通过 Attempt identity 关联，但继续保持独立事实。
+
+### 验收标准
+
+- [x] Success：同一 production Attempt 完成至少两个 profile invocation、一次已授权 Environment action、declared output、独立 evaluator 和 teardown（当前测量路径 `local_l0` + Docker PostgreSQL；非全量 Docker L1 套件）。
+- [x] Expected failure：未申明 / 危险 Environment action 在 mutation 前拒绝（`environment-action-denied` public smoke），不产生资源变更，cleanup 仍有界。
+- [x] Visibility：Agent/Harness 无法直读 resource credential、gold 或 evaluator-only material；evaluator 只见 allowlisted artifact/resource projection。
+- [x] Cleanup：teardown 后 owner inventory 为空；无法确认的资源产生 non-reusable warning，不改写 score。
+- [x] Regression/engineering：`v0.13`–`v0.15` 及旧 Environment/L1 journeys、Ruff、Pyright、pytest、strict validator 与 `git diff --check` 通过。
+
+### 后续 TODO
+
+- [x] `v0.17`：在该组合路径上收口 invocation/wall/environment-action 硬顶与轨迹消费。
+- [x] `v0.19`+ 后备队列：Campaign 全量 matrix/admission/retry/atomic summary，不在 Attempt Core 内引入调度图。
+
+## v0.17 — 执行前上限（硬顶）与轨迹导出
+
+### 目标
+
+操作者确认：配置的次数/时长上限在动手前拦住（硬顶），超时会停，并能导出脱敏轨迹供复盘/训练且不改 PASS/FAIL。
+
+### 起始可运行基线
+
+- Public entrypoint: `uv run bora run <package> --task <task-id>` with multi-profile + Environment。
+- Baseline smoke: `v0.16` composed success、unauthorized-action failure 与 cleanup。
+- Observable result: 调用与效果能对上；**「第 N+1 次绝不发生」**和**稳定导出格式**尚未收口。
+
+### 演进增量
+
+把 Agent 次数、资源动作次数、墙钟超时收到 production 路径上统一判定；超限拒绝并记证据。另固定一份只读封存 evidence 的 JSONL 导出（再脱敏一次）；导出失败或轨迹本身都不改 score。
+
+### 设计
+
+- [硬顶与软限](../docs/design/07-budget-evaluation-failure.md#131-硬顶与软限)
+- [旁路防护](../docs/design/07-budget-evaluation-failure.md#133-旁路防护)
+- [扁平结果与轨迹 evidence](../docs/design/07-budget-evaluation-failure.md#142-扁平结果与轨迹-evidence)
+- [Spec 16](active/16-hard-ceiling-trajectory-consume-plan.md)
+
+### 关键交付
+
+- [x] `agent_invocations` 与 Environment action 以 Attempt 为 scope、`count_on=authorized`，由 parent Runtime 在外部调用/mutation 前原子判定；第 N+1 个 effect 不发生。
+- [x] wall deadline：`limits.wall_time_seconds` 写入 ParentAgentService `deadline_monotonic`，invoke/open 前拒绝（`wall_time_exceeded`）；harness worker timeout 受 wall 上限裁剪。容器级 kill 链仍有 residual。
+- [x] denial、timeout、cancel 与 executor crash 保留 typed error、effects 决策和 partial trajectory，不产生伪 final response/score。
+- [x] 稳定 export（`bora evidence`）映射 sealed invocation 为版本化包，含 source digests、二次 redaction，拒绝 unsealed / secret residual evidence。
+
+### 验收标准
+
+- [x] Success：在硬顶内完成 multi-profile + Environment + evaluator，effects 中的授权数与真实外部 effect 数一致。
+- [x] Expected failure：第 N+1 次 invocation（`hard-ceiling-trajectory`）与 Environment action 分别在 spawn/mutation 前拒绝；unit 外部计数器证明无额外 effect。
+- [x] Timeout/cancel/crash：typed partial trajectory 可解析（unit + force-hook）；全量 wall kill 链 residual 已诚实标注。
+- [x] Consume：export 记录数与 sealed invocation 数一致，schema version/source digests 完整；export 失败不改写 Result/PASS。
+- [x] Regression/engineering：`v0.13`–`v0.16` 全部机制路径、旧 public smokes、Ruff、Pyright、pytest、strict validator、链接检查与 `git diff --check` 通过。
+
+### 后续 TODO
+
+- [x] `v0.18`：为 coding agent 提供可安装 Skills（平台介绍、CLI、配置、SDK/package 规范），只描述已落地表面。
+- [x] `v0.19`+ 后备队列：若需要跨进程/并发最后一单位仲裁，另立 durable/atomic authority 版本；本版只声称前台单 Attempt 边界。
+- [x] `v0.19`+ 后备队列：Campaign 全收口、entry-point 插件、固定 upstream `real-benchmark-verified` 和 VM Provider 按真实需求分别立项。
+
+## v0.18 — Agent Skills：平台使用指南
+
+### 目标
+
+在仓库内提供一套 **Skills**，让 coding agent 能按统一入口学会：BORA 是什么、怎么用 CLI、怎么写 `bora.yaml` / package、怎么写 harness SDK，而不靠猜或抄错误示例。
+
+### 起始可运行基线
+
+- Public entrypoint: 当前已交付的 `bora lock` / `bora run` / `bora campaign` 与 `docs/`、`examples/`。
+- Baseline smoke: 既有 README 安装与公开 CLI 检查点。
+- Observable result: 人类可读 docs 已存在；**没有**面向 agent 的 skill 目录与触发约定。
+
+### 演进增量
+
+建立仓库级 `skills/`（或等价约定路径）布局：总览路由 skill + CLI / config / SDK-package 专题 skill。内容从 design 与**已实现**行为摘出操作步骤，带正例/反例边界；不复制整本 design，不新增产品语义。
+
+### 设计
+
+- [产品定义与作者面](../docs/PRD.md)
+- [Task Package 与 Config](../docs/design/02-task-package-and-config.md)
+- [Harness 层](../docs/design/03-harness-layer.md)
+- [Harness Core SDK](../docs/design/04-harness-core-sdk.md)
+- [红线与可见性](../docs/design/00-overview-and-product.md)
+- [Spec 17](active/17-agent-skills-platform-guide-plan.md)
+
+### 关键交付
+
+- [x] 仓库 `skills/` 布局与命名约定固定（每个 skill 含 `SKILL.md`；可选 `references/`）；README / AGENTS 说明 agent 如何加载。
+- [x] **平台总览 skill**：一页说清 Core vs Harness vs package、证据等级禁声称、读文档顺序。
+- [x] **CLI skill**：`bora lock` / `bora run` / `bora campaign`（及已暴露的 status 类命令）的参数、成功/失败判据、evidence 去哪看；不写未实现命令。
+- [x] **Config / package skill**：`bora.yaml` 结构、layout allowlist、parameters vs envelope、常见 fail-closed 原因；链接 design/02，不另立第二配置真相。
+- [x] **SDK / harness skill**：`HarnessContext`、AgentSession、Tool/Guard、不得 import 具体 executor SDK、不得自定 PASS；链接 design/03–04。
+- [x] 诚实边界：未交付机制（如轨迹 export 未实现前）标「未落地」或省略，禁止写成已可用。
+
+### 验收标准
+
+- [x] Success：新开 agent 仅依赖 skills + 仓库公开入口，能完成「锁定一个 example → 理解 package 结构 → 指出改哪里」的检查清单（人工或脚本化 walkthrough，记录步骤与引用路径）。
+- [x] Expected failure：skill 内故意列出的反模式（按 bench 名写 Adapter、把 completed 当 PASS、密钥写进 yaml）有明确「禁止」说明，并指向 design 红线。
+- [x] Consistency：skill 正文命令/字段与当前 `bora --help`、example package、design 无矛盾；抽检零「文档有、代码无」。
+- [x] Engineering gates：严格 Specs validator、相对链接、`git diff --check`；skills 不引入 secret；不把 vault 当权威。
+- [x] Documentation：README / AGENTS 当前事实写明 skills 路径与用途；证据等级不因有 skills 而升级。
+
+### 后续 TODO
+
+- [x] `v0.19`：机制主轴（v0.13–v0.17）落地后回写 skills 对应章节（本版先覆盖已落地表面）。
+- [x] `v0.19`+ 后备队列：Campaign 全收口、插件分发、durable、VM、fixed upstream 验证 — 与 Skills 分列。
