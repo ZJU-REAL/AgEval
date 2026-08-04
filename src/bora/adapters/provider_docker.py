@@ -554,7 +554,10 @@ class DockerProvider:
             group_ws.mkdir(parents=True, exist_ok=True)
             cmd.extend(["-v", f"{group_ws}:/attempt/workspace:rw"])
         else:
-            workspace_volume = f"bora-ws-{runtime.attempt.value[-12:]}-{group_id[:8]}-{uuid.uuid4().hex[:6]}"
+            short = runtime.attempt.value[-12:]
+            workspace_volume = (
+                f"bora-ws-{short}-{group_id[:8]}-{uuid.uuid4().hex[:6]}"
+            )
             vol = subprocess.run(
                 ["docker", "volume", "create", workspace_volume],
                 check=False,
