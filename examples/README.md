@@ -64,6 +64,8 @@ projection, residual writer). Not substitutes for the journey packages.
 | Package | Role |
 | --- | --- |
 | [`provider-l1-agent-eval`](l1/provider-l1-agent-eval/) | L1 Attempt + agent + clean evaluator PASS |
+| [`executor-image-official`](l1/executor-image-official/) | L1 `environment/Dockerfile` **FROM bora-attempt:l1** + in-container pi |
+| [`executor-image-upstream`](l1/executor-image-upstream/) | L1 Dockerfile **FROM python slim** + install-executors + in-container pi |
 | [`builtin-executor-visibility`](l1/builtin-executor-visibility/) | Spec 14: execution_location + assurance:l1 |
 | [`builtin-executor-visibility-denied`](l1/builtin-executor-visibility-denied/) | Spec 14: gold/hidden denial |
 | [`provider-l1-denied`](l1/provider-l1-denied/) | Hidden material / view denial |

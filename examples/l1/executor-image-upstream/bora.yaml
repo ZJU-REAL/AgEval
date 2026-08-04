@@ -1,0 +1,43 @@
+format: bora.task/1
+task_id: executor-image-upstream
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  question: 'Return ONLY JSON {"answer": 42}'
+
+provider:
+  kind: docker
+  assurance: l1
+  platform: linux/arm64
+  network: none
+
+agent_profiles:
+  - id: pi-glm
+    executor: pi
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key
+
+limits:
+  wall_time_seconds: 300
+  agent_invocations: 1
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: agent-output
+      producer: harness
+      path: artifacts/agent-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: agent-output
+      target: artifacts/agent-output.json
+  output:
+    format: json
