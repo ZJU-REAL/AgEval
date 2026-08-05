@@ -537,3 +537,14 @@ bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Spec 2
 
 配置：`BORA_REGISTRY_URL` + `~/.bora/credentials`（0600）。客户端永不持有 blob store credential。
 
+## 5.y Suite 执行 vs Campaign（Spec 22）
+
+| | Suite run | Campaign |
+| --- | --- | --- |
+| 轴 | 同一 Database 的 **task_id** | 同一 task 的 **parameter matrix** |
+| CLI | `bora run <database> [--task] [--max-concurrent-tasks N]` | `bora campaign … --matrix` |
+| PASS | **仅** per-task evaluator；无 suite PASS | 每 variant 独立 Trial PASS |
+| 失败 | 默认不取消其余 task | 既有 campaign 策略 |
+
+Summary 写在 Database 根：`.bora/suite-runs/<suite_run_id>/summary.json`。
+

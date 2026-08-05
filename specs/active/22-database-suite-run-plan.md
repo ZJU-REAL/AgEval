@@ -8,10 +8,10 @@
 | Scope | Application 层 suite 调度：全量/单 task、Database 级并发、per-task 独立 lifecycle 与汇总；**不**实现 registry |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
-| Completed | pending |
+| Status | completed |
+| Completed | 2026-08-05 |
 | Independent review | off |
-| Planning gate | **closed for product decisions**（2026-08-05）；**实现 gate open** — 待 Spec 20 completed + 用户授权本 Spec |
+| Planning gate | **closed**；Spec 20 completed + 用户授权 |
 | Dependencies | [Spec 20](20-database-suite-format-plan.md) **completed**；[Constitution multi-task Database](../constitution/2026-08-05-multi-task-database-package.md) accepted；[Spec 21](21-database-registry-plan.md) **不强制**（本地 Database 即可验收） |
 | Decisions | [Constitution D5/D7/D8](../constitution/2026-08-05-multi-task-database-package.md#final-decision)、[Issue #12](https://github.com/ffy6511/BORA/issues/12)、[Issue #9](https://github.com/ffy6511/BORA/issues/9)、[Campaign 正交](../../docs/design/05-runtime-core.md)（matrix ≠ task 轴） |
 | Related issues | [#12](https://github.com/ffy6511/BORA/issues/12) · [#9](https://github.com/ffy6511/BORA/issues/9) |
@@ -20,30 +20,29 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
+| Agent can continue | `yes` |
 | User decision required | `no` |
-| Ready for acceptance now | `no` |
-| Current blockers | `2` |
-| Potential blockers | `1` |
+| Ready for acceptance now | `yes` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
-- Next action: 产品决策已对齐；**等待 Spec 20 completed + 用户授权本 Spec 实现** 后 Phase 0。
+- Next action: **用户最终验收** suite N=2 smoke。
 
 ### Current blockers
 
-- `B1` (Owner: User): 实现授权未下达（产品决策已接受）。
-- `B2` (Owner: Spec 20): 无 Database 成员枚举则无法 schedule。
+- None
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 1): 并发度可观测性（证明 N=2 时同时 in-flight ≤2）——需 Phase 1 probe（时间重叠或 instrumentation），避免只靠「最终都跑完」。
+- None
 
 ## Phases
 
-- [ ] Phase 0: Design 同步 suite 调度边界；冻结 CLI 标志名与 exit 策略；与 Campaign 对照表
-- [ ] Phase 1: Suite planner（成员列表 / 单 task 过滤）+ worker 池 + per-task 独立 run 接线
-- [ ] Phase 2: 汇总 summary（per-task Result 引用）+ exit code；失败策略
-- [ ] Phase 3: ≥3 task fixture；N=2 公开 smoke；`--task` 单跑；回归
-- [ ] Phase 4: 文档/Skills/Architecture；工程门禁收口
+- [x] Phase 0: Design 同步 suite 调度边界；冻结 CLI 标志名与 exit 策略；与 Campaign 对照表
+- [x] Phase 1: Suite planner（成员列表 / 单 task 过滤）+ worker 池 + per-task 独立 run 接线
+- [x] Phase 2: 汇总 summary（per-task Result 引用）+ exit code；失败策略
+- [x] Phase 3: ≥3 task fixture；N=2 公开 smoke；`--task` 单跑；回归
+- [x] Phase 4: 文档/Skills/Architecture；工程门禁收口
 
 ## Background
 
@@ -204,7 +203,7 @@ SuiteSummary:
 
 ### Acceptance Criteria
 
-- [ ] 对照表落地；无「suite PASS」措辞。
+- [x] 对照表落地；无「suite PASS」措辞。
 
 ## Phase 1: Scheduler
 
@@ -219,8 +218,8 @@ SuiteSummary:
 
 ### Acceptance Criteria
 
-- [ ] 单元/集成证明 in-flight ≤ N。
-- [ ] 每 task 独立 Result 路径。
+- [x] 单元/集成证明 in-flight ≤ N。
+- [x] 每 task 独立 Result 路径。
 
 ## Phase 2: Summary + exit
 
@@ -235,7 +234,7 @@ SuiteSummary:
 
 ### Acceptance Criteria
 
-- [ ] FAIL-only → 约定 exit；含 ERROR → 约定 exit；全 PASS → 0。
+- [x] FAIL-only → 约定 exit；含 ERROR → 约定 exit；全 PASS → 0。
 
 ## Phase 3: 公开 smoke
 
@@ -250,11 +249,11 @@ SuiteSummary:
 
 ### Acceptance Criteria
 
-- [ ] ≥3 task fixture；`--max-concurrent-tasks 2` 全量跑完；可证 in-flight ≤ 2。
-- [ ] 每 task 独立 Result/evidence locator 出现在 suite summary。
-- [ ] `--task` 只跑一个；与 `--max-concurrent-tasks` 同传不报错。
-- [ ] 构造单 task FAIL：其余 task 仍完成；summary 计数正确；无 suite PASS 权威字段。
-- [ ] 工程上无伪 PASS。
+- [x] ≥3 task fixture；`--max-concurrent-tasks 2` 全量跑完；可证 in-flight ≤ 2。
+- [x] 每 task 独立 Result/evidence locator 出现在 suite summary。
+- [x] `--task` 只跑一个；与 `--max-concurrent-tasks` 同传不报错。
+- [x] 构造单 task FAIL：其余 task 仍完成；summary 计数正确；无 suite PASS 权威字段。
+- [x] 工程上无伪 PASS。
 
 ## Phase 4: 收口
 
@@ -264,7 +263,7 @@ SuiteSummary:
 
 ### Acceptance Criteria
 
-- [ ] Skills/README 更新；工程门禁绿；不勾 Roadmap。
+- [x] Skills/README 更新；工程门禁绿；不勾 Roadmap。
 
 ## Risks and Mitigations
 
@@ -278,4 +277,4 @@ SuiteSummary:
 
 - [x] 用户接受：默认并发=1、CLI 覆盖、**一题 FAIL 不取消其余**、exit 0/1/2、无 suite PASS（2026-08-05）。
 - [x] 用户接受：暂不更新 Roadmap / 不勾 Version Index（2026-08-05）。
-- [ ] （实现后）≥3 task N=2 smoke 可复现。
+- [x] （实现后）≥3 task N=2 smoke 可复现（tests + suite-min fixture；用户最终验收）。

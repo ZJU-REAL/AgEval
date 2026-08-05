@@ -18,6 +18,15 @@ uv run bora run   examples/<database> --task <task_id>
 uv run bora tasks examples/<database>
 ```
 
+## Suite run (Spec 22)
+
+```bash
+# Full Database suite (no --task); concurrency from CLI or Database defaults
+uv run bora run tests/fixtures/databases/suite-min --max-concurrent-tasks 2
+# Single member still first-class
+uv run bora run examples/core --task config-minimal
+```
+
 ## Frozen smoke commands (Spec 20)
 
 ```bash

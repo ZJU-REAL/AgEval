@@ -86,8 +86,18 @@ def run_command(
         typer.Option(
             "--task",
             help=(
-                "Member task id under the Database (required until suite run lands). "
-                "Must match tasks/<id>/task.yaml task_id."
+                "Member task id (optional). Omit to run the full suite "
+                "(Spec 22). When set, only that member runs."
+            ),
+        ),
+    ] = None,
+    max_concurrent_tasks: Annotated[
+        int | None,
+        typer.Option(
+            "--max-concurrent-tasks",
+            help=(
+                "Max concurrent suite tasks (integer ≥1). Default 1 or Database "
+                "defaults.max_concurrent_tasks. Ignored when only one task runs."
             ),
         ),
     ] = None,
@@ -102,29 +112,55 @@ def run_command(
         ),
     ] = None,
 ) -> None:
-    """Run one foreground Attempt for a Database member. Evidence: L0 only."""
+    """Run one member or a full Database suite (Application-layer task_id axis)."""
     import asyncio
 
     from bora.application.composition import build_run_task
+    from bora.application.suite_run import execute_suite_run, plan_suite_run
     from bora.config.errors import ConfigError
     from bora.config.load_and_lock import parse_set_override
 
-    if task is None or not str(task).strip():
-        typer.echo(
-            "invalid_override: --task is required "
-            "(suite-wide run without --task lands in a later increment)",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
-    run_task = build_run_task()
     try:
         overrides: dict[str, object] = {}
         for raw in set_overrides or ():
             pointer, value = parse_set_override(raw)
             overrides[pointer] = value
-        code, result, _details = asyncio.run(
-            run_task(package, task, overrides=overrides or None)
+
+        # Full suite when --task omitted; single task when provided.
+        plan = plan_suite_run(
+            package,
+            task_id=task.strip() if task and str(task).strip() else None,
+            max_concurrent_tasks=max_concurrent_tasks,
+        )
+        if len(plan.task_ids) == 1 and task and str(task).strip():
+            # Preserve historical single-task JSON stdout shape.
+            run_task = build_run_task()
+            code, result, _details = asyncio.run(
+                run_task(package, plan.task_ids[0], overrides=overrides or None)
+            )
+            summary = {
+                "status": result.status,
+                "score": result.score,
+                "assurance": result.assurance,
+                "harness_kind": result.harness_kind,
+                "runtime_kind": result.runtime_kind,
+                "agent_invocations": result.agent_invocations,
+                "evidence_path": result.evidence_path,
+                "logs": result.logs or result.evidence_path,
+                "cleanup_warning": result.cleanup_warning,
+            }
+            if _details.get("l1"):
+                summary["l1"] = _details["l1"]
+            for key in ("assurance", "l1", "logs"):
+                if key in _details:
+                    summary[key] = _details[key]
+            typer.echo(
+                json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            )
+            raise typer.Exit(code=code)
+
+        suite_summary = asyncio.run(
+            execute_suite_run(plan, overrides=overrides or None)
         )
     except ConfigError as exc:
         typer.echo(str(exc), err=True)
@@ -133,26 +169,10 @@ def run_command(
         typer.echo(f"runtime_error: {type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(code=2) from exc
 
-    # Prefer result.json written by use case when present (may include L1 fields).
-    summary = {
-        "status": result.status,
-        "score": result.score,
-        "assurance": result.assurance,
-        "harness_kind": result.harness_kind,
-        "runtime_kind": result.runtime_kind,
-        "agent_invocations": result.agent_invocations,
-        "evidence_path": result.evidence_path,
-        "logs": result.logs or result.evidence_path,
-        "cleanup_warning": result.cleanup_warning,
-    }
-    if _details.get("l1"):
-        summary["l1"] = _details["l1"]
-    # Re-read assurance from details/result if use case overrode
-    for key in ("assurance", "l1", "logs"):
-        if key in _details:
-            summary[key] = _details[key]
-    typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
-    raise typer.Exit(code=code)
+    typer.echo(
+        json.dumps(suite_summary, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    )
+    raise typer.Exit(code=int(suite_summary.get("exit_code", 2)))
 
 
 @app.command("evidence")
