@@ -6,13 +6,15 @@ harness:
   entrypoint: harness:run
 
 parameters:
+  use_agent_session: true
   question: 'Return ONLY JSON {"answer": 42}'
+  harness_timeout_seconds: 300
 
 provider:
   kind: docker
   assurance: l1
   platform: linux/arm64
-  network: none
+  network: bridge
 
 agent_profiles:
   - id: pi-glm

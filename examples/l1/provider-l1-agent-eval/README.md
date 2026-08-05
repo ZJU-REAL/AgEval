@@ -3,13 +3,13 @@
 Positive **Docker L1** smoke: isolated Attempt + real Agent + clean evaluator PASS.
 
 Same business contract as `core/agent-eval` (`answer == 42`), but
-`provider.kind: docker` with `assurance: l1`. Proves the L1 worker path can still
-deliver a truthful independent PASS.
+`provider.kind: docker` with `assurance: l1`. Harness schedules
+`Agent.session` → `invoke`; Runtime only places the ACP target.
 
 ## What you learn
 
 - L1 is an isolation / assurance mode, not a different scoring model
-- Agent result is projected into the container workspace for the harness
+- Agent invoke is harness-owned (same SDK surface as L0)
 - Evaluator runs clean of hidden material
 
 ## Requirements

@@ -5,9 +5,7 @@ harness:
   runtime: python
   entrypoint: harness:run
 
-# Env + package-local tool smoke. No agent required on the default path:
-# Core only one-shot-invokes when agent_profiles is non-empty and
-# use_agent_session is false — omit profiles so harness owns the whole path.
+# Env + package-local tool smoke. No agent on the default path.
 parameters:
   use_agent_session: false
   environment_resource: postgresql
