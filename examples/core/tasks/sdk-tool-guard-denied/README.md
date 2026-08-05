@@ -15,6 +15,6 @@ incrementing the side-effect counter past 2.
 ## Run
 
 ```bash
-uv run bora lock examples/core/sdk-tool-guard-denied --task sdk-tool-guard-denied
-uv run bora run  examples/core/sdk-tool-guard-denied --task sdk-tool-guard-denied
+uv run bora lock examples/core --task sdk-tool-guard-denied
+uv run bora run  examples/core --task sdk-tool-guard-denied
 ```

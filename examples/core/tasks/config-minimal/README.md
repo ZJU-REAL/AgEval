@@ -15,7 +15,7 @@ for a well-formed package. Does **not** claim a runnable Agent path or
 ## Run
 
 ```bash
-uv run bora lock examples/core/config-minimal --task config-minimal
+uv run bora lock examples/core --task config-minimal
 ```
 
 Expect exit **0** and a lock summary. A full `bora run` is optional for this package

@@ -355,6 +355,12 @@ def list_tasks(database_root: Path, *, manifest: DatabaseManifest | None = None)
                 "task member must use bora.task/1, not bora.database/1",
                 location=f"{man.tasks_root}/{entry.name}/{TASK_CONFIG_FILENAME}",
             )
+        if fmt != "bora.task/1":
+            raise ConfigError(
+                ERROR_INVALID_FORMAT,
+                f"task member format must be bora.task/1, got {fmt!r}",
+                location=f"{man.tasks_root}/{entry.name}/{TASK_CONFIG_FILENAME}",
+            )
         yaml_task_id = data.get("task_id")
         if not isinstance(yaml_task_id, str) or not yaml_task_id:
             raise ConfigError(

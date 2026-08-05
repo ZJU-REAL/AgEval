@@ -36,8 +36,8 @@ Harness reads profile ids from `parameters.roles` — it never branches on entry
 | `evaluation/`          | Evaluator-only gold                                 |
 
 ```bash
-uv run bora lock examples/journeys/multiagent-env-min --task multiagent-env-min
-uv run bora run  examples/journeys/multiagent-env-min --task multiagent-env-min
+uv run bora lock examples/journeys --task multiagent-env-min
+uv run bora run  examples/journeys --task multiagent-env-min
 ```
 
 Requires host ACP readiness for `pi`, `opencode`, and `grok-build` (`uv run bora executors -v`),

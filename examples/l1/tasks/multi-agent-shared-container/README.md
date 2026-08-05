@@ -8,13 +8,13 @@ Docker L1 **shared-container** multi-actor package (Spec 18).
 - Optional `shared_write: [workspace/team]` for same-container file collaboration.
 
 ```bash
-uv run bora run examples/l1/multi-agent-shared-container --task multi-agent-shared-container
+uv run bora run examples/l1 --task multi-agent-shared-container
 ```
 
 Requires Docker, L1 base image, and real Codex credentials. Offline:
 
 ```bash
-BORA_OFFLINE_AGENT=1 uv run bora run examples/l1/multi-agent-shared-container \
+BORA_OFFLINE_AGENT=1 uv run bora run examples/l1 --task multi-agent-shared-container \
   --task multi-agent-shared-container
 # expected non-zero (fail closed, no host fallback)
 ```

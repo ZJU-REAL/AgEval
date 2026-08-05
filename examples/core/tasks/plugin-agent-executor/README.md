@@ -20,6 +20,6 @@ Harness only materializes parent agent result and publishes; evaluator requires
 ## Run
 
 ```bash
-uv run bora lock examples/core/plugin-agent-executor --task plugin-agent-executor
-uv run bora run  examples/core/plugin-agent-executor --task plugin-agent-executor
+uv run bora lock examples/core --task plugin-agent-executor
+uv run bora run  examples/core --task plugin-agent-executor
 ```

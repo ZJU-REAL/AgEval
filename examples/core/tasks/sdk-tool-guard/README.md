@@ -15,6 +15,6 @@ exactly two successful calls ran and the counter matches.
 ## Run
 
 ```bash
-uv run bora lock examples/core/sdk-tool-guard --task sdk-tool-guard
-uv run bora run  examples/core/sdk-tool-guard --task sdk-tool-guard
+uv run bora lock examples/core --task sdk-tool-guard
+uv run bora run  examples/core --task sdk-tool-guard
 ```

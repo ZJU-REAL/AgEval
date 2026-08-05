@@ -23,8 +23,8 @@ invent PASS from incomplete trajectory.
 ## Run
 
 ```bash
-uv run bora lock examples/core/attempt-trajectory --task attempt-trajectory
-uv run bora run  examples/core/attempt-trajectory --task attempt-trajectory
+uv run bora lock examples/core --task attempt-trajectory
+uv run bora run  examples/core --task attempt-trajectory
 ```
 
 After a successful run, inspect the logs locator printed in the Result for the

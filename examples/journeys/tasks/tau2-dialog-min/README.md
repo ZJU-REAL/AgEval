@@ -30,6 +30,6 @@ Non-orchestration functional code (Tool bodies, workflow allow prefix, JSON load
 lives under **`lib/`** — not in the harness entrypoint.
 
 ```bash
-uv run bora lock examples/journeys/tau2-dialog-min --task tau2-dialog-min
-uv run bora run  examples/journeys/tau2-dialog-min --task tau2-dialog-min
+uv run bora lock examples/journeys --task tau2-dialog-min
+uv run bora run  examples/journeys --task tau2-dialog-min
 ```

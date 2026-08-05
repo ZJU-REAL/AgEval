@@ -137,7 +137,7 @@ bora run <package> --task <id>    # Roadmap v0.6
 
 ```text
 src/bora/     production package（cli / application / config / adapters）
-examples/     Task Package fixtures（见 examples/README.md）
+examples/     Database suite fixtures（见 examples/README.md）
               journeys/  case-class 旅程
               core/      Core 门禁烟测
               l1/        Provider L1 隔离探针

@@ -19,6 +19,6 @@ both invokes succeeded, and the SDK session handle stays null (parent-bound).
 ## Run
 
 ```bash
-uv run bora lock examples/core/sdk-agent-session --task sdk-agent-session
-uv run bora run  examples/core/sdk-agent-session --task sdk-agent-session
+uv run bora lock examples/core --task sdk-agent-session
+uv run bora run  examples/core --task sdk-agent-session
 ```

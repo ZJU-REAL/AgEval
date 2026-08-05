@@ -36,6 +36,6 @@ glm_coding_api_key=...
 ## Run
 
 ```bash
-uv run bora lock examples/core/builtin-executor-mixed --task builtin-executor-mixed
-uv run bora run  examples/core/builtin-executor-mixed --task builtin-executor-mixed
+uv run bora lock examples/core --task builtin-executor-mixed
+uv run bora run  examples/core --task builtin-executor-mixed
 ```

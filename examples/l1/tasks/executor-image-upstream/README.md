@@ -8,8 +8,8 @@ the same first-party CLIs.
 
 ```bash
 export glm_coding_api_key=...
-uv run bora lock examples/l1/executor-image-upstream --task executor-image-upstream
-uv run bora run  examples/l1/executor-image-upstream --task executor-image-upstream
+uv run bora lock examples/l1 --task executor-image-upstream
+uv run bora run  examples/l1 --task executor-image-upstream
 ```
 
 First run builds a larger package image (installs Node + CLIs).

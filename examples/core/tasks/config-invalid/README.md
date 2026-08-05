@@ -15,7 +15,7 @@ succeed.
 ## Run
 
 ```bash
-uv run bora lock examples/core/config-invalid --task config-invalid
+uv run bora lock examples/core --task config-invalid
 ```
 
 Expect **non-zero** exit (typically 2). A successful lock is a regression.

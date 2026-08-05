@@ -10,8 +10,8 @@ L1 package **Dockerfile path A**: `environment/Dockerfile` is `FROM bora-attempt
 uv run python docker/attempt/build.py --platform linux/arm64
 
 export glm_coding_api_key=...   # or repo .env
-uv run bora lock examples/l1/executor-image-official --task executor-image-official
-uv run bora run  examples/l1/executor-image-official --task executor-image-official
+uv run bora lock examples/l1 --task executor-image-official
+uv run bora run  examples/l1 --task executor-image-official
 ```
 
 Expect PASS with `executor_containment: container` (not parent residual).

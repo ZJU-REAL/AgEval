@@ -20,6 +20,6 @@ No Agent profiles. Runtime runs a deny probe against the package Environment
 ## Run
 
 ```bash
-uv run bora lock examples/core/environment-action-denied --task environment-action-denied
-uv run bora run  examples/core/environment-action-denied --task environment-action-denied
+uv run bora lock examples/core --task environment-action-denied
+uv run bora run  examples/core --task environment-action-denied
 ```

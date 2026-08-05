@@ -89,6 +89,28 @@ def test_no_bora_artifacts_on_success(tmp_path: Path) -> None:
     assert not (MINIMAL / ".bora" / "locks").exists()
 
 
+def test_missing_task_flag_fails() -> None:
+    result = _run_bora("lock", str(MINIMAL))
+    assert result.returncode == 2
+    assert "--task" in result.stderr
+    assert result.stdout.strip() == ""
+
+
+def test_unknown_task_cli_fails() -> None:
+    result = _run_bora("lock", str(MINIMAL), "--task", "does-not-exist")
+    assert result.returncode == 2
+    assert "unknown_task" in result.stderr
+
+
+def test_tasks_list_journeys() -> None:
+    result = _run_bora("tasks", str(REPO / "examples" / "journeys"))
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["database_id"] == "example/journeys"
+    assert data["count"] == 4
+    assert "terminal-jsonl-agg" in data["tasks"]
+
+
 def test_no_task_local_import_on_lock() -> None:
     """Locking must not import package harness/evaluator modules."""
     # Run in a subprocess and inspect that examples were not imported as modules.

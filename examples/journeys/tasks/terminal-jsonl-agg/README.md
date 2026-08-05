@@ -18,7 +18,7 @@ Alternate profile switch via `parameters.models.default` / first profile in `bor
 `terminal-opencode`, `terminal-grok`.
 
 ```bash
-uv run bora run examples/journeys/terminal-jsonl-agg --task terminal-jsonl-agg
+uv run bora run examples/journeys --task terminal-jsonl-agg
 ```
 
 Requires `bora-attempt:l1` image with ACP entries baked in, host credentials for
