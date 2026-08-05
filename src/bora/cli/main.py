@@ -165,6 +165,9 @@ def run_command(
     except ConfigError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
+    except typer.Exit:
+        # Single-task path raises Exit with the real process code; do not remap to 2.
+        raise
     except Exception as exc:  # noqa: BLE001
         typer.echo(f"runtime_error: {type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(code=2) from exc
