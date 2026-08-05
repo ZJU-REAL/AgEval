@@ -39,23 +39,17 @@ def run_l1_attempt(
     agent_meta: dict[str, Any],
     allow_offline_agent: bool,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
-    """Dispatch full L1 by package parameters / task_id."""
+    """Dispatch L1 SDK session path when agent_profiles is non-empty.
+
+    Isolation (hidden gold, credential/network projection, writer-stop) is enforced
+    by Provider prepare/run and the SDK session barrier — not by Application
+    task_id/probe special cases. Provider contract tests live under tests/provider_l1/.
+    """
     from bora.config.model import thaw
 
-    params = thaw(lock.parameters)
     task_id = str(lock.task_id)
-    probe = str(params.get("probe") or "")
     profiles = [p for p in thaw(lock.agent_profiles) if isinstance(p, dict)]
 
-    # Isolation probes (no business Agent invoke) — before profile-gated SDK path.
-    if probe == "hidden" or task_id == "hidden-material-denied":
-        return _run_l1_hidden_denied(package_root=package_root, lock=lock, run_dir=run_dir)
-    if probe == "projection" or task_id == "projection-denied":
-        return _run_l1_projection_denied(package_root=package_root, lock=lock, run_dir=run_dir)
-    if probe == "residual_writer" or task_id == "residual-writer":
-        return _run_l1_residual_writer(package_root=package_root, lock=lock, run_dir=run_dir)
-
-    # Sole business Agent path: non-empty agent_profiles ⇒ harness SDK session.
     if profiles:
         return run_l1_sdk_session_attempt(
             package_root=package_root,
@@ -596,185 +590,6 @@ def _prepare(
         "policy": dict(runtime.policy_digests),
     }
     return docker, runtime, meta
-
-
-def _run_l1_hidden_denied(
-    *, package_root: Path, lock: Any, run_dir: Path
-) -> tuple[int, dict[str, Any], dict[str, Any]]:
-    """Harness must not see evaluation/; exit non-zero with workspace_view_denied."""
-    docker, runtime, l1_meta = _prepare(package_root, lock, run_dir)
-    script = textwrap.dedent(
-        """
-        import json
-        from pathlib import Path
-        seen = (Path("/attempt/package/evaluation").exists()
-                or Path("/attempt/package/evaluation/gold.json").is_file())
-        print(json.dumps({"ok": False, "seen_gold": seen, "eval_visible": seen}))
-        raise SystemExit(3 if seen else 2)
-        """
-    )
-    out = docker.run_command(
-        runtime, ["python", "-c", script], network=False, writer_name="harness_probe"
-    )
-    docker.cleanup(runtime)
-    try:
-        probe = json.loads((out.stdout_summary or "").strip().splitlines()[-1])
-    except (json.JSONDecodeError, IndexError):
-        probe = {"seen_gold": False}
-    # Success for security negative: gold not seen AND harness non-zero
-    denied_ok = not probe.get("seen_gold") and out.exit_code != 0
-    doc = {
-        "status": "PASS" if denied_ok else "FAIL",
-        "score": 1.0 if denied_ok else 0.0,
-        "assurance": "l1" if denied_ok and out.writer_stop_confirmed else "l0",
-        "harness_kind": "failed",
-        "runtime_kind": "docker_l1",
-        "agent_invocations": 0,
-        "evidence_path": str(run_dir),
-        "metrics": probe,
-        "error": {"kind": "workspace_view_denied", "phase": "harness"},
-        "l1": {**l1_meta, "probe": probe, "writer_stop_confirmed": out.writer_stop_confirmed},
-    }
-    _write_evidence(run_dir, doc, {}, doc["l1"])
-    return (0 if denied_ok else 1), doc, {"l1": doc["l1"], "assurance": doc["assurance"]}
-
-
-def _run_l1_projection_denied(
-    *, package_root: Path, lock: Any, run_dir: Path
-) -> tuple[int, dict[str, Any], dict[str, Any]]:
-    """Network none: undeclared egress fails; harness has no credential files."""
-    docker, runtime, l1_meta = _prepare(package_root, lock, run_dir)
-    assert runtime.workdir_host is not None
-    cred = project_executor_credentials(work_root=runtime.workdir_host)
-    # Harness must NOT mount credentials — probe for key absence + network deny.
-    script = textwrap.dedent(
-        """
-        import json, os, urllib.request
-        from pathlib import Path
-        cred_visible = Path("/creds").exists()
-        key_env = bool(os.environ.get("OPENAI_API_KEY") or os.environ.get("CODEX_HOME"))
-        net_ok = False
-        try:
-            urllib.request.urlopen("https://example.com", timeout=3)
-            net_ok = True
-        except Exception:
-            net_ok = False
-        print(json.dumps({
-            "cred_visible": cred_visible,
-            "key_env": key_env,
-            "network_ok": net_ok,
-        }))
-        # Fail closed if network or creds leaked into harness.
-        if cred_visible or key_env or net_ok:
-            raise SystemExit(3)
-        raise SystemExit(2)
-        """
-    )
-    out = docker.run_command(
-        runtime,
-        ["python", "-c", script],
-        network=False,  # harness network none
-        writer_name="harness_projection_probe",
-        # deliberately do NOT mount cred.root
-    )
-    docker.cleanup(runtime)
-    cred.cleanup()
-    try:
-        probe = json.loads((out.stdout_summary or "").strip().splitlines()[-1])
-    except (json.JSONDecodeError, IndexError):
-        probe = {}
-    denied_ok = (
-        not probe.get("cred_visible")
-        and not probe.get("key_env")
-        and not probe.get("network_ok")
-        and out.exit_code != 0
-    )
-    doc = {
-        "status": "PASS" if denied_ok else "FAIL",
-        "score": 1.0 if denied_ok else 0.0,
-        "assurance": "l1" if denied_ok else "l0",
-        "harness_kind": "failed",
-        "runtime_kind": "docker_l1",
-        "agent_invocations": 0,
-        "evidence_path": str(run_dir),
-        "metrics": probe,
-        "error": {"kind": "projection_denied", "phase": "provider"},
-        "l1": {**l1_meta, "probe": probe, "writer_stop_confirmed": out.writer_stop_confirmed},
-    }
-    _write_evidence(run_dir, doc, {}, doc["l1"])
-    return (0 if denied_ok else 1), doc, {"l1": doc["l1"], "assurance": doc["assurance"]}
-
-
-def _run_l1_residual_writer(
-    *, package_root: Path, lock: Any, run_dir: Path
-) -> tuple[int, dict[str, Any], dict[str, Any]]:
-    """Background writer must be stopped; evaluator not started if unconfirmed."""
-    docker, runtime, l1_meta = _prepare(package_root, lock, run_dir)
-    assert runtime.workdir_host is not None
-    # Start a long-running writer container (not --rm wait) then kill via docker rm -f.
-    name = f"bora-writer-{runtime.attempt.value[-10:]}"
-    img = runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1"
-    ws = runtime.workdir_host / "workspace"
-    (ws / "writer.out").write_text("start\n", encoding="utf-8")
-    proc = subprocess.run(
-        [
-            "docker",
-            "run",
-            "-d",
-            "--name",
-            name,
-            "--network",
-            "none",
-            "--user",
-            "10001:10001",
-            "-v",
-            f"{ws}:/attempt/workspace:rw",
-            img,
-            "python",
-            "-c",
-            "import time; time.sleep(120)",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    runtime.register_writer("background_writer")
-    # Barrier: kill writer and confirm gone.
-    kill = subprocess.run(["docker", "rm", "-f", name], check=False, capture_output=True)
-    gone = (
-        subprocess.run(["docker", "inspect", name], check=False, capture_output=True).returncode
-        != 0
-    )
-    runtime.record_writer_stop(gone and kill.returncode == 0)
-    # If writer not confirmed, evaluator must not start.
-    eval_started = False
-    if runtime.writer_stop_confirmed:
-        # Only then would we start evaluator — for this negative we still skip eval.
-        eval_started = False
-    docker.cleanup(runtime)
-    denied_ok = runtime.writer_stop_confirmed and not eval_started and proc.returncode == 0
-    doc = {
-        "status": "PASS" if denied_ok else "FAIL",
-        "score": 1.0 if denied_ok else 0.0,
-        "assurance": "l1" if denied_ok else "l0",
-        "harness_kind": "failed",
-        "runtime_kind": "docker_l1",
-        "agent_invocations": 0,
-        "evidence_path": str(run_dir),
-        "metrics": {
-            "writer_stop_confirmed": runtime.writer_stop_confirmed,
-            "evaluator_started": eval_started,
-        },
-        "error": {"kind": "residual_writer", "phase": "evaluation_input"},
-        "l1": {
-            **l1_meta,
-            "writer_inventory": list(runtime.writer_inventory),
-            "writer_stop_confirmed": runtime.writer_stop_confirmed,
-            "evaluator_started": eval_started,
-        },
-    }
-    _write_evidence(run_dir, doc, {}, doc["l1"])
-    return (0 if denied_ok else 1), doc, {"l1": doc["l1"], "assurance": doc["assurance"]}
 
 
 def _cli_env_for_container(

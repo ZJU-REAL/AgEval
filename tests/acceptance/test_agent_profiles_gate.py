@@ -8,7 +8,7 @@ from pathlib import Path
 from bora.application.run_l1 import run_l1_attempt
 
 
-def test_l1_empty_profiles_without_probe_is_unsupported(tmp_path: Path) -> None:
+def test_l1_empty_profiles_without_profiles_is_unsupported(tmp_path: Path) -> None:
     lock = SimpleNamespace(
         task_id="no-agent",
         parameters={},

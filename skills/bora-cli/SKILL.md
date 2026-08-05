@@ -108,7 +108,7 @@ Must not PASS agent packages. Typed errors only.
 | Trajectory | `uv run bora run examples/core/attempt-trajectory --task attempt-trajectory` |
 | Hard ceiling | `uv run bora run examples/core/hard-ceiling-trajectory --task hard-ceiling-trajectory` |
 | L1 SDK session | `uv run bora run examples/l1/sdk-session-single-actor --task sdk-session-single-actor` |
-| L1 gold denial | `uv run bora run examples/l1/provider-l1-denied --task hidden-material-denied` |
+| L1 isolation contracts | Provider tests: `uv run pytest tests/provider_l1/test_harness_isolation_contracts.py tests/provider_l1/test_filtered_mount.py -q` |
 
 ## Detail
 

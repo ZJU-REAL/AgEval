@@ -1,4 +1,8 @@
-"""Spec 07 public L1 CLI journeys (Docker required)."""
+"""Spec 07 public L1 CLI journeys (Docker required).
+
+Isolation contracts (hidden gold / projection / writer-stop) live under
+``tests/provider_l1/`` — not Application task_id probe branches.
+"""
 
 from __future__ import annotations
 
@@ -28,19 +32,19 @@ def _docker_ok() -> bool:
 pytestmark = pytest.mark.skipif(not _docker_ok(), reason="Docker daemon unavailable")
 
 
-def _run(package: str, task: str, *, env: dict | None = None) -> dict:
+def test_terminal_jsonl_l1_solution_seed() -> None:
     e = os.environ.copy()
-    if env:
-        e.update(env)
+    e["BORA_L1_USE_SOLUTION"] = "1"
+    e["BORA_OFFLINE_AGENT"] = "1"
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples" / ("journeys" if package.startswith("terminal-") else "l1") / package),
+            str(REPO / "examples" / "journeys" / "terminal-jsonl-agg"),
             "--task",
-            task,
+            "terminal-jsonl-agg",
         ],
         check=False,
         capture_output=True,
@@ -50,37 +54,7 @@ def _run(package: str, task: str, *, env: dict | None = None) -> dict:
         timeout=300,
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
-    return json.loads(result.stdout)
-
-
-def test_hidden_material_denied() -> None:
-    data = _run("provider-l1-denied", "hidden-material-denied")
-    assert data["status"] == "PASS"
-    assert data.get("assurance") == "l1"
-    # Gold not visible; harness failed closed (l1 evidence on disk).
-    assert data.get("harness_kind") == "failed"
-
-
-def test_projection_denied() -> None:
-    data = _run("provider-l1-projection-denied", "projection-denied")
-    assert data["status"] == "PASS"
-    assert data.get("assurance") == "l1"
-
-
-def test_residual_writer() -> None:
-    data = _run("provider-l1-residual-writer", "residual-writer")
-    assert data["status"] == "PASS"
-    assert data.get("assurance") == "l1"
-    assert data.get("l1", {}).get("writer_stop_confirmed") is True
-    assert data.get("l1", {}).get("evaluator_started") is False
-
-
-def test_terminal_jsonl_l1_solution_seed() -> None:
-    data = _run(
-        "terminal-jsonl-agg",
-        "terminal-jsonl-agg",
-        env={"BORA_L1_USE_SOLUTION": "1", "BORA_OFFLINE_AGENT": "1"},
-    )
+    data = json.loads(result.stdout)
     assert data["status"] == "PASS"
     assert data.get("assurance") == "l1"
     assert data.get("l1", {}).get("full_l1") is True

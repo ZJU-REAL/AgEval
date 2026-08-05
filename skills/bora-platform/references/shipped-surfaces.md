@@ -13,7 +13,7 @@ Prefer mechanism packages under `examples/core/` and `examples/l1/`. Full list: 
 | `examples/core/environment-action-denied` | Env action deny-before-mutation |
 | `examples/core/plugin-agent-executor` | Second executor mechanism (`openai-http`) |
 | `examples/l1/sdk-session-single-actor` | L1 SDK session → attempt-container |
-| `examples/l1/provider-l1-denied` | Gold / hidden material not visible |
+| `tests/provider_l1/test_harness_isolation_contracts.py` | Gold hide / no-cred harness / writer-stop (Provider) |
 | `examples/journeys/*` | Case-class demos (env / multiagent / tau2 / terminal) |
 
 ## Install (repo root)
