@@ -545,31 +545,21 @@ class DockerProvider:
             cmd.extend(["-v", f"{package_mount}:/attempt/package:ro"])
 
         # Workspace mount policy:
-        # - shared-container: Docker named volume (real Linux UID/GID ACLs for
-        #   shared_write). Host bind mounts on Docker Desktop often ignore perms.
-        # - container-per-group: dedicated host dir per group — no cross-group RW.
+        # - Always prefer host bind under workdir so seed + host harness + agent
+        #   share one tree (terminal cwd writes visible to harness publish).
+        # - Multi-actor shared_write ACL still applied in-container via chown/chmod
+        #   on that bind (Linux VM enforces; Docker Desktop may be looser).
+        # - container-per-group: per-group host dir — no cross-group RW volume.
         workspace_volume: str | None = None
         if isolation_mode == IsolationMode.CONTAINER_PER_GROUP:
             group_ws = runtime.workdir_host / "group_ws" / group_id
             group_ws.mkdir(parents=True, exist_ok=True)
             cmd.extend(["-v", f"{group_ws}:/attempt/workspace:rw"])
         else:
-            short = runtime.attempt.value[-12:]
-            workspace_volume = (
-                f"bora-ws-{short}-{group_id[:8]}-{uuid.uuid4().hex[:6]}"
-            )
-            vol = subprocess.run(
-                ["docker", "volume", "create", workspace_volume],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            if vol.returncode != 0:
-                raise ProviderL1Error(
-                    ERROR_SPAWN_FAILED,
-                    f"workspace volume create failed: {(vol.stderr or '')[-500:]}",
-                )
-            cmd.extend(["-v", f"{workspace_volume}:/attempt/workspace:rw"])
+            # shared-container: same Attempt workspace the host harness reads.
+            host_ws = runtime.workdir_host / "workspace"
+            host_ws.mkdir(parents=True, exist_ok=True)
+            cmd.extend(["-v", f"{host_ws}:/attempt/workspace:rw"])
 
         cmd.extend(["-v", f"{cred_root}:/creds:ro"])
         # Actor private homes: named volume for real 0700 isolation.
@@ -647,9 +637,9 @@ class DockerProvider:
     ) -> None:
         """Create private HOME 0700 and shared_write dirs with real GID grants.
 
-        Workspace root is root-owned 0755 so non-shared paths deny actor writes.
-        Explicit shared_write paths are 2770 root:shared_gid; actors must exec
-        with supplementary shared_gid to write them.
+        Single actor: workspace root owned by that actor (cwd writes for terminal tasks).
+        Multi-actor: workspace root root-owned 0755; only explicit shared_write paths
+        are 2770 root:shared_gid (actors need supplementary shared_gid to write).
         """
         if not target.container_id:
             raise ProviderL1Error(ERROR_SPAWN_FAILED, "bootstrap without container")
@@ -661,12 +651,18 @@ class DockerProvider:
         lines = [
             "set -e",
             "mkdir -p /actor-homes /attempt/workspace",
-            # Fail closed on non-shared writes: root owns workspace root.
-            "chown root:root /attempt/workspace",
-            "chmod 0755 /attempt/workspace",
             # Ensure shared GID exists (numeric group only is enough for chown).
             f"groupadd -g {shared_gid} bora-shared-{shared_gid} 2>/dev/null || true",
         ]
+        # Single-actor Attempt: actor owns workspace root (terminal-class cwd writes).
+        # Multi-actor: root owns root dir 0755; only explicit shared_write is group-writable.
+        if len(bindings) == 1:
+            only = bindings[0]
+            lines.append(f"chown -R {only.uid}:{only.gid} /attempt/workspace")
+            lines.append("chmod 0755 /attempt/workspace")
+        else:
+            lines.append("chown root:root /attempt/workspace")
+            lines.append("chmod 0755 /attempt/workspace")
         for rel in sorted(shared_paths):
             sp = f"/attempt/workspace/{rel}"
             lines.append(f"mkdir -p '{sp}'")
