@@ -1,7 +1,7 @@
 name: Bug
 description: 可复现的行为错误（CLI / runtime / package / docs 偏差）
 title: "bug: "
-labels: ["bug"]
+labels: ["type:bug"]
 body:
   - type: textarea
     id: summary

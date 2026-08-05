@@ -1,7 +1,7 @@
 name: Feature / change
 description: 新能力、行为变更或设计对齐需求
 title: "feat: "
-labels: ["enhancement"]
+labels: ["type:feat"]
 body:
   - type: textarea
     id: problem
