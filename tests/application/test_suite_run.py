@@ -10,6 +10,7 @@ import pytest
 
 from bora.application.suite_run import (
     execute_suite_run,
+    extract_run_id,
     get_inflight_peak,
     plan_suite_run,
     reset_inflight_metrics,
@@ -18,6 +19,17 @@ from bora.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+
+
+def test_extract_run_id_from_absolute_or_relative(tmp_path: Path) -> None:
+    root = tmp_path / "db"
+    run_id = "sha256_abc_run_deadbeef"
+    abs_run = root / ".bora" / "runs" / run_id
+    abs_run.mkdir(parents=True)
+    assert extract_run_id(root, abs_run) == run_id
+    assert extract_run_id(root, str(abs_run)) == run_id
+    assert extract_run_id(root, f".bora/runs/{run_id}") == run_id
+    assert extract_run_id(root, run_id) == run_id
 
 
 def test_plan_full_and_single() -> None:
@@ -45,13 +57,16 @@ async def test_concurrency_cap_with_stub_runner() -> None:
 
     async def slow_run(root, task_id, *, overrides=None):  # noqa: ANN001
         await asyncio.sleep(0.15)
+        run_id = f"sha256_dead_run_{task_id}"
+        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",
             score=1.0,
-            evidence_path=f"fake/{task_id}",
-            logs=f"fake/{task_id}",
+            evidence_path=str(abs_run),
+            logs=str(abs_run),
         )
-        return 0, result, {"digest": f"sha256:{task_id}", "run_dir": f"fake/{task_id}"}
+        return 0, result, {"digest": f"sha256:{task_id}", "run_dir": str(abs_run)}
 
     summary = await execute_suite_run(plan, run_fn=slow_run)
     assert summary["exit_code"] == 0
@@ -63,6 +78,10 @@ async def test_concurrency_cap_with_stub_runner() -> None:
     path = Path(summary["summary_path"])
     assert path.is_file()
     assert path.parent.name.startswith("suite_")
+    for row in summary["tasks"]:
+        assert "result_ref" not in row
+        assert "evidence_ref" not in row
+        assert row["run_id"] and row["run_id"].startswith("sha256_dead_run_")
 
 
 @pytest.mark.asyncio

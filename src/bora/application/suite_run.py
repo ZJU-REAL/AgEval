@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -89,6 +89,50 @@ def plan_suite_run(
     )
 
 
+def extract_run_id(database_root: Path, *candidates: object) -> str | None:
+    """Extract Attempt ``run_id`` (directory name under ``.bora/runs/``).
+
+    Suite summary only stores ``run_id``; local path is always
+    ``{database_root}/.bora/runs/{run_id}/``. Host absolute paths must not appear.
+    """
+    root = database_root.expanduser().resolve(strict=False)
+    for raw in candidates:
+        if raw is None:
+            continue
+        text = str(raw).strip()
+        if not text:
+            continue
+        path = Path(text)
+        name = path.name
+        # Bare id, ``.bora/runs/<id>``, or ``.../runs/<id>``
+        if (
+            name.startswith("sha256_")
+            and "_run_" in name
+            and (
+                "/" not in text.rstrip("/")
+                or "runs" in path.parts
+                or text.startswith(".bora/")
+            )
+        ):
+            return name
+        try:
+            abs_path = path if path.is_absolute() else (root / path)
+            abs_path = abs_path.resolve(strict=False)
+            rel = abs_path.relative_to(root)
+            parts = rel.parts
+            if len(parts) >= 3 and parts[0] == ".bora" and parts[1] == "runs":
+                return parts[2]
+        except (ValueError, OSError):
+            parts = path.parts
+            if "runs" in parts:
+                idx = parts.index("runs")
+                if idx + 1 < len(parts):
+                    return parts[idx + 1]
+            if name.startswith("sha256_") and "_run_" in name:
+                return name
+    return None
+
+
 async def _run_one(
     plan: SuitePlan,
     task_id: str,
@@ -109,16 +153,19 @@ async def _run_one(
                 overrides=overrides,
             )
             status = getattr(result, "status", None) or details.get("status") or "ERROR"
+            run_id = extract_run_id(
+                plan.database_root,
+                getattr(result, "evidence_path", None),
+                details.get("run_dir"),
+                details.get("logs"),
+                getattr(result, "logs", None),
+            )
             return {
                 "task_id": task_id,
                 "exit_code": code,
                 "status": status,
                 "score": getattr(result, "score", None),
-                "result_ref": getattr(result, "evidence_path", None)
-                or details.get("run_dir"),
-                "evidence_ref": details.get("logs")
-                or getattr(result, "logs", None)
-                or details.get("run_dir"),
+                "run_id": run_id,
                 "digest": details.get("digest"),
                 "error": None if code != 2 else (details.get("error") or status),
             }
@@ -128,8 +175,7 @@ async def _run_one(
                 "exit_code": 2,
                 "status": "ERROR",
                 "score": None,
-                "result_ref": None,
-                "evidence_ref": None,
+                "run_id": None,
                 "digest": None,
                 "error": str(exc),
             }
@@ -139,8 +185,7 @@ async def _run_one(
                 "exit_code": 2,
                 "status": "ERROR",
                 "score": None,
-                "result_ref": None,
-                "evidence_ref": None,
+                "run_id": None,
                 "digest": None,
                 "error": f"{type(exc).__name__}: {exc}",
             }
@@ -193,7 +238,8 @@ async def execute_suite_run(
         "tasks": list(results),
         "counts": counts,
         "exit_code": exit_code,
-        "created_at": time.time(),
+        # UTC ISO-8601 (not unix epoch float).
+        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "inflight_peak": get_inflight_peak(),
         # Explicitly NOT a suite PASS authority:
         "note": "per-task evaluator verdicts only; no suite-level PASS",
