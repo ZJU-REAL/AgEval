@@ -6,7 +6,7 @@
 | --- | --- |
 | Decision date | 2026-08-05 |
 | Owner | User（2026-08-05 对齐会话：#1–#6 已确认；实现仍待显式授权） |
-| Status | **active — product decisions accepted**；Spec 20 实现进行中/已落地（见 active Spec） |
+| Status | **active — product decisions accepted**；Spec 20–22 实现已落地（`feat/database-suite-format`；待用户最终验收） |
 | Scope | 分发与批量执行单位从「单 task 目录」升级为 **Database（suite）**；根配置 vs 成员配置边界；registry 整包分发；suite 并发与单 task 选择 |
 | Related epic | [GitHub Issue #9](https://github.com/ffy6511/BORA/issues/9) |
 | Related issues | [#10 format](https://github.com/ffy6511/BORA/issues/10) · [#11 registry](https://github.com/ffy6511/BORA/issues/11) · [#12 suite run](https://github.com/ffy6511/BORA/issues/12) · [#7 duplicate→#11](https://github.com/ffy6511/BORA/issues/7) |
