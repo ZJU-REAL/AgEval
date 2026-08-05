@@ -16,7 +16,7 @@ def _write_minimal_docker_pkg(root: Path, *, with_dockerfile: bool) -> None:
     root.mkdir(parents=True, exist_ok=True)
     (root / "harness.py").write_text("def run(ctx): ...\n", encoding="utf-8")
     (root / "evaluator.py").write_text("def evaluate(ctx): ...\n", encoding="utf-8")
-    (root / "bora.yaml").write_text(
+    (root / "task.yaml").write_text(
         """
 format: bora.task/1
 task_id: docker-df-probe

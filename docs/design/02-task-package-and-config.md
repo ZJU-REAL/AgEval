@@ -1,57 +1,96 @@
-# 02 — Task Package 与 Config Core
+# 02 — Database、Task 与 Config Core
 
 | 字段 | 值 |
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 权威 | **本文件与同目录其它 design 文档共同构成设计权威**（自包含；不依赖 vault 总文档） |
-| 摘要 | Package 交付单元、bora.yaml、load_and_lock、配置对象与校验。 |
+| 摘要 | 交付单元 Database、成员 Task、`task.yaml`、`load_and_lock`、配置对象与校验。 |
 
 ---
 
 ## 5. Core 的输入：Task Package
 
+> **交付单元 = Database。** Task Package 指 Database 下的**成员**（`tasks/<task_id>/` + `task.yaml`）。根 `bora.yaml` 仅为 Database schema，不是 task 执行契约。
+
 ### 5.1. 交付单元
 
-一个 Task Package 的推荐结构是：
+**规范交付与分发单位是 Database（suite）**，不是散落的单 task 目录。Task 是 Database 的成员。
+
+| 层级 | 配置文件 | 位置 | Schema | 职责 |
+| --- | --- | --- | --- | --- |
+| Database | **`bora.yaml`** | **仅** Database 根 | `bora.database/1` | identity / version / 成员定位 / 可选 suite 调度默认 |
+| Task | **`task.yaml`** | `tasks/<task_id>/` | `bora.task/1` | harness / evaluator / provider / limits / profiles… |
+
+二者 **schema 不同**，禁止混用同一文档模型。CLI 路径参数始终是 **Database 根**；`--task <id>` 选择成员。Config 路径：
 
 ```text
-task-package/
-├── README.md                 # task 级说明（给人读；可选但推荐）
-├── bora.yaml                 # 唯一配置入口
-├── harness.py                # harness.entrypoint
-├── evaluator.py              # evaluation.entrypoint
-├── prompts/                  # 角色提示词（自然语言的唯一权威）
-├── schemas/                  # 结构化输出契约
-├── environment/              # Environment setup 资产（input_ref 等）
-├── evaluation/               # Evaluator-only 输入（gold / task contract）
-├── data/                     # Agent 可见任务数据（可选）
-├── lib/                      # package-local Python 支撑（可选）
-├── upstream/                 # 上游原样/薄适配代码（可选；有门槛）
-├── solution/                 # conversion 夹具（可选；非 Attempt 热路径）
-└── runtime lock / dependency inputs
+database_root
+  → load_database_manifest (bora.yaml)
+  → resolve_task → tasks/<id>/task.yaml
+  → load_and_lock(task_dir, task_id) → LockedTaskConfig
 ```
 
-`bora.yaml` 和 `harness.py` 共同定义可运行的 task：
+推荐布局：
 
-- `bora.yaml` 给出完整、集中、可比较的配置；
+```text
+my-database/                      # Database 根（CLI path）
+├── bora.yaml                     # format: bora.database/1
+├── README.md                     # suite 级说明（可选）
+└── tasks/
+    ├── task-a/
+    │   ├── task.yaml             # format: bora.task/1；task_id == 目录名
+    │   ├── harness.py
+    │   ├── evaluator.py
+    │   ├── prompts/
+    │   ├── schemas/
+    │   ├── environment/
+    │   ├── evaluation/
+    │   ├── data/
+    │   ├── lib/
+    │   ├── upstream/
+    │   └── solution/
+    └── task-b/
+        └── …
+```
+
+Database 根 `bora.yaml` 最小字段（字段名冻结）：
+
+```yaml
+format: bora.database/1
+database_id: example/demo-suite   # 字符集见 constitution；与 version 组成 release 坐标
+version: "0.1.0"
+tasks:
+  root: tasks
+# 可选 defaults 仅 suite 调度键，v1 白名单：max_concurrent_tasks
+```
+
+`database_id` **不**参与 PASS；只服务 publish / resolve / cache / evidence 溯源。  
+`defaults` **禁止**携带 limits / provider / harness / evaluation 等 task 执行契约（避免与成员 `task.yaml` 歧义）。
+
+成员 `task.yaml` 与 `harness.py` 共同定义可运行的 task：
+
+- `task.yaml` 给出完整、集中、可比较的执行与评测配置；
 - `harness.py` 解释参数并运行工作流；
 - `evaluator.py` 拥有 task-local truth 入口；
 - `prompts/`、`schemas/`、`data/`、`environment/`、`evaluation/` 按角色保存输入与资产；
-- `lib/` 承载仅被 harness / evaluator import 的 package-local 支撑代码；
-- dependency inputs 决定 package-local code 在什么 runtime 中运行。
+- `lib/` 承载仅被 harness / evaluator import 的 package-local 支撑代码。
 
-本文用概念 package `database-52-mvp/` 展示默认路径，用 `database-52/` 展开更多 service 与 workspace 细节。两者的设计内容均在本目录文档中完整给出；v2 greenfield 仓库当前不要求存在这两个示意目录。
+目录名 **必须** 等于 `task.yaml` 内 `task_id`；否则 fail closed。零成员 Database fail closed。
 
-#### 一级布局约束（allowlist）
+本文用概念 package `database-52-mvp/` 展示成员级默认路径，用 `database-52/` 展开更多 service 与 workspace 细节。两者的设计内容均在本目录文档中完整给出；v2 greenfield 仓库当前不要求存在这两个示意目录。仓内公开 examples 为三个 Database：`examples/core`、`examples/journeys`、`examples/l1`。
 
-Package **一级目录只允许从已知集合取用**；除固定根文件外，不鼓励再出现自由命名的一级文件夹或根级业务模块。Config 校验可以对未知一级路径发出 warning 或 error。
+**无长期 dual-read：** 不再把「task 根 `bora.yaml` 按 task schema 解析」当作规范路径。
+
+#### 成员（Task）一级布局约束（allowlist）
+
+Task 成员目录 **一级目录只允许从已知集合取用**；除固定根文件外，不鼓励再出现自由命名的一级文件夹或根级业务模块。Config 校验可以对未知一级路径发出 warning 或 error。
 
 **固定根文件（名字稳定）：**
 
 | 文件 | 角色 |
 | --- | --- |
 | `README.md` | task 级说明（给人读；非 Runtime 输入） |
-| `bora.yaml` | 唯一配置入口 |
+| `task.yaml` | 成员唯一配置入口（`bora.task/1`） |
 | `harness.py` | `harness.entrypoint` 默认落点（路径可在 yaml 覆盖，但推荐固定） |
 | `evaluator.py` | `evaluation.entrypoint` 默认落点 |
 
@@ -121,7 +160,9 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 
 ### 5.2. `bora.yaml` 的顶层结构
 
-v2 推荐将配置分成七个明确区域：
+> 历史标题保留锚点。**成员执行契约文件名是 `task.yaml`**（`format: bora.task/1`）。Database 根仍用 `bora.yaml`（`bora.database/1`），仅 identity/version/tasks 根，不含下列执行区。
+
+成员 `task.yaml` 推荐分成七个明确区域：
 
 | 配置区域 | 内容 | 主要消费者 |
 | --- | --- | --- |
@@ -459,3 +500,51 @@ Config Core 至少检查：
 - evaluator runtime、network 和 output format 有对应实现。
 
 Config Core 不校验某个 Planner 会选择哪个 specialist，也不检查 Harness 是否真的调用某个 Tool。前者属于运行时算法，后者由 Harness 和测试确认。
+
+## 5.x Database Registry 分发（Spec 21）
+
+**Release 单位 = Database 整包**（根 `bora.yaml` + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。
+
+### PackageRef
+
+| 形态 | 示例 |
+| --- | --- |
+| 本地 path | `./my-database` / `examples/core` |
+| 版本坐标 | `example/core@0.1.0` |
+| 内容钉死 | `example/core@sha256:<packageDigest>` |
+
+本地目录存在时优先当 path；否则按 ref 解析。
+
+### 双 digest
+
+| Digest | 算法 |
+| --- | --- |
+| packageDigest | 排序相对路径 + 每文件 sha256 行 + 外层 sha256（`src/bora/registry/digest.py`） |
+| blobDigest | 确定性 tar+gzip 字节的 sha256 |
+
+Media type：`application/vnd.bora.database.v1.tar+gzip`。
+
+### Cache
+
+默认 `.bora/cache/databases/<database_id>/<packageDigest>/`（可用 `BORA_CACHE_ROOT` 改根）。仅 dual-digest 校验通过后 atomic rename；半拉目录不可见。
+
+### CLI
+
+```text
+bora publish <database-path> [--public]   # 默认 private
+bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Spec 20 resolve
+```
+
+配置：`BORA_REGISTRY_URL` + `~/.bora/credentials`（0600）。客户端永不持有 blob store credential。
+
+## 5.y Suite 执行 vs Campaign（Spec 22）
+
+| | Suite run | Campaign |
+| --- | --- | --- |
+| 轴 | 同一 Database 的 **task_id** | 同一 task 的 **parameter matrix** |
+| CLI | `bora run <database> [--task] [--max-concurrent-tasks N]` | `bora campaign … --matrix` |
+| PASS | **仅** per-task evaluator；无 suite PASS | 每 variant 独立 Trial PASS |
+| 失败 | 默认不取消其余 task | 既有 campaign 策略 |
+
+Summary 写在 Database 根：`.bora/suite-runs/<suite_run_id>/summary.json`。
+

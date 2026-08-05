@@ -45,7 +45,7 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
             "output": {"format": "json"},
         },
     }
-    (pkg / "bora.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
+    (pkg / "task.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
     (pkg / "harness.py").write_text("async def run(ctx): pass\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text(
         "def evaluate(i): return {'status':'PASS','score':1}\n", encoding="utf-8"

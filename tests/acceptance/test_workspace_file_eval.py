@@ -1,6 +1,6 @@
 """Workspace file-eval acceptance (formerly workspace-file-eval; package removed).
 
-Retargeted to ``examples/journeys/terminal-jsonl-agg`` — workspace aggregates path.
+Retargeted to ``examples/journeys`` — workspace aggregates path.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PKG = REPO / "examples" / "journeys" / "terminal-jsonl-agg"
+PKG = REPO / "examples" / "journeys"
 
 
 def _bora(*args: str) -> subprocess.CompletedProcess[str]:

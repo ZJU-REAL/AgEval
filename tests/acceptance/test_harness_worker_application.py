@@ -12,7 +12,7 @@ from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.load_and_lock import ConfigCore
 
 REPO = Path(__file__).resolve().parents[2]
-PKG = REPO / "examples" / "core" / "harness-minimal"
+PKG = REPO / "examples" / "core" / "tasks" / "harness-minimal"
 
 
 def _lock():
@@ -40,8 +40,8 @@ async def test_missing_entrypoint(tmp_path: Path) -> None:
     # Build a temporary package missing harness.py
     pkg = tmp_path / "bad"
     pkg.mkdir()
-    (pkg / "bora.yaml").write_text(
-        (PKG / "bora.yaml").read_text(encoding="utf-8"),
+    (pkg / "task.yaml").write_text(
+        (PKG / "task.yaml").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
@@ -58,8 +58,8 @@ async def test_missing_entrypoint(tmp_path: Path) -> None:
 async def test_import_failure(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    yaml = (PKG / "bora.yaml").read_text(encoding="utf-8")
-    (pkg / "bora.yaml").write_text(yaml, encoding="utf-8")
+    yaml = (PKG / "task.yaml").read_text(encoding="utf-8")
+    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
     (pkg / "harness.py").write_text("raise RuntimeError('boom-import')\n", encoding="utf-8")
     lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(

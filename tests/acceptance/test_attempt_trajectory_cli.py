@@ -11,7 +11,9 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-PACKAGE = REPO / "examples" / "core" / "attempt-trajectory"
+DATABASE = REPO / "examples" / "core"
+TASK_DIR = DATABASE / "tasks" / "attempt-trajectory"
+PACKAGE = DATABASE  # CLI path = Database root
 
 
 def _run_cli(
@@ -67,7 +69,7 @@ def test_partial_failure_force_hook_no_pseudo_pass() -> None:
     logs = data.get("logs") or data.get("evidence_path")
     root = Path(logs)
     if not root.is_absolute():
-        root = (PACKAGE / logs).resolve()
+        root = (TASK_DIR / logs).resolve()
     if not root.is_dir():
         # offline short-circuit may leave no tree; force hook requires live service
         return
@@ -99,7 +101,7 @@ def test_success_multi_invoke_trajectory_tree() -> None:
     assert logs
     root = Path(logs)
     if not root.is_absolute():
-        root = (PACKAGE / logs).resolve()
+        root = (TASK_DIR / logs).resolve()
     assert root.is_dir(), root
     inv_root = root / "agent" / "invocations"
     assert inv_root.is_dir()

@@ -11,8 +11,9 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-OFFICIAL = REPO / "examples" / "l1" / "executor-image-official"
-UPSTREAM = REPO / "examples" / "l1" / "executor-image-upstream"
+L1_DB = REPO / "examples" / "l1"
+OFFICIAL = L1_DB / "tasks" / "executor-image-official"
+UPSTREAM = L1_DB / "tasks" / "executor-image-upstream"
 
 
 def _run_bora(*args: str) -> subprocess.CompletedProcess[str]:
@@ -40,14 +41,14 @@ def test_upstream_package_from_python_slim() -> None:
 
 
 def test_lock_official_package() -> None:
-    r = _run_bora("lock", str(OFFICIAL), "--task", "executor-image-official")
+    r = _run_bora("lock", str(L1_DB), "--task", "executor-image-official")
     assert r.returncode == 0, r.stderr
     data = json.loads(r.stdout)
     assert data["task_id"] == "executor-image-official"
 
 
 def test_lock_upstream_package() -> None:
-    r = _run_bora("lock", str(UPSTREAM), "--task", "executor-image-upstream")
+    r = _run_bora("lock", str(L1_DB), "--task", "executor-image-upstream")
     assert r.returncode == 0, r.stderr
 
 
@@ -75,7 +76,7 @@ def _assert_trajectory_layout(logs: Path) -> None:
     reason="BORA_SKIP_L1_DOCKER=1",
 )
 def test_run_official_persists_trajectory_and_container() -> None:
-    r = _run_bora("run", str(OFFICIAL), "--task", "executor-image-official")
+    r = _run_bora("run", str(L1_DB), "--task", "executor-image-official")
     if r.returncode != 0 and "Docker daemon" in (r.stderr or r.stdout or ""):
         pytest.skip("docker unavailable")
     assert r.returncode == 0, r.stderr or r.stdout
@@ -92,7 +93,7 @@ def test_run_official_persists_trajectory_and_container() -> None:
 
 
 def test_run_upstream_persists_trajectory_and_container() -> None:
-    r = _run_bora("run", str(UPSTREAM), "--task", "executor-image-upstream")
+    r = _run_bora("run", str(L1_DB), "--task", "executor-image-upstream")
     if r.returncode != 0 and "Docker daemon" in (r.stderr or r.stdout or ""):
         pytest.skip("docker unavailable")
     assert r.returncode == 0, r.stderr or r.stdout

@@ -1,9 +1,18 @@
-# bora.yaml field notes (shipped)
+# Database `bora.yaml` + member `task.yaml` field notes (shipped)
 
-## Top-level required
+## Database root (`bora.yaml`)
+
+- `format`: must be `bora.database/1`
+- `database_id`: charset `^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$` (1–128); no `..` / `//`
+- `version`: non-empty string
+- `tasks.root`: default `tasks`
+- `defaults` v1 allowlist: only `max_concurrent_tasks` (≥1)
+- **Forbidden** on root: harness / provider / limits / evaluation / agent_profiles / …
+
+## Member (`task.yaml`) — top-level required
 
 - `format`: must be `bora.task/1`
-- `task_id`: must match `--task`
+- `task_id`: must match directory name and CLI `--task`
 - `harness.runtime` / `harness.entrypoint`
 - `provider.kind`: `local` | `docker`
 - When `provider.kind: docker`: package file **`environment/Dockerfile`** (or

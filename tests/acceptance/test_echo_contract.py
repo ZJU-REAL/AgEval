@@ -1,6 +1,6 @@
 """Thin agent structured-output acceptance (formerly echo-contract / agent-eval).
 
-Retargeted to ``examples/core/sdk-agent-session`` — lock + offline fail-closed.
+Retargeted to ``examples/core`` — lock + offline fail-closed.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PKG = REPO / "examples" / "core" / "sdk-agent-session"
+PKG = REPO / "examples" / "core"
 
 
 def _bora(*args: str, offline: bool = True) -> subprocess.CompletedProcess[str]:

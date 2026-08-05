@@ -26,11 +26,22 @@ async def run_task(
     allow_offline_agent: bool = False,
     overrides: dict[str, Any] | None = None,
 ) -> tuple[int, FlatResult, dict[str, Any]]:
-    """Run one foreground Attempt and return (exit_code, result, details)."""
-    package_root = package_root.resolve()
-    # Host credential locators from .env (values never enter lock/evidence).
-    from bora.application.env_bootstrap import load_host_env_files
+    """Run one foreground Attempt and return (exit_code, result, details).
 
+    *package_root* is the **Database** root (``bora.database/1``). Member
+    ``task.yaml`` is resolved via ``resolve_task``; the task directory is the
+    package root for harness/evaluator relative paths.
+    """
+    from bora.application.env_bootstrap import load_host_env_files
+    from bora.config.database import resolve_task
+    from bora.registry.resolve import resolve_database_root
+
+    database_root = resolve_database_root(package_root)
+    resolved = resolve_task(database_root, task_id)
+    package_root = resolved.task_dir
+    # Host credential locators from .env (values never enter lock/evidence).
+    # Prefer Database-root .env, then task-member .env (later wins on key clash).
+    load_host_env_files(package_root=resolved.database_root)
     load_host_env_files(package_root=package_root)
     config = ConfigCore(package_reader=LocalPackageReader())
     try:
@@ -44,7 +55,8 @@ async def run_task(
         # unknown task etc. before Attempt/evidence
         raise
 
-    evidence_root = (evidence_root or (package_root / ".bora" / "runs")).resolve()
+    # Evidence defaults under Database root so operators inspect one tree per suite.
+    evidence_root = (evidence_root or (resolved.database_root / ".bora" / "runs")).resolve()
     evidence_root.mkdir(parents=True, exist_ok=True)
     # Unique Run identity per invocation — never overwrite prior evidence by lock digest alone.
     from bora.evidence.store import AttemptEvidenceStore
@@ -428,7 +440,9 @@ async def run_task(
 
     evidence_locator = str(run_dir)
     relative_evidence = str(
-        run_dir.relative_to(package_root) if run_dir.is_relative_to(package_root) else run_dir
+        run_dir.relative_to(resolved.database_root)
+        if run_dir.is_relative_to(resolved.database_root)
+        else run_dir
     )
     # Finalize §8.9 evidence tree when store was created (session path).
     if evidence_store is not None:

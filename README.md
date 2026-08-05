@@ -44,7 +44,7 @@ uv run bora --help
 ### Success
 
 ```bash
-uv run bora lock examples/core/config-minimal --task config-minimal
+uv run bora lock examples/core --task config-minimal
 ```
 
 - Exit `0`
@@ -54,13 +54,13 @@ uv run bora lock examples/core/config-minimal --task config-minimal
 可选覆盖（allowlisted JSON Pointer）：
 
 ```bash
-uv run bora lock examples/core/config-minimal --task config-minimal --set /parameters/seed=7
+uv run bora lock examples/core --task config-minimal --set /parameters/seed=7
 ```
 
 ### Expected failure
 
 ```bash
-uv run bora lock examples/core/config-invalid --task config-invalid
+uv run bora lock examples/core --task config-invalid
 ```
 
 - Exit `2`
@@ -137,7 +137,7 @@ bora run <package> --task <id>    # Roadmap v0.6
 
 ```text
 src/bora/     production package（cli / application / config / adapters）
-examples/     Task Package fixtures（见 examples/README.md）
+examples/     Database suite fixtures（见 examples/README.md）
               journeys/  case-class 旅程
               core/      Core 门禁烟测
               l1/        Provider L1 隔离探针

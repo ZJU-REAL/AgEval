@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-PKG = REPO / "examples" / "core" / "environment-action-denied"
+PKG = REPO / "examples" / "core"
 
 
 @pytest.mark.skipif(

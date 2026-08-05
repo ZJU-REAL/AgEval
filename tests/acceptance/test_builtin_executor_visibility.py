@@ -21,7 +21,7 @@ def _run(package: str, task: str, timeout: float = 360) -> subprocess.CompletedP
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples" / "l1" / package),
+            str(REPO / "examples" / "l1"),
             "--task",
             task,
         ],

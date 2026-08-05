@@ -1,0 +1,182 @@
+"""HTTP(S) JSON client for the Database Registry service."""
+
+from __future__ import annotations
+
+import json
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import quote
+
+
+class RegistryError(Exception):
+    """Operator-facing registry client failure."""
+
+    def __init__(self, code: str, message: str, *, status: int | None = None) -> None:
+        self.code = code
+        self.message = message
+        self.status = status
+        super().__init__(f"{code}: {message}")
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseInfo:
+    database_id: str
+    version: str
+    visibility: str
+    package_digest: str
+    blob_digest: str
+    size: int
+    media_type: str
+
+
+class RegistryClient:
+    """Thin HTTP client. Never receives S3 credentials — only Registry API."""
+
+    def __init__(self, base_url: str, *, token: str | None = None, timeout: float = 60.0) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.token = token
+        self.timeout = timeout
+
+    def _headers(self, *, content_type: str | None = None, auth: bool = True) -> dict[str, str]:
+        headers: dict[str, str] = {"Accept": "application/json"}
+        if content_type:
+            headers["Content-Type"] = content_type
+        if auth and self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+        auth: bool = True,
+    ) -> tuple[int, bytes, dict[str, str]]:
+        url = f"{self.base_url}{path}"
+        req = urllib.request.Request(
+            url,
+            data=body,
+            method=method,
+            headers=headers or self._headers(auth=auth),
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
+                raw = resp.read()
+                hdrs = {k.lower(): v for k, v in resp.headers.items()}
+                return int(resp.status), raw, hdrs
+        except urllib.error.HTTPError as exc:
+            raw = exc.read() if exc.fp else b""
+            try:
+                payload = json.loads(raw.decode("utf-8")) if raw else {}
+            except json.JSONDecodeError:
+                payload = {}
+            code = str(payload.get("error") or "registry_http_error")
+            msg = str(payload.get("message") or exc.reason or "HTTP error")
+            # private concealment: 404 for unauthorized private
+            raise RegistryError(code, msg, status=int(exc.code)) from exc
+        except urllib.error.URLError as exc:
+            raise RegistryError(
+                "registry_unavailable",
+                f"cannot reach registry: {exc.reason}",
+            ) from exc
+
+    def health(self) -> dict[str, Any]:
+        status, raw, _ = self._request("GET", "/health", auth=False)
+        if status != 200:
+            raise RegistryError("registry_unavailable", f"health status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def publish(
+        self,
+        *,
+        database_id: str,
+        version: str,
+        package_digest: str,
+        blob_digest: str,
+        size: int,
+        media_type: str,
+        visibility: str,
+        archive: bytes,
+    ) -> ReleaseInfo:
+        meta = {
+            "database_id": database_id,
+            "version": version,
+            "package_digest": package_digest,
+            "blob_digest": blob_digest,
+            "size": size,
+            "media_type": media_type,
+            "visibility": visibility,
+        }
+        boundary = "bora-boundary-7f3a9c"
+        body = b""
+        body += f"--{boundary}\r\n".encode()
+        body += b'Content-Disposition: form-data; name="metadata"\r\n'
+        body += b"Content-Type: application/json\r\n\r\n"
+        body += json.dumps(meta, sort_keys=True).encode("utf-8")
+        body += b"\r\n"
+        body += f"--{boundary}\r\n".encode()
+        body += b'Content-Disposition: form-data; name="archive"; filename="package.tar.gz"\r\n'
+        body += b"Content-Type: application/octet-stream\r\n\r\n"
+        body += archive
+        body += b"\r\n"
+        body += f"--{boundary}--\r\n".encode()
+        headers = self._headers(
+            content_type=f"multipart/form-data; boundary={boundary}",
+            auth=True,
+        )
+        status, raw, _ = self._request("POST", "/v1/packages", body=body, headers=headers)
+        if status not in {200, 201}:
+            raise RegistryError("publish_failed", f"unexpected status {status}", status=status)
+        data = json.loads(raw.decode("utf-8"))
+        return ReleaseInfo(
+            database_id=str(data["database_id"]),
+            version=str(data["version"]),
+            visibility=str(data["visibility"]),
+            package_digest=str(data["package_digest"]),
+            blob_digest=str(data["blob_digest"]),
+            size=int(data["size"]),
+            media_type=str(data["media_type"]),
+        )
+
+    def get_metadata(
+        self,
+        *,
+        database_id: str,
+        version: str | None = None,
+        package_digest: str | None = None,
+    ) -> ReleaseInfo:
+        if package_digest:
+            dig = quote(package_digest, safe=":")
+            path = f"/v1/packages/{quote(database_id, safe='/')}/by-digest/{dig}"
+        elif version:
+            ver = quote(version, safe="")
+            path = f"/v1/packages/{quote(database_id, safe='/')}/versions/{ver}"
+        else:
+            raise RegistryError("invalid_ref", "version or package_digest required")
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("not_found", f"release not found ({status})", status=status)
+        data = json.loads(raw.decode("utf-8"))
+        return ReleaseInfo(
+            database_id=str(data["database_id"]),
+            version=str(data["version"]),
+            visibility=str(data["visibility"]),
+            package_digest=str(data["package_digest"]),
+            blob_digest=str(data["blob_digest"]),
+            size=int(data["size"]),
+            media_type=str(data["media_type"]),
+        )
+
+    def fetch_content(self, *, database_id: str, package_digest: str) -> bytes:
+        path = (
+            f"/v1/packages/{quote(database_id, safe='/')}"
+            f"/by-digest/{quote(package_digest, safe=':')}/content"
+        )
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("not_found", f"content not found ({status})", status=status)
+        return raw

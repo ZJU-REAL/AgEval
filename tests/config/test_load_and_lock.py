@@ -14,8 +14,8 @@ from bora.config.load_and_lock import ConfigCore, digest_payload, parse_set_over
 from bora.config.model import thaw
 
 REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "core" / "config-minimal"
-INVALID = REPO / "examples" / "core" / "config-invalid"
+MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
+INVALID = REPO / "examples" / "core" / "tasks" / "config-invalid"
 
 
 @pytest.fixture
@@ -78,9 +78,9 @@ def test_invalid_format(
 ) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    yaml = (MINIMAL / "bora.yaml").read_text(encoding="utf-8")
+    yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
     yaml = yaml.replace("format: bora.task/1", "format: bora.task/999")
-    (pkg / "bora.yaml").write_text(yaml, encoding="utf-8")
+    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
     (pkg / "harness.py").write_text("#\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
     with pytest.raises(ConfigError) as ei:
@@ -93,9 +93,9 @@ def test_unsupported_capability(
 ) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    yaml = (MINIMAL / "bora.yaml").read_text(encoding="utf-8")
+    yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
     yaml = yaml.replace("kind: local", "kind: quantum-cloud")
-    (pkg / "bora.yaml").write_text(yaml, encoding="utf-8")
+    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
     (pkg / "harness.py").write_text("#\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
     with pytest.raises(ConfigError) as ei:
@@ -108,8 +108,8 @@ def test_missing_reference(
 ) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    (pkg / "bora.yaml").write_text(
-        (MINIMAL / "bora.yaml").read_text(encoding="utf-8"),
+    (pkg / "task.yaml").write_text(
+        (MINIMAL / "task.yaml").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     # harness.py intentionally omitted
@@ -140,8 +140,8 @@ def test_unknown_top_level_path(
 ) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    (pkg / "bora.yaml").write_text(
-        (MINIMAL / "bora.yaml").read_text(encoding="utf-8"),
+    (pkg / "task.yaml").write_text(
+        (MINIMAL / "task.yaml").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     (pkg / "harness.py").write_text("#\n", encoding="utf-8")
@@ -157,9 +157,9 @@ def test_path_escape_rejected(
 ) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    yaml = (MINIMAL / "bora.yaml").read_text(encoding="utf-8")
+    yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
     yaml = yaml.replace("path: artifacts/result.json", "path: ../escape.json")
-    (pkg / "bora.yaml").write_text(yaml, encoding="utf-8")
+    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
     (pkg / "harness.py").write_text("#\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
     with pytest.raises(ConfigError) as ei:
@@ -172,7 +172,7 @@ def test_duplicate_key_rejected(
 ) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    (pkg / "bora.yaml").write_text(
+    (pkg / "task.yaml").write_text(
         "format: bora.task/1\nformat: bora.task/1\ntask_id: config-minimal\n",
         encoding="utf-8",
     )
@@ -206,7 +206,7 @@ def test_digest_independent_of_checkout_location(
     for name in ("a", "b"):
         pkg = tmp_path / name
         pkg.mkdir()
-        for fname in ("bora.yaml", "harness.py", "evaluator.py"):
+        for fname in ("task.yaml", "harness.py", "evaluator.py"):
             (pkg / fname).write_text(
                 (MINIMAL / fname).read_text(encoding="utf-8"),
                 encoding="utf-8",

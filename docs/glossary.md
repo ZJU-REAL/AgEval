@@ -7,10 +7,13 @@
 | **BORA** | Bounded Orchestration for Runtime Agents；Harness 外层编排运行时 |
 | **BORA Core** | 外层五组机制：Config、Lifecycle、Provider、Capability、Evaluation |
 | **Harness Core** | 可选 Python SDK（`HarnessContext` 等）；可被 upstream 替代；无 Run/verdict authority |
-| **Harness** | package 内 workflow（`harness.py`）或 upstream Framework 入口 |
-| **Task Package** | `bora.yaml` + Harness 入口 + evaluation + 可选 lib/assets |
-| **`bora.yaml`** | 单一规范 task 配置：parameters + 外部 envelope |
-| **`load_and_lock`** | Config Core 原子入口 → `LockedTaskConfig` |
+| **Harness** | task 成员内 workflow（`harness.py`）或 upstream Framework 入口 |
+| **Database** | 规范交付/分发单位：根 `bora.yaml`（`bora.database/1`）+ `tasks/<id>/` 成员 |
+| **Task / Task Package** | Database 成员：`task.yaml` + Harness 入口 + evaluation + 可选 lib/assets |
+| **`bora.yaml`** | Database 根配置（identity / version / tasks 根）；**不是** task 执行契约 |
+| **`task.yaml`** | 成员规范配置：parameters + 外部 envelope（`bora.task/1`） |
+| **`load_and_lock`** | Config Core 原子入口：读 `task.yaml` → `LockedTaskConfig` |
+| **`resolve_task`** | Database 根 + task_id → 成员目录 / `task.yaml` |
 | **LockedTaskConfig** | 一次 Trial 可复盘的锁定配置 |
 | **HarnessTerminal** | Harness 结束信号；`completed` ≠ PASS |
 | **Capability** | Attempt 内已授权操作面：agent、environment、workspace、artifacts… |

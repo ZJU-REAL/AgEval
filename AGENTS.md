@@ -64,7 +64,7 @@ specs/BLOCKED.md
 | 设计 | `docs/design/00`–`10` 已自包含迁入；日常**不**再以 vault 为权威 |
 | production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service（§8.9 evidence）→`bora run`/`bora campaign`→SDK；`src/bora/evidence/`；terminal L1 / env / campaign **部分切片** |
 | 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露；`bora run` 输出 `logs` locator） |
-| 证据等级 | **限定 `runnable-mvp`（L0）**：含 `examples/core/attempt-trajectory`（Codex multi-invoke 轨迹树）；其余 core/journeys 见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
+| 证据等级 | **限定 `runnable-mvp`（L0）**：含 `examples/core --task attempt-trajectory`（Codex multi-invoke 轨迹树）；其余 core/journeys 见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
 | Roadmap | Version Index：**`v0.1`–`v0.18` 已勾**；**`v0.19` ACP 未勾** |
 | 活动 Spec | `specs/active/00`–`19`；12–18 completed；**19 ACP**（产品决策已关；Phase 0 probe / 实现进行中） |
 | Constitution 条目 | 含 critic-checkbox-authority、core-not-bench-adapters、L1 multi-agent isolation、**ACP unification active** |
@@ -104,7 +104,7 @@ specs/BLOCKED.md
 
 ### Package 与配置
 
-- 每 task 规范配置为 `bora.yaml`；Config Core 是唯一规范读取者。  
+- 规范交付单位为 Database（根 `bora.yaml` / `bora.database/1`）；每 task 规范配置为成员 `task.yaml`；Config Core 是唯一规范读取者。  
 - `parameters` 给 Harness（`ctx.params`）；envelope 给 Runtime；禁止 harness 再读第二份「真配置」覆盖 lock。  
 - 环境变量只作 locator，不能代替生产机制来源。  
 

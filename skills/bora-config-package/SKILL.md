@@ -1,33 +1,54 @@
 ---
 name: bora-config-package
 description: >
-  Author and review BORA Task Packages (bora.yaml layout, harness/evaluator entrypoints,
-  agent_profiles, provider local|docker, limits hard ceilings, artifacts, evaluation inputs,
-  gold isolation, allowlisted overrides). Use when creating or editing packages under
-  examples/, writing bora.yaml, adding profiles/executors, declaring limits, wiring
-  evaluation inputs, or reviewing package ownership violations. Triggers: "bora.yaml",
-  "task package", "agent_profiles", "evaluation gold", "workspace_output", "provider kind",
-  "package layout". Never put secrets in yaml; never branch adapters by benchmark name.
+  Author and review BORA Databases and Task members (Database bora.yaml + tasks/*/task.yaml,
+  harness/evaluator entrypoints, agent_profiles, provider local|docker, limits hard ceilings,
+  artifacts, evaluation inputs, gold isolation, allowlisted overrides). Use when creating or
+  editing packages under examples/, writing bora.yaml/task.yaml, adding profiles/executors,
+  declaring limits, wiring evaluation inputs, or reviewing package ownership violations.
+  Triggers: "bora.yaml", "task.yaml", "database", "task package", "agent_profiles",
+  "evaluation gold", "workspace_output", "provider kind", "package layout". Never put secrets
+  in yaml; never branch adapters by benchmark name.
 ---
 
-# Config / Task Package
+# Config / Database + Task
 
-Config Core is the **only** normative reader of package config. Harness must not re-read a second “true config” over lock.
+Config Core is the **only** normative reader of package config. Delivery unit is a
+**Database** root; each member has `task.yaml`. Harness must not re-read a second
+“true config” over lock.
 
-## Package layout
+CLI: `bora lock|run <database-root> --task <task_id>` · `bora tasks <database-root>`.
+
+## Layout
 
 ```text
-my-package/
-├── bora.yaml              # required
-├── harness.py             # or path from harness.entrypoint
-├── evaluator.py           # independent scorer
-├── environment/           # optional seed.sql (resource protocol); Docker L1 needs Dockerfile
-├── evaluation/            # gold / hidden — not for Agent mount
-├── lib/                   # package-local tools/helpers
-└── data/                  # optional seeds for workspace tasks
+my-database/                 # CLI path (bora.database/1)
+├── bora.yaml                # Database identity / version / tasks.root
+└── tasks/
+    └── my-task/             # task_id == directory name
+        ├── task.yaml        # bora.task/1 — execution contract
+        ├── harness.py
+        ├── evaluator.py
+        ├── environment/     # optional seed.sql; Docker L1 needs Dockerfile
+        ├── evaluation/      # gold / hidden — not for Agent mount
+        ├── lib/
+        └── data/
 ```
 
-## Minimal `bora.yaml` skeleton
+## Minimal Database `bora.yaml`
+
+```yaml
+format: bora.database/1
+database_id: org/my-suite
+version: "0.1.0"
+tasks:
+  root: tasks
+# optional defaults (suite scheduling only):
+# defaults:
+#   max_concurrent_tasks: 1
+```
+
+## Minimal member `task.yaml` skeleton
 
 ```yaml
 format: bora.task/1
