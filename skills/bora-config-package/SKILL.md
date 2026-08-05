@@ -38,7 +38,7 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true   # parent Agent Service multi-invoke
+  use_agent_session: true   # required for any Agent invoke (harness schedules session)
   # active_profile: opencode-acp   # optional; overridable via CLI --set
 
 provider:

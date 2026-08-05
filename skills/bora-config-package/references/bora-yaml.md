@@ -64,11 +64,12 @@ agent_profiles:
 
 | Key | Meaning |
 | --- | --- |
-| `use_agent_session` | Parent Agent Service + multi-invoke |
+| `use_agent_session` | **Required** for any Agent invoke: parent Agent Service + harness `Agent.session`/`invoke` |
 | `active_profile` | Which profile id harness should open |
 | `roles` | Optional map of role → profile id (multi-session harnesses) |
 | `harness_timeout_seconds` | Worker timeout (capped by wall) |
-| `workspace_output` | Terminal-class file under Attempt workspace |
+| `workspace_output` | Terminal-class relative filename harness collects after invoke (not a Runtime trigger) |
+| `question` | Optional prompt string consumed by **harness** (not Runtime one-shot) |
 | `environment_resource` | e.g. `postgresql` |
 
 ### Optional profile upstream fields

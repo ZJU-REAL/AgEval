@@ -11,12 +11,12 @@
 
 ## Problem (why this decision exists)
 
-Current L1 vertical slice builds `environment/Dockerfile` and runs **one** CLI invoke from Runtime (`parameters.question`).  
+Current L1 vertical slice builds `environment/Dockerfile` and runs Agent effects **in-target** via harness SDK session (`use_agent_session`).  
 Harness SDK multi-profile orchestration works on **L0 host** only. That is **not** the product end-state for L1.
 
 User intent:
 
-1. Harness must schedule via **SDK invoke** under L1 (multi-turn / multi-profile), not only one-shot Runtime question.
+1. Harness must schedule via **SDK invoke** under L1 (multi-turn / multi-profile). Runtime must not one-shot Agent.
 2. Support **isolation tiers** for multi-agent:
    - **shared-container (low)**: multiple actors, different UIDs, same container; optional shared GID + `shared_write` paths.
    - **container-per-group (stronger)**: one container per logical group (single-actor group ⇒ per-agent container).
@@ -29,7 +29,7 @@ User intent:
 1. **L1 Agent path MUST use the same SDK surface as L0:**  
    `Agent.session(profile_id, actor_id=..., max_turns=...)` → opaque `session_id` → `invoke` / `close`.
 2. **ParentAgentService remains the sole authority** for session bind, hard ceilings, trajectory seal, and external Agent effects.
-3. **Current Runtime one-shot `parameters.question` CLI path** may remain as a **compatibility / smoke residual** only; it is **not** the multi-agent L1 design, and must not block or replace SDK scheduling work.
+3. **Runtime one-shot `parameters.question` / `workspace_output` Agent path is removed** ([Issue #5](https://github.com/ffy6511/BORA/issues/5)). All business Agent invokes appear in package harness via `use_agent_session` + SDK session.
 4. **No silent host fallback** for L1 invoke failures (missing binary, dead target, missing credential, relay crash). Fail closed; residual only if package/executor combination is **explicitly unsupported** at lock/prepare (not mid-invoke downgrade).
 
 ### 2. Ownership split
@@ -163,7 +163,7 @@ Rules:
 2. `agent_isolation` lock + prepare 拓扑。
 3. `shared-container` + `shared_write`。
 4. `container-per-group`（跨组默认 A 内存）。
-5. `parameters.question` 标 residual。
+5. `parameters.question` Runtime one-shot **removed** (Issue #5); harness-only invoke.
 6. Issue #2 handoff（另 Spec）。
 
 ## Explicit non-goals (v1 of this decision)
@@ -210,6 +210,6 @@ Rules:
 - [ ] Accept yaml `provider.agent_isolation.mode` ∈ {`shared-container`, `container-per-group`}?  
 - [ ] Accept docker IDs **runtime-only** (not lock fields)?  
 - [ ] Accept “no host fallback” for L1 invoke?  
-- [ ] Accept one-shot `parameters.question` demoted to residual smoke?  
+- [x] Runtime one-shot `parameters.question` removed (Issue #5); harness-only schedule.  
 - [ ] Accept §10 mid-loop memory only + #2 deferred?  
 - [ ] Any field renames before design doc write-up?
