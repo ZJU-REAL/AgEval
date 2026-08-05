@@ -63,7 +63,7 @@ Provider 负责代码运行位置和 OS 级限制：
 
 #### L1 多 Actor 隔离与 SDK 调度面
 
-L1 多 Actor 的最终调用面与 L0 一致：Harness 通过 `Agent.session(profile_id, actor_id=..., max_turns=...)` 获得 opaque session，再执行 `invoke` / `close`。Runtime 直接读取 `parameters.question` 并发起一次 CLI 调用只可保留为兼容或 smoke residual，不能替代 SDK 多轮、多 profile 调度。
+L1 多 Actor 的最终调用面与 L0 一致：Harness 通过 `Agent.session(profile_id, actor_id=..., max_turns=...)` 获得 opaque session，再执行 `invoke` / `close`。**所有业务向 Agent invoke 必须出现在 package harness（或包内明确编排入口）**；Runtime / Provider 不得再为 package 隐式 one-shot `parameters.question` / `workspace_output`（见 [Issue #5](https://github.com/ffy6511/BORA/issues/5)）。
 
 `provider.agent_isolation.mode` 支持 `shared-container` 与 `container-per-group`。`actor_id` 是隔离 principal，profile 只选择 executor、model 与 credential binding；Config lock 仅保存 actor、group、profile allowlist 与 `shared_write` 等逻辑拓扑。Provider 在 Attempt prepare 时建立 `actor_id → ExecutionTarget`，ParentAgentService 再建立 opaque `session_id → actor_id + profile_id + target_id + generation` 绑定。Docker container id、UID/GID、socket path 与 live handle 只进入 Runtime 私有 cleanup ledger；Harness、SDK、lock 与公开 evidence 均不得获得 raw handle，evidence 至多记录 opaque `target_id`、image digest 与实际 isolation mode。
 

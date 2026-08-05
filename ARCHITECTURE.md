@@ -304,7 +304,7 @@ created
 | 等级 | 含义 |
 | --- | --- |
 | `design-only` | 仅文档 / 未跑通真实 Agent 的表面 |
-| `runnable-mvp` | 真实 public entrypoint + 真实 Agent（**当前限定** `examples/core/agent-eval` 与 journeys 类；见 `examples/README.md`） |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent（**当前限定** `examples/core/sdk-agent-session` 与 journeys 类；见 `examples/README.md`） |
 | `isolated` | 隔离 Attempt + 红线负向 |
 | `real-benchmark-verified` | 固定 upstream、限定范围公开 journey |
 

@@ -1,6 +1,6 @@
-"""Thin agent structured-output acceptance (formerly echo-contract; package removed).
+"""Thin agent structured-output acceptance (formerly echo-contract / agent-eval).
 
-Retargeted to ``examples/core/agent-eval`` — same surface: lock + offline fail-closed.
+Retargeted to ``examples/core/sdk-agent-session`` — lock + offline fail-closed.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PKG = REPO / "examples" / "core" / "agent-eval"
+PKG = REPO / "examples" / "core" / "sdk-agent-session"
 
 
 def _bora(*args: str, offline: bool = True) -> subprocess.CompletedProcess[str]:
@@ -29,16 +29,16 @@ def _bora(*args: str, offline: bool = True) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_agent_eval_lock() -> None:
-    result = _bora("lock", str(PKG), "--task", "agent-eval")
+def test_sdk_agent_session_lock() -> None:
+    result = _bora("lock", str(PKG), "--task", "sdk-agent-session")
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
-    assert data["task_id"] == "agent-eval"
+    assert data["task_id"] == "sdk-agent-session"
     assert "digest" in data
 
 
-def test_agent_eval_offline_fail_closed() -> None:
-    result = _bora("run", str(PKG), "--task", "agent-eval")
+def test_sdk_agent_session_offline_fail_closed() -> None:
+    result = _bora("run", str(PKG), "--task", "sdk-agent-session")
     assert result.returncode != 0, result.stdout
     data = json.loads(result.stdout)
     assert data["status"] != "PASS"

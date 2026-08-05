@@ -38,8 +38,8 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true   # parent Agent Service multi-invoke
   # active_profile: opencode-acp   # optional; overridable via CLI --set
+  # Non-empty agent_profiles ⇒ Agent Service; harness owns session/invoke.
 
 provider:
   kind: local               # or docker for L1

@@ -1,6 +1,6 @@
 # plugin-agent-executor
 
-Second **executor mechanism** via the same harness pattern as `agent-eval`.
+Second **executor mechanism** (`openai-http`) via harness-scheduled `Agent.session`/`invoke`.
 
 Profile uses `executor: openai-http` (HTTP plugin path) instead of builtin Codex.
 Harness only materializes parent agent result and publishes; evaluator requires

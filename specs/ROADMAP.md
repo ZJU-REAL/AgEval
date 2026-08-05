@@ -97,7 +97,7 @@ Config (v0.1)
 
 | v1 能力形态（oracle 只读） | 需要的 **Core/SDK 表面** | 已有 Roadmap 槽位 | 当前诚实状态 |
 | --- | --- | --- | --- |
-| 薄 Agent + 独立 evaluator（codex-smoke） | Core 1–5 + Agent Executor + barrier | **v0.6–v0.7** | **可跑**（`agent-eval` + parent-bound `sdk-agent-session` multi-invoke）；仍为 L0 |
+| 薄 Agent + 独立 evaluator（codex-smoke） | Core 1–5 + Agent Executor + barrier | **v0.6–v0.7** | **可跑**（parent-bound `sdk-agent-session` multi-invoke）；仍为 L0 |
 | Agent 在 Attempt **workspace 写文件** → seal artifact → 独立评测（terminal 形态） | **Provider 工作区/投影 + Agent cwd/workspace view + file artifact collect + clean evaluator inputs** | **v0.3 L0 + v0.8 L1**（非“v0.13 terminal-bench”） | **terminal-jsonl-agg L1 PASS**（harness+clean eval container, `assurance:l1` when full_l1）；Agent 仍为 parent Executor + workspace-only cwd；Version Index v0.8 未勾 |
 | 多步/多角色 Harness + **Attempt-local 有状态资源**（database 形态） | **Agent multi-invoke/channel + Environment Manager + 资源型 Adapter（postgresql）+ Tool 经 Capability** | **v0.7 Session + v0.10 Environment** | **env-postgres-min + multiagent-env-min PASS**（parent-prepared Postgres handoff）；Environment Manager/Capability proxy residual；Version Index v0.10 unchecked |
 | 多 Trial 矩阵 / 串行 campaign | Campaign + matrix → Config variant | **v0.11** | **bora campaign seed matrix all_pass + distinct digests**；admission/retry residual；Version Index v0.11 unchecked |
@@ -969,7 +969,7 @@ Application 层增加 deterministic matrix expansion 与前台串行 Trial 调�
 
 ### 验收标准
 
-- [ ] Success：`examples/core/acp-agent-conformance` 五 profile（含 `pi-acp`）+ `examples/l1/acp-agent-placement`；`execution_location` / `host_fallback_count=0` 诚实。
+- [ ] Success：`examples/core/builtin-executor-conformance` 五 profile（codex/pi/opencode/claude-code/grok-build）+ `examples/l1/sdk-session-single-actor`；`execution_location` / `host_fallback_count=0` 诚实。
 - [ ] Expected failure：adapter/engine missing、auth/model/protocol/timeout/target fail closed；越权路径 approve 后仍 OS-denied；无 private fallback。
 - [ ] Security：lock/evidence/image 无 credential；permission decision 可审计；PASS 不来自 ACP end_turn。
 - [ ] Engineering gates：frozen install、Ruff、Pyright、pytest、strict Specs validator、`git diff --check`。

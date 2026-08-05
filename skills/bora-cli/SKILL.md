@@ -103,12 +103,12 @@ Must not PASS agent packages. Typed errors only.
 | --- | --- |
 | List executors / ACP entries | `uv run bora executors` / `uv run bora executors -v` |
 | Lock only | `uv run bora lock examples/core/config-minimal --task config-minimal` |
-| ACP multi-turn (host) | `uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance` |
-| ACP entry switch | `… --set '/parameters/active_profile="pi-acp"'` (or `opencode-acp` / `grok-build-acp` / …) |
+| ACP multi-turn (host) | `uv run bora run examples/core/sdk-agent-session --task sdk-agent-session` |
+| ACP entry switch | `uv run bora run examples/core/builtin-executor-conformance --task builtin-executor-conformance --set '/parameters/active_profile="pi-mini"'` |
 | Trajectory | `uv run bora run examples/core/attempt-trajectory --task attempt-trajectory` |
 | Hard ceiling | `uv run bora run examples/core/hard-ceiling-trajectory --task hard-ceiling-trajectory` |
-| L1 ACP placement | `uv run bora run examples/l1/acp-agent-placement --task acp-agent-placement` |
-| L1 visibility | `uv run bora run examples/l1/builtin-executor-visibility --task builtin-executor-visibility` |
+| L1 SDK session | `uv run bora run examples/l1/sdk-session-single-actor --task sdk-session-single-actor` |
+| L1 isolation contracts | Provider tests: `uv run pytest tests/provider_l1/test_harness_isolation_contracts.py tests/provider_l1/test_filtered_mount.py -q` |
 
 ## Detail
 

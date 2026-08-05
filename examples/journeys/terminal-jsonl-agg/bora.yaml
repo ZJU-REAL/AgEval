@@ -6,9 +6,9 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  # Type-B terminal class: Runtime seeds workspace from data/, runs ACP agent
-  # with cwd=workspace, collects declared relative file (not use_agent_session).
+  # Harness schedules Agent.session/invoke; Runtime only seeds data/ + placement.
   workspace_output: aggregates.json
+  harness_timeout_seconds: 420
   agent_timeout_seconds: 420
   models:
     default: terminal-pi
@@ -17,7 +17,7 @@ provider:
   kind: docker
   assurance: l1
   platform: linux/arm64
-  # Residual ACP agent container uses bridge for model API; package policy
+  # ACP agent container uses bridge for model API; package policy
   # still filters evaluation/ from the harness mount.
   network: bridge
 

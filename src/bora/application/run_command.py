@@ -65,19 +65,20 @@ async def run_task(
     if agent_file.exists():
         agent_file.unlink()
 
-    # Parent Agent Service: if package declares a codex profile, try one real invoke.
+    # Parent Agent Service: non-empty agent_profiles ⇒ harness session/invoke (L0 only).
     profiles = thaw(lock.agent_profiles)
     params = thaw(lock.parameters)
     evaluation = thaw(lock.evaluation)
     provider_cfg = thaw(lock.provider)
     provider_kind = str(provider_cfg.get("kind") or "local")
     agent_profile = next((p for p in profiles if isinstance(p, dict)), None)
-    use_agent_session = bool(params.get("use_agent_session"))
+    # Issue #5: non-empty agent_profiles ⇒ Parent Agent Service (L0 only).
+    # Docker/L1 owns its own SDK session path inside run_l1. No use_agent_session flag.
     agent_service = None
     agent_server = None
     agent_sock_path = None
     shared_attempt = None  # Runtime-owned Attempt shared with harness worker
-    if use_agent_session and agent_profile is not None:
+    if agent_profile is not None and provider_kind != "docker":
         from bora.adapters.agent_registry import resolve_executor
         from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
 
@@ -166,215 +167,6 @@ async def run_task(
         agent_meta["attempt_id"] = attempt_ident.value
         agent_meta["trial_id"] = trial_ident.value
         agent_meta["run_id"] = run_ident.value
-    elif agent_profile is not None and provider_kind != "docker":
-        # Docker/L1 packages own agent+workspace orchestration in the docker branch.
-        from bora.adapters.agent_openai_http import resolve_executor
-
-        model = str(agent_profile.get("model") or "gpt-5.4-mini")
-        kind = str(agent_profile.get("executor") or "acp")
-        question = str(params.get("question") or 'Return JSON {"answer": 42}')
-        try:
-            executor = resolve_executor(
-                kind,
-                model=model,
-                base_url=(
-                    str(agent_profile.get("base_url"))
-                    if agent_profile.get("base_url")
-                    else None
-                ),
-                api_key=(
-                    str(agent_profile.get("api_key"))
-                    if agent_profile.get("api_key")
-                    else None
-                ),
-            )
-        except KeyError:
-            flat = bind_result(
-                evaluator_raw=None,
-                harness_kind="failed",
-                runtime_kind="local_l0",
-                agent_invocations=0,
-                evidence_path=str(run_dir),
-                error_phase="config",
-            )
-            return 2, flat, {"error": {"kind": "executor_unknown", "executor": kind}}
-        workspace_root: Path | None = None
-        # Generic file-workspace mode: declared relative output under Attempt workdir.
-        if params.get("workspace_output") and not use_agent_session:
-            # Type B: seed Attempt workdir, run Agent with cwd=workdir, collect file artifact.
-            workspace_root = run_dir / "agent_workspace"
-            if workspace_root.exists():
-                shutil.rmtree(workspace_root)
-            workspace_root.mkdir(parents=True)
-            seed_dir = package_root / "data"
-            if seed_dir.is_dir():
-                for src in seed_dir.iterdir():
-                    if src.is_file():
-                        shutil.copy2(src, workspace_root / src.name)
-            instruction_path = package_root / "data" / "instruction.md"
-            if not instruction_path.is_file():
-                instruction_path = package_root / "instruction.md"
-            if instruction_path.is_file():
-                question = instruction_path.read_text(encoding="utf-8")
-            out_name = str(params.get("workspace_output") or "aggregates.json")
-            out_path = Path(out_name)
-            if out_path.is_absolute() or ".." in out_path.parts:
-                flat = bind_result(
-                    evaluator_raw=None,
-                    harness_kind="failed",
-                    runtime_kind="local_l0",
-                    agent_invocations=0,
-                    evidence_path=str(run_dir),
-                    error_phase="config",
-                )
-                summary = flat.as_dict()
-                summary["status"] = "ERROR"
-                summary["error"] = {
-                    "phase": "config",
-                    "kind": "workspace_output_invalid",
-                    "message": "workspace_output must be a relative non-escaping path",
-                }
-                (run_dir / "result.json").write_text(
-                    json.dumps(summary, indent=2, sort_keys=True) + "\n",
-                    encoding="utf-8",
-                )
-                return 2, flat, {"error": summary["error"]}
-            # Longer timeout for file-writing agents.
-            invoke_timeout = float(params.get("agent_timeout_seconds") or 180)
-            result = executor.invoke(question, timeout=invoke_timeout, workdir=str(workspace_root))
-            agent_invocations = 1
-            agent_meta = {
-                "model": result.model,
-                "ok": result.ok,
-                "error": result.error,
-                "executor": kind,
-                "workdir": str(workspace_root),
-            }
-            out_file = workspace_root / out_name
-            # Terminal class succeeds when the declared file exists (even if stdout is non-JSON).
-            if not out_file.is_file():
-                if not result.ok and not allow_offline_agent:
-                    flat = bind_result(
-                        evaluator_raw=None,
-                        harness_kind="failed",
-                        runtime_kind="local_l0",
-                        agent_invocations=agent_invocations,
-                        evidence_path=str(run_dir),
-                        error_phase="agent",
-                    )
-                    summary = flat.as_dict()
-                    summary["assurance"] = "l0"
-                    summary["status"] = "ERROR"
-                    summary["error"] = {
-                        "phase": "agent",
-                        "kind": result.error or "workspace_output_missing",
-                        "message": f"terminal workspace missing {out_name}: {result.error}",
-                    }
-                    (run_dir / "result.json").write_text(
-                        json.dumps(summary, indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8",
-                    )
-                    (run_dir / "agent.json").write_text(
-                        json.dumps(agent_meta, indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8",
-                    )
-                    return 2, flat, {"agent": agent_meta, "assurance": "l0"}
-                if not allow_offline_agent:
-                    flat = bind_result(
-                        evaluator_raw=None,
-                        harness_kind="failed",
-                        runtime_kind="local_l0",
-                        agent_invocations=agent_invocations,
-                        evidence_path=str(run_dir),
-                        error_phase="agent",
-                    )
-                    summary = flat.as_dict()
-                    summary["assurance"] = "l0"
-                    summary["status"] = "ERROR"
-                    summary["error"] = {
-                        "phase": "agent",
-                        "kind": "workspace_output_missing",
-                        "message": f"declared workspace output missing: {out_name}",
-                    }
-                    (run_dir / "result.json").write_text(
-                        json.dumps(summary, indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8",
-                    )
-                    return 2, flat, {"agent": agent_meta, "assurance": "l0"}
-            else:
-                # Stage for harness: copy into package-relative handoff.
-                handoff = package_root / ".bora_workspace_output.json"
-                handoff.write_bytes(out_file.read_bytes())
-                agent_meta["workspace_output"] = out_name
-                agent_meta["workspace_output_bytes"] = out_file.stat().st_size
-        else:
-            result = executor.invoke(question)
-            agent_invocations = 1
-            agent_meta = {
-                "model": result.model,
-                "ok": result.ok,
-                "error": result.error,
-                "executor": kind,
-            }
-            if not result.ok:
-                # Fail closed: do not start harness/evaluator with missing/stale agent material.
-                # Tests may set allow_offline_agent only for explicit doubles, never production CLI.
-                if not allow_offline_agent:
-                    flat = bind_result(
-                        evaluator_raw=None,
-                        harness_kind="failed",
-                        runtime_kind="local_l0",
-                        agent_invocations=agent_invocations,
-                        evidence_path=str(run_dir),
-                        error_phase="agent",
-                    )
-                    summary = flat.as_dict()
-                    summary["assurance"] = "l0"
-                    summary["status"] = "ERROR"
-                    summary["error"] = {
-                        "phase": "agent",
-                        "kind": result.error or "agent_failed",
-                        "message": f"executor {kind} failed: {result.error}",
-                    }
-                    (run_dir / "result.json").write_text(
-                        json.dumps(summary, indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8",
-                    )
-                    (run_dir / "agent.json").write_text(
-                        json.dumps(agent_meta, indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8",
-                    )
-                    return 2, flat, {"agent": agent_meta, "assurance": "l0"}
-                agent_meta["offline_fallback"] = True
-            else:
-                # Only structured agent output is materializable; never invent answer:42.
-                if not isinstance(result.structured, dict):
-                    flat = bind_result(
-                        evaluator_raw=None,
-                        harness_kind="failed",
-                        runtime_kind="local_l0",
-                        agent_invocations=agent_invocations,
-                        evidence_path=str(run_dir),
-                        error_phase="agent",
-                    )
-                    summary = flat.as_dict()
-                    summary["assurance"] = "l0"
-                    summary["status"] = "ERROR"
-                    summary["error"] = {
-                        "phase": "agent",
-                        "kind": "agent_output_unstructured",
-                        "message": "executor returned no parseable structured object",
-                    }
-                    (run_dir / "result.json").write_text(
-                        json.dumps(summary, indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8",
-                    )
-                    return 2, flat, {"agent": agent_meta, "assurance": "l0"}
-                payload = result.structured
-                agent_file.write_text(
-                    json.dumps(payload, sort_keys=True) + "\n",
-                    encoding="utf-8",
-                )
 
     if provider_kind == "docker":
         # Full L1 orchestration for all docker packages (Spec 07) — no preflight-only PASS.
@@ -386,7 +178,6 @@ async def run_task(
             lock=lock,
             run_dir=run_dir,
             agent_meta=agent_meta,
-            agent_invocations=agent_invocations,
             allow_offline_agent=allow_offline_agent,
         )
         score_raw = result_doc.get("score")

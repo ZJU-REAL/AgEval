@@ -6,7 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  question: "Return JSON {\"answer\": 42}"
   models:
     default: openai-mini
 

@@ -68,6 +68,9 @@ async def _run(fd: int) -> int:
     attempt_id = launch["attempt_id"]
     artifact_dir = Path(launch["artifact_dir"])
     artifact_dir.mkdir(parents=True, exist_ok=True)
+    # Optional Attempt workspace (L1 host bind); default package root for L0.
+    ws_raw = launch.get("workspace_root")
+    workspace_root = Path(ws_raw) if ws_raw else package_root
 
     # Build SDK context inside worker only.
     from bora_sdk.context import HarnessContext, HarnessParameterView, RunScope
@@ -80,7 +83,7 @@ async def _run(fd: int) -> int:
             trial_id=launch.get("trial_id", ""),
             run_id=launch.get("run_id", ""),
         ),
-        workspace_root=package_root,
+        workspace_root=workspace_root,
         artifact_dir=artifact_dir,
     )
     try:

@@ -9,7 +9,7 @@
 | `migrated_to_acp` | Package still uses private CLI executor kind; switch to `acp` + `options.entry` |
 | ACP entry not ready | `bora executors -v` → that `entry_id` `host_ready` / install pin; no invoke-time `npm i` |
 | PASS without real model | Forbidden — do not use fixtures as public proof |
-| Trajectory empty | Session path requires `parameters.use_agent_session: true` + parent Agent Service |
+| Trajectory empty | Non-empty `agent_profiles` + harness `Agent.session`/`invoke` (Parent Agent Service) |
 | Export fails `unsealed_invocation` | Attempt still running or metadata not terminal |
 | Export fails `secret_residual` | Fix source evidence; do not strip secrets by hand in export dir |
 | Docker L1 ERROR | Docker daemon, image build, network/creds projection; read `l1.json` / agent meta under logs |
