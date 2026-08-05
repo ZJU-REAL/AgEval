@@ -5,16 +5,15 @@ Prefer mechanism packages under `examples/core/` and `examples/l1/`. Full list: 
 | Package | Demonstrates |
 | --- | --- |
 | `examples/core/config-minimal` | `bora lock` success |
+| `examples/core/sdk-agent-session` | Host multi-invoke + independent PASS |
 | `examples/core/attempt-trajectory` | Per-invoke §8.9 trajectory + `Result.logs` |
-| `examples/core/acp-agent-conformance` | Host ACP multi-turn; profile switch across entries |
-| `examples/core/builtin-executor-conformance` | Profile-only switch (`executor: acp` + different `options.entry`) |
+| `examples/core/builtin-executor-conformance` | Profile-only switch (`executor: acp` + `options.entry`) |
 | `examples/core/builtin-executor-mixed` | Two ACP profiles, independent sessions/trees |
 | `examples/core/hard-ceiling-trajectory` | N+1 invoke denied pre-effect |
 | `examples/core/environment-action-denied` | Env action deny-before-mutation |
-| `examples/core/orchestration-environment` | Multi-profile + Postgres + effects |
-| `examples/l1/acp-agent-placement` | L1 docker exec ACP placement (`assurance:l1`) |
-| `examples/l1/builtin-executor-visibility` | L1 assurance + execution_location |
-| `examples/l1/builtin-executor-visibility-denied` | Gold not visible |
+| `examples/core/plugin-agent-executor` | Second executor mechanism (`openai-http`) |
+| `examples/l1/sdk-session-single-actor` | L1 SDK session → attempt-container |
+| `examples/l1/provider-l1-denied` | Gold / hidden material not visible |
 | `examples/journeys/*` | Case-class demos (env / multiagent / tau2 / terminal) |
 
 ## Install (repo root)

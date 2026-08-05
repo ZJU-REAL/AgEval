@@ -1,16 +1,12 @@
-"""plugin-agent-executor — harness-scheduled Agent.session/invoke (Issue #5)."""
+"""openai-http second backend — harness-scheduled invoke."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from bora_sdk import Agent, HarnessContext, HarnessTerminal
-
-
-def _params(ctx: HarnessContext) -> dict[str, Any]:
-    raw = ctx.params
-    return dict(raw) if isinstance(raw, dict) else {}
 
 
 def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
@@ -35,22 +31,23 @@ def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+def _load_prompt(package_dir: Path) -> str:
+    p = package_dir / "prompts" / "agent.md"
+    if p.is_file():
+        return p.read_text(encoding="utf-8").strip()
+    return 'Return JSON {"answer": 42}'
+
+
 async def run(ctx: HarnessContext) -> HarnessTerminal:
-    params = _params(ctx)
-    models = params.get("models") if isinstance(params.get("models"), dict) else {}
-    profile_id = str(models.get("default") or "openai-mini")
-    question = str(params.get("question") or 'Return JSON {"answer": 42}')
-
+    package_dir = Path(__file__).resolve().parent
+    prompt = _load_prompt(package_dir)
     agent = Agent(attempt_id=ctx.scope.attempt_id)
-    async with agent.session(profile_id, max_turns=1) as session:
-        inv = await session.invoke(question)
-
+    async with agent.session("openai-mini", max_turns=1) as session:
+        inv = await session.invoke(prompt)
     if not inv.get("ok"):
         return HarnessTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
-
     payload = _answer_payload(dict(inv))
     if payload is None:
         return HarnessTerminal.failed("agent_output_missing_answer")
-
     ctx.publish_json("agent-output", payload)
-    return HarnessTerminal.completed('plugin-agent-executor')
+    return HarnessTerminal.completed("plugin-agent-executor")

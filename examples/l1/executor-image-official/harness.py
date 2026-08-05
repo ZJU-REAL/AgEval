@@ -1,16 +1,12 @@
-"""executor-image-official — harness-scheduled Agent.session/invoke (Issue #5)."""
+"""executor-image-official — harness-scheduled ACP invoke."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from bora_sdk import Agent, HarnessContext, HarnessTerminal
-
-
-def _params(ctx: HarnessContext) -> dict[str, Any]:
-    raw = ctx.params
-    return dict(raw) if isinstance(raw, dict) else {}
 
 
 def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
@@ -36,21 +32,20 @@ def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
 
 
 async def run(ctx: HarnessContext) -> HarnessTerminal:
-    params = _params(ctx)
-    models = params.get("models") if isinstance(params.get("models"), dict) else {}
-    profile_id = "pi-glm"
-    question = str(params.get("question") or 'Return ONLY JSON {"answer": 42}')
-
+    package_dir = Path(__file__).resolve().parent
+    prompt_path = package_dir / "prompts" / "agent.md"
+    prompt = (
+        prompt_path.read_text(encoding="utf-8").strip()
+        if prompt_path.is_file()
+        else 'Return ONLY JSON {"answer": 42}'
+    )
     agent = Agent(attempt_id=ctx.scope.attempt_id)
-    async with agent.session(profile_id, actor_id="default", max_turns=1) as session:
-        inv = await session.invoke(question)
-
+    async with agent.session("pi-glm", actor_id="default", max_turns=1) as session:
+        inv = await session.invoke(prompt)
     if not inv.get("ok"):
         return HarnessTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
-
     payload = _answer_payload(dict(inv))
     if payload is None:
         return HarnessTerminal.failed("agent_output_missing_answer")
-
     ctx.publish_json("agent-output", payload)
-    return HarnessTerminal.completed('executor-image-official')
+    return HarnessTerminal.completed("executor-image-official")

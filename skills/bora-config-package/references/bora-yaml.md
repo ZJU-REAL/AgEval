@@ -64,13 +64,13 @@ agent_profiles:
 
 | Key | Meaning |
 | --- | --- |
-| `use_agent_session` | **Required** for any Agent invoke: parent Agent Service + harness `Agent.session`/`invoke` |
 | `active_profile` | Which profile id harness should open |
 | `roles` | Optional map of role → profile id (multi-session harnesses) |
 | `harness_timeout_seconds` | Worker timeout (capped by wall) |
-| `workspace_output` | Terminal-class relative filename harness collects after invoke (not a Runtime trigger) |
-| `question` | Optional prompt string consumed by **harness** (not Runtime one-shot) |
+| `workspace_output` | Terminal-class relative filename harness collects after invoke |
 | `environment_resource` | e.g. `postgresql` |
+
+**Agent path gate:** non-empty `agent_profiles` starts Parent Agent Service (L0) or L1 SDK session path. Empty profiles ⇒ no Agent. There is no `use_agent_session` / Runtime `question`. Prefer package `prompts/` for model text.
 
 ### Optional profile upstream fields
 

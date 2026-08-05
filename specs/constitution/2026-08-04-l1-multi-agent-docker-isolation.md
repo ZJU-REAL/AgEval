@@ -11,7 +11,7 @@
 
 ## Problem (why this decision exists)
 
-Current L1 vertical slice builds `environment/Dockerfile` and runs Agent effects **in-target** via harness SDK session (`use_agent_session`).  
+Current L1 vertical slice builds `environment/Dockerfile` and runs Agent effects **in-target** via harness SDK session (non-empty `agent_profiles`).  
 Harness SDK multi-profile orchestration works on **L0 host** only. That is **not** the product end-state for L1.
 
 User intent:
@@ -29,7 +29,7 @@ User intent:
 1. **L1 Agent path MUST use the same SDK surface as L0:**  
    `Agent.session(profile_id, actor_id=..., max_turns=...)` → opaque `session_id` → `invoke` / `close`.
 2. **ParentAgentService remains the sole authority** for session bind, hard ceilings, trajectory seal, and external Agent effects.
-3. **Runtime one-shot `parameters.question` / `workspace_output` Agent path is removed** ([Issue #5](https://github.com/ffy6511/BORA/issues/5)). All business Agent invokes appear in package harness via `use_agent_session` + SDK session.
+3. **Runtime one-shot `parameters.question` / `workspace_output` Agent path is removed** ([Issue #5](https://github.com/ffy6511/BORA/issues/5)). All business Agent invokes appear in package harness via SDK session when `agent_profiles` is non-empty (no `use_agent_session` flag).
 4. **No silent host fallback** for L1 invoke failures (missing binary, dead target, missing credential, relay crash). Fail closed; residual only if package/executor combination is **explicitly unsupported** at lock/prepare (not mid-invoke downgrade).
 
 ### 2. Ownership split
