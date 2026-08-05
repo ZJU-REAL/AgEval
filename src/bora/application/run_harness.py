@@ -54,6 +54,7 @@ async def run_harness_package(
     artifact_hold_dir: Path | None = None,
     agent_service_sock: str | None = None,
     attempt: AttemptIdentity | None = None,
+    workspace_root: Path | None = None,
 ) -> dict[str, Any]:
     """Start task worker under L0 Provider and return terminal envelope.
 
@@ -64,6 +65,9 @@ async def run_harness_package(
     When *attempt* is provided (e.g. the same Runtime-owned Attempt used by
     ParentAgentService), the worker scope reuses that identity chain instead of
     minting a second, divergent Attempt.
+
+    *workspace_root* defaults to *package_root*. L1 SDK path may point it at the
+    Attempt host workspace so harness can read agent-written files.
     """
     factory = identity_factory or IdentityFactory()
     if attempt is not None:
@@ -87,8 +91,10 @@ async def run_harness_package(
         work_base = tmp_path / "provider"
         work_base.mkdir()
 
+        ws_root = (workspace_root or package_root).resolve()
         launch = {
             "package_root": str(package_root.resolve()),
+            "workspace_root": str(ws_root),
             "entrypoint": str(thaw(lock.harness).get("entrypoint", "harness:run")),
             "params": thaw(lock.parameters),
             "attempt_id": attempt.value,
