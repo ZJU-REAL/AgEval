@@ -9,8 +9,6 @@ parameters:
   harness_timeout_seconds: 360
   # Active profile selected for this package run (profile-only switch).
   active_profile: codex-mini
-  models:
-    default: codex-mini
 
 provider:
   kind: local
@@ -32,6 +30,16 @@ agent_profiles:
     options:
       entry: opencode
     model: zai-coding-plan/glm-4.7
+  - id: claude-mini
+    executor: acp
+    options:
+      entry: claude-code
+    model: entry-default
+  - id: grok-mini
+    executor: acp
+    options:
+      entry: grok-build
+    model: entry-default
 
 limits:
   wall_time_seconds: 360

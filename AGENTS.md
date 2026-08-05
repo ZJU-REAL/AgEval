@@ -141,7 +141,7 @@ specs/BLOCKED.md
 | 等级 | 含义 | 何时可声称 |
 | --- | --- | --- |
 | `design-only` | 仅文档/Specs | 被限定 `runnable-mvp` 覆盖的 journey 之外仍适用 |
-| `runnable-mvp` | 真实 public entrypoint + 真实 Agent 路径 | **当前（L0）**：`sdk-agent-session` multi-invoke、`agent-eval`、tool-guard、env/multiagent/tau2 类；Version Index **`v0.7` 已勾** |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent 路径 | **当前（L0）**：`sdk-agent-session` multi-invoke、tool-guard、env/multiagent/tau2 类；Version Index **`v0.7` 已勾** |
 | `isolated` | 隔离 Attempt + 隔离红线 | 通常 `v0.8` 类验收后 |
 | `real-benchmark-verified` | 固定 upstream + 限定范围公开 journey | 对应 APP/版本验收后；不得扩写成全 suite |
 

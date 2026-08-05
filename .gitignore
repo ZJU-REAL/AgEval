@@ -38,3 +38,4 @@ credentials/
 COMMIT.md
 .bora/
 *.bora_env_result.json
+.pi-subagents/

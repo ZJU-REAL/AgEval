@@ -65,7 +65,7 @@ async def run_task(
     if agent_file.exists():
         agent_file.unlink()
 
-    # Parent Agent Service: if package declares a codex profile, try one real invoke.
+    # Parent Agent Service: non-empty agent_profiles ⇒ harness session/invoke (L0 only).
     profiles = thaw(lock.agent_profiles)
     params = thaw(lock.parameters)
     evaluation = thaw(lock.evaluation)

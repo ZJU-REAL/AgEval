@@ -1,3 +1,5 @@
+> **Package rename (Issue #5 cleanup):** public host matrix is `examples/core/builtin-executor-conformance` (five profiles: `codex-mini`/`pi-mini`/`opencode-mini`/`claude-mini`/`grok-mini`); L1 placement is `examples/l1/sdk-session-single-actor`. Former `acp-agent-conformance` / `acp-agent-placement` paths are removed.
+
 # Spec 19 — ACP 统一 Agent 后端
 
 ## Metadata
@@ -26,7 +28,7 @@
 | Potential blockers | `0` |
 
 - Next action: 关闭 Phase 5 余下项——private 模块 quarantine / architecture 强化 / Spec-required 测试矩阵 / ARCHITECTURE Current 同步；修复后重跑验收。
-- **已完成切片（2026-08-04）**：Phase 0–4 — registry/client；host OpenCode/Codex/Pi public PASS；L1 BOM 五 entry；`examples/l1/acp-agent-placement` PASS (`assurance:l1`, `host_fallback_count:0`)。
+- **已完成切片（2026-08-04）**：Phase 0–4 — registry/client；host OpenCode/Codex/Pi public PASS；L1 BOM 五 entry；`examples/l1/sdk-session-single-actor` PASS (`assurance:l1`, `host_fallback_count:0`)。
 - Spec 整包尚未 acceptance：Phase 5 private scrape 删除与全 example 迁移、architecture gate、Skills/docs 收口。
 
 ### Current blockers
@@ -134,18 +136,18 @@ Vendor 差异只进入 entry descriptor 和外部 ACP process。BORA 内唯一�
 
 ### Runnable Acceptance
 
-- Public entrypoint: `uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance --set '/parameters/active_profile="<profile>"'`；`<profile>` 只取下列冻结值：`opencode-acp`、`codex-acp`、`claude-acp`、`pi-acp`、`grok-build-acp`。
+- Public entrypoint: `uv run bora run examples/core/builtin-executor-conformance --task builtin-executor-conformance --set '/parameters/active_profile="<profile>"'`；`<profile>` 只取下列冻结值：`opencode-mini`、`codex-mini`、`claude-mini`、`pi-mini`、`grok-mini`。
 - Host success commands:
 
 ```bash
-uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance --set '/parameters/active_profile="opencode-acp"'
-uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance --set '/parameters/active_profile="codex-acp"'
-uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance --set '/parameters/active_profile="claude-acp"'
-uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance --set '/parameters/active_profile="pi-acp"'
-uv run bora run examples/core/acp-agent-conformance --task acp-agent-conformance --set '/parameters/active_profile="grok-build-acp"'
+uv run bora run examples/core/builtin-executor-conformance --task builtin-executor-conformance --set '/parameters/active_profile="opencode-mini"'
+uv run bora run examples/core/builtin-executor-conformance --task builtin-executor-conformance --set '/parameters/active_profile="codex-mini"'
+uv run bora run examples/core/builtin-executor-conformance --task builtin-executor-conformance --set '/parameters/active_profile="claude-mini"'
+uv run bora run examples/core/builtin-executor-conformance --task builtin-executor-conformance --set '/parameters/active_profile="pi-mini"'
+uv run bora run examples/core/builtin-executor-conformance --task builtin-executor-conformance --set '/parameters/active_profile="grok-mini"'
 ```
 
-- L1 success command: `uv run bora run examples/l1/acp-agent-placement --task acp-agent-placement`，至少完成两次 SDK invoke，`execution_location=attempt-container`，`host_fallback_count=0`。
+- L1 success command: `uv run bora run examples/l1/sdk-session-single-actor --task sdk-session-single-actor`，至少完成两次 SDK invoke，`execution_location=attempt-container`，`host_fallback_count=0`。
 - Expected failure command: `uv run pytest tests/acceptance/test_acp_public_failures.py -q`；通过真实 CLI 子进程分别证明 unknown entry、Mode 1 adapter missing、auth/model unavailable、protocol mismatch、timeout/dead target、**越权路径 EACCES（approve 后仍不可读 root 私有/未 mount）** 均非零或 tool 失败可观测、无 Agent effect fallback 冒充 PASS、Evaluator 规则仍独立。
 - Regression commands:
 
@@ -412,7 +414,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - 将 ACP update/stop/usage/permission decision/agent info/entry metadata 送入现有 trajectory store；全路径 redaction，stdout protocol-only，stderr diagnostic-only。
 - 创建 deterministic ACP fixture servers 覆盖 echo/multi-turn、malformed、unexpected EOF、permission-approved、unsupported content、hang/cancel；fixture 不代替真实 OpenCode public smoke。
 - 安全/隔离属性测：approve 后对 root 私有路径或未 mount 路径 tool 仍失败（EACCES/ENOENT），无伪写成功。
-- 创建 `examples/core/acp-agent-conformance`，Phase 2 先启用 `opencode-acp` profile；Harness 不读取 entry/executor name。
+- 创建 `examples/core/builtin-executor-conformance`，Phase 2 先启用 `opencode-acp` profile；Harness 不读取 entry/executor name。
 
 ### Files
 
@@ -429,10 +431,10 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `tests/runtime/test_agent_service_acp.py`
 - `tests/security/test_acp_no_secret.py`
 - `tests/acceptance/test_acp_agent_conformance.py`
-- `examples/core/acp-agent-conformance/bora.yaml`
-- `examples/core/acp-agent-conformance/harness.py`
-- `examples/core/acp-agent-conformance/evaluator.py`
-- `examples/core/acp-agent-conformance/README.md`
+- `examples/core/builtin-executor-conformance/bora.yaml`
+- `examples/core/builtin-executor-conformance/harness.py`
+- `examples/core/builtin-executor-conformance/evaluator.py`
+- `examples/core/builtin-executor-conformance/README.md`
 
 ### Acceptance Criteria
 
@@ -478,8 +480,8 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `tests/acceptance/test_acp_agent_conformance.py`
 - `tests/acceptance/test_acp_public_failures.py`
 - `tests/security/test_acp_entry_credentials.py`
-- `examples/core/acp-agent-conformance/bora.yaml`
-- `examples/core/acp-agent-conformance/README.md`
+- `examples/core/builtin-executor-conformance/bora.yaml`
+- `examples/core/builtin-executor-conformance/README.md`
 
 ### Acceptance Criteria
 
@@ -530,11 +532,11 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `tests/acceptance/test_l1_acp_agent.py`
 - `tests/security/test_acp_l1_projection.py`
 - `tests/architecture/test_acp_pin_parity.py`
-- `examples/l1/acp-agent-placement/bora.yaml`
-- `examples/l1/acp-agent-placement/harness.py`
-- `examples/l1/acp-agent-placement/evaluator.py`
-- `examples/l1/acp-agent-placement/environment/Dockerfile`
-- `examples/l1/acp-agent-placement/README.md`
+- `examples/l1/sdk-session-single-actor/bora.yaml`
+- `examples/l1/sdk-session-single-actor/harness.py`
+- `examples/l1/sdk-session-single-actor/evaluator.py`
+- `examples/l1/sdk-session-single-actor/environment/Dockerfile`
+- `examples/l1/sdk-session-single-actor/README.md`
 
 ### Acceptance Criteria
 
@@ -589,7 +591,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `tests/runtime/test_trajectory_source_probe.py`
 - `tests/acceptance/test_builtin_executor_conformance.py`
 - `tests/acceptance/test_l1_multi_agent_scheduling.py`
-- `examples/core/agent-eval/bora.yaml`
+- `examples/core/sdk-agent-session/bora.yaml`
 - `examples/core/attempt-trajectory/bora.yaml`
 - `examples/core/builtin-executor-conformance/bora.yaml`
 - `examples/core/builtin-executor-mixed/bora.yaml`
@@ -599,10 +601,10 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `examples/journeys/multiagent-env-min/bora.yaml`
 - `examples/journeys/tau2-dialog-min/bora.yaml`
 - `examples/journeys/terminal-jsonl-agg/bora.yaml`
-- `examples/l1/builtin-executor-visibility/bora.yaml`
+- `examples/l1/sdk-session-single-actor/bora.yaml`
 - `examples/l1/multi-agent-container-per-group/bora.yaml`
 - `examples/l1/multi-agent-shared-container/bora.yaml`
-- `examples/l1/provider-l1-agent-eval/bora.yaml`
+- `examples/l1/sdk-session-single-actor/bora.yaml`
 - `examples/l1/sdk-session-single-actor/bora.yaml`
 - `README.md`
 - `examples/README.md`
@@ -691,7 +693,7 @@ git diff --check
 | Host `pi-acp` | PASS |
 | Host `claude-acp` | PASS |
 | Host `grok-build-acp` | PASS |
-| L1 `examples/l1/acp-agent-placement` | PASS, `assurance:l1`, `execution_location=attempt-container`, `host_fallback_count=0` |
+| L1 `examples/l1/sdk-session-single-actor` | PASS, `assurance:l1`, `execution_location=attempt-container`, `host_fallback_count=0` |
 | Image BOM actor UID PATH | codex, codex-acp, pi, pi-acp, opencode, claude, claude-agent-acp, grok |
 | Inventory five ACP entries | all `ready` on implementer host after pin install |
 

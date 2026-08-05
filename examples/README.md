@@ -49,7 +49,7 @@ uv run bora run  examples/<category>/<package> --task <task_id>
 | [`plugin-agent-executor`](core/plugin-agent-executor/) | Second executor (`openai-http`) |
 | [`attempt-trajectory`](core/attempt-trajectory/) | §8.9 trajectory + `Result.logs` |
 | [`hard-ceiling-trajectory`](core/hard-ceiling-trajectory/) | N+1 invoke denied pre-effect |
-| [`builtin-executor-conformance`](core/builtin-executor-conformance/) | Profile-only ACP entry switch |
+| [`builtin-executor-conformance`](core/builtin-executor-conformance/) | Profile-only ACP entry switch（五 entry：codex/pi/opencode/claude-code/grok-build） |
 | [`builtin-executor-mixed`](core/builtin-executor-mixed/) | Same Attempt dual profile trajectories |
 | [`sdk-tool-guard`](core/sdk-tool-guard/) | ToolSet + call limit success |
 | [`sdk-tool-guard-denied`](core/sdk-tool-guard-denied/) | Tool policy denial |
