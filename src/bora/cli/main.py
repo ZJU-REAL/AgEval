@@ -73,8 +73,13 @@ def campaign_command(
 @app.command("run")
 def run_command(
     package: Annotated[
-        Path,
-        typer.Argument(help="Path to the Database root directory (bora.database/1)."),
+        str,
+        typer.Argument(
+            help=(
+                "Database root path or registry ref "
+                "(<database_id>@<version> | <database_id>@sha256:<digest>)."
+            ),
+        ),
     ],
     task: Annotated[
         str | None,
@@ -391,6 +396,46 @@ def executors_command(
     typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
 
 
+@app.command("publish")
+def publish_command(
+    database: Annotated[
+        Path,
+        typer.Argument(help="Local Database root to publish (bora.database/1)."),
+    ],
+    public: Annotated[
+        bool,
+        typer.Option(
+            "--public",
+            help="Create a public release (default: private).",
+        ),
+    ] = False,
+    registry_url: Annotated[
+        str | None,
+        typer.Option(
+            "--registry-url",
+            help="Override BORA_REGISTRY_URL / credentials file registry URL.",
+        ),
+    ] = None,
+) -> None:
+    """Publish a local Database package to the configured Registry (Spec 21)."""
+    from bora.application.publish_command import publish_database
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = publish_database(
+            database,
+            public=public,
+            registry_url=registry_url,
+        )
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    except OSError as exc:
+        typer.echo(f"invalid_package: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
 @app.command("tasks")
 def tasks_command(
     database: Annotated[
@@ -424,8 +469,13 @@ def tasks_command(
 @app.command("lock")
 def lock_command(
     package: Annotated[
-        Path,
-        typer.Argument(help="Path to the Database root directory (bora.database/1)."),
+        str,
+        typer.Argument(
+            help=(
+                "Database root path or registry ref "
+                "(<database_id>@<version> | <database_id>@sha256:<digest>)."
+            ),
+        ),
     ],
     task: Annotated[
         str | None,

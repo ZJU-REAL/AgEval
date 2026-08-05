@@ -15,6 +15,7 @@ from bora.config.capabilities import CapabilityCatalog
 from bora.config.database import resolve_task
 from bora.config.load_and_lock import ConfigCore, parse_set_override
 from bora.config.model import locked_to_summary
+from bora.registry.resolve import resolve_database_root
 
 
 class LockCommand:
@@ -27,8 +28,8 @@ class LockCommand:
     def run(
         self,
         *,
-        database_root: Path | None = None,
-        package_root: Path | None = None,
+        database_root: Path | str | None = None,
+        package_root: Path | str | None = None,
         task_id: str,
         set_overrides: Sequence[str] = (),
         variant: Mapping[str, object] | None = None,
@@ -38,18 +39,19 @@ class LockCommand:
         Parameters
         ----------
         database_root:
-            Preferred: Database root (``bora.database/1``).
+            Preferred: Database root path or registry ref (``id@version`` /
+            ``id@sha256:…``). Local paths resolve without registry.
         package_root:
-            Deprecated alias for *database_root* (kept for in-tree call sites during
-            migration). Prefer *database_root*.
+            Deprecated alias for *database_root*.
         task_id:
             Member task id under the Database.
         """
-        root = database_root if database_root is not None else package_root
-        if root is None:
+        raw = database_root if database_root is not None else package_root
+        if raw is None:
             msg = "database_root is required"
             raise TypeError(msg)
 
+        root = resolve_database_root(raw)
         resolved = resolve_task(root, task_id)
 
         overrides: dict[str, object] = {}

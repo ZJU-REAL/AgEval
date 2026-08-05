@@ -500,3 +500,40 @@ Config Core 至少检查：
 - evaluator runtime、network 和 output format 有对应实现。
 
 Config Core 不校验某个 Planner 会选择哪个 specialist，也不检查 Harness 是否真的调用某个 Tool。前者属于运行时算法，后者由 Harness 和测试确认。
+
+## 5.x Database Registry 分发（Spec 21）
+
+**Release 单位 = Database 整包**（根 `bora.yaml` + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。
+
+### PackageRef
+
+| 形态 | 示例 |
+| --- | --- |
+| 本地 path | `./my-database` / `examples/core` |
+| 版本坐标 | `example/core@0.1.0` |
+| 内容钉死 | `example/core@sha256:<packageDigest>` |
+
+本地目录存在时优先当 path；否则按 ref 解析。
+
+### 双 digest
+
+| Digest | 算法 |
+| --- | --- |
+| packageDigest | 排序相对路径 + 每文件 sha256 行 + 外层 sha256（`src/bora/registry/digest.py`） |
+| blobDigest | 确定性 tar+gzip 字节的 sha256 |
+
+Media type：`application/vnd.bora.database.v1.tar+gzip`。
+
+### Cache
+
+默认 `.bora/cache/databases/<database_id>/<packageDigest>/`（可用 `BORA_CACHE_ROOT` 改根）。仅 dual-digest 校验通过后 atomic rename；半拉目录不可见。
+
+### CLI
+
+```text
+bora publish <database-path> [--public]   # 默认 private
+bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Spec 20 resolve
+```
+
+配置：`BORA_REGISTRY_URL` + `~/.bora/credentials`（0600）。客户端永不持有 blob store credential。
+

@@ -186,6 +186,7 @@ BORA/
 | `cli/` | argv、帮助、人类可读输出、exit code 映射 | 读 package 业务、启 Docker、写 evidence 细节 |
 | `application/` | run/inspect/campaign 等 use case；**装配 adapters** | 把业务规则藏在 bootstrap 外的隐式全局单例 |
 | `config/` | Database resolve；读成员 `task.yaml`、合并、校验、canonicalize、digest、`LockedTaskConfig` | 执行 harness、评测 |
+| `registry/`（client）+ `services/registry/` | PackageRef resolve、publish client、verified cache；独立 Registry HTTP 服务 | 不做 PASS / 不持有 store credential 给 CLI |
 | `runtime/` | Run/Trial/Attempt、外层状态机、取消/超时进入 cleanup | Provider 实现细节、评分 |
 | `provider/`（契约） | 隔离档、workspace plan、进程/容器生命周期接口 | Benchmark 名分支 |
 | `capabilities/` | Capability 面与 Attempt 注入契约 | 具体 Codex/DB 实现 |

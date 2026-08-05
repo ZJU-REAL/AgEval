@@ -34,8 +34,9 @@ async def run_task(
     """
     from bora.application.env_bootstrap import load_host_env_files
     from bora.config.database import resolve_task
+    from bora.registry.resolve import resolve_database_root
 
-    database_root = package_root.resolve()
+    database_root = resolve_database_root(package_root)
     resolved = resolve_task(database_root, task_id)
     package_root = resolved.task_dir
     # Host credential locators from .env (values never enter lock/evidence).

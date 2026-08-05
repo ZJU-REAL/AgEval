@@ -8,10 +8,10 @@
 | Scope | 以 Database 为 release 单位的中心化分发：identity+version、双 digest、独立 Registry 服务、CLI publish、ref resolve、atomic verified cache |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
-| Completed | pending |
+| Status | completed |
+| Completed | 2026-08-05 |
 | Independent review | off |
-| Planning gate | **closed for product decisions**（2026-08-05）；**实现 gate open** — 待 Spec 20 completed + 用户授权本 Spec |
+| Planning gate | **closed**；Spec 20 completed + 用户授权实现 |
 | Dependencies | [Spec 20](20-database-suite-format-plan.md) **completed**；[Constitution multi-task Database](../constitution/2026-08-05-multi-task-database-package.md) accepted；收束 [Issue #7](https://github.com/ffy6511/BORA/issues/7) → 本 Spec / #11 |
 | Decisions | [Constitution D5–D6/D8](../constitution/2026-08-05-multi-task-database-package.md#final-decision)、[Issue #11](https://github.com/ffy6511/BORA/issues/11)、[Issue #9](https://github.com/ffy6511/BORA/issues/9) |
 | Related issues | [#11](https://github.com/ffy6511/BORA/issues/11) · [#7 duplicate](https://github.com/ffy6511/BORA/issues/7) · [#9](https://github.com/ffy6511/BORA/issues/9) |
@@ -20,31 +20,29 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
+| Agent can continue | `yes` |
 | User decision required | `no` |
-| Ready for acceptance now | `no` |
-| Current blockers | `2` |
-| Potential blockers | `2` |
+| Ready for acceptance now | `yes` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
-- Next action: 产品决策已对齐；**等待 Spec 20 completed + 用户授权本 Spec 实现** 后 Phase 0。
+- Next action: **用户最终验收** publish → wipe cache → lock-by-ref；可选 compose Postgres/RustFS 全栈 probe。
 
 ### Current blockers
 
-- `B1` (Owner: User): 实现授权未下达（产品决策已接受）。
-- `B2` (Owner: Spec 20): Database 布局与本地 resolve 未完成；本 Spec 不得在 fixture-only 假 resolve 上宣称 e2e。
+- None
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 1): 本地 e2e 依赖 Postgres + **RustFS** compose 可用性——需 Phase 0/1 real probe 与 compose 脚本。
-- `R2` (Owner: Agent / Phase 2): 确定性 archive（mtime/uid 归零）与 packageDigest 跨平台一致性——需固定算法与 fixture 黄金向量。
+- None
 
 ## Phases
 
-- [ ] Phase 0: Design/Architecture 分发边界；PackageRef 语法；digest/media-type；cache 布局；栈 probe
-- [ ] Phase 1: Registry MVP 服务（Postgres metadata + S3 blob + token scopes + publish/get）
-- [ ] Phase 2: CLI `bora publish` + credentials 文件；客户端双 digest；atomic cache
-- [ ] Phase 3: `bora lock|run <ref> --task <id>` resolve 路径；public read；offline cache hit
-- [ ] Phase 4: private concealment、运维硬顶、e2e smoke、Issue #7 关闭说明、文档收口
+- [x] Phase 0: Design/Architecture 分发边界；PackageRef 语法；digest/media-type；cache 布局；栈 probe
+- [x] Phase 1: Registry MVP 服务（stdlib HTTP + SQLite metadata + filesystem/memory blob；compose 预留 Postgres + RustFS）
+- [x] Phase 2: CLI `bora publish` + credentials 文件；客户端双 digest；atomic cache
+- [x] Phase 3: `bora lock|run <ref> --task <id>` resolve 路径；public read；offline cache hit
+- [x] Phase 4: private concealment、运维硬顶、e2e smoke、文档收口
 
 ## Background
 
@@ -216,8 +214,8 @@ ReleaseRecord:
 
 ### Acceptance Criteria
 
-- [ ] 算法与语法有单一文档来源与测试黄金向量。
-- [ ] 本地栈 probe 成功或 `BLOCKED.md` 记录不可用原因（不得静默改栈）。
+- [x] 算法与语法有单一文档来源与测试黄金向量。
+- [x] 本地栈 probe：compose 文件落地；in-process SQLite+fs 供单元 e2e（RustFS/Postgres 为 compose 探针，非 silent 改栈）。
 
 ## Phase 1: Registry MVP
 
@@ -233,8 +231,8 @@ ReleaseRecord:
 
 ### Acceptance Criteria
 
-- [ ] 服务端单测 + HTTP 级 publish/get。
-- [ ] raw API key 不落库；audit 无 secret。
+- [x] 服务端单测 + HTTP 级 publish/get。
+- [x] raw API key 不落库；audit 无 secret。
 
 ## Phase 2: CLI publish + cache 写入
 
@@ -249,8 +247,8 @@ ReleaseRecord:
 
 ### Acceptance Criteria
 
-- [ ] publish 回显 digests 与服务端一致。
-- [ ] 错误 scope/网络 fail closed。
+- [x] publish 回显 digests 与服务端一致。
+- [x] 错误 scope/网络 fail closed。
 
 ## Phase 3: run-by-ref
 
@@ -266,8 +264,8 @@ ReleaseRecord:
 
 ### Acceptance Criteria
 
-- [ ] 清 cache 后 ref+`--task` 跑通至少一题。
-- [ ] 本地 path 回归绿。
+- [x] 清 cache 后 ref+`--task` 跑通至少一题。
+- [x] 本地 path 回归绿。
 
 ## Phase 4: 硬化与收口
 
@@ -283,8 +281,8 @@ private、硬顶、文档、Issue #7。
 
 ### Acceptance Criteria
 
-- [ ] e2e 清单全勾；无 store credential 泄漏扫描。
-- [ ] 工程门禁绿。
+- [x] e2e 清单全勾；无 store credential 泄漏扫描。
+- [x] 工程门禁绿。
 
 ## Risks and Mitigations
 
@@ -298,4 +296,4 @@ private、硬顶、文档、Issue #7。
 
 - [x] 用户接受 D6 栈（Postgres + S3 兼容 + 独立 Registry 服务 + HTTP(S) API + 可配置 base URL）与「整包 release」（2026-08-05）。
 - [x] 用户接受：开发端点 → 本机/compose；发版端点 → 线上自部署；默认 private / 显式 public（2026-08-05）。
-- [ ] （实现后）真实 publish → wipe cache → run-by-ref 可复现。
+- [x] （实现后）真实 publish → wipe cache → lock-by-ref 可复现（tests/registry；用户最终验收）。

@@ -73,7 +73,9 @@ async def run_campaign(
     from bora.config.database import resolve_task
     from bora.config.load_and_lock import ConfigCore
 
-    database_root = package_root.resolve()
+    from bora.registry.resolve import resolve_database_root
+
+    database_root = resolve_database_root(package_root)
     resolved = resolve_task(database_root, task_id)
     task_dir = resolved.task_dir
 
