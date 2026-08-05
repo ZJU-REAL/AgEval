@@ -14,7 +14,7 @@ from bora.config.load_and_lock import ConfigCore
 from bora.config.model import thaw
 
 REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "core" / "config-minimal"
+MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 
 
 def _write_pkg(tmp: Path, profiles: list[dict]) -> Path:
@@ -43,7 +43,7 @@ def _write_pkg(tmp: Path, profiles: list[dict]) -> Path:
             "output": {"format": "json"},
         },
     }
-    (pkg / "bora.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
+    (pkg / "task.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
     return pkg
 
 

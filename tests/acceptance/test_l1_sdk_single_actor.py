@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-PKG = ROOT / "examples" / "l1" / "sdk-session-single-actor"
+PKG = ROOT / "examples" / "l1"
 
 
 @pytest.mark.skipif(not PKG.is_dir(), reason="example package missing")

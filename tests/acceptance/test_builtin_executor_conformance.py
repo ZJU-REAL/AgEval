@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-PACKAGE = REPO / "examples" / "core" / "builtin-executor-conformance"
+PACKAGE = REPO / "examples" / "core"
 
 
 def _run(profile: str, *, env: dict[str, str] | None = None, timeout: float = 300) -> subprocess.CompletedProcess[str]:
@@ -117,7 +117,7 @@ def test_mixed_profile_independent_trees() -> None:
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples" / "core" / "builtin-executor-mixed"),
+            str(REPO / "examples" / "core"),
             "--task",
             "builtin-executor-mixed",
         ],

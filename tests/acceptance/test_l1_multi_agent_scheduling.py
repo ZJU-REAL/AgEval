@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-SHARED = ROOT / "examples" / "l1" / "multi-agent-shared-container"
-PER_GROUP = ROOT / "examples" / "l1" / "multi-agent-container-per-group"
+SHARED = ROOT / "examples" / "l1"
+PER_GROUP = ROOT / "examples" / "l1"
 
 
 @pytest.mark.parametrize(

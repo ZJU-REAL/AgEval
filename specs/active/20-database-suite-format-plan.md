@@ -8,11 +8,11 @@
 | Scope | Database 根 `bora.yaml` + `tasks/*/task.yaml` 双 schema；本地 resolve；CLI `--task` 适配；仓内 examples 一次性迁移 |
 | Type | feat |
 | Priority | P0 |
-| Status | in-progress |
-| Completed | pending |
+| Status | completed |
+| Completed | 2026-08-05 |
 | Independent review | off |
-| Planning gate | **closed for product decisions**（2026-08-05）；**实现 gate open** — 待用户显式授权改 design/`src/` |
-| Dependencies | [Constitution multi-task Database](../constitution/2026-08-05-multi-task-database-package.md) accepted；无代码前置；**阻塞** [Spec 21](21-database-registry-plan.md)、[Spec 22](22-database-suite-run-plan.md) |
+| Planning gate | **closed**；实现授权已由用户下达（feat branch 实施） |
+| Dependencies | [Constitution multi-task Database](../constitution/2026-08-05-multi-task-database-package.md) accepted；无代码前置；**阻塞解除** → [Spec 21](21-database-registry-plan.md)、[Spec 22](22-database-suite-run-plan.md) |
 | Decisions | [Constitution](../constitution/2026-08-05-multi-task-database-package.md#final-decision)、[Issue #10](https://github.com/ffy6511/BORA/issues/10)、[Issue #9](https://github.com/ffy6511/BORA/issues/9)、[design 02 待同步](../../docs/design/02-task-package-and-config.md) |
 | Related issues | [#9 epic](https://github.com/ffy6511/BORA/issues/9) · [#10](https://github.com/ffy6511/BORA/issues/10) |
 
@@ -20,29 +20,29 @@
 
 | State | Result |
 | --- | --- |
-| Agent can continue | `no` |
+| Agent can continue | `yes` |
 | User decision required | `no` |
-| Ready for acceptance now | `no` |
-| Current blockers | `1` |
-| Potential blockers | `1` |
+| Ready for acceptance now | `yes` |
+| Current blockers | `0` |
+| Potential blockers | `0` |
 
-- Next action: **等待用户显式授权实现**；授权后 Phase 0 同步 `docs/design/02`，再改 Config/CLI/examples。产品决策已于 2026-08-05 对齐。
+- Next action: **用户最终验收**公开 smoke；通过后可启动 Spec 21 / Spec 22 实现。
 
 ### Current blockers
 
-- `B1` (Owner: User): 产品决策已接受，但 **尚未授权** 改 design / production 源码；授权前 Agent 不实施。
+- None
 
 ### Potential blockers
 
-- `R1` (Owner: Agent / Phase 3): 仓内 examples 一次性迁移后的 smoke/Skills 路径全量更新——实施期以回归清单关闭。
+- None
 
 ## Phases
 
-- [ ] Phase 0: 设计权威同步（`docs/design/02`、glossary/overview 交付单元表述、Architecture 配置输入面）
-- [ ] Phase 1: DatabaseManifest + resolve + task.yaml `load_and_lock` + fail-closed 枚举
-- [ ] Phase 2: CLI `lock|run` 适配 Database 根 + 列举 tasks；错误 id 非 0
-- [ ] Phase 3: 仓内 examples/fixtures **一次性**迁移 + 公开 smoke 路径更新
-- [ ] Phase 4: 工程门禁、Skills/README/Architecture Current 同步、状态收口
+- [x] Phase 0: 设计权威同步（`docs/design/02`、glossary/overview 交付单元表述、Architecture 配置输入面）
+- [x] Phase 1: DatabaseManifest + resolve + task.yaml `load_and_lock` + fail-closed 枚举
+- [x] Phase 2: CLI `lock|run` 适配 Database 根 + 列举 tasks；错误 id 非 0
+- [x] Phase 3: 仓内 examples/fixtures **一次性**迁移 + 公开 smoke 路径更新
+- [x] Phase 4: 工程门禁、Skills/README/Architecture Current 同步、状态收口
 
 ## Background
 
@@ -214,9 +214,9 @@ ResolvedTask:
 
 ### Acceptance Criteria
 
-- [ ] Design 描述与 Constitution D1–D4 一致。
-- [ ] 无「双权威」残留表述。
-- [ ] 文档相对链接有效。
+- [x] Design 描述与 Constitution D1–D4 一致。
+- [x] 无「双权威」残留表述。
+- [x] 文档相对链接有效。
 
 ## Phase 1: Manifest + resolve + lock
 
@@ -242,10 +242,10 @@ Config 层可加载 Database 并 lock 单个成员。
 
 ### Acceptance Criteria
 
-- [ ] 无 CLI 也可通过 library 调用 resolve+lock。
-- [ ] 混用 schema（根放 task 字段 / 成员放 database 字段）fail closed。
-- [ ] 非法 `database_id` / 非白名单 `defaults` / 空 `tasks/` fail closed。
-- [ ] 聚焦测试通过。
+- [x] 无 CLI 也可通过 library 调用 resolve+lock。
+- [x] 混用 schema（根放 task 字段 / 成员放 database 字段）fail closed。
+- [x] 非法 `database_id` / 非白名单 `defaults` / 空 `tasks/` fail closed。
+- [x] 聚焦测试通过。
 
 ## Phase 2: CLI
 
@@ -266,8 +266,8 @@ Config 层可加载 Database 并 lock 单个成员。
 
 ### Acceptance Criteria
 
-- [ ] Success / expected-failure 命令可手工复现。
-- [ ] `--help` 文案不再写「Task Package root 即 bora.yaml task」。
+- [x] Success / expected-failure 命令可手工复现。
+- [x] `--help` 文案不再写「Task Package root 即 bora.yaml task」。
 
 ## Phase 3: Examples 一次性迁移（三 Database）
 
@@ -292,10 +292,10 @@ Config 层可加载 Database 并 lock 单个成员。
 
 ### Acceptance Criteria
 
-- [ ] 仅三处 Database 根有 `format: bora.database/1` 的 `bora.yaml`（core/journeys/l1）；成员仅有 `task.yaml`。
-- [ ] `bora tasks examples/journeys` 列出全部原 journeys 包名。
-- [ ] 冻结 success smoke 命令通过；缺 `--task` / 错误 task 非 0。
-- [ ] 既有核心 smoke 在 `examples/<area> --task <id>` 下通过。
+- [x] 仅三处 Database 根有 `format: bora.database/1` 的 `bora.yaml`（core/journeys/l1）；成员仅有 `task.yaml`。
+- [x] `bora tasks examples/journeys` 列出全部原 journeys 包名。
+- [x] 冻结 success smoke 命令通过；缺 `--task` / 错误 task 非 0。
+- [x] 既有核心 smoke 在 `examples/<area> --task <id>` 下通过。
 
 ## Phase 4: 收口
 
@@ -311,8 +311,8 @@ Config 层可加载 Database 并 lock 单个成员。
 
 ### Acceptance Criteria
 
-- [ ] 工程门禁绿。
-- [ ] `Ready for acceptance now` 可改为 `yes` 的条件已满足（用户/Critic 策略按仓规）。
+- [x] 工程门禁绿。
+- [x] `Ready for acceptance now` 可改为 `yes` 的条件已满足（用户/Critic 策略按仓规）。
 
 ## Risks and Mitigations
 
@@ -326,4 +326,4 @@ Config 层可加载 Database 并 lock 单个成员。
 
 - [x] 用户接受 Constitution D1–D4：一次性迁移、无 dual-read；defaults 方案 A（仅 suite 调度键，根不写 task limits 等）（2026-08-05）。
 - [x] 用户接受：Spec 20 完成态强制 `--task`；Spec 22 前无胶水推断（2026-08-05）。
-- [ ] （实现后）公开 success + expected-failure 可复现。
+- [x] （实现后）公开 success + expected-failure 可复现（待用户最终验收勾确认）。

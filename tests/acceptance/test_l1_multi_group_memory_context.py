@@ -12,7 +12,7 @@ from bora.provider.isolation import parse_logical_topology
 from bora.provider.targets import IsolationMode
 
 ROOT = Path(__file__).resolve().parents[2]
-PKG = ROOT / "examples" / "l1" / "multi-agent-container-per-group"
+PKG = ROOT / "examples" / "l1"
 
 
 def test_per_group_topology_two_targets_logical() -> None:

@@ -17,7 +17,7 @@ from bora.provider.targets import IsolationMode
 
 def _write_pkg(root: Path, yaml_body: str) -> Path:
     root.mkdir(parents=True, exist_ok=True)
-    (root / "bora.yaml").write_text(yaml_body, encoding="utf-8")
+    (root / "task.yaml").write_text(yaml_body, encoding="utf-8")
     (root / "harness.py").write_text("async def run(ctx): pass\n", encoding="utf-8")
     (root / "evaluator.py").write_text("def evaluate(i): return {}\n", encoding="utf-8")
     env = root / "environment"

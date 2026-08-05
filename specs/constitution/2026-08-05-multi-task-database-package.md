@@ -6,7 +6,7 @@
 | --- | --- |
 | Decision date | 2026-08-05 |
 | Owner | User（2026-08-05 对齐会话：#1–#6 已确认；实现仍待显式授权） |
-| Status | **active — product decisions accepted**（实现未授权前不改 `src/`） |
+| Status | **active — product decisions accepted**；Spec 20 实现进行中/已落地（见 active Spec） |
 | Scope | 分发与批量执行单位从「单 task 目录」升级为 **Database（suite）**；根配置 vs 成员配置边界；registry 整包分发；suite 并发与单 task 选择 |
 | Related epic | [GitHub Issue #9](https://github.com/ffy6511/BORA/issues/9) |
 | Related issues | [#10 format](https://github.com/ffy6511/BORA/issues/10) · [#11 registry](https://github.com/ffy6511/BORA/issues/11) · [#12 suite run](https://github.com/ffy6511/BORA/issues/12) · [#7 duplicate→#11](https://github.com/ffy6511/BORA/issues/7) |
@@ -320,3 +320,4 @@ bora publish <database-path> […]                         # Spec 21
 | 2026-08-05 | 用户对齐 #1–#6：一次性迁移；defaults 方案 A；强制 `--task` 至 Spec 22；HTTP API + 可配置端点（本机开发 / 线上自部署）；suite FAIL 不取消其余；不写 Roadmap | 用户会话确认 |
 | 2026-08-05 | Examples 验收布局：`examples/{core,journeys,l1}` 各为一个 Database；原包目录降为 `tasks/<task_id>/` | 用户明确最终验收形态 |
 | 2026-08-05 | D6.10：收敛 v1 工程默认（RustFS、`services/registry`、`bora tasks`、example/* id、summary 路径、`BORA_REGISTRY_URL`） | 用户要求去掉「xx 或 yy」未决路线 |
+| 2026-08-05 | 用户授权实现；Spec 20 落地 Database 布局 + CLI | feat/database-suite-format |

@@ -21,9 +21,9 @@ app = typer.Typer(
     name="bora",
     help=(
         "BORA — Bounded Orchestration for Runtime Agents.\n\n"
-        "v0.1 public surface is Config-only: `bora lock` produces a deterministic, "
-        "secret-free lock summary. This is a Core engineering checkpoint, not "
-        "runnable-mvp evidence."
+        "CLI path arguments are Database roots (`bora.database/1`). "
+        "Use `--task <id>` to select a member under `tasks/<id>/task.yaml`. "
+        "List members with `bora tasks <database>`."
     ),
     no_args_is_help=True,
     add_completion=False,
@@ -39,11 +39,11 @@ def _root() -> None:
 def campaign_command(
     package: Annotated[
         Path,
-        typer.Argument(help="Task Package root for campaign matrix."),
+        typer.Argument(help="Database root (bora.database/1) for campaign matrix."),
     ],
     task: Annotated[
         str,
-        typer.Option("--task", help="Base task id."),
+        typer.Option("--task", help="Member task id under the Database."),
     ],
     matrix: Annotated[
         list[str] | None,
@@ -74,12 +74,18 @@ def campaign_command(
 def run_command(
     package: Annotated[
         Path,
-        typer.Argument(help="Path to the Task Package root directory."),
+        typer.Argument(help="Path to the Database root directory (bora.database/1)."),
     ],
     task: Annotated[
-        str,
-        typer.Option("--task", help="Task id that must match bora.yaml task_id."),
-    ],
+        str | None,
+        typer.Option(
+            "--task",
+            help=(
+                "Member task id under the Database (required until suite run lands). "
+                "Must match tasks/<id>/task.yaml task_id."
+            ),
+        ),
+    ] = None,
     set_overrides: Annotated[
         list[str] | None,
         typer.Option(
@@ -91,12 +97,20 @@ def run_command(
         ),
     ] = None,
 ) -> None:
-    """Run one foreground Attempt (v0.6 vertical slice). Evidence: L0 only."""
+    """Run one foreground Attempt for a Database member. Evidence: L0 only."""
     import asyncio
 
     from bora.application.composition import build_run_task
     from bora.config.errors import ConfigError
     from bora.config.load_and_lock import parse_set_override
+
+    if task is None or not str(task).strip():
+        typer.echo(
+            "invalid_override: --task is required "
+            "(suite-wide run without --task lands in a later increment)",
+            err=True,
+        )
+        raise typer.Exit(code=2)
 
     run_task = build_run_task()
     try:
@@ -238,8 +252,8 @@ def cancel_command(
 
 @app.command("submit")
 def submit_command(
-    package: Annotated[Path, typer.Argument(help="Task Package root.")],
-    task: Annotated[str, typer.Option("--task", help="Task id.")],
+    package: Annotated[Path, typer.Argument(help="Database root (bora.database/1).")],
+    task: Annotated[str, typer.Option("--task", help="Member task id.")],
     store: Annotated[
         Path | None,
         typer.Option("--store", help="ControlStore sqlite path (default .bora/control.db)."),
@@ -377,16 +391,49 @@ def executors_command(
     typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
 
 
+@app.command("tasks")
+def tasks_command(
+    database: Annotated[
+        Path,
+        typer.Argument(help="Path to the Database root directory (bora.database/1)."),
+    ],
+) -> None:
+    """List member task ids under a Database (fail closed on empty or id mismatch)."""
+    from bora.config.database import list_tasks, load_database_manifest
+    from bora.config.errors import ConfigError
+
+    try:
+        manifest = load_database_manifest(database)
+        ids = list_tasks(database, manifest=manifest)
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    except OSError as exc:
+        typer.echo(f"invalid_package: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    payload = {
+        "database_id": manifest.database_id,
+        "version": manifest.version,
+        "tasks": ids,
+        "count": len(ids),
+    }
+    typer.echo(json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
 @app.command("lock")
 def lock_command(
     package: Annotated[
         Path,
-        typer.Argument(help="Path to the Task Package root directory."),
+        typer.Argument(help="Path to the Database root directory (bora.database/1)."),
     ],
     task: Annotated[
-        str,
-        typer.Option("--task", help="Task id that must match bora.yaml task_id."),
-    ],
+        str | None,
+        typer.Option(
+            "--task",
+            help="Member task id (required). Must match tasks/<id>/task.yaml task_id.",
+        ),
+    ] = None,
     set_overrides: Annotated[
         list[str] | None,
         typer.Option(
@@ -398,11 +445,19 @@ def lock_command(
         ),
     ] = None,
 ) -> None:
-    """Load, validate, and lock a Task Package; print a deterministic JSON summary."""
+    """Resolve a Database member, lock its task.yaml; print a deterministic JSON summary."""
+    if task is None or not str(task).strip():
+        typer.echo(
+            "invalid_override: --task is required "
+            "(suite-wide lock without --task is not supported)",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
     use_case = build_lock_command()
     try:
         summary = use_case.run(
-            package_root=package,
+            database_root=package,
             task_id=task,
             set_overrides=set_overrides or (),
         )

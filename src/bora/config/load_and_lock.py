@@ -1,6 +1,6 @@
 """Config Core façade: load, merge, validate, canonicalize, digest, freeze.
 
-This module is the only normative reader of ``bora.yaml``. It never imports or
+This module is the only normative reader of member ``task.yaml``. It never imports or
 executes package-local Python, never expands environment variables as experiment
 semantics, and never starts an Attempt.
 """
@@ -43,7 +43,7 @@ from bora.config.ports import PackageReader
 ALLOWED_TOP_LEVEL_FILES = frozenset(
     {
         "README.md",
-        "bora.yaml",
+        "task.yaml",
         "harness.py",
         "evaluator.py",
         # Common non-runtime root files operators may keep without failing lock.
@@ -78,7 +78,7 @@ ALLOWLISTED_OVERRIDE_POINTERS = frozenset(
     }
 )
 
-# Explicit defaults applied after reading bora.yaml, before variant/overrides.
+# Explicit defaults applied after reading task.yaml, before variant/overrides.
 # Every allowlisted override pointer leaf must exist after defaults so --set can set it.
 DEFAULTS: dict[str, Any] = {
     "provider": {
@@ -111,7 +111,7 @@ def _construct_mapping(loader: yaml.SafeLoader, node: yaml.nodes.MappingNode, de
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
                 f"duplicate key in YAML mapping: {key!r}",
-                location="bora.yaml",
+                location="task.yaml",
             )
         mapping[key] = loader.construct_object(value_node, deep=deep)  # type: ignore[arg-type]
     return mapping
@@ -130,15 +130,15 @@ def _parse_yaml(text: str) -> Any:
         raise
     except yaml.YAMLError as exc:
         raise ConfigError(
-            ERROR_INVALID_SCHEMA, f"invalid YAML: {exc}", location="bora.yaml"
+            ERROR_INVALID_SCHEMA, f"invalid YAML: {exc}", location="task.yaml"
         ) from exc
     if data is None:
-        raise ConfigError(ERROR_INVALID_SCHEMA, "empty bora.yaml", location="bora.yaml")
+        raise ConfigError(ERROR_INVALID_SCHEMA, "empty task.yaml", location="task.yaml")
     if not isinstance(data, dict):
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            "bora.yaml root must be a mapping",
-            location="bora.yaml",
+            "task.yaml root must be a mapping",
+            location="task.yaml",
         )
     return data
 
@@ -287,9 +287,9 @@ class ConfigCore:
         Parameters
         ----------
         package_root:
-            Directory containing ``bora.yaml``.
+            Directory containing ``task.yaml`` (Database member task root).
         task_id:
-            Must equal ``bora.yaml`` ``task_id`` (operator-selected task).
+            Must equal ``task.yaml`` ``task_id`` (operator-selected task).
         variant:
             Optional Campaign variant overlay (merge step 2). CLI does not expose
             this in v0.1; tests exercise the merge order.
@@ -309,33 +309,33 @@ class ConfigCore:
 
         self._validate_top_level_layout(root)
 
-        if not self._reader.exists(root, "bora.yaml"):
+        if not self._reader.exists(root, "task.yaml"):
             raise ConfigError(
                 ERROR_INVALID_PACKAGE,
-                "bora.yaml not found",
-                location="bora.yaml",
+                "task.yaml not found",
+                location="task.yaml",
             )
 
         try:
-            text = self._reader.read_text(root, "bora.yaml")
+            text = self._reader.read_text(root, "task.yaml")
         except (OSError, ValueError) as exc:
             raise ConfigError(
                 ERROR_INVALID_PACKAGE,
-                f"cannot read bora.yaml: {exc}",
-                location="bora.yaml",
+                f"cannot read task.yaml: {exc}",
+                location="task.yaml",
             ) from exc
 
         # Reject env-style interpolation markers so experiment semantics stay in yaml.
         if "${" in text or "os.environ" in text:
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                "environment variable interpolation is not allowed in bora.yaml",
-                location="bora.yaml",
+                "environment variable interpolation is not allowed in task.yaml",
+                location="task.yaml",
             )
 
         raw = _parse_yaml(text)
         resolution: list[ResolutionEntry] = [
-            ResolutionEntry(source="bora.yaml", pointer="/", note="package document"),
+            ResolutionEntry(source="task.yaml", pointer="/", note="task document"),
         ]
 
         # Apply explicit defaults for missing top-level sections / known keys.
@@ -480,6 +480,12 @@ class ConfigCore:
         fmt = doc.get("format")
         if not isinstance(fmt, str) or not fmt:
             raise ConfigError(ERROR_INVALID_FORMAT, "missing or invalid format", location="/format")
+        if fmt == "bora.database/1":
+            raise ConfigError(
+                ERROR_INVALID_FORMAT,
+                "task.yaml must use bora.task/1, not bora.database/1",
+                location="/format",
+            )
         if not capabilities.supports_format(fmt):
             raise ConfigError(
                 ERROR_INVALID_FORMAT,

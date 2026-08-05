@@ -64,12 +64,18 @@ async def run_campaign(
 ) -> dict[str, Any]:
     """Serially run each matrix variant via production run_task.
 
-    Pre-admits all variants by dry-lock (load_and_lock) before any Trial runs;
-    writes an atomic campaign summary under the package ``.bora/campaigns/``.
+    *package_root* is the Database root. Pre-admits all variants by dry-lock
+    (resolve + load_and_lock) before any Trial runs; writes an atomic campaign
+    summary under the Database ``.bora/campaigns/``.
     """
     from bora.adapters.package_fs import LocalPackageReader
     from bora.config.capabilities import DeclarationCapabilityCatalog
+    from bora.config.database import resolve_task
     from bora.config.load_and_lock import ConfigCore
+
+    database_root = package_root.resolve()
+    resolved = resolve_task(database_root, task_id)
+    task_dir = resolved.task_dir
 
     axes = [parse_matrix_arg(a) for a in matrix_args]
     variants = expand_matrix(axes)
@@ -78,7 +84,7 @@ async def run_campaign(
     admitted: list[dict[str, Any]] = []
     for idx, variant in enumerate(variants):
         lock = config.load_and_lock(
-            package_root,
+            task_dir,
             task_id,
             overrides=variant if variant else None,
             capabilities=DeclarationCapabilityCatalog(),
@@ -95,7 +101,7 @@ async def run_campaign(
     for plan in admitted:
         variant = plan["variant"]
         code, result, details = await run_task(
-            package_root,
+            database_root,
             task_id,
             overrides=variant if variant else None,
         )
@@ -119,6 +125,7 @@ async def run_campaign(
     digests = [t.get("digest") for t in trials if t.get("digest")]
     summary = {
         "campaign": True,
+        "database_id": resolved.database_id,
         "task_id": task_id,
         "trial_count": len(trials),
         "trials": trials,
@@ -128,8 +135,8 @@ async def run_campaign(
         "admitted_count": len(admitted),
         "stop_on_config_error": True,
     }
-    # Atomic summary write
-    camp_dir = package_root / ".bora" / "campaigns"
+    # Atomic summary write under Database root
+    camp_dir = database_root / ".bora" / "campaigns"
     camp_dir.mkdir(parents=True, exist_ok=True)
     out = camp_dir / f"summary_{task_id}_{len(admitted)}.json"
     tmp = out.with_suffix(".tmp")

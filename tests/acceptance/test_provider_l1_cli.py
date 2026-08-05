@@ -42,7 +42,7 @@ def test_terminal_jsonl_l1_solution_seed() -> None:
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples" / "journeys" / "terminal-jsonl-agg"),
+            str(REPO / "examples" / "journeys"),
             "--task",
             "terminal-jsonl-agg",
         ],

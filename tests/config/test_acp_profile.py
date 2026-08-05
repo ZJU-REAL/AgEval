@@ -37,7 +37,7 @@ def _write_pkg(root: Path, profiles: list[dict]) -> Path:
             "output": {"format": "json"},
         },
     }
-    (root / "bora.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
+    (root / "task.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
     (root / "harness.py").write_text("def run(ctx):\n    pass\n", encoding="utf-8")
     (root / "evaluator.py").write_text(
         "def evaluate(inputs):\n    return {'verdict': 'PASS'}\n", encoding="utf-8"

@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-PKG = REPO / "examples" / "core" / "hard-ceiling-trajectory"
+PKG = REPO / "examples" / "core"
 
 
 @pytest.mark.skipif(shutil.which("codex") is None, reason="codex required for first real invoke")

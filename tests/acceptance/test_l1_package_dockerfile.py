@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-OFFICIAL = REPO / "examples" / "l1" / "executor-image-official"
-UPSTREAM = REPO / "examples" / "l1" / "executor-image-upstream"
+OFFICIAL = REPO / "examples" / "l1"
+UPSTREAM = REPO / "examples" / "l1"
 
 
 def _run_bora(*args: str) -> subprocess.CompletedProcess[str]:

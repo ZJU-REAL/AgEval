@@ -1,7 +1,8 @@
 """Application use case for ``bora lock``.
 
-Parses CLI override strings, invokes Config Core, and projects a public
-``LockSummary`` dict. No side effects beyond reading the package.
+Resolves a Database member, invokes Config Core on ``task.yaml``, and projects a
+public ``LockSummary`` dict (plus Database provenance). No side effects beyond
+reading the package.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from bora.config.capabilities import CapabilityCatalog
+from bora.config.database import resolve_task
 from bora.config.load_and_lock import ConfigCore, parse_set_override
 from bora.config.model import locked_to_summary
 
@@ -25,23 +27,44 @@ class LockCommand:
     def run(
         self,
         *,
-        package_root: Path,
+        database_root: Path | None = None,
+        package_root: Path | None = None,
         task_id: str,
         set_overrides: Sequence[str] = (),
         variant: Mapping[str, object] | None = None,
     ) -> dict[str, Any]:
-        """Execute load_and_lock and return a JSON-serializable summary dict."""
+        """Execute resolve + load_and_lock and return a JSON-serializable summary.
+
+        Parameters
+        ----------
+        database_root:
+            Preferred: Database root (``bora.database/1``).
+        package_root:
+            Deprecated alias for *database_root* (kept for in-tree call sites during
+            migration). Prefer *database_root*.
+        task_id:
+            Member task id under the Database.
+        """
+        root = database_root if database_root is not None else package_root
+        if root is None:
+            msg = "database_root is required"
+            raise TypeError(msg)
+
+        resolved = resolve_task(root, task_id)
+
         overrides: dict[str, object] = {}
         for raw in set_overrides:
             pointer, value = parse_set_override(raw)
             overrides[pointer] = value
 
         locked = self._config_core.load_and_lock(
-            package_root,
+            resolved.task_dir,
             task_id,
             variant=variant,
             overrides=overrides or None,
             capabilities=self._capabilities,
         )
-        summary = locked_to_summary(locked)
-        return summary.as_dict()
+        summary = locked_to_summary(locked).as_dict()
+        summary["database_id"] = resolved.database_id
+        summary["database_version"] = resolved.database_version
+        return summary

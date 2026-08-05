@@ -20,7 +20,7 @@ def test_submit_status_cancel(tmp_path: Path) -> None:
             "-m",
             "bora.cli.main",
             "submit",
-            str(REPO / "examples" / "core" / "sdk-tool-guard"),
+            str(REPO / "examples" / "core"),
             "--task",
             "sdk-tool-guard",
             "--store",

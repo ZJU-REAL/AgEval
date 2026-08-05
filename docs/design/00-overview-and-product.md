@@ -133,6 +133,6 @@ BORA 面向的对象比单个 Agent loop 更外层。可以把它理解为 Harne
 本轮设计增加一条强约束：
 
 > [!note] 单一配置来源
-> 每个 Task Package 只有一个规范 task 配置文件 `bora.yaml`。Config Core 是唯一读取者。所有可调整、可比较、可被 experiment variant 覆盖的值都从这里进入同一份 `LockedTaskConfig`。锁定后做轻量可见性投影：Harness 通过 `ctx.params` 读取 `parameters`，Runtime 从锁定对象读取 envelope 并实施 workspace / secret / network mount。gold 隔离依靠 Provider mount 与 evaluator materialization，**不**依靠 Config 字段 ACL，也**不**取消 projection 能力本身。
+> 规范交付单位是 **Database**（根 `bora.yaml` / `bora.database/1`）。每个成员 Task 只有一个规范配置文件 `task.yaml`（`bora.task/1`）。Config Core 是唯一读取者：先 resolve 成员，再 `load_and_lock`。所有可调整、可比较、可被 experiment variant 覆盖的值都从成员配置进入同一份 `LockedTaskConfig`。锁定后做轻量可见性投影：Harness 通过 `ctx.params` 读取 `parameters`，Runtime 从锁定对象读取 envelope 并实施 workspace / secret / network mount。gold 隔离依靠 Provider mount 与 evaluator materialization，**不**依靠 Config 字段 ACL，也**不**取消 projection 能力本身。
 
 参数写入配置，不意味着 Runtime 要解释其业务含义。`max_tool_calls` 可以由 Config Core 读取、由 Harness 的 `CallLimit` 执行；`wall_time_seconds` 同样来自 `bora.yaml`，但由 Provider 强制。配置位置统一，执行 authority 按边界分层。

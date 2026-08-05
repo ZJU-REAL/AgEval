@@ -45,7 +45,8 @@ BORA 是 **Harness 的 Harness**：外层执行内核准备并锁定运行边界
 ### 目标数据/控制主流（validated output 方向）
 
 ```text
-Task Package
+Database root (bora.yaml / bora.database/1)
+  → resolve_task(--task) → tasks/<id>/task.yaml
   → load_and_lock → LockedTaskConfig
   → RunCoordinator 创建 Run/Trial/Attempt + evidence 根
   → Provider.prepare（workspace / network / secret 投影）
@@ -67,10 +68,10 @@ Task Package
 
 | 项 | 值 |
 | --- | --- |
-| Public entrypoint | `bora lock` / `bora run` / `bora campaign`（CLI 已暴露；campaign/L1 草图边界见 Spec 07–11） |
+| Public entrypoint | `bora lock` / `bora run` / `bora tasks` / `bora campaign`（CLI 已暴露；campaign/L1 草图边界见 Spec 07–11） |
 | Production composition root | `src/bora/application/composition.py` |
-| Smoke journey | `uv run bora lock examples/core/config-minimal --task config-minimal`（exit 0，确定性 JSON 摘要） |
-| Expected failure | `uv run bora lock examples/core/config-invalid --task config-invalid`（exit 2，`unknown_profile`） |
+| Smoke journey | `uv run bora lock examples/core --task config-minimal`（exit 0，确定性 JSON 摘要含 `database_id`） |
+| Expected failure | `uv run bora lock examples/core --task config-invalid`（exit 2，`unknown_profile`）；缺 `--task` → exit 2 |
 | Observable result | 无 secret 的 lock summary + digest；无 Run/Attempt/Agent/Evaluator |
 | Lifecycle checkpoint | `uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q` |
 | 证据等级 | **限定 `runnable-mvp`**（仅上述 L0 真实 Codex journeys；非 full Spec 闭合 / 非 Version Index） |
@@ -184,7 +185,7 @@ BORA/
 | --- | --- | --- |
 | `cli/` | argv、帮助、人类可读输出、exit code 映射 | 读 package 业务、启 Docker、写 evidence 细节 |
 | `application/` | run/inspect/campaign 等 use case；**装配 adapters** | 把业务规则藏在 bootstrap 外的隐式全局单例 |
-| `config/` | 读 `bora.yaml`、合并、校验、canonicalize、digest、`LockedTaskConfig` | 执行 harness、评测 |
+| `config/` | Database resolve；读成员 `task.yaml`、合并、校验、canonicalize、digest、`LockedTaskConfig` | 执行 harness、评测 |
 | `runtime/` | Run/Trial/Attempt、外层状态机、取消/超时进入 cleanup | Provider 实现细节、评分 |
 | `provider/`（契约） | 隔离档、workspace plan、进程/容器生命周期接口 | Benchmark 名分支 |
 | `capabilities/` | Capability 面与 Attempt 注入契约 | 具体 Codex/DB 实现 |
@@ -263,7 +264,7 @@ created
 
 | 数据 | 生产者 | 消费者 | 边界规则 |
 | --- | --- | --- | --- |
-| `bora.yaml` / overrides | 作者 / CLI | Config Core | 唯一规范读取 |
+| Database `bora.yaml` + 成员 `task.yaml` / overrides | 作者 / CLI | Config Core | 唯一规范读取 |
 | `LockedTaskConfig` | Config | Lifecycle、Provider、Capability、Evaluation | 可复盘；无 secret 明文 |
 | `ctx.params` | Config 投影 | Harness | 只读；无 gold/credential |
 | Agent prompt / tools | Harness | AgentExecutor | 不得默认含 secret |

@@ -23,7 +23,7 @@ REPO = Path(__file__).resolve().parents[2]
 def test_unknown_entry_lock_fails(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    (pkg / "bora.yaml").write_text(
+    (pkg / "task.yaml").write_text(
         """
 format: bora.task/1
 task_id: t
@@ -99,7 +99,7 @@ def test_offline_cli_subprocess_nonzero() -> None:
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples/core/builtin-executor-conformance"),
+            str(REPO / "examples/core"),
             "--task",
             "builtin-executor-conformance",
             "--set",

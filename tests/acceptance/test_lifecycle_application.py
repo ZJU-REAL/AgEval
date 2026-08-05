@@ -18,7 +18,7 @@ from bora.runtime.lifecycle import LifecyclePhase, LifecycleState, success_path,
 from bora.runtime.outcomes import PhaseStatus, RuntimeTerminalKind
 
 REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "core" / "config-minimal"
+MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 
 
 def _lock():

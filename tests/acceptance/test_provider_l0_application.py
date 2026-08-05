@@ -19,7 +19,7 @@ from bora.runtime.identity import IdentityFactory
 from bora.runtime.outcomes import RuntimeTerminalKind
 
 REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "core" / "config-minimal"
+MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 HELPER = REPO / "tests" / "helpers" / "provider_probe_child.py"
 
 

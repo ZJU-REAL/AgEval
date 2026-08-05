@@ -21,7 +21,7 @@ def test_offline_plus_stub_not_pass() -> None:
             "-m",
             "bora.cli.main",
             "run",
-            str(REPO / "examples" / "core" / "sdk-agent-session"),
+            str(REPO / "examples" / "core"),
             "--task",
             "sdk-agent-session",
         ],
