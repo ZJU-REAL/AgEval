@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from bora import __version__ as BORA_VERSION
 from bora.adapters.acp_registry import AcpEntryDescriptor, get_entry, readiness_for
 from bora.adapters.agent_contract import AgentResult, parse_validated_text_structured
 
@@ -476,7 +477,7 @@ class AcpExecutor:
         init = await self._conn.initialize(
             protocol_version=acp.PROTOCOL_VERSION,
             client_capabilities=None,
-            client_info=Implementation(name="bora", version="0.7.0"),
+            client_info=Implementation(name="bora", version=BORA_VERSION),
         )
         if init is None:
             raise RuntimeError("acp_protocol_error")
