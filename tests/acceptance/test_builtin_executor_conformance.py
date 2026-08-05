@@ -65,7 +65,9 @@ def test_codex_profile_success() -> None:
     dirs = list((root / "agent" / "invocations").iterdir())
     assert len(dirs) == 1
     meta = json.loads((dirs[0] / "metadata.json").read_text(encoding="utf-8"))
-    assert meta["executor_kind"] == "codex"
+    assert meta["executor_kind"] == "acp"
+    req = json.loads((dirs[0] / "request.json").read_text(encoding="utf-8"))
+    assert req.get("acp_entry_id") == "codex"
 
 
 @pytest.mark.skipif(shutil.which("pi") is None, reason="pi missing")
@@ -80,7 +82,9 @@ def test_pi_profile_success() -> None:
     dirs = list((root / "agent" / "invocations").iterdir())
     assert len(dirs) == 1
     meta = json.loads((dirs[0] / "metadata.json").read_text(encoding="utf-8"))
-    assert meta["executor_kind"] == "pi"
+    assert meta["executor_kind"] == "acp"
+    req = json.loads((dirs[0] / "request.json").read_text(encoding="utf-8"))
+    assert req.get("acp_entry_id") == "pi"
 
 
 @pytest.mark.skipif(shutil.which("opencode") is None, reason="opencode missing")
@@ -95,7 +99,9 @@ def test_opencode_profile_success() -> None:
     dirs = list((root / "agent" / "invocations").iterdir())
     assert len(dirs) == 1
     meta = json.loads((dirs[0] / "metadata.json").read_text(encoding="utf-8"))
-    assert meta["executor_kind"] == "opencode"
+    assert meta["executor_kind"] == "acp"
+    req = json.loads((dirs[0] / "request.json").read_text(encoding="utf-8"))
+    assert req.get("acp_entry_id") == "opencode"
 
 
 @pytest.mark.skipif(
@@ -131,4 +137,9 @@ def test_mixed_profile_independent_trees() -> None:
         json.loads((d / "metadata.json").read_text(encoding="utf-8"))["executor_kind"]
         for d in dirs
     ]
-    assert kinds == ["codex", "pi"]
+    assert kinds == ["acp", "acp"]
+    entries = [
+        json.loads((d / "request.json").read_text(encoding="utf-8")).get("acp_entry_id")
+        for d in dirs
+    ]
+    assert set(entries) == {"opencode", "pi"}

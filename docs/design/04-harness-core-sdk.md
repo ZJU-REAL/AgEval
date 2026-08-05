@@ -50,6 +50,23 @@ class HarnessContext:
 
 这些对象绑定当前 Attempt。Harness 结束后进入 closed 状态，后续调用返回明确错误。
 
+#### L1 多 Actor Session 与 loop 内上下文
+
+L1 下 `Agent.session` 必须显式传 `actor_id`：
+
+```python
+async with ctx.agent.session(
+    params.planner_model,
+    actor_id="planner",
+    max_turns=params.planner_max_turns,
+) as session:
+    decision = await session.invoke(planner_context.render())
+```
+
+Session 创建时一次性绑定 Attempt、`actor_id`、profile、WorkspaceView 与 Runtime target generation；同一 session 不允许切换 actor/profile，Harness 只能持有 opaque `session_id`。L0 可以保留不带物理隔离语义的兼容 actor label，L1 缺少 `actor_id` 必须在 open 阶段拒绝。
+
+多角色 loop 的中间结果默认保存在 Harness 或 upstream Framework memory 中，由 Harness 序列化进下一轮 prompt，Core 与 SDK 不建立 team memory 或 mailbox。`publish_json` / `publish_file` 仅提交终局 declared artifact，供 evaluator / Result 边界使用；它们不承担 loop 中途跨 actor 交接。跨容器 immutable physical handoff 是独立的未来 capability，跟踪于 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2)。同容器文件协作只能使用 lock 中显式授权的 `shared_write`。
+
 ### 7.3. 参数解析
 
 每个 Harness 在入口处把 `ParameterView` 转成自己的 typed params。解析只发生一次：

@@ -6,23 +6,42 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
   harness_timeout_seconds: 900
+  # Dual-role ACP sessions (harness uses profile ids only).
+  roles:
+    user: user-grok
+    service: service-opencode
   models:
-    default: codex-mini
+    default: service-opencode
 
 provider:
   kind: local
   assurance: l0
 
 agent_profiles:
-  - id: codex-mini
-    executor: codex
-    model: gpt-5.4-mini
+  # User-sim: grok-build tends to follow fixture-style JSON instructions cleanly.
+  - id: user-grok
+    executor: acp
+    options:
+      entry: grok-build
+    model: entry-default
+  - id: service-opencode
+    executor: acp
+    options:
+      entry: opencode
+    model: zai-coding-plan/glm-5.2
+    api_key: glm_coding_api_key
+  # Optional alternate for user-sim (coding agents may refuse retail roleplay).
+  - id: user-pi
+    executor: acp
+    options:
+      entry: pi
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key
 
 limits:
   wall_time_seconds: 900
-  agent_invocations: 10
+  agent_invocations: 12
   environment_actions: 0
 
 artifacts:

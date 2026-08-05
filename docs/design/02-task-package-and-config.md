@@ -135,7 +135,7 @@ v2 推荐将配置分成七个明确区域：
 
 `parameters` 是统一的实验参数空间。`harness` 只定位入口（`runtime` + `entrypoint`），不再同时保存另一套 `params`，也不挂载任务说明或 prompt 路径。这样可以避免 `harness.params`、`tool_limits` 和 Campaign override 分散在多个位置；自然语言提示词由 package 的 `prompts/` 与 `harness.py` 负责。
 
-**Agent 后端可切换、可混用**是一等需求（见 §8.4）：`parameters.models.*`（或等价引用）只点 **profile id**；真正跑 Codex / Claude Code / Pi-agent 的细节写在 `agent_profiles`。Campaign 换后端时优先改 profile 的 `executor`/`model` 或改引用，不必改 `harness.py`。
+**Agent 后端可切换、可混用**是一等需求（见 §8.4）：`parameters.models.*`（或等价引用）只点 **profile id**；真正跑哪条 coding-agent 后端写在 `agent_profiles`。**Target：** `executor: acp` + `options.entry`（registry id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 另列。Campaign 换后端时优先改 profile 的 `executor`/`options.entry`/`model` 或改引用，不必改 `harness.py`。
 
 #### L1 / `provider.kind: docker` 与 package Dockerfile
 
@@ -144,10 +144,44 @@ v2 推荐将配置分成七个明确区域：
 1. **Package 必须提供 Dockerfile**，默认路径 **`environment/Dockerfile`**（相对 package 根）。可用 `provider.dockerfile` 覆盖为 package 内相对路径（仍须落在 package 内）。
 2. Dockerfile **不在 package 根**作为一级自由文件名推广；与 Environment / Provider 资产同属 `environment/`。
 3. 两种合法形态（均由 package Dockerfile 表达，不由 Core 代写）：
-   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用；预装 **codex / pi / opencode / claude-code** 等已声明内置 CLI executor）。
-   - **上游基座**：`FROM <upstream>` 再安装本次需要的 executor（或等价复制二进制）。
+   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用）。**Target：** 预装最低 ACP 验收 entry 的 **engine + ACP 入口**（Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；Mode 2：`opencode acp`；Mode 3：exact Grok pin）。**Current：** 可能仍只预装私有 CLI——迁移见 [Spec 19](../../specs/active/19-acp-agent-executor-plan.md)。
+   - **上游基座**：`FROM <upstream>` 再按 **同一 pin lock** 安装所需 entry（禁止 floating `latest` / invoke 时 `npx`）。
 4. `load_and_lock`：docker 且 Dockerfile 缺失 → fail closed（`missing_reference`）。
 5. 镜像 **构建与 digest** 在 Attempt prepare 时发生；secret **不得** bake 进镜像层（credential 仅 run 时投影）。
+
+##### L1 多 Actor `agent_isolation`
+
+Docker L1 package 可在 `provider.agent_isolation` 声明逻辑 actor 拓扑。YAML 不声明 container id、UID/GID、Docker network name、IPC path、credential 或 live handle；这些物理绑定由 Provider 在 Attempt prepare 时生成。
+
+```yaml
+provider:
+  kind: docker
+  assurance: l1
+  network: bridge  # v1: bridge | none；所有 Agent target 共用 Attempt 级策略
+  agent_isolation:
+    mode: container-per-group  # shared-container | container-per-group
+    groups:
+      - id: analysis
+        actors:
+          - id: planner
+            profiles: [planner-pi]
+          - id: reviewer
+            profiles: [reviewer-codex]
+        shared_write: [workspace/team]
+      - id: worker-a
+        actors:
+          - id: worker-a
+            profiles: [worker-codex]
+```
+
+`load_and_lock` 必须 fail closed 校验：
+
+- `mode` 只能是 `shared-container` 或 `container-per-group`；group 非空、group id 唯一、actor id 全局唯一，且每个 actor 恰好属于一个 group；
+- 每个 `profiles[]` 条目必须引用已有 `agent_profiles[].id`；L1 open 缺少 `actor_id`，或 `(actor_id, profile_id)` 不在 allowlist 时拒绝且不执行 container exec；
+- `shared_write` 默认空；每条路径必须是 workspace-relative，不得为绝对路径、包含 `..` 或经 symlink 逃逸，并且必须落在该 group 全部参与 actor 已锁定 write view 的交集内；
+- `provider.network` v1 只能是 `bridge` 或 `none`，适用于本 Attempt 的全部 Agent target；不接受 group/actor 级 network 声明；
+- `shared-container` 所选 executor 若不能以 non-root numeric UID 运行，lock 或 prepare 返回 `unsupported_capability`，禁止提权或回退 host；
+- YAML 中出现 container id、numeric UID/GID、socket path、Docker network runtime name、credential value 或 live handle 时拒绝。
 
 ### 5.3. MVP 配置示例
 
@@ -199,24 +233,33 @@ provider:
         write: [/workspace/work]
 
 agent_profiles:
-  # profile = 可切换的 Agent 后端绑定（executor + model + view）；见 §8.4
+  # profile = 可切换的 Agent 后端绑定；见 §8.4 / Spec 19
+  # Target: executor: acp + options.entry
   - id: codex-database-specialist
-    executor: codex
+    executor: acp
     model: o4-mini
     workspace_view: agents
+    options:
+      entry: codex
   - id: codex-database-planner
-    executor: codex
+    executor: acp
     model: o4-mini
     workspace_view: agents
+    options:
+      entry: codex
   - id: codex-database-reducer
-    executor: codex
+    executor: acp
     model: o4-mini
     workspace_view: agents
-  # 混用示例（默认注释）：planner 用 Pi，specialist 仍用 Codex
+    options:
+      entry: codex
+  # 混用示例：planner 换 OpenCode 或 Pi ACP entry
+  # - id: opencode-database-planner
+  #   executor: acp
+  #   options: { entry: opencode }
   # - id: pi-database-planner
-  #   executor: pi
-  #   model: default
-  #   workspace_view: agents
+  #   executor: acp
+  #   options: { entry: pi }
 
 environment:
   id: database-attempt

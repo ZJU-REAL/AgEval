@@ -2,39 +2,45 @@
 
 ## `bora executors`
 
-Two facts only (no version-gate / residual labels):
+Two product facts (+ ACP entry inventory):
 
-1. **What BORA supports** — adapters shipped or discovered on this install
-2. **What the host can run** — CLI binary present on PATH (`shutil.which`)
+1. **What BORA supports** — `agent_profiles[].executor` kinds on this install
+2. **What the host can run** — binaries / ACP entries ready (no secrets)
 
-Stdout JSON:
+Stdout JSON (high level):
 
 | Key | Meaning |
 | --- | --- |
-| `supported` | Kind names valid for `agent_profiles[].executor` (product surface) |
-| `host_ready` | Subset ready on this machine (CLI on PATH, or api-client) |
-| `missing_binary` | CLI kinds whose binary is **not** on PATH |
-| `executors[]` | Per kind: `execution_mode`, `binary`, `binary_on_path`, `binary_path`, `host_ready` |
+| `supported` | Kind names valid for `agent_profiles[].executor` (e.g. `acp`, `openai-http`) |
+| `host_ready` | Subset of kinds ready on this machine |
+| `missing_binary` | Legacy CLI kinds missing PATH binary (ACP uses per-entry fields) |
+| `executors[]` | Per kind: `execution_mode`, readiness, capability fields |
+| `acp_entries[]` | Per ACP `entry_id`: `acp_command`, `engine_ready`, `acp_entry_ready`, `host_ready`, credential env *names* |
 
 - Logic: `bora.adapters.executor_inventory` (CLI is thin print)
-- Probe: `shutil.which` — works on macOS / Linux / Windows (`PATHEXT` → `.exe` etc.)
-- `cli-process`: `binary_on_path` true/false; `host_ready` follows that
-- `api-client` (e.g. `openai-http`): no binary; `binary_on_path` is null; `host_ready` true
-- `-v` adds tools/session/stream + `credential_env_names` (adapter default env *names* only; not secrets)
+- ACP registry: `bora.adapters.acp_registry` (static pins; not package-overridable)
+- `-v` adds tools/session/stream + richer entry fields
 - No package path; no secrets; exit 0
+
+**Author packages with:** `executor: acp` + `options.entry: <entry_id from acp_entries>`.
 
 ## `bora lock`
 
 - Deterministic JSON on stdout (digest, task_id, resolution, resolved_references).
 - No secret values.
 - Does not create Run/Attempt or start Agent.
+- Rejects unknown `executor` kinds and ACP profiles missing `options.entry`.
 
 ## `bora run`
 
 - One foreground Attempt via production composition root.
 - Creates evidence under package `.bora/runs/...` unless overridden internally.
 - `logs` is absolute path to Attempt evidence root when available.
-- Docker packages use L1 path when `provider.kind: docker`.
+- Per invocation (ACP path): `agent/invocations/<nnnn>-*/trajectory.jsonl` is **turn-level**
+  (user + merged assistant/thought + terminal). Stream chunks are not the training default;
+  see `docs/design/05-runtime-core.md` §8.9.4a.
+- Docker packages use L1 path when `provider.kind: docker` (ACP via parent client +
+  `docker exec` placement for coding entries).
 
 ## `bora evidence`
 

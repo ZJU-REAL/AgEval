@@ -13,7 +13,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
-| 实现状态 | **v0.1–v0.13 L0 竖切 + Attempt evidence** — `bora lock`/`run`/`campaign`；§8.9 trajectory store（Codex path）；Docker L1 / multi-executor / env 部分切片 |
+| 实现状态 | **v0.1–v0.13 L0 竖切 + Attempt evidence** — `bora lock`/`run`/`campaign`；§8.9 trajectory store（Codex path）；Docker L1 multi-actor SDK scheduling（`agent_isolation` shared-container / container-per-group）+ multi-executor / env 部分切片 |
 | 证据等级 | **限定 `runnable-mvp`**（L0 core/journeys 烟测；见 `examples/README.md`；Version Index 以 Roadmap 为准） |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
@@ -115,14 +115,19 @@ BORA/
 │   │   └── run_lifecycle.py   # Lifecycle use case（无 CLI 暴露）
 │   ├── config/                # Core 1
 │   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker
-│   ├── provider/              # Core 3：L0 contract / workspace plan / outcomes
+│   ├── provider/              # Core 3：L0 contract / workspace plan / outcomes / targets+isolation
 │   ├── capabilities/          # Core 4：Attempt authority（进程内）
 │   ├── evaluation/            # Core 5：flat Result binder（含 Result.logs locator）
 │   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
 │   └── adapters/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
-│       └── agent_codex.py     # Codex Executor（--json 事件流）
+│       ├── provider_docker.py # Docker L1 + multi-actor ExecutionTarget
+│       ├── agent_acp.py       # Current: 唯一 typed ACP client（parent）
+│       ├── acp_entries.json   # Current: static entry pins / descriptors
+│       ├── acp_registry.py    # Current: registry + readiness
+│       ├── agent_container.py # L1 placement helpers / opaque target id
+│       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal
@@ -153,11 +158,15 @@ BORA/
 │   ├── capabilities/          # Core 4：agent/env/workspace/artifacts/events 契约
 │   ├── evaluation/            # Core 5：barrier、bind、result 模型
 │   ├── domain/                # 薄共享 value types / 错误类型
-│   └── adapters/              # 具体 I/O：package fs、codex、docker、evidence、credentials…
+│   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
+│       ├── agent_acp.py       # 唯一 ACP client（parent；Spec 19 Current）
+│       ├── acp_entries.json   # entry descriptor + exact pins
+│       ├── agent_container.py # L1 placement helpers
+│       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core：HarnessContext 等（可选 import）
 ├── examples/                  # 仓库拥有的回归 package
 ├── tests/                     # unit / integration / opt-in e2e
-├── docker/                    # v0.8+ 隔离镜像与 runtime lock
+├── docker/attempt/            # L1 基座：install-executors + acp-entries.lock（engine+ACP bake-in）
 └── （可选）benchmarks/ website/
 ```
 
@@ -180,7 +189,7 @@ BORA/
 | `provider/`（契约） | 隔离档、workspace plan、进程/容器生命周期接口 | Benchmark 名分支 |
 | `capabilities/` | Capability 面与 Attempt 注入契约 | 具体 Codex/DB 实现 |
 | `evaluation/` | barrier 顺序、raw 校验、扁平 Result、与 evidence 衔接 | package 内评分逻辑 |
-| `adapters/*` | 文件系统 package、Codex CLI、Docker、credentials 投影、evidence 落盘等 | 解释 Benchmark 业务 action catalog |
+| `adapters/*` | package fs、Docker、credentials、evidence；**Target** ACP client + entry registry；Current residual private CLI adapters | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape |
 | `domain/` | 跨模块稳定值对象与错误分类 | I/O、Typer、Docker SDK |
 | `bora_sdk` | Harness 侧类型与薄 helper | Control Plane 内部类型、verdict |
 | `examples/` | 可信回归 package | 声称支持完整 upstream suite |
@@ -295,7 +304,7 @@ created
 | 等级 | 含义 |
 | --- | --- |
 | `design-only` | 仅文档 / 未跑通真实 Agent 的表面 |
-| `runnable-mvp` | 真实 public entrypoint + 真实 Agent（**当前限定** `examples/core/agent-eval` 与 journeys 类；见 `examples/README.md`） |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent（**当前限定** `examples/core/sdk-agent-session` 与 journeys 类；见 `examples/README.md`） |
 | `isolated` | 隔离 Attempt + 红线负向 |
 | `real-benchmark-verified` | 固定 upstream、限定范围公开 journey |
 

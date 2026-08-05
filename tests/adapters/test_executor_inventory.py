@@ -1,9 +1,10 @@
-"""Unit tests for executor inventory (no full CLI process)."""
+"""Unit tests for executor inventory (ACP + openai-http)."""
 
 from __future__ import annotations
 
 from bora.adapters.executor_inventory import (
     build_executor_inventory,
+    describe_acp_entry,
     describe_executor,
     probe_binary,
 )
@@ -24,13 +25,10 @@ def test_probe_binary_miss() -> None:
     assert path is None
 
 
-def test_describe_cli_missing_binary() -> None:
-    row = describe_executor("pi", which=lambda _n: None, verbose=False)
-    assert row["kind"] == "pi"
-    assert row["execution_mode"] == "cli-process"
-    assert row["binary_on_path"] is False
-    assert row["host_ready"] is False
-    assert "credential_env_names" not in row
+def test_describe_acp_kind() -> None:
+    row = describe_executor("acp", which=lambda _n: None, verbose=False)
+    assert row["kind"] == "acp"
+    assert row["execution_mode"] == "acp-stdio"
 
 
 def test_describe_api_client_no_binary() -> None:
@@ -40,18 +38,31 @@ def test_describe_api_client_no_binary() -> None:
     assert row["host_ready"] is True
 
 
-def test_verbose_includes_credential_env_names() -> None:
-    row = describe_executor("claude-code", which=lambda _n: None, verbose=True)
-    assert "ANTHROPIC_AUTH_TOKEN" in row["credential_env_names"]
+def test_describe_acp_entry_adapter_missing() -> None:
+    def which(name: str) -> str | None:
+        if name == "codex":
+            return "/fake/codex"
+        return None
+
+    row = describe_acp_entry("codex", which=which, verbose=True)
+    assert row["readiness"] == "adapter-missing"
+    assert row["engine_ready"] is True
+    assert row["acp_entry_ready"] is False
+    assert "install_command" in row
 
 
 def test_inventory_aggregates() -> None:
     def fake_which(name: str) -> str | None:
-        return {"codex": "/bin/codex"}.get(name)
+        return {
+            "codex": "/bin/codex",
+            "codex-acp": "/bin/codex-acp",
+            "opencode": "/bin/opencode",
+        }.get(name)
 
     inv = build_executor_inventory(which=fake_which, verbose=False)
-    assert "codex" in inv["supported"]
-    assert "pi" in inv["supported"]
-    assert "codex" in inv["host_ready"]
-    assert "pi" in inv["missing_binary"]
+    assert "acp" in inv["supported"]
+    assert "openai-http" in inv["supported"]
+    assert "codex" not in inv["supported"]
+    entry_ids = {r["entry_id"] for r in inv["acp_entries"]}
+    assert "codex" in entry_ids
     assert "required_v014" not in inv

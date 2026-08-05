@@ -52,6 +52,7 @@ class AgentSession:
     attempt_id: str
     profile_id: str
     max_turns: int = 8
+    actor_id: str | None = None
     _turns: int = 0
     _closed: bool = False
     provider_session_handle: None = None  # always null/unsupported for Codex
@@ -65,13 +66,14 @@ class AgentSession:
         ):
             self._session_id = "stub-session"
             return {"ok": True, "session_id": self._session_id}
-        resp = _parent_call(
-            {
-                "op": "open",
-                "attempt_id": self.attempt_id,
-                "profile_id": self.profile_id,
-            }
-        )
+        payload: dict[str, Any] = {
+            "op": "open",
+            "attempt_id": self.attempt_id,
+            "profile_id": self.profile_id,
+        }
+        if self.actor_id is not None:
+            payload["actor_id"] = self.actor_id
+        resp = _parent_call(payload)
         if not resp.get("ok"):
             return resp
         self._session_id = str(resp.get("session_id") or "")
@@ -160,9 +162,20 @@ class Agent:
 
     attempt_id: str
 
-    def session(self, profile_id: str, *, max_turns: int = 8) -> AgentSession:
+    def session(
+        self,
+        profile_id: str,
+        *,
+        max_turns: int = 8,
+        actor_id: str | None = None,
+    ) -> AgentSession:
+        """Open a logical session.
+
+        L1 packages must pass ``actor_id`` (isolation principal). L0 may omit it.
+        """
         return AgentSession(
             attempt_id=self.attempt_id,
             profile_id=profile_id,
             max_turns=max_turns,
+            actor_id=actor_id,
         )

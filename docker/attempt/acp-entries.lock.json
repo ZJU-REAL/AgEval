@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "source": "specs/active/19-acp-agent-executor-plan.md local decision 6 + Phase 4 BOM",
+  "python_sdk": {
+    "package": "agent-client-protocol",
+    "version": "0.12.0",
+    "note": "Parent/host only — never installed into this image"
+  },
+  "entries": {
+    "codex": {
+      "entry_id": "codex",
+      "integration_mode": 1,
+      "engine": {
+        "package": "@openai/codex",
+        "version": "0.146.0",
+        "detect_commands": ["codex"]
+      },
+      "acp_entry": {
+        "package": "@agentclientprotocol/codex-acp",
+        "version": "1.1.9",
+        "command": ["codex-acp"],
+        "detect_commands": ["codex-acp"]
+      }
+    },
+    "claude-code": {
+      "entry_id": "claude-code",
+      "integration_mode": 1,
+      "engine": {
+        "package": "@anthropic-ai/claude-code",
+        "version": "2.1.221",
+        "detect_commands": ["claude", "claude-code"]
+      },
+      "acp_entry": {
+        "package": "@agentclientprotocol/claude-agent-acp",
+        "version": "0.64.2",
+        "command": ["claude-agent-acp"],
+        "detect_commands": ["claude-agent-acp"]
+      }
+    },
+    "pi": {
+      "entry_id": "pi",
+      "integration_mode": 1,
+      "engine": {
+        "package": "@earendil-works/pi-coding-agent",
+        "version": "0.83.0",
+        "detect_commands": ["pi"]
+      },
+      "acp_entry": {
+        "package": "pi-acp",
+        "version": "0.0.33",
+        "command": ["pi-acp"],
+        "detect_commands": ["pi-acp"],
+        "note": "npm package pi-acp; registry id pi-acp — not @agentclientprotocol/pi-acp"
+      }
+    },
+    "opencode": {
+      "entry_id": "opencode",
+      "integration_mode": 2,
+      "engine": {
+        "package": "opencode-ai",
+        "version": "1.18.12",
+        "detect_commands": ["opencode"]
+      },
+      "acp_entry": {
+        "package": "opencode-ai",
+        "version": "1.18.12",
+        "command": ["opencode", "acp"],
+        "detect_commands": ["opencode"],
+        "note": "Mode 2 native acp subcommand — no separate adapter package"
+      }
+    },
+    "grok-build": {
+      "entry_id": "grok-build",
+      "integration_mode": 3,
+      "engine": {
+        "package": null,
+        "version": null,
+        "detect_commands": ["grok"]
+      },
+      "acp_entry": {
+        "package": "@xai-official/grok",
+        "version": "0.2.120",
+        "command": ["grok", "agent", "stdio"],
+        "detect_commands": ["grok"],
+        "note": "Exact pin install at image build; never npx at invoke time"
+      }
+    }
+  }
+}

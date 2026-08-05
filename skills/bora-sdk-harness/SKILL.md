@@ -28,12 +28,16 @@ from bora_sdk import (
 
 ## Minimal harness
 
+Profile **ids** come from package `agent_profiles` (which use `executor: acp` +
+`options.entry` for coding agents). Harness only opens profiles by id — never
+branches Core policy on entry/executor name.
+
 ```python
 from bora_sdk import Agent, HarnessContext, HarnessTerminal
 
 
 async def run(ctx: HarnessContext) -> HarnessTerminal:
-    profile = str(ctx.params.get("active_profile") or "codex-mini")
+    profile = str(ctx.params.get("active_profile") or "opencode-acp")
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     async with agent.session(profile, max_turns=2) as session:
         first = await session.invoke('Return ONLY JSON {"answer": 40}')
@@ -57,6 +61,9 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
 ```
 
 Entrypoint in yaml: `harness: entrypoint: harness:run` with `async def run(ctx)`.
+
+Multi-role: open **separate** sessions with different profile ids (each profile may
+point at a different ACP `options.entry`).
 
 ## Ownership
 

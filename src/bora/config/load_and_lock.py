@@ -568,6 +568,13 @@ class ConfigCore:
                     f"{df_rel!r} (default environment/Dockerfile)",
                     location=f"/provider/dockerfile:{df_rel}",
                 )
+            net = provider.get("network")
+            if net is not None and net not in {"bridge", "none"}:
+                raise ConfigError(
+                    ERROR_INVALID_SCHEMA,
+                    "provider.network must be bridge|none",
+                    location="/provider/network",
+                )
 
         profiles = doc.get("agent_profiles") or []
         if not isinstance(profiles, list):
@@ -599,6 +606,55 @@ class ConfigCore:
                 raise ConfigError(
                     ERROR_INVALID_SCHEMA, "profile.model required", location=f"{loc}/model"
                 )
+            # Spec 19: executor: acp requires options.entry from static registry.
+            # Packages must not override command/version/install.
+            if executor == "acp":
+                from bora.adapters.acp_registry import get_entry
+
+                options = profile.get("options")
+                if not isinstance(options, dict):
+                    raise ConfigError(
+                        ERROR_INVALID_SCHEMA,
+                        "executor acp requires options mapping with entry",
+                        location=f"{loc}/options",
+                    )
+                entry = options.get("entry")
+                if not isinstance(entry, str) or not entry.strip():
+                    raise ConfigError(
+                        ERROR_INVALID_SCHEMA,
+                        "options.entry required for executor acp",
+                        location=f"{loc}/options/entry",
+                    )
+                for forbidden in (
+                    "command",
+                    "args",
+                    "detect_command",
+                    "install_command",
+                    "version",
+                    "acp_command",
+                    "engine_command",
+                    "acp_version",
+                    "credential_env_names",
+                ):
+                    if forbidden in options:
+                        raise ConfigError(
+                            ERROR_INVALID_SCHEMA,
+                            f"options.{forbidden} is not package-overridable for acp",
+                            location=f"{loc}/options/{forbidden}",
+                        )
+                desc = get_entry(entry.strip())
+                if desc is None:
+                    raise ConfigError(
+                        ERROR_UNSUPPORTED_CAPABILITY,
+                        f"unknown acp entry: {entry!r}",
+                        location=f"{loc}/options/entry",
+                    )
+                # Materialize lock-safe snapshot onto profile (mutates pre-freeze dict).
+                profile["options"] = {
+                    **{k: v for k, v in options.items() if k == "entry"},
+                    "entry": entry.strip(),
+                    "_acp_lock": desc.as_lock_snapshot(),
+                }
             # Optional upstream routing (non-secret). api_key is an env *locator name*
             # only — values live in host/.env and are projected at invoke time.
             base_url = profile.get("base_url")
@@ -639,6 +695,12 @@ class ConfigCore:
                         "profile.api_key looks like a secret value; use env var name only",
                         location=f"{loc}/api_key",
                     )
+
+        # L1 multi-actor logical topology (lock-safe only; no physical fields).
+        if isinstance(provider, dict) and provider.get("agent_isolation") is not None:
+            from bora.provider.isolation import validate_agent_isolation_in_provider
+
+            validate_agent_isolation_in_provider(provider, profile_ids=profile_ids)
 
         # parameters.models.* must reference known profile ids when present.
         models = parameters.get("models") if isinstance(parameters, dict) else None

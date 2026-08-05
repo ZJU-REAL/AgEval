@@ -6,24 +6,45 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
   harness_timeout_seconds: 900
   environment_resource: postgresql
+  # Role → profile map (harness reads ids; never branches on entry/executor).
+  roles:
+    specialist: specialist-pi
+    planner: planner-opencode
+    reducer: reducer-grok
   models:
-    default: codex-mini
+    default: specialist-pi
 
 provider:
   kind: local
   assurance: l0
 
+# Mixed ACP entries in one Attempt (v1 multiagentbench class).
+# Target: executor: acp + options.entry only — no private CLI kinds.
 agent_profiles:
-  - id: codex-mini
-    executor: codex
-    model: gpt-5.4-mini
+  - id: specialist-pi
+    executor: acp
+    options:
+      entry: pi
+    # China coding plan: provider-qualified model (not bare glm-*).
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key
+  - id: planner-opencode
+    executor: acp
+    options:
+      entry: opencode
+    model: zai-coding-plan/glm-5.2
+    api_key: glm_coding_api_key
+  - id: reducer-grok
+    executor: acp
+    options:
+      entry: grok-build
+    model: entry-default
 
 limits:
   wall_time_seconds: 900
-  agent_invocations: 12
+  agent_invocations: 16
   environment_actions: 20
 
 artifacts:

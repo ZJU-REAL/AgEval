@@ -70,8 +70,14 @@ def test_credential_available() -> None:
     )
 
 
-def test_pi_wrapper_delegates() -> None:
-    from bora.adapters import agent_pi
-
-    host_keys_via_os = agent_pi._child_env  # still exported for adapters
-    assert callable(host_keys_via_os)
+def test_acp_entry_credential_allowlist_projection() -> None:
+    """ACP entries share project_cli_child_env via entry_id kind mapping."""
+    host = {
+        "PATH": "/bin",
+        "HOME": "/h",
+        "ZHIPU_API_KEY": "z",
+        "UNRELATED_SECRET": "nope",
+    }
+    env = project_cli_child_env("opencode", host_environ=host)
+    assert env.get("ZHIPU_API_KEY") == "z"
+    assert "UNRELATED_SECRET" not in env

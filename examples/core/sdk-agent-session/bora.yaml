@@ -6,7 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
   harness_timeout_seconds: 360
   models:
     default: codex-mini
@@ -17,7 +16,9 @@ provider:
 
 agent_profiles:
   - id: codex-mini
-    executor: codex
+    executor: acp
+    options:
+      entry: codex
     model: gpt-5.4-mini
 
 limits:

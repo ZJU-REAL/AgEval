@@ -18,11 +18,37 @@ from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES
 # Always present for CLI subprocesses (empty values dropped at the end).
 _CORE_HOST_KEYS: Final[tuple[str, ...]] = ("PATH", "HOME", "LANG")
 
-# kind → extra host keys to copy when set
+# ACP entry_id (and historical kind aliases) → extra host keys to copy when set.
 _KIND_EXTRA_HOST_KEYS: Final[Mapping[str, tuple[str, ...]]] = {
     "pi": ("PI_OFFLINE",),
     "opencode": ("XDG_DATA_HOME", "XDG_CONFIG_HOME"),
     "claude-code": (),
+    "codex": (),
+    "grok-build": (),
+}
+
+# Fallback credential env allowlists keyed by ACP entry_id (Spec 19).
+_ENTRY_CREDENTIAL_ENV: Final[Mapping[str, tuple[str, ...]]] = {
+    "codex": (),
+    "pi": (
+        "ZAI_API_KEY",
+        "ZAI_CODING_CN_API_KEY",
+        "ZHIPU_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "XAI_API_KEY",
+    ),
+    "opencode": (
+        "ZHIPU_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "OPENCODE_API_KEY",
+        "XAI_API_KEY",
+    ),
+    "claude-code": ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"),
+    "grok-build": ("XAI_API_KEY",),
 }
 
 # Profile base_url projects into these (CLI may use either stack).
@@ -91,11 +117,22 @@ def project_cli_child_env(
     """
     host = host_environ if host_environ is not None else os.environ
     caps = BUILTIN_CAPABILITIES.get(kind)
-    cred_names: tuple[str, ...] = (
-        tuple(credential_env_names)
-        if credential_env_names is not None
-        else (tuple(caps.credential_env_names) if caps is not None else ())
-    )
+    if credential_env_names is not None:
+        cred_names = tuple(credential_env_names)
+    elif caps is not None and caps.credential_env_names:
+        cred_names = tuple(caps.credential_env_names)
+    else:
+        # ACP entry ids (codex/pi/opencode/…) carry allowlists here.
+        try:
+            from bora.adapters.acp_registry import get_entry
+
+            desc = get_entry(kind)
+            if desc is not None:
+                cred_names = tuple(desc.credential_env_names)
+            else:
+                cred_names = tuple(_ENTRY_CREDENTIAL_ENV.get(kind, ()))
+        except Exception:  # noqa: BLE001 — registry optional in early import
+            cred_names = tuple(_ENTRY_CREDENTIAL_ENV.get(kind, ()))
     extras: tuple[str, ...] = (
         tuple(extra_host_keys)
         if extra_host_keys is not None
@@ -170,5 +207,16 @@ def cli_credential_available(
     if api_key_env and env.get(api_key_env):
         return True
     caps = BUILTIN_CAPABILITIES.get(kind)
-    names = caps.credential_env_names if caps is not None else ()
+    if caps is not None and caps.credential_env_names:
+        names = caps.credential_env_names
+    else:
+        names = _ENTRY_CREDENTIAL_ENV.get(kind, ())
+        try:
+            from bora.adapters.acp_registry import get_entry
+
+            desc = get_entry(kind)
+            if desc is not None:
+                names = desc.credential_env_names
+        except Exception:  # noqa: BLE001
+            pass
     return any(env.get(name) for name in names)
