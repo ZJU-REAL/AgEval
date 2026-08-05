@@ -45,9 +45,18 @@ def run_l1_attempt(
     params = thaw(lock.parameters)
     task_id = str(lock.task_id)
     probe = str(params.get("probe") or "")
+    profiles = [p for p in thaw(lock.agent_profiles) if isinstance(p, dict)]
 
-    # Sole business Agent scheduling surface: harness SDK session path.
-    if bool(params.get("use_agent_session")):
+    # Isolation probes (no business Agent invoke) — before profile-gated SDK path.
+    if probe == "hidden" or task_id == "hidden-material-denied":
+        return _run_l1_hidden_denied(package_root=package_root, lock=lock, run_dir=run_dir)
+    if probe == "projection" or task_id == "projection-denied":
+        return _run_l1_projection_denied(package_root=package_root, lock=lock, run_dir=run_dir)
+    if probe == "residual_writer" or task_id == "residual-writer":
+        return _run_l1_residual_writer(package_root=package_root, lock=lock, run_dir=run_dir)
+
+    # Sole business Agent path: non-empty agent_profiles ⇒ harness SDK session.
+    if profiles:
         return run_l1_sdk_session_attempt(
             package_root=package_root,
             lock=lock,
@@ -55,14 +64,6 @@ def run_l1_attempt(
             agent_meta=agent_meta,
             allow_offline_agent=allow_offline_agent,
         )
-
-    # Isolation probes (no business Agent invoke).
-    if probe == "hidden" or task_id == "hidden-material-denied":
-        return _run_l1_hidden_denied(package_root=package_root, lock=lock, run_dir=run_dir)
-    if probe == "projection" or task_id == "projection-denied":
-        return _run_l1_projection_denied(package_root=package_root, lock=lock, run_dir=run_dir)
-    if probe == "residual_writer" or task_id == "residual-writer":
-        return _run_l1_residual_writer(package_root=package_root, lock=lock, run_dir=run_dir)
 
     return _err(
         run_dir,
@@ -86,7 +87,7 @@ def run_l1_sdk_session_attempt(
 
     Harness runs as host task worker (same as L0 session path) with scoped
     agent service socket. All Agent CLI effects execute inside prepared targets.
-    Residual one-shot ``parameters.question`` is not used here.
+    Agent effects are scheduled only from package harness via Agent.session/invoke.
     """
     import asyncio
     import tempfile

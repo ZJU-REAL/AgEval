@@ -6,8 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
-  question: "Return the JSON object {\"answer\": 42} and nothing else."
   models:
     default: codex-mini
 

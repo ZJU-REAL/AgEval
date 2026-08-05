@@ -6,7 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
   harness_timeout_seconds: 360
   # Mechanism probe mode: success | crash | timeout | cancel
   trajectory_mode: success

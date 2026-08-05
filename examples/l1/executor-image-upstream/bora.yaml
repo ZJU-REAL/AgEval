@@ -6,8 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
-  question: 'Return ONLY JSON {"answer": 42}'
   harness_timeout_seconds: 300
 
 provider:

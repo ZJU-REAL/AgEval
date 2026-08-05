@@ -6,7 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
   harness_timeout_seconds: 900
   environment_resource: postgresql
   models:

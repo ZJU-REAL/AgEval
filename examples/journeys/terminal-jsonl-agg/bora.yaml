@@ -7,7 +7,6 @@ harness:
 
 parameters:
   # Harness schedules Agent.session/invoke; Runtime only seeds data/ + placement.
-  use_agent_session: true
   workspace_output: aggregates.json
   harness_timeout_seconds: 420
   agent_timeout_seconds: 420

@@ -6,7 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
   harness_timeout_seconds: 360
   # Profile-only switch — Harness never branches on entry/executor name.
   active_profile: opencode-acp

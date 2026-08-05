@@ -7,7 +7,6 @@ harness:
 
 # Env + package-local tool smoke. No agent on the default path.
 parameters:
-  use_agent_session: false
   environment_resource: postgresql
 
 provider:

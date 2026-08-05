@@ -6,7 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
   harness_timeout_seconds: 360
   # Active profile selected for this package run (profile-only switch).
   active_profile: codex-mini

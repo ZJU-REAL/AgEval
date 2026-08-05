@@ -6,8 +6,6 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  use_agent_session: true
-  question: "Return JSON {\"answer\": 42}"
   models:
     default: openai-mini
 

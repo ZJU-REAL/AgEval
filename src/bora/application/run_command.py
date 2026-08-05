@@ -72,12 +72,13 @@ async def run_task(
     provider_cfg = thaw(lock.provider)
     provider_kind = str(provider_cfg.get("kind") or "local")
     agent_profile = next((p for p in profiles if isinstance(p, dict)), None)
-    use_agent_session = bool(params.get("use_agent_session"))
+    # Issue #5: non-empty agent_profiles ⇒ Parent Agent Service (L0 only).
+    # Docker/L1 owns its own SDK session path inside run_l1. No use_agent_session flag.
     agent_service = None
     agent_server = None
     agent_sock_path = None
     shared_attempt = None  # Runtime-owned Attempt shared with harness worker
-    if use_agent_session and agent_profile is not None:
+    if agent_profile is not None and provider_kind != "docker":
         from bora.adapters.agent_registry import resolve_executor
         from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
 
