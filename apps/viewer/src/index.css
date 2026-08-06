@@ -1,28 +1,140 @@
 @import "tailwindcss";
 
-/* Vercel-inspired tokens for BORA Viewer (see DESIGN.md) */
+/* Semantic color aliases → CSS variables (swapped by theme) */
 @theme {
   --font-sans: "Inter", "Geist", system-ui, -apple-system, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, monospace;
 
-  --color-ink: #171717;
-  --color-body: #4d4d4d;
-  --color-mute: #888888;
-  --color-hairline: #ebebeb;
-  --color-hairline-strong: #a1a1a1;
-  --color-canvas: #ffffff;
-  --color-canvas-soft: #fafafa;
-  --color-canvas-soft-2: #f5f5f5;
-  --color-link: #0070f3;
-  --color-link-deep: #0761d1;
-  --color-error: #ee0000;
-  --color-error-soft: #f7d4d6;
-  --color-warning: #f5a623;
-  --color-row-hover: #fafafa;
+  --color-ink: var(--viewer-ink);
+  --color-body: var(--viewer-body);
+  --color-mute: var(--viewer-mute);
+  --color-hairline: var(--viewer-hairline);
+  --color-hairline-strong: var(--viewer-hairline-strong);
+  --color-canvas: var(--viewer-canvas);
+  --color-canvas-soft: var(--viewer-canvas-soft);
+  --color-canvas-soft-2: var(--viewer-canvas-soft-2);
+  --color-link: var(--viewer-link);
+  --color-link-deep: var(--viewer-link-deep);
+  --color-error: var(--viewer-error);
+  --color-error-soft: var(--viewer-error-soft);
+  --color-warning: var(--viewer-warning);
+  --color-row-hover: var(--viewer-row-hover);
+  --color-code-bg: var(--viewer-code-bg);
+  --color-shell-cmd: var(--viewer-shell-cmd);
+  --color-shell-flag: var(--viewer-shell-flag);
+  --color-shell-string: var(--viewer-shell-string);
+  --color-shell-path: var(--viewer-shell-path);
+  --color-shell-punct: var(--viewer-shell-punct);
+  --color-shell-plain: var(--viewer-shell-plain);
 
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
+}
+
+/* Light tokens (default + explicit light + system when light) */
+:root,
+[data-theme="light"] {
+  --viewer-ink: #171717;
+  --viewer-body: #4d4d4d;
+  --viewer-mute: #888888;
+  --viewer-hairline: #ebebeb;
+  --viewer-hairline-strong: #a1a1a1;
+  --viewer-canvas: #ffffff;
+  --viewer-canvas-soft: #fafafa;
+  --viewer-canvas-soft-2: #f5f5f5;
+  --viewer-link: #0070f3;
+  --viewer-link-deep: #0761d1;
+  --viewer-error: #ee0000;
+  --viewer-error-soft: #f7d4d6;
+  --viewer-warning: #f5a623;
+  --viewer-row-hover: #fafafa;
+  --viewer-code-bg: #0b0d12;
+  /* Shell highlight on dark code surface (Vercel/terminal-like) */
+  --viewer-shell-cmd: #79c0ff;
+  --viewer-shell-flag: #d2a8ff;
+  --viewer-shell-string: #a5d6ff;
+  --viewer-shell-path: #7ee787;
+  --viewer-shell-punct: #8b949e;
+  --viewer-shell-plain: #e6edf3;
+}
+
+/* Dark product chrome */
+[data-theme="dark"] {
+  --viewer-ink: #ededed;
+  --viewer-body: #a1a1a1;
+  --viewer-mute: #737373;
+  --viewer-hairline: #2e2e2e;
+  --viewer-hairline-strong: #525252;
+  --viewer-canvas: #0a0a0a;
+  --viewer-canvas-soft: #141414;
+  --viewer-canvas-soft-2: #1a1a1a;
+  --viewer-link: #3b9eff;
+  --viewer-link-deep: #69b4ff;
+  --viewer-error: #ff5c5c;
+  --viewer-error-soft: #3b1414;
+  --viewer-warning: #f5a623;
+  --viewer-row-hover: #141414;
+  --viewer-code-bg: #050505;
+  --viewer-shell-cmd: #79c0ff;
+  --viewer-shell-flag: #d2a8ff;
+  --viewer-shell-string: #a5d6ff;
+  --viewer-shell-path: #7ee787;
+  --viewer-shell-punct: #8b949e;
+  --viewer-shell-plain: #e6edf3;
+}
+
+/* System follows OS preference */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --viewer-ink: #ededed;
+    --viewer-body: #a1a1a1;
+    --viewer-mute: #737373;
+    --viewer-hairline: #2e2e2e;
+    --viewer-hairline-strong: #525252;
+    --viewer-canvas: #0a0a0a;
+    --viewer-canvas-soft: #141414;
+    --viewer-canvas-soft-2: #1a1a1a;
+    --viewer-link: #3b9eff;
+    --viewer-link-deep: #69b4ff;
+    --viewer-error: #ff5c5c;
+    --viewer-error-soft: #3b1414;
+    --viewer-warning: #f5a623;
+    --viewer-row-hover: #141414;
+    --viewer-code-bg: #050505;
+    --viewer-shell-cmd: #79c0ff;
+    --viewer-shell-flag: #d2a8ff;
+    --viewer-shell-string: #a5d6ff;
+    --viewer-shell-path: #7ee787;
+    --viewer-shell-punct: #8b949e;
+    --viewer-shell-plain: #e6edf3;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --viewer-ink: #171717;
+    --viewer-body: #4d4d4d;
+    --viewer-mute: #888888;
+    --viewer-hairline: #ebebeb;
+    --viewer-hairline-strong: #a1a1a1;
+    --viewer-canvas: #ffffff;
+    --viewer-canvas-soft: #fafafa;
+    --viewer-canvas-soft-2: #f5f5f5;
+    --viewer-link: #0070f3;
+    --viewer-link-deep: #0761d1;
+    --viewer-error: #ee0000;
+    --viewer-error-soft: #f7d4d6;
+    --viewer-warning: #f5a623;
+    --viewer-row-hover: #fafafa;
+    --viewer-code-bg: #0b0d12;
+    --viewer-shell-cmd: #79c0ff;
+    --viewer-shell-flag: #d2a8ff;
+    --viewer-shell-string: #a5d6ff;
+    --viewer-shell-path: #7ee787;
+    --viewer-shell-punct: #8b949e;
+    --viewer-shell-plain: #e6edf3;
+  }
 }
 
 @layer base {
@@ -47,7 +159,7 @@
 
   ::selection {
     background: var(--color-ink);
-    color: #f2f2f2;
+    color: var(--color-canvas);
   }
 }
 

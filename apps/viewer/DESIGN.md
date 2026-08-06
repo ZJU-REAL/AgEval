@@ -195,6 +195,21 @@ Prefer **shadcn/ui** (Radix + Tailwind), tokens mapped to CSS variables in
 | `Checkbox` | Multi-select rows (optional MVP) |
 | `Separator` | Toolbar dividers |
 
+## Theme modes
+
+| Mode | Behavior |
+| --- | --- |
+| `light` | Near-white canvas, ink text |
+| `dark` | Near-black canvas (`#0a0a0a`), light ink |
+| `system` | Follow `prefers-color-scheme` (default) |
+
+Toggle lives in the top-right header. Persist preference client-side.
+
+## CLI command strip
+
+Commands render as **shell code** on a dark code surface — not flat link-blue.
+Token roles: command name, flags (`--task`), paths, strings, plain args.
+
 ## Motion
 
 Minimal: 150–200ms opacity/background transitions on hover/focus.

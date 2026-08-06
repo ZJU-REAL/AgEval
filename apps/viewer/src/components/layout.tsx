@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { ThemeToggle } from "@/components/theme-toggle";
+
 export function Shell({
   children,
   meta,
@@ -17,6 +19,7 @@ export function Shell({
         <span className="text-mute text-sm">viewer</span>
         <div className="flex-1" />
         {meta}
+        <ThemeToggle />
       </header>
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-6 py-5">{children}</main>
     </div>

@@ -55,7 +55,7 @@ When UI conflicts with taste: **DESIGN.md wins**.
 3. **Tabular nums** for scores, rates, durations, trial fractions.
 4. Mono **only** for commands, digests, technical IDs.
 5. No em-dash (`—`) in UI strings.
-6. Primary CTA color is ink `#171717`; link blue `#0070f3` for command links only.
+6. Primary CTA color is ink; link blue for true hyperlinks only (CLI strips use shell highlight).
 7. Error / exception text uses `#ee0000` (Harbor-like).
 8. Prefer density of a data console (Harbor), not an art gallery landing page.
 
@@ -76,20 +76,31 @@ All paths confined to the opened Database root. No Registry required.
 ## Build & serve
 
 ```bash
-# from apps/viewer
-npm install
-npm run build          # → dist/
+# from apps/viewer — pnpm only (not npm)
+pnpm install
+pnpm build          # → dist/
 # from repo root
 uv run bora view <database> --no-browser
 ```
 
-Python must serve **`dist/`** (production build). Dev: `npm run dev` proxies `/api` to the Python viewer port when both run.
+Python must serve **`dist/`** (production build). Dev: `pnpm dev` proxies `/api` to the Python viewer port when both run.
+
+## Theme
+
+- Modes: **light** | **dark** | **system** (default system).
+- Toggle in top-right header; persist `localStorage` key `bora-viewer-theme`.
+- Tokens via `data-theme` + CSS variables in `src/index.css`.
+
+## CLI command strip
+
+- Render with shell-style highlighting (not flat link-blue).
+- Dark code surface (`code-bg`); token kinds: cmd / flag / string / path / plain.
 
 ## Delivery rules
 
 - Prefer phase commits: design docs → API → scaffold → pages → polish.
 - Do not claim #22 Leaderboard done.
-- Keep tests green: `uv run pytest tests/viewer/ -q` and `npm run build`.
+- Keep tests green: `uv run pytest tests/viewer/ -q` and `pnpm build`.
 - When adding columns, match Harbor naming where BORA has data (`Result` ≈ `mean_score` / `pass_rate`; `Trials` ≈ task counts).
 
 ## Anti-patterns (reject in review)

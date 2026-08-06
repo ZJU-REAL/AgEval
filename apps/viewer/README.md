@@ -17,18 +17,20 @@ uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
 
 # Terminal B: Vite HMR (proxies /api → :8765)
 cd apps/viewer
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 ## Production build (required for `bora view`)
 
 ```bash
 cd apps/viewer
-npm install
-npm run build   # writes dist/
+pnpm install
+pnpm build   # writes dist/
 uv run bora view <database>
 ```
+
+Package manager: **pnpm** only (`packageManager` field; do not use npm/yarn).
 
 Python serves `apps/viewer/dist/` preferentially over the legacy `static/` shell.
 
