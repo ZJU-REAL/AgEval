@@ -21,13 +21,16 @@ When UI conflicts with taste: **DESIGN.md wins**.
    Jobs = local suite runs under `.bora/suite-runs/`
 2. **Job → tasks** — task table with scores / status / agent-model meta
 3. **Task detail** — trials/run row(s), status/error coloring, **copyable CLI**
-4. **Breadcrumb** — `Jobs > jobId > taskId` with `>` separators; click to navigate
+4. **Attempt / trial detail** — `Jobs > job > task > run_id`; Outcome + tabs from
+   real evidence only (Trajectory · Agent · Verifier · Artifacts · Lock · Log)
+5. **Breadcrumb** — `Jobs > jobId > taskId > runId` with `>` separators; click to navigate
 
 **Out of scope unless user asks:**
 
 - Public catalog, OAuth, Postgres, Leaderboard SPA (#22)
 - Package file-tree / task-package browser (removed; Jobs is the product surface)
 - Marketing mesh gradients, dark neon skins, custom CSS component kits
+- Fabricating Harbor-only files or empty evidence tabs
 
 ## Stack (mandatory)
 
@@ -69,10 +72,16 @@ Python API under `/api/*` (see `src/bora/viewer/`):
 | `GET /api/health` | Liveness |
 | `GET /api/jobs` | Suite-run job list (local `.bora/suite-runs`) |
 | `GET /api/jobs/{id}` | Job detail + task rows |
-| `GET /api/jobs/{id}/tasks/{task_id}` | Task / trial detail + commands |
+| `GET /api/jobs/{id}/tasks/{task_id}` | Task detail + enriched trials list + commands |
+| `GET /api/jobs/{id}/tasks/{task_id}/trials` | Trials list (suite + local evidence) |
+| `GET /api/jobs/{id}/tasks/{task_id}/trials/{run_id}` | Attempt meta + `available_tabs` |
+| `GET .../trials/{run_id}/tree?scope=` | File tree under evidence (`agent`/`verifier`/…) |
+| `GET .../trials/{run_id}/file?path=` | File preview (size-capped; secret-like names redacted) |
+| `GET .../trials/{run_id}/trajectory` | Parsed `trajectory.jsonl` steps (**not PASS**) |
 
 Package-file browse routes (`/api/database`, `/api/tasks/*`, `/api/commands`) were removed with the old SPA.  
-All paths confined to the opened Database root. No Registry required.
+All paths confined to the opened Database root (`job_id` / `task_id` / `run_id` single-segment; file paths fail closed on `..`). No Registry required.  
+Evidence roots: `{db}/.bora/runs/{run_id}` or task-local `.bora/runs/`; lock `task_id` must match when present.
 
 ## Build & serve
 

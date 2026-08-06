@@ -244,3 +244,43 @@ def test_missing_run_raises(tmp_path: Path) -> None:
     _seed_suite_run(db)
     with pytest.raises(ConfigError):
         trials.resolve_evidence_root(db, "does_not_exist")
+
+
+def test_path_ids_reject_traversal(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    with pytest.raises(ConfigError):
+        jobs.get_job(db, "../etc")
+    with pytest.raises(ConfigError):
+        jobs.get_job_task(db, job_id, "../alpha")
+    with pytest.raises(ConfigError):
+        trials.resolve_evidence_root(db, "run_alpha_1/../x", task_id="alpha")
+    with pytest.raises(ConfigError):
+        trials.trial_file(
+            db,
+            job_id,
+            "alpha",
+            "run_alpha_1",
+            relpath="/etc/passwd",
+        )
+
+
+def test_cross_task_evidence_rejected(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    # Evidence locked to alpha, requested under beta
+    _write_evidence(db, "run_alpha_1", task_id="alpha")
+    with pytest.raises(ConfigError):
+        trials.resolve_evidence_root(db, "run_alpha_1", task_id="beta", require_task_match=True)
+    with pytest.raises(ConfigError):
+        trials.trial_trajectory(db, job_id, "beta", "run_alpha_1")
+
+
+def test_missing_evidence_suite_row_ok(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    # suite has run_beta_1 but no on-disk evidence
+    detail = trials.get_trial(db, job_id, "beta", "run_beta_1")
+    assert detail["trial"]["has_evidence"] is False
+    assert detail["trial"]["available_tabs"] == []
+    assert detail["trial"]["status"] == "FAIL"

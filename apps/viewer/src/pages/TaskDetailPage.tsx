@@ -116,6 +116,7 @@ export function TaskDetailPage() {
                     (tr.status || "").toUpperCase() === "FAIL" ||
                     Boolean(tr.error);
                   const rid = tr.run_id || tr.trial_id || task?.run_id || "";
+                  // Open when we have a run id (detail page handles missing evidence)
                   const openable = Boolean(rid);
                   return (
                     <TableRow

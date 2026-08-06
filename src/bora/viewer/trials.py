@@ -17,7 +17,7 @@ from urllib.parse import parse_qs
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
 from bora.viewer.browse import commands_for
-from bora.viewer.jobs import get_job, get_job_task
+from bora.viewer.jobs import get_job, get_job_task, safe_id_segment
 
 # Preview / enumeration caps (operator-facing local tool, not bulk export).
 MAX_FILE_BYTES = 512 * 1024
@@ -45,7 +45,6 @@ _TEXT_SUFFIXES = {
     ".ts",
     ".tsx",
     ".jsx",
-    ".env",
     ".ini",
     ".cfg",
     ".conf",
@@ -53,14 +52,7 @@ _TEXT_SUFFIXES = {
 
 
 def _safe_run_id(run_id: str) -> str:
-    rid = (run_id or "").strip()
-    if not rid or rid in {".", ".."} or "/" in rid or "\\" in rid or ".." in rid:
-        raise ConfigError(
-            "invalid_package",
-            f"invalid run_id: {run_id!r}",
-            location="run_id",
-        )
-    return rid
+    return safe_id_segment(run_id, field="run_id")
 
 
 def _safe_under(root: Path, relative: str) -> Path:
@@ -101,51 +93,104 @@ def _read_json_object(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _assert_under_database(root: Path, path: Path, *, location: str) -> Path:
+    """Resolve *path* and ensure it stays under Database *root*."""
+    root_r = root.resolve(strict=False)
+    cand = path.resolve(strict=False)
+    try:
+        cand.relative_to(root_r)
+    except ValueError as exc:
+        raise ConfigError(
+            "invalid_package",
+            "path escapes database sandbox",
+            location=location,
+        ) from exc
+    return cand
+
+
+def _evidence_matches_task(evidence: Path, task_id: str | None) -> bool:
+    """If lock.json has task_id, require match; missing lock is ok without require."""
+    if not task_id:
+        return True
+    lock = _read_json_object(evidence / "lock.json")
+    if lock is None:
+        # No lock: allow only when caller already scoped via suite membership.
+        return True
+    locked = lock.get("task_id")
+    if locked is None:
+        return True
+    return str(locked) == task_id
+
+
 def resolve_evidence_root(
     database_root: Path,
     run_id: str,
     *,
     task_id: str | None = None,
+    require_task_match: bool = True,
 ) -> Path:
     """Locate Attempt evidence for *run_id* under the Database root sandbox.
 
     Lookup order:
     1. ``{database}/.bora/runs/{run_id}``
     2. ``{database}/{tasks_root}/{task_id}/.bora/runs/{run_id}`` when task_id given
-    3. Scan ``{database}/**/ .bora/runs/{run_id}`` (depth-limited)
+    3. Scan ``{database}/tasks/*/.bora/runs/{run_id}`` (bounded)
+
+    When *require_task_match* and *task_id* are set, lock.json ``task_id`` must match
+    if present (fail closed on mismatch).
     """
     root = database_root.expanduser().resolve(strict=False)
     rid = _safe_run_id(run_id)
+    tid = safe_id_segment(task_id, field="task_id") if task_id else None
 
+    candidates: list[Path] = []
     primary = root / ".bora" / "runs" / rid
     if primary.is_dir():
-        return primary
+        candidates.append(primary)
 
     tasks_root_name = "tasks"
     with contextlib.suppress(ConfigError):
         man = load_database_manifest(root)
         tasks_root_name = man.tasks_root or "tasks"
+    # tasks_root may be multi-segment but must not escape (validated at load).
+    if ".." in Path(tasks_root_name).parts or tasks_root_name.startswith(("/", "\\")):
+        tasks_root_name = "tasks"
 
-    if task_id:
-        tid = task_id.strip()
-        if tid and ".." not in tid and "/" not in tid and "\\" not in tid:
-            task_local = root / tasks_root_name / tid / ".bora" / "runs" / rid
-            if task_local.is_dir():
-                return task_local
+    if tid:
+        task_local = root / tasks_root_name / tid / ".bora" / "runs" / rid
+        if task_local.is_dir():
+            candidates.append(task_local)
 
-    # Bounded scan: only under tasks/*/.bora/runs and root .bora/runs (already checked).
+    # Bounded scan under tasks/*/.bora/runs (single-segment task ids only)
     tasks_dir = root / tasks_root_name
     if tasks_dir.is_dir():
         for child in tasks_dir.iterdir():
             if not child.is_dir():
                 continue
+            try:
+                safe_id_segment(child.name, field="task_id")
+            except ConfigError:
+                continue
             cand = child / ".bora" / "runs" / rid
             if cand.is_dir():
-                return cand
+                candidates.append(cand)
+
+    seen: set[Path] = set()
+    for cand in candidates:
+        try:
+            resolved = _assert_under_database(root, cand, location=str(cand))
+        except ConfigError:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if require_task_match and tid and not _evidence_matches_task(resolved, tid):
+            continue
+        return resolved
 
     raise ConfigError(
         "unknown_task",
-        f"evidence root not found for run_id={rid!r}",
+        f"evidence root not found for run_id={rid!r}" + (f" task_id={tid!r}" if tid else ""),
         location=str(primary),
     )
 
@@ -191,12 +236,11 @@ def _available_tabs(evidence: Path) -> list[str]:
         evidence / "agent" / "artifacts",
     ]
     # Prefer a dedicated tab only when files exist under artifact-ish trees
-    if any(
-        p.is_dir() and any(x.is_file() for x in p.rglob("*") if x.is_file())
-        for p in art_candidates
-        if p.exists()
-    ):
-        tabs.append("artifacts")
+    try:
+        if any(_has_any_file(p) for p in art_candidates):
+            tabs.append("artifacts")
+    except OSError:
+        pass
     if (evidence / "lock.json").is_file():
         tabs.append("lock")
     if (
@@ -258,6 +302,8 @@ def list_task_trials(
 ) -> dict[str, Any]:
     """List trials for a task within a suite job, enriched with local evidence when present."""
     root = database_root.expanduser().resolve(strict=False)
+    job_id = safe_id_segment(job_id, field="job_id")
+    task_id = safe_id_segment(task_id, field="task_id")
     task_payload = get_job_task(root, job_id, task_id)
     job = task_payload["job"]
     suite_trials = list(task_payload.get("trials") or [])
@@ -350,6 +396,8 @@ def get_trial(
     run_id: str,
 ) -> dict[str, Any]:
     root = database_root.expanduser().resolve(strict=False)
+    job_id = safe_id_segment(job_id, field="job_id")
+    task_id = safe_id_segment(task_id, field="task_id")
     rid = _safe_run_id(run_id)
     job_payload = get_job(root, job_id)
     job = job_payload["job"]
@@ -359,30 +407,59 @@ def get_trial(
             suite_row = row
             break
 
-    evidence = resolve_evidence_root(root, rid, task_id=task_id)
-    meta = _trial_meta_from_evidence(evidence, run_id=rid, task_id=task_id, suite_row=suite_row)
-    try:
-        meta["evidence_relpath"] = str(evidence.resolve(strict=False).relative_to(root))
-    except ValueError:
-        meta["evidence_relpath"] = str(evidence)
+    evidence: Path | None = None
+    with contextlib.suppress(ConfigError):
+        evidence = resolve_evidence_root(root, rid, task_id=task_id, require_task_match=True)
 
-    # Sibling runs for prev/next navigation
+    result_preview: dict[str, Any] | None = None
+    if evidence is None:
+        if not suite_row:
+            raise ConfigError(
+                "unknown_task",
+                f"trial {rid!r} not found for task {task_id!r} in job {job_id!r}",
+                location=rid,
+            )
+        status = suite_row.get("status")
+        meta = {
+            "trial_id": rid,
+            "run_id": rid,
+            "task_id": task_id,
+            "status": str(status).upper() if status else None,
+            "score": suite_row.get("score"),
+            "reward": suite_row.get("score"),
+            "error": suite_row.get("error"),
+            "exit_code": suite_row.get("exit_code"),
+            "duration": suite_row.get("duration"),
+            "started": suite_row.get("started") or job.get("started"),
+            "evidence_relpath": None,
+            "has_evidence": False,
+            "available_tabs": [],
+            "note": "no local evidence tree for this run_id; files/trajectory unavailable "
+            "(not PASS)",
+        }
+    else:
+        meta = _trial_meta_from_evidence(evidence, run_id=rid, task_id=task_id, suite_row=suite_row)
+        try:
+            meta["evidence_relpath"] = str(evidence.resolve(strict=False).relative_to(root))
+        except ValueError:
+            meta["evidence_relpath"] = str(evidence)
+        result_preview = _read_json_object(evidence / "result.json")
+        if result_preview and "metrics" in result_preview:
+            metrics = result_preview.get("metrics")
+            if isinstance(metrics, dict) and len(json.dumps(metrics)) > 8_000:
+                result_preview = {**result_preview, "metrics": {"_truncated": True}}
+
     listed = list_task_trials(root, job_id, task_id)
     sibling_ids = [str(t.get("run_id")) for t in listed["trials"] if t.get("run_id")]
+    if rid not in sibling_ids:
+        sibling_ids.insert(0, rid)
     try:
         idx = sibling_ids.index(rid)
     except ValueError:
         idx = -1
     prev_id = sibling_ids[idx - 1] if idx > 0 else None
     next_id = sibling_ids[idx + 1] if 0 <= idx < len(sibling_ids) - 1 else None
-
     cmds = commands_for(root, task_id=task_id)
-    result_preview = _read_json_object(evidence / "result.json")
-    # Strip huge nested blobs if any
-    if result_preview and "metrics" in result_preview:
-        metrics = result_preview.get("metrics")
-        if isinstance(metrics, dict) and len(json.dumps(metrics)) > 8_000:
-            result_preview = {**result_preview, "metrics": {"_truncated": True}}
 
     return {
         "ok": True,
@@ -428,15 +505,19 @@ def _scope_base(evidence: Path, scope: str) -> Path:
 
 def trial_tree(
     database_root: Path,
-    job_id: str,  # noqa: ARG001 — reserved for auth/scoping consistency
+    job_id: str,
     task_id: str,
     run_id: str,
     *,
     scope: str = "root",
 ) -> dict[str, Any]:
     root = database_root.expanduser().resolve(strict=False)
+    safe_id_segment(job_id, field="job_id")
+    task_id = safe_id_segment(task_id, field="task_id")
     rid = _safe_run_id(run_id)
-    evidence = resolve_evidence_root(root, rid, task_id=task_id)
+    # Ensure job exists (sandbox + membership)
+    get_job(root, job_id)
+    evidence = resolve_evidence_root(root, rid, task_id=task_id, require_task_match=True)
     scope_norm = (scope or "root").strip().lower()
 
     # Special multi-root scopes for verifier
@@ -575,15 +656,18 @@ def _walk_tree(evidence: Path, base: Path, *, max_entries: int) -> list[dict[str
 
 def trial_file(
     database_root: Path,
-    job_id: str,  # noqa: ARG001
+    job_id: str,
     task_id: str,
     run_id: str,
     *,
     relpath: str,
 ) -> dict[str, Any]:
     root = database_root.expanduser().resolve(strict=False)
+    safe_id_segment(job_id, field="job_id")
+    task_id = safe_id_segment(task_id, field="task_id")
     rid = _safe_run_id(run_id)
-    evidence = resolve_evidence_root(root, rid, task_id=task_id)
+    get_job(root, job_id)
+    evidence = resolve_evidence_root(root, rid, task_id=task_id, require_task_match=True)
     path = _safe_under(evidence, relpath)
     if not path.is_file():
         raise ConfigError(
@@ -595,6 +679,20 @@ def trial_file(
     mime, _ = mimetypes.guess_type(str(path))
     mime = mime or "application/octet-stream"
     suffix = path.suffix.lower()
+    # Never preview env/secret-like basenames even if under evidence
+    if path.name in {".env", ".env.local", ".env.production"} or path.name.startswith(".env."):
+        return {
+            "ok": True,
+            "run_id": rid,
+            "path": relpath,
+            "name": path.name,
+            "size": size,
+            "media_type": mime,
+            "encoding": "redacted",
+            "truncated": False,
+            "content": None,
+            "note": "secret-like filename; content not shown",
+        }
     is_text = (
         suffix in _TEXT_SUFFIXES
         or mime.startswith("text/")
@@ -650,13 +748,16 @@ def trial_file(
 
 def trial_trajectory(
     database_root: Path,
-    job_id: str,  # noqa: ARG001
+    job_id: str,
     task_id: str,
     run_id: str,
 ) -> dict[str, Any]:
     root = database_root.expanduser().resolve(strict=False)
+    safe_id_segment(job_id, field="job_id")
+    task_id = safe_id_segment(task_id, field="task_id")
     rid = _safe_run_id(run_id)
-    evidence = resolve_evidence_root(root, rid, task_id=task_id)
+    get_job(root, job_id)
+    evidence = resolve_evidence_root(root, rid, task_id=task_id, require_task_match=True)
     inv_root = evidence / "agent" / "invocations"
     steps: list[dict[str, Any]] = []
     invocations: list[dict[str, Any]] = []

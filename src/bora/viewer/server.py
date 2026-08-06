@@ -132,10 +132,32 @@ def make_handler(database_root: Path, assets: Path) -> type[BaseHTTPRequestHandl
                     # Trial-enriched listing (suite summary + local evidence)
                     task_id = parts[2]
                     payload = trials.list_task_trials(root, job_id, task_id)
-                    base = jobs.get_job_task(root, job_id, task_id)
-                    base["trials"] = payload["trials"]
-                    base["note"] = payload.get("note") or base.get("note")
-                    _json(self, 200, base)
+                    _json(
+                        self,
+                        200,
+                        {
+                            "ok": True,
+                            "job": payload["job"],
+                            "task": payload["task"],
+                            "trials": payload["trials"],
+                            "agent_label": payload["task"].get("agent_label")
+                            or payload["job"].get("agent_label"),
+                            "model_label": payload["task"].get("model_label")
+                            or payload["job"].get("model_label"),
+                            "provider_label": payload["task"].get("provider_label")
+                            or payload["job"].get("provider_label"),
+                            "dataset": payload["task"].get("dataset")
+                            or payload["job"].get("source"),
+                            "commands": payload.get("commands"),
+                            "run_command": payload.get("run_command"),
+                            "breadcrumb": [
+                                {"label": "Jobs", "href": "/"},
+                                {"label": job_id, "href": f"/jobs/{job_id}"},
+                                {"label": task_id, "href": None},
+                            ],
+                            "note": payload.get("note"),
+                        },
+                    )
                     return
                 if len(parts) >= 4 and parts[1] == "tasks" and parts[3] == "trials":
                     task_id = parts[2]
