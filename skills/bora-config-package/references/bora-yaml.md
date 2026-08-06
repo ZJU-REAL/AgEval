@@ -7,6 +7,7 @@
 - `version`: non-empty string
 - `tasks.root`: default `tasks`
 - `defaults` v1 allowlist: only `max_concurrent_tasks` (≥1)
+- Optional `provenance` (suite default; see below)
 - **Forbidden** on root: harness / provider / limits / evaluation / agent_profiles / …
 
 ## Member (`task.yaml`) — top-level required
@@ -20,6 +21,36 @@
 - `agent_profiles`: list of `{id, executor, model}` (+ ACP `options.entry` when applicable)
 - `limits`: wall / agent_invocations / environment_actions / memory_mb
 - `evaluation`: runtime, entrypoint, inputs, output.format
+- Optional `provenance` (fully replaces Database-root default when set)
+
+## Provenance（溯源，可选）
+
+Declare where a package/task was ported from. **Not PASS** and not a quality score.
+
+```yaml
+provenance:
+  kind: port   # port | reimplementation | wrapper | original
+  upstream:
+    name: tau-bench
+    url: https://github.com/example/tau-bench
+    ref: v0.1.0          # and/or commit
+    commit: abc123…
+    task_id: airline-001 # optional
+    paper: https://arxiv.org/abs/…  # optional
+  parity:
+    claims: [protocol, scoring]
+    known_gaps: []
+```
+
+| Rule | Detail |
+| --- | --- |
+| Location | `bora.yaml` (suite default) and/or member `task.yaml` |
+| Override | task block **replaces** database block entirely |
+| `original` | may omit `upstream` |
+| `port` / `reimplementation` / `wrapper` | require `upstream.url` + (`ref` or `commit`) |
+| Lock | enters digest + `bora lock` summary + evidence `lock.json` when written |
+
+Author checklist: for ports, fill provenance before claiming upstream fidelity.
 
 ## Executors (`agent_profiles[].executor`)
 
