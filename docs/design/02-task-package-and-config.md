@@ -548,3 +548,16 @@ bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Spec 2
 
 Summary 写在 Database 根：`.bora/suite-runs/<suite_run_id>/summary.json`。
 
+### Suite metrics（观测聚合，非 PASS 权威）
+
+Suite summary 含 `metrics` 对象（`bora.suite.summary/1` 附加字段），供 job/dataset 级展示与 Registry suite-result 上传：
+
+| 字段 | 公式 |
+| --- | --- |
+| `pass_rate` | `count(status==PASS) / n_tasks` |
+| `mean_score` | 各 task `score` 的算术平均；**缺 score / 非数值 / status=ERROR → 0.0**（Harbor 缺 reward 当 0） |
+| `n_tasks` / `n_pass` / `n_fail` / `n_error` | 计数；未知 status 计入 `n_error` |
+| `missing_score_as` | 固定 `0.0`（文档化默认） |
+
+**禁止** suite-level PASS 字段作为最终权威；PASS 仅 per-task evaluator。`exit_code` 与 `counts` 仍是操作者退出/计数语义，不是榜单 PASS。
+

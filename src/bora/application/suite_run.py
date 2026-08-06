@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from bora.application.run_command import run_task
+from bora.application.suite_metrics import aggregate_task_metrics, task_refs_for_summary
 from bora.config.database import list_tasks, load_database_manifest
 from bora.config.errors import ConfigError
 from bora.registry.resolve import resolve_database_root
@@ -156,11 +157,15 @@ async def _run_one(
                 details.get("logs"),
                 getattr(result, "logs", None),
             )
+            raw_metrics = getattr(result, "metrics", None)
+            if not isinstance(raw_metrics, dict):
+                raw_metrics = details.get("metrics") if isinstance(details.get("metrics"), dict) else {}
             return {
                 "task_id": task_id,
                 "exit_code": code,
                 "status": status,
                 "score": getattr(result, "score", None),
+                "metrics": dict(raw_metrics) if raw_metrics else {},
                 "run_id": run_id,
                 "digest": details.get("digest"),
                 "error": None if code != 2 else (details.get("error") or status),
@@ -171,6 +176,7 @@ async def _run_one(
                 "exit_code": 2,
                 "status": "ERROR",
                 "score": None,
+                "metrics": {},
                 "run_id": None,
                 "digest": None,
                 "error": str(exc),
@@ -181,6 +187,7 @@ async def _run_one(
                 "exit_code": 2,
                 "status": "ERROR",
                 "score": None,
+                "metrics": {},
                 "run_id": None,
                 "digest": None,
                 "error": f"{type(exc).__name__}: {exc}",
@@ -224,6 +231,7 @@ async def execute_suite_run(
     else:
         exit_code = 0
 
+    metrics = aggregate_task_metrics(results)
     summary: dict[str, Any] = {
         "schema": "bora.suite.summary/1",
         "suite_run_id": plan.suite_run_id,
@@ -232,7 +240,10 @@ async def execute_suite_run(
         "max_concurrent_tasks": plan.max_concurrent_tasks,
         "task_ids": list(plan.task_ids),
         "tasks": list(results),
+        "task_refs": task_refs_for_summary(results),
         "counts": counts,
+        # Observational aggregates (leaderboard); never suite PASS authority.
+        "metrics": metrics,
         "exit_code": exit_code,
         # UTC ISO-8601 (not unix epoch float).
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
