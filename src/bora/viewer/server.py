@@ -13,7 +13,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 from bora.config.errors import ConfigError
-from bora.viewer import browse, jobs
+from bora.viewer import browse, jobs, trials
 
 # Default bind: loopback only.
 DEFAULT_HOST = "127.0.0.1"
@@ -113,19 +113,70 @@ def make_handler(database_root: Path, assets: Path) -> type[BaseHTTPRequestHandl
         def _api_jobs(self, path: str) -> None:
             # /api/jobs/{job_id}
             # /api/jobs/{job_id}/tasks/{task_id}
+            # /api/jobs/{job_id}/tasks/{task_id}/trials
+            # /api/jobs/{job_id}/tasks/{task_id}/trials/{run_id}
+            # /api/jobs/{job_id}/tasks/{task_id}/trials/{run_id}/tree|file|trajectory
             rest = path[len("/api/jobs/") :]
             parts = [p for p in rest.split("/") if p]
             if not parts:
                 _error(self, 404, "not_found", "job id required")
                 return
             job_id = parts[0]
+            query = urlparse(self.path).query
+            q = trials.parse_query(query)
             try:
                 if len(parts) == 1:
                     _json(self, 200, jobs.get_job(root, job_id))
                     return
                 if len(parts) == 3 and parts[1] == "tasks":
-                    _json(self, 200, jobs.get_job_task(root, job_id, parts[2]))
+                    # Trial-enriched listing (suite summary + local evidence)
+                    task_id = parts[2]
+                    payload = trials.list_task_trials(root, job_id, task_id)
+                    base = jobs.get_job_task(root, job_id, task_id)
+                    base["trials"] = payload["trials"]
+                    base["note"] = payload.get("note") or base.get("note")
+                    _json(self, 200, base)
                     return
+                if len(parts) >= 4 and parts[1] == "tasks" and parts[3] == "trials":
+                    task_id = parts[2]
+                    if len(parts) == 4:
+                        _json(self, 200, trials.list_task_trials(root, job_id, task_id))
+                        return
+                    run_id = parts[4]
+                    if len(parts) == 5:
+                        _json(self, 200, trials.get_trial(root, job_id, task_id, run_id))
+                        return
+                    if len(parts) == 6 and parts[5] == "tree":
+                        _json(
+                            self,
+                            200,
+                            trials.trial_tree(
+                                root,
+                                job_id,
+                                task_id,
+                                run_id,
+                                scope=q.get("scope", "root"),
+                            ),
+                        )
+                        return
+                    if len(parts) == 6 and parts[5] == "file":
+                        rel = q.get("path") or ""
+                        if not rel:
+                            _error(self, 400, "invalid_package", "path query required")
+                            return
+                        _json(
+                            self,
+                            200,
+                            trials.trial_file(root, job_id, task_id, run_id, relpath=rel),
+                        )
+                        return
+                    if len(parts) == 6 and parts[5] == "trajectory":
+                        _json(
+                            self,
+                            200,
+                            trials.trial_trajectory(root, job_id, task_id, run_id),
+                        )
+                        return
             except ConfigError as exc:
                 status = 404 if "unknown" in exc.error_code else 400
                 _error(self, status, exc.error_code, str(exc))
