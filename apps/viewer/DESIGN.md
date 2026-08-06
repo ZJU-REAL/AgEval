@@ -192,8 +192,6 @@ Prefer **shadcn/ui** (Radix + Tailwind), tokens mapped to CSS variables in
 | `Button` | Copy command, ghost icon actions |
 | `Breadcrumb` | Path navigation |
 | `Badge` | Optional status chips (restrained) |
-| `Checkbox` | Multi-select rows (optional MVP) |
-| `Separator` | Toolbar dividers |
 
 ## Theme modes
 

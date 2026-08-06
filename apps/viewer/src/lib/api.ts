@@ -102,13 +102,3 @@ export function fetchJobTask(jobId: string, taskId: string) {
     `/api/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(taskId)}`,
   );
 }
-
-export function fetchDatabase() {
-  return getJson<{
-    database_id: string;
-    version: string;
-    root: string;
-    task_count: number;
-    commands?: Record<string, string>;
-  }>("/api/database");
-}

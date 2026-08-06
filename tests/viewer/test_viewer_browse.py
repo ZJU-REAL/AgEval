@@ -1,4 +1,4 @@
-"""Local Database viewer browse + HTTP API tests (#21)."""
+"""Viewer helpers + HTTP surface (Jobs API + SPA; no package-file browser)."""
 
 from __future__ import annotations
 
@@ -6,17 +6,16 @@ import json
 import threading
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import pytest
 
-from bora.config.errors import ConfigError
 from bora.viewer import browse
 from bora.viewer.server import make_handler, static_dir
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
-CORE = REPO / "examples" / "core"
 
 
 def test_database_overview_suite_min() -> None:
@@ -33,36 +32,11 @@ def test_commands_include_run_task() -> None:
     assert "bora lock" in cmds["lock_task"]
 
 
-def test_task_detail_and_tree() -> None:
-    detail = browse.task_detail(SUITE, "alpha")
-    assert detail["task_id"] == "alpha"
-    assert detail["task_yaml"] is not None
-    assert "task_id" in detail["task_yaml"]
-    tree = browse.file_tree(SUITE, "alpha")
-    assert tree["tree"]["type"] == "dir"
-    names = {c["name"] for c in tree["tree"]["children"] if c.get("type") == "file"}
-    assert "task.yaml" in names
-    assert "harness.py" in names
-
-
-def test_read_task_file_text() -> None:
-    data = browse.read_task_file(SUITE, "alpha", "task.yaml")
-    assert data["kind"] == "text"
-    assert data["content"] and "task_id" in data["content"]
-
-
-def test_path_traversal_rejected() -> None:
-    with pytest.raises(ConfigError):
-        browse.read_task_file(SUITE, "alpha", "../beta/task.yaml")
-    with pytest.raises(ConfigError):
-        browse.read_task_file(SUITE, "alpha", "../../bora.yaml")
-
-
 def test_static_dir_exists() -> None:
     d = static_dir()
     assert (d / "index.html").is_file()
     # Vite production build: hashed assets under dist/assets/
-    assert (d / "assets").is_dir() or (d / "app.js").is_file()
+    assert (d / "assets").is_dir()
 
 
 @pytest.fixture()
@@ -82,38 +56,33 @@ def _get_json(url: str) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def test_http_api_list_detail_file(viewer_server: str) -> None:
+def test_http_health_jobs_and_spa(viewer_server: str) -> None:
     base = viewer_server
-    db = _get_json(f"{base}/api/database")
-    assert db["database_id"] == "test/suite-min"
-    assert db["task_count"] >= 3
-    assert "run_suite" in db["commands"]
-
-    detail = _get_json(f"{base}/api/tasks/alpha")
-    assert detail["task_id"] == "alpha"
-    assert "run_task" in detail["commands"]
-
-    tree = _get_json(f"{base}/api/tasks/alpha/tree")
-    assert tree["tree"]["type"] == "dir"
-
-    file_data = _get_json(f"{base}/api/tasks/alpha/file?path=task.yaml")
-    assert file_data["kind"] == "text"
-    assert "format" in file_data["content"]
+    health = _get_json(f"{base}/api/health")
+    assert health["ok"] is True
+    assert health["service"] == "bora-viewer"
 
     jobs_payload = _get_json(f"{base}/api/jobs")
     assert "items" in jobs_payload
     assert jobs_payload["count"] >= 0
+    assert "commands" in jobs_payload
 
-    # SPA shell (React root; Harbor Jobs UI mounts client-side)
+    # SPA shell (React root; Jobs UI mounts client-side)
     with urlopen(f"{base}/", timeout=5) as resp:  # noqa: S310
         html = resp.read().decode("utf-8")
     assert "BORA Viewer" in html
     assert 'id="root"' in html
 
 
-def test_http_unknown_task_404(viewer_server: str) -> None:
-    from urllib.error import HTTPError
-
-    with pytest.raises(HTTPError) as ei:
-        urlopen(f"{viewer_server}/api/tasks/no-such-task", timeout=5)  # noqa: S310
-    assert ei.value.code == 404
+def test_http_removed_package_browse_404(viewer_server: str) -> None:
+    """Old package-file browse endpoints are not part of the product surface."""
+    for path in (
+        "/api/database",
+        "/api/commands",
+        "/api/tasks/alpha",
+        "/api/tasks/alpha/tree",
+        "/api/tasks/alpha/file?path=task.yaml",
+    ):
+        with pytest.raises(HTTPError) as ei:
+            urlopen(f"{viewer_server}{path}", timeout=5)  # noqa: S310
+        assert ei.value.code == 404

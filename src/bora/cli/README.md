@@ -103,7 +103,7 @@ Discover flags with `uv run bora <cmd> -h`.
 ```bash
 uv run bora tasks examples/core
 
-# Local Web UI: task list → README / instruction / file tree (no Registry)
+# Local Web UI: Jobs → Tasks → Trial (suite-runs under .bora/; no Registry)
 uv run bora view examples/core
 # uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
 

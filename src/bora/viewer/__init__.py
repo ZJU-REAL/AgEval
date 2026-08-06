@@ -1,6 +1,7 @@
-"""Local read-only Database viewer (HTTP + static SPA).
+"""Local read-only Database results viewer (HTTP + Vite SPA).
 
-Not BORA Core. Does not require Registry, Postgres, or OAuth.
+Serves Jobs → Tasks → Trial over suite-runs. Not BORA Core.
+Does not require Registry, Postgres, or OAuth.
 """
 
 from __future__ import annotations

@@ -26,7 +26,7 @@ When UI conflicts with taste: **DESIGN.md wins**.
 **Out of scope unless user asks:**
 
 - Public catalog, OAuth, Postgres, Leaderboard SPA (#22)
-- Package file-tree browser as primary UX
+- Package file-tree / task-package browser (removed; Jobs is the product surface)
 - Marketing mesh gradients, dark neon skins, custom CSS component kits
 
 ## Stack (mandatory)
@@ -38,7 +38,7 @@ When UI conflicts with taste: **DESIGN.md wins**.
 | Styling | Tailwind CSS v4 (or v3 if tooling forces) |
 | Components | **shadcn/ui** (Radix primitives) — own the source under `src/components/ui/` |
 | Icons | lucide-react (shadcn default) — one family only |
-| Table | TanStack Table **or** shadcn Table patterns |
+| Table | shadcn Table patterns (sortable heads in-app) |
 | Routing | react-router-dom (client routes under SPA) |
 | Fonts | Geist if vendored; else Inter + system mono |
 
@@ -67,11 +67,11 @@ Python API under `/api/*` (see `src/bora/viewer/`):
 | Path | Purpose |
 | --- | --- |
 | `GET /api/health` | Liveness |
-| `GET /api/database` | Database meta + commands |
 | `GET /api/jobs` | Suite-run job list (local `.bora/suite-runs`) |
 | `GET /api/jobs/{id}` | Job detail + task rows |
 | `GET /api/jobs/{id}/tasks/{task_id}` | Task / trial detail + commands |
 
+Package-file browse routes (`/api/database`, `/api/tasks/*`, `/api/commands`) were removed with the old SPA.  
 All paths confined to the opened Database root. No Registry required.
 
 ## Build & serve

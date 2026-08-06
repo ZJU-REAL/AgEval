@@ -877,7 +877,7 @@ def view_command(
         typer.Option("--no-browser", help="Do not open a browser tab."),
     ] = False,
 ) -> None:
-    """Start a local read-only Web UI for a Database (no Registry required)."""
+    """Start local Jobs→Tasks→Trial results UI for a Database (no Registry)."""
     from bora.config.errors import ConfigError
     from bora.viewer.server import serve_viewer
 
