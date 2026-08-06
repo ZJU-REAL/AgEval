@@ -307,14 +307,9 @@ class DockerProvider:
                 "platform": runtime.image_lock.platform if runtime.image_lock else "",
                 "containment": "single_container_probe",
                 "writer": writer_name,
-                **(
-                    {"stream_dir": str(stream_dir)}
-                    if stream_dir is not None
-                    else {}
-                ),
+                **({"stream_dir": str(stream_dir)} if stream_dir is not None else {}),
             },
         )
-
 
     def prepare_agent_targets(
         self,
@@ -409,9 +404,7 @@ class DockerProvider:
                         )
                         ledger.actors[aid] = binding
                         group_bindings.append(binding)
-                    self._bootstrap_actor_fs(
-                        target, group_bindings, shared_gid=shared_gid
-                    )
+                    self._bootstrap_actor_fs(target, group_bindings, shared_gid=shared_gid)
 
             runtime.target_ledger = ledger
             runtime.agent_container_ids = [c for c in created if c]
@@ -419,9 +412,7 @@ class DockerProvider:
                 runtime.register_writer(f"agent_target:{cid[:12]}")
             # Public mount inventory (no host paths / docker ids).
             runtime.policy_digests["agent_workspace_mode"] = (
-                "shared"
-                if topology.mode == IsolationMode.SHARED_CONTAINER
-                else "per_group"
+                "shared" if topology.mode == IsolationMode.SHARED_CONTAINER else "per_group"
             )
             return ledger
         except Exception:
@@ -687,17 +678,12 @@ class DockerProvider:
             lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.codex'")
             lines.append(f"chmod 0700 '{home}/.codex'")
             # Create private primary group if needed (numeric chown works without).
+            lines.append(f"groupadd -g {b.gid} actor-g-{b.gid} 2>/dev/null || true")
             lines.append(
-                f"groupadd -g {b.gid} actor-g-{b.gid} 2>/dev/null || true"
-            )
-            lines.append(
-                f"useradd -u {b.uid} -g {b.gid} -d '{home}' -M "
-                f"actor-{b.uid} 2>/dev/null || true"
+                f"useradd -u {b.uid} -g {b.gid} -d '{home}' -M actor-{b.uid} 2>/dev/null || true"
             )
             if b.shared_gid is not None:
-                lines.append(
-                    f"usermod -aG {b.shared_gid} actor-{b.uid} 2>/dev/null || true"
-                )
+                lines.append(f"usermod -aG {b.shared_gid} actor-{b.uid} 2>/dev/null || true")
 
         script = "\n".join(lines)
         proc = subprocess.run(

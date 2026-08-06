@@ -160,9 +160,7 @@ async def run_task(
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
-            resolve_executor=lambda kind, model, **kw: resolve_executor(
-                kind, model=model, **kw
-            ),
+            resolve_executor=lambda kind, model, **kw: resolve_executor(kind, model=model, **kw),
             attempt_id=attempt_ident.value,
             evidence_store=evidence_store,
             deadline_monotonic=deadline,

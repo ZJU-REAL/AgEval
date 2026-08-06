@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+
 from bora.adapters.agent_acp import AcpExecutor
+from bora.adapters.agent_openai_http import OpenAIHTTPExecutor
 from bora.adapters.agent_registry import discover_executor_kinds, resolve_executor
 
 
@@ -26,3 +29,15 @@ def test_unknown_kind_raises() -> None:
         raise AssertionError("expected KeyError")
     except KeyError:
         pass
+
+
+def test_openai_missing_credential() -> None:
+    env_key = "OPENAI_API_KEY"
+    previous = os.environ.pop(env_key, None)
+    try:
+        r = OpenAIHTTPExecutor().invoke("hi")
+        assert r.ok is False
+        assert r.error == "missing_credential"
+    finally:
+        if previous is not None:
+            os.environ[env_key] = previous

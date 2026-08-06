@@ -43,8 +43,12 @@ def test_suite_full_concurrent_cli() -> None:
     assert "no suite-level" in data["note"]
     assert Path(data["summary_path"]).is_file()
     assert "suite_pass" not in data
-    refs = [t.get("result_ref") or t.get("evidence_ref") for t in data["tasks"]]
-    assert len([r for r in refs if r]) >= 3
+    # Suite summary stores run_id only (no result_ref / evidence_ref).
+    for row in data["tasks"]:
+        assert "result_ref" not in row
+        assert "evidence_ref" not in row
+    run_ids = [t.get("run_id") for t in data["tasks"] if t.get("run_id")]
+    assert len(run_ids) >= 3
 
 
 def test_single_task_still_works() -> None:

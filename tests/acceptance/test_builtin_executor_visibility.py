@@ -41,9 +41,7 @@ def test_sdk_session_records_attempt_container_location() -> None:
         pytest.skip("docker CLI missing")
     result = _run("sdk-session-single-actor", "sdk-session-single-actor")
     err = (result.stderr or "") + (result.stdout or "")
-    if result.returncode != 0 and (
-        "Docker daemon" in err or "Cannot connect to the Docker" in err
-    ):
+    if result.returncode != 0 and ("Docker daemon" in err or "Cannot connect to the Docker" in err):
         pytest.skip("docker daemon unavailable")
     assert result.returncode == 0, err
     data = json.loads(result.stdout)

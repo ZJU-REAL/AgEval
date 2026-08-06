@@ -107,8 +107,7 @@ def validate_database_id(database_id: str) -> None:
     if not _DATABASE_ID_RE.fullmatch(database_id):
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            "database_id charset invalid "
-            "(expected ^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$)",
+            "database_id charset invalid (expected ^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$)",
             location="/database_id",
         )
 
@@ -274,9 +273,7 @@ def _manifest_from_mapping(raw: dict[str, Any]) -> DatabaseManifest:
                 location="/defaults",
             )
         mct = defaults_raw.get("max_concurrent_tasks")
-        if mct is not None and (
-            not isinstance(mct, int) or isinstance(mct, bool) or mct < 1
-        ):
+        if mct is not None and (not isinstance(mct, int) or isinstance(mct, bool) or mct < 1):
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
                 "defaults.max_concurrent_tasks must be an integer ≥ 1",

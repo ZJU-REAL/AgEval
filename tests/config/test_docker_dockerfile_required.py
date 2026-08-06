@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError, ERROR_MISSING_REFERENCE
-from bora.config.load_and_lock import ConfigCore
 from bora.adapters.package_fs import LocalPackageReader
+from bora.config.capabilities import DeclarationCapabilityCatalog
+from bora.config.errors import ERROR_MISSING_REFERENCE, ConfigError
+from bora.config.load_and_lock import ConfigCore
 
 
 def _write_minimal_docker_pkg(root: Path, *, with_dockerfile: bool) -> None:
@@ -60,9 +60,7 @@ evaluation:
     if with_dockerfile:
         env = root / "environment"
         env.mkdir(parents=True, exist_ok=True)
-        (env / "Dockerfile").write_text(
-            "FROM bora-attempt:l1\n", encoding="utf-8"
-        )
+        (env / "Dockerfile").write_text("FROM bora-attempt:l1\n", encoding="utf-8")
 
 
 def test_docker_missing_dockerfile_fails(tmp_path: Path) -> None:
@@ -75,12 +73,9 @@ def test_docker_missing_dockerfile_fails(tmp_path: Path) -> None:
     assert "Dockerfile" in str(ei.value)
 
 
-
 def test_docker_with_environment_dockerfile_locks(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     _write_minimal_docker_pkg(pkg, with_dockerfile=True)
     core = ConfigCore(package_reader=LocalPackageReader())
-    lock = core.load_and_lock(
-        pkg, "docker-df-probe", capabilities=DeclarationCapabilityCatalog()
-    )
+    lock = core.load_and_lock(pkg, "docker-df-probe", capabilities=DeclarationCapabilityCatalog())
     assert lock.task_id == "docker-df-probe"

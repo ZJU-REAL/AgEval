@@ -172,9 +172,7 @@ class InvocationHandle:
                         final_response, extra_sentinels=self.store.sentinels
                     )
                     assert_clean(cleaned_resp, extra_sentinels=self.store.sentinels)
-                    self.store._write_json_raw(
-                        self.directory / "final-response.json", cleaned_resp
-                    )
+                    self.store._write_json_raw(self.directory / "final-response.json", cleaned_resp)
                 elif final_response is not None and status != "completed":
                     # Partial: do not write final-response; append lifecycle under lock
                     # without re-entering append_event (non-reentrant lock).
@@ -187,12 +185,8 @@ class InvocationHandle:
                         },
                         seq=self._event_seq,
                     )
-                    cleaned_partial = redact_value(
-                        partial, extra_sentinels=self.store.sentinels
-                    )
-                    self.store._append_jsonl(
-                        self.directory / "events.jsonl", cleaned_partial
-                    )
+                    cleaned_partial = redact_value(partial, extra_sentinels=self.store.sentinels)
+                    self.store._append_jsonl(self.directory / "events.jsonl", cleaned_partial)
                 self.store._write_json_raw(self.directory / "metadata.json", cleaned_meta)
                 self.status = status
                 self.sealed = True

@@ -147,6 +147,18 @@ specs/BLOCKED.md
 
 ## 校验
 
+### 何时跑 CI 门禁（必须强调）
+
+| 操作 | 是否本地先跑通 CI |
+| --- | --- |
+| **日常本地 commit** | **不需要**每次全量 CI；按改动范围跑 focused pytest / 相关检查即可 |
+| **`git push`**（尤其推到将合入 `main` 的分支） | **需要**：先本地跑通与 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) 等价的 core 门禁 |
+| **开 / 更新 PR**、**发版 / 打 tag / 发布** | **必须**先本地确认 CI 会过，再 push / 开 PR / 发版 |
+
+Agent 在协助 push、PR、发版前：**不得**假设「本地能 import」或「只改了文档」就跳过；应先跑下面 **CI 等价命令**（或明确说明已跑且通过）。失败则先修再推。
+
+### Specs / 文档工作区（任意改 Specs 时）
+
 从仓库根目录：
 
 ```bash
@@ -154,9 +166,40 @@ python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_worksp
 git diff --check
 ```
 
-实现开始后，还须运行所属 Active Spec 规定的：frozen install、Ruff、Pyright、pytest、公开 success/expected-failure smoke，以及文档同步检查。
-
 Skill 路径若本机不同，以已安装的 `spec-driven-delivery` 包内 `scripts/validate_specs_workspace.py` 为准。
+
+### CI 等价命令（push / PR / 发版前）
+
+与 GitHub Actions `ci` job 对齐（**无** Docker L1、**无**真 Agent/API e2e）：
+
+```bash
+uv sync --frozen
+uv run ruff format --check src tests
+uv run ruff check src tests
+uv run pyright
+export BORA_OFFLINE_AGENT=1 BORA_SKIP_DOCKER=1
+export BORA_SKIP_REAL_CODEX=1 BORA_SKIP_REAL_PI=1
+export BORA_SKIP_REAL_OPENCODE=1 BORA_SKIP_REAL_ACP=1
+uv run pytest \
+  --ignore=tests/e2e \
+  --ignore=tests/provider_l1 \
+  --ignore=tests/environment \
+  --ignore=tests/executors \
+  --ignore=tests/acceptance/test_provider_l1_cli.py \
+  --ignore=tests/acceptance/test_l1_package_dockerfile.py \
+  --ignore=tests/acceptance/test_l1_sdk_single_actor.py \
+  --ignore=tests/acceptance/test_l1_multi_agent_scheduling.py \
+  --ignore=tests/acceptance/test_l1_multi_agent_expected_failures.py \
+  --ignore=tests/acceptance/test_l1_multi_group_memory_context.py \
+  --ignore=tests/acceptance/test_builtin_executor_visibility.py \
+  --ignore=tests/acceptance/test_builtin_executor_conformance.py \
+  --ignore=tests/acceptance/test_hard_ceiling_cli.py \
+  --ignore=tests/acceptance/test_attempt_trajectory_cli.py \
+  --ignore=tests/runtime/test_trajectory_source_probe.py \
+  -q
+```
+
+实现 Active Spec 时，除上述 core CI 外，还须按该 Spec 补：公开 success/expected-failure smoke、文档同步，以及 Spec 点名的 L1 / 真 Agent 路径（那些**不**在默认 CI 内）。
 
 ## 相关入口
 

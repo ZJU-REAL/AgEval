@@ -80,8 +80,6 @@ def test_terminal_before_return(tmp_path: Path) -> None:
     sid = svc.open_session(profile_id="p1")["session_id"]
     r = svc.invoke(session_id=sid, prompt="one")
     # After return, metadata must already be terminal.
-    meta = json.loads(
-        (store.list_invocations()[0] / "metadata.json").read_text(encoding="utf-8")
-    )
+    meta = json.loads((store.list_invocations()[0] / "metadata.json").read_text(encoding="utf-8"))
     assert meta["status"] == "completed"
     assert r["evidence_relative"] is not None

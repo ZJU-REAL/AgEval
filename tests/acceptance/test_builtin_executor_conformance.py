@@ -15,7 +15,9 @@ REPO = Path(__file__).resolve().parents[2]
 PACKAGE = REPO / "examples" / "core"
 
 
-def _run(profile: str, *, env: dict[str, str] | None = None, timeout: float = 300) -> subprocess.CompletedProcess[str]:
+def _run(
+    profile: str, *, env: dict[str, str] | None = None, timeout: float = 300
+) -> subprocess.CompletedProcess[str]:
     e = os.environ.copy()
     if env:
         e.update(env)
@@ -134,8 +136,7 @@ def test_mixed_profile_independent_trees() -> None:
     root = Path(data["logs"])
     dirs = sorted(p for p in (root / "agent" / "invocations").iterdir() if p.is_dir())
     kinds = [
-        json.loads((d / "metadata.json").read_text(encoding="utf-8"))["executor_kind"]
-        for d in dirs
+        json.loads((d / "metadata.json").read_text(encoding="utf-8"))["executor_kind"] for d in dirs
     ]
     assert kinds == ["acp", "acp"]
     entries = [

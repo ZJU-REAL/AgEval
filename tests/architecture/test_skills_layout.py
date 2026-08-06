@@ -43,10 +43,19 @@ def test_four_skills_are_proper_packages() -> None:
         assert re.search(r"^description:\s*", fm, re.M), name
         # description should carry when-to-use triggers (loaded always)
         desc = fm.split("description:", 1)[1]
-        assert "Use when" in desc or "when" in desc.lower() or "Triggers" in desc or "triggers" in desc.lower()
+        assert (
+            "Use when" in desc
+            or "when" in desc.lower()
+            or "Triggers" in desc
+            or "triggers" in desc.lower()
+        )
         assert (skill_dir / "agents" / "openai.yaml").is_file(), name
         # progressive disclosure: at least one reference file
-        refs = list((skill_dir / "references").glob("*.md")) if (skill_dir / "references").is_dir() else []
+        refs = (
+            list((skill_dir / "references").glob("*.md"))
+            if (skill_dir / "references").is_dir()
+            else []
+        )
         assert refs, f"{name} should have references/"
 
 

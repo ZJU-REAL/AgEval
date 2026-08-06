@@ -129,9 +129,7 @@ def run_l1_sdk_session_attempt(
             kind="agent_isolation_invalid",
         )
 
-    docker, runtime, l1_meta = _prepare(
-        package_root, lock, run_dir, network_mode=network_mode
-    )
+    docker, runtime, l1_meta = _prepare(package_root, lock, run_dir, network_mode=network_mode)
     assert runtime.workdir_host is not None
     assert runtime.attempt is not None
 
@@ -261,8 +259,7 @@ def run_l1_sdk_session_attempt(
         # Spec 19: L1 coding-agent path is ACP only — no private CLI scrape residual.
         if kind != "acp":
             raise RuntimeError(
-                f"migrated_to_acp: L1 executor {kind!r} requires "
-                "executor: acp + options.entry"
+                f"migrated_to_acp: L1 executor {kind!r} requires executor: acp + options.entry"
             )
         entry_id = getattr(binding, "acp_entry_id", None)
         if not entry_id:
@@ -309,9 +306,7 @@ def run_l1_sdk_session_attempt(
         # shared_write collaboration: group-writable new files under shared GID.
         acp_argv = list(desc.acp_command)
         if phys.shared_gid is not None and phys.shared_write:
-            docker_cmd.extend(
-                ["sh", "-c", 'umask 002; exec "$@"', "bora-actor", *acp_argv]
-            )
+            docker_cmd.extend(["sh", "-c", 'umask 002; exec "$@"', "bora-actor", *acp_argv])
         else:
             docker_cmd.extend(acp_argv)
         return AcpExecutor(
@@ -781,9 +776,7 @@ def _write_evidence(
     result_doc.setdefault("logs", str(run_dir))
     # Honest execution location facts (Spec 14 / v0.15).
     containment = str(
-        agent_meta.get("executor_containment")
-        or l1_meta.get("executor_containment")
-        or "unknown"
+        agent_meta.get("executor_containment") or l1_meta.get("executor_containment") or "unknown"
     )
     if containment in {"container", "attempt-container"}:
         exec_loc = "attempt-container"
@@ -831,7 +824,6 @@ def _write_evidence(
         if not path.exists():
             path.write_text("", encoding="utf-8")
     (run_dir / "cleanup.json").write_text(
-        json.dumps({"ok": True, "warning": result_doc.get("cleanup_warning")}, indent=2)
-        + "\n",
+        json.dumps({"ok": True, "warning": result_doc.get("cleanup_warning")}, indent=2) + "\n",
         encoding="utf-8",
     )

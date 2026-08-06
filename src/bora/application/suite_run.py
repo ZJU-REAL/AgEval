@@ -108,11 +108,7 @@ def extract_run_id(database_root: Path, *candidates: object) -> str | None:
         if (
             name.startswith("sha256_")
             and "_run_" in name
-            and (
-                "/" not in text.rstrip("/")
-                or "runs" in path.parts
-                or text.startswith(".bora/")
-            )
+            and ("/" not in text.rstrip("/") or "runs" in path.parts or text.startswith(".bora/"))
         ):
             return name
         try:
@@ -245,9 +241,7 @@ async def execute_suite_run(
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
 
-    suite_dir = (
-        plan.database_root / ".bora" / "suite-runs" / plan.suite_run_id
-    )
+    suite_dir = plan.database_root / ".bora" / "suite-runs" / plan.suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     out = suite_dir / "summary.json"
     tmp = out.with_suffix(".tmp")

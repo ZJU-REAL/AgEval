@@ -142,7 +142,7 @@ def run_command(
             "--set",
             help=(
                 "Repeatable override as <JSON Pointer>=<JSON value>, e.g. "
-                "`/parameters/active_profile=\"pi-mini\"`. Allowlisted pointers only."
+                '`/parameters/active_profile="pi-mini"`. Allowlisted pointers only.'
             ),
         ),
     ] = None,
@@ -194,9 +194,7 @@ def run_command(
             )
             raise typer.Exit(code=code)
 
-        suite_summary = asyncio.run(
-            execute_suite_run(plan, overrides=overrides or None)
-        )
+        suite_summary = asyncio.run(execute_suite_run(plan, overrides=overrides or None))
     except ConfigError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
@@ -207,9 +205,7 @@ def run_command(
         typer.echo(f"runtime_error: {type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(code=2) from exc
 
-    typer.echo(
-        json.dumps(suite_summary, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    )
+    typer.echo(json.dumps(suite_summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
     raise typer.Exit(code=int(suite_summary.get("exit_code", 2)))
 
 

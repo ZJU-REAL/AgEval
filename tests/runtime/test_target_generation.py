@@ -15,9 +15,7 @@ def test_open_binds_generation() -> None:
 
         class _E:
             def invoke(self, prompt: str, **kw: object) -> AgentResult:
-                return AgentResult(
-                    model="m", text="{}", structured={"answer": 1}, ok=True
-                )
+                return AgentResult(model="m", text="{}", structured={"answer": 1}, ok=True)
 
         return _E()
 

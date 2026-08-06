@@ -201,9 +201,7 @@ def cli_credential_available(
     """
     if extra_ok:
         return True
-    env = project_cli_child_env(
-        kind, api_key_env=api_key_env, host_environ=host_environ
-    )
+    env = project_cli_child_env(kind, api_key_env=api_key_env, host_environ=host_environ)
     if api_key_env and env.get(api_key_env):
         return True
     caps = BUILTIN_CAPABILITIES.get(kind)

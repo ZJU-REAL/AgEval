@@ -131,9 +131,7 @@ def test_shared_write_absolute_rejected(tmp_path: Path) -> None:
 
 
 def test_shared_write_dotdot_rejected(tmp_path: Path) -> None:
-    bad = _BASE.replace(
-        "shared_write: [workspace/team]", "shared_write: [../outside]"
-    )
+    bad = _BASE.replace("shared_write: [workspace/team]", "shared_write: [../outside]")
     pkg = _write_pkg(tmp_path / "pkg", bad)
     with pytest.raises(ConfigError):
         ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
@@ -156,9 +154,7 @@ def test_physical_field_forbidden(tmp_path: Path) -> None:
 
 def test_implicit_topology_single_actor() -> None:
     provider = {"kind": "docker", "network": "bridge"}
-    topo = parse_logical_topology(
-        provider, profile_ids={"p1"}, implicit_profiles=["p1"]
-    )
+    topo = parse_logical_topology(provider, profile_ids={"p1"}, implicit_profiles=["p1"])
     assert topo is not None
     assert len(topo.actors) == 1
     assert topo.actors[0].actor_id == "default"

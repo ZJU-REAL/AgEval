@@ -101,9 +101,7 @@ def test_shared_container_shared_write_allow_deny(tmp_path: Path) -> None:
     assert topo is not None
     assert topo.mode == IsolationMode.SHARED_CONTAINER
     try:
-        ledger = docker.prepare_agent_targets(
-            runtime, topo, cred_root=cred, network_mode="none"
-        )
+        ledger = docker.prepare_agent_targets(runtime, topo, cred_root=cred, network_mode="none")
         a1 = ledger.actors["a1"]
         a2 = ledger.actors["a2"]
         target = ledger.targets[a1.target_id]
@@ -121,7 +119,10 @@ def test_shared_container_shared_write_allow_deny(tmp_path: Path) -> None:
                 target.container_id,
                 "sh",
                 "-c",
-                "umask 002; echo ok > /attempt/workspace/team/from_a1.txt && cat /attempt/workspace/team/from_a1.txt",
+                (
+                    "umask 002; echo ok > /attempt/workspace/team/from_a1.txt"
+                    " && cat /attempt/workspace/team/from_a1.txt"
+                ),
             ],
             check=False,
             capture_output=True,
@@ -140,7 +141,10 @@ def test_shared_container_shared_write_allow_deny(tmp_path: Path) -> None:
                 target.container_id,
                 "sh",
                 "-c",
-                "umask 002; echo peer >> /attempt/workspace/team/from_a1.txt && cat /attempt/workspace/team/from_a1.txt",
+                (
+                    "umask 002; echo peer >> /attempt/workspace/team/from_a1.txt"
+                    " && cat /attempt/workspace/team/from_a1.txt"
+                ),
             ],
             check=False,
             capture_output=True,
@@ -167,6 +171,7 @@ def test_shared_container_shared_write_allow_deny(tmp_path: Path) -> None:
         assert deny.returncode != 0
 
         # HOME private: a2 cannot read a1 home.
+        home = a1.home_container
         home_deny = subprocess.run(
             [
                 "docker",
@@ -176,7 +181,7 @@ def test_shared_container_shared_write_allow_deny(tmp_path: Path) -> None:
                 target.container_id,
                 "sh",
                 "-c",
-                f"cat {a1.home_container}/.codex/auth.json 2>/dev/null || ls -la {a1.home_container}",
+                f"cat {home}/.codex/auth.json 2>/dev/null || ls -la {home}",
             ],
             check=False,
             capture_output=True,
@@ -184,9 +189,9 @@ def test_shared_container_shared_write_allow_deny(tmp_path: Path) -> None:
         )
         # Either ls fails (permission) or cannot read private contents.
         # HOME is 0700 so ls as other user should fail.
-        assert home_deny.returncode != 0 or "Permission denied" in (
-            home_deny.stderr or ""
-        ) + (home_deny.stdout or "")
+        assert home_deny.returncode != 0 or "Permission denied" in (home_deny.stderr or "") + (
+            home_deny.stdout or ""
+        )
     finally:
         docker.cleanup(runtime)
 
@@ -208,9 +213,7 @@ def test_container_per_group_no_cross_group_workspace(tmp_path: Path) -> None:
     )
     assert topo is not None
     try:
-        ledger = docker.prepare_agent_targets(
-            runtime, topo, cred_root=cred, network_mode="none"
-        )
+        ledger = docker.prepare_agent_targets(runtime, topo, cred_root=cred, network_mode="none")
         a1 = ledger.actors["a1"]
         a2 = ledger.actors["a2"]
         t1 = ledger.targets[a1.target_id]

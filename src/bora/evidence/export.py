@@ -117,9 +117,7 @@ def export_trajectory(
                     for row in rows:
                         cleaned = redact_value(row, extra_sentinels=extra_sentinels or ())
                         assert_clean(cleaned, extra_sentinels=extra_sentinels or ())
-                        fh.write(
-                            json.dumps(cleaned, sort_keys=True, separators=(",", ":")) + "\n"
-                        )
+                        fh.write(json.dumps(cleaned, sort_keys=True, separators=(",", ":")) + "\n")
             meta = json.loads((out_inv / "metadata.json").read_text(encoding="utf-8"))
             manifest_invocations.append(
                 {
@@ -144,8 +142,7 @@ def export_trajectory(
             "invocation_count": len(manifest_invocations),
             "invocations": manifest_invocations,
             "note": (
-                "export is a re-redacted sealed copy; "
-                "score authority remains evaluator binding"
+                "export is a re-redacted sealed copy; score authority remains evaluator binding"
             ),
         }
         (staging / "manifest.json").write_text(

@@ -46,7 +46,5 @@ def test_agent_service_with_acp_offline_no_secret_in_evidence(
     )
     sid = svc.open_session(profile_id="p1")["session_id"]
     svc.invoke(session_id=sid, prompt="hi")
-    blob = "\n".join(
-        p.read_text(encoding="utf-8") for p in store.root.rglob("*") if p.is_file()
-    )
+    blob = "\n".join(p.read_text(encoding="utf-8") for p in store.root.rglob("*") if p.is_file())
     assert "SENTINEL_ACP_KEY_NOT_FOR_DISK" not in blob

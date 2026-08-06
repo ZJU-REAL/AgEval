@@ -44,9 +44,7 @@ def test_real_acp_opencode_events_when_available(tmp_path: Path) -> None:
         pytest.skip("offline forced")
 
     store = AttemptEvidenceStore(root=tmp_path / "ev", attempt_id="probe")
-    h = store.begin_invocation(
-        profile_id="p", executor_kind="acp", model="entry-default"
-    )
+    h = store.begin_invocation(profile_id="p", executor_kind="acp", model="entry-default")
     h.write_request(
         {
             "messages": [{"role": "user", "content": 'Reply with JSON {"ok":true} only.'}],

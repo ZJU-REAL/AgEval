@@ -39,11 +39,7 @@ class OpenAIHTTPExecutor:
         del workdir, collect_dir, redaction_sentinels  # unused on HTTP path
         key_env = self.api_key_env or _DEFAULT_KEY_ENV
         key = os.environ.get(key_env, "")
-        base = (
-            self.base_url
-            or os.environ.get("BORA_OPENAI_BASE_URL")
-            or _DEFAULT_BASE
-        )
+        base = self.base_url or os.environ.get("BORA_OPENAI_BASE_URL") or _DEFAULT_BASE
         # Allow explicit empty-key local mock servers only when base_url is loopback.
         if not key and "127.0.0.1" not in base and "localhost" not in base:
             return AgentResult(

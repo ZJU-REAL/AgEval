@@ -2,22 +2,24 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from bora.adapters.agent_container import ContainerCLIExecutor, effective_run_gid
 from bora.provider.targets import ActorPhysicalBinding, ExecutionTarget
 
 
-def _binding(**kw):
-    base = dict(
-        actor_id="a1",
-        group_id="g1",
-        target_id="tgt_1",
-        uid=12000,
-        gid=12000,
-        home_container="/actor-homes/a1",
-        generation=1,
+def _binding(**kw: Any) -> ActorPhysicalBinding:
+    return ActorPhysicalBinding(
+        actor_id=kw.get("actor_id", "a1"),
+        group_id=kw.get("group_id", "g1"),
+        target_id=kw.get("target_id", "tgt_1"),
+        uid=kw.get("uid", 12000),
+        gid=kw.get("gid", 12000),
+        home_container=kw.get("home_container", "/actor-homes/a1"),
+        shared_gid=kw.get("shared_gid"),
+        shared_write=kw.get("shared_write", ()),
+        generation=kw.get("generation", 1),
     )
-    base.update(kw)
-    return ActorPhysicalBinding(**base)
 
 
 def test_target_dead_fail_closed() -> None:

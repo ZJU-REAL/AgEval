@@ -23,9 +23,7 @@ WhichFn = Callable[[str], str | None]
 
 
 def supported_executor_kinds() -> list[str]:
-    return sorted(
-        set(BUILTIN_CAPABILITIES) | set(discover_executor_kinds()) | set(_API_ALIASES)
-    )
+    return sorted(set(BUILTIN_CAPABILITIES) | set(discover_executor_kinds()) | set(_API_ALIASES))
 
 
 def probe_binary(
@@ -146,9 +144,7 @@ def build_executor_inventory(
 ) -> dict[str, Any]:
     supported = supported_executor_kinds()
     rows = [describe_executor(k, which=which, verbose=verbose) for k in supported]
-    acp_rows = [
-        describe_acp_entry(eid, which=which, verbose=verbose) for eid in list_entry_ids()
-    ]
+    acp_rows = [describe_acp_entry(eid, which=which, verbose=verbose) for eid in list_entry_ids()]
     for row in rows:
         if row.get("kind") == "acp":
             row["host_ready"] = any(r.get("host_ready") for r in acp_rows)
@@ -158,9 +154,7 @@ def build_executor_inventory(
     return {
         "supported": supported,
         "host_ready": sorted(r["kind"] for r in rows if r.get("host_ready")),
-        "missing_binary": sorted(
-            r["kind"] for r in rows if r.get("binary_on_path") is False
-        ),
+        "missing_binary": sorted(r["kind"] for r in rows if r.get("binary_on_path") is False),
         "executors": rows,
         "acp_entries": acp_rows,
     }

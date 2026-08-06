@@ -85,9 +85,7 @@ def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object) -> None
     )
     r = ex.invoke("hi", timeout=5)
     assert r.ok is False
-    assert "adapter_missing" in str(r.error) or "adapter-missing" in str(r.error).replace(
-        "_", "-"
-    )
+    assert "adapter_missing" in str(r.error) or "adapter-missing" in str(r.error).replace("_", "-")
 
 
 def test_offline_cli_subprocess_nonzero() -> None:

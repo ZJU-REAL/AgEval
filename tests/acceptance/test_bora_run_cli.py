@@ -27,14 +27,43 @@ def _bora(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_agent_package_offline_fail_closed() -> None:
-    """With BORA_OFFLINE_AGENT=1, do not fabricate PASS for Codex packages."""
+    """With BORA_OFFLINE_AGENT=1, do not fabricate PASS for agent packages."""
     result = _bora("run", str(REPO / "examples" / "core"), "--task", "sdk-agent-session")
     # Fail-closed: harness missing agent result or evaluation ERROR — never silent PASS.
     assert result.returncode != 0, result.stdout
     if result.stdout.strip():
         data = json.loads(result.stdout)
         assert data["status"] in {"ERROR", "FAIL"}
+        assert data.get("score") in (None, 0, 0.0)
         assert data.get("harness_kind") in {"failed", "completed", "unknown"}
+
+
+def test_offline_plus_session_stub_not_pass() -> None:
+    """Stub env must not manufacture PASS under offline (session authority)."""
+    env = os.environ.copy()
+    env["BORA_OFFLINE_AGENT"] = "1"
+    env["BORA_SDK_SESSION_STUB"] = "1"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "bora.cli.main",
+            "run",
+            str(REPO / "examples" / "core"),
+            "--task",
+            "sdk-agent-session",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(REPO),
+        env=env,
+        timeout=120,
+    )
+    assert result.returncode != 0, result.stdout
+    data = json.loads(result.stdout)
+    assert data["status"] != "PASS"
+    assert data.get("score") in (None, 0, 0.0)
 
 
 def test_stale_agent_result_cannot_force_pass(tmp_path: Path) -> None:
@@ -45,7 +74,7 @@ def test_stale_agent_result_cannot_force_pass(tmp_path: Path) -> None:
     db.mkdir()
     (db / "bora.yaml").write_text(
         "format: bora.database/1\n"
-        'database_id: test/stale-agent\n'
+        "database_id: test/stale-agent\n"
         'version: "0.0.1"\n'
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
@@ -61,19 +90,6 @@ def test_stale_agent_result_cannot_force_pass(tmp_path: Path) -> None:
     assert data["status"] in {"ERROR", "FAIL"}
     # Stale file must be cleared before attempt; must not survive as success material.
     assert not stale.is_file() or data["status"] != "PASS"
-
-
-def test_sdk_agent_session_offline_no_stub_pass() -> None:
-    """AgentSession must not manufacture answer:42 offline (Codex B-01)."""
-    result = _bora(
-        "run",
-        str(REPO / "examples" / "core"),
-        "--task",
-        "sdk-agent-session",
-    )
-    assert result.returncode != 0, result.stdout
-    data = json.loads(result.stdout)
-    assert data["status"] != "PASS"
 
 
 def test_unknown_task() -> None:

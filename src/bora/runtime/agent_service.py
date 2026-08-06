@@ -76,14 +76,9 @@ class ParentAgentService:
         self._remaining = max(0, int(self.agent_invocation_limit))
 
     def _wall_expired(self) -> bool:
-        return (
-            self.deadline_monotonic is not None
-            and time.monotonic() >= self.deadline_monotonic
-        )
+        return self.deadline_monotonic is not None and time.monotonic() >= self.deadline_monotonic
 
-    def open_session(
-        self, *, profile_id: str, actor_id: str | None = None
-    ) -> dict[str, Any]:
+    def open_session(self, *, profile_id: str, actor_id: str | None = None) -> dict[str, Any]:
         if self._wall_expired():
             return {"ok": False, "error": "wall_time_exceeded", "profile_id": profile_id}
         if self.require_actor_id and (not actor_id or not str(actor_id).strip()):
@@ -463,13 +458,9 @@ class ParentAgentService:
             # Prefer executor-written file; else synthesize. Stamp turn_index
             # from completed+1 (this invocation's 1-based seq within attempt).
             meta = getattr(result, "metadata", None)
-            if not isinstance(meta, dict):
-                meta = {}
-            else:
-                meta = dict(meta)
+            meta = {} if not isinstance(meta, dict) else dict(meta)
             meta.setdefault("turn_index", self.invocations_completed + 1)
             is_acp = meta.get("executor_kind") == "acp" or kind == "acp"
-            traj_path = handle.directory / "trajectory.jsonl"
             if is_acp:
                 from bora.adapters.agent_acp import write_trajectory_jsonl
 
@@ -679,9 +670,7 @@ class AgentServiceServer:
             # Client-supplied attempt_id is ignored; parent binding is authoritative.
             actor_raw = req.get("actor_id")
             actor_id = (
-                str(actor_raw).strip()
-                if isinstance(actor_raw, str) and actor_raw.strip()
-                else None
+                str(actor_raw).strip() if isinstance(actor_raw, str) and actor_raw.strip() else None
             )
             return self.service.open_session(
                 profile_id=str(req.get("profile_id") or ""),

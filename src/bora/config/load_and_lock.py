@@ -671,9 +671,7 @@ class ConfigCore:
                         "profile.base_url must be a non-empty string when set",
                         location=f"{loc}/base_url",
                     )
-                if not (
-                    base_url.startswith("https://") or base_url.startswith("http://")
-                ):
+                if not (base_url.startswith("https://") or base_url.startswith("http://")):
                     raise ConfigError(
                         ERROR_INVALID_SCHEMA,
                         "profile.base_url must start with http:// or https://",

@@ -16,7 +16,15 @@ PKG = ROOT / "examples" / "l1"
 @pytest.mark.skipif(not PKG.is_dir(), reason="example package missing")
 def test_lock_sdk_session_single_actor() -> None:
     proc = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "lock", str(PKG), "--task", "sdk-session-single-actor"],
+        [
+            sys.executable,
+            "-m",
+            "bora.cli.main",
+            "lock",
+            str(PKG),
+            "--task",
+            "sdk-session-single-actor",
+        ],
         cwd=str(ROOT),
         capture_output=True,
         text=True,

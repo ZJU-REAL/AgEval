@@ -10,9 +10,7 @@ import os
 import re
 from pathlib import Path
 
-_LINE_RE = re.compile(
-    r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$"
-)
+_LINE_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$")
 
 
 def _strip_value(raw: str) -> str:
@@ -81,8 +79,7 @@ def load_host_env_files(*, package_root: Path) -> list[str]:
         if resolved in seen:
             continue
         seen.add(resolved)
-        n = apply_dotenv_file(resolved, override=False)
-        if n or resolved.is_file():
-            if resolved.is_file():
-                loaded.append(str(resolved))
+        apply_dotenv_file(resolved, override=False)
+        if resolved.is_file():
+            loaded.append(str(resolved))
     return loaded

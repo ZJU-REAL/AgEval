@@ -205,7 +205,7 @@ def _auto_approve_permission(options: Sequence[Any]) -> Any:
     if not option_id:
         option_id = "allow"
     return acp.RequestPermissionResponse(
-        outcome=AllowedOutcome(optionId=str(option_id), outcome="selected")
+        outcome=AllowedOutcome(option_id=str(option_id), outcome="selected")
     )
 
 
@@ -269,9 +269,7 @@ class _BoraAcpClient:
 
         content = getattr(update, "content", None)
         text = getattr(content, "text", None) if content is not None else None
-        is_agent_msg = "AgentMessage" in update_type or update_type.endswith(
-            "AgentMessageChunk"
-        )
+        is_agent_msg = "AgentMessage" in update_type or update_type.endswith("AgentMessageChunk")
         is_thought = "Thought" in update_type or update_type.endswith("AgentThoughtChunk")
         if isinstance(text, str):
             event["text"] = text
@@ -392,9 +390,10 @@ class AcpExecutor:
         self.model = model
         self.base_url = base_url
         self.api_key_env = api_key_env
-        self.descriptor = descriptor or get_entry(entry_id)
-        if self.descriptor is None:
+        resolved = descriptor if descriptor is not None else get_entry(entry_id)
+        if resolved is None:
             raise KeyError(f"unknown_acp_entry:{entry_id}")
+        self.descriptor: AcpEntryDescriptor = resolved
         self.workdir = workdir
         self._extra_env = dict(env or {})
         self._process_launcher = process_launcher
@@ -466,9 +465,7 @@ class AcpExecutor:
             # Host entry uses package workdir. docker-exec override must not
             # chdir the docker client into a container path.
             spawn_cwd = None if self._command_override else cwd
-            self._cm = spawn_agent_process(
-                client, command, *args, env=env, cwd=spawn_cwd
-            )
+            self._cm = spawn_agent_process(client, command, *args, env=env, cwd=spawn_cwd)
             self._conn, self._process = await self._cm.__aenter__()
 
         from acp.schema import Implementation
@@ -610,9 +607,7 @@ class AcpExecutor:
         # Elicitation decline may have been recorded
         elicited = any(e.get("type") == "elicitation" for e in self._client.events[-5:])
         if elicited and not text:
-            return self._result(
-                text=text, ok=False, error="acp_elicitation_required", stop=stop
-            )
+            return self._result(text=text, ok=False, error="acp_elicitation_required", stop=stop)
         return self._result(text=text, ok=ok, error=err, stop=stop)
 
     def _result(
@@ -762,8 +757,7 @@ class AcpExecutor:
             if result.events:
                 (root / "acp_events.jsonl").write_text(
                     "\n".join(
-                        json.dumps(e, ensure_ascii=False, sort_keys=True)
-                        for e in result.events
+                        json.dumps(e, ensure_ascii=False, sort_keys=True) for e in result.events
                     )
                     + "\n",
                     encoding="utf-8",

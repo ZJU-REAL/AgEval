@@ -1,5 +1,4 @@
-"""Stable Agent outlet contract shared by ACP and openai-http executors.
-"""
+"""Stable Agent outlet contract shared by ACP and openai-http executors."""
 
 from __future__ import annotations
 

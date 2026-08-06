@@ -35,15 +35,12 @@ def test_api_key_locator_aliases_per_kind() -> None:
         "HOME": "/h",
         "glm_coding_api_key": "secret-glm",
     }
-    pi_env = project_cli_child_env(
-        "pi", api_key_env="glm_coding_api_key", host_environ=host
-    )
+    pi_env = project_cli_child_env("pi", api_key_env="glm_coding_api_key", host_environ=host)
     assert pi_env["glm_coding_api_key"] == "secret-glm"
     assert pi_env["ZAI_API_KEY"] == "secret-glm"
     assert pi_env["ZAI_CODING_CN_API_KEY"] == "secret-glm"
     assert pi_env["ANTHROPIC_AUTH_TOKEN"] == "secret-glm"
     assert pi_env["OPENCODE_API_KEY"] == "secret-glm"
-
 
     claude_env = project_cli_child_env(
         "claude-code", api_key_env="glm_coding_api_key", host_environ=host
@@ -65,9 +62,7 @@ def test_credential_available() -> None:
     assert cli_credential_available("opencode", host_environ=host)
     assert not cli_credential_available("claude-code", host_environ=host)
     host2 = {**host, "MY_KEY": "x"}
-    assert cli_credential_available(
-        "claude-code", api_key_env="MY_KEY", host_environ=host2
-    )
+    assert cli_credential_available("claude-code", api_key_env="MY_KEY", host_environ=host2)
 
 
 def test_acp_entry_credential_allowlist_projection() -> None:

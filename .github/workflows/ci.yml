@@ -1,0 +1,68 @@
+# Core PR/main gate: freeze install, Ruff, Pyright, offline pytest.
+# Does not run Docker L1, real Agent/API e2e, or docs formatters.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Python
+        run: uv python install 3.12
+
+      - name: Install dependencies (frozen)
+        run: uv sync --frozen
+
+      - name: Ruff format
+        run: uv run ruff format --check src tests
+
+      - name: Ruff check
+        run: uv run ruff check src tests
+
+      - name: Pyright
+        run: uv run pyright
+
+      # Core only: unit + offline acceptance. No Docker L1, no real agent CLIs.
+      - name: Pytest (core)
+        env:
+          BORA_OFFLINE_AGENT: "1"
+          BORA_SKIP_DOCKER: "1"
+          BORA_SKIP_REAL_CODEX: "1"
+          BORA_SKIP_REAL_PI: "1"
+          BORA_SKIP_REAL_OPENCODE: "1"
+          BORA_SKIP_REAL_ACP: "1"
+        run: |
+          uv run pytest \
+            --ignore=tests/e2e \
+            --ignore=tests/provider_l1 \
+            --ignore=tests/environment \
+            --ignore=tests/executors \
+            --ignore=tests/acceptance/test_provider_l1_cli.py \
+            --ignore=tests/acceptance/test_l1_package_dockerfile.py \
+            --ignore=tests/acceptance/test_l1_sdk_single_actor.py \
+            --ignore=tests/acceptance/test_l1_multi_agent_scheduling.py \
+            --ignore=tests/acceptance/test_l1_multi_agent_expected_failures.py \
+            --ignore=tests/acceptance/test_l1_multi_group_memory_context.py \
+            --ignore=tests/acceptance/test_builtin_executor_visibility.py \
+            --ignore=tests/acceptance/test_builtin_executor_conformance.py \
+            --ignore=tests/acceptance/test_hard_ceiling_cli.py \
+            --ignore=tests/acceptance/test_attempt_trajectory_cli.py \
+            --ignore=tests/runtime/test_trajectory_source_probe.py \
+            -q
