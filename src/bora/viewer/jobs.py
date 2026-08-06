@@ -73,9 +73,13 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
     n_tasks = int(metrics.get("n_tasks") or len(refs) or 0)
     n_done = int(metrics.get("n_pass") or 0) + int(metrics.get("n_fail") or 0)
     # Trials fraction: completed / planned
-    trials_done = n_done if n_done else int(metrics.get("n_pass") or 0) + int(
-        metrics.get("n_fail") or 0
-    ) + int(metrics.get("n_error") or 0)
+    trials_done = (
+        n_done
+        if n_done
+        else int(metrics.get("n_pass") or 0)
+        + int(metrics.get("n_fail") or 0)
+        + int(metrics.get("n_error") or 0)
+    )
     if trials_done == 0 and n_tasks:
         trials_done = n_tasks  # full suite summary usually has all rows
         # Prefer counting actual refs
@@ -89,13 +93,10 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
         "job_id": str(summary.get("suite_run_id") or suite_dir.name),
         "job_name": str(summary.get("suite_run_id") or suite_dir.name),
         "source": str(
-            summary.get("database_id")
-            or (man.database_id if man else "")
-            or database_root.name
+            summary.get("database_id") or (man.database_id if man else "") or database_root.name
         ),
         "database_id": summary.get("database_id") or (man.database_id if man else None),
-        "database_version": summary.get("database_version")
-        or (man.version if man else None),
+        "database_version": summary.get("database_version") or (man.version if man else None),
         "agent_label": str(summary.get("agent_label") or ""),
         "model_label": str(summary.get("model_label") or ""),
         "provider_label": str(summary.get("provider_label") or ""),
@@ -111,8 +112,7 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
         "exit_code": summary.get("exit_code"),
         "task_count": n_tasks or len(refs),
         "summary_path": str(suite_dir / "summary.json"),
-        "note": summary.get("note")
-        or "per-task evaluator verdicts only; no suite-level PASS",
+        "note": summary.get("note") or "per-task evaluator verdicts only; no suite-level PASS",
     }
 
 
@@ -243,8 +243,7 @@ def get_job_task(database_root: Path, job_id: str, task_id: str) -> dict[str, An
         "trials": [trial],
         "agent_label": match.get("agent_label") or job_payload["job"].get("agent_label"),
         "model_label": match.get("model_label") or job_payload["job"].get("model_label"),
-        "provider_label": match.get("provider_label")
-        or job_payload["job"].get("provider_label"),
+        "provider_label": match.get("provider_label") or job_payload["job"].get("provider_label"),
         "dataset": match.get("dataset") or job_payload["job"].get("source"),
         "commands": cmds,
         "run_command": run_cmd,

@@ -49,9 +49,7 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
         "exit_code": 1,
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
-    (suite_dir / "summary.json").write_text(
-        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
-    )
+    (suite_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return job_id
 
 

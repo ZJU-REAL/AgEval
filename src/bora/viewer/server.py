@@ -32,9 +32,7 @@ def static_dir() -> Path:
     for candidate in (repo_dist, pkg_data):
         if candidate.is_dir() and (candidate / "index.html").is_file():
             return candidate
-    raise FileNotFoundError(
-        "viewer SPA not found (from apps/viewer: pnpm build → dist/)"
-    )
+    raise FileNotFoundError("viewer SPA not found (from apps/viewer: pnpm build → dist/)")
 
 
 def _json(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
