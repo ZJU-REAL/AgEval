@@ -1,6 +1,19 @@
 format: bora.task/1
 task_id: terminal-jsonl-agg
 
+# Terminal-style workspace file → independent eval (terminal-bench case class, not an adapter).
+provenance:
+  kind: reimplementation
+  upstream:
+    name: terminal-bench
+    url: https://github.com/laude-institute/terminal-bench
+    ref: main
+  parity:
+    claims: [protocol]
+    known_gaps:
+      - single synthetic jsonl-agg task; not Terminal-Bench task suite
+      - no TerminalBenchAdapter; BORA Core surfaces only
+
 harness:
   runtime: python
   entrypoint: harness:run

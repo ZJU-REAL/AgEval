@@ -1,6 +1,19 @@
 format: bora.task/1
 task_id: tau2-dialog-min
 
+# Inspired by τ-bench retail dialog (user-sim + service tools); BORA journey mini-package.
+provenance:
+  kind: reimplementation
+  upstream:
+    name: tau2-bench
+    url: https://github.com/sierra-research/tau2-bench
+    ref: main
+  parity:
+    claims: [protocol]
+    known_gaps:
+      - minimal BORA case class, not full tau2 suite or task pin
+      - synthetic retail fixture; not upstream scenario dump
+
 harness:
   runtime: python
   entrypoint: harness:run
