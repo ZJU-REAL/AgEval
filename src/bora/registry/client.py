@@ -329,6 +329,96 @@ class RegistryClient:
             raise RegistryError("list_failed", "invalid list response")
         return [item for item in items if isinstance(item, dict)]
 
+    def upload_suite(
+        self,
+        *,
+        suite_run_id: str,
+        database_id: str,
+        database_version: str,
+        visibility: str,
+        pass_rate: float,
+        mean_score: float,
+        metrics: dict[str, Any],
+        task_refs: list[dict[str, Any]],
+        agent_label: str,
+        model_label: str,
+        exit_code: int,
+        blob_digest: str,
+        size: int,
+        archive: bytes,
+    ) -> dict[str, Any]:
+        meta = {
+            "suite_run_id": suite_run_id,
+            "database_id": database_id,
+            "database_version": database_version,
+            "visibility": visibility,
+            "pass_rate": pass_rate,
+            "mean_score": mean_score,
+            "metrics": metrics,
+            "task_refs": task_refs,
+            "agent_label": agent_label,
+            "model_label": model_label,
+            "exit_code": exit_code,
+            "blob_digest": blob_digest,
+            "size": size,
+        }
+        import secrets as _secrets
+
+        boundary = f"bora-suite-{_secrets.token_hex(12)}"
+        body = b""
+        body += f"--{boundary}\r\n".encode()
+        body += b'Content-Disposition: form-data; name="metadata"\r\n'
+        body += b"Content-Type: application/json\r\n\r\n"
+        body += json.dumps(meta, sort_keys=True).encode("utf-8")
+        body += b"\r\n"
+        body += f"--{boundary}\r\n".encode()
+        body += b'Content-Disposition: form-data; name="archive"; filename="suite.tar.gz"\r\n'
+        body += b"Content-Type: application/octet-stream\r\n\r\n"
+        body += archive
+        body += b"\r\n"
+        body += f"--{boundary}--\r\n".encode()
+        headers = self._headers(
+            content_type=f"multipart/form-data; boundary={boundary}",
+            auth=True,
+        )
+        http_status, raw, _ = self._request(
+            "POST", "/v1/results/suites", body=body, headers=headers
+        )
+        if http_status not in {200, 201}:
+            raise RegistryError(
+                "upload_failed", f"unexpected status {http_status}", status=http_status
+            )
+        return json.loads(raw.decode("utf-8"))
+
+    def get_suite(self, suite_run_id: str) -> dict[str, Any]:
+        path = f"/v1/results/suites/{quote(suite_run_id, safe='')}"
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("not_found", f"suite not found ({status})", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def fetch_suite_content(self, suite_run_id: str) -> bytes:
+        path = f"/v1/results/suites/{quote(suite_run_id, safe='')}/content"
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("not_found", f"content not found ({status})", status=status)
+        return raw
+
+    def list_suites(self, *, database_id: str | None = None) -> list[dict[str, Any]]:
+        from urllib.parse import urlencode
+
+        path = "/v1/results/suites"
+        if database_id:
+            path = f"{path}?{urlencode({'database_id': database_id})}"
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("list_failed", f"status {status}", status=status)
+        data = json.loads(raw.decode("utf-8"))
+        items = data.get("items") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            raise RegistryError("list_failed", "invalid list response")
+        return [item for item in items if isinstance(item, dict)]
+
     @staticmethod
     def _release_from_dict(data: Any) -> ReleaseInfo:
         if not isinstance(data, dict):

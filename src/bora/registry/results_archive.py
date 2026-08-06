@@ -33,6 +33,33 @@ def build_attempt_archive(run_dir: Path, *, run_id: str) -> tuple[bytes, str, in
         rel = path.relative_to(root).as_posix()
         members.append((f"{prefix}/{rel}", path))
 
+    return _pack_tree(members)
+
+
+def extract_attempt_archive(archive: bytes, dest_root: Path) -> Path:
+    """Extract into *dest_root*; return path to ``.bora/runs/<run_id>`` if found."""
+    dest = dest_root.expanduser().resolve(strict=False)
+    dest.mkdir(parents=True, exist_ok=True)
+    with (
+        gzip.GzipFile(fileobj=io.BytesIO(archive), mode="rb") as gz,
+        tarfile.open(fileobj=gz, mode="r:") as tar,
+    ):
+        try:
+            tar.extractall(path=dest, filter="data")  # type: ignore[call-arg]
+        except TypeError:
+            tar.extractall(path=dest)
+    runs = dest / ".bora" / "runs"
+    if runs.is_dir():
+        children = [p for p in runs.iterdir() if p.is_dir()]
+        if len(children) == 1:
+            return children[0]
+    return dest
+
+
+SUITE_MEDIA_TYPE = "application/vnd.bora.suite-result.v1.tar+gzip"
+
+
+def _pack_tree(members: list[tuple[str, Path]]) -> tuple[bytes, str, int]:
     tar_buf = io.BytesIO()
     with tarfile.open(fileobj=tar_buf, mode="w", format=tarfile.PAX_FORMAT) as tar:
         seen_dirs: set[str] = set()
@@ -71,8 +98,26 @@ def build_attempt_archive(run_dir: Path, *, run_id: str) -> tuple[bytes, str, in
     return archive, digest, len(archive)
 
 
-def extract_attempt_archive(archive: bytes, dest_root: Path) -> Path:
-    """Extract into *dest_root*; return path to ``.bora/runs/<run_id>`` if found."""
+def build_suite_archive(suite_dir: Path, *, suite_run_id: str) -> tuple[bytes, str, int]:
+    """Pack ``suite_dir`` as ``.bora/suite-runs/<suite_run_id>/…``."""
+    root = suite_dir.expanduser().resolve(strict=True)
+    if not root.is_dir():
+        msg = f"suite directory not found: {root}"
+        raise FileNotFoundError(msg)
+
+    prefix = f".bora/suite-runs/{suite_run_id}"
+    members: list[tuple[str, Path]] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(root).as_posix()
+        members.append((f"{prefix}/{rel}", path))
+
+    return _pack_tree(members)
+
+
+def extract_suite_archive(archive: bytes, dest_root: Path) -> Path:
+    """Extract suite bundle; return path to ``.bora/suite-runs/<id>`` if found."""
     dest = dest_root.expanduser().resolve(strict=False)
     dest.mkdir(parents=True, exist_ok=True)
     with (
@@ -83,9 +128,9 @@ def extract_attempt_archive(archive: bytes, dest_root: Path) -> Path:
             tar.extractall(path=dest, filter="data")  # type: ignore[call-arg]
         except TypeError:
             tar.extractall(path=dest)
-    runs = dest / ".bora" / "runs"
-    if runs.is_dir():
-        children = [p for p in runs.iterdir() if p.is_dir()]
+    suites = dest / ".bora" / "suite-runs"
+    if suites.is_dir():
+        children = [p for p in suites.iterdir() if p.is_dir()]
         if len(children) == 1:
             return children[0]
     return dest

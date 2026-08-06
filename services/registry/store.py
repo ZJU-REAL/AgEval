@@ -50,6 +50,30 @@ class AttemptResultRow:
     created_at: float
 
 
+@dataclass(frozen=True, slots=True)
+class SuiteResultRow:
+    """Suite/job result row: aggregates + per-task refs (not suite PASS).
+
+    Observational leaderboard input for Hub SPA (#22 S5). PASS remains
+    per-task evaluator only.
+    """
+
+    suite_run_id: str
+    database_id: str
+    database_version: str
+    visibility: str
+    pass_rate: float
+    mean_score: float
+    metrics_json: str
+    tasks_json: str
+    agent_label: str
+    model_label: str
+    blob_digest: str
+    size: int
+    exit_code: int
+    created_at: float
+
+
 # ---------------------------------------------------------------------------
 # Blob
 # ---------------------------------------------------------------------------
@@ -421,6 +445,26 @@ class MetadataStore:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS suite_results (
+                    suite_run_id TEXT PRIMARY KEY,
+                    database_id TEXT NOT NULL,
+                    database_version TEXT NOT NULL,
+                    visibility TEXT NOT NULL,
+                    pass_rate REAL NOT NULL,
+                    mean_score REAL NOT NULL,
+                    metrics_json TEXT NOT NULL,
+                    tasks_json TEXT NOT NULL,
+                    agent_label TEXT NOT NULL DEFAULT '',
+                    model_label TEXT NOT NULL DEFAULT '',
+                    blob_digest TEXT NOT NULL,
+                    size INTEGER NOT NULL,
+                    exit_code INTEGER NOT NULL DEFAULT 0,
+                    created_at REAL NOT NULL
+                )
+                """
+            )
             conn.commit()
 
     def insert(self, row: ReleaseRow) -> None:
@@ -562,6 +606,69 @@ class MetadataStore:
             )
             return [self._attempt_row(r) for r in cur.fetchall()]
 
+    def insert_suite(self, row: SuiteResultRow) -> None:
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO suite_results(
+                        suite_run_id, database_id, database_version, visibility,
+                        pass_rate, mean_score, metrics_json, tasks_json,
+                        agent_label, model_label, blob_digest, size,
+                        exit_code, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row.suite_run_id,
+                        row.database_id,
+                        row.database_version,
+                        row.visibility,
+                        row.pass_rate,
+                        row.mean_score,
+                        row.metrics_json,
+                        row.tasks_json,
+                        row.agent_label,
+                        row.model_label,
+                        row.blob_digest,
+                        row.size,
+                        row.exit_code,
+                        row.created_at,
+                    ),
+                )
+                conn.commit()
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("suite result already exists") from exc
+
+    def get_suite(self, suite_run_id: str) -> SuiteResultRow | None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM suite_results WHERE suite_run_id=?",
+                (suite_run_id,),
+            )
+            r = cur.fetchone()
+            return self._suite_row(r) if r else None
+
+    def list_suites(
+        self,
+        *,
+        database_id: str | None = None,
+        include_private: bool = False,
+    ) -> list[SuiteResultRow]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if not include_private:
+            clauses.append("visibility = 'public'")
+        if database_id:
+            clauses.append("database_id = ?")
+            params.append(database_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT * FROM suite_results {where} ORDER BY created_at DESC",
+                params,
+            )
+            return [self._suite_row(r) for r in cur.fetchall()]
+
     @staticmethod
     def _release_row(r: sqlite3.Row) -> ReleaseRow:
         return ReleaseRow(
@@ -586,6 +693,25 @@ class MetadataStore:
             visibility=r["visibility"],
             blob_digest=r["blob_digest"],
             size=int(r["size"]),
+            created_at=float(r["created_at"]),
+        )
+
+    @staticmethod
+    def _suite_row(r: sqlite3.Row) -> SuiteResultRow:
+        return SuiteResultRow(
+            suite_run_id=r["suite_run_id"],
+            database_id=r["database_id"],
+            database_version=r["database_version"],
+            visibility=r["visibility"],
+            pass_rate=float(r["pass_rate"]),
+            mean_score=float(r["mean_score"]),
+            metrics_json=str(r["metrics_json"]),
+            tasks_json=str(r["tasks_json"]),
+            agent_label=str(r["agent_label"] or ""),
+            model_label=str(r["model_label"] or ""),
+            blob_digest=r["blob_digest"],
+            size=int(r["size"]),
+            exit_code=int(r["exit_code"]),
             created_at=float(r["created_at"]),
         )
 
@@ -641,6 +767,26 @@ class PostgresMetadataStore:
                     visibility TEXT NOT NULL CHECK (visibility IN ('public', 'private')),
                     blob_digest TEXT NOT NULL,
                     size BIGINT NOT NULL,
+                    created_at DOUBLE PRECISION NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS suite_results (
+                    suite_run_id TEXT PRIMARY KEY,
+                    database_id TEXT NOT NULL,
+                    database_version TEXT NOT NULL,
+                    visibility TEXT NOT NULL CHECK (visibility IN ('public', 'private')),
+                    pass_rate DOUBLE PRECISION NOT NULL,
+                    mean_score DOUBLE PRECISION NOT NULL,
+                    metrics_json TEXT NOT NULL,
+                    tasks_json TEXT NOT NULL,
+                    agent_label TEXT NOT NULL DEFAULT '',
+                    model_label TEXT NOT NULL DEFAULT '',
+                    blob_digest TEXT NOT NULL,
+                    size BIGINT NOT NULL,
+                    exit_code INTEGER NOT NULL DEFAULT 0,
                     created_at DOUBLE PRECISION NOT NULL
                 )
                 """
@@ -799,6 +945,76 @@ class PostgresMetadataStore:
             cols = [d.name for d in cur.description] if cur.description else []
             return [self._attempt_from_cols(cols, r) for r in rows]
 
+    def insert_suite(self, row: SuiteResultRow) -> None:
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO suite_results(
+                        suite_run_id, database_id, database_version, visibility,
+                        pass_rate, mean_score, metrics_json, tasks_json,
+                        agent_label, model_label, blob_digest, size,
+                        exit_code, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        row.suite_run_id,
+                        row.database_id,
+                        row.database_version,
+                        row.visibility,
+                        row.pass_rate,
+                        row.mean_score,
+                        row.metrics_json,
+                        row.tasks_json,
+                        row.agent_label,
+                        row.model_label,
+                        row.blob_digest,
+                        row.size,
+                        row.exit_code,
+                        row.created_at,
+                    ),
+                )
+                conn.commit()
+            except Exception as exc:
+                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
+                    raise ValueError("suite result already exists") from exc
+                raise
+
+    def get_suite(self, suite_run_id: str) -> SuiteResultRow | None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM suite_results WHERE suite_run_id=%s",
+                (suite_run_id,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            cols = [d.name for d in cur.description] if cur.description else []
+            return self._suite_from_cols(cols, r)
+
+    def list_suites(
+        self,
+        *,
+        database_id: str | None = None,
+        include_private: bool = False,
+    ) -> list[SuiteResultRow]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if not include_private:
+            clauses.append("visibility = 'public'")
+        if database_id:
+            clauses.append("database_id = %s")
+            params.append(database_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT * FROM suite_results {where} ORDER BY created_at DESC",
+                params,
+            )
+            rows = cur.fetchall()
+            cols = [d.name for d in cur.description] if cur.description else []
+            return [self._suite_from_cols(cols, r) for r in rows]
+
     @staticmethod
     def _release_from_cur(cur: Any, r: Any) -> ReleaseRow:
         cols = [d.name for d in cur.description]
@@ -833,6 +1049,26 @@ class PostgresMetadataStore:
             created_at=float(d["created_at"]),
         )
 
+    @staticmethod
+    def _suite_from_cols(cols: list[str], r: Any) -> SuiteResultRow:
+        d = dict(zip(cols, r, strict=True))
+        return SuiteResultRow(
+            suite_run_id=str(d["suite_run_id"]),
+            database_id=str(d["database_id"]),
+            database_version=str(d["database_version"]),
+            visibility=str(d["visibility"]),
+            pass_rate=float(d["pass_rate"]),
+            mean_score=float(d["mean_score"]),
+            metrics_json=str(d["metrics_json"]),
+            tasks_json=str(d["tasks_json"]),
+            agent_label=str(d.get("agent_label") or ""),
+            model_label=str(d.get("model_label") or ""),
+            blob_digest=str(d["blob_digest"]),
+            size=int(d["size"]),
+            exit_code=int(d["exit_code"]),
+            created_at=float(d["created_at"]),
+        )
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -863,6 +1099,40 @@ def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
         "blob_digest": row.blob_digest,
         "size": row.size,
         "created_at": row.created_at,
+    }
+
+
+def suite_to_dict(row: SuiteResultRow) -> dict[str, Any]:
+    """Serialize suite result; never invent a suite-level PASS field."""
+    try:
+        metrics = json.loads(row.metrics_json)
+    except (json.JSONDecodeError, TypeError):
+        metrics = {}
+    try:
+        task_refs = json.loads(row.tasks_json)
+    except (json.JSONDecodeError, TypeError):
+        task_refs = []
+    if not isinstance(metrics, dict):
+        metrics = {}
+    if not isinstance(task_refs, list):
+        task_refs = []
+    return {
+        "suite_run_id": row.suite_run_id,
+        "database_id": row.database_id,
+        "database_version": row.database_version,
+        "visibility": row.visibility,
+        "pass_rate": row.pass_rate,
+        "mean_score": row.mean_score,
+        "metrics": metrics,
+        "task_refs": task_refs,
+        "agent_label": row.agent_label,
+        "model_label": row.model_label,
+        "blob_digest": row.blob_digest,
+        "size": row.size,
+        "exit_code": row.exit_code,
+        "created_at": row.created_at,
+        # Explicit: no suite PASS authority
+        "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
 
 

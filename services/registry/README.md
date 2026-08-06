@@ -51,6 +51,14 @@ uv run bora results upload <database> --run <run_id>
 uv run bora results get <run_id> --out /tmp/restored
 uv run bora results list
 
+# After a suite run produced .bora/suite-runs/<suite_run_id>/summary.json
+uv run bora results upload-suite <database> --suite-run <suite_run_id> [--public] [--agent x] [--model y]
+uv run bora results get-suite <suite_run_id> [--out /tmp/restored-suite]
+uv run bora results list-suites [--database-id <id>]
+# Local fallback (no registry process):
+uv run bora results list-suites --local <database>
+uv run bora results get-suite <suite_run_id> --local <database>
+
 uv run bora cache list
 uv run bora cache purge all --yes
 ```
@@ -77,6 +85,20 @@ Env overrides: `BORA_REGISTRY_URL`, `BORA_REGISTRY_TOKEN`, optional
 | --- | --- | --- |
 | Database package | packageDigest + blobDigest | `application/vnd.bora.database.v1.tar+gzip` |
 | Attempt result | blobDigest of archive | `application/vnd.bora.attempt-result.v1.tar+gzip` |
+| Suite/job result | blobDigest of suite-run tree | `application/vnd.bora.suite-result.v1.tar+gzip` |
+
+### Suite results API
+
+| Method | Path | Scope |
+| --- | --- | --- |
+| POST | `/v1/results/suites` | `results:upload` |
+| GET | `/v1/results/suites` | public items; private needs `results:read` / `admin` |
+| GET | `/v1/results/suites/{suite_run_id}` | same visibility rules as attempts |
+| GET | `/v1/results/suites/{suite_run_id}/content` | same |
+
+Row fields: `database_id`, `database_version`, `pass_rate`, `mean_score`, `metrics`,
+`task_refs`, optional `agent_label` / `model_label`, `exit_code`.  
+**No suite-level PASS** is stored or accepted (client keys `pass` / `verdict` / `suite_pass` → 400).
 
 Result archives keep layout `.bora/runs/<run_id>/…` so download extracts into a
 browsable tree.
