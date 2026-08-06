@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
@@ -13,10 +13,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJobTask, type Job, type TaskRow, type Trial } from "@/lib/api";
-import { formatDate, formatScore } from "@/lib/utils";
+import { cn, formatDate, formatScore } from "@/lib/utils";
 
 export function TaskDetailPage() {
   const { jobId = "", taskId = "" } = useParams();
+  const navigate = useNavigate();
   const [job, setJob] = useState<Job | null>(null);
   const [task, setTask] = useState<TaskRow | null>(null);
   const [trials, setTrials] = useState<Trial[]>([]);
@@ -114,10 +115,37 @@ export function TaskDetailPage() {
                     (tr.status || "").toUpperCase() === "ERROR" ||
                     (tr.status || "").toUpperCase() === "FAIL" ||
                     Boolean(tr.error);
+                  const rid = tr.run_id || tr.trial_id || task?.run_id || "";
+                  const openable = Boolean(rid);
                   return (
-                    <TableRow key={tr.trial_id}>
+                    <TableRow
+                      key={tr.trial_id || rid}
+                      className={cn(openable && "cursor-pointer")}
+                      onClick={() => {
+                        if (!openable) return;
+                        navigate(
+                          `/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(taskId)}/trials/${encodeURIComponent(rid)}`,
+                        );
+                      }}
+                      onKeyDown={(e) => {
+                        if (!openable) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(
+                            `/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(taskId)}/trials/${encodeURIComponent(rid)}`,
+                          );
+                        }
+                      }}
+                      tabIndex={openable ? 0 : undefined}
+                      role={openable ? "link" : undefined}
+                    >
                       <TableCell className="font-medium font-mono text-[13px]">
                         {tr.trial_id}
+                        {tr.has_evidence ? (
+                          <span className="ml-2 text-[11px] text-mute font-sans">
+                            evidence
+                          </span>
+                        ) : null}
                       </TableCell>
                       <TableCell
                         className={
