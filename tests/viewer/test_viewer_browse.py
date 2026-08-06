@@ -32,16 +32,33 @@ def test_commands_include_run_task() -> None:
     assert "bora lock" in cmds["lock_task"]
 
 
-def test_static_dir_exists() -> None:
-    d = static_dir()
+def test_static_dir_when_built() -> None:
+    """``static_dir()`` requires a local ``pnpm build`` (dist is gitignored)."""
+    try:
+        d = static_dir()
+    except FileNotFoundError:
+        pytest.skip("apps/viewer/dist not built (run: cd apps/viewer && pnpm build)")
     assert (d / "index.html").is_file()
-    # Vite production build: hashed assets under dist/assets/
     assert (d / "assets").is_dir()
 
 
+def _minimal_spa(tmp_path: Path) -> Path:
+    """CI-safe SPA shell (no Vite build required)."""
+    root = tmp_path / "spa"
+    root.mkdir()
+    (root / "index.html").write_text(
+        "<!doctype html><html><head><title>BORA Viewer</title></head>"
+        '<body><div id="root"></div></body></html>\n',
+        encoding="utf-8",
+    )
+    (root / "assets").mkdir()
+    (root / "assets" / "app.js").write_text("// test stub\n", encoding="utf-8")
+    return root
+
+
 @pytest.fixture()
-def viewer_server():
-    assets = static_dir()
+def viewer_server(tmp_path: Path):
+    assets = _minimal_spa(tmp_path)
     handler = make_handler(SUITE, assets)
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]
@@ -67,7 +84,6 @@ def test_http_health_jobs_and_spa(viewer_server: str) -> None:
     assert jobs_payload["count"] >= 0
     assert "commands" in jobs_payload
 
-    # SPA shell (React root; Jobs UI mounts client-side)
     with urlopen(f"{base}/", timeout=5) as resp:  # noqa: S310
         html = resp.read().decode("utf-8")
     assert "BORA Viewer" in html
