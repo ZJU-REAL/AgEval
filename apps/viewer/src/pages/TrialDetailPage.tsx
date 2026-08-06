@@ -15,6 +15,15 @@ import {
   type TreeEntry,
   type Trial,
 } from "@/lib/api";
+import { CodeHighlight } from "@/lib/code-highlight";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn, formatDate, formatScore } from "@/lib/utils";
 
 type TabId =
@@ -23,7 +32,7 @@ type TabId =
   | "verifier"
   | "artifacts"
   | "lock"
-  | "log";
+  | "runtime";
 
 const TAB_LABELS: Record<TabId, string> = {
   trajectory: "Trajectory",
@@ -31,7 +40,8 @@ const TAB_LABELS: Record<TabId, string> = {
   verifier: "Verifier",
   artifacts: "Artifacts",
   lock: "Lock",
-  log: "Log",
+  // effects / cleanup / summary / agent.json / harness.json — not “log files”
+  runtime: "Runtime",
 };
 
 const TREE_SCOPES: Partial<Record<TabId, string>> = {
@@ -39,7 +49,7 @@ const TREE_SCOPES: Partial<Record<TabId, string>> = {
   verifier: "verifier",
   artifacts: "artifacts",
   lock: "lock",
-  log: "log",
+  runtime: "runtime",
 };
 
 export function TrialDetailPage() {
@@ -73,9 +83,11 @@ export function TrialDetailPage() {
       "verifier",
       "artifacts",
       "lock",
-      "log",
+      "runtime",
     ];
-    return order.filter((t) => raw.includes(t));
+    // Accept legacy API tab id "log" as runtime
+    const normalized = raw.map((t) => (t === "log" ? "runtime" : t));
+    return order.filter((t) => normalized.includes(t));
   }, [trial]);
 
   useEffect(() => {
@@ -95,11 +107,20 @@ export function TrialDetailPage() {
         setPrevId(data.prev_run_id || null);
         setNextId(data.next_run_id || null);
         setError(null);
-        const tabs = (data.trial.available_tabs || []) as TabId[];
+        const tabs = (data.trial.available_tabs || []).map((t) =>
+          t === "log" ? "runtime" : t,
+        ) as TabId[];
         const first =
-          (["trajectory", "agent", "verifier", "lock", "log", "artifacts"] as TabId[]).find(
-            (t) => tabs.includes(t),
-          ) || null;
+          (
+            [
+              "trajectory",
+              "agent",
+              "verifier",
+              "lock",
+              "runtime",
+              "artifacts",
+            ] as TabId[]
+          ).find((t) => tabs.includes(t)) || null;
         setActiveTab(first);
       })
       .catch((e: Error) => {
@@ -219,16 +240,39 @@ export function TrialDetailPage() {
         />
 
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono truncate">
               {runId}
             </h1>
-            <p className="text-sm text-mute mt-1">
-              Attempt evidence · task{" "}
-              <span className="text-body font-medium">{taskId}</span>
+            {/* Same mute/body style: task · framework · docker(if any) */}
+            <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span>
+                task{" "}
+                <span className="text-body font-medium">{taskId}</span>
+              </span>
+              {trial?.framework ? (
+                <>
+                  <span className="text-mute select-none" aria-hidden>
+                    ·
+                  </span>
+                  <span className="text-body font-medium font-mono text-[13px]">
+                    {trial.framework}
+                  </span>
+                </>
+              ) : null}
+              {trial?.docker ? (
+                <>
+                  <span className="text-mute select-none" aria-hidden>
+                    ·
+                  </span>
+                  <span className="text-body font-medium font-mono text-[13px]">
+                    {trial.docker}
+                  </span>
+                </>
+              ) : null}
             </p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <Button
               type="button"
               variant="outline"
@@ -285,6 +329,36 @@ export function TrialDetailPage() {
               <p className="text-sm text-error rounded-[8px] bg-error-soft/40 px-3 py-2">
                 {String(trial.error)}
               </p>
+            ) : null}
+
+            {/* Actors: role · agent · model — above Trajectory tabs */}
+            {trial.actors && trial.actors.length > 0 ? (
+              <div className="rounded-[8px] border border-hairline overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Role</TableHead>
+                      <TableHead>Agent</TableHead>
+                      <TableHead>Model</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {trial.actors.map((a) => (
+                      <TableRow key={a.profile_id || `${a.role}-${a.agent}`}>
+                        <TableCell className="font-medium font-mono text-[13px]">
+                          {a.role}
+                        </TableCell>
+                        <TableCell className="font-mono text-[13px] text-body">
+                          {a.agent}
+                        </TableCell>
+                        <TableCell className="font-mono text-[13px] text-mute">
+                          {a.model || "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : null}
 
             {/* Tabs */}
@@ -465,14 +539,27 @@ function FileSplitPanel({
   fileNote: string | null;
 }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-0 rounded-[8px] border border-hairline overflow-hidden min-h-[320px]">
-      <aside className="border-b md:border-b-0 md:border-r border-hairline bg-canvas-soft max-h-[50vh] md:max-h-[70vh] overflow-y-auto">
+    <div
+      className={cn(
+        "grid grid-cols-1 md:grid-cols-[240px_1fr] gap-0",
+        "rounded-[8px] border border-hairline overflow-hidden",
+        /* Keep a stable pane even with 1-file trees (e.g. Lock) */
+        "min-h-[360px] md:min-h-[420px]",
+      )}
+    >
+      <aside
+        className={cn(
+          "border-b md:border-b-0 md:border-r border-hairline bg-canvas-soft",
+          "min-h-[160px] md:min-h-[420px] max-h-[50vh] md:max-h-[70vh]",
+          "overflow-y-auto",
+        )}
+      >
         {treeLoading ? (
           <p className="text-xs text-mute p-3">Loading tree…</p>
         ) : tree.length === 0 ? (
           <p className="text-xs text-mute p-3">No files in this scope.</p>
         ) : (
-          <ul className="py-1">
+          <ul className="py-1 min-h-[140px] md:min-h-[380px]">
             {tree.map((e) => (
               <li key={e.path}>
                 <button
@@ -493,21 +580,43 @@ function FileSplitPanel({
           </ul>
         )}
       </aside>
-      <div className="p-3 max-h-[70vh] overflow-auto">
-        {fileLoading ? (
-          <p className="text-sm text-mute">Loading file…</p>
-        ) : (
-          <>
-            {fileNote ? <p className="text-xs text-mute mb-2">{fileNote}</p> : null}
-            {fileContent != null ? (
-              <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[12px] leading-5 text-body">
-                {fileContent}
-              </pre>
-            ) : (
-              <p className="text-sm text-mute">Select a file to preview.</p>
-            )}
-          </>
+      <div
+        className={cn(
+          "flex flex-col min-h-[200px] md:min-h-[420px]",
+          "max-h-[70vh] overflow-hidden",
         )}
+      >
+        {selectedPath ? (
+          <div className="px-3 py-1.5 border-b border-hairline text-[11px] font-mono text-mute shrink-0 bg-canvas-soft">
+            {selectedPath}
+          </div>
+        ) : null}
+        <div className="p-0 flex-1 min-h-0 overflow-auto">
+          {fileLoading ? (
+            <p className="text-sm text-mute p-3">Loading file…</p>
+          ) : (
+            <>
+              {fileNote ? (
+                <p className="text-xs text-mute px-3 pt-2">{fileNote}</p>
+              ) : null}
+              {fileContent != null ? (
+                <pre
+                  className={cn(
+                    "m-0 p-3 min-h-full overflow-auto",
+                    "whitespace-pre-wrap break-words font-mono text-[12px] leading-5",
+                    "bg-code-bg text-shell-plain",
+                  )}
+                >
+                  <code className="font-mono">
+                    <CodeHighlight path={selectedPath} content={fileContent} />
+                  </code>
+                </pre>
+              ) : (
+                <p className="text-sm text-mute p-3">Select a file to preview.</p>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -75,9 +75,21 @@ Python API under `/api/*` (see `src/bora/viewer/`):
 | `GET /api/jobs/{id}/tasks/{task_id}` | Task detail + enriched trials list + commands |
 | `GET /api/jobs/{id}/tasks/{task_id}/trials` | Trials list (suite + local evidence) |
 | `GET /api/jobs/{id}/tasks/{task_id}/trials/{run_id}` | Attempt meta + `available_tabs` |
-| `GET .../trials/{run_id}/tree?scope=` | File tree under evidence (`agent`/`verifier`/…) |
+| `GET .../trials/{run_id}/tree?scope=` | File tree under evidence (`agent`/`verifier`/`runtime`/…) |
 | `GET .../trials/{run_id}/file?path=` | File preview (size-capped; secret-like names redacted) |
-| `GET .../trials/{run_id}/trajectory` | Parsed `trajectory.jsonl` steps (**not PASS**) |
+| `GET .../trials/{run_id}/trajectory` | Parsed `trajectory.jsonl` steps (observational) |
+
+Trial meta returns `framework` / `docker` / `actors[]` (role·agent·model) from lock +
+invocation metadata.
+
+| Tab | Disk scope | Meaning |
+| --- | --- | --- |
+| **Artifacts** | `artifacts/`, `harness/`, `agent/artifacts/` | Harness-published product files (JSON results, terminal, etc.) |
+| **Runtime** | root `effects.jsonl`, `cleanup.json`, `summary.json`, `agent.json`, `harness.json` | Attempt bookkeeping — not publishable outputs |
+| **Agent** | `agent/` | Invocation trees, trajectory raw, backend_raw |
+| **Verifier** | `evaluation/`, `eval_staging/`, `result.json` | Evaluator side |
+
+SPA file preview: JSON/JSONL pretty-print + lightweight syntax highlight (no extra deps).
 
 Package-file browse routes (`/api/database`, `/api/tasks/*`, `/api/commands`) were removed with the old SPA.  
 All paths confined to the opened Database root (`job_id` / `task_id` / `run_id` single-segment; file paths fail closed on `..`). No Registry required.  

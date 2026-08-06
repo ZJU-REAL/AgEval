@@ -50,6 +50,20 @@ export type Trial = {
   evidence_relpath?: string | null;
   agent_invocations?: number | null;
   harness_kind?: string | null;
+  /** Framework kind, e.g. acp */
+  framework?: string | null;
+  /** Docker placement label when L1/docker, else null */
+  docker?: string | null;
+  /** Per-role rows for the actors table above Trajectory */
+  actors?: Array<{
+    role: string;
+    agent: string;
+    model?: string | null;
+    profile_id?: string;
+  }>;
+  agent_label?: string | null;
+  model_label?: string | null;
+  executor_kind?: string | null;
   note?: string | null;
 };
 
