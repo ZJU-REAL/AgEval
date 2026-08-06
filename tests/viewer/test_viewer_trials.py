@@ -60,7 +60,23 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
     (root / "harness").mkdir(parents=True, exist_ok=True)
 
     (root / "lock.json").write_text(
-        json.dumps({"task_id": task_id, "digest": "sha256:deadbeef"}, indent=2) + "\n",
+        json.dumps(
+            {
+                "task_id": task_id,
+                "digest": "sha256:deadbeef",
+                "profiles": [
+                    {
+                        "id": "main",
+                        "executor": "acp",
+                        "model": "test-model",
+                        "options": {"entry": "pi"},
+                        "capabilities": {"execution_mode": "acp-stdio"},
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
     (root / "result.json").write_text(
@@ -162,10 +178,14 @@ def test_resolve_and_trial_detail(tmp_path: Path) -> None:
     assert "agent" in tabs
     assert "verifier" in tabs
     assert "lock" in tabs
-    assert "log" in tabs
-    assert "PASS" not in (detail["trial"].get("note") or "") or "not PASS" in (
-        detail["trial"].get("note") or ""
-    )
+    assert "runtime" in tabs
+    assert detail["trial"].get("framework") == "acp"
+    assert detail["trial"].get("docker") is None
+    actors = detail["trial"].get("actors") or []
+    assert len(actors) == 1
+    assert actors[0]["role"] == "main"
+    assert actors[0]["agent"] == "pi"
+    assert actors[0]["model"] == "test-model"
 
 
 def test_trajectory_steps(tmp_path: Path) -> None:
@@ -178,7 +198,6 @@ def test_trajectory_steps(tmp_path: Path) -> None:
     roles = [s.get("role") for s in traj["steps"] if s.get("role")]
     assert "user" in roles
     assert "assistant" in roles
-    assert "not PASS" in (traj.get("note") or "")
 
 
 def test_tree_and_file_and_traversal(tmp_path: Path) -> None:

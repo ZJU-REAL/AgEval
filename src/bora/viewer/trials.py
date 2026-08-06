@@ -243,13 +243,169 @@ def _available_tabs(evidence: Path) -> list[str]:
         pass
     if (evidence / "lock.json").is_file():
         tabs.append("lock")
+    # Runtime facts: effects / cleanup / summary (not agent trajectory, not artifacts)
     if (
         (evidence / "effects.jsonl").is_file()
         or (evidence / "cleanup.json").is_file()
         or (evidence / "summary.json").is_file()
+        or (evidence / "agent.json").is_file()
+        or (evidence / "harness.json").is_file()
     ):
-        tabs.append("log")
+        tabs.append("runtime")
     return tabs
+
+
+# Known ACP registry entry ids — longest match first when stripping from profile ids.
+_ACP_ENTRY_SUFFIXES = (
+    "claude-code",
+    "grok-build",
+    "opencode",
+    "codex",
+    "grok",
+    "pi",
+)
+
+
+def _profile_entry(profile: dict[str, Any]) -> str | None:
+    opts = profile.get("options") if isinstance(profile.get("options"), dict) else {}
+    entry = opts.get("entry") if isinstance(opts, dict) else None
+    if isinstance(entry, str) and entry.strip():
+        return entry.strip()
+    pid = profile.get("id")
+    if not isinstance(pid, str) or not pid:
+        return None
+    lower = pid.lower()
+    for suf in _ACP_ENTRY_SUFFIXES:
+        if lower == suf or lower.endswith("-" + suf) or lower.endswith("_" + suf):
+            return suf
+    return None
+
+
+def _profile_role(profile_id: str, entry: str | None) -> str:
+    """Role label: profile id with trailing entry suffix removed when present."""
+    if entry:
+        for sep in ("-", "_"):
+            suffix = sep + entry
+            if profile_id.lower().endswith(suffix.lower()) and len(profile_id) > len(suffix):
+                return profile_id[: -len(suffix)]
+    return profile_id
+
+
+def _docker_label(result: dict[str, Any], summary: dict[str, Any]) -> str | None:
+    """Short docker placement label when this Attempt used Docker/L1; else None."""
+    runtime_kind = str(result.get("runtime_kind") or summary.get("runtime_kind") or "")
+    assurance = str(result.get("assurance") or summary.get("assurance") or "")
+    l1 = result.get("l1") if isinstance(result.get("l1"), dict) else None
+    if l1 is None:
+        l1 = summary.get("l1") if isinstance(summary.get("l1"), dict) else None
+    is_docker = "docker" in runtime_kind.lower() or assurance.lower() == "l1" or l1 is not None
+    if not is_docker:
+        return None
+    parts: list[str] = ["docker"]
+    if isinstance(l1, dict):
+        platform = l1.get("platform")
+        if isinstance(platform, str) and platform:
+            parts.append(platform)
+        iso = l1.get("isolation") if isinstance(l1.get("isolation"), dict) else {}
+        net = iso.get("network") if isinstance(iso, dict) else None
+        if isinstance(net, str) and net:
+            parts.append(net)
+        loc = l1.get("execution_location")
+        if isinstance(loc, str) and loc and loc not in parts:
+            parts.append(loc)
+    return " · ".join(parts)
+
+
+def _agent_surface(
+    evidence: Path,
+    *,
+    lock: dict[str, Any],
+    result: dict[str, Any],
+    summary: dict[str, Any],
+) -> dict[str, Any]:
+    """Deterministic agent surface from lock profiles + invocation metadata.
+
+    Missing optional fields stay null; never invents values. Priority:
+    lock.profiles for declared rows; invocation metadata overrides model when set.
+    """
+    profiles_raw = [p for p in (lock.get("profiles") or []) if isinstance(p, dict)]
+    by_id: dict[str, dict[str, Any]] = {}
+    for p in profiles_raw:
+        pid = p.get("id")
+        if isinstance(pid, str) and pid:
+            by_id[pid] = p
+
+    # Order of appearance: first from invocations (actual use), else lock order.
+    ordered_ids: list[str] = []
+    inv_model: dict[str, str] = {}
+    inv_executor: dict[str, str] = {}
+    inv_root = evidence / "agent" / "invocations"
+    if inv_root.is_dir():
+        try:
+            inv_dirs = sorted(p for p in inv_root.iterdir() if p.is_dir())
+        except OSError:
+            inv_dirs = []
+        for inv in inv_dirs:
+            meta = _read_json_object(inv / "metadata.json") or {}
+            pid = meta.get("profile_id")
+            if isinstance(pid, str) and pid:
+                if pid not in ordered_ids:
+                    ordered_ids.append(pid)
+                mid = meta.get("model")
+                if isinstance(mid, str) and mid:
+                    inv_model[pid] = mid
+                ek = meta.get("executor_kind")
+                if isinstance(ek, str) and ek:
+                    inv_executor[pid] = ek
+    if not ordered_ids:
+        ordered_ids = [pid for pid in by_id]
+
+    actors: list[dict[str, Any]] = []
+    executors: list[str] = []
+    for pid in ordered_ids:
+        p = by_id.get(pid, {"id": pid})
+        entry = _profile_entry(p)
+        ex = p.get("executor") if isinstance(p.get("executor"), str) else None
+        if not ex:
+            ex = inv_executor.get(pid)
+        if isinstance(ex, str) and ex and ex not in executors:
+            executors.append(ex)
+        caps = p.get("capabilities") if isinstance(p.get("capabilities"), dict) else {}
+        if caps.get("execution_mode") == "acp-stdio" and "acp" not in executors:
+            executors.append("acp")
+        model = inv_model.get(pid) or (p.get("model") if isinstance(p.get("model"), str) else None)
+        # agent column = ACP entry when known, else executor kind, else profile id
+        agent_col = entry or ex or pid
+        role_col = _profile_role(pid, entry) if entry else pid
+        actors.append(
+            {
+                "role": role_col,
+                "agent": agent_col,
+                "model": model,
+                "profile_id": pid,
+            }
+        )
+
+    # Framework: unified ACP client → "acp"; else first executor kind.
+    if any(a.get("agent") in _ACP_ENTRY_SUFFIXES for a in actors) or "acp" in executors:
+        framework = "acp"
+    elif executors:
+        framework = executors[0]
+    else:
+        framework = None
+
+    docker = _docker_label(result, summary)
+
+    return {
+        "framework": framework,
+        "docker": docker,
+        "actors": actors,
+        # Keep thin aliases for older clients / tests
+        "agent_label": actors[0]["role"] if len(actors) == 1 else None,
+        "model_label": actors[0]["model"] if len(actors) == 1 else None,
+        "executor_kind": executors[0] if executors else None,
+        "profiles": actors,
+    }
 
 
 def _trial_meta_from_evidence(
@@ -274,6 +430,7 @@ def _trial_meta_from_evidence(
         score = summary.get("score")
     error = suite_row.get("error") or result.get("error") or summary.get("error")
     locked_task = lock.get("task_id") if isinstance(lock.get("task_id"), str) else None
+    surface = _agent_surface(evidence, lock=lock, result=result, summary=summary)
 
     return {
         "trial_id": run_id,
@@ -291,7 +448,14 @@ def _trial_meta_from_evidence(
         "available_tabs": _available_tabs(evidence),
         "agent_invocations": result.get("agent_invocations") or summary.get("agent_invocations"),
         "harness_kind": result.get("harness_kind") or summary.get("harness_kind"),
-        "note": "trajectory and harness status are not PASS; PASS is per-task evaluator only",
+        "framework": surface.get("framework"),
+        "docker": surface.get("docker"),
+        "actors": surface.get("actors") or [],
+        "agent_label": surface.get("agent_label"),
+        "model_label": surface.get("model_label"),
+        "executor_kind": surface.get("executor_kind"),
+        "profiles": surface.get("profiles") or [],
+        "note": None,
     }
 
 
@@ -385,7 +549,7 @@ def list_task_trials(
             {"label": task_id, "href": f"/jobs/{job_id}/tasks/{task_id}"},
             {"label": "trials", "href": None},
         ],
-        "note": "per-task evaluator verdicts only; trajectory is not PASS",
+        "note": None,
     }
 
 
@@ -434,8 +598,7 @@ def get_trial(
             "evidence_relpath": None,
             "has_evidence": False,
             "available_tabs": [],
-            "note": "no local evidence tree for this run_id; files/trajectory unavailable "
-            "(not PASS)",
+            "note": "no local evidence tree for this run_id",
         }
     else:
         meta = _trial_meta_from_evidence(evidence, run_id=rid, task_id=task_id, suite_row=suite_row)
@@ -551,19 +714,38 @@ def trial_tree(
         }
 
     if scope_norm == "artifacts":
+        # Publishable / harness-produced product files — not root runtime bookkeeping.
+        # Prefer package artifacts/ then harness/ subtree (e.g. terminal.json, published JSON).
         entries = []
-        for sub_name in ("harness", "artifacts"):
-            sub = evidence / sub_name
+        for sub in (
+            evidence / "artifacts",
+            evidence / "harness",
+            evidence / "agent" / "artifacts",
+        ):
             if sub.is_dir():
                 entries.extend(
                     _walk_tree(evidence, sub, max_entries=MAX_TREE_ENTRIES - len(entries))
                 )
+            elif sub.is_file():
+                try:
+                    entries.append(
+                        {
+                            "path": str(sub.relative_to(evidence)),
+                            "name": sub.name,
+                            "type": "file",
+                            "size": sub.stat().st_size,
+                        }
+                    )
+                except (OSError, ValueError):
+                    pass
         return {
             "ok": True,
             "run_id": rid,
             "scope": "artifacts",
             "entries": entries[:MAX_TREE_ENTRIES],
             "truncated": len(entries) > MAX_TREE_ENTRIES,
+            "note": "publishable outputs under artifacts/ and harness/; "
+            "runtime bookkeeping is under Runtime tab",
         }
 
     if scope_norm == "lock":
@@ -580,7 +762,7 @@ def trial_tree(
             )
         return {"ok": True, "run_id": rid, "scope": "lock", "entries": entries, "truncated": False}
 
-    if scope_norm == "log":
+    if scope_norm in {"runtime", "log"}:  # "log" accepted as alias
         entries = []
         for name in ("effects.jsonl", "cleanup.json", "summary.json", "agent.json", "harness.json"):
             p = evidence / name
@@ -593,7 +775,13 @@ def trial_tree(
                         "size": p.stat().st_size,
                     }
                 )
-        return {"ok": True, "run_id": rid, "scope": "log", "entries": entries, "truncated": False}
+        return {
+            "ok": True,
+            "run_id": rid,
+            "scope": "runtime",
+            "entries": entries,
+            "truncated": False,
+        }
 
     base = _scope_base(evidence, scope_norm)
     if not base.exists():
@@ -808,7 +996,7 @@ def trial_trajectory(
         "step_count": len(steps),
         "invocations": invocations,
         "truncated": truncated,
-        "note": "trajectory is observational evidence; not PASS",
+        "note": None,
     }
 
 
