@@ -159,7 +159,8 @@ async def _run_one(
             )
             raw_metrics = getattr(result, "metrics", None)
             if not isinstance(raw_metrics, dict):
-                raw_metrics = details.get("metrics") if isinstance(details.get("metrics"), dict) else {}
+                detail_metrics = details.get("metrics")
+                raw_metrics = detail_metrics if isinstance(detail_metrics, dict) else {}
             return {
                 "task_id": task_id,
                 "exit_code": code,

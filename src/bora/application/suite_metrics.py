@@ -13,7 +13,8 @@ These fields are observational aggregates for leaderboard / ops summary.
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 # Documented default for absent scores (Harbor reward-missing → 0).
 MISSING_SCORE_AS = 0.0
