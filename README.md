@@ -21,6 +21,8 @@ Agent benchmarks usually score the model and leave the **harness**—orchestrati
 - **Compose Harness × Agent × Model freely** — keep one task harness and switch Codex / Claude / Pi / OpenCode (and models) via ACP for near-cartesian comparison—no per-vendor stdout scraper
 - **Drop an existing harness into a shared boundary** — keep your workflow; the outer layer unifies config lock, isolation (host / Docker), visibility, and independent scoring for cross-framework reproduction
 - **Batch a full Dataset or a parameter matrix** — run every task in a suite, or campaign over allowlisted overrides such as seed / profile
+- **Aggregate suite scores and archive job results** — suite runs write observational `pass_rate` / `mean_score` ; upload/list suite rows on the Registry when you need a shared results store
+- **Browse local suite runs in a Web UI** — `bora view` opens a Jobs → Tasks → Trial console over `.bora/suite-runs/`
 - **Review and export trajectories** — each invoke lands on disk; `bora evidence` exports a sealed copy for failure analysis or training pipelines
 
 ---
@@ -54,6 +56,9 @@ uv run bora run examples/core --task builtin-executor-conformance \
 
 # Full Dataset suite (omit --task)
 uv run bora run examples/core --max-concurrent-tasks 2
+
+# Local results console (build SPA once: cd apps/viewer && pnpm build)
+uv run bora view examples/core --no-browser
 
 # List executor kinds / ACP entries ready on this host
 uv run bora executors -v
@@ -108,7 +113,7 @@ agent_profiles:
 
 ## Reading run outputs
 
-Results land under the task member at `tasks/<task_id>/.bora/runs/<run_id>/`:
+Per-task Attempt evidence lands under the member at `tasks/<task_id>/.bora/runs/<run_id>/`:
 
 ```text
 tasks/<task_id>/.bora/runs/<run_id>/
@@ -137,13 +142,23 @@ tasks/<task_id>/.bora/runs/<run_id>/
 uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
 ```
 
+A **full suite** (omit `--task`) also writes observational aggregates at the Dataset root:
+
+```text
+.bora/suite-runs/<suite_run_id>/summary.json   # metrics.pass_rate / mean_score, task_refs
+```
+
+PASS remains per-task only. Optional Registry archive: `bora results upload-suite` (see CLI README). Local UI: `bora view <dataset>`.
+
 ---
 
 ## Further reading
 
-| Audience  | Start here                                           |
-| --------- | ---------------------------------------------------- |
-| Design    | [`docs/design/`](docs/design/)                       |
-| Structure | [`ARCHITECTURE.md`](ARCHITECTURE.md)                 |
-| CLI       | [`src/bora/cli/README.md`](src/bora/cli/README.md)   |
-| Releases  | [Releases](https://github.com/ffy6511/BORA/releases) |
+| Audience  | Start here                                                   |
+| --------- | ------------------------------------------------------------ |
+| Design    | [`docs/design/`](docs/design/)                               |
+| Structure | [`ARCHITECTURE.md`](ARCHITECTURE.md)                         |
+| CLI       | [`src/bora/cli/README.md`](src/bora/cli/README.md)           |
+| Viewer    | [`apps/viewer/README.md`](apps/viewer/README.md)             |
+| Registry  | [`services/registry/README.md`](services/registry/README.md) |
+| Releases  | [Releases](https://github.com/ffy6511/BORA/releases)         |

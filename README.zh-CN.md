@@ -21,6 +21,8 @@
 - **Harness × Agent × Model 自由组合** — 同一套 task harness 通过 ACP 换 Codex / Claude / Pi / OpenCode 等入口与模型，做接近笛卡尔积式的对比评测，而不是为每家后端写一套 scraper
 - **把已有 harness 接到统一边界** — 保留你自己的 workflow，外层统一锁定配置、隔离（本机 / Docker）、可见性与独立打分，便于跨框架复现
 - **整份 Dataset 或参数矩阵批量跑** — 一次跑完套件内多个 task，或用 campaign 扫 seed / profile 等允许覆盖的参数
+- **Suite 聚合分与 job 结果归档** — suite 跑完写入观测用的 `pass_rate` / `mean_score`）；需要共享结果时可上传到 Registry
+- **本机浏览 suite 跑次** — `bora view` 打开 Jobs → Tasks → Trial 控制台
 - **复盘与导出轨迹** — 每次 invoke 落盘证据；需要时 `bora evidence` 导出，供失败分析或训练管线
 
 ---
@@ -54,6 +56,9 @@ uv run bora run examples/core --task builtin-executor-conformance \
 
 # 整份 Dataset suite（省略 --task）
 uv run bora run examples/core --max-concurrent-tasks 2
+
+# 本机结果台（SPA 先构建一次：cd apps/viewer && pnpm build）
+uv run bora view examples/core --no-browser
 
 # 查看本机支持的 executor / ACP entry
 uv run bora executors -v
@@ -108,7 +113,7 @@ agent_profiles:
 
 ## 运行产物怎么读
 
-结果在 task 目录下 `tasks/<task_id>/.bora/runs/<run_id>/`：
+单 task Attempt 证据在成员目录 `tasks/<task_id>/.bora/runs/<run_id>/`：
 
 ```text
 tasks/<task_id>/.bora/runs/<run_id>/
@@ -137,13 +142,23 @@ tasks/<task_id>/.bora/runs/<run_id>/
 uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
 ```
 
+**整份 suite**（省略 `--task`）还会在 Dataset 根写入观测聚合：
+
+```text
+.bora/suite-runs/<suite_run_id>/summary.json   # metrics.pass_rate / mean_score、task_refs
+```
+
+PASS 仍仅 per-task。可选 Registry 归档：`bora results upload-suite`（见 CLI README）。本机 UI：`bora view <dataset>`。
+
 ---
 
 ## 延伸阅读
 
-| 读者 | 入口                                                 |
-| ---- | ---------------------------------------------------- |
-| 设计 | [`docs/design/`](docs/design/)                       |
-| 结构 | [`ARCHITECTURE.md`](ARCHITECTURE.md)                 |
-| CLI  | [`src/bora/cli/README.md`](src/bora/cli/README.md)   |
-| 版本 | [Releases](https://github.com/ffy6511/BORA/releases) |
+| 读者     | 入口                                                         |
+| -------- | ------------------------------------------------------------ |
+| 设计     | [`docs/design/`](docs/design/)                               |
+| 结构     | [`ARCHITECTURE.md`](ARCHITECTURE.md)                         |
+| CLI      | [`src/bora/cli/README.md`](src/bora/cli/README.md)           |
+| Viewer   | [`apps/viewer/README.md`](apps/viewer/README.md)             |
+| Registry | [`services/registry/README.md`](services/registry/README.md) |
+| 版本     | [Releases](https://github.com/ffy6511/BORA/releases)         |
