@@ -1,0 +1,58 @@
+# Interactive @claude assistant via Claude Code Action + GLM Coding Plan.
+# Trigger: comment/issue body containing "@claude".
+# Secrets: Settings → Secrets and variables → Actions (not Agents).
+name: Claude Assistant (GLM)
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: claude-assistant-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && !endsWith(github.event.comment.user.login, '[bot]')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && !endsWith(github.event.comment.user.login, '[bot]')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && !endsWith(github.event.review.user.login, '[bot]')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+
+    env:
+      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL || 'https://open.bigmodel.cn/api/anthropic' }}
+      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_API_KEY }}
+      API_TIMEOUT_MS: "3000000"
+      ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.ANTHROPIC_DEFAULT_OPUS_MODEL || 'glm-5.2' }}
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.ANTHROPIC_DEFAULT_SONNET_MODEL || 'glm-5.2' }}
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'glm-5.2' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Default trigger phrase is @claude (already gated in job if).
+          # Prefer repo conventions from AGENTS.md when implementing or reviewing.
+          claude_args: |
+            --system-prompt "You are helping on the BORA repo (Bounded Orchestration for Runtime Agents). Follow AGENTS.md authority order (docs/design → ARCHITECTURE → ROADMAP → active specs). Prefer small focused changes, preserve offline core test gate, never invent evidence grades, never leak secrets into trajectories/locks/logs. Prefer Chinese for user-facing replies unless the user writes in English."
