@@ -79,6 +79,7 @@ class RegistryState:
         max_upload: int = MAX_UPLOAD_BYTES,
         github_client_id: str | None = None,
         github_client_secret: str | None = None,
+        github_login_allowlist: frozenset[str] | None = None,
     ) -> None:
         self.meta = meta
         self.blobs = blobs
@@ -86,6 +87,8 @@ class RegistryState:
         self.max_upload = max_upload
         self.github_client_id = github_client_id
         self.github_client_secret = github_client_secret
+        # Empty allowlist = refuse OAuth token issue (fail closed). Bootstrap token still works.
+        self.github_login_allowlist = github_login_allowlist or frozenset()
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
@@ -105,6 +108,11 @@ def _bearer(handler: BaseHTTPRequestHandler) -> str | None:
 
 
 def _parse_multipart(body: bytes, content_type: str) -> dict[str, bytes]:
+    """Parse multipart/form-data without corrupting binary parts.
+
+    Only strip framing CRLF at the part boundary — never rstrip the payload
+    (gzip archives may legitimately end in 0x0d / 0x0a).
+    """
     m = re.search(r"boundary=([^;]+)", content_type)
     if not m:
         raise ValueError("missing multipart boundary")
@@ -112,35 +120,37 @@ def _parse_multipart(body: bytes, content_type: str) -> dict[str, bytes]:
     parts = body.split(b"--" + boundary)
     out: dict[str, bytes] = {}
     for part in parts:
-        if part in (b"", b"--\r\n", b"--", b"\r\n"):
+        if part in (b"", b"--\r\n", b"--", b"\r\n", b"--\r\n", b""):
             continue
         if part.startswith(b"--"):
             continue
         if part.startswith(b"\r\n"):
             part = part[2:]
+        # Final boundary part may end with "--" after optional CRLF.
+        if part.endswith(b"--"):
+            part = part[:-2]
         if part.endswith(b"\r\n"):
             part = part[:-2]
-        header_blob, _, data = part.partition(b"\r\n\r\n")
+        header_blob, sep, data = part.partition(b"\r\n\r\n")
+        if not sep:
+            continue
         headers = header_blob.decode("utf-8", errors="replace")
         name_m = re.search(r'name="([^"]+)"', headers)
         if not name_m:
             continue
-        out[name_m.group(1)] = data.rstrip(b"\r\n")
+        # Framing already removed above; keep payload bytes intact.
+        out[name_m.group(1)] = data
     return out
 
 
-def _can_read_private(scopes: frozenset[str]) -> bool:
-    return bool(
-        scopes & {"read-private", "admin", "registry:publish", "results:read", "results:upload"}
-    )
-
-
 def _can_list_private_packages(scopes: frozenset[str]) -> bool:
+    # publish may verify private releases they just wrote; not a results scope.
     return "read-private" in scopes or "admin" in scopes or "registry:publish" in scopes
 
 
 def _can_list_private_results(scopes: frozenset[str]) -> bool:
-    return "results:read" in scopes or "admin" in scopes or "results:upload" in scopes
+    # results:upload does NOT imply private read (independent scope model).
+    return "results:read" in scopes or "admin" in scopes
 
 
 def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
@@ -317,6 +327,30 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 identity = fetch_user(gh_token)
             except GitHubOAuthError as exc:
                 _json_response(self, 502, {"error": exc.code, "message": exc.message})
+                return
+            allow = state.github_login_allowlist
+            if not allow:
+                _json_response(
+                    self,
+                    403,
+                    {
+                        "error": "login_not_allowed",
+                        "message": (
+                            "BORA_GITHUB_LOGIN_ALLOWLIST is empty; "
+                            "set comma-separated GitHub logins before bora login"
+                        ),
+                    },
+                )
+                return
+            if identity.login.casefold() not in {u.casefold() for u in allow}:
+                _json_response(
+                    self,
+                    403,
+                    {
+                        "error": "login_not_allowed",
+                        "message": f"GitHub user {identity.login!r} is not on the allowlist",
+                    },
+                )
                 return
             # Issue Registry API token; do not store GitHub access token.
             api_token = secrets.token_urlsafe(32)
@@ -686,9 +720,15 @@ def build_default_state(
             tokens=tokens,
             github_client_id=os.environ.get("BORA_GITHUB_CLIENT_ID"),
             github_client_secret=os.environ.get("BORA_GITHUB_CLIENT_SECRET"),
+            github_login_allowlist=_parse_login_allowlist(),
         ),
         token,
     )
+
+
+def _parse_login_allowlist() -> frozenset[str]:
+    raw = os.environ.get("BORA_GITHUB_LOGIN_ALLOWLIST") or ""
+    return frozenset(part.strip() for part in raw.split(",") if part.strip())
 
 
 def build_state_from_env(
@@ -727,6 +767,7 @@ def build_state_from_env(
             tokens=tokens,
             github_client_id=os.environ.get("BORA_GITHUB_CLIENT_ID"),
             github_client_secret=os.environ.get("BORA_GITHUB_CLIENT_SECRET"),
+            github_login_allowlist=_parse_login_allowlist(),
         ),
         token,
     )

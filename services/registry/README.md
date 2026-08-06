@@ -85,21 +85,23 @@ browsable tree.
 
 | Scope | Capability |
 | --- | --- |
-| `registry:publish` | POST /v1/packages; list private packages |
-| `read-private` | Read private package releases |
-| `results:upload` | POST /v1/results/attempts |
-| `results:read` | Read private attempt results |
+| `registry:publish` | POST /v1/packages; also list/get private packages |
+| `read-private` | List/get private package releases |
+| `results:upload` | POST /v1/results/attempts only (**not** private read) |
+| `results:read` | List/get private attempt results |
 | `admin` | All |
 
-`bora login` issues tokens with publish + read-private + results scopes.
+`bora login` issues tokens with publish + read-private + results upload/read.
+Scopes are independent: upload-only tokens cannot list private results.
 Private unauthorized reads return **404** (not 403).
 Visibility is only **`public` | `private`** (no org in this MVP).
 
 ## GitHub OAuth (Device Flow)
 
 1. Create a GitHub OAuth App; enable **Device Flow**.
-2. Put `BORA_GITHUB_CLIENT_ID` and `BORA_GITHUB_CLIENT_SECRET` in
-   `services/registry/.env` (gitignored).
+2. Put in `services/registry/.env` (gitignored):
+   - `BORA_GITHUB_CLIENT_ID` / `BORA_GITHUB_CLIENT_SECRET`
+   - `BORA_GITHUB_LOGIN_ALLOWLIST=yourlogin` (comma-separated; **required** — empty deny)
 3. `bora login` → open verification URI → enter user code → credentials written.
 
-CI continues to use `BORA_REGISTRY_TOKEN` without a browser.
+CI continues to use `BORA_REGISTRY_TOKEN` (bootstrap/admin) without a browser.

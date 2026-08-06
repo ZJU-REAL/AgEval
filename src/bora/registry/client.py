@@ -111,7 +111,9 @@ class RegistryClient:
             "media_type": media_type,
             "visibility": visibility,
         }
-        boundary = "bora-boundary-7f3a9c"
+        import secrets as _secrets
+
+        boundary = f"bora-{_secrets.token_hex(12)}"
         body = b""
         body += f"--{boundary}\r\n".encode()
         body += b'Content-Disposition: form-data; name="metadata"\r\n'
@@ -270,7 +272,9 @@ class RegistryClient:
             "blob_digest": blob_digest,
             "size": size,
         }
-        boundary = "bora-boundary-result-9c2e"
+        import secrets as _secrets
+
+        boundary = f"bora-result-{_secrets.token_hex(12)}"
         body = b""
         body += f"--{boundary}\r\n".encode()
         body += b'Content-Disposition: form-data; name="metadata"\r\n'

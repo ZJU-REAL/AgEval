@@ -35,6 +35,7 @@ def registry_server(tmp_path: Path):
     # Enable OAuth config for login tests (mocked GitHub).
     state.github_client_id = "test-client-id"
     state.github_client_secret = "test-client-secret"
+    state.github_login_allowlist = frozenset({"testuser"})
     handler = make_handler(state)
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]
@@ -195,3 +196,86 @@ def test_cache_list_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("BORA_CACHE_ROOT", str(tmp_path / "empty-cache"))
     out = cache_list()
     assert out["count"] == 0
+
+
+def test_oauth_allowlist_denies_unknown_user(
+    registry_server, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = RegistryClient(registry_server["url"], token=None)
+    with (
+        patch(
+            "services.registry.app.request_device_code",
+            return_value=DeviceCodeResponse(
+                device_code="dev-deny",
+                user_code="ZZZZ-9999",
+                verification_uri="https://github.com/login/device",
+                expires_in=900,
+                interval=1,
+            ),
+        ),
+        patch(
+            "services.registry.app.poll_access_token",
+            return_value="gho_other",
+        ),
+        patch(
+            "services.registry.app.fetch_user",
+            return_value=GitHubIdentity(login="not-allowed", id=99),
+        ),
+    ):
+        client.device_code()
+        with pytest.raises(Exception) as ei:
+            client.device_poll("dev-deny")
+        assert "login_not_allowed" in str(ei.value) or "403" in str(ei.value)
+
+
+def test_results_upload_scope_cannot_read_private(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """results:upload alone must not list/get private results."""
+    state = registry_server["state"]
+    upload_only = "upload-only-token-test"
+    state.tokens.add(upload_only, {"results:upload"})
+
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    db = tmp_path / "db-upload-scope"
+    import shutil
+
+    shutil.copytree(FIXTURE, db)
+    run_id = "sha256_upload_only_run"
+    run_dir = db / ".bora" / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "result.json").write_text("{}", encoding="utf-8")
+
+    upload_attempt_result(db, run_id=run_id)
+
+    upload_client = RegistryClient(registry_server["url"], token=upload_only)
+    with pytest.raises(Exception) as ei:
+        upload_client.get_attempt(run_id)
+    assert "not_found" in str(ei.value) or "404" in str(ei.value)
+    full = RegistryClient(registry_server["url"], token=registry_server["token"])
+    meta = full.get_attempt(run_id)
+    assert meta["run_id"] == run_id
+
+
+def test_multipart_payload_trailing_lf_preserved() -> None:
+    """Archive bytes ending in 0x0a must not be stripped (gzip footer risk)."""
+    from services.registry.app import _parse_multipart
+
+    archive = b"hello-archive-payload\n"
+    boundary = "testbound"
+    body = (
+        (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="metadata"\r\n'
+            "Content-Type: application/json\r\n\r\n"
+            '{"k":1}\r\n'
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="archive"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode()
+        + archive
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
+    parts = _parse_multipart(body, f"multipart/form-data; boundary={boundary}")
+    assert parts["archive"] == archive
+    assert parts["archive"].endswith(b"\n")
