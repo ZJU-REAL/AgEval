@@ -12,7 +12,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from bora.config.errors import ConfigError
-from bora.viewer import browse
+from bora.viewer import browse, jobs
 
 # Default bind: loopback only.
 DEFAULT_HOST = "127.0.0.1"
@@ -20,18 +20,18 @@ DEFAULT_PORT = 8765
 
 
 def static_dir() -> Path:
-    """Locate SPA static assets (monorepo apps/viewer/static or package data)."""
+    """Locate SPA assets: prefer Vite ``dist/``, then legacy static, then package data."""
     env = Path(__file__).resolve()
-    # src/bora/viewer/server.py → repo root apps/viewer/static
-    repo_static = env.parents[3] / "apps" / "viewer" / "static"
-    if repo_static.is_dir():
-        return repo_static
-    # Installed package data: bora/viewer/static next to this module
-    pkg_static = env.parent / "static"
-    if pkg_static.is_dir():
-        return pkg_static
+    repo_viewer = env.parents[3] / "apps" / "viewer"
+    for candidate in (
+        repo_viewer / "dist",
+        repo_viewer / "static",
+        env.parent / "static",
+    ):
+        if candidate.is_dir() and (candidate / "index.html").is_file():
+            return candidate
     raise FileNotFoundError(
-        "viewer static assets not found (expected apps/viewer/static or package data)"
+        "viewer SPA not found (build apps/viewer with npm run build → dist/)"
     )
 
 
@@ -76,31 +76,34 @@ def make_handler(database_root: Path, assets: Path) -> type[BaseHTTPRequestHandl
                 task_id = (qs.get("task_id") or [None])[0]
                 self._api_commands(task_id)
                 return
+            if path == "/api/jobs":
+                self._api_jobs_list()
+                return
+            if path.startswith("/api/jobs/"):
+                self._api_jobs(path)
+                return
             if path.startswith("/api/tasks/"):
                 self._api_tasks(path, qs)
                 return
 
-            # Static SPA
-            if path in {"/", "/index.html"}:
+            # Static SPA (client-side routes fall through to index.html)
+            if path in {"/", "/index.html"} or not path.startswith("/api/"):
+                # Prefer real assets when present; otherwise SPA shell
+                rel = path.lstrip("/")
+                if rel and ".." not in Path(rel).parts:
+                    candidate = (assets / rel).resolve(strict=False)
+                    try:
+                        candidate.relative_to(assets)
+                        if candidate.is_file():
+                            mime, _ = mimetypes.guess_type(str(candidate))
+                            self._serve_file(
+                                candidate, mime or "application/octet-stream"
+                            )
+                            return
+                    except ValueError:
+                        pass
                 self._serve_file(assets / "index.html", "text/html; charset=utf-8")
                 return
-            # Strip leading slash; never allow escape from assets
-            rel = path.lstrip("/")
-            if ".." in Path(rel).parts:
-                _error(self, 404, "not_found", "unknown path")
-                return
-            candidate = (assets / rel).resolve(strict=False)
-            try:
-                candidate.relative_to(assets)
-            except ValueError:
-                _error(self, 404, "not_found", "unknown path")
-                return
-            if candidate.is_file():
-                mime, _ = mimetypes.guess_type(str(candidate))
-                self._serve_file(candidate, mime or "application/octet-stream")
-                return
-            # SPA fallback
-            self._serve_file(assets / "index.html", "text/html; charset=utf-8")
 
         def _serve_file(self, path: Path, content_type: str) -> None:
             try:
@@ -131,6 +134,34 @@ def make_handler(database_root: Path, assets: Path) -> type[BaseHTTPRequestHandl
                 _json(self, 200, {"commands": browse.commands_for(root, task_id=task_id)})
             except ConfigError as exc:
                 _error(self, 400, exc.error_code, str(exc))
+
+        def _api_jobs_list(self) -> None:
+            try:
+                _json(self, 200, jobs.list_jobs(root))
+            except ConfigError as exc:
+                _error(self, 400, exc.error_code, str(exc))
+
+        def _api_jobs(self, path: str) -> None:
+            # /api/jobs/{job_id}
+            # /api/jobs/{job_id}/tasks/{task_id}
+            rest = path[len("/api/jobs/") :]
+            parts = [p for p in rest.split("/") if p]
+            if not parts:
+                _error(self, 404, "not_found", "job id required")
+                return
+            job_id = parts[0]
+            try:
+                if len(parts) == 1:
+                    _json(self, 200, jobs.get_job(root, job_id))
+                    return
+                if len(parts) == 3 and parts[1] == "tasks":
+                    _json(self, 200, jobs.get_job_task(root, job_id, parts[2]))
+                    return
+            except ConfigError as exc:
+                status = 404 if "unknown" in exc.error_code else 400
+                _error(self, status, exc.error_code, str(exc))
+                return
+            _error(self, 404, "not_found", "unknown jobs API path")
 
         def _api_tasks(self, path: str, qs: dict[str, list[str]]) -> None:
             # /api/tasks/{id}

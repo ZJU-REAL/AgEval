@@ -1,0 +1,101 @@
+"""Harbor-style jobs API tests for local suite-runs."""
+
+from __future__ import annotations
+
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+
+from bora.viewer import jobs
+
+REPO = Path(__file__).resolve().parents[2]
+SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+
+
+def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
+    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir.mkdir(parents=True, exist_ok=True)
+    summary = {
+        "schema": "bora.suite.summary/1",
+        "suite_run_id": job_id,
+        "database_id": "test/suite-min",
+        "database_version": "0.1.0",
+        "agent_label": "codex",
+        "model_label": "gpt-test",
+        "provider_label": "openai",
+        "environment": "local",
+        "created_at": "2026-07-14T19:46:20Z",
+        "tasks": [
+            {"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_a"},
+            {"task_id": "beta", "status": "FAIL", "score": 0.0, "run_id": "run_b"},
+            {"task_id": "gamma", "status": "PASS", "score": 1.0, "run_id": "run_c"},
+        ],
+        "task_refs": [
+            {"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_a"},
+            {"task_id": "beta", "status": "FAIL", "score": 0.0, "run_id": "run_b"},
+            {"task_id": "gamma", "status": "PASS", "score": 1.0, "run_id": "run_c"},
+        ],
+        "metrics": {
+            "pass_rate": 2 / 3,
+            "mean_score": 2 / 3,
+            "n_tasks": 3,
+            "n_pass": 2,
+            "n_fail": 1,
+            "n_error": 0,
+            "missing_score_as": 0.0,
+        },
+        "exit_code": 1,
+        "note": "per-task evaluator verdicts only; no suite-level PASS",
+    }
+    (suite_dir / "summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
+    return job_id
+
+
+def _clean_db(tmp_path: Path) -> Path:
+    """Copy fixture without leftover .bora suite-runs from local smokes."""
+    db = tmp_path / "db"
+    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".bora"))
+    return db
+
+
+def test_list_and_get_job(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+
+    listed = jobs.list_jobs(db)
+    assert listed["count"] == 1
+    assert listed["items"][0]["job_id"] == job_id
+    assert listed["items"][0]["mean_score"] == pytest.approx(2 / 3)
+    assert listed["items"][0]["agent_label"] == "codex"
+
+    detail = jobs.get_job(db, job_id)
+    assert detail["task_count"] == 3
+    assert detail["tasks"][0]["task_id"] == "alpha"
+    assert detail["tasks"][1]["status"] == "FAIL"
+
+
+def test_job_task_detail_and_command(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    payload = jobs.get_job_task(db, job_id, "beta")
+    assert payload["task"]["status"] == "FAIL"
+    assert payload["trials"][0]["reward"] == 0.0
+    assert "bora run" in (payload.get("run_command") or "")
+    assert "--task beta" in (payload.get("run_command") or "")
+    crumbs = payload["breadcrumb"]
+    assert crumbs[0]["label"] == "Jobs"
+    assert crumbs[0]["href"] == "/"
+    assert crumbs[1]["label"] == job_id
+    assert crumbs[2]["label"] == "beta"
+    assert crumbs[2]["href"] is None
+
+
+def test_list_empty_without_suite_runs(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    listed = jobs.list_jobs(db)
+    assert listed["count"] == 0
+    assert listed["items"] == []
