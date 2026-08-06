@@ -21,10 +21,10 @@ DEFAULT_PORT = 8765
 
 
 def static_dir() -> Path:
-    """Locate SPA assets: Vite ``apps/viewer/dist`` or wheel package data.
+    """Locate SPA under monorepo ``apps/viewer/dist`` (build artifact, gitignored).
 
-    Wheel packaging maps ``apps/viewer/dist`` → ``bora/viewer/static`` (see pyproject).
-    There is no source ``static/`` tree; only the production build is served.
+    Optional fallback: package-adjacent ``static/`` if a release process copies the SPA.
+    Run ``pnpm build`` in ``apps/viewer`` for local ``bora view``.
     """
     env = Path(__file__).resolve()
     repo_dist = env.parents[3] / "apps" / "viewer" / "dist"
