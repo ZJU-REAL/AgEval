@@ -56,10 +56,10 @@ def make_handler(database_root: Path, assets: Path) -> type[BaseHTTPRequestHandl
     class ViewerHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
-        def log_message(self, fmt: str, *args: object) -> None:
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A002
             # Quiet by default; still useful on stderr for debugging.
             sys_stderr = __import__("sys").stderr
-            sys_stderr.write(f"{self.address_string()} - {fmt % args}\n")
+            sys_stderr.write(f"{self.address_string()} - {format % args}\n")
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)

@@ -39,6 +39,9 @@ pattern = "(?P<version>\\S+)"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bora"]
+# Local viewer SPA lives under apps/; ship next to bora.viewer for non-editable installs.
+[tool.hatch.build.targets.wheel.force-include]
+"apps/viewer/static" = "bora/viewer/static"
 
 [tool.uv]
 package = true
