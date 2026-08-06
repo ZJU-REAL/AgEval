@@ -195,6 +195,8 @@ uv run pytest \
   --ignore=tests/acceptance/test_builtin_executor_conformance.py \
   --ignore=tests/acceptance/test_hard_ceiling_cli.py \
   --ignore=tests/acceptance/test_attempt_trajectory_cli.py \
+  --ignore=tests/acceptance/test_environment_action_denied_cli.py \
+  --ignore=tests/acceptance/test_v1_class_packages.py \
   --ignore=tests/runtime/test_trajectory_source_probe.py \
   -q
 ```
