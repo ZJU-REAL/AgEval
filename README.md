@@ -2,146 +2,148 @@
 
 **Bounded Orchestration for Runtime Agents**
 
-BORA 是 *Harness 的 Harness*：在统一的配置锁定、Attempt 生命周期、Provider 隔离、Capability API、可见性投影与独立评测下，运行 task-local 或 upstream Agent Harness，并绑定可复盘结果。
+[中文文档](README.zh-CN.md)
 
-设计口令：**边界硬、契约薄、实现可胖**。
+[![Release](https://img.shields.io/github/v/release/ffy6511/BORA?display_name=tag&sort=semver)](https://github.com/ffy6511/BORA/releases)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+[![Issues](https://img.shields.io/github/issues/ffy6511/BORA)](https://github.com/ffy6511/BORA/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/ffy6511/BORA)](https://github.com/ffy6511/BORA/pulls)
 
-## 项目状态
+---
 
-| 项 | 值 |
-| --- | --- |
-| 代际 | v2 greenfield（不兼容归档 v1） |
-| 设计 | 已写入 [`docs/design/`](docs/design/)（自包含） |
-| 实现 | **v0.13 Attempt evidence / Codex 轨迹落盘可跑**（§8.9）；v0.14+ multi-executor / L1 visibility 等见 Active Spec 12–17 |
-| 公开 entrypoint | `bora lock` / `bora run` / `bora campaign`（经 `application/composition.py` 装配） |
-| 证据 | L0 named packages + parent-bound multi-invoke trajectory（`attempt-trajectory`）+ L1/env/campaign 部分切片；Version Index **`v0.1`–`v0.18` 已勾**；**不得**扩写全 suite `isolated` / `real-benchmark-verified` |
-| 交付方法 | Spec-Driven Delivery（`$spec-driven-delivery`） |
-| 活动 Spec | [specs/active/00-core-batch0-and-batch1-plan.md](specs/active/00-core-batch0-and-batch1-plan.md) 起；依赖链见 Roadmap |
-| v1 参考 | `Developer/Archived/bora-v1`（只读） |
+Agent benchmarks usually score the model and leave the **harness**—orchestration, isolation, visibility, and evaluation boundaries—to each vendor’s private stack. Swap the coding agent, isolation mode, or upstream framework, and scores stop lining up; reproduction and trajectories fragment the same way.
 
-## 安装（v0.1）
+**BORA** is that outer runtime: lock task config, run a bounded Attempt, control what the agent can see, and let an independent evaluator own the score. Coding agents go through **ACP**, so popular ACP-capable harnesses plug in for evaluation without a new scraper in Core.
 
-需要 [uv](https://docs.astral.sh/uv/) 与 CPython 3.12：
+### What you can do with it
+
+- **Automate evaluation with agent + skill** — after clone, load the repo skills so a coding agent can pick examples, run `bora run`, and read results and trajectories for you
+- **Compose Harness × Agent × Model freely** — keep one task harness and switch Codex / Claude / Pi / OpenCode (and models) via ACP for near-cartesian comparison—no per-vendor stdout scraper
+- **Drop an existing harness into a shared boundary** — keep your workflow; the outer layer unifies config lock, isolation (host / Docker), visibility, and independent scoring for cross-framework reproduction
+- **Batch a full Dataset or a parameter matrix** — run every task in a suite, or campaign over allowlisted overrides such as seed / profile
+- **Review and export trajectories** — each invoke lands on disk; `bora evidence` exports a sealed copy for failure analysis or training pipelines
+
+---
+
+## Quick start
+
+Requires [uv](https://docs.astral.sh/uv/) and CPython **3.12+**.
 
 ```bash
-uv sync --frozen
-uv run bora --help
+git clone https://github.com/ffy6511/BORA.git
+cd BORA
+uv sync --frozen --all-packages
+uv run bora -V
 ```
 
-## 公开 CLI（当前事实）
-
-| 命令 | 含义 | 证据边界 |
-| --- | --- | --- |
-| `bora lock` | Config Core 锁定摘要 | 工程检查点；非 `runnable-mvp` |
-| `bora run` | 单 Trial 前台 Attempt 竖切（L0） | 离线 fail-closed 已回归；**真实 Agent PASS 需登录 Codex**；stdout JSON 含 `logs` → Attempt evidence 根（§8.9 轨迹） |
-| `bora campaign` | 前台串行 matrix（`/parameters/*`） | seed 等 allowlisted variant **已注入** lock digest；非完整 campaign policy |
-
-## 公开检查点：`bora lock`
-
-从 clean checkout 锁定一份 Task Package，得到**确定性、无 secret** 的 JSON 摘要（stdout）。
-这是 Config Core 工程检查点，**不**创建 Run/Attempt、**不**启动 Agent/Evaluator。
-
-### Success
+### Common CLI
 
 ```bash
+# List tasks in a Dataset
+uv run bora tasks examples/core
+
+# Lock only (no agent / evaluator)
 uv run bora lock examples/core --task config-minimal
+
+# Real multi-turn agent path (host ACP entry + credentials required)
+uv run bora run examples/core --task sdk-agent-session
+
+# Switch coding-agent entry via allowlisted override
+uv run bora run examples/core --task builtin-executor-conformance \
+  --set '/parameters/active_profile="pi-mini"'
+
+# Full Dataset suite (omit --task)
+uv run bora run examples/core --max-concurrent-tasks 2
+
+# List executor kinds / ACP entries ready on this host
+uv run bora executors -v
 ```
 
-- Exit `0`
-- Stdout：单一 JSON，含 `format`、`task_id`、`resolved_references`、`resolution`、`digest`
-- 不默认写入 `.bora/` 成功 lock
+### Let a coding agent drive it
 
-可选覆盖（allowlisted JSON Pointer）：
+Skills under [`skills/`](skills/) are discoverable via [`.agents/skills`](.agents/skills). Point your agent at them to run a Dataset under `examples/`, or edit `harness.py` yourself.
 
-```bash
-uv run bora lock examples/core --task config-minimal --set /parameters/seed=7
-```
+| Skill                                                | Use when                          |
+| ---------------------------------------------------- | --------------------------------- |
+| [`bora-platform`](skills/bora-platform/)             | Product map and red lines         |
+| [`bora-cli`](skills/bora-cli/)                       | CLI and result interpretation     |
+| [`bora-config-package`](skills/bora-config-package/) | Authoring Dataset / task config   |
+| [`bora-sdk-harness`](skills/bora-sdk-harness/)       | Writing harnesses with `bora_sdk` |
 
-### Expected failure
+---
 
-```bash
-uv run bora lock examples/core --task config-invalid
-```
+## Reading a package
 
-- Exit `2`
-- Stderr：稳定 `unknown_profile`（及 package-relative location）
-- Stdout 为空；不创建成功 lock 产物
-
-## Lifecycle 检查点（v0.2）
-
-公开产品入口仍是 `bora lock`。Lifecycle Core 通过 application acceptance 验证：
-
-```bash
-uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q
-```
-
-test double 仅在 `tests/doubles/`，不进入 production composition，不声明 `runnable-mvp`。
-
-## Agent Skills
-
-Coding-agent Skills live under [`skills/`](skills/) and are discoverable after clone via [`.agents/skills`](.agents/skills) (symlink → `skills/`).
-
-| Skill | Path |
-| --- | --- |
-| Platform | [`skills/bora-platform/`](skills/bora-platform/) |
-| CLI | [`skills/bora-cli/`](skills/bora-cli/) |
-| Config / package | [`skills/bora-config-package/`](skills/bora-config-package/) |
-| SDK / harness | [`skills/bora-sdk-harness/`](skills/bora-sdk-harness/) |
-
-Design authority remains [`docs/design/`](docs/design/). Skills describe **shipped** surfaces only.
-
-
-## 从哪里读起
-
-### 给 Agent / 贡献者
-
-1. [AGENTS.md](AGENTS.md)
-2. [ARCHITECTURE.md](ARCHITECTURE.md)
-3. [specs/AGENTS.md](specs/AGENTS.md)
-4. [specs/ROADMAP.md](specs/ROADMAP.md)
-5. 当前 Active Spec
-
-### 给设计读者
-
-1. [docs/README.md](docs/README.md)
-2. [docs/design/00-overview-and-product.md](docs/design/00-overview-and-product.md)
-3. [docs/design/01-bora-core.md](docs/design/01-bora-core.md)
-4. 其余 `docs/design/02`–`10` 按需
-
-## 工程门禁
-
-```bash
-uv sync --frozen
-uv run ruff format --check src tests
-uv run ruff check src tests
-uv run pyright
-uv run pytest
-python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_workspace.py" . --strict
-git diff --check
-```
-
-## 目标主路径（尚未作为产品路径交付）
+A **Dataset** is the delivery unit: root `bora.yaml` plus member tasks.
 
 ```text
-bora run <package> --task <id>    # Roadmap v0.6
-  → load_and_lock
-  → Attempt + Provider views
-  → harness(ctx) via Capability
-  → stop writers → independent evaluator
-  → flat Result + .bora/runs/<run-id>/
+examples/core/                    # one Dataset
+├── bora.yaml                     # suite metadata, tasks root
+└── tasks/
+    └── sdk-agent-session/
+        ├── task.yaml             # harness, provider, agent_profiles, limits, evaluation
+        ├── harness.py            # workflow inside the Attempt
+        ├── evaluator.py          # independent PASS/FAIL
+        └── …
 ```
 
-当前公开入口：仅 **`bora lock`**（Config checkpoint）。
+| Path                                       | Role                                               |
+| ------------------------------------------ | -------------------------------------------------- |
+| [`examples/core/`](examples/core/)         | Core smokes                                        |
+| [`examples/journeys/`](examples/journeys/) | Case demos (env / multi-agent / dialog / terminal) |
+| [`examples/l1/`](examples/l1/)             | Docker L1 probes                                   |
 
-## 目录（实现相关）
+CLI takes the **Dataset root**; `--task <id>` selects a member. Full list: [`examples/README.md`](examples/README.md).
+
+```yaml
+agent_profiles:
+  - id: codex-mini
+    executor: acp
+    options:
+      entry: codex # see: bora executors
+    model: gpt-5.4-mini
+```
+
+---
+
+## Reading run outputs
+
+Results land under the task member at `tasks/<task_id>/.bora/runs/<run_id>/`:
 
 ```text
-src/bora/     production package（cli / application / config / adapters）
-examples/     Database suite fixtures（见 examples/README.md）
-              journeys/  case-class 旅程
-              core/      Core 门禁烟测
-              l1/        Provider L1 隔离探针
-tests/        unit + acceptance
-docs/         设计权威
-specs/        Roadmap / Active Specs / BLOCKED
+tasks/<task_id>/.bora/runs/<run_id>/
+├── lock.json              # locked config snapshot (no secrets)
+├── result.json            # flat Result (status, score, …)
+├── summary.json
+├── harness.json           # harness terminal / publish facts
+├── agent.json
+├── effects.jsonl
+├── cleanup.json
+└── agent/
+    ├── events.jsonl
+    └── invocations/
+        └── 0001-<inv_id>/
+            ├── request.json
+            ├── final-response.json
+            ├── metadata.json
+            ├── events.jsonl
+            ├── trajectory.jsonl   # turn-level rows (when produced)
+            └── backend_raw/       # redacted backend stream
 ```
+
+`bora run` prints a single JSON object: `status` / `score` are the evaluation verdict; `logs` is the absolute path to this Attempt’s evidence root.
+
+```bash
+uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
+```
+
+---
+
+## Further reading
+
+| Audience  | Start here                                           |
+| --------- | ---------------------------------------------------- |
+| Design    | [`docs/design/`](docs/design/)                       |
+| Structure | [`ARCHITECTURE.md`](ARCHITECTURE.md)                 |
+| CLI       | [`src/bora/cli/README.md`](src/bora/cli/README.md)   |
+| Releases  | [Releases](https://github.com/ffy6511/BORA/releases) |
