@@ -39,6 +39,8 @@ pattern = "(?P<version>\\S+)"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bora"]
+# Viewer SPA is built on demand (apps/viewer: pnpm build → dist/).
+# Do not force-include dist: it is gitignored and breaks CI `uv sync --frozen`.
 
 [tool.uv]
 package = true

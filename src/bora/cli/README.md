@@ -91,6 +91,8 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora registry list\|show` | Browse remote packages |
 | `bora cache list\|path\|purge` | Local verified cache |
 | `bora results upload\|get\|list` | Attempt run evidence bundles |
+| `bora results upload-suite\|get-suite\|list-suites` | Suite/job aggregates + task refs (no suite PASS) |
+| `bora view` | Local read-only Database Web UI (no Registry) |
 
 Discover flags with `uv run bora <cmd> -h`.
 
@@ -100,6 +102,10 @@ Discover flags with `uv run bora <cmd> -h`.
 
 ```bash
 uv run bora tasks examples/core
+
+# Local Web UI: Jobs → Tasks → Trial (suite-runs under .bora/; no Registry)
+uv run bora view examples/core
+# uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
 
 uv run bora lock examples/core --task config-minimal
 
@@ -212,6 +218,22 @@ uv run bora results get <run_id> --out /tmp/restored-run
 ```
 
 Visibility is **public** or **private** only (no org in this MVP). Default private; `--public` for public.
+
+### Suite / job results
+
+After `bora run <database>` (full suite), summary lives at
+`<database>/.bora/suite-runs/<suite_run_id>/summary.json` with observational
+`metrics.pass_rate` / `metrics.mean_score` (not suite PASS).
+
+```bash
+uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
+  --agent codex --model gpt-test
+uv run bora results list-suites --database-id test/suite-min
+uv run bora results get-suite <suite_run_id> --out /tmp/restored-suite
+# No registry: fall back to local suite-runs
+uv run bora results list-suites --local /path/to/database
+uv run bora results get-suite <suite_run_id> --local /path/to/database
+```
 
 ---
 

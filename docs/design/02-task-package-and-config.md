@@ -548,3 +548,29 @@ bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Spec 2
 
 Summary 写在 Database 根：`.bora/suite-runs/<suite_run_id>/summary.json`。
 
+### Suite metrics（观测聚合，非 PASS 权威）
+
+Suite summary 含 `metrics` 对象（`bora.suite.summary/1` 附加字段），供 job/dataset 级展示与 Registry suite-result 上传：
+
+| 字段 | 公式 |
+| --- | --- |
+| `pass_rate` | `count(status==PASS) / n_tasks` |
+| `mean_score` | 各 task `score` 的算术平均；**缺 score / 非数值 / status=ERROR → 0.0**（Harbor 缺 reward 当 0） |
+| `n_tasks` / `n_pass` / `n_fail` / `n_error` | 计数；未知 status 计入 `n_error` |
+| `missing_score_as` | 固定 `0.0`（文档化默认） |
+
+**禁止** suite-level PASS 字段作为最终权威；PASS 仅 per-task evaluator。`exit_code` 与 `counts` 仍是操作者退出/计数语义，不是榜单 PASS。
+
+### Suite/job 结果上传（Registry）
+
+本地 suite 跑完后可将 `.bora/suite-runs/<suite_run_id>/` 上传为 **suite result 行**（meta + 可选 archive），供 Leaderboard（#22 S5）查询：
+
+| CLI | 语义 |
+| --- | --- |
+| `bora results upload-suite <db> --suite-run <id>` | 上传聚合分 + `task_refs` + summary 归档 |
+| `bora results get-suite <id>` / `list-suites` | Registry 查询 |
+| `… --local <db>` | 不启 Registry，回落本机 `.bora/suite-runs/` |
+
+API：`POST/GET /v1/results/suites`（可见性与 attempt 一致：public / `results:read`）。  
+响应含 `pass_rate`、`mean_score`、`metrics`、`task_refs`；**不**接受/存储 suite PASS。
+

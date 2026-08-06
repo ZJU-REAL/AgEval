@@ -14,9 +14,14 @@ Endpoints:
   GET  /v1/results/attempts
   GET  /v1/results/attempts/{run_id}
   GET  /v1/results/attempts/{run_id}/content
+  POST /v1/results/suites
+  GET  /v1/results/suites
+  GET  /v1/results/suites/{suite_run_id}
+  GET  /v1/results/suites/{suite_run_id}/content
 
 Scopes: registry:publish | read-private | results:upload | results:read | admin
 Visibility: public | private only. Private unauthorized → 404 (not 403).
+Suite results: observational aggregates only — no suite-level PASS authority.
 """
 
 from __future__ import annotations
@@ -60,13 +65,16 @@ from services.registry.store import (  # noqa: E402
     ReleaseRow,
     S3BlobStore,
     SqliteTokenStore,
+    SuiteResultRow,
     attempt_to_dict,
     now,
     release_to_dict,
+    suite_to_dict,
 )
 
 MAX_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB hard top for v1
 RESULT_MEDIA_TYPE = "application/vnd.bora.attempt-result.v1.tar+gzip"
+SUITE_RESULT_MEDIA_TYPE = "application/vnd.bora.suite-result.v1.tar+gzip"
 
 
 class RegistryState:
@@ -232,6 +240,18 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 self._serve_attempt_meta(run_id=m.group(1), scopes=scopes)
                 return
 
+            if path == "/v1/results/suites":
+                self._list_suites(scopes=scopes, qs=qs)
+                return
+            m = re.fullmatch(r"/v1/results/suites/([^/]+)/content", path)
+            if m:
+                self._serve_suite_content(suite_run_id=m.group(1), scopes=scopes)
+                return
+            m = re.fullmatch(r"/v1/results/suites/([^/]+)", path)
+            if m:
+                self._serve_suite_meta(suite_run_id=m.group(1), scopes=scopes)
+                return
+
             _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
 
         def do_POST(self) -> None:  # noqa: N802
@@ -248,6 +268,9 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             if path == "/v1/results/attempts":
                 self._upload_attempt()
+                return
+            if path == "/v1/results/suites":
+                self._upload_suite()
                 return
             _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
 
@@ -680,6 +703,176 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.send_header("Content-Length", str(len(data)))
             self.send_header("X-Bora-Blob-Digest", row.blob_digest)
             self.send_header("X-Bora-Media-Type", RESULT_MEDIA_TYPE)
+            self.end_headers()
+            self.wfile.write(data)
+
+        # ---- suite results -----------------------------------------------
+
+        def _visible_suite(self, row: SuiteResultRow, scopes: frozenset[str]) -> bool:
+            if row.visibility == "public":
+                return True
+            return _can_list_private_results(scopes)
+
+        def _upload_suite(self) -> None:
+            token = _bearer(self)
+            scopes = state.tokens.scopes_for(token)
+            if "results:upload" not in scopes and "admin" not in scopes:
+                _json_response(
+                    self,
+                    401,
+                    {"error": "unauthorized", "message": "results:upload scope required"},
+                )
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            if length <= 0 or length > state.max_upload:
+                _json_response(
+                    self,
+                    413,
+                    {"error": "payload_too_large", "message": f"max {state.max_upload} bytes"},
+                )
+                return
+            body = self.rfile.read(length)
+            ctype = self.headers.get("Content-Type") or ""
+            try:
+                parts = _parse_multipart(body, ctype)
+                meta = json.loads(parts["metadata"].decode("utf-8"))
+                archive = parts["archive"]
+            except (KeyError, ValueError, json.JSONDecodeError) as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_request", "message": f"bad multipart: {exc}"},
+                )
+                return
+
+            suite_run_id = str(meta.get("suite_run_id") or "")
+            database_id = str(meta.get("database_id") or "")
+            database_version = str(meta.get("database_version") or "")
+            visibility = str(meta.get("visibility") or "private")
+            blob_digest = str(meta.get("blob_digest") or "")
+            size = int(meta.get("size") or len(archive))
+            if not suite_run_id or not database_id:
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_request",
+                        "message": "suite_run_id and database_id required",
+                    },
+                )
+                return
+            if visibility not in {"private", "public"}:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
+                return
+            # Reject any client-supplied suite PASS authority field.
+            if "pass" in meta or "verdict" in meta or meta.get("suite_pass") is not None:
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_request",
+                        "message": "suite-level PASS/verdict fields are not accepted",
+                    },
+                )
+                return
+            actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
+            if actual_blob != blob_digest or size != len(archive):
+                _json_response(
+                    self,
+                    400,
+                    {"error": "digest_mismatch", "message": "blob digest or size mismatch"},
+                )
+                return
+            if _archive_looks_like_secret_leak(archive):
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "secret_scan_failed",
+                        "message": "archive rejected: possible credential material",
+                    },
+                )
+                return
+
+            metrics = meta.get("metrics") if isinstance(meta.get("metrics"), dict) else {}
+            task_refs = meta.get("task_refs") if isinstance(meta.get("task_refs"), list) else []
+            try:
+                pass_rate = float(meta.get("pass_rate", metrics.get("pass_rate", 0.0)))
+                mean_score = float(meta.get("mean_score", metrics.get("mean_score", 0.0)))
+            except (TypeError, ValueError):
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_request", "message": "pass_rate/mean_score must be numeric"},
+                )
+                return
+            try:
+                exit_code = int(meta.get("exit_code", 0))
+            except (TypeError, ValueError):
+                exit_code = 0
+
+            row = SuiteResultRow(
+                suite_run_id=suite_run_id,
+                database_id=database_id,
+                database_version=database_version,
+                visibility=visibility,
+                pass_rate=pass_rate,
+                mean_score=mean_score,
+                metrics_json=json.dumps(metrics, sort_keys=True),
+                tasks_json=json.dumps(task_refs, sort_keys=True),
+                agent_label=str(meta.get("agent_label") or ""),
+                model_label=str(meta.get("model_label") or ""),
+                blob_digest=blob_digest,
+                size=size,
+                exit_code=exit_code,
+                created_at=now(),
+            )
+            try:
+                state.blobs.put_if_absent(blob_digest, archive, prefix="suite-results")
+                state.meta.insert_suite(row)
+            except ValueError:
+                _json_response(
+                    self,
+                    409,
+                    {"error": "conflict", "message": "suite result already exists"},
+                )
+                return
+            _json_response(self, 201, suite_to_dict(row))
+
+        def _list_suites(self, *, scopes: frozenset[str], qs: dict[str, list[str]]) -> None:
+            include_private = _can_list_private_results(scopes)
+            database_id = (qs.get("database_id") or [None])[0]
+            rows = state.meta.list_suites(
+                database_id=database_id or None,
+                include_private=include_private,
+            )
+            _json_response(
+                self,
+                200,
+                {"items": [suite_to_dict(r) for r in rows]},
+            )
+
+        def _serve_suite_meta(self, *, suite_run_id: str, scopes: frozenset[str]) -> None:
+            row = state.meta.get_suite(suite_run_id)
+            if row is None or not self._visible_suite(row, scopes):
+                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+                return
+            _json_response(self, 200, suite_to_dict(row))
+
+        def _serve_suite_content(self, *, suite_run_id: str, scopes: frozenset[str]) -> None:
+            row = state.meta.get_suite(suite_run_id)
+            if row is None or not self._visible_suite(row, scopes):
+                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+                return
+            data = state.blobs.get(row.blob_digest, prefix="suite-results")
+            if data is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("X-Bora-Blob-Digest", row.blob_digest)
+            self.send_header("X-Bora-Media-Type", SUITE_RESULT_MEDIA_TYPE)
             self.end_headers()
             self.wfile.write(data)
 
