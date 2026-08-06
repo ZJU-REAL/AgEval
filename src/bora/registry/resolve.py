@@ -60,9 +60,7 @@ def resolve_database_root(
             )
         else:
             assert ref.version is not None
-            meta = reg_client.get_metadata(
-                database_id=ref.database_id, version=ref.version
-            )
+            meta = reg_client.get_metadata(database_id=ref.database_id, version=ref.version)
         hit = pkg_cache.lookup(meta.database_id, meta.package_digest)
         if hit is not None:
             return hit

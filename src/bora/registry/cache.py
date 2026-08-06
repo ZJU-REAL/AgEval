@@ -69,9 +69,7 @@ class PackageCache:
             return final
 
         final.parent.mkdir(parents=True, exist_ok=True)
-        tmp = Path(
-            tempfile.mkdtemp(prefix=".bora-cache-tmp-", dir=str(final.parent))
-        )
+        tmp = Path(tempfile.mkdtemp(prefix=".bora-cache-tmp-", dir=str(final.parent)))
         try:
             extract_archive(archive, tmp)
             got = compute_package_digest(tmp)

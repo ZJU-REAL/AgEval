@@ -111,7 +111,9 @@ class RegistryClient:
             "media_type": media_type,
             "visibility": visibility,
         }
-        boundary = "bora-boundary-7f3a9c"
+        import secrets as _secrets
+
+        boundary = f"bora-{_secrets.token_hex(12)}"
         body = b""
         body += f"--{boundary}\r\n".encode()
         body += b'Content-Disposition: form-data; name="metadata"\r\n'
@@ -180,3 +182,163 @@ class RegistryClient:
         if status != 200:
             raise RegistryError("not_found", f"content not found ({status})", status=status)
         return raw
+
+    def list_packages(
+        self,
+        *,
+        database_id_prefix: str | None = None,
+        visibility: str | None = None,
+        version: str | None = None,
+    ) -> list[ReleaseInfo]:
+        from urllib.parse import urlencode
+
+        q: dict[str, str] = {}
+        if database_id_prefix:
+            q["database_id_prefix"] = database_id_prefix
+        if visibility:
+            q["visibility"] = visibility
+        if version:
+            q["version"] = version
+        path = "/v1/packages"
+        if q:
+            path = f"{path}?{urlencode(q)}"
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("list_failed", f"status {status}", status=status)
+        data = json.loads(raw.decode("utf-8"))
+        items = data.get("items") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            raise RegistryError("list_failed", "invalid list response")
+        return [self._release_from_dict(item) for item in items]
+
+    def list_package_versions(self, database_id: str) -> list[ReleaseInfo]:
+        path = f"/v1/packages/{quote(database_id, safe='/')}"
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("list_failed", f"status {status}", status=status)
+        data = json.loads(raw.decode("utf-8"))
+        items = data.get("items") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            raise RegistryError("list_failed", "invalid list response")
+        return [self._release_from_dict(item) for item in items]
+
+    def device_code(self) -> dict[str, Any]:
+        status, raw, _ = self._request(
+            "POST",
+            "/v1/auth/github/device/code",
+            body=b"{}",
+            headers=self._headers(content_type="application/json", auth=False),
+            auth=False,
+        )
+        if status != 200:
+            raise RegistryError("oauth_failed", f"device code status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def device_poll(self, device_code: str) -> dict[str, Any]:
+        body = json.dumps({"device_code": device_code}).encode("utf-8")
+        status, raw, _ = self._request(
+            "POST",
+            "/v1/auth/github/device/poll",
+            body=body,
+            headers=self._headers(content_type="application/json", auth=False),
+            auth=False,
+        )
+        if status == 202:
+            return {"status": "authorization_pending"}
+        if status != 200:
+            raise RegistryError("oauth_failed", f"poll status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def upload_attempt(
+        self,
+        *,
+        run_id: str,
+        database_id: str,
+        task_id: str,
+        lock_digest: str,
+        status: str,
+        visibility: str,
+        blob_digest: str,
+        size: int,
+        archive: bytes,
+    ) -> dict[str, Any]:
+        meta = {
+            "run_id": run_id,
+            "database_id": database_id,
+            "task_id": task_id,
+            "lock_digest": lock_digest,
+            "status": status,
+            "visibility": visibility,
+            "blob_digest": blob_digest,
+            "size": size,
+        }
+        import secrets as _secrets
+
+        boundary = f"bora-result-{_secrets.token_hex(12)}"
+        body = b""
+        body += f"--{boundary}\r\n".encode()
+        body += b'Content-Disposition: form-data; name="metadata"\r\n'
+        body += b"Content-Type: application/json\r\n\r\n"
+        body += json.dumps(meta, sort_keys=True).encode("utf-8")
+        body += b"\r\n"
+        body += f"--{boundary}\r\n".encode()
+        body += b'Content-Disposition: form-data; name="archive"; filename="attempt.tar.gz"\r\n'
+        body += b"Content-Type: application/octet-stream\r\n\r\n"
+        body += archive
+        body += b"\r\n"
+        body += f"--{boundary}--\r\n".encode()
+        headers = self._headers(
+            content_type=f"multipart/form-data; boundary={boundary}",
+            auth=True,
+        )
+        http_status, raw, _ = self._request(
+            "POST", "/v1/results/attempts", body=body, headers=headers
+        )
+        if http_status not in {200, 201}:
+            raise RegistryError(
+                "upload_failed", f"unexpected status {http_status}", status=http_status
+            )
+        return json.loads(raw.decode("utf-8"))
+
+    def get_attempt(self, run_id: str) -> dict[str, Any]:
+        path = f"/v1/results/attempts/{quote(run_id, safe='')}"
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("not_found", f"attempt not found ({status})", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def fetch_attempt_content(self, run_id: str) -> bytes:
+        path = f"/v1/results/attempts/{quote(run_id, safe='')}/content"
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("not_found", f"content not found ({status})", status=status)
+        return raw
+
+    def list_attempts(self, *, database_id: str | None = None) -> list[dict[str, Any]]:
+        from urllib.parse import urlencode
+
+        path = "/v1/results/attempts"
+        if database_id:
+            path = f"{path}?{urlencode({'database_id': database_id})}"
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("list_failed", f"status {status}", status=status)
+        data = json.loads(raw.decode("utf-8"))
+        items = data.get("items") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            raise RegistryError("list_failed", "invalid list response")
+        return [item for item in items if isinstance(item, dict)]
+
+    @staticmethod
+    def _release_from_dict(data: Any) -> ReleaseInfo:
+        if not isinstance(data, dict):
+            raise RegistryError("list_failed", "invalid release item")
+        return ReleaseInfo(
+            database_id=str(data["database_id"]),
+            version=str(data["version"]),
+            visibility=str(data["visibility"]),
+            package_digest=str(data["package_digest"]),
+            blob_digest=str(data["blob_digest"]),
+            size=int(data["size"]),
+            media_type=str(data["media_type"]),
+        )

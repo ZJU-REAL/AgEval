@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from services.registry.app import build_default_state, make_handler
-from services.registry.store import MemoryBlobStore
 
 from bora.application.composition import build_lock_command
 from bora.application.publish_command import publish_database
@@ -25,14 +24,8 @@ FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
 @pytest.fixture()
 def registry_server(tmp_path: Path):
     data = tmp_path / "reg-data"
-    state, token = build_default_state(data, bootstrap_token="test-token-publish")
-    # Prefer memory blob for unit e2e (allowed by Spec 21 for tests).
-    state = type(state)(
-        meta=state.meta,
-        blobs=MemoryBlobStore(),
-        tokens=state.tokens,
-        max_upload=state.max_upload,
-    )
+    # Memory blob for unit e2e (allowed by Spec 21 for tests).
+    state, token = build_default_state(data, bootstrap_token="test-token-publish", memory_blob=True)
     handler = make_handler(state)
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]
@@ -71,9 +64,7 @@ def test_publish_and_lock_by_ref(
     assert out["digest"].startswith("sha256:")
 
     # Cache should now contain verified tree.
-    cached = PackageCache(cache_root).lookup(
-        "test/publish-min", summary["package_digest"]
-    )
+    cached = PackageCache(cache_root).lookup("test/publish-min", summary["package_digest"])
     assert cached is not None
     assert (cached / "bora.yaml").is_file()
 
@@ -97,9 +88,7 @@ def test_private_without_token_is_not_found(
     # Client without token
     client = RegistryClient(registry_server["url"], token=None)
     with pytest.raises(Exception) as ei:
-        client.get_metadata(
-            database_id=summary["database_id"], version=summary["version"]
-        )
+        client.get_metadata(database_id=summary["database_id"], version=summary["version"])
     # RegistryError with not_found / 404
     assert "not_found" in str(ei.value) or "404" in str(ei.value)
 

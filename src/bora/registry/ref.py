@@ -10,9 +10,7 @@ from bora.config.database import validate_database_id
 from bora.config.errors import ConfigError
 
 # identity@version  OR  identity@sha256:<64hex>
-_REF_RE = re.compile(
-    r"^(?P<id>[^@]+)@(?P<tail>.+)$"
-)
+_REF_RE = re.compile(r"^(?P<id>[^@]+)@(?P<tail>.+)$")
 _DIGEST_TAIL_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 
 

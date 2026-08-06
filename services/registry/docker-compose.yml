@@ -1,15 +1,13 @@
-# Local Registry stack probe (Spec 21 / Constitution D6.10).
-# v1 local defaults: Postgres metadata + RustFS (S3-compatible blob).
-# The in-process service currently uses SQLite + filesystem blob for zero-dep
-# smoke; this compose is the production-shaped local stack for e2e when ready.
+# Local Registry stack (Spec 21 / Constitution D6.10).
+# Production-shaped defaults: Postgres metadata + RustFS (S3-compatible blob).
+# Zero-dep unit tests still use SQLite + memory via --local / --memory-blob.
 #
-# Usage (when wiring S3/Postgres backends):
+# Usage:
 #   docker compose -f services/registry/docker-compose.yml up -d
+#   cp services/registry/.env.example services/registry/.env  # fill secrets
+#   uv sync --extra registry
+#   uv run --extra registry python -m services.registry.app
 #   export BORA_REGISTRY_URL=http://127.0.0.1:8700
-#
-# Probe without full service wiring:
-#   docker compose -f services/registry/docker-compose.yml up -d postgres rustfs
-#   docker compose -f services/registry/docker-compose.yml ps
 
 services:
   postgres:

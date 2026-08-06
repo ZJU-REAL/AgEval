@@ -16,6 +16,28 @@ import typer
 from bora.application.composition import build_lock_command
 from bora.config.errors import ConfigError
 
+
+def _package_version() -> str:
+    """Installed package version, with repo ``VERSION`` file as fallback."""
+    try:
+        from importlib.metadata import version as pkg_version
+
+        return pkg_version("bora")
+    except Exception:  # noqa: BLE001 — offline / editable edge cases
+        version_file = Path(__file__).resolve().parents[3] / "VERSION"
+        if version_file.is_file():
+            text = version_file.read_text(encoding="utf-8").strip()
+            if text:
+                return text
+        return "0.0.0+unknown"
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(_package_version())
+        raise typer.Exit(0)
+
+
 # Typer application object exposed as the console script target.
 app = typer.Typer(
     name="bora",
@@ -27,12 +49,25 @@ app = typer.Typer(
     ),
     no_args_is_help=True,
     add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 
 @app.callback()
-def _root() -> None:
-    """Root callback (no global options in v0.1)."""
+def _root(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            "-V",
+            help="Show package version and exit.",
+            callback=_version_callback,
+            is_eager=True,
+        ),
+    ] = False,
+) -> None:
+    """Global options (``-h`` / ``--help``, ``-V`` / ``--version``)."""
+    del version  # handled by eager callback
 
 
 @app.command("campaign")
@@ -455,6 +490,252 @@ def publish_command(
         raise typer.Exit(code=2) from exc
     except OSError as exc:
         typer.echo(f"invalid_package: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+@app.command("login")
+def login_command(
+    registry_url: Annotated[
+        str | None,
+        typer.Option(
+            "--registry-url",
+            help="Override BORA_REGISTRY_URL / credentials file registry URL.",
+        ),
+    ] = None,
+) -> None:
+    """GitHub Device Flow login; write ``~/.bora/credentials`` (mode 0600)."""
+    from bora.application.login_command import login_registry
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = login_registry(registry_url=registry_url)
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+registry_app = typer.Typer(
+    name="registry",
+    help="List/show Database packages on the configured Registry.",
+    no_args_is_help=True,
+    add_completion=False,
+)
+app.add_typer(registry_app, name="registry")
+
+
+@registry_app.command("list")
+def registry_list_command(
+    prefix: Annotated[
+        str | None,
+        typer.Option("--prefix", help="Filter by database_id prefix."),
+    ] = None,
+    visibility: Annotated[
+        str | None,
+        typer.Option("--visibility", help="public | private (requires scope for private)."),
+    ] = None,
+    registry_url: Annotated[
+        str | None,
+        typer.Option("--registry-url", help="Override registry URL."),
+    ] = None,
+) -> None:
+    """List package releases visible to the current credentials."""
+    from bora.application.registry_list_command import list_packages
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = list_packages(
+            database_id_prefix=prefix,
+            visibility=visibility,
+            registry_url=registry_url,
+        )
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+@registry_app.command("show")
+def registry_show_command(
+    ref: Annotated[
+        str,
+        typer.Argument(help="Package ref: database_id@version or @sha256:…"),
+    ],
+    registry_url: Annotated[
+        str | None,
+        typer.Option("--registry-url", help="Override registry URL."),
+    ] = None,
+) -> None:
+    """Show release metadata (digest, size, visibility)."""
+    from bora.application.registry_list_command import show_package
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = show_package(ref, registry_url=registry_url)
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+cache_app = typer.Typer(
+    name="cache",
+    help="Inspect / purge local verified package cache.",
+    no_args_is_help=True,
+    add_completion=False,
+)
+app.add_typer(cache_app, name="cache")
+
+
+@cache_app.command("list")
+def cache_list_command() -> None:
+    """List verified entries under BORA_CACHE_ROOT / .bora/cache."""
+    from bora.application.registry_list_command import cache_list
+
+    summary = cache_list()
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+@cache_app.command("path")
+def cache_path_command(
+    ref: Annotated[
+        str,
+        typer.Argument(help="Package ref already present in the local cache."),
+    ],
+) -> None:
+    """Print filesystem path of a verified cache entry."""
+    from bora.application.registry_list_command import cache_path
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = cache_path(ref)
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+@cache_app.command("purge")
+def cache_purge_command(
+    target: Annotated[
+        str | None,
+        typer.Argument(help="Ref to purge, or 'all'. Default: all."),
+    ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Confirm destructive purge."),
+    ] = False,
+) -> None:
+    """Delete verified cache entries (requires --yes)."""
+    from bora.application.registry_list_command import cache_purge
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = cache_purge(target, yes=yes)
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+results_app = typer.Typer(
+    name="results",
+    help="Upload / fetch Attempt run evidence bundles (results store).",
+    no_args_is_help=True,
+    add_completion=False,
+)
+app.add_typer(results_app, name="results")
+
+
+@results_app.command("upload")
+def results_upload_command(
+    database: Annotated[
+        Path,
+        typer.Argument(help="Local Database root containing .bora/runs/<run_id>."),
+    ],
+    run: Annotated[
+        str,
+        typer.Option("--run", help="Attempt run_id under .bora/runs/."),
+    ],
+    public: Annotated[
+        bool,
+        typer.Option("--public", help="Create a public result (default: private)."),
+    ] = False,
+    registry_url: Annotated[
+        str | None,
+        typer.Option("--registry-url", help="Override registry / results URL."),
+    ] = None,
+) -> None:
+    """Upload a sealed Attempt directory to the results store."""
+    from bora.application.results_command import upload_attempt_result
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = upload_attempt_result(
+            database,
+            run_id=run,
+            public=public,
+            registry_url=registry_url,
+        )
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    except OSError as exc:
+        typer.echo(f"invalid_package: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+@results_app.command("get")
+def results_get_command(
+    run_id: Annotated[
+        str,
+        typer.Argument(help="Attempt run_id previously uploaded."),
+    ],
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Directory to extract the result bundle into."),
+    ],
+    registry_url: Annotated[
+        str | None,
+        typer.Option("--registry-url", help="Override registry / results URL."),
+    ] = None,
+) -> None:
+    """Download and extract an Attempt result bundle."""
+    from bora.application.results_command import get_attempt_result
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = get_attempt_result(run_id, out_dir=out, registry_url=registry_url)
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+
+@results_app.command("list")
+def results_list_command(
+    database_id: Annotated[
+        str | None,
+        typer.Option("--database-id", help="Filter by database_id."),
+    ] = None,
+    registry_url: Annotated[
+        str | None,
+        typer.Option("--registry-url", help="Override registry / results URL."),
+    ] = None,
+) -> None:
+    """List Attempt results visible to the current credentials."""
+    from bora.application.results_command import list_attempt_results
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = list_attempt_results(
+            database_id=database_id,
+            registry_url=registry_url,
+        )
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
     typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
 
