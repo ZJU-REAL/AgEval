@@ -201,21 +201,26 @@ def _load_suite_summary(suite_dir: Path) -> dict[str, Any]:
 
 
 def _task_rows_from_summary(summary: dict[str, Any]) -> list[dict[str, Any]]:
-    tasks = summary.get("tasks") if isinstance(summary.get("tasks"), list) else []
-    return [t for t in tasks if isinstance(t, dict)]
+    raw = summary.get("tasks")
+    if not isinstance(raw, list):
+        return []
+    return [t for t in raw if isinstance(t, dict)]
 
 
 def _suite_metrics_and_refs(summary: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Resolve metrics + task_refs from summary, recomputing from tasks[] when missing."""
     task_rows = _task_rows_from_summary(summary)
-    metrics = summary.get("metrics") if isinstance(summary.get("metrics"), dict) else {}
+    raw_metrics = summary.get("metrics")
+    metrics: dict[str, Any] = dict(raw_metrics) if isinstance(raw_metrics, dict) else {}
     if not metrics and task_rows:
         metrics = aggregate_task_metrics(task_rows)
-    task_refs = summary.get("task_refs")
-    if not isinstance(task_refs, list):
-        task_refs = task_refs_for_summary(task_rows) if task_rows else []
+    raw_refs = summary.get("task_refs")
+    if isinstance(raw_refs, list):
+        task_refs: list[dict[str, Any]] = [t for t in raw_refs if isinstance(t, dict)]
+    elif task_rows:
+        task_refs = task_refs_for_summary(task_rows)
     else:
-        task_refs = [t for t in task_refs if isinstance(t, dict)]
+        task_refs = []
     return metrics, task_refs
 
 
