@@ -92,6 +92,7 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora cache list\|path\|purge` | Local verified cache |
 | `bora results upload\|get\|list` | Attempt run evidence bundles |
 | `bora results upload-suite\|get-suite\|list-suites` | Suite/job aggregates + task refs (no suite PASS) |
+| `bora view` | Local read-only Database Web UI (no Registry) |
 
 Discover flags with `uv run bora <cmd> -h`.
 
@@ -101,6 +102,10 @@ Discover flags with `uv run bora <cmd> -h`.
 
 ```bash
 uv run bora tasks examples/core
+
+# Local Web UI: task list → README / instruction / file tree (no Registry)
+uv run bora view examples/core
+# uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
 
 uv run bora lock examples/core --task config-minimal
 

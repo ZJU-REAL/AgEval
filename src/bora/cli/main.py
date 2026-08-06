@@ -858,6 +858,48 @@ def results_list_suites_command(
     typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
 
 
+@app.command("view")
+def view_command(
+    database: Annotated[
+        Path,
+        typer.Argument(help="Local Database root to open (bora.database/1)."),
+    ],
+    host: Annotated[
+        str,
+        typer.Option("--host", help="Bind host (default loopback only)."),
+    ] = "127.0.0.1",
+    port: Annotated[
+        int,
+        typer.Option("--port", help="HTTP port (0 = ephemeral)."),
+    ] = 8765,
+    no_browser: Annotated[
+        bool,
+        typer.Option("--no-browser", help="Do not open a browser tab."),
+    ] = False,
+) -> None:
+    """Start a local read-only Web UI for a Database (no Registry required)."""
+    from bora.config.errors import ConfigError
+    from bora.viewer.server import serve_viewer
+
+    try:
+        serve_viewer(
+            database,
+            host=host,
+            port=port,
+            open_browser=not no_browser,
+            block=True,
+        )
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    except FileNotFoundError as exc:
+        typer.echo(f"invalid_package: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    except OSError as exc:
+        typer.echo(f"invalid_package: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+
 @app.command("tasks")
 def tasks_command(
     database: Annotated[
