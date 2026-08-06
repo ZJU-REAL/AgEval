@@ -68,8 +68,21 @@ def test_task_refs_shape() -> None:
             {"task_id": "b", "status": "FAIL", "score": None, "run_id": None},
         ]
     )
-    assert refs[0] == {"task_id": "a", "status": "PASS", "score": 1, "run_id": "r1"}
+    assert refs[0] == {"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "r1"}
     assert refs[1]["status"] == "FAIL"
+    assert refs[1]["score"] is None
+
+
+def test_bool_score_not_numeric() -> None:
+    """bool is a subclass of int; must not become 1.0/0.0 in refs or mean."""
+    rows = [
+        {"task_id": "a", "status": "PASS", "score": True},
+        {"task_id": "b", "status": "FAIL", "score": False},
+    ]
+    m = aggregate_task_metrics(rows)
+    assert m["mean_score"] == 0.0
+    refs = task_refs_for_summary(rows)
+    assert refs[0]["score"] is None
     assert refs[1]["score"] is None
 
 

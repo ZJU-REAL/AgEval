@@ -24,6 +24,17 @@ def _normalize_status(raw: object) -> str:
     return str(raw or "").strip().upper()
 
 
+def _numeric_score_or_none(raw: object) -> float | None:
+    """Return a real number score, or None if missing / bool / non-numeric.
+
+    ``bool`` is a subclass of ``int`` in Python; treat it as non-numeric so
+    ``True``/``False`` never become 1.0/0.0 by accident.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, int | float):
+        return None
+    return float(raw)
+
+
 def _score_value(row: Mapping[str, Any]) -> float:
     """Per-task score contribution for mean_score.
 
@@ -33,10 +44,8 @@ def _score_value(row: Mapping[str, Any]) -> float:
     status = _normalize_status(row.get("status"))
     if status == "ERROR":
         return MISSING_SCORE_AS
-    raw = row.get("score")
-    if isinstance(raw, bool) or not isinstance(raw, int | float):
-        return MISSING_SCORE_AS
-    return float(raw)
+    value = _numeric_score_or_none(row.get("score"))
+    return MISSING_SCORE_AS if value is None else value
 
 
 def aggregate_task_metrics(task_rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -93,7 +102,7 @@ def task_refs_for_summary(task_rows: Sequence[Mapping[str, Any]]) -> list[dict[s
             {
                 "task_id": row.get("task_id"),
                 "status": _normalize_status(row.get("status")) or None,
-                "score": row.get("score") if isinstance(row.get("score"), int | float) else None,
+                "score": _numeric_score_or_none(row.get("score")),
                 "run_id": row.get("run_id"),
             }
         )

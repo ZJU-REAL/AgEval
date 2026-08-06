@@ -291,9 +291,7 @@ def _write_suite_summary(db: Path, suite_run_id: str) -> Path:
         "exit_code": 1,
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
-    (suite_dir / "summary.json").write_text(
-        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
-    )
+    (suite_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return suite_dir
 
 
@@ -320,9 +318,7 @@ def test_suite_results_upload_get_list_roundtrip(
     assert up["mean_score"] == pytest.approx(2 / 3)
     assert len(up["task_refs"]) == 3
     assert "pass" not in up or up.get("pass") is not True
-    assert "suite-level PASS" in up.get("note", "") or "no suite-level PASS" in up.get(
-        "note", ""
-    )
+    assert "suite-level PASS" in up.get("note", "") or "no suite-level PASS" in up.get("note", "")
 
     listed = list_suite_results(database_id="test/publish-min")
     assert listed["count"] == 1
@@ -357,6 +353,62 @@ def test_suite_results_local_fallback(tmp_path: Path) -> None:
     assert got["source"] == "local"
     assert got["suite_run_id"] == suite_run_id
     assert "summary_path" in got
+
+
+def test_suite_results_recompute_metrics_when_missing(tmp_path: Path) -> None:
+    """Older summaries without metrics still yield stable aggregates from tasks[]."""
+    import shutil
+
+    db = tmp_path / "db-legacy-suite"
+    shutil.copytree(FIXTURE, db)
+    suite_run_id = "suite_legacy_no_metrics"
+    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir.mkdir(parents=True, exist_ok=True)
+    summary = {
+        "schema": "bora.suite.summary/1",
+        "suite_run_id": suite_run_id,
+        "database_id": "test/publish-min",
+        "database_version": "0.1.0",
+        "tasks": [
+            {"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "r1"},
+            {"task_id": "b", "status": "FAIL", "score": 0.0, "run_id": "r2"},
+            {"task_id": "c", "status": "ERROR", "score": None, "run_id": None},
+        ],
+        "exit_code": 2,
+    }
+    (suite_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    got = get_suite_result(suite_run_id, local=db)
+    assert got["pass_rate"] == pytest.approx(1 / 3)
+    assert got["mean_score"] == pytest.approx(1 / 3)  # 1.0 + 0.0 + 0.0
+    assert len(got["task_refs"]) == 3
+    assert got["metrics"]["n_error"] == 1
+
+
+def test_suite_upload_scope_cannot_read_private(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Private suite results: upload-only token gets 404 on get (same as attempts)."""
+    state = registry_server["state"]
+    upload_only = "upload-only-suite-token"
+    state.tokens.add(upload_only, {"results:upload"})
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    import shutil
+
+    db = tmp_path / "db-suite-scope"
+    shutil.copytree(FIXTURE, db)
+    suite_run_id = "suite_private_scope"
+    _write_suite_summary(db, suite_run_id)
+    upload_suite_result(db, suite_run_id=suite_run_id)
+
+    upload_client = RegistryClient(registry_server["url"], token=upload_only)
+    with pytest.raises(Exception) as ei:
+        upload_client.get_suite(suite_run_id)
+    assert "not_found" in str(ei.value) or "404" in str(ei.value)
+
+    full = RegistryClient(registry_server["url"], token=registry_server["token"])
+    meta = full.get_suite(suite_run_id)
+    assert meta["suite_run_id"] == suite_run_id
+    assert meta["visibility"] == "private"
 
 
 def test_suite_upload_rejects_suite_pass_field(

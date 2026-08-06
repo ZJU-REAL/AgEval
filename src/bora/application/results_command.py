@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from bora.application.suite_metrics import aggregate_task_metrics, task_refs_for_summary
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
 from bora.registry.client import RegistryClient, RegistryError
@@ -199,22 +200,27 @@ def _load_suite_summary(suite_dir: Path) -> dict[str, Any]:
     return data
 
 
-def _local_suite_item(summary: dict[str, Any], *, suite_dir: Path) -> dict[str, Any]:
+def _task_rows_from_summary(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    tasks = summary.get("tasks") if isinstance(summary.get("tasks"), list) else []
+    return [t for t in tasks if isinstance(t, dict)]
+
+
+def _suite_metrics_and_refs(summary: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Resolve metrics + task_refs from summary, recomputing from tasks[] when missing."""
+    task_rows = _task_rows_from_summary(summary)
     metrics = summary.get("metrics") if isinstance(summary.get("metrics"), dict) else {}
+    if not metrics and task_rows:
+        metrics = aggregate_task_metrics(task_rows)
     task_refs = summary.get("task_refs")
     if not isinstance(task_refs, list):
-        # Derive from tasks[] if older summary without task_refs
-        tasks = summary.get("tasks") if isinstance(summary.get("tasks"), list) else []
-        task_refs = [
-            {
-                "task_id": t.get("task_id"),
-                "status": t.get("status"),
-                "score": t.get("score"),
-                "run_id": t.get("run_id"),
-            }
-            for t in tasks
-            if isinstance(t, dict)
-        ]
+        task_refs = task_refs_for_summary(task_rows) if task_rows else []
+    else:
+        task_refs = [t for t in task_refs if isinstance(t, dict)]
+    return metrics, task_refs
+
+
+def _local_suite_item(summary: dict[str, Any], *, suite_dir: Path) -> dict[str, Any]:
+    metrics, task_refs = _suite_metrics_and_refs(summary)
     return {
         "suite_run_id": summary.get("suite_run_id") or suite_dir.name,
         "database_id": summary.get("database_id"),
@@ -247,10 +253,7 @@ def upload_suite_result(
     suite_dir = _resolve_suite_dir(root, suite_run_id)
     summary = _load_suite_summary(suite_dir)
 
-    metrics = summary.get("metrics") if isinstance(summary.get("metrics"), dict) else {}
-    task_refs = summary.get("task_refs")
-    if not isinstance(task_refs, list):
-        task_refs = []
+    metrics, task_refs = _suite_metrics_and_refs(summary)
     try:
         pass_rate = float(metrics.get("pass_rate", 0.0))
         mean_score = float(metrics.get("mean_score", 0.0))
@@ -285,7 +288,7 @@ def upload_suite_result(
             pass_rate=pass_rate,
             mean_score=mean_score,
             metrics=dict(metrics),
-            task_refs=[t for t in task_refs if isinstance(t, dict)],
+            task_refs=list(task_refs),
             agent_label=agent_label or str(summary.get("agent_label") or ""),
             model_label=model_label or str(summary.get("model_label") or ""),
             exit_code=exit_code,
