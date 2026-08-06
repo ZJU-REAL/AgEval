@@ -1,6 +1,6 @@
 # BORA Viewer
 
-Local Harbor-style results console for a Database package:
+Local results console for a Database package:
 
 **Jobs → Tasks → Trial**, with search, sortable columns, breadcrumbs, and copyable CLI.
 
@@ -12,7 +12,7 @@ Local Harbor-style results console for a Database package:
 ## Develop
 
 ```bash
-# Terminal A: API + static (after build) or API only
+# Terminal A: API (after pnpm build) 
 uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
 
 # Terminal B: Vite HMR (proxies /api → :8765)
@@ -32,7 +32,7 @@ uv run bora view <database>
 
 Package manager: **pnpm** only (`packageManager` field; do not use npm/yarn).
 
-Python serves `apps/viewer/dist/` preferentially over the legacy `static/` shell.
+Python serves **`apps/viewer/dist/`** only (no separate `static/` tree).
 
 ## API
 

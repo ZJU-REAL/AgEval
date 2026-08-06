@@ -20,18 +20,18 @@ DEFAULT_PORT = 8765
 
 
 def static_dir() -> Path:
-    """Locate SPA assets: prefer Vite ``dist/``, then legacy static, then package data."""
+    """Locate SPA assets: Vite ``apps/viewer/dist`` or wheel package data.
+
+    Wheel packaging maps ``apps/viewer/dist`` → ``bora/viewer/static`` (see pyproject).
+    """
     env = Path(__file__).resolve()
-    repo_viewer = env.parents[3] / "apps" / "viewer"
-    for candidate in (
-        repo_viewer / "dist",
-        repo_viewer / "static",
-        env.parent / "static",
-    ):
+    repo_dist = env.parents[3] / "apps" / "viewer" / "dist"
+    pkg_data = env.parent / "static"
+    for candidate in (repo_dist, pkg_data):
         if candidate.is_dir() and (candidate / "index.html").is_file():
             return candidate
     raise FileNotFoundError(
-        "viewer SPA not found (build apps/viewer with npm run build → dist/)"
+        "viewer SPA not found (from apps/viewer: pnpm build → dist/)"
     )
 
 

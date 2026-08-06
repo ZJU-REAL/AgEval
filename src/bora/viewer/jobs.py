@@ -1,4 +1,4 @@
-"""Local suite-run (job) listing for the Harbor-style viewer.
+"""Local suite-run (job) listing for the Database results viewer.
 
 Jobs = ``.bora/suite-runs/<suite_run_id>/summary.json`` under a Database root.
 No suite-level PASS authority — scores are observational aggregates only.
@@ -72,7 +72,7 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
     refs = _ensure_task_refs(summary)
     n_tasks = int(metrics.get("n_tasks") or len(refs) or 0)
     n_done = int(metrics.get("n_pass") or 0) + int(metrics.get("n_fail") or 0)
-    # Harbor "Trials" style fraction: completed / planned
+    # Trials fraction: completed / planned
     trials_done = n_done if n_done else int(metrics.get("n_pass") or 0) + int(
         metrics.get("n_fail") or 0
     ) + int(metrics.get("n_error") or 0)
@@ -220,7 +220,7 @@ def get_job_task(database_root: Path, job_id: str, task_id: str) -> dict[str, An
 
     root = database_root.expanduser().resolve(strict=False)
     cmds = commands_for(root, task_id=task_id)
-    # Harbor shows a one-liner re-run command; map to bora run
+    # One-liner re-run command for the task (or full suite)
     run_cmd = cmds.get("run_task") or cmds.get("run_suite")
 
     trial = {

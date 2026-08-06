@@ -4,8 +4,8 @@ name: BORA-Viewer-Vercel-inspired
 description: >
   Local BORA Database results viewer. Visual language adapted from Vercel
   (stark ink-on-near-white, hairline tables, Geist/Inter + mono captions).
-  Product surface is Harbor-like Jobs → Tasks → Trial drill-down — not a
-  marketing site. Full upstream reference:
+  Product surface is Jobs → Tasks → Trial drill-down — not a marketing site.
+  Full upstream visual reference:
   https://github.com/VoltAgent/awesome-design-md/blob/main/design-md/vercel/DESIGN.md
 source: vercel/DESIGN.md (VoltAgent awesome-design-md), adapted for apps/viewer
 
@@ -133,7 +133,7 @@ components:
 
 ## Overview
 
-BORA Viewer is a **local read-only results console** (Harbor IA):
+BORA Viewer is a **local read-only results console**:
 
 1. **Jobs** — suite runs under `.bora/suite-runs/`
 2. **Tasks** — per-task rows inside a job summary
@@ -149,7 +149,7 @@ Design is **Vercel product chrome**, not marketing hero mesh:
 Upstream design inventory (marketing + full tokens) lives in the source
 `vercel/DESIGN.md`; this file is the **viewer-specific subset**.
 
-## Information architecture (must match Harbor)
+## Information architecture
 
 | Route | Content |
 | --- | --- |
