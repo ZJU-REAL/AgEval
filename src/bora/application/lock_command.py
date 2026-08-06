@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from bora.config.capabilities import CapabilityCatalog
-from bora.config.database import resolve_task
+from bora.config.database import load_database_manifest, resolve_task
 from bora.config.load_and_lock import ConfigCore, parse_set_override
 from bora.config.model import locked_to_summary
 from bora.registry.resolve import resolve_database_root
@@ -53,6 +53,7 @@ class LockCommand:
 
         root = resolve_database_root(raw)
         resolved = resolve_task(root, task_id)
+        man = load_database_manifest(root)
 
         overrides: dict[str, object] = {}
         for raw in set_overrides:
@@ -65,6 +66,7 @@ class LockCommand:
             variant=variant,
             overrides=overrides or None,
             capabilities=self._capabilities,
+            database_provenance=man.provenance,
         )
         summary = locked_to_summary(locked).as_dict()
         summary["database_id"] = resolved.database_id
