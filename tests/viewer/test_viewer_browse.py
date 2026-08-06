@@ -61,7 +61,8 @@ def test_path_traversal_rejected() -> None:
 def test_static_dir_exists() -> None:
     d = static_dir()
     assert (d / "index.html").is_file()
-    assert (d / "app.js").is_file()
+    # Vite production build: hashed assets under dist/assets/
+    assert (d / "assets").is_dir() or (d / "app.js").is_file()
 
 
 @pytest.fixture()
@@ -99,11 +100,15 @@ def test_http_api_list_detail_file(viewer_server: str) -> None:
     assert file_data["kind"] == "text"
     assert "format" in file_data["content"]
 
-    # SPA shell
+    jobs_payload = _get_json(f"{base}/api/jobs")
+    assert "items" in jobs_payload
+    assert jobs_payload["count"] >= 0
+
+    # SPA shell (React root; Harbor Jobs UI mounts client-side)
     with urlopen(f"{base}/", timeout=5) as resp:  # noqa: S310
         html = resp.read().decode("utf-8")
     assert "BORA Viewer" in html
-    assert 'id="task-list"' in html
+    assert 'id="root"' in html
 
 
 def test_http_unknown_task_404(viewer_server: str) -> None:

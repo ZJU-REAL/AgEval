@@ -1,40 +1,41 @@
-# BORA local Database viewer
+# BORA Viewer
 
-Read-only local UI for a Database package: task list → README / instruction / file tree preview, plus copyable CLI commands.
+Local Harbor-style results console for a Database package:
 
-**Does not** require Registry, Postgres, S3, or OAuth.
+**Jobs → Tasks → Trial**, with search, sortable columns, breadcrumbs, and copyable CLI.
 
-## Run
+## Design
 
-From the repo (or any install that can see `apps/viewer/static`):
+- [DESIGN.md](./DESIGN.md) — Vercel-inspired tokens + IA
+- [AGENTS.md](./AGENTS.md) — implementation constraints (shadcn, no hand-rolled chrome)
+
+## Develop
 
 ```bash
-uv run bora view tests/fixtures/databases/suite-min
-# opens http://127.0.0.1:8765/
-uv run bora view examples/core --port 8770 --no-browser
+# Terminal A: API + static (after build) or API only
+uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
+
+# Terminal B: Vite HMR (proxies /api → :8765)
+cd apps/viewer
+npm install
+npm run dev
 ```
 
-## Layout
+## Production build (required for `bora view`)
 
-| Path | Role |
+```bash
+cd apps/viewer
+npm install
+npm run build   # writes dist/
+uv run bora view <database>
+```
+
+Python serves `apps/viewer/dist/` preferentially over the legacy `static/` shell.
+
+## API
+
+| Path | Description |
 | --- | --- |
-| `static/` | SPA (HTML/CSS/JS, no build step) |
-| `src/bora/viewer/` | stdlib HTTP server + safe browse API |
-
-## API (local only)
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/health` | Liveness |
-| GET | `/api/database` | Manifest + task ids + suite commands |
-| GET | `/api/tasks/{id}` | README / instruction / task.yaml + task commands |
-| GET | `/api/tasks/{id}/tree` | File tree under the task directory |
-| GET | `/api/tasks/{id}/file?path=` | File preview (text / small image) |
-
-All file access is confined under the opened Database root (path traversal rejected).
-
-## Out of scope (other issues)
-
-- Public Hub catalog / Leaderboard SPA (#22)
-- Remote package files API
-- Suite metric aggregation (#23)
+| `GET /api/jobs` | Suite runs under `.bora/suite-runs/` |
+| `GET /api/jobs/{id}` | Job + task rows |
+| `GET /api/jobs/{id}/tasks/{task_id}` | Trial detail + `bora run` command |
