@@ -1,5 +1,9 @@
 # Core PR/main gate: freeze install, Ruff, Pyright, offline pytest.
 # Does not run Docker L1, real Agent/API e2e, or docs formatters.
+#
+# Path filter (scheme 2): workflow always runs; heavy steps only when
+# code-relevant paths change. Docs-only pushes still get a green `core`
+# job so required status checks are not left pending.
 name: ci
 
 on:
@@ -12,35 +16,81 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  core:
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Positive filter: unknown paths default to "no code" only if every
+      # changed file is outside this list. Prefer over-running CI.
+      - name: Detect code-relevant paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'sdk/**'
+              - 'tests/**'
+              - 'examples/**'
+              - 'docker/**'
+              - 'services/**'
+              - 'scripts/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'VERSION'
+              - '.python-version'
+              - '.github/workflows/**'
+
+  core:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Skip (docs / non-code only)
+        if: needs.changes.outputs.code != 'true'
+        run: |
+          echo "No code-relevant path changes detected; skipping Ruff / Pyright / pytest."
+          echo "Filter list: src sdk tests examples docker services scripts"
+          echo "  pyproject.toml uv.lock VERSION .python-version .github/workflows"
+
+      - name: Checkout
+        if: needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v4
+
       - name: Install uv
+        if: needs.changes.outputs.code == 'true'
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
       - name: Python
+        if: needs.changes.outputs.code == 'true'
         run: uv python install 3.12
 
       - name: Install dependencies (frozen)
+        if: needs.changes.outputs.code == 'true'
         run: uv sync --frozen
 
       - name: Ruff format
+        if: needs.changes.outputs.code == 'true'
         run: uv run ruff format --check src tests
 
       - name: Ruff check
+        if: needs.changes.outputs.code == 'true'
         run: uv run ruff check src tests
 
       - name: Pyright
+        if: needs.changes.outputs.code == 'true'
         run: uv run pyright
 
       # Core only: unit + offline acceptance. No Docker L1, no real agent CLIs.
       - name: Pytest (core)
+        if: needs.changes.outputs.code == 'true'
         env:
           BORA_OFFLINE_AGENT: "1"
           BORA_SKIP_DOCKER: "1"
