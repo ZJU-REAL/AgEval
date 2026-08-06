@@ -16,6 +16,28 @@ import typer
 from bora.application.composition import build_lock_command
 from bora.config.errors import ConfigError
 
+
+def _package_version() -> str:
+    """Installed package version, with repo ``VERSION`` file as fallback."""
+    try:
+        from importlib.metadata import version as pkg_version
+
+        return pkg_version("bora")
+    except Exception:  # noqa: BLE001 — offline / editable edge cases
+        version_file = Path(__file__).resolve().parents[3] / "VERSION"
+        if version_file.is_file():
+            text = version_file.read_text(encoding="utf-8").strip()
+            if text:
+                return text
+        return "0.0.0+unknown"
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(_package_version())
+        raise typer.Exit(0)
+
+
 # Typer application object exposed as the console script target.
 app = typer.Typer(
     name="bora",
@@ -27,12 +49,25 @@ app = typer.Typer(
     ),
     no_args_is_help=True,
     add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 
 @app.callback()
-def _root() -> None:
-    """Root callback (no global options in v0.1)."""
+def _root(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            "-V",
+            help="Show package version and exit.",
+            callback=_version_callback,
+            is_eager=True,
+        ),
+    ] = False,
+) -> None:
+    """Global options (``-h`` / ``--help``, ``-V`` / ``--version``)."""
+    del version  # handled by eager callback
 
 
 @app.command("campaign")
