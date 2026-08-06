@@ -39,12 +39,18 @@ def _load_summary(path: Path) -> dict[str, Any]:
     return data
 
 
+def _task_dicts(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    raw = summary.get("tasks")
+    if not isinstance(raw, list):
+        return []
+    return [t for t in raw if isinstance(t, dict)]
+
+
 def _ensure_metrics(summary: dict[str, Any]) -> dict[str, Any]:
     metrics = summary.get("metrics")
     if isinstance(metrics, dict) and metrics:
         return metrics
-    tasks = summary.get("tasks") if isinstance(summary.get("tasks"), list) else []
-    rows = [t for t in tasks if isinstance(t, dict)]
+    rows = _task_dicts(summary)
     if not rows:
         return {
             "pass_rate": 0.0,
@@ -62,9 +68,7 @@ def _ensure_task_refs(summary: dict[str, Any]) -> list[dict[str, Any]]:
     refs = summary.get("task_refs")
     if isinstance(refs, list) and refs:
         return [r for r in refs if isinstance(r, dict)]
-    tasks = summary.get("tasks") if isinstance(summary.get("tasks"), list) else []
-    rows = [t for t in tasks if isinstance(t, dict)]
-    return task_refs_for_summary(rows)
+    return task_refs_for_summary(_task_dicts(summary))
 
 
 def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -> dict[str, Any]:
@@ -166,10 +170,9 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
     job = _job_row(summary, suite_dir=suite_dir, database_root=root)
     refs = _ensure_task_refs(summary)
     # Prefer full task rows when present (score/status/error)
-    tasks_raw = summary.get("tasks") if isinstance(summary.get("tasks"), list) else []
     by_id: dict[str, dict[str, Any]] = {}
-    for t in tasks_raw:
-        if isinstance(t, dict) and t.get("task_id"):
+    for t in _task_dicts(summary):
+        if t.get("task_id"):
             by_id[str(t["task_id"])] = t
 
     task_rows: list[dict[str, Any]] = []
