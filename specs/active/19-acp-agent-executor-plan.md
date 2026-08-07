@@ -421,13 +421,13 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `pyproject.toml`
 - `uv.lock`
 - `src/bora/adapters/agent_contract.py`
-- `src/bora/adapters/agent_acp.py`
+- `src/bora/adapters/acp/`
 - `src/bora/adapters/agent_registry.py`
 - `src/bora/runtime/agent_service.py`
 - `src/bora/evidence/store.py`
 - `tests/fixtures/acp/echo_agent.py`
 - `tests/fixtures/acp/failure_agent.py`
-- `tests/adapters/test_agent_acp.py`
+- `tests/adapters/test_acp/`
 - `tests/runtime/test_agent_service_acp.py`
 - `tests/security/test_acp_no_secret.py`
 - `tests/acceptance/test_acp_agent_conformance.py`
@@ -452,7 +452,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 
 #### Gates
 
-- [ ] `uv sync --frozen`、`uv run pytest tests/adapters/test_agent_acp.py tests/runtime/test_agent_service_acp.py tests/security/test_acp_no_secret.py tests/acceptance/test_acp_agent_conformance.py -q` 通过。
+- [ ] `uv sync --frozen`、`uv run pytest tests/adapters/test_acp/ tests/runtime/test_agent_service_acp.py tests/security/test_acp_no_secret.py tests/acceptance/test_acp_agent_conformance.py -q` 通过。
 - [ ] `uv run ruff check .`、`uv run pyright`、strict Specs validator 与 `git diff --check` 通过。
 - [ ] 真实 OpenCode smoke与全 evidence secret scan 通过；fixture-only green 不得关闭 Phase 2。
 
@@ -474,7 +474,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 
 - `src/bora/adapters/acp_entries.json`
 - `src/bora/adapters/acp_registry.py`
-- `src/bora/adapters/agent_acp.py`
+- `src/bora/adapters/acp/`
 - `src/bora/adapters/child_env.py`
 - `tests/executors/test_acp_mode_feasibility.py`
 - `tests/acceptance/test_acp_agent_conformance.py`
@@ -512,7 +512,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - 引入 `docker/attempt/acp-entries.lock.json`，与 `src/bora/adapters/acp_entries.json` pin 同源；改写 `install-executors.sh`：**安装 Mode 1 engine+adapter（含 `pi`+`pi-acp`）、Mode 2 OpenCode、Mode 3 Grok pin**（见上文 BOM 表）。
 - `build.py` digest 覆盖 Dockerfile、`install-executors.sh`、`acp-entries.lock.json`；禁止只 digest Dockerfile；禁止 image 内 `npx` 无版本安装。
 - Image build 后以 root 与 **numeric actor UID** 分别 `command -v` / 最小 `--help` 校验 **五** entry；Mode 1 缺 adapter 使 build 或 preflight 失败。
-- 将 `agent_container.py` 收窄为 `AcpProcessLauncher`/target placement（stdio attach），删除 ACP-capable vendor `_cli_argv`、`_try_parse_structured` 与 JSON regex；client/result mapper 只在 parent `agent_acp.py`。
+- 将 `agent_container.py` 收窄为 `AcpProcessLauncher`/target placement（stdio attach），删除 ACP-capable vendor `_cli_argv`、`_try_parse_structured` 与 JSON regex；client/result mapper 只在 parent `acp/`。
 - `run_l1.py` 为 locked ACP profile 构造 launcher 并复用 ParentAgentService；保留 actor UID/GID/private HOME/generation/no-host-fallback。
 - 创建 L1 public package：至少两次 SDK invoke + independent evaluator；另加 **静态** image inventory gate（**五** entry PATH，不强制五次真实模型调用）。
 - 覆盖 entry missing、dead target、cancel/timeout、residual writer；secret/gold/handle scan。
@@ -523,7 +523,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `docker/attempt/Dockerfile`
 - `docker/attempt/install-executors.sh`
 - `docker/attempt/build.py`
-- `src/bora/adapters/agent_acp.py`
+- `src/bora/adapters/acp/`
 - `src/bora/adapters/agent_container.py`
 - `src/bora/application/run_l1.py`
 - `src/bora/adapters/provider_docker.py`
@@ -545,7 +545,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - [ ] `uv run python docker/attempt/build.py --platform linux/arm64` 生成 image lock：含 engine/entry exact versions 与完整 build-input digest；BOM **五** entry 在镜像内 PATH 可 `command -v`（actor UID）。
 - [ ] Mode 1 镜像内 `codex`∧`codex-acp`、`claude`∧`claude-agent-acp`、`pi`∧`pi-acp` 同时存在；Grok 为 pin 安装而非 `npx` 包装脚本依赖网络。
 - [ ] L1 public success 完成至少两次 SDK invoke（Codex 或 OpenCode 至少一个真实 entry），metadata/evidence 与 host path 同 schema，`execution_location=attempt-container`、numeric non-root、private HOME、`host_fallback_count=0`。
-- [ ] Host 与 container 注入同一 ACP update sequence，normalized `AgentResult`/events 字节等价（placement metadata 除外）；mapper 源文件仅 `agent_acp.py`。
+- [ ] Host 与 container 注入同一 ACP update sequence，normalized `AgentResult`/events 字节等价（placement metadata 除外）；mapper 源文件仅 `acp/`。
 
 #### Expected failure
 
@@ -576,7 +576,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 ### Files
 
 - `src/bora/adapters/agent_contract.py`
-- `src/bora/adapters/agent_acp.py`
+- `src/bora/adapters/acp/`
 - `src/bora/adapters/agent_registry.py`
 - `src/bora/adapters/executor_capabilities.py`
 - `src/bora/adapters/executor_inventory.py`

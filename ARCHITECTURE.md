@@ -124,7 +124,7 @@ BORA/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
 │       ├── provider_docker.py # Docker L1 + multi-actor ExecutionTarget
-│       ├── agent_acp.py       # Current: 唯一 typed ACP client（parent）
+│       ├── acp/                # Current: 唯一 typed ACP client（parent）
 │       ├── acp_entries.json   # Current: static entry pins / descriptors
 │       ├── acp_registry.py    # Current: registry + readiness
 │       ├── agent_container.py # L1 placement helpers / opaque target id
@@ -160,7 +160,7 @@ BORA/
 │   ├── evaluation/            # Core 5：barrier、bind、result 模型
 │   ├── domain/                # 薄共享 value types / 错误类型
 │   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
-│       ├── agent_acp.py       # 唯一 ACP client（parent；Spec 19 Current）
+│       ├── acp/                # 唯一 ACP client（parent；Spec 19 Current）
 │       ├── acp_entries.json   # entry descriptor + exact pins
 │       ├── agent_container.py # L1 placement helpers
 │       └── agent_openai_http.py

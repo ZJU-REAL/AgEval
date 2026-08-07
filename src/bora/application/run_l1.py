@@ -229,8 +229,8 @@ def run_l1_sdk_session_attempt(
         }
 
     def make_target_executor(binding: Any) -> Any:
+        from bora.adapters.acp import AcpExecutor
         from bora.adapters.acp_registry import get_entry
-        from bora.adapters.agent_acp import AcpExecutor
         from bora.adapters.agent_container import effective_run_gid
 
         actor_id = binding.actor_id

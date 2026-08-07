@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.agent_acp import AcpExecutor
+from bora.adapters.acp import AcpExecutor
 from bora.adapters.agent_contract import parse_validated_text_structured
 from bora.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
 

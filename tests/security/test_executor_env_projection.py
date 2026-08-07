@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.adapters.agent_acp import AcpExecutor
+from bora.adapters.acp import AcpExecutor
 from bora.adapters.child_env import project_cli_child_env
 from bora.evidence.store import AttemptEvidenceStore
 from bora.runtime.agent_service import ParentAgentService

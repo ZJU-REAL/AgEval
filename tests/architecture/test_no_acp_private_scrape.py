@@ -1,4 +1,4 @@
-"""Architecture gate: one ACP client; private vendor modules deleted."""
+"""Architecture gate: one ACP client package; private vendor modules deleted."""
 
 from __future__ import annotations
 
@@ -7,11 +7,20 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 ADAPTERS = REPO / "src" / "bora" / "adapters"
+ACP_PKG = ADAPTERS / "acp"
 
 
-def test_single_acp_executor_module() -> None:
-    acp_modules = list(ADAPTERS.glob("agent_acp*.py"))
-    assert acp_modules == [ADAPTERS / "agent_acp.py"]
+def _acp_sources() -> str:
+    return "\n".join(p.read_text(encoding="utf-8") for p in sorted(ACP_PKG.glob("*.py")))
+
+
+def test_single_acp_executor_package() -> None:
+    assert ACP_PKG.is_dir()
+    assert (ACP_PKG / "executor.py").is_file()
+    # No legacy monolith next to the package.
+    assert not (ADAPTERS / "agent_acp.py").is_file()
+    # No extra top-level agent_acp* modules.
+    assert list(ADAPTERS.glob("agent_acp*.py")) == []
 
 
 def test_private_vendor_modules_deleted() -> None:
@@ -25,7 +34,7 @@ def test_private_vendor_modules_deleted() -> None:
 
 
 def test_acp_module_has_no_regex_json_scrape() -> None:
-    src = (ADAPTERS / "agent_acp.py").read_text(encoding="utf-8")
+    src = _acp_sources()
     assert "_try_parse_structured" not in src
     assert "_extract_json_object" not in src
     assert "re.findall" not in src
@@ -48,10 +57,14 @@ def test_agent_container_scrape_not_used_for_acp_kind() -> None:
 
 
 def test_agent_acp_imports_typed_sdk() -> None:
-    src = (ADAPTERS / "agent_acp.py").read_text(encoding="utf-8")
+    src = _acp_sources()
     assert "import acp" in src or "from acp" in src
-    tree = ast.parse(src)
-    assert any(isinstance(n, (ast.Import, ast.ImportFrom)) for n in tree.body)
+    # At least one package module parses cleanly with imports present.
+    for path in sorted(ACP_PKG.glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        if any(isinstance(n, (ast.Import, ast.ImportFrom)) for n in tree.body):
+            return
+    raise AssertionError("ACP package has no import statements")
 
 
 def test_private_kinds_not_resolvable() -> None:

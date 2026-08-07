@@ -462,7 +462,7 @@ class ParentAgentService:
             meta.setdefault("turn_index", self.invocations_completed + 1)
             is_acp = meta.get("executor_kind") == "acp" or kind == "acp"
             if is_acp:
-                from bora.adapters.agent_acp import write_trajectory_jsonl
+                from bora.adapters.acp import write_trajectory_jsonl
 
                 # Always rewrite with turn_index even if executor already wrote.
                 write_trajectory_jsonl(
