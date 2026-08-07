@@ -423,11 +423,11 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `src/bora/adapters/agent_contract.py`
 - `src/bora/adapters/acp/`
 - `src/bora/adapters/agent_registry.py`
-- `src/bora/runtime/agent_service.py`
+- `src/bora/runtime/parent_agent_service.py`
 - `src/bora/evidence/store.py`
 - `tests/fixtures/acp/echo_agent.py`
 - `tests/fixtures/acp/failure_agent.py`
-- `tests/adapters/test_acp/`
+- `tests/adapters/test_agent_acp.py`
 - `tests/runtime/test_agent_service_acp.py`
 - `tests/security/test_acp_no_secret.py`
 - `tests/acceptance/test_acp_agent_conformance.py`
@@ -452,7 +452,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 
 #### Gates
 
-- [ ] `uv sync --frozen`、`uv run pytest tests/adapters/test_acp/ tests/runtime/test_agent_service_acp.py tests/security/test_acp_no_secret.py tests/acceptance/test_acp_agent_conformance.py -q` 通过。
+- [ ] `uv sync --frozen`、`uv run pytest tests/adapters/test_agent_acp.py tests/runtime/test_agent_service_acp.py tests/security/test_acp_no_secret.py tests/acceptance/test_acp_agent_conformance.py -q` 通过。
 - [ ] `uv run ruff check .`、`uv run pyright`、strict Specs validator 与 `git diff --check` 通过。
 - [ ] 真实 OpenCode smoke与全 evidence secret scan 通过；fixture-only green 不得关闭 Phase 2。
 
@@ -526,7 +526,7 @@ Agent message以外的 plan、thought、tool call、config、usage update 进入
 - `src/bora/adapters/acp/`
 - `src/bora/adapters/agent_container.py`
 - `src/bora/application/run_l1.py`
-- `src/bora/adapters/provider_docker.py`
+- `src/bora/adapters/provider_docker/`
 - `tests/provider_l1/test_acp_container_placement.py`
 - `tests/provider_l1/test_acp_image_bom.py`
 - `tests/acceptance/test_l1_acp_agent.py`
