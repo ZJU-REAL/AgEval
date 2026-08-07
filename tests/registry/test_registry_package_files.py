@@ -32,9 +32,7 @@ FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
 def registry_server(tmp_path: Path):
     clear_index_cache()
     data = tmp_path / "reg-data"
-    state, token = build_default_state(
-        data, bootstrap_token="test-token-publish", memory_blob=True
-    )
+    state, token = build_default_state(data, bootstrap_token="test-token-publish", memory_blob=True)
     handler = make_handler(state)
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -113,9 +111,7 @@ def test_private_without_token_404(
     assert listing["items"]
 
 
-def test_bad_path_and_missing(
-    registry_server, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_bad_path_and_missing(registry_server, monkeypatch: pytest.MonkeyPatch) -> None:
     summary = _publish_public(registry_server, monkeypatch)
     client = RegistryClient(registry_server["url"], token=None)
     with pytest.raises(RegistryError) as ei:
@@ -135,9 +131,7 @@ def test_bad_path_and_missing(
     assert ei2.value.status == 404
 
 
-def test_version_alias_files(
-    registry_server, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_version_alias_files(registry_server, monkeypatch: pytest.MonkeyPatch) -> None:
     summary = _publish_public(registry_server, monkeypatch)
     client = RegistryClient(registry_server["url"], token=None)
     listing = client.list_package_files(
@@ -172,9 +166,7 @@ def test_oversize_file_raises() -> None:
         read_member(archive, "big.bin")
 
 
-def test_oversize_http_413(
-    registry_server, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_oversize_http_413(registry_server, monkeypatch: pytest.MonkeyPatch) -> None:
     """Inject a large blob under an existing public release and expect 413."""
     summary = _publish_public(registry_server, monkeypatch)
     state = registry_server["state"]

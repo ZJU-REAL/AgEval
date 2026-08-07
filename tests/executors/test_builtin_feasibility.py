@@ -7,8 +7,8 @@ import shutil
 
 import pytest
 
-from bora.adapters.acp_registry import get_entry, list_entry_ids, readiness_for
 from bora.adapters.acp import AcpExecutor
+from bora.adapters.acp_registry import get_entry, list_entry_ids, readiness_for
 from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES
 
 

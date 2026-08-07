@@ -72,7 +72,9 @@ def fingerprint_for_actors(actors: Sequence[Mapping[str, str]]) -> str:
 
 def topology_key(actors: Sequence[Mapping[str, str]]) -> str:
     """Role topology only (profile_id + entry); model ignored for shape compare."""
-    shape = [{"profile_id": a.get("profile_id") or "", "entry": a.get("entry") or ""} for a in actors]
+    shape = [
+        {"profile_id": a.get("profile_id") or "", "entry": a.get("entry") or ""} for a in actors
+    ]
     shape.sort(key=lambda r: (r["profile_id"], r["entry"]))
     return json.dumps(shape, sort_keys=True, separators=(",", ":"))
 
@@ -136,13 +138,9 @@ def compute_suite_config_fields(
     keys = [_canonical_bytes(a) for a in normalized]
     homogeneous = all(k == keys[0] for k in keys)
 
-    # Representative actors: first task when homogeneous; empty when not
-    # (Hub must not present a single misleading combo for mixed suites).
-    if homogeneous:
-        actors = list(normalized[0])
-    else:
-        # Still expose the first task's actors for diagnostics, but mark false.
-        actors = list(normalized[0])
+    # Representative actors for fingerprint: first task's projection.
+    # Consumers must gate on config_homogeneous (false ⇒ not comparable).
+    actors = list(normalized[0])
 
     agent_label, model_label = derive_labels(actors) if homogeneous else ("", "")
     # Fingerprint is always over the representative actors list; consumers must
@@ -246,14 +244,14 @@ def collect_suite_config(
         row = by_id.get(tid)
         actors: list[dict[str, str]] | None = None
         if row is not None:
-            actors = load_actors_from_run_lock(database_root, row.get("run_id") if isinstance(row.get("run_id"), str) else None)
+            actors = load_actors_from_run_lock(
+                database_root, row.get("run_id") if isinstance(row.get("run_id"), str) else None
+            )
             if actors is None and row.get("run_id"):
                 actors = load_actors_from_run_lock(database_root, str(row.get("run_id")))
         if actors is None:
             try:
-                actors = load_actors_from_task_lock(
-                    database_root, tid, overrides=overrides
-                )
+                actors = load_actors_from_task_lock(database_root, tid, overrides=overrides)
             except Exception:  # noqa: BLE001 — fingerprint must not fail suite write
                 actors = []
         per_task.append(actors)

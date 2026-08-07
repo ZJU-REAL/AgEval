@@ -9,11 +9,11 @@ import pytest
 
 from bora.adapters.package_fs import LocalPackageReader
 from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
 from bora.config.digest import digest_payload
+from bora.config.errors import ConfigError
 from bora.config.load_and_lock import ConfigCore
-from bora.config.overrides import parse_set_override
 from bora.config.model import thaw
+from bora.config.overrides import parse_set_override
 
 REPO = Path(__file__).resolve().parents[2]
 MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"

@@ -216,9 +216,7 @@ class RegistryClient:
         # Keep path segments; encode each for URL safety without collapsing slashes.
         encoded_file = "/".join(quote(seg, safe="") for seg in file_path.split("/"))
         if package_digest:
-            path = (
-                f"{base}/by-digest/{quote(package_digest, safe=':')}/files/{encoded_file}"
-            )
+            path = f"{base}/by-digest/{quote(package_digest, safe=':')}/files/{encoded_file}"
         elif version:
             path = f"{base}/versions/{quote(version, safe='')}/files/{encoded_file}"
         else:
