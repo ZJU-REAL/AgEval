@@ -10,6 +10,8 @@ Endpoints:
   GET  /v1/packages/{id}/versions/{ver}
   GET  /v1/packages/{id}/by-digest/{dig}
   GET  /v1/packages/{id}/by-digest/{dig}/content
+  GET  /v1/packages/{id}/by-digest/{dig}/files
+  GET  /v1/packages/{id}/by-digest/{dig}/files/{path}
   POST /v1/results/attempts
   GET  /v1/results/attempts
   GET  /v1/results/attempts/{run_id}
@@ -212,6 +214,54 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 self._serve_content(
                     database_id=m.group(1),
                     package_digest=m.group(2),
+                    scopes=scopes,
+                )
+                return
+            # Package files list (#38) — more specific than bare by-digest meta.
+            m = re.fullmatch(
+                r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files",
+                path,
+            )
+            if m:
+                self._serve_package_files_list(
+                    database_id=m.group(1),
+                    package_digest=m.group(2),
+                    scopes=scopes,
+                )
+                return
+            m = re.fullmatch(
+                r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files/(.+)",
+                path,
+            )
+            if m:
+                self._serve_package_file(
+                    database_id=m.group(1),
+                    package_digest=m.group(2),
+                    file_path=m.group(3),
+                    scopes=scopes,
+                )
+                return
+            # Version-aliased files (resolve → digest internally).
+            m = re.fullmatch(
+                r"/v1/packages/(.+)/versions/([^/]+)/files",
+                path,
+            )
+            if m:
+                self._serve_package_files_list(
+                    database_id=m.group(1),
+                    version=m.group(2),
+                    scopes=scopes,
+                )
+                return
+            m = re.fullmatch(
+                r"/v1/packages/(.+)/versions/([^/]+)/files/(.+)",
+                path,
+            )
+            if m:
+                self._serve_package_file(
+                    database_id=m.group(1),
+                    version=m.group(2),
+                    file_path=m.group(3),
                     scopes=scopes,
                 )
                 return
@@ -568,6 +618,143 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.send_header("X-Bora-Blob-Digest", row.blob_digest)
             self.end_headers()
             self.wfile.write(data)
+
+        def _resolve_visible_release(
+            self,
+            *,
+            database_id: str,
+            scopes: frozenset[str],
+            package_digest: str | None = None,
+            version: str | None = None,
+        ) -> ReleaseRow | None:
+            if package_digest:
+                row = state.meta.get_by_digest(database_id, package_digest)
+            elif version:
+                row = state.meta.get_by_version(database_id, version)
+            else:
+                return None
+            if row is None or not self._visible_package(row, scopes):
+                return None
+            return row
+
+        def _serve_package_files_list(
+            self,
+            *,
+            database_id: str,
+            scopes: frozenset[str],
+            package_digest: str | None = None,
+            version: str | None = None,
+        ) -> None:
+            from services.registry.package_files import get_or_build_index
+
+            row = self._resolve_visible_release(
+                database_id=database_id,
+                scopes=scopes,
+                package_digest=package_digest,
+                version=version,
+            )
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+                return
+            archive = state.blobs.get(row.blob_digest, prefix="packages")
+            if archive is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            try:
+                index = get_or_build_index(archive, package_digest=row.package_digest)
+            except Exception as exc:  # noqa: BLE001
+                _json_response(
+                    self,
+                    500,
+                    {"error": "archive_error", "message": f"cannot index package: {exc}"},
+                )
+                return
+            _json_response(
+                self,
+                200,
+                {
+                    "database_id": row.database_id,
+                    "digest": row.package_digest,
+                    "version": row.version,
+                    "items": index.list_items(),
+                },
+            )
+
+        def _serve_package_file(
+            self,
+            *,
+            database_id: str,
+            file_path: str,
+            scopes: frozenset[str],
+            package_digest: str | None = None,
+            version: str | None = None,
+        ) -> None:
+            from services.registry.package_files import (
+                MAX_FILE_BYTES,
+                PackageFileNotFound,
+                PackageFileTooLarge,
+                PackagePathError,
+                file_payload,
+                normalize_package_path,
+                read_member,
+            )
+
+            row = self._resolve_visible_release(
+                database_id=database_id,
+                scopes=scopes,
+                package_digest=package_digest,
+                version=version,
+            )
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+                return
+            try:
+                safe_path = normalize_package_path(file_path)
+            except PackagePathError as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_path", "message": str(exc)},
+                )
+                return
+            archive = state.blobs.get(row.blob_digest, prefix="packages")
+            if archive is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            try:
+                data, size = read_member(archive, safe_path, max_bytes=MAX_FILE_BYTES)
+            except PackagePathError as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_path", "message": str(exc)},
+                )
+                return
+            except PackageFileNotFound:
+                _json_response(
+                    self,
+                    404,
+                    {"error": "not_found", "message": f"file not found: {safe_path}"},
+                )
+                return
+            except PackageFileTooLarge as exc:
+                _json_response(
+                    self,
+                    413,
+                    {
+                        "error": "payload_too_large",
+                        "message": (
+                            f"file exceeds {MAX_FILE_BYTES} bytes "
+                            f"(path={exc.path}, size={exc.size})"
+                        ),
+                        "max_bytes": MAX_FILE_BYTES,
+                        "path": exc.path,
+                        "size": exc.size,
+                    },
+                )
+                return
+            payload = file_payload(safe_path, data, size=size, truncated=False)
+            _json_response(self, 200, payload)
 
         # ---- results -----------------------------------------------------
 

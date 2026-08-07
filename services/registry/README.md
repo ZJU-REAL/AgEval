@@ -87,6 +87,24 @@ Env overrides: `BORA_REGISTRY_URL`, `BORA_REGISTRY_TOKEN`, optional
 | Attempt result | blobDigest of archive | `application/vnd.bora.attempt-result.v1.tar+gzip` |
 | Suite/job result | blobDigest of suite-run tree | `application/vnd.bora.suite-result.v1.tar+gzip` |
 
+### Package files API (Hub S2 / #38)
+
+Browse published package contents **without** downloading the whole tar to the browser:
+
+| Method | Path | Auth |
+| --- | --- | --- |
+| GET | `/v1/packages/{id}/by-digest/{dig}/files` | same as package get |
+| GET | `/v1/packages/{id}/by-digest/{dig}/files/{path}` | same |
+| GET | `/v1/packages/{id}/versions/{ver}/files` | resolves to digest |
+| GET | `/v1/packages/{id}/versions/{ver}/files/{path}` | resolves to digest |
+
+- List JSON: `{ database_id, digest, version, items: [{path, type, size}, …] }`
+- File JSON: `{ path, size, encoding: "utf-8"|"base64", content, truncated }`
+- **Hard top:** single file default **2 MiB** (`MAX_FILE_BYTES`); larger → **413**
+- Path rules: reject `..`, absolute paths, empty segments
+- Private unauthorized → **404** (not 403)
+- Server indexes tar on first access (process LRU by digest); does not change upload format
+
 ### Suite results API
 
 | Method | Path | Scope |
