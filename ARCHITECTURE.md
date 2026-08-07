@@ -123,7 +123,7 @@ BORA/
 │   └── adapters/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
-│       ├── provider_docker.py # Docker L1 + multi-actor ExecutionTarget
+│       ├── provider_docker/   # Docker L1 + multi-actor ExecutionTarget
 │       ├── acp/                # Current: 唯一 typed ACP client（parent）
 │       ├── acp_entries.json   # Current: static entry pins / descriptors
 │       ├── acp_registry.py    # Current: registry + readiness
