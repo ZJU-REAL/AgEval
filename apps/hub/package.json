@@ -1,5 +1,5 @@
 {
-  "name": "bora-viewer",
+  "name": "bora-hub",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -20,7 +20,10 @@
     "material-icon-theme": "^5.37.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.2",
+    "remark-gfm": "^4.0.1",
+    "shiki": "^4.4.2",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {

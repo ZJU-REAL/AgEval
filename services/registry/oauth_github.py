@@ -25,6 +25,7 @@ class DeviceCodeResponse:
     verification_uri: str
     expires_in: int
     interval: int
+    verification_uri_complete: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +85,7 @@ def request_device_code(*, client_id: str, scope: str = "read:user") -> DeviceCo
         verification_uri=str(data.get("verification_uri") or "https://github.com/login/device"),
         expires_in=int(data.get("expires_in") or 900),
         interval=int(data.get("interval") or 5),
+        verification_uri_complete=str(data.get("verification_uri_complete") or ""),
     )
 
 

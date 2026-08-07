@@ -224,9 +224,25 @@ def _suite_metrics_and_refs(summary: dict[str, Any]) -> tuple[dict[str, Any], li
     return metrics, task_refs
 
 
+def _config_fields_from_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    """Project #42 config fingerprint fields (absent on legacy summaries)."""
+    actors = summary.get("actors_summary")
+    if not isinstance(actors, list):
+        actors = []
+    out: dict[str, Any] = {
+        "actors_summary": [a for a in actors if isinstance(a, dict)],
+    }
+    fp = summary.get("config_fingerprint")
+    if isinstance(fp, str) and fp.strip():
+        out["config_fingerprint"] = fp.strip()
+    if "config_homogeneous" in summary:
+        out["config_homogeneous"] = bool(summary.get("config_homogeneous"))
+    return out
+
+
 def _local_suite_item(summary: dict[str, Any], *, suite_dir: Path) -> dict[str, Any]:
     metrics, task_refs = _suite_metrics_and_refs(summary)
-    return {
+    item: dict[str, Any] = {
         "suite_run_id": summary.get("suite_run_id") or suite_dir.name,
         "database_id": summary.get("database_id"),
         "database_version": summary.get("database_version"),
@@ -242,6 +258,8 @@ def _local_suite_item(summary: dict[str, Any], *, suite_dir: Path) -> dict[str, 
         "source": "local",
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
+    item.update(_config_fields_from_summary(summary))
+    return item
 
 
 def upload_suite_result(
@@ -283,6 +301,7 @@ def upload_suite_result(
             raise ConfigError("invalid_package", str(exc), location=str(root)) from exc
 
     archive, blob_digest, size = build_suite_archive(suite_dir, suite_run_id=suite_run_id)
+    config_proj = _config_fields_from_summary(summary)
     client = _client(registry_url=registry_url)
     try:
         info = client.upload_suite(
@@ -300,11 +319,14 @@ def upload_suite_result(
             blob_digest=blob_digest,
             size=size,
             archive=archive,
+            config_fingerprint=config_proj.get("config_fingerprint"),
+            config_homogeneous=config_proj.get("config_homogeneous"),
+            actors_summary=list(config_proj.get("actors_summary") or []),
         )
     except RegistryError as exc:
         raise ConfigError(exc.code, exc.message, location="registry") from exc
 
-    return {
+    out: dict[str, Any] = {
         "ok": True,
         "suite_run_id": info.get("suite_run_id", suite_run_id),
         "database_id": info.get("database_id", database_id),
@@ -318,6 +340,12 @@ def upload_suite_result(
         "visibility": info.get("visibility", "private"),
         "note": info.get("note", "per-task evaluator verdicts only; no suite-level PASS"),
     }
+    for key in ("config_fingerprint", "config_homogeneous", "actors_summary"):
+        if key in info:
+            out[key] = info[key]
+        elif key in config_proj:
+            out[key] = config_proj[key]
+    return out
 
 
 def get_suite_result(

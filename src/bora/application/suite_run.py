@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from bora.application.run_command import run_task
+from bora.application.suite_config_fingerprint import collect_suite_config
 from bora.application.suite_metrics import aggregate_task_metrics, task_refs_for_summary
 from bora.config.database import list_tasks, load_database_manifest
 from bora.config.errors import ConfigError
@@ -233,6 +234,14 @@ async def execute_suite_run(
         exit_code = 0
 
     metrics = aggregate_task_metrics(results)
+    # Config fingerprint for Leaderboard comparability (#42): written at
+    # summary time from per-task profiles — not at upload unpack.
+    config_fields = collect_suite_config(
+        plan.database_root,
+        results,
+        overrides=overrides,
+        task_ids=plan.task_ids,
+    )
     summary: dict[str, Any] = {
         "schema": "bora.suite.summary/1",
         "suite_run_id": plan.suite_run_id,
@@ -249,6 +258,12 @@ async def execute_suite_run(
         # UTC ISO-8601 (not unix epoch float).
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "inflight_peak": get_inflight_peak(),
+        # Config comparability (Hub Leaderboard); not PASS authority.
+        "config_fingerprint": config_fields["config_fingerprint"],
+        "config_homogeneous": config_fields["config_homogeneous"],
+        "actors_summary": config_fields["actors_summary"],
+        "agent_label": config_fields.get("agent_label") or "",
+        "model_label": config_fields.get("model_label") or "",
         # Explicitly NOT a suite PASS authority:
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }

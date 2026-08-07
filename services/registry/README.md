@@ -87,6 +87,30 @@ Env overrides: `BORA_REGISTRY_URL`, `BORA_REGISTRY_TOKEN`, optional
 | Attempt result | blobDigest of archive | `application/vnd.bora.attempt-result.v1.tar+gzip` |
 | Suite/job result | blobDigest of suite-run tree | `application/vnd.bora.suite-result.v1.tar+gzip` |
 
+### CORS (Hub SPA)
+
+Set `BORA_REGISTRY_CORS_ORIGIN` (default `*` when unset) so a browser Hub on
+another origin can call `/v1/*` with `Authorization`. Local Hub dev usually
+proxies via Vite (`apps/hub`) and does not need CORS.
+
+### Package files API (Hub S2 / #38)
+
+Browse published package contents **without** downloading the whole tar to the browser:
+
+| Method | Path | Auth |
+| --- | --- | --- |
+| GET | `/v1/packages/{id}/by-digest/{dig}/files` | same as package get |
+| GET | `/v1/packages/{id}/by-digest/{dig}/files/{path}` | same |
+| GET | `/v1/packages/{id}/versions/{ver}/files` | resolves to digest |
+| GET | `/v1/packages/{id}/versions/{ver}/files/{path}` | resolves to digest |
+
+- List JSON: `{ database_id, digest, version, items: [{path, type, size}, …] }`
+- File JSON: `{ path, size, encoding: "utf-8"|"base64", content, truncated }`
+- **Hard top:** single file default **2 MiB** (`MAX_FILE_BYTES`); larger → **413**
+- Path rules: reject `..`, absolute paths, empty segments
+- Private unauthorized → **404** (not 403)
+- Server indexes tar on first access (process LRU by digest); does not change upload format
+
 ### Suite results API
 
 | Method | Path | Scope |
@@ -97,8 +121,12 @@ Env overrides: `BORA_REGISTRY_URL`, `BORA_REGISTRY_TOKEN`, optional
 | GET | `/v1/results/suites/{suite_run_id}/content` | same |
 
 Row fields: `database_id`, `database_version`, `pass_rate`, `mean_score`, `metrics`,
-`task_refs`, optional `agent_label` / `model_label`, `exit_code`.  
+`task_refs`, optional `agent_label` / `model_label`, `exit_code`, and optional
+config-comparability projection (`config_fingerprint`, `config_homogeneous`,
+`actors_summary`) written at suite-run time (#42) — **not** invented at upload.
 **No suite-level PASS** is stored or accepted (client keys `pass` / `verdict` / `suite_pass` → 400).
+Leaderboard (#40) should refuse comparable ranking when `config_homogeneous` is
+false; missing fingerprint on legacy rows degrades to labels-only.
 
 Result archives keep layout `.bora/runs/<run_id>/…` so download extracts into a
 browsable tree.

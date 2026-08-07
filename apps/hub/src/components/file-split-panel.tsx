@@ -1,15 +1,12 @@
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { FilePreview } from "@/components/file-preview";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { Input } from "@/components/ui/input";
-import type { TreeEntry } from "@/lib/api";
-import { CodeHighlight } from "@/lib/code-highlight";
 import { countFiles } from "@/lib/file-icons";
-import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
+import type { TreeNode } from "@/lib/file-tree";
 import { cn } from "@/lib/utils";
-
-import { actorLabel, type ActorRow } from "./types";
 
 function filterTree(nodes: TreeNode[], query: string): TreeNode[] {
   const q = query.trim().toLowerCase();
@@ -17,10 +14,7 @@ function filterTree(nodes: TreeNode[], query: string): TreeNode[] {
   const out: TreeNode[] = [];
   for (const node of nodes) {
     if (node.type === "file") {
-      if (
-        node.name.toLowerCase().includes(q) ||
-        node.path.toLowerCase().includes(q)
-      ) {
+      if (node.name.toLowerCase().includes(q) || node.path.toLowerCase().includes(q)) {
         out.push(node);
       }
       continue;
@@ -34,16 +28,6 @@ function filterTree(nodes: TreeNode[], query: string): TreeNode[] {
     }
   }
   return out;
-}
-
-function allDirPaths(nodes: TreeNode[], acc: string[] = []): string[] {
-  for (const n of nodes) {
-    if (n.type === "dir") {
-      acc.push(n.path);
-      if (n.children) allDirPaths(n.children, acc);
-    }
-  }
-  return acc;
 }
 
 function TreeBranch({
@@ -124,9 +108,27 @@ function TreeBranch({
   );
 }
 
+function allDirPaths(nodes: TreeNode[], acc: string[] = []): string[] {
+  for (const n of nodes) {
+    if (n.type === "dir") {
+      acc.push(n.path);
+      if (n.children) allDirPaths(n.children, acc);
+    }
+  }
+  return acc;
+}
+
+function displayPath(fullPath: string, rootPrefix?: string): string {
+  const prefix = (rootPrefix || "").replace(/\/$/, "");
+  if (prefix && fullPath.startsWith(prefix + "/")) {
+    return fullPath.slice(prefix.length + 1);
+  }
+  return fullPath;
+}
+
 /**
- * Left nested file tree (Hub-style) + right code preview.
- * Preserves multi-role virtual profile grouping when groupByProfile is on.
+ * Left nested tree + right code preview (Hub package files).
+ * Material Icon Theme icons by extension; strip task prefix for display.
  */
 export function FileSplitPanel({
   tree,
@@ -136,98 +138,30 @@ export function FileSplitPanel({
   fileContent,
   fileLoading,
   fileNote,
-  groupByProfile = false,
-  actors = [],
-  apiGroups = null,
+  rootPrefix,
 }: {
-  tree: TreeEntry[];
+  tree: TreeNode[];
   treeLoading: boolean;
   selectedPath: string | null;
   onSelect: (path: string) => void;
   fileContent: string | null;
   fileLoading: boolean;
   fileNote: string | null;
-  groupByProfile?: boolean;
-  actors?: ActorRow[];
-  apiGroups?: Array<{
-    key: string;
-    profile_id?: string | null;
-    label?: string;
-  }> | null;
+  rootPrefix?: string;
 }) {
-  const nestedRoots = useMemo((): TreeNode[] => {
-    const files = tree.filter((e) => e.type !== "dir");
-    if (files.length === 0) return [];
-
-    // Multi-role Agent tab: virtual profile folders → nested path tree each.
-    if (groupByProfile) {
-      const profileKeys = new Set(
-        files.map((e) => e.profile_id).filter((p): p is string => !!p),
-      );
-      if (profileKeys.size >= 2) {
-        const actorByPid = new Map(
-          actors.map((a) => [a.profile_id || "", a] as const),
-        );
-        const order: string[] = [];
-        if (apiGroups && apiGroups.length > 0) {
-          for (const g of apiGroups) {
-            if (g.key && !order.includes(g.key)) order.push(g.key);
-          }
-        }
-        for (const e of files) {
-          const key = e.profile_id || "__ungrouped__";
-          if (!order.includes(key)) order.push(key);
-        }
-
-        const roots: TreeNode[] = [];
-        for (const key of order) {
-          const groupFiles = files.filter(
-            (e) => (e.profile_id || "__ungrouped__") === key,
-          );
-          const nested = buildNestedTree(
-            groupFiles.map((e) => ({ path: e.path, type: "file", size: e.size ?? 0 })),
-          );
-          const label =
-            key === "__ungrouped__"
-              ? "other"
-              : (() => {
-                  const actor = actorByPid.get(key);
-                  return actor ? actorLabel(actor, key) : key;
-                })();
-          roots.push({
-            name: label,
-            path: `__profile__/${key}`,
-            type: "dir",
-            children: nested,
-          });
-        }
-        return roots;
-      }
-    }
-
-    return buildNestedTree(
-      files.map((e) => ({ path: e.path, type: "file", size: e.size ?? 0 })),
-    );
-  }, [tree, groupByProfile, actors, apiGroups]);
-
-  const treeKey = useMemo(
-    () => nestedRoots.map((n) => n.path).join("|") + `:${nestedRoots.length}`,
-    [nestedRoots],
-  );
+  const treeKey = useMemo(() => tree.map((n) => n.path).join("|"), [tree]);
   const [openDirs, setOpenDirs] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    setOpenDirs(new Set(allDirPaths(nestedRoots)));
+    setOpenDirs(new Set(allDirPaths(tree)));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- treeKey is the intentional dep
   }, [treeKey]);
 
-  const fileCount = useMemo(() => countFiles(nestedRoots), [nestedRoots]);
-  const visibleTree = useMemo(
-    () => filterTree(nestedRoots, query),
-    [nestedRoots, query],
-  );
+  const fileCount = useMemo(() => countFiles(tree), [tree]);
+  const visibleTree = useMemo(() => filterTree(tree, query), [tree, query]);
 
+  // When searching, expand all dirs in the filtered tree
   useEffect(() => {
     if (query.trim()) {
       setOpenDirs(new Set(allDirPaths(visibleTree)));
@@ -243,22 +177,18 @@ export function FileSplitPanel({
     });
   }
 
-  const selectedName = selectedPath
-    ? selectedPath.split("/").pop() || selectedPath
-    : null;
-
   return (
     <div
       className={cn(
         "grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0",
         "rounded-[8px] border border-hairline overflow-hidden",
-        "min-h-[360px] md:min-h-[420px]",
+        "min-h-[360px] md:min-h-[480px]",
       )}
     >
       <aside
         className={cn(
           "border-b md:border-b-0 md:border-r border-hairline bg-canvas-soft",
-          "min-h-[160px] md:min-h-[420px] max-h-[50vh] md:max-h-[70vh]",
+          "min-h-[200px] md:min-h-[480px] max-h-[50vh] md:max-h-[75vh]",
           "flex flex-col",
         )}
       >
@@ -303,42 +233,32 @@ export function FileSplitPanel({
       </aside>
       <div
         className={cn(
-          "flex flex-col min-h-[200px] md:min-h-[420px]",
-          "max-h-[70vh] overflow-hidden",
+          "flex flex-col min-h-[200px] md:min-h-[480px]",
+          "max-h-[75vh] overflow-hidden",
         )}
       >
         {selectedPath ? (
           <div className="px-3 py-2 border-b border-hairline text-[12px] font-mono text-mute shrink-0 bg-canvas-soft flex items-center gap-2">
-            <FileTypeIcon name={selectedName || selectedPath} kind="file" />
-            <span className="truncate text-ink" title={selectedPath}>
-              {selectedPath}
+            <FileTypeIcon
+              name={selectedPath.split("/").pop() || selectedPath}
+              kind="file"
+            />
+            <span className="truncate text-ink">
+              {displayPath(selectedPath, rootPrefix)}
             </span>
           </div>
         ) : null}
         <div className="p-0 flex-1 min-h-0 overflow-auto">
           {fileLoading ? (
             <p className="text-sm text-mute p-3">Loading file…</p>
+          ) : fileContent != null ? (
+            <FilePreview
+              path={selectedPath}
+              content={fileContent}
+              note={fileNote}
+            />
           ) : (
-            <>
-              {fileNote ? (
-                <p className="text-xs text-mute px-3 pt-2">{fileNote}</p>
-              ) : null}
-              {fileContent != null ? (
-                <pre
-                  className={cn(
-                    "m-0 p-3 min-h-full overflow-auto",
-                    "whitespace-pre-wrap break-words font-mono text-[12px] leading-5",
-                    "bg-code-bg text-shell-plain",
-                  )}
-                >
-                  <code className="font-mono">
-                    <CodeHighlight path={selectedPath} content={fileContent} />
-                  </code>
-                </pre>
-              ) : (
-                <p className="text-sm text-mute p-3">Select a file to preview.</p>
-              )}
-            </>
+            <p className="text-sm text-mute p-3">Select a file to preview.</p>
           )}
         </div>
       </div>

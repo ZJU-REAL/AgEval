@@ -10,6 +10,8 @@ Endpoints:
   GET  /v1/packages/{id}/versions/{ver}
   GET  /v1/packages/{id}/by-digest/{dig}
   GET  /v1/packages/{id}/by-digest/{dig}/content
+  GET  /v1/packages/{id}/by-digest/{dig}/files
+  GET  /v1/packages/{id}/by-digest/{dig}/files/{path}
   POST /v1/results/attempts
   GET  /v1/results/attempts
   GET  /v1/results/attempts/{run_id}
@@ -99,11 +101,26 @@ class RegistryState:
         self.github_login_allowlist = github_login_allowlist or frozenset()
 
 
+def _cors_headers(handler: BaseHTTPRequestHandler) -> None:
+    """Optional CORS for Hub SPA (different origin). Env: BORA_REGISTRY_CORS_ORIGIN.
+
+    Default ``*`` for local Hub; set a concrete origin in production. Never
+    reflects credentials into logs.
+    """
+    origin = (os.environ.get("BORA_REGISTRY_CORS_ORIGIN") or "*").strip() or "*"
+    handler.send_header("Access-Control-Allow-Origin", origin)
+    handler.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    if origin != "*":
+        handler.send_header("Vary", "Origin")
+
+
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
     body = json.dumps(payload, sort_keys=True).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
+    _cors_headers(handler)
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -169,6 +186,13 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             # Path-only; never log Authorization or tokens.
             sys.stderr.write(f"{self.address_string()} - {fmt % args}\n")
 
+        def do_OPTIONS(self) -> None:  # noqa: N802
+            # CORS preflight for Hub SPA (browser Authorization header).
+            self.send_response(204)
+            _cors_headers(self)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             path = unquote(parsed.path)
@@ -212,6 +236,54 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 self._serve_content(
                     database_id=m.group(1),
                     package_digest=m.group(2),
+                    scopes=scopes,
+                )
+                return
+            # Package files list (#38) — more specific than bare by-digest meta.
+            m = re.fullmatch(
+                r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files",
+                path,
+            )
+            if m:
+                self._serve_package_files_list(
+                    database_id=m.group(1),
+                    package_digest=m.group(2),
+                    scopes=scopes,
+                )
+                return
+            m = re.fullmatch(
+                r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files/(.+)",
+                path,
+            )
+            if m:
+                self._serve_package_file(
+                    database_id=m.group(1),
+                    package_digest=m.group(2),
+                    file_path=m.group(3),
+                    scopes=scopes,
+                )
+                return
+            # Version-aliased files (resolve → digest internally).
+            m = re.fullmatch(
+                r"/v1/packages/(.+)/versions/([^/]+)/files",
+                path,
+            )
+            if m:
+                self._serve_package_files_list(
+                    database_id=m.group(1),
+                    version=m.group(2),
+                    scopes=scopes,
+                )
+                return
+            m = re.fullmatch(
+                r"/v1/packages/(.+)/versions/([^/]+)/files/(.+)",
+                path,
+            )
+            if m:
+                self._serve_package_file(
+                    database_id=m.group(1),
+                    version=m.group(2),
+                    file_path=m.group(3),
                     scopes=scopes,
                 )
                 return
@@ -292,17 +364,16 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except GitHubOAuthError as exc:
                 _json_response(self, 502, {"error": exc.code, "message": exc.message})
                 return
-            _json_response(
-                self,
-                200,
-                {
-                    "device_code": dc.device_code,
-                    "user_code": dc.user_code,
-                    "verification_uri": dc.verification_uri,
-                    "expires_in": dc.expires_in,
-                    "interval": dc.interval,
-                },
-            )
+            payload = {
+                "device_code": dc.device_code,
+                "user_code": dc.user_code,
+                "verification_uri": dc.verification_uri,
+                "expires_in": dc.expires_in,
+                "interval": dc.interval,
+            }
+            if dc.verification_uri_complete:
+                payload["verification_uri_complete"] = dc.verification_uri_complete
+            _json_response(self, 200, payload)
 
         def _auth_device_poll(self) -> None:
             if not state.github_client_id or not state.github_client_secret:
@@ -569,6 +640,143 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(data)
 
+        def _resolve_visible_release(
+            self,
+            *,
+            database_id: str,
+            scopes: frozenset[str],
+            package_digest: str | None = None,
+            version: str | None = None,
+        ) -> ReleaseRow | None:
+            if package_digest:
+                row = state.meta.get_by_digest(database_id, package_digest)
+            elif version:
+                row = state.meta.get_by_version(database_id, version)
+            else:
+                return None
+            if row is None or not self._visible_package(row, scopes):
+                return None
+            return row
+
+        def _serve_package_files_list(
+            self,
+            *,
+            database_id: str,
+            scopes: frozenset[str],
+            package_digest: str | None = None,
+            version: str | None = None,
+        ) -> None:
+            from services.registry.package_files import get_or_build_index
+
+            row = self._resolve_visible_release(
+                database_id=database_id,
+                scopes=scopes,
+                package_digest=package_digest,
+                version=version,
+            )
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+                return
+            archive = state.blobs.get(row.blob_digest, prefix="packages")
+            if archive is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            try:
+                index = get_or_build_index(archive, package_digest=row.package_digest)
+            except Exception as exc:  # noqa: BLE001
+                _json_response(
+                    self,
+                    500,
+                    {"error": "archive_error", "message": f"cannot index package: {exc}"},
+                )
+                return
+            _json_response(
+                self,
+                200,
+                {
+                    "database_id": row.database_id,
+                    "digest": row.package_digest,
+                    "version": row.version,
+                    "items": index.list_items(),
+                },
+            )
+
+        def _serve_package_file(
+            self,
+            *,
+            database_id: str,
+            file_path: str,
+            scopes: frozenset[str],
+            package_digest: str | None = None,
+            version: str | None = None,
+        ) -> None:
+            from services.registry.package_files import (
+                MAX_FILE_BYTES,
+                PackageFileNotFound,
+                PackageFileTooLarge,
+                PackagePathError,
+                file_payload,
+                normalize_package_path,
+                read_member,
+            )
+
+            row = self._resolve_visible_release(
+                database_id=database_id,
+                scopes=scopes,
+                package_digest=package_digest,
+                version=version,
+            )
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+                return
+            try:
+                safe_path = normalize_package_path(file_path)
+            except PackagePathError as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_path", "message": str(exc)},
+                )
+                return
+            archive = state.blobs.get(row.blob_digest, prefix="packages")
+            if archive is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            try:
+                data, size = read_member(archive, safe_path, max_bytes=MAX_FILE_BYTES)
+            except PackagePathError as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_path", "message": str(exc)},
+                )
+                return
+            except PackageFileNotFound:
+                _json_response(
+                    self,
+                    404,
+                    {"error": "not_found", "message": f"file not found: {safe_path}"},
+                )
+                return
+            except PackageFileTooLarge as exc:
+                _json_response(
+                    self,
+                    413,
+                    {
+                        "error": "payload_too_large",
+                        "message": (
+                            f"file exceeds {MAX_FILE_BYTES} bytes "
+                            f"(path={exc.path}, size={exc.size})"
+                        ),
+                        "max_bytes": MAX_FILE_BYTES,
+                        "path": exc.path,
+                        "size": exc.size,
+                    },
+                )
+                return
+            payload = file_payload(safe_path, data, size=size, truncated=False)
+            _json_response(self, 200, payload)
+
         # ---- results -----------------------------------------------------
 
         def _upload_attempt(self) -> None:
@@ -811,6 +1019,18 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except (TypeError, ValueError):
                 exit_code = 0
 
+            # #42 config fingerprint projection from suite summary (optional).
+            config_payload: dict[str, Any] = {}
+            if meta.get("config_fingerprint"):
+                config_payload["config_fingerprint"] = str(meta["config_fingerprint"])
+            if "config_homogeneous" in meta:
+                config_payload["config_homogeneous"] = bool(meta.get("config_homogeneous"))
+            actors_raw = meta.get("actors_summary")
+            if isinstance(actors_raw, list):
+                config_payload["actors_summary"] = [
+                    a for a in actors_raw if isinstance(a, dict)
+                ]
+
             row = SuiteResultRow(
                 suite_run_id=suite_run_id,
                 database_id=database_id,
@@ -826,6 +1046,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 size=size,
                 exit_code=exit_code,
                 created_at=now(),
+                config_json=json.dumps(config_payload, sort_keys=True),
             )
             try:
                 state.blobs.put_if_absent(blob_digest, archive, prefix="suite-results")

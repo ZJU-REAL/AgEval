@@ -72,6 +72,8 @@ class SuiteResultRow:
     size: int
     exit_code: int
     created_at: float
+    # #42 config comparability (optional; empty/default on legacy rows)
+    config_json: str = "{}"
 
 
 # ---------------------------------------------------------------------------
@@ -461,10 +463,20 @@ class MetadataStore:
                     blob_digest TEXT NOT NULL,
                     size INTEGER NOT NULL,
                     exit_code INTEGER NOT NULL DEFAULT 0,
-                    created_at REAL NOT NULL
+                    created_at REAL NOT NULL,
+                    config_json TEXT NOT NULL DEFAULT '{}'
                 )
                 """
             )
+            # Migrate pre-#42 DBs: add config_json if missing.
+            cols = {
+                str(r[1])
+                for r in conn.execute("PRAGMA table_info(suite_results)").fetchall()
+            }
+            if "config_json" not in cols:
+                conn.execute(
+                    "ALTER TABLE suite_results ADD COLUMN config_json TEXT NOT NULL DEFAULT '{}'"
+                )
             conn.commit()
 
     def insert(self, row: ReleaseRow) -> None:
@@ -615,8 +627,8 @@ class MetadataStore:
                         suite_run_id, database_id, database_version, visibility,
                         pass_rate, mean_score, metrics_json, tasks_json,
                         agent_label, model_label, blob_digest, size,
-                        exit_code, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        exit_code, created_at, config_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row.suite_run_id,
@@ -633,6 +645,7 @@ class MetadataStore:
                         row.size,
                         row.exit_code,
                         row.created_at,
+                        row.config_json or "{}",
                     ),
                 )
                 conn.commit()
@@ -698,6 +711,8 @@ class MetadataStore:
 
     @staticmethod
     def _suite_row(r: sqlite3.Row) -> SuiteResultRow:
+        keys = r.keys()
+        config_json = str(r["config_json"]) if "config_json" in keys and r["config_json"] else "{}"
         return SuiteResultRow(
             suite_run_id=r["suite_run_id"],
             database_id=r["database_id"],
@@ -713,6 +728,7 @@ class MetadataStore:
             size=int(r["size"]),
             exit_code=int(r["exit_code"]),
             created_at=float(r["created_at"]),
+            config_json=config_json,
         )
 
 
@@ -787,8 +803,16 @@ class PostgresMetadataStore:
                     blob_digest TEXT NOT NULL,
                     size BIGINT NOT NULL,
                     exit_code INTEGER NOT NULL DEFAULT 0,
-                    created_at DOUBLE PRECISION NOT NULL
+                    created_at DOUBLE PRECISION NOT NULL,
+                    config_json TEXT NOT NULL DEFAULT '{}'
                 )
+                """
+            )
+            # Migrate pre-#42 DBs.
+            conn.execute(
+                """
+                ALTER TABLE suite_results
+                ADD COLUMN IF NOT EXISTS config_json TEXT NOT NULL DEFAULT '{}'
                 """
             )
             conn.commit()
@@ -954,8 +978,8 @@ class PostgresMetadataStore:
                         suite_run_id, database_id, database_version, visibility,
                         pass_rate, mean_score, metrics_json, tasks_json,
                         agent_label, model_label, blob_digest, size,
-                        exit_code, created_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        exit_code, created_at, config_json
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         row.suite_run_id,
@@ -972,6 +996,7 @@ class PostgresMetadataStore:
                         row.size,
                         row.exit_code,
                         row.created_at,
+                        row.config_json or "{}",
                     ),
                 )
                 conn.commit()
@@ -1067,6 +1092,7 @@ class PostgresMetadataStore:
             size=int(d["size"]),
             exit_code=int(d["exit_code"]),
             created_at=float(d["created_at"]),
+            config_json=str(d.get("config_json") or "{}"),
         )
 
 
@@ -1116,7 +1142,7 @@ def suite_to_dict(row: SuiteResultRow) -> dict[str, Any]:
         metrics = {}
     if not isinstance(task_refs, list):
         task_refs = []
-    return {
+    out: dict[str, Any] = {
         "suite_run_id": row.suite_run_id,
         "database_id": row.database_id,
         "database_version": row.database_version,
@@ -1134,6 +1160,20 @@ def suite_to_dict(row: SuiteResultRow) -> dict[str, Any]:
         # Explicit: no suite PASS authority
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
+    # #42 config fingerprint projection (absent on legacy rows)
+    try:
+        cfg = json.loads(row.config_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        cfg = {}
+    if isinstance(cfg, dict):
+        if cfg.get("config_fingerprint"):
+            out["config_fingerprint"] = cfg["config_fingerprint"]
+        if "config_homogeneous" in cfg:
+            out["config_homogeneous"] = bool(cfg["config_homogeneous"])
+        actors = cfg.get("actors_summary")
+        if isinstance(actors, list):
+            out["actors_summary"] = actors
+    return out
 
 
 def now() -> float:

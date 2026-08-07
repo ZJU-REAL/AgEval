@@ -183,6 +183,55 @@ class RegistryClient:
             raise RegistryError("not_found", f"content not found ({status})", status=status)
         return raw
 
+    def list_package_files(
+        self,
+        *,
+        database_id: str,
+        package_digest: str | None = None,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        """List package archive paths (Hub S2 / #38). Prefer immutable digest."""
+        base = f"/v1/packages/{quote(database_id, safe='/')}"
+        if package_digest:
+            path = f"{base}/by-digest/{quote(package_digest, safe=':')}/files"
+        elif version:
+            path = f"{base}/versions/{quote(version, safe='')}/files"
+        else:
+            raise RegistryError("invalid_ref", "version or package_digest required")
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status != 200:
+            raise RegistryError("not_found", f"files not found ({status})", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def get_package_file(
+        self,
+        *,
+        database_id: str,
+        file_path: str,
+        package_digest: str | None = None,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        """Read one package file as JSON envelope (utf-8 or base64)."""
+        base = f"/v1/packages/{quote(database_id, safe='/')}"
+        # Keep path segments; encode each for URL safety without collapsing slashes.
+        encoded_file = "/".join(quote(seg, safe="") for seg in file_path.split("/"))
+        if package_digest:
+            path = f"{base}/by-digest/{quote(package_digest, safe=':')}/files/{encoded_file}"
+        elif version:
+            path = f"{base}/versions/{quote(version, safe='')}/files/{encoded_file}"
+        else:
+            raise RegistryError("invalid_ref", "version or package_digest required")
+        status, raw, _ = self._request("GET", path, auth=True)
+        if status == 413:
+            raise RegistryError(
+                "payload_too_large",
+                f"file too large ({status})",
+                status=status,
+            )
+        if status != 200:
+            raise RegistryError("not_found", f"file not found ({status})", status=status)
+        return json.loads(raw.decode("utf-8"))
+
     def list_packages(
         self,
         *,
@@ -346,8 +395,11 @@ class RegistryClient:
         blob_digest: str,
         size: int,
         archive: bytes,
+        config_fingerprint: str | None = None,
+        config_homogeneous: bool | None = None,
+        actors_summary: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        meta = {
+        meta: dict[str, Any] = {
             "suite_run_id": suite_run_id,
             "database_id": database_id,
             "database_version": database_version,
@@ -362,6 +414,13 @@ class RegistryClient:
             "blob_digest": blob_digest,
             "size": size,
         }
+        # #42 Leaderboard comparability — thin projection from suite summary.
+        if config_fingerprint is not None:
+            meta["config_fingerprint"] = config_fingerprint
+        if config_homogeneous is not None:
+            meta["config_homogeneous"] = config_homogeneous
+        if actors_summary is not None:
+            meta["actors_summary"] = actors_summary
         import secrets as _secrets
 
         boundary = f"bora-suite-{_secrets.token_hex(12)}"

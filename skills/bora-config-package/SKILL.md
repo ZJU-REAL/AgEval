@@ -127,6 +127,39 @@ HTTP / non-ACP profile example:
 - Adapter modules must stay mechanism-named (`acp`, `postgresql`, docker) — not benchmark names.
 - For **ports / reimplementations**, fill `provenance` (see `references/bora-yaml.md`); Attempt PASS still comes only from the independent evaluator.
 
+## Scenario 同构与 Dataset 切包（Hub Leaderboard 可比性）
+
+**默认：一个上游 scenario / 一种稳定 agent·role 拓扑 = 一个 Database（Dataset）。**
+
+| 原则 | 说明 |
+| --- | --- |
+| 按 scenario 切包 | 例：MultiAgentBench **coding** → 一个 Dataset；database / werewolf 另包。不要默认把多 scenario 糊进一个 `bora.yaml` 还期望 Harbor 式可比榜。 |
+| scenario 内同构 | 同一 Dataset 内尽量固定 `agent_profiles` 拓扑（role 数、id、协作形状）；task 业务参数可不同。 |
+| 混装可允许 | single+multi 或多拓扑混装**允许**，但 suite 会标 `config_homogeneous: false`；Hub Leaderboard（#40）**拒绝按可比榜展示**（空态 + 可读提示），原始 suite 仍可进 Task Jobs / 运维列表。 |
+| Multi 榜行 | 默认按 **整配置组合**（指纹）一行；仅包内同构时可考虑 role 子列（后置 UI）。 |
+| 上游复刻 | 填 `provenance`；**禁止**按 benchmark 名分支 adapter。 |
+
+### Suite summary 自检字段
+
+`bora suite` / suite run 结束写入 `.bora/suite-runs/<id>/summary.json`：
+
+| 字段 | 含义 |
+| --- | --- |
+| `config_fingerprint` | `sha256:…` over 规范化 `actors_summary`（无 secret / 无 api_key） |
+| `config_homogeneous` | 本 suite 各 task 实际 profiles 配置一致 → `true` |
+| `actors_summary` | `[{profile_id, entry, model}, …]` |
+| `agent_label` / `model_label` | 同构时从 actors 派生；异构时留空 |
+
+Upload（`bora results upload-suite`）**投影**这些字段到 Registry；Hub **不**在 upload 时解 tar 硬提配置。
+
+**Hub Leaderboard 消费（#40）：**
+
+- `config_homogeneous: true` + 有指纹 → 正常榜行  
+- `config_homogeneous: false` → **不进可比榜**（提示「配置不一致，难以比较」）  
+- 指纹缺失（旧产物）→ 降级：仅 label，或提示「缺少 config 指纹」  
+
+指纹**只服务可比性与展示**，**不是** suite PASS；PASS 仍只来自 per-task evaluator。
+
 ## Which `executor` / ACP `entry` values?
 
 ```bash

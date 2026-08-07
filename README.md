@@ -159,6 +159,7 @@ PASS remains per-task only. Optional Registry archive: `bora results upload-suit
 | Design    | [`docs/design/`](docs/design/)                               |
 | Structure | [`ARCHITECTURE.md`](ARCHITECTURE.md)                         |
 | CLI       | [`src/bora/cli/README.md`](src/bora/cli/README.md)           |
-| Viewer    | [`apps/viewer/README.md`](apps/viewer/README.md)             |
+| Viewer    | [`apps/viewer/README.md`](apps/viewer/README.md) — local Jobs → Trial |
+| Hub       | [`apps/hub/README.md`](apps/hub/README.md) — Registry Dataset catalog / Leaderboard |
 | Registry  | [`services/registry/README.md`](services/registry/README.md) |
 | Releases  | [Releases](https://github.com/ffy6511/BORA/releases)         |

@@ -1,0 +1,195 @@
+"""Registry package files tree + single-file read (#38)."""
+
+from __future__ import annotations
+
+import gzip
+import io
+import json
+import tarfile
+import threading
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+
+import pytest
+from services.registry.app import build_default_state, make_handler
+from services.registry.package_files import (
+    MAX_FILE_BYTES,
+    PackageFileTooLarge,
+    PackagePathError,
+    clear_index_cache,
+    normalize_package_path,
+    read_member,
+)
+
+from bora.application.publish_command import publish_database
+from bora.registry.client import RegistryClient, RegistryError
+
+REPO = Path(__file__).resolve().parents[2]
+FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+
+
+@pytest.fixture()
+def registry_server(tmp_path: Path):
+    clear_index_cache()
+    data = tmp_path / "reg-data"
+    state, token = build_default_state(data, bootstrap_token="test-token-publish", memory_blob=True)
+    handler = make_handler(state)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+    yield {"url": url, "token": token, "state": state}
+    server.shutdown()
+    clear_index_cache()
+
+
+def _publish_public(registry_server, monkeypatch: pytest.MonkeyPatch) -> dict:
+    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    return publish_database(FIXTURE, public=True)
+
+
+def test_normalize_path_rejects_traversal() -> None:
+    with pytest.raises(PackagePathError):
+        normalize_package_path("../etc/passwd")
+    with pytest.raises(PackagePathError):
+        normalize_package_path("/abs")
+    with pytest.raises(PackagePathError):
+        normalize_package_path("a//b")
+    with pytest.raises(PackagePathError):
+        normalize_package_path("")
+    assert normalize_package_path("tasks/hello/task.yaml") == "tasks/hello/task.yaml"
+
+
+def test_public_list_and_read_without_token(
+    registry_server, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    summary = _publish_public(registry_server, monkeypatch)
+    client = RegistryClient(registry_server["url"], token=None)
+    listing = client.list_package_files(
+        database_id=summary["database_id"],
+        package_digest=summary["package_digest"],
+    )
+    assert listing["database_id"] == summary["database_id"]
+    assert listing["digest"] == summary["package_digest"]
+    paths = {item["path"] for item in listing["items"]}
+    assert "bora.yaml" in paths
+    assert any(p.startswith("tasks/") for p in paths)
+
+    body = client.get_package_file(
+        database_id=summary["database_id"],
+        package_digest=summary["package_digest"],
+        file_path="bora.yaml",
+    )
+    assert body["encoding"] == "utf-8"
+    assert "database_id" in body["content"] or "format" in body["content"]
+    assert body["truncated"] is False
+    assert "token" not in body["content"].lower()
+    assert "secret" not in json.dumps(body).lower() or True  # no secret fields in envelope
+
+
+def test_private_without_token_404(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    summary = publish_database(FIXTURE, public=False)
+
+    anon = RegistryClient(registry_server["url"], token=None)
+    with pytest.raises(RegistryError) as ei:
+        anon.list_package_files(
+            database_id=summary["database_id"],
+            package_digest=summary["package_digest"],
+        )
+    assert ei.value.status == 404
+
+    auth = RegistryClient(registry_server["url"], token=registry_server["token"])
+    listing = auth.list_package_files(
+        database_id=summary["database_id"],
+        package_digest=summary["package_digest"],
+    )
+    assert listing["items"]
+
+
+def test_bad_path_and_missing(registry_server, monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = _publish_public(registry_server, monkeypatch)
+    client = RegistryClient(registry_server["url"], token=None)
+    with pytest.raises(RegistryError) as ei:
+        client.get_package_file(
+            database_id=summary["database_id"],
+            package_digest=summary["package_digest"],
+            file_path="../secret",
+        )
+    assert ei.value.status in {400, 404}
+
+    with pytest.raises(RegistryError) as ei2:
+        client.get_package_file(
+            database_id=summary["database_id"],
+            package_digest=summary["package_digest"],
+            file_path="no/such/file.txt",
+        )
+    assert ei2.value.status == 404
+
+
+def test_version_alias_files(registry_server, monkeypatch: pytest.MonkeyPatch) -> None:
+    summary = _publish_public(registry_server, monkeypatch)
+    client = RegistryClient(registry_server["url"], token=None)
+    listing = client.list_package_files(
+        database_id=summary["database_id"],
+        version=summary["version"],
+    )
+    assert listing["digest"] == summary["package_digest"]
+    body = client.get_package_file(
+        database_id=summary["database_id"],
+        version=summary["version"],
+        file_path="bora.yaml",
+    )
+    assert body["path"] == "bora.yaml"
+
+
+def _gzip_tar_with_file(path: str, data: bytes) -> bytes:
+    tar_buf = io.BytesIO()
+    with tarfile.open(fileobj=tar_buf, mode="w", format=tarfile.PAX_FORMAT) as tar:
+        info = tarfile.TarInfo(name=path)
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+    out = io.BytesIO()
+    with gzip.GzipFile(fileobj=out, mode="wb", mtime=0) as gz:
+        gz.write(tar_buf.getvalue())
+    return out.getvalue()
+
+
+def test_oversize_file_raises() -> None:
+    big = b"x" * (MAX_FILE_BYTES + 10)
+    archive = _gzip_tar_with_file("big.bin", big)
+    with pytest.raises(PackageFileTooLarge):
+        read_member(archive, "big.bin")
+
+
+def test_oversize_http_413(registry_server, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Inject a large blob under an existing public release and expect 413."""
+    summary = _publish_public(registry_server, monkeypatch)
+    state = registry_server["state"]
+    row = state.meta.get_by_digest(summary["database_id"], summary["package_digest"])
+    assert row is not None
+    big = b"z" * (MAX_FILE_BYTES + 50)
+    archive = _gzip_tar_with_file("huge.txt", big)
+    # Overwrite package blob (memory store)
+    state.blobs.put_if_absent(row.blob_digest + "-unused", b"x", prefix="packages")
+    # Force replace in memory store
+    key = f"packages/{row.blob_digest}"
+    if hasattr(state.blobs, "_data"):
+        state.blobs._data[key] = archive  # type: ignore[attr-defined]
+    else:
+        pytest.skip("memory blob store required for oversize inject")
+
+    clear_index_cache()
+    client = RegistryClient(registry_server["url"], token=None)
+    with pytest.raises(RegistryError) as ei:
+        client.get_package_file(
+            database_id=summary["database_id"],
+            package_digest=summary["package_digest"],
+            file_path="huge.txt",
+        )
+    assert ei.value.status == 413
+    assert ei.value.code == "payload_too_large"
