@@ -128,6 +128,10 @@ BORA/
 │       ├── agent_container.py # L1 placement helpers / opaque target id
 │       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
+├── apps/
+│   ├── viewer/                # 本地 `bora view` SPA（Jobs → Trial；非 Registry）
+│   └── hub/                   # Registry Dataset 目录 / Files / Jobs 列表 / Leaderboard SPA
+├── services/registry/         # 独立 HTTP：publish / packages files / results / OAuth
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal
 │   ├── core/                  # config / harness / eval / agent / SDK / plugin
