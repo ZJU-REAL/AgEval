@@ -71,10 +71,12 @@ class LockedTaskConfig:
     digest: str
     # Package-relative resolved references (entrypoints, artifact paths, inputs).
     resolved_references: Mapping[str, Any] = field(default_factory=lambda: freeze({}))
+    # Optional package provenance (溯源); observational — never Attempt PASS.
+    provenance: Mapping[str, Any] | None = None
 
     def canonical_payload(self) -> dict[str, Any]:
         """Payload used for digest: everything except the digest field itself."""
-        return {
+        payload: dict[str, Any] = {
             "format": self.format,
             "task_id": self.task_id,
             "harness": thaw(self.harness),
@@ -88,6 +90,9 @@ class LockedTaskConfig:
             "resolution": self.resolution.as_plain(),
             "resolved_references": thaw(self.resolved_references),
         }
+        if self.provenance is not None:
+            payload["provenance"] = thaw(self.provenance)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,16 +104,20 @@ class LockSummary:
     resolved_references: Mapping[str, Any]
     resolution: Sequence[Mapping[str, str]]
     digest: str
+    provenance: Mapping[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         # Always return plain JSON-serializable dict/list trees (no MappingProxy).
-        return {
+        out: dict[str, Any] = {
             "digest": self.digest,
             "format": self.format,
             "resolution": thaw(list(self.resolution)),
             "resolved_references": thaw(self.resolved_references),
             "task_id": self.task_id,
         }
+        if self.provenance is not None:
+            out["provenance"] = thaw(self.provenance)
+        return out
 
 
 def locked_to_summary(lock: LockedTaskConfig) -> LockSummary:
@@ -119,6 +128,7 @@ def locked_to_summary(lock: LockedTaskConfig) -> LockSummary:
         resolved_references=lock.resolved_references,
         resolution=tuple(freeze(e) for e in lock.resolution.as_plain()),
         digest=lock.digest,
+        provenance=lock.provenance,
     )
 
 

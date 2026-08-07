@@ -501,6 +501,44 @@ Config Core 至少检查：
 
 Config Core 不校验某个 Planner 会选择哪个 specialist，也不检查 Harness 是否真的调用某个 Tool。前者属于运行时算法，后者由 Harness 和测试确认。
 
+### 6.7. Package provenance（溯源，可选）
+
+复刻 / 移植类 package 应声明 **provenance**，回答「复刻自哪、钉在哪一版」，便于对照 upstream 做流程保真检查。Provenance **不是** Attempt PASS，也**不是** package 质量分（质量审计见后续 issue，不与 evaluator verdict 混写）。
+
+#### 写在哪
+
+| 场景 | 位置 |
+| --- | --- |
+| 整包来自同一 suite | Database 根 `bora.yaml` |
+| 个别 task 是复刻 | 成员 `task.yaml` |
+| 两边都有 | **task 整段覆盖** database 默认（不做字段级 merge） |
+
+#### 最小形态
+
+```yaml
+provenance:
+  kind: port            # port | reimplementation | wrapper | original
+  upstream:
+    name: tau-bench
+    url: https://github.com/example/tau-bench   # 复刻类必填
+    ref: v0.1.0                                 # tag/branch；与 commit 至少填一个
+    commit: abc123def456                        # 建议钉死
+    task_id: airline-001                        # 上游若有 id
+    paper: https://arxiv.org/abs/...            # 可选
+  parity:
+    claims: [protocol, scoring]                 # 声称对齐哪些面
+    known_gaps: []                              # 已知刻意差异
+```
+
+#### 校验规则（fail closed）
+
+- `kind: original`：可省略 `upstream`。
+- `kind` 为 `port` / `reimplementation` / `wrapper`：必须有 `upstream.url`，且 `ref` 或 `commit` 至少一个。
+- 未知键、错误类型 → `invalid_schema`。
+- 字段**完全省略**时不强制（不挡 lock）；作者写了复刻类 `kind` 则按上表强制。
+
+锁定后 provenance 进入 `LockedTaskConfig`（参与 digest），并出现在 `bora lock` 摘要与 Attempt evidence `lock.json`（若本 run 写了 lock summary）。**Attempt PASS 仍只来自独立 evaluator。**
+
 ## 5.x Database Registry 分发（Spec 21）
 
 **Release 单位 = Database 整包**（根 `bora.yaml` + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。

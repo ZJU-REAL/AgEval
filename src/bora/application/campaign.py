@@ -70,13 +70,14 @@ async def run_campaign(
     """
     from bora.adapters.package_fs import LocalPackageReader
     from bora.config.capabilities import DeclarationCapabilityCatalog
-    from bora.config.database import resolve_task
+    from bora.config.database import load_database_manifest, resolve_task
     from bora.config.load_and_lock import ConfigCore
     from bora.registry.resolve import resolve_database_root
 
     database_root = resolve_database_root(package_root)
     resolved = resolve_task(database_root, task_id)
     task_dir = resolved.task_dir
+    man = load_database_manifest(resolved.database_root)
 
     axes = [parse_matrix_arg(a) for a in matrix_args]
     variants = expand_matrix(axes)
@@ -89,6 +90,7 @@ async def run_campaign(
             task_id,
             overrides=variant if variant else None,
             capabilities=DeclarationCapabilityCatalog(),
+            database_provenance=man.provenance,
         )
         admitted.append(
             {

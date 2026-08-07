@@ -1,6 +1,20 @@
 format: bora.task/1
 task_id: multiagent-env-min
 
+# Multi-specialist + planner + reducer over seeded DB (MultiAgentBench / database-52 case class).
+provenance:
+  kind: reimplementation
+  upstream:
+    name: MultiAgentBench (MARBLE)
+    url: https://github.com/ulab-uiuc/MARBLE
+    ref: main
+    paper: https://arxiv.org/abs/2503.01935
+  parity:
+    claims: [protocol]
+    known_gaps:
+      - BORA journey mini-package; not full MultiAgentBench suite
+      - no MultiAgentBenchAdapter; roles via profiles + env tools only
+
 harness:
   runtime: python
   entrypoint: harness:run

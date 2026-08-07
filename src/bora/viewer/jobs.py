@@ -17,6 +17,25 @@ from bora.config.errors import ConfigError
 from bora.viewer.browse import commands_for
 
 
+def safe_id_segment(value: str, *, field: str) -> str:
+    """Single path segment (job_id / task_id / run_id); reject traversal."""
+    text = (value or "").strip()
+    if (
+        not text
+        or text in {".", ".."}
+        or "/" in text
+        or "\\" in text
+        or ".." in text
+        or text.startswith(".")
+    ):
+        raise ConfigError(
+            "invalid_package",
+            f"invalid {field}: {value!r}",
+            location=field,
+        )
+    return text
+
+
 def _suite_root(database_root: Path) -> Path:
     return database_root.expanduser().resolve(strict=False) / ".bora" / "suite-runs"
 
@@ -158,7 +177,18 @@ def list_jobs(database_root: Path) -> dict[str, Any]:
 
 def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
     root = database_root.expanduser().resolve(strict=False)
+    job_id = safe_id_segment(job_id, field="job_id")
     suite_dir = _suite_root(root) / job_id
+    # Confine suite dir under database root
+    suite_resolved = suite_dir.resolve(strict=False)
+    try:
+        suite_resolved.relative_to(root)
+    except ValueError as exc:
+        raise ConfigError(
+            "invalid_package",
+            "job path escapes database sandbox",
+            location=job_id,
+        ) from exc
     summary_path = suite_dir / "summary.json"
     if not summary_path.is_file():
         raise ConfigError(
@@ -208,6 +238,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
 
 
 def get_job_task(database_root: Path, job_id: str, task_id: str) -> dict[str, Any]:
+    task_id = safe_id_segment(task_id, field="task_id")
     job_payload = get_job(database_root, job_id)
     match = None
     for row in job_payload["tasks"]:

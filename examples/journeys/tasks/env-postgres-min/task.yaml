@@ -1,6 +1,10 @@
 format: bora.task/1
 task_id: env-postgres-min
 
+# BORA Core env smoke — not an upstream port.
+provenance:
+  kind: original
+
 harness:
   runtime: python
   entrypoint: harness:run

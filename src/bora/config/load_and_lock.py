@@ -38,6 +38,7 @@ from bora.config.model import (
     freeze,
 )
 from bora.config.ports import PackageReader
+from bora.config.provenance import merge_provenance, validate_provenance
 
 # Package top-level allowlist (design/02). Unknown first-level paths fail closed.
 ALLOWED_TOP_LEVEL_FILES = frozenset(
@@ -281,6 +282,7 @@ class ConfigCore:
         variant: Mapping[str, object] | None = None,
         overrides: Mapping[str, object] | None = None,
         capabilities: CapabilityCatalog,
+        database_provenance: Mapping[str, object] | None = None,
     ) -> LockedTaskConfig:
         """Read, merge, validate, canonicalize, digest, and freeze a task package.
 
@@ -297,6 +299,9 @@ class ConfigCore:
             Explicit overrides as a mapping of JSON Pointer → value (merge step 3).
         capabilities:
             Declaration-only catalog used for kind/format recognition.
+        database_provenance:
+            Optional Database-root ``provenance`` (suite default). Member
+            ``task.yaml`` provenance fully replaces this when present.
         """
         try:
             root = self._reader.resolve_root(package_root)
@@ -383,6 +388,33 @@ class ConfigCore:
         self._validate_document(merged, task_id=task_id, root=root, capabilities=capabilities)
         resolved_refs = self._collect_resolved_references(merged, root)
 
+        # Provenance: task fully replaces Database default; omit when neither set.
+        task_prov_raw = merged.get("provenance")
+        task_prov: dict[str, Any] | None = None
+        if task_prov_raw is not None:
+            task_prov = validate_provenance(task_prov_raw, location="/provenance")
+            resolution.append(
+                ResolutionEntry(
+                    source="task.yaml",
+                    pointer="/provenance",
+                    note="task provenance",
+                )
+            )
+        db_prov: dict[str, Any] | None = None
+        if database_provenance is not None:
+            db_prov = validate_provenance(
+                dict(database_provenance), location="database:/provenance"
+            )
+            if task_prov is None:
+                resolution.append(
+                    ResolutionEntry(
+                        source="database",
+                        pointer="/provenance",
+                        note="database default provenance",
+                    )
+                )
+        effective_prov = merge_provenance(database=db_prov, task=task_prov)
+
         # Freeze section views.
         format_id = str(merged["format"])
         locked_task_id = str(merged["task_id"])
@@ -401,6 +433,7 @@ class ConfigCore:
         limits = freeze(merged["limits"])
         artifacts = freeze(merged["artifacts"])
         evaluation = freeze(merged["evaluation"])
+        provenance_frozen = freeze(effective_prov) if effective_prov is not None else None
         resolution_record = ResolutionRecord(entries=tuple(resolution))
         resolved_references = freeze(resolved_refs)
 
@@ -419,6 +452,7 @@ class ConfigCore:
             resolution=resolution_record,
             digest="",  # filled below
             resolved_references=resolved_references,  # type: ignore[arg-type]
+            provenance=provenance_frozen,  # type: ignore[arg-type]
         )
         payload = provisional.canonical_payload()
         digest = digest_payload(payload)
@@ -437,6 +471,7 @@ class ConfigCore:
             resolution=resolution_record,
             digest=digest,
             resolved_references=resolved_references,  # type: ignore[arg-type]
+            provenance=provenance_frozen,  # type: ignore[arg-type]
         )
 
     def _validate_top_level_layout(self, root: Path) -> None:

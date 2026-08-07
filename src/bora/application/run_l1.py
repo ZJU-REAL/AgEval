@@ -161,21 +161,24 @@ def run_l1_sdk_session_attempt(
         run_id=run_ident.value,
     )
     with contextlib.suppress(Exception):
-        evidence_store.write_lock_summary(
-            {
-                "digest": lock.digest,
-                "task_id": lock.task_id,
-                "topology": topology.public_summary(),
-                "profiles": [
-                    {
-                        "id": p.get("id"),
-                        "executor": p.get("executor"),
-                        "model": p.get("model"),
-                    }
-                    for p in profiles
-                ],
-            }
-        )
+        from bora.config.model import thaw as _thaw_lock
+
+        lock_doc: dict[str, Any] = {
+            "digest": lock.digest,
+            "task_id": lock.task_id,
+            "topology": topology.public_summary(),
+            "profiles": [
+                {
+                    "id": p.get("id"),
+                    "executor": p.get("executor"),
+                    "model": p.get("model"),
+                }
+                for p in profiles
+            ],
+        }
+        if lock.provenance is not None:
+            lock_doc["provenance"] = _thaw_lock(lock.provenance)
+        evidence_store.write_lock_summary(lock_doc)
 
     cred = project_executor_credentials(work_root=runtime.workdir_host)
     l1_meta["credential_projection"] = {

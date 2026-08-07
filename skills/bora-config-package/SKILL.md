@@ -120,10 +120,12 @@ HTTP / non-ACP profile example:
 | `parameters` | Harness `ctx.params` only |
 | envelope / profiles / limits / provider | Runtime |
 | gold under `evaluation/` | Clean evaluator after barrier — **not** Agent/Harness mount |
+| `provenance` | Config / authors / auditors only — **not** PASS |
 
 - Never put API keys or passwords in yaml.
 - Do not branch harness on executor kind / ACP entry for Core behavior; switch profile instead.
 - Adapter modules must stay mechanism-named (`acp`, `postgresql`, docker) — not benchmark names.
+- For **ports / reimplementations**, fill `provenance` (see `references/bora-yaml.md`); Attempt PASS still comes only from the independent evaluator.
 
 ## Which `executor` / ACP `entry` values?
 

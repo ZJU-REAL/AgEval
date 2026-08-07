@@ -64,6 +64,8 @@ class DatabaseManifest:
     tasks_root: str
     description: str | None = None
     defaults: DatabaseDefaults | None = None
+    # Optional suite-wide provenance; member task.yaml may fully override.
+    provenance: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,8 +283,22 @@ def _manifest_from_mapping(raw: dict[str, Any]) -> DatabaseManifest:
             )
         defaults_obj = DatabaseDefaults(max_concurrent_tasks=mct)
 
+    provenance_obj: dict[str, object] | None = None
+    if "provenance" in raw:
+        from bora.config.provenance import validate_provenance
+
+        provenance_obj = validate_provenance(raw.get("provenance"), location="/provenance")
+
     # Reject unknown top-level keys beyond the wire schema.
-    allowed = {"format", "database_id", "version", "tasks", "description", "defaults"}
+    allowed = {
+        "format",
+        "database_id",
+        "version",
+        "tasks",
+        "description",
+        "defaults",
+        "provenance",
+    }
     unknown_top = set(raw) - allowed
     if unknown_top:
         raise ConfigError(
@@ -298,6 +314,7 @@ def _manifest_from_mapping(raw: dict[str, Any]) -> DatabaseManifest:
         tasks_root=tasks_root,
         description=description,
         defaults=defaults_obj,
+        provenance=provenance_obj,
     )
 
 

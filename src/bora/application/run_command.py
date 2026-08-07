@@ -39,6 +39,9 @@ async def run_task(
     database_root = resolve_database_root(package_root)
     resolved = resolve_task(database_root, task_id)
     package_root = resolved.task_dir
+    from bora.config.database import load_database_manifest
+
+    man = load_database_manifest(resolved.database_root)
     # Host credential locators from .env (values never enter lock/evidence).
     # Prefer Database-root .env, then task-member .env (later wins on key clash).
     load_host_env_files(package_root=resolved.database_root)
@@ -50,6 +53,7 @@ async def run_task(
             task_id,
             overrides=overrides,
             capabilities=DeclarationCapabilityCatalog(),
+            database_provenance=man.provenance,
         )
     except ConfigError:
         # unknown task etc. before Attempt/evidence
@@ -142,13 +146,14 @@ async def run_task(
                         "execution_mode": cap.execution_mode,
                     }
                 profile_rows.append(row)
-            evidence_store.write_lock_summary(
-                {
-                    "digest": lock.digest,
-                    "task_id": task_id,
-                    "profiles": profile_rows,
-                }
-            )
+            lock_doc: dict[str, Any] = {
+                "digest": lock.digest,
+                "task_id": task_id,
+                "profiles": profile_rows,
+            }
+            if lock.provenance is not None:
+                lock_doc["provenance"] = thaw(lock.provenance)
+            evidence_store.write_lock_summary(lock_doc)
         # Wall hard ceiling from locked limits (design §13.1): pre-effect deadline.
         import time as _time
 

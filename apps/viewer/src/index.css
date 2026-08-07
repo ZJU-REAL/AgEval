@@ -49,14 +49,14 @@
   --viewer-error-soft: #f7d4d6;
   --viewer-warning: #f5a623;
   --viewer-row-hover: #fafafa;
-  --viewer-code-bg: #0b0d12;
-  /* Shell highlight on dark code surface (Vercel/terminal-like) */
-  --viewer-shell-cmd: #79c0ff;
-  --viewer-shell-flag: #d2a8ff;
-  --viewer-shell-string: #a5d6ff;
-  --viewer-shell-path: #7ee787;
-  --viewer-shell-punct: #8b949e;
-  --viewer-shell-plain: #e6edf3;
+  /* Light code surface: soft canvas, dark syntax (CLI strip + JSON preview) */
+  --viewer-code-bg: #f5f5f5;
+  --viewer-shell-cmd: #0761d1;
+  --viewer-shell-flag: #6b4fbb;
+  --viewer-shell-string: #0b6e4f;
+  --viewer-shell-path: #0d7a4f;
+  --viewer-shell-punct: #888888;
+  --viewer-shell-plain: #171717;
 }
 
 /* Dark product chrome */
@@ -75,6 +75,7 @@
   --viewer-error-soft: #3b1414;
   --viewer-warning: #f5a623;
   --viewer-row-hover: #141414;
+  /* Dark code surface (Vercel/terminal-like) */
   --viewer-code-bg: #050505;
   --viewer-shell-cmd: #79c0ff;
   --viewer-shell-flag: #d2a8ff;
@@ -127,13 +128,13 @@
     --viewer-error-soft: #f7d4d6;
     --viewer-warning: #f5a623;
     --viewer-row-hover: #fafafa;
-    --viewer-code-bg: #0b0d12;
-    --viewer-shell-cmd: #79c0ff;
-    --viewer-shell-flag: #d2a8ff;
-    --viewer-shell-string: #a5d6ff;
-    --viewer-shell-path: #7ee787;
-    --viewer-shell-punct: #8b949e;
-    --viewer-shell-plain: #e6edf3;
+    --viewer-code-bg: #f5f5f5;
+    --viewer-shell-cmd: #0761d1;
+    --viewer-shell-flag: #6b4fbb;
+    --viewer-shell-string: #0b6e4f;
+    --viewer-shell-path: #0d7a4f;
+    --viewer-shell-punct: #888888;
+    --viewer-shell-plain: #171717;
   }
 }
 
