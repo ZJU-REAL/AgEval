@@ -811,6 +811,18 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except (TypeError, ValueError):
                 exit_code = 0
 
+            # #42 config fingerprint projection from suite summary (optional).
+            config_payload: dict[str, Any] = {}
+            if meta.get("config_fingerprint"):
+                config_payload["config_fingerprint"] = str(meta["config_fingerprint"])
+            if "config_homogeneous" in meta:
+                config_payload["config_homogeneous"] = bool(meta.get("config_homogeneous"))
+            actors_raw = meta.get("actors_summary")
+            if isinstance(actors_raw, list):
+                config_payload["actors_summary"] = [
+                    a for a in actors_raw if isinstance(a, dict)
+                ]
+
             row = SuiteResultRow(
                 suite_run_id=suite_run_id,
                 database_id=database_id,
@@ -826,6 +838,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 size=size,
                 exit_code=exit_code,
                 created_at=now(),
+                config_json=json.dumps(config_payload, sort_keys=True),
             )
             try:
                 state.blobs.put_if_absent(blob_digest, archive, prefix="suite-results")

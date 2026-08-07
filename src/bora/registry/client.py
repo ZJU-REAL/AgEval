@@ -346,8 +346,11 @@ class RegistryClient:
         blob_digest: str,
         size: int,
         archive: bytes,
+        config_fingerprint: str | None = None,
+        config_homogeneous: bool | None = None,
+        actors_summary: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        meta = {
+        meta: dict[str, Any] = {
             "suite_run_id": suite_run_id,
             "database_id": database_id,
             "database_version": database_version,
@@ -362,6 +365,13 @@ class RegistryClient:
             "blob_digest": blob_digest,
             "size": size,
         }
+        # #42 Leaderboard comparability — thin projection from suite summary.
+        if config_fingerprint is not None:
+            meta["config_fingerprint"] = config_fingerprint
+        if config_homogeneous is not None:
+            meta["config_homogeneous"] = config_homogeneous
+        if actors_summary is not None:
+            meta["actors_summary"] = actors_summary
         import secrets as _secrets
 
         boundary = f"bora-suite-{_secrets.token_hex(12)}"

@@ -97,8 +97,12 @@ Env overrides: `BORA_REGISTRY_URL`, `BORA_REGISTRY_TOKEN`, optional
 | GET | `/v1/results/suites/{suite_run_id}/content` | same |
 
 Row fields: `database_id`, `database_version`, `pass_rate`, `mean_score`, `metrics`,
-`task_refs`, optional `agent_label` / `model_label`, `exit_code`.  
+`task_refs`, optional `agent_label` / `model_label`, `exit_code`, and optional
+config-comparability projection (`config_fingerprint`, `config_homogeneous`,
+`actors_summary`) written at suite-run time (#42) — **not** invented at upload.
 **No suite-level PASS** is stored or accepted (client keys `pass` / `verdict` / `suite_pass` → 400).
+Leaderboard (#40) should refuse comparable ranking when `config_homogeneous` is
+false; missing fingerprint on legacy rows degrades to labels-only.
 
 Result archives keep layout `.bora/runs/<run_id>/…` so download extracts into a
 browsable tree.

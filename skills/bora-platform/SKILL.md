@@ -32,6 +32,8 @@ Conflict → stop; fix the highest authority artifact first, then sync downstrea
 | **Package harness:** loop, roles, local Tools, handoff data, `ctx.params` | PASS/FAIL, credentials, isolation mounts |
 | **Evaluator (package):** truth / score algorithm | Starting Agent, host secrets, rewriting runtime errors into PASS |
 
+**造包 / 复刻上游 / scenario 同构切 Dataset：** load `$bora-config-package`（Hub Leaderboard 可比性约定与 suite `config_fingerprint` 亦在该 skill）。
+
 ## Red lines (fail closed)
 
 1. **Trajectory ≠ PASS** — only independent evaluator may form PASS. Missing trajectory must not invent PASS.
