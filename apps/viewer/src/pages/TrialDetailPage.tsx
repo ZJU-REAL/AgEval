@@ -69,6 +69,9 @@ export function TrialDetailPage() {
   const [trajLoading, setTrajLoading] = useState(false);
 
   const [tree, setTree] = useState<TreeEntry[]>([]);
+  const [treeGroups, setTreeGroups] = useState<
+    Array<{ key: string; profile_id?: string | null; label?: string }> | null
+  >(null);
   const [treeLoading, setTreeLoading] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
@@ -163,11 +166,13 @@ export function TrialDetailPage() {
     setSelectedPath(null);
     setFileContent(null);
     setFileNote(null);
+    setTreeGroups(null);
     fetchTrialTree(jobId, taskId, runId, scope)
       .then((data) => {
         if (cancelled) return;
         const files = (data.entries || []).filter((e) => e.type === "file");
         setTree(files);
+        setTreeGroups(data.groups || null);
         // Auto-open a sensible default file
         const preferred =
           files.find((f) => f.name === "lock.json") ||
@@ -244,7 +249,7 @@ export function TrialDetailPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono truncate">
               {runId}
             </h1>
-            {/* Same mute/body style: task · framework · docker(if any) */}
+            {/* Same mute/body style: task · framework · docker · upstream(if any) */}
             <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <span>
                 task{" "}
@@ -268,6 +273,22 @@ export function TrialDetailPage() {
                   <span className="text-body font-medium font-mono text-[13px]">
                     {trial.docker}
                   </span>
+                </>
+              ) : null}
+              {trial?.upstream_url ? (
+                <>
+                  <span className="text-mute select-none" aria-hidden>
+                    ·
+                  </span>
+                  <a
+                    href={trial.upstream_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-link hover:text-link-deep font-mono text-[13px] truncate max-w-[min(48ch,100%)]"
+                    title={trial.upstream_name || trial.upstream_url}
+                  >
+                    {trial.upstream_url}
+                  </a>
                 </>
               ) : null}
             </p>
@@ -331,33 +352,54 @@ export function TrialDetailPage() {
               </p>
             ) : null}
 
-            {/* Actors: role · agent · model — above Trajectory tabs */}
+            {/* Actors: Role | Agent | Model | Time | Usage — observational ≠ PASS */}
             {trial.actors && trial.actors.length > 0 ? (
-              <div className="rounded-[8px] border border-hairline overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>Role</TableHead>
-                      <TableHead>Agent</TableHead>
-                      <TableHead>Model</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {trial.actors.map((a) => (
-                      <TableRow key={a.profile_id || `${a.role}-${a.agent}`}>
-                        <TableCell className="font-medium font-mono text-[13px]">
-                          {a.role}
-                        </TableCell>
-                        <TableCell className="font-mono text-[13px] text-body">
-                          {a.agent}
-                        </TableCell>
-                        <TableCell className="font-mono text-[13px] text-mute">
-                          {a.model || "-"}
-                        </TableCell>
+              <div className="space-y-1.5">
+                <div className="rounded-[8px] border border-hairline overflow-hidden overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>Role</TableHead>
+                        <TableHead>Agent</TableHead>
+                        <TableHead>Model</TableHead>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Usage</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {trial.actors.map((a) => (
+                        <TableRow key={a.profile_id || `${a.role}-${a.agent}`}>
+                          <TableCell className="font-medium font-mono text-[13px]">
+                            {a.role}
+                          </TableCell>
+                          <TableCell className="font-mono text-[13px] text-body">
+                            {a.agent}
+                          </TableCell>
+                          <TableCell className="font-mono text-[13px] text-mute">
+                            {a.model || "-"}
+                          </TableCell>
+                          <TableCell className="font-mono text-[13px] tabular text-body">
+                            {a.time_label || "-"}
+                          </TableCell>
+                          <TableCell
+                            className="font-mono text-[12px] text-mute max-w-[36ch]"
+                            title={
+                              a.usage_label
+                                ? "Observational usage (tokens/cost); not PASS authority. Cache hit = cached_read / input when present. Session-last invoke for cumulative fields."
+                                : undefined
+                            }
+                          >
+                            {a.usage_label || "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <p className="text-[11px] text-mute">
+                  Time sums inv latency. Usage is last-invoke session snapshot
+                  (tokens/cost); trajectory and usage are not PASS.
+                </p>
               </div>
             ) : null}
 
@@ -398,6 +440,7 @@ export function TrialDetailPage() {
                     steps={steps}
                     note={trajNote}
                     result={result}
+                    actors={trial.actors || []}
                   />
                 )}
 
@@ -410,6 +453,9 @@ export function TrialDetailPage() {
                     fileContent={fileContent}
                     fileLoading={fileLoading}
                     fileNote={fileNote}
+                    groupByProfile={activeTab === "agent"}
+                    actors={trial.actors || []}
+                    apiGroups={treeGroups}
                   />
                 )}
               </div>
@@ -445,17 +491,49 @@ function Outcome({
   );
 }
 
+type ActorRow = NonNullable<Trial["actors"]>[number];
+
+function actorLabel(a: ActorRow | undefined, profileId: string): string {
+  if (!a) return profileId;
+  const bits = [a.role || profileId];
+  if (a.agent) bits.push(String(a.agent));
+  if (a.model) bits.push(String(a.model));
+  return bits.join(" · ");
+}
+
 function TrajectoryPanel({
   loading,
   steps,
   note,
   result,
+  actors,
 }: {
   loading: boolean;
   steps: TrajectoryStep[];
   note: string | null;
   result: Record<string, unknown> | null;
+  actors: ActorRow[];
 }) {
+  const groups = useMemo(() => {
+    const actorByPid = new Map(
+      actors.map((a) => [a.profile_id || `${a.role}-${a.agent}`, a]),
+    );
+    const order: string[] = [];
+    const byProfile = new Map<string, TrajectoryStep[]>();
+    for (const s of steps) {
+      const key =
+        (typeof s.profile_id === "string" && s.profile_id) ||
+        "__ungrouped__";
+      if (!byProfile.has(key)) {
+        byProfile.set(key, []);
+        order.push(key);
+      }
+      byProfile.get(key)!.push(s);
+    }
+    const multi = order.filter((k) => k !== "__ungrouped__").length >= 2;
+    return { order, byProfile, actorByPid, multi };
+  }, [steps, actors]);
+
   if (loading) return <p className="text-sm text-mute">Loading trajectory…</p>;
   if (!steps.length) {
     return (
@@ -469,11 +547,11 @@ function TrajectoryPanel({
       </div>
     );
   }
-  return (
-    <div className="space-y-2">
-      {note ? <p className="text-xs text-mute">{note}</p> : null}
-      <ol className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-        {steps.map((s, i) => {
+
+  function renderSteps(list: TrajectoryStep[], showProfileBadge: boolean) {
+    return (
+      <ol className="space-y-2">
+        {list.map((s, i) => {
           const role = (s.role || s.type || "event").toString();
           const isUser = role === "user";
           const isAsst = role === "assistant";
@@ -497,6 +575,11 @@ function TrajectoryPanel({
                 >
                   {role}
                 </span>
+                {showProfileBadge && s.profile_id ? (
+                  <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-body">
+                    {s.profile_id}
+                  </span>
+                ) : null}
                 {s.turn_index != null ? <span>turn {s.turn_index}</span> : null}
                 {s.invocation ? (
                   <span className="font-mono truncate max-w-[24ch]">{s.invocation}</span>
@@ -517,6 +600,45 @@ function TrajectoryPanel({
           );
         })}
       </ol>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {note ? <p className="text-xs text-mute">{note}</p> : null}
+      <p className="text-[11px] text-mute">
+        Trajectory is observational only; independent evaluator owns PASS.
+      </p>
+      {groups.multi ? (
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          {groups.order.map((pid) => {
+            const list = groups.byProfile.get(pid) || [];
+            const actor =
+              pid === "__ungrouped__"
+                ? undefined
+                : groups.actorByPid.get(pid);
+            const title =
+              pid === "__ungrouped__"
+                ? "ungrouped"
+                : actorLabel(actor, pid);
+            return (
+              <section key={pid} className="space-y-2">
+                <h3 className="text-xs font-medium text-ink sticky top-0 bg-canvas/95 backdrop-blur-sm py-1 border-b border-hairline font-mono">
+                  {title}
+                  <span className="text-mute font-normal ml-2">
+                    {list.length} step{list.length === 1 ? "" : "s"}
+                  </span>
+                </h3>
+                {renderSteps(list, false)}
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="max-h-[70vh] overflow-y-auto pr-1">
+          {renderSteps(steps, false)}
+        </div>
+      )}
     </div>
   );
 }
@@ -529,6 +651,9 @@ function FileSplitPanel({
   fileContent,
   fileLoading,
   fileNote,
+  groupByProfile = false,
+  actors = [],
+  apiGroups = null,
 }: {
   tree: TreeEntry[];
   treeLoading: boolean;
@@ -537,7 +662,55 @@ function FileSplitPanel({
   fileContent: string | null;
   fileLoading: boolean;
   fileNote: string | null;
+  groupByProfile?: boolean;
+  actors?: ActorRow[];
+  apiGroups?: Array<{
+    key: string;
+    profile_id?: string | null;
+    label?: string;
+  }> | null;
 }) {
+  // Virtual profile folders for multi-role Agent tab (real paths preserved).
+  const groupedTree = useMemo(() => {
+    if (!groupByProfile || tree.length === 0) return null;
+    const profileKeys = new Set(
+      tree.map((e) => e.profile_id).filter((p): p is string => !!p),
+    );
+    if (profileKeys.size < 2) return null;
+
+    const actorByPid = new Map(
+      actors.map((a) => [a.profile_id || "", a] as const),
+    );
+    const order: string[] = [];
+    if (apiGroups && apiGroups.length > 0) {
+      for (const g of apiGroups) {
+        if (g.key && !order.includes(g.key)) order.push(g.key);
+      }
+    }
+    for (const e of tree) {
+      const key = e.profile_id || "__ungrouped__";
+      if (!order.includes(key)) order.push(key);
+    }
+
+    const byKey = new Map<string, TreeEntry[]>();
+    for (const e of tree) {
+      const key = e.profile_id || "__ungrouped__";
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key)!.push(e);
+    }
+
+    const labels = new Map<string, string>();
+    for (const key of order) {
+      if (key === "__ungrouped__") {
+        labels.set(key, "other");
+        continue;
+      }
+      const actor = actorByPid.get(key);
+      labels.set(key, actor ? actorLabel(actor, key) : key);
+    }
+    return { order, byKey, labels };
+  }, [tree, groupByProfile, actors, apiGroups]);
+
   return (
     <div
       className={cn(
@@ -558,6 +731,38 @@ function FileSplitPanel({
           <p className="text-xs text-mute p-3">Loading tree…</p>
         ) : tree.length === 0 ? (
           <p className="text-xs text-mute p-3">No files in this scope.</p>
+        ) : groupedTree ? (
+          <div className="py-1 min-h-[140px] md:min-h-[380px]">
+            {groupedTree.order.map((key) => (
+              <div key={key} className="mb-1">
+                <div
+                  className="px-3 py-1 text-[11px] font-mono text-mute sticky top-0 bg-canvas-soft border-b border-hairline/60 truncate"
+                  title={groupedTree.labels.get(key)}
+                >
+                  {groupedTree.labels.get(key)}
+                </div>
+                <ul>
+                  {(groupedTree.byKey.get(key) || []).map((e) => (
+                    <li key={e.path}>
+                      <button
+                        type="button"
+                        onClick={() => onSelect(e.path)}
+                        className={cn(
+                          "w-full text-left px-3 py-1.5 text-[12px] font-mono truncate transition-colors",
+                          selectedPath === e.path
+                            ? "bg-canvas text-ink font-medium"
+                            : "text-body hover:bg-canvas/80",
+                        )}
+                        title={e.path}
+                      >
+                        {e.invocation ? `${e.invocation}/${e.name}` : e.path}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         ) : (
           <ul className="py-1 min-h-[140px] md:min-h-[380px]">
             {tree.map((e) => (
