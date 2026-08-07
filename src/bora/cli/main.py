@@ -153,7 +153,7 @@ def run_command(
     from bora.application.composition import build_run_task
     from bora.application.suite_run import execute_suite_run, plan_suite_run
     from bora.config.errors import ConfigError
-    from bora.config.load_and_lock import parse_set_override
+    from bora.config.overrides import parse_set_override
 
     try:
         overrides: dict[str, object] = {}
