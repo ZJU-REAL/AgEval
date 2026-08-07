@@ -1,15 +1,19 @@
-"""Production ``bora run`` use case — Core 1–5 vertical slice (v0.6)."""
+"""Production ``bora run`` use case — Core 1–5 vertical slice (v0.6).
+
+Helpers: evaluator worker · environment prepare (chore #31).
+"""
 
 from __future__ import annotations
 
 import contextlib
 import json
 import shutil
-import sys
 from pathlib import Path
 from typing import Any
 
 from bora.adapters.package_fs import LocalPackageReader
+from bora.application.run_command_environment import prepare_postgresql_environment
+from bora.application.run_command_evaluator import run_evaluator_worker
 from bora.application.run_harness import run_harness_package
 from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.errors import ConfigError
@@ -96,7 +100,8 @@ async def run_task(
     shared_attempt = None  # Runtime-owned Attempt shared with harness worker
     if agent_profile is not None and provider_kind != "docker":
         from bora.adapters.agent_registry import resolve_executor
-        from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
+        from bora.runtime.agent_service_protocol import AgentServiceServer
+        from bora.runtime.parent_agent_service import ParentAgentService
 
         limits = thaw(lock.limits) if hasattr(lock, "limits") else {}
         if not isinstance(limits, dict):
@@ -186,7 +191,6 @@ async def run_task(
     if provider_kind == "docker":
         # Full L1 orchestration for all docker packages (Spec 07) — no preflight-only PASS.
         from bora.application.run_l1 import run_l1_attempt
-        from bora.evaluation.result_binding import FlatResult
 
         code, result_doc, details = run_l1_attempt(
             package_root=package_root,
@@ -221,119 +225,17 @@ async def run_task(
     env_resource = str(params.get("environment_resource") or "")
     env_manager = None
     if env_resource == "postgresql":
-        from bora.environment.manager import EnvironmentManager
-        from bora.evidence.store import AttemptEvidenceStore
-
-        env_meta: dict[str, Any] = {"resource": "postgresql", "manager": True}
-        try:
-            limits_map = thaw(lock.limits) if hasattr(lock, "limits") else {}
-            action_limit = int(
-                (limits_map or {}).get("environment_actions") or 10  # type: ignore[union-attr]
-            )
-            # Ensure §8.9 evidence root exists for effects.jsonl even without Agent Session.
-            if evidence_store is None:
-                evidence_store = AttemptEvidenceStore(
-                    root=run_dir,
-                    attempt_id=str(agent_meta.get("attempt_id") or run_id),
-                    run_id=run_id,
-                )
-            env_manager = EnvironmentManager(
-                attempt_id=str(agent_meta.get("attempt_id") or run_id),
-                action_limit=max(1, action_limit),
-                evidence_store=evidence_store,
-            )
-            opened = env_manager.open_resource("postgresql", name=f"bora-env-{run_id[:10]}")
-            if not opened.get("ok"):
-                raise RuntimeError(opened.get("error") or "open_resource_failed")
-            rid = str(opened["resource_id"])
-            # Resource-type handoff only: container locator for package Tools.
-            # No Benchmark/task/domain branch; package may ship environment/seed.sql.
-            container = rid.split(":", 1)[-1] if ":" in rid else rid
-            seed_file = package_root / "environment" / "seed.sql"
-            seed_applied = False
-            if seed_file.is_file():
-                for stmt in _split_sql_statements(seed_file.read_text(encoding="utf-8")):
-                    r = env_manager.action(rid, "execute", {"sql": stmt})
-                    if not r.get("ok"):
-                        raise RuntimeError(f"environment seed failed: {r}")
-                seed_applied = True
-            # Generic readiness probe (resource protocol only — no package table names).
-            health = env_manager.action(rid, "query", {"sql": "SELECT 1"})
-            if not health.get("ok"):
-                raise RuntimeError(f"environment health failed: {health}")
-            snap = env_manager.freeze_snapshot(rid)
-            # Optional Spec 15 public negative: undeclared/dangerous action before mutation.
-            deny_probe: dict[str, Any] | None = None
-            if str(params.get("probe_mode") or "") == "undeclared_action":
-                # Unknown action id — Manager/Adapter must refuse before external effect.
-                denied = env_manager.action(rid, "drop_schema", {"sql": "DROP TABLE x"})
-                # Dangerous SQL on allowed execute surface — adapter fail closed.
-                denied_sql = env_manager.action(
-                    rid, "execute", {"sql": "DROP TABLE IF EXISTS probe_denied_table"}
-                )
-                deny_probe = {
-                    "unknown_action": denied,
-                    "dangerous_sql": denied_sql,
-                    "denied_before_mutation": (
-                        denied.get("ok") is False and denied_sql.get("ok") is False
-                    ),
-                    "mutation_executed": False,
-                }
-            # Connection recipe for Harness Tools — never gold / business answers.
-            env_doc = {
-                "ok": True,
-                "resource": "postgresql",
-                "resource_id": rid,
-                "container": container,
-                "user": "bora",
-                "password": "bora-attempt",
-                "database": "bora",
-                "seed_applied": seed_applied,
-                "snapshot": snap,
-                "action_count": env_manager._actions,
-                "deny_probe": deny_probe,
-            }
-            (package_root / ".bora_env_result.json").write_text(
-                json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
-            )
-            env_meta.update(
-                {
-                    "ok": True,
-                    "ready": True,
-                    "resource_id": rid,
-                    "container": container,
-                    "seed_applied": seed_applied,
-                }
-            )
-        except Exception as exc:  # noqa: BLE001
-            env_doc = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
-            (package_root / ".bora_env_result.json").write_text(
-                json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
-            )
-            env_meta.update({"ok": False, "error": str(exc)})
-            flat = bind_result(
-                evaluator_raw=None,
-                harness_kind="failed",
-                runtime_kind="local_l0",
-                agent_invocations=0,
-                evidence_path=str(run_dir),
-                error_phase="environment",
-            )
-            summary = flat.as_dict()
-            summary["assurance"] = "l0"
-            summary["status"] = "ERROR"
-            summary["error"] = {
-                "phase": "environment",
-                "kind": "environment_prepare_failed",
-                "message": str(exc),
-            }
-            (run_dir / "result.json").write_text(
-                json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-            )
-            if env_manager is not None:
-                with contextlib.suppress(Exception):
-                    env_manager.close()
-            return 2, flat, {"environment": env_meta, "assurance": "l0"}
+        env_manager, evidence_store, env_meta, early = prepare_postgresql_environment(
+            package_root=package_root,
+            lock=lock,
+            run_dir=run_dir,
+            run_id=run_id,
+            params=params if isinstance(params, dict) else {},
+            agent_meta=agent_meta,
+            evidence_store=evidence_store,
+        )
+        if early is not None:
+            return early
         agent_meta["environment"] = env_meta
         (run_dir / "env_manager.json").write_text(
             json.dumps({"resource_id": env_meta.get("resource_id")}, sort_keys=True) + "\n",
@@ -431,7 +333,7 @@ async def run_task(
 
     evaluator_raw: dict[str, Any] | None = None
     if error_phase is None:
-        evaluator_raw = _run_evaluator_worker(package_root, lock, artifacts_map)
+        evaluator_raw = run_evaluator_worker(package_root, lock, artifacts_map)
 
     # Cleanup agent materialization
     agent_file = package_root / ".bora_agent_result.json"
@@ -527,73 +429,3 @@ async def run_task(
     if l1_meta:
         details["l1"] = l1_meta
     return code, flat, details
-
-
-def _split_sql_statements(sql_text: str) -> list[str]:
-    """Split package seed.sql into single statements (strip comments/empties)."""
-    stmts: list[str] = []
-    buf: list[str] = []
-    for line in sql_text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("--"):
-            continue
-        buf.append(line)
-        if stripped.endswith(";"):
-            stmt = "\n".join(buf).strip().rstrip(";").strip()
-            if stmt:
-                stmts.append(stmt)
-            buf = []
-    tail = "\n".join(buf).strip().rstrip(";").strip()
-    if tail:
-        stmts.append(tail)
-    return stmts
-
-
-def _run_evaluator_worker(
-    package_root: Path,
-    lock: Any,
-    artifacts_map: dict[str, str],
-) -> dict[str, Any]:
-    """Run package evaluator in a dedicated subprocess (not parent import)."""
-    import os
-    import subprocess
-    import tempfile
-
-    path = package_root / "evaluator.py"
-    if not path.is_file():
-        return {"status": "ERROR", "score": None, "metrics": {}}
-    with tempfile.TemporaryDirectory(prefix="bora-eval-") as tmp:
-        script = Path(tmp) / "run_eval.py"
-        out_path = Path(tmp) / "out.json"
-        script.write_text(
-            "\n".join(
-                [
-                    "import json, importlib.util",
-                    f"spec = importlib.util.spec_from_file_location('ev', {str(path)!r})",
-                    "mod = importlib.util.module_from_spec(spec)",
-                    "assert spec.loader is not None",
-                    "spec.loader.exec_module(mod)",
-                    f"raw = mod.evaluate({{'artifacts': {json.dumps(artifacts_map)}}})",
-                    f"open({str(out_path)!r}, 'w', encoding='utf-8').write(json.dumps(raw))",
-                ]
-            ),
-            encoding="utf-8",
-        )
-        proc = subprocess.run(
-            [sys.executable, str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
-        )
-        if proc.returncode != 0 or not out_path.is_file():
-            return {
-                "status": "ERROR",
-                "score": None,
-                "metrics": {"stderr": (proc.stderr or "")[-500:]},
-            }
-        raw = json.loads(out_path.read_text(encoding="utf-8"))
-        if not isinstance(raw, dict):
-            return {"status": "ERROR", "score": None, "metrics": {}}
-        return raw

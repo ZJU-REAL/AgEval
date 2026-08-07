@@ -7,28 +7,25 @@ Containment rules:
 - Clean evaluator container: staging only, network none, no package mount, no creds.
 - assurance:l1 only when harness + agent (if any) + evaluator writers confirmed and
   isolation probes pass.
+
+Helpers live in sibling modules: prepare · evaluator · evidence (chore #31).
 """
 
 from __future__ import annotations
 
 import contextlib
-import json
-import os
 import shutil
-import subprocess
-import textwrap
 from pathlib import Path
 from typing import Any
 
 from bora.adapters.credential_projection import project_executor_credentials
-from bora.adapters.provider_docker import (
-    DockerProvider,
-    DockerRuntime,
-    build_package_image,
-    ensure_base_image,
-    ensure_image_lock,
+from bora.application.run_l1_evaluator import run_clean_evaluator_container
+from bora.application.run_l1_evidence import l1_error_result, write_l1_evidence
+from bora.application.run_l1_prepare import (
+    make_l1_target_executor_factory,
+    prepare_l1_runtime,
+    seed_l1_workspace,
 )
-from bora.runtime.identity import IdentityFactory
 
 
 def run_l1_attempt(
@@ -59,7 +56,7 @@ def run_l1_attempt(
             allow_offline_agent=allow_offline_agent,
         )
 
-    return _err(
+    return l1_error_result(
         run_dir,
         "config",
         {"error": "l1_dispatch_unsupported", "task_id": task_id},
@@ -92,7 +89,8 @@ def run_l1_sdk_session_attempt(
     from bora.evaluation.result_binding import bind_result
     from bora.evidence.store import AttemptEvidenceStore
     from bora.provider.isolation import parse_logical_topology
-    from bora.runtime.agent_service import AgentServiceServer, ParentAgentService
+    from bora.runtime.agent_service_protocol import AgentServiceServer
+    from bora.runtime.parent_agent_service import ParentAgentService
 
     package_root = package_root.resolve()
     params = thaw(lock.parameters)
@@ -111,7 +109,7 @@ def run_l1_sdk_session_attempt(
             implicit_profiles=[str(p.get("id")) for p in profiles if p.get("id")],
         )
     except Exception as exc:  # ConfigError or validation
-        return _err(
+        return l1_error_result(
             run_dir,
             "config",
             {"error": str(exc), "kind": "agent_isolation_invalid"},
@@ -120,7 +118,7 @@ def run_l1_sdk_session_attempt(
             kind="agent_isolation_invalid",
         )
     if topology is None:
-        return _err(
+        return l1_error_result(
             run_dir,
             "config",
             {"error": "missing agent topology"},
@@ -129,26 +127,19 @@ def run_l1_sdk_session_attempt(
             kind="agent_isolation_invalid",
         )
 
-    docker, runtime, l1_meta = _prepare(package_root, lock, run_dir, network_mode=network_mode)
+    docker, runtime, l1_meta = prepare_l1_runtime(
+        package_root, lock, run_dir, network_mode=network_mode
+    )
     assert runtime.workdir_host is not None
     assert runtime.attempt is not None
 
-    # Seed Attempt workspace for terminal-class packages (data/ only — no Agent invoke).
     workspace_host = runtime.workdir_host / "workspace"
-    workspace_host.mkdir(parents=True, exist_ok=True)
-    data_dir = package_root / "data"
-    if data_dir.is_dir():
-        for src in data_dir.iterdir():
-            if src.is_file():
-                shutil.copy2(src, workspace_host / src.name)
-    # Isolation / offline fixture: copy solution/* into workspace without Runtime invoke.
-    if allow_offline_agent or os.environ.get("BORA_L1_USE_SOLUTION") == "1":
-        solution_dir = package_root / "solution"
-        if solution_dir.is_dir():
-            for src in solution_dir.iterdir():
-                if src.is_file():
-                    shutil.copy2(src, workspace_host / src.name)
-            l1_meta["solution_seed"] = True
+    seed_l1_workspace(
+        package_root=package_root,
+        workspace_host=workspace_host,
+        allow_offline_agent=allow_offline_agent,
+        l1_meta=l1_meta,
+    )
 
     # Reuse prepare attempt identity for ParentAgentService + harness.
     attempt_ident = runtime.attempt
@@ -199,7 +190,7 @@ def run_l1_sdk_session_attempt(
     except Exception as exc:  # noqa: BLE001
         docker.cleanup(runtime)
         cred.cleanup()
-        return _err(
+        return l1_error_result(
             run_dir,
             "provider",
             {**l1_meta, "prepare_error": type(exc).__name__, "message": str(exc)[:500]},
@@ -228,99 +219,7 @@ def run_l1_sdk_session_attempt(
             "generation": binding.generation,
         }
 
-    def make_target_executor(binding: Any) -> Any:
-        from bora.adapters.acp import AcpExecutor
-        from bora.adapters.acp_registry import get_entry
-        from bora.adapters.agent_container import effective_run_gid
-
-        actor_id = binding.actor_id
-        if not actor_id:
-            raise RuntimeError("actor_id_required")
-        phys = ledger.actors.get(actor_id)
-        if phys is None:
-            raise RuntimeError("unknown_actor")
-        target = ledger.targets.get(phys.target_id)
-        if target is None or target.state != "ready" or not target.container_id:
-            raise RuntimeError("target_dead")
-        if binding.generation is not None and binding.generation != target.generation:
-            raise RuntimeError("generation_mismatch")
-        if binding.target_id and binding.target_id != target.target_id:
-            raise RuntimeError("target_mismatch")
-
-        profile = next((p for p in profiles if p.get("id") == binding.profile_id), {})
-        api_key_env = (
-            str(profile.get("api_key")).strip()
-            if isinstance(profile.get("api_key"), str) and profile.get("api_key")
-            else None
-        )
-        base_url = (
-            str(profile.get("base_url")).strip()
-            if isinstance(profile.get("base_url"), str) and profile.get("base_url")
-            else None
-        )
-        kind = str(binding.executor_kind)
-        # Spec 19: L1 coding-agent path is ACP only — no private CLI scrape residual.
-        if kind != "acp":
-            raise RuntimeError(
-                f"migrated_to_acp: L1 executor {kind!r} requires executor: acp + options.entry"
-            )
-        entry_id = getattr(binding, "acp_entry_id", None)
-        if not entry_id:
-            options = profile.get("options") if isinstance(profile, dict) else {}
-            if isinstance(options, dict):
-                entry_id = options.get("entry")
-        if not entry_id:
-            raise RuntimeError("acp_entry_required")
-        desc = get_entry(str(entry_id))
-        if desc is None:
-            raise RuntimeError("unknown_acp_entry")
-        child_env = _cli_env_for_container(
-            str(entry_id), api_key_env=api_key_env, base_url=base_url
-        )
-        home = phys.home_container
-        child_env["HOME"] = home
-        child_env["CODEX_HOME"] = f"{home}/.codex"
-        # Force container PATH (projection never carries host PATH after fix).
-        child_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
-        child_env.setdefault("TERM", "xterm")
-        child_env["NO_BROWSER"] = "1"
-        child_env.setdefault("XDG_CONFIG_HOME", f"{home}/.config")
-        child_env.setdefault("XDG_CACHE_HOME", f"{home}/.cache")
-        child_env.setdefault("XDG_STATE_HOME", f"{home}/.local/state")
-        child_env.setdefault("XDG_DATA_HOME", f"{home}/.local/share")
-        for k, v in desc.fixed_env.items():
-            child_env.setdefault(str(k), str(v))
-        workdir = "/attempt/workspace"
-        run_gid = effective_run_gid(phys)
-        docker_cmd: list[str] = [
-            "docker",
-            "exec",
-            "-i",
-            "-u",
-            f"{phys.uid}:{run_gid}",
-            "-w",
-            workdir,
-        ]
-        for ek, ev in child_env.items():
-            if str(ek).upper() in {"DOCKER_HOST", "DOCKER_SOCK"}:
-                continue
-            docker_cmd.extend(["-e", f"{ek}={ev}"])
-        docker_cmd.append(str(target.container_id))
-        # shared_write collaboration: group-writable new files under shared GID.
-        acp_argv = list(desc.acp_command)
-        if phys.shared_gid is not None and phys.shared_write:
-            docker_cmd.extend(["sh", "-c", 'umask 002; exec "$@"', "bora-actor", *acp_argv])
-        else:
-            docker_cmd.extend(acp_argv)
-        return AcpExecutor(
-            entry_id=str(entry_id),
-            model=str(binding.model),
-            descriptor=desc,
-            workdir=workdir,
-            api_key_env=api_key_env,
-            base_url=base_url,
-            command_override=docker_cmd,
-        )
+    make_target_executor = make_l1_target_executor_factory(ledger=ledger, profiles=profiles)
 
     limits: dict[str, Any] = {}
     try:
@@ -439,7 +338,7 @@ def run_l1_sdk_session_attempt(
     if src_art is None or not src_art.is_file():
         docker.cleanup(runtime)
         cred.cleanup()
-        return _err(
+        return l1_error_result(
             run_dir,
             "harness" if not envelope.get("ok") else "evaluation_input",
             {
@@ -466,7 +365,7 @@ def run_l1_sdk_session_attempt(
     if not runtime.writer_stop_confirmed:
         docker.cleanup(runtime)
         cred.cleanup()
-        return _err(
+        return l1_error_result(
             run_dir,
             "evaluation_input",
             {
@@ -479,7 +378,7 @@ def run_l1_sdk_session_attempt(
             kind="residual_writer",
         )
 
-    eval_raw, eval_meta = _run_clean_evaluator_container(
+    eval_raw, eval_meta = run_clean_evaluator_container(
         image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
         staging=staging,
         artifact_filename=artifact_filename,
@@ -517,7 +416,7 @@ def run_l1_sdk_session_attempt(
     doc = flat.as_dict()
     doc["assurance"] = "l1" if full_l1 else "l0"
     doc["l1"] = {**l1_meta, "full_l1": full_l1}
-    _write_evidence(run_dir, doc, agent_meta, doc["l1"])
+    write_l1_evidence(run_dir, doc, agent_meta, doc["l1"])
     code = 0 if flat.status == "PASS" else (1 if flat.status == "FAIL" else 2)
     # Offline path: expected failure for real-agent smoke when offline.
     if allow_offline_agent and inv_count == 0 and not envelope.get("ok"):
@@ -534,299 +433,4 @@ def run_l1_sdk_session_attempt(
             "digest": lock.digest,
             "host_fallback_count": l1_meta["host_fallback_count"],
         },
-    )
-
-
-def _prepare(
-    package_root: Path, lock: Any, run_dir: Path, *, network_mode: str = "none"
-) -> tuple[DockerProvider, DockerRuntime, dict[str, Any]]:
-    from bora.config.model import thaw
-
-    factory = IdentityFactory()
-    run = factory.new_run()
-    trial = factory.new_trial(run, lock.digest)
-    attempt = factory.new_attempt(trial)
-    package_root = package_root.resolve()
-    provider = thaw(lock.provider) if hasattr(lock, "provider") else {}
-    if not isinstance(provider, dict):
-        provider = {}
-    dockerfile_rel = str(provider.get("dockerfile") or "environment/Dockerfile")
-    platform = str(provider.get("platform") or "linux/arm64")
-    # Official base (FROM bora-attempt:l1) then package Dockerfile → Attempt image.
-    ensure_base_image(Path.cwd())
-    short = lock.digest.replace("sha256:", "")[:12]
-    tag = f"bora-pkg:{lock.task_id}-{short}"
-    pkg_image = build_package_image(
-        package_root=package_root,
-        dockerfile_rel=dockerfile_rel,
-        platform=platform,
-        tag=tag,
-        repo_root=Path.cwd(),
-    )
-    lock_path = Path.cwd() / ".bora" / "runtime-images" / "provider-l1.json"
-    if not lock_path.is_file():
-        lock_path = ensure_image_lock(Path.cwd())
-    docker = DockerProvider(image_lock_path=lock_path)
-    work = run_dir / "l1-work"
-    if work.exists():
-        shutil.rmtree(work)
-    runtime = docker.prepare(
-        attempt,
-        package_root=package_root,
-        work_root=work,
-        network_mode=network_mode,
-        hide_evaluation=True,
-        image_lock=pkg_image,
-    )
-    meta = {
-        "containment": "full_l1_attempt",
-        "image": runtime.image_lock.image_digest if runtime.image_lock else "",
-        "image_tag": runtime.image_lock.image_tag if runtime.image_lock else "",
-        "package_dockerfile": dockerfile_rel,
-        "platform": runtime.image_lock.platform if runtime.image_lock else "",
-        "attempt_id": attempt.value,
-        "policy": dict(runtime.policy_digests),
-    }
-    return docker, runtime, meta
-
-
-def _cli_env_for_container(
-    kind: str, *, api_key_env: str | None, base_url: str | None
-) -> dict[str, str]:
-    """Project host credentials into docker ``-e`` (values never logged).
-
-    Never copy host ``PATH`` / ``HOME`` / ``XDG_*`` — those are macOS/Linux host
-    paths and break in-container engines (e.g. opencode ``mkdir /Users``).
-    Callers set container ``HOME`` / ``PATH`` after this returns.
-    """
-    from bora.adapters.child_env import project_cli_child_env
-
-    if kind in {"codex"}:
-        env: dict[str, str] = {}
-        if api_key_env and os.environ.get(api_key_env):
-            env[api_key_env] = os.environ[api_key_env]
-            env.setdefault("OPENAI_API_KEY", os.environ[api_key_env])
-        elif os.environ.get("OPENAI_API_KEY"):
-            env["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
-        if base_url:
-            env["OPENAI_BASE_URL"] = base_url
-        return env
-    projected = project_cli_child_env(
-        kind if kind != "claude" else "claude-code",
-        api_key_env=api_key_env,
-        base_url=base_url,
-    )
-    # Credential + terminal locale only — no host filesystem path env.
-    keep_prefixes = (
-        "ZAI_",
-        "ZHIPU",
-        "OPENAI_",
-        "ANTHROPIC_",
-        "OPENCODE_",
-        "XAI_",
-        "LANG",
-        "TERM",
-        "LC_",
-    )
-    host_path_denylist = {
-        "PATH",
-        "HOME",
-        "XDG_DATA_HOME",
-        "XDG_CONFIG_HOME",
-        "XDG_CACHE_HOME",
-        "XDG_STATE_HOME",
-        "TMPDIR",
-        "TEMP",
-        "TMP",
-    }
-    out = {
-        k: v
-        for k, v in projected.items()
-        if v
-        and k not in host_path_denylist
-        and (k.startswith(keep_prefixes) or (api_key_env and k == api_key_env))
-    }
-    return out
-
-
-def _run_clean_evaluator_container(
-    *,
-    image_tag: str,
-    staging: Path,
-    artifact_filename: str,
-    artifact_key: str,
-    expected_filename: str | None,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    arts = f'"artifacts": {{"{artifact_key}": "/eval/{artifact_filename}"'
-    if expected_filename:
-        arts += f', "expected": "/eval/{expected_filename}"'
-    arts += "}"
-    script = textwrap.dedent(
-        f"""
-        import json, importlib.util
-        from pathlib import Path
-        pkg = Path("/attempt/package")
-        leaked = pkg.exists() and ((pkg / "evaluation").exists() or any(pkg.iterdir()))
-        if leaked:
-            print(json.dumps({{"status": "ERROR", "score": None,
-                               "metrics": {{"leak": "package_mount"}}}}))
-            raise SystemExit(3)
-        if Path("/creds").exists():
-            print(json.dumps({{"status": "ERROR", "score": None,
-                               "metrics": {{"leak": "credential"}}}}))
-            raise SystemExit(3)
-        spec = importlib.util.spec_from_file_location("ev", "/eval/evaluator.py")
-        mod = importlib.util.module_from_spec(spec)
-        assert spec.loader is not None
-        spec.loader.exec_module(mod)
-        raw = mod.evaluate({{{arts}}})
-        print(json.dumps(raw))
-        """
-    )
-    name = f"bora-eval-{staging.name[-8:]}"
-    cmd = [
-        "docker",
-        "run",
-        "--rm",
-        "--name",
-        name,
-        "--user",
-        "10001:10001",
-        "--security-opt",
-        "no-new-privileges",
-        "--network",
-        "none",
-        "--read-only",
-        "--tmpfs",
-        "/tmp:rw,noexec,nosuid,size=32m",
-        "-v",
-        f"{staging}:/eval:ro",
-        "--workdir",
-        "/eval",
-        image_tag,
-        "python",
-        "-c",
-        script,
-    ]
-    try:
-        proc = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=90)
-    except subprocess.TimeoutExpired:
-        subprocess.run(["docker", "rm", "-f", name], check=False, capture_output=True)
-        return (
-            {"status": "ERROR", "score": None, "metrics": {"error": "timeout"}},
-            {"ok": False, "writer_stop_confirmed": True, "package_mounted": False},
-        )
-    meta = {
-        "ok": proc.returncode == 0,
-        "exit": proc.returncode,
-        "writer_stop_confirmed": True,
-        "package_mounted": False,
-        "stderr": (proc.stderr or "")[-500:],
-    }
-    try:
-        line = (proc.stdout or "").strip().splitlines()[-1]
-        raw = json.loads(line)
-        if not isinstance(raw, dict):
-            raw = {"status": "ERROR", "score": None, "metrics": {}}
-    except (json.JSONDecodeError, IndexError):
-        raw = {
-            "status": "ERROR",
-            "score": None,
-            "metrics": {"stderr": meta["stderr"], "stdout": (proc.stdout or "")[-500:]},
-        }
-        meta["ok"] = False
-    return raw, meta
-
-
-def _err(
-    run_dir: Path,
-    phase: str,
-    l1_meta: dict[str, Any],
-    agent_meta: dict[str, Any],
-    inv: int,
-    *,
-    kind: str | None = None,
-) -> tuple[int, dict[str, Any], dict[str, Any]]:
-    from bora.evaluation.result_binding import bind_result
-
-    flat = bind_result(
-        evaluator_raw=None,
-        harness_kind="failed",
-        runtime_kind="docker_l1",
-        agent_invocations=inv,
-        evidence_path=str(run_dir),
-        error_phase=phase,
-    )
-    doc = flat.as_dict()
-    doc["assurance"] = "l0"
-    doc["status"] = "ERROR"
-    if kind:
-        doc["error"] = {"phase": phase, "kind": kind}
-    doc["l1"] = l1_meta
-    _write_evidence(run_dir, doc, agent_meta, l1_meta)
-    return 2, doc, {"agent": agent_meta, "l1": l1_meta, "assurance": "l0"}
-
-
-def _write_evidence(
-    run_dir: Path,
-    result_doc: dict[str, Any],
-    agent_meta: dict[str, Any],
-    l1_meta: dict[str, Any],
-) -> None:
-    run_dir.mkdir(parents=True, exist_ok=True)
-    # Result.logs locator (design §8.9) — evidence root on host, never secrets.
-    # Mutate in place so caller-returned doc/details stay aligned with disk.
-    result_doc.setdefault("logs", str(run_dir))
-    # Honest execution location facts (Spec 14 / v0.15).
-    containment = str(
-        agent_meta.get("executor_containment") or l1_meta.get("executor_containment") or "unknown"
-    )
-    if containment in {"container", "attempt-container"}:
-        exec_loc = "attempt-container"
-    elif containment.startswith("parent"):
-        exec_loc = "parent-api-client"
-    else:
-        # Harness/eval containers still run under Docker even when Agent is parent.
-        exec_loc = str(l1_meta.get("execution_location") or "mixed")
-    l1_meta = {
-        **l1_meta,
-        "execution_location": exec_loc,
-        "executor_containment": containment,
-        "evidence_volume": str(run_dir),
-    }
-    result_doc["l1"] = {**(result_doc.get("l1") or {}), **l1_meta}
-    (run_dir / "result.json").write_text(
-        json.dumps(result_doc, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8"
-    )
-    (run_dir / "agent.json").write_text(
-        json.dumps(agent_meta, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8"
-    )
-    # Redact any accidental secret-looking keys from l1 dump.
-    safe = json.loads(json.dumps(l1_meta, default=str))
-    blob = json.dumps(safe, indent=2, sort_keys=True) + "\n"
-    for needle in ("sk-", "OPENAI_API_KEY=", "password"):
-        if needle in blob:
-            blob = blob.replace(needle, "[REDACTED]")
-    (run_dir / "l1.json").write_text(blob, encoding="utf-8")
-    # §8.9 summary + skeletons (trajectory body still owned by Agent Service when used).
-    summary = {
-        "schema": "bora.evidence.summary/1",
-        "status": result_doc.get("status"),
-        "score": result_doc.get("score"),
-        "assurance": result_doc.get("assurance"),
-        "logs": result_doc.get("logs"),
-        "execution_location": exec_loc,
-        "l1": safe,
-    }
-    (run_dir / "summary.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    for rel in ("effects.jsonl", "agent/events.jsonl"):
-        path = run_dir / rel
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if not path.exists():
-            path.write_text("", encoding="utf-8")
-    (run_dir / "cleanup.json").write_text(
-        json.dumps({"ok": True, "warning": result_doc.get("cleanup_warning")}, indent=2) + "\n",
-        encoding="utf-8",
     )

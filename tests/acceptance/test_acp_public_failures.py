@@ -80,7 +80,7 @@ def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object) -> None
     ex = AcpExecutor(entry_id="codex", model="entry-default")
     # Force host path probe by ensuring no command_override
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.adapters.acp.readiness_for",
+        "bora.adapters.acp.executor.readiness_for",
         lambda *_a, **_k: row,
     )
     r = ex.invoke("hi", timeout=5)

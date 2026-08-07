@@ -51,9 +51,11 @@ def test_container_module_has_no_vendor_scrape() -> None:
 
 
 def test_agent_container_scrape_not_used_for_acp_kind() -> None:
-    run_l1 = (REPO / "src/bora/application/run_l1.py").read_text(encoding="utf-8")
-    assert "AcpExecutor" in run_l1
-    assert "migrated_to_acp" in run_l1
+    # Target executor factory lives in run_l1_prepare (chore #31 split).
+    app = REPO / "src" / "bora" / "application"
+    sources = "\n".join(p.read_text(encoding="utf-8") for p in sorted(app.glob("run_l1*.py")))
+    assert "AcpExecutor" in sources
+    assert "migrated_to_acp" in sources
 
 
 def test_agent_acp_imports_typed_sdk() -> None:
