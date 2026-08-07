@@ -87,6 +87,12 @@ Env overrides: `BORA_REGISTRY_URL`, `BORA_REGISTRY_TOKEN`, optional
 | Attempt result | blobDigest of archive | `application/vnd.bora.attempt-result.v1.tar+gzip` |
 | Suite/job result | blobDigest of suite-run tree | `application/vnd.bora.suite-result.v1.tar+gzip` |
 
+### CORS (Hub SPA)
+
+Set `BORA_REGISTRY_CORS_ORIGIN` (default `*` when unset) so a browser Hub on
+another origin can call `/v1/*` with `Authorization`. Local Hub dev usually
+proxies via Vite (`apps/hub`) and does not need CORS.
+
 ### Package files API (Hub S2 / #38)
 
 Browse published package contents **without** downloading the whole tar to the browser:

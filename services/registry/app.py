@@ -101,11 +101,26 @@ class RegistryState:
         self.github_login_allowlist = github_login_allowlist or frozenset()
 
 
+def _cors_headers(handler: BaseHTTPRequestHandler) -> None:
+    """Optional CORS for Hub SPA (different origin). Env: BORA_REGISTRY_CORS_ORIGIN.
+
+    Default ``*`` for local Hub; set a concrete origin in production. Never
+    reflects credentials into logs.
+    """
+    origin = (os.environ.get("BORA_REGISTRY_CORS_ORIGIN") or "*").strip() or "*"
+    handler.send_header("Access-Control-Allow-Origin", origin)
+    handler.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    if origin != "*":
+        handler.send_header("Vary", "Origin")
+
+
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
     body = json.dumps(payload, sort_keys=True).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
+    _cors_headers(handler)
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -170,6 +185,13 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         def log_message(self, fmt: str, *args: object) -> None:
             # Path-only; never log Authorization or tokens.
             sys.stderr.write(f"{self.address_string()} - {fmt % args}\n")
+
+        def do_OPTIONS(self) -> None:  # noqa: N802
+            # CORS preflight for Hub SPA (browser Authorization header).
+            self.send_response(204)
+            _cors_headers(self)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
