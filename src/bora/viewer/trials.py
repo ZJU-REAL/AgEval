@@ -400,8 +400,10 @@ def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | N
     if context_size is None:
         context_size = _as_int(usage.get("size"))
 
+    # Hit rate only when cached_read is a share of input (0..1). Some vendors
+    # report cumulative/session cached_read >> per-turn input — omit label then.
     cache_hit_rate: float | None = None
-    if inp is not None and inp > 0 and cached_read is not None:
+    if inp is not None and inp > 0 and cached_read is not None and cached_read <= inp:
         cache_hit_rate = cached_read / inp
 
     has_tokens = inp is not None or outp is not None

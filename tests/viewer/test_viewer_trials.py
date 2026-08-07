@@ -472,6 +472,12 @@ def test_multi_role_actors_time_usage_and_provenance(tmp_path: Path) -> None:
     assert usage.get("output_tokens") == 140
     assert usage.get("cache_hit_rate") == pytest.approx(8576 / 11433)
     assert usage.get("cost_amount") == pytest.approx(0.012)
+    # cached_read > input → omit rate (vendor cumulative quirks)
+    assert (
+        trials._usage_summary_for_actor(  # noqa: SLF001
+            {"input_tokens": 100, "cached_read_tokens": 500}
+        ) or {}
+    ).get("cache_hit_rate") is None
     assert usage.get("context_used") == 15925
     label = service.get("usage_label") or ""
     assert "in " in label and "out " in label
