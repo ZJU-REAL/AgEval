@@ -145,8 +145,10 @@ def compute_suite_config_fields(
         actors = list(normalized[0])
 
     agent_label, model_label = derive_labels(actors) if homogeneous else ("", "")
+    # Fingerprint is always over the representative actors list; consumers must
+    # check config_homogeneous before treating it as a comparable combo id.
     return {
-        "config_fingerprint": fingerprint_for_actors(actors) if homogeneous else fingerprint_for_actors(actors),
+        "config_fingerprint": fingerprint_for_actors(actors),
         "config_homogeneous": homogeneous,
         "actors_summary": actors,
         "agent_label": agent_label,
