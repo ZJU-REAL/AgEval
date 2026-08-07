@@ -5,6 +5,7 @@ import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { Shell } from "@/components/layout";
+import { Markdown } from "@/components/markdown";
 import {
   Table,
   TableBody,
@@ -16,17 +17,16 @@ import {
 import {
   decodeDatasetId,
   decodeFileContent,
-  filesToTree,
   getPackageFile,
   listPackageFiles,
   listPackageVersions,
   listSuites,
   type PackageRelease,
   type SuiteRow,
-  type TreeEntry,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { cn, formatScore } from "@/lib/utils";
 
 type Tab = "readme" | "files" | "jobs";
@@ -36,10 +36,11 @@ export function TaskDetailPage() {
   const datasetId = decodeDatasetId(rawId || "");
   const taskId = decodeURIComponent(rawTask || "");
   const [search, setSearch] = useSearchParams();
-  const tab = (search.get("tab") as Tab) || "files";
+  // Default tab: README (not Files)
+  const tab = (search.get("tab") as Tab) || "readme";
 
   const [release, setRelease] = useState<PackageRelease | null>(null);
-  const [tree, setTree] = useState<TreeEntry[]>([]);
+  const [tree, setTree] = useState<TreeNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileNote, setFileNote] = useState<string | null>(null);
@@ -82,13 +83,16 @@ export function TaskDetailPage() {
           token,
         );
         if (cancelled) return;
-        const t = filesToTree(files.items, prefix);
-        setTree(t);
-        // Prefer task README / task.yaml
+        const nested = buildNestedTree(files.items, prefix);
+        setTree(nested);
+
+        // Prefer task.yaml for initial Files selection (when user opens Files)
         const prefer =
-          t.find((e) => e.path.endsWith("/README.md")) ||
-          t.find((e) => e.path.endsWith("/task.yaml")) ||
-          t[0];
+          files.items.find((e) => e.path === `${prefix}/task.yaml`) ||
+          files.items.find((e) => e.path === `${prefix}/README.md`) ||
+          files.items.find(
+            (e) => e.type !== "dir" && e.path.startsWith(prefix + "/"),
+          );
         if (prefer) setSelectedPath(prefer.path);
 
         try {
@@ -179,7 +183,7 @@ export function TaskDetailPage() {
 
   function setTab(next: Tab) {
     const n = new URLSearchParams(search);
-    if (next === "files") n.delete("tab");
+    if (next === "readme") n.delete("tab");
     else n.set("tab", next);
     setSearch(n, { replace: true });
   }
@@ -238,12 +242,11 @@ export function TaskDetailPage() {
 
       {tab === "readme" ? (
         readme ? (
-          <pre className="rounded-[8px] border border-hairline bg-code-bg p-4 text-[13px] font-mono whitespace-pre-wrap text-shell-plain overflow-auto">
-            {readme}
-          </pre>
+          <Markdown source={readme} />
         ) : (
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-mute">
-            No tasks/{taskId}/README.md — open the Files tab for task.yaml.
+            No <code className="font-mono">tasks/{taskId}/README.md</code> —
+            open the Files tab for <code className="font-mono">task.yaml</code>.
           </div>
         )
       ) : null}
@@ -257,6 +260,7 @@ export function TaskDetailPage() {
           fileContent={fileContent}
           fileLoading={fileLoading}
           fileNote={fileNote}
+          rootPrefix={prefix}
         />
       ) : null}
 
@@ -278,36 +282,38 @@ export function TaskDetailPage() {
               List only — click-through to full Run/Attempt evidence is deferred
               (#43).
             </p>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Suite run</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Score</TableHead>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Model</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {jobs.map((j) => (
-                  <TableRow key={j.suite_run_id}>
-                    <TableCell className="font-mono text-xs">
-                      {j.suite_run_id}
-                    </TableCell>
-                    <TableCell className="text-sm">{j.status || "-"}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatScore(j.score)}
-                    </TableCell>
-                    <TableCell className="text-sm text-body">
-                      {j.agent_label || "-"}
-                    </TableCell>
-                    <TableCell className="text-sm text-body font-mono text-xs">
-                      {j.model_label || "-"}
-                    </TableCell>
+            <div className="rounded-[8px] border border-hairline overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Suite run</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Score</TableHead>
+                    <TableHead>Agent</TableHead>
+                    <TableHead>Model</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {jobs.map((j) => (
+                    <TableRow key={j.suite_run_id}>
+                      <TableCell className="font-mono text-xs">
+                        {j.suite_run_id}
+                      </TableCell>
+                      <TableCell className="text-sm">{j.status || "-"}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatScore(j.score)}
+                      </TableCell>
+                      <TableCell className="text-sm text-body">
+                        {j.agent_label || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm font-mono text-xs">
+                        {j.model_label || "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )
       ) : null}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { Shell } from "@/components/layout";
@@ -39,6 +39,7 @@ function latestByDatabase(items: PackageRelease[]): PackageRelease[] {
 }
 
 export function DatasetsPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<PackageRelease[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +73,10 @@ export function DatasetsPage() {
   }, [token]);
 
   const datasets = useMemo(() => latestByDatabase(items), [items]);
+
+  function openDataset(id: string) {
+    navigate(`/datasets/${encodeDatasetId(id)}`);
+  }
 
   return (
     <Shell>
@@ -107,41 +112,52 @@ export function DatasetsPage() {
           </p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Dataset</TableHead>
-              <TableHead>Version</TableHead>
-              <TableHead>Visibility</TableHead>
-              <TableHead className="text-right tabular-nums">Size</TableHead>
-              <TableHead>Updated</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {datasets.map((row) => (
-              <TableRow key={`${row.database_id}@${row.version}`}>
-                <TableCell>
-                  <Link
-                    to={`/datasets/${encodeDatasetId(row.database_id)}`}
-                    className="text-link hover:text-link-deep font-medium"
-                  >
-                    {row.database_id}
-                  </Link>
-                </TableCell>
-                <TableCell className="font-mono text-xs">{row.version}</TableCell>
-                <TableCell className="text-body">{row.visibility}</TableCell>
-                <TableCell className="text-right tabular-nums text-body">
-                  {row.size.toLocaleString()}
-                </TableCell>
-                <TableCell className="text-mute text-xs">
-                  {typeof row.created_at === "number"
-                    ? formatDate(new Date(row.created_at * 1000).toISOString())
-                    : "-"}
-                </TableCell>
+        <div className="rounded-[8px] border border-hairline overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Dataset</TableHead>
+                <TableHead>Version</TableHead>
+                <TableHead>Visibility</TableHead>
+                <TableHead className="text-right tabular-nums">Size</TableHead>
+                <TableHead>Updated</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {datasets.map((row) => (
+                <TableRow
+                  key={`${row.database_id}@${row.version}`}
+                  className="cursor-pointer"
+                  onClick={() => openDataset(row.database_id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openDataset(row.database_id);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="link"
+                >
+                  <TableCell className="font-medium font-mono text-sm">
+                    {row.database_id}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-body">
+                    {row.version}
+                  </TableCell>
+                  <TableCell className="text-body">{row.visibility}</TableCell>
+                  <TableCell className="text-right tabular-nums text-body">
+                    {row.size.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-mute text-xs">
+                    {typeof row.created_at === "number"
+                      ? formatDate(new Date(row.created_at * 1000).toISOString())
+                      : "-"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </Shell>
   );

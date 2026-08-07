@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import { Shell } from "@/components/layout";
+import { Markdown } from "@/components/markdown";
 import {
   Table,
   TableBody,
@@ -32,6 +33,7 @@ import { cn } from "@/lib/utils";
 type Tab = "readme" | "tasks" | "leaderboard";
 
 export function DatasetDetailPage() {
+  const navigate = useNavigate();
   const { datasetId: rawId } = useParams();
   const datasetId = decodeDatasetId(rawId || "");
   const [search, setSearch] = useSearchParams();
@@ -55,7 +57,6 @@ export function DatasetDetailPage() {
         if (!versions.length) {
           throw new RegistryHttpError(404, "not_found", "package not found");
         }
-        // Prefer highest created_at
         const latest = [...versions].sort(
           (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
         )[0];
@@ -114,6 +115,12 @@ export function DatasetDetailPage() {
     setSearch(n, { replace: true });
   }
 
+  function openTask(tid: string) {
+    navigate(
+      `/datasets/${encodeDatasetId(datasetId)}/tasks/${encodeURIComponent(tid)}`,
+    );
+  }
+
   return (
     <Shell>
       <BreadcrumbNav
@@ -130,7 +137,9 @@ export function DatasetDetailPage() {
         {release ? (
           <p className="text-sm text-mute mt-1">
             v{release.version} · {release.visibility} ·{" "}
-            <span className="font-mono text-xs">{release.package_digest.slice(0, 19)}…</span>
+            <span className="font-mono text-xs">
+              {release.package_digest.slice(0, 19)}…
+            </span>
           </p>
         ) : null}
       </div>
@@ -169,9 +178,7 @@ export function DatasetDetailPage() {
         <p className="text-sm text-error font-mono">{error}</p>
       ) : tab === "readme" ? (
         readme ? (
-          <pre className="rounded-[8px] border border-hairline bg-code-bg p-4 text-[13px] font-mono whitespace-pre-wrap text-shell-plain overflow-auto">
-            {readme}
-          </pre>
+          <Markdown source={readme} />
         ) : (
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-mute">
             No README.md in this package.
@@ -181,29 +188,36 @@ export function DatasetDetailPage() {
         taskIds.length === 0 ? (
           <p className="text-sm text-mute">No tasks/ members found.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Task</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {taskIds.map((tid) => (
-                <TableRow key={tid}>
-                  <TableCell className="font-mono text-sm">{tid}</TableCell>
-                  <TableCell className="text-right">
-                    <Link
-                      to={`/datasets/${encodeDatasetId(datasetId)}/tasks/${encodeURIComponent(tid)}`}
-                      className="text-link hover:text-link-deep text-sm"
-                    >
-                      Open
-                    </Link>
-                  </TableCell>
+          <div className="rounded-[8px] border border-hairline overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Task</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {taskIds.map((tid) => (
+                  <TableRow
+                    key={tid}
+                    className="cursor-pointer"
+                    onClick={() => openTask(tid)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openTask(tid);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="link"
+                  >
+                    <TableCell className="font-mono text-sm font-medium">
+                      {tid}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )
       ) : (
         <LeaderboardTable suites={suites} databaseId={datasetId} />
