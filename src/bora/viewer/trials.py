@@ -370,7 +370,8 @@ def _agent_surface(
             ex = inv_executor.get(pid)
         if isinstance(ex, str) and ex and ex not in executors:
             executors.append(ex)
-        caps = p.get("capabilities") if isinstance(p.get("capabilities"), dict) else {}
+        caps_raw = p.get("capabilities")
+        caps: dict[str, Any] = caps_raw if isinstance(caps_raw, dict) else {}
         if caps.get("execution_mode") == "acp-stdio" and "acp" not in executors:
             executors.append("acp")
         model = inv_model.get(pid) or (p.get("model") if isinstance(p.get("model"), str) else None)
@@ -727,7 +728,7 @@ def trial_tree(
                     _walk_tree(evidence, sub, max_entries=MAX_TREE_ENTRIES - len(entries))
                 )
             elif sub.is_file():
-                try:
+                with contextlib.suppress(OSError, ValueError):
                     entries.append(
                         {
                             "path": str(sub.relative_to(evidence)),
@@ -736,8 +737,6 @@ def trial_tree(
                             "size": sub.stat().st_size,
                         }
                     )
-                except (OSError, ValueError):
-                    pass
         return {
             "ok": True,
             "run_id": rid,
