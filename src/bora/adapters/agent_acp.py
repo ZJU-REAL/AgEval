@@ -777,9 +777,7 @@ class AcpExecutor:
             event_prompt_usage: dict[str, Any] = self._client.prompt_usage
             if prompt_usage_raw is not None and hasattr(prompt_usage_raw, "model_dump"):
                 with contextlib_suppress(Exception):
-                    dumped_prompt = prompt_usage_raw.model_dump(
-                        by_alias=True, exclude_none=True
-                    )
+                    dumped_prompt = prompt_usage_raw.model_dump(by_alias=True, exclude_none=True)
                     if isinstance(dumped_prompt, dict):
                         event_prompt_usage = dumped_prompt
             self._client.events.append(

@@ -476,7 +476,8 @@ def test_multi_role_actors_time_usage_and_provenance(tmp_path: Path) -> None:
     assert (
         trials._usage_summary_for_actor(  # noqa: SLF001
             {"input_tokens": 100, "cached_read_tokens": 500}
-        ) or {}
+        )
+        or {}
     ).get("cache_hit_rate") is None
     assert usage.get("context_used") == 15925
     label = service.get("usage_label") or ""
