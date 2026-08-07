@@ -21,8 +21,11 @@ When UI conflicts with taste: **DESIGN.md wins**.
    Jobs = local suite runs under `.bora/suite-runs/`
 2. **Job → tasks** — task table with scores / status / agent-model meta
 3. **Task detail** — trials/run row(s), status/error coloring, **copyable CLI**
-4. **Attempt / trial detail** — `Jobs > job > task > run_id`; Outcome + tabs from
-   real evidence only (Trajectory · Agent · Verifier · Artifacts · Lock · Log)
+4. **Attempt / trial detail** — `Jobs > job > task > run_id`; Outcome + actors
+   (Role / Agent / Model / Time / Usage) + tabs from real evidence only
+   (Trajectory · Agent · Verifier · Artifacts · Lock · Runtime). Top bar may show
+   framework / docker / `provenance.upstream.url`. Multi-role groups Trajectory
+   and Agent tree by `profile_id`. Usage/trajectory are observational ≠ PASS.
 5. **Breadcrumb** — `Jobs > jobId > taskId > runId` with `>` separators; click to navigate
 
 **Out of scope unless user asks:**
@@ -79,8 +82,11 @@ Python API under `/api/*` (see `src/bora/viewer/`):
 | `GET .../trials/{run_id}/file?path=` | File preview (size-capped; secret-like names redacted) |
 | `GET .../trials/{run_id}/trajectory` | Parsed `trajectory.jsonl` steps (observational) |
 
-Trial meta returns `framework` / `docker` / `actors[]` (role·agent·model) from lock +
-invocation metadata.
+Trial meta returns `framework` / `docker` / `upstream_url` (and related provenance
+fields) plus `actors[]` from lock + invocation metadata: role · agent · model ·
+Time (`time_label` / `latency_ms_sum`) · Usage (`usage_label` / normalized last-inv
+usage). Cache hit rate uses inclusion/disjoint heuristics; never treat
+`UsageUpdate.used` as billable tokens.
 
 | Tab | Disk scope | Meaning |
 | --- | --- | --- |

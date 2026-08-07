@@ -21,8 +21,8 @@
 - **Harness × Agent × Model 自由组合** — 同一套 task harness 通过 ACP 换 Codex / Claude / Pi / OpenCode 等入口与模型，做接近笛卡尔积式的对比评测，而不是为每家后端写一套 scraper
 - **把已有 harness 接到统一边界** — 保留你自己的 workflow，外层统一锁定配置、隔离（本机 / Docker）、可见性与独立打分，便于跨框架复现
 - **整份 Dataset 或参数矩阵批量跑** — 一次跑完套件内多个 task，或用 campaign 扫 seed / profile 等允许覆盖的参数
-- **Suite 聚合分与 job 结果归档** — suite 跑完写入观测用的 `pass_rate` / `mean_score`）；需要共享结果时可上传到 Registry
-- **本机浏览 suite 跑次** — `bora view` 打开 Jobs → Tasks → Trial 控制台
+- **Suite 聚合分与 job 结果归档** — suite 跑完写入观测用的 `pass_rate` / `mean_score`；需要共享结果时可上传到 Registry
+- **本机浏览 suite 跑次** — `bora view` 打开 Jobs → Tasks → Attempt；可钻进 run 看 Trajectory、多角色 Time/Usage 与 provenance 外链
 - **复盘与导出轨迹** — 每次 invoke 落盘证据；需要时 `bora evidence` 导出，供失败分析或训练管线
 
 ---
