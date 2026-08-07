@@ -26,6 +26,151 @@ from bora.adapters.agent_contract import AgentResult, parse_validated_text_struc
 ProcessLauncher = Callable[..., Any]
 
 
+def _as_plain_mapping(obj: Any) -> dict[str, Any] | None:
+    """Best-effort dict from pydantic model / mapping (snake_case preferred)."""
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return dict(obj)
+    with contextlib_suppress(Exception):
+        if hasattr(obj, "model_dump"):
+            # exclude_none + no alias → snake_case field names from acp.schema
+            dumped = obj.model_dump(exclude_none=True)
+            if isinstance(dumped, dict):
+                return dumped
+    with contextlib_suppress(Exception):
+        if hasattr(obj, "model_dump"):
+            dumped = obj.model_dump(by_alias=True, exclude_none=True)
+            if isinstance(dumped, dict):
+                return dumped
+    return None
+
+
+def _pick_int(data: Mapping[str, Any], *keys: str) -> int | None:
+    for key in keys:
+        if key not in data:
+            continue
+        val = data[key]
+        if isinstance(val, bool):
+            continue
+        if isinstance(val, int):
+            return val
+        if isinstance(val, float) and val == int(val):
+            return int(val)
+    return None
+
+
+def _pick_number(data: Mapping[str, Any], *keys: str) -> float | int | None:
+    for key in keys:
+        if key not in data:
+            continue
+        val = data[key]
+        if isinstance(val, bool):
+            continue
+        if isinstance(val, (int, float)):
+            return val
+    return None
+
+
+def normalize_acp_usage(
+    prompt_usage: Any = None,
+    usage_update: Any = None,
+) -> dict[str, Any] | None:
+    """Merge ACP dual-source usage into one observational dict (issue #30).
+
+    Two protocol sources with different semantics:
+
+    * ``PromptResponse.usage`` (``Usage``): billable/session **token** counts
+      (``inputTokens`` / ``outputTokens`` / …).
+    * ``sessionUpdate: usage_update`` (``UsageUpdate``): **context occupancy**
+      (``used`` / ``size``) and optional session **cost** — ``used`` is *not*
+      token total.
+
+    Output shape (omit empty sections; no ``uncached_*`` fields)::
+
+        {
+          "input_tokens": int, "output_tokens": int, "total_tokens": int,
+          "thought_tokens": int, "cached_read_tokens": int, "cached_write_tokens": int,
+          "cost": {"amount": number, "currency": "USD"},
+          "context": {"used": int, "size": int},
+          "sources": {"prompt_usage": bool, "usage_update": bool}
+        }
+
+    Missing fields stay absent. Never invents tokens from ``context.used``.
+    Not PASS authority.
+    """
+    prompt_map = _as_plain_mapping(prompt_usage)
+    update_map = _as_plain_mapping(usage_update)
+    out: dict[str, Any] = {}
+    has_prompt = False
+    has_update = False
+
+    if prompt_map:
+        # Accept snake_case (model fields) and camelCase (wire / by_alias dump).
+        token_pairs = (
+            ("input_tokens", ("input_tokens", "inputTokens")),
+            ("output_tokens", ("output_tokens", "outputTokens")),
+            ("total_tokens", ("total_tokens", "totalTokens")),
+            ("thought_tokens", ("thought_tokens", "thoughtTokens")),
+            ("cached_read_tokens", ("cached_read_tokens", "cachedReadTokens")),
+            ("cached_write_tokens", ("cached_write_tokens", "cachedWriteTokens")),
+        )
+        for out_key, aliases in token_pairs:
+            val = _pick_int(prompt_map, *aliases)
+            if val is not None:
+                out[out_key] = val
+                has_prompt = True
+        # Derive total when both sides present and total missing.
+        if "total_tokens" not in out:
+            inp = out.get("input_tokens")
+            outp = out.get("output_tokens")
+            if isinstance(inp, int) and isinstance(outp, int):
+                out["total_tokens"] = inp + outp
+                has_prompt = True
+
+    if update_map:
+        # Context occupancy — never promote used → input_tokens.
+        used = _pick_int(update_map, "used")
+        size = _pick_int(update_map, "size")
+        if used is not None or size is not None:
+            ctx: dict[str, Any] = {}
+            if used is not None:
+                ctx["used"] = used
+            if size is not None:
+                ctx["size"] = size
+            out["context"] = ctx
+            has_update = True
+        cost_raw = update_map.get("cost")
+        cost_map = _as_plain_mapping(cost_raw) if cost_raw is not None else None
+        if cost_map:
+            amount = _pick_number(cost_map, "amount")
+            currency = cost_map.get("currency")
+            cost_out: dict[str, Any] = {}
+            if amount is not None:
+                cost_out["amount"] = amount
+            if isinstance(currency, str) and currency.strip():
+                cost_out["currency"] = currency.strip()
+            if cost_out:
+                out["cost"] = cost_out
+                has_update = True
+        elif used is not None or size is not None:
+            pass  # context already recorded
+        # Bare update with only sessionUpdate marker still counts as source if
+        # we already got context/cost; else ignore empty shell.
+        if not has_update and ("session_update" in update_map or "sessionUpdate" in update_map):
+            # Keep raw empty update out of normalized payload.
+            pass
+
+    if not has_prompt and not has_update:
+        return None
+
+    out["sources"] = {
+        "prompt_usage": has_prompt,
+        "usage_update": has_update,
+    }
+    return out
+
+
 def write_trajectory_jsonl(
     inv_dir: Path,
     *,
@@ -211,11 +356,22 @@ def _auto_approve_permission(options: Sequence[Any]) -> Any:
 
 @dataclass
 class _BoraAcpClient:
-    """Minimal Client: auto-approve permission, decline elicitation, collect updates."""
+    """Minimal Client: auto-approve permission, decline elicitation, collect updates.
+
+    Usage sources are intentionally split (issue #30):
+
+    * ``latest_usage_update`` — raw ``UsageUpdate`` stream (context used/size + cost)
+    * ``prompt_usage`` — set by the executor after ``session/prompt`` returns
+      ``PromptResponse.usage`` (token counts)
+
+    Normalized merge lives in :func:`normalize_acp_usage`; do not treat
+    ``UsageUpdate.used`` as billable tokens.
+    """
 
     events: list[dict[str, Any]] = field(default_factory=list)
     text_chunks: list[str] = field(default_factory=list)
-    usage: dict[str, Any] | None = None
+    latest_usage_update: dict[str, Any] | None = None
+    prompt_usage: dict[str, Any] | None = None
     permission_decisions: list[dict[str, Any]] = field(default_factory=list)
     _conn: Any = None
 
@@ -287,17 +443,29 @@ class _BoraAcpClient:
                 # normalize camelCase keys already in model_dump; keep flat helpers
                 key = "tool_call_id" if attr in {"tool_call_id", "toolCallId"} else attr
                 event[key] = val if not hasattr(val, "value") else str(val)
-        # UsageUpdate
-        if "Usage" in update_type:
-            usage_obj = getattr(update, "usage", None) or update
-            with contextlib_suppress(Exception):
-                if hasattr(usage_obj, "model_dump"):
-                    self.usage = usage_obj.model_dump(by_alias=True, exclude_none=True)
-                elif isinstance(usage_obj, dict):
-                    self.usage = usage_obj
-            if self.usage is not None:
-                event["usage"] = self.usage
-            event["has_usage"] = True
+        # UsageUpdate (context occupancy + cost) — not PromptResponse token Usage.
+        dumped_raw = event.get("update")
+        dumped_update: dict[str, Any] = dumped_raw if isinstance(dumped_raw, dict) else {}
+        session_upd = (
+            getattr(update, "session_update", None)
+            or dumped_update.get("sessionUpdate")
+            or dumped_update.get("session_update")
+        )
+        is_usage_update = (
+            update_type in {"UsageUpdate", "_UsageUpdate"}
+            or "UsageUpdate" in update_type
+            or (isinstance(session_upd, str) and session_upd.lower() == "usage_update")
+        )
+        if is_usage_update:
+            raw_update = _as_plain_mapping(update)
+            if raw_update is None and isinstance(event.get("update"), dict):
+                raw_update = dict(event["update"])
+            if raw_update is not None:
+                self.latest_usage_update = raw_update
+                event["usage_update"] = raw_update
+                # Keep legacy key for older event consumers (raw UsageUpdate shape).
+                event["usage"] = raw_update
+            event["has_usage_update"] = True
         self.events.append(event)
 
     async def write_text_file(
@@ -579,7 +747,8 @@ class AcpExecutor:
         self._client.text_chunks.clear()
         self._client.events.clear()
         self._client.permission_decisions.clear()
-        self._client.usage = None
+        self._client.latest_usage_update = None
+        self._client.prompt_usage = None
 
         try:
             resp = await self._conn.prompt(
@@ -599,6 +768,26 @@ class AcpExecutor:
                 ok=False,
                 error=err,
                 stop=None,
+            )
+
+        # Token authority: PromptResponse.usage (may be absent on older agents).
+        prompt_usage_raw = getattr(resp, "usage", None)
+        self._client.prompt_usage = _as_plain_mapping(prompt_usage_raw)
+        if self._client.prompt_usage is not None:
+            event_prompt_usage: dict[str, Any] = self._client.prompt_usage
+            if prompt_usage_raw is not None and hasattr(prompt_usage_raw, "model_dump"):
+                with contextlib_suppress(Exception):
+                    dumped_prompt = prompt_usage_raw.model_dump(by_alias=True, exclude_none=True)
+                    if isinstance(dumped_prompt, dict):
+                        event_prompt_usage = dumped_prompt
+            self._client.events.append(
+                {
+                    "type": "prompt_usage",
+                    "session_id": self._acp_session_id,
+                    "source": "acp",
+                    # Wire-ish camelCase when available for protocol cross-check.
+                    "prompt_usage": event_prompt_usage,
+                }
             )
 
         stop = getattr(resp, "stop_reason", None) or getattr(resp, "stopReason", None)
@@ -632,7 +821,14 @@ class AcpExecutor:
             "integration_mode": self.descriptor.integration_mode,
         }
         events = tuple(self._client.events) if self._client else ()
-        usage = self._client.usage if self._client else None
+        # Dual-source normalize: tokens from PromptResponse.usage; cost/context
+        # from latest UsageUpdate. Never maps context.used → input_tokens.
+        usage = None
+        if self._client is not None:
+            usage = normalize_acp_usage(
+                prompt_usage=self._client.prompt_usage,
+                usage_update=self._client.latest_usage_update,
+            )
         return AgentResult(
             model=str(self._actual_model or self.model),
             text=text,

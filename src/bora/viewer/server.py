@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import mimetypes
 import sys
@@ -18,6 +19,35 @@ from bora.viewer import browse, jobs, trials
 # Default bind: loopback only.
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+
+
+def _bind_url(host: str, port: int) -> str:
+    """Operator-facing bind URL (clickable in most terminals)."""
+    # IPv6 literals need brackets in URLs.
+    if ":" in host and not host.startswith("["):
+        return f"http://[{host}]:{port}/"
+    return f"http://{host}:{port}/"
+
+
+def _raise_bind_error(host: str, port: int, exc: OSError) -> None:
+    """Re-raise bind failures with a concrete URL (OS strerror often omits it)."""
+    url = _bind_url(host, port)
+    en = getattr(exc, "errno", None)
+    if en in {errno.EADDRINUSE, getattr(errno, "WSAEADDRINUSE", -1)}:
+        raise OSError(
+            en,
+            f"address already in use: {url} "
+            f"(stop the other process or pass --port <free>; --port 0 = ephemeral)",
+        ) from exc
+    if en in {errno.EADDRNOTAVAIL, errno.EACCES, getattr(errno, "WSAEACCES", -1)}:
+        raise OSError(
+            en,
+            f"cannot bind {url}: {exc.strerror or exc}",
+        ) from exc
+    raise OSError(
+        en or 0,
+        f"cannot bind {url}: {exc.strerror or exc}",
+    ) from exc
 
 
 def static_dir() -> Path:
@@ -225,7 +255,11 @@ def serve_viewer(
     overview = browse.database_overview(root)
     assets = static_dir()
     handler = make_handler(root, assets)
-    server = ThreadingHTTPServer((host, port), handler)
+    try:
+        server = ThreadingHTTPServer((host, port), handler)
+    except OSError as exc:
+        _raise_bind_error(host, port, exc)
+        raise  # pragma: no cover — _raise_bind_error always raises
     # If port 0, OS assigns.
     actual_host, actual_port = server.server_address[:2]
     url = f"http://{actual_host}:{actual_port}/"
