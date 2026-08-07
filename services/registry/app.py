@@ -364,17 +364,16 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except GitHubOAuthError as exc:
                 _json_response(self, 502, {"error": exc.code, "message": exc.message})
                 return
-            _json_response(
-                self,
-                200,
-                {
-                    "device_code": dc.device_code,
-                    "user_code": dc.user_code,
-                    "verification_uri": dc.verification_uri,
-                    "expires_in": dc.expires_in,
-                    "interval": dc.interval,
-                },
-            )
+            payload = {
+                "device_code": dc.device_code,
+                "user_code": dc.user_code,
+                "verification_uri": dc.verification_uri,
+                "expires_in": dc.expires_in,
+                "interval": dc.interval,
+            }
+            if dc.verification_uri_complete:
+                payload["verification_uri_complete"] = dc.verification_uri_complete
+            _json_response(self, 200, payload)
 
         def _auth_device_poll(self) -> None:
             if not state.github_client_id or not state.github_client_secret:
