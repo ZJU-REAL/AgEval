@@ -8,7 +8,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_cli_does_not_import_docker_sdk() -> None:
-    text = (ROOT / "src" / "bora" / "cli" / "main.py").read_text(encoding="utf-8")
+    cli_dir = ROOT / "src" / "bora" / "cli"
+    text = "\n".join(p.read_text(encoding="utf-8") for p in cli_dir.glob("*.py"))
     assert "import docker" not in text
     assert "from docker" not in text
 
