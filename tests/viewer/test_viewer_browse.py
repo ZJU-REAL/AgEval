@@ -6,13 +6,14 @@ import json
 import threading
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import pytest
 
 from bora.viewer import browse
-from bora.viewer.server import make_handler, static_dir
+from bora.viewer.server import make_handler, serve_viewer, static_dir
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
@@ -40,6 +41,34 @@ def test_static_dir_when_built() -> None:
         pytest.skip("apps/viewer/dist not built (run: cd apps/viewer && pnpm build)")
     assert (d / "index.html").is_file()
     assert (d / "assets").is_dir()
+
+
+def test_serve_viewer_bind_in_use_includes_host_port(tmp_path: Path) -> None:
+    """Port conflict must name the bind address (OS strerror often omits it)."""
+    assets = _minimal_spa(tmp_path)
+    holder = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(SUITE, assets))
+    host, port = holder.server_address[:2]
+    thread = threading.Thread(target=holder.serve_forever, daemon=True)
+    thread.start()
+    try:
+        want_url = f"http://{host}:{port}/"
+        with (
+            patch("bora.viewer.server.static_dir", return_value=assets),
+            pytest.raises(OSError, match=r"address already in use: http://") as ei,
+        ):
+            serve_viewer(
+                SUITE,
+                host=str(host),
+                port=int(port),
+                open_browser=False,
+                block=False,
+            )
+        msg = str(ei.value)
+        assert want_url in msg
+        assert "--port" in msg
+    finally:
+        holder.shutdown()
+        holder.server_close()
 
 
 def _minimal_spa(tmp_path: Path) -> Path:

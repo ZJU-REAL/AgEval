@@ -60,10 +60,34 @@ export type Trial = {
     agent: string;
     model?: string | null;
     profile_id?: string;
+    invokes?: number;
+    latency_ms_sum?: number | null;
+    /** e.g. "8.3s (1)" — sum of inv latency_ms */
+    time_label?: string | null;
+    usage?: {
+      input_tokens?: number | null;
+      output_tokens?: number | null;
+      total_tokens?: number | null;
+      cached_read_tokens?: number | null;
+      cache_hit_rate?: number | null;
+      cost_amount?: number | null;
+      cost_currency?: string | null;
+      context_used?: number | null;
+      context_size?: number | null;
+      label?: string | null;
+    } | null;
+    /** e.g. "in 11.4K / out 140 · cache 75% · $0.012" (observational ≠ PASS) */
+    usage_label?: string | null;
   }>;
   agent_label?: string | null;
   model_label?: string | null;
   executor_kind?: string | null;
+  /** Full lock provenance when present */
+  provenance?: Record<string, unknown> | null;
+  /** lock.provenance.upstream.url for top-bar link */
+  upstream_url?: string | null;
+  upstream_name?: string | null;
+  upstream_ref?: string | null;
   note?: string | null;
 };
 
@@ -72,6 +96,9 @@ export type TreeEntry = {
   name: string;
   type: "file" | "dir";
   size?: number | null;
+  /** Present on agent/invocations/* entries when metadata has profile_id */
+  profile_id?: string | null;
+  invocation?: string | null;
 };
 
 export type TrajectoryStep = {
@@ -85,6 +112,9 @@ export type TrajectoryStep = {
   error?: string | null;
   invocation?: string;
   invocation_id?: string;
+  /** Package role profile (actors key); not message role user/assistant */
+  profile_id?: string | null;
+  model?: string | null;
   line?: number;
   usage?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
@@ -179,6 +209,12 @@ export function fetchTrialTree(
     run_id: string;
     scope: string;
     entries: TreeEntry[];
+    /** Virtual profile groups for Agent tab (paths stay real) */
+    groups?: Array<{
+      key: string;
+      profile_id?: string | null;
+      label?: string;
+    }> | null;
     truncated?: boolean;
     note?: string;
   }>(`${trialBase(jobId, taskId, runId)}/tree?${q}`);

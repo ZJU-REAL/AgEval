@@ -893,10 +893,12 @@ def view_command(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
     except FileNotFoundError as exc:
-        typer.echo(f"invalid_package: {exc}", err=True)
+        typer.echo(f"viewer: {exc}", err=True)
         raise typer.Exit(code=2) from exc
     except OSError as exc:
-        typer.echo(f"invalid_package: {exc}", err=True)
+        # Prefer strerror / args message (serve_viewer embeds host:port on bind fail).
+        detail = exc.strerror or (exc.args[1] if len(exc.args) > 1 else None) or str(exc)
+        typer.echo(f"viewer: {detail}", err=True)
         raise typer.Exit(code=2) from exc
 
 
