@@ -11,12 +11,15 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [userCode, setUserCode] = useState<string | null>(null);
   const [verifyUri, setVerifyUri] = useState<string | null>(null);
-  const [deviceCodeValue, setDeviceCodeValue] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("idle");
+  const [pollHint, setPollHint] = useState<string>("Waiting for authorization…");
   const intervalRef = useRef<number | null>(null);
+  const inFlightRef = useRef(false);
+  const stoppedRef = useRef(false);
 
   const stopPoll = useCallback(() => {
+    stoppedRef.current = true;
     if (intervalRef.current != null) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -26,29 +29,74 @@ export function LoginPage() {
   const start = useCallback(async () => {
     setError(null);
     setStatus("requesting");
+    setPollHint("Waiting for authorization…");
     stopPoll();
+    stoppedRef.current = false;
     try {
       const code = await deviceCode();
       setUserCode(code.user_code);
-      setVerifyUri(code.verification_uri_complete || code.verification_uri);
-      setDeviceCodeValue(code.device_code);
+      setVerifyUri(
+        code.verification_uri_complete ||
+          code.verification_uri ||
+          "https://github.com/login/device",
+      );
       setStatus("pending");
-      const intervalMs = Math.max(2, code.interval ?? 5) * 1000;
-      intervalRef.current = window.setInterval(async () => {
+
+      const intervalMs = Math.max(5, code.interval ?? 5) * 1000;
+
+      const tick = async () => {
+        if (stoppedRef.current || inFlightRef.current) return;
+        inFlightRef.current = true;
         try {
           const poll = await devicePoll(code.device_code);
-          if (poll.status === "authorization_pending") return;
-          const token = poll.access_token || poll.token;
+          if (stoppedRef.current) return;
+          if (poll.status === "authorization_pending") {
+            setPollHint("Waiting for authorization…");
+            return;
+          }
+          const token = poll.token || poll.access_token;
           if (token) {
             setToken(token);
             stopPoll();
             setStatus("done");
+            setPollHint(
+              poll.github_user
+                ? `Signed in as ${poll.github_user}`
+                : "Signed in",
+            );
             navigate("/datasets");
+            return;
           }
+          // Unexpected 200 shape
+          setPollHint("Unexpected poll response (no token); retrying…");
         } catch (err) {
-          if (err instanceof RegistryHttpError && err.status === 202) return;
-          // keep polling on soft errors
+          if (stoppedRef.current) return;
+          // Terminal failures: stop and surface (allowlist, expired, denied).
+          if (err instanceof RegistryHttpError) {
+            if (err.status === 202) {
+              setPollHint("Waiting for authorization…");
+              return;
+            }
+            stopPoll();
+            setStatus("error");
+            setError(`${err.code}: ${err.message}`);
+            return;
+          }
+          // Network blip — keep polling, show soft hint
+          setPollHint(
+            err instanceof Error
+              ? `Poll error: ${err.message} (retrying…)`
+              : "Poll error (retrying…)",
+          );
+        } finally {
+          inFlightRef.current = false;
         }
+      };
+
+      // Poll immediately, then on interval (do not wait first full interval).
+      void tick();
+      intervalRef.current = window.setInterval(() => {
+        void tick();
       }, intervalMs);
     } catch (err) {
       setStatus("error");
@@ -74,7 +122,7 @@ export function LoginPage() {
       <h1 className="text-xl font-semibold tracking-tight text-ink mb-2">
         Sign in with GitHub
       </h1>
-      <p className="text-sm text-body max-w-xl mb-6">
+      <p className="text-sm text-body mb-6 whitespace-nowrap">
         Device login uses the same Registry OAuth flow as{" "}
         <code className="font-mono">bora login</code>. The token stays in this
         browser only (localStorage) — never in packages or evidence.
@@ -82,7 +130,7 @@ export function LoginPage() {
 
       {status === "idle" || status === "error" ? (
         <Button type="button" onClick={() => void start()}>
-          Start device login
+          {status === "error" ? "Try again" : "Start device login"}
         </Button>
       ) : null}
 
@@ -106,14 +154,18 @@ export function LoginPage() {
               {verifyUri}
             </a>
           ) : null}
-          <p className="text-xs text-mute">
-            Waiting for authorization…{deviceCodeValue ? "" : ""}
-          </p>
+          <p className="text-xs text-mute">{pollHint}</p>
         </div>
       ) : null}
 
+      {status === "done" ? (
+        <p className="text-sm text-body">{pollHint}</p>
+      ) : null}
+
       {error ? (
-        <p className="mt-4 text-sm text-error font-mono">{error}</p>
+        <p className="mt-4 text-sm text-error font-mono whitespace-pre-wrap">
+          {error}
+        </p>
       ) : null}
 
       <p className="mt-8 text-sm">

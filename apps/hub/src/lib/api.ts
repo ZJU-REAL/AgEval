@@ -199,13 +199,59 @@ export async function deviceCode(): Promise<{
   });
 }
 
+/**
+ * Device poll. Registry returns 202 while pending (not an error).
+ * Success 200: ``{ token, github_user, scopes }`` (Registry API token, not GH).
+ */
 export async function devicePoll(
   deviceCodeValue: string,
-): Promise<{ status?: string; access_token?: string; token?: string }> {
-  return requestJson("/v1/auth/github/device/poll", {
+): Promise<{
+  status?: string;
+  token?: string;
+  access_token?: string;
+  github_user?: string;
+  message?: string;
+  error?: string;
+}> {
+  const url = `${registryBase()}/v1/auth/github/device/poll`;
+  const res = await fetch(url, {
     method: "POST",
-    body: { device_code: deviceCodeValue },
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ device_code: deviceCodeValue }),
   });
+  const text = await res.text();
+  let data: Record<string, unknown> = {};
+  try {
+    data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    data = { message: text };
+  }
+  // 202 Accepted = still waiting (must not throw — res.ok is true for 202,
+  // but we normalize explicitly for clarity).
+  if (res.status === 202 || data.status === "authorization_pending") {
+    return {
+      status: "authorization_pending",
+      message: String(data.message || "waiting for user"),
+    };
+  }
+  if (!res.ok) {
+    throw new RegistryHttpError(
+      res.status,
+      String(data.error || "http_error"),
+      String(data.message || res.statusText || "poll failed"),
+    );
+  }
+  return {
+    status: "ok",
+    token: typeof data.token === "string" ? data.token : undefined,
+    access_token:
+      typeof data.access_token === "string" ? data.access_token : undefined,
+    github_user:
+      typeof data.github_user === "string" ? data.github_user : undefined,
+  };
 }
 
 /** Prefer file entries under tasks/<id>/ (exclude dirs). */
