@@ -353,12 +353,94 @@ def _as_int(val: Any) -> int | None:
     return None
 
 
+def _cache_hit_heuristic(
+    *,
+    input_tokens: int | None,
+    cached_read_tokens: int | None,
+    total_tokens: int | None = None,
+    cached_write_tokens: int | None = None,
+) -> dict[str, Any]:
+    """Infer cache relation + hit rate from ACP Usage numbers (#30/#27).
+
+    ACP does **not** fix whether ``cachedReadTokens ⊆ inputTokens``. Entries map
+    vendor APIs differently (OpenAI-style inclusion vs Anthropic-style disjoint).
+    Heuristic only — not PASS authority, not protocol law.
+
+    - **inclusion** (``0 < cache ≤ input``): hit = cache / input;
+      display total input stays ``input``.
+    - **disjoint** (``cache > input``): hit = cache / (input + cache [+ write]);
+      display total input = that denominator.
+    - Prefer ``total_tokens`` as a weak corroboration when both models are
+      plausible (not used to invent a third model).
+    - Missing/zero cache → no rate.
+    """
+    empty: dict[str, Any] = {
+        "cache_relation": None,
+        "cache_hit_rate": None,
+        "display_input_tokens": input_tokens,
+    }
+    if input_tokens is None or cached_read_tokens is None:
+        return empty
+    if input_tokens < 0 or cached_read_tokens < 0:
+        return empty
+    if cached_read_tokens == 0:
+        # Explicit zero cache: rate 0% only when we have positive input.
+        if input_tokens > 0:
+            return {
+                "cache_relation": "inclusion",
+                "cache_hit_rate": 0.0,
+                "display_input_tokens": input_tokens,
+            }
+        return empty
+
+    write = (
+        cached_write_tokens
+        if isinstance(cached_write_tokens, int) and cached_write_tokens > 0
+        else 0
+    )
+
+    # Size-based primary split.
+    if cached_read_tokens <= input_tokens and input_tokens > 0:
+        relation = "inclusion"
+        # Weak total check: if total ≈ input+cache, prefer disjoint anyway.
+        if (
+            total_tokens is not None
+            and total_tokens > 0
+            and abs(total_tokens - (input_tokens + cached_read_tokens))
+            <= max(8, int(0.02 * total_tokens))
+            and abs(total_tokens - input_tokens) > max(8, int(0.02 * total_tokens))
+        ):
+            relation = "disjoint"
+    else:
+        # cache > input (or input == 0 with positive cache)
+        relation = "disjoint"
+
+    if relation == "inclusion":
+        rate = cached_read_tokens / input_tokens if input_tokens > 0 else None
+        return {
+            "cache_relation": "inclusion",
+            "cache_hit_rate": rate,
+            "display_input_tokens": input_tokens,
+        }
+
+    # disjoint: Anthropic-style parallel buckets
+    denom = input_tokens + cached_read_tokens + write
+    if denom <= 0:
+        return empty
+    rate = cached_read_tokens / denom
+    return {
+        "cache_relation": "disjoint",
+        "cache_hit_rate": rate,
+        "display_input_tokens": denom,
+    }
+
+
 def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | None:
     """Normalize a terminal usage dict into viewer-facing summary fields (#27/#30).
 
     - Prefer normalized keys (input_tokens / output_tokens / cost / context).
     - Never treat legacy ``used`` (context occupancy) as tokens.
-    - Cache hit rate only when input_tokens > 0 and cached_read_tokens present.
+    - Cache hit rate via :func:`_cache_hit_heuristic` (inclusion vs disjoint).
     - Observational only; not PASS authority.
     """
     if not isinstance(usage, dict) or not usage:
@@ -374,6 +456,11 @@ def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | N
         usage.get("cached_read_tokens")
         if "cached_read_tokens" in usage
         else usage.get("cachedReadTokens")
+    )
+    cached_write = _as_int(
+        usage.get("cached_write_tokens")
+        if "cached_write_tokens" in usage
+        else usage.get("cachedWriteTokens")
     )
     total = _as_int(
         usage.get("total_tokens") if "total_tokens" in usage else usage.get("totalTokens")
@@ -400,11 +487,17 @@ def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | N
     if context_size is None:
         context_size = _as_int(usage.get("size"))
 
-    # Hit rate only when cached_read is a share of input (0..1). Some vendors
-    # report cumulative/session cached_read >> per-turn input — omit label then.
-    cache_hit_rate: float | None = None
-    if inp is not None and inp > 0 and cached_read is not None and cached_read <= inp:
-        cache_hit_rate = cached_read / inp
+    cache_info = _cache_hit_heuristic(
+        input_tokens=inp,
+        cached_read_tokens=cached_read,
+        total_tokens=total,
+        cached_write_tokens=cached_write,
+    )
+    cache_hit_rate = cache_info.get("cache_hit_rate")
+    cache_relation = cache_info.get("cache_relation")
+    display_input = cache_info.get("display_input_tokens")
+    if not isinstance(display_input, int):
+        display_input = inp
 
     has_tokens = inp is not None or outp is not None
     has_cost = cost_amount is not None
@@ -417,16 +510,19 @@ def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | N
         "output_tokens": outp,
         "total_tokens": total,
         "cached_read_tokens": cached_read,
+        "cached_write_tokens": cached_write,
         "cache_hit_rate": cache_hit_rate,
+        "cache_relation": cache_relation,
+        "display_input_tokens": display_input,
         "cost_amount": cost_amount,
         "cost_currency": cost_currency,
         "context_used": context_used,
         "context_size": context_size,
         # Human label assembled server-side so SPA stays thin; observational.
         "label": _format_usage_label(
-            input_tokens=inp,
+            input_tokens=display_input,
             output_tokens=outp,
-            cache_hit_rate=cache_hit_rate,
+            cache_hit_rate=cache_hit_rate if isinstance(cache_hit_rate, float) else None,
             cost_amount=cost_amount,
             cost_currency=cost_currency,
         ),
@@ -442,14 +538,19 @@ def _format_usage_label(
     cost_amount: float | int | None,
     cost_currency: str | None,
 ) -> str | None:
-    """Compact Usage column text, e.g. ``in 11.4K / out 140 · cache 75% · $0.012``."""
+    """Compact Usage column text, e.g. ``in 11.4K / out 140 · cache 75% · $0.012``.
+
+    ``input_tokens`` here is the **display** total (inclusion: raw input;
+    disjoint: input + cached_read [+ write]).
+    """
     parts: list[str] = []
     if input_tokens is not None or output_tokens is not None:
         in_s = _fmt_token_count(input_tokens) if input_tokens is not None else "-"
         out_s = _fmt_token_count(output_tokens) if output_tokens is not None else "-"
         parts.append(f"in {in_s} / out {out_s}")
     if cache_hit_rate is not None:
-        parts.append(f"cache {cache_hit_rate * 100:.0f}%")
+        pct = max(0.0, min(1.0, float(cache_hit_rate))) * 100.0
+        parts.append(f"cache {pct:.0f}%")
     if cost_amount is not None:
         cur = (cost_currency or "").upper()
         if cur in {"", "USD"}:

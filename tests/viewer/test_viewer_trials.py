@@ -470,15 +470,21 @@ def test_multi_role_actors_time_usage_and_provenance(tmp_path: Path) -> None:
     usage = service.get("usage") or {}
     assert usage.get("input_tokens") == 11433
     assert usage.get("output_tokens") == 140
+    # inclusion heuristic: cache ≤ input → hit = cache/input
+    assert usage.get("cache_relation") == "inclusion"
     assert usage.get("cache_hit_rate") == pytest.approx(8576 / 11433)
     assert usage.get("cost_amount") == pytest.approx(0.012)
-    # cached_read > input → omit rate (vendor cumulative quirks)
-    assert (
+    # disjoint heuristic: cache > input → hit = cache/(input+cache)
+    disjoint = (
         trials._usage_summary_for_actor(  # noqa: SLF001
             {"input_tokens": 100, "cached_read_tokens": 500}
         )
         or {}
-    ).get("cache_hit_rate") is None
+    )
+    assert disjoint.get("cache_relation") == "disjoint"
+    assert disjoint.get("cache_hit_rate") == pytest.approx(500 / 600)
+    assert disjoint.get("display_input_tokens") == 600
+    assert "cache 83%" in (disjoint.get("label") or "")
     assert usage.get("context_used") == 15925
     label = service.get("usage_label") or ""
     assert "in " in label and "out " in label
