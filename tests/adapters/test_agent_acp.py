@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from bora.adapters.agent_acp import AcpExecutor, normalize_acp_usage
+from bora.adapters.acp import AcpExecutor, normalize_acp_usage
 from bora.adapters.agent_contract import parse_validated_text_structured
 
 

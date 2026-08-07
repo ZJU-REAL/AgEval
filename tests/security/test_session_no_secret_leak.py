@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from bora.adapters.agent_contract import AgentResult
-from bora.runtime.agent_service import ParentAgentService
+from bora.runtime.parent_agent_service import ParentAgentService
 
 
 def test_parent_service_response_has_no_secret_keys() -> None:

@@ -44,7 +44,7 @@ def _builtin_acp_factory(
     entry_id: str | None = None,
     **_kw: Any,
 ) -> Any:
-    from bora.adapters.agent_acp import AcpExecutor
+    from bora.adapters.acp import AcpExecutor
 
     eid = entry or entry_id
     if not eid:

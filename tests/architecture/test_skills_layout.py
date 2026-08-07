@@ -61,11 +61,12 @@ def test_four_skills_are_proper_packages() -> None:
 
 def test_cli_skill_commands_exist_in_production_cli() -> None:
     skill = (SKILLS / "bora-cli" / "SKILL.md").read_text(encoding="utf-8")
-    main = (REPO / "src" / "bora" / "cli" / "main.py").read_text(encoding="utf-8")
+    cli_dir = REPO / "src" / "bora" / "cli"
+    sources = "\n".join(p.read_text(encoding="utf-8") for p in cli_dir.glob("*.py"))
     claimed = set(re.findall(r"`bora (lock|run|campaign|evidence|status|submit|cancel)\b", skill))
     assert claimed, "cli skill must document bora commands"
     for cmd in claimed:
-        assert f'@app.command("{cmd}")' in main, cmd
+        assert f'@app.command("{cmd}")' in sources, cmd
 
 
 def test_platform_skill_forbids_trajectory_as_pass() -> None:

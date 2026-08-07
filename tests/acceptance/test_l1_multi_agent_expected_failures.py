@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bora.runtime.agent_service import ParentAgentService, SessionBinding
+from bora.runtime.parent_agent_service import ParentAgentService, SessionBinding
 
 
 def test_unknown_actor_open_fail_closed() -> None:

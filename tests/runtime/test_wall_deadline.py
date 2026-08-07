@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 from bora.adapters.agent_contract import AgentResult
-from bora.runtime.agent_service import ParentAgentService
+from bora.runtime.parent_agent_service import ParentAgentService
 
 
 class _Counting:

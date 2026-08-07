@@ -13,8 +13,9 @@ from typing import Any
 
 from bora.config.capabilities import CapabilityCatalog
 from bora.config.database import load_database_manifest, resolve_task
-from bora.config.load_and_lock import ConfigCore, parse_set_override
+from bora.config.load_and_lock import ConfigCore
 from bora.config.model import locked_to_summary
+from bora.config.overrides import parse_set_override
 from bora.registry.resolve import resolve_database_root
 
 

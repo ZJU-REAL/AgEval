@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bora.adapters.agent_acp import AcpExecutor
+from bora.adapters.acp import AcpExecutor
 from bora.adapters.agent_registry import discover_executor_kinds, resolve_executor
 from bora.adapters.executor_capabilities import (
     BUILTIN_CAPABILITIES,

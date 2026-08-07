@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.agent_acp import AcpExecutor
+from bora.adapters.acp import AcpExecutor
 from bora.adapters.agent_registry import resolve_executor
 from bora.adapters.package_fs import LocalPackageReader
 from bora.config.capabilities import DeclarationCapabilityCatalog
@@ -80,7 +80,7 @@ def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object) -> None
     ex = AcpExecutor(entry_id="codex", model="entry-default")
     # Force host path probe by ensuring no command_override
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.adapters.agent_acp.readiness_for",
+        "bora.adapters.acp.executor.readiness_for",
         lambda *_a, **_k: row,
     )
     r = ex.invoke("hi", timeout=5)

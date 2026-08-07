@@ -1,0 +1,38 @@
+import type { Trial } from "@/lib/api";
+import { formatDate, formatScore } from "@/lib/utils";
+
+import { Outcome } from "./outcome";
+
+export function OutcomeStrip({ trial }: { trial: Trial }) {
+  const status = (trial.status || "").toUpperCase();
+  const bad = status === "ERROR" || status === "FAIL" || Boolean(trial.error);
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-[8px] border border-hairline p-4">
+        <Outcome label="Status">
+          <span className={bad ? "text-error font-medium" : "text-ink font-medium"}>
+            {status || "-"}
+          </span>
+        </Outcome>
+        <Outcome label="Score">
+          <span className="tabular">{formatScore(trial.score ?? trial.reward)}</span>
+        </Outcome>
+        <Outcome label="Started">
+          <span className="tabular text-body">{formatDate(trial.started)}</span>
+        </Outcome>
+        <Outcome label="Invocations">
+          <span className="tabular">
+            {trial.agent_invocations != null ? trial.agent_invocations : "-"}
+          </span>
+        </Outcome>
+      </div>
+      {trial.note ? <p className="text-xs text-mute">{trial.note}</p> : null}
+      {trial.error ? (
+        <p className="text-sm text-error rounded-[8px] bg-error-soft/40 px-3 py-2">
+          {String(trial.error)}
+        </p>
+      ) : null}
+    </>
+  );
+}

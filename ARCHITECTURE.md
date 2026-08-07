@@ -108,23 +108,21 @@ BORA/
 ├── uv.lock
 ├── src/bora/
 │   ├── __init__.py
-│   ├── cli/                   # Typer：argv、help、exit code
-│   │   └── main.py            # `bora` / `bora lock`
-│   ├── application/           # use cases + composition root
-│   │   ├── composition.py     # 唯一 production 装配点（仅 Config CLI）
-│   │   ├── lock_command.py
-│   │   └── run_lifecycle.py   # Lifecycle use case（无 CLI 暴露）
-│   ├── config/                # Core 1
-│   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker
+│   ├── cli/                   # Typer：argv、help、exit code（main 挂载 + cmd_*）
+│   ├── application/           # use cases + composition root（run_l1_* / run_command_* helpers）
+│   ├── config/                # Core 1（load_and_lock + constants/yaml_io/overrides/digest/validate）
+│   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker、
+│   │                          # parent_agent_service + agent_service_protocol/evidence
 │   ├── provider/              # Core 3：L0 contract / workspace plan / outcomes / targets+isolation
 │   ├── capabilities/          # Core 4：Attempt authority（进程内）
 │   ├── evaluation/            # Core 5：flat Result binder（含 Result.logs locator）
 │   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
+│   ├── viewer/                # 本地 Jobs/Trial HTTP API（trials/ 包）
 │   └── adapters/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
-│       ├── provider_docker.py # Docker L1 + multi-actor ExecutionTarget
-│       ├── agent_acp.py       # Current: 唯一 typed ACP client（parent）
+│       ├── provider_docker/   # Docker L1 + multi-actor ExecutionTarget
+│       ├── acp/               # 唯一 typed ACP client（parent；usage/trajectory/client/executor）
 │       ├── acp_entries.json   # Current: static entry pins / descriptors
 │       ├── acp_registry.py    # Current: registry + readiness
 │       ├── agent_container.py # L1 placement helpers / opaque target id
@@ -160,7 +158,7 @@ BORA/
 │   ├── evaluation/            # Core 5：barrier、bind、result 模型
 │   ├── domain/                # 薄共享 value types / 错误类型
 │   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
-│       ├── agent_acp.py       # 唯一 ACP client（parent；Spec 19 Current）
+│       ├── acp/                # 唯一 ACP client（parent；Spec 19 Current）
 │       ├── acp_entries.json   # entry descriptor + exact pins
 │       ├── agent_container.py # L1 placement helpers
 │       └── agent_openai_http.py

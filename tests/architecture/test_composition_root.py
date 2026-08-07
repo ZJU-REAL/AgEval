@@ -16,14 +16,17 @@ def test_build_run_task_returns_callable() -> None:
 
 
 def test_cli_run_uses_composition_not_direct_run_command() -> None:
-    source = Path(cli_main.__file__).read_text(encoding="utf-8")
-    assert "build_run_task" in source
-    assert "from bora.application.composition import build_run_task" in source
+    # Commands live in cmd_* modules after chore #31 split; scan CLI package.
+    cli_dir = Path(cli_main.__file__).resolve().parent
+    sources = "\n".join(p.read_text(encoding="utf-8") for p in cli_dir.glob("*.py"))
+    assert "build_run_task" in sources
+    assert "from bora.application.composition import build_run_task" in sources
     # Direct use-case import is forbidden on the public run path (B-04).
-    assert "from bora.application.run_command import run_task" not in source
+    assert "from bora.application.run_command import run_task" not in sources
 
 
 def test_cli_campaign_uses_composition() -> None:
-    source = Path(cli_main.__file__).read_text(encoding="utf-8")
-    assert "build_campaign_runner" in source
-    assert "from bora.application.campaign import run_campaign" not in source
+    cli_dir = Path(cli_main.__file__).resolve().parent
+    sources = "\n".join(p.read_text(encoding="utf-8") for p in cli_dir.glob("*.py"))
+    assert "build_campaign_runner" in sources
+    assert "from bora.application.campaign import run_campaign" not in sources

@@ -8,20 +8,22 @@ Each parent-bound invoke writes per-invocation evidence before returning.
 from __future__ import annotations
 
 import contextlib
-import json
 import os
-import socket
-import struct
 import threading
 import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from bora.evidence.redaction import RedactionError
 from bora.evidence.store import AttemptEvidenceStore
+from bora.runtime.agent_service_evidence import (
+    map_error_status,
+    seal_failure,
+    seal_invoke_result,
+    write_invoke_request,
+)
 
 
 @dataclass
@@ -206,41 +208,19 @@ class ParentAgentService:
                 model=model,
             )
             try:
-                req_doc: dict[str, Any] = {
-                    "messages": [{"role": "user", "content": prompt}],
-                    "profile_id": profile_id,
-                    "executor_kind": kind,
-                    "model": model,
-                    "schema_hint": None,
-                    "tool_specs": [],
-                }
-                # Locator/name only — never secret values.
-                if base_url:
-                    req_doc["base_url"] = base_url
-                if api_key:
-                    req_doc["api_key"] = api_key
-                if acp_entry_id:
-                    req_doc["acp_entry_id"] = acp_entry_id
-                if actor_id:
-                    req_doc["actor_id"] = actor_id
-                if target_id:
-                    req_doc["target_id"] = target_id
-                if generation is not None:
-                    req_doc["generation"] = generation
-                handle.write_request(req_doc)
-                handle.append_event(
-                    {
-                        "type": "lifecycle",
-                        "phase": "invoke_start",
-                        "source": "agent_service",
-                        **(
-                            {"execution_location": "attempt-container"}
-                            if self.l1_container_only
-                            else {}
-                        ),
-                        **({"actor_id": actor_id} if actor_id else {}),
-                        **({"target_id": target_id} if target_id else {}),
-                    }
+                write_invoke_request(
+                    handle,
+                    prompt=prompt,
+                    profile_id=profile_id,
+                    kind=kind,
+                    model=model,
+                    base_url=base_url,
+                    api_key=api_key,
+                    acp_entry_id=acp_entry_id,
+                    actor_id=actor_id,
+                    target_id=target_id,
+                    generation=generation,
+                    l1_container_only=self.l1_container_only,
                 )
             except RedactionError:
                 # Already sealed as redaction_failed by store.
@@ -267,7 +247,7 @@ class ParentAgentService:
                 with self._lock:
                     self._executors[session_id] = executor
             elif self.l1_container_only:
-                self._seal_failure(
+                seal_failure(
                     handle,
                     status="failed",
                     error="l1_executor_unbound",
@@ -296,7 +276,7 @@ class ParentAgentService:
                 with self._lock:
                     self._executors[session_id] = executor
         except KeyError:
-            self._seal_failure(
+            seal_failure(
                 handle,
                 status="failed",
                 error="executor_unknown",
@@ -313,7 +293,7 @@ class ParentAgentService:
             if self.l1_container_only:
                 # Explicitly never host-fallback.
                 err = getattr(exc, "error", None) or type(exc).__name__
-                self._seal_failure(
+                seal_failure(
                     handle,
                     status="failed",
                     error=str(err),
@@ -344,7 +324,7 @@ class ParentAgentService:
         next_n = self.invocations_completed + 1
         if force_err and next_n == force_at:
             latency = (time.monotonic() - started) * 1000.0
-            status = _map_error_status(force_err if force_err != "crash" else "crash")
+            status = map_error_status(force_err if force_err != "crash" else "crash")
             if force_err == "crash":
                 status = "crash"
             if handle is not None:
@@ -357,13 +337,11 @@ class ParentAgentService:
                     }
                 )
                 if force_err == "crash":
-                    self._seal_failure(
-                        handle, status="crash", error="forced_crash", latency_ms=latency
-                    )
+                    seal_failure(handle, status="crash", error="forced_crash", latency_ms=latency)
                 else:
                     allowed = {"timeout", "cancelled", "failed", "crash"}
                     seal_status = status if status in allowed else "failed"
-                    self._seal_failure(
+                    seal_failure(
                         handle,
                         status=seal_status,
                         error=f"forced_{force_err}",
@@ -412,7 +390,7 @@ class ParentAgentService:
                         "source": "agent_service",
                     }
                 )
-                self._seal_failure(
+                seal_failure(
                     handle,
                     status="crash",
                     error=type(exc).__name__,
@@ -434,81 +412,15 @@ class ParentAgentService:
 
         latency = (time.monotonic() - started) * 1000.0
         if handle is not None:
-            # Stream backend events into invocation events.jsonl.
-            events = getattr(result, "events", ()) or ()
-            for ev in events:
-                if isinstance(ev, dict):
-                    handle.append_event(ev)
-            stderr = getattr(result, "stderr", "") or ""
-            if stderr:
-                handle.write_stderr(stderr)
-            # Source refs as events (digests only — paths are under evidence root).
-            for ref in getattr(result, "source_refs", ()) or ():
-                if isinstance(ref, dict):
-                    handle.append_event(
-                        {
-                            "type": "source_ref",
-                            "kind": ref.get("kind"),
-                            "digest": ref.get("digest"),
-                            "source": "executor",
-                        }
-                    )
-
-            # Training trajectory: turn-level (one invoke = one turn unit).
-            # Prefer executor-written file; else synthesize. Stamp turn_index
-            # from completed+1 (this invocation's 1-based seq within attempt).
-            meta = getattr(result, "metadata", None)
-            meta = {} if not isinstance(meta, dict) else dict(meta)
-            meta.setdefault("turn_index", self.invocations_completed + 1)
-            is_acp = meta.get("executor_kind") == "acp" or kind == "acp"
-            if is_acp:
-                from bora.adapters.agent_acp import write_trajectory_jsonl
-
-                # Always rewrite with turn_index even if executor already wrote.
-                write_trajectory_jsonl(
-                    handle.directory,
-                    prompt=prompt,
-                    events=tuple(events) if not isinstance(events, tuple) else events,
-                    final_text=str(getattr(result, "text", "") or ""),
-                    structured=(
-                        result.structured
-                        if isinstance(getattr(result, "structured", None), dict)
-                        else None
-                    ),
-                    usage=getattr(result, "usage", None),
-                    ok=bool(result.ok),
-                    error=result.error,
-                    metadata=meta,
-                )
-
-            status = "completed" if result.ok else _map_error_status(result.error)
-            try:
-                if result.ok:
-                    final = {
-                        "content": (result.text or "")[-8000:],
-                        "structured_output": (
-                            result.structured if isinstance(result.structured, dict) else None
-                        ),
-                        "usage": getattr(result, "usage", None),
-                        "session": {
-                            "reusable": False,
-                            "handle": None,
-                            "note": "ephemeral; no reusable session secret",
-                        },
-                    }
-                    handle.seal(
-                        status="completed",
-                        final_response=final,
-                        latency_ms=latency,
-                    )
-                else:
-                    handle.seal(
-                        status=status,
-                        final_response=None,
-                        error=result.error,
-                        latency_ms=latency,
-                    )
-            except RedactionError:
+            redaction_err = seal_invoke_result(
+                handle,
+                result=result,
+                prompt=prompt,
+                kind=kind,
+                turn_index=self.invocations_completed + 1,
+                latency_ms=latency,
+            )
+            if redaction_err is not None:
                 with self._lock:
                     self.invocations_completed += 1
                 return {
@@ -548,152 +460,3 @@ class ParentAgentService:
             with contextlib.suppress(Exception):
                 executor.close()
         return {"ok": True}
-
-    def _seal_failure(
-        self,
-        handle: Any,
-        *,
-        status: str,
-        error: str,
-        latency_ms: float,
-    ) -> None:
-        if handle is None:
-            return
-        with contextlib.suppress(RedactionError):
-            handle.seal(
-                status=status,
-                final_response=None,
-                error=error,
-                latency_ms=latency_ms,
-            )
-
-
-def _map_error_status(error: str | None) -> str:
-    if not error:
-        return "failed"
-    if error in {"TimeoutExpired", "timeout"}:
-        return "timeout"
-    if error in {"CancelledError", "cancelled", "KeyboardInterrupt"}:
-        return "cancelled"
-    if error in {"offline_forced", "codex_binary_missing", "missing_credential"}:
-        return "failed"
-    if error.startswith("exit_"):
-        return "failed"
-    return "failed"
-
-
-def _recv_msg(conn: socket.socket) -> dict[str, Any]:
-    hdr = _read_exact(conn, 4)
-    (n,) = struct.unpack("!I", hdr)
-    if n > 4_000_000:
-        raise ValueError("frame too large")
-    body = _read_exact(conn, n)
-    return json.loads(body.decode("utf-8"))
-
-
-def _send_msg(conn: socket.socket, obj: dict[str, Any]) -> None:
-    raw = json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    conn.sendall(struct.pack("!I", len(raw)) + raw)
-
-
-def _read_exact(conn: socket.socket, n: int) -> bytes:
-    buf = b""
-    while len(buf) < n:
-        chunk = conn.recv(n - len(buf))
-        if not chunk:
-            raise EOFError("socket closed")
-        buf += chunk
-    return buf
-
-
-class AgentServiceServer:
-    """Unix-socket server exposing ParentAgentService to the task worker."""
-
-    def __init__(self, service: ParentAgentService, sock_path: Path) -> None:
-        self.service = service
-        self.sock_path = sock_path
-        self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-        self._server: socket.socket | None = None
-
-    def start(self) -> None:
-        if self.sock_path.exists():
-            self.sock_path.unlink()
-        self.sock_path.parent.mkdir(parents=True, exist_ok=True)
-        srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        srv.bind(str(self.sock_path))
-        srv.listen(8)
-        srv.settimeout(0.5)
-        self._server = srv
-        self._thread = threading.Thread(target=self._loop, name="bora-agent-service", daemon=True)
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._stop.set()
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
-        if self._server is not None:
-            with contextlib.suppress(OSError):
-                self._server.close()
-        if self.sock_path.exists():
-            with contextlib.suppress(OSError):
-                self.sock_path.unlink()
-
-    def _loop(self) -> None:
-        assert self._server is not None
-        while not self._stop.is_set():
-            try:
-                conn, _ = self._server.accept()
-            except TimeoutError:
-                continue
-            except OSError:
-                break
-            try:
-                with conn:
-                    req = _recv_msg(conn)
-                    resp = self._handle(req)
-                    _send_msg(conn, resp)
-            except Exception as exc:  # noqa: BLE001
-                with contextlib.suppress(Exception):
-                    _send_msg(
-                        conn,
-                        {
-                            "ok": False,
-                            "error": type(exc).__name__,
-                            "message": str(exc),
-                        },
-                    )
-
-    def _handle(self, req: dict[str, Any]) -> dict[str, Any]:
-        op = req.get("op")
-        if op == "open":
-            # Client-supplied attempt_id is ignored; parent binding is authoritative.
-            actor_raw = req.get("actor_id")
-            actor_id = (
-                str(actor_raw).strip() if isinstance(actor_raw, str) and actor_raw.strip() else None
-            )
-            return self.service.open_session(
-                profile_id=str(req.get("profile_id") or ""),
-                actor_id=actor_id,
-            )
-        if op == "invoke":
-            return self.service.invoke(
-                session_id=str(req.get("session_id") or ""),
-                prompt=str(req.get("prompt") or ""),
-            )
-        if op == "close":
-            return self.service.close_session(session_id=str(req.get("session_id") or ""))
-        return {"ok": False, "error": "unknown_op"}
-
-
-def agent_service_client_call(sock_path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """SDK/worker client helper."""
-    if os.environ.get("BORA_OFFLINE_AGENT") == "1" and payload.get("op") == "invoke":
-        return {"ok": False, "error": "offline_forced", "structured": None}
-    conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    try:
-        conn.connect(sock_path)
-        _send_msg(conn, payload)
-        return _recv_msg(conn)
-    finally:
-        conn.close()

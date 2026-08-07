@@ -7,7 +7,7 @@ from pathlib import Path
 
 from bora.adapters.agent_contract import AgentResult
 from bora.evidence.store import AttemptEvidenceStore
-from bora.runtime.agent_service import ParentAgentService
+from bora.runtime.parent_agent_service import ParentAgentService
 
 
 class _FakeExecutor:
