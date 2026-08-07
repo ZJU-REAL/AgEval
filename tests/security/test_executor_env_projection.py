@@ -7,7 +7,7 @@ from pathlib import Path
 from bora.adapters.acp import AcpExecutor
 from bora.adapters.child_env import project_cli_child_env
 from bora.evidence.store import AttemptEvidenceStore
-from bora.runtime.agent_service import ParentAgentService
+from bora.runtime.parent_agent_service import ParentAgentService
 
 
 def test_shared_project_cli_child_env_allowlist(monkeypatch: object) -> None:
