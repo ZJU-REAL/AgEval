@@ -6,9 +6,9 @@ import json
 import threading
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import urlopen
-from unittest.mock import patch
 
 import pytest
 
