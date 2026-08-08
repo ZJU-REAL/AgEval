@@ -16,8 +16,8 @@ const copy = {
     title: "给 Agent 测评一条可复现的外层边界",
     summary:
       "BORA（Bounded Orchestration for Runtime Agents）锁定 Dataset 配置、按边界跑 Attempt、控制 agent 可见面，再由独立 evaluator 出分。Coding agent 统一走 ACP，轨迹可审计，但轨迹永远不等于 PASS。",
-    primary: "快速开始",
-    secondary: "核心概念",
+    primary: "入门",
+    secondary: "编写 Task",
     console: {
       label: "本机公开路径",
       run: "bora lock → bora run → bora view",
@@ -67,7 +67,7 @@ const copy = {
     },
     foundations: {
       eyebrow: "Product surfaces",
-      title: "跑起来 · 看结果 · 可选归档",
+      title: "运行 · 查看结果 · 可选归档",
       items: [
         [
           "CLI",
@@ -98,7 +98,7 @@ const copy = {
     cta: {
       eyebrow: "Issues + docs",
       title: "增量交付在 Issues，机制细节在 docs/design",
-      primary: "打开快速开始",
+      primary: "打开文档",
       secondary: "GitHub Issues",
     },
   },
@@ -107,7 +107,7 @@ const copy = {
     summary:
       "BORA (Bounded Orchestration for Runtime Agents) locks Dataset config, runs bounded Attempts, projects visibility, and lets an independent evaluator own the score. Coding agents enter via ACP. Trajectories are auditable — and never PASS.",
     primary: "Get started",
-    secondary: "Core concepts",
+    secondary: "Authoring",
     console: {
       label: "Local public path",
       run: "bora lock → bora run → bora view",
@@ -188,7 +188,7 @@ const copy = {
     cta: {
       eyebrow: "Issues + docs",
       title: "Ship work via Issues; keep mechanism detail in docs/design",
-      primary: "Open get started",
+      primary: "Open docs",
       secondary: "GitHub Issues",
     },
   },
@@ -216,11 +216,11 @@ export default async function HomePage({ params }: { params: Promise<{ lang: str
             <h1>{text.title}</h1>
             <p className={styles.heroSummary}>{text.summary}</p>
             <div className={styles.heroActions}>
-              <Link className={styles.primaryActionOnDark} href={`/${lang}/docs/get-started`}>
+              <Link className={styles.primaryActionOnDark} href={`/${lang}/docs/getting-started/install`}>
                 {text.primary}
                 <ArrowRight aria-hidden="true" />
               </Link>
-              <Link className={styles.ghostActionOnDark} href={`/${lang}/docs/concepts/package-and-task`}>
+              <Link className={styles.ghostActionOnDark} href={`/${lang}/docs/author/tutorial`}>
                 {text.secondary}
               </Link>
             </div>
@@ -301,7 +301,7 @@ export default async function HomePage({ params }: { params: Promise<{ lang: str
           <h2>{text.cta.title}</h2>
         </div>
         <div className={styles.ctaActions}>
-          <Link className={styles.primaryAction} href={`/${lang}/docs/get-started`}>
+          <Link className={styles.primaryAction} href={`/${lang}/docs/getting-started/first-run`}>
             {text.cta.primary}
             <ArrowRight aria-hidden="true" />
           </Link>

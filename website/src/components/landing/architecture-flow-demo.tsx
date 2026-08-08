@@ -285,70 +285,94 @@ const copy = {
 
 export function ArchitectureFlowDemo({ lang }: { lang: "zh-CN" | "en" }) {
   const text = copy[lang];
-  const [scenarioId, setScenarioId] = useState(text.scenarios[0].id);
-  const scenario = text.scenarios.find((item) => item.id === scenarioId) ?? text.scenarios[0];
-  const [nodeId, setNodeId] = useState(scenario.nodes[0].id);
-  const activeNodes = scenario.nodes;
-  const node = activeNodes.find((item) => item.id === nodeId) ?? activeNodes[0];
+  const [scenarioIndex, setScenarioIndex] = useState(0);
+  const scenario = text.scenarios[scenarioIndex];
+  const [selectedNodeId, setSelectedNodeId] = useState<string>(scenario.nodes[0].id);
+  const selectedNode =
+    scenario.nodes.find((node) => node.id === selectedNodeId) ?? scenario.nodes[0];
+
+  function selectScenario(index: number) {
+    const next = text.scenarios[index];
+    setScenarioIndex(index);
+    setSelectedNodeId(next.nodes[0].id);
+  }
 
   return (
-    <div className={styles.flowDemo} aria-label={text.scenarioLabel}>
-      <div className={styles.flowTabs} role="tablist" aria-label={text.scenarioLabel}>
-        {text.scenarios.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={item.id === scenario.id}
-            className={styles.flowTab}
-            data-active={item.id === scenario.id}
-            onClick={() => {
-              setScenarioId(item.id);
-              setNodeId(item.nodes[0].id);
-            }}
-          >
-            {item.tab}
-          </button>
-        ))}
+    <div className={styles.flowDemo}>
+      <div className={styles.flowDemoHeader}>
+        <div className={styles.flowTabs} role="tablist" aria-label={text.scenarioLabel}>
+          {text.scenarios.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              id={`architecture-tab-${item.id}`}
+              aria-controls="architecture-scenario-panel"
+              aria-selected={index === scenarioIndex}
+              className={styles.flowTab}
+              onClick={() => selectScenario(index)}
+            >
+              {item.tab}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className={styles.flowBody}>
-        <div className={styles.flowIntro}>
-          <p className={styles.monoEyebrow}>{text.state}</p>
-          <h3>{scenario.title}</h3>
-          <p>{scenario.summary}</p>
+      <div
+        id="architecture-scenario-panel"
+        role="tabpanel"
+        aria-labelledby={`architecture-tab-${scenario.id}`}
+        className={styles.flowScenarioCopy}
+      >
+        <h2>{scenario.title}</h2>
+        <p>{scenario.summary}</p>
+      </div>
+
+      <div className={styles.flowWorkspace}>
+        <div className={styles.simpleFlowCanvas} role="region" aria-label={scenario.title}>
+          <ol className={styles.simpleFlowGrid}>
+            {scenario.nodes.map((node, index) => (
+              <li key={node.id}>
+                <button
+                  type="button"
+                  className={styles.flowNode}
+                  data-state="completed"
+                  data-selected={selectedNodeId === node.id}
+                  aria-label={`${node.label}: ${text.state}`}
+                  aria-pressed={selectedNodeId === node.id}
+                  onClick={() => setSelectedNodeId(node.id)}
+                >
+                  <span className={styles.flowNodeKind}>{node.kind}</span>
+                  <strong>{node.label}</strong>
+                  <span className={styles.flowNodeStatus}>
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
         </div>
 
-        <ol className={styles.flowNodes}>
-          {activeNodes.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className={styles.flowNode}
-                data-active={item.id === node.id}
-                onClick={() => setNodeId(item.id)}
-              >
-                <span>{item.kind}</span>
-                <strong>{item.label}</strong>
-              </button>
-            </li>
-          ))}
-        </ol>
-
-        <dl className={styles.flowDetail}>
-          <div>
-            <dt>{text.fields[0]}</dt>
-            <dd>{node.responsibility}</dd>
+        <aside className={styles.flowInspector} aria-live="polite">
+          <div className={styles.flowInspectorHeading}>
+            <span>{selectedNode.kind}</span>
+            <strong>{selectedNode.label}</strong>
           </div>
-          <div>
-            <dt>{text.fields[1]}</dt>
-            <dd>{node.input}</dd>
-          </div>
-          <div>
-            <dt>{text.fields[2]}</dt>
-            <dd>{node.output}</dd>
-          </div>
-        </dl>
+          <dl>
+            <div>
+              <dt>{text.fields[0]}</dt>
+              <dd>{selectedNode.responsibility}</dd>
+            </div>
+            <div>
+              <dt>{text.fields[1]}</dt>
+              <dd>{selectedNode.input}</dd>
+            </div>
+            <div>
+              <dt>{text.fields[2]}</dt>
+              <dd>{selectedNode.output}</dd>
+            </div>
+          </dl>
+        </aside>
       </div>
     </div>
   );
