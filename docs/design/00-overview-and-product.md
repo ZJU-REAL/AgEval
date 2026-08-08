@@ -16,7 +16,7 @@
 
 本文围绕两个问题展开：不同上游 Harness 如何沿同一转换路径接入 BORA，以及 Core 用多薄的公共契约守住可复盘、物理隔离和 evaluator truth。文中的 `database-52-mvp/` 与 `database-52/` 是概念 package 名称：前者展示最短可用路径，后者展开完整 envelope；相关配置、Harness 和 Runtime 对照已完整写入 [02-task-package-and-config.md](02-task-package-and-config.md) 与 [10-examples-database-52.md](10-examples-database-52.md)，不依赖仓库外目录。单个示例只证明一种模式，不定义 BORA 的能力边界。
 
-后续 Spec 与实现**只以本目录 `docs/design/` 为准**。与历史 vault 长文的章节对照与变更规则见 [../README.md](../README.md) 中「与 vault 总设计的对齐」。
+后续实现与 Issues **只以本目录 `docs/design/` 为设计权威**。与历史 vault 长文的章节对照与变更规则见 [../README.md](../README.md) 中「与 vault 总设计的对齐」。
 
 ## 0. 产品目标与 MVP 边界
 
@@ -37,7 +37,7 @@ BORA v2 的成功标准是：面对结构不同的 Agent Benchmark，转换者�
 
 | 能力 | 最小保证 |
 | --- | --- |
-| 单一 `bora.yaml` 与 Trial 锁定 | 参数、外部 envelope 和 evaluator contract 可比较、可复盘 |
+| Database / Task 配置与 Trial 锁定 | 参数、外部 envelope 和 evaluator contract 可比较、可复盘 |
 | Code-first Harness | workflow、Actor、Router、Tool 组合、branch 和 handoff 由 `harness.py` 或 upstream Framework 掌握 |
 | Attempt 与 Provider | Runtime 掌握执行身份、物理隔离、writer stop 和 cleanup |
 | Capability | Harness 只经 agent、environment、workspace、artifacts 等窄操作面触达外部能力 |

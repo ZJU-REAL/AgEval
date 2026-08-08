@@ -364,7 +364,7 @@ ctx = HarnessContext(
 
 | 维度 | v0.9 | 新 Core |
 | --- | --- | --- |
-| 配置 | Runtime envelope 与 workflow 声明混合 | 单一 `bora.yaml`，超参数集中，workflow 结构留在代码 |
+| 配置 | Runtime envelope 与 workflow 声明混合 | Database 根 `bora.yaml` + 成员 `task.yaml`；超参数集中，workflow 结构留在代码 |
 | Config | 生成包含 Actor、Tool、Branch、Collaboration 的 `TaskLockedV1` | `load_and_lock()` 生成一份外部运行边界和参数锁定对象 |
 | Harness | 调用多个 Runtime workflow authority | 直接拥有 loop、branch、join 和 reducer |
 | Context | 平台 DTO 与 task code 并存 | Harness/upstream memory 拥有 |
@@ -433,7 +433,7 @@ Environment action 经过 Runtime capability。Tool 的名称、说明、业务�
 
 ### 12.3. MVP 入口
 
-下面的完整设计示意限定 ownership 与调用链；具体 helper 签名由后续实现 Spec 在不改变这些边界的前提下冻结：
+下面的完整设计示意限定 ownership 与调用链；具体 helper 签名由后续实现 / SDK 契约在不改变这些边界的前提下冻结：
 
 ```python
 async def run(ctx: HarnessContext) -> HarnessTerminal:

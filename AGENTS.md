@@ -98,7 +98,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 - L1 Agent 路径必须与 L0 相同 SDK 表面：`Agent.session(...).invoke`；**禁止** silent host fallback。  
 - YAML 只声明逻辑 isolation（`shared-container` / `container-per-group`、groups、actors、`shared_write`）；container id / UID 等由 Runtime 拥有。  
-- 详见 `docs/design/05` 与 ARCHITECTURE Current。  
+- 详见 [`docs/design/05-runtime/`](docs/design/05-runtime/) 与 ARCHITECTURE Current。  
 
 ### Package 与配置
 
