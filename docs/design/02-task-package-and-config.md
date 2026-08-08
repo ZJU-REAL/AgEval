@@ -8,11 +8,11 @@
 
 ---
 
-## 5. Core 的输入：Task Package
+## Core 的输入：Task Package
 
 > **交付单元 = Database。** Task Package 指 Database 下的**成员**（`tasks/<task_id>/` + `task.yaml`）。根 `bora.yaml` 仅为 Database schema，不是 task 执行契约。
 
-### 5.1. 交付单元
+### 交付单元
 
 **规范交付与分发单位是 Database（suite）**，不是散落的单 task 目录。Task 是 Database 的成员。
 
@@ -129,7 +129,7 @@ Task 成员目录 **一级目录只允许从已知集合取用**；除固定根�
 | `lib/` | task 作者编写的支撑模块：tool body（如 `action_id → SQL`）、message 组装、workflow 子步骤、窄 bridge | Harness Core SDK；上游大段原样代码 |
 | `upstream/` | 从原 Benchmark vendoring / 薄适配、语义仍按上游理解的代码 | task 新写的业务表、BORA 专用 glue（应进 `lib/`） |
 
-`upstream/` 准入（与 §16 一致，可更严）：
+`upstream/` 准入（与 [08 转换](08-conversion-security-testing.md) 一致，可更严）：
 
 1. 语义 owner 仍是原 Benchmark；
 2. 主要是复用或薄适配，不是重写业务；
@@ -159,7 +159,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 5. **一级目录只从 allowlist 取用。** 新增 package 资产时先归入上表角色；只有角色本身成为 Core 契约后，才扩展 allowlist，而不是为单个 task 发明一级目录名。
 6. **Evaluator-only 输入统一用 `evaluation/`。** 该目录不挂载给 Harness/Agent；不再使用 `verifier/` 作为一级目录名（避免与「clean verifier 进程」口语混淆）。
 
-### 5.2. `bora.yaml` 的顶层结构
+### `bora.yaml` 的顶层结构
 
 > 历史标题保留锚点。**成员执行契约文件名是 `task.yaml`**（`format: bora.task/1`）。Database 根仍用 `bora.yaml`（`bora.database/1`），仅 identity/version/tasks 根，不含下列执行区。
 
@@ -177,7 +177,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 
 `parameters` 是统一的实验参数空间。`harness` 只定位入口（`runtime` + `entrypoint`），不再同时保存另一套 `params`，也不挂载任务说明或 prompt 路径。这样可以避免 `harness.params`、`tool_limits` 和 Campaign override 分散在多个位置；自然语言提示词由 package 的 `prompts/` 与 `harness.py` 负责。
 
-**Agent 后端可切换、可混用**是一等需求（见 §8.4）：`parameters.models.*`（或等价引用）只点 **profile id**；真正跑哪条 coding-agent 后端写在 `agent_profiles`。**Target：** `executor: acp` + `options.entry`（registry id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 另列。Campaign 换后端时优先改 profile 的 `executor`/`options.entry`/`model` 或改引用，不必改 `harness.py`。
+**Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*`（或等价引用）只点 **profile id**；真正跑哪条 coding-agent 后端写在 `agent_profiles`。coding-agent 配置形状为 `executor: acp` + `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 profile 的 `options.entry`/`model` 或改引用，不必改 `harness.py`。
 
 #### L1 / `provider.kind: docker` 与 package Dockerfile
 
@@ -186,7 +186,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 1. **Package 必须提供 Dockerfile**，默认路径 **`environment/Dockerfile`**（相对 package 根）。可用 `provider.dockerfile` 覆盖为 package 内相对路径（仍须落在 package 内）。
 2. Dockerfile **不在 package 根**作为一级自由文件名推广；与 Environment / Provider 资产同属 `environment/`。
 3. 两种合法形态（均由 package Dockerfile 表达，不由 Core 代写）：
-   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用）。**Target：** 预装最低 ACP 验收 entry 的 **engine + ACP 入口**（Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；Mode 2：`opencode acp`；Mode 3：exact Grok pin）。**Current：** 可能仍只预装私有 CLI——迁移进度见代码与 [Issue #3](https://github.com/ffy6511/BORA/issues/3)。
+   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用）。设计契约：预装最低 ACP 验收 entry 的 **engine + ACP 入口**（Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；Mode 2：`opencode acp`；Mode 3：exact Grok pin）。build 期 bake-in，禁止 invoke 时 `npm i` / floating `npx`。
    - **上游基座**：`FROM <upstream>` 再按 **同一 pin lock** 安装所需 entry（禁止 floating `latest` / invoke 时 `npx`）。
 4. `load_and_lock`：docker 且 Dockerfile 缺失 → fail closed（`missing_reference`）。
 5. 镜像 **构建与 digest** 在 Attempt prepare 时发生；secret **不得** bake 进镜像层（credential 仅 run 时投影）。
@@ -225,7 +225,7 @@ provider:
 - `shared-container` 所选 executor 若不能以 non-root numeric UID 运行，lock 或 prepare 返回 `unsupported_capability`，禁止提权或回退 host；
 - YAML 中出现 container id、numeric UID/GID、socket path、Docker network runtime name、credential value 或 live handle 时拒绝。
 
-### 5.3. MVP 配置示例
+### MVP 配置示例
 
 下面使用文档内的 `database-52-mvp/` 概念 package 说明默认路径。它与 `database-52/` 表示同一个 benchmark task，但只保留当前诊断实际需要的 PostgreSQL、L1 path views、Attempt 硬顶和完整 evaluator contract；下方 YAML 即本设计的完整规范示例。
 
@@ -264,7 +264,7 @@ provider:
   platform: linux/arm64
   network: agent-provider-only
   assurance: l1
-  # dockerfile: environment/Dockerfile  # 默认；package 内必填（见 §5.x L1）
+  # dockerfile: environment/Dockerfile  # 默认；package 内必填（见上文 L1 / provider.kind: docker）
   workspace:
     views:
       harness:
@@ -275,8 +275,8 @@ provider:
         write: [/workspace/work]
 
 agent_profiles:
-  # profile = 可切换的 Agent 后端绑定；见 §8.4 / design/05 ACP inlet
-  # Target: executor: acp + options.entry
+  # profile = 可切换的 Agent 后端绑定；见 design/05-runtime/agent-service.md
+  # coding-agent: executor: acp + options.entry
   - id: codex-database-specialist
     executor: acp
     model: o4-mini
@@ -357,9 +357,9 @@ evaluation:
     format: json
 ```
 
-这里沿用 `multi-service` Adapter contract，但只有一个 PostgreSQL component；该 kind 表示可组合能力，不要求 sidecar 齐套。这份配置没有 `actors`、`branch_plans`、`branch_execution` 或 `collaboration`。五个 specialist 的业务身份、Planner 的 follow-up 算法和 Reducer 的输入组合都写在 `harness.py`；只读诊断 SQL 等支撑逻辑在 `lib/`。`evaluation/` 没有挂载给 Harness 或 Agent，gold 只在 writer 停止后由 Runtime materialize。Tool 软限仍集中在配置中，由 Harness 的 `CallLimit` 使用。`parameters.models.*` 只引用 profile id；整 task 换 Claude Code / Pi，或「specialist=Codex、planner=Pi」时改 `agent_profiles` / 引用即可（§8.4），不必改 workflow 代码。
+这里沿用 `multi-service` Adapter contract，但只有一个 PostgreSQL component；该 kind 表示可组合能力，不要求 sidecar 齐套。这份配置没有 `actors`、`branch_plans`、`branch_execution` 或 `collaboration`。五个 specialist 的业务身份、Planner 的 follow-up 算法和 Reducer 的输入组合都写在 `harness.py`；只读诊断 SQL 等支撑逻辑在 `lib/`。`evaluation/` 没有挂载给 Harness 或 Agent，gold 只在 writer 停止后由 Runtime materialize。Tool 软限仍集中在配置中，由 Harness 的 `CallLimit` 使用。`parameters.models.*` 只引用 profile id；整 task 换 Claude Code / Pi entry，或「specialist=Codex entry、planner=Pi entry」时改 `agent_profiles` 的 `options.entry` / 引用即可，不必改 workflow 代码。
 
-### 5.4. 哪些值必须进入配置
+### 哪些值必须进入配置
 
 满足任一条件的值进入 `bora.yaml`：
 
@@ -374,7 +374,7 @@ evaluation:
 
 只描述实现结构且不会参与实验的常量可以留在代码中，例如 `DATABASE_TOOL_IDS`、prompt 模板函数和一个 task-local result mapper。它们如果开始参与实验，就提升到 `parameters`。
 
-### 5.5. 禁止的配置来源
+### 禁止的配置来源
 
 下面这些写法会破坏统一管理：
 
@@ -391,9 +391,9 @@ tool_limits = yaml.safe_load(
 
 允许使用环境变量的范围很窄：credential locator、runtime placement 和部署差异。环境变量不能保存隐藏的实验语义。
 
-## 6. Core 1 详细设计：Config
+## Core 1 详细设计：Config
 
-### 6.1. 职责
+### 职责
 
 Config Core 是 task 配置的唯一读取与锁定模块，对外负责：
 
@@ -405,7 +405,7 @@ Config Core 是 task 配置的唯一读取与锁定模块，对外负责：
 
 Config Core 不 import `harness.py`，不执行 evaluator，也不根据 Python AST 推导 workflow。
 
-### 6.2. 内部模块
+### 内部模块
 
 公共 facade 可以由 `model.py` 与 `load_and_lock.py` 实现。读取、merge、validation、canonicalization 和 digest 可继续拆成内部函数或文件，但文档不要求五段流水线、五个中间对象或固定目录数量。
 
@@ -415,7 +415,7 @@ bora.yaml + variant + explicit overrides + capability catalog
   → LockedTaskConfig
 ```
 
-### 6.3. 配置对象
+### 配置对象
 
 ```python
 from dataclasses import dataclass
@@ -444,7 +444,7 @@ class LockedTaskConfig:
 
 Provider credential 由 Runtime credential store 注入。不必为每个消费者维护 Loaded→Resolved→Projected 类型阶梯。
 
-### 6.4. Config Core façade
+### Config Core façade
 
 ```python
 class ConfigCore:
@@ -462,7 +462,7 @@ class ConfigCore:
 
 这是一个进程内领域函数，不需要独立 Config Service。内部 resolve/validate 仍然 fail closed；只有多个控制面需要共享、并发修改或 reopen 配置时，才有理由引入 durable store。
 
-### 6.5. 覆盖顺序
+### 覆盖顺序
 
 覆盖顺序固定为：
 
@@ -484,7 +484,7 @@ bora.yaml
 
 运行中不允许热更新 Tool 上限、模型 profile、workspace grant 或 evaluator input。
 
-### 6.6. 配置校验
+### 配置校验
 
 Config Core 至少检查：
 
@@ -502,7 +502,7 @@ Config Core 至少检查：
 
 Config Core 不校验某个 Planner 会选择哪个 specialist，也不检查 Harness 是否真的调用某个 Tool。前者属于运行时算法，后者由 Harness 和测试确认。
 
-### 6.7. Package provenance（溯源，可选）
+### Package provenance（溯源，可选）
 
 复刻 / 移植类 package 应声明 **provenance**，回答「复刻自哪、钉在哪一版」，便于对照 upstream 做流程保真检查。Provenance **不是** Attempt PASS，也**不是** package 质量分（质量审计见后续 issue，不与 evaluator verdict 混写）。
 
@@ -540,7 +540,7 @@ provenance:
 
 锁定后 provenance 进入 `LockedTaskConfig`（参与 digest），并出现在 `bora lock` 摘要与 Attempt evidence `lock.json`（若本 run 写了 lock summary）。**Attempt PASS 仍只来自独立 evaluator。**
 
-## 5.x Database Registry 分发
+## Database Registry 分发
 
 **Release 单位 = Database 整包**（根 `bora.yaml` + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。
 
@@ -576,7 +576,7 @@ bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Databa
 
 配置：`BORA_REGISTRY_URL` + `~/.bora/credentials`（0600）。客户端永不持有 blob store credential。
 
-## 5.y Suite 执行 vs Campaign
+## Suite 执行 vs Campaign
 
 | | Suite run | Campaign |
 | --- | --- | --- |

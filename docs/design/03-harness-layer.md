@@ -8,9 +8,9 @@
 
 ---
 
-## 3. Harness 里面是什么
+## Harness 里面是什么
 
-### 3.1. Harness 的职责
+### Harness 的职责
 
 Harness 是一个普通 Python 程序，拥有一次 Attempt 内的业务算法：
 
@@ -24,7 +24,7 @@ Harness 是一个普通 Python 程序，拥有一次 Attempt 内的业务算法�
 
 Harness 不创建 Run/Trial/Attempt，不读取 Provider credential，不取得 Docker socket，不启动 hidden evaluator，也不发布最终 score。
 
-### 3.2. Harness 与 Harness Core 的区别
+### Harness 与 Harness Core 的区别
 
 `harness.py` 是 task 的真实工作流。Harness Core 是可选的通用 Python 积木：
 
@@ -41,7 +41,7 @@ Harness 不创建 Run/Trial/Attempt，不读取 Provider credential，不取得 
 
 Harness Core 没有全局 Registry，也不要求所有 Benchmark 使用这些 helper。上游 Framework 已经拥有相同能力时，直接复用 upstream。
 
-### 3.3. Harness 的基本骨架
+### Harness 的基本骨架
 
 ```python
 async def run(ctx: HarnessContext) -> HarnessTerminal:
@@ -78,7 +78,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
 
 这里的 `CallLimit`、`Context` 和 loop 都在 Harness 进程内。真实 Agent invocation、外部 Environment action 和跨 workspace Artifact 才进入 Runtime Capability。
 
-### 3.4. Agent
+### Agent
 
 `Agent` 负责一次或多次模型调用的通用样板：
 
@@ -91,7 +91,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
 
 角色只是 Harness 的 label。Runtime 不内置 Planner、Reviewer、Executor 或 specialist 类型。
 
-### 3.5. Context 与 memory
+### Context 与 memory
 
 `Context` 只处理 Agent 输入：append、select、transform、render 和 compaction。它可以按 recipient 构造不同 prompt，也可以完全交给 upstream Framework。
 
@@ -105,7 +105,7 @@ worker_context = team_context.for_recipient(
 
 文本可见性和物理可见性分开：Context 决定模型收到什么文字；Provider 的 mount、UID/GID、network 和 secret projection 决定进程实际能访问什么。
 
-### 3.6. Tool、Hook 与 Guard
+### Tool、Hook 与 Guard
 
 本地 Tool 是普通 callable：
 
@@ -132,7 +132,7 @@ inspect_locks = Tool(
 
 Tool 的次数、allowlist、retry 和 confirmation 都可以用 stateful hook 处理。参数值来自 `ctx.params`，检查发生在 Harness 内存中。
 
-### 3.7. Workflow
+### Workflow
 
 Harness 用 Python 表达动态控制流：
 
@@ -155,7 +155,7 @@ result = await reducer.run(reducer_messages(initial))
 
 Runtime 不需要预先知道会不会出现 follow-up，也不生成 branch plan 或 join authority。
 
-### 3.8. 数据交接
+### 数据交接
 
 Harness 内按最轻的方式传递数据：
 
@@ -167,7 +167,7 @@ Harness 内按最轻的方式传递数据：
 
 `container-per-group` v1 不挂跨容器共享可写 volume。跨容器中途物理交接延后到 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2) 的独立 `handoff_*` 设计；它与终局 `publish_*`、Evaluator input 和 PASS authority 分离。
 
-### 3.9. 参数进入 Harness
+### 参数进入 Harness
 
 Harness 不读取 YAML：
 
@@ -187,7 +187,7 @@ bora.yaml
   → Agent、Tool、Guard 和 workflow
 ```
 
-### 3.10. Upstream Framework
+### Upstream Framework
 
 AgentVerse、LangGraph 或其他 Framework 已经拥有 Agent object、memory、router 和 loop 时，Task Package 只需要注入边界 callback。自动或半自动转换应优先识别这些现成入口，避免先把 upstream workflow 翻译成 BORA DTO：
 

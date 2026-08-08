@@ -92,13 +92,13 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 - **L1 官方基座** `docker/attempt` 在 **build 期** bake-in 最低 **五** entry 的 engine + ACP 入口（Mode 1 **双装**：codex/claude/**pi**+各自 adapter）；禁止 invoke 时 `npm i` / floating `npx`。Python ACP SDK **只在 parent**，不进 Attempt 镜像。  
 - Pi：官方 registry **`pi-acp`**（npm `pi-acp`，桥 `pi --mode rpc`）纳入最低集；勿与反向桥 `pi-shell-acp` 混淆。  
 - **可见性**：仍靠 mount + `docker exec -u/-w` + UID/GID。**Permission**：batch 默认 ACP auto-approve，**不**提权、**不**突破未投影路径；evidence 记录 decision。  
-- 权威：`docs/design/05` §8.4.3a、[Issue #3](https://github.com/ffy6511/BORA/issues/3)。产品决策已接受；公开冒烟与 residual 以代码与 Issues 为准。  
+- 权威：[`docs/design/05-runtime/agent-service.md`](docs/design/05-runtime/agent-service.md)、[Issue #3](https://github.com/ffy6511/BORA/issues/3)。产品决策已接受；公开冒烟与实现余量以代码与 Issues 为准。  
 
 ### L1 多 Agent 调度（绑定约束）
 
 - L1 Agent 路径必须与 L0 相同 SDK 表面：`Agent.session(...).invoke`；**禁止** silent host fallback。  
 - YAML 只声明逻辑 isolation（`shared-container` / `container-per-group`、groups、actors、`shared_write`）；container id / UID 等由 Runtime 拥有。  
-- 详见 `docs/design/05` 与 ARCHITECTURE Current。  
+- 详见 [`docs/design/05-runtime/`](docs/design/05-runtime/) 与 ARCHITECTURE Current。  
 
 ### Package 与配置
 

@@ -24,4 +24,4 @@ uv run bora --help
 uv run bora executors -v   # executor kinds + ACP entry readiness
 ```
 
-Design anchors: `docs/design/00-overview-and-product.md`, `docs/design/01-bora-core.md`, `docs/design/05-runtime-core.md` §8.4.3a / §8.9, `docs/design/09-owner-matrix-and-structure.md`.
+Design anchors: `docs/design/00-overview-and-product.md`, `docs/design/01-bora-core.md`, `docs/design/05-runtime/agent-service.md` / `evidence.md`, `docs/design/09-owner-matrix-and-structure.md`.

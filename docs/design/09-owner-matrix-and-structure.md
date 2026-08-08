@@ -8,14 +8,14 @@
 
 ---
 
-## 19. Owner 矩阵
+## Owner 矩阵
 
 | 行为 | `bora.yaml` | Config Core | `harness.py` / upstream | Harness Core | Runtime Core |
 | --- | --- | --- | --- | --- | --- |
 | Harness entrypoint | 声明 | 校验并锁定 | 实现 | 无 | 启动 |
 | 实验超参数 | 声明唯一值 | 合并、校验、锁定 | 通过 `ctx.params` 解释并使用 | typed view/helper | 记录 Trial identity |
 | Agent loop、Actor、Router | 参数可提供 profile 引用和上限 | 不解释算法 | 拥有 | 可选 Agent helper | 执行真实 invocation（经 Agent Service） |
-| Agent 后端（Codex / Claude Code / Pi…） | `agent_profiles` + `parameters.models` 引用 | 校验 profile→executor 并锁定 | 只传 profile id | `ctx.agent.invoke` | **Agent Service** + **Executor 插件**（§8.4.7） |
+| Agent 后端（ACP entry：Codex / Claude Code / Pi…） | `agent_profiles` + `parameters.models` 引用 | 校验 profile→executor/entry 并锁定 | 只传 profile id | `ctx.agent.invoke` | **Agent Service** + **Executor**（`acp` + entry / `openai-http` / 插件） |
 | 用户自研 Core 插件（含非 Agent 面） | 声明对应 kind / 配置选型 | kind 必须已注册 | 不直接依赖插件 SDK | 经 Capability / 配置消费 | 接口发现、凭据投影、digest 锁定 |
 | 同 task 多后端 / 换后端实验 | 多 profile 或 variant 改引用 | 同上 | 不改 workflow 代码 | 同上 | 同上 |
 | messages、Context | 参数可声明 strategy | 原样锁定参数 | 拥有状态 | transform、compaction | 不保存 team memory |
@@ -27,7 +27,7 @@
 | wall time、memory、process | 声明 | 校验范围 | 可提前停止 | RunScope | 最终强制 |
 | evaluator verdict | 声明入口和输入 | 校验引用 | 不发布 verdict | 无 | clean runtime 和结果绑定 |
 
-## 20. 决策检查表
+## 决策检查表
 
 新增能力前按顺序检查：
 
@@ -40,7 +40,7 @@
 7. 能否用普通 callable 或已有 Capability 完成？可以则不新增 Adapter；内部是否使用 Port 由实现决定。
 8. 真实 journey + negative evaluator、fail-closed + cleanup、Adapter 第二领域三道门是否有证据？缺少哪一道，就不能宣称转换或通用能力完成。
 
-## 21. 最终结构
+## 最终结构
 
 ```text
 bora.yaml
@@ -78,7 +78,7 @@ bora.yaml
   → flat Result + cleanup warning
 ```
 
-## 22. 相关资料
+## 相关资料
 
 历史讨论与外部参考（保留标题，便于追溯；**不构成**本仓设计权威）：
 

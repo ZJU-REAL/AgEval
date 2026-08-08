@@ -8,9 +8,9 @@
 
 ---
 
-## 13. Budget 与限制
+## Budget 与限制
 
-### 13.1. 硬顶与软限
+### 硬顶与软限
 
 硬顶由 Runtime/Provider fail closed 强制，任何 Harness 代码都不能提高；软限属于 task workflow，用于实验与停止策略，但仍从同一份 `bora.yaml` 进入 locked config。
 
@@ -24,7 +24,7 @@
 
 token/cost 只有在 Provider 支持调用前 reserve 时才能成为硬顶；否则只能作为 usage observation，不应把事后统计描述成执行前保证。
 
-### 13.2. 进程内限制的适用范围
+### 进程内限制的适用范围
 
 `CallLimit` 适用于：
 
@@ -41,7 +41,7 @@ token/cost 只有在 Provider 支持调用前 reserve 时才能成为硬顶；�
 - 多个 Attempt 共享额度；
 - 额度本身对应外部不可逆资源。
 
-### 13.3. 旁路防护
+### 旁路防护
 
 Harness guard 只约束经过 Tool callable 的路径。Agent 能直接访问同一个 endpoint 时，Provider 必须关闭旁路：
 
@@ -51,9 +51,9 @@ Harness guard 只约束经过 Tool callable 的路径。Agent 能直接访问同
 - mutating endpoint 绑定受限 user/group 或 scoped socket；
 - shell capability 不包含 host control。
 
-## 14. Evaluation 与结果语义
+## Evaluation 与结果语义
 
-### 14.1. Evaluator 是 task truth owner
+### Evaluator 是 task truth owner
 
 BORA 统一 evaluator 的运行和结果 binding，不统一评分算法。Evaluator 可以检查：
 
@@ -64,11 +64,11 @@ BORA 统一 evaluator 的运行和结果 binding，不统一评分算法。Evalu
 - task-local rubric；
 - trajectory 或 communication metrics。
 
-### 14.2. 扁平结果与轨迹 evidence
+### 扁平结果与轨迹 evidence
 
 公共**扁平结果**只要求 `status`、`score`、`metrics`，可选 `error.phase` / `error.kind`、`cleanup_warning` 与 **`logs` 指针**。CLI、网站和聚合器**不**依赖完整内部阶段树来判定 pass/fail。
 
-`logs` **必须**解析到本 Attempt 的 evidence 根（见 [05 §8.9](05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)）。evidence 树中的 **Agent invocation 轨迹（JSONL 等）是产品必选交付物**，用于观察与轨迹训练；它与 score **正交**：
+`logs` **必须**解析到本 Attempt 的 evidence 根（见 [05-runtime/evidence.md](05-runtime/evidence.md)）。evidence 树中的 **Agent invocation 轨迹（JSONL 等）是产品必选交付物**，用于观察与轨迹训练；它与 score **正交**：
 
 | 事实 | 权威 |
 | --- | --- |
@@ -79,7 +79,7 @@ BORA 统一 evaluator 的运行和结果 binding，不统一评分算法。Evalu
 
 Tool denial、预算耗尽、Evaluator 低分、Evaluator crash 和 cleanup failure 仍是不同事实：基础设施错误通过 `status/error` 表达，cleanup 失败通过 warning 表达，不能覆盖有效 score。**缺少轨迹落盘是 Runtime 产品缺口，不是 evaluator fail。**
 
-### 14.3. Evaluator barrier
+### Evaluator barrier
 
 ```text
 Harness returns
@@ -93,7 +93,7 @@ Harness returns
 
 Runtime 可以在 materialize 内部执行 Artifact digest/只读副本、clean evaluator runtime 或 Environment freeze/getter；只有对应 input strategy 声明时才启用，不把九个内部动作变成每个 task 的公共仪式。
 
-## 15. 失败语义
+## 失败语义
 
 | Failure | 发生位置 | 结果 |
 | --- | --- | --- |

@@ -5,7 +5,7 @@
 | 产品名 | **Bounded Orchestration for Runtime Agents**（**BORA**） |
 | 代际 | v2 greenfield |
 | 设计权威 | [README.md](README.md) 与 [design/](design/) |
-| 状态 | 设计已定稿于仓库 docs；实现按 Core Roadmap 推进 |
+| 状态 | 设计已定稿于仓库 docs；增量实现与验收跟踪见 GitHub Issues |
 
 ## 1. 一句话定义
 
@@ -40,7 +40,7 @@ BORA **统一**实验的准备、运行、评测、存证与清理；**不统一
 度量优先：**可转换覆盖面与单次转换成本**，不是示例个数。轨迹可用性是独立成功标准：没有 invocation 落盘，不算完整产品路径。
 
 详细红线、可见性与非目标见 [design/00-overview-and-product.md](design/00-overview-and-product.md)。  
-轨迹与 evidence 布局见 [design/05-runtime-core.md](design/05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)。
+轨迹与 evidence 布局见 [design/05-runtime/evidence.md](design/05-runtime/evidence.md)。
 
 ## 5. 能力地图（对齐 Core）
 
@@ -49,7 +49,7 @@ BORA **统一**实验的准备、运行、评测、存证与清理；**不统一
 | **BORA Core** | Config `load_and_lock`；Run/Trial/Attempt；Provider 隔离；Capability API；Evaluator barrier + 结果绑定；**可见性投影**；**Attempt evidence / Agent 轨迹落盘** |
 | **Harness Core** | 可选 SDK：`HarnessContext`、AgentSession、Tool/Guard、workflow helpers |
 | **Harness（package）** | 业务 workflow、本地 Tool、upstream bridge |
-| **Application** | CLI、Campaign/matrix（按 Roadmap）、内置/插件 Adapter |
+| **Application** | CLI、Campaign/matrix、内置/插件 Adapter |
 
 ## 6. 非目标（近端）
 

@@ -8,7 +8,8 @@
 | **BORA Core** | 外层五组机制：Config、Lifecycle、Provider、Capability、Evaluation |
 | **Harness Core** | 可选 Python SDK（`HarnessContext` 等）；可被 upstream 替代；无 Run/verdict authority |
 | **Harness** | task 成员内 workflow（`harness.py`）或 upstream Framework 入口 |
-| **Database** | 规范交付/分发单位：根 `bora.yaml`（`bora.database/1`）+ `tasks/<id>/` 成员 |
+| **Database** | 规范交付/分发单位（schema 名）：根 `bora.yaml`（`bora.database/1`）+ `tasks/<id>/` 成员 |
+| **Dataset** | 产品/读者向别名，指同一交付单位（Database）；Hub/Registry 文案可写 Dataset，机制规格仍用 Database schema |
 | **Task / Task Package** | Database 成员：`task.yaml` + Harness 入口 + evaluation + 可选 lib/assets |
 | **`bora.yaml`** | Database 根配置（identity / version / tasks 根）；**不是** task 执行契约 |
 | **`task.yaml`** | 成员规范配置：parameters + 外部 envelope（`bora.task/1`） |
@@ -18,8 +19,9 @@
 | **HarnessTerminal** | Harness 结束信号；`completed` ≠ PASS |
 | **Capability** | Attempt 内已授权操作面：agent、environment、workspace、artifacts… |
 | **Adapter / Plugin** | Capability/Provider 的实现；entry point 可分发 |
-| **Agent Service** | 主仓调度面：选型 AgentExecutor |
-| **AgentExecutor** | 具体 Agent 后端（Codex CLI、Pi invoke 等） |
+| **Agent Service** | 主仓调度面：按 profile 路由 AgentExecutor、session、额度、投影、轨迹落盘 |
+| **AgentExecutor** | 具体 Agent 后端实现；coding-agent 为 `acp`（+ `options.entry`），另有 `openai-http` 与可分发自定义 kind |
+| **ACP entry** | registry `entry_id`（如 `codex` / `pi`）；Mode 1 常与 engine + ACP 桥包（如 `pi` + npm `pi-acp`）双装 |
 | **Provider** | 物理运行时与隔离（process/container、mount、network、secret） |
 | **可见性投影** | 消费者受限视图（path/secret/network/params/materialize） |
 | **Run / Trial / Attempt** | 外层执行身份；retry → 新 Attempt |
