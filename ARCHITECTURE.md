@@ -14,7 +14,7 @@
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 代际 | v2 greenfield |
 | 实现状态 | **v0.1–v0.13 L0 竖切 + Attempt evidence** — `bora lock`/`run`/`campaign`；§8.9 trajectory store（Codex path）；Docker L1 multi-actor SDK scheduling（`agent_isolation` shared-container / container-per-group）+ multi-executor / env 部分切片 |
-| 证据等级 | **限定 `runnable-mvp`**（L0 core/journeys 烟测；见 `examples/README.md`；Version Index 以 Roadmap 为准） |
+| 证据等级 | **限定 `runnable-mvp`**（L0 core/journeys 烟测；见 `examples/README.md`；升级声明以 Issues + 公开 smoke 为准） |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
 | 近端目标结构依据 | [docs/design/01](docs/design/01-bora-core.md)、[docs/design/09](docs/design/09-owner-matrix-and-structure.md)、GitHub Issues |
@@ -39,7 +39,7 @@ BORA 是 **Harness 的 Harness**：外层执行内核准备并锁定运行边界
 | BORA Core 5 Evaluation | barrier、evaluator 运行、Result 绑定、evidence | 统一所有评分算法 |
 | Harness Core（SDK） | 可选类型与薄 helper | Run/credential/verdict |
 | Task Harness | 业务 loop、本地 Tool、参数使用 | Docker/credential/final PASS |
-| Adapters / plugins | Codex Executor、Docker Provider 等具体实现 | 按 Benchmark 名分支 |
+| Adapters / plugins | ACP Executor + entry、openai-http、Docker Provider 等具体实现 | 按 Benchmark 名分支 |
 | Evaluator（package） | task truth | 启动 Agent、持有 host secret |
 
 ### 目标数据/控制主流（validated output 方向）
@@ -89,7 +89,7 @@ git diff --check
 | --- | --- |
 | Public entrypoint | `bora run <package> --task <id>`（精确 flags 以 CLI / 代码为准） |
 | Composition root | `src/bora/application/` 内 bootstrap（名称以实现为准） |
-| 最短路径 | CLI → application → load_and_lock → Attempt(L0 或当时已交付 Provider) → harness → Codex AgentExecutor → evaluator → Result + `.bora/runs/<run-id>/` |
+| 最短路径 | CLI → application → load_and_lock → Attempt(L0 或 L1 Provider) → harness → AgentExecutor（coding-agent：`acp` + entry）→ evaluator → Result + `.bora/runs/<run-id>/` |
 | 证据 | CLI 分离展示 runtime vs evaluation；evidence 目录可定位 |
 
 更早的中间可运行检查点（如 lock-only）以代码与 examples 为准。
@@ -163,8 +163,9 @@ BORA/
 │   ├── evaluation/            # Core 5：barrier、bind、result 模型
 │   ├── domain/                # 薄共享 value types / 错误类型
 │   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
-│       ├── acp/                # 唯一 ACP client（parent；Spec 19 Current）
+│       ├── acp/                # 唯一 typed ACP client（parent）
 │       ├── acp_entries.json   # entry descriptor + exact pins
+│       ├── acp_registry.py    # entry registry
 │       ├── agent_container.py # L1 placement helpers
 │       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core：HarnessContext 等（可选 import）
@@ -194,7 +195,7 @@ BORA/
 | `provider/`（契约） | 隔离档、workspace plan、进程/容器生命周期接口 | Benchmark 名分支 |
 | `capabilities/` | Capability 面与 Attempt 注入契约 | 具体 Codex/DB 实现 |
 | `evaluation/` | barrier 顺序、raw 校验、扁平 Result、与 evidence 衔接 | package 内评分逻辑 |
-| `adapters/*` | package fs、Docker、credentials、evidence；**Target** ACP client + entry registry；Current residual private CLI adapters | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape |
+| `adapters/*` | package fs、Docker、credentials、evidence；**ACP client + entry registry**（coding-agent 唯一 inlet）；`openai-http` api-client | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape |
 | `domain/` | 跨模块稳定值对象与错误分类 | I/O、Typer、Docker SDK |
 | `bora_sdk` | Harness 侧类型与薄 helper | Control Plane 内部类型、verdict |
 | `examples/` | 可信回归 package | 声称支持完整 upstream suite |
@@ -260,9 +261,9 @@ created
 2. Evaluator 不得与可写 Agent/Harness writer 并发写同一评测输入。  
 3. `cleanup` 必须可从超时/取消/异常进入；cleanup 失败 → warning，不覆盖已 bind 的 score。  
 4. retry / 重跑 → **新 Attempt**，不静默改写旧 Attempt identity。  
-5. Campaign（后期）只调度 Trial，不与 Attempt 内 workflow scheduler 合并。  
+5. Campaign 只调度 Trial，不与 Attempt 内 workflow scheduler 合并。  
 
-详细状态机见 [docs/design/05-runtime-core.md](docs/design/05-runtime-core.md)。
+详细状态机见 [docs/design/05-runtime/lifecycle.md](docs/design/05-runtime/lifecycle.md)。
 
 ## Data Flow（Target）
 
@@ -285,8 +286,8 @@ created
 | --- | --- | --- |
 | 本机 process（L0） | Provider adapter | `v0.3` |
 | Docker Attempt（L1） | Provider adapter | `v0.8` |
-| Codex CLI | AgentExecutor adapter | `v0.6` 竖切 |
-| 其他 Agent 后端 | 插件 Executor | `v0.9` |
+| ACP coding-agent | `adapters/acp` + entry registry | 唯一 coding-agent inlet |
+| 其他 Agent 后端 | `openai-http` / 插件 Executor kind | 非 vendor stdout scrape |
 | DB/浏览器等 | Environment adapter | `v0.10` |
 | 宿主持久化 ControlStore | 未定；默认不做 | 勿提前引入 |
 
@@ -340,7 +341,7 @@ Fixture 与 mock 不得升级证据等级。
 | 为什么这样切 Core？ | [docs/design/01](docs/design/01-bora-core.md) |
 | `bora.yaml` 字段与 lock？ | [docs/design/02](docs/design/02-task-package-and-config.md) |
 | Harness / SDK API 形状？ | [docs/design/03](docs/design/03-harness-layer.md)、[04](docs/design/04-harness-core-sdk.md) |
-| Runtime/Agent Service 细节？ | [docs/design/05](docs/design/05-runtime-core.md) |
+| Runtime/Agent Service 细节？ | [docs/design/05-runtime/](docs/design/05-runtime/)（ACP：[agent-service.md](docs/design/05-runtime/agent-service.md)） |
 | 插件与可见性？ | [docs/design/06](docs/design/06-capability-adapter-visibility.md) |
 | 评测与失败语义？ | [docs/design/07](docs/design/07-budget-evaluation-failure.md) |
 | Owner 矩阵全文？ | [docs/design/09](docs/design/09-owner-matrix-and-structure.md) |
