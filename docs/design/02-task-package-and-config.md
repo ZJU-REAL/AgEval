@@ -177,7 +177,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 
 `parameters` 是统一的实验参数空间。`harness` 只定位入口（`runtime` + `entrypoint`），不再同时保存另一套 `params`，也不挂载任务说明或 prompt 路径。这样可以避免 `harness.params`、`tool_limits` 和 Campaign override 分散在多个位置；自然语言提示词由 package 的 `prompts/` 与 `harness.py` 负责。
 
-**Agent 后端可切换、可混用**是一等需求（见 §8.4）：`parameters.models.*`（或等价引用）只点 **profile id**；真正跑哪条 coding-agent 后端写在 `agent_profiles`。**Target：** `executor: acp` + `options.entry`（registry id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 另列。Campaign 换后端时优先改 profile 的 `executor`/`options.entry`/`model` 或改引用，不必改 `harness.py`。
+**Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*`（或等价引用）只点 **profile id**；真正跑哪条 coding-agent 后端写在 `agent_profiles`。coding-agent 配置形状为 `executor: acp` + `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 profile 的 `options.entry`/`model` 或改引用，不必改 `harness.py`。
 
 #### L1 / `provider.kind: docker` 与 package Dockerfile
 
@@ -186,7 +186,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 1. **Package 必须提供 Dockerfile**，默认路径 **`environment/Dockerfile`**（相对 package 根）。可用 `provider.dockerfile` 覆盖为 package 内相对路径（仍须落在 package 内）。
 2. Dockerfile **不在 package 根**作为一级自由文件名推广；与 Environment / Provider 资产同属 `environment/`。
 3. 两种合法形态（均由 package Dockerfile 表达，不由 Core 代写）：
-   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用）。**Target：** 预装最低 ACP 验收 entry 的 **engine + ACP 入口**（Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；Mode 2：`opencode acp`；Mode 3：exact Grok pin）。**Current：** 可能仍只预装私有 CLI——迁移进度见代码与 [Issue #3](https://github.com/ffy6511/BORA/issues/3)。
+   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用）。设计契约：预装最低 ACP 验收 entry 的 **engine + ACP 入口**（Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；Mode 2：`opencode acp`；Mode 3：exact Grok pin）。build 期 bake-in，禁止 invoke 时 `npm i` / floating `npx`。
    - **上游基座**：`FROM <upstream>` 再按 **同一 pin lock** 安装所需 entry（禁止 floating `latest` / invoke 时 `npx`）。
 4. `load_and_lock`：docker 且 Dockerfile 缺失 → fail closed（`missing_reference`）。
 5. 镜像 **构建与 digest** 在 Attempt prepare 时发生；secret **不得** bake 进镜像层（credential 仅 run 时投影）。
@@ -275,8 +275,8 @@ provider:
         write: [/workspace/work]
 
 agent_profiles:
-  # profile = 可切换的 Agent 后端绑定；见 §8.4 / design/05 ACP inlet
-  # Target: executor: acp + options.entry
+  # profile = 可切换的 Agent 后端绑定；见 design/05-runtime/agent-service.md
+  # coding-agent: executor: acp + options.entry
   - id: codex-database-specialist
     executor: acp
     model: o4-mini
@@ -357,7 +357,7 @@ evaluation:
     format: json
 ```
 
-这里沿用 `multi-service` Adapter contract，但只有一个 PostgreSQL component；该 kind 表示可组合能力，不要求 sidecar 齐套。这份配置没有 `actors`、`branch_plans`、`branch_execution` 或 `collaboration`。五个 specialist 的业务身份、Planner 的 follow-up 算法和 Reducer 的输入组合都写在 `harness.py`；只读诊断 SQL 等支撑逻辑在 `lib/`。`evaluation/` 没有挂载给 Harness 或 Agent，gold 只在 writer 停止后由 Runtime materialize。Tool 软限仍集中在配置中，由 Harness 的 `CallLimit` 使用。`parameters.models.*` 只引用 profile id；整 task 换 Claude Code / Pi，或「specialist=Codex、planner=Pi」时改 `agent_profiles` / 引用即可（§8.4），不必改 workflow 代码。
+这里沿用 `multi-service` Adapter contract，但只有一个 PostgreSQL component；该 kind 表示可组合能力，不要求 sidecar 齐套。这份配置没有 `actors`、`branch_plans`、`branch_execution` 或 `collaboration`。五个 specialist 的业务身份、Planner 的 follow-up 算法和 Reducer 的输入组合都写在 `harness.py`；只读诊断 SQL 等支撑逻辑在 `lib/`。`evaluation/` 没有挂载给 Harness 或 Agent，gold 只在 writer 停止后由 Runtime materialize。Tool 软限仍集中在配置中，由 Harness 的 `CallLimit` 使用。`parameters.models.*` 只引用 profile id；整 task 换 Claude Code / Pi entry，或「specialist=Codex entry、planner=Pi entry」时改 `agent_profiles` 的 `options.entry` / 引用即可，不必改 workflow 代码。
 
 ### 5.4. 哪些值必须进入配置
 

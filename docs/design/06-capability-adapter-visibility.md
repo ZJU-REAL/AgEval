@@ -24,10 +24,10 @@ MVP 的 Capability 是进程内对象。未来可以由 JSONL bridge、stdio 或
 
 ### 9.2. Adapter 与可分发插件
 
-Adapter 实现具体协议、资源类型或执行机制。用户可按 §8.4.6 的模式 **自研并分发**，不限于官方清单，例如：
+Adapter 实现具体协议、资源类型或执行机制。用户可按 [Agent Service 扩展模型](05-runtime/agent-service.md) **自研并分发**，不限于官方清单，例如：
 
 - Docker Provider；
-- **Agent Executor 插件**：实现 §8.4.7 的 `AgentExecutor`，经 `bora.agent_executors` 注册。**Target 内置：** `acp`（单一 client + entry registry，含 Mode 1 `pi-acp` 等，见 §8.4.3a）、`openai-http`；**不是**每个 vendor 私有 stdout 各写一套 Core parser。第三方可分发其它 mechanism kind，但须 fail closed、不得静默替换已 lock 的 entry；
+- **Agent Executor 插件**：实现 `AgentExecutor`（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)），经 `bora.agent_executors` 注册。**内置：** `acp`（单一 client + entry registry，含 Mode 1 `pi-acp` 等）、`openai-http`；**不是**每个 vendor 私有 stdout 各写一套 Core parser。第三方可分发其它 mechanism kind，但须 fail closed、不得静默替换已 lock 的 entry；
 - Environment 资源实现：MySQL / PostgreSQL / Browser / VM…；
 - Filesystem Artifact materializer。
 

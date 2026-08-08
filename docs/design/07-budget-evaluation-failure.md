@@ -68,7 +68,7 @@ BORA 统一 evaluator 的运行和结果 binding，不统一评分算法。Evalu
 
 公共**扁平结果**只要求 `status`、`score`、`metrics`，可选 `error.phase` / `error.kind`、`cleanup_warning` 与 **`logs` 指针**。CLI、网站和聚合器**不**依赖完整内部阶段树来判定 pass/fail。
 
-`logs` **必须**解析到本 Attempt 的 evidence 根（见 [05 §8.9](05-runtime-core.md#89-attempt-evidence-与-agent-轨迹落盘)）。evidence 树中的 **Agent invocation 轨迹（JSONL 等）是产品必选交付物**，用于观察与轨迹训练；它与 score **正交**：
+`logs` **必须**解析到本 Attempt 的 evidence 根（见 [05-runtime/evidence.md](05-runtime/evidence.md)）。evidence 树中的 **Agent invocation 轨迹（JSONL 等）是产品必选交付物**，用于观察与轨迹训练；它与 score **正交**：
 
 | 事实 | 权威 |
 | --- | --- |

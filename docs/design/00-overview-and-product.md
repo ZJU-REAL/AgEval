@@ -22,9 +22,9 @@
 
 ### 0.1. 成功标准
 
-BORA v2 的成功标准是：面对结构不同的 Agent Benchmark，转换者可以复用同一套 owner map、Capability 和 evaluator barrier，优先保留 upstream workflow，只补齐配置、物理边界、外部效果与结果绑定。Roadmap 中的 task 是回归样例，不能成为 shared Adapter 按 Benchmark 名称分支的理由。
+BORA v2 的成功标准是：面对结构不同的 Agent Benchmark，转换者可以复用同一套 owner map、Capability 和 evaluator barrier，优先保留 upstream workflow，只补齐配置、物理边界、外部效果与结果绑定。仓内 examples 与 Issues 中的 task 是回归样例，不能成为 shared Adapter 按 Benchmark 名称分支的理由。
 
-成功度量是可转换 Harness 的覆盖面与单个转换的人工/代码成本，不是 Roadmap 示例数量；`database-52*` 只承担回归样例职责。
+成功度量是可转换 Harness 的覆盖面与单个转换的人工/代码成本，不是示例数量；`database-52*` 只承担回归样例职责。
 
 转换能力同时满足四项要求：
 
