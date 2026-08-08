@@ -4,8 +4,8 @@
 
 ## 关联
 
-- Issue / Spec：
-- Roadmap / 证据等级（若声称）：
+- Issue：
+- 证据等级（若声称）：
 
 ## 验证
 
@@ -17,5 +17,5 @@
 
 - [ ] 未把 credential / token 写入 yaml、lock、evidence、示例
 - [ ] 未把 trajectory / `HarnessTerminal.completed` 当作 PASS
-- [ ] 产品/机制变更已同步最高权威（design → Architecture/Roadmap/Spec 按需）
+- [ ] 产品/机制变更已同步最高权威（design → Architecture / Issues 按需）
 - [ ] 有回归或公开 smoke；fixture 未单独冒充 `runnable-mvp`

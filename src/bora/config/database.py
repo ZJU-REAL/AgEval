@@ -25,13 +25,13 @@ DATABASE_FORMAT = "bora.database/1"
 TASK_CONFIG_FILENAME = "task.yaml"
 DEFAULT_TASKS_ROOT = "tasks"
 
-# Constitution D2: database_id charset (case-sensitive; prefer lowercase).
+# database_id charset (case-sensitive; prefer lowercase). See docs/design/02.
 _DATABASE_ID_RE = re.compile(r"^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$")
 
 # defaults v1 allowlist (suite scheduling only).
 _DEFAULTS_ALLOWLIST = frozenset({"max_concurrent_tasks"})
 
-# Task execution keys forbidden on Database root (Constitution D2).
+# Task execution keys forbidden on Database root (suite scheduling only).
 _FORBIDDEN_DATABASE_ROOT_KEYS = frozenset(
     {
         "task_id",
@@ -81,7 +81,7 @@ class ResolvedTask:
 
 
 def validate_database_id(database_id: str) -> None:
-    """Fail closed if *database_id* violates Constitution D2 charset rules."""
+    """Fail closed if *database_id* violates frozen charset rules (design/02)."""
     if not isinstance(database_id, str) or not database_id:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,

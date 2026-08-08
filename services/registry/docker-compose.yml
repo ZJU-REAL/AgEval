@@ -1,6 +1,6 @@
-# Local Registry stack (Spec 21 / Constitution D6.10).
-# Production-shaped defaults: Postgres metadata + RustFS (S3-compatible blob).
-# Zero-dep unit tests still use SQLite + memory via --local / --memory-blob.
+# Local Registry stack (Postgres metadata + RustFS S3-compatible blob).
+# Production-shaped defaults for operator smoke; zero-dep unit tests still use
+# SQLite + memory via --local / --memory-blob.
 #
 # Usage:
 #   docker compose -f services/registry/docker-compose.yml up -d
@@ -25,8 +25,8 @@ services:
       retries: 10
 
   rustfs:
-    # S3-compatible local object store (Constitution: RustFS is v1 local default).
-    # Image tag may need operator pin; if pull fails, record in BLOCKED.md — do not
+    # S3-compatible local object store (v1 local default = RustFS).
+    # Image tag may need operator pin; if pull fails, open a GitHub Issue — do not
     # silently switch the product default to MinIO.
     image: rustfs/rustfs:latest
     environment:

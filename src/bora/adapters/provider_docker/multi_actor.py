@@ -82,7 +82,7 @@ class DockerMultiActorMixin:
                 self._bootstrap_actor_fs(target, bindings, shared_gid=shared_gid)
             else:
                 # container-per-group: one target per group; per-group workspace only
-                # (no cross-container shared RW volumes — constitution §5).
+                # (no cross-container shared RW volumes — design/05 L1 isolation).
                 actor_index = 0
                 for gidx, group in enumerate(topology.groups):
                     target = self._start_long_lived_target(

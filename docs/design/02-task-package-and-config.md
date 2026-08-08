@@ -57,7 +57,7 @@ Database 根 `bora.yaml` 最小字段（字段名冻结）：
 
 ```yaml
 format: bora.database/1
-database_id: example/demo-suite   # 字符集见 constitution；与 version 组成 release 坐标
+database_id: example/demo-suite   # 字符集见下；与 version 组成 release 坐标
 version: "0.1.0"
 tasks:
   root: tasks
@@ -65,6 +65,7 @@ tasks:
 ```
 
 `database_id` **不**参与 PASS；只服务 publish / resolve / cache / evidence 溯源。  
+**`database_id` 字符集（v1 冻结）：** 匹配 `^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$`（单字符 id 允许单独 `[a-z0-9]`）；长度 1–128；大小写敏感（规范写法全小写）；禁止 `..`、连续 `//`、前导/尾随 `/`；推荐 `org/name` 风格。非法 id → manifest load **fail closed**。  
 `defaults` **禁止**携带 limits / provider / harness / evaluation 等 task 执行契约（避免与成员 `task.yaml` 歧义）。
 
 成员 `task.yaml` 与 `harness.py` 共同定义可运行的 task：
@@ -539,7 +540,7 @@ provenance:
 
 锁定后 provenance 进入 `LockedTaskConfig`（参与 digest），并出现在 `bora lock` 摘要与 Attempt evidence `lock.json`（若本 run 写了 lock summary）。**Attempt PASS 仍只来自独立 evaluator。**
 
-## 5.x Database Registry 分发（Spec 21）
+## 5.x Database Registry 分发
 
 **Release 单位 = Database 整包**（根 `bora.yaml` + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。
 
@@ -570,12 +571,12 @@ Media type：`application/vnd.bora.database.v1.tar+gzip`。
 
 ```text
 bora publish <database-path> [--public]   # 默认 private
-bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Spec 20 resolve
+bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Database resolve
 ```
 
 配置：`BORA_REGISTRY_URL` + `~/.bora/credentials`（0600）。客户端永不持有 blob store credential。
 
-## 5.y Suite 执行 vs Campaign（Spec 22）
+## 5.y Suite 执行 vs Campaign
 
 | | Suite run | Campaign |
 | --- | --- | --- |
