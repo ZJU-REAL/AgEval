@@ -1,0 +1,38 @@
+{
+  "name": "bora-documentation-website",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "start": "next start",
+    "typecheck": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "postinstall": "fumadocs-mdx",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@fumadocs/language": "^0.2.1",
+    "@orama/tokenizers": "^3.1.16",
+    "fumadocs-core": "16.11.5",
+    "fumadocs-mdx": "15.2.0",
+    "fumadocs-ui": "npm:@fumadocs/base-ui@16.11.5",
+    "lucide-react": "^1.24.0",
+    "mermaid": "^11.12.2",
+    "next": "16.2.10",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "16.2.10",
+    "postcss": "^8.5.17",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^6.0.3"
+  }
+}

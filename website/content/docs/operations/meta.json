@@ -1,0 +1,4 @@
+{
+  "title": "集成与运维",
+  "pages": ["cli", "suite-and-campaign", "viewer", "hub-and-registry", "evidence-export"]
+}

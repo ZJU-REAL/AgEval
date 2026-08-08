@@ -1,0 +1,12 @@
+---
+title: Evidence export
+description: Export a sealed copy with bora evidence.
+---
+
+Per-invoke evidence lands under the Attempt directory. For failure analysis or training pipelines:
+
+```bash
+uv run bora evidence --help
+```
+
+Exports must stay secret-free; trajectory is still not PASS. Prefer [Viewer](/docs/operations/viewer) for local browse.

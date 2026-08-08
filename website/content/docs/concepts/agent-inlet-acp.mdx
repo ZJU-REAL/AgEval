@@ -1,0 +1,24 @@
+---
+title: Agent 入口（ACP）
+description: "目标形态 executor: acp + options.entry；parent 唯一 client。"
+---
+
+## Target 形态
+
+```yaml
+agent_profiles:
+  - id: main
+    executor: acp
+    options:
+      entry: codex   # 或 pi / opencode / claude-code / grok-build …
+```
+
+- Parent 进程维护**唯一** ACP JSON-RPC client  
+- Vendor 私有协议翻译在**进程外** entry（shim / 原生 / 厂商包）  
+- **禁止**在 BORA 内再写第二套 vendor stdout scrape  
+
+## L1 基座
+
+官方 Attempt 镜像在 **build 期** bake-in 最低 entry 的 engine + ACP 入口；禁止 invoke 时 `npm i` / floating `npx`。
+
+诚实状态：公开 smoke 与 residual 以代码和 [GitHub Issues](https://github.com/ffy6511/BORA/issues) 为准；产品决策见 [`docs/design/05` §8.4.3a](https://github.com/ffy6511/BORA/blob/main/docs/design/05-runtime-core.md)。

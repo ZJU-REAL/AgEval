@@ -1,0 +1,1092 @@
+.landing {
+  --canvas: rgb(252 250 247 / 96%);
+  --canvas-soft: rgb(240 236 230 / 90%);
+  --ink: rgb(22 20 18 / 92%);
+  --body: rgb(79 75 70 / 82%);
+  --hairline: rgb(70 58 48 / 18%);
+  --dark: rgb(18 15 13 / 96%);
+  --dark-soft: rgb(31 25 21 / 88%);
+  --on-dark: rgb(250 247 242 / 94%);
+  --on-dark-body: rgb(225 216 207 / 72%);
+  --hairline-dark: rgb(244 232 220 / 15%);
+  --accent: #936546;
+  --accent-deep: #70482f;
+  --accent-soft: rgb(147 101 70 / 16%);
+  --surface-dark-hover: rgb(112 72 47 / 28%);
+  --surface-light-hover: rgb(250 247 242 / 88%);
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: var(--font-geist-sans), sans-serif;
+  overflow: clip;
+}
+
+:global(.dark) .landing {
+  --canvas: rgb(20 17 15 / 96%);
+  --canvas-soft: rgb(31 27 24 / 92%);
+  --ink: rgb(249 246 241 / 92%);
+  --body: rgb(221 213 205 / 72%);
+  --hairline: rgb(244 232 220 / 14%);
+  --dark: rgb(10 8 7 / 97%);
+  --dark-soft: rgb(25 20 17 / 90%);
+  --on-dark: rgb(251 248 243 / 94%);
+  --on-dark-body: rgb(224 215 207 / 72%);
+  --hairline-dark: rgb(244 232 220 / 13%);
+  --accent: #c89b78;
+  --accent-deep: #ddb28f;
+  --accent-soft: rgb(200 155 120 / 14%);
+  --surface-dark-hover: rgb(200 155 120 / 16%);
+  --surface-light-hover: rgb(251 248 243 / 88%);
+}
+
+.monoEyebrow {
+  margin: 0;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.6875rem;
+  font-weight: 550;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.monoEyebrow {
+  color: var(--body);
+}
+
+.brandIllustration {
+  display: block;
+  width: clamp(12rem, 23vw, 20rem);
+  height: auto;
+}
+
+.heroBand {
+  color: var(--on-dark);
+  background:
+    radial-gradient(circle at 82% 34%, rgb(147 101 70 / 15%), transparent 30rem), var(--dark);
+}
+
+.heroGrid {
+  display: grid;
+  width: min(100%, 80rem);
+  min-height: calc(100dvh - 4rem);
+  margin: 0 auto;
+  grid-template-columns: minmax(0, 0.92fr) minmax(28rem, 1.08fr);
+  gap: clamp(3rem, 7vw, 7rem);
+  align-items: center;
+  padding: 5rem 2rem;
+}
+
+.heroCopy .monoEyebrow {
+  max-width: 42rem;
+  color: var(--on-dark-body);
+}
+
+.heroCopy h1 {
+  max-width: 15ch;
+  margin: 1.25rem 0 0;
+  font-family: var(--font-newsreader), "Songti SC", "Noto Serif CJK SC", serif;
+  font-size: clamp(3.25rem, 5.2vw, 4rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.heroSummary {
+  max-width: 35rem;
+  margin: 1.5rem 0 0;
+  color: var(--on-dark-body);
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+  line-height: 1.55;
+}
+
+.heroActions,
+.ctaActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.primaryAction,
+.secondaryAction,
+.primaryActionOnDark,
+.ghostActionOnDark {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  padding: 0.72rem 1.15rem;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.78rem;
+  font-weight: 550;
+  letter-spacing: 0.025em;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.primaryAction svg,
+.primaryActionOnDark svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.primaryActionOnDark {
+  color: var(--dark);
+  background: var(--on-dark);
+}
+
+.ghostActionOnDark {
+  border-color: var(--hairline-dark);
+  color: var(--on-dark);
+  background: var(--dark-soft);
+}
+
+.primaryAction {
+  color: var(--on-dark);
+  background: var(--dark);
+}
+
+.secondaryAction {
+  border-color: var(--hairline);
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+.primaryActionOnDark:hover {
+  color: var(--dark);
+  background: var(--surface-light-hover);
+  box-shadow: inset 0 0 0 1px rgb(22 18 15 / 18%);
+}
+
+.ghostActionOnDark:hover {
+  border-color: var(--accent);
+  background: var(--surface-dark-hover);
+}
+
+.primaryAction:hover {
+  background: var(--accent-deep);
+}
+
+.secondaryAction:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.primaryAction:focus-visible,
+.secondaryAction:focus-visible,
+.primaryActionOnDark:focus-visible,
+.ghostActionOnDark:focus-visible,
+.flowTab:focus-visible,
+.flowNode:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 62%, transparent);
+  outline-offset: 3px;
+}
+
+.heroRunPanel {
+  border: 1px solid var(--hairline-dark);
+  border-radius: 0.5rem;
+  background: rgb(33 27 23 / 82%);
+}
+
+.heroRunHeader {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--hairline-dark);
+  padding: 0 1rem;
+  color: var(--on-dark-body);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.heroRunHeader strong {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--on-dark);
+  font-weight: 500;
+}
+
+.heroRunHeader strong::before {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--accent);
+  content: "";
+}
+
+.heroRunName {
+  margin: 0;
+  border-bottom: 1px solid var(--hairline-dark);
+  padding: 1.5rem;
+  color: var(--on-dark);
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.heroRunSteps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.heroRunSteps li {
+  display: grid;
+  min-height: 4.25rem;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline-dark);
+  padding: 0.75rem 1rem;
+}
+
+.heroRunSteps li:last-child {
+  border-bottom: 0;
+}
+
+.heroRunSteps li[data-current="true"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: rgb(147 101 70 / 11%);
+}
+
+.heroRunSteps span,
+.heroRunSteps small {
+  color: var(--on-dark-body);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.66rem;
+  font-weight: 450;
+}
+
+.heroRunSteps strong {
+  color: var(--on-dark);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.platformBand,
+.graphBand,
+.auditBand,
+.ctaBand {
+  padding: 5rem 2rem;
+}
+
+.platformBand,
+.auditBand,
+.ctaBand {
+  background: var(--canvas);
+}
+
+.graphBand {
+  border-block: 1px solid var(--hairline);
+  background: var(--canvas-soft);
+}
+
+.sectionHeader,
+.sectionHeaderCompact,
+.capabilityRows,
+.flowDemo,
+.auditLifecycle,
+.auditTable,
+.ctaBand {
+  width: min(100%, 80rem);
+  margin-inline: auto;
+}
+
+.sectionHeader,
+.sectionHeaderCompact {
+  max-width: 52rem;
+  margin-left: max(0px, calc((100% - 80rem) / 2));
+}
+
+.sectionHeader h2,
+.sectionHeaderCompact h2,
+.sectionHeaderOnDark h2,
+.ctaBand h2 {
+  margin: 1rem 0 0;
+  font-family: var(--font-newsreader), "Songti SC", "Noto Serif CJK SC", serif;
+  font-size: clamp(2.15rem, 3.4vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  line-height: 1.16;
+  text-wrap: balance;
+}
+
+.sectionHeader > p:last-child,
+.sectionHeaderCompact > p:last-child {
+  max-width: 46rem;
+  margin: 1rem 0 0;
+  color: var(--body);
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.capabilityRows {
+  display: grid;
+  margin-top: 3.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--hairline);
+  border-left: 1px solid var(--hairline);
+}
+
+.capabilityRow {
+  display: grid;
+  min-height: 15rem;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto 1fr;
+  gap: 1rem 1.25rem;
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  padding: 1.5rem;
+}
+
+.capabilityRow > svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  grid-column: 2;
+  justify-self: end;
+  color: var(--accent);
+  stroke-width: 1.5;
+}
+
+.capabilityNumber {
+  color: var(--body);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.7rem;
+}
+
+.capabilityRow h3 {
+  grid-column: 1 / -1;
+  margin: 1rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.capabilityRow p {
+  grid-column: 1 / -1;
+  align-self: end;
+  margin: 0;
+  color: var(--body);
+  line-height: 1.6;
+}
+
+.graphBand .sectionHeaderCompact {
+  margin-bottom: 2.5rem;
+}
+
+.flowDemo {
+  overflow: hidden;
+  border: 1px solid var(--hairline-dark);
+  border-radius: 0.5rem;
+  color: var(--on-dark);
+  background: var(--dark);
+}
+
+.flowDemoHeader {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--hairline-dark);
+  padding: 0.85rem 1rem;
+}
+
+.flowTabs {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.flowTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.flowTab {
+  min-height: 2.5rem;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  padding: 0.55rem 0.9rem;
+  color: var(--on-dark-body);
+  background: transparent;
+  font-size: 0.8rem;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+.flowTab:hover {
+  color: var(--on-dark);
+  background: var(--dark-soft);
+}
+
+.flowTab[aria-selected="true"] {
+  border-color: var(--hairline-dark);
+  color: var(--on-dark);
+  background: var(--dark-soft);
+}
+
+.flowScenarioCopy {
+  display: grid;
+  grid-template-columns: minmax(22rem, 0.9fr) minmax(0, 1.1fr);
+  gap: 2rem;
+  align-items: end;
+  border-bottom: 1px solid var(--hairline-dark);
+  padding: 1.5rem;
+}
+
+.flowScenarioCopy h2 {
+  max-width: 22ch;
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.24;
+}
+
+.flowScenarioCopy p {
+  max-width: 39rem;
+  margin: 0;
+  justify-self: end;
+  color: var(--on-dark-body);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  text-align: right;
+}
+
+.flowWorkspace {
+  display: grid;
+  min-height: 27rem;
+  grid-template-columns: minmax(0, 1.58fr) minmax(16rem, 0.62fr);
+}
+
+.simpleFlowCanvas {
+  display: flex;
+  min-width: 0;
+  min-height: 27rem;
+  align-items: center;
+  overflow-x: auto;
+  border-right: 1px solid var(--hairline-dark);
+  padding: 2rem;
+  background:
+    radial-gradient(circle at 50% 45%, rgb(147 101 70 / 12%), transparent 24rem),
+    var(--dark);
+}
+
+.simpleFlowGrid {
+  display: flex;
+  width: 100%;
+  min-width: 42rem;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.simpleFlowGrid li {
+  position: relative;
+  width: min(11.25rem, 22%);
+  flex: 0 0 min(11.25rem, 22%);
+}
+
+.simpleFlowGrid li:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 0.45rem);
+  width: 1.1rem;
+  color: var(--accent);
+  content: "→";
+  font-family: var(--font-geist-mono), monospace;
+  line-height: 1;
+  text-align: center;
+  transform: translateY(-50%);
+}
+
+.flowNode {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 5.2rem;
+  gap: 0.28rem;
+  border: 1px solid var(--hairline-dark);
+  border-radius: 0.25rem;
+  padding: 0.7rem 0.8rem;
+  color: var(--on-dark);
+  background: var(--dark-soft);
+  text-align: left;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .flowNode {
+    animation: flowNodeReveal 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes flowNodeReveal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.flowNode:hover,
+.flowNode[data-selected="true"] {
+  border-color: var(--accent);
+  background: var(--surface-dark-hover);
+}
+
+.flowNode[data-state="running"] {
+  border-color: var(--accent-deep);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.flowNode[data-state="pending"] {
+  color: #918981;
+}
+
+.flowNodeKind,
+.flowNodeStatus {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.flowNodeKind {
+  color: var(--accent);
+}
+
+.flowNode strong {
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flowNodeStatus {
+  color: var(--on-dark-body);
+}
+
+.flowInspector {
+  padding: 1.5rem;
+  background: rgb(14 12 10 / 88%);
+}
+
+.flowInspectorHeading {
+  display: grid;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--hairline-dark);
+  padding-bottom: 1.25rem;
+}
+
+.flowInspectorHeading span,
+.flowInspector dt {
+  color: var(--accent);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.flowInspectorHeading strong {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.flowInspector dl {
+  display: grid;
+  gap: 1.25rem;
+  margin: 1.25rem 0 0;
+}
+
+.flowInspector dl > div {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.flowInspector dd {
+  margin: 0;
+  color: var(--on-dark-body);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.foundationBand {
+  padding: 5rem 2rem;
+  color: var(--on-dark);
+  background: var(--dark);
+}
+
+.sectionHeaderOnDark,
+.foundationGrid {
+  width: min(100%, 80rem);
+  margin-inline: auto;
+}
+
+.sectionHeaderOnDark {
+  max-width: 52rem;
+  margin-left: max(0px, calc((100% - 80rem) / 2));
+}
+
+.sectionHeaderOnDark .monoEyebrow {
+  color: var(--on-dark-body);
+}
+
+.foundationGrid {
+  display: grid;
+  margin-top: 3.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--hairline-dark);
+  border-left: 1px solid var(--hairline-dark);
+}
+
+.foundationCard {
+  min-height: 16rem;
+  border-right: 1px solid var(--hairline-dark);
+  border-bottom: 1px solid var(--hairline-dark);
+  padding: 1.5rem;
+}
+
+.foundationCard > p {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.67rem;
+  letter-spacing: 0.05em;
+}
+
+.foundationCard h3 {
+  max-width: 22ch;
+  margin: 3rem 0 0;
+  font-size: 1.45rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.foundationCard span {
+  display: block;
+  max-width: 34rem;
+  margin-top: 1rem;
+  color: var(--on-dark-body);
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.auditBand .sectionHeaderCompact {
+  margin-bottom: 3rem;
+}
+
+.auditLifecycle {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(20rem, 0.92fr);
+  border: 1px solid var(--hairline);
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.auditTable {
+  overflow: hidden;
+}
+
+.auditHeader,
+.auditRow {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.45fr) minmax(12rem, 1.15fr) minmax(10rem, 0.9fr);
+}
+
+.auditHeader {
+  color: var(--body);
+  background: var(--canvas-soft);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.67rem;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.auditHeader span,
+.auditRow span {
+  border-right: 1px solid var(--hairline);
+  padding: 0.9rem 1rem;
+}
+
+.auditHeader span:last-child,
+.auditRow span:last-child {
+  border-right: 0;
+}
+
+.auditRow {
+  width: 100%;
+  border-top: 1px solid var(--hairline);
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  padding: 0;
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.auditRow:hover,
+.auditRow[data-active="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.auditRow:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid color-mix(in srgb, var(--accent) 62%, transparent);
+  outline-offset: -3px;
+}
+
+.auditRow span:first-child {
+  font-weight: 550;
+}
+
+.auditRow span:not(:first-child) {
+  color: var(--body);
+}
+
+.auditDiagram {
+  min-width: 0;
+  border-left: 1px solid var(--hairline);
+  background: var(--canvas-soft);
+}
+
+.auditDiagramHeading {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--hairline);
+  padding: 0.75rem 1rem;
+}
+
+.auditDiagramHeading span,
+.auditDiagramContent > p span,
+.auditFlowNode > span {
+  color: var(--body);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.auditDiagramHeading strong {
+  font-size: 0.92rem;
+  font-weight: 550;
+}
+
+.auditDiagramViewport {
+  position: relative;
+  min-height: 15rem;
+}
+
+.auditDiagramContent {
+  position: absolute;
+  display: flex;
+  inset: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.auditDiagramContent[data-active="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.auditFlow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-block: auto;
+}
+
+.auditFlowNode {
+  display: grid;
+  min-width: 0;
+  min-height: 5.5rem;
+  flex: 1;
+  gap: 0.65rem;
+  align-content: space-between;
+  border: 1px solid var(--hairline);
+  border-radius: 0.25rem;
+  padding: 0.75rem;
+  background: var(--canvas);
+}
+
+.auditFlowNode strong {
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  font-weight: 550;
+  line-height: 1.3;
+}
+
+.auditFlowConnector {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 1rem;
+}
+
+.auditDiagramContent > p {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+  color: var(--body);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.ctaBand {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3rem;
+  align-items: end;
+  border-top: 1px solid var(--hairline);
+}
+
+.ctaBand > div:first-child {
+  max-width: 54rem;
+}
+
+.ctaBand .ctaActions {
+  justify-content: flex-end;
+  margin: 0;
+}
+
+@media (max-width: 1023px) {
+  .heroGrid {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    padding-block: 4rem;
+  }
+
+  .heroCopy h1 {
+    max-width: 16ch;
+  }
+
+  .flowWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .flowScenarioCopy {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+
+  .flowScenarioCopy p {
+    justify-self: start;
+    text-align: left;
+  }
+
+  .simpleFlowCanvas {
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline-dark);
+  }
+
+  .flowInspector {
+    min-height: 15rem;
+  }
+
+  .auditLifecycle {
+    grid-template-columns: 1fr;
+  }
+
+  .auditDiagram {
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
+  }
+
+  .ctaBand {
+    grid-template-columns: 1fr;
+  }
+
+  .ctaBand .ctaActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 767px) {
+  .heroGrid,
+  .platformBand,
+  .graphBand,
+  .foundationBand,
+  .auditBand,
+  .ctaBand {
+    padding: 3.5rem 1rem;
+  }
+
+  .heroGrid {
+    padding-top: 3rem;
+  }
+
+  .heroCopy h1 {
+    font-size: clamp(2.55rem, 12vw, 3.2rem);
+  }
+
+  .heroSummary {
+    font-size: 1.02rem;
+  }
+
+  .heroRunPanel {
+    border-radius: 0.25rem;
+  }
+
+  .heroRunSteps li {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .heroRunSteps small {
+    grid-column: 2;
+  }
+
+  .sectionHeader,
+  .sectionHeaderCompact,
+  .sectionHeaderOnDark {
+    margin-left: 0;
+  }
+
+  .sectionHeader h2,
+  .sectionHeaderCompact h2,
+  .sectionHeaderOnDark h2,
+  .ctaBand h2 {
+    font-size: clamp(2rem, 9vw, 2.5rem);
+  }
+
+  .capabilityRows,
+  .foundationGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .capabilityRow,
+  .foundationCard {
+    min-height: 13rem;
+  }
+
+  .flowDemoHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .flowTabs {
+    width: 100%;
+  }
+
+  .simpleFlowCanvas {
+    min-height: 23rem;
+    padding-inline: 1rem;
+  }
+
+  .auditTable {
+    overflow-x: auto;
+  }
+
+  .auditHeader,
+  .auditRow {
+    min-width: 36rem;
+  }
+
+  .heroActions,
+  .ctaActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .primaryAction,
+  .secondaryAction,
+  .primaryActionOnDark,
+  .ghostActionOnDark {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .auditDiagramViewport {
+    min-height: 22rem;
+  }
+
+  .auditFlow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+
+  .auditFlowNode {
+    min-height: 3.75rem;
+    flex: 0 0 auto;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1rem;
+    align-content: center;
+    align-items: center;
+  }
+
+  .auditFlowNode strong {
+    overflow-wrap: normal;
+  }
+
+  .auditFlowConnector {
+    align-self: center;
+    transform: rotate(90deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing *,
+  .landing *::before,
+  .landing *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

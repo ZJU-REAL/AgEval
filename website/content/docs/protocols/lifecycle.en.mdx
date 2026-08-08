@@ -1,0 +1,12 @@
+---
+title: Lifecycle
+description: Run / Trial / Attempt identity and coordination.
+---
+
+Runtime owns **Run → Trial → Attempt** identity, scheduling, and cleanup — lifecycle is not buried inside the package harness.
+
+- **Run**: coordination unit for one CLI/application call  
+- **Trial**: repeatable experiment dimension (e.g. campaign matrix point)  
+- **Attempt**: one bounded execution (harness, agent, eval)  
+
+Public path is usually `bora run` creating an Attempt and writing evidence. Detail: [`docs/design/05`](https://github.com/ffy6511/BORA/blob/main/docs/design/05-runtime-core.md).

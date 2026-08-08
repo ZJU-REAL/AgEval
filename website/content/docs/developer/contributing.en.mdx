@@ -1,0 +1,27 @@
+---
+title: Contributing
+description: Issues are the main track; docs for mechanism; website for how-to.
+---
+
+## Authority chain
+
+```text
+docs/design  →  ARCHITECTURE.md  →  GitHub Issues  →  code
+website/     →  reader-facing how-to (not truth)
+```
+
+## How to start
+
+1. Open or claim a [GitHub Issue](https://github.com/ffy6511/BORA/issues) (acceptance / non-goals / evidence)  
+2. Mechanism changes start in `docs/design/`; structure changes start in `ARCHITECTURE.md`  
+3. Implement and test; link the Issue from the PR  
+4. If user-visible behavior changes, update the matching `website/` page  
+
+## Do not
+
+- Recreate `specs/` / Active Spec / ROADMAP checkbox machines  
+- Write secrets into yaml / lock / evidence  
+- Treat trajectory or harness completed as PASS  
+- Name adapters after benchmarks  
+
+Full agent routing: [`AGENTS.md`](https://github.com/ffy6511/BORA/blob/main/AGENTS.md).

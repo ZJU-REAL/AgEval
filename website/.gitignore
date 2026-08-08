@@ -1,0 +1,21 @@
+# dependencies
+/node_modules
+
+# generated content
+.source
+
+# test and build
+/coverage
+/.next/
+/out/
+/build/
+*.tsbuildinfo
+
+# local and deployment metadata
+.DS_Store
+*.pem
+/.pnp
+.pnp.js
+.env*.local
+.vercel
+next-env.d.ts

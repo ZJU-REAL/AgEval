@@ -1,0 +1,19 @@
+---
+title: Harness and SDK
+description: Packages own the business loop; the SDK is optional Harness Core.
+---
+
+## Split
+
+| Layer | Owns | Does not own |
+| --- | --- | --- |
+| **Package harness** | Loop, roles, local tools, handoff data | PASS, credentials, isolation mounts |
+| **Harness Core (`bora_sdk`)** | Thin client: context, sessions, tool guards | Run identity, Provider control, final PASS |
+| **BORA Core** | Lock, Attempt, Provider, Capability, evaluator barrier | Business workflow |
+
+## Practice
+
+Open sessions and `invoke` through the SDK — do not import a vendor coding-agent SDK as Core.  
+`HarnessTerminal.completed` is **not** PASS.
+
+Design: [`docs/design/03`](https://github.com/ffy6511/BORA/blob/main/docs/design/03-harness-layer.md), [`04`](https://github.com/ffy6511/BORA/blob/main/docs/design/04-harness-core-sdk.md).

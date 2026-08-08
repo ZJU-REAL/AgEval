@@ -1,0 +1,12 @@
+---
+title: 生命周期
+description: Run / Trial / Attempt 身份与协调。
+---
+
+BORA Runtime 拥有 **Run → Trial → Attempt** 身份、调度与 cleanup，而不是把 lifecycle 藏进 package harness。
+
+- **Run**：一次 CLI/应用调用的协调单元  
+- **Trial**：可重复实验维度（如 campaign 矩阵点）  
+- **Attempt**：一次有界执行（含 harness、agent、eval）  
+
+公开路径通常是 `bora run` 创建 Attempt 并写出 evidence。细节见 [`docs/design/05`](https://github.com/ffy6511/BORA/blob/main/docs/design/05-runtime-core.md)。

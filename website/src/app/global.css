@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+:root {
+  --color-fd-background: rgb(252 250 247 / 96%);
+  --color-fd-foreground: rgb(22 20 18 / 92%);
+  --color-fd-muted: rgb(240 236 230 / 78%);
+  --color-fd-muted-foreground: rgb(79 75 70 / 82%);
+  --color-fd-popover: rgb(252 250 247 / 96%);
+  --color-fd-popover-foreground: rgb(22 20 18 / 90%);
+  --color-fd-card: rgb(248 245 240 / 88%);
+  --color-fd-card-foreground: rgb(22 20 18 / 92%);
+  --color-fd-border: rgb(70 58 48 / 18%);
+  --color-fd-primary: rgb(22 20 18 / 92%);
+  --color-fd-primary-foreground: rgb(250 247 242 / 94%);
+  --color-fd-secondary: rgb(240 236 230 / 76%);
+  --color-fd-secondary-foreground: rgb(22 20 18 / 90%);
+  --color-fd-accent: rgb(147 101 70 / 14%);
+  --color-fd-accent-foreground: rgb(22 20 18 / 92%);
+  --color-fd-ring: rgb(147 101 70 / 58%);
+  --color-fd-overlay: rgb(18 15 13 / 22%);
+}
+
+.dark {
+  --color-fd-background: rgb(20 17 15 / 96%);
+  --color-fd-foreground: rgb(249 246 241 / 92%);
+  --color-fd-muted: rgb(31 27 24 / 82%);
+  --color-fd-muted-foreground: rgb(221 213 205 / 72%);
+  --color-fd-popover: rgb(25 21 18 / 96%);
+  --color-fd-popover-foreground: rgb(249 246 241 / 90%);
+  --color-fd-card: rgb(25 21 18 / 88%);
+  --color-fd-card-foreground: rgb(249 246 241 / 92%);
+  --color-fd-border: rgb(244 232 220 / 14%);
+  --color-fd-primary: rgb(249 246 241 / 92%);
+  --color-fd-primary-foreground: rgb(10 8 7 / 97%);
+  --color-fd-secondary: rgb(31 27 24 / 82%);
+  --color-fd-secondary-foreground: rgb(249 246 241 / 90%);
+  --color-fd-accent: rgb(200 155 120 / 14%);
+  --color-fd-accent-foreground: rgb(249 246 241 / 92%);
+  --color-fd-ring: rgb(200 155 120 / 58%);
+  --color-fd-overlay: rgb(10 8 7 / 28%);
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: rgb(37 31 27 / 84%);
+  --color-fd-secondary: rgb(42 35 30 / 82%);
+  --color-fd-muted-foreground: rgb(221 213 205 / 74%);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+.bora-nav-logo {
+  display: block;
+  width: 3.5rem;
+  height: auto;
+  object-fit: contain;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.docs-display-title,
+.docs-reading-body :is(h1, h2, h3, h4) {
+  font-family: var(--font-newsreader), "Songti SC", "Noto Serif CJK SC", serif;
+  font-weight: 500;
+  letter-spacing: -0.018em;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}

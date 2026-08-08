@@ -1,0 +1,36 @@
+---
+title: What is BORA
+description: Bounded Orchestration for Runtime Agents — an outer boundary for agent evaluation.
+icon: BookOpen
+---
+
+## In one line
+
+**BORA** locks Dataset config, runs bounded Attempts, projects what the agent can see, and lets an **independent evaluator** own the score.
+
+Many agent benchmarks score the model and leave harness concerns—orchestration, isolation, visibility, evaluation barriers—to private stacks. Swap the coding agent or isolation mode and scores stop lining up. BORA is that outer boundary.
+
+## What you can do
+
+- Run examples or your own Dataset with `bora lock` / `bora run`
+- Switch Codex / Claude / Pi / OpenCode via **ACP** without a per-vendor scraper in Core
+- Browse local suite runs and trajectories with `bora view`
+- Optionally upload results to the Registry and browse them in Hub
+
+## What this site is not
+
+| This site | Repository authority |
+| --- | --- |
+| Reader-facing how-to | `docs/design/` mechanism design |
+| Product surface guide | `ARCHITECTURE.md` module map |
+| — | GitHub Issues for delivery |
+
+For mechanism detail, return to [`docs/design/`](https://github.com/ffy6511/BORA/tree/main/docs/design).  
+**Having a docs site does not upgrade evidence grades.**
+
+## Suggested order
+
+1. [Get started](/docs/get-started)
+2. [Dataset and Task](/docs/concepts/package-and-task)
+3. [Evaluation and PASS](/docs/concepts/evaluation-and-pass)
+4. [CLI](/docs/operations/cli) · [Viewer](/docs/operations/viewer) · [Hub](/docs/operations/hub-and-registry)

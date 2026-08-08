@@ -1,0 +1,12 @@
+---
+title: Suite and Campaign
+description: Multi-task concurrency vs same-task parameter matrix.
+---
+
+| Command | Axis | Meaning |
+| --- | --- | --- |
+| `bora run <dataset>` (no `--task`) | **Task axis** | Suite schedules independent Trials; PASS stays per-task |
+| `bora run ... --task` | Single task | One member only |
+| `bora campaign` | **Parameter matrix** | Same task, allowlisted overrides (seed / profile / …) |
+
+Campaign is **not** the cross-task suite axis. Suite aggregate metrics are observational, not suite-level PASS authority.

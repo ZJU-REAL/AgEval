@@ -1,0 +1,11 @@
+---
+title: Capability 与 Tool
+description: 外部 effect 前的授权与 harness 本地 Tool 边界。
+---
+
+**Capability API** 描述 Attempt 内可请求的外部能力（agent / env / workspace…）。  
+Harness 本地 Tool 可在 package 内组合，但触及外部资源时仍经 Runtime 边界。
+
+Adapter 按**协议 / 资源类型 / 执行机制**命名（`acp`、`postgresql`、docker…），**禁止**按 Benchmark 或 task 名分支。
+
+设计：[`docs/design/06`](https://github.com/ffy6511/BORA/blob/main/docs/design/06-capability-adapter-visibility.md)。

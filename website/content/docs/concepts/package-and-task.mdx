@@ -1,0 +1,26 @@
+---
+title: Dataset 与 Task
+description: 规范交付单位是 Database/Dataset；成员是 task。
+---
+
+## 交付单位
+
+BORA 的规范交付与分发单位是 **Database / Dataset**（suite），不是散落的单 task 目录。
+
+| 层级 | 文件 | 职责 |
+| --- | --- | --- |
+| Dataset | 根目录 `bora.yaml` | suite identity / version / 成员定位 |
+| Task | `tasks/<task_id>/task.yaml` | harness、evaluator、profiles、limits、provider… |
+
+二者 schema 不同，禁止混用。Config Core 是**唯一**规范读取者。
+
+## parameters vs envelope
+
+- `parameters` → 给 Harness（`ctx.params`）
+- envelope（provider、limits、profiles…）→ 给 Runtime
+- harness **不得**再读第二份「真配置」覆盖 lock
+
+## 下一步
+
+- 写配置：仓库 skill `bora-config-package`
+- 机制全文：[`docs/design/02`](https://github.com/ffy6511/BORA/blob/main/docs/design/02-task-package-and-config.md)

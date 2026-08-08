@@ -1,0 +1,36 @@
+---
+title: BORA 是什么
+description: Bounded Orchestration for Runtime Agents —— 给 Agent 测评的有界外层运行时。
+icon: BookOpen
+---
+
+## 一句话
+
+**BORA** 锁定 Dataset 配置、按边界跑 Attempt、控制 agent 能看见什么，再由**独立 evaluator** 出分。
+
+主流 Agent Benchmark 往往只给模型打分，却把 Harness（编排、隔离、可见面、评测边界）留给各家私有实现。换 coding agent 或隔离方式，分数与轨迹就很难对齐。BORA 是这层外层边界。
+
+## 你能用它做什么
+
+- 用 `bora lock` / `bora run` 跑本机 example 或自有 Dataset
+- 经 **ACP** 切换 Codex / Claude / Pi / OpenCode 等入口，而不是为每家写 scraper
+- 用 `bora view` 在本机浏览 suite 跑次与轨迹
+- 可选把结果上传到 Registry，用 Hub 浏览目录与 Leaderboard
+
+## 本站不是什么
+
+| 本站 | 仓库权威 |
+| --- | --- |
+| 读者向「怎么用」 | `docs/design/` 机制设计 |
+| 产品表面导览 | `ARCHITECTURE.md` 模块结构 |
+| — | GitHub Issues 增量交付 |
+
+机制细节请回到仓库 [`docs/design/`](https://github.com/ffy6511/BORA/tree/main/docs/design)。  
+**有文档站 ≠ 证据等级升级。**
+
+## 建议阅读顺序
+
+1. [快速开始](/docs/get-started)
+2. [Dataset 与 Task](/docs/concepts/package-and-task)
+3. [评测与 PASS](/docs/concepts/evaluation-and-pass)
+4. [CLI](/docs/operations/cli) · [Viewer](/docs/operations/viewer) · [Hub](/docs/operations/hub-and-registry)

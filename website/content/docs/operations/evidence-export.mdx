@@ -1,0 +1,12 @@
+---
+title: 证据导出
+description: bora evidence 导出密封副本。
+---
+
+每次 invoke 的证据默认落在 Attempt 目录。需要给失败分析或训练管线时，使用 CLI：
+
+```bash
+uv run bora evidence --help
+```
+
+导出物仍须遵守：无 secret、轨迹 ≠ PASS。本机浏览优先 [Viewer](/docs/operations/viewer)。

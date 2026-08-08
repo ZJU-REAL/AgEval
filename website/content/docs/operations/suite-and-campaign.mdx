@@ -1,0 +1,12 @@
+---
+title: Suite 与 Campaign
+description: 多 task 并发 vs 同 task 参数矩阵。
+---
+
+| 命令 | 轴 | 说明 |
+| --- | --- | --- |
+| `bora run <dataset>`（无 `--task`） | **task 轴** | suite 调度多个独立 Trial；PASS 仍 per-task |
+| `bora run ... --task` | 单 task | 只跑一个成员 |
+| `bora campaign` | **参数矩阵** | 同一 task 上扫 allowlisted overrides（如 seed / profile） |
+
+Campaign **不是**跨 task 的 suite 轴。Suite 汇总指标是观测用，不是 suite 级 PASS 权威。

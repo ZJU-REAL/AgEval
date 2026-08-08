@@ -1,0 +1,49 @@
+---
+title: Viewer (local results console)
+description: bora view — Jobs → Tasks → Attempt without Registry.
+---
+
+## What it is
+
+**Viewer** is a local SPA over `.bora/suite-runs/` for a Dataset:
+
+**Jobs → Tasks → Attempt (trial / run_id)**
+
+Use it after a suite run to compare scores, open trajectories, and copy `bora run` commands.
+
+## How to use
+
+```bash
+# First time: build the SPA
+cd apps/viewer
+pnpm install
+pnpm build
+
+# From repo root
+uv run bora view examples/core
+# or
+uv run bora view examples/core --no-browser --port 8765
+```
+
+Python serves only built `apps/viewer/dist/`. Use `--port` if the default is busy.
+
+## What you see
+
+| Layer | Content |
+| --- | --- |
+| **Jobs** | Local suite runs |
+| **Tasks** | Per-task status / score / run refs |
+| **Attempt** | Outcome, actors (Time / Usage), evidence tabs |
+
+Attempt tabs (when files exist): Trajectory · Agent · Verifier · Artifacts · Lock · Runtime.  
+Multi-role trees group by `profile_id`.
+
+## Honest boundaries
+
+- Time / Usage are **observational**, not PASS  
+- Trajectory is **not** scoring authority  
+- **No** Registry connection — remote catalog/Leaderboard live in [Hub](/docs/operations/hub-and-registry)
+
+## vs developer README
+
+This page is the **user path**. SPA / HTTP API / HMR details: [`apps/viewer/README.md`](https://github.com/ffy6511/BORA/blob/main/apps/viewer/README.md).

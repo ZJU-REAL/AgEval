@@ -1,0 +1,26 @@
+---
+title: Dataset and Task
+description: The normative delivery unit is a Database/Dataset; members are tasks.
+---
+
+## Delivery unit
+
+The normative unit is a **Database / Dataset** (suite), not a loose single-task folder.
+
+| Layer | File | Owns |
+| --- | --- | --- |
+| Dataset | Root `bora.yaml` | Suite identity / version / member discovery |
+| Task | `tasks/<task_id>/task.yaml` | Harness, evaluator, profiles, limits, provider… |
+
+Schemas differ and must not mix. Config Core is the **only** normative reader.
+
+## parameters vs envelope
+
+- `parameters` → Harness (`ctx.params`)
+- Envelope (provider, limits, profiles…) → Runtime
+- Harness must **not** re-read a second configuration truth over the lock
+
+## Next
+
+- Authoring: skill `bora-config-package`
+- Full design: [`docs/design/02`](https://github.com/ffy6511/BORA/blob/main/docs/design/02-task-package-and-config.md)
