@@ -24,26 +24,30 @@
 | 读者向产品文档 | `website/` | 从本目录**提炼重写**；禁止整页镜像 |
 | SPA / 服务开发细节 | `apps/*`、`services/*` README | 非产品教程主入口 |
 
-**不再**维护 `specs/`（Active Spec / ROADMAP / constitution）。历史见 Git。  
-**不再**把 Obsidian vault 总文档当作日常权威。`docs/design/` 已完整迁入；vault 仅历史备份（见 `reference/`）。
+**不再**维护 `specs/`（Active Spec / ROADMAP / constitution）。增量交付与验收跟踪 → **GitHub Issues**。历史见 Git。  
+**不再**把 Obsidian vault 总文档当作日常权威。`docs/design/` 已完整迁入；vault 仅历史备份（见 `reference/`）。  
+**不**新增 `docs/status/` 或 design 内进度表；`design/` 只写稳定机制。
 
 ## 设计文档目录（请按序阅读）
+
+完整读序与 Runtime 子文索引见 [design/README.md](design/README.md)。
 
 | 文档 | 内容 | vault 章节 |
 | --- | --- | --- |
 | [design/00-overview-and-product.md](design/00-overview-and-product.md) | 产品目标、红线、可见性投影、背景与设计修正 | 导语 + §0–§1 |
 | [design/01-bora-core.md](design/01-bora-core.md) | BORA Core 五组机制与模块布局 | §2 |
-| [design/02-task-package-and-config.md](design/02-task-package-and-config.md) | Task Package、`bora.yaml`、Config Core | §5–§6 |
+| [design/02-task-package-and-config.md](design/02-task-package-and-config.md) | Database / Task、`bora.yaml` / `task.yaml`、Config Core | §5–§6 |
 | [design/03-harness-layer.md](design/03-harness-layer.md) | Harness 层职责与结构 | §3 |
 | [design/04-harness-core-sdk.md](design/04-harness-core-sdk.md) | Harness Core（SDK）详细设计 | §7 |
-| [design/05-runtime-core.md](design/05-runtime-core.md) | Runtime：Lifecycle / Provider / Agent Service / Env / Eval / Campaign | §8、§11 |
+| [design/05-runtime/](design/05-runtime/) | Runtime：Lifecycle / Provider / Agent Service（ACP）/ Env / Eval / Evidence / Campaign | §8、§11 |
+| [design/05-runtime-core.md](design/05-runtime-core.md) | stub → `05-runtime/`（兼容旧链） | — |
 | [design/06-capability-adapter-visibility.md](design/06-capability-adapter-visibility.md) | Capability、Adapter 插件、可见性 | §9–§10 |
 | [design/07-budget-evaluation-failure.md](design/07-budget-evaluation-failure.md) | Budget、Evaluation、失败语义 | §13–§15 |
 | [design/08-conversion-security-testing.md](design/08-conversion-security-testing.md) | 转换、测试、安全边界 | §16–§18 |
 | [design/09-owner-matrix-and-structure.md](design/09-owner-matrix-and-structure.md) | Owner 矩阵、决策检查表、目标结构、相关资料 | §19–§22 |
-| [design/10-examples-database-52.md](design/10-examples-database-52.md) | database-52 对照与 MVP 主路径示意 | §4、§12 |
+| [design/10-examples-database-52.md](design/10-examples-database-52.md) | 设计意图下的示例对照（非进度） | §4、§12 |
 
-正文保留原 `## N.` / `### N.M.` 编号，便于与 vault 对照。
+正文保留原 `## N.` / `### N.M.` 编号处便于与 vault 对照；Runtime 已按执行链拆分为 `05-runtime/*`。
 
 ## 与 vault 总设计的对齐
 
