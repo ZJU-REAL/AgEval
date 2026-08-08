@@ -8,9 +8,9 @@
 
 ---
 
-## 2. BORA Core 到底包含什么
+## BORA Core 到底包含什么
 
-### 2.1. “Harness 的 Harness”
+### “Harness 的 Harness”
 
 Pi 这类 Agent Core 负责运行一个 Agent loop。BORA 位于更外层：它接收一个 Benchmark Task Package，准备运行边界，启动 package 自己的 Harness，再在 Harness 结束后运行独立 Evaluator。因此，“Harness 的 Harness”是准确的定位。
 
@@ -24,7 +24,7 @@ Task Package
   → Benchmark Result
 ```
 
-### 2.2. 五组必须保留的 Core 机制
+### 五组必须保留的 Core 机制
 
 本文使用两层 “Core”：**BORA Core** 指外层执行内核，也就是下面五组机制；**Harness Core** 指提供给 `harness.py` 的可选 Python SDK。Harness Core 可以被 upstream Framework 替代，不拥有 Run、Provider、Environment 或最终评测 authority。
 
@@ -38,7 +38,7 @@ Task Package
 
 这五组机制构成 BORA 的最小平台内核。Campaign、CLI、ComparisonReport 和网站投影可以位于 application 层；Actor、Router、Context、Tool、branch 和 join 留在 Harness 层。
 
-### 2.3. Core 1：配置加载与锁定
+### Core 1：配置加载与锁定
 
 Config Core 是 `bora.yaml` 的唯一读取者，对外只提供一个原子入口：
 
@@ -49,7 +49,7 @@ load_and_lock(package, task, variant, overrides)
 
 实现内部仍可分解为读取、合并、校验、canonicalize、digest 和 lock，但这些步骤不是 package 作者需要编排的公共流水线，也不要求形成 Loaded / Resolved / 多套 ProjectedConfig **公开 DTO**。锁定之后仍会向消费者提供**轻量 view**（例如 Runtime 读 envelope sections，Harness 经 `ctx.params` 读 `parameters`）——这是可见性投影，不是配置仪式。没有统一配置和锁定，一次 Trial 使用了什么超参数、资源和 evaluator 输入就无法确定；Config Core 只处理配置值和外部引用，不解释 Python workflow。
 
-### 2.4. Core 2：Run、Trial 与 Attempt 生命周期
+### Core 2：Run、Trial 与 Attempt 生命周期
 
 Lifecycle Core 拥有外层状态机和执行身份：
 
@@ -75,7 +75,7 @@ Run
 
 Harness 只拥有一个 Attempt 内的业务 loop。Campaign 只拥有多个 Trial 的调度。两类 scheduler 不合并。
 
-### 2.5. Core 3：Provider 与物理隔离
+### Core 3：Provider 与物理隔离
 
 Provider Core 负责 Python 代码无法自行证明的 OS 和信任边界：
 
@@ -90,7 +90,7 @@ Provider Core 负责 Python 代码无法自行证明的 OS 和信任边界：
 
 隔离按档位声明：L0 提供基础进程边界，L1 增加明确 path views，L2 再增加 per-actor mount、UID/GID 或更强沙箱。Result 必须记录实际档位，低档实现不能宣称高档保证。
 
-### 2.6. Core 4：Capability API
+### Core 4：Capability API
 
 Runtime 通过 `HarnessContext` 把本次 Attempt 已获准的外部能力注入 Harness：
 
@@ -119,15 +119,15 @@ Capability Core 包含：
 | `events` | 记录少量 Agent、Tool 和 Harness 事件 | Attempt identity 和正式 evidence boundary；**不能**替代 Agent Service 的 per-invocation 轨迹落盘（见 [05-runtime/evidence.md](05-runtime/evidence.md)） |
 
 MVP 使用进程内对象。未来可用 JSONL、stdio 或 scoped socket 承载同一 **Capability transport**，但 transport 不进入 Harness API，也不作为本轮默认实现目标。  
-**注意：** 「默认不做 Capability JSONL transport」≠「不做 evidence 目录 JSONL 轨迹」。后者是产品红线（design/00 §0.2）。
+**注意：** 「默认不做 Capability JSONL transport」≠「不做 evidence 目录 JSONL 轨迹」。后者是产品红线（见 [00](00-overview-and-product.md)「红线」）。
 
-### 2.7. Core 5：Evaluator 与结果绑定
+### Core 5：Evaluator 与结果绑定
 
 Evaluation Core 对外只有四段语义：停止 writers、materialize allowlisted evaluator inputs、独立 Evaluate、Record + cleanup。Artifact digest、只读副本、clean evaluator runtime、Environment freeze/getter 和 raw-output 校验可以在内部按 input strategy 实现；artifact-only task 不被迫配置 stateful freeze。
 
 这一边界必须留在 Core，因为 Harness 自报 `completed` 不能成为 Benchmark score。Evaluator 是 task-local truth owner，BORA 负责隔离运行和结果绑定；cleanup 失败保留为 warning，不覆盖已经形成的 score。
 
-### 2.8. 五个 Core 的关系
+### 五个 Core 的关系
 
 ```mermaid
 stateDiagram-v2
@@ -154,7 +154,7 @@ stateDiagram-v2
     Result --> [*]
 ```
 
-### 2.9. Core 明确不包含什么
+### Core 明确不包含什么
 
 以下内容不进入 BORA Runtime Core：
 
@@ -169,7 +169,7 @@ stateDiagram-v2
 
 MVP 也不承诺 durable/reopen、默认 **Capability** JSONL/stdio transport、所有 task 强制 freeze/per-actor UID/GID、公开 Artifact 用户类型阶梯、或对外完整**阶段结果**聚合 schema。**可见性投影**与 **Attempt evidence / Agent 轨迹落盘**始终保留。不要求的是「六路 Config projection DTO」这类配置仪式，不是「不做投影」或「不落盘轨迹」。隔离档、input strategy 与内部 digest 可以存在；只有出现真实跨进程共享、并发竞争、崩溃恢复或后台 reopen 后，才重新评估 durable platform authority。
 
-### 2.10. Core 模块布局
+### Core 模块布局
 
 ```text
 src/bora/

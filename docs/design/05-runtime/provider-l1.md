@@ -3,7 +3,6 @@
 | 字段 | 值 |
 | --- | --- |
 | 父索引 | [05-runtime/README.md](README.md) |
-| 章节锚点 | 原 design §8.3 |
 
 ---
 

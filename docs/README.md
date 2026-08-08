@@ -32,22 +32,22 @@
 
 完整读序与 Runtime 子文索引见 [design/README.md](design/README.md)。
 
-| 文档 | 内容 | vault 章节 |
-| --- | --- | --- |
-| [design/00-overview-and-product.md](design/00-overview-and-product.md) | 产品目标、红线、可见性投影、背景与设计修正 | 导语 + §0–§1 |
-| [design/01-bora-core.md](design/01-bora-core.md) | BORA Core 五组机制与模块布局 | §2 |
-| [design/02-task-package-and-config.md](design/02-task-package-and-config.md) | Database / Task、`bora.yaml` / `task.yaml`、Config Core | §5–§6 |
-| [design/03-harness-layer.md](design/03-harness-layer.md) | Harness 层职责与结构 | §3 |
-| [design/04-harness-core-sdk.md](design/04-harness-core-sdk.md) | Harness Core（SDK）详细设计 | §7 |
-| [design/05-runtime/](design/05-runtime/) | Runtime：Lifecycle / Provider / Agent Service（ACP）/ Env / Eval / Evidence / Campaign | §8、§11 |
-| [design/05-runtime-core.md](design/05-runtime-core.md) | stub → `05-runtime/`（兼容旧链） | — |
-| [design/06-capability-adapter-visibility.md](design/06-capability-adapter-visibility.md) | Capability、Adapter 插件、可见性 | §9–§10 |
-| [design/07-budget-evaluation-failure.md](design/07-budget-evaluation-failure.md) | Budget、Evaluation、失败语义 | §13–§15 |
-| [design/08-conversion-security-testing.md](design/08-conversion-security-testing.md) | 转换、测试、安全边界 | §16–§18 |
-| [design/09-owner-matrix-and-structure.md](design/09-owner-matrix-and-structure.md) | Owner 矩阵、决策检查表、目标结构、相关资料 | §19–§22 |
-| [design/10-examples-database-52.md](design/10-examples-database-52.md) | 设计意图下的示例对照（非进度） | §4、§12 |
+| 文档 | 内容 |
+| --- | --- |
+| [design/00-overview-and-product.md](design/00-overview-and-product.md) | 产品目标、红线、可见性投影、背景与设计修正 |
+| [design/01-bora-core.md](design/01-bora-core.md) | BORA Core 五组机制与模块布局 |
+| [design/02-task-package-and-config.md](design/02-task-package-and-config.md) | Database / Task、`bora.yaml` / `task.yaml`、Config Core |
+| [design/03-harness-layer.md](design/03-harness-layer.md) | Harness 层职责与结构 |
+| [design/04-harness-core-sdk.md](design/04-harness-core-sdk.md) | Harness Core（SDK）详细设计 |
+| [design/05-runtime/](design/05-runtime/) | Runtime：Lifecycle / Provider / Agent Service（ACP）/ Env / Eval / Evidence / Campaign |
+| [design/05-runtime-core.md](design/05-runtime-core.md) | stub → `05-runtime/`（兼容旧链） |
+| [design/06-capability-adapter-visibility.md](design/06-capability-adapter-visibility.md) | Capability、Adapter 插件、可见性 |
+| [design/07-budget-evaluation-failure.md](design/07-budget-evaluation-failure.md) | Budget、Evaluation、失败语义 |
+| [design/08-conversion-security-testing.md](design/08-conversion-security-testing.md) | 转换、测试、安全边界 |
+| [design/09-owner-matrix-and-structure.md](design/09-owner-matrix-and-structure.md) | Owner 矩阵、决策检查表、目标结构、相关资料 |
+| [design/10-examples-database-52.md](design/10-examples-database-52.md) | 设计意图下的示例对照（非进度） |
 
-正文保留原 `## N.` / `### N.M.` 编号处便于与 vault 对照；Runtime 已按执行链拆分为 `05-runtime/*`。
+正文标题**不再**沿用 vault 总文档的 `## N.` / `### N.M.` 序号（避免跨文件序号断裂）；文件名前缀 `00`–`10` 仍作读序。Runtime 已按执行链拆分为 `05-runtime/*`。
 
 ## 与 vault 总设计的对齐
 

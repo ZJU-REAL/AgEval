@@ -8,11 +8,11 @@
 
 ---
 
-## 4. `database-52`：v0.9 与 v2 MVP 的代码对比
+## `database-52`：v0.9 与 v2 MVP 的代码对比
 
 本节以文档内的 `database-52-mvp/` 为 v2 主示意，比较同一个 MARBLE task 从归档 v1 的 v0.9 workflow-aware Runtime 转向薄公共契约后的差异。`database-52/` 是展开 multi-service、细粒度 workspace 和完整术语的概念对照；本文完整复现所需配置与代码片段，不要求 v2 greenfield 仓库存在这些目录。
 
-### 4.1. v0.9 的配置同时描述 Runtime 和 workflow
+### v0.9 的配置同时描述 Runtime 和 workflow
 
 归档 v1 v0.9 的 `benchmarks/multiagentbench/tasks/database-52/bora.yaml` 包含：
 
@@ -59,7 +59,7 @@ collaboration:
 
 这些字段进入 `TaskLockedV1`，Runtime 因而需要理解 Actor、Tool、branch、Planner、follow-up、join 和 Reducer。
 
-### 4.2. 新配置只声明参数和外部 envelope
+### 新配置只声明参数和外部 envelope
 
 目标 `bora.yaml` 把模型、轮数、Tool 次数和 workflow 上限集中到 `parameters`，把 Provider、Environment、Artifact 和 Evaluation 继续作为外部 contract：
 
@@ -153,7 +153,7 @@ evaluation:
 
 `multi-service` 表示 Environment Adapter 可以组合多个 component，不要求 sidecar 齐套；MVP 只声明当前 task 实际消费的 PostgreSQL。配置仍统一管理所有超参数，但 Runtime 不解释 `max_follow_up_assignments` 或每个 Tool 的 `max_calls`。它们通过 `ctx.params` 交给 Harness。
 
-### 4.3. v0.9 Harness 需要对接 Runtime workflow authority
+### v0.9 Harness 需要对接 Runtime workflow authority
 
 归档 v1 v0.9 的 `harness.py` 通过多个 BORA effect wrapper 和 callback 组织同一个 loop：
 
@@ -186,7 +186,7 @@ reducer_output = run_collaboration(
 
 Harness 已经有真实 Python control flow，但 Planner validation、Branch admission、Handoff publish/resolve、Join 和 Reducer validation 仍由 Runtime authority 表达。
 
-### 4.4. 新 Harness 直接拥有 workflow
+### 新 Harness 直接拥有 workflow
 
 ```python
 async def run(ctx: HarnessContext) -> HarnessTerminal:
@@ -245,7 +245,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
 
 五个 specialist、Planner、output-dependent follow-up 和 Reducer 都是普通 Python 结构。每次真实 Agent 调用仍通过 `ctx.agent`，每次数据库诊断仍通过 `ctx.environment`。
 
-### 4.5. 一次 Tool 调用的变化
+### 一次 Tool 调用的变化
 
 v0.9 先在 YAML 声明业务 Tool 和 Actor binding，再从 Harness 请求 Runtime dispatcher：
 
@@ -293,7 +293,7 @@ diagnostics = ToolSet(
 
 `max_calls` 仍在 `bora.yaml` 中统一声明。Harness 的内存 guard 执行业务 Tool 上限；Runtime 的 Environment capability 执行外部 action allowlist、总 action ceiling 和 teardown，只在 stateful evaluator 声明对应 input strategy 时执行 freeze/getter。
 
-### 4.6. Runtime Core 的变化
+### Runtime Core 的变化
 
 归档 v1 v0.9 的 Docker Harness path 会直接从 locked document 读取 workflow 字段，并建立 workflow-aware authority。下面的代码片段作为历史结构对照完整保存在本文；v2 greenfield 仓库当前没有对应源码路径：
 
@@ -360,7 +360,7 @@ ctx = HarnessContext(
 )
 ```
 
-### 4.7. 对比结论
+### 对比结论
 
 | 维度 | v0.9 | 新 Core |
 | --- | --- | --- |
@@ -373,11 +373,11 @@ ctx = HarnessContext(
 | Evaluator | writer barrier 后独立评测 | 保持不变 |
 | 物理隔离 | Provider、workspace、network、secret | 保持并明确为 Core 机制 |
 
-## 12. `database-52-mvp` 主路径
+## `database-52-mvp` 主路径
 
 `database-52-mvp/` 是本设计中的默认概念示意：单 PostgreSQL、L1 path views、`max_turns: 1`、publish registry 和 artifact-only evaluator。它保留同一 `task_id: database-52`，因此可以与归档 v1 v0.9 和 `database-52/` 概念对照比较 workflow 语义，而不会把 package 形态误当成新任务。
 
-### 12.1. 业务结构留在代码中
+### 业务结构留在代码中
 
 ```python
 BRANCHES = (
@@ -411,7 +411,7 @@ BRANCHES = (
 
 这组值描述当前 task 的业务结构，因此留在 `harness.py`。如果 branch 集合成为 experiment variable，再把它提升到 `parameters`。
 
-### 12.2. Tool 绑定
+### Tool 绑定
 
 ```python
 def build_diagnostic_tools(
@@ -431,7 +431,7 @@ def build_diagnostic_tools(
 
 Environment action 经过 Runtime capability。Tool 的名称、说明、业务参数和组合方式仍由 Harness 拥有。
 
-### 12.3. MVP 入口
+### MVP 入口
 
 下面的完整设计示意限定 ownership 与调用链；具体 helper 签名由后续实现 / SDK 契约在不改变这些边界的前提下冻结：
 
@@ -474,7 +474,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
 
 这段中性伪代码直接表达五个 specialist、Planner、output-dependent follow-up 和 Reducer，不把 `scope` 参数或具体 helper 签名提升为公共要求。Runtime 只看到真实 Agent invocation、Environment action、Artifact publish 和 Harness terminal。
 
-### 12.4. 当前静态 authority 的去向
+### 当前静态 authority 的去向
 
 | v0.9 结构 | v2 owner |
 | --- | --- |
@@ -490,7 +490,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
 
 Provider、Environment lifecycle、Agent invocation hard ceiling、declared output 固定和 Evaluator barrier 继续由 Runtime 持有。
 
-### 12.5. 完整 envelope 对照
+### 完整 envelope 对照
 
 文档内的 `database-52/` 概念对照增加 postgres-exporter、Prometheus、node-exporter、细粒度 actor workspace 与更完整的内部术语，用于说明复杂资源组合怎样落在同一外层边界中。它不定义 MVP 必需能力，也不应反向要求简单 task 配置未消费的 service、per-actor UID/GID、freeze 或 Artifact 类型阶梯。
 

@@ -8,9 +8,9 @@
 
 ---
 
-## 9. Core 的扩展边界：Capability 与 Adapter
+## Core 的扩展边界：Capability 与 Adapter
 
-### 9.1. Capability
+### Capability
 
 Capability 是 Runtime 向本次 Attempt 暴露的受限操作面，例如：
 
@@ -22,7 +22,7 @@ Capability 是 Runtime 向本次 Attempt 暴露的受限操作面，例如：
 
 MVP 的 Capability 是进程内对象。未来可以由 JSONL bridge、stdio 或 scoped socket 承载同一 contract，Harness 不感知 transport。
 
-### 9.2. Adapter 与可分发插件
+### Adapter 与可分发插件
 
 Adapter 实现具体协议、资源类型或执行机制。用户可按 [Agent Service 扩展模型](05-runtime/agent-service.md) **自研并分发**，不限于官方清单，例如：
 
@@ -33,7 +33,7 @@ Adapter 实现具体协议、资源类型或执行机制。用户可按 [Agent S
 
 **优先鼓励用户定制的是「实现 Core 已开放契约的插件包」**；Agent invoke 只是其中最常举例的一面。实现内部可用 protocol/Port，但 Port 不是 package 作者必学层。Actor、Context、Tool、Router 和 Join 是 Harness 概念，不自动变成 Core 插件 API。
 
-### 9.3. Adapter 准入
+### Adapter 准入
 
 新增 Adapter 前要回答：
 
@@ -45,7 +45,7 @@ Adapter 实现具体协议、资源类型或执行机制。用户可按 [Agent S
 
 第 3 项为“需要”时，逻辑应留在 Task Package。第 5 项为“足够”时，不新增 Adapter。
 
-### 9.4. 带 lifecycle 的 component
+### 带 lifecycle 的 component
 
 需要独立进程、健康状态和 lifecycle 的资源，在 Environment 或 Provider 中声明为 component，例如 Attempt-local database、Browser server 或 upstream API server。Service 只是这类 component 的实现描述，不形成第四层公共抽象。
 
@@ -61,9 +61,9 @@ resolve runtime identity
 
 Task-local Python class、闭包、Context、计数器和 Router 不升级为 component。
 
-## 10. Context、文件与多 Agent 可见性
+## Context、文件与多 Agent 可见性
 
-### 10.1. 文本上下文
+### 文本上下文
 
 Harness 或 upstream Framework 管理：
 
@@ -77,7 +77,7 @@ Harness 或 upstream Framework 管理：
 
 如果 Agent 只通过 BORA Agent capability 接收 prompt，Harness 已经决定模型看到的文本。Agent 还拥有 terminal、filesystem 或 network 时，需要叠加 Provider capability。
 
-### 10.2. 普通 Agent 间传递
+### 普通 Agent 间传递
 
 同一 Harness 内的数据可以按最轻的方式传递：
 
@@ -89,7 +89,7 @@ Harness 或 upstream Framework 管理：
 
 普通消息交接不要求 Runtime `HandoffRef`。只有多个独立进程需要 durable、可恢复、可 reopen 的 mailbox 时，才设计专门的 handoff store。
 
-### 10.3. 文件共享
+### 文件共享
 
 文件共享由 workspace 和 Artifact capability 共同处理：
 
@@ -107,9 +107,9 @@ Writer workspace
 
 `evaluation/`、gold、hidden test 与 evaluator-only material 永远不能成为 handoff source，也不得通过 `shared_write`、workspace 交集或 publish side channel 暴露给 Harness/Agent。`publish_*` 只接收已声明的终局 output，并在 writer barrier 后按 `evaluation.inputs` allowlist materialize。
 
-### 10.4. Prompt 隔离与物理隔离（可见性投影）
+### Prompt 隔离与物理隔离（可见性投影）
 
-本节落实 §0.4：多 Agent / Harness / Evaluator 的**控制可见性**由明确的 projection 机制完成，属于 Core 必保能力。
+本节落实 [00](00-overview-and-product.md)「可见性投影」：多 Agent / Harness / Evaluator 的**控制可见性**由明确的 projection 机制完成，属于 Core 必保能力。
 
 | 隔离类型 | Owner | 投影机制 | 例子 |
 | --- | --- | --- | --- |

@@ -8,9 +8,9 @@
 
 ---
 
-## 7. Harness Core 详细设计
+## Harness Core 详细设计
 
-### 7.1. Harness entrypoint
+### Harness entrypoint
 
 Runtime 根据 `LockedTaskConfig.harness` 启动 package-local runtime，并调用统一入口：
 
@@ -21,7 +21,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
 
 Harness 不接收配置文件路径，也不执行 `yaml.safe_load`。所有参数通过 `ctx.params` 获得。
 
-### 7.2. HarnessContext
+### HarnessContext
 
 ```python
 from dataclasses import dataclass
@@ -67,7 +67,7 @@ Session 创建时一次性绑定 Attempt、`actor_id`、profile、WorkspaceView 
 
 多角色 loop 的中间结果默认保存在 Harness 或 upstream Framework memory 中，由 Harness 序列化进下一轮 prompt，Core 与 SDK 不建立 team memory 或 mailbox。`publish_json` / `publish_file` 仅提交终局 declared artifact，供 evaluator / Result 边界使用；它们不承担 loop 中途跨 actor 交接。跨容器 immutable physical handoff 是独立的未来 capability，跟踪于 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2)。同容器文件协作只能使用 lock 中显式授权的 `shared_write`。
 
-### 7.3. 参数解析
+### 参数解析
 
 每个 Harness 在入口处把 `ParameterView` 转成自己的 typed params。解析只发生一次：
 
@@ -123,7 +123,7 @@ class Database52Params:
 
 参数值只存在于 `bora.yaml` 和 resolved lock。`Database52Params` 定义类型和读取位置，不维护第二份默认值。
 
-### 7.4. Harness Core 的范围
+### Harness Core 的范围
 
 Harness Core 是可选 Python library。它减少重复样板，不创建 Run、Trial 或 Attempt，也不发布最终 verdict。
 
@@ -141,7 +141,7 @@ Harness Core 是可选 Python library。它减少重复样板，不创建 Run、
 
 上游 Framework 已经提供其中某项能力时，Task Package 可以绕过对应 helper。
 
-### 7.5. Agent 与 AgentSession
+### Agent 与 AgentSession
 
 `Agent` 封装一次或多次模型调用所需的通用操作：
 
@@ -170,7 +170,7 @@ decision = await agent.run(
 
 角色由 Harness 创建。Runtime 只把 `actor` 当作日志 label，不从角色名推导权限；WorkspaceView 由 locked `agent_profiles.workspace_view` 在 session 创建时绑定。
 
-### 7.6. Message 与 Context
+### Message 与 Context
 
 `Context` 管理 Agent 输入：
 
@@ -196,7 +196,7 @@ Context 只决定模型看到什么文本和引用。文件、网络、secret、
 
 AgentVerse 等 Framework 已经拥有 team memory、receiver routing 和 speaker selection 时，BORA 直接使用 upstream object，不复制第二份 Context。
 
-### 7.7. Tool、Hook 与 Guard
+### Tool、Hook 与 Guard
 
 `Tool` 是普通 callable 加上可选 metadata：
 
@@ -233,7 +233,7 @@ tools = ToolSet(
 
 这些对象保存在 Harness 进程内。每次调用只检查内存状态，不需要向宿主 Tool Service 请求许可。
 
-### 7.8. Tool 上限的配置与执行
+### Tool 上限的配置与执行
 
 Tool 上限的声明链路固定为：
 
@@ -280,7 +280,7 @@ limits:
 
 它们来自同一个配置文件，不需要共用同一种执行机制。
 
-### 7.9. Workflow helpers
+### Workflow helpers
 
 Python 已经提供循环、条件、异常、generator 和 `asyncio`。Harness Core 只补少量无 authority 的 helper：
 
@@ -297,7 +297,7 @@ valid = collect_results(results, predicate=lambda item: item.ok)
 
 这些函数不创建 Trial、后台 worker 或 durable scheduler。Campaign concurrency、Provider capacity 和 Harness 内 fan-out 属于不同层级。
 
-### 7.10. Upstream bridge
+### Upstream bridge
 
 转换已有 Framework 时，优先使用 callback bridge：
 

@@ -8,7 +8,7 @@
 
 ---
 
-## 19. Owner 矩阵
+## Owner 矩阵
 
 | 行为 | `bora.yaml` | Config Core | `harness.py` / upstream | Harness Core | Runtime Core |
 | --- | --- | --- | --- | --- | --- |
@@ -27,7 +27,7 @@
 | wall time、memory、process | 声明 | 校验范围 | 可提前停止 | RunScope | 最终强制 |
 | evaluator verdict | 声明入口和输入 | 校验引用 | 不发布 verdict | 无 | clean runtime 和结果绑定 |
 
-## 20. 决策检查表
+## 决策检查表
 
 新增能力前按顺序检查：
 
@@ -40,7 +40,7 @@
 7. 能否用普通 callable 或已有 Capability 完成？可以则不新增 Adapter；内部是否使用 Port 由实现决定。
 8. 真实 journey + negative evaluator、fail-closed + cleanup、Adapter 第二领域三道门是否有证据？缺少哪一道，就不能宣称转换或通用能力完成。
 
-## 21. 最终结构
+## 最终结构
 
 ```text
 bora.yaml
@@ -78,7 +78,7 @@ bora.yaml
   → flat Result + cleanup warning
 ```
 
-## 22. 相关资料
+## 相关资料
 
 历史讨论与外部参考（保留标题，便于追溯；**不构成**本仓设计权威）：
 

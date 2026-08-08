@@ -3,7 +3,7 @@
 | 字段 | 值 |
 | --- | --- |
 | 父索引 | [05-runtime/README.md](README.md) |
-| 章节锚点 | 原 design §8.10；与 [02](../02-task-package-and-config.md) Suite 轴交叉 |
+| 交叉 | Suite 轴见 [02](../02-task-package-and-config.md) |
 
 ---
 
