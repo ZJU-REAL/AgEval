@@ -67,7 +67,7 @@ provider:
   assurance: l0             # docker L1 packages use assurance: l1 intent
 
 agent_profiles:
-  # Coding agents (Spec 19): executor: acp + options.entry — NOT executor: codex|pi|…
+  # Coding agents (ACP Target): executor: acp + options.entry — NOT executor: codex|pi|…
   - id: opencode-acp
     executor: acp
     model: entry-default    # or a provider-qualified model id

@@ -62,7 +62,7 @@ uv run bora executors -v   # + tools/session/stream; .acp_entries[] for ACP
 ```
 
 - **`.supported`**: kinds valid for yaml `executor:` (this BORA install).
-- **Coding agents (Spec 19 Target):** `executor: acp` + `options.entry`.
+- **Coding agents (ACP Target):** `executor: acp` + `options.entry`.
 - **HTTP agents:** e.g. `executor: openai-http` (+ optional `base_url` / `api_key` locator).
 - Unknown kind fails at lock (`unsupported_capability`).
 - Private CLI kinds (`codex` / `pi` / `opencode` / `claude-code` as **executor**) are **removed**; use ACP entry ids instead.
@@ -132,4 +132,4 @@ agent_profiles:
     api_key: zhipu_coding_api_key
 ```
 
-Design: `docs/design/02-task-package-and-config.md`, Spec 19 / ACP constitution.
+Design: `docs/design/02-task-package-and-config.md`, docs/design/05 §8.4.3a.

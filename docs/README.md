@@ -2,7 +2,7 @@
 
 ## 权威角色
 
-本目录是 BORA **产品与技术设计的权威来源**（自包含）。实现、Roadmap、Active Spec 与代码均应对齐这里；冲突时**先改 `docs/`**，再同步下游。
+本目录是 BORA **产品与技术设计的权威来源**（自包含）。实现、Issues、代码与读者向文档均应对齐这里；冲突时**先改 `docs/`**，再同步下游。
 
 | 问题 | 归属 |
 | --- | --- |
@@ -11,21 +11,20 @@
 | 术语 | [glossary.md](glossary.md) |
 | 当前/目标代码结构、依赖、生命周期地图 | [../ARCHITECTURE.md](../ARCHITECTURE.md)（**结构权威**；不重复设计长文） |
 | Agent 交付路由、红线、校验 | [../AGENTS.md](../AGENTS.md) |
-| Specs 局部政策 | [../specs/AGENTS.md](../specs/AGENTS.md) |
-| 按 Core 的交付顺序与验收 | [../specs/ROADMAP.md](../specs/ROADMAP.md) |
-| 实现期用户指定的绑定决策 | `specs/constitution/`（**仅在你明确要求时新增**） |
+| 增量交付与验收跟踪 | [GitHub Issues](https://github.com/ffy6511/BORA/issues) |
+| 读者向「怎么用」 | [../website/](../website/)（**非**设计权威；与本文冲突以本文为准） |
 
-### 与 Spec-Driven Delivery 的分工
+### 与 website / 交付跟踪的分工
 
-| SDD 工件 | 本仓位置 | 说明 |
+| 工件 | 本仓位置 | 说明 |
 | --- | --- | --- |
-| 产品/设计规格 | **本目录** | 设计已定稿；日常不维护 vault |
+| 产品/设计规格 | **本目录** | 机制与红线权威；自包含 |
 | 结构地图 | `ARCHITECTURE.md` | current vs target、所有权、依赖 |
-| 版本结果 | `specs/ROADMAP.md` | Core 表面 + `v0.x` 索引 |
-| 实现增量 | `specs/active/` | 竖切 Spec |
-| 可选绑定决策 | `specs/constitution/` | 默认空 |
-| 通用模板/清单 | `$spec-driven-delivery` skill | 不复制进本仓 |
+| 增量与验收 | GitHub Issues | 日常推进主轨道 |
+| 读者向产品文档 | `website/` | 从本目录**提炼重写**；禁止整页镜像 |
+| SPA / 服务开发细节 | `apps/*`、`services/*` README | 非产品教程主入口 |
 
+**不再**维护 `specs/`（Active Spec / ROADMAP / constitution）。历史见 Git。  
 **不再**把 Obsidian vault 总文档当作日常权威。`docs/design/` 已完整迁入；vault 仅历史备份（见 `reference/`）。
 
 ## 设计文档目录（请按序阅读）
@@ -50,7 +49,7 @@
 
 历史长文：`ob-notes/inbox/BORA-v2/BORA 统一配置与动态 Harness 设计.md`（§0–§22）。
 
-**本仓 `docs/design/` 承载同一套技术设计**，并作为后续 SDD / Spec 的**唯一设计维护面**。
+**本仓 `docs/design/` 承载同一套技术设计**，并作为机制规格的**唯一设计维护面**。
 
 ### 有意保留的非语义差异
 
@@ -63,18 +62,18 @@
 
 除上表外，机制、红线、Core 边界、配置形状、Runtime/插件模型按 **docs ≡ vault 技术内容** 使用。
 
-### 防漂移规则（后续 SDD）
+### 防漂移规则
 
-1. 改设计只改 `docs/design/`（及必要时 PRD/glossary），再同步 Architecture / Roadmap / Active Spec。  
-2. Active Spec **只链接** design 精确标题，不复制大段设计正文。  
-3. 不以 vault 为日常编辑面。若对照发现不一致：**以 docs 为准**，或明确 PR 把 vault 某段合并进 docs 后再实现。  
-4. 新增机制必须先有 design 段落，再写 Spec / 编码。  
+1. 改设计只改 `docs/design/`（及必要时 PRD/glossary），再同步 Architecture、Issues、代码与 website。  
+2. Issue 与 website **链接** design 精确标题，不复制大段设计正文。  
+3. 不以 vault 为日常编辑面。若对照发现不一致：**以 docs 为准**。  
+4. 新增机制必须先有 design 段落，再开 Issue / 编码。  
 
 ## 同步规则
 
-- 改设计 → 更新对应 `design/*`（及必要时 PRD/glossary）→ 再改 Architecture / Roadmap / Active Spec / 代码。  
-- Active Spec **链接** design 精确章节，不复制长文。  
-- Constitution **不**承载完整设计；只记录实现过程中你点名要固化的决策。  
+- 改设计 → 更新对应 `design/*`（及必要时 PRD/glossary）→ 再改 Architecture / 代码 / website 相关页。  
+- 用户点名的绑定决策 → 写入相关 `docs/design/*` 小节（或 AGENTS 红线），**不**另起 constitution 目录。  
+- 读者向用法 → `website/`；SPA 开发细节 → `apps/*` README。  
 
 ## 可选：vault 备份软链接
 

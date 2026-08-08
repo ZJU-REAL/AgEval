@@ -14,4 +14,4 @@
 | Export fails `secret_residual` | Fix source evidence; do not strip secrets by hand in export dir |
 | Docker L1 ERROR | Docker daemon, image build, network/creds projection; read `l1.json` / agent meta under logs |
 
-Design: `docs/design/05-runtime-core.md`, `docs/design/07-budget-evaluation-failure.md`, Spec 19.
+Design: `docs/design/05-runtime-core.md`, `docs/design/07-budget-evaluation-failure.md`.

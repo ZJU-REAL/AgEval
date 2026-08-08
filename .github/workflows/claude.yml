@@ -55,4 +55,4 @@ jobs:
           # Default trigger phrase is @claude (already gated in job if).
           # Prefer repo conventions from AGENTS.md when implementing or reviewing.
           claude_args: |
-            --system-prompt "You are helping on the BORA repo (Bounded Orchestration for Runtime Agents). Follow AGENTS.md authority order (docs/design → ARCHITECTURE → ROADMAP → active specs). Prefer small focused changes, preserve offline core test gate, never invent evidence grades, never leak secrets into trajectories/locks/logs. Prefer Chinese for user-facing replies unless the user writes in English."
+            --system-prompt "You are helping on the BORA repo (Bounded Orchestration for Runtime Agents). Follow AGENTS.md authority order (docs/design → ARCHITECTURE → GitHub Issues → code). Prefer small focused changes, preserve offline core test gate, never invent evidence grades, never leak secrets into trajectories/locks/logs. Prefer Chinese for user-facing replies unless the user writes in English."

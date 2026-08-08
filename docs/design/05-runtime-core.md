@@ -69,7 +69,7 @@ L1 多 Actor 的最终调用面与 L0 一致：Harness 通过 `Agent.session(pro
 
 `shared-container` 为各 actor 分配不同 numeric UID 与私有 HOME；同 group 只有显式 `shared_write` 可经 shared GID 写入。`container-per-group` 为每个 group 建立独立 container，单 actor group 即 per-agent container，v1 不提供跨 container 共享可写 volume。SDK 经 worker-local scoped channel 把 open/invoke/close 交给 ParentAgentService；父侧校验 actor/profile 绑定、执行前 hard ceiling 与 credential projection，再要求 Provider 在已绑定 target 中以对应 UID/GID 执行。target 创建失败、unknown actor、profile 越权、credential 缺失、relay 中断、generation 不匹配或容器内 executor 不可用均 fail closed，禁止改走 host CLI。
 
-Loop 中间文本和结构化上下文由 Harness memory 保存并拼入下一轮 prompt，Core 不感知。`shared_write` 只覆盖同容器显式文件协作；跨容器物理 handoff 延后到 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2)，终局产物继续使用 `publish_*`。绑定决策见 [L1 多 Agent Docker 隔离与 SDK 调度面](../../specs/constitution/2026-08-04-l1-multi-agent-docker-isolation.md)。
+Loop 中间文本和结构化上下文由 Harness memory 保存并拼入下一轮 prompt，Core 不感知。`shared_write` 只覆盖同容器显式文件协作；跨容器物理 handoff 延后到 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2)，终局产物继续使用 `publish_*`。绑定约束见本节与 [AGENTS.md](../../AGENTS.md)「L1 多 Agent 调度」。
 
 所有 Agent 使用同一个 Attempt volume 只有在配置明确授予相同 WorkspaceView 时才成立。不同 Agent 需要不同可见性时，Provider 使用独立 mount、PathGrant 或 OS permission。Actor 名称本身不会产生隔离。
 
@@ -145,7 +145,7 @@ parameters:
 
 `load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`executor: acp` 必须有 registry 内 `options.entry`；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/entry/model/base_url/api_key(locator) 与 descriptor digest 的解析快照，进入 Trial identity / digest。
 
-> **Current residual：** 迁移完成前，仓库仍可能接受 `executor: codex|opencode|claude-code` 私有 CLI 路径；Target 与新 acceptance 以 `executor: acp` 为准（见 [Spec 19](../../specs/active/19-acp-agent-executor-plan.md) / [Issue #3](https://github.com/ffy6511/BORA/issues/3)）。
+> **Current residual：** 迁移完成前，仓库仍可能接受 `executor: codex|opencode|claude-code` 私有 CLI 路径；Target 与新 acceptance 以 `executor: acp` 为准（见 [Issue #3](https://github.com/ffy6511/BORA/issues/3)）。
 
 #### 8.4.3. Agent Service（Runtime）
 
@@ -183,7 +183,7 @@ Harness / Harness Core 的 `Agent(..., model_profile=params.planner_model)` **�
 1. **一个** BORA ACP client（parent process），出口恒为 `AgentResult` + §8.9 events。
 2. Vendor 差异只在 **entry descriptor**（Mode 1 官方 shim / Mode 2 原生 `acp` / Mode 3 厂商包）与 **镜像/host pin**，不在 BORA 内复制私有 stdout scrape。
 3. Host 与 L1 **共享** session/result mapper；L1 只做 placement（`docker exec -u/-w`、UID/GID、env）。缺 entry/engine → fail closed，**禁止**回退私有 CLI 或 host binary。
-4. L1 官方基座 **build 期 bake-in** 最低验收 entry 的 engine 与 ACP 入口（Mode 1 双装，含 **Pi：`pi` + `pi-acp`**）；见 [ACP constitution](../../specs/constitution/2026-08-04-acp-agent-executor-unification.md#l1-官方基座-bom必须-bake-in) 与 [Spec 19](../../specs/active/19-acp-agent-executor-plan.md)。
+4. L1 官方基座 **build 期 bake-in** 最低验收 entry 的 engine 与 ACP 入口（Mode 1 双装，含 **Pi：`pi` + `pi-acp`**）；见本节 L1 BOM 与 [Issue #3](https://github.com/ffy6511/BORA/issues/3)。
 5. `openai-http` 保持独立 `api-client`。Pi 的 Target 为 ACP entry（registry `pi-acp` / npm `pi-acp`），不是私有 `--mode json` scrape。
 6. ACP `end_turn` / 完整轨迹 **≠** PASS；PASS 仍仅独立 evaluator。
 
@@ -198,7 +198,7 @@ Harness / Harness Core 的 `Agent(..., model_profile=params.planner_model)` **�
 
 `session/request_permission` 的 approve 只是「允许 agent 继续该 tool」；Linux DAC 与容器 mount 仍是硬边界（non-root 无法写 root 私有目录）。Elicitation 默认 decline。
 
-实施与验收门禁以 Active Spec 19 为准；未完成迁移前 Current 代码可仍含 per-CLI parser，但不得再扩大第二套 container scrape。
+实施与验收以公开 smoke 与 Issues 为准；未完成迁移前 Current 代码可仍含 per-CLI parser，但不得再扩大第二套 container scrape。
 
 #### 8.4.4. 归一化 invoke 契约（跨后端）
 
@@ -515,7 +515,7 @@ BORA 的一次成功或失败 Attempt，必须在 filesystem evidence 根下留�
 
 #### 8.9.3. 最小目录契约（logical layout）
 
-路径名可在 Active Spec 中微调；**语义与所有权**固定：
+路径名可在实现中微调；**语义与所有权**固定：
 
 ```text
 .bora/runs/<run-or-attempt-id>/

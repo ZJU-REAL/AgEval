@@ -158,8 +158,10 @@ PASS 仍仅 per-task。可选 Registry 归档：`bora results upload-suite`（�
 | -------- | ------------------------------------------------------------ |
 | 设计     | [`docs/design/`](docs/design/)                               |
 | 结构     | [`ARCHITECTURE.md`](ARCHITECTURE.md)                         |
+| 产品文档 | [`website/`](website/) — 中/英读者向（非设计权威）            |
 | CLI      | [`src/bora/cli/README.md`](src/bora/cli/README.md)           |
-| Viewer   | [`apps/viewer/README.md`](apps/viewer/README.md) — 本机 Jobs → Trial |
-| Hub      | [`apps/hub/README.md`](apps/hub/README.md) — Registry Dataset 目录 / Leaderboard |
+| Viewer   | [`apps/viewer/README.md`](apps/viewer/README.md) — 本机 SPA 开发 |
+| Hub      | [`apps/hub/README.md`](apps/hub/README.md) — Registry SPA 开发 |
 | Registry | [`services/registry/README.md`](services/registry/README.md) |
+| Issues   | [GitHub Issues](https://github.com/ffy6511/BORA/issues)      |
 | 版本     | [Releases](https://github.com/ffy6511/BORA/releases)         |

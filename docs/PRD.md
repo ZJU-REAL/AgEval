@@ -71,4 +71,4 @@ BORA **统一**实验的准备、运行、评测、存证与清理；**不统一
 
 ## 8. 交付方式
 
-整体设计已定，**不按「探索式螺旋试错」规划版本**。Roadmap 以 **BORA Core / Harness Core** 表面为轴稳步推进；每项交付仍对应可验证的工程结果（见 [../specs/ROADMAP.md](../specs/ROADMAP.md)）。实现期若你指定新的绑定决策，再写入 `specs/constitution/`。
+整体设计已定，**不按「探索式螺旋试错」规划版本**。按 **BORA Core / Harness Core** 表面稳步推进；增量交付与验收跟踪在 [GitHub Issues](https://github.com/ffy6511/BORA/issues)。绑定决策写入 `docs/design/` 或根 [AGENTS.md](../AGENTS.md) 红线，不另起 Spec 工作区。

@@ -185,7 +185,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 1. **Package 必须提供 Dockerfile**，默认路径 **`environment/Dockerfile`**（相对 package 根）。可用 `provider.dockerfile` 覆盖为 package 内相对路径（仍须落在 package 内）。
 2. Dockerfile **不在 package 根**作为一级自由文件名推广；与 Environment / Provider 资产同属 `environment/`。
 3. 两种合法形态（均由 package Dockerfile 表达，不由 Core 代写）：
-   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用）。**Target：** 预装最低 ACP 验收 entry 的 **engine + ACP 入口**（Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；Mode 2：`opencode acp`；Mode 3：exact Grok pin）。**Current：** 可能仍只预装私有 CLI——迁移见 [Spec 19](../../specs/active/19-acp-agent-executor-plan.md)。
+   - **官方基座**：`FROM bora-attempt:l1`（仓库 `docker/attempt` 构建一次、多 package 复用）。**Target：** 预装最低 ACP 验收 entry 的 **engine + ACP 入口**（Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；Mode 2：`opencode acp`；Mode 3：exact Grok pin）。**Current：** 可能仍只预装私有 CLI——迁移进度见代码与 [Issue #3](https://github.com/ffy6511/BORA/issues/3)。
    - **上游基座**：`FROM <upstream>` 再按 **同一 pin lock** 安装所需 entry（禁止 floating `latest` / invoke 时 `npx`）。
 4. `load_and_lock`：docker 且 Dockerfile 缺失 → fail closed（`missing_reference`）。
 5. 镜像 **构建与 digest** 在 Attempt prepare 时发生；secret **不得** bake 进镜像层（credential 仅 run 时投影）。
@@ -274,7 +274,7 @@ provider:
         write: [/workspace/work]
 
 agent_profiles:
-  # profile = 可切换的 Agent 后端绑定；见 §8.4 / Spec 19
+  # profile = 可切换的 Agent 后端绑定；见 §8.4 / design/05 ACP inlet
   # Target: executor: acp + options.entry
   - id: codex-database-specialist
     executor: acp

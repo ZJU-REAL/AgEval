@@ -2,7 +2,7 @@
 name: bora-platform
 description: >
   BORA (Bounded Orchestration for Runtime Agents) platform map for coding agents:
-  authority order (docs/design vs ARCHITECTURE vs ROADMAP vs Specs), Core vs package
+  authority order (docs/design vs ARCHITECTURE vs GitHub Issues), Core vs package
   ownership, red lines (trajectory≠PASS, no secrets in lock/evidence, mechanism-named
   adapters only), evidence grades, and which sibling skill to load next. Use when an
   agent enters the BORA repo, needs orientation before changing code/packages, asks
@@ -18,9 +18,10 @@ Harness 的 Harness：Runtime 管边界（lock、Attempt、隔离、Capability�
 
 1. `docs/design/` — product + mechanism (primary)
 2. `ARCHITECTURE.md` — module ownership / dependency direction
-3. `specs/ROADMAP.md` — version acceptance (Version Index)
-4. `specs/active/*` — one implementable increment
-5. Code / tests / examples — evidence of what is shipped
+3. GitHub Issues — delivery tracking and acceptance
+4. Code / tests / examples — evidence of what is shipped
+
+`website/` is reader-facing only; conflict → fix `docs/` first.
 
 Conflict → stop; fix the highest authority artifact first, then sync downstream.
 
@@ -49,7 +50,7 @@ Conflict → stop; fix the highest authority artifact first, then sync downstrea
 | --- | --- |
 | `runnable-mvp` (L0) | Real public `bora run` + real Agent path (scoped journeys) |
 | `assurance:l1` | Measured Docker combo only (see Result.l1 / execution_location) |
-| `isolated` / `real-benchmark-verified` | Matching Roadmap acceptance — **not** inferred |
+| `isolated` / `real-benchmark-verified` | Matching acceptance evidence — **not** inferred |
 
 ## Route to sibling skills
 

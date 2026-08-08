@@ -4,8 +4,8 @@
 
 - **不**写产品长文、版本勾选清单、Phase 任务表。  
 - 产品与机制设计权威：[docs/](docs/README.md)（尤其 [docs/design/](docs/design/)）。  
-- 版本交付与验收：[specs/ROADMAP.md](specs/ROADMAP.md)。  
-- 实现增量与证据：[specs/active/](specs/active/)。
+- 增量交付与验收跟踪：[GitHub Issues](https://github.com/ffy6511/BORA/issues)。  
+- 读者向文档：[website/](website/)（非设计权威）。
 
 ## Document Status
 
@@ -17,7 +17,7 @@
 | 证据等级 | **限定 `runnable-mvp`**（L0 core/journeys 烟测；见 `examples/README.md`；Version Index 以 Roadmap 为准） |
 | 设计权威 | [docs/README.md](docs/README.md) |
 | 结构权威 | **本文**（模块/依赖/生命周期地图） |
-| 近端目标结构依据 | [docs/design/01](docs/design/01-bora-core.md)、[docs/design/09](docs/design/09-owner-matrix-and-structure.md)、[ROADMAP v0.1–v0.6](specs/ROADMAP.md) |
+| 近端目标结构依据 | [docs/design/01](docs/design/01-bora-core.md)、[docs/design/09](docs/design/09-owner-matrix-and-structure.md)、GitHub Issues |
 | 更新触发 | 见文末 [Change Ownership](#change-ownership) |
 
 **禁止**把下方 Target 树或流程图当作「已实现」。Current 与 Target 必须分开阅读。
@@ -68,30 +68,31 @@ Database root (bora.yaml / bora.database/1)
 
 | 项 | 值 |
 | --- | --- |
-| Public entrypoint | `bora lock` / `bora run` / `bora tasks` / `bora campaign`（CLI 已暴露；campaign/L1 草图边界见 Spec 07–11） |
+| Public entrypoint | `bora lock` / `bora run` / `bora tasks` / `bora campaign` / `bora view` 等（以 CLI 为准） |
 | Production composition root | `src/bora/application/composition.py` |
 | Smoke journey | `uv run bora lock examples/core --task config-minimal`（exit 0，确定性 JSON 摘要含 `database_id`） |
 | Expected failure | `uv run bora lock examples/core --task config-invalid`（exit 2，`unknown_profile`）；缺 `--task` → exit 2 |
 | Observable result | 无 secret 的 lock summary + digest；无 Run/Attempt/Agent/Evaluator |
 | Lifecycle checkpoint | `uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q` |
-| 证据等级 | **限定 `runnable-mvp`**（仅上述 L0 真实 Codex journeys；非 full Spec 闭合 / 非 Version Index） |
+| 证据等级 | **限定 `runnable-mvp`**（仅上述 L0 真实 journeys；不得从文档推导升级） |
 
-文档门禁仍须通过：
+文档变更建议：
 
 ```bash
-python3 "$HOME/.agents/skills/spec-driven-delivery/scripts/validate_specs_workspace.py" . --strict
+git diff --check
+# website 变更时：pnpm --dir website build
 ```
 
-### Target — 首条产品竖切（Roadmap `v0.6`，依赖 `v0.1`–`v0.5`）
+### Target — 首条产品竖切（历史 checkpoint；已交付路径）
 
 | 项 | 计划值 |
 | --- | --- |
-| Public entrypoint | `bora run <package> --task <id>`（精确 flags 由 Active Spec 冻结） |
+| Public entrypoint | `bora run <package> --task <id>`（精确 flags 以 CLI / 代码为准） |
 | Composition root | `src/bora/application/` 内 bootstrap（名称以实现为准） |
 | 最短路径 | CLI → application → load_and_lock → Attempt(L0 或当时已交付 Provider) → harness → Codex AgentExecutor → evaluator → Result + `.bora/runs/<run-id>/` |
 | 证据 | CLI 分离展示 runtime vs evaluation；evidence 目录可定位 |
 
-更早的中间可运行检查点（非完整竖切）由 Roadmap 标明，例如 `v0.1` 的 lock/inspect。
+更早的中间可运行检查点（如 lock-only）以代码与 examples 为准。
 
 ## Source Layout
 
@@ -141,13 +142,13 @@ BORA/
 │   ├── config/
 │   └── test_package_baseline.py
 ├── docs/                      # 设计权威（00–10）
-└── specs/                     # Roadmap / Active Specs / BLOCKED
+└── website/                   # 读者向文档站（Fumadocs；非设计权威）
 ```
 
 
 ### Target Source Layout（planned — 随 Core 交付出现）
 
-以下树是**接受的方向**，不是当前工作树。模块可在 Active Spec 中微调命名，但 **Core 所有权不得并入 Harness workflow 包**。
+以下树是**接受的方向**，不是当前工作树。模块命名可微调，但 **Core 所有权不得并入 Harness workflow 包**。
 
 ```text
 BORA/
@@ -170,7 +171,7 @@ BORA/
 ├── examples/                  # 仓库拥有的回归 package
 ├── tests/                     # unit / integration / opt-in e2e
 ├── docker/attempt/            # L1 基座：install-executors + acp-entries.lock（engine+ACP bake-in）
-└── （可选）benchmarks/ website/
+└── （可选）benchmarks/
 ```
 
 ### 生成物（非源码所有权）
@@ -199,7 +200,7 @@ BORA/
 | `examples/` | 可信回归 package | 声称支持完整 upstream suite |
 | `tests/` | 契约与回归证据 | 成为 production composition root |
 | `docs/` | 设计与产品规格 | 版本勾选状态、Phase 清单 |
-| `specs/` | Roadmap、Active Spec、Research、可选 constitution、BLOCKED | Runtime authority |
+| `website/` | 读者向产品文档（中/英）；不拥有设计真理 | 设计权威、Runtime |
 
 ## Dependency Direction
 
@@ -324,13 +325,13 @@ Fixture 与 mock 不得升级证据等级。
 
 | 变更类型 | 首先更新 | 同步 |
 | --- | --- | --- |
-| 顶层目录、模块所有权、import direction、composition root | **本文** | root/specs `AGENTS.md`、代码 |
-| 产品/机制设计、红线、Capability 契约语义 | `docs/design/*`（必要时 PRD） | 本文相关节、Roadmap、Active Spec |
-| 实现期用户点名绑定决策 | `specs/constitution/YYYY-MM-DD-*.md` | docs 链接、Spec |
-| 版本用户结果与验收勾选 | `specs/ROADMAP.md` | Active Spec、README |
-| 实现 delta、失败分支、文件列表、Phase 证据 | 所属 Active Spec | 代码、测试；末 Phase 同步本文/docs |
-| CLI 用户入口或公开支持范围 | `README.md` | Roadmap、docs 摘要 |
-| 执行期意外选择 | `specs/BLOCKED.md` | 若改权威则同步权威文件 |
+| 顶层目录、模块所有权、import direction、composition root | **本文** | 根 `AGENTS.md`、代码 |
+| 产品/机制设计、红线、Capability 契约语义 | `docs/design/*`（必要时 PRD） | 本文相关节、Issues、website 摘要 |
+| 实现期用户点名绑定决策 | 写入相关 `docs/design/*` 或 `AGENTS.md` 红线 | 代码、Issues |
+| 增量交付与验收跟踪 | GitHub Issues | PR、smoke、README 状态 |
+| 实现 delta 与证据 | 代码 / 测试 / 公开 smoke | Issues |
+| CLI 用户入口或公开支持范围 | `README.md` + `website/` | docs 摘要 |
+| 读者向用法（CLI / Viewer / Hub） | `website/` | 与 docs 冲突时以 docs 为准 |
 
 ## 与设计文档的分工
 

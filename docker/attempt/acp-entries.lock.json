@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source": "specs/active/19-acp-agent-executor-plan.md local decision 6 + Phase 4 BOM",
+  "source": "docs/design/05 ACP inlet + docker/attempt BOM pins",
   "python_sdk": {
     "package": "agent-client-protocol",
     "version": "0.12.0",

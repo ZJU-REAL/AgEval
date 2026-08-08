@@ -18,7 +18,7 @@ body:
       description: 可选。涉及机制时请指向 docs/design 或说明需先改设计。
       placeholder: |
         相关：docs/design/…
-        Active Spec / ROADMAP（如有）：
+        相关 Issue / docs/design 链接：
     validations:
       required: false
 
