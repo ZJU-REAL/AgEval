@@ -38,7 +38,7 @@ Stdout JSON (high level):
 - `logs` is absolute path to Attempt evidence root when available.
 - Per invocation (ACP path): `agent/invocations/<nnnn>-*/trajectory.jsonl` is **turn-level**
   (user + merged assistant/thought + terminal). Stream chunks are not the training default;
-  see `docs/design/05-runtime-core.md` §8.9.4a.
+  see `docs/design/05-runtime/evidence.md`.
 - Docker packages use L1 path when `provider.kind: docker` (ACP via parent client +
   `docker exec` placement for coding entries).
 

@@ -132,4 +132,4 @@ agent_profiles:
     api_key: zhipu_coding_api_key
 ```
 
-Design: `docs/design/02-task-package-and-config.md`, docs/design/05 §8.4.3a.
+Design: `docs/design/02-task-package-and-config.md`, `docs/design/05-runtime/agent-service.md`.
