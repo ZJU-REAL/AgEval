@@ -1,0 +1,55 @@
+---
+title: Package 布局
+description: Dataset 根与 task 成员目录、根 yaml 与成员 yaml 怎么分工。
+---
+
+## 两层
+
+| 层 | 文件 | 职责 |
+| --- | --- | --- |
+| Dataset | 根 `bora.yaml` | 套件身份、版本、成员在哪 |
+| Task | `tasks/<id>/task.yaml` | 这一题怎么跑、怎么评 |
+
+CLI 路径永远是 Dataset 根；`--task` 选成员。
+
+```text
+my-dataset/
+├── bora.yaml
+└── tasks/
+    └── hello/          # 目录名 == task_id
+        ├── task.yaml
+        ├── harness.py
+        ├── evaluator.py
+        ├── prompts/
+        ├── environment/
+        ├── evaluation/   # gold 等，默认不给 agent
+        ├── data/
+        └── lib/
+```
+
+成员一级目录只认：`prompts` · `schemas` · `environment` · `evaluation` · `data` · `lib` · `upstream` · `solution`。别的名字可能 lock 失败。
+
+## 根 `bora.yaml`
+
+```yaml
+format: bora.database/1
+database_id: org/my-suite    # 推荐 org/name；有字符集限制
+version: "0.1.0"
+tasks:
+  root: tasks
+# defaults:
+#   max_concurrent_tasks: 2   # 仅 suite 调度；不要写 harness/limits
+```
+
+`database_id`：1–128 字符，小写字母数字开头结尾，中间可有 `.` `_` `/` `-`，禁止 `..` 与 `//`。**不参与打分**。
+
+根上**不能**写 harness / provider / agent_profiles / evaluation。
+
+## 成员里 parameters vs 其它
+
+- **`parameters`**：给 harness（`ctx.params`）  
+- **provider / limits / agent_profiles / evaluation**：给 Runtime  
+
+Harness 不要再读第二份「真配置」。运行时改允许的项用 `--set`（[CLI](/docs/reference/cli)）。
+
+完整字段、profile 写法、lock 失败清单 → [配置字段](/docs/reference/config-fields)。

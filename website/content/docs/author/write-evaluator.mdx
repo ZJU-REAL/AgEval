@@ -1,0 +1,38 @@
+---
+title: 编写 Evaluator
+description: 独立打分；evaluation 块与 artifacts 怎么接。
+---
+
+Evaluator 只负责**算法与真值**，不启 agent、不持宿主密钥。PASS/FAIL 只能从这里来（再写进 Result）。
+
+## `task.yaml` 片段
+
+```yaml
+artifacts:
+  publishable:
+    - id: session-output
+      producer: harness
+      path: artifacts/session-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: session-output
+      target: artifacts/session-output.json
+    # gold 示例：
+    # - package_path: evaluation/gold.json
+    #   target: gold.json
+  output:
+    format: json
+```
+
+| 点 | 说明 |
+| --- | --- |
+| 屏障 | harness 结束后才 materialize 输入 |
+| gold | 放 `evaluation/`，不要指望「删 yaml 字段」当隔离 |
+| artifact id | 必须和 harness 实际写出的文件对上 |
+
+读结果时 runtime 与 evaluation 是分开的事实。见 [结果与 PASS](/docs/reference/results-and-pass)。

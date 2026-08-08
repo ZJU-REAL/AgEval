@@ -1,0 +1,42 @@
+---
+title: Config field reference
+description: bora.yaml / task.yaml field and validation cheat sheet.
+---
+
+Tutorial path: [Author a task](/docs/author/tutorial). This page is for lookup.
+
+## Root `bora.yaml`
+
+| Field | Rules |
+| --- | --- |
+| `format` | `bora.database/1` |
+| `database_id` | 1–128; charset `^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$`; no `..` / `//` |
+| `version` | Non-empty |
+| `tasks.root` | Default `tasks` |
+| `defaults` | Only `max_concurrent_tasks` (≥1) |
+| Forbidden | harness / provider / limits / evaluation / profiles |
+
+Empty suite fails lock.
+
+## Member `task.yaml`
+
+| Block | Notes |
+| --- | --- |
+| `format` | `bora.task/1` |
+| `task_id` | = dir name = `--task` |
+| `harness` | `runtime` + `entrypoint` |
+| `parameters` | For harness; common keys: `active_profile`, timeouts, `roles`, `seed` |
+| `provider` | `local` \| `docker` (+ Dockerfile) |
+| `agent_profiles` | ACP needs `options.entry`; `api_key` = env name |
+| `limits` | wall / invokes / env actions / memory |
+| `artifacts` | publishable id + path |
+| `evaluation` | entrypoint, network, inputs, output |
+| `provenance` | optional; member replaces root |
+
+## Allowed top-level dirs
+
+`prompts` · `schemas` · `environment` · `evaluation` · `data` · `lib` · `upstream` · `solution`
+
+## Common lock failures
+
+id mismatch · bad format · illegal database_id · docker without Dockerfile · missing ACP entry · secrets in yaml · illegal folders · empty suite

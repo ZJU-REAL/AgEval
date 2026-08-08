@@ -1,0 +1,41 @@
+---
+title: Run a single task
+description: Use --task, read the Result and logs path.
+---
+
+## Command
+
+```bash
+uv run bora run <dataset> --task <task_id>
+```
+
+Example:
+
+```bash
+uv run bora run examples/core --task sdk-agent-session
+```
+
+Config only, no agent:
+
+```bash
+uv run bora lock examples/core --task config-minimal
+```
+
+`--task` must match the member directory name and `task_id` in `task.yaml`.
+
+## What you get
+
+- A **Result** summary on the terminal  
+- A **`logs` path** for Attempt evidence  
+
+PASS / FAIL comes from the **independent evaluator**, not harness completion. See [Results and PASS](/docs/reference/results-and-pass).
+
+## Common failures
+
+| Symptom | Check |
+| --- | --- |
+| Lock fails | Config / ids / layout → [Config fields](/docs/reference/config-fields) |
+| Agent won’t start | `bora executors -v`, credentials → [ACP](/docs/agents/acp-profiles) |
+| Eval FAIL | Artifacts / evaluator inputs → [Write evaluator](/docs/author/write-evaluator) |
+
+Next: [Suite](/docs/run/suite) · [Switch agent](/docs/run/switch-agent) · [Viewer](/docs/run/local-viewer).

@@ -45,18 +45,20 @@ Open `http://localhost:3000`. Default locale is Simplified Chinese at `/zh-CN`; 
 - `content/docs/**/meta.json` — Chinese navigation
 - `content/docs/**/meta.en.json` — English navigation
 
-### First-version sections
+### Information architecture (job-oriented)
 
 ```text
 index
-get-started
-concepts/       # package, harness, isolation, PASS, evidence, ACP
-protocols/      # lifecycle, capability, ceilings
-operations/     # CLI, suite/campaign, viewer, hub+registry, evidence export
-developer/      # architecture map + contributing (Issues, not Specs)
+getting-started/   # 入门：install, first-run
+run/               # 运行：single-task, suite, switch-agent, campaign, viewer, export
+author/            # 编写 Dataset：tutorial, layout, harness, evaluator, docker, provenance
+agents/            # Agent 接入：acp-profiles, multi-agent, l1-docker
+share/             # 结果共享：registry, hub
+reference/         # 参考：cli, config-fields, results, examples
+contribute/        # 贡献：architecture, contributing
 ```
 
-Writing rules: rewrite for readers from `docs/`; never whole-page-mirror design files; keep evidence grades honest.
+Writing rules: usage-path IA with professional product tone; bilingual zh-CN / en; no whole-page mirror of `docs/design`.
 
 ## Design system
 

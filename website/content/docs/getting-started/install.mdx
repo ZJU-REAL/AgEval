@@ -1,0 +1,35 @@
+---
+title: 安装
+description: 使用 uv 安装 BORA CLI。
+---
+
+## 环境要求
+
+- [uv](https://docs.astral.sh/uv/)
+- CPython **3.12+**
+
+执行真实 coding agent 路径时，需要本机 ACP 入口与对应凭据。仅执行 `bora lock` 时不需要 agent。
+
+## 安装步骤
+
+```bash
+git clone https://github.com/ffy6511/BORA.git
+cd BORA
+uv sync --frozen --all-packages
+uv run bora -V
+```
+
+确认输出版本号后即可继续。
+
+## 可选：Coding agent Skills
+
+仓库 [`skills/`](https://github.com/ffy6511/BORA/tree/main/skills) 可通过 `.agents/skills` 被常见 coding agent 发现：
+
+| Skill | 用途 |
+| --- | --- |
+| `bora-platform` | 产品边界与文档路由 |
+| `bora-cli` | CLI 与失败解读 |
+| `bora-config-package` | Dataset / Task 配置 |
+| `bora-sdk-harness` | Harness SDK 编写 |
+
+下一步：[首次运行](/docs/getting-started/first-run)。

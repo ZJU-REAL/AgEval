@@ -1,0 +1,15 @@
+---
+title: Registry
+description: 把 Dataset 或 suite 结果放到共享服务（按已实现命令）。
+---
+
+Registry 是独立 HTTP 服务：发布包、读文件、存结果、登录等。  
+**不是**本机 Viewer。
+
+## 怎么用（直觉）
+
+1. 按仓库 [`services/registry/README.md`](https://github.com/ffy6511/BORA/blob/main/services/registry/README.md) 启动服务  
+2. 用 CLI 上传 / 列表（以 `bora --help` 与 registry 文档为准，例如 suite 结果上传）  
+3. 用 [Hub](/docs/share/hub) 在浏览器里浏览  
+
+公网是否开放、谁能上传，是运维策略，以当前部署与 Issues 为准。

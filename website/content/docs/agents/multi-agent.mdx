@@ -1,0 +1,31 @@
+---
+title: 多 Agent 与多角色
+description: 多个 profile、角色映射与 harness 调度。
+---
+
+一题里可以声明多个 `agent_profiles`，由 harness 按角色打开不同 session。
+
+```yaml
+parameters:
+  roles:
+    planner: planner-pi
+    worker: worker-codex
+
+agent_profiles:
+  - id: planner-pi
+    executor: acp
+    options:
+      entry: pi
+    model: …
+  - id: worker-codex
+    executor: acp
+    options:
+      entry: codex
+    model: …
+```
+
+- harness 负责**何时** invoke 谁；Core 负责边界与轨迹  
+- 每个 profile 的 invoke 会进各自证据；Viewer 可按 `profile_id` 分组  
+- L1 下还要声明 actor / 隔离组，见 [L1 Docker](/docs/agents/l1-docker)  
+
+可参考 `examples/journeys` 与 `examples/l1` 中的多角色包。

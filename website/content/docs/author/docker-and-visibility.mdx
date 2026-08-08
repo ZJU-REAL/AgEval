@@ -1,0 +1,31 @@
+---
+title: Docker 与可见性
+description: 何时用 docker、Dockerfile、agent 能看见什么。
+---
+
+## local 还是 docker
+
+```yaml
+provider:
+  kind: local    # 或 docker
+  assurance: l0  # docker 包常用 l1 意图
+```
+
+| 模式 | 适合 |
+| --- | --- |
+| `local` | 开发、多数 example |
+| `docker` | 需要容器边界 / L1 验收路径 |
+
+选 `docker` 时，成员下必须有 **`environment/Dockerfile`**（或 `provider.dockerfile`），否则 lock 失败。
+
+## 谁看得见什么
+
+| 目录 | 谁用 |
+| --- | --- |
+| `prompts/`、`data/` 等 | 业务 / 可能进 agent 视野 |
+| `evaluation/` | 只给评测（屏障后 materialize） |
+| `environment/` | seed、Dockerfile |
+
+真隔离靠 **不 mount + 评测前 materialize**，不是靠删配置字段。
+
+L1 多 actor、镜像 bake-in 见 [L1 Docker](/docs/agents/l1-docker)。

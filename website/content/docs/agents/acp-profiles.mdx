@@ -1,0 +1,42 @@
+---
+title: ACP Profiles
+description: "用 executor: acp + options.entry 接 coding agent。"
+---
+
+## 推荐配置
+
+```yaml
+agent_profiles:
+  - id: main
+    executor: acp
+    model: gpt-5.4-mini
+    options:
+      entry: codex
+    # api_key: MY_ENV_NAME
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `executor` | coding agent 用 `acp`（不要用已废弃的 `executor: codex` 等） |
+| `options.entry` | **必填**；本机可用 id 以 `bora executors -v` 为准 |
+| `model` | 交给该 entry 的模型 |
+| `api_key` | 可选；**环境变量名** |
+
+不要在 yaml 里写 command / version / install——版本钉在安装与镜像构建。
+
+## 本机就绪
+
+```bash
+uv run bora executors -v
+```
+
+看 `engine_ready` 与 `acp_entry_ready`。
+
+## 运行时切换
+
+```bash
+uv run bora run <dataset> --task <id> \
+  --set '/parameters/active_profile="main"'
+```
+
+父进程只维护**一个** ACP 客户端；各家协议翻译在 entry 进程外完成。操作向说明也见 [换 Agent](/docs/run/switch-agent)。

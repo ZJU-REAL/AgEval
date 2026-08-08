@@ -1,0 +1,21 @@
+---
+title: Run a Dataset suite
+description: Run every task in a Dataset; aggregates are not suite-level PASS.
+---
+
+Omit `--task` and `bora run` schedules **every** member — each locks, runs, and evaluates independently:
+
+```bash
+uv run bora run examples/core
+uv run bora run examples/core --max-concurrent-tasks 2
+```
+
+| Behavior | Notes |
+| --- | --- |
+| Concurrency | `--max-concurrent-tasks` or root `defaults.max_concurrent_tasks` |
+| PASS | **Per task** — no suite-level PASS authority |
+| Aggregates | `pass_rate` / `mean_score` are observational skim helpers |
+
+Unlike [Campaign](/docs/run/campaign): suite is the **task axis**; campaign sweeps **parameters on one task**.
+
+Runs land under `.bora/suite-runs/` — browse with [Viewer](/docs/run/local-viewer).

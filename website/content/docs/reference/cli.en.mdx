@@ -1,0 +1,33 @@
+---
+title: CLI reference
+description: Commands, --task, --set allowlist.
+---
+
+Trust `uv run bora --help`.
+
+```bash
+uv run bora tasks <dataset>
+uv run bora lock <dataset> --task <id>
+uv run bora run <dataset> --task <id>
+uv run bora run <dataset>
+uv run bora run <dataset> --max-concurrent-tasks 2
+uv run bora campaign <dataset> --task <id> ...
+uv run bora executors -v
+uv run bora evidence --help
+uv run bora view <dataset>
+```
+
+Path = Dataset root.
+
+## `--set`
+
+| Pointer | Meaning |
+| --- | --- |
+| `/parameters/seed` | Seed etc. |
+| `/parameters/active_profile` | Profile id |
+| `/limits/wall_time_seconds` | Wall clock |
+| `/limits/agent_invocations` | Agent invoke ceiling |
+| `/limits/environment_actions` | Env action ceiling |
+| `/limits/memory_mb` | Memory ceiling |
+
+Anything else fails at lock.

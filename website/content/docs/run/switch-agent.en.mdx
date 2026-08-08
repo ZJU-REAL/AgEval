@@ -1,0 +1,45 @@
+---
+title: Switch agent and model
+description: Swap coding-agent entries with profiles and --set.
+---
+
+One task can declare several `agent_profiles` and pick which to use at run time.
+
+## What’s on this host?
+
+```bash
+uv run bora executors -v
+```
+
+Check `engine_ready` / `acp_entry_ready` per ACP entry.
+
+## Declare in config
+
+```yaml
+parameters:
+  active_profile: codex-mini
+
+agent_profiles:
+  - id: codex-mini
+    executor: acp
+    model: gpt-5.4-mini
+    options:
+      entry: codex
+  - id: pi-mini
+    executor: acp
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key
+    options:
+      entry: pi
+```
+
+## Temporary switch
+
+```bash
+uv run bora run examples/core --task builtin-executor-conformance \
+  --set '/parameters/active_profile="pi-mini"'
+```
+
+Only allowlisted `--set` pointers work — see [CLI](/docs/reference/cli).
+
+`api_key` is always an env **name**, never the secret. More: [ACP profiles](/docs/agents/acp-profiles).

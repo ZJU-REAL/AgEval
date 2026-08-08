@@ -1,0 +1,31 @@
+---
+title: Local results viewer
+description: Browse suite runs in the browser — no Registry.
+---
+
+After runs land under `.bora/suite-runs/`, use Viewer for scores, trajectories, and copyable commands.
+
+## Open
+
+```bash
+cd apps/viewer && pnpm install && pnpm build && cd ../..
+uv run bora view examples/core
+# or
+uv run bora view examples/core --no-browser --port 8765
+```
+
+Serves `apps/viewer/dist/`. Change `--port` if needed.
+
+## Layout
+
+**Jobs → Tasks → Attempt**
+
+| Layer | Content |
+| --- | --- |
+| Jobs | Local suite runs |
+| Tasks | Per-task status / score |
+| Attempt | Outcome, actors, evidence tabs |
+
+Time / tokens are **hints**, not PASS. Trajectory is not scoring authority.
+
+Viewer does **not** talk to Registry — see [Hub](/docs/share/hub). SPA details: `apps/viewer/README.md`.

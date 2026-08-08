@@ -1,0 +1,41 @@
+---
+title: 运行单个 Task
+description: 指定 --task，读 Result 和 logs。
+---
+
+## 命令
+
+```bash
+uv run bora run <dataset> --task <task_id>
+```
+
+例子：
+
+```bash
+uv run bora run examples/core --task sdk-agent-session
+```
+
+只检查配置、不跑 agent：
+
+```bash
+uv run bora lock examples/core --task config-minimal
+```
+
+`--task` 必须等于成员目录名和 `task.yaml` 里的 `task_id`。
+
+## 跑完你会看到什么
+
+- 终端里的 **Result 摘要**（状态、分数相关字段、错误信息）  
+- **`logs` 路径**：这次 Attempt 的证据目录  
+
+PASS / FAIL 来自**独立评测**，不是 harness「跑完了」。更细的读法见 [结果与 PASS](/docs/reference/results-and-pass)。
+
+## 常见失败
+
+| 现象 | 先查 |
+| --- | --- |
+| lock 失败 | 配置 / `task_id` / 目录约定 → [配置字段](/docs/reference/config-fields) |
+| agent 起不来 | `bora executors -v`、凭据 → [ACP](/docs/agents/acp-profiles) |
+| 评测 FAIL | artifacts 是否写出、evaluator 输入 → [写 evaluator](/docs/author/write-evaluator) |
+
+下一步：[整包 suite](/docs/run/suite) · [换 agent](/docs/run/switch-agent) · [本机 Viewer](/docs/run/local-viewer)。

@@ -1,0 +1,35 @@
+---
+title: Write an evaluator
+description: Independent scoring; wire evaluation inputs to artifacts.
+---
+
+The evaluator owns **scoring and truth** — no agent start, no host secrets. PASS/FAIL comes only from here (then the Result).
+
+## Config snippet
+
+```yaml
+artifacts:
+  publishable:
+    - id: session-output
+      producer: harness
+      path: artifacts/session-output.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: session-output
+      target: artifacts/session-output.json
+  output:
+    format: json
+```
+
+| Point | Note |
+| --- | --- |
+| Barrier | Inputs materialize after harness ends |
+| Gold | Under `evaluation/`; omitting yaml paths ≠ isolation |
+| Artifact ids | Must match files the harness actually writes |
+
+Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).

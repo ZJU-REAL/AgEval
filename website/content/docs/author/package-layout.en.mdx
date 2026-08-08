@@ -1,0 +1,52 @@
+---
+title: Package layout
+description: Dataset root vs task members; how the two yamls split work.
+---
+
+## Two layers
+
+| Layer | File | Owns |
+| --- | --- | --- |
+| Dataset | Root `bora.yaml` | Suite identity, version, member root |
+| Task | `tasks/<id>/task.yaml` | How this task runs and is scored |
+
+CLI path is always the Dataset root; `--task` selects a member.
+
+```text
+my-dataset/
+├── bora.yaml
+└── tasks/
+    └── hello/
+        ├── task.yaml
+        ├── harness.py
+        ├── evaluator.py
+        ├── prompts/
+        ├── environment/
+        ├── evaluation/
+        ├── data/
+        └── lib/
+```
+
+Allowed top-level dirs: `prompts`, `schemas`, `environment`, `evaluation`, `data`, `lib`, `upstream`, `solution`.
+
+## Root `bora.yaml`
+
+```yaml
+format: bora.database/1
+database_id: org/my-suite
+version: "0.1.0"
+tasks:
+  root: tasks
+```
+
+`database_id` has a strict charset; it is **not** part of scoring.  
+Do **not** put harness / provider / profiles / evaluation on the root.
+
+## parameters vs envelope
+
+- **`parameters`** → harness (`ctx.params`)  
+- **provider / limits / profiles / evaluation** → Runtime  
+
+No second config truth in harness. Runtime knobs: `--set` ([CLI](/docs/reference/cli)).
+
+Full map: [Config fields](/docs/reference/config-fields).

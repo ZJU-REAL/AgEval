@@ -1,0 +1,31 @@
+---
+title: Docker and visibility
+description: When to use docker, Dockerfile, what the agent can see.
+---
+
+## local vs docker
+
+```yaml
+provider:
+  kind: local    # or docker
+  assurance: l0
+```
+
+| Mode | Fit |
+| --- | --- |
+| `local` | Dev and most examples |
+| `docker` | Container boundary / L1 paths |
+
+`docker` requires **`environment/Dockerfile`** (or `provider.dockerfile`) or lock fails.
+
+## Visibility
+
+| Path | Who |
+| --- | --- |
+| `prompts/`, `data/`, … | Business / maybe agent-visible |
+| `evaluation/` | Evaluator only (after barrier) |
+| `environment/` | Seeds, Dockerfile |
+
+Real isolation is **unmounted + barrier materialize**, not deleted yaml fields.
+
+Multi-actor L1: [L1 Docker](/docs/agents/l1-docker).

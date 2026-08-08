@@ -1,0 +1,45 @@
+---
+title: 切换 Agent 与模型
+description: 用 profile 和 --set 切换 coding-agent 入口。
+---
+
+同一题可以声明多个 `agent_profiles`，运行时换「用谁」。
+
+## 先看本机有什么
+
+```bash
+uv run bora executors -v
+```
+
+关注 ACP entry 的 `engine_ready` / `acp_entry_ready`。yaml 写对了但本机没装，照样跑不起来。
+
+## 配置里声明
+
+```yaml
+parameters:
+  active_profile: codex-mini
+
+agent_profiles:
+  - id: codex-mini
+    executor: acp
+    model: gpt-5.4-mini
+    options:
+      entry: codex
+  - id: pi-mini
+    executor: acp
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key   # 环境变量名
+    options:
+      entry: pi
+```
+
+## 临时切换（不用改文件）
+
+```bash
+uv run bora run examples/core --task builtin-executor-conformance \
+  --set '/parameters/active_profile="pi-mini"'
+```
+
+`--set` 只允许白名单指针；完整列表见 [CLI](/docs/reference/cli)。
+
+`api_key` 永远写**环境变量名**，不要写密钥本身。更多 profile 规则见 [ACP profiles](/docs/agents/acp-profiles)。

@@ -1,0 +1,24 @@
+---
+title: 编写 Harness
+description: 业务 loop 写在 package 里；用 SDK 调 agent。
+---
+
+Harness（常见 `harness.py`）决定这一题**怎么走流程**：多轮对话、角色、本地工具、把产物写到声明路径。
+
+| 你负责 | 不要做 |
+| --- | --- |
+| loop、角色、handoff、本地 Tool | 最终 PASS、宿主凭据、自己提隔离 |
+| 经 SDK `session` / `invoke` | 把某家 coding-agent 私有 SDK 当 Core |
+
+## 和配置的衔接
+
+- `harness.entrypoint` 指向 `模块:函数`（如 `harness:run`）  
+- `parameters` 在代码里是 `ctx.params`  
+- `agent_profiles` 非空时才会走 Agent 路径；空列表 = 纯 harness  
+- 产物路径与 `artifacts.publishable` 对齐，评测才能接到  
+
+## 硬规则
+
+`HarnessTerminal.completed` **不等于** PASS。分数在 [写 evaluator](/docs/author/write-evaluator)。
+
+动手可参考 skill `bora-sdk-harness` 与 `examples/core` 里带 SDK 的 task。

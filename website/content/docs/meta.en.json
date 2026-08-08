@@ -1,4 +1,13 @@
 {
   "title": "BORA Docs",
-  "pages": ["index", "get-started", "concepts", "protocols", "operations", "developer"]
+  "pages": [
+    "index",
+    "getting-started",
+    "run",
+    "author",
+    "agents",
+    "share",
+    "reference",
+    "contribute"
+  ]
 }

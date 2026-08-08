@@ -1,36 +1,21 @@
 ---
 title: What is BORA
-description: Bounded Orchestration for Runtime Agents — an outer boundary for agent evaluation.
+description: An outer runtime boundary for reproducible agent evaluation.
 icon: BookOpen
 ---
 
-## In one line
+Agent evaluation often focuses on model scores while orchestration, visibility, and scoring authority stay in vendor-specific stacks. Changing the coding agent or execution environment makes results and trajectories hard to compare.
 
-**BORA** locks Dataset config, runs bounded Attempts, projects what the agent can see, and lets an **independent evaluator** own the score.
+**BORA** (Bounded Orchestration for Runtime Agents) provides that outer boundary: lock Dataset configuration, run a bounded Attempt, control visibility, and let an **independent evaluator** produce the result. Trajectories support inspection and analysis; they are **not** scoring authority.
 
-Many agent benchmarks score the model and leave harness concerns—orchestration, isolation, visibility, evaluation barriers—to private stacks. Swap the coding agent or isolation mode and scores stop lining up. BORA is that outer boundary.
+## Where to go
 
-## What you can do
-
-- Run examples or your own Dataset with `bora lock` / `bora run`
-- Switch Codex / Claude / Pi / OpenCode via **ACP** without a per-vendor scraper in Core
-- Browse local suite runs and trajectories with `bora view`
-- Optionally upload results to the Registry and browse them in Hub
-
-## What this site is not
-
-| This site | Repository authority |
+| Goal | Docs |
 | --- | --- |
-| Reader-facing how-to | `docs/design/` mechanism design |
-| Product surface guide | `ARCHITECTURE.md` module map |
-| — | GitHub Issues for delivery |
+| Install and complete a first run | [Install](/docs/getting-started/install) → [First run](/docs/getting-started/first-run) |
+| Run existing Datasets / Tasks | [Run](/docs/run/single-task) |
+| Author or modify a Dataset | [Task authoring tutorial](/docs/author/tutorial) |
+| Connect coding agents via ACP | [ACP profiles](/docs/agents/acp-profiles) |
+| Look up commands and config fields | [CLI reference](/docs/reference/cli) · [Config field reference](/docs/reference/config-fields) |
 
-For mechanism detail, return to [`docs/design/`](https://github.com/ffy6511/BORA/tree/main/docs/design).  
-**Having a docs site does not upgrade evidence grades.**
-
-## Suggested order
-
-1. [Get started](/docs/get-started)
-2. [Dataset and Task](/docs/concepts/package-and-task)
-3. [Evaluation and PASS](/docs/concepts/evaluation-and-pass)
-4. [CLI](/docs/operations/cli) · [Viewer](/docs/operations/viewer) · [Hub](/docs/operations/hub-and-registry)
+Mechanism design lives under [`docs/design/`](https://github.com/ffy6511/BORA/tree/main/docs/design). This site is organized by usage path.

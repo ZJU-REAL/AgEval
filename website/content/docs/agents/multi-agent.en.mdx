@@ -1,0 +1,31 @@
+---
+title: Multi-agent and multi-role
+description: Several profiles, role maps, harness scheduling.
+---
+
+A task can declare multiple `agent_profiles`; the harness opens sessions per role.
+
+```yaml
+parameters:
+  roles:
+    planner: planner-pi
+    worker: worker-codex
+
+agent_profiles:
+  - id: planner-pi
+    executor: acp
+    options:
+      entry: pi
+    model: …
+  - id: worker-codex
+    executor: acp
+    options:
+      entry: codex
+    model: …
+```
+
+- Harness decides **when** to invoke whom; Core owns bounds and trajectory  
+- Per-profile invokes land in evidence; Viewer groups by `profile_id`  
+- L1 also needs actors / isolation groups → [L1 Docker](/docs/agents/l1-docker)  
+
+See multi-role packages under `examples/journeys` and `examples/l1`.

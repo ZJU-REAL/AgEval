@@ -1,0 +1,33 @@
+---
+title: 本地结果查看器
+description: 浏览器里翻 suite 跑次，不连 Registry。
+---
+
+跑完 suite 或单题后，想对照分数、点开轨迹、复制命令——用 Viewer。它读 Dataset 下的 `.bora/suite-runs/`。
+
+## 打开
+
+```bash
+# 首次构建前端
+cd apps/viewer && pnpm install && pnpm build && cd ../..
+
+uv run bora view examples/core
+# 或
+uv run bora view examples/core --no-browser --port 8765
+```
+
+服务的是 `apps/viewer/dist/`。端口占用就换 `--port`。
+
+## 界面结构
+
+**Jobs → Tasks → Attempt**
+
+| 层 | 内容 |
+| --- | --- |
+| Jobs | 本地 suite 跑次 |
+| Tasks | 每题状态 / 分数 |
+| Attempt | 结果条、角色、证据页签（Trajectory / Agent / …） |
+
+耗时和 token **只是参考**，不是 PASS。轨迹也不是评分依据。
+
+Viewer **不连** Registry。远程目录见 [Hub](/docs/share/hub)。改 SPA 看仓库 `apps/viewer/README.md`。

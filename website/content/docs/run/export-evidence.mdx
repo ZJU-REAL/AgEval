@@ -1,0 +1,12 @@
+---
+title: 导出证据
+description: 把 Attempt 材料打包带走。
+---
+
+证据默认已在 Attempt 目录。需要拷给别人或接训练管线时：
+
+```bash
+uv run bora evidence --help
+```
+
+导出同样不能夹带 secret；轨迹**不能**当 PASS。随手翻看优先用 [Viewer](/docs/run/local-viewer)。

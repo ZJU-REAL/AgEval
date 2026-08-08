@@ -1,0 +1,54 @@
+---
+title: 配置字段参考
+description: bora.yaml / task.yaml 字段与校验要点速查。
+---
+
+主路径教程见 [Task 编写教程](/docs/author/tutorial)。本页用于字段速查。
+
+## 根 `bora.yaml`
+
+| 字段 | 规则 |
+| --- | --- |
+| `format` | `bora.database/1` |
+| `database_id` | 1–128；`^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$`；禁 `..` / `//`；推荐 `org/name` |
+| `version` | 非空 |
+| `tasks.root` | 默认 `tasks` |
+| `defaults` | 仅 `max_concurrent_tasks`（≥1） |
+| 禁止 | harness / provider / limits / evaluation / agent_profiles |
+
+空 suite → lock 失败。
+
+## 成员 `task.yaml`
+
+| 区块 | 要点 |
+| --- | --- |
+| `format` | `bora.task/1` |
+| `task_id` | = 目录名 = `--task` |
+| `harness` | `runtime` + `entrypoint`（`模块:函数`） |
+| `parameters` | 给 harness；常见 `active_profile`、`harness_timeout_seconds`、`roles`、`seed`、`environment_resource` |
+| `provider` | `kind: local\|docker`；docker 要 `environment/Dockerfile` |
+| `agent_profiles` | `{id, executor, model, …}`；ACP 必填 `options.entry`；`api_key` 只写环境变量名 |
+| `limits` | wall / agent_invocations / environment_actions / memory_mb |
+| `artifacts.publishable` | id + path + producer |
+| `evaluation` | entrypoint、network、inputs、output.format |
+| `provenance` | 可选；成员整块替换根默认 |
+
+## 成员一级目录白名单
+
+`prompts` · `schemas` · `environment` · `evaluation` · `data` · `lib` · `upstream` · `solution`
+
+## ACP profile 片段
+
+```yaml
+- id: main
+  executor: acp
+  model: gpt-5.4-mini
+  options:
+    entry: codex
+```
+
+`bora executors -v` 查 entry 与就绪状态。
+
+## lock 常见失败
+
+task_id 不一致 · format 错 · database_id 非法 · docker 无 Dockerfile · ACP 缺 entry · 密钥写进 yaml · 非法一级目录 · 空 suite

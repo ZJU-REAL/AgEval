@@ -1,0 +1,35 @@
+---
+title: CLI 参考
+description: 命令、--task、--set 白名单。
+---
+
+以本机 `uv run bora --help` 为准。
+
+```bash
+uv run bora tasks <dataset>
+uv run bora lock <dataset> --task <id>
+uv run bora run <dataset> --task <id>
+uv run bora run <dataset>                         # suite
+uv run bora run <dataset> --max-concurrent-tasks 2
+uv run bora campaign <dataset> --task <id> ...
+uv run bora executors -v
+uv run bora evidence --help
+uv run bora view <dataset>
+```
+
+路径 = Dataset 根（含 `bora.yaml`）。
+
+## `--set`
+
+格式：`<JSON Pointer>=<JSON 值>`，可重复。
+
+| 指针 | 含义 |
+| --- | --- |
+| `/parameters/seed` | 业务 seed 等 |
+| `/parameters/active_profile` | 切换 profile |
+| `/limits/wall_time_seconds` | 墙钟 |
+| `/limits/agent_invocations` | agent 调用次数顶 |
+| `/limits/environment_actions` | 环境动作顶 |
+| `/limits/memory_mb` | 内存顶 |
+
+其它指针在 lock 阶段失败。

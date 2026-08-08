@@ -1,0 +1,21 @@
+---
+title: 运行 Dataset（Suite）
+description: 一次跑 Dataset 里所有 task；汇总分不是整包 PASS。
+---
+
+省略 `--task` 时，`bora run` 按 suite 调度**每一个**成员 task，各自独立 lock / 执行 / 评测：
+
+```bash
+uv run bora run examples/core
+uv run bora run examples/core --max-concurrent-tasks 2
+```
+
+| 行为 | 说明 |
+| --- | --- |
+| 并发 | `--max-concurrent-tasks` 或根 `bora.yaml` 的 `defaults.max_concurrent_tasks` |
+| PASS | **仍是每题自己的**；没有「整包 PASS」权威 |
+| 汇总 | 可能看到 `pass_rate` / `mean_score` 一类观测指标，方便扫一眼 |
+
+和 [Campaign](/docs/run/campaign) 的区别：suite 是 **task 轴**（多题）；campaign 是 **同一题扫参数**。
+
+跑次落在 Dataset 下的 `.bora/suite-runs/`，可用 [Viewer](/docs/run/local-viewer) 浏览。

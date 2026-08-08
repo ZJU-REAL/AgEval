@@ -1,0 +1,35 @@
+---
+title: Install
+description: Install the BORA CLI with uv.
+---
+
+## Requirements
+
+- [uv](https://docs.astral.sh/uv/)
+- CPython **3.12+**
+
+Real coding-agent runs require a host ACP entry and credentials. `bora lock` alone does not.
+
+## Install
+
+```bash
+git clone https://github.com/ffy6511/BORA.git
+cd BORA
+uv sync --frozen --all-packages
+uv run bora -V
+```
+
+A version string means the CLI is ready.
+
+## Optional: coding agent skills
+
+Skills under [`skills/`](https://github.com/ffy6511/BORA/tree/main/skills) are discoverable via `.agents/skills`:
+
+| Skill | Use |
+| --- | --- |
+| `bora-platform` | Product map and routing |
+| `bora-cli` | CLI and failure reading |
+| `bora-config-package` | Dataset / Task config |
+| `bora-sdk-harness` | Harness SDK authoring |
+
+Next: [First run](/docs/getting-started/first-run).

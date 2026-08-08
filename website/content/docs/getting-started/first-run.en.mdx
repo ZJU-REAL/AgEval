@@ -1,0 +1,47 @@
+---
+title: First run
+description: Lock configuration, run an example task, and locate results.
+---
+
+The examples below use `examples/core`. The CLI path is always the **Dataset root** (the directory that contains `bora.yaml`), not `tasks/<id>/`.
+
+## Basic commands
+
+```bash
+uv run bora tasks examples/core
+uv run bora lock examples/core --task config-minimal
+uv run bora run examples/core --task sdk-agent-session
+```
+
+A successful `bora run` prints a **`logs` path** pointing at Attempt evidence for that run.
+
+### Terms
+
+| Term | Meaning |
+| --- | --- |
+| **Dataset** | Deliverable suite: root `bora.yaml` plus task members |
+| **Attempt** | One bounded execution under a lock (harness / agent / evaluation) |
+
+## Without an agent
+
+`config-minimal` only exercises lock. If `sdk-agent-session` fails because an entry is missing:
+
+```bash
+uv run bora executors -v
+```
+
+Install and log into the ACP entry, then retry. See [ACP profiles](/docs/agents/acp-profiles).
+
+## Browse results locally (optional)
+
+```bash
+cd apps/viewer && pnpm install && pnpm build && cd ../..
+uv run bora view examples/core --no-browser
+```
+
+Open the printed URL and navigate **Jobs → Tasks → Attempt**. See [Local results viewer](/docs/run/local-viewer).
+
+## Next
+
+- Run existing packages: [Single task](/docs/run/single-task) · [Suite](/docs/run/suite) · [Switch agent](/docs/run/switch-agent)  
+- Author tasks: [Task authoring tutorial](/docs/author/tutorial)  

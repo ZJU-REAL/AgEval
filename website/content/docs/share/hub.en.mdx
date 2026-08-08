@@ -1,0 +1,33 @@
+---
+title: Hub
+description: Remote Dataset catalog, jobs, and leaderboard.
+---
+
+Hub (`apps/hub`) is the human SPA on top of Registry:
+
+- Dataset list and README  
+- Task file preview  
+- Jobs list and Leaderboard (as implemented)  
+
+## Local dev
+
+```bash
+cd apps/hub
+pnpm install
+pnpm dev
+```
+
+| Path | Page |
+| --- | --- |
+| `/datasets` | List |
+| `/datasets/:id` | README · Tasks · Leaderboard |
+| `/login` | Login |
+
+## vs Viewer
+
+| | Viewer | Hub |
+| --- | --- | --- |
+| Data | Local `.bora/suite-runs/` | Registry |
+| Entry | `bora view` | Browser SPA |
+
+Incomplete click-through features → Issues. SPA notes: `apps/hub/README.md`.

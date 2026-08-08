@@ -1,0 +1,24 @@
+---
+title: Write a harness
+description: Business loop in the package; call agents via the SDK.
+---
+
+The harness (`harness.py`) owns **how the task runs**: turns, roles, local tools, writing artifacts.
+
+| You own | Don’t |
+| --- | --- |
+| Loop, roles, handoff, local tools | Final PASS, host secrets, inventing isolation |
+| SDK `session` / `invoke` | Treating a vendor SDK as Core |
+
+## Wiring
+
+- `harness.entrypoint` → `module:function`  
+- `parameters` → `ctx.params`  
+- Non-empty `agent_profiles` enables Agent path  
+- Artifact paths must match `artifacts.publishable`  
+
+## Hard rule
+
+Harness `completed` is **not** PASS. Scoring: [Write evaluator](/docs/author/write-evaluator).
+
+See skill `bora-sdk-harness` and SDK tasks under `examples/core`.

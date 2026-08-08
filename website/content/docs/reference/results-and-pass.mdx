@@ -1,0 +1,31 @@
+---
+title: 结果与 PASS
+description: Result 怎么读；什么算过、什么不算。
+---
+
+## 几条硬边界
+
+1. Harness 跑完 **≠** PASS  
+2. 轨迹 / token / agent 自述 **≠** 分数  
+3. PASS / FAIL 来自**独立 evaluator**  
+
+## 终端上
+
+- **Result**：绑定到本次 run 的状态与评测结论  
+- **`logs`**：Attempt 证据目录 locator  
+- suite 的 `pass_rate` 等：观测用，不是「整包 PASS」  
+
+## 本机翻看
+
+[Viewer](/docs/run/local-viewer)：Jobs → Tasks → Attempt。
+
+## 失败怎么分
+
+| 类型 | 直觉 |
+| --- | --- |
+| 配置 / lock | 还没进入正式执行 |
+| Runtime ERROR | 执行边界内出错（agent、超时、隔离等） |
+| FAIL | 评测认为没过 |
+| PASS | 评测通过 |
+
+具体 exit code 与字段以当前 CLI 输出和 skill `bora-cli` 为准。

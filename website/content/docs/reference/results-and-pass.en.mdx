@@ -1,0 +1,31 @@
+---
+title: Results and PASS
+description: How to read Result; what counts as pass.
+---
+
+## Hard boundaries
+
+1. Harness completed **≠** PASS  
+2. Trajectory / tokens / agent self-report **≠** score  
+3. PASS / FAIL from the **independent evaluator** only  
+
+## On the terminal
+
+- **Result** — status and evaluation for this run  
+- **`logs`** — Attempt evidence locator  
+- Suite aggregates — observational, not suite-level PASS  
+
+## Browse
+
+[Viewer](/docs/run/local-viewer).
+
+## Failure kinds
+
+| Kind | Intuition |
+| --- | --- |
+| Config / lock | Never entered formal execution |
+| Runtime ERROR | Failed inside the boundary |
+| FAIL | Evaluator says no |
+| PASS | Evaluator says yes |
+
+Exit codes: current CLI + skill `bora-cli`.
