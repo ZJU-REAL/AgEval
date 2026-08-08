@@ -1,19 +1,23 @@
 .landing {
-  --canvas: rgb(252 250 247 / 96%);
-  --canvas-soft: rgb(240 236 230 / 90%);
-  --ink: rgb(22 20 18 / 92%);
-  --body: rgb(79 75 70 / 82%);
-  --hairline: rgb(70 58 48 / 18%);
-  --dark: rgb(18 15 13 / 96%);
-  --dark-soft: rgb(31 25 21 / 88%);
-  --on-dark: rgb(250 247 242 / 94%);
-  --on-dark-body: rgb(225 216 207 / 72%);
-  --hairline-dark: rgb(244 232 220 / 15%);
+  /*
+    Midpoint of original warm docs palette and viewer/hub ink system.
+    Keep brown accent + slight warm canvas; neutrals cleaner than pure cream.
+  */
+  --canvas: #faf9f7;
+  --canvas-soft: #f3f1ee;
+  --ink: #171615;
+  --body: #4e4c49;
+  --hairline: #e4e0db;
+  --dark: #12100e;
+  --dark-soft: #1c1916;
+  --on-dark: #f2efe9;
+  --on-dark-body: #b5aea5;
+  --hairline-dark: rgb(244 232 220 / 13%);
   --accent: #936546;
   --accent-deep: #70482f;
-  --accent-soft: rgb(147 101 70 / 16%);
-  --surface-dark-hover: rgb(112 72 47 / 28%);
-  --surface-light-hover: rgb(250 247 242 / 88%);
+  --accent-soft: rgb(147 101 70 / 14%);
+  --surface-dark-hover: rgb(147 101 70 / 22%);
+  --surface-light-hover: #f0ece6;
   color: var(--ink);
   background: var(--canvas);
   font-family: var(--font-geist-sans), sans-serif;
@@ -21,21 +25,21 @@
 }
 
 :global(.dark) .landing {
-  --canvas: rgb(20 17 15 / 96%);
-  --canvas-soft: rgb(31 27 24 / 92%);
-  --ink: rgb(249 246 241 / 92%);
-  --body: rgb(221 213 205 / 72%);
-  --hairline: rgb(244 232 220 / 14%);
-  --dark: rgb(10 8 7 / 97%);
-  --dark-soft: rgb(25 20 17 / 90%);
-  --on-dark: rgb(251 248 243 / 94%);
-  --on-dark-body: rgb(224 215 207 / 72%);
-  --hairline-dark: rgb(244 232 220 / 13%);
+  --canvas: #12100e;
+  --canvas-soft: #1c1916;
+  --ink: #f2efe9;
+  --body: #b5aea5;
+  --hairline: rgb(244 232 220 / 12%);
+  --dark: #0a0908;
+  --dark-soft: #1c1916;
+  --on-dark: #f2efe9;
+  --on-dark-body: #b5aea5;
+  --hairline-dark: rgb(244 232 220 / 12%);
   --accent: #c89b78;
   --accent-deep: #ddb28f;
   --accent-soft: rgb(200 155 120 / 14%);
   --surface-dark-hover: rgb(200 155 120 / 16%);
-  --surface-light-hover: rgb(251 248 243 / 88%);
+  --surface-light-hover: #24201c;
 }
 
 .monoEyebrow {
@@ -61,7 +65,7 @@
 .heroBand {
   color: var(--on-dark);
   background:
-    radial-gradient(circle at 82% 34%, rgb(147 101 70 / 15%), transparent 30rem), var(--dark);
+    radial-gradient(circle at 82% 34%, rgb(147 101 70 / 14%), transparent 30rem), var(--dark);
 }
 
 .heroGrid {
@@ -166,7 +170,7 @@
 .primaryActionOnDark:hover {
   color: var(--dark);
   background: var(--surface-light-hover);
-  box-shadow: inset 0 0 0 1px rgb(22 18 15 / 18%);
+  box-shadow: inset 0 0 0 1px rgb(23 23 23 / 18%);
 }
 
 .ghostActionOnDark:hover {
@@ -175,7 +179,7 @@
 }
 
 .primaryAction:hover {
-  background: var(--accent-deep);
+  background: #0a0908;
 }
 
 .secondaryAction:hover {
@@ -262,7 +266,7 @@
 
 .heroRunSteps li[data-current="true"] {
   box-shadow: inset 3px 0 0 var(--accent);
-  background: rgb(147 101 70 / 11%);
+  background: rgb(147 101 70 / 12%);
 }
 
 .heroRunSteps span,

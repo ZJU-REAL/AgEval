@@ -2,50 +2,80 @@
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 
+/*
+  Docs chrome: midpoint of
+  - original website warm brown system
+  - apps/viewer + apps/hub Vercel ink system
+  Keep slight warm canvas + brown accent; neutrals closer to viewer.
+*/
+
 :root {
-  --color-fd-background: rgb(252 250 247 / 96%);
-  --color-fd-foreground: rgb(22 20 18 / 92%);
-  --color-fd-muted: rgb(240 236 230 / 78%);
-  --color-fd-muted-foreground: rgb(79 75 70 / 82%);
-  --color-fd-popover: rgb(252 250 247 / 96%);
-  --color-fd-popover-foreground: rgb(22 20 18 / 90%);
-  --color-fd-card: rgb(248 245 240 / 88%);
-  --color-fd-card-foreground: rgb(22 20 18 / 92%);
-  --color-fd-border: rgb(70 58 48 / 18%);
-  --color-fd-primary: rgb(22 20 18 / 92%);
-  --color-fd-primary-foreground: rgb(250 247 242 / 94%);
-  --color-fd-secondary: rgb(240 236 230 / 76%);
-  --color-fd-secondary-foreground: rgb(22 20 18 / 90%);
-  --color-fd-accent: rgb(147 101 70 / 14%);
-  --color-fd-accent-foreground: rgb(22 20 18 / 92%);
-  --color-fd-ring: rgb(147 101 70 / 58%);
-  --color-fd-overlay: rgb(18 15 13 / 22%);
+  --color-fd-background: #faf9f7;
+  --color-fd-foreground: #171615;
+  --color-fd-muted: #f3f1ee;
+  --color-fd-muted-foreground: #4e4c49;
+  --color-fd-popover: #faf9f7;
+  --color-fd-popover-foreground: #171615;
+  --color-fd-card: #f7f5f2;
+  --color-fd-card-foreground: #171615;
+  --color-fd-border: #e4e0db;
+  --color-fd-primary: #171615;
+  --color-fd-primary-foreground: #faf9f7;
+  --color-fd-secondary: #f0ece6;
+  --color-fd-secondary-foreground: #171615;
+  --color-fd-accent: rgb(147 101 70 / 12%);
+  --color-fd-accent-foreground: #171615;
+  --color-fd-ring: #936546;
+  --color-fd-overlay: rgb(18 15 13 / 24%);
 }
 
 .dark {
-  --color-fd-background: rgb(20 17 15 / 96%);
-  --color-fd-foreground: rgb(249 246 241 / 92%);
-  --color-fd-muted: rgb(31 27 24 / 82%);
-  --color-fd-muted-foreground: rgb(221 213 205 / 72%);
-  --color-fd-popover: rgb(25 21 18 / 96%);
-  --color-fd-popover-foreground: rgb(249 246 241 / 90%);
-  --color-fd-card: rgb(25 21 18 / 88%);
-  --color-fd-card-foreground: rgb(249 246 241 / 92%);
-  --color-fd-border: rgb(244 232 220 / 14%);
-  --color-fd-primary: rgb(249 246 241 / 92%);
-  --color-fd-primary-foreground: rgb(10 8 7 / 97%);
-  --color-fd-secondary: rgb(31 27 24 / 82%);
-  --color-fd-secondary-foreground: rgb(249 246 241 / 90%);
+  --color-fd-background: #12100e;
+  --color-fd-foreground: #f2efe9;
+  --color-fd-muted: #1c1916;
+  --color-fd-muted-foreground: #b5aea5;
+  --color-fd-popover: #1c1916;
+  --color-fd-popover-foreground: #f2efe9;
+  --color-fd-card: #1c1916;
+  --color-fd-card-foreground: #f2efe9;
+  --color-fd-border: rgb(244 232 220 / 12%);
+  --color-fd-primary: #f2efe9;
+  --color-fd-primary-foreground: #12100e;
+  --color-fd-secondary: #24201c;
+  --color-fd-secondary-foreground: #f2efe9;
   --color-fd-accent: rgb(200 155 120 / 14%);
-  --color-fd-accent-foreground: rgb(249 246 241 / 92%);
-  --color-fd-ring: rgb(200 155 120 / 58%);
-  --color-fd-overlay: rgb(10 8 7 / 28%);
+  --color-fd-accent-foreground: #f2efe9;
+  --color-fd-ring: #c89b78;
+  --color-fd-overlay: rgb(10 8 7 / 36%);
 }
 
 .dark #nd-sidebar {
-  --color-fd-muted: rgb(37 31 27 / 84%);
-  --color-fd-secondary: rgb(42 35 30 / 82%);
-  --color-fd-muted-foreground: rgb(221 213 205 / 74%);
+  --color-fd-muted: #1c1916;
+  --color-fd-secondary: #24201c;
+  --color-fd-muted-foreground: #b5aea5;
+}
+
+/* Links: warm brown (original docs character), not pure Vercel blue */
+:root {
+  --bora-link: #7a5539;
+  --bora-link-deep: #70482f;
+}
+
+.dark {
+  --bora-link: #c89b78;
+  --bora-link-deep: #ddb28f;
+}
+
+#nd-page a:not([class]),
+.docs-reading-body a {
+  color: var(--bora-link);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
+#nd-page a:not([class]):hover,
+.docs-reading-body a:hover {
+  color: var(--bora-link-deep);
 }
 
 html {

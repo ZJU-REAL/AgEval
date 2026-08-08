@@ -1,8 +1,8 @@
 # BORA Website Design System
 
-本文档是 `website/` 的视觉与交互规范。设计语言沿用既有 Bora 文档站的技术型基础设施风格，并按 BORA v2（**Bounded Orchestration for Runtime Agents**）的棕褐色品牌色与 authority-first 产品语义定义。
+本文档是 `website/` 的视觉与交互规范。
 
-参考来源：[Together AI inspired DESIGN.md](https://github.com/VoltAgent/awesome-design-md/blob/main/design-md/together.ai/DESIGN.md)。BORA 继承结构原则与自己的既有品牌资产，不复制第三方专有字体或原始多色渐变。
+**色板策略：** 取原 docs 暖棕体系与 `apps/viewer` / `apps/hub` 冷灰 ink 体系的**中间值**——中性色略向 viewer 靠拢（更干净），保留暖 canvas 与棕褐 accent 作为文档站辨识。viewer 的 link 蓝不直接搬进 docs chrome。
 
 ## 设计方向
 
@@ -27,24 +27,23 @@
 
 | Token | Light | Dark | 用途 |
 | --- | --- | --- | --- |
-| `canvas` | `rgb(252 250 247 / 96%)` | `rgb(20 17 15 / 96%)` | 页面与深色技术区 |
-| `canvas-soft` | `rgb(240 236 230 / 90%)` | `rgb(31 27 24 / 92%)` | 表头、次级分区、节点底色 |
-| `ink` | `rgb(22 20 18 / 92%)` | `rgb(249 246 241 / 92%)` | 主文字 |
-| `body` | `rgb(79 75 70 / 82%)` | `rgb(221 213 205 / 72%)` | 正文与说明 |
-| `hairline` | `rgb(70 58 48 / 18%)` | `rgb(244 232 220 / 14%)` | 1px 边界与分隔线 |
-| `accent` | `#936546` | `#c89b78` | 当前状态、重点链接、运行路径 |
-| `accent-deep` | `#70482f` | `#ddb28f` | hover、active 与高对比强调 |
-| `accent-soft` | `rgb(147 101 70 / 16%)` | `rgb(200 155 120 / 14%)` | 选中态和轻量背景 |
+| `canvas` | `#faf9f7` | `#12100e` | 页面底（略暖，比纯白/纯黑柔） |
+| `canvas-soft` | `#f3f1ee` | `#1c1916` | 次级面、表头 |
+| `ink` | `#171615` | `#f2efe9` | 主文字 / 主按钮 |
+| `body` | `#4e4c49` | `#b5aea5` | 正文与说明 |
+| `hairline` | `#e4e0db` | 暖白 12% | 1px 边界 |
+| `accent` | `#936546` | `#c89b78` | 链接、焦点、运行路径（保留原 docs 棕褐） |
+| `accent-deep` | `#70482f` | `#ddb28f` | hover / active |
+| `dark`（landing 技术带） | `#12100e` | `#0a0908` | hero / foundation（比 viewer 纯黑略暖） |
+
+参考：`apps/viewer/DESIGN.md`（产品 SPA 冷灰 + link 蓝）；本站**不**把 viewer link 蓝当作主 accent，以免丢掉文档站原有气质。
 
 ### 使用规则
 
-- 一个视口内最多出现一个主 CTA。
-- 黑、白主色使用带暖灰倾向的半透明 token，禁止 `#000000`、`#ffffff` 和完全不透明的近黑/近白大色块。
-- 透明 surface 依赖稳定的主题底色进行混合，不叠加 backdrop blur 或玻璃高光。
-- 棕褐色只表达品牌重点或当前执行状态，不能作为大面积正文色。
-- 浅色卡片使用 hairline 和表面色差建立层级，不使用悬浮阴影。
-- 深色区域允许非常轻的棕色径向光带，只能作为受控运行路径的背景提示。
-- 不使用紫色、霓虹蓝或多色 AI 渐变。
+- 一个视口内最多出现一个主 CTA；主 CTA 用深 ink 实底，链接与路径强调用棕褐 accent。
+- 中性色可向 viewer 靠拢，但 canvas 保持轻微暖相，避免整站变成纯冷灰。
+- 浅色卡片用 hairline 与表面色差建层级，少用重阴影。
+- 深色技术区可用极轻的棕色径向光带作路径提示，不使用多色 AI 渐变。
 
 ## 字体
 
