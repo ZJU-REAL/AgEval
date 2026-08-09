@@ -4,6 +4,8 @@ Endpoints:
   GET  /health
   POST /v1/auth/github/device/code
   POST /v1/auth/github/device/poll
+  POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id}
+  POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | DELETE .../members/{user}
   POST /v1/packages
   GET  /v1/packages
   GET  /v1/packages/{id}
@@ -16,14 +18,16 @@ Endpoints:
   GET  /v1/results/attempts
   GET  /v1/results/attempts/{run_id}
   GET  /v1/results/attempts/{run_id}/content
+  GET|POST|DELETE /v1/results/attempts/{run_id}/shares
   POST /v1/results/suites
   GET  /v1/results/suites
   GET  /v1/results/suites/{suite_run_id}
   GET  /v1/results/suites/{suite_run_id}/content
+  GET|POST|DELETE /v1/results/suites/{suite_run_id}/shares
 
-Scopes: registry:publish | read-private | results:upload | results:read | admin
-Visibility: public | private only. Private unauthorized → 404 (not 403).
-Suite results: observational aggregates only — no suite-level PASS authority.
+Scopes: registry:publish | results:upload | admin (read-private legacy ignored for ACL)
+Visibility: public | private. Package private → org member; result private → owner/share.
+Unauthorized private → 404 (not 403). Suite results: no suite-level PASS authority.
 """
 
 from __future__ import annotations
@@ -68,11 +72,18 @@ from services.registry.store import (  # noqa: E402
     S3BlobStore,
     SqliteTokenStore,
     SuiteResultRow,
+    TokenInfo,
+    _normalize_user_id,
     attempt_to_dict,
+    membership_to_dict,
     now,
+    org_to_dict,
     release_to_dict,
+    share_to_dict,
     suite_to_dict,
 )
+
+_ORG_NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$")
 
 MAX_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB hard top for v1
 RESULT_MEDIA_TYPE = "application/vnd.bora.attempt-result.v1.tar+gzip"
@@ -110,7 +121,7 @@ def _cors_headers(handler: BaseHTTPRequestHandler) -> None:
     origin = (os.environ.get("BORA_REGISTRY_CORS_ORIGIN") or "*").strip() or "*"
     handler.send_header("Access-Control-Allow-Origin", origin)
     handler.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
-    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
     if origin != "*":
         handler.send_header("Vary", "Origin")
 
@@ -168,14 +179,49 @@ def _parse_multipart(body: bytes, content_type: str) -> dict[str, bytes]:
     return out
 
 
-def _can_list_private_packages(scopes: frozenset[str]) -> bool:
-    # publish may verify private releases they just wrote; not a results scope.
-    return "read-private" in scopes or "admin" in scopes or "registry:publish" in scopes
+def _is_admin(scopes: frozenset[str]) -> bool:
+    return "admin" in scopes
 
 
-def _can_list_private_results(scopes: frozenset[str]) -> bool:
-    # results:upload does NOT imply private read (independent scope model).
-    return "results:read" in scopes or "admin" in scopes
+def _require_user(auth: TokenInfo) -> str | None:
+    """Return user_id or None if missing (caller maps to 401)."""
+    return auth.user_id
+
+
+def _visible_package_row(state: RegistryState, row: ReleaseRow, auth: TokenInfo) -> bool:
+    if row.visibility == "public":
+        return True
+    if _is_admin(auth.scopes):
+        return True
+    if not auth.user_id or not row.org_id:
+        return False
+    return state.meta.membership(row.org_id, auth.user_id) is not None
+
+
+def _visible_result_row(
+    state: RegistryState,
+    *,
+    result_kind: str,
+    result_id: str,
+    visibility: str,
+    uploaded_by: str,
+    auth: TokenInfo,
+) -> bool:
+    if visibility == "public":
+        return True
+    if _is_admin(auth.scopes):
+        return True
+    if not auth.user_id:
+        return False
+    if uploaded_by and uploaded_by == auth.user_id:
+        return True
+    orgs = state.meta.user_org_ids(auth.user_id) if auth.user_id else set()
+    return state.meta.result_shared_with_user(
+        result_kind=result_kind,
+        result_id=result_id,
+        user_id=auth.user_id,
+        user_orgs=orgs,
+    )
 
 
 def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
@@ -203,10 +249,23 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
 
             token = _bearer(self)
-            scopes = state.tokens.scopes_for(token)
+            auth = state.tokens.auth_for(token)
+            scopes = auth.scopes
+
+            if path == "/v1/orgs":
+                self._list_orgs(auth=auth)
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/members", path)
+            if m:
+                self._list_org_members(org_id=m.group(1), auth=auth)
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)", path)
+            if m:
+                self._get_org(org_id=m.group(1), auth=auth)
+                return
 
             if path == "/v1/packages":
-                self._list_packages(scopes=scopes, qs=qs)
+                self._list_packages(auth=auth, qs=qs)
                 return
 
             m = re.fullmatch(r"/v1/packages/([^/]+(?:/[^/]+)*)", path)
@@ -216,7 +275,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 # Prefer more specific routes first below; this branch only if no subpath.
                 rest = path[len("/v1/packages/") :]
                 if "/versions/" not in rest and "/by-digest/" not in rest and rest:
-                    self._list_package_versions(database_id=rest, scopes=scopes)
+                    self._list_package_versions(database_id=rest, auth=auth)
                     return
 
             m = re.fullmatch(r"/v1/packages/(.+)/versions/([^/]+)", path)
@@ -225,7 +284,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     database_id=m.group(1),
                     version=m.group(2),
                     package_digest=None,
-                    scopes=scopes,
+                    auth=auth,
                 )
                 return
             m = re.fullmatch(
@@ -236,7 +295,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 self._serve_content(
                     database_id=m.group(1),
                     package_digest=m.group(2),
-                    scopes=scopes,
+                    auth=auth,
                 )
                 return
             # Package files list (#38) — more specific than bare by-digest meta.
@@ -248,7 +307,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 self._serve_package_files_list(
                     database_id=m.group(1),
                     package_digest=m.group(2),
-                    scopes=scopes,
+                    auth=auth,
                 )
                 return
             m = re.fullmatch(
@@ -260,7 +319,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     database_id=m.group(1),
                     package_digest=m.group(2),
                     file_path=m.group(3),
-                    scopes=scopes,
+                    auth=auth,
                 )
                 return
             # Version-aliased files (resolve → digest internally).
@@ -272,7 +331,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 self._serve_package_files_list(
                     database_id=m.group(1),
                     version=m.group(2),
-                    scopes=scopes,
+                    auth=auth,
                 )
                 return
             m = re.fullmatch(
@@ -284,7 +343,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     database_id=m.group(1),
                     version=m.group(2),
                     file_path=m.group(3),
-                    scopes=scopes,
+                    auth=auth,
                 )
                 return
             m = re.fullmatch(
@@ -296,32 +355,40 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     database_id=m.group(1),
                     version=None,
                     package_digest=m.group(2),
-                    scopes=scopes,
+                    auth=auth,
                 )
                 return
 
             if path == "/v1/results/attempts":
-                self._list_attempts(scopes=scopes, qs=qs)
+                self._list_attempts(auth=auth, qs=qs)
                 return
             m = re.fullmatch(r"/v1/results/attempts/([^/]+)/content", path)
             if m:
-                self._serve_attempt_content(run_id=m.group(1), scopes=scopes)
+                self._serve_attempt_content(run_id=m.group(1), auth=auth)
+                return
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
+            if m:
+                self._list_result_shares(result_kind="attempt", result_id=m.group(1), auth=auth)
                 return
             m = re.fullmatch(r"/v1/results/attempts/([^/]+)", path)
             if m:
-                self._serve_attempt_meta(run_id=m.group(1), scopes=scopes)
+                self._serve_attempt_meta(run_id=m.group(1), auth=auth)
                 return
 
             if path == "/v1/results/suites":
-                self._list_suites(scopes=scopes, qs=qs)
+                self._list_suites(auth=auth, qs=qs)
                 return
             m = re.fullmatch(r"/v1/results/suites/([^/]+)/content", path)
             if m:
-                self._serve_suite_content(suite_run_id=m.group(1), scopes=scopes)
+                self._serve_suite_content(suite_run_id=m.group(1), auth=auth)
+                return
+            m = re.fullmatch(r"/v1/results/suites/([^/]+)/shares", path)
+            if m:
+                self._list_result_shares(result_kind="suite", result_id=m.group(1), auth=auth)
                 return
             m = re.fullmatch(r"/v1/results/suites/([^/]+)", path)
             if m:
-                self._serve_suite_meta(suite_run_id=m.group(1), scopes=scopes)
+                self._serve_suite_meta(suite_run_id=m.group(1), auth=auth)
                 return
 
             _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
@@ -335,6 +402,17 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if path == "/v1/auth/github/device/poll":
                 self._auth_device_poll()
                 return
+            if path == "/v1/orgs":
+                self._create_org()
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/claim", path)
+            if m:
+                self._claim_org(org_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/members", path)
+            if m:
+                self._add_org_member(org_id=m.group(1))
+                return
             if path == "/v1/packages":
                 self._publish_package()
                 return
@@ -343,6 +421,30 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             if path == "/v1/results/suites":
                 self._upload_suite()
+                return
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
+            if m:
+                self._add_result_share(result_kind="attempt", result_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/results/suites/([^/]+)/shares", path)
+            if m:
+                self._add_result_share(result_kind="suite", result_id=m.group(1))
+                return
+            _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
+
+        def do_DELETE(self) -> None:  # noqa: N802
+            path = unquote(self.path.split("?", 1)[0])
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/members/([^/]+)", path)
+            if m:
+                self._remove_org_member(org_id=m.group(1), user_id=m.group(2))
+                return
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
+            if m:
+                self._remove_result_share(result_kind="attempt", result_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/results/suites/([^/]+)/shares", path)
+            if m:
+                self._remove_result_share(result_kind="suite", result_id=m.group(1))
                 return
             _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
 
@@ -468,12 +570,24 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         def _publish_package(self) -> None:
             token = _bearer(self)
-            scopes = state.tokens.scopes_for(token)
+            auth = state.tokens.auth_for(token)
+            scopes = auth.scopes
             if "registry:publish" not in scopes and "admin" not in scopes:
                 _json_response(
                     self,
                     401,
                     {"error": "unauthorized", "message": "publish scope required"},
+                )
+                return
+            user_id = auth.user_id
+            if not user_id:
+                _json_response(
+                    self,
+                    401,
+                    {
+                        "error": "unauthorized",
+                        "message": "publish requires authenticated user identity",
+                    },
                 )
                 return
             length = int(self.headers.get("Content-Length") or "0")
@@ -504,9 +618,35 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             blob_digest = str(meta.get("blob_digest") or "")
             media_type = str(meta.get("media_type") or "")
             visibility = str(meta.get("visibility") or "private")
+            raw_org = str(meta.get("org_id") or meta.get("org") or "").strip()
+            org_id = raw_org.casefold() if raw_org else None
             size = int(meta.get("size") or len(archive))
             if visibility not in {"private", "public"}:
                 _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
+                return
+            if not org_id:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "org_required", "message": "publish requires org_id"},
+                )
+                return
+            if state.meta.get_org(org_id) is None:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "org_not_found", "message": f"org {org_id!r} not found"},
+                )
+                return
+            if not _is_admin(scopes) and state.meta.membership(org_id, user_id) is None:
+                _json_response(
+                    self,
+                    403,
+                    {
+                        "error": "forbidden",
+                        "message": "must be org member to publish under this org",
+                    },
+                )
                 return
             actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
             if actual_blob != blob_digest or size != len(archive):
@@ -550,6 +690,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 size=size,
                 media_type=media_type,
                 created_at=now(),
+                org_id=org_id,
             )
             try:
                 state.blobs.put_if_absent(blob_digest, archive, prefix="packages")
@@ -563,42 +704,31 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, release_to_dict(row))
 
-        def _list_packages(self, *, scopes: frozenset[str], qs: dict[str, list[str]]) -> None:
-            include_private = _can_list_private_packages(scopes)
+        def _list_packages(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             prefix = (qs.get("database_id_prefix") or [None])[0]
             visibility = (qs.get("visibility") or [None])[0]
             version = (qs.get("version") or [None])[0]
             if visibility is not None and visibility not in {"public", "private"}:
                 _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
                 return
+            # Fetch public + private candidates; filter by ACL (no private leakage).
             rows = state.meta.list_releases(
                 database_id_prefix=prefix or None,
                 visibility=visibility,
                 version=version or None,
-                include_private=include_private,
+                include_private=True,
             )
+            items = [release_to_dict(r) for r in rows if _visible_package_row(state, r, auth)]
+            _json_response(self, 200, {"items": items})
+
+        def _list_package_versions(self, *, database_id: str, auth: TokenInfo) -> None:
+            rows = state.meta.list_versions(database_id, include_private=True)
+            items = [release_to_dict(r) for r in rows if _visible_package_row(state, r, auth)]
             _json_response(
                 self,
                 200,
-                {"items": [release_to_dict(r) for r in rows]},
+                {"database_id": database_id, "items": items},
             )
-
-        def _list_package_versions(self, *, database_id: str, scopes: frozenset[str]) -> None:
-            include_private = _can_list_private_packages(scopes)
-            rows = state.meta.list_versions(database_id, include_private=include_private)
-            _json_response(
-                self,
-                200,
-                {
-                    "database_id": database_id,
-                    "items": [release_to_dict(r) for r in rows],
-                },
-            )
-
-        def _visible_package(self, row: ReleaseRow, scopes: frozenset[str]) -> bool:
-            if row.visibility == "public":
-                return True
-            return _can_list_private_packages(scopes)
 
         def _serve_meta(
             self,
@@ -606,14 +736,14 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             database_id: str,
             version: str | None,
             package_digest: str | None,
-            scopes: frozenset[str],
+            auth: TokenInfo,
         ) -> None:
             if package_digest:
                 row = state.meta.get_by_digest(database_id, package_digest)
             else:
                 assert version is not None
                 row = state.meta.get_by_version(database_id, version)
-            if row is None or not self._visible_package(row, scopes):
+            if row is None or not _visible_package_row(state, row, auth):
                 _json_response(self, 404, {"error": "not_found", "message": "release not found"})
                 return
             _json_response(self, 200, release_to_dict(row))
@@ -623,10 +753,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             *,
             database_id: str,
             package_digest: str,
-            scopes: frozenset[str],
+            auth: TokenInfo,
         ) -> None:
             row = state.meta.get_by_digest(database_id, package_digest)
-            if row is None or not self._visible_package(row, scopes):
+            if row is None or not _visible_package_row(state, row, auth):
                 _json_response(self, 404, {"error": "not_found", "message": "release not found"})
                 return
             data = state.blobs.get(row.blob_digest, prefix="packages")
@@ -644,7 +774,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self,
             *,
             database_id: str,
-            scopes: frozenset[str],
+            auth: TokenInfo,
             package_digest: str | None = None,
             version: str | None = None,
         ) -> ReleaseRow | None:
@@ -654,7 +784,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 row = state.meta.get_by_version(database_id, version)
             else:
                 return None
-            if row is None or not self._visible_package(row, scopes):
+            if row is None or not _visible_package_row(state, row, auth):
                 return None
             return row
 
@@ -662,7 +792,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self,
             *,
             database_id: str,
-            scopes: frozenset[str],
+            auth: TokenInfo,
             package_digest: str | None = None,
             version: str | None = None,
         ) -> None:
@@ -670,7 +800,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
             row = self._resolve_visible_release(
                 database_id=database_id,
-                scopes=scopes,
+                auth=auth,
                 package_digest=package_digest,
                 version=version,
             )
@@ -706,7 +836,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             *,
             database_id: str,
             file_path: str,
-            scopes: frozenset[str],
+            auth: TokenInfo,
             package_digest: str | None = None,
             version: str | None = None,
         ) -> None:
@@ -722,7 +852,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
             row = self._resolve_visible_release(
                 database_id=database_id,
-                scopes=scopes,
+                auth=auth,
                 package_digest=package_digest,
                 version=version,
             )
@@ -781,12 +911,23 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         def _upload_attempt(self) -> None:
             token = _bearer(self)
-            scopes = state.tokens.scopes_for(token)
+            auth = state.tokens.auth_for(token)
+            scopes = auth.scopes
             if "results:upload" not in scopes and "admin" not in scopes:
                 _json_response(
                     self,
                     401,
                     {"error": "unauthorized", "message": "results:upload scope required"},
+                )
+                return
+            if not auth.user_id:
+                _json_response(
+                    self,
+                    401,
+                    {
+                        "error": "unauthorized",
+                        "message": "upload requires authenticated user identity",
+                    },
                 )
                 return
             length = int(self.headers.get("Content-Length") or "0")
@@ -837,7 +978,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     {"error": "digest_mismatch", "message": "blob digest or size mismatch"},
                 )
                 return
-            # Lightweight secret scan on archive bytes (patterns only; no extraction log).
             if _archive_looks_like_secret_leak(archive):
                 _json_response(
                     self,
@@ -859,6 +999,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 blob_digest=blob_digest,
                 size=size,
                 created_at=now(),
+                uploaded_by=auth.user_id,
             )
             try:
                 state.blobs.put_if_absent(blob_digest, archive, prefix="results")
@@ -872,34 +1013,50 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, attempt_to_dict(row))
 
-        def _visible_result(self, row: AttemptResultRow, scopes: frozenset[str]) -> bool:
-            if row.visibility == "public":
-                return True
-            return _can_list_private_results(scopes)
-
-        def _list_attempts(self, *, scopes: frozenset[str], qs: dict[str, list[str]]) -> None:
-            include_private = _can_list_private_results(scopes)
+        def _list_attempts(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             database_id = (qs.get("database_id") or [None])[0]
             rows = state.meta.list_attempts(
                 database_id=database_id or None,
-                include_private=include_private,
+                include_private=True,
             )
-            _json_response(
-                self,
-                200,
-                {"items": [attempt_to_dict(r) for r in rows]},
-            )
+            items = [
+                attempt_to_dict(r)
+                for r in rows
+                if _visible_result_row(
+                    state,
+                    result_kind="attempt",
+                    result_id=r.run_id,
+                    visibility=r.visibility,
+                    uploaded_by=r.uploaded_by,
+                    auth=auth,
+                )
+            ]
+            _json_response(self, 200, {"items": items})
 
-        def _serve_attempt_meta(self, *, run_id: str, scopes: frozenset[str]) -> None:
+        def _serve_attempt_meta(self, *, run_id: str, auth: TokenInfo) -> None:
             row = state.meta.get_attempt(run_id)
-            if row is None or not self._visible_result(row, scopes):
+            if row is None or not _visible_result_row(
+                state,
+                result_kind="attempt",
+                result_id=row.run_id,
+                visibility=row.visibility,
+                uploaded_by=row.uploaded_by,
+                auth=auth,
+            ):
                 _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
                 return
             _json_response(self, 200, attempt_to_dict(row))
 
-        def _serve_attempt_content(self, *, run_id: str, scopes: frozenset[str]) -> None:
+        def _serve_attempt_content(self, *, run_id: str, auth: TokenInfo) -> None:
             row = state.meta.get_attempt(run_id)
-            if row is None or not self._visible_result(row, scopes):
+            if row is None or not _visible_result_row(
+                state,
+                result_kind="attempt",
+                result_id=row.run_id,
+                visibility=row.visibility,
+                uploaded_by=row.uploaded_by,
+                auth=auth,
+            ):
                 _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
                 return
             data = state.blobs.get(row.blob_digest, prefix="results")
@@ -916,19 +1073,25 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         # ---- suite results -----------------------------------------------
 
-        def _visible_suite(self, row: SuiteResultRow, scopes: frozenset[str]) -> bool:
-            if row.visibility == "public":
-                return True
-            return _can_list_private_results(scopes)
-
         def _upload_suite(self) -> None:
             token = _bearer(self)
-            scopes = state.tokens.scopes_for(token)
+            auth = state.tokens.auth_for(token)
+            scopes = auth.scopes
             if "results:upload" not in scopes and "admin" not in scopes:
                 _json_response(
                     self,
                     401,
                     {"error": "unauthorized", "message": "results:upload scope required"},
+                )
+                return
+            if not auth.user_id:
+                _json_response(
+                    self,
+                    401,
+                    {
+                        "error": "unauthorized",
+                        "message": "upload requires authenticated user identity",
+                    },
                 )
                 return
             length = int(self.headers.get("Content-Length") or "0")
@@ -972,7 +1135,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if visibility not in {"private", "public"}:
                 _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
                 return
-            # Reject any client-supplied suite PASS authority field.
             if "pass" in meta or "verdict" in meta or meta.get("suite_pass") is not None:
                 _json_response(
                     self,
@@ -1019,7 +1181,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except (TypeError, ValueError):
                 exit_code = 0
 
-            # #42 config fingerprint projection from suite summary (optional).
             config_payload: dict[str, Any] = {}
             if meta.get("config_fingerprint"):
                 config_payload["config_fingerprint"] = str(meta["config_fingerprint"])
@@ -1027,9 +1188,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 config_payload["config_homogeneous"] = bool(meta.get("config_homogeneous"))
             actors_raw = meta.get("actors_summary")
             if isinstance(actors_raw, list):
-                config_payload["actors_summary"] = [
-                    a for a in actors_raw if isinstance(a, dict)
-                ]
+                config_payload["actors_summary"] = [a for a in actors_raw if isinstance(a, dict)]
 
             row = SuiteResultRow(
                 suite_run_id=suite_run_id,
@@ -1047,6 +1206,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 exit_code=exit_code,
                 created_at=now(),
                 config_json=json.dumps(config_payload, sort_keys=True),
+                uploaded_by=auth.user_id,
             )
             try:
                 state.blobs.put_if_absent(blob_digest, archive, prefix="suite-results")
@@ -1060,29 +1220,50 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, suite_to_dict(row))
 
-        def _list_suites(self, *, scopes: frozenset[str], qs: dict[str, list[str]]) -> None:
-            include_private = _can_list_private_results(scopes)
+        def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             database_id = (qs.get("database_id") or [None])[0]
             rows = state.meta.list_suites(
                 database_id=database_id or None,
-                include_private=include_private,
+                include_private=True,
             )
-            _json_response(
-                self,
-                200,
-                {"items": [suite_to_dict(r) for r in rows]},
-            )
+            items = [
+                suite_to_dict(r)
+                for r in rows
+                if _visible_result_row(
+                    state,
+                    result_kind="suite",
+                    result_id=r.suite_run_id,
+                    visibility=r.visibility,
+                    uploaded_by=r.uploaded_by,
+                    auth=auth,
+                )
+            ]
+            _json_response(self, 200, {"items": items})
 
-        def _serve_suite_meta(self, *, suite_run_id: str, scopes: frozenset[str]) -> None:
+        def _serve_suite_meta(self, *, suite_run_id: str, auth: TokenInfo) -> None:
             row = state.meta.get_suite(suite_run_id)
-            if row is None or not self._visible_suite(row, scopes):
+            if row is None or not _visible_result_row(
+                state,
+                result_kind="suite",
+                result_id=row.suite_run_id,
+                visibility=row.visibility,
+                uploaded_by=row.uploaded_by,
+                auth=auth,
+            ):
                 _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
                 return
             _json_response(self, 200, suite_to_dict(row))
 
-        def _serve_suite_content(self, *, suite_run_id: str, scopes: frozenset[str]) -> None:
+        def _serve_suite_content(self, *, suite_run_id: str, auth: TokenInfo) -> None:
             row = state.meta.get_suite(suite_run_id)
-            if row is None or not self._visible_suite(row, scopes):
+            if row is None or not _visible_result_row(
+                state,
+                result_kind="suite",
+                result_id=row.suite_run_id,
+                visibility=row.visibility,
+                uploaded_by=row.uploaded_by,
+                auth=auth,
+            ):
                 _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
                 return
             data = state.blobs.get(row.blob_digest, prefix="suite-results")
@@ -1096,6 +1277,309 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.send_header("X-Bora-Media-Type", SUITE_RESULT_MEDIA_TYPE)
             self.end_headers()
             self.wfile.write(data)
+
+        # ---- org ---------------------------------------------------------
+
+        def _create_org(self) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not auth.scopes:
+                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
+                return
+            if not auth.user_id:
+                _json_response(
+                    self,
+                    401,
+                    {"error": "unauthorized", "message": "user identity required"},
+                )
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            name = str(body.get("name") or "").strip().casefold()
+            display_name = str(body.get("display_name") or name)
+            is_claimable = bool(body.get("is_claimable", False))
+            if not name or not _ORG_NAME_RE.match(name):
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_request",
+                        "message": "name must be lowercase slug [a-z0-9][a-z0-9_-]*",
+                    },
+                )
+                return
+            try:
+                org = state.meta.create_org(
+                    name=name,
+                    owner_user_id=auth.user_id,
+                    display_name=display_name,
+                    is_claimable=is_claimable,
+                )
+            except ValueError:
+                _json_response(self, 409, {"error": "conflict", "message": "org already exists"})
+                return
+            _json_response(self, 201, org_to_dict(org))
+
+        def _list_orgs(self, *, auth: TokenInfo) -> None:
+            if not auth.user_id:
+                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
+                return
+            items = []
+            for org, role in state.meta.list_orgs_for_user(auth.user_id):
+                d = org_to_dict(org)
+                d["role"] = role
+                items.append(d)
+            _json_response(self, 200, {"items": items})
+
+        def _get_org(self, *, org_id: str, auth: TokenInfo) -> None:
+            org = state.meta.get_org(org_id.casefold())
+            if org is None:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return
+            # Public metadata of org is readable; membership list is restricted.
+            payload = org_to_dict(org)
+            if auth.user_id:
+                m = state.meta.membership(org.org_id, auth.user_id)
+                if m:
+                    payload["role"] = m.role
+            _json_response(self, 200, payload)
+
+        def _claim_org(self, *, org_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not auth.user_id:
+                _json_response(
+                    self,
+                    401,
+                    {"error": "unauthorized", "message": "user identity required"},
+                )
+                return
+            try:
+                org = state.meta.claim_org(org_id.casefold(), auth.user_id)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return
+            except PermissionError as exc:
+                _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
+                return
+            _json_response(self, 200, org_to_dict(org))
+
+        def _list_org_members(self, *, org_id: str, auth: TokenInfo) -> None:
+            org_id = org_id.casefold()
+            org = state.meta.get_org(org_id)
+            if org is None:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return
+            if not _is_admin(auth.scopes):
+                if not auth.user_id or state.meta.membership(org_id, auth.user_id) is None:
+                    _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                    return
+            members = [membership_to_dict(m) for m in state.meta.list_members(org_id)]
+            _json_response(self, 200, {"org_id": org_id, "items": members})
+
+        def _add_org_member(self, *, org_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not auth.user_id and not _is_admin(auth.scopes):
+                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
+                return
+            mem = state.meta.membership(org_id, auth.user_id) if auth.user_id else None
+            if not _is_admin(auth.scopes) and (mem is None or mem.role != "owner"):
+                _json_response(
+                    self,
+                    403,
+                    {"error": "forbidden", "message": "owner required to add members"},
+                )
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            user_id = _normalize_user_id(str(body.get("user_id") or ""))
+            role = str(body.get("role") or "member")
+            if not user_id:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_request", "message": "user_id required"},
+                )
+                return
+            try:
+                m = state.meta.add_member(org_id, user_id, role=role)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return
+            except ValueError as exc:
+                code = "conflict" if "exists" in str(exc) else "invalid_request"
+                status = 409 if code == "conflict" else 400
+                _json_response(self, status, {"error": code, "message": str(exc)})
+                return
+            _json_response(self, 201, membership_to_dict(m))
+
+        def _remove_org_member(self, *, org_id: str, user_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            target = _normalize_user_id(user_id) or user_id.casefold()
+            mem = state.meta.membership(org_id, auth.user_id) if auth.user_id else None
+            if not _is_admin(auth.scopes) and (mem is None or mem.role != "owner"):
+                _json_response(
+                    self,
+                    403,
+                    {"error": "forbidden", "message": "owner required to remove members"},
+                )
+                return
+            try:
+                state.meta.remove_member(org_id, target)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "membership not found"})
+                return
+            _json_response(self, 200, {"ok": True, "org_id": org_id, "user_id": target})
+
+        # ---- result shares -----------------------------------------------
+
+        def _list_result_shares(self, *, result_kind: str, result_id: str, auth: TokenInfo) -> None:
+            if not self._can_manage_result(result_kind, result_id, auth, for_read=True):
+                _json_response(self, 404, {"error": "not_found", "message": "result not found"})
+                return
+            shares = state.meta.list_result_shares(result_kind=result_kind, result_id=result_id)
+            _json_response(
+                self,
+                200,
+                {
+                    "result_kind": result_kind,
+                    "result_id": result_id,
+                    "items": [share_to_dict(s) for s in shares],
+                },
+            )
+
+        def _add_result_share(self, *, result_kind: str, result_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not self._can_manage_result(result_kind, result_id, auth, for_read=False):
+                _json_response(self, 404, {"error": "not_found", "message": "result not found"})
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            target_type = str(body.get("target_type") or "").strip()
+            target_id = str(body.get("target_id") or "").strip()
+            if target_type not in {"org", "user"} or not target_id:
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_request",
+                        "message": "target_type (org|user) and target_id required",
+                    },
+                )
+                return
+            if target_type == "user":
+                target_id = _normalize_user_id(target_id) or target_id.casefold()
+            else:
+                target_id = target_id.casefold()
+                if state.meta.get_org(target_id) is None:
+                    _json_response(
+                        self,
+                        400,
+                        {"error": "org_not_found", "message": f"org {target_id!r} not found"},
+                    )
+                    return
+            try:
+                share = state.meta.add_result_share(
+                    result_kind=result_kind,
+                    result_id=result_id,
+                    target_type=target_type,
+                    target_id=target_id,
+                )
+            except ValueError:
+                _json_response(self, 409, {"error": "conflict", "message": "share already exists"})
+                return
+            _json_response(self, 201, share_to_dict(share))
+
+        def _remove_result_share(self, *, result_kind: str, result_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not self._can_manage_result(result_kind, result_id, auth, for_read=False):
+                _json_response(self, 404, {"error": "not_found", "message": "result not found"})
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            target_type = str(body.get("target_type") or "").strip()
+            target_id = str(body.get("target_id") or "").strip()
+            if target_type == "user":
+                target_id = _normalize_user_id(target_id) or target_id.casefold()
+            else:
+                target_id = target_id.casefold()
+            try:
+                state.meta.remove_result_share(
+                    result_kind=result_kind,
+                    result_id=result_id,
+                    target_type=target_type,
+                    target_id=target_id,
+                )
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "share not found"})
+                return
+            _json_response(self, 200, {"ok": True})
+
+        def _can_manage_result(
+            self,
+            result_kind: str,
+            result_id: str,
+            auth: TokenInfo,
+            *,
+            for_read: bool,
+        ) -> bool:
+            if result_kind == "attempt":
+                row = state.meta.get_attempt(result_id)
+                if row is None:
+                    return False
+                if for_read:
+                    return _visible_result_row(
+                        state,
+                        result_kind="attempt",
+                        result_id=row.run_id,
+                        visibility=row.visibility,
+                        uploaded_by=row.uploaded_by,
+                        auth=auth,
+                    )
+                return _is_admin(auth.scopes) or (
+                    bool(auth.user_id) and row.uploaded_by == auth.user_id
+                )
+            row_s = state.meta.get_suite(result_id)
+            if row_s is None:
+                return False
+            if for_read:
+                return _visible_result_row(
+                    state,
+                    result_kind="suite",
+                    result_id=row_s.suite_run_id,
+                    visibility=row_s.visibility,
+                    uploaded_by=row_s.uploaded_by,
+                    auth=auth,
+                )
+            return _is_admin(auth.scopes) or (
+                bool(auth.user_id) and row_s.uploaded_by == auth.user_id
+            )
 
     return Handler
 
@@ -1126,7 +1610,7 @@ def build_default_state(
     tokens: Any = SqliteTokenStore(db_path)
     blobs: Any = MemoryBlobStore() if memory_blob else FilesystemBlobStore(data_dir / "blobs")
     token = bootstrap_token or secrets.token_urlsafe(24)
-    tokens.add(token, ADMIN_SCOPES)
+    tokens.add(token, ADMIN_SCOPES, github_user="bootstrap")
     return (
         RegistryState(
             meta=meta,
@@ -1173,7 +1657,7 @@ def build_state_from_env(
         region=os.environ.get("BORA_REGISTRY_S3_REGION") or "us-east-1",
     )
     token = bootstrap_token or secrets.token_urlsafe(24)
-    tokens.add(token, ADMIN_SCOPES)
+    tokens.add(token, ADMIN_SCOPES, github_user="bootstrap")
     return (
         RegistryState(
             meta=meta,
