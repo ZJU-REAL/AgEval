@@ -20,6 +20,25 @@ from bora.registry.digest import compute_package_digest
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
 
+TEST_ORG = "test"
+
+
+def _ensure_org() -> None:
+    """Create default test org owned by current token (idempotent)."""
+    import os
+
+    from bora.registry.client import RegistryClient, RegistryError
+
+    url = os.environ.get("BORA_REGISTRY_URL") or ""
+    token = os.environ.get("BORA_REGISTRY_TOKEN") or ""
+    if not url or not token:
+        return
+    client = RegistryClient(url, token=token)
+    try:
+        client.create_org(name=TEST_ORG, display_name="Test Org")
+    except RegistryError:
+        return
+
 
 @pytest.fixture()
 def registry_server(tmp_path: Path):
@@ -49,8 +68,9 @@ def test_publish_and_lock_by_ref(
     monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
     cache_root = tmp_path / "cache"
     monkeypatch.setenv("BORA_CACHE_ROOT", str(cache_root))
+    _ensure_org()
 
-    summary = publish_database(FIXTURE, public=False)
+    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
     assert summary["ok"] is True
     assert summary["database_id"] == "test/publish-min"
     assert summary["package_digest"] == compute_package_digest(FIXTURE)
@@ -83,7 +103,8 @@ def test_private_without_token_is_not_found(
 ) -> None:
     monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
     monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
-    summary = publish_database(FIXTURE, public=False)
+    _ensure_org()
+    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
 
     # Client without token
     client = RegistryClient(registry_server["url"], token=None)
@@ -99,5 +120,5 @@ def test_publish_requires_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     # Empty token via missing credentials
     monkeypatch.setenv("HOME", str(tmp_path))
     with pytest.raises(ConfigError) as ei:
-        publish_database(FIXTURE)
+        publish_database(FIXTURE, org=TEST_ORG)
     assert ei.value.error_code in {"unauthorized", "registry_unavailable"}

@@ -26,6 +26,24 @@ from bora.registry.client import RegistryClient, RegistryError
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+TEST_ORG = "test"
+
+
+def _ensure_org() -> None:
+    """Create default test org owned by current token (idempotent)."""
+    import os
+
+    from bora.registry.client import RegistryClient, RegistryError
+
+    url = os.environ.get("BORA_REGISTRY_URL") or ""
+    token = os.environ.get("BORA_REGISTRY_TOKEN") or ""
+    if not url or not token:
+        return
+    client = RegistryClient(url, token=token)
+    try:
+        client.create_org(name=TEST_ORG, display_name="Test Org")
+    except RegistryError:
+        return
 
 
 @pytest.fixture()
@@ -46,7 +64,8 @@ def registry_server(tmp_path: Path):
 def _publish_public(registry_server, monkeypatch: pytest.MonkeyPatch) -> dict:
     monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
     monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
-    return publish_database(FIXTURE, public=True)
+    _ensure_org()
+    return publish_database(FIXTURE, public=True, org=TEST_ORG)
 
 
 def test_normalize_path_rejects_traversal() -> None:
@@ -93,7 +112,8 @@ def test_private_without_token_404(
 ) -> None:
     monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
     monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
-    summary = publish_database(FIXTURE, public=False)
+    _ensure_org()
+    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
 
     anon = RegistryClient(registry_server["url"], token=None)
     with pytest.raises(RegistryError) as ei:
