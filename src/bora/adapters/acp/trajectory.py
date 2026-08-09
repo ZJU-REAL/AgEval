@@ -190,16 +190,11 @@ def write_trajectory_jsonl(
         }
     )
 
+    # Pattern scrub always; include caller sentinels when present.
+    from bora.evidence.redaction import redact_value
+
     sentinels = tuple(s for s in (redaction_sentinels or ()) if s)
-    if sentinels:
-        from bora.evidence.redaction import redact_value
-
-        lines = [redact_value(line, extra_sentinels=sentinels) for line in lines]
-    else:
-        # Still scrub common secret shapes even without explicit sentinels.
-        from bora.evidence.redaction import redact_value
-
-        lines = [redact_value(line) for line in lines]
+    lines = [redact_value(line, extra_sentinels=sentinels) for line in lines]
 
     path.write_text(
         "\n".join(json.dumps(x, ensure_ascii=False, sort_keys=True) for x in lines) + "\n",
@@ -261,7 +256,8 @@ def _merge_tool_from_event(ev: dict[str, Any], tool_states: dict[str, dict[str, 
     if name not in {"tool_call", "tool_call_update"} and ev.get("type") != "session_update":
         return
 
-    upd = ev.get("update") if isinstance(ev.get("update"), dict) else {}
+    raw_update = ev.get("update")
+    upd: dict[str, Any] = raw_update if isinstance(raw_update, dict) else {}
     state = tool_states.setdefault(call_id, {"tool_call_id": call_id})
 
     # Prefer nested update fields; fall back to flat client helpers.
@@ -291,9 +287,11 @@ def _merge_tool_from_event(ev: dict[str, Any], tool_states: dict[str, dict[str, 
         if summarized:
             state["content"] = summarized
 
-    # Best-effort function_name
-    if "function_name" not in state:
-        state["function_name"] = _infer_function_name(state)
+    # Best-effort function_name — re-infer until a non-empty name sticks.
+    if not state.get("function_name"):
+        inferred = _infer_function_name(state)
+        if inferred:
+            state["function_name"] = inferred
 
 
 def _infer_function_name(state: dict[str, Any]) -> str | None:
