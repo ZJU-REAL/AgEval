@@ -116,7 +116,9 @@ export function TrajectoryPanel({
             ? s.function_name || s.kind || s.title || "tool_call"
             : isObservation
               ? "observation"
-              : role;
+              : isAsst
+                ? "agent"
+                : role;
           const Icon = stepIcon({
             isUser,
             isAsst,
@@ -127,7 +129,7 @@ export function TrajectoryPanel({
             kind: s.kind,
             functionName: s.function_name,
           });
-          const body =
+          let body: string | null =
             s.content ||
             (isToolCall && s.args != null
               ? typeof s.args === "string"
@@ -140,6 +142,44 @@ export function TrajectoryPanel({
                 ? s.raw_output
                 : JSON.stringify(s.raw_output, null, 2)
               : null);
+
+          // permission / terminal: synthesize body from structured fields when needed
+          if (!body && isPermission) {
+            const bits = [
+              s.policy != null && s.policy !== "" ? `policy=${s.policy}` : null,
+              s.outcome != null && s.outcome !== "" ? `outcome=${s.outcome}` : null,
+              s.option_id != null && s.option_id !== ""
+                ? `option_id=${s.option_id}`
+                : null,
+            ].filter(Boolean) as string[];
+            body = bits.length ? bits.join(" · ") : null;
+          }
+          if (!body && isTerminal) {
+            const bits: string[] = [];
+            if (s.ok === true) bits.push("ok");
+            else if (s.ok === false) bits.push("not ok");
+            if (s.stop_reason) bits.push(`stop=${s.stop_reason}`);
+            if (s.error) bits.push(`error=${String(s.error)}`);
+            if (s.usage && typeof s.usage === "object") {
+              bits.push(`usage=${JSON.stringify(s.usage)}`);
+            }
+            if (s.metadata && typeof s.metadata === "object") {
+              const meta = s.metadata;
+              const metaBits = (
+                [
+                  "executor_kind",
+                  "acp_entry_id",
+                  "actual_model",
+                  "locked_model",
+                  "protocol_version",
+                ] as const
+              )
+                .filter((k) => meta[k] != null && meta[k] !== "")
+                .map((k) => `${k}=${String(meta[k])}`);
+              if (metaBits.length) bits.push(metaBits.join(" "));
+            }
+            body = bits.length ? bits.join(" · ") : null;
+          }
           // Success is the common case for folded tool/observation rows; only
           // surface non-success status (failed / error / cancelled / …).
           const statusRaw =
@@ -169,6 +209,11 @@ export function TrajectoryPanel({
                     />
                     {label}
                   </span>
+                  {s.turn_index != null ? (
+                    <span className="text-mute font-mono font-normal normal-case tracking-normal">
+                      turn {s.turn_index}
+                    </span>
+                  ) : null}
                   {showProfileBadge && s.profile_id ? (
                     <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-body font-normal normal-case tracking-normal">
                       {s.profile_id}
@@ -199,7 +244,6 @@ export function TrajectoryPanel({
                       {s.tool_call_id}
                     </span>
                   ) : null}
-                  {s.turn_index != null ? <span>turn {s.turn_index}</span> : null}
                   {s.invocation ? (
                     <span className="break-all" title={s.invocation}>
                       {s.invocation}
@@ -218,7 +262,9 @@ export function TrajectoryPanel({
               ) : s.error ? (
                 <p className="text-sm text-error">{String(s.error)}</p>
               ) : isTerminal ? (
-                <p className="text-sm text-mute">terminal</p>
+                <p className="text-sm text-mute">terminal (no summary)</p>
+              ) : isPermission ? (
+                <p className="text-sm text-mute">permission (no decision fields)</p>
               ) : isToolCall || isObservation ? (
                 <p className="text-sm text-mute">
                   {isToolCall ? "tool call (no args)" : "observation (empty)"}
