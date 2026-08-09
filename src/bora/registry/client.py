@@ -29,6 +29,7 @@ class ReleaseInfo:
     blob_digest: str
     size: int
     media_type: str
+    org_id: str | None = None
 
 
 class RegistryClient:
@@ -101,6 +102,7 @@ class RegistryClient:
         media_type: str,
         visibility: str,
         archive: bytes,
+        org_id: str,
     ) -> ReleaseInfo:
         meta = {
             "database_id": database_id,
@@ -110,6 +112,7 @@ class RegistryClient:
             "size": size,
             "media_type": media_type,
             "visibility": visibility,
+            "org_id": org_id,
         }
         import secrets as _secrets
 
@@ -142,6 +145,7 @@ class RegistryClient:
             blob_digest=str(data["blob_digest"]),
             size=int(data["size"]),
             media_type=str(data["media_type"]),
+            org_id=str(data["org_id"]) if data.get("org_id") else None,
         )
 
     def get_metadata(
@@ -171,6 +175,7 @@ class RegistryClient:
             blob_digest=str(data["blob_digest"]),
             size=int(data["size"]),
             media_type=str(data["media_type"]),
+            org_id=str(data["org_id"]) if data.get("org_id") else None,
         )
 
     def fetch_content(self, *, database_id: str, package_digest: str) -> bytes:
@@ -490,4 +495,91 @@ class RegistryClient:
             blob_digest=str(data["blob_digest"]),
             size=int(data["size"]),
             media_type=str(data["media_type"]),
+            org_id=str(data["org_id"]) if data.get("org_id") else None,
         )
+
+    # ---- orgs / shares ---------------------------------------------------
+
+    def create_org(
+        self,
+        *,
+        name: str,
+        display_name: str | None = None,
+        is_claimable: bool = False,
+    ) -> dict[str, Any]:
+        body = {
+            "name": name,
+            "display_name": display_name or name,
+            "is_claimable": is_claimable,
+        }
+        status, raw, _ = self._request(
+            "POST",
+            "/v1/orgs",
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status not in {200, 201}:
+            raise RegistryError("org_create_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def list_orgs(self) -> dict[str, Any]:
+        status, raw, _ = self._request("GET", "/v1/orgs")
+        if status != 200:
+            raise RegistryError("org_list_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def add_org_member(self, *, org_id: str, user_id: str, role: str = "member") -> dict[str, Any]:
+        body = {"user_id": user_id, "role": role}
+        status, raw, _ = self._request(
+            "POST",
+            f"/v1/orgs/{quote(org_id, safe='')}/members",
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status not in {200, 201}:
+            raise RegistryError("org_member_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def share_result(
+        self,
+        *,
+        result_kind: str,
+        result_id: str,
+        target_type: str,
+        target_id: str,
+    ) -> dict[str, Any]:
+        body = {"target_type": target_type, "target_id": target_id}
+        path = f"/v1/results/{result_kind}s/{quote(result_id, safe='')}/shares"
+        # result_kind is attempt|suite → attempts|suites
+        kind_path = "attempts" if result_kind == "attempt" else "suites"
+        path = f"/v1/results/{kind_path}/{quote(result_id, safe='')}/shares"
+        status, raw, _ = self._request(
+            "POST",
+            path,
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status not in {200, 201}:
+            raise RegistryError("share_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def unshare_result(
+        self,
+        *,
+        result_kind: str,
+        result_id: str,
+        target_type: str,
+        target_id: str,
+    ) -> dict[str, Any]:
+        body = {"target_type": target_type, "target_id": target_id}
+        kind_path = "attempts" if result_kind == "attempt" else "suites"
+        path = f"/v1/results/{kind_path}/{quote(result_id, safe='')}/shares"
+        status, raw, _ = self._request(
+            "DELETE",
+            path,
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("unshare_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))

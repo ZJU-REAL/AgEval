@@ -419,3 +419,50 @@ def list_suite_results(
     except RegistryError as exc:
         raise ConfigError(exc.code, exc.message, location="registry") from exc
     return {"ok": True, "items": items, "count": len(items), "source": "registry"}
+
+
+def share_result(
+    *,
+    result_kind: str,
+    result_id: str,
+    share_orgs: list[str] | None = None,
+    share_users: list[str] | None = None,
+    registry_url: str | None = None,
+) -> dict[str, Any]:
+    """Share a private attempt/suite result with orgs and/or users (owner only)."""
+    if result_kind not in {"attempt", "suite"}:
+        raise ConfigError(
+            "invalid_request",
+            "result_kind must be attempt or suite",
+            location="registry",
+        )
+    client = _client(registry_url=registry_url)
+    created: list[dict[str, Any]] = []
+    try:
+        for org in share_orgs or []:
+            created.append(
+                client.share_result(
+                    result_kind=result_kind,
+                    result_id=result_id,
+                    target_type="org",
+                    target_id=org,
+                )
+            )
+        for user in share_users or []:
+            created.append(
+                client.share_result(
+                    result_kind=result_kind,
+                    result_id=result_id,
+                    target_type="user",
+                    target_id=user,
+                )
+            )
+    except RegistryError as exc:
+        raise ConfigError(exc.code, exc.message, location="registry") from exc
+    return {
+        "ok": True,
+        "result_kind": result_kind,
+        "result_id": result_id,
+        "shares": created,
+        "count": len(created),
+    }
