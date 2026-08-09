@@ -133,7 +133,7 @@ def test_tool_call_and_update_merged(tmp_path: Path) -> None:
     assert tool["status"] == "completed"
     assert tool["args"] == {"path": "/workspace/config.json"}
     assert tool["title"] == "Reading configuration file"
-    assert tool["function_name"]
+    assert tool["function_name"] == "read"  # Harbor: kind when present
     assert tool["turn_index"] == 2
     assert tool["acp_session_id"] == "sess_1"
 
@@ -141,9 +141,8 @@ def test_tool_call_and_update_merged(tmp_path: Path) -> None:
     assert obs["type"] == "observation"
     assert obs["tool_call_id"] == "call_001"
     assert obs["status"] == "completed"
+    # Harbor joins observation chunks (in_progress + completed text)
     assert "Analysis complete" in (obs.get("content") or "")
-    # Intermediate in_progress text must not be the only residual — final content wins
-    assert "Found 3 configuration files" not in (obs.get("content") or "")
     assert obs["raw_output"] == {"ok": True, "count": 3}
 
 
@@ -234,6 +233,95 @@ def test_tool_args_redacted(tmp_path: Path) -> None:
     blob = path.read_text(encoding="utf-8")
     assert sentinel not in blob
     assert "REDACTED" in blob
+
+
+def test_terminal_meta_stdout_and_title_command(tmp_path: Path) -> None:
+    """Pi/ACP path: command in title stream; stdout in update._meta.terminal_output."""
+    events = (
+        {
+            "type": "session_update",
+            "session_id": "s",
+            "update_type": "ToolCallStart",
+            "tool_call_id": "call_term",
+            "title": "bash",
+            "kind": "execute",
+            "status": "pending",
+            "update": {
+                "sessionUpdate": "tool_call",
+                "toolCallId": "call_term",
+                "title": "bash",
+                "kind": "execute",
+                "status": "pending",
+                "content": [{"type": "terminal", "terminalId": "call_term"}],
+            },
+        },
+        {
+            "type": "session_update",
+            "session_id": "s",
+            "update_type": "ToolCallProgress",
+            "tool_call_id": "call_term",
+            "title": "ls -la /attempt/workspace/",
+            "kind": "execute",
+            "status": "pending",
+            "update": {
+                "sessionUpdate": "tool_call_update",
+                "toolCallId": "call_term",
+                "title": "ls -la /attempt/workspace/",
+                "kind": "execute",
+                "status": "pending",
+            },
+        },
+        {
+            "type": "session_update",
+            "session_id": "s",
+            "update_type": "ToolCallProgress",
+            "tool_call_id": "call_term",
+            "status": "in_progress",
+            "update": {
+                "sessionUpdate": "tool_call_update",
+                "toolCallId": "call_term",
+                "status": "in_progress",
+                "_meta": {
+                    "terminal_output": {
+                        "data": "total 20\ndrwxr-xr-x 6 actor instruction.md\n",
+                        "terminal_id": "call_term",
+                    }
+                },
+            },
+        },
+        {
+            "type": "session_update",
+            "session_id": "s",
+            "update_type": "ToolCallProgress",
+            "tool_call_id": "call_term",
+            "status": "completed",
+            "update": {
+                "sessionUpdate": "tool_call_update",
+                "toolCallId": "call_term",
+                "status": "completed",
+                "_meta": {"terminal_exit": {"exit_code": 0}},
+            },
+        },
+    )
+    path = write_trajectory_jsonl(
+        tmp_path / "inv",
+        prompt="list dir",
+        events=events,
+        final_text="done",
+        structured=None,
+        usage=None,
+        ok=True,
+        error=None,
+    )
+    lines = _read_lines(path)
+    tool = next(x for x in lines if x["type"] == "tool_call")
+    obs = next(x for x in lines if x["type"] == "observation")
+    assert tool["args"] == {"command": "ls -la /attempt/workspace/"}
+    assert tool["title"] == "ls -la /attempt/workspace/"
+    assert tool["function_name"] == "execute"  # Harbor: kind over title token
+    assert "total 20" in (obs.get("content") or "")
+    assert "instruction.md" in (obs.get("content") or "")
+    assert "[terminal" not in (obs.get("content") or "")
 
 
 def test_permission_decision_still_emitted(tmp_path: Path) -> None:
