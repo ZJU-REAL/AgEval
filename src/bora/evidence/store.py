@@ -220,6 +220,7 @@ class InvocationHandle:
                 for name in (
                     "request.json",
                     "events.jsonl",
+                    "trajectory.jsonl",
                     "final-response.json",
                     "stderr.txt",
                 ):

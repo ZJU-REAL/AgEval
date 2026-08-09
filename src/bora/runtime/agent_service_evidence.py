@@ -137,6 +137,10 @@ def seal_invoke_result(
         from bora.adapters.acp import write_trajectory_jsonl
 
         # Always rewrite with turn_index even if executor already wrote.
+        sentinels = ()
+        store = getattr(handle, "store", None)
+        if store is not None:
+            sentinels = tuple(getattr(store, "sentinels", ()) or ())
         write_trajectory_jsonl(
             handle.directory,
             prompt=prompt,
@@ -149,6 +153,7 @@ def seal_invoke_result(
             ok=bool(result.ok),
             error=result.error,
             metadata=meta,
+            redaction_sentinels=sentinels,
         )
 
     status = "completed" if result.ok else map_error_status(result.error)
