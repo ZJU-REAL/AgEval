@@ -84,6 +84,7 @@ export function TrajectoryPanel({
                 ? s.args
                 : JSON.stringify(s.args, null, 2)
               : null) ||
+            (isToolCall && s.title ? s.title : null) ||
             (isObservation && s.raw_output != null
               ? typeof s.raw_output === "string"
                 ? s.raw_output
