@@ -34,16 +34,14 @@ def _parse_obj(raw: Any) -> dict[str, Any] | None:
     return None
 
 
-def _params(ctx: HarnessContext) -> dict[str, Any]:
-    raw = ctx.params
-    return dict(raw) if isinstance(raw, dict) else {}
-
-
 async def run(ctx: HarnessContext) -> HarnessTerminal:
-    params = _params(ctx)
-    models = params.get("models") if isinstance(params.get("models"), dict) else {}
-    profile_id = str(models.get("default") or "terminal-pi")
-    out_name = str(params.get("workspace_output") or "aggregates.json")
+    # HarnessParameterView supports dotted get — do not coerce via dict().
+    models = ctx.params.get("models") if isinstance(ctx.params.get("models"), dict) else {}
+    # Prefer allowlisted CLI override, then package models.default.
+    profile_id = str(
+        ctx.params.get("active_profile") or models.get("default") or "terminal-pi"
+    )
+    out_name = str(ctx.params.get("workspace_output") or "aggregates.json")
     out_path = Path(out_name)
     if out_path.is_absolute() or ".." in out_path.parts:
         return HarnessTerminal.failed("workspace_output_invalid")

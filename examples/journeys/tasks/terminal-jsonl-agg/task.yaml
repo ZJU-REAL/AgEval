@@ -23,6 +23,8 @@ parameters:
   workspace_output: aggregates.json
   harness_timeout_seconds: 420
   agent_timeout_seconds: 420
+  # Allowlisted CLI: --set '/parameters/active_profile="terminal-opencode"'
+  active_profile: terminal-pi
   models:
     default: terminal-pi
 
