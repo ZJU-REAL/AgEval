@@ -144,7 +144,14 @@ export function DatasetsPage() {
                   <TableCell className="font-mono text-xs text-body">
                     {row.version}
                   </TableCell>
-                  <TableCell className="text-body">{row.visibility}</TableCell>
+                  <TableCell className="text-body">
+                    {row.visibility}
+                    {row.org_id ? (
+                      <span className="ml-2 font-mono text-xs text-mute">
+                        @{row.org_id}
+                      </span>
+                    ) : null}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums text-body">
                     {row.size.toLocaleString()}
                   </TableCell>

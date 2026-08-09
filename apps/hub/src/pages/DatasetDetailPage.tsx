@@ -136,7 +136,15 @@ export function DatasetDetailPage() {
         </h1>
         {release ? (
           <p className="text-sm text-mute mt-1">
-            v{release.version} · {release.visibility} ·{" "}
+            v{release.version} · {release.visibility}
+            {release.org_id ? (
+              <>
+                {" "}
+                · org{" "}
+                <span className="font-mono text-xs text-body">{release.org_id}</span>
+              </>
+            ) : null}{" "}
+            ·{" "}
             <span className="font-mono text-xs">
               {release.package_digest.slice(0, 19)}…
             </span>

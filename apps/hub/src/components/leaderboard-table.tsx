@@ -137,6 +137,11 @@ export function LeaderboardTable({
                 </TableCell>
                 <TableCell className="text-sm text-body">
                   {s.visibility || "—"}
+                  {s.uploaded_by ? (
+                    <span className="ml-2 font-mono text-[11px] text-mute">
+                      by {s.uploaded_by}
+                    </span>
+                  ) : null}
                 </TableCell>
                 <TableCell className="font-mono text-[11px]">
                   {s.suite_run_id}

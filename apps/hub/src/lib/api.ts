@@ -9,6 +9,7 @@ export type PackageRelease = {
   size: number;
   media_type?: string;
   created_at?: number;
+  org_id?: string;
 };
 
 export type FileItem = {
@@ -54,6 +55,7 @@ export type SuiteRow = {
   exit_code?: number | null;
   created_at?: number | string;
   note?: string;
+  uploaded_by?: string;
 };
 
 export class RegistryHttpError extends Error {
