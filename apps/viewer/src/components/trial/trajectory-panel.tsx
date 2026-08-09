@@ -1,9 +1,49 @@
-import { useMemo } from "react";
+import { useMemo, type ComponentType } from "react";
+import {
+  Bot,
+  Eye,
+  FilePenLine,
+  FileSearch,
+  Flag,
+  MessageSquare,
+  Shield,
+  Terminal,
+  User,
+  Wrench,
+} from "lucide-react";
 
 import type { TrajectoryStep } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { actorLabel, type ActorRow } from "./types";
+
+type IconComp = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+
+function stepIcon(opts: {
+  isUser: boolean;
+  isAsst: boolean;
+  isToolCall: boolean;
+  isObservation: boolean;
+  isTerminal: boolean;
+  isPermission: boolean;
+  kind?: string | null;
+  functionName?: string | null;
+}): IconComp {
+  if (opts.isUser) return User;
+  if (opts.isAsst) return Bot;
+  if (opts.isObservation) return Eye;
+  if (opts.isTerminal) return Flag;
+  if (opts.isPermission) return Shield;
+  if (opts.isToolCall) {
+    const k = (opts.kind || opts.functionName || "").toLowerCase();
+    if (k === "execute" || k === "bash" || k === "shell") return Terminal;
+    if (k === "read" || k === "search" || k === "fetch") return FileSearch;
+    if (k === "edit" || k === "write" || k === "delete" || k === "move")
+      return FilePenLine;
+    return Wrench;
+  }
+  return MessageSquare;
+}
 
 export function TrajectoryPanel({
   loading,
@@ -73,10 +113,20 @@ export function TrajectoryPanel({
           const isAsst = role === "assistant";
           const isTerminal = stepType === "terminal";
           const label = isToolCall
-            ? s.function_name || s.title || "tool_call"
+            ? s.function_name || s.kind || s.title || "tool_call"
             : isObservation
               ? "observation"
               : role;
+          const Icon = stepIcon({
+            isUser,
+            isAsst,
+            isToolCall,
+            isObservation,
+            isTerminal,
+            isPermission,
+            kind: s.kind,
+            functionName: s.function_name,
+          });
           const body =
             s.content ||
             (isToolCall && s.args != null
@@ -96,21 +146,21 @@ export function TrajectoryPanel({
               className={cn(
                 "rounded-[8px] border border-hairline px-3 py-2.5",
                 isTerminal && "bg-canvas-soft",
-                isToolCall && "border-l-2 border-l-link/60",
-                isObservation && "border-l-2 border-l-mute bg-canvas-soft/50",
+                isObservation && "bg-canvas-soft/40",
               )}
             >
               <div className="flex flex-wrap items-center gap-2 text-xs text-mute mb-1">
                 <span
                   className={cn(
-                    "font-medium uppercase tracking-wide",
+                    "inline-flex items-center gap-1.5 font-medium uppercase tracking-wide",
                     isUser && "text-link",
                     isAsst && "text-ink",
-                    isToolCall && "text-link",
+                    isToolCall && "text-ink",
                     isObservation && "text-body",
                     isTerminal && "text-mute",
                   )}
                 >
+                  <Icon className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
                   {label}
                 </span>
                 {showProfileBadge && s.profile_id ? (
@@ -118,7 +168,7 @@ export function TrajectoryPanel({
                     {s.profile_id}
                   </span>
                 ) : null}
-                {s.kind ? (
+                {s.kind && isToolCall && s.kind !== label ? (
                   <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px]">
                     {s.kind}
                   </span>

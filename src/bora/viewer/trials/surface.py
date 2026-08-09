@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -301,6 +302,12 @@ def _trial_meta_from_evidence(
     if score is None:
         score = summary.get("score")
     error = suite_row.get("error") or result.get("error") or summary.get("error")
+    # SPA must receive a string; structured errors (e.g. {phase: ...}) crash React.
+    if error is not None and not isinstance(error, str):
+        try:
+            error = json.dumps(error, ensure_ascii=False, sort_keys=True)
+        except (TypeError, ValueError):
+            error = str(error)
     locked_task = lock.get("task_id") if isinstance(lock.get("task_id"), str) else None
     surface = _agent_surface(evidence, lock=lock, result=result, summary=summary)
 

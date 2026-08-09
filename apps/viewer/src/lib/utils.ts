@@ -10,6 +10,17 @@ export function formatScore(value: number | null | undefined): string {
   return Number(value).toFixed(2);
 }
 
+/** Coerce API error fields to a string for React children (objects crash React #31). */
+export function formatError(value: unknown): string {
+  if (value == null || value === "") return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 export function formatTrials(done: number | null | undefined, total: number | null | undefined): string {
   if (total == null) return "-";
   return `${done ?? 0}/${total}`;
