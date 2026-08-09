@@ -140,6 +140,17 @@ export function TrajectoryPanel({
                 ? s.raw_output
                 : JSON.stringify(s.raw_output, null, 2)
               : null);
+          // Success is the common case for folded tool/observation rows; only
+          // surface non-success status (failed / error / cancelled / …).
+          const statusRaw =
+            typeof s.status === "string" ? s.status.trim() : "";
+          const statusLower = statusRaw.toLowerCase();
+          const showStatus =
+            Boolean(statusRaw) &&
+            !["completed", "complete", "success", "ok", "done"].includes(
+              statusLower,
+            );
+
           return (
             <li
               key={`${s.invocation || ""}-${s.line || i}-${i}`}
@@ -149,42 +160,56 @@ export function TrajectoryPanel({
                 isObservation && "bg-canvas-soft/40",
               )}
             >
-              <div className="flex flex-wrap items-center gap-2 text-xs text-mute mb-1">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1.5 font-medium uppercase tracking-wide",
-                    isUser && "text-link",
-                    isAsst && "text-ink",
-                    isToolCall && "text-ink",
-                    isObservation && "text-body",
-                    isTerminal && "text-mute",
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
-                  {label}
-                </span>
-                {showProfileBadge && s.profile_id ? (
-                  <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-body">
-                    {s.profile_id}
+              <div className="flex items-start gap-3 text-xs mb-1">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide text-ink">
+                    <Icon
+                      className="h-3.5 w-3.5 shrink-0 opacity-80"
+                      aria-hidden
+                    />
+                    {label}
                   </span>
-                ) : null}
-                {s.kind && isToolCall && s.kind !== label ? (
-                  <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px]">
-                    {s.kind}
-                  </span>
-                ) : null}
-                {s.status ? <span className="font-mono">{s.status}</span> : null}
-                {s.tool_call_id ? (
-                  <span className="font-mono truncate max-w-[20ch]" title={s.tool_call_id}>
-                    {s.tool_call_id}
-                  </span>
-                ) : null}
-                {s.turn_index != null ? <span>turn {s.turn_index}</span> : null}
-                {s.invocation ? (
-                  <span className="font-mono truncate max-w-[24ch]">{s.invocation}</span>
-                ) : null}
-                {s.stop_reason ? <span>{s.stop_reason}</span> : null}
-                {s.ok === false ? <span className="text-error">not ok</span> : null}
+                  {showProfileBadge && s.profile_id ? (
+                    <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-body font-normal normal-case tracking-normal">
+                      {s.profile_id}
+                    </span>
+                  ) : null}
+                  {s.kind && isToolCall && s.kind !== label ? (
+                    <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-mute font-normal normal-case tracking-normal">
+                      {s.kind}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="ml-auto flex flex-col items-end gap-0.5 min-w-0 max-w-[min(100%,36rem)] text-right text-mute font-mono font-normal normal-case tracking-normal">
+                  {showStatus ? (
+                    <span
+                      className={cn(
+                        statusLower.includes("fail") ||
+                          statusLower.includes("error") ||
+                          statusLower.includes("cancel")
+                          ? "text-error"
+                          : undefined,
+                      )}
+                    >
+                      {statusRaw}
+                    </span>
+                  ) : null}
+                  {s.tool_call_id ? (
+                    <span className="break-all" title={s.tool_call_id}>
+                      {s.tool_call_id}
+                    </span>
+                  ) : null}
+                  {s.turn_index != null ? <span>turn {s.turn_index}</span> : null}
+                  {s.invocation ? (
+                    <span className="break-all" title={s.invocation}>
+                      {s.invocation}
+                    </span>
+                  ) : null}
+                  {s.stop_reason ? <span>{s.stop_reason}</span> : null}
+                  {s.ok === false ? (
+                    <span className="text-error">not ok</span>
+                  ) : null}
+                </div>
               </div>
               {body ? (
                 <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">

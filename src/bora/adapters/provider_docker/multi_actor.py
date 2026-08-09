@@ -407,9 +407,7 @@ class DockerMultiActorMixin:
                 f"cp /creds/opencode/auth.json '{home}/.local/share/opencode/auth.json'; "
                 f"chmod 0600 '{home}/.local/share/opencode/auth.json'; fi"
             )
-            lines.append(
-                f"chown -R {b.uid}:{b.gid} '{home}/.local' 2>/dev/null || true"
-            )
+            lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.local' 2>/dev/null || true")
             # Grok Build ACP host login (optional) — $HOME/.grok/auth.json
             lines.append(f"mkdir -p '{home}/.grok'")
             lines.append(
