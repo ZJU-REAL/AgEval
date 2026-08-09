@@ -55,16 +55,48 @@ export function TrajectoryPanel({
     return (
       <ol className="space-y-2">
         {list.map((s, i) => {
-          const role = (s.role || s.type || "event").toString();
+          const stepType = (s.type || "").toString();
+          const isToolCall = stepType === "tool_call";
+          const isObservation = stepType === "observation";
+          const isPermission = stepType === "permission_decision";
+          const role = (
+            s.role ||
+            (isToolCall
+              ? "tool_call"
+              : isObservation
+                ? "observation"
+                : isPermission
+                  ? "permission"
+                  : stepType || "event")
+          ).toString();
           const isUser = role === "user";
           const isAsst = role === "assistant";
-          const isTerminal = s.type === "terminal";
+          const isTerminal = stepType === "terminal";
+          const label = isToolCall
+            ? s.function_name || s.title || "tool_call"
+            : isObservation
+              ? "observation"
+              : role;
+          const body =
+            s.content ||
+            (isToolCall && s.args != null
+              ? typeof s.args === "string"
+                ? s.args
+                : JSON.stringify(s.args, null, 2)
+              : null) ||
+            (isObservation && s.raw_output != null
+              ? typeof s.raw_output === "string"
+                ? s.raw_output
+                : JSON.stringify(s.raw_output, null, 2)
+              : null);
           return (
             <li
               key={`${s.invocation || ""}-${s.line || i}-${i}`}
               className={cn(
                 "rounded-[8px] border border-hairline px-3 py-2.5",
                 isTerminal && "bg-canvas-soft",
+                isToolCall && "border-l-2 border-l-link/60",
+                isObservation && "border-l-2 border-l-mute bg-canvas-soft/50",
               )}
             >
               <div className="flex flex-wrap items-center gap-2 text-xs text-mute mb-1">
@@ -73,14 +105,27 @@ export function TrajectoryPanel({
                     "font-medium uppercase tracking-wide",
                     isUser && "text-link",
                     isAsst && "text-ink",
+                    isToolCall && "text-link",
+                    isObservation && "text-body",
                     isTerminal && "text-mute",
                   )}
                 >
-                  {role}
+                  {label}
                 </span>
                 {showProfileBadge && s.profile_id ? (
                   <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-body">
                     {s.profile_id}
+                  </span>
+                ) : null}
+                {s.kind ? (
+                  <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px]">
+                    {s.kind}
+                  </span>
+                ) : null}
+                {s.status ? <span className="font-mono">{s.status}</span> : null}
+                {s.tool_call_id ? (
+                  <span className="font-mono truncate max-w-[20ch]" title={s.tool_call_id}>
+                    {s.tool_call_id}
                   </span>
                 ) : null}
                 {s.turn_index != null ? <span>turn {s.turn_index}</span> : null}
@@ -90,14 +135,18 @@ export function TrajectoryPanel({
                 {s.stop_reason ? <span>{s.stop_reason}</span> : null}
                 {s.ok === false ? <span className="text-error">not ok</span> : null}
               </div>
-              {s.content ? (
+              {body ? (
                 <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
-                  {s.content}
+                  {body}
                 </pre>
               ) : s.error ? (
                 <p className="text-sm text-error">{String(s.error)}</p>
               ) : isTerminal ? (
                 <p className="text-sm text-mute">terminal</p>
+              ) : isToolCall || isObservation ? (
+                <p className="text-sm text-mute">
+                  {isToolCall ? "tool call (no args)" : "observation (empty)"}
+                </p>
               ) : null}
             </li>
           );

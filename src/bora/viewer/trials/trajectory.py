@@ -121,6 +121,25 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         content = str(content)
                 if isinstance(content, str) and len(content) > 8_000:
                     content = content[:8_000] + "…[truncated]"
+
+                # tool_call / observation: surface args & raw_output as content when needed
+                args = obj.get("args")
+                raw_output = obj.get("raw_output")
+                if step_type == "tool_call" and content is None and args is not None:
+                    try:
+                        content = json.dumps(args, ensure_ascii=False)
+                    except (TypeError, ValueError):
+                        content = str(args)
+                    if isinstance(content, str) and len(content) > 8_000:
+                        content = content[:8_000] + "…[truncated]"
+                if step_type == "observation" and content is None and raw_output is not None:
+                    try:
+                        content = json.dumps(raw_output, ensure_ascii=False)
+                    except (TypeError, ValueError):
+                        content = str(raw_output)
+                    if isinstance(content, str) and len(content) > 8_000:
+                        content = content[:8_000] + "…[truncated]"
+
                 steps.append(
                     {
                         "type": step_type,
@@ -134,6 +153,16 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         "usage": obj.get("usage") if isinstance(obj.get("usage"), dict) else None,
                         "metadata": obj.get("metadata")
                         if isinstance(obj.get("metadata"), dict)
+                        else None,
+                        # tool_call / observation fields (fail-open; unknown types ignore)
+                        "tool_call_id": obj.get("tool_call_id"),
+                        "title": obj.get("title"),
+                        "function_name": obj.get("function_name"),
+                        "kind": obj.get("kind"),
+                        "status": obj.get("status"),
+                        "args": args if isinstance(args, (dict, list, str)) else None,
+                        "raw_output": raw_output
+                        if isinstance(raw_output, (dict, list, str))
                         else None,
                         "line": line_no,
                     }
