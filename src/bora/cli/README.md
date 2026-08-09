@@ -87,11 +87,13 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora evidence` | Export sealed trajectory copy (does not change score) |
 | `bora submit` / `status` / `cancel` | Durable Run control (v0.12 sketch) |
 | `bora login` | GitHub Device Flow → write credentials |
-| `bora publish` | Publish a whole Database package to the Registry |
+| `bora publish` | Publish a Database package (**requires `--org`**) |
 | `bora registry list\|show` | Browse remote packages |
+| `bora registry org-create\|org-list` | Create / list organizations (packages belong to orgs) |
 | `bora cache list\|path\|purge` | Local verified cache |
 | `bora results upload\|get\|list` | Attempt run evidence bundles |
 | `bora results upload-suite\|get-suite\|list-suites` | Suite/job aggregates + task refs (no suite PASS) |
+| `bora results share` | Share a private result with org(s) and/or user(s) |
 | `bora view` | Local read-only Database Web UI (no Registry) |
 
 Discover flags with `uv run bora <cmd> -h`.
@@ -173,7 +175,10 @@ uv run --extra registry python -m services.registry.app
 export BORA_REGISTRY_URL=http://127.0.0.1:8700
 ```
 
-### Login and publish
+### Login, org, and publish
+
+Packages **must** belong to an organization (`--org`). Results belong to the
+uploader and can later be shared to an org or user.
 
 ```bash
 # Interactive GitHub Device Flow (server needs BORA_GITHUB_* + LOGIN_ALLOWLIST)
@@ -182,9 +187,12 @@ uv run bora login
 # CI: no browser
 export BORA_REGISTRY_TOKEN=<bootstrap-or-ci-token>
 
-# Default visibility private; explicit public:
-uv run bora publish tests/fixtures/databases/publish-min
-uv run bora publish path/to/db --public
+uv run bora registry org-create my-lab --display-name "My Lab"
+uv run bora registry org-list
+
+# Default visibility private; explicit public. --org is required.
+uv run bora publish tests/fixtures/databases/publish-min --org my-lab
+uv run bora publish path/to/db --org my-lab --public
 ```
 
 ### Lock / run by ref
@@ -215,9 +223,14 @@ Upload sealed trees under `<database>/.bora/runs/<run_id>/` (not package release
 uv run bora results upload /path/to/database --run <run_id>
 uv run bora results list --database-id test/publish-min
 uv run bora results get <run_id> --out /tmp/restored-run
+# Share a private result (owner only):
+uv run bora results share <run_id> --kind attempt --share-org my-lab
 ```
 
-Visibility is **public** or **private** only (no org in this MVP). Default private; `--public` for public.
+Visibility is **public** or **private** only. Packages are owned by an **org**;
+results are owned by the **uploader** (`uploaded_by`). Private results stay
+invisible to org members until the owner shares them. Default private; `--public`
+for public.
 
 ### Suite / job results
 

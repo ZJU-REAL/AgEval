@@ -549,7 +549,6 @@ class RegistryClient:
         target_id: str,
     ) -> dict[str, Any]:
         body = {"target_type": target_type, "target_id": target_id}
-        path = f"/v1/results/{result_kind}s/{quote(result_id, safe='')}/shares"
         # result_kind is attempt|suite → attempts|suites
         kind_path = "attempts" if result_kind == "attempt" else "suites"
         path = f"/v1/results/{kind_path}/{quote(result_id, safe='')}/shares"
