@@ -1,8 +1,12 @@
-"""Suite config fingerprint for Leaderboard comparability (#42).
+"""Suite config fingerprint for Leaderboard comparability (#42 + #59).
 
-Computed at suite summary write time from each task's agent_profiles topology.
-Never invents suite-level PASS. Fingerprint materials exclude credentials/secrets
-(api_key locators and values are omitted).
+#59: Leaderboard job axis is Database ``profiles.yaml`` (job_overlay), not
+per-task role-slot topology. Different tasks may use different role *ids*;
+agent×model bindings are distributed by one suite-level profiles document.
+
+Fingerprint materials exclude credentials/secrets (api_key values never appear;
+locators may appear in job_overlay but are omitted from the digest).
+Never invents suite-level PASS.
 """
 
 from __future__ import annotations
@@ -57,6 +61,28 @@ def actors_summary_from_profiles(
     return rows
 
 
+def actors_summary_from_job_overlay(
+    overlay: Mapping[str, Any] | None,
+) -> list[dict[str, str]]:
+    """Project secret-free job_overlay.bindings into actors_summary rows."""
+    if not isinstance(overlay, Mapping):
+        return []
+    bindings = overlay.get("bindings")
+    if not isinstance(bindings, Mapping):
+        return []
+    rows: list[dict[str, Any]] = []
+    for role_id, raw in bindings.items():
+        if not isinstance(raw, Mapping):
+            continue
+        rid = str(role_id).strip()
+        if not rid:
+            continue
+        entry = _profile_entry(raw)
+        model = str(raw.get("model") or "").strip()
+        rows.append({"id": rid, "entry": entry, "model": model, **dict(raw)})
+    return actors_summary_from_profiles(rows)
+
+
 def _canonical_bytes(actors: Sequence[Mapping[str, str]]) -> bytes:
     material = [{k: str(a.get(k) or "") for k in _ACTOR_KEYS} for a in actors]
     return json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -68,6 +94,54 @@ def fingerprint_for_actors(actors: Sequence[Mapping[str, str]]) -> str:
     sorted_actors = actors_summary_from_profiles(list(actors))
     digest = hashlib.sha256(_canonical_bytes(sorted_actors)).hexdigest()
     return f"sha256:{digest}"
+
+
+def fingerprint_for_job_overlay(overlay: Mapping[str, Any] | None) -> str:
+    """Fingerprint the suite job binding axis (profiles.yaml / job_overlay).
+
+    Digests role → (entry, model) only — no api_key / secrets.
+    """
+    actors = actors_summary_from_job_overlay(overlay)
+    return fingerprint_for_actors(actors)
+
+
+def _binding_role_key(binding: Mapping[str, Any]) -> tuple[str, str]:
+    return (_profile_entry(binding), str(binding.get("model") or "").strip())
+
+
+def job_overlays_compatible(
+    suite_overlay: Mapping[str, Any] | None,
+    per_task: Sequence[Mapping[str, Any] | None],
+) -> bool:
+    """True when every task overlay agrees with the suite job binding map.
+
+    No-agent tasks (empty/missing overlay) are ignored. Role-topology differences
+    (which role *ids* a task uses) do **not** break compatibility — only a
+    conflicting entry/model for the same role id does (#59).
+    """
+    suite_bindings: Mapping[str, Any] = {}
+    if isinstance(suite_overlay, Mapping):
+        raw = suite_overlay.get("bindings")
+        if isinstance(raw, Mapping):
+            suite_bindings = raw
+
+    for ov in per_task:
+        if not isinstance(ov, Mapping):
+            continue
+        bindings = ov.get("bindings")
+        if not isinstance(bindings, Mapping) or not bindings:
+            continue
+        for role_id, binding in bindings.items():
+            if not isinstance(binding, Mapping):
+                continue
+            rid = str(role_id)
+            suite_b = suite_bindings.get(rid)
+            if not isinstance(suite_b, Mapping):
+                # Task used a role not in suite profiles map → incompatible
+                return False
+            if _binding_role_key(binding) != _binding_role_key(suite_b):
+                return False
+    return True
 
 
 def topology_key(actors: Sequence[Mapping[str, str]]) -> str:
@@ -99,27 +173,40 @@ def derive_labels(actors: Sequence[Mapping[str, str]]) -> tuple[str, str]:
 
 def compute_suite_config_fields(
     per_task_actors: Sequence[Sequence[Mapping[str, str]] | list[dict[str, str]]],
+    *,
+    job_overlay: Mapping[str, Any] | None = None,
+    per_task_overlays: Sequence[Mapping[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
-    """Aggregate per-task actors into suite fingerprint fields.
+    """Aggregate suite fingerprint fields.
 
-    Parameters
-    ----------
-    per_task_actors:
-        One actors_summary list per task that participated in the suite.
-        Empty list (no tasks) → empty fingerprint, homogeneous True.
+    #59 Leaderboard axis is ``job_overlay`` (profiles.yaml bindings). Role-slot
+    topology may differ across tasks without making the suite incomparable.
 
-    Returns
-    -------
-    dict
-        ``config_fingerprint``, ``config_homogeneous``, ``actors_summary``,
-        and default ``agent_label`` / ``model_label`` (may be empty strings).
+    When *job_overlay* is provided, fingerprint/labels/homogeneous are derived
+    from that binding map. *per_task_actors* remains for observational display
+    of roles actually used when overlay is empty.
     """
+    # --- Preferred path: suite-level job binding (#59) -----------------------
+    if isinstance(job_overlay, Mapping) and isinstance(job_overlay.get("bindings"), Mapping):
+        actors = actors_summary_from_job_overlay(job_overlay)
+        overlays = list(per_task_overlays or [])
+        homogeneous = job_overlays_compatible(job_overlay, overlays)
+        agent_label, model_label = derive_labels(actors) if homogeneous else ("", "")
+        return {
+            "config_fingerprint": fingerprint_for_job_overlay(job_overlay),
+            "config_homogeneous": homogeneous,
+            "actors_summary": actors,
+            "agent_label": agent_label,
+            "model_label": model_label,
+            "job_overlay": dict(job_overlay),
+        }
+
+    # --- Fallback: no suite profiles (all-empty / legacy) --------------------
     normalized: list[list[dict[str, str]]] = []
     for raw in per_task_actors:
         if not raw:
             normalized.append([])
             continue
-        # Re-canonicalize each task's list
         as_maps = [dict(a) for a in raw if isinstance(a, Mapping)]
         normalized.append(actors_summary_from_profiles(as_maps))
 
@@ -134,17 +221,17 @@ def compute_suite_config_fields(
             "model_label": "",
         }
 
-    # Full config equality (topology + models) across tasks
     keys = [_canonical_bytes(a) for a in normalized]
-    homogeneous = all(k == keys[0] for k in keys)
-
-    # Representative actors for fingerprint: first task's projection.
-    # Consumers must gate on config_homogeneous (false ⇒ not comparable).
-    actors = list(normalized[0])
+    # Empty-agent tasks do not break binding homogeneity.
+    non_empty_keys = [k for k, a in zip(keys, normalized, strict=True) if a]
+    if not non_empty_keys:
+        homogeneous = True
+        actors: list[dict[str, str]] = []
+    else:
+        homogeneous = all(k == non_empty_keys[0] for k in non_empty_keys)
+        actors = list(next(a for a in normalized if a))
 
     agent_label, model_label = derive_labels(actors) if homogeneous else ("", "")
-    # Fingerprint is always over the representative actors list; consumers must
-    # check config_homogeneous before treating it as a comparable combo id.
     return {
         "config_fingerprint": fingerprint_for_actors(actors),
         "config_homogeneous": homogeneous,
@@ -185,7 +272,6 @@ def load_actors_from_run_lock(
     profiles = data.get("profiles") or data.get("agent_profiles") or []
     if not isinstance(profiles, list):
         return None
-    # evidence lock rows use ``id``; normalize to actors_summary
     return actors_summary_from_profiles(profiles)
 
 
@@ -208,11 +294,7 @@ def load_actors_from_task_lock(
     overrides: dict[str, Any] | None = None,
     profiles_path: Path | str | None = None,
 ) -> list[dict[str, str]]:
-    """Lock a task (same overrides as suite) and project agent_profiles.
-
-    Used when run evidence lock is unavailable (e.g. stub runners in tests).
-    Never includes api_key in the projection.
-    """
+    """Lock a task (same overrides as suite) and project agent_profiles."""
     from bora.adapters.package_fs import LocalPackageReader
     from bora.config.capabilities import DeclarationCapabilityCatalog
     from bora.config.database import load_database_manifest, resolve_task
@@ -271,6 +353,37 @@ def load_job_overlay_from_task_lock(
     return dict(overlay) if isinstance(overlay, dict) else None
 
 
+def _suite_level_job_overlay(
+    database_root: Path,
+    *,
+    overrides: dict[str, Any] | None = None,
+    profiles_path: Path | str | None = None,
+) -> dict[str, Any] | None:
+    """Full Database profiles.yaml (+ binding overrides) as secret-free overlay."""
+    from bora.config.profiles import (
+        apply_binding_override,
+        is_binding_override_pointer,
+        project_job_overlay,
+        resolve_profile_bindings,
+    )
+
+    try:
+        bindings = resolve_profile_bindings(database_root, profiles_path=profiles_path)
+    except Exception:  # noqa: BLE001
+        return None
+    if overrides:
+        for pointer, value in overrides.items():
+            ptr = str(pointer)
+            if is_binding_override_pointer(ptr):
+                try:
+                    apply_binding_override(bindings, ptr, value)
+                except Exception:  # noqa: BLE001
+                    continue
+    if not bindings:
+        return None
+    return project_job_overlay(bindings)
+
+
 def collect_suite_config(
     database_root: Path,
     task_rows: Sequence[Mapping[str, Any]],
@@ -281,10 +394,8 @@ def collect_suite_config(
 ) -> dict[str, Any]:
     """Build suite config fingerprint fields from task result rows + package.
 
-    Prefers Attempt ``lock.json`` per ``run_id``; falls back to live
-    ``load_and_lock`` for that task_id; empty actors if both fail.
-
-    Also projects suite-level ``job_overlay`` when homogeneous (or single overlay).
+    Suite job axis = Database ``profiles.yaml`` (optional CLI ``--profiles`` /
+    ``/bindings/*`` overrides). Per-task role topology may differ freely (#59).
     """
     per_task: list[list[dict[str, str]]] = []
     overlays: list[dict[str, Any] | None] = []
@@ -292,7 +403,6 @@ def collect_suite_config(
     if not ids:
         ids = [str(r.get("task_id") or "") for r in task_rows]
 
-    # Index rows by task_id for run_id lookup
     by_id: dict[str, Mapping[str, Any]] = {}
     for row in task_rows:
         tid = str(row.get("task_id") or "")
@@ -324,7 +434,7 @@ def collect_suite_config(
                     overrides=overrides,
                     profiles_path=profiles_path,
                 )
-            except Exception:  # noqa: BLE001 — fingerprint must not fail suite write
+            except Exception:  # noqa: BLE001
                 actors = []
         if overlay is None:
             try:
@@ -339,8 +449,27 @@ def collect_suite_config(
         per_task.append(actors)
         overlays.append(overlay)
 
-    fields = compute_suite_config_fields(per_task)
-    non_null = [o for o in overlays if isinstance(o, dict)]
-    if fields.get("config_homogeneous") and non_null or len(non_null) == 1:
-        fields["job_overlay"] = non_null[0]
-    return fields
+    suite_overlay = _suite_level_job_overlay(
+        database_root, overrides=overrides, profiles_path=profiles_path
+    )
+    # Prefer full suite profiles map; fall back to union of task overlays.
+    if suite_overlay is None:
+        non_null = [o for o in overlays if isinstance(o, dict) and o.get("bindings")]
+        if non_null:
+            # Union bindings by role (first wins); locators only already.
+            merged: dict[str, Any] = {}
+            for ov in non_null:
+                bindings = ov.get("bindings") if isinstance(ov, Mapping) else None
+                if not isinstance(bindings, Mapping):
+                    continue
+                for rid, b in bindings.items():
+                    if rid not in merged and isinstance(b, Mapping):
+                        merged[str(rid)] = dict(b)
+            if merged:
+                suite_overlay = {"bindings": merged}
+
+    return compute_suite_config_fields(
+        per_task,
+        job_overlay=suite_overlay,
+        per_task_overlays=overlays,
+    )
