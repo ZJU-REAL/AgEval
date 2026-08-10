@@ -54,13 +54,13 @@ def test_recompute_from_task_n_c_without_attempts() -> None:
     summary = {
         "n_attempts": 3,
         "tasks": [
-            {"task_id": "a", "status": "PASS", "score": 1.0, "n": 3, "c": 2, "run_id": "r1"},
-            {"task_id": "b", "status": "FAIL", "score": 0.0, "n": 3, "c": 0, "run_id": "r2"},
+            {"task_id": "a", "status": "PASS", "score": 0.4, "n": 3, "c": 2, "run_id": "r1"},
+            {"task_id": "b", "status": "FAIL", "score": 0.1, "n": 3, "c": 0, "run_id": "r2"},
         ],
-        # metrics present but only legacy keys (no pass@k)
+        # metrics present but only legacy keys (no pass@k); mean_score is partial credit
         "metrics": {
             "pass_rate": 0.5,
-            "mean_score": 0.5,
+            "mean_score": 0.25,
             "n_tasks": 2,
             "n_pass": 1,
             "n_fail": 1,
@@ -74,7 +74,9 @@ def test_recompute_from_task_n_c_without_attempts() -> None:
     # a: pass@1 = 2/3, b: 0 → mean 1/3
     assert m["pass_at_k"]["1"]["value"] == pytest.approx(1 / 3)
     assert "3" in m["pass_at_k"]
-    # Keep observational pass_rate from recompute rollup (any PASS → PASS for a)
+    # Synthetic n/c must not overwrite real mean_score / pass_rate with 0/1 scores
+    assert m["mean_score"] == pytest.approx(0.25)
+    assert m["pass_rate"] == pytest.approx(0.5)
     assert m["n_tasks"] == 2
 
 

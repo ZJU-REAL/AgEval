@@ -174,8 +174,18 @@ export function LeaderboardTable({
             {showKColumns ? (
               <>
                 <TableHead className="text-right">n_attempts</TableHead>
-                <TableHead className="text-right">pass@k</TableHead>
-                <TableHead className="text-right">pass^k</TableHead>
+                <TableHead
+                  className="text-right"
+                  title="Largest k from metrics.k_values / n_attempts; cell labels @k"
+                >
+                  pass@k
+                </TableHead>
+                <TableHead
+                  className="text-right"
+                  title="Same display k as pass@k; cell labels ^k"
+                >
+                  pass^k
+                </TableHead>
               </>
             ) : null}
             <TableHead className="text-right">Tasks</TableHead>

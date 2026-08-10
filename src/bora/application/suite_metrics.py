@@ -595,6 +595,8 @@ def ensure_suite_metrics(
         n_attempts = _int_or_none(metrics.get("n_attempts"))
 
     attempt_rows: list[dict[str, Any]] = []
+    # True when attempts were invented from n/c or single-row status (scores may be 0/1 only).
+    synthetic_attempts = False
     raw_attempts = summary.get("attempts")
     if isinstance(raw_attempts, list) and raw_attempts:
         attempt_rows = [dict(a) for a in raw_attempts if isinstance(a, Mapping)]
@@ -603,9 +605,11 @@ def ensure_suite_metrics(
         synthetic = _synthetic_attempts_from_nc(rows)
         if synthetic is not None:
             attempt_rows = synthetic
+            synthetic_attempts = True
         else:
             # Pure legacy: one sample per task from rolled status.
             attempt_rows = flatten_legacy_tasks_as_attempts(rows)
+            synthetic_attempts = True
 
     if attempt_rows:
         task_ids = None
@@ -622,7 +626,23 @@ def ensure_suite_metrics(
         recomputed = metrics_payload_from_k_agg(k_agg)
         # Prefer recomputed k maps; keep any extra observational keys already present.
         merged = dict(metrics)
-        merged.update(recomputed)
+        if synthetic_attempts and metrics:
+            # n/c synthesis invents 0/1 scores — do not clobber real pass_rate /
+            # mean_score (or counts) that a prior writer already stored.
+            k_only = {
+                "n_attempts": recomputed["n_attempts"],
+                "k_values": recomputed["k_values"],
+                "pass_at_k": recomputed["pass_at_k"],
+                "pass_power_k": recomputed["pass_power_k"],
+                "per_task": recomputed["per_task"],
+            }
+            for key, value in recomputed.items():
+                if key in k_only:
+                    continue
+                merged.setdefault(key, value)
+            merged.update(k_only)
+        else:
+            merged.update(recomputed)
         return merged
 
     if not metrics and rows:
