@@ -83,12 +83,22 @@ export type SuiteRow = {
   visibility?: string;
   pass_rate?: number | null;
   mean_score?: number | null;
+  /**
+   * Observational suite metrics blob (Registry metrics_json).
+   * May include pass_at_k / pass_power_k / n_attempts / k_values / per_task (#60).
+   * Never suite-level PASS.
+   */
   metrics?: Record<string, unknown>;
   task_refs?: Array<{
     task_id?: string;
     status?: string | null;
     score?: number | null;
     run_id?: string | null;
+    /** Multi-attempt sample counts (#60 A3). */
+    n?: number | null;
+    c?: number | null;
+    /** All attempt run_ids for audit / --with-attempts. */
+    attempt_run_ids?: string[];
     /** True when full Attempt evidence archive is present on Registry (#43). */
     has_attempt_content?: boolean;
   }>;

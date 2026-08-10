@@ -9,7 +9,8 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - **组织**：成员、组织内的包、别人分享过来的 suite 结果  
 - **组织设置**：邀请码（创建后只展示一次）、离开或解散组织  
 - Task 下的 **Jobs**：已上传运行产物时可点进详情（界面与本机 Viewer 相近，含轨迹）  
-- Leaderboard（以当前实现为准）  
+- Leaderboard：Pass rate / Mean score 默认排序；有 Always-k 数据时额外显示 **n_attempts**、**pass@k**、**pass^k**（缺省为 `—`；观测指标，非 suite PASS；k 不改 job 身份）  
+
 - **用 GitHub 登录**（浏览器 OAuth；CLI 仍是 Device Flow）
 
 ## 本地开发

@@ -12,6 +12,13 @@ import {
 } from "@/components/ui/table";
 import type { SuiteRow } from "@/lib/api";
 import { CodeHighlight } from "@/lib/code-highlight";
+import {
+  formatPassMetric,
+  metricsNAttempts,
+  passAtPrimaryK,
+  passPowerPrimaryK,
+  primaryDisplayK,
+} from "@/lib/suite-metrics";
 import { formatScore } from "@/lib/utils";
 
 /** Render secret-free job_overlay as bora.profiles/1 YAML for rehydrate display. */
@@ -92,9 +99,13 @@ function CodeBlock({
 }
 
 /**
- * Dataset Leaderboard (#40 + #59).
+ * Dataset Leaderboard (#40 + #59 + #60).
  * Rank by observational metrics only — never suite PASS.
  * Job axis = profiles.yaml / job_overlay (not per-task role topology).
+ *
+ * Sort policy (default): pass_rate desc → mean_score desc → created_at desc.
+ * pass@k / pass^k columns are display-only (primary k = max k_values / n_attempts);
+ * they do not change job identity or default sort.
  */
 export function LeaderboardTable({
   suites,
@@ -113,6 +124,11 @@ export function LeaderboardTable({
     return (Number(b.created_at) || 0) - (Number(a.created_at) || 0);
   });
 
+  // Show k columns when any row has recoverable k metrics (or always with fixtures).
+  const showKColumns = rows.some((s) => primaryDisplayK(s.metrics || {}) != null);
+  // Agent + Model + Pass rate + Mean + [n_att + pass@k + pass^k] + Tasks + Vis + Suite
+  const colCount = showKColumns ? 10 : 7;
+
   if (suites.length === 0) {
     return (
       <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
@@ -120,7 +136,9 @@ export function LeaderboardTable({
         <p className="text-sm text-mute">
           Upload suite aggregates with{" "}
           <code className="font-mono">bora results upload-suite</code>. These
-          are observational metrics — not a suite-level PASS.
+          are observational metrics — not a suite-level PASS. Always-k jobs may
+          also show pass@k / pass^k and n_attempts when present in{" "}
+          <code className="font-mono">metrics</code>.
         </p>
       </div>
     );
@@ -130,10 +148,21 @@ export function LeaderboardTable({
     <div className="space-y-3">
       <p className="text-xs text-mute">
         Dataset <span className="font-mono">{databaseId}</span> · Observational
-        aggregates only. Job binding is the suite{" "}
+        aggregates only (not suite PASS). Job binding is the suite{" "}
         <code className="font-mono">profiles.yaml</code> /{" "}
         <code className="font-mono">job_overlay</code> (role id → entry/model).
-        Click a row to view YAML and rehydrate.
+        Default sort: Pass rate → Mean score.{" "}
+        {showKColumns ? (
+          <>
+            pass@k / pass^k use the job&apos;s largest k (from{" "}
+            <code className="font-mono">k_values</code> /{" "}
+            <code className="font-mono">n_attempts</code>); missing →{" "}
+            <span className="font-mono">—</span>. k-attempt does not change job
+            identity.
+          </>
+        ) : (
+          <>Click a row to view YAML and rehydrate.</>
+        )}
       </p>
       <Table>
         <TableHeader>
@@ -142,6 +171,13 @@ export function LeaderboardTable({
             <TableHead>Model</TableHead>
             <TableHead className="text-right">Pass rate</TableHead>
             <TableHead className="text-right">Mean score</TableHead>
+            {showKColumns ? (
+              <>
+                <TableHead className="text-right">n_attempts</TableHead>
+                <TableHead className="text-right">pass@k</TableHead>
+                <TableHead className="text-right">pass^k</TableHead>
+              </>
+            ) : null}
             <TableHead className="text-right">Tasks</TableHead>
             <TableHead>Visibility</TableHead>
             <TableHead>Suite run</TableHead>
@@ -167,6 +203,9 @@ export function LeaderboardTable({
               "bora run <database-root> --profiles profiles.from-suite.yaml",
               "",
             ].join("\n");
+            const nAtt = metricsNAttempts(m);
+            const atK = passAtPrimaryK(m);
+            const powK = passPowerPrimaryK(m);
 
             return (
               <Fragment key={s.suite_run_id}>
@@ -189,6 +228,33 @@ export function LeaderboardTable({
                   <TableCell className="text-right tabular-nums">
                     {formatScore(s.mean_score)}
                   </TableCell>
+                  {showKColumns ? (
+                    <>
+                      <TableCell className="text-right tabular-nums text-xs">
+                        {nAtt == null ? "—" : String(nAtt)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">
+                        {atK.value == null ? (
+                          "—"
+                        ) : (
+                          <span title={`pass@${atK.k}`}>
+                            {formatPassMetric(atK.value)}
+                            <span className="ml-1 text-mute">@{atK.k}</span>
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">
+                        {powK.value == null ? (
+                          "—"
+                        ) : (
+                          <span title={`pass^${powK.k}`}>
+                            {formatPassMetric(powK.value)}
+                            <span className="ml-1 text-mute">^{powK.k}</span>
+                          </span>
+                        )}
+                      </TableCell>
+                    </>
+                  ) : null}
                   <TableCell className="text-right tabular-nums text-xs">
                     {nPass != null && nTasks != null
                       ? `${nPass}/${nTasks}`
@@ -210,11 +276,26 @@ export function LeaderboardTable({
                 </TableRow>
                 {open ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="bg-canvas-soft">
+                    <TableCell colSpan={colCount} className="bg-canvas-soft">
                       <div
                         className="space-y-3 py-2"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {showKColumns && atK.k != null ? (
+                          <p className="text-xs text-mute">
+                            Observational k metrics for this job (not PASS
+                            authority; not identity). Display k=
+                            <span className="font-mono">{atK.k}</span>
+                            {nAtt != null ? (
+                              <>
+                                {" "}
+                                · n_attempts=
+                                <span className="font-mono">{nAtt}</span>
+                              </>
+                            ) : null}
+                            . Sort remains Pass rate / Mean score.
+                          </p>
+                        ) : null}
                         <CodeBlock
                           path="profiles.yaml"
                           content={yamlText}

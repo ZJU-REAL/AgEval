@@ -55,6 +55,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | --- | --- |
 | `/datasets` | Dataset list (**Your organizations** / **Explore**) |
 | `/datasets/:id` | README · Tasks · Leaderboard |
+| `/datasets/:id?tab=leaderboard&demo=1` | Leaderboard with mock pass@k rows (local smoke only, #60) |
 | `/datasets/:id/tasks/:task` | README · Files · Jobs (row opens detail when uploaded) |
 | `/organizations` | Your orgs · Join |
 | `/organizations/:orgId` | Overview · Settings |
@@ -64,7 +65,16 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 
 `:id` is URL-encoded `database_id` (`encodeURIComponent`).
 
+### Leaderboard metrics (#60)
+
+- Default sort: **Pass rate** → **Mean score** → `created_at` (not suite PASS).
+- When any row has `metrics.pass_at_k` / `n_attempts`, columns **n_attempts**,
+  **pass@k**, **pass^k** appear; missing values show `—`.
+- Display k = largest entry in `metrics.k_values` (else `n_attempts`). Labels
+  show `@k` / `^k`. These are observational; k-attempt is **not** job identity.
+- Mock rows: `src/lib/leaderboard-fixtures.ts` via `?tab=leaderboard&demo=1`.
+
 ## Related
 
 Epic #22 (catalog) · #38–#40 (files / browse / leaderboard) · #51–#55 (org/share) ·
-#43 (optional full Attempt upload for remote Job detail)
+#43 (optional full Attempt upload for remote Job detail) · #60 (pass@k on Leaderboard)
