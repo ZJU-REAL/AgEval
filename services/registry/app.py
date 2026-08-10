@@ -4,6 +4,8 @@ Endpoints:
   GET  /health
   POST /v1/auth/github/device/code
   POST /v1/auth/github/device/poll
+  POST /v1/auth/github/web/start
+  POST /v1/auth/github/web/callback
   POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id}
   POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | DELETE .../members/{user}
   POST /v1/packages
@@ -38,6 +40,7 @@ import json
 import os
 import re
 import secrets
+import time
 import sys
 import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -55,6 +58,8 @@ if str(_REPO) not in sys.path:
 from services.registry.envload import load_env_file  # noqa: E402
 from services.registry.oauth_github import (  # noqa: E402
     GitHubOAuthError,
+    build_web_authorize_url,
+    exchange_web_code,
     fetch_user,
     poll_access_token,
     request_device_code,
@@ -110,6 +115,8 @@ class RegistryState:
         self.github_client_secret = github_client_secret
         # Empty allowlist = refuse OAuth token issue (fail closed). Bootstrap token still works.
         self.github_login_allowlist = github_login_allowlist or frozenset()
+        # Web OAuth (Hub): state -> {redirect_uri, created_at}
+        self.oauth_web_states: dict[str, dict[str, Any]] = {}
 
 
 def _cors_headers(handler: BaseHTTPRequestHandler) -> None:
@@ -402,6 +409,12 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if path == "/v1/auth/github/device/poll":
                 self._auth_device_poll()
                 return
+            if path == "/v1/auth/github/web/start":
+                self._auth_web_start()
+                return
+            if path == "/v1/auth/github/web/callback":
+                self._auth_web_callback()
+                return
             if path == "/v1/orgs":
                 self._create_org()
                 return
@@ -450,6 +463,229 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         # ---- OAuth -------------------------------------------------------
 
+        def _allowed_web_redirect(self, redirect_uri: str) -> bool:
+            """Local Hub defaults + optional BORA_GITHUB_WEB_REDIRECT_URIS allowlist."""
+            uri = (redirect_uri or "").strip()
+            if not uri:
+                return False
+            defaults = {
+                "http://127.0.0.1:5174/login/callback",
+                "http://localhost:5174/login/callback",
+            }
+            extra = os.environ.get("BORA_GITHUB_WEB_REDIRECT_URIS") or ""
+            for part in extra.split(","):
+                p = part.strip()
+                if p:
+                    defaults.add(p)
+            return uri in defaults
+
+        def _purge_stale_oauth_states(self) -> None:
+            now_ts = time.time()
+            dead = [
+                k
+                for k, v in state.oauth_web_states.items()
+                if now_ts - float(v.get("created_at") or 0) > 600
+            ]
+            for k in dead:
+                state.oauth_web_states.pop(k, None)
+
+        def _issue_registry_session(self, identity: Any) -> dict[str, Any] | None:
+            """Allowlist check + mint Registry API token. None if not allowed (response sent)."""
+            allow = state.github_login_allowlist
+            login = str(getattr(identity, "login", "") or "")
+            if not allow:
+                _json_response(
+                    self,
+                    403,
+                    {
+                        "error": "login_not_allowed",
+                        "message": (
+                            "BORA_GITHUB_LOGIN_ALLOWLIST is empty; "
+                            "set comma-separated GitHub logins before login"
+                        ),
+                    },
+                )
+                return None
+            if login.casefold() not in {u.casefold() for u in allow}:
+                _json_response(
+                    self,
+                    403,
+                    {
+                        "error": "login_not_allowed",
+                        "message": (
+                            f"GitHub user {login!r} is not on "
+                            "BORA_GITHUB_LOGIN_ALLOWLIST "
+                            f"(allowed: {', '.join(sorted(allow))})"
+                        ),
+                    },
+                )
+                return None
+            api_token = secrets.token_urlsafe(32)
+            state.tokens.add(
+                api_token,
+                DEFAULT_LOGIN_SCOPES,
+                github_user=login,
+            )
+            display_name = getattr(identity, "name", None) or ""
+            avatar_url = getattr(identity, "avatar_url", None) or ""
+            github_id = getattr(identity, "id", None)
+            try:
+                upsert = getattr(state.meta, "upsert_user_profile", None)
+                if callable(upsert):
+                    upsert(
+                        user_id=login,
+                        display_name=str(display_name or ""),
+                        avatar_url=str(avatar_url or ""),
+                        github_id="" if github_id is None else str(github_id),
+                    )
+            except Exception:  # noqa: BLE001
+                pass
+            payload: dict[str, Any] = {
+                "token": api_token,
+                "token_type": "bearer",
+                "scopes": sorted(DEFAULT_LOGIN_SCOPES),
+                "github_user": login,
+            }
+            if github_id is not None:
+                payload["github_id"] = github_id
+            if display_name:
+                payload["github_name"] = str(display_name)
+            if avatar_url:
+                payload["avatar_url"] = str(avatar_url)
+            return payload
+
+        def _auth_web_start(self) -> None:
+            """Hub SPA: start Authorization Code flow (Harbor-style browser login)."""
+            if not state.github_client_id:
+                _json_response(
+                    self,
+                    503,
+                    {
+                        "error": "oauth_not_configured",
+                        "message": "BORA_GITHUB_CLIENT_ID not set",
+                    },
+                )
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            redirect_uri = str(body.get("redirect_uri") or "").strip()
+            if not self._allowed_web_redirect(redirect_uri):
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_redirect_uri",
+                        "message": (
+                            "redirect_uri not allowed "
+                            "(default: http://127.0.0.1:5174/login/callback; "
+                            "extend via BORA_GITHUB_WEB_REDIRECT_URIS)"
+                        ),
+                    },
+                )
+                return
+            self._purge_stale_oauth_states()
+            state_token = secrets.token_urlsafe(24)
+            state.oauth_web_states[state_token] = {
+                "redirect_uri": redirect_uri,
+                "created_at": time.time(),
+            }
+            sys.stderr.write(
+                f"oauth web start state={state_token[:8]}... "
+                f"redirect={redirect_uri!r} pending={len(state.oauth_web_states)}\n"
+            )
+            url = build_web_authorize_url(
+                client_id=state.github_client_id,
+                redirect_uri=redirect_uri,
+                state=state_token,
+            )
+            _json_response(
+                self,
+                200,
+                {"authorize_url": url, "state": state_token},
+            )
+
+        def _auth_web_callback(self) -> None:
+            """Hub SPA: exchange GitHub code for Registry API token."""
+            if not state.github_client_id or not state.github_client_secret:
+                _json_response(
+                    self,
+                    503,
+                    {
+                        "error": "oauth_not_configured",
+                        "message": "GitHub OAuth client not configured",
+                    },
+                )
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            code = str(body.get("code") or "").strip()
+            state_token = str(body.get("state") or "").strip()
+            redirect_uri = str(body.get("redirect_uri") or "").strip()
+            if not code or not state_token:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_request", "message": "code and state required"},
+                )
+                return
+            self._purge_stale_oauth_states()
+            # Peek first; pop only after GitHub exchange succeeds so a double
+            # client call (React StrictMode) is less likely to hit invalid_state
+            # before the first exchange finishes.
+            pending = state.oauth_web_states.get(state_token)
+            if pending is None:
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_state",
+                        "message": "unknown or expired OAuth state; start login again",
+                    },
+                )
+                return
+            expected_redirect = str(pending.get("redirect_uri") or "")
+            if redirect_uri and redirect_uri != expected_redirect:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_redirect_uri", "message": "redirect_uri mismatch"},
+                )
+                return
+            redirect_uri = expected_redirect
+            try:
+                gh_token = exchange_web_code(
+                    client_id=state.github_client_id,
+                    client_secret=state.github_client_secret,
+                    code=code,
+                    redirect_uri=redirect_uri,
+                )
+                identity = fetch_user(gh_token)
+            except GitHubOAuthError as exc:
+                sys.stderr.write(
+                    f"oauth web callback failed code={exc.code} msg={exc.message!r}\n"
+                )
+                _json_response(self, 400, {"error": exc.code, "message": exc.message})
+                return
+            state.oauth_web_states.pop(state_token, None)
+            sys.stderr.write(
+                f"oauth web authorized github_user={identity.login!r} "
+                f"(issuing registry token)\n"
+            )
+            payload = self._issue_registry_session(identity)
+            if payload is None:
+                return
+            _json_response(self, 200, payload)
+
         def _auth_device_code(self) -> None:
             if not state.github_client_id:
                 _json_response(
@@ -466,15 +702,20 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except GitHubOAuthError as exc:
                 _json_response(self, 502, {"error": exc.code, "message": exc.message})
                 return
+            from services.registry.oauth_github import _device_verify_url
+
             payload = {
                 "device_code": dc.device_code,
                 "user_code": dc.user_code,
                 "verification_uri": dc.verification_uri,
                 "expires_in": dc.expires_in,
                 "interval": dc.interval,
+                # One-click prefill; always re-normalize (user_code + skip picker).
+                "verification_uri_complete": _device_verify_url(
+                    dc.verification_uri_complete or dc.verification_uri,
+                    dc.user_code,
+                ),
             }
-            if dc.verification_uri_complete:
-                payload["verification_uri_complete"] = dc.verification_uri_complete
             _json_response(self, 200, payload)
 
         def _auth_device_poll(self) -> None:
@@ -510,6 +751,9 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     device_code=device_code,
                 )
             except GitHubOAuthError as exc:
+                sys.stderr.write(
+                    f"oauth poll github_error code={exc.code} msg={exc.message!r}\n"
+                )
                 _json_response(self, 400, {"error": exc.code, "message": exc.message})
                 return
             if gh_token is None:
@@ -522,49 +766,19 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             try:
                 identity = fetch_user(gh_token)
             except GitHubOAuthError as exc:
+                sys.stderr.write(
+                    f"oauth fetch_user failed code={exc.code} msg={exc.message!r}\n"
+                )
                 _json_response(self, 502, {"error": exc.code, "message": exc.message})
                 return
-            allow = state.github_login_allowlist
-            if not allow:
-                _json_response(
-                    self,
-                    403,
-                    {
-                        "error": "login_not_allowed",
-                        "message": (
-                            "BORA_GITHUB_LOGIN_ALLOWLIST is empty; "
-                            "set comma-separated GitHub logins before bora login"
-                        ),
-                    },
-                )
-                return
-            if identity.login.casefold() not in {u.casefold() for u in allow}:
-                _json_response(
-                    self,
-                    403,
-                    {
-                        "error": "login_not_allowed",
-                        "message": f"GitHub user {identity.login!r} is not on the allowlist",
-                    },
-                )
-                return
-            # Issue Registry API token; do not store GitHub access token.
-            api_token = secrets.token_urlsafe(32)
-            state.tokens.add(
-                api_token,
-                DEFAULT_LOGIN_SCOPES,
-                github_user=identity.login,
+            sys.stderr.write(
+                f"oauth poll authorized github_user={identity.login!r} "
+                f"(issuing registry token)\n"
             )
-            _json_response(
-                self,
-                200,
-                {
-                    "token": api_token,
-                    "token_type": "bearer",
-                    "scopes": sorted(DEFAULT_LOGIN_SCOPES),
-                    "github_user": identity.login,
-                },
-            )
+            payload = self._issue_registry_session(identity)
+            if payload is None:
+                return
+            _json_response(self, 200, payload)
 
         # ---- packages ----------------------------------------------------
 
@@ -1379,7 +1593,12 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 if not auth.user_id or state.meta.membership(org_id, auth.user_id) is None:
                     _json_response(self, 404, {"error": "not_found", "message": "org not found"})
                     return
-            members = [membership_to_dict(m) for m in state.meta.list_members(org_id)]
+            member_rows = state.meta.list_members(org_id)
+            profiles = state.meta.get_user_profiles([m.user_id for m in member_rows])
+            members = [
+                membership_to_dict(m, profile=profiles.get(m.user_id))
+                for m in member_rows
+            ]
             _json_response(self, 200, {"org_id": org_id, "items": members})
 
         def _add_org_member(self, *, org_id: str) -> None:
