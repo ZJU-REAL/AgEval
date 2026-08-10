@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { Shell } from "@/components/layout";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -13,12 +14,13 @@ import {
 } from "@/components/ui/table";
 import {
   encodeDatasetId,
+  listOrgs,
   listPackages,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 /** Collapse multi-version list to latest per database_id (by created_at). */
 function latestByDatabase(items: PackageRelease[]): PackageRelease[] {
@@ -38,22 +40,35 @@ function latestByDatabase(items: PackageRelease[]): PackageRelease[] {
   );
 }
 
+type Scope = "orgs" | "explore";
+
 export function DatasetsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scope: Scope =
+    searchParams.get("scope") === "explore" ? "explore" : "orgs";
+
   const [items, setItems] = useState<PackageRelease[]>([]);
+  const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
   const token = getToken();
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    listPackages(token)
-      .then((rows) => {
-        if (!cancelled) {
-          setItems(rows);
-          setError(null);
-        }
+    const packagesP = listPackages(token);
+    const orgsP = token
+      ? listOrgs(token).catch(() => [] as Awaited<ReturnType<typeof listOrgs>>)
+      : Promise.resolve([]);
+
+    Promise.all([packagesP, orgsP])
+      .then(([rows, orgs]) => {
+        if (cancelled) return;
+        setItems(rows);
+        setMyOrgIds(new Set(orgs.map((o) => o.org_id)));
+        setError(null);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -72,7 +87,28 @@ export function DatasetsPage() {
     };
   }, [token]);
 
-  const datasets = useMemo(() => latestByDatabase(items), [items]);
+  const datasets = useMemo(() => {
+    const latest = latestByDatabase(items);
+    const scoped =
+      scope === "orgs"
+        ? latest.filter(
+            (r) => r.org_id && myOrgIds.has(r.org_id) && token,
+          )
+        : latest.filter((r) => r.visibility === "public");
+    const q = query.trim().toLowerCase();
+    if (!q) return scoped;
+    return scoped.filter(
+      (r) =>
+        r.database_id.toLowerCase().includes(q) ||
+        (r.org_id && r.org_id.toLowerCase().includes(q)),
+    );
+  }, [items, scope, myOrgIds, query, token]);
+
+  function setScope(next: Scope) {
+    setSearchParams(next === "explore" ? { scope: "explore" } : {}, {
+      replace: true,
+    });
+  }
 
   function openDataset(id: string) {
     navigate(`/datasets/${encodeDatasetId(id)}`);
@@ -81,90 +117,155 @@ export function DatasetsPage() {
   return (
     <Shell>
       <BreadcrumbNav items={[{ label: "Datasets" }]} className="mb-4" />
-      <div className="flex items-baseline justify-between gap-4 mb-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink">Datasets</h1>
-          <p className="text-sm text-body mt-1">
-            Public Registry packages
-            {token ? " (including private visible to your token)" : ""}.
-            Sign in to see authorized private Datasets.
-          </p>
-        </div>
+      <div className="mb-4">
+        <p className="text-xs uppercase tracking-wide text-mute font-medium">
+          BORA Registry
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink mt-1">
+          {scope === "orgs" ? "Your datasets" : "Explore datasets"}
+        </h1>
+        <p className="text-sm text-body mt-1">
+          {scope === "orgs"
+            ? "Packages published by organizations you belong to."
+            : "Public packages on this Registry."}
+        </p>
       </div>
 
-      {loading ? (
+      <div className="flex gap-1 border-b border-hairline mb-4">
+        {(
+          [
+            ["orgs", "Your organizations"],
+            ["explore", "Explore"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setScope(id)}
+            className={cn(
+              "px-3 py-2 text-sm transition-colors border-b-2 -mb-px",
+              scope === id
+                ? "border-ink text-ink font-medium"
+                : "border-transparent text-body hover:text-ink",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {scope === "orgs" && !token ? (
+        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
+          <p className="font-medium text-ink">Sign in to see org packages</p>
+          <p className="mt-1 text-mute">
+            <Link to="/login" className="underline underline-offset-2">
+              Sign in
+            </Link>{" "}
+            to list datasets from your organizations. Public packages are under{" "}
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={() => setScope("explore")}
+            >
+              Explore
+            </button>
+            .
+          </p>
+        </div>
+      ) : loading ? (
         <p className="text-sm text-mute">Loading…</p>
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
           <p className="text-error font-medium">Could not load packages</p>
           <p className="mt-1 font-mono text-xs">{error}</p>
-          <p className="mt-2 text-mute">
-            Ensure Registry is running and{" "}
-            <code className="font-mono">VITE_REGISTRY_PROXY_TARGET</code> points at it.
-          </p>
-        </div>
-      ) : datasets.length === 0 ? (
-        <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
-          <p className="font-medium text-ink">No Datasets yet</p>
-          <p className="mt-1 text-mute">
-            Publish with <code className="font-mono">bora publish</code> (public) or sign in
-            for private.
-          </p>
         </div>
       ) : (
-        <div className="rounded-[8px] border border-hairline overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Dataset</TableHead>
-                <TableHead>Version</TableHead>
-                <TableHead>Visibility</TableHead>
-                <TableHead className="text-right tabular-nums">Size</TableHead>
-                <TableHead>Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {datasets.map((row) => (
-                <TableRow
-                  key={`${row.database_id}@${row.version}`}
-                  className="cursor-pointer"
-                  onClick={() => openDataset(row.database_id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openDataset(row.database_id);
-                    }
-                  }}
-                  tabIndex={0}
-                  role="link"
-                >
-                  <TableCell className="font-medium font-mono text-sm">
-                    {row.database_id}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-body">
-                    {row.version}
-                  </TableCell>
-                  <TableCell className="text-body">
-                    {row.visibility}
-                    {row.org_id ? (
-                      <span className="ml-2 font-mono text-xs text-mute">
-                        @{row.org_id}
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-body">
-                    {row.size.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-mute text-xs">
-                    {typeof row.created_at === "number"
-                      ? formatDate(new Date(row.created_at * 1000).toISOString())
-                      : "-"}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <>
+          <div className="mb-3 max-w-md">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search datasets…"
+              aria-label="Search datasets"
+            />
+          </div>
+          {datasets.length === 0 ? (
+            <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm text-body">
+              <p className="font-medium text-ink">No datasets found</p>
+              <p className="mt-1 text-mute">
+                {scope === "orgs"
+                  ? "No packages from your organizations yet. Publish with bora publish --org <id>."
+                  : "No public packages on this Registry yet."}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-[8px] border border-hairline overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Dataset</TableHead>
+                    <TableHead>Org</TableHead>
+                    <TableHead>Version</TableHead>
+                    <TableHead>Visibility</TableHead>
+                    <TableHead className="text-right tabular-nums">Size</TableHead>
+                    <TableHead>Updated</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {datasets.map((row) => (
+                    <TableRow
+                      key={`${row.database_id}@${row.version}`}
+                      className="cursor-pointer"
+                      onClick={() => openDataset(row.database_id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openDataset(row.database_id);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="link"
+                    >
+                      <TableCell className="font-medium font-mono text-sm">
+                        {row.database_id}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-mute">
+                        {row.org_id ? (
+                          <Link
+                            to={`/organizations/${encodeURIComponent(row.org_id)}`}
+                            className="hover:text-ink"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            @{row.org_id}
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-body">
+                        {row.version}
+                      </TableCell>
+                      <TableCell className="text-body">{row.visibility}</TableCell>
+                      <TableCell className="text-right tabular-nums text-body">
+                        {row.size.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-mute text-xs">
+                        {typeof row.created_at === "number"
+                          ? formatDate(
+                              new Date(row.created_at * 1000).toISOString(),
+                            )
+                          : "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <p className="text-xs text-mute mt-3 tabular-nums">
+            {datasets.length} dataset{datasets.length === 1 ? "" : "s"}
+          </p>
+        </>
       )}
     </Shell>
   );

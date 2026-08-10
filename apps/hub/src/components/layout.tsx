@@ -1,9 +1,17 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { clearToken, getToken } from "@/lib/auth";
+import { clearToken, getGithubUser, getToken } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+function navClass({ isActive }: { isActive: boolean }) {
+  return cn(
+    "text-sm transition-colors px-1 py-0.5",
+    isActive ? "text-ink font-medium" : "text-body hover:text-ink",
+  );
+}
 
 export function Shell({
   children,
@@ -13,6 +21,7 @@ export function Shell({
   meta?: ReactNode;
 }) {
   const token = getToken();
+  const githubUser = getGithubUser();
 
   return (
     <div className="min-h-full flex flex-col bg-canvas">
@@ -21,25 +30,35 @@ export function Shell({
           BORA
         </Link>
         <span className="text-mute text-sm">hub</span>
-        <nav className="flex items-center gap-3 text-sm">
-          <Link to="/datasets" className="text-body hover:text-ink transition-colors">
+        <nav className="flex items-center gap-4 text-sm ml-2">
+          <NavLink to="/datasets" className={navClass} end={false}>
             Datasets
-          </Link>
+          </NavLink>
+          <NavLink to="/organizations" className={navClass}>
+            Organizations
+          </NavLink>
         </nav>
         <div className="flex-1" />
         {meta}
         {token ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              clearToken();
-              window.location.reload();
-            }}
-          >
-            Sign out
-          </Button>
+          <>
+            {githubUser ? (
+              <span className="text-xs text-mute font-mono hidden sm:inline">
+                @{githubUser}
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                clearToken();
+                window.location.reload();
+              }}
+            >
+              Sign out
+            </Button>
+          </>
         ) : (
           <Button asChild variant="outline" size="sm">
             <Link to="/login">Sign in</Link>
