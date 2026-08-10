@@ -363,18 +363,24 @@ def test_suite_results_upload_get_list_roundtrip(
     assert len(up["task_refs"]) == 3
     assert "pass" not in up or up.get("pass") is not True
     assert "suite-level PASS" in up.get("note", "") or "no suite-level PASS" in up.get("note", "")
-    assert up.get("job_overlay", {}).get("bindings", {}).get("solver", {}).get("options", {}).get(
-        "entry"
-    ) == "pi"
+    assert (
+        up.get("job_overlay", {})
+        .get("bindings", {})
+        .get("solver", {})
+        .get("options", {})
+        .get("entry")
+        == "pi"
+    )
     assert "sk-" not in str(up.get("job_overlay"))
 
     listed = list_suite_results(database_id="test/publish-min")
     assert listed["count"] == 1
     assert listed["items"][0]["suite_run_id"] == suite_run_id
     assert listed["items"][0]["agent_label"] == "codex"
-    assert listed["items"][0].get("job_overlay", {}).get("bindings", {}).get("solver", {}).get(
-        "model"
-    ) == "m1"
+    assert (
+        listed["items"][0].get("job_overlay", {}).get("bindings", {}).get("solver", {}).get("model")
+        == "m1"
+    )
 
     got = get_suite_result(suite_run_id)
     assert got["ok"] is True
@@ -392,9 +398,7 @@ def test_suite_results_upload_get_list_roundtrip(
     assert got_arch.get("profiles_path")
     assert Path(str(got_arch["profiles_path"])).is_file()
 
-    exported = export_suite_profiles(
-        suite_run_id, out=tmp_path / "profiles.from-suite.yaml"
-    )
+    exported = export_suite_profiles(suite_run_id, out=tmp_path / "profiles.from-suite.yaml")
     assert exported["ok"] is True
     assert Path(str(exported["profiles_path"])).is_file()
 
