@@ -522,3 +522,231 @@ def test_multipart_payload_trailing_lf_preserved() -> None:
     parts = _parse_multipart(body, f"multipart/form-data; boundary={boundary}")
     assert parts["archive"] == archive
     assert parts["archive"].endswith(b"\n")
+
+
+def _write_local_attempt(db: Path, run_id: str, *, task_id: str = "a") -> Path:
+    run_dir = db / ".bora" / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "result.json").write_text(
+        json.dumps({"task_id": task_id, "status": "PASS", "score": 1.0}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (run_dir / "trajectory.jsonl").write_text(
+        '{"type":"message","role":"assistant","content":"hi"}\n',
+        encoding="utf-8",
+    )
+    return run_dir
+
+
+def test_suite_upload_with_attempts_and_has_content_projection(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#43: --with-attempts uploads runs; suite task_refs gain has_attempt_content."""
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
+    import shutil
+
+    db = tmp_path / "db-with-attempts"
+    shutil.copytree(FIXTURE, db)
+    suite_run_id = "suite_with_attempts_01"
+    _write_suite_summary(db, suite_run_id)
+    for rid in ("r1", "r2", "r3"):
+        _write_local_attempt(db, rid)
+
+    # Suite-only: flags false
+    up_summary = upload_suite_result(db, suite_run_id=suite_run_id, public=True)
+    assert up_summary["ok"] is True
+    assert "attempts" not in up_summary or up_summary.get("with_attempts") is not True
+    listed = list_suite_results(database_id="test/publish-min")
+    refs0 = listed["items"][0]["task_refs"]
+    assert all(r.get("has_attempt_content") is False for r in refs0)
+
+    # With attempts (suite already exists → conflict on re-upload suite)
+    # Use a second suite id with same runs for clean suite row + attempt flags.
+    suite_run_id2 = "suite_with_attempts_02"
+    _write_suite_summary(db, suite_run_id2)
+    up = upload_suite_result(
+        db,
+        suite_run_id=suite_run_id2,
+        public=True,
+        with_attempts=True,
+    )
+    assert up["ok"] is True
+    assert up["with_attempts"] is True
+    assert up["attempts_total"] == 3
+    # First suite uploaded no attempts; second with_attempts creates them
+    # (or marks existing if r1-r3 already present from a prior path).
+    assert up["attempts_uploaded"] + up["attempts_existing"] == 3
+
+    got = get_suite_result(suite_run_id2)
+    assert got["ok"] is True
+    for ref in got["task_refs"]:
+        assert ref.get("has_attempt_content") is True
+        assert ref.get("run_id")
+
+    # Attempt meta carries suite_run_id; file list/get works
+    client = RegistryClient(registry_server["url"], token=registry_server["token"])
+    meta = client.get_attempt("r1")
+    assert meta["run_id"] == "r1"
+    assert meta.get("suite_run_id") == suite_run_id2
+    status, raw, _ = client._request(
+        "GET",
+        "/v1/results/attempts/r1/files",
+        auth=True,
+    )
+    assert status == 200
+    files = json.loads(raw.decode("utf-8"))
+    paths = {i["path"] for i in files["items"] if i.get("type") == "file"}
+    assert any(p.endswith("result.json") for p in paths)
+    # Read a member (path as stored in archive)
+    sample = next(p for p in paths if p.endswith("result.json"))
+    status2, raw2, _ = client._request(
+        "GET",
+        f"/v1/results/attempts/r1/files/{sample}",
+        auth=True,
+    )
+    assert status2 == 200
+    body = json.loads(raw2.decode("utf-8"))
+    assert body.get("encoding") == "utf-8"
+    assert "PASS" in body.get("content", "") or "task_id" in body.get("content", "")
+
+
+def test_suite_with_attempts_missing_run_dir_fails_closed(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
+    import shutil
+
+    from bora.config.errors import ConfigError
+
+    db = tmp_path / "db-missing-runs"
+    shutil.copytree(FIXTURE, db)
+    suite_run_id = "suite_missing_runs"
+    _write_suite_summary(db, suite_run_id)
+    # only one of three run dirs
+    _write_local_attempt(db, "r1")
+
+    with pytest.raises(ConfigError) as ei:
+        upload_suite_result(db, suite_run_id=suite_run_id, with_attempts=True)
+    assert ei.value.error_code == "invalid_package"
+    assert "missing local run dir" in str(ei.value).lower() or "missing" in str(ei.value).lower()
+    # Suite must not have been uploaded when preflight fails
+    listed = list_suite_results(database_id="test/publish-min")
+    assert all(i.get("suite_run_id") != suite_run_id for i in listed["items"])
+
+
+def test_attempt_upload_allow_existing_idempotent(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
+    import shutil
+
+    db = tmp_path / "db-idempotent"
+    shutil.copytree(FIXTURE, db)
+    run_id = "run_idempotent_1"
+    _write_local_attempt(db, run_id)
+    first = upload_attempt_result(db, run_id=run_id, public=True)
+    assert first["ok"] is True
+    assert first.get("already_exists") is False
+    second = upload_attempt_result(db, run_id=run_id, public=True, allow_existing=True)
+    assert second["ok"] is True
+    assert second.get("already_exists") is True
+
+
+def test_has_attempt_content_respects_attempt_visibility(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#43: private attempt must not show has_attempt_content to principals who cannot open it."""
+    from bora.registry.client import RegistryError
+
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
+    import shutil
+
+    db = tmp_path / "db-visibility-flags"
+    shutil.copytree(FIXTURE, db)
+    suite_run_id = "suite_vis_flags"
+    _write_suite_summary(db, suite_run_id)
+    for rid in ("r1", "r2", "r3"):
+        _write_local_attempt(db, rid)
+        # Private attempts; suite is public so anon can list suite summary.
+        upload_attempt_result(db, run_id=rid, public=False)
+
+    upload_suite_result(db, suite_run_id=suite_run_id, public=True)
+
+    owner = get_suite_result(suite_run_id)
+    assert owner["ok"] is True
+    assert all(
+        ref.get("has_attempt_content") is True for ref in owner["task_refs"] if ref.get("run_id")
+    )
+
+    anon = RegistryClient(registry_server["url"], token=None)
+    items = anon.list_suites(database_id="test/publish-min")
+    hit = next(i for i in items if i.get("suite_run_id") == suite_run_id)
+    for ref in hit["task_refs"]:
+        if ref.get("run_id"):
+            assert ref.get("has_attempt_content") is False
+
+    # Anon file browse must 404 (not leak private attempt).
+    with pytest.raises(RegistryError) as ei:
+        anon._request("GET", "/v1/results/attempts/r1/files", auth=False)
+    assert ei.value.status == 404
+
+
+def test_attempt_file_path_traversal_rejected(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from bora.registry.client import RegistryError
+
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
+    import shutil
+
+    db = tmp_path / "db-path-trav"
+    shutil.copytree(FIXTURE, db)
+    run_id = "run_path_safe"
+    _write_local_attempt(db, run_id)
+    upload_attempt_result(db, run_id=run_id, public=True)
+
+    client = RegistryClient(registry_server["url"], token=registry_server["token"])
+    for bad in ("../secret", ".bora/runs/../../etc/passwd", "/etc/passwd"):
+        with pytest.raises(RegistryError) as ei:
+            client._request(
+                "GET",
+                f"/v1/results/attempts/{run_id}/files/{bad}",
+                auth=True,
+            )
+        assert ei.value.status == 400, (bad, ei.value)
+        assert ei.value.code == "invalid_path"
+
+
+def test_with_attempts_rejects_traversal_run_id(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
+    import shutil
+
+    from bora.config.errors import ConfigError
+
+    db = tmp_path / "db-bad-runid"
+    shutil.copytree(FIXTURE, db)
+    suite_run_id = "suite_bad_runid"
+    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir.mkdir(parents=True, exist_ok=True)
+    summary = {
+        "suite_run_id": suite_run_id,
+        "database_id": "test/publish-min",
+        "database_version": "0",
+        "pass_rate": 1.0,
+        "mean_score": 1.0,
+        "metrics": {"n_pass": 1, "n_fail": 0, "n_error": 0, "n_total": 1},
+        "tasks": [{"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "../escape"}],
+        "exit_code": 0,
+    }
+    (suite_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(ConfigError) as ei:
+        upload_suite_result(db, suite_run_id=suite_run_id, with_attempts=True)
+    assert ei.value.error_code == "invalid_package"

@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
+import { AttemptEvidencePage } from "@/pages/AttemptEvidencePage";
 import { DatasetDetailPage } from "@/pages/DatasetDetailPage";
 import { DatasetsPage } from "@/pages/DatasetsPage";
 import { LoginCallbackPage } from "@/pages/LoginCallbackPage";
@@ -18,6 +19,10 @@ export default function App() {
         <Route
           path="/datasets/:datasetId/tasks/:taskId"
           element={<TaskDetailPage />}
+        />
+        <Route
+          path="/datasets/:datasetId/tasks/:taskId/attempts/:runId"
+          element={<AttemptEvidencePage />}
         />
         <Route path="/organizations" element={<OrganizationsPage />} />
         <Route

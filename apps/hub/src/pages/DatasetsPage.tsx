@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Shell } from "@/components/layout";
+import { SignInLink } from "@/components/sign-in-button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -154,10 +155,8 @@ export function DatasetsPage() {
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
           <p className="font-medium text-ink">Sign in to see org packages</p>
           <p className="mt-1 text-mute">
-            <Link to="/login" className="underline underline-offset-2">
-              Sign in
-            </Link>{" "}
-            to list datasets from your organizations. Public packages are under{" "}
+            <SignInLink /> to list datasets from your organizations. Public
+            packages are under{" "}
             <button
               type="button"
               className="underline underline-offset-2"

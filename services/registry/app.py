@@ -6,8 +6,10 @@ Endpoints:
   POST /v1/auth/github/device/poll
   POST /v1/auth/github/web/start
   POST /v1/auth/github/web/callback
-  POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id}
+  POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id} | DELETE /v1/orgs/{id}
+  POST /v1/orgs/join | POST /v1/orgs/{id}/leave
   POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | DELETE .../members/{user}
+  GET|POST /v1/orgs/{id}/invite-keys | DELETE /v1/orgs/{id}/invite-keys/{key_id}
   POST /v1/packages
   GET  /v1/packages
   GET  /v1/packages/{id}
@@ -20,6 +22,8 @@ Endpoints:
   GET  /v1/results/attempts
   GET  /v1/results/attempts/{run_id}
   GET  /v1/results/attempts/{run_id}/content
+  GET  /v1/results/attempts/{run_id}/files
+  GET  /v1/results/attempts/{run_id}/files/{path}
   GET|POST|DELETE /v1/results/attempts/{run_id}/shares
   POST /v1/results/suites
   GET  /v1/results/suites
@@ -80,6 +84,7 @@ from services.registry.store import (  # noqa: E402
     TokenInfo,
     _normalize_user_id,
     attempt_to_dict,
+    invite_key_to_dict,
     membership_to_dict,
     now,
     org_to_dict,
@@ -262,6 +267,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if path == "/v1/orgs":
                 self._list_orgs(auth=auth)
                 return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys", path)
+            if m:
+                self._list_invite_keys(org_id=m.group(1), auth=auth)
+                return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/members", path)
             if m:
                 self._list_org_members(org_id=m.group(1), auth=auth)
@@ -373,6 +382,18 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if m:
                 self._serve_attempt_content(run_id=m.group(1), auth=auth)
                 return
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/files/(.+)", path)
+            if m:
+                self._serve_attempt_file(
+                    run_id=m.group(1),
+                    file_path=m.group(2),
+                    auth=auth,
+                )
+                return
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/files", path)
+            if m:
+                self._serve_attempt_files_list(run_id=m.group(1), auth=auth)
+                return
             m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
             if m:
                 self._list_result_shares(result_kind="attempt", result_id=m.group(1), auth=auth)
@@ -418,9 +439,20 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if path == "/v1/orgs":
                 self._create_org()
                 return
+            if path == "/v1/orgs/join":
+                self._join_org_with_invite()
+                return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/claim", path)
             if m:
                 self._claim_org(org_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/leave", path)
+            if m:
+                self._leave_org(org_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys", path)
+            if m:
+                self._create_invite_key(org_id=m.group(1))
                 return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/members", path)
             if m:
@@ -447,9 +479,17 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         def do_DELETE(self) -> None:  # noqa: N802
             path = unquote(self.path.split("?", 1)[0])
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys/([^/]+)", path)
+            if m:
+                self._revoke_invite_key(org_id=m.group(1), key_id=m.group(2))
+                return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/members/([^/]+)", path)
             if m:
                 self._remove_org_member(org_id=m.group(1), user_id=m.group(2))
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)", path)
+            if m:
+                self._delete_org(org_id=m.group(1))
                 return
             m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
             if m:
@@ -671,15 +711,12 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 )
                 identity = fetch_user(gh_token)
             except GitHubOAuthError as exc:
-                sys.stderr.write(
-                    f"oauth web callback failed code={exc.code} msg={exc.message!r}\n"
-                )
+                sys.stderr.write(f"oauth web callback failed code={exc.code} msg={exc.message!r}\n")
                 _json_response(self, 400, {"error": exc.code, "message": exc.message})
                 return
             state.oauth_web_states.pop(state_token, None)
             sys.stderr.write(
-                f"oauth web authorized github_user={identity.login!r} "
-                f"(issuing registry token)\n"
+                f"oauth web authorized github_user={identity.login!r} (issuing registry token)\n"
             )
             payload = self._issue_registry_session(identity)
             if payload is None:
@@ -751,9 +788,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     device_code=device_code,
                 )
             except GitHubOAuthError as exc:
-                sys.stderr.write(
-                    f"oauth poll github_error code={exc.code} msg={exc.message!r}\n"
-                )
+                sys.stderr.write(f"oauth poll github_error code={exc.code} msg={exc.message!r}\n")
                 _json_response(self, 400, {"error": exc.code, "message": exc.message})
                 return
             if gh_token is None:
@@ -766,14 +801,11 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             try:
                 identity = fetch_user(gh_token)
             except GitHubOAuthError as exc:
-                sys.stderr.write(
-                    f"oauth fetch_user failed code={exc.code} msg={exc.message!r}\n"
-                )
+                sys.stderr.write(f"oauth fetch_user failed code={exc.code} msg={exc.message!r}\n")
                 _json_response(self, 502, {"error": exc.code, "message": exc.message})
                 return
             sys.stderr.write(
-                f"oauth poll authorized github_user={identity.login!r} "
-                f"(issuing registry token)\n"
+                f"oauth poll authorized github_user={identity.login!r} (issuing registry token)\n"
             )
             payload = self._issue_registry_session(identity)
             if payload is None:
@@ -1174,6 +1206,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             visibility = str(meta.get("visibility") or "private")
             blob_digest = str(meta.get("blob_digest") or "")
             size = int(meta.get("size") or len(archive))
+            suite_run_id = str(meta.get("suite_run_id") or "").strip()
             if not run_id or not database_id:
                 _json_response(
                     self,
@@ -1214,6 +1247,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 size=size,
                 created_at=now(),
                 uploaded_by=auth.user_id,
+                suite_run_id=suite_run_id,
             )
             try:
                 state.blobs.put_if_absent(blob_digest, archive, prefix="results")
@@ -1284,6 +1318,114 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.send_header("X-Bora-Media-Type", RESULT_MEDIA_TYPE)
             self.end_headers()
             self.wfile.write(data)
+
+        def _resolve_visible_attempt(
+            self, *, run_id: str, auth: TokenInfo
+        ) -> AttemptResultRow | None:
+            row = state.meta.get_attempt(run_id)
+            if row is None or not _visible_result_row(
+                state,
+                result_kind="attempt",
+                result_id=row.run_id,
+                visibility=row.visibility,
+                uploaded_by=row.uploaded_by,
+                auth=auth,
+            ):
+                return None
+            return row
+
+        def _serve_attempt_files_list(self, *, run_id: str, auth: TokenInfo) -> None:
+            from services.registry.package_files import get_or_build_index
+
+            row = self._resolve_visible_attempt(run_id=run_id, auth=auth)
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                return
+            archive = state.blobs.get(row.blob_digest, prefix="results")
+            if archive is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            try:
+                index = get_or_build_index(archive, package_digest=row.blob_digest)
+            except Exception as exc:  # noqa: BLE001
+                _json_response(
+                    self,
+                    500,
+                    {"error": "archive_error", "message": f"cannot index attempt: {exc}"},
+                )
+                return
+            _json_response(
+                self,
+                200,
+                {
+                    "run_id": row.run_id,
+                    "database_id": row.database_id,
+                    "task_id": row.task_id,
+                    "digest": row.blob_digest,
+                    "items": index.list_items(),
+                },
+            )
+
+        def _serve_attempt_file(self, *, run_id: str, file_path: str, auth: TokenInfo) -> None:
+            from services.registry.package_files import (
+                MAX_FILE_BYTES,
+                PackageFileNotFound,
+                PackageFileTooLarge,
+                PackagePathError,
+                file_payload,
+                normalize_package_path,
+                read_member,
+            )
+
+            row = self._resolve_visible_attempt(run_id=run_id, auth=auth)
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                return
+            # Path is already unquoted in do_GET; match package file route.
+            try:
+                safe_path = normalize_package_path(file_path)
+            except PackagePathError as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_path", "message": str(exc)},
+                )
+                return
+            archive = state.blobs.get(row.blob_digest, prefix="results")
+            if archive is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            try:
+                data, size = read_member(archive, safe_path, max_bytes=MAX_FILE_BYTES)
+            except PackagePathError as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_path", "message": str(exc)},
+                )
+                return
+            except PackageFileNotFound:
+                _json_response(
+                    self,
+                    404,
+                    {"error": "not_found", "message": f"file not found: {safe_path}"},
+                )
+                return
+            except PackageFileTooLarge as exc:
+                _json_response(
+                    self,
+                    413,
+                    {
+                        "error": "file_too_large",
+                        "message": str(exc),
+                        "max_bytes": MAX_FILE_BYTES,
+                        "path": exc.path,
+                        "size": exc.size,
+                    },
+                )
+                return
+            payload = file_payload(safe_path, data, size=size, truncated=False)
+            _json_response(self, 200, payload)
 
         # ---- suite results -----------------------------------------------
 
@@ -1434,14 +1576,39 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, suite_to_dict(row))
 
+        def _suite_visible_attempt_ids(self, rows: list[Any], *, auth: TokenInfo) -> set[str]:
+            """run_ids with attempt blobs the *auth* principal may open (fail-closed)."""
+            from services.registry.store import _run_ids_from_tasks_json
+
+            run_ids: list[str] = []
+            for r in rows:
+                run_ids.extend(_run_ids_from_tasks_json(r.tasks_json))
+            try:
+                attempts = state.meta.attempts_for_ids(run_ids)
+            except Exception:  # noqa: BLE001
+                # Projection only: omit flags rather than invent true deep-links.
+                return set()
+            visible_ids: set[str] = set()
+            for a in attempts:
+                if _visible_result_row(
+                    state,
+                    result_kind="attempt",
+                    result_id=a.run_id,
+                    visibility=a.visibility,
+                    uploaded_by=a.uploaded_by,
+                    auth=auth,
+                ):
+                    visible_ids.add(a.run_id)
+            return visible_ids
+
         def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             database_id = (qs.get("database_id") or [None])[0]
             rows = state.meta.list_suites(
                 database_id=database_id or None,
                 include_private=True,
             )
-            items = [
-                suite_to_dict(r)
+            visible = [
+                r
                 for r in rows
                 if _visible_result_row(
                     state,
@@ -1452,6 +1619,8 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     auth=auth,
                 )
             ]
+            attempt_ids = self._suite_visible_attempt_ids(visible, auth=auth)
+            items = [suite_to_dict(r, attempt_content_ids=attempt_ids) for r in visible]
             _json_response(self, 200, {"items": items})
 
         def _serve_suite_meta(self, *, suite_run_id: str, auth: TokenInfo) -> None:
@@ -1466,7 +1635,8 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             ):
                 _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
                 return
-            _json_response(self, 200, suite_to_dict(row))
+            attempt_ids = self._suite_visible_attempt_ids([row], auth=auth)
+            _json_response(self, 200, suite_to_dict(row, attempt_content_ids=attempt_ids))
 
         def _serve_suite_content(self, *, suite_run_id: str, auth: TokenInfo) -> None:
             row = state.meta.get_suite(suite_run_id)
@@ -1583,6 +1753,176 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 200, org_to_dict(org))
 
+        def _require_org_owner(self, *, org_id: str, auth: TokenInfo) -> bool:
+            """Return True if caller may manage org (owner or admin). Sends error response if not."""
+            org = state.meta.get_org(org_id)
+            if org is None:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return False
+            if _is_admin(auth.scopes):
+                return True
+            if not auth.user_id:
+                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
+                return False
+            mem = state.meta.membership(org_id, auth.user_id)
+            if mem is None or mem.role != "owner":
+                _json_response(
+                    self,
+                    403,
+                    {"error": "forbidden", "message": "owner required"},
+                )
+                return False
+            return True
+
+        def _create_invite_key(self, *, org_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not self._require_org_owner(org_id=org_id, auth=auth):
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            max_uses: int | None = None
+            if body.get("max_uses") is not None and body.get("max_uses") != "":
+                try:
+                    max_uses = int(body["max_uses"])
+                except (TypeError, ValueError):
+                    _json_response(
+                        self,
+                        400,
+                        {"error": "invalid_request", "message": "max_uses must be int"},
+                    )
+                    return
+            expires_at: float | None = None
+            if body.get("expires_at") is not None and body.get("expires_at") != "":
+                try:
+                    expires_at = float(body["expires_at"])
+                except (TypeError, ValueError):
+                    _json_response(
+                        self,
+                        400,
+                        {
+                            "error": "invalid_request",
+                            "message": "expires_at must be unix timestamp",
+                        },
+                    )
+                    return
+            if expires_at is not None and expires_at <= now():
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_request", "message": "expires_at must be in the future"},
+                )
+                return
+            # days convenience: expires_in_days
+            if expires_at is None and body.get("expires_in_days") is not None:
+                try:
+                    days = float(body["expires_in_days"])
+                    if days <= 0:
+                        raise ValueError("non-positive")
+                    expires_at = now() + days * 86400.0
+                except (TypeError, ValueError):
+                    _json_response(
+                        self,
+                        400,
+                        {
+                            "error": "invalid_request",
+                            "message": "expires_in_days must be positive number",
+                        },
+                    )
+                    return
+            # Plaintext is returned once on create; store only hash + prefix.
+            plain = f"bora-inv_{secrets.token_urlsafe(24)}"
+            token_hash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
+            prefix = plain[:16] + "…"
+            try:
+                row = state.meta.create_invite_key(
+                    org_id=org_id,
+                    created_by=auth.user_id or "",
+                    token_hash=token_hash,
+                    token_prefix=prefix,
+                    max_uses=max_uses,
+                    expires_at=expires_at,
+                )
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return
+            except ValueError as exc:
+                _json_response(self, 400, {"error": "invalid_request", "message": str(exc)})
+                return
+            _json_response(self, 201, invite_key_to_dict(row, invite_key=plain))
+
+        def _list_invite_keys(self, *, org_id: str, auth: TokenInfo) -> None:
+            org_id = org_id.casefold()
+            if not self._require_org_owner(org_id=org_id, auth=auth):
+                return
+            items = [invite_key_to_dict(r) for r in state.meta.list_invite_keys(org_id)]
+            _json_response(self, 200, {"org_id": org_id, "items": items})
+
+        def _revoke_invite_key(self, *, org_id: str, key_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not self._require_org_owner(org_id=org_id, auth=auth):
+                return
+            try:
+                row = state.meta.revoke_invite_key(org_id, key_id)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "invite key not found"})
+                return
+            _json_response(self, 200, invite_key_to_dict(row))
+
+        def _join_org_with_invite(self) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not auth.user_id:
+                _json_response(
+                    self,
+                    401,
+                    {"error": "unauthorized", "message": "user identity required"},
+                )
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            invite = str(body.get("invite_key") or "").strip()
+            if not invite:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_request", "message": "invite_key required"},
+                )
+                return
+            token_hash = hashlib.sha256(invite.encode("utf-8")).hexdigest()
+            try:
+                org, mem = state.meta.redeem_invite_key(token_hash=token_hash, user_id=auth.user_id)
+            except LookupError:
+                _json_response(
+                    self,
+                    404,
+                    {"error": "not_found", "message": "invalid invite key"},
+                )
+                return
+            except PermissionError as exc:
+                _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
+                return
+            except ValueError as exc:
+                _json_response(self, 409, {"error": "conflict", "message": str(exc)})
+                return
+            payload = org_to_dict(org)
+            payload["role"] = mem.role
+            payload["membership"] = membership_to_dict(mem)
+            _json_response(self, 200, payload)
+
         def _list_org_members(self, *, org_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
             org = state.meta.get_org(org_id)
@@ -1595,10 +1935,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     return
             member_rows = state.meta.list_members(org_id)
             profiles = state.meta.get_user_profiles([m.user_id for m in member_rows])
-            members = [
-                membership_to_dict(m, profile=profiles.get(m.user_id))
-                for m in member_rows
-            ]
+            members = [membership_to_dict(m, profile=profiles.get(m.user_id)) for m in member_rows]
             _json_response(self, 200, {"org_id": org_id, "items": members})
 
         def _add_org_member(self, *, org_id: str) -> None:
@@ -1663,6 +2000,47 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 _json_response(self, 404, {"error": "not_found", "message": "membership not found"})
                 return
             _json_response(self, 200, {"ok": True, "org_id": org_id, "user_id": target})
+
+        def _leave_org(self, *, org_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not auth.user_id:
+                _json_response(
+                    self,
+                    401,
+                    {"error": "unauthorized", "message": "user identity required"},
+                )
+                return
+            try:
+                state.meta.leave_org(org_id, auth.user_id)
+            except LookupError:
+                _json_response(
+                    self,
+                    404,
+                    {"error": "not_found", "message": "membership not found"},
+                )
+                return
+            except PermissionError as exc:
+                _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
+                return
+            _json_response(self, 200, {"ok": True, "org_id": org_id, "left": True})
+
+        def _delete_org(self, *, org_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not self._require_org_owner(org_id=org_id, auth=auth):
+                return
+            try:
+                state.meta.delete_org(org_id)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return
+            except ValueError as exc:
+                _json_response(self, 409, {"error": "conflict", "message": str(exc)})
+                return
+            _json_response(self, 200, {"ok": True, "org_id": org_id, "dissolved": True})
 
         # ---- result shares -----------------------------------------------
 

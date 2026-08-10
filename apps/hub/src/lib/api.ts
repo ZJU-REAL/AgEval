@@ -32,6 +32,21 @@ export type OrgMember = {
   github_id?: string;
 };
 
+export type OrgInviteKey = {
+  key_id: string;
+  org_id: string;
+  token_prefix: string;
+  created_by?: string;
+  max_uses?: number | null;
+  use_count?: number;
+  expires_at?: number | null;
+  revoked_at?: number | null;
+  created_at?: number;
+  active?: boolean;
+  /** Full secret — create response only; omitted from list/revoke. */
+  invite_key?: string;
+};
+
 export type ResultShare = {
   result_kind: string;
   result_id: string;
@@ -74,6 +89,8 @@ export type SuiteRow = {
     status?: string | null;
     score?: number | null;
     run_id?: string | null;
+    /** True when full Attempt evidence archive is present on Registry (#43). */
+    has_attempt_content?: boolean;
   }>;
   agent_label?: string;
   model_label?: string;
@@ -84,6 +101,20 @@ export type SuiteRow = {
   created_at?: number | string;
   note?: string;
   uploaded_by?: string;
+};
+
+export type AttemptMeta = {
+  run_id: string;
+  database_id?: string;
+  task_id?: string;
+  status?: string;
+  visibility?: string;
+  blob_digest?: string;
+  size?: number;
+  created_at?: number | string;
+  uploaded_by?: string;
+  suite_run_id?: string;
+  lock_digest?: string;
 };
 
 export class RegistryHttpError extends Error {
@@ -216,6 +247,40 @@ export async function listSuites(
   return Array.isArray(data.items) ? data.items : [];
 }
 
+export async function getAttempt(
+  runId: string,
+  token: string | null,
+): Promise<AttemptMeta> {
+  return requestJson(`/v1/results/attempts/${encodeURIComponent(runId)}`, {
+    token,
+  });
+}
+
+export async function listAttemptFiles(
+  runId: string,
+  token: string | null,
+): Promise<{ run_id: string; items: FileItem[]; digest?: string }> {
+  return requestJson(
+    `/v1/results/attempts/${encodeURIComponent(runId)}/files`,
+    { token },
+  );
+}
+
+export async function getAttemptFile(
+  runId: string,
+  filePath: string,
+  token: string | null,
+): Promise<FileContent> {
+  const fp = filePath
+    .split("/")
+    .map((s) => encodeURIComponent(s))
+    .join("/");
+  return requestJson(
+    `/v1/results/attempts/${encodeURIComponent(runId)}/files/${fp}`,
+    { token },
+  );
+}
+
 export async function listOrgs(token: string | null): Promise<OrgRow[]> {
   const data = await requestJson<{ items?: OrgRow[] }>("/v1/orgs", { token });
   return Array.isArray(data.items) ? data.items : [];
@@ -237,6 +302,74 @@ export async function listOrgMembers(
     { token },
   );
   return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function joinOrgWithInvite(
+  inviteKey: string,
+  token: string | null,
+): Promise<OrgRow & { role?: string }> {
+  return requestJson("/v1/orgs/join", {
+    token,
+    method: "POST",
+    body: { invite_key: inviteKey },
+  });
+}
+
+export async function listOrgInviteKeys(
+  orgId: string,
+  token: string | null,
+): Promise<OrgInviteKey[]> {
+  const data = await requestJson<{ items?: OrgInviteKey[] }>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/invite-keys`,
+    { token },
+  );
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function createOrgInviteKey(
+  orgId: string,
+  body: { max_uses?: number | null; expires_in_days?: number | null },
+  token: string | null,
+): Promise<OrgInviteKey> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}/invite-keys`, {
+    token,
+    method: "POST",
+    body,
+  });
+}
+
+export async function revokeOrgInviteKey(
+  orgId: string,
+  keyId: string,
+  token: string | null,
+): Promise<OrgInviteKey> {
+  return requestJson(
+    `/v1/orgs/${encodeURIComponent(orgId)}/invite-keys/${encodeURIComponent(keyId)}`,
+    { token, method: "DELETE" },
+  );
+}
+
+/** Current user leaves org (sole owner must dissolve instead). */
+export async function leaveOrg(
+  orgId: string,
+  token: string | null,
+): Promise<{ ok: boolean; org_id: string }> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}/leave`, {
+    token,
+    method: "POST",
+    body: {},
+  });
+}
+
+/** Owner dissolves org (fails if packages still bound). */
+export async function dissolveOrg(
+  orgId: string,
+  token: string | null,
+): Promise<{ ok: boolean; org_id: string }> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}`, {
+    token,
+    method: "DELETE",
+  });
 }
 
 export async function listResultShares(

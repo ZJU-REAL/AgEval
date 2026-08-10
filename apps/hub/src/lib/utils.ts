@@ -15,11 +15,16 @@ export function formatTrials(done: number | null | undefined, total: number | nu
   return `${done ?? 0}/${total}`;
 }
 
-export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "-";
+export function formatDate(
+  iso: string | number | null | undefined,
+): string {
+  if (iso == null || iso === "") return "-";
   try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
+    const d =
+      typeof iso === "number"
+        ? new Date(iso < 1e12 ? iso * 1000 : iso)
+        : new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
@@ -27,6 +32,6 @@ export function formatDate(iso: string | null | undefined): string {
     const mm = String(d.getMinutes()).padStart(2, "0");
     return `${y}/${m}/${day} ${hh}:${mm}`;
   } catch {
-    return iso;
+    return String(iso);
   }
 }

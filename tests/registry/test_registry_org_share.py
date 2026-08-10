@@ -166,3 +166,134 @@ def test_result_uploaded_by_and_share_org(
     monkeypatch.setenv("BORA_REGISTRY_TOKEN", bob_tok)
     listed = list_attempt_results(database_id="test/publish-min")
     assert listed["count"] == 0
+
+
+def test_org_invite_key_create_join_and_limits(registry_server) -> None:
+    """Owner creates invite key; user joins; max_uses exhausts; revoke blocks."""
+    state = registry_server["state"]
+    url = registry_server["url"]
+    boot = RegistryClient(url, token=registry_server["token"])
+    boot.create_org(name="invitelab", display_name="Invite Lab")
+
+    # Create invite: max 1 use, long expiry
+    st, raw, _ = boot._request(
+        "POST",
+        "/v1/orgs/invitelab/invite-keys",
+        body=json.dumps({"max_uses": 1, "expires_in_days": 3}).encode(),
+        headers=boot._headers(content_type="application/json", auth=True),
+    )
+    assert st == 201, raw
+    created = json.loads(raw.decode())
+    assert created.get("invite_key", "").startswith("bora-inv_")
+    assert created["max_uses"] == 1
+    key = created["invite_key"]
+    # List never re-materializes the secret; only prefix metadata.
+    st_list, raw_list, _ = boot._request(
+        "GET",
+        "/v1/orgs/invitelab/invite-keys",
+        headers=boot._headers(auth=True),
+    )
+    assert st_list == 200
+    listed = json.loads(raw_list.decode())
+    items = listed.get("items") or []
+    match = next((i for i in items if i.get("key_id") == created["key_id"]), None)
+    assert match is not None, listed
+    assert "invite_key" not in match
+    assert match.get("token_prefix", "").startswith("bora-inv_")
+
+    carol = _user_token(state, user="carol")
+    carol_cli = RegistryClient(url, token=carol)
+    st2, raw2, _ = carol_cli._request(
+        "POST",
+        "/v1/orgs/join",
+        body=json.dumps({"invite_key": key}).encode(),
+        headers=carol_cli._headers(content_type="application/json", auth=True),
+    )
+    assert st2 == 200, raw2
+    joined = json.loads(raw2.decode())
+    assert joined["org_id"] == "invitelab"
+    assert joined["role"] == "member"
+
+    # Exhausted for second user
+    dave = _user_token(state, user="dave")
+    dave_cli = RegistryClient(url, token=dave)
+    with pytest.raises(RegistryError) as ei:
+        dave_cli._request(
+            "POST",
+            "/v1/orgs/join",
+            body=json.dumps({"invite_key": key}).encode(),
+            headers=dave_cli._headers(content_type="application/json", auth=True),
+        )
+    assert ei.value.status == 403
+    assert "exhaust" in ei.value.message.lower()
+
+    # New key then revoke
+    st4, raw4, _ = boot._request(
+        "POST",
+        "/v1/orgs/invitelab/invite-keys",
+        body=json.dumps({"max_uses": 5}).encode(),
+        headers=boot._headers(content_type="application/json", auth=True),
+    )
+    assert st4 == 201
+    k2 = json.loads(raw4.decode())
+    kid = k2["key_id"]
+    st5, _, _ = boot._request(
+        "DELETE",
+        f"/v1/orgs/invitelab/invite-keys/{kid}",
+        headers=boot._headers(auth=True),
+    )
+    assert st5 == 200
+    with pytest.raises(RegistryError) as ei2:
+        dave_cli._request(
+            "POST",
+            "/v1/orgs/join",
+            body=json.dumps({"invite_key": k2["invite_key"]}).encode(),
+            headers=dave_cli._headers(content_type="application/json", auth=True),
+        )
+    assert ei2.value.status == 403
+    assert "revok" in ei2.value.message.lower()
+
+
+def test_org_leave_and_dissolve(registry_server) -> None:
+    state = registry_server["state"]
+    url = registry_server["url"]
+    boot = RegistryClient(url, token=registry_server["token"])
+    boot.create_org(name="doomed", display_name="Doomed Lab")
+
+    # Add member eve; she can leave
+    eve = _user_token(state, user="eve")
+    st, raw, _ = boot._request(
+        "POST",
+        "/v1/orgs/doomed/members",
+        body=json.dumps({"user_id": "eve", "role": "member"}).encode(),
+        headers=boot._headers(content_type="application/json", auth=True),
+    )
+    assert st == 201, raw
+    eve_cli = RegistryClient(url, token=eve)
+    st2, raw2, _ = eve_cli._request(
+        "POST",
+        "/v1/orgs/doomed/leave",
+        body=b"{}",
+        headers=eve_cli._headers(content_type="application/json", auth=True),
+    )
+    assert st2 == 200, raw2
+
+    # Sole owner cannot leave
+    with pytest.raises(RegistryError) as ei:
+        boot._request(
+            "POST",
+            "/v1/orgs/doomed/leave",
+            body=b"{}",
+            headers=boot._headers(content_type="application/json", auth=True),
+        )
+    assert ei.value.status == 403
+
+    # Dissolve works when no packages
+    st3, raw3, _ = boot._request(
+        "DELETE",
+        "/v1/orgs/doomed",
+        headers=boot._headers(auth=True),
+    )
+    assert st3 == 200, raw3
+    listed = boot.list_orgs()
+    assert all(i["org_id"] != "doomed" for i in listed.get("items") or [])

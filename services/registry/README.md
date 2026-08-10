@@ -59,11 +59,16 @@ uv run bora results share <run_id> --kind attempt --share-org my-lab
 
 # After a suite run produced .bora/suite-runs/<suite_run_id>/summary.json
 uv run bora results upload-suite <database> --suite-run <suite_run_id> [--public] [--agent x] [--model y]
+# Optional: also upload full Attempt evidence for Hub Jobs deep-link (#43)
+uv run bora results upload-suite <database> --suite-run <suite_run_id> --with-attempts
 uv run bora results get-suite <suite_run_id> [--out /tmp/restored-suite]
 uv run bora results list-suites [--database-id <id>]
 # Local fallback (no registry process):
 uv run bora results list-suites --local <database>
 uv run bora results get-suite <suite_run_id> --local <database>
+
+# Suite list/get task_refs include has_attempt_content when Attempt blobs exist.
+# Hub: Jobs → Open evidence when true; grey "Not uploaded" otherwise.
 
 uv run bora cache list
 uv run bora cache purge all --yes

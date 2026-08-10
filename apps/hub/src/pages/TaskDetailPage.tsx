@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
@@ -35,6 +35,7 @@ export function TaskDetailPage() {
   const { datasetId: rawId, taskId: rawTask } = useParams();
   const datasetId = decodeDatasetId(rawId || "");
   const taskId = decodeURIComponent(rawTask || "");
+  const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
   // Default tab: README (not Files)
   const tab = (search.get("tab") as Tab) || "readme";
@@ -55,6 +56,8 @@ export function TaskDetailPage() {
       agent_label?: string;
       model_label?: string;
       created_at?: number | string;
+      run_id?: string | null;
+      has_attempt_content?: boolean;
     }>
   >([]);
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +125,8 @@ export function TaskDetailPage() {
               agent_label: s.agent_label,
               model_label: s.model_label,
               created_at: s.created_at,
+              run_id: hit.run_id ?? null,
+              has_attempt_content: Boolean(hit.has_attempt_content),
             });
           }
           setJobs(rows);
@@ -269,18 +274,21 @@ export function TaskDetailPage() {
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
             <p className="text-sm text-ink font-medium">No Jobs for this task</p>
             <p className="text-sm text-mute">
-              Upload suite results after a suite run. Jobs list is summary-only
-              (no full evidence browser here — see discussion #43).
+              Upload suite results after a suite run. Full Attempt evidence is
+              optional — add{" "}
+              <code className="font-mono">--with-attempts</code> when you want
+              Jobs to open a read-only evidence browser.
             </p>
             <CommandStrip
-              command={`bora results upload-suite <database-root> --suite-run-id <id>`}
+              command={`bora results upload-suite <database-root> --suite-run <id> --with-attempts`}
             />
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-mute">
-              List only — click-through to full Run/Attempt evidence is deferred
-              (#43).
+              Each row is this task&apos;s result inside a suite run. Click a
+              row with full Attempt evidence to open the detail view (like local
+              viewer). Grey rows are summary-only.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>
@@ -294,26 +302,84 @@ export function TaskDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {jobs.map((j) => (
-                    <TableRow key={j.suite_run_id}>
-                      <TableCell className="font-mono text-xs">
-                        {j.suite_run_id}
-                      </TableCell>
-                      <TableCell className="text-sm">{j.status || "-"}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatScore(j.score)}
-                      </TableCell>
-                      <TableCell className="text-sm text-body">
-                        {j.agent_label || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm font-mono text-xs">
-                        {j.model_label || "-"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {jobs.map((j) => {
+                    const canOpen =
+                      Boolean(j.has_attempt_content) && Boolean(j.run_id);
+                    const evidenceHref =
+                      canOpen && j.run_id
+                        ? `/datasets/${encodeURIComponent(datasetId)}/tasks/${encodeURIComponent(taskId)}/attempts/${encodeURIComponent(j.run_id)}`
+                        : null;
+                    return (
+                      <TableRow
+                        key={j.suite_run_id}
+                        className={cn(
+                          canOpen && "cursor-pointer",
+                          !canOpen && "opacity-70",
+                        )}
+                        onClick={() => {
+                          if (!evidenceHref) return;
+                          navigate(evidenceHref);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!evidenceHref) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(evidenceHref);
+                          }
+                        }}
+                        tabIndex={canOpen ? 0 : undefined}
+                        role={canOpen ? "link" : undefined}
+                        title={
+                          canOpen
+                            ? "Open attempt detail"
+                            : j.run_id
+                              ? "Summary only — full Attempt not uploaded"
+                              : "No run_id for this task"
+                        }
+                      >
+                        <TableCell className="font-mono text-xs">
+                          <span className="text-ink">{j.suite_run_id}</span>
+                          {!canOpen ? (
+                            <span className="ml-2 text-[11px] text-mute font-sans">
+                              summary only
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {j.status || "-"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatScore(j.score)}
+                        </TableCell>
+                        <TableCell className="text-sm text-body">
+                          {j.agent_label || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm font-mono text-xs">
+                          {j.model_label || "-"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
+            {jobs.some((j) => !j.has_attempt_content) ? (
+              <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-4 space-y-2">
+                <p className="text-sm text-body">
+                  Some rows have summary only. Upload full Attempt trees to
+                  enable the evidence browser:
+                </p>
+                <CommandStrip
+                  command={`bora results upload-suite <database-root> --suite-run <id> --with-attempts`}
+                />
+                <p className="text-xs text-mute">
+                  Or backfill one run:{" "}
+                  <code className="font-mono">
+                    bora results upload &lt;db&gt; --run &lt;run_id&gt;
+                  </code>
+                </p>
+              </div>
+            ) : null}
           </div>
         )
       ) : null}
