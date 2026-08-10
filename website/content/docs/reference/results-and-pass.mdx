@@ -24,10 +24,39 @@ description: Result 怎么读；pass@k 是 job 指标，不是整包 PASS。
 | --- | --- |
 | `pass_at_k` | pass@k（至少一次成功的无偏估计；Harbor 同构） |
 | `pass_power_k` | pass^k（k 次都成功的估计） |
+| `n_attempts` | 本 job 的 Always-k 预算（来自 CLI / job，不是 `task.yaml`） |
+| `k_values` | 本 summary 计算过的 k 列表 |
+| `per_task` | 各 task 的 `n` / `c` 与 per-k 映射（审计） |
 | suite 总分 | 各 **task** 上该指标的 **mean**（样本不够的 task 不进分母） |
 
-这些是 **job 汇总指标**，不进 package 身份 / `config_fingerprint`。  
-Hub Leaderboard 是否展示 pass@k 列见 follow-up issue，**不能**从本机 summary 存在推导榜上已有。
+### `metrics.pass_at_k` / `pass_power_k` 契约（#60）
+
+每个键是 **字符串化的 k**（如 `"1"`、`"2"`、`"5"`），值为：
+
+```json
+{
+  "1": { "value": 0.75, "n_tasks": 4, "incomplete_tasks": 0 },
+  "2": { "value": 0.5,  "n_tasks": 3, "incomplete_tasks": 1 }
+}
+```
+
+| 字段 | 含义 |
+| --- | --- |
+| `value` | 对该 k 可计算的 task 取 mean；若无 task 可算则为 `null` |
+| `n_tasks` | 进入该 k 分母的 task 数 |
+| `incomplete_tasks` | 因 `n < k`（pass@k）等原因未进入分母的 task 数 |
+
+**上传 / Registry：**
+
+- `bora results upload-suite` 在本地先 **ensure / recompute**（有 `attempts[]` 或 task `n`/`c` 即可补全 k 指标），再 POST 整份 `metrics` blob。
+- Registry 原样存入 `metrics_json`，list/get suite **不剥除** `pass_at_k` / `pass_power_k`。
+- 一等列仍是 `pass_rate` / `mean_score`；k 指标在 `metrics` 内读。
+- **不**写入 `config_fingerprint` / job identity；不同 k 的 job 可并列，身份仍是 agent×model 绑定。
+- 无 k 数据的旧 suite：`metrics.pass_at_k` 缺失 → Hub 显示 `—`。
+
+**`task_refs`（多 attempt）：** 可含 `n`、`c`、`attempt_run_ids`（及主 `run_id`），供审计与 `--with-attempts` 上传全样本。
+
+这些是 **观测汇总**，不是 suite 级 PASS。
 
 ## 本机翻看
 
