@@ -125,6 +125,7 @@ class LifecycleCoordinator:
                     transition(LifecycleState.CLEANING_UP, "failure")
 
             cleanup_calls += 1
+            t0 = self.clock()
             try:
                 fact = await asyncio.wait_for(
                     self.stages.cleanup(attempt),
@@ -135,6 +136,16 @@ class LifecycleCoordinator:
                     raise LifecycleError(
                         ERROR_ILLEGAL_TRANSITION,
                         f"cleanup returned wrong phase: {fact.phase.value}",
+                    )
+                duration_ms = max(0.0, (self.clock() - t0) * 1000.0)
+                if fact.duration_ms is None:
+                    fact = PhaseFact(
+                        attempt=fact.attempt,
+                        phase=fact.phase,
+                        status=fact.status,
+                        message=fact.message,
+                        detail=dict(fact.detail),
+                        duration_ms=duration_ms,
                     )
                 facts.append(fact)
                 if fact.status != PhaseStatus.SUCCEEDED:
@@ -147,6 +158,7 @@ class LifecycleCoordinator:
                         phase=LifecyclePhase.CLEANUP,
                         status=PhaseStatus.TIMED_OUT,
                         message=cleanup_warning,
+                        duration_ms=max(0.0, (self.clock() - t0) * 1000.0),
                     )
                 )
             except Exception as exc:  # noqa: BLE001 — capture as warning, keep primary
@@ -157,6 +169,7 @@ class LifecycleCoordinator:
                         phase=LifecyclePhase.CLEANUP,
                         status=PhaseStatus.FAILED,
                         message=cleanup_warning,
+                        duration_ms=max(0.0, (self.clock() - t0) * 1000.0),
                     )
                 )
 
@@ -209,6 +222,7 @@ class LifecycleCoordinator:
                     f"duplicate stage: {phase.value}",
                 )
 
+            t0 = self.clock()
             try:
                 fact = await fn(attempt)
             except Exception as exc:  # noqa: BLE001 — stage failure → cleanup
@@ -218,6 +232,7 @@ class LifecycleCoordinator:
                         phase=phase,
                         status=PhaseStatus.FAILED,
                         message=f"{type(exc).__name__}: {exc}",
+                        duration_ms=max(0.0, (self.clock() - t0) * 1000.0),
                     )
                 )
                 await do_cleanup(RuntimeTerminalKind.FAILED)
@@ -229,6 +244,16 @@ class LifecycleCoordinator:
                 raise LifecycleError(
                     ERROR_ILLEGAL_TRANSITION,
                     f"stage returned wrong phase: {fact.phase.value} != {phase.value}",
+                )
+            duration_ms = max(0.0, (self.clock() - t0) * 1000.0)
+            if fact.duration_ms is None:
+                fact = PhaseFact(
+                    attempt=fact.attempt,
+                    phase=fact.phase,
+                    status=fact.status,
+                    message=fact.message,
+                    detail=dict(fact.detail),
+                    duration_ms=duration_ms,
                 )
             facts.append(fact)
             completed_phases.add(phase)
