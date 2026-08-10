@@ -74,6 +74,8 @@ export type SuiteRow = {
     status?: string | null;
     score?: number | null;
     run_id?: string | null;
+    /** True when full Attempt evidence archive is present on Registry (#43). */
+    has_attempt_content?: boolean;
   }>;
   agent_label?: string;
   model_label?: string;
@@ -84,6 +86,20 @@ export type SuiteRow = {
   created_at?: number | string;
   note?: string;
   uploaded_by?: string;
+};
+
+export type AttemptMeta = {
+  run_id: string;
+  database_id?: string;
+  task_id?: string;
+  status?: string;
+  visibility?: string;
+  blob_digest?: string;
+  size?: number;
+  created_at?: number | string;
+  uploaded_by?: string;
+  suite_run_id?: string;
+  lock_digest?: string;
 };
 
 export class RegistryHttpError extends Error {
@@ -214,6 +230,40 @@ export async function listSuites(
     : "/v1/results/suites";
   const data = await requestJson<{ items?: SuiteRow[] }>(path, { token });
   return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function getAttempt(
+  runId: string,
+  token: string | null,
+): Promise<AttemptMeta> {
+  return requestJson(`/v1/results/attempts/${encodeURIComponent(runId)}`, {
+    token,
+  });
+}
+
+export async function listAttemptFiles(
+  runId: string,
+  token: string | null,
+): Promise<{ run_id: string; items: FileItem[]; digest?: string }> {
+  return requestJson(
+    `/v1/results/attempts/${encodeURIComponent(runId)}/files`,
+    { token },
+  );
+}
+
+export async function getAttemptFile(
+  runId: string,
+  filePath: string,
+  token: string | null,
+): Promise<FileContent> {
+  const fp = filePath
+    .split("/")
+    .map((s) => encodeURIComponent(s))
+    .join("/");
+  return requestJson(
+    `/v1/results/attempts/${encodeURIComponent(runId)}/files/${fp}`,
+    { token },
+  );
 }
 
 export async function listOrgs(token: string | null): Promise<OrgRow[]> {

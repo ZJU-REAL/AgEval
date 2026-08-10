@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
@@ -55,6 +55,8 @@ export function TaskDetailPage() {
       agent_label?: string;
       model_label?: string;
       created_at?: number | string;
+      run_id?: string | null;
+      has_attempt_content?: boolean;
     }>
   >([]);
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +124,8 @@ export function TaskDetailPage() {
               agent_label: s.agent_label,
               model_label: s.model_label,
               created_at: s.created_at,
+              run_id: hit.run_id ?? null,
+              has_attempt_content: Boolean(hit.has_attempt_content),
             });
           }
           setJobs(rows);
@@ -269,18 +273,20 @@ export function TaskDetailPage() {
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
             <p className="text-sm text-ink font-medium">No Jobs for this task</p>
             <p className="text-sm text-mute">
-              Upload suite results after a suite run. Jobs list is summary-only
-              (no full evidence browser here — see discussion #43).
+              Upload suite results after a suite run. Full Attempt evidence is
+              optional — add{" "}
+              <code className="font-mono">--with-attempts</code> when you want
+              Jobs to open a read-only evidence browser.
             </p>
             <CommandStrip
-              command={`bora results upload-suite <database-root> --suite-run-id <id>`}
+              command={`bora results upload-suite <database-root> --suite-run <id> --with-attempts`}
             />
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-mute">
-              List only — click-through to full Run/Attempt evidence is deferred
-              (#43).
+              Jobs rows always come from suite summary. Open evidence only when
+              full Attempt content was uploaded (grey = summary only).
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>
@@ -291,29 +297,78 @@ export function TaskDetailPage() {
                     <TableHead className="text-right">Score</TableHead>
                     <TableHead>Agent</TableHead>
                     <TableHead>Model</TableHead>
+                    <TableHead>Evidence</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {jobs.map((j) => (
-                    <TableRow key={j.suite_run_id}>
-                      <TableCell className="font-mono text-xs">
-                        {j.suite_run_id}
-                      </TableCell>
-                      <TableCell className="text-sm">{j.status || "-"}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatScore(j.score)}
-                      </TableCell>
-                      <TableCell className="text-sm text-body">
-                        {j.agent_label || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm font-mono text-xs">
-                        {j.model_label || "-"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {jobs.map((j) => {
+                    const canOpen =
+                      Boolean(j.has_attempt_content) && Boolean(j.run_id);
+                    const evidenceHref =
+                      canOpen && j.run_id
+                        ? `/datasets/${encodeURIComponent(datasetId)}/tasks/${encodeURIComponent(taskId)}/attempts/${encodeURIComponent(j.run_id)}`
+                        : null;
+                    return (
+                      <TableRow key={j.suite_run_id}>
+                        <TableCell className="font-mono text-xs">
+                          {j.suite_run_id}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {j.status || "-"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatScore(j.score)}
+                        </TableCell>
+                        <TableCell className="text-sm text-body">
+                          {j.agent_label || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm font-mono text-xs">
+                          {j.model_label || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {evidenceHref ? (
+                            <Link
+                              to={evidenceHref}
+                              className="text-ink font-medium underline-offset-2 hover:underline"
+                            >
+                              Open evidence
+                            </Link>
+                          ) : (
+                            <span
+                              className="text-mute"
+                              title={
+                                j.run_id
+                                  ? "Attempt evidence not uploaded yet"
+                                  : "No run_id on this task ref"
+                              }
+                            >
+                              Not uploaded
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
+            {jobs.some((j) => !j.has_attempt_content) ? (
+              <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-4 space-y-2">
+                <p className="text-sm text-body">
+                  Some rows have summary only. Upload full Attempt trees to
+                  enable the evidence browser:
+                </p>
+                <CommandStrip
+                  command={`bora results upload-suite <database-root> --suite-run <id> --with-attempts`}
+                />
+                <p className="text-xs text-mute">
+                  Or backfill one run:{" "}
+                  <code className="font-mono">
+                    bora results upload &lt;db&gt; --run &lt;run_id&gt;
+                  </code>
+                </p>
+              </div>
+            ) : null}
           </div>
         )
       ) : null}
