@@ -86,7 +86,7 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora executors` | Host executor / ACP entry inventory |
 | `bora evidence` | Export sealed trajectory copy (does not change score) |
 | `bora submit` / `status` / `cancel` | Durable Run control (v0.12 sketch) |
-| `bora login` | GitHub Device Flow → write credentials |
+| `bora login` | GitHub **Device Flow** → write credentials (Hub uses browser OAuth instead) |
 | `bora publish` | Publish a Database package (**requires `--org`**) |
 | `bora registry list\|show` | Browse remote packages |
 | `bora registry org-create\|org-list` | Create / list organizations (packages belong to orgs) |

@@ -168,14 +168,44 @@ browsable tree.
 `bora login` issues tokens with publish + read-private + results upload/read.
 Scopes are independent: upload-only tokens cannot list private results.
 Private unauthorized reads return **404** (not 403).
-Visibility is only **`public` | `private`** (no org in this MVP).
+Visibility is only **`public` | `private`**. Packages require **`org_id`**; private package
+read is **org member** (or `admin`). Result private read is owner / share / admin
+(see Organizations + ACL above).
 
-## GitHub OAuth (Device Flow)
+## GitHub OAuth
 
-1. Create a GitHub OAuth App; enable **Device Flow**.
-2. Put in `services/registry/.env` (gitignored):
-   - `BORA_GITHUB_CLIENT_ID` / `BORA_GITHUB_CLIENT_SECRET`
-   - `BORA_GITHUB_LOGIN_ALLOWLIST=yourlogin` (comma-separated; **required** — empty deny)
-3. `bora login` → open verification URI → enter user code → credentials written.
+Create a **GitHub OAuth App** (Settings → Developer settings → OAuth Apps).
+
+| Setting | Local Hub / CLI |
+| --- | --- |
+| Homepage URL | e.g. `http://127.0.0.1:8700/` (informational) |
+| Authorization callback URL | **`http://127.0.0.1:5174/login/callback`** (and `http://localhost:5174/login/callback` if you use that host) |
+| Enable Device Flow | **On** (required for CLI `bora login`) |
+
+Put in `services/registry/.env` (gitignored):
+
+- `BORA_GITHUB_CLIENT_ID` / `BORA_GITHUB_CLIENT_SECRET`
+- `BORA_GITHUB_LOGIN_ALLOWLIST=yourlogin` (comma-separated; **required** — empty deny)
+- optional `BORA_GITHUB_WEB_REDIRECT_URIS=…` for extra Hub callback origins
+
+### CLI — Device Flow
+
+```bash
+export BORA_REGISTRY_URL=http://127.0.0.1:8700
+uv run bora login
+# Open https://github.com/login/device and enter the printed user code
+```
+
+Writes `~/.bora/credentials` (0600). On success, Registry also stores a **user profile**
+snapshot (`login` / display name / avatar) for Hub members list.
+
+### Hub SPA — browser OAuth (Authorization Code)
+
+1. Registry: `POST /v1/auth/github/web/start` with Hub `redirect_uri`
+2. Browser opens GitHub authorize → user clicks **Authorize**
+3. GitHub redirects to Hub `/login/callback?code=&state=`
+4. Hub: `POST /v1/auth/github/web/callback` → Registry API token in `localStorage`
+
+No device user code on Hub. Restart Registry after changing OAuth env.
 
 CI continues to use `BORA_REGISTRY_TOKEN` (bootstrap/admin) without a browser.
