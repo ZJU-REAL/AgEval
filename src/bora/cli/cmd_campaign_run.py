@@ -249,13 +249,11 @@ def register(app: typer.Typer) -> None:
                     )
                 elif kind == "suite_complete":
                     sys.stderr.write(
-                        f"suite complete exit={ev.get('exit_code')} "
-                        f"done={done}/{total}\n"
+                        f"suite complete exit={ev.get('exit_code')} done={done}/{total}\n"
                     )
                 elif kind == "suite_cancelled":
                     sys.stderr.write(
-                        f"suite cancelled done={done}/{total} "
-                        f"skipped={ev.get('cancelled_units')}\n"
+                        f"suite cancelled done={done}/{total} skipped={ev.get('cancelled_units')}\n"
                     )
                 sys.stderr.flush()
 
