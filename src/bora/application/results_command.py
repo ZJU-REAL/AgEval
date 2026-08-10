@@ -46,9 +46,37 @@ def _client(*, registry_url: str | None = None) -> RegistryClient:
     return RegistryClient(url, token=token)
 
 
+def _safe_run_id_segment(run_id: str) -> str:
+    """Single path segment for ``.bora/runs/<run_id>``; reject traversal."""
+    text = (run_id or "").strip()
+    if (
+        not text
+        or text in {".", ".."}
+        or "/" in text
+        or "\\" in text
+        or ".." in text
+    ):
+        raise ConfigError(
+            "invalid_package",
+            f"invalid run_id: {run_id!r}",
+            location="run_id",
+        )
+    return text
+
+
 def _resolve_run_dir(database_root: Path, run_id: str) -> Path:
     root = database_root.expanduser().resolve(strict=False)
-    candidate = root / ".bora" / "runs" / run_id
+    rid = _safe_run_id_segment(run_id)
+    runs_root = (root / ".bora" / "runs").resolve(strict=False)
+    candidate = (runs_root / rid).resolve(strict=False)
+    try:
+        candidate.relative_to(runs_root)
+    except ValueError as exc:
+        raise ConfigError(
+            "invalid_package",
+            f"invalid run_id path: {run_id!r}",
+            location="run_id",
+        ) from exc
     if candidate.is_dir():
         return candidate
     raise ConfigError(
@@ -356,8 +384,9 @@ def upload_suite_result(
     if with_attempts:
         missing: list[str] = []
         for rid in run_ids:
-            candidate = root / ".bora" / "runs" / rid
-            if not candidate.is_dir():
+            try:
+                _resolve_run_dir(root, rid)
+            except ConfigError:
                 missing.append(rid)
         if missing:
             preview = ", ".join(missing[:8])

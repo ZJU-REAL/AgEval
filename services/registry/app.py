@@ -1357,6 +1357,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 PackageFileTooLarge,
                 PackagePathError,
                 file_payload,
+                normalize_package_path,
                 read_member,
             )
 
@@ -1364,12 +1365,22 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if row is None:
                 _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
                 return
+            # Path is already unquoted in do_GET; match package file route.
+            try:
+                safe_path = normalize_package_path(file_path)
+            except PackagePathError as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_path", "message": str(exc)},
+                )
+                return
             archive = state.blobs.get(row.blob_digest, prefix="results")
             if archive is None:
                 _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
                 return
             try:
-                data, size = read_member(archive, unquote(file_path))
+                data, size = read_member(archive, safe_path, max_bytes=MAX_FILE_BYTES)
             except PackagePathError as exc:
                 _json_response(
                     self,
@@ -1378,7 +1389,11 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 )
                 return
             except PackageFileNotFound:
-                _json_response(self, 404, {"error": "not_found", "message": "file not found"})
+                _json_response(
+                    self,
+                    404,
+                    {"error": "not_found", "message": f"file not found: {safe_path}"},
+                )
                 return
             except PackageFileTooLarge as exc:
                 _json_response(
@@ -1393,10 +1408,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     },
                 )
                 return
-            try:
-                safe_path = unquote(file_path)
-            except Exception:  # noqa: BLE001
-                safe_path = file_path
             payload = file_payload(safe_path, data, size=size, truncated=False)
             _json_response(self, 200, payload)
 
@@ -1549,17 +1560,30 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, suite_to_dict(row))
 
-        def _suite_attempt_ids(self, rows: list[Any]) -> set[str]:
+        def _suite_visible_attempt_ids(self, rows: list[Any], *, auth: TokenInfo) -> set[str]:
+            """run_ids with attempt blobs the *auth* principal may open (fail-closed)."""
             from services.registry.store import _run_ids_from_tasks_json
 
             run_ids: list[str] = []
             for r in rows:
                 run_ids.extend(_run_ids_from_tasks_json(r.tasks_json))
             try:
-                return state.meta.existing_attempt_ids(run_ids)
+                attempts = state.meta.attempts_for_ids(run_ids)
             except Exception:  # noqa: BLE001
-                # Fail open on projection only: list still works without flags.
+                # Projection only: omit flags rather than invent true deep-links.
                 return set()
+            visible_ids: set[str] = set()
+            for a in attempts:
+                if _visible_result_row(
+                    state,
+                    result_kind="attempt",
+                    result_id=a.run_id,
+                    visibility=a.visibility,
+                    uploaded_by=a.uploaded_by,
+                    auth=auth,
+                ):
+                    visible_ids.add(a.run_id)
+            return visible_ids
 
         def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             database_id = (qs.get("database_id") or [None])[0]
@@ -1579,7 +1603,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     auth=auth,
                 )
             ]
-            attempt_ids = self._suite_attempt_ids(visible)
+            attempt_ids = self._suite_visible_attempt_ids(visible, auth=auth)
             items = [suite_to_dict(r, attempt_content_ids=attempt_ids) for r in visible]
             _json_response(self, 200, {"items": items})
 
@@ -1595,7 +1619,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             ):
                 _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
                 return
-            attempt_ids = self._suite_attempt_ids([row])
+            attempt_ids = self._suite_visible_attempt_ids([row], auth=auth)
             _json_response(self, 200, suite_to_dict(row, attempt_content_ids=attempt_ids))
 
         def _serve_suite_content(self, *, suite_run_id: str, auth: TokenInfo) -> None:

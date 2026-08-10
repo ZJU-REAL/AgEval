@@ -743,18 +743,22 @@ class MetadataStore:
             r = cur.fetchone()
             return self._attempt_row(r) if r else None
 
-    def existing_attempt_ids(self, run_ids: list[str] | set[str]) -> set[str]:
-        """Return the subset of *run_ids* that already have attempt rows (any visibility)."""
+    def attempts_for_ids(self, run_ids: list[str] | set[str]) -> list[AttemptResultRow]:
+        """Return attempt rows for the given run_ids (any visibility; caller filters)."""
         ids = sorted({str(r).strip() for r in run_ids if r and str(r).strip()})
         if not ids:
-            return set()
+            return []
         placeholders = ",".join("?" for _ in ids)
         with self._connect() as conn:
             cur = conn.execute(
-                f"SELECT run_id FROM attempt_results WHERE run_id IN ({placeholders})",
+                f"SELECT * FROM attempt_results WHERE run_id IN ({placeholders})",
                 ids,
             )
-            return {str(r["run_id"]) for r in cur.fetchall()}
+            return [self._attempt_row(r) for r in cur.fetchall()]
+
+    def existing_attempt_ids(self, run_ids: list[str] | set[str]) -> set[str]:
+        """Return the subset of *run_ids* that already have attempt rows (any visibility)."""
+        return {row.run_id for row in self.attempts_for_ids(run_ids)}
 
     def list_attempts(
         self,
@@ -1559,17 +1563,21 @@ class PostgresMetadataStore:
             cols = [d.name for d in cur.description] if cur.description else []
             return self._attempt_from_cols(cols, r)
 
-    def existing_attempt_ids(self, run_ids: list[str] | set[str]) -> set[str]:
+    def attempts_for_ids(self, run_ids: list[str] | set[str]) -> list[AttemptResultRow]:
         ids = sorted({str(r).strip() for r in run_ids if r and str(r).strip()})
         if not ids:
-            return set()
+            return []
         placeholders = ",".join("%s" for _ in ids)
         with self._connect() as conn:
             cur = conn.execute(
-                f"SELECT run_id FROM attempt_results WHERE run_id IN ({placeholders})",
+                f"SELECT * FROM attempt_results WHERE run_id IN ({placeholders})",
                 ids,
             )
-            return {str(r[0]) for r in cur.fetchall()}
+            cols = [d.name for d in cur.description] if cur.description else []
+            return [self._attempt_from_cols(cols, r) for r in cur.fetchall()]
+
+    def existing_attempt_ids(self, run_ids: list[str] | set[str]) -> set[str]:
+        return {row.run_id for row in self.attempts_for_ids(run_ids)}
 
     def list_attempts(
         self,
@@ -2210,6 +2218,8 @@ def suite_to_dict(
 
     When *attempt_content_ids* is provided, each task_ref gains
     ``has_attempt_content`` (bool) for Hub Jobs deep-link readiness (#43).
+    Callers must pass only attempt ids visible to the current principal
+    (never invent true for private/unshared rows).
     """
     try:
         metrics = json.loads(row.metrics_json)
