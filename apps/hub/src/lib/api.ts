@@ -26,6 +26,10 @@ export type OrgMember = {
   user_id: string;
   role: string;
   created_at?: number;
+  /** GitHub profile display name (from login-time profile snapshot). */
+  display_name?: string;
+  avatar_url?: string;
+  github_id?: string;
 };
 
 export type ResultShare = {
@@ -262,17 +266,53 @@ export async function deviceCode(): Promise<{
   });
 }
 
+/** Hub browser OAuth (Authorization Code) — Harbor-style, no device user_code. */
+export async function startWebLogin(
+  redirectUri: string,
+): Promise<{ authorize_url: string; state: string }> {
+  return requestJson("/v1/auth/github/web/start", {
+    method: "POST",
+    body: { redirect_uri: redirectUri },
+  });
+}
+
+export async function completeWebLogin(opts: {
+  code: string;
+  state: string;
+  redirectUri: string;
+}): Promise<{
+  token: string;
+  github_user?: string;
+  github_name?: string;
+  github_id?: number;
+  avatar_url?: string;
+  scopes?: string[];
+}> {
+  return requestJson("/v1/auth/github/web/callback", {
+    method: "POST",
+    body: {
+      code: opts.code,
+      state: opts.state,
+      redirect_uri: opts.redirectUri,
+    },
+  });
+}
+
 /**
  * Device poll. Registry returns 202 while pending (not an error).
  * Success 200: ``{ token, github_user, scopes }`` (Registry API token, not GH).
  */
 export async function devicePoll(
   deviceCodeValue: string,
+  opts?: { signal?: AbortSignal },
 ): Promise<{
   status?: string;
   token?: string;
   access_token?: string;
   github_user?: string;
+  github_name?: string;
+  github_id?: number;
+  avatar_url?: string;
   message?: string;
   error?: string;
 }> {
@@ -284,6 +324,7 @@ export async function devicePoll(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ device_code: deviceCodeValue }),
+    signal: opts?.signal,
   });
   const text = await res.text();
   let data: Record<string, unknown> = {};
@@ -314,6 +355,11 @@ export async function devicePoll(
       typeof data.access_token === "string" ? data.access_token : undefined,
     github_user:
       typeof data.github_user === "string" ? data.github_user : undefined,
+    github_name:
+      typeof data.github_name === "string" ? data.github_name : undefined,
+    github_id: typeof data.github_id === "number" ? data.github_id : undefined,
+    avatar_url:
+      typeof data.avatar_url === "string" ? data.avatar_url : undefined,
   };
 }
 

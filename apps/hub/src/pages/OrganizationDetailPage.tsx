@@ -226,16 +226,39 @@ export function OrganizationDetailPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {members.map((m) => (
-                          <TableRow key={m.user_id}>
-                            <TableCell className="font-mono text-sm">
-                              @{m.user_id}
-                            </TableCell>
-                            <TableCell className="text-sm capitalize text-body">
-                              {m.role}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {members.map((m) => {
+                          const avatar =
+                            m.avatar_url ||
+                            `https://github.com/${encodeURIComponent(m.user_id)}.png?size=64`;
+                          const title = m.display_name || m.user_id;
+                          return (
+                            <TableRow key={m.user_id}>
+                              <TableCell>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <img
+                                    src={avatar}
+                                    alt=""
+                                    width={36}
+                                    height={36}
+                                    className="h-9 w-9 rounded-full bg-canvas-soft border border-hairline shrink-0 object-cover"
+                                    loading="lazy"
+                                  />
+                                  <div className="min-w-0 leading-tight">
+                                    <div className="text-sm font-medium text-ink truncate">
+                                      {title}
+                                    </div>
+                                    <div className="text-xs font-mono text-mute truncate">
+                                      @{m.user_id}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm capitalize text-body">
+                                {m.role}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>

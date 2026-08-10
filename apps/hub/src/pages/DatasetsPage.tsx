@@ -1,7 +1,7 @@
+import { Database } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
 import { Shell } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import {
@@ -116,12 +116,8 @@ export function DatasetsPage() {
 
   return (
     <Shell>
-      <BreadcrumbNav items={[{ label: "Datasets" }]} className="mb-4" />
       <div className="mb-4">
-        <p className="text-xs uppercase tracking-wide text-mute font-medium">
-          BORA Registry
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink mt-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
           {scope === "orgs" ? "Your datasets" : "Explore datasets"}
         </h1>
         <p className="text-sm text-body mt-1">
@@ -191,6 +187,11 @@ export function DatasetsPage() {
           </div>
           {datasets.length === 0 ? (
             <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm text-body">
+              <div className="flex justify-center mb-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[12px] bg-canvas border border-hairline text-mute">
+                  <Database className="h-8 w-8" strokeWidth={1.5} aria-hidden />
+                </div>
+              </div>
               <p className="font-medium text-ink">No datasets found</p>
               <p className="mt-1 text-mute">
                 {scope === "orgs"

@@ -1,7 +1,7 @@
+import { Building2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
 import { Shell } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import {
@@ -95,7 +95,6 @@ export function OrganizationsPage() {
 
   return (
     <Shell>
-      <BreadcrumbNav items={[{ label: "Organizations" }]} className="mb-4" />
       <div className="mb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">
           Organizations
@@ -134,6 +133,11 @@ export function OrganizationsPage() {
           </div>
           {filtered.length === 0 ? (
             <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm">
+              <div className="flex justify-center mb-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[12px] bg-canvas border border-hairline text-mute">
+                  <Building2 className="h-8 w-8" strokeWidth={1.5} aria-hidden />
+                </div>
+              </div>
               <p className="font-medium text-ink">No organizations</p>
               <p className="mt-1 text-mute">
                 Create one with{" "}

@@ -3,7 +3,13 @@ import { Link, NavLink } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { clearToken, getGithubUser, getToken } from "@/lib/auth";
+import {
+  clearToken,
+  getGithubAvatar,
+  getGithubName,
+  getGithubUser,
+  getToken,
+} from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -22,6 +28,9 @@ export function Shell({
 }) {
   const token = getToken();
   const githubUser = getGithubUser();
+  const githubName = getGithubName();
+  const githubAvatar = getGithubAvatar();
+  const displayName = githubName || githubUser;
 
   return (
     <div className="min-h-full flex flex-col bg-canvas">
@@ -42,9 +51,23 @@ export function Shell({
         {meta}
         {token ? (
           <>
-            {githubUser ? (
-              <span className="text-xs text-mute font-mono hidden sm:inline">
-                @{githubUser}
+            {displayName ? (
+              <span className="hidden sm:inline-flex items-center gap-2 min-w-0 max-w-[14rem]">
+                {githubAvatar || githubUser ? (
+                  <img
+                    src={
+                      githubAvatar ||
+                      `https://github.com/${encodeURIComponent(githubUser || "")}.png?size=64`
+                    }
+                    alt=""
+                    width={28}
+                    height={28}
+                    className="h-7 w-7 rounded-full border border-hairline bg-canvas-soft object-cover shrink-0"
+                  />
+                ) : null}
+                <span className="text-sm text-body truncate" title={githubUser || undefined}>
+                  {displayName}
+                </span>
               </span>
             ) : null}
             <Button
