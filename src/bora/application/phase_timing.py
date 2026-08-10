@@ -155,7 +155,9 @@ def phase_facts_to_timing(phase_facts: Sequence[Any]) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for fact in phase_facts:
         phase = getattr(fact, "phase", None)
-        pid = phase.value if hasattr(phase, "value") else str(phase or "")
+        # Enum PhaseFact.phase → .value; avoid optional member access for pyright.
+        raw_id = getattr(phase, "value", None) if phase is not None else None
+        pid = str(raw_id if raw_id is not None else (phase or ""))
         ms = getattr(fact, "duration_ms", None)
         if ms is None:
             detail = getattr(fact, "detail", None) or {}
