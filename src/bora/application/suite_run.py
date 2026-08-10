@@ -251,6 +251,7 @@ async def execute_suite_run(
         results,
         overrides=overrides,
         task_ids=plan.task_ids,
+        profiles_path=profiles_path,
     )
     summary: dict[str, Any] = {
         "schema": "bora.suite.summary/1",
@@ -277,6 +278,9 @@ async def execute_suite_run(
         # Explicitly NOT a suite PASS authority:
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
+    # #59 secret-free job binding for upload / Hub rehydrate (when homogeneous).
+    if config_fields.get("job_overlay") is not None:
+        summary["job_overlay"] = config_fields["job_overlay"]
 
     suite_dir = plan.database_root / ".bora" / "suite-runs" / plan.suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)

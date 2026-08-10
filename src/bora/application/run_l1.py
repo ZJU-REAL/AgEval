@@ -169,6 +169,8 @@ def run_l1_sdk_session_attempt(
         }
         if lock.provenance is not None:
             lock_doc["provenance"] = _thaw_lock(lock.provenance)
+        if lock.job_overlay is not None:
+            lock_doc["job_overlay"] = _thaw_lock(lock.job_overlay)
         evidence_store.write_lock_summary(lock_doc)
 
     cred = project_executor_credentials(work_root=runtime.workdir_host)

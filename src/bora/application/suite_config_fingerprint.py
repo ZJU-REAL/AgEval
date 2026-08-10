@@ -154,14 +154,11 @@ def compute_suite_config_fields(
     }
 
 
-def load_actors_from_run_lock(
+def load_run_lock_doc(
     database_root: Path,
     run_id: str | None,
-) -> list[dict[str, str]] | None:
-    """Read actors from Attempt ``lock.json`` under ``.bora/runs/<run_id>/``.
-
-    Returns None if missing/unreadable (caller may fall back to live lock).
-    """
+) -> dict[str, Any] | None:
+    """Load Attempt ``lock.json`` under ``.bora/runs/<run_id>/`` if present."""
     if not run_id or not str(run_id).strip():
         return None
     path = database_root / ".bora" / "runs" / str(run_id) / "lock.json"
@@ -171,7 +168,19 @@ def load_actors_from_run_lock(
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if not isinstance(data, dict):
+    return data if isinstance(data, dict) else None
+
+
+def load_actors_from_run_lock(
+    database_root: Path,
+    run_id: str | None,
+) -> list[dict[str, str]] | None:
+    """Read actors from Attempt ``lock.json`` under ``.bora/runs/<run_id>/``.
+
+    Returns None if missing/unreadable (caller may fall back to live lock).
+    """
+    data = load_run_lock_doc(database_root, run_id)
+    if data is None:
         return None
     profiles = data.get("profiles") or data.get("agent_profiles") or []
     if not isinstance(profiles, list):
@@ -180,11 +189,24 @@ def load_actors_from_run_lock(
     return actors_summary_from_profiles(profiles)
 
 
+def load_job_overlay_from_run_lock(
+    database_root: Path,
+    run_id: str | None,
+) -> dict[str, Any] | None:
+    """Secret-free ``job_overlay`` from Attempt lock (#59), if recorded."""
+    data = load_run_lock_doc(database_root, run_id)
+    if data is None:
+        return None
+    overlay = data.get("job_overlay")
+    return dict(overlay) if isinstance(overlay, dict) else None
+
+
 def load_actors_from_task_lock(
     database_root: Path,
     task_id: str,
     *,
     overrides: dict[str, Any] | None = None,
+    profiles_path: Path | str | None = None,
 ) -> list[dict[str, str]]:
     """Lock a task (same overrides as suite) and project agent_profiles.
 
@@ -200,7 +222,7 @@ def load_actors_from_task_lock(
 
     resolved = resolve_task(database_root, task_id)
     man = load_database_manifest(resolved.database_root)
-    bindings = resolve_profile_bindings(resolved.database_root)
+    bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
     config = ConfigCore(package_reader=LocalPackageReader())
     lock = config.load_and_lock(
         resolved.task_dir,
@@ -216,19 +238,56 @@ def load_actors_from_task_lock(
     return actors_summary_from_profiles(profiles)
 
 
+def load_job_overlay_from_task_lock(
+    database_root: Path,
+    task_id: str,
+    *,
+    overrides: dict[str, Any] | None = None,
+    profiles_path: Path | str | None = None,
+) -> dict[str, Any] | None:
+    """Live-lock a task and project secret-free job_overlay (#59)."""
+    from bora.adapters.package_fs import LocalPackageReader
+    from bora.config.capabilities import DeclarationCapabilityCatalog
+    from bora.config.database import load_database_manifest, resolve_task
+    from bora.config.load_and_lock import ConfigCore
+    from bora.config.model import thaw
+    from bora.config.profiles import resolve_profile_bindings
+
+    resolved = resolve_task(database_root, task_id)
+    man = load_database_manifest(resolved.database_root)
+    bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
+    config = ConfigCore(package_reader=LocalPackageReader())
+    lock = config.load_and_lock(
+        resolved.task_dir,
+        task_id,
+        overrides=overrides,
+        capabilities=DeclarationCapabilityCatalog(),
+        database_provenance=man.provenance,
+        profile_bindings=bindings or None,
+    )
+    if lock.job_overlay is None:
+        return None
+    overlay = thaw(lock.job_overlay)
+    return dict(overlay) if isinstance(overlay, dict) else None
+
+
 def collect_suite_config(
     database_root: Path,
     task_rows: Sequence[Mapping[str, Any]],
     *,
     overrides: dict[str, Any] | None = None,
     task_ids: Sequence[str] | None = None,
+    profiles_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Build suite config fingerprint fields from task result rows + package.
 
     Prefers Attempt ``lock.json`` per ``run_id``; falls back to live
     ``load_and_lock`` for that task_id; empty actors if both fail.
+
+    Also projects suite-level ``job_overlay`` when homogeneous (or single overlay).
     """
     per_task: list[list[dict[str, str]]] = []
+    overlays: list[dict[str, Any] | None] = []
     ids = list(task_ids) if task_ids is not None else []
     if not ids:
         ids = [str(r.get("task_id") or "") for r in task_rows]
@@ -243,20 +302,45 @@ def collect_suite_config(
     for tid in ids:
         if not tid:
             per_task.append([])
+            overlays.append(None)
             continue
         row = by_id.get(tid)
         actors: list[dict[str, str]] | None = None
+        overlay: dict[str, Any] | None = None
+        run_id: str | None = None
         if row is not None:
-            actors = load_actors_from_run_lock(
-                database_root, row.get("run_id") if isinstance(row.get("run_id"), str) else None
-            )
-            if actors is None and row.get("run_id"):
-                actors = load_actors_from_run_lock(database_root, str(row.get("run_id")))
+            rid = row.get("run_id")
+            if isinstance(rid, str) and rid.strip():
+                run_id = rid
+            elif rid is not None:
+                run_id = str(rid)
+            actors = load_actors_from_run_lock(database_root, run_id)
+            overlay = load_job_overlay_from_run_lock(database_root, run_id)
         if actors is None:
             try:
-                actors = load_actors_from_task_lock(database_root, tid, overrides=overrides)
+                actors = load_actors_from_task_lock(
+                    database_root,
+                    tid,
+                    overrides=overrides,
+                    profiles_path=profiles_path,
+                )
             except Exception:  # noqa: BLE001 — fingerprint must not fail suite write
                 actors = []
+        if overlay is None:
+            try:
+                overlay = load_job_overlay_from_task_lock(
+                    database_root,
+                    tid,
+                    overrides=overrides,
+                    profiles_path=profiles_path,
+                )
+            except Exception:  # noqa: BLE001
+                overlay = None
         per_task.append(actors)
+        overlays.append(overlay)
 
-    return compute_suite_config_fields(per_task)
+    fields = compute_suite_config_fields(per_task)
+    non_null = [o for o in overlays if isinstance(o, dict)]
+    if fields.get("config_homogeneous") and non_null or len(non_null) == 1:
+        fields["job_overlay"] = non_null[0]
+    return fields

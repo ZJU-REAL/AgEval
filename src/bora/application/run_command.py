@@ -164,6 +164,9 @@ async def run_task(
             }
             if lock.provenance is not None:
                 lock_doc["provenance"] = thaw(lock.provenance)
+            # #59 secret-free job binding for rehydrate / upload projection.
+            if lock.job_overlay is not None:
+                lock_doc["job_overlay"] = thaw(lock.job_overlay)
             evidence_store.write_lock_summary(lock_doc)
         # Wall hard ceiling from locked limits (design §13.1): pre-effect deadline.
         import time as _time
