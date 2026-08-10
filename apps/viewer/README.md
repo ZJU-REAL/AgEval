@@ -8,7 +8,7 @@ Local results console for a Database package:
 
 | Layer | Content |
 | --- | --- |
-| **Jobs** | Local suite runs under `.bora/suite-runs/` |
+| **Jobs** | Local suite runs under `.bora/suite-runs/` (summary metrics, optional Always-k) |
 | **Tasks** | Per-task status / score / run refs from suite summary (+ local evidence when present) |
 | **Attempt** | One `run_id`: outcome strip, actors table, evidence tabs |
 

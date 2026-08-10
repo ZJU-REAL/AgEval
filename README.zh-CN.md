@@ -58,6 +58,15 @@ uv run bora run examples/core --task builtin-executor-conformance \
 # 整份 Dataset suite（省略 --task）
 uv run bora run examples/core --max-concurrent-tasks 2
 
+# Always-k：每题 k 次独立 Attempt（仅 CLI/job；用于 pass@k / pass^k）
+uv run bora run examples/core -k 5 --max-concurrent-tasks 2
+# uv run bora run examples/core --task sdk-agent-session -k 5
+# uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
+
+# suite job 控制（可选 --database 读进度 / 写 cancel）
+# uv run bora status suite_<id> --database examples/core
+# uv run bora cancel suite_<id> --database examples/core
+
 # 本机结果台（SPA 先构建一次：cd apps/viewer && pnpm build）
 uv run bora view examples/core --no-browser
 
@@ -150,13 +159,22 @@ tasks/<task_id>/.bora/runs/<run_id>/
 uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
 ```
 
-**整份 suite**（省略 `--task`）还会在 Dataset 根写入观测聚合：
+**整份 suite**（省略 `--task`），或单 task 且 `-k` / `--n-attempts` > 1，会在 Dataset 根写入 suite job：
 
 ```text
-.bora/suite-runs/<suite_run_id>/summary.json   # metrics.pass_rate / mean_score、task_refs
+.bora/suite-runs/<suite_run_id>/
+├── summary.json     # metrics.pass_rate / mean_score / pass_at_k / pass_power_k、task_refs
+├── progress.json    # 多 unit 进度
+└── cancel.requested # suite cancel 后出现
 ```
 
-PASS 仍仅 per-task。可选 Registry 归档：`bora results upload-suite`（见 CLI README）。本机 UI：`bora view <dataset>`。
+| 指标 | 作用 |
+| --- | --- |
+| `pass_rate` / `mean_score` | 观测扫一眼 |
+| `pass_at_k` / `pass_power_k` | Always-k 后的 job 统计（按 task 取 mean）；**不是** package 身份 |
+| `n_attempts` | 本次 job 的 k 预算 |
+
+PASS 仍仅 **per-task**。`n_attempts` **只走 CLI/job**（不进 `task.yaml` / fingerprint）。Attempt `result.json` 可含 `phase_timing`。可选 Registry 归档：`bora results upload-suite`（见 CLI README）。本机 UI：`bora view <dataset>`（Attempt 页 Timing / Tokens）。
 
 ---
 

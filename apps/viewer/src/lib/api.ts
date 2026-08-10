@@ -89,6 +89,20 @@ export type Trial = {
   upstream_name?: string | null;
   upstream_ref?: string | null;
   note?: string | null;
+  /** #47 D — wall-time phases (prepare/run/evaluate/cleanup) */
+  phase_timing?: {
+    schema?: string;
+    phases?: Array<{ id: string; label?: string; duration_ms?: number }>;
+    total_ms?: number;
+    started_at?: string | null;
+    finished_at?: string | null;
+  } | null;
+  /** Aggregated token segments for Harbor-style bar (when usage present) */
+  token_timing?: {
+    schema?: string;
+    segments?: Array<{ id: string; label?: string; tokens?: number }>;
+    total_tokens?: number;
+  } | null;
 };
 
 export type TreeEntry = {

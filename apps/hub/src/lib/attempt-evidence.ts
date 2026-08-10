@@ -409,11 +409,80 @@ export function buildTrialMeta(opts: {
       ? (prov.upstream as Record<string, unknown>)
       : null;
 
-  const startedRaw = summary.started_at ?? summary.started ?? null;
+  const phaseTimingRaw =
+    (result.phase_timing && typeof result.phase_timing === "object"
+      ? result.phase_timing
+      : null) ||
+    (summary.phase_timing && typeof summary.phase_timing === "object"
+      ? summary.phase_timing
+      : null);
+  const phase_timing = phaseTimingRaw as Trial["phase_timing"];
+
+  const startedRaw =
+    summary.started_at ??
+    (phase_timing && typeof phase_timing.started_at === "string"
+      ? phase_timing.started_at
+      : null) ??
+    summary.started ??
+    null;
   let started: string | null = null;
   if (typeof startedRaw === "string") started = startedRaw;
   else if (typeof startedRaw === "number") {
     started = new Date(startedRaw * (startedRaw < 1e12 ? 1000 : 1)).toISOString();
+  }
+
+  let duration: string | null =
+    (typeof result.duration === "string" && result.duration) ||
+    (typeof summary.duration === "string" && summary.duration) ||
+    null;
+  if (!duration && phase_timing && typeof phase_timing.total_ms === "number") {
+    const ms = phase_timing.total_ms;
+    if (ms < 1000) duration = `${Math.round(ms)}ms`;
+    else if (ms < 60_000) duration = `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
+    else {
+      const m = Math.floor(ms / 60_000);
+      const s = Math.round((ms % 60_000) / 1000);
+      duration = s ? `${m}m ${String(s).padStart(2, "0")}s` : `${m}m`;
+    }
+  }
+
+  // Token bar from actor usage when present (often null on Hub until usage wired).
+  let token_timing: Trial["token_timing"] = null;
+  {
+    let cached = 0;
+    let uncached = 0;
+    let output = 0;
+    let anyTok = false;
+    for (const a of actors) {
+      const u = a.usage;
+      if (!u) continue;
+      if (typeof u.output_tokens === "number") {
+        output += u.output_tokens;
+        anyTok = true;
+      }
+      if (typeof u.input_tokens === "number") {
+        anyTok = true;
+        const cr =
+          typeof u.cached_read_tokens === "number" ? u.cached_read_tokens : 0;
+        cached += cr;
+        uncached += Math.max(0, u.input_tokens - cr);
+      }
+    }
+    if (anyTok) {
+      token_timing = {
+        schema: "bora.token_timing/1",
+        segments: [
+          { id: "cached_input", label: "Cached Input", tokens: Math.round(cached) },
+          {
+            id: "uncached_input",
+            label: "Uncached Input",
+            tokens: Math.round(uncached),
+          },
+          { id: "output", label: "Output", tokens: Math.round(output) },
+        ],
+        total_tokens: Math.round(cached + uncached + output),
+      };
+    }
   }
 
   const invCount =
@@ -431,6 +500,9 @@ export function buildTrialMeta(opts: {
     reward: score,
     error,
     started,
+    duration,
+    phase_timing,
+    token_timing,
     has_evidence: true,
     available_tabs: tabs,
     agent_invocations: invCount,

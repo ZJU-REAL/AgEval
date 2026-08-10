@@ -311,6 +311,28 @@ def _trial_meta_from_evidence(
     locked_task = lock.get("task_id") if isinstance(lock.get("task_id"), str) else None
     surface = _agent_surface(evidence, lock=lock, result=result, summary=summary)
 
+    # Phase timing (#47 D): prefer result, then summary, then suite attempt row.
+    phase_timing = None
+    for src in (result, summary, suite_row):
+        if isinstance(src, dict) and isinstance(src.get("phase_timing"), dict):
+            phase_timing = src["phase_timing"]
+            break
+    duration = suite_row.get("duration") or result.get("duration") or summary.get("duration")
+    if duration is None and isinstance(phase_timing, dict):
+        total_ms = phase_timing.get("total_ms")
+        if isinstance(total_ms, (int, float)) and not isinstance(total_ms, bool):
+            from bora.application.phase_timing import format_duration_ms
+
+            duration = format_duration_ms(float(total_ms))
+    started = (
+        summary.get("started_at")
+        or (phase_timing or {}).get("started_at")
+        or suite_row.get("started")
+    )
+
+    # Token breakdown from actors (observational; Harbor-style bar when present).
+    token_timing = _token_bar_from_actors(surface.get("actors") or [])
+
     return {
         "trial_id": run_id,
         "run_id": run_id,
@@ -320,8 +342,10 @@ def _trial_meta_from_evidence(
         "reward": score,
         "error": error,
         "exit_code": suite_row.get("exit_code") or result.get("exit_code"),
-        "duration": suite_row.get("duration"),
-        "started": summary.get("started_at") or suite_row.get("started"),
+        "duration": duration,
+        "started": started,
+        "phase_timing": phase_timing,
+        "token_timing": token_timing,
         "evidence_relpath": None,  # filled by caller
         "has_evidence": True,
         "available_tabs": _available_tabs(evidence),
@@ -340,3 +364,44 @@ def _trial_meta_from_evidence(
         "upstream_ref": surface.get("upstream_ref"),
         "note": None,
     }
+
+
+def _token_bar_from_actors(actors: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Aggregate last-invoke token fields across actors for a Harbor-like token bar."""
+    cached = 0.0
+    uncached = 0.0
+    output = 0.0
+    any_tok = False
+    for a in actors:
+        if not isinstance(a, dict):
+            continue
+        usage = a.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        inp = usage.get("input_tokens")
+        out = usage.get("output_tokens")
+        cached_read = usage.get("cached_read_tokens")
+        if isinstance(out, (int, float)) and not isinstance(out, bool):
+            output += float(out)
+            any_tok = True
+        if isinstance(inp, (int, float)) and not isinstance(inp, bool):
+            any_tok = True
+            cr = (
+                float(cached_read)
+                if isinstance(cached_read, (int, float)) and not isinstance(cached_read, bool)
+                else 0.0
+            )
+            cached += cr
+            uncached += max(0.0, float(inp) - cr)
+        elif isinstance(cached_read, (int, float)) and not isinstance(cached_read, bool):
+            cached += float(cached_read)
+            any_tok = True
+    if not any_tok:
+        return None
+    segments = [
+        {"id": "cached_input", "label": "Cached Input", "tokens": int(round(cached))},
+        {"id": "uncached_input", "label": "Uncached Input", "tokens": int(round(uncached))},
+        {"id": "output", "label": "Output", "tokens": int(round(output))},
+    ]
+    total = sum(s["tokens"] for s in segments)
+    return {"schema": "bora.token_timing/1", "segments": segments, "total_tokens": total}

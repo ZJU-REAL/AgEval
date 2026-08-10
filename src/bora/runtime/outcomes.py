@@ -39,6 +39,8 @@ class PhaseFact:
     status: PhaseStatus
     message: str = ""
     detail: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    # Wall time for this stage in milliseconds (#47 D); observational only.
+    duration_ms: float | None = None
 
     def __post_init__(self) -> None:
         # Freeze nested detail mapping.

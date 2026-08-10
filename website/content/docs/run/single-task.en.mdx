@@ -13,6 +13,9 @@ Example:
 
 ```bash
 uv run bora run examples/core --task sdk-agent-session
+
+# Always-k: fixed k independent Attempts for one task (CLI only; default k=1)
+uv run bora run examples/core --task sdk-agent-session -k 5
 ```
 
 Config only, no agent:
@@ -21,12 +24,14 @@ Config only, no agent:
 uv run bora lock examples/core --task config-minimal
 ```
 
-`--task` must match the member directory name and `task_id` in `task.yaml`.
+`--task` must match the member directory name and `task_id` in `task.yaml`.  
+With `k=1` and no `--resume-suite`, stdout stays a single Attempt JSON (legacy-friendly). With `k>1`, the run is a suite job under `.bora/suite-runs/`. See [Suite](/docs/run/suite).
 
 ## What you get
 
 - A **Result** summary on the terminal  
-- A **`logs` path** for Attempt evidence  
+- A **`logs` path** for Attempt evidence (when `k=1`)  
+- For `k>1`: job metrics such as **pass@k / pass^k** in suite `summary.json`  
 
 PASS / FAIL comes from the **independent evaluator**, not harness completion. See [Results and PASS](/docs/reference/results-and-pass).
 

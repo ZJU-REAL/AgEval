@@ -15,6 +15,7 @@ def l1_error_result(
     inv: int,
     *,
     kind: str | None = None,
+    phase_timing: dict[str, Any] | None = None,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     from bora.evaluation.result_binding import bind_result
 
@@ -32,8 +33,18 @@ def l1_error_result(
     if kind:
         doc["error"] = {"phase": phase, "kind": kind}
     doc["l1"] = l1_meta
+    if isinstance(phase_timing, dict):
+        doc["phase_timing"] = phase_timing
+        total_ms = phase_timing.get("total_ms")
+        if isinstance(total_ms, int | float) and not isinstance(total_ms, bool):
+            from bora.application.phase_timing import format_duration_ms
+
+            doc["duration"] = format_duration_ms(float(total_ms))
     write_l1_evidence(run_dir, doc, agent_meta, l1_meta)
-    return 2, doc, {"agent": agent_meta, "l1": l1_meta, "assurance": "l0"}
+    details: dict[str, Any] = {"agent": agent_meta, "l1": l1_meta, "assurance": "l0"}
+    if isinstance(phase_timing, dict):
+        details["phase_timing"] = phase_timing
+    return 2, doc, details
 
 
 def write_l1_evidence(
@@ -87,6 +98,15 @@ def write_l1_evidence(
         "execution_location": exec_loc,
         "l1": safe,
     }
+    if isinstance(result_doc.get("phase_timing"), dict):
+        summary["phase_timing"] = result_doc["phase_timing"]
+        pt = result_doc["phase_timing"]
+        if pt.get("started_at"):
+            summary["started_at"] = pt.get("started_at")
+        if pt.get("finished_at"):
+            summary["finished_at"] = pt.get("finished_at")
+    if result_doc.get("duration") is not None:
+        summary["duration"] = result_doc.get("duration")
     (run_dir / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

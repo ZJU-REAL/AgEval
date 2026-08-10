@@ -1,6 +1,6 @@
 ---
 title: 运行 Dataset（Suite）
-description: 一次跑 Dataset 里所有 task；汇总分不是整包 PASS。
+description: 一次跑 Dataset 里所有 task；可 Always-k 与 pass@k；汇总分不是整包 PASS。
 ---
 
 省略 `--task` 时，`bora run` 按 suite 调度**每一个**成员 task，各自独立 lock / 执行 / 评测：
@@ -10,12 +10,56 @@ uv run bora run examples/core
 uv run bora run examples/core --max-concurrent-tasks 2
 ```
 
-| 行为 | 说明 |
+## 两轴别混
+
+| 轴 | 干什么 | 不干什么 |
+| --- | --- | --- |
+| **并发** `--max-concurrent-tasks` | **少等一会儿**——多开几路压总耗时 | 不改 k，也不改 PASS/FAIL |
+| **Always-k** `--n-attempts` / `-k` | 每题固定跑满 k 次独立 Attempt，给 **pass@k / pass^k** 攒样本 | 不是「失败再试」的条件 retry；**不进** `task.yaml` / fingerprint |
+
+```bash
+# 整包每题 k=5（CLI/job 参数 only）
+uv run bora run examples/core -k 5 --max-concurrent-tasks 2
+
+# 只对一题 Always-k
+uv run bora run examples/core --task sdk-agent-session -k 5
+
+# 补跑：并进已有 suite job，重算指标（可加 --task 只补一题）
+uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
+```
+
+硬约束：
+
+- `n_attempts` **禁止**写进 `task.yaml`；也不进 `config_fingerprint`  
+- 补跑只**追加** Attempt，不改写已完成 Attempt 的 score / 身份  
+- 因 **cancel 未真正跑过** 的占位会在 resume 时**重跑**（避免 pass@k 永久偏低）
+- 进度 / 取消见下方；Hub 榜上的 pass@k 列是 follow-up（#60），本机 summary 已写 metrics  
+
+## 汇总指标
+
+写在 `.bora/suite-runs/<suite_run_id>/summary.json` 的 `metrics`：
+
+| 字段 | 含义 |
 | --- | --- |
-| 并发 | `--max-concurrent-tasks` 或根 `bora.yaml` 的 `defaults.max_concurrent_tasks` |
-| PASS | **仍是每题自己的**；没有「整包 PASS」权威 |
-| 汇总 | 可能看到 `pass_rate` / `mean_score` 一类观测指标，方便扫一眼 |
+| `pass_rate` / `mean_score` | 观测用扫一眼（不是整包 PASS） |
+| `pass_at_k` | **pass@k**（Harbor 无偏估计）；suite 分 = **各 task 上该指标的 mean** |
+| `pass_power_k` | **pass^k**（k 次都成功的估计）；同样按 task 取 mean |
+| `n_attempts` | 本次 job 的 k 预算 |
 
-和 [Campaign](/docs/run/campaign) 的区别：suite 是 **task 轴**（多题）；campaign 是 **同一题扫参数**。
+样本数不够的 task **不进**该 k 的分母。PASS 仍只来自**每题 evaluator**。
 
-跑次落在 Dataset 下的 `.bora/suite-runs/`，可用 [Viewer](/docs/run/local-viewer) 浏览。
+同目录还有 `progress.json`（多 unit 进度）；Attempt `result.json` 可含 `phase_timing`（prepare / run / evaluate / cleanup）。
+
+## 进度与取消
+
+```bash
+uv run bora status suite_<id> --database examples/core
+uv run bora cancel suite_<id> --database examples/core
+```
+
+- **status**：ControlStore 记录 + 可读 progress  
+- **cancel**：写 `cancel.requested`，不再开新 unit；有 pid 则 SIGTERM  
+
+和 [Campaign](/docs/run/campaign) 的区别：suite 是 **task 轴**（多题）；campaign 是 **同一题扫参数**。Always-k **不是** campaign 矩阵轴。
+
+跑次落在 Dataset 下的 `.bora/suite-runs/`，可用 [Viewer](/docs/run/local-viewer) 浏览 Timing 条。

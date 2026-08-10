@@ -74,6 +74,20 @@ created
   → terminal       # succeeded | failed | cancelled | …
 ```
 
+## 阶段耗时（观测，#47 D）
+
+Runtime 在 Attempt 边界记录标准阶段墙钟，写入 `result.json` 的 `phase_timing`（schema `bora.phase_timing/1`）：
+
+| 阶段 id | 含义（展示标签可映射） |
+| --- | --- |
+| `prepare` | lock / Provider / Environment 准备 |
+| `run` | Harness / Agent 执行 |
+| `evaluate` | barrier 后独立评测 |
+| `cleanup` | teardown / 收尾 |
+
+- 服务 suite 进度、Viewer/Hub Timing 条与 job 复盘；**不**参与 PASS 判定。  
+- L0 与 L1 SDK 路径均应落盘；缺字段时 UI 可不渲染 Timing，禁止用假数据回填。
+
 ## 不变量
 
 1. `LockedTaskConfig` 在 Attempt 前形成，运行中不热更新；

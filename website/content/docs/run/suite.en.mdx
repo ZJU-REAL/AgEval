@@ -1,6 +1,6 @@
 ---
 title: Run a Dataset suite
-description: Run every task in a Dataset; aggregates are not suite-level PASS.
+description: Run every task; optional Always-k and pass@k; aggregates are not suite-level PASS.
 ---
 
 Omit `--task` and `bora run` schedules **every** member — each locks, runs, and evaluates independently:
@@ -10,12 +10,56 @@ uv run bora run examples/core
 uv run bora run examples/core --max-concurrent-tasks 2
 ```
 
-| Behavior | Notes |
+## Two axes (do not mix)
+
+| Axis | Purpose | Not for |
+| --- | --- | --- |
+| **Concurrency** `--max-concurrent-tasks` | **Finish sooner** — more units in flight | Does not change k or PASS/FAIL |
+| **Always-k** `--n-attempts` / `-k` | Fixed k independent Attempts per task for **pass@k / pass^k** samples | Not conditional “retry on fail”; **not** a `task.yaml` / fingerprint field |
+
+```bash
+# Full suite, k=5 per task (CLI/job only)
+uv run bora run examples/core -k 5 --max-concurrent-tasks 2
+
+# Always-k on one task
+uv run bora run examples/core --task sdk-agent-session -k 5
+
+# Resume: append into an existing suite job and recompute metrics
+uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
+```
+
+Hard rules:
+
+- `n_attempts` is **not** allowed in `task.yaml` and is **not** part of `config_fingerprint`  
+- Resume only **appends** Attempts; finished Attempt scores / identity stay intact  
+- Slots that only have a **suite-cancel placeholder** (never actually ran) are **retried** on resume so pass@k is not permanently deflated
+- Progress / cancel below; Hub Leaderboard columns for pass@k are follow-up (**#60**) — local `metrics` already written  
+
+## Aggregate metrics
+
+Under `.bora/suite-runs/<suite_run_id>/summary.json` → `metrics`:
+
+| Field | Meaning |
 | --- | --- |
-| Concurrency | `--max-concurrent-tasks` or root `defaults.max_concurrent_tasks` |
-| PASS | **Per task** — no suite-level PASS authority |
-| Aggregates | `pass_rate` / `mean_score` are observational skim helpers |
+| `pass_rate` / `mean_score` | Observational skim (not suite PASS) |
+| `pass_at_k` | **pass@k** (Harbor-style unbiased); suite score = **mean over tasks** |
+| `pass_power_k` | **pass^k** (all-k success estimate); also mean over tasks |
+| `n_attempts` | Job k budget |
 
-Unlike [Campaign](/docs/run/campaign): suite is the **task axis**; campaign sweeps **parameters on one task**.
+Tasks with too few samples are **omitted** from that k’s denominator. PASS remains **per-task evaluator** only.
 
-Runs land under `.bora/suite-runs/` — browse with [Viewer](/docs/run/local-viewer).
+Same directory: `progress.json`. Attempt `result.json` may include `phase_timing` (`prepare` / `run` / `evaluate` / `cleanup`).
+
+## Progress and cancel
+
+```bash
+uv run bora status suite_<id> --database examples/core
+uv run bora cancel suite_<id> --database examples/core
+```
+
+- **status** — ControlStore record + suite progress when present  
+- **cancel** — writes `cancel.requested` (no new units); SIGTERM stored pid if any  
+
+Unlike [Campaign](/docs/run/campaign): suite is the **task axis**; campaign sweeps **parameters on one task**. Always-k is **not** the campaign matrix axis.
+
+Runs land under `.bora/suite-runs/` — browse Timing bars with [Viewer](/docs/run/local-viewer).

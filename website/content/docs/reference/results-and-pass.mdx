@@ -1,6 +1,6 @@
 ---
 title: 结果与 PASS
-description: Result 怎么读；什么算过、什么不算。
+description: Result 怎么读；pass@k 是 job 指标，不是整包 PASS。
 ---
 
 ## 几条硬边界
@@ -8,16 +8,31 @@ description: Result 怎么读；什么算过、什么不算。
 1. Harness 跑完 **≠** PASS  
 2. 轨迹 / token / agent 自述 **≠** 分数  
 3. PASS / FAIL 来自**独立 evaluator**  
+4. suite / job 汇总（含 pass@k）**≠** 整包 PASS 权威  
 
 ## 终端上
 
-- **Result**：绑定到本次 run 的状态与评测结论  
-- **`logs`**：Attempt 证据目录 locator  
-- suite 的 `pass_rate` 等：观测用，不是「整包 PASS」  
+- **Result**：绑定到本次 Attempt 的状态与评测结论  
+- **`logs`**：Attempt 证据目录 locator（单次 `k=1` 常见）  
+- suite 的 `pass_rate` / `mean_score`：观测用  
+
+## Always-k 与 pass@k / pass^k
+
+用 `-k` / `--n-attempts` 跑满 k 次后，suite `summary.json` → `metrics` 会写：
+
+| 键 | 含义 |
+| --- | --- |
+| `pass_at_k` | pass@k（至少一次成功的无偏估计；Harbor 同构） |
+| `pass_power_k` | pass^k（k 次都成功的估计） |
+| suite 总分 | 各 **task** 上该指标的 **mean**（样本不够的 task 不进分母） |
+
+这些是 **job 汇总指标**，不进 package 身份 / `config_fingerprint`。  
+Hub Leaderboard 是否展示 pass@k 列见 follow-up issue，**不能**从本机 summary 存在推导榜上已有。
 
 ## 本机翻看
 
-[Viewer](/docs/run/local-viewer)：Jobs → Tasks → Attempt。
+[Viewer](/docs/run/local-viewer)：Jobs → Tasks → Attempt。  
+Attempt 页可有 **Timing**（及有数据时的 **Tokens**）条；耗时 / token **只是参考**，不是 PASS。
 
 ## 失败怎么分
 

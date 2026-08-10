@@ -11,9 +11,12 @@ uv run bora campaign <dataset> --task <id> ...
 
 See `bora campaign --help` for matrix flags.
 
-| | Suite | Campaign |
-| --- | --- | --- |
-| Axis | Many tasks | Parameter combos on one task |
-| Typical use | Full-suite regression | Compare seed / profile |
+| | Suite | Campaign | Always-k (`-k`) |
+| --- | --- | --- | --- |
+| Axis | Many tasks | Parameter combos on one task | Repeated independent Attempts |
+| Typical use | Full-suite regression | Compare seed / profile / binding | Samples for pass@k / pass^k |
+| Entry | `bora run` (optional `--task`) | `bora campaign` | `bora run … -k N` |
+
+**Matrix axis ≠ k-attempt axis.** Always-k is not a campaign matrix field and is not in `task.yaml`. See [Suite](/docs/run/suite).
 
 Overrides still follow the `--set` allowlist.

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from bora.adapters.package_fs import LocalPackageReader
+from bora.application.phase_timing import PhaseTimer, format_duration_ms
 from bora.application.run_command_environment import prepare_postgresql_environment
 from bora.application.run_command_evaluator import run_evaluator_worker
 from bora.application.run_harness import run_harness_package
@@ -85,6 +86,7 @@ async def run_task(
     assurance = "l0"
     l1_meta: dict[str, Any] = {}
     evidence_store: AttemptEvidenceStore | None = None
+    timer = PhaseTimer()
 
     # Never trust residual agent materialization from a previous run/package tree.
     agent_file = package_root / ".bora_agent_result.json"
@@ -92,6 +94,10 @@ async def run_task(
         agent_file.unlink()
 
     # Parent Agent Service: non-empty agent_profiles ⇒ harness session/invoke (L0 only).
+    import time as _time_mod
+
+    _mono = _time_mod.monotonic
+    prepare_t0 = _mono()
     profiles = thaw(lock.agent_profiles)
     params = thaw(lock.parameters)
     evaluation = thaw(lock.evaluation)
@@ -173,13 +179,11 @@ async def run_task(
                 lock_doc["job_overlay"] = thaw(lock.job_overlay)
             evidence_store.write_lock_summary(lock_doc)
         # Wall hard ceiling from locked limits (design §13.1): pre-effect deadline.
-        import time as _time
-
         try:
             wall_s = float(thaw(lock.limits).get("wall_time_seconds") or 0)  # type: ignore[union-attr]
         except Exception:
             wall_s = 0.0
-        deadline = (_time.monotonic() + wall_s) if wall_s > 0 else None
+        deadline = (_mono() + wall_s) if wall_s > 0 else None
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
@@ -205,6 +209,8 @@ async def run_task(
         # Full L1 orchestration for all docker packages (Spec 07) — no preflight-only PASS.
         from bora.application.run_l1 import run_l1_attempt
 
+        # L1 owns full prepare/run/evaluate/cleanup timing; do not invent a
+        # coarse parent fallback (that hid missing L1 phase_timing).
         code, result_doc, details = run_l1_attempt(
             package_root=package_root,
             lock=lock,
@@ -231,7 +237,11 @@ async def run_task(
             assurance=str(result_doc.get("assurance") or "l0"),
             logs=str(result_doc.get("logs") or run_dir),
         )
-        details = {**details, "logs": flat.logs}
+        details = {
+            **details,
+            "logs": flat.logs,
+            "phase_timing": result_doc.get("phase_timing"),
+        }
         return code, flat, details
 
     # Environment Manager (Spec 09) — resource-type named only (postgresql).
@@ -248,12 +258,15 @@ async def run_task(
             evidence_store=evidence_store,
         )
         if early is not None:
+            timer.add_ms("prepare", (_mono() - prepare_t0) * 1000.0)
             return early
         agent_meta["environment"] = env_meta
         (run_dir / "env_manager.json").write_text(
             json.dumps({"resource_id": env_meta.get("resource_id")}, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+
+    timer.add_ms("prepare", (_mono() - prepare_t0) * 1000.0)
 
     try:
         harness_timeout = (
@@ -268,6 +281,7 @@ async def run_task(
             wall_cap = 0.0
         if wall_cap > 0:
             harness_timeout = min(harness_timeout, wall_cap)
+        run_t0 = _mono()
         harness_out = await run_harness_package(
             lock,
             package_root,
@@ -276,6 +290,7 @@ async def run_task(
             # Reuse ParentAgentService identity so AgentSession + harness share one Attempt.
             attempt=shared_attempt,
         )
+        timer.add_ms("run", (_mono() - run_t0) * 1000.0)
     finally:
         if agent_server is not None:
             agent_server.stop()
@@ -314,6 +329,7 @@ async def run_task(
         harness_kind = str(envelope.get("terminal", {}).get("kind", "unknown"))
 
     # Writer barrier: require published artifacts before evaluator.
+    eval_t0 = _mono()
     published = dict(envelope.get("published") or {})
     eval_inputs = list(evaluation.get("inputs") or [])
     staging = run_dir / "eval_staging"
@@ -347,8 +363,10 @@ async def run_task(
     evaluator_raw: dict[str, Any] | None = None
     if error_phase is None:
         evaluator_raw = run_evaluator_worker(package_root, lock, artifacts_map)
+    timer.add_ms("evaluate", (_mono() - eval_t0) * 1000.0)
 
     # Cleanup agent materialization
+    cleanup_t0 = _mono()
     agent_file = package_root / ".bora_agent_result.json"
     if agent_file.exists():
         agent_file.unlink()
@@ -384,6 +402,7 @@ async def run_task(
                 }
             )
         evidence_locator = evidence_store.locator
+    timer.add_ms("cleanup", (_mono() - cleanup_t0) * 1000.0)
 
     flat = bind_result(
         evaluator_raw=evaluator_raw,
@@ -400,6 +419,9 @@ async def run_task(
     result_doc["assurance"] = assurance
     if l1_meta:
         result_doc["l1"] = l1_meta
+    phase_timing = timer.as_dict()
+    result_doc["phase_timing"] = phase_timing
+    result_doc["duration"] = format_duration_ms(phase_timing.get("total_ms"))
     (run_dir / "result.json").write_text(
         json.dumps(result_doc, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
@@ -422,6 +444,9 @@ async def run_task(
                     "harness_kind": harness_kind,
                     "logs": evidence_locator,
                     "result": result_doc,
+                    "phase_timing": phase_timing,
+                    "started_at": phase_timing.get("started_at"),
+                    "finished_at": phase_timing.get("finished_at"),
                 }
             )
 
@@ -438,6 +463,8 @@ async def run_task(
         "assurance": assurance,
         "digest": lock.digest,
         "logs": evidence_locator,
+        "phase_timing": phase_timing,
+        "metrics": flat.metrics,
     }
     if l1_meta:
         details["l1"] = l1_meta

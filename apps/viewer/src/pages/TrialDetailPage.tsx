@@ -6,6 +6,7 @@ import { Shell } from "@/components/layout";
 import { ActorsTable } from "@/components/trial/actors-table";
 import { EvidenceTabs } from "@/components/trial/evidence-tabs";
 import { OutcomeStrip } from "@/components/trial/outcome-strip";
+import { PhaseTimingBar } from "@/components/trial/phase-timing-bar";
 import { TrialHeader } from "@/components/trial/trial-header";
 import { useTrialDetail } from "@/hooks/use-trial-detail";
 
@@ -77,6 +78,11 @@ export function TrialDetailPage() {
         {!loading && !error && trial && (
           <>
             <OutcomeStrip trial={trial} />
+
+            <PhaseTimingBar
+              phaseTiming={trial.phase_timing}
+              tokenTiming={trial.token_timing}
+            />
 
             {trial.actors && trial.actors.length > 0 ? (
               <ActorsTable actors={trial.actors} />

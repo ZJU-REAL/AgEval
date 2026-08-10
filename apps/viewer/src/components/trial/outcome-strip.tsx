@@ -9,7 +9,7 @@ export function OutcomeStrip({ trial }: { trial: Trial }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-[8px] border border-hairline p-4">
+      <div className="grid grid-cols-2 gap-3 rounded-[8px] border border-hairline p-4 sm:grid-cols-4">
         <Outcome label="Status">
           <span className={bad ? "text-error font-medium" : "text-ink font-medium"}>
             {status || "-"}

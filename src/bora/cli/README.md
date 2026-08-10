@@ -81,11 +81,11 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | --- | --- |
 | `bora tasks` | List member task ids in a Database |
 | `bora lock` | Lock config (no Agent) |
-| `bora run` | Run one member or a full suite |
-| `bora campaign` | Serial parameter-matrix campaign |
+| `bora run` | Run one member or a full suite (Always-k via `-k` / `--n-attempts`) |
+| `bora campaign` | Serial parameter-matrix campaign (matrix axis ≠ k-attempt) |
 | `bora executors` | Host executor / ACP entry inventory |
 | `bora evidence` | Export sealed trajectory copy (does not change score) |
-| `bora submit` / `status` / `cancel` | Durable Run control (v0.12 sketch) |
+| `bora submit` / `status` / `cancel` | Durable Run / suite job control (`suite_…` + optional `--database`) |
 | `bora login` | GitHub **Device Flow** → write credentials (Hub uses browser OAuth instead) |
 | `bora publish` | Publish a Database package (**requires `--org`**) |
 | `bora registry list\|show` | Browse remote packages |
@@ -116,6 +116,12 @@ uv run bora run examples/core --task sdk-agent-session
 
 # Full suite (omit --task)
 uv run bora run examples/core
+
+# Always-k (#47): k independent Attempts per task — CLI/job only (not task.yaml)
+uv run bora run examples/core -k 5 --max-concurrent-tasks 2
+uv run bora run examples/core --task sdk-agent-session -k 5
+# Resume / top-up: skip real finished units; re-run suite-cancel placeholders; recompute pass@k
+# uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
 
 # Allowlisted --set (JSON Pointer = JSON value)
 uv run bora lock examples/core --task config-minimal --set /parameters/seed=7
@@ -155,6 +161,19 @@ uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
 
 Trajectory presence **≠** PASS. PASS comes only from an independent evaluator.
 
+### Always-k metrics (suite job)
+
+After `-k` / full suite, read:
+
+```text
+.bora/suite-runs/<suite_run_id>/summary.json   # metrics.pass_at_k / pass_power_k / pass_rate …
+.bora/suite-runs/<suite_run_id>/progress.json
+```
+
+- **pass@k** / **pass^k** are **job** aggregates (mean over tasks); not package identity  
+- `--max-concurrent-tasks` only speeds scheduling; does not change k or PASS  
+- Single-task `k=1` without `--resume-suite` keeps the historical single Attempt JSON on stdout  
+
 ### Campaign / control plane (brief)
 
 ```bash
@@ -164,6 +183,10 @@ uv run bora campaign examples/core --task config-minimal \
 uv run bora submit examples/core --task config-minimal
 uv run bora status <run_id>
 uv run bora cancel <run_id>
+
+# Suite job (#47 D)
+uv run bora status suite_<id> --database examples/core
+uv run bora cancel suite_<id> --database examples/core
 ```
 
 ### Executors
@@ -244,9 +267,9 @@ for public.
 
 ### Suite / job results
 
-After `bora run <database>` (full suite), summary lives at
+After `bora run <database>` (full suite or Always-k), summary lives at
 `<database>/.bora/suite-runs/<suite_run_id>/summary.json` with observational
-`metrics.pass_rate` / `metrics.mean_score` (not suite PASS).
+`metrics.pass_rate` / `mean_score` / `pass_at_k` / `pass_power_k` (not suite PASS).
 
 ```bash
 uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
