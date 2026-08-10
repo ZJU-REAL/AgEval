@@ -24,9 +24,12 @@ CLI: `bora lock|run <database-root> --task <task_id>` · `bora tasks <database-r
 ```text
 my-database/                 # CLI path (bora.database/1)
 ├── bora.yaml                # Database identity / version / tasks.root
+├── profiles.yaml            # job binding defaults (role id → entry/model/locator)
+├── env.example              # documented credential locator names only
+├── .env                     # local secrets (gitignore; never publish)
 └── tasks/
     └── my-task/             # task_id == directory name
-        ├── task.yaml        # bora.task/1 — execution contract
+        ├── task.yaml        # bora.task/1 — role slots + intent (no entry/model)
         ├── harness.py
         ├── evaluator.py
         ├── environment/     # optional seed.sql; Docker L1 needs Dockerfile
@@ -48,7 +51,7 @@ tasks:
 #   max_concurrent_tasks: 1
 ```
 
-## Minimal member `task.yaml` skeleton
+## Minimal member `task.yaml` skeleton (role slots only)
 
 ```yaml
 format: bora.task/1
@@ -59,28 +62,20 @@ harness:
   entrypoint: harness:run
 
 parameters:
-  # active_profile: opencode-acp   # optional; overridable via CLI --set
+  models:
+    default: solver          # role id only
+  # active_profile: solver   # optional; overridable via CLI --set
   # Non-empty agent_profiles ⇒ Agent Service; harness owns session/invoke.
 
 provider:
   kind: local               # or docker for L1
   assurance: l0             # docker L1 packages use assurance: l1 intent
 
+# Role slots only — NO executor / entry / model / api_key here (#59).
 agent_profiles:
-  # Coding agents (ACP Target): executor: acp + options.entry — NOT executor: codex|pi|…
-  - id: opencode-acp
-    executor: acp
-    model: entry-default    # or a provider-qualified model id
-    options:
-      entry: opencode       # registry: codex | claude-code | pi | opencode | grok-build
-  - id: pi-acp
-    executor: acp
-    model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key   # env *locator name* only
-    options:
-      entry: pi
+  - id: solver
 
-limits:
+limits:                     # task contract — not job-overridable
   wall_time_seconds: 300
   agent_invocations: 2
   environment_actions: 0
@@ -103,14 +98,23 @@ evaluation:
     format: json
 ```
 
-HTTP / non-ACP profile example:
+## Database `profiles.yaml` (job binding)
 
 ```yaml
-  - id: glm-coding
-    executor: openai-http
-    model: glm-4.7
-    base_url: https://open.bigmodel.cn/api/coding/paas/v4
-    api_key: zhipu_coding_api_key
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: acp
+    options:
+      entry: opencode       # registry: codex | claude-code | pi | opencode | grok-build
+    model: entry-default
+    api_key: glm_coding_api_key   # env *locator name* only
+  # HTTP / non-ACP example:
+  # http-solver:
+  #   executor: openai-http
+  #   model: glm-4.7
+  #   base_url: https://open.bigmodel.cn/api/coding/paas/v4
+  #   api_key: zhipu_coding_api_key
 ```
 
 ## Ownership rules
@@ -178,10 +182,13 @@ uv run bora executors -v       # + acp_entries[] (entry_id, engine/acp readiness
 
 Do not invent kinds or entry ids.
 
-## Profile switch without harness edits
+## Profile / binding switch without harness edits
 
-1. Add/edit `agent_profiles` entries (and optional `parameters.roles` / `active_profile`).
-2. Or CLI: `bora run ... --set '/parameters/active_profile="pi-acp"'` (allowlisted).
+1. Edit Database `profiles.yaml` bindings (role id → entry/model).
+2. Or CLI alternate file: `bora run ... --profiles path/to/profiles.yaml`
+3. Or CLI leaf override: `bora run ... --set '/bindings/solver/options/entry="pi"'`
+4. Campaign matrix may use `/bindings/<role>/model|executor|options/entry=[…]`
+5. Intent `limits.*` are **not** overridable via `--set`.
 
 ## Detail
 

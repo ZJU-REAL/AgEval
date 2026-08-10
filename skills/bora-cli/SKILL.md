@@ -30,11 +30,12 @@ uv run bora --help
 | `bora executors`                                           | Supported `executor:` kinds + host readiness; ACP entry probe (JSON) |
 | `bora executors -v` / `--verbose`                          | Same + tools/session + default credential env _names_ + entry detail |
 | `bora -V` / `bora --version`                               | Package version (`-V`; keep `-v` free for verbose) |
-| `bora lock <package> --task <id>`                          | Config lock summary (no Agent)                                       |
+| `bora lock <package> --task <id>`                          | Config lock summary (no Agent); includes `job_overlay`               |
 | `bora lock ... --set /parameters/seed=7`                   | Allowlisted override                                                 |
+| `bora lock/run ... --profiles path/to/profiles.yaml`       | Alternate job binding file (replaces Database `profiles.yaml`)       |
 | `bora run <package> --task <id>`                           | One foreground Attempt                                               |
-| `bora run ... --set '/parameters/active_profile="pi-acp"'` | Profile switch (allowlisted)                                         |
-| `bora campaign <package> --task <id> --matrix ...`         | Serial parameter matrix (partial)                                    |
+| `bora run ... --set '/bindings/solver/options/entry="pi"'` | Job binding override (entry/model; #59)                              |
+| `bora campaign <package> --task <id> --matrix ...`         | Serial matrix (`/parameters/*` or `/bindings/<role>/…`)               |
 | `bora evidence <logs-path> --out <dir>`                    | Sealed trajectory export (no score change)                           |
 | `bora submit` / `bora status` / `bora cancel`              | Durable control sketch (v0.12)                                       |
 
@@ -65,16 +66,23 @@ Do **not** hardcode a fixed list; inventory is authoritative. Do **not** use
 
 ## Allowlisted `--set` pointers
 
-Only these (see Config Core):
+Fixed parameter leaves (see Config Core):
 
 - `/parameters/seed`
 - `/parameters/active_profile`
-- `/limits/wall_time_seconds`
-- `/limits/agent_invocations`
-- `/limits/environment_actions`
-- `/limits/memory_mb`
 
-Value after `=` is JSON (strings need quotes): `--set '/parameters/active_profile="opencode-acp"'`.
+Job binding axes (#59):
+
+- `/bindings/<role_id>/model`
+- `/bindings/<role_id>/executor`
+- `/bindings/<role_id>/api_key`
+- `/bindings/<role_id>/base_url`
+- `/bindings/<role_id>/options/entry`
+
+**Not** overridable: intent `limits.*` (task contract).
+
+Value after `=` is JSON (strings need quotes):  
+`--set '/bindings/solver/options/entry="pi"'` · `--set '/parameters/active_profile="solver"'`.
 
 ## Exit codes
 
@@ -108,7 +116,7 @@ Must not PASS agent packages. Typed errors only.
 | Package version | `uv run bora -V` / `uv run bora --version` |
 | Lock only                    | `uv run bora lock examples/core --task config-minimal`                                                                            |
 | ACP multi-turn (host)        | `uv run bora run examples/core --task sdk-agent-session`                                                                          |
-| ACP entry switch             | `uv run bora run examples/core --task builtin-executor-conformance --set '/parameters/active_profile="pi-mini"'`                  |
+| ACP entry switch             | `uv run bora run examples/core --task builtin-executor-conformance --set '/bindings/solver/options/entry="pi"'`                   |
 | Trajectory                   | `uv run bora run examples/core --task attempt-trajectory`                                                                         |
 | Hard ceiling                 | `uv run bora run examples/core --task hard-ceiling-trajectory`                                                                    |
 | L1 SDK session               | `uv run bora run examples/l1 --task sdk-session-single-actor`                                                                     |

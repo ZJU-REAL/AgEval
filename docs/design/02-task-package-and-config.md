@@ -27,7 +27,8 @@
 database_root
   → load_database_manifest (bora.yaml)
   → resolve_task → tasks/<id>/task.yaml
-  → load_and_lock(task_dir, task_id) → LockedTaskConfig
+  → load Database profiles.yaml (job binding defaults)
+  → load_and_lock(task_dir, task_id, profile_bindings=…) → LockedTaskConfig
 ```
 
 推荐布局：
@@ -35,10 +36,13 @@ database_root
 ```text
 my-database/                      # Database 根（CLI path）
 ├── bora.yaml                     # format: bora.database/1
+├── profiles.yaml                 # job binding 默认（role id → entry/model/locator；#59）
+├── env.example                   # 文档化 credential locator 名（无密钥）
+├── .env                          # 本机密钥（gitignore；永不 publish/upload）
 ├── README.md                     # suite 级说明（可选）
 └── tasks/
     ├── task-a/
-    │   ├── task.yaml             # format: bora.task/1；task_id == 目录名
+    │   ├── task.yaml             # format: bora.task/1；角色槽 + intent；无 entry/model
     │   ├── harness.py
     │   ├── evaluator.py
     │   ├── prompts/
@@ -168,16 +172,41 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 | 配置区域 | 内容 | 主要消费者 |
 | --- | --- | --- |
 | `harness` | runtime、entrypoint（定位 package-local 入口；不含任务说明文件） | Config Core、Provider |
-| `parameters` | 模型引用、轮数、Tool 上限、并发、retry、context strategy | Harness |
+| `parameters` | 模型引用（role id）、轮数、Tool 上限、context strategy | Harness |
 | `provider` | container、platform、workspace、network、secret projection | Runtime、Provider |
-| `agent_profiles` | 命名的 Agent 后端绑定：`executor` + model + options + workspace_view | Config Core、**Agent Service** |
+| `agent_profiles` | **角色槽**（role id + 可选 workspace 约束）；**不含** executor/entry/model | Config Core 合并后 → **Agent Service** |
 | `environment` | 外部资源、lifecycle、action allowlist | Runtime、Environment Manager |
-| `limits` | wall time、memory、process、Agent/Environment 外层硬上限 | Runtime、Provider、Capability |
+| `limits` | wall time、memory、process、Agent/Environment 外层硬上限（**任务契约**，job 不可覆盖） | Runtime、Provider、Capability |
 | `artifacts` / `evaluation` | 可发布产物、Evaluator 输入、隔离和结果格式 | Artifact Owner、Evaluator Runner |
 
 `parameters` 是统一的实验参数空间。`harness` 只定位入口（`runtime` + `entrypoint`），不再同时保存另一套 `params`，也不挂载任务说明或 prompt 路径。这样可以避免 `harness.params`、`tool_limits` 和 Campaign override 分散在多个位置；自然语言提示词由 package 的 `prompts/` 与 `harness.py` 负责。
 
-**Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*`（或等价引用）只点 **profile id**；真正跑哪条 coding-agent 后端写在 `agent_profiles`。coding-agent 配置形状为 `executor: acp` + `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 profile 的 `options.entry`/`model` 或改引用，不必改 `harness.py`。
+### Task 身份 vs Job binding（#59）
+
+| 轴 | 归属 | Leaderboard |
+| --- | --- | --- |
+| harness / evaluator / gold / intent `limits` / 角色槽拓扑 | **Task / package 身份** | 改了 ≈ 新 task 或新 version |
+| agent entry + model（`profiles.yaml` / CLI overlay） | **Job binding** | 新 `config_fingerprint` |
+| host secrets（`.env` 值） | 本机 only | 不进 fingerprint / lock / upload |
+| suite concurrency / pre–pass@k `n_attempts` | CLI / job 调度 | **不是**排行榜维度 |
+
+**Merge 顺序（Config Core 唯一读者）：**
+
+```text
+member task.yaml（角色槽 + intent + harness/eval）
+  ⊕ Database profiles.yaml（默认 job binding）
+  ⊕ CLI `--profiles`（可选，整文件替换 Database 默认）
+  ⊕ CLI `--set` `/bindings/<role>/…` 与 `/parameters/*`
+  → load_and_lock → LockedTaskConfig（resolved agent_profiles + job_overlay）
+  → actors_summary → config_fingerprint
+```
+
+- 成员 `task.yaml` **禁止**内联 `executor` / `model` / `options` / `api_key` / `base_url`（无向后兼容双写法）。
+- 缺 required role binding → `missing_binding` fail closed。
+- Intent `limits.*` **不可**经 `--set` 覆盖。
+- 异构 multi-task suite 须 `config_homogeneous`（同质角色拓扑）才可上公开可比榜。
+
+**Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*` 只点 **role / profile id**；真正跑哪条 coding-agent 后端写在 Database `profiles.yaml`（或 CLI overlay）。coding-agent 配置形状为 `executor: acp` + `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 binding 的 `options.entry`/`model`（`--set '/bindings/solver/…'` 或 `--matrix`），不必改 `harness.py`。
 
 #### L1 / `provider.kind: docker` 与 package Dockerfile
 
