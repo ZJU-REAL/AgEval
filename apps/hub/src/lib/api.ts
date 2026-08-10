@@ -9,6 +9,35 @@ export type PackageRelease = {
   size: number;
   media_type?: string;
   created_at?: number;
+  org_id?: string;
+};
+
+export type OrgRow = {
+  org_id: string;
+  name: string;
+  display_name?: string;
+  is_claimable?: boolean;
+  created_at?: number;
+  role?: string;
+};
+
+export type OrgMember = {
+  org_id: string;
+  user_id: string;
+  role: string;
+  created_at?: number;
+  /** GitHub profile display name (from login-time profile snapshot). */
+  display_name?: string;
+  avatar_url?: string;
+  github_id?: string;
+};
+
+export type ResultShare = {
+  result_kind: string;
+  result_id: string;
+  target_type: string;
+  target_id: string;
+  created_at?: number;
 };
 
 export type FileItem = {
@@ -54,6 +83,7 @@ export type SuiteRow = {
   exit_code?: number | null;
   created_at?: number | string;
   note?: string;
+  uploaded_by?: string;
 };
 
 export class RegistryHttpError extends Error {
@@ -174,12 +204,49 @@ export async function getPackageFile(
 }
 
 export async function listSuites(
-  databaseId: string,
+  databaseId: string | null,
   token: string | null,
 ): Promise<SuiteRow[]> {
-  const q = new URLSearchParams({ database_id: databaseId });
-  const data = await requestJson<{ items?: SuiteRow[] }>(
-    `/v1/results/suites?${q.toString()}`,
+  const q = new URLSearchParams();
+  if (databaseId) q.set("database_id", databaseId);
+  const path = q.toString()
+    ? `/v1/results/suites?${q.toString()}`
+    : "/v1/results/suites";
+  const data = await requestJson<{ items?: SuiteRow[] }>(path, { token });
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function listOrgs(token: string | null): Promise<OrgRow[]> {
+  const data = await requestJson<{ items?: OrgRow[] }>("/v1/orgs", { token });
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function getOrg(
+  orgId: string,
+  token: string | null,
+): Promise<OrgRow> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}`, { token });
+}
+
+export async function listOrgMembers(
+  orgId: string,
+  token: string | null,
+): Promise<OrgMember[]> {
+  const data = await requestJson<{ items?: OrgMember[] }>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/members`,
+    { token },
+  );
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function listResultShares(
+  kind: "attempt" | "suite",
+  resultId: string,
+  token: string | null,
+): Promise<ResultShare[]> {
+  const kindPath = kind === "attempt" ? "attempts" : "suites";
+  const data = await requestJson<{ items?: ResultShare[] }>(
+    `/v1/results/${kindPath}/${encodeURIComponent(resultId)}/shares`,
     { token },
   );
   return Array.isArray(data.items) ? data.items : [];
@@ -199,17 +266,53 @@ export async function deviceCode(): Promise<{
   });
 }
 
+/** Hub browser OAuth (Authorization Code) — Harbor-style, no device user_code. */
+export async function startWebLogin(
+  redirectUri: string,
+): Promise<{ authorize_url: string; state: string }> {
+  return requestJson("/v1/auth/github/web/start", {
+    method: "POST",
+    body: { redirect_uri: redirectUri },
+  });
+}
+
+export async function completeWebLogin(opts: {
+  code: string;
+  state: string;
+  redirectUri: string;
+}): Promise<{
+  token: string;
+  github_user?: string;
+  github_name?: string;
+  github_id?: number;
+  avatar_url?: string;
+  scopes?: string[];
+}> {
+  return requestJson("/v1/auth/github/web/callback", {
+    method: "POST",
+    body: {
+      code: opts.code,
+      state: opts.state,
+      redirect_uri: opts.redirectUri,
+    },
+  });
+}
+
 /**
  * Device poll. Registry returns 202 while pending (not an error).
  * Success 200: ``{ token, github_user, scopes }`` (Registry API token, not GH).
  */
 export async function devicePoll(
   deviceCodeValue: string,
+  opts?: { signal?: AbortSignal },
 ): Promise<{
   status?: string;
   token?: string;
   access_token?: string;
   github_user?: string;
+  github_name?: string;
+  github_id?: number;
+  avatar_url?: string;
   message?: string;
   error?: string;
 }> {
@@ -221,6 +324,7 @@ export async function devicePoll(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ device_code: deviceCodeValue }),
+    signal: opts?.signal,
   });
   const text = await res.text();
   let data: Record<string, unknown> = {};
@@ -251,6 +355,11 @@ export async function devicePoll(
       typeof data.access_token === "string" ? data.access_token : undefined,
     github_user:
       typeof data.github_user === "string" ? data.github_user : undefined,
+    github_name:
+      typeof data.github_name === "string" ? data.github_name : undefined,
+    github_id: typeof data.github_id === "number" ? data.github_id : undefined,
+    avatar_url:
+      typeof data.avatar_url === "string" ? data.avatar_url : undefined,
   };
 }
 

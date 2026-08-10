@@ -4,7 +4,10 @@ Unit tests: SQLite + Memory blob.
 Compose / production: Postgres + S3-compatible (RustFS).
 
 Raw API tokens are never persisted — only sha256 digests.
-Visibility is only ``public`` | ``private`` (no org in this MVP).
+Visibility is only ``public`` | ``private``.
+Packages require ``org_id`` on new publishes; results carry ``uploaded_by``
+and optional share targets (org / user). Private read is ownership/membership
+based (admin bypass); scopes alone no longer grant global private sight.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ class ReleaseRow:
     size: int
     media_type: str
     created_at: float
+    org_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +52,7 @@ class AttemptResultRow:
     blob_digest: str
     size: int
     created_at: float
+    uploaded_by: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +79,52 @@ class SuiteResultRow:
     created_at: float
     # #42 config comparability (optional; empty/default on legacy rows)
     config_json: str = "{}"
+    uploaded_by: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class OrgRow:
+    org_id: str
+    name: str
+    display_name: str
+    is_claimable: bool
+    created_at: float
+
+
+@dataclass(frozen=True, slots=True)
+class MembershipRow:
+    org_id: str
+    user_id: str
+    role: str
+    created_at: float
+
+
+@dataclass(frozen=True, slots=True)
+class UserProfileRow:
+    """GitHub profile snapshot written at Registry login (not a credential)."""
+
+    user_id: str
+    display_name: str
+    avatar_url: str
+    github_id: str
+    updated_at: float
+
+
+@dataclass(frozen=True, slots=True)
+class TokenInfo:
+    """Resolved bearer token: scopes + optional user identity (github login)."""
+
+    scopes: frozenset[str]
+    user_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ResultShareRow:
+    result_kind: str  # attempt | suite
+    result_id: str
+    target_type: str  # org | user
+    target_id: str
+    created_at: float
 
 
 # ---------------------------------------------------------------------------
@@ -214,12 +265,21 @@ ADMIN_SCOPES: frozenset[str] = frozenset(
 )
 
 
+def _normalize_user_id(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    u = str(raw).strip()
+    if not u:
+        return None
+    return u.casefold()
+
+
 class TokenStore:
     """In-memory tokens (tests). Prefer SqliteTokenStore / PostgresTokenStore."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._tokens: dict[str, frozenset[str]] = {}
+        self._tokens: dict[str, TokenInfo] = {}
 
     @staticmethod
     def hash_token(raw: str) -> str:
@@ -232,15 +292,20 @@ class TokenStore:
         *,
         github_user: str | None = None,
     ) -> None:
-        del github_user
         with self._lock:
-            self._tokens[self.hash_token(raw_token)] = frozenset(scopes)
+            self._tokens[self.hash_token(raw_token)] = TokenInfo(
+                scopes=frozenset(scopes),
+                user_id=_normalize_user_id(github_user),
+            )
+
+    def auth_for(self, raw_token: str | None) -> TokenInfo:
+        if not raw_token:
+            return TokenInfo(scopes=frozenset())
+        with self._lock:
+            return self._tokens.get(self.hash_token(raw_token), TokenInfo(scopes=frozenset()))
 
     def scopes_for(self, raw_token: str | None) -> frozenset[str]:
-        if not raw_token:
-            return frozenset()
-        with self._lock:
-            return self._tokens.get(self.hash_token(raw_token), frozenset())
+        return self.auth_for(raw_token).scopes
 
 
 class SqliteTokenStore:
@@ -294,22 +359,28 @@ class SqliteTokenStore:
             )
             conn.commit()
 
-    def scopes_for(self, raw_token: str | None) -> frozenset[str]:
+    def auth_for(self, raw_token: str | None) -> TokenInfo:
         if not raw_token:
-            return frozenset()
+            return TokenInfo(scopes=frozenset())
         with self._connect() as conn:
             cur = conn.execute(
-                "SELECT scopes, revoked_at FROM api_tokens WHERE token_hash=?",
+                "SELECT scopes, github_user, revoked_at FROM api_tokens WHERE token_hash=?",
                 (self.hash_token(raw_token),),
             )
             row = cur.fetchone()
             if row is None or row["revoked_at"] is not None:
-                return frozenset()
+                return TokenInfo(scopes=frozenset())
             try:
                 data = json.loads(row["scopes"])
             except json.JSONDecodeError:
-                return frozenset()
-            return frozenset(str(s) for s in data)
+                return TokenInfo(scopes=frozenset())
+            return TokenInfo(
+                scopes=frozenset(str(s) for s in data),
+                user_id=_normalize_user_id(row["github_user"]),
+            )
+
+    def scopes_for(self, raw_token: str | None) -> frozenset[str]:
+        return self.auth_for(raw_token).scopes
 
 
 class PostgresTokenStore:
@@ -369,30 +440,35 @@ class PostgresTokenStore:
             )
             conn.commit()
 
-    def scopes_for(self, raw_token: str | None) -> frozenset[str]:
+    def auth_for(self, raw_token: str | None) -> TokenInfo:
         if not raw_token:
-            return frozenset()
+            return TokenInfo(scopes=frozenset())
         with self._connect() as conn:
             cur = conn.execute(
                 """
-                SELECT scopes FROM api_tokens
+                SELECT scopes, github_user FROM api_tokens
                 WHERE token_hash = %s AND revoked_at IS NULL
                 """,
                 (self.hash_token(raw_token),),
             )
             row = cur.fetchone()
             if row is None:
-                return frozenset()
-            scopes = row[0]
-            if isinstance(scopes, list):
-                return frozenset(str(s) for s in scopes)
-            if isinstance(scopes, str):
-                return frozenset(str(s) for s in json.loads(scopes))
-            return frozenset()
+                return TokenInfo(scopes=frozenset())
+            scopes_raw = row[0]
+            if isinstance(scopes_raw, list):
+                scopes = frozenset(str(s) for s in scopes_raw)
+            elif isinstance(scopes_raw, str):
+                scopes = frozenset(str(s) for s in json.loads(scopes_raw))
+            else:
+                scopes = frozenset()
+            return TokenInfo(scopes=scopes, user_id=_normalize_user_id(row[1]))
+
+    def scopes_for(self, raw_token: str | None) -> frozenset[str]:
+        return self.auth_for(raw_token).scopes
 
 
 # ---------------------------------------------------------------------------
-# Metadata (packages + attempt results)
+# Metadata (packages + attempt results + orgs + shares)
 # ---------------------------------------------------------------------------
 
 
@@ -469,13 +545,73 @@ class MetadataStore:
                 """
             )
             # Migrate pre-#42 DBs: add config_json if missing.
-            cols = {
-                str(r[1])
-                for r in conn.execute("PRAGMA table_info(suite_results)").fetchall()
-            }
+            cols = {str(r[1]) for r in conn.execute("PRAGMA table_info(suite_results)").fetchall()}
             if "config_json" not in cols:
                 conn.execute(
                     "ALTER TABLE suite_results ADD COLUMN config_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            # Org + ACL columns (#52 / #53 / #54)
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS organizations (
+                    org_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    is_claimable INTEGER NOT NULL DEFAULT 0,
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS org_memberships (
+                    org_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    PRIMARY KEY (org_id, user_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS result_shares (
+                    result_kind TEXT NOT NULL,
+                    result_id TEXT NOT NULL,
+                    target_type TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    PRIMARY KEY (result_kind, result_id, target_type, target_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    avatar_url TEXT NOT NULL DEFAULT '',
+                    github_id TEXT NOT NULL DEFAULT '',
+                    updated_at REAL NOT NULL
+                )
+                """
+            )
+            rel_cols = {str(r[1]) for r in conn.execute("PRAGMA table_info(releases)").fetchall()}
+            if "org_id" not in rel_cols:
+                conn.execute("ALTER TABLE releases ADD COLUMN org_id TEXT")
+            att_cols = {
+                str(r[1]) for r in conn.execute("PRAGMA table_info(attempt_results)").fetchall()
+            }
+            if "uploaded_by" not in att_cols:
+                conn.execute(
+                    "ALTER TABLE attempt_results ADD COLUMN uploaded_by TEXT NOT NULL DEFAULT ''"
+                )
+            suite_cols = {
+                str(r[1]) for r in conn.execute("PRAGMA table_info(suite_results)").fetchall()
+            }
+            if "uploaded_by" not in suite_cols:
+                conn.execute(
+                    "ALTER TABLE suite_results ADD COLUMN uploaded_by TEXT NOT NULL DEFAULT ''"
                 )
             conn.commit()
 
@@ -486,8 +622,8 @@ class MetadataStore:
                     """
                     INSERT INTO releases(
                         database_id, version, visibility, package_digest,
-                        blob_digest, size, media_type, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        blob_digest, size, media_type, created_at, org_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row.database_id,
@@ -498,6 +634,7 @@ class MetadataStore:
                         row.size,
                         row.media_type,
                         row.created_at,
+                        row.org_id,
                     ),
                 )
                 conn.commit()
@@ -569,8 +706,8 @@ class MetadataStore:
                     """
                     INSERT INTO attempt_results(
                         run_id, database_id, task_id, lock_digest, status,
-                        visibility, blob_digest, size, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        visibility, blob_digest, size, created_at, uploaded_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row.run_id,
@@ -582,6 +719,7 @@ class MetadataStore:
                         row.blob_digest,
                         row.size,
                         row.created_at,
+                        row.uploaded_by or "",
                     ),
                 )
                 conn.commit()
@@ -627,8 +765,8 @@ class MetadataStore:
                         suite_run_id, database_id, database_version, visibility,
                         pass_rate, mean_score, metrics_json, tasks_json,
                         agent_label, model_label, blob_digest, size,
-                        exit_code, created_at, config_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        exit_code, created_at, config_json, uploaded_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row.suite_run_id,
@@ -646,6 +784,7 @@ class MetadataStore:
                         row.exit_code,
                         row.created_at,
                         row.config_json or "{}",
+                        row.uploaded_by or "",
                     ),
                 )
                 conn.commit()
@@ -684,6 +823,8 @@ class MetadataStore:
 
     @staticmethod
     def _release_row(r: sqlite3.Row) -> ReleaseRow:
+        keys = r.keys()
+        org_id = r["org_id"] if "org_id" in keys else None
         return ReleaseRow(
             database_id=r["database_id"],
             version=r["version"],
@@ -693,10 +834,13 @@ class MetadataStore:
             size=int(r["size"]),
             media_type=r["media_type"],
             created_at=float(r["created_at"]),
+            org_id=str(org_id) if org_id else None,
         )
 
     @staticmethod
     def _attempt_row(r: sqlite3.Row) -> AttemptResultRow:
+        keys = r.keys()
+        uploaded_by = str(r["uploaded_by"]) if "uploaded_by" in keys and r["uploaded_by"] else ""
         return AttemptResultRow(
             run_id=r["run_id"],
             database_id=r["database_id"],
@@ -707,12 +851,14 @@ class MetadataStore:
             blob_digest=r["blob_digest"],
             size=int(r["size"]),
             created_at=float(r["created_at"]),
+            uploaded_by=uploaded_by,
         )
 
     @staticmethod
     def _suite_row(r: sqlite3.Row) -> SuiteResultRow:
         keys = r.keys()
         config_json = str(r["config_json"]) if "config_json" in keys and r["config_json"] else "{}"
+        uploaded_by = str(r["uploaded_by"]) if "uploaded_by" in keys and r["uploaded_by"] else ""
         return SuiteResultRow(
             suite_run_id=r["suite_run_id"],
             database_id=r["database_id"],
@@ -729,7 +875,387 @@ class MetadataStore:
             exit_code=int(r["exit_code"]),
             created_at=float(r["created_at"]),
             config_json=config_json,
+            uploaded_by=uploaded_by,
         )
+
+    # ---- organizations ---------------------------------------------------
+
+    def create_org(
+        self,
+        *,
+        name: str,
+        owner_user_id: str,
+        display_name: str = "",
+        is_claimable: bool = False,
+    ) -> OrgRow:
+        org_id = name
+        row = OrgRow(
+            org_id=org_id,
+            name=name,
+            display_name=display_name or name,
+            is_claimable=is_claimable,
+            created_at=now(),
+        )
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO organizations(
+                        org_id, name, display_name, is_claimable, created_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row.org_id,
+                        row.name,
+                        row.display_name,
+                        1 if row.is_claimable else 0,
+                        row.created_at,
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
+                    VALUES (?, ?, 'owner', ?)
+                    """,
+                    (row.org_id, owner_user_id, row.created_at),
+                )
+                conn.commit()
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("org already exists") from exc
+        return row
+
+    def get_org(self, org_id: str) -> OrgRow | None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM organizations WHERE org_id=?",
+                (org_id,),
+            )
+            r = cur.fetchone()
+            return self._org_row(r) if r else None
+
+    def list_orgs_for_user(self, user_id: str) -> list[tuple[OrgRow, str]]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT o.*, m.role AS membership_role
+                FROM organizations o
+                JOIN org_memberships m ON m.org_id = o.org_id
+                WHERE m.user_id = ?
+                ORDER BY o.name
+                """,
+                (user_id,),
+            )
+            out: list[tuple[OrgRow, str]] = []
+            for r in cur.fetchall():
+                out.append((self._org_row(r), str(r["membership_role"])))
+            return out
+
+    def claim_org(self, org_id: str, user_id: str) -> OrgRow:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM organizations WHERE org_id=?",
+                (org_id,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                raise LookupError("org not found")
+            org = self._org_row(r)
+            if not org.is_claimable:
+                raise PermissionError("org not claimable")
+            owners = conn.execute(
+                "SELECT 1 FROM org_memberships WHERE org_id=? AND role='owner' LIMIT 1",
+                (org_id,),
+            ).fetchone()
+            if owners is not None:
+                raise PermissionError("org already claimed")
+            conn.execute(
+                """
+                INSERT INTO org_memberships(org_id, user_id, role, created_at)
+                VALUES (?, ?, 'owner', ?)
+                """,
+                (org_id, user_id, now()),
+            )
+            conn.execute(
+                "UPDATE organizations SET is_claimable=0 WHERE org_id=?",
+                (org_id,),
+            )
+            conn.commit()
+        got = self.get_org(org_id)
+        assert got is not None
+        return got
+
+    def add_member(self, org_id: str, user_id: str, *, role: str = "member") -> MembershipRow:
+        if role not in {"owner", "member"}:
+            raise ValueError("invalid role")
+        ts = now()
+        with self._connect() as conn:
+            if self.get_org(org_id) is None:
+                raise LookupError("org not found")
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (org_id, user_id, role, ts),
+                )
+                conn.commit()
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("membership exists") from exc
+        return MembershipRow(org_id=org_id, user_id=user_id, role=role, created_at=ts)
+
+    def remove_member(self, org_id: str, user_id: str) -> None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM org_memberships WHERE org_id=? AND user_id=?",
+                (org_id, user_id),
+            )
+            if cur.rowcount == 0:
+                raise LookupError("membership not found")
+            conn.commit()
+
+    def list_members(self, org_id: str) -> list[MembershipRow]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT org_id, user_id, role, created_at
+                FROM org_memberships WHERE org_id=? ORDER BY role, user_id
+                """,
+                (org_id,),
+            )
+            return [
+                MembershipRow(
+                    org_id=str(r["org_id"]),
+                    user_id=str(r["user_id"]),
+                    role=str(r["role"]),
+                    created_at=float(r["created_at"]),
+                )
+                for r in cur.fetchall()
+            ]
+
+    def membership(self, org_id: str, user_id: str) -> MembershipRow | None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT org_id, user_id, role, created_at FROM org_memberships "
+                "WHERE org_id=? AND user_id=?",
+                (org_id, user_id),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            return MembershipRow(
+                org_id=str(r["org_id"]),
+                user_id=str(r["user_id"]),
+                role=str(r["role"]),
+                created_at=float(r["created_at"]),
+            )
+
+    def user_org_ids(self, user_id: str) -> set[str]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT org_id FROM org_memberships WHERE user_id=?",
+                (user_id,),
+            )
+            return {str(r["org_id"]) for r in cur.fetchall()}
+
+    # ---- result shares ---------------------------------------------------
+
+    def add_result_share(
+        self,
+        *,
+        result_kind: str,
+        result_id: str,
+        target_type: str,
+        target_id: str,
+    ) -> ResultShareRow:
+        if result_kind not in {"attempt", "suite"}:
+            raise ValueError("invalid result_kind")
+        if target_type not in {"org", "user"}:
+            raise ValueError("invalid target_type")
+        ts = now()
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO result_shares(
+                        result_kind, result_id, target_type, target_id, created_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (result_kind, result_id, target_type, target_id, ts),
+                )
+                conn.commit()
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("share already exists") from exc
+        return ResultShareRow(
+            result_kind=result_kind,
+            result_id=result_id,
+            target_type=target_type,
+            target_id=target_id,
+            created_at=ts,
+        )
+
+    def remove_result_share(
+        self,
+        *,
+        result_kind: str,
+        result_id: str,
+        target_type: str,
+        target_id: str,
+    ) -> None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                DELETE FROM result_shares
+                WHERE result_kind=? AND result_id=? AND target_type=? AND target_id=?
+                """,
+                (result_kind, result_id, target_type, target_id),
+            )
+            if cur.rowcount == 0:
+                raise LookupError("share not found")
+            conn.commit()
+
+    def list_result_shares(self, *, result_kind: str, result_id: str) -> list[ResultShareRow]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT * FROM result_shares
+                WHERE result_kind=? AND result_id=?
+                ORDER BY target_type, target_id
+                """,
+                (result_kind, result_id),
+            )
+            return [
+                ResultShareRow(
+                    result_kind=str(r["result_kind"]),
+                    result_id=str(r["result_id"]),
+                    target_type=str(r["target_type"]),
+                    target_id=str(r["target_id"]),
+                    created_at=float(r["created_at"]),
+                )
+                for r in cur.fetchall()
+            ]
+
+    def result_shared_with_user(
+        self,
+        *,
+        result_kind: str,
+        result_id: str,
+        user_id: str,
+        user_orgs: set[str],
+    ) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT 1 FROM result_shares
+                WHERE result_kind=? AND result_id=? AND target_type='user' AND target_id=?
+                LIMIT 1
+                """,
+                (result_kind, result_id, user_id),
+            )
+            if cur.fetchone() is not None:
+                return True
+            if not user_orgs:
+                return False
+            placeholders = ",".join("?" for _ in user_orgs)
+            cur = conn.execute(
+                f"""
+                SELECT 1 FROM result_shares
+                WHERE result_kind=? AND result_id=? AND target_type='org'
+                  AND target_id IN ({placeholders})
+                LIMIT 1
+                """,
+                (result_kind, result_id, *sorted(user_orgs)),
+            )
+            return cur.fetchone() is not None
+
+    @staticmethod
+    def _org_row(r: sqlite3.Row) -> OrgRow:
+        return OrgRow(
+            org_id=str(r["org_id"]),
+            name=str(r["name"]),
+            display_name=str(r["display_name"] or ""),
+            is_claimable=bool(int(r["is_claimable"])),
+            created_at=float(r["created_at"]),
+        )
+
+    def upsert_user_profile(
+        self,
+        *,
+        user_id: str,
+        display_name: str = "",
+        avatar_url: str = "",
+        github_id: str = "",
+    ) -> UserProfileRow:
+        uid = _normalize_user_id(user_id) or user_id
+        row = UserProfileRow(
+            user_id=uid,
+            display_name=(display_name or "").strip(),
+            avatar_url=(avatar_url or "").strip(),
+            github_id=str(github_id or "").strip(),
+            updated_at=now(),
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_profiles(
+                    user_id, display_name, avatar_url, github_id, updated_at
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    display_name=excluded.display_name,
+                    avatar_url=excluded.avatar_url,
+                    github_id=excluded.github_id,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    row.user_id,
+                    row.display_name,
+                    row.avatar_url,
+                    row.github_id,
+                    row.updated_at,
+                ),
+            )
+            conn.commit()
+        return row
+
+    def get_user_profile(self, user_id: str) -> UserProfileRow | None:
+        uid = _normalize_user_id(user_id) or user_id
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM user_profiles WHERE user_id=?",
+                (uid,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            return UserProfileRow(
+                user_id=str(r["user_id"]),
+                display_name=str(r["display_name"] or ""),
+                avatar_url=str(r["avatar_url"] or ""),
+                github_id=str(r["github_id"] or ""),
+                updated_at=float(r["updated_at"]),
+            )
+
+    def get_user_profiles(self, user_ids: list[str] | set[str]) -> dict[str, UserProfileRow]:
+        ids = sorted({_normalize_user_id(u) or u for u in user_ids if u})
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT * FROM user_profiles WHERE user_id IN ({placeholders})",
+                ids,
+            )
+            out: dict[str, UserProfileRow] = {}
+            for r in cur.fetchall():
+                p = UserProfileRow(
+                    user_id=str(r["user_id"]),
+                    display_name=str(r["display_name"] or ""),
+                    avatar_url=str(r["avatar_url"] or ""),
+                    github_id=str(r["github_id"] or ""),
+                    updated_at=float(r["updated_at"]),
+                )
+                out[p.user_id] = p
+            return out
 
 
 class PostgresMetadataStore:
@@ -815,6 +1341,60 @@ class PostgresMetadataStore:
                 ADD COLUMN IF NOT EXISTS config_json TEXT NOT NULL DEFAULT '{}'
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS organizations (
+                    org_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    is_claimable BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at DOUBLE PRECISION NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS org_memberships (
+                    org_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    created_at DOUBLE PRECISION NOT NULL,
+                    PRIMARY KEY (org_id, user_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS result_shares (
+                    result_kind TEXT NOT NULL,
+                    result_id TEXT NOT NULL,
+                    target_type TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    created_at DOUBLE PRECISION NOT NULL,
+                    PRIMARY KEY (result_kind, result_id, target_type, target_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    avatar_url TEXT NOT NULL DEFAULT '',
+                    github_id TEXT NOT NULL DEFAULT '',
+                    updated_at DOUBLE PRECISION NOT NULL
+                )
+                """
+            )
+            conn.execute("ALTER TABLE releases ADD COLUMN IF NOT EXISTS org_id TEXT")
+            conn.execute(
+                "ALTER TABLE attempt_results "
+                "ADD COLUMN IF NOT EXISTS uploaded_by TEXT NOT NULL DEFAULT ''"
+            )
+            conn.execute(
+                "ALTER TABLE suite_results "
+                "ADD COLUMN IF NOT EXISTS uploaded_by TEXT NOT NULL DEFAULT ''"
+            )
             conn.commit()
 
     def insert(self, row: ReleaseRow) -> None:
@@ -824,8 +1404,8 @@ class PostgresMetadataStore:
                     """
                     INSERT INTO releases(
                         database_id, version, visibility, package_digest,
-                        blob_digest, size, media_type, created_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        blob_digest, size, media_type, created_at, org_id
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         row.database_id,
@@ -836,6 +1416,7 @@ class PostgresMetadataStore:
                         row.size,
                         row.media_type,
                         row.created_at,
+                        row.org_id,
                     ),
                 )
                 conn.commit()
@@ -913,8 +1494,8 @@ class PostgresMetadataStore:
                     """
                     INSERT INTO attempt_results(
                         run_id, database_id, task_id, lock_digest, status,
-                        visibility, blob_digest, size, created_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        visibility, blob_digest, size, created_at, uploaded_by
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         row.run_id,
@@ -926,6 +1507,7 @@ class PostgresMetadataStore:
                         row.blob_digest,
                         row.size,
                         row.created_at,
+                        row.uploaded_by or "",
                     ),
                 )
                 conn.commit()
@@ -978,8 +1560,8 @@ class PostgresMetadataStore:
                         suite_run_id, database_id, database_version, visibility,
                         pass_rate, mean_score, metrics_json, tasks_json,
                         agent_label, model_label, blob_digest, size,
-                        exit_code, created_at, config_json
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        exit_code, created_at, config_json, uploaded_by
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         row.suite_run_id,
@@ -997,6 +1579,7 @@ class PostgresMetadataStore:
                         row.exit_code,
                         row.created_at,
                         row.config_json or "{}",
+                        row.uploaded_by or "",
                     ),
                 )
                 conn.commit()
@@ -1048,6 +1631,7 @@ class PostgresMetadataStore:
     @staticmethod
     def _release_from_cols(cols: list[str], r: Any) -> ReleaseRow:
         d = dict(zip(cols, r, strict=True))
+        org_raw = d.get("org_id")
         return ReleaseRow(
             database_id=str(d["database_id"]),
             version=str(d["version"]),
@@ -1057,6 +1641,7 @@ class PostgresMetadataStore:
             size=int(d["size"]),
             media_type=str(d["media_type"]),
             created_at=float(d["created_at"]),
+            org_id=str(org_raw) if org_raw else None,
         )
 
     @staticmethod
@@ -1072,6 +1657,7 @@ class PostgresMetadataStore:
             blob_digest=str(d["blob_digest"]),
             size=int(d["size"]),
             created_at=float(d["created_at"]),
+            uploaded_by=str(d.get("uploaded_by") or ""),
         )
 
     @staticmethod
@@ -1093,7 +1679,401 @@ class PostgresMetadataStore:
             exit_code=int(d["exit_code"]),
             created_at=float(d["created_at"]),
             config_json=str(d.get("config_json") or "{}"),
+            uploaded_by=str(d.get("uploaded_by") or ""),
         )
+
+    # Delegate org/share to same SQL shape as SQLite (psycopg %s).
+    def create_org(
+        self,
+        *,
+        name: str,
+        owner_user_id: str,
+        display_name: str = "",
+        is_claimable: bool = False,
+    ) -> OrgRow:
+        org_id = name
+        row = OrgRow(
+            org_id=org_id,
+            name=name,
+            display_name=display_name or name,
+            is_claimable=is_claimable,
+            created_at=now(),
+        )
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO organizations(
+                        org_id, name, display_name, is_claimable, created_at
+                    ) VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        row.org_id,
+                        row.name,
+                        row.display_name,
+                        row.is_claimable,
+                        row.created_at,
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
+                    VALUES (%s, %s, 'owner', %s)
+                    """,
+                    (row.org_id, owner_user_id, row.created_at),
+                )
+                conn.commit()
+            except Exception as exc:
+                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
+                    raise ValueError("org already exists") from exc
+                raise
+        return row
+
+    def get_org(self, org_id: str) -> OrgRow | None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT org_id, name, display_name, is_claimable, created_at "
+                "FROM organizations WHERE org_id=%s",
+                (org_id,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            return OrgRow(
+                org_id=str(r[0]),
+                name=str(r[1]),
+                display_name=str(r[2] or ""),
+                is_claimable=bool(r[3]),
+                created_at=float(r[4]),
+            )
+
+    def list_orgs_for_user(self, user_id: str) -> list[tuple[OrgRow, str]]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT o.org_id, o.name, o.display_name, o.is_claimable, o.created_at, m.role
+                FROM organizations o
+                JOIN org_memberships m ON m.org_id = o.org_id
+                WHERE m.user_id = %s
+                ORDER BY o.name
+                """,
+                (user_id,),
+            )
+            out: list[tuple[OrgRow, str]] = []
+            for r in cur.fetchall():
+                out.append(
+                    (
+                        OrgRow(
+                            org_id=str(r[0]),
+                            name=str(r[1]),
+                            display_name=str(r[2] or ""),
+                            is_claimable=bool(r[3]),
+                            created_at=float(r[4]),
+                        ),
+                        str(r[5]),
+                    )
+                )
+            return out
+
+    def claim_org(self, org_id: str, user_id: str) -> OrgRow:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT org_id, name, display_name, is_claimable, created_at "
+                "FROM organizations WHERE org_id=%s",
+                (org_id,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                raise LookupError("org not found")
+            if not bool(r[3]):
+                raise PermissionError("org not claimable")
+            owners = conn.execute(
+                "SELECT 1 FROM org_memberships WHERE org_id=%s AND role='owner' LIMIT 1",
+                (org_id,),
+            ).fetchone()
+            if owners is not None:
+                raise PermissionError("org already claimed")
+            conn.execute(
+                """
+                INSERT INTO org_memberships(org_id, user_id, role, created_at)
+                VALUES (%s, %s, 'owner', %s)
+                """,
+                (org_id, user_id, now()),
+            )
+            conn.execute(
+                "UPDATE organizations SET is_claimable=FALSE WHERE org_id=%s",
+                (org_id,),
+            )
+            conn.commit()
+        got = self.get_org(org_id)
+        assert got is not None
+        return got
+
+    def add_member(self, org_id: str, user_id: str, *, role: str = "member") -> MembershipRow:
+        if role not in {"owner", "member"}:
+            raise ValueError("invalid role")
+        ts = now()
+        if self.get_org(org_id) is None:
+            raise LookupError("org not found")
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (org_id, user_id, role, ts),
+                )
+                conn.commit()
+            except Exception as exc:
+                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
+                    raise ValueError("membership exists") from exc
+                raise
+        return MembershipRow(org_id=org_id, user_id=user_id, role=role, created_at=ts)
+
+    def remove_member(self, org_id: str, user_id: str) -> None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM org_memberships WHERE org_id=%s AND user_id=%s",
+                (org_id, user_id),
+            )
+            if cur.rowcount == 0:
+                raise LookupError("membership not found")
+            conn.commit()
+
+    def list_members(self, org_id: str) -> list[MembershipRow]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT org_id, user_id, role, created_at
+                FROM org_memberships WHERE org_id=%s ORDER BY role, user_id
+                """,
+                (org_id,),
+            )
+            return [
+                MembershipRow(
+                    org_id=str(r[0]),
+                    user_id=str(r[1]),
+                    role=str(r[2]),
+                    created_at=float(r[3]),
+                )
+                for r in cur.fetchall()
+            ]
+
+    def membership(self, org_id: str, user_id: str) -> MembershipRow | None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT org_id, user_id, role, created_at FROM org_memberships "
+                "WHERE org_id=%s AND user_id=%s",
+                (org_id, user_id),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            return MembershipRow(
+                org_id=str(r[0]),
+                user_id=str(r[1]),
+                role=str(r[2]),
+                created_at=float(r[3]),
+            )
+
+    def user_org_ids(self, user_id: str) -> set[str]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT org_id FROM org_memberships WHERE user_id=%s",
+                (user_id,),
+            )
+            return {str(r[0]) for r in cur.fetchall()}
+
+    def add_result_share(
+        self,
+        *,
+        result_kind: str,
+        result_id: str,
+        target_type: str,
+        target_id: str,
+    ) -> ResultShareRow:
+        if result_kind not in {"attempt", "suite"}:
+            raise ValueError("invalid result_kind")
+        if target_type not in {"org", "user"}:
+            raise ValueError("invalid target_type")
+        ts = now()
+        with self._connect() as conn:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO result_shares(
+                        result_kind, result_id, target_type, target_id, created_at
+                    ) VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (result_kind, result_id, target_type, target_id, ts),
+                )
+                conn.commit()
+            except Exception as exc:
+                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
+                    raise ValueError("share already exists") from exc
+                raise
+        return ResultShareRow(
+            result_kind=result_kind,
+            result_id=result_id,
+            target_type=target_type,
+            target_id=target_id,
+            created_at=ts,
+        )
+
+    def remove_result_share(
+        self,
+        *,
+        result_kind: str,
+        result_id: str,
+        target_type: str,
+        target_id: str,
+    ) -> None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                DELETE FROM result_shares
+                WHERE result_kind=%s AND result_id=%s AND target_type=%s AND target_id=%s
+                """,
+                (result_kind, result_id, target_type, target_id),
+            )
+            if cur.rowcount == 0:
+                raise LookupError("share not found")
+            conn.commit()
+
+    def list_result_shares(self, *, result_kind: str, result_id: str) -> list[ResultShareRow]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT result_kind, result_id, target_type, target_id, created_at
+                FROM result_shares
+                WHERE result_kind=%s AND result_id=%s
+                ORDER BY target_type, target_id
+                """,
+                (result_kind, result_id),
+            )
+            return [
+                ResultShareRow(
+                    result_kind=str(r[0]),
+                    result_id=str(r[1]),
+                    target_type=str(r[2]),
+                    target_id=str(r[3]),
+                    created_at=float(r[4]),
+                )
+                for r in cur.fetchall()
+            ]
+
+    def result_shared_with_user(
+        self,
+        *,
+        result_kind: str,
+        result_id: str,
+        user_id: str,
+        user_orgs: set[str],
+    ) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT 1 FROM result_shares
+                WHERE result_kind=%s AND result_id=%s AND target_type='user' AND target_id=%s
+                LIMIT 1
+                """,
+                (result_kind, result_id, user_id),
+            )
+            if cur.fetchone() is not None:
+                return True
+            if not user_orgs:
+                return False
+            cur = conn.execute(
+                """
+                SELECT 1 FROM result_shares
+                WHERE result_kind=%s AND result_id=%s AND target_type='org'
+                  AND target_id = ANY(%s)
+                LIMIT 1
+                """,
+                (result_kind, result_id, list(user_orgs)),
+            )
+            return cur.fetchone() is not None
+
+    def upsert_user_profile(
+        self,
+        *,
+        user_id: str,
+        display_name: str = "",
+        avatar_url: str = "",
+        github_id: str = "",
+    ) -> UserProfileRow:
+        uid = _normalize_user_id(user_id) or user_id
+        row = UserProfileRow(
+            user_id=uid,
+            display_name=(display_name or "").strip(),
+            avatar_url=(avatar_url or "").strip(),
+            github_id=str(github_id or "").strip(),
+            updated_at=now(),
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_profiles(
+                    user_id, display_name, avatar_url, github_id, updated_at
+                ) VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    display_name = EXCLUDED.display_name,
+                    avatar_url = EXCLUDED.avatar_url,
+                    github_id = EXCLUDED.github_id,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (
+                    row.user_id,
+                    row.display_name,
+                    row.avatar_url,
+                    row.github_id,
+                    row.updated_at,
+                ),
+            )
+            conn.commit()
+        return row
+
+    def get_user_profile(self, user_id: str) -> UserProfileRow | None:
+        uid = _normalize_user_id(user_id) or user_id
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT user_id, display_name, avatar_url, github_id, updated_at "
+                "FROM user_profiles WHERE user_id=%s",
+                (uid,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            return UserProfileRow(
+                user_id=str(r[0]),
+                display_name=str(r[1] or ""),
+                avatar_url=str(r[2] or ""),
+                github_id=str(r[3] or ""),
+                updated_at=float(r[4]),
+            )
+
+    def get_user_profiles(self, user_ids: list[str] | set[str]) -> dict[str, UserProfileRow]:
+        ids = sorted({_normalize_user_id(u) or u for u in user_ids if u})
+        if not ids:
+            return {}
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT user_id, display_name, avatar_url, github_id, updated_at "
+                "FROM user_profiles WHERE user_id = ANY(%s)",
+                (ids,),
+            )
+            out: dict[str, UserProfileRow] = {}
+            for r in cur.fetchall():
+                p = UserProfileRow(
+                    user_id=str(r[0]),
+                    display_name=str(r[1] or ""),
+                    avatar_url=str(r[2] or ""),
+                    github_id=str(r[3] or ""),
+                    updated_at=float(r[4]),
+                )
+                out[p.user_id] = p
+            return out
 
 
 # ---------------------------------------------------------------------------
@@ -1102,7 +2082,7 @@ class PostgresMetadataStore:
 
 
 def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
         "database_id": row.database_id,
         "version": row.version,
         "visibility": row.visibility,
@@ -1112,10 +2092,13 @@ def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
         "media_type": row.media_type,
         "created_at": row.created_at,
     }
+    if row.org_id:
+        out["org_id"] = row.org_id
+    return out
 
 
 def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
         "run_id": row.run_id,
         "database_id": row.database_id,
         "task_id": row.task_id,
@@ -1124,6 +2107,50 @@ def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
         "visibility": row.visibility,
         "blob_digest": row.blob_digest,
         "size": row.size,
+        "created_at": row.created_at,
+    }
+    if row.uploaded_by:
+        out["uploaded_by"] = row.uploaded_by
+    return out
+
+
+def org_to_dict(row: OrgRow) -> dict[str, Any]:
+    return {
+        "org_id": row.org_id,
+        "name": row.name,
+        "display_name": row.display_name,
+        "is_claimable": row.is_claimable,
+        "created_at": row.created_at,
+    }
+
+
+def membership_to_dict(
+    row: MembershipRow,
+    *,
+    profile: UserProfileRow | None = None,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "org_id": row.org_id,
+        "user_id": row.user_id,
+        "role": row.role,
+        "created_at": row.created_at,
+    }
+    if profile is not None:
+        if profile.display_name:
+            out["display_name"] = profile.display_name
+        if profile.avatar_url:
+            out["avatar_url"] = profile.avatar_url
+        if profile.github_id:
+            out["github_id"] = profile.github_id
+    return out
+
+
+def share_to_dict(row: ResultShareRow) -> dict[str, Any]:
+    return {
+        "result_kind": row.result_kind,
+        "result_id": row.result_id,
+        "target_type": row.target_type,
+        "target_id": row.target_id,
         "created_at": row.created_at,
     }
 
@@ -1160,6 +2187,8 @@ def suite_to_dict(row: SuiteResultRow) -> dict[str, Any]:
         # Explicit: no suite PASS authority
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
+    if row.uploaded_by:
+        out["uploaded_by"] = row.uploaded_by
     # #42 config fingerprint projection (absent on legacy rows)
     try:
         cfg = json.loads(row.config_json or "{}")

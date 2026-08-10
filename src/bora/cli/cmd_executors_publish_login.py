@@ -38,6 +38,13 @@ def register(app: typer.Typer) -> None:
             Path,
             typer.Argument(help="Local Database root to publish (bora.database/1)."),
         ],
+        org: Annotated[
+            str,
+            typer.Option(
+                "--org",
+                help="Organization id that owns this package (required).",
+            ),
+        ],
         public: Annotated[
             bool,
             typer.Option(
@@ -53,7 +60,7 @@ def register(app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> None:
-        """Publish a local Database package to the configured Registry (Spec 21)."""
+        """Publish a local Database package to the configured Registry (must attach --org)."""
         from bora.application.publish_command import publish_database
         from bora.config.errors import ConfigError
 
@@ -61,6 +68,7 @@ def register(app: typer.Typer) -> None:
             summary = publish_database(
                 database,
                 public=public,
+                org=org,
                 registry_url=registry_url,
             )
         except ConfigError as exc:

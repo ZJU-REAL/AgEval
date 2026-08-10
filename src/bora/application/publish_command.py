@@ -17,6 +17,7 @@ def publish_database(
     database_root: Path,
     *,
     public: bool = False,
+    org: str | None = None,
     registry_url: str | None = None,
     token: str | None = None,
 ) -> dict[str, Any]:
@@ -48,6 +49,13 @@ def publish_database(
 
     client = RegistryClient(url, token=tok)
     visibility = "public" if public else "private"
+    org_id = (org or "").strip()
+    if not org_id:
+        raise ConfigError(
+            "org_required",
+            "publish requires --org (package must belong to an organization)",
+            location="registry",
+        )
     try:
         info = client.publish(
             database_id=manifest.database_id,
@@ -58,6 +66,7 @@ def publish_database(
             media_type=MEDIA_TYPE,
             visibility=visibility,
             archive=archive,
+            org_id=org_id,
         )
     except RegistryError as exc:
         raise ConfigError(exc.code, exc.message, location="registry") from exc
@@ -73,4 +82,5 @@ def publish_database(
         "media_type": info.media_type,
         "ref": f"{info.database_id}@{info.version}",
         "digest_ref": f"{info.database_id}@{info.package_digest}",
+        "org_id": info.org_id or org_id,
     }

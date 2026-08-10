@@ -227,4 +227,50 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2) from exc
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
 
+    @sub.command("share")
+    def results_share_command(
+        result_id: Annotated[
+            str,
+            typer.Argument(help="attempt run_id or suite_run_id."),
+        ],
+        kind: Annotated[
+            str,
+            typer.Option("--kind", help="attempt | suite"),
+        ] = "attempt",
+        share_org: Annotated[
+            list[str] | None,
+            typer.Option("--share-org", help="Share private result with org (repeatable)."),
+        ] = None,
+        share_user: Annotated[
+            list[str] | None,
+            typer.Option("--share-user", help="Share private result with user (repeatable)."),
+        ] = None,
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry / results URL."),
+        ] = None,
+    ) -> None:
+        """Share a private result with org(s) and/or user(s). Owner only."""
+        from bora.application.results_command import share_result
+        from bora.config.errors import ConfigError
+
+        if kind not in {"attempt", "suite"}:
+            typer.echo("kind must be attempt or suite", err=True)
+            raise typer.Exit(code=2)
+        if not share_org and not share_user:
+            typer.echo("provide --share-org and/or --share-user", err=True)
+            raise typer.Exit(code=2)
+        try:
+            summary = share_result(
+                result_kind=kind,
+                result_id=result_id,
+                share_orgs=share_org or [],
+                share_users=share_user or [],
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
     app.add_typer(sub, name="results")

@@ -30,6 +30,25 @@ from bora.registry.credentials import write_credentials
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
 
+TEST_ORG = "test"
+
+
+def _ensure_org() -> None:
+    """Create default test org owned by current token (idempotent)."""
+    import os
+
+    from bora.registry.client import RegistryClient, RegistryError
+
+    url = os.environ.get("BORA_REGISTRY_URL") or ""
+    token = os.environ.get("BORA_REGISTRY_TOKEN") or ""
+    if not url or not token:
+        return
+    client = RegistryClient(url, token=token)
+    try:
+        client.create_org(name=TEST_ORG, display_name="Test Org")
+    except RegistryError:
+        return
+
 
 @pytest.fixture()
 def registry_server(tmp_path: Path):
@@ -69,7 +88,8 @@ def test_list_private_packages_with_and_without_token(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
-    publish_database(FIXTURE, public=False)
+    _ensure_org()
+    publish_database(FIXTURE, public=False, org=TEST_ORG)
     listed = list_packages()
     assert listed["count"] >= 1
     assert any(i["database_id"] == "test/publish-min" for i in listed["items"])
@@ -90,7 +110,8 @@ def test_show_matches_publish(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
-    summary = publish_database(FIXTURE, public=False)
+    _ensure_org()
+    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
     shown = show_package(summary["ref"])
     assert shown["package_digest"] == summary["package_digest"]
     assert shown["blob_digest"] == summary["blob_digest"]
@@ -101,6 +122,7 @@ def test_results_upload_get_roundtrip(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
     # Synthetic run dir under a copy of fixture
     db = tmp_path / "db"
     import shutil
@@ -135,6 +157,7 @@ def test_results_private_without_token_404(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
     db = tmp_path / "db"
     import shutil
 
@@ -186,12 +209,13 @@ def test_oauth_device_flow_mocked(
         assert done["github_user"] == "testuser"
         assert set(done["scopes"]) == set(DEFAULT_LOGIN_SCOPES)
 
-    # Issued token can publish
+    # Issued token can create org + publish
     tok = done["token"]
     monkeypatch.setenv("BORA_REGISTRY_TOKEN", tok)
     write_credentials(url=registry_server["url"], token=tok, path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))
-    summary = publish_database(FIXTURE, public=True)
+    _ensure_org()
+    summary = publish_database(FIXTURE, public=True, org=TEST_ORG)
     assert summary["ok"] is True
 
 
@@ -240,6 +264,7 @@ def test_results_upload_scope_cannot_read_private(
     state.tokens.add(upload_only, {"results:upload"})
 
     _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
     db = tmp_path / "db-upload-scope"
     import shutil
 
@@ -299,6 +324,7 @@ def test_suite_results_upload_get_list_roundtrip(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
     import shutil
 
     db = tmp_path / "db-suite"
@@ -392,6 +418,7 @@ def test_suite_upload_scope_cannot_read_private(
     upload_only = "upload-only-suite-token"
     state.tokens.add(upload_only, {"results:upload"})
     _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
     import shutil
 
     db = tmp_path / "db-suite-scope"
@@ -416,6 +443,7 @@ def test_suite_upload_rejects_suite_pass_field(
 ) -> None:
     """Server must reject suite-level PASS authority fields."""
     _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
     # Craft a minimal valid archive
     from bora.registry.results_archive import build_suite_archive

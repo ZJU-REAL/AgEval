@@ -51,7 +51,10 @@ def login_registry(
             location="registry",
         )
 
-    err.write(f"Open {verification_uri} and enter code: {user_code}\nWaiting for authorization…\n")
+    # GitHub does not auto-fill user_code from URL query params; print code clearly.
+    err.write(
+        f"1) Open {verification_uri}\n2) Enter code:  {user_code}\nWaiting for authorization…\n"
+    )
     err.flush()
 
     deadline = time.monotonic() + poll_timeout
