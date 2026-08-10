@@ -53,9 +53,7 @@ def login_registry(
 
     # GitHub does not auto-fill user_code from URL query params; print code clearly.
     err.write(
-        f"1) Open {verification_uri}\n"
-        f"2) Enter code:  {user_code}\n"
-        "Waiting for authorization…\n"
+        f"1) Open {verification_uri}\n2) Enter code:  {user_code}\nWaiting for authorization…\n"
     )
     err.flush()
 
