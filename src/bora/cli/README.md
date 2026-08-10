@@ -92,7 +92,8 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora registry org-create\|org-list` | Create / list organizations (packages belong to orgs) |
 | `bora cache list\|path\|purge` | Local verified cache |
 | `bora results upload\|get\|list` | Attempt run evidence bundles |
-| `bora results upload-suite\|get-suite\|list-suites` | Suite/job aggregates + task refs (no suite PASS) |
+| `bora results upload-suite\|get-suite\|list-suites` | Suite/job aggregates + task refs (no suite PASS); meta may include `job_overlay` |
+| `bora results export-profiles` | Export suite `job_overlay` → re-runnable `profiles.yaml` (#59) |
 | `bora results share` | Share a private result with org(s) and/or user(s) |
 | `bora view` | Local read-only Database Web UI (no Registry) |
 
