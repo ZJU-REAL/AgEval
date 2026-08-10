@@ -1,27 +1,40 @@
 ---
 title: Hub
-description: Remote Dataset catalog, jobs, and leaderboard.
+description: Remote Dataset catalog, organizations, job results, and leaderboard.
 ---
 
-Hub (`apps/hub`) is the human SPA on top of Registry:
+Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and run results.
 
-- Dataset list and README  
-- Task file preview  
-- Jobs list and Leaderboard (as implemented)  
+- Dataset list (**Your organizations** / **Explore**), README, task file preview  
+- **Organizations**: members, org packages, shared suite results  
+- **Org settings**: invite keys (shown once on create), leave or dissolve  
+- Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
+- Leaderboard (as implemented)  
+- **Sign in with GitHub** (browser OAuth; CLI stays on Device Flow)
 
 ## Local dev
 
 ```bash
+# Terminal A — Registry first (OAuth configured)
+export VITE_REGISTRY_PROXY_TARGET=http://127.0.0.1:8700
+uv run --extra registry python -m services.registry.app --host 127.0.0.1 --port 8700
+
+# Terminal B
 cd apps/hub
 pnpm install
-pnpm dev
+pnpm dev   # http://127.0.0.1:5174
 ```
 
 | Path | Page |
 | --- | --- |
-| `/datasets` | List |
+| `/datasets` | List (Your organizations / Explore) |
 | `/datasets/:id` | README · Tasks · Leaderboard |
-| `/login` | Login |
+| `/datasets/:id/tasks/:task` | README · Files · Jobs |
+| `/organizations` | Your orgs · Join |
+| `/organizations/:orgId` | Overview · Settings |
+| `/jobs/...` | Remote Attempt detail (needs uploaded run artifacts) |
+
+Click **Sign in with GitHub** to authenticate. Ops detail: `apps/hub/README.md`, `services/registry/README.md`.
 
 ## vs Viewer
 
@@ -29,5 +42,6 @@ pnpm dev
 | --- | --- | --- |
 | Data | Local `.bora/suite-runs/` | Registry |
 | Entry | `bora view` | Browser SPA |
+| Job artifacts | Local run dirs | Must be uploaded first |
 
-Incomplete click-through features → Issues. SPA notes: `apps/hub/README.md`.
+Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**. Trajectories are never invented.

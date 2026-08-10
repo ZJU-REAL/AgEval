@@ -59,7 +59,7 @@ uv run bora results share <run_id> --kind attempt --share-org my-lab
 
 # After a suite run produced .bora/suite-runs/<suite_run_id>/summary.json
 uv run bora results upload-suite <database> --suite-run <suite_run_id> [--public] [--agent x] [--model y]
-# Optional: also upload full Attempt evidence for Hub Jobs deep-link (#43)
+# Optional: also pack each task's Attempt tree (Hub can open Job detail)
 uv run bora results upload-suite <database> --suite-run <suite_run_id> --with-attempts
 uv run bora results get-suite <suite_run_id> [--out /tmp/restored-suite]
 uv run bora results list-suites [--database-id <id>]
@@ -67,8 +67,8 @@ uv run bora results list-suites [--database-id <id>]
 uv run bora results list-suites --local <database>
 uv run bora results get-suite <suite_run_id> --local <database>
 
-# Suite list/get task_refs include has_attempt_content when Attempt blobs exist.
-# Hub: Jobs → Open evidence when true; grey "Not uploaded" otherwise.
+# Suite task_refs get has_attempt_content when Attempt blobs exist and are visible.
+# Hub Jobs: clickable when true; grey "Not uploaded" otherwise.
 
 uv run bora cache list
 uv run bora cache purge all --yes
@@ -135,10 +135,31 @@ Joining an org does **not** reveal private results until the owner shares them.
 | --- | --- |
 | POST/GET | `/v1/orgs` |
 | GET | `/v1/orgs/{id}` |
+| DELETE | `/v1/orgs/{id}` (dissolve; fails if packages remain) |
+| POST | `/v1/orgs/join` body `{ "invite_key" }` |
+| POST | `/v1/orgs/{id}/leave` |
 | POST | `/v1/orgs/{id}/claim` |
 | GET/POST | `/v1/orgs/{id}/members` |
 | DELETE | `/v1/orgs/{id}/members/{user}` |
+| GET/POST | `/v1/orgs/{id}/invite-keys` (owner; create returns `invite_key` **once**) |
+| DELETE | `/v1/orgs/{id}/invite-keys/{key_id}` (revoke) |
 | GET/POST/DELETE | `/v1/results/attempts\|suites/{id}/shares` |
+
+**Invite keys:** store only `token_hash` + `token_prefix`. Redeem hashes the
+submitted key; `max_uses` uses a conditional `UPDATE` so concurrent joins cannot
+over-admit. Create returns full `invite_key` once; list/revoke never return it again.
+
+### Attempt file browse
+
+When Attempt archives exist for a suite (e.g. suite upload with `--with-attempts`,
+or a later `results upload`), `task_refs[].has_attempt_content` is set only if
+the caller may read that attempt. File paths follow the same rules as package
+files (no `..`, 2 MiB cap, **413** when larger):
+
+| Method | Path |
+| --- | --- |
+| GET | `/v1/results/attempts/{run_id}/files` |
+| GET | `/v1/results/attempts/{run_id}/files/{path}` |
 
 ### Suite results API
 

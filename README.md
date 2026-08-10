@@ -21,8 +21,9 @@ Agent benchmarks usually score the model and leave the **harness**—orchestrati
 - **Compose Harness × Agent × Model freely** — keep one task harness and switch Codex / Claude / Pi / OpenCode (and models) via ACP for near-cartesian comparison—no per-vendor stdout scraper
 - **Drop an existing harness into a shared boundary** — keep your workflow; the outer layer unifies config lock, isolation (host / Docker), visibility, and independent scoring for cross-framework reproduction
 - **Batch a full Dataset or a parameter matrix** — run every task in a suite, or campaign over allowlisted overrides such as seed / profile
-- **Aggregate suite scores and archive job results** — suite runs write observational `pass_rate` / `mean_score` ; upload/list suite rows on the Registry when you need a shared results store
+- **Aggregate suite scores and archive job results** — suite runs write observational `pass_rate` / `mean_score`; push them to the Registry when you need a shared results store
 - **Browse local suite runs in a Web UI** — `bora view` opens Jobs → Tasks → Attempt over `.bora/suite-runs/`; drill into a run for Trajectory, multi-role Time/Usage, and optional provenance links
+- **Share packages and results on Registry / Hub** — publish under an organization, invite members, share private results; browse remote jobs in the Hub when they are uploaded
 - **Review and export trajectories** — each invoke lands on disk; `bora evidence` exports a sealed copy for failure analysis or training pipelines
 
 ---

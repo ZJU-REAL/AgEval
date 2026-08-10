@@ -1,15 +1,28 @@
 ---
 title: Registry
-description: Share Datasets or suite results via the HTTP service.
+description: Publish Datasets, org access, result archives, and sharing.
 ---
 
-Registry is a standalone HTTP service: publish packages, read files, store results, login.  
-It is **not** the local Viewer.
+Registry is a standalone HTTP service: publish packages, manage orgs, store results, sign in.  
+It is **not** the local Viewer and **not** BORA Core.
 
 ## Flow
 
 1. Start it per [`services/registry/README.md`](https://github.com/ffy6511/BORA/blob/main/services/registry/README.md)  
-2. Upload / list via CLI (see `bora --help` and the registry README)  
-3. Browse in [Hub](/docs/share/hub)  
+2. After CLI login: create an org, publish Datasets under that org, upload suite / Attempt results as needed  
+3. Share private results with an org or user when you want  
+4. Browse in [Hub](/docs/share/hub); Hub uses browser OAuth, CLI uses Device Flow  
 
-Public access policy is operational — trust current deploy settings and Issues.
+Exact commands: `bora --help` and the registry README.
+
+## Ownership (summary)
+
+| Object | Owner | Who can read private |
+| --- | --- | --- |
+| Package (Dataset release) | **organization** | org members / admin |
+| Attempt / suite result | **uploader** | owner / share targets / admin |
+
+Joining an org does **not** reveal others’ private results until they share.  
+Invite keys show the full secret only once at create time; later you only see a prefix.
+
+Whether the service is public is an ops choice.

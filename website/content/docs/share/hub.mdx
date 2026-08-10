@@ -1,34 +1,47 @@
 ---
 title: Hub
-description: 远程 Dataset 目录、Jobs 列表与 Leaderboard。
+description: 远程 Dataset 目录、组织、Jobs 运行结果与 Leaderboard。
 ---
 
-Hub（`apps/hub`）是给人用的网页，连 Registry：
+Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑次结果。
 
-- Dataset 列表与 README  
-- Task 文件预览  
-- Jobs 列表、Leaderboard（按已实现能力）  
+- Dataset 列表（你的组织 / 探索）、README、Task 文件预览  
+- **组织**：成员、组织内的包、别人分享过来的 suite 结果  
+- **组织设置**：邀请码（创建后只展示一次）、离开或解散组织  
+- Task 下的 **Jobs**：已上传运行产物时可点进详情（界面与本机 Viewer 相近，含轨迹）  
+- Leaderboard（以当前实现为准）  
+- **用 GitHub 登录**（浏览器 OAuth；CLI 仍是 Device Flow）
 
-## 本地开发打开
+## 本地开发
 
 ```bash
-# Registry 先起好
+# 终端 A — 先起 Registry（需配置 OAuth）
+export VITE_REGISTRY_PROXY_TARGET=http://127.0.0.1:8700
+uv run --extra registry python -m services.registry.app --host 127.0.0.1 --port 8700
+
+# 终端 B
 cd apps/hub
 pnpm install
-pnpm dev
+pnpm dev   # http://127.0.0.1:5174
 ```
 
 | 路径 | 页面 |
 | --- | --- |
-| `/datasets` | 列表 |
+| `/datasets` | 列表（Your organizations / Explore） |
 | `/datasets/:id` | README · Tasks · Leaderboard |
-| `/login` | 登录 |
+| `/datasets/:id/tasks/:task` | README · Files · Jobs |
+| `/organizations` | 我的组织 · 加入组织 |
+| `/organizations/:orgId` | 概览 · 设置 |
+| `/jobs/...` | 远程 Attempt 详情（需已上传对应运行产物） |
+
+登录：点 **Sign in with GitHub** 即可。命令与部署细节见 `apps/hub/README.md`、`services/registry/README.md`。
 
 ## 和 Viewer 的区别
 
 | | Viewer | Hub |
 | --- | --- | --- |
 | 数据 | 本机 `.bora/suite-runs/` | Registry |
-| 命令 | `bora view` | 浏览器打开 Hub |
+| 入口 | `bora view` | 浏览器打开 Hub |
+| Jobs 产物 | 本地 run 目录 | 需先上传到 Registry |
 
-Jobs 点进完整 Attempt 等能力若仍在建设中，以 Issues 为准。前端细节：`apps/hub/README.md`。
+Jobs 列表里，已有运行产物的行可以点进去看；没上传的会显示 **Not uploaded**，不会编造轨迹。

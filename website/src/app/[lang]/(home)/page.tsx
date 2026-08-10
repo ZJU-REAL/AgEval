@@ -81,8 +81,8 @@ const copy = {
         ],
         [
           "HUB",
-          "Registry Dataset 目录",
-          "浏览包、README、Leaderboard 与 Jobs 列表；与本机 viewer 职责分离。",
+          "Registry 目录 · 组织 · Jobs",
+          "浏览共享的包与组织、Leaderboard；已上传的 Jobs 可点开看运行结果。",
         ],
         [
           "DOCS",
@@ -171,8 +171,8 @@ const copy = {
         ],
         [
           "HUB",
-          "Registry Dataset catalog",
-          "Browse packages, README, Leaderboard, and job lists — separate from the local viewer.",
+          "Registry catalog · orgs · Jobs",
+          "Browse shared packages and orgs, Leaderboard; open uploaded Jobs for run detail.",
         ],
         [
           "DOCS",
