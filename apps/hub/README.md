@@ -58,7 +58,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/datasets/:id/tasks/:task` | README · Files · Jobs (row opens detail when uploaded) |
 | `/organizations` | Your orgs · Join |
 | `/organizations/:orgId` | Overview · Settings |
-| `/jobs/...` | Remote Attempt detail (tabs + trajectory) |
+| `/jobs/...` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |
 | `/login` | Starts browser OAuth |
 | `/login/callback` | OAuth redirect target |
 

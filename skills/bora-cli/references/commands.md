@@ -33,14 +33,21 @@ Stdout JSON (high level):
 
 ## `bora run`
 
-- One foreground Attempt via production composition root.
-- Creates evidence under package `.bora/runs/...` unless overridden internally.
-- `logs` is absolute path to Attempt evidence root when available.
+- One foreground Attempt via production composition root **when** `--task` is set, `-k` defaults to 1, and no `--resume-suite`.
+- Creates evidence under package `tasks/<id>/.bora/runs/...` unless overridden internally.
+- `logs` is absolute path to Attempt evidence root when available (single-Attempt path).
+- **Always-k** (`--n-attempts` / `-k`, integer ≥1): fixed k independent Attempts per task in scope.
+  CLI/job only — not `task.yaml`, not `config_fingerprint`. Feeds `metrics.pass_at_k` / `pass_power_k`.
+- **Suite**: omit `--task` → all members; also used as the job container when `k>1` or resume.
+- **`--max-concurrent-tasks`**: speeds wall time only; does not change k or PASS.
+- **`--resume-suite <suite_run_id>`**: skip finished `(task_id, attempt_index)`, append Attempts, recompute metrics.
+- Suite artifacts: `.bora/suite-runs/<id>/summary.json`, `progress.json`.
 - Per invocation (ACP path): `agent/invocations/<nnnn>-*/trajectory.jsonl` is **turn-level**
   (user + merged assistant/thought + terminal). Stream chunks are not the training default;
   see `docs/design/05-runtime/evidence.md`.
 - Docker packages use L1 path when `provider.kind: docker` (ACP via parent client +
   `docker exec` placement for coding entries).
+- Attempt `result.json` may include `phase_timing` (`prepare` / `run` / `evaluate` / `cleanup`).
 
 ## `bora evidence`
 
@@ -56,4 +63,13 @@ Stdout JSON (high level):
 
 ## Control surface
 
-- `submit` / `status` / `cancel` operate on ControlStore records (sketch maturity).
+- `submit` / `status` / `cancel` operate on ControlStore records.
+- **Suite jobs** (`suite_…`): `status` / `cancel` accept optional `--database` to read
+  `progress.json` or write `cancel.requested` when ControlStore has no row.
+- Suite cancel: stop scheduling new units; SIGTERM stored pid when present.
+
+## Always-k vs campaign
+
+- **Always-k** (`bora run -k`): repeat independent Attempts for pass@k samples.
+- **Campaign** (`bora campaign --matrix`): sweep allowlisted parameters / bindings on one task.
+- Do not treat matrix axes as `n_attempts`.

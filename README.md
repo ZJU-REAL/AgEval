@@ -58,6 +58,15 @@ uv run bora run examples/core --task builtin-executor-conformance \
 # Full Dataset suite (omit --task)
 uv run bora run examples/core --max-concurrent-tasks 2
 
+# Always-k: k independent Attempts per task (CLI/job only; feeds pass@k / pass^k)
+uv run bora run examples/core -k 5 --max-concurrent-tasks 2
+# uv run bora run examples/core --task sdk-agent-session -k 5
+# uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
+
+# Suite job control (optional --database for progress / cancel.requested)
+# uv run bora status suite_<id> --database examples/core
+# uv run bora cancel suite_<id> --database examples/core
+
 # Local results console (build SPA once: cd apps/viewer && pnpm build)
 uv run bora view examples/core --no-browser
 
@@ -150,13 +159,22 @@ tasks/<task_id>/.bora/runs/<run_id>/
 uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
 ```
 
-A **full suite** (omit `--task`) also writes observational aggregates at the Dataset root:
+A **full suite** (omit `--task`), or a single task with `-k` / `--n-attempts` > 1, also writes a suite job under the Dataset root:
 
 ```text
-.bora/suite-runs/<suite_run_id>/summary.json   # metrics.pass_rate / mean_score, task_refs
+.bora/suite-runs/<suite_run_id>/
+├── summary.json     # metrics.pass_rate / mean_score / pass_at_k / pass_power_k, task_refs
+├── progress.json    # multi-unit progress (when running / after)
+└── cancel.requested # present if suite cancel was requested
 ```
 
-PASS remains per-task only. Optional Registry archive: `bora results upload-suite` (see CLI README). Local UI: `bora view <dataset>`.
+| Metric | Role |
+| --- | --- |
+| `pass_rate` / `mean_score` | Observational skim |
+| `pass_at_k` / `pass_power_k` | Job stats after Always-k (mean over tasks); **not** package identity |
+| `n_attempts` | Job k budget |
+
+PASS remains **per-task** only. `n_attempts` is **CLI/job only** (never `task.yaml` / fingerprint). Attempt `result.json` may include `phase_timing`. Optional Registry archive: `bora results upload-suite` (see CLI README). Local UI: `bora view <dataset>` (Timing / Tokens on Attempt pages).
 
 ---
 

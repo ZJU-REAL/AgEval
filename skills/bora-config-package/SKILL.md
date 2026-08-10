@@ -46,9 +46,10 @@ database_id: org/my-suite
 version: "0.1.0"
 tasks:
   root: tasks
-# optional defaults (suite scheduling only):
+# optional defaults (suite scheduling only — not Always-k):
 # defaults:
 #   max_concurrent_tasks: 1
+# n_attempts / -k is CLI/job only — never a package field
 ```
 
 ## Minimal member `task.yaml` skeleton (role slots only)
@@ -145,7 +146,7 @@ bindings:
 
 ### Suite summary 自检字段
 
-`bora suite` / suite run 结束写入 `.bora/suite-runs/<id>/summary.json`：
+`bora run` suite / Always-k 结束写入 `.bora/suite-runs/<id>/summary.json`：
 
 | 字段 | 含义 |
 | --- | --- |
@@ -153,8 +154,13 @@ bindings:
 | `config_homogeneous` | suite 级 job 轴（`profiles.yaml` / `job_overlay`）一致 → `true`；角色槽拓扑不同**不**算不一致 |
 | `actors_summary` | `[{profile_id, entry, model}, …]` |
 | `agent_label` / `model_label` | 同构时从 actors 派生；异构时留空 |
+| `metrics.pass_rate` / `mean_score` | 观测聚合（非 suite PASS） |
+| `metrics.pass_at_k` / `pass_power_k` | Always-k job 指标（按 task mean）；**不进** fingerprint |
+| `metrics.n_attempts` | job k 预算（CLI only） |
 
-Upload（`bora results upload-suite`）**投影**这些字段到 Registry；Hub **不**在 upload 时解 tar 硬提配置。
+**禁止**在 `task.yaml` / `bora.yaml` 增加 `n_attempts`。Always-k 只走 `bora run -k` / job 参数。
+
+Upload（`bora results upload-suite`）**投影**这些字段到 Registry；Hub **不**在 upload 时解 tar 硬提配置。Hub 榜 pass@k 列见 #60。
 
 **Hub Leaderboard 消费（#40）：**
 

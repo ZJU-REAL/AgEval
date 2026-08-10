@@ -13,6 +13,9 @@ uv run bora run <dataset> --task <task_id>
 
 ```bash
 uv run bora run examples/core --task sdk-agent-session
+
+# Always-k：同一 task 固定 k 次独立 Attempt（CLI only；默认 k=1）
+uv run bora run examples/core --task sdk-agent-session -k 5
 ```
 
 只检查配置、不跑 agent：
@@ -21,12 +24,14 @@ uv run bora run examples/core --task sdk-agent-session
 uv run bora lock examples/core --task config-minimal
 ```
 
-`--task` 必须等于成员目录名和 `task.yaml` 里的 `task_id`。
+`--task` 必须等于成员目录名和 `task.yaml` 里的 `task_id`。  
+`k=1` 且无 `--resume-suite` 时，stdout 仍是单次 Attempt 的 JSON（兼容旧脚本）；`k>1` 走 suite job，写 `.bora/suite-runs/`。更多见 [Suite](/docs/run/suite)。
 
 ## 跑完你会看到什么
 
 - 终端里的 **Result 摘要**（状态、分数相关字段、错误信息）  
-- **`logs` 路径**：这次 Attempt 的证据目录  
+- **`logs` 路径**：这次 Attempt 的证据目录（`k=1` 路径）  
+- `k>1` 时：suite `summary.json` 里的 **pass@k / pass^k** 等 job 指标  
 
 PASS / FAIL 来自**独立评测**，不是 harness「跑完了」。更细的读法见 [结果与 PASS](/docs/reference/results-and-pass)。
 

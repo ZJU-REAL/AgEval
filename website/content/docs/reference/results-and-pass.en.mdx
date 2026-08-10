@@ -1,6 +1,6 @@
 ---
 title: Results and PASS
-description: How to read Result; what counts as pass.
+description: How to read Result; pass@k is a job metric, not suite PASS.
 ---
 
 ## Hard boundaries
@@ -8,16 +8,31 @@ description: How to read Result; what counts as pass.
 1. Harness completed **≠** PASS  
 2. Trajectory / tokens / agent self-report **≠** score  
 3. PASS / FAIL from the **independent evaluator** only  
+4. Suite / job aggregates (including pass@k) **≠** suite-level PASS authority  
 
 ## On the terminal
 
-- **Result** — status and evaluation for this run  
-- **`logs`** — Attempt evidence locator  
-- Suite aggregates — observational, not suite-level PASS  
+- **Result** — status and evaluation for this Attempt  
+- **`logs`** — Attempt evidence locator (typical when `k=1`)  
+- Suite `pass_rate` / `mean_score` — observational  
+
+## Always-k and pass@k / pass^k
+
+After Always-k (`-k` / `--n-attempts`), suite `summary.json` → `metrics` includes:
+
+| Key | Meaning |
+| --- | --- |
+| `pass_at_k` | pass@k (unbiased “≥1 success”; Harbor-style) |
+| `pass_power_k` | pass^k (all-k success estimate) |
+| Suite score | **Mean over tasks** for that metric (omit tasks with too few samples) |
+
+These are **job summary metrics**, not package identity / `config_fingerprint`.  
+Hub Leaderboard columns for pass@k are a follow-up — do not infer “on the board” from local summary alone.
 
 ## Browse
 
-[Viewer](/docs/run/local-viewer).
+[Viewer](/docs/run/local-viewer).  
+Attempt pages may show **Timing** (and **Tokens** when present). Time / tokens are **hints**, not PASS.
 
 ## Failure kinds
 

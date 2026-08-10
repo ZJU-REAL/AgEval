@@ -16,6 +16,8 @@ description: bora.yaml / task.yaml 字段与校验要点速查。
 | `defaults` | 仅 `max_concurrent_tasks`（≥1） |
 | 禁止 | harness / provider / limits / evaluation / agent_profiles |
 
+**不在** yaml 里：`n_attempts` / Always-k（只走 CLI/job，见 [Suite](/docs/run/suite)）。
+
 空 suite → lock 失败。
 
 ## 成员 `task.yaml`

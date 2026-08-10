@@ -24,8 +24,9 @@ Serves `apps/viewer/dist/`. Change `--port` if needed.
 | --- | --- |
 | Jobs | Local suite runs |
 | Tasks | Per-task status / score |
-| Attempt | Outcome, actors, evidence tabs |
+| Attempt | Outcome, **Timing** (and **Tokens** when present), actors, evidence tabs |
 
+Timing comes from Attempt `phase_timing` (`prepare` / `run` / `evaluate` / `cleanup`); hover bar segments for durations.  
 Time / tokens are **hints**, not PASS. Trajectory is not scoring authority.
 
 Viewer does **not** talk to Registry — see [Hub](/docs/share/hub). SPA details: `apps/viewer/README.md`.

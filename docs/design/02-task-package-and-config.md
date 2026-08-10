@@ -188,7 +188,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 | harness / evaluator / gold / intent `limits` / 角色槽拓扑 | **Task / package 身份** | 改了 ≈ 新 task 或新 version |
 | agent entry + model（`profiles.yaml` / CLI overlay） | **Job binding** | 新 `config_fingerprint` |
 | host secrets（`.env` 值） | 本机 only | 不进 fingerprint / lock / upload |
-| suite concurrency / pre–pass@k `n_attempts` | CLI / job 调度 | **不是**排行榜维度 |
+| suite concurrency / Always-k `n_attempts`（及 pass@k job 指标） | CLI / job 调度；**禁止**写进 `task.yaml` | **不是**排行榜身份键（metrics 另列；Hub 呈现见 #60） |
 
 **Merge 顺序（Config Core 唯一读者）：**
 
@@ -608,27 +608,31 @@ bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Databa
 
 ## Suite 执行 vs Campaign
 
-| | Suite run | Campaign |
-| --- | --- | --- |
-| 轴 | 同一 Database 的 **task_id** | 同一 task 的 **parameter matrix** |
-| CLI | `bora run <database> [--task] [--max-concurrent-tasks N]` | `bora campaign … --matrix` |
-| PASS | **仅** per-task evaluator；无 suite PASS | 每 variant 独立 Trial PASS |
-| 失败 | 默认不取消其余 task | 既有 campaign 策略 |
+| | Suite run | Campaign | Always-k |
+| --- | --- | --- | --- |
+| 轴 | 同一 Database 的 **task_id** | 同一 task 的 **parameter matrix** | 每 task **k 次独立 Attempt** |
+| CLI | `bora run <database> [--task] [--max-concurrent-tasks N] [-k N] [--resume-suite id]` | `bora campaign … --matrix` | 同上 `-k` / `--n-attempts`（**非** matrix） |
+| PASS | **仅** per-task evaluator；无 suite PASS | 每 variant 独立 Trial PASS | 仍仅 per-Attempt evaluator；job 再算 pass@k |
+| 失败 | 默认可 `bora cancel suite_…` 停新 unit | 既有 campaign 策略 | 补跑只追加 Attempt |
 
-Summary 写在 Database 根：`.bora/suite-runs/<suite_run_id>/summary.json`。
+Summary 写在 Database 根：`.bora/suite-runs/<suite_run_id>/summary.json`（另有 `progress.json`；cancel 可写 `cancel.requested`）。
 
 ### Suite metrics（观测聚合，非 PASS 权威）
 
 Suite summary 含 `metrics` 对象（`bora.suite.summary/1` 附加字段），供 job/dataset 级展示与 Registry suite-result 上传：
 
-| 字段 | 公式 |
+| 字段 | 公式 / 语义 |
 | --- | --- |
-| `pass_rate` | `count(status==PASS) / n_tasks` |
+| `pass_rate` | `count(status==PASS) / n_tasks`（一 task 多 Attempt 时，按实现的 task 行聚合规则） |
 | `mean_score` | 各 task `score` 的算术平均；**缺 score / 非数值 / status=ERROR → 0.0**（Harbor 缺 reward 当 0） |
 | `n_tasks` / `n_pass` / `n_fail` / `n_error` | 计数；未知 status 计入 `n_error` |
 | `missing_score_as` | 固定 `0.0`（文档化默认） |
+| `n_attempts` | 本次 job 的 Always-k 预算（CLI/job；**不进** fingerprint） |
+| `pass_at_k` | **pass@k**：无偏估计 \(1 - C(n-c,k)/C(n,k)\)（Harbor / Chen）；suite 分 = **对 task 取 mean**；`n < k` 的 task 不进该 k 分母 |
+| `pass_power_k` | **pass^k**：\((c/n)^k\)（k 次都成功）；同样对 task 取 mean |
 
-**禁止** suite-level PASS 字段作为最终权威；PASS 仅 per-task evaluator。`exit_code` 与 `counts` 仍是操作者退出/计数语义，不是榜单 PASS。
+**禁止** suite-level PASS 字段作为最终权威；PASS 仅 per-task evaluator。`exit_code` 与 `counts` 仍是操作者退出/计数语义，不是榜单 PASS。  
+pass@k / pass^k **不是** package 身份键；Hub Leaderboard 列呈现为 follow-up（#60）。
 
 ### Suite/job 结果上传（Registry）
 

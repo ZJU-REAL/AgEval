@@ -34,12 +34,14 @@ uv run bora --help
 | `bora lock ... --set /parameters/seed=7`                   | Allowlisted override                                                 |
 | `bora lock/run ... --profiles path/to/profiles.yaml`       | Alternate job binding file (replaces Database `profiles.yaml`)       |
 | `bora run <package> --task <id>`                           | One foreground Attempt                                               |
+| `bora run <package> [-k N] [--max-concurrent-tasks N]`     | Suite / Always-k job (`-k` = `--n-attempts`; CLI only)               |
+| `bora run … --resume-suite suite_<id> [--task id] -k N`  | Append Attempts into existing suite job; recompute pass@k / pass^k   |
 | `bora run ... --set '/bindings/solver/options/entry="pi"'` | Job binding override (entry/model; #59)                              |
-| `bora campaign <package> --task <id> --matrix ...`         | Serial matrix (`/parameters/*` or `/bindings/<role>/…`)               |
+| `bora campaign <package> --task <id> --matrix ...`         | Serial matrix (`/parameters/*` or `/bindings/<role>/…`); ≠ Always-k  |
 | `bora evidence <logs-path> --out <dir>`                    | Sealed trajectory export (no score change)                           |
 | `bora results upload-suite …`                              | Suite aggregates → Registry (includes job_overlay when present)      |
 | `bora results export-profiles <suite_run_id> --out …`      | Rehydrate job binding as profiles.yaml (#59; locators only)          |
-| `bora submit` / `bora status` / `bora cancel`              | Durable control sketch (v0.12)                                       |
+| `bora submit` / `bora status` / `bora cancel`              | Durable Run **or suite job** (`suite_…`; status/cancel may take `--database`) |
 
 Discover flags with `uv run bora <cmd> --help`. Source of truth: `src/bora/cli/main.py`.
 
@@ -96,11 +98,23 @@ Value after `=` is JSON (strings need quotes):
 
 ## Interpret `bora run` JSON
 
-Typical stdout fields: `status`, `score`, `assurance`, `agent_invocations`, `evidence_path`, **`logs`** (Attempt evidence root).
+**Single Attempt** (`--task` and default `-k 1`, no resume): typical fields `status`, `score`, `assurance`, `agent_invocations`, `evidence_path`, **`logs`** (Attempt evidence root).
 
 - Inspect trajectory: open `$logs/agent/invocations/<nnnn>-*/trajectory.jsonl` (**turn-level** training rows) and `events.jsonl` (optional stream/debug)
 - Export: `uv run bora evidence "$logs" --out /tmp/bora-export`
 - Trajectory presence **never** upgrades score
+
+**Suite / Always-k** (omit `--task`, or `-k` > 1, or `--resume-suite`): job under `.bora/suite-runs/<suite_run_id>/`.
+
+| Path | Content |
+| --- | --- |
+| `summary.json` → `metrics` | `pass_rate`, `mean_score`, `pass_at_k`, `pass_power_k`, `n_attempts` |
+| `progress.json` | Multi-unit progress |
+| Attempt `result.json` | May include `phase_timing` (prepare/run/evaluate/cleanup) |
+
+- pass@k / pass^k are **job** metrics (mean over tasks); **not** package identity / fingerprint  
+- `n_attempts` is **CLI/job only** — never invent a `task.yaml` field  
+- Concurrency (`--max-concurrent-tasks`) only speeds scheduling
 
 ## Offline / fail-closed
 
