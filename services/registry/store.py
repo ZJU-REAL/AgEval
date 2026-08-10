@@ -53,6 +53,8 @@ class AttemptResultRow:
     size: int
     created_at: float
     uploaded_by: str = ""
+    # Optional link to parent suite/job (#43); empty on standalone uploads.
+    suite_run_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -606,6 +608,10 @@ class MetadataStore:
                 conn.execute(
                     "ALTER TABLE attempt_results ADD COLUMN uploaded_by TEXT NOT NULL DEFAULT ''"
                 )
+            if "suite_run_id" not in att_cols:
+                conn.execute(
+                    "ALTER TABLE attempt_results ADD COLUMN suite_run_id TEXT NOT NULL DEFAULT ''"
+                )
             suite_cols = {
                 str(r[1]) for r in conn.execute("PRAGMA table_info(suite_results)").fetchall()
             }
@@ -706,8 +712,9 @@ class MetadataStore:
                     """
                     INSERT INTO attempt_results(
                         run_id, database_id, task_id, lock_digest, status,
-                        visibility, blob_digest, size, created_at, uploaded_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        visibility, blob_digest, size, created_at, uploaded_by,
+                        suite_run_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row.run_id,
@@ -720,6 +727,7 @@ class MetadataStore:
                         row.size,
                         row.created_at,
                         row.uploaded_by or "",
+                        row.suite_run_id or "",
                     ),
                 )
                 conn.commit()
@@ -734,6 +742,19 @@ class MetadataStore:
             )
             r = cur.fetchone()
             return self._attempt_row(r) if r else None
+
+    def existing_attempt_ids(self, run_ids: list[str] | set[str]) -> set[str]:
+        """Return the subset of *run_ids* that already have attempt rows (any visibility)."""
+        ids = sorted({str(r).strip() for r in run_ids if r and str(r).strip()})
+        if not ids:
+            return set()
+        placeholders = ",".join("?" for _ in ids)
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT run_id FROM attempt_results WHERE run_id IN ({placeholders})",
+                ids,
+            )
+            return {str(r["run_id"]) for r in cur.fetchall()}
 
     def list_attempts(
         self,
@@ -841,6 +862,9 @@ class MetadataStore:
     def _attempt_row(r: sqlite3.Row) -> AttemptResultRow:
         keys = r.keys()
         uploaded_by = str(r["uploaded_by"]) if "uploaded_by" in keys and r["uploaded_by"] else ""
+        suite_run_id = (
+            str(r["suite_run_id"]) if "suite_run_id" in keys and r["suite_run_id"] else ""
+        )
         return AttemptResultRow(
             run_id=r["run_id"],
             database_id=r["database_id"],
@@ -852,6 +876,7 @@ class MetadataStore:
             size=int(r["size"]),
             created_at=float(r["created_at"]),
             uploaded_by=uploaded_by,
+            suite_run_id=suite_run_id,
         )
 
     @staticmethod
@@ -1392,6 +1417,10 @@ class PostgresMetadataStore:
                 "ADD COLUMN IF NOT EXISTS uploaded_by TEXT NOT NULL DEFAULT ''"
             )
             conn.execute(
+                "ALTER TABLE attempt_results "
+                "ADD COLUMN IF NOT EXISTS suite_run_id TEXT NOT NULL DEFAULT ''"
+            )
+            conn.execute(
                 "ALTER TABLE suite_results "
                 "ADD COLUMN IF NOT EXISTS uploaded_by TEXT NOT NULL DEFAULT ''"
             )
@@ -1494,8 +1523,9 @@ class PostgresMetadataStore:
                     """
                     INSERT INTO attempt_results(
                         run_id, database_id, task_id, lock_digest, status,
-                        visibility, blob_digest, size, created_at, uploaded_by
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        visibility, blob_digest, size, created_at, uploaded_by,
+                        suite_run_id
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         row.run_id,
@@ -1508,6 +1538,7 @@ class PostgresMetadataStore:
                         row.size,
                         row.created_at,
                         row.uploaded_by or "",
+                        row.suite_run_id or "",
                     ),
                 )
                 conn.commit()
@@ -1527,6 +1558,18 @@ class PostgresMetadataStore:
                 return None
             cols = [d.name for d in cur.description] if cur.description else []
             return self._attempt_from_cols(cols, r)
+
+    def existing_attempt_ids(self, run_ids: list[str] | set[str]) -> set[str]:
+        ids = sorted({str(r).strip() for r in run_ids if r and str(r).strip()})
+        if not ids:
+            return set()
+        placeholders = ",".join("%s" for _ in ids)
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT run_id FROM attempt_results WHERE run_id IN ({placeholders})",
+                ids,
+            )
+            return {str(r[0]) for r in cur.fetchall()}
 
     def list_attempts(
         self,
@@ -1658,6 +1701,7 @@ class PostgresMetadataStore:
             size=int(d["size"]),
             created_at=float(d["created_at"]),
             uploaded_by=str(d.get("uploaded_by") or ""),
+            suite_run_id=str(d.get("suite_run_id") or ""),
         )
 
     @staticmethod
@@ -2111,6 +2155,8 @@ def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
     }
     if row.uploaded_by:
         out["uploaded_by"] = row.uploaded_by
+    if row.suite_run_id:
+        out["suite_run_id"] = row.suite_run_id
     return out
 
 
@@ -2155,8 +2201,16 @@ def share_to_dict(row: ResultShareRow) -> dict[str, Any]:
     }
 
 
-def suite_to_dict(row: SuiteResultRow) -> dict[str, Any]:
-    """Serialize suite result; never invent a suite-level PASS field."""
+def suite_to_dict(
+    row: SuiteResultRow,
+    *,
+    attempt_content_ids: set[str] | None = None,
+) -> dict[str, Any]:
+    """Serialize suite result; never invent a suite-level PASS field.
+
+    When *attempt_content_ids* is provided, each task_ref gains
+    ``has_attempt_content`` (bool) for Hub Jobs deep-link readiness (#43).
+    """
     try:
         metrics = json.loads(row.metrics_json)
     except (json.JSONDecodeError, TypeError):
@@ -2169,6 +2223,18 @@ def suite_to_dict(row: SuiteResultRow) -> dict[str, Any]:
         metrics = {}
     if not isinstance(task_refs, list):
         task_refs = []
+    if attempt_content_ids is not None:
+        enriched: list[Any] = []
+        for ref in task_refs:
+            if not isinstance(ref, dict):
+                enriched.append(ref)
+                continue
+            item = dict(ref)
+            rid = item.get("run_id")
+            rid_s = str(rid).strip() if rid is not None else ""
+            item["has_attempt_content"] = bool(rid_s and rid_s in attempt_content_ids)
+            enriched.append(item)
+        task_refs = enriched
     out: dict[str, Any] = {
         "suite_run_id": row.suite_run_id,
         "database_id": row.database_id,
@@ -2202,6 +2268,26 @@ def suite_to_dict(row: SuiteResultRow) -> dict[str, Any]:
         actors = cfg.get("actors_summary")
         if isinstance(actors, list):
             out["actors_summary"] = actors
+    return out
+
+
+def _run_ids_from_tasks_json(tasks_json: str) -> list[str]:
+    try:
+        refs = json.loads(tasks_json)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(refs, list):
+        return []
+    out: list[str] = []
+    for ref in refs:
+        if not isinstance(ref, dict):
+            continue
+        rid = ref.get("run_id")
+        if rid is None:
+            continue
+        text = str(rid).strip()
+        if text:
+            out.append(text)
     return out
 
 

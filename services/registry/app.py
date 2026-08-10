@@ -20,6 +20,8 @@ Endpoints:
   GET  /v1/results/attempts
   GET  /v1/results/attempts/{run_id}
   GET  /v1/results/attempts/{run_id}/content
+  GET  /v1/results/attempts/{run_id}/files
+  GET  /v1/results/attempts/{run_id}/files/{path}
   GET|POST|DELETE /v1/results/attempts/{run_id}/shares
   POST /v1/results/suites
   GET  /v1/results/suites
@@ -372,6 +374,18 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             m = re.fullmatch(r"/v1/results/attempts/([^/]+)/content", path)
             if m:
                 self._serve_attempt_content(run_id=m.group(1), auth=auth)
+                return
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/files/(.+)", path)
+            if m:
+                self._serve_attempt_file(
+                    run_id=m.group(1),
+                    file_path=m.group(2),
+                    auth=auth,
+                )
+                return
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/files", path)
+            if m:
+                self._serve_attempt_files_list(run_id=m.group(1), auth=auth)
                 return
             m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
             if m:
@@ -1174,6 +1188,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             visibility = str(meta.get("visibility") or "private")
             blob_digest = str(meta.get("blob_digest") or "")
             size = int(meta.get("size") or len(archive))
+            suite_run_id = str(meta.get("suite_run_id") or "").strip()
             if not run_id or not database_id:
                 _json_response(
                     self,
@@ -1214,6 +1229,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 size=size,
                 created_at=now(),
                 uploaded_by=auth.user_id,
+                suite_run_id=suite_run_id,
             )
             try:
                 state.blobs.put_if_absent(blob_digest, archive, prefix="results")
@@ -1284,6 +1300,105 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.send_header("X-Bora-Media-Type", RESULT_MEDIA_TYPE)
             self.end_headers()
             self.wfile.write(data)
+
+        def _resolve_visible_attempt(
+            self, *, run_id: str, auth: TokenInfo
+        ) -> AttemptResultRow | None:
+            row = state.meta.get_attempt(run_id)
+            if row is None or not _visible_result_row(
+                state,
+                result_kind="attempt",
+                result_id=row.run_id,
+                visibility=row.visibility,
+                uploaded_by=row.uploaded_by,
+                auth=auth,
+            ):
+                return None
+            return row
+
+        def _serve_attempt_files_list(self, *, run_id: str, auth: TokenInfo) -> None:
+            from services.registry.package_files import get_or_build_index
+
+            row = self._resolve_visible_attempt(run_id=run_id, auth=auth)
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                return
+            archive = state.blobs.get(row.blob_digest, prefix="results")
+            if archive is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            try:
+                index = get_or_build_index(archive, package_digest=row.blob_digest)
+            except Exception as exc:  # noqa: BLE001
+                _json_response(
+                    self,
+                    500,
+                    {"error": "archive_error", "message": f"cannot index attempt: {exc}"},
+                )
+                return
+            _json_response(
+                self,
+                200,
+                {
+                    "run_id": row.run_id,
+                    "database_id": row.database_id,
+                    "task_id": row.task_id,
+                    "digest": row.blob_digest,
+                    "items": index.list_items(),
+                },
+            )
+
+        def _serve_attempt_file(
+            self, *, run_id: str, file_path: str, auth: TokenInfo
+        ) -> None:
+            from services.registry.package_files import (
+                MAX_FILE_BYTES,
+                PackageFileNotFound,
+                PackageFileTooLarge,
+                PackagePathError,
+                file_payload,
+                read_member,
+            )
+
+            row = self._resolve_visible_attempt(run_id=run_id, auth=auth)
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                return
+            archive = state.blobs.get(row.blob_digest, prefix="results")
+            if archive is None:
+                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+                return
+            try:
+                data, size = read_member(archive, unquote(file_path))
+            except PackagePathError as exc:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_path", "message": str(exc)},
+                )
+                return
+            except PackageFileNotFound:
+                _json_response(self, 404, {"error": "not_found", "message": "file not found"})
+                return
+            except PackageFileTooLarge as exc:
+                _json_response(
+                    self,
+                    413,
+                    {
+                        "error": "file_too_large",
+                        "message": str(exc),
+                        "max_bytes": MAX_FILE_BYTES,
+                        "path": exc.path,
+                        "size": exc.size,
+                    },
+                )
+                return
+            try:
+                safe_path = unquote(file_path)
+            except Exception:  # noqa: BLE001
+                safe_path = file_path
+            payload = file_payload(safe_path, data, size=size, truncated=False)
+            _json_response(self, 200, payload)
 
         # ---- suite results -----------------------------------------------
 
@@ -1434,14 +1549,26 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, suite_to_dict(row))
 
+        def _suite_attempt_ids(self, rows: list[Any]) -> set[str]:
+            from services.registry.store import _run_ids_from_tasks_json
+
+            run_ids: list[str] = []
+            for r in rows:
+                run_ids.extend(_run_ids_from_tasks_json(r.tasks_json))
+            try:
+                return state.meta.existing_attempt_ids(run_ids)
+            except Exception:  # noqa: BLE001
+                # Fail open on projection only: list still works without flags.
+                return set()
+
         def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             database_id = (qs.get("database_id") or [None])[0]
             rows = state.meta.list_suites(
                 database_id=database_id or None,
                 include_private=True,
             )
-            items = [
-                suite_to_dict(r)
+            visible = [
+                r
                 for r in rows
                 if _visible_result_row(
                     state,
@@ -1452,6 +1579,8 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     auth=auth,
                 )
             ]
+            attempt_ids = self._suite_attempt_ids(visible)
+            items = [suite_to_dict(r, attempt_content_ids=attempt_ids) for r in visible]
             _json_response(self, 200, {"items": items})
 
         def _serve_suite_meta(self, *, suite_run_id: str, auth: TokenInfo) -> None:
@@ -1466,7 +1595,8 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             ):
                 _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
                 return
-            _json_response(self, 200, suite_to_dict(row))
+            attempt_ids = self._suite_attempt_ids([row])
+            _json_response(self, 200, suite_to_dict(row, attempt_content_ids=attempt_ids))
 
         def _serve_suite_content(self, *, suite_run_id: str, auth: TokenInfo) -> None:
             row = state.meta.get_suite(suite_run_id)
