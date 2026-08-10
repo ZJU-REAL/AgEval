@@ -118,22 +118,31 @@ uv run bora run examples/core
 
 # Allowlisted --set (JSON Pointer = JSON value)
 uv run bora lock examples/core --task config-minimal --set /parameters/seed=7
+# Job binding override (#59): entry/model live in profiles.yaml, not task.yaml
 uv run bora run examples/core --task sdk-agent-session \
-  --set '/parameters/active_profile="pi-mini"'
+  --set '/bindings/solver/options/entry="pi"'
+# Or replace Database profiles.yaml for the run:
+# uv run bora run examples/core --task sdk-agent-session --profiles /path/to/profiles.yaml
 ```
 
 ### Allowlisted `--set` pointers
 
-Only these Config Core pointers are accepted (others fail closed):
+Fixed parameter leaves (others fail closed):
 
 - `/parameters/seed`
 - `/parameters/active_profile`
-- `/limits/wall_time_seconds`
-- `/limits/agent_invocations`
-- `/limits/environment_actions`
-- `/limits/memory_mb`
 
-String values need JSON quotes, e.g. `--set '/parameters/active_profile="opencode-acp"'`.
+Job binding axes (#59):
+
+- `/bindings/<role_id>/model`
+- `/bindings/<role_id>/executor`
+- `/bindings/<role_id>/api_key`
+- `/bindings/<role_id>/base_url`
+- `/bindings/<role_id>/options/entry`
+
+**Not** overridable: intent `limits.*` (task contract).
+
+String values need JSON quotes, e.g. `--set '/bindings/solver/options/entry="pi"'`.
 
 ### Evidence and trajectory
 

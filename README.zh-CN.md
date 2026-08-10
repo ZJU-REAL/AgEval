@@ -51,9 +51,9 @@ uv run bora lock examples/core --task config-minimal
 # 真实多轮 agent 路径（需本机 ACP entry 就绪 + 凭证）
 uv run bora run examples/core --task sdk-agent-session
 
-# 用 allowlisted 覆盖切换 coding-agent entry
+# 用 job binding 覆盖切换 coding-agent entry（#59）
 uv run bora run examples/core --task builtin-executor-conformance \
-  --set '/parameters/active_profile="pi-mini"'
+  --set '/bindings/solver/options/entry="pi"'
 
 # 整份 Dataset suite（省略 --task）
 uv run bora run examples/core --max-concurrent-tasks 2
@@ -85,9 +85,11 @@ uv run bora executors -v
 ```text
 examples/core/                    # 一个 Dataset
 ├── bora.yaml                     # 套件元数据、tasks 根
+├── profiles.yaml                 # job binding（role → entry/model；#59）
+├── env.example                   # 仅 credential locator 名
 └── tasks/
     └── sdk-agent-session/
-        ├── task.yaml             # harness、provider、agent_profiles、limits、evaluation
+        ├── task.yaml             # 角色槽 + intent（无 entry/model）
         ├── harness.py            # Attempt 内 workflow
         ├── evaluator.py          # 独立 PASS/FAIL
         └── …
@@ -102,12 +104,17 @@ examples/core/                    # 一个 Dataset
 CLI 指向 **Dataset 根**，`--task <id>` 选成员。列表见 [`examples/README.md`](examples/README.md)。
 
 ```yaml
+# task.yaml — 仅角色槽
 agent_profiles:
-  - id: codex-mini
-    executor: acp
-    options:
-      entry: codex # 以 bora executors 为准
-    model: gpt-5.4-mini
+  - id: solver
+
+# Database profiles.yaml — job binding
+# format: bora.profiles/1
+# bindings:
+#   solver:
+#     executor: acp
+#     options: { entry: codex }  # 以 bora executors 为准
+#     model: gpt-5.4-mini
 ```
 
 ---

@@ -51,9 +51,9 @@ uv run bora lock examples/core --task config-minimal
 # Real multi-turn agent path (host ACP entry + credentials required)
 uv run bora run examples/core --task sdk-agent-session
 
-# Switch coding-agent entry via allowlisted override
+# Switch coding-agent entry via job binding override (#59)
 uv run bora run examples/core --task builtin-executor-conformance \
-  --set '/parameters/active_profile="pi-mini"'
+  --set '/bindings/solver/options/entry="pi"'
 
 # Full Dataset suite (omit --task)
 uv run bora run examples/core --max-concurrent-tasks 2
@@ -85,9 +85,11 @@ A **Dataset** is the delivery unit: root `bora.yaml` plus member tasks.
 ```text
 examples/core/                    # one Dataset
 ├── bora.yaml                     # suite metadata, tasks root
+├── profiles.yaml                 # job binding (role → entry/model; #59)
+├── env.example                   # credential locator names only
 └── tasks/
     └── sdk-agent-session/
-        ├── task.yaml             # harness, provider, agent_profiles, limits, evaluation
+        ├── task.yaml             # role slots + intent (no entry/model)
         ├── harness.py            # workflow inside the Attempt
         ├── evaluator.py          # independent PASS/FAIL
         └── …
@@ -102,12 +104,17 @@ examples/core/                    # one Dataset
 CLI takes the **Dataset root**; `--task <id>` selects a member. Full list: [`examples/README.md`](examples/README.md).
 
 ```yaml
+# task.yaml — role slots only
 agent_profiles:
-  - id: codex-mini
-    executor: acp
-    options:
-      entry: codex # see: bora executors
-    model: gpt-5.4-mini
+  - id: solver
+
+# Database profiles.yaml — job binding
+# format: bora.profiles/1
+# bindings:
+#   solver:
+#     executor: acp
+#     options: { entry: codex }  # see: bora executors
+#     model: gpt-5.4-mini
 ```
 
 ---
