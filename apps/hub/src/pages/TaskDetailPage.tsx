@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
@@ -35,6 +35,7 @@ export function TaskDetailPage() {
   const { datasetId: rawId, taskId: rawTask } = useParams();
   const datasetId = decodeDatasetId(rawId || "");
   const taskId = decodeURIComponent(rawTask || "");
+  const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
   // Default tab: README (not Files)
   const tab = (search.get("tab") as Tab) || "readme";
@@ -285,8 +286,9 @@ export function TaskDetailPage() {
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-mute">
-              Jobs rows always come from suite summary. Open evidence only when
-              full Attempt content was uploaded (grey = summary only).
+              Each row is this task&apos;s result inside a suite run. Click a
+              row with full Attempt evidence to open the detail view (like local
+              viewer). Grey rows are summary-only.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>
@@ -297,7 +299,6 @@ export function TaskDetailPage() {
                     <TableHead className="text-right">Score</TableHead>
                     <TableHead>Agent</TableHead>
                     <TableHead>Model</TableHead>
-                    <TableHead>Evidence</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -309,9 +310,40 @@ export function TaskDetailPage() {
                         ? `/datasets/${encodeURIComponent(datasetId)}/tasks/${encodeURIComponent(taskId)}/attempts/${encodeURIComponent(j.run_id)}`
                         : null;
                     return (
-                      <TableRow key={j.suite_run_id}>
+                      <TableRow
+                        key={j.suite_run_id}
+                        className={cn(
+                          canOpen && "cursor-pointer",
+                          !canOpen && "opacity-70",
+                        )}
+                        onClick={() => {
+                          if (!evidenceHref) return;
+                          navigate(evidenceHref);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!evidenceHref) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(evidenceHref);
+                          }
+                        }}
+                        tabIndex={canOpen ? 0 : undefined}
+                        role={canOpen ? "link" : undefined}
+                        title={
+                          canOpen
+                            ? "Open attempt detail"
+                            : j.run_id
+                              ? "Summary only — full Attempt not uploaded"
+                              : "No run_id for this task"
+                        }
+                      >
                         <TableCell className="font-mono text-xs">
-                          {j.suite_run_id}
+                          <span className="text-ink">{j.suite_run_id}</span>
+                          {!canOpen ? (
+                            <span className="ml-2 text-[11px] text-mute font-sans">
+                              summary only
+                            </span>
+                          ) : null}
                         </TableCell>
                         <TableCell className="text-sm">
                           {j.status || "-"}
@@ -324,27 +356,6 @@ export function TaskDetailPage() {
                         </TableCell>
                         <TableCell className="text-sm font-mono text-xs">
                           {j.model_label || "-"}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {evidenceHref ? (
-                            <Link
-                              to={evidenceHref}
-                              className="text-ink font-medium underline-offset-2 hover:underline"
-                            >
-                              Open evidence
-                            </Link>
-                          ) : (
-                            <span
-                              className="text-mute"
-                              title={
-                                j.run_id
-                                  ? "Attempt evidence not uploaded yet"
-                                  : "No run_id on this task ref"
-                              }
-                            >
-                              Not uploaded
-                            </span>
-                          )}
                         </TableCell>
                       </TableRow>
                     );
