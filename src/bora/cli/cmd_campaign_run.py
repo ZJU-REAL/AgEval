@@ -200,13 +200,92 @@ def register(app: typer.Typer) -> None:
                 )
                 raise typer.Exit(code=code)
 
+            import os
+            import sys
+
+            from bora.control.store import ControlStore
+
+            # Register suite job for bora status / bora cancel (D4).
+            control_path = Path.cwd() / ".bora" / "control.db"
+            cs = ControlStore(control_path)
+            cs.put(
+                plan.suite_run_id,
+                status="running",
+                owner="cli-run",
+                payload={
+                    "kind": "suite",
+                    "suite_run_id": plan.suite_run_id,
+                    "database_root": str(plan.database_root),
+                    "pid": os.getpid(),
+                    "n_attempts": plan.n_attempts,
+                    "task_ids": list(plan.task_ids),
+                    "max_concurrent_tasks": plan.max_concurrent_tasks,
+                },
+            )
+
+            def _progress(ev: dict) -> None:
+                # Terminal progress on stderr; final JSON stays on stdout.
+                kind = str(ev.get("type") or "")
+                done = ev.get("done")
+                total = ev.get("total")
+                if kind == "suite_start":
+                    sys.stderr.write(
+                        f"suite {plan.suite_run_id}: start "
+                        f"todo={ev.get('todo')} total={total} "
+                        f"(cancel: bora cancel {plan.suite_run_id})\n"
+                    )
+                elif kind == "unit_start":
+                    sys.stderr.write(
+                        f"[{done}/{total}] start {ev.get('task_id')} "
+                        f"attempt={ev.get('attempt_index')}\n"
+                    )
+                elif kind == "unit_done":
+                    sys.stderr.write(
+                        f"[{done}/{total}] done  {ev.get('task_id')} "
+                        f"attempt={ev.get('attempt_index')} "
+                        f"{ev.get('status')}"
+                        + (f" {ev.get('duration')}" if ev.get("duration") else "")
+                        + "\n"
+                    )
+                elif kind == "suite_complete":
+                    sys.stderr.write(
+                        f"suite complete exit={ev.get('exit_code')} "
+                        f"done={done}/{total}\n"
+                    )
+                elif kind == "suite_cancelled":
+                    sys.stderr.write(
+                        f"suite cancelled done={done}/{total} "
+                        f"skipped={ev.get('cancelled_units')}\n"
+                    )
+                sys.stderr.flush()
+
             suite_summary = asyncio.run(
                 execute_suite_run(
                     plan,
                     overrides=overrides or None,
                     profiles_path=profiles,
                     resume=resume_id is not None,
+                    on_progress=_progress,
                 )
+            )
+            final_status = (
+                "cancelled"
+                if suite_summary.get("cancelled")
+                else ("completed" if int(suite_summary.get("exit_code", 2)) == 0 else "failed")
+            )
+            cs.put(
+                plan.suite_run_id,
+                status=final_status,
+                owner="cli-run",
+                payload={
+                    "kind": "suite",
+                    "suite_run_id": plan.suite_run_id,
+                    "database_root": str(plan.database_root),
+                    "exit_code": suite_summary.get("exit_code"),
+                    "summary_path": suite_summary.get("summary_path"),
+                    "n_attempts": plan.n_attempts,
+                    "cancelled": bool(suite_summary.get("cancelled")),
+                },
             )
         except ConfigError as exc:
             typer.echo(str(exc), err=True)

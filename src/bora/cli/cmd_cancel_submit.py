@@ -15,25 +15,71 @@ def register(app: typer.Typer) -> None:
 
     @app.command("cancel")
     def cancel_command(
-        run_id: Annotated[str, typer.Argument(help="Run id to cancel.")],
+        run_id: Annotated[
+            str,
+            typer.Argument(
+                help="Run id or suite_run_id (suite_…) from ControlStore / bora run suite.",
+            ),
+        ],
         store: Annotated[
             Path | None,
             typer.Option("--store", help="ControlStore sqlite path (default .bora/control.db)."),
         ] = None,
+        database: Annotated[
+            Path | None,
+            typer.Option(
+                "--database",
+                help=(
+                    "Database root for suite cancel when ControlStore has no record "
+                    "(writes suite-runs/<id>/cancel.requested)."
+                ),
+            ),
+        ] = None,
     ) -> None:
-        """Mark a durable Run as cancelled and SIGTERM stored pid when present (v0.12)."""
+        """Cancel a durable Run or suite job (#47 D4).
+
+        Suite: writes ``cancel.requested`` so no new units start; SIGTERM stored
+        pid when present. Single Run: same as v0.12 ControlStore cancel.
+        """
         import os
         import signal
 
+        from bora.application.suite_run import request_suite_cancel
         from bora.control.store import ControlStore
 
         path = store or (Path.cwd() / ".bora" / "control.db")
         cs = ControlStore(path)
         rec = cs.get(run_id)
-        if rec is None:
+        payload: dict = dict((rec or {}).get("payload") or {})
+        kind = str(payload.get("kind") or "")
+        is_suite = kind == "suite" or run_id.startswith("suite_")
+
+        cancel_file = None
+        if is_suite:
+            db_root = database
+            if db_root is None and payload.get("database_root"):
+                db_root = Path(str(payload["database_root"]))
+            if db_root is not None:
+                cancel_file = str(request_suite_cancel(db_root, run_id))
+
+        if rec is None and not is_suite:
             typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
             raise typer.Exit(code=2)
-        payload = dict(rec.get("payload") or {})
+        if rec is None and is_suite and cancel_file is None:
+            typer.echo(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "unknown_suite",
+                        "run_id": run_id,
+                        "hint": "pass --database <root> or cancel while suite is registered",
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+            raise typer.Exit(code=2)
+
         killed = False
         pid = payload.get("pid")
         if isinstance(pid, int) and pid > 0:
@@ -42,20 +88,30 @@ def register(app: typer.Typer) -> None:
                 killed = True
             except OSError:
                 killed = False
-        version = cs.put(
-            run_id,
-            status="cancelled",
-            owner=str(rec.get("owner") or "cli"),
-            payload={**payload, "cancel_requested": True, "sigterm_sent": killed},
-        )
+        version = None
+        if rec is not None or is_suite:
+            version = cs.put(
+                run_id,
+                status="cancelled",
+                owner=str((rec or {}).get("owner") or "cli"),
+                payload={
+                    **payload,
+                    "kind": "suite" if is_suite else payload.get("kind") or "run",
+                    "cancel_requested": True,
+                    "sigterm_sent": killed,
+                    "cancel_file": cancel_file,
+                },
+            )
         typer.echo(
             json.dumps(
                 {
                     "ok": True,
                     "run_id": run_id,
                     "status": "cancelled",
+                    "kind": "suite" if is_suite else "run",
                     "version": version,
                     "sigterm_sent": killed,
+                    "cancel_file": cancel_file,
                 },
                 sort_keys=True,
                 separators=(",", ":"),

@@ -87,6 +87,15 @@ def write_l1_evidence(
         "execution_location": exec_loc,
         "l1": safe,
     }
+    if isinstance(result_doc.get("phase_timing"), dict):
+        summary["phase_timing"] = result_doc["phase_timing"]
+        pt = result_doc["phase_timing"]
+        if pt.get("started_at"):
+            summary["started_at"] = pt.get("started_at")
+        if pt.get("finished_at"):
+            summary["finished_at"] = pt.get("finished_at")
+    if result_doc.get("duration") is not None:
+        summary["duration"] = result_doc.get("duration")
     (run_dir / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

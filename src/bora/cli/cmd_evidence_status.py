@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 from typing import Annotated
@@ -44,18 +45,58 @@ def register(app: typer.Typer) -> None:
 
     @app.command("status")
     def status_command(
-        run_id: Annotated[str, typer.Argument(help="Run id from ControlStore.")],
+        run_id: Annotated[
+            str,
+            typer.Argument(help="Run id or suite_run_id from ControlStore / bora run."),
+        ],
         store: Annotated[
             Path | None,
             typer.Option("--store", help="ControlStore sqlite path (default .bora/control.db)."),
         ] = None,
+        database: Annotated[
+            Path | None,
+            typer.Option(
+                "--database",
+                help="Database root to also load suite progress.json when kind=suite.",
+            ),
+        ] = None,
     ) -> None:
-        """Query durable Run control record (v0.12)."""
+        """Query durable Run/suite control record (+ suite progress when available)."""
+        import json as _json
+
         from bora.control.store import ControlStore
 
         path = store or (Path.cwd() / ".bora" / "control.db")
         rec = ControlStore(path).get(run_id)
-        if rec is None:
+        if rec is None and not run_id.startswith("suite_"):
             typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
             raise typer.Exit(code=2)
-        typer.echo(json.dumps({"ok": True, **rec}, sort_keys=True, separators=(",", ":")))
+
+        out: dict = {"ok": True, "run_id": run_id}
+        if rec is not None:
+            out.update(rec)
+        payload = dict((rec or {}).get("payload") or {})
+        db_root = database
+        if db_root is None and payload.get("database_root"):
+            db_root = Path(str(payload["database_root"]))
+        if db_root is not None and (
+            str(payload.get("kind") or "") == "suite" or run_id.startswith("suite_")
+        ):
+            prog = (
+                Path(db_root).expanduser().resolve(strict=False)
+                / ".bora"
+                / "suite-runs"
+                / run_id
+                / "progress.json"
+            )
+            if prog.is_file():
+                with contextlib.suppress(OSError, ValueError, TypeError):
+                    data = _json.loads(prog.read_text(encoding="utf-8"))
+                    if isinstance(data, dict):
+                        out["progress"] = data
+            cancel_p = prog.parent / "cancel.requested"
+            out["cancel_requested"] = cancel_p.is_file()
+        if rec is None and "progress" not in out:
+            typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
+            raise typer.Exit(code=2)
+        typer.echo(json.dumps(out, sort_keys=True, separators=(",", ":")))

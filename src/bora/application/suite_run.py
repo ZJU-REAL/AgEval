@@ -10,6 +10,7 @@ package identity or ``config_fingerprint`` inputs.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
@@ -309,6 +310,43 @@ async def _run_one(
                 _inflight_current -= 1
 
 
+def suite_dir_for(plan: SuitePlan) -> Path:
+    return plan.database_root / ".bora" / "suite-runs" / plan.suite_run_id
+
+
+def cancel_request_path(database_root: Path, suite_run_id: str) -> Path:
+    return (
+        database_root.expanduser().resolve(strict=False)
+        / ".bora"
+        / "suite-runs"
+        / suite_run_id
+        / "cancel.requested"
+    )
+
+
+def is_suite_cancel_requested(database_root: Path, suite_run_id: str) -> bool:
+    return cancel_request_path(database_root, suite_run_id).is_file()
+
+
+def request_suite_cancel(database_root: Path, suite_run_id: str) -> Path:
+    """Create cancel.requested so the suite loop stops starting new units."""
+    path = cancel_request_path(database_root, suite_run_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema": "bora.suite.cancel/1",
+                "suite_run_id": suite_run_id,
+                "requested_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def _write_suite_progress(
     plan: SuitePlan,
     *,
@@ -318,7 +356,7 @@ def _write_suite_progress(
     status: str = "running",
 ) -> None:
     """Job progress snapshot for viewer / status (D2)."""
-    suite_dir = plan.database_root / ".bora" / "suite-runs" / plan.suite_run_id
+    suite_dir = suite_dir_for(plan)
     suite_dir.mkdir(parents=True, exist_ok=True)
     doc = {
         "schema": "bora.suite.progress/1",
@@ -330,11 +368,15 @@ def _write_suite_progress(
         "max_concurrent_tasks": plan.max_concurrent_tasks,
         "running": running,
         "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "cancel_requested": is_suite_cancel_requested(plan.database_root, plan.suite_run_id),
     }
     out = suite_dir / "progress.json"
     tmp = out.with_suffix(".tmp")
     tmp.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     tmp.replace(out)
+
+
+ProgressCallback = Callable[[dict[str, Any]], None]
 
 
 def _build_summary(
@@ -518,15 +560,20 @@ async def execute_suite_run(
     run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]] | None = None,
     profiles_path: Path | str | None = None,
     resume: bool = False,
+    on_progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """Execute planned task×attempt units with a concurrency pool; write summary.
 
     When ``resume=True``, load existing attempts for ``plan.suite_run_id``, skip
     units that already finished, **append** new attempts, and recompute metrics.
     Existing attempt rows are never rewritten.
+
+    Cancel (#47 D4): if ``suite-runs/<id>/cancel.requested`` appears, no new units
+    start; in-flight units finish; remaining planned units get cancelled rows.
     """
     reset_inflight_metrics()
     runner = run_fn or run_task
+    suite_dir_for(plan).mkdir(parents=True, exist_ok=True)
 
     existing: list[dict[str, Any]] = []
     if resume:
@@ -550,60 +597,159 @@ async def execute_suite_run(
     done_keys = _existing_attempt_keys(existing)
     units = planned_units(plan)
     todo = [(tid, idx) for tid, idx in units if (tid, idx) not in done_keys]
-    total_units = len(units) if not resume else max(len(units), len(done_keys | set(todo)))
+    total_units = max(len(units), len(todo) + len(done_keys & set(units)))
     # Progress: completed existing + in-flight bookkeeping.
     completed_count = len(done_keys & set(units)) if resume else 0
+    cancelled = False
+    new_results: list[dict[str, Any]] = []
+    skipped_cancelled: list[dict[str, Any]] = []
+
+    def _emit(event: dict[str, Any]) -> None:
+        if on_progress is not None:
+            with contextlib.suppress(Exception):
+                on_progress(event)
+
     _write_suite_progress(
         plan,
         done=completed_count,
-        total=max(total_units, len(todo) + completed_count),
+        total=total_units,
         running=[],
         status="running" if todo else "complete",
     )
+    _emit(
+        {
+            "type": "suite_start",
+            "suite_run_id": plan.suite_run_id,
+            "done": completed_count,
+            "total": total_units,
+            "todo": len(todo),
+        }
+    )
 
-    semaphore = asyncio.Semaphore(plan.max_concurrent_tasks)
+    # Worker pool: claim units by index so cancel can stop scheduling new work.
+    todo_list = list(todo)
+    claim_index = 0
+    claim_lock = asyncio.Lock()
+    worker_n = min(plan.max_concurrent_tasks, max(1, len(todo_list))) if todo_list else 0
+
     progress_lock = asyncio.Lock()
     inflight_labels: dict[tuple[str, int], str] = {}
+    semaphore = asyncio.Semaphore(plan.max_concurrent_tasks)
 
-    async def _tracked(tid: str, idx: int) -> dict[str, Any]:
-        nonlocal completed_count
-        async with progress_lock:
-            inflight_labels[(tid, idx)] = "running"
-            _write_suite_progress(
+    def _cancelled_row(tid: str, idx: int) -> dict[str, Any]:
+        return {
+            "task_id": tid,
+            "attempt_index": idx,
+            "exit_code": 2,
+            "status": "ERROR",
+            "score": None,
+            "metrics": {},
+            "run_id": None,
+            "digest": None,
+            "error": "suite_cancelled",
+            "phase_timing": None,
+            "duration": None,
+            "phase": "cancelled",
+        }
+
+    async def _worker() -> None:
+        nonlocal completed_count, cancelled, claim_index
+        while True:
+            if is_suite_cancel_requested(plan.database_root, plan.suite_run_id):
+                cancelled = True
+                return
+            async with claim_lock:
+                if claim_index >= len(todo_list):
+                    return
+                tid, idx = todo_list[claim_index]
+                claim_index += 1
+            if is_suite_cancel_requested(plan.database_root, plan.suite_run_id):
+                cancelled = True
+                async with progress_lock:
+                    skipped_cancelled.append(_cancelled_row(tid, idx))
+                    completed_count += 1
+                return
+
+            async with progress_lock:
+                inflight_labels[(tid, idx)] = "running"
+                _write_suite_progress(
+                    plan,
+                    done=completed_count,
+                    total=total_units,
+                    running=[
+                        {"task_id": t, "attempt_index": i, "phase": ph}
+                        for (t, i), ph in inflight_labels.items()
+                    ],
+                )
+                _emit(
+                    {
+                        "type": "unit_start",
+                        "task_id": tid,
+                        "attempt_index": idx,
+                        "done": completed_count,
+                        "total": total_units,
+                        "running": list(inflight_labels.keys()),
+                    }
+                )
+
+            row = await _run_one(
                 plan,
-                done=completed_count,
-                total=max(total_units, completed_count + len(todo)),
-                running=[
-                    {"task_id": t, "attempt_index": i, "phase": ph}
-                    for (t, i), ph in inflight_labels.items()
-                ],
+                tid,
+                idx,
+                semaphore=semaphore,
+                overrides=overrides,
+                run_fn=runner,
+                profiles_path=profiles_path,
             )
-        row = await _run_one(
-            plan,
-            tid,
-            idx,
-            semaphore=semaphore,
-            overrides=overrides,
-            run_fn=runner,
-            profiles_path=profiles_path,
-        )
-        async with progress_lock:
-            inflight_labels.pop((tid, idx), None)
+            async with progress_lock:
+                new_results.append(row)
+                inflight_labels.pop((tid, idx), None)
+                completed_count += 1
+                cancel_now = is_suite_cancel_requested(plan.database_root, plan.suite_run_id)
+                if cancel_now:
+                    cancelled = True
+                if cancel_now:
+                    st = "cancelling"
+                elif claim_index < len(todo_list) or inflight_labels:
+                    st = "running"
+                else:
+                    st = "complete"
+
+                _write_suite_progress(
+                    plan,
+                    done=completed_count,
+                    total=total_units,
+                    running=[
+                        {"task_id": t, "attempt_index": i, "phase": ph}
+                        for (t, i), ph in inflight_labels.items()
+                    ],
+                    status=st,
+                )
+                _emit(
+                    {
+                        "type": "unit_done",
+                        "task_id": tid,
+                        "attempt_index": idx,
+                        "status": row.get("status"),
+                        "done": completed_count,
+                        "total": total_units,
+                        "duration": row.get("duration"),
+                    }
+                )
+
+    if worker_n:
+        await asyncio.gather(*[asyncio.create_task(_worker()) for _ in range(worker_n)])
+
+    # Units never claimed because of cancel → synthetic cancelled rows.
+    async with claim_lock:
+        remaining = todo_list[claim_index:]
+    if remaining:
+        cancelled = True
+        for tid, idx in remaining:
+            skipped_cancelled.append(_cancelled_row(tid, idx))
             completed_count += 1
-            _write_suite_progress(
-                plan,
-                done=completed_count,
-                total=max(total_units, completed_count + len(inflight_labels)),
-                running=[
-                    {"task_id": t, "attempt_index": i, "phase": ph}
-                    for (t, i), ph in inflight_labels.items()
-                ],
-                status="running" if inflight_labels else "complete",
-            )
-        return row
-
-    coros = [_tracked(tid, idx) for tid, idx in todo]
-    new_results: list[dict[str, Any]] = list(await asyncio.gather(*coros)) if coros else []
+    if skipped_cancelled:
+        new_results.extend(skipped_cancelled)
 
     # Append-only merge: existing first (stable), then new; never mutate old rows.
     attempts = list(existing) + new_results
@@ -661,6 +807,45 @@ async def execute_suite_run(
     )
     if resume:
         summary["resumed"] = True
-        summary["new_attempts"] = len(new_results)
+        summary["new_attempts"] = len([r for r in new_results if r.get("phase") != "cancelled"])
         summary["skipped_attempts"] = len(done_keys & set(units))
+    if cancelled or is_suite_cancel_requested(plan.database_root, plan.suite_run_id):
+        summary["cancelled"] = True
+        summary["status"] = "cancelled"
+        # Prefer non-zero exit when cancelled with incomplete work.
+        if summary.get("exit_code") == 0 and skipped_cancelled:
+            summary["exit_code"] = 2
+        _write_suite_progress(
+            plan,
+            done=completed_count,
+            total=total_units,
+            running=[],
+            status="cancelled",
+        )
+        _emit(
+            {
+                "type": "suite_cancelled",
+                "suite_run_id": plan.suite_run_id,
+                "done": completed_count,
+                "total": total_units,
+                "cancelled_units": len(skipped_cancelled),
+            }
+        )
+    else:
+        _write_suite_progress(
+            plan,
+            done=completed_count,
+            total=total_units,
+            running=[],
+            status="complete",
+        )
+        _emit(
+            {
+                "type": "suite_complete",
+                "suite_run_id": plan.suite_run_id,
+                "done": completed_count,
+                "total": total_units,
+                "exit_code": summary.get("exit_code"),
+            }
+        )
     return _write_summary(plan, summary)
