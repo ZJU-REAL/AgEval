@@ -1265,7 +1265,11 @@ class MetadataStore:
         return out
 
     def redeem_invite_key(self, *, token_hash: str, user_id: str) -> tuple[OrgRow, MembershipRow]:
-        """Join org via invite key. Fail closed on expired / exhausted / revoked."""
+        """Join org via invite key. Fail closed on expired / exhausted / revoked.
+
+        ``max_uses`` is enforced by a conditional ``UPDATE`` so concurrent
+        redeems cannot over-admit under multi-writer backends.
+        """
         uid = _normalize_user_id(user_id) or user_id
         with self._connect() as conn:
             cur = conn.execute(
@@ -1280,8 +1284,6 @@ class MetadataStore:
                 raise PermissionError("invite key revoked")
             if inv.expires_at is not None and inv.expires_at <= now():
                 raise PermissionError("invite key expired")
-            if inv.max_uses is not None and inv.use_count >= inv.max_uses:
-                raise PermissionError("invite key exhausted")
             org = self.get_org(inv.org_id)
             if org is None:
                 raise LookupError("org not found")
@@ -1289,6 +1291,17 @@ class MetadataStore:
             if existing is not None:
                 # Already a member: do not burn use_count.
                 return org, existing
+            # Claim a slot atomically (check + increment). rowcount==0 ⇒ exhausted.
+            claim = conn.execute(
+                """
+                UPDATE org_invite_keys
+                SET use_count = use_count + 1
+                WHERE key_id=? AND (max_uses IS NULL OR use_count < max_uses)
+                """,
+                (inv.key_id,),
+            )
+            if claim.rowcount == 0:
+                raise PermissionError("invite key exhausted")
             ts = now()
             try:
                 conn.execute(
@@ -1299,11 +1312,8 @@ class MetadataStore:
                     (inv.org_id, uid, ts),
                 )
             except sqlite3.IntegrityError as exc:
+                # Same-transaction rollback drops the claim on context exit.
                 raise ValueError("membership exists") from exc
-            conn.execute(
-                "UPDATE org_invite_keys SET use_count = use_count + 1 WHERE key_id=?",
-                (inv.key_id,),
-            )
             conn.commit()
             mem = MembershipRow(org_id=inv.org_id, user_id=uid, role="member", created_at=ts)
             return org, mem
@@ -2349,6 +2359,11 @@ class PostgresMetadataStore:
         return out
 
     def redeem_invite_key(self, *, token_hash: str, user_id: str) -> tuple[OrgRow, MembershipRow]:
+        """Join org via invite key. Fail closed on expired / exhausted / revoked.
+
+        ``max_uses`` is enforced by a conditional ``UPDATE`` so concurrent
+        redeems cannot over-admit under Postgres READ COMMITTED.
+        """
         uid = _normalize_user_id(user_id) or user_id
         with self._connect() as conn:
             cur = conn.execute(
@@ -2367,14 +2382,23 @@ class PostgresMetadataStore:
                 raise PermissionError("invite key revoked")
             if inv.expires_at is not None and inv.expires_at <= now():
                 raise PermissionError("invite key expired")
-            if inv.max_uses is not None and inv.use_count >= inv.max_uses:
-                raise PermissionError("invite key exhausted")
             org = self.get_org(inv.org_id)
             if org is None:
                 raise LookupError("org not found")
             existing = self.membership(inv.org_id, uid)
             if existing is not None:
                 return org, existing
+            # Claim a slot atomically (check + increment). rowcount==0 ⇒ exhausted.
+            claim = conn.execute(
+                """
+                UPDATE org_invite_keys
+                SET use_count = use_count + 1
+                WHERE key_id=%s AND (max_uses IS NULL OR use_count < max_uses)
+                """,
+                (inv.key_id,),
+            )
+            if claim.rowcount == 0:
+                raise PermissionError("invite key exhausted")
             ts = now()
             try:
                 conn.execute(
@@ -2385,13 +2409,10 @@ class PostgresMetadataStore:
                     (inv.org_id, uid, ts),
                 )
             except Exception as exc:
+                # Same-transaction rollback drops the claim on context exit.
                 if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
                     raise ValueError("membership exists") from exc
                 raise
-            conn.execute(
-                "UPDATE org_invite_keys SET use_count = use_count + 1 WHERE key_id=%s",
-                (inv.key_id,),
-            )
             conn.commit()
             mem = MembershipRow(org_id=inv.org_id, user_id=uid, role="member", created_at=ts)
             return org, mem
