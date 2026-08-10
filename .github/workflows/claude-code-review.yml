@@ -60,7 +60,7 @@ jobs:
             5. **Tests** — core offline pytest coverage for behavior changes; avoid requiring Docker L1/e2e unless PR already owns that surface
             6. **Scope** — small, focused diffs; no unrelated refactors
 
-            Output language: Chinese preferred for top-level summary; keep identifiers/paths in English.
+            Output language: English by default (summary and inline comments). Match the PR author's language only if the PR description/title is clearly non-English.
 
             Use `gh pr comment` for a concise top-level summary (blocking vs nits).
             Use `mcp__github_inline_comment__create_inline_comment` for specific line issues.
