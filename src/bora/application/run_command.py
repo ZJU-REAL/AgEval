@@ -209,8 +209,8 @@ async def run_task(
         # Full L1 orchestration for all docker packages (Spec 07) — no preflight-only PASS.
         from bora.application.run_l1 import run_l1_attempt
 
-        timer.add_ms("prepare", (_mono() - prepare_t0) * 1000.0)
-        l1_t0 = _mono()
+        # L1 owns full prepare/run/evaluate/cleanup timing; do not invent a
+        # coarse parent fallback (that hid missing L1 phase_timing).
         code, result_doc, details = run_l1_attempt(
             package_root=package_root,
             lock=lock,
@@ -218,18 +218,6 @@ async def run_task(
             agent_meta=agent_meta,
             allow_offline_agent=allow_offline_agent,
         )
-        # L1 owns internal phases; if it already wrote phase_timing, keep it.
-        if not isinstance(result_doc.get("phase_timing"), dict):
-            timer.add_ms("run", (_mono() - l1_t0) * 1000.0)
-            result_doc = dict(result_doc)
-            result_doc["phase_timing"] = timer.as_dict()
-            result_path = run_dir / "result.json"
-            if result_path.is_file():
-                with contextlib.suppress(OSError, TypeError, ValueError):
-                    result_path.write_text(
-                        json.dumps(result_doc, sort_keys=True, indent=2) + "\n",
-                        encoding="utf-8",
-                    )
         score_raw = result_doc.get("score")
         score_f = float(score_raw) if isinstance(score_raw, int | float) else None
         metrics_raw = (

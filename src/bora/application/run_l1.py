@@ -125,29 +125,25 @@ def run_l1_sdk_session_attempt(
             implicit_profiles=[str(p.get("id")) for p in profiles if p.get("id")],
         )
     except Exception as exc:  # ConfigError or validation
-        code, doc, details = l1_error_result(
+        return l1_error_result(
             run_dir,
             "config",
             {"error": str(exc), "kind": "agent_isolation_invalid"},
             agent_meta,
             0,
             kind="agent_isolation_invalid",
+            phase_timing=timer.as_dict(),
         )
-        doc, details = _attach_timing(doc, details, timer)
-        write_l1_evidence(run_dir, doc, agent_meta, doc.get("l1") or {})
-        return code, doc, details
     if topology is None:
-        code, doc, details = l1_error_result(
+        return l1_error_result(
             run_dir,
             "config",
             {"error": "missing agent topology"},
             agent_meta,
             0,
             kind="agent_isolation_invalid",
+            phase_timing=timer.as_dict(),
         )
-        doc, details = _attach_timing(doc, details, timer)
-        write_l1_evidence(run_dir, doc, agent_meta, doc.get("l1") or {})
-        return code, doc, details
 
     with timer.phase("prepare"):
         docker, runtime, l1_meta = prepare_l1_runtime(
@@ -221,17 +217,15 @@ def run_l1_sdk_session_attempt(
         except Exception as exc:  # noqa: BLE001
             docker.cleanup(runtime)
             cred.cleanup()
-            code, doc, details = l1_error_result(
+            return l1_error_result(
                 run_dir,
                 "provider",
                 {**l1_meta, "prepare_error": type(exc).__name__, "message": str(exc)[:500]},
                 agent_meta,
                 0,
                 kind="target_prepare_failed",
+                phase_timing=timer.as_dict(),
             )
-            doc, details = _attach_timing(doc, details, timer)
-            write_l1_evidence(run_dir, doc, agent_meta, doc.get("l1") or {})
-            return code, doc, details
 
         l1_meta["targets"] = [t.public_view() for t in ledger.targets.values()]
         l1_meta["actors"] = [a.public_view() for a in ledger.actors.values()]
@@ -375,7 +369,7 @@ def run_l1_sdk_session_attempt(
             with timer.phase("cleanup"):
                 docker.cleanup(runtime)
                 cred.cleanup()
-            code, doc, details = l1_error_result(
+            return l1_error_result(
                 run_dir,
                 "harness" if not envelope.get("ok") else "evaluation_input",
                 {
@@ -385,10 +379,8 @@ def run_l1_sdk_session_attempt(
                 },
                 agent_meta,
                 inv_count,
+                phase_timing=timer.as_dict(),
             )
-            doc, details = _attach_timing(doc, details, timer)
-            write_l1_evidence(run_dir, doc, agent_meta, doc.get("l1") or {})
-            return code, doc, details
 
         (staging / artifact_filename).write_bytes(src_art.read_bytes())
         eval_py = package_root / "evaluator.py"
@@ -406,7 +398,7 @@ def run_l1_sdk_session_attempt(
             with timer.phase("cleanup"):
                 docker.cleanup(runtime)
                 cred.cleanup()
-            code, doc, details = l1_error_result(
+            return l1_error_result(
                 run_dir,
                 "evaluation_input",
                 {
@@ -417,10 +409,8 @@ def run_l1_sdk_session_attempt(
                 agent_meta,
                 inv_count,
                 kind="residual_writer",
+                phase_timing=timer.as_dict(),
             )
-            doc, details = _attach_timing(doc, details, timer)
-            write_l1_evidence(run_dir, doc, agent_meta, doc.get("l1") or {})
-            return code, doc, details
 
         eval_raw, eval_meta = run_clean_evaluator_container(
             image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
@@ -472,22 +462,8 @@ def run_l1_sdk_session_attempt(
         "host_fallback_count": l1_meta["host_fallback_count"],
     }
     doc, details = _attach_timing(doc, details, timer)
-    # summary.json should also carry timing for viewer projection
+    # Single write: write_l1_evidence copies phase_timing into summary.json.
     write_l1_evidence(run_dir, doc, agent_meta, doc["l1"])
-    # Rewrite summary with phase_timing (write_l1_evidence doesn't know about it)
-    summary_path = run_dir / "summary.json"
-    if summary_path.is_file():
-        with contextlib.suppress(OSError, ValueError, TypeError):
-            import json as _json
-
-            summary = _json.loads(summary_path.read_text(encoding="utf-8"))
-            if isinstance(summary, dict):
-                summary["phase_timing"] = doc.get("phase_timing")
-                summary["started_at"] = (doc.get("phase_timing") or {}).get("started_at")
-                summary["finished_at"] = (doc.get("phase_timing") or {}).get("finished_at")
-                summary_path.write_text(
-                    _json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-                )
     code = 0 if flat.status == "PASS" else (1 if flat.status == "FAIL" else 2)
     # Offline path: expected failure for real-agent smoke when offline.
     if allow_offline_agent and inv_count == 0 and not envelope.get("ok"):

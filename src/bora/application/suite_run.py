@@ -23,7 +23,6 @@ from bora.application.run_command import run_task
 from bora.application.suite_config_fingerprint import collect_suite_config
 from bora.application.suite_metrics import (
     aggregate_k_metrics,
-    aggregate_task_metrics,
     flatten_legacy_tasks_as_attempts,
     task_refs_for_summary,
 )
@@ -224,90 +223,89 @@ async def _run_one(
     task_id: str,
     attempt_index: int,
     *,
-    semaphore: asyncio.Semaphore,
     overrides: dict[str, Any] | None,
     run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]],
     profiles_path: Path | str | None = None,
 ) -> dict[str, Any]:
+    """Run one (task_id, attempt_index) unit. Concurrency is owned by the claim pool."""
     global _inflight_current, _inflight_peak
-    async with semaphore:
-        async with _inflight_lock:
-            _inflight_current += 1
-            _inflight_peak = max(_inflight_peak, _inflight_current)
-        try:
-            code, result, details = await run_fn(
-                plan.database_root,
-                task_id,
-                overrides=overrides,
-                profiles_path=profiles_path,
-            )
-            status = getattr(result, "status", None) or details.get("status") or "ERROR"
-            run_id = extract_run_id(
-                plan.database_root,
-                getattr(result, "evidence_path", None),
-                details.get("run_dir"),
-                details.get("logs"),
-                getattr(result, "logs", None),
-            )
-            raw_metrics = getattr(result, "metrics", None)
-            if not isinstance(raw_metrics, dict):
-                detail_metrics = details.get("metrics")
-                raw_metrics = detail_metrics if isinstance(detail_metrics, dict) else {}
-            phase_timing = details.get("phase_timing")
-            if not isinstance(phase_timing, dict):
-                phase_timing = None
-            duration = None
-            if phase_timing is not None:
-                from bora.application.phase_timing import format_duration_ms
+    async with _inflight_lock:
+        _inflight_current += 1
+        _inflight_peak = max(_inflight_peak, _inflight_current)
+    try:
+        code, result, details = await run_fn(
+            plan.database_root,
+            task_id,
+            overrides=overrides,
+            profiles_path=profiles_path,
+        )
+        status = getattr(result, "status", None) or details.get("status") or "ERROR"
+        run_id = extract_run_id(
+            plan.database_root,
+            getattr(result, "evidence_path", None),
+            details.get("run_dir"),
+            details.get("logs"),
+            getattr(result, "logs", None),
+        )
+        raw_metrics = getattr(result, "metrics", None)
+        if not isinstance(raw_metrics, dict):
+            detail_metrics = details.get("metrics")
+            raw_metrics = detail_metrics if isinstance(detail_metrics, dict) else {}
+        phase_timing = details.get("phase_timing")
+        if not isinstance(phase_timing, dict):
+            phase_timing = None
+        duration = None
+        if phase_timing is not None:
+            from bora.application.phase_timing import format_duration_ms
 
-                duration = format_duration_ms(phase_timing.get("total_ms"))  # type: ignore[arg-type]
-            return {
-                "task_id": task_id,
-                "attempt_index": attempt_index,
-                "exit_code": code,
-                "status": status,
-                "score": getattr(result, "score", None),
-                "metrics": dict(raw_metrics) if raw_metrics else {},
-                "run_id": run_id,
-                "digest": details.get("digest"),
-                "error": None if code != 2 else (details.get("error") or status),
-                "phase_timing": phase_timing,
-                "duration": duration,
-                "phase": "terminal",
-            }
-        except ConfigError as exc:
-            return {
-                "task_id": task_id,
-                "attempt_index": attempt_index,
-                "exit_code": 2,
-                "status": "ERROR",
-                "score": None,
-                "metrics": {},
-                "run_id": None,
-                "digest": None,
-                "error": str(exc),
-                "phase_timing": None,
-                "duration": None,
-                "phase": "error",
-            }
-        except Exception as exc:  # noqa: BLE001
-            return {
-                "task_id": task_id,
-                "attempt_index": attempt_index,
-                "exit_code": 2,
-                "status": "ERROR",
-                "score": None,
-                "metrics": {},
-                "run_id": None,
-                "digest": None,
-                "error": f"{type(exc).__name__}: {exc}",
-                "phase_timing": None,
-                "duration": None,
-                "phase": "error",
-            }
-        finally:
-            async with _inflight_lock:
-                _inflight_current -= 1
+            duration = format_duration_ms(phase_timing.get("total_ms"))  # type: ignore[arg-type]
+        return {
+            "task_id": task_id,
+            "attempt_index": attempt_index,
+            "exit_code": code,
+            "status": status,
+            "score": getattr(result, "score", None),
+            "metrics": dict(raw_metrics) if raw_metrics else {},
+            "run_id": run_id,
+            "digest": details.get("digest"),
+            "error": None if code != 2 else (details.get("error") or status),
+            "phase_timing": phase_timing,
+            "duration": duration,
+            "phase": "terminal",
+        }
+    except ConfigError as exc:
+        return {
+            "task_id": task_id,
+            "attempt_index": attempt_index,
+            "exit_code": 2,
+            "status": "ERROR",
+            "score": None,
+            "metrics": {},
+            "run_id": None,
+            "digest": None,
+            "error": str(exc),
+            "phase_timing": None,
+            "duration": None,
+            "phase": "error",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "task_id": task_id,
+            "attempt_index": attempt_index,
+            "exit_code": 2,
+            "status": "ERROR",
+            "score": None,
+            "metrics": {},
+            "run_id": None,
+            "digest": None,
+            "error": f"{type(exc).__name__}: {exc}",
+            "phase_timing": None,
+            "duration": None,
+            "phase": "error",
+        }
+    finally:
+        async with _inflight_lock:
+            _inflight_current -= 1
 
 
 def suite_dir_for(plan: SuitePlan) -> Path:
@@ -379,6 +377,32 @@ def _write_suite_progress(
 ProgressCallback = Callable[[dict[str, Any]], None]
 
 
+def _task_row_from_rollup(t: Mapping[str, Any]) -> dict[str, Any]:
+    """One stable ``tasks[]`` row for any k (roll-up + primary attempt surface)."""
+    nested = t.get("attempts") or []
+    first: Mapping[str, Any] = nested[0] if nested and isinstance(nested[0], Mapping) else {}
+    first_metrics = first.get("metrics") if isinstance(first.get("metrics"), dict) else {}
+    return {
+        "task_id": t.get("task_id"),
+        "status": t.get("status"),
+        "score": t.get("score"),
+        "n": t.get("n"),
+        "c": t.get("c"),
+        "run_id": t.get("run_id"),
+        "pass_at_k": t.get("pass_at_k") or {},
+        "pass_power_k": t.get("pass_power_k") or {},
+        "attempt_indices": t.get("attempt_indices"),
+        # Primary attempt surface (k==1 ≡ the only sample; k>1 = first by index).
+        "exit_code": first.get("exit_code"),
+        "metrics": dict(first_metrics) if first_metrics else {},
+        "digest": first.get("digest"),
+        "error": first.get("error"),
+        "attempt_index": first.get("attempt_index", 0),
+        "phase_timing": first.get("phase_timing"),
+        "duration": first.get("duration"),
+    }
+
+
 def _build_summary(
     plan: SuitePlan,
     attempts: list[dict[str, Any]],
@@ -393,77 +417,22 @@ def _build_summary(
         n_attempts=plan.n_attempts,
     )
     task_rows: list[dict[str, Any]] = list(k_agg.pop("task_rows"))
-
-    # Strip nested attempts from tasks[] for a flatter summary when k==1
-    # (backward-compatible shape); keep attempts[] always for resume.
-    tasks_out: list[dict[str, Any]]
-    if plan.n_attempts == 1 and all(len(t.get("attempts") or []) <= 1 for t in task_rows):
-        tasks_out = []
-        for t in task_rows:
-            nested = t.get("attempts") or []
-            base = nested[0] if nested else {}
-            row = {
-                "task_id": t["task_id"],
-                "exit_code": base.get("exit_code"),
-                "status": t["status"],
-                "score": base.get("score", t.get("score")),
-                "metrics": base.get("metrics") if isinstance(base.get("metrics"), dict) else {},
-                "run_id": t.get("run_id"),
-                "digest": base.get("digest"),
-                "error": base.get("error"),
-                "attempt_index": 0,
-                "phase_timing": base.get("phase_timing"),
-                "duration": base.get("duration"),
-            }
-            # Surface k stats only when n_attempts was requested >1 historically;
-            # for k==1 omit pass_at_k maps from task row to keep legacy tests green.
-            tasks_out.append(row)
-        metrics = aggregate_task_metrics(tasks_out)
-        # Still attach pass@k maps under metrics when useful (k=1 → pass@1 = pass_rate).
-        metrics["n_attempts"] = plan.n_attempts
-        metrics["k_values"] = k_agg.get("k_values", [1])
-        metrics["pass_at_k"] = k_agg.get("pass_at_k", {})
-        metrics["pass_power_k"] = k_agg.get("pass_power_k", {})
-        metrics["per_task"] = k_agg.get("per_task", [])
-    else:
-        tasks_out = []
-        for t in task_rows:
-            # Prefer first attempt's phase_timing for job-level display (observational).
-            nested = t.get("attempts") or []
-            first_pt = None
-            first_dur = None
-            if nested and isinstance(nested[0], Mapping):
-                first_pt = nested[0].get("phase_timing")
-                first_dur = nested[0].get("duration")
-            tasks_out.append(
-                {
-                    "task_id": t["task_id"],
-                    "status": t["status"],
-                    "score": t["score"],
-                    "n": t["n"],
-                    "c": t["c"],
-                    "run_id": t.get("run_id"),
-                    "pass_at_k": t["pass_at_k"],
-                    "pass_power_k": t["pass_power_k"],
-                    "attempt_indices": t.get("attempt_indices"),
-                    "phase_timing": first_pt,
-                    "duration": first_dur,
-                }
-            )
-        metrics = {
-            "pass_rate": k_agg["pass_rate"],
-            "mean_score": k_agg["mean_score"],
-            "n_tasks": k_agg["n_tasks"],
-            "n_pass": k_agg["n_pass"],
-            "n_fail": k_agg["n_fail"],
-            "n_error": k_agg["n_error"],
-            "missing_score_as": k_agg["missing_score_as"],
-            "n_attempts": plan.n_attempts,
-            "k_values": k_agg["k_values"],
-            "pass_at_k": k_agg["pass_at_k"],
-            "pass_power_k": k_agg["pass_power_k"],
-            "per_task": k_agg["per_task"],
-        }
+    # Single shape for k==1 and k>1. Full samples live under ``attempts[]``.
+    tasks_out = [_task_row_from_rollup(t) for t in task_rows]
+    metrics = {
+        "pass_rate": k_agg["pass_rate"],
+        "mean_score": k_agg["mean_score"],
+        "n_tasks": k_agg["n_tasks"],
+        "n_pass": k_agg["n_pass"],
+        "n_fail": k_agg["n_fail"],
+        "n_error": k_agg["n_error"],
+        "missing_score_as": k_agg["missing_score_as"],
+        "n_attempts": plan.n_attempts,
+        "k_values": k_agg["k_values"],
+        "pass_at_k": k_agg["pass_at_k"],
+        "pass_power_k": k_agg["pass_power_k"],
+        "per_task": k_agg["per_task"],
+    }
 
     counts = {"pass": 0, "fail": 0, "error": 0, "skipped": 0}
     for row in tasks_out:
@@ -482,7 +451,7 @@ def _build_summary(
     else:
         exit_code = 0
 
-    # Fingerprint from one row per task (first attempt's run_id if needed).
+    # Fingerprint from one row per task (prefer a PASS attempt's run_id).
     fp_rows: list[dict[str, Any]] = []
     by_task_attempt: dict[str, list[dict[str, Any]]] = {}
     for a in attempts:
@@ -587,12 +556,6 @@ async def execute_suite_run(
                 existing = flatten_legacy_tasks_as_attempts(
                     [t for t in legacy_tasks if isinstance(t, Mapping)]
                 )
-        # Prefer higher n_attempts if resume raises budget.
-        old_k = old.get("n_attempts")
-        if isinstance(old_k, int) and not isinstance(old_k, bool) and old_k > plan.n_attempts:
-            # Keep caller's plan.n_attempts as target; old higher budget means
-            # more existing keys — fine.
-            pass
 
     done_keys = _existing_attempt_keys(existing)
     units = planned_units(plan)
@@ -627,6 +590,7 @@ async def execute_suite_run(
     )
 
     # Worker pool: claim units by index so cancel can stop scheduling new work.
+    # Pool size alone caps concurrency (no nested semaphore).
     todo_list = list(todo)
     claim_index = 0
     claim_lock = asyncio.Lock()
@@ -634,7 +598,6 @@ async def execute_suite_run(
 
     progress_lock = asyncio.Lock()
     inflight_labels: dict[tuple[str, int], str] = {}
-    semaphore = asyncio.Semaphore(plan.max_concurrent_tasks)
 
     def _cancelled_row(tid: str, idx: int) -> dict[str, Any]:
         return {
@@ -652,6 +615,12 @@ async def execute_suite_run(
             "phase": "cancelled",
         }
 
+    def _running_snapshot() -> list[dict[str, Any]]:
+        return [
+            {"task_id": t, "attempt_index": i, "phase": ph}
+            for (t, i), ph in inflight_labels.items()
+        ]
+
     async def _worker() -> None:
         nonlocal completed_count, cancelled, claim_index
         while True:
@@ -663,12 +632,13 @@ async def execute_suite_run(
                     return
                 tid, idx = todo_list[claim_index]
                 claim_index += 1
+            # Re-check after claim: do not start new work once cancel is requested.
             if is_suite_cancel_requested(plan.database_root, plan.suite_run_id):
                 cancelled = True
                 async with progress_lock:
                     skipped_cancelled.append(_cancelled_row(tid, idx))
                     completed_count += 1
-                return
+                continue
 
             async with progress_lock:
                 inflight_labels[(tid, idx)] = "running"
@@ -676,10 +646,7 @@ async def execute_suite_run(
                     plan,
                     done=completed_count,
                     total=total_units,
-                    running=[
-                        {"task_id": t, "attempt_index": i, "phase": ph}
-                        for (t, i), ph in inflight_labels.items()
-                    ],
+                    running=_running_snapshot(),
                 )
                 _emit(
                     {
@@ -696,7 +663,6 @@ async def execute_suite_run(
                 plan,
                 tid,
                 idx,
-                semaphore=semaphore,
                 overrides=overrides,
                 run_fn=runner,
                 profiles_path=profiles_path,
@@ -708,7 +674,6 @@ async def execute_suite_run(
                 cancel_now = is_suite_cancel_requested(plan.database_root, plan.suite_run_id)
                 if cancel_now:
                     cancelled = True
-                if cancel_now:
                     st = "cancelling"
                 elif claim_index < len(todo_list) or inflight_labels:
                     st = "running"
@@ -719,10 +684,7 @@ async def execute_suite_run(
                     plan,
                     done=completed_count,
                     total=total_units,
-                    running=[
-                        {"task_id": t, "attempt_index": i, "phase": ph}
-                        for (t, i), ph in inflight_labels.items()
-                    ],
+                    running=_running_snapshot(),
                     status=st,
                 )
                 _emit(
