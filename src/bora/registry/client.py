@@ -315,8 +315,9 @@ class RegistryClient:
         blob_digest: str,
         size: int,
         archive: bytes,
+        suite_run_id: str | None = None,
     ) -> dict[str, Any]:
-        meta = {
+        meta: dict[str, Any] = {
             "run_id": run_id,
             "database_id": database_id,
             "task_id": task_id,
@@ -326,6 +327,8 @@ class RegistryClient:
             "blob_digest": blob_digest,
             "size": size,
         }
+        if suite_run_id:
+            meta["suite_run_id"] = suite_run_id
         import secrets as _secrets
 
         boundary = f"bora-result-{_secrets.token_hex(12)}"

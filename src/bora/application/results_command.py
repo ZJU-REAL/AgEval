@@ -78,9 +78,16 @@ def upload_attempt_result(
     *,
     run_id: str,
     public: bool = False,
+    suite_run_id: str | None = None,
     registry_url: str | None = None,
+    allow_existing: bool = False,
 ) -> dict[str, Any]:
-    """Pack ``.bora/runs/<run_id>`` and POST to results store."""
+    """Pack ``.bora/runs/<run_id>`` and POST to results store.
+
+    When *allow_existing* is true, a registry ``conflict`` (same run_id already
+    uploaded) is treated as success with ``already_exists: true`` (idempotent
+    re-upload / suite --with-attempts retry).
+    """
     root = database_root.expanduser().resolve(strict=False)
     try:
         manifest = load_database_manifest(root)
@@ -96,6 +103,7 @@ def upload_attempt_result(
     task_id = str(meta.get("task_id") or "")
     lock_digest = str(meta.get("lock_digest") or meta.get("digest") or "")
     status = str(meta.get("status") or meta.get("verdict") or meta.get("outcome") or "")
+    suite_link = (suite_run_id or str(meta.get("suite_run_id") or "")).strip() or None
 
     client = _client(registry_url=registry_url)
     try:
@@ -109,12 +117,28 @@ def upload_attempt_result(
             blob_digest=blob_digest,
             size=size,
             archive=archive,
+            suite_run_id=suite_link,
         )
     except RegistryError as exc:
+        if allow_existing and (
+            exc.code == "conflict" or (exc.status == 409) or "already exists" in exc.message
+        ):
+            return {
+                "ok": True,
+                "already_exists": True,
+                "run_id": run_id,
+                "database_id": database_id,
+                "blob_digest": blob_digest,
+                "size": size,
+                "visibility": "public" if public else "private",
+                "status": status,
+                "suite_run_id": suite_link,
+            }
         raise ConfigError(exc.code, exc.message, location="registry") from exc
 
-    return {
+    out: dict[str, Any] = {
         "ok": True,
+        "already_exists": False,
         "run_id": info.get("run_id", run_id),
         "database_id": info.get("database_id", database_id),
         "blob_digest": info.get("blob_digest", blob_digest),
@@ -122,6 +146,11 @@ def upload_attempt_result(
         "visibility": info.get("visibility", "private"),
         "status": info.get("status", status),
     }
+    if suite_link:
+        out["suite_run_id"] = info.get("suite_run_id", suite_link)
+    elif info.get("suite_run_id"):
+        out["suite_run_id"] = info["suite_run_id"]
+    return out
 
 
 def get_attempt_result(
@@ -262,6 +291,22 @@ def _local_suite_item(summary: dict[str, Any], *, suite_dir: Path) -> dict[str, 
     return item
 
 
+def _run_ids_from_task_refs(task_refs: list[dict[str, Any]]) -> list[str]:
+    """Unique non-empty run_ids from suite task_refs (stable order)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for ref in task_refs:
+        rid = ref.get("run_id")
+        if rid is None:
+            continue
+        text = str(rid).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out
+
+
 def upload_suite_result(
     database_root: Path,
     *,
@@ -269,9 +314,16 @@ def upload_suite_result(
     public: bool = False,
     agent_label: str = "",
     model_label: str = "",
+    with_attempts: bool = False,
     registry_url: str | None = None,
 ) -> dict[str, Any]:
-    """Pack ``.bora/suite-runs/<id>`` and POST suite result to results store."""
+    """Pack ``.bora/suite-runs/<id>`` and POST suite result to results store.
+
+    When *with_attempts* is true, also upload each local ``.bora/runs/<run_id>``
+    referenced by suite ``task_refs`` (same visibility). Missing local run dirs
+    fail closed before any network upload. Re-uploads of existing run_ids are
+    treated as success (``already_exists``).
+    """
     root = database_root.expanduser().resolve(strict=False)
     suite_dir = _resolve_suite_dir(root, suite_run_id)
     summary = _load_suite_summary(suite_dir)
@@ -299,6 +351,25 @@ def upload_suite_result(
             raise
         except Exception as exc:  # noqa: BLE001
             raise ConfigError("invalid_package", str(exc), location=str(root)) from exc
+
+    run_ids = _run_ids_from_task_refs(task_refs) if with_attempts else []
+    if with_attempts:
+        missing: list[str] = []
+        for rid in run_ids:
+            candidate = root / ".bora" / "runs" / rid
+            if not candidate.is_dir():
+                missing.append(rid)
+        if missing:
+            preview = ", ".join(missing[:8])
+            more = f" (+{len(missing) - 8} more)" if len(missing) > 8 else ""
+            raise ConfigError(
+                "invalid_package",
+                (
+                    f"--with-attempts: missing local run dir(s) under "
+                    f".bora/runs/ for: {preview}{more}"
+                ),
+                location=str(root / ".bora" / "runs"),
+            )
 
     archive, blob_digest, size = build_suite_archive(suite_dir, suite_run_id=suite_run_id)
     config_proj = _config_fields_from_summary(summary)
@@ -345,6 +416,46 @@ def upload_suite_result(
             out[key] = info[key]
         elif key in config_proj:
             out[key] = config_proj[key]
+
+    if with_attempts:
+        attempt_uploads: list[dict[str, Any]] = []
+        for rid in run_ids:
+            # Same client/token path; re-use public + suite_run_id link.
+            attempt_uploads.append(
+                upload_attempt_result(
+                    root,
+                    run_id=rid,
+                    public=public,
+                    suite_run_id=suite_run_id,
+                    registry_url=registry_url,
+                    allow_existing=True,
+                )
+            )
+        out["with_attempts"] = True
+        out["attempts"] = attempt_uploads
+        out["attempts_uploaded"] = sum(
+            1 for a in attempt_uploads if a.get("ok") and not a.get("already_exists")
+        )
+        out["attempts_existing"] = sum(1 for a in attempt_uploads if a.get("already_exists"))
+        out["attempts_total"] = len(attempt_uploads)
+        # Suite POST response is pre-attempt; annotate refs for operator JSON.
+        uploaded_ids = {
+            str(a.get("run_id"))
+            for a in attempt_uploads
+            if a.get("ok") and a.get("run_id")
+        }
+        refs = out.get("task_refs")
+        if isinstance(refs, list):
+            enriched_refs: list[Any] = []
+            for ref in refs:
+                if not isinstance(ref, dict):
+                    enriched_refs.append(ref)
+                    continue
+                item = dict(ref)
+                rid = str(item.get("run_id") or "").strip()
+                item["has_attempt_content"] = bool(rid and rid in uploaded_ids)
+                enriched_refs.append(item)
+            out["task_refs"] = enriched_refs
     return out
 
 

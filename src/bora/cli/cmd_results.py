@@ -130,6 +130,16 @@ def register(app: typer.Typer) -> None:
             str,
             typer.Option("--model", help="Optional model label for leaderboard meta."),
         ] = "",
+        with_attempts: Annotated[
+            bool,
+            typer.Option(
+                "--with-attempts",
+                help=(
+                    "Also upload each local .bora/runs/<run_id> from suite task_refs "
+                    "(full Attempt evidence; optional, for Hub Jobs deep-link)."
+                ),
+            ),
+        ] = False,
         registry_url: Annotated[
             str | None,
             typer.Option("--registry-url", help="Override registry / results URL."),
@@ -146,6 +156,7 @@ def register(app: typer.Typer) -> None:
                 public=public,
                 agent_label=agent,
                 model_label=model,
+                with_attempts=with_attempts,
                 registry_url=registry_url,
             )
         except ConfigError as exc:
