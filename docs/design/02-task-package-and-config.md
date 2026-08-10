@@ -188,7 +188,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 | harness / evaluator / gold / intent `limits` / 角色槽拓扑 | **Task / package 身份** | 改了 ≈ 新 task 或新 version |
 | agent entry + model（`profiles.yaml` / CLI overlay） | **Job binding** | 新 `config_fingerprint` |
 | host secrets（`.env` 值） | 本机 only | 不进 fingerprint / lock / upload |
-| suite concurrency / Always-k `n_attempts`（及 pass@k job 指标） | CLI / job 调度；**禁止**写进 `task.yaml` | **不是**排行榜身份键（metrics 另列；Hub 呈现见 #60） |
+| suite concurrency / Always-k `n_attempts`（及 pass@k job 指标） | CLI / job 调度；**禁止**写进 `task.yaml` | **不是**排行榜身份键（metrics 另列；Hub 可选展示 pass@k / pass^k / n_attempts，#60） |
 
 **Merge 顺序（Config Core 唯一读者）：**
 
