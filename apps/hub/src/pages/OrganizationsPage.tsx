@@ -1,8 +1,9 @@
 import { Building2, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { Shell } from "@/components/layout";
+import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -163,10 +164,7 @@ export function OrganizationsPage() {
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
           <p className="font-medium text-ink">Sign in required</p>
           <p className="mt-1 text-mute">
-            <Link to="/login" className="underline underline-offset-2">
-              Sign in
-            </Link>{" "}
-            to list your organizations.
+            <SignInLink /> to list your organizations.
           </p>
         </div>
       ) : loading ? (
