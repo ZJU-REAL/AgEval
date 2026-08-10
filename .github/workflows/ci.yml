@@ -1,9 +1,11 @@
-# Core PR/main gate: freeze install, Ruff, Pyright, offline pytest.
-# Does not run Docker L1, real Agent/API e2e, or docs formatters.
+# Path-filtered parallel CI:
+#   python-core     — ruff / pyright / offline pytest (excludes tests/registry)
+#   python-registry — offline pytest tests/registry only
+#   viewer-app / hub-app — pnpm lint + build
+#   website         — pnpm build
 #
-# Path filter (scheme 2): workflow always runs; heavy steps only when
-# code-relevant paths change. Docs-only pushes still get a green `core`
-# job so required status checks are not left pending.
+# Jobs always start (required-check friendly) and no-op when their path filter
+# is false. Workflow edits re-run every job. No Docker L1 / real Agent e2e.
 name: ci
 
 on:
@@ -12,8 +14,6 @@ on:
     branches: [main]
 
 # paths-filter lists PR files via GitHub API on pull_request events.
-# Default GITHUB_TOKEN with contents-only cannot call pulls API →
-# "Resource not accessible by integration".
 permissions:
   contents: read
   pull-requests: read
@@ -27,78 +27,84 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      code: ${{ steps.filter.outputs.code }}
+      python: ${{ steps.filter.outputs.python }}
+      viewer_app: ${{ steps.filter.outputs.viewer_app }}
+      hub_app: ${{ steps.filter.outputs.hub_app }}
+      website: ${{ steps.filter.outputs.website }}
+      workflow: ${{ steps.filter.outputs.workflow }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Positive filter: unknown paths default to "no code" only if every
-      # changed file is outside this list. Prefer over-running CI.
-      - name: Detect code-relevant paths
+      - name: Detect path groups
         uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            code:
+            python:
               - 'src/**'
               - 'sdk/**'
               - 'tests/**'
               - 'examples/**'
-              - 'apps/**'
-              - 'docker/**'
               - 'services/**'
+              - 'docker/**'
               - 'scripts/**'
               - 'pyproject.toml'
               - 'uv.lock'
               - 'VERSION'
               - '.python-version'
-              - '.github/workflows/**'
+            viewer_app:
+              - 'apps/viewer/**'
+            hub_app:
+              - 'apps/hub/**'
+            website:
+              - 'website/**'
+            workflow:
+              - '.github/workflows/ci.yml'
 
-  core:
+  python-core:
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Skip (docs / non-code only)
-        if: needs.changes.outputs.code != 'true'
+      - name: Skip (no Python-relevant paths)
+        if: needs.changes.outputs.python != 'true' && needs.changes.outputs.workflow != 'true'
         run: |
-          echo "No code-relevant path changes detected; skipping Ruff / Pyright / pytest."
-          echo "Filter list: src sdk tests examples apps docker services scripts"
-          echo "  pyproject.toml uv.lock VERSION .python-version .github/workflows"
+          echo "Skipping python-core (SPA/docs-only or unrelated paths)."
 
       - name: Checkout
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         uses: actions/checkout@v4
 
       - name: Install uv
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
       - name: Python
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         run: uv python install 3.12
 
       - name: Install dependencies (frozen)
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         run: uv sync --frozen
 
       - name: Ruff format
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         run: uv run ruff format --check src tests
 
       - name: Ruff check
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         run: uv run ruff check src tests
 
       - name: Pyright
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         run: uv run pyright
 
-      # Core only: unit + offline acceptance. No Docker L1, no real agent CLIs.
-      - name: Pytest (core)
-        if: needs.changes.outputs.code == 'true'
+      # Offline core: no Docker L1, no real agent CLIs, no registry suite.
+      - name: Pytest (core, exclude registry)
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         env:
           BORA_OFFLINE_AGENT: "1"
           BORA_SKIP_DOCKER: "1"
@@ -108,6 +114,7 @@ jobs:
           BORA_SKIP_REAL_ACP: "1"
         run: |
           uv run pytest \
+            --ignore=tests/registry \
             --ignore=tests/e2e \
             --ignore=tests/provider_l1 \
             --ignore=tests/environment \
@@ -126,3 +133,163 @@ jobs:
             --ignore=tests/acceptance/test_v1_class_packages.py \
             --ignore=tests/runtime/test_trajectory_source_probe.py \
             -q
+
+  python-registry:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Skip (no Python-relevant paths)
+        if: needs.changes.outputs.python != 'true' && needs.changes.outputs.workflow != 'true'
+        run: |
+          echo "Skipping python-registry (SPA/docs-only or unrelated paths)."
+
+      - name: Checkout
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Python
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
+        run: uv python install 3.12
+
+      - name: Install dependencies (frozen)
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
+        run: uv sync --frozen --extra registry
+
+      - name: Pytest (registry)
+        if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
+        env:
+          BORA_OFFLINE_AGENT: "1"
+          BORA_SKIP_DOCKER: "1"
+        run: uv run pytest tests/registry -q
+
+  viewer-app:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/viewer
+    steps:
+      - name: Skip (no apps/viewer paths)
+        if: needs.changes.outputs.viewer_app != 'true' && needs.changes.outputs.workflow != 'true'
+        run: echo "Skipping viewer-app."
+        working-directory: .
+
+      - name: Checkout
+        if: needs.changes.outputs.viewer_app == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: actions/checkout@v4
+
+      - name: pnpm
+        if: needs.changes.outputs.viewer_app == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Node
+        if: needs.changes.outputs.viewer_app == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/viewer/pnpm-lock.yaml
+
+      - name: Install
+        if: needs.changes.outputs.viewer_app == 'true' || needs.changes.outputs.workflow == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        if: needs.changes.outputs.viewer_app == 'true' || needs.changes.outputs.workflow == 'true'
+        run: pnpm lint
+
+      - name: Build
+        if: needs.changes.outputs.viewer_app == 'true' || needs.changes.outputs.workflow == 'true'
+        run: pnpm build
+
+  hub-app:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/hub
+    steps:
+      - name: Skip (no apps/hub paths)
+        if: needs.changes.outputs.hub_app != 'true' && needs.changes.outputs.workflow != 'true'
+        run: echo "Skipping hub-app."
+        working-directory: .
+
+      - name: Checkout
+        if: needs.changes.outputs.hub_app == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: actions/checkout@v4
+
+      - name: pnpm
+        if: needs.changes.outputs.hub_app == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Node
+        if: needs.changes.outputs.hub_app == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/hub/pnpm-lock.yaml
+
+      - name: Install
+        if: needs.changes.outputs.hub_app == 'true' || needs.changes.outputs.workflow == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        if: needs.changes.outputs.hub_app == 'true' || needs.changes.outputs.workflow == 'true'
+        run: pnpm lint
+
+      - name: Build
+        if: needs.changes.outputs.hub_app == 'true' || needs.changes.outputs.workflow == 'true'
+        run: pnpm build
+
+  website:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - name: Skip (no website paths)
+        if: needs.changes.outputs.website != 'true' && needs.changes.outputs.workflow != 'true'
+        run: echo "Skipping website."
+        working-directory: .
+
+      - name: Checkout
+        if: needs.changes.outputs.website == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: actions/checkout@v4
+
+      - name: pnpm
+        if: needs.changes.outputs.website == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Node
+        if: needs.changes.outputs.website == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: website/pnpm-lock.yaml
+
+      - name: Install
+        if: needs.changes.outputs.website == 'true' || needs.changes.outputs.workflow == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        if: needs.changes.outputs.website == 'true' || needs.changes.outputs.workflow == 'true'
+        run: pnpm build
