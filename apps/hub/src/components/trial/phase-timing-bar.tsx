@@ -3,6 +3,13 @@
  * Data from Attempt result.phase_timing / token_timing (#47 D).
  */
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 export type PhaseSeg = {
   id: string;
   label?: string;
@@ -79,49 +86,74 @@ function SegmentBar({
   const total = segments.reduce((acc, s) => acc + (Number(s[valueKey]) || 0), 0);
   if (total <= 0 && segments.length === 0) return null;
 
+  const visible = segments.filter((seg) => {
+    const v = Number(seg[valueKey]) || 0;
+    return !(v <= 0 && total > 0);
+  });
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-sm font-medium text-ink">{title}</h3>
-        <span className="text-xs tabular text-mute">{totalLabel}</span>
+    <TooltipProvider delayDuration={200}>
+      <div className="space-y-2">
+        {/* Title + total on the left (Status-label style + value). */}
+        <div className="flex items-baseline gap-2">
+          <div className="text-xs text-mute">{title}</div>
+          <span className="text-sm tabular text-ink">{totalLabel}</span>
+        </div>
+        <div
+          className="flex h-3 w-full overflow-hidden rounded-[4px] bg-canvas-soft border border-hairline"
+          role="img"
+          aria-label={`${title}: ${totalLabel}`}
+        >
+          {segments.map((seg) => {
+            const v = Number(seg[valueKey]) || 0;
+            const pct = total > 0 ? (v / total) * 100 : 0;
+            if (pct <= 0) return null;
+            const label = seg.label || seg.id;
+            return (
+              <Tooltip key={seg.id}>
+                <TooltipTrigger asChild>
+                  <div
+                    className={`${colorFor(seg.id, kind)} h-full min-w-[2px] cursor-default transition-opacity hover:opacity-90`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {label}: {formatValue(v)}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+        {/* Legend: labels only; values via Tooltip. */}
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-mute">
+          {visible.map((seg) => {
+            const v = Number(seg[valueKey]) || 0;
+            const label = seg.label || seg.id;
+            return (
+              <li key={seg.id}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex cursor-default items-center gap-1.5 outline-none"
+                    >
+                      <span
+                        className={`inline-block h-2 w-2 shrink-0 rounded-[2px] ${colorFor(seg.id, kind)}`}
+                        aria-hidden
+                      />
+                      <span>{label}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {label}: {formatValue(v)}
+                  </TooltipContent>
+                </Tooltip>
+              </li>
+            );
+          })}
+        </ul>
       </div>
-      <div
-        className="flex h-3 w-full overflow-hidden rounded-[4px] bg-canvas-soft border border-hairline"
-        role="img"
-        aria-label={`${title}: ${totalLabel}`}
-      >
-        {segments.map((seg) => {
-          const v = Number(seg[valueKey]) || 0;
-          const pct = total > 0 ? (v / total) * 100 : 0;
-          if (pct <= 0) return null;
-          const label = seg.label || seg.id;
-          return (
-            <div
-              key={seg.id}
-              className={`${colorFor(seg.id, kind)} h-full min-w-[2px] transition-opacity hover:opacity-90`}
-              style={{ width: `${pct}%` }}
-              title={`${label}: ${formatValue(v)}`}
-            />
-          );
-        })}
-      </div>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-mute">
-        {segments.map((seg) => {
-          const v = Number(seg[valueKey]) || 0;
-          if (v <= 0 && total > 0) return null;
-          return (
-            <li key={seg.id} className="inline-flex items-center gap-1.5">
-              <span
-                className={`inline-block h-2 w-2 rounded-[2px] ${colorFor(seg.id, kind)}`}
-                aria-hidden
-              />
-              <span>{seg.label || seg.id}</span>
-              <span className="tabular text-body">{formatValue(v)}</span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    </TooltipProvider>
   );
 }
 
@@ -137,27 +169,39 @@ export function PhaseTimingBar({
 
   if (phases.length === 0 && tokens.length === 0) return null;
 
+  const both = tokens.length > 0 && phases.length > 0;
+
   return (
-    <div className="space-y-4 rounded-[8px] border border-hairline p-4">
+    <div
+      className={
+        both
+          ? "flex flex-col gap-6 rounded-[8px] border border-hairline p-4 sm:flex-row sm:items-stretch sm:gap-0"
+          : "rounded-[8px] border border-hairline p-4"
+      }
+    >
       {tokens.length > 0 ? (
-        <SegmentBar
-          title="Tokens"
-          segments={tokens}
-          totalLabel={`${formatTokens(tokenTiming?.total_tokens)} tokens`}
-          kind="token"
-          valueKey="tokens"
-          formatValue={formatTokens}
-        />
+        <div className={both ? "min-w-0 flex-1 sm:pr-6" : undefined}>
+          <SegmentBar
+            title="Tokens"
+            segments={tokens}
+            totalLabel={`${formatTokens(tokenTiming?.total_tokens)} tokens`}
+            kind="token"
+            valueKey="tokens"
+            formatValue={formatTokens}
+          />
+        </div>
       ) : null}
       {phases.length > 0 ? (
-        <SegmentBar
-          title="Timing"
-          segments={phases}
-          totalLabel={formatMs(phaseTiming?.total_ms)}
-          kind="phase"
-          valueKey="duration_ms"
-          formatValue={formatMs}
-        />
+        <div className={both ? "min-w-0 flex-1 sm:pl-6" : undefined}>
+          <SegmentBar
+            title="Timing"
+            segments={phases}
+            totalLabel={formatMs(phaseTiming?.total_ms)}
+            kind="phase"
+            valueKey="duration_ms"
+            formatValue={formatMs}
+          />
+        </div>
       ) : null}
     </div>
   );
