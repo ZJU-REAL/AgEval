@@ -89,8 +89,32 @@ def register(app: typer.Typer) -> None:
             typer.Option(
                 "--max-concurrent-tasks",
                 help=(
-                    "Max concurrent suite tasks (integer ≥1). Default 1 or Database "
-                    "defaults.max_concurrent_tasks. Ignored when only one task runs."
+                    "Max concurrent suite work units (integer ≥1). Default 1 or Database "
+                    "defaults.max_concurrent_tasks. Speeds wall time only; does not change "
+                    "n_attempts or pass/fail. Forced to 1 when a single task runs once."
+                ),
+            ),
+        ] = None,
+        n_attempts: Annotated[
+            int | None,
+            typer.Option(
+                "--n-attempts",
+                "-k",
+                help=(
+                    "Always-k: independent Attempts per task (integer ≥1, default 1). "
+                    "CLI/job only — not a task.yaml field, not part of config_fingerprint. "
+                    "Feeds pass@k / pass^k job metrics."
+                ),
+            ),
+        ] = None,
+        resume_suite: Annotated[
+            str | None,
+            typer.Option(
+                "--resume-suite",
+                help=(
+                    "Resume an existing suite_run_id under .bora/suite-runs/. "
+                    "Skips finished (task_id, attempt_index) units, appends new Attempts, "
+                    "recomputes pass@k / pass^k. Combine with --task to top up one task."
                 ),
             ),
         ] = None,
@@ -127,14 +151,25 @@ def register(app: typer.Typer) -> None:
                 pointer, value = parse_set_override(raw)
                 overrides[pointer] = value
 
+            k = n_attempts if n_attempts is not None else 1
+            resume_id = resume_suite.strip() if resume_suite and str(resume_suite).strip() else None
+
             # Full suite when --task omitted; single task when provided.
             plan = plan_suite_run(
                 package,
                 task_id=task.strip() if task and str(task).strip() else None,
                 max_concurrent_tasks=max_concurrent_tasks,
+                n_attempts=k,
+                suite_run_id=resume_id,
             )
-            if len(plan.task_ids) == 1 and task and str(task).strip():
-                # Preserve historical single-task JSON stdout shape.
+            # Historical single-task JSON only when k==1 and not resuming.
+            if (
+                len(plan.task_ids) == 1
+                and task
+                and str(task).strip()
+                and plan.n_attempts == 1
+                and resume_id is None
+            ):
                 run_task = build_run_task()
                 code, result, _details = asyncio.run(
                     run_task(
@@ -170,6 +205,7 @@ def register(app: typer.Typer) -> None:
                     plan,
                     overrides=overrides or None,
                     profiles_path=profiles,
+                    resume=resume_id is not None,
                 )
             )
         except ConfigError as exc:

@@ -1,7 +1,10 @@
-"""Database suite run: task_id-axis scheduling (Spec 22).
+"""Database suite run: task_id-axis scheduling (+ multi-attempt Always-k, #47).
 
 Orthogonal to Campaign (parameter matrix on one task). Application-layer only;
 does not invent suite-level PASS.
+
+``n_attempts`` / k-attempt and resume are **CLI / job** parameters only — never
+package identity or ``config_fingerprint`` inputs.
 """
 
 from __future__ import annotations
@@ -9,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,7 +20,12 @@ from typing import Any
 
 from bora.application.run_command import run_task
 from bora.application.suite_config_fingerprint import collect_suite_config
-from bora.application.suite_metrics import aggregate_task_metrics, task_refs_for_summary
+from bora.application.suite_metrics import (
+    aggregate_k_metrics,
+    aggregate_task_metrics,
+    flatten_legacy_tasks_as_attempts,
+    task_refs_for_summary,
+)
 from bora.config.database import list_tasks, load_database_manifest
 from bora.config.errors import ConfigError
 from bora.registry.resolve import resolve_database_root
@@ -45,6 +53,7 @@ class SuitePlan:
     database_root: Path
     task_ids: list[str]
     max_concurrent_tasks: int
+    n_attempts: int = 1
     suite_run_id: str = field(default_factory=lambda: f"suite_{uuid.uuid4().hex[:16]}")
 
 
@@ -53,8 +62,19 @@ def plan_suite_run(
     *,
     task_id: str | None = None,
     max_concurrent_tasks: int | None = None,
+    n_attempts: int | None = None,
+    suite_run_id: str | None = None,
 ) -> SuitePlan:
-    """Build a suite plan from Database root/ref and optional single-task filter."""
+    """Build a suite plan from Database root/ref and optional single-task filter.
+
+    Parameters
+    ----------
+    n_attempts:
+        Always-k sample budget per task (CLI / job only). Default 1.
+        Does **not** change package identity or fingerprint.
+    suite_run_id:
+        When resuming, reuse an existing suite run id.
+    """
     root = resolve_database_root(database_ref)
     man = load_database_manifest(root)
     if task_id:
@@ -65,6 +85,14 @@ def plan_suite_run(
         ids = [task_id]
     else:
         ids = list_tasks(root, manifest=man)
+
+    k = 1 if n_attempts is None else n_attempts
+    if not isinstance(k, int) or isinstance(k, bool) or k < 1:
+        raise ConfigError(
+            "invalid_override",
+            "n_attempts must be an integer ≥ 1",
+            location="--n-attempts",
+        )
 
     n = max_concurrent_tasks
     if n is None:
@@ -78,17 +106,58 @@ def plan_suite_run(
             "max_concurrent_tasks must be an integer ≥ 1",
             location="--max-concurrent-tasks",
         )
-    # Single-task mode: N is ignored (still ≥1 for pool size = 1 effectively).
-    if len(ids) == 1:
+    # Single unit (one task × one attempt): concurrency is irrelevant → force 1.
+    # Multi-attempt or multi-task: keep pool size so parallel only speeds wall time.
+    if len(ids) == 1 and k == 1:
         n = 1
 
-    return SuitePlan(
+    plan = SuitePlan(
         database_id=man.database_id,
         database_version=man.version,
         database_root=root,
         task_ids=ids,
         max_concurrent_tasks=n,
+        n_attempts=k,
     )
+    if suite_run_id is not None and str(suite_run_id).strip():
+        plan.suite_run_id = str(suite_run_id).strip()
+    return plan
+
+
+def suite_summary_path(database_root: Path, suite_run_id: str) -> Path:
+    return (
+        database_root.expanduser().resolve(strict=False)
+        / ".bora"
+        / "suite-runs"
+        / suite_run_id
+        / "summary.json"
+    )
+
+
+def load_suite_summary(database_root: Path, suite_run_id: str) -> dict[str, Any]:
+    """Load an existing suite ``summary.json`` or raise ConfigError."""
+    path = suite_summary_path(database_root, suite_run_id)
+    if not path.is_file():
+        raise ConfigError(
+            "suite_not_found",
+            f"suite summary not found: {suite_run_id}",
+            location=str(path),
+        )
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ConfigError(
+            "suite_summary_invalid",
+            f"cannot read suite summary: {exc}",
+            location=str(path),
+        ) from exc
+    if not isinstance(data, dict):
+        raise ConfigError(
+            "suite_summary_invalid",
+            "suite summary must be a JSON object",
+            location=str(path),
+        )
+    return data
 
 
 def extract_run_id(database_root: Path, *candidates: object) -> str | None:
@@ -131,9 +200,28 @@ def extract_run_id(database_root: Path, *candidates: object) -> str | None:
     return None
 
 
+def planned_units(plan: SuitePlan) -> list[tuple[str, int]]:
+    """Expand Always-k units: ``(task_id, attempt_index)`` for index in ``0..k-1``."""
+    return [(tid, i) for tid in plan.task_ids for i in range(plan.n_attempts)]
+
+
+def _existing_attempt_keys(attempts: list[dict[str, Any]]) -> set[tuple[str, int]]:
+    keys: set[tuple[str, int]] = set()
+    for row in attempts:
+        tid = str(row.get("task_id") or "")
+        idx = row.get("attempt_index")
+        if not tid:
+            continue
+        if not isinstance(idx, int) or isinstance(idx, bool):
+            idx = 0
+        keys.add((tid, idx))
+    return keys
+
+
 async def _run_one(
     plan: SuitePlan,
     task_id: str,
+    attempt_index: int,
     *,
     semaphore: asyncio.Semaphore,
     overrides: dict[str, Any] | None,
@@ -166,6 +254,7 @@ async def _run_one(
                 raw_metrics = detail_metrics if isinstance(detail_metrics, dict) else {}
             return {
                 "task_id": task_id,
+                "attempt_index": attempt_index,
                 "exit_code": code,
                 "status": status,
                 "score": getattr(result, "score", None),
@@ -177,6 +266,7 @@ async def _run_one(
         except ConfigError as exc:
             return {
                 "task_id": task_id,
+                "attempt_index": attempt_index,
                 "exit_code": 2,
                 "status": "ERROR",
                 "score": None,
@@ -188,6 +278,7 @@ async def _run_one(
         except Exception as exc:  # noqa: BLE001
             return {
                 "task_id": task_id,
+                "attempt_index": attempt_index,
                 "exit_code": 2,
                 "status": "ERROR",
                 "score": None,
@@ -201,32 +292,83 @@ async def _run_one(
                 _inflight_current -= 1
 
 
-async def execute_suite_run(
+def _build_summary(
     plan: SuitePlan,
+    attempts: list[dict[str, Any]],
     *,
-    overrides: dict[str, Any] | None = None,
-    run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]] | None = None,
-    profiles_path: Path | str | None = None,
+    overrides: dict[str, Any] | None,
+    profiles_path: Path | str | None,
 ) -> dict[str, Any]:
-    """Execute all planned tasks with a concurrency pool; write suite summary."""
-    reset_inflight_metrics()
-    runner = run_fn or run_task
-    semaphore = asyncio.Semaphore(plan.max_concurrent_tasks)
-    tasks = [
-        _run_one(
-            plan,
-            tid,
-            semaphore=semaphore,
-            overrides=overrides,
-            run_fn=runner,
-            profiles_path=profiles_path,
-        )
-        for tid in plan.task_ids
-    ]
-    results = await asyncio.gather(*tasks)
+    """Roll attempts → tasks + metrics; write identity fields (no k in fingerprint)."""
+    k_agg = aggregate_k_metrics(
+        attempts,
+        task_ids=plan.task_ids,
+        n_attempts=plan.n_attempts,
+    )
+    task_rows: list[dict[str, Any]] = list(k_agg.pop("task_rows"))
+
+    # Strip nested attempts from tasks[] for a flatter summary when k==1
+    # (backward-compatible shape); keep attempts[] always for resume.
+    tasks_out: list[dict[str, Any]]
+    if plan.n_attempts == 1 and all(len(t.get("attempts") or []) <= 1 for t in task_rows):
+        tasks_out = []
+        for t in task_rows:
+            nested = t.get("attempts") or []
+            base = nested[0] if nested else {}
+            row = {
+                "task_id": t["task_id"],
+                "exit_code": base.get("exit_code"),
+                "status": t["status"],
+                "score": base.get("score", t.get("score")),
+                "metrics": base.get("metrics") if isinstance(base.get("metrics"), dict) else {},
+                "run_id": t.get("run_id"),
+                "digest": base.get("digest"),
+                "error": base.get("error"),
+                "attempt_index": 0,
+            }
+            # Surface k stats only when n_attempts was requested >1 historically;
+            # for k==1 omit pass_at_k maps from task row to keep legacy tests green.
+            tasks_out.append(row)
+        metrics = aggregate_task_metrics(tasks_out)
+        # Still attach pass@k maps under metrics when useful (k=1 → pass@1 = pass_rate).
+        metrics["n_attempts"] = plan.n_attempts
+        metrics["k_values"] = k_agg.get("k_values", [1])
+        metrics["pass_at_k"] = k_agg.get("pass_at_k", {})
+        metrics["pass_power_k"] = k_agg.get("pass_power_k", {})
+        metrics["per_task"] = k_agg.get("per_task", [])
+    else:
+        tasks_out = []
+        for t in task_rows:
+            tasks_out.append(
+                {
+                    "task_id": t["task_id"],
+                    "status": t["status"],
+                    "score": t["score"],
+                    "n": t["n"],
+                    "c": t["c"],
+                    "run_id": t.get("run_id"),
+                    "pass_at_k": t["pass_at_k"],
+                    "pass_power_k": t["pass_power_k"],
+                    "attempt_indices": t.get("attempt_indices"),
+                }
+            )
+        metrics = {
+            "pass_rate": k_agg["pass_rate"],
+            "mean_score": k_agg["mean_score"],
+            "n_tasks": k_agg["n_tasks"],
+            "n_pass": k_agg["n_pass"],
+            "n_fail": k_agg["n_fail"],
+            "n_error": k_agg["n_error"],
+            "missing_score_as": k_agg["missing_score_as"],
+            "n_attempts": plan.n_attempts,
+            "k_values": k_agg["k_values"],
+            "pass_at_k": k_agg["pass_at_k"],
+            "pass_power_k": k_agg["pass_power_k"],
+            "per_task": k_agg["per_task"],
+        }
 
     counts = {"pass": 0, "fail": 0, "error": 0, "skipped": 0}
-    for row in results:
+    for row in tasks_out:
         st = str(row.get("status") or "").upper()
         if st == "PASS":
             counts["pass"] += 1
@@ -235,7 +377,6 @@ async def execute_suite_run(
         else:
             counts["error"] += 1
 
-    # Exit code matrix aligned with single-task bora run.
     if counts["error"] > 0:
         exit_code = 2
     elif counts["fail"] > 0:
@@ -243,50 +384,188 @@ async def execute_suite_run(
     else:
         exit_code = 0
 
-    metrics = aggregate_task_metrics(results)
-    # Config fingerprint for Leaderboard comparability (#42): written at
-    # summary time from per-task profiles — not at upload unpack.
+    # Fingerprint from one row per task (first attempt's run_id if needed).
+    fp_rows: list[dict[str, Any]] = []
+    by_task_attempt: dict[str, list[dict[str, Any]]] = {}
+    for a in attempts:
+        tid = str(a.get("task_id") or "")
+        by_task_attempt.setdefault(tid, []).append(a)
+    for tid in plan.task_ids:
+        rows = by_task_attempt.get(tid, [])
+        pick = None
+        for r in rows:
+            if str(r.get("status") or "").upper() == "PASS" and r.get("run_id"):
+                pick = r
+                break
+        if pick is None and rows:
+            pick = rows[0]
+        if pick is not None:
+            fp_rows.append({"task_id": tid, "run_id": pick.get("run_id")})
+        else:
+            fp_rows.append({"task_id": tid, "run_id": None})
+
     config_fields = collect_suite_config(
         plan.database_root,
-        results,
+        fp_rows,
         overrides=overrides,
         task_ids=plan.task_ids,
         profiles_path=profiles_path,
     )
+
     summary: dict[str, Any] = {
         "schema": "bora.suite.summary/1",
         "suite_run_id": plan.suite_run_id,
         "database_id": plan.database_id,
         "database_version": plan.database_version,
         "max_concurrent_tasks": plan.max_concurrent_tasks,
+        "n_attempts": plan.n_attempts,
         "task_ids": list(plan.task_ids),
-        "tasks": list(results),
-        "task_refs": task_refs_for_summary(results),
+        "attempts": list(attempts),
+        "tasks": tasks_out,
+        "task_refs": task_refs_for_summary(tasks_out),
         "counts": counts,
-        # Observational aggregates (leaderboard); never suite PASS authority.
+        # Observational aggregates (leaderboard / job stats); never suite PASS.
         "metrics": metrics,
         "exit_code": exit_code,
-        # UTC ISO-8601 (not unix epoch float).
         "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "inflight_peak": get_inflight_peak(),
-        # Config comparability (Hub Leaderboard); not PASS authority.
         "config_fingerprint": config_fields["config_fingerprint"],
         "config_homogeneous": config_fields["config_homogeneous"],
         "actors_summary": config_fields["actors_summary"],
         "agent_label": config_fields.get("agent_label") or "",
         "model_label": config_fields.get("model_label") or "",
-        # Explicitly NOT a suite PASS authority:
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
-    # #59 secret-free job binding for upload / Hub rehydrate (when homogeneous).
     if config_fields.get("job_overlay") is not None:
         summary["job_overlay"] = config_fields["job_overlay"]
+    return summary
 
+
+def _write_summary(plan: SuitePlan, summary: dict[str, Any]) -> dict[str, Any]:
     suite_dir = plan.database_root / ".bora" / "suite-runs" / plan.suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     out = suite_dir / "summary.json"
     tmp = out.with_suffix(".tmp")
-    tmp.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # summary_path is host-local; keep off the durable document? Historical
+    # code put it only on the returned dict, not always on disk — write clean.
+    disk = {k: v for k, v in summary.items() if k != "summary_path"}
+    tmp.write_text(json.dumps(disk, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     tmp.replace(out)
     summary["summary_path"] = str(out)
     return summary
+
+
+async def execute_suite_run(
+    plan: SuitePlan,
+    *,
+    overrides: dict[str, Any] | None = None,
+    run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]] | None = None,
+    profiles_path: Path | str | None = None,
+    resume: bool = False,
+) -> dict[str, Any]:
+    """Execute planned task×attempt units with a concurrency pool; write summary.
+
+    When ``resume=True``, load existing attempts for ``plan.suite_run_id``, skip
+    units that already finished, **append** new attempts, and recompute metrics.
+    Existing attempt rows are never rewritten.
+    """
+    reset_inflight_metrics()
+    runner = run_fn or run_task
+
+    existing: list[dict[str, Any]] = []
+    if resume:
+        old = load_suite_summary(plan.database_root, plan.suite_run_id)
+        raw_attempts = old.get("attempts")
+        if isinstance(raw_attempts, list) and raw_attempts:
+            existing = [dict(a) for a in raw_attempts if isinstance(a, Mapping)]
+        else:
+            legacy_tasks = old.get("tasks")
+            if isinstance(legacy_tasks, list):
+                existing = flatten_legacy_tasks_as_attempts(
+                    [t for t in legacy_tasks if isinstance(t, Mapping)]
+                )
+        # Prefer higher n_attempts if resume raises budget.
+        old_k = old.get("n_attempts")
+        if isinstance(old_k, int) and not isinstance(old_k, bool) and old_k > plan.n_attempts:
+            # Keep caller's plan.n_attempts as target; old higher budget means
+            # more existing keys — fine.
+            pass
+
+    done_keys = _existing_attempt_keys(existing)
+    units = planned_units(plan)
+    todo = [(tid, idx) for tid, idx in units if (tid, idx) not in done_keys]
+
+    semaphore = asyncio.Semaphore(plan.max_concurrent_tasks)
+    coros = [
+        _run_one(
+            plan,
+            tid,
+            idx,
+            semaphore=semaphore,
+            overrides=overrides,
+            run_fn=runner,
+            profiles_path=profiles_path,
+        )
+        for tid, idx in todo
+    ]
+    new_results: list[dict[str, Any]] = list(await asyncio.gather(*coros)) if coros else []
+
+    # Append-only merge: existing first (stable), then new; never mutate old rows.
+    attempts = list(existing) + new_results
+    # Drop attempts outside planned task set only when filtering? Keep all that
+    # belong to plan.task_ids; preserve other tasks already in the job for resume
+    # of a subset (Harbor: re-run one task without wiping the rest).
+    if resume and plan.task_ids:
+        planned_set = set(plan.task_ids)
+        # Keep attempts for tasks not in this plan's filter (other suite members).
+        kept_other = [a for a in existing if str(a.get("task_id") or "") not in planned_set]
+        # For planned tasks: existing matching keys + new
+        planned_existing = [a for a in existing if str(a.get("task_id") or "") in planned_set]
+        attempts = kept_other + planned_existing + new_results
+
+    # Union task_ids for summary when resume brings siblings.
+    if resume:
+        all_ids: list[str] = []
+        seen: set[str] = set()
+        for tid in plan.task_ids:
+            if tid not in seen:
+                all_ids.append(tid)
+                seen.add(tid)
+        for a in attempts:
+            tid = str(a.get("task_id") or "")
+            if tid and tid not in seen:
+                all_ids.append(tid)
+                seen.add(tid)
+        # Mutate a shallow copy of plan fields for summary only.
+        summary_plan = SuitePlan(
+            database_id=plan.database_id,
+            database_version=plan.database_version,
+            database_root=plan.database_root,
+            task_ids=all_ids,
+            max_concurrent_tasks=plan.max_concurrent_tasks,
+            n_attempts=plan.n_attempts,
+            suite_run_id=plan.suite_run_id,
+        )
+        # If other tasks had more samples, take max n_attempts for display budget.
+        max_n = plan.n_attempts
+        by_t: dict[str, int] = {}
+        for a in attempts:
+            tid = str(a.get("task_id") or "")
+            by_t[tid] = by_t.get(tid, 0) + 1
+        if by_t:
+            max_n = max(max_n, max(by_t.values()))
+        summary_plan.n_attempts = max_n
+    else:
+        summary_plan = plan
+
+    summary = _build_summary(
+        summary_plan,
+        attempts,
+        overrides=overrides,
+        profiles_path=profiles_path,
+    )
+    if resume:
+        summary["resumed"] = True
+        summary["new_attempts"] = len(new_results)
+        summary["skipped_attempts"] = len(done_keys & set(units))
+    return _write_summary(plan, summary)
