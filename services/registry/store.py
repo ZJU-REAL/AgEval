@@ -100,6 +100,17 @@ class MembershipRow:
 
 
 @dataclass(frozen=True, slots=True)
+class UserProfileRow:
+    """GitHub profile snapshot written at Registry login (not a credential)."""
+
+    user_id: str
+    display_name: str
+    avatar_url: str
+    github_id: str
+    updated_at: float
+
+
+@dataclass(frozen=True, slots=True)
 class TokenInfo:
     """Resolved bearer token: scopes + optional user identity (github login)."""
 
@@ -571,6 +582,17 @@ class MetadataStore:
                     target_id TEXT NOT NULL,
                     created_at REAL NOT NULL,
                     PRIMARY KEY (result_kind, result_id, target_type, target_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    avatar_url TEXT NOT NULL DEFAULT '',
+                    github_id TEXT NOT NULL DEFAULT '',
+                    updated_at REAL NOT NULL
                 )
                 """
             )
@@ -1156,6 +1178,85 @@ class MetadataStore:
             created_at=float(r["created_at"]),
         )
 
+    def upsert_user_profile(
+        self,
+        *,
+        user_id: str,
+        display_name: str = "",
+        avatar_url: str = "",
+        github_id: str = "",
+    ) -> UserProfileRow:
+        uid = _normalize_user_id(user_id) or user_id
+        row = UserProfileRow(
+            user_id=uid,
+            display_name=(display_name or "").strip(),
+            avatar_url=(avatar_url or "").strip(),
+            github_id=str(github_id or "").strip(),
+            updated_at=now(),
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_profiles(
+                    user_id, display_name, avatar_url, github_id, updated_at
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    display_name=excluded.display_name,
+                    avatar_url=excluded.avatar_url,
+                    github_id=excluded.github_id,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    row.user_id,
+                    row.display_name,
+                    row.avatar_url,
+                    row.github_id,
+                    row.updated_at,
+                ),
+            )
+            conn.commit()
+        return row
+
+    def get_user_profile(self, user_id: str) -> UserProfileRow | None:
+        uid = _normalize_user_id(user_id) or user_id
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM user_profiles WHERE user_id=?",
+                (uid,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            return UserProfileRow(
+                user_id=str(r["user_id"]),
+                display_name=str(r["display_name"] or ""),
+                avatar_url=str(r["avatar_url"] or ""),
+                github_id=str(r["github_id"] or ""),
+                updated_at=float(r["updated_at"]),
+            )
+
+    def get_user_profiles(self, user_ids: list[str] | set[str]) -> dict[str, UserProfileRow]:
+        ids = sorted({_normalize_user_id(u) or u for u in user_ids if u})
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT * FROM user_profiles WHERE user_id IN ({placeholders})",
+                ids,
+            )
+            out: dict[str, UserProfileRow] = {}
+            for r in cur.fetchall():
+                p = UserProfileRow(
+                    user_id=str(r["user_id"]),
+                    display_name=str(r["display_name"] or ""),
+                    avatar_url=str(r["avatar_url"] or ""),
+                    github_id=str(r["github_id"] or ""),
+                    updated_at=float(r["updated_at"]),
+                )
+                out[p.user_id] = p
+            return out
+
 
 class PostgresMetadataStore:
     """Postgres release + attempt_results metadata."""
@@ -1271,6 +1372,17 @@ class PostgresMetadataStore:
                     target_id TEXT NOT NULL,
                     created_at DOUBLE PRECISION NOT NULL,
                     PRIMARY KEY (result_kind, result_id, target_type, target_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    avatar_url TEXT NOT NULL DEFAULT '',
+                    github_id TEXT NOT NULL DEFAULT '',
+                    updated_at DOUBLE PRECISION NOT NULL
                 )
                 """
             )
@@ -1883,6 +1995,86 @@ class PostgresMetadataStore:
             )
             return cur.fetchone() is not None
 
+    def upsert_user_profile(
+        self,
+        *,
+        user_id: str,
+        display_name: str = "",
+        avatar_url: str = "",
+        github_id: str = "",
+    ) -> UserProfileRow:
+        uid = _normalize_user_id(user_id) or user_id
+        row = UserProfileRow(
+            user_id=uid,
+            display_name=(display_name or "").strip(),
+            avatar_url=(avatar_url or "").strip(),
+            github_id=str(github_id or "").strip(),
+            updated_at=now(),
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_profiles(
+                    user_id, display_name, avatar_url, github_id, updated_at
+                ) VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    display_name = EXCLUDED.display_name,
+                    avatar_url = EXCLUDED.avatar_url,
+                    github_id = EXCLUDED.github_id,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (
+                    row.user_id,
+                    row.display_name,
+                    row.avatar_url,
+                    row.github_id,
+                    row.updated_at,
+                ),
+            )
+            conn.commit()
+        return row
+
+    def get_user_profile(self, user_id: str) -> UserProfileRow | None:
+        uid = _normalize_user_id(user_id) or user_id
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT user_id, display_name, avatar_url, github_id, updated_at "
+                "FROM user_profiles WHERE user_id=%s",
+                (uid,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            return UserProfileRow(
+                user_id=str(r[0]),
+                display_name=str(r[1] or ""),
+                avatar_url=str(r[2] or ""),
+                github_id=str(r[3] or ""),
+                updated_at=float(r[4]),
+            )
+
+    def get_user_profiles(self, user_ids: list[str] | set[str]) -> dict[str, UserProfileRow]:
+        ids = sorted({_normalize_user_id(u) or u for u in user_ids if u})
+        if not ids:
+            return {}
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT user_id, display_name, avatar_url, github_id, updated_at "
+                "FROM user_profiles WHERE user_id = ANY(%s)",
+                (ids,),
+            )
+            out: dict[str, UserProfileRow] = {}
+            for r in cur.fetchall():
+                p = UserProfileRow(
+                    user_id=str(r[0]),
+                    display_name=str(r[1] or ""),
+                    avatar_url=str(r[2] or ""),
+                    github_id=str(r[3] or ""),
+                    updated_at=float(r[4]),
+                )
+                out[p.user_id] = p
+            return out
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -1932,13 +2124,25 @@ def org_to_dict(row: OrgRow) -> dict[str, Any]:
     }
 
 
-def membership_to_dict(row: MembershipRow) -> dict[str, Any]:
-    return {
+def membership_to_dict(
+    row: MembershipRow,
+    *,
+    profile: UserProfileRow | None = None,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
         "org_id": row.org_id,
         "user_id": row.user_id,
         "role": row.role,
         "created_at": row.created_at,
     }
+    if profile is not None:
+        if profile.display_name:
+            out["display_name"] = profile.display_name
+        if profile.avatar_url:
+            out["avatar_url"] = profile.avatar_url
+        if profile.github_id:
+            out["github_id"] = profile.github_id
+    return out
 
 
 def share_to_dict(row: ResultShareRow) -> dict[str, Any]:
