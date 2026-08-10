@@ -513,7 +513,7 @@ def _build_summary(
         "task_ids": list(plan.task_ids),
         "attempts": list(attempts),
         "tasks": tasks_out,
-        "task_refs": task_refs_for_summary(tasks_out),
+        "task_refs": task_refs_for_summary(tasks_out, attempts=attempts),
         "counts": counts,
         # Observational aggregates (leaderboard / job stats); never suite PASS.
         "metrics": metrics,
