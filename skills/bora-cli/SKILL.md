@@ -37,6 +37,8 @@ uv run bora --help
 | `bora run ... --set '/bindings/solver/options/entry="pi"'` | Job binding override (entry/model; #59)                              |
 | `bora campaign <package> --task <id> --matrix ...`         | Serial matrix (`/parameters/*` or `/bindings/<role>/…`)               |
 | `bora evidence <logs-path> --out <dir>`                    | Sealed trajectory export (no score change)                           |
+| `bora results upload-suite …`                              | Suite aggregates → Registry (includes job_overlay when present)      |
+| `bora results export-profiles <suite_run_id> --out …`      | Rehydrate job binding as profiles.yaml (#59; locators only)          |
 | `bora submit` / `bora status` / `bora cancel`              | Durable control sketch (v0.12)                                       |
 
 Discover flags with `uv run bora <cmd> --help`. Source of truth: `src/bora/cli/main.py`.

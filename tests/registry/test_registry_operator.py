@@ -315,6 +315,22 @@ def _write_suite_summary(db: Path, suite_run_id: str) -> Path:
         },
         "exit_code": 1,
         "note": "per-task evaluator verdicts only; no suite-level PASS",
+        # #59 secret-free job binding for rehydrate
+        "config_fingerprint": "sha256:deadbeef",
+        "config_homogeneous": True,
+        "actors_summary": [
+            {"profile_id": "solver", "entry": "pi", "model": "m1"},
+        ],
+        "job_overlay": {
+            "bindings": {
+                "solver": {
+                    "executor": "acp",
+                    "options": {"entry": "pi"},
+                    "model": "m1",
+                    "api_key": "LOCATOR_ONLY",
+                }
+            }
+        },
     }
     (suite_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return suite_dir
@@ -326,6 +342,8 @@ def test_suite_results_upload_get_list_roundtrip(
     _auth_env(monkeypatch, registry_server, tmp_path)
     _ensure_org()
     import shutil
+
+    from bora.application.results_command import export_suite_profiles
 
     db = tmp_path / "db-suite"
     shutil.copytree(FIXTURE, db)
@@ -345,21 +363,40 @@ def test_suite_results_upload_get_list_roundtrip(
     assert len(up["task_refs"]) == 3
     assert "pass" not in up or up.get("pass") is not True
     assert "suite-level PASS" in up.get("note", "") or "no suite-level PASS" in up.get("note", "")
+    assert up.get("job_overlay", {}).get("bindings", {}).get("solver", {}).get("options", {}).get(
+        "entry"
+    ) == "pi"
+    assert "sk-" not in str(up.get("job_overlay"))
 
     listed = list_suite_results(database_id="test/publish-min")
     assert listed["count"] == 1
     assert listed["items"][0]["suite_run_id"] == suite_run_id
     assert listed["items"][0]["agent_label"] == "codex"
+    assert listed["items"][0].get("job_overlay", {}).get("bindings", {}).get("solver", {}).get(
+        "model"
+    ) == "m1"
 
     got = get_suite_result(suite_run_id)
     assert got["ok"] is True
     assert got["metrics"]["n_pass"] == 2
     assert got["task_refs"][0]["task_id"] == "a"
+    assert got.get("job_overlay", {}).get("bindings", {}).get("solver", {}).get("api_key") == (
+        "LOCATOR_ONLY"
+    )
 
     out = tmp_path / "suite-restored"
     got_arch = get_suite_result(suite_run_id, out_dir=out)
     assert Path(str(got_arch["out"])).is_dir()
     assert (Path(str(got_arch["out"])) / "summary.json").is_file()
+    # Materialized profiles.from-suite.yaml for re-run
+    assert got_arch.get("profiles_path")
+    assert Path(str(got_arch["profiles_path"])).is_file()
+
+    exported = export_suite_profiles(
+        suite_run_id, out=tmp_path / "profiles.from-suite.yaml"
+    )
+    assert exported["ok"] is True
+    assert Path(str(exported["profiles_path"])).is_file()
 
 
 def test_suite_results_local_fallback(tmp_path: Path) -> None:
