@@ -14,11 +14,13 @@ v1 **terminal-bench / jsonl-aggregator** case class:
 | ------------- | --------------- | ---------------------------------------- |
 | `terminal-pi` | `pi`            | L1 `docker exec` target (assurance:l1)   |
 
-Alternate profile switch via `parameters.models.default` / first profile in `bora.yaml`:
-`terminal-opencode`, `terminal-grok`.
+Profiles: `terminal-pi` (default), `terminal-opencode`, `terminal-grok`.
 
 ```bash
 uv run bora run examples/journeys --task terminal-jsonl-agg
+# switch ACP entry via allowlisted override
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --set '/parameters/active_profile="terminal-opencode"'
 ```
 
 Requires `bora-attempt:l1` image with ACP entries baked in, host credentials for

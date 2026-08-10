@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJobTask, type Job, type TaskRow, type Trial } from "@/lib/api";
-import { cn, formatDate, formatScore } from "@/lib/utils";
+import { cn, formatDate, formatError, formatScore } from "@/lib/utils";
 
 export function TaskDetailPage() {
   const { jobId = "", taskId = "" } = useParams();
@@ -111,10 +111,11 @@ export function TaskDetailPage() {
               </TableHeader>
               <TableBody>
                 {trials.map((tr) => {
+                  const errText = formatError(tr.error);
                   const bad =
                     (tr.status || "").toUpperCase() === "ERROR" ||
                     (tr.status || "").toUpperCase() === "FAIL" ||
-                    Boolean(tr.error);
+                    Boolean(errText);
                   const rid = tr.run_id || tr.trial_id || task?.run_id || "";
                   // Open when we have a run id (detail page handles missing evidence)
                   const openable = Boolean(rid);
@@ -153,7 +154,7 @@ export function TaskDetailPage() {
                           bad ? "text-error tabular" : "tabular"
                         }
                       >
-                        {tr.error ||
+                        {errText ||
                           ((tr.status || "").toUpperCase() === "ERROR"
                             ? "RuntimeError"
                             : (tr.status || "").toUpperCase() === "FAIL"

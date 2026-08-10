@@ -118,6 +118,18 @@ export type TrajectoryStep = {
   line?: number;
   usage?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
+  /** ACP tool_call / observation (observational; not PASS) */
+  tool_call_id?: string | null;
+  title?: string | null;
+  function_name?: string | null;
+  kind?: string | null;
+  status?: string | null;
+  args?: Record<string, unknown> | unknown[] | string | null;
+  raw_output?: Record<string, unknown> | unknown[] | string | null;
+  /** permission_decision (batch auto-approve evidence) */
+  outcome?: string | null;
+  option_id?: string | null;
+  policy?: string | null;
 };
 
 export type Breadcrumb = { label: string; href: string | null };

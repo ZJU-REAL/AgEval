@@ -460,6 +460,7 @@ class AcpExecutor:
                 ok=result.ok,
                 error=result.error,
                 metadata=result.metadata,
+                redaction_sentinels=redaction_sentinels,
             )
         return result
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import tempfile
@@ -62,12 +63,16 @@ def project_executor_credentials(*, work_root: Path) -> CredentialProjection:
     allowlisted_files: list[tuple[Path, str]] = [
         (Path.home() / ".pi" / "agent" / "auth.json", "pi_home/agent/auth.json"),
         (Path.home() / ".local" / "share" / "opencode" / "auth.json", "opencode/auth.json"),
+        # Grok Build ACP (Mode 3) host OAuth / session store — not XAI_API_KEY alone.
+        (Path.home() / ".grok" / "auth.json", "grok_home/auth.json"),
     ]
     for src_file, rel in allowlisted_files:
         if src_file.is_file():
             target = root / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_file, target)
+            with contextlib.suppress(OSError):
+                target.chmod(0o600)
             has = True
             keys.append(rel)
 

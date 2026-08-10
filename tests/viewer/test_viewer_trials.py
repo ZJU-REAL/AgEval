@@ -223,6 +223,55 @@ def test_trajectory_steps(tmp_path: Path) -> None:
     assert all(s.get("profile_id") == "main" for s in traj["steps"])
 
 
+def test_trajectory_tool_call_and_observation_steps(tmp_path: Path) -> None:
+    """Viewer fail-open parses tool_call / observation rows for the panel."""
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    root = _write_evidence(db, "run_alpha_1", task_id="alpha")
+    inv = root / "agent" / "invocations" / "0001-inv_test"
+    traj = [
+        {"type": "turn", "role": "user", "content": "read cfg", "turn_index": 1},
+        {
+            "type": "tool_call",
+            "tool_call_id": "call_1",
+            "title": "read file",
+            "function_name": "read",
+            "kind": "read",
+            "status": "completed",
+            "args": {"path": "/w/a.txt"},
+            "turn_index": 1,
+            "source": "acp",
+        },
+        {
+            "type": "observation",
+            "tool_call_id": "call_1",
+            "status": "completed",
+            "content": "file body",
+            "turn_index": 1,
+            "source": "acp",
+        },
+        {"type": "turn", "role": "assistant", "content": "done", "turn_index": 1},
+        {"type": "terminal", "ok": True, "turn_index": 1},
+    ]
+    (inv / "trajectory.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in traj) + "\n", encoding="utf-8"
+    )
+
+    payload = trials.trial_trajectory(db, job_id, "alpha", "run_alpha_1")
+    types = [s.get("type") for s in payload["steps"]]
+    assert "tool_call" in types
+    assert "observation" in types
+    tool = next(s for s in payload["steps"] if s.get("type") == "tool_call")
+    assert tool.get("tool_call_id") == "call_1"
+    assert tool.get("kind") == "read"
+    assert tool.get("function_name") == "read"
+    # args surfaced as content when no content field
+    assert tool.get("content") and "a.txt" in tool["content"]
+    obs = next(s for s in payload["steps"] if s.get("type") == "observation")
+    assert obs.get("content") == "file body"
+    assert obs.get("tool_call_id") == "call_1"
+
+
 def test_tree_and_file_and_traversal(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = _seed_suite_run(db)

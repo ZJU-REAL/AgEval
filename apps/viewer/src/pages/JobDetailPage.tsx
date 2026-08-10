@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJob, type Job, type TaskRow } from "@/lib/api";
-import { formatScore } from "@/lib/utils";
+import { formatError, formatScore } from "@/lib/utils";
 
 type SortKey = "task_id" | "agent_label" | "provider_label" | "model_label" | "score" | "status";
 
@@ -134,8 +134,9 @@ export function JobDetailPage() {
               {!loading &&
                 !error &&
                 rows.map((t) => {
+                  const errText = formatError(t.error);
                   const isErr =
-                    (t.status || "").toUpperCase() === "ERROR" || Boolean(t.error);
+                    (t.status || "").toUpperCase() === "ERROR" || Boolean(errText);
                   return (
                     <TableRow
                       key={t.task_id}
@@ -177,7 +178,7 @@ export function JobDetailPage() {
                             : "text-mute"
                         }
                       >
-                        {t.error ||
+                        {errText ||
                           ((t.status || "").toUpperCase() === "ERROR"
                             ? "ERROR"
                             : (t.status || "").toUpperCase() === "FAIL"

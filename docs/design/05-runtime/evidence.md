@@ -74,8 +74,55 @@ BORA 的一次成功或失败 Attempt，必须在 filesystem evidence 根下留�
 
 1. `type=turn` · `role=user` · `content=<完整 prompt>` · `turn_index` · 可选 `acp_session_id`
 2. `type=turn` · `role=assistant` · `part=thought` · `content=<合并后的 thought>`（有则写）
-3. `type=turn` · `role=assistant` · `content=<合并后的最终 assistant 文本>`
-4. `type=terminal` · `ok` / `error` / `structured` / `usage` / `stop_reason` / entry·model 元数据摘要
+3. **`type=tool_call`** · action 侧（有则写；见下）
+4. **`type=observation`** · 该 call 的环境回传 / tool result（有则写；与 call 成对）
+5. `type=turn` · `role=assistant` · `content=<合并后的最终 assistant 文本>`
+6. `type=permission_decision` · batch auto-approve 等（有则写；evidence 决策摘要）
+7. `type=terminal` · `ok` / `error` · `structured` / `usage` / `stop_reason` / entry·model 元数据摘要
+
+行序建议：user → thought →（按首次出现顺序的 tool_call + observation 对）→ assistant 终稿 → permission → terminal。  
+无 tool 的 invoke **不写** 3–4，行为与旧 turn/terminal 轨迹一致。
+
+### `tool_call` / `observation`（ACP 汇总）
+
+数据源是 parent ACP client 已收集的 `session/update` 事件（`events` / 可选 `events.jsonl`），**不是** parent 内 vendor stdout scrape。合成层从流里汇总：
+
+| ACP `sessionUpdate` | 轨迹行 | 语义 |
+| --- | --- | --- |
+| `tool_call` | `type=tool_call` | **Action**：模型/agent 发起的工具调用 |
+| `tool_call_update` | 合并进同一 `tool_call_id` 的终态；结果写入 `type=observation` | **Observation** ≈ tool result（agentic RL / Harbor ATIF 同构口径） |
+
+**`tool_call` 推荐字段（尽力；缺省可省略）：**
+
+| 字段 | 含义 |
+| --- | --- |
+| `tool_call_id` | ACP `toolCallId`（同 id 多次 update **合并**） |
+| `title` | 人读标题 |
+| `function_name` | 尽力从 title / rawInput 推断的逻辑名 |
+| `kind` | ACP ToolKind（`read` / `edit` / `execute` / …） |
+| `status` | 合并后的终态（`pending` / `in_progress` / `completed` / `failed`） |
+| `args` | `rawInput`（若有；须 redact） |
+| `turn_index` / `acp_session_id` / `source` | 与 turn 行一致；`source` 一般为 `acp` |
+
+**`observation` 推荐字段：**
+
+| 字段 | 含义 |
+| --- | --- |
+| `tool_call_id` | 对齐对应 action（Harbor 语义上的 `source_call_id`） |
+| `status` | 该 call 终态 |
+| `content` | 从 ACP `content` 块抽出的可读摘要（文本 / diff 路径等） |
+| `raw_output` | `rawOutput`（若有；须 redact） |
+| `turn_index` / `acp_session_id` / `source` | 同上 |
+
+**合并规则：** 同一 `toolCallId` 的多次 `tool_call_update` 折叠为**最终** observation；中间 `in_progress` 进度片可丢弃。  
+**有 call 无 result：** 仍写 `tool_call`；observation 仅在存在 content / rawOutput / 终态 completed|failed 时写出。  
+**禁止**只落盘 call 而系统性丢弃已有 result。
+
+**Redaction：** `args` / `content` / `raw_output` 与既有轨迹 redact 同一路径（pattern + sentinels）；禁止 host secret / token 进入 `trajectory.jsonl`。
+
+**Reader fail-open：** 未知 `type` 跳过或原样展示；既有 `turn` / `terminal` 行保持可读。Viewer 与导出工具不得因新行类型硬失败。
+
+**非目标（本机制；导出后置）：** ATIF 一等文件、OpenAI messages JSONL 导出、`--load-trajectory` / session seed、用轨迹充当 PASS。
 
 **多轮会话：** `turn_index` 为 Attempt 内 invoke 序号（1-based）；跨 turn 的 ACP `session_id` 可相同。合并训练样本时以 **invocation / turn_index** 为边界，不要把整个 `session_id` 当成单 turn。
 

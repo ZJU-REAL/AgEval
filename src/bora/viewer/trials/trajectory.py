@@ -121,6 +121,74 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         content = str(content)
                 if isinstance(content, str) and len(content) > 8_000:
                     content = content[:8_000] + "…[truncated]"
+
+                # tool_call / observation: surface args & raw_output as content when needed
+                args = obj.get("args")
+                raw_output = obj.get("raw_output")
+                if step_type == "tool_call" and content is None and args is not None:
+                    try:
+                        content = json.dumps(args, ensure_ascii=False)
+                    except (TypeError, ValueError):
+                        content = str(args)
+                    if isinstance(content, str) and len(content) > 8_000:
+                        content = content[:8_000] + "…[truncated]"
+                if step_type == "observation" and content is None and raw_output is not None:
+                    try:
+                        content = json.dumps(raw_output, ensure_ascii=False)
+                    except (TypeError, ValueError):
+                        content = str(raw_output)
+                    if isinstance(content, str) and len(content) > 8_000:
+                        content = content[:8_000] + "…[truncated]"
+
+                # permission_decision: decision summary (no tool payload secrets)
+                if step_type == "permission_decision" and content is None:
+                    parts: list[str] = []
+                    for key in ("policy", "outcome", "option_id"):
+                        val = obj.get(key)
+                        if val is not None and val != "":
+                            parts.append(f"{key}={val}")
+                    if parts:
+                        content = " · ".join(parts)
+
+                # terminal: BORA invoke footer (ok / stop / usage / entry meta)
+                if step_type == "terminal" and content is None:
+                    tparts: list[str] = []
+                    if obj.get("ok") is True:
+                        tparts.append("ok")
+                    elif obj.get("ok") is False:
+                        tparts.append("not ok")
+                    stop = obj.get("stop_reason")
+                    if isinstance(stop, str) and stop:
+                        tparts.append(f"stop={stop}")
+                    err = obj.get("error")
+                    if err is not None and err != "":
+                        tparts.append(f"error={err}")
+                    usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
+                    if usage:
+                        try:
+                            tparts.append(f"usage={json.dumps(usage, ensure_ascii=False)}")
+                        except (TypeError, ValueError):
+                            tparts.append(f"usage={usage}")
+                    meta = obj.get("metadata") if isinstance(obj.get("metadata"), dict) else None
+                    if meta:
+                        # Compact interesting keys only
+                        bits = []
+                        for k in (
+                            "executor_kind",
+                            "acp_entry_id",
+                            "actual_model",
+                            "locked_model",
+                            "protocol_version",
+                        ):
+                            if k in meta and meta[k] is not None:
+                                bits.append(f"{k}={meta[k]}")
+                        if bits:
+                            tparts.append(" ".join(bits))
+                    if tparts:
+                        content = " · ".join(tparts)
+                        if len(content) > 8_000:
+                            content = content[:8_000] + "…[truncated]"
+
                 steps.append(
                     {
                         "type": step_type,
@@ -135,6 +203,20 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         "metadata": obj.get("metadata")
                         if isinstance(obj.get("metadata"), dict)
                         else None,
+                        # tool_call / observation fields (fail-open; unknown types ignore)
+                        "tool_call_id": obj.get("tool_call_id"),
+                        "title": obj.get("title"),
+                        "function_name": obj.get("function_name"),
+                        "kind": obj.get("kind"),
+                        "status": obj.get("status"),
+                        "args": args if isinstance(args, (dict, list, str)) else None,
+                        "raw_output": raw_output
+                        if isinstance(raw_output, (dict, list, str))
+                        else None,
+                        # permission_decision summary fields
+                        "outcome": obj.get("outcome"),
+                        "option_id": obj.get("option_id"),
+                        "policy": obj.get("policy"),
                         "line": line_no,
                     }
                 )

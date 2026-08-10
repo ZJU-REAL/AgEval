@@ -392,6 +392,31 @@ class DockerMultiActorMixin:
             )
             lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.codex'")
             lines.append(f"chmod 0700 '{home}/.codex'")
+            # Pi agent auth (optional)
+            lines.append(f"mkdir -p '{home}/.pi/agent'")
+            lines.append(
+                f"if [ -f /creds/pi_home/agent/auth.json ]; then "
+                f"cp /creds/pi_home/agent/auth.json '{home}/.pi/agent/auth.json'; "
+                f"chmod 0600 '{home}/.pi/agent/auth.json'; fi"
+            )
+            lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.pi' 2>/dev/null || true")
+            # OpenCode auth (optional) under XDG_DATA_HOME default
+            lines.append(f"mkdir -p '{home}/.local/share/opencode'")
+            lines.append(
+                f"if [ -f /creds/opencode/auth.json ]; then "
+                f"cp /creds/opencode/auth.json '{home}/.local/share/opencode/auth.json'; "
+                f"chmod 0600 '{home}/.local/share/opencode/auth.json'; fi"
+            )
+            lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.local' 2>/dev/null || true")
+            # Grok Build ACP host login (optional) — $HOME/.grok/auth.json
+            lines.append(f"mkdir -p '{home}/.grok'")
+            lines.append(
+                f"if [ -f /creds/grok_home/auth.json ]; then "
+                f"cp /creds/grok_home/auth.json '{home}/.grok/auth.json'; "
+                f"chmod 0600 '{home}/.grok/auth.json'; fi"
+            )
+            lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.grok' 2>/dev/null || true")
+            lines.append(f"chmod 0700 '{home}/.grok' 2>/dev/null || true")
             # Create private primary group if needed (numeric chown works without).
             lines.append(f"groupadd -g {b.gid} actor-g-{b.gid} 2>/dev/null || true")
             lines.append(

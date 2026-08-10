@@ -1,9 +1,49 @@
-import { useMemo } from "react";
+import { useMemo, type ComponentType } from "react";
+import {
+  Bot,
+  Eye,
+  FilePenLine,
+  FileSearch,
+  Flag,
+  MessageSquare,
+  Shield,
+  Terminal,
+  User,
+  Wrench,
+} from "lucide-react";
 
 import type { TrajectoryStep } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { actorLabel, type ActorRow } from "./types";
+
+type IconComp = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+
+function stepIcon(opts: {
+  isUser: boolean;
+  isAsst: boolean;
+  isToolCall: boolean;
+  isObservation: boolean;
+  isTerminal: boolean;
+  isPermission: boolean;
+  kind?: string | null;
+  functionName?: string | null;
+}): IconComp {
+  if (opts.isUser) return User;
+  if (opts.isAsst) return Bot;
+  if (opts.isObservation) return Eye;
+  if (opts.isTerminal) return Flag;
+  if (opts.isPermission) return Shield;
+  if (opts.isToolCall) {
+    const k = (opts.kind || opts.functionName || "").toLowerCase();
+    if (k === "execute" || k === "bash" || k === "shell") return Terminal;
+    if (k === "read" || k === "search" || k === "fetch") return FileSearch;
+    if (k === "edit" || k === "write" || k === "delete" || k === "move")
+      return FilePenLine;
+    return Wrench;
+  }
+  return MessageSquare;
+}
 
 export function TrajectoryPanel({
   loading,
@@ -55,49 +95,180 @@ export function TrajectoryPanel({
     return (
       <ol className="space-y-2">
         {list.map((s, i) => {
-          const role = (s.role || s.type || "event").toString();
+          const stepType = (s.type || "").toString();
+          const isToolCall = stepType === "tool_call";
+          const isObservation = stepType === "observation";
+          const isPermission = stepType === "permission_decision";
+          const role = (
+            s.role ||
+            (isToolCall
+              ? "tool_call"
+              : isObservation
+                ? "observation"
+                : isPermission
+                  ? "permission"
+                  : stepType || "event")
+          ).toString();
           const isUser = role === "user";
           const isAsst = role === "assistant";
-          const isTerminal = s.type === "terminal";
+          const isTerminal = stepType === "terminal";
+          const label = isToolCall
+            ? s.function_name || s.kind || s.title || "tool_call"
+            : isObservation
+              ? "observation"
+              : isAsst
+                ? "agent"
+                : role;
+          const Icon = stepIcon({
+            isUser,
+            isAsst,
+            isToolCall,
+            isObservation,
+            isTerminal,
+            isPermission,
+            kind: s.kind,
+            functionName: s.function_name,
+          });
+          let body: string | null =
+            s.content ||
+            (isToolCall && s.args != null
+              ? typeof s.args === "string"
+                ? s.args
+                : JSON.stringify(s.args, null, 2)
+              : null) ||
+            (isToolCall && s.title ? s.title : null) ||
+            (isObservation && s.raw_output != null
+              ? typeof s.raw_output === "string"
+                ? s.raw_output
+                : JSON.stringify(s.raw_output, null, 2)
+              : null);
+
+          // permission / terminal: synthesize body from structured fields when needed
+          if (!body && isPermission) {
+            const bits = [
+              s.policy != null && s.policy !== "" ? `policy=${s.policy}` : null,
+              s.outcome != null && s.outcome !== "" ? `outcome=${s.outcome}` : null,
+              s.option_id != null && s.option_id !== ""
+                ? `option_id=${s.option_id}`
+                : null,
+            ].filter(Boolean) as string[];
+            body = bits.length ? bits.join(" · ") : null;
+          }
+          if (!body && isTerminal) {
+            const bits: string[] = [];
+            if (s.ok === true) bits.push("ok");
+            else if (s.ok === false) bits.push("not ok");
+            if (s.stop_reason) bits.push(`stop=${s.stop_reason}`);
+            if (s.error) bits.push(`error=${String(s.error)}`);
+            if (s.usage && typeof s.usage === "object") {
+              bits.push(`usage=${JSON.stringify(s.usage)}`);
+            }
+            if (s.metadata && typeof s.metadata === "object") {
+              const meta = s.metadata;
+              const metaBits = (
+                [
+                  "executor_kind",
+                  "acp_entry_id",
+                  "actual_model",
+                  "locked_model",
+                  "protocol_version",
+                ] as const
+              )
+                .filter((k) => meta[k] != null && meta[k] !== "")
+                .map((k) => `${k}=${String(meta[k])}`);
+              if (metaBits.length) bits.push(metaBits.join(" "));
+            }
+            body = bits.length ? bits.join(" · ") : null;
+          }
+          // Success is the common case for folded tool/observation rows; only
+          // surface non-success status (failed / error / cancelled / …).
+          const statusRaw =
+            typeof s.status === "string" ? s.status.trim() : "";
+          const statusLower = statusRaw.toLowerCase();
+          const showStatus =
+            Boolean(statusRaw) &&
+            !["completed", "complete", "success", "ok", "done"].includes(
+              statusLower,
+            );
+
           return (
             <li
               key={`${s.invocation || ""}-${s.line || i}-${i}`}
               className={cn(
                 "rounded-[8px] border border-hairline px-3 py-2.5",
                 isTerminal && "bg-canvas-soft",
+                isObservation && "bg-canvas-soft/40",
               )}
             >
-              <div className="flex flex-wrap items-center gap-2 text-xs text-mute mb-1">
-                <span
-                  className={cn(
-                    "font-medium uppercase tracking-wide",
-                    isUser && "text-link",
-                    isAsst && "text-ink",
-                    isTerminal && "text-mute",
-                  )}
-                >
-                  {role}
-                </span>
-                {showProfileBadge && s.profile_id ? (
-                  <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-body">
-                    {s.profile_id}
+              <div className="flex items-start gap-3 text-xs mb-1">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide text-ink">
+                    <Icon
+                      className="h-3.5 w-3.5 shrink-0 opacity-80"
+                      aria-hidden
+                    />
+                    {label}
                   </span>
-                ) : null}
-                {s.turn_index != null ? <span>turn {s.turn_index}</span> : null}
-                {s.invocation ? (
-                  <span className="font-mono truncate max-w-[24ch]">{s.invocation}</span>
-                ) : null}
-                {s.stop_reason ? <span>{s.stop_reason}</span> : null}
-                {s.ok === false ? <span className="text-error">not ok</span> : null}
+                  {s.turn_index != null ? (
+                    <span className="text-mute font-mono font-normal normal-case tracking-normal">
+                      turn {s.turn_index}
+                    </span>
+                  ) : null}
+                  {showProfileBadge && s.profile_id ? (
+                    <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-body font-normal normal-case tracking-normal">
+                      {s.profile_id}
+                    </span>
+                  ) : null}
+                  {s.kind && isToolCall && s.kind !== label ? (
+                    <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-mute font-normal normal-case tracking-normal">
+                      {s.kind}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="ml-auto flex flex-col items-end gap-0.5 min-w-0 max-w-[min(100%,36rem)] text-right text-mute font-mono font-normal normal-case tracking-normal">
+                  {showStatus ? (
+                    <span
+                      className={cn(
+                        statusLower.includes("fail") ||
+                          statusLower.includes("error") ||
+                          statusLower.includes("cancel")
+                          ? "text-error"
+                          : undefined,
+                      )}
+                    >
+                      {statusRaw}
+                    </span>
+                  ) : null}
+                  {s.tool_call_id ? (
+                    <span className="break-all" title={s.tool_call_id}>
+                      {s.tool_call_id}
+                    </span>
+                  ) : null}
+                  {s.invocation ? (
+                    <span className="break-all" title={s.invocation}>
+                      {s.invocation}
+                    </span>
+                  ) : null}
+                  {s.stop_reason ? <span>{s.stop_reason}</span> : null}
+                  {s.ok === false ? (
+                    <span className="text-error">not ok</span>
+                  ) : null}
+                </div>
               </div>
-              {s.content ? (
+              {body ? (
                 <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
-                  {s.content}
+                  {body}
                 </pre>
               ) : s.error ? (
                 <p className="text-sm text-error">{String(s.error)}</p>
               ) : isTerminal ? (
-                <p className="text-sm text-mute">terminal</p>
+                <p className="text-sm text-mute">terminal (no summary)</p>
+              ) : isPermission ? (
+                <p className="text-sm text-mute">permission (no decision fields)</p>
+              ) : isToolCall || isObservation ? (
+                <p className="text-sm text-mute">
+                  {isToolCall ? "tool call (no args)" : "observation (empty)"}
+                </p>
               ) : null}
             </li>
           );
