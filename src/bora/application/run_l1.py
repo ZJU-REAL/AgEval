@@ -163,6 +163,12 @@ def run_l1_sdk_session_attempt(
                     "id": p.get("id"),
                     "executor": p.get("executor"),
                     "model": p.get("model"),
+                    **(
+                        {"options": {"entry": (p.get("options") or {}).get("entry")}}
+                        if isinstance(p.get("options"), dict)
+                        and (p.get("options") or {}).get("entry") is not None
+                        else {}
+                    ),
                 }
                 for p in profiles
             ],

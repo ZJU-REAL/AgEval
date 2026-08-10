@@ -143,6 +143,10 @@ async def run_task(
                     "executor": kind,
                     "model": p.get("model"),
                 }
+                opts = p.get("options")
+                if isinstance(opts, dict) and opts.get("entry") is not None:
+                    # Keep entry for fingerprint / actors_summary (#42/#59).
+                    row["options"] = {"entry": opts.get("entry")}
                 if p.get("base_url"):
                     row["base_url"] = p.get("base_url")
                 if p.get("api_key"):
