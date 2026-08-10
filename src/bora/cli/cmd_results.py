@@ -205,6 +205,54 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2) from exc
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
 
+    @sub.command("export-profiles")
+    def results_export_profiles_command(
+        suite_run_id: Annotated[
+            str,
+            typer.Argument(help="Suite run id (registry or local) with job_overlay."),
+        ],
+        out: Annotated[
+            Path,
+            typer.Option(
+                "--out",
+                help="Write re-runnable profiles.yaml here (bora.profiles/1).",
+            ),
+        ] = Path("profiles.from-suite.yaml"),
+        local: Annotated[
+            Path | None,
+            typer.Option(
+                "--local",
+                help="Read from local Database .bora/suite-runs/ (no registry).",
+            ),
+        ] = None,
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry / results URL."),
+        ] = None,
+    ) -> None:
+        """Export suite job_overlay as profiles.yaml for re-run (#59).
+
+        Secrets are never included — only env locator names. Fill Database .env
+        locally, then: bora run <db> --profiles <out>.
+        """
+        from bora.application.results_command import export_suite_profiles
+        from bora.config.errors import ConfigError
+
+        try:
+            summary = export_suite_profiles(
+                suite_run_id,
+                out=out,
+                local=local,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        except OSError as exc:
+            typer.echo(f"invalid_package: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
     @sub.command("list-suites")
     def results_list_suites_command(
         database_id: Annotated[

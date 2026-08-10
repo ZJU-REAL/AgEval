@@ -521,7 +521,51 @@ def get_suite_result(
         dest = out_dir.expanduser().resolve(strict=False)
         suite_path = extract_suite_archive(archive, dest)
         result["out"] = str(suite_path)
+        # #59: materialize job_overlay as profiles.yaml next to extract when present.
+        overlay = meta.get("job_overlay")
+        if isinstance(overlay, dict) and overlay:
+            from bora.config.profiles import job_overlay_to_profiles_document, write_profiles_yaml
+
+            profiles_path = suite_path / "profiles.from-suite.yaml"
+            write_profiles_yaml(profiles_path, job_overlay_to_profiles_document(overlay))
+            result["profiles_path"] = str(profiles_path)
     return result
+
+
+def export_suite_profiles(
+    suite_run_id: str,
+    *,
+    out: Path,
+    local: Path | str | None = None,
+    registry_url: str | None = None,
+) -> dict[str, Any]:
+    """Export secret-free job_overlay as a re-runnable ``profiles.yaml`` (#59).
+
+    Source: local suite summary or Registry suite meta. Never writes secret values.
+    """
+    from bora.config.profiles import job_overlay_to_profiles_document, write_profiles_yaml
+
+    meta = get_suite_result(suite_run_id, local=local, registry_url=registry_url)
+    overlay = meta.get("job_overlay")
+    if not isinstance(overlay, dict) or not overlay:
+        raise ConfigError(
+            "missing_reference",
+            "suite has no job_overlay (re-run suite after #59 or upload with binding)",
+            location=suite_run_id,
+        )
+    document = job_overlay_to_profiles_document(overlay)
+    dest = out.expanduser().resolve(strict=False)
+    write_profiles_yaml(dest, document)
+    return {
+        "ok": True,
+        "suite_run_id": suite_run_id,
+        "profiles_path": str(dest),
+        "job_overlay": overlay,
+        "source": meta.get("source") or ("local" if local else "registry"),
+        "note": "re-run with: bora run <database> --profiles "
+        + str(dest)
+        + " (fill .env locators locally; secrets never in overlay)",
+    }
 
 
 def list_suite_results(

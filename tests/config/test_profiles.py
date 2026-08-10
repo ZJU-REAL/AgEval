@@ -172,3 +172,28 @@ def test_job_overlay_omits_secrets() -> None:
     assert overlay["bindings"]["solver"]["api_key"] == "MY_KEY_LOCATOR"
     # values never present — locator only
     assert "sk-" not in str(overlay)
+
+
+def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
+    from bora.config.profiles import (
+        job_overlay_to_profiles_document,
+        load_profiles_document,
+        write_profiles_yaml,
+    )
+
+    overlay = project_job_overlay(
+        {
+            "solver": {
+                "executor": "acp",
+                "options": {"entry": "pi"},
+                "model": "m",
+                "api_key": "LOC",
+            }
+        }
+    )
+    doc = job_overlay_to_profiles_document(overlay)
+    path = tmp_path / "profiles.from-suite.yaml"
+    write_profiles_yaml(path, doc)
+    loaded = load_profiles_document(path)
+    assert loaded["solver"]["options"]["entry"] == "pi"
+    assert loaded["solver"]["api_key"] == "LOC"

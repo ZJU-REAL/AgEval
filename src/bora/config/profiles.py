@@ -357,3 +357,34 @@ def project_job_overlay(
         if row:
             out[rid] = row
     return {"bindings": out}
+
+
+def job_overlay_to_profiles_document(overlay: Mapping[str, Any]) -> dict[str, Any]:
+    """Turn a secret-free job_overlay into a ``bora.profiles/1`` document.
+
+    Suitable for writing ``profiles.yaml`` and re-running with ``--profiles``.
+    Never includes secret values — only locator names already in the overlay.
+    """
+    bindings_raw = overlay.get("bindings")
+    if not isinstance(bindings_raw, Mapping):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "job_overlay.bindings must be a mapping",
+            location="/job_overlay/bindings",
+        )
+    # Re-validate shape via parse so export stays lock-safe.
+    return {
+        "format": PROFILES_FORMAT,
+        "bindings": parse_profiles_mapping(
+            {"format": PROFILES_FORMAT, "bindings": dict(bindings_raw)},
+            location="job_overlay",
+        ),
+    }
+
+
+def write_profiles_yaml(path: Path, document: Mapping[str, Any]) -> None:
+    """Write a profiles document as YAML (UTF-8)."""
+    path = path.expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = yaml.safe_dump(dict(document), sort_keys=False, allow_unicode=True)
+    path.write_text(text, encoding="utf-8")
