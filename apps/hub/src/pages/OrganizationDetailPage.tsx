@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { Shell } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -12,12 +14,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  createOrgInviteKey,
   encodeDatasetId,
   getOrg,
+  listOrgInviteKeys,
   listOrgMembers,
   listPackages,
   listResultShares,
   listSuites,
+  revokeOrgInviteKey,
+  type OrgInviteKey,
   type OrgMember,
   type OrgRow,
   type PackageRelease,
@@ -54,6 +60,15 @@ export function OrganizationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [inviteKeys, setInviteKeys] = useState<OrgInviteKey[]>([]);
+  const [inviteLoadError, setInviteLoadError] = useState<string | null>(null);
+  const [maxUses, setMaxUses] = useState("");
+  const [expiresDays, setExpiresDays] = useState("7");
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [freshToken, setFreshToken] = useState<string | null>(null);
+  const [revokeBusy, setRevokeBusy] = useState<string | null>(null);
+
   useEffect(() => {
     if (!orgId || !token) {
       setLoading(false);
@@ -76,6 +91,26 @@ export function OrganizationDetailPage() {
           latestByDatabase(packages).filter((p) => p.org_id === orgId),
         );
         setError(null);
+
+        // Invite keys: owner-only; ignore 403 for non-owners.
+        if ((orgRow.role || "").toLowerCase() === "owner") {
+          try {
+            const keys = await listOrgInviteKeys(orgId, token);
+            if (!cancelled) {
+              setInviteKeys(keys);
+              setInviteLoadError(null);
+            }
+          } catch (err: unknown) {
+            if (!cancelled) {
+              setInviteKeys([]);
+              if (err instanceof RegistryHttpError && err.status !== 403) {
+                setInviteLoadError(`${err.code}: ${err.message}`);
+              }
+            }
+          }
+        } else if (!cancelled) {
+          setInviteKeys([]);
+        }
 
         // Shared suite results: visible suites that list this org as a share target.
         try {
@@ -382,6 +417,228 @@ export function OrganizationDetailPage() {
                   .
                 </p>
               </section>
+
+              {(org?.role || "").toLowerCase() === "owner" ? (
+                <section className="space-y-3">
+                  <div>
+                    <h2 className="text-sm font-medium text-ink mb-1">
+                      Invite keys
+                    </h2>
+                    <p className="text-sm text-mute">
+                      Create keys others can use on the Organizations page (+).
+                      The full key is shown only once at creation.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[8px] border border-hairline p-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-mute uppercase tracking-wide">
+                          Max uses (optional)
+                        </label>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="Unlimited"
+                          value={maxUses}
+                          onChange={(e) => setMaxUses(e.target.value)}
+                          className="mt-1.5"
+                          disabled={createBusy}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-mute uppercase tracking-wide">
+                          Expires in days
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="any"
+                          placeholder="7"
+                          value={expiresDays}
+                          onChange={(e) => setExpiresDays(e.target.value)}
+                          className="mt-1.5"
+                          disabled={createBusy}
+                        />
+                        <p className="text-[11px] text-mute mt-1">
+                          Use 0 for no expiry.
+                        </p>
+                      </div>
+                    </div>
+                    {createError ? (
+                      <p className="text-sm text-error font-mono">{createError}</p>
+                    ) : null}
+                    {freshToken ? (
+                      <div className="rounded-[8px] bg-canvas-soft border border-hairline p-3 space-y-1">
+                        <p className="text-xs font-medium text-ink">
+                          Copy now — will not be shown again
+                        </p>
+                        <code className="block text-xs font-mono break-all text-body">
+                          {freshToken}
+                        </code>
+                      </div>
+                    ) : null}
+                    <Button
+                      type="button"
+                      disabled={createBusy}
+                      onClick={() => {
+                        void (async () => {
+                          if (!token) return;
+                          setCreateBusy(true);
+                          setCreateError(null);
+                          setFreshToken(null);
+                          try {
+                            const body: {
+                              max_uses?: number;
+                              expires_in_days?: number;
+                            } = {};
+                            const mu = maxUses.trim();
+                            if (mu) {
+                              const n = Number(mu);
+                              if (!Number.isFinite(n) || n < 1) {
+                                throw new Error("max uses must be >= 1");
+                              }
+                              body.max_uses = Math.floor(n);
+                            }
+                            const ed = expiresDays.trim();
+                            if (ed && Number(ed) > 0) {
+                              body.expires_in_days = Number(ed);
+                            }
+                            const created = await createOrgInviteKey(
+                              orgId,
+                              body,
+                              token,
+                            );
+                            if (created.invite_token) {
+                              setFreshToken(created.invite_token);
+                            }
+                            const keys = await listOrgInviteKeys(orgId, token);
+                            setInviteKeys(keys);
+                          } catch (err: unknown) {
+                            if (err instanceof RegistryHttpError) {
+                              setCreateError(`${err.code}: ${err.message}`);
+                            } else {
+                              setCreateError(
+                                err instanceof Error
+                                  ? err.message
+                                  : String(err),
+                              );
+                            }
+                          } finally {
+                            setCreateBusy(false);
+                          }
+                        })();
+                      }}
+                    >
+                      {createBusy ? "Creating…" : "Create invite key"}
+                    </Button>
+                  </div>
+
+                  {inviteLoadError ? (
+                    <p className="text-sm text-error font-mono">
+                      {inviteLoadError}
+                    </p>
+                  ) : null}
+
+                  {inviteKeys.length === 0 ? (
+                    <p className="text-sm text-mute">No invite keys yet.</p>
+                  ) : (
+                    <div className="rounded-[8px] border border-hairline overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead>Prefix</TableHead>
+                            <TableHead>Uses</TableHead>
+                            <TableHead>Expires</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right"> </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {inviteKeys.map((k) => {
+                            const uses =
+                              k.max_uses == null
+                                ? `${k.use_count ?? 0} / ∞`
+                                : `${k.use_count ?? 0} / ${k.max_uses}`;
+                            const exp =
+                              k.expires_at == null
+                                ? "never"
+                                : formatDate(
+                                    new Date(k.expires_at * 1000).toISOString(),
+                                  );
+                            const status = k.revoked_at
+                              ? "revoked"
+                              : k.active === false
+                                ? "inactive"
+                                : "active";
+                            return (
+                              <TableRow key={k.key_id}>
+                                <TableCell className="font-mono text-xs">
+                                  {k.token_prefix}
+                                </TableCell>
+                                <TableCell className="text-sm tabular-nums">
+                                  {uses}
+                                </TableCell>
+                                <TableCell className="text-xs text-mute">
+                                  {exp}
+                                </TableCell>
+                                <TableCell className="text-sm capitalize text-body">
+                                  {status}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {!k.revoked_at ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={revokeBusy === k.key_id}
+                                      onClick={() => {
+                                        void (async () => {
+                                          if (!token) return;
+                                          setRevokeBusy(k.key_id);
+                                          try {
+                                            await revokeOrgInviteKey(
+                                              orgId,
+                                              k.key_id,
+                                              token,
+                                            );
+                                            const keys =
+                                              await listOrgInviteKeys(
+                                                orgId,
+                                                token,
+                                              );
+                                            setInviteKeys(keys);
+                                          } finally {
+                                            setRevokeBusy(null);
+                                          }
+                                        })();
+                                      }}
+                                    >
+                                      Revoke
+                                    </Button>
+                                  ) : (
+                                    <span className="text-xs text-mute">—</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <section>
+                  <h2 className="text-sm font-medium text-ink mb-1">
+                    Invite keys
+                  </h2>
+                  <p className="text-sm text-mute">
+                    Only org owners can create and manage invite keys.
+                  </p>
+                </section>
+              )}
+
               <section>
                 <h2 className="text-sm font-medium text-ink mb-1">Secrets</h2>
                 <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">

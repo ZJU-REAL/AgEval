@@ -32,6 +32,21 @@ export type OrgMember = {
   github_id?: string;
 };
 
+export type OrgInviteKey = {
+  key_id: string;
+  org_id: string;
+  token_prefix: string;
+  created_by?: string;
+  max_uses?: number | null;
+  use_count?: number;
+  expires_at?: number | null;
+  revoked_at?: number | null;
+  created_at?: number;
+  active?: boolean;
+  /** Only present on create response (show once). */
+  invite_token?: string;
+};
+
 export type ResultShare = {
   result_kind: string;
   result_id: string;
@@ -287,6 +302,51 @@ export async function listOrgMembers(
     { token },
   );
   return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function joinOrgWithInvite(
+  inviteKey: string,
+  token: string | null,
+): Promise<OrgRow & { role?: string }> {
+  return requestJson("/v1/orgs/join", {
+    token,
+    method: "POST",
+    body: { invite_key: inviteKey },
+  });
+}
+
+export async function listOrgInviteKeys(
+  orgId: string,
+  token: string | null,
+): Promise<OrgInviteKey[]> {
+  const data = await requestJson<{ items?: OrgInviteKey[] }>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/invite-keys`,
+    { token },
+  );
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function createOrgInviteKey(
+  orgId: string,
+  body: { max_uses?: number | null; expires_in_days?: number | null },
+  token: string | null,
+): Promise<OrgInviteKey> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}/invite-keys`, {
+    token,
+    method: "POST",
+    body,
+  });
+}
+
+export async function revokeOrgInviteKey(
+  orgId: string,
+  keyId: string,
+  token: string | null,
+): Promise<OrgInviteKey> {
+  return requestJson(
+    `/v1/orgs/${encodeURIComponent(orgId)}/invite-keys/${encodeURIComponent(keyId)}`,
+    { token, method: "DELETE" },
+  );
 }
 
 export async function listResultShares(
