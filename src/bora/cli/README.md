@@ -120,7 +120,7 @@ uv run bora run examples/core
 # Always-k (#47): k independent Attempts per task — CLI/job only (not task.yaml)
 uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 uv run bora run examples/core --task sdk-agent-session -k 5
-# Resume / top-up one task into an existing suite job, recompute pass@k / pass^k
+# Resume / top-up: skip real finished units; re-run suite-cancel placeholders; recompute pass@k
 # uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
 
 # Allowlisted --set (JSON Pointer = JSON value)

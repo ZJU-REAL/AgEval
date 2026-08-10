@@ -205,9 +205,24 @@ def planned_units(plan: SuitePlan) -> list[tuple[str, int]]:
     return [(tid, i) for tid in plan.task_ids for i in range(plan.n_attempts)]
 
 
+def _is_cancelled_placeholder(row: Mapping[str, Any]) -> bool:
+    """Synthetic suite-cancel rows (never ran) — retriable on resume."""
+    if str(row.get("phase") or "") == "cancelled":
+        return True
+    return str(row.get("error") or "") == "suite_cancelled"
+
+
 def _existing_attempt_keys(attempts: list[dict[str, Any]]) -> set[tuple[str, int]]:
+    """Keys of finished attempts that resume must **not** re-run.
+
+    Suite-cancel placeholders (``phase: cancelled`` / ``error: suite_cancelled``)
+    are **excluded** so ``--resume-suite`` can top up Always-k samples; otherwise
+    pass@k / pass^k stay permanently deflated.
+    """
     keys: set[tuple[str, int]] = set()
     for row in attempts:
+        if _is_cancelled_placeholder(row):
+            continue
         tid = str(row.get("task_id") or "")
         idx = row.get("attempt_index")
         if not tid:
@@ -343,6 +358,15 @@ def request_suite_cancel(database_root: Path, suite_run_id: str) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def clear_suite_cancel(database_root: Path, suite_run_id: str) -> bool:
+    """Remove cancel.requested (e.g. before resume so the job can schedule again)."""
+    path = cancel_request_path(database_root, suite_run_id)
+    if not path.is_file():
+        return False
+    path.unlink(missing_ok=True)
+    return True
 
 
 def _write_suite_progress(
@@ -534,11 +558,14 @@ async def execute_suite_run(
     """Execute planned task×attempt units with a concurrency pool; write summary.
 
     When ``resume=True``, load existing attempts for ``plan.suite_run_id``, skip
-    units that already finished, **append** new attempts, and recompute metrics.
-    Existing attempt rows are never rewritten.
+    units that already finished a real run, **append** new attempts (including
+    re-runs of suite-cancel placeholders), and recompute metrics.
+    Real finished attempt rows are never rewritten; cancel placeholders are
+    dropped when their slot is re-executed.
 
     Cancel (#47 D4): if ``suite-runs/<id>/cancel.requested`` appears, no new units
     start; in-flight units finish; remaining planned units get cancelled rows.
+    Resume clears a prior cancel request so scheduling can proceed.
     """
     reset_inflight_metrics()
     runner = run_fn or run_task
@@ -546,6 +573,8 @@ async def execute_suite_run(
 
     existing: list[dict[str, Any]] = []
     if resume:
+        # Allow re-scheduling after a previous cancel.
+        clear_suite_cancel(plan.database_root, plan.suite_run_id)
         old = load_suite_summary(plan.database_root, plan.suite_run_id)
         raw_attempts = old.get("attempts")
         if isinstance(raw_attempts, list) and raw_attempts:
@@ -713,18 +742,40 @@ async def execute_suite_run(
     if skipped_cancelled:
         new_results.extend(skipped_cancelled)
 
-    # Append-only merge: existing first (stable), then new; never mutate old rows.
+    # Merge: keep real finished rows; drop cancel placeholders for slots we
+    # re-ran (or re-cancelled). Never mutate real finished attempt payloads.
+    new_keys: set[tuple[str, int]] = set()
+    for r in new_results:
+        tid = str(r.get("task_id") or "")
+        idx = r.get("attempt_index")
+        if not tid:
+            continue
+        if not isinstance(idx, int) or isinstance(idx, bool):
+            idx = 0
+        new_keys.add((tid, idx))
+
+    def _keep_existing_row(row: Mapping[str, Any]) -> bool:
+        tid = str(row.get("task_id") or "")
+        idx = row.get("attempt_index")
+        if not isinstance(idx, int) or isinstance(idx, bool):
+            idx = 0
+        key = (tid, idx)
+        # Slot re-executed this session → drop old placeholder / stale row.
+        return key not in new_keys
+
     attempts = list(existing) + new_results
-    # Drop attempts outside planned task set only when filtering? Keep all that
-    # belong to plan.task_ids; preserve other tasks already in the job for resume
-    # of a subset (Harbor: re-run one task without wiping the rest).
     if resume and plan.task_ids:
         planned_set = set(plan.task_ids)
-        # Keep attempts for tasks not in this plan's filter (other suite members).
+        # Sibling tasks outside this resume filter stay as-is.
         kept_other = [a for a in existing if str(a.get("task_id") or "") not in planned_set]
-        # For planned tasks: existing matching keys + new
-        planned_existing = [a for a in existing if str(a.get("task_id") or "") in planned_set]
+        planned_existing = [
+            a
+            for a in existing
+            if str(a.get("task_id") or "") in planned_set and _keep_existing_row(a)
+        ]
         attempts = kept_other + planned_existing + new_results
+    elif new_keys:
+        attempts = [a for a in existing if _keep_existing_row(a)] + new_results
 
     # Union task_ids for summary when resume brings siblings.
     if resume:

@@ -32,6 +32,7 @@ uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session
 
 - `n_attempts` **禁止**写进 `task.yaml`；也不进 `config_fingerprint`  
 - 补跑只**追加** Attempt，不改写已完成 Attempt 的 score / 身份  
+- 因 **cancel 未真正跑过** 的占位会在 resume 时**重跑**（避免 pass@k 永久偏低）
 - 进度 / 取消见下方；Hub 榜上的 pass@k 列是 follow-up（#60），本机 summary 已写 metrics  
 
 ## 汇总指标

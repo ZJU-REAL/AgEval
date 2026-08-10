@@ -32,6 +32,7 @@ Hard rules:
 
 - `n_attempts` is **not** allowed in `task.yaml` and is **not** part of `config_fingerprint`  
 - Resume only **appends** Attempts; finished Attempt scores / identity stay intact  
+- Slots that only have a **suite-cancel placeholder** (never actually ran) are **retried** on resume so pass@k is not permanently deflated
 - Progress / cancel below; Hub Leaderboard columns for pass@k are follow-up (**#60**) — local `metrics` already written  
 
 ## Aggregate metrics
