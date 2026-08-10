@@ -139,7 +139,7 @@ bindings:
 | --- | --- |
 | 按 scenario 切包 | 例：MultiAgentBench **coding** → 一个 Dataset；database / werewolf 另包。不要默认把多 scenario 糊进一个 `bora.yaml` 还期望 Harbor 式可比榜。 |
 | scenario 内同构 | 同一 Dataset 内尽量固定 `agent_profiles` 拓扑（role 数、id、协作形状）；task 业务参数可不同。 |
-| 混装可允许 | single+multi 或多拓扑混装**允许**，但 suite 会标 `config_homogeneous: false`；Hub Leaderboard（#40）**拒绝按可比榜展示**（空态 + 可读提示），原始 suite 仍可进 Task Jobs / 运维列表。 |
+| 混装可允许 | 不同 task 可用不同 **role id**（拓扑可混）；job 轴是 Database 根 **`profiles.yaml`**。Hub Leaderboard（#40/#59）按 **job_overlay / profiles 绑定** 展示与复跑，不因角色槽拓扑不同而隐藏。 |
 | Multi 榜行 | 默认按 **整配置组合**（指纹）一行；仅包内同构时可考虑 role 子列（后置 UI）。 |
 | 上游复刻 | 填 `provenance`；**禁止**按 benchmark 名分支 adapter。 |
 
@@ -150,7 +150,7 @@ bindings:
 | 字段 | 含义 |
 | --- | --- |
 | `config_fingerprint` | `sha256:…` over 规范化 `actors_summary`（无 secret / 无 api_key） |
-| `config_homogeneous` | 本 suite 各 task 实际 profiles 配置一致 → `true` |
+| `config_homogeneous` | suite 级 job 轴（`profiles.yaml` / `job_overlay`）一致 → `true`；角色槽拓扑不同**不**算不一致 |
 | `actors_summary` | `[{profile_id, entry, model}, …]` |
 | `agent_label` / `model_label` | 同构时从 actors 派生；异构时留空 |
 
@@ -158,9 +158,10 @@ Upload（`bora results upload-suite`）**投影**这些字段到 Registry；Hub 
 
 **Hub Leaderboard 消费（#40）：**
 
-- `config_homogeneous: true` + 有指纹 → 正常榜行  
-- `config_homogeneous: false` → **不进可比榜**（提示「配置不一致，难以比较」）  
+- 有 `job_overlay` / `config_fingerprint` → 榜上展示 binding（yaml 形态可展开导出）  
+- `config_homogeneous: false` 仅当 **同一 role 的 entry/model 冲突**（异常）；正常多拓扑合集仍为 true  
 - 指纹缺失（旧产物）→ 降级：仅 label，或提示「缺少 config 指纹」  
+
 
 指纹**只服务可比性与展示**，**不是** suite PASS；PASS 仍只来自 per-task evaluator。
 
