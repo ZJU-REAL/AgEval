@@ -97,6 +97,19 @@ export type SuiteRow = {
   config_fingerprint?: string;
   config_homogeneous?: boolean;
   actors_summary?: Array<Record<string, string>>;
+  /** Secret-free job binding (#59) for rehydrate / re-run. */
+  job_overlay?: {
+    bindings?: Record<
+      string,
+      {
+        executor?: string;
+        model?: string;
+        base_url?: string;
+        api_key?: string;
+        options?: { entry?: string };
+      }
+    >;
+  };
   exit_code?: number | null;
   created_at?: number | string;
   note?: string;

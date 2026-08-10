@@ -1,3 +1,5 @@
+import { Fragment, useState } from "react";
+
 import { CommandStrip } from "@/components/command-strip";
 import {
   Table,
@@ -10,9 +12,28 @@ import {
 import type { SuiteRow } from "@/lib/api";
 import { formatScore } from "@/lib/utils";
 
+function bindingSummary(overlay: SuiteRow["job_overlay"]): string {
+  const bindings = overlay?.bindings;
+  if (!bindings || typeof bindings !== "object") return "";
+  const parts: string[] = [];
+  for (const [role, b] of Object.entries(bindings)) {
+    if (!b || typeof b !== "object") continue;
+    const entry =
+      b.options && typeof b.options === "object" && b.options.entry
+        ? String(b.options.entry)
+        : b.executor
+          ? String(b.executor)
+          : "?";
+    const model = b.model ? String(b.model) : "";
+    parts.push(model ? `${role}=${entry}/${model}` : `${role}=${entry}`);
+  }
+  return parts.join(" · ");
+}
+
 /**
  * Dataset Leaderboard (#40). Observational aggregates only — never suite PASS.
  * Heterogeneous configs (config_homogeneous === false) are excluded from ranking.
+ * #59: expandable job_overlay + re-run / export-profiles commands.
  */
 export function LeaderboardTable({
   suites,
@@ -21,6 +42,7 @@ export function LeaderboardTable({
   suites: SuiteRow[];
   databaseId: string;
 }) {
+  const [openId, setOpenId] = useState<string | null>(null);
   const comparable = suites.filter((s) => s.config_homogeneous !== false);
   const skipped = suites.length - comparable.length;
 
@@ -43,7 +65,7 @@ export function LeaderboardTable({
           are observational metrics — not a suite-level PASS.
         </p>
         <CommandStrip
-          command={`bora results upload-suite <database-root> --suite-run-id <id> --public`}
+          command={`bora results upload-suite <database-root> --suite-run <id> --public`}
         />
       </div>
     );
@@ -76,7 +98,8 @@ export function LeaderboardTable({
       ) : null}
       <p className="text-xs text-mute">
         Observational aggregates only. Per-task evaluator owns PASS — never
-        treat this table as suite PASS authority.
+        treat this table as suite PASS authority. Click a row to rehydrate job
+        binding (#59).
       </p>
       <Table>
         <TableHeader>
@@ -100,53 +123,99 @@ export function LeaderboardTable({
                   ? s.task_refs.length
                   : null;
             const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
+            const open = openId === s.suite_run_id;
+            const bindLine = bindingSummary(s.job_overlay);
             return (
-              <TableRow key={s.suite_run_id}>
-                <TableCell className="text-sm">
-                  {s.agent_label || "—"}
-                  {s.config_fingerprint ? (
-                    <span
-                      className="block text-[10px] font-mono text-mute truncate max-w-[16ch]"
-                      title={s.config_fingerprint}
-                    >
-                      {s.config_fingerprint.slice(0, 18)}…
-                    </span>
-                  ) : s.config_homogeneous == null ? (
-                    <span className="block text-[10px] text-mute">
-                      missing config fingerprint
-                    </span>
-                  ) : null}
-                </TableCell>
-                <TableCell className="text-sm font-mono text-xs">
-                  {s.model_label || "—"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {s.pass_rate == null
-                    ? "—"
-                    : `${(Number(s.pass_rate) * 100).toFixed(1)}%`}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatScore(s.mean_score)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-xs">
-                  {nPass != null && nTasks != null
-                    ? `${nPass}/${nTasks}`
-                    : nTasks != null
-                      ? String(nTasks)
-                      : "—"}
-                </TableCell>
-                <TableCell className="text-sm text-body">
-                  {s.visibility || "—"}
-                  {s.uploaded_by ? (
-                    <span className="ml-2 font-mono text-[11px] text-mute">
-                      by {s.uploaded_by}
-                    </span>
-                  ) : null}
-                </TableCell>
-                <TableCell className="font-mono text-[11px]">
-                  {s.suite_run_id}
-                </TableCell>
-              </TableRow>
+              <Fragment key={s.suite_run_id}>
+                <TableRow
+                  className="cursor-pointer"
+                  onClick={() =>
+                    setOpenId(open ? null : s.suite_run_id)
+                  }
+                  data-state={open ? "open" : undefined}
+                >
+                  <TableCell className="text-sm">
+                    {s.agent_label || "—"}
+                    {s.config_fingerprint ? (
+                      <span
+                        className="block text-[10px] font-mono text-mute truncate max-w-[16ch]"
+                        title={s.config_fingerprint}
+                      >
+                        {s.config_fingerprint.slice(0, 18)}…
+                      </span>
+                    ) : s.config_homogeneous == null ? (
+                      <span className="block text-[10px] text-mute">
+                        missing config fingerprint
+                      </span>
+                    ) : null}
+                    {bindLine ? (
+                      <span
+                        className="block text-[10px] font-mono text-mute truncate max-w-[28ch]"
+                        title={bindLine}
+                      >
+                        {bindLine}
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-sm font-mono text-xs">
+                    {s.model_label || "—"}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {s.pass_rate == null
+                      ? "—"
+                      : `${(Number(s.pass_rate) * 100).toFixed(1)}%`}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatScore(s.mean_score)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-xs">
+                    {nPass != null && nTasks != null
+                      ? `${nPass}/${nTasks}`
+                      : nTasks != null
+                        ? String(nTasks)
+                        : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-body">
+                    {s.visibility || "—"}
+                    {s.uploaded_by ? (
+                      <span className="ml-2 font-mono text-[11px] text-mute">
+                        by {s.uploaded_by}
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="font-mono text-[11px]">
+                    {s.suite_run_id}
+                  </TableCell>
+                </TableRow>
+                {open ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="bg-canvas-soft">
+                      <div className="space-y-3 py-2">
+                        <p className="text-xs text-mute">
+                          Rehydrate job binding (no secrets — fill Database{" "}
+                          <code className="font-mono">.env</code> locally).
+                        </p>
+                        {s.job_overlay?.bindings ? (
+                          <pre className="max-h-40 overflow-auto rounded-[6px] border border-hairline bg-code-bg p-3 font-mono text-[11px] leading-4 text-ink">
+                            {JSON.stringify(s.job_overlay, null, 2)}
+                          </pre>
+                        ) : (
+                          <p className="text-xs text-mute">
+                            No <code className="font-mono">job_overlay</code> on
+                            this suite (legacy upload or empty profiles).
+                          </p>
+                        )}
+                        <CommandStrip
+                          command={`bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`}
+                        />
+                        <CommandStrip
+                          command={`bora run <database-root> --profiles profiles.from-suite.yaml`}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </Fragment>
             );
           })}
         </TableBody>
