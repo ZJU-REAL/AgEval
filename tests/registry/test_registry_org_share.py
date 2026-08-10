@@ -187,6 +187,14 @@ def test_org_invite_key_create_join_and_limits(registry_server) -> None:
     assert created.get("invite_token", "").startswith("bora-inv_")
     assert created["max_uses"] == 1
     key = created["invite_token"]
+    st_list, raw_list, _ = boot._request(
+        "GET",
+        "/v1/orgs/invitelab/invite-keys",
+        headers=boot._headers(auth=True),
+    )
+    assert st_list == 200
+    listed = json.loads(raw_list.decode())
+    assert any(i.get("invite_token") == key for i in listed.get("items") or []), listed
 
     carol = _user_token(state, user="carol")
     carol_cli = RegistryClient(url, token=carol)
@@ -239,3 +247,48 @@ def test_org_invite_key_create_join_and_limits(registry_server) -> None:
         )
     assert ei2.value.status == 403
     assert "revok" in ei2.value.message.lower()
+
+
+def test_org_leave_and_dissolve(registry_server) -> None:
+    state = registry_server["state"]
+    url = registry_server["url"]
+    boot = RegistryClient(url, token=registry_server["token"])
+    boot.create_org(name="doomed", display_name="Doomed Lab")
+
+    # Add member eve; she can leave
+    eve = _user_token(state, user="eve")
+    st, raw, _ = boot._request(
+        "POST",
+        "/v1/orgs/doomed/members",
+        body=json.dumps({"user_id": "eve", "role": "member"}).encode(),
+        headers=boot._headers(content_type="application/json", auth=True),
+    )
+    assert st == 201, raw
+    eve_cli = RegistryClient(url, token=eve)
+    st2, raw2, _ = eve_cli._request(
+        "POST",
+        "/v1/orgs/doomed/leave",
+        body=b"{}",
+        headers=eve_cli._headers(content_type="application/json", auth=True),
+    )
+    assert st2 == 200, raw2
+
+    # Sole owner cannot leave
+    with pytest.raises(RegistryError) as ei:
+        boot._request(
+            "POST",
+            "/v1/orgs/doomed/leave",
+            body=b"{}",
+            headers=boot._headers(content_type="application/json", auth=True),
+        )
+    assert ei.value.status == 403
+
+    # Dissolve works when no packages
+    st3, raw3, _ = boot._request(
+        "DELETE",
+        "/v1/orgs/doomed",
+        headers=boot._headers(auth=True),
+    )
+    assert st3 == 200, raw3
+    listed = boot.list_orgs()
+    assert all(i["org_id"] != "doomed" for i in listed.get("items") or [])

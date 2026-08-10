@@ -6,8 +6,8 @@ Endpoints:
   POST /v1/auth/github/device/poll
   POST /v1/auth/github/web/start
   POST /v1/auth/github/web/callback
-  POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id}
-  POST /v1/orgs/join
+  POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id} | DELETE /v1/orgs/{id}
+  POST /v1/orgs/join | POST /v1/orgs/{id}/leave
   POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | DELETE .../members/{user}
   GET|POST /v1/orgs/{id}/invite-keys | DELETE /v1/orgs/{id}/invite-keys/{key_id}
   POST /v1/packages
@@ -446,6 +446,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if m:
                 self._claim_org(org_id=m.group(1))
                 return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/leave", path)
+            if m:
+                self._leave_org(org_id=m.group(1))
+                return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys", path)
             if m:
                 self._create_invite_key(org_id=m.group(1))
@@ -482,6 +486,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             m = re.fullmatch(r"/v1/orgs/([^/]+)/members/([^/]+)", path)
             if m:
                 self._remove_org_member(org_id=m.group(1), user_id=m.group(2))
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)", path)
+            if m:
+                self._delete_org(org_id=m.group(1))
                 return
             m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
             if m:
@@ -1847,6 +1855,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     created_by=auth.user_id or "",
                     token_hash=token_hash,
                     token_prefix=prefix,
+                    invite_token=plain,
                     max_uses=max_uses,
                     expires_at=expires_at,
                 )
@@ -1856,11 +1865,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except ValueError as exc:
                 _json_response(self, 400, {"error": "invalid_request", "message": str(exc)})
                 return
-            _json_response(
-                self,
-                201,
-                invite_key_to_dict(row, invite_token=plain),
-            )
+            _json_response(self, 201, invite_key_to_dict(row))
 
         def _list_invite_keys(self, *, org_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
@@ -2014,6 +2019,47 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 _json_response(self, 404, {"error": "not_found", "message": "membership not found"})
                 return
             _json_response(self, 200, {"ok": True, "org_id": org_id, "user_id": target})
+
+        def _leave_org(self, *, org_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not auth.user_id:
+                _json_response(
+                    self,
+                    401,
+                    {"error": "unauthorized", "message": "user identity required"},
+                )
+                return
+            try:
+                state.meta.leave_org(org_id, auth.user_id)
+            except LookupError:
+                _json_response(
+                    self,
+                    404,
+                    {"error": "not_found", "message": "membership not found"},
+                )
+                return
+            except PermissionError as exc:
+                _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
+                return
+            _json_response(self, 200, {"ok": True, "org_id": org_id, "left": True})
+
+        def _delete_org(self, *, org_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not self._require_org_owner(org_id=org_id, auth=auth):
+                return
+            try:
+                state.meta.delete_org(org_id)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return
+            except ValueError as exc:
+                _json_response(self, 409, {"error": "conflict", "message": str(exc)})
+                return
+            _json_response(self, 200, {"ok": True, "org_id": org_id, "dissolved": True})
 
         # ---- result shares -----------------------------------------------
 

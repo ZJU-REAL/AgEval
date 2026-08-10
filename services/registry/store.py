@@ -131,7 +131,7 @@ class ResultShareRow:
 
 @dataclass(frozen=True, slots=True)
 class OrgInviteKeyRow:
-    """Org invite key metadata (plaintext token is never stored)."""
+    """Org invite key — full token stored for owner list/copy (owners-only API)."""
 
     key_id: str
     org_id: str
@@ -143,6 +143,8 @@ class OrgInviteKeyRow:
     expires_at: float | None
     revoked_at: float | None
     created_at: float
+    # Full invite secret; returned only on owner create/list (not public).
+    invite_token: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -647,10 +649,18 @@ class MetadataStore:
                     use_count INTEGER NOT NULL DEFAULT 0,
                     expires_at REAL,
                     revoked_at REAL,
-                    created_at REAL NOT NULL
+                    created_at REAL NOT NULL,
+                    invite_token TEXT NOT NULL DEFAULT ''
                 )
                 """
             )
+            inv_cols = {
+                str(r[1]) for r in conn.execute("PRAGMA table_info(org_invite_keys)").fetchall()
+            }
+            if "invite_token" not in inv_cols:
+                conn.execute(
+                    "ALTER TABLE org_invite_keys ADD COLUMN invite_token TEXT NOT NULL DEFAULT ''"
+                )
             conn.commit()
 
     def insert(self, row: ReleaseRow) -> None:
@@ -1075,6 +1085,57 @@ class MetadataStore:
                 raise LookupError("membership not found")
             conn.commit()
 
+    def count_org_owners(self, org_id: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) AS n FROM org_memberships WHERE org_id=? AND role='owner'",
+                (org_id,),
+            )
+            r = cur.fetchone()
+            return int(r["n"] if r is not None else 0)
+
+    def count_org_packages(self, org_id: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) AS n FROM releases WHERE org_id=?",
+                (org_id,),
+            )
+            r = cur.fetchone()
+            return int(r["n"] if r is not None else 0)
+
+    def leave_org(self, org_id: str, user_id: str) -> None:
+        """Member (or non-sole owner) leaves the org."""
+        uid = _normalize_user_id(user_id) or user_id
+        mem = self.membership(org_id, uid)
+        if mem is None:
+            raise LookupError("membership not found")
+        if mem.role == "owner" and self.count_org_owners(org_id) <= 1:
+            raise PermissionError(
+                "sole owner cannot leave; dissolve the organization instead"
+            )
+        self.remove_member(org_id, uid)
+
+    def delete_org(self, org_id: str) -> None:
+        """Dissolve org: memberships + invite keys + org row. Fail if packages remain."""
+        if self.get_org(org_id) is None:
+            raise LookupError("org not found")
+        n_pkg = self.count_org_packages(org_id)
+        if n_pkg > 0:
+            raise ValueError(
+                f"org still has {n_pkg} package release(s); unpublish or reassign first"
+            )
+        with self._connect() as conn:
+            conn.execute("DELETE FROM org_invite_keys WHERE org_id=?", (org_id,))
+            conn.execute("DELETE FROM org_memberships WHERE org_id=?", (org_id,))
+            conn.execute(
+                "DELETE FROM result_shares WHERE target_type='org' AND target_id=?",
+                (org_id,),
+            )
+            cur = conn.execute("DELETE FROM organizations WHERE org_id=?", (org_id,))
+            if cur.rowcount == 0:
+                raise LookupError("org not found")
+            conn.commit()
+
     def list_members(self, org_id: str) -> list[MembershipRow]:
         with self._connect() as conn:
             cur = conn.execute(
@@ -1118,6 +1179,7 @@ class MetadataStore:
         created_by: str,
         token_hash: str,
         token_prefix: str,
+        invite_token: str,
         max_uses: int | None = None,
         expires_at: float | None = None,
         key_id: str | None = None,
@@ -1128,6 +1190,8 @@ class MetadataStore:
             raise LookupError("org not found")
         if max_uses is not None and max_uses < 1:
             raise ValueError("max_uses must be >= 1")
+        if not invite_token:
+            raise ValueError("invite_token required")
         kid = key_id or _secrets.token_hex(8)
         row = OrgInviteKeyRow(
             key_id=kid,
@@ -1140,14 +1204,16 @@ class MetadataStore:
             expires_at=expires_at,
             revoked_at=None,
             created_at=now(),
+            invite_token=invite_token,
         )
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO org_invite_keys(
                     key_id, org_id, token_hash, token_prefix, created_by,
-                    max_uses, use_count, expires_at, revoked_at, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    max_uses, use_count, expires_at, revoked_at, created_at,
+                    invite_token
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     row.key_id,
@@ -1160,6 +1226,7 @@ class MetadataStore:
                     row.expires_at,
                     row.revoked_at,
                     row.created_at,
+                    row.invite_token,
                 ),
             )
             conn.commit()
@@ -1256,9 +1323,13 @@ class MetadataStore:
 
     @staticmethod
     def _invite_key_row(r: sqlite3.Row) -> OrgInviteKeyRow:
+        keys = r.keys()
         max_uses = r["max_uses"]
         expires_at = r["expires_at"]
         revoked_at = r["revoked_at"]
+        invite_token = (
+            str(r["invite_token"]) if "invite_token" in keys and r["invite_token"] else ""
+        )
         return OrgInviteKeyRow(
             key_id=str(r["key_id"]),
             org_id=str(r["org_id"]),
@@ -1270,6 +1341,7 @@ class MetadataStore:
             expires_at=float(expires_at) if expires_at is not None else None,
             revoked_at=float(revoked_at) if revoked_at is not None else None,
             created_at=float(r["created_at"]),
+            invite_token=invite_token,
         )
 
     def user_org_ids(self, user_id: str) -> set[str]:
@@ -1633,9 +1705,14 @@ class PostgresMetadataStore:
                     use_count INTEGER NOT NULL DEFAULT 0,
                     expires_at DOUBLE PRECISION,
                     revoked_at DOUBLE PRECISION,
-                    created_at DOUBLE PRECISION NOT NULL
+                    created_at DOUBLE PRECISION NOT NULL,
+                    invite_token TEXT NOT NULL DEFAULT ''
                 )
                 """
+            )
+            conn.execute(
+                "ALTER TABLE org_invite_keys "
+                "ADD COLUMN IF NOT EXISTS invite_token TEXT NOT NULL DEFAULT ''"
             )
             conn.commit()
 
@@ -2102,6 +2179,55 @@ class PostgresMetadataStore:
                 raise LookupError("membership not found")
             conn.commit()
 
+    def count_org_owners(self, org_id: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM org_memberships WHERE org_id=%s AND role='owner'",
+                (org_id,),
+            )
+            r = cur.fetchone()
+            return int(r[0] if r is not None else 0)
+
+    def count_org_packages(self, org_id: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM releases WHERE org_id=%s",
+                (org_id,),
+            )
+            r = cur.fetchone()
+            return int(r[0] if r is not None else 0)
+
+    def leave_org(self, org_id: str, user_id: str) -> None:
+        uid = _normalize_user_id(user_id) or user_id
+        mem = self.membership(org_id, uid)
+        if mem is None:
+            raise LookupError("membership not found")
+        if mem.role == "owner" and self.count_org_owners(org_id) <= 1:
+            raise PermissionError(
+                "sole owner cannot leave; dissolve the organization instead"
+            )
+        self.remove_member(org_id, uid)
+
+    def delete_org(self, org_id: str) -> None:
+        if self.get_org(org_id) is None:
+            raise LookupError("org not found")
+        n_pkg = self.count_org_packages(org_id)
+        if n_pkg > 0:
+            raise ValueError(
+                f"org still has {n_pkg} package release(s); unpublish or reassign first"
+            )
+        with self._connect() as conn:
+            conn.execute("DELETE FROM org_invite_keys WHERE org_id=%s", (org_id,))
+            conn.execute("DELETE FROM org_memberships WHERE org_id=%s", (org_id,))
+            conn.execute(
+                "DELETE FROM result_shares WHERE target_type='org' AND target_id=%s",
+                (org_id,),
+            )
+            cur = conn.execute("DELETE FROM organizations WHERE org_id=%s", (org_id,))
+            if cur.rowcount == 0:
+                raise LookupError("org not found")
+            conn.commit()
+
     def list_members(self, org_id: str) -> list[MembershipRow]:
         with self._connect() as conn:
             cur = conn.execute(
@@ -2145,6 +2271,7 @@ class PostgresMetadataStore:
         created_by: str,
         token_hash: str,
         token_prefix: str,
+        invite_token: str,
         max_uses: int | None = None,
         expires_at: float | None = None,
         key_id: str | None = None,
@@ -2155,6 +2282,8 @@ class PostgresMetadataStore:
             raise LookupError("org not found")
         if max_uses is not None and max_uses < 1:
             raise ValueError("max_uses must be >= 1")
+        if not invite_token:
+            raise ValueError("invite_token required")
         kid = key_id or _secrets.token_hex(8)
         row = OrgInviteKeyRow(
             key_id=kid,
@@ -2167,14 +2296,16 @@ class PostgresMetadataStore:
             expires_at=expires_at,
             revoked_at=None,
             created_at=now(),
+            invite_token=invite_token,
         )
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO org_invite_keys(
                     key_id, org_id, token_hash, token_prefix, created_by,
-                    max_uses, use_count, expires_at, revoked_at, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    max_uses, use_count, expires_at, revoked_at, created_at,
+                    invite_token
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     row.key_id,
@@ -2187,6 +2318,7 @@ class PostgresMetadataStore:
                     row.expires_at,
                     row.revoked_at,
                     row.created_at,
+                    row.invite_token,
                 ),
             )
             conn.commit()
@@ -2197,7 +2329,8 @@ class PostgresMetadataStore:
             cur = conn.execute(
                 """
                 SELECT key_id, org_id, token_hash, token_prefix, created_by,
-                       max_uses, use_count, expires_at, revoked_at, created_at
+                       max_uses, use_count, expires_at, revoked_at, created_at,
+                       invite_token
                 FROM org_invite_keys
                 WHERE org_id=%s
                 ORDER BY created_at DESC
@@ -2211,7 +2344,8 @@ class PostgresMetadataStore:
             cur = conn.execute(
                 """
                 SELECT key_id, org_id, token_hash, token_prefix, created_by,
-                       max_uses, use_count, expires_at, revoked_at, created_at
+                       max_uses, use_count, expires_at, revoked_at, created_at,
+                       invite_token
                 FROM org_invite_keys WHERE org_id=%s AND key_id=%s
                 """,
                 (org_id, key_id),
@@ -2225,7 +2359,8 @@ class PostgresMetadataStore:
             cur = conn.execute(
                 """
                 SELECT key_id, org_id, token_hash, token_prefix, created_by,
-                       max_uses, use_count, expires_at, revoked_at, created_at
+                       max_uses, use_count, expires_at, revoked_at, created_at,
+                       invite_token
                 FROM org_invite_keys WHERE org_id=%s AND key_id=%s
                 """,
                 (org_id, key_id),
@@ -2251,7 +2386,8 @@ class PostgresMetadataStore:
             cur = conn.execute(
                 """
                 SELECT key_id, org_id, token_hash, token_prefix, created_by,
-                       max_uses, use_count, expires_at, revoked_at, created_at
+                       max_uses, use_count, expires_at, revoked_at, created_at,
+                       invite_token
                 FROM org_invite_keys WHERE token_hash=%s
                 """,
                 (token_hash,),
@@ -2300,6 +2436,7 @@ class PostgresMetadataStore:
         max_uses = r[5]
         expires_at = r[7]
         revoked_at = r[8]
+        invite_token = str(r[10]) if len(r) > 10 and r[10] is not None else ""
         return OrgInviteKeyRow(
             key_id=str(r[0]),
             org_id=str(r[1]),
@@ -2311,6 +2448,7 @@ class PostgresMetadataStore:
             expires_at=float(expires_at) if expires_at is not None else None,
             revoked_at=float(revoked_at) if revoked_at is not None else None,
             created_at=float(r[9]),
+            invite_token=invite_token,
         )
 
     def user_org_ids(self, user_id: str) -> set[str]:
@@ -2588,7 +2726,8 @@ def invite_key_to_dict(
     *,
     invite_token: str | None = None,
 ) -> dict[str, Any]:
-    """Serialize invite key. Plaintext *invite_token* only on create."""
+    """Serialize invite key for owner APIs (includes full token when stored)."""
+    full = invite_token if invite_token is not None else (row.invite_token or "")
     out: dict[str, Any] = {
         "key_id": row.key_id,
         "org_id": row.org_id,
@@ -2603,8 +2742,8 @@ def invite_key_to_dict(
         and (row.expires_at is None or row.expires_at > now())
         and (row.max_uses is None or row.use_count < row.max_uses),
     }
-    if invite_token:
-        out["invite_token"] = invite_token
+    if full:
+        out["invite_token"] = full
     return out
 
 
