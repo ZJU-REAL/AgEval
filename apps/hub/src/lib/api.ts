@@ -349,6 +349,29 @@ export async function revokeOrgInviteKey(
   );
 }
 
+/** Current user leaves org (sole owner must dissolve instead). */
+export async function leaveOrg(
+  orgId: string,
+  token: string | null,
+): Promise<{ ok: boolean; org_id: string }> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}/leave`, {
+    token,
+    method: "POST",
+    body: {},
+  });
+}
+
+/** Owner dissolves org (fails if packages still bound). */
+export async function dissolveOrg(
+  orgId: string,
+  token: string | null,
+): Promise<{ ok: boolean; org_id: string }> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}`, {
+    token,
+    method: "DELETE",
+  });
+}
+
 export async function listResultShares(
   kind: "attempt" | "suite",
   resultId: string,

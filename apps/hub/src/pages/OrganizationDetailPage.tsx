@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { Shell } from "@/components/layout";
+import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,8 +16,10 @@ import {
 } from "@/components/ui/table";
 import {
   createOrgInviteKey,
+  dissolveOrg,
   encodeDatasetId,
   getOrg,
+  leaveOrg,
   listOrgInviteKeys,
   listOrgMembers,
   listPackages,
@@ -48,9 +51,15 @@ function latestByDatabase(items: PackageRelease[]): PackageRelease[] {
 
 type Tab = "overview" | "settings";
 
+/** Active keys only — revoked rows are dropped from the UI list. */
+function activeInviteKeys(keys: OrgInviteKey[]): OrgInviteKey[] {
+  return keys.filter((k) => !k.revoked_at);
+}
+
 export function OrganizationDetailPage() {
   const { orgId: rawOrgId } = useParams();
   const orgId = rawOrgId ? decodeURIComponent(rawOrgId) : "";
+  const navigate = useNavigate();
   const token = getToken();
   const [tab, setTab] = useState<Tab>("overview");
   const [org, setOrg] = useState<OrgRow | null>(null);
@@ -66,8 +75,16 @@ export function OrganizationDetailPage() {
   const [expiresDays, setExpiresDays] = useState("7");
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [freshToken, setFreshToken] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  /** First click arms delete; second confirms. */
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [revokeBusy, setRevokeBusy] = useState<string | null>(null);
+
+  const [dangerConfirm, setDangerConfirm] = useState(false);
+  const [dangerBusy, setDangerBusy] = useState(false);
+  const [dangerError, setDangerError] = useState<string | null>(null);
+
+  const isOwner = (org?.role || "").toLowerCase() === "owner";
 
   useEffect(() => {
     if (!orgId || !token) {
@@ -97,7 +114,7 @@ export function OrganizationDetailPage() {
           try {
             const keys = await listOrgInviteKeys(orgId, token);
             if (!cancelled) {
-              setInviteKeys(keys);
+              setInviteKeys(activeInviteKeys(keys));
               setInviteLoadError(null);
             }
           } catch (err: unknown) {
@@ -181,10 +198,7 @@ export function OrganizationDetailPage() {
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm">
           <p className="font-medium text-ink">Sign in required</p>
           <p className="mt-1 text-mute">
-            <Link to="/login" className="underline underline-offset-2">
-              Sign in
-            </Link>{" "}
-            to view this organization.
+            <SignInLink /> to view this organization.
           </p>
         </div>
       </Shell>
@@ -404,7 +418,7 @@ export function OrganizationDetailPage() {
               </section>
             </div>
           ) : (
-            <div className="space-y-8 max-w-2xl">
+            <div className="space-y-8">
               <section>
                 <h2 className="text-sm font-medium text-ink mb-1">
                   Organization description
@@ -419,74 +433,51 @@ export function OrganizationDetailPage() {
               </section>
 
               {(org?.role || "").toLowerCase() === "owner" ? (
-                <section className="space-y-3">
-                  <div>
-                    <h2 className="text-sm font-medium text-ink mb-1">
-                      Invite keys
-                    </h2>
-                    <p className="text-sm text-mute">
-                      Create keys others can use on the Organizations page (+).
-                      The full key is shown only once at creation.
-                    </p>
-                  </div>
+                <section className="space-y-4">
+                  <h2 className="text-sm font-medium text-ink">Invite keys</h2>
 
-                  <div className="rounded-[8px] border border-hairline p-4 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-medium text-mute uppercase tracking-wide">
-                          Max uses (optional)
-                        </label>
-                        <Input
-                          type="number"
-                          min={1}
-                          placeholder="Unlimited"
-                          value={maxUses}
-                          onChange={(e) => setMaxUses(e.target.value)}
-                          className="mt-1.5"
-                          disabled={createBusy}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-mute uppercase tracking-wide">
-                          Expires in days
-                        </label>
-                        <Input
-                          type="number"
-                          min={0}
-                          step="any"
-                          placeholder="7"
-                          value={expiresDays}
-                          onChange={(e) => setExpiresDays(e.target.value)}
-                          className="mt-1.5"
-                          disabled={createBusy}
-                        />
-                        <p className="text-[11px] text-mute mt-1">
-                          Use 0 for no expiry.
-                        </p>
-                      </div>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="w-full sm:w-40">
+                      <label className="text-xs font-medium text-mute uppercase tracking-wide">
+                        Max uses
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Unlimited"
+                        value={maxUses}
+                        onChange={(e) => setMaxUses(e.target.value)}
+                        className="mt-1.5"
+                        disabled={createBusy}
+                      />
                     </div>
-                    {createError ? (
-                      <p className="text-sm text-error font-mono">{createError}</p>
-                    ) : null}
-                    {freshToken ? (
-                      <div className="rounded-[8px] bg-canvas-soft border border-hairline p-3 space-y-1">
-                        <p className="text-xs font-medium text-ink">
-                          Copy now — will not be shown again
-                        </p>
-                        <code className="block text-xs font-mono break-all text-body">
-                          {freshToken}
-                        </code>
-                      </div>
-                    ) : null}
+                    <div className="w-full sm:w-40">
+                      <label className="text-xs font-medium text-mute uppercase tracking-wide">
+                        Expires (days)
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        placeholder="7"
+                        value={expiresDays}
+                        onChange={(e) => setExpiresDays(e.target.value)}
+                        className="mt-1.5"
+                        disabled={createBusy}
+                      />
+                    </div>
+                    <p className="text-xs text-mute pb-2 flex-1 min-w-0">
+                      Empty max uses = unlimited · 0 days = no expiry
+                    </p>
                     <Button
                       type="button"
+                      className="shrink-0"
                       disabled={createBusy}
                       onClick={() => {
                         void (async () => {
                           if (!token) return;
                           setCreateBusy(true);
                           setCreateError(null);
-                          setFreshToken(null);
                           try {
                             const body: {
                               max_uses?: number;
@@ -504,15 +495,10 @@ export function OrganizationDetailPage() {
                             if (ed && Number(ed) > 0) {
                               body.expires_in_days = Number(ed);
                             }
-                            const created = await createOrgInviteKey(
-                              orgId,
-                              body,
-                              token,
+                            await createOrgInviteKey(orgId, body, token);
+                            const keys = activeInviteKeys(
+                              await listOrgInviteKeys(orgId, token),
                             );
-                            if (created.invite_token) {
-                              setFreshToken(created.invite_token);
-                            }
-                            const keys = await listOrgInviteKeys(orgId, token);
                             setInviteKeys(keys);
                           } catch (err: unknown) {
                             if (err instanceof RegistryHttpError) {
@@ -530,32 +516,40 @@ export function OrganizationDetailPage() {
                         })();
                       }}
                     >
-                      {createBusy ? "Creating…" : "Create invite key"}
+                      {createBusy ? "Creating…" : "Create key"}
                     </Button>
                   </div>
 
+                  {createError ? (
+                    <p className="text-sm text-error">{createError}</p>
+                  ) : null}
                   {inviteLoadError ? (
-                    <p className="text-sm text-error font-mono">
-                      {inviteLoadError}
-                    </p>
+                    <p className="text-sm text-error">{inviteLoadError}</p>
                   ) : null}
 
                   {inviteKeys.length === 0 ? (
-                    <p className="text-sm text-mute">No invite keys yet.</p>
+                    <div className="rounded-[8px] border border-dashed border-hairline p-8 text-sm text-mute">
+                      No invite keys yet.
+                    </div>
                   ) : (
                     <div className="rounded-[8px] border border-hairline overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow className="hover:bg-transparent">
-                            <TableHead>Prefix</TableHead>
+                            <TableHead>Key</TableHead>
                             <TableHead>Uses</TableHead>
                             <TableHead>Expires</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-right"> </TableHead>
+                            <TableHead className="text-right w-[1%]">
+                              Actions
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {inviteKeys.map((k) => {
+                            // Owner list API returns full invite_token (persisted).
+                            const fullKey = (k.invite_token || "").trim();
+                            const display = fullKey || k.token_prefix;
                             const uses =
                               k.max_uses == null
                                 ? `${k.use_count ?? 0} / ∞`
@@ -566,15 +560,18 @@ export function OrganizationDetailPage() {
                                 : formatDate(
                                     new Date(k.expires_at * 1000).toISOString(),
                                   );
-                            const status = k.revoked_at
-                              ? "revoked"
-                              : k.active === false
-                                ? "inactive"
-                                : "active";
+                            const status =
+                              k.active === false ? "inactive" : "active";
+                            const confirmDelete = confirmDeleteId === k.key_id;
                             return (
                               <TableRow key={k.key_id}>
-                                <TableCell className="font-mono text-xs">
-                                  {k.token_prefix}
+                                <TableCell className="font-mono text-xs max-w-[min(40rem,50vw)]">
+                                  <span
+                                    className="block truncate"
+                                    title={display}
+                                  >
+                                    {display}
+                                  </span>
                                 </TableCell>
                                 <TableCell className="text-sm tabular-nums">
                                   {uses}
@@ -586,13 +583,45 @@ export function OrganizationDetailPage() {
                                   {status}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {!k.revoked_at ? (
+                                  <div className="inline-flex items-center gap-1.5">
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
+                                      disabled={!fullKey}
+                                      title="Copy invite key"
+                                      onClick={() => {
+                                        if (!fullKey) return;
+                                        setConfirmDeleteId(null);
+                                        void navigator.clipboard
+                                          ?.writeText(fullKey)
+                                          .then(() => {
+                                            setCopiedId(k.key_id);
+                                            window.setTimeout(() => {
+                                              setCopiedId((id) =>
+                                                id === k.key_id ? null : id,
+                                              );
+                                            }, 1500);
+                                          });
+                                      }}
+                                    >
+                                      {copiedId === k.key_id ? "Copied" : "Copy"}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className={
+                                        confirmDelete
+                                          ? "border-transparent bg-error/15 text-error hover:bg-error/25 hover:text-error"
+                                          : undefined
+                                      }
                                       disabled={revokeBusy === k.key_id}
                                       onClick={() => {
+                                        if (confirmDeleteId !== k.key_id) {
+                                          setConfirmDeleteId(k.key_id);
+                                          return;
+                                        }
                                         void (async () => {
                                           if (!token) return;
                                           setRevokeBusy(k.key_id);
@@ -602,23 +631,25 @@ export function OrganizationDetailPage() {
                                               k.key_id,
                                               token,
                                             );
-                                            const keys =
-                                              await listOrgInviteKeys(
-                                                orgId,
-                                                token,
-                                              );
-                                            setInviteKeys(keys);
+                                            setConfirmDeleteId(null);
+                                            setInviteKeys((prev) =>
+                                              prev.filter(
+                                                (row) => row.key_id !== k.key_id,
+                                              ),
+                                            );
                                           } finally {
                                             setRevokeBusy(null);
                                           }
                                         })();
                                       }}
                                     >
-                                      Revoke
+                                      {revokeBusy === k.key_id
+                                        ? "…"
+                                        : confirmDelete
+                                          ? "Confirm"
+                                          : "Delete"}
                                     </Button>
-                                  ) : (
-                                    <span className="text-xs text-mute">—</span>
-                                  )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
@@ -645,6 +676,73 @@ export function OrganizationDetailPage() {
                   Organization-scoped secrets (API keys for hosted jobs) are not
                   implemented in BORA Registry. Use host env / CLI credentials
                   instead.
+                </div>
+              </section>
+
+              <section className="pt-4 border-t border-hairline">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-medium text-ink">
+                      {isOwner ? "Dissolve organization" : "Leave organization"}
+                    </h2>
+                    <p className="text-sm text-mute mt-0.5">
+                      {isOwner
+                        ? "Permanently delete this org, members, and invite keys. Fails if packages are still published under it."
+                        : "Remove yourself from this organization. You can rejoin later with an invite key."}
+                    </p>
+                    {dangerError ? (
+                      <p className="text-sm text-error mt-2">{dangerError}</p>
+                    ) : null}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={
+                      dangerConfirm
+                        ? "shrink-0 border-transparent bg-error/15 text-error hover:bg-error/25 hover:text-error"
+                        : "shrink-0"
+                    }
+                    disabled={dangerBusy}
+                    onClick={() => {
+                      if (!dangerConfirm) {
+                        setDangerConfirm(true);
+                        setDangerError(null);
+                        return;
+                      }
+                      void (async () => {
+                        if (!token) return;
+                        setDangerBusy(true);
+                        setDangerError(null);
+                        try {
+                          if (isOwner) {
+                            await dissolveOrg(orgId, token);
+                          } else {
+                            await leaveOrg(orgId, token);
+                          }
+                          navigate("/organizations");
+                        } catch (err: unknown) {
+                          if (err instanceof RegistryHttpError) {
+                            setDangerError(`${err.code}: ${err.message}`);
+                          } else {
+                            setDangerError(
+                              err instanceof Error ? err.message : String(err),
+                            );
+                          }
+                          setDangerConfirm(false);
+                        } finally {
+                          setDangerBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {dangerBusy
+                      ? "…"
+                      : dangerConfirm
+                        ? "Confirm"
+                        : isOwner
+                          ? "Dissolve"
+                          : "Leave"}
+                  </Button>
                 </div>
               </section>
             </div>
