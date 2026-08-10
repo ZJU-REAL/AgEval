@@ -32,7 +32,7 @@ def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
 
 
 async def run(ctx: HarnessContext) -> HarnessTerminal:
-    profile_id = str(ctx.params.get("active_profile") or "codex-mini")
+    profile_id = str(ctx.params.get("active_profile") or "solver")
     prompt_path = Path(__file__).resolve().parent / "prompts" / "agent.md"
     prompt = (
         prompt_path.read_text(encoding="utf-8").strip()

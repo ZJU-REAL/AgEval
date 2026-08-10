@@ -81,6 +81,11 @@ def test_stale_agent_result_cannot_force_pass(tmp_path: Path) -> None:
     )
     task_dir = db / "tasks" / "sdk-agent-session"
     shutil.copytree(REPO / "examples" / "core" / "tasks" / "sdk-agent-session", task_dir)
+    # Job bindings live at Database root (#59).
+    shutil.copy(
+        REPO / "examples" / "core" / "profiles.yaml",
+        db / "profiles.yaml",
+    )
     stale = task_dir / ".bora_agent_result.json"
     stale.write_text(json.dumps({"answer": 42, "source": "stale"}) + "\n", encoding="utf-8")
     result = _bora("run", str(db), "--task", "sdk-agent-session")

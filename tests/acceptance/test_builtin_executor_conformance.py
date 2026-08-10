@@ -1,4 +1,4 @@
-"""Public CLI: profile-only switch across codex / pi / opencode."""
+"""Public CLI: job-binding switch across codex / pi / opencode (#59)."""
 
 from __future__ import annotations
 
@@ -14,27 +14,42 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 PACKAGE = REPO / "examples" / "core"
 
+# entry_id → (model, optional extra --set pairs)
+_ENTRY_BINDINGS: dict[str, list[str]] = {
+    "codex": [
+        '/bindings/solver/options/entry="codex"',
+        '/bindings/solver/model="gpt-5.4-mini"',
+    ],
+    "pi": [
+        '/bindings/solver/options/entry="pi"',
+        '/bindings/solver/model="claude-haiku-4-5"',
+    ],
+    "opencode": [
+        '/bindings/solver/options/entry="opencode"',
+        '/bindings/solver/model="zai-coding-plan/glm-4.7"',
+    ],
+}
+
 
 def _run(
-    profile: str, *, env: dict[str, str] | None = None, timeout: float = 300
+    entry: str, *, env: dict[str, str] | None = None, timeout: float = 300
 ) -> subprocess.CompletedProcess[str]:
     e = os.environ.copy()
     if env:
         e.update(env)
-    # Override active profile via lock override if supported; else env for harness params.
-    # run_command uses lock parameters — use --set if CLI supports it.
+    cmd = [
+        sys.executable,
+        "-m",
+        "bora.cli.main",
+        "run",
+        str(PACKAGE),
+        "--task",
+        "builtin-executor-conformance",
+    ]
+    for ov in _ENTRY_BINDINGS[entry]:
+        cmd.extend(["--set", ov])
     return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "bora.cli.main",
-            "run",
-            str(PACKAGE),
-            "--task",
-            "builtin-executor-conformance",
-            "--set",
-            f'/parameters/active_profile="{profile}"',
-        ],
+        cmd,
         check=False,
         capture_output=True,
         text=True,
@@ -45,9 +60,8 @@ def _run(
 
 
 def test_unknown_executor_fail_closed() -> None:
-    # Force unknown via profile override is hard; unit registry covers KeyError.
     # Offline never PASS.
-    result = _run("codex-mini", env={"BORA_OFFLINE_AGENT": "1"}, timeout=120)
+    result = _run("codex", env={"BORA_OFFLINE_AGENT": "1"}, timeout=120)
     assert result.returncode != 0
     lines = [ln for ln in (result.stdout or "").splitlines() if ln.strip().startswith("{")]
     if lines:
@@ -58,7 +72,7 @@ def test_unknown_executor_fail_closed() -> None:
 def test_codex_profile_success() -> None:
     if shutil.which("codex") is None:
         pytest.skip("codex missing")
-    result = _run("codex-mini", timeout=300)
+    result = _run("codex", timeout=300)
     assert result.returncode == 0, (result.stdout, result.stderr)
     data = json.loads(result.stdout)
     assert data["status"] == "PASS"
@@ -76,7 +90,7 @@ def test_codex_profile_success() -> None:
 def test_pi_profile_success() -> None:
     if os.environ.get("BORA_SKIP_REAL_PI") == "1":
         pytest.skip("skip real pi")
-    result = _run("pi-mini", timeout=300)
+    result = _run("pi", timeout=300)
     assert result.returncode == 0, (result.stdout, result.stderr)
     data = json.loads(result.stdout)
     assert data["status"] == "PASS"
@@ -93,7 +107,7 @@ def test_pi_profile_success() -> None:
 def test_opencode_profile_success() -> None:
     if os.environ.get("BORA_SKIP_REAL_OPENCODE") == "1":
         pytest.skip("skip real opencode")
-    result = _run("opencode-mini", timeout=300)
+    result = _run("opencode", timeout=300)
     assert result.returncode == 0, (result.stdout, result.stderr)
     data = json.loads(result.stdout)
     assert data["status"] == "PASS"

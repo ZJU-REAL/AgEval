@@ -30,9 +30,9 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     except (OSError, RuntimeError, json.JSONDecodeError, FileNotFoundError) as exc:
         return HarnessTerminal.failed(str(exc))
 
-    specialist_profile = _role_profile(params, "specialist", "specialist-pi")
-    planner_profile = _role_profile(params, "planner", "planner-opencode")
-    reducer_profile = _role_profile(params, "reducer", "reducer-grok")
+    specialist_profile = _role_profile(params, "specialist", "specialist")
+    planner_profile = _role_profile(params, "planner", "planner")
+    reducer_profile = _role_profile(params, "reducer", "reducer")
 
     tools = build_db_toolset(env)
     agent = Agent(attempt_id=ctx.scope.attempt_id)

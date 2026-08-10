@@ -39,7 +39,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     models = ctx.params.get("models") if isinstance(ctx.params.get("models"), dict) else {}
     # Prefer allowlisted CLI override, then package models.default.
     profile_id = str(
-        ctx.params.get("active_profile") or models.get("default") or "terminal-pi"
+        ctx.params.get("active_profile") or models.get("default") or "solver"
     )
     out_name = str(ctx.params.get("workspace_output") or "aggregates.json")
     out_path = Path(out_name)

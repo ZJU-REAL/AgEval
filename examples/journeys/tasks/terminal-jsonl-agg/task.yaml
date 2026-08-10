@@ -1,7 +1,5 @@
 format: bora.task/1
 task_id: terminal-jsonl-agg
-
-# Terminal-style workspace file → independent eval (terminal-bench case class, not an adapter).
 provenance:
   kind: reimplementation
   upstream:
@@ -9,71 +7,44 @@ provenance:
     url: https://github.com/laude-institute/terminal-bench
     ref: main
   parity:
-    claims: [protocol]
+    claims:
+    - protocol
     known_gaps:
-      - single synthetic jsonl-agg task; not Terminal-Bench task suite
-      - no TerminalBenchAdapter; BORA Core surfaces only
-
+    - single synthetic jsonl-agg task; not Terminal-Bench task suite
+    - no TerminalBenchAdapter; BORA Core surfaces only
 harness:
   runtime: python
   entrypoint: harness:run
-
 parameters:
-  # Harness schedules Agent.session/invoke; Runtime only seeds data/ + placement.
   workspace_output: aggregates.json
   harness_timeout_seconds: 420
   agent_timeout_seconds: 420
-  # Allowlisted CLI: --set '/parameters/active_profile="terminal-opencode"'
-  active_profile: terminal-pi
+  active_profile: solver
   models:
-    default: terminal-pi
-
+    default: solver
 provider:
   kind: docker
   assurance: l1
   platform: linux/arm64
-  # ACP agent container uses bridge for model API; package policy
-  # still filters evaluation/ from the harness mount.
   network: bridge
-
 agent_profiles:
-  # Default L1 coding agent via unified ACP (pi Mode 1 — host-proven in image).
-  - id: terminal-pi
-    executor: acp
-    options:
-      entry: pi
-    model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
-  - id: terminal-opencode
-    executor: acp
-    options:
-      entry: opencode
-    model: zai-coding-plan/glm-5.2
-    api_key: glm_coding_api_key
-  - id: terminal-grok
-    executor: acp
-    options:
-      entry: grok-build
-    model: entry-default
-
+- id: solver
 limits:
   wall_time_seconds: 720
   agent_invocations: 1
   environment_actions: 0
-
 artifacts:
   publishable:
-    - id: aggregates
-      producer: harness
-      path: artifacts/aggregates.json
-      media_type: application/json
-
+  - id: aggregates
+    producer: harness
+    path: artifacts/aggregates.json
+    media_type: application/json
 evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
   inputs:
-    - artifact: aggregates
-      target: artifacts/aggregates.json
+  - artifact: aggregates
+    target: artifacts/aggregates.json
   output:
     format: json

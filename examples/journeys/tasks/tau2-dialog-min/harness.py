@@ -28,8 +28,8 @@ def _role_profile(params: dict[str, Any], role: str, default: str) -> str:
 
 async def run(ctx: HarnessContext) -> HarnessTerminal:
     params = ctx.params if isinstance(ctx.params, dict) else {}
-    user_profile = _role_profile(params, "user", "user-grok")
-    service_profile = _role_profile(params, "service", "service-opencode")
+    user_profile = _role_profile(params, "user", "user")
+    service_profile = _role_profile(params, "service", "service")
 
     state = load_json("data/initial_state.json")
     private = load_json("data/user-instructions.json")

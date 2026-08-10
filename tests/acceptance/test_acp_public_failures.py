@@ -101,7 +101,7 @@ def test_offline_cli_subprocess_nonzero() -> None:
             "--task",
             "builtin-executor-conformance",
             "--set",
-            '/parameters/active_profile="opencode-mini"',
+            '/bindings/solver/options/entry="opencode"',
         ],
         check=False,
         capture_output=True,

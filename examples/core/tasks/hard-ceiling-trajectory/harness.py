@@ -7,7 +7,7 @@ from bora_sdk import Agent, HarnessContext, HarnessTerminal
 
 async def run(ctx: HarnessContext) -> HarnessTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
-    async with agent.session("codex-mini", max_turns=2) as session:
+    async with agent.session("solver", max_turns=2) as session:
         first = await session.invoke('Return ONLY JSON {"n": 1}')
         second = await session.invoke('Return ONLY JSON {"n": 2}')
 

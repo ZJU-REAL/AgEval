@@ -2,31 +2,22 @@
 # Expected: bora lock → exit 2, error_code unknown_profile.
 format: bora.task/1
 task_id: config-invalid
-
 harness:
   runtime: python
   entrypoint: harness:run
-
 parameters:
   seed: 1
   models:
     default: does-not-exist
-
 provider:
   kind: local
   assurance: l0
-
 agent_profiles:
-  - id: mock-default
-    executor: mock
-    model: none
-
+- id: mock-default
 limits:
   wall_time_seconds: 60
-
 artifacts:
   publishable: []
-
 evaluation:
   runtime: python
   entrypoint: evaluator:evaluate

@@ -42,7 +42,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     package_dir = Path(__file__).resolve().parent
     prompt = _load_prompt(package_dir)
     agent = Agent(attempt_id=ctx.scope.attempt_id)
-    async with agent.session("openai-mini", max_turns=1) as session:
+    async with agent.session("http-solver", max_turns=1) as session:
         inv = await session.invoke(prompt)
     if not inv.get("ok"):
         return HarnessTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))

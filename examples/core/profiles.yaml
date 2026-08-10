@@ -1,0 +1,25 @@
+format: bora.profiles/1
+bindings:
+  mock-default:
+    executor: mock
+    model: none
+  solver:
+    executor: acp
+    options:
+      entry: codex
+    model: gpt-5.4-mini
+  http-solver:
+    executor: openai-http
+    model: gpt-4.1-mini
+  primary:
+    executor: acp
+    options:
+      entry: opencode
+    model: zai-coding-plan/glm-5.2
+    api_key: glm_coding_api_key
+  secondary:
+    executor: acp
+    options:
+      entry: pi
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key

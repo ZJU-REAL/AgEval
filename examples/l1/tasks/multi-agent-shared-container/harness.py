@@ -8,8 +8,8 @@ from bora_sdk import Agent, HarnessContext, HarnessTerminal
 async def run(ctx: HarnessContext) -> HarnessTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     models = ctx.params.get("models") or {}
-    planner_profile = str(models.get("planner") or "planner-codex")
-    reviewer_profile = str(models.get("reviewer") or "reviewer-codex")
+    planner_profile = str(models.get("planner") or "planner")
+    reviewer_profile = str(models.get("reviewer") or "reviewer")
 
     # Mid-loop collaboration uses Harness memory; shared_write (team/) is
     # enforced only inside the Agent container (shared GID), not on the host

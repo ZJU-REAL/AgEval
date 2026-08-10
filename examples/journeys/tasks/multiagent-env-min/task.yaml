@@ -1,7 +1,5 @@
 format: bora.task/1
 task_id: multiagent-env-min
-
-# Multi-specialist + planner + reducer over seeded DB (MultiAgentBench / database-52 case class).
 provenance:
   kind: reimplementation
   upstream:
@@ -10,70 +8,46 @@ provenance:
     ref: main
     paper: https://arxiv.org/abs/2503.01935
   parity:
-    claims: [protocol]
+    claims:
+    - protocol
     known_gaps:
-      - BORA journey mini-package; not full MultiAgentBench suite
-      - no MultiAgentBenchAdapter; roles via profiles + env tools only
-
+    - BORA journey mini-package; not full MultiAgentBench suite
+    - no MultiAgentBenchAdapter; roles via profiles + env tools only
 harness:
   runtime: python
   entrypoint: harness:run
-
 parameters:
   harness_timeout_seconds: 900
   environment_resource: postgresql
-  # Role → profile map (harness reads ids; never branches on entry/executor).
   roles:
-    specialist: specialist-pi
-    planner: planner-opencode
-    reducer: reducer-grok
+    specialist: specialist
+    planner: planner
+    reducer: reducer
   models:
-    default: specialist-pi
-
+    default: specialist
 provider:
   kind: local
   assurance: l0
-
-# Mixed ACP entries in one Attempt (v1 multiagentbench class).
-# Target: executor: acp + options.entry only — no private CLI kinds.
 agent_profiles:
-  - id: specialist-pi
-    executor: acp
-    options:
-      entry: pi
-    # China coding plan: provider-qualified model (not bare glm-*).
-    model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
-  - id: planner-opencode
-    executor: acp
-    options:
-      entry: opencode
-    model: zai-coding-plan/glm-5.2
-    api_key: glm_coding_api_key
-  - id: reducer-grok
-    executor: acp
-    options:
-      entry: grok-build
-    model: entry-default
-
+- id: specialist
+- id: planner
+- id: reducer
 limits:
   wall_time_seconds: 900
   agent_invocations: 16
   environment_actions: 20
-
 artifacts:
   publishable:
-    - id: reducer-output
-      producer: harness
-      path: artifacts/reducer-output.json
-      media_type: application/json
-
+  - id: reducer-output
+    producer: harness
+    path: artifacts/reducer-output.json
+    media_type: application/json
 evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
   inputs:
-    - artifact: reducer-output
-      target: artifacts/reducer-output.json
+  - artifact: reducer-output
+    target: artifacts/reducer-output.json
   output:
     format: json

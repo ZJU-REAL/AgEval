@@ -8,7 +8,7 @@ from bora_sdk import Agent, HarnessContext, HarnessTerminal
 async def run(ctx: HarnessContext) -> HarnessTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     # Implicit topology actor id is "default".
-    async with agent.session("codex-mini", actor_id="default", max_turns=2) as session:
+    async with agent.session("solver", actor_id="default", max_turns=2) as session:
         first = await session.invoke(
             'Return ONLY JSON {"answer": 40} with no other keys.'
         )

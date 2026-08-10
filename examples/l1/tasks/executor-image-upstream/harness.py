@@ -40,7 +40,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         else 'Return ONLY JSON {"answer": 42}'
     )
     agent = Agent(attempt_id=ctx.scope.attempt_id)
-    async with agent.session("pi-glm", actor_id="default", max_turns=1) as session:
+    async with agent.session("pi-solver", actor_id="default", max_turns=1) as session:
         inv = await session.invoke(prompt)
     if not inv.get("ok"):
         return HarnessTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))

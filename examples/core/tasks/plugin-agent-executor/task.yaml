@@ -1,41 +1,32 @@
 format: bora.task/1
 task_id: plugin-agent-executor
-
 harness:
   runtime: python
   entrypoint: harness:run
-
 parameters:
   models:
-    default: openai-mini
-
+    default: http-solver
 provider:
   kind: local
   assurance: l0
-
 agent_profiles:
-  - id: openai-mini
-    executor: openai-http
-    model: gpt-4.1-mini
-
+- id: http-solver
 limits:
   wall_time_seconds: 120
   agent_invocations: 1
   environment_actions: 0
-
 artifacts:
   publishable:
-    - id: agent-output
-      producer: harness
-      path: artifacts/agent-output.json
-      media_type: application/json
-
+  - id: agent-output
+    producer: harness
+    path: artifacts/agent-output.json
+    media_type: application/json
 evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
   inputs:
-    - artifact: agent-output
-      target: artifacts/agent-output.json
+  - artifact: agent-output
+    target: artifacts/agent-output.json
   output:
     format: json

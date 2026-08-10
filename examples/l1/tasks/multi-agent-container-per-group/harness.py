@@ -8,8 +8,8 @@ from bora_sdk import Agent, HarnessContext, HarnessTerminal
 async def run(ctx: HarnessContext) -> HarnessTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     models = ctx.params.get("models") or {}
-    planner_profile = str(models.get("planner") or "planner-codex")
-    worker_profile = str(models.get("worker") or "worker-codex")
+    planner_profile = str(models.get("planner") or "planner")
+    worker_profile = str(models.get("worker") or "worker")
 
     async with agent.session(
         planner_profile, actor_id="planner", max_turns=2
