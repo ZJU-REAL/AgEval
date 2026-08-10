@@ -130,6 +130,7 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
         "metrics": metrics,
         "started": summary.get("created_at"),
         "duration": summary.get("duration"),
+        "n_attempts": summary.get("n_attempts"),
         "trials_done": trials_done,
         "trials_total": n_tasks or len(refs),
         "exit_code": summary.get("exit_code"),
@@ -137,6 +138,17 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
         "summary_path": str(suite_dir / "summary.json"),
         "note": summary.get("note") or "per-task evaluator verdicts only; no suite-level PASS",
     }
+
+
+def _load_progress(suite_dir: Path) -> dict[str, Any] | None:
+    path = suite_dir / "progress.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def list_jobs(database_root: Path) -> dict[str, Any]:
@@ -198,6 +210,9 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         )
     summary = _load_summary(summary_path)
     job = _job_row(summary, suite_dir=suite_dir, database_root=root)
+    progress = _load_progress(suite_dir)
+    if progress is not None:
+        job["progress"] = progress
     refs = _ensure_task_refs(summary)
     # Prefer full task rows when present (score/status/error)
     by_id: dict[str, dict[str, Any]] = {}
@@ -224,6 +239,9 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
                 "provider_label": job.get("provider_label") or "",
                 "dataset": job.get("source") or job.get("database_id"),
                 "duration": full.get("duration"),
+                "phase_timing": full.get("phase_timing"),
+                "n": full.get("n"),
+                "c": full.get("c"),
             }
         )
 
@@ -232,6 +250,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         "job": job,
         "tasks": task_rows,
         "task_count": len(task_rows),
+        "progress": progress,
         "commands": commands_for(root),
         "note": job.get("note"),
     }

@@ -252,6 +252,14 @@ async def _run_one(
             if not isinstance(raw_metrics, dict):
                 detail_metrics = details.get("metrics")
                 raw_metrics = detail_metrics if isinstance(detail_metrics, dict) else {}
+            phase_timing = details.get("phase_timing")
+            if not isinstance(phase_timing, dict):
+                phase_timing = None
+            duration = None
+            if phase_timing is not None:
+                from bora.application.phase_timing import format_duration_ms
+
+                duration = format_duration_ms(phase_timing.get("total_ms"))  # type: ignore[arg-type]
             return {
                 "task_id": task_id,
                 "attempt_index": attempt_index,
@@ -262,6 +270,9 @@ async def _run_one(
                 "run_id": run_id,
                 "digest": details.get("digest"),
                 "error": None if code != 2 else (details.get("error") or status),
+                "phase_timing": phase_timing,
+                "duration": duration,
+                "phase": "terminal",
             }
         except ConfigError as exc:
             return {
@@ -274,6 +285,9 @@ async def _run_one(
                 "run_id": None,
                 "digest": None,
                 "error": str(exc),
+                "phase_timing": None,
+                "duration": None,
+                "phase": "error",
             }
         except Exception as exc:  # noqa: BLE001
             return {
@@ -286,10 +300,41 @@ async def _run_one(
                 "run_id": None,
                 "digest": None,
                 "error": f"{type(exc).__name__}: {exc}",
+                "phase_timing": None,
+                "duration": None,
+                "phase": "error",
             }
         finally:
             async with _inflight_lock:
                 _inflight_current -= 1
+
+
+def _write_suite_progress(
+    plan: SuitePlan,
+    *,
+    done: int,
+    total: int,
+    running: list[dict[str, Any]],
+    status: str = "running",
+) -> None:
+    """Job progress snapshot for viewer / status (D2)."""
+    suite_dir = plan.database_root / ".bora" / "suite-runs" / plan.suite_run_id
+    suite_dir.mkdir(parents=True, exist_ok=True)
+    doc = {
+        "schema": "bora.suite.progress/1",
+        "suite_run_id": plan.suite_run_id,
+        "status": status,
+        "done": done,
+        "total": total,
+        "n_attempts": plan.n_attempts,
+        "max_concurrent_tasks": plan.max_concurrent_tasks,
+        "running": running,
+        "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    }
+    out = suite_dir / "progress.json"
+    tmp = out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp.replace(out)
 
 
 def _build_summary(
@@ -325,6 +370,8 @@ def _build_summary(
                 "digest": base.get("digest"),
                 "error": base.get("error"),
                 "attempt_index": 0,
+                "phase_timing": base.get("phase_timing"),
+                "duration": base.get("duration"),
             }
             # Surface k stats only when n_attempts was requested >1 historically;
             # for k==1 omit pass_at_k maps from task row to keep legacy tests green.
@@ -339,6 +386,13 @@ def _build_summary(
     else:
         tasks_out = []
         for t in task_rows:
+            # Prefer first attempt's phase_timing for job-level display (observational).
+            nested = t.get("attempts") or []
+            first_pt = None
+            first_dur = None
+            if nested and isinstance(nested[0], Mapping):
+                first_pt = nested[0].get("phase_timing")
+                first_dur = nested[0].get("duration")
             tasks_out.append(
                 {
                     "task_id": t["task_id"],
@@ -350,6 +404,8 @@ def _build_summary(
                     "pass_at_k": t["pass_at_k"],
                     "pass_power_k": t["pass_power_k"],
                     "attempt_indices": t.get("attempt_indices"),
+                    "phase_timing": first_pt,
+                    "duration": first_dur,
                 }
             )
         metrics = {
@@ -494,10 +550,35 @@ async def execute_suite_run(
     done_keys = _existing_attempt_keys(existing)
     units = planned_units(plan)
     todo = [(tid, idx) for tid, idx in units if (tid, idx) not in done_keys]
+    total_units = len(units) if not resume else max(len(units), len(done_keys | set(todo)))
+    # Progress: completed existing + in-flight bookkeeping.
+    completed_count = len(done_keys & set(units)) if resume else 0
+    _write_suite_progress(
+        plan,
+        done=completed_count,
+        total=max(total_units, len(todo) + completed_count),
+        running=[],
+        status="running" if todo else "complete",
+    )
 
     semaphore = asyncio.Semaphore(plan.max_concurrent_tasks)
-    coros = [
-        _run_one(
+    progress_lock = asyncio.Lock()
+    inflight_labels: dict[tuple[str, int], str] = {}
+
+    async def _tracked(tid: str, idx: int) -> dict[str, Any]:
+        nonlocal completed_count
+        async with progress_lock:
+            inflight_labels[(tid, idx)] = "running"
+            _write_suite_progress(
+                plan,
+                done=completed_count,
+                total=max(total_units, completed_count + len(todo)),
+                running=[
+                    {"task_id": t, "attempt_index": i, "phase": ph}
+                    for (t, i), ph in inflight_labels.items()
+                ],
+            )
+        row = await _run_one(
             plan,
             tid,
             idx,
@@ -506,8 +587,22 @@ async def execute_suite_run(
             run_fn=runner,
             profiles_path=profiles_path,
         )
-        for tid, idx in todo
-    ]
+        async with progress_lock:
+            inflight_labels.pop((tid, idx), None)
+            completed_count += 1
+            _write_suite_progress(
+                plan,
+                done=completed_count,
+                total=max(total_units, completed_count + len(inflight_labels)),
+                running=[
+                    {"task_id": t, "attempt_index": i, "phase": ph}
+                    for (t, i), ph in inflight_labels.items()
+                ],
+                status="running" if inflight_labels else "complete",
+            )
+        return row
+
+    coros = [_tracked(tid, idx) for tid, idx in todo]
     new_results: list[dict[str, Any]] = list(await asyncio.gather(*coros)) if coros else []
 
     # Append-only merge: existing first (stable), then new; never mutate old rows.
