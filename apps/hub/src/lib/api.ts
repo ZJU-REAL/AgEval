@@ -12,6 +12,30 @@ export type PackageRelease = {
   org_id?: string;
 };
 
+export type OrgRow = {
+  org_id: string;
+  name: string;
+  display_name?: string;
+  is_claimable?: boolean;
+  created_at?: number;
+  role?: string;
+};
+
+export type OrgMember = {
+  org_id: string;
+  user_id: string;
+  role: string;
+  created_at?: number;
+};
+
+export type ResultShare = {
+  result_kind: string;
+  result_id: string;
+  target_type: string;
+  target_id: string;
+  created_at?: number;
+};
+
 export type FileItem = {
   path: string;
   type: "file" | "dir" | string;
@@ -176,12 +200,49 @@ export async function getPackageFile(
 }
 
 export async function listSuites(
-  databaseId: string,
+  databaseId: string | null,
   token: string | null,
 ): Promise<SuiteRow[]> {
-  const q = new URLSearchParams({ database_id: databaseId });
-  const data = await requestJson<{ items?: SuiteRow[] }>(
-    `/v1/results/suites?${q.toString()}`,
+  const q = new URLSearchParams();
+  if (databaseId) q.set("database_id", databaseId);
+  const path = q.toString()
+    ? `/v1/results/suites?${q.toString()}`
+    : "/v1/results/suites";
+  const data = await requestJson<{ items?: SuiteRow[] }>(path, { token });
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function listOrgs(token: string | null): Promise<OrgRow[]> {
+  const data = await requestJson<{ items?: OrgRow[] }>("/v1/orgs", { token });
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function getOrg(
+  orgId: string,
+  token: string | null,
+): Promise<OrgRow> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}`, { token });
+}
+
+export async function listOrgMembers(
+  orgId: string,
+  token: string | null,
+): Promise<OrgMember[]> {
+  const data = await requestJson<{ items?: OrgMember[] }>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/members`,
+    { token },
+  );
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function listResultShares(
+  kind: "attempt" | "suite",
+  resultId: string,
+  token: string | null,
+): Promise<ResultShare[]> {
+  const kindPath = kind === "attempt" ? "attempts" : "suites";
+  const data = await requestJson<{ items?: ResultShare[] }>(
+    `/v1/results/${kindPath}/${encodeURIComponent(resultId)}/shares`,
     { token },
   );
   return Array.isArray(data.items) ? data.items : [];

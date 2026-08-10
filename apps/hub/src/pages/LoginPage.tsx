@@ -56,7 +56,7 @@ export function LoginPage() {
           }
           const token = poll.token || poll.access_token;
           if (token) {
-            setToken(token);
+            setToken(token, poll.github_user);
             stopPoll();
             setStatus("done");
             setPollHint(
