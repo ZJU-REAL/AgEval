@@ -129,6 +129,22 @@ class ResultShareRow:
     created_at: float
 
 
+@dataclass(frozen=True, slots=True)
+class OrgInviteKeyRow:
+    """Org invite key metadata (plaintext token is never stored)."""
+
+    key_id: str
+    org_id: str
+    token_hash: str
+    token_prefix: str
+    created_by: str
+    max_uses: int | None
+    use_count: int
+    expires_at: float | None
+    revoked_at: float | None
+    created_at: float
+
+
 # ---------------------------------------------------------------------------
 # Blob
 # ---------------------------------------------------------------------------
@@ -619,6 +635,22 @@ class MetadataStore:
                 conn.execute(
                     "ALTER TABLE suite_results ADD COLUMN uploaded_by TEXT NOT NULL DEFAULT ''"
                 )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS org_invite_keys (
+                    key_id TEXT PRIMARY KEY,
+                    org_id TEXT NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    token_prefix TEXT NOT NULL,
+                    created_by TEXT NOT NULL DEFAULT '',
+                    max_uses INTEGER,
+                    use_count INTEGER NOT NULL DEFAULT 0,
+                    expires_at REAL,
+                    revoked_at REAL,
+                    created_at REAL NOT NULL
+                )
+                """
+            )
             conn.commit()
 
     def insert(self, row: ReleaseRow) -> None:
@@ -1079,6 +1111,167 @@ class MetadataStore:
                 created_at=float(r["created_at"]),
             )
 
+    def create_invite_key(
+        self,
+        *,
+        org_id: str,
+        created_by: str,
+        token_hash: str,
+        token_prefix: str,
+        max_uses: int | None = None,
+        expires_at: float | None = None,
+        key_id: str | None = None,
+    ) -> OrgInviteKeyRow:
+        import secrets as _secrets
+
+        if self.get_org(org_id) is None:
+            raise LookupError("org not found")
+        if max_uses is not None and max_uses < 1:
+            raise ValueError("max_uses must be >= 1")
+        kid = key_id or _secrets.token_hex(8)
+        row = OrgInviteKeyRow(
+            key_id=kid,
+            org_id=org_id,
+            token_hash=token_hash,
+            token_prefix=token_prefix,
+            created_by=created_by or "",
+            max_uses=max_uses,
+            use_count=0,
+            expires_at=expires_at,
+            revoked_at=None,
+            created_at=now(),
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO org_invite_keys(
+                    key_id, org_id, token_hash, token_prefix, created_by,
+                    max_uses, use_count, expires_at, revoked_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row.key_id,
+                    row.org_id,
+                    row.token_hash,
+                    row.token_prefix,
+                    row.created_by,
+                    row.max_uses,
+                    row.use_count,
+                    row.expires_at,
+                    row.revoked_at,
+                    row.created_at,
+                ),
+            )
+            conn.commit()
+        return row
+
+    def list_invite_keys(self, org_id: str) -> list[OrgInviteKeyRow]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT * FROM org_invite_keys
+                WHERE org_id=?
+                ORDER BY created_at DESC
+                """,
+                (org_id,),
+            )
+            return [self._invite_key_row(r) for r in cur.fetchall()]
+
+    def get_invite_key(self, org_id: str, key_id: str) -> OrgInviteKeyRow | None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM org_invite_keys WHERE org_id=? AND key_id=?",
+                (org_id, key_id),
+            )
+            r = cur.fetchone()
+            return self._invite_key_row(r) if r else None
+
+    def revoke_invite_key(self, org_id: str, key_id: str) -> OrgInviteKeyRow:
+        ts = now()
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM org_invite_keys WHERE org_id=? AND key_id=?",
+                (org_id, key_id),
+            )
+            r = cur.fetchone()
+            if r is None:
+                raise LookupError("invite key not found")
+            row = self._invite_key_row(r)
+            if row.revoked_at is not None:
+                return row
+            conn.execute(
+                "UPDATE org_invite_keys SET revoked_at=? WHERE key_id=?",
+                (ts, key_id),
+            )
+            conn.commit()
+        out = self.get_invite_key(org_id, key_id)
+        assert out is not None
+        return out
+
+    def redeem_invite_key(self, *, token_hash: str, user_id: str) -> tuple[OrgRow, MembershipRow]:
+        """Join org via invite key. Fail closed on expired / exhausted / revoked."""
+        uid = _normalize_user_id(user_id) or user_id
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM org_invite_keys WHERE token_hash=?",
+                (token_hash,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                raise LookupError("invalid invite key")
+            inv = self._invite_key_row(r)
+            if inv.revoked_at is not None:
+                raise PermissionError("invite key revoked")
+            if inv.expires_at is not None and inv.expires_at <= now():
+                raise PermissionError("invite key expired")
+            if inv.max_uses is not None and inv.use_count >= inv.max_uses:
+                raise PermissionError("invite key exhausted")
+            org = self.get_org(inv.org_id)
+            if org is None:
+                raise LookupError("org not found")
+            existing = self.membership(inv.org_id, uid)
+            if existing is not None:
+                # Already a member: do not burn use_count.
+                return org, existing
+            ts = now()
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
+                    VALUES (?, ?, 'member', ?)
+                    """,
+                    (inv.org_id, uid, ts),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("membership exists") from exc
+            conn.execute(
+                "UPDATE org_invite_keys SET use_count = use_count + 1 WHERE key_id=?",
+                (inv.key_id,),
+            )
+            conn.commit()
+            mem = MembershipRow(
+                org_id=inv.org_id, user_id=uid, role="member", created_at=ts
+            )
+            return org, mem
+
+    @staticmethod
+    def _invite_key_row(r: sqlite3.Row) -> OrgInviteKeyRow:
+        max_uses = r["max_uses"]
+        expires_at = r["expires_at"]
+        revoked_at = r["revoked_at"]
+        return OrgInviteKeyRow(
+            key_id=str(r["key_id"]),
+            org_id=str(r["org_id"]),
+            token_hash=str(r["token_hash"]),
+            token_prefix=str(r["token_prefix"] or ""),
+            created_by=str(r["created_by"] or ""),
+            max_uses=int(max_uses) if max_uses is not None else None,
+            use_count=int(r["use_count"] or 0),
+            expires_at=float(expires_at) if expires_at is not None else None,
+            revoked_at=float(revoked_at) if revoked_at is not None else None,
+            created_at=float(r["created_at"]),
+        )
+
     def user_org_ids(self, user_id: str) -> set[str]:
         with self._connect() as conn:
             cur = conn.execute(
@@ -1427,6 +1620,22 @@ class PostgresMetadataStore:
             conn.execute(
                 "ALTER TABLE suite_results "
                 "ADD COLUMN IF NOT EXISTS uploaded_by TEXT NOT NULL DEFAULT ''"
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS org_invite_keys (
+                    key_id TEXT PRIMARY KEY,
+                    org_id TEXT NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    token_prefix TEXT NOT NULL,
+                    created_by TEXT NOT NULL DEFAULT '',
+                    max_uses INTEGER,
+                    use_count INTEGER NOT NULL DEFAULT 0,
+                    expires_at DOUBLE PRECISION,
+                    revoked_at DOUBLE PRECISION,
+                    created_at DOUBLE PRECISION NOT NULL
+                )
+                """
             )
             conn.commit()
 
@@ -1929,6 +2138,181 @@ class PostgresMetadataStore:
                 created_at=float(r[3]),
             )
 
+    def create_invite_key(
+        self,
+        *,
+        org_id: str,
+        created_by: str,
+        token_hash: str,
+        token_prefix: str,
+        max_uses: int | None = None,
+        expires_at: float | None = None,
+        key_id: str | None = None,
+    ) -> OrgInviteKeyRow:
+        import secrets as _secrets
+
+        if self.get_org(org_id) is None:
+            raise LookupError("org not found")
+        if max_uses is not None and max_uses < 1:
+            raise ValueError("max_uses must be >= 1")
+        kid = key_id or _secrets.token_hex(8)
+        row = OrgInviteKeyRow(
+            key_id=kid,
+            org_id=org_id,
+            token_hash=token_hash,
+            token_prefix=token_prefix,
+            created_by=created_by or "",
+            max_uses=max_uses,
+            use_count=0,
+            expires_at=expires_at,
+            revoked_at=None,
+            created_at=now(),
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO org_invite_keys(
+                    key_id, org_id, token_hash, token_prefix, created_by,
+                    max_uses, use_count, expires_at, revoked_at, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    row.key_id,
+                    row.org_id,
+                    row.token_hash,
+                    row.token_prefix,
+                    row.created_by,
+                    row.max_uses,
+                    row.use_count,
+                    row.expires_at,
+                    row.revoked_at,
+                    row.created_at,
+                ),
+            )
+            conn.commit()
+        return row
+
+    def list_invite_keys(self, org_id: str) -> list[OrgInviteKeyRow]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT key_id, org_id, token_hash, token_prefix, created_by,
+                       max_uses, use_count, expires_at, revoked_at, created_at
+                FROM org_invite_keys
+                WHERE org_id=%s
+                ORDER BY created_at DESC
+                """,
+                (org_id,),
+            )
+            return [self._invite_key_from_tuple(r) for r in cur.fetchall()]
+
+    def get_invite_key(self, org_id: str, key_id: str) -> OrgInviteKeyRow | None:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT key_id, org_id, token_hash, token_prefix, created_by,
+                       max_uses, use_count, expires_at, revoked_at, created_at
+                FROM org_invite_keys WHERE org_id=%s AND key_id=%s
+                """,
+                (org_id, key_id),
+            )
+            r = cur.fetchone()
+            return self._invite_key_from_tuple(r) if r else None
+
+    def revoke_invite_key(self, org_id: str, key_id: str) -> OrgInviteKeyRow:
+        ts = now()
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT key_id, org_id, token_hash, token_prefix, created_by,
+                       max_uses, use_count, expires_at, revoked_at, created_at
+                FROM org_invite_keys WHERE org_id=%s AND key_id=%s
+                """,
+                (org_id, key_id),
+            )
+            r = cur.fetchone()
+            if r is None:
+                raise LookupError("invite key not found")
+            row = self._invite_key_from_tuple(r)
+            if row.revoked_at is not None:
+                return row
+            conn.execute(
+                "UPDATE org_invite_keys SET revoked_at=%s WHERE key_id=%s",
+                (ts, key_id),
+            )
+            conn.commit()
+        out = self.get_invite_key(org_id, key_id)
+        assert out is not None
+        return out
+
+    def redeem_invite_key(self, *, token_hash: str, user_id: str) -> tuple[OrgRow, MembershipRow]:
+        uid = _normalize_user_id(user_id) or user_id
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT key_id, org_id, token_hash, token_prefix, created_by,
+                       max_uses, use_count, expires_at, revoked_at, created_at
+                FROM org_invite_keys WHERE token_hash=%s
+                """,
+                (token_hash,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                raise LookupError("invalid invite key")
+            inv = self._invite_key_from_tuple(r)
+            if inv.revoked_at is not None:
+                raise PermissionError("invite key revoked")
+            if inv.expires_at is not None and inv.expires_at <= now():
+                raise PermissionError("invite key expired")
+            if inv.max_uses is not None and inv.use_count >= inv.max_uses:
+                raise PermissionError("invite key exhausted")
+            org = self.get_org(inv.org_id)
+            if org is None:
+                raise LookupError("org not found")
+            existing = self.membership(inv.org_id, uid)
+            if existing is not None:
+                return org, existing
+            ts = now()
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
+                    VALUES (%s, %s, 'member', %s)
+                    """,
+                    (inv.org_id, uid, ts),
+                )
+            except Exception as exc:
+                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
+                    raise ValueError("membership exists") from exc
+                raise
+            conn.execute(
+                "UPDATE org_invite_keys SET use_count = use_count + 1 WHERE key_id=%s",
+                (inv.key_id,),
+            )
+            conn.commit()
+            mem = MembershipRow(
+                org_id=inv.org_id, user_id=uid, role="member", created_at=ts
+            )
+            return org, mem
+
+    @staticmethod
+    def _invite_key_from_tuple(r: Any) -> OrgInviteKeyRow:
+        max_uses = r[5]
+        expires_at = r[7]
+        revoked_at = r[8]
+        return OrgInviteKeyRow(
+            key_id=str(r[0]),
+            org_id=str(r[1]),
+            token_hash=str(r[2]),
+            token_prefix=str(r[3] or ""),
+            created_by=str(r[4] or ""),
+            max_uses=int(max_uses) if max_uses is not None else None,
+            use_count=int(r[6] or 0),
+            expires_at=float(expires_at) if expires_at is not None else None,
+            revoked_at=float(revoked_at) if revoked_at is not None else None,
+            created_at=float(r[9]),
+        )
+
     def user_org_ids(self, user_id: str) -> set[str]:
         with self._connect() as conn:
             cur = conn.execute(
@@ -2196,6 +2580,31 @@ def membership_to_dict(
             out["avatar_url"] = profile.avatar_url
         if profile.github_id:
             out["github_id"] = profile.github_id
+    return out
+
+
+def invite_key_to_dict(
+    row: OrgInviteKeyRow,
+    *,
+    invite_token: str | None = None,
+) -> dict[str, Any]:
+    """Serialize invite key. Plaintext *invite_token* only on create."""
+    out: dict[str, Any] = {
+        "key_id": row.key_id,
+        "org_id": row.org_id,
+        "token_prefix": row.token_prefix,
+        "created_by": row.created_by,
+        "max_uses": row.max_uses,
+        "use_count": row.use_count,
+        "expires_at": row.expires_at,
+        "revoked_at": row.revoked_at,
+        "created_at": row.created_at,
+        "active": row.revoked_at is None
+        and (row.expires_at is None or row.expires_at > now())
+        and (row.max_uses is None or row.use_count < row.max_uses),
+    }
+    if invite_token:
+        out["invite_token"] = invite_token
     return out
 
 

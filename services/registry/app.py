@@ -7,7 +7,9 @@ Endpoints:
   POST /v1/auth/github/web/start
   POST /v1/auth/github/web/callback
   POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id}
+  POST /v1/orgs/join
   POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | DELETE .../members/{user}
+  GET|POST /v1/orgs/{id}/invite-keys | DELETE /v1/orgs/{id}/invite-keys/{key_id}
   POST /v1/packages
   GET  /v1/packages
   GET  /v1/packages/{id}
@@ -82,6 +84,7 @@ from services.registry.store import (  # noqa: E402
     TokenInfo,
     _normalize_user_id,
     attempt_to_dict,
+    invite_key_to_dict,
     membership_to_dict,
     now,
     org_to_dict,
@@ -264,6 +267,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if path == "/v1/orgs":
                 self._list_orgs(auth=auth)
                 return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys", path)
+            if m:
+                self._list_invite_keys(org_id=m.group(1), auth=auth)
+                return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/members", path)
             if m:
                 self._list_org_members(org_id=m.group(1), auth=auth)
@@ -432,9 +439,16 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if path == "/v1/orgs":
                 self._create_org()
                 return
+            if path == "/v1/orgs/join":
+                self._join_org_with_invite()
+                return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/claim", path)
             if m:
                 self._claim_org(org_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys", path)
+            if m:
+                self._create_invite_key(org_id=m.group(1))
                 return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/members", path)
             if m:
@@ -461,6 +475,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         def do_DELETE(self) -> None:  # noqa: N802
             path = unquote(self.path.split("?", 1)[0])
+            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys/([^/]+)", path)
+            if m:
+                self._revoke_invite_key(org_id=m.group(1), key_id=m.group(2))
+                return
             m = re.fullmatch(r"/v1/orgs/([^/]+)/members/([^/]+)", path)
             if m:
                 self._remove_org_member(org_id=m.group(1), user_id=m.group(2))
@@ -1736,6 +1754,185 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
                 return
             _json_response(self, 200, org_to_dict(org))
+
+        def _require_org_owner(self, *, org_id: str, auth: TokenInfo) -> bool:
+            """Return True if caller may manage org (owner or admin). Sends error response if not."""
+            org = state.meta.get_org(org_id)
+            if org is None:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return False
+            if _is_admin(auth.scopes):
+                return True
+            if not auth.user_id:
+                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
+                return False
+            mem = state.meta.membership(org_id, auth.user_id)
+            if mem is None or mem.role != "owner":
+                _json_response(
+                    self,
+                    403,
+                    {"error": "forbidden", "message": "owner required"},
+                )
+                return False
+            return True
+
+        def _create_invite_key(self, *, org_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not self._require_org_owner(org_id=org_id, auth=auth):
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            max_uses: int | None = None
+            if body.get("max_uses") is not None and body.get("max_uses") != "":
+                try:
+                    max_uses = int(body["max_uses"])
+                except (TypeError, ValueError):
+                    _json_response(
+                        self,
+                        400,
+                        {"error": "invalid_request", "message": "max_uses must be int"},
+                    )
+                    return
+            expires_at: float | None = None
+            if body.get("expires_at") is not None and body.get("expires_at") != "":
+                try:
+                    expires_at = float(body["expires_at"])
+                except (TypeError, ValueError):
+                    _json_response(
+                        self,
+                        400,
+                        {
+                            "error": "invalid_request",
+                            "message": "expires_at must be unix timestamp",
+                        },
+                    )
+                    return
+            if expires_at is not None and expires_at <= now():
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_request", "message": "expires_at must be in the future"},
+                )
+                return
+            # days convenience: expires_in_days
+            if expires_at is None and body.get("expires_in_days") is not None:
+                try:
+                    days = float(body["expires_in_days"])
+                    if days <= 0:
+                        raise ValueError("non-positive")
+                    expires_at = now() + days * 86400.0
+                except (TypeError, ValueError):
+                    _json_response(
+                        self,
+                        400,
+                        {
+                            "error": "invalid_request",
+                            "message": "expires_in_days must be positive number",
+                        },
+                    )
+                    return
+            plain = f"bora-inv_{secrets.token_urlsafe(24)}"
+            token_hash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
+            prefix = plain[:16] + "…"
+            try:
+                row = state.meta.create_invite_key(
+                    org_id=org_id,
+                    created_by=auth.user_id or "",
+                    token_hash=token_hash,
+                    token_prefix=prefix,
+                    max_uses=max_uses,
+                    expires_at=expires_at,
+                )
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                return
+            except ValueError as exc:
+                _json_response(self, 400, {"error": "invalid_request", "message": str(exc)})
+                return
+            _json_response(
+                self,
+                201,
+                invite_key_to_dict(row, invite_token=plain),
+            )
+
+        def _list_invite_keys(self, *, org_id: str, auth: TokenInfo) -> None:
+            org_id = org_id.casefold()
+            if not self._require_org_owner(org_id=org_id, auth=auth):
+                return
+            items = [
+                invite_key_to_dict(r) for r in state.meta.list_invite_keys(org_id)
+            ]
+            _json_response(self, 200, {"org_id": org_id, "items": items})
+
+        def _revoke_invite_key(self, *, org_id: str, key_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            org_id = org_id.casefold()
+            if not self._require_org_owner(org_id=org_id, auth=auth):
+                return
+            try:
+                row = state.meta.revoke_invite_key(org_id, key_id)
+            except LookupError:
+                _json_response(
+                    self, 404, {"error": "not_found", "message": "invite key not found"}
+                )
+                return
+            _json_response(self, 200, invite_key_to_dict(row))
+
+        def _join_org_with_invite(self) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not auth.user_id:
+                _json_response(
+                    self,
+                    401,
+                    {"error": "unauthorized", "message": "user identity required"},
+                )
+                return
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return
+            invite = str(body.get("invite_key") or body.get("invite_token") or "").strip()
+            if not invite:
+                _json_response(
+                    self,
+                    400,
+                    {"error": "invalid_request", "message": "invite_key required"},
+                )
+                return
+            token_hash = hashlib.sha256(invite.encode("utf-8")).hexdigest()
+            try:
+                org, mem = state.meta.redeem_invite_key(
+                    token_hash=token_hash, user_id=auth.user_id
+                )
+            except LookupError:
+                _json_response(
+                    self,
+                    404,
+                    {"error": "not_found", "message": "invalid invite key"},
+                )
+                return
+            except PermissionError as exc:
+                _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
+                return
+            except ValueError as exc:
+                _json_response(self, 409, {"error": "conflict", "message": str(exc)})
+                return
+            payload = org_to_dict(org)
+            payload["role"] = mem.role
+            payload["membership"] = membership_to_dict(mem)
+            _json_response(self, 200, payload)
 
         def _list_org_members(self, *, org_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
