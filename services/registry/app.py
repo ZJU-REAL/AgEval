@@ -711,15 +711,12 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 )
                 identity = fetch_user(gh_token)
             except GitHubOAuthError as exc:
-                sys.stderr.write(
-                    f"oauth web callback failed code={exc.code} msg={exc.message!r}\n"
-                )
+                sys.stderr.write(f"oauth web callback failed code={exc.code} msg={exc.message!r}\n")
                 _json_response(self, 400, {"error": exc.code, "message": exc.message})
                 return
             state.oauth_web_states.pop(state_token, None)
             sys.stderr.write(
-                f"oauth web authorized github_user={identity.login!r} "
-                f"(issuing registry token)\n"
+                f"oauth web authorized github_user={identity.login!r} (issuing registry token)\n"
             )
             payload = self._issue_registry_session(identity)
             if payload is None:
@@ -791,9 +788,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     device_code=device_code,
                 )
             except GitHubOAuthError as exc:
-                sys.stderr.write(
-                    f"oauth poll github_error code={exc.code} msg={exc.message!r}\n"
-                )
+                sys.stderr.write(f"oauth poll github_error code={exc.code} msg={exc.message!r}\n")
                 _json_response(self, 400, {"error": exc.code, "message": exc.message})
                 return
             if gh_token is None:
@@ -806,14 +801,11 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             try:
                 identity = fetch_user(gh_token)
             except GitHubOAuthError as exc:
-                sys.stderr.write(
-                    f"oauth fetch_user failed code={exc.code} msg={exc.message!r}\n"
-                )
+                sys.stderr.write(f"oauth fetch_user failed code={exc.code} msg={exc.message!r}\n")
                 _json_response(self, 502, {"error": exc.code, "message": exc.message})
                 return
             sys.stderr.write(
-                f"oauth poll authorized github_user={identity.login!r} "
-                f"(issuing registry token)\n"
+                f"oauth poll authorized github_user={identity.login!r} (issuing registry token)\n"
             )
             payload = self._issue_registry_session(identity)
             if payload is None:
@@ -1374,9 +1366,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 },
             )
 
-        def _serve_attempt_file(
-            self, *, run_id: str, file_path: str, auth: TokenInfo
-        ) -> None:
+        def _serve_attempt_file(self, *, run_id: str, file_path: str, auth: TokenInfo) -> None:
             from services.registry.package_files import (
                 MAX_FILE_BYTES,
                 PackageFileNotFound,
@@ -1871,9 +1861,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             org_id = org_id.casefold()
             if not self._require_org_owner(org_id=org_id, auth=auth):
                 return
-            items = [
-                invite_key_to_dict(r) for r in state.meta.list_invite_keys(org_id)
-            ]
+            items = [invite_key_to_dict(r) for r in state.meta.list_invite_keys(org_id)]
             _json_response(self, 200, {"org_id": org_id, "items": items})
 
         def _revoke_invite_key(self, *, org_id: str, key_id: str) -> None:
@@ -1885,9 +1873,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             try:
                 row = state.meta.revoke_invite_key(org_id, key_id)
             except LookupError:
-                _json_response(
-                    self, 404, {"error": "not_found", "message": "invite key not found"}
-                )
+                _json_response(self, 404, {"error": "not_found", "message": "invite key not found"})
                 return
             _json_response(self, 200, invite_key_to_dict(row))
 
@@ -1918,9 +1904,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             token_hash = hashlib.sha256(invite.encode("utf-8")).hexdigest()
             try:
-                org, mem = state.meta.redeem_invite_key(
-                    token_hash=token_hash, user_id=auth.user_id
-                )
+                org, mem = state.meta.redeem_invite_key(token_hash=token_hash, user_id=auth.user_id)
             except LookupError:
                 _json_response(
                     self,
@@ -1951,10 +1935,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     return
             member_rows = state.meta.list_members(org_id)
             profiles = state.meta.get_user_profiles([m.user_id for m in member_rows])
-            members = [
-                membership_to_dict(m, profile=profiles.get(m.user_id))
-                for m in member_rows
-            ]
+            members = [membership_to_dict(m, profile=profiles.get(m.user_id)) for m in member_rows]
             _json_response(self, 200, {"org_id": org_id, "items": members})
 
         def _add_org_member(self, *, org_id: str) -> None:

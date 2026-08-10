@@ -679,9 +679,7 @@ def test_has_attempt_content_respects_attempt_visibility(
     owner = get_suite_result(suite_run_id)
     assert owner["ok"] is True
     assert all(
-        ref.get("has_attempt_content") is True
-        for ref in owner["task_refs"]
-        if ref.get("run_id")
+        ref.get("has_attempt_content") is True for ref in owner["task_refs"] if ref.get("run_id")
     )
 
     anon = RegistryClient(registry_server["url"], token=None)

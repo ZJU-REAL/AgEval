@@ -1110,9 +1110,7 @@ class MetadataStore:
         if mem is None:
             raise LookupError("membership not found")
         if mem.role == "owner" and self.count_org_owners(org_id) <= 1:
-            raise PermissionError(
-                "sole owner cannot leave; dissolve the organization instead"
-            )
+            raise PermissionError("sole owner cannot leave; dissolve the organization instead")
         self.remove_member(org_id, uid)
 
     def delete_org(self, org_id: str) -> None:
@@ -1316,9 +1314,7 @@ class MetadataStore:
                 (inv.key_id,),
             )
             conn.commit()
-            mem = MembershipRow(
-                org_id=inv.org_id, user_id=uid, role="member", created_at=ts
-            )
+            mem = MembershipRow(org_id=inv.org_id, user_id=uid, role="member", created_at=ts)
             return org, mem
 
     @staticmethod
@@ -2203,9 +2199,7 @@ class PostgresMetadataStore:
         if mem is None:
             raise LookupError("membership not found")
         if mem.role == "owner" and self.count_org_owners(org_id) <= 1:
-            raise PermissionError(
-                "sole owner cannot leave; dissolve the organization instead"
-            )
+            raise PermissionError("sole owner cannot leave; dissolve the organization instead")
         self.remove_member(org_id, uid)
 
     def delete_org(self, org_id: str) -> None:
@@ -2426,9 +2420,7 @@ class PostgresMetadataStore:
                 (inv.key_id,),
             )
             conn.commit()
-            mem = MembershipRow(
-                org_id=inv.org_id, user_id=uid, role="member", created_at=ts
-            )
+            mem = MembershipRow(org_id=inv.org_id, user_id=uid, role="member", created_at=ts)
             return org, mem
 
     @staticmethod

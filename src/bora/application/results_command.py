@@ -49,13 +49,7 @@ def _client(*, registry_url: str | None = None) -> RegistryClient:
 def _safe_run_id_segment(run_id: str) -> str:
     """Single path segment for ``.bora/runs/<run_id>``; reject traversal."""
     text = (run_id or "").strip()
-    if (
-        not text
-        or text in {".", ".."}
-        or "/" in text
-        or "\\" in text
-        or ".." in text
-    ):
+    if not text or text in {".", ".."} or "/" in text or "\\" in text or ".." in text:
         raise ConfigError(
             "invalid_package",
             f"invalid run_id: {run_id!r}",
@@ -469,9 +463,7 @@ def upload_suite_result(
         out["attempts_total"] = len(attempt_uploads)
         # Suite POST response is pre-attempt; annotate refs for operator JSON.
         uploaded_ids = {
-            str(a.get("run_id"))
-            for a in attempt_uploads
-            if a.get("ok") and a.get("run_id")
+            str(a.get("run_id")) for a in attempt_uploads if a.get("ok") and a.get("run_id")
         }
         refs = out.get("task_refs")
         if isinstance(refs, list):
