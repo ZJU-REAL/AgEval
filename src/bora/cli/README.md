@@ -241,12 +241,24 @@ After `bora run <database>` (full suite), summary lives at
 ```bash
 uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
   --agent codex --model gpt-test
+# Optional full Attempt evidence (Hub Jobs deep-link / evidence browser):
+uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
+  --with-attempts
+# Or backfill one run later:
+uv run bora results upload /path/to/database --run <run_id>
 uv run bora results list-suites --database-id test/suite-min
 uv run bora results get-suite <suite_run_id> --out /tmp/restored-suite
 # No registry: fall back to local suite-runs
 uv run bora results list-suites --local /path/to/database
 uv run bora results get-suite <suite_run_id> --local /path/to/database
 ```
+
+**`--with-attempts` (issue #43):** after the suite summary archive uploads, each
+non-empty `task_refs[].run_id` is packed from `.bora/runs/<run_id>/` with the
+**same visibility** as the suite. Missing local run dirs **fail closed** before
+any network upload. Re-uploading an existing `run_id` is treated as success
+(`already_exists`). Registry suite list/get annotate each task_ref with
+`has_attempt_content` so Hub Jobs can open evidence or show “Not uploaded”.
 
 ---
 
