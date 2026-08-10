@@ -43,8 +43,8 @@ export type OrgInviteKey = {
   revoked_at?: number | null;
   created_at?: number;
   active?: boolean;
-  /** Only present on create response (show once). */
-  invite_token?: string;
+  /** Full secret — create response only; omitted from list/revoke. */
+  invite_key?: string;
 };
 
 export type ResultShare = {

@@ -75,7 +75,9 @@ export function OrganizationDetailPage() {
   const [expiresDays, setExpiresDays] = useState("7");
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  /** Full key shown once after create (never re-fetched from list). */
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [revealCopied, setRevealCopied] = useState(false);
   /** First click arms delete; second confirms. */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [revokeBusy, setRevokeBusy] = useState<string | null>(null);
@@ -495,7 +497,19 @@ export function OrganizationDetailPage() {
                             if (ed && Number(ed) > 0) {
                               body.expires_in_days = Number(ed);
                             }
-                            await createOrgInviteKey(orgId, body, token);
+                            const created = await createOrgInviteKey(
+                              orgId,
+                              body,
+                              token,
+                            );
+                            const full = (created.invite_key || "").trim();
+                            if (!full) {
+                              throw new Error(
+                                "create response missing invite_key",
+                              );
+                            }
+                            setRevealedKey(full);
+                            setRevealCopied(false);
                             const keys = activeInviteKeys(
                               await listOrgInviteKeys(orgId, token),
                             );
@@ -529,7 +543,7 @@ export function OrganizationDetailPage() {
 
                   {inviteKeys.length === 0 ? (
                     <div className="rounded-[8px] border border-dashed border-hairline p-8 text-sm text-mute">
-                      No invite keys yet.
+                      No invite keys yet. Create one to reveal the secret once.
                     </div>
                   ) : (
                     <div className="rounded-[8px] border border-hairline overflow-hidden">
@@ -547,9 +561,7 @@ export function OrganizationDetailPage() {
                         </TableHeader>
                         <TableBody>
                           {inviteKeys.map((k) => {
-                            // Owner list API returns full invite_token (persisted).
-                            const fullKey = (k.invite_token || "").trim();
-                            const display = fullKey || k.token_prefix;
+                            const display = k.token_prefix;
                             const uses =
                               k.max_uses == null
                                 ? `${k.use_count ?? 0} / ∞`
@@ -583,73 +595,48 @@ export function OrganizationDetailPage() {
                                   {status}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <div className="inline-flex items-center gap-1.5">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      disabled={!fullKey}
-                                      title="Copy invite key"
-                                      onClick={() => {
-                                        if (!fullKey) return;
-                                        setConfirmDeleteId(null);
-                                        void navigator.clipboard
-                                          ?.writeText(fullKey)
-                                          .then(() => {
-                                            setCopiedId(k.key_id);
-                                            window.setTimeout(() => {
-                                              setCopiedId((id) =>
-                                                id === k.key_id ? null : id,
-                                              );
-                                            }, 1500);
-                                          });
-                                      }}
-                                    >
-                                      {copiedId === k.key_id ? "Copied" : "Copy"}
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className={
-                                        confirmDelete
-                                          ? "border-transparent bg-error/15 text-error hover:bg-error/25 hover:text-error"
-                                          : undefined
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className={
+                                      confirmDelete
+                                        ? "border-transparent bg-error/15 text-error hover:bg-error/25 hover:text-error"
+                                        : undefined
+                                    }
+                                    disabled={revokeBusy === k.key_id}
+                                    onClick={() => {
+                                      if (confirmDeleteId !== k.key_id) {
+                                        setConfirmDeleteId(k.key_id);
+                                        return;
                                       }
-                                      disabled={revokeBusy === k.key_id}
-                                      onClick={() => {
-                                        if (confirmDeleteId !== k.key_id) {
-                                          setConfirmDeleteId(k.key_id);
-                                          return;
+                                      void (async () => {
+                                        if (!token) return;
+                                        setRevokeBusy(k.key_id);
+                                        try {
+                                          await revokeOrgInviteKey(
+                                            orgId,
+                                            k.key_id,
+                                            token,
+                                          );
+                                          setConfirmDeleteId(null);
+                                          setInviteKeys((prev) =>
+                                            prev.filter(
+                                              (row) => row.key_id !== k.key_id,
+                                            ),
+                                          );
+                                        } finally {
+                                          setRevokeBusy(null);
                                         }
-                                        void (async () => {
-                                          if (!token) return;
-                                          setRevokeBusy(k.key_id);
-                                          try {
-                                            await revokeOrgInviteKey(
-                                              orgId,
-                                              k.key_id,
-                                              token,
-                                            );
-                                            setConfirmDeleteId(null);
-                                            setInviteKeys((prev) =>
-                                              prev.filter(
-                                                (row) => row.key_id !== k.key_id,
-                                              ),
-                                            );
-                                          } finally {
-                                            setRevokeBusy(null);
-                                          }
-                                        })();
-                                      }}
-                                    >
-                                      {revokeBusy === k.key_id
-                                        ? "…"
-                                        : confirmDelete
-                                          ? "Confirm"
-                                          : "Delete"}
-                                    </Button>
-                                  </div>
+                                      })();
+                                    }}
+                                  >
+                                    {revokeBusy === k.key_id
+                                      ? "…"
+                                      : confirmDelete
+                                        ? "Confirm"
+                                        : "Delete"}
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             );
@@ -749,6 +736,64 @@ export function OrganizationDetailPage() {
           )}
         </>
       )}
+
+      {revealedKey ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="invite-key-reveal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setRevealedKey(null);
+              setRevealCopied(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-lg rounded-[12px] border border-hairline bg-canvas shadow-lg p-5 space-y-4">
+            <div>
+              <h2
+                id="invite-key-reveal-title"
+                className="text-lg font-semibold tracking-tight text-ink"
+              >
+                Invite key created
+              </h2>
+              <p className="text-sm text-mute mt-1">
+                This is the only time the full key is shown. Copy and store it
+                somewhere safe — you cannot view it again.
+              </p>
+            </div>
+            <div className="rounded-[8px] border border-hairline bg-panel/40 px-3 py-2.5">
+              <code className="block font-mono text-sm text-ink break-all select-all">
+                {revealedKey}
+              </code>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(revealedKey).then(() => {
+                    setRevealCopied(true);
+                    window.setTimeout(() => setRevealCopied(false), 1500);
+                  });
+                }}
+              >
+                {revealCopied ? "Copied" : "Copy"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setRevealedKey(null);
+                  setRevealCopied(false);
+                }}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }

@@ -184,9 +184,10 @@ def test_org_invite_key_create_join_and_limits(registry_server) -> None:
     )
     assert st == 201, raw
     created = json.loads(raw.decode())
-    assert created.get("invite_token", "").startswith("bora-inv_")
+    assert created.get("invite_key", "").startswith("bora-inv_")
     assert created["max_uses"] == 1
-    key = created["invite_token"]
+    key = created["invite_key"]
+    # List never re-materializes the secret; only prefix metadata.
     st_list, raw_list, _ = boot._request(
         "GET",
         "/v1/orgs/invitelab/invite-keys",
@@ -194,7 +195,11 @@ def test_org_invite_key_create_join_and_limits(registry_server) -> None:
     )
     assert st_list == 200
     listed = json.loads(raw_list.decode())
-    assert any(i.get("invite_token") == key for i in listed.get("items") or []), listed
+    items = listed.get("items") or []
+    match = next((i for i in items if i.get("key_id") == created["key_id"]), None)
+    assert match is not None, listed
+    assert "invite_key" not in match
+    assert match.get("token_prefix", "").startswith("bora-inv_")
 
     carol = _user_token(state, user="carol")
     carol_cli = RegistryClient(url, token=carol)
@@ -242,7 +247,7 @@ def test_org_invite_key_create_join_and_limits(registry_server) -> None:
         dave_cli._request(
             "POST",
             "/v1/orgs/join",
-            body=json.dumps({"invite_key": k2["invite_token"]}).encode(),
+            body=json.dumps({"invite_key": k2["invite_key"]}).encode(),
             headers=dave_cli._headers(content_type="application/json", auth=True),
         )
     assert ei2.value.status == 403

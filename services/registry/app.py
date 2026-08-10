@@ -1836,6 +1836,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                         },
                     )
                     return
+            # Plaintext is returned once on create; store only hash + prefix.
             plain = f"bora-inv_{secrets.token_urlsafe(24)}"
             token_hash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
             prefix = plain[:16] + "…"
@@ -1845,7 +1846,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     created_by=auth.user_id or "",
                     token_hash=token_hash,
                     token_prefix=prefix,
-                    invite_token=plain,
                     max_uses=max_uses,
                     expires_at=expires_at,
                 )
@@ -1855,7 +1855,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except ValueError as exc:
                 _json_response(self, 400, {"error": "invalid_request", "message": str(exc)})
                 return
-            _json_response(self, 201, invite_key_to_dict(row))
+            _json_response(self, 201, invite_key_to_dict(row, invite_key=plain))
 
         def _list_invite_keys(self, *, org_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
@@ -1894,7 +1894,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             except json.JSONDecodeError:
                 _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
                 return
-            invite = str(body.get("invite_key") or body.get("invite_token") or "").strip()
+            invite = str(body.get("invite_key") or "").strip()
             if not invite:
                 _json_response(
                     self,
