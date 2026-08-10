@@ -141,16 +141,26 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 | 操作 | 是否本地先跑通 CI |
 | --- | --- |
-| **日常本地 commit** | **不需要**每次全量 CI；按改动范围跑 focused pytest / 相关检查即可 |
-| **`git push`**（尤其推到将合入 `main` 的分支） | **需要**：先本地跑通与 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) 等价的 core 门禁 |
-| **开 / 更新 PR**、**发版 / 打 tag / 发布** | **必须**先本地确认 CI 会过，再 push / 开 PR / 发版 |
-| **改 `website/`** | 本地 `pnpm --dir website build`（及 lint/typecheck 若改了脚手架） |
+| **日常本地 commit** | **不需要**每次全量 CI；按改动路径跑对应门禁即可 |
+| **`git push`**（尤其推到将合入 `main` 的分支） | **需要**：先本地跑通与 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) 等价的相关 job |
+| **开 / 更新 PR**、**发版 / 打 tag / 发布** | **必须**先本地确认会触发的 CI job 会过，再 push / 开 PR / 发版 |
 
-Agent 在协助 push、PR、发版前：**不得**假设「本地能 import」或「只改了文档」就跳过；应先跑下面 **CI 等价命令**（或明确说明已跑且通过）。失败则先修再推。
+Agent 在协助 push、PR、发版前：**不得**假设「本地能 import」或「只改了文档」就跳过；应按路径跑下面 **CI 等价命令**（或明确说明已跑且通过）。失败则先修再推。
 
-### CI 等价命令（push / PR / 发版前）
+### CI 门禁（path-filtered 并行 job）
 
-与 GitHub Actions `ci` job 对齐（**无** Docker L1、**无**真 Agent/API e2e）：
+| Job | 触发路径（摘要） | 本地等价 |
+| --- | --- | --- |
+| `python-core` | `src/` `sdk/` `tests/` `examples/` `services/` `docker/` `scripts/` `pyproject.toml` `uv.lock` `VERSION` … | 见下方 Python core |
+| `python-registry` | 同上（与 core 并行；仅 `tests/registry`） | `uv sync --frozen --extra registry` + `pytest tests/registry` |
+| `viewer-app` | `apps/viewer/**` | `pnpm --dir apps/viewer install --frozen-lockfile && pnpm --dir apps/viewer lint && pnpm --dir apps/viewer build` |
+| `hub-app` | `apps/hub/**` | `pnpm --dir apps/hub install --frozen-lockfile && pnpm --dir apps/hub lint && pnpm --dir apps/hub build` |
+| `website` | `website/**` | `pnpm --dir website install --frozen-lockfile && pnpm --dir website build` |
+
+`.github/workflows/ci.yml` 变更会重跑全部 job。纯 SPA / 纯 website 变更**不**跑全量 Python。  
+**无** Docker L1、**无**真 Agent/API e2e。
+
+#### Python core（`python-core`）
 
 ```bash
 uv sync --frozen
@@ -161,6 +171,7 @@ export BORA_OFFLINE_AGENT=1 BORA_SKIP_DOCKER=1
 export BORA_SKIP_REAL_CODEX=1 BORA_SKIP_REAL_PI=1
 export BORA_SKIP_REAL_OPENCODE=1 BORA_SKIP_REAL_ACP=1
 uv run pytest \
+  --ignore=tests/registry \
   --ignore=tests/e2e \
   --ignore=tests/provider_l1 \
   --ignore=tests/environment \
@@ -181,7 +192,16 @@ uv run pytest \
   -q
 ```
 
-若改动触及 L1 / 真 Agent 路径，须按 Issue 或相关测试补跑（那些**不**在默认 CI 内）。
+#### Python registry（`python-registry`）
+
+```bash
+uv sync --frozen --extra registry
+export BORA_OFFLINE_AGENT=1 BORA_SKIP_DOCKER=1
+uv run pytest tests/registry -q
+```
+
+若改动触及 L1 / 真 Agent 路径，须按 Issue 或相关测试补跑（那些**不**在默认 CI 内）。  
+分支保护 required checks 须包含上述 job 名（旧名 `core` 已拆分）。
 
 ## 相关入口
 
