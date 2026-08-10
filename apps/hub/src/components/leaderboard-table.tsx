@@ -1,6 +1,7 @@
+import { Check, Copy } from "lucide-react";
 import { Fragment, useState } from "react";
 
-import { CommandStrip } from "@/components/command-strip";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,30 +11,90 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { SuiteRow } from "@/lib/api";
+import { CodeHighlight } from "@/lib/code-highlight";
 import { formatScore } from "@/lib/utils";
 
-function bindingSummary(overlay: SuiteRow["job_overlay"]): string {
+/** Render secret-free job_overlay as bora.profiles/1 YAML for rehydrate display. */
+function jobOverlayToProfilesYaml(overlay: SuiteRow["job_overlay"]): string {
   const bindings = overlay?.bindings;
-  if (!bindings || typeof bindings !== "object") return "";
-  const parts: string[] = [];
-  for (const [role, b] of Object.entries(bindings)) {
-    if (!b || typeof b !== "object") continue;
-    const entry =
-      b.options && typeof b.options === "object" && b.options.entry
-        ? String(b.options.entry)
-        : b.executor
-          ? String(b.executor)
-          : "?";
-    const model = b.model ? String(b.model) : "";
-    parts.push(model ? `${role}=${entry}/${model}` : `${role}=${entry}`);
+  if (!bindings || typeof bindings !== "object") {
+    return "# no job_overlay on this suite\n";
   }
-  return parts.join(" · ");
+  const lines: string[] = ["format: bora.profiles/1", "bindings:"];
+  const roles = Object.keys(bindings).sort();
+  if (roles.length === 0) {
+    lines.push("  {}");
+    return lines.join("\n") + "\n";
+  }
+  for (const role of roles) {
+    const b = bindings[role];
+    if (!b || typeof b !== "object") continue;
+    lines.push(`  ${role}:`);
+    if (b.executor != null) lines.push(`    executor: ${String(b.executor)}`);
+    if (b.options && typeof b.options === "object" && b.options.entry != null) {
+      lines.push("    options:");
+      lines.push(`      entry: ${String(b.options.entry)}`);
+    }
+    if (b.model != null) lines.push(`    model: ${String(b.model)}`);
+    if (b.base_url != null) lines.push(`    base_url: ${String(b.base_url)}`);
+    // Locator name only — never a secret value.
+    if (b.api_key != null) lines.push(`    api_key: ${String(b.api_key)}`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+function CodeBlock({
+  path,
+  content,
+  maxHeightClass = "max-h-56",
+}: {
+  path: string;
+  content: string;
+  maxHeightClass?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <div className="relative rounded-[6px] border border-hairline bg-code-bg">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onCopy}
+        aria-label="Copy"
+        className="absolute right-1.5 top-1.5 z-10 h-7 w-7 shrink-0"
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-ink" />
+        ) : (
+          <Copy className="h-3.5 w-3.5 text-mute" />
+        )}
+      </Button>
+      <pre
+        className={`m-0 overflow-auto p-3 pr-10 font-mono text-[12px] leading-5 whitespace-pre ${maxHeightClass}`}
+      >
+        <code>
+          <CodeHighlight path={path} content={content} />
+        </code>
+      </pre>
+    </div>
+  );
 }
 
 /**
- * Dataset Leaderboard (#40). Observational aggregates only — never suite PASS.
- * Heterogeneous configs (config_homogeneous === false) are excluded from ranking.
- * #59: expandable job_overlay + re-run / export-profiles commands.
+ * Dataset Leaderboard (#40 + #59).
+ * Rank by observational metrics only — never suite PASS.
+ * Job axis = profiles.yaml / job_overlay (not per-task role topology).
  */
 export function LeaderboardTable({
   suites,
@@ -43,11 +104,8 @@ export function LeaderboardTable({
   databaseId: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const comparable = suites.filter((s) => s.config_homogeneous !== false);
-  const skipped = suites.length - comparable.length;
 
-  // Prefer higher pass_rate, then mean_score, then newer created_at
-  const rows = [...comparable].sort((a, b) => {
+  const rows = [...suites].sort((a, b) => {
     const pr = (b.pass_rate ?? -1) - (a.pass_rate ?? -1);
     if (pr !== 0) return pr;
     const ms = (b.mean_score ?? -1) - (a.mean_score ?? -1);
@@ -64,47 +122,23 @@ export function LeaderboardTable({
           <code className="font-mono">bora results upload-suite</code>. These
           are observational metrics — not a suite-level PASS.
         </p>
-        <CommandStrip
-          command={`bora results upload-suite <database-root> --suite-run <id> --public`}
-        />
-      </div>
-    );
-  }
-
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-2">
-        <p className="text-sm font-medium text-ink">
-          Configuration inconsistent — hard to compare
-        </p>
-        <p className="text-sm text-mute">
-          All uploaded suites for <span className="font-mono">{databaseId}</span>{" "}
-          have <code className="font-mono">config_homogeneous: false</code> (or
-          mixed configs). They remain visible in Task Jobs lists but are not
-          ranked here. See packing guidance in{" "}
-          <code className="font-mono">$bora-config-package</code>.
-        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      {skipped > 0 ? (
-        <p className="text-xs text-mute">
-          {skipped} suite{skipped === 1 ? "" : "s"} hidden (config not
-          homogeneous — not comparable on this board).
-        </p>
-      ) : null}
       <p className="text-xs text-mute">
-        Observational aggregates only. Per-task evaluator owns PASS — never
-        treat this table as suite PASS authority. Click a row to rehydrate job
-        binding (#59).
+        Dataset <span className="font-mono">{databaseId}</span> · Observational
+        aggregates only. Job binding is the suite{" "}
+        <code className="font-mono">profiles.yaml</code> /{" "}
+        <code className="font-mono">job_overlay</code> (role id → entry/model).
+        Click a row to view YAML and rehydrate.
       </p>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Agent</TableHead>
+            <TableHead>Agent / binding</TableHead>
             <TableHead>Model</TableHead>
             <TableHead className="text-right">Pass rate</TableHead>
             <TableHead className="text-right">Mean score</TableHead>
@@ -124,38 +158,25 @@ export function LeaderboardTable({
                   : null;
             const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
             const open = openId === s.suite_run_id;
-            const bindLine = bindingSummary(s.job_overlay);
+            const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
+            const rehydrateScript = [
+              "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
+              `bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
+              "",
+              "# Re-run with that binding (fill Database .env locally for credentials)",
+              "bora run <database-root> --profiles profiles.from-suite.yaml",
+              "",
+            ].join("\n");
+
             return (
               <Fragment key={s.suite_run_id}>
                 <TableRow
                   className="cursor-pointer"
-                  onClick={() =>
-                    setOpenId(open ? null : s.suite_run_id)
-                  }
+                  onClick={() => setOpenId(open ? null : s.suite_run_id)}
                   data-state={open ? "open" : undefined}
                 >
                   <TableCell className="text-sm">
                     {s.agent_label || "—"}
-                    {s.config_fingerprint ? (
-                      <span
-                        className="block text-[10px] font-mono text-mute truncate max-w-[16ch]"
-                        title={s.config_fingerprint}
-                      >
-                        {s.config_fingerprint.slice(0, 18)}…
-                      </span>
-                    ) : s.config_homogeneous == null ? (
-                      <span className="block text-[10px] text-mute">
-                        missing config fingerprint
-                      </span>
-                    ) : null}
-                    {bindLine ? (
-                      <span
-                        className="block text-[10px] font-mono text-mute truncate max-w-[28ch]"
-                        title={bindLine}
-                      >
-                        {bindLine}
-                      </span>
-                    ) : null}
                   </TableCell>
                   <TableCell className="text-sm font-mono text-xs">
                     {s.model_label || "—"}
@@ -190,26 +211,19 @@ export function LeaderboardTable({
                 {open ? (
                   <TableRow>
                     <TableCell colSpan={7} className="bg-canvas-soft">
-                      <div className="space-y-3 py-2">
-                        <p className="text-xs text-mute">
-                          Rehydrate job binding (no secrets — fill Database{" "}
-                          <code className="font-mono">.env</code> locally).
-                        </p>
-                        {s.job_overlay?.bindings ? (
-                          <pre className="max-h-40 overflow-auto rounded-[6px] border border-hairline bg-code-bg p-3 font-mono text-[11px] leading-4 text-ink">
-                            {JSON.stringify(s.job_overlay, null, 2)}
-                          </pre>
-                        ) : (
-                          <p className="text-xs text-mute">
-                            No <code className="font-mono">job_overlay</code> on
-                            this suite (legacy upload or empty profiles).
-                          </p>
-                        )}
-                        <CommandStrip
-                          command={`bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`}
+                      <div
+                        className="space-y-3 py-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <CodeBlock
+                          path="profiles.yaml"
+                          content={yamlText}
+                          maxHeightClass="max-h-56"
                         />
-                        <CommandStrip
-                          command={`bora run <database-root> --profiles profiles.from-suite.yaml`}
+                        <CodeBlock
+                          path="rehydrate.sh"
+                          content={rehydrateScript}
+                          maxHeightClass="max-h-40"
                         />
                       </div>
                     </TableCell>

@@ -35,7 +35,7 @@ export function Shell({
 
   return (
     <div className="min-h-full flex flex-col bg-canvas">
-      <header className="h-14 border-b border-hairline flex items-center px-6 gap-4 shrink-0">
+      <header className="sticky top-0 z-40 h-14 border-b border-hairline flex items-center px-6 gap-4 shrink-0 bg-canvas/95 backdrop-blur supports-[backdrop-filter]:bg-canvas/80">
         <Link to="/datasets" className="font-semibold tracking-tight text-ink text-[15px]">
           BORA
         </Link>
