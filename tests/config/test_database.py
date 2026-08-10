@@ -82,16 +82,21 @@ def test_examples_core_manifest() -> None:
 
 
 def test_resolve_and_lock_public_example() -> None:
+    from bora.config.profiles import load_database_profiles
+
     resolved = resolve_task(CORE_DB, "config-minimal")
     assert resolved.database_id == "example/core"
     assert resolved.task_dir.name == "config-minimal"
+    bindings = load_database_profiles(CORE_DB)
     lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
         resolved.task_dir,
         "config-minimal",
         capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings=bindings,
     )
     assert lock.task_id == "config-minimal"
     assert lock.digest.startswith("sha256:")
+    assert lock.job_overlay is not None
 
 
 def test_unknown_task(tmp_path: Path) -> None:

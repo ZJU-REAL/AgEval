@@ -7,6 +7,14 @@ from typing import Any
 
 from bora.config.constants import ALLOWLISTED_OVERRIDE_POINTERS
 from bora.config.errors import ERROR_INVALID_OVERRIDE, ConfigError
+from bora.config.profiles import is_binding_override_pointer
+
+
+def is_allowlisted_override_pointer(pointer: str) -> bool:
+    """True for fixed parameter pointers or ``/bindings/<role>/…`` axes (#59)."""
+    if pointer in ALLOWLISTED_OVERRIDE_POINTERS:
+        return True
+    return is_binding_override_pointer(pointer)
 
 
 def parse_set_override(raw: str) -> tuple[str, Any]:
@@ -24,7 +32,7 @@ def parse_set_override(raw: str) -> tuple[str, Any]:
             "JSON Pointer must start with /",
             location=pointer,
         )
-    if pointer not in ALLOWLISTED_OVERRIDE_POINTERS:
+    if not is_allowlisted_override_pointer(pointer):
         raise ConfigError(
             ERROR_INVALID_OVERRIDE,
             f"pointer not allowlisted for override: {pointer}",

@@ -39,6 +39,9 @@ def test_success_smoke() -> None:
     assert data["digest"].startswith("sha256:")
     assert "resolved_references" in data
     assert "resolution" in data
+    # #59 job overlay is exportable with lock summary (no secrets).
+    assert "job_overlay" in data
+    assert data["job_overlay"]["bindings"]["mock-default"]["executor"] == "mock"
     # No host absolute package path leakage.
     assert str(MINIMAL.resolve()) not in result.stdout
 

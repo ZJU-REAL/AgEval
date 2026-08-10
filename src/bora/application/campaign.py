@@ -35,14 +35,16 @@ def expand_matrix(axes: list[MatrixAxis]) -> list[dict[str, Any]]:
 
 
 def parse_matrix_arg(raw: str) -> MatrixAxis:
-    """Parse ``/parameters/x=[1,2]`` style matrix axis."""
+    """Parse ``/parameters/x=[1,2]`` or ``/bindings/<role>/model=[…]`` matrix axis."""
     if "=" not in raw:
         raise ConfigError("campaign_matrix_invalid", "matrix must be pointer=json-array")
     pointer, _, arr = raw.partition("=")
     if not pointer.startswith("/"):
         raise ConfigError("campaign_matrix_invalid", "pointer must start with /")
-    # Only allow parameters/* overrides for v0.11 MVP
-    if not pointer.startswith("/parameters/"):
+    # #59: parameters/* and binding axes (/bindings/<role>/…)
+    from bora.config.overrides import is_allowlisted_override_pointer
+
+    if not is_allowlisted_override_pointer(pointer):
         raise ConfigError(
             "campaign_matrix_pointer_unsupported",
             f"unsupported matrix pointer: {pointer}",
@@ -61,6 +63,7 @@ async def run_campaign(
     task_id: str,
     *,
     matrix_args: list[str],
+    profiles_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Serially run each matrix variant via production run_task.
 
@@ -72,12 +75,14 @@ async def run_campaign(
     from bora.config.capabilities import DeclarationCapabilityCatalog
     from bora.config.database import load_database_manifest, resolve_task
     from bora.config.load_and_lock import ConfigCore
+    from bora.config.profiles import resolve_profile_bindings
     from bora.registry.resolve import resolve_database_root
 
     database_root = resolve_database_root(package_root)
     resolved = resolve_task(database_root, task_id)
     task_dir = resolved.task_dir
     man = load_database_manifest(resolved.database_root)
+    bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
 
     axes = [parse_matrix_arg(a) for a in matrix_args]
     variants = expand_matrix(axes)
@@ -91,6 +96,7 @@ async def run_campaign(
             overrides=variant if variant else None,
             capabilities=DeclarationCapabilityCatalog(),
             database_provenance=man.provenance,
+            profile_bindings=bindings or None,
         )
         admitted.append(
             {
@@ -107,6 +113,7 @@ async def run_campaign(
             database_root,
             task_id,
             overrides=variant if variant else None,
+            profile_bindings=bindings or None,
         )
         trials.append(
             {

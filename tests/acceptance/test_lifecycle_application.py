@@ -22,9 +22,17 @@ MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 
 
 def _lock():
+    from bora.config.profiles import load_database_profiles
+
     core = ConfigCore(package_reader=LocalPackageReader())
     catalog = DeclarationCapabilityCatalog()
-    return core.load_and_lock(MINIMAL, "config-minimal", capabilities=catalog)
+    bindings = load_database_profiles(REPO / "examples" / "core")
+    return core.load_and_lock(
+        MINIMAL,
+        "config-minimal",
+        capabilities=catalog,
+        profile_bindings=bindings,
+    )
 
 
 @pytest.mark.asyncio

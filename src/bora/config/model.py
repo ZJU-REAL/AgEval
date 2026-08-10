@@ -73,6 +73,8 @@ class LockedTaskConfig:
     resolved_references: Mapping[str, Any] = field(default_factory=lambda: freeze({}))
     # Optional package provenance (溯源); observational — never Attempt PASS.
     provenance: Mapping[str, Any] | None = None
+    # Secret-free job binding overlay used for this lock (#59); not task identity.
+    job_overlay: Mapping[str, Any] | None = None
 
     def canonical_payload(self) -> dict[str, Any]:
         """Payload used for digest: everything except the digest field itself."""
@@ -92,6 +94,10 @@ class LockedTaskConfig:
         }
         if self.provenance is not None:
             payload["provenance"] = thaw(self.provenance)
+        # job_overlay is derived from resolved agent_profiles binding; include so
+        # digest reflects the job binding artifact operators can rehydrate.
+        if self.job_overlay is not None:
+            payload["job_overlay"] = thaw(self.job_overlay)
         return payload
 
 
@@ -105,6 +111,7 @@ class LockSummary:
     resolution: Sequence[Mapping[str, str]]
     digest: str
     provenance: Mapping[str, Any] | None = None
+    job_overlay: Mapping[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         # Always return plain JSON-serializable dict/list trees (no MappingProxy).
@@ -117,6 +124,8 @@ class LockSummary:
         }
         if self.provenance is not None:
             out["provenance"] = thaw(self.provenance)
+        if self.job_overlay is not None:
+            out["job_overlay"] = thaw(self.job_overlay)
         return out
 
 
@@ -129,6 +138,7 @@ def locked_to_summary(lock: LockedTaskConfig) -> LockSummary:
         resolution=tuple(freeze(e) for e in lock.resolution.as_plain()),
         digest=lock.digest,
         provenance=lock.provenance,
+        job_overlay=lock.job_overlay,
     )
 
 

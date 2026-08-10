@@ -26,7 +26,17 @@ def register(app: typer.Typer) -> None:
             list[str] | None,
             typer.Option(
                 "--matrix",
-                help="Axis as /parameters/...=[json-array]; only /parameters/* allowed in v0.11.",
+                help=(
+                    "Axis as /parameters/...=[json-array] or "
+                    "/bindings/<role>/model|executor|options/entry=[json-array] (#59)."
+                ),
+            ),
+        ] = None,
+        profiles: Annotated[
+            Path | None,
+            typer.Option(
+                "--profiles",
+                help="Alternate profiles.yaml replacing Database-root job bindings.",
             ),
         ] = None,
     ) -> None:
@@ -38,7 +48,14 @@ def register(app: typer.Typer) -> None:
 
         run_campaign = build_campaign_runner()
         try:
-            summary = asyncio.run(run_campaign(package, task, matrix_args=list(matrix or [])))
+            summary = asyncio.run(
+                run_campaign(
+                    package,
+                    task,
+                    matrix_args=list(matrix or []),
+                    profiles_path=profiles,
+                )
+            )
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
@@ -83,8 +100,16 @@ def register(app: typer.Typer) -> None:
                 "--set",
                 help=(
                     "Repeatable override as <JSON Pointer>=<JSON value>, e.g. "
-                    '`/parameters/active_profile="pi-mini"`. Allowlisted pointers only.'
+                    '`/parameters/active_profile="solver"` or '
+                    '`/bindings/solver/options/entry="pi"`. Allowlisted only.'
                 ),
+            ),
+        ] = None,
+        profiles: Annotated[
+            Path | None,
+            typer.Option(
+                "--profiles",
+                help="Alternate profiles.yaml replacing Database-root job bindings.",
             ),
         ] = None,
     ) -> None:
@@ -112,7 +137,12 @@ def register(app: typer.Typer) -> None:
                 # Preserve historical single-task JSON stdout shape.
                 run_task = build_run_task()
                 code, result, _details = asyncio.run(
-                    run_task(package, plan.task_ids[0], overrides=overrides or None)
+                    run_task(
+                        package,
+                        plan.task_ids[0],
+                        overrides=overrides or None,
+                        profiles_path=profiles,
+                    )
                 )
                 summary = {
                     "status": result.status,
@@ -135,7 +165,13 @@ def register(app: typer.Typer) -> None:
                 )
                 raise typer.Exit(code=code)
 
-            suite_summary = asyncio.run(execute_suite_run(plan, overrides=overrides or None))
+            suite_summary = asyncio.run(
+                execute_suite_run(
+                    plan,
+                    overrides=overrides or None,
+                    profiles_path=profiles,
+                )
+            )
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc

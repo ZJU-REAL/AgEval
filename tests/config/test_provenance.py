@@ -17,6 +17,7 @@ from bora.config.provenance import merge_provenance, validate_provenance
 
 REPO = Path(__file__).resolve().parents[2]
 MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
+MOCK_BINDINGS = {"mock-default": {"executor": "mock", "model": "none"}}
 
 
 def _minimal_task_yaml(*, extra: str = "", task_id: str = "config-minimal") -> str:
@@ -99,11 +100,21 @@ def test_lock_includes_task_provenance(
         """
     )
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
-    locked = core.load_and_lock(pkg, "config-minimal", capabilities=catalog)
+    locked = core.load_and_lock(
+        pkg,
+        "config-minimal",
+        capabilities=catalog,
+        profile_bindings=MOCK_BINDINGS,
+    )
     assert thaw(locked.provenance) == {"kind": "original"}
     assert "provenance" in locked.canonical_payload()
     # Digest changes vs no-provenance baseline from examples/core
-    base = core.load_and_lock(MINIMAL, "config-minimal", capabilities=catalog)
+    base = core.load_and_lock(
+        MINIMAL,
+        "config-minimal",
+        capabilities=catalog,
+        profile_bindings=MOCK_BINDINGS,
+    )
     assert locked.digest != base.digest
 
 
@@ -115,6 +126,7 @@ def test_database_default_applied(
         pkg,
         "config-minimal",
         capabilities=catalog,
+        profile_bindings=MOCK_BINDINGS,
         database_provenance={
             "kind": "wrapper",
             "upstream": {
@@ -144,6 +156,7 @@ def test_task_provenance_overrides_database(
         pkg,
         "config-minimal",
         capabilities=catalog,
+        profile_bindings=MOCK_BINDINGS,
         database_provenance={
             "kind": "port",
             "upstream": {
@@ -168,7 +181,12 @@ def test_invalid_port_fails_lock(
     )
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
     with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(pkg, "config-minimal", capabilities=catalog)
+        core.load_and_lock(
+            pkg,
+            "config-minimal",
+            capabilities=catalog,
+            profile_bindings=MOCK_BINDINGS,
+        )
     assert ei.value.error_code == "invalid_schema"
 
 

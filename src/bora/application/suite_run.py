@@ -138,6 +138,7 @@ async def _run_one(
     semaphore: asyncio.Semaphore,
     overrides: dict[str, Any] | None,
     run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]],
+    profiles_path: Path | str | None = None,
 ) -> dict[str, Any]:
     global _inflight_current, _inflight_peak
     async with semaphore:
@@ -149,6 +150,7 @@ async def _run_one(
                 plan.database_root,
                 task_id,
                 overrides=overrides,
+                profiles_path=profiles_path,
             )
             status = getattr(result, "status", None) or details.get("status") or "ERROR"
             run_id = extract_run_id(
@@ -204,13 +206,21 @@ async def execute_suite_run(
     *,
     overrides: dict[str, Any] | None = None,
     run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]] | None = None,
+    profiles_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Execute all planned tasks with a concurrency pool; write suite summary."""
     reset_inflight_metrics()
     runner = run_fn or run_task
     semaphore = asyncio.Semaphore(plan.max_concurrent_tasks)
     tasks = [
-        _run_one(plan, tid, semaphore=semaphore, overrides=overrides, run_fn=runner)
+        _run_one(
+            plan,
+            tid,
+            semaphore=semaphore,
+            overrides=overrides,
+            run_fn=runner,
+            profiles_path=profiles_path,
+        )
         for tid in plan.task_ids
     ]
     results = await asyncio.gather(*tasks)

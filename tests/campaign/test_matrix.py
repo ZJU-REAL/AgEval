@@ -27,3 +27,9 @@ def test_unsupported_pointer() -> None:
 def test_parse_ok() -> None:
     axis = parse_matrix_arg("/parameters/seed=[1,2,3]")
     assert axis.values == (1, 2, 3)
+
+
+def test_parse_binding_axis() -> None:
+    axis = parse_matrix_arg('/bindings/solver/model=["a","b"]')
+    assert axis.pointer == "/bindings/solver/model"
+    assert axis.values == ("a", "b")

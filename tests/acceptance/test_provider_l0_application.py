@@ -24,9 +24,15 @@ HELPER = REPO / "tests" / "helpers" / "provider_probe_child.py"
 
 
 def _lock():
+    from bora.config.profiles import load_database_profiles
+
     core = ConfigCore(package_reader=LocalPackageReader())
+    bindings = load_database_profiles(REPO / "examples" / "core")
     return core.load_and_lock(
-        MINIMAL, "config-minimal", capabilities=DeclarationCapabilityCatalog()
+        MINIMAL,
+        "config-minimal",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings=bindings,
     )
 
 

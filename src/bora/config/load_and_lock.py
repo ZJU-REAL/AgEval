@@ -15,10 +15,9 @@ from pathlib import Path
 from typing import Any
 
 from bora.config.capabilities import CapabilityCatalog
-from bora.config.constants import ALLOWLISTED_OVERRIDE_POINTERS, DEFAULTS
+from bora.config.constants import DEFAULTS
 from bora.config.digest import digest_payload
 from bora.config.errors import (
-    ERROR_INVALID_OVERRIDE,
     ERROR_INVALID_PACKAGE,
     ERROR_INVALID_SCHEMA,
     ConfigError,
@@ -29,8 +28,15 @@ from bora.config.model import (
     ResolutionRecord,
     freeze,
 )
-from bora.config.overrides import apply_json_pointer
+from bora.config.overrides import apply_json_pointer, is_allowlisted_override_pointer
 from bora.config.ports import PackageReader
+from bora.config.profiles import (
+    apply_binding_override,
+    assert_slots_have_no_inline_binding,
+    is_binding_override_pointer,
+    merge_bindings_onto_slots,
+    project_job_overlay,
+)
 from bora.config.provenance import merge_provenance, validate_provenance
 from bora.config.validate import (
     collect_resolved_references,
@@ -55,6 +61,7 @@ class ConfigCore:
         overrides: Mapping[str, object] | None = None,
         capabilities: CapabilityCatalog,
         database_provenance: Mapping[str, object] | None = None,
+        profile_bindings: Mapping[str, Mapping[str, object]] | None = None,
     ) -> LockedTaskConfig:
         """Read, merge, validate, canonicalize, digest, and freeze a task package.
 
@@ -68,12 +75,17 @@ class ConfigCore:
             Optional Campaign variant overlay (merge step 2). CLI does not expose
             this in v0.1; tests exercise the merge order.
         overrides:
-            Explicit overrides as a mapping of JSON Pointer → value (merge step 3).
+            Explicit overrides as a mapping of JSON Pointer → value.
+            Parameter pointers apply after profile merge; ``/bindings/<role>/…``
+            pointers apply to the job binding map before slot merge (#59).
         capabilities:
             Declaration-only catalog used for kind/format recognition.
         database_provenance:
             Optional Database-root ``provenance`` (suite default). Member
             ``task.yaml`` provenance fully replaces this when present.
+        profile_bindings:
+            Job agent/model bindings from Database ``profiles.yaml`` and/or
+            CLI ``--profiles`` (role id → executor/entry/model/locator).
         """
         try:
             root = self._reader.resolve_root(package_root)
@@ -141,15 +153,62 @@ class ConfigCore:
                 ResolutionEntry(source="campaign-variant", pointer="/", note="variant overlay")
             )
 
+        # --- #59 job binding merge -------------------------------------------------
+        # 1) Role slots from task.yaml must not embed executor/entry/model.
+        slots_raw = merged.get("agent_profiles") or []
+        if not isinstance(slots_raw, list):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA, "agent_profiles must be a list", location="/agent_profiles"
+            )
+        assert_slots_have_no_inline_binding(slots_raw)
+
+        bindings: dict[str, dict[str, Any]] = {
+            str(k): dict(v) for k, v in (profile_bindings or {}).items() if isinstance(v, Mapping)
+        }
+
+        # 2) Split overrides: binding axes vs parameter leaves.
+        param_overrides: dict[str, object] = {}
         if overrides:
             for pointer, value in overrides.items():
                 pointer_s = str(pointer)
-                if pointer_s not in ALLOWLISTED_OVERRIDE_POINTERS:
+                if not is_allowlisted_override_pointer(pointer_s):
+                    from bora.config.errors import ERROR_INVALID_OVERRIDE
+
                     raise ConfigError(
                         ERROR_INVALID_OVERRIDE,
                         f"pointer not allowlisted for override: {pointer_s}",
                         location=pointer_s,
                     )
+                if is_binding_override_pointer(pointer_s):
+                    apply_binding_override(bindings, pointer_s, value)
+                    resolution.append(
+                        ResolutionEntry(
+                            source="cli-override",
+                            pointer=pointer_s,
+                            note="binding override",
+                        )
+                    )
+                else:
+                    param_overrides[pointer_s] = value
+
+        if bindings:
+            resolution.append(
+                ResolutionEntry(
+                    source="profiles.yaml",
+                    pointer="/agent_profiles",
+                    note="database/job profile bindings",
+                )
+            )
+
+        # 3) Merge bindings onto slots (fail closed if a required role is unbound).
+        if slots_raw:
+            merged["agent_profiles"] = merge_bindings_onto_slots(slots_raw, bindings)
+        else:
+            merged["agent_profiles"] = []
+
+        # 4) Parameter overrides after binding merge.
+        if param_overrides:
+            for pointer_s, value in param_overrides.items():
                 apply_json_pointer(merged, pointer_s, value)
                 resolution.append(
                     ResolutionEntry(
@@ -215,6 +274,15 @@ class ConfigCore:
         resolution_record = ResolutionRecord(entries=tuple(resolution))
         resolved_references = freeze(resolved_refs)
 
+        # Secret-free job overlay used for this lock (rehydrate / Leaderboard binding).
+        role_ids = [
+            str(p.get("id"))
+            for p in profiles_raw
+            if isinstance(p, dict) and p.get("id") is not None
+        ]
+        job_overlay_plain = project_job_overlay(bindings, role_ids=role_ids) if role_ids else None
+        job_overlay_frozen = freeze(job_overlay_plain) if job_overlay_plain else None
+
         # Build digest over a stable payload without the digest field.
         provisional = LockedTaskConfig(
             format=format_id,
@@ -231,6 +299,7 @@ class ConfigCore:
             digest="",  # filled below
             resolved_references=resolved_references,  # type: ignore[arg-type]
             provenance=provenance_frozen,  # type: ignore[arg-type]
+            job_overlay=job_overlay_frozen,  # type: ignore[arg-type]
         )
         payload = provisional.canonical_payload()
         digest = digest_payload(payload)
@@ -250,4 +319,5 @@ class ConfigCore:
             digest=digest,
             resolved_references=resolved_references,  # type: ignore[arg-type]
             provenance=provenance_frozen,  # type: ignore[arg-type]
+            job_overlay=job_overlay_frozen,  # type: ignore[arg-type]
         )

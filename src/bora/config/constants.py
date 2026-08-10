@@ -31,15 +31,13 @@ ALLOWED_TOP_LEVEL_DIRS = frozenset(
     }
 )
 
-# JSON Pointers that CLI ``--set`` may override in v0.1.
+# JSON Pointers that CLI ``--set`` may override (#59).
+# Intent limits are pure task contract — never job-overridable.
+# Agent entry/model binding uses /bindings/<role_id>/… (see profiles.is_binding_override_pointer).
 ALLOWLISTED_OVERRIDE_POINTERS = frozenset(
     {
         "/parameters/seed",
         "/parameters/active_profile",
-        "/limits/wall_time_seconds",
-        "/limits/agent_invocations",
-        "/limits/environment_actions",
-        "/limits/memory_mb",
     }
 )
 

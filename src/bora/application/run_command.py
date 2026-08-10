@@ -29,6 +29,8 @@ async def run_task(
     evidence_root: Path | None = None,
     allow_offline_agent: bool = False,
     overrides: dict[str, Any] | None = None,
+    profiles_path: Path | str | None = None,
+    profile_bindings: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[int, FlatResult, dict[str, Any]]:
     """Run one foreground Attempt and return (exit_code, result, details).
 
@@ -38,6 +40,7 @@ async def run_task(
     """
     from bora.application.env_bootstrap import load_host_env_files
     from bora.config.database import resolve_task
+    from bora.config.profiles import resolve_profile_bindings
     from bora.registry.resolve import resolve_database_root
 
     database_root = resolve_database_root(package_root)
@@ -47,10 +50,12 @@ async def run_task(
 
     man = load_database_manifest(resolved.database_root)
     # Host credential locators from .env (values never enter lock/evidence).
-    # Prefer Database-root .env, then task-member .env (later wins on key clash).
+    # Database-root .env only (#59 G4) — no default per-task .env auto-load.
     load_host_env_files(package_root=resolved.database_root)
-    load_host_env_files(package_root=package_root)
     config = ConfigCore(package_reader=LocalPackageReader())
+    bindings = profile_bindings
+    if bindings is None:
+        bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
     try:
         lock = config.load_and_lock(
             package_root,
@@ -58,6 +63,7 @@ async def run_task(
             overrides=overrides,
             capabilities=DeclarationCapabilityCatalog(),
             database_provenance=man.provenance,
+            profile_bindings=bindings or None,
         )
     except ConfigError:
         # unknown task etc. before Attempt/evidence

@@ -17,8 +17,14 @@ MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 
 
 def _lock():
+    from bora.config.profiles import load_database_profiles
+
+    bindings = load_database_profiles(REPO / "examples" / "core")
     return ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        MINIMAL, "config-minimal", capabilities=DeclarationCapabilityCatalog()
+        MINIMAL,
+        "config-minimal",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings=bindings,
     )
 
 

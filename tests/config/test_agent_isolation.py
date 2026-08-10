@@ -48,10 +48,6 @@ provider:
         shared_write: [workspace/team]
 agent_profiles:
   - id: p1
-    executor: acp
-    model: entry-default
-    options:
-      entry: codex
 limits:
   wall_time_seconds: 60
   agent_invocations: 2
@@ -74,11 +70,27 @@ evaluation:
 """
 
 
+_P1_BINDINGS = {
+    "p1": {
+        "executor": "acp",
+        "model": "entry-default",
+        "options": {"entry": "codex"},
+    }
+}
+
+
+def _lock(pkg: Path):
+    return ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
+        pkg,
+        "iso-test",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings=_P1_BINDINGS,
+    )
+
+
 def test_valid_agent_isolation_locks(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path / "pkg", _BASE)
-    lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        pkg, "iso-test", capabilities=DeclarationCapabilityCatalog()
-    )
+    lock = _lock(pkg)
     provider = thaw(lock.provider)
     topo = parse_logical_topology(provider, profile_ids={"p1"})
     assert topo is not None
@@ -95,9 +107,7 @@ def test_unknown_profile_in_actor_fail_closed(tmp_path: Path) -> None:
     bad = _BASE.replace("profiles: [p1]", "profiles: [missing-profile]")
     pkg = _write_pkg(tmp_path / "pkg", bad)
     with pytest.raises(ConfigError) as ei:
-        ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-            pkg, "iso-test", capabilities=DeclarationCapabilityCatalog()
-        )
+        _lock(pkg)
     assert ei.value.error_code in {"unknown_profile", "invalid_schema"}
 
 
@@ -116,27 +126,21 @@ def test_duplicate_actor_fail_closed(tmp_path: Path) -> None:
     )
     pkg = _write_pkg(tmp_path / "pkg", bad)
     with pytest.raises(ConfigError):
-        ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-            pkg, "iso-test", capabilities=DeclarationCapabilityCatalog()
-        )
+        _lock(pkg)
 
 
 def test_shared_write_absolute_rejected(tmp_path: Path) -> None:
     bad = _BASE.replace("shared_write: [workspace/team]", "shared_write: [/etc/passwd]")
     pkg = _write_pkg(tmp_path / "pkg", bad)
     with pytest.raises(ConfigError):
-        ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-            pkg, "iso-test", capabilities=DeclarationCapabilityCatalog()
-        )
+        _lock(pkg)
 
 
 def test_shared_write_dotdot_rejected(tmp_path: Path) -> None:
     bad = _BASE.replace("shared_write: [workspace/team]", "shared_write: [../outside]")
     pkg = _write_pkg(tmp_path / "pkg", bad)
     with pytest.raises(ConfigError):
-        ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-            pkg, "iso-test", capabilities=DeclarationCapabilityCatalog()
-        )
+        _lock(pkg)
 
 
 def test_physical_field_forbidden(tmp_path: Path) -> None:
@@ -146,9 +150,7 @@ def test_physical_field_forbidden(tmp_path: Path) -> None:
     )
     pkg = _write_pkg(tmp_path / "pkg", bad)
     with pytest.raises(ConfigError) as ei:
-        ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-            pkg, "iso-test", capabilities=DeclarationCapabilityCatalog()
-        )
+        _lock(pkg)
     assert "forbidden" in str(ei.value).lower() or "physical" in str(ei.value).lower()
 
 

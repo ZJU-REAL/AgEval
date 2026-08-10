@@ -55,7 +55,7 @@ async def test_concurrency_cap_with_stub_runner() -> None:
     plan.task_ids = ["alpha", "beta", "gamma"]
     reset_inflight_metrics()
 
-    async def slow_run(root, task_id, *, overrides=None):  # noqa: ANN001
+    async def slow_run(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
         await asyncio.sleep(0.15)
         run_id = f"sha256_dead_run_{task_id}"
         abs_run = Path(root) / ".bora" / "runs" / run_id
@@ -89,7 +89,7 @@ async def test_fail_continues_others() -> None:
     plan = plan_suite_run(SUITE, max_concurrent_tasks=2)
     plan.task_ids = ["alpha", "beta", "delta-fail"]
 
-    async def mixed(root, task_id, *, overrides=None):  # noqa: ANN001
+    async def mixed(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
         await asyncio.sleep(0.05)
         if task_id == "delta-fail":
             result = SimpleNamespace(status="FAIL", score=0.0, evidence_path="x", logs="x")
@@ -109,7 +109,7 @@ async def test_error_exit_code() -> None:
     plan = plan_suite_run(SUITE, max_concurrent_tasks=1)
     plan.task_ids = ["alpha", "beta"]
 
-    async def one_error(root, task_id, *, overrides=None):  # noqa: ANN001
+    async def one_error(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
         if task_id == "beta":
             result = SimpleNamespace(status="ERROR", score=None, evidence_path=None, logs=None)
             return 2, result, {"digest": None}

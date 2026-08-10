@@ -196,9 +196,11 @@ def load_actors_from_task_lock(
     from bora.config.database import load_database_manifest, resolve_task
     from bora.config.load_and_lock import ConfigCore
     from bora.config.model import thaw
+    from bora.config.profiles import resolve_profile_bindings
 
     resolved = resolve_task(database_root, task_id)
     man = load_database_manifest(resolved.database_root)
+    bindings = resolve_profile_bindings(resolved.database_root)
     config = ConfigCore(package_reader=LocalPackageReader())
     lock = config.load_and_lock(
         resolved.task_dir,
@@ -206,6 +208,7 @@ def load_actors_from_task_lock(
         overrides=overrides,
         capabilities=DeclarationCapabilityCatalog(),
         database_provenance=man.provenance,
+        profile_bindings=bindings or None,
     )
     profiles = thaw(lock.agent_profiles)
     if not isinstance(profiles, list):

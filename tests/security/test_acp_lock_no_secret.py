@@ -22,15 +22,7 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
         "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {},
         "provider": {"kind": "local", "assurance": "l0"},
-        "agent_profiles": [
-            {
-                "id": "p",
-                "executor": "acp",
-                "model": "entry-default",
-                "options": {"entry": "codex"},
-                "api_key": "OPENAI_API_KEY",
-            }
-        ],
+        "agent_profiles": [{"id": "p"}],
         "limits": {
             "wall_time_seconds": 10,
             "agent_invocations": 1,
@@ -51,7 +43,17 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
         "def evaluate(i): return {'status':'PASS','score':1}\n", encoding="utf-8"
     )
     lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        pkg, "t", capabilities=DeclarationCapabilityCatalog()
+        pkg,
+        "t",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings={
+            "p": {
+                "executor": "acp",
+                "model": "entry-default",
+                "options": {"entry": "codex"},
+                "api_key": "OPENAI_API_KEY",
+            }
+        },
     )
     payload = json.dumps(thaw(lock.agent_profiles), sort_keys=True)
     assert "sk-" not in payload

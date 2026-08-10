@@ -35,3 +35,5 @@ ERROR_UNKNOWN_PACKAGE_PATH = "unknown_package_path"
 ERROR_INVALID_OVERRIDE = "invalid_override"
 ERROR_INVALID_SCHEMA = "invalid_schema"
 ERROR_MISSING_REFERENCE = "missing_reference"
+# Role slot declared in task.yaml but no job binding from profiles.yaml / CLI (#59).
+ERROR_MISSING_BINDING = "missing_binding"

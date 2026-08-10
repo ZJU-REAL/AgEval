@@ -91,7 +91,7 @@ async def test_suite_summary_includes_metrics() -> None:
     plan = plan_suite_run(SUITE, max_concurrent_tasks=2)
     plan.task_ids = ["alpha", "beta", "gamma"]
 
-    async def runner(root, task_id, *, overrides=None):  # noqa: ANN001
+    async def runner(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
         result = SimpleNamespace(
             status="PASS",
             score=1.0,

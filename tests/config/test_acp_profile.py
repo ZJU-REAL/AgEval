@@ -1,8 +1,9 @@
-"""Config lock surface for executor: acp + options.entry."""
+"""Config lock surface for executor: acp + options.entry (#59 bindings)."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -14,7 +15,7 @@ from bora.config.load_and_lock import ConfigCore
 from bora.config.model import thaw
 
 
-def _write_pkg(root: Path, profiles: list[dict]) -> Path:
+def _write_pkg(root: Path, slot_ids: list[str]) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     doc = {
         "format": "bora.task/1",
@@ -22,7 +23,7 @@ def _write_pkg(root: Path, profiles: list[dict]) -> Path:
         "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {},
         "provider": {"kind": "local", "assurance": "l0"},
-        "agent_profiles": profiles,
+        "agent_profiles": [{"id": s} for s in slot_ids],
         "limits": {
             "wall_time_seconds": 60,
             "agent_invocations": 2,
@@ -45,20 +46,26 @@ def _write_pkg(root: Path, profiles: list[dict]) -> Path:
     return root
 
 
+def _lock(pkg: Path, bindings: dict[str, dict[str, Any]]):
+    return ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
+        pkg,
+        "acp-lock-test",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings=bindings,
+    )
+
+
 def test_acp_profile_lock_snapshot(tmp_path: Path) -> None:
-    pkg = _write_pkg(
-        tmp_path / "pkg",
-        [
-            {
-                "id": "opencode-acp",
+    pkg = _write_pkg(tmp_path / "pkg", ["opencode-acp"])
+    lock = _lock(
+        pkg,
+        {
+            "opencode-acp": {
                 "executor": "acp",
                 "model": "entry-default",
                 "options": {"entry": "opencode"},
             }
-        ],
-    )
-    lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        pkg, "acp-lock-test", capabilities=DeclarationCapabilityCatalog()
+        },
     )
     profiles = thaw(lock.agent_profiles)
     assert profiles[0]["executor"] == "acp"
@@ -73,47 +80,36 @@ def test_acp_profile_lock_snapshot(tmp_path: Path) -> None:
 
 
 def test_acp_missing_entry_fails(tmp_path: Path) -> None:
-    pkg = _write_pkg(
-        tmp_path / "pkg",
-        [{"id": "bad", "executor": "acp", "model": "m", "options": {}}],
-    )
+    pkg = _write_pkg(tmp_path / "pkg", ["bad"])
     with pytest.raises(ConfigError):
-        ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-            pkg, "acp-lock-test", capabilities=DeclarationCapabilityCatalog()
-        )
+        _lock(pkg, {"bad": {"executor": "acp", "model": "m", "options": {}}})
 
 
 def test_acp_unknown_entry_fails(tmp_path: Path) -> None:
-    pkg = _write_pkg(
-        tmp_path / "pkg",
-        [
-            {
-                "id": "bad",
-                "executor": "acp",
-                "model": "m",
-                "options": {"entry": "not-registered"},
-            }
-        ],
-    )
+    pkg = _write_pkg(tmp_path / "pkg", ["bad"])
     with pytest.raises(ConfigError):
-        ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-            pkg, "acp-lock-test", capabilities=DeclarationCapabilityCatalog()
+        _lock(
+            pkg,
+            {
+                "bad": {
+                    "executor": "acp",
+                    "model": "m",
+                    "options": {"entry": "not-registered"},
+                }
+            },
         )
 
 
 def test_acp_package_cannot_override_command(tmp_path: Path) -> None:
-    pkg = _write_pkg(
-        tmp_path / "pkg",
-        [
-            {
-                "id": "bad",
-                "executor": "acp",
-                "model": "m",
-                "options": {"entry": "opencode", "command": ["evil"]},
-            }
-        ],
-    )
+    pkg = _write_pkg(tmp_path / "pkg", ["bad"])
     with pytest.raises(ConfigError, match="not package-overridable"):
-        ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-            pkg, "acp-lock-test", capabilities=DeclarationCapabilityCatalog()
+        _lock(
+            pkg,
+            {
+                "bad": {
+                    "executor": "acp",
+                    "model": "m",
+                    "options": {"entry": "opencode", "command": ["evil"]},
+                }
+            },
         )

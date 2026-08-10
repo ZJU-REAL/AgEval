@@ -440,13 +440,19 @@ def member_paths_for_digest(
 ) -> list[str]:
     """Stable ordered package-relative paths for suite digest input (Spec 21).
 
-    Returns posix-relative paths under the database root: root ``bora.yaml`` plus
+    Returns posix-relative paths under the database root: root ``bora.yaml``,
+    optional job-binding / env docs (``profiles.yaml``, ``env.example``), plus
     every file under each member directory, sorted. Does not compute hashes.
+    Secrets (``.env``) are never included.
     """
     root = database_root.expanduser().resolve(strict=False)
     man = manifest or load_database_manifest(root)
     task_ids = list_tasks(root, manifest=man)
     paths: list[str] = ["bora.yaml"]
+    # #59 job overlay + credential docs at Database root (no secrets).
+    for name in ("profiles.yaml", "env.example", "README.md"):
+        if (root / name).is_file():
+            paths.append(name)
     for tid in task_ids:
         task_dir = root / man.tasks_root / tid
         for file_path in sorted(task_dir.rglob("*")):

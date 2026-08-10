@@ -16,6 +16,7 @@ from bora.config.database import load_database_manifest, resolve_task
 from bora.config.load_and_lock import ConfigCore
 from bora.config.model import locked_to_summary
 from bora.config.overrides import parse_set_override
+from bora.config.profiles import resolve_profile_bindings
 from bora.registry.resolve import resolve_database_root
 
 
@@ -34,6 +35,7 @@ class LockCommand:
         task_id: str,
         set_overrides: Sequence[str] = (),
         variant: Mapping[str, object] | None = None,
+        profiles_path: Path | str | None = None,
     ) -> dict[str, Any]:
         """Execute resolve + load_and_lock and return a JSON-serializable summary.
 
@@ -46,6 +48,8 @@ class LockCommand:
             Deprecated alias for *database_root*.
         task_id:
             Member task id under the Database.
+        profiles_path:
+            Optional alternate ``profiles.yaml`` replacing Database-root defaults.
         """
         raw = database_root if database_root is not None else package_root
         if raw is None:
@@ -57,9 +61,11 @@ class LockCommand:
         man = load_database_manifest(root)
 
         overrides: dict[str, object] = {}
-        for raw in set_overrides:
-            pointer, value = parse_set_override(raw)
+        for raw_set in set_overrides:
+            pointer, value = parse_set_override(raw_set)
             overrides[pointer] = value
+
+        bindings = resolve_profile_bindings(root, profiles_path=profiles_path)
 
         locked = self._config_core.load_and_lock(
             resolved.task_dir,
@@ -68,6 +74,7 @@ class LockCommand:
             overrides=overrides or None,
             capabilities=self._capabilities,
             database_provenance=man.provenance,
+            profile_bindings=bindings or None,
         )
         summary = locked_to_summary(locked).as_dict()
         summary["database_id"] = resolved.database_id

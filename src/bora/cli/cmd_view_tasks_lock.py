@@ -111,7 +111,18 @@ def register(app: typer.Typer) -> None:
                 "--set",
                 help=(
                     "Repeatable override as <JSON Pointer>=<JSON value>, e.g. "
-                    "`/parameters/seed=7`. Only allowlisted pointers are accepted."
+                    '`/parameters/seed=7` or `/bindings/solver/model="x"`. '
+                    "Allowlisted pointers only (intent limits are not overridable)."
+                ),
+            ),
+        ] = None,
+        profiles: Annotated[
+            Path | None,
+            typer.Option(
+                "--profiles",
+                help=(
+                    "Alternate job binding file (bora.profiles/1) replacing Database-root "
+                    "profiles.yaml for this lock."
                 ),
             ),
         ] = None,
@@ -131,6 +142,7 @@ def register(app: typer.Typer) -> None:
                 database_root=package,
                 task_id=task,
                 set_overrides=set_overrides or (),
+                profiles_path=profiles,
             )
         except ConfigError as exc:
             # Stable operator-facing failure: exit 2, message on stderr, empty stdout.
