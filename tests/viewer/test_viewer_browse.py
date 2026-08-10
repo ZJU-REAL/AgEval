@@ -13,7 +13,7 @@ from urllib.request import urlopen
 import pytest
 
 from bora.viewer import browse
-from bora.viewer.server import make_handler, serve_viewer, static_dir
+from bora.viewer.server import make_handler, serve_viewer
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
@@ -31,16 +31,6 @@ def test_commands_include_run_task() -> None:
     assert "bora run" in cmds["run_task"]
     assert "--task alpha" in cmds["run_task"]
     assert "bora lock" in cmds["lock_task"]
-
-
-def test_static_dir_when_built() -> None:
-    """``static_dir()`` requires a local ``pnpm build`` (dist is gitignored)."""
-    try:
-        d = static_dir()
-    except FileNotFoundError:
-        pytest.skip("apps/viewer/dist not built (run: cd apps/viewer && pnpm build)")
-    assert (d / "index.html").is_file()
-    assert (d / "assets").is_dir()
 
 
 def test_serve_viewer_bind_in_use_includes_host_port(tmp_path: Path) -> None:

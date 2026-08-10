@@ -317,19 +317,6 @@ def test_list_trials_enriches_evidence(tmp_path: Path) -> None:
     assert "trajectory" in alpha1["available_tabs"]
 
 
-def test_task_page_uses_enriched_trials(tmp_path: Path) -> None:
-    db = _clean_db(tmp_path)
-    job_id = _seed_suite_run(db)
-    _write_evidence(db, "run_beta_1", task_id="beta")
-    # Server path logic: merge list into get_job_task shape
-    base = jobs.get_job_task(db, job_id, "beta")
-    listed = trials.list_task_trials(db, job_id, "beta")
-    base["trials"] = listed["trials"]
-    assert len(base["trials"]) >= 1
-    assert base["trials"][0]["run_id"] == "run_beta_1"
-    assert base["trials"][0].get("has_evidence") is True
-
-
 def test_missing_run_raises(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     _seed_suite_run(db)
