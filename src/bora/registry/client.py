@@ -406,6 +406,7 @@ class RegistryClient:
         config_fingerprint: str | None = None,
         config_homogeneous: bool | None = None,
         actors_summary: list[dict[str, Any]] | None = None,
+        job_overlay: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         meta: dict[str, Any] = {
             "suite_run_id": suite_run_id,
@@ -429,6 +430,9 @@ class RegistryClient:
             meta["config_homogeneous"] = config_homogeneous
         if actors_summary is not None:
             meta["actors_summary"] = actors_summary
+        # #59 secret-free job binding for rehydrate (locators only; never values).
+        if isinstance(job_overlay, dict) and job_overlay:
+            meta["job_overlay"] = job_overlay
         import secrets as _secrets
 
         boundary = f"bora-suite-{_secrets.token_hex(12)}"

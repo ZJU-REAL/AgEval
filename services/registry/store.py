@@ -2813,6 +2813,10 @@ def suite_to_dict(
         actors = cfg.get("actors_summary")
         if isinstance(actors, list):
             out["actors_summary"] = actors
+        # #59 secret-free job binding for Hub rehydrate
+        overlay = cfg.get("job_overlay")
+        if isinstance(overlay, dict) and overlay:
+            out["job_overlay"] = overlay
     return out
 
 

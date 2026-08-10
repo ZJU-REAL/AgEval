@@ -44,9 +44,9 @@ import json
 import os
 import re
 import secrets
-import time
 import sys
 import tempfile
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -1545,6 +1545,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             actors_raw = meta.get("actors_summary")
             if isinstance(actors_raw, list):
                 config_payload["actors_summary"] = [a for a in actors_raw if isinstance(a, dict)]
+            # #59 job binding overlay (secret-free; locators only).
+            overlay_raw = meta.get("job_overlay")
+            if isinstance(overlay_raw, dict) and overlay_raw:
+                config_payload["job_overlay"] = overlay_raw
 
             row = SuiteResultRow(
                 suite_run_id=suite_run_id,

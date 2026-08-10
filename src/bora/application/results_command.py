@@ -276,7 +276,7 @@ def _suite_metrics_and_refs(summary: dict[str, Any]) -> tuple[dict[str, Any], li
 
 
 def _config_fields_from_summary(summary: dict[str, Any]) -> dict[str, Any]:
-    """Project #42 config fingerprint fields (absent on legacy summaries)."""
+    """Project #42/#59 config fingerprint + job_overlay (absent on legacy summaries)."""
     actors = summary.get("actors_summary")
     if not isinstance(actors, list):
         actors = []
@@ -288,6 +288,10 @@ def _config_fields_from_summary(summary: dict[str, Any]) -> dict[str, Any]:
         out["config_fingerprint"] = fp.strip()
     if "config_homogeneous" in summary:
         out["config_homogeneous"] = bool(summary.get("config_homogeneous"))
+    # #59 secret-free job binding for Hub rehydrate (locators only).
+    overlay = summary.get("job_overlay")
+    if isinstance(overlay, dict) and overlay:
+        out["job_overlay"] = overlay
     return out
 
 
@@ -416,6 +420,9 @@ def upload_suite_result(
             config_fingerprint=config_proj.get("config_fingerprint"),
             config_homogeneous=config_proj.get("config_homogeneous"),
             actors_summary=list(config_proj.get("actors_summary") or []),
+            job_overlay=config_proj.get("job_overlay")
+            if isinstance(config_proj.get("job_overlay"), dict)
+            else None,
         )
     except RegistryError as exc:
         raise ConfigError(exc.code, exc.message, location="registry") from exc
@@ -434,7 +441,7 @@ def upload_suite_result(
         "visibility": info.get("visibility", "private"),
         "note": info.get("note", "per-task evaluator verdicts only; no suite-level PASS"),
     }
-    for key in ("config_fingerprint", "config_homogeneous", "actors_summary"):
+    for key in ("config_fingerprint", "config_homogeneous", "actors_summary", "job_overlay"):
         if key in info:
             out[key] = info[key]
         elif key in config_proj:
