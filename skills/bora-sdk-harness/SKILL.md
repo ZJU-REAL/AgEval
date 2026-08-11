@@ -65,6 +65,9 @@ Entrypoint in yaml: `harness: entrypoint: harness:run` with `async def run(ctx)`
 Multi-role: open **separate** sessions with different profile ids (each profile may
 point at a different ACP `options.entry`).
 
+**Multi-task packages:** keep `tasks/*/harness.py` thin; put shared orchestration under
+Dataset `shared/lib` (see `bora-config-package` conversion / thin-harness guidance).
+
 ## Ownership
 
 | May | Must not |

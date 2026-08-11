@@ -27,6 +27,10 @@ my-database/                 # CLI path (bora.database/1)
 ├── profiles.yaml            # job binding defaults (role id → entry/model/locator)
 ├── env.example              # documented credential locator names only
 ├── .env                     # local secrets (gitignore; never publish)
+├── README.md                # author/run notes (optional but recommended)
+├── scripts/                 # maintainer generators / regenerate (not on Agent path)
+│   ├── README.md            # how to regenerate / fork onboarding (recommended)
+│   └── generate_package.py  # multi-task thin members from upstream
 ├── shared/                  # optional Dataset-level share (#65)
 │   ├── lib/                 # import only (Harness + Evaluator PYTHONPATH)
 │   ├── assets/              # read-only domain data via code paths
@@ -34,13 +38,26 @@ my-database/                 # CLI path (bora.database/1)
 └── tasks/
     └── my-task/             # task_id == directory name
         ├── task.yaml        # bora.task/1 — role slots + intent (no entry/model)
-        ├── harness.py
-        ├── evaluator.py
+        ├── harness.py       # prefer thin entry; orchestration in shared/lib
+        ├── evaluator.py     # prefer thin entry; scoring in shared/lib
         ├── environment/     # optional seed.sql; Docker L1 needs Dockerfile
         ├── evaluation/      # gold / hidden — not for Agent mount
+        ├── solution/        # human/CI offline fixture only; default NOT agent-seeded
         ├── lib/             # task-only; MUST NOT collide with shared/lib names
-        └── data/
+        └── data/            # agent-visible seed (L1: Runtime copies into workspace)
 ```
+
+### Directory role map
+
+| Dir | Who seeds / mounts | Agent-visible? | Eval-only? | Notes |
+| --- | --- | --- | --- | --- |
+| `tasks/*/data/` | Runtime L1 `seed_l1_workspace` copies files into Attempt workspace | Yes (after seed) | No | Prefer file-into-workspace here over Dockerfile `COPY` |
+| `tasks/*/evaluation/` | Evaluator process after writer barrier | **No** | **Yes** | Gold / hidden labels only |
+| `tasks/*/environment/` | Provider build/prepare (Dockerfile, seed.sql) | Indirect (image) | No | L1 image contract; not Agent mount of gold |
+| `tasks/*/solution/` | Only when offline fixture flag / `BORA_L1_USE_SOLUTION=1` / offline agent | Default **No** | No | Human/CI fixture; **not** default Agent seed |
+| `shared/lib/` | PYTHONPATH inject for Harness + Evaluator | **No** (import only) | No | Bridge/glue; never gold |
+| `shared/assets/` | Code paths in Harness/Evaluator | **No** default mount | No | Domain fixtures via imports, not workspace |
+| `scripts/` | Maintainer host only | No | No | Generators; not package runtime |
 
 ### Dataset `shared/` (when multi-task reuse)
 
@@ -58,8 +75,12 @@ my-database/                 # CLI path (bora.database/1)
 2. Before adding modules, list both trees; prefer unique prefixes (`airline_bridge` vs task-local).
 3. Changing `shared/` changes whole-package `packageDigest` (no separate shared sub-digest).
 4. Core does **not** auto-COPY `shared/` into L1 images — task `environment/Dockerfile` must
-   `COPY` explicitly if the container needs those files.
+   `COPY` explicitly if the container needs those files (see `references/isolation.md`).
 5. Default: `shared/` is **not** mounted into the Agent workspace (Harness/Evaluator only).
+6. **Import contract:** task code must **not** own a top-level package name `shared`. Prefer
+   `shared.lib.*` (post-#68 namespaced inject) or documented path inject
+   `[task_dir, database_root]` so `from shared.lib…` / `from lib…` resolve predictably.
+   Collision gates stay in Runtime/lock (#68); authors follow the names here.
 
 **Acceptance gate (run before claiming package OK):**
 
@@ -67,6 +88,55 @@ my-database/                 # CLI path (bora.database/1)
 uv run python scripts/check_shared_lib_collisions.py <database-root>
 ```
 
+### Multi-task conversion & generators
+
+When many members are **isomorphic** (same harness/evaluator shape, different scenario
+ids), **do not** hand-copy 50 task trees. Use a Dataset-root generator:
+
+| Pattern | Guidance |
+| --- | --- |
+| Thin task entries | `tasks/<id>/{task.yaml,harness.py,evaluator.py}` are thin wrappers; orchestration lives in `shared/lib` |
+| Regenerate from upstream | `scripts/generate_package.py` (or similar) reads upstream assets → writes members |
+| Maintainer docs | Short `scripts/README.md` (or package README section): how to regenerate, required host deps, fork onboarding |
+| Reference shape | `examples/tau3-airline/scripts/`, `examples/marble-coding/scripts/`, `examples/terminal-bench-2/scripts/` |
+
+See [references/conversion.md](references/conversion.md) for owner-map checklist and
+upstream → BORA placement template.
+
+### Thin harness / evaluator (multi-task)
+
+Prefer:
+
+```python
+# tasks/<id>/harness.py — thin entry only
+from shared.lib.harness_core import run  # or lib.harness_core after path inject
+# re-export or one-liner async def run(ctx): return await run_core(ctx, task_id=...)
+```
+
+Not: full dual-agent loop + tools inlined in every `tasks/*/harness.py`.  
+SDK surface stays the same (`Agent.session…invoke`); see `bora-sdk-harness` for API,
+this skill for **where** multi-task code lives.
+
+### `solution/` semantics
+
+- **Purpose:** human inspection, CI offline fixture, offline-agent demos.
+- **Default:** Runtime does **not** seed `solution/` into the Agent workspace.
+- **Exception (author-level):** L1 offline path when `BORA_L1_USE_SOLUTION=1` or
+  offline-agent allow — files under `solution/` may be copied into workspace and
+  `solution_seed` is recorded in L1 meta. Do not treat that as production Agent path.
+- Never put gold-only labels in `solution/`; gold stays under `evaluation/`.
+
+### Evidence discipline (ports)
+
+| Claim | Valid? |
+| --- | --- |
+| Package exists / converts / Hub publish succeeds | **≠** evidence-grade upgrade |
+| `bora lock` OK | **≠** `runnable-mvp` / `isolated` |
+| Harness `completed` or trajectory present | **≠** PASS |
+| Independent evaluator status | Only PASS authority |
+
+Fill `provenance` for ports/reimplementations. Do not invent public smoke claims
+from conversion completeness alone.
 ## Minimal Database `bora.yaml`
 
 ```yaml
@@ -233,4 +303,5 @@ Do not invent kinds or entry ids.
 ## Detail
 
 - Field catalog & allowlists: [references/bora-yaml.md](references/bora-yaml.md)
-- Isolation / gold / L1 notes: [references/isolation.md](references/isolation.md)
+- Isolation / gold / L1 / Dockerfile tiers / `data/` seed: [references/isolation.md](references/isolation.md)
+- Conversion / generators / upstream owner map: [references/conversion.md](references/conversion.md)
