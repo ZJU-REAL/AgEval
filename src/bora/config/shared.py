@@ -29,13 +29,14 @@ def shared_lib_dir(database_root: Path) -> Path:
 def infer_database_root_from_task(task_dir: Path) -> Path | None:
     """Best-effort Database root from a member task directory.
 
-    Standard layout: ``<database_root>/<tasks_root>/<task_id>/``. When the
-    grandparent contains ``bora.yaml``, treat it as the Database root.
+    Walks ancestors until a ``bora.yaml`` is found (supports nested
+    ``tasks.root``, e.g. ``members/group/<task_id>``).
     """
-    task_dir = task_dir.expanduser().resolve(strict=False)
-    candidate = task_dir.parent.parent
-    if (candidate / "bora.yaml").is_file():
-        return candidate
+    cur = task_dir.expanduser().resolve(strict=False)
+    # Do not treat the task dir itself as the Database root.
+    for parent in cur.parents:
+        if (parent / "bora.yaml").is_file():
+            return parent
     return None
 
 

@@ -43,8 +43,8 @@ def _send_msg(fd: int, obj: dict[str, Any]) -> None:
 
 def _inject_import_paths(package_root: Path, database_root: Path | None) -> None:
     """Make task root and optional Dataset ``shared/lib`` importable (#65)."""
-    # Task member root first so task-local modules resolve; shared/lib second.
-    # Collision of top-level names is banned at lock time, so order is non-semantic.
+    # Both roots are injected; top-level name collisions are banned at lock time,
+    # so insert order is non-semantic for correctness.
     sys.path.insert(0, str(package_root))
     if database_root is not None:
         shared_lib = database_root / "shared" / "lib"

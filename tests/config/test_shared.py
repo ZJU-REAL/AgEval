@@ -139,3 +139,29 @@ def test_lock_ok_with_shared_no_collision(tmp_path: Path) -> None:
         capabilities=DeclarationCapabilityCatalog(),
     )
     assert lock.digest.startswith("sha256:")
+
+
+def test_infer_walks_up_for_nested_tasks_root(tmp_path: Path) -> None:
+    """Collision gate must fire even when tasks.root is nested (not just tasks/)."""
+    from bora.config.shared import infer_database_root_from_task
+
+    (tmp_path / "bora.yaml").write_text(
+        "format: bora.database/1\n"
+        "database_id: test/nested\n"
+        'version: "0.1.0"\n'
+        "tasks:\n  root: members/group\n",
+        encoding="utf-8",
+    )
+    shared_lib = tmp_path / "shared" / "lib"
+    shared_lib.mkdir(parents=True)
+    (shared_lib / "bridge.py").write_text("x=1\n", encoding="utf-8")
+    task = tmp_path / "members" / "group" / "t1"
+    _write_task(task, "t1", lib_mod="bridge")
+    assert infer_database_root_from_task(task) == tmp_path.resolve()
+    with pytest.raises(ConfigError) as ei:
+        validate_shared_layout(tmp_path, tasks_root="members/group")
+    assert "collision" in ei.value.message
+    core = ConfigCore(package_reader=LocalPackageReader())
+    with pytest.raises(ConfigError) as ei2:
+        core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
+    assert "collision" in ei2.value.message

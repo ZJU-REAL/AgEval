@@ -168,6 +168,7 @@ Task 成员目录 **一级目录只允许从已知集合取用**；除固定根�
 5. **同名冲突（硬失败）：** `shared/lib/` 与任一 `tasks/<id>/lib/` 的 **top-level import 名**（顶层 `.py` 去后缀、或顶层包目录名）**禁止碰撞**。Config/lock 校验 fail closed；作者 skill 必须提示；检测脚本作验收门槛。
 6. **L1 / 镜像：** Core **禁止** 隐式把 `shared/` COPY 进 Attempt 镜像或默认塞进 build context。若容器内需要 `shared/` 内容，由 **task 级** `environment/` Dockerfile（或包内镜像配方）**显式** `COPY`。无静默 Core copy。
 7. **无 shared sub-digest：** Registry 不维护单独的 shared digest；整包 `packageDigest` 已覆盖 `shared/**`。
+8. **证据等级：** 存在 `shared/`、digest 包含 `shared/**`、或 Hub Shared UI **不**抬高证据等级；仍按公开 smoke / Issue 验收声明 `runnable-mvp` / `isolated` 等。
 
 **`shared/lib` vs task `lib/`：**
 
