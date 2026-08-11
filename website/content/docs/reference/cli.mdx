@@ -12,10 +12,10 @@ uv run bora run <dataset> --task <id>
 uv run bora run <dataset>                         # suite
 uv run bora run <dataset> --max-concurrent-tasks 2
 uv run bora run <dataset> -k 5                    # Always-k（每题 k 次）
-uv run bora run <dataset> --resume-suite suite_<id> --task <id> -k 5
+uv run bora run <dataset> --resume-suite <suite_run_id> --task <id> -k 5
 uv run bora campaign <dataset> --task <id> ...
-uv run bora status suite_<id> --database <dataset>
-uv run bora cancel suite_<id> --database <dataset>
+uv run bora status <suite_run_id> --database <dataset>
+uv run bora cancel <suite_run_id> --database <dataset>
 uv run bora executors -v
 uv run bora evidence --help
 uv run bora view <dataset>
@@ -37,7 +37,7 @@ uv run bora view <dataset>
 
 | 命令 | 含义 |
 | --- | --- |
-| `bora status <run_id\|suite_…>` | ControlStore；suite 可加 `--database` 读 `progress.json` |
+| `bora status <run_id\|suite_run_id>` | ControlStore；suite 可加 `--database` 读 `progress.json`（系统 id 默认为 8 hex） |
 | `bora cancel <run_id\|suite_…>` | 单 Run 或 suite job；suite 可加 `--database` 写 `cancel.requested` |
 
 ## `--set`

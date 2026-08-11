@@ -12,10 +12,10 @@ uv run bora run <dataset> --task <id>
 uv run bora run <dataset>
 uv run bora run <dataset> --max-concurrent-tasks 2
 uv run bora run <dataset> -k 5
-uv run bora run <dataset> --resume-suite suite_<id> --task <id> -k 5
+uv run bora run <dataset> --resume-suite <suite_run_id> --task <id> -k 5
 uv run bora campaign <dataset> --task <id> ...
-uv run bora status suite_<id> --database <dataset>
-uv run bora cancel suite_<id> --database <dataset>
+uv run bora status <suite_run_id> --database <dataset>
+uv run bora cancel <suite_run_id> --database <dataset>
 uv run bora executors -v
 uv run bora evidence --help
 uv run bora view <dataset>
@@ -37,7 +37,7 @@ Path = Dataset root.
 
 | Command | Meaning |
 | --- | --- |
-| `bora status <run_id\|suite_…>` | ControlStore; add `--database` for suite `progress.json` |
+| `bora status <run_id\|suite_run_id>` | ControlStore; add `--database` for suite `progress.json` (system suite id defaults to 8 hex) |
 | `bora cancel <run_id\|suite_…>` | One Run or suite job; suite may use `--database` → `cancel.requested` |
 
 ## `--set`

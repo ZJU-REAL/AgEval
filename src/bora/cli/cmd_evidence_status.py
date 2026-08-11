@@ -74,9 +74,7 @@ def register(app: typer.Typer) -> None:
         db_root = database
         if db_root is None and payload.get("database_root"):
             db_root = Path(str(payload["database_root"]))
-        is_suite = is_suite_run_locator(
-            run_id, database_root=db_root, control_kind=kind
-        )
+        is_suite = is_suite_run_locator(run_id, database_root=db_root, control_kind=kind)
         if rec is None and not is_suite:
             typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
             raise typer.Exit(code=2)
@@ -99,9 +97,7 @@ def register(app: typer.Typer) -> None:
                         out["progress"] = data
             cancel_p = prog.parent / "cancel.requested"
             out["cancel_requested"] = cancel_p.is_file()
-        if rec is None and "progress" not in out and not (
-            db_root is not None and is_suite
-        ):
+        if rec is None and "progress" not in out and not (db_root is not None and is_suite):
             typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
             raise typer.Exit(code=2)
         typer.echo(json.dumps(out, sort_keys=True, separators=(",", ":")))

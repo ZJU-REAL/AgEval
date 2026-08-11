@@ -67,11 +67,14 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 
 ### Leaderboard metrics (#60)
 
-- Default sort: **Pass rate** → **Mean score** → `created_at` (not suite PASS).
+- Click column headers to sort; default **Pass rate** → **Mean score** →
+  `created_at` (not suite PASS).
 - When any row has `metrics.pass_at_k` / `n_attempts`, columns **n_attempts**,
   **pass@k**, **pass^k** appear; missing values show `—`.
 - Display k = largest entry in `metrics.k_values` (else `n_attempts`). Labels
   show `@k` / `^k`. These are observational; k-attempt is **not** job identity.
+- Columns: Agent, Model, metrics, Tasks, **Uploader** (`uploaded_by`), Suite run
+  (compact id). Long Agent/Model truncate with full text in `title`.
 - Mock rows: `src/lib/leaderboard-fixtures.ts` via `?tab=leaderboard&demo=1`.
 
 ## Related

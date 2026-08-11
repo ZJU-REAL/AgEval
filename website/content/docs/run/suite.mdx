@@ -25,7 +25,7 @@ uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 uv run bora run examples/core --task sdk-agent-session -k 5
 
 # 补跑：并进已有 suite job，重算指标（可加 --task 只补一题）
-uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
+uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
 ```
 
 硬约束：
@@ -34,6 +34,7 @@ uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session
 - 补跑只**追加** Attempt，不改写已完成 Attempt 的 score / 身份  
 - 因 **cancel 未真正跑过** 的占位会在 resume 时**重跑**（避免 pass@k 永久偏低）
 - 进度 / 取消见下方；Hub Leaderboard 在有 `metrics.pass_at_k` 时展示 pass@k / pass^k / n_attempts（#60）；本机 summary 始终可写 metrics  
+- 系统默认 `suite_run_id` 为 **8 位 hex**（无 `suite_` 前缀）
 
 
 ## 汇总指标
@@ -54,8 +55,8 @@ uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session
 ## 进度与取消
 
 ```bash
-uv run bora status suite_<id> --database examples/core
-uv run bora cancel suite_<id> --database examples/core
+uv run bora status <suite_run_id> --database examples/core
+uv run bora cancel <suite_run_id> --database examples/core
 ```
 
 - **status**：ControlStore 记录 + 可读 progress  

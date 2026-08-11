@@ -55,9 +55,7 @@ def register(app: typer.Typer) -> None:
         db_root = database
         if db_root is None and payload.get("database_root"):
             db_root = Path(str(payload["database_root"]))
-        is_suite = is_suite_run_locator(
-            run_id, database_root=db_root, control_kind=kind
-        )
+        is_suite = is_suite_run_locator(run_id, database_root=db_root, control_kind=kind)
 
         cancel_file = None
         if is_suite and db_root is not None:
