@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Created | 2026-08-11 |
-| Status | **in-progress** |
-| Completed | pending |
+| Status | **completed** |
+| Completed | 2026-08-11 |
 | Dependencies | [03](03-cli-plugin-lifecycle-plan.md), [04](04-hub-plugin-package-kind-plan.md), [05](05-core-extension-ready-nooa-container-plan.md) |
 | Decisions | [constitution §2 产品方向（Hub + CLI）](../constitution/2026-08-11-extension-api-and-registry.md)；Recognition ≠ Ready（§0 / §7.6）；install 不改 profiles（§7.5） |
 
@@ -42,35 +42,35 @@
 
 ### 总硬门槛
 
-- [ ] **Hub：** 登录（或公开策略与现 Database 一致）后可进入 **插件市场** 入口；至少列出 **一个** `package_kind=plugin` 的 release（fixture 或本机 Registry 已 publish 的 nooa/sample）。  
-- [ ] **Hub 详情：** 展示 format 徽章 **`bora.plugin/1`**（或等价 `plugin` 徽章）、**slots**（provide/on 摘要）、**文件树**（复用 `/files` 或 meta `plugin_preview.files`）；**不**在浏览器执行插件代码。  
-- [ ] **安装指引：** 详情页提供可复制命令，形如  
+- [x] **Hub：** 登录（或公开策略与现 Database 一致）后可进入 **插件市场** 入口；至少列出 **一个** `package_kind=plugin` 的 release（fixture 或本机 Registry 已 publish 的 nooa/sample）。  
+- [x] **Hub 详情：** 展示 format 徽章 **`bora.plugin/1`**（或等价 `plugin` 徽章）、**slots**（provide/on 摘要）、**文件树**（复用 `/files` 或 meta `plugin_preview.files`）；**不**在浏览器执行插件代码。  
+- [x] **安装指引：** 详情页提供可复制命令，形如  
   `bora plugin install <org>/<plugin_id>@<version>`  
   （或文档最终主 locator；与 Spec 04 CLI 一致）。文案写明：**install = Recognition only，不改 profiles**。  
-- [ ] **与 Database 隔离：** Database 列表/详情 **不** 被 plugin 包污染（filter 或分栏）；用 database 冒充 plugin 的路径仍 fail closed（回归 04）。  
-- [ ] **Viewer：** Jobs 空态 **不再** 暗示「`bora run <db>` 即有 Job」；写明需 **全 suite**（省略 `--task`）或已有 `suite-runs`。有 suite 时 nooa task 的 Trial → Trajectory **有 steps**（依赖已合入的 seal 写 traj；本 Spec 不重做 Core）。  
-- [ ] **可选增强（建议勾）：** Trial/Actors 区可见 `executor_kind`（如 `nooa` / `acp`）或 evidence 中等价字段，避免「有轨迹却看不出谁在跑」。  
+- [x] **与 Database 隔离：** Database 列表/详情 **不** 被 plugin 包污染（filter 或分栏）；用 database 冒充 plugin 的路径仍 fail closed（回归 04）。  
+- [x] **Viewer：** Jobs 空态 **不再** 暗示「`bora run <db>` 即有 Job」；写明需 **全 suite**（省略 `--task`）或已有 `suite-runs`。有 suite 时 nooa task 的 Trial → Trajectory **有 steps**（依赖已合入的 seal 写 traj；本 Spec 不重做 Core）。  
+- [x] **可选增强（建议勾）：** Trial/Actors 区可见 `executor_kind`（如 `nooa` / `acp`）或 evidence 中等价字段，避免「有轨迹却看不出谁在跑」。  
 
 ### 失败面
 
-- [ ] 未登录时：与现 Hub Database 策略一致（公开包可见或引导登录——**不**发明新安全模型）。  
-- [ ] Registry 无 plugin 包：市场列表为空态文案清晰（非白屏）。  
-- [ ] 点 install **不** 在 SPA 内静默改用户本机 profiles / Database。  
+- [x] 未登录时：与现 Hub Database 策略一致（公开包可见或引导登录——**不**发明新安全模型）。  
+- [x] Registry 无 plugin 包：市场列表为空态文案清晰（非白屏）。  
+- [x] 点 install **不** 在 SPA 内静默改用户本机 profiles / Database。  
 
 ### 回归
 
-- [ ] Spec 04 registry e2e / plugin package e2e 仍绿（若改 service 契约）。  
-- [ ] Hub SPA：`pnpm --dir apps/hub lint && build`（改 hub 时）。  
-- [ ] Viewer SPA：`pnpm --dir apps/viewer lint && build`（改 viewer 时）。  
-- [ ] Database Hub 路径不回归（列表/详情仍可用）。  
+- [x] Spec 04 registry e2e / plugin package e2e 仍绿（若改 service 契约）。  
+- [x] Hub SPA：`pnpm --dir apps/hub lint && build`（改 hub 时）。  
+- [x] Viewer SPA：`pnpm --dir apps/viewer lint && build`（改 viewer 时）。  
+- [x] Database Hub 路径不回归（列表/详情仍可用）。  
 
 ### 非目标（禁止塞入）
 
-- [ ] ~~审核/运营流~~（用户明确排除）  
-- [ ] ~~市场排序/推荐算法~~（可 follow-up）  
-- [ ] ~~强制 ACP 上架~~  
-- [ ] Viewer 内插件上传/下载  
-- [ ] 复活 first-party nooa / 改 Core Ready 语义  
+- [x] ~~审核/运营流~~（用户明确排除）  
+- [x] ~~市场排序/推荐算法~~（可 follow-up）  
+- [x] ~~强制 ACP 上架~~  
+- [x] Viewer 内插件上传/下载  
+- [x] 复活 first-party nooa / 改 Core Ready 语义  
 
 ---
 
@@ -229,8 +229,8 @@ ELSE:
 
 **验收：**
 
-- [ ] 端到端：publish（04）→ 市场可见 → copy install →（可选本机 install 一句）→ suite view 轨迹；  
-- [ ] Acceptance 全勾；Evidence 非空；Status → completed。  
+- [x] 端到端：publish（04）→ 市场可见 → copy install →（可选本机 install 一句）→ suite view 轨迹；  
+- [x] Acceptance 全勾；Evidence 非空；Status → completed。  
 
 ---
 
@@ -238,14 +238,14 @@ ELSE:
 
 | 项 | 内容 |
 | --- | --- |
-| Registry | |
-| Hub 市场 URL / 截图或路由 | |
-| 示例 plugin locator | |
-| install 命令 | |
-| Viewer suite_run_id | |
-| Trajectory API 或 UI | |
-| 构建/测试 | |
-| 明确未做 | 审核运营；排序；单 run 虚拟 Job（若未做） |
+| Registry | `GET /v1/packages?package_kind=plugin` 返回 `package_kind`；by-digest 含 `plugin_preview`（`format=bora.plugin/1`）。In-process smoke 2026-08-11：publish `tests/fixtures/plugins/sample-echo` → list filter + isolation. |
+| Hub 市场 URL / 截图或路由 | `/plugins`（Plugin marketplace）；`/plugins/:id` 详情；nav **Plugins**（非 store） |
+| 示例 plugin locator | `smoke/sample-echo@0.1.0`（smoke publish）；digest `sha256:6702e893898a57881a64c014835df6aa4ebc1846ebda79a6bf218bdca3ffc9ad` |
+| install 命令 | `bora plugin install smoke/sample-echo@0.1.0`（详情页 CommandStrip；Recognition only 文案） |
+| Viewer suite_run_id | `suite_452ac0c30bf54bbf` under `examples/journeys/.bora/suite-runs/`（nooa executor 证据） |
+| Trajectory API 或 UI | 本地 runs 含 `trajectory.jsonl`（e.g. tau2-dialog-min inv，`executor_kind=nooa`，≥3 steps/file）；Viewer Actors 列 **Executor**；Jobs 空态说明 suite-runs / 全 suite |
+| 构建/测试 | `pytest tests/registry/test_plugin_package_e2e.py tests/viewer/test_viewer_trials.py` PASS；`pnpm --dir apps/hub lint && build`；`pnpm --dir apps/viewer lint && build` |
+| 明确未做 | 审核运营；排序；单 run 虚拟 Job；浏览器内 install / 写 profiles |
 
 ---
 
