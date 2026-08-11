@@ -55,6 +55,7 @@ async def run_harness_package(
     agent_service_sock: str | None = None,
     attempt: AttemptIdentity | None = None,
     workspace_root: Path | None = None,
+    database_root: Path | None = None,
 ) -> dict[str, Any]:
     """Start task worker under L0 Provider and return terminal envelope.
 
@@ -68,6 +69,9 @@ async def run_harness_package(
 
     *workspace_root* defaults to *package_root*. L1 SDK path may point it at the
     Attempt host workspace so harness can read agent-written files.
+
+    *database_root* is the Database root (optional). When set, the worker injects
+    ``shared/lib`` on ``sys.path`` and exposes it for code-path asset reads (#65).
     """
     factory = identity_factory or IdentityFactory()
     if attempt is not None:
@@ -92,6 +96,7 @@ async def run_harness_package(
         work_base.mkdir()
 
         ws_root = (workspace_root or package_root).resolve()
+        db_root = database_root.resolve() if database_root is not None else None
         launch = {
             "package_root": str(package_root.resolve()),
             "workspace_root": str(ws_root),
@@ -102,6 +107,8 @@ async def run_harness_package(
             "run_id": run.value,
             "artifact_dir": str(artifact_dir),
         }
+        if db_root is not None:
+            launch["database_root"] = str(db_root)
 
         provider = LocalProcessProvider()
         env = {

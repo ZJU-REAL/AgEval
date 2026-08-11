@@ -302,6 +302,8 @@ def run_l1_sdk_session_attempt(
             harness_timeout = float(params.get("harness_timeout_seconds") or 360.0)
             if wall_s > 0:
                 harness_timeout = min(harness_timeout, wall_s)
+            from bora.config.shared import infer_database_root_from_task
+
             harness_coro = run_harness_package(
                 lock,
                 package_root,
@@ -309,6 +311,7 @@ def run_l1_sdk_session_attempt(
                 agent_service_sock=str(short),
                 attempt=attempt_ident,
                 workspace_root=workspace_host,
+                database_root=infer_database_root_from_task(package_root),
             )
             # run_task is already async; nest safely without asyncio.run in-loop.
             try:

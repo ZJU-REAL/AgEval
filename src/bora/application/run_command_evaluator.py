@@ -15,19 +15,31 @@ def run_evaluator_worker(
     package_root: Path,
     lock: Any,
     artifacts_map: dict[str, str],
+    *,
+    database_root: Path | None = None,
 ) -> dict[str, Any]:
     """Run package evaluator in a dedicated subprocess (not parent import)."""
     _ = lock  # reserved for future lock-scoped evaluator options
     path = package_root / "evaluator.py"
     if not path.is_file():
         return {"status": "ERROR", "score": None, "metrics": {}}
+    # #65: inject task root + optional shared/lib (same contract as harness worker).
+    path_entries: list[str] = [str(package_root.resolve())]
+    if database_root is not None:
+        shared_lib = database_root.resolve() / "shared" / "lib"
+        if shared_lib.is_dir():
+            path_entries.insert(0, str(shared_lib))
+    path_inject = repr(path_entries)
     with tempfile.TemporaryDirectory(prefix="bora-eval-") as tmp:
         script = Path(tmp) / "run_eval.py"
         out_path = Path(tmp) / "out.json"
         script.write_text(
             "\n".join(
                 [
-                    "import json, importlib.util",
+                    "import json, importlib.util, sys",
+                    f"for _p in {path_inject}:",
+                    "    if _p not in sys.path:",
+                    "        sys.path.insert(0, _p)",
                     f"spec = importlib.util.spec_from_file_location('ev', {str(path)!r})",
                     "mod = importlib.util.module_from_spec(spec)",
                     "assert spec.loader is not None",
@@ -38,13 +50,16 @@ def run_evaluator_worker(
             ),
             encoding="utf-8",
         )
+        child_env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+        if database_root is not None:
+            child_env["BORA_DATABASE_ROOT"] = str(database_root.resolve())
         proc = subprocess.run(
             [sys.executable, str(script)],
             check=False,
             capture_output=True,
             text=True,
             timeout=60,
-            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+            env=child_env,
         )
         if proc.returncode != 0 or not out_path.is_file():
             return {

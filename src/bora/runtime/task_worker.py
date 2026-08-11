@@ -41,7 +41,20 @@ def _send_msg(fd: int, obj: dict[str, Any]) -> None:
     os.write(fd, struct.pack("!I", len(raw)) + raw)
 
 
-def _load_entrypoint(package_root: Path, entrypoint: str) -> Any:
+def _inject_import_paths(package_root: Path, database_root: Path | None) -> None:
+    """Make task root and optional Dataset ``shared/lib`` importable (#65)."""
+    # Task member root first so task-local modules resolve; shared/lib second.
+    # Collision of top-level names is banned at lock time, so order is non-semantic.
+    sys.path.insert(0, str(package_root))
+    if database_root is not None:
+        shared_lib = database_root / "shared" / "lib"
+        if shared_lib.is_dir():
+            sys.path.insert(0, str(shared_lib.resolve()))
+
+
+def _load_entrypoint(
+    package_root: Path, entrypoint: str, *, database_root: Path | None = None
+) -> Any:
     module_name, _, func_name = entrypoint.partition(":")
     if not module_name or not func_name:
         raise ValueError(f"invalid entrypoint: {entrypoint}")
@@ -53,8 +66,7 @@ def _load_entrypoint(package_root: Path, entrypoint: str) -> Any:
     if spec is None or spec.loader is None:
         raise ImportError("cannot load harness.py")
     mod = importlib.util.module_from_spec(spec)
-    # Ensure package root is importable for local modules only under package.
-    sys.path.insert(0, str(package_root))
+    _inject_import_paths(package_root, database_root)
     spec.loader.exec_module(mod)
     fn = getattr(mod, func_name)
     return fn
@@ -71,6 +83,9 @@ async def _run(fd: int) -> int:
     # Optional Attempt workspace (L1 host bind); default package root for L0.
     ws_raw = launch.get("workspace_root")
     workspace_root = Path(ws_raw) if ws_raw else package_root
+    # #65 Dataset root for shared/lib import + code-path assets.
+    db_raw = launch.get("database_root")
+    database_root = Path(db_raw) if db_raw else None
 
     # Build SDK context inside worker only.
     from bora_sdk.context import HarnessContext, HarnessParameterView, RunScope
@@ -85,9 +100,10 @@ async def _run(fd: int) -> int:
         ),
         workspace_root=workspace_root,
         artifact_dir=artifact_dir,
+        database_root=database_root,
     )
     try:
-        fn = _load_entrypoint(package_root, entrypoint)
+        fn = _load_entrypoint(package_root, entrypoint, database_root=database_root)
         result = fn(ctx)
         if asyncio.iscoroutine(result):
             result = await result

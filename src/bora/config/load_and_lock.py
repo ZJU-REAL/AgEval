@@ -98,6 +98,16 @@ class ConfigCore:
 
         validate_top_level_layout(self._reader, root)
 
+        # #65 Dataset shared/ bans + shared/lib vs task lib collision (when Database root known).
+        from bora.config.shared import infer_database_root_from_task, validate_shared_layout
+
+        db_root = infer_database_root_from_task(root)
+        if db_root is not None:
+            from bora.config.database import load_database_manifest
+
+            man = load_database_manifest(db_root)
+            validate_shared_layout(db_root, tasks_root=man.tasks_root)
+
         if not self._reader.exists(root, "task.yaml"):
             raise ConfigError(
                 ERROR_INVALID_PACKAGE,
