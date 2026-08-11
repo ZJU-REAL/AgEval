@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Created | 2026-08-11 |
-| Status | **in-progress** |
-| Completed | pending |
+| Status | **completed** |
+| Completed | 2026-08-11 |
 | Dependencies | [00](00-extension-registry-default-plan.md), [01](01-acp-default-providers-plan.md), [02](02-nooa-provide-switch-plan.md), [03](03-cli-plugin-lifecycle-plan.md) |
 | Decisions | [constitution §0 / §1 / §3 / §7.1 / §7.6 / Recognition≠Ready](../constitution/2026-08-11-extension-api-and-registry.md) |
 
@@ -61,47 +61,47 @@ uv run bora run examples/journeys --task <task> \
 | `multiagent-env-min` | 同上 |
 | `env-postgres-min` | exit 0；无 Agent；装 nooa **不破坏** env 路径 |
 
-- [ ] **四 task 均真实 `bora run` 达标**（无 `BORA_OFFLINE_AGENT`；禁止用 host-in-container 或 deterministic 借口跳过「容器内」）。  
-- [ ] **L1 / Docker Agent 路径禁止** parent 直接 `NooaExecutorSPI.invoke` 作为成功路径。
+- [x] **四 task 均真实 `bora run` 达标**（无 `BORA_OFFLINE_AGENT`；禁止用 host-in-container 或 deterministic 借口跳过「容器内」）。  
+- [x] **L1 / Docker Agent 路径禁止** parent 直接 `NooaExecutorSPI.invoke` 作为成功路径。
 
 ### A. image_contribute 必须被消费（Core）
 
-- [ ] **A1** 存在唯一生产入口：L1（及本 Spec 要求的 Docker Agent prepare）在 **build/prepare 前** 调用 `collect_image_contribute`（或等价合并 API），输入为 **已绑定 profile 的 ExtensionGraph 链**。  
-- [ ] **A2** 合并结果 **驱动** 镜像内容或等价 bake 步骤（Dockerfile 生成/片段合并 / build-arg / 预装 worker 之一，**写进代码与证据**）；禁止只写 JSON 声明不进镜像。  
-- [ ] **A3** nooa 绑定后，镜像或容器内 **可执行** nooa worker / entry（名称可实现自定，但 evidence 可证明 invoke 落在容器内）。  
-- [ ] **A4** 未装 nooa / 未绑定 nooa 时，**不**强制 bake nooa；默认 ACP 路径不回归。  
-- [ ] **A5** bake/prepare 失败 → Attempt **ERROR fail closed**，不得 silent host 成功。
+- [x] **A1** 存在唯一生产入口：L1（及本 Spec 要求的 Docker Agent prepare）在 **build/prepare 前** 调用 `collect_image_contribute`（或等价合并 API），输入为 **已绑定 profile 的 ExtensionGraph 链**。  
+- [x] **A2** 合并结果 **驱动** 镜像内容或等价 bake 步骤（Dockerfile 生成/片段合并 / build-arg / 预装 worker 之一，**写进代码与证据**）；禁止只写 JSON 声明不进镜像。  
+- [x] **A3** nooa 绑定后，镜像或容器内 **可执行** nooa worker / entry（名称可实现自定，但 evidence 可证明 invoke 落在容器内）。  
+- [x] **A4** 未装 nooa / 未绑定 nooa 时，**不**强制 bake nooa；默认 ACP 路径不回归。  
+- [x] **A5** bake/prepare 失败 → Attempt **ERROR fail closed**，不得 silent host 成功。
 
 ### B. nooa 容器内执行（取代 host-in-container 终态）
 
-- [ ] **B1** 删除或降级为 **测试-only / 显式 env 调试** 的 host-in-container 成功路径；默认 L1 **不得**走 parent SPI 顶成功。  
-- [ ] **B2** L1 `make_target_executor`（或后继）：`executor_kind=nooa` → **docker exec / 容器内进程** 调 SPI 或 worker，workdir = 容器内 Attempt workspace。  
-- [ ] **B3** evidence：`executor_kind=nooa` 且 `execution_location`（或等价字段）= 容器侧；`host_fallback_count=0`。  
-- [ ] **B4** journeys 中 **所有带 Agent 的 task**：为满足「Docker 内 nooa」，允许且 **应当** 将 task `provider.kind` 升为 `docker`（或 Database/job 覆盖），**禁止** 终态验收仍落在纯 host L0 Agent invoke。`env-postgres-min` 可保持无 Agent。
+- [x] **B1** 删除或降级为 **测试-only / 显式 env 调试** 的 host-in-container 成功路径；默认 L1 **不得**走 parent SPI 顶成功。  
+- [x] **B2** L1 `make_target_executor`（或后继）：`executor_kind=nooa` → **docker exec / 容器内进程** 调 SPI 或 worker，workdir = 容器内 Attempt workspace。  
+- [x] **B3** evidence：`executor_kind=nooa` 且 `execution_location`（或等价字段）= 容器侧；`host_fallback_count=0`。  
+- [x] **B4** journeys 中 **所有带 Agent 的 task**：为满足「Docker 内 nooa」，允许且 **应当** 将 task `provider.kind` 升为 `docker`（或 Database/job 覆盖），**禁止** 终态验收仍落在纯 host L0 Agent invoke。`env-postgres-min` 可保持无 Agent。
 
 ### C. lifecycle 真接线（Core）
 
-- [ ] **C1** `before_prepare` / `after_prepare` / run / evaluate / cleanup 在 `bora run` 主路径上 **实际 await**；禁止「有 event loop 就 skip + unawaited coroutine」。  
-- [ ] **C2** 与镜像/隔离相关的 hook 失败：**fail closed**（至少 prepare/bake）；非关键观测 hook 可记录后继续，但必须 **文档化且可测**，默认不得静默吞掉 prepare 失败。  
-- [ ] **C3** 单测：嵌套 loop / 同步 `bora run` 两条路径 hook 均被调用（spy 或 counter）。
+- [x] **C1** `before_prepare` / `after_prepare` / run / evaluate / cleanup 在 `bora run` 主路径上 **实际 await**；禁止「有 event loop 就 skip + unawaited coroutine」。  
+- [x] **C2** 与镜像/隔离相关的 hook 失败：**fail closed**（至少 prepare/bake）；非关键观测 hook 可记录后继续，但必须 **文档化且可测**，默认不得静默吞掉 prepare 失败。  
+- [x] **C3** 单测：嵌套 loop / 同步 `bora run` 两条路径 hook 均被调用（spy 或 counter）。
 
 ### D. Recognition ≠ Ready
 
-- [ ] **D1** path install 后：`plugin list` / executors 可见 nooa；**未** bake 前 L1 nooa run **不得** PASS（缺 Ready → 明确错误 kind，如 `plugin_not_ready` / `image_contribute_unsatisfied`）。  
-- [ ] **D2** 文档/注释/Spec 证据写清三句：install ≠ bind ≠ Ready。  
-- [ ] **D3** （可选但推荐）Config 白名单与 registry Recognition 关系写清：名字可识别 ≠ provide 已装；**不得**未装却 lock 成功。
+- [x] **D1** path install 后：`plugin list` / executors 可见 nooa；**未** bake 前 L1 nooa run **不得** PASS（缺 Ready → 明确错误 kind，如 `plugin_not_ready` / `image_contribute_unsatisfied`）。  
+- [x] **D2** 文档/注释/Spec 证据写清三句：install ≠ bind ≠ Ready。  
+- [x] **D3** （可选但推荐）Config 白名单与 registry Recognition 关系写清：名字可识别 ≠ provide 已装；**不得**未装却 lock 成功。
 
 ### E. 失败面
 
-- [ ] 未 install + `executor: nooa` → lock/run fail closed（回归 02/03）。  
-- [ ] 已 install 但 bake 声明无法满足 → run fail closed。  
-- [ ] 缺 `options.agent` → 稳定错误。  
-- [ ] install **不**改 profiles。
+- [x] 未 install + `executor: nooa` → lock/run fail closed（回归 02/03）。  
+- [x] 已 install 但 bake 声明无法满足 → run fail closed。  
+- [x] 缺 `options.agent` → 稳定错误。  
+- [x] install **不**改 profiles。
 
 ### F. 回归
 
-- [ ] **未装 nooa** 时默认 ACP journeys 主路径（至少 `terminal-jsonl-agg` ACP lock + 既有 L1 行为）不破。  
-- [ ] `tests/plugins` + 本 Spec 新增 Core 单测绿；ruff/pyright 相关路径绿。
+- [x] **未装 nooa** 时默认 ACP journeys 主路径（至少 `terminal-jsonl-agg` ACP lock + 既有 L1 行为）不破。  
+- [x] `tests/plugins` + 本 Spec 新增 Core 单测绿；ruff/pyright 相关路径绿。
 
 ### G. 非目标（禁止塞进本 Spec）
 
@@ -196,52 +196,52 @@ bora run … --profiles profiles.nooa.yaml
 **目标：** 标明现状；禁止继续扩 host-in-container 为验收。  
 **验收：**
 
-- [ ] 文档/Spec（本文件）列出缺口表；  
-- [ ] 代码注释或测试标明：L1 `kind=nooa` + parent SPI = **非**生产 Ready（或直接删成功路径，Phase 2 完成前可暂 `NotImplemented`/ERROR）。
+- [x] 文档/Spec（本文件）列出缺口表；  
+- [x] 代码注释或测试标明：L1 `kind=nooa` + parent SPI = **非**生产 Ready（或直接删成功路径，Phase 2 完成前可暂 `NotImplemented`/ERROR）。
 
 ### Phase 1 — lifecycle 真 await + prepare fail closed
 
 **目标：** Core lifecycle 不再空转。  
 **验收：**
 
-- [ ] C1–C3 满足；  
-- [ ] 同步 `bora run` 与「已有 loop」场景均无 unawaited 警告（相关路径）；  
-- [ ] 单测：hook counter ≥1 on prepare。
+- [x] C1–C3 满足；  
+- [x] 同步 `bora run` 与「已有 loop」场景均无 unawaited 警告（相关路径）；  
+- [x] 单测：hook counter ≥1 on prepare。
 
 ### Phase 2 — 消费 `image_contribute` 驱动 bake
 
 **目标：** 声明链 → 镜像内容。  
 **验收：**
 
-- [ ] A1–A5 满足；  
-- [ ] 绑定 nooa 时 prepare 日志/证据含 contribute 合并结果；  
-- [ ] 故意破坏 bake 输入 → run ERROR。
+- [x] A1–A5 满足；  
+- [x] 绑定 nooa 时 prepare 日志/证据含 contribute 合并结果；  
+- [x] 故意破坏 bake 输入 → run ERROR。
 
 ### Phase 3 — nooa 容器内 executor
 
 **目标：** Docker 内 invoke。  
 **验收：**
 
-- [ ] B1–B3 满足；  
-- [ ] 最小 e2e：`terminal-jsonl-agg` + path install nooa → PASS，evidence 容器内 + `executor_kind=nooa`。
+- [x] B1–B3 满足；  
+- [x] 最小 e2e：`terminal-jsonl-agg` + path install nooa → PASS，evidence 容器内 + `executor_kind=nooa`。
 
 ### Phase 4 — journeys 全部 case 终态
 
 **目标：** 总硬门槛。  
 **验收：**
 
-- [ ] 四 task 表全绿；  
-- [ ] B4 满足（Agent task 均 Docker 内 nooa）；  
-- [ ] D1–D2、E、F 满足；  
-- [ ] Spec 02 中「host-in-container 可过 L1」表述被本 Spec 覆盖废止（02 Evidence 可加 supersede 注记，**不**回滚 02 外置形态）。
+- [x] 四 task 表全绿；  
+- [x] B4 满足（Agent task 均 Docker 内 nooa）；  
+- [x] D1–D2、E、F 满足；  
+- [x] Spec 02 中「host-in-container 可过 L1」表述被本 Spec 覆盖废止（02 Evidence 可加 supersede 注记，**不**回滚 02 外置形态）。
 
 ### Phase 5 — 工程门禁与关闭
 
 **验收：**
 
-- [ ] ruff / pyright / `tests/plugins` + 本 Spec 新增测；  
-- [ ] Evidence 节填真实命令与 logs 路径；  
-- [ ] Status → completed **仅当** 总硬门槛全勾。
+- [x] ruff / pyright / `tests/plugins` + 本 Spec 新增测；  
+- [x] Evidence 节填真实命令与 logs 路径；  
+- [x] Status → completed **仅当** 总硬门槛全勾。
 
 ---
 
@@ -249,13 +249,13 @@ bora run … --profiles profiles.nooa.yaml
 
 | 项 | 内容 |
 | --- | --- |
-| `BORA_HOME` | |
+| `BORA_HOME` | `/tmp/bora-spec05-e2e-81476` |
 | install 命令 | `bora plugin install plugins/nooa` |
-| 四 task status/score/logs | |
-| L1/容器 evidence 字段 | `executor_kind` / `execution_location` / `host_fallback_count` |
-| bake 证据 | image tag / contribute 合并结果片段 |
-| 反例 | 未装 fail closed；bake 失败 ERROR |
-| 单测 | |
+| 四 task status/score/logs | **terminal-jsonl-agg** PASS score=1.0 assurance=l1 logs=`examples/journeys/.bora/runs/sha256_7b84b4778b7cc7e75065d1a5b0b5508bbadefe1ef_run_4184809c45dc`；**tau2-dialog-min** PASS score=1.0 l1 logs=`…/sha256_b1ec21283a1ce2e6aa3dcbba97cdde5da273ea14f_run_5d786c996b06`；**multiagent-env-min** PASS score=1.0 l1 logs=`…/sha256_59d6d79828a3d8f61b315ff906115bb3f1b816e17_run_2d54d4129e06`；**env-postgres-min** PASS score=1.0 l0 (no Agent) logs=`…/sha256_d87dc3e1d3f8659ff17a8c4503773626ecb1466c0_run_c9472a0f6301` |
+| L1/容器 evidence 字段 | `executor_kind=nooa`；`execution_location=attempt-container`（invoke events + l1.json）；`host_fallback_count=0` |
+| bake 证据 | e.g. `bora-pkg:terminal-jsonl-agg-7b84b4778b7c-nooa-d4848dffa705`；`image_contribute.status=baked` + declares `ready_strategy=in-container-worker` |
+| 反例 | 未装：`plugin 'nooa' has no provide for slot 'executor'`；unit：bound+empty contribute → `image_contribute_unsatisfied`；not installed → `plugin_not_ready` |
+| 单测 | `BORA_HOME=<empty> uv run pytest tests/plugins -q` → 39 passed；`tests/plugins/test_extension_hooks_await.py` / `test_image_contribute_bake.py` / `test_nooa_container_executor.py` |
 
 ---
 

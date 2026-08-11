@@ -159,9 +159,12 @@ class NooaContainerExecutor:
                 error="nooa_container_result_not_object",
                 metadata={"plugin": "nooa", "execution_location": self.execution_location},
             )
-        meta = doc.get("metadata") if isinstance(doc.get("metadata"), dict) else {}
-        meta = {
-            **meta,
+        base_meta: dict[str, Any] = {}
+        raw_meta = doc.get("metadata")
+        if isinstance(raw_meta, dict):
+            base_meta = {str(k): v for k, v in raw_meta.items()}
+        meta: dict[str, Any] = {
+            **base_meta,
             "plugin": "nooa",
             "execution_location": self.execution_location,
             "agent": self.agent_ref,

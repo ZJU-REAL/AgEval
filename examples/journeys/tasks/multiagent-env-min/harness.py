@@ -39,7 +39,8 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     findings: list[dict] = []
 
     # --- specialists (pi ACP): one session, multi-invoke ---
-    async with agent.session(specialist_profile, max_turns=12) as specialist:
+    # L1 implicit shared-container topology uses actor_id="default".
+    async with agent.session(specialist_profile, actor_id="default", max_turns=12) as specialist:
         for name, sql in SPECIALIST_SQL.items():
             obs = await tools.call("db_query", {"sql": sql})
             raw = obs.get("result") if isinstance(obs.get("result"), dict) else obs
@@ -69,7 +70,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             findings.append(finding)
 
     # --- planner (opencode ACP): independent session ---
-    async with agent.session(planner_profile, max_turns=2) as planner:
+    async with agent.session(planner_profile, actor_id="default", max_turns=2) as planner:
         plan_inv = await planner.invoke(
             "You are the **planner**. Here are specialist findings JSON:\n"
             + json.dumps(
@@ -92,7 +93,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
                 follow_rows = str(fraw.get("stdout") or "")
 
     # --- reducer (grok-build ACP): independent session ---
-    async with agent.session(reducer_profile, max_turns=2) as reducer:
+    async with agent.session(reducer_profile, actor_id="default", max_turns=2) as reducer:
         red_inv = await reducer.invoke(
             "You are the **reducer**.\n"
             "Specialist findings:\n"

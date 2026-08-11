@@ -8,9 +8,14 @@ from typing import Any
 
 
 def evaluate(inputs: dict[str, Any]) -> dict[str, Any]:
-    data = json.loads(Path(inputs["artifacts"]["reducer-output"]).read_text(encoding="utf-8"))
-    expected_path = Path(__file__).resolve().parent / "evaluation" / "expected.json"
-    expected = json.loads(expected_path.read_text(encoding="utf-8"))
+    arts = inputs.get("artifacts") or {}
+    data = json.loads(Path(arts["reducer-output"]).read_text(encoding="utf-8"))
+    expected_raw = arts.get("expected")
+    if expected_raw:
+        expected = json.loads(Path(str(expected_raw)).read_text(encoding="utf-8"))
+    else:
+        expected_path = Path(__file__).resolve().parent / "evaluation" / "expected.json"
+        expected = json.loads(expected_path.read_text(encoding="utf-8"))
     pred = data.get("predicted_labels")
     if not isinstance(pred, list):
         return {"status": "FAIL", "score": 0.0, "metrics": {"reason": "missing_labels"}}

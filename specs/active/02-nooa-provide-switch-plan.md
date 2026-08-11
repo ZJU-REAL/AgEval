@@ -165,7 +165,9 @@ uv run bora plugin install plugins/nooa
 | `multiagent-env-min` | PASS | 1.0 | l0 | nooa | `…/sha256_876a41d1…_run_cc86fbfcdf00` |
 | `env-postgres-min` | PASS | 1.0 | l0 | (no agent) | `…/sha256_d87dc3e1…_run_68d49a7758a3` |
 
-L1 Ready：`host-in-container`（parent SPI 写 Attempt workspace mount）；`host_fallback_count=0`；官方镜像标签 `bora-attempt:l1` / `bora-pkg:*`。
+L1 Ready（**historical for Spec 02**）：`host-in-container`（parent SPI 写 Attempt workspace mount）；`host_fallback_count=0`；官方镜像标签 `bora-attempt:l1` / `bora-pkg:*`。
+
+> **Superseded by [Spec 05](05-core-extension-ready-nooa-container-plan.md)：** host-in-container is **not** production L1 Ready. Spec 05 requires `image_contribute` bake + **in-container** `bora-executor-nooa` (`execution_location=attempt-container`). External path-install shape from Spec 02 is retained.
 
 ### bootstrap 默认无 nooa
 

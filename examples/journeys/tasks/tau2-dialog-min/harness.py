@@ -38,7 +38,8 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     tools_used: list[str] = []
     agent = Agent(attempt_id=ctx.scope.attempt_id)
 
-    async with agent.session(user_profile, max_turns=2) as user_sess:
+    # L1 implicit shared-container topology uses actor_id="default".
+    async with agent.session(user_profile, actor_id="default", max_turns=2) as user_sess:
         # Fixture-style generation (not open-ended roleplay) so coding agents
         # do not refuse the user-sim turn as out-of-scope.
         user = await user_sess.invoke(
@@ -59,7 +60,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             return HarnessTerminal.failed("empty_user_message")
 
     finished = False
-    async with agent.session(service_profile, max_turns=12) as session:
+    async with agent.session(service_profile, actor_id="default", max_turns=12) as session:
         for _turn in range(1, 8):
             svc = await session.invoke(
                 "Act as the retail service agent.\n"
