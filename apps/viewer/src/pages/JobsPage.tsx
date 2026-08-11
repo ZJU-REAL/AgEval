@@ -249,11 +249,34 @@ export function JobsPage() {
               {!loading && !error && filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={10} className="text-mute py-10 text-center">
-                    No suite jobs yet. Run{" "}
-                    <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
-                      bora run &lt;database&gt;
-                    </code>{" "}
-                    then refresh.
+                    {jobs.length === 0 ? (
+                      <div className="max-w-lg mx-auto space-y-2 text-sm">
+                        <p className="font-medium text-ink">No suite jobs yet</p>
+                        <p>
+                          Jobs come from{" "}
+                          <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
+                            .bora/suite-runs/
+                          </code>{" "}
+                          only. A single-task run does{" "}
+                          <strong className="font-medium text-body">not</strong>{" "}
+                          create a Job.
+                        </p>
+                        <p>
+                          Run a full suite (omit{" "}
+                          <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
+                            --task
+                          </code>
+                          ), then refresh:
+                        </p>
+                        <p>
+                          <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
+                            bora run &lt;database&gt;
+                          </code>
+                        </p>
+                      </div>
+                    ) : (
+                      <span>No jobs match the current filters.</span>
+                    )}
                   </TableCell>
                 </TableRow>
               )}

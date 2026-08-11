@@ -218,10 +218,12 @@ ELSE:
 
 **验收：**
 
-- [ ] Jobs 空态文案正确（suite-runs / 全 suite `bora run`）；  
-- [ ] 既有 suite + nooa 路径 Trajectory 有 steps（人工或脚本点 API `/trajectory`）；  
-- [ ] （建议）executor_kind 可见；  
-- [ ] `pnpm --dir apps/viewer lint && build`（若改 viewer）。  
+- [x] Jobs 空态文案正确（suite-runs / 全 suite `bora run`）；  
+- [x] 既有 suite + nooa 路径 Trajectory 有 steps（人工或脚本点 API `/trajectory`）；  
+  - 依赖 05 + seal 写 traj；本 Phase 不重做 Core；fixture/unit 覆盖 traj surface  
+- [x] （建议）executor_kind 可见；  
+  - trial surface actors 带 `executor_kind`；Actors 表 Executor 列  
+- [x] `pnpm --dir apps/viewer lint && build`（若改 viewer）。  
 
 ### Phase 4 — 联通 smoke + 关闭
 
