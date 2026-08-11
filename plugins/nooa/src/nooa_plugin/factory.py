@@ -15,8 +15,9 @@ PLUGIN_ID = "nooa"
 class NooaExecutorSPI:
     """ExecutorSPI: invoke task-local agent class (options.agent + method).
 
-    Host-side SPI. For L1 Docker, Runtime uses host-in-container Ready strategy
-    (parent invoke with workdir = Attempt workspace mount).
+    Host SPI for L0 only. L1 production Ready is **in-container worker**
+    (``NooaContainerExecutor`` via image_contribute bake) — parent SPI is not
+    an L1 success path (Spec 05).
     """
 
     kind = "nooa"
@@ -45,7 +46,7 @@ class NooaExecutorSPI:
         self.profile_id = profile_id
         self.model = model or "nooa"
         self.options = opts
-        # Optional default workdir (L1 host-in-container injects Attempt workspace).
+        # Optional default workdir (L0 host path / tests).
         self.default_workdir = str(opts.get("_workdir")).strip() if opts.get("_workdir") else None
         self._agent: Any = None
         self._ready = False

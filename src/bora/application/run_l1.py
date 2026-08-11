@@ -146,9 +146,26 @@ def run_l1_sdk_session_attempt(
         )
 
     with timer.phase("prepare"):
-        docker, runtime, l1_meta = prepare_l1_runtime(
-            package_root, lock, run_dir, network_mode=network_mode
-        )
+        try:
+            docker, runtime, l1_meta = prepare_l1_runtime(
+                package_root, lock, run_dir, network_mode=network_mode
+            )
+        except Exception as exc:  # noqa: BLE001 — bake / contribute / docker prepare
+            msg = str(exc)
+            kind = "target_prepare_failed"
+            if "plugin_not_ready" in msg:
+                kind = "plugin_not_ready"
+            elif "image_contribute_unsatisfied" in msg:
+                kind = "image_contribute_unsatisfied"
+            return l1_error_result(
+                run_dir,
+                "provider",
+                {"error": msg[:800], "kind": kind},
+                agent_meta,
+                0,
+                kind=kind,
+                phase_timing=timer.as_dict(),
+            )
         assert runtime.workdir_host is not None
         assert runtime.attempt is not None
 
