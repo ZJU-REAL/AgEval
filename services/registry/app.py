@@ -18,9 +18,13 @@ Endpoints:
   GET  /v1/packages/{id}/by-digest/{dig}/content
   GET  /v1/packages/{id}/by-digest/{dig}/files
   GET  /v1/packages/{id}/by-digest/{dig}/files/{path}
+  DELETE /v1/packages/{id}/versions/{ver}
+  PATCH /v1/packages/{id}/versions/{ver}   (visibility)
   POST /v1/results/attempts
   GET  /v1/results/attempts
   GET  /v1/results/attempts/{run_id}
+  DELETE /v1/results/attempts/{run_id}
+  PATCH /v1/results/attempts/{run_id}     (visibility)
   GET  /v1/results/attempts/{run_id}/content
   GET  /v1/results/attempts/{run_id}/files
   GET  /v1/results/attempts/{run_id}/files/{path}
@@ -28,12 +32,16 @@ Endpoints:
   POST /v1/results/suites
   GET  /v1/results/suites
   GET  /v1/results/suites/{suite_run_id}
+  DELETE /v1/results/suites/{suite_run_id}[?with_attempts=1]
+  PATCH /v1/results/suites/{suite_run_id}  (visibility)
   GET  /v1/results/suites/{suite_run_id}/content
   GET|POST|DELETE /v1/results/suites/{suite_run_id}/shares
 
 Scopes: registry:publish | results:upload | admin (read-private legacy ignored for ACL)
 Visibility: public | private. Package private → org member; result private → owner/share.
+Owner ops: results → uploaded_by (or admin); packages → org owner (or admin).
 Unauthorized private → 404 (not 403). Suite results: no suite-level PASS authority.
+Blob GC: delete meta first; drop blob only when digest has zero remaining refs.
 """
 
 from __future__ import annotations
@@ -478,7 +486,9 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
 
         def do_DELETE(self) -> None:  # noqa: N802
-            path = unquote(self.path.split("?", 1)[0])
+            parsed = urlparse(self.path)
+            path = unquote(parsed.path)
+            qs = parse_qs(parsed.query)
             m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys/([^/]+)", path)
             if m:
                 self._revoke_invite_key(org_id=m.group(1), key_id=m.group(2))
@@ -498,6 +508,39 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             m = re.fullmatch(r"/v1/results/suites/([^/]+)/shares", path)
             if m:
                 self._remove_result_share(result_kind="suite", result_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)", path)
+            if m:
+                self._delete_attempt(run_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/results/suites/([^/]+)", path)
+            if m:
+                with_attempts = (qs.get("with_attempts") or ["0"])[0] in {
+                    "1",
+                    "true",
+                    "yes",
+                }
+                self._delete_suite(suite_run_id=m.group(1), with_attempts=with_attempts)
+                return
+            m = re.fullmatch(r"/v1/packages/(.+)/versions/([^/]+)", path)
+            if m:
+                self._delete_package_release(database_id=m.group(1), version=m.group(2))
+                return
+            _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
+
+        def do_PATCH(self) -> None:  # noqa: N802
+            path = unquote(self.path.split("?", 1)[0])
+            m = re.fullmatch(r"/v1/results/attempts/([^/]+)", path)
+            if m:
+                self._patch_attempt(run_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/results/suites/([^/]+)", path)
+            if m:
+                self._patch_suite(suite_run_id=m.group(1))
+                return
+            m = re.fullmatch(r"/v1/packages/(.+)/versions/([^/]+)", path)
+            if m:
+                self._patch_package_release(database_id=m.group(1), version=m.group(2))
                 return
             _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
 
@@ -927,6 +970,40 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 )
                 return
 
+            replace = bool(meta.get("replace")) or str(meta.get("replace") or "").lower() in {
+                "1",
+                "true",
+                "yes",
+            }
+            existing_rel = state.meta.get_by_version(database_id, version)
+            if existing_rel is not None:
+                if not replace:
+                    _json_response(
+                        self,
+                        409,
+                        {"error": "conflict", "message": "release already exists"},
+                    )
+                    return
+                # Package replace: org owner (or admin), same as delete.
+                if not (
+                    _is_admin(scopes)
+                    or (
+                        auth.user_id
+                        and existing_rel.org_id
+                        and (mem := state.meta.membership(existing_rel.org_id, auth.user_id))
+                        is not None
+                        and mem.role == "owner"
+                    )
+                ):
+                    _json_response(
+                        self,
+                        404,
+                        {"error": "not_found", "message": "release not found"},
+                    )
+                    return
+                state.meta.delete_release(database_id, version)
+                self._gc_package_blob(existing_rel.blob_digest)
+
             row = ReleaseRow(
                 database_id=database_id,
                 version=version,
@@ -948,7 +1025,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     {"error": "conflict", "message": "release already exists"},
                 )
                 return
-            _json_response(self, 201, release_to_dict(row))
+            rel_payload = release_to_dict(row)
+            if existing_rel is not None and replace:
+                rel_payload["replaced"] = True
+            _json_response(self, 201, rel_payload)
 
         def _list_packages(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             prefix = (qs.get("database_id_prefix") or [None])[0]
@@ -1236,6 +1316,34 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 )
                 return
 
+            replace = bool(meta.get("replace")) or str(meta.get("replace") or "").lower() in {
+                "1",
+                "true",
+                "yes",
+            }
+            existing = state.meta.get_attempt(run_id)
+            if existing is not None:
+                if not replace:
+                    _json_response(
+                        self,
+                        409,
+                        {"error": "conflict", "message": "attempt result already exists"},
+                    )
+                    return
+                # Replace is owner-only (uploaded_by) or admin — never silent.
+                if not (
+                    _is_admin(scopes)
+                    or (auth.user_id and existing.uploaded_by == auth.user_id)
+                ):
+                    _json_response(
+                        self,
+                        404,
+                        {"error": "not_found", "message": "attempt not found"},
+                    )
+                    return
+                state.meta.delete_attempt(run_id)
+                self._gc_attempt_blob(existing.blob_digest)
+
             row = AttemptResultRow(
                 run_id=run_id,
                 database_id=database_id,
@@ -1259,7 +1367,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     {"error": "conflict", "message": "attempt result already exists"},
                 )
                 return
-            _json_response(self, 201, attempt_to_dict(row))
+            payload = attempt_to_dict(row)
+            if existing is not None and replace:
+                payload["replaced"] = True
+            _json_response(self, 201, payload)
 
         def _list_attempts(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             database_id = (qs.get("database_id") or [None])[0]
@@ -1550,6 +1661,33 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if isinstance(overlay_raw, dict) and overlay_raw:
                 config_payload["job_overlay"] = overlay_raw
 
+            replace = bool(meta.get("replace")) or str(meta.get("replace") or "").lower() in {
+                "1",
+                "true",
+                "yes",
+            }
+            existing_suite = state.meta.get_suite(suite_run_id)
+            if existing_suite is not None:
+                if not replace:
+                    _json_response(
+                        self,
+                        409,
+                        {"error": "conflict", "message": "suite result already exists"},
+                    )
+                    return
+                if not (
+                    _is_admin(scopes)
+                    or (auth.user_id and existing_suite.uploaded_by == auth.user_id)
+                ):
+                    _json_response(
+                        self,
+                        404,
+                        {"error": "not_found", "message": "suite not found"},
+                    )
+                    return
+                state.meta.delete_suite(suite_run_id)
+                self._gc_suite_blob(existing_suite.blob_digest)
+
             row = SuiteResultRow(
                 suite_run_id=suite_run_id,
                 database_id=database_id,
@@ -1578,7 +1716,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     {"error": "conflict", "message": "suite result already exists"},
                 )
                 return
-            _json_response(self, 201, suite_to_dict(row))
+            suite_payload = suite_to_dict(row)
+            if existing_suite is not None and replace:
+                suite_payload["replaced"] = True
+            _json_response(self, 201, suite_payload)
 
         def _suite_visible_attempt_ids(self, rows: list[Any], *, auth: TokenInfo) -> set[str]:
             """run_ids with attempt blobs the *auth* principal may open (fail-closed)."""
@@ -2181,6 +2322,220 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             return _is_admin(auth.scopes) or (
                 bool(auth.user_id) and row_s.uploaded_by == auth.user_id
             )
+
+        def _can_manage_package(self, row: ReleaseRow, auth: TokenInfo) -> bool:
+            """Package delete / set-visibility: org owner or admin."""
+            if _is_admin(auth.scopes):
+                return True
+            if not auth.user_id or not row.org_id:
+                return False
+            mem = state.meta.membership(row.org_id, auth.user_id)
+            return mem is not None and mem.role == "owner"
+
+        def _gc_attempt_blob(self, blob_digest: str) -> bool:
+            if not blob_digest:
+                return False
+            if state.meta.count_attempt_blob_refs(blob_digest) > 0:
+                return False
+            return bool(state.blobs.delete(blob_digest, prefix="results"))
+
+        def _gc_suite_blob(self, blob_digest: str) -> bool:
+            if not blob_digest:
+                return False
+            if state.meta.count_suite_blob_refs(blob_digest) > 0:
+                return False
+            return bool(state.blobs.delete(blob_digest, prefix="suite-results"))
+
+        def _gc_package_blob(self, blob_digest: str) -> bool:
+            if not blob_digest:
+                return False
+            if state.meta.count_package_blob_refs(blob_digest) > 0:
+                return False
+            return bool(state.blobs.delete(blob_digest, prefix="packages"))
+
+        def _delete_attempt_row(self, row: AttemptResultRow) -> bool:
+            """Delete attempt meta + GC blob. Returns whether blob was removed."""
+            state.meta.delete_attempt(row.run_id)
+            return self._gc_attempt_blob(row.blob_digest)
+
+        def _collect_suite_linked_attempts(
+            self, suite_row: SuiteResultRow
+        ) -> list[AttemptResultRow]:
+            """Attempts linked by suite_run_id column or task_refs run ids."""
+            from services.registry.store import _run_ids_from_tasks_json
+
+            by_id: dict[str, AttemptResultRow] = {}
+            for att in state.meta.list_attempts_for_suite(suite_row.suite_run_id):
+                by_id[att.run_id] = att
+            run_ids = list(_run_ids_from_tasks_json(suite_row.tasks_json))
+            # Also harvest multi-attempt audit lists.
+            try:
+                refs = json.loads(suite_row.tasks_json)
+            except (json.JSONDecodeError, TypeError):
+                refs = []
+            if isinstance(refs, list):
+                for ref in refs:
+                    if not isinstance(ref, dict):
+                        continue
+                    extra = ref.get("attempt_run_ids")
+                    if isinstance(extra, list):
+                        for rid in extra:
+                            text = str(rid or "").strip()
+                            if text:
+                                run_ids.append(text)
+            for att in state.meta.attempts_for_ids(run_ids):
+                by_id[att.run_id] = att
+            return list(by_id.values())
+
+        def _delete_attempt(self, *, run_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not self._can_manage_result("attempt", run_id, auth, for_read=False):
+                # Fail-closed: conceal existence (matches private read policy).
+                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                return
+            row = state.meta.get_attempt(run_id)
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                return
+            blob_deleted = self._delete_attempt_row(row)
+            _json_response(
+                self,
+                200,
+                {
+                    "ok": True,
+                    "result_kind": "attempt",
+                    "result_id": run_id,
+                    "blob_deleted": blob_deleted,
+                },
+            )
+
+        def _delete_suite(self, *, suite_run_id: str, with_attempts: bool) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not self._can_manage_result("suite", suite_run_id, auth, for_read=False):
+                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+                return
+            row = state.meta.get_suite(suite_run_id)
+            if row is None:
+                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+                return
+            deleted_attempts: list[str] = []
+            skipped_attempts: list[str] = []
+            if with_attempts:
+                for att in self._collect_suite_linked_attempts(row):
+                    # Only cascade attempts owned by the same principal (or admin).
+                    if not (
+                        _is_admin(auth.scopes)
+                        or (auth.user_id and att.uploaded_by == auth.user_id)
+                    ):
+                        skipped_attempts.append(att.run_id)
+                        continue
+                    self._delete_attempt_row(att)
+                    deleted_attempts.append(att.run_id)
+            state.meta.delete_suite(suite_run_id)
+            blob_deleted = self._gc_suite_blob(row.blob_digest)
+            payload: dict[str, Any] = {
+                "ok": True,
+                "result_kind": "suite",
+                "result_id": suite_run_id,
+                "blob_deleted": blob_deleted,
+                "with_attempts": with_attempts,
+                "deleted_attempts": deleted_attempts,
+            }
+            if skipped_attempts:
+                payload["skipped_attempts"] = skipped_attempts
+            _json_response(self, 200, payload)
+
+        def _patch_visibility_body(self) -> str | None:
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return None
+            visibility = str(body.get("visibility") or "").strip()
+            if visibility not in {"public", "private"}:
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_request",
+                        "message": "visibility must be public or private",
+                    },
+                )
+                return None
+            return visibility
+
+        def _patch_attempt(self, *, run_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not self._can_manage_result("attempt", run_id, auth, for_read=False):
+                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                return
+            visibility = self._patch_visibility_body()
+            if visibility is None:
+                return
+            try:
+                row = state.meta.set_attempt_visibility(run_id, visibility)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                return
+            _json_response(self, 200, attempt_to_dict(row))
+
+        def _patch_suite(self, *, suite_run_id: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            if not self._can_manage_result("suite", suite_run_id, auth, for_read=False):
+                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+                return
+            visibility = self._patch_visibility_body()
+            if visibility is None:
+                return
+            try:
+                row = state.meta.set_suite_visibility(suite_run_id, visibility)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+                return
+            _json_response(self, 200, suite_to_dict(row))
+
+        def _delete_package_release(self, *, database_id: str, version: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            row = state.meta.get_by_version(database_id, version)
+            if row is None or not self._can_manage_package(row, auth):
+                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+                return
+            state.meta.delete_release(database_id, version)
+            blob_deleted = self._gc_package_blob(row.blob_digest)
+            _json_response(
+                self,
+                200,
+                {
+                    "ok": True,
+                    "database_id": database_id,
+                    "version": version,
+                    "blob_deleted": blob_deleted,
+                },
+            )
+
+        def _patch_package_release(self, *, database_id: str, version: str) -> None:
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            row = state.meta.get_by_version(database_id, version)
+            if row is None or not self._can_manage_package(row, auth):
+                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+                return
+            visibility = self._patch_visibility_body()
+            if visibility is None:
+                return
+            try:
+                updated = state.meta.set_release_visibility(database_id, version, visibility)
+            except LookupError:
+                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+                return
+            _json_response(self, 200, release_to_dict(updated))
 
     return Handler
 

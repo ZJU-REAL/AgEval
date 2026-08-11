@@ -92,6 +92,69 @@ def show_package(ref: str, *, registry_url: str | None = None) -> dict[str, Any]
     }
 
 
+def delete_package_release(ref: str, *, registry_url: str | None = None) -> dict[str, Any]:
+    """Delete a package release (org owner / admin). *ref* = database_id@version."""
+    parsed = parse_package_ref(ref)
+    if parsed.kind == "path" or not parsed.database_id or not parsed.version:
+        raise ConfigError(
+            "invalid_package",
+            "expected database_id@version",
+            location=ref,
+        )
+    if parsed.package_digest:
+        raise ConfigError(
+            "invalid_package",
+            "delete requires database_id@version (not digest ref)",
+            location=ref,
+        )
+    client = _client(registry_url=registry_url)
+    try:
+        return client.delete_package_release(
+            database_id=parsed.database_id,
+            version=parsed.version,
+        )
+    except RegistryError as exc:
+        raise ConfigError(exc.code, exc.message, location="registry") from exc
+
+
+def set_package_visibility(
+    ref: str,
+    *,
+    visibility: str,
+    registry_url: str | None = None,
+) -> dict[str, Any]:
+    """Set package release visibility (org owner / admin). *ref* = database_id@version."""
+    if visibility not in {"public", "private"}:
+        raise ConfigError(
+            "invalid_request",
+            "visibility must be public or private",
+            location="registry",
+        )
+    parsed = parse_package_ref(ref)
+    if parsed.kind == "path" or not parsed.database_id or not parsed.version:
+        raise ConfigError(
+            "invalid_package",
+            "expected database_id@version",
+            location=ref,
+        )
+    if parsed.package_digest:
+        raise ConfigError(
+            "invalid_package",
+            "set-visibility requires database_id@version (not digest ref)",
+            location=ref,
+        )
+    client = _client(registry_url=registry_url)
+    try:
+        data = client.set_package_visibility(
+            database_id=parsed.database_id,
+            version=parsed.version,
+            visibility=visibility,
+        )
+    except RegistryError as exc:
+        raise ConfigError(exc.code, exc.message, location="registry") from exc
+    return {"ok": True, **data}
+
+
 def cache_list(*, cache_root: Path | None = None) -> dict[str, Any]:
     root = (cache_root or default_cache_root()).resolve()
     base = root / "databases"

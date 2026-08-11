@@ -173,6 +173,11 @@ class MemoryBlobStore:
         with self._lock:
             return self._data.get(self._key(blob_digest, prefix))
 
+    def delete(self, blob_digest: str, *, prefix: str = "packages") -> bool:
+        """Remove blob if present. Returns True when a key was deleted."""
+        with self._lock:
+            return self._data.pop(self._key(blob_digest, prefix), None) is not None
+
 
 class FilesystemBlobStore:
     """Dev fallback: local directory. Prefer S3 for compose e2e."""
@@ -199,6 +204,13 @@ class FilesystemBlobStore:
         if not path.is_file():
             return None
         return path.read_bytes()
+
+    def delete(self, blob_digest: str, *, prefix: str = "packages") -> bool:
+        path = self._path(blob_digest, prefix)
+        if not path.is_file():
+            return False
+        path.unlink()
+        return True
 
 
 class S3BlobStore:
@@ -261,6 +273,18 @@ class S3BlobStore:
         except self._ClientError:
             return None
         return bytes(resp["Body"].read())
+
+    def delete(self, blob_digest: str, *, prefix: str = "packages") -> bool:
+        key = self._object_key(blob_digest, prefix)
+        try:
+            self._client.head_object(Bucket=self.bucket, Key=key)
+        except self._ClientError:
+            return False
+        try:
+            self._client.delete_object(Bucket=self.bucket, Key=key)
+        except self._ClientError:
+            return False
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -882,6 +906,129 @@ class MetadataStore:
                 params,
             )
             return [self._suite_row(r) for r in cur.fetchall()]
+
+    def delete_attempt(self, run_id: str) -> AttemptResultRow:
+        """Delete attempt row and its shares. Raises LookupError if missing."""
+        row = self.get_attempt(run_id)
+        if row is None:
+            raise LookupError("attempt not found")
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM result_shares WHERE result_kind='attempt' AND result_id=?",
+                (run_id,),
+            )
+            conn.execute("DELETE FROM attempt_results WHERE run_id=?", (run_id,))
+            conn.commit()
+        return row
+
+    def set_attempt_visibility(self, run_id: str, visibility: str) -> AttemptResultRow:
+        if visibility not in {"public", "private"}:
+            raise ValueError("bad visibility")
+        row = self.get_attempt(run_id)
+        if row is None:
+            raise LookupError("attempt not found")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE attempt_results SET visibility=? WHERE run_id=?",
+                (visibility, run_id),
+            )
+            conn.commit()
+        updated = self.get_attempt(run_id)
+        assert updated is not None
+        return updated
+
+    def delete_suite(self, suite_run_id: str) -> SuiteResultRow:
+        """Delete suite row and its shares (does not cascade attempts)."""
+        row = self.get_suite(suite_run_id)
+        if row is None:
+            raise LookupError("suite not found")
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM result_shares WHERE result_kind='suite' AND result_id=?",
+                (suite_run_id,),
+            )
+            conn.execute("DELETE FROM suite_results WHERE suite_run_id=?", (suite_run_id,))
+            conn.commit()
+        return row
+
+    def set_suite_visibility(self, suite_run_id: str, visibility: str) -> SuiteResultRow:
+        if visibility not in {"public", "private"}:
+            raise ValueError("bad visibility")
+        row = self.get_suite(suite_run_id)
+        if row is None:
+            raise LookupError("suite not found")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE suite_results SET visibility=? WHERE suite_run_id=?",
+                (visibility, suite_run_id),
+            )
+            conn.commit()
+        updated = self.get_suite(suite_run_id)
+        assert updated is not None
+        return updated
+
+    def list_attempts_for_suite(self, suite_run_id: str) -> list[AttemptResultRow]:
+        """Attempts whose suite_run_id column matches (any visibility)."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM attempt_results WHERE suite_run_id=? ORDER BY created_at DESC",
+                (suite_run_id,),
+            )
+            return [self._attempt_row(r) for r in cur.fetchall()]
+
+    def count_attempt_blob_refs(self, blob_digest: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) AS n FROM attempt_results WHERE blob_digest=?",
+                (blob_digest,),
+            )
+            return int(cur.fetchone()["n"])
+
+    def count_suite_blob_refs(self, blob_digest: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) AS n FROM suite_results WHERE blob_digest=?",
+                (blob_digest,),
+            )
+            return int(cur.fetchone()["n"])
+
+    def count_package_blob_refs(self, blob_digest: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) AS n FROM releases WHERE blob_digest=?",
+                (blob_digest,),
+            )
+            return int(cur.fetchone()["n"])
+
+    def delete_release(self, database_id: str, version: str) -> ReleaseRow:
+        row = self.get_by_version(database_id, version)
+        if row is None:
+            raise LookupError("release not found")
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM releases WHERE database_id=? AND version=?",
+                (database_id, version),
+            )
+            conn.commit()
+        return row
+
+    def set_release_visibility(
+        self, database_id: str, version: str, visibility: str
+    ) -> ReleaseRow:
+        if visibility not in {"public", "private"}:
+            raise ValueError("bad visibility")
+        row = self.get_by_version(database_id, version)
+        if row is None:
+            raise LookupError("release not found")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE releases SET visibility=? WHERE database_id=? AND version=?",
+                (visibility, database_id, version),
+            )
+            conn.commit()
+        updated = self.get_by_version(database_id, version)
+        assert updated is not None
+        return updated
 
     @staticmethod
     def _release_row(r: sqlite3.Row) -> ReleaseRow:
@@ -1946,6 +2093,128 @@ class PostgresMetadataStore:
             rows = cur.fetchall()
             cols = [d.name for d in cur.description] if cur.description else []
             return [self._suite_from_cols(cols, r) for r in rows]
+
+    def delete_attempt(self, run_id: str) -> AttemptResultRow:
+        row = self.get_attempt(run_id)
+        if row is None:
+            raise LookupError("attempt not found")
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM result_shares WHERE result_kind='attempt' AND result_id=%s",
+                (run_id,),
+            )
+            conn.execute("DELETE FROM attempt_results WHERE run_id=%s", (run_id,))
+            conn.commit()
+        return row
+
+    def set_attempt_visibility(self, run_id: str, visibility: str) -> AttemptResultRow:
+        if visibility not in {"public", "private"}:
+            raise ValueError("bad visibility")
+        row = self.get_attempt(run_id)
+        if row is None:
+            raise LookupError("attempt not found")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE attempt_results SET visibility=%s WHERE run_id=%s",
+                (visibility, run_id),
+            )
+            conn.commit()
+        updated = self.get_attempt(run_id)
+        assert updated is not None
+        return updated
+
+    def delete_suite(self, suite_run_id: str) -> SuiteResultRow:
+        row = self.get_suite(suite_run_id)
+        if row is None:
+            raise LookupError("suite not found")
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM result_shares WHERE result_kind='suite' AND result_id=%s",
+                (suite_run_id,),
+            )
+            conn.execute("DELETE FROM suite_results WHERE suite_run_id=%s", (suite_run_id,))
+            conn.commit()
+        return row
+
+    def set_suite_visibility(self, suite_run_id: str, visibility: str) -> SuiteResultRow:
+        if visibility not in {"public", "private"}:
+            raise ValueError("bad visibility")
+        row = self.get_suite(suite_run_id)
+        if row is None:
+            raise LookupError("suite not found")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE suite_results SET visibility=%s WHERE suite_run_id=%s",
+                (visibility, suite_run_id),
+            )
+            conn.commit()
+        updated = self.get_suite(suite_run_id)
+        assert updated is not None
+        return updated
+
+    def list_attempts_for_suite(self, suite_run_id: str) -> list[AttemptResultRow]:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM attempt_results WHERE suite_run_id=%s ORDER BY created_at DESC",
+                (suite_run_id,),
+            )
+            rows = cur.fetchall()
+            cols = [d.name for d in cur.description] if cur.description else []
+            return [self._attempt_from_cols(cols, r) for r in rows]
+
+    def count_attempt_blob_refs(self, blob_digest: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM attempt_results WHERE blob_digest=%s",
+                (blob_digest,),
+            )
+            return int(cur.fetchone()[0])
+
+    def count_suite_blob_refs(self, blob_digest: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM suite_results WHERE blob_digest=%s",
+                (blob_digest,),
+            )
+            return int(cur.fetchone()[0])
+
+    def count_package_blob_refs(self, blob_digest: str) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM releases WHERE blob_digest=%s",
+                (blob_digest,),
+            )
+            return int(cur.fetchone()[0])
+
+    def delete_release(self, database_id: str, version: str) -> ReleaseRow:
+        row = self.get_by_version(database_id, version)
+        if row is None:
+            raise LookupError("release not found")
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM releases WHERE database_id=%s AND version=%s",
+                (database_id, version),
+            )
+            conn.commit()
+        return row
+
+    def set_release_visibility(
+        self, database_id: str, version: str, visibility: str
+    ) -> ReleaseRow:
+        if visibility not in {"public", "private"}:
+            raise ValueError("bad visibility")
+        row = self.get_by_version(database_id, version)
+        if row is None:
+            raise LookupError("release not found")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE releases SET visibility=%s WHERE database_id=%s AND version=%s",
+                (visibility, database_id, version),
+            )
+            conn.commit()
+        updated = self.get_by_version(database_id, version)
+        assert updated is not None
+        return updated
 
     @staticmethod
     def _release_from_cur(cur: Any, r: Any) -> ReleaseRow:

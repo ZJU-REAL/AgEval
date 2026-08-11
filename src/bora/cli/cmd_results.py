@@ -33,6 +33,13 @@ def register(app: typer.Typer) -> None:
             bool,
             typer.Option("--public", help="Create a public result (default: private)."),
         ] = False,
+        replace: Annotated[
+            bool,
+            typer.Option(
+                "--replace",
+                help="Overwrite same run_id if you own it (default: conflict 409).",
+            ),
+        ] = False,
         registry_url: Annotated[
             str | None,
             typer.Option("--registry-url", help="Override registry / results URL."),
@@ -47,6 +54,7 @@ def register(app: typer.Typer) -> None:
                 database,
                 run_id=run,
                 public=public,
+                replace=replace,
                 registry_url=registry_url,
             )
         except ConfigError as exc:
@@ -140,6 +148,13 @@ def register(app: typer.Typer) -> None:
                 ),
             ),
         ] = False,
+        replace: Annotated[
+            bool,
+            typer.Option(
+                "--replace",
+                help="Overwrite same suite_run_id if you own it (default: conflict 409).",
+            ),
+        ] = False,
         registry_url: Annotated[
             str | None,
             typer.Option("--registry-url", help="Override registry / results URL."),
@@ -157,6 +172,7 @@ def register(app: typer.Typer) -> None:
                 agent_label=agent,
                 model_label=model,
                 with_attempts=with_attempts,
+                replace=replace,
                 registry_url=registry_url,
             )
         except ConfigError as exc:
@@ -325,6 +341,141 @@ def register(app: typer.Typer) -> None:
                 result_id=result_id,
                 share_orgs=share_org or [],
                 share_users=share_user or [],
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+    @sub.command("unshare")
+    def results_unshare_command(
+        result_id: Annotated[
+            str,
+            typer.Argument(help="attempt run_id or suite_run_id."),
+        ],
+        kind: Annotated[
+            str,
+            typer.Option("--kind", help="attempt | suite"),
+        ] = "attempt",
+        share_org: Annotated[
+            list[str] | None,
+            typer.Option("--share-org", help="Revoke share for org (repeatable)."),
+        ] = None,
+        share_user: Annotated[
+            list[str] | None,
+            typer.Option("--share-user", help="Revoke share for user (repeatable)."),
+        ] = None,
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry / results URL."),
+        ] = None,
+    ) -> None:
+        """Revoke a private result share. Owner only."""
+        from bora.application.results_command import unshare_result
+        from bora.config.errors import ConfigError
+
+        if kind not in {"attempt", "suite"}:
+            typer.echo("kind must be attempt or suite", err=True)
+            raise typer.Exit(code=2)
+        if not share_org and not share_user:
+            typer.echo("provide --share-org and/or --share-user", err=True)
+            raise typer.Exit(code=2)
+        try:
+            summary = unshare_result(
+                result_kind=kind,
+                result_id=result_id,
+                share_orgs=share_org or [],
+                share_users=share_user or [],
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+    @sub.command("delete")
+    def results_delete_command(
+        result_id: Annotated[
+            str,
+            typer.Argument(help="attempt run_id or suite_run_id."),
+        ],
+        kind: Annotated[
+            str,
+            typer.Option("--kind", help="attempt | suite"),
+        ] = "attempt",
+        with_attempts: Annotated[
+            bool,
+            typer.Option(
+                "--with-attempts",
+                help="When deleting a suite, also delete linked attempt results (same owner).",
+            ),
+        ] = False,
+        yes: Annotated[
+            bool,
+            typer.Option("--yes", help="Confirm destructive delete (required)."),
+        ] = False,
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry / results URL."),
+        ] = None,
+    ) -> None:
+        """Delete an owned attempt or suite result. Requires --yes."""
+        from bora.application.results_command import delete_result
+        from bora.config.errors import ConfigError
+
+        if kind not in {"attempt", "suite"}:
+            typer.echo("kind must be attempt or suite", err=True)
+            raise typer.Exit(code=2)
+        if not yes:
+            typer.echo("refusing to delete without --yes", err=True)
+            raise typer.Exit(code=2)
+        try:
+            summary = delete_result(
+                result_kind=kind,
+                result_id=result_id,
+                with_attempts=with_attempts,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+    @sub.command("set-visibility")
+    def results_set_visibility_command(
+        result_id: Annotated[
+            str,
+            typer.Argument(help="attempt run_id or suite_run_id."),
+        ],
+        visibility: Annotated[
+            str,
+            typer.Option("--visibility", help="public | private"),
+        ],
+        kind: Annotated[
+            str,
+            typer.Option("--kind", help="attempt | suite"),
+        ] = "attempt",
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry / results URL."),
+        ] = None,
+    ) -> None:
+        """Set visibility of an owned attempt or suite result after upload."""
+        from bora.application.results_command import set_result_visibility
+        from bora.config.errors import ConfigError
+
+        if kind not in {"attempt", "suite"}:
+            typer.echo("kind must be attempt or suite", err=True)
+            raise typer.Exit(code=2)
+        if visibility not in {"public", "private"}:
+            typer.echo("visibility must be public or private", err=True)
+            raise typer.Exit(code=2)
+        try:
+            summary = set_result_visibility(
+                result_kind=kind,
+                result_id=result_id,
+                visibility=visibility,
                 registry_url=registry_url,
             )
         except ConfigError as exc:

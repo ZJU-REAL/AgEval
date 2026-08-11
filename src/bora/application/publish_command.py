@@ -20,8 +20,13 @@ def publish_database(
     org: str | None = None,
     registry_url: str | None = None,
     token: str | None = None,
+    replace: bool = False,
 ) -> dict[str, Any]:
-    """Validate Database, compute digests, publish to Registry; return summary dict."""
+    """Validate Database, compute digests, publish to Registry; return summary dict.
+
+    *replace* overwrites the same ``database_id@version`` for org owners only
+    (blob, digests, visibility, size). Default remains conflict (409).
+    """
     root = database_root.expanduser().resolve(strict=False)
     try:
         manifest = load_database_manifest(root)
@@ -67,11 +72,12 @@ def publish_database(
             visibility=visibility,
             archive=archive,
             org_id=org_id,
+            replace=replace,
         )
     except RegistryError as exc:
         raise ConfigError(exc.code, exc.message, location="registry") from exc
 
-    return {
+    out: dict[str, Any] = {
         "ok": True,
         "database_id": info.database_id,
         "version": info.version,
@@ -84,3 +90,6 @@ def publish_database(
         "digest_ref": f"{info.database_id}@{info.package_digest}",
         "org_id": info.org_id or org_id,
     }
+    if info.replaced:
+        out["replaced"] = True
+    return out

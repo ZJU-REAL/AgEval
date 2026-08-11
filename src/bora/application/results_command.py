@@ -106,13 +106,21 @@ def upload_attempt_result(
     suite_run_id: str | None = None,
     registry_url: str | None = None,
     allow_existing: bool = False,
+    replace: bool = False,
 ) -> dict[str, Any]:
     """Pack ``.bora/runs/<run_id>`` and POST to results store.
 
     When *allow_existing* is true, a registry ``conflict`` (same run_id already
     uploaded) is treated as success with ``already_exists: true`` (idempotent
-    re-upload / suite --with-attempts retry).
+    re-upload / suite --with-attempts retry). *replace* overwrites the same
+    run_id for the owner only (explicit; never silent).
     """
+    if replace and allow_existing:
+        raise ConfigError(
+            "invalid_request",
+            "replace and allow_existing are mutually exclusive",
+            location="registry",
+        )
     root = database_root.expanduser().resolve(strict=False)
     try:
         manifest = load_database_manifest(root)
@@ -143,6 +151,7 @@ def upload_attempt_result(
             size=size,
             archive=archive,
             suite_run_id=suite_link,
+            replace=replace,
         )
     except RegistryError as exc:
         if allow_existing and (
@@ -171,6 +180,8 @@ def upload_attempt_result(
         "visibility": info.get("visibility", "private"),
         "status": info.get("status", status),
     }
+    if info.get("replaced"):
+        out["replaced"] = True
     if suite_link:
         out["suite_run_id"] = info.get("suite_run_id", suite_link)
     elif info.get("suite_run_id"):
@@ -362,13 +373,15 @@ def upload_suite_result(
     model_label: str = "",
     with_attempts: bool = False,
     registry_url: str | None = None,
+    replace: bool = False,
 ) -> dict[str, Any]:
     """Pack ``.bora/suite-runs/<id>`` and POST suite result to results store.
 
     When *with_attempts* is true, also upload each local ``.bora/runs/<run_id>``
     referenced by suite ``task_refs`` (same visibility). Missing local run dirs
-    fail closed before any network upload. Re-uploads of existing run_ids are
-    treated as success (``already_exists``).
+    fail closed before any network upload. Without *replace*, re-uploads of
+    existing suite_run_id conflict (409); attempt re-uploads under
+    ``--with-attempts`` remain idempotent (``already_exists``).
     """
     root = database_root.expanduser().resolve(strict=False)
     suite_dir = _resolve_suite_dir(root, suite_run_id)
@@ -443,6 +456,7 @@ def upload_suite_result(
             job_overlay=config_proj.get("job_overlay")
             if isinstance(config_proj.get("job_overlay"), dict)
             else None,
+            replace=replace,
         )
     except RegistryError as exc:
         raise ConfigError(exc.code, exc.message, location="registry") from exc
@@ -461,6 +475,8 @@ def upload_suite_result(
         "visibility": info.get("visibility", "private"),
         "note": info.get("note", "per-task evaluator verdicts only; no suite-level PASS"),
     }
+    if info.get("replaced"):
+        out["replaced"] = True
     for key in ("config_fingerprint", "config_homogeneous", "actors_summary", "job_overlay"):
         if key in info:
             out[key] = info[key]
@@ -478,7 +494,10 @@ def upload_suite_result(
                     public=public,
                     suite_run_id=suite_run_id,
                     registry_url=registry_url,
-                    allow_existing=True,
+                    # Under suite --replace, also overwrite attempt blobs; else
+                    # keep idempotent skip of existing run_ids.
+                    allow_existing=not replace,
+                    replace=replace,
                 )
             )
         out["with_attempts"] = True
@@ -669,3 +688,114 @@ def share_result(
         "shares": created,
         "count": len(created),
     }
+
+
+def unshare_result(
+    *,
+    result_kind: str,
+    result_id: str,
+    share_orgs: list[str] | None = None,
+    share_users: list[str] | None = None,
+    registry_url: str | None = None,
+) -> dict[str, Any]:
+    """Revoke private result share grants (owner only)."""
+    if result_kind not in {"attempt", "suite"}:
+        raise ConfigError(
+            "invalid_request",
+            "result_kind must be attempt or suite",
+            location="registry",
+        )
+    if not share_orgs and not share_users:
+        raise ConfigError(
+            "invalid_request",
+            "provide at least one share_org or share_user to unshare",
+            location="registry",
+        )
+    client = _client(registry_url=registry_url)
+    removed: list[dict[str, Any]] = []
+    try:
+        for org in share_orgs or []:
+            removed.append(
+                client.unshare_result(
+                    result_kind=result_kind,
+                    result_id=result_id,
+                    target_type="org",
+                    target_id=org,
+                )
+            )
+        for user in share_users or []:
+            removed.append(
+                client.unshare_result(
+                    result_kind=result_kind,
+                    result_id=result_id,
+                    target_type="user",
+                    target_id=user,
+                )
+            )
+    except RegistryError as exc:
+        raise ConfigError(exc.code, exc.message, location="registry") from exc
+    return {
+        "ok": True,
+        "result_kind": result_kind,
+        "result_id": result_id,
+        "unshared": removed,
+        "count": len(removed),
+    }
+
+
+def delete_result(
+    *,
+    result_kind: str,
+    result_id: str,
+    with_attempts: bool = False,
+    registry_url: str | None = None,
+) -> dict[str, Any]:
+    """Delete an attempt or suite result owned by the current principal."""
+    if result_kind not in {"attempt", "suite"}:
+        raise ConfigError(
+            "invalid_request",
+            "result_kind must be attempt or suite",
+            location="registry",
+        )
+    client = _client(registry_url=registry_url)
+    try:
+        if result_kind == "attempt":
+            if with_attempts:
+                raise ConfigError(
+                    "invalid_request",
+                    "--with-attempts is only valid for suite results",
+                    location="registry",
+                )
+            return client.delete_attempt(result_id)
+        return client.delete_suite(result_id, with_attempts=with_attempts)
+    except RegistryError as exc:
+        raise ConfigError(exc.code, exc.message, location="registry") from exc
+
+
+def set_result_visibility(
+    *,
+    result_kind: str,
+    result_id: str,
+    visibility: str,
+    registry_url: str | None = None,
+) -> dict[str, Any]:
+    """Set attempt/suite visibility after create (owner only)."""
+    if result_kind not in {"attempt", "suite"}:
+        raise ConfigError(
+            "invalid_request",
+            "result_kind must be attempt or suite",
+            location="registry",
+        )
+    if visibility not in {"public", "private"}:
+        raise ConfigError(
+            "invalid_request",
+            "visibility must be public or private",
+            location="registry",
+        )
+    client = _client(registry_url=registry_url)
+    try:
+        if result_kind == "attempt":
+            return client.set_attempt_visibility(result_id, visibility=visibility)
+        return client.set_suite_visibility(result_id, visibility=visibility)
+    except RegistryError as exc:
+        raise ConfigError(exc.code, exc.message, location="registry") from exc

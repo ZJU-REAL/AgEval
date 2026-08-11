@@ -19,9 +19,13 @@ uv run bora cancel <suite_run_id> --database <dataset>
 uv run bora executors -v
 uv run bora evidence --help
 uv run bora view <dataset>
+# Registry / 结果（需 login；细节见 [Registry](/docs/share/registry)）
+uv run bora publish <dataset> --org <org> [--public] [--replace]
+uv run bora registry list|show|set-visibility|delete …
+uv run bora results upload|upload-suite|share|unshare|set-visibility|delete …
 ```
 
-路径 = Dataset 根（含 `bora.yaml`）。
+路径 = Dataset 根（含 `bora.yaml`）。删除类命令须显式 `--yes`；同 identity 覆盖须显式 `--replace`（默认 409）。
 
 ## `bora run` 常用选项
 

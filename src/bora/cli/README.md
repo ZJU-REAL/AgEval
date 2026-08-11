@@ -87,14 +87,16 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora evidence` | Export sealed trajectory copy (does not change score) |
 | `bora submit` / `status` / `cancel` | Durable Run / suite job control (suite id + optional `--database`) |
 | `bora login` | GitHub **Device Flow** → write credentials (Hub uses browser OAuth instead) |
-| `bora publish` | Publish a Database package (**requires `--org`**) |
+| `bora publish` | Publish a Database package (**requires `--org`**); optional `--replace` |
 | `bora registry list\|show` | Browse remote packages |
+| `bora registry delete\|set-visibility` | Owner ops on `database_id@version` (org owner; delete needs `--yes`) |
 | `bora registry org-create\|org-list` | Create / list organizations (packages belong to orgs) |
 | `bora cache list\|path\|purge` | Local verified cache |
-| `bora results upload\|get\|list` | Attempt run evidence bundles |
+| `bora results upload\|get\|list` | Attempt run evidence bundles; upload accepts `--replace` |
 | `bora results upload-suite\|get-suite\|list-suites` | Suite/job aggregates + task refs (no suite PASS); meta may include `job_overlay` |
 | `bora results export-profiles` | Export suite `job_overlay` → re-runnable `profiles.yaml` (#59) |
-| `bora results share` | Share a private result with org(s) and/or user(s) |
+| `bora results share\|unshare` | Share / revoke private result access (owner only) |
+| `bora results delete\|set-visibility` | Delete or flip visibility (`--kind attempt\|suite`; delete needs `--yes`) |
 | `bora view` | Local read-only Database Web UI (no Registry) |
 
 Discover flags with `uv run bora <cmd> -h`.
@@ -226,6 +228,8 @@ uv run bora registry org-list
 # Default visibility private; explicit public. --org is required.
 uv run bora publish tests/fixtures/databases/publish-min --org my-lab
 uv run bora publish path/to/db --org my-lab --public
+# Same database_id@version → 409 unless org owner passes --replace (rewrites blob/digests/visibility):
+# uv run bora publish path/to/db --org my-lab --replace
 ```
 
 ### Lock / run by ref
@@ -242,6 +246,9 @@ uv run bora lock 'test/publish-min@sha256:…' --task hello
 uv run bora registry list
 uv run bora registry list --prefix test/
 uv run bora registry show 'test/publish-min@0.1.0'
+# Org owner (or admin): flip visibility after publish; delete requires --yes
+uv run bora registry set-visibility 'test/publish-min@0.1.0' --visibility public
+# uv run bora registry delete 'test/publish-min@0.1.0' --yes
 
 uv run bora cache list
 uv run bora cache path 'test/publish-min@sha256:…'
@@ -254,16 +261,21 @@ Upload sealed trees under `<database>/.bora/runs/<run_id>/` (not package release
 
 ```bash
 uv run bora results upload /path/to/database --run <run_id>
+# Same run_id → 409 unless owner passes --replace (rewrites archive + meta):
+# uv run bora results upload /path/to/database --run <run_id> --replace
 uv run bora results list --database-id test/publish-min
 uv run bora results get <run_id> --out /tmp/restored-run
-# Share a private result (owner only):
+uv run bora results set-visibility <run_id> --kind attempt --visibility public
+# Share / unshare a private result (owner only):
 uv run bora results share <run_id> --kind attempt --share-org my-lab
+uv run bora results unshare <run_id> --kind attempt --share-org my-lab
+# uv run bora results delete <run_id> --kind attempt --yes
 ```
 
 Visibility is **public** or **private** only. Packages are owned by an **org**;
 results are owned by the **uploader** (`uploaded_by`). Private results stay
 invisible to org members until the owner shares them. Default private; `--public`
-for public.
+for public at create time, or `set-visibility` later.
 
 ### Suite / job results
 
@@ -290,10 +302,16 @@ uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
 # Optional full Attempt evidence (Hub Jobs deep-link / evidence browser):
 uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
   --with-attempts
+# Owner overwrite of same suite_run_id (default is 409):
+# uv run bora results upload-suite … --suite-run <id> --replace
 # Or backfill one run later:
 uv run bora results upload /path/to/database --run <run_id>
 uv run bora results list-suites --database-id test/suite-min
 uv run bora results get-suite <suite_run_id> --out /tmp/restored-suite
+uv run bora results set-visibility <suite_run_id> --kind suite --visibility private
+# Delete suite meta only (attempts remain); cascade with --with-attempts:
+# uv run bora results delete <suite_run_id> --kind suite --yes
+# uv run bora results delete <suite_run_id> --kind suite --with-attempts --yes
 # No registry: fall back to local suite-runs
 uv run bora results list-suites --local /path/to/database
 uv run bora results get-suite <suite_run_id> --local /path/to/database
@@ -303,7 +321,8 @@ uv run bora results get-suite <suite_run_id> --local /path/to/database
 each run id from `task_refs[].attempt_run_ids` (preferred) or `task_refs[].run_id`
 is packed from `.bora/runs/<run_id>/` with the **same visibility** as the suite.
 Missing local run dirs **fail closed** before any network upload. Re-uploading an
-existing `run_id` is treated as success (`already_exists`). Registry suite list/get
+existing `run_id` without `--replace` is treated as success (`already_exists`).
+With suite `--replace`, linked attempt uploads also replace. Registry suite list/get
 annotate each task_ref with `has_attempt_content` so Hub Jobs can open evidence or
 show “Not uploaded”.
 

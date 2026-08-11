@@ -17,12 +17,35 @@ Registry 是独立的 HTTP 服务：发包、管组织、存结果、登录。
 
 ## 所有权（摘要）
 
-| 对象 | 归属 | 谁能读私有内容 |
-| --- | --- | --- |
-| 包（Dataset release） | **组织** | 组织成员 / admin |
-| Attempt / suite 结果 | **上传者** | 本人 / 被分享对象 / admin |
+| 对象 | 归属 | 谁能读私有内容 | 删除 / 改可见性 / 覆盖上传 |
+| --- | --- | --- | --- |
+| 包（Dataset release） | **组织** | 组织成员 / admin | **组织 owner** / admin |
+| Attempt / suite 结果 | **上传者** | 本人 / 被分享对象 / admin | **上传者** / admin |
 
 加入组织**不会**自动看到别人的私有结果，除非对方分享给你。  
+任意组织 **member** 都可在该组织下 `publish`；**删除包 / 改包可见性 / `--replace` 覆盖同版本** 需要 **org owner**。  
 邀请码在创建时只完整展示一次，之后只能看到前缀。
+
+## 发布后 owner 操作（CLI）
+
+创建时 `--public` 只决定**当时**的可见性；之后可用 CLI 改，不必重新发包或重传结果：
+
+```bash
+# 包：可见性 / 删除（删除必须 --yes）
+uv run bora registry set-visibility 'my-org/dataset@0.1.0' --visibility public
+# uv run bora registry delete 'my-org/dataset@0.1.0' --yes
+
+# 结果：可见性 / 取消分享 / 删除
+uv run bora results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
+uv run bora results unshare <id> --kind attempt --share-org my-lab
+# uv run bora results delete <id> --kind suite --yes
+# 删 suite 默认不删 attempt；显式级联：
+# uv run bora results delete <suite_id> --kind suite --with-attempts --yes
+```
+
+**覆盖上传：** 同一 `database_id@version` / `run_id` / `suite_run_id` 默认 **409**。  
+仅 owner 可加 `--replace`（`bora publish` / `results upload` / `upload-suite`），覆盖 blob、指标/标签与可见性；无静默覆盖。
+
+命令细节见 `bora --help`、[`src/bora/cli/README.md`](https://github.com/ffy6511/BORA/blob/main/src/bora/cli/README.md) 与 registry README。
 
 公网是否开放、谁能上传，由部署方决定。

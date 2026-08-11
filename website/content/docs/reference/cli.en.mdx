@@ -19,9 +19,13 @@ uv run bora cancel <suite_run_id> --database <dataset>
 uv run bora executors -v
 uv run bora evidence --help
 uv run bora view <dataset>
+# Registry / results (login required; see [Registry](/docs/share/registry))
+uv run bora publish <dataset> --org <org> [--public] [--replace]
+uv run bora registry list|show|set-visibility|delete …
+uv run bora results upload|upload-suite|share|unshare|set-visibility|delete …
 ```
 
-Path = Dataset root.
+Path = Dataset root. Destructive commands require `--yes`; overwrite same identity requires `--replace` (default 409).
 
 ## Common `bora run` flags
 
