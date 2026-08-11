@@ -27,6 +27,15 @@ from bora.application.run_l1_prepare import (
     prepare_l1_runtime,
     seed_l1_workspace,
 )
+from bora.evidence.locators import portable_run_locator
+
+
+def _database_root_for_run(run_dir: Path) -> Path | None:
+    """Infer Database root when run_dir is ``…/.bora/runs/<run_id>``."""
+    p = Path(run_dir).resolve(strict=False)
+    if p.parent.name == "runs" and p.parent.parent.name == ".bora":
+        return p.parent.parent.parent
+    return None
 
 
 def _attach_timing(
@@ -169,6 +178,7 @@ def run_l1_sdk_session_attempt(
             root=run_dir,
             attempt_id=attempt_ident.value,
             run_id=run_ident.value,
+            database_root=_database_root_for_run(run_dir),
         )
         with contextlib.suppress(Exception):
             from bora.config.model import thaw as _thaw_lock
@@ -448,15 +458,18 @@ def run_l1_sdk_session_attempt(
         and l1_meta["host_fallback_count"] == 0
         and (inv_count >= 1 or bool(l1_meta.get("solution_seed")))
     )
+    db_root = _database_root_for_run(run_dir)
+    locator = portable_run_locator(run_dir, database_root=db_root)
     flat = bind_result(
         evaluator_raw=eval_raw,
         harness_kind=harness_kind,
         runtime_kind="docker_l1",
         agent_invocations=inv_count,
-        evidence_path=str(run_dir),
+        evidence_path=locator,
         error_phase=None
         if eval_raw and eval_raw.get("status") in {"PASS", "FAIL"}
         else "evaluation",
+        logs=locator,
     )
     doc = flat.as_dict()
     doc["assurance"] = "l1" if full_l1 else "l0"
@@ -466,13 +479,14 @@ def run_l1_sdk_session_attempt(
         "harness": envelope,
         "l1": doc["l1"],
         "assurance": doc["assurance"],
-        "run_dir": str(run_dir),
+        "run_dir": locator,
+        "logs": locator,
         "digest": lock.digest,
         "host_fallback_count": l1_meta["host_fallback_count"],
     }
     doc, details = _attach_timing(doc, details, timer)
     # Single write: write_l1_evidence copies phase_timing into summary.json.
-    write_l1_evidence(run_dir, doc, agent_meta, doc["l1"])
+    write_l1_evidence(run_dir, doc, agent_meta, doc["l1"], database_root=db_root)
     code = 0 if flat.status == "PASS" else (1 if flat.status == "FAIL" else 2)
     # Offline path: expected failure for real-agent smoke when offline.
     if allow_offline_agent and inv_count == 0 and not envelope.get("ok"):

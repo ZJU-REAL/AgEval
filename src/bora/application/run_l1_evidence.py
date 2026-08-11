@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from bora.evidence.locators import portable_run_locator
+
 
 def l1_error_result(
     run_dir: Path,
@@ -16,16 +18,19 @@ def l1_error_result(
     *,
     kind: str | None = None,
     phase_timing: dict[str, Any] | None = None,
+    database_root: Path | None = None,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     from bora.evaluation.result_binding import bind_result
 
+    locator = portable_run_locator(run_dir, database_root=database_root)
     flat = bind_result(
         evaluator_raw=None,
         harness_kind="failed",
         runtime_kind="docker_l1",
         agent_invocations=inv,
-        evidence_path=str(run_dir),
+        evidence_path=locator,
         error_phase=phase,
+        logs=locator,
     )
     doc = flat.as_dict()
     doc["assurance"] = "l0"
@@ -40,8 +45,13 @@ def l1_error_result(
             from bora.application.phase_timing import format_duration_ms
 
             doc["duration"] = format_duration_ms(float(total_ms))
-    write_l1_evidence(run_dir, doc, agent_meta, l1_meta)
-    details: dict[str, Any] = {"agent": agent_meta, "l1": l1_meta, "assurance": "l0"}
+    write_l1_evidence(run_dir, doc, agent_meta, l1_meta, database_root=database_root)
+    details: dict[str, Any] = {
+        "agent": agent_meta,
+        "l1": l1_meta,
+        "assurance": "l0",
+        "logs": locator,
+    }
     if isinstance(phase_timing, dict):
         details["phase_timing"] = phase_timing
     return 2, doc, details
@@ -52,11 +62,16 @@ def write_l1_evidence(
     result_doc: dict[str, Any],
     agent_meta: dict[str, Any],
     l1_meta: dict[str, Any],
+    *,
+    database_root: Path | None = None,
 ) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
-    # Result.logs locator (design §8.9) — evidence root on host, never secrets.
+    locator = portable_run_locator(run_dir, database_root=database_root)
+    # Result.logs locator (design §8.9) — portable under Database root, never secrets.
     # Mutate in place so caller-returned doc/details stay aligned with disk.
-    result_doc.setdefault("logs", str(run_dir))
+    result_doc["logs"] = locator
+    if not result_doc.get("evidence_path"):
+        result_doc["evidence_path"] = locator
     # Honest execution location facts (Spec 14 / v0.15).
     containment = str(
         agent_meta.get("executor_containment") or l1_meta.get("executor_containment") or "unknown"
@@ -72,7 +87,7 @@ def write_l1_evidence(
         **l1_meta,
         "execution_location": exec_loc,
         "executor_containment": containment,
-        "evidence_volume": str(run_dir),
+        "evidence_volume": locator,
     }
     result_doc["l1"] = {**(result_doc.get("l1") or {}), **l1_meta}
     (run_dir / "result.json").write_text(
@@ -94,6 +109,7 @@ def write_l1_evidence(
         "status": result_doc.get("status"),
         "score": result_doc.get("score"),
         "assurance": result_doc.get("assurance"),
+        "evidence_root": locator,
         "logs": result_doc.get("logs"),
         "execution_location": exec_loc,
         "l1": safe,
