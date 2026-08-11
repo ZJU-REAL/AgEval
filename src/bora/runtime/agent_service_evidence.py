@@ -102,7 +102,7 @@ def seal_invoke_result(
     turn_index: int,
     latency_ms: float,
 ) -> str | None:
-    """Stream events, write trajectory (ACP), seal handle.
+    """Stream events, write trajectory.jsonl for every executor, seal handle.
 
     Returns ``\"redaction_failed\"`` on RedactionError, else None.
     """
@@ -127,34 +127,33 @@ def seal_invoke_result(
             )
 
     # Training trajectory: turn-level (one invoke = one turn unit).
-    # Prefer executor-written file; else synthesize. Stamp turn_index
-    # from completed+1 (this invocation's 1-based seq within attempt).
+    # All executors write trajectory.jsonl (Viewer/Hub read path). ACP folds
+    # session stream events into tool steps; non-ACP (e.g. nooa) still gets
+    # user + assistant(final_text) + terminal from the same writer.
     meta = getattr(result, "metadata", None)
     meta = {} if not isinstance(meta, dict) else dict(meta)
     meta.setdefault("turn_index", turn_index)
-    is_acp = meta.get("executor_kind") == "acp" or kind == "acp"
-    if is_acp:
-        from bora.adapters.acp import write_trajectory_jsonl
+    meta.setdefault("executor_kind", kind)
+    from bora.adapters.acp import write_trajectory_jsonl
 
-        # Always rewrite with turn_index even if executor already wrote.
-        sentinels = ()
-        store = getattr(handle, "store", None)
-        if store is not None:
-            sentinels = tuple(getattr(store, "sentinels", ()) or ())
-        write_trajectory_jsonl(
-            handle.directory,
-            prompt=prompt,
-            events=tuple(events) if not isinstance(events, tuple) else events,
-            final_text=str(getattr(result, "text", "") or ""),
-            structured=(
-                result.structured if isinstance(getattr(result, "structured", None), dict) else None
-            ),
-            usage=getattr(result, "usage", None),
-            ok=bool(result.ok),
-            error=result.error,
-            metadata=meta,
-            redaction_sentinels=sentinels,
-        )
+    sentinels = ()
+    store = getattr(handle, "store", None)
+    if store is not None:
+        sentinels = tuple(getattr(store, "sentinels", ()) or ())
+    write_trajectory_jsonl(
+        handle.directory,
+        prompt=prompt,
+        events=tuple(events) if not isinstance(events, tuple) else events,
+        final_text=str(getattr(result, "text", "") or ""),
+        structured=(
+            result.structured if isinstance(getattr(result, "structured", None), dict) else None
+        ),
+        usage=getattr(result, "usage", None),
+        ok=bool(result.ok),
+        error=result.error,
+        metadata=meta,
+        redaction_sentinels=sentinels,
+    )
 
     status = "completed" if result.ok else map_error_status(result.error)
     try:
