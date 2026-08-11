@@ -142,3 +142,45 @@ def test_export_source_evidence_portable(tmp_path: Path) -> None:
     man = json.loads((dest / "manifest.json").read_text(encoding="utf-8"))
     assert man["source_evidence"] == f".bora/runs/{rid}"
     assert "/Users/" not in man["source_evidence"]
+
+
+def test_l1_error_seals_harness_published_without_abs(tmp_path: Path) -> None:
+    """L1 error path must not dump hold abs paths into sealed l1.harness (#70 review)."""
+    from bora.application.run_l1_evidence import l1_error_result
+
+    db = tmp_path / "db"
+    rid = "sha256_err_run_1"
+    run = db / ".bora" / "runs" / rid
+    hold = tmp_path / "bora-artifacts-secret"
+    hold.mkdir()
+    art = hold / "session-output.json"
+    art.write_text("{}", encoding="utf-8")
+    envelope = {
+        "ok": False,
+        "published": {"session-output": str(art)},
+        "terminal": {"kind": "failed"},
+    }
+    code, doc, details = l1_error_result(
+        run,
+        "evaluation_input",
+        {
+            "harness": envelope,
+            "host_fallback_count": 0,
+        },
+        {"executor_containment": "attempt-container"},
+        0,
+        kind="missing_artifact",
+    )
+    assert code == 2
+    text = json.dumps({"doc": doc, "details": details})
+    assert "/var/folders/" not in text
+    assert str(hold) not in text
+    assert str(tmp_path.resolve()) not in json.dumps(doc.get("l1") or {})
+    sealed = (doc.get("l1") or {}).get("harness") or {}
+    pub = sealed.get("published") or {}
+    assert pub.get("session-output") == "session-output.json"
+    on_disk = json.loads((run / "l1.json").read_text(encoding="utf-8"))
+    assert str(hold) not in json.dumps(on_disk)
+    assert (on_disk.get("harness") or {}).get("published", {}).get(
+        "session-output"
+    ) == "session-output.json"

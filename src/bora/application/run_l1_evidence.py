@@ -6,7 +6,36 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora.evidence.locators import portable_run_locator
+from bora.evidence.locators import portable_run_locator, seal_harness_for_evidence
+
+
+def _infer_database_root(run_dir: Path) -> Path | None:
+    p = Path(run_dir).resolve(strict=False)
+    if p.parent.name == "runs" and p.parent.parent.name == ".bora":
+        return p.parent.parent.parent
+    return None
+
+
+def _seal_l1_meta_for_evidence(
+    l1_meta: dict[str, Any],
+    *,
+    run_dir: Path,
+) -> dict[str, Any]:
+    """Strip host abs paths from nested harness envelopes before seal (#70)."""
+    out = dict(l1_meta)
+    harness = out.get("harness")
+    if isinstance(harness, dict):
+        # envelope-only or full harness_out shape
+        if "envelope" in harness or "artifact_hold" in harness:
+            sealed = seal_harness_for_evidence(harness, run_dir=run_dir)
+            out["harness"] = sealed.get("envelope") if "envelope" in harness else sealed
+        elif "published" in harness:
+            sealed = seal_harness_for_evidence(
+                {"envelope": harness, "artifact_hold": harness.get("artifact_hold")},
+                run_dir=run_dir,
+            )
+            out["harness"] = sealed.get("envelope") or harness
+    return out
 
 
 def l1_error_result(
@@ -22,7 +51,8 @@ def l1_error_result(
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     from bora.evaluation.result_binding import bind_result
 
-    locator = portable_run_locator(run_dir, database_root=database_root)
+    db_root = database_root if database_root is not None else _infer_database_root(run_dir)
+    locator = portable_run_locator(run_dir, database_root=db_root)
     flat = bind_result(
         evaluator_raw=None,
         harness_kind="failed",
@@ -37,7 +67,8 @@ def l1_error_result(
     doc["status"] = "ERROR"
     if kind:
         doc["error"] = {"phase": phase, "kind": kind}
-    doc["l1"] = l1_meta
+    sealed_meta = _seal_l1_meta_for_evidence(l1_meta, run_dir=run_dir)
+    doc["l1"] = sealed_meta
     if isinstance(phase_timing, dict):
         doc["phase_timing"] = phase_timing
         total_ms = phase_timing.get("total_ms")
@@ -45,10 +76,10 @@ def l1_error_result(
             from bora.application.phase_timing import format_duration_ms
 
             doc["duration"] = format_duration_ms(float(total_ms))
-    write_l1_evidence(run_dir, doc, agent_meta, l1_meta, database_root=database_root)
+    write_l1_evidence(run_dir, doc, agent_meta, sealed_meta, database_root=db_root)
     details: dict[str, Any] = {
         "agent": agent_meta,
-        "l1": l1_meta,
+        "l1": sealed_meta,
         "assurance": "l0",
         "logs": locator,
     }
@@ -66,12 +97,12 @@ def write_l1_evidence(
     database_root: Path | None = None,
 ) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
-    locator = portable_run_locator(run_dir, database_root=database_root)
-    # Result.logs locator (design §8.9) — portable under Database root, never secrets.
+    db_root = database_root if database_root is not None else _infer_database_root(run_dir)
+    locator = portable_run_locator(run_dir, database_root=db_root)
+    # Result.logs / evidence_path (design §8.9) — portable under Database root.
     # Mutate in place so caller-returned doc/details stay aligned with disk.
     result_doc["logs"] = locator
-    if not result_doc.get("evidence_path"):
-        result_doc["evidence_path"] = locator
+    result_doc["evidence_path"] = locator
     # Honest execution location facts (Spec 14 / v0.15).
     containment = str(
         agent_meta.get("executor_containment") or l1_meta.get("executor_containment") or "unknown"
@@ -83,12 +114,15 @@ def write_l1_evidence(
     else:
         # Harness/eval containers still run under Docker even when Agent is parent.
         exec_loc = str(l1_meta.get("execution_location") or "mixed")
-    l1_meta = {
-        **l1_meta,
-        "execution_location": exec_loc,
-        "executor_containment": containment,
-        "evidence_volume": locator,
-    }
+    l1_meta = _seal_l1_meta_for_evidence(
+        {
+            **l1_meta,
+            "execution_location": exec_loc,
+            "executor_containment": containment,
+            "evidence_volume": locator,
+        },
+        run_dir=run_dir,
+    )
     result_doc["l1"] = {**(result_doc.get("l1") or {}), **l1_meta}
     (run_dir / "result.json").write_text(
         json.dumps(result_doc, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8"

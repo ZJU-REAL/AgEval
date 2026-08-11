@@ -117,12 +117,18 @@ async def run_campaign(
         )
         from bora.evidence.locators import portable_run_locator
 
-        raw_run = details.get("run_dir") or result.evidence_path or result.logs
-        portable = (
-            portable_run_locator(raw_run, database_root=database_root)
-            if raw_run
-            else result.evidence_path
+        # Always re-normalize so a future abs regression cannot leak into campaign rows.
+        candidates = (
+            result.evidence_path,
+            result.logs,
+            details.get("run_dir"),
+            details.get("logs"),
         )
+        portable = None
+        for raw in candidates:
+            if raw:
+                portable = portable_run_locator(raw, database_root=database_root)
+                break
         trials.append(
             {
                 "trial_index": plan["trial_index"],
@@ -131,9 +137,9 @@ async def run_campaign(
                 "exit_code": code,
                 "status": result.status,
                 "score": result.score,
-                "evidence_path": result.evidence_path or portable,
+                "evidence_path": portable,
                 "run_dir": portable,
-                "logs": result.logs or portable,
+                "logs": portable,
                 "digest": getattr(result, "digest", None)
                 or details.get("digest")
                 or plan["digest"],
