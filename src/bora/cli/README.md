@@ -85,7 +85,7 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora campaign` | Serial parameter-matrix campaign (matrix axis ≠ k-attempt) |
 | `bora executors` | Host executor / ACP entry inventory |
 | `bora evidence` | Export sealed trajectory copy (does not change score) |
-| `bora submit` / `status` / `cancel` | Durable Run / suite job control (`suite_…` + optional `--database`) |
+| `bora submit` / `status` / `cancel` | Durable Run / suite job control (suite id + optional `--database`) |
 | `bora login` | GitHub **Device Flow** → write credentials (Hub uses browser OAuth instead) |
 | `bora publish` | Publish a Database package (**requires `--org`**) |
 | `bora registry list\|show` | Browse remote packages |
@@ -121,7 +121,7 @@ uv run bora run examples/core
 uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 uv run bora run examples/core --task sdk-agent-session -k 5
 # Resume / top-up: skip real finished units; re-run suite-cancel placeholders; recompute pass@k
-# uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
+# uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
 
 # Allowlisted --set (JSON Pointer = JSON value)
 uv run bora lock examples/core --task config-minimal --set /parameters/seed=7
@@ -185,8 +185,8 @@ uv run bora status <run_id>
 uv run bora cancel <run_id>
 
 # Suite job (#47 D)
-uv run bora status suite_<id> --database examples/core
-uv run bora cancel suite_<id> --database examples/core
+uv run bora status <suite_run_id> --database examples/core
+uv run bora cancel <suite_run_id> --database examples/core
 ```
 
 ### Executors
@@ -271,6 +271,19 @@ After `bora run <database>` (full suite or Always-k), summary lives at
 `<database>/.bora/suite-runs/<suite_run_id>/summary.json` with observational
 `metrics.pass_rate` / `mean_score` / `pass_at_k` / `pass_power_k` (not suite PASS).
 
+**Metrics contract (upload / Registry, #60):**
+
+| Path | Shape |
+| --- | --- |
+| `metrics.pass_at_k["<k>"]` | `{ value, n_tasks, incomplete_tasks }` (k as string key) |
+| `metrics.pass_power_k["<k>"]` | same |
+| `metrics.n_attempts` / `k_values` / `per_task` | job sample budget, k list, per-task n/c audit |
+| `task_refs[]` | `task_id`, `status`, `score`, `run_id`; multi-attempt may add `n`, `c`, `attempt_run_ids` |
+
+`upload-suite` **recomputes** missing k maps locally from `attempts[]` or task
+`n`/`c` before POST. Registry stores the full `metrics` blob (no strip).
+pass@k is **not** a `config_fingerprint` / job-identity key.
+
 ```bash
 uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
   --agent codex --model gpt-test
@@ -286,12 +299,13 @@ uv run bora results list-suites --local /path/to/database
 uv run bora results get-suite <suite_run_id> --local /path/to/database
 ```
 
-**`--with-attempts` (issue #43):** after the suite summary archive uploads, each
-non-empty `task_refs[].run_id` is packed from `.bora/runs/<run_id>/` with the
-**same visibility** as the suite. Missing local run dirs **fail closed** before
-any network upload. Re-uploading an existing `run_id` is treated as success
-(`already_exists`). Registry suite list/get annotate each task_ref with
-`has_attempt_content` so Hub Jobs can open evidence or show “Not uploaded”.
+**`--with-attempts` (issue #43 / #60):** after the suite summary archive uploads,
+each run id from `task_refs[].attempt_run_ids` (preferred) or `task_refs[].run_id`
+is packed from `.bora/runs/<run_id>/` with the **same visibility** as the suite.
+Missing local run dirs **fail closed** before any network upload. Re-uploading an
+existing `run_id` is treated as success (`already_exists`). Registry suite list/get
+annotate each task_ref with `has_attempt_content` so Hub Jobs can open evidence or
+show “Not uploaded”.
 
 ---
 

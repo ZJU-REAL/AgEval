@@ -156,12 +156,41 @@ export function JobDetailPage() {
                         }
                       }}
                     >
-                      <TableCell className="font-medium">{t.task_id}</TableCell>
-                      <TableCell>{t.agent_label || job?.agent_label || "-"}</TableCell>
-                      <TableCell>
-                        {t.provider_label || job?.provider_label || "-"}
+                      <TableCell className="font-medium max-w-[12rem]">
+                        <span className="block truncate" title={t.task_id}>
+                          {t.task_id}
+                        </span>
                       </TableCell>
-                      <TableCell>{t.model_label || job?.model_label || "-"}</TableCell>
+                      <TableCell className="max-w-[14rem]">
+                        <span
+                          className="block truncate"
+                          title={
+                            t.agent_label || job?.agent_label || undefined
+                          }
+                        >
+                          {t.agent_label || job?.agent_label || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-[10rem]">
+                        <span
+                          className="block truncate"
+                          title={
+                            t.provider_label || job?.provider_label || undefined
+                          }
+                        >
+                          {t.provider_label || job?.provider_label || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-[18rem]">
+                        <span
+                          className="block truncate font-mono text-xs"
+                          title={
+                            t.model_label || job?.model_label || undefined
+                          }
+                        >
+                          {t.model_label || job?.model_label || "-"}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-body">
                         {t.dataset || job?.source || "-"}
                       </TableCell>

@@ -64,8 +64,8 @@ Stdout JSON (high level):
 ## Control surface
 
 - `submit` / `status` / `cancel` operate on ControlStore records.
-- **Suite jobs** (`suite_…`): `status` / `cancel` accept optional `--database` to read
-  `progress.json` or write `cancel.requested` when ControlStore has no row.
+- **Suite jobs** (bare 8-hex id): `status` / `cancel` accept optional `--database`
+  to read `progress.json` or write `cancel.requested` when ControlStore has no row.
 - Suite cancel: stop scheduling new units; SIGTERM stored pid when present.
 
 ## Always-k vs campaign
@@ -73,3 +73,18 @@ Stdout JSON (high level):
 - **Always-k** (`bora run -k`): repeat independent Attempts for pass@k samples.
 - **Campaign** (`bora campaign --matrix`): sweep allowlisted parameters / bindings on one task.
 - Do not treat matrix axes as `n_attempts`.
+
+## `bora results upload-suite` (#60)
+
+- POSTs suite summary + optional archive to Registry suite result row.
+- **Before upload:** ensures `metrics.pass_at_k` / `pass_power_k` / `n_attempts` /
+  `k_values` / `per_task` when recoverable from `attempts[]` or task `n`/`c`
+  (Hub does **not** recompute live).
+- Contract: `metrics.pass_at_k["<k>"] = { value, n_tasks, incomplete_tasks }` (k string keys).
+- `task_refs` may carry `n`, `c`, `attempt_run_ids` for multi-attempt audit.
+- **`--with-attempts`:** packs `.bora/runs/<run_id>/` for each id in
+  `attempt_run_ids` (preferred) or primary `run_id`; missing dirs fail closed.
+- Registry stores full `metrics` blob (no strip). pass@k is **not**
+  `config_fingerprint` / job identity.
+- Hub Leaderboard: optional n_attempts / pass@k / pass^k columns when present;
+  default sort remains pass_rate → mean_score.

@@ -54,7 +54,8 @@ class SuitePlan:
     task_ids: list[str]
     max_concurrent_tasks: int
     n_attempts: int = 1
-    suite_run_id: str = field(default_factory=lambda: f"suite_{uuid.uuid4().hex[:16]}")
+    # System id: 8 hex (local job locator only; not package identity). No suite_ prefix.
+    suite_run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
 
 
 def plan_suite_run(
@@ -132,6 +133,30 @@ def suite_summary_path(database_root: Path, suite_run_id: str) -> Path:
         / suite_run_id
         / "summary.json"
     )
+
+
+def is_suite_run_locator(
+    run_id: str,
+    *,
+    database_root: Path | str | None = None,
+    control_kind: str | None = None,
+) -> bool:
+    """True if *run_id* names a suite job.
+
+    Detection (any):
+    - ControlStore payload ``kind == suite``
+    - Directory ``.bora/suite-runs/<run_id>`` under *database_root*
+    """
+    rid = str(run_id or "").strip()
+    if not rid:
+        return False
+    if str(control_kind or "").strip() == "suite":
+        return True
+    if database_root is None:
+        return False
+    root = Path(database_root).expanduser().resolve(strict=False)
+    suite_dir = root / ".bora" / "suite-runs" / rid
+    return suite_dir.is_dir()
 
 
 def load_suite_summary(database_root: Path, suite_run_id: str) -> dict[str, Any]:
@@ -513,7 +538,7 @@ def _build_summary(
         "task_ids": list(plan.task_ids),
         "attempts": list(attempts),
         "tasks": tasks_out,
-        "task_refs": task_refs_for_summary(tasks_out),
+        "task_refs": task_refs_for_summary(tasks_out, attempts=attempts),
         "counts": counts,
         # Observational aggregates (leaderboard / job stats); never suite PASS.
         "metrics": metrics,

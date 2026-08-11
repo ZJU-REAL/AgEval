@@ -188,7 +188,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 | harness / evaluator / gold / intent `limits` / 角色槽拓扑 | **Task / package 身份** | 改了 ≈ 新 task 或新 version |
 | agent entry + model（`profiles.yaml` / CLI overlay） | **Job binding** | 新 `config_fingerprint` |
 | host secrets（`.env` 值） | 本机 only | 不进 fingerprint / lock / upload |
-| suite concurrency / Always-k `n_attempts`（及 pass@k job 指标） | CLI / job 调度；**禁止**写进 `task.yaml` | **不是**排行榜身份键（metrics 另列；Hub 呈现见 #60） |
+| suite concurrency / Always-k `n_attempts`（及 pass@k job 指标） | CLI / job 调度；**禁止**写进 `task.yaml` | **不是**排行榜身份键（metrics 另列；Hub 可选展示 pass@k / pass^k / n_attempts，#60） |
 
 **Merge 顺序（Config Core 唯一读者）：**
 
@@ -628,22 +628,31 @@ Suite summary 含 `metrics` 对象（`bora.suite.summary/1` 附加字段），�
 | `n_tasks` / `n_pass` / `n_fail` / `n_error` | 计数；未知 status 计入 `n_error` |
 | `missing_score_as` | 固定 `0.0`（文档化默认） |
 | `n_attempts` | 本次 job 的 Always-k 预算（CLI/job；**不进** fingerprint） |
+| `k_values` | 本 summary 计算过的 k 列表 |
 | `pass_at_k` | **pass@k**：无偏估计 \(1 - C(n-c,k)/C(n,k)\)（Harbor / Chen）；suite 分 = **对 task 取 mean**；`n < k` 的 task 不进该 k 分母 |
 | `pass_power_k` | **pass^k**：\((c/n)^k\)（k 次都成功）；同样对 task 取 mean |
+| `per_task` | 各 task 的 `n` / `c` 与 per-k 映射（审计；非 identity） |
+
+**`pass_at_k` / `pass_power_k` 值形状**（k 键为字符串）：
+
+```text
+{ "<k>": { "value": float|null, "n_tasks": int, "incomplete_tasks": int }, ... }
+```
 
 **禁止** suite-level PASS 字段作为最终权威；PASS 仅 per-task evaluator。`exit_code` 与 `counts` 仍是操作者退出/计数语义，不是榜单 PASS。  
-pass@k / pass^k **不是** package 身份键；Hub Leaderboard 列呈现为 follow-up（#60）。
+pass@k / pass^k **不是** package 身份 / `config_fingerprint` 键；不同 k 的 job 可并列展示，身份仍是 agent×model 绑定。
 
 ### Suite/job 结果上传（Registry）
 
-本地 suite 跑完后可将 `.bora/suite-runs/<suite_run_id>/` 上传为 **suite result 行**（meta + 可选 archive），供 Leaderboard（#22 S5）查询：
+本地 suite 跑完后可将 `.bora/suite-runs/<suite_run_id>/` 上传为 **suite result 行**（meta + 可选 archive），供 Leaderboard（#22 S5 / #60）查询：
 
 | CLI | 语义 |
 | --- | --- |
-| `bora results upload-suite <db> --suite-run <id>` | 上传聚合分 + `task_refs` + summary 归档 |
-| `bora results get-suite <id>` / `list-suites` | Registry 查询 |
+| `bora results upload-suite <db> --suite-run <id>` | 上传聚合分 + `task_refs` + summary 归档；上传前本地 **ensure/recompute** k 指标 |
+| `bora results get-suite <id>` / `list-suites` | Registry 查询（`metrics` 原样返回，**不剥除** pass@k） |
 | `… --local <db>` | 不启 Registry，回落本机 `.bora/suite-runs/` |
 
 API：`POST/GET /v1/results/suites`（可见性与 attempt 一致：public / `results:read`）。  
-响应含 `pass_rate`、`mean_score`、`metrics`、`task_refs`；**不**接受/存储 suite PASS。
+响应含 `pass_rate`、`mean_score`、`metrics`（含 `pass_at_k` / `pass_power_k` 若有）、`task_refs`（可含 `n`/`c`/`attempt_run_ids`）；**不**接受/存储 suite PASS。  
+一等列仍是 `pass_rate` / `mean_score`；k 指标读 `metrics` 即可（无需额外 first-class 列也可展示）。
 

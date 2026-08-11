@@ -1,7 +1,13 @@
 import { Check, Copy } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  compareValues,
+  nextSort,
+  SortableHead,
+  type SortDir,
+} from "@/components/sortable-head";
 import {
   Table,
   TableBody,
@@ -12,7 +18,28 @@ import {
 } from "@/components/ui/table";
 import type { SuiteRow } from "@/lib/api";
 import { CodeHighlight } from "@/lib/code-highlight";
+import {
+  formatPassMetric,
+  metricsNAttempts,
+  passAtPrimaryK,
+  passPowerPrimaryK,
+  primaryDisplayK,
+} from "@/lib/suite-metrics";
 import { formatScore } from "@/lib/utils";
+
+/** Shared column widths — keep Agent/Model tight so columns stay similar. */
+const COL_TEXT = "w-[6.5rem] max-w-[6.5rem]";
+const COL_METRIC = "w-[5.5rem] max-w-[5.5rem]";
+
+/** Compact suite id for cells; full id in title. System ids are bare 8-hex. */
+function shortSuiteId(id: string): string {
+  const raw = id.trim();
+  if (/^[0-9a-f]+$/i.test(raw)) {
+    return raw.length <= 8 ? raw : raw.slice(0, 8);
+  }
+  if (raw.length <= 12) return raw;
+  return `${raw.slice(0, 10)}…`;
+}
 
 /** Render secret-free job_overlay as bora.profiles/1 YAML for rehydrate display. */
 function jobOverlayToProfilesYaml(overlay: SuiteRow["job_overlay"]): string {
@@ -91,10 +118,87 @@ function CodeBlock({
   );
 }
 
+function TruncateCell({
+  text,
+  className,
+  mono,
+}: {
+  text: string;
+  className?: string;
+  mono?: boolean;
+}) {
+  const display = text || "—";
+  return (
+    <TableCell className={className}>
+      <span
+        className={`block truncate ${mono ? "font-mono text-xs" : "text-sm"}`}
+        title={text || undefined}
+      >
+        {display}
+      </span>
+    </TableCell>
+  );
+}
+
+type SortKey =
+  | "agent_label"
+  | "model_label"
+  | "pass_rate"
+  | "mean_score"
+  | "n_attempts"
+  | "pass_at_k"
+  | "pass_power_k"
+  | "tasks"
+  | "uploaded_by"
+  | "suite_run_id";
+
+function suiteSortValue(s: SuiteRow, key: SortKey): unknown {
+  const m = s.metrics || {};
+  switch (key) {
+    case "agent_label":
+      return s.agent_label || "";
+    case "model_label":
+      return s.model_label || "";
+    case "pass_rate":
+      return s.pass_rate ?? null;
+    case "mean_score":
+      return s.mean_score ?? null;
+    case "n_attempts":
+      return metricsNAttempts(m);
+    case "pass_at_k":
+      return passAtPrimaryK(m).value;
+    case "pass_power_k":
+      return passPowerPrimaryK(m).value;
+    case "tasks": {
+      if (typeof m.n_tasks === "number") return m.n_tasks;
+      if (Array.isArray(s.task_refs)) return s.task_refs.length;
+      return null;
+    }
+    case "uploaded_by":
+      return s.uploaded_by || "";
+    case "suite_run_id":
+      return s.suite_run_id || "";
+    default:
+      return null;
+  }
+}
+
+function defaultCompare(a: SuiteRow, b: SuiteRow): number {
+  const pr = (b.pass_rate ?? -1) - (a.pass_rate ?? -1);
+  if (pr !== 0) return pr;
+  const ms = (b.mean_score ?? -1) - (a.mean_score ?? -1);
+  if (ms !== 0) return ms;
+  return (Number(b.created_at) || 0) - (Number(a.created_at) || 0);
+}
+
 /**
- * Dataset Leaderboard (#40 + #59).
+ * Dataset Leaderboard (#40 + #59 + #60).
  * Rank by observational metrics only — never suite PASS.
  * Job axis = profiles.yaml / job_overlay (not per-task role topology).
+ *
+ * Default sort: pass_rate desc → mean_score desc → created_at desc.
+ * Column headers are clickable (Viewer Jobs pattern). pass@k / pass^k sort by
+ * primary display k (max k_values / n_attempts); not job identity.
  */
 export function LeaderboardTable({
   suites,
@@ -104,14 +208,50 @@ export function LeaderboardTable({
   databaseId: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<string | null>("pass_rate");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const rows = [...suites].sort((a, b) => {
-    const pr = (b.pass_rate ?? -1) - (a.pass_rate ?? -1);
-    if (pr !== 0) return pr;
-    const ms = (b.mean_score ?? -1) - (a.mean_score ?? -1);
-    if (ms !== 0) return ms;
-    return (Number(b.created_at) || 0) - (Number(a.created_at) || 0);
-  });
+  const showKColumns = suites.some(
+    (s) => primaryDisplayK(s.metrics || {}) != null,
+  );
+  const colCount = showKColumns ? 10 : 7;
+
+  const rows = useMemo(() => {
+    const list = [...suites];
+    if (sortKey && sortDir) {
+      const key = sortKey as SortKey;
+      list.sort((a, b) => {
+        const cmp = compareValues(
+          suiteSortValue(a, key),
+          suiteSortValue(b, key),
+          sortDir,
+        );
+        if (cmp !== 0) return cmp;
+        return defaultCompare(a, b);
+      });
+    } else {
+      list.sort(defaultCompare);
+    }
+    return list;
+  }, [suites, sortKey, sortDir]);
+
+  function onSort(key: string) {
+    const next = nextSort(sortKey, sortDir, key);
+    setSortKey(next.dir ? next.key : null);
+    setSortDir(next.dir);
+  }
+
+  function head(key: string, label: string, alignRight?: boolean) {
+    return (
+      <SortableHead
+        label={label}
+        active={sortKey === key}
+        dir={sortKey === key ? sortDir : null}
+        onClick={() => onSort(key)}
+        className={alignRight ? "ml-auto" : undefined}
+      />
+    );
+  }
 
   if (suites.length === 0) {
     return (
@@ -120,7 +260,9 @@ export function LeaderboardTable({
         <p className="text-sm text-mute">
           Upload suite aggregates with{" "}
           <code className="font-mono">bora results upload-suite</code>. These
-          are observational metrics — not a suite-level PASS.
+          are observational metrics — not a suite-level PASS. Always-k jobs may
+          also show pass@k / pass^k and n_attempts when present in{" "}
+          <code className="font-mono">metrics</code>.
         </p>
       </div>
     );
@@ -129,111 +271,207 @@ export function LeaderboardTable({
   return (
     <div className="space-y-3">
       <p className="text-xs text-mute">
-        Dataset <span className="font-mono">{databaseId}</span> · Observational
-        aggregates only. Job binding is the suite{" "}
-        <code className="font-mono">profiles.yaml</code> /{" "}
-        <code className="font-mono">job_overlay</code> (role id → entry/model).
-        Click a row to view YAML and rehydrate.
+        <span className="font-mono">{databaseId}</span>
+        {" · "}metrics only (not suite PASS)
+        {" · "}click headers to sort
+        {showKColumns ? " · pass@k uses job max k" : null}
       </p>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Agent / binding</TableHead>
-            <TableHead>Model</TableHead>
-            <TableHead className="text-right">Pass rate</TableHead>
-            <TableHead className="text-right">Mean score</TableHead>
-            <TableHead className="text-right">Tasks</TableHead>
-            <TableHead>Visibility</TableHead>
-            <TableHead>Suite run</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((s) => {
-            const m = s.metrics || {};
-            const nTasks =
-              typeof m.n_tasks === "number"
-                ? m.n_tasks
-                : Array.isArray(s.task_refs)
-                  ? s.task_refs.length
-                  : null;
-            const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
-            const open = openId === s.suite_run_id;
-            const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
-            const rehydrateScript = [
-              "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
-              `bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
-              "",
-              "# Re-run with that binding (fill Database .env locally for credentials)",
-              "bora run <database-root> --profiles profiles.from-suite.yaml",
-              "",
-            ].join("\n");
+      <div className="rounded-[8px] border border-hairline overflow-x-auto">
+        <Table className="table-fixed w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead className={COL_TEXT}>
+                {head("agent_label", "Agent")}
+              </TableHead>
+              <TableHead className={COL_TEXT}>
+                {head("model_label", "Model")}
+              </TableHead>
+              <TableHead className={`text-right ${COL_METRIC}`}>
+                {head("pass_rate", "Pass rate", true)}
+              </TableHead>
+              <TableHead className={`text-right ${COL_METRIC}`}>
+                {head("mean_score", "Mean score", true)}
+              </TableHead>
+              {showKColumns ? (
+                <>
+                  <TableHead className={`text-right ${COL_METRIC}`}>
+                    {head("n_attempts", "n_attempts", true)}
+                  </TableHead>
+                  <TableHead
+                    className={`text-right ${COL_METRIC}`}
+                    title="Largest k from metrics.k_values / n_attempts; cell labels @k"
+                  >
+                    {head("pass_at_k", "pass@k", true)}
+                  </TableHead>
+                  <TableHead
+                    className={`text-right ${COL_METRIC}`}
+                    title="Same display k as pass@k; cell labels ^k"
+                  >
+                    {head("pass_power_k", "pass^k", true)}
+                  </TableHead>
+                </>
+              ) : null}
+              <TableHead className={`text-right ${COL_METRIC}`}>
+                {head("tasks", "Tasks", true)}
+              </TableHead>
+              <TableHead className={COL_TEXT}>
+                {head("uploaded_by", "Uploader")}
+              </TableHead>
+              <TableHead className={COL_METRIC}>
+                {head("suite_run_id", "Suite run")}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((s) => {
+              const m = s.metrics || {};
+              const nTasks =
+                typeof m.n_tasks === "number"
+                  ? m.n_tasks
+                  : Array.isArray(s.task_refs)
+                    ? s.task_refs.length
+                    : null;
+              const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
+              const open = openId === s.suite_run_id;
+              const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
+              const rehydrateScript = [
+                "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
+                `bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
+                "",
+                "# Re-run with that binding (fill Database .env locally for credentials)",
+                "bora run <database-root> --profiles profiles.from-suite.yaml",
+                "",
+              ].join("\n");
+              const nAtt = metricsNAttempts(m);
+              const atK = passAtPrimaryK(m);
+              const powK = passPowerPrimaryK(m);
+              const agentText = s.agent_label || "";
+              const modelText = s.model_label || "";
 
-            return (
-              <Fragment key={s.suite_run_id}>
-                <TableRow
-                  className="cursor-pointer"
-                  onClick={() => setOpenId(open ? null : s.suite_run_id)}
-                  data-state={open ? "open" : undefined}
-                >
-                  <TableCell className="text-sm">
-                    {s.agent_label || "—"}
-                  </TableCell>
-                  <TableCell className="text-sm font-mono text-xs">
-                    {s.model_label || "—"}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {s.pass_rate == null
-                      ? "—"
-                      : `${(Number(s.pass_rate) * 100).toFixed(1)}%`}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatScore(s.mean_score)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-xs">
-                    {nPass != null && nTasks != null
-                      ? `${nPass}/${nTasks}`
-                      : nTasks != null
-                        ? String(nTasks)
-                        : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-body">
-                    {s.visibility || "—"}
-                    {s.uploaded_by ? (
-                      <span className="ml-2 font-mono text-[11px] text-mute">
-                        by {s.uploaded_by}
-                      </span>
+              return (
+                <Fragment key={s.suite_run_id}>
+                  <TableRow
+                    className="cursor-pointer"
+                    onClick={() => setOpenId(open ? null : s.suite_run_id)}
+                    data-state={open ? "open" : undefined}
+                  >
+                    <TruncateCell text={agentText} className={COL_TEXT} />
+                    <TruncateCell text={modelText} className={COL_TEXT} mono />
+                    <TableCell
+                      className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                    >
+                      {s.pass_rate == null
+                        ? "—"
+                        : `${(Number(s.pass_rate) * 100).toFixed(1)}%`}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                    >
+                      {formatScore(s.mean_score)}
+                    </TableCell>
+                    {showKColumns ? (
+                      <>
+                        <TableCell
+                          className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                        >
+                          {nAtt == null ? "—" : String(nAtt)}
+                        </TableCell>
+                        <TableCell
+                          className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                        >
+                          {atK.value == null ? (
+                            "—"
+                          ) : (
+                            <span title={`pass@${atK.k}`}>
+                              {formatPassMetric(atK.value)}
+                              <span className="ml-1 text-mute">@{atK.k}</span>
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                        >
+                          {powK.value == null ? (
+                            "—"
+                          ) : (
+                            <span title={`pass^${powK.k}`}>
+                              {formatPassMetric(powK.value)}
+                              <span className="ml-1 text-mute">^{powK.k}</span>
+                            </span>
+                          )}
+                        </TableCell>
+                      </>
                     ) : null}
-                  </TableCell>
-                  <TableCell className="font-mono text-[11px]">
-                    {s.suite_run_id}
-                  </TableCell>
-                </TableRow>
-                {open ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="bg-canvas-soft">
-                      <div
-                        className="space-y-3 py-2"
-                        onClick={(e) => e.stopPropagation()}
+                    <TableCell
+                      className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                    >
+                      {nPass != null && nTasks != null
+                        ? `${nPass}/${nTasks}`
+                        : nTasks != null
+                          ? String(nTasks)
+                          : "—"}
+                    </TableCell>
+                    <TableCell className={`font-mono text-xs ${COL_TEXT}`}>
+                      <span
+                        className="block truncate"
+                        title={s.uploaded_by || undefined}
                       >
-                        <CodeBlock
-                          path="profiles.yaml"
-                          content={yamlText}
-                          maxHeightClass="max-h-56"
-                        />
-                        <CodeBlock
-                          path="rehydrate.sh"
-                          content={rehydrateScript}
-                          maxHeightClass="max-h-40"
-                        />
-                      </div>
+                        {s.uploaded_by || "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell
+                      className={`font-mono text-[11px] ${COL_METRIC}`}
+                    >
+                      <span
+                        className="block truncate"
+                        title={s.suite_run_id}
+                      >
+                        {shortSuiteId(s.suite_run_id)}
+                      </span>
                     </TableCell>
                   </TableRow>
-                ) : null}
-              </Fragment>
-            );
-          })}
-        </TableBody>
-      </Table>
+                  {open ? (
+                    <TableRow>
+                      <TableCell colSpan={colCount} className="bg-canvas-soft">
+                        <div
+                          className="space-y-3 py-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {showKColumns && atK.k != null ? (
+                            <p className="text-xs text-mute">
+                              Observational k metrics for this job (not PASS
+                              authority; not identity). Display k=
+                              <span className="font-mono">{atK.k}</span>
+                              {nAtt != null ? (
+                                <>
+                                  {" "}
+                                  · n_attempts=
+                                  <span className="font-mono">{nAtt}</span>
+                                </>
+                              ) : null}
+                              .
+                            </p>
+                          ) : null}
+                          <CodeBlock
+                            path="profiles.yaml"
+                            content={yamlText}
+                            maxHeightClass="max-h-56"
+                          />
+                          <CodeBlock
+                            path="rehydrate.sh"
+                            content={rehydrateScript}
+                            maxHeightClass="max-h-40"
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

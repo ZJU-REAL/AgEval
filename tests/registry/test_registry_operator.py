@@ -451,6 +451,81 @@ def test_suite_results_recompute_metrics_when_missing(tmp_path: Path) -> None:
     assert got["metrics"]["n_error"] == 1
 
 
+def test_suite_upload_preserves_pass_at_k_metrics(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#60 B2: Registry stores and returns pass_at_k / pass_power_k / n_attempts."""
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
+    import shutil
+
+    db = tmp_path / "db-suite-k"
+    shutil.copytree(FIXTURE, db)
+    suite_run_id = "suite_pass_at_k_roundtrip"
+    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir.mkdir(parents=True, exist_ok=True)
+    summary = {
+        "schema": "bora.suite.summary/1",
+        "suite_run_id": suite_run_id,
+        "database_id": "test/publish-min",
+        "database_version": "0.1.0",
+        "n_attempts": 2,
+        "attempts": [
+            {"task_id": "a", "attempt_index": 0, "status": "PASS", "run_id": "a0"},
+            {"task_id": "a", "attempt_index": 1, "status": "PASS", "run_id": "a1"},
+            {"task_id": "b", "attempt_index": 0, "status": "FAIL", "run_id": "b0"},
+            {"task_id": "b", "attempt_index": 1, "status": "FAIL", "run_id": "b1"},
+        ],
+        "tasks": [
+            {"task_id": "a", "status": "PASS", "score": 1.0, "n": 2, "c": 2, "run_id": "a0"},
+            {"task_id": "b", "status": "FAIL", "score": 0.0, "n": 2, "c": 0, "run_id": "b0"},
+        ],
+        "task_refs": [
+            {"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "a0"},
+            {"task_id": "b", "status": "FAIL", "score": 0.0, "run_id": "b0"},
+        ],
+        # Legacy-only metrics: upload path must recompute k maps before POST.
+        "metrics": {
+            "pass_rate": 0.5,
+            "mean_score": 0.5,
+            "n_tasks": 2,
+            "n_pass": 1,
+            "n_fail": 1,
+            "n_error": 0,
+            "missing_score_as": 0.0,
+        },
+        "exit_code": 1,
+        "note": "per-task evaluator verdicts only; no suite-level PASS",
+        "config_fingerprint": "sha256:k-metrics-not-in-fp",
+        "config_homogeneous": True,
+        "actors_summary": [{"profile_id": "solver", "entry": "pi", "model": "m1"}],
+    }
+    (suite_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+
+    up = upload_suite_result(db, suite_run_id=suite_run_id, public=True)
+    assert up["ok"] is True
+    assert up["metrics"]["pass_at_k"]["1"]["value"] == pytest.approx(0.5)
+    assert up["metrics"]["pass_at_k"]["2"]["value"] == pytest.approx(0.5)
+    assert up["metrics"]["pass_power_k"]["2"]["value"] == pytest.approx(0.5)
+    assert up["metrics"]["n_attempts"] == 2
+    assert up["task_refs"][0]["attempt_run_ids"] == ["a0", "a1"]
+
+    listed = list_suite_results(database_id="test/publish-min")
+    item = next(i for i in listed["items"] if i["suite_run_id"] == suite_run_id)
+    assert item["metrics"]["pass_at_k"]["2"]["n_tasks"] == 2
+    assert item["metrics"]["k_values"] == [1, 2]
+    # First-class columns still present; k is under metrics only.
+    assert item["pass_rate"] == pytest.approx(0.5)
+    assert "pass_at_k" not in item or item.get("pass_at_k") is item["metrics"].get("pass_at_k")
+
+    got = get_suite_result(suite_run_id)
+    assert got["metrics"]["pass_power_k"]["1"]["value"] == pytest.approx(0.5)
+    assert got["task_refs"][1]["n"] == 2
+    assert got["task_refs"][1]["c"] == 0
+    # Fingerprint identity unchanged — pass@k must not be fused into it.
+    assert got.get("config_fingerprint") == "sha256:k-metrics-not-in-fp"
+
+
 def test_suite_upload_scope_cannot_read_private(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

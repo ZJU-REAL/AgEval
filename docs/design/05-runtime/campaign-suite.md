@@ -49,7 +49,7 @@ Variant 是 Config Core 的显式输入。它不会成为 Task Package 内第二
 - **Always-k**：范围内每 task 固定产出 k 个独立 Attempt（并列或链均可；**不许**改旧 Attempt）。
 - **pass@k**：无偏估计（Harbor）；**pass^k**：\((c/n)^k\)；suite / dataset 分 = 各 task 指标的 **mean**（样本不够的 task 不进该 k 分母）。
 - **补跑**：`--resume-suite` 跳过**真实跑完**的 `(task_id, attempt_index)`，**追加** Attempt 后重算 metrics；suite **cancel 占位**（未真正执行）在 resume 时会**重跑**（避免永久压低 pass@k / pass^k），并清除 `cancel.requested`。
-- **进度 / 取消**：suite `progress.json`；`bora status|cancel suite_…`（可选 `--database`）。
+- **进度 / 取消**：suite `progress.json`；`bora status|cancel <suite_run_id>`（可选 `--database`；id 默认为 8 hex）。
 - **阶段耗时**：Attempt `phase_timing`（prepare / run / evaluate / cleanup），服务进度与 Viewer/Hub Timing 条；不替代 PASS。
 
 Summary / suite-run 布局见 [02-task-package-and-config.md](../02-task-package-and-config.md)（Database Registry 与 Suite 轴）。

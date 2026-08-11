@@ -7,7 +7,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from bora.application.suite_metrics import aggregate_task_metrics, task_refs_for_summary
+from bora.application.suite_metrics import (
+    ensure_suite_metrics,
+    ensure_suite_task_refs,
+)
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
 from bora.registry.client import RegistryClient, RegistryError
@@ -259,19 +262,23 @@ def _task_rows_from_summary(summary: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _suite_metrics_and_refs(summary: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Resolve metrics + task_refs from summary, recomputing from tasks[] when missing."""
+    """Resolve metrics + task_refs, recomputing pass@k / n,c when recoverable (#60 A).
+
+    Recompute is local-only (list/get/upload). Hub never becomes the live
+    pass@k authority. Missing k maps with complete ``attempts[]`` or per-task
+    ``n``/``c`` are restored before upload.
+    """
     task_rows = _task_rows_from_summary(summary)
-    raw_metrics = summary.get("metrics")
-    metrics: dict[str, Any] = dict(raw_metrics) if isinstance(raw_metrics, dict) else {}
-    if not metrics and task_rows:
-        metrics = aggregate_task_metrics(task_rows)
+    metrics = ensure_suite_metrics(summary, task_rows=task_rows)
     raw_refs = summary.get("task_refs")
+    existing: list[dict[str, Any]] | None = None
     if isinstance(raw_refs, list):
-        task_refs: list[dict[str, Any]] = [t for t in raw_refs if isinstance(t, dict)]
-    elif task_rows:
-        task_refs = task_refs_for_summary(task_rows)
-    else:
-        task_refs = []
+        existing = [t for t in raw_refs if isinstance(t, dict)]
+    task_refs = ensure_suite_task_refs(
+        summary,
+        task_rows=task_rows,
+        existing_refs=existing,
+    )
     return metrics, task_refs
 
 
@@ -318,18 +325,31 @@ def _local_suite_item(summary: dict[str, Any], *, suite_dir: Path) -> dict[str, 
 
 
 def _run_ids_from_task_refs(task_refs: list[dict[str, Any]]) -> list[str]:
-    """Unique non-empty run_ids from suite task_refs (stable order)."""
+    """Unique non-empty run_ids from suite task_refs (stable order).
+
+    Prefers ``attempt_run_ids`` (all k samples) when present so
+    ``--with-attempts`` can upload the full multi-attempt set (#60 A3).
+    Falls back to the primary ``run_id`` per task.
+    """
     seen: set[str] = set()
     out: list[str] = []
-    for ref in task_refs:
-        rid = ref.get("run_id")
-        if rid is None:
-            continue
-        text = str(rid).strip()
+
+    def _add(raw: object) -> None:
+        if raw is None:
+            return
+        text = str(raw).strip()
         if not text or text in seen:
-            continue
+            return
         seen.add(text)
         out.append(text)
+
+    for ref in task_refs:
+        ids = ref.get("attempt_run_ids")
+        if isinstance(ids, list) and ids:
+            for rid in ids:
+                _add(rid)
+        else:
+            _add(ref.get("run_id"))
     return out
 
 

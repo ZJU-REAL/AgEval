@@ -18,7 +18,7 @@ def register(app: typer.Typer) -> None:
         run_id: Annotated[
             str,
             typer.Argument(
-                help="Run id or suite_run_id (suite_…) from ControlStore / bora run suite.",
+                help="Run id or suite_run_id (8-hex suite id or attempt run id).",
             ),
         ],
         store: Annotated[
@@ -44,7 +44,7 @@ def register(app: typer.Typer) -> None:
         import os
         import signal
 
-        from bora.application.suite_run import request_suite_cancel
+        from bora.application.suite_run import is_suite_run_locator, request_suite_cancel
         from bora.control.store import ControlStore
 
         path = store or (Path.cwd() / ".bora" / "control.db")
@@ -52,15 +52,14 @@ def register(app: typer.Typer) -> None:
         rec = cs.get(run_id)
         payload: dict = dict((rec or {}).get("payload") or {})
         kind = str(payload.get("kind") or "")
-        is_suite = kind == "suite" or run_id.startswith("suite_")
+        db_root = database
+        if db_root is None and payload.get("database_root"):
+            db_root = Path(str(payload["database_root"]))
+        is_suite = is_suite_run_locator(run_id, database_root=db_root, control_kind=kind)
 
         cancel_file = None
-        if is_suite:
-            db_root = database
-            if db_root is None and payload.get("database_root"):
-                db_root = Path(str(payload["database_root"]))
-            if db_root is not None:
-                cancel_file = str(request_suite_cancel(db_root, run_id))
+        if is_suite and db_root is not None:
+            cancel_file = str(request_suite_cancel(db_root, run_id))
 
         if rec is None and not is_suite:
             typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))

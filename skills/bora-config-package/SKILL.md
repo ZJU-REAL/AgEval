@@ -156,17 +156,21 @@ bindings:
 | `agent_label` / `model_label` | 同构时从 actors 派生；异构时留空 |
 | `metrics.pass_rate` / `mean_score` | 观测聚合（非 suite PASS） |
 | `metrics.pass_at_k` / `pass_power_k` | Always-k job 指标（按 task mean）；**不进** fingerprint |
-| `metrics.n_attempts` | job k 预算（CLI only） |
+| `metrics.n_attempts` / `k_values` / `per_task` | job k 预算、k 列表、per-task n/c 审计（CLI only） |
+| `task_refs[]` | 可含 `n` / `c` / `attempt_run_ids`（多 attempt 审计与 `--with-attempts`） |
 
 **禁止**在 `task.yaml` / `bora.yaml` 增加 `n_attempts`。Always-k 只走 `bora run -k` / job 参数。
 
-Upload（`bora results upload-suite`）**投影**这些字段到 Registry；Hub **不**在 upload 时解 tar 硬提配置。Hub 榜 pass@k 列见 #60。
+Upload（`bora results upload-suite`）**投影**这些字段到 Registry；缺 k maps 时本地 **ensure/recompute** 后再 POST；Hub **不**在 upload 时解 tar 硬提配置，也**不** live 算 pass@k。
 
-**Hub Leaderboard 消费（#40）：**
+**Hub Leaderboard 消费（#40 / #59 / #60）：**
 
 - 有 `job_overlay` / `config_fingerprint` → 榜上展示 binding（yaml 形态可展开导出）  
+- 有 `metrics.pass_at_k` 时额外列 **n_attempts** / **pass@k** / **pass^k**（缺省 `—`；默认排序仍 Pass rate → Mean score）  
+- pass@k **不是** job 身份键；不同 k 可并列  
 - `config_homogeneous: false` 仅当 **同一 role 的 entry/model 冲突**（异常）；正常多拓扑合集仍为 true  
 - 指纹缺失（旧产物）→ 降级：仅 label，或提示「缺少 config 指纹」  
+
 
 
 指纹**只服务可比性与展示**，**不是** suite PASS；PASS 仍只来自 per-task evaluator。

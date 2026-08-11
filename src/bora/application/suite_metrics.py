@@ -102,20 +102,75 @@ def aggregate_task_metrics(task_rows: Sequence[Mapping[str, Any]]) -> dict[str, 
     }
 
 
-def task_refs_for_summary(task_rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Minimal per-task references for suite/job result rows (leaderboard)."""
+def task_refs_for_summary(
+    task_rows: Sequence[Mapping[str, Any]],
+    *,
+    attempts: Sequence[Mapping[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Minimal per-task references for suite/job result rows (leaderboard).
+
+    When *attempts* is provided (or a task row nests ``attempts``), each ref
+    may include ``n``, ``c``, and ``attempt_run_ids`` for multi-attempt audit
+    and ``--with-attempts`` upload completeness (#60 A3).
+    """
+    by_task: dict[str, list[Mapping[str, Any]]] = {}
+    if attempts is not None:
+        by_task = group_attempts_by_task(attempts)
+
     refs: list[dict[str, Any]] = []
     for row in task_rows:
+        tid = str(row.get("task_id") or "")
         ref: dict[str, Any] = {
             "task_id": row.get("task_id"),
             "status": _normalize_status(row.get("status")) or None,
             "score": _numeric_score_or_none(row.get("score")),
             "run_id": row.get("run_id"),
         }
-        if row.get("n") is not None:
-            ref["n"] = row.get("n")
-        if row.get("c") is not None:
-            ref["c"] = row.get("c")
+        n_val = row.get("n")
+        c_val = row.get("c")
+        attempt_run_ids: list[str] = []
+
+        # Nested attempts on the task row (legacy / materialised shapes).
+        nested = row.get("attempts")
+        nested_rows: list[Mapping[str, Any]] = []
+        if isinstance(nested, list) and nested:
+            nested_rows = [a for a in nested if isinstance(a, Mapping)]
+        elif tid and tid in by_task:
+            nested_rows = list(by_task[tid])
+
+        if nested_rows:
+            n_from, c_from = count_passes(nested_rows)
+            if n_val is None:
+                n_val = n_from
+            if c_val is None:
+                c_val = c_from
+            for a in nested_rows:
+                rid = a.get("run_id")
+                if rid is None:
+                    continue
+                text = str(rid).strip()
+                if text and text not in attempt_run_ids:
+                    attempt_run_ids.append(text)
+
+        # Explicit attempt_run_ids on the task / prior ref.
+        explicit = row.get("attempt_run_ids")
+        if isinstance(explicit, list):
+            for rid in explicit:
+                if rid is None:
+                    continue
+                text = str(rid).strip()
+                if text and text not in attempt_run_ids:
+                    attempt_run_ids.append(text)
+
+        if n_val is not None:
+            ref["n"] = n_val
+        if c_val is not None:
+            ref["c"] = c_val
+        if attempt_run_ids:
+            ref["attempt_run_ids"] = attempt_run_ids
+            # Prefer primary run_id when missing: PASS attempt, else first.
+            if not ref.get("run_id"):
+                ref["run_id"] = attempt_run_ids[0]
         refs.append(ref)
     return refs
 
@@ -380,3 +435,304 @@ def flatten_legacy_tasks_as_attempts(
             }
         )
     return out
+
+
+# ---------------------------------------------------------------------------
+# Pre-upload ensure / recompute (#60 A)
+# ---------------------------------------------------------------------------
+
+
+def has_k_metrics(metrics: Mapping[str, Any] | None) -> bool:
+    """True when metrics already carry suite-level pass@k / pass^k maps."""
+    if not isinstance(metrics, Mapping):
+        return False
+    pass_at = metrics.get("pass_at_k")
+    pass_pow = metrics.get("pass_power_k")
+    if not isinstance(pass_at, dict) or not pass_at:
+        return False
+    return isinstance(pass_pow, dict) and bool(pass_pow)
+
+
+def _int_or_none(raw: object) -> int | None:
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None
+    return raw
+
+
+def _single_sample_from_task_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One attempt row from a rolled task summary (legacy / incomplete n without c)."""
+    return {
+        "task_id": row.get("task_id"),
+        "attempt_index": 0,
+        "status": row.get("status"),
+        "score": row.get("score"),
+        "run_id": row.get("run_id"),
+    }
+
+
+def _synthetic_attempts_from_nc(
+    task_rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]] | None:
+    """Build attempt rows from per-task ``n``/``c`` when full attempts are absent.
+
+    Creates *c* PASS + *(n-c)* FAIL synthetic samples so ``aggregate_k_metrics``
+    can recompute pass@k without inventing suite PASS.
+
+    Recovery rules when ``c`` is missing:
+
+    - ``n == 1``: rolled status determines ``c`` (PASS → 1, else 0).
+    - ``n > 1`` and rolled non-PASS: ``c = 0`` is sound under BORA rollup
+      (any PASS would have rolled to PASS).
+    - ``n > 1`` and rolled PASS: **do not** invent ``c = n`` — that would treat
+      "at least one pass" as "all n passed" and inflate pass@k. Fall back to a
+      single sample from rolled status so multi-k stays incomplete for that task.
+
+    Returns ``None`` when no task has recoverable multi-attempt data (nested
+    attempts or complete ``n``+``c`` / recoverable zero-pass ``n``). Caller may
+    then flatten pure legacy ``tasks[]``.
+    """
+    any_recoverable = False
+    out: list[dict[str, Any]] = []
+    for row in task_rows:
+        n = _int_or_none(row.get("n"))
+        c = _int_or_none(row.get("c"))
+        nested = row.get("attempts")
+        if isinstance(nested, list) and nested:
+            for a in nested:
+                if isinstance(a, Mapping):
+                    out.append(dict(a))
+            any_recoverable = True
+            continue
+        if n is None or n < 1:
+            # Single-sample fallback from rolled status (legacy tasks[]).
+            out.append(_single_sample_from_task_row(row))
+            continue
+        if c is None:
+            st = _normalize_status(row.get("status"))
+            if n == 1:
+                # Exactly one sample: c is determined by that rolled status.
+                c = 1 if st == "PASS" else 0
+            elif st == "PASS":
+                # Multi-attempt with unknown c — omit invented multi-sample.
+                out.append(_single_sample_from_task_row(row))
+                continue
+            else:
+                # BORA rollup: no PASS ⇒ c == 0.
+                c = 0
+        any_recoverable = True
+        c = max(0, min(c, n))
+        for i in range(n):
+            out.append(
+                {
+                    "task_id": row.get("task_id"),
+                    "attempt_index": i,
+                    "status": "PASS" if i < c else "FAIL",
+                    "score": 1.0 if i < c else 0.0,
+                    "run_id": row.get("run_id") if i == 0 else None,
+                }
+            )
+    return out if any_recoverable else None
+
+
+def metrics_payload_from_k_agg(k_agg: Mapping[str, Any]) -> dict[str, Any]:
+    """Stable ``summary.metrics`` / upload shape from ``aggregate_k_metrics``."""
+    return {
+        "pass_rate": k_agg["pass_rate"],
+        "mean_score": k_agg["mean_score"],
+        "n_tasks": k_agg["n_tasks"],
+        "n_pass": k_agg["n_pass"],
+        "n_fail": k_agg["n_fail"],
+        "n_error": k_agg["n_error"],
+        "missing_score_as": k_agg["missing_score_as"],
+        "n_attempts": k_agg["n_attempts"],
+        "k_values": list(k_agg["k_values"]),
+        "pass_at_k": k_agg["pass_at_k"],
+        "pass_power_k": k_agg["pass_power_k"],
+        "per_task": list(k_agg["per_task"]),
+    }
+
+
+def ensure_suite_metrics(
+    summary: Mapping[str, Any],
+    *,
+    task_rows: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return suite metrics, recomputing pass@k when missing but recoverable (#60 A2).
+
+    Priority:
+
+    1. Existing ``metrics`` that already include ``pass_at_k`` / ``pass_power_k``
+    2. Recompute from ``summary.attempts[]`` via ``aggregate_k_metrics``
+    3. Recompute from ``tasks[]`` with recoverable ``n``/``c`` (or nested attempts);
+       ``n`` without ``c`` on a multi-attempt PASS does **not** invent ``c = n``
+    4. Legacy single-sample / ``aggregate_task_metrics`` when multi-attempt
+       samples are unrecoverable
+
+    Does **not** write suite-level PASS. Never touches ``config_fingerprint``.
+    """
+    rows = list(task_rows) if task_rows is not None else []
+    if not rows:
+        raw_tasks = summary.get("tasks")
+        if isinstance(raw_tasks, list):
+            rows = [t for t in raw_tasks if isinstance(t, Mapping)]
+
+    raw_metrics = summary.get("metrics")
+    metrics: dict[str, Any] = dict(raw_metrics) if isinstance(raw_metrics, dict) else {}
+
+    if has_k_metrics(metrics):
+        # Backfill lightweight keys if older writers omitted them.
+        if metrics.get("n_attempts") is None:
+            top = summary.get("n_attempts")
+            if isinstance(top, int) and not isinstance(top, bool) and top >= 1:
+                metrics["n_attempts"] = top
+        if not isinstance(metrics.get("k_values"), list):
+            pass_at = metrics.get("pass_at_k")
+            if isinstance(pass_at, dict) and pass_at:
+                keys: list[int] = []
+                for k in pass_at:
+                    try:
+                        keys.append(int(k))
+                    except (TypeError, ValueError):
+                        continue
+                if keys:
+                    metrics["k_values"] = sorted(keys)
+        if "per_task" not in metrics and rows:
+            # Optional audit surface; leave empty rather than invent wrong n/c.
+            pass
+        if metrics.get("pass_rate") is None and rows:
+            legacy = aggregate_task_metrics(rows)
+            for key in (
+                "pass_rate",
+                "mean_score",
+                "n_tasks",
+                "n_pass",
+                "n_fail",
+                "n_error",
+                "missing_score_as",
+            ):
+                if metrics.get(key) is None:
+                    metrics[key] = legacy[key]
+        return metrics
+
+    n_attempts = _int_or_none(summary.get("n_attempts"))
+    if n_attempts is None:
+        n_attempts = _int_or_none(metrics.get("n_attempts"))
+
+    attempt_rows: list[dict[str, Any]] = []
+    # True when attempts were invented from n/c or single-row status (scores may be 0/1 only).
+    synthetic_attempts = False
+    raw_attempts = summary.get("attempts")
+    if isinstance(raw_attempts, list) and raw_attempts:
+        attempt_rows = [dict(a) for a in raw_attempts if isinstance(a, Mapping)]
+
+    if not attempt_rows and rows:
+        synthetic = _synthetic_attempts_from_nc(rows)
+        if synthetic is not None:
+            attempt_rows = synthetic
+            synthetic_attempts = True
+        else:
+            # Pure legacy: one sample per task from rolled status.
+            attempt_rows = flatten_legacy_tasks_as_attempts(rows)
+            synthetic_attempts = True
+
+    if attempt_rows:
+        task_ids = None
+        raw_ids = summary.get("task_ids")
+        if isinstance(raw_ids, list) and raw_ids:
+            task_ids = [str(t) for t in raw_ids]
+        elif rows:
+            task_ids = [str(t.get("task_id") or "") for t in rows]
+        k_agg = aggregate_k_metrics(
+            attempt_rows,
+            task_ids=task_ids,
+            n_attempts=n_attempts,
+        )
+        recomputed = metrics_payload_from_k_agg(k_agg)
+        # Prefer recomputed k maps; keep any extra observational keys already present.
+        merged = dict(metrics)
+        if synthetic_attempts and metrics:
+            # n/c synthesis invents 0/1 scores — do not clobber real pass_rate /
+            # mean_score (or counts) that a prior writer already stored.
+            k_only = {
+                "n_attempts": recomputed["n_attempts"],
+                "k_values": recomputed["k_values"],
+                "pass_at_k": recomputed["pass_at_k"],
+                "pass_power_k": recomputed["pass_power_k"],
+                "per_task": recomputed["per_task"],
+            }
+            for key, value in recomputed.items():
+                if key in k_only:
+                    continue
+                merged.setdefault(key, value)
+            merged.update(k_only)
+        else:
+            merged.update(recomputed)
+        return merged
+
+    if not metrics and rows:
+        return aggregate_task_metrics(rows)
+    if rows and metrics.get("pass_rate") is None:
+        legacy = aggregate_task_metrics(rows)
+        for key, value in legacy.items():
+            metrics.setdefault(key, value)
+    return metrics
+
+
+def ensure_suite_task_refs(
+    summary: Mapping[str, Any],
+    *,
+    task_rows: Sequence[Mapping[str, Any]] | None = None,
+    existing_refs: Sequence[Mapping[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Build / enrich task_refs with per-task n, c, attempt_run_ids when recoverable."""
+    rows: list[Mapping[str, Any]]
+    if task_rows is not None:
+        rows = list(task_rows)
+    else:
+        raw_tasks = summary.get("tasks")
+        if isinstance(raw_tasks, list):
+            rows = [t for t in raw_tasks if isinstance(t, Mapping)]
+        else:
+            rows = []
+
+    attempts_raw = summary.get("attempts")
+    attempts: list[Mapping[str, Any]] | None = None
+    if isinstance(attempts_raw, list) and attempts_raw:
+        attempts = [a for a in attempts_raw if isinstance(a, Mapping)]
+
+    # Prefer rebuilding from tasks + attempts so n/c/run_ids stay complete.
+    if rows:
+        rebuilt = task_refs_for_summary(rows, attempts=attempts)
+        if rebuilt:
+            # If caller had richer status/score on existing_refs only, merge by task_id.
+            if existing_refs:
+                by_id = {
+                    str(r.get("task_id") or ""): dict(r)
+                    for r in existing_refs
+                    if isinstance(r, Mapping)
+                }
+                for ref in rebuilt:
+                    tid = str(ref.get("task_id") or "")
+                    prior = by_id.get(tid)
+                    if not prior:
+                        continue
+                    for key in ("status", "score", "run_id"):
+                        if ref.get(key) is None and prior.get(key) is not None:
+                            ref[key] = prior.get(key)
+                    if ref.get("n") is None and prior.get("n") is not None:
+                        ref["n"] = prior.get("n")
+                    if ref.get("c") is None and prior.get("c") is not None:
+                        ref["c"] = prior.get("c")
+                    prior_ids = prior.get("attempt_run_ids")
+                    if not ref.get("attempt_run_ids") and isinstance(prior_ids, list):
+                        ref["attempt_run_ids"] = [
+                            str(x).strip() for x in prior_ids if x is not None and str(x).strip()
+                        ]
+            return rebuilt
+
+    if existing_refs is not None:
+        return [dict(r) for r in existing_refs if isinstance(r, Mapping)]
+    raw_refs = summary.get("task_refs")
+    if isinstance(raw_refs, list):
+        return [dict(r) for r in raw_refs if isinstance(r, Mapping)]
+    return []

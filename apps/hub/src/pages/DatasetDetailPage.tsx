@@ -28,6 +28,7 @@ import {
   taskIdsFromFiles,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
 import { cn } from "@/lib/utils";
 
 type Tab = "readme" | "tasks" | "leaderboard";
@@ -38,6 +39,8 @@ export function DatasetDetailPage() {
   const datasetId = decodeDatasetId(rawId || "");
   const [search, setSearch] = useSearchParams();
   const tab = (search.get("tab") as Tab) || "readme";
+  /** Local smoke: `?tab=leaderboard&demo=1` injects mock k-metric rows (#60 C4). */
+  const demoLeaderboard = search.get("demo") === "1";
 
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [taskIds, setTaskIds] = useState<string[]>([]);
@@ -228,7 +231,19 @@ export function DatasetDetailPage() {
           </div>
         )
       ) : (
-        <LeaderboardTable suites={suites} databaseId={datasetId} />
+        <div className="space-y-2">
+          {demoLeaderboard ? (
+            <p className="text-xs text-mute">
+              Demo fixtures loaded (
+              <code className="font-mono">?demo=1</code>) — mock pass@k rows for
+              local smoke only; not Registry data.
+            </p>
+          ) : null}
+          <LeaderboardTable
+            suites={demoLeaderboard ? LEADERBOARD_K_FIXTURES : suites}
+            databaseId={datasetId}
+          />
+        </div>
       )}
     </Shell>
   );

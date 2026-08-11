@@ -35,13 +35,14 @@ uv run bora --help
 | `bora lock/run ... --profiles path/to/profiles.yaml`       | Alternate job binding file (replaces Database `profiles.yaml`)       |
 | `bora run <package> --task <id>`                           | One foreground Attempt                                               |
 | `bora run <package> [-k N] [--max-concurrent-tasks N]`     | Suite / Always-k job (`-k` = `--n-attempts`; CLI only)               |
-| `bora run … --resume-suite suite_<id> [--task id] -k N`  | Append Attempts into existing suite job; recompute pass@k / pass^k   |
+| `bora run … --resume-suite <id> [--task id] -k N`        | Append Attempts into existing suite job; recompute pass@k / pass^k   |
 | `bora run ... --set '/bindings/solver/options/entry="pi"'` | Job binding override (entry/model; #59)                              |
 | `bora campaign <package> --task <id> --matrix ...`         | Serial matrix (`/parameters/*` or `/bindings/<role>/…`); ≠ Always-k  |
 | `bora evidence <logs-path> --out <dir>`                    | Sealed trajectory export (no score change)                           |
-| `bora results upload-suite …`                              | Suite aggregates → Registry (includes job_overlay when present)      |
+| `bora results upload-suite …`                              | Suite aggregates → Registry; recompute pass@k if missing; job_overlay |
+| `bora results upload-suite … --with-attempts`              | Also upload attempt dirs from task_refs.attempt_run_ids / run_id     |
 | `bora results export-profiles <suite_run_id> --out …`      | Rehydrate job binding as profiles.yaml (#59; locators only)          |
-| `bora submit` / `bora status` / `bora cancel`              | Durable Run **or suite job** (`suite_…`; status/cancel may take `--database`) |
+| `bora submit` / `bora status` / `bora cancel`              | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`) |
 
 Discover flags with `uv run bora <cmd> --help`. Source of truth: `src/bora/cli/main.py`.
 
@@ -108,11 +109,15 @@ Value after `=` is JSON (strings need quotes):
 
 | Path | Content |
 | --- | --- |
-| `summary.json` → `metrics` | `pass_rate`, `mean_score`, `pass_at_k`, `pass_power_k`, `n_attempts` |
+| `summary.json` → `metrics` | `pass_rate`, `mean_score`, `pass_at_k`, `pass_power_k`, `n_attempts`, `k_values`, `per_task` |
+| `summary.json` → `task_refs` | May include `n`, `c`, `attempt_run_ids` (multi-attempt audit / upload) |
 | `progress.json` | Multi-unit progress |
 | Attempt `result.json` | May include `phase_timing` (prepare/run/evaluate/cleanup) |
 
 - pass@k / pass^k are **job** metrics (mean over tasks); **not** package identity / fingerprint  
+- `pass_at_k["k"]` shape: `{ value, n_tasks, incomplete_tasks }` (k as string key)  
+- `upload-suite` **ensures/recomputes** k maps locally before POST; Registry stores full `metrics`  
+- Hub Leaderboard may show n_attempts / pass@k / pass^k when present (default sort still pass_rate)  
 - `n_attempts` is **CLI/job only** — never invent a `task.yaml` field  
 - Concurrency (`--max-concurrent-tasks`) only speeds scheduling
 
