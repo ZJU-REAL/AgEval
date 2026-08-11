@@ -1,13 +1,14 @@
 """Composition-root bootstrap for the extension registry.
 
-MVP: always register defaults + first-party acp/nooa. No soft-import glue.
+First-party: defaults + ACP (+ optional openai-http / mock).
+Ecosystem plugins (e.g. nooa) load only via ``load_installed_plugins`` after
+``bora plugin install`` — never registered by default here.
 """
 
 from __future__ import annotations
 
 from bora.plugins.contrib.acp import register_acp_contrib
 from bora.plugins.contrib.mock import register_mock_contrib
-from bora.plugins.contrib.nooa import register_nooa_contrib
 from bora.plugins.contrib.openai_http import register_openai_http_contrib
 from bora.plugins.defaults import register_defaults
 from bora.plugins.registry import ExtensionRegistry, get_global_registry, reset_global_registry
@@ -20,11 +21,13 @@ def bootstrap_registry(
     *,
     force: bool = False,
     include_acp: bool = True,
-    include_nooa: bool = True,
     include_openai_http: bool = True,
     include_mock: bool = True,
 ) -> ExtensionRegistry:
-    """Ensure the process registry has builtin + first-party contributions."""
+    """Ensure the process registry has builtin + first-party contributions.
+
+    Installed cache plugins are loaded after first-party (fail closed on bad pkg).
+    """
     global _BOOTSTRAPPED
     reg = registry if registry is not None else get_global_registry()
     if registry is None and _BOOTSTRAPPED and not force:
@@ -37,8 +40,6 @@ def bootstrap_registry(
     register_defaults(reg)
     if include_acp:
         register_acp_contrib(reg)
-    if include_nooa:
-        register_nooa_contrib(reg)
     if include_openai_http:
         register_openai_http_contrib(reg)
     if include_mock:

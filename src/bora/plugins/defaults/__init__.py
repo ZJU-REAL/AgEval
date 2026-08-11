@@ -1,8 +1,9 @@
 """Builtin default contributions for L0–L5 multi hooks and non-executor provides.
 
 MVP: **no** default executor that bridges ``agent_registry.resolve_executor``.
-Executor comes only from first-party contribs (acp / nooa / …) selected by
-profiles ``executor:`` field. Defaults cover chain slots + seal/env/eval stubs.
+Executor comes from first-party contribs (acp, …) or installed plugins
+(e.g. nooa via ``bora plugin install``), selected by profiles ``executor:``
+field. Defaults cover chain slots + seal/env/eval stubs.
 """
 
 from __future__ import annotations

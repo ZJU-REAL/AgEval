@@ -1,8 +1,4 @@
-"""nooa first-party contrib: multi-slot provide/on for mechanism switch (Spec 02).
-
-MVP: host-side SPI that loads package agent via options.agent / options.method.
-L1 bake declaration for image_contribute. No legacy resolve_executor bridge.
-"""
+"""nooa ExecutorSPI factory (bora.plugin/1 provide entry)."""
 
 from __future__ import annotations
 
@@ -12,16 +8,16 @@ from typing import Any
 
 from bora.adapters.agent_contract import AgentResult
 from bora.plugins.errors import ExtensionMaterializeError
-from bora.plugins.registry import ExtensionRegistry
-from bora.plugins.slots import EXECUTOR, IMAGE_CONTRIBUTE, TRAJECTORY_COLLECT
 
 PLUGIN_ID = "nooa"
-# Distinct from acp (100) so unscoped priority order is stable; profiles still bind explicitly.
-NOOA_PRIORITY = 110
 
 
 class NooaExecutorSPI:
-    """ExecutorSPI: invoke task-local agent class (options.agent + method)."""
+    """ExecutorSPI: invoke task-local agent class (options.agent + method).
+
+    Host-side SPI. For L1 Docker, Runtime uses host-in-container Ready strategy
+    (parent invoke with workdir = Attempt workspace mount).
+    """
 
     kind = "nooa"
 
@@ -49,6 +45,8 @@ class NooaExecutorSPI:
         self.profile_id = profile_id
         self.model = model or "nooa"
         self.options = opts
+        # Optional default workdir (L1 host-in-container injects Attempt workspace).
+        self.default_workdir = str(opts.get("_workdir")).strip() if opts.get("_workdir") else None
         self._agent: Any = None
         self._ready = False
 
@@ -62,12 +60,24 @@ class NooaExecutorSPI:
         self._ready = False
 
     def _load_agent(self) -> Any:
-        # "module.path:ClassName" or "module.path"
+        import sys
+        from pathlib import Path
+
         ref = self.agent_ref
         if ":" in ref:
             mod_name, cls_name = ref.split(":", 1)
         else:
             mod_name, cls_name = ref, None
+        roots: list[Path] = []
+        for key in ("_package_root", "package_root"):
+            raw = self.options.get(key)
+            if isinstance(raw, str) and raw.strip():
+                roots.append(Path(raw).expanduser().resolve(strict=False))
+        roots.append(Path.cwd())
+        for root in roots:
+            s = str(root)
+            if root.is_dir() and s not in sys.path:
+                sys.path.insert(0, s)
         try:
             mod = importlib.import_module(mod_name)
         except Exception as exc:  # noqa: BLE001
@@ -95,6 +105,7 @@ class NooaExecutorSPI:
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
         del timeout, redaction_sentinels
+        effective_workdir = workdir or self.default_workdir
         if os.environ.get("BORA_OFFLINE_AGENT") == "1":
             return AgentResult(
                 model=self.model,
@@ -127,9 +138,8 @@ class NooaExecutorSPI:
                 metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
             )
         try:
-            # Prefer method(prompt, workdir=...) then method(prompt).
             try:
-                raw = method(prompt, workdir=workdir)
+                raw = method(prompt, workdir=effective_workdir)
             except TypeError:
                 raw = method(prompt)
         except Exception as exc:  # noqa: BLE001
@@ -168,47 +178,6 @@ class NooaExecutorSPI:
         )
 
 
-def _nooa_factory(**kwargs: Any) -> NooaExecutorSPI:
+def build_executor(**kwargs: Any) -> NooaExecutorSPI:
+    """plugin.yaml provide entry: factory(**kwargs) -> ExecutorSPI."""
     return NooaExecutorSPI(**kwargs)
-
-
-async def _nooa_image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
-    declare = {
-        "plugin": PLUGIN_ID,
-        "bake": ["nooa", "bora-executor-nooa"],
-    }
-    base = list(value) if isinstance(value, list) else []
-    base.append(declare)
-    return await nxt(base)
-
-
-async def _nooa_trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:
-    return await nxt(value)
-
-
-def register_nooa_contrib(registry: ExtensionRegistry) -> None:
-    registry.provide(
-        EXECUTOR,
-        PLUGIN_ID,
-        _nooa_factory,
-        priority=NOOA_PRIORITY,
-        source="first-party",
-        is_factory=True,
-    )
-    registry.on(
-        IMAGE_CONTRIBUTE,
-        PLUGIN_ID,
-        _nooa_image_contribute,
-        priority=NOOA_PRIORITY,
-        source="first-party",
-    )
-    registry.on(
-        TRAJECTORY_COLLECT,
-        PLUGIN_ID,
-        _nooa_trajectory_collect,
-        priority=NOOA_PRIORITY,
-        source="first-party",
-    )
-
-
-__all__ = ["PLUGIN_ID", "NooaExecutorSPI", "register_nooa_contrib"]
