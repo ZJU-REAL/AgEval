@@ -108,6 +108,17 @@ class ParentAgentService:
             raise RuntimeError("executor_impl_missing")
         return impl
 
+    def _run_extension_chain(self, binding: SessionBinding, slot: str, value: Any) -> Any:
+        """Run multi-slot middleware for the session-pinned graph (sync host path)."""
+        graph = binding.extension_graph
+        if graph is None:
+            return value
+        import asyncio
+
+        from bora.plugins.middleware import run_chain
+
+        return asyncio.run(run_chain(graph, slot, value, ctx=binding))
+
     def get_session_extension_graph(self, session_id: str) -> ExtensionGraphLike | None:
         """Test/debug helper: return the pinned graph for a session."""
         with self._lock:
@@ -409,22 +420,30 @@ class ParentAgentService:
 
         sentinels = tuple(self.evidence_store.sentinels) if self.evidence_store else ()
         try:
-            # Multi-invoke sessions need headroom beyond the codex default 45s.
+            # Constitution §7.6: before_agent_invoke → provider.invoke → after_agent_invoke.
+            prompt_out = self._run_extension_chain(
+                binding_snap, "before_agent_invoke", prompt
+            )
             try:
                 result = executor.invoke(
-                    prompt,
+                    prompt_out,
                     timeout=300.0,
                     collect_dir=collect_dir,
                     redaction_sentinels=sentinels,
                 )
             except TypeError:
                 try:
-                    result = executor.invoke(prompt, timeout=300.0, collect_dir=collect_dir)
+                    result = executor.invoke(
+                        prompt_out, timeout=300.0, collect_dir=collect_dir
+                    )
                 except TypeError:
                     try:
-                        result = executor.invoke(prompt, timeout=300.0)
+                        result = executor.invoke(prompt_out, timeout=300.0)
                     except TypeError:
-                        result = executor.invoke(prompt)
+                        result = executor.invoke(prompt_out)
+            result = self._run_extension_chain(
+                binding_snap, "after_agent_invoke", result
+            )
         except Exception as exc:  # noqa: BLE001 — executor crash must leave partial evidence
             latency = (time.monotonic() - started) * 1000.0
             if handle is not None:
