@@ -35,8 +35,17 @@ uv run bora plugin install plugins/nooa
 uv run bora run examples/journeys --task terminal-jsonl-agg --profiles examples/journeys/profiles.nooa.yaml
 ```
 
+## Recognition ≠ Ready ≠ bind
+
+- **install** → Recognition only (`plugin list` / executor visible)
+- **profiles `executor: nooa`** → bind
+- **L1 Ready** → `image_contribute` bake puts `bora-executor-nooa` in the Attempt
+  image; invoke is **docker exec** into the container (not parent host SPI)
+
 ## L1 Ready strategy
 
-For Docker L1 tasks, nooa uses **host-in-container**: parent materializes the
-host SPI and writes effects into the Attempt workspace mount. It does **not**
-rely on silent host_fallback of ACP coding agents.
+For Docker L1 tasks, nooa uses **in-container worker** (Spec 05). Parent does **not**
+materialize package agents on the host for L1 success. See Dockerfile.bake + worker/.
+
+Deprecated (removed as success path): host-in-container parent SPI. L1 must not claim
+PASS via parent `NooaExecutorSPI.invoke`.

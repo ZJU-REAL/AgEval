@@ -26,8 +26,10 @@ parameters:
   models:
     default: specialist
 provider:
-  kind: local
-  assurance: l0
+  kind: docker
+  assurance: l1
+  platform: linux/arm64
+  network: bridge
 agent_profiles:
 - id: specialist
 - id: planner
