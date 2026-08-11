@@ -77,7 +77,9 @@ async def test_concurrency_cap_with_stub_runner() -> None:
     assert "no suite-level" in note
     path = Path(summary["summary_path"])
     assert path.is_file()
-    assert path.parent.name.startswith("suite_")
+    # System suite_run_id is bare 8-hex (no suite_ prefix).
+    assert len(path.parent.name) == 8
+    assert all(c in "0123456789abcdef" for c in path.parent.name)
     for row in summary["tasks"]:
         assert "result_ref" not in row
         assert "evidence_ref" not in row

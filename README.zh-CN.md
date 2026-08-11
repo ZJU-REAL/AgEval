@@ -61,11 +61,11 @@ uv run bora run examples/core --max-concurrent-tasks 2
 # Always-k：每题 k 次独立 Attempt（仅 CLI/job；用于 pass@k / pass^k）
 uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 # uv run bora run examples/core --task sdk-agent-session -k 5
-# uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
+# uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
 
 # suite job 控制（可选 --database 读进度 / 写 cancel）
-# uv run bora status suite_<id> --database examples/core
-# uv run bora cancel suite_<id> --database examples/core
+# uv run bora status <suite_run_id> --database examples/core
+# uv run bora cancel <suite_run_id> --database examples/core
 
 # 本机结果台（SPA 先构建一次：cd apps/viewer && pnpm build）
 uv run bora view examples/core --no-browser

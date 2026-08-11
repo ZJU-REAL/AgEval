@@ -64,8 +64,8 @@ Stdout JSON (high level):
 ## Control surface
 
 - `submit` / `status` / `cancel` operate on ControlStore records.
-- **Suite jobs** (`suite_…`): `status` / `cancel` accept optional `--database` to read
-  `progress.json` or write `cancel.requested` when ControlStore has no row.
+- **Suite jobs** (bare 8-hex id): `status` / `cancel` accept optional `--database`
+  to read `progress.json` or write `cancel.requested` when ControlStore has no row.
 - Suite cancel: stop scheduling new units; SIGTERM stored pid when present.
 
 ## Always-k vs campaign

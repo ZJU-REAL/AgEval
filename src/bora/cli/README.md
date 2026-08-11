@@ -85,7 +85,7 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora campaign` | Serial parameter-matrix campaign (matrix axis ≠ k-attempt) |
 | `bora executors` | Host executor / ACP entry inventory |
 | `bora evidence` | Export sealed trajectory copy (does not change score) |
-| `bora submit` / `status` / `cancel` | Durable Run / suite job control (`suite_…` + optional `--database`) |
+| `bora submit` / `status` / `cancel` | Durable Run / suite job control (suite id + optional `--database`) |
 | `bora login` | GitHub **Device Flow** → write credentials (Hub uses browser OAuth instead) |
 | `bora publish` | Publish a Database package (**requires `--org`**) |
 | `bora registry list\|show` | Browse remote packages |
@@ -121,7 +121,7 @@ uv run bora run examples/core
 uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 uv run bora run examples/core --task sdk-agent-session -k 5
 # Resume / top-up: skip real finished units; re-run suite-cancel placeholders; recompute pass@k
-# uv run bora run examples/core --resume-suite suite_<id> --task sdk-agent-session -k 5
+# uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
 
 # Allowlisted --set (JSON Pointer = JSON value)
 uv run bora lock examples/core --task config-minimal --set /parameters/seed=7
@@ -185,8 +185,8 @@ uv run bora status <run_id>
 uv run bora cancel <run_id>
 
 # Suite job (#47 D)
-uv run bora status suite_<id> --database examples/core
-uv run bora cancel suite_<id> --database examples/core
+uv run bora status <suite_run_id> --database examples/core
+uv run bora cancel <suite_run_id> --database examples/core
 ```
 
 ### Executors

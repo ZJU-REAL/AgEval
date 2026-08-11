@@ -64,24 +64,27 @@ def register(app: typer.Typer) -> None:
         """Query durable Run/suite control record (+ suite progress when available)."""
         import json as _json
 
+        from bora.application.suite_run import is_suite_run_locator
         from bora.control.store import ControlStore
 
         path = store or (Path.cwd() / ".bora" / "control.db")
         rec = ControlStore(path).get(run_id)
-        if rec is None and not run_id.startswith("suite_"):
+        payload = dict((rec or {}).get("payload") or {})
+        kind = str(payload.get("kind") or "")
+        db_root = database
+        if db_root is None and payload.get("database_root"):
+            db_root = Path(str(payload["database_root"]))
+        is_suite = is_suite_run_locator(
+            run_id, database_root=db_root, control_kind=kind
+        )
+        if rec is None and not is_suite:
             typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
             raise typer.Exit(code=2)
 
         out: dict = {"ok": True, "run_id": run_id}
         if rec is not None:
             out.update(rec)
-        payload = dict((rec or {}).get("payload") or {})
-        db_root = database
-        if db_root is None and payload.get("database_root"):
-            db_root = Path(str(payload["database_root"]))
-        if db_root is not None and (
-            str(payload.get("kind") or "") == "suite" or run_id.startswith("suite_")
-        ):
+        if db_root is not None and is_suite:
             prog = (
                 Path(db_root).expanduser().resolve(strict=False)
                 / ".bora"
@@ -96,7 +99,9 @@ def register(app: typer.Typer) -> None:
                         out["progress"] = data
             cancel_p = prog.parent / "cancel.requested"
             out["cancel_requested"] = cancel_p.is_file()
-        if rec is None and "progress" not in out:
+        if rec is None and "progress" not in out and not (
+            db_root is not None and is_suite
+        ):
             typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
             raise typer.Exit(code=2)
         typer.echo(json.dumps(out, sort_keys=True, separators=(",", ":")))
