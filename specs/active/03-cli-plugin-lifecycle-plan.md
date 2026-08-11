@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Created | 2026-08-11 |
-| Status | in-progress |
-| Completed | pending |
+| Status | completed |
+| Completed | 2026-08-11 |
 | Dependencies | [00](00-extension-registry-default-plan.md) |
 | Decisions | [constitution §2](../constitution/2026-08-11-extension-api-and-registry.md)；cache [§7.1B](../constitution/2026-08-11-extension-api-and-registry.md)；落盘 [§7.5](../constitution/2026-08-11-extension-api-and-registry.md) |
 
@@ -16,13 +16,13 @@
 
 ## Acceptance
 
-- [ ] **Success smoke：** install fixture → [§7.1B](../constitution/2026-08-11-extension-api-and-registry.md) 路径与 `index.json` 存在；`plugin list` 可见；Recognition 认识 kind。  
-- [ ] **Expected failure：** 坏包/缺 manifest → 非 0；无半套启用（原子回滚）。  
-- [ ] **Regression：** 未 install 时 00/01 默认路径不变；**profiles.yaml 不被 install 修改**（[§7.5](../constitution/2026-08-11-extension-api-and-registry.md)）。  
-- [ ] **Baseline：** 无 plugin CLI。  
-- [ ] **Engineering gates：** CLI 单测；`BORA_HOME` 可指临时目录。  
-- [ ] **Docs：** 落盘路径、不改 profiles、materialize 用法。  
-- [ ] **落盘表：** [§7.5](../constitution/2026-08-11-extension-api-and-registry.md) 逐行满足。
+- [x] **Success smoke：** install fixture → [§7.1B](../constitution/2026-08-11-extension-api-and-registry.md) 路径与 `index.json` 存在；`plugin list` 可见；Recognition 认识 kind。  
+- [x] **Expected failure：** 坏包/缺 manifest → 非 0；无半套启用（原子回滚）。  
+- [x] **Regression：** 未 install 时 00/01 默认路径不变；**profiles.yaml 不被 install 修改**（[§7.5](../constitution/2026-08-11-extension-api-and-registry.md)）。  
+- [x] **Baseline：** 无 plugin CLI。  
+- [x] **Engineering gates：** CLI 单测；`BORA_HOME` 可指临时目录。  
+- [x] **Docs：** CLI help 写明落盘路径与不改 profiles；materialize-docs 需 `--target`。  
+- [x] **落盘表：** [§7.5](../constitution/2026-08-11-extension-api-and-registry.md) 逐行满足。
 
 ## Scope
 
@@ -138,7 +138,16 @@ bora plugin materialize-docs <plugin_id> --target <dir>
 
 ## Phases
 
-- [ ] Phase 0：路径、index schema、manifest 模型  
-- [ ] Phase 1：install/list/uninstall 原子性  
-- [ ] Phase 2：lock/run 启动 load_installed_plugins  
-- [ ] Phase 3：materialize-docs + 文档 + Acceptance  
+- [x] Phase 0：路径、index schema、manifest 模型  
+- [x] Phase 1：install/list/uninstall 原子性  
+- [x] Phase 2：lock/run 启动 load_installed_plugins  
+- [x] Phase 3：materialize-docs + 文档 + Acceptance  
+
+## Evidence
+
+```bash
+BORA_HOME=/tmp/bora-test uv run bora plugin install tests/fixtures/plugins/sample-echo
+BORA_HOME=/tmp/bora-test uv run bora plugin list
+uv run pytest tests/plugins/test_cli_plugin_lifecycle.py -q
+```
+

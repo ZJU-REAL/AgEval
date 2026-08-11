@@ -44,6 +44,11 @@ def bootstrap_registry(
     if include_mock:
         register_mock_contrib(reg)
 
+    # Spec 03: installed cache plugins after first-party (fail closed on bad pkg).
+    from bora.plugins.load_installed import load_installed_plugins
+
+    load_installed_plugins(reg)
+
     if registry is None:
         _BOOTSTRAPPED = True
     return reg
