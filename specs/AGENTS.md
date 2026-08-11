@@ -56,6 +56,7 @@ docs/design/* + ARCHITECTURE.md
 | [02](active/02-nooa-provide-switch-plan.md) | nooa **外置插件**切换（非 first-party；journeys 真 e2e） |
 | [03](active/03-cli-plugin-lifecycle-plan.md) | CLI 安装/列表 → 注册表 |
 | [04](active/04-hub-plugin-package-kind-plan.md) | Hub `bora.plugin/1` |
+| [05](active/05-core-extension-ready-nooa-container-plan.md) | **Core Ready：** 消费 `image_contribute`、lifecycle 真接线、nooa **容器内**、journeys 四 task 终态 |
 
 ## 命名与状态
 
