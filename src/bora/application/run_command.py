@@ -184,6 +184,9 @@ async def run_task(
         except Exception:
             wall_s = 0.0
         deadline = (_mono() + wall_s) if wall_s > 0 else None
+        from bora.runtime.parent_agent_service import resolve_invoke_timeout_seconds
+
+        invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
@@ -191,9 +194,11 @@ async def run_task(
             attempt_id=attempt_ident.value,
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
+            invoke_timeout_seconds=invoke_timeout,
         )
         agent_meta["wall_time_seconds"] = wall_s if wall_s > 0 else None
         agent_meta["deadline_armed"] = deadline is not None
+        agent_meta["invoke_timeout_seconds"] = invoke_timeout
         # Unix socket path must stay short on macOS (~104 bytes).
         import tempfile
 

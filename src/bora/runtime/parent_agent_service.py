@@ -25,6 +25,29 @@ from bora.runtime.agent_service_evidence import (
     write_invoke_request,
 )
 
+# Default per-invoke ceiling when package does not declare one.
+DEFAULT_INVOKE_TIMEOUT_SECONDS = 300.0
+
+
+def resolve_invoke_timeout_seconds(
+    params: dict[str, Any] | None = None,
+    *,
+    default: float = DEFAULT_INVOKE_TIMEOUT_SECONDS,
+) -> float:
+    """Read package ``parameters.agent_timeout_seconds`` (or alias).
+
+    Also accepts ``agent_invoke_timeout_seconds``. Non-positive / missing → default.
+    """
+    data = params if isinstance(params, dict) else {}
+    raw = data.get("agent_timeout_seconds")
+    if raw is None:
+        raw = data.get("agent_invoke_timeout_seconds")
+    try:
+        value = float(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return float(default)
+    return value if value > 0 else float(default)
+
 
 @dataclass
 class SessionBinding:
@@ -57,6 +80,10 @@ class ParentAgentService:
     evidence_store: AttemptEvidenceStore | None = None
     # Wall hard ceiling (monotonic seconds); checked before each external invoke.
     deadline_monotonic: float | None = None
+    # Per-invoke executor timeout (seconds). Default 300; packages set via
+    # ``parameters.agent_timeout_seconds`` (wired by run_l1 / run_command).
+    # Operator override: env ``BORA_AGENT_INVOKE_TIMEOUT`` (seconds).
+    invoke_timeout_seconds: float = 300.0
     # L1: require actor_id; validate against logical topology; bind target generation.
     require_actor_id: bool = False
     # Callable(actor_id, profile_id) -> dict with ok/error/target_id/generation or fail.
@@ -76,9 +103,36 @@ class ParentAgentService:
 
     def __post_init__(self) -> None:
         self._remaining = max(0, int(self.agent_invocation_limit))
+        # Normalize non-positive package values to default.
+        try:
+            t = float(self.invoke_timeout_seconds)
+        except (TypeError, ValueError):
+            t = DEFAULT_INVOKE_TIMEOUT_SECONDS
+        self.invoke_timeout_seconds = t if t > 0 else DEFAULT_INVOKE_TIMEOUT_SECONDS
 
     def _wall_expired(self) -> bool:
         return self.deadline_monotonic is not None and time.monotonic() >= self.deadline_monotonic
+
+    def _resolve_invoke_timeout(self) -> float:
+        """Seconds for this executor.invoke call.
+
+        Priority: env ``BORA_AGENT_INVOKE_TIMEOUT`` > service field; then
+        capped by remaining wall deadline when armed.
+        """
+        timeout = float(self.invoke_timeout_seconds)
+        env_raw = os.environ.get("BORA_AGENT_INVOKE_TIMEOUT", "").strip()
+        if env_raw:
+            with contextlib.suppress(ValueError):
+                env_t = float(env_raw)
+                if env_t > 0:
+                    timeout = env_t
+        timeout = max(1.0, timeout)
+        if self.deadline_monotonic is not None:
+            remaining = self.deadline_monotonic - time.monotonic()
+            if remaining <= 0:
+                return 0.1
+            timeout = min(timeout, remaining)
+        return timeout
 
     def open_session(self, *, profile_id: str, actor_id: str | None = None) -> dict[str, Any]:
         if self._wall_expired():
@@ -362,21 +416,25 @@ class ParentAgentService:
             }
 
         sentinels = tuple(self.evidence_store.sentinels) if self.evidence_store else ()
+        invoke_timeout = self._resolve_invoke_timeout()
         try:
             # Multi-invoke sessions need headroom beyond the codex default 45s.
+            # Timeout is service-configured (package parameters / env), not hardcoded.
             try:
                 result = executor.invoke(
                     prompt,
-                    timeout=300.0,
+                    timeout=invoke_timeout,
                     collect_dir=collect_dir,
                     redaction_sentinels=sentinels,
                 )
             except TypeError:
                 try:
-                    result = executor.invoke(prompt, timeout=300.0, collect_dir=collect_dir)
+                    result = executor.invoke(
+                        prompt, timeout=invoke_timeout, collect_dir=collect_dir
+                    )
                 except TypeError:
                     try:
-                        result = executor.invoke(prompt, timeout=300.0)
+                        result = executor.invoke(prompt, timeout=invoke_timeout)
                     except TypeError:
                         result = executor.invoke(prompt)
         except Exception as exc:  # noqa: BLE001 — executor crash must leave partial evidence

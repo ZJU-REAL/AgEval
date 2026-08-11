@@ -271,6 +271,9 @@ def run_l1_sdk_session_attempt(
             ledger.host_fallback_count += 1
             raise RuntimeError("host_fallback_forbidden")
 
+        from bora.runtime.parent_agent_service import resolve_invoke_timeout_seconds
+
+        invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
         agent_service = ParentAgentService(
             profiles=profiles,
             agent_invocation_limit=inv_limit,
@@ -278,6 +281,7 @@ def run_l1_sdk_session_attempt(
             attempt_id=attempt_ident.value,
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
+            invoke_timeout_seconds=invoke_timeout,
             require_actor_id=True,
             validate_actor_profile=validate_actor_profile,
             make_target_executor=make_target_executor,
@@ -295,6 +299,8 @@ def run_l1_sdk_session_attempt(
             "run_id": run_ident.value,
             "executor_containment": "attempt-container",
             "scheduling": "sdk_session",
+            "invoke_timeout_seconds": invoke_timeout,
+            "wall_time_seconds": wall_s if wall_s > 0 else None,
         }
 
     try:
