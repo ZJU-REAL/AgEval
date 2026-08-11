@@ -6,11 +6,11 @@ Unknown slots fail closed at resolve time.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Final
 
 
-class SlotKind(str, Enum):
+class SlotKind(StrEnum):
     """Contribution cardinality for a slot."""
 
     MULTI = "multi"  # ordered chain of handlers (middleware next)

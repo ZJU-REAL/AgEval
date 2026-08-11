@@ -57,9 +57,7 @@ def pick_one(
             )
         # Explicit may override priority for lock record; keep registered impl.
         prio = (
-            int(chosen_binding.priority)
-            if chosen_binding.priority is not None
-            else cand.priority
+            int(chosen_binding.priority) if chosen_binding.priority is not None else cand.priority
         )
         return Candidate(
             plugin_id=cand.plugin_id,
@@ -128,35 +126,7 @@ def order_chain(
             is_default=cand.is_default,
         )
 
-    ordered = sorted(selected.values(), key=lambda c: (c.priority, c.plugin_id))
-    # Detect equal-priority ties only when neither is default-only chain of one
-    # and there is no explicit that differentiated them — multi allows same
-    # priority only if plugin_ids differ and we use plugin_id as stable tiebreak.
-    # Fail closed when two non-default contributions share priority with no
-    # explicit for either.
-    if len(ordered) >= 2:
-        from collections import defaultdict
-
-        buckets: dict[int, list[Candidate]] = defaultdict(list)
-        for c in ordered:
-            buckets[c.priority].append(c)
-        for prio, group in buckets.items():
-            if len(group) < 2:
-                continue
-            # Defaults among themselves: allow stable plugin_id order.
-            if all(c.is_default for c in group):
-                continue
-            non_default = [c for c in group if not c.is_default]
-            if len(non_default) < 2:
-                continue
-            # If every member of the tie has an explicit binding for this slot, OK.
-            explicit_plugins = {e.plugin for e in slot_explicit}
-            if all(c.plugin_id in explicit_plugins for c in non_default):
-                continue
-            ids = sorted(c.plugin_id for c in non_default)
-            raise ExtensionConflictError(
-                f"extension conflict on multi slot {slot!r}: equal priority "
-                f"{prio} among {ids} without explicit binding",
-                kind="extension_conflict",
-            )
-    return ordered
+    # Multi: same priority is OK — stable secondary key is plugin_id.
+    # Provide-slot ties fail closed in pick_one; chains need multi-plugin coexistence.
+    del slot  # slot used only for error context in provide path
+    return sorted(selected.values(), key=lambda c: (c.priority, c.plugin_id))

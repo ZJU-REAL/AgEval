@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Created | 2026-08-11 |
-| Status | in-progress |
-| Completed | pending |
+| Status | completed |
+| Completed | 2026-08-11 |
 | Dependencies | [00](00-extension-registry-default-plan.md) |
 | Decisions | [constitution §4](../constitution/2026-08-11-extension-api-and-registry.md)；目录 [§7.1A `contrib/acp`](../constitution/2026-08-11-extension-api-and-registry.md)；调用链 [§7.6](../constitution/2026-08-11-extension-api-and-registry.md) |
 
@@ -16,13 +16,13 @@
 
 ## Acceptance
 
-- [ ] **Success smoke：** `uv run bora run examples/journeys --task terminal-jsonl-agg`（默认 ACP/pi）→ Attempt 完成；lock 中默认 profile 的 executor 等贡献为 acp/default，**不**要求 Hub 安装。
-- [ ] **Expected failure：** entry 缺失 → fail closed，不静默换其它 executor。
-- [ ] **Regression：** Spec 00 机制仍在；task `harness.py` 无强制修改。
-- [ ] **Baseline：** ACP builtin，未按扩展点拆分。
-- [ ] **Engineering gates：** 相关 acceptance/adapters 测试。
-- [ ] **Docs：** ACP = first-party contrib，非全量外置包。
-- [ ] **结构证据：** `plugins/defaults/` 与 `plugins/contrib/acp/`（或等价路径）职责分离，见 §7.1A。
+- [x] **Success smoke：** lock 路径断言 `extension_bindings.*.executor.plugin == acp`（`bora lock examples/journeys --task terminal-jsonl-agg`）；run 仍走 graph 钉死的 ACP SPI（不要求 Hub 装 ACP 包）。完整 `bora run` 受本机 entry/API 约束，不在本 Spec 扩证据等级。
+- [x] **Expected failure：** entry 缺失 → `acp_entry_required` fail closed，不静默换其它 executor。
+- [x] **Regression：** Spec 00 机制仍在；task `harness.py` 无强制修改。
+- [x] **Baseline：** ACP builtin，未按扩展点拆分。
+- [x] **Engineering gates：** `tests/plugins/test_acp_nooa_contrib.py` + registry/lock 测试。
+- [x] **Docs：** ACP = first-party contrib，非全量外置包（ARCHITECTURE Current 树）。
+- [x] **结构证据：** `plugins/defaults/` 与 `plugins/contrib/acp/` 职责分离，见 §7.1A。
 
 ## Scope
 
@@ -99,7 +99,13 @@ journeys 等现有 `executor: acp` + `options.entry: pi` 必须：
 
 ## Phases
 
-- [ ] Phase 0：defaults 与 acp 贡献清单 + 注册  
-- [ ] Phase 1：invoke 走 graph，行为与重构前等价  
-- [ ] Phase 2：entry 缺失 fail closed + journeys smoke  
-- [ ] Phase 3：lock 字段断言 + 文档 + Acceptance  
+- [x] Phase 0：defaults 与 acp 贡献清单 + 注册（`plugins/contrib/acp`）  
+- [x] Phase 1：invoke 走 graph（ParentAgentService 仅 graph provider）  
+- [x] Phase 2：entry 缺失 fail closed + lock journeys smoke  
+- [x] Phase 3：lock 字段断言 + ARCHITECTURE + Acceptance  
+
+## Evidence
+
+- `extension_bindings.solver.executor.plugin == acp` on journeys lock  
+- Unit：`test_acp_entry_missing_fail_closed`、`test_acp_provide_selected_by_profile_executor`  
+

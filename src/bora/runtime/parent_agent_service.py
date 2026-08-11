@@ -25,6 +25,9 @@ from bora.runtime.agent_service_evidence import (
     write_invoke_request,
 )
 
+# Optional extension graph (Spec 00); kept as Any to avoid hard import cycles in types.
+ExtensionGraphLike = Any
+
 
 @dataclass
 class SessionBinding:
@@ -43,16 +46,23 @@ class SessionBinding:
     target_id: str | None = None
     generation: int | None = None
     closed: bool = False
+    # Spec 00: session-pinned extension graph for this profile (not re-resolved per invoke).
+    extension_graph: ExtensionGraphLike | None = None
 
 
 @dataclass
 class ParentAgentService:
-    """Process-local parent authority for Agent invocations."""
+    """Process-local parent authority for Agent invocations.
+
+    MVP: host executor path is **only** the session-pinned extension graph
+    (constitution §0 — no resolve_executor dual path).
+    L1 may still bind container targets via ``make_target_executor``.
+    """
 
     profiles: list[dict[str, Any]]
     agent_invocation_limit: int
-    resolve_executor: Callable[..., Any]
     attempt_id: str  # Runtime-owned; never taken from Harness client
+    extension_registry: Any  # ExtensionRegistry — required
     offline_env: str = "BORA_OFFLINE_AGENT"
     evidence_store: AttemptEvidenceStore | None = None
     # Wall hard ceiling (monotonic seconds); checked before each external invoke.
@@ -62,9 +72,8 @@ class ParentAgentService:
     # Callable(actor_id, profile_id) -> dict with ok/error/target_id/generation or fail.
     validate_actor_profile: Callable[[str, str], dict[str, Any]] | None = None
     # When set, builds container-bound executor from SessionBinding (L1 only).
-    # Signature: (binding: SessionBinding) -> executor with .invoke(...)
     make_target_executor: Callable[[SessionBinding], Any] | None = None
-    # Forbid host resolve_executor path (L1 no-fallback).
+    # Forbid host graph path (L1 container-only).
     l1_container_only: bool = False
     _remaining: int = field(init=False)
     _sessions: dict[str, SessionBinding] = field(default_factory=dict)
@@ -76,9 +85,34 @@ class ParentAgentService:
 
     def __post_init__(self) -> None:
         self._remaining = max(0, int(self.agent_invocation_limit))
+        if self.extension_registry is None:
+            msg = "extension_registry is required"
+            raise TypeError(msg)
 
     def _wall_expired(self) -> bool:
         return self.deadline_monotonic is not None and time.monotonic() >= self.deadline_monotonic
+
+    def _executor_from_graph(self, binding: SessionBinding) -> Any:
+        """Return the session-pinned executor provider impl (fail closed)."""
+        graph = binding.extension_graph
+        if graph is None:
+            raise RuntimeError("extension_graph_missing")
+        providers = getattr(graph, "providers", None)
+        if not isinstance(providers, dict):
+            raise RuntimeError("extension_graph_invalid")
+        pref = providers.get("executor")
+        if pref is None:
+            raise RuntimeError("executor_provider_missing")
+        impl = getattr(pref, "impl", None)
+        if impl is None:
+            raise RuntimeError("executor_impl_missing")
+        return impl
+
+    def get_session_extension_graph(self, session_id: str) -> ExtensionGraphLike | None:
+        """Test/debug helper: return the pinned graph for a session."""
+        with self._lock:
+            binding = self._sessions.get(session_id)
+            return None if binding is None else binding.extension_graph
 
     def open_session(self, *, profile_id: str, actor_id: str | None = None) -> dict[str, Any]:
         if self._wall_expired():
@@ -124,9 +158,11 @@ class ParentAgentService:
             if isinstance(api_key_raw, str) and api_key_raw.strip()
             else None
         )
-        executor_kind = str(profile.get("executor") or "acp")
+
+        # Fail closed on ACP entry before materializing the graph.
+        profile_executor = str(profile.get("executor") or "").strip()
         acp_entry_id: str | None = None
-        if executor_kind == "acp":
+        if profile_executor == "acp":
             options = profile.get("options") if isinstance(profile.get("options"), dict) else {}
             entry_raw = options.get("entry") if isinstance(options, dict) else None
             if isinstance(entry_raw, str) and entry_raw.strip():
@@ -137,6 +173,34 @@ class ParentAgentService:
                     "error": "acp_entry_required",
                     "profile_id": profile_id,
                 }
+
+        # Resolve and pin extension graph (required; no legacy path).
+        from bora.plugins.protocol import intent_from_profile
+        from bora.plugins.resolve import resolve as resolve_extensions
+
+        intent = intent_from_profile(profile)
+        if not intent.profile_id:
+            intent.profile_id = profile_id
+        try:
+            extension_graph = resolve_extensions(intent, self.extension_registry)
+        except Exception as exc:  # noqa: BLE001 — fail closed on resolve
+            err_kind = getattr(exc, "kind", None) or type(exc).__name__
+            return {
+                "ok": False,
+                "error": str(err_kind),
+                "profile_id": profile_id,
+                "detail": str(exc),
+            }
+
+        pref = extension_graph.providers.get("executor")
+        if pref is None:
+            return {
+                "ok": False,
+                "error": "executor_provider_missing",
+                "profile_id": profile_id,
+            }
+        executor_kind = str(pref.plugin_id)
+
         with self._lock:
             sid = f"sess_{uuid.uuid4().hex[:16]}"
             binding = SessionBinding(
@@ -151,6 +215,7 @@ class ParentAgentService:
                 actor_id=actor_id_n,
                 target_id=target_id,
                 generation=generation,
+                extension_graph=extension_graph,
             )
             self._sessions[sid] = binding
             return {
@@ -163,6 +228,7 @@ class ParentAgentService:
                 "attempt_id": self.attempt_id,
                 "provider_session_handle": None,
                 "acp_entry_id": acp_entry_id,
+                "executor_plugin": executor_kind,
             }
 
     def invoke(self, *, session_id: str, prompt: str) -> dict[str, Any]:
@@ -242,7 +308,7 @@ class ParentAgentService:
             if cached_executor is not None:
                 executor = cached_executor
             elif self.make_target_executor is not None and binding_snap is not None:
-                # L1 container path — never fall through to host resolve_executor.
+                # L1 container path — never host-fallback.
                 executor = self.make_target_executor(binding_snap)
                 with self._lock:
                     self._executors[session_id] = executor
@@ -261,38 +327,18 @@ class ParentAgentService:
                     "evidence_relative": handle.relative_path if handle else None,
                 }
             else:
-                try:
-                    executor = self.resolve_executor(
-                        kind,
-                        model=model,
-                        base_url=base_url,
-                        api_key=api_key,
-                        entry=acp_entry_id,
-                        entry_id=acp_entry_id,
-                    )
-                except TypeError:
-                    # Older resolve_executor callables may only accept kind/model.
-                    executor = self.resolve_executor(kind, model=model)
+                # Host path: only session-pinned graph provider (no legacy resolve).
+                executor = self._executor_from_graph(binding_snap)
                 with self._lock:
                     self._executors[session_id] = executor
-        except KeyError:
-            seal_failure(
-                handle,
-                status="failed",
-                error="executor_unknown",
-                latency_ms=(time.monotonic() - started) * 1000.0,
-            )
-            return {
-                "ok": False,
-                "error": "executor_unknown",
-                "executor": kind,
-                "invocation_id": handle.invocation_id if handle else None,
-                "evidence_relative": handle.relative_path if handle else None,
-            }
-        except Exception as exc:  # noqa: BLE001 — target bind failures fail closed
-            if self.l1_container_only:
-                # Explicitly never host-fallback.
-                err = getattr(exc, "error", None) or type(exc).__name__
+        except Exception as exc:  # noqa: BLE001 — bind failures fail closed
+            err = getattr(exc, "error", None) or getattr(exc, "kind", None) or type(exc).__name__
+            if self.l1_container_only or str(err) in {
+                "extension_graph_missing",
+                "executor_provider_missing",
+                "executor_impl_missing",
+                "extension_graph_invalid",
+            }:
                 seal_failure(
                     handle,
                     status="failed",

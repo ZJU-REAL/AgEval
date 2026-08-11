@@ -8,6 +8,7 @@ from bora.adapters.agent_contract import AgentResult
 from bora.environment.manager import EnvironmentManager
 from bora.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
 from bora.runtime.parent_agent_service import ParentAgentService
+from tests.helpers.extension_registry import registry_with_executor
 
 
 class _CountingExecutor:
@@ -31,8 +32,8 @@ def test_agent_n_plus_one_no_external_call(tmp_path: Path) -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=1,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="a",
+        extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
     )
     sid = svc.open_session(profile_id="p")["session_id"]

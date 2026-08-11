@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from bora.plugins.conflict import ExtensionConflictError
@@ -12,15 +14,7 @@ from bora.plugins.middleware import run_chain
 from bora.plugins.protocol import BindingIntent, ExplicitBinding
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.resolve import resolve
-from bora.plugins.slots import (
-    BEFORE_AGENT_INVOKE,
-    DEFAULT_PRIORITY,
-    EXECUTOR,
-)
-
-
-def _noop_handler(ctx, value, nxt):  # type: ignore[no-untyped-def]
-    return nxt(value)
+from bora.plugins.slots import BEFORE_AGENT_INVOKE, EXECUTOR
 
 
 class _FakeExec:
@@ -37,28 +31,18 @@ class _FakeExec:
         return {"ok": True, "text": prompt, "model": "fake"}
 
 
-def test_default_only_executor_is_default_plugin() -> None:
+def test_defaults_do_not_provide_executor() -> None:
     reg = ExtensionRegistry()
     register_defaults(reg)
     graph = resolve(BindingIntent(profile_id="solver"), reg)
-    pref = graph.providers[EXECUTOR]
-    assert pref.plugin_id == "default"
-    assert pref.source == "default"
-    # Factory materializes DefaultExecutor
-    assert getattr(pref.impl, "kind", None) == "default"
+    assert EXECUTOR not in graph.providers
 
 
 def test_explicit_binding_overrides_lower_priority() -> None:
     reg = ExtensionRegistry()
     register_defaults(reg)
-    reg.provide(
-        EXECUTOR,
-        "winner",
-        _FakeExec(),
-        priority=50,
-        source="installed",
-        is_factory=False,
-    )
+    reg.provide(EXECUTOR, "low", _FakeExec(), priority=200, source="installed")
+    reg.provide(EXECUTOR, "winner", _FakeExec(), priority=50, source="installed")
     intent = BindingIntent(
         profile_id="solver",
         extensions=[ExplicitBinding(slot=EXECUTOR, plugin="winner", source="explicit")],
@@ -66,7 +50,6 @@ def test_explicit_binding_overrides_lower_priority() -> None:
     graph = resolve(intent, reg)
     assert graph.providers[EXECUTOR].plugin_id == "winner"
     assert graph.providers[EXECUTOR].source == "explicit"
-    assert graph.providers[EXECUTOR].replaced_default is True
 
 
 def test_priority_tie_without_explicit_fail_closed() -> None:
@@ -101,21 +84,16 @@ def test_lock_bind_includes_source_priority_replaced_default() -> None:
     assert row["kind"] == "provide"
     assert row["plugin"] == "acp"
     assert row["source"] == "profile_executor_field"
-    assert row["replaced_default"] is True
     assert "priority" in row
-    # multi chain present for default hooks
     assert frag[BEFORE_AGENT_INVOKE]["kind"] == "on"
     assert frag[BEFORE_AGENT_INVOKE]["chain"][0]["plugin"] == "default"
 
 
 def test_multi_chain_order_lower_priority_number_first() -> None:
-    import asyncio
-
     reg = ExtensionRegistry()
-
     order: list[str] = []
 
-    def make(name: str, prio: int):
+    def make(name: str, prio: int) -> None:
         async def handler(ctx, value, nxt):  # type: ignore[no-untyped-def]
             order.append(f"enter:{name}")
             out = await nxt(value)
@@ -127,10 +105,8 @@ def test_multi_chain_order_lower_priority_number_first() -> None:
     make("late", 100)
     make("early", 10)
     graph = resolve(BindingIntent(profile_id="s"), reg)
-
     result = asyncio.run(run_chain(graph, BEFORE_AGENT_INVOKE, "prompt"))
     assert result == "prompt"
-    # lower number enters first (outer onion)
     assert order[0] == "enter:early"
     assert "enter:late" in order
 
@@ -152,13 +128,7 @@ def test_executor_field_plugin_not_registered_fail_closed() -> None:
 def test_profile_executor_field_selects_plugin() -> None:
     reg = ExtensionRegistry()
     register_defaults(reg)
-    reg.provide(
-        EXECUTOR,
-        "acp",
-        _FakeExec(),
-        priority=100,
-        source="first-party",
-    )
+    reg.provide(EXECUTOR, "acp", _FakeExec(), priority=100, source="first-party")
     graph = resolve(
         BindingIntent(profile_id="solver", executor="acp", options={"entry": "pi"}),
         reg,

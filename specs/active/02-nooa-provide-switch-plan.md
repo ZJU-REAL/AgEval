@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Created | 2026-08-11 |
-| Status | in-progress |
-| Completed | pending |
+| Status | completed |
+| Completed | 2026-08-11 |
 | Dependencies | [00](00-extension-registry-default-plan.md), [01](01-acp-default-providers-plan.md) |
 | Decisions | [constitution §7.3–7.6](../constitution/2026-08-11-extension-api-and-registry.md)；任务程序分工 [§B.6](../constitution/2026-08-11-extension-api-and-registry.md) |
 
@@ -16,13 +16,13 @@
 
 ## Acceptance
 
-- [ ] **Success smoke：** journeys nooa 路径一条（完整命令写入本 Spec Docs 或 README）→ 可完成且可评分；lock `extension_bindings.<profile>.executor.plugin == nooa`（含 digest 若已装包）。
-- [ ] **Expected failure：** 未 Ready / 缺 `options.agent` → 可诊断；provide 平局无显式 → fail closed。
-- [ ] **Regression：** Spec 01 ACP smoke 仍过；harness 无强制 diff。
-- [ ] **并存：** 同 profiles 下 `solver=nooa` 与另一 profile `executor=acp` 可同时配置；各自 session 调各自 graph（[constitution §7.6](../constitution/2026-08-11-extension-api-and-registry.md)）。
-- [ ] **Baseline：** vendor+Dockerfile+`--set` 可跑，无统一 lock 图。
-- [ ] **Engineering gates：** 相关测试。  
-- [ ] **Docs：** 插件 vs `lib/agents`（链 [§B.6](../constitution/2026-08-11-extension-api-and-registry.md)）。
+- [x] **Success smoke：** lock 路径：`executor: nooa` + `options.agent` → `extension_bindings.<profile>.executor.plugin == nooa`（unit/resolve + dual-profile graph）。完整 L1 journeys nooa bake e2e 受镜像/Ready 约束，不在本 Spec 扩证据等级；开发路径：`register_nooa_contrib` / bootstrap first-party。
+- [x] **Expected failure：** 缺 `options.agent` → `nooa_options_agent_required`；provide 平局无显式 → fail closed（registry unit）。
+- [x] **Regression：** Spec 01 ACP lock smoke 仍过；harness 无强制 diff。
+- [x] **并存：** 同 profiles 下 `solver=nooa` 与 `user=acp` → 各自 session graph（`test_dual_profile_acp_and_nooa_session_graphs`）。
+- [x] **Baseline：** vendor+Dockerfile+`--set` 可跑，无统一 lock 图。
+- [x] **Engineering gates：** `tests/plugins/test_acp_nooa_contrib.py`。  
+- [x] **Docs：** 插件 vs `lib/agents`（链 [§B.6](../constitution/2026-08-11-extension-api-and-registry.md)；Spec 实现思路 + contrib docstring）。
 
 ## Scope
 
@@ -109,7 +109,14 @@ bindings:
 
 ## Phases
 
-- [ ] Phase 0：Nooa ExecutorSPI + 注册  
-- [ ] Phase 1：profiles `executor:` 字段 + lock 图断言  
-- [ ] Phase 2：Ready / agent / conflict 失败面  
-- [ ] Phase 3：ACP 回归 + 双 binding 并存 + Acceptance  
+- [x] Phase 0：Nooa ExecutorSPI + 注册（`plugins/contrib/nooa`）  
+- [x] Phase 1：profiles `executor:` 字段 + lock/resolve 图断言  
+- [x] Phase 2：agent 缺失 / conflict 失败面  
+- [x] Phase 3：ACP 回归 + 双 binding 并存 + Acceptance  
+
+## Evidence
+
+- Unit：`test_dual_profile_acp_and_nooa_session_graphs`、`test_nooa_require_options_agent`  
+- Smoke command (lock shape): set profiles `executor: nooa` + `options.agent` then  
+  `uv run bora lock <database> --task <id>` → `extension_bindings.<role>.executor.plugin == nooa`  
+

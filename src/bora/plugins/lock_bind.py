@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from bora.plugins.protocol import ExtensionGraph
-from bora.plugins.slots import SlotKind, get_slot_kind
 
 
 def extension_graph_to_lock(graph: ExtensionGraph) -> dict[str, Any]:

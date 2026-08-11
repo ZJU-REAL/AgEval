@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.adapters.acp import AcpExecutor
 from bora.adapters.child_env import project_cli_child_env
 from bora.evidence.store import AttemptEvidenceStore
 from bora.runtime.parent_agent_service import ParentAgentService
@@ -28,6 +27,8 @@ def test_agent_service_with_acp_offline_no_secret_in_evidence(
         attempt_id="a",
         sentinels=["SENTINEL_ACP_KEY_NOT_FOR_DISK"],
     )
+    from bora.plugins.bootstrap import ensure_bootstrapped
+
     svc = ParentAgentService(
         profiles=[
             {
@@ -38,10 +39,8 @@ def test_agent_service_with_acp_offline_no_secret_in_evidence(
             }
         ],
         agent_invocation_limit=1,
-        resolve_executor=lambda kind, model, **kw: AcpExecutor(
-            entry_id=str(kw.get("entry") or "opencode"), model=model
-        ),
         attempt_id="a",
+        extension_registry=ensure_bootstrapped(),
         evidence_store=store,
     )
     sid = svc.open_session(profile_id="p1")["session_id"]

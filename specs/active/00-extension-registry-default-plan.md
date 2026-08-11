@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Created | 2026-08-11 |
-| Status | in-progress |
-| Completed | pending |
+| Status | completed |
+| Completed | 2026-08-11 |
 | Dependencies | none |
 | Decisions | [constitution](../constitution/2026-08-11-extension-api-and-registry.md)（**§1–3 模型；§7 验收与目录/链路**） |
 
@@ -16,13 +16,13 @@
 
 ## Acceptance
 
-- [ ] **Success smoke：** `uv run bora lock examples/journeys --task terminal-jsonl-agg` → 成功；lock 含按 binding/profile 分图的 `extension_bindings`（字段名可微调，语义见 [constitution §7.4](../constitution/2026-08-11-extension-api-and-registry.md)）。
-- [ ] **Expected failure：** 未注册槽 / 非法 provide → fail closed；同槽无显式绑定且 priority 平局 → fail closed。
-- [ ] **Regression：** 默认 profiles 下既有 ACP 装配不因注册表引入而 ERROR。
-- [ ] **Baseline：** 无统一扩展点注册表；无 lock 扩展点全图。
-- [ ] **Engineering gates：** ruff / pyright / 相关 pytest。
-- [ ] **Docs：** lock 字段与冲突规则；结构变 → ARCHITECTURE。
-- [ ] **结构证据：** [constitution §7.1A](../constitution/2026-08-11-extension-api-and-registry.md) 的 `plugins/` 分层落地（slots、registry、resolve、defaults）。
+- [x] **Success smoke：** `uv run bora lock examples/journeys --task terminal-jsonl-agg` → 成功；lock 含按 binding/profile 分图的 `extension_bindings`（字段名可微调，语义见 [constitution §7.4](../constitution/2026-08-11-extension-api-and-registry.md)）。
+- [x] **Expected failure：** 未注册槽 / 非法 provide → fail closed；同槽无显式绑定且 priority 平局 → fail closed。
+- [x] **Regression：** 默认 profiles 下既有 ACP 装配不因注册表引入而 ERROR（session 仅走 graph；无 resolve_executor 双轨）。
+- [x] **Baseline：** 无统一扩展点注册表；无 lock 扩展点全图。
+- [x] **Engineering gates：** ruff / 相关 pytest（`tests/plugins` + config/runtime 回归）。
+- [x] **Docs：** lock 字段与冲突规则；结构变 → ARCHITECTURE（Current 树含 `plugins/`）。
+- [x] **结构证据：** [constitution §7.1A](../constitution/2026-08-11-extension-api-and-registry.md) 的 `plugins/` 分层落地（slots、registry、resolve、defaults）。
 
 ## Scope
 
@@ -155,7 +155,13 @@ function resolve(intent, registry):
 
 ## Phases
 
-- [ ] Phase 0：slots/protocol/registry/conflict/resolve/defaults + 单测  
-- [ ] Phase 1：session open 钉 graph；invoke 走 graph  
-- [ ] Phase 2：load_and_lock 写 extension_bindings  
-- [ ] Phase 3：lifecycle emit；失败 kind；文档；Acceptance  
+- [x] Phase 0：slots/protocol/registry/conflict/resolve/defaults + 单测  
+- [x] Phase 1：session open 钉 graph；invoke 走 graph（删除 resolve_executor 双轨）  
+- [x] Phase 2：load_and_lock 写 extension_bindings  
+- [x] Phase 3：lifecycle emit；失败 kind；ARCHITECTURE；Acceptance  
+
+## Evidence
+
+- Smoke：`uv run bora lock examples/journeys --task terminal-jsonl-agg` → `extension_bindings.solver.executor.plugin == acp`
+- Unit：`uv run pytest tests/plugins tests/config -q`  
+

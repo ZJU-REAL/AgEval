@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from bora.plugins.conflict import Candidate, order_chain, pick_one
-from bora.plugins.errors import ExtensionMaterializeError, UnknownExtensionSlotError
+from bora.plugins.conflict import order_chain, pick_one
+from bora.plugins.errors import ExtensionMaterializeError
 from bora.plugins.protocol import (
     BindingIntent,
     BindingRecord,
@@ -73,12 +73,7 @@ def resolve(
                     kind="extension_materialize_failed",
                 )
             impl = _materialize(reg, intent) if materialize else reg.impl
-            replaced = bool(reg.is_default is False and any(
-                c.is_default for c in candidates
-            )) or (winner.source == "profile_executor_field" and any(
-                c.is_default for c in candidates if c.plugin_id != winner.plugin_id
-            ))
-            # Simpler: replaced_default if a default candidate existed and winner is not default.
+            # replaced_default if a default candidate existed and winner is not default.
             replaced_default = any(c.is_default for c in candidates) and not winner.is_default
             pref = ProviderRef(
                 plugin_id=winner.plugin_id,
@@ -172,8 +167,7 @@ def _materialize(reg: Registration, intent: BindingIntent) -> Any:
                 return impl()
             except Exception as exc:  # noqa: BLE001
                 raise ExtensionMaterializeError(
-                    f"materialize failed for plugin {reg.plugin_id!r} "
-                    f"slot {reg.slot!r}: {exc}",
+                    f"materialize failed for plugin {reg.plugin_id!r} slot {reg.slot!r}: {exc}",
                     kind="extension_materialize_failed",
                 ) from exc
     except ExtensionMaterializeError:

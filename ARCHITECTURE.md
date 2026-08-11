@@ -39,7 +39,7 @@ BORA 是 **Harness 的 Harness**：外层执行内核准备并锁定运行边界
 | BORA Core 5 Evaluation | barrier、evaluator 运行、Result 绑定、evidence | 统一所有评分算法 |
 | Harness Core（SDK） | 可选类型与薄 helper | Run/credential/verdict |
 | Task Harness | 业务 loop、本地 Tool、参数使用 | Docker/credential/final PASS |
-| Adapters / plugins | ACP Executor + entry、openai-http、Docker Provider 等具体实现 | 按 Benchmark 名分支 |
+| Adapters / plugins | ACP/nooa 协议与 Provider 实现；`plugins/` 为扩展点注册表与 first-party contrib | 按 Benchmark 名分支；禁止 resolve_executor 双轨 |
 | Evaluator（package） | task truth | 启动 Agent、持有 host secret |
 
 ### 目标数据/控制主流（validated output 方向）
@@ -118,12 +118,15 @@ BORA/
 │   ├── capabilities/          # Core 4：Attempt authority（进程内）
 │   ├── evaluation/            # Core 5：flat Result binder（含 Result.logs locator）
 │   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
+│   ├── plugins/               # 扩展点注册表（slots/registry/resolve/defaults/contrib）
+│   │   ├── defaults/          # L0–L5 默认 multi/provide（无 legacy executor 桥）
+│   │   └── contrib/           # first-party：acp / nooa / openai_http / mock
 │   ├── viewer/                # 本地 Jobs/Trial HTTP API（trials/ 包）
 │   └── adapters/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
 │       ├── provider_docker/   # Docker L1 + multi-actor ExecutionTarget
-│       ├── acp/               # 唯一 typed ACP client（parent；usage/trajectory/client/executor）
+│       ├── acp/               # ACP 协议实现（parent client；contrib.acp 门面委托）
 │       ├── acp_entries.json   # Current: static entry pins / descriptors
 │       ├── acp_registry.py    # Current: registry + readiness
 │       ├── agent_container.py # L1 placement helpers / opaque target id

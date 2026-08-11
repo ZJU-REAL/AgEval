@@ -128,7 +128,11 @@ def intent_from_profile(profile: Mapping[str, Any]) -> BindingIntent:
     """Build BindingIntent from a merged agent_profiles row or profiles binding."""
     profile_id = str(profile.get("id") or profile.get("profile_id") or "")
     executor_raw = profile.get("executor")
-    executor = str(executor_raw).strip() if isinstance(executor_raw, str) and executor_raw.strip() else None
+    executor = (
+        str(executor_raw).strip()
+        if isinstance(executor_raw, str) and executor_raw.strip()
+        else None
+    )
     options_raw = profile.get("options")
     options: dict[str, Any] = dict(options_raw) if isinstance(options_raw, Mapping) else {}
     extensions: list[ExplicitBinding] = []
@@ -161,9 +165,7 @@ def intent_from_profile(profile: Mapping[str, Any]) -> BindingIntent:
     )
     api_key_raw = profile.get("api_key")
     api_key = (
-        str(api_key_raw).strip()
-        if isinstance(api_key_raw, str) and api_key_raw.strip()
-        else None
+        str(api_key_raw).strip() if isinstance(api_key_raw, str) and api_key_raw.strip() else None
     )
     return BindingIntent(
         profile_id=profile_id,

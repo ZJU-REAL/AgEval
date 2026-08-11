@@ -1,7 +1,8 @@
-"""Builtin default contributions for every L0–L5 public slot.
+"""Builtin default contributions for L0–L5 multi hooks and non-executor provides.
 
-Defaults are registered with plugin_id ``default``, high priority number (weak),
-and may be replaced or unloaded via explicit binding / replace_default.
+MVP: **no** default executor that bridges ``agent_registry.resolve_executor``.
+Executor comes only from first-party contribs (acp / nooa / …) selected by
+profiles ``executor:`` field. Defaults cover chain slots + seal/env/eval stubs.
 """
 
 from __future__ import annotations
@@ -35,7 +36,6 @@ from bora.plugins.slots import (
     EVALUATION_INPUT_CONTRIBUTE,
     EVALUATION_RUNTIME,
     EVIDENCE_EXTRA,
-    EXECUTOR,
     IMAGE_CONTRIBUTE,
     NORMALIZE_AGENT_RESULT,
     SCORE_POSTPROCESS,
@@ -47,87 +47,6 @@ from bora.plugins.slots import (
 )
 
 PLUGIN_ID = "default"
-
-
-class DefaultExecutor:
-    """Fallback executor when no profile-selected plugin is available.
-
-    Bridges to the legacy ``resolve_executor`` path using the profile's
-    ``executor`` field as kind. Spec 01 registers ACP as first-party contrib;
-    explicit ``executor: acp`` then selects the acp provide instead of this.
-    """
-
-    kind = "default"
-
-    def __init__(
-        self,
-        *,
-        options: dict[str, Any] | None = None,
-        profile_id: str | None = None,
-        model: str | None = None,
-        base_url: str | None = None,
-        api_key: str | None = None,
-        plugin_id: str | None = None,
-        **_kwargs: Any,
-    ) -> None:
-        self.options = dict(options or {})
-        self.profile_id = profile_id
-        self.model = model or "entry-default"
-        self.base_url = base_url
-        self.api_key = api_key
-        self._inner: Any = None
-        self._kind = str(self.options.get("_legacy_kind") or "acp")
-
-    def open(self, **kwargs: Any) -> None:
-        del kwargs
-
-    def close(self) -> None:
-        inner = self._inner
-        if inner is not None and hasattr(inner, "close"):
-            inner.close()
-
-    def invoke(
-        self,
-        prompt: str,
-        *,
-        timeout: float = 60.0,
-        workdir: str | None = None,
-        collect_dir: str | None = None,
-        redaction_sentinels: tuple[str, ...] | list[str] | None = None,
-    ) -> Any:
-        if self._inner is None:
-            from bora.adapters.agent_registry import resolve_executor
-
-            entry = self.options.get("entry")
-            self._inner = resolve_executor(
-                self._kind,
-                model=self.model,
-                base_url=self.base_url,
-                api_key=self.api_key,
-                entry=str(entry) if entry else None,
-                entry_id=str(entry) if entry else None,
-            )
-        try:
-            return self._inner.invoke(
-                prompt,
-                timeout=timeout,
-                workdir=workdir,
-                collect_dir=collect_dir,
-                redaction_sentinels=redaction_sentinels,
-            )
-        except TypeError:
-            try:
-                return self._inner.invoke(prompt, timeout=timeout, collect_dir=collect_dir)
-            except TypeError:
-                return self._inner.invoke(prompt, timeout=timeout)
-
-
-def _default_executor_factory(**kwargs: Any) -> DefaultExecutor:
-    return DefaultExecutor(**kwargs)
-
-
-def _identity_declare(**_kwargs: Any) -> dict[str, Any]:
-    return {}
 
 
 def _default_eval_runtime(**_kwargs: Any) -> dict[str, Any]:
@@ -144,7 +63,7 @@ def _default_env_action(**_kwargs: Any) -> dict[str, Any]:
 
 
 def register_defaults(registry: ExtensionRegistry) -> None:
-    """Register one default contribution for every public L0–L5 slot."""
+    """Register default multi handlers + non-executor provides for every public layer."""
     multi_slots = [
         BEFORE_PREPARE,
         AFTER_PREPARE,
@@ -186,15 +105,6 @@ def register_defaults(registry: ExtensionRegistry) -> None:
         )
 
     registry.provide(
-        EXECUTOR,
-        PLUGIN_ID,
-        _default_executor_factory,
-        priority=DEFAULT_PRIORITY,
-        source="default",
-        is_default=True,
-        is_factory=True,
-    )
-    registry.provide(
         ENV_ACTION,
         PLUGIN_ID,
         _default_env_action,
@@ -223,4 +133,4 @@ def register_defaults(registry: ExtensionRegistry) -> None:
     )
 
 
-__all__ = ["PLUGIN_ID", "DefaultExecutor", "register_defaults"]
+__all__ = ["PLUGIN_ID", "register_defaults"]

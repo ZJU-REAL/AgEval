@@ -111,7 +111,6 @@ async def run_task(
     agent_sock_path = None
     shared_attempt = None  # Runtime-owned Attempt shared with harness worker
     if agent_profile is not None and provider_kind != "docker":
-        from bora.adapters.agent_registry import resolve_executor
         from bora.runtime.agent_service_protocol import AgentServiceServer
         from bora.runtime.parent_agent_service import ParentAgentService
 
@@ -184,11 +183,13 @@ async def run_task(
         except Exception:
             wall_s = 0.0
         deadline = (_mono() + wall_s) if wall_s > 0 else None
+        from bora.plugins.bootstrap import ensure_bootstrapped
+
         agent_service = ParentAgentService(
             profiles=[p for p in profiles if isinstance(p, dict)],
             agent_invocation_limit=inv_limit,
-            resolve_executor=lambda kind, model, **kw: resolve_executor(kind, model=model, **kw),
             attempt_id=attempt_ident.value,
+            extension_registry=ensure_bootstrapped(),
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
         )

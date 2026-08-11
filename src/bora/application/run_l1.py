@@ -266,16 +266,13 @@ def run_l1_sdk_session_attempt(
             wall_s = 0.0
         deadline = (time.monotonic() + wall_s) if wall_s > 0 else None
 
-        def _host_resolve(*_a: Any, **_k: Any) -> Any:
-            # L1 path must never call host CLI — mark counter and fail.
-            ledger.host_fallback_count += 1
-            raise RuntimeError("host_fallback_forbidden")
+        from bora.plugins.bootstrap import ensure_bootstrapped
 
         agent_service = ParentAgentService(
             profiles=profiles,
             agent_invocation_limit=inv_limit,
-            resolve_executor=_host_resolve,
             attempt_id=attempt_ident.value,
+            extension_registry=ensure_bootstrapped(),
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
             require_actor_id=True,

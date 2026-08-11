@@ -46,6 +46,53 @@ from bora.config.validate import (
 from bora.config.yaml_io import deep_merge, parse_yaml
 
 
+def _resolve_extension_bindings(
+    profiles_raw: list[Any],
+) -> dict[str, dict[str, Any]] | None:
+    """Resolve extension graphs for each locked profile (constitution §7.4).
+
+    Failures propagate as ConfigError so ``bora lock`` fails closed on conflict
+    or missing plugin provide.
+    """
+    if not profiles_raw:
+        return None
+
+    from bora.plugins.bootstrap import ensure_bootstrapped
+    from bora.plugins.errors import ExtensionRegistryError
+    from bora.plugins.lock_bind import extension_graph_to_lock
+    from bora.plugins.protocol import intent_from_profile
+    from bora.plugins.resolve import resolve as resolve_extensions
+
+    registry = ensure_bootstrapped()
+    out: dict[str, dict[str, Any]] = {}
+    for profile in profiles_raw:
+        if not isinstance(profile, Mapping):
+            continue
+        pid = profile.get("id")
+        if not isinstance(pid, str) or not pid.strip():
+            continue
+        intent = intent_from_profile(profile)
+        if not intent.profile_id:
+            intent.profile_id = pid.strip()
+        try:
+            # Lock serialization does not need live SPI instances.
+            graph = resolve_extensions(intent, registry, materialize=False)
+        except ExtensionRegistryError as exc:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                f"extension resolve failed for profile {pid!r}: {exc}",
+                location=f"/agent_profiles/{pid}/extension_bindings",
+            ) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                f"extension resolve failed for profile {pid!r}: {exc}",
+                location=f"/agent_profiles/{pid}/extension_bindings",
+            ) from exc
+        out[pid.strip()] = extension_graph_to_lock(graph)
+    return out or None
+
+
 class ConfigCore:
     """Normative Config Core façade."""
 
@@ -283,6 +330,21 @@ class ConfigCore:
         job_overlay_plain = project_job_overlay(bindings, role_ids=role_ids) if role_ids else None
         job_overlay_frozen = freeze(job_overlay_plain) if job_overlay_plain else None
 
+        # Spec 00: resolve per-profile extension graph into lock extension_bindings.
+        extension_bindings_plain = _resolve_extension_bindings(profiles_raw)
+        extension_bindings_frozen = (
+            freeze(extension_bindings_plain) if extension_bindings_plain else None
+        )
+        if extension_bindings_plain:
+            resolution.append(
+                ResolutionEntry(
+                    source="extension_registry",
+                    pointer="/extension_bindings",
+                    note="resolved extension point graph per profile",
+                )
+            )
+            resolution_record = ResolutionRecord(entries=tuple(resolution))
+
         # Build digest over a stable payload without the digest field.
         provisional = LockedTaskConfig(
             format=format_id,
@@ -300,6 +362,7 @@ class ConfigCore:
             resolved_references=resolved_references,  # type: ignore[arg-type]
             provenance=provenance_frozen,  # type: ignore[arg-type]
             job_overlay=job_overlay_frozen,  # type: ignore[arg-type]
+            extension_bindings=extension_bindings_frozen,  # type: ignore[arg-type]
         )
         payload = provisional.canonical_payload()
         digest = digest_payload(payload)
@@ -320,4 +383,5 @@ class ConfigCore:
             resolved_references=resolved_references,  # type: ignore[arg-type]
             provenance=provenance_frozen,  # type: ignore[arg-type]
             job_overlay=job_overlay_frozen,  # type: ignore[arg-type]
+            extension_bindings=extension_bindings_frozen,  # type: ignore[arg-type]
         )

@@ -1,11 +1,14 @@
 """Composition-root bootstrap for the extension registry.
 
-Registers defaults (Spec 00). Optional first-party contribs (ACP Spec 01,
-nooa Spec 02) when packages are present. Hub-installed plugins are Spec 03.
+MVP: always register defaults + first-party acp/nooa. No soft-import glue.
 """
 
 from __future__ import annotations
 
+from bora.plugins.contrib.acp import register_acp_contrib
+from bora.plugins.contrib.mock import register_mock_contrib
+from bora.plugins.contrib.nooa import register_nooa_contrib
+from bora.plugins.contrib.openai_http import register_openai_http_contrib
 from bora.plugins.defaults import register_defaults
 from bora.plugins.registry import ExtensionRegistry, get_global_registry, reset_global_registry
 
@@ -18,8 +21,10 @@ def bootstrap_registry(
     force: bool = False,
     include_acp: bool = True,
     include_nooa: bool = True,
+    include_openai_http: bool = True,
+    include_mock: bool = True,
 ) -> ExtensionRegistry:
-    """Ensure the process registry has builtin + available first-party contribs."""
+    """Ensure the process registry has builtin + first-party contributions."""
     global _BOOTSTRAPPED
     reg = registry if registry is not None else get_global_registry()
     if registry is None and _BOOTSTRAPPED and not force:
@@ -31,19 +36,13 @@ def bootstrap_registry(
 
     register_defaults(reg)
     if include_acp:
-        try:
-            from bora.plugins.contrib.acp import register_acp_contrib
-        except ImportError:
-            pass
-        else:
-            register_acp_contrib(reg)
+        register_acp_contrib(reg)
     if include_nooa:
-        try:
-            from bora.plugins.contrib.nooa import register_nooa_contrib
-        except ImportError:
-            pass
-        else:
-            register_nooa_contrib(reg)
+        register_nooa_contrib(reg)
+    if include_openai_http:
+        register_openai_http_contrib(reg)
+    if include_mock:
+        register_mock_contrib(reg)
 
     if registry is None:
         _BOOTSTRAPPED = True

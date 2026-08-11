@@ -11,6 +11,7 @@ from bora.runtime.agent_service_protocol import (
     agent_service_client_call,
 )
 from bora.runtime.parent_agent_service import ParentAgentService
+from tests.helpers.extension_registry import registry_with_executor
 
 
 class _FakeExecutor:
@@ -35,8 +36,8 @@ def test_multi_invoke_same_session_respects_limit() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "fake-model"}],
         agent_invocation_limit=2,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="attempt_testmulti001",
+        extension_registry=registry_with_executor("fake", fake),
     )
     opened = svc.open_session(profile_id="p1")
     assert opened["ok"] is True
@@ -56,8 +57,8 @@ def test_closed_session_rejects_invoke() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=4,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="attempt_testclose001",
+        extension_registry=registry_with_executor("fake", fake),
     )
     sid = svc.open_session(profile_id="p1")["session_id"]
     svc.close_session(session_id=sid)
@@ -70,8 +71,8 @@ def test_unknown_profile_fail_closed() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=1,
-        resolve_executor=lambda kind, model: (_ for _ in ()).throw(AssertionError("no")),  # noqa: ARG005
         attempt_id="attempt_testprof001",
+        extension_registry=registry_with_executor("fake", object()),
     )
     bad = svc.open_session(profile_id="nope")
     assert bad["ok"] is False
@@ -83,8 +84,8 @@ def test_unix_socket_server_open_invoke_close() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "codex-mini", "executor": "fake", "model": "m"}],
         agent_invocation_limit=2,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="attempt_testsock001",
+        extension_registry=registry_with_executor("fake", fake),
     )
     with tempfile.TemporaryDirectory() as tmp:
         sock = Path(tmp) / "ags.sock"
