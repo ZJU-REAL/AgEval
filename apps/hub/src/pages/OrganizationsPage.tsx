@@ -52,7 +52,7 @@ export function OrganizationsPage() {
   function reload() {
     if (!token) return;
     setLoading(true);
-    Promise.all([listOrgs(token), listPackages(token)])
+    Promise.all([listOrgs(token), listPackages(token, { packageKind: "database" })])
       .then(([orgRows, pkgRows]) => {
         setOrgs(orgRows);
         setPackages(pkgRows);
@@ -77,7 +77,7 @@ export function OrganizationsPage() {
     }
     let cancelled = false;
     setLoading(true);
-    Promise.all([listOrgs(token), listPackages(token)])
+    Promise.all([listOrgs(token), listPackages(token, { packageKind: "database" })])
       .then(([orgRows, pkgRows]) => {
         if (cancelled) return;
         setOrgs(orgRows);

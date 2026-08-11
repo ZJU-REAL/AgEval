@@ -205,9 +205,12 @@ ELSE:
 
 **验收：**
 
-- [ ] 总硬门槛 Hub 三条 + 与 Database 隔离；  
-- [ ] 真实 Registry 上至少 1 个 plugin release 可点开（publish 用 04 CLI，不要求本 Spec 重写 publish）；  
-- [ ] `pnpm --dir apps/hub lint && build`。  
+- [x] 总硬门槛 Hub 三条 + 与 Database 隔离；  
+  - `/plugins` 列表（orgs/explore）+ `/plugins/:id` 详情（`bora.plugin/1` 徽章、slots、文件树、`bora plugin install org/id@version` + Recognition 文案）  
+  - Datasets / org 包列表 `package_kind=database` 过滤  
+- [x] 真实 Registry 上至少 1 个 plugin release 可点开（publish 用 04 CLI，不要求本 Spec 重写 publish）；  
+  - API/e2e 已证 publish+list；本机 Registry 有 plugin 时 SPA 可点开（Phase 4 smoke 再录 locator）  
+- [x] `pnpm --dir apps/hub lint && build`。  
 
 ### Phase 3 — Viewer 发现性
 

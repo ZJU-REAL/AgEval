@@ -16,6 +16,7 @@ import {
 import {
   encodeDatasetId,
   listOrgs,
+  isDatabasePackage,
   listPackages,
   type PackageRelease,
   RegistryHttpError,
@@ -59,7 +60,8 @@ export function DatasetsPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const packagesP = listPackages(token);
+    // Spec 06: Datasets surface must not list package_kind=plugin.
+    const packagesP = listPackages(token, { packageKind: "database" });
     const orgsP = token
       ? listOrgs(token).catch(() => [] as Awaited<ReturnType<typeof listOrgs>>)
       : Promise.resolve([]);
@@ -67,7 +69,7 @@ export function DatasetsPage() {
     Promise.all([packagesP, orgsP])
       .then(([rows, orgs]) => {
         if (cancelled) return;
-        setItems(rows);
+        setItems(rows.filter(isDatabasePackage));
         setMyOrgIds(new Set(orgs.map((o) => o.org_id)));
         setError(null);
       })

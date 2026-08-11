@@ -101,7 +101,8 @@ export function OrganizationDetailPage() {
         const [orgRow, memberRows, packages] = await Promise.all([
           getOrg(orgId, token),
           listOrgMembers(orgId, token),
-          listPackages(token),
+          // Spec 06: org dataset counts exclude plugins (marketplace is /plugins).
+          listPackages(token, { packageKind: "database" }),
         ]);
         if (cancelled) return;
         setOrg(orgRow);
