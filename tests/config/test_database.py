@@ -181,6 +181,39 @@ def test_member_paths_stable_order(tmp_path: Path) -> None:
     assert a_idx < b_idx
 
 
+def test_member_paths_include_shared_tree(tmp_path: Path) -> None:
+    """#65: optional shared/** enters packageDigest input paths."""
+    _write_db(tmp_path)
+    _write_task(tmp_path / "tasks" / "a", "a")
+    shared_lib = tmp_path / "shared" / "lib"
+    shared_lib.mkdir(parents=True)
+    (shared_lib / "bridge.py").write_text("X = 1\n", encoding="utf-8")
+    (tmp_path / "shared" / "assets").mkdir()
+    (tmp_path / "shared" / "assets" / "policy.json").write_text("{}", encoding="utf-8")
+    # Hidden / pycache must stay out
+    (shared_lib / "__pycache__").mkdir()
+    (shared_lib / "__pycache__" / "bridge.cpython-312.pyc").write_bytes(b"x")
+    (tmp_path / "shared" / ".env").write_text("SECRET=1\n", encoding="utf-8")
+
+    paths = member_paths_for_digest(tmp_path)
+    assert "shared/lib/bridge.py" in paths
+    assert "shared/assets/policy.json" in paths
+    assert not any("__pycache__" in p for p in paths)
+    assert "shared/.env" not in paths
+    # shared before tasks (sorted path walk of shared, then tasks by id)
+    shared_idx = paths.index("shared/assets/policy.json")
+    task_idx = next(i for i, p in enumerate(paths) if p.startswith("tasks/a/"))
+    assert shared_idx < task_idx
+
+
+def test_member_paths_without_shared_unchanged_shape(tmp_path: Path) -> None:
+    _write_db(tmp_path)
+    _write_task(tmp_path / "tasks" / "a", "a")
+    paths = member_paths_for_digest(tmp_path)
+    assert not any(p.startswith("shared/") for p in paths)
+    assert paths[0] == "bora.yaml"
+
+
 def test_journeys_list() -> None:
     ids = list_tasks(JOURNEYS_DB)
     assert set(ids) >= {

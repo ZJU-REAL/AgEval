@@ -3,7 +3,8 @@
 Algorithm (Spec 21 Phase 0 freeze):
 
 1. Enumerate files via ``member_paths_for_digest`` (stable order; includes root
-   ``bora.yaml`` and every non-hidden member file except ``__pycache__`` / ``*.pyc``).
+   ``bora.yaml``, optional ``shared/**`` (#65), and every non-hidden member file
+   except ``__pycache__`` / ``*.pyc``).
 2. For each path, compute ``sha256`` of raw file bytes.
 3. Build canonical text (UTF-8, LF only)::
 
