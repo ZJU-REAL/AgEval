@@ -12,7 +12,7 @@
 | 路径 | 用途 |
 | --- | --- |
 | [constitution/](constitution/) | 长期决策、背景与不变量 |
-| [active/](active/) | 实现 Spec（00–04） |
+| [active/](active/) | 实现 Spec（00–06） |
 | [BLOCKED.md](BLOCKED.md) | 执行期审计（最新在上） |
 
 ## 权威顺序（本主题）
@@ -57,6 +57,7 @@ docs/design/* + ARCHITECTURE.md
 | [03](active/03-cli-plugin-lifecycle-plan.md) | CLI 安装/列表 → 注册表 |
 | [04](active/04-hub-plugin-package-kind-plan.md) | Hub `bora.plugin/1` |
 | [05](active/05-core-extension-ready-nooa-container-plan.md) | **Core Ready：** 消费 `image_contribute`、lifecycle 真接线、nooa **容器内**、journeys 四 task 终态 |
+| [06](active/06-hub-plugin-marketplace-and-viewer-surface-plan.md) | **插件市场（Hub SPA）** + Viewer 发现性；**不做**审核运营；管道复用 04 |
 
 ## 命名与状态
 
