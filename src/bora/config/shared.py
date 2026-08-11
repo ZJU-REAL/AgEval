@@ -151,10 +151,11 @@ def validate_shared_layout(
 
     collisions = find_lib_collisions(root, tasks_root=tasks_root, task_ids=task_ids)
     if collisions:
-        parts = [f"{name!r} in {shared_loc} and {task_loc}" for name, shared_loc, task_loc in collisions]
+        parts = [
+            f"{name!r} in {shared_loc} and {task_loc}" for name, shared_loc, task_loc in collisions
+        ]
         raise ConfigError(
             ERROR_INVALID_PACKAGE,
-            "shared/lib vs task lib top-level import name collision (ban): "
-            + "; ".join(parts),
+            "shared/lib vs task lib top-level import name collision (ban): " + "; ".join(parts),
             location="shared/lib",
         )

@@ -95,9 +95,7 @@ async def test_harness_imports_shared_lib(tmp_path: Path) -> None:
     task = _scaffold(tmp_path)
     core = ConfigCore(package_reader=LocalPackageReader())
     lock = core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
-    result = await run_harness_package(
-        lock, task, timeout_seconds=20.0, database_root=tmp_path
-    )
+    result = await run_harness_package(lock, task, timeout_seconds=20.0, database_root=tmp_path)
     env = result["envelope"]
     assert env.get("ok") is True, env
     published = env.get("published") or {}
