@@ -648,9 +648,7 @@ class RegistryClient:
         return json.loads(raw.decode("utf-8"))
 
     def delete_package_release(self, *, database_id: str, version: str) -> dict[str, Any]:
-        path = (
-            f"/v1/packages/{quote(database_id, safe='/')}/versions/{quote(version, safe='')}"
-        )
+        path = f"/v1/packages/{quote(database_id, safe='/')}/versions/{quote(version, safe='')}"
         status, raw, _ = self._request("DELETE", path)
         if status != 200:
             raise RegistryError("delete_failed", f"status {status}", status=status)
@@ -661,9 +659,7 @@ class RegistryClient:
     ) -> dict[str, Any]:
         if visibility not in {"public", "private"}:
             raise RegistryError("invalid_request", "visibility must be public or private")
-        path = (
-            f"/v1/packages/{quote(database_id, safe='/')}/versions/{quote(version, safe='')}"
-        )
+        path = f"/v1/packages/{quote(database_id, safe='/')}/versions/{quote(version, safe='')}"
         status, raw, _ = self._request(
             "PATCH",
             path,

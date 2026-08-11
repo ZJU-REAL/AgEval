@@ -130,9 +130,7 @@ def test_attempt_delete_and_visibility_owner_only(
     assert up["ok"] is True
 
     # set visibility private → public
-    vis = set_result_visibility(
-        result_kind="attempt", result_id=run_id, visibility="public"
-    )
+    vis = set_result_visibility(result_kind="attempt", result_id=run_id, visibility="public")
     assert vis["visibility"] == "public"
     bob = RegistryClient(url, token=bob_tok)
     assert bob.get_attempt(run_id)["visibility"] == "public"

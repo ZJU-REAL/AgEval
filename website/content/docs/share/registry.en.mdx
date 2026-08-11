@@ -17,12 +17,35 @@ Exact commands: `bora --help` and the registry README.
 
 ## Ownership (summary)
 
-| Object | Owner | Who can read private |
-| --- | --- | --- |
-| Package (Dataset release) | **organization** | org members / admin |
-| Attempt / suite result | **uploader** | owner / share targets / admin |
+| Object | Owner | Who can read private | Delete / set visibility / replace |
+| --- | --- | --- | --- |
+| Package (Dataset release) | **organization** | org members / admin | **org owner** / admin |
+| Attempt / suite result | **uploader** | owner / share targets / admin | **uploader** / admin |
 
 Joining an org does **not** reveal others’ private results until they share.  
+Any org **member** may `publish` under that org; **package delete / set-visibility / `--replace`** require **org owner**.  
 Invite keys show the full secret only once at create time; later you only see a prefix.
+
+## Owner ops after create (CLI)
+
+`--public` at create time only sets **initial** visibility. Owners can change it later without republishing:
+
+```bash
+# Package: visibility / delete (delete requires --yes)
+uv run bora registry set-visibility 'my-org/dataset@0.1.0' --visibility public
+# uv run bora registry delete 'my-org/dataset@0.1.0' --yes
+
+# Results: visibility / unshare / delete
+uv run bora results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
+uv run bora results unshare <id> --kind attempt --share-org my-lab
+# uv run bora results delete <id> --kind suite --yes
+# Suite delete does not cascade attempts by default:
+# uv run bora results delete <suite_id> --kind suite --with-attempts --yes
+```
+
+**Replace:** same `database_id@version` / `run_id` / `suite_run_id` still **409** by default.  
+Owners may pass `--replace` on `bora publish` / `results upload` / `upload-suite` to overwrite blob, metrics/labels, and visibility — never silent.
+
+Details: `bora --help`, [`src/bora/cli/README.md`](https://github.com/ffy6511/BORA/blob/main/src/bora/cli/README.md), and the registry README.
 
 Whether the service is public is an ops choice.

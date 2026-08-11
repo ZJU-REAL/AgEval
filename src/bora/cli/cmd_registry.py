@@ -172,9 +172,7 @@ def register(app: typer.Typer) -> None:
             typer.echo("visibility must be public or private", err=True)
             raise typer.Exit(code=2)
         try:
-            summary = set_package_visibility(
-                ref, visibility=visibility, registry_url=registry_url
-            )
+            summary = set_package_visibility(ref, visibility=visibility, registry_url=registry_url)
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
