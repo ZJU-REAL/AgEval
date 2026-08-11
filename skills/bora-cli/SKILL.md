@@ -41,7 +41,12 @@ uv run bora --help
 | `bora evidence <logs-path> --out <dir>`                    | Sealed trajectory export (no score change)                           |
 | `bora results upload-suite …`                              | Suite aggregates → Registry; recompute pass@k if missing; job_overlay |
 | `bora results upload-suite … --with-attempts`              | Also upload attempt dirs from task_refs.attempt_run_ids / run_id     |
+| `bora results upload\|upload-suite … --replace`            | Owner overwrite same run_id / suite_run_id (default 409)             |
+| `bora results delete\|set-visibility … --kind attempt\|suite` | Owner delete (`--yes`) or flip visibility after upload            |
+| `bora results share\|unshare …`                            | Grant / revoke private result access (owner only)                    |
 | `bora results export-profiles <suite_run_id> --out …`      | Rehydrate job binding as profiles.yaml (#59; locators only)          |
+| `bora publish … --org … [--replace]`                       | Package publish; replace same version is org-owner only              |
+| `bora registry delete\|set-visibility <id@ver>`            | Org-owner package delete (`--yes`) / visibility flip                 |
 | `bora submit` / `bora status` / `bora cancel`              | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`) |
 
 Discover flags with `uv run bora <cmd> --help`. Source of truth: `src/bora/cli/main.py`.

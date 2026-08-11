@@ -46,23 +46,35 @@ uv run bora registry org-create my-lab --display-name "My Lab"
 uv run bora registry org-list
 
 uv run bora publish tests/fixtures/databases/publish-min --org my-lab
+# Same version again conflicts (409) unless explicit replace (org owner):
+# uv run bora publish … --org my-lab --replace
 uv run bora registry list
 uv run bora registry show 'test/publish-min@0.1.0'
+uv run bora registry set-visibility 'test/publish-min@0.1.0' --visibility public
+# uv run bora registry delete 'test/publish-min@0.1.0' --yes
 uv run bora lock 'test/publish-min@0.1.0' --task hello
 
 # After a local run produced .bora/runs/<run_id>/
 uv run bora results upload <database> --run <run_id>
+# uv run bora results upload … --run <run_id> --replace   # owner overwrite
 uv run bora results get <run_id> --out /tmp/restored
 uv run bora results list
-# Share a private result (owner only)
+uv run bora results set-visibility <run_id> --kind attempt --visibility public
+# Share / unshare a private result (owner only)
 uv run bora results share <run_id> --kind attempt --share-org my-lab
+uv run bora results unshare <run_id> --kind attempt --share-org my-lab
+# uv run bora results delete <run_id> --kind attempt --yes
 
 # After a suite run produced .bora/suite-runs/<suite_run_id>/summary.json
 uv run bora results upload-suite <database> --suite-run <suite_run_id> [--public] [--agent x] [--model y]
 # Optional: also pack each task's Attempt tree (Hub can open Job detail)
 uv run bora results upload-suite <database> --suite-run <suite_run_id> --with-attempts
+# uv run bora results upload-suite … --suite-run <id> --replace
 uv run bora results get-suite <suite_run_id> [--out /tmp/restored-suite]
 uv run bora results list-suites [--database-id <id>]
+# Suite delete keeps attempts by default; optional cascade:
+# uv run bora results delete <suite_run_id> --kind suite --yes
+# uv run bora results delete <suite_run_id> --kind suite --with-attempts --yes
 # Local fallback (no registry process):
 uv run bora results list-suites --local <database>
 uv run bora results get-suite <suite_run_id> --local <database>
@@ -124,12 +136,13 @@ Browse published package contents **without** downloading the whole tar to the b
 
 ### Organizations + ACL (design #52)
 
-| Surface | Ownership | Private read |
-| --- | --- | --- |
-| Package release | **org** (`org_id` required on publish) | org members (or `admin`) |
-| Attempt / suite result | **uploader** (`uploaded_by` server-set) | owner, share→org/user, or `admin` |
+| Surface | Ownership | Private read | Delete / set-visibility / replace |
+| --- | --- | --- | --- |
+| Package release | **org** (`org_id` required on publish) | org members (or `admin`) | **org owner** (or `admin`) |
+| Attempt / suite result | **uploader** (`uploaded_by` server-set) | owner, share→org/user, or `admin` | **uploader** (or `admin`) |
 
 Joining an org does **not** reveal private results until the owner shares them.
+Publish may be done by any org **member**; destructive package ops require **owner**.
 
 | Method | Path |
 | --- | --- |
@@ -143,7 +156,23 @@ Joining an org does **not** reveal private results until the owner shares them.
 | DELETE | `/v1/orgs/{id}/members/{user}` |
 | GET/POST | `/v1/orgs/{id}/invite-keys` (owner; create returns `invite_key` **once**) |
 | DELETE | `/v1/orgs/{id}/invite-keys/{key_id}` (revoke) |
+| POST | `/v1/packages` (optional metadata `replace: true` → overwrite same version) |
+| DELETE | `/v1/packages/{id}/versions/{ver}` (org owner) |
+| PATCH | `/v1/packages/{id}/versions/{ver}` body `{ "visibility" }` |
+| DELETE | `/v1/results/attempts/{run_id}` (uploader) |
+| PATCH | `/v1/results/attempts/{run_id}` body `{ "visibility" }` |
+| DELETE | `/v1/results/suites/{id}[?with_attempts=1]` (uploader; cascade optional) |
+| PATCH | `/v1/results/suites/{id}` body `{ "visibility" }` |
 | GET/POST/DELETE | `/v1/results/attempts\|suites/{id}/shares` |
+
+**Replace policy:** same `database_id@version` / `run_id` / `suite_run_id` defaults
+to **409 conflict**. Explicit `replace: true` (CLI `--replace`) deletes the prior
+row then inserts: blob, digests, metrics/labels, and visibility from the new
+upload. No silent overwrite.
+
+**Blob GC:** meta (+ result shares) deleted first; blob object removed only when
+no remaining row references that digest (packages / attempt / suite prefixes
+separately).
 
 **Invite keys:** store only `token_hash` + `token_prefix`. Redeem hashes the
 submitted key; `max_uses` uses a conditional `UPDATE` so concurrent joins cannot
@@ -165,9 +194,11 @@ files (no `..`, 2 MiB cap, **413** when larger):
 
 | Method | Path | Scope |
 | --- | --- | --- |
-| POST | `/v1/results/suites` | `results:upload` (+ user identity) |
+| POST | `/v1/results/suites` | `results:upload` (+ user identity); optional `replace` |
 | GET | `/v1/results/suites` | public ∪ owner ∪ share hit ∪ `admin` |
 | GET | `/v1/results/suites/{suite_run_id}` | same visibility rules as attempts |
+| DELETE | `/v1/results/suites/{suite_run_id}` | uploader (or `admin`); `?with_attempts=1` cascades owned attempts |
+| PATCH | `/v1/results/suites/{suite_run_id}` | uploader (or `admin`); `{ "visibility" }` |
 | GET | `/v1/results/suites/{suite_run_id}/content` | same |
 
 Row fields: `database_id`, `database_version`, `pass_rate`, `mean_score`, `metrics`,

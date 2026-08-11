@@ -30,6 +30,7 @@ class ReleaseInfo:
     size: int
     media_type: str
     org_id: str | None = None
+    replaced: bool = False
 
 
 class RegistryClient:
@@ -103,8 +104,9 @@ class RegistryClient:
         visibility: str,
         archive: bytes,
         org_id: str,
+        replace: bool = False,
     ) -> ReleaseInfo:
-        meta = {
+        meta: dict[str, Any] = {
             "database_id": database_id,
             "version": version,
             "package_digest": package_digest,
@@ -114,6 +116,8 @@ class RegistryClient:
             "visibility": visibility,
             "org_id": org_id,
         }
+        if replace:
+            meta["replace"] = True
         import secrets as _secrets
 
         boundary = f"bora-{_secrets.token_hex(12)}"
@@ -146,6 +150,7 @@ class RegistryClient:
             size=int(data["size"]),
             media_type=str(data["media_type"]),
             org_id=str(data["org_id"]) if data.get("org_id") else None,
+            replaced=bool(data.get("replaced")),
         )
 
     def get_metadata(
@@ -316,6 +321,7 @@ class RegistryClient:
         size: int,
         archive: bytes,
         suite_run_id: str | None = None,
+        replace: bool = False,
     ) -> dict[str, Any]:
         meta: dict[str, Any] = {
             "run_id": run_id,
@@ -329,6 +335,8 @@ class RegistryClient:
         }
         if suite_run_id:
             meta["suite_run_id"] = suite_run_id
+        if replace:
+            meta["replace"] = True
         import secrets as _secrets
 
         boundary = f"bora-result-{_secrets.token_hex(12)}"
@@ -407,6 +415,7 @@ class RegistryClient:
         config_homogeneous: bool | None = None,
         actors_summary: list[dict[str, Any]] | None = None,
         job_overlay: dict[str, Any] | None = None,
+        replace: bool = False,
     ) -> dict[str, Any]:
         meta: dict[str, Any] = {
             "suite_run_id": suite_run_id,
@@ -423,6 +432,8 @@ class RegistryClient:
             "blob_digest": blob_digest,
             "size": size,
         }
+        if replace:
+            meta["replace"] = True
         # #42 Leaderboard comparability — thin projection from suite summary.
         if config_fingerprint is not None:
             meta["config_fingerprint"] = config_fingerprint
@@ -588,4 +599,77 @@ class RegistryClient:
         )
         if status != 200:
             raise RegistryError("unshare_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def delete_attempt(self, run_id: str) -> dict[str, Any]:
+        path = f"/v1/results/attempts/{quote(run_id, safe='')}"
+        status, raw, _ = self._request("DELETE", path)
+        if status != 200:
+            raise RegistryError("delete_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def delete_suite(self, suite_run_id: str, *, with_attempts: bool = False) -> dict[str, Any]:
+        from urllib.parse import urlencode
+
+        path = f"/v1/results/suites/{quote(suite_run_id, safe='')}"
+        if with_attempts:
+            path = f"{path}?{urlencode({'with_attempts': '1'})}"
+        status, raw, _ = self._request("DELETE", path)
+        if status != 200:
+            raise RegistryError("delete_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def set_attempt_visibility(self, run_id: str, *, visibility: str) -> dict[str, Any]:
+        if visibility not in {"public", "private"}:
+            raise RegistryError("invalid_request", "visibility must be public or private")
+        path = f"/v1/results/attempts/{quote(run_id, safe='')}"
+        status, raw, _ = self._request(
+            "PATCH",
+            path,
+            body=json.dumps({"visibility": visibility}, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("set_visibility_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def set_suite_visibility(self, suite_run_id: str, *, visibility: str) -> dict[str, Any]:
+        if visibility not in {"public", "private"}:
+            raise RegistryError("invalid_request", "visibility must be public or private")
+        path = f"/v1/results/suites/{quote(suite_run_id, safe='')}"
+        status, raw, _ = self._request(
+            "PATCH",
+            path,
+            body=json.dumps({"visibility": visibility}, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("set_visibility_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def delete_package_release(self, *, database_id: str, version: str) -> dict[str, Any]:
+        path = (
+            f"/v1/packages/{quote(database_id, safe='/')}/versions/{quote(version, safe='')}"
+        )
+        status, raw, _ = self._request("DELETE", path)
+        if status != 200:
+            raise RegistryError("delete_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def set_package_visibility(
+        self, *, database_id: str, version: str, visibility: str
+    ) -> dict[str, Any]:
+        if visibility not in {"public", "private"}:
+            raise RegistryError("invalid_request", "visibility must be public or private")
+        path = (
+            f"/v1/packages/{quote(database_id, safe='/')}/versions/{quote(version, safe='')}"
+        )
+        status, raw, _ = self._request(
+            "PATCH",
+            path,
+            body=json.dumps({"visibility": visibility}, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("set_visibility_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))

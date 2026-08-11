@@ -52,6 +52,13 @@ def register(app: typer.Typer) -> None:
                 help="Create a public release (default: private).",
             ),
         ] = False,
+        replace: Annotated[
+            bool,
+            typer.Option(
+                "--replace",
+                help="Overwrite same database_id@version if org owner (default: conflict 409).",
+            ),
+        ] = False,
         registry_url: Annotated[
             str | None,
             typer.Option(
@@ -69,6 +76,7 @@ def register(app: typer.Typer) -> None:
                 database,
                 public=public,
                 org=org,
+                replace=replace,
                 registry_url=registry_url,
             )
         except ConfigError as exc:

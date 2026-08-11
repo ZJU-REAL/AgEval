@@ -84,7 +84,24 @@ Stdout JSON (high level):
 - `task_refs` may carry `n`, `c`, `attempt_run_ids` for multi-attempt audit.
 - **`--with-attempts`:** packs `.bora/runs/<run_id>/` for each id in
   `attempt_run_ids` (preferred) or primary `run_id`; missing dirs fail closed.
+- **`--replace`:** owner overwrite of same `suite_run_id` (default remains 409);
+  with `--with-attempts`, linked attempts also replace.
 - Registry stores full `metrics` blob (no strip). pass@k is **not**
   `config_fingerprint` / job identity.
 - Hub Leaderboard: optional n_attempts / pass@k / pass^k columns when present;
   default sort remains pass_rate → mean_score.
+
+## Registry owner ops
+
+| Command | Who | Notes |
+| --- | --- | --- |
+| `bora results delete --kind attempt\|suite --yes` | `uploaded_by` (or admin) | Suite default does **not** delete attempts; `--with-attempts` cascades owned attempts |
+| `bora results set-visibility --kind … --visibility public\|private` | uploader | After create; no re-upload required |
+| `bora results unshare` | uploader | Same targeting as `share` (`--share-org` / `--share-user`) |
+| `bora results upload\|upload-suite --replace` | uploader | Replaces blob + metrics/labels + visibility |
+| `bora registry delete <id@ver> --yes` | **org owner** (or admin) | Meta + unreferenced package blob GC |
+| `bora registry set-visibility <id@ver> --visibility …` | org owner | Flip without new version |
+| `bora publish --replace` | org owner for overwrite | First publish still any org **member** |
+
+Destructive CLI requires explicit `--yes`. Unauthorized private targets → **404**
+fail-closed (no existence leak beyond existing list rules).

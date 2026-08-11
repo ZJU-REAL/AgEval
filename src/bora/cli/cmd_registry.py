@@ -120,4 +120,64 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2) from exc
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
 
+    @sub.command("delete")
+    def registry_delete_command(
+        ref: Annotated[
+            str,
+            typer.Argument(help="Package release: database_id@version"),
+        ],
+        yes: Annotated[
+            bool,
+            typer.Option("--yes", help="Confirm destructive delete (required)."),
+        ] = False,
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry URL."),
+        ] = None,
+    ) -> None:
+        """Delete a package release. Org owner (or admin) only; requires --yes."""
+        from bora.application.registry_list_command import delete_package_release
+        from bora.config.errors import ConfigError
+
+        if not yes:
+            typer.echo("refusing to delete without --yes", err=True)
+            raise typer.Exit(code=2)
+        try:
+            summary = delete_package_release(ref, registry_url=registry_url)
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+    @sub.command("set-visibility")
+    def registry_set_visibility_command(
+        ref: Annotated[
+            str,
+            typer.Argument(help="Package release: database_id@version"),
+        ],
+        visibility: Annotated[
+            str,
+            typer.Option("--visibility", help="public | private"),
+        ],
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry URL."),
+        ] = None,
+    ) -> None:
+        """Set package release visibility after publish. Org owner (or admin) only."""
+        from bora.application.registry_list_command import set_package_visibility
+        from bora.config.errors import ConfigError
+
+        if visibility not in {"public", "private"}:
+            typer.echo("visibility must be public or private", err=True)
+            raise typer.Exit(code=2)
+        try:
+            summary = set_package_visibility(
+                ref, visibility=visibility, registry_url=registry_url
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
     app.add_typer(sub, name="registry")
