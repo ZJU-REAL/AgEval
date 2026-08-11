@@ -44,6 +44,7 @@ docs/design/* + ARCHITECTURE.md
 - 绑定：**扩展 profiles**；真相 = **lock 完整扩展点图**。  
 - 插件包：**`bora.plugin/1`** + manifest 声明 slots。  
 - 默认注册保证仅装 BORA 时 ACP 主路径可跑；**非**全量 ACP 外置包。  
+- **nooa = 外置 `bora.plugin/1` 生态实例**，**不是** first-party contrib；装入靠 Spec 03 cache，不得 bootstrap 默认注册。  
 - harness 机制无关；Recognition ≠ Ready；主分发 Hub + `bora` CLI。  
 
 ## Active Spec 地图
@@ -52,7 +53,7 @@ docs/design/* + ARCHITECTURE.md
 | --- | --- |
 | [00](active/00-extension-registry-default-plan.md) | 注册表、默认注册、冲突、lock 全图、L0–L5 接线 |
 | [01](active/01-acp-default-providers-plan.md) | ACP 默认/专有 contribute |
-| [02](active/02-nooa-provide-switch-plan.md) | nooa provide/on 切换 |
+| [02](active/02-nooa-provide-switch-plan.md) | nooa **外置插件**切换（非 first-party；journeys 真 e2e） |
 | [03](active/03-cli-plugin-lifecycle-plan.md) | CLI 安装/列表 → 注册表 |
 | [04](active/04-hub-plugin-package-kind-plan.md) | Hub `bora.plugin/1` |
 

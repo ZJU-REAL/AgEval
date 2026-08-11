@@ -509,3 +509,4 @@ bindings:
 | 2026-08-11 | §7.3 澄清 executor 字段 | `executor: nooa` = 槽选用插件的 provide，非 executor≡plugin |
 | 2026-08-11 | 宿主包名 `extension/` → `plugins/` | 与产品「插件」用语对齐；cache 仍为 `~/.bora/plugins` |
 | 2026-08-11 | §0 MVP 实现纪律 | 不向后兼容；删除优先于胶水；禁双轨 fallback |
+| 2026-08-11 | 纠正 nooa 形态 | nooa **不得** first-party；须外置 `bora.plugin/1` + install；仅 ACP 为默认 first-party 专有 |
