@@ -459,19 +459,41 @@ def _int_or_none(raw: object) -> int | None:
     return raw
 
 
+def _single_sample_from_task_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    """One attempt row from a rolled task summary (legacy / incomplete n without c)."""
+    return {
+        "task_id": row.get("task_id"),
+        "attempt_index": 0,
+        "status": row.get("status"),
+        "score": row.get("score"),
+        "run_id": row.get("run_id"),
+    }
+
+
 def _synthetic_attempts_from_nc(
     task_rows: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]] | None:
     """Build attempt rows from per-task ``n``/``c`` when full attempts are absent.
 
     Creates *c* PASS + *(n-c)* FAIL synthetic samples so ``aggregate_k_metrics``
-    can recompute pass@k without inventing suite PASS. Returns ``None`` when no
-    task has recoverable ``n``.
+    can recompute pass@k without inventing suite PASS.
+
+    Recovery rules when ``c`` is missing:
+
+    - ``n == 1``: rolled status determines ``c`` (PASS → 1, else 0).
+    - ``n > 1`` and rolled non-PASS: ``c = 0`` is sound under BORA rollup
+      (any PASS would have rolled to PASS).
+    - ``n > 1`` and rolled PASS: **do not** invent ``c = n`` — that would treat
+      "at least one pass" as "all n passed" and inflate pass@k. Fall back to a
+      single sample from rolled status so multi-k stays incomplete for that task.
+
+    Returns ``None`` when no task has recoverable multi-attempt data (nested
+    attempts or complete ``n``+``c`` / recoverable zero-pass ``n``). Caller may
+    then flatten pure legacy ``tasks[]``.
     """
-    any_n = False
+    any_recoverable = False
     out: list[dict[str, Any]] = []
     for row in task_rows:
-        tid = row.get("task_id")
         n = _int_or_none(row.get("n"))
         c = _int_or_none(row.get("c"))
         nested = row.get("attempts")
@@ -479,37 +501,37 @@ def _synthetic_attempts_from_nc(
             for a in nested:
                 if isinstance(a, Mapping):
                     out.append(dict(a))
-            any_n = True
+            any_recoverable = True
             continue
         if n is None or n < 1:
             # Single-sample fallback from rolled status (legacy tasks[]).
-            out.append(
-                {
-                    "task_id": tid,
-                    "attempt_index": 0,
-                    "status": row.get("status"),
-                    "score": row.get("score"),
-                    "run_id": row.get("run_id"),
-                }
-            )
+            out.append(_single_sample_from_task_row(row))
             continue
-        any_n = True
         if c is None:
-            # Recover c from rolled status when only n is known.
             st = _normalize_status(row.get("status"))
-            c = n if st == "PASS" else 0
+            if n == 1:
+                # Exactly one sample: c is determined by that rolled status.
+                c = 1 if st == "PASS" else 0
+            elif st == "PASS":
+                # Multi-attempt with unknown c — omit invented multi-sample.
+                out.append(_single_sample_from_task_row(row))
+                continue
+            else:
+                # BORA rollup: no PASS ⇒ c == 0.
+                c = 0
+        any_recoverable = True
         c = max(0, min(c, n))
         for i in range(n):
             out.append(
                 {
-                    "task_id": tid,
+                    "task_id": row.get("task_id"),
                     "attempt_index": i,
                     "status": "PASS" if i < c else "FAIL",
                     "score": 1.0 if i < c else 0.0,
                     "run_id": row.get("run_id") if i == 0 else None,
                 }
             )
-    return out if any_n else None
+    return out if any_recoverable else None
 
 
 def metrics_payload_from_k_agg(k_agg: Mapping[str, Any]) -> dict[str, Any]:
@@ -541,8 +563,10 @@ def ensure_suite_metrics(
 
     1. Existing ``metrics`` that already include ``pass_at_k`` / ``pass_power_k``
     2. Recompute from ``summary.attempts[]`` via ``aggregate_k_metrics``
-    3. Recompute from ``tasks[]`` with ``n``/``c`` (or nested attempts)
-    4. Legacy ``aggregate_task_metrics`` only (no k maps when unrecoverable)
+    3. Recompute from ``tasks[]`` with recoverable ``n``/``c`` (or nested attempts);
+       ``n`` without ``c`` on a multi-attempt PASS does **not** invent ``c = n``
+    4. Legacy single-sample / ``aggregate_task_metrics`` when multi-attempt
+       samples are unrecoverable
 
     Does **not** write suite-level PASS. Never touches ``config_fingerprint``.
     """

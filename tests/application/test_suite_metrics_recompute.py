@@ -128,6 +128,78 @@ def test_legacy_tasks_only_gets_pass_rate_and_k1() -> None:
     assert m["n_attempts"] == 1
 
 
+def test_n_without_c_pass_does_not_invent_perfect_multi_attempt() -> None:
+    """Rolled PASS + n without c must not synthesize c=n (pass@k inflation)."""
+    summary = {
+        "n_attempts": 4,
+        "tasks": [
+            # Would be catastrophic if c were invented as 4.
+            {"task_id": "a", "status": "PASS", "score": 1.0, "n": 4, "run_id": "a0"},
+        ],
+    }
+    m = ensure_suite_metrics(summary)
+    # Single-sample fallback: pass@1 from rolled status only.
+    assert has_k_metrics(m)
+    assert m["pass_at_k"]["1"]["value"] == pytest.approx(1.0)
+    # Multi-k must not claim a perfect Always-4 pass.
+    assert m["pass_at_k"].get("4") is None or m["pass_at_k"]["4"]["value"] is None
+    per = {str(t["task_id"]): t for t in m.get("per_task") or []}
+    assert per["a"]["n"] == 1  # not fabricated n=4
+    assert per["a"]["c"] == 1
+
+
+def test_n_without_c_fail_recovers_zero_passes() -> None:
+    """Rolled FAIL + n without c ⇒ c=0 under BORA rollup (no PASS existed)."""
+    summary = {
+        "n_attempts": 3,
+        "tasks": [
+            {"task_id": "a", "status": "FAIL", "score": 0.0, "n": 3, "run_id": "a0"},
+        ],
+    }
+    m = ensure_suite_metrics(summary)
+    assert has_k_metrics(m)
+    assert m["pass_at_k"]["1"]["value"] == pytest.approx(0.0)
+    assert m["pass_at_k"]["3"]["value"] == pytest.approx(0.0)
+    per = {str(t["task_id"]): t for t in m.get("per_task") or []}
+    assert per["a"]["n"] == 3
+    assert per["a"]["c"] == 0
+
+
+def test_n_equals_1_without_c_uses_rolled_status() -> None:
+    summary = {
+        "tasks": [
+            {"task_id": "a", "status": "PASS", "score": 1.0, "n": 1, "run_id": "a0"},
+            {"task_id": "b", "status": "FAIL", "score": 0.0, "n": 1, "run_id": "b0"},
+        ],
+    }
+    m = ensure_suite_metrics(summary)
+    assert m["pass_at_k"]["1"]["value"] == pytest.approx(0.5)
+    per = {str(t["task_id"]): t for t in m.get("per_task") or []}
+    assert per["a"]["n"] == 1 and per["a"]["c"] == 1
+    assert per["b"]["n"] == 1 and per["b"]["c"] == 0
+
+
+def test_mixed_full_nc_and_n_without_c_pass() -> None:
+    """Recoverable n/c stays multi-attempt; incomplete PASS stays single-sample."""
+    summary = {
+        "n_attempts": 4,
+        "tasks": [
+            {"task_id": "full", "status": "PASS", "score": 1.0, "n": 4, "c": 2, "run_id": "f0"},
+            {"task_id": "partial", "status": "PASS", "score": 1.0, "n": 4, "run_id": "p0"},
+        ],
+    }
+    m = ensure_suite_metrics(summary)
+    assert has_k_metrics(m)
+    per = {str(t["task_id"]): t for t in m.get("per_task") or []}
+    assert per["full"]["n"] == 4 and per["full"]["c"] == 2
+    assert per["partial"]["n"] == 1 and per["partial"]["c"] == 1
+    # pass@4: only ``full`` has n>=4; unbiased pass@4 for n=4,c=2 = 1 - C(2,4)/C(4,4)
+    # C(2,4)=0 so pass@4 = 1.0 for full; partial incomplete → mean over 1 task.
+    assert m["pass_at_k"]["4"]["n_tasks"] == 1
+    assert m["pass_at_k"]["4"]["incomplete_tasks"] == 1
+    assert m["pass_at_k"]["4"]["value"] == pytest.approx(1.0)
+
+
 def test_task_refs_include_n_c_and_attempt_run_ids() -> None:
     tasks = [
         {"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "a0"},

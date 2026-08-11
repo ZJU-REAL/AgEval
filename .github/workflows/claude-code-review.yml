@@ -52,12 +52,18 @@ jobs:
             Read `AGENTS.md` and, if touched, relevant `docs/design/*`, `ARCHITECTURE.md`,
             and linked GitHub Issues before commenting.
 
+            **Static review only — do NOT run CI locally.**
+            - Do not run `uv`, `pytest`, `ruff`, `pyright`, `pnpm`, or any install/build/test commands.
+            - Do not apologize for sandbox limits or ask the author to "confirm CI is green" because you could not run tests.
+            - GitHub Actions path-filtered jobs (`python-core`, `python-registry`, `viewer-app`, `hub-app`, `website`) own the gate; you may mention which jobs should cover the diff, but never attempt to execute them.
+            - Judge test coverage by reading the diff and existing tests only.
+
             Focus on:
             1. **Correctness / regressions** — lifecycle, provider isolation, capability authority, evaluation barriers
             2. **Architecture boundaries** — Core vs Harness ownership; no leaking private ACP scrape; no runtime authority in SDK
             3. **Security** — secrets must not appear in trajectories, locks, logs, or fixtures; redaction paths; mount/visibility projections
             4. **Evidence honesty** — do not invent runnable-mvp / isolated / real-benchmark claims from docs alone
-            5. **Tests** — core offline pytest coverage for behavior changes; avoid requiring Docker L1/e2e unless PR already owns that surface
+            5. **Tests (read-only)** — whether the diff adds/updates offline pytest coverage for behavior changes; flag gaps without running tests; avoid requiring Docker L1/e2e unless PR already owns that surface
             6. **Scope** — small, focused diffs; no unrelated refactors
 
             Output language: English by default (summary and inline comments). Match the PR author's language only if the PR description/title is clearly non-English.
