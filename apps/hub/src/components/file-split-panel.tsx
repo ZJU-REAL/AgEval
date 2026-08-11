@@ -1,5 +1,13 @@
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type UIEvent,
+} from "react";
 
 import { FilePreview } from "@/components/file-preview";
 import { FileTypeIcon } from "@/components/file-type-icon";
@@ -7,6 +15,22 @@ import { Input } from "@/components/ui/input";
 import { countFiles } from "@/lib/file-icons";
 import type { TreeNode } from "@/lib/file-tree";
 import { cn } from "@/lib/utils";
+
+/** Fixed row height for windowed tree rendering (matches h-7). */
+const ROW_H = 28;
+/** Extra rows above/below the viewport. */
+const OVERSCAN = 16;
+/**
+ * Soft cap on visible rows when a dir is first opened without scrolling.
+ * (Virtualization still applies; this is only for default-expand policy.)
+ */
+const DEFAULT_OPEN_DEPTH = 0;
+
+type FlatRow = {
+  key: string;
+  node: TreeNode;
+  depth: number;
+};
 
 function filterTree(nodes: TreeNode[], query: string): TreeNode[] {
   const q = query.trim().toLowerCase();
@@ -30,84 +54,6 @@ function filterTree(nodes: TreeNode[], query: string): TreeNode[] {
   return out;
 }
 
-function TreeBranch({
-  nodes,
-  depth,
-  selectedPath,
-  onSelect,
-  openDirs,
-  toggleDir,
-}: {
-  nodes: TreeNode[];
-  depth: number;
-  selectedPath: string | null;
-  onSelect: (path: string) => void;
-  openDirs: Set<string>;
-  toggleDir: (path: string) => void;
-}) {
-  return (
-    <ul className={cn(depth === 0 && "pb-2")}>
-      {nodes.map((node) => {
-        if (node.type === "dir") {
-          const open = openDirs.has(node.path);
-          return (
-            <li key={`d:${node.path}`}>
-              <button
-                type="button"
-                onClick={() => toggleDir(node.path)}
-                className={cn(
-                  "w-full flex items-center gap-1 text-left h-7 pr-2 text-[12.5px]",
-                  "text-body hover:bg-row-hover transition-colors rounded-[4px]",
-                )}
-                style={{ paddingLeft: 8 + depth * 12 }}
-                title={node.path}
-              >
-                {open ? (
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-mute" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-mute" />
-                )}
-                <FileTypeIcon name={node.name} kind="dir" expanded={open} />
-                <span className="truncate font-medium">{node.name}</span>
-              </button>
-              {open && node.children && node.children.length > 0 ? (
-                <TreeBranch
-                  nodes={node.children}
-                  depth={depth + 1}
-                  selectedPath={selectedPath}
-                  onSelect={onSelect}
-                  openDirs={openDirs}
-                  toggleDir={toggleDir}
-                />
-              ) : null}
-            </li>
-          );
-        }
-        const selected = selectedPath === node.path;
-        return (
-          <li key={`f:${node.path}`}>
-            <button
-              type="button"
-              onClick={() => onSelect(node.path)}
-              className={cn(
-                "w-full flex items-center gap-1.5 text-left h-7 pr-2 text-[12.5px] truncate transition-colors rounded-[4px]",
-                selected
-                  ? "bg-canvas text-ink font-medium shadow-[inset_0_0_0_1px_var(--color-hairline)]"
-                  : "text-body hover:bg-row-hover",
-              )}
-              style={{ paddingLeft: 8 + depth * 12 + 18 }}
-              title={node.path}
-            >
-              <FileTypeIcon name={node.name} kind="file" />
-              <span className="truncate">{node.name}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 function allDirPaths(nodes: TreeNode[], acc: string[] = []): string[] {
   for (const n of nodes) {
     if (n.type === "dir") {
@@ -116,6 +62,48 @@ function allDirPaths(nodes: TreeNode[], acc: string[] = []): string[] {
     }
   }
   return acc;
+}
+
+/** Only dirs at depth < maxDepth (root level = 0). */
+function dirPathsUpToDepth(
+  nodes: TreeNode[],
+  maxDepth: number,
+  depth = 0,
+  acc: string[] = [],
+): string[] {
+  if (depth >= maxDepth) return acc;
+  for (const n of nodes) {
+    if (n.type === "dir") {
+      acc.push(n.path);
+      if (n.children) dirPathsUpToDepth(n.children, maxDepth, depth + 1, acc);
+    }
+  }
+  return acc;
+}
+
+/** Flatten open tree into ordered rows (only expanded branches). */
+function flattenVisible(
+  nodes: TreeNode[],
+  openDirs: Set<string>,
+  depth = 0,
+  out: FlatRow[] = [],
+): FlatRow[] {
+  for (const node of nodes) {
+    out.push({
+      key: `${node.type}:${node.path}`,
+      node,
+      depth,
+    });
+    if (
+      node.type === "dir" &&
+      openDirs.has(node.path) &&
+      node.children &&
+      node.children.length > 0
+    ) {
+      flattenVisible(node.children, openDirs, depth + 1, out);
+    }
+  }
+  return out;
 }
 
 function displayPath(fullPath: string, rootPrefix?: string): string {
@@ -128,7 +116,10 @@ function displayPath(fullPath: string, rootPrefix?: string): string {
 
 /**
  * Left nested tree + right code preview (Hub package files).
- * Material Icon Theme icons by extension; strip task prefix for display.
+ *
+ * Tree uses windowed rendering: only rows near the scroll viewport become DOM
+ * nodes, so large packages (e.g. many tasks or shared/assets) stay responsive.
+ * Directories start collapsed (depth 0) unless searching.
  */
 export function FileSplitPanel({
   tree,
@@ -139,6 +130,7 @@ export function FileSplitPanel({
   fileLoading,
   fileNote,
   rootPrefix,
+  headerEnd,
 }: {
   tree: TreeNode[];
   treeLoading: boolean;
@@ -148,25 +140,63 @@ export function FileSplitPanel({
   fileLoading: boolean;
   fileNote: string | null;
   rootPrefix?: string;
+  /** Replaces the default "N files" label (e.g. Local | Shared switch on Task Files). */
+  headerEnd?: ReactNode;
 }) {
   const treeKey = useMemo(() => tree.map((n) => n.path).join("|"), [tree]);
   const [openDirs, setOpenDirs] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(480);
 
+  // Default: keep dirs collapsed so we do not mount the full package tree.
   useEffect(() => {
-    setOpenDirs(new Set(allDirPaths(tree)));
+    setOpenDirs(new Set(dirPathsUpToDepth(tree, DEFAULT_OPEN_DEPTH)));
+    setScrollTop(0);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- treeKey is the intentional dep
   }, [treeKey]);
 
   const fileCount = useMemo(() => countFiles(tree), [tree]);
   const visibleTree = useMemo(() => filterTree(tree, query), [tree, query]);
 
-  // When searching, expand all dirs in the filtered tree
+  // Search: expand matching branch dirs so hits are reachable; still windowed.
   useEffect(() => {
     if (query.trim()) {
       setOpenDirs(new Set(allDirPaths(visibleTree)));
+    } else {
+      setOpenDirs(new Set(dirPathsUpToDepth(tree, DEFAULT_OPEN_DEPTH)));
     }
-  }, [query, visibleTree]);
+  }, [query, visibleTree, tree]);
+
+  const flatRows = useMemo(
+    () => flattenVisible(visibleTree, openDirs),
+    [visibleTree, openDirs],
+  );
+
+  // Measure scroll viewport for window size.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => setViewportH(el.clientHeight || 480);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [treeLoading, flatRows.length]);
+
+  const onScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  const totalH = flatRows.length * ROW_H;
+  const visibleCount = Math.ceil(viewportH / ROW_H) + OVERSCAN * 2;
+  const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
+  const endIdx = Math.min(flatRows.length, startIdx + visibleCount);
+  const slice = flatRows.slice(startIdx, endIdx);
+  const padTop = startIdx * ROW_H;
+  const padBottom = Math.max(0, totalH - padTop - slice.length * ROW_H);
 
   function toggleDir(path: string) {
     setOpenDirs((prev) => {
@@ -176,6 +206,26 @@ export function FileSplitPanel({
       return next;
     });
   }
+
+  // Keep selected file row roughly in view after tree rebuilds (best-effort).
+  useEffect(() => {
+    if (!selectedPath || !scrollRef.current) return;
+    const idx = flatRows.findIndex(
+      (r) => r.node.type === "file" && r.node.path === selectedPath,
+    );
+    if (idx < 0) return;
+    const el = scrollRef.current;
+    const rowTop = idx * ROW_H;
+    const rowBottom = rowTop + ROW_H;
+    if (rowTop < el.scrollTop) {
+      el.scrollTop = rowTop;
+      setScrollTop(rowTop);
+    } else if (rowBottom > el.scrollTop + el.clientHeight) {
+      const next = rowBottom - el.clientHeight;
+      el.scrollTop = next;
+      setScrollTop(next);
+    }
+  }, [selectedPath, treeKey]); // eslint-disable-line react-hooks/exhaustive-deps -- only on selection/tree identity
 
   return (
     <div
@@ -192,13 +242,17 @@ export function FileSplitPanel({
           "flex flex-col",
         )}
       >
-        <div className="flex items-center justify-between px-3 py-2 border-b border-hairline shrink-0">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-hairline shrink-0">
           <span className="text-[11px] font-medium uppercase tracking-wide text-mute">
             Files
           </span>
-          <span className="text-[11px] tabular-nums text-mute">
-            {fileCount} file{fileCount === 1 ? "" : "s"}
-          </span>
+          {headerEnd != null ? (
+            headerEnd
+          ) : (
+            <span className="text-[11px] tabular-nums text-mute">
+              {fileCount} file{fileCount === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
         <div className="px-2 py-2 border-b border-hairline shrink-0">
           <div className="relative">
@@ -212,22 +266,81 @@ export function FileSplitPanel({
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-1 pt-1">
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto px-1 pt-1"
+          onScroll={onScroll}
+        >
           {treeLoading ? (
             <p className="text-xs text-mute p-3">Loading tree…</p>
-          ) : visibleTree.length === 0 ? (
+          ) : flatRows.length === 0 ? (
             <p className="text-xs text-mute p-3">
               {query.trim() ? "No matches." : "No files in this scope."}
             </p>
           ) : (
-            <TreeBranch
-              nodes={visibleTree}
-              depth={0}
-              selectedPath={selectedPath}
-              onSelect={onSelect}
-              openDirs={openDirs}
-              toggleDir={toggleDir}
-            />
+            <div style={{ height: totalH, position: "relative" }}>
+              <div style={{ height: padTop }} aria-hidden />
+              <ul className="m-0 p-0 list-none">
+                {slice.map((row) => {
+                  const { node, depth } = row;
+                  if (node.type === "dir") {
+                    const open = openDirs.has(node.path);
+                    return (
+                      <li key={row.key} style={{ height: ROW_H }}>
+                        <button
+                          type="button"
+                          onClick={() => toggleDir(node.path)}
+                          className={cn(
+                            "w-full flex items-center gap-1 text-left h-7 pr-2 text-[12.5px]",
+                            "text-body hover:bg-row-hover transition-colors rounded-[4px]",
+                          )}
+                          style={{ paddingLeft: 8 + depth * 12 }}
+                          title={node.path}
+                        >
+                          {open ? (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-mute" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-mute" />
+                          )}
+                          <FileTypeIcon
+                            name={node.name}
+                            kind="dir"
+                            expanded={open}
+                          />
+                          <span className="truncate font-medium">{node.name}</span>
+                          {node.children && node.children.length > 0 ? (
+                            <span className="ml-auto pl-1 text-[10px] tabular-nums text-mute shrink-0">
+                              {node.children.length}
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  }
+                  const selected = selectedPath === node.path;
+                  return (
+                    <li key={row.key} style={{ height: ROW_H }}>
+                      <button
+                        type="button"
+                        onClick={() => onSelect(node.path)}
+                        className={cn(
+                          "w-full flex items-center gap-1.5 text-left h-7 pr-2 text-[12.5px] truncate transition-colors rounded-[4px]",
+                          selected
+                            ? "bg-canvas text-ink font-medium shadow-[inset_0_0_0_1px_var(--color-hairline)]"
+                            : "text-body hover:bg-row-hover",
+                        )}
+                        style={{ paddingLeft: 8 + depth * 12 + 18 }}
+                        title={node.path}
+                      >
+                        <FileTypeIcon name={node.name} kind="file" />
+                        <span className="truncate">{node.name}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div style={{ height: padBottom }} aria-hidden />
+            </div>
           )}
         </div>
       </aside>
@@ -257,6 +370,14 @@ export function FileSplitPanel({
               content={fileContent}
               note={fileNote}
             />
+          ) : selectedPath && fileNote ? (
+            <div className="p-3 space-y-2">
+              <p className="text-sm text-error font-mono break-words">{fileNote}</p>
+              <p className="text-xs text-mute">
+                Could not load this file for preview. Oversized package members
+                should return a truncated head; other errors are shown above.
+              </p>
+            </div>
           ) : (
             <p className="text-sm text-mute p-3">Select a file to preview.</p>
           )}

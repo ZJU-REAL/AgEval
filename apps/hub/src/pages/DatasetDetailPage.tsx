@@ -28,7 +28,6 @@ import {
   type PackageRelease,
   type SuiteRow,
   RegistryHttpError,
-  sharedFilesStats,
   taskIdsFromFiles,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
@@ -131,14 +130,20 @@ export function DatasetDetailPage() {
   }, [datasetId, release]);
 
   const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
-  const sharedStats = useMemo(() => sharedFilesStats(fileItems), [fileItems]);
   const sharedTree = useMemo(
     () => buildNestedTree(fileItems, "shared"),
     [fileItems],
   );
 
+  // Stale ?tab=shared when package has no shared/ → fall back to README.
   useEffect(() => {
-    if (!release || !sharedSelected || tab !== "shared") {
+    if (!loading && tab === "shared" && !sharedPresent) {
+      setTab("readme");
+    }
+  }, [loading, tab, sharedPresent]);
+
+  useEffect(() => {
+    if (!release || !sharedSelected || tab !== "shared" || !sharedPresent) {
       setSharedContent(null);
       return;
     }
@@ -149,7 +154,15 @@ export function DatasetDetailPage() {
       .then((f) => {
         if (cancelled) return;
         setSharedContent(decodeFileContent(f));
-        if (f.truncated) setSharedNote("truncated");
+        if (f.truncated) {
+          const full = f.size ?? 0;
+          const shown = (f.content || "").length;
+          setSharedNote(
+            full > 0
+              ? `Truncated preview: showing first ~${shown.toLocaleString()} of ${full.toLocaleString()} bytes (Hub preview cap).`
+              : "Truncated preview (Hub preview size cap).",
+          );
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -221,9 +234,12 @@ export function DatasetDetailPage() {
           [
             ["readme", "README"],
             ["tasks", "Tasks"],
-            ["shared", "Shared"],
+            // Hide entirely when package has no shared/** (optional tree).
+            ...(sharedPresent
+              ? ([["shared", "Shared"]] as Array<[Tab, string]>)
+              : []),
             ["leaderboard", "Leaderboard"],
-          ] as const
+          ] as Array<[Tab, string]>
         ).map(([id, label]) => (
           <button
             key={id}
@@ -237,11 +253,6 @@ export function DatasetDetailPage() {
             )}
           >
             {label}
-            {id === "shared" && sharedPresent ? (
-              <span className="ml-1.5 text-xs text-mute font-normal">
-                {sharedStats.fileCount}
-              </span>
-            ) : null}
           </button>
         ))}
       </div>
@@ -293,40 +304,17 @@ export function DatasetDetailPage() {
             </Table>
           </div>
         )
-      ) : tab === "shared" ? (
-        !sharedPresent ? (
-          <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-mute space-y-2">
-            <p className="text-ink font-medium">No Dataset-level shared/</p>
-            <p>
-              Optional <code className="font-mono">shared/</code> at the
-              Database root is part of <code className="font-mono">packageDigest</code>{" "}
-              when present. Cross-task code lives in{" "}
-              <code className="font-mono">shared/lib</code>; domain fixtures in{" "}
-              <code className="font-mono">shared/assets</code>.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs text-mute">
-              Dataset <code className="font-mono">shared/**</code> ·{" "}
-              {sharedStats.fileCount} file
-              {sharedStats.fileCount === 1 ? "" : "s"} ·{" "}
-              {sharedStats.totalBytes.toLocaleString()} bytes · in package digest
-              (not Agent-mounted by default; gold stays under{" "}
-              <code className="font-mono">tasks/*/evaluation/</code>)
-            </p>
-            <FileSplitPanel
-              tree={sharedTree}
-              treeLoading={false}
-              selectedPath={sharedSelected}
-              onSelect={setSharedSelected}
-              fileContent={sharedContent}
-              fileLoading={sharedFileLoading}
-              fileNote={sharedNote}
-              rootPrefix="shared"
-            />
-          </div>
-        )
+      ) : tab === "shared" && sharedPresent ? (
+        <FileSplitPanel
+          tree={sharedTree}
+          treeLoading={false}
+          selectedPath={sharedSelected}
+          onSelect={setSharedSelected}
+          fileContent={sharedContent}
+          fileLoading={sharedFileLoading}
+          fileNote={sharedNote}
+          rootPrefix="shared"
+        />
       ) : (
         <div className="space-y-2">
           {demoLeaderboard ? (

@@ -1,5 +1,12 @@
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type UIEvent,
+} from "react";
 
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { Input } from "@/components/ui/input";
@@ -10,6 +17,21 @@ import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { cn } from "@/lib/utils";
 
 import { actorLabel, type ActorRow } from "./types";
+
+/** Fixed row height for windowed tree rendering (matches h-7). */
+const ROW_H = 28;
+const OVERSCAN = 16;
+/** Root-level dirs start collapsed (depth 0 = no auto-open). */
+const DEFAULT_OPEN_DEPTH = 0;
+/** Skip heavy token highlight for huge bodies. */
+const HIGHLIGHT_MAX_CHARS = 120_000;
+const PLAIN_PREVIEW_MAX_CHARS = 400_000;
+
+type FlatRow = {
+  key: string;
+  node: TreeNode;
+  depth: number;
+};
 
 function filterTree(nodes: TreeNode[], query: string): TreeNode[] {
   const q = query.trim().toLowerCase();
@@ -46,86 +68,49 @@ function allDirPaths(nodes: TreeNode[], acc: string[] = []): string[] {
   return acc;
 }
 
-function TreeBranch({
-  nodes,
-  depth,
-  selectedPath,
-  onSelect,
-  openDirs,
-  toggleDir,
-}: {
-  nodes: TreeNode[];
-  depth: number;
-  selectedPath: string | null;
-  onSelect: (path: string) => void;
-  openDirs: Set<string>;
-  toggleDir: (path: string) => void;
-}) {
-  return (
-    <ul className={cn(depth === 0 && "pb-2")}>
-      {nodes.map((node) => {
-        if (node.type === "dir") {
-          const open = openDirs.has(node.path);
-          return (
-            <li key={`d:${node.path}`}>
-              <button
-                type="button"
-                onClick={() => toggleDir(node.path)}
-                className={cn(
-                  "w-full flex items-center gap-1 text-left h-7 pr-2 text-[12.5px]",
-                  "text-body hover:bg-row-hover transition-colors rounded-[4px]",
-                )}
-                style={{ paddingLeft: 8 + depth * 12 }}
-                title={node.path}
-              >
-                {open ? (
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-mute" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-mute" />
-                )}
-                <FileTypeIcon name={node.name} kind="dir" expanded={open} />
-                <span className="truncate font-medium">{node.name}</span>
-              </button>
-              {open && node.children && node.children.length > 0 ? (
-                <TreeBranch
-                  nodes={node.children}
-                  depth={depth + 1}
-                  selectedPath={selectedPath}
-                  onSelect={onSelect}
-                  openDirs={openDirs}
-                  toggleDir={toggleDir}
-                />
-              ) : null}
-            </li>
-          );
-        }
-        const selected = selectedPath === node.path;
-        return (
-          <li key={`f:${node.path}`}>
-            <button
-              type="button"
-              onClick={() => onSelect(node.path)}
-              className={cn(
-                "w-full flex items-center gap-1.5 text-left h-7 pr-2 text-[12.5px] truncate transition-colors rounded-[4px]",
-                selected
-                  ? "bg-canvas text-ink font-medium shadow-[inset_0_0_0_1px_var(--color-hairline)]"
-                  : "text-body hover:bg-row-hover",
-              )}
-              style={{ paddingLeft: 8 + depth * 12 + 18 }}
-              title={node.path}
-            >
-              <FileTypeIcon name={node.name} kind="file" />
-              <span className="truncate">{node.name}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
+function dirPathsUpToDepth(
+  nodes: TreeNode[],
+  maxDepth: number,
+  depth = 0,
+  acc: string[] = [],
+): string[] {
+  if (depth >= maxDepth) return acc;
+  for (const n of nodes) {
+    if (n.type === "dir") {
+      acc.push(n.path);
+      if (n.children) dirPathsUpToDepth(n.children, maxDepth, depth + 1, acc);
+    }
+  }
+  return acc;
+}
+
+function flattenVisible(
+  nodes: TreeNode[],
+  openDirs: Set<string>,
+  depth = 0,
+  out: FlatRow[] = [],
+): FlatRow[] {
+  for (const node of nodes) {
+    out.push({
+      key: `${node.type}:${node.path}`,
+      node,
+      depth,
+    });
+    if (
+      node.type === "dir" &&
+      openDirs.has(node.path) &&
+      node.children &&
+      node.children.length > 0
+    ) {
+      flattenVisible(node.children, openDirs, depth + 1, out);
+    }
+  }
+  return out;
 }
 
 /**
  * Left nested file tree (Hub-style) + right code preview.
+ * Windowed tree rows + collapsed-by-default dirs for large evidence archives.
  * Preserves multi-role virtual profile grouping when groupByProfile is on.
  */
 export function FileSplitPanel({
@@ -185,7 +170,11 @@ export function FileSplitPanel({
             (e) => (e.profile_id || "__ungrouped__") === key,
           );
           const nested = buildNestedTree(
-            groupFiles.map((e) => ({ path: e.path, type: "file", size: e.size ?? 0 })),
+            groupFiles.map((e) => ({
+              path: e.path,
+              type: "file",
+              size: e.size ?? 0,
+            })),
           );
           const label =
             key === "__ungrouped__"
@@ -216,9 +205,14 @@ export function FileSplitPanel({
   );
   const [openDirs, setOpenDirs] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(420);
 
   useEffect(() => {
-    setOpenDirs(new Set(allDirPaths(nestedRoots)));
+    setOpenDirs(new Set(dirPathsUpToDepth(nestedRoots, DEFAULT_OPEN_DEPTH)));
+    setScrollTop(0);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- treeKey is the intentional dep
   }, [treeKey]);
 
@@ -231,8 +225,37 @@ export function FileSplitPanel({
   useEffect(() => {
     if (query.trim()) {
       setOpenDirs(new Set(allDirPaths(visibleTree)));
+    } else {
+      setOpenDirs(new Set(dirPathsUpToDepth(nestedRoots, DEFAULT_OPEN_DEPTH)));
     }
-  }, [query, visibleTree]);
+  }, [query, visibleTree, nestedRoots]);
+
+  const flatRows = useMemo(
+    () => flattenVisible(visibleTree, openDirs),
+    [visibleTree, openDirs],
+  );
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => setViewportH(el.clientHeight || 420);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [treeLoading, flatRows.length]);
+
+  const onScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  const totalH = flatRows.length * ROW_H;
+  const visibleCount = Math.ceil(viewportH / ROW_H) + OVERSCAN * 2;
+  const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
+  const endIdx = Math.min(flatRows.length, startIdx + visibleCount);
+  const slice = flatRows.slice(startIdx, endIdx);
+  const padTop = startIdx * ROW_H;
+  const padBottom = Math.max(0, totalH - padTop - slice.length * ROW_H);
 
   function toggleDir(path: string) {
     setOpenDirs((prev) => {
@@ -246,6 +269,16 @@ export function FileSplitPanel({
   const selectedName = selectedPath
     ? selectedPath.split("/").pop() || selectedPath
     : null;
+
+  const previewTooLarge =
+    fileContent != null && fileContent.length > HIGHLIGHT_MAX_CHARS;
+  const previewDisplay =
+    fileContent == null
+      ? null
+      : fileContent.length > PLAIN_PREVIEW_MAX_CHARS
+        ? fileContent.slice(0, PLAIN_PREVIEW_MAX_CHARS) +
+          `\n\n… truncated for preview (${fileContent.length.toLocaleString()} chars total)`
+        : fileContent;
 
   return (
     <div
@@ -282,22 +315,83 @@ export function FileSplitPanel({
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-1 pt-1">
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto px-1 pt-1"
+          onScroll={onScroll}
+        >
           {treeLoading ? (
             <p className="text-xs text-mute p-3">Loading tree…</p>
-          ) : visibleTree.length === 0 ? (
+          ) : flatRows.length === 0 ? (
             <p className="text-xs text-mute p-3">
               {query.trim() ? "No matches." : "No files in this scope."}
             </p>
           ) : (
-            <TreeBranch
-              nodes={visibleTree}
-              depth={0}
-              selectedPath={selectedPath}
-              onSelect={onSelect}
-              openDirs={openDirs}
-              toggleDir={toggleDir}
-            />
+            <div style={{ height: totalH, position: "relative" }}>
+              <div style={{ height: padTop }} aria-hidden />
+              <ul className="m-0 p-0 list-none">
+                {slice.map((row) => {
+                  const { node, depth } = row;
+                  if (node.type === "dir") {
+                    const open = openDirs.has(node.path);
+                    return (
+                      <li key={row.key} style={{ height: ROW_H }}>
+                        <button
+                          type="button"
+                          onClick={() => toggleDir(node.path)}
+                          className={cn(
+                            "w-full flex items-center gap-1 text-left h-7 pr-2 text-[12.5px]",
+                            "text-body hover:bg-row-hover transition-colors rounded-[4px]",
+                          )}
+                          style={{ paddingLeft: 8 + depth * 12 }}
+                          title={node.path}
+                        >
+                          {open ? (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-mute" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-mute" />
+                          )}
+                          <FileTypeIcon
+                            name={node.name}
+                            kind="dir"
+                            expanded={open}
+                          />
+                          <span className="truncate font-medium">
+                            {node.name}
+                          </span>
+                          {node.children && node.children.length > 0 ? (
+                            <span className="ml-auto pl-1 text-[10px] tabular-nums text-mute shrink-0">
+                              {node.children.length}
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  }
+                  const selected = selectedPath === node.path;
+                  return (
+                    <li key={row.key} style={{ height: ROW_H }}>
+                      <button
+                        type="button"
+                        onClick={() => onSelect(node.path)}
+                        className={cn(
+                          "w-full flex items-center gap-1.5 text-left h-7 pr-2 text-[12.5px] truncate transition-colors rounded-[4px]",
+                          selected
+                            ? "bg-canvas text-ink font-medium shadow-[inset_0_0_0_1px_var(--color-hairline)]"
+                            : "text-body hover:bg-row-hover",
+                        )}
+                        style={{ paddingLeft: 8 + depth * 12 + 18 }}
+                        title={node.path}
+                      >
+                        <FileTypeIcon name={node.name} kind="file" />
+                        <span className="truncate">{node.name}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div style={{ height: padBottom }} aria-hidden />
+            </div>
           )}
         </div>
       </aside>
@@ -323,7 +417,17 @@ export function FileSplitPanel({
               {fileNote ? (
                 <p className="text-xs text-mute px-3 pt-2">{fileNote}</p>
               ) : null}
-              {fileContent != null ? (
+              {previewTooLarge && fileContent != null ? (
+                <p className="text-xs text-mute px-3 pt-2">
+                  Large file ({fileContent.length.toLocaleString()} chars) —
+                  plain preview without highlighting
+                  {fileContent.length > PLAIN_PREVIEW_MAX_CHARS
+                    ? `, first ${PLAIN_PREVIEW_MAX_CHARS.toLocaleString()} chars`
+                    : ""}
+                  .
+                </p>
+              ) : null}
+              {previewDisplay != null ? (
                 <pre
                   className={cn(
                     "m-0 p-3 min-h-full overflow-auto",
@@ -332,7 +436,14 @@ export function FileSplitPanel({
                   )}
                 >
                   <code className="font-mono">
-                    <CodeHighlight path={selectedPath} content={fileContent} />
+                    {previewTooLarge ? (
+                      <span className="text-shell-plain">{previewDisplay}</span>
+                    ) : (
+                      <CodeHighlight
+                        path={selectedPath}
+                        content={previewDisplay}
+                      />
+                    )}
                   </code>
                 </pre>
               ) : (

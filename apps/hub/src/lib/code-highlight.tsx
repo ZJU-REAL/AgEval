@@ -360,6 +360,9 @@ function renderTokens(tokens: Token[]): ReactNode {
   );
 }
 
+/** Skip tokenization for huge bodies (caller may also pre-truncate). */
+const HIGHLIGHT_MAX_CHARS = 120_000;
+
 export function CodeHighlight({
   path,
   content,
@@ -367,6 +370,10 @@ export function CodeHighlight({
   path?: string | null;
   content: string;
 }): ReactNode {
+  if (content.length > HIGHLIGHT_MAX_CHARS) {
+    return <span className="text-shell-plain">{content}</span>;
+  }
+
   const { lang, text } = preparePreview(path, content);
 
   if (lang === "json") {

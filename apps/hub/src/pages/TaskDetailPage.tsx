@@ -191,7 +191,15 @@ export function TaskDetailPage() {
       .then((f) => {
         if (cancelled) return;
         setFileContent(decodeFileContent(f));
-        if (f.truncated) setFileNote("truncated");
+        if (f.truncated) {
+          const full = f.size ?? 0;
+          const shown = (f.content || "").length;
+          setFileNote(
+            full > 0
+              ? `Truncated preview: showing first ~${shown.toLocaleString()} of ${full.toLocaleString()} bytes (Hub preview cap).`
+              : "Truncated preview (Hub preview size cap).",
+          );
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -286,50 +294,52 @@ export function TaskDetailPage() {
       ) : null}
 
       {tab === "files" ? (
-        <div className="space-y-3">
-          <div className="inline-flex rounded-[8px] border border-hairline p-0.5 bg-canvas-soft">
-            {(
-              [
-                ["local", "Local"],
-                ["shared", "Shared"],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setFilesScope(id)}
-                className={cn(
-                  "px-3 py-1.5 text-xs rounded-[6px] transition-colors",
-                  filesScope === id
-                    ? "bg-canvas text-ink font-medium shadow-sm"
-                    : "text-body hover:text-ink",
-                )}
-              >
-                {label}
-                {id === "shared" && !sharedPresent ? (
-                  <span className="ml-1 text-mute font-normal">(none)</span>
-                ) : null}
-              </button>
-            ))}
-          </div>
-          {filesScope === "shared" && !sharedPresent ? (
-            <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-mute">
-              This Dataset has no <code className="font-mono">shared/</code>{" "}
-              tree in the published package digest.
+        <FileSplitPanel
+          tree={tree}
+          treeLoading={treeLoading}
+          selectedPath={selectedPath}
+          onSelect={setSelectedPath}
+          fileContent={
+            filesScope === "shared" && !sharedPresent
+              ? "This Dataset has no shared/ tree in the published package digest."
+              : fileContent
+          }
+          fileLoading={fileLoading}
+          fileNote={
+            filesScope === "shared" && !sharedPresent
+              ? "no shared/"
+              : fileNote
+          }
+          rootPrefix={prefix}
+          headerEnd={
+            <div
+              className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
+              role="group"
+              aria-label="Files scope"
+            >
+              {(
+                [
+                  ["local", "Local"],
+                  ["shared", "Shared"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setFilesScope(id)}
+                  className={cn(
+                    "px-2 py-0.5 text-[11px] rounded-[4px] transition-colors",
+                    filesScope === id
+                      ? "bg-canvas-soft text-ink font-medium shadow-sm"
+                      : "text-mute hover:text-ink",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          ) : (
-            <FileSplitPanel
-              tree={tree}
-              treeLoading={treeLoading}
-              selectedPath={selectedPath}
-              onSelect={setSelectedPath}
-              fileContent={fileContent}
-              fileLoading={fileLoading}
-              fileNote={fileNote}
-              rootPrefix={prefix}
-            />
-          )}
-        </div>
+          }
+        />
       ) : null}
 
       {tab === "jobs" ? (
