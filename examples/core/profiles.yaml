@@ -23,3 +23,12 @@ bindings:
       entry: pi
     model: zai-coding-cn/glm-5.2
     api_key: glm_coding_api_key
+
+  # Phase A: nooa host SPI (task-local lib.agents)
+  nooa-solver:
+    executor: nooa
+    options:
+      agent: "lib.agents:FixedAnswerAgent"
+      method: "run"
+    model: none
+

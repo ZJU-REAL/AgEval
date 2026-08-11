@@ -1,0 +1,45 @@
+# Journeys profiles bound to external nooa plugin (after `bora plugin install`).
+# Usage:
+#   BORA_HOME=… uv run bora plugin install plugins/nooa
+#   uv run bora run examples/journeys --task <task> --profiles examples/journeys/profiles.nooa.yaml
+#
+# Package-local agents live under each task's lib/agents.py (same module path per task).
+# install never edits this file.
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: nooa
+    options:
+      agent: "lib.agents:JsonlAggAgent"
+      method: "run"
+    model: nooa
+  user:
+    executor: nooa
+    options:
+      agent: "lib.agents:UserSimAgent"
+      method: "run"
+    model: nooa
+  service:
+    executor: nooa
+    options:
+      agent: "lib.agents:ServiceAgent"
+      method: "run"
+    model: nooa
+  specialist:
+    executor: nooa
+    options:
+      agent: "lib.agents:SpecialistAgent"
+      method: "run"
+    model: nooa
+  planner:
+    executor: nooa
+    options:
+      agent: "lib.agents:PlannerAgent"
+      method: "run"
+    model: nooa
+  reducer:
+    executor: nooa
+    options:
+      agent: "lib.agents:ReducerAgent"
+      method: "run"
+    model: nooa

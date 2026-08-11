@@ -6,7 +6,7 @@ slots:
     - id: executor
       priority: 110
       entry: "nooa_plugin.factory:build_executor"
-  on:
+  "on":
     - id: image_contribute
       priority: 110
       entry: "nooa_plugin.hooks:image_contribute"

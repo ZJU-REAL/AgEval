@@ -247,7 +247,12 @@ def run_l1_sdk_session_attempt(
                 "generation": binding.generation,
             }
 
-        make_target_executor = make_l1_target_executor_factory(ledger=ledger, profiles=profiles)
+        make_target_executor = make_l1_target_executor_factory(
+            ledger=ledger,
+            profiles=profiles,
+            workspace_host=workspace_host,
+            package_root=package_root,
+        )
 
         limits: dict[str, Any] = {}
         try:
@@ -268,8 +273,20 @@ def run_l1_sdk_session_attempt(
 
         from bora.plugins.bootstrap import ensure_bootstrapped
 
+        # Inject package root for host SPI plugins (nooa) package-local agents.
+        service_profiles: list[dict[str, Any]] = []
+        for p in profiles:
+            if not isinstance(p, dict):
+                continue
+            row = dict(p)
+            opts = dict(row.get("options") or {}) if isinstance(row.get("options"), dict) else {}
+            opts["_package_root"] = str(package_root)
+            opts.setdefault("_workdir", str(workspace_host))
+            row["options"] = opts
+            service_profiles.append(row)
+
         agent_service = ParentAgentService(
-            profiles=profiles,
+            profiles=service_profiles,
             agent_invocation_limit=inv_limit,
             attempt_id=attempt_ident.value,
             extension_registry=ensure_bootstrapped(),

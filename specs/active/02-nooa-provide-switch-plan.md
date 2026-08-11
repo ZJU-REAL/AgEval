@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Created | 2026-08-11 |
-| Status | **in-progress**（纠正偏差后重开验收） |
-| Completed | pending |
+| Status | **completed** |
+| Completed | 2026-08-11 |
 | Dependencies | [00](00-extension-registry-default-plan.md), [01](01-acp-default-providers-plan.md), [03](03-cli-plugin-lifecycle-plan.md)（path install） |
 | Decisions | [constitution §B.6 / §4 / §7.2–7.6](../constitution/2026-08-11-extension-api-and-registry.md) |
 
@@ -44,16 +44,16 @@
 
 ### A. 形态与装入
 
-- [ ] **nooa 不是 first-party：** `bootstrap_registry` **默认**不 `register_nooa_contrib`；主仓 **无** `plugins/contrib/nooa` 业务实现（或仅 re-export 文档指针，无默认注册）。  
-- [ ] **外置包存在：** 仓库内有可 path-install 的 `bora.plugin/1` 包（建议 `plugins/nooa/` 或 `examples/plugins/nooa/`，含 `plugin.yaml` + provide(executor) entry）。  
-- [ ] **Success install：** `BORA_HOME=<tmp> bora plugin install <nooa-pkg>` → index 含 `plugin_id=nooa`；`bora executors` / discover 可见 `nooa`。  
-- [ ] **未 install：** profiles `executor: nooa` → lock/run **fail closed**（plugin not found），不得静默回落 acp。
+- [x] **nooa 不是 first-party：** `bootstrap_registry` **默认**不 `register_nooa_contrib`；主仓 **无** `plugins/contrib/nooa` 业务实现（或仅 re-export 文档指针，无默认注册）。  
+- [x] **外置包存在：** 仓库内有可 path-install 的 `bora.plugin/1` 包（建议 `plugins/nooa/` 或 `examples/plugins/nooa/`，含 `plugin.yaml` + provide(executor) entry）。  
+- [x] **Success install：** `BORA_HOME=<tmp> bora plugin install <nooa-pkg>` → index 含 `plugin_id=nooa`；`bora executors` / discover 可见 `nooa`。  
+- [x] **未 install：** profiles `executor: nooa` → lock/run **fail closed**（plugin not found），不得静默回落 acp。
 
 ### B. 绑定与 lock
 
-- [ ] profiles `executor: nooa` + `options.agent` → lock `extension_bindings.<profile>.executor.plugin == nooa`，`source` 含 `profile_executor_field`。  
-- [ ] 同 profiles 可混用 `solver=nooa` 与 `user=acp`（若 task 有多 profile）；session graph 分 profile。  
-- [ ] harness **无** `if executor == "nooa"` 业务分支。
+- [x] profiles `executor: nooa` + `options.agent` → lock `extension_bindings.<profile>.executor.plugin == nooa`，`source` 含 `profile_executor_field`。  
+- [x] 同 profiles 可混用 `solver=nooa` 与 `user=acp`（若 task 有多 profile）；session graph 分 profile。  
+- [x] harness **无** `if executor == "nooa"` 业务分支。
 
 ### C. 终态真 e2e（**本 Spec 硬门槛**）
 
@@ -66,24 +66,24 @@
 | `multiagent-env-min` | 同上 |
 | `env-postgres-min` | **无 Agent**：仍须 `bora run` 通过（回归 env；证明装 nooa 不破坏无 Agent 路径） |
 
-- [ ] **四条 journeys 均真实 `bora run` 跑通**（exit 0 且结果 JSON 可解释；有 Agent 的 task 须 evidence 中 `executor_kind`/plugin 为 **nooa** 或混绑时 per-profile 正确）。  
-- [ ] **L1：** `terminal-jsonl-agg` 若仍走 Docker，nooa 必须 Ready（image_contribute / worker / 或文档化的 host-in-container 策略）；**禁止** host_fallback 伪装成功。
+- [x] **四条 journeys 均真实 `bora run` 跑通**（exit 0 且结果 JSON 可解释；有 Agent 的 task 须 evidence 中 `executor_kind`/plugin 为 **nooa** 或混绑时 per-profile 正确）。  
+- [x] **L1：** `terminal-jsonl-agg` 若仍走 Docker，nooa 必须 Ready（image_contribute / worker / 或文档化的 host-in-container 策略）；**禁止** host_fallback 伪装成功。
 
 ### D. 失败面
 
-- [ ] 缺 `options.agent` → 稳定可测错误。  
-- [ ] 未装插件 + `executor: nooa` → fail closed。  
-- [ ] install **不**改 `profiles.yaml` / `bora.yaml` / `task.yaml`。
+- [x] 缺 `options.agent` → 稳定可测错误。  
+- [x] 未装插件 + `executor: nooa` → fail closed。  
+- [x] install **不**改 `profiles.yaml` / `bora.yaml` / `task.yaml`。
 
 ### E. 回归
 
-- [ ] **未装 nooa** 时：journeys **默认 ACP** 路径仍可按既有证据跑通（Spec 01 主路径）。  
-- [ ] Spec 03 path install / Spec 00 registry 单测不红。
+- [x] **未装 nooa** 时：journeys **默认 ACP** 路径仍可按既有证据跑通（Spec 01 主路径）。  
+- [x] Spec 03 path install / Spec 00 registry 单测不红。
 
 ### F. 工程与文档
 
-- [ ] ruff / 相关 pytest；journeys 专用 profiles 或 README 写清 nooa 命令。  
-- [ ] 文档明确：**ACP = first-party；nooa = 外置插件**。
+- [x] ruff / 相关 pytest；journeys 专用 profiles 或 README 写清 nooa 命令。  
+- [x] 文档明确：**ACP = first-party；nooa = 外置插件**。
 
 ---
 
@@ -134,14 +134,45 @@
 
 ## Phases
 
-- [ ] Phase 0：Spec/文档纠正（本文件）；标清错误状态  
-- [ ] Phase 1：外置 `bora.plugin/1` nooa 包 + 迁出 SPI；bootstrap 默认不注册 nooa  
-- [ ] Phase 2：path install + lock 图 + 未装 fail closed  
-- [ ] Phase 3：journeys 四 task 真 e2e（外置 nooa）+ ACP 回归 + Acceptance  
+- [x] Phase 0：Spec/文档纠正（本文件）；标清错误状态  
+- [x] Phase 1：外置 `bora.plugin/1` nooa 包 + 迁出 SPI；bootstrap 默认不注册 nooa  
+- [x] Phase 2：path install + lock 图 + 未装 fail closed  
+- [x] Phase 3：journeys 四 task 真 e2e（外置 nooa）+ ACP 回归 + Acceptance  
 
 ## Evidence（完成后填写）
 
-- install 命令与 `BORA_HOME`  
-- 四条 `bora run` 的 status/score/logs  
-- lock 片段 `plugin == nooa`  
-- 证明 bootstrap 默认无 nooa（代码或测试）
+### install
+
+```bash
+export BORA_HOME=/tmp/bora-nooa-e2e-final
+uv run bora plugin install plugins/nooa
+# → plugin_id=nooa version=0.1.0 digest=sha256:d5ab49b6594197fd495b9ff8efd15a5bd3f4d4438e5299143b1f18516b7316d7
+```
+
+未装：`BORA_HOME=<empty> bora lock … --profiles profiles.nooa.yaml` → exit 2  
+`extension resolve failed … plugin 'nooa' has no provide for slot 'executor'`。
+
+### lock 片段
+
+`extension_bindings.solver.executor.plugin == "nooa"`，`source == "profile_executor_field"`，`version == "0.1.0"`。
+
+### 四条 journeys（真实 `bora run`，无 `BORA_OFFLINE_AGENT`）
+
+| Task | status | score | assurance | executor_kind | logs |
+| --- | --- | --- | --- | --- | --- |
+| `terminal-jsonl-agg` | PASS | 1.0 | l1 | nooa | `…/sha256_2c67ab54…_run_7499bf08e5ab` |
+| `tau2-dialog-min` | PASS | 1.0 | l0 | nooa | `…/sha256_68fbafff…_run_9892e314fd33` |
+| `multiagent-env-min` | PASS | 1.0 | l0 | nooa | `…/sha256_876a41d1…_run_cc86fbfcdf00` |
+| `env-postgres-min` | PASS | 1.0 | l0 | (no agent) | `…/sha256_d87dc3e1…_run_68d49a7758a3` |
+
+L1 Ready：`host-in-container`（parent SPI 写 Attempt workspace mount）；`host_fallback_count=0`；官方镜像标签 `bora-attempt:l1` / `bora-pkg:*`。
+
+### bootstrap 默认无 nooa
+
+- 代码：`src/bora/plugins/bootstrap.py` 无 `register_nooa_contrib`；`include_nooa` 已删除。  
+- 测试：`tests/plugins/test_acp_nooa_contrib.py::test_bootstrap_default_has_no_nooa`。  
+- 主仓 **无** `src/bora/plugins/contrib/nooa/`。
+
+### 单测
+
+`uv run pytest tests/plugins/ -q` → 24 passed。

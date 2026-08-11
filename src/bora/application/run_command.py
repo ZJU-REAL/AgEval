@@ -185,8 +185,19 @@ async def run_task(
         deadline = (_mono() + wall_s) if wall_s > 0 else None
         from bora.plugins.bootstrap import ensure_bootstrapped
 
+        # Inject package root for nooa (and similar) host materialize of package-local agents.
+        service_profiles: list[dict[str, Any]] = []
+        for p in profiles:
+            if not isinstance(p, dict):
+                continue
+            row = dict(p)
+            opts = dict(row.get("options") or {}) if isinstance(row.get("options"), dict) else {}
+            opts["_package_root"] = str(package_root)
+            row["options"] = opts
+            service_profiles.append(row)
+
         agent_service = ParentAgentService(
-            profiles=[p for p in profiles if isinstance(p, dict)],
+            profiles=service_profiles,
             agent_invocation_limit=inv_limit,
             attempt_id=attempt_ident.value,
             extension_registry=ensure_bootstrapped(),

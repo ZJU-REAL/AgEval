@@ -153,8 +153,43 @@ def cli_env_for_container(
     return out
 
 
-def make_l1_target_executor_factory(*, ledger: Any, profiles: list[dict[str, Any]]) -> Any:
-    """Build ``make_target_executor`` closed over prepare ledger + profiles (Spec 19 ACP)."""
+class _HostInContainerExecutor:
+    """Wrap host SPI so invoke always uses Attempt workspace mount (nooa L1 Ready)."""
+
+    def __init__(self, inner: Any, *, workdir: str) -> None:
+        self._inner = inner
+        self.workdir = workdir
+        self.kind = getattr(inner, "kind", "nooa")
+
+    def open(self, **kwargs: Any) -> None:
+        open_fn = getattr(self._inner, "open", None)
+        if callable(open_fn):
+            open_fn(**kwargs)
+
+    def close(self) -> None:
+        close_fn = getattr(self._inner, "close", None)
+        if callable(close_fn):
+            close_fn()
+
+    def invoke(self, prompt: str, **kwargs: Any) -> Any:
+        kwargs = dict(kwargs)
+        kwargs.setdefault("workdir", self.workdir)
+        return self._inner.invoke(prompt, **kwargs)
+
+
+def make_l1_target_executor_factory(
+    *,
+    ledger: Any,
+    profiles: list[dict[str, Any]],
+    workspace_host: Path | None = None,
+    package_root: Path | None = None,
+) -> Any:
+    """Build ``make_target_executor`` closed over prepare ledger + profiles.
+
+    - ``acp``: docker exec into Attempt container (Spec 19 coding-agent path).
+    - ``nooa`` (and similar host SPI): host-in-container Ready — parent SPI writes
+      into the Attempt workspace mount; not ACP host_fallback.
+    """
 
     def make_target_executor(binding: Any) -> Any:
         from bora.adapters.acp import AcpExecutor
@@ -187,10 +222,35 @@ def make_l1_target_executor_factory(*, ledger: Any, profiles: list[dict[str, Any
             else None
         )
         kind = str(binding.executor_kind)
+
+        # Host SPI plugins (nooa): use session-pinned graph; write to workspace mount.
+        if kind == "nooa":
+            graph = getattr(binding, "extension_graph", None)
+            if graph is None:
+                raise RuntimeError("extension_graph_missing")
+            providers = getattr(graph, "providers", None) or {}
+            pref = providers.get("executor")
+            impl = getattr(pref, "impl", None) if pref is not None else None
+            if impl is None:
+                raise RuntimeError("executor_impl_missing")
+            # Ensure package-local agent import path + default workdir.
+            opts = getattr(impl, "options", None)
+            if isinstance(opts, dict):
+                if package_root is not None:
+                    opts.setdefault("_package_root", str(package_root.resolve()))
+                if workspace_host is not None:
+                    opts.setdefault("_workdir", str(workspace_host.resolve()))
+                    if hasattr(impl, "default_workdir"):
+                        impl.default_workdir = str(workspace_host.resolve())
+            if workspace_host is None:
+                raise RuntimeError("nooa_l1_workspace_missing")
+            return _HostInContainerExecutor(impl, workdir=str(workspace_host.resolve()))
+
         # Spec 19: L1 coding-agent path is ACP only — no private CLI scrape residual.
         if kind != "acp":
             raise RuntimeError(
-                f"migrated_to_acp: L1 executor {kind!r} requires executor: acp + options.entry"
+                f"migrated_to_acp: L1 executor {kind!r} requires executor: acp + options.entry "
+                f"(or a documented host SPI Ready path such as nooa host-in-container)"
             )
         entry_id = getattr(binding, "acp_entry_id", None)
         if not entry_id:

@@ -76,7 +76,11 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
         raise PluginManifestError("slots must be a mapping", kind="plugin_manifest_invalid")
 
     def _entries(key: str) -> tuple[SlotEntry, ...]:
-        rows = slots.get(key) or []
+        # PyYAML 1.1 may coerce bare mapping key ``on:`` to boolean True.
+        rows = slots.get(key)
+        if rows is None and key == "on":
+            rows = slots.get(True)
+        rows = rows or []
         if not isinstance(rows, list):
             raise PluginManifestError(f"slots.{key} must be a list", kind="plugin_manifest_invalid")
         out: list[SlotEntry] = []
