@@ -1,0 +1,3 @@
+# Host must provide BORA + install tau2 for evaluator/tools:
+#   uv pip install "tau2 @ git+https://github.com/sierra-research/tau2-bench.git@v1.0.1"
+tau2==1.0.1
