@@ -15,6 +15,9 @@ import { getToken } from "@/lib/auth";
 /**
  * Hub Jobs deep-link: uploaded Attempt evidence with viewer-parity IA
  * (outcome, actors, Trajectory / Agent / Verifier / Lock / Runtime tabs).
+ *
+ * Package Dataset ``shared/`` is browsed on Task Files / Dataset Shared tab —
+ * not inside Attempt evidence (Local | Shared does not apply here).
  */
 export function AttemptEvidencePage() {
   const { datasetId: rawId, taskId: rawTask, runId: rawRun } = useParams();

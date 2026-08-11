@@ -18,9 +18,11 @@ import {
   decodeDatasetId,
   decodeFileContent,
   getPackageFile,
+  hasSharedFiles,
   listPackageFiles,
   listPackageVersions,
   listSuites,
+  type FileItem,
   type PackageRelease,
   type SuiteRow,
   RegistryHttpError,
@@ -30,6 +32,7 @@ import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { cn, formatScore } from "@/lib/utils";
 
 type Tab = "readme" | "files" | "jobs";
+type FilesScope = "local" | "shared";
 
 export function TaskDetailPage() {
   const { datasetId: rawId, taskId: rawTask } = useParams();
@@ -41,12 +44,14 @@ export function TaskDetailPage() {
   const tab = (search.get("tab") as Tab) || "readme";
 
   const [release, setRelease] = useState<PackageRelease | null>(null);
+  const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileNote, setFileNote] = useState<string | null>(null);
   const [treeLoading, setTreeLoading] = useState(true);
   const [fileLoading, setFileLoading] = useState(false);
+  const [filesScope, setFilesScope] = useState<FilesScope>("local");
   const [readme, setReadme] = useState<string | null>(null);
   const [jobs, setJobs] = useState<
     Array<{
@@ -63,7 +68,9 @@ export function TaskDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const token = getToken();
 
-  const prefix = `tasks/${taskId}`;
+  const localPrefix = `tasks/${taskId}`;
+  const prefix = filesScope === "shared" ? "shared" : localPrefix;
+  const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,15 +93,16 @@ export function TaskDetailPage() {
           token,
         );
         if (cancelled) return;
-        const nested = buildNestedTree(files.items, prefix);
+        setFileItems(files.items);
+        const nested = buildNestedTree(files.items, localPrefix);
         setTree(nested);
 
         // Prefer task.yaml for initial Files selection (when user opens Files)
         const prefer =
-          files.items.find((e) => e.path === `${prefix}/task.yaml`) ||
-          files.items.find((e) => e.path === `${prefix}/README.md`) ||
+          files.items.find((e) => e.path === `${localPrefix}/task.yaml`) ||
+          files.items.find((e) => e.path === `${localPrefix}/README.md`) ||
           files.items.find(
-            (e) => e.type !== "dir" && e.path.startsWith(prefix + "/"),
+            (e) => e.type !== "dir" && e.path.startsWith(localPrefix + "/"),
           );
         if (prefer) setSelectedPath(prefer.path);
 
@@ -102,7 +110,7 @@ export function TaskDetailPage() {
           const r = await getPackageFile(
             datasetId,
             latest.package_digest,
-            `${prefix}/README.md`,
+            `${localPrefix}/README.md`,
             token,
           );
           if (!cancelled) setReadme(decodeFileContent(r));
@@ -148,7 +156,28 @@ export function TaskDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [datasetId, taskId, token, prefix]);
+  }, [datasetId, taskId, token, localPrefix]);
+
+  // Rebuild tree when Local | Shared scope changes (#65).
+  useEffect(() => {
+    if (!fileItems.length) return;
+    const nextPrefix = filesScope === "shared" ? "shared" : localPrefix;
+    setTree(buildNestedTree(fileItems, nextPrefix));
+    const prefer =
+      filesScope === "shared"
+        ? fileItems.find((e) => e.path === "shared/README.md") ||
+          fileItems.find(
+            (e) => e.type !== "dir" && e.path.startsWith("shared/"),
+          )
+        : fileItems.find((e) => e.path === `${localPrefix}/task.yaml`) ||
+          fileItems.find((e) => e.path === `${localPrefix}/README.md`) ||
+          fileItems.find(
+            (e) => e.type !== "dir" && e.path.startsWith(localPrefix + "/"),
+          );
+    setSelectedPath(prefer?.path ?? null);
+    setFileContent(null);
+    setFileNote(null);
+  }, [filesScope, fileItems, localPrefix]);
 
   useEffect(() => {
     if (!release || !selectedPath) {
@@ -162,7 +191,15 @@ export function TaskDetailPage() {
       .then((f) => {
         if (cancelled) return;
         setFileContent(decodeFileContent(f));
-        if (f.truncated) setFileNote("truncated");
+        if (f.truncated) {
+          const full = f.size ?? 0;
+          const shown = (f.content || "").length;
+          setFileNote(
+            full > 0
+              ? `Truncated preview: showing first ~${shown.toLocaleString()} of ${full.toLocaleString()} bytes (Hub preview cap).`
+              : "Truncated preview (Hub preview size cap).",
+          );
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -262,10 +299,46 @@ export function TaskDetailPage() {
           treeLoading={treeLoading}
           selectedPath={selectedPath}
           onSelect={setSelectedPath}
-          fileContent={fileContent}
+          fileContent={
+            filesScope === "shared" && !sharedPresent
+              ? "This Dataset has no shared/ tree in the published package digest."
+              : fileContent
+          }
           fileLoading={fileLoading}
-          fileNote={fileNote}
+          fileNote={
+            filesScope === "shared" && !sharedPresent
+              ? "no shared/"
+              : fileNote
+          }
           rootPrefix={prefix}
+          headerEnd={
+            <div
+              className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
+              role="group"
+              aria-label="Files scope"
+            >
+              {(
+                [
+                  ["local", "Local"],
+                  ["shared", "Shared"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setFilesScope(id)}
+                  className={cn(
+                    "px-2 py-0.5 text-[11px] rounded-[4px] transition-colors",
+                    filesScope === id
+                      ? "bg-canvas-soft text-ink font-medium shadow-sm"
+                      : "text-mute hover:text-ink",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          }
         />
       ) : null}
 

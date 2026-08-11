@@ -289,6 +289,7 @@ async def run_task(
             agent_service_sock=str(agent_sock_path) if agent_sock_path else None,
             # Reuse ParentAgentService identity so AgentSession + harness share one Attempt.
             attempt=shared_attempt,
+            database_root=resolved.database_root,
         )
         timer.add_ms("run", (_mono() - run_t0) * 1000.0)
     finally:
@@ -362,7 +363,12 @@ async def run_task(
 
     evaluator_raw: dict[str, Any] | None = None
     if error_phase is None:
-        evaluator_raw = run_evaluator_worker(package_root, lock, artifacts_map)
+        evaluator_raw = run_evaluator_worker(
+            package_root,
+            lock,
+            artifacts_map,
+            database_root=resolved.database_root,
+        )
     timer.add_ms("evaluate", (_mono() - eval_t0) * 1000.0)
 
     # Cleanup agent materialization

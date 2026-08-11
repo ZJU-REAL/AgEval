@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Markdown } from "@/components/markdown";
 import { codeToHtml, isMarkdownPath } from "@/lib/shiki-preview";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+
+/** Skip Shiki (and cap plain text) when content is huge — avoids main-thread stalls. */
+const HIGHLIGHT_MAX_CHARS = 120_000;
+const PLAIN_PREVIEW_MAX_CHARS = 400_000;
 
 /**
  * Files-tab right pane: Markdown (GFM) for .md; Shiki multi-color for code.
@@ -22,9 +26,17 @@ export function FilePreview({
   const [error, setError] = useState<string | null>(null);
 
   const markdown = isMarkdownPath(path);
+  const tooLargeForHighlight = content.length > HIGHLIGHT_MAX_CHARS;
+  const displayContent = useMemo(() => {
+    if (content.length <= PLAIN_PREVIEW_MAX_CHARS) return content;
+    return (
+      content.slice(0, PLAIN_PREVIEW_MAX_CHARS) +
+      `\n\n… truncated for preview (${content.length.toLocaleString()} chars total)`
+    );
+  }, [content]);
 
   useEffect(() => {
-    if (markdown) {
+    if (markdown || tooLargeForHighlight) {
       setHtml(null);
       setError(null);
       return;
@@ -46,32 +58,52 @@ export function FilePreview({
     return () => {
       cancelled = true;
     };
-  }, [content, path, resolved, markdown]);
-
-  if (note) {
-    // note still shown above content by parent optionally
-  }
+  }, [content, path, resolved, markdown, tooLargeForHighlight]);
 
   if (markdown) {
+    const mdSource =
+      content.length > PLAIN_PREVIEW_MAX_CHARS
+        ? content.slice(0, PLAIN_PREVIEW_MAX_CHARS) +
+          `\n\n… truncated for preview (${content.length.toLocaleString()} chars total)`
+        : content;
     return (
       <div className="p-4 overflow-auto h-full">
         {note ? <p className="text-xs text-mute mb-2">{note}</p> : null}
-        <Markdown source={content} className="border-0 rounded-none p-0" />
+        {content.length > PLAIN_PREVIEW_MAX_CHARS ? (
+          <p className="text-xs text-mute mb-2">
+            Large file — showing first {PLAIN_PREVIEW_MAX_CHARS.toLocaleString()}{" "}
+            characters.
+          </p>
+        ) : null}
+        <Markdown source={mdSource} className="border-0 rounded-none p-0" />
       </div>
     );
   }
 
-  if (error) {
+  if (tooLargeForHighlight || error) {
     return (
-      <pre
-        className={cn(
-          "m-0 p-3 min-h-full overflow-auto",
-          "whitespace-pre-wrap break-words font-mono text-[12px] leading-5",
-          "bg-code-bg text-shell-plain",
-        )}
-      >
-        {content}
-      </pre>
+      <div className="h-full overflow-auto">
+        {tooLargeForHighlight ? (
+          <p className="text-xs text-mute px-3 pt-3">
+            Large file ({content.length.toLocaleString()} chars) — plain preview
+            without syntax highlighting
+            {content.length > PLAIN_PREVIEW_MAX_CHARS
+              ? `, first ${PLAIN_PREVIEW_MAX_CHARS.toLocaleString()} chars`
+              : ""}
+            .
+          </p>
+        ) : null}
+        {note ? <p className="text-xs text-mute px-3 pt-2">{note}</p> : null}
+        <pre
+          className={cn(
+            "m-0 p-3 min-h-full overflow-auto",
+            "whitespace-pre-wrap break-words font-mono text-[12px] leading-5",
+            "bg-code-bg text-shell-plain",
+          )}
+        >
+          {displayContent}
+        </pre>
+      </div>
     );
   }
 

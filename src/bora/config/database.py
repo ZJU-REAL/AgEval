@@ -435,14 +435,30 @@ def resolve_task(
     )
 
 
+def _digest_member_file(root: Path, file_path: Path) -> str | None:
+    """Return package-relative posix path if *file_path* should enter packageDigest."""
+    if not file_path.is_file():
+        return None
+    # Skip interpreter caches / most hidden files (design/02 digest notes).
+    if "__pycache__" in file_path.parts or file_path.name.endswith(".pyc"):
+        return None
+    if file_path.name.startswith(".") and file_path.name not in {".gitignore"}:
+        return None
+    try:
+        return file_path.relative_to(root).as_posix()
+    except ValueError:
+        return None
+
+
 def member_paths_for_digest(
     database_root: Path, *, manifest: DatabaseManifest | None = None
 ) -> list[str]:
-    """Stable ordered package-relative paths for suite digest input (Spec 21).
+    """Stable ordered package-relative paths for suite digest input.
 
     Returns posix-relative paths under the database root: root ``bora.yaml``,
-    optional job-binding / env docs (``profiles.yaml``, ``env.example``), plus
-    every file under each member directory, sorted. Does not compute hashes.
+    optional job-binding / env docs (``profiles.yaml``, ``env.example``,
+    ``README.md``), optional Dataset-level ``shared/**`` (#65), plus every file
+    under each member directory, sorted. Does not compute hashes.
     Secrets (``.env``) are never included.
     """
     root = database_root.expanduser().resolve(strict=False)
@@ -453,19 +469,17 @@ def member_paths_for_digest(
     for name in ("profiles.yaml", "env.example", "README.md"):
         if (root / name).is_file():
             paths.append(name)
+    # #65 Dataset-level shared tree (if present) enters packageDigest / publish.
+    shared_dir = root / "shared"
+    if shared_dir.is_dir():
+        for file_path in sorted(shared_dir.rglob("*")):
+            rel = _digest_member_file(root, file_path)
+            if rel is not None:
+                paths.append(rel)
     for tid in task_ids:
         task_dir = root / man.tasks_root / tid
         for file_path in sorted(task_dir.rglob("*")):
-            if not file_path.is_file():
-                continue
-            # Skip interpreter caches / most hidden files (Spec 21 may refine).
-            if "__pycache__" in file_path.parts or file_path.name.endswith(".pyc"):
-                continue
-            if file_path.name.startswith(".") and file_path.name not in {".gitignore"}:
-                continue
-            try:
-                rel = file_path.relative_to(root).as_posix()
-            except ValueError:
-                continue
-            paths.append(rel)
+            rel = _digest_member_file(root, file_path)
+            if rel is not None:
+                paths.append(rel)
     return paths

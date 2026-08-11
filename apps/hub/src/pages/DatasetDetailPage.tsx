@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
+import { FileSplitPanel } from "@/components/file-split-panel";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import { Shell } from "@/components/layout";
 import { Markdown } from "@/components/markdown";
@@ -19,19 +20,22 @@ import {
   decodeFileContent,
   encodeDatasetId,
   getPackageFile,
+  hasSharedFiles,
   listPackageFiles,
   listPackageVersions,
   listSuites,
+  type FileItem,
   type PackageRelease,
   type SuiteRow,
   RegistryHttpError,
   taskIdsFromFiles,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { buildNestedTree } from "@/lib/file-tree";
 import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
 import { cn } from "@/lib/utils";
 
-type Tab = "readme" | "tasks" | "leaderboard";
+type Tab = "readme" | "tasks" | "shared" | "leaderboard";
 
 export function DatasetDetailPage() {
   const navigate = useNavigate();
@@ -44,10 +48,15 @@ export function DatasetDetailPage() {
 
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [taskIds, setTaskIds] = useState<string[]>([]);
+  const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [readme, setReadme] = useState<string | null>(null);
   const [suites, setSuites] = useState<SuiteRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sharedSelected, setSharedSelected] = useState<string | null>(null);
+  const [sharedContent, setSharedContent] = useState<string | null>(null);
+  const [sharedNote, setSharedNote] = useState<string | null>(null);
+  const [sharedFileLoading, setSharedFileLoading] = useState(false);
   const token = getToken();
 
   useEffect(() => {
@@ -71,7 +80,16 @@ export function DatasetDetailPage() {
           token,
         );
         if (cancelled) return;
+        setFileItems(files.items);
         setTaskIds(taskIdsFromFiles(files.items));
+        if (hasSharedFiles(files.items)) {
+          const prefer =
+            files.items.find((e) => e.path === "shared/README.md") ||
+            files.items.find(
+              (e) => e.type !== "dir" && e.path.startsWith("shared/"),
+            );
+          if (prefer) setSharedSelected(prefer.path);
+        }
         try {
           const readmeFile = await getPackageFile(
             datasetId,
@@ -110,6 +128,58 @@ export function DatasetDetailPage() {
     if (!release) return `bora lock ${datasetId} --task <task_id>`;
     return `bora lock registry://${datasetId}@${release.version} --task <task_id>`;
   }, [datasetId, release]);
+
+  const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
+  const sharedTree = useMemo(
+    () => buildNestedTree(fileItems, "shared"),
+    [fileItems],
+  );
+
+  // Stale ?tab=shared when package has no shared/ → fall back to README.
+  useEffect(() => {
+    if (!loading && tab === "shared" && !sharedPresent) {
+      setTab("readme");
+    }
+  }, [loading, tab, sharedPresent]);
+
+  useEffect(() => {
+    if (!release || !sharedSelected || tab !== "shared" || !sharedPresent) {
+      setSharedContent(null);
+      return;
+    }
+    let cancelled = false;
+    setSharedFileLoading(true);
+    setSharedNote(null);
+    getPackageFile(datasetId, release.package_digest, sharedSelected, token)
+      .then((f) => {
+        if (cancelled) return;
+        setSharedContent(decodeFileContent(f));
+        if (f.truncated) {
+          const full = f.size ?? 0;
+          const shown = (f.content || "").length;
+          setSharedNote(
+            full > 0
+              ? `Truncated preview: showing first ~${shown.toLocaleString()} of ${full.toLocaleString()} bytes (Hub preview cap).`
+              : "Truncated preview (Hub preview size cap).",
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setSharedContent(null);
+        if (err instanceof RegistryHttpError) {
+          setSharedNote(`${err.code}: ${err.message}`);
+        } else {
+          setSharedNote(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSharedFileLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, release, sharedSelected, token, tab]);
 
   function setTab(next: Tab) {
     const n = new URLSearchParams(search);
@@ -164,8 +234,12 @@ export function DatasetDetailPage() {
           [
             ["readme", "README"],
             ["tasks", "Tasks"],
+            // Hide entirely when package has no shared/** (optional tree).
+            ...(sharedPresent
+              ? ([["shared", "Shared"]] as Array<[Tab, string]>)
+              : []),
             ["leaderboard", "Leaderboard"],
-          ] as const
+          ] as Array<[Tab, string]>
         ).map(([id, label]) => (
           <button
             key={id}
@@ -230,6 +304,17 @@ export function DatasetDetailPage() {
             </Table>
           </div>
         )
+      ) : tab === "shared" && sharedPresent ? (
+        <FileSplitPanel
+          tree={sharedTree}
+          treeLoading={false}
+          selectedPath={sharedSelected}
+          onSelect={setSharedSelected}
+          fileContent={sharedContent}
+          fileLoading={sharedFileLoading}
+          fileNote={sharedNote}
+          rootPrefix="shared"
+        />
       ) : (
         <div className="space-y-2">
           {demoLeaderboard ? (

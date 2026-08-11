@@ -179,15 +179,27 @@ def _gzip_tar_with_file(path: str, data: bytes) -> bytes:
     return out.getvalue()
 
 
-def test_oversize_file_raises() -> None:
+def test_oversize_file_truncated_by_default() -> None:
+    big = b"x" * (MAX_FILE_BYTES + 10)
+    archive = _gzip_tar_with_file("big.bin", big)
+    data, size, truncated = read_member(archive, "big.bin")
+    assert truncated is True
+    assert size == MAX_FILE_BYTES + 10
+    assert len(data) == MAX_FILE_BYTES
+    assert data == b"x" * MAX_FILE_BYTES
+
+
+def test_oversize_file_raises_when_truncate_disabled() -> None:
     big = b"x" * (MAX_FILE_BYTES + 10)
     archive = _gzip_tar_with_file("big.bin", big)
     with pytest.raises(PackageFileTooLarge):
-        read_member(archive, "big.bin")
+        read_member(archive, "big.bin", allow_truncate=False)
 
 
-def test_oversize_http_413(registry_server, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Inject a large blob under an existing public release and expect 413."""
+def test_oversize_http_returns_truncated_preview(
+    registry_server, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Inject a large blob; Hub preview gets a truncated head (not 413)."""
     summary = _publish_public(registry_server, monkeypatch)
     state = registry_server["state"]
     row = state.meta.get_by_digest(summary["database_id"], summary["package_digest"])
@@ -205,11 +217,13 @@ def test_oversize_http_413(registry_server, monkeypatch: pytest.MonkeyPatch) -> 
 
     clear_index_cache()
     client = RegistryClient(registry_server["url"], token=None)
-    with pytest.raises(RegistryError) as ei:
-        client.get_package_file(
-            database_id=summary["database_id"],
-            package_digest=summary["package_digest"],
-            file_path="huge.txt",
-        )
-    assert ei.value.status == 413
-    assert ei.value.code == "payload_too_large"
+    body = client.get_package_file(
+        database_id=summary["database_id"],
+        package_digest=summary["package_digest"],
+        file_path="huge.txt",
+    )
+    assert body["truncated"] is True
+    assert body["size"] == MAX_FILE_BYTES + 50
+    content = body["content"]
+    assert isinstance(content, str)
+    assert len(content.encode("utf-8")) == MAX_FILE_BYTES

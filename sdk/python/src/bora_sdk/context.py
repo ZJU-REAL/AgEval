@@ -57,6 +57,8 @@ class HarnessContext:
     scope: RunScope
     workspace_root: Path
     artifact_dir: Path
+    # Database root when known (#65): code-path access to shared/assets (not Agent mount).
+    database_root: Path | None = None
     _closed: bool = False
     _published: dict[str, Path] | None = None
 

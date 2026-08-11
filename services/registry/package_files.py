@@ -151,8 +151,13 @@ def read_member(
     path: str,
     *,
     max_bytes: int = MAX_FILE_BYTES,
-) -> tuple[bytes, int]:
-    """Return ``(content, size)`` for a file member.
+    allow_truncate: bool = True,
+) -> tuple[bytes, int, bool]:
+    """Return ``(content, full_size, truncated)`` for a file member.
+
+    When *allow_truncate* is True (Hub preview default), oversize members return
+    the first *max_bytes* with ``truncated=True`` instead of failing closed.
+    Set *allow_truncate* False to raise :class:`PackageFileTooLarge`.
 
     Raises
     ------
@@ -161,7 +166,7 @@ def read_member(
     PackageFileNotFound
         Missing or directory.
     PackageFileTooLarge
-        Size exceeds *max_bytes* (checked via tar header before full read when possible).
+        Size exceeds *max_bytes* and *allow_truncate* is False.
     """
     safe = normalize_package_path(path)
     with (
@@ -178,15 +183,27 @@ def read_member(
         if not info.isfile():
             raise PackageFileNotFound(safe)
         size = int(info.size)
-        if size > max_bytes:
+        if size > max_bytes and not allow_truncate:
             raise PackageFileTooLarge(safe, size)
         f = tar.extractfile(info)
         if f is None:
             raise PackageFileNotFound(safe)
-        data = f.read(max_bytes + 1)
-        if len(data) > max_bytes:
-            raise PackageFileTooLarge(safe, len(data))
-        return data, size
+        # Read at most max_bytes for preview; full size still reported via *size*.
+        data = f.read(max_bytes)
+        truncated = size > len(data)
+        if truncated and not allow_truncate:
+            raise PackageFileTooLarge(safe, size)
+        # Avoid cutting mid UTF-8 code unit so Hub can show text previews.
+        if truncated and data:
+            for drop in range(0, min(4, len(data))):
+                chunk = data if drop == 0 else data[:-drop]
+                try:
+                    chunk.decode("utf-8")
+                    data = chunk
+                    break
+                except UnicodeDecodeError:
+                    continue
+        return data, size, truncated
 
 
 def content_type_for_path(path: str) -> str:
