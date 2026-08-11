@@ -1199,7 +1199,10 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
                 return
             try:
-                data, size = read_member(archive, safe_path, max_bytes=MAX_FILE_BYTES)
+                # Hub preview: oversize members return a truncated head (not 413).
+                data, size, truncated = read_member(
+                    archive, safe_path, max_bytes=MAX_FILE_BYTES, allow_truncate=True
+                )
             except PackagePathError as exc:
                 _json_response(
                     self,
@@ -1230,7 +1233,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     },
                 )
                 return
-            payload = file_payload(safe_path, data, size=size, truncated=False)
+            payload = file_payload(safe_path, data, size=size, truncated=truncated)
             _json_response(self, 200, payload)
 
         # ---- results -----------------------------------------------------
@@ -1507,7 +1510,9 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
                 return
             try:
-                data, size = read_member(archive, safe_path, max_bytes=MAX_FILE_BYTES)
+                data, size, truncated = read_member(
+                    archive, safe_path, max_bytes=MAX_FILE_BYTES, allow_truncate=True
+                )
             except PackagePathError as exc:
                 _json_response(
                     self,
@@ -1535,7 +1540,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     },
                 )
                 return
-            payload = file_payload(safe_path, data, size=size, truncated=False)
+            payload = file_payload(safe_path, data, size=size, truncated=truncated)
             _json_response(self, 200, payload)
 
         # ---- suite results -----------------------------------------------
