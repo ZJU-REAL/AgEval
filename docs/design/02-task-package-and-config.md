@@ -40,6 +40,10 @@ my-database/                      # Database 根（CLI path）
 ├── env.example                   # 文档化 credential locator 名（无密钥）
 ├── .env                          # 本机密钥（gitignore；永不 publish/upload）
 ├── README.md                     # suite 级说明（可选）
+├── shared/                       # 可选；跨 task 共享（#65；见下节）
+│   ├── lib/                      # Harness/Evaluator import only
+│   ├── assets/                   # 只读领域数据（代码路径读取）
+│   └── README.md
 └── tasks/
     ├── task-a/
     │   ├── task.yaml             # format: bora.task/1；角色槽 + intent；无 entry/model
@@ -142,6 +146,37 @@ Task 成员目录 **一级目录只允许从已知集合取用**；除固定根�
 未满足条件的逻辑留在 `lib/` 或 harness 入口文件。没有真·上游 vendoring 的 task **不要**硬造空的 `upstream/`。
 
 `lib/` 内部可用二级目录（如 `lib/tools/diagnostics.py`），但 **不要** 为每个模块再开一级 package 目录（禁止并列出现 `diagnostics/`、`tools/`、`utils/`、`helpers/` 作为一级）。
+
+#### Dataset 级 `shared/`（#65）
+
+同构多 task Dataset 可在 **Database 根** 放可选 `shared/`，避免把同一 bridge / 领域资产复制进每个 `tasks/<id>/lib/`。这是 BORA 显式增强，**不是** Harbor 布局 parity。
+
+**规范子树（v1）：**
+
+| 路径 | 角色 | 默认可见性 |
+| --- | --- | --- |
+| `shared/lib/` | 跨 task Python 支撑（import only） | Runtime 为 Harness **与** Evaluator 注入 import path；**不**默认投影到 Agent workspace |
+| `shared/assets/` | 只读领域数据（db / policy / fixtures） | Harness/Evaluator 用 **代码路径** 读取；v1 **无** `task.yaml` 资产声明面 |
+| `shared/README.md` | 给人读的共享区说明 | 非 Runtime 输入 |
+
+**硬规则：**
+
+1. **Digest / publish：** 若 `shared/` 存在，其下文件 **必须** 进入 `member_paths_for_digest` 与 publish blob（与 `tasks/**` 同算法过滤 `__pycache__` / 多数隐藏文件）。改 `shared/` ⇒ 改整包 `packageDigest`。无 `shared/` 的包行为与今日一致。
+2. **Import：** L0 worker 默认把 `shared/lib` 注入 PYTHONPATH（或等价 `sys.path`）；Harness 与 Evaluator 均可 `import`。**禁止**依赖 host 绝对路径。
+3. **Agent 可见性：** 默认 **不** mount / 不投影 `shared/` 到 Agent workspace。可选 `shared/assets` Agent mount 为后续能力，不在 v1 默认路径。
+4. **禁区：** `shared/` 下 **禁止** evaluation gold、host secrets（如 `.env`）、Docker socket 绑定物等。Gold **只** 在成员 `evaluation/`。
+5. **同名冲突（硬失败）：** `shared/lib/` 与任一 `tasks/<id>/lib/` 的 **top-level import 名**（顶层 `.py` 去后缀、或顶层包目录名）**禁止碰撞**。Config/lock 校验 fail closed；作者 skill 必须提示；检测脚本作验收门槛。
+6. **L1 / 镜像：** Core **禁止** 隐式把 `shared/` COPY 进 Attempt 镜像或默认塞进 build context。若容器内需要 `shared/` 内容，由 **task 级** `environment/` Dockerfile（或包内镜像配方）**显式** `COPY`。无静默 Core copy。
+7. **无 shared sub-digest：** Registry 不维护单独的 shared digest；整包 `packageDigest` 已覆盖 `shared/**`。
+
+**`shared/lib` vs task `lib/`：**
+
+| 放哪里 | 何时 |
+| --- | --- |
+| `shared/lib/` | 多 task 共用的 bridge、领域工具、稳定 glue |
+| `tasks/<id>/lib/` | 仅该 task 的扩展；名字不得与 `shared/lib` top-level 冲突 |
+
+**资产引用：** v1 仅代码路径（例如相对 Database 根的 `shared/assets/...`，或 Runtime 注入的 database root + 相对路径）。不增加 `task.yaml` 声明语法。
 
 #### 文本分层：README、prompts 与 runtime payload
 
@@ -572,7 +607,7 @@ provenance:
 
 ## Database Registry 分发
 
-**Release 单位 = Database 整包**（根 `bora.yaml` + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。
+**Release 单位 = Database 整包**（根 `bora.yaml` + 可选 `shared/**` + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。
 
 ### PackageRef
 
