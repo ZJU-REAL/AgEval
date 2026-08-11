@@ -544,6 +544,30 @@ export function taskIdsFromFiles(items: FileItem[]): string[] {
   return Array.from(ids).sort();
 }
 
+/** True when package digest listing includes Dataset-level shared/ (#65). */
+export function hasSharedFiles(items: FileItem[]): boolean {
+  return items.some(
+    (i) => i.path === "shared" || i.path.startsWith("shared/"),
+  );
+}
+
+/** Total byte size of file entries under shared/ (dirs size 0). */
+export function sharedFilesStats(items: FileItem[]): {
+  fileCount: number;
+  totalBytes: number;
+} {
+  let fileCount = 0;
+  let totalBytes = 0;
+  for (const i of items) {
+    if (i.type === "dir") continue;
+    if (i.path === "shared" || i.path.startsWith("shared/")) {
+      fileCount += 1;
+      totalBytes += i.size || 0;
+    }
+  }
+  return { fileCount, totalBytes };
+}
+
 export function decodeFileContent(file: FileContent): string {
   if (file.encoding === "base64") {
     try {
