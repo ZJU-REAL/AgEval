@@ -163,5 +163,14 @@ function resolve(intent, registry):
 ## Evidence
 
 - Smoke：`uv run bora lock examples/journeys --task terminal-jsonl-agg` → `extension_bindings.solver.executor.plugin == acp`
-- Unit：`uv run pytest tests/plugins tests/config -q`  
+- Unit：`uv run pytest tests/plugins tests/config -q`
+- Host invoke：`before_agent_invoke` → graph executor → `after_agent_invoke`（ParentAgentService）
+- Completion check（subagent）：PASS；follow-up：legacy `agent_registry.resolve_executor` 清理、L0 lifecycle emit 接到 application（非 Acceptance 阻塞）
+
+## Completion
+
+- Subagent 00：PASS（lifecycle application emit / residual resolve_executor 为 follow-up）
+- Subagent 01：PASS  
+- Subagent 02：PASS（L1 nooa bake e2e 诚实延后）
+
 
