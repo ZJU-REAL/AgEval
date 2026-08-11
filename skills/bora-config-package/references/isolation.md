@@ -19,8 +19,18 @@
 - Coding agents on L1: `executor: acp` + `options.entry`; parent ACP client +
   `docker exec` placement — no private CLI scrape.
 
+## Dataset `shared/` (#65)
+
+- `shared/lib` is for Harness/Evaluator import only — **not** default Agent mount.
+- Gold stays under `tasks/*/evaluation/` only; **forbid** gold / `.env` under `shared/`.
+- L1: no Core implicit COPY of `shared/`; task `environment/Dockerfile` owns any `COPY`.
+- Collision: `shared/lib` vs `tasks/*/lib` top-level names → lock fail. Check with
+  `uv run python scripts/check_shared_lib_collisions.py <database-root>`.
+
 ## Do not
 
 - Rely on “delete field from yaml” as isolation.
 - Mount gold into harness “for convenience”.
 - Put credentials in package tree.
+- Put evaluation gold or host secrets under Database-root `shared/`.
+- Reuse the same top-level module name in `shared/lib` and a task `lib/`.

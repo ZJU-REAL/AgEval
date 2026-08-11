@@ -27,6 +27,10 @@ my-database/                 # CLI path (bora.database/1)
 ├── profiles.yaml            # job binding defaults (role id → entry/model/locator)
 ├── env.example              # documented credential locator names only
 ├── .env                     # local secrets (gitignore; never publish)
+├── shared/                  # optional Dataset-level share (#65)
+│   ├── lib/                 # import only (Harness + Evaluator PYTHONPATH)
+│   ├── assets/              # read-only domain data via code paths
+│   └── README.md
 └── tasks/
     └── my-task/             # task_id == directory name
         ├── task.yaml        # bora.task/1 — role slots + intent (no entry/model)
@@ -34,8 +38,33 @@ my-database/                 # CLI path (bora.database/1)
         ├── evaluator.py
         ├── environment/     # optional seed.sql; Docker L1 needs Dockerfile
         ├── evaluation/      # gold / hidden — not for Agent mount
-        ├── lib/
+        ├── lib/             # task-only; MUST NOT collide with shared/lib names
         └── data/
+```
+
+### Dataset `shared/` (when multi-task reuse)
+
+| Put in… | Use for |
+| --- | --- |
+| `shared/lib/` | Bridge / domain glue **shared by many tasks** |
+| `tasks/<id>/lib/` | **Only this task** extensions |
+| `shared/assets/` | Read-only fixtures/policies via **code paths** (no `task.yaml` asset declaration) |
+| `tasks/<id>/evaluation/` | Gold only — **never** under `shared/` |
+
+**Hard rules agents must respect:**
+
+1. **No top-level import name collision** between `shared/lib/` and any `tasks/*/lib/`
+   (e.g. both cannot define `bridge.py` or package dir `bridge/`). Lock **hard-fails**.
+2. Before adding modules, list both trees; prefer unique prefixes (`airline_bridge` vs task-local).
+3. Changing `shared/` changes whole-package `packageDigest` (no separate shared sub-digest).
+4. Core does **not** auto-COPY `shared/` into L1 images — task `environment/Dockerfile` must
+   `COPY` explicitly if the container needs those files.
+5. Default: `shared/` is **not** mounted into the Agent workspace (Harness/Evaluator only).
+
+**Acceptance gate (run before claiming package OK):**
+
+```bash
+uv run python scripts/check_shared_lib_collisions.py <database-root>
 ```
 
 ## Minimal Database `bora.yaml`
