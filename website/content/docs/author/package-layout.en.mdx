@@ -15,6 +15,11 @@ CLI path is always the Dataset root; `--task` selects a member.
 ```text
 my-dataset/
 ├── bora.yaml
+├── profiles.yaml           # optional job binding defaults
+├── shared/                 # optional cross-task share (in packageDigest)
+│   ├── lib/                # Harness / Evaluator import only
+│   ├── assets/             # read-only domain data (code paths)
+│   └── README.md
 └── tasks/
     └── hello/
         ├── task.yaml
@@ -22,12 +27,31 @@ my-dataset/
         ├── evaluator.py
         ├── prompts/
         ├── environment/
-        ├── evaluation/
+        ├── evaluation/     # gold — not for Agent by default
         ├── data/
-        └── lib/
+        └── lib/            # task-only; no top-level name clash with shared/lib
 ```
 
-Allowed top-level dirs: `prompts`, `schemas`, `environment`, `evaluation`, `data`, `lib`, `upstream`, `solution`.
+Allowed task top-level dirs: `prompts`, `schemas`, `environment`, `evaluation`, `data`, `lib`, `upstream`, `solution`.
+
+## Optional Dataset-level `shared/`
+
+Homogeneous multi-task packages can keep shared bridges and domain assets under root `shared/` instead of copying into every `tasks/*/lib/`.
+
+| Path | Role |
+| --- | --- |
+| `shared/lib/` | Cross-task Python modules; Runtime injects import path |
+| `shared/assets/` | Read-only fixtures / policy / db via code paths |
+
+Hard rules (summary):
+
+- If present, `shared/**` **must** enter `packageDigest` / the publish blob  
+- Not Agent-mounted by default; gold stays under `tasks/*/evaluation/` only  
+- Top-level import names must **not** collide between `shared/lib` and any task `lib/` (lock fails closed)  
+- Core never silently COPYs `shared/` into L1 images — task `environment/Dockerfile` must declare it  
+- Author gate: `uv run python scripts/check_shared_lib_collisions.py <dataset-root>`  
+
+Authority: design `02-task-package-and-config` (Dataset-level shared/). **Having `shared/` or Hub Shared browse ≠ evidence-grade upgrade.**
 
 ## Root `bora.yaml`
 

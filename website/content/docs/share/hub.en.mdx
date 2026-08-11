@@ -6,6 +6,8 @@ description: Remote Dataset catalog, organizations, job results, and leaderboard
 Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and run results.
 
 - Dataset list (**Your organizations** / **Explore**), README, task file preview  
+- When the package has root `shared/`: Dataset **Shared** tab; Task **Files** header **Local | Shared** (Local default; Attempt evidence does not switch)  
+- Large file preview: oversize members return a truncated head with a `truncated` flag (not full download)  
 - **Organizations**: members, org packages, shared suite results  
 - **Org settings**: invite keys (shown once on create), leave or dissolve  
 - Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
@@ -29,8 +31,8 @@ pnpm dev   # http://127.0.0.1:5174
 | Path | Page |
 | --- | --- |
 | `/datasets` | List (Your organizations / Explore) |
-| `/datasets/:id` | README · Tasks · Leaderboard |
-| `/datasets/:id/tasks/:task` | README · Files · Jobs |
+| `/datasets/:id` | README · Tasks · Shared (when `shared/` present) · Leaderboard |
+| `/datasets/:id/tasks/:task` | README · Files (Local \| Shared) · Jobs |
 | `/organizations` | Your orgs · Join |
 | `/organizations/:orgId` | Overview · Settings |
 | `/jobs/...` | Remote Attempt detail (needs uploaded run artifacts) |

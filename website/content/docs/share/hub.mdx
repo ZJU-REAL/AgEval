@@ -6,6 +6,8 @@ description: 远程 Dataset 目录、组织、Jobs 运行结果与 Leaderboard�
 Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑次结果。
 
 - Dataset 列表（你的组织 / 探索）、README、Task 文件预览  
+- 包内有根 `shared/` 时：Dataset **Shared** tab；Task **Files** 顶栏 **Local | Shared**（默认 Local；Attempt 证据页不切换）  
+- 大文件预览：超过 Registry 上限时返回截断头并标注 truncated（非整文件下载）  
 - **组织**：成员、组织内的包、别人分享过来的 suite 结果  
 - **组织设置**：邀请码（创建后只展示一次）、离开或解散组织  
 - Task 下的 **Jobs**：已上传运行产物时可点进详情（界面与本机 Viewer 相近，含轨迹）  
@@ -29,8 +31,8 @@ pnpm dev   # http://127.0.0.1:5174
 | 路径 | 页面 |
 | --- | --- |
 | `/datasets` | 列表（Your organizations / Explore） |
-| `/datasets/:id` | README · Tasks · Leaderboard |
-| `/datasets/:id/tasks/:task` | README · Files · Jobs |
+| `/datasets/:id` | README · Tasks · Shared（有 shared/ 时）· Leaderboard |
+| `/datasets/:id/tasks/:task` | README · Files（Local \| Shared）· Jobs |
 | `/organizations` | 我的组织 · 加入组织 |
 | `/organizations/:orgId` | 概览 · 设置 |
 | `/jobs/...` | 远程 Attempt 详情（需已上传对应运行产物） |

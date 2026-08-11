@@ -15,19 +15,43 @@ CLI 路径永远是 Dataset 根；`--task` 选成员。
 ```text
 my-dataset/
 ├── bora.yaml
+├── profiles.yaml           # 可选：job binding 默认
+├── shared/                 # 可选：跨 task 共享（进 packageDigest）
+│   ├── lib/                # Harness / Evaluator import only
+│   ├── assets/             # 只读领域数据（代码路径读取）
+│   └── README.md
 └── tasks/
-    └── hello/          # 目录名 == task_id
+    └── hello/              # 目录名 == task_id
         ├── task.yaml
         ├── harness.py
         ├── evaluator.py
         ├── prompts/
         ├── environment/
-        ├── evaluation/   # gold 等，默认不给 agent
+        ├── evaluation/     # gold 等，默认不给 agent
         ├── data/
-        └── lib/
+        └── lib/            # 仅本 task；顶层名勿与 shared/lib 冲突
 ```
 
 成员一级目录只认：`prompts` · `schemas` · `environment` · `evaluation` · `data` · `lib` · `upstream` · `solution`。别的名字可能 lock 失败。
+
+## Dataset 级 `shared/`（可选）
+
+同构多 task 包可把公共 bridge / 领域资产放在根 `shared/`，**不要**复制进每个 `tasks/*/lib/`。
+
+| 路径 | 用途 |
+| --- | --- |
+| `shared/lib/` | 跨 task Python 模块；Runtime 注入 import path |
+| `shared/assets/` | 只读 fixture / policy / db（代码路径访问） |
+
+硬规则（摘要）：
+
+- 有 `shared/` 则 **必须** 进入 `packageDigest` / publish blob；改它会改整包 digest  
+- 默认 **不** 挂到 Agent workspace；gold **只** 放 `tasks/*/evaluation/`  
+- `shared/lib` 与任一 `tasks/*/lib` 的 **top-level 模块名禁止冲突**（lock 硬失败）  
+- L1 镜像 **不会** 由 Core 隐式 COPY `shared/`；需要时在 task `environment/Dockerfile` 里显式写  
+- 本地自检：`uv run python scripts/check_shared_lib_collisions.py <dataset-root>`  
+
+权威细节见 design `02-task-package-and-config`（Dataset 级 shared/）。**有 shared/ 或 Hub Shared 浏览 ≠ 证据等级升级。**
 
 ## 根 `bora.yaml`
 
