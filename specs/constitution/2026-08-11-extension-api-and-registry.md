@@ -104,6 +104,21 @@ BORA 要支持 **可插拔的 Agent 后端 / 机制扩展**（不止 coding-agen
 
 ## Decision
 
+### 0. MVP 实现纪律（本主题强制）
+
+本主题在 **greenfield MVP** 上落地扩展点 + 注册表，**不**承担向后兼容旧装配路径的义务。
+
+| 规则 | 含义 |
+| --- | --- |
+| **不向后兼容** | 旧 `resolve_executor` 双轨、静默 fallback、TypeError 重试、可选 registry「有则用无则旧」等 **一律不保留** |
+| **删除优先于胶水** | 新模型覆盖旧路径时 **直接删除** 旧入口与 shim；禁止「新路径 + 旧路径并存」的临时双写 / 门面转调 / 兼容层 |
+| **测试与调用方同步改** | 单测、CLI、composition root **改到新入口**；不为旧签名留死代码 |
+| **fail closed** | 缺 provide、冲突、未钉 graph → 显式失败，不回落到 import 序或全局单例 |
+
+**反例（禁止）：** `if graph: use graph else: resolve_executor(...)`；`DefaultExecutor` 内部再调 `agent_registry.resolve_executor` 假装兼容；`try: import plugins except: skip extension_bindings`。
+
+**正例：** Parent Agent Service **只**从 session 钉死的 `extension_graph.providers["executor"]` 取实现；lock **必须**写出 `extension_bindings`；旧 entry-point 解析路径在接线完成后 **删除**。
+
 ### 1. 扩展模型：固定扩展点 + 注册表
 
 **采用写法 B，不采用「继承整条 AttemptRuntime 管线」作为插件主模型。**
@@ -451,6 +466,7 @@ bindings:
 ## Invariants
 
 - 开发基线分支：**canary**（本主题从 canary 拉分支、合回 canary）。  
+- **MVP：不向后兼容；删除优先于胶水**（见 §0）。  
 - 主模型 = 扩展点 + 注册表（链 / 单赢家）。  
 - **L0–L5 全部公开**；L3 改评测必须进 lock。  
 - 链槽允许中间件改写；默认贡献可被合法卸/替。  
@@ -478,6 +494,7 @@ bindings:
 | profiles 抄写插件全部 slots | **已否决**：manifest 声明能力；profiles 只意图/覆写 |
 | 全局 task 只能选一个 executor | **已否决**：per-binding 图；多 profile 可混用 |
 | 把 `executor:` 字段值当成「executor≡plugin」 | **已否决**：字段是槽选用贡献方的语法糖；插件 provide 该槽才合法 |
+| 新注册表与旧 resolve_executor 双轨并存 | **已否决（MVP）**：删除旧路径；不写兼容胶水 |
 
 ---
 
@@ -491,3 +508,4 @@ bindings:
 | 2026-08-11 | §7 验收目标证据 | 目录树、profiles 短绑定、install 落盘、resolve 链路、多 profile 并存 |
 | 2026-08-11 | §7.3 澄清 executor 字段 | `executor: nooa` = 槽选用插件的 provide，非 executor≡plugin |
 | 2026-08-11 | 宿主包名 `extension/` → `plugins/` | 与产品「插件」用语对齐；cache 仍为 `~/.bora/plugins` |
+| 2026-08-11 | §0 MVP 实现纪律 | 不向后兼容；删除优先于胶水；禁双轨 fallback |

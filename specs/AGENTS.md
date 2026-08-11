@@ -35,6 +35,7 @@ docs/design/* + ARCHITECTURE.md
 
 详见 constitution。摘要：
 
+- **MVP：不向后兼容；删除优先于胶水**（constitution §0）——禁双轨 fallback / 兼容 shim。  
 - 扩展模型 = **固定扩展点 + 注册表**（链 multi / 单赢家 provide），非 harness 子类化整条 Runtime。  
 - 宿主包：**`src/bora/plugins/`**；安装 cache：**`~/.bora/plugins/`**（第三方不进主仓业务树）。  
 - **L0–L5 全部公开**；L3 改评测语义必须完整进 lock。  
