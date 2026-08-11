@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
@@ -18,7 +18,9 @@ import {
   decodeDatasetId,
   decodeFileContent,
   encodeDatasetId,
+  getPackageByDigest,
   getPackageFile,
+  isPluginPackage,
   listPackageFiles,
   listPackageVersions,
   listSuites,
@@ -61,7 +63,25 @@ export function DatasetDetailPage() {
           (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
         )[0];
         if (cancelled) return;
-        setRelease(latest);
+        // Spec 06: fail closed if someone deep-links a plugin as a dataset.
+        let meta: PackageRelease = latest;
+        try {
+          meta = await getPackageByDigest(
+            datasetId,
+            latest.package_digest,
+            token,
+          );
+        } catch {
+          /* version list fields may already include package_kind */
+        }
+        if (isPluginPackage(meta) || isPluginPackage(latest)) {
+          throw new RegistryHttpError(
+            404,
+            "not_found",
+            "not a database package (open Plugin marketplace instead)",
+          );
+        }
+        setRelease(meta.package_digest ? meta : latest);
         const files = await listPackageFiles(
           datasetId,
           latest.package_digest,
@@ -183,7 +203,19 @@ export function DatasetDetailPage() {
       {loading ? (
         <p className="text-sm text-mute">Loading…</p>
       ) : error ? (
-        <p className="text-sm text-error font-mono">{error}</p>
+        <div className="space-y-2 text-sm">
+          <p className="text-error font-mono">{error}</p>
+          {error.includes("Plugin marketplace") || error.includes("plugin") ? (
+            <p className="text-body">
+              <Link
+                to={`/plugins/${encodeDatasetId(datasetId)}`}
+                className="underline underline-offset-2"
+              >
+                Open in Plugin marketplace
+              </Link>
+            </p>
+          ) : null}
+        </div>
       ) : tab === "readme" ? (
         readme ? (
           <Markdown source={readme} />
