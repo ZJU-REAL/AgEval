@@ -272,11 +272,40 @@ export function JobsPage() {
                     tabIndex={0}
                     role="link"
                   >
-                    <TableCell className="font-medium">{job.job_name}</TableCell>
-                    <TableCell className="text-body">{job.source || "-"}</TableCell>
-                    <TableCell>{job.agent_label || "-"}</TableCell>
-                    <TableCell>{job.provider_label || "-"}</TableCell>
-                    <TableCell>{job.model_label || "-"}</TableCell>
+                    <TableCell className="font-medium max-w-[12rem]">
+                      <span className="block truncate" title={job.job_name}>
+                        {job.job_name}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-body max-w-[12rem]">
+                      <span className="block truncate" title={job.source || undefined}>
+                        {job.source || "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-[14rem]">
+                      <span
+                        className="block truncate"
+                        title={job.agent_label || undefined}
+                      >
+                        {job.agent_label || "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-[10rem]">
+                      <span
+                        className="block truncate"
+                        title={job.provider_label || undefined}
+                      >
+                        {job.provider_label || "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-[18rem]">
+                      <span
+                        className="block truncate font-mono text-xs"
+                        title={job.model_label || undefined}
+                      >
+                        {job.model_label || "-"}
+                      </span>
+                    </TableCell>
                     <TableCell className="tabular">
                       {formatScore(job.mean_score ?? job.result)}
                     </TableCell>
