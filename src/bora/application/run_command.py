@@ -268,6 +268,14 @@ async def run_task(
         )
 
     timer.add_ms("prepare", (_mono() - prepare_t0) * 1000.0)
+    from bora.application.extension_hooks import (
+        hook_cleanup,
+        hook_evaluate,
+        hook_prepare,
+        hook_run,
+    )
+
+    hook_prepare(lock)
 
     try:
         harness_timeout = (
@@ -283,6 +291,7 @@ async def run_task(
         if wall_cap > 0:
             harness_timeout = min(harness_timeout, wall_cap)
         run_t0 = _mono()
+        hook_run(lock)
         harness_out = await run_harness_package(
             lock,
             package_root,
@@ -331,6 +340,7 @@ async def run_task(
 
     # Writer barrier: require published artifacts before evaluator.
     eval_t0 = _mono()
+    hook_evaluate(lock)
     published = dict(envelope.get("published") or {})
     eval_inputs = list(evaluation.get("inputs") or [])
     staging = run_dir / "eval_staging"
@@ -368,6 +378,7 @@ async def run_task(
 
     # Cleanup agent materialization
     cleanup_t0 = _mono()
+    hook_cleanup(lock)
     agent_file = package_root / ".bora_agent_result.json"
     if agent_file.exists():
         agent_file.unlink()
