@@ -89,6 +89,26 @@ def test_publish_plugin_preview_and_install(
     assert body.get("plugin_preview", {}).get("slots", {}).get("provide") == ["executor"]
     assert "plugin.yaml" in body.get("plugin_preview", {}).get("files", [])
 
+    # Spec 06: list exposes package_kind without opening blob; filter works.
+    list_req = urllib.request.Request(
+        registry_server["url"] + "/v1/packages?package_kind=plugin",
+        headers={"Authorization": f"Bearer {registry_server['token']}"},
+    )
+    with urllib.request.urlopen(list_req) as resp:  # noqa: S310
+        listed = json.loads(resp.read().decode("utf-8"))
+    plugin_items = listed.get("items") or []
+    assert any(i.get("database_id") == summary["package_id"] for i in plugin_items)
+    assert all(i.get("package_kind") == "plugin" for i in plugin_items)
+    db_req = urllib.request.Request(
+        registry_server["url"] + "/v1/packages?package_kind=database",
+        headers={"Authorization": f"Bearer {registry_server['token']}"},
+    )
+    with urllib.request.urlopen(db_req) as resp:  # noqa: S310
+        db_listed = json.loads(resp.read().decode("utf-8"))
+    assert not any(
+        i.get("database_id") == summary["package_id"] for i in (db_listed.get("items") or [])
+    )
+
     installed = install_plugin_from_registry(ref)
     assert installed["ok"] is True
     assert installed["plugin_id"] == "sample-echo"

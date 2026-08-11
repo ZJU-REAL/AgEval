@@ -1051,8 +1051,19 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             prefix = (qs.get("database_id_prefix") or [None])[0]
             visibility = (qs.get("visibility") or [None])[0]
             version = (qs.get("version") or [None])[0]
+            package_kind = (qs.get("package_kind") or [None])[0]
             if visibility is not None and visibility not in {"public", "private"}:
                 _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
+                return
+            if package_kind is not None and package_kind not in {"database", "plugin"}:
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_request",
+                        "message": "package_kind must be database or plugin",
+                    },
+                )
                 return
             # Fetch public + private candidates; filter by ACL (no private leakage).
             rows = state.meta.list_releases(
@@ -1062,6 +1073,8 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 include_private=True,
             )
             items = [release_to_dict(r) for r in rows if _visible_package_row(state, r, auth)]
+            if package_kind is not None:
+                items = [i for i in items if i.get("package_kind") == package_kind]
             _json_response(self, 200, {"items": items})
 
         def _list_package_versions(self, *, database_id: str, auth: TokenInfo) -> None:

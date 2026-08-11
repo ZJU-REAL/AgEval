@@ -193,10 +193,11 @@ ELSE:
 
 **验收：**
 
-- [ ] `package_kind`（及必要时 `plugin_preview` 摘要）对 SPA 可读；  
-- [ ] 04 e2e 不破；database 列表语义不破。  
-
-*若 Phase 0 证明 API 已够 → Phase 1 勾 skip 并在 Evidence 说明。*
+- [x] `package_kind`（及必要时 `plugin_preview` 摘要）对 SPA 可读；  
+  - `release_to_dict` 增加 `package_kind`（由 media_type 推导，不拆 blob）  
+  - `GET /v1/packages?package_kind=plugin|database` 过滤  
+  - 详情仍用 by-digest/version 的 `plugin_preview`  
+- [x] 04 e2e 不破；database 列表语义不破。
 
 ### Phase 2 — Hub 插件市场列表 + 详情
 

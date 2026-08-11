@@ -115,6 +115,10 @@ Browse published package contents **without** downloading the whole tar to the b
 | GET | `/v1/packages/{id}/versions/{ver}/files` | resolves to digest |
 | GET | `/v1/packages/{id}/versions/{ver}/files/{path}` | resolves to digest |
 
+List/get package meta (`GET /v1/packages`, versions, by-digest) includes
+`package_kind` (`database` \| `plugin`, derived from media type). List accepts
+optional `?package_kind=database|plugin` (Spec 06 / Hub plugin marketplace).
+
 - List JSON: `{ database_id, digest, version, items: [{path, type, size}, …] }`
 - File JSON: `{ path, size, encoding: "utf-8"|"base64", content, truncated }`
 - **Hard top:** single file default **2 MiB** (`MAX_FILE_BYTES`); larger → **413**
