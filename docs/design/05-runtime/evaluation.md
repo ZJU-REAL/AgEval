@@ -39,8 +39,19 @@ score: 1.0
 metrics: { task_accuracy: 1.0 }
 error: { phase: evaluation, kind: malformed_output, message: "..." } # 可选
 cleanup_warning: "..." # 可选
-logs: run://attempt-id
+logs: .bora/runs/<run_id>   # portable under Database root (#70); never host abs
+# legacy design sketch also accepted by readers: run://<run_id>
 ```
+
+**`logs` / evidence locator 契约（#70）：**
+
+| 形态 | 示例 | 说明 |
+| --- | --- | --- |
+| **规范（推荐）** | `.bora/runs/<run_id>` | 相对 Database 根；与 on-disk 布局一致 |
+| 可接受 legacy | 历史 host 绝对路径 | 读者经 `extract_run_id` / `resolve_run_dir` 剥离 |
+| 设计 sketch | `run://<run_id>` | 可选别名；实现以相对路径为 sealed 默认 |
+
+`evidence_path`、`summary.evidence_root`、`l1.evidence_volume`、campaign 行 locator **同一契约**。Suite `task_refs[].run_id` 仍为目录名。
 
 **扁平 Result 与 evidence 树分工：**
 

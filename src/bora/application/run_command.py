@@ -21,7 +21,7 @@ from bora.config.errors import ConfigError
 from bora.config.load_and_lock import ConfigCore
 from bora.config.model import thaw
 from bora.evaluation.result_binding import FlatResult, bind_result
-from bora.evidence.locators import portable_run_locator
+from bora.evidence.locators import portable_run_locator, seal_harness_for_evidence
 
 
 async def run_task(
@@ -441,7 +441,13 @@ async def run_task(
         encoding="utf-8",
     )
     (run_dir / "harness.json").write_text(
-        json.dumps(harness_out, sort_keys=True, default=str, indent=2) + "\n",
+        json.dumps(
+            seal_harness_for_evidence(harness_out, run_dir=run_dir),
+            sort_keys=True,
+            default=str,
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
     (run_dir / "agent.json").write_text(

@@ -10,7 +10,7 @@ absolute paths (via ``extract_run_id``-style parsing).
 from __future__ import annotations
 
 from pathlib import Path
-
+from typing import Any
 
 def portable_run_locator(
     run_dir: Path | str,
@@ -151,3 +151,31 @@ def portable_artifact_ref(
         except (ValueError, OSError):
             continue
     return p.name
+
+
+def seal_harness_for_evidence(
+    harness_out: dict[str, Any],
+    *,
+    run_dir: Path | str | None = None,
+) -> dict[str, Any]:
+    """Copy harness_out for sealed harness.json without host temp absolute paths.
+
+    Runtime evaluation still uses the original in-memory absolute hold paths.
+    """
+    import copy
+
+    doc = copy.deepcopy(harness_out)
+    hold_raw = doc.get("artifact_hold")
+    hold_path = Path(str(hold_raw)) if hold_raw else None
+    # Omit absolute hold; record only that a hold existed (boolean).
+    if "artifact_hold" in doc:
+        doc["artifact_hold"] = bool(hold_raw)
+    envelope = doc.get("envelope")
+    if isinstance(envelope, dict):
+        published = envelope.get("published")
+        if isinstance(published, dict):
+            envelope["published"] = {
+                str(k): portable_artifact_ref(v, run_dir=run_dir, hold_dir=hold_path)
+                for k, v in published.items()
+            }
+    return doc

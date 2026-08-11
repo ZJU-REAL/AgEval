@@ -115,6 +115,14 @@ async def run_campaign(
             overrides=variant if variant else None,
             profile_bindings=bindings or None,
         )
+        from bora.evidence.locators import portable_run_locator
+
+        raw_run = details.get("run_dir") or result.evidence_path or result.logs
+        portable = (
+            portable_run_locator(raw_run, database_root=database_root)
+            if raw_run
+            else result.evidence_path
+        )
         trials.append(
             {
                 "trial_index": plan["trial_index"],
@@ -123,8 +131,9 @@ async def run_campaign(
                 "exit_code": code,
                 "status": result.status,
                 "score": result.score,
-                "evidence_path": result.evidence_path,
-                "run_dir": details.get("run_dir"),
+                "evidence_path": result.evidence_path or portable,
+                "run_dir": portable,
+                "logs": result.logs or portable,
                 "digest": getattr(result, "digest", None)
                 or details.get("digest")
                 or plan["digest"],
@@ -152,5 +161,8 @@ async def run_campaign(
     tmp = out.with_suffix(".tmp")
     tmp.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     tmp.replace(out)
-    summary["summary_path"] = str(out)
+    try:
+        summary["summary_path"] = out.relative_to(database_root.resolve()).as_posix()
+    except ValueError:
+        summary["summary_path"] = f".bora/campaigns/{out.name}"
     return summary
