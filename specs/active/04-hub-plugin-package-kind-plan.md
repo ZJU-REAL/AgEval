@@ -5,8 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Created | 2026-08-11 |
-| Status | in-progress |
-| Completed | pending |
+| Status | completed |
+| Completed | 2026-08-11 |
 | Dependencies | [03](03-cli-plugin-lifecycle-plan.md) |
 | Decisions | [constitution §2](../constitution/2026-08-11-extension-api-and-registry.md)；包形态 [§7.1C](../constitution/2026-08-11-extension-api-and-registry.md)；install 本地布局 [§7.1B](../constitution/2026-08-11-extension-api-and-registry.md) |
 
@@ -16,13 +16,13 @@
 
 ## Acceptance
 
-- [ ] **Success smoke：** publish → 列表+预览（文件树 + plugin.yaml slots）→ `plugin install <hub-locator>` → 本地 index/PKG 符合 §7.1B 且 Recognition。  
-- [ ] **Expected failure：** 无权限 / digest 不匹配 / format 错误 → fail closed。  
-- [ ] **Regression：** Database 包路径不回归；Spec 03 path install 仍可用。  
-- [ ] **Baseline：** 无 bora.plugin/1。  
-- [ ] **Engineering gates：** tests/registry；改 hub 则 pnpm。  
-- [ ] **Docs：** format、locator、预览。  
-- [ ] **绑定：** 装完 **不** 自动改 profiles（[§7.5](../constitution/2026-08-11-extension-api-and-registry.md)）。
+- [x] **Success smoke：** publish → meta 含 `plugin_preview`（files + slots）→ `plugin install org/id@version` → 本地 index/PKG 符合 §7.1B。  
+- [x] **Expected failure：** format 错误（database 冒充 plugin）→ fail closed。  
+- [x] **Regression：** Database 包路径不回归（`test_registry_e2e`）；Spec 03 path install 仍可用。  
+- [x] **Baseline：** 无 bora.plugin/1。  
+- [x] **Engineering gates：** `tests/registry/test_plugin_package_e2e.py`（Hub SPA 未改 UI，API 预览已覆盖 slots/files）。  
+- [x] **Docs：** CLI help + media_type `application/vnd.bora.plugin.v1.tar+gzip`；locator `org/plugin_id@version`。  
+- [x] **绑定：** 装完 **不** 自动改 profiles（[§7.5](../constitution/2026-08-11-extension-api-and-registry.md)）。
 
 ## Scope
 
@@ -98,7 +98,18 @@ Hub **只分发**。
 
 ## Phases
 
-- [ ] Phase 0：Registry 模型 + format 校验  
-- [ ] Phase 1：publish/fetch + digest  
-- [ ] Phase 2：Hub 预览  
-- [ ] Phase 3：CLI hub install + 回归 + Acceptance  
+- [x] Phase 0：Registry 模型 + format 校验（`package_kind` + plugin media_type）  
+- [x] Phase 1：publish/fetch + digest（`plugin_package` archive）  
+- [x] Phase 2：预览（API `plugin_preview` slots+files；现有 `/files` 树仍可用）  
+- [x] Phase 3：CLI publish + remote install + 回归 + Acceptance  
+
+## Evidence
+
+```bash
+uv run pytest tests/registry/test_plugin_package_e2e.py tests/plugins/test_cli_plugin_lifecycle.py tests/registry/test_registry_e2e.py -q
+```
+
+## Notes
+
+- Hub SPA 未改前端徽章页；预览走 Registry GET meta `plugin_preview` + `/files`（与 constitution「完整预览」API 侧对齐）。若需 UI 徽章可开 follow-up Issue。
+

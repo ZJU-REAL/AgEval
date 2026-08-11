@@ -31,15 +31,37 @@ def register(app: typer.Typer) -> None:
 def plugin_install(
     source: Annotated[
         str,
-        typer.Argument(help="Local path to a bora.plugin/1 package directory"),
+        typer.Argument(
+            help=(
+                "Local path to a bora.plugin/1 directory, or registry locator "
+                "org/plugin_id@version (remote requires credentials)"
+            )
+        ),
     ],
 ) -> None:
-    """Install a plugin package into the local cache and update index.json."""
+    """Install a plugin into the local cache (never edits profiles)."""
+    from bora.config.errors import ConfigError
     from bora.plugins.manifest import PluginManifestError
     from bora.plugins.store import install_from_path
 
+    # Registry locator: contains @ and does not exist as a local path.
+    src_path = Path(source)
+    if "@" in source and not src_path.exists():
+        from bora.application.plugin_install_remote import install_plugin_from_registry
+
+        try:
+            summary = install_plugin_from_registry(source)
+        except ConfigError as exc:
+            typer.echo(
+                json.dumps({"ok": False, "error": exc.code, "message": str(exc)}),
+                err=True,
+            )
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, sort_keys=True))
+        return
+
     try:
-        entry = install_from_path(Path(source))
+        entry = install_from_path(src_path)
     except PluginManifestError as exc:
         typer.echo(json.dumps({"ok": False, "error": exc.kind, "message": exc.message}), err=True)
         raise typer.Exit(code=2) from exc
@@ -59,6 +81,27 @@ def plugin_install(
             sort_keys=True,
         )
     )
+
+
+@plugin_app.command("publish")
+def plugin_publish(
+    source: Annotated[Path, typer.Argument(help="Local bora.plugin/1 package directory")],
+    org: Annotated[str, typer.Option("--org", help="Organization id (required)")],
+    public: Annotated[bool, typer.Option("--public", help="Publish as public")] = False,
+) -> None:
+    """Publish a plugin package to the Registry (package_kind=plugin)."""
+    from bora.application.plugin_publish import publish_plugin
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = publish_plugin(source, public=public, org=org)
+    except ConfigError as exc:
+        typer.echo(
+            json.dumps({"ok": False, "error": exc.code, "message": str(exc)}),
+            err=True,
+        )
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, sort_keys=True))
 
 
 @plugin_app.command("list")

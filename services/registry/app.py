@@ -236,6 +236,32 @@ def _visible_result_row(
     )
 
 
+def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
+    """Extract slots + top-level files for Hub/API plugin preview (read-only)."""
+    import tempfile
+    from pathlib import Path
+
+    from bora.plugins.manifest import load_manifest
+    from bora.registry.archive import extract_archive
+
+    with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
+        root = Path(tmp)
+        extract_archive(archive, root)
+        man = load_manifest(root)
+        files = sorted(
+            p.relative_to(root).as_posix()
+            for p in root.rglob("*")
+            if p.is_file() and "__pycache__" not in p.parts
+        )
+        return {
+            "plugin_id": man.plugin_id,
+            "version": man.version,
+            "format": man.format,
+            "slots": man.slots_summary(),
+            "files": files[:200],
+        }
+
+
 def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -902,13 +928,84 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     {"error": "digest_mismatch", "message": "blob digest or size mismatch"},
                 )
                 return
+            package_kind = str(meta.get("package_kind") or "database").strip().casefold()
+            if package_kind not in {"database", "plugin"}:
+                _json_response(
+                    self,
+                    400,
+                    {
+                        "error": "invalid_request",
+                        "message": "package_kind must be database or plugin",
+                    },
+                )
+                return
+
             try:
                 from bora.registry.archive import extract_archive
                 from bora.registry.digest import compute_package_digest
+                from bora.registry.plugin_package import (
+                    PLUGIN_MEDIA_TYPE,
+                    assert_plugin_package,
+                    compute_plugin_digest,
+                )
 
                 with tempfile.TemporaryDirectory(prefix="bora-reg-") as tmp:
                     extract_archive(archive, Path(tmp))
-                    got = compute_package_digest(Path(tmp))
+                    tmp_path = Path(tmp)
+                    if package_kind == "plugin":
+                        if media_type != PLUGIN_MEDIA_TYPE:
+                            _json_response(
+                                self,
+                                400,
+                                {
+                                    "error": "invalid_format",
+                                    "message": f"plugin media_type must be {PLUGIN_MEDIA_TYPE}",
+                                },
+                            )
+                            return
+                        try:
+                            assert_plugin_package(tmp_path)
+                        except Exception as exc:  # noqa: BLE001
+                            _json_response(
+                                self,
+                                400,
+                                {
+                                    "error": "invalid_format",
+                                    "message": f"not a valid bora.plugin/1: {exc}",
+                                },
+                            )
+                            return
+                        # Database-only trees must not upload as plugin.
+                        if (tmp_path / "bora.yaml").is_file() and not (
+                            (tmp_path / "plugin.yaml").is_file()
+                            or (tmp_path / "bora.plugin.yaml").is_file()
+                        ):
+                            _json_response(
+                                self,
+                                400,
+                                {
+                                    "error": "invalid_format",
+                                    "message": "database package cannot be published as plugin",
+                                },
+                            )
+                            return
+                        got = compute_plugin_digest(tmp_path)
+                    else:
+                        # Reject plugin trees on the database publish path.
+                        if (tmp_path / "plugin.yaml").is_file() or (
+                            tmp_path / "bora.plugin.yaml"
+                        ).is_file():
+                            if not (tmp_path / "bora.yaml").is_file():
+                                _json_response(
+                                    self,
+                                    400,
+                                    {
+                                        "error": "invalid_format",
+                                        "message": "plugin package must use package_kind=plugin",
+                                    },
+                                )
+                                return
+                        got = compute_package_digest(tmp_path)
                     if got != package_digest:
                         _json_response(
                             self,
@@ -992,7 +1089,23 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if row is None or not _visible_package_row(state, row, auth):
                 _json_response(self, 404, {"error": "not_found", "message": "release not found"})
                 return
-            _json_response(self, 200, release_to_dict(row))
+            payload = release_to_dict(row)
+            # Spec 04: plugin preview — slots from plugin.yaml inside the blob.
+            try:
+                from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+
+                if row.media_type == PLUGIN_MEDIA_TYPE:
+                    data = state.blobs.get(row.blob_digest, prefix="packages")
+                    if data is not None:
+                        payload["package_kind"] = "plugin"
+                        payload["plugin_preview"] = _plugin_preview_from_archive(data)
+                    else:
+                        payload["package_kind"] = "plugin"
+                else:
+                    payload["package_kind"] = "database"
+            except Exception:  # noqa: BLE001 — preview is best-effort
+                payload.setdefault("package_kind", "database")
+            _json_response(self, 200, payload)
 
         def _serve_content(
             self,

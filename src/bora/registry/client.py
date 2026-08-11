@@ -103,6 +103,7 @@ class RegistryClient:
         visibility: str,
         archive: bytes,
         org_id: str,
+        package_kind: str = "database",
     ) -> ReleaseInfo:
         meta = {
             "database_id": database_id,
@@ -113,6 +114,7 @@ class RegistryClient:
             "media_type": media_type,
             "visibility": visibility,
             "org_id": org_id,
+            "package_kind": package_kind,
         }
         import secrets as _secrets
 
