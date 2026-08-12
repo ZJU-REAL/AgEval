@@ -58,15 +58,21 @@ def trial_tree(
 
     # Special multi-root scopes for verifier
     if scope_norm in {"verifier", "eval", "evaluation"}:
+        from bora.evidence.attempt_record import RESULT_FILENAME, result_path
+
         entries: list[dict[str, Any]] = []
         for sub in (
             evidence / "evaluation",
             evidence / "eval_staging",
-            evidence / "result.json",
+            result_path(evidence),
         ):
             if sub.is_file():
                 st = sub.stat()
-                rel = sub.name if sub.parent == evidence else str(sub.relative_to(evidence))
+                rel = (
+                    RESULT_FILENAME
+                    if sub.name == RESULT_FILENAME
+                    else (sub.name if sub.parent == evidence else str(sub.relative_to(evidence)))
+                )
                 entries.append(
                     {
                         "path": rel,

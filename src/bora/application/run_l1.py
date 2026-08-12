@@ -32,10 +32,9 @@ from bora.evidence.locators import portable_run_locator
 
 def _database_root_for_run(run_dir: Path) -> Path | None:
     """Infer Database root when run_dir is ``…/.bora/runs/<run_id>``."""
-    p = Path(run_dir).resolve(strict=False)
-    if p.parent.name == "runs" and p.parent.parent.name == ".bora":
-        return p.parent.parent.parent
-    return None
+    from bora.evidence.attempt_record import infer_database_root_from_run_dir
+
+    return infer_database_root_from_run_dir(run_dir)
 
 
 def drop_l1_work(run_dir: Path, *, keep_workspace: bool = False) -> None:

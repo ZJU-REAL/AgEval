@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from bora.evidence.attempt_record import has_attempt_result, read_attempt_result
 from bora.viewer.trials.paths import _read_json_object
 from bora.viewer.trials.usage import (
     _format_latency_ms,
@@ -45,7 +46,7 @@ def _available_tabs(evidence: Path) -> list[str]:
     if (
         _has_any_file(evidence / "evaluation")
         or _has_any_file(evidence / "eval_staging")
-        or (evidence / "result.json").is_file()
+        or has_attempt_result(evidence)
     ):
         tabs.append("verifier")
     # Artifacts: harness publish tree or common artifact dirs
@@ -290,7 +291,7 @@ def _trial_meta_from_evidence(
     task_id: str | None,
     suite_row: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    result = _read_json_object(evidence / "result.json") or {}
+    result = read_attempt_result(evidence) or {}
     summary = _read_json_object(evidence / "summary.json") or {}
     lock = _read_json_object(evidence / "lock.json") or {}
     suite_row = suite_row or {}

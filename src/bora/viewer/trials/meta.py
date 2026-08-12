@@ -166,7 +166,9 @@ def get_trial(
             meta["evidence_relpath"] = str(evidence.resolve(strict=False).relative_to(root))
         except ValueError:
             meta["evidence_relpath"] = str(evidence)
-        result_preview = _read_json_object(evidence / "result.json")
+        from bora.evidence.attempt_record import read_attempt_result
+
+        result_preview = read_attempt_result(evidence)
         if result_preview and "metrics" in result_preview:
             metrics = result_preview.get("metrics")
             if isinstance(metrics, dict) and len(json.dumps(metrics)) > 8_000:

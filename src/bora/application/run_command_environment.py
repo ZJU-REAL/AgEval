@@ -68,11 +68,9 @@ def prepare_postgresql_environment(
         )
         # Ensure §8.9 evidence root exists for effects.jsonl even without Agent Session.
         if evidence_store is None:
-            # Infer Database root when run_dir is under .bora/runs/
-            db_root = None
-            _rd = Path(run_dir).resolve(strict=False)
-            if _rd.parent.name == "runs" and _rd.parent.parent.name == ".bora":
-                db_root = _rd.parent.parent.parent
+            from bora.evidence.attempt_record import infer_database_root_from_run_dir
+
+            db_root = infer_database_root_from_run_dir(run_dir)
             evidence_store = AttemptEvidenceStore(
                 root=run_dir,
                 attempt_id=str(agent_meta.get("attempt_id") or run_id),
@@ -220,9 +218,9 @@ def prepare_postgresql_environment(
             "kind": "environment_prepare_failed",
             "message": str(exc),
         }
-        (run_dir / "result.json").write_text(
-            json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
+        from bora.evidence.attempt_record import write_attempt_result
+
+        write_attempt_result(run_dir, summary)
         if env_manager is not None:
             import contextlib
 

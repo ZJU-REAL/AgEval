@@ -85,6 +85,118 @@ def _looks_like_host_root(path: Path) -> bool:
     return path.is_absolute()
 
 
+def resolve_evidence_root(
+    database_root: Path | str,
+    run_id: str,
+    *,
+    task_id: str | None = None,
+    require_task_match: bool = True,
+) -> Path:
+    """Locate Attempt evidence for *run_id* under the Database root sandbox.
+
+    Lookup order mirrors the former viewer helper:
+    1. ``{database}/.bora/runs/{run_id}``
+    2. ``{database}/{tasks_root}/{task_id}/.bora/runs/{run_id}`` when task_id given
+    3. Bounded scan under ``tasks/*/.bora/runs/{run_id}``
+
+    Raises ``ConfigError`` when no candidate is found (or task_id mismatches).
+    """
+    import contextlib
+    import json
+
+    from bora.config.database import load_database_manifest
+    from bora.config.errors import ConfigError
+
+    def _safe_segment(value: str, *, field: str) -> str:
+        text = str(value or "").strip()
+        if not text or "/" in text or "\\" in text or text in {".", ".."}:
+            raise ConfigError("invalid_package", f"invalid {field}", location=text or ".")
+        return text
+
+    def _under(root: Path, path: Path, *, location: str) -> Path:
+        root_r = root.resolve(strict=False)
+        cand = path.resolve(strict=False)
+        try:
+            cand.relative_to(root_r)
+        except ValueError as exc:
+            raise ConfigError(
+                "invalid_package",
+                "path escapes database sandbox",
+                location=location,
+            ) from exc
+        return cand
+
+    def _matches_task(evidence: Path, tid: str | None) -> bool:
+        if not tid:
+            return True
+        lock_path = evidence / "lock.json"
+        if not lock_path.is_file():
+            return True
+        try:
+            lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            return True
+        if not isinstance(lock, dict):
+            return True
+        locked = lock.get("task_id")
+        if locked is None:
+            return True
+        return str(locked) == tid
+
+    root = Path(database_root).expanduser().resolve(strict=False)
+    rid = _safe_segment(run_id, field="run_id")
+    tid = _safe_segment(task_id, field="task_id") if task_id else None
+
+    candidates: list[Path] = []
+    primary = root / ".bora" / "runs" / rid
+    if primary.is_dir():
+        candidates.append(primary)
+
+    tasks_root_name = "tasks"
+    with contextlib.suppress(ConfigError):
+        man = load_database_manifest(root)
+        tasks_root_name = man.tasks_root or "tasks"
+    if ".." in Path(tasks_root_name).parts or tasks_root_name.startswith(("/", "\\")):
+        tasks_root_name = "tasks"
+
+    if tid:
+        task_local = root / tasks_root_name / tid / ".bora" / "runs" / rid
+        if task_local.is_dir():
+            candidates.append(task_local)
+
+    tasks_dir = root / tasks_root_name
+    if tasks_dir.is_dir():
+        for child in tasks_dir.iterdir():
+            if not child.is_dir():
+                continue
+            try:
+                _safe_segment(child.name, field="task_id")
+            except ConfigError:
+                continue
+            cand = child / ".bora" / "runs" / rid
+            if cand.is_dir():
+                candidates.append(cand)
+
+    seen: set[Path] = set()
+    for cand in candidates:
+        try:
+            resolved = _under(root, cand, location=str(cand))
+        except ConfigError:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if require_task_match and tid and not _matches_task(resolved, tid):
+            continue
+        return resolved
+
+    raise ConfigError(
+        "unknown_task",
+        f"evidence root not found for run_id={rid!r}" + (f" task_id={tid!r}" if tid else ""),
+        location=str(primary),
+    )
+
+
 def resolve_run_dir(
     database_root: Path | str,
     locator: Path | str | None,

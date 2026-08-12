@@ -84,8 +84,13 @@ def _resolve_run_dir(database_root: Path, run_id: str) -> Path:
 
 
 def _read_run_meta(run_dir: Path) -> dict[str, Any]:
+    from bora.evidence.attempt_record import read_attempt_result
+
     meta: dict[str, Any] = {}
-    for name in ("result.json", "status.json", "summary.json"):
+    result = read_attempt_result(run_dir)
+    if result:
+        meta.update(result)
+    for name in ("status.json", "summary.json"):
         path = run_dir / name
         if not path.is_file():
             continue

@@ -10,10 +10,9 @@ from bora.evidence.locators import portable_run_locator, seal_harness_for_eviden
 
 
 def _infer_database_root(run_dir: Path) -> Path | None:
-    p = Path(run_dir).resolve(strict=False)
-    if p.parent.name == "runs" and p.parent.parent.name == ".bora":
-        return p.parent.parent.parent
-    return None
+    from bora.evidence.attempt_record import infer_database_root_from_run_dir
+
+    return infer_database_root_from_run_dir(run_dir)
 
 
 def _seal_l1_meta_for_evidence(
@@ -123,20 +122,23 @@ def write_l1_evidence(
         },
         run_dir=run_dir,
     )
+    from bora.evidence.attempt_record import (
+        AGENT_FILENAME,
+        L1_FILENAME,
+        write_attempt_json,
+        write_attempt_result,
+    )
+    from bora.evidence.redaction import RedactionError, redact_and_assert, redact_value
+
     result_doc["l1"] = {**(result_doc.get("l1") or {}), **l1_meta}
-    (run_dir / "result.json").write_text(
-        json.dumps(result_doc, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8"
-    )
-    (run_dir / "agent.json").write_text(
-        json.dumps(agent_meta, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8"
-    )
-    # Redact any accidental secret-looking keys from l1 dump.
-    safe = json.loads(json.dumps(l1_meta, default=str))
-    blob = json.dumps(safe, indent=2, sort_keys=True) + "\n"
-    for needle in ("sk-", "OPENAI_API_KEY=", "password"):
-        if needle in blob:
-            blob = blob.replace(needle, "[REDACTED]")
-    (run_dir / "l1.json").write_text(blob, encoding="utf-8")
+    write_attempt_result(run_dir, result_doc)
+    write_attempt_json(run_dir, AGENT_FILENAME, agent_meta)
+    # Fail-closed redaction (no string-replace self-confirm).
+    try:
+        safe = redact_and_assert(l1_meta)
+    except RedactionError:
+        safe = redact_value(l1_meta)
+    write_attempt_json(run_dir, L1_FILENAME, safe if isinstance(safe, dict) else {"redacted": True})
     # §8.9 summary + skeletons (trajectory body still owned by Agent Service when used).
     summary = {
         "schema": "bora.evidence.summary/1",
