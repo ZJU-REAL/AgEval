@@ -49,26 +49,46 @@ non-workspace layout, build-time material). Do not invent package “setup hooks
 
 ## Dataset `shared/`
 
+- Import contract: Runtime injects **`[task_dir, database_root]`** — **not** the
+  `shared/lib` leaf. Authors write `from shared.lib…` / `from lib…`.
 - `shared/lib` is for Harness/Evaluator import only — **not** default Agent mount.
 - Gold stays under `tasks/*/evaluation/` only; **forbid** gold / `.env` under `shared/`.
-- L1: no Core implicit COPY of `shared/`; task `environment/Dockerfile` owns any `COPY`.
-- Collision: `shared/lib` vs `tasks/*/lib` top-level names → lock fail. Check with
-  `uv run python scripts/check_shared_lib_collisions.py <database-root>`.
-- Import contract: prefer namespaced `shared.lib.*` / path inject roots;
-  task must not own top-level name `shared`. Collision gates stay in Runtime/lock.
+- Task members must **not** own top-level name `shared` (`shared/` dir or `shared.py`).
+  Same basename under `shared/lib` and `tasks/*/lib` is **allowed**.
+- Check with: `uv run python scripts/check_shared_lib_collisions.py <database-root>`.
+- L1: **no** Core implicit COPY of `shared/`. L0 path inject **≠** L1 automatic
+  availability for the clean evaluator container.
 
-### L1 evaluator + explicit `COPY shared/` snippet
+### L0 vs L1 evaluator asymmetry (B1)
+
+| Surface | `shared.lib.*` available? |
+| --- | --- |
+| L0 harness worker / L0 evaluator subprocess | Yes — Runtime injects Database root |
+| L1 Attempt / clean-evaluator container | **Only if** task Dockerfile explicitly `COPY shared/` and sets `PYTHONPATH` so **Database root** (or layout that still exposes package `shared`) is on path |
+
+Same `evaluator.py` with `from shared.lib…` can **pass on L0** and **ImportError on L1**
+unless the image recipe includes `shared/`. Do not expect Core to fix that.
+
+### L1 Dockerfile snippet (B3) — matches host inject
 
 When Harness or Evaluator inside the container must import Dataset glue, **declare** it
 in the task Dockerfile (Core will not inject):
 
 ```dockerfile
 FROM bora-attempt:l1
-# Context is typically the Database root (or documented build context).
+# Build context is typically the Database root (or documented equivalent).
 COPY shared/ /attempt/shared/
-# Ensure import roots match host path-inject contract (adjust to package layout):
-ENV PYTHONPATH=/attempt/shared/lib:/attempt/task:${PYTHONPATH}
-# Optional: COPY only what the container needs (lib/, not gold).
+# Put Database-layout root on path so `import shared` / `shared.lib.*` resolve.
+# Do NOT set PYTHONPATH to only /attempt/shared/lib (leaf inject is retired).
+ENV PYTHONPATH=/attempt:/attempt/task:${PYTHONPATH}
+# Optional: also COPY task sources the container needs under /attempt/task
+```
+
+If your layout mounts the whole Database at `/attempt/db`:
+
+```dockerfile
+COPY shared/ /attempt/db/shared/
+ENV PYTHONPATH=/attempt/db:/attempt/task:${PYTHONPATH}
 ```
 
 Notes:
@@ -83,5 +103,7 @@ Notes:
 - Mount gold into harness “for convenience”.
 - Put credentials in package tree.
 - Put evaluation gold or host secrets under Database-root `shared/`.
-- Reuse the same top-level module name in `shared/lib` and a task `lib/`.
+- Own top-level `shared` under a task member (dir or `.py`).
+- Depend on bare leaf imports (`from bridge import …`) — use `shared.lib.*`.
+- Expect Core to auto-COPY `shared/` into L1 images.
 - Use runtime package installs as the default parity path for converted suites.

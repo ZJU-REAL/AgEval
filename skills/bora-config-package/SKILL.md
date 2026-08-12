@@ -31,19 +31,19 @@ my-database/                 # CLI path (bora.database/1)
 ├── scripts/                 # maintainer generators / regenerate (not on Agent path)
 │   ├── README.md            # how to regenerate / fork onboarding (recommended)
 │   └── generate_package.py  # multi-task thin members from upstream
-├── shared/                  # optional Dataset-level share
-│   ├── lib/                 # import only (Harness + Evaluator PYTHONPATH)
+├── shared/                  # optional Dataset package (shared/__init__.py recommended)
+│   ├── lib/                 # import as shared.lib.* (Harness + Evaluator)
 │   ├── assets/              # read-only domain data via code paths
 │   └── README.md
 └── tasks/
     └── my-task/             # task_id == directory name
         ├── task.yaml        # bora.task/1 — role slots + intent (no entry/model)
-        ├── harness.py       # prefer thin entry; orchestration in shared/lib
-        ├── evaluator.py     # prefer thin entry; scoring in shared/lib
+        ├── harness.py       # prefer thin entry; orchestration in shared.lib
+        ├── evaluator.py     # prefer thin entry; scoring in shared.lib
         ├── environment/     # optional seed.sql; Docker L1 needs Dockerfile
         ├── evaluation/      # gold / hidden — not for Agent mount
         ├── solution/        # human/CI offline fixture only; default NOT agent-seeded
-        ├── lib/             # task-only; MUST NOT collide with shared/lib names
+        ├── lib/             # task-only; import as lib.* (same stem as shared OK)
         └── data/            # agent-visible seed (L1: Runtime copies into workspace)
 ```
 
@@ -55,32 +55,48 @@ my-database/                 # CLI path (bora.database/1)
 | `tasks/*/evaluation/` | Evaluator process after writer barrier | **No** | **Yes** | Gold / hidden labels only |
 | `tasks/*/environment/` | Provider build/prepare (Dockerfile, seed.sql) | Indirect (image) | No | L1 image contract; not Agent mount of gold |
 | `tasks/*/solution/` | Only when offline fixture flag / `BORA_L1_USE_SOLUTION=1` / offline agent | Default **No** | No | Human/CI fixture; **not** default Agent seed |
-| `shared/lib/` | PYTHONPATH inject for Harness + Evaluator | **No** (import only) | No | Bridge/glue; never gold |
+| `shared/lib/` | Import only via Database root on path | **No** (import only) | No | Bridge/glue; never gold |
 | `shared/assets/` | Code paths in Harness/Evaluator | **No** default mount | No | Domain fixtures via imports, not workspace |
 | `scripts/` | Maintainer host only | No | No | Generators; not package runtime |
 
 ### Dataset `shared/` (when multi-task reuse)
 
-| Put in… | Use for |
+| Put in… | Use for | Import |
+| --- | --- | --- |
+| `shared/lib/` | Bridge / domain glue **shared by many tasks** | `from shared.lib.xxx import …` |
+| `tasks/<id>/lib/` | **Only this task** extensions | `from lib.yyy import …` |
+| `shared/assets/` | Read-only fixtures/policies via **code paths** (no `task.yaml` asset declaration) | code paths |
+| `tasks/<id>/evaluation/` | Gold only — **never** under `shared/` | evaluator only |
+
+**Import inject contract (Runtime — both harness worker and L0 evaluator):**
+
+```text
+sys.path prefix:  [task_dir, database_root, ...]
+# Never inject shared/lib or tasks/<id>/lib as path roots
+```
+
+| Wanted | Meaning |
 | --- | --- |
-| `shared/lib/` | Bridge / domain glue **shared by many tasks** |
-| `tasks/<id>/lib/` | **Only this task** extensions |
-| `shared/assets/` | Read-only fixtures/policies via **code paths** (no `task.yaml` asset declaration) |
-| `tasks/<id>/evaluation/` | Gold only — **never** under `shared/` |
+| `from shared.lib.bridge import …` | Dataset glue under `shared/lib/` |
+| `from lib.helper import …` | Task-only under `tasks/<id>/lib/` |
+
+Recommend real packages: `shared/__init__.py`, `shared/lib/__init__.py`, and
+`tasks/<id>/lib/__init__.py` when using `from lib…`.
 
 **Hard rules agents must respect:**
 
-1. **No top-level import name collision** between `shared/lib/` and any `tasks/*/lib/`
-   (e.g. both cannot define `bridge.py` or package dir `bridge/`). Lock **hard-fails**.
-2. Before adding modules, list both trees; prefer unique prefixes (`airline_bridge` vs task-local).
-3. Changing `shared/` changes whole-package `packageDigest` (no separate shared sub-digest).
-4. Core does **not** auto-COPY `shared/` into L1 images — task `environment/Dockerfile` must
-   `COPY` explicitly if the container needs those files (see `references/isolation.md`).
-5. Default: `shared/` is **not** mounted into the Agent workspace (Harness/Evaluator only).
-6. **Import contract:** task code must **not** own a top-level package name `shared`. Prefer
-   namespaced `shared.lib.*` (or documented path inject
-   `[task_dir, database_root]`) so `from shared.lib…` / `from lib…` resolve predictably.
-   Collision gates stay in Runtime/lock; authors follow the names here.
+1. **Reserved top-level name `shared`:** task members must **not** own
+   `tasks/<id>/shared/` or `tasks/<id>/shared.py` (shadows Dataset package on path).
+   Lock **hard-fails**. Same stem under `shared/lib` and `tasks/*/lib` (e.g. both
+   `bridge.py`) is **allowed** — namespaces differ (`shared.lib.bridge` vs `lib.bridge`).
+2. Changing `shared/` changes whole-package `packageDigest` (no separate shared sub-digest).
+3. Core does **not** auto-COPY `shared/` into L1 images — task `environment/Dockerfile`
+   must `COPY shared/` and put **Database root** (not only `shared/lib` leaf) on
+   `PYTHONPATH` if the container must import `shared.lib.*` (see `references/isolation.md`).
+   L0 inject ≠ L1 automatic availability.
+4. Default: `shared/` is **not** mounted into the Agent workspace (Harness/Evaluator only).
+5. **Migration:** bare `from bridge import …` (old leaf inject) →
+   `from shared.lib.bridge import …`. Generators must emit namespaced imports.
 
 **Acceptance gate (run before claiming package OK):**
 
@@ -95,10 +111,10 @@ ids), **do not** hand-copy 50 task trees. Use a Dataset-root generator:
 
 | Pattern | Guidance |
 | --- | --- |
-| Thin task entries | `tasks/<id>/{task.yaml,harness.py,evaluator.py}` are thin wrappers; orchestration lives in `shared/lib` |
-| Regenerate from upstream | `scripts/generate_package.py` (or similar) reads upstream assets → writes members |
+| Thin task entries | `tasks/<id>/{task.yaml,harness.py,evaluator.py}` are thin wrappers; orchestration lives in `shared.lib` |
+| Regenerate from upstream | `scripts/generate_package.py` emits `from shared.lib…`, not bare leaf imports |
 | Maintainer docs | Short `scripts/README.md` (or package README section): how to regenerate, required host deps, fork onboarding |
-| Reference shape | `examples/tau3-airline/scripts/`, `examples/marble-coding/scripts/`, `examples/terminal-bench-2/scripts/` |
+| Reference shape | `examples/tau3-airline/scripts/` (and other multi-task `examples/*/scripts/` when present) |
 
 See [references/conversion.md](references/conversion.md) for owner-map checklist and
 upstream → BORA placement template.
@@ -109,11 +125,20 @@ Prefer:
 
 ```python
 # tasks/<id>/harness.py — thin entry only
-from shared.lib.harness_core import run  # or lib.harness_core after path inject
-# re-export or one-liner async def run(ctx): return await run_core(ctx, task_id=...)
+from shared.lib.harness_core import run as _run
+
+async def run(ctx):
+    return await _run(ctx, task_dir=Path(__file__).resolve().parent)
+```
+
+Optional task-only helpers:
+
+```python
+from lib.task_only import helper  # tasks/<id>/lib/task_only.py
 ```
 
 Not: full dual-agent loop + tools inlined in every `tasks/*/harness.py`.  
+Not: bare `from harness_core import …` (depends on removed `shared/lib` leaf inject).  
 SDK surface stays the same (`Agent.session…invoke`); see `bora-sdk-harness` for API,
 this skill for **where** multi-task code lives.
 

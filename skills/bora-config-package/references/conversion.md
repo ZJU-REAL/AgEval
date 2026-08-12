@@ -17,12 +17,23 @@ Existing examples under `examples/*/scripts/generate_package.py` typically:
 
 1. Read upstream assets (often under `shared/assets/` or an external path).
 2. Emit `tasks/<task_id>/task.yaml` with `provenance` filled.
-3. Emit thin `harness.py` / `evaluator.py` that import Dataset glue (`shared.lib.*` or path-injected `lib.*`).
+3. Emit thin `harness.py` / `evaluator.py` that import **`shared.lib.*`**
+   (never bare leaf imports that assumed `shared/lib` on `PYTHONPATH`).
 4. Write per-task `data/` (agent-visible) and `evaluation/` (gold) as needed.
-5. Stay idempotent: re-run regenerates members without hand-editing fifty files.
+5. Ensure package markers: `shared/__init__.py`, `shared/lib/__init__.py` (recommended).
+6. Stay idempotent: re-run regenerates members without hand-editing fifty files.
 
 Document regenerate steps in `scripts/README.md` or the package README so forks
 do not invent Core hooks.
+
+### Import migration (generators & ports)
+
+| Old (leaf inject) | New (Database root on path) |
+| --- | --- |
+| `from harness_core import run` | `from shared.lib.harness_core import run` |
+| `from bridge import make_environment` | `from shared.lib.bridge import make_environment` |
+| `from evaluator_core import evaluate` | `from shared.lib.evaluator_core import evaluate` |
+| task-local `from helper import …` via `lib/` on path | `from lib.helper import …` with `tasks/<id>/lib/` |
 
 ## Upstream → BORA owner map (checklist)
 
@@ -52,13 +63,16 @@ Job axis remains Database-root `profiles.yaml` / CLI overlays — not per-task e
 ## Thin multi-task harness template
 
 ```text
-shared/lib/
-  harness_core.py      # async run(ctx, *, task_id) orchestration
-  evaluator_core.py    # evaluate(...) scoring
-  bridge.py            # tools / domain glue
+shared/
+  __init__.py
+  lib/
+    __init__.py
+    harness_core.py      # async run(ctx, *, task_dir) orchestration
+    evaluator_core.py    # evaluate(...) scoring
+    bridge.py            # tools / domain glue
 tasks/task-00/
-  harness.py           # from shared.lib.harness_core import run  (or re-export)
-  evaluator.py         # thin
+  harness.py             # from shared.lib.harness_core import run as _run
+  evaluator.py           # from shared.lib.evaluator_core import evaluate as _evaluate
   data/ … evaluation/
 ```
 
@@ -69,6 +83,7 @@ Do not fork Core Runtime for “setup hooks”; use `data/` seed + Dockerfile ti
 
 - Conversion completeness, Hub package publish, or `bora lock` success **do not**
   upgrade evidence grade (`runnable-mvp` / `isolated` / `real-benchmark-verified`).
+- Import-style / path-inject changes **do not** upgrade evidence grade.
 - PASS only from the independent evaluator after barrier.
 - Fill `provenance` for ports; known gaps stay honest.
 
@@ -76,6 +91,6 @@ Do not fork Core Runtime for “setup hooks”; use `data/` seed + Dockerfile ti
 
 | Doc | Use for |
 | --- | --- |
-| `references/isolation.md` | L1 Dockerfile depth, `data/` seed, explicit `COPY shared/` |
-| Parent skill layout / role map | Where `shared/`, `scripts/`, `solution/` live |
-| `examples/*/scripts/generate_package.py` | Reference generator shape for multi-task ports |
+| `references/isolation.md` | L1 Dockerfile depth, `data/` seed, explicit `COPY shared/` + Database-root `PYTHONPATH` |
+| Parent skill layout / role map | Where `shared/`, `scripts/`, `solution/` live; inject contract |
+| `examples/tau3-airline/scripts/generate_package.py` | Reference generator emitting `shared.lib.*` |

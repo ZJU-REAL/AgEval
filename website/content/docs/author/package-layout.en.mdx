@@ -17,7 +17,7 @@ my-dataset/
 ├── bora.yaml
 ├── profiles.yaml           # optional job binding defaults
 ├── shared/                 # optional cross-task share (in packageDigest)
-│   ├── lib/                # Harness / Evaluator import only
+│   ├── lib/                # import as shared.lib.*
 │   ├── assets/             # read-only domain data (code paths)
 │   └── README.md
 └── tasks/
@@ -29,7 +29,7 @@ my-dataset/
         ├── environment/
         ├── evaluation/     # gold — not for Agent by default
         ├── data/
-        └── lib/            # task-only; no top-level name clash with shared/lib
+        └── lib/            # task-only; import as lib.*
 ```
 
 Allowed task top-level dirs: `prompts`, `schemas`, `environment`, `evaluation`, `data`, `lib`, `upstream`, `solution`.
@@ -38,20 +38,24 @@ Allowed task top-level dirs: `prompts`, `schemas`, `environment`, `evaluation`, 
 
 Homogeneous multi-task packages can keep shared bridges and domain assets under root `shared/` instead of copying into every `tasks/*/lib/`.
 
-| Path | Role |
-| --- | --- |
-| `shared/lib/` | Cross-task Python modules; Runtime injects import path |
-| `shared/assets/` | Read-only fixtures / policy / db via code paths |
+| Path | Role | Import |
+| --- | --- | --- |
+| `shared/lib/` | Cross-task Python modules | `from shared.lib…` |
+| `shared/assets/` | Read-only fixtures / policy / db | code paths |
+| `tasks/*/lib/` | Task-only extensions | `from lib…` |
+
+Runtime path prefix is **`[task_dir, database_root]`** — the `shared/lib` leaf is **not** injected as a path root.
 
 Hard rules (summary):
 
 - If present, `shared/**` **must** enter `packageDigest` / the publish blob  
 - Not Agent-mounted by default; gold stays under `tasks/*/evaluation/` only  
-- Top-level import names must **not** collide between `shared/lib` and any task `lib/` (lock fails closed)  
-- Core never silently COPYs `shared/` into L1 images — task `environment/Dockerfile` must declare it  
+- Task members must **not** own top-level name `shared` (`shared/` dir or `shared.py`) — lock fails closed  
+- Same stem under `shared/lib` and `tasks/*/lib` is **allowed** (namespaces differ)  
+- Core never silently COPYs `shared/` into L1 images — task Dockerfile must declare it and put **Database root** on `PYTHONPATH`  
 - Author gate: `uv run python scripts/check_shared_lib_collisions.py <dataset-root>`  
 
-Authority: design `02-task-package-and-config` (Dataset-level shared/). **Having `shared/` or Hub Shared browse ≠ evidence-grade upgrade.**
+Authority: design `02-task-package-and-config` (Dataset-level shared/). **Having `shared/`, changing the import contract, or Hub Shared browse ≠ evidence-grade upgrade.**
 
 ## Root `bora.yaml`
 
