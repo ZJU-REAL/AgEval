@@ -532,10 +532,12 @@ class ParentAgentService:
 
         latency = (time.monotonic() - started) * 1000.0
         if handle is not None:
+            # Seal trajectory from the prompt actually sent (post before_agent_invoke).
+            seal_prompt = prompt_out if isinstance(prompt_out, str) else prompt
             redaction_err = seal_invoke_result(
                 handle,
                 result=result,
-                prompt=prompt,
+                prompt=seal_prompt,
                 kind=kind,
                 turn_index=self.invocations_completed + 1,
                 latency_ms=latency,
