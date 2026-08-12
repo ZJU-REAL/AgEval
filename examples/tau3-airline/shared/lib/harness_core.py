@@ -20,6 +20,7 @@ from bridge import (
     make_environment,
     tool_catalog,
 )
+from paths import assets_root
 
 
 STOP_TOKEN = "###STOP###"
@@ -132,11 +133,12 @@ async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTe
     termination = TerminationReason.MAX_STEPS
     finished = False
 
+    guidelines_path = (
+        assets_root() / "user_simulator" / "simulation_guidelines.md"
+    )
     user_guidelines = (
-        (_PKG / "data" / "user_simulator" / "simulation_guidelines.md").read_text(
-            encoding="utf-8"
-        )
-        if (_PKG / "data" / "user_simulator" / "simulation_guidelines.md").is_file()
+        guidelines_path.read_text(encoding="utf-8")
+        if guidelines_path.is_file()
         else (
             "You are a simulated airline customer. Stay in character. "
             f"When the goal is met or you want to end, reply with {STOP_TOKEN}."

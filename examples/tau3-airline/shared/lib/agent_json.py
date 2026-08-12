@@ -7,6 +7,16 @@ import re
 from typing import Any
 
 
+def _loads_obj(blob: str) -> dict[str, Any] | None:
+    """Parse a JSON object; allow raw control chars inside strings (LLM habit)."""
+    try:
+        # strict=False: models often emit real newlines inside "content" values.
+        obj = json.loads(blob, strict=False)
+    except json.JSONDecodeError:
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
 def agent_struct(result: dict[str, Any] | None) -> dict[str, Any] | None:
     if not isinstance(result, dict):
         return None
@@ -20,18 +30,12 @@ def agent_struct(result: dict[str, Any] | None) -> dict[str, Any] | None:
     # fenced json
     m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if m:
-        try:
-            obj = json.loads(m.group(1))
-            return obj if isinstance(obj, dict) else None
-        except json.JSONDecodeError:
-            pass
+        obj = _loads_obj(m.group(1))
+        if obj is not None:
+            return obj
     # first brace object
     start = text.find("{")
     end = text.rfind("}")
     if start >= 0 and end > start:
-        try:
-            obj = json.loads(text[start : end + 1])
-            return obj if isinstance(obj, dict) else None
-        except json.JSONDecodeError:
-            return None
+        return _loads_obj(text[start : end + 1])
     return None
