@@ -4,11 +4,32 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+
+from bora.adapters.provider_local import LocalProcessProvider
+from bora.config.model import thaw
+from bora.provider.contract import ExecutableGrant, ProcessLaunchPlan
+from bora.provider.outcomes import ProcessTerminalKind
+from bora.provider.workspace_plan import WorkspacePlan
+from bora.runtime.identity import IdentityFactory
+
+# Conservative fallback when lock limits omit / cannot supply wall_time_seconds.
+_DEFAULT_EVALUATOR_TIMEOUT_SECONDS = 60.0
+
+
+def _evaluator_timeout_seconds(lock: Any) -> float:
+    """Derive evaluator wall timeout from locked limits (same read as harness)."""
+    try:
+        limits = getattr(lock, "limits", None)
+        if limits is None:
+            return _DEFAULT_EVALUATOR_TIMEOUT_SECONDS
+        wall_s = float(thaw(limits).get("wall_time_seconds") or 0)
+    except Exception:
+        return _DEFAULT_EVALUATOR_TIMEOUT_SECONDS
+    return wall_s if wall_s > 0 else _DEFAULT_EVALUATOR_TIMEOUT_SECONDS
 
 
 def run_evaluator_worker(
@@ -18,11 +39,14 @@ def run_evaluator_worker(
     *,
     database_root: Path | None = None,
 ) -> dict[str, Any]:
-    """Run package evaluator in a dedicated subprocess (not parent import)."""
-    _ = lock  # reserved for future lock-scoped evaluator options
+    """Run package evaluator in a dedicated subprocess (not parent import).
+
+    Returns evaluator raw facts only. PASS binding stays in evaluation/result_binding.
+    """
     path = package_root / "evaluator.py"
     if not path.is_file():
         return {"status": "ERROR", "score": None, "metrics": {}}
+    timeout = _evaluator_timeout_seconds(lock)
     # #68: [task_dir, database_root] — same contract as harness worker.
     # Do not inject shared/lib leaf; authors use shared.lib.* / lib.*.
     # Build highest-priority first, then reverse-insert so final path prefix
@@ -32,8 +56,11 @@ def run_evaluator_worker(
         path_entries.append(str(database_root.resolve()))
     path_inject = repr(path_entries)
     with tempfile.TemporaryDirectory(prefix="bora-eval-") as tmp:
-        script = Path(tmp) / "run_eval.py"
-        out_path = Path(tmp) / "out.json"
+        tmp_path = Path(tmp)
+        script = tmp_path / "run_eval.py"
+        out_path = tmp_path / "out.json"
+        work_base = tmp_path / "provider"
+        work_base.mkdir()
         script.write_text(
             "\n".join(
                 [
@@ -55,19 +82,41 @@ def run_evaluator_worker(
         child_env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}
         if database_root is not None:
             child_env["BORA_DATABASE_ROOT"] = str(database_root.resolve())
-        proc = subprocess.run(
-            [sys.executable, str(script)],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=60,
+
+        factory = IdentityFactory()
+        digest = getattr(lock, "digest", None) or ("sha256:" + "e" * 64)
+        run = factory.new_run()
+        trial = factory.new_trial(run, str(digest))
+        attempt = factory.new_attempt(trial)
+        plan = ProcessLaunchPlan(
+            attempt=attempt,
+            workspace=WorkspacePlan(attempt=attempt, base_dir=work_base, relative_workdir="ws"),
+            executable=ExecutableGrant(path=Path(sys.executable)),
+            argv=(sys.executable, str(script)),
             env=child_env,
+            timeout_seconds=timeout,
         )
-        if proc.returncode != 0 or not out_path.is_file():
+        outcome = LocalProcessProvider().execute_sync(plan)
+        stderr_tail = (outcome.stderr_summary or "")[-500:]
+        if outcome.terminal == ProcessTerminalKind.TIMED_OUT:
             return {
                 "status": "ERROR",
                 "score": None,
-                "metrics": {"stderr": (proc.stderr or "")[-500:]},
+                "metrics": {
+                    "error": "evaluator_timeout",
+                    "timeout_seconds": timeout,
+                    "stderr": stderr_tail,
+                },
+            }
+        if (
+            outcome.terminal != ProcessTerminalKind.EXITED
+            or outcome.exit_code != 0
+            or not out_path.is_file()
+        ):
+            return {
+                "status": "ERROR",
+                "score": None,
+                "metrics": {"stderr": stderr_tail},
             }
         raw = json.loads(out_path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):

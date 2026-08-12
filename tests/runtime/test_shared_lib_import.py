@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -11,6 +12,7 @@ from bora.application.run_command_evaluator import run_evaluator_worker
 from bora.application.run_harness import run_harness_package
 from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.load_and_lock import ConfigCore
+from bora.config.model import freeze
 
 
 def _scaffold(root: Path, *, with_task_lib: bool = False) -> Path:
@@ -211,3 +213,58 @@ async def test_same_basename_shared_and_task_lib_coexist(tmp_path: Path) -> None
     metrics = raw.get("metrics") or {}
     assert metrics.get("task") == "from-task-lib"
     assert metrics.get("shared") == "from-shared"
+
+
+def test_evaluator_timeout_returns_error_not_raise(tmp_path: Path) -> None:
+    task = tmp_path / "tasks" / "t1"
+    task.mkdir(parents=True)
+    (task / "evaluator.py").write_text(
+        "import time\n"
+        "def evaluate(payload):\n"
+        "    time.sleep(30)\n"
+        "    return {'status': 'PASS', 'score': 1.0, 'metrics': {}}\n",
+        encoding="utf-8",
+    )
+    art = tmp_path / "session-output.json"
+    art.write_text("{}\n", encoding="utf-8")
+    lock = SimpleNamespace(
+        digest="sha256:" + "a" * 64,
+        limits=freeze({"wall_time_seconds": 0.3}),
+    )
+    raw = run_evaluator_worker(
+        task,
+        lock,
+        {"session-output": str(art)},
+        database_root=tmp_path,
+    )
+    assert raw.get("status") == "ERROR"
+    metrics = raw.get("metrics") or {}
+    assert metrics.get("error") == "evaluator_timeout"
+    assert metrics.get("timeout_seconds") == 0.3
+
+
+def test_evaluator_timeout_respects_lock_limits(tmp_path: Path) -> None:
+    """Lock wall_time_seconds must drive the supervised timeout (not a hardcoded 60)."""
+    task = tmp_path / "tasks" / "t1"
+    task.mkdir(parents=True)
+    (task / "evaluator.py").write_text(
+        "import time\n"
+        "def evaluate(payload):\n"
+        "    time.sleep(5)\n"
+        "    return {'status': 'PASS', 'score': 1.0, 'metrics': {}}\n",
+        encoding="utf-8",
+    )
+    art = tmp_path / "session-output.json"
+    art.write_text("{}\n", encoding="utf-8")
+    lock = SimpleNamespace(
+        digest="sha256:" + "b" * 64,
+        limits=freeze({"wall_time_seconds": 0.4}),
+    )
+    raw = run_evaluator_worker(
+        task,
+        lock,
+        {"session-output": str(art)},
+        database_root=tmp_path,
+    )
+    assert raw.get("status") == "ERROR"
+    assert (raw.get("metrics") or {}).get("timeout_seconds") == 0.4
