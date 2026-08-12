@@ -91,8 +91,10 @@ ctx.agent.invoke(profile_id, messages, ...)
        acp         → parent typed ACP client ↔ host/L1 ACP entry stdio
        openai-http → API client
        <custom>    → entry-point 注册的其它 mechanism kind（须 fail closed）
-  → 归一化为 AgentResult（content / structured / usage / session）
+  → 归一化为 AgentResult（content / structured / usage / session / events）
 ```
+
+`AgentResult.events` 是 **中立** `bora.trajectory.event/1` 流（见 [evidence.md](evidence.md) 三层契约）。Adapter 把 vendor native（ACP `session/update`、nooa `event_manager`、…）映到该契约；**禁止**非 ACP 插件伪装 `session_update`。Core evidence writer 再折叠为 `trajectory.jsonl`。`backend_raw/` 仍是 vendor native。轨迹 ≠ PASS。
 
 职责：
 

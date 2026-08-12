@@ -43,7 +43,7 @@
 | 保留在 Core | 交给插件 | 共存 |
 | --- | --- | --- |
 | package `data/` → `seed_l1_workspace` | 旧 builtin + entry_point dual path | Core seed 后 plugin `after_prepare` / env / image_contribute |
-| evaluator barrier / PASS | L1 Ready 靠 parent host SPI 冒充 | trajectory：Core 写盘；`trajectory_*` 扩展 fail-open（有意） |
+| evaluator barrier / PASS；层 C `trajectory.jsonl` writer | L1 Ready 靠 parent host SPI 冒充；ACP-shaped `AgentResult.events` 伪装 | 层 B：adapter 映 `bora.trajectory.event/1`；`trajectory_*` 扩展 fail-open（有意） |
 | credential 投影 | Runtime 直接散落工厂 | plugins 只拿 scoped env |
 
 固定顺序：**Core seed → 再 plugin chains**。
@@ -60,7 +60,7 @@
 | L1 | `image_contribute`、`env_*`、`env_action` | prepare bake；env prepare/teardown + action_gate |
 | L2 | `executor`、agent open/invoke/close、`normalize_agent_result` | `ParentAgentService` session 钉图 |
 | L3 | `evaluation_input_contribute`、`evaluation_runtime`、`score_postprocess` | 评测前/后（fail closed；不得选 PASS 权威） |
-| L4 | `trajectory_collect|enrich|seal`、`evidence_extra` | seal 写路径（collect/enrich fail-open） |
+| L4 | `trajectory_collect|enrich|seal`、`evidence_extra` | seal 写路径（collect/enrich fail-open）。collect 可补层 B 事件；**不得**让插件直接写层 C 行，也不得再产出 ACP `session_update` 伪装 |
 | L5 | `cleanup_actions`、`cleanup_report` | cleanup emit |
 
 **生产 emit 图（摘要）：**
