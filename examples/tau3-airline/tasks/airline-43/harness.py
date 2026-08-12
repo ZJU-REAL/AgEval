@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 from bora_sdk import HarnessContext, HarnessTerminal
-from harness_core import run as _run
+from shared.lib.harness_core import run as _run
 _TASK = Path(__file__).resolve().parent
 UPSTREAM_TASK_ID = "43"
 async def run(ctx: HarnessContext) -> HarnessTerminal:

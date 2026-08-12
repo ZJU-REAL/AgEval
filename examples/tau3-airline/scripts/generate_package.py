@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate BORA task members from upstream airline tasks.json (#65 shared/lib)."""
+"""Generate BORA task members from upstream airline tasks.json (shared.lib.*)."""
 
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from bora_sdk import HarnessContext, HarnessTerminal
-from harness_core import run as _run
+from shared.lib.harness_core import run as _run
 
 _TASK = Path(__file__).resolve().parent
 UPSTREAM_TASK_ID = "{upstream_id}"
@@ -117,7 +117,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from evaluator_core import evaluate as _evaluate
+from shared.lib.evaluator_core import evaluate as _evaluate
 
 _TASK = Path(__file__).resolve().parent
 UPSTREAM_TASK_ID = "{upstream_id}"
@@ -181,7 +181,7 @@ def generate(ids: list[str] | None, all_tasks: bool) -> None:
         (tdir / "evaluator.py").write_text(
             EVALUATOR_PY.format(upstream_id=uid), encoding="utf-8"
         )
-        # No per-task lib/ — shared/lib is on PYTHONPATH (#65).
+        # No per-task lib/ — Database root on path; thin entries import shared.lib.*.
         purpose = ""
         desc = task.get("description")
         if isinstance(desc, dict):

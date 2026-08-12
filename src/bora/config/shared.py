@@ -1,4 +1,4 @@
-"""Dataset-level ``shared/`` layout helpers (#65).
+"""Dataset-level ``shared/`` layout helpers (#65 layout, #68 import namespaces).
 
 Design authority: ``docs/design/02-task-package-and-config.md`` (Dataset 级 shared/).
 """
@@ -16,6 +16,9 @@ _FORBIDDEN_SHARED_TOP_LEVEL = frozenset(
         ".env",
     }
 )
+
+# Reserved Dataset package name — task members must not own this top-level name.
+_RESERVED_TOP_LEVEL_PACKAGE = "shared"
 
 
 def shared_dir(database_root: Path) -> Path:
@@ -68,6 +71,7 @@ def top_level_import_names(lib_dir: Path) -> set[str]:
 
 
 def collect_shared_lib_names(database_root: Path) -> set[str]:
+    """Top-level stems under ``shared/lib`` (informational; no longer a lock ban)."""
     return top_level_import_names(shared_lib_dir(database_root))
 
 
@@ -81,29 +85,52 @@ def find_lib_collisions(
     tasks_root: str = "tasks",
     task_ids: list[str] | None = None,
 ) -> list[tuple[str, str, str]]:
-    """Return collision triples ``(name, shared, tasks/<id>/lib)``.
+    """Deprecated under #68: same stem under shared/lib and task lib is allowed.
 
-    Empty list means no top-level import name clashes.
+    Kept as an empty-list API for callers that still import the name; always
+    returns ``[]``. Prefer :func:`find_task_shared_shadows`.
+    """
+    _ = (database_root, tasks_root, task_ids)
+    return []
+
+
+def _task_ids_under(
+    root: Path,
+    tasks_root: str,
+    task_ids: list[str] | None,
+) -> list[str]:
+    if task_ids is not None:
+        return list(task_ids)
+    tasks_dir = root / tasks_root
+    if not tasks_dir.is_dir():
+        return []
+    return sorted(p.name for p in tasks_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
+
+
+def find_task_shared_shadows(
+    database_root: Path,
+    *,
+    tasks_root: str = "tasks",
+    task_ids: list[str] | None = None,
+) -> list[str]:
+    """Return relative paths of task-owned top-level ``shared`` that would shadow Dataset.
+
+    Forbidden when present:
+
+    - ``tasks/<id>/shared/`` (directory)
+    - ``tasks/<id>/shared.py`` (module)
     """
     root = database_root.expanduser().resolve(strict=False)
-    shared_names = collect_shared_lib_names(root)
-    if not shared_names:
-        return []
-
-    if task_ids is None:
-        tasks_dir = root / tasks_root
-        if not tasks_dir.is_dir():
-            return []
-        task_ids = sorted(
-            p.name for p in tasks_dir.iterdir() if p.is_dir() and not p.name.startswith(".")
-        )
-
-    collisions: list[tuple[str, str, str]] = []
-    for tid in task_ids:
-        task_names = collect_task_lib_names(root / tasks_root / tid)
-        for name in sorted(shared_names & task_names):
-            collisions.append((name, "shared/lib", f"{tasks_root}/{tid}/lib"))
-    return collisions
+    hits: list[str] = []
+    for tid in _task_ids_under(root, tasks_root, task_ids):
+        task_dir = root / tasks_root / tid
+        shared_dir_path = task_dir / _RESERVED_TOP_LEVEL_PACKAGE
+        shared_mod = task_dir / f"{_RESERVED_TOP_LEVEL_PACKAGE}.py"
+        if shared_dir_path.exists():
+            hits.append(f"{tasks_root}/{tid}/{_RESERVED_TOP_LEVEL_PACKAGE}")
+        if shared_mod.is_file():
+            hits.append(f"{tasks_root}/{tid}/{_RESERVED_TOP_LEVEL_PACKAGE}.py")
+    return hits
 
 
 def validate_shared_layout(
@@ -112,51 +139,50 @@ def validate_shared_layout(
     tasks_root: str = "tasks",
     task_ids: list[str] | None = None,
 ) -> None:
-    """Fail closed on forbidden ``shared/`` content or lib name collisions (#65).
+    """Fail closed on forbidden ``shared/`` content or task ``shared`` shadows (#68).
 
-    No-op when ``shared/`` is absent.
+    No-op when ``shared/`` is absent **and** no task owns top-level ``shared``.
+    Task-level ``shared`` shadow is always checked when a Database root is known.
     """
     root = database_root.expanduser().resolve(strict=False)
     shared = root / "shared"
-    if not shared.exists():
-        return
-    if not shared.is_dir():
-        raise ConfigError(
-            ERROR_INVALID_PACKAGE,
-            "shared must be a directory when present",
-            location="shared",
-        )
-
-    for name in sorted(_FORBIDDEN_SHARED_TOP_LEVEL):
-        bad = shared / name
-        if bad.exists():
+    if shared.exists():
+        if not shared.is_dir():
             raise ConfigError(
                 ERROR_INVALID_PACKAGE,
-                f"forbidden path under shared/: {name} "
-                "(gold/secrets must not live under Dataset shared/)",
-                location=f"shared/{name}",
+                "shared must be a directory when present",
+                location="shared",
             )
 
-    # Also reject nested .env anywhere under shared/
-    for env_file in shared.rglob(".env"):
-        if env_file.is_file():
-            try:
-                rel = env_file.relative_to(root).as_posix()
-            except ValueError:
-                rel = "shared/.env"
-            raise ConfigError(
-                ERROR_INVALID_PACKAGE,
-                "host secrets must not live under shared/ (.env forbidden)",
-                location=rel,
-            )
+        for name in sorted(_FORBIDDEN_SHARED_TOP_LEVEL):
+            bad = shared / name
+            if bad.exists():
+                raise ConfigError(
+                    ERROR_INVALID_PACKAGE,
+                    f"forbidden path under shared/: {name} "
+                    "(gold/secrets must not live under Dataset shared/)",
+                    location=f"shared/{name}",
+                )
 
-    collisions = find_lib_collisions(root, tasks_root=tasks_root, task_ids=task_ids)
-    if collisions:
-        parts = [
-            f"{name!r} in {shared_loc} and {task_loc}" for name, shared_loc, task_loc in collisions
-        ]
+        # Also reject nested .env anywhere under shared/
+        for env_file in shared.rglob(".env"):
+            if env_file.is_file():
+                try:
+                    rel = env_file.relative_to(root).as_posix()
+                except ValueError:
+                    rel = "shared/.env"
+                raise ConfigError(
+                    ERROR_INVALID_PACKAGE,
+                    "host secrets must not live under shared/ (.env forbidden)",
+                    location=rel,
+                )
+
+    shadows = find_task_shared_shadows(root, tasks_root=tasks_root, task_ids=task_ids)
+    if shadows:
         raise ConfigError(
             ERROR_INVALID_PACKAGE,
-            "shared/lib vs task lib top-level import name collision (ban): " + "; ".join(parts),
-            location="shared/lib",
+            "task must not own top-level name 'shared' "
+            "(shadows Dataset package shared when both parents are on sys.path): "
+            + "; ".join(shadows),
+            location=shadows[0],
         )

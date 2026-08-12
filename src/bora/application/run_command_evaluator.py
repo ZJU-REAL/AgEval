@@ -23,12 +23,13 @@ def run_evaluator_worker(
     path = package_root / "evaluator.py"
     if not path.is_file():
         return {"status": "ERROR", "score": None, "metrics": {}}
-    # #65: inject task root + optional shared/lib (same contract as harness worker).
+    # #68: [task_dir, database_root] — same contract as harness worker.
+    # Do not inject shared/lib leaf; authors use shared.lib.* / lib.*.
+    # Build highest-priority first, then reverse-insert so final path prefix
+    # is [task_dir, database_root, ...] (insert(0) reverses forward iteration).
     path_entries: list[str] = [str(package_root.resolve())]
     if database_root is not None:
-        shared_lib = database_root.resolve() / "shared" / "lib"
-        if shared_lib.is_dir():
-            path_entries.insert(0, str(shared_lib))
+        path_entries.append(str(database_root.resolve()))
     path_inject = repr(path_entries)
     with tempfile.TemporaryDirectory(prefix="bora-eval-") as tmp:
         script = Path(tmp) / "run_eval.py"
@@ -37,9 +38,10 @@ def run_evaluator_worker(
             "\n".join(
                 [
                     "import json, importlib.util, sys",
-                    f"for _p in {path_inject}:",
-                    "    if _p not in sys.path:",
-                    "        sys.path.insert(0, _p)",
+                    f"for _p in reversed({path_inject}):",
+                    "    if _p in sys.path:",
+                    "        sys.path.remove(_p)",
+                    "    sys.path.insert(0, _p)",
                     f"spec = importlib.util.spec_from_file_location('ev', {str(path)!r})",
                     "mod = importlib.util.module_from_spec(spec)",
                     "assert spec.loader is not None",

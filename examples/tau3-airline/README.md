@@ -8,22 +8,23 @@ Port of **τ³-bench / tau2-bench** `airline` domain onto BORA outer lifecycle.
 | Domain | airline (50 tasks, base split) |
 | Agents | `user` + `service` via `profiles.yaml` → `grok-build` |
 | Bridge | BORA Agent ACP ↔ tau2 `Environment` tools + `evaluate_simulation` |
-| Shared | Dataset-level `shared/lib` + `shared/assets` |
+| Shared | Dataset-level `shared/lib` + `shared/assets` (`from shared.lib…`) |
 
 ## Layout
 
 ```text
 bora.yaml / profiles.yaml
-shared/
-  lib/          # harness_core, bridge, evaluator_core (PYTHONPATH)
-  assets/       # db.json, policy.md, tasks.json (in packageDigest)
+shared/                 # real package (shared/__init__.py)
+  lib/                  # shared.lib.harness_core / bridge / evaluator_core
+  assets/               # db.json, policy.md, tasks.json (in packageDigest)
 tasks/airline-NN/
-  task.yaml / harness.py / evaluator.py
-  data/         # agent-visible scenario + policy copy
-  evaluation/   # gold / full task JSON (evaluator-only)
+  task.yaml / harness.py / evaluator.py   # thin; import shared.lib.*
+  data/                 # agent-visible scenario + policy copy
+  evaluation/           # gold / full task JSON (evaluator-only)
 ```
 
-No per-task `lib/` copies — modules live once under `shared/lib`.
+No per-task `lib/` copies — modules live once under `shared/lib` and are imported
+as `shared.lib.*` (Runtime puts Database root on `sys.path`, not the `lib/` leaf).
 
 ## Run
 

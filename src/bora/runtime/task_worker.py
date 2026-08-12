@@ -42,14 +42,21 @@ def _send_msg(fd: int, obj: dict[str, Any]) -> None:
 
 
 def _inject_import_paths(package_root: Path, database_root: Path | None) -> None:
-    """Make task root and optional Dataset ``shared/lib`` importable (#65)."""
-    # Both roots are injected; top-level name collisions are banned at lock time,
-    # so insert order is non-semantic for correctness.
-    sys.path.insert(0, str(package_root))
+    """Make task root and Dataset root importable (#68).
+
+    Authoritative prefix: ``[task_dir, database_root, ...]``.
+    Do **not** inject ``shared/lib`` or ``tasks/<id>/lib`` as path roots —
+    authors import ``shared.lib.*`` / ``lib.*``.
+    """
+    # Insert database_root first, then task_dir so task_dir ends up at front.
     if database_root is not None:
-        shared_lib = database_root / "shared" / "lib"
-        if shared_lib.is_dir():
-            sys.path.insert(0, str(shared_lib.resolve()))
+        db = str(database_root.resolve())
+        if db not in sys.path:
+            sys.path.insert(0, db)
+    task = str(package_root.resolve())
+    if task in sys.path:
+        sys.path.remove(task)
+    sys.path.insert(0, task)
 
 
 def _load_entrypoint(
@@ -83,7 +90,7 @@ async def _run(fd: int) -> int:
     # Optional Attempt workspace (L1 host bind); default package root for L0.
     ws_raw = launch.get("workspace_root")
     workspace_root = Path(ws_raw) if ws_raw else package_root
-    # #65 Dataset root for shared/lib import + code-path assets.
+    # #68 Dataset root for shared.lib.* import + code-path assets.
     db_raw = launch.get("database_root")
     database_root = Path(db_raw) if db_raw else None
 
