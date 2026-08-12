@@ -67,8 +67,6 @@ class SessionBinding:
     # Optional profile routing (lock-safe): base_url + api_key env *locator* name.
     base_url: str | None = None
     api_key: str | None = None
-    # Spec 19: ACP registry entry id when executor_kind == "acp".
-    acp_entry_id: str | None = None
     # L1 multi-actor binding (opaque target id only — no docker handle).
     actor_id: str | None = None
     target_id: str | None = None
@@ -265,21 +263,6 @@ class ParentAgentService:
             else None
         )
 
-        # Fail closed on ACP entry before materializing the graph.
-        profile_executor = str(profile.get("executor") or "").strip()
-        acp_entry_id: str | None = None
-        if profile_executor == "acp":
-            options = profile.get("options") if isinstance(profile.get("options"), dict) else {}
-            entry_raw = options.get("entry") if isinstance(options, dict) else None
-            if isinstance(entry_raw, str) and entry_raw.strip():
-                acp_entry_id = entry_raw.strip()
-            else:
-                return {
-                    "ok": False,
-                    "error": "acp_entry_required",
-                    "profile_id": profile_id,
-                }
-
         # Resolve and pin extension graph (required; no legacy path).
         from bora.plugins.protocol import intent_from_profile
         from bora.plugins.resolve import resolve as resolve_extensions
@@ -317,7 +300,6 @@ class ParentAgentService:
                 executor_kind=executor_kind,
                 base_url=base_url,
                 api_key=api_key,
-                acp_entry_id=acp_entry_id,
                 actor_id=actor_id_n,
                 target_id=target_id,
                 generation=generation,
@@ -333,7 +315,6 @@ class ParentAgentService:
             "actor_id": actor_id_n,
             "target_id": target_id,
             "generation": generation,
-            "acp_entry_id": acp_entry_id,
         }
         try:
             open_meta = self._emit_agent_open(binding, open_meta)
@@ -359,7 +340,6 @@ class ParentAgentService:
             "generation": generation,
             "attempt_id": self.attempt_id,
             "provider_session_handle": None,
-            "acp_entry_id": acp_entry_id,
             "executor_plugin": executor_kind,
         }
 
@@ -397,7 +377,6 @@ class ParentAgentService:
             profile_id = binding.profile_id
             base_url = binding.base_url
             api_key = binding.api_key
-            acp_entry_id = binding.acp_entry_id
             binding_snap = binding
             actor_id = binding.actor_id
             target_id = binding.target_id
@@ -421,7 +400,6 @@ class ParentAgentService:
                     model=model,
                     base_url=base_url,
                     api_key=api_key,
-                    acp_entry_id=acp_entry_id,
                     actor_id=actor_id,
                     target_id=target_id,
                     generation=generation,

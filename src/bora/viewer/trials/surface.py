@@ -75,40 +75,16 @@ def _available_tabs(evidence: Path) -> list[str]:
     return tabs
 
 
-# Known ACP registry entry ids — longest match first when stripping from profile ids.
-_ACP_ENTRY_SUFFIXES = (
-    "claude-code",
-    "grok-build",
-    "opencode",
-    "codex",
-    "grok",
-    "pi",
-)
-
-
-def _profile_entry(profile: dict[str, Any]) -> str | None:
+def _profile_variant(profile: dict[str, Any]) -> str | None:
+    """Lock options variant: ACP entry, else plugin agent/label, else none."""
     opts = profile.get("options") if isinstance(profile.get("options"), dict) else {}
-    entry = opts.get("entry") if isinstance(opts, dict) else None
-    if isinstance(entry, str) and entry.strip():
-        return entry.strip()
-    pid = profile.get("id")
-    if not isinstance(pid, str) or not pid:
+    if not isinstance(opts, dict):
         return None
-    lower = pid.lower()
-    for suf in _ACP_ENTRY_SUFFIXES:
-        if lower == suf or lower.endswith("-" + suf) or lower.endswith("_" + suf):
-            return suf
+    for key in ("entry", "agent", "label"):
+        val = opts.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
     return None
-
-
-def _profile_role(profile_id: str, entry: str | None) -> str:
-    """Role label: profile id with trailing entry suffix removed when present."""
-    if entry:
-        for sep in ("-", "_"):
-            suffix = sep + entry
-            if profile_id.lower().endswith(suffix.lower()) and len(profile_id) > len(suffix):
-                return profile_id[: -len(suffix)]
-    return profile_id
 
 
 def _docker_label(result: dict[str, Any], summary: dict[str, Any]) -> str | None:
@@ -222,20 +198,15 @@ def _agent_surface(
     executors: list[str] = []
     for pid in ordered_ids:
         p = by_id.get(pid, {"id": pid})
-        entry = _profile_entry(p)
+        variant = _profile_variant(p)
         ex = p.get("executor") if isinstance(p.get("executor"), str) else None
         if not ex:
             ex = inv_executor.get(pid)
         if isinstance(ex, str) and ex and ex not in executors:
             executors.append(ex)
-        caps_raw = p.get("capabilities")
-        caps: dict[str, Any] = caps_raw if isinstance(caps_raw, dict) else {}
-        if caps.get("execution_mode") == "acp-stdio" and "acp" not in executors:
-            executors.append("acp")
         model = inv_model.get(pid) or (p.get("model") if isinstance(p.get("model"), str) else None)
-        # agent column = ACP entry when known, else executor kind, else profile id
-        agent_col = entry or ex or pid
-        role_col = _profile_role(pid, entry) if entry else pid
+        agent_col = variant or ex or pid
+        role_col = pid
         n_inv = invoke_count.get(pid, 0)
         lat_total = latency_sum.get(pid)
         usage_summary = _usage_summary_for_actor(last_usage.get(pid))
@@ -257,13 +228,7 @@ def _agent_surface(
             }
         )
 
-    # Framework: unified ACP client → "acp"; else first executor kind.
-    if any(a.get("agent") in _ACP_ENTRY_SUFFIXES for a in actors) or "acp" in executors:
-        framework = "acp"
-    elif executors:
-        framework = executors[0]
-    else:
-        framework = None
+    framework = executors[0] if executors else None
 
     docker = _docker_label(result, summary)
     prov = _provenance_surface(lock)

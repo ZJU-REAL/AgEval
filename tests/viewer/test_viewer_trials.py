@@ -492,7 +492,7 @@ def test_multi_role_actors_time_usage_and_provenance(tmp_path: Path) -> None:
     by_pid = {a["profile_id"]: a for a in actors}
 
     user = by_pid["user-grok"]
-    assert user["role"] == "user"
+    assert user["role"] == "user-grok"
     assert user["agent"] == "grok"
     assert user["invokes"] == 1
     assert user["latency_ms_sum"] == pytest.approx(1000.0)
@@ -500,7 +500,7 @@ def test_multi_role_actors_time_usage_and_provenance(tmp_path: Path) -> None:
     assert user.get("usage") is None or user.get("usage_label") is None
 
     service = by_pid["service-opencode"]
-    assert service["role"] == "service"
+    assert service["role"] == "service-opencode"
     assert service["agent"] == "opencode"
     assert service["invokes"] == 2
     assert service["latency_ms_sum"] == pytest.approx(5000.0)

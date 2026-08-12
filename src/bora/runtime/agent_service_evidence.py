@@ -75,7 +75,6 @@ def write_invoke_request(
     model: str,
     base_url: str | None,
     api_key: str | None,
-    acp_entry_id: str | None,
     actor_id: str | None,
     target_id: str | None,
     generation: int | None,
@@ -95,8 +94,6 @@ def write_invoke_request(
         req_doc["base_url"] = base_url
     if api_key:
         req_doc["api_key"] = api_key
-    if acp_entry_id:
-        req_doc["acp_entry_id"] = acp_entry_id
     if actor_id:
         req_doc["actor_id"] = actor_id
     if target_id:

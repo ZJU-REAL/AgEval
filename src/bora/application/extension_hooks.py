@@ -1,8 +1,9 @@
 """Wire L0–L5 extension multi-slots around production control points.
 
-Uses the first agent profile's resolved graph when present; otherwise a
-defaults-only resolve. Prepare/env/score-related failures fail closed when
-requested; observational hooks may continue after recording errors.
+Merges multi-slot chains across every agent profile graph (same unique-keying
+as image_contribute bake). Provide slots stay per-profile / per-session.
+Prepare/env/score-related failures fail closed when requested; observational
+hooks may continue after recording errors.
 
 #71: env/eval hooks await registered callables (SPI). No declaration-DSL
 collectors that Core later interprets as free-form command rows.
@@ -37,17 +38,34 @@ _LOG = logging.getLogger(__name__)
 
 
 def graph_for_lock(lock: LockedTaskConfig) -> ExtensionGraph:
-    """Resolve one ExtensionGraph for lifecycle emit (first profile or empty intent)."""
+    """Merge multi-slot chains from every profile; no first-profile-wins."""
     reg = ensure_bootstrapped()
     profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
-    if isinstance(profiles, list) and profiles:
-        first = profiles[0]
-        if isinstance(first, dict):
-            intent = intent_from_profile(first)
+    graphs: list[ExtensionGraph] = []
+    if isinstance(profiles, list):
+        for row in profiles:
+            if not isinstance(row, dict):
+                continue
+            intent = intent_from_profile(row)
             if not intent.profile_id:
-                intent.profile_id = str(first.get("id") or "default")
-            return resolve(intent, reg, materialize=False)
-    return resolve(BindingIntent(profile_id="_lifecycle"), reg, materialize=False)
+                intent.profile_id = str(row.get("id") or "default")
+            graphs.append(resolve(intent, reg, materialize=False))
+    if not graphs:
+        return resolve(BindingIntent(profile_id="_lifecycle"), reg, materialize=False)
+    if len(graphs) == 1:
+        return graphs[0]
+    merged = ExtensionGraph(profile_id="_merged")
+    seen: set[tuple[str, str, int, str]] = set()
+    for graph in graphs:
+        for slot, handlers in graph.chains.items():
+            dest = merged.chains.setdefault(slot, [])
+            for handler in handlers:
+                key = (slot, handler.plugin_id, handler.priority, handler.source)
+                if key in seen:
+                    continue
+                seen.add(key)
+                dest.append(handler)
+    return merged
 
 
 def _run(coro: Any) -> Any:
