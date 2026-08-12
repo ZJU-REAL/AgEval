@@ -10,9 +10,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from agent_json import agent_struct
 from bora_sdk import Agent, HarnessContext, HarnessTerminal
-from bridge import (
+from shared.lib.agent_json import agent_struct
+from shared.lib.bridge import (
     agent_facing_user_scenario,
     execute_tool_call,
     format_user_scenario,
@@ -20,7 +20,7 @@ from bridge import (
     make_environment,
     tool_catalog,
 )
-from paths import assets_root
+from shared.lib.paths import assets_root
 
 
 STOP_TOKEN = "###STOP###"

@@ -7,7 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from paths import assets_root, package_root
+from shared.lib.paths import assets_root, package_root
 
 
 def _load_tasks_raw() -> list[dict[str, Any]]:

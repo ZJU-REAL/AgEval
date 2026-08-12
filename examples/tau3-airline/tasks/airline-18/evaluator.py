@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
-from evaluator_core import evaluate as _evaluate
+from shared.lib.evaluator_core import evaluate as _evaluate
 _TASK = Path(__file__).resolve().parent
 UPSTREAM_TASK_ID = "18"
 def evaluate(inputs: dict[str, Any]) -> dict[str, Any]:

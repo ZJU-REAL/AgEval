@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bridge import load_eval_task, make_environment
+from shared.lib.bridge import load_eval_task, make_environment
 
 
 def _rebuild_messages(raw: list[dict[str, Any]]) -> list[Any]:
