@@ -68,8 +68,27 @@ jobs:
 
             Output language: English by default (summary and inline comments). Match the PR author's language only if the PR description/title is clearly non-English.
 
-            Use `gh pr comment` for a concise top-level summary (blocking vs nits).
-            Use `mcp__github_inline_comment__create_inline_comment` for specific line issues.
-            Only post GitHub review comments — do not dump the review as assistant chat text.
+            **What counts as a blocker** (must be fixed before merge):
+            - Correctness / regression risk, architecture-boundary violation, security/secret leak,
+              evidence-grade inflation, missing offline tests for new behavior you judge required,
+              or other fail-closed / product-invariant breaks.
+            - Style nits, renames, dead-code cleanup, optional docs polish, “worth noting” trust
+              boundaries that are by-design, and speculative future footguns are **not** blockers.
+
+            **Posting policy (strict — follow exactly):**
+
+            1. First decide: are there **any blockers**?
+            2. **No blockers** → post **exactly one** top-level `gh pr comment` that is a **single short
+               approve-ready sentence** (optional: one more sentence listing which CI jobs should cover
+               the diff). Examples:
+               - `No blockers — approve-ready for this PR's owned surface.`
+               - `No blockers — approve-ready. Path-filtered: python-core, hub-app.`
+               Do **not** post inline comments. Do **not** list nits, observations, “what's solid”,
+               checklists, or multi-section essays. Silence on non-blocking findings is required.
+            3. **Has blockers** → one concise top-level `gh pr comment` that **only** summarizes
+               blockers (bullet list). Use `mcp__github_inline_comment__create_inline_comment` **only**
+               for those blocker lines. Do **not** add nits / polish / non-blocking asides in summary
+               or inline.
+            4. Only post GitHub review comments — do not dump the review as assistant chat text.
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*)"
