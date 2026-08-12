@@ -75,6 +75,8 @@ class LockedTaskConfig:
     provenance: Mapping[str, Any] | None = None
     # Secret-free job binding overlay used for this lock (#59); not task identity.
     job_overlay: Mapping[str, Any] | None = None
+    # Per-profile resolved extension point graph (plugin system lock bindings).
+    extension_bindings: Mapping[str, Any] | None = None
 
     def canonical_payload(self) -> dict[str, Any]:
         """Payload used for digest: everything except the digest field itself."""
@@ -98,6 +100,8 @@ class LockedTaskConfig:
         # digest reflects the job binding artifact operators can rehydrate.
         if self.job_overlay is not None:
             payload["job_overlay"] = thaw(self.job_overlay)
+        if self.extension_bindings is not None:
+            payload["extension_bindings"] = thaw(self.extension_bindings)
         return payload
 
 
@@ -112,6 +116,7 @@ class LockSummary:
     digest: str
     provenance: Mapping[str, Any] | None = None
     job_overlay: Mapping[str, Any] | None = None
+    extension_bindings: Mapping[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         # Always return plain JSON-serializable dict/list trees (no MappingProxy).
@@ -126,6 +131,8 @@ class LockSummary:
             out["provenance"] = thaw(self.provenance)
         if self.job_overlay is not None:
             out["job_overlay"] = thaw(self.job_overlay)
+        if self.extension_bindings is not None:
+            out["extension_bindings"] = thaw(self.extension_bindings)
         return out
 
 
@@ -139,6 +146,7 @@ def locked_to_summary(lock: LockedTaskConfig) -> LockSummary:
         digest=lock.digest,
         provenance=lock.provenance,
         job_overlay=lock.job_overlay,
+        extension_bindings=lock.extension_bindings,
     )
 
 

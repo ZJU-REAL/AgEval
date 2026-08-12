@@ -29,7 +29,9 @@ PROFILES_FILENAME = "profiles.yaml"
 PROFILES_FORMAT = "bora.profiles/1"
 
 # Fields that constitute job binding — forbidden on member task.yaml slots.
-BINDING_FIELD_KEYS = frozenset({"executor", "model", "options", "api_key", "base_url"})
+BINDING_FIELD_KEYS = frozenset(
+    {"executor", "model", "options", "api_key", "base_url", "extensions"}
+)
 
 # Allowlisted nested binding override leaves under /bindings/<role_id>/…
 _BINDING_OVERRIDE_LEAVES = frozenset(
