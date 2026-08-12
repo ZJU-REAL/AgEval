@@ -17,9 +17,21 @@ from pathlib import Path
 
 MEDIA_TYPE = "application/vnd.bora.attempt-result.v1.tar+gzip"
 
+# Host sandbox residual under the Attempt run dir — never Hub-facing.
+_L1_WORK_ROOT = "l1-work"
+
+
+def _is_l1_work_rel(rel: str) -> bool:
+    """True when *rel* is ``l1-work`` or under it (posix, relative to run_dir)."""
+    return rel == _L1_WORK_ROOT or rel.startswith(f"{_L1_WORK_ROOT}/")
+
 
 def build_attempt_archive(run_dir: Path, *, run_id: str) -> tuple[bytes, str, int]:
-    """Pack ``run_dir`` as ``.bora/runs/<run_id>/…``; return bytes, blob_digest, size."""
+    """Pack ``run_dir`` as ``.bora/runs/<run_id>/…``; return bytes, blob_digest, size.
+
+    Excludes ``l1-work/**`` even if residual files remain on disk (e.g.
+    ``--keep-workspace`` or a failed host cleanup) so Registry blobs stay curated.
+    """
     root = run_dir.expanduser().resolve(strict=True)
     if not root.is_dir():
         msg = f"run directory not found: {root}"
@@ -31,6 +43,8 @@ def build_attempt_archive(run_dir: Path, *, run_id: str) -> tuple[bytes, str, in
         if not path.is_file():
             continue
         rel = path.relative_to(root).as_posix()
+        if _is_l1_work_rel(rel):
+            continue
         members.append((f"{prefix}/{rel}", path))
 
     return _pack_tree(members)
@@ -99,7 +113,10 @@ def _pack_tree(members: list[tuple[str, Path]]) -> tuple[bytes, str, int]:
 
 
 def build_suite_archive(suite_dir: Path, *, suite_run_id: str) -> tuple[bytes, str, int]:
-    """Pack ``suite_dir`` as ``.bora/suite-runs/<suite_run_id>/…``."""
+    """Pack ``suite_dir`` as ``.bora/suite-runs/<suite_run_id>/…``.
+
+    Defense in depth: skip any nested ``l1-work/**`` path segments.
+    """
     root = suite_dir.expanduser().resolve(strict=True)
     if not root.is_dir():
         msg = f"suite directory not found: {root}"
@@ -111,6 +128,8 @@ def build_suite_archive(suite_dir: Path, *, suite_run_id: str) -> tuple[bytes, s
         if not path.is_file():
             continue
         rel = path.relative_to(root).as_posix()
+        if _L1_WORK_ROOT in Path(rel).parts:
+            continue
         members.append((f"{prefix}/{rel}", path))
 
     return _pack_tree(members)
