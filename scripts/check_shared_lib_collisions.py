@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Acceptance gate: Dataset shared/lib vs task lib top-level name collisions (#65).
+"""Acceptance gate: Dataset shared/ layout + task top-level ``shared`` shadow (#68).
 
 Usage::
 
     uv run python scripts/check_shared_lib_collisions.py <database-root> [...]
-    uv run python scripts/check_shared_lib_collisions.py examples/core
+    uv run python scripts/check_shared_lib_collisions.py examples/tau3-airline
 
 Exit codes:
-  0 — no shared/ or no collisions / forbidden paths
-  1 — collision or forbidden shared/ layout
+  0 — no forbidden shared/ paths and no task-level ``shared`` shadow
+  1 — forbidden layout or task ``shared`` shadow
   2 — usage / invalid path
+
+Note: same module stem under ``shared/lib`` and ``tasks/*/lib`` is **allowed**
+under namespaced imports (``shared.lib.x`` vs ``lib.x``). This script no longer
+bans stem collisions.
 """
 
 from __future__ import annotations
@@ -21,7 +25,10 @@ from pathlib import Path
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Fail closed when shared/lib collides with task lib top-level names (#65)."
+        description=(
+            "Fail closed on forbidden Dataset shared/ content or task-level "
+            "top-level name 'shared' (#68)."
+        )
     )
     parser.add_argument(
         "database_roots",
@@ -38,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.path.insert(0, str(src))
 
     from bora.config.errors import ConfigError
-    from bora.config.shared import find_lib_collisions, validate_shared_layout
+    from bora.config.shared import find_task_shared_shadows, validate_shared_layout
 
     failed = 0
     for raw in args.database_roots:
@@ -53,21 +60,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"FAIL {root}: {exc.message} ({exc.location})", file=sys.stderr)
             failed += 1
             continue
-        hits = find_lib_collisions(root)
-        if hits:
-            # validate_shared_layout should have raised; belt-and-suspenders.
-            for name, shared_loc, task_loc in hits:
-                print(
-                    f"FAIL {root}: collision {name!r} in {shared_loc} and {task_loc}",
-                    file=sys.stderr,
-                )
+        # Belt-and-suspenders: report shadows even if validate missed them.
+        shadows = find_task_shared_shadows(root)
+        if shadows:
+            for loc in shadows:
+                print(f"FAIL {root}: task owns reserved name shared at {loc}", file=sys.stderr)
             failed += 1
             continue
         shared = root / "shared"
         if shared.is_dir():
-            print(f"OK   {root}: shared/ present, no lib collisions")
+            print(f"OK   {root}: shared/ present, no task 'shared' shadow")
         else:
-            print(f"OK   {root}: no shared/ (noop)")
+            print(f"OK   {root}: no shared/, no task 'shared' shadow")
     return 1 if failed else 0
 
 

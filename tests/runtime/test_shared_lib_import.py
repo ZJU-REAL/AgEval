@@ -1,4 +1,4 @@
-"""Harness / evaluator can import modules from Dataset shared/lib (#65)."""
+"""Harness / evaluator import Dataset glue via shared.lib.* (#68)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.load_and_lock import ConfigCore
 
 
-def _scaffold(root: Path) -> Path:
+def _scaffold(root: Path, *, with_task_lib: bool = False) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     (root / "bora.yaml").write_text(
         "format: bora.database/1\n"
@@ -22,8 +22,11 @@ def _scaffold(root: Path) -> Path:
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
-    shared_lib = root / "shared" / "lib"
+    shared = root / "shared"
+    shared_lib = shared / "lib"
     shared_lib.mkdir(parents=True)
+    (shared / "__init__.py").write_text("", encoding="utf-8")
+    (shared_lib / "__init__.py").write_text("", encoding="utf-8")
     (shared_lib / "bridge_mod.py").write_text(
         "TOKEN = 'from-shared'\n",
         encoding="utf-8",
@@ -62,36 +65,67 @@ evaluation:
 """,
         encoding="utf-8",
     )
-    (task / "harness.py").write_text(
-        """
+    if with_task_lib:
+        lib = task / "lib"
+        lib.mkdir()
+        (lib / "__init__.py").write_text("", encoding="utf-8")
+        # Same basename as shared module — must resolve via lib.* not shared.lib.*
+        (lib / "bridge_mod.py").write_text(
+            "TOKEN = 'from-task-lib'\n",
+            encoding="utf-8",
+        )
+        harness_body = """
 from bora_sdk.terminal import HarnessTerminal
+from lib.bridge_mod import TOKEN as TASK_TOKEN
+from shared.lib.bridge_mod import TOKEN as SHARED_TOKEN
 
 def run(ctx):
-    import bridge_mod
-    ctx.publish_json("session-output", {"token": bridge_mod.TOKEN})
+    ctx.publish_json(
+        "session-output",
+        {"task": TASK_TOKEN, "shared": SHARED_TOKEN},
+    )
     return HarnessTerminal.completed()
-""",
-        encoding="utf-8",
-    )
-    (task / "evaluator.py").write_text(
-        """
+"""
+        eval_body = """
+from lib.bridge_mod import TOKEN as TASK_TOKEN
+from shared.lib.bridge_mod import TOKEN as SHARED_TOKEN
+
 def evaluate(payload):
-    import bridge_mod
-    arts = payload.get("artifacts") or {}
-    # token path not required; import success is the gate
+    ok = TASK_TOKEN == "from-task-lib" and SHARED_TOKEN == "from-shared"
     return {
-        "status": "PASS" if bridge_mod.TOKEN == "from-shared" else "FAIL",
-        "score": 1.0 if bridge_mod.TOKEN == "from-shared" else 0.0,
-        "metrics": {"token": bridge_mod.TOKEN},
+        "status": "PASS" if ok else "FAIL",
+        "score": 1.0 if ok else 0.0,
+        "metrics": {"task": TASK_TOKEN, "shared": SHARED_TOKEN},
     }
-""",
-        encoding="utf-8",
-    )
+"""
+    else:
+        harness_body = """
+from bora_sdk.terminal import HarnessTerminal
+from shared.lib.bridge_mod import TOKEN
+
+def run(ctx):
+    ctx.publish_json("session-output", {"token": TOKEN})
+    return HarnessTerminal.completed()
+"""
+        eval_body = """
+from shared.lib.bridge_mod import TOKEN
+
+def evaluate(payload):
+    arts = payload.get("artifacts") or {}
+    _ = arts
+    return {
+        "status": "PASS" if TOKEN == "from-shared" else "FAIL",
+        "score": 1.0 if TOKEN == "from-shared" else 0.0,
+        "metrics": {"token": TOKEN},
+    }
+"""
+    (task / "harness.py").write_text(harness_body, encoding="utf-8")
+    (task / "evaluator.py").write_text(eval_body, encoding="utf-8")
     return task
 
 
 @pytest.mark.asyncio
-async def test_harness_imports_shared_lib(tmp_path: Path) -> None:
+async def test_harness_imports_shared_lib_namespace(tmp_path: Path) -> None:
     task = _scaffold(tmp_path)
     core = ConfigCore(package_reader=LocalPackageReader())
     lock = core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
@@ -104,11 +138,10 @@ async def test_harness_imports_shared_lib(tmp_path: Path) -> None:
     assert "from-shared" in text
 
 
-def test_evaluator_imports_shared_lib(tmp_path: Path) -> None:
+def test_evaluator_imports_shared_lib_namespace(tmp_path: Path) -> None:
     task = _scaffold(tmp_path)
     core = ConfigCore(package_reader=LocalPackageReader())
     lock = core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
-    # Minimal artifact file for evaluate inputs
     art = tmp_path / "session-output.json"
     art.write_text('{"token":"x"}\n', encoding="utf-8")
     raw = run_evaluator_worker(
@@ -119,3 +152,29 @@ def test_evaluator_imports_shared_lib(tmp_path: Path) -> None:
     )
     assert raw.get("status") == "PASS"
     assert (raw.get("metrics") or {}).get("token") == "from-shared"
+
+
+@pytest.mark.asyncio
+async def test_same_basename_shared_and_task_lib_coexist(tmp_path: Path) -> None:
+    """shared.lib.bridge_mod and lib.bridge_mod must both resolve (#68)."""
+    task = _scaffold(tmp_path, with_task_lib=True)
+    core = ConfigCore(package_reader=LocalPackageReader())
+    lock = core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
+    result = await run_harness_package(lock, task, timeout_seconds=20.0, database_root=tmp_path)
+    env = result["envelope"]
+    assert env.get("ok") is True, env
+    text = Path((env.get("published") or {})["session-output"]).read_text(encoding="utf-8")
+    assert "from-task-lib" in text
+    assert "from-shared" in text
+    art = tmp_path / "session-output.json"
+    art.write_text("{}\n", encoding="utf-8")
+    raw = run_evaluator_worker(
+        task,
+        lock,
+        {"session-output": str(art)},
+        database_root=tmp_path,
+    )
+    assert raw.get("status") == "PASS", raw
+    metrics = raw.get("metrics") or {}
+    assert metrics.get("task") == "from-task-lib"
+    assert metrics.get("shared") == "from-shared"

@@ -1,4 +1,4 @@
-"""Dataset-level shared/ validation and collision rules (#65)."""
+"""Dataset-level shared/ validation and reserved-name rules (#65 layout, #68 namespaces)."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from bora.config.errors import ConfigError
 from bora.config.load_and_lock import ConfigCore
 from bora.config.shared import (
     find_lib_collisions,
+    find_task_shared_shadows,
     top_level_import_names,
     validate_shared_layout,
 )
@@ -86,18 +87,36 @@ def test_no_shared_is_noop(tmp_path: Path) -> None:
     validate_shared_layout(tmp_path)  # no raise
 
 
-def test_collision_ban(tmp_path: Path) -> None:
+def test_same_stem_across_shared_and_task_lib_allowed(tmp_path: Path) -> None:
+    """#68: shared.lib.bridge vs lib.bridge — same basename is fine."""
     _write_db(tmp_path)
     shared_lib = tmp_path / "shared" / "lib"
     shared_lib.mkdir(parents=True)
     (shared_lib / "bridge.py").write_text("x=1\n", encoding="utf-8")
     _write_task(tmp_path / "tasks" / "a", "a", lib_mod="bridge")
-    hits = find_lib_collisions(tmp_path)
-    assert hits == [("bridge", "shared/lib", "tasks/a/lib")]
+    assert find_lib_collisions(tmp_path) == []
+    validate_shared_layout(tmp_path)  # no raise
+
+
+def test_task_shared_dir_forbidden(tmp_path: Path) -> None:
+    _write_db(tmp_path)
+    _write_task(tmp_path / "tasks" / "a", "a")
+    (tmp_path / "tasks" / "a" / "shared").mkdir()
+    hits = find_task_shared_shadows(tmp_path)
+    assert hits == ["tasks/a/shared"]
     with pytest.raises(ConfigError) as ei:
         validate_shared_layout(tmp_path)
-    assert "collision" in ei.value.message
+    assert "shared" in ei.value.message
     assert ei.value.error_code == "invalid_package"
+
+
+def test_task_shared_py_forbidden(tmp_path: Path) -> None:
+    _write_db(tmp_path)
+    _write_task(tmp_path / "tasks" / "a", "a")
+    (tmp_path / "tasks" / "a" / "shared.py").write_text("x=1\n", encoding="utf-8")
+    with pytest.raises(ConfigError) as ei:
+        validate_shared_layout(tmp_path)
+    assert "shared" in ei.value.message
 
 
 def test_forbidden_env_under_shared(tmp_path: Path) -> None:
@@ -110,23 +129,40 @@ def test_forbidden_env_under_shared(tmp_path: Path) -> None:
     assert ".env" in ei.value.message
 
 
-def test_lock_fails_on_lib_collision(tmp_path: Path) -> None:
+def test_lock_fails_on_task_shared_shadow(tmp_path: Path) -> None:
     _write_db(tmp_path)
     shared_lib = tmp_path / "shared" / "lib"
     shared_lib.mkdir(parents=True)
     (shared_lib / "common.py").write_text("V=1\n", encoding="utf-8")
-    _write_task(tmp_path / "tasks" / "t1", "t1", lib_mod="common")
+    task = tmp_path / "tasks" / "t1"
+    _write_task(task, "t1")
+    (task / "shared").mkdir()
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei:
         core.load_and_lock(
-            tmp_path / "tasks" / "t1",
+            task,
             "t1",
             capabilities=DeclarationCapabilityCatalog(),
         )
-    assert "collision" in ei.value.message
+    assert "shared" in ei.value.message
 
 
-def test_lock_ok_with_shared_no_collision(tmp_path: Path) -> None:
+def test_lock_ok_with_same_stem(tmp_path: Path) -> None:
+    _write_db(tmp_path)
+    shared_lib = tmp_path / "shared" / "lib"
+    shared_lib.mkdir(parents=True)
+    (shared_lib / "bridge.py").write_text("V=1\n", encoding="utf-8")
+    _write_task(tmp_path / "tasks" / "t1", "t1", lib_mod="bridge")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    lock = core.load_and_lock(
+        tmp_path / "tasks" / "t1",
+        "t1",
+        capabilities=DeclarationCapabilityCatalog(),
+    )
+    assert lock.digest.startswith("sha256:")
+
+
+def test_lock_ok_with_shared_no_shadow(tmp_path: Path) -> None:
     _write_db(tmp_path)
     shared_lib = tmp_path / "shared" / "lib"
     shared_lib.mkdir(parents=True)
@@ -142,7 +178,7 @@ def test_lock_ok_with_shared_no_collision(tmp_path: Path) -> None:
 
 
 def test_infer_walks_up_for_nested_tasks_root(tmp_path: Path) -> None:
-    """Collision gate must fire even when tasks.root is nested (not just tasks/)."""
+    """Shadow gate must fire even when tasks.root is nested (not just tasks/)."""
     from bora.config.shared import infer_database_root_from_task
 
     (tmp_path / "bora.yaml").write_text(
@@ -157,11 +193,12 @@ def test_infer_walks_up_for_nested_tasks_root(tmp_path: Path) -> None:
     (shared_lib / "bridge.py").write_text("x=1\n", encoding="utf-8")
     task = tmp_path / "members" / "group" / "t1"
     _write_task(task, "t1", lib_mod="bridge")
+    (task / "shared.py").write_text("bad=1\n", encoding="utf-8")
     assert infer_database_root_from_task(task) == tmp_path.resolve()
     with pytest.raises(ConfigError) as ei:
         validate_shared_layout(tmp_path, tasks_root="members/group")
-    assert "collision" in ei.value.message
+    assert "shared" in ei.value.message
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei2:
         core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
-    assert "collision" in ei2.value.message
+    assert "shared" in ei2.value.message

@@ -71,7 +71,8 @@ async def run_harness_package(
     Attempt host workspace so harness can read agent-written files.
 
     *database_root* is the Database root (optional). When set, the worker injects
-    ``shared/lib`` on ``sys.path`` and exposes it for code-path asset reads (#65).
+    ``[task_dir, database_root]`` on ``sys.path`` so authors import ``shared.lib.*``
+    / ``lib.*`` and can resolve code-path assets under the Dataset (#68).
     """
     factory = identity_factory or IdentityFactory()
     if attempt is not None:

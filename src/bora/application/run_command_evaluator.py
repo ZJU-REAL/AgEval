@@ -23,12 +23,11 @@ def run_evaluator_worker(
     path = package_root / "evaluator.py"
     if not path.is_file():
         return {"status": "ERROR", "score": None, "metrics": {}}
-    # #65: inject task root + optional shared/lib (same contract as harness worker).
+    # #68: [task_dir, database_root] — same contract as harness worker.
+    # Do not inject shared/lib leaf; authors use shared.lib.* / lib.*.
     path_entries: list[str] = [str(package_root.resolve())]
     if database_root is not None:
-        shared_lib = database_root.resolve() / "shared" / "lib"
-        if shared_lib.is_dir():
-            path_entries.insert(0, str(shared_lib))
+        path_entries.append(str(database_root.resolve()))
     path_inject = repr(path_entries)
     with tempfile.TemporaryDirectory(prefix="bora-eval-") as tmp:
         script = Path(tmp) / "run_eval.py"
