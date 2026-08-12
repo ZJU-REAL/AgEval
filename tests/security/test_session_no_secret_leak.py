@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.parent_agent_service import ParentAgentService
-from tests.helpers.extension_registry import registry_with_executor
 
 
 def test_parent_service_response_has_no_secret_keys() -> None:

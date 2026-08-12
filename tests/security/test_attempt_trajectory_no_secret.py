@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.evidence.store import AttemptEvidenceStore
 from bora.runtime.parent_agent_service import ParentAgentService
-from tests.helpers.extension_registry import registry_with_executor
 
 
 class _LeakyExecutor:

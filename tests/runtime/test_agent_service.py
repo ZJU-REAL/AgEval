@@ -5,13 +5,14 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.agent_service_protocol import (
     AgentServiceServer,
     agent_service_client_call,
 )
 from bora.runtime.parent_agent_service import ParentAgentService
-from tests.helpers.extension_registry import registry_with_executor
 
 
 class _FakeExecutor:

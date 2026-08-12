@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import time
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.parent_agent_service import (
     ParentAgentService,
     resolve_invoke_timeout_seconds,
 )
-from tests.helpers.extension_registry import registry_with_executor
 
 
 class _CaptureTimeout:

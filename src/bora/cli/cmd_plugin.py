@@ -53,7 +53,7 @@ def plugin_install(
             summary = install_plugin_from_registry(source)
         except ConfigError as exc:
             typer.echo(
-                json.dumps({"ok": False, "error": exc.code, "message": str(exc)}),
+                json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
                 err=True,
             )
             raise typer.Exit(code=2) from exc
@@ -97,7 +97,7 @@ def plugin_publish(
         summary = publish_plugin(source, public=public, org=org)
     except ConfigError as exc:
         typer.echo(
-            json.dumps({"ok": False, "error": exc.code, "message": str(exc)}),
+            json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
             err=True,
         )
         raise typer.Exit(code=2) from exc

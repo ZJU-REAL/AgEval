@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.parent_agent_service import ParentAgentService, SessionBinding
-from tests.helpers.extension_registry import registry_with_executor
 
 
 def test_open_binds_generation() -> None:
