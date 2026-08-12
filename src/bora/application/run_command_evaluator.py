@@ -25,6 +25,8 @@ def run_evaluator_worker(
         return {"status": "ERROR", "score": None, "metrics": {}}
     # #68: [task_dir, database_root] — same contract as harness worker.
     # Do not inject shared/lib leaf; authors use shared.lib.* / lib.*.
+    # Build highest-priority first, then reverse-insert so final path prefix
+    # is [task_dir, database_root, ...] (insert(0) reverses forward iteration).
     path_entries: list[str] = [str(package_root.resolve())]
     if database_root is not None:
         path_entries.append(str(database_root.resolve()))
@@ -36,9 +38,10 @@ def run_evaluator_worker(
             "\n".join(
                 [
                     "import json, importlib.util, sys",
-                    f"for _p in {path_inject}:",
-                    "    if _p not in sys.path:",
-                    "        sys.path.insert(0, _p)",
+                    f"for _p in reversed({path_inject}):",
+                    "    if _p in sys.path:",
+                    "        sys.path.remove(_p)",
+                    "    sys.path.insert(0, _p)",
                     f"spec = importlib.util.spec_from_file_location('ev', {str(path)!r})",
                     "mod = importlib.util.module_from_spec(spec)",
                     "assert spec.loader is not None",

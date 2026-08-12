@@ -154,6 +154,39 @@ def test_evaluator_imports_shared_lib_namespace(tmp_path: Path) -> None:
     assert (raw.get("metrics") or {}).get("token") == "from-shared"
 
 
+def test_evaluator_path_order_task_dir_before_database_root(tmp_path: Path) -> None:
+    """L0 evaluator inject must match harness: [task_dir, database_root]."""
+    # Bypass full package lock: only the evaluator worker path inject is under test.
+    # Same bare top-level name under both path roots — first on path wins.
+    task = tmp_path / "tasks" / "t1"
+    task.mkdir(parents=True)
+    (task / "order_probe.py").write_text("SOURCE = 'task'\n", encoding="utf-8")
+    (tmp_path / "order_probe.py").write_text("SOURCE = 'database'\n", encoding="utf-8")
+    (task / "evaluator.py").write_text(
+        """
+import order_probe
+
+def evaluate(payload):
+    return {
+        "status": "PASS" if order_probe.SOURCE == "task" else "FAIL",
+        "score": 1.0 if order_probe.SOURCE == "task" else 0.0,
+        "metrics": {"source": order_probe.SOURCE},
+    }
+""",
+        encoding="utf-8",
+    )
+    art = tmp_path / "session-output.json"
+    art.write_text("{}\n", encoding="utf-8")
+    raw = run_evaluator_worker(
+        task,
+        lock=object(),
+        artifacts_map={"session-output": str(art)},
+        database_root=tmp_path,
+    )
+    assert raw.get("status") == "PASS", raw
+    assert (raw.get("metrics") or {}).get("source") == "task"
+
+
 @pytest.mark.asyncio
 async def test_same_basename_shared_and_task_lib_coexist(tmp_path: Path) -> None:
     """shared.lib.bridge_mod and lib.bridge_mod must both resolve (#68)."""
