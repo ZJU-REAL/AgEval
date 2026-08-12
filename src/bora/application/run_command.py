@@ -30,6 +30,7 @@ async def run_task(
     *,
     evidence_root: Path | None = None,
     allow_offline_agent: bool = False,
+    keep_workspace: bool = False,
     overrides: dict[str, Any] | None = None,
     profiles_path: Path | str | None = None,
     profile_bindings: dict[str, dict[str, Any]] | None = None,
@@ -224,6 +225,7 @@ async def run_task(
             run_dir=run_dir,
             agent_meta=agent_meta,
             allow_offline_agent=allow_offline_agent,
+            keep_workspace=keep_workspace,
         )
         score_raw = result_doc.get("score")
         score_f = float(score_raw) if isinstance(score_raw, int | float) else None
