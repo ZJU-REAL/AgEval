@@ -51,7 +51,7 @@ uv run bora lock examples/core --task config-minimal
 # 真实多轮 agent 路径（需本机 ACP entry 就绪 + 凭证）
 uv run bora run examples/core --task sdk-agent-session
 
-# 用 job binding 覆盖切换 coding-agent entry（#59）
+# 用 job binding 覆盖切换 coding-agent entry
 uv run bora run examples/core --task builtin-executor-conformance \
   --set '/bindings/solver/options/entry="pi"'
 
@@ -94,7 +94,7 @@ uv run bora executors -v
 ```text
 examples/core/                    # 一个 Dataset
 ├── bora.yaml                     # 套件元数据、tasks 根
-├── profiles.yaml                 # job binding（role → entry/model；#59）
+├── profiles.yaml                 # job binding（role → entry/model）
 ├── env.example                   # 仅 credential locator 名
 └── tasks/
     └── sdk-agent-session/
@@ -104,13 +104,14 @@ examples/core/                    # 一个 Dataset
         └── …
 ```
 
-| 路径                                       | 用途                                     |
-| ------------------------------------------ | ---------------------------------------- |
-| [`examples/core/`](examples/core/)         | Core 烟测                                |
-| [`examples/journeys/`](examples/journeys/) | 案例演示（env / 多 agent / 对话 / 终端） |
-| [`examples/l1/`](examples/l1/)             | Docker L1 探针                           |
+| 路径                                               | 用途                                     |
+| -------------------------------------------------- | ---------------------------------------- |
+| [`examples/core/`](examples/core/)                 | Core 烟测                                |
+| [`examples/journeys/`](examples/journeys/)         | 案例演示（env / 多 agent / 对话 / 终端） |
+| [`examples/l1/`](examples/l1/)                     | Docker L1 探针                           |
+| [`examples/tau3-airline/`](examples/tau3-airline/) | τ³-bench airline 转换包                  |
 
-CLI 指向 **Dataset 根**，`--task <id>` 选成员。列表见 [`examples/README.md`](examples/README.md)。
+CLI 指向 **Dataset 根**，`--task <id>` 选成员。完整说明见 [`examples/README.md`](examples/README.md)。
 
 ```yaml
 # task.yaml — 仅角色槽
@@ -168,11 +169,11 @@ uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
 └── cancel.requested # suite cancel 后出现
 ```
 
-| 指标 | 作用 |
-| --- | --- |
-| `pass_rate` / `mean_score` | 观测扫一眼 |
+| 指标                         | 作用                                                             |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `pass_rate` / `mean_score`   | 观测扫一眼                                                       |
 | `pass_at_k` / `pass_power_k` | Always-k 后的 job 统计（按 task 取 mean）；**不是** package 身份 |
-| `n_attempts` | 本次 job 的 k 预算 |
+| `n_attempts`                 | 本次 job 的 k 预算                                               |
 
 PASS 仍仅 **per-task**。`n_attempts` **只走 CLI/job**（不进 `task.yaml` / fingerprint）。Attempt `result.json` 可含 `phase_timing`。可选 Registry 归档：`bora results upload-suite`（见 CLI README）。本机 UI：`bora view <dataset>`（Attempt 页 Timing / Tokens）。
 
@@ -180,14 +181,14 @@ PASS 仍仅 **per-task**。`n_attempts` **只走 CLI/job**（不进 `task.yaml` 
 
 ## 延伸阅读
 
-| 读者     | 入口                                                         |
-| -------- | ------------------------------------------------------------ |
-| 设计     | [`docs/design/`](docs/design/)                               |
-| 结构     | [`ARCHITECTURE.md`](ARCHITECTURE.md)                         |
-| 产品文档 | [`website/`](website/) — 中/英读者向（非设计权威）            |
-| CLI      | [`src/bora/cli/README.md`](src/bora/cli/README.md)           |
+| 读者     | 入口                                                             |
+| -------- | ---------------------------------------------------------------- |
+| 设计     | [`docs/design/`](docs/design/)                                   |
+| 结构     | [`ARCHITECTURE.md`](ARCHITECTURE.md)                             |
+| 产品文档 | [`website/`](website/) — 中/英读者向（非设计权威）               |
+| CLI      | [`src/bora/cli/README.md`](src/bora/cli/README.md)               |
 | Viewer   | [`apps/viewer/README.md`](apps/viewer/README.md) — 本机 SPA 开发 |
-| Hub      | [`apps/hub/README.md`](apps/hub/README.md) — Registry SPA 开发 |
-| Registry | [`services/registry/README.md`](services/registry/README.md) |
-| Issues   | [GitHub Issues](https://github.com/ffy6511/BORA/issues)      |
-| 版本     | [Releases](https://github.com/ffy6511/BORA/releases)         |
+| Hub      | [`apps/hub/README.md`](apps/hub/README.md) — Registry SPA 开发   |
+| Registry | [`services/registry/README.md`](services/registry/README.md)     |
+| Issues   | [GitHub Issues](https://github.com/ffy6511/BORA/issues)          |
+| 版本     | [Releases](https://github.com/ffy6511/BORA/releases)             |

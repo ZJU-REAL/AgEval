@@ -126,6 +126,20 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 跟踪 Markdown 使用**仓库相对链接**。不要在 AGENTS/Architecture 里写死仅本机可用的绝对路径作为权威链接（归档路径可用文字说明）。
 
+### 对外文档禁止 Issue 编号痕迹（硬规则）
+
+**读者向 / 对外文档不得出现 GitHub Issue 编号**（如 `#66`、`#59`、`Issue #60`、`Closes #xx` 文案）。
+
+| 适用 | 不适用（可保留 Issue 引用） |
+| --- | --- |
+| 根 `README.md` / `README.zh-CN.md` | `AGENTS.md`、`ARCHITECTURE.md`（贡献者路由） |
+| [`website/`](website/) 全部读者向正文（中/英） | `docs/design/*`、内部 PR/Issue 讨论 |
+| `examples/**/README*` 及包内读者向说明 | 实现与 PR 描述里的 `Closes #N`（给 GitHub 跟踪用） |
+| 产品站、教程、公开 smoke 叙述 | 测试名 / 代码注释若仅开发者可见（仍宜少写） |
+
+**写法：** 用产品语义写边界（例：「monorepo 只收 tau3-airline；更大 bench 只走 Hub」），**不要**用「#66 交付边界」这类交付跟踪编号当章节标题或正文标记。  
+改文档时若发现对外文面有 `#数字` Issue 痕迹，**先删再合**；中英文同步。
+
 ## 证据等级
 
 | 等级 | 含义 | 何时可声称 |
