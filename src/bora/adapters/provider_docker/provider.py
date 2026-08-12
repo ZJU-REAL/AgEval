@@ -13,10 +13,12 @@ import subprocess
 import uuid
 from pathlib import Path
 
+from bora.adapters.provider_docker.cli_supervise import supervise_docker_cli
 from bora.adapters.provider_docker.errors import ProviderL1Error
 from bora.adapters.provider_docker.multi_actor import DockerMultiActorMixin
 from bora.adapters.provider_docker.package_view import copy_package_filtered
 from bora.adapters.provider_docker.types import DockerImageLock, DockerRuntime
+from bora.provider.contract import TerminationPolicy
 from bora.provider.errors import ERROR_SPAWN_FAILED
 from bora.provider.outcomes import ProcessOutcome, ProcessTerminalKind
 from bora.runtime.identity import AttemptIdentity
@@ -169,78 +171,67 @@ class DockerProvider(DockerMultiActorMixin):
 
         cmd.extend(["--workdir", workdir, runtime.image_lock.image_tag, *argv])
 
-        try:
-            proc = subprocess.run(
-                cmd,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=timeout_seconds,
-            )
-        except subprocess.TimeoutExpired:
-            runtime.termination_actions.append("timeout_kill")
-            kill = subprocess.run(
+        def _rm_force() -> str | None:
+            subprocess.run(
                 ["docker", "rm", "-f", name], check=False, capture_output=True, text=True
             )
-            # Only confirm stop if the named container is gone.
-            gone = (
+            return "docker_rm_force"
+
+        def _container_alive() -> bool:
+            return (
                 subprocess.run(
                     ["docker", "inspect", name],
                     check=False,
                     capture_output=True,
                 ).returncode
-                != 0
+                == 0
             )
-            confirmed = gone and kill.returncode == 0
-            runtime.record_writer_stop(confirmed)
-            return ProcessOutcome(
+
+        try:
+            outcome = supervise_docker_cli(
+                cmd,
+                timeout_seconds=timeout_seconds,
                 attempt=runtime.attempt,
-                assurance="l0",  # single-container probe; not full L1 Attempt isolation
-                terminal=ProcessTerminalKind.TIMED_OUT,
-                exit_code=None,
-                signal=None,
-                stdout_summary="",
-                stderr_summary="timeout",
-                truncated=False,
-                pid=None,
-                pgid=None,
-                termination_actions=tuple(runtime.termination_actions),
-                writer_stop_confirmed=runtime.writer_stop_confirmed,
-                cleanup_ok=True,
-                cleanup_warning=None
-                if runtime.writer_stop_confirmed
-                else "writer_stop: unconfirmed after timeout kill",
+                termination=TerminationPolicy(
+                    terminate=_rm_force,
+                    is_alive=_container_alive,
+                ),
             )
-        except OSError as exc:
+        except FileNotFoundError as exc:
             raise ProviderL1Error(ERROR_SPAWN_FAILED, f"docker run failed: {exc}") from exc
 
-        # docker run --rm waits for main process exit → writer stop confirmed.
-        runtime.record_writer_stop(proc.returncode is not None)
-        terminal = (
-            ProcessTerminalKind.EXITED
-            if proc.returncode is not None
-            else ProcessTerminalKind.KILLED
-        )
-        full_out = proc.stdout or ""
-        full_err = proc.stderr or ""
+        if outcome.terminal == ProcessTerminalKind.SPAWN_FAILED:
+            raise ProviderL1Error(
+                ERROR_SPAWN_FAILED,
+                f"docker run failed: {(outcome.stderr_summary or '')[-500:]}",
+            )
+
+        runtime.termination_actions.extend(outcome.termination_actions)
+        runtime.record_writer_stop(outcome.writer_stop_confirmed)
+        full_out = outcome.stdout_summary or ""
+        full_err = outcome.stderr_summary or ""
+        if outcome.terminal == ProcessTerminalKind.TIMED_OUT and not full_err:
+            full_err = "timeout"
         if stream_dir is not None:
+            # Full capture (high max_stream_bytes in supervise_docker_cli), then dump.
             stream_dir.mkdir(parents=True, exist_ok=True)
             (stream_dir / "stdout.txt").write_text(full_out, encoding="utf-8")
             (stream_dir / "stderr.txt").write_text(full_err, encoding="utf-8")
         return ProcessOutcome(
             attempt=runtime.attempt,
-            assurance="l0",
-            terminal=terminal,
-            exit_code=proc.returncode,
-            signal=None,
+            assurance="l0",  # single-container probe; not full L1 Attempt isolation
+            terminal=outcome.terminal,
+            exit_code=outcome.exit_code,
+            signal=outcome.signal,
             stdout_summary=full_out[-8000:],
             stderr_summary=full_err[-8000:],
-            truncated=len(full_out) > 8000 or len(full_err) > 8000,
-            pid=None,
-            pgid=None,
+            truncated=len(full_out) > 8000 or len(full_err) > 8000 or outcome.truncated,
+            pid=outcome.pid,
+            pgid=outcome.pgid,
             termination_actions=tuple(runtime.termination_actions),
             writer_stop_confirmed=runtime.writer_stop_confirmed,
-            cleanup_ok=True,
+            cleanup_ok=outcome.cleanup_ok,
+            cleanup_warning=outcome.cleanup_warning,
             detail={
                 "image": runtime.image_lock.image_digest if runtime.image_lock else "",
                 "platform": runtime.image_lock.platform if runtime.image_lock else "",

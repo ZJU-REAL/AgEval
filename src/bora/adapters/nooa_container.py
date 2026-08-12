@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from typing import Any
 
 from bora.adapters.agent_contract import AgentResult
+from bora.adapters.provider_docker.cli_supervise import supervise_docker_cli
+from bora.provider.contract import TerminationPolicy
+from bora.provider.outcomes import ProcessTerminalKind
 
 WORKER_PATH = "/usr/local/bin/bora-executor-nooa"
 PACKAGE_ROOT_CONTAINER = "/attempt/package"
@@ -82,29 +84,27 @@ class NooaContainerExecutor:
             "python3",
             WORKER_PATH,
         ]
+        # No tracked remote PID: after client-side teardown we cannot prove the
+        # in-container worker is gone (terminate is a no-op). is_alive stays true
+        # once teardown was requested so writer_stop is never self-confirmed.
+        # A clean docker-exec exit means the remote command completed with the client.
+        teardown_requested = {"value": False}
+
+        def _terminate() -> str | None:
+            teardown_requested["value"] = True
+            return None
+
+        def _is_alive() -> bool:
+            return teardown_requested["value"]
+
         try:
-            proc = subprocess.run(
+            outcome = supervise_docker_cli(
                 cmd,
-                input=json.dumps(payload, ensure_ascii=False),
-                capture_output=True,
-                text=True,
-                timeout=max(1.0, float(timeout)),
-                check=False,
+                timeout_seconds=max(1.0, float(timeout)),
+                stdin_bytes=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                termination=TerminationPolicy(terminate=_terminate, is_alive=_is_alive),
             )
-        except subprocess.TimeoutExpired:
-            return AgentResult(
-                model=self.model,
-                text="",
-                structured=None,
-                ok=False,
-                error="nooa_container_timeout",
-                metadata={
-                    "plugin": "nooa",
-                    "execution_location": self.execution_location,
-                    "agent": self.agent_ref,
-                },
-            )
-        except OSError as exc:
+        except FileNotFoundError as exc:
             return AgentResult(
                 model=self.model,
                 text="",
@@ -117,8 +117,34 @@ class NooaContainerExecutor:
                 },
             )
 
-        stdout = (proc.stdout or "").strip()
-        stderr = (proc.stderr or "")[-2000:]
+        if outcome.terminal == ProcessTerminalKind.TIMED_OUT:
+            return AgentResult(
+                model=self.model,
+                text="",
+                structured=None,
+                ok=False,
+                error="nooa_container_timeout",
+                metadata={
+                    "plugin": "nooa",
+                    "execution_location": self.execution_location,
+                    "agent": self.agent_ref,
+                },
+            )
+        if outcome.terminal == ProcessTerminalKind.SPAWN_FAILED:
+            return AgentResult(
+                model=self.model,
+                text="",
+                structured=None,
+                ok=False,
+                error=f"nooa_container_exec:{(outcome.stderr_summary or '')[:200]}",
+                metadata={
+                    "plugin": "nooa",
+                    "execution_location": self.execution_location,
+                },
+            )
+
+        stdout = (outcome.stdout_summary or "").strip()
+        stderr = (outcome.stderr_summary or "")[-2000:]
         if not stdout:
             return AgentResult(
                 model=self.model,
@@ -130,7 +156,7 @@ class NooaContainerExecutor:
                 metadata={
                     "plugin": "nooa",
                     "execution_location": self.execution_location,
-                    "returncode": proc.returncode,
+                    "returncode": outcome.exit_code,
                 },
             )
         # Worker prints one JSON line (last non-empty line).
@@ -168,7 +194,7 @@ class NooaContainerExecutor:
             "plugin": "nooa",
             "execution_location": self.execution_location,
             "agent": self.agent_ref,
-            "returncode": proc.returncode,
+            "returncode": outcome.exit_code,
         }
         structured = doc.get("structured") if isinstance(doc.get("structured"), dict) else None
         return AgentResult(

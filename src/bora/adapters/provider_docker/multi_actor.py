@@ -6,6 +6,7 @@ import subprocess
 import uuid
 from pathlib import Path
 
+from bora.adapters.provider_docker.cli_supervise import supervise_docker_cli
 from bora.adapters.provider_docker.errors import ProviderL1Error
 from bora.adapters.provider_docker.package_view import copy_package_filtered
 from bora.adapters.provider_docker.types import (
@@ -14,6 +15,7 @@ from bora.adapters.provider_docker.types import (
     DockerRuntime,
 )
 from bora.provider.errors import ERROR_SPAWN_FAILED
+from bora.provider.outcomes import ProcessTerminalKind
 from bora.provider.targets import (
     ActorPhysicalBinding,
     ExecutionTarget,
@@ -21,6 +23,10 @@ from bora.provider.targets import (
     LogicalIsolationTopology,
     TargetLedger,
 )
+from bora.runtime.identity import AttemptIdentity
+
+# Actor FS bootstrap is short host→container setup; never hang forever.
+_ACTOR_FS_BOOTSTRAP_TIMEOUT_SECONDS = 120.0
 
 
 class DockerMultiActorMixin:
@@ -79,7 +85,9 @@ class DockerMultiActorMixin:
                     )
                     ledger.actors[actor.actor_id] = binding
                     bindings.append(binding)
-                self._bootstrap_actor_fs(target, bindings, shared_gid=shared_gid)
+                self._bootstrap_actor_fs(
+                    target, bindings, shared_gid=shared_gid, attempt=runtime.attempt
+                )
             else:
                 # container-per-group: one target per group; per-group workspace only
                 # (no cross-container shared RW volumes — design/05 L1 isolation).
@@ -119,7 +127,12 @@ class DockerMultiActorMixin:
                         )
                         ledger.actors[aid] = binding
                         group_bindings.append(binding)
-                    self._bootstrap_actor_fs(target, group_bindings, shared_gid=shared_gid)
+                    self._bootstrap_actor_fs(
+                        target,
+                        group_bindings,
+                        shared_gid=shared_gid,
+                        attempt=runtime.attempt,
+                    )
 
             runtime.target_ledger = ledger
             runtime.agent_container_ids = [c for c in created if c]
@@ -340,6 +353,7 @@ class DockerMultiActorMixin:
         bindings: list[ActorPhysicalBinding],
         *,
         shared_gid: int,
+        attempt: AttemptIdentity,
     ) -> None:
         """Create private HOME 0700 and shared_write dirs with real GID grants.
 
@@ -426,14 +440,25 @@ class DockerMultiActorMixin:
                 lines.append(f"usermod -aG {b.shared_gid} actor-{b.uid} 2>/dev/null || true")
 
         script = "\n".join(lines)
-        proc = subprocess.run(
-            ["docker", "exec", "-u", "0:0", target.container_id, "sh", "-c", script],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if proc.returncode != 0:
+        try:
+            outcome = supervise_docker_cli(
+                ["docker", "exec", "-u", "0:0", target.container_id, "sh", "-c", script],
+                timeout_seconds=_ACTOR_FS_BOOTSTRAP_TIMEOUT_SECONDS,
+                attempt=attempt,
+            )
+        except FileNotFoundError as exc:
             raise ProviderL1Error(
                 ERROR_SPAWN_FAILED,
-                f"actor fs bootstrap failed: {(proc.stderr or proc.stdout or '')[-1000:]}",
+                f"actor fs bootstrap failed: {exc}",
+            ) from exc
+        if outcome.terminal == ProcessTerminalKind.TIMED_OUT:
+            raise ProviderL1Error(
+                ERROR_SPAWN_FAILED,
+                "actor fs bootstrap timed out",
+            )
+        if outcome.terminal == ProcessTerminalKind.SPAWN_FAILED or outcome.exit_code != 0:
+            detail = (outcome.stderr_summary or outcome.stdout_summary or "")[-1000:]
+            raise ProviderL1Error(
+                ERROR_SPAWN_FAILED,
+                f"actor fs bootstrap failed: {detail}",
             )
