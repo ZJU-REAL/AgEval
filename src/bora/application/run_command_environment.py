@@ -156,9 +156,7 @@ def prepare_postgresql_environment(
             if not isinstance(env_doc, dict):
                 raise RuntimeError("env_inject_handler_must_return_handoff_dict")
             env_ctx.env_handoff = env_doc
-            action_spi = hook_env_action(
-                lock, {"op": "prepare", "resource_id": rid}, ctx=env_ctx
-            )
+            action_spi = hook_env_action(lock, {"op": "prepare", "resource_id": rid}, ctx=env_ctx)
             # Attach SPI object with check() as action gate; markers stay observational.
             if action_spi is not None and hasattr(action_spi, "check"):
                 env_manager.action_gate = action_spi

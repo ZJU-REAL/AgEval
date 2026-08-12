@@ -470,9 +470,7 @@ def run_l1_sdk_session_attempt(
                         dest = staging / p.name
                         if not dest.exists():
                             dest.write_bytes(p.read_bytes())
-        runtime_ann = hook_evaluation_runtime(
-            lock, {"source": "package", "path": "run_l1"}
-        )
+        runtime_ann = hook_evaluation_runtime(lock, {"source": "package", "path": "run_l1"})
         if runtime_ann is not None:
             l1_meta["evaluation_runtime"] = (
                 dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}

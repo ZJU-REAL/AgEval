@@ -8,11 +8,11 @@ from unittest.mock import patch
 
 from bora.application import extension_hooks as hooks
 from bora.plugins.defaults import register_defaults
+from bora.plugins.lock_bind import extension_graph_to_lock
 from bora.plugins.protocol import BindingIntent
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.resolve import resolve
 from bora.plugins.slots import EVALUATION_INPUT_CONTRIBUTE, EVALUATION_RUNTIME, SCORE_POSTPROCESS
-from bora.plugins.lock_bind import extension_graph_to_lock
 
 
 def _lock() -> Any:
@@ -54,9 +54,7 @@ def test_evaluation_input_and_score_postprocess_rewrite() -> None:
     with patch.object(hooks, "graph_for_lock", return_value=graph):
         contrib = hooks.hook_evaluation_input(lock, {"artifacts": {"a": "/x"}})
         runtime = hooks.hook_evaluation_runtime(lock, {"source": "test"})
-        scored = hooks.hook_score_postprocess(
-            lock, {"status": "PASS", "score": 1.0, "metrics": {}}
-        )
+        scored = hooks.hook_score_postprocess(lock, {"status": "PASS", "score": 1.0, "metrics": {}})
 
     assert "evaluation_input_contribute" in calls
     assert "score_postprocess" in calls

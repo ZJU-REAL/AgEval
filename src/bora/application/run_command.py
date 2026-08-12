@@ -351,8 +351,9 @@ async def run_task(
         # Environment Manager teardown (#71 C: env_teardown multi before close)
         if env_manager is not None:
             with contextlib.suppress(Exception):
-                from bora.application.extension_hooks import hook_env_teardown
                 from types import SimpleNamespace
+
+                from bora.application.extension_hooks import hook_env_teardown
 
                 td_ctx = SimpleNamespace(
                     attempt_id=str(agent_meta.get("attempt_id") or run_id),
@@ -447,9 +448,7 @@ async def run_task(
             eval_extension_meta["evaluation_input"] = {
                 "keys": sorted(artifacts_map.keys()),
             }
-        runtime_ann = hook_evaluation_runtime(
-            lock, {"source": "package", "path": "run_command"}
-        )
+        runtime_ann = hook_evaluation_runtime(lock, {"source": "package", "path": "run_command"})
         if runtime_ann is not None:
             eval_extension_meta["evaluation_runtime"] = (
                 dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}

@@ -131,9 +131,7 @@ async def enrich_trajectory(graph: ExtensionGraph, value: Any = None, *, ctx: An
     return await run_chain(graph, TRAJECTORY_ENRICH, value, ctx=ctx)
 
 
-async def call_trajectory_seal(
-    graph: ExtensionGraph, value: Any = None, *, ctx: Any = None
-) -> Any:
+async def call_trajectory_seal(graph: ExtensionGraph, value: Any = None, *, ctx: Any = None) -> Any:
     """Single-winner trajectory_seal provide (authority-shape marker / extra fields)."""
     pref = graph.providers.get(TRAJECTORY_SEAL)
     if pref is None:

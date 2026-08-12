@@ -480,9 +480,7 @@ class ParentAgentService:
         sentinels = tuple(self.evidence_store.sentinels) if self.evidence_store else ()
         try:
             # Constitution §7.6: before_agent_invoke → provider.invoke → after_agent_invoke.
-            prompt_out = self._run_extension_chain(
-                binding_snap, "before_agent_invoke", prompt
-            )
+            prompt_out = self._run_extension_chain(binding_snap, "before_agent_invoke", prompt)
             try:
                 result = executor.invoke(
                     prompt_out,
@@ -492,17 +490,13 @@ class ParentAgentService:
                 )
             except TypeError:
                 try:
-                    result = executor.invoke(
-                        prompt_out, timeout=300.0, collect_dir=collect_dir
-                    )
+                    result = executor.invoke(prompt_out, timeout=300.0, collect_dir=collect_dir)
                 except TypeError:
                     try:
                         result = executor.invoke(prompt_out, timeout=300.0)
                     except TypeError:
                         result = executor.invoke(prompt_out)
-            result = self._run_extension_chain(
-                binding_snap, "after_agent_invoke", result
-            )
+            result = self._run_extension_chain(binding_snap, "after_agent_invoke", result)
             # #71 A: normalize_agent_result after invoke bookends (fail closed via this try).
             result = self._normalize_agent_result(binding_snap, result)
         except Exception as exc:  # noqa: BLE001 — executor crash must leave partial evidence
@@ -601,9 +595,7 @@ class ParentAgentService:
             if not isinstance(close_payload, dict):
                 close_payload = {"session_id": session_id}
         except Exception:
-            _LOG.exception(
-                "before_agent_close failed (fail-open) session_id=%s", session_id
-            )
+            _LOG.exception("before_agent_close failed (fail-open) session_id=%s", session_id)
 
         if executor is not None and hasattr(executor, "close"):
             with contextlib.suppress(Exception):
@@ -612,7 +604,5 @@ class ParentAgentService:
         try:
             self._run_extension_chain(binding_snap, "after_agent_close", close_payload)
         except Exception:
-            _LOG.exception(
-                "after_agent_close failed (fail-open) session_id=%s", session_id
-            )
+            _LOG.exception("after_agent_close failed (fail-open) session_id=%s", session_id)
         return {"ok": True}

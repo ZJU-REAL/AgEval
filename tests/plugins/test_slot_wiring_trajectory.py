@@ -14,7 +14,6 @@ from bora.plugins.slots import (
     EVIDENCE_EXTRA,
     TRAJECTORY_COLLECT,
     TRAJECTORY_ENRICH,
-    TRAJECTORY_SEAL,
 )
 from bora.runtime.agent_service_evidence import seal_invoke_result
 
@@ -111,14 +110,18 @@ def test_trajectory_chain_enriches_metadata_and_evidence_extra(tmp_path: Path) -
     lines = [json.loads(line) for line in traj.read_text(encoding="utf-8").splitlines() if line]
     # Metadata enrichment must be visible on written trajectory (terminal/meta rows).
     blob = "\n".join(json.dumps(row, sort_keys=True) for row in lines)
-    assert "enriched" in blob or any(
-        isinstance(row.get("metadata"), dict) and row["metadata"].get("enriched") == "plugin-x"
-        for row in lines
-    ) or any(
-        row.get("type") == "terminal"
-        and isinstance(row.get("metadata"), dict)
-        and row["metadata"].get("enriched") == "plugin-x"
-        for row in lines
+    assert (
+        "enriched" in blob
+        or any(
+            isinstance(row.get("metadata"), dict) and row["metadata"].get("enriched") == "plugin-x"
+            for row in lines
+        )
+        or any(
+            row.get("type") == "terminal"
+            and isinstance(row.get("metadata"), dict)
+            and row["metadata"].get("enriched") == "plugin-x"
+            for row in lines
+        )
     )
     # Also accept enrichment on user/assistant metadata if writer places it there.
     # Fallback: inspect write via seal final_response seal_marker from default provide.

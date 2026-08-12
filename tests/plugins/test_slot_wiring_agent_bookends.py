@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.plugins.slots import (
     AFTER_AGENT_CLOSE,
     AFTER_AGENT_OPEN,
@@ -13,7 +15,6 @@ from bora.plugins.slots import (
     NORMALIZE_AGENT_RESULT,
 )
 from bora.runtime.parent_agent_service import ParentAgentService
-from tests.helpers.extension_registry import registry_with_executor
 
 
 class _FakeResult:

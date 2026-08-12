@@ -207,9 +207,7 @@ def seal_invoke_result(
                     md = dict(traj_payload.get("metadata") or {})
                     md.setdefault("trajectory_seal", sm)
                     traj_payload["metadata"] = md
-            extras = _run_async(
-                collect_evidence_extra(extension_graph, [], ctx=extension_ctx)
-            )
+            extras = _run_async(collect_evidence_extra(extension_graph, [], ctx=extension_ctx))
             if isinstance(extras, list) and extras:
                 extra_path = Path(handle.directory) / "evidence_extra.jsonl"
                 with extra_path.open("w", encoding="utf-8") as fh:
@@ -227,9 +225,7 @@ def seal_invoke_result(
         sentinels = tuple(getattr(store, "sentinels", ()) or ())
 
     write_prompt = str(traj_payload.get("prompt") if isinstance(traj_payload, dict) else prompt)
-    write_events = (
-        traj_payload.get("events", events) if isinstance(traj_payload, dict) else events
-    )
+    write_events = traj_payload.get("events", events) if isinstance(traj_payload, dict) else events
     if not isinstance(write_events, (tuple, list)):
         write_events = events
     write_final = str(
@@ -238,9 +234,7 @@ def seal_invoke_result(
         else (getattr(result, "text", "") or "")
     )
     write_meta = (
-        dict(traj_payload.get("metadata") or meta)
-        if isinstance(traj_payload, dict)
-        else meta
+        dict(traj_payload.get("metadata") or meta) if isinstance(traj_payload, dict) else meta
     )
     write_structured = (
         traj_payload.get("structured")
@@ -252,7 +246,9 @@ def seal_invoke_result(
             result.structured if isinstance(getattr(result, "structured", None), dict) else None
         )
     write_usage = (
-        traj_payload.get("usage") if isinstance(traj_payload, dict) else getattr(result, "usage", None)
+        traj_payload.get("usage")
+        if isinstance(traj_payload, dict)
+        else getattr(result, "usage", None)
     )
     write_ok = (
         bool(traj_payload.get("ok", result.ok))
@@ -271,7 +267,9 @@ def seal_invoke_result(
         structured=write_structured,
         usage=write_usage if isinstance(write_usage, dict) else getattr(result, "usage", None),
         ok=write_ok,
-        error=write_error if isinstance(write_error, str) or write_error is None else str(write_error),
+        error=write_error
+        if isinstance(write_error, str) or write_error is None
+        else str(write_error),
         metadata=write_meta,
         redaction_sentinels=sentinels,
     )
