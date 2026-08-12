@@ -253,6 +253,8 @@ def make_l1_target_executor_factory(
                 agent_ref=agent_ref,
                 method=method,
                 model=str(getattr(binding, "model", None) or "nooa"),
+                base_url=base_url,
+                api_key_env=api_key_env,
                 uid=int(phys.uid),
                 gid=int(run_gid),
             )

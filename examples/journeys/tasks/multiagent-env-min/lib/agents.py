@@ -1,77 +1,70 @@
-"""Deterministic package agents for nooa executor (multiagent env diagnostics)."""
+"""NVIDIA nooa agents for multiagent env diagnostics (real LLM via executor)."""
 
 from __future__ import annotations
 
-import json
-import re
-from typing import Any
-
-# Gold labels for this fixture seed (must match evaluation/expected.json).
-GOLD_LABELS = ["INSERT_LARGE_DATA", "LOCK_CONTENTION", "VACUUM"]
+from nooa import Agent
+from pydantic import BaseModel, Field
 
 
-def _extract_role_name(prompt: str) -> str | None:
-    m = re.search(r"Specialist role:\s*(\w+)", prompt)
-    return m.group(1) if m else None
+class SpecialistFinding(BaseModel):
+    specialist: str
+    active: bool
+    label: str | None = None
+    evidence: str = ""
 
 
-class SpecialistAgent:
-    """Decide active/label for one specialist probe from ROWS in the prompt."""
-
-    def run(self, prompt: str, workdir: str | None = None) -> dict[str, Any]:
-        del workdir
-        name = _extract_role_name(prompt) or "UNKNOWN"
-        # Heuristic on fixture seed: first three specialties have strong signal.
-        active = name in {"INSERT_LARGE_DATA", "LOCK_CONTENTION", "VACUUM"}
-        # Soft signals for the other two (present but not gold).
-        if name == "REDUNDANT_INDEX" and "orders_note_idx" in prompt and "0" in prompt:
-            active = False
-        if name == "FETCH_LARGE_DATA":
-            active = False
-        payload = {
-            "specialist": name,
-            "active": active,
-            "label": name if active else None,
-            "evidence": "rows_present" if "ROWS" in prompt else "no_rows",
-        }
-        return {"ok": True, "text": json.dumps(payload), "structured": payload}
+class PlannerDecision(BaseModel):
+    follow_up_sql: str | None = None
+    rationale: str = ""
 
 
-class PlannerAgent:
-    """Optional follow-up SQL; default null for this fixture."""
-
-    def run(self, prompt: str, workdir: str | None = None) -> dict[str, Any]:
-        del prompt, workdir
-        payload = {"follow_up_sql": None, "rationale": "seed evidence sufficient"}
-        return {"ok": True, "text": json.dumps(payload), "structured": payload}
+class ReducerOutput(BaseModel):
+    predicted_labels: list[str] = Field(default_factory=list)
+    supporting_specialists: list[str] = Field(default_factory=list)
 
 
-class ReducerAgent:
-    """Emit the three gold diagnostic labels supported by specialist evidence."""
+class SpecialistAgent(Agent):
+    """You are one SQL diagnostics specialist.
 
-    def run(self, prompt: str, workdir: str | None = None) -> dict[str, Any]:
-        del workdir
-        supporting = list(GOLD_LABELS)
-        # Prefer labels that appear as active in findings JSON if present.
-        try:
-            start = prompt.find("[")
-            end = prompt.rfind("]")
-            if start >= 0 and end > start:
-                findings = json.loads(prompt[start : end + 1])
-                if isinstance(findings, list):
-                    active = [
-                        str(f.get("specialist") or f.get("label") or "")
-                        for f in findings
-                        if isinstance(f, dict) and f.get("active")
-                    ]
-                    active = [x for x in active if x]
-                    if len(set(active)) >= 3:
-                        supporting = list(dict.fromkeys(active))[:3]
-        except json.JSONDecodeError:
-            pass
-        # Ensure exactly the gold set for this package fixture.
-        payload = {
-            "predicted_labels": list(GOLD_LABELS),
-            "supporting_specialists": supporting,
-        }
-        return {"ok": True, "text": json.dumps(payload), "structured": payload}
+    Decide whether your specialty is active from the ROWS / evidence in the prompt.
+    Return SpecialistFinding. Use the specialist role name from the prompt.
+    Only mark active when the evidence clearly supports that specialty.
+    """
+
+    async def run(self, prompt: str, workdir: str | None = None) -> SpecialistFinding:
+        """Analyze evidence for this specialist role.
+
+        {prompt}
+        """
+        ...
+
+
+class PlannerAgent(Agent):
+    """You are the planner for SQL diagnostics.
+
+    Optionally propose one follow-up SQL query, or null when seed evidence is enough.
+    Return PlannerDecision.
+    """
+
+    async def run(self, prompt: str, workdir: str | None = None) -> PlannerDecision:
+        """Decide follow-up SQL if needed.
+
+        {prompt}
+        """
+        ...
+
+
+class ReducerAgent(Agent):
+    """You are the reducer for SQL diagnostics.
+
+    From specialist findings, return exactly three unique predicted_labels
+    chosen only from the allowed label set in the prompt.
+    Prefer labels whose specialists reported active=true with supporting evidence.
+    """
+
+    async def run(self, prompt: str, workdir: str | None = None) -> ReducerOutput:
+        """Reduce findings to three labels.
+
+        {prompt}
+        """
+        ...

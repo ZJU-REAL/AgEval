@@ -16,6 +16,7 @@ build/
 
 # BORA runtime state
 .bora/
+/tmp
 
 # Editors / OS
 .DS_Store

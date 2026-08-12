@@ -1,4 +1,4 @@
-# Layer nooa in-container worker onto a package Attempt image.
+# Layer nooa in-container worker + NVIDIA nooa runtime onto a package Attempt image.
 # Build context = installed nooa plugin package root (path install cache).
 # Usage (host):
 #   docker build --build-arg BASE_IMAGE=<pkg-tag> -f docker/Dockerfile.bake -t <out> .
@@ -8,9 +8,11 @@ FROM ${BASE_IMAGE}
 USER root
 COPY src/nooa_plugin /opt/nooa/nooa_plugin
 COPY worker/bora_executor_nooa.py /usr/local/bin/bora-executor-nooa
+# NVIDIA OO Agents (LiteLLM-backed). Bake needs network at image build time.
 RUN chmod 755 /usr/local/bin/bora-executor-nooa \
     && test -f /usr/local/bin/bora-executor-nooa \
-    && python3 -m py_compile /usr/local/bin/bora-executor-nooa
+    && python3 -m py_compile /usr/local/bin/bora-executor-nooa \
+    && python3 -m pip install --no-cache-dir "nooa>=0.0.7"
 
 # Prefer non-root actor when base defines it.
 USER bora

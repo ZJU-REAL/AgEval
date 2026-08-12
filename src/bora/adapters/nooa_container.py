@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 from bora.adapters.agent_contract import AgentExecutor, AgentResult
@@ -19,6 +20,9 @@ class NooaContainerExecutor(AgentExecutor):
     """Invoke package-local agents inside the Attempt container via baked worker.
 
     Parent never imports task ``lib.agents`` for L1 success path.
+    Projects ``model`` / ``base_url`` / API key (resolved on host from locator)
+    into the worker request + ``docker exec -e`` so NVIDIA nooa can call the
+    real upstream endpoint inside the Attempt.
     """
 
     kind = "nooa"
@@ -31,6 +35,8 @@ class NooaContainerExecutor(AgentExecutor):
         agent_ref: str,
         method: str = "run",
         model: str = "nooa",
+        base_url: str | None = None,
+        api_key_env: str | None = None,
         uid: int = 10001,
         gid: int = 10001,
         package_root_container: str = PACKAGE_ROOT_CONTAINER,
@@ -40,6 +46,8 @@ class NooaContainerExecutor(AgentExecutor):
         self.agent_ref = agent_ref
         self.method = method or "run"
         self.model = model or "nooa"
+        self.base_url = (base_url or "").strip() or None
+        self.api_key_env = (api_key_env or "").strip() or None
         self.uid = uid
         self.gid = gid
         self.package_root_container = package_root_container
@@ -54,6 +62,26 @@ class NooaContainerExecutor(AgentExecutor):
     def close(self) -> None:
         self._ready = False
 
+    def _resolve_api_key(self) -> str | None:
+        if self.api_key_env:
+            val = os.environ.get(self.api_key_env)
+            if val and val.strip():
+                return val.strip()
+        for key in ("OPENAI_API_KEY", "litellm_api_key"):
+            val = os.environ.get(key)
+            if val and val.strip():
+                return val.strip()
+        return None
+
+    def _resolve_base_url(self) -> str | None:
+        if self.base_url:
+            return self.base_url
+        for key in ("OPENAI_BASE_URL", "litellm_base_url", "BORA_OPENAI_BASE_URL"):
+            val = os.environ.get(key)
+            if val and val.strip():
+                return val.strip()
+        return None
+
     def invoke(
         self,
         prompt: str,
@@ -65,13 +93,20 @@ class NooaContainerExecutor(AgentExecutor):
     ) -> AgentResult:
         del collect_dir, redaction_sentinels
         effective_workdir = workdir or self.workdir_container
-        payload = {
+        api_base = self._resolve_base_url()
+        api_key = self._resolve_api_key()
+        payload: dict[str, Any] = {
             "prompt": prompt,
             "agent": self.agent_ref,
             "method": self.method,
+            "model": self.model,
             "package_root": self.package_root_container,
             "workdir": effective_workdir,
         }
+        if api_base:
+            payload["api_base"] = api_base
+        if api_key:
+            payload["api_key"] = api_key
         cmd = [
             "docker",
             "exec",
@@ -80,10 +115,20 @@ class NooaContainerExecutor(AgentExecutor):
             f"{self.uid}:{self.gid}",
             "-w",
             effective_workdir,
-            self.container_id,
-            "python3",
-            WORKER_PATH,
         ]
+        if api_base:
+            cmd.extend(["-e", f"OPENAI_BASE_URL={api_base}"])
+        if api_key:
+            cmd.extend(["-e", f"OPENAI_API_KEY={api_key}"])
+        cmd.extend(
+            [
+                "-e",
+                f"NOOA_MODEL={self.model}",
+                self.container_id,
+                "python3",
+                WORKER_PATH,
+            ]
+        )
         # No tracked remote PID: after client-side teardown we cannot prove the
         # in-container worker is gone (terminate is a no-op). is_alive stays true
         # once teardown was requested so writer_stop is never self-confirmed.

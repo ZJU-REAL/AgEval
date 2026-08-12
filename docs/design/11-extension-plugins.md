@@ -112,16 +112,22 @@ evaluate     → evaluation_input_contribute → evaluation_runtime
 
 ### nooa 绑定形状
 
+外置插件对接 [NVIDIA-labs OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents)：用 profile 的 `model` / `base_url` / `api_key`（env locator）构造 `get_llm_client(...)`，再 `AgentClass(llm=...)` 调用包内 generation method。  
+`options.agent` 应为 package-local **`nooa.Agent` 子类**（确定性 plain class 仅用于 slot-probe 等无 LLM 探针）。
+
 ```yaml
 bindings:
   solver:
     executor: nooa
+    model: openai/glm-5.2
+    api_key: litellm_api_key          # env locator；值不进 lock
+    # base_url: https://…/v1          # 可选；否则回落 litellm_base_url / OPENAI_BASE_URL
     options:
-      agent: "lib.agents:JsonlAggAgent"  # package-local
+      agent: "lib.agents:JsonlAggAgent"  # package-local nooa.Agent
       method: "run"
 ```
 
-L1：bake 后 **in-container worker** 执行；parent host SPI 不是 L1 成功路径。
+L1：bake 安装 `nooa` + **in-container worker**；parent 把 model/base_url/密钥投影进 worker；host SPI 不是 L1 成功路径。
 
 ---
 

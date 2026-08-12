@@ -21,6 +21,11 @@ registry = [
     "psycopg[binary]>=3.2.0",
     "boto3>=1.35.0",
 ]
+nooa = [
+    "httpx[socks]>=0.28.1",
+    "nooa>=0.0.7",
+    "socksio>=1.0.0",
+]
 
 [project.scripts]
 bora = "bora.cli.main:app"

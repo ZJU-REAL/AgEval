@@ -1,10 +1,13 @@
-# Journeys profiles bound to external nooa plugin (after `bora plugin install`).
+# Journeys profiles bound to external nooa plugin (NVIDIA OO Agents + real LLM).
 # Usage:
-#   BORA_HOME=… uv run bora plugin install plugins/nooa
-#   uv run bora run examples/journeys --task <task> --profiles examples/journeys/profiles.nooa.yaml
+#   uv sync --extra nooa
+#   uv run bora plugin install plugins/nooa
+#   # ensure repo/.env has litellm_api_key (+ litellm_base_url) or set base_url below
+#   uv run bora run examples/journeys --profiles examples/journeys/profiles.nooa.yaml
 #
-# Package-local agents live under each task's lib/agents.py (same module path per task).
-# install never edits this file.
+# api_key = env locator name (never a secret value).
+# base_url optional — factory falls back to litellm_base_url / OPENAI_BASE_URL.
+# Agents are package-local nooa.Agent subclasses; generation methods hit LiteLLM.
 format: bora.profiles/1
 bindings:
   solver:
@@ -12,34 +15,40 @@ bindings:
     options:
       agent: "lib.agents:JsonlAggAgent"
       method: "run"
-    model: nooa
+    model: openai/glm-5.2
+    api_key: litellm_api_key
   user:
     executor: nooa
     options:
       agent: "lib.agents:UserSimAgent"
       method: "run"
-    model: nooa
+    model: openai/glm-5.2
+    api_key: litellm_api_key
   service:
     executor: nooa
     options:
       agent: "lib.agents:ServiceAgent"
       method: "run"
-    model: nooa
+    model: openai/glm-5.2
+    api_key: litellm_api_key
   specialist:
     executor: nooa
     options:
       agent: "lib.agents:SpecialistAgent"
       method: "run"
-    model: nooa
+    model: openai/glm-5.2
+    api_key: litellm_api_key
   planner:
     executor: nooa
     options:
       agent: "lib.agents:PlannerAgent"
       method: "run"
-    model: nooa
+    model: openai/glm-5.2
+    api_key: litellm_api_key
   reducer:
     executor: nooa
     options:
       agent: "lib.agents:ReducerAgent"
       method: "run"
-    model: nooa
+    model: openai/glm-5.2
+    api_key: litellm_api_key

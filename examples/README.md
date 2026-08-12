@@ -58,16 +58,21 @@ uv run bora lock examples/core --task config-invalid       # exit 2, unknown_pro
 
 ### External nooa plugin (optional profiles)
 
-Install never rewrites Database profiles. Bind with a separate profiles file:
+NVIDIA [OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents) path: real LiteLLM
+calls via profile `model` / `base_url` / `api_key` (env locator). Install never
+rewrites Database profiles — bind with a separate profiles file:
 
 ```bash
+uv sync --extra nooa
 uv run bora plugin install plugins/nooa
-uv run bora run examples/journeys --task terminal-jsonl-agg \
-  --profiles examples/journeys/profiles.nooa.yaml
+# repo/.env: litellm_api_key (+ litellm_base_url) or set profile base_url
+unset BORA_OFFLINE_AGENT
+uv run bora run examples/journeys --profiles examples/journeys/profiles.nooa.yaml
 ```
 
-Package-local agents live under each task’s `lib/agents.py`. L1 Ready uses
-`image_contribute` bake (in-container worker) — not parent host SPI success.
+Package agents under each task’s `lib/agents.py` are `nooa.Agent` subclasses
+(generation methods). L1 Ready bakes `nooa` + in-container worker and projects
+credentials — not parent host SPI success.
 
 ## `slot-probe/` (`database_id: example/slot-probe`)
 
