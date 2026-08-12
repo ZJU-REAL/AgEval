@@ -8,6 +8,7 @@ Each parent-bound invoke writes per-invocation evidence before returning.
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import threading
 import time
@@ -24,6 +25,8 @@ from bora.runtime.agent_service_evidence import (
     seal_invoke_result,
     write_invoke_request,
 )
+
+_LOG = logging.getLogger(__name__)
 
 # Optional extension graph (Spec 00); kept as Any to avoid hard import cycles in types.
 ExtensionGraphLike = Any
@@ -108,7 +111,9 @@ class ParentAgentService:
             raise RuntimeError("executor_impl_missing")
         return impl
 
-    def _run_extension_chain(self, binding: SessionBinding, slot: str, value: Any) -> Any:
+    def _run_extension_chain(
+        self, binding: SessionBinding, slot: str, value: Any, *, ctx: Any | None = None
+    ) -> Any:
         """Run multi-slot middleware for the session-pinned graph (sync host path)."""
         graph = binding.extension_graph
         if graph is None:
@@ -117,7 +122,35 @@ class ParentAgentService:
 
         from bora.plugins.middleware import run_chain
 
-        return asyncio.run(run_chain(graph, slot, value, ctx=binding))
+        return asyncio.run(run_chain(graph, slot, value, ctx=ctx if ctx is not None else binding))
+
+    def _run_async_hook(self, coro: Any) -> Any:
+        """Drive an async lifecycle helper to completion (no drop)."""
+        import asyncio
+        import concurrent.futures
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+
+    def _emit_agent_open(self, binding: SessionBinding, value: Any) -> Any:
+        graph = binding.extension_graph
+        if graph is None:
+            return value
+        from bora.plugins.lifecycle import emit_agent_open
+
+        return self._run_async_hook(emit_agent_open(graph, value, ctx=binding))
+
+    def _normalize_agent_result(self, binding: SessionBinding, value: Any) -> Any:
+        graph = binding.extension_graph
+        if graph is None:
+            return value
+        from bora.plugins.lifecycle import normalize_agent_result
+
+        return self._run_async_hook(normalize_agent_result(graph, value, ctx=binding))
 
     def get_session_extension_graph(self, session_id: str) -> ExtensionGraphLike | None:
         """Test/debug helper: return the pinned graph for a session."""
@@ -229,18 +262,44 @@ class ParentAgentService:
                 extension_graph=extension_graph,
             )
             self._sessions[sid] = binding
+
+        # #71 A: before/after_agent_open after graph pin (fail closed — no half-open session).
+        open_meta: dict[str, Any] = {
+            "session_id": sid,
+            "profile_id": profile_id,
+            "executor_plugin": executor_kind,
+            "actor_id": actor_id_n,
+            "target_id": target_id,
+            "generation": generation,
+            "acp_entry_id": acp_entry_id,
+        }
+        try:
+            open_meta = self._emit_agent_open(binding, open_meta)
+            if not isinstance(open_meta, dict):
+                open_meta = {"session_id": sid, "profile_id": profile_id}
+        except Exception as exc:  # noqa: BLE001
+            with self._lock:
+                self._sessions.pop(sid, None)
+            err_kind = getattr(exc, "kind", None) or type(exc).__name__
             return {
-                "ok": True,
-                "session_id": sid,
+                "ok": False,
+                "error": "agent_open_hook_failed",
                 "profile_id": profile_id,
-                "actor_id": actor_id_n,
-                "target_id": target_id,  # opaque only
-                "generation": generation,
-                "attempt_id": self.attempt_id,
-                "provider_session_handle": None,
-                "acp_entry_id": acp_entry_id,
-                "executor_plugin": executor_kind,
+                "detail": f"{err_kind}: {exc}",
             }
+
+        return {
+            "ok": True,
+            "session_id": sid,
+            "profile_id": profile_id,
+            "actor_id": actor_id_n,
+            "target_id": target_id,  # opaque only
+            "generation": generation,
+            "attempt_id": self.attempt_id,
+            "provider_session_handle": None,
+            "acp_entry_id": acp_entry_id,
+            "executor_plugin": executor_kind,
+        }
 
     def invoke(self, *, session_id: str, prompt: str) -> dict[str, Any]:
         # Wall hard ceiling: refuse before external executor effect.
@@ -444,6 +503,8 @@ class ParentAgentService:
             result = self._run_extension_chain(
                 binding_snap, "after_agent_invoke", result
             )
+            # #71 A: normalize_agent_result after invoke bookends (fail closed via this try).
+            result = self._normalize_agent_result(binding_snap, result)
         except Exception as exc:  # noqa: BLE001 — executor crash must leave partial evidence
             latency = (time.monotonic() - started) * 1000.0
             if handle is not None:
@@ -521,7 +582,35 @@ class ParentAgentService:
                 return {"ok": True, "already": "missing"}
             binding.closed = True
             executor = self._executors.pop(session_id, None)
+            binding_snap = binding
+
+        # #71 A: before_agent_close → executor.close → after_agent_close
+        # Close hooks fail-open (session already marked closed; record and continue).
+        close_payload: dict[str, Any] = {
+            "session_id": session_id,
+            "profile_id": binding_snap.profile_id,
+            "executor_plugin": binding_snap.executor_kind,
+            "had_executor": executor is not None,
+        }
+        try:
+            close_payload = self._run_extension_chain(
+                binding_snap, "before_agent_close", close_payload
+            )
+            if not isinstance(close_payload, dict):
+                close_payload = {"session_id": session_id}
+        except Exception:
+            _LOG.exception(
+                "before_agent_close failed (fail-open) session_id=%s", session_id
+            )
+
         if executor is not None and hasattr(executor, "close"):
             with contextlib.suppress(Exception):
                 executor.close()
+
+        try:
+            self._run_extension_chain(binding_snap, "after_agent_close", close_payload)
+        except Exception:
+            _LOG.exception(
+                "after_agent_close failed (fail-open) session_id=%s", session_id
+            )
         return {"ok": True}
