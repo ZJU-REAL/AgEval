@@ -19,6 +19,7 @@ from typing import Any
 from bora.adapters.provider_local import LocalProcessProvider
 from bora.config.model import LockedTaskConfig, thaw
 from bora.provider.contract import ExecutableGrant, ProcessLaunchPlan
+from bora.provider.outcomes import ProcessTerminalKind
 from bora.provider.workspace_plan import WorkspacePlan
 from bora.runtime.identity import AttemptIdentity, IdentityFactory
 
@@ -43,6 +44,29 @@ def _read_exact(sock: socket.socket, n: int) -> bytes:
             raise EOFError("socket closed")
         buf += chunk
     return buf
+
+
+def _worker_env(*, agent_service_sock: str | None) -> dict[str, str]:
+    """Least-privilege env projection for the production worker."""
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "PYTHONPATH": os.pathsep.join(p for p in sys.path if p and not p.endswith("zip")),
+        "HOME": os.environ.get("HOME", ""),
+        "LANG": os.environ.get("LANG", "C"),
+    }
+    # Codex/login may need user config; keep only when not offline.
+    if os.environ.get("BORA_OFFLINE_AGENT") != "1":
+        for key in ("CODEX_HOME", "OPENAI_API_KEY", "TERM"):
+            if key in os.environ:
+                env[key] = os.environ[key]
+    if agent_service_sock:
+        env["BORA_AGENT_SERVICE_SOCK"] = agent_service_sock
+    # Never allow unit stubs on production public path.
+    env.pop("BORA_SDK_SESSION_STUB", None)
+    # Propagate offline fail-closed flag into the worker (SDK session path).
+    if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+        env["BORA_OFFLINE_AGENT"] = "1"
+    return env
 
 
 async def run_harness_package(
@@ -112,57 +136,18 @@ async def run_harness_package(
             launch["database_root"] = str(db_root)
 
         provider = LocalProcessProvider()
-        env = {
-            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-            "PYTHONPATH": os.pathsep.join(p for p in sys.path if p and not p.endswith("zip")),
-        }
-        if agent_service_sock:
-            env["BORA_AGENT_SERVICE_SOCK"] = agent_service_sock
-        prepared = await provider.prepare(
-            ProcessLaunchPlan(
-                attempt=attempt,
-                workspace=WorkspacePlan(attempt=attempt, base_dir=work_base, relative_workdir="ws"),
-                executable=ExecutableGrant(path=Path(sys.executable)),
-                argv=(sys.executable, "-m", "bora.runtime.task_worker", "--fd", str(child_fd)),
-                env=env,
-                timeout_seconds=timeout_seconds,
-            )
-        )
-
-        # Production worker: least-privilege env projection (not full host dump).
-        child_env = {
-            "PATH": env.get("PATH", os.environ.get("PATH", "/usr/bin:/bin")),
-            "PYTHONPATH": env.get("PYTHONPATH", ""),
-            "HOME": os.environ.get("HOME", ""),
-            "LANG": os.environ.get("LANG", "C"),
-        }
-        # Codex/login may need user config; keep only when not offline.
-        if os.environ.get("BORA_OFFLINE_AGENT") != "1":
-            for key in ("CODEX_HOME", "OPENAI_API_KEY", "TERM"):
-                if key in os.environ:
-                    child_env[key] = os.environ[key]
-        if agent_service_sock:
-            child_env["BORA_AGENT_SERVICE_SOCK"] = agent_service_sock
-        # Never allow unit stubs on production public path.
-        child_env.pop("BORA_SDK_SESSION_STUB", None)
-        # Propagate offline fail-closed flag into the worker (SDK session path).
-        if os.environ.get("BORA_OFFLINE_AGENT") == "1":
-            child_env["BORA_OFFLINE_AGENT"] = "1"
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable,
-            "-m",
-            "bora.runtime.task_worker",
-            "--fd",
-            str(child_fd),
-            cwd=str(prepared.workdir),
-            env=child_env,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            start_new_session=True,
+        plan = ProcessLaunchPlan(
+            attempt=attempt,
+            workspace=WorkspacePlan(attempt=attempt, base_dir=work_base, relative_workdir="ws"),
+            executable=ExecutableGrant(path=Path(sys.executable)),
+            argv=(sys.executable, "-m", "bora.runtime.task_worker", "--fd", str(child_fd)),
+            env=_worker_env(agent_service_sock=agent_service_sock),
+            timeout_seconds=timeout_seconds,
             pass_fds=(child_fd,),
         )
-        child.close()
+
         try:
+            # Launch JSON must land in the socket buffer before the worker reads.
             _send(parent, launch)
             parent.settimeout(timeout_seconds)
             loop = asyncio.get_running_loop()
@@ -173,17 +158,19 @@ async def run_harness_package(
                 except Exception as exc:
                     return {"ok": False, "error": type(exc).__name__, "message": str(exc)}
 
-            envelope = await loop.run_in_executor(None, _recv_or_fail)
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=timeout_seconds)
-            except TimeoutError:
-                proc.kill()
-                await proc.wait()
-            stderr_text = ""
-            if proc.stderr is not None:
-                stderr_text = (await proc.stderr.read()).decode("utf-8", errors="replace")
+            # Envelope must arrive before/while the worker runs — never wait for
+            # execute() to finish before receiving.
+            outcome, envelope = await asyncio.gather(
+                provider.execute(plan),
+                loop.run_in_executor(None, _recv_or_fail),
+            )
+
+            stderr_text = outcome.stderr_summary or ""
             if not envelope.get("ok") and stderr_text:
                 envelope["stderr"] = stderr_text[-2000:]
+            if outcome.terminal == ProcessTerminalKind.TIMED_OUT and envelope.get("ok"):
+                # Process supervision timed out after a terminal was already sent.
+                envelope["timed_out"] = True
 
             # Copy published artifacts to durable hold dir before temp cleanup.
             published = dict(envelope.get("published") or {})
@@ -199,15 +186,13 @@ async def run_harness_package(
             return {
                 "attempt": attempt.value,
                 "envelope": envelope,
-                "worker_exit": proc.returncode,
+                "worker_exit": outcome.exit_code,
                 "parent_imported_task": any("bora_task_harness" in m for m in sys.modules),
                 "artifact_hold": str(hold),
+                "writer_stop_confirmed": outcome.writer_stop_confirmed,
+                "pgid": outcome.pgid,
+                "process_terminal": outcome.terminal.value,
             }
         finally:
             parent.close()
-            if proc.returncode is None:
-                proc.kill()
-                await proc.wait()
-            prepared.process = proc  # type: ignore[assignment]
-            prepared.pgid = None
-            await provider.cleanup(prepared)
+            child.close()

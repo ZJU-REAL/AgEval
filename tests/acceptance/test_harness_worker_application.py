@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,16 @@ def _lock():
     )
 
 
+def _group_alive(pgid: int) -> bool:
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
 @pytest.mark.asyncio
 async def test_success_minimal() -> None:
     lock = _lock()
@@ -32,6 +43,8 @@ async def test_success_minimal() -> None:
     assert "result" in env["published"]
     # completed is not PASS
     assert "PASS" not in str(env)
+    assert result["writer_stop_confirmed"] is True
+    assert result["process_terminal"] == "exited"
 
 
 @pytest.mark.asyncio
@@ -68,3 +81,49 @@ async def test_import_failure(tmp_path: Path) -> None:
     result = await run_harness_package(lock, pkg, timeout_seconds=20.0)
     assert result["envelope"]["ok"] is False
     assert result["parent_imported_task"] is False
+
+
+@pytest.mark.asyncio
+async def test_harness_reaps_same_group_grandchild(tmp_path: Path) -> None:
+    """Worker may fork a same-group writer; Provider must confirm the group is dead."""
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    yaml = (PKG / "task.yaml").read_text(encoding="utf-8")
+    yaml = yaml.replace("task_id: harness-minimal", "task_id: harness-grandchild")
+    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
+    (pkg / "evaluator.py").write_text(
+        "def evaluate(inputs):\n    return {'status': 'PASS', 'metrics': {}}\n",
+        encoding="utf-8",
+    )
+    (pkg / "harness.py").write_text(
+        "\n".join(
+            [
+                "from __future__ import annotations",
+                "import os",
+                "import time",
+                "from bora_sdk import HarnessContext, HarnessTerminal",
+                "",
+                "async def run(ctx: HarnessContext) -> HarnessTerminal:",
+                "    pid = os.fork()",
+                "    if pid == 0:",
+                "        time.sleep(30)",
+                "        os._exit(0)",
+                "    time.sleep(0.1)",
+                "    ctx.publish_json('result', {'grandchild_pid': pid})",
+                "    return HarnessTerminal.completed('spawned-grandchild')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
+        pkg, "harness-grandchild", capabilities=DeclarationCapabilityCatalog()
+    )
+    result = await run_harness_package(lock, pkg, timeout_seconds=20.0)
+    assert result["envelope"]["ok"] is True
+    pgid = result["pgid"]
+    assert pgid is not None
+    alive = _group_alive(int(pgid))
+    assert result["writer_stop_confirmed"] is (not alive)
+    assert result["writer_stop_confirmed"] is True
+    assert alive is False
