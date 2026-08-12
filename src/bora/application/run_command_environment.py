@@ -62,10 +62,16 @@ def prepare_postgresql_environment(
         )
         # Ensure §8.9 evidence root exists for effects.jsonl even without Agent Session.
         if evidence_store is None:
+            # Infer Database root when run_dir is under .bora/runs/
+            db_root = None
+            _rd = Path(run_dir).resolve(strict=False)
+            if _rd.parent.name == "runs" and _rd.parent.parent.name == ".bora":
+                db_root = _rd.parent.parent.parent
             evidence_store = AttemptEvidenceStore(
                 root=run_dir,
                 attempt_id=str(agent_meta.get("attempt_id") or run_id),
                 run_id=run_id,
+                database_root=db_root,
             )
         env_manager = EnvironmentManager(
             attempt_id=str(agent_meta.get("attempt_id") or run_id),
@@ -141,13 +147,17 @@ def prepare_postgresql_environment(
             json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
         )
         env_meta.update({"ok": False, "error": str(exc)})
+        from bora.evidence.locators import portable_run_locator
+
+        _loc = portable_run_locator(run_dir)
         flat = bind_result(
             evaluator_raw=None,
             harness_kind="failed",
             runtime_kind="local_l0",
             agent_invocations=0,
-            evidence_path=str(run_dir),
+            evidence_path=_loc,
             error_phase="environment",
+            logs=_loc,
         )
         summary = flat.as_dict()
         summary["assurance"] = "l0"

@@ -74,7 +74,7 @@ Stdout JSON (high level):
 - **Campaign** (`bora campaign --matrix`): sweep allowlisted parameters / bindings on one task.
 - Do not treat matrix axes as `n_attempts`.
 
-## `bora results upload-suite` (#60)
+## `bora results upload-suite`
 
 - POSTs suite summary + optional archive to Registry suite result row.
 - **Before upload:** ensures `metrics.pass_at_k` / `pass_power_k` / `n_attempts` /

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from bora.evidence.locators import portable_run_locator
 from bora.evidence.redaction import assert_clean, redact_value, scan_for_secrets
 from bora.evidence.store import is_sealed_invocation, parse_jsonl_recover
 
@@ -138,7 +139,8 @@ def export_trajectory(
 
         manifest = {
             "schema": EXPORT_SCHEMA,
-            "source_evidence": str(evidence_root),
+            # Portable under Database root when layout is …/.bora/runs/<id> (#70).
+            "source_evidence": portable_run_locator(evidence_root),
             "invocation_count": len(manifest_invocations),
             "invocations": manifest_invocations,
             "note": (

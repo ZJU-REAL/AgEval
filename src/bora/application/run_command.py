@@ -21,6 +21,7 @@ from bora.config.errors import ConfigError
 from bora.config.load_and_lock import ConfigCore
 from bora.config.model import thaw
 from bora.evaluation.result_binding import FlatResult, bind_result
+from bora.evidence.locators import portable_run_locator, seal_harness_for_evidence
 
 
 async def run_task(
@@ -133,6 +134,7 @@ async def run_task(
             root=run_dir,
             attempt_id=attempt_ident.value,
             run_id=run_ident.value,
+            database_root=resolved.database_root,
         )
         # Lock summary without secrets (digest + profile ids only).
         with contextlib.suppress(Exception):
@@ -235,12 +237,18 @@ async def run_task(
             metrics=metrics_raw or {},
             error_phase=(err or {}).get("phase") if err else None,
             cleanup_warning=result_doc.get("cleanup_warning"),  # type: ignore[arg-type]
-            evidence_path=str(result_doc.get("evidence_path") or run_dir),
+            evidence_path=str(
+                result_doc.get("evidence_path")
+                or portable_run_locator(run_dir, database_root=resolved.database_root)
+            ),
             runtime_kind=str(result_doc.get("runtime_kind") or "docker_l1"),
             harness_kind=str(result_doc.get("harness_kind") or "failed"),
             agent_invocations=int(result_doc.get("agent_invocations") or 0),
             assurance=str(result_doc.get("assurance") or "l0"),
-            logs=str(result_doc.get("logs") or run_dir),
+            logs=str(
+                result_doc.get("logs")
+                or portable_run_locator(run_dir, database_root=resolved.database_root)
+            ),
         )
         details = {
             **details,
@@ -385,12 +393,7 @@ async def run_task(
     if workspace_handoff.exists():
         workspace_handoff.unlink()
 
-    evidence_locator = str(run_dir)
-    relative_evidence = str(
-        run_dir.relative_to(resolved.database_root)
-        if run_dir.is_relative_to(resolved.database_root)
-        else run_dir
-    )
+    evidence_locator = portable_run_locator(run_dir, database_root=resolved.database_root)
     # Finalize §8.9 evidence tree when store was created (session path).
     if evidence_store is not None:
         with contextlib.suppress(Exception):
@@ -421,7 +424,7 @@ async def run_task(
         # docker kind preflight does not upgrade isolation grade until full L1 workload.
         runtime_kind="local_l0",
         agent_invocations=agent_invocations,
-        evidence_path=relative_evidence,
+        evidence_path=evidence_locator,
         error_phase=error_phase,
         logs=evidence_locator,
         assurance=assurance,
@@ -438,7 +441,13 @@ async def run_task(
         encoding="utf-8",
     )
     (run_dir / "harness.json").write_text(
-        json.dumps(harness_out, sort_keys=True, default=str, indent=2) + "\n",
+        json.dumps(
+            seal_harness_for_evidence(harness_out, run_dir=run_dir),
+            sort_keys=True,
+            default=str,
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
     (run_dir / "agent.json").write_text(
@@ -470,7 +479,8 @@ async def run_task(
     details = {
         "agent": agent_meta,
         "harness": harness_out,
-        "run_dir": str(run_dir),
+        # Sealed / reported locator is portable; host abs kept out of result products.
+        "run_dir": evidence_locator,
         "assurance": assurance,
         "digest": lock.digest,
         "logs": evidence_locator,

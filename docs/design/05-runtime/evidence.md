@@ -27,9 +27,14 @@ BORA 的一次成功或失败 Attempt，必须在 filesystem evidence 根下留�
 
 路径名可在实现中微调；**语义与所有权**固定：
 
+**Portable locators（#70）：** 密封进 `result.json` / `summary.json` / campaign / trajectory export 的
+`logs`、`evidence_root`、`evidence_path`、`evidence_volume` **不得**写 host 绝对路径
+（`/Users/…`、`/var/folders/…` 等）。规范值为相对 Database 根的 `.bora/runs/<run_id>`。
+`harness.json` 不密封 temp hold 绝对路径（`artifact_hold` 仅布尔；`published` 用 basename / 相对 run）。
+
 ```text
 .bora/runs/<run-or-attempt-id>/
-├── summary.json                 # 扁平 Result 投影 + evidence locator
+├── summary.json                 # 扁平 Result 投影 + portable evidence_root / logs
 ├── lock.json / TaskLocked 摘要  # 无 secret 的锁定引用
 ├── agent/
 │   ├── events.jsonl             # Attempt 级 agent 边界事件索引（可选但推荐）
