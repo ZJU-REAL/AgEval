@@ -21,7 +21,6 @@ Writes one AgentResult-shaped JSON object to stdout.
 from __future__ import annotations
 
 import asyncio
-import importlib
 import inspect
 import json
 import os
@@ -35,12 +34,34 @@ if _PLUGIN_ROOT.is_dir() and str(_PLUGIN_ROOT) not in sys.path:
 
 
 def _load_agent_class(agent_ref: str, package_root: Path) -> Any:
+    import importlib.util
+
     if ":" in agent_ref:
         mod_name, cls_name = agent_ref.split(":", 1)
     else:
         mod_name, cls_name = agent_ref, None
-    root_s = str(package_root)
-    if package_root.is_dir() and root_s not in sys.path:
+    root = package_root.expanduser().resolve(strict=False)
+    rel = Path(*mod_name.split("."))
+    for candidate in (root / f"{rel}.py", root / rel / "__init__.py"):
+        if not candidate.is_file():
+            continue
+        unique = f"nooa_pkg_{abs(hash(str(root)))}_{mod_name.replace('.', '_')}"
+        spec = importlib.util.spec_from_file_location(unique, candidate)
+        if spec is None or spec.loader is None:
+            continue
+        loaded = importlib.util.module_from_spec(spec)
+        if str(root) not in sys.path:
+            sys.path.insert(0, str(root))
+        sys.modules[unique] = loaded
+        spec.loader.exec_module(loaded)
+        if cls_name:
+            cls = getattr(loaded, cls_name, None)
+            if cls is None:
+                raise RuntimeError(f"nooa_agent_class_missing:{cls_name}")
+            return cls
+        return loaded
+    root_s = str(root)
+    if root.is_dir() and root_s not in sys.path:
         sys.path.insert(0, root_s)
     mod = importlib.import_module(mod_name)
     if not cls_name:
@@ -63,7 +84,11 @@ def _build_llm(*, model: str, api_base: str | None, api_key: str | None) -> Any:
     from nooa.unifiedllm import get_llm_client
 
     overrides: dict[str, Any] = {"temperature": 0}
-    base = api_base or os.environ.get("OPENAI_BASE_URL") or os.environ.get("litellm_base_url")
+    base = (
+        api_base
+        or os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("litellm_base_url")  # noqa: SIM112
+    )
     key = api_key or os.environ.get("OPENAI_API_KEY")
     if base:
         overrides["api_base"] = base

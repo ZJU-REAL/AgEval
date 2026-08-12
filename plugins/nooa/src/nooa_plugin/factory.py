@@ -297,6 +297,7 @@ class NooaExecutorSPI:
         return get_llm_client(self.model, **overrides)
 
     def _load_agent_class(self) -> Any:
+        import importlib.util
         import sys
         from pathlib import Path
 
@@ -311,19 +312,48 @@ class NooaExecutorSPI:
             if isinstance(raw, str) and raw.strip():
                 roots.append(Path(raw).expanduser().resolve(strict=False))
         roots.append(Path.cwd())
-        for root in roots:
-            s = str(root)
-            if root.is_dir() and s not in sys.path:
-                sys.path.insert(0, s)
-        try:
-            import importlib
 
-            mod = importlib.import_module(mod_name)
-        except Exception as exc:  # noqa: BLE001
-            raise ExtensionMaterializeError(
-                f"nooa_agent_import_failed:{exc}",
-                kind="extension_materialize_failed",
-            ) from exc
+        mod = None
+        last_exc: Exception | None = None
+        for root in roots:
+            if not root.is_dir():
+                continue
+            rel = Path(*mod_name.split("."))
+            for candidate in (root / f"{rel}.py", root / rel / "__init__.py"):
+                if not candidate.is_file():
+                    continue
+                unique = f"nooa_pkg_{abs(hash(str(root.resolve())))}_{mod_name.replace('.', '_')}"
+                spec = importlib.util.spec_from_file_location(unique, candidate)
+                if spec is None or spec.loader is None:
+                    continue
+                loaded = importlib.util.module_from_spec(spec)
+                parent = str(root)
+                if parent not in sys.path:
+                    sys.path.insert(0, parent)
+                sys.modules[unique] = loaded
+                try:
+                    spec.loader.exec_module(loaded)
+                except Exception as exc:  # noqa: BLE001
+                    last_exc = exc
+                    continue
+                mod = loaded
+                break
+            if mod is not None:
+                break
+        if mod is None:
+            try:
+                import importlib
+
+                for root in roots:
+                    s = str(root)
+                    if root.is_dir() and s not in sys.path:
+                        sys.path.insert(0, s)
+                mod = importlib.import_module(mod_name)
+            except Exception as exc:  # noqa: BLE001
+                raise ExtensionMaterializeError(
+                    f"nooa_agent_import_failed:{last_exc or exc}",
+                    kind="extension_materialize_failed",
+                ) from exc
         if cls_name:
             cls = getattr(mod, cls_name, None)
             if cls is None:
