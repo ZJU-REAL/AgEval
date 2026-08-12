@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from bora.adapters.agent_contract import AgentResult
+from bora.plugins.protocol import ExecutorSPI
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import EXECUTOR
 
@@ -12,7 +13,7 @@ PLUGIN_ID = "mock"
 PRIORITY = 900  # weak; only selected via profiles executor: mock
 
 
-class MockExecutorSPI:
+class MockExecutorSPI(ExecutorSPI):
     kind = "mock"
 
     def __init__(

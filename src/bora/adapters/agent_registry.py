@@ -3,21 +3,13 @@
 MVP (constitution §0): **no** parallel entry-point / builtin factory dual path.
 ``resolve_executor`` materializes the ``executor`` slot provide for *kind*
 (plugin_id). ``discover_executor_kinds`` lists plugins that provide that slot.
+
+The sole ``AgentExecutor`` Protocol lives in ``bora.adapters.agent_contract``.
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol
-
-
-class AgentExecutor(Protocol):
-    def invoke(
-        self,
-        prompt: str,
-        *,
-        timeout: float = 60.0,
-        workdir: str | None = None,
-    ) -> Any: ...
+from typing import Any
 
 
 def discover_executor_kinds() -> set[str]:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from bora.plugins.protocol import ExecutorSPI
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import (
     EXECUTOR,
@@ -20,7 +21,7 @@ PLUGIN_ID = "acp"
 ACP_PRIORITY = 100
 
 
-class AcpExecutorSPI:
+class AcpExecutorSPI(ExecutorSPI):
     """ExecutorSPI facade over adapters.acp.AcpExecutor."""
 
     kind = "acp"
@@ -72,16 +73,13 @@ class AcpExecutorSPI:
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> Any:
-        try:
-            return self._inner.invoke(
-                prompt,
-                timeout=timeout,
-                workdir=workdir,
-                collect_dir=collect_dir,
-                redaction_sentinels=redaction_sentinels,
-            )
-        except TypeError:
-            return self._inner.invoke(prompt, timeout=timeout)
+        return self._inner.invoke(
+            prompt,
+            timeout=timeout,
+            workdir=workdir,
+            collect_dir=collect_dir,
+            redaction_sentinels=redaction_sentinels,
+        )
 
 
 def _acp_factory(**kwargs: Any) -> AcpExecutorSPI:

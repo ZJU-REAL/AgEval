@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult
+from bora.adapters.agent_contract import AgentExecutor, AgentResult
 from bora.adapters.provider_docker.cli_supervise import supervise_docker_cli
 from bora.provider.contract import TerminationPolicy
 from bora.provider.outcomes import ProcessTerminalKind
@@ -15,7 +15,7 @@ PACKAGE_ROOT_CONTAINER = "/attempt/package"
 WORKDIR_CONTAINER = "/attempt/workspace"
 
 
-class NooaContainerExecutor:
+class NooaContainerExecutor(AgentExecutor):
     """Invoke package-local agents inside the Attempt container via baked worker.
 
     Parent never imports task ``lib.agents`` for L1 success path.

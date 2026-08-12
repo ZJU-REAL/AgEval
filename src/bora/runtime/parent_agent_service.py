@@ -536,23 +536,14 @@ class ParentAgentService:
         try:
             # Constitution §7.6: before_agent_invoke → provider.invoke → after_agent_invoke.
             prompt_out = self._run_extension_chain(binding_snap, "before_agent_invoke", prompt)
-            try:
-                result = executor.invoke(
-                    prompt_out,
-                    timeout=invoke_timeout,
-                    collect_dir=collect_dir,
-                    redaction_sentinels=sentinels,
-                )
-            except TypeError:
-                try:
-                    result = executor.invoke(
-                        prompt_out, timeout=invoke_timeout, collect_dir=collect_dir
-                    )
-                except TypeError:
-                    try:
-                        result = executor.invoke(prompt_out, timeout=invoke_timeout)
-                    except TypeError:
-                        result = executor.invoke(prompt_out)
+            # Single call: real TypeError inside the executor must not be
+            # misread as a signature mismatch and silently downgraded.
+            result = executor.invoke(
+                prompt_out,
+                timeout=invoke_timeout,
+                collect_dir=collect_dir,
+                redaction_sentinels=sentinels,
+            )
             result = self._run_extension_chain(binding_snap, "after_agent_invoke", result)
             # #71 A: normalize_agent_result after invoke bookends (fail closed via this try).
             result = self._normalize_agent_result(binding_snap, result)

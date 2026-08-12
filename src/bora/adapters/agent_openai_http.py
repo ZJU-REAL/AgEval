@@ -13,16 +13,17 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult
+from bora.adapters.agent_contract import AgentExecutor, AgentResult
 
 _DEFAULT_BASE = "https://api.openai.com/v1"
 _DEFAULT_KEY_ENV = "OPENAI_API_KEY"
 
 
 @dataclass
-class OpenAIHTTPExecutor:
+class OpenAIHTTPExecutor(AgentExecutor):
     """Minimal HTTP executor; credentials from host env via locator name."""
 
+    kind: str = "openai-http"
     model: str = "gpt-4.1-mini"
     base_url: str | None = None
     api_key_env: str | None = None

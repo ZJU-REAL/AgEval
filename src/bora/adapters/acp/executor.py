@@ -22,10 +22,14 @@ from bora.adapters.acp.trajectory import write_trajectory_jsonl
 from bora.adapters.acp.types import ProcessLauncher
 from bora.adapters.acp.usage import _as_plain_mapping, normalize_acp_usage
 from bora.adapters.acp_registry import AcpEntryDescriptor, get_entry, readiness_for
-from bora.adapters.agent_contract import AgentResult, parse_validated_text_structured
+from bora.adapters.agent_contract import (
+    AgentExecutor,
+    AgentResult,
+    parse_validated_text_structured,
+)
 
 
-class AcpExecutor:
+class AcpExecutor(AgentExecutor):
     """Descriptor-driven ACP executor; one process/session per BORA session reuse."""
 
     kind: str = "acp"
@@ -358,9 +362,9 @@ class AcpExecutor:
         self,
         prompt: str,
         *,
-        timeout: float = 300.0,
+        timeout: float = 60.0,
         workdir: str | None = None,
-        collect_dir: str | Path | None = None,
+        collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
         if os.environ.get("BORA_OFFLINE_AGENT") == "1":
