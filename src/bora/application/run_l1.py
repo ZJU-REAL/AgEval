@@ -258,9 +258,7 @@ def run_l1_sdk_session_attempt(
                 network_mode=network_mode,
             )
         except Exception as exc:  # noqa: BLE001
-            _l1_host_cleanup(
-                docker, runtime, cred, run_dir, keep_workspace=keep_workspace
-            )
+            _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "provider",
@@ -420,9 +418,7 @@ def run_l1_sdk_session_attempt(
                     break
         if src_art is None or not src_art.is_file():
             with timer.phase("cleanup"):
-                _l1_host_cleanup(
-                    docker, runtime, cred, run_dir, keep_workspace=keep_workspace
-                )
+                _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "harness" if not envelope.get("ok") else "evaluation_input",
@@ -450,9 +446,7 @@ def run_l1_sdk_session_attempt(
         # Wait for writer stop before evaluator.
         if not runtime.writer_stop_confirmed:
             with timer.phase("cleanup"):
-                _l1_host_cleanup(
-                    docker, runtime, cred, run_dir, keep_workspace=keep_workspace
-                )
+                _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "evaluation_input",
