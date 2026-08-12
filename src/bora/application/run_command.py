@@ -104,7 +104,10 @@ async def _run_task_body(
         raise
 
     # Evidence defaults under Database root so operators inspect one tree per suite.
-    evidence_root = (evidence_root or (resolved.database_root / ".bora" / "runs")).resolve()
+    db_root = Path(resolved.database_root)
+    if evidence_root is None:
+        evidence_root = db_root / ".bora" / "runs"
+    evidence_root = evidence_root.resolve()
     evidence_root.mkdir(parents=True, exist_ok=True)
     # Unique Run identity per invocation — never overwrite prior evidence by lock digest alone.
     from bora.evidence.store import AttemptEvidenceStore

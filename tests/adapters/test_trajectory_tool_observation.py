@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from bora.adapters.acp.trajectory_map import acp_session_events_to_bora
 from bora.evidence.schema import EVENT_SCHEMA_VERSION
@@ -16,17 +17,31 @@ def _read_lines(path: Path) -> list[dict]:
     ]
 
 
-def _write(tmp: Path, events, **kwargs):
-    defaults = dict(
-        prompt="p",
-        final_text="",
-        structured=None,
-        usage=None,
-        ok=True,
-        error=None,
+def _write(
+    tmp: Path,
+    events: Any,
+    *,
+    prompt: str = "p",
+    final_text: str = "",
+    structured: dict[str, object] | None = None,
+    usage: dict[str, Any] | None = None,
+    ok: bool = True,
+    error: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    redaction_sentinels: list[str] | None = None,
+) -> Path:
+    return write_trajectory_jsonl(
+        tmp / "inv",
+        prompt=prompt,
+        events=events,
+        final_text=final_text,
+        structured=structured,
+        usage=usage,
+        ok=ok,
+        error=error,
+        metadata=metadata,
+        redaction_sentinels=redaction_sentinels,
     )
-    defaults.update(kwargs)
-    return write_trajectory_jsonl(tmp / "inv", events=events, **defaults)
 
 
 def test_writer_ignores_non_contract_events(tmp_path: Path) -> None:

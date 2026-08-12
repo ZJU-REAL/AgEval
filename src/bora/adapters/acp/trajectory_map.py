@@ -60,7 +60,8 @@ def acp_session_events_to_bora(
             )
             # A session_update may also carry a tool payload; fall through.
 
-        upd = raw.get("update") if isinstance(raw.get("update"), dict) else {}
+        raw_upd = raw.get("update")
+        upd: dict[str, Any] = raw_upd if isinstance(raw_upd, dict) else {}
         su = _session_update_name(raw, upd)
         if su not in {"tool_call", "tool_call_update"}:
             continue
