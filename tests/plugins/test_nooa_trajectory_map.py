@@ -83,3 +83,54 @@ def test_tool_call_event_with_result() -> None:
     assert phases == [("tool", "start"), ("tool", "update")]
     assert mapped[1]["status"] == "completed"
     assert mapped[0]["args"] == {"path": "/tmp/a"}
+
+
+async def _passthrough(value: object) -> object:
+    return value
+
+
+def test_collect_does_not_stamp_foreign_contract_events() -> None:
+    import asyncio
+
+    from nooa_plugin.hooks import trajectory_collect
+
+    payload = {
+        "events": (
+            {
+                "schema": SCHEMA,
+                "kind": "assistant",
+                "source": "acp",
+                "session_id": "s1",
+                "text": "hi",
+            },
+        ),
+        "metadata": {"executor_kind": "acp"},
+    }
+    out = asyncio.run(trajectory_collect(None, payload, _passthrough))
+    assert isinstance(out, dict)
+    assert out["metadata"].get("trajectory_source") != "nooa"
+    assert out["events"][0]["source"] == "acp"
+
+
+def test_collect_maps_native_and_stamps_nooa() -> None:
+    import asyncio
+
+    from nooa_plugin.hooks import trajectory_collect
+
+    payload = {
+        "events": (
+            {
+                "event_type": "ToolCallEvent",
+                "tool_call_id": "c1",
+                "name": "read_file",
+                "arguments": {"path": "/tmp/a"},
+            },
+        ),
+        "metadata": {},
+    }
+    out = asyncio.run(trajectory_collect(None, payload, _passthrough))
+    assert isinstance(out, dict)
+    assert out["metadata"]["trajectory_source"] == "nooa"
+    assert out["events"]
+    assert all(e.get("schema") == SCHEMA for e in out["events"])
+    assert all(e.get("source") == "nooa" for e in out["events"])

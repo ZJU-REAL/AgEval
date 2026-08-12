@@ -3,7 +3,7 @@
 Parent/host only: spawns (or attaches to) an ACP entry process over stdio via
 ``agent-client-protocol``. Vendor private stdout scrape is forbidden.
 
-Layout: usage · trajectory · client · executor.
+Layout: usage · trajectory_map · client · executor.
 """
 
 from __future__ import annotations
