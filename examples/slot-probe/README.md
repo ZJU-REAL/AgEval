@@ -1,13 +1,13 @@
 # example/slot-probe
 
-Database for **multi-slot extension SPI** regression ([Issue #71](https://github.com/ffy6511/BORA/issues/71)).
+Database for **multi-slot extension SPI** regression ([Issue #71](https://github.com/ZJU-REAL/BORA/issues/71)).
 
 Companion plugin: [`plugins/slot-probe`](../../plugins/slot-probe/).
 
-| Task | Assurance | Exercises |
-| --- | --- | --- |
+| Task                                  | Assurance       | Exercises                                                 |
+| ------------------------------------- | --------------- | --------------------------------------------------------- |
 | [`l0-env-agent`](tasks/l0-env-agent/) | L0 + postgresql | env multi (`post_setup.sh`) + agent multi + score metrics |
-| [`l1-agent`](tasks/l1-agent/) | L1 docker | ACP in attempt-container; parent multi hooks still emit |
+| [`l1-agent`](tasks/l1-agent/)         | L1 docker       | ACP in attempt-container; parent multi hooks still emit   |
 
 ## Prerequisites
 
@@ -39,15 +39,15 @@ uv run bora run examples/slot-probe --task l1-agent \
 
 ## How to verify plugin effects
 
-| Signal | Where |
-| --- | --- |
-| Hook order / presence | `$BORA_SLOT_PROBE_DIR/hooks.jsonl` |
-| Env post-setup shell | `post_setup.ok` (task workdir during run) + handoff `post_setup` |
-| Prompt rewrite | trajectory **user** turn contains `[slot-probe]` |
-| Trajectory enrich | terminal `metadata.slot_probe` / `slot_probe_enrich` |
-| Extra evidence | invocation `evidence_extra.jsonl` |
-| Score adjacency | `result.json` → `metrics.slot_probe == 1` |
-| Lock graph | `extension_bindings` chains include `plugin: slot-probe` |
+| Signal                | Where                                                            |
+| --------------------- | ---------------------------------------------------------------- |
+| Hook order / presence | `$BORA_SLOT_PROBE_DIR/hooks.jsonl`                               |
+| Env post-setup shell  | `post_setup.ok` (task workdir during run) + handoff `post_setup` |
+| Prompt rewrite        | trajectory **user** turn contains `[slot-probe]`                 |
+| Trajectory enrich     | terminal `metadata.slot_probe` / `slot_probe_enrich`             |
+| Extra evidence        | invocation `evidence_extra.jsonl`                                |
+| Score adjacency       | `result.json` → `metrics.slot_probe == 1`                        |
+| Lock graph            | `extension_bindings` chains include `plugin: slot-probe`         |
 
 ## Scope / non-claims
 

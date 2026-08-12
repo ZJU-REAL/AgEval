@@ -1,20 +1,20 @@
 # slot-probe
 
 `bora.plugin/1` multi-slot **observability** plugin for extension SPI regression
-([Issue #71](https://github.com/ffy6511/BORA/issues/71)).
+([Issue #71](https://github.com/ZJU-REAL/BORA/issues/71)).
 
 Paired dataset: [`examples/slot-probe`](../../examples/slot-probe/).
 
 ## What it contributes
 
-| Kind | Slots | Effect (observable) |
-| --- | --- | --- |
-| **on (multi)** | `before/after_agent_open\|invoke\|close`, `normalize_agent_result` | Audit lines; prompt tag `[slot-probe]` |
-| **on** | `trajectory_collect`, `trajectory_enrich`, `evidence_extra` | `trajectory.jsonl` metadata + `evidence_extra.jsonl` |
-| **on** | `env_prepare_commands`, `env_inject`, `env_teardown_commands` | Real `scripts/post_setup.sh` → `post_setup.ok`; handoff rewrite |
-| **on** | `evaluation_input_contribute`, `score_postprocess` | `metrics.slot_probe = 1` on result |
-| **provide** | `evaluation_runtime` | Lock-visible runtime annotation |
-| **provide** | `executor` | Optional echo SPI (see note below) |
+| Kind           | Slots                                                              | Effect (observable)                                             |
+| -------------- | ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| **on (multi)** | `before/after_agent_open\|invoke\|close`, `normalize_agent_result` | Audit lines; prompt tag `[slot-probe]`                          |
+| **on**         | `trajectory_collect`, `trajectory_enrich`, `evidence_extra`        | `trajectory.jsonl` metadata + `evidence_extra.jsonl`            |
+| **on**         | `env_prepare_commands`, `env_inject`, `env_teardown_commands`      | Real `scripts/post_setup.sh` → `post_setup.ok`; handoff rewrite |
+| **on**         | `evaluation_input_contribute`, `score_postprocess`                 | `metrics.slot_probe = 1` on result                              |
+| **provide**    | `evaluation_runtime`                                               | Lock-visible runtime annotation                                 |
+| **provide**    | `executor`                                                         | Optional echo SPI (see note below)                              |
 
 Handlers append JSONL to **`$BORA_SLOT_PROBE_DIR/hooks.jsonl`** (default:
 `./.bora_slot_probe/hooks.jsonl`). They do **real work** (subprocess, metadata

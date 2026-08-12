@@ -1,9 +1,9 @@
 # 03 — Harness 层：职责与结构
 
-| 字段 | 值 |
-| --- | --- |
-| 产品 | Bounded Orchestration for Runtime Agents（BORA） |
-| 权威 | **本文件与同目录其它 design 文档共同构成设计权威**（自包含；不依赖 vault 总文档） |
+| 字段 | 值                                                                                 |
+| ---- | ---------------------------------------------------------------------------------- |
+| 产品 | Bounded Orchestration for Runtime Agents（BORA）                                   |
+| 权威 | **本文件与同目录其它 design 文档共同构成设计权威**（自包含；不依赖 vault 总文档）  |
 | 摘要 | Harness 与 Harness Core 边界、骨架、Agent/Context/Tool/Workflow、参数与 upstream。 |
 
 ---
@@ -28,16 +28,16 @@ Harness 不创建 Run/Trial/Attempt，不读取 Provider credential，不取得 
 
 `harness.py` 是 task 的真实工作流。Harness Core 是可选的通用 Python 积木：
 
-| Harness 内部组成 | Harness Core 提供什么 | Task/Framework 决定什么 |
-| --- | --- | --- |
-| Agent loop | `Agent`、`AgentSession`、`AgentResult` | prompt、角色、轮数、何时调用 |
-| Context | `Message`、`Context`、`ContextTransform` | 谁看哪些消息、如何 summary、是否用 upstream memory |
-| Tool | `Tool`、`ToolSet`、`Observation` | Tool 业务函数、schema、说明和调用时机 |
-| Hook | `before_tool_call`、`after_tool_call`、`should_stop` | hook 顺序和 task-local policy |
-| Guard | `CallLimit`、`AllowList`、`RetryPolicy`、`NoProgressGuard` | 参数值和拒绝后的业务处理 |
-| Workflow | `bounded_gather`、`first_success`、`collect_results` | branch、join、reducer 和失败策略 |
-| Runtime view | `RunScope`、`HarnessTerminal` | 何时提前停止、返回什么 task-local reason |
-| Artifact helper | `publish_json`、`publish_file` | 哪个 declared output 已提交；materialize 由 Runtime 内部处理 |
+| Harness 内部组成 | Harness Core 提供什么                                      | Task/Framework 决定什么                                      |
+| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------------ |
+| Agent loop       | `Agent`、`AgentSession`、`AgentResult`                     | prompt、角色、轮数、何时调用                                 |
+| Context          | `Message`、`Context`、`ContextTransform`                   | 谁看哪些消息、如何 summary、是否用 upstream memory           |
+| Tool             | `Tool`、`ToolSet`、`Observation`                           | Tool 业务函数、schema、说明和调用时机                        |
+| Hook             | `before_tool_call`、`after_tool_call`、`should_stop`       | hook 顺序和 task-local policy                                |
+| Guard            | `CallLimit`、`AllowList`、`RetryPolicy`、`NoProgressGuard` | 参数值和拒绝后的业务处理                                     |
+| Workflow         | `bounded_gather`、`first_success`、`collect_results`       | branch、join、reducer 和失败策略                             |
+| Runtime view     | `RunScope`、`HarnessTerminal`                              | 何时提前停止、返回什么 task-local reason                     |
+| Artifact helper  | `publish_json`、`publish_file`                             | 哪个 declared output 已提交；materialize 由 Runtime 内部处理 |
 
 Harness Core 没有全局 Registry，也不要求所有 Benchmark 使用这些 helper。上游 Framework 已经拥有相同能力时，直接复用 upstream。
 
@@ -165,7 +165,7 @@ Harness 内按最轻的方式传递数据：
 4. `shared-container` 同 group 文件协作：只使用 lock 中显式授权的 `shared_write` 相对路径；
 5. Harness 到 Evaluator：使用 `publish_*` 提交终局 declared output，Harness 停止后由 Runtime 固定并 materialize allowlisted input。
 
-`container-per-group` v1 不挂跨容器共享可写 volume。跨容器中途物理交接延后到 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2) 的独立 `handoff_*` 设计；它与终局 `publish_*`、Evaluator input 和 PASS authority 分离。
+`container-per-group` v1 不挂跨容器共享可写 volume。跨容器中途物理交接延后到 [GitHub issue #2](https://github.com/ZJU-REAL/BORA/issues/2) 的独立 `handoff_*` 设计；它与终局 `publish_*`、Evaluator input 和 PASS authority 分离。
 
 ### 参数进入 Harness
 

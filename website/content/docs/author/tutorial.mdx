@@ -7,9 +7,9 @@ description: 从 examples/core 抄一题，改 harness 与评测并跑通。
 
 ## 1. 复制最小结构
 
-仓库 [`examples/core`](https://github.com/ffy6511/BORA/tree/main/examples/core) 已是完整 Dataset。你可以：
+仓库 [`examples/core`](https://github.com/ZJU-REAL/BORA/tree/main/examples/core) 已是完整 Dataset。你可以：
 
-- 直接改某个 task 做实验，或  
+- 直接改某个 task 做实验，或
 - 复制一个 `tasks/<id>/` 目录，改掉 `task_id` 与目录名（二者必须一致）
 
 最小成员目录：
@@ -99,11 +99,11 @@ Evaluator 读 `evaluation.inputs` 准备好的文件，输出分数 / 判定。
 
 ## 常见失败（编写时）
 
-| 问题 | 处理 |
-| --- | --- |
-| `task_id` 和目录名不一致 | 改到一致 |
-| 缺 `options.entry` | ACP 必填 |
-| docker 无 Dockerfile | 见 [Docker 与可见性](/docs/author/docker-and-visibility) |
-| 评测找不到 artifact | harness 是否写出、id 是否对上 |
+| 问题                     | 处理                                                     |
+| ------------------------ | -------------------------------------------------------- |
+| `task_id` 和目录名不一致 | 改到一致                                                 |
+| 缺 `options.entry`       | ACP 必填                                                 |
+| docker 无 Dockerfile     | 见 [Docker 与可见性](/docs/author/docker-and-visibility) |
+| 评测找不到 artifact      | harness 是否写出、id 是否对上                            |
 
 字段全表：[配置字段](/docs/reference/config-fields)。

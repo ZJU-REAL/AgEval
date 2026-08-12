@@ -13,12 +13,12 @@ provider:
   assurance: l1
 ```
 
-- Requires `environment/Dockerfile`  
-- Multi-actor packages declare logical groups (see current schema / examples)  
-- Sessions need `actor_id`; **no** silent host fallback  
+- Requires `environment/Dockerfile`
+- Multi-actor packages declare logical groups (see current schema / examples)
+- Sessions need `actor_id`; **no** silent host fallback
 
 ## Image
 
 The official Attempt base installs engines + ACP entries at **build** time. Task images should `FROM` that base — no runtime `npm i`.
 
-Examples: [`examples/l1`](https://github.com/ffy6511/BORA/tree/main/examples/l1). Visibility: [Docker and visibility](/docs/author/docker-and-visibility).
+Examples: [`examples/l1`](https://github.com/ZJU-REAL/BORA/tree/main/examples/l1). Visibility: [Docker and visibility](/docs/author/docker-and-visibility).

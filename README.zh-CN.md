@@ -4,10 +4,10 @@
 
 [English](README.md)
 
-[![Release](https://img.shields.io/github/v/release/ffy6511/BORA?display_name=tag&sort=semver)](https://github.com/ffy6511/BORA/releases)
+[![Release](https://img.shields.io/github/v/release/ZJU-REAL/BORA?display_name=tag&sort=semver)](https://github.com/ZJU-REAL/BORA/releases)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
-[![Issues](https://img.shields.io/github/issues/ffy6511/BORA)](https://github.com/ffy6511/BORA/issues)
-[![Pull Requests](https://img.shields.io/github/issues-pr/ffy6511/BORA)](https://github.com/ffy6511/BORA/pulls)
+[![Issues](https://img.shields.io/github/issues/ZJU-REAL/BORA)](https://github.com/ZJU-REAL/BORA/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/ZJU-REAL/BORA)](https://github.com/ZJU-REAL/BORA/pulls)
 
 ---
 
@@ -33,7 +33,7 @@
 需要 [uv](https://docs.astral.sh/uv/) 与 CPython **3.12+**。
 
 ```bash
-git clone https://github.com/ffy6511/BORA.git
+git clone https://github.com/ZJU-REAL/BORA.git
 cd BORA
 uv sync --frozen --all-packages
 uv run bora -V
@@ -190,5 +190,5 @@ PASS 仍仅 **per-task**。`n_attempts` **只走 CLI/job**（不进 `task.yaml` 
 | Viewer   | [`apps/viewer/README.md`](apps/viewer/README.md) — 本机 SPA 开发 |
 | Hub      | [`apps/hub/README.md`](apps/hub/README.md) — Registry SPA 开发   |
 | Registry | [`services/registry/README.md`](services/registry/README.md)     |
-| Issues   | [GitHub Issues](https://github.com/ffy6511/BORA/issues)          |
-| 版本     | [Releases](https://github.com/ffy6511/BORA/releases)             |
+| Issues   | [GitHub Issues](https://github.com/ZJU-REAL/BORA/issues)         |
+| 版本     | [Releases](https://github.com/ZJU-REAL/BORA/releases)            |

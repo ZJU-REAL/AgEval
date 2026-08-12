@@ -10,22 +10,22 @@ This directory is a **reader-facing product projection**. It does **not**:
 
 ## Authority boundary
 
-| Surface | Role |
-| --- | --- |
-| `docs/design/` + `docs/PRD.md` | Mechanism / product design authority |
-| `ARCHITECTURE.md` | Module structure authority |
-| GitHub Issues | Delivery tracking |
-| **`website/` (this tree)** | How-to and product navigation (rewritten; not a mirror of `docs/`) |
-| `apps/*` / `services/*` README | SPA / service **dev** detail |
+| Surface                        | Role                                                               |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `docs/design/` + `docs/PRD.md` | Mechanism / product design authority                               |
+| `ARCHITECTURE.md`              | Module structure authority                                         |
+| GitHub Issues                  | Delivery tracking                                                  |
+| **`website/` (this tree)**     | How-to and product navigation (rewritten; not a mirror of `docs/`) |
+| `apps/*` / `services/*` README | SPA / service **dev** detail                                       |
 
 Conflict → fix `docs/` (or Architecture / Issues) first, then sync this site.
 
 ## References (scaffold & IA)
 
-| Purpose | Remote |
-| --- | --- |
-| Framework, visual system, i18n | [`ffy6511/bora-v1`](https://github.com/ffy6511/bora-v1) → `website/` |
-| Content module grouping (IA) | Historical v0 site sections: `index` / `get-started` / `concepts` / `protocols` / `operations` / `developer` |
+| Purpose                        | Remote                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Framework, visual system, i18n | [`ZJU-REAL/BORA-v1`](https://github.com/ZJU-REAL/BORA-v1) → `website/`                                       |
+| Content module grouping (IA)   | Historical v0 site sections: `index` / `get-started` / `concepts` / `protocols` / `operations` / `developer` |
 
 ## Local development
 

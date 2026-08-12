@@ -4,10 +4,10 @@
 
 [中文文档](README.zh-CN.md)
 
-[![Release](https://img.shields.io/github/v/release/ffy6511/BORA?display_name=tag&sort=semver)](https://github.com/ffy6511/BORA/releases)
+[![Release](https://img.shields.io/github/v/release/ZJU-REAL/BORA?display_name=tag&sort=semver)](https://github.com/ZJU-REAL/BORA/releases)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
-[![Issues](https://img.shields.io/github/issues/ffy6511/BORA)](https://github.com/ffy6511/BORA/issues)
-[![Pull Requests](https://img.shields.io/github/issues-pr/ffy6511/BORA)](https://github.com/ffy6511/BORA/pulls)
+[![Issues](https://img.shields.io/github/issues/ZJU-REAL/BORA)](https://github.com/ZJU-REAL/BORA/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/ZJU-REAL/BORA)](https://github.com/ZJU-REAL/BORA/pulls)
 
 ---
 
@@ -33,7 +33,7 @@ Agent benchmarks usually score the model and leave the **harness**—orchestrati
 Requires [uv](https://docs.astral.sh/uv/) and CPython **3.12+**.
 
 ```bash
-git clone https://github.com/ffy6511/BORA.git
+git clone https://github.com/ZJU-REAL/BORA.git
 cd BORA
 uv sync --frozen --all-packages
 uv run bora -V
@@ -190,5 +190,5 @@ PASS remains **per-task** only. `n_attempts` is **CLI/job only** (never `task.ya
 | Viewer       | [`apps/viewer/README.md`](apps/viewer/README.md) — local SPA dev      |
 | Hub          | [`apps/hub/README.md`](apps/hub/README.md) — Registry SPA dev         |
 | Registry     | [`services/registry/README.md`](services/registry/README.md)          |
-| Issues       | [GitHub Issues](https://github.com/ffy6511/BORA/issues)               |
-| Releases     | [Releases](https://github.com/ffy6511/BORA/releases)                  |
+| Issues       | [GitHub Issues](https://github.com/ZJU-REAL/BORA/issues)              |
+| Releases     | [Releases](https://github.com/ZJU-REAL/BORA/releases)                 |

@@ -1,10 +1,10 @@
 # 06 — Capability、Adapter 插件与可见性
 
-| 字段 | 值 |
-| --- | --- |
-| 产品 | Bounded Orchestration for Runtime Agents（BORA） |
+| 字段 | 值                                                                                |
+| ---- | --------------------------------------------------------------------------------- |
+| 产品 | Bounded Orchestration for Runtime Agents（BORA）                                  |
 | 权威 | **本文件与同目录其它 design 文档共同构成设计权威**（自包含；不依赖 vault 总文档） |
-| 摘要 | Capability 契约、可分发插件、Adapter 准入、文本/文件/多 Agent 可见性投影。 |
+| 摘要 | Capability 契约、可分发插件、Adapter 准入、文本/文件/多 Agent 可见性投影。        |
 
 ---
 
@@ -103,7 +103,7 @@ Writer workspace
 
 两个 Agent 明确共享同一 workspace 时，Harness 可以直接传相对路径。共享 workspace 等于授予相同 filesystem visibility，必须在 `provider.workspace.views` 中明确表达。
 
-`shared-container` 的可写协作还必须受 `provider.agent_isolation.groups[].shared_write` 收紧：路径必须是 workspace-relative、无 `..` / absolute / symlink escape，并落在同 group 参与 actor 的 locked WorkspaceView **write 交集**内。WorkspaceView 允许某 actor 写入，不会自动把该路径提升为 group shared；只有同时满足 WorkspaceView 与 `shared_write` 才可配置 shared GID。`container-per-group` v1 禁止跨 container 共享 RW volume，中途文本由 Harness memory / prompt 转发，物理 handoff 延后到 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2)。
+`shared-container` 的可写协作还必须受 `provider.agent_isolation.groups[].shared_write` 收紧：路径必须是 workspace-relative、无 `..` / absolute / symlink escape，并落在同 group 参与 actor 的 locked WorkspaceView **write 交集**内。WorkspaceView 允许某 actor 写入，不会自动把该路径提升为 group shared；只有同时满足 WorkspaceView 与 `shared_write` 才可配置 shared GID。`container-per-group` v1 禁止跨 container 共享 RW volume，中途文本由 Harness memory / prompt 转发，物理 handoff 延后到 [GitHub issue #2](https://github.com/ZJU-REAL/BORA/issues/2)。
 
 `evaluation/`、gold、hidden test 与 evaluator-only material 永远不能成为 handoff source，也不得通过 `shared_write`、workspace 交集或 publish side channel 暴露给 Harness/Agent。`publish_*` 只接收已声明的终局 output，并在 writer barrier 后按 `evaluation.inputs` allowlist materialize。
 
@@ -111,14 +111,14 @@ Writer workspace
 
 本节落实 [00](00-overview-and-product.md)「可见性投影」：多 Agent / Harness / Evaluator 的**控制可见性**由明确的 projection 机制完成，属于 Core 必保能力。
 
-| 隔离类型 | Owner | 投影机制 | 例子 |
-| --- | --- | --- | --- |
-| 消息和 prompt 可见性 | Harness Context / upstream memory | 文本过滤 / 分收件人 message | Reviewer 不接收 Writer 私有 reasoning |
-| 文件可见性 | Provider | workspace **path view**、mount、PathGrant、L2 UID/GID | Agent 只读 `/task/prompts`；Harness 不挂 `evaluation/` |
-| 网络可见性 | Provider | network **projection** | Agent 不能直连 database admin endpoint |
-| Secret 可见性 | Runtime | credential **projection** | 只有受控 Adapter 获得 token |
-| 产物可见性 | Artifact capability | publish + **materialize** 只读副本 | Reviewer inbox、evaluator inputs |
-| 参数可见性 | Config lock + `ctx.params` | parameter **view** | Harness 只见 `parameters`，不见 gold 文件内容 |
-| Evaluator 可见性 | Provider mount + evaluator runtime | 评测前单独 materialize allowlist | hidden gold 不进入 Agent 或 Harness workspace |
+| 隔离类型             | Owner                              | 投影机制                                              | 例子                                                   |
+| -------------------- | ---------------------------------- | ----------------------------------------------------- | ------------------------------------------------------ |
+| 消息和 prompt 可见性 | Harness Context / upstream memory  | 文本过滤 / 分收件人 message                           | Reviewer 不接收 Writer 私有 reasoning                  |
+| 文件可见性           | Provider                           | workspace **path view**、mount、PathGrant、L2 UID/GID | Agent 只读 `/task/prompts`；Harness 不挂 `evaluation/` |
+| 网络可见性           | Provider                           | network **projection**                                | Agent 不能直连 database admin endpoint                 |
+| Secret 可见性        | Runtime                            | credential **projection**                             | 只有受控 Adapter 获得 token                            |
+| 产物可见性           | Artifact capability                | publish + **materialize** 只读副本                    | Reviewer inbox、evaluator inputs                       |
+| 参数可见性           | Config lock + `ctx.params`         | parameter **view**                                    | Harness 只见 `parameters`，不见 gold 文件内容          |
+| Evaluator 可见性     | Provider mount + evaluator runtime | 评测前单独 materialize allowlist                      | hidden gold 不进入 Agent 或 Harness workspace          |
 
 Context filtering 不能替代物理隔离。`evaluation/` 即使位于 Task Package 中，也由 Runtime 从 package store 在 writer stop 后单独 materialize，不能因为 Harness 需要读取部分 `/task` 路径就把 gold 一并挂载。多个 Agent 挂载同一个可写 volume 时，它们拥有相同 filesystem visibility，除非 Provider 建立不同 path view、mount 或 OS permission。

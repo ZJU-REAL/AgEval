@@ -1,9 +1,9 @@
 # 04 — Harness Core（SDK）详细设计
 
-| 字段 | 值 |
-| --- | --- |
-| 产品 | Bounded Orchestration for Runtime Agents（BORA） |
-| 权威 | **本文件与同目录其它 design 文档共同构成设计权威**（自包含；不依赖 vault 总文档） |
+| 字段 | 值                                                                                 |
+| ---- | ---------------------------------------------------------------------------------- |
+| 产品 | Bounded Orchestration for Runtime Agents（BORA）                                   |
+| 权威 | **本文件与同目录其它 design 文档共同构成设计权威**（自包含；不依赖 vault 总文档）  |
 | 摘要 | entrypoint、HarnessContext、参数解析、AgentSession、Tool/Guard、workflow helpers。 |
 
 ---
@@ -65,7 +65,7 @@ async with ctx.agent.session(
 
 Session 创建时一次性绑定 Attempt、`actor_id`、profile、WorkspaceView 与 Runtime target generation；同一 session 不允许切换 actor/profile，Harness 只能持有 opaque `session_id`。L0 可以保留不带物理隔离语义的兼容 actor label，L1 缺少 `actor_id` 必须在 open 阶段拒绝。
 
-多角色 loop 的中间结果默认保存在 Harness 或 upstream Framework memory 中，由 Harness 序列化进下一轮 prompt，Core 与 SDK 不建立 team memory 或 mailbox。`publish_json` / `publish_file` 仅提交终局 declared artifact，供 evaluator / Result 边界使用；它们不承担 loop 中途跨 actor 交接。跨容器 immutable physical handoff 是独立的未来 capability，跟踪于 [GitHub issue #2](https://github.com/ffy6511/BORA/issues/2)。同容器文件协作只能使用 lock 中显式授权的 `shared_write`。
+多角色 loop 的中间结果默认保存在 Harness 或 upstream Framework memory 中，由 Harness 序列化进下一轮 prompt，Core 与 SDK 不建立 team memory 或 mailbox。`publish_json` / `publish_file` 仅提交终局 declared artifact，供 evaluator / Result 边界使用；它们不承担 loop 中途跨 actor 交接。跨容器 immutable physical handoff 是独立的未来 capability，跟踪于 [GitHub issue #2](https://github.com/ZJU-REAL/BORA/issues/2)。同容器文件协作只能使用 lock 中显式授权的 `shared_write`。
 
 ### 参数解析
 
@@ -127,17 +127,17 @@ class Database52Params:
 
 Harness Core 是可选 Python library。它减少重复样板，不创建 Run、Trial 或 Attempt，也不发布最终 verdict。
 
-| 模块 | 主要对象 | 职责 |
-| --- | --- | --- |
-| Agent | `Agent`、`AgentSession`、`AgentResult` | 调用 Agent capability、处理 structured output 和 session continuation |
-| Context | `Message`、`Context`、`ContextTransform` | append、select、transform、render、compaction |
-| Tool | `Tool`、`ToolSet`、`Observation` | callable 注册、参数校验、hook chain、结果转换 |
-| Hook | `before_turn`、`before_tool_call`、`after_tool_call`、`should_stop` | 局部扩展点 |
-| Guard | `CallLimit`、`AllowList`、`RetryPolicy`、`NoProgressGuard` | Harness 内可拦截策略 |
-| Workflow | `bounded_gather`、`first_success`、`collect_results` | 普通异步组合 helper |
-| Scope | `RunScope`、`HarnessTerminal` | deadline、cancel、终态 |
-| Artifact helper | `publish_json`、`publish_file` | 向 Runtime publish registry 提交 declared output |
-| Event | `EventSink` | Agent、Tool 和 Harness terminal 的通用事件 |
+| 模块            | 主要对象                                                            | 职责                                                                  |
+| --------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Agent           | `Agent`、`AgentSession`、`AgentResult`                              | 调用 Agent capability、处理 structured output 和 session continuation |
+| Context         | `Message`、`Context`、`ContextTransform`                            | append、select、transform、render、compaction                         |
+| Tool            | `Tool`、`ToolSet`、`Observation`                                    | callable 注册、参数校验、hook chain、结果转换                         |
+| Hook            | `before_turn`、`before_tool_call`、`after_tool_call`、`should_stop` | 局部扩展点                                                            |
+| Guard           | `CallLimit`、`AllowList`、`RetryPolicy`、`NoProgressGuard`          | Harness 内可拦截策略                                                  |
+| Workflow        | `bounded_gather`、`first_success`、`collect_results`                | 普通异步组合 helper                                                   |
+| Scope           | `RunScope`、`HarnessTerminal`                                       | deadline、cancel、终态                                                |
+| Artifact helper | `publish_json`、`publish_file`                                      | 向 Runtime publish registry 提交 declared output                      |
+| Event           | `EventSink`                                                         | Agent、Tool 和 Harness terminal 的通用事件                            |
 
 上游 Framework 已经提供其中某项能力时，Task Package 可以绕过对应 helper。
 
@@ -273,10 +273,10 @@ limits:
 
 两个上限处理不同范围：
 
-| 上限 | 执行者 | 含义 |
-| --- | --- | --- |
-| `parameters.tools.inspect_lock_contention.max_calls: 2` | Harness `CallLimit` | 业务 Tool 在当前 loop 中最多调用两次 |
-| `limits.environment_actions: 20` | Runtime Environment capability | 整个 Attempt 最多产生二十次外部 Environment action |
+| 上限                                                    | 执行者                         | 含义                                               |
+| ------------------------------------------------------- | ------------------------------ | -------------------------------------------------- |
+| `parameters.tools.inspect_lock_contention.max_calls: 2` | Harness `CallLimit`            | 业务 Tool 在当前 loop 中最多调用两次               |
+| `limits.environment_actions: 20`                        | Runtime Environment capability | 整个 Attempt 最多产生二十次外部 Environment action |
 
 它们来自同一个配置文件，不需要共用同一种执行机制。
 
