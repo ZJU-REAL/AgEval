@@ -8,6 +8,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from bora.adapters.nooa_container import NooaContainerExecutor
+from bora.provider.outcomes import ProcessOutcome, ProcessTerminalKind
+from bora.runtime.identity import IdentityFactory
 
 
 def test_nooa_container_executor_parses_worker_stdout() -> None:
@@ -20,10 +22,23 @@ def test_nooa_container_executor_parses_worker_stdout() -> None:
         "metadata": {"plugin": "nooa", "execution_location": "attempt-container"},
     }
 
-    def fake_run(cmd, **kwargs):  # noqa: ANN001, ANN003
-        del cmd, kwargs
-        return subprocess.CompletedProcess(
-            args=[], returncode=0, stdout=json.dumps(payload) + "\n", stderr=""
+    def fake_supervise(argv, **kwargs):  # noqa: ANN001, ANN003
+        del argv, kwargs
+        factory = IdentityFactory()
+        attempt = factory.new_attempt(factory.new_trial(factory.new_run(), "sha256:" + "n" * 64))
+        return ProcessOutcome(
+            attempt=attempt,
+            assurance="l0",
+            terminal=ProcessTerminalKind.EXITED,
+            exit_code=0,
+            signal=None,
+            stdout_summary=json.dumps(payload) + "\n",
+            stderr_summary="",
+            truncated=False,
+            pid=None,
+            pgid=None,
+            writer_stop_confirmed=True,
+            cleanup_ok=True,
         )
 
     ex = NooaContainerExecutor(
@@ -33,7 +48,7 @@ def test_nooa_container_executor_parses_worker_stdout() -> None:
         uid=10001,
         gid=10001,
     )
-    with patch("bora.adapters.nooa_container.subprocess.run", side_effect=fake_run):
+    with patch("bora.adapters.nooa_container.supervise_docker_cli", side_effect=fake_supervise):
         result = ex.invoke("do it", timeout=5.0)
     assert result.ok
     assert result.metadata is not None
