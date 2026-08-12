@@ -12,7 +12,6 @@ from bora.plugins.protocol import ExecutorSPI
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import (
     EXECUTOR,
-    IMAGE_CONTRIBUTE,
     TRAJECTORY_COLLECT,
 )
 
@@ -86,19 +85,6 @@ def _acp_factory(**kwargs: Any) -> AcpExecutorSPI:
     return AcpExecutorSPI(**kwargs)
 
 
-async def _acp_image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
-    """Declare official ACP entry bake requirements (merged into list)."""
-    declare = {
-        "plugin": PLUGIN_ID,
-        "bake": "acp_entries",
-        "entries": ["pi", "codex", "claude", "opencode", "grok-build"],
-    }
-    base = value if isinstance(value, list) else []
-    base = list(base)
-    base.append(declare)
-    return await nxt(base)
-
-
 async def _acp_trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:
     """Tag trajectory payload as ACP-sourced; seal path writes from chain output (#71 B)."""
     out = await nxt(value)
@@ -118,13 +104,6 @@ def register_acp_contrib(registry: ExtensionRegistry) -> None:
         source="first-party",
         is_default=False,
         is_factory=True,
-    )
-    registry.on(
-        IMAGE_CONTRIBUTE,
-        PLUGIN_ID,
-        _acp_image_contribute,
-        priority=ACP_PRIORITY,
-        source="first-party",
     )
     registry.on(
         TRAJECTORY_COLLECT,

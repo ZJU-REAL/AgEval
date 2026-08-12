@@ -8,17 +8,13 @@ from nooa_plugin.factory import PLUGIN_ID
 
 
 async def image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
-    """Declare bake intent consumed by L1 prepare (Spec 05 Ready).
+    """Declare this plugin on the image_contribute chain (L1 Ready).
 
-    install = Recognition only; this declare drives in-container worker bake.
+    install = Recognition only. Core bakes ``docker/Dockerfile.bake`` if present.
     """
     del ctx
     declare = {
         "plugin": PLUGIN_ID,
-        "bake": ["nooa", "bora-executor-nooa"],
-        "ready_strategy": "in-container-worker",
-        "worker": "bora-executor-nooa",
-        "worker_path": "/usr/local/bin/bora-executor-nooa",
     }
     base = list(value) if isinstance(value, list) else []
     base.append(declare)

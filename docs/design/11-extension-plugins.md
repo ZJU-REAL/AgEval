@@ -34,7 +34,7 @@
 1. `profiles.executor`（及 `extensions` 显式绑定）选择 provide；**禁止** `resolve_executor` dual path / `bora.agent_executors` 旁路  
 2. **nooa 等生态插件外置**（`plugins/` + install），不进 first-party bootstrap  
 3. `bora plugin install` **只写本地 cache**（`$BORA_HOME/plugins`），**永不改写** profiles / task.yaml  
-4. **Recognition ≠ Ready**：install 可见 ≠ L1 镜像可跑；Ready 来自 `image_contribute` bake  
+4. **Recognition ≠ Ready**：install 可见 ≠ L1 镜像可跑；Ready 来自 `image_contribute` bake。Core 对每个已安装且声明 contribute、并带 `docker/Dockerfile.bake` 的**外置**插件链式 `docker buildx`（context = 插件根）。绑定了外置 executor 但链为空或缺 bake 文件 → fail closed。Core **不**按插件名解释 bake token。官方 ACP 五 entry 仍在 `docker/attempt` 基座 bake-in。  
 5. PASS 只来自独立 evaluator；扩展链不得发明 PASS  
 6. 凭据只经 scoped projection；不进 lock / evidence  
 

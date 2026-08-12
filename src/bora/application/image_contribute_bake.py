@@ -1,6 +1,10 @@
-"""Consume ``image_contribute`` multi-slot and bake plugin Ready into Attempt images.
+"""Consume ``image_contribute`` and bake installed-plugin Ready layers.
 
-Recognition (path install) ≠ Ready (this module). Spec 05 A1–A5.
+Recognition (path install) ≠ Ready (this module). Core does not interpret
+plugin-named bake tokens. Each installed plugin that declares contribute and
+ships ``docker/Dockerfile.bake`` is built as ``FROM ${BASE_IMAGE}`` with
+context = plugin root. Bound *external* executors fail closed if the chain
+is empty or the bake file is missing.
 """
 
 from __future__ import annotations
@@ -19,6 +23,9 @@ from bora.plugins.lifecycle import collect_image_contribute
 from bora.plugins.protocol import intent_from_profile
 from bora.plugins.resolve import resolve
 from bora.plugins.store import list_installed, resolve_package_root
+
+# First-party contrib: official L1 image BOM, not this bake path.
+FIRST_PARTY_PLUGIN_IDS: frozenset[str] = frozenset({"acp", "openai-http", "mock"})
 
 
 class ImageContributeError(Exception):
@@ -71,25 +78,35 @@ def collect_declares_for_lock(lock: LockedTaskConfig) -> list[Any]:
     return merged
 
 
-def nooa_bound(lock: LockedTaskConfig) -> bool:
+def bound_executor_ids(lock: LockedTaskConfig) -> list[str]:
     profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
     if not isinstance(profiles, list):
-        return False
-    return any(isinstance(p, dict) and str(p.get("executor") or "") == "nooa" for p in profiles)
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for p in profiles:
+        if not isinstance(p, dict):
+            continue
+        kind = str(p.get("executor") or "").strip()
+        if not kind or kind in seen:
+            continue
+        seen.add(kind)
+        out.append(kind)
+    return out
 
 
-def needs_nooa_bake(declares: list[Any]) -> bool:
+def _plugin_ids_from_declares(declares: list[Any]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
     for d in declares:
         if not isinstance(d, dict):
             continue
-        if str(d.get("plugin") or "") == "nooa":
-            return True
-        bake = d.get("bake")
-        if bake in {"nooa", "bora-executor-nooa"}:
-            return True
-        if isinstance(bake, list) and any(str(x) in {"nooa", "bora-executor-nooa"} for x in bake):
-            return True
-    return False
+        plugin = str(d.get("plugin") or "").strip()
+        if not plugin or plugin in seen:
+            continue
+        seen.add(plugin)
+        out.append(plugin)
+    return out
 
 
 def _find_installed_plugin_root(plugin_id: str) -> Path | None:
@@ -101,24 +118,19 @@ def _find_installed_plugin_root(plugin_id: str) -> Path | None:
     return None
 
 
-def bake_nooa_layer(
+def bake_plugin_layer(
     *,
     base_image: DockerImageLock,
     platform: str,
     out_tag: str,
+    plugin_id: str,
     plugin_root: Path,
 ) -> DockerImageLock:
-    """Second-stage docker build: FROM package image + nooa worker."""
+    """Second-stage docker build: FROM package image + plugin Dockerfile.bake."""
     dockerfile = plugin_root / "docker" / "Dockerfile.bake"
     if not dockerfile.is_file():
         raise ImageContributeError(
-            f"nooa bake Dockerfile missing: {dockerfile}",
-            kind="plugin_not_ready",
-        )
-    worker = plugin_root / "worker" / "bora_executor_nooa.py"
-    if not worker.is_file():
-        raise ImageContributeError(
-            f"nooa worker missing: {worker}",
+            f"{plugin_id} bake Dockerfile missing: {dockerfile}",
             kind="plugin_not_ready",
         )
 
@@ -140,7 +152,7 @@ def bake_nooa_layer(
     proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
     if proc.returncode != 0:
         raise ImageContributeError(
-            f"nooa image bake failed: {(proc.stderr or proc.stdout or '')[-2000:]}",
+            f"{plugin_id} image bake failed: {(proc.stderr or proc.stdout or '')[-2000:]}",
             kind="image_contribute_unsatisfied",
         )
 
@@ -158,13 +170,15 @@ def bake_nooa_layer(
         text=True,
     )
     if dig.returncode != 0:
-        raise ImageContributeError("cannot inspect baked nooa image", kind="image_unresolved")
+        raise ImageContributeError(
+            f"cannot inspect baked {plugin_id} image", kind="image_unresolved"
+        )
     image_digest = (dig.stdout or "").strip()
     build_input = hashlib.sha256(
-        dockerfile.read_bytes() + worker.read_bytes() + base_image.image_digest.encode()
+        plugin_id.encode() + dockerfile.read_bytes() + base_image.image_digest.encode()
     ).hexdigest()
     return DockerImageLock(
-        kind="docker-package-attempt-nooa",
+        kind="docker-package-attempt",
         platform=platform,
         image_tag=out_tag,
         image_digest=image_digest,
@@ -178,49 +192,60 @@ def apply_image_contribute_bake(
     base_image: DockerImageLock,
     platform: str,
 ) -> tuple[DockerImageLock, dict[str, Any]]:
-    """Collect contribute declares and bake required layers (fail closed).
-
-    Returns (possibly new image lock, evidence meta).
-    """
+    """Collect contribute declares and bake required plugin layers (fail closed)."""
     declares = collect_declares_for_lock(lock)
+    bound = bound_executor_ids(lock)
+    external_bound = [k for k in bound if k not in FIRST_PARTY_PLUGIN_IDS]
+    declared = _plugin_ids_from_declares(declares)
     meta: dict[str, Any] = {
         "declares": declares,
         "baked": [],
-        "nooa_bound": nooa_bound(lock),
+        "bound_executors": bound,
+        "external_bound": external_bound,
     }
 
-    want_nooa = needs_nooa_bake(declares) or nooa_bound(lock)
-    if not want_nooa:
-        meta["status"] = "skipped_no_nooa"
+    for kind in external_bound:
+        if kind not in declared:
+            raise ImageContributeError(
+                f"executor {kind!r} bound but image_contribute chain empty or unsatisfied",
+                kind="image_contribute_unsatisfied",
+            )
+
+    plugins_to_bake = [p for p in declared if p not in FIRST_PARTY_PLUGIN_IDS]
+    if not plugins_to_bake:
+        meta["status"] = "skipped"
         return base_image, meta
 
-    if nooa_bound(lock) and not needs_nooa_bake(declares):
-        # Bound but contribute chain empty → Recognition without Ready chain.
-        raise ImageContributeError(
-            "executor nooa bound but image_contribute chain empty or unsatisfied",
-            kind="image_contribute_unsatisfied",
+    current = base_image
+    baked_ids: list[str] = []
+    for plugin_id in plugins_to_bake:
+        plugin_root = _find_installed_plugin_root(plugin_id)
+        if plugin_root is None:
+            raise ImageContributeError(
+                f"{plugin_id} not installed (Recognition required before Ready bake)",
+                kind="plugin_not_ready",
+            )
+        dockerfile = plugin_root / "docker" / "Dockerfile.bake"
+        if not dockerfile.is_file():
+            raise ImageContributeError(
+                f"{plugin_id} bound/declared but docker/Dockerfile.bake missing",
+                kind="plugin_not_ready",
+            )
+        short = hashlib.sha256(f"{current.image_digest}:{plugin_id}".encode()).hexdigest()[:12]
+        out_tag = f"{base_image.image_tag}-{plugin_id}-{short}"
+        current = bake_plugin_layer(
+            base_image=current,
+            platform=platform,
+            out_tag=out_tag,
+            plugin_id=plugin_id,
+            plugin_root=plugin_root,
         )
+        baked_ids.append(plugin_id)
 
-    plugin_root = _find_installed_plugin_root("nooa")
-    if plugin_root is None:
-        raise ImageContributeError(
-            "nooa not installed (Recognition required before Ready bake)",
-            kind="plugin_not_ready",
-        )
-
-    short = hashlib.sha256(base_image.image_digest.encode()).hexdigest()[:12]
-    out_tag = f"{base_image.image_tag}-nooa-{short}"
-    baked = bake_nooa_layer(
-        base_image=base_image,
-        platform=platform,
-        out_tag=out_tag,
-        plugin_root=plugin_root,
-    )
-    meta["baked"] = ["nooa", "bora-executor-nooa"]
+    meta["baked"] = baked_ids
     meta["status"] = "baked"
-    meta["image_tag"] = baked.image_tag
-    meta["plugin_root"] = str(plugin_root)
-    return baked, meta
+    meta["image_tag"] = current.image_tag
+    return current, meta
 
 
 def collect_image_contribute_sync(lock: LockedTaskConfig) -> list[Any]:
