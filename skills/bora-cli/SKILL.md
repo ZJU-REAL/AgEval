@@ -36,6 +36,7 @@ uv run bora --help
 | `bora run <package> --task <id>`                           | One foreground Attempt                                               |
 | `bora run <package> [-k N] [--max-concurrent-tasks N]`     | Suite / Always-k job (`-k` = `--n-attempts`; CLI only)               |
 | `bora run … --resume-suite <id> [--task id] -k N`        | Append Attempts into existing suite job; recompute pass@k / pass^k   |
+| `bora run … --keep-workspace`                              | L1 only: retain host `l1-work/` after cleanup (default: delete)      |
 | `bora run ... --set '/bindings/solver/options/entry="pi"'` | Job binding override (entry/model)                                   |
 | `bora campaign <package> --task <id> --matrix ...`         | Serial matrix (`/parameters/*` or `/bindings/<role>/…`); ≠ Always-k  |
 | `bora evidence <logs-path> --out <dir>`                    | Sealed trajectory export (no score change)                           |
@@ -106,7 +107,8 @@ Value after `=` is JSON (strings need quotes):
 
 **Single Attempt** (`--task` and default `-k 1`, no resume): typical fields `status`, `score`, `assurance`, `agent_invocations`, `evidence_path`, **`logs`** (portable under Dataset root, e.g. `.bora/runs/<run_id>`).
 
-- On disk: `<dataset>/.bora/runs/<run_id>/`
+- On disk: `<dataset>/.bora/runs/<run_id>/` — Hub-facing curated evidence (`result.json`, `agent/`, `evaluation/`, `artifacts/`, lock/runtime JSON).
+- L1 host sandbox lives at `l1-work/` **during** the Attempt; **default cleanup deletes it**. Use `--keep-workspace` only for local debug. `bora results upload` never packs `l1-work/**`.
 - Inspect trajectory: open `<dataset>/.bora/runs/<run_id>/agent/invocations/<nnnn>-*/trajectory.jsonl` (**turn-level** training rows) and `events.jsonl` (optional stream/debug)
 - Export: `uv run bora evidence <dataset>/.bora/runs/<run_id> --out /tmp/bora-export`
 - Trajectory presence **never** upgrades score
