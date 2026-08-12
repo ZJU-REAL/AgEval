@@ -113,7 +113,6 @@ async def run_task(
     agent_sock_path = None
     shared_attempt = None  # Runtime-owned Attempt shared with harness worker
     if agent_profile is not None and provider_kind != "docker":
-        from bora.adapters.agent_registry import resolve_executor
         from bora.runtime.agent_service_protocol import AgentServiceServer
         from bora.runtime.parent_agent_service import ParentAgentService
 
@@ -187,14 +186,26 @@ async def run_task(
         except Exception:
             wall_s = 0.0
         deadline = (_mono() + wall_s) if wall_s > 0 else None
+        from bora.plugins.bootstrap import ensure_bootstrapped
         from bora.runtime.parent_agent_service import resolve_invoke_timeout_seconds
 
         invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
+        # Inject package root for nooa (and similar) host materialize of package-local agents.
+        service_profiles: list[dict[str, Any]] = []
+        for p in profiles:
+            if not isinstance(p, dict):
+                continue
+            row = dict(p)
+            opts = dict(row.get("options") or {}) if isinstance(row.get("options"), dict) else {}
+            opts["_package_root"] = str(package_root)
+            row["options"] = opts
+            service_profiles.append(row)
+
         agent_service = ParentAgentService(
-            profiles=[p for p in profiles if isinstance(p, dict)],
+            profiles=service_profiles,
             agent_invocation_limit=inv_limit,
-            resolve_executor=lambda kind, model, **kw: resolve_executor(kind, model=model, **kw),
             attempt_id=attempt_ident.value,
+            extension_registry=ensure_bootstrapped(),
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
             invoke_timeout_seconds=invoke_timeout,
@@ -282,6 +293,17 @@ async def run_task(
         )
 
     timer.add_ms("prepare", (_mono() - prepare_t0) * 1000.0)
+    from bora.application.extension_hooks import (
+        hook_cleanup,
+        hook_evaluate,
+        hook_evaluation_input,
+        hook_evaluation_runtime,
+        hook_prepare,
+        hook_run,
+        hook_score_postprocess,
+    )
+
+    hook_prepare(lock)
 
     try:
         harness_timeout = (
@@ -297,6 +319,7 @@ async def run_task(
         if wall_cap > 0:
             harness_timeout = min(harness_timeout, wall_cap)
         run_t0 = _mono()
+        hook_run(lock)
         harness_out = await run_harness_package(
             lock,
             package_root,
@@ -317,8 +340,26 @@ async def run_task(
                 "mode": "parent_agent_service",
                 "invocations": agent_service.invocations_completed,
             }
-        # Environment Manager teardown
+        # Environment Manager teardown (env_teardown multi before close)
         if env_manager is not None:
+            with contextlib.suppress(Exception):
+                from types import SimpleNamespace
+
+                from bora.application.extension_hooks import hook_env_teardown
+
+                td_ctx = SimpleNamespace(
+                    attempt_id=str(agent_meta.get("attempt_id") or run_id),
+                    package_root=package_root,
+                    workdir=package_root,
+                    run_dir=run_dir,
+                    env_manager=env_manager,
+                    resource_id=(agent_meta.get("environment") or {}).get("resource_id"),
+                )
+                hook_env_teardown(
+                    lock,
+                    agent_meta.get("environment") or {"phase": "teardown"},
+                    ctx=td_ctx,
+                )
             with contextlib.suppress(Exception):
                 env_manager.close()
         marker = run_dir / "env_container_name.txt"
@@ -346,6 +387,7 @@ async def run_task(
 
     # Writer barrier: require published artifacts before evaluator.
     eval_t0 = _mono()
+    hook_evaluate(lock)
     published = dict(envelope.get("published") or {})
     eval_inputs = list(evaluation.get("inputs") or [])
     staging = run_dir / "eval_staging"
@@ -377,17 +419,47 @@ async def run_task(
             artifacts_map[str(art)] = str(dest)
 
     evaluator_raw: dict[str, Any] | None = None
+    eval_extension_meta: dict[str, Any] = {}
     if error_phase is None:
+        # evaluation_input_contribute + evaluation_runtime (fail closed).
+        contrib_ctx = {
+            "artifacts": dict(artifacts_map),
+            "eval_inputs": list(eval_inputs),
+            "published": dict(published),
+            "staging": str(staging),
+            "package_root": str(package_root),
+        }
+        contrib = hook_evaluation_input(lock, contrib_ctx)
+        if isinstance(contrib, dict):
+            extra_arts = contrib.get("artifacts")
+            if isinstance(extra_arts, dict):
+                for k, v in extra_arts.items():
+                    p = Path(str(v))
+                    if p.is_file():
+                        artifacts_map[str(k)] = str(p)
+            eval_extension_meta["evaluation_input"] = {
+                "keys": sorted(artifacts_map.keys()),
+            }
+        runtime_ann = hook_evaluation_runtime(lock, {"source": "package", "path": "run_command"})
+        if runtime_ann is not None:
+            eval_extension_meta["evaluation_runtime"] = (
+                dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}
+            )
         evaluator_raw = run_evaluator_worker(
             package_root,
             lock,
             artifacts_map,
             database_root=resolved.database_root,
         )
+        if isinstance(evaluator_raw, dict):
+            evaluator_raw = hook_score_postprocess(lock, evaluator_raw)
+            if not isinstance(evaluator_raw, dict):
+                raise RuntimeError("score_postprocess_must_return_dict")
     timer.add_ms("evaluate", (_mono() - eval_t0) * 1000.0)
 
     # Cleanup agent materialization
     cleanup_t0 = _mono()
+    hook_cleanup(lock)
     agent_file = package_root / ".bora_agent_result.json"
     if agent_file.exists():
         agent_file.unlink()
@@ -435,6 +507,8 @@ async def run_task(
     result_doc["assurance"] = assurance
     if l1_meta:
         result_doc["l1"] = l1_meta
+    if eval_extension_meta:
+        result_doc["evaluation_extensions"] = eval_extension_meta
     phase_timing = timer.as_dict()
     result_doc["phase_timing"] = phase_timing
     result_doc["duration"] = format_duration_ms(phase_timing.get("total_ms"))

@@ -308,19 +308,27 @@ def run_l1_sdk_session_attempt(
             wall_s = 0.0
         deadline = (time.monotonic() + wall_s) if wall_s > 0 else None
 
-        def _host_resolve(*_a: Any, **_k: Any) -> Any:
-            # L1 path must never call host CLI — mark counter and fail.
-            ledger.host_fallback_count += 1
-            raise RuntimeError("host_fallback_forbidden")
-
+        from bora.plugins.bootstrap import ensure_bootstrapped
         from bora.runtime.parent_agent_service import resolve_invoke_timeout_seconds
 
         invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
+        # Inject package root for host materialize when L1 falls back is forbidden
+        # but graph still needs package-local option context for open_session.
+        service_profiles: list[dict[str, Any]] = []
+        for p in profiles:
+            if not isinstance(p, dict):
+                continue
+            row = dict(p)
+            opts = dict(row.get("options") or {}) if isinstance(row.get("options"), dict) else {}
+            opts["_package_root"] = str(package_root)
+            row["options"] = opts
+            service_profiles.append(row)
+
         agent_service = ParentAgentService(
-            profiles=profiles,
+            profiles=service_profiles,
             agent_invocation_limit=inv_limit,
-            resolve_executor=_host_resolve,
             attempt_id=attempt_ident.value,
+            extension_registry=ensure_bootstrapped(),
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
             invoke_timeout_seconds=invoke_timeout,

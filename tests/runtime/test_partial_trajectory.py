@@ -8,6 +8,7 @@ from pathlib import Path
 from bora.adapters.agent_contract import AgentResult
 from bora.evidence.store import AttemptEvidenceStore
 from bora.runtime.parent_agent_service import ParentAgentService
+from tests.helpers.extension_registry import registry_with_executor
 
 
 class _CrashExecutor:
@@ -63,8 +64,8 @@ def _run(tmp_path: Path, second: object, expected_status: str) -> Path:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
         agent_invocation_limit=2,
-        resolve_executor=lambda kind, model: chain,  # noqa: ARG005
         attempt_id="attempt_p",
+        extension_registry=registry_with_executor("fake", chain),
         evidence_store=store,
     )
     sid = svc.open_session(profile_id="p1")["session_id"]
