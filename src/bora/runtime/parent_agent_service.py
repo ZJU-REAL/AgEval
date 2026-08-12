@@ -545,6 +545,8 @@ class ParentAgentService:
                 kind=kind,
                 turn_index=self.invocations_completed + 1,
                 latency_ms=latency,
+                extension_graph=getattr(binding_snap, "extension_graph", None),
+                extension_ctx=binding_snap,
             )
             if redaction_err is not None:
                 with self._lock:

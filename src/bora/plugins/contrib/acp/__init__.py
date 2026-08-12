@@ -102,8 +102,13 @@ async def _acp_image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
 
 
 async def _acp_trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:
-    """Pass-through; concrete collect remains on AcpExecutor / evidence path."""
-    return await nxt(value)
+    """Tag trajectory payload as ACP-sourced; seal path writes from chain output (#71 B)."""
+    out = await nxt(value)
+    if isinstance(out, dict):
+        meta = dict(out.get("metadata") or {})
+        meta.setdefault("trajectory_source", "acp")
+        return {**out, "metadata": meta}
+    return out
 
 
 def register_acp_contrib(registry: ExtensionRegistry) -> None:
