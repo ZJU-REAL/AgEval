@@ -7,6 +7,8 @@ import { LoginCallbackPage } from "@/pages/LoginCallbackPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { OrganizationDetailPage } from "@/pages/OrganizationDetailPage";
 import { OrganizationsPage } from "@/pages/OrganizationsPage";
+import { PluginDetailPage } from "@/pages/PluginDetailPage";
+import { PluginsPage } from "@/pages/PluginsPage";
 import { TaskDetailPage } from "@/pages/TaskDetailPage";
 
 export default function App() {
@@ -24,6 +26,8 @@ export default function App() {
           path="/datasets/:datasetId/tasks/:taskId/attempts/:runId"
           element={<AttemptEvidencePage />}
         />
+        <Route path="/plugins" element={<PluginsPage />} />
+        <Route path="/plugins/:pluginId" element={<PluginDetailPage />} />
         <Route path="/organizations" element={<OrganizationsPage />} />
         <Route
           path="/organizations/:orgId"
