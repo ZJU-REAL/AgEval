@@ -21,6 +21,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from services.registry import queries as Q
+from services.registry.dialect import pg_sql
+from services.registry.protocols import MetadataStoreProtocol, TokenStoreProtocol
+
 # ---------------------------------------------------------------------------
 # Rows
 # ---------------------------------------------------------------------------
@@ -321,7 +325,7 @@ def _normalize_user_id(raw: str | None) -> str | None:
     return u.casefold()
 
 
-class TokenStore:
+class TokenStore(TokenStoreProtocol):
     """In-memory tokens (tests). Prefer SqliteTokenStore / PostgresTokenStore."""
 
     def __init__(self) -> None:
@@ -355,7 +359,7 @@ class TokenStore:
         return self.auth_for(raw_token).scopes
 
 
-class SqliteTokenStore:
+class SqliteTokenStore(TokenStoreProtocol):
     """Persistent tokens in the same SQLite file as metadata (unit / zero-dep)."""
 
     def __init__(self, db_path: Path) -> None:
@@ -430,7 +434,7 @@ class SqliteTokenStore:
         return self.auth_for(raw_token).scopes
 
 
-class PostgresTokenStore:
+class PostgresTokenStore(TokenStoreProtocol):
     """Persistent tokens in Postgres."""
 
     def __init__(self, database_url: str) -> None:
@@ -519,7 +523,7 @@ class PostgresTokenStore:
 # ---------------------------------------------------------------------------
 
 
-class MetadataStore:
+class MetadataStore(MetadataStoreProtocol):
     """SQLite release + attempt_results metadata (unit tests / zero-dep)."""
 
     def __init__(self, db_path: Path) -> None:
@@ -531,6 +535,10 @@ class MetadataStore:
         conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         conn.row_factory = sqlite3.Row
         return conn
+
+    def _exec(self, conn: sqlite3.Connection, sql: str, params: Any = ()) -> Any:
+        """Execute shared ``?`` SQL (SQLite dialect)."""
+        return conn.execute(sql, params)
 
     def _init(self) -> None:
         with self._connect() as conn:
@@ -685,13 +693,9 @@ class MetadataStore:
     def insert(self, row: ReleaseRow) -> None:
         with self._connect() as conn:
             try:
-                conn.execute(
-                    """
-                    INSERT INTO releases(
-                        database_id, version, visibility, package_digest,
-                        blob_digest, size, media_type, created_at, org_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_RELEASE,
                     (
                         row.database_id,
                         row.version,
@@ -710,19 +714,13 @@ class MetadataStore:
 
     def get_by_version(self, database_id: str, version: str) -> ReleaseRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM releases WHERE database_id=? AND version=?",
-                (database_id, version),
-            )
+            cur = self._exec(conn, Q.SELECT_RELEASE_BY_VERSION, (database_id, version))
             r = cur.fetchone()
             return self._release_row(r) if r else None
 
     def get_by_digest(self, database_id: str, package_digest: str) -> ReleaseRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM releases WHERE database_id=? AND package_digest=?",
-                (database_id, package_digest),
-            )
+            cur = self._exec(conn, Q.SELECT_RELEASE_BY_DIGEST, (database_id, package_digest))
             r = cur.fetchone()
             return self._release_row(r) if r else None
 
@@ -734,49 +732,28 @@ class MetadataStore:
         version: str | None = None,
         include_private: bool = False,
     ) -> list[ReleaseRow]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        if not include_private:
-            clauses.append("visibility = 'public'")
-        elif visibility in {"public", "private"}:
-            clauses.append("visibility = ?")
-            params.append(visibility)
-        if database_id_prefix:
-            clauses.append("database_id LIKE ?")
-            params.append(f"{database_id_prefix}%")
-        if version:
-            clauses.append("version = ?")
-            params.append(version)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        sql = f"SELECT * FROM releases {where} ORDER BY database_id, version"
+        sql, params = Q.list_releases_query(
+            database_id_prefix=database_id_prefix,
+            visibility=visibility,
+            version=version,
+            include_private=include_private,
+        )
         with self._connect() as conn:
-            cur = conn.execute(sql, params)
+            cur = self._exec(conn, sql, params)
             return [self._release_row(r) for r in cur.fetchall()]
 
     def list_versions(self, database_id: str, *, include_private: bool = False) -> list[ReleaseRow]:
-        clauses = ["database_id = ?"]
-        params: list[Any] = [database_id]
-        if not include_private:
-            clauses.append("visibility = 'public'")
-        where = " AND ".join(clauses)
+        sql, params = Q.list_versions_query(database_id, include_private=include_private)
         with self._connect() as conn:
-            cur = conn.execute(
-                f"SELECT * FROM releases WHERE {where} ORDER BY version",
-                params,
-            )
+            cur = self._exec(conn, sql, params)
             return [self._release_row(r) for r in cur.fetchall()]
 
     def insert_attempt(self, row: AttemptResultRow) -> None:
         with self._connect() as conn:
             try:
-                conn.execute(
-                    """
-                    INSERT INTO attempt_results(
-                        run_id, database_id, task_id, lock_digest, status,
-                        visibility, blob_digest, size, created_at, uploaded_by,
-                        suite_run_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_ATTEMPT,
                     (
                         row.run_id,
                         row.database_id,
@@ -797,10 +774,7 @@ class MetadataStore:
 
     def get_attempt(self, run_id: str) -> AttemptResultRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM attempt_results WHERE run_id=?",
-                (run_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_ATTEMPT, (run_id,))
             r = cur.fetchone()
             return self._attempt_row(r) if r else None
 
@@ -845,15 +819,9 @@ class MetadataStore:
     def insert_suite(self, row: SuiteResultRow) -> None:
         with self._connect() as conn:
             try:
-                conn.execute(
-                    """
-                    INSERT INTO suite_results(
-                        suite_run_id, database_id, database_version, visibility,
-                        pass_rate, mean_score, metrics_json, tasks_json,
-                        agent_label, model_label, blob_digest, size,
-                        exit_code, created_at, config_json, uploaded_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_SUITE,
                     (
                         row.suite_run_id,
                         row.database_id,
@@ -879,10 +847,7 @@ class MetadataStore:
 
     def get_suite(self, suite_run_id: str) -> SuiteResultRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM suite_results WHERE suite_run_id=?",
-                (suite_run_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_SUITE, (suite_run_id,))
             r = cur.fetchone()
             return self._suite_row(r) if r else None
 
@@ -1111,12 +1076,9 @@ class MetadataStore:
         )
         with self._connect() as conn:
             try:
-                conn.execute(
-                    """
-                    INSERT INTO organizations(
-                        org_id, name, display_name, is_claimable, created_at
-                    ) VALUES (?, ?, ?, ?, ?)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_ORG,
                     (
                         row.org_id,
                         row.name,
@@ -1125,11 +1087,9 @@ class MetadataStore:
                         row.created_at,
                     ),
                 )
-                conn.execute(
-                    """
-                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
-                    VALUES (?, ?, 'owner', ?)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_ORG_OWNER_MEMBERSHIP,
                     (row.org_id, owner_user_id, row.created_at),
                 )
                 conn.commit()
@@ -1139,10 +1099,7 @@ class MetadataStore:
 
     def get_org(self, org_id: str) -> OrgRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM organizations WHERE org_id=?",
-                (org_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_ORG, (org_id,))
             r = cur.fetchone()
             return self._org_row(r) if r else None
 
@@ -1297,11 +1254,7 @@ class MetadataStore:
 
     def membership(self, org_id: str, user_id: str) -> MembershipRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT org_id, user_id, role, created_at FROM org_memberships "
-                "WHERE org_id=? AND user_id=?",
-                (org_id, user_id),
-            )
+            cur = self._exec(conn, Q.SELECT_MEMBERSHIP, (org_id, user_id))
             r = cur.fetchone()
             if r is None:
                 return None
@@ -1485,10 +1438,7 @@ class MetadataStore:
 
     def user_org_ids(self, user_id: str) -> set[str]:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT org_id FROM org_memberships WHERE user_id=?",
-                (user_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_USER_ORG_IDS, (user_id,))
             return {str(r["org_id"]) for r in cur.fetchall()}
 
     # ---- result shares ---------------------------------------------------
@@ -1691,7 +1641,7 @@ class MetadataStore:
             return out
 
 
-class PostgresMetadataStore:
+class PostgresMetadataStore(MetadataStoreProtocol):
     """Postgres release + attempt_results metadata."""
 
     def __init__(self, database_url: str) -> None:
@@ -1707,6 +1657,10 @@ class PostgresMetadataStore:
 
     def _connect(self):  # noqa: ANN202
         return self._psycopg.connect(self.database_url)
+
+    def _exec(self, conn: Any, sql: str, params: Any = ()) -> Any:
+        """Execute shared ``?`` SQL after Postgres placeholder translation."""
+        return conn.execute(pg_sql(sql), params)
 
     def _init(self) -> None:
         with self._connect() as conn:
@@ -1853,13 +1807,9 @@ class PostgresMetadataStore:
     def insert(self, row: ReleaseRow) -> None:
         with self._connect() as conn:
             try:
-                conn.execute(
-                    """
-                    INSERT INTO releases(
-                        database_id, version, visibility, package_digest,
-                        blob_digest, size, media_type, created_at, org_id
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_RELEASE,
                     (
                         row.database_id,
                         row.version,
@@ -1880,19 +1830,13 @@ class PostgresMetadataStore:
 
     def get_by_version(self, database_id: str, version: str) -> ReleaseRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM releases WHERE database_id=%s AND version=%s",
-                (database_id, version),
-            )
+            cur = self._exec(conn, Q.SELECT_RELEASE_BY_VERSION, (database_id, version))
             r = cur.fetchone()
             return self._release_from_cur(cur, r) if r else None
 
     def get_by_digest(self, database_id: str, package_digest: str) -> ReleaseRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM releases WHERE database_id=%s AND package_digest=%s",
-                (database_id, package_digest),
-            )
+            cur = self._exec(conn, Q.SELECT_RELEASE_BY_DIGEST, (database_id, package_digest))
             r = cur.fetchone()
             return self._release_from_cur(cur, r) if r else None
 
@@ -1904,38 +1848,22 @@ class PostgresMetadataStore:
         version: str | None = None,
         include_private: bool = False,
     ) -> list[ReleaseRow]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        if not include_private:
-            clauses.append("visibility = 'public'")
-        elif visibility in {"public", "private"}:
-            clauses.append("visibility = %s")
-            params.append(visibility)
-        if database_id_prefix:
-            clauses.append("database_id LIKE %s")
-            params.append(f"{database_id_prefix}%")
-        if version:
-            clauses.append("version = %s")
-            params.append(version)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        sql = f"SELECT * FROM releases {where} ORDER BY database_id, version"
+        sql, params = Q.list_releases_query(
+            database_id_prefix=database_id_prefix,
+            visibility=visibility,
+            version=version,
+            include_private=include_private,
+        )
         with self._connect() as conn:
-            cur = conn.execute(sql, params)
+            cur = self._exec(conn, sql, params)
             rows = cur.fetchall()
             cols = [d.name for d in cur.description] if cur.description else []
             return [self._release_from_cols(cols, r) for r in rows]
 
     def list_versions(self, database_id: str, *, include_private: bool = False) -> list[ReleaseRow]:
-        clauses = ["database_id = %s"]
-        params: list[Any] = [database_id]
-        if not include_private:
-            clauses.append("visibility = 'public'")
-        where = " AND ".join(clauses)
+        sql, params = Q.list_versions_query(database_id, include_private=include_private)
         with self._connect() as conn:
-            cur = conn.execute(
-                f"SELECT * FROM releases WHERE {where} ORDER BY version",
-                params,
-            )
+            cur = self._exec(conn, sql, params)
             rows = cur.fetchall()
             cols = [d.name for d in cur.description] if cur.description else []
             return [self._release_from_cols(cols, r) for r in rows]
@@ -1943,14 +1871,9 @@ class PostgresMetadataStore:
     def insert_attempt(self, row: AttemptResultRow) -> None:
         with self._connect() as conn:
             try:
-                conn.execute(
-                    """
-                    INSERT INTO attempt_results(
-                        run_id, database_id, task_id, lock_digest, status,
-                        visibility, blob_digest, size, created_at, uploaded_by,
-                        suite_run_id
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_ATTEMPT,
                     (
                         row.run_id,
                         row.database_id,
@@ -1973,10 +1896,7 @@ class PostgresMetadataStore:
 
     def get_attempt(self, run_id: str) -> AttemptResultRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM attempt_results WHERE run_id=%s",
-                (run_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_ATTEMPT, (run_id,))
             r = cur.fetchone()
             if r is None:
                 return None
@@ -1987,9 +1907,10 @@ class PostgresMetadataStore:
         ids = sorted({str(r).strip() for r in run_ids if r and str(r).strip()})
         if not ids:
             return []
-        placeholders = ",".join("%s" for _ in ids)
+        placeholders = ",".join("?" for _ in ids)
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 f"SELECT * FROM attempt_results WHERE run_id IN ({placeholders})",
                 ids,
             )
@@ -2025,15 +1946,9 @@ class PostgresMetadataStore:
     def insert_suite(self, row: SuiteResultRow) -> None:
         with self._connect() as conn:
             try:
-                conn.execute(
-                    """
-                    INSERT INTO suite_results(
-                        suite_run_id, database_id, database_version, visibility,
-                        pass_rate, mean_score, metrics_json, tasks_json,
-                        agent_label, model_label, blob_digest, size,
-                        exit_code, created_at, config_json, uploaded_by
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_SUITE,
                     (
                         row.suite_run_id,
                         row.database_id,
@@ -2061,10 +1976,7 @@ class PostgresMetadataStore:
 
     def get_suite(self, suite_run_id: str) -> SuiteResultRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM suite_results WHERE suite_run_id=%s",
-                (suite_run_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_SUITE, (suite_run_id,))
             r = cur.fetchone()
             if r is None:
                 return None
@@ -2295,12 +2207,9 @@ class PostgresMetadataStore:
         )
         with self._connect() as conn:
             try:
-                conn.execute(
-                    """
-                    INSERT INTO organizations(
-                        org_id, name, display_name, is_claimable, created_at
-                    ) VALUES (%s, %s, %s, %s, %s)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_ORG,
                     (
                         row.org_id,
                         row.name,
@@ -2309,11 +2218,9 @@ class PostgresMetadataStore:
                         row.created_at,
                     ),
                 )
-                conn.execute(
-                    """
-                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
-                    VALUES (%s, %s, 'owner', %s)
-                    """,
+                self._exec(
+                    conn,
+                    Q.INSERT_ORG_OWNER_MEMBERSHIP,
                     (row.org_id, owner_user_id, row.created_at),
                 )
                 conn.commit()
@@ -2325,9 +2232,10 @@ class PostgresMetadataStore:
 
     def get_org(self, org_id: str) -> OrgRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT org_id, name, display_name, is_claimable, created_at "
-                "FROM organizations WHERE org_id=%s",
+                "FROM organizations WHERE org_id=?",
                 (org_id,),
             )
             r = cur.fetchone()
@@ -2503,11 +2411,7 @@ class PostgresMetadataStore:
 
     def membership(self, org_id: str, user_id: str) -> MembershipRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT org_id, user_id, role, created_at FROM org_memberships "
-                "WHERE org_id=%s AND user_id=%s",
-                (org_id, user_id),
-            )
+            cur = self._exec(conn, Q.SELECT_MEMBERSHIP, (org_id, user_id))
             r = cur.fetchone()
             if r is None:
                 return None
@@ -2706,10 +2610,7 @@ class PostgresMetadataStore:
 
     def user_org_ids(self, user_id: str) -> set[str]:
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT org_id FROM org_memberships WHERE user_id=%s",
-                (user_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_USER_ORG_IDS, (user_id,))
             return {str(r[0]) for r in cur.fetchall()}
 
     def add_result_share(

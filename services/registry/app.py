@@ -67,7 +67,9 @@ if str(_REPO / "src") not in sys.path:
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
+from services.registry.access import AccessPolicy  # noqa: E402
 from services.registry.envload import load_env_file  # noqa: E402
+from services.registry.routes import match_route  # noqa: E402
 from services.registry.oauth_github import (  # noqa: E402
     GitHubOAuthError,
     build_web_authorize_url,
@@ -123,6 +125,7 @@ class RegistryState:
         self.meta = meta
         self.blobs = blobs
         self.tokens = tokens
+        self.access = AccessPolicy(meta=meta)
         self.max_upload = max_upload
         self.github_client_id = github_client_id
         self.github_client_secret = github_client_secret
@@ -200,7 +203,7 @@ def _parse_multipart(body: bytes, content_type: str) -> dict[str, bytes]:
 
 
 def _is_admin(scopes: frozenset[str]) -> bool:
-    return "admin" in scopes
+    return AccessPolicy.is_admin(scopes)
 
 
 def _require_user(auth: TokenInfo) -> str | None:
@@ -209,13 +212,7 @@ def _require_user(auth: TokenInfo) -> str | None:
 
 
 def _visible_package_row(state: RegistryState, row: ReleaseRow, auth: TokenInfo) -> bool:
-    if row.visibility == "public":
-        return True
-    if _is_admin(auth.scopes):
-        return True
-    if not auth.user_id or not row.org_id:
-        return False
-    return state.meta.membership(row.org_id, auth.user_id) is not None
+    return state.access.visible_package(row, auth)
 
 
 def _visible_result_row(
@@ -227,20 +224,12 @@ def _visible_result_row(
     uploaded_by: str,
     auth: TokenInfo,
 ) -> bool:
-    if visibility == "public":
-        return True
-    if _is_admin(auth.scopes):
-        return True
-    if not auth.user_id:
-        return False
-    if uploaded_by and uploaded_by == auth.user_id:
-        return True
-    orgs = state.meta.user_org_ids(auth.user_id) if auth.user_id else set()
-    return state.meta.result_shared_with_user(
+    return state.access.visible_result(
         result_kind=result_kind,
         result_id=result_id,
-        user_id=auth.user_id,
-        user_orgs=orgs,
+        visibility=visibility,
+        uploaded_by=uploaded_by,
+        auth=auth,
     )
 
 
@@ -285,290 +274,46 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.send_header("Content-Length", "0")
             self.end_headers()
 
-        def do_GET(self) -> None:  # noqa: N802
+        def _dispatch(self, method: str) -> None:
             parsed = urlparse(self.path)
             path = unquote(parsed.path)
             qs = parse_qs(parsed.query)
-
-            if path == "/health":
-                _json_response(self, 200, {"ok": True, "service": "bora-registry"})
+            matched = match_route(method, path)
+            if matched is None:
+                _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
                 return
-
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
-            scopes = auth.scopes
-
-            if path == "/v1/orgs":
-                self._list_orgs(auth=auth)
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys", path)
-            if m:
-                self._list_invite_keys(org_id=m.group(1), auth=auth)
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)/members", path)
-            if m:
-                self._list_org_members(org_id=m.group(1), auth=auth)
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)", path)
-            if m:
-                self._get_org(org_id=m.group(1), auth=auth)
-                return
-
-            if path == "/v1/packages":
-                self._list_packages(auth=auth, qs=qs)
-                return
-
-            m = re.fullmatch(r"/v1/packages/([^/]+(?:/[^/]+)*)", path)
-            # Exact package id list — but not versions/by-digest paths.
-            if m and "/versions/" not in path and "/by-digest/" not in path:
-                # path is /v1/packages/{id} possibly with slashes in id
-                # Prefer more specific routes first below; this branch only if no subpath.
-                rest = path[len("/v1/packages/") :]
-                if "/versions/" not in rest and "/by-digest/" not in rest and rest:
-                    self._list_package_versions(database_id=rest, auth=auth)
-                    return
-
-            m = re.fullmatch(r"/v1/packages/(.+)/versions/([^/]+)", path)
-            if m:
-                self._serve_meta(
-                    database_id=m.group(1),
-                    version=m.group(2),
-                    package_digest=None,
-                    auth=auth,
-                )
-                return
-            m = re.fullmatch(
-                r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/content",
-                path,
-            )
-            if m:
-                self._serve_content(
-                    database_id=m.group(1),
-                    package_digest=m.group(2),
-                    auth=auth,
-                )
-                return
-            # Package files list (#38) — more specific than bare by-digest meta.
-            m = re.fullmatch(
-                r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files",
-                path,
-            )
-            if m:
-                self._serve_package_files_list(
-                    database_id=m.group(1),
-                    package_digest=m.group(2),
-                    auth=auth,
-                )
-                return
-            m = re.fullmatch(
-                r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files/(.+)",
-                path,
-            )
-            if m:
-                self._serve_package_file(
-                    database_id=m.group(1),
-                    package_digest=m.group(2),
-                    file_path=m.group(3),
-                    auth=auth,
-                )
-                return
-            # Version-aliased files (resolve → digest internally).
-            m = re.fullmatch(
-                r"/v1/packages/(.+)/versions/([^/]+)/files",
-                path,
-            )
-            if m:
-                self._serve_package_files_list(
-                    database_id=m.group(1),
-                    version=m.group(2),
-                    auth=auth,
-                )
-                return
-            m = re.fullmatch(
-                r"/v1/packages/(.+)/versions/([^/]+)/files/(.+)",
-                path,
-            )
-            if m:
-                self._serve_package_file(
-                    database_id=m.group(1),
-                    version=m.group(2),
-                    file_path=m.group(3),
-                    auth=auth,
-                )
-                return
-            m = re.fullmatch(
-                r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})",
-                path,
-            )
-            if m:
-                self._serve_meta(
-                    database_id=m.group(1),
-                    version=None,
-                    package_digest=m.group(2),
-                    auth=auth,
-                )
-                return
-
-            if path == "/v1/results/attempts":
-                self._list_attempts(auth=auth, qs=qs)
-                return
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/content", path)
-            if m:
-                self._serve_attempt_content(run_id=m.group(1), auth=auth)
-                return
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/files/(.+)", path)
-            if m:
-                self._serve_attempt_file(
-                    run_id=m.group(1),
-                    file_path=m.group(2),
-                    auth=auth,
-                )
-                return
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/files", path)
-            if m:
-                self._serve_attempt_files_list(run_id=m.group(1), auth=auth)
-                return
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
-            if m:
-                self._list_result_shares(result_kind="attempt", result_id=m.group(1), auth=auth)
-                return
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)", path)
-            if m:
-                self._serve_attempt_meta(run_id=m.group(1), auth=auth)
-                return
-
-            if path == "/v1/results/suites":
-                self._list_suites(auth=auth, qs=qs)
-                return
-            m = re.fullmatch(r"/v1/results/suites/([^/]+)/content", path)
-            if m:
-                self._serve_suite_content(suite_run_id=m.group(1), auth=auth)
-                return
-            m = re.fullmatch(r"/v1/results/suites/([^/]+)/shares", path)
-            if m:
-                self._list_result_shares(result_kind="suite", result_id=m.group(1), auth=auth)
-                return
-            m = re.fullmatch(r"/v1/results/suites/([^/]+)", path)
-            if m:
-                self._serve_suite_meta(suite_run_id=m.group(1), auth=auth)
-                return
-
-            _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
-
-        def do_POST(self) -> None:  # noqa: N802
-            path = unquote(self.path.split("?", 1)[0])
-
-            if path == "/v1/auth/github/device/code":
-                self._auth_device_code()
-                return
-            if path == "/v1/auth/github/device/poll":
-                self._auth_device_poll()
-                return
-            if path == "/v1/auth/github/web/start":
-                self._auth_web_start()
-                return
-            if path == "/v1/auth/github/web/callback":
-                self._auth_web_callback()
-                return
-            if path == "/v1/orgs":
-                self._create_org()
-                return
-            if path == "/v1/orgs/join":
-                self._join_org_with_invite()
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)/claim", path)
-            if m:
-                self._claim_org(org_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)/leave", path)
-            if m:
-                self._leave_org(org_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys", path)
-            if m:
-                self._create_invite_key(org_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)/members", path)
-            if m:
-                self._add_org_member(org_id=m.group(1))
-                return
-            if path == "/v1/packages":
-                self._publish_package()
-                return
-            if path == "/v1/results/attempts":
-                self._upload_attempt()
-                return
-            if path == "/v1/results/suites":
-                self._upload_suite()
-                return
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
-            if m:
-                self._add_result_share(result_kind="attempt", result_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/results/suites/([^/]+)/shares", path)
-            if m:
-                self._add_result_share(result_kind="suite", result_id=m.group(1))
-                return
-            _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
-
-        def do_DELETE(self) -> None:  # noqa: N802
-            parsed = urlparse(self.path)
-            path = unquote(parsed.path)
-            qs = parse_qs(parsed.query)
-            m = re.fullmatch(r"/v1/orgs/([^/]+)/invite-keys/([^/]+)", path)
-            if m:
-                self._revoke_invite_key(org_id=m.group(1), key_id=m.group(2))
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)/members/([^/]+)", path)
-            if m:
-                self._remove_org_member(org_id=m.group(1), user_id=m.group(2))
-                return
-            m = re.fullmatch(r"/v1/orgs/([^/]+)", path)
-            if m:
-                self._delete_org(org_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)/shares", path)
-            if m:
-                self._remove_result_share(result_kind="attempt", result_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/results/suites/([^/]+)/shares", path)
-            if m:
-                self._remove_result_share(result_kind="suite", result_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)", path)
-            if m:
-                self._delete_attempt(run_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/results/suites/([^/]+)", path)
-            if m:
+            route, kwargs = matched
+            handler = getattr(self, f"_{route.name}")
+            if route.name == "delete_suite":
                 with_attempts = (qs.get("with_attempts") or ["0"])[0] in {
                     "1",
                     "true",
                     "yes",
                 }
-                self._delete_suite(suite_run_id=m.group(1), with_attempts=with_attempts)
+                handler(suite_run_id=kwargs["suite_run_id"], with_attempts=with_attempts)
                 return
-            m = re.fullmatch(r"/v1/packages/(.+)/versions/([^/]+)", path)
-            if m:
-                self._delete_package_release(database_id=m.group(1), version=m.group(2))
-                return
-            _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
+            if not route.skip_auth:
+                token = _bearer(self)
+                auth = state.tokens.auth_for(token)
+                kwargs["auth"] = auth
+            if route.pass_qs:
+                kwargs["qs"] = qs
+            handler(**kwargs)
+
+        def do_GET(self) -> None:  # noqa: N802
+            self._dispatch("GET")
+
+        def do_POST(self) -> None:  # noqa: N802
+            self._dispatch("POST")
+
+        def do_DELETE(self) -> None:  # noqa: N802
+            self._dispatch("DELETE")
 
         def do_PATCH(self) -> None:  # noqa: N802
-            path = unquote(self.path.split("?", 1)[0])
-            m = re.fullmatch(r"/v1/results/attempts/([^/]+)", path)
-            if m:
-                self._patch_attempt(run_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/results/suites/([^/]+)", path)
-            if m:
-                self._patch_suite(suite_run_id=m.group(1))
-                return
-            m = re.fullmatch(r"/v1/packages/(.+)/versions/([^/]+)", path)
-            if m:
-                self._patch_package_release(database_id=m.group(1), version=m.group(2))
-                return
-            _json_response(self, 404, {"error": "not_found", "message": "unknown path"})
+            self._dispatch("PATCH")
+
+        def _health(self) -> None:
+            _json_response(self, 200, {"ok": True, "service": "bora-registry"})
 
         # ---- OAuth -------------------------------------------------------
 
@@ -2029,24 +1774,20 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         def _require_org_owner(self, *, org_id: str, auth: TokenInfo) -> bool:
             """Return True if caller may manage org (owner or admin). Sends error response if not."""
-            org = state.meta.get_org(org_id)
-            if org is None:
-                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
-                return False
-            if _is_admin(auth.scopes):
+            status = state.access.org_owner_status(org_id=org_id, auth=auth)
+            if status == "ok":
                 return True
-            if not auth.user_id:
+            if status == "not_found":
+                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+            elif status == "unauthorized":
                 _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
-                return False
-            mem = state.meta.membership(org_id, auth.user_id)
-            if mem is None or mem.role != "owner":
+            else:
                 _json_response(
                     self,
                     403,
                     {"error": "forbidden", "message": "owner required"},
                 )
-                return False
-            return True
+            return False
 
         def _create_invite_key(self, *, org_id: str) -> None:
             token = _bearer(self)
@@ -2420,46 +2161,13 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             *,
             for_read: bool,
         ) -> bool:
-            if result_kind == "attempt":
-                row = state.meta.get_attempt(result_id)
-                if row is None:
-                    return False
-                if for_read:
-                    return _visible_result_row(
-                        state,
-                        result_kind="attempt",
-                        result_id=row.run_id,
-                        visibility=row.visibility,
-                        uploaded_by=row.uploaded_by,
-                        auth=auth,
-                    )
-                return _is_admin(auth.scopes) or (
-                    bool(auth.user_id) and row.uploaded_by == auth.user_id
-                )
-            row_s = state.meta.get_suite(result_id)
-            if row_s is None:
-                return False
-            if for_read:
-                return _visible_result_row(
-                    state,
-                    result_kind="suite",
-                    result_id=row_s.suite_run_id,
-                    visibility=row_s.visibility,
-                    uploaded_by=row_s.uploaded_by,
-                    auth=auth,
-                )
-            return _is_admin(auth.scopes) or (
-                bool(auth.user_id) and row_s.uploaded_by == auth.user_id
+            return state.access.can_manage_result(
+                result_kind, result_id, auth, for_read=for_read
             )
 
         def _can_manage_package(self, row: ReleaseRow, auth: TokenInfo) -> bool:
             """Package delete / set-visibility: org owner or admin."""
-            if _is_admin(auth.scopes):
-                return True
-            if not auth.user_id or not row.org_id:
-                return False
-            mem = state.meta.membership(row.org_id, auth.user_id)
-            return mem is not None and mem.role == "owner"
+            return state.access.can_manage_package(row, auth)
 
         def _gc_attempt_blob(self, blob_digest: str) -> bool:
             if not blob_digest:
