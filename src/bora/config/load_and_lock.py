@@ -98,7 +98,7 @@ class ConfigCore:
 
         validate_top_level_layout(self._reader, root)
 
-        # #68 Dataset shared/ bans + task top-level ``shared`` shadow ban (when Database root known).
+        # #68 Dataset shared/ bans + task top-level ``shared`` shadow ban.
         from bora.config.shared import infer_database_root_from_task, validate_shared_layout
 
         db_root = infer_database_root_from_task(root)
