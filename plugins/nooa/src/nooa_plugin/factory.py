@@ -1,0 +1,184 @@
+"""nooa ExecutorSPI factory (bora.plugin/1 provide entry)."""
+
+from __future__ import annotations
+
+import importlib
+import os
+from typing import Any
+
+from bora.adapters.agent_contract import AgentResult
+from bora.plugins.errors import ExtensionMaterializeError
+
+PLUGIN_ID = "nooa"
+
+
+class NooaExecutorSPI:
+    """ExecutorSPI: invoke task-local agent class (options.agent + method).
+
+    Host SPI for L0 only. L1 production Ready is **in-container worker**
+    (``NooaContainerExecutor`` via image_contribute bake) — parent SPI is not
+    an L1 success path (Spec 05).
+    """
+
+    kind = "nooa"
+
+    def __init__(
+        self,
+        *,
+        options: dict[str, Any] | None = None,
+        profile_id: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        plugin_id: str | None = None,
+        **_kwargs: Any,
+    ) -> None:
+        del base_url, api_key, plugin_id
+        opts = dict(options or {})
+        agent_ref = opts.get("agent")
+        if not agent_ref or not str(agent_ref).strip():
+            raise ExtensionMaterializeError(
+                "nooa_options_agent_required",
+                kind="extension_materialize_failed",
+            )
+        self.agent_ref = str(agent_ref).strip()
+        self.method = str(opts.get("method") or "run").strip() or "run"
+        self.profile_id = profile_id
+        self.model = model or "nooa"
+        self.options = opts
+        # Optional default workdir (L0 host path / tests).
+        self.default_workdir = str(opts.get("_workdir")).strip() if opts.get("_workdir") else None
+        self._agent: Any = None
+        self._ready = False
+
+    def open(self, **kwargs: Any) -> None:
+        del kwargs
+        self._agent = self._load_agent()
+        self._ready = True
+
+    def close(self) -> None:
+        self._agent = None
+        self._ready = False
+
+    def _load_agent(self) -> Any:
+        import sys
+        from pathlib import Path
+
+        ref = self.agent_ref
+        if ":" in ref:
+            mod_name, cls_name = ref.split(":", 1)
+        else:
+            mod_name, cls_name = ref, None
+        roots: list[Path] = []
+        for key in ("_package_root", "package_root"):
+            raw = self.options.get(key)
+            if isinstance(raw, str) and raw.strip():
+                roots.append(Path(raw).expanduser().resolve(strict=False))
+        roots.append(Path.cwd())
+        for root in roots:
+            s = str(root)
+            if root.is_dir() and s not in sys.path:
+                sys.path.insert(0, s)
+        try:
+            mod = importlib.import_module(mod_name)
+        except Exception as exc:  # noqa: BLE001
+            raise ExtensionMaterializeError(
+                f"nooa_agent_import_failed:{exc}",
+                kind="extension_materialize_failed",
+            ) from exc
+        if cls_name:
+            cls = getattr(mod, cls_name, None)
+            if cls is None:
+                raise ExtensionMaterializeError(
+                    f"nooa_agent_class_missing:{cls_name}",
+                    kind="extension_materialize_failed",
+                )
+            return cls() if callable(cls) else cls
+        return mod
+
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float = 60.0,
+        workdir: str | None = None,
+        collect_dir: str | None = None,
+        redaction_sentinels: tuple[str, ...] | list[str] | None = None,
+    ) -> AgentResult:
+        del timeout, redaction_sentinels
+        effective_workdir = workdir or self.default_workdir
+        if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+            return AgentResult(
+                model=self.model,
+                text="",
+                structured=None,
+                ok=False,
+                error="offline_forced",
+                metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
+            )
+        if not self._ready or self._agent is None:
+            try:
+                self.open()
+            except ExtensionMaterializeError as exc:
+                return AgentResult(
+                    model=self.model,
+                    text="",
+                    structured=None,
+                    ok=False,
+                    error=str(exc.message if hasattr(exc, "message") else exc),
+                    metadata={"plugin": PLUGIN_ID},
+                )
+        method = getattr(self._agent, self.method, None)
+        if method is None or not callable(method):
+            return AgentResult(
+                model=self.model,
+                text="",
+                structured=None,
+                ok=False,
+                error=f"nooa_method_missing:{self.method}",
+                metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
+            )
+        try:
+            try:
+                raw = method(prompt, workdir=effective_workdir)
+            except TypeError:
+                raw = method(prompt)
+        except Exception as exc:  # noqa: BLE001
+            return AgentResult(
+                model=self.model,
+                text="",
+                structured=None,
+                ok=False,
+                error=type(exc).__name__,
+                metadata={"plugin": PLUGIN_ID},
+            )
+        if isinstance(raw, AgentResult):
+            return raw
+        if isinstance(raw, dict):
+            return AgentResult(
+                model=self.model,
+                text=str(raw.get("text") or ""),
+                structured=raw.get("structured")
+                if isinstance(raw.get("structured"), dict)
+                else raw,
+                ok=bool(raw.get("ok", True)),
+                error=str(raw["error"]) if raw.get("error") else None,
+                metadata={
+                    "plugin": PLUGIN_ID,
+                    "agent": self.agent_ref,
+                    "collect_dir": str(collect_dir or ""),
+                },
+            )
+        text = str(raw) if raw is not None else ""
+        return AgentResult(
+            model=self.model,
+            text=text,
+            structured=None,
+            ok=True,
+            metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
+        )
+
+
+def build_executor(**kwargs: Any) -> NooaExecutorSPI:
+    """plugin.yaml provide entry: factory(**kwargs) -> ExecutorSPI."""
+    return NooaExecutorSPI(**kwargs)
