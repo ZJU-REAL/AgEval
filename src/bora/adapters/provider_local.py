@@ -6,6 +6,7 @@ assurance: l0 only. No shell=True, no undeclared env, no Docker claims.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import contextlib
 import os
 import signal
@@ -13,7 +14,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from bora.provider.contract import ProcessLaunchPlan
+from bora.provider.contract import ProcessLaunchPlan, TerminationPolicy
 from bora.provider.errors import (
     ERROR_ALREADY_CLEANED,
     ERROR_CROSS_ATTEMPT,
@@ -40,6 +41,8 @@ class PreparedLocalRuntime:
     truncated: bool = False
     termination_actions: list[str] = field(default_factory=list)
     writer_stop_confirmed: bool = False
+    termination: TerminationPolicy | None = None
+    policy_applied: bool = False
 
 
 class LocalProcessProvider:
@@ -91,9 +94,11 @@ class LocalProcessProvider:
                 *argv,
                 cwd=str(prepared.workdir),
                 env=env,
+                stdin=asyncio.subprocess.PIPE if plan.stdin_bytes is not None else None,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 start_new_session=True,  # new process group on POSIX
+                pass_fds=plan.pass_fds,
             )
         except OSError as exc:
             raise ProviderError(ERROR_SPAWN_FAILED, f"spawn failed: {exc}") from exc
@@ -104,6 +109,57 @@ class LocalProcessProvider:
         except OSError:
             prepared.pgid = process.pid
         return prepared
+
+    async def execute(
+        self,
+        plan: ProcessLaunchPlan,
+        *,
+        cancellation: CancellationSignal | None = None,
+        termination: TerminationPolicy | None = None,
+    ) -> ProcessOutcome:
+        """Supervise one process end-to-end and always return outcome facts.
+
+        Single entry point for every supervised execution: a spawn failure is
+        reported as ``SPAWN_FAILED`` rather than raised, so callers never have
+        to hand-roll timeout, teardown, or outcome assembly.
+        """
+        prepared = await self.prepare(plan)
+        prepared.termination = termination
+        try:
+            await self.start(prepared)
+        except ProviderError:
+            return await self._finish(
+                prepared,
+                terminal=ProcessTerminalKind.SPAWN_FAILED,
+                exit_code=None,
+                signal_num=None,
+            )
+        return await self.wait(prepared, cancellation=cancellation)
+
+    def execute_sync(
+        self,
+        plan: ProcessLaunchPlan,
+        *,
+        cancellation: CancellationSignal | None = None,
+        termination: TerminationPolicy | None = None,
+    ) -> ProcessOutcome:
+        """Blocking façade for sync call sites, safe inside a running loop.
+
+        Nested ``asyncio.run`` raises when a loop is already running, so the
+        coroutine is handed to a dedicated thread in that case.
+        """
+
+        def _run() -> ProcessOutcome:
+            return asyncio.run(
+                self.execute(plan, cancellation=cancellation, termination=termination)
+            )
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return _run()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(_run).result()
 
     async def wait(
         self,
@@ -160,9 +216,8 @@ class LocalProcessProvider:
                 exit_code = process.returncode
             await drain_task
 
-        # Residual same-group cleanup after normal exit.
-        if prepared.pgid is not None:
-            await self._ensure_group_dead(prepared)
+        # Residual writer cleanup after normal exit (process group + policy).
+        await self._ensure_group_dead(prepared)
 
         return await self._finish(
             prepared,
@@ -183,11 +238,7 @@ class LocalProcessProvider:
             await self._terminate_group(prepared)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(prepared.process.wait(), timeout=self._kill_wait + 1)
-        if prepared.pgid is not None:
-            await self._ensure_group_dead(prepared)
-        elif prepared.process is not None and prepared.process.returncode is not None:
-            # Direct child exited and no pgid tracking — treat as stopped.
-            prepared.writer_stop_confirmed = True
+        await self._ensure_group_dead(prepared)
         # Remove only the Attempt workdir we created.
         workdir = prepared.workdir
         if workdir.exists():
@@ -262,40 +313,82 @@ class LocalProcessProvider:
                 else:
                     buf.extend(chunk)
 
+        async def write_stdin() -> None:
+            payload = prepared.plan.stdin_bytes
+            stream = process.stdin
+            if stream is None:
+                return
+            try:
+                if payload:
+                    stream.write(payload)
+                    await stream.drain()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                with contextlib.suppress(Exception):
+                    stream.close()
+
         await asyncio.gather(
+            write_stdin(),
             read(process.stdout, prepared.stdout_buf),
             read(process.stderr, prepared.stderr_buf),
         )
 
     async def _terminate_group(self, prepared: PreparedLocalRuntime) -> None:
         pgid = prepared.pgid
-        if pgid is None:
-            return
-        try:
-            os.killpg(pgid, signal.SIGTERM)
-            prepared.termination_actions.append("SIGTERM")
-        except ProcessLookupError:
-            prepared.writer_stop_confirmed = True
-            return
-        await asyncio.sleep(self._term_wait)
-        if self._group_alive(pgid):
+        if pgid is not None:
             try:
-                os.killpg(pgid, signal.SIGKILL)
-                prepared.termination_actions.append("SIGKILL")
+                os.killpg(pgid, signal.SIGTERM)
+                prepared.termination_actions.append("SIGTERM")
             except ProcessLookupError:
                 pass
-            await asyncio.sleep(self._kill_wait)
-        prepared.writer_stop_confirmed = not self._group_alive(pgid)
+            else:
+                await asyncio.sleep(self._term_wait)
+                if self._group_alive(pgid):
+                    try:
+                        os.killpg(pgid, signal.SIGKILL)
+                        prepared.termination_actions.append("SIGKILL")
+                    except ProcessLookupError:
+                        pass
+                    await asyncio.sleep(self._kill_wait)
+        self._apply_termination_policy(prepared)
+        prepared.writer_stop_confirmed = not self._writer_alive(prepared)
 
     async def _ensure_group_dead(self, prepared: PreparedLocalRuntime) -> None:
-        pgid = prepared.pgid
-        if pgid is None:
-            prepared.writer_stop_confirmed = True
-            return
-        if self._group_alive(pgid):
+        if self._writer_alive(prepared):
             await self._terminate_group(prepared)
         else:
             prepared.writer_stop_confirmed = True
+
+    @staticmethod
+    def _apply_termination_policy(prepared: PreparedLocalRuntime) -> None:
+        """Run the adapter teardown once; its own claim is never trusted."""
+        policy = prepared.termination
+        if policy is None or prepared.policy_applied:
+            return
+        prepared.policy_applied = True
+        try:
+            action = policy.terminate()
+        except Exception as exc:  # noqa: BLE001 — teardown must not mask outcome
+            prepared.termination_actions.append(f"policy_terminate_failed:{type(exc).__name__}")
+            return
+        if action:
+            prepared.termination_actions.append(action)
+
+    def _writer_alive(self, prepared: PreparedLocalRuntime) -> bool:
+        """Probe every writer we know about; unknown state counts as alive."""
+        process = prepared.process
+        if process is not None and process.returncode is None:
+            return True
+        if prepared.pgid is not None and self._group_alive(prepared.pgid):
+            return True
+        policy = prepared.termination
+        if policy is None:
+            return False
+        try:
+            return policy.is_alive()
+        except Exception:  # noqa: BLE001 — probe failure is not proof of death
+            return True
 
     @staticmethod
     def _group_alive(pgid: int) -> bool:
