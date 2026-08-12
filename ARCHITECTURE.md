@@ -140,7 +140,11 @@ BORA/
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal
 │   ├── core/                  # config / harness / eval / agent / SDK / plugin
-│   └── l1/                    # Provider L1 isolation probes
+│   ├── l1/                    # Provider L1 isolation probes
+│   └── slot-probe/            # multi-slot 插件 e2e（#71；需 bora plugin install）
+├── plugins/                   # 外置 bora.plugin/1 示例（nooa / slot-probe；不进 Core contrib）
+│   ├── nooa/                  # executor provide + image_contribute Ready
+│   └── slot-probe/            # multi 钩子可观测探针（env/agent/trajectory/score）
 ├── tests/
 │   ├── acceptance/
 │   ├── config/
@@ -267,6 +271,11 @@ evaluate     → evaluation_input_contribute → evaluation_runtime provide
 
 Authority / inventory: `src/bora/plugins/slots.py`, constitution §7.6,
 Issue [#71](https://github.com/ffy6511/BORA/issues/71).
+
+**回归包（非默认 smoke）：** 外置插件 [`plugins/slot-probe`](plugins/slot-probe/) +
+Database [`examples/slot-probe`](examples/slot-probe/)（`l0-env-agent` / `l1-agent`）。
+`bora plugin install` 后 `bora run`；观测 `$BORA_SLOT_PROBE_DIR/hooks.jsonl` 与
+trajectory `metadata.slot_probe`。详见 `examples/README.md` § slot-probe。
 
 ## Lifecycle（Target）
 

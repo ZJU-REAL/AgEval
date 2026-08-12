@@ -35,6 +35,13 @@ uv run bora plugin install plugins/nooa
 uv run bora run examples/journeys --task terminal-jsonl-agg --profiles examples/journeys/profiles.nooa.yaml
 ```
 
+## Related
+
+For multi-slot **host emit** regression (env post-setup, trajectory enrich, agent
+bookends) without replacing the executor narrative, see
+[`plugins/slot-probe`](../slot-probe/) + [`examples/slot-probe`](../../examples/slot-probe/)
+(L0 uses nooa FixedAnswer + slot-probe multi hooks).
+
 ## Recognition ≠ Ready ≠ bind
 
 - **install** → Recognition only (`plugin list` / executor visible)

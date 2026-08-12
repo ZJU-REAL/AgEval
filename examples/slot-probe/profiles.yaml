@@ -1,0 +1,17 @@
+format: bora.profiles/1
+bindings:
+  # L0: nooa host SPI + package FixedAnswerAgent (deterministic, capability-catalog known).
+  # slot-probe multi hooks still attach via install (env / trajectory / open / …).
+  probe-nooa:
+    executor: nooa
+    options:
+      agent: "lib.agents:FixedAnswerAgent"
+      method: "run"
+    model: none
+  # L1: real ACP in attempt-container.
+  probe-acp:
+    executor: acp
+    options:
+      entry: pi
+    model: zai-coding-cn/glm-5.2
+    api_key: glm_coding_api_key

@@ -4,9 +4,10 @@ Tracked **Databases** (suites) for public smokes and case-class journeys.
 
 ```text
 examples/
-├── core/       # Database example/core — Core surface gates
-├── journeys/   # Database example/journeys — case-class fidelity
-└── l1/         # Database example/l1 — Provider L1
+├── core/         # Database example/core — Core surface gates
+├── journeys/     # Database example/journeys — case-class fidelity
+├── l1/           # Database example/l1 — Provider L1
+└── slot-probe/   # Database example/slot-probe — multi-slot plugin e2e (#71)
 ```
 
 Each top-level directory is one Database (`bora.database/1`). Members live under
@@ -84,6 +85,38 @@ Isolation (hidden gold, harness without credentials, writer-stop) is covered by
 **Provider tests**: `tests/provider_l1/test_harness_isolation_contracts.py`,
 `tests/provider_l1/test_filtered_mount.py` — not public probe packages.
 
+## `slot-probe/` (`database_id: example/slot-probe`)
+
+Issue **#71** end-to-end: installed multi-slot plugin effects on real Jobs
+(env post-setup shell, agent open/invoke/close, trajectory enrich, score metrics).
+
+Requires `bora plugin install` first (install never rewrites profiles):
+
+```bash
+export BORA_HOME="${BORA_HOME:-$HOME/.bora}"   # or an isolated temp home
+export BORA_SLOT_PROBE_DIR="${BORA_SLOT_PROBE_DIR:-/tmp/bora-slot-probe-obs}"
+uv run bora plugin install plugins/slot-probe
+uv run bora plugin install plugins/nooa          # L0 agent path (host SPI)
+```
+
+| Task | Assurance | Role |
+| --- | --- | --- |
+| [`l0-env-agent`](slot-probe/tasks/l0-env-agent/) | L0 + postgresql | env multi (`post_setup.sh`) + nooa FixedAnswer + eval |
+| [`l1-agent`](slot-probe/tasks/l1-agent/) | L1 docker | ACP in attempt-container + parent multi hooks |
+
+```bash
+uv run bora run examples/slot-probe --task l0-env-agent \
+  --profiles examples/slot-probe/profiles.yaml
+# L1 needs ACP credentials (e.g. glm_coding_api_key via Database .env)
+uv run bora run examples/slot-probe --task l1-agent \
+  --profiles examples/slot-probe/profiles.yaml
+# Observability: $BORA_SLOT_PROBE_DIR/hooks.jsonl + trajectory metadata slot_probe
+```
+
+Not a full-suite evidence upgrade claim — a **plugin SPI regression** package.
+See [`plugins/slot-probe/README.md`](../plugins/slot-probe/README.md).
+
+
 > **Agent scheduling:** non-empty `agent_profiles` ⇒ Parent Agent Service / L1 SDK
 > session; harness owns every `Agent.session` / `invoke`. No Runtime one-shot.
 
@@ -107,4 +140,6 @@ uv run bora lock examples/core --task config-minimal
 uv run bora lock examples/core --task config-invalid   # expect exit 2
 uv run bora run examples/core --task sdk-agent-session
 uv run pytest tests/provider_l1/test_harness_isolation_contracts.py -q
+# Optional: multi-slot plugin e2e (#71) — install plugins first (see slot-probe section)
+# uv run bora run examples/slot-probe --task l0-env-agent --profiles examples/slot-probe/profiles.yaml
 ```
