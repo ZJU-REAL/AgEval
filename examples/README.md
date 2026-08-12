@@ -8,7 +8,7 @@ examples/
 ├── core/           # Database example/core — Core surface gates
 ├── journeys/       # Database example/journeys — case-class fidelity
 ├── l1/             # Database example/l1 — Provider L1
-└── tau3-airline/   # Database my-lab/tau3-airline — τ³-bench airline port (#66 / #50)
+└── tau3-airline/   # Database my-lab/tau3-airline — τ³-bench airline port
 ```
 
 Each top-level directory is one Database (`bora.database/1`). Members live under
@@ -90,7 +90,7 @@ Isolation (hidden gold, harness without credentials, writer-stop) is covered by
 ## `tau3-airline/` (`database_id: my-lab/tau3-airline`)
 
 Popular-bench **port** of [tau2-bench](https://github.com/sierra-research/tau2-bench)
-`airline` (τ³-bench) as **one domain = one Dataset** (#66 / #50). Dual-role dialog
+`airline` (τ³-bench) as **one domain = one Dataset**. Dual-role dialog
 (`user` + `service` via `profiles.yaml` → ACP `grok-build`) with package-local tools/DB
 bridge and independent evaluator (tau2 ENV+COMMUNICATE).
 
@@ -98,7 +98,7 @@ bridge and independent evaluator (tau2 ENV+COMMUNICATE).
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Upstream pin | `tau2-bench` @ `v1.0.1` (`fc0055dc…`); paper [2506.07982](https://arxiv.org/abs/2506.07982)                                                  |
 | Members      | **50** tasks: `airline-00` … `airline-49` (upstream ids `0`…`49`)                                                                            |
-| Layout       | Dataset-level [`shared/lib`](tau3-airline/shared/lib/) + [`shared/assets`](tau3-airline/shared/assets/) (#65); **no** per-task `lib/` copies |
+| Layout       | Dataset-level [`shared/lib`](tau3-airline/shared/lib/) + [`shared/assets`](tau3-airline/shared/assets/); **no** per-task `lib/` copies |
 | Gold         | Under each `tasks/airline-NN/evaluation/` only — not under `shared/`                                                                         |
 | Host deps    | `tau2==1.0.1` (see [`tau3-airline/requirements.txt`](tau3-airline/requirements.txt)) for run/eval                                            |
 | Evidence     | **Not** a public smoke upgrade path; package / Hub publish **≠** `real-benchmark-verified`                                                   |
@@ -113,6 +113,20 @@ uv run python scripts/check_shared_lib_collisions.py examples/tau3-airline
 
 Package-local detail: [`tau3-airline/README.md`](tau3-airline/README.md). Regenerate members
 from upstream tasks JSON: `python examples/tau3-airline/scripts/generate_package.py --all`.
+
+## Hub-only conversions
+
+Only **`tau3-airline`** lands in this monorepo. Larger popular-bench ports stay **out of
+`examples/`** and ship as **Hub packages** (publish + suite upload), so clone size and CI
+paths stay bounded:
+
+| Upstream | Hub package id (org `my-lab`) | Notes |
+| --- | --- | --- |
+| Terminal-Bench 2.0 | `terminal-bench-2` / light `terminal-bench-2-10` | L1 Docker + Harbor pytest-style verifier |
+| MARBLE coding | `marble-coding` / light `marble-coding-10` | L1 shared-container multi-agent coding |
+
+Package presence, Hub publish, or a suite job on the board does **not** raise evidence grade
+(`package ≠ real-benchmark-verified`).
 
 > **Agent scheduling:** non-empty `agent_profiles` ⇒ Parent Agent Service / L1 SDK
 > session; harness owns every `Agent.session` / `invoke`. No Runtime one-shot.

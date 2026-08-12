@@ -51,7 +51,7 @@ uv run bora lock examples/core --task config-minimal
 # Real multi-turn agent path (host ACP entry + credentials required)
 uv run bora run examples/core --task sdk-agent-session
 
-# Switch coding-agent entry via job binding override (#59)
+# Switch coding-agent entry via job binding override
 uv run bora run examples/core --task builtin-executor-conformance \
   --set '/bindings/solver/options/entry="pi"'
 
@@ -94,7 +94,7 @@ A **Dataset** is the delivery unit: root `bora.yaml` plus member tasks.
 ```text
 examples/core/                    # one Dataset
 ├── bora.yaml                     # suite metadata, tasks root
-├── profiles.yaml                 # job binding (role → entry/model; #59)
+├── profiles.yaml                 # job binding (role → entry/model)
 ├── env.example                   # credential locator names only
 └── tasks/
     └── sdk-agent-session/
@@ -104,13 +104,16 @@ examples/core/                    # one Dataset
         └── …
 ```
 
-| Path                                       | Role                                               |
-| ------------------------------------------ | -------------------------------------------------- |
-| [`examples/core/`](examples/core/)         | Core smokes                                        |
-| [`examples/journeys/`](examples/journeys/) | Case demos (env / multi-agent / dialog / terminal) |
-| [`examples/l1/`](examples/l1/)             | Docker L1 probes                                   |
+| Path                                               | Role                                               |
+| -------------------------------------------------- | -------------------------------------------------- |
+| [`examples/core/`](examples/core/)                 | Core smokes                                        |
+| [`examples/journeys/`](examples/journeys/)         | Case demos (env / multi-agent / dialog / terminal) |
+| [`examples/l1/`](examples/l1/)                     | Docker L1 probes                                   |
+| [`examples/tau3-airline/`](examples/tau3-airline/) | τ³-bench airline conversion                        |
 
 CLI takes the **Dataset root**; `--task <id>` selects a member. Full list: [`examples/README.md`](examples/README.md).
+
+**Conversion packaging boundary:** monorepo `examples/` only includes the smaller **`tau3-airline`** package. Larger conversions (Terminal-Bench 2.0, MARBLE coding) are **not** checked into this repo; they ship via BORA Hub only (org `my-lab`, e.g. `terminal-bench-2` / `terminal-bench-2-10`, `marble-coding` / `marble-coding-10`) so clone size and CI paths stay bounded. Package publish or suite upload does **not** raise evidence grade.
 
 ```yaml
 # task.yaml — role slots only
@@ -168,11 +171,11 @@ A **full suite** (omit `--task`), or a single task with `-k` / `--n-attempts` > 
 └── cancel.requested # present if suite cancel was requested
 ```
 
-| Metric | Role |
-| --- | --- |
-| `pass_rate` / `mean_score` | Observational skim |
+| Metric                       | Role                                                                 |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `pass_rate` / `mean_score`   | Observational skim                                                   |
 | `pass_at_k` / `pass_power_k` | Job stats after Always-k (mean over tasks); **not** package identity |
-| `n_attempts` | Job k budget |
+| `n_attempts`                 | Job k budget                                                         |
 
 PASS remains **per-task** only. `n_attempts` is **CLI/job only** (never `task.yaml` / fingerprint). Attempt `result.json` may include `phase_timing`. Optional Registry archive: `bora results upload-suite` (see CLI README). Local UI: `bora view <dataset>` (Timing / Tokens on Attempt pages).
 
@@ -180,14 +183,14 @@ PASS remains **per-task** only. `n_attempts` is **CLI/job only** (never `task.ya
 
 ## Further reading
 
-| Audience  | Start here                                                   |
-| --------- | ------------------------------------------------------------ |
-| Design    | [`docs/design/`](docs/design/)                               |
-| Structure | [`ARCHITECTURE.md`](ARCHITECTURE.md)                         |
+| Audience     | Start here                                                            |
+| ------------ | --------------------------------------------------------------------- |
+| Design       | [`docs/design/`](docs/design/)                                        |
+| Structure    | [`ARCHITECTURE.md`](ARCHITECTURE.md)                                  |
 | Product docs | [`website/`](website/) — bilingual reader docs (not design authority) |
-| CLI       | [`src/bora/cli/README.md`](src/bora/cli/README.md)           |
-| Viewer    | [`apps/viewer/README.md`](apps/viewer/README.md) — local SPA dev |
-| Hub       | [`apps/hub/README.md`](apps/hub/README.md) — Registry SPA dev |
-| Registry  | [`services/registry/README.md`](services/registry/README.md) |
-| Issues    | [GitHub Issues](https://github.com/ffy6511/BORA/issues)      |
-| Releases  | [Releases](https://github.com/ffy6511/BORA/releases)         |
+| CLI          | [`src/bora/cli/README.md`](src/bora/cli/README.md)                    |
+| Viewer       | [`apps/viewer/README.md`](apps/viewer/README.md) — local SPA dev      |
+| Hub          | [`apps/hub/README.md`](apps/hub/README.md) — Registry SPA dev         |
+| Registry     | [`services/registry/README.md`](services/registry/README.md)          |
+| Issues       | [GitHub Issues](https://github.com/ffy6511/BORA/issues)               |
+| Releases     | [Releases](https://github.com/ffy6511/BORA/releases)                  |

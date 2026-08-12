@@ -8,7 +8,7 @@ Port of **τ³-bench / tau2-bench** `airline` domain onto BORA outer lifecycle.
 | Domain | airline (50 tasks, base split) |
 | Agents | `user` + `service` via `profiles.yaml` → `grok-build` |
 | Bridge | BORA Agent ACP ↔ tau2 `Environment` tools + `evaluate_simulation` |
-| Shared | Dataset-level `shared/lib` + `shared/assets` (#65) |
+| Shared | Dataset-level `shared/lib` + `shared/assets` |
 
 ## Layout
 

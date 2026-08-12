@@ -17,3 +17,14 @@ List members with `bora tasks <path>`. Copy layout from core when authoring.
 Conversion of the [tau2-bench](https://github.com/sierra-research/tau2-bench) (τ³-bench) **airline** domain onto BORA’s outer lifecycle: dual-role `user` / `service` dialog over ACP, tools and DB via an in-package bridge, PASS still only from an independent evaluator (not harness completion). About 50 task members in one Dataset; shared bridge code and domain assets live under root `shared/lib` and `shared/assets` so each task need not ship its own `lib/` copy (see [Package layout](/docs/author/package-layout)).
 
 Full runs need the `tau2` pin in the package `requirements.txt`; `bora lock` does not. Package notes: [`examples/tau3-airline/README.md`](https://github.com/ffy6511/BORA/blob/main/examples/tau3-airline/README.md). Shipping the package does **not** raise evidence grade.
+
+## Hub-only conversions
+
+Only the smaller **`tau3-airline`** package is mirrored under monorepo `examples/`. Other popular-bench conversions are **not** checked into this repository; they ship via BORA Hub publish + suite upload so clone size and CI paths stay bounded:
+
+| Upstream | Hub package id (org `my-lab`) | Notes |
+| --- | --- | --- |
+| Terminal-Bench 2.0 | `terminal-bench-2` / light `terminal-bench-2-10` | L1 Docker + Harbor-style pytest verifier |
+| MARBLE coding | `marble-coding` / light `marble-coding-10` | L1 shared-container multi-agent coding |
+
+Package presence, Hub publish, or a suite job on the board does **not** raise evidence grade (`package ≠ real-benchmark-verified`).
