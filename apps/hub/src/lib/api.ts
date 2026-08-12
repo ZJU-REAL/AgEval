@@ -1,5 +1,17 @@
 /** Registry HTTP client for Hub SPA (#39 / #40). */
 
+export type PluginPreview = {
+  plugin_id?: string;
+  version?: string;
+  format?: string;
+  slots?: {
+    provide?: string[];
+    on?: string[];
+    [key: string]: unknown;
+  };
+  files?: string[];
+};
+
 export type PackageRelease = {
   database_id: string;
   version: string;
@@ -8,8 +20,12 @@ export type PackageRelease = {
   blob_digest: string;
   size: number;
   media_type?: string;
+  /** Registry package_kind: database | plugin. */
+  package_kind?: "database" | "plugin" | string;
   created_at?: number;
   org_id?: string;
+  /** Present on by-digest / version get for plugins. */
+  plugin_preview?: PluginPreview;
 };
 
 export type OrgRow = {
@@ -203,9 +219,15 @@ export function decodeDatasetId(param: string): string {
   return decodeURIComponent(param);
 }
 
-export async function listPackages(token: string | null): Promise<PackageRelease[]> {
+export async function listPackages(
+  token: string | null,
+  opts?: { packageKind?: "database" | "plugin" },
+): Promise<PackageRelease[]> {
   // With token, server may include private; without, public only.
-  const data = await requestJson<{ items?: PackageRelease[] }>("/v1/packages", {
+  const q = new URLSearchParams();
+  if (opts?.packageKind) q.set("package_kind", opts.packageKind);
+  const path = q.toString() ? `/v1/packages?${q.toString()}` : "/v1/packages";
+  const data = await requestJson<{ items?: PackageRelease[] }>(path, {
     token,
   });
   return Array.isArray(data.items) ? data.items : [];
@@ -218,6 +240,25 @@ export async function listPackageVersions(
   const path = `/v1/packages/${databaseId.split("/").map(encodeURIComponent).join("/")}`;
   const data = await requestJson<{ items?: PackageRelease[] }>(path, { token });
   return Array.isArray(data.items) ? data.items : [];
+}
+
+/** Package meta by digest (includes plugin_preview for bora.plugin/1). */
+export async function getPackageByDigest(
+  packageId: string,
+  digest: string,
+  token: string | null,
+): Promise<PackageRelease> {
+  const id = packageIdPath(packageId);
+  const dig = digestPath(digest);
+  return requestJson(`/v1/packages/${id}/by-digest/${dig}`, { token });
+}
+
+export function isPluginPackage(row: PackageRelease): boolean {
+  return row.package_kind === "plugin";
+}
+
+export function isDatabasePackage(row: PackageRelease): boolean {
+  return !isPluginPackage(row);
 }
 
 function packageIdPath(databaseId: string): string {

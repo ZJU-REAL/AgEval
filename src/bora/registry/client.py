@@ -105,6 +105,7 @@ class RegistryClient:
         archive: bytes,
         org_id: str,
         replace: bool = False,
+        package_kind: str = "database",
     ) -> ReleaseInfo:
         meta: dict[str, Any] = {
             "database_id": database_id,
@@ -115,6 +116,7 @@ class RegistryClient:
             "media_type": media_type,
             "visibility": visibility,
             "org_id": org_id,
+            "package_kind": package_kind,
         }
         if replace:
             meta["replace"] = True

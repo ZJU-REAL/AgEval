@@ -54,6 +54,7 @@ class DeclarationCapabilityCatalog:
         {
             "acp",  # Spec 19: coding-agent unified inlet
             "mock",
+            "nooa",  # extension registry provide(executor) — host SPI / plugin
             # API client (not ACP coding-agent)
             "openai",
             "openai-http",

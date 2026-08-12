@@ -20,6 +20,11 @@ from bora.runtime.identity import IdentityFactory
 def prepare_l1_runtime(
     package_root: Path, lock: Any, run_dir: Path, *, network_mode: str = "none"
 ) -> tuple[DockerProvider, DockerRuntime, dict[str, Any]]:
+    from bora.application.extension_hooks import hook_prepare
+    from bora.application.image_contribute_bake import (
+        ImageContributeError,
+        apply_image_contribute_bake,
+    )
     from bora.config.model import thaw
 
     factory = IdentityFactory()
@@ -43,6 +48,17 @@ def prepare_l1_runtime(
         tag=tag,
         repo_root=Path.cwd(),
     )
+    # Lifecycle prepare + image_contribute consume (fail closed).
+    hook_prepare(lock, {"phase": "l1_prepare", "package_image": pkg_image.image_tag})
+    try:
+        pkg_image, contribute_meta = apply_image_contribute_bake(
+            lock=lock,
+            base_image=pkg_image,
+            platform=platform,
+        )
+    except ImageContributeError as exc:
+        raise RuntimeError(f"{exc.kind}:{exc.message}") from exc
+
     lock_path = Path.cwd() / ".bora" / "runtime-images" / "provider-l1.json"
     if not lock_path.is_file():
         lock_path = ensure_image_lock(Path.cwd())
@@ -66,6 +82,7 @@ def prepare_l1_runtime(
         "platform": runtime.image_lock.platform if runtime.image_lock else "",
         "attempt_id": attempt.value,
         "policy": dict(runtime.policy_digests),
+        "image_contribute": contribute_meta,
     }
     return docker, runtime, meta
 
@@ -153,13 +170,26 @@ def cli_env_for_container(
     return out
 
 
-def make_l1_target_executor_factory(*, ledger: Any, profiles: list[dict[str, Any]]) -> Any:
-    """Build ``make_target_executor`` closed over prepare ledger + profiles (Spec 19 ACP)."""
+def make_l1_target_executor_factory(
+    *,
+    ledger: Any,
+    profiles: list[dict[str, Any]],
+    workspace_host: Path | None = None,
+    package_root: Path | None = None,
+) -> Any:
+    """Build ``make_target_executor`` closed over prepare ledger + profiles.
+
+    - ``acp``: docker exec into Attempt container (coding-agent path).
+    - ``nooa``: docker exec baked ``bora-executor-nooa`` worker (L1 Ready).
+      Parent host SPI is **not** an L1 success path.
+    """
+    del workspace_host, package_root  # L1 nooa uses container package mount only.
 
     def make_target_executor(binding: Any) -> Any:
         from bora.adapters.acp import AcpExecutor
         from bora.adapters.acp_registry import get_entry
         from bora.adapters.agent_container import effective_run_gid
+        from bora.adapters.nooa_container import NooaContainerExecutor
 
         actor_id = binding.actor_id
         if not actor_id:
@@ -187,10 +217,51 @@ def make_l1_target_executor_factory(*, ledger: Any, profiles: list[dict[str, Any
             else None
         )
         kind = str(binding.executor_kind)
-        # Spec 19: L1 coding-agent path is ACP only — no private CLI scrape residual.
+
+        # nooa L1 Ready = in-container worker (never parent SPI success).
+        if kind == "nooa":
+            if os.environ.get("BORA_NOOA_HOST_IN_CONTAINER") == "1":
+                raise RuntimeError(
+                    "nooa_host_in_container_removed: "
+                    "L1 Ready is in-container worker only; "
+                    "unset BORA_NOOA_HOST_IN_CONTAINER"
+                )
+            opts: dict[str, Any] = {}
+            raw_opts = profile.get("options") if isinstance(profile, dict) else None
+            if isinstance(raw_opts, dict):
+                opts = raw_opts
+            graph = getattr(binding, "extension_graph", None)
+            if graph is not None:
+                providers = getattr(graph, "providers", None) or {}
+                pref = providers.get("executor")
+                impl = getattr(pref, "impl", None) if pref is not None else None
+                impl_opts = getattr(impl, "options", None) if impl is not None else None
+                if isinstance(impl_opts, dict):
+                    opts = {**opts, **impl_opts}
+                agent_from_impl = getattr(impl, "agent_ref", None) if impl is not None else None
+                method_from_impl = getattr(impl, "method", None) if impl is not None else None
+            else:
+                agent_from_impl = None
+                method_from_impl = None
+            agent_ref = str(agent_from_impl or opts.get("agent") or "").strip()
+            if not agent_ref:
+                raise RuntimeError("nooa_options_agent_required")
+            method = str(method_from_impl or opts.get("method") or "run").strip() or "run"
+            run_gid = effective_run_gid(phys)
+            return NooaContainerExecutor(
+                container_id=str(target.container_id),
+                agent_ref=agent_ref,
+                method=method,
+                model=str(getattr(binding, "model", None) or "nooa"),
+                uid=int(phys.uid),
+                gid=int(run_gid),
+            )
+
+        # L1 coding-agent path is ACP only — no private CLI scrape residual.
         if kind != "acp":
             raise RuntimeError(
-                f"migrated_to_acp: L1 executor {kind!r} requires executor: acp + options.entry"
+                f"migrated_to_acp: L1 executor {kind!r} requires executor: acp + options.entry "
+                f"(or nooa in-container Ready after image_contribute bake)"
             )
         entry_id = getattr(binding, "acp_entry_id", None)
         if not entry_id:

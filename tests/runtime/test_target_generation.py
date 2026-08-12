@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.parent_agent_service import ParentAgentService, SessionBinding
 
@@ -22,8 +24,8 @@ def test_open_binds_generation() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "x", "model": "m"}],
         agent_invocation_limit=1,
-        resolve_executor=lambda *a, **k: (_ for _ in ()).throw(AssertionError()),
         attempt_id="attempt_gen001",
+        extension_registry=registry_with_executor("x", object()),
         require_actor_id=True,
         validate_actor_profile=validate,
         make_target_executor=make_exec,

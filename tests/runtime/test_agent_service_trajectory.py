@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.evidence.store import AttemptEvidenceStore
 from bora.runtime.parent_agent_service import ParentAgentService
@@ -47,8 +49,8 @@ def test_each_invoke_has_directory(tmp_path: Path) -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
         agent_invocation_limit=2,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="attempt_t1",
+        extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
     )
     sid = svc.open_session(profile_id="p1")["session_id"]
@@ -73,8 +75,8 @@ def test_terminal_before_return(tmp_path: Path) -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
         agent_invocation_limit=1,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="attempt_t2",
+        extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
     )
     sid = svc.open_session(profile_id="p1")["session_id"]

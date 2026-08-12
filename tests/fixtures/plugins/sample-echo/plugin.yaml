@@ -1,0 +1,12 @@
+format: bora.plugin/1
+plugin_id: sample-echo
+version: 0.1.0
+slots:
+  provide:
+    - id: executor
+      priority: 50
+      entry: "sample_echo.factory:build_executor"
+  "on":
+    - id: before_agent_invoke
+      priority: 20
+      entry: "sample_echo.hooks:before_invoke"

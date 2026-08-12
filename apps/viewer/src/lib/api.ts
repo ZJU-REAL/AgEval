@@ -60,6 +60,8 @@ export type Trial = {
     agent: string;
     model?: string | null;
     profile_id?: string;
+    /** Executor mechanism when present (e.g. acp, nooa). */
+    executor_kind?: string | null;
     invokes?: number;
     latency_ms_sum?: number | null;
     /** e.g. "8.3s (1)" — sum of inv latency_ms */

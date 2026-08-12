@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.evidence.store import AttemptEvidenceStore
 from bora.runtime.parent_agent_service import ParentAgentService
@@ -45,8 +47,8 @@ def test_sentinel_never_on_disk(tmp_path: Path) -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
         agent_invocation_limit=1,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="attempt_sec",
+        extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
     )
     sid = svc.open_session(profile_id="p1")["session_id"]

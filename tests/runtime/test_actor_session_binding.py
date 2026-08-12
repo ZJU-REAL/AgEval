@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.parent_agent_service import ParentAgentService, SessionBinding
 
@@ -24,8 +26,8 @@ def test_l1_requires_actor_id() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=2,
-        resolve_executor=lambda *a, **k: (_ for _ in ()).throw(AssertionError("host")),
         attempt_id="attempt_actortest001",
+        extension_registry=registry_with_executor("fake", object()),
         require_actor_id=True,
         l1_container_only=True,
     )
@@ -41,8 +43,8 @@ def test_unknown_actor_fail_closed() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=2,
-        resolve_executor=lambda *a, **k: (_ for _ in ()).throw(AssertionError("host")),
         attempt_id="attempt_actortest002",
+        extension_registry=registry_with_executor("fake", object()),
         require_actor_id=True,
         validate_actor_profile=validate,
         l1_container_only=True,
@@ -62,8 +64,8 @@ def test_profile_not_allowed_for_actor() -> None:
             {"id": "p2", "executor": "fake", "model": "m"},
         ],
         agent_invocation_limit=2,
-        resolve_executor=lambda *a, **k: (_ for _ in ()).throw(AssertionError("host")),
         attempt_id="attempt_actortest003",
+        extension_registry=registry_with_executor("fake", object()),
         require_actor_id=True,
         validate_actor_profile=validate,
         l1_container_only=True,
@@ -75,11 +77,6 @@ def test_profile_not_allowed_for_actor() -> None:
 
 def test_target_executor_path_no_host() -> None:
     fake = _FakeExecutor()
-    host_calls = {"n": 0}
-
-    def host_resolve(*a, **k):
-        host_calls["n"] += 1
-        raise AssertionError("must not host resolve")
 
     def validate(actor_id: str, profile_id: str) -> dict:
         return {"ok": True, "target_id": "tgt_x", "generation": 1}
@@ -92,8 +89,8 @@ def test_target_executor_path_no_host() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=2,
-        resolve_executor=host_resolve,
         attempt_id="attempt_actortest004",
+        extension_registry=registry_with_executor("fake", object()),
         require_actor_id=True,
         validate_actor_profile=validate,
         make_target_executor=make_exec,
@@ -104,5 +101,4 @@ def test_target_executor_path_no_host() -> None:
     assert opened["target_id"] == "tgt_x"
     r = svc.invoke(session_id=opened["session_id"], prompt="hi")
     assert r["ok"] is True
-    assert host_calls["n"] == 0
     assert len(fake.prompts) == 1

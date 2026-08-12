@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.runtime.parent_agent_service import ParentAgentService, SessionBinding
 
 
@@ -9,8 +11,8 @@ def test_unknown_actor_open_fail_closed() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "x", "model": "m"}],
         agent_invocation_limit=1,
-        resolve_executor=lambda *a, **k: (_ for _ in ()).throw(AssertionError()),
         attempt_id="attempt_ef001",
+        extension_registry=registry_with_executor("x", object()),
         require_actor_id=True,
         validate_actor_profile=lambda a, p: {"ok": False, "error": "unknown_actor"},
         l1_container_only=True,
@@ -27,8 +29,8 @@ def test_profile_allowlist_violation() -> None:
             {"id": "p2", "executor": "x", "model": "m"},
         ],
         agent_invocation_limit=1,
-        resolve_executor=lambda *a, **k: (_ for _ in ()).throw(AssertionError()),
         attempt_id="attempt_ef002",
+        extension_registry=registry_with_executor("x", object()),
         require_actor_id=True,
         validate_actor_profile=lambda a, p: {"ok": False, "error": "profile_not_allowed"},
         l1_container_only=True,
@@ -39,21 +41,15 @@ def test_profile_allowlist_violation() -> None:
 
 
 def test_l1_host_resolve_forbidden_on_invoke() -> None:
-    host_n = {"n": 0}
-
-    def host(*a, **k):
-        host_n["n"] += 1
-        raise AssertionError("host")
-
     def validate(a: str, p: str) -> dict:
         return {"ok": True, "target_id": "tgt", "generation": 1}
 
-    # make_target_executor missing → l1_executor_unbound, not host.
+    # make_target_executor missing → l1_executor_unbound (no host path exists).
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "x", "model": "m"}],
         agent_invocation_limit=1,
-        resolve_executor=host,
         attempt_id="attempt_ef003",
+        extension_registry=registry_with_executor("x", object()),
         require_actor_id=True,
         validate_actor_profile=validate,
         make_target_executor=None,
@@ -64,7 +60,6 @@ def test_l1_host_resolve_forbidden_on_invoke() -> None:
     inv = svc.invoke(session_id=opened["session_id"], prompt="x")
     assert inv["ok"] is False
     assert inv["error"] == "l1_executor_unbound"
-    assert host_n["n"] == 0
 
 
 def test_generation_mismatch_via_executor() -> None:
@@ -131,8 +126,8 @@ def test_make_target_executor_generation_guard() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p1", "executor": "x", "model": "m"}],
         agent_invocation_limit=1,
-        resolve_executor=lambda *a, **k: (_ for _ in ()).throw(AssertionError()),
         attempt_id="attempt_ef004",
+        extension_registry=registry_with_executor("x", object()),
         require_actor_id=True,
         validate_actor_profile=validate,
         make_target_executor=make,

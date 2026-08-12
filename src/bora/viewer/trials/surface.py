@@ -244,6 +244,8 @@ def _agent_surface(
                 "agent": agent_col,
                 "model": model,
                 "profile_id": pid,
+                # Surface executor mechanism on actor rows (nooa/acp/…).
+                "executor_kind": ex,
                 "invokes": n_inv,
                 "latency_ms_sum": lat_total,
                 "time_label": _format_latency_ms(lat_total, n_inv),

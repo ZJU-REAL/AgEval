@@ -1,0 +1,61 @@
+---
+title: 机制插件
+description: 安装 bora.plugin/1、绑定 executor、Recognition 与 L1 Ready 的区别。
+---
+
+机制插件扩展 **如何** 执行 Agent / 环境 / 轨迹等，不改变 package harness 业务循环。
+
+## 安装（只写本地缓存）
+
+```bash
+uv run bora plugin install plugins/nooa
+uv run bora plugin list
+```
+
+安装只更新 `$BORA_HOME/plugins`（默认 `~/.bora/plugins`），**不会**改写
+`profiles.yaml`、`bora.yaml` 或 `task.yaml`。
+
+卸载：
+
+```bash
+uv run bora plugin uninstall nooa
+```
+
+## 绑定（profiles）
+
+```yaml
+# profiles 片段 — job binding
+bindings:
+  solver:
+    executor: nooa
+    options:
+      agent: "lib.agents:JsonlAggAgent"
+      method: "run"
+```
+
+运行时用备用 profiles 文件切换，不必改 Database 默认 ACP 配置：
+
+```bash
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.nooa.yaml
+```
+
+`bora lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
+
+## Recognition ≠ Ready
+
+| 阶段 | 含义 |
+| --- | --- |
+| **install / list** | 本机识别到 provide（Recognition） |
+| **profiles 绑定** | Job 选择该 executor |
+| **L1 Ready** | `image_contribute` 在 prepare 时 bake 进 Attempt 镜像；容器内执行 |
+
+有 install 成功 **不等于** L1 隔离路径已就绪。Docker L1 任务需 bake 成功后，才在
+容器内调用 worker（例如 nooa 的 in-container 路径）。
+
+## 与 ACP 的关系
+
+默认 coding-agent 路径仍是 `executor: acp` + `options.entry`。插件是 **可选** 机制，
+与 ACP first-party 并列；同一 harness 只靠 profiles 切换。
+
+更多机制契约见设计文档（贡献者侧 `docs/design`）；本页不改变证据等级声明。

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.parent_agent_service import ParentAgentService
 
@@ -21,8 +23,8 @@ def test_parent_service_response_has_no_secret_keys() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "x", "model": "m"}],
         agent_invocation_limit=1,
-        resolve_executor=lambda kind, model: Ex(),  # noqa: ARG005
         attempt_id="attempt_sec001",
+        extension_registry=registry_with_executor("x", Ex()),
     )
     sid = svc.open_session(profile_id="p")["session_id"]
     resp = svc.invoke(session_id=sid, prompt="hi")

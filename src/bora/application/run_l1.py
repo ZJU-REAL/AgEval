@@ -188,9 +188,26 @@ def run_l1_sdk_session_attempt(
         )
 
     with timer.phase("prepare"):
-        docker, runtime, l1_meta = prepare_l1_runtime(
-            package_root, lock, run_dir, network_mode=network_mode
-        )
+        try:
+            docker, runtime, l1_meta = prepare_l1_runtime(
+                package_root, lock, run_dir, network_mode=network_mode
+            )
+        except Exception as exc:  # noqa: BLE001 — bake / contribute / docker prepare
+            msg = str(exc)
+            kind = "target_prepare_failed"
+            if "plugin_not_ready" in msg:
+                kind = "plugin_not_ready"
+            elif "image_contribute_unsatisfied" in msg:
+                kind = "image_contribute_unsatisfied"
+            return l1_error_result(
+                run_dir,
+                "provider",
+                {"error": msg[:800], "kind": kind},
+                agent_meta,
+                0,
+                kind=kind,
+                phase_timing=timer.as_dict(),
+            )
         assert runtime.workdir_host is not None
         assert runtime.attempt is not None
 
@@ -289,7 +306,12 @@ def run_l1_sdk_session_attempt(
                 "generation": binding.generation,
             }
 
-        make_target_executor = make_l1_target_executor_factory(ledger=ledger, profiles=profiles)
+        make_target_executor = make_l1_target_executor_factory(
+            ledger=ledger,
+            profiles=profiles,
+            workspace_host=workspace_host,
+            package_root=package_root,
+        )
 
         limits: dict[str, Any] = {}
         try:
@@ -308,19 +330,27 @@ def run_l1_sdk_session_attempt(
             wall_s = 0.0
         deadline = (time.monotonic() + wall_s) if wall_s > 0 else None
 
-        def _host_resolve(*_a: Any, **_k: Any) -> Any:
-            # L1 path must never call host CLI — mark counter and fail.
-            ledger.host_fallback_count += 1
-            raise RuntimeError("host_fallback_forbidden")
-
+        from bora.plugins.bootstrap import ensure_bootstrapped
         from bora.runtime.parent_agent_service import resolve_invoke_timeout_seconds
 
         invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
+        # Inject package root for package-local option context on open_session.
+        service_profiles: list[dict[str, Any]] = []
+        for p in profiles:
+            if not isinstance(p, dict):
+                continue
+            row = dict(p)
+            opts = dict(row.get("options") or {}) if isinstance(row.get("options"), dict) else {}
+            opts["_package_root"] = str(package_root)
+            opts.setdefault("_workdir", str(workspace_host))
+            row["options"] = opts
+            service_profiles.append(row)
+
         agent_service = ParentAgentService(
-            profiles=profiles,
+            profiles=service_profiles,
             agent_invocation_limit=inv_limit,
-            resolve_executor=_host_resolve,
             attempt_id=attempt_ident.value,
+            extension_registry=ensure_bootstrapped(),
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
             invoke_timeout_seconds=invoke_timeout,
@@ -461,6 +491,38 @@ def run_l1_sdk_session_attempt(
                 phase_timing=timer.as_dict(),
             )
 
+        # Evaluation adjacency (fail closed; bindings already in lock graph).
+        from bora.application.extension_hooks import (
+            hook_evaluation_input,
+            hook_evaluation_runtime,
+            hook_score_postprocess,
+        )
+
+        contrib = hook_evaluation_input(
+            lock,
+            {
+                "artifacts": {artifact_key: str(src_art)},
+                "staging": str(staging),
+                "package_root": str(package_root),
+                "artifact_key": artifact_key,
+                "artifact_filename": artifact_filename,
+            },
+        )
+        if isinstance(contrib, dict):
+            extra_arts = contrib.get("artifacts")
+            if isinstance(extra_arts, dict):
+                for _k, v in extra_arts.items():
+                    p = Path(str(v))
+                    if p.is_file():
+                        dest = staging / p.name
+                        if not dest.exists():
+                            dest.write_bytes(p.read_bytes())
+        runtime_ann = hook_evaluation_runtime(lock, {"source": "package", "path": "run_l1"})
+        if runtime_ann is not None:
+            l1_meta["evaluation_runtime"] = (
+                dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}
+            )
+
         eval_raw, eval_meta = run_clean_evaluator_container(
             image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
             staging=staging,
@@ -468,6 +530,10 @@ def run_l1_sdk_session_attempt(
             artifact_key=artifact_key,
             expected_filename=expected_filename,
         )
+        if isinstance(eval_raw, dict):
+            eval_raw = hook_score_postprocess(lock, eval_raw)
+            if not isinstance(eval_raw, dict):
+                raise RuntimeError("score_postprocess_must_return_dict")
         l1_meta["evaluator"] = eval_meta
         l1_meta["writer_inventory"] = list(runtime.writer_inventory)
         l1_meta["writer_stop_confirmed"] = runtime.writer_stop_confirmed and bool(

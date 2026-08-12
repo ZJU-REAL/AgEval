@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.parent_agent_service import ParentAgentService
 
@@ -24,8 +26,8 @@ def test_wall_deadline_blocks_before_executor() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=5,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="a",
+        extension_registry=registry_with_executor("fake", fake),
         deadline_monotonic=time.monotonic() - 1.0,  # already expired
     )
     opened = svc.open_session(profile_id="p")
@@ -40,8 +42,8 @@ def test_wall_deadline_blocks_mid_session() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=5,
-        resolve_executor=lambda kind, model: fake,  # noqa: ARG005
         attempt_id="a",
+        extension_registry=registry_with_executor("fake", fake),
         deadline_monotonic=now + 0.05,
     )
     sid = svc.open_session(profile_id="p")["session_id"]

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 
+from tests.helpers.extension_registry import registry_with_executor
+
 from bora.adapters.agent_contract import AgentResult
 from bora.runtime.parent_agent_service import (
     ParentAgentService,
@@ -39,8 +41,8 @@ def test_invoke_passes_configured_timeout() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=3,
-        resolve_executor=lambda kind, model, **kw: fake,  # noqa: ARG005
         attempt_id="a",
+        extension_registry=registry_with_executor("fake", fake),
         invoke_timeout_seconds=777.0,
     )
     sid = svc.open_session(profile_id="p")["session_id"]
@@ -56,8 +58,8 @@ def test_env_override_wins_over_field(monkeypatch: object) -> None:
         svc = ParentAgentService(
             profiles=[{"id": "p", "executor": "fake", "model": "m"}],
             agent_invocation_limit=3,
-            resolve_executor=lambda kind, model, **kw: fake,  # noqa: ARG005
             attempt_id="a",
+            extension_registry=registry_with_executor("fake", fake),
             invoke_timeout_seconds=900.0,
         )
         sid = svc.open_session(profile_id="p")["session_id"]
@@ -72,8 +74,8 @@ def test_invoke_timeout_capped_by_remaining_wall() -> None:
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=3,
-        resolve_executor=lambda kind, model, **kw: fake,  # noqa: ARG005
         attempt_id="a",
+        extension_registry=registry_with_executor("fake", fake),
         invoke_timeout_seconds=900.0,
         deadline_monotonic=time.monotonic() + 12.0,
     )

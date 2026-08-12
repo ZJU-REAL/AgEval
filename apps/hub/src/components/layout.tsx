@@ -44,6 +44,9 @@ export function Shell({
           <NavLink to="/datasets" className={navClass} end={false}>
             Datasets
           </NavLink>
+          <NavLink to="/plugins" className={navClass} end={false}>
+            Plugins
+          </NavLink>
           <NavLink to="/organizations" className={navClass}>
             Organizations
           </NavLink>

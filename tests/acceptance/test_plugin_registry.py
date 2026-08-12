@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 
-from bora.adapters.acp import AcpExecutor
 from bora.adapters.agent_openai_http import OpenAIHTTPExecutor
 from bora.adapters.agent_registry import discover_executor_kinds, resolve_executor
 
@@ -18,7 +17,7 @@ def test_discover_includes_builtins() -> None:
 
 def test_resolve_acp_and_openai() -> None:
     a = resolve_executor("acp", model="entry-default", entry="opencode")
-    assert isinstance(a, AcpExecutor)
+    assert getattr(a, "kind", None) == "acp"
     o = resolve_executor("openai-http", model="gpt-4.1-mini")
     assert o is not None
 

@@ -2908,6 +2908,18 @@ class PostgresMetadataStore:
 # ---------------------------------------------------------------------------
 
 
+def package_kind_for_media_type(media_type: str) -> str:
+    """Derive list/meta ``package_kind`` without opening the blob."""
+    try:
+        from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+
+        if media_type == PLUGIN_MEDIA_TYPE:
+            return "plugin"
+    except Exception:  # noqa: BLE001 — kind is best-effort for clients
+        pass
+    return "database"
+
+
 def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
     out: dict[str, Any] = {
         "database_id": row.database_id,
@@ -2917,6 +2929,7 @@ def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
         "blob_digest": row.blob_digest,
         "size": row.size,
         "media_type": row.media_type,
+        "package_kind": package_kind_for_media_type(row.media_type),
         "created_at": row.created_at,
     }
     if row.org_id:

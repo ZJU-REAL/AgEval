@@ -165,6 +165,27 @@ def write_trajectory_jsonl(
     for pe in permission_events:
         pe = {**pe, "turn_index": turn_index, "acp_session_id": acp_session_id}
         lines.append(pe)
+    # Full metadata map (Core + trajectory_enrich plugins). Redaction runs below.
+    # Prefer known protocol keys first for stable readers; pass through extras so
+    # extension chains can leave durable enrichment on trajectory.jsonl (#71 B).
+    meta_out: dict[str, Any] = {}
+    if isinstance(metadata, dict):
+        for k in (
+            "executor_kind",
+            "acp_entry_id",
+            "acp_version",
+            "protocol_version",
+            "actual_model",
+            "locked_model",
+            "turn_index",
+            "trajectory_source",
+            "trajectory_seal",
+        ):
+            if k in metadata:
+                meta_out[k] = metadata[k]
+        for k, v in metadata.items():
+            if k not in meta_out:
+                meta_out[k] = v
     lines.append(
         {
             "type": "terminal",
@@ -175,18 +196,7 @@ def write_trajectory_jsonl(
             "structured": structured,
             "usage": usage,
             "stop_reason": (metadata or {}).get("stop_reason") if metadata else None,
-            "metadata": {
-                k: (metadata or {}).get(k)
-                for k in (
-                    "executor_kind",
-                    "acp_entry_id",
-                    "acp_version",
-                    "protocol_version",
-                    "actual_model",
-                    "locked_model",
-                )
-                if metadata and k in metadata
-            },
+            "metadata": meta_out,
             "source": "bora",
         }
     )

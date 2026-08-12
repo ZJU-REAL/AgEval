@@ -305,6 +305,7 @@ Upload（`bora results upload-suite`）**投影**这些字段到 Registry；缺 
 ```bash
 uv run bora executors          # .supported + host readiness
 uv run bora executors -v       # + acp_entries[] (entry_id, engine/acp readiness, credential env *names*)
+uv run bora plugin list        # installed mechanism plugins (e.g. nooa)
 ```
 
 | Surface | Meaning |
@@ -312,9 +313,14 @@ uv run bora executors -v       # + acp_entries[] (entry_id, engine/acp readiness
 | `.supported` | Valid `agent_profiles[].executor` values (this install): typically `acp`, `openai-http`, … |
 | `.acp_entries[]` | When `executor: acp`, valid `options.entry` ids + host binary readiness |
 | `.host_ready` | Kinds that can run here (ACP needs at least one ready entry; HTTP needs no CLI) |
+| Installed plugins | Extra executor plugin_ids after `bora plugin install` (Recognition only) |
 
 **Target (coding agents):** `executor: acp` + `options.entry: <registry-id>`.  
 **Do not** write `executor: codex|pi|opencode|claude-code` — lock fails (`unsupported_capability`) or L1 fails (`migrated_to_acp`).
+
+**External mechanism (e.g. nooa):** `executor: nooa` + `options.agent: "lib.agents:Class"` in
+**profiles only** — never in member `task.yaml`. `bora plugin install` does **not** rewrite
+profiles. `bora lock` writes full `extension_bindings` for the resolved extension graph.
 
 Do not invent kinds or entry ids.
 
