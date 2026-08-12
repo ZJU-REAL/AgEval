@@ -41,15 +41,46 @@ async def run_task(
     ``task.yaml`` is resolved via ``resolve_task``; the task directory is the
     package root for harness/evaluator relative paths.
     """
-    from bora.application.env_bootstrap import load_host_env_files
     from bora.config.database import resolve_task
-    from bora.config.profiles import resolve_profile_bindings
     from bora.registry.resolve import resolve_database_root
+    from bora.runtime.task_import_isolation import clear_imports_from_task_dir
 
     database_root = resolve_database_root(package_root)
     resolved = resolve_task(database_root, task_id)
     package_root = resolved.task_dir
+
+    try:
+        return await _run_task_body(
+            package_root=package_root,
+            resolved=resolved,
+            task_id=task_id,
+            evidence_root=evidence_root,
+            allow_offline_agent=allow_offline_agent,
+            keep_workspace=keep_workspace,
+            overrides=overrides,
+            profiles_path=profiles_path,
+            profile_bindings=profile_bindings,
+        )
+    finally:
+        clear_imports_from_task_dir(package_root)
+
+
+async def _run_task_body(
+    *,
+    package_root: Path,
+    resolved: Any,
+    task_id: str,
+    evidence_root: Path | None,
+    allow_offline_agent: bool,
+    keep_workspace: bool,
+    overrides: dict[str, Any] | None,
+    profiles_path: Path | str | None,
+    profile_bindings: dict[str, dict[str, Any]] | None,
+) -> tuple[int, FlatResult, dict[str, Any]]:
+    """Body of ``run_task`` after task_dir resolve (import cleanup wraps caller)."""
+    from bora.application.env_bootstrap import load_host_env_files
     from bora.config.database import load_database_manifest
+    from bora.config.profiles import resolve_profile_bindings
 
     man = load_database_manifest(resolved.database_root)
     # Host credential locators from .env (values never enter lock/evidence).
