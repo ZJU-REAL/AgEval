@@ -155,29 +155,46 @@ Task 成员目录 **一级目录只允许从已知集合取用**；除固定根�
 
 | 路径 | 角色 | 默认可见性 |
 | --- | --- | --- |
-| `shared/lib/` | 跨 task Python 支撑（import only） | Runtime 为 Harness **与** Evaluator 注入 import path；**不**默认投影到 Agent workspace |
+| `shared/lib/` | 跨 task Python 支撑（import only） | 经 Database 根 on path 以 **`shared.lib.*`** 导入；**不**默认投影到 Agent workspace |
 | `shared/assets/` | 只读领域数据（db / policy / fixtures） | Harness/Evaluator 用 **代码路径** 读取；v1 **无** `task.yaml` 资产声明面 |
 | `shared/README.md` | 给人读的共享区说明 | 非 Runtime 输入 |
+
+**Import 注入契约（权威）：**
+
+```text
+sys.path 前缀（Harness worker 与 L0 evaluator 一致）:
+  [task_dir, database_root, ...]
+# 禁止把 shared/lib 或 tasks/<id>/lib 作为 path root 注入
+```
+
+| 作者写法 | 含义 |
+| --- | --- |
+| `from shared.lib.xxx import …` | Dataset 级 glue（`shared/lib/`） |
+| `from lib.yyy import …` | 仅本 task 的 `tasks/<id>/lib/` |
+
+`shared/` 与 `shared/lib/` 须为可 import 包（推荐带 `__init__.py`；namespace package 为后置可选）。task 侧 `lib/` 同理（需要 `from lib…` 时）。
 
 **硬规则：**
 
 1. **Digest / publish：** 若 `shared/` 存在，其下文件 **必须** 进入 `member_paths_for_digest` 与 publish blob（与 `tasks/**` 同算法过滤 `__pycache__` / 多数隐藏文件）。改 `shared/` ⇒ 改整包 `packageDigest`。无 `shared/` 的包行为与今日一致。
-2. **Import：** L0 worker 默认把 `shared/lib` 注入 PYTHONPATH（或等价 `sys.path`）；Harness 与 Evaluator 均可 `import`。**禁止**依赖 host 绝对路径。
+2. **Import：** L0 worker 注入 **`task_dir` + `database_root`**（顺序见上表）；**禁止** 再把 `shared/lib` leaf 插入 path。Harness 与 Evaluator 均可 `from shared.lib…` / `from lib…`。**禁止**依赖 host 绝对路径。
 3. **Agent 可见性：** 默认 **不** mount / 不投影 `shared/` 到 Agent workspace。可选 `shared/assets` Agent mount 为后续能力，不在 v1 默认路径。
 4. **禁区：** `shared/` 下 **禁止** evaluation gold、host secrets（如 `.env`）、Docker socket 绑定物等。Gold **只** 在成员 `evaluation/`。
-5. **同名冲突（硬失败）：** `shared/lib/` 与任一 `tasks/<id>/lib/` 的 **top-level import 名**（顶层 `.py` 去后缀、或顶层包目录名）**禁止碰撞**。Config/lock 校验 fail closed；作者 skill 必须提示；检测脚本作验收门槛。
-6. **L1 / 镜像：** Core **禁止** 隐式把 `shared/` COPY 进 Attempt 镜像或默认塞进 build context。若容器内需要 `shared/` 内容，由 **task 级** `environment/` Dockerfile（或包内镜像配方）**显式** `COPY`。无静默 Core copy。
+5. **顶层名 `shared` 保留（硬失败）：** 成员 task **禁止** 拥有 `tasks/<id>/shared/` 目录或 `tasks/<id>/shared.py`（与 Dataset 包名 `shared` 在 path 上同级时会 shadow）。Config/lock 校验 fail closed；检测脚本作验收门槛。**不再** 因 `shared/lib` 与 `tasks/*/lib` 同名 stem（如双方都有 `bridge.py`）而 ban——命名空间已区分 `shared.lib.bridge` vs `lib.bridge`。
+6. **L1 / 镜像：** Core **禁止** 隐式把 `shared/` COPY 进 Attempt 镜像或默认塞进 build context。若容器内需要 `shared/` 内容，由 **task 级** `environment/` Dockerfile（或包内镜像配方）**显式** `COPY shared/`，并使 **Database 根**（或等价布局）进入容器 `PYTHONPATH`，以便 `shared.lib.*` 可 import。无静默 Core copy。L0 inject **≠** L1 自动可用。
 7. **无 shared sub-digest：** Registry 不维护单独的 shared digest；整包 `packageDigest` 已覆盖 `shared/**`。
-8. **证据等级：** 存在 `shared/`、digest 包含 `shared/**`、或 Hub Shared UI **不**抬高证据等级；仍按公开 smoke / Issue 验收声明 `runnable-mvp` / `isolated` 等。
+8. **证据等级：** 存在 `shared/`、digest 包含 `shared/**`、或 Hub Shared UI **不**抬高证据等级；仍按公开 smoke / Issue 验收声明 `runnable-mvp` / `isolated` 等。本 import 契约变更 **不** 抬高证据等级。
 
 **`shared/lib` vs task `lib/`：**
 
-| 放哪里 | 何时 |
-| --- | --- |
-| `shared/lib/` | 多 task 共用的 bridge、领域工具、稳定 glue |
-| `tasks/<id>/lib/` | 仅该 task 的扩展；名字不得与 `shared/lib` top-level 冲突 |
+| 放哪里 | 何时 | Import |
+| --- | --- | --- |
+| `shared/lib/` | 多 task 共用的 bridge、领域工具、稳定 glue | `from shared.lib…` |
+| `tasks/<id>/lib/` | 仅该 task 的扩展；**允许** 与 shared 同 stem 文件名 | `from lib…` |
 
 **资产引用：** v1 仅代码路径（例如相对 Database 根的 `shared/assets/...`，或 Runtime 注入的 database root + 相对路径）。不增加 `task.yaml` 声明语法。
+
+**迁移（从 leaf inject）：** 旧写法 `from bridge import …`（依赖 `shared/lib` 在 path 上）改为 `from shared.lib.bridge import …`；生成器与包内 thin harness/evaluator 同步。
 
 #### 文本分层：README、prompts 与 runtime payload
 
