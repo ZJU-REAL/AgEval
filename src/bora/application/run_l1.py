@@ -82,7 +82,7 @@ def _attach_timing(
     return doc, details
 
 
-def run_l1_attempt(
+async def run_l1_attempt(
     *,
     package_root: Path,
     lock: Any,
@@ -103,7 +103,7 @@ def run_l1_attempt(
     profiles = [p for p in thaw(lock.agent_profiles) if isinstance(p, dict)]
 
     if profiles:
-        return run_l1_sdk_session_attempt(
+        return await run_l1_sdk_session_attempt(
             package_root=package_root,
             lock=lock,
             run_dir=run_dir,
@@ -122,7 +122,7 @@ def run_l1_attempt(
     )
 
 
-def run_l1_sdk_session_attempt(
+async def run_l1_sdk_session_attempt(
     *,
     package_root: Path,
     lock: Any,
@@ -137,17 +137,19 @@ def run_l1_sdk_session_attempt(
     agent service socket. All Agent CLI effects execute inside prepared targets.
     Agent effects are scheduled only from package harness via Agent.session/invoke.
     """
-    import asyncio
     import tempfile
     import time
 
+    from bora.application.agent_service_assemble import (
+        assemble_parent_agent_service,
+        read_wall_deadline,
+    )
     from bora.application.run_harness import run_harness_package
     from bora.config.model import thaw
     from bora.evaluation.result_binding import bind_result
     from bora.evidence.store import AttemptEvidenceStore
     from bora.provider.isolation import parse_logical_topology
     from bora.runtime.agent_service_protocol import AgentServiceServer
-    from bora.runtime.parent_agent_service import ParentAgentService
 
     package_root = package_root.resolve()
     timer = PhaseTimer()
@@ -313,47 +315,20 @@ def run_l1_sdk_session_attempt(
             package_root=package_root,
         )
 
-        limits: dict[str, Any] = {}
         try:
-            raw_limits = thaw(lock.limits) if hasattr(lock, "limits") else {}
-            if isinstance(raw_limits, dict):
-                limits = raw_limits
-        except Exception:
-            limits = {}
-        try:
-            inv_limit = int(limits.get("agent_invocations") or 1)
+            inv_limit = int(thaw(lock.limits).get("agent_invocations") or 1)
         except Exception:
             inv_limit = 1
-        try:
-            wall_s = float(limits.get("wall_time_seconds") or 0)
-        except Exception:
-            wall_s = 0.0
-        deadline = (time.monotonic() + wall_s) if wall_s > 0 else None
-
-        from bora.plugins.bootstrap import ensure_bootstrapped
-        from bora.runtime.parent_agent_service import resolve_invoke_timeout_seconds
-
-        invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
-        # Inject package root for package-local option context on open_session.
-        service_profiles: list[dict[str, Any]] = []
-        for p in profiles:
-            if not isinstance(p, dict):
-                continue
-            row = dict(p)
-            opts = dict(row.get("options") or {}) if isinstance(row.get("options"), dict) else {}
-            opts["_package_root"] = str(package_root)
-            opts.setdefault("_workdir", str(workspace_host))
-            row["options"] = opts
-            service_profiles.append(row)
-
-        agent_service = ParentAgentService(
-            profiles=service_profiles,
-            agent_invocation_limit=inv_limit,
+        wall_s, deadline = read_wall_deadline(lock, monotonic_now=time.monotonic())
+        agent_service, invoke_timeout = assemble_parent_agent_service(
+            profiles=profiles,
+            package_root=package_root,
             attempt_id=attempt_ident.value,
-            extension_registry=ensure_bootstrapped(),
+            inv_limit=inv_limit,
+            params=params if isinstance(params, dict) else {},
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
-            invoke_timeout_seconds=invoke_timeout,
+            workdir=workspace_host,
             require_actor_id=True,
             validate_actor_profile=validate_actor_profile,
             make_target_executor=make_target_executor,
@@ -382,7 +357,7 @@ def run_l1_sdk_session_attempt(
                 harness_timeout = min(harness_timeout, wall_s)
             from bora.config.shared import infer_database_root_from_task
 
-            harness_coro = run_harness_package(
+            harness_out = await run_harness_package(
                 lock,
                 package_root,
                 timeout_seconds=harness_timeout,
@@ -391,16 +366,6 @@ def run_l1_sdk_session_attempt(
                 workspace_root=workspace_host,
                 database_root=infer_database_root_from_task(package_root),
             )
-            # run_task is already async; nest safely without asyncio.run in-loop.
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                harness_out = asyncio.run(harness_coro)
-            else:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    harness_out = pool.submit(asyncio.run, harness_coro).result()
     finally:
         agent_server.stop()
         inv_count = agent_service.invocations_completed

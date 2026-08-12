@@ -5,10 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from bora.application.run_l1 import run_l1_attempt
 
 
-def test_l1_empty_profiles_without_profiles_is_unsupported(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_l1_empty_profiles_without_profiles_is_unsupported(tmp_path: Path) -> None:
     lock = SimpleNamespace(
         task_id="no-agent",
         parameters={},
@@ -19,7 +22,7 @@ def test_l1_empty_profiles_without_profiles_is_unsupported(tmp_path: Path) -> No
         evaluation={},
         harness={"entrypoint": "harness:run"},
     )
-    code, doc, _ = run_l1_attempt(
+    code, doc, _ = await run_l1_attempt(
         package_root=tmp_path,
         lock=lock,
         run_dir=tmp_path / "run",

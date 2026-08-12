@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bora.application.run_command import run_task
+from bora.application.composition import build_run_task
 from bora.config.errors import ConfigError
 
 
@@ -109,7 +109,7 @@ async def run_campaign(
     trials: list[dict[str, Any]] = []
     for plan in admitted:
         variant = plan["variant"]
-        code, result, details = await run_task(
+        code, result, details = await build_run_task()(
             database_root,
             task_id,
             overrides=variant if variant else None,

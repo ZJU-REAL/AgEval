@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from bora.application.run_command import run_task
+from bora.application.composition import build_run_task
 from bora.application.suite_config_fingerprint import collect_suite_config
 from bora.application.suite_metrics import (
     aggregate_k_metrics,
@@ -596,7 +596,7 @@ async def execute_suite_run(
     Resume clears a prior cancel request so scheduling can proceed.
     """
     reset_inflight_metrics()
-    runner = run_fn or run_task
+    runner = run_fn or build_run_task()
     suite_dir_for(plan).mkdir(parents=True, exist_ok=True)
 
     existing: list[dict[str, Any]] = []

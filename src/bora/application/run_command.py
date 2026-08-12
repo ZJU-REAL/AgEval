@@ -145,7 +145,6 @@ async def _run_task_body(
     shared_attempt = None  # Runtime-owned Attempt shared with harness worker
     if agent_profile is not None and provider_kind != "docker":
         from bora.runtime.agent_service_protocol import AgentServiceServer
-        from bora.runtime.parent_agent_service import ParentAgentService
 
         limits = thaw(lock.limits) if hasattr(lock, "limits") else {}
         if not isinstance(limits, dict):
@@ -212,34 +211,20 @@ async def _run_task_body(
                 lock_doc["job_overlay"] = thaw(lock.job_overlay)
             evidence_store.write_lock_summary(lock_doc)
         # Wall hard ceiling from locked limits (design §13.1): pre-effect deadline.
-        try:
-            wall_s = float(thaw(lock.limits).get("wall_time_seconds") or 0)  # type: ignore[union-attr]
-        except Exception:
-            wall_s = 0.0
-        deadline = (_mono() + wall_s) if wall_s > 0 else None
-        from bora.plugins.bootstrap import ensure_bootstrapped
-        from bora.runtime.parent_agent_service import resolve_invoke_timeout_seconds
+        from bora.application.agent_service_assemble import (
+            assemble_parent_agent_service,
+            read_wall_deadline,
+        )
 
-        invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
-        # Inject package root for nooa (and similar) host materialize of package-local agents.
-        service_profiles: list[dict[str, Any]] = []
-        for p in profiles:
-            if not isinstance(p, dict):
-                continue
-            row = dict(p)
-            opts = dict(row.get("options") or {}) if isinstance(row.get("options"), dict) else {}
-            opts["_package_root"] = str(package_root)
-            row["options"] = opts
-            service_profiles.append(row)
-
-        agent_service = ParentAgentService(
-            profiles=service_profiles,
-            agent_invocation_limit=inv_limit,
+        wall_s, deadline = read_wall_deadline(lock, monotonic_now=_mono())
+        agent_service, invoke_timeout = assemble_parent_agent_service(
+            profiles=profiles if isinstance(profiles, list) else [],
+            package_root=package_root,
             attempt_id=attempt_ident.value,
-            extension_registry=ensure_bootstrapped(),
+            inv_limit=inv_limit,
+            params=params if isinstance(params, dict) else {},
             evidence_store=evidence_store,
             deadline_monotonic=deadline,
-            invoke_timeout_seconds=invoke_timeout,
         )
         agent_meta["wall_time_seconds"] = wall_s if wall_s > 0 else None
         agent_meta["deadline_armed"] = deadline is not None
@@ -256,8 +241,9 @@ async def _run_task_body(
         agent_meta["run_id"] = run_ident.value
 
     if provider_kind == "docker":
-        # Full L1 orchestration for all docker packages (Spec 07) — no preflight-only PASS.
-        from bora.application.run_l1 import run_l1_attempt
+        # Full L1 orchestration via LifecycleStages adapter (Spec 07).
+        from bora.application.attempt_stages import AttemptStageContext, DockerL1Stages
+        from bora.application.run_lifecycle import run_lifecycle
 
         # Env Manager before L1 when packages need postgresql + Docker agents (journeys).
         env_resource_docker = str(params.get("environment_resource") or "")
@@ -280,9 +266,7 @@ async def _run_task_body(
                 encoding="utf-8",
             )
 
-        # L1 owns full prepare/run/evaluate/cleanup timing; do not invent a
-        # coarse parent fallback (that hid missing L1 phase_timing).
-        code, result_doc, details = run_l1_attempt(
+        stage_ctx = AttemptStageContext(
             package_root=package_root,
             lock=lock,
             run_dir=run_dir,
@@ -290,6 +274,11 @@ async def _run_task_body(
             allow_offline_agent=allow_offline_agent,
             keep_workspace=keep_workspace,
         )
+        stages = DockerL1Stages(ctx=stage_ctx)
+        await run_lifecycle(lock, stages)
+        result_doc = stage_ctx.result_doc
+        details = stage_ctx.details
+        code = stage_ctx.exit_code
         score_raw = result_doc.get("score")
         score_f = float(score_raw) if isinstance(score_raw, int | float) else None
         metrics_raw = (

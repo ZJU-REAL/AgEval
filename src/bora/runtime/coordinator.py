@@ -1,8 +1,9 @@
 """LifecycleCoordinator — drives generic stages with cleanup-once semantics.
 
 Stage implementations are an internal seam (``LifecycleStages``). Production
-v0.2 does not register real Provider/Harness/Evaluator stages; tests inject
-doubles via the application use case, never via CLI composition.
+L1 selects ``DockerL1Stages``; L0 still owns its body in ``run_command`` while
+sharing ParentAgentService assembly. Tests inject doubles via the application
+use case, never via CLI composition.
 """
 
 from __future__ import annotations
