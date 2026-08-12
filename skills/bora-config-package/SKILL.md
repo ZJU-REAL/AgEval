@@ -336,7 +336,7 @@ Do not invent kinds or entry ids.
 1. Edit Database `profiles.yaml` bindings (role id → entry/model).
 2. Or CLI alternate file: `bora run ... --profiles path/to/profiles.yaml`
 3. Or CLI leaf override: `bora run ... --set '/bindings/solver/options/entry="pi"'`
-4. Campaign matrix may use `/bindings/<role>/model|executor|options/entry=[…]`
+4. Campaign matrix may use `/bindings/<role>/model|executor|options/<key>=[…]`
 5. Intent `limits.*` are **not** overridable via `--set`.
 
 ## Detail

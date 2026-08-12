@@ -127,7 +127,7 @@ uv run bora run examples/core --task sdk-agent-session -k 5
 
 # Allowlisted --set (JSON Pointer = JSON value)
 uv run bora lock examples/core --task config-minimal --set /parameters/seed=7
-# Job binding override (#59): entry/model live in profiles.yaml, not task.yaml
+# Job binding override: entry/model/plugin options live in profiles.yaml, not task.yaml
 uv run bora run examples/core --task sdk-agent-session \
   --set '/bindings/solver/options/entry="pi"'
 # Or replace Database profiles.yaml for the run:
@@ -141,13 +141,13 @@ Fixed parameter leaves (others fail closed):
 - `/parameters/seed`
 - `/parameters/active_profile`
 
-Job binding axes (#59):
+Job binding axes:
 
 - `/bindings/<role_id>/model`
 - `/bindings/<role_id>/executor`
 - `/bindings/<role_id>/api_key`
 - `/bindings/<role_id>/base_url`
-- `/bindings/<role_id>/options/entry`
+- `/bindings/<role_id>/options/<key>` (opaque plugin options; ACP still rejects `command` / engine keys)
 
 **Not** overridable: intent `limits.*` (task contract).
 
