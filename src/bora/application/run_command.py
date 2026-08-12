@@ -228,6 +228,27 @@ async def run_task(
         # Full L1 orchestration for all docker packages (Spec 07) — no preflight-only PASS.
         from bora.application.run_l1 import run_l1_attempt
 
+        # Env Manager before L1 when packages need postgresql + Docker agents (journeys).
+        env_resource_docker = str(params.get("environment_resource") or "")
+        if env_resource_docker == "postgresql":
+            env_manager, evidence_store, env_meta, early = prepare_postgresql_environment(
+                package_root=package_root,
+                lock=lock,
+                run_dir=run_dir,
+                run_id=run_id,
+                params=params if isinstance(params, dict) else {},
+                agent_meta=agent_meta,
+                evidence_store=evidence_store,
+            )
+            del env_manager  # L1 path does not hold env manager beyond prepare
+            if early is not None:
+                return early
+            agent_meta["environment"] = env_meta
+            (run_dir / "env_manager.json").write_text(
+                json.dumps({"resource_id": env_meta.get("resource_id")}, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
         # L1 owns full prepare/run/evaluate/cleanup timing; do not invent a
         # coarse parent fallback (that hid missing L1 phase_timing).
         code, result_doc, details = run_l1_attempt(

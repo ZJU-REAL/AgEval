@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from bora.adapters.acp import AcpExecutor
 from bora.adapters.agent_registry import discover_executor_kinds, resolve_executor
 from bora.adapters.executor_capabilities import (
     BUILTIN_CAPABILITIES,
@@ -51,5 +50,7 @@ def test_private_kinds_gone() -> None:
 
 def test_resolve_acp_constructor() -> None:
     ex = resolve_executor("acp", model="entry-default", entry="opencode")
-    assert isinstance(ex, AcpExecutor)
-    assert ex.entry_id == "opencode"
+    assert getattr(ex, "kind", None) == "acp"
+    # SPI may wrap adapters.acp.AcpExecutor
+    inner = getattr(ex, "_inner", ex)
+    assert getattr(inner, "entry_id", None) == "opencode"

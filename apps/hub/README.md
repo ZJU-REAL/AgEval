@@ -3,9 +3,11 @@
 Registry **Dataset catalog** SPA: list packages, open README and tasks, preview
 files, browse Task Jobs, and Leaderboard.
 
-Also covers **organizations** (members, org packages, shared suite results,
-invite keys, leave / dissolve), **GitHub browser login**, and opening a Job’s
-run detail when the corresponding Attempt artifacts were uploaded.
+Also covers the **Plugin marketplace** (`/plugins` — `bora.plugin/1` browse +
+CLI install copy; no browser-side install), **organizations** (members, org
+packages, shared suite results, invite keys, leave / dissolve), **GitHub
+browser login**, and opening a Job’s run detail when the corresponding Attempt
+artifacts were uploaded.
 
 **Not** the local results viewer (`apps/viewer` / `bora view`).
 
@@ -57,6 +59,8 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/datasets/:id` | README · Tasks · Leaderboard |
 | `/datasets/:id?tab=leaderboard&demo=1` | Leaderboard with mock pass@k rows (local smoke only, #60) |
 | `/datasets/:id/tasks/:task` | README · Files · Jobs (row opens detail when uploaded) |
+| `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
+| `/plugins/:id` | Plugin detail (badge · slots · files · CLI install) |
 | `/organizations` | Your orgs · Join |
 | `/organizations/:orgId` | Overview · Settings |
 | `/jobs/...` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |

@@ -196,6 +196,8 @@ def test_resolve_and_trial_detail(tmp_path: Path) -> None:
     assert actors[0]["role"] == "main"
     assert actors[0]["agent"] == "pi"
     assert actors[0]["model"] == "test-model"
+    assert actors[0].get("executor_kind") == "acp"
+    assert detail["trial"].get("executor_kind") == "acp"
     assert actors[0]["invokes"] == 1
     assert actors[0]["latency_ms_sum"] == pytest.approx(1234.5)
     assert actors[0]["time_label"]

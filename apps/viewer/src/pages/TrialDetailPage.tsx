@@ -85,7 +85,10 @@ export function TrialDetailPage() {
             />
 
             {trial.actors && trial.actors.length > 0 ? (
-              <ActorsTable actors={trial.actors} />
+              <ActorsTable
+                actors={trial.actors}
+                trialExecutorKind={trial.executor_kind}
+              />
             ) : null}
 
             <EvidenceTabs

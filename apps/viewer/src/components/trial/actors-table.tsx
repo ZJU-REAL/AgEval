@@ -8,8 +8,15 @@ import {
 } from "@/components/ui/table";
 import type { Trial } from "@/lib/api";
 
-/** Actors: Role | Agent | Model | Time | Usage — observational ≠ PASS */
-export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }) {
+/** Actors: Role | Agent | Executor | Model | Time | Usage — observational ≠ PASS */
+export function ActorsTable({
+  actors,
+  trialExecutorKind,
+}: {
+  actors: NonNullable<Trial["actors"]>;
+  /** Fallback when per-actor executor_kind is absent. */
+  trialExecutorKind?: string | null;
+}) {
   if (actors.length === 0) return null;
 
   return (
@@ -20,44 +27,58 @@ export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }
             <TableRow className="hover:bg-transparent">
               <TableHead>Role</TableHead>
               <TableHead>Agent</TableHead>
+              <TableHead>Executor</TableHead>
               <TableHead>Model</TableHead>
               <TableHead>Time</TableHead>
               <TableHead>Usage</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {actors.map((a) => (
-              <TableRow key={a.profile_id || `${a.role}-${a.agent}`}>
-                <TableCell className="font-medium font-mono text-[13px]">
-                  {a.role}
-                </TableCell>
-                <TableCell className="font-mono text-[13px] text-body">
-                  {a.agent}
-                </TableCell>
-                <TableCell className="font-mono text-[13px] text-mute">
-                  {a.model || "-"}
-                </TableCell>
-                <TableCell className="font-mono text-[13px] tabular text-body">
-                  {a.time_label || "-"}
-                </TableCell>
-                <TableCell
-                  className="font-mono text-[12px] text-mute max-w-[36ch]"
-                  title={
-                    a.usage_label
-                      ? "Observational usage (tokens/cost); not PASS authority. Cache hit = cached_read / input when present. Session-last invoke for cumulative fields."
-                      : undefined
-                  }
-                >
-                  {a.usage_label || "-"}
-                </TableCell>
-              </TableRow>
-            ))}
+            {actors.map((a) => {
+              const executor = a.executor_kind || trialExecutorKind || null;
+              return (
+                <TableRow key={a.profile_id || `${a.role}-${a.agent}`}>
+                  <TableCell className="font-medium font-mono text-[13px]">
+                    {a.role}
+                  </TableCell>
+                  <TableCell className="font-mono text-[13px] text-body">
+                    {a.agent}
+                  </TableCell>
+                  <TableCell className="font-mono text-[13px] text-body">
+                    {executor ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-hairline bg-canvas-soft text-[11px]">
+                        {executor}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono text-[13px] text-mute">
+                    {a.model || "-"}
+                  </TableCell>
+                  <TableCell className="font-mono text-[13px] tabular text-body">
+                    {a.time_label || "-"}
+                  </TableCell>
+                  <TableCell
+                    className="font-mono text-[12px] text-mute max-w-[36ch]"
+                    title={
+                      a.usage_label
+                        ? "Observational usage (tokens/cost); not PASS authority. Cache hit = cached_read / input when present. Session-last invoke for cumulative fields."
+                        : undefined
+                    }
+                  >
+                    {a.usage_label || "-"}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
       <p className="text-[11px] text-mute">
         Time sums inv latency. Usage is last-invoke session snapshot
-        (tokens/cost); trajectory and usage are not PASS.
+        (tokens/cost); trajectory and usage are not PASS. Executor is mechanism
+        (e.g. acp, nooa), not PASS.
       </p>
     </div>
   );

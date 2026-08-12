@@ -23,3 +23,12 @@ bindings:
       entry: pi
     model: zai-coding-cn/glm-5.2
     api_key: glm_coding_api_key
+
+  # External nooa host SPI (task-local lib.agents; after bora plugin install)
+  nooa-solver:
+    executor: nooa
+    options:
+      agent: "lib.agents:FixedAnswerAgent"
+      method: "run"
+    model: none
+
