@@ -242,6 +242,10 @@ class NooaContainerExecutor(AgentExecutor):
             "returncode": outcome.exit_code,
         }
         structured = doc.get("structured") if isinstance(doc.get("structured"), dict) else None
+        raw_events = doc.get("events")
+        events: tuple[dict[str, Any], ...] = ()
+        if isinstance(raw_events, list):
+            events = tuple(e for e in raw_events if isinstance(e, dict))
         return AgentResult(
             model=str(doc.get("model") or self.model),
             text=str(doc.get("text") or ""),
@@ -249,5 +253,6 @@ class NooaContainerExecutor(AgentExecutor):
             ok=bool(doc.get("ok", False)),
             error=str(doc["error"]) if doc.get("error") else None,
             stderr=stderr,
+            events=events,
             metadata=meta,
         )

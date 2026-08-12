@@ -596,6 +596,7 @@ export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
       role: typeof role === "string" ? role : null,
       content: typeof content === "string" ? content : null,
       turn_index: typeof rec.turn_index === "number" ? rec.turn_index : null,
+      session_id: typeof rec.session_id === "string" ? rec.session_id : null,
       source: typeof rec.source === "string" ? rec.source : null,
       stop_reason: typeof rec.stop_reason === "string" ? rec.stop_reason : null,
       ok: typeof rec.ok === "boolean" ? rec.ok : null,

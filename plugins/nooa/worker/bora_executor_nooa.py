@@ -29,6 +29,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+_PLUGIN_ROOT = Path("/opt/nooa")
+if _PLUGIN_ROOT.is_dir() and str(_PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_ROOT))
+
 
 def _load_agent_class(agent_ref: str, package_root: Path) -> Any:
     if ":" in agent_ref:
@@ -70,8 +74,22 @@ def _build_llm(*, model: str, api_base: str | None, api_key: str | None) -> Any:
     return get_llm_client(model or "openai/gpt-4.1-mini", **overrides)
 
 
+def _dump_and_map(agent: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    try:
+        from nooa_plugin.trajectory import dump_native_events, to_bora_trajectory_events
+    except ImportError:
+        return [], []
+    native = dump_native_events(agent)
+    return native, to_bora_trajectory_events(native)
+
+
 def _to_result(
-    raw: Any, *, agent_ref: str, model: str, llm_backed: bool
+    raw: Any,
+    *,
+    agent_ref: str,
+    model: str,
+    llm_backed: bool,
+    events: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     meta = {
         "plugin": "nooa",
@@ -102,6 +120,7 @@ def _to_result(
                 "structured": structured if isinstance(structured, dict) else None,
                 "ok": bool(raw.get("ok", True)),
                 "error": str(raw["error"]) if raw.get("error") else None,
+                "events": events or [],
                 "metadata": meta,
             }
         text = json.dumps(raw, ensure_ascii=False)
@@ -111,6 +130,7 @@ def _to_result(
             "structured": raw,
             "ok": True,
             "error": None,
+            "events": events or [],
             "metadata": meta,
         }
     text = str(raw) if raw is not None else ""
@@ -127,6 +147,7 @@ def _to_result(
         "structured": structured,
         "ok": True,
         "error": None,
+        "events": events or [],
         "metadata": meta,
     }
 
@@ -214,7 +235,11 @@ def main() -> int:
                 raw = method(prompt)
             if inspect.isawaitable(raw):
                 raw = asyncio.run(raw)
-        out = _to_result(raw, agent_ref=agent_ref, model=model, llm_backed=llm_backed)
+        _native, mapped = _dump_and_map(agent)
+        del _native
+        out = _to_result(
+            raw, agent_ref=agent_ref, model=model, llm_backed=llm_backed, events=mapped
+        )
         print(json.dumps(out, ensure_ascii=False))
         return 0 if out.get("ok") else 1
     except Exception as exc:  # noqa: BLE001

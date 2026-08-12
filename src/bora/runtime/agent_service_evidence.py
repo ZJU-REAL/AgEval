@@ -217,7 +217,7 @@ def seal_invoke_result(
             # Trajectory extension must not invent PASS; fail open to base write.
             _LOG.exception("trajectory extension chain failed (fail-open)")
 
-    from bora.adapters.acp import write_trajectory_jsonl
+    from bora.evidence.trajectory import write_trajectory_jsonl
 
     sentinels = ()
     store = getattr(handle, "store", None)

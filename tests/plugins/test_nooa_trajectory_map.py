@@ -1,0 +1,85 @@
+"""nooa native dump → bora.trajectory.event/1 (no ACP masquerade)."""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+from bora.evidence.trajectory import write_trajectory_jsonl
+
+_NOOA_SRC = Path(__file__).resolve().parents[2] / "plugins" / "nooa" / "src"
+if str(_NOOA_SRC) not in sys.path:
+    sys.path.insert(0, str(_NOOA_SRC))
+
+from nooa_plugin.trajectory import SCHEMA, to_bora_trajectory_events  # noqa: E402
+
+
+def _read_lines(path: Path) -> list[dict]:
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+
+
+def test_python_output_folds_to_tool_observation(tmp_path: Path) -> None:
+    native = (
+        {"event_type": "Task", "prompt": "sum the jsonl"},
+        {
+            "event_type": "PythonOutput",
+            "tool_call_id": "py1",
+            "execution_status": "complete",
+            "stdout": "42\n",
+            "stderr": "",
+            "error": "",
+            "value": 42,
+        },
+        {"event_type": "Message", "content": "answer is 42"},
+        {"event_type": "BeforeTurn", "method_name": "run"},
+    )
+    mapped = to_bora_trajectory_events(native)
+    assert all(e.get("schema") == SCHEMA for e in mapped)
+    assert all(e.get("source") == "nooa" for e in mapped)
+    assert not any("sessionUpdate" in e or e.get("type") == "session_update" for e in mapped)
+    kinds = [e["kind"] for e in mapped]
+    assert "opaque" in kinds
+    assert kinds.count("tool") == 2
+
+    path = write_trajectory_jsonl(
+        tmp_path / "inv",
+        prompt="sum the jsonl",
+        events=mapped,
+        final_text="answer is 42",
+        structured=None,
+        usage=None,
+        ok=True,
+        error=None,
+        metadata={"executor_kind": "nooa", "plugin": "nooa"},
+    )
+    lines = _read_lines(path)
+    types = [x["type"] for x in lines]
+    assert "tool_call" in types
+    assert "observation" in types
+    tool = next(x for x in lines if x["type"] == "tool_call")
+    obs = next(x for x in lines if x["type"] == "observation")
+    assert tool["function_name"] == "execute_python"
+    assert tool["source"] == "nooa"
+    assert "acp_session_id" not in tool
+    assert "42" in (obs.get("content") or "")
+
+
+def test_tool_call_event_with_result() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "event_type": "ToolCallEvent",
+                "tool_call_id": "c1",
+                "name": "read_file",
+                "arguments": {"path": "/tmp/a"},
+                "result": {"ok": True, "text": "hi"},
+            },
+        )
+    )
+    phases = [(e["kind"], e.get("phase")) for e in mapped]
+    assert phases == [("tool", "start"), ("tool", "update")]
+    assert mapped[1]["status"] == "completed"
+    assert mapped[0]["args"] == {"path": "/tmp/a"}

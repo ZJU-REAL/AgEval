@@ -20,6 +20,7 @@ from typing import Any
 
 from bora.adapters.agent_contract import AgentResult
 from bora.plugins.errors import ExtensionMaterializeError
+from nooa_plugin.trajectory import dump_native_events, to_bora_trajectory_events
 
 PLUGIN_ID = "nooa"
 
@@ -74,7 +75,29 @@ def _is_nooa_agent_type(obj: Any) -> bool:
     return isinstance(obj, type) and issubclass(obj, NooaAgent)
 
 
-def _normalize_raw(raw: Any, *, model: str, agent_ref: str, collect_dir: str | None) -> AgentResult:
+def _write_backend_raw(collect_dir: str | None, native: list[dict[str, Any]]) -> None:
+    if not collect_dir or not native:
+        return
+    from pathlib import Path
+
+    root = Path(collect_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    import json
+
+    (root / "nooa_events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False, default=str) for e in native) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _normalize_raw(
+    raw: Any,
+    *,
+    model: str,
+    agent_ref: str,
+    collect_dir: str | None,
+    events: tuple[dict[str, Any], ...] = (),
+) -> AgentResult:
     if isinstance(raw, AgentResult):
         return raw
     # Pydantic v2
@@ -90,9 +113,7 @@ def _normalize_raw(raw: Any, *, model: str, agent_ref: str, collect_dir: str | N
         if not isinstance(structured, dict):
             # Whole dict is the payload when agent returns domain JSON directly.
             if "ok" in raw or "text" in raw or "error" in raw:
-                structured = (
-                    raw["structured"] if isinstance(raw.get("structured"), dict) else None
-                )
+                structured = raw["structured"] if isinstance(raw.get("structured"), dict) else None
                 if structured is None:
                     structured = {
                         k: v for k, v in raw.items() if k not in {"ok", "error", "text"}
@@ -113,6 +134,7 @@ def _normalize_raw(raw: Any, *, model: str, agent_ref: str, collect_dir: str | N
             structured=structured if isinstance(structured, dict) else None,
             ok=bool(raw.get("ok", True)),
             error=str(raw["error"]) if raw.get("error") else None,
+            events=events,
             metadata={
                 "plugin": PLUGIN_ID,
                 "agent": agent_ref,
@@ -135,6 +157,7 @@ def _normalize_raw(raw: Any, *, model: str, agent_ref: str, collect_dir: str | N
         text=text,
         structured=structured,
         ok=True,
+        events=events,
         metadata={
             "plugin": PLUGIN_ID,
             "agent": agent_ref,
@@ -339,8 +362,15 @@ class NooaExecutorSPI:
                 error=f"{type(exc).__name__}:{exc}",
                 metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
             )
+        native = dump_native_events(self._agent)
+        _write_backend_raw(collect_dir, native)
+        mapped = tuple(to_bora_trajectory_events(native))
         return _normalize_raw(
-            raw, model=self.model, agent_ref=self.agent_ref, collect_dir=collect_dir
+            raw,
+            model=self.model,
+            agent_ref=self.agent_ref,
+            collect_dir=collect_dir,
+            events=mapped,
         )
 
     def _call_method(self, method: Any, prompt: str, workdir: str | None) -> Any:

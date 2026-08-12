@@ -7,6 +7,7 @@ from bora.evidence.attempt_record import (
 from bora.evidence.locators import portable_run_locator, resolve_evidence_root, resolve_run_dir
 from bora.evidence.redaction import RedactionError, redact_value, scan_for_secrets
 from bora.evidence.store import AttemptEvidenceStore, InvocationHandle
+from bora.evidence.trajectory import write_trajectory_jsonl
 
 __all__ = [
     "AttemptEvidenceStore",
@@ -19,4 +20,5 @@ __all__ = [
     "resolve_run_dir",
     "scan_for_secrets",
     "write_attempt_result",
+    "write_trajectory_jsonl",
 ]

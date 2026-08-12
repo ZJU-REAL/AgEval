@@ -26,5 +26,21 @@ async def image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
 
 
 async def trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:
+    """Ensure payload.events are ``bora.trajectory.event/1`` with source=nooa."""
     del ctx
-    return await nxt(value)
+    out = await nxt(value)
+    if not isinstance(out, dict):
+        return out
+    from nooa_plugin.trajectory import SCHEMA, to_bora_trajectory_events
+
+    events = out.get("events")
+    if not isinstance(events, (list, tuple)):
+        return out
+    if events and all(isinstance(e, dict) and e.get("schema") == SCHEMA for e in events):
+        meta = dict(out.get("metadata") or {})
+        meta.setdefault("trajectory_source", "nooa")
+        return {**out, "metadata": meta}
+    mapped = to_bora_trajectory_events(tuple(e for e in events if isinstance(e, dict)))
+    meta = dict(out.get("metadata") or {})
+    meta.setdefault("trajectory_source", "nooa")
+    return {**out, "events": tuple(mapped), "metadata": meta}
