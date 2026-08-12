@@ -74,9 +74,8 @@ Do not fork Core Runtime for “setup hooks”; use `data/` seed + Dockerfile ti
 
 ## Related
 
-| Link | Relation |
+| Doc | Use for |
 | --- | --- |
-| Issue #69 | Skill series A–B |
-| Issue #65 / #68 | `shared/` hard rules + import namespaces |
-| Issue #66 | Conversion epic / example packages |
-| `references/isolation.md` | L1 Dockerfile depth, `data/` seed, `COPY shared/` |
+| `references/isolation.md` | L1 Dockerfile depth, `data/` seed, explicit `COPY shared/` |
+| Parent skill layout / role map | Where `shared/`, `scripts/`, `solution/` live |
+| `examples/*/scripts/generate_package.py` | Reference generator shape for multi-task ports |

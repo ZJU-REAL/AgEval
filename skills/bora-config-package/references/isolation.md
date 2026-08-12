@@ -47,15 +47,15 @@ non-workspace layout, build-time material). Do not invent package “setup hooks
 - Offline / `BORA_L1_USE_SOLUTION=1` may copy `solution/*` into workspace and set
   `solution_seed` in L1 meta — author-level offline path only, not production default.
 
-## Dataset `shared/` (#65)
+## Dataset `shared/`
 
 - `shared/lib` is for Harness/Evaluator import only — **not** default Agent mount.
 - Gold stays under `tasks/*/evaluation/` only; **forbid** gold / `.env` under `shared/`.
 - L1: no Core implicit COPY of `shared/`; task `environment/Dockerfile` owns any `COPY`.
 - Collision: `shared/lib` vs `tasks/*/lib` top-level names → lock fail. Check with
   `uv run python scripts/check_shared_lib_collisions.py <database-root>`.
-- Import wording target (#68 skill half): namespaced `shared.lib.*` / path inject roots;
-  task must not own top-level name `shared`. Code gates remain in #68.
+- Import contract: prefer namespaced `shared.lib.*` / path inject roots;
+  task must not own top-level name `shared`. Collision gates stay in Runtime/lock.
 
 ### L1 evaluator + explicit `COPY shared/` snippet
 

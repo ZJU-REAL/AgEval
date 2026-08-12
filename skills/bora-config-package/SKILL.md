@@ -31,7 +31,7 @@ my-database/                 # CLI path (bora.database/1)
 ├── scripts/                 # maintainer generators / regenerate (not on Agent path)
 │   ├── README.md            # how to regenerate / fork onboarding (recommended)
 │   └── generate_package.py  # multi-task thin members from upstream
-├── shared/                  # optional Dataset-level share (#65)
+├── shared/                  # optional Dataset-level share
 │   ├── lib/                 # import only (Harness + Evaluator PYTHONPATH)
 │   ├── assets/              # read-only domain data via code paths
 │   └── README.md
@@ -78,9 +78,9 @@ my-database/                 # CLI path (bora.database/1)
    `COPY` explicitly if the container needs those files (see `references/isolation.md`).
 5. Default: `shared/` is **not** mounted into the Agent workspace (Harness/Evaluator only).
 6. **Import contract:** task code must **not** own a top-level package name `shared`. Prefer
-   `shared.lib.*` (post-#68 namespaced inject) or documented path inject
-   `[task_dir, database_root]` so `from shared.lib…` / `from lib…` resolve predictably.
-   Collision gates stay in Runtime/lock (#68); authors follow the names here.
+   namespaced `shared.lib.*` (or documented path inject
+   `[task_dir, database_root]`) so `from shared.lib…` / `from lib…` resolve predictably.
+   Collision gates stay in Runtime/lock; authors follow the names here.
 
 **Acceptance gate (run before claiming package OK):**
 
@@ -172,7 +172,7 @@ provider:
   kind: local               # or docker for L1
   assurance: l0             # docker L1 packages use assurance: l1 intent
 
-# Role slots only — NO executor / entry / model / api_key here (#59).
+# Role slots only — NO executor / entry / model / api_key here (job binding is profiles.yaml).
 agent_profiles:
   - id: solver
 
@@ -240,7 +240,7 @@ bindings:
 | --- | --- |
 | 按 scenario 切包 | 例：MultiAgentBench **coding** → 一个 Dataset；database / werewolf 另包。不要默认把多 scenario 糊进一个 `bora.yaml` 还期望 Harbor 式可比榜。 |
 | scenario 内同构 | 同一 Dataset 内尽量固定 `agent_profiles` 拓扑（role 数、id、协作形状）；task 业务参数可不同。 |
-| 混装可允许 | 不同 task 可用不同 **role id**（拓扑可混）；job 轴是 Database 根 **`profiles.yaml`**。Hub Leaderboard（#40/#59）按 **job_overlay / profiles 绑定** 展示与复跑，不因角色槽拓扑不同而隐藏。 |
+| 混装可允许 | 不同 task 可用不同 **role id**（拓扑可混）；job 轴是 Database 根 **`profiles.yaml`**。Hub Leaderboard 按 **job_overlay / profiles 绑定** 展示与复跑，不因角色槽拓扑不同而隐藏。 |
 | Multi 榜行 | 默认按 **整配置组合**（指纹）一行；仅包内同构时可考虑 role 子列（后置 UI）。 |
 | 上游复刻 | 填 `provenance`；**禁止**按 benchmark 名分支 adapter。 |
 
@@ -263,7 +263,7 @@ bindings:
 
 Upload（`bora results upload-suite`）**投影**这些字段到 Registry；缺 k maps 时本地 **ensure/recompute** 后再 POST；Hub **不**在 upload 时解 tar 硬提配置，也**不** live 算 pass@k。
 
-**Hub Leaderboard 消费（#40 / #59 / #60）：**
+**Hub Leaderboard 消费：**
 
 - 有 `job_overlay` / `config_fingerprint` → 榜上展示 binding（yaml 形态可展开导出）  
 - 有 `metrics.pass_at_k` 时额外列 **n_attempts** / **pass@k** / **pass^k**（缺省 `—`；默认排序仍 Pass rate → Mean score）  

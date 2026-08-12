@@ -36,7 +36,7 @@ uv run bora --help
 | `bora run <package> --task <id>`                           | One foreground Attempt                                               |
 | `bora run <package> [-k N] [--max-concurrent-tasks N]`     | Suite / Always-k job (`-k` = `--n-attempts`; CLI only)               |
 | `bora run … --resume-suite <id> [--task id] -k N`        | Append Attempts into existing suite job; recompute pass@k / pass^k   |
-| `bora run ... --set '/bindings/solver/options/entry="pi"'` | Job binding override (entry/model; #59)                              |
+| `bora run ... --set '/bindings/solver/options/entry="pi"'` | Job binding override (entry/model)                                   |
 | `bora campaign <package> --task <id> --matrix ...`         | Serial matrix (`/parameters/*` or `/bindings/<role>/…`); ≠ Always-k  |
 | `bora evidence <logs-path> --out <dir>`                    | Sealed trajectory export (no score change)                           |
 | `bora results upload-suite …`                              | Suite aggregates → Registry; recompute pass@k if missing; job_overlay |
@@ -44,7 +44,7 @@ uv run bora --help
 | `bora results upload\|upload-suite … --replace`            | Owner overwrite same run_id / suite_run_id (default 409)             |
 | `bora results delete\|set-visibility … --kind attempt\|suite` | Owner delete (`--yes`) or flip visibility after upload            |
 | `bora results share\|unshare …`                            | Grant / revoke private result access (owner only)                    |
-| `bora results export-profiles <suite_run_id> --out …`      | Rehydrate job binding as profiles.yaml (#59; locators only)          |
+| `bora results export-profiles <suite_run_id> --out …`      | Rehydrate job binding as profiles.yaml (locators only)               |
 | `bora publish … --org … [--replace]`                       | Package publish; replace same version is org-owner only              |
 | `bora registry delete\|set-visibility <id@ver>`            | Org-owner package delete (`--yes`) / visibility flip                 |
 | `bora submit` / `bora status` / `bora cancel`              | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`) |
@@ -81,7 +81,7 @@ Fixed parameter leaves (see Config Core):
 - `/parameters/seed`
 - `/parameters/active_profile`
 
-Job binding axes (#59):
+Job binding axes:
 
 - `/bindings/<role_id>/model`
 - `/bindings/<role_id>/executor`
