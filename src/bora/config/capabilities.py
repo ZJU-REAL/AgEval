@@ -50,6 +50,7 @@ class DeclarationCapabilityCatalog:
 
     HARNESS_RUNTIMES: frozenset[str] = frozenset({"python"})
     PROVIDER_KINDS: frozenset[str] = frozenset({"local", "docker"})
+    # Kept for introspection / tests; runtime answer is known_executor_kinds().
     EXECUTOR_KINDS: frozenset[str] = frozenset(
         {
             "acp",  # Spec 19: coding-agent unified inlet
@@ -76,7 +77,9 @@ class DeclarationCapabilityCatalog:
         return kind in self.PROVIDER_KINDS
 
     def supports_executor_kind(self, kind: str) -> bool:
-        return kind in self.EXECUTOR_KINDS
+        from bora.adapters.executor_inventory import known_executor_kinds
+
+        return kind in known_executor_kinds()
 
     def supports_environment_kind(self, kind: str) -> bool:
         return kind in self.ENVIRONMENT_KINDS

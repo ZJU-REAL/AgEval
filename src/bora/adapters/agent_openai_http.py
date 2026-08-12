@@ -50,7 +50,9 @@ class OpenAIHTTPExecutor(AgentExecutor):
                 ok=False,
                 error="missing_credential",
             )
-        if os.environ.get("BORA_OFFLINE_AGENT") == "1" and "127.0.0.1" not in base:
+        from bora.runtime.offline import is_offline_agent
+
+        if is_offline_agent() and "127.0.0.1" not in base:
             return AgentResult(
                 model=self.model,
                 text="",

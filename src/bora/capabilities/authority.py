@@ -20,6 +20,7 @@ from bora.capabilities.errors import (
     ERROR_UNDECLARED,
     CapabilityError,
 )
+from bora.capabilities.quota import AgentInvocationQuota
 from bora.runtime.identity import AttemptIdentity
 
 
@@ -45,9 +46,10 @@ class AttemptCapabilityAuthority:
     declared_environment_actions: frozenset[str] = field(default_factory=frozenset)
     agent_invocation_limit: int = 1
     environment_action_limit: int = 0
+    # Optional shared ledger with ParentAgentService (same Attempt).
+    invoke_quota: AgentInvocationQuota | None = None
     _open: bool = field(default=True, init=False)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
-    _agent_used: int = field(default=0, init=False)
     _env_used: int = field(default=0, init=False)
     _seq: int = field(default=0, init=False)
     _receipts: list[CapabilityDecision] = field(default_factory=list, init=False)
@@ -57,6 +59,8 @@ class AttemptCapabilityAuthority:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "params", MappingProxyType(dict(self.params)))
+        if self.invoke_quota is None:
+            self.invoke_quota = AgentInvocationQuota(limit=self.agent_invocation_limit)
 
     @property
     def is_open(self) -> bool:
@@ -96,15 +100,9 @@ class AttemptCapabilityAuthority:
         """Pre-effect authorize one agent invocation against hard ceiling."""
         async with self._lock:
             self._require_open()
-            if self._agent_used >= self.agent_invocation_limit:
+            assert self.invoke_quota is not None
+            if not self.invoke_quota.try_consume():
                 return self._deny("agent", f"invoke:{profile_id}", ERROR_QUOTA_EXCEEDED)
-            # Real Agent adapter is unavailable in v0.4 — deny after counting?
-            # Spec: hard ceiling authorizes last slot then next rejects before sink start.
-            # Production path: agent is unavailable, so we reject with unavailable
-            # without consuming? Spec says production Agent unavailable must fail closed
-            # without permissive fake. Quota only for when sink would start.
-            # For hard-ceiling tests we use test sinks that call authorize then start.
-            self._agent_used += 1
             return self._allow("agent", f"invoke:{profile_id}")
 
     async def authorize_environment_action(self, action_id: str) -> CapabilityDecision:

@@ -69,7 +69,6 @@ if str(_REPO) not in sys.path:
 
 from services.registry.access import AccessPolicy  # noqa: E402
 from services.registry.envload import load_env_file  # noqa: E402
-from services.registry.routes import match_route  # noqa: E402
 from services.registry.oauth_github import (  # noqa: E402
     GitHubOAuthError,
     build_web_authorize_url,
@@ -78,6 +77,7 @@ from services.registry.oauth_github import (  # noqa: E402
     poll_access_token,
     request_device_code,
 )
+from services.registry.routes import match_route  # noqa: E402
 from services.registry.store import (  # noqa: E402
     ADMIN_SCOPES,
     DEFAULT_LOGIN_SCOPES,
@@ -103,11 +103,14 @@ from services.registry.store import (  # noqa: E402
     suite_to_dict,
 )
 
+from bora.registry.media_types import (  # noqa: E402
+    ATTEMPT_RESULT_MEDIA_TYPE as RESULT_MEDIA_TYPE,
+)
+from bora.registry.media_types import SUITE_RESULT_MEDIA_TYPE  # noqa: E402
+
 _ORG_NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$")
 
 MAX_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB hard top for v1
-RESULT_MEDIA_TYPE = "application/vnd.bora.attempt-result.v1.tar+gzip"
-SUITE_RESULT_MEDIA_TYPE = "application/vnd.bora.suite-result.v1.tar+gzip"
 
 
 class RegistryState:
@@ -1204,8 +1207,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     return
                 # Replace is owner-only (uploaded_by) or admin — never silent.
                 if not (
-                    _is_admin(scopes)
-                    or (auth.user_id and existing.uploaded_by == auth.user_id)
+                    _is_admin(scopes) or (auth.user_id and existing.uploaded_by == auth.user_id)
                 ):
                     _json_response(
                         self,
@@ -2161,9 +2163,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             *,
             for_read: bool,
         ) -> bool:
-            return state.access.can_manage_result(
-                result_kind, result_id, auth, for_read=for_read
-            )
+            return state.access.can_manage_result(result_kind, result_id, auth, for_read=for_read)
 
         def _can_manage_package(self, row: ReleaseRow, auth: TokenInfo) -> bool:
             """Package delete / set-visibility: org owner or admin."""
@@ -2263,8 +2263,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 for att in self._collect_suite_linked_attempts(row):
                     # Only cascade attempts owned by the same principal (or admin).
                     if not (
-                        _is_admin(auth.scopes)
-                        or (auth.user_id and att.uploaded_by == auth.user_id)
+                        _is_admin(auth.scopes) or (auth.user_id and att.uploaded_by == auth.user_id)
                     ):
                         skipped_attempts.append(att.run_id)
                         continue

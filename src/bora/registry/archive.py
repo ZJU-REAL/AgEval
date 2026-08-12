@@ -18,8 +18,9 @@ import tarfile
 from pathlib import Path
 
 from bora.config.database import member_paths_for_digest
+from bora.registry.media_types import DATABASE_MEDIA_TYPE
 
-MEDIA_TYPE = "application/vnd.bora.database.v1.tar+gzip"
+MEDIA_TYPE = DATABASE_MEDIA_TYPE
 
 
 def build_archive(database_root: Path) -> tuple[bytes, str, int]:

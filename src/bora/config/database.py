@@ -159,12 +159,9 @@ def load_database_manifest(database_root: Path) -> DatabaseManifest:
             location="bora.yaml",
         ) from exc
 
-    if "${" in text or "os.environ" in text:
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA,
-            "environment variable interpolation is not allowed in bora.yaml",
-            location="bora.yaml",
-        )
+    from bora.config.checks import reject_env_interpolation
+
+    reject_env_interpolation(text, what="bora.yaml", location="bora.yaml")
 
     raw = _parse_yaml_mapping(text, location="bora.yaml")
     return _manifest_from_mapping(raw)

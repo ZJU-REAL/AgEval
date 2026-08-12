@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+import pytest
 from tests.helpers.extension_registry import registry_with_executor
 
 from bora.adapters.agent_contract import AgentResult
@@ -78,6 +79,7 @@ def test_multi_invoke_same_session_respects_limit() -> None:
         profiles=[{"id": "p1", "executor": "fake", "model": "fake-model"}],
         agent_invocation_limit=2,
         attempt_id="attempt_testmulti001",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
     )
     opened = svc.open_session(profile_id="p1")
@@ -99,6 +101,7 @@ def test_closed_session_rejects_invoke() -> None:
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=4,
         attempt_id="attempt_testclose001",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
     )
     sid = svc.open_session(profile_id="p1")["session_id"]
@@ -113,6 +116,7 @@ def test_unknown_profile_fail_closed() -> None:
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=1,
         attempt_id="attempt_testprof001",
+        offline_env="",
         extension_registry=registry_with_executor("fake", object()),
     )
     bad = svc.open_session(profile_id="nope")
@@ -127,6 +131,7 @@ def test_executor_type_error_not_swallowed_by_signature_downgrade() -> None:
         profiles=[{"id": "p1", "executor": "poison", "model": "m"}],
         agent_invocation_limit=2,
         attempt_id="attempt_testtypeerr001",
+        offline_env="",
         extension_registry=registry_with_executor("poison", poison),
     )
     sid = svc.open_session(profile_id="p1")["session_id"]
@@ -137,12 +142,15 @@ def test_executor_type_error_not_swallowed_by_signature_downgrade() -> None:
     assert out.get("text") != "should-not-succeed"
 
 
-def test_unix_socket_server_open_invoke_close() -> None:
+def test_unix_socket_server_open_invoke_close(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Client helper also honors offline gate before the Unix round-trip.
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
     fake = _FakeExecutor()
     svc = ParentAgentService(
         profiles=[{"id": "codex-mini", "executor": "fake", "model": "m"}],
         agent_invocation_limit=2,
         attempt_id="attempt_testsock001",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
     )
     with tempfile.TemporaryDirectory() as tmp:

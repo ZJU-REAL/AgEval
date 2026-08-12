@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
+
+from bora.registry.types import ReleaseInfo
 
 
 class RegistryError(Exception):
@@ -18,19 +19,6 @@ class RegistryError(Exception):
         self.message = message
         self.status = status
         super().__init__(f"{code}: {message}")
-
-
-@dataclass(frozen=True, slots=True)
-class ReleaseInfo:
-    database_id: str
-    version: str
-    visibility: str
-    package_digest: str
-    blob_digest: str
-    size: int
-    media_type: str
-    org_id: str | None = None
-    replaced: bool = False
 
 
 class RegistryClient:

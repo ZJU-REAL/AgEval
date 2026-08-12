@@ -7,7 +7,6 @@ remain for unit tests without reintroducing stdout parsers.
 
 from __future__ import annotations
 
-import os
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,7 +54,9 @@ class ContainerCLIExecutor:
         workdir: str | None = None,
     ) -> AgentResult:
         del prompt, timeout, collect_dir, redaction_sentinels, workdir
-        if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+        from bora.runtime.offline import is_offline_agent
+
+        if is_offline_agent():
             return AgentResult(
                 model=self.model,
                 text="",

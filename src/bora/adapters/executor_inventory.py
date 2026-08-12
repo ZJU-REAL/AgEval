@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import shutil
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from typing import Any
 
 from bora.adapters.acp_registry import list_entry_ids, load_acp_entries, readiness_for
 from bora.adapters.agent_registry import discover_executor_kinds
 from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES, get_capabilities
+from bora.adapters.path_probe import WhichFn, probe_commands
 
 _BINARY_CANDIDATES: Mapping[str, tuple[str, ...]] = {
     "acp": (),
@@ -19,11 +19,31 @@ _BINARY_CANDIDATES: Mapping[str, tuple[str, ...]] = {
 
 _API_ALIASES: frozenset[str] = frozenset({"openai", "openai_responses"})
 
-WhichFn = Callable[[str], str | None]
+# Declaration-time kinds Config may lock even when no host binary is present.
+_DECLARATION_KINDS: frozenset[str] = frozenset(
+    {
+        "acp",
+        "mock",
+        "nooa",
+        "openai",
+        "openai-http",
+        "openai_responses",
+    }
+)
+
+
+def known_executor_kinds() -> frozenset[str]:
+    """Single answer for 'is this executor kind declaration known?'."""
+    return frozenset(
+        set(_DECLARATION_KINDS)
+        | set(BUILTIN_CAPABILITIES)
+        | set(discover_executor_kinds())
+        | set(_API_ALIASES)
+    )
 
 
 def supported_executor_kinds() -> list[str]:
-    return sorted(set(BUILTIN_CAPABILITIES) | set(discover_executor_kinds()) | set(_API_ALIASES))
+    return sorted(known_executor_kinds())
 
 
 def probe_binary(
@@ -31,12 +51,7 @@ def probe_binary(
     *,
     which: WhichFn | None = None,
 ) -> tuple[str | None, str | None]:
-    which_fn = which or shutil.which
-    for name in candidates:
-        hit = which_fn(name)
-        if hit:
-            return name, hit
-    return (candidates[0] if candidates else None), None
+    return probe_commands(candidates, which=which)
 
 
 def binary_candidates_for(kind: str) -> tuple[str, ...]:

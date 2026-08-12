@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from bora.capabilities.quota import AgentInvocationQuota
 from bora.evidence.redaction import RedactionError
 from bora.evidence.store import AttemptEvidenceStore
 from bora.runtime.agent_service_evidence import (
@@ -25,6 +26,7 @@ from bora.runtime.agent_service_evidence import (
     seal_invoke_result,
     write_invoke_request,
 )
+from bora.runtime.offline import is_offline_agent
 
 _LOG = logging.getLogger(__name__)
 
@@ -90,6 +92,8 @@ class ParentAgentService:
     attempt_id: str  # Runtime-owned; never taken from Harness client
     extension_registry: Any  # ExtensionRegistry — required
     offline_env: str = "BORA_OFFLINE_AGENT"
+    # Shared with AttemptCapabilityAuthority when both are assembled for one Attempt.
+    invoke_quota: AgentInvocationQuota | None = None
     evidence_store: AttemptEvidenceStore | None = None
     # Wall hard ceiling (monotonic seconds); checked before each external invoke.
     deadline_monotonic: float | None = None
@@ -105,7 +109,6 @@ class ParentAgentService:
     make_target_executor: Callable[[SessionBinding], Any] | None = None
     # Forbid host graph path (L1 container-only).
     l1_container_only: bool = False
-    _remaining: int = field(init=False)
     _sessions: dict[str, SessionBinding] = field(default_factory=dict)
     # Reuse executor instances across multi-invoke BORA sessions (ACP process/session).
     _executors: dict[str, Any] = field(default_factory=dict)
@@ -114,7 +117,8 @@ class ParentAgentService:
     host_fallback_count: int = 0
 
     def __post_init__(self) -> None:
-        self._remaining = max(0, int(self.agent_invocation_limit))
+        if self.invoke_quota is None:
+            self.invoke_quota = AgentInvocationQuota(limit=self.agent_invocation_limit)
         if self.extension_registry is None:
             msg = "extension_registry is required"
             raise TypeError(msg)
@@ -127,6 +131,10 @@ class ParentAgentService:
 
     def _wall_expired(self) -> bool:
         return self.deadline_monotonic is not None and time.monotonic() >= self.deadline_monotonic
+
+    def _remaining_after(self) -> int:
+        assert self.invoke_quota is not None
+        return self.invoke_quota.remaining
 
     def _resolve_invoke_timeout(self) -> float:
         """Seconds for this executor.invoke call.
@@ -365,6 +373,14 @@ class ParentAgentService:
                 "structured": None,
                 "provider_session_handle": None,
             }
+        if is_offline_agent(env_name=self.offline_env):
+            return {
+                "ok": False,
+                "error": "offline_forced",
+                "text": "",
+                "structured": None,
+                "provider_session_handle": None,
+            }
         with self._lock:
             binding = self._sessions.get(session_id)
             if binding is None:
@@ -373,10 +389,9 @@ class ParentAgentService:
                 return {"ok": False, "error": "session_closed"}
             if binding.attempt_id != self.attempt_id:
                 return {"ok": False, "error": "cross_attempt_session"}
-            if self._remaining <= 0:
+            assert self.invoke_quota is not None
+            if not self.invoke_quota.try_consume():
                 return {"ok": False, "error": "agent_invocation_limit"}
-            # Reserve before spawn (no refund on failure).
-            self._remaining -= 1
             kind = binding.executor_kind
             model = binding.model
             profile_id = binding.profile_id
@@ -423,7 +438,7 @@ class ParentAgentService:
                     "text": "",
                     "structured": None,
                     "provider_session_handle": None,
-                    "remaining_after": self._remaining,
+                    "remaining_after": self._remaining_after(),
                     "invocation_id": handle.invocation_id if handle else None,
                     "evidence_relative": handle.relative_path if handle else None,
                 }
@@ -526,7 +541,7 @@ class ParentAgentService:
                 "text": "",
                 "structured": None,
                 "provider_session_handle": None,
-                "remaining_after": self._remaining,
+                "remaining_after": self._remaining_after(),
                 "invocation_id": handle.invocation_id if handle else None,
                 "evidence_relative": handle.relative_path if handle else None,
             }
@@ -573,7 +588,7 @@ class ParentAgentService:
                 "text": "",
                 "structured": None,
                 "provider_session_handle": None,
-                "remaining_after": self._remaining,
+                "remaining_after": self._remaining_after(),
                 "invocation_id": handle.invocation_id if handle else None,
                 "evidence_relative": handle.relative_path if handle else None,
             }
@@ -602,7 +617,7 @@ class ParentAgentService:
                     "text": "",
                     "structured": None,
                     "provider_session_handle": None,
-                    "remaining_after": self._remaining,
+                    "remaining_after": self._remaining_after(),
                     "invocation_id": handle.invocation_id,
                     "evidence_relative": handle.relative_path,
                 }
@@ -616,7 +631,7 @@ class ParentAgentService:
             "text": (result.text or "")[-4000:],
             "structured": result.structured if isinstance(result.structured, dict) else None,
             "provider_session_handle": None,
-            "remaining_after": self._remaining,
+            "remaining_after": self._remaining_after(),
             "invocation_id": handle.invocation_id if handle else None,
             "evidence_relative": handle.relative_path if handle else None,
         }

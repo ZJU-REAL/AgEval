@@ -54,8 +54,10 @@ def _worker_env(*, agent_service_sock: str | None) -> dict[str, str]:
         "HOME": os.environ.get("HOME", ""),
         "LANG": os.environ.get("LANG", "C"),
     }
+    from bora.runtime.offline import DEFAULT_OFFLINE_ENV, is_offline_agent
+
     # Codex/login may need user config; keep only when not offline.
-    if os.environ.get("BORA_OFFLINE_AGENT") != "1":
+    if not is_offline_agent():
         for key in ("CODEX_HOME", "OPENAI_API_KEY", "TERM"):
             if key in os.environ:
                 env[key] = os.environ[key]
@@ -64,8 +66,8 @@ def _worker_env(*, agent_service_sock: str | None) -> dict[str, str]:
     # Never allow unit stubs on production public path.
     env.pop("BORA_SDK_SESSION_STUB", None)
     # Propagate offline fail-closed flag into the worker (SDK session path).
-    if os.environ.get("BORA_OFFLINE_AGENT") == "1":
-        env["BORA_OFFLINE_AGENT"] = "1"
+    if is_offline_agent():
+        env[DEFAULT_OFFLINE_ENV] = "1"
     return env
 
 

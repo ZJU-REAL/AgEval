@@ -15,7 +15,9 @@ import io
 import tarfile
 from pathlib import Path
 
-MEDIA_TYPE = "application/vnd.bora.attempt-result.v1.tar+gzip"
+from bora.registry.media_types import ATTEMPT_RESULT_MEDIA_TYPE, SUITE_RESULT_MEDIA_TYPE
+
+MEDIA_TYPE = ATTEMPT_RESULT_MEDIA_TYPE
 
 # Host sandbox residual under the Attempt run dir — never Hub-facing.
 _L1_WORK_ROOT = "l1-work"
@@ -70,7 +72,7 @@ def extract_attempt_archive(archive: bytes, dest_root: Path) -> Path:
     return dest
 
 
-SUITE_MEDIA_TYPE = "application/vnd.bora.suite-result.v1.tar+gzip"
+SUITE_MEDIA_TYPE = SUITE_RESULT_MEDIA_TYPE
 
 
 def _pack_tree(members: list[tuple[str, Path]]) -> tuple[bytes, str, int]:

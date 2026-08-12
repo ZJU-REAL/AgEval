@@ -171,13 +171,10 @@ class ConfigCore:
                 location="task.yaml",
             ) from exc
 
+        from bora.config.checks import reject_env_interpolation, require_agent_profiles_list
+
         # Reject env-style interpolation markers so experiment semantics stay in yaml.
-        if "${" in text or "os.environ" in text:
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                "environment variable interpolation is not allowed in task.yaml",
-                location="task.yaml",
-            )
+        reject_env_interpolation(text, what="task.yaml", location="task.yaml")
 
         raw = parse_yaml(text)
         resolution: list[ResolutionEntry] = [
@@ -212,11 +209,7 @@ class ConfigCore:
 
         # --- #59 job binding merge -------------------------------------------------
         # 1) Role slots from task.yaml must not embed executor/entry/model.
-        slots_raw = merged.get("agent_profiles") or []
-        if not isinstance(slots_raw, list):
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA, "agent_profiles must be a list", location="/agent_profiles"
-            )
+        slots_raw = require_agent_profiles_list(merged.get("agent_profiles") or [])
         assert_slots_have_no_inline_binding(slots_raw)
 
         bindings: dict[str, dict[str, Any]] = {
@@ -315,11 +308,7 @@ class ConfigCore:
         harness = freeze(merged["harness"])
         parameters = freeze(merged.get("parameters") or {})
         provider = freeze(merged["provider"])
-        profiles_raw = merged.get("agent_profiles") or []
-        if not isinstance(profiles_raw, list):
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA, "agent_profiles must be a list", location="/agent_profiles"
-            )
+        profiles_raw = require_agent_profiles_list(merged.get("agent_profiles") or [])
         agent_profiles = tuple(freeze(p) for p in profiles_raw)
         environment = (
             freeze(merged["environment"]) if merged.get("environment") is not None else None

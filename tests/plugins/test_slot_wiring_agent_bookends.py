@@ -103,6 +103,7 @@ def _svc_with_spies() -> tuple[ParentAgentService, _FakeExecutor, list[str]]:
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=5,
         attempt_id="att_test",
+        offline_env="",
         extension_registry=reg,
     )
     return svc, executor, calls
@@ -147,6 +148,7 @@ def test_open_hook_fail_closed_no_half_open_session() -> None:
         profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
         agent_invocation_limit=2,
         attempt_id="att_fail",
+        offline_env="",
         extension_registry=reg,
     )
     opened = svc.open_session(profile_id="p1")

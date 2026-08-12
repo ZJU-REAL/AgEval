@@ -9,13 +9,14 @@ from __future__ import annotations
 import hashlib
 import json
 import platform
-import shutil
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
 from typing import Any, Final, Literal
+
+from bora.adapters.path_probe import probe_commands
 
 IntegrationMode = Literal[1, 2, 3]
 ModelBinding = Literal["config-option", "entry-default-only"]
@@ -239,19 +240,6 @@ def list_entry_ids(*, path: str | None = None) -> list[str]:
 
 def current_platform_token() -> str:
     return platform.system().lower()
-
-
-def probe_commands(
-    candidates: tuple[str, ...],
-    *,
-    which: Any | None = None,
-) -> tuple[str | None, str | None]:
-    which_fn = which or shutil.which
-    for name in candidates:
-        hit = which_fn(name)
-        if hit:
-            return name, hit
-    return (candidates[0] if candidates else None), None
 
 
 def readiness_for(

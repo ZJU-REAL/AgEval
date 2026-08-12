@@ -48,6 +48,7 @@ def test_sentinel_never_on_disk(tmp_path: Path) -> None:
         profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
         agent_invocation_limit=1,
         attempt_id="attempt_sec",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
     )

@@ -24,6 +24,7 @@ def test_parent_service_response_has_no_secret_keys() -> None:
         profiles=[{"id": "p", "executor": "x", "model": "m"}],
         agent_invocation_limit=1,
         attempt_id="attempt_sec001",
+        offline_env="",
         extension_registry=registry_with_executor("x", Ex()),
     )
     sid = svc.open_session(profile_id="p")["session_id"]

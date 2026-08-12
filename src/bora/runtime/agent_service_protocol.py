@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
 import socket
 import struct
 import threading
@@ -123,7 +122,9 @@ class AgentServiceServer:
 
 def agent_service_client_call(sock_path: str, payload: dict[str, Any]) -> dict[str, Any]:
     """SDK/worker client helper."""
-    if os.environ.get("BORA_OFFLINE_AGENT") == "1" and payload.get("op") == "invoke":
+    from bora.runtime.offline import is_offline_agent
+
+    if is_offline_agent() and payload.get("op") == "invoke":
         return {"ok": False, "error": "offline_forced", "structured": None}
     conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:

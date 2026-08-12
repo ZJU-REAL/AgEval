@@ -11,8 +11,14 @@ from pathlib import Path
 
 from bora.plugins.manifest import PLUGIN_FORMAT, load_manifest
 from bora.plugins.store import compute_tree_digest
+from bora.registry.media_types import PLUGIN_MEDIA_TYPE as PLUGIN_MEDIA_TYPE
 
-PLUGIN_MEDIA_TYPE = "application/vnd.bora.plugin.v1.tar+gzip"
+__all__ = [
+    "PLUGIN_MEDIA_TYPE",
+    "build_plugin_archive",
+    "compute_plugin_digest",
+    "member_paths_for_plugin",
+]
 
 
 def member_paths_for_plugin(root: Path) -> list[str]:

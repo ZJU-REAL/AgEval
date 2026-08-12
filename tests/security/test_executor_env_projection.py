@@ -40,6 +40,7 @@ def test_agent_service_with_acp_offline_no_secret_in_evidence(
         ],
         agent_invocation_limit=1,
         attempt_id="a",
+        offline_env="",
         extension_registry=ensure_bootstrapped(),
         evidence_store=store,
     )

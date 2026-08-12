@@ -66,6 +66,7 @@ def _run(tmp_path: Path, second: object, expected_status: str) -> Path:
         profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
         agent_invocation_limit=2,
         attempt_id="attempt_p",
+        offline_env="",
         extension_registry=registry_with_executor("fake", chain),
         evidence_store=store,
     )

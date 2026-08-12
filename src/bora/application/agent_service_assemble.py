@@ -71,6 +71,8 @@ def assemble_parent_agent_service(
 
     Returns ``(service, invoke_timeout_seconds)``.
     """
+    from bora.capabilities.quota import AgentInvocationQuota
+
     invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
     service_profiles = inject_service_profiles(
         profiles,
@@ -82,6 +84,7 @@ def assemble_parent_agent_service(
         "agent_invocation_limit": inv_limit,
         "attempt_id": attempt_id,
         "extension_registry": ensure_bootstrapped(),
+        "invoke_quota": AgentInvocationQuota(limit=inv_limit),
         "evidence_store": evidence_store,
         "deadline_monotonic": deadline_monotonic,
         "invoke_timeout_seconds": invoke_timeout,

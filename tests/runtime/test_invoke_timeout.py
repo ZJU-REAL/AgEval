@@ -36,12 +36,14 @@ def test_resolve_invoke_timeout_from_params() -> None:
     assert resolve_invoke_timeout_seconds({"agent_timeout_seconds": -1}) == 300.0
 
 
-def test_invoke_passes_configured_timeout() -> None:
+def test_invoke_passes_configured_timeout(monkeypatch: object) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
     fake = _CaptureTimeout()
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=3,
         attempt_id="a",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
         invoke_timeout_seconds=777.0,
     )
@@ -52,6 +54,7 @@ def test_invoke_passes_configured_timeout() -> None:
 
 
 def test_env_override_wins_over_field(monkeypatch: object) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
     fake = _CaptureTimeout()
     monkeypatch.setenv("BORA_AGENT_INVOKE_TIMEOUT", "42")  # type: ignore[attr-defined]
     try:
@@ -59,6 +62,7 @@ def test_env_override_wins_over_field(monkeypatch: object) -> None:
             profiles=[{"id": "p", "executor": "fake", "model": "m"}],
             agent_invocation_limit=3,
             attempt_id="a",
+            offline_env="",
             extension_registry=registry_with_executor("fake", fake),
             invoke_timeout_seconds=900.0,
         )
@@ -69,12 +73,14 @@ def test_env_override_wins_over_field(monkeypatch: object) -> None:
         monkeypatch.delenv("BORA_AGENT_INVOKE_TIMEOUT", raising=False)  # type: ignore[attr-defined]
 
 
-def test_invoke_timeout_capped_by_remaining_wall() -> None:
+def test_invoke_timeout_capped_by_remaining_wall(monkeypatch: object) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
     fake = _CaptureTimeout()
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=3,
         attempt_id="a",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
         invoke_timeout_seconds=900.0,
         deadline_monotonic=time.monotonic() + 12.0,

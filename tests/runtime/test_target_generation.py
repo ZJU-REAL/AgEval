@@ -25,6 +25,7 @@ def test_open_binds_generation() -> None:
         profiles=[{"id": "p1", "executor": "x", "model": "m"}],
         agent_invocation_limit=1,
         attempt_id="attempt_gen001",
+        offline_env="",
         extension_registry=registry_with_executor("x", object()),
         require_actor_id=True,
         validate_actor_profile=validate,

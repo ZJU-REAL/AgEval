@@ -121,6 +121,8 @@ Capability Core 包含：
 MVP 使用进程内对象。未来可用 JSONL、stdio 或 scoped socket 承载同一 **Capability transport**，但 transport 不进入 Harness API，也不作为本轮默认实现目标。  
 **注意：** 「默认不做 Capability JSONL transport」≠「不做 evidence 目录 JSONL 轨迹」。后者是产品红线（见 [00](00-overview-and-product.md)「红线」）。
 
+**Agent 调用额度：** `limits.agent_invocations` 的预扣减账本只有一份（`AgentInvocationQuota`）。`AttemptCapabilityAuthority.authorize_agent_invoke` 与 `ParentAgentService.invoke` 必须共享该账本，禁止各维护平行 `_remaining` / `_agent_used`。生产 Attempt 装配时注入同一实例；Capability probe 可自建独立实例。
+
 ### Core 5：Evaluator 与结果绑定
 
 Evaluation Core 对外只有四段语义：停止 writers、materialize allowlisted evaluator inputs、独立 Evaluate、Record + cleanup。Artifact digest、只读副本、clean evaluator runtime、Environment freeze/getter 和 raw-output 校验可以在内部按 input strategy 实现；artifact-only task 不被迫配置 stateful freeze。

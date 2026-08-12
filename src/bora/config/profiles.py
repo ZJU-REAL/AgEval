@@ -58,12 +58,9 @@ def load_profiles_document(path: Path) -> dict[str, dict[str, Any]]:
             location=str(path),
         ) from exc
 
-    if "${" in text or "os.environ" in text:
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA,
-            "environment variable interpolation is not allowed in profiles.yaml",
-            location=str(path),
-        )
+    from bora.config.checks import reject_env_interpolation
+
+    reject_env_interpolation(text, what="profiles.yaml", location=str(path))
 
     try:
         data = yaml.safe_load(text)

@@ -367,7 +367,9 @@ class AcpExecutor(AgentExecutor):
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
-        if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+        from bora.runtime.offline import is_offline_agent
+
+        if is_offline_agent():
             return _offline_result(self.model)
 
         err = self._ensure_session(workdir=workdir, timeout=timeout)

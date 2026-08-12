@@ -164,11 +164,9 @@ def validate_document(
                 location="/provider/network",
             )
 
-    profiles = doc.get("agent_profiles") or []
-    if not isinstance(profiles, list):
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA, "agent_profiles must be a list", location="/agent_profiles"
-        )
+    from bora.config.checks import require_agent_profiles_list
+
+    profiles = require_agent_profiles_list(doc.get("agent_profiles") or [])
     profile_ids: set[str] = set()
     for idx, profile in enumerate(profiles):
         loc = f"/agent_profiles/{idx}"

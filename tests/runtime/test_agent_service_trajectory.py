@@ -50,6 +50,7 @@ def test_each_invoke_has_directory(tmp_path: Path) -> None:
         profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
         agent_invocation_limit=2,
         attempt_id="attempt_t1",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
     )
@@ -76,6 +77,7 @@ def test_terminal_before_return(tmp_path: Path) -> None:
         profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
         agent_invocation_limit=1,
         attempt_id="attempt_t2",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
     )

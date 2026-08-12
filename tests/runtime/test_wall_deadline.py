@@ -27,6 +27,7 @@ def test_wall_deadline_blocks_before_executor() -> None:
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=5,
         attempt_id="a",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
         deadline_monotonic=time.monotonic() - 1.0,  # already expired
     )
@@ -43,6 +44,7 @@ def test_wall_deadline_blocks_mid_session() -> None:
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=5,
         attempt_id="a",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
         deadline_monotonic=now + 0.05,
     )

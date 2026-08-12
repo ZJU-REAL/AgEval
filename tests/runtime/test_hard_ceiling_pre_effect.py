@@ -34,6 +34,7 @@ def test_agent_n_plus_one_no_external_call(tmp_path: Path) -> None:
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
         agent_invocation_limit=1,
         attempt_id="a",
+        offline_env="",
         extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
     )

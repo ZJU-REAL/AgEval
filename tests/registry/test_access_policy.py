@@ -64,9 +64,7 @@ def test_can_manage_package_owner_only(tmp_path: Path) -> None:
         org_id="acme",
     )
     assert policy.can_manage_package(row, TokenInfo(scopes=frozenset({"read"}), user_id="alice"))
-    assert not policy.can_manage_package(
-        row, TokenInfo(scopes=frozenset({"read"}), user_id="dave")
-    )
+    assert not policy.can_manage_package(row, TokenInfo(scopes=frozenset({"read"}), user_id="dave"))
     assert policy.can_manage_package(row, TokenInfo(scopes=frozenset({"admin"})))
 
 
@@ -84,8 +82,7 @@ def test_org_owner_status_matrix(tmp_path: Path) -> None:
         == "ok"
     )
     assert (
-        policy.org_owner_status(org_id="acme", auth=TokenInfo(scopes=frozenset()))
-        == "unauthorized"
+        policy.org_owner_status(org_id="acme", auth=TokenInfo(scopes=frozenset())) == "unauthorized"
     )
     assert (
         policy.org_owner_status(

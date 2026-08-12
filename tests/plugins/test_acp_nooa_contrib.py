@@ -120,6 +120,7 @@ def test_dual_profile_acp_and_nooa_session_graphs(bora_home_with_nooa: Path) -> 
         ],
         agent_invocation_limit=2,
         attempt_id="attempt_dual",
+        offline_env="",
         extension_registry=reg,
     )
     s_solver = svc.open_session(profile_id="solver")
@@ -162,6 +163,7 @@ def test_acp_entry_missing_fail_closed() -> None:
         profiles=[{"id": "p", "executor": "acp", "model": "m", "options": {}}],
         agent_invocation_limit=1,
         attempt_id="a",
+        offline_env="",
         extension_registry=reg,
     )
     opened = svc.open_session(profile_id="p")

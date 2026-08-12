@@ -8,6 +8,7 @@ from bora.adapters.agent_contract import AgentResult
 from bora.plugins.protocol import ExecutorSPI
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import EXECUTOR
+from bora.runtime.offline import is_offline_agent
 
 PLUGIN_ID = "mock"
 PRIORITY = 900  # weak; only selected via profiles executor: mock
@@ -27,8 +28,9 @@ class MockExecutorSPI(ExecutorSPI):
         plugin_id: str | None = None,
         **_kwargs: Any,
     ) -> None:
-        del options, profile_id, base_url, api_key, plugin_id
+        del profile_id, base_url, api_key, plugin_id
         self.model = model or "none"
+        self._options = dict(options or {})
 
     def open(self, **kwargs: Any) -> None:
         del kwargs
@@ -46,6 +48,17 @@ class MockExecutorSPI(ExecutorSPI):
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
         del timeout, workdir, collect_dir, redaction_sentinels
+        # Injectable only under offline gate — never a silent production success path.
+        fixture = self._options.get("offline_fixture")
+        if is_offline_agent() and isinstance(fixture, dict):
+            return AgentResult(
+                model=self.model,
+                text=str(fixture.get("text") or ""),
+                structured=fixture.get("structured"),
+                ok=bool(fixture.get("ok", True)),
+                error=str(fixture["error"]) if fixture.get("error") else None,
+                metadata={"plugin": PLUGIN_ID, "prompt_len": len(prompt), "fixture": True},
+            )
         return AgentResult(
             model=self.model,
             text="",
