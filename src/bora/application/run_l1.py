@@ -443,6 +443,41 @@ def run_l1_sdk_session_attempt(
                 phase_timing=timer.as_dict(),
             )
 
+        # #71 D: evaluation adjacency (fail closed; bindings already in lock graph).
+        from bora.application.extension_hooks import (
+            hook_evaluation_input,
+            hook_evaluation_runtime,
+            hook_score_postprocess,
+        )
+
+        contrib = hook_evaluation_input(
+            lock,
+            {
+                "artifacts": {artifact_key: str(src_art)},
+                "staging": str(staging),
+                "package_root": str(package_root),
+                "artifact_key": artifact_key,
+                "artifact_filename": artifact_filename,
+            },
+        )
+        if isinstance(contrib, dict):
+            extra_arts = contrib.get("artifacts")
+            if isinstance(extra_arts, dict):
+                for _k, v in extra_arts.items():
+                    p = Path(str(v))
+                    if p.is_file():
+                        # Stage extra files for the clean evaluator container.
+                        dest = staging / p.name
+                        if not dest.exists():
+                            dest.write_bytes(p.read_bytes())
+        runtime_ann = hook_evaluation_runtime(
+            lock, {"source": "package", "path": "run_l1"}
+        )
+        if runtime_ann is not None:
+            l1_meta["evaluation_runtime"] = (
+                dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}
+            )
+
         eval_raw, eval_meta = run_clean_evaluator_container(
             image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
             staging=staging,
@@ -450,6 +485,10 @@ def run_l1_sdk_session_attempt(
             artifact_key=artifact_key,
             expected_filename=expected_filename,
         )
+        if isinstance(eval_raw, dict):
+            eval_raw = hook_score_postprocess(lock, eval_raw)
+            if not isinstance(eval_raw, dict):
+                raise RuntimeError("score_postprocess_must_return_dict")
         l1_meta["evaluator"] = eval_meta
         l1_meta["writer_inventory"] = list(runtime.writer_inventory)
         l1_meta["writer_stop_confirmed"] = runtime.writer_stop_confirmed and bool(

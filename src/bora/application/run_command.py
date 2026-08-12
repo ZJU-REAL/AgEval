@@ -305,8 +305,11 @@ async def run_task(
     from bora.application.extension_hooks import (
         hook_cleanup,
         hook_evaluate,
+        hook_evaluation_input,
+        hook_evaluation_runtime,
         hook_prepare,
         hook_run,
+        hook_score_postprocess,
     )
 
     hook_prepare(lock)
@@ -423,8 +426,39 @@ async def run_task(
             artifacts_map[str(art)] = str(dest)
 
     evaluator_raw: dict[str, Any] | None = None
+    eval_extension_meta: dict[str, Any] = {}
     if error_phase is None:
+        # #71 D: evaluation_input_contribute + evaluation_runtime (fail closed).
+        contrib_ctx = {
+            "artifacts": dict(artifacts_map),
+            "eval_inputs": list(eval_inputs),
+            "published": dict(published),
+            "staging": str(staging),
+            "package_root": str(package_root),
+        }
+        contrib = hook_evaluation_input(lock, contrib_ctx)
+        if isinstance(contrib, dict):
+            extra_arts = contrib.get("artifacts")
+            if isinstance(extra_arts, dict):
+                for k, v in extra_arts.items():
+                    p = Path(str(v))
+                    if p.is_file():
+                        artifacts_map[str(k)] = str(p)
+            eval_extension_meta["evaluation_input"] = {
+                "keys": sorted(artifacts_map.keys()),
+            }
+        runtime_ann = hook_evaluation_runtime(
+            lock, {"source": "package", "path": "run_command"}
+        )
+        if runtime_ann is not None:
+            eval_extension_meta["evaluation_runtime"] = (
+                dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}
+            )
         evaluator_raw = run_evaluator_worker(package_root, lock, artifacts_map)
+        if isinstance(evaluator_raw, dict):
+            evaluator_raw = hook_score_postprocess(lock, evaluator_raw)
+            if not isinstance(evaluator_raw, dict):
+                raise RuntimeError("score_postprocess_must_return_dict")
     timer.add_ms("evaluate", (_mono() - eval_t0) * 1000.0)
 
     # Cleanup agent materialization
@@ -482,6 +516,8 @@ async def run_task(
     result_doc["assurance"] = assurance
     if l1_meta:
         result_doc["l1"] = l1_meta
+    if eval_extension_meta:
+        result_doc["evaluation_extensions"] = eval_extension_meta
     phase_timing = timer.as_dict()
     result_doc["phase_timing"] = phase_timing
     result_doc["duration"] = format_duration_ms(phase_timing.get("total_ms"))
