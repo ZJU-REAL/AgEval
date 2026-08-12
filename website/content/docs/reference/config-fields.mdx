@@ -27,7 +27,7 @@ description: bora.yaml / task.yaml 字段与校验要点速查。
 | `format` | `bora.task/1` |
 | `task_id` | = 目录名 = `--task` |
 | `harness` | `runtime` + `entrypoint`（`模块:函数`） |
-| `parameters` | 给 harness；常见 `active_profile`、`harness_timeout_seconds`、`roles`、`seed`、`environment_resource` |
+| `parameters` | 给 harness；常见 `active_profile`、`harness_timeout_seconds`、`agent_timeout_seconds`、`roles`、`seed`、`environment_resource` |
 | `provider` | `kind: local\|docker`；docker 要 `environment/Dockerfile` |
 | `agent_profiles` | `{id, executor, model, …}`；ACP 必填 `options.entry`；`api_key` 只写环境变量名 |
 | `limits` | wall / agent_invocations / environment_actions / memory_mb |

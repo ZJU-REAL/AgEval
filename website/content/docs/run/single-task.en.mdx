@@ -30,7 +30,7 @@ With `k=1` and no `--resume-suite`, stdout stays a single Attempt JSON (legacy-f
 ## What you get
 
 - A **Result** summary on the terminal  
-- A **`logs` path** for Attempt evidence (when `k=1`)  
+- A **`logs` path** under the Dataset root: `.bora/runs/<run_id>/` (when `k=1`)  
 - For `k>1`: job metrics such as **pass@k / pass^k** in suite `summary.json`  
 
 PASS / FAIL comes from the **independent evaluator**, not harness completion. See [Results and PASS](/docs/reference/results-and-pass).

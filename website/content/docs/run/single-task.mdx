@@ -30,7 +30,7 @@ uv run bora lock examples/core --task config-minimal
 ## 跑完你会看到什么
 
 - 终端里的 **Result 摘要**（状态、分数相关字段、错误信息）  
-- **`logs` 路径**：这次 Attempt 的证据目录（`k=1` 路径）  
+- **`logs` 路径**：Dataset 根下 `.bora/runs/<run_id>/`（`k=1`）  
 - `k>1` 时：suite `summary.json` 里的 **pass@k / pass^k** 等 job 指标  
 
 PASS / FAIL 来自**独立评测**，不是 harness「跑完了」。更细的读法见 [结果与 PASS](/docs/reference/results-and-pass)。

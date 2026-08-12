@@ -104,13 +104,14 @@ Value after `=` is JSON (strings need quotes):
 
 ## Interpret `bora run` JSON
 
-**Single Attempt** (`--task` and default `-k 1`, no resume): typical fields `status`, `score`, `assurance`, `agent_invocations`, `evidence_path`, **`logs`** (Attempt evidence root).
+**Single Attempt** (`--task` and default `-k 1`, no resume): typical fields `status`, `score`, `assurance`, `agent_invocations`, `evidence_path`, **`logs`** (portable under Dataset root, e.g. `.bora/runs/<run_id>`).
 
-- Inspect trajectory: open `$logs/agent/invocations/<nnnn>-*/trajectory.jsonl` (**turn-level** training rows) and `events.jsonl` (optional stream/debug)
-- Export: `uv run bora evidence "$logs" --out /tmp/bora-export`
+- On disk: `<dataset>/.bora/runs/<run_id>/`
+- Inspect trajectory: open `<dataset>/.bora/runs/<run_id>/agent/invocations/<nnnn>-*/trajectory.jsonl` (**turn-level** training rows) and `events.jsonl` (optional stream/debug)
+- Export: `uv run bora evidence <dataset>/.bora/runs/<run_id> --out /tmp/bora-export`
 - Trajectory presence **never** upgrades score
 
-**Suite / Always-k** (omit `--task`, or `-k` > 1, or `--resume-suite`): job under `.bora/suite-runs/<suite_run_id>/`.
+**Suite / Always-k** (omit `--task`, or `-k` > 1, or `--resume-suite`): job under `<dataset>/.bora/suite-runs/<suite_run_id>/`.
 
 | Path | Content |
 | --- | --- |

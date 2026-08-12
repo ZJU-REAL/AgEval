@@ -34,8 +34,9 @@ Stdout JSON (high level):
 ## `bora run`
 
 - One foreground Attempt via production composition root **when** `--task` is set, `-k` defaults to 1, and no `--resume-suite`.
-- Creates evidence under package `tasks/<id>/.bora/runs/...` unless overridden internally.
-- `logs` is absolute path to Attempt evidence root when available (single-Attempt path).
+- Evidence under Dataset root `.bora/runs/<run_id>/`.
+- `logs` / `evidence_path` are portable relative to the Dataset root (e.g. `.bora/runs/<run_id>`);
+  readers still accept legacy host absolute paths.
 - **Always-k** (`--n-attempts` / `-k`, integer ≥1): fixed k independent Attempts per task in scope.
   CLI/job only — not `task.yaml`, not `config_fingerprint`. Feeds `metrics.pass_at_k` / `pass_power_k`.
 - **Suite**: omit `--task` → all members; also used as the job container when `k>1` or resume.

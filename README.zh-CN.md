@@ -131,10 +131,10 @@ agent_profiles:
 
 ## 运行产物怎么读
 
-单 task Attempt 证据在成员目录 `tasks/<task_id>/.bora/runs/<run_id>/`：
+Attempt 证据在 Dataset 根下 `.bora/runs/<run_id>/`：
 
 ```text
-tasks/<task_id>/.bora/runs/<run_id>/
+.bora/runs/<run_id>/
 ├── lock.json              # 锁定配置快照（无 secret）
 ├── result.json            # 扁平 Result（status、score 等）
 ├── summary.json
@@ -154,10 +154,10 @@ tasks/<task_id>/.bora/runs/<run_id>/
             └── backend_raw/       # 脱敏后的后端流
 ```
 
-`bora run` stdout 为单个 JSON：`status` / `score` 为评测结果，`logs` 为本次 Attempt 证据根路径。
+`bora run` stdout 为单个 JSON：`status` / `score` 为评测结果，`logs` 为相对 Dataset 根的路径（`.bora/runs/<run_id>`）。
 
 ```bash
-uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
+uv run bora evidence <dataset>/.bora/runs/<run_id> --out /tmp/bora-export
 ```
 
 **整份 suite**（省略 `--task`），或单 task 且 `-k` / `--n-attempts` > 1，会在 Dataset 根写入 suite job：

@@ -131,10 +131,10 @@ agent_profiles:
 
 ## Reading run outputs
 
-Per-task Attempt evidence lands under the member at `tasks/<task_id>/.bora/runs/<run_id>/`:
+Attempt evidence lands under the Dataset root at `.bora/runs/<run_id>/`:
 
 ```text
-tasks/<task_id>/.bora/runs/<run_id>/
+.bora/runs/<run_id>/
 ├── lock.json              # locked config snapshot (no secrets)
 ├── result.json            # flat Result (status, score, …)
 ├── summary.json
@@ -154,10 +154,10 @@ tasks/<task_id>/.bora/runs/<run_id>/
             └── backend_raw/       # redacted backend stream
 ```
 
-`bora run` prints a single JSON object: `status` / `score` are the evaluation verdict; `logs` is the absolute path to this Attempt’s evidence root.
+`bora run` prints a single JSON object: `status` / `score` are the evaluation verdict; `logs` is a portable path relative to the Dataset root (`.bora/runs/<run_id>`).
 
 ```bash
-uv run bora evidence "$LOGS_PATH" --out /tmp/bora-export
+uv run bora evidence <dataset>/.bora/runs/<run_id> --out /tmp/bora-export
 ```
 
 A **full suite** (omit `--task`), or a single task with `-k` / `--n-attempts` > 1, also writes a suite job under the Dataset root:

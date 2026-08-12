@@ -66,7 +66,7 @@ Multi-role: open **separate** sessions with different profile ids (each profile 
 point at a different ACP `options.entry`).
 
 **Multi-task packages:** keep `tasks/*/harness.py` thin; put shared orchestration under
-Dataset `shared/lib` (see `bora-config-package` conversion / thin-harness guidance).
+Dataset `shared/lib` and import `shared.lib.*` (see `bora-config-package`).
 
 ## Ownership
 
