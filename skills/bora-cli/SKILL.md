@@ -1,14 +1,15 @@
 ---
 name: bora-cli
 description: >
-  Operate BORA public CLI (bora lock/run/executors/campaign/evidence/status/submit/cancel):
+  Operate BORA public CLI (bora lock/run/plugin/executors/campaign/evidence/status/submit/cancel):
   install with uv, command flags, allowlisted --set pointers, exit codes, Result.logs
   trajectory locator, offline fail-closed (BORA_OFFLINE_AGENT), list supported executor
-  kinds and ACP entry readiness, and which example packages to run. Use when the agent
-  must lock a package, run an Attempt, list agent_profiles.executor / options.entry values,
-  export trajectory, interpret PASS/FAIL/ERROR, debug CLI output, or choose a public smoke.
-  Trigger phrases: "bora run", "bora lock", "bora executors", "which executor", "ACP entry",
-  "export trajectory", "Result.logs", "exit code", "offline agent", "switch profile".
+  kinds and ACP entry readiness, plugin install/list/uninstall, and which example packages
+  to run. Use when the agent must lock a package, run an Attempt, list executor / entry
+  values, install a bora.plugin/1, export trajectory, interpret PASS/FAIL/ERROR, debug CLI
+  output, or choose a public smoke. Trigger phrases: "bora run", "bora lock", "bora plugin",
+  "bora executors", "which executor", "ACP entry", "export trajectory", "Result.logs",
+  "exit code", "offline agent", "switch profile", "install nooa".
   Do not invent flags not in production.
 ---
 
@@ -29,6 +30,8 @@ uv run bora --help
 | ---------------------------------------------------------- | -------------------------------------------------------------------- |
 | `bora executors`                                           | Supported `executor:` kinds + host readiness; ACP entry probe (JSON) |
 | `bora executors -v` / `--verbose`                          | Same + tools/session + default credential env _names_ + entry detail |
+| `bora plugin install\|list\|uninstall`                     | Local mechanism plugins (`bora.plugin/1`); **never** rewrites profiles |
+| `bora plugin publish`                                      | Upload plugin package (`package_kind=plugin`) to Registry            |
 | `bora -V` / `bora --version`                               | Package version (`-V`; keep `-v` free for verbose) |
 | `bora lock <package> --task <id>`                          | Config lock summary (no Agent); includes `job_overlay`               |
 | `bora lock ... --set /parameters/seed=7`                   | Allowlisted override                                                 |
@@ -74,6 +77,22 @@ options:
 
 Do **not** hardcode a fixed list; inventory is authoritative. Do **not** use
 `executor: codex|pi|opencode|claude-code` (migrated to ACP entry).
+
+Installed plugins (e.g. `nooa`) appear as additional `executor:` values after
+`bora plugin install` — still selected only via profiles / `--set` bindings.
+
+### Plugin install (local cache only)
+
+```bash
+uv run bora plugin install plugins/nooa
+uv run bora plugin list
+# Bind with profiles — install never edits task.yaml / profiles.yaml
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.nooa.yaml
+```
+
+Cache root: `$BORA_HOME/plugins` (default `~/.bora/plugins`).  
+**Recognition** (list/lock) ≠ **L1 Ready** (`image_contribute` bake).
 
 ## Allowlisted `--set` pointers
 
@@ -150,6 +169,7 @@ Must not PASS agent packages. Typed errors only.
 | Hard ceiling                 | `uv run bora run examples/core --task hard-ceiling-trajectory`                                                                    |
 | L1 SDK session               | `uv run bora run examples/l1 --task sdk-session-single-actor`                                                                     |
 | L1 isolation contracts       | Provider tests: `uv run pytest tests/provider_l1/test_harness_isolation_contracts.py tests/provider_l1/test_filtered_mount.py -q` |
+| nooa plugin (L1)             | `bora plugin install plugins/nooa` then `bora run examples/journeys --task terminal-jsonl-agg --profiles examples/journeys/profiles.nooa.yaml` |
 
 ## Detail
 

@@ -1,0 +1,62 @@
+---
+title: Mechanism plugins
+description: Install bora.plugin/1 packages, bind executors, and distinguish Recognition from L1 Ready.
+---
+
+Mechanism plugins extend **how** agents, environments, and trajectories run — not the
+package harness business loop.
+
+## Install (local cache only)
+
+```bash
+uv run bora plugin install plugins/nooa
+uv run bora plugin list
+```
+
+Install updates `$BORA_HOME/plugins` (default `~/.bora/plugins`) only. It **never**
+rewrites `profiles.yaml`, `bora.yaml`, or `task.yaml`.
+
+Uninstall:
+
+```bash
+uv run bora plugin uninstall nooa
+```
+
+## Bind (profiles)
+
+```yaml
+# profiles fragment — job binding
+bindings:
+  solver:
+    executor: nooa
+    options:
+      agent: "lib.agents:JsonlAggAgent"
+      method: "run"
+```
+
+Use an alternate profiles file at run time without changing Database ACP defaults:
+
+```bash
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.nooa.yaml
+```
+
+`bora lock` writes the resolved extension graph into `extension_bindings` in the lock summary.
+
+## Recognition ≠ Ready
+
+| Stage | Meaning |
+| --- | --- |
+| **install / list** | Host recognizes a provide (Recognition) |
+| **profiles bind** | Job selects that executor |
+| **L1 Ready** | `image_contribute` bake during prepare; execute in-container |
+
+A successful install does **not** imply the L1 isolated path is ready. Docker L1 tasks
+need a successful bake before the container worker runs (for example nooa’s in-container path).
+
+## Relation to ACP
+
+The default coding-agent path remains `executor: acp` + `options.entry`. Plugins are
+**optional** mechanisms beside first-party ACP; the same harness switches only via profiles.
+
+Mechanism contracts live in design docs (`docs/design`); this page does not raise evidence grades.

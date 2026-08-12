@@ -55,8 +55,8 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | 项 | 状态 |
 | --- | --- |
 | 设计 | `docs/design/00`–`10` 已自包含；日常**不**再以 vault 为权威 |
-| production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service（§8.9 evidence）→`bora run`/`bora campaign`→SDK；`src/bora/evidence/`；terminal L1 / env / campaign **部分切片** |
-| 公开 entrypoint | `bora lock` / `bora run` / `bora campaign` / `bora view` / `bora evidence` 等（以 `bora --help` 为准；`bora run` 输出 `logs` locator） |
+| production 源码 | Config→Lifecycle→L0 Provider→Capability→task worker→parent Agent Service（§8.9 evidence）→`bora run`/`bora campaign`→SDK；`src/bora/plugins/` 扩展注册表 + first-party contrib；外置 `plugins/`（nooa 等）；`src/bora/evidence/`；terminal L1 / env / campaign **部分切片** |
+| 公开 entrypoint | `bora lock` / `bora run` / `bora campaign` / `bora view` / `bora evidence` / `bora plugin` 等（以 `bora --help` 为准；`bora run` 输出 `logs` locator） |
 | 证据等级 | **限定 `runnable-mvp`（L0）** 及部分 L1 路径；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
 | 交付跟踪 | **GitHub Issues**（无 ROADMAP / Active Spec） |
 | 文档站 | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/` |

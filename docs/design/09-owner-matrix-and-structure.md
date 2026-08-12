@@ -16,7 +16,7 @@
 | 实验超参数 | 声明唯一值 | 合并、校验、锁定 | 通过 `ctx.params` 解释并使用 | typed view/helper | 记录 Trial identity |
 | Agent loop、Actor、Router | 参数可提供 profile 引用和上限 | 不解释算法 | 拥有 | 可选 Agent helper | 执行真实 invocation（经 Agent Service） |
 | Agent 后端（ACP entry：Codex / Claude Code / Pi…） | `agent_profiles` + `parameters.models` 引用 | 校验 profile→executor/entry 并锁定 | 只传 profile id | `ctx.agent.invoke` | **Agent Service** + **Executor**（`acp` + entry / `openai-http` / 插件） |
-| 用户自研 Core 插件（含非 Agent 面） | 声明对应 kind / 配置选型 | kind 必须已注册 | 不直接依赖插件 SDK | 经 Capability / 配置消费 | 接口发现、凭据投影、digest 锁定 |
+| 用户自研 Core 插件（含非 Agent 面） | 声明对应 kind / 配置选型 | kind 必须已注册；lock 写 `extension_bindings` | 不直接依赖插件 SDK | 经 Capability / 配置消费 | 扩展注册表 resolve、凭据投影、digest 锁定；`bora plugin install` 不改 profiles |
 | 同 task 多后端 / 换后端实验 | 多 profile 或 variant 改引用 | 同上 | 不改 workflow 代码 | 同上 | 同上 |
 | messages、Context | 参数可声明 strategy | 原样锁定参数 | 拥有状态 | transform、compaction | 不保存 team memory |
 | 本地 Tool | 参数声明上限 | 锁定参数 | 定义 callable 和 policy | ToolSet、hooks、guards | 无 |

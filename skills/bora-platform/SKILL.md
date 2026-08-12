@@ -43,6 +43,7 @@ Conflict → stop; fix the highest authority artifact first, then sync downstrea
 4. **Do not claim** suite-wide `isolated` or `real-benchmark-verified` from one happy path.
 5. **Skills only describe shipped surfaces** — never invent CLI flags or Core APIs.
 6. **Coding-agent Target:** `executor: acp` + `options.entry` — not private CLI `executor: codex|pi|…`.
+7. **Plugins:** fixed L0–L5 extension points + registry; `bora plugin install` never rewrites profiles; Recognition ≠ L1 Ready (`image_contribute` bake); no executor dual path.
 
 ## Evidence grades (honest)
 

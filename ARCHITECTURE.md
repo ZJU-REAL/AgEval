@@ -39,7 +39,7 @@ BORA 是 **Harness 的 Harness**：外层执行内核准备并锁定运行边界
 | BORA Core 5 Evaluation | barrier、evaluator 运行、Result 绑定、evidence | 统一所有评分算法 |
 | Harness Core（SDK） | 可选类型与薄 helper | Run/credential/verdict |
 | Task Harness | 业务 loop、本地 Tool、参数使用 | Docker/credential/final PASS |
-| Adapters / plugins | ACP Executor + entry、openai-http、Docker Provider 等具体实现 | 按 Benchmark 名分支 |
+| Adapters / plugins | ACP/nooa 协议与 Provider 实现；`src/bora/plugins/` 为扩展点注册表与 first-party contrib | 按 Benchmark 名分支；禁止 executor dual path |
 | Evaluator（package） | task truth | 启动 Agent、持有 host secret |
 
 ### 目标数据/控制主流（validated output 方向）
@@ -118,30 +118,40 @@ BORA/
 │   ├── capabilities/          # Core 4：Attempt authority（进程内）
 │   ├── evaluation/            # Core 5：flat Result binder（含 Result.logs locator）
 │   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
+│   ├── plugins/               # 扩展点注册表（slots/registry/resolve/defaults/contrib）
+│   │   ├── defaults/          # L0–L5 默认 multi/provide（无 legacy executor 桥）
+│   │   ├── lifecycle.py       # emit helpers：host 在控制点 await chain / provide SPI
+│   │   └── contrib/           # first-party：acp / openai_http / mock（nooa 为外置包）
 │   ├── viewer/                # 本地 Jobs/Trial HTTP API（trials/ 包）
 │   └── adapters/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
 │       ├── provider_docker/   # Docker L1 + multi-actor ExecutionTarget
-│       ├── acp/               # 唯一 typed ACP client（parent；usage/trajectory/client/executor）
+│       ├── acp/               # ACP 协议实现（parent client；contrib.acp 门面委托）
 │       ├── acp_entries.json   # Current: static entry pins / descriptors
 │       ├── acp_registry.py    # Current: registry + readiness
 │       ├── agent_container.py # L1 placement helpers / opaque target id
+│       ├── nooa_container.py  # L1 in-container nooa worker executor
 │       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── apps/
 │   ├── viewer/                # 本地 `bora view` SPA（Jobs → Trial；非 Registry）
-│   └── hub/                   # Registry Dataset 目录 / Files / Jobs 列表 / Leaderboard SPA
+│   └── hub/                   # Registry Dataset / Plugin marketplace / Leaderboard SPA
 ├── services/registry/         # 独立 HTTP：publish / packages files / results / OAuth
 ├── examples/                  # 见 examples/README.md
-│   ├── journeys/              # case-class：env / multiagent / tau2 / terminal
-│   ├── core/                  # config / harness / eval / agent / SDK / plugin
-│   └── l1/                    # Provider L1 isolation probes
+│   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa）
+│   ├── core/                  # config / harness / eval / agent / SDK
+│   ├── l1/                    # Provider L1 isolation probes
+│   └── slot-probe/            # multi-slot 插件 e2e（需 bora plugin install）
+├── plugins/                   # 外置 bora.plugin/1 示例（不进 Core contrib）
+│   ├── nooa/                  # executor provide + image_contribute Ready
+│   └── slot-probe/            # multi 钩子可观测探针
 ├── tests/
 │   ├── acceptance/
 │   ├── config/
+│   ├── plugins/               # registry / lock bindings / slot wiring / CLI lifecycle
 │   └── test_package_baseline.py
-├── docs/                      # 设计权威（00–10）
+├── docs/                      # 设计权威（00–11）
 └── website/                   # 读者向文档站（Fumadocs；非设计权威）
 ```
 
@@ -237,7 +247,36 @@ bora_sdk ──► 仅最小公开 DTO / 协议形状
 | --- | --- |
 | 唯一生产装配点 | `application` 内 bootstrap（实现后写入具体模块路径） |
 | 测试 | 可有测试专用 wiring，但公开 smoke 必须走 production CLI 入口 |
-| 插件发现 | entry point / 显式配置在装配时解析；失败 fail-closed |
+| 插件发现 | 扩展注册表 + `bora plugin install` 本地 cache；失败 fail-closed；禁止 agent_executors dual path |
+
+## Extension emit map（Current）
+
+Host **awaits** registered multi handlers / provide SPI at fixed control points.
+Plugins rewrite or short-circuit via `(ctx, value, next)` — **not** by appending
+declaration rows for Core to interpret later.
+
+```text
+open_session → resolve graph pin → before/after_agent_open
+invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
+             → normalize_agent_result
+             → seal: trajectory_collect → enrich → write trajectory.jsonl
+                    → trajectory_seal provide → evidence_extra
+close_session → before_agent_close → executor.close → after_agent_close
+
+env prepare  → seed/health → env_prepare multi (live ctx)
+             → env_inject multi → env_action provide (optional action_gate)
+env teardown → env_teardown multi → EnvironmentManager.close
+
+evaluate     → evaluation_input_contribute → evaluation_runtime provide
+             → package evaluator → score_postprocess
+```
+
+Authority / inventory: `src/bora/plugins/slots.py`，[`docs/design/11-extension-plugins.md`](docs/design/11-extension-plugins.md)。
+
+**回归包（非默认 smoke）：** 外置 [`plugins/slot-probe`](plugins/slot-probe/) +
+Database [`examples/slot-probe`](examples/slot-probe/)。
+`bora plugin install` 后 `bora run`；观测 hooks audit 与 trajectory metadata。
+详见 `examples/README.md` § slot-probe。
 
 ## Lifecycle（Target）
 

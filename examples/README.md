@@ -8,6 +8,7 @@ examples/
 ├── core/           # Database example/core — Core surface gates
 ├── journeys/       # Database example/journeys — case-class fidelity
 ├── l1/             # Database example/l1 — Provider L1
+├── slot-probe/     # multi-slot plugin e2e (install plugins first)
 └── tau3-airline/   # Database my-lab/tau3-airline — τ³-bench airline port
 ```
 
@@ -54,6 +55,31 @@ uv run bora lock examples/core --task config-invalid       # exit 2, unknown_pro
 | [`multiagent-env-min`](journeys/tasks/multiagent-env-min/) | Multi-session + SQL tools         |
 | [`tau2-dialog-min`](journeys/tasks/tau2-dialog-min/)       | Dual-role dialog + tools          |
 | [`terminal-jsonl-agg`](journeys/tasks/terminal-jsonl-agg/) | L1 workspace file + clean eval    |
+
+### External nooa plugin (optional profiles)
+
+Install never rewrites Database profiles. Bind with a separate profiles file:
+
+```bash
+uv run bora plugin install plugins/nooa
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.nooa.yaml
+```
+
+Package-local agents live under each task’s `lib/agents.py`. L1 Ready uses
+`image_contribute` bake (in-container worker) — not parent host SPI success.
+
+## `slot-probe/` (`database_id: example/slot-probe`)
+
+Multi-slot extension e2e (not a default public smoke). Requires:
+
+```bash
+uv run bora plugin install plugins/nooa
+uv run bora plugin install plugins/slot-probe
+uv run bora run examples/slot-probe --task l0-env-agent
+```
+
+See [`slot-probe/README.md`](slot-probe/README.md).
 
 ## `core/` (`database_id: example/core`)
 
