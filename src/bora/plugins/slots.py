@@ -2,6 +2,23 @@
 
 Slot name strings may evolve with aliases; the layered map is stable.
 Unknown slots fail closed at resolve time.
+
+Production consumers (#71 — host **awaits** handlers / SPI methods; no command-DSL):
+
+| Layer | Slot(s) | Host emit site |
+| --- | --- | --- |
+| L0 | ``before/after_*`` prepare/run/evaluate/cleanup | ``application/extension_hooks`` |
+| L1 | ``image_contribute`` | bake path |
+| L1 | ``env_prepare_commands``, ``env_inject``, ``env_teardown_commands`` | env prepare/teardown multi |
+| L1 | ``env_action`` (provide) | attach gate on ``EnvironmentManager`` |
+| L2 | ``executor`` (provide) | ``ParentAgentService`` invoke |
+| L2 | ``before/after_agent_open\\|invoke\\|close``, ``normalize_agent_result`` | open/invoke/close |
+| L3 | ``evaluation_input_contribute``, ``evaluation_runtime``, ``score_postprocess`` | pre/post evaluator |
+| L4 | ``trajectory_collect\\|enrich``, ``trajectory_seal``, ``evidence_extra`` | seal write path |
+| L5 | ``cleanup_actions``, ``cleanup_report`` | ``emit_cleanup`` |
+
+Anti-pattern: plugins must not append free-form ``{kind: shell, argv: …}`` rows for
+Core to interpret later — handlers run real code with live ``ctx`` + ``next``.
 """
 
 from __future__ import annotations

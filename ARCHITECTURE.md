@@ -120,7 +120,8 @@ BORA/
 │   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
 │   ├── plugins/               # 扩展点注册表（slots/registry/resolve/defaults/contrib）
 │   │   ├── defaults/          # L0–L5 默认 multi/provide（无 legacy executor 桥）
-│   │   └── contrib/           # first-party：acp / nooa / openai_http / mock
+│   │   ├── lifecycle.py       # emit helpers：host 在控制点 await chain / provide SPI
+│   │   └── contrib/           # first-party：acp / openai_http / mock（nooa 为外置包）
 │   ├── viewer/                # 本地 Jobs/Trial HTTP API（trials/ 包）
 │   └── adapters/
 │       ├── package_fs.py
@@ -241,6 +242,31 @@ bora_sdk ──► 仅最小公开 DTO / 协议形状
 | 唯一生产装配点 | `application` 内 bootstrap（实现后写入具体模块路径） |
 | 测试 | 可有测试专用 wiring，但公开 smoke 必须走 production CLI 入口 |
 | 插件发现 | entry point / 显式配置在装配时解析；失败 fail-closed |
+
+## Extension emit map（Current · #71）
+
+Host **awaits** registered multi handlers / provide SPI at fixed control points.
+Plugins rewrite or short-circuit via `(ctx, value, next)` — **not** by appending
+declaration rows for Core to interpret later.
+
+```text
+open_session → resolve graph pin → before/after_agent_open
+invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
+             → normalize_agent_result
+             → seal: trajectory_collect → enrich → write trajectory.jsonl
+                    → trajectory_seal provide → evidence_extra
+close_session → before_agent_close → executor.close → after_agent_close
+
+env prepare  → seed/health → env_prepare_commands multi (live ctx)
+             → env_inject multi → env_action provide (optional action_gate)
+env teardown → env_teardown_commands multi → EnvironmentManager.close
+
+evaluate     → evaluation_input_contribute → evaluation_runtime provide
+             → package evaluator → score_postprocess
+```
+
+Authority / inventory: `src/bora/plugins/slots.py`, constitution §7.6,
+Issue [#71](https://github.com/ffy6511/BORA/issues/71).
 
 ## Lifecycle（Target）
 

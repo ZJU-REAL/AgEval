@@ -424,14 +424,33 @@ bindings:
    session.extension_graph = graph         # 钉死本 session
    （lock 时对每个用到的 profile 同样 resolve 并写入 extension_bindings[profile]）
 
-③ invoke(prompt)
-   prompt2 = run_chain(graph, "before_agent_invoke", prompt)   # 串行 next，可改写
-   result  = await graph.providers["executor"].invoke(…)      # 该槽赢家的 SPI（可能来自 nooa/acp/… 插件的 provide）
-   result2 = run_chain(graph, "after_agent_invoke", result)
-   + trajectory_collect 链 / seal 等按槽执行
+③ open_session / close_session（#71 A）
+   open:  resolve+pin → before_agent_open → after_agent_open（fail closed）
+   close: before_agent_close → executor.close → after_agent_close（fail-open 可记录）
 
-④ harness
+④ invoke(prompt)
+   prompt2 = run_chain(graph, "before_agent_invoke", prompt)   # 串行 next，可改写
+   result  = await graph.providers["executor"].invoke(…)      # 该槽赢家的 SPI
+   result2 = run_chain(graph, "after_agent_invoke", result)
+   result3 = run_chain(graph, "normalize_agent_result", result2)
+   seal:   trajectory_collect → trajectory_enrich → write trajectory.jsonl(from payload)
+           → trajectory_seal provide → evidence_extra
+
+⑤ env prepare / teardown（#71 C — 可执行 SPI，禁止声明式 command 行）
+   after seed: run_chain(env_prepare_commands, env_doc, ctx=live)
+               run_chain(env_inject, env_doc, ctx=live)
+               providers[env_action] → optional EnvironmentManager.action_gate
+   teardown:   run_chain(env_teardown_commands, …) → close
+
+⑥ evaluate（#71 D）
+   evaluation_input_contribute → evaluation_runtime provide → evaluator
+   → score_postprocess（改分语义须进 lock extension_bindings）
+
+⑦ harness
    仅 session(profile_id).invoke — 零插件 import
+
+**反模式（否决）：** 插件只往 list 里 append `{kind: shell, argv: …}`，指望 Core 事后解释。
+正确：handler 在 `next` 链上 **自己执行** 副作用或改写 value。
 ```
 
 **多 binding 并存：**
