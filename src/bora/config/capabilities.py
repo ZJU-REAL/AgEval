@@ -53,10 +53,8 @@ class DeclarationCapabilityCatalog:
     # Kept for introspection / tests; runtime answer is known_executor_kinds().
     EXECUTOR_KINDS: frozenset[str] = frozenset(
         {
-            "acp",  # Spec 19: coding-agent unified inlet
+            "acp",
             "mock",
-            "nooa",  # extension registry provide(executor) — host SPI / plugin
-            # API client (not ACP coding-agent)
             "openai",
             "openai-http",
             "openai_responses",

@@ -60,6 +60,18 @@ class AcpExecutorSPI(ExecutorSPI):
             api_key_env=api_key,
         )
 
+    @staticmethod
+    def describe() -> dict[str, Any]:
+        return {
+            "execution_mode": "acp-stdio",
+            "tools": "native",
+            "structured_output": "validated-text",
+            "session": "new-only",
+            "stream": "native-events",
+            "credential_env_names": (),
+            "binary": "",
+        }
+
     def bind_to_target(self, placement: Any) -> AcpExecutorSPI:
         """Attach parent ACP client to the Attempt container via docker exec."""
         from bora.adapters.acp import AcpExecutor

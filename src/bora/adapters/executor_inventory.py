@@ -19,26 +19,39 @@ _BINARY_CANDIDATES: Mapping[str, tuple[str, ...]] = {
 
 _API_ALIASES: frozenset[str] = frozenset({"openai", "openai_responses"})
 
-# Declaration-time kinds Config may lock even when no host binary is present.
-_DECLARATION_KINDS: frozenset[str] = frozenset(
+# First-party contrib ids. Installed plugins join via provide(executor).
+_FIRST_PARTY_KINDS: frozenset[str] = frozenset(
     {
         "acp",
         "mock",
-        "nooa",
-        "openai",
         "openai-http",
+        "openai",
         "openai_responses",
     }
 )
 
 
+def _installed_executor_kinds() -> set[str]:
+    try:
+        from bora.plugins.bootstrap import ensure_bootstrapped
+        from bora.plugins.slots import EXECUTOR
+    except Exception:  # noqa: BLE001
+        return set()
+    try:
+        reg = ensure_bootstrapped()
+        return set(reg.plugins_for_slot(EXECUTOR))
+    except Exception:  # noqa: BLE001
+        return set()
+
+
 def known_executor_kinds() -> frozenset[str]:
-    """Single answer for 'is this executor kind declaration known?'."""
+    """Recognition = first-party contrib ∪ installed provide(executor)."""
     return frozenset(
-        set(_DECLARATION_KINDS)
+        set(_FIRST_PARTY_KINDS)
         | set(BUILTIN_CAPABILITIES)
         | set(discover_executor_kinds())
         | set(_API_ALIASES)
+        | _installed_executor_kinds()
     )
 
 

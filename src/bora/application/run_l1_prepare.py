@@ -137,18 +137,7 @@ def cli_env_for_container(
         api_key_env=api_key_env,
         base_url=base_url,
     )
-    # Credential + terminal locale only — no host filesystem path env.
-    keep_prefixes = (
-        "ZAI_",
-        "ZHIPU",
-        "OPENAI_",
-        "ANTHROPIC_",
-        "OPENCODE_",
-        "XAI_",
-        "LANG",
-        "TERM",
-        "LC_",
-    )
+    # Locator + declared names only — no host filesystem path env.
     host_path_denylist = {
         "PATH",
         "HOME",
@@ -160,14 +149,7 @@ def cli_env_for_container(
         "TEMP",
         "TMP",
     }
-    out = {
-        k: v
-        for k, v in projected.items()
-        if v
-        and k not in host_path_denylist
-        and (k.startswith(keep_prefixes) or (api_key_env and k == api_key_env))
-    }
-    return out
+    return {k: v for k, v in projected.items() if v and k not in host_path_denylist}
 
 
 def make_l1_placement_resolver(*, ledger: Any) -> Any:

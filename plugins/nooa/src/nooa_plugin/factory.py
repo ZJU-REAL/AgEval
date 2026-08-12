@@ -24,6 +24,19 @@ from nooa_plugin.trajectory import dump_native_events, to_bora_trajectory_events
 
 PLUGIN_ID = "nooa"
 
+
+def describe_nooa() -> dict[str, Any]:
+    return {
+        "execution_mode": "container-worker",
+        "tools": "native",
+        "structured_output": "validated-text",
+        "session": "unsupported",
+        "stream": "synthetic-lifecycle",
+        "credential_env_names": ("OPENAI_API_KEY", "litellm_api_key"),
+        "binary": "",
+    }
+
+
 # Env fallbacks when profile omits base_url (non-secret locators / common names).
 _BASE_URL_ENV_FALLBACKS = (
     "OPENAI_BASE_URL",
@@ -209,6 +222,10 @@ class NooaExecutorSPI:
         self._llm: Any = None
         self._llm_backed = False
         self._ready = False
+
+    @staticmethod
+    def describe() -> dict[str, Any]:
+        return describe_nooa()
 
     def bind_to_target(self, placement: Any) -> Any:
         """L1 Ready: in-container worker. Host SPI is not the success path."""
