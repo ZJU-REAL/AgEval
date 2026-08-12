@@ -58,6 +58,16 @@ description: Result 怎么读；pass@k 是 job 指标，不是整包 PASS。
 
 这些是 **观测汇总**，不是 suite 级 PASS。
 
+## Hub 上看得到什么
+
+| 上传命令 | 产物 | Hub 主界面 |
+| --- | --- | --- |
+| `bora results upload --run …` | 单次 Attempt | **一般不进** Dataset Leaderboard / Task Jobs 主列表 |
+| `bora results upload-suite --suite-run …` | Suite 行 + metrics / task_refs | **Leaderboard** 一行；Task Jobs 挂在该 suite 下 |
+| `… --with-attempts` | 额外上传各 attempt 目录 | Jobs 可点进 Attempt 详情 / 轨迹 |
+
+因此：要给别人（或自己）在 Hub 上「扫一眼整包」，流程是 **suite run → upload-suite**，不是只 upload 单题。详见 [Suite](/docs/run/suite) 与 [Hub](/docs/share/hub)。
+
 ## 本机翻看
 
 [Viewer](/docs/run/local-viewer)：Jobs → Tasks → Attempt。  

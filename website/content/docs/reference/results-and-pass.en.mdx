@@ -58,6 +58,16 @@ Each key is a **stringified k** (`"1"`, `"2"`, `"5"`, …). Value shape:
 
 These are **observational aggregates**, not suite-level PASS.
 
+## What Hub actually lists
+
+| Upload command | Artifact | Hub primary UI |
+| --- | --- | --- |
+| `bora results upload --run …` | Single Attempt | **Usually not** on Dataset Leaderboard / Task Jobs |
+| `bora results upload-suite --suite-run …` | Suite row + metrics / task_refs | **Leaderboard** row; Task Jobs under that suite |
+| `… --with-attempts` | Also packs attempt dirs | Jobs can open Attempt detail / trajectory |
+
+So: to show a package run on Hub, use **suite run → upload-suite**, not attempt-only upload. See [Suite](/docs/run/suite) and [Hub](/docs/share/hub).
+
 ## Browse
 
 [Viewer](/docs/run/local-viewer).  

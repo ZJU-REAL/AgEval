@@ -48,3 +48,23 @@ Click **Sign in with GitHub** to authenticate. Ops detail: `apps/hub/README.md`,
 | Job artifacts | Local run dirs | Must be uploaded first |
 
 Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**. Trajectories are never invented.
+
+## What to upload so Hub shows it
+
+| You want | Upload | How |
+| --- | --- | --- |
+| A **Leaderboard** row | A **suite** result | `bora run <database>` **without** `--task` → `bora results upload-suite --suite-run <id>` |
+| Task **Jobs** with openable Attempt / trajectory | Suite + **attempt** evidence | `upload-suite --with-attempts` |
+| Archive one Attempt only | `bora results upload --run <run_id>` | May exist in Registry, but **usually not** on Leaderboard |
+
+```bash
+# Correct path for Leaderboard
+uv run bora run <database> --profiles <profiles.yaml>
+uv run bora results upload-suite <database> --suite-run <8-hex> --public --with-attempts
+
+# Not enough for Leaderboard: single-task attempt upload alone
+# uv run bora run <database> --task <id>
+# uv run bora results upload <database> --run <run_id>
+```
+
+Point Hub at the **same** Registry as `bora login` / `~/.bora/credentials` (local dev often `127.0.0.1:8700`). See [Run a Dataset suite](/docs/run/suite).

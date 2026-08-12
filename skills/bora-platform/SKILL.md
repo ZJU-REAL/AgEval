@@ -44,6 +44,7 @@ Conflict → stop; fix the highest authority artifact first, then sync downstrea
 5. **Skills only describe shipped surfaces** — never invent CLI flags or Core APIs.
 6. **Coding-agent Target:** `executor: acp` + `options.entry` — not private CLI `executor: codex|pi|…`.
 7. **Plugins:** fixed L0–L5 extension points + registry; `bora plugin install` never rewrites profiles; Recognition ≠ L1 Ready (`image_contribute` bake); no executor dual path.
+8. **Hub Leaderboard / Task Jobs need suite uploads** — `bora results upload` (single Attempt) is not enough for primary Hub surfaces; use suite run + `bora results upload-suite` (often `--with-attempts`). Detail: `$bora-cli` § Hub visibility.
 
 ## Evidence grades (honest)
 

@@ -65,3 +65,26 @@ uv run bora cancel <suite_run_id> --database examples/core
 Unlike [Campaign](/docs/run/campaign): suite is the **task axis**; campaign sweeps **parameters on one task**. Always-k is **not** the campaign matrix axis.
 
 Runs land under `.bora/suite-runs/` — browse Timing bars with [Viewer](/docs/run/local-viewer).
+
+## Upload to Hub (Leaderboard / Jobs)
+
+Hub **Dataset → Leaderboard** and **Task → Jobs** list Registry **suite** rows — not a bare attempt feed.
+
+| Step | Command |
+| --- | --- |
+| 1. Run suite | `uv run bora run <database>` (**omit** `--task`; optional `--profiles`) |
+| 2. Note id | `suite_run_id` in stdout / `summary.json` (default 8 hex) |
+| 3. Upload suite | `uv run bora results upload-suite <database> --suite-run <id> --public` |
+| 4. Deep-link trajectory | Add `--with-attempts` |
+
+```bash
+uv run bora run examples/journeys --profiles examples/journeys/profiles.yaml
+# suite_run_id e.g. d3e5fba6
+uv run bora results upload-suite examples/journeys \
+  --suite-run d3e5fba6 --public --with-attempts \
+  --agent acp-pi --model zai-coding-cn/glm-5.2
+```
+
+**Common mistake:** only `bora run … --task X` then `bora results upload --run …` — the attempt may exist in Registry, but **Leaderboard usually still has no row**. Leaderboard needs a suite job + `upload-suite`.
+
+See [Results and PASS](/docs/reference/results-and-pass) and [Hub](/docs/share/hub).

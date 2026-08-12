@@ -6,10 +6,11 @@ description: >
   trajectory locator, offline fail-closed (BORA_OFFLINE_AGENT), list supported executor
   kinds and ACP entry readiness, plugin install/list/uninstall, and which example packages
   to run. Use when the agent must lock a package, run an Attempt, list executor / entry
-  values, install a bora.plugin/1, export trajectory, interpret PASS/FAIL/ERROR, debug CLI
-  output, or choose a public smoke. Trigger phrases: "bora run", "bora lock", "bora plugin",
-  "bora executors", "which executor", "ACP entry", "export trajectory", "Result.logs",
-  "exit code", "offline agent", "switch profile", "install nooa".
+  values, install a bora.plugin/1, export trajectory, upload suite results for Hub, interpret
+  PASS/FAIL/ERROR, debug CLI output, or choose a public smoke. Trigger phrases: "bora run",
+  "bora lock", "bora plugin", "bora executors", "upload-suite", "Hub Leaderboard",
+  "which executor", "ACP entry", "export trajectory", "Result.logs", "exit code",
+  "offline agent", "switch profile", "install nooa".
   Do not invent flags not in production.
 ---
 
@@ -26,32 +27,32 @@ uv run bora --help
 
 ## Commands (shipped)
 
-| Command                                                    | Use for                                                              |
-| ---------------------------------------------------------- | -------------------------------------------------------------------- |
-| `bora executors`                                           | Supported `executor:` kinds + host readiness; ACP entry probe (JSON) |
-| `bora executors -v` / `--verbose`                          | Same + tools/session + default credential env _names_ + entry detail |
-| `bora plugin install\|list\|uninstall`                     | Local mechanism plugins (`bora.plugin/1`); **never** rewrites profiles |
-| `bora plugin publish`                                      | Upload plugin package (`package_kind=plugin`) to Registry            |
-| `bora -V` / `bora --version`                               | Package version (`-V`; keep `-v` free for verbose) |
-| `bora lock <package> --task <id>`                          | Config lock summary (no Agent); includes `job_overlay`               |
-| `bora lock ... --set /parameters/seed=7`                   | Allowlisted override                                                 |
-| `bora lock/run ... --profiles path/to/profiles.yaml`       | Alternate job binding file (replaces Database `profiles.yaml`)       |
-| `bora run <package> --task <id>`                           | One foreground Attempt                                               |
-| `bora run <package> [-k N] [--max-concurrent-tasks N]`     | Suite / Always-k job (`-k` = `--n-attempts`; CLI only)               |
-| `bora run … --resume-suite <id> [--task id] -k N`        | Append Attempts into existing suite job; recompute pass@k / pass^k   |
-| `bora run … --keep-workspace`                              | L1 only: retain host `l1-work/` after cleanup (default: delete)      |
-| `bora run ... --set '/bindings/solver/options/entry="pi"'` | Job binding override (entry/model)                                   |
-| `bora campaign <package> --task <id> --matrix ...`         | Serial matrix (`/parameters/*` or `/bindings/<role>/…`); ≠ Always-k  |
-| `bora evidence <logs-path> --out <dir>`                    | Sealed trajectory export (no score change)                           |
-| `bora results upload-suite …`                              | Suite aggregates → Registry; recompute pass@k if missing; job_overlay |
-| `bora results upload-suite … --with-attempts`              | Also upload attempt dirs from task_refs.attempt_run_ids / run_id     |
-| `bora results upload\|upload-suite … --replace`            | Owner overwrite same run_id / suite_run_id (default 409)             |
-| `bora results delete\|set-visibility … --kind attempt\|suite` | Owner delete (`--yes`) or flip visibility after upload            |
-| `bora results share\|unshare …`                            | Grant / revoke private result access (owner only)                    |
-| `bora results export-profiles <suite_run_id> --out …`      | Rehydrate job binding as profiles.yaml (locators only)               |
-| `bora publish … --org … [--replace]`                       | Package publish; replace same version is org-owner only              |
-| `bora registry delete\|set-visibility <id@ver>`            | Org-owner package delete (`--yes`) / visibility flip                 |
-| `bora submit` / `bora status` / `bora cancel`              | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`) |
+| Command                                                       | Use for                                                                      |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `bora executors`                                              | Supported `executor:` kinds + host readiness; ACP entry probe (JSON)         |
+| `bora executors -v` / `--verbose`                             | Same + tools/session + default credential env _names_ + entry detail         |
+| `bora plugin install\|list\|uninstall`                        | Local mechanism plugins (`bora.plugin/1`); **never** rewrites profiles       |
+| `bora plugin publish`                                         | Upload plugin package (`package_kind=plugin`) to Registry                    |
+| `bora -V` / `bora --version`                                  | Package version (`-V`; keep `-v` free for verbose)                           |
+| `bora lock <package> --task <id>`                             | Config lock summary (no Agent); includes `job_overlay`                       |
+| `bora lock ... --set /parameters/seed=7`                      | Allowlisted override                                                         |
+| `bora lock/run ... --profiles path/to/profiles.yaml`          | Alternate job binding file (replaces Database `profiles.yaml`)               |
+| `bora run <package> --task <id>`                              | One foreground Attempt                                                       |
+| `bora run <package> [-k N] [--max-concurrent-tasks N]`        | Suite / Always-k job (`-k` = `--n-attempts`; CLI only)                       |
+| `bora run … --resume-suite <id> [--task id] -k N`             | Append Attempts into existing suite job; recompute pass@k / pass^k           |
+| `bora run … --keep-workspace`                                 | L1 only: retain host `l1-work/` after cleanup (default: delete)              |
+| `bora run ... --set '/bindings/solver/options/entry="pi"'`    | Job binding override (entry/model)                                           |
+| `bora campaign <package> --task <id> --matrix ...`            | Serial matrix (`/parameters/*` or `/bindings/<role>/…`); ≠ Always-k          |
+| `bora evidence <logs-path> --out <dir>`                       | Sealed trajectory export (no score change)                                   |
+| `bora results upload-suite …`                                 | Suite aggregates → Registry; recompute pass@k if missing; job_overlay        |
+| `bora results upload-suite … --with-attempts`                 | Also upload attempt dirs from task_refs.attempt_run_ids / run_id             |
+| `bora results upload\|upload-suite … --replace`               | Owner overwrite same run_id / suite_run_id (default 409)                     |
+| `bora results delete\|set-visibility … --kind attempt\|suite` | Owner delete (`--yes`) or flip visibility after upload                       |
+| `bora results share\|unshare …`                               | Grant / revoke private result access (owner only)                            |
+| `bora results export-profiles <suite_run_id> --out …`         | Rehydrate job binding as profiles.yaml (locators only)                       |
+| `bora publish … --org … [--replace]`                          | Package publish; replace same version is org-owner only                      |
+| `bora registry delete\|set-visibility <id@ver>`               | Org-owner package delete (`--yes`) / visibility flip                         |
+| `bora submit` / `bora status` / `bora cancel`                 | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`) |
 
 Discover flags with `uv run bora <cmd> --help`. Source of truth: `src/bora/cli/main.py`.
 
@@ -134,19 +135,54 @@ Value after `=` is JSON (strings need quotes):
 
 **Suite / Always-k** (omit `--task`, or `-k` > 1, or `--resume-suite`): job under `<dataset>/.bora/suite-runs/<suite_run_id>/`.
 
-| Path | Content |
-| --- | --- |
-| `summary.json` → `metrics` | `pass_rate`, `mean_score`, `pass_at_k`, `pass_power_k`, `n_attempts`, `k_values`, `per_task` |
-| `summary.json` → `task_refs` | May include `n`, `c`, `attempt_run_ids` (multi-attempt audit / upload) |
-| `progress.json` | Multi-unit progress |
-| Attempt `result.json` | May include `phase_timing` (prepare/run/evaluate/cleanup) |
+| Path                         | Content                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `summary.json` → `metrics`   | `pass_rate`, `mean_score`, `pass_at_k`, `pass_power_k`, `n_attempts`, `k_values`, `per_task` |
+| `summary.json` → `task_refs` | May include `n`, `c`, `attempt_run_ids` (multi-attempt audit / upload)                       |
+| `progress.json`              | Multi-unit progress                                                                          |
+| Attempt `result.json`        | May include `phase_timing` (prepare/run/evaluate/cleanup)                                    |
 
-- pass@k / pass^k are **job** metrics (mean over tasks); **not** package identity / fingerprint  
-- `pass_at_k["k"]` shape: `{ value, n_tasks, incomplete_tasks }` (k as string key)  
-- `upload-suite` **ensures/recomputes** k maps locally before POST; Registry stores full `metrics`  
-- Hub Leaderboard may show n_attempts / pass@k / pass^k when present (default sort still pass_rate)  
-- `n_attempts` is **CLI/job only** — never invent a `task.yaml` field  
+- pass@k / pass^k are **job** metrics (mean over tasks); **not** package identity / fingerprint
+- `pass_at_k["k"]` shape: `{ value, n_tasks, incomplete_tasks }` (k as string key)
+- `upload-suite` **ensures/recomputes** k maps locally before POST; Registry stores full `metrics`
+- Hub Leaderboard may show n_attempts / pass@k / pass^k when present (default sort still pass_rate)
+- `n_attempts` is **CLI/job only** — never invent a `task.yaml` field
 - Concurrency (`--max-concurrent-tasks`) only speeds scheduling
+
+## Hub visibility (critical — suite vs attempt)
+
+**Hub Dataset Leaderboard and Task → Jobs are suite-first.** They list Registry
+**suite** rows (`GET /v1/results/suites`), not a feed of bare attempts.
+
+| What you did                                                                           | Registry                                        | Hub Leaderboard / Task Jobs                                    |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------- |
+| `bora run … --task X` then `bora results upload … --run <run_id>`                      | Attempt row exists (`suite_run_id` often empty) | **Usually invisible** as a leaderboard / Jobs row              |
+| `bora run <database>` (omit `--task`) → `bora results upload-suite … --suite-run <id>` | Suite row + metrics + task_refs                 | **Visible** on Leaderboard; Tasks → Jobs list suite membership |
+| `upload-suite … --with-attempts`                                                       | Also packs each attempt under task_refs         | Task Jobs can **deep-link** Attempt detail / trajectory        |
+
+**Do this when the goal is “show on Hub”:**
+
+```bash
+# 1) Suite job (all members). Use --profiles for job binding (agent×model axis).
+uv run bora run examples/journeys --profiles path/to/profiles.yaml
+
+# 2) suite_run_id is 8-hex in JSON / summary_path / .bora/suite-runs/<id>/
+# 3) Upload suite (+ optional full Attempt evidence for Jobs deep-link)
+uv run bora results upload-suite examples/journeys \
+  --suite-run <suite_run_id> \
+  --public \
+  --with-attempts \
+  --agent <label> \
+  --model <label>
+```
+
+**Anti-pattern (common agent mistake):** only `bora results upload` after single-task runs, then “why doesn’t Hub show it?” — CLI `results list` may still show attempts; Hub SPA primary surfaces do **not** treat them as Leaderboard / Jobs rows.
+
+Also:
+
+- Hub must point at the **same** Registry URL as `~/.bora/credentials` (local dev often `http://127.0.0.1:8700` + Hub `VITE_REGISTRY_PROXY_TARGET`).
+- `bora results upload` remains valid for archiving a single Attempt / deep-link when you already know `run_id`; it is **not** a substitute for `upload-suite` for Leaderboard.
+- Suite metrics (`pass_rate`, pass@k, …) are **observational** — not suite-level PASS.
 
 ## Offline / fail-closed
 
@@ -158,17 +194,17 @@ Must not PASS agent packages. Typed errors only.
 
 ## Recommended smokes
 
-| Goal                         | Command                                                                                                                           |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| List executors / ACP entries | `uv run bora executors` / `uv run bora executors -v`                                                                              |
-| Package version | `uv run bora -V` / `uv run bora --version` |
-| Lock only                    | `uv run bora lock examples/core --task config-minimal`                                                                            |
-| ACP multi-turn (host)        | `uv run bora run examples/core --task sdk-agent-session`                                                                          |
-| ACP entry switch             | `uv run bora run examples/core --task builtin-executor-conformance --set '/bindings/solver/options/entry="pi"'`                   |
-| Trajectory                   | `uv run bora run examples/core --task attempt-trajectory`                                                                         |
-| Hard ceiling                 | `uv run bora run examples/core --task hard-ceiling-trajectory`                                                                    |
-| L1 SDK session               | `uv run bora run examples/l1 --task sdk-session-single-actor`                                                                     |
-| L1 isolation contracts       | Provider tests: `uv run pytest tests/provider_l1/test_harness_isolation_contracts.py tests/provider_l1/test_filtered_mount.py -q` |
+| Goal                         | Command                                                                                                                                        |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| List executors / ACP entries | `uv run bora executors` / `uv run bora executors -v`                                                                                           |
+| Package version              | `uv run bora -V` / `uv run bora --version`                                                                                                     |
+| Lock only                    | `uv run bora lock examples/core --task config-minimal`                                                                                         |
+| ACP multi-turn (host)        | `uv run bora run examples/core --task sdk-agent-session`                                                                                       |
+| ACP entry switch             | `uv run bora run examples/core --task builtin-executor-conformance --set '/bindings/solver/options/entry="pi"'`                                |
+| Trajectory                   | `uv run bora run examples/core --task attempt-trajectory`                                                                                      |
+| Hard ceiling                 | `uv run bora run examples/core --task hard-ceiling-trajectory`                                                                                 |
+| L1 SDK session               | `uv run bora run examples/l1 --task sdk-session-single-actor`                                                                                  |
+| L1 isolation contracts       | Provider tests: `uv run pytest tests/provider_l1/test_harness_isolation_contracts.py tests/provider_l1/test_filtered_mount.py -q`              |
 | nooa plugin (L1)             | `bora plugin install plugins/nooa` then `bora run examples/journeys --task terminal-jsonl-agg --profiles examples/journeys/profiles.nooa.yaml` |
 
 ## Detail

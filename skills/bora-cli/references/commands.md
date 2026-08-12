@@ -79,9 +79,19 @@ Stdout JSON (high level):
 - **Campaign** (`bora campaign --matrix`): sweep allowlisted parameters / bindings on one task.
 - Do not treat matrix axes as `n_attempts`.
 
+## `bora results upload` (single Attempt)
+
+- Archives one `.bora/runs/<run_id>/` as an **Attempt** result row.
+- Useful for archival / known deep-link URLs.
+- **Does not create a suite Leaderboard row.** Hub Dataset Leaderboard and Task →
+  Jobs are driven by **suite** list APIs. Prefer `upload-suite` when the operator
+  goal is “see it on Hub”.
+
 ## `bora results upload-suite`
 
-- POSTs suite summary + optional archive to Registry suite result row.
+- POSTs suite summary + optional archive to Registry **suite** result row.
+- **Prerequisite:** a suite job under `.bora/suite-runs/<suite_run_id>/` from
+  `bora run <database>` **without** `--task` (or Always-k / resume that wrote a suite).
 - **Before upload:** ensures `metrics.pass_at_k` / `pass_power_k` / `n_attempts` /
   `k_values` / `per_task` when recoverable from `attempts[]` or task `n`/`c`
   (Hub does **not** recompute live).
@@ -89,12 +99,23 @@ Stdout JSON (high level):
 - `task_refs` may carry `n`, `c`, `attempt_run_ids` for multi-attempt audit.
 - **`--with-attempts`:** packs `.bora/runs/<run_id>/` for each id in
   `attempt_run_ids` (preferred) or primary `run_id`; missing dirs fail closed.
+  Sets `task_refs[].has_attempt_content` so Hub Task Jobs can open Attempt detail.
+- **`--agent` / `--model`:** optional Leaderboard labels (else derived from suite summary).
 - **`--replace`:** owner overwrite of same `suite_run_id` (default remains 409);
   with `--with-attempts`, linked attempts also replace.
 - Registry stores full `metrics` blob (no strip). pass@k is **not**
   `config_fingerprint` / job identity.
-- Hub Leaderboard: optional n_attempts / pass@k / pass^k columns when present;
+- Hub Leaderboard: lists **suite** rows; optional n_attempts / pass@k / pass^k when present;
   default sort remains pass_rate → mean_score.
+
+### Hub path checklist
+
+```text
+bora run <db> [--profiles …]          # omit --task → suite
+  → .bora/suite-runs/<8-hex>/summary.json
+bora results upload-suite <db> --suite-run <8-hex> --public [--with-attempts]
+  → Hub: Dataset → Leaderboard row; Task → Jobs → optional Attempt deep-link
+```
 
 ## Registry owner ops
 

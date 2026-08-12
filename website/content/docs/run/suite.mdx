@@ -65,3 +65,26 @@ uv run bora cancel <suite_run_id> --database examples/core
 和 [Campaign](/docs/run/campaign) 的区别：suite 是 **task 轴**（多题）；campaign 是 **同一题扫参数**。Always-k **不是** campaign 矩阵轴。
 
 跑次落在 Dataset 下的 `.bora/suite-runs/`，可用 [Viewer](/docs/run/local-viewer) 浏览 Timing 条。
+
+## 上传到 Hub（Leaderboard / Jobs）
+
+Hub 的 **Dataset → Leaderboard** 和 **Task → Jobs** 读的是 Registry 的 **suite** 结果，不是零散 attempt 列表。
+
+| 步骤 | 命令 |
+| --- | --- |
+| 1. 跑 suite | `uv run bora run <database>`（**不要**加 `--task`；可用 `--profiles`） |
+| 2. 记下 id | 输出 / `summary.json` 里的 `suite_run_id`（默认 8 位 hex） |
+| 3. 上传 suite | `uv run bora results upload-suite <database> --suite-run <id> --public` |
+| 4. 需要点开轨迹时 | 加上 `--with-attempts` |
+
+```bash
+uv run bora run examples/journeys --profiles examples/journeys/profiles.yaml
+# suite_run_id 例：d3e5fba6
+uv run bora results upload-suite examples/journeys \
+  --suite-run d3e5fba6 --public --with-attempts \
+  --agent acp-pi --model zai-coding-cn/glm-5.2
+```
+
+**常见误解：** 只跑 `bora run … --task X` 再 `bora results upload --run …`——attempt 可能已经进 Registry，但 **Leaderboard 通常仍没有一行**。要上榜必须先 suite 再 `upload-suite`。
+
+详情见 [结果与 PASS](/docs/reference/results-and-pass) 与 [Hub](/docs/share/hub)。

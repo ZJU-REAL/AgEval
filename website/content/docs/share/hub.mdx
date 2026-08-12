@@ -48,3 +48,23 @@ pnpm dev   # http://127.0.0.1:5174
 | Jobs 产物 | 本地 run 目录 | 需先上传到 Registry |
 
 Jobs 列表里，已有运行产物的行可以点进去看；没上传的会显示 **Not uploaded**，不会编造轨迹。
+
+## 上传什么才能在 Hub 上看到
+
+| 你想看 | 需要上传 | 怎么跑 / 传 |
+| --- | --- | --- |
+| Dataset **Leaderboard** 一行 | **suite** 结果 | 省略 `--task` 的 `bora run` → `bora results upload-suite --suite-run <id>` |
+| Task **Jobs** 可点开 Attempt / 轨迹 | suite + **attempt 证据** | `upload-suite --with-attempts`（或等价挂上 task_refs 的 attempt） |
+| 只归档一次 Attempt | `bora results upload --run <run_id>` | 可以进 Registry，但 **通常不会**出现在 Leaderboard |
+
+```bash
+# 正确：整包 suite → 上榜
+uv run bora run <database> --profiles <profiles.yaml>
+uv run bora results upload-suite <database> --suite-run <8-hex> --public --with-attempts
+
+# 不够：单题 attempt upload  alone → 榜上经常空白
+# uv run bora run <database> --task <id>
+# uv run bora results upload <database> --run <run_id>
+```
+
+Hub 前端必须指向与 `bora login` / `~/.bora/credentials` **同一** Registry（本机开发常见 `127.0.0.1:8700`）。详见 [运行 Suite](/docs/run/suite)。

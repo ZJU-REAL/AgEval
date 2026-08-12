@@ -257,48 +257,55 @@ bindings:
 - Adapter modules must stay mechanism-named (`acp`, `postgresql`, docker) — not benchmark names.
 - For **ports / reimplementations**, fill `provenance` (see `references/bora-yaml.md`); Attempt PASS still comes only from the independent evaluator.
 
-## Scenario 同构与 Dataset 切包（Hub Leaderboard 可比性）
+## Scenario homogeneity & Dataset packaging (Hub Leaderboard comparability)
 
-**默认：一个上游 scenario / 一种稳定 agent·role 拓扑 = 一个 Database（Dataset）。**
+**Default: one upstream scenario / one stable agent·role topology = one Database (Dataset).**
 
-| 原则 | 说明 |
+| Principle | Guidance |
 | --- | --- |
-| 按 scenario 切包 | 例：MultiAgentBench **coding** → 一个 Dataset；database / werewolf 另包。不要默认把多 scenario 糊进一个 `bora.yaml` 还期望 Harbor 式可比榜。 |
-| scenario 内同构 | 同一 Dataset 内尽量固定 `agent_profiles` 拓扑（role 数、id、协作形状）；task 业务参数可不同。 |
-| 混装可允许 | 不同 task 可用不同 **role id**（拓扑可混）；job 轴是 Database 根 **`profiles.yaml`**。Hub Leaderboard 按 **job_overlay / profiles 绑定** 展示与复跑，不因角色槽拓扑不同而隐藏。 |
-| Multi 榜行 | 默认按 **整配置组合**（指纹）一行；仅包内同构时可考虑 role 子列（后置 UI）。 |
-| 上游复刻 | 填 `provenance`；**禁止**按 benchmark 名分支 adapter。 |
+| Split by scenario | e.g. MultiAgentBench **coding** → one Dataset; database / werewolf as separate packages. Do not default-merge multiple scenarios into one `bora.yaml` and expect Harbor-style comparable boards. |
+| Homogeneous within scenario | Keep `agent_profiles` topology fixed inside a Dataset (role count, ids, collaboration shape); task business parameters may differ. |
+| Mixed packs allowed | Different tasks may use different **role ids** (topology may mix); the job axis is Database-root **`profiles.yaml`**. Hub Leaderboard displays and re-runs by **job_overlay / profiles binding**, and does **not** hide rows just because role-slot topology differs. |
+| Multi board rows | Default one row per **full config combination** (fingerprint); role sub-columns only when the pack is homogeneous (later UI). |
+| Upstream ports | Fill `provenance`; **never** branch adapters by benchmark name. |
 
-### Suite summary 自检字段
+### Suite summary self-check fields
 
-`bora run` suite / Always-k 结束写入 `.bora/suite-runs/<id>/summary.json`：
+`bora run` suite / Always-k end writes `.bora/suite-runs/<id>/summary.json`:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `config_fingerprint` | `sha256:…` over 规范化 `actors_summary`（无 secret / 无 api_key） |
-| `config_homogeneous` | suite 级 job 轴（`profiles.yaml` / `job_overlay`）一致 → `true`；角色槽拓扑不同**不**算不一致 |
+| `config_fingerprint` | `sha256:…` over normalized `actors_summary` (no secrets / no api_key) |
+| `config_homogeneous` | Suite-level job axis (`profiles.yaml` / `job_overlay`) consistent → `true`; different role-slot topology does **not** count as inconsistent |
 | `actors_summary` | `[{profile_id, entry, model}, …]` |
-| `agent_label` / `model_label` | 同构时从 actors 派生；异构时留空 |
-| `metrics.pass_rate` / `mean_score` | 观测聚合（非 suite PASS） |
-| `metrics.pass_at_k` / `pass_power_k` | Always-k job 指标（按 task mean）；**不进** fingerprint |
-| `metrics.n_attempts` / `k_values` / `per_task` | job k 预算、k 列表、per-task n/c 审计（CLI only） |
-| `task_refs[]` | 可含 `n` / `c` / `attempt_run_ids`（多 attempt 审计与 `--with-attempts`） |
+| `agent_label` / `model_label` | Derived from actors when homogeneous; empty when heterogeneous |
+| `metrics.pass_rate` / `mean_score` | Observational aggregates (not suite PASS) |
+| `metrics.pass_at_k` / `pass_power_k` | Always-k job metrics (by task mean); **not** in fingerprint |
+| `metrics.n_attempts` / `k_values` / `per_task` | Job k budget, k list, per-task n/c audit (CLI only) |
+| `task_refs[]` | May include `n` / `c` / `attempt_run_ids` (multi-attempt audit and `--with-attempts`) |
 
-**禁止**在 `task.yaml` / `bora.yaml` 增加 `n_attempts`。Always-k 只走 `bora run -k` / job 参数。
+**Do not** add `n_attempts` to `task.yaml` / `bora.yaml`. Always-k is CLI/job only (`bora run -k` / job params).
 
-Upload（`bora results upload-suite`）**投影**这些字段到 Registry；缺 k maps 时本地 **ensure/recompute** 后再 POST；Hub **不**在 upload 时解 tar 硬提配置，也**不** live 算 pass@k。
+Upload (`bora results upload-suite`) **projects** these fields to the Registry; if k maps are missing, **ensure/recompute** locally then POST. Hub does **not** unpack tars at upload to hard-extract config, and does **not** live-compute pass@k.
 
-**Hub Leaderboard 消费：**
+**Hub visibility (paired with Leaderboard comparability):**
 
-- 有 `job_overlay` / `config_fingerprint` → 榜上展示 binding（yaml 形态可展开导出）  
-- 有 `metrics.pass_at_k` 时额外列 **n_attempts** / **pass@k** / **pass^k**（缺省 `—`；默认排序仍 Pass rate → Mean score）  
-- pass@k **不是** job 身份键；不同 k 可并列  
-- `config_homogeneous: false` 仅当 **同一 role 的 entry/model 冲突**（异常）；正常多拓扑合集仍为 true  
-- 指纹缺失（旧产物）→ 降级：仅 label，或提示「缺少 config 指纹」  
+| Goal | Correct path | Wrong expectation |
+| --- | --- | --- |
+| Dataset **Leaderboard** has a row | `bora run <db>` (**omit** `--task`) → `upload-suite --suite-run <id>` | Only `bora run --task` + `results upload` (attempt lands in DB; board often **missing**) |
+| Task **Jobs** openable trajectory | `upload-suite --with-attempts` (or later upload the run_id attached under suite `task_refs`) | Attempt-only upload, no suite row |
 
+Fingerprint / binding display requires a **suite row already uploaded** (with `job_overlay` / `config_fingerprint`).
 
+**Hub Leaderboard consumption:**
 
-指纹**只服务可比性与展示**，**不是** suite PASS；PASS 仍只来自 per-task evaluator。
+- With `job_overlay` / `config_fingerprint` → board shows binding (yaml form expandable/exportable)
+- With `metrics.pass_at_k` → extra columns **n_attempts** / **pass@k** / **pass^k** (default `—`; sort still Pass rate → Mean score)
+- pass@k is **not** a job identity key; different k may sit side by side
+- `config_homogeneous: false` only when **same role has conflicting entry/model** (anomaly); normal multi-topology packs stay true
+- Missing fingerprint (legacy artifacts) → degrade: labels only, or prompt “missing config fingerprint”
+
+Fingerprint is **only for comparability and display**, **not** suite PASS; PASS still comes only from the per-task evaluator. Ops detail: `$bora-cli` § Hub visibility.
 
 ## Which `executor` / ACP `entry` values?
 
