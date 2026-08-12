@@ -1,0 +1,45 @@
+format: bora.task/1
+task_id: l1-agent
+
+provenance:
+  kind: original
+
+harness:
+  runtime: python
+  entrypoint: harness:run
+
+parameters:
+  harness_timeout_seconds: 420
+  models:
+    default: probe-acp
+
+provider:
+  kind: docker
+  assurance: l1
+  platform: linux/arm64
+  network: bridge
+
+agent_profiles:
+  - id: probe-acp
+
+limits:
+  wall_time_seconds: 420
+  agent_invocations: 2
+  environment_actions: 0
+
+artifacts:
+  publishable:
+    - id: probe-report
+      producer: harness
+      path: artifacts/probe-report.json
+      media_type: application/json
+
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+    - artifact: probe-report
+      target: artifacts/probe-report.json
+  output:
+    format: json

@@ -17,6 +17,8 @@ class EnvironmentManager:
     action_limit: int = 10
     # Optional Attempt evidence sink for effects.jsonl (Spec 15 / §8.9).
     evidence_store: Any | None = None
+    # Optional env_action provide SPI: object with check(resource_id, action_id, args).
+    action_gate: Any | None = None
     _resources: dict[str, Any] = field(default_factory=dict)
     _actions: int = 0
     closed: bool = False
@@ -83,6 +85,31 @@ class EnvironmentManager:
                 }
             )
             return {"ok": False, "error": "unknown_resource"}
+        # env_action provide SPI may deny before resource effect.
+        if self.action_gate is not None and hasattr(self.action_gate, "check"):
+            try:
+                gate = self.action_gate.check(resource_id, action_id, args or {})
+            except Exception as exc:  # noqa: BLE001 — fail closed on gate errors
+                self._effect(
+                    {
+                        "decision": "deny",
+                        "reason": "env_action_gate_error",
+                        "op": action_id,
+                        "error": type(exc).__name__,
+                    }
+                )
+                return {"ok": False, "error": f"env_action_gate_error:{type(exc).__name__}"}
+            if isinstance(gate, dict) and gate.get("ok") is False:
+                self._effect(
+                    {
+                        "decision": "deny",
+                        "reason": "env_action_denied",
+                        "op": action_id,
+                        "resource_id": resource_id,
+                        "error": gate.get("error"),
+                    }
+                )
+                return gate
         self._actions += 1
         result = env.action(action_id, args)
         self._effect(
