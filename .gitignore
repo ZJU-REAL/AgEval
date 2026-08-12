@@ -16,6 +16,8 @@ build/
 
 # BORA runtime state
 .bora/
+.bora_slot_probe/
+post_setup.ok
 
 # Editors / OS
 .DS_Store
