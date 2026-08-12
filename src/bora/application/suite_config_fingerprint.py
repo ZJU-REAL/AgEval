@@ -18,20 +18,28 @@ from pathlib import Path
 from typing import Any
 
 # Fields allowed in actors_summary / fingerprint material (no secrets).
-_ACTOR_KEYS = ("profile_id", "entry", "model")
+_ACTOR_KEYS = ("profile_id", "entry", "executor", "model", "options")
 
 
 def _profile_entry(profile: Mapping[str, Any]) -> str:
-    """Stable entry id: ACP ``options.entry``, else executor kind."""
+    """Display id: ACP ``options.entry``, else plugin ``options.agent``, else kind."""
     options = profile.get("options")
     if isinstance(options, Mapping):
-        entry = options.get("entry")
-        if entry is not None and str(entry).strip():
-            return str(entry).strip()
+        for key in ("entry", "agent"):
+            val = options.get(key)
+            if val is not None and str(val).strip():
+                return str(val).strip()
     executor = profile.get("executor")
     if executor is not None and str(executor).strip():
         return str(executor).strip()
     return ""
+
+
+def _profile_options(profile: Mapping[str, Any]) -> dict[str, Any]:
+    from bora.config.profiles import secret_free_options
+
+    raw = profile.get("options")
+    return secret_free_options(raw if isinstance(raw, Mapping) else None)
 
 
 def actors_summary_from_profiles(
@@ -56,7 +64,23 @@ def actors_summary_from_profiles(
         else:
             entry = _profile_entry(raw)
         model = str(raw.get("model") or "").strip()
-        rows.append({"profile_id": pid, "entry": entry, "model": model})
+        executor = str(raw.get("executor") or "").strip()
+        existing_opts = raw.get("options")
+        if isinstance(existing_opts, str) and existing_opts.strip():
+            options_s = existing_opts.strip()
+        else:
+            options = _profile_options(raw)
+            options_s = (
+                json.dumps(options, sort_keys=True, separators=(",", ":"), default=str)
+                if options
+                else ""
+            )
+        row: dict[str, str] = {"profile_id": pid, "entry": entry, "model": model}
+        if executor:
+            row["executor"] = executor
+        if options_s:
+            row["options"] = options_s
+        rows.append(row)
     rows.sort(key=lambda r: (r["profile_id"], r["entry"], r["model"]))
     return rows
 
@@ -105,8 +129,14 @@ def fingerprint_for_job_overlay(overlay: Mapping[str, Any] | None) -> str:
     return fingerprint_for_actors(actors)
 
 
-def _binding_role_key(binding: Mapping[str, Any]) -> tuple[str, str]:
-    return (_profile_entry(binding), str(binding.get("model") or "").strip())
+def _binding_role_key(binding: Mapping[str, Any]) -> tuple[str, str, str, str]:
+    opts = _profile_options(binding)
+    return (
+        str(binding.get("executor") or "").strip(),
+        _profile_entry(binding),
+        str(binding.get("model") or "").strip(),
+        json.dumps(opts, sort_keys=True, separators=(",", ":"), default=str),
+    )
 
 
 def job_overlays_compatible(

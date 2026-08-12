@@ -60,6 +60,6 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
     assert "/Users/" not in payload
     assert "/home/" not in payload
     assert "OPENAI_API_KEY" in payload  # locator ok
-    snap = thaw(lock.agent_profiles)[0]["options"]["_acp_lock"]
-    assert snap["descriptor_digest"].startswith("sha256:")
-    assert "credential" not in json.dumps(snap).lower() or "credential_env" in json.dumps(snap)
+    opts = thaw(lock.agent_profiles)[0]["options"]
+    assert opts["entry"] == "codex"
+    assert "_acp_lock" not in opts

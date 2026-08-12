@@ -69,11 +69,8 @@ def test_acp_profile_lock_snapshot(tmp_path: Path) -> None:
     )
     profiles = thaw(lock.agent_profiles)
     assert profiles[0]["executor"] == "acp"
-    snap = profiles[0]["options"]["_acp_lock"]
-    assert snap["entry_id"] == "opencode"
-    assert snap["execution_mode"] == "acp-stdio"
-    assert snap["descriptor_digest"].startswith("sha256:")
-    assert "acp_version" in snap
+    assert profiles[0]["options"]["entry"] == "opencode"
+    assert "_acp_lock" not in profiles[0]["options"]
     blob = str(profiles)
     assert "/opt/" not in blob
     assert "sk-" not in blob

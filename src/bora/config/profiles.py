@@ -40,7 +40,22 @@ _BINDING_OVERRIDE_LEAVES = frozenset(
         "executor",
         "api_key",
         "base_url",
-        "options/entry",
+    }
+)
+
+# Plugin options are an opaque map. These keys never ride the job axis.
+_OPTIONS_DENYLIST = frozenset(
+    {
+        "command",
+        "args",
+        "detect_command",
+        "install_command",
+        "version",
+        "acp_command",
+        "engine_command",
+        "acp_version",
+        "credential_env_names",
+        "_acp_lock",
     }
 )
 
@@ -297,7 +312,7 @@ def apply_binding_override(
             "binding override must be /bindings/<role_id>/<field>",
             location=pointer,
         )
-    if field not in _BINDING_OVERRIDE_LEAVES:
+    if not _is_allowlisted_binding_field(field):
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
             f"binding field not allowlisted for override: {field}",
@@ -308,12 +323,13 @@ def apply_binding_override(
         # after a base file load; merge still fail-closes if executor/model missing.
         bindings[role_id] = {}
     target = bindings[role_id]
-    if field == "options/entry":
+    if field.startswith("options/"):
+        opt_key = field[len("options/") :]
         options = target.get("options")
         if not isinstance(options, dict):
             options = {}
             target["options"] = options
-        options["entry"] = value
+        options[opt_key] = value
         return
     target[field] = value
 
@@ -328,7 +344,31 @@ def is_binding_override_pointer(pointer: str) -> bool:
     role_id, _, field = rest.partition("/")
     if not role_id or not _ROLE_ID_RE.fullmatch(role_id):
         return False
-    return field in _BINDING_OVERRIDE_LEAVES
+    return _is_allowlisted_binding_field(field)
+
+
+def _is_allowlisted_binding_field(field: str) -> bool:
+    if field in _BINDING_OVERRIDE_LEAVES:
+        return True
+    if not field.startswith("options/"):
+        return False
+    key = field[len("options/") :]
+    if not key or "/" in key or not _ROLE_ID_RE.fullmatch(key):
+        return False
+    return key not in _OPTIONS_DENYLIST
+
+
+def secret_free_options(options: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Opaque plugin options minus denylisted / private keys."""
+    if not isinstance(options, Mapping):
+        return {}
+    out: dict[str, Any] = {}
+    for key, val in options.items():
+        name = str(key)
+        if name in _OPTIONS_DENYLIST or name.startswith("_"):
+            continue
+        out[name] = val
+    return out
 
 
 def project_job_overlay(
@@ -350,9 +390,11 @@ def project_job_overlay(
         for k in ("executor", "model", "base_url", "api_key"):
             if k in raw and raw[k] is not None:
                 row[k] = raw[k]
-        options = raw.get("options")
-        if isinstance(options, Mapping) and options.get("entry") is not None:
-            row["options"] = {"entry": options.get("entry")}
+        options = secret_free_options(
+            raw.get("options") if isinstance(raw.get("options"), Mapping) else None
+        )
+        if options:
+            row["options"] = options
         if row:
             out[rid] = row
     return {"bindings": out}

@@ -28,7 +28,7 @@ def register(app: typer.Typer) -> None:
                 "--matrix",
                 help=(
                     "Axis as /parameters/...=[json-array] or "
-                    "/bindings/<role>/model|executor|options/entry=[json-array] (#59)."
+                    "/bindings/<role>/model|executor|options/<key>=[json-array]."
                 ),
             ),
         ] = None,
