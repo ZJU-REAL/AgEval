@@ -17,7 +17,10 @@ class _CaptureTimeout:
 
     def invoke(self, prompt: str, **kwargs: object) -> AgentResult:
         t = kwargs.get("timeout")
-        self.last_timeout = float(t) if t is not None else None
+        if t is None:
+            self.last_timeout = None
+        else:
+            self.last_timeout = float(t)  # type: ignore[arg-type]
         return AgentResult(
             model="m", text='{"ok":true}', structured={"ok": True}, ok=True, events=()
         )
