@@ -1,9 +1,15 @@
-"""L0 Environment Manager prepare helpers (postgresql resource-type only)."""
+"""L0 Environment Manager prepare helpers (postgresql resource-type only).
+
+#71 C: after default seed/health, host awaits env multi handlers with a live
+ctx (package_root, env_manager, handoff). Handlers do real work — Core does
+not interpret free-form command dict rows.
+"""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from bora.config.model import thaw
@@ -110,7 +116,7 @@ def prepare_postgresql_environment(
                 "mutation_executed": False,
             }
         # Connection recipe for Harness Tools — never gold / business answers.
-        env_doc = {
+        env_doc: dict[str, Any] = {
             "ok": True,
             "resource": "postgresql",
             "resource_id": rid,
@@ -123,8 +129,53 @@ def prepare_postgresql_environment(
             "action_count": env_manager._actions,
             "deny_probe": deny_probe,
         }
+
+        # #71 C: live SPI — await multi handlers; they do work / rewrite handoff.
+        from bora.application.extension_hooks import (
+            hook_env_action,
+            hook_env_inject,
+            hook_env_prepare,
+        )
+
+        env_ctx = SimpleNamespace(
+            attempt_id=str(agent_meta.get("attempt_id") or run_id),
+            package_root=package_root,
+            workdir=package_root,
+            run_dir=run_dir,
+            resource_id=rid,
+            env_manager=env_manager,
+            env_handoff=env_doc,
+            lock=lock,
+        )
+        try:
+            env_doc = hook_env_prepare(lock, env_doc, ctx=env_ctx, fail_closed=True)
+            if not isinstance(env_doc, dict):
+                raise RuntimeError("env_prepare_handler_must_return_handoff_dict")
+            env_ctx.env_handoff = env_doc
+            env_doc = hook_env_inject(lock, env_doc, ctx=env_ctx, fail_closed=True)
+            if not isinstance(env_doc, dict):
+                raise RuntimeError("env_inject_handler_must_return_handoff_dict")
+            env_ctx.env_handoff = env_doc
+            action_spi = hook_env_action(
+                lock, {"op": "prepare", "resource_id": rid}, ctx=env_ctx
+            )
+            # Attach SPI object with check() as action gate; markers stay observational.
+            if action_spi is not None and hasattr(action_spi, "check"):
+                env_manager.action_gate = action_spi
+                env_doc["env_action"] = {
+                    "plugin": type(action_spi).__name__,
+                    "gate": True,
+                }
+            elif isinstance(action_spi, dict):
+                env_doc["env_action"] = action_spi
+            else:
+                env_doc["env_action"] = {"value": action_spi}
+        except Exception as ext_exc:  # noqa: BLE001
+            raise RuntimeError(f"env_extension_failed: {ext_exc}") from ext_exc
+
+        env_doc["action_count"] = env_manager._actions
         (package_root / ".bora_env_result.json").write_text(
-            json.dumps(env_doc, sort_keys=True) + "\n", encoding="utf-8"
+            json.dumps(env_doc, sort_keys=True, default=str) + "\n", encoding="utf-8"
         )
         env_meta.update(
             {
@@ -133,6 +184,10 @@ def prepare_postgresql_environment(
                 "resource_id": rid,
                 "container": container,
                 "seed_applied": seed_applied,
+                "extension_env": {
+                    "post_setup": env_doc.get("post_setup"),
+                    "env_action": env_doc.get("env_action"),
+                },
             }
         )
     except Exception as exc:  # noqa: BLE001

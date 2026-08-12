@@ -345,8 +345,25 @@ async def run_task(
                 "mode": "parent_agent_service",
                 "invocations": agent_service.invocations_completed,
             }
-        # Environment Manager teardown
+        # Environment Manager teardown (#71 C: env_teardown multi before close)
         if env_manager is not None:
+            with contextlib.suppress(Exception):
+                from bora.application.extension_hooks import hook_env_teardown
+                from types import SimpleNamespace
+
+                td_ctx = SimpleNamespace(
+                    attempt_id=str(agent_meta.get("attempt_id") or run_id),
+                    package_root=package_root,
+                    workdir=package_root,
+                    run_dir=run_dir,
+                    env_manager=env_manager,
+                    resource_id=(agent_meta.get("environment") or {}).get("resource_id"),
+                )
+                hook_env_teardown(
+                    lock,
+                    agent_meta.get("environment") or {"phase": "teardown"},
+                    ctx=td_ctx,
+                )
             with contextlib.suppress(Exception):
                 env_manager.close()
         marker = run_dir / "env_container_name.txt"

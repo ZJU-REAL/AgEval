@@ -182,22 +182,30 @@ async def emit_env_teardown(graph: ExtensionGraph, value: Any = None, *, ctx: An
 
 
 async def call_env_action(graph: ExtensionGraph, value: Any = None, *, ctx: Any = None) -> Any:
-    """Single-winner env_action provide SPI (gate / policy object)."""
+    """Single-winner env_action provide SPI (gate / policy object or marker).
+
+    Returns the SPI object (host may attach as ``EnvironmentManager.action_gate``).
+    Does **not** invoke ``check`` here — that runs on each ``action()`` call.
+    """
+    del value, ctx  # reserved for future factory kwargs / audit context
     pref = graph.providers.get(ENV_ACTION)
     if pref is None:
-        return value
+        return None
     impl = pref.impl
-    if callable(impl):
-        # Factory already materialized: call SPI methods or factory-returned object.
-        if hasattr(impl, "check") and callable(impl.check):
-            result = impl.check(value, ctx=ctx)
-            if hasattr(result, "__await__"):
-                return await result  # type: ignore[misc]
-            return result
-        result = impl(value=value, ctx=ctx) if _accepts_kwargs(impl) else impl()
+    # Already-materialized gate SPI
+    if hasattr(impl, "check") and callable(getattr(impl, "check", None)):
+        return impl
+    if callable(impl) and not isinstance(impl, type):
+        # Factory path when resolve used materialize=False
+        try:
+            result = impl()
+        except TypeError:
+            result = impl
         if hasattr(result, "__await__"):
             result = await result  # type: ignore[misc]
         return result
+    if isinstance(impl, type):
+        return impl()
     return impl
 
 
