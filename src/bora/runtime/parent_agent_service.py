@@ -84,7 +84,7 @@ class ParentAgentService:
 
     MVP: host executor path is **only** the session-pinned extension graph
     (constitution §0 — no resolve_executor dual path).
-    L1 may still bind container targets via ``make_target_executor``.
+    L1 binds container targets via ``resolve_placement`` + SPI ``bind_to_target``.
     """
 
     profiles: list[dict[str, Any]]
@@ -105,8 +105,8 @@ class ParentAgentService:
     require_actor_id: bool = False
     # Callable(actor_id, profile_id) -> dict with ok/error/target_id/generation or fail.
     validate_actor_profile: Callable[[str, str], dict[str, Any]] | None = None
-    # When set, builds container-bound executor from SessionBinding (L1 only).
-    make_target_executor: Callable[[SessionBinding], Any] | None = None
+    # L1: SessionBinding → TargetPlacement (ledger checks). SPI bind_to_target attaches.
+    resolve_placement: Callable[[SessionBinding], Any] | None = None
     # Forbid host graph path (L1 container-only).
     l1_container_only: bool = False
     _sessions: dict[str, SessionBinding] = field(default_factory=dict)
@@ -444,34 +444,33 @@ class ParentAgentService:
                 }
 
         try:
+            executor: Any
             if cached_executor is not None:
                 executor = cached_executor
-            elif self.make_target_executor is not None and binding_snap is not None:
-                # L1 container path — never host-fallback.
-                executor = self.make_target_executor(binding_snap)
+            elif self.l1_container_only:
+                if self.resolve_placement is None or binding_snap is None:
+                    raise RuntimeError("l1_executor_unbound")
+                placement = self.resolve_placement(binding_snap)
+                host = self._executor_from_graph(binding_snap)
+                bind = getattr(host, "bind_to_target", None)
+                if not callable(bind):
+                    raise RuntimeError("l1_executor_unbound")
+                executor = bind(placement)
                 with self._lock:
                     self._executors[session_id] = executor
-            elif self.l1_container_only:
-                seal_failure(
-                    handle,
-                    status="failed",
-                    error="l1_executor_unbound",
-                    latency_ms=(time.monotonic() - started) * 1000.0,
-                )
-                return {
-                    "ok": False,
-                    "error": "l1_executor_unbound",
-                    "executor": kind,
-                    "invocation_id": handle.invocation_id if handle else None,
-                    "evidence_relative": handle.relative_path if handle else None,
-                }
             else:
                 # Host path: only session-pinned graph provider (no legacy resolve).
                 executor = self._executor_from_graph(binding_snap)
                 with self._lock:
                     self._executors[session_id] = executor
         except Exception as exc:  # noqa: BLE001 — bind failures fail closed
-            err = getattr(exc, "error", None) or getattr(exc, "kind", None) or type(exc).__name__
+            err = getattr(exc, "error", None) or getattr(exc, "kind", None)
+            if not err and isinstance(exc, RuntimeError):
+                msg = str(exc)
+                if msg and " " not in msg:
+                    err = msg
+            if not err:
+                err = type(exc).__name__
             if self.l1_container_only or str(err) in {
                 "extension_graph_missing",
                 "executor_provider_missing",

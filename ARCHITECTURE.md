@@ -132,8 +132,7 @@ BORA/
 │       │                      # （不拥有 trajectory.jsonl writer）
 │       ├── acp_entries.json   # Current: static entry pins / descriptors
 │       ├── acp_registry.py    # Current: registry + readiness
-│       ├── agent_container.py # L1 placement helpers / opaque target id
-│       ├── nooa_container.py  # L1 in-container nooa worker executor
+│       ├── agent_container.py # L1 placement helpers / docker exec wrap
 │       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── apps/

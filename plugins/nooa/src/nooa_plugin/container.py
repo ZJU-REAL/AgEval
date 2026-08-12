@@ -1,4 +1,4 @@
-"""L1 nooa executor: docker exec into Attempt container (Spec 05 Ready)."""
+"""L1 nooa executor: docker exec the baked in-container worker."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import os
 from typing import Any
 
+from bora.adapters.agent_container import wrap_docker_exec
 from bora.adapters.agent_contract import AgentExecutor, AgentResult
 from bora.adapters.provider_docker.cli_supervise import supervise_docker_cli
 from bora.provider.contract import TerminationPolicy
@@ -20,9 +21,6 @@ class NooaContainerExecutor(AgentExecutor):
     """Invoke package-local agents inside the Attempt container via baked worker.
 
     Parent never imports task ``lib.agents`` for L1 success path.
-    Projects ``model`` / ``base_url`` / API key (resolved on host from locator)
-    into the worker request + ``docker exec -e`` so NVIDIA nooa can call the
-    real upstream endpoint inside the Attempt.
     """
 
     kind = "nooa"
@@ -107,32 +105,19 @@ class NooaContainerExecutor(AgentExecutor):
             payload["api_base"] = api_base
         if api_key:
             payload["api_key"] = api_key
-        cmd = [
-            "docker",
-            "exec",
-            "-i",
-            "-u",
-            f"{self.uid}:{self.gid}",
-            "-w",
-            effective_workdir,
-        ]
+        env: dict[str, str] = {"NOOA_MODEL": self.model}
         if api_base:
-            cmd.extend(["-e", f"OPENAI_BASE_URL={api_base}"])
+            env["OPENAI_BASE_URL"] = api_base
         if api_key:
-            cmd.extend(["-e", f"OPENAI_API_KEY={api_key}"])
-        cmd.extend(
-            [
-                "-e",
-                f"NOOA_MODEL={self.model}",
-                self.container_id,
-                "python3",
-                WORKER_PATH,
-            ]
+            env["OPENAI_API_KEY"] = api_key
+        cmd = wrap_docker_exec(
+            container_id=self.container_id,
+            uid=self.uid,
+            gid=self.gid,
+            workdir=effective_workdir,
+            env=env,
+            argv=["python3", WORKER_PATH],
         )
-        # No tracked remote PID: after client-side teardown we cannot prove the
-        # in-container worker is gone (terminate is a no-op). is_alive stays true
-        # once teardown was requested so writer_stop is never self-confirmed.
-        # A clean docker-exec exit means the remote command completed with the client.
         teardown_requested = {"value": False}
 
         def _terminate() -> str | None:
@@ -204,7 +189,6 @@ class NooaContainerExecutor(AgentExecutor):
                     "returncode": outcome.exit_code,
                 },
             )
-        # Worker prints one JSON line (last non-empty line).
         line = stdout.splitlines()[-1]
         try:
             doc = json.loads(line)

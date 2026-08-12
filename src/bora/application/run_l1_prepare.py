@@ -170,26 +170,16 @@ def cli_env_for_container(
     return out
 
 
-def make_l1_target_executor_factory(
-    *,
-    ledger: Any,
-    profiles: list[dict[str, Any]],
-    workspace_host: Path | None = None,
-    package_root: Path | None = None,
-) -> Any:
-    """Build ``make_target_executor`` closed over prepare ledger + profiles.
+def make_l1_placement_resolver(*, ledger: Any) -> Any:
+    """Resolve Core-owned L1 placement from the prepare ledger.
 
-    - ``acp``: docker exec into Attempt container (coding-agent path).
-    - ``nooa``: docker exec baked ``bora-executor-nooa`` worker (L1 Ready).
-      Parent host SPI is **not** an L1 success path.
+    Plugins attach via ``ExecutorSPI.bind_to_target``. This helper only
+    validates target/generation and returns ``TargetPlacement``.
     """
-    del workspace_host, package_root  # L1 nooa uses container package mount only.
 
-    def make_target_executor(binding: Any) -> Any:
-        from bora.adapters.acp import AcpExecutor
-        from bora.adapters.acp_registry import get_entry
+    def resolve_placement(binding: Any) -> Any:
         from bora.adapters.agent_container import effective_run_gid
-        from bora.adapters.nooa_container import NooaContainerExecutor
+        from bora.plugins.protocol import TargetPlacement
 
         actor_id = binding.actor_id
         if not actor_id:
@@ -204,121 +194,14 @@ def make_l1_target_executor_factory(
             raise RuntimeError("generation_mismatch")
         if binding.target_id and binding.target_id != target.target_id:
             raise RuntimeError("target_mismatch")
-
-        profile = next((p for p in profiles if p.get("id") == binding.profile_id), {})
-        api_key_env = (
-            str(profile.get("api_key")).strip()
-            if isinstance(profile.get("api_key"), str) and profile.get("api_key")
-            else None
-        )
-        base_url = (
-            str(profile.get("base_url")).strip()
-            if isinstance(profile.get("base_url"), str) and profile.get("base_url")
-            else None
-        )
-        kind = str(binding.executor_kind)
-
-        # nooa L1 Ready = in-container worker (never parent SPI success).
-        if kind == "nooa":
-            if os.environ.get("BORA_NOOA_HOST_IN_CONTAINER") == "1":
-                raise RuntimeError(
-                    "nooa_host_in_container_removed: "
-                    "L1 Ready is in-container worker only; "
-                    "unset BORA_NOOA_HOST_IN_CONTAINER"
-                )
-            opts: dict[str, Any] = {}
-            raw_opts = profile.get("options") if isinstance(profile, dict) else None
-            if isinstance(raw_opts, dict):
-                opts = raw_opts
-            graph = getattr(binding, "extension_graph", None)
-            if graph is not None:
-                providers = getattr(graph, "providers", None) or {}
-                pref = providers.get("executor")
-                impl = getattr(pref, "impl", None) if pref is not None else None
-                impl_opts = getattr(impl, "options", None) if impl is not None else None
-                if isinstance(impl_opts, dict):
-                    opts = {**opts, **impl_opts}
-                agent_from_impl = getattr(impl, "agent_ref", None) if impl is not None else None
-                method_from_impl = getattr(impl, "method", None) if impl is not None else None
-            else:
-                agent_from_impl = None
-                method_from_impl = None
-            agent_ref = str(agent_from_impl or opts.get("agent") or "").strip()
-            if not agent_ref:
-                raise RuntimeError("nooa_options_agent_required")
-            method = str(method_from_impl or opts.get("method") or "run").strip() or "run"
-            run_gid = effective_run_gid(phys)
-            return NooaContainerExecutor(
-                container_id=str(target.container_id),
-                agent_ref=agent_ref,
-                method=method,
-                model=str(getattr(binding, "model", None) or "nooa"),
-                base_url=base_url,
-                api_key_env=api_key_env,
-                uid=int(phys.uid),
-                gid=int(run_gid),
-            )
-
-        # L1 coding-agent path is ACP only — no private CLI scrape residual.
-        if kind != "acp":
-            raise RuntimeError(
-                f"migrated_to_acp: L1 executor {kind!r} requires executor: acp + options.entry "
-                f"(or nooa in-container Ready after image_contribute bake)"
-            )
-        entry_id = getattr(binding, "acp_entry_id", None)
-        if not entry_id:
-            options = profile.get("options") if isinstance(profile, dict) else {}
-            if isinstance(options, dict):
-                entry_id = options.get("entry")
-        if not entry_id:
-            raise RuntimeError("acp_entry_required")
-        desc = get_entry(str(entry_id))
-        if desc is None:
-            raise RuntimeError("unknown_acp_entry")
-        child_env = cli_env_for_container(str(entry_id), api_key_env=api_key_env, base_url=base_url)
-        home = phys.home_container
-        child_env["HOME"] = home
-        child_env["CODEX_HOME"] = f"{home}/.codex"
-        # Force container PATH (projection never carries host PATH after fix).
-        child_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
-        child_env.setdefault("TERM", "xterm")
-        child_env["NO_BROWSER"] = "1"
-        child_env.setdefault("XDG_CONFIG_HOME", f"{home}/.config")
-        child_env.setdefault("XDG_CACHE_HOME", f"{home}/.cache")
-        child_env.setdefault("XDG_STATE_HOME", f"{home}/.local/state")
-        child_env.setdefault("XDG_DATA_HOME", f"{home}/.local/share")
-        for k, v in desc.fixed_env.items():
-            child_env.setdefault(str(k), str(v))
-        workdir = "/attempt/workspace"
-        run_gid = effective_run_gid(phys)
-        docker_cmd: list[str] = [
-            "docker",
-            "exec",
-            "-i",
-            "-u",
-            f"{phys.uid}:{run_gid}",
-            "-w",
-            workdir,
-        ]
-        for ek, ev in child_env.items():
-            if str(ek).upper() in {"DOCKER_HOST", "DOCKER_SOCK"}:
-                continue
-            docker_cmd.extend(["-e", f"{ek}={ev}"])
-        docker_cmd.append(str(target.container_id))
-        # shared_write collaboration: group-writable new files under shared GID.
-        acp_argv = list(desc.acp_command)
-        if phys.shared_gid is not None and phys.shared_write:
-            docker_cmd.extend(["sh", "-c", 'umask 002; exec "$@"', "bora-actor", *acp_argv])
-        else:
-            docker_cmd.extend(acp_argv)
-        return AcpExecutor(
-            entry_id=str(entry_id),
-            model=str(binding.model),
-            descriptor=desc,
-            workdir=workdir,
-            api_key_env=api_key_env,
-            base_url=base_url,
-            command_override=docker_cmd,
+        return TargetPlacement(
+            container_id=str(target.container_id),
+            uid=int(phys.uid),
+            gid=int(effective_run_gid(phys)),
+            workdir="/attempt/workspace",
+            home=str(getattr(phys, "home_container", None) or "/attempt/home"),
+            shared_write=bool(getattr(phys, "shared_write", False)),
+            shared_gid=getattr(phys, "shared_gid", None),
         )
 
-    return make_target_executor
+    return resolve_placement

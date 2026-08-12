@@ -323,7 +323,7 @@ uv run bora plugin list        # installed mechanism plugins (e.g. nooa)
 | Installed plugins | Extra executor plugin_ids after `bora plugin install` (Recognition only) |
 
 **Target (coding agents):** `executor: acp` + `options.entry: <registry-id>`.  
-**Do not** write `executor: codex|pi|opencode|claude-code` — lock fails (`unsupported_capability`) or L1 fails (`migrated_to_acp`).
+**Do not** write `executor: codex|pi|opencode|claude-code` — lock fails (`unsupported_capability`) or L1 fails (`l1_executor_unbound`).
 
 **External mechanism (e.g. nooa):** `executor: nooa` + `options.agent: "lib.agents:Class"` in
 **profiles only** — never in member `task.yaml`. `bora plugin install` does **not** rewrite

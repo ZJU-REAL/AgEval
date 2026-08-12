@@ -210,6 +210,23 @@ class NooaExecutorSPI:
         self._llm_backed = False
         self._ready = False
 
+    def bind_to_target(self, placement: Any) -> Any:
+        """L1 Ready: in-container worker. Host SPI is not the success path."""
+        from nooa_plugin.container import NooaContainerExecutor
+
+        workdir = str(getattr(placement, "workdir", None) or "/attempt/workspace")
+        return NooaContainerExecutor(
+            container_id=str(placement.container_id),
+            agent_ref=self.agent_ref,
+            method=self.method,
+            model=self.model,
+            base_url=self.base_url if isinstance(self.base_url, str) else None,
+            api_key_env=self.api_key_env if isinstance(self.api_key_env, str) else None,
+            uid=int(placement.uid),
+            gid=int(placement.gid),
+            workdir_container=workdir,
+        )
+
     def open(self, **kwargs: Any) -> None:
         del kwargs
         self._agent_cls = self._load_agent_class()

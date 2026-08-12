@@ -49,12 +49,66 @@ class AcpExecutorSPI(ExecutorSPI):
         from bora.adapters.acp import AcpExecutor
 
         self.profile_id = profile_id
+        self._entry_id = str(entry).strip()
+        self._model = model or "entry-default"
+        self._base_url = base_url
+        self._api_key_env = api_key
         self._inner = AcpExecutor(
-            entry_id=str(entry).strip(),
-            model=model or "entry-default",
+            entry_id=self._entry_id,
+            model=self._model,
             base_url=base_url,
             api_key_env=api_key,
         )
+
+    def bind_to_target(self, placement: Any) -> AcpExecutorSPI:
+        """Attach parent ACP client to the Attempt container via docker exec."""
+        from bora.adapters.acp import AcpExecutor
+        from bora.adapters.agent_container import wrap_docker_exec
+        from bora.application.run_l1_prepare import cli_env_for_container
+
+        child_env = cli_env_for_container(
+            self._entry_id, api_key_env=self._api_key_env, base_url=self._base_url
+        )
+        home = str(getattr(placement, "home", None) or "/attempt/home")
+        child_env["HOME"] = home
+        child_env["CODEX_HOME"] = f"{home}/.codex"
+        child_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
+        child_env.setdefault("TERM", "xterm")
+        child_env["NO_BROWSER"] = "1"
+        child_env.setdefault("XDG_CONFIG_HOME", f"{home}/.config")
+        child_env.setdefault("XDG_CACHE_HOME", f"{home}/.cache")
+        child_env.setdefault("XDG_STATE_HOME", f"{home}/.local/state")
+        child_env.setdefault("XDG_DATA_HOME", f"{home}/.local/share")
+        desc = self._inner.descriptor
+        for k, v in desc.fixed_env.items():
+            child_env.setdefault(str(k), str(v))
+        docker_cmd = wrap_docker_exec(
+            container_id=str(placement.container_id),
+            uid=int(placement.uid),
+            gid=int(placement.gid),
+            workdir=str(getattr(placement, "workdir", None) or "/attempt/workspace"),
+            env=child_env,
+            argv=list(desc.acp_command),
+            shared_write=bool(getattr(placement, "shared_write", False)),
+            shared_gid=getattr(placement, "shared_gid", None),
+        )
+        bound = AcpExecutorSPI.__new__(AcpExecutorSPI)
+        bound.kind = "acp"
+        bound.profile_id = self.profile_id
+        bound._entry_id = self._entry_id
+        bound._model = self._model
+        bound._base_url = self._base_url
+        bound._api_key_env = self._api_key_env
+        bound._inner = AcpExecutor(
+            entry_id=self._entry_id,
+            model=self._model,
+            descriptor=desc,
+            workdir=str(getattr(placement, "workdir", None) or "/attempt/workspace"),
+            api_key_env=self._api_key_env,
+            base_url=self._base_url,
+            command_override=docker_cmd,
+        )
+        return bound
 
     def open(self, **kwargs: Any) -> None:
         del kwargs

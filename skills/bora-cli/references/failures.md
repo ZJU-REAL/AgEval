@@ -6,7 +6,7 @@
 | lock `unsupported_capability` / `unsupported executor` | Kind not in `bora executors` `.supported` — coding agents need `executor: acp` |
 | lock `options.entry required` | ACP profile missing `options.entry` |
 | Agent ERROR offline | Expected under `BORA_OFFLINE_AGENT=1` |
-| `migrated_to_acp` | Package still uses private CLI executor kind; switch to `acp` + `options.entry` |
+| `l1_executor_unbound` | L1 invoke has no SPI ``bind_to_target`` (or placement resolver missing) |
 | ACP entry not ready | `bora executors -v` → that `entry_id` `host_ready` / install pin; no invoke-time `npm i` |
 | PASS without real model | Forbidden — do not use fixtures as public proof |
 | Trajectory empty | Non-empty `agent_profiles` + harness `Agent.session`/`invoke` (Parent Agent Service) |
