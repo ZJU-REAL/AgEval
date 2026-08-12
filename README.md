@@ -113,8 +113,6 @@ examples/core/                    # one Dataset
 
 CLI takes the **Dataset root**; `--task <id>` selects a member. Full list: [`examples/README.md`](examples/README.md).
 
-**Conversion packaging boundary:** monorepo `examples/` only includes the smaller **`tau3-airline`** package. Larger conversions (Terminal-Bench 2.0, MARBLE coding) are **not** checked into this repo; they ship via BORA Hub only (org `my-lab`, e.g. `terminal-bench-2` / `terminal-bench-2-10`, `marble-coding` / `marble-coding-10`) so clone size and CI paths stay bounded. Package publish or suite upload does **not** raise evidence grade.
-
 ```yaml
 # task.yaml — role slots only
 agent_profiles:

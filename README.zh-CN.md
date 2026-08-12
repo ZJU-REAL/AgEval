@@ -113,8 +113,6 @@ examples/core/                    # 一个 Dataset
 
 CLI 指向 **Dataset 根**，`--task <id>` 选成员。完整说明见 [`examples/README.md`](examples/README.md)。
 
-**转换包装边界：** monorepo `examples/` **只**收录体量较小的 `tau3-airline`。Terminal-Bench 2.0、MARBLE coding 等更大转换包**不**进本仓库，只通过 BORA Hub 发布（组织 `my-lab`，例如 `terminal-bench-2` / `terminal-bench-2-10`、`marble-coding` / `marble-coding-10`），以控制 clone 体积与 CI 路径。包上架或 suite 上传 **不等于** 证据等级升级。
-
 ```yaml
 # task.yaml — 仅角色槽
 agent_profiles:
