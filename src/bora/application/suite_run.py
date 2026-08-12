@@ -266,6 +266,7 @@ async def _run_one(
     overrides: dict[str, Any] | None,
     run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]],
     profiles_path: Path | str | None = None,
+    keep_workspace: bool = False,
 ) -> dict[str, Any]:
     """Run one (task_id, attempt_index) unit. Concurrency is owned by the claim pool."""
     global _inflight_current, _inflight_peak
@@ -278,6 +279,7 @@ async def _run_one(
             task_id,
             overrides=overrides,
             profiles_path=profiles_path,
+            keep_workspace=keep_workspace,
         )
         status = getattr(result, "status", None) or details.get("status") or "ERROR"
         run_id = extract_run_id(
@@ -579,6 +581,7 @@ async def execute_suite_run(
     profiles_path: Path | str | None = None,
     resume: bool = False,
     on_progress: ProgressCallback | None = None,
+    keep_workspace: bool = False,
 ) -> dict[str, Any]:
     """Execute planned task×attempt units with a concurrency pool; write summary.
 
@@ -720,6 +723,7 @@ async def execute_suite_run(
                 overrides=overrides,
                 run_fn=runner,
                 profiles_path=profiles_path,
+                keep_workspace=keep_workspace,
             )
             async with progress_lock:
                 new_results.append(row)

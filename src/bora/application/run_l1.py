@@ -38,6 +38,36 @@ def _database_root_for_run(run_dir: Path) -> Path | None:
     return None
 
 
+def drop_l1_work(run_dir: Path, *, keep_workspace: bool = False) -> None:
+    """Remove host sandbox residual at ``run_dir/l1-work`` unless retained for debug.
+
+    Layout stays under the run dir during the Attempt; default policy is curated
+    Hub-facing evidence only — full workspace / package_view are not retained.
+    """
+    if keep_workspace:
+        return
+    work = Path(run_dir) / "l1-work"
+    if work.exists():
+        with contextlib.suppress(OSError):
+            shutil.rmtree(work)
+
+
+def _l1_host_cleanup(
+    docker: Any,
+    runtime: Any,
+    cred: Any | None,
+    run_dir: Path,
+    *,
+    keep_workspace: bool,
+) -> None:
+    """Stop containers/networks, drop credentials, then drop host ``l1-work``."""
+    docker.cleanup(runtime)
+    if cred is not None:
+        with contextlib.suppress(Exception):
+            cred.cleanup()
+    drop_l1_work(run_dir, keep_workspace=keep_workspace)
+
+
 def _attach_timing(
     doc: dict[str, Any],
     details: dict[str, Any],
@@ -59,6 +89,7 @@ def run_l1_attempt(
     run_dir: Path,
     agent_meta: dict[str, Any],
     allow_offline_agent: bool,
+    keep_workspace: bool = False,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     """Dispatch L1 SDK session path when agent_profiles is non-empty.
 
@@ -78,6 +109,7 @@ def run_l1_attempt(
             run_dir=run_dir,
             agent_meta=agent_meta,
             allow_offline_agent=allow_offline_agent,
+            keep_workspace=keep_workspace,
         )
 
     return l1_error_result(
@@ -97,6 +129,7 @@ def run_l1_sdk_session_attempt(
     run_dir: Path,
     agent_meta: dict[str, Any],
     allow_offline_agent: bool,
+    keep_workspace: bool = False,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     """L1 multi-actor SDK path: ParentAgentService → docker exec targets.
 
@@ -225,8 +258,7 @@ def run_l1_sdk_session_attempt(
                 network_mode=network_mode,
             )
         except Exception as exc:  # noqa: BLE001
-            docker.cleanup(runtime)
-            cred.cleanup()
+            _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "provider",
@@ -386,8 +418,7 @@ def run_l1_sdk_session_attempt(
                     break
         if src_art is None or not src_art.is_file():
             with timer.phase("cleanup"):
-                docker.cleanup(runtime)
-                cred.cleanup()
+                _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "harness" if not envelope.get("ok") else "evaluation_input",
@@ -415,8 +446,7 @@ def run_l1_sdk_session_attempt(
         # Wait for writer stop before evaluator.
         if not runtime.writer_stop_confirmed:
             with timer.phase("cleanup"):
-                docker.cleanup(runtime)
-                cred.cleanup()
+                _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "evaluation_input",
@@ -448,8 +478,7 @@ def run_l1_sdk_session_attempt(
         l1_meta["execution_location"] = "attempt-container"
 
     with timer.phase("cleanup"):
-        docker.cleanup(runtime)
-        cred.cleanup()
+        _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
 
     full_l1 = bool(
         harness_kind == "completed"

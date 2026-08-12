@@ -46,7 +46,7 @@ async def test_always_k_produces_k_attempts() -> None:
     plan = plan_suite_run(SUITE, task_id="alpha", n_attempts=3, max_concurrent_tasks=1)
     calls: list[str] = []
 
-    async def runner(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         calls.append(task_id)
         run_id = f"sha256_dead_run_{task_id}_{len(calls)}"
         abs_run = Path(root) / ".bora" / "runs" / run_id
@@ -93,7 +93,7 @@ async def test_parallel_does_not_change_k() -> None:
     )
     reset_inflight_metrics()
 
-    async def slow(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def slow(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         await asyncio.sleep(0.08)
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
         return 0, result, {"digest": "sha256:x"}
@@ -110,7 +110,7 @@ async def test_resume_skips_completed_and_appends() -> None:
     plan = plan_suite_run(SUITE, task_id="alpha", n_attempts=2, max_concurrent_tasks=1)
     call_n = {"n": 0}
 
-    async def runner(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         call_n["n"] += 1
         i = call_n["n"]
         run_id = f"sha256_dead_run_alpha_{i}"
@@ -156,7 +156,7 @@ async def test_resume_other_tasks_preserved() -> None:
     plan = plan_suite_run(SUITE, n_attempts=1, max_concurrent_tasks=2)
     plan.task_ids = ["alpha", "beta"]
 
-    async def runner(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         run_id = f"sha256_dead_run_{task_id}"
         abs_run = Path(root) / ".bora" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
@@ -179,7 +179,7 @@ async def test_resume_other_tasks_preserved() -> None:
     )
     call_tasks: list[str] = []
 
-    async def runner2(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def runner2(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         call_tasks.append(task_id)
         run_id = f"sha256_dead_run_{task_id}_extra"
         abs_run = Path(root) / ".bora" / "runs" / run_id

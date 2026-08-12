@@ -136,6 +136,16 @@ def register(app: typer.Typer) -> None:
                 help="Alternate profiles.yaml replacing Database-root job bindings.",
             ),
         ] = None,
+        keep_workspace: Annotated[
+            bool,
+            typer.Option(
+                "--keep-workspace",
+                help=(
+                    "L1 only: retain host l1-work/ under the run dir after cleanup "
+                    "(default: delete; debug only — never required for Hub upload)."
+                ),
+            ),
+        ] = False,
     ) -> None:
         """Run one member or a full Database suite (Application-layer task_id axis)."""
         import asyncio
@@ -177,6 +187,7 @@ def register(app: typer.Typer) -> None:
                         plan.task_ids[0],
                         overrides=overrides or None,
                         profiles_path=profiles,
+                        keep_workspace=keep_workspace,
                     )
                 )
                 summary = {
@@ -264,6 +275,7 @@ def register(app: typer.Typer) -> None:
                     profiles_path=profiles,
                     resume=resume_id is not None,
                     on_progress=_progress,
+                    keep_workspace=keep_workspace,
                 )
             )
             final_status = (

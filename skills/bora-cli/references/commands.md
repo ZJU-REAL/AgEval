@@ -34,7 +34,7 @@ Stdout JSON (high level):
 ## `bora run`
 
 - One foreground Attempt via production composition root **when** `--task` is set, `-k` defaults to 1, and no `--resume-suite`.
-- Evidence under Dataset root `.bora/runs/<run_id>/`.
+- Evidence under Dataset root `.bora/runs/<run_id>/` (Hub-facing curated tree).
 - `logs` / `evidence_path` are portable relative to the Dataset root (e.g. `.bora/runs/<run_id>`);
   readers still accept legacy host absolute paths.
 - **Always-k** (`--n-attempts` / `-k`, integer ≥1): fixed k independent Attempts per task in scope.
@@ -42,6 +42,10 @@ Stdout JSON (high level):
 - **Suite**: omit `--task` → all members; also used as the job container when `k>1` or resume.
 - **`--max-concurrent-tasks`**: speeds wall time only; does not change k or PASS.
 - **`--resume-suite <suite_run_id>`**: skip finished `(task_id, attempt_index)`, append Attempts, recompute metrics.
+- **`--keep-workspace`** (L1 / `provider.kind: docker` only): retain host
+  `.bora/runs/<run_id>/l1-work/` after cleanup for local debug. **Default off** —
+  Runtime deletes `l1-work` after container cleanup. Not required for Hub; upload
+  pack excludes `l1-work/**` even if residual remains.
 - Suite artifacts: `.bora/suite-runs/<id>/summary.json`, `progress.json`.
 - Per invocation (ACP path): `agent/invocations/<nnnn>-*/trajectory.jsonl` is **turn-level**
   (user + merged assistant/thought + terminal). Stream chunks are not the training default;

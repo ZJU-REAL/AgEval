@@ -26,7 +26,7 @@ async def test_cancel_stops_new_units() -> None:
     plan.task_ids = ["alpha", "beta", "gamma"]
     calls: list[str] = []
 
-    async def runner(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         calls.append(task_id)
         if task_id == "alpha":
             # After first unit starts, request cancel so remaining are not run.
@@ -76,7 +76,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
     plan.task_ids = ["alpha", "beta", "gamma"]
     first_calls: list[str] = []
 
-    async def runner1(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def runner1(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         first_calls.append(task_id)
         if task_id == "alpha":
             request_suite_cancel(plan.database_root, plan.suite_run_id)
@@ -109,7 +109,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
     plan2.task_ids = ["alpha", "beta", "gamma"]
     second_calls: list[str] = []
 
-    async def runner2(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def runner2(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         second_calls.append(task_id)
         run_id = f"sha256_dead_run_{task_id}_2"
         abs_run = Path(root) / ".bora" / "runs" / run_id
@@ -147,7 +147,7 @@ async def test_progress_callback_events() -> None:
     plan = plan_suite_run(SUITE, task_id="alpha", n_attempts=2, max_concurrent_tasks=1)
     events: list[str] = []
 
-    async def runner(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
         return 0, result, {"digest": "sha256:x"}
 

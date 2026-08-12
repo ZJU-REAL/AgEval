@@ -182,7 +182,7 @@ async def test_suite_summary_includes_homogeneous_config() -> None:
     plan = plan_suite_run(SUITE, max_concurrent_tasks=2)
     plan.task_ids = ["alpha", "beta"]
 
-    async def stub(root, task_id, *, overrides=None, profiles_path=None):  # noqa: ANN001
+    async def stub(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
         return 0, result, {"digest": f"sha256:{task_id}"}
 
