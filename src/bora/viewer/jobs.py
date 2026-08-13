@@ -19,6 +19,7 @@ from bora.application.suite import (
 )
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
+from bora.evidence.locators import default_runs_root
 from bora.viewer.browse import commands_for
 
 
@@ -259,7 +260,7 @@ def _iter_attempt_dirs(database_root: Path) -> list[tuple[str, Path]]:
         found.append((run_id, path))
         seen.add(run_id)
 
-    db_runs = root / ".bora" / "runs"
+    db_runs = default_runs_root(root)
     if db_runs.is_dir():
         for child in db_runs.iterdir():
             if child.is_dir():
@@ -274,7 +275,7 @@ def _iter_attempt_dirs(database_root: Path) -> list[tuple[str, Path]]:
         for task_dir in tasks_dir.iterdir():
             if not task_dir.is_dir():
                 continue
-            local = task_dir / ".bora" / "runs"
+            local = default_runs_root(task_dir)
             if not local.is_dir():
                 continue
             for child in local.iterdir():
