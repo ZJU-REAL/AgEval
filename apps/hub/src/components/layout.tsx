@@ -41,6 +41,11 @@ export function Shell({
         </Link>
         <span className="text-mute text-sm">hub</span>
         <nav className="flex items-center gap-4 text-sm ml-2">
+          {token ? (
+            <NavLink to="/home" className={navClass}>
+              Home
+            </NavLink>
+          ) : null}
           <NavLink to="/datasets" className={navClass} end={false}>
             Datasets
           </NavLink>
@@ -56,7 +61,11 @@ export function Shell({
         {token ? (
           <>
             {displayName ? (
-              <span className="hidden sm:inline-flex items-center gap-2 min-w-0 max-w-[14rem]">
+              <Link
+                to="/home"
+                className="hidden sm:inline-flex items-center gap-2 min-w-0 max-w-[14rem] hover:opacity-90"
+                title="Home"
+              >
                 {githubAvatar || githubUser ? (
                   <img
                     src={
@@ -72,7 +81,7 @@ export function Shell({
                 <span className="text-sm text-body truncate" title={githubUser || undefined}>
                   {displayName}
                 </span>
-              </span>
+              </Link>
             ) : null}
             <Button
               type="button"
