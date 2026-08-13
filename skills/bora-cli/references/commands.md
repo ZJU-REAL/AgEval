@@ -52,7 +52,9 @@ Stdout JSON (high level):
 - Per invocation (any executor): Core writes `agent/invocations/<nnnn>-*/trajectory.jsonl`
   from `bora.trajectory.event/1` (user + merged assistant/thought + tool/observation +
   terminal). Rows use `session_id` and producer `source` (not `acp_session_id`).
-  Stream chunks are not the training default; see `docs/design/05-runtime/evidence.md`.
+  `tool_call` / `observation` may carry observational `elapsed_ms` when the adapter
+  had timing; missing values are omitted. Stream chunks are not the training default;
+  see `docs/design/05-runtime/evidence.md`.
 - Docker packages use L1 path when `provider.kind: docker`. First-party coding entries
   stay on the parent ACP client + `docker exec` placement; other installed executors
   bind via `bind_to_target`.
