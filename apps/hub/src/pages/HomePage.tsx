@@ -28,7 +28,6 @@ import { getGithubUser, getToken } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 
 const RETURN_KEY = "bora-hub-return";
-const TASK_DATASET_CAP = 12;
 
 type TaskRow = { databaseId: string; taskId: string };
 
@@ -61,6 +60,7 @@ export function HomePage() {
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
   const [plugins, setPlugins] = useState<PackageRelease[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [taskNote, setTaskNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -82,24 +82,61 @@ export function HomePage() {
         setOrgs(orgRows);
         setDatasets(ds);
         setPlugins(plugs);
+        setTaskNote(null);
         setError(null);
 
-        const taskRows: TaskRow[] = [];
-        for (const row of ds.slice(0, TASK_DATASET_CAP)) {
-          try {
-            const files = await listPackageFiles(
-              row.database_id,
-              row.package_digest,
-              token,
-            );
-            for (const tid of taskIdsFromFiles(files.items)) {
-              taskRows.push({ databaseId: row.database_id, taskId: tid });
+        const listings = await Promise.all(
+          ds.map(async (row) => {
+            try {
+              const files = await listPackageFiles(
+                row.database_id,
+                row.package_digest,
+                token,
+              );
+              return {
+                ok: true as const,
+                databaseId: row.database_id,
+                ids: taskIdsFromFiles(files.items),
+              };
+            } catch {
+              return {
+                ok: false as const,
+                databaseId: row.database_id,
+                ids: [] as string[],
+              };
             }
-          } catch {
-            /* skip one dataset; still show the rest */
+          }),
+        );
+        const taskRows: TaskRow[] = [];
+        const seen = new Set<string>();
+        function addTask(databaseId: string, taskId: string) {
+          const key = `${databaseId}/${taskId}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          taskRows.push({ databaseId, taskId });
+        }
+        for (const listing of listings) {
+          for (const tid of listing.ids) addTask(listing.databaseId, tid);
+        }
+        const maintainable = new Set(ds.map((d) => d.database_id));
+        if (!taskRows.length) {
+          for (const s of suiteRows) {
+            if (!s.database_id || !maintainable.has(s.database_id)) continue;
+            for (const ref of s.task_refs || []) {
+              const tid = String(ref.task_id || "").trim();
+              if (tid) addTask(s.database_id, tid);
+            }
           }
         }
-        if (!cancelled) setTasks(taskRows);
+        const filesFailed = ds.length > 0 && listings.every((r) => !r.ok);
+        if (!cancelled) {
+          setTasks(taskRows);
+          setTaskNote(
+            filesFailed && !taskRows.length
+              ? "Could not list task members from dataset files."
+              : null,
+          );
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -159,12 +196,17 @@ export function HomePage() {
                 headers={["Suite", "Dataset", "Pass rate", "Uploaded"]}
                 rows={jobs.map((s) => ({
                   key: s.suite_run_id,
-                  onClick: () =>
-                    s.database_id
-                      ? navigate(
-                          `/datasets/${encodeDatasetId(s.database_id)}?tab=leaderboard`,
-                        )
-                      : undefined,
+                  onClick: () => {
+                    if (!s.database_id) return;
+                    const tid = (s.task_refs || []).find((r) => r.task_id)
+                      ?.task_id;
+                    const ds = `/datasets/${encodeDatasetId(s.database_id)}`;
+                    navigate(
+                      tid
+                        ? `${ds}/tasks/${encodeURIComponent(tid)}?tab=jobs`
+                        : `${ds}?tab=leaderboard`,
+                    );
+                  },
                   cells: [
                     <span key="id" className="font-mono text-xs">
                       {s.suite_run_id}
@@ -239,7 +281,9 @@ export function HomePage() {
           <HomeSection
             title="Tasks"
             hint="Members of datasets you can maintain."
-            empty="No tasks in your maintainable datasets."
+            empty={
+              taskNote || "No tasks in your maintainable datasets."
+            }
             count={tasks.length}
           >
             {tasks.length ? (
