@@ -142,7 +142,8 @@ def register(app: typer.Typer) -> None:
                 "--keep-workspace",
                 help=(
                     "L1 only: retain host l1-work/ under the run dir after cleanup "
-                    "(default: delete; debug only — never required for Hub upload)."
+                    "(default: delete; debug only — never required for Hub upload). "
+                    "Docker volumes and env containers are still removed."
                 ),
             ),
         ] = False,
