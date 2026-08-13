@@ -7,6 +7,7 @@ Core writer after this mapping.
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 from bora.evidence.schema import EVENT_SCHEMA_VERSION
@@ -173,7 +174,7 @@ def _first_elapsed_ms(*sources: Any) -> float | None:
             val = src.get(key)
             if isinstance(val, bool) or not isinstance(val, int | float):
                 continue
-            if val < 0:
+            if not math.isfinite(val) or val < 0:
                 continue
             return float(val)
     return None

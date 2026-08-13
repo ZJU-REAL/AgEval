@@ -7,6 +7,7 @@ folds those events into Viewer/Hub turn steps. Observational — never PASS.
 from __future__ import annotations
 
 import json
+import math
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -279,8 +280,8 @@ def _should_emit_observation(state: dict[str, Any]) -> bool:
 
 
 def _copy_timing(row: dict[str, Any], state: dict[str, Any]) -> None:
-    elapsed = state.get("elapsed_ms")
-    if isinstance(elapsed, int | float) and not isinstance(elapsed, bool):
+    elapsed = _coerce_elapsed_ms(state.get("elapsed_ms"))
+    if elapsed is not None:
         row["elapsed_ms"] = elapsed
     started = state.get("started_at")
     if isinstance(started, str) and started:
@@ -302,13 +303,15 @@ def _merge_timing(state: dict[str, Any], ev: dict[str, Any]) -> None:
     ended = _coerce_iso(ev.get("ended_at"))
     if ended is not None:
         state["ended_at"] = ended
+        state["ended_at_explicit"] = True
 
     at = _coerce_iso(ev.get("at"))
     if at is None:
         return
     if state.get("started_at") is None:
         state["started_at"] = at
-    state["ended_at"] = at
+    if not state.get("ended_at_explicit"):
+        state["ended_at"] = at
 
 
 def _finalize_timing(state: dict[str, Any]) -> None:
@@ -327,7 +330,7 @@ def _finalize_timing(state: dict[str, Any]) -> None:
 def _coerce_elapsed_ms(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
-    if value < 0:
+    if not math.isfinite(value) or value < 0:
         return None
     return float(value)
 

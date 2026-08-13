@@ -538,6 +538,58 @@ def test_acp_mapper_copies_vendor_elapsed_and_at(tmp_path: Path) -> None:
     assert tool["elapsed_ms"] == 1500.0
 
 
+def test_writer_keeps_explicit_ended_at_over_later_at(tmp_path: Path) -> None:
+    events = (
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 1,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": "c1",
+            "function_name": "read",
+            "started_at": "2026-08-14T12:00:00Z",
+            "at": "2026-08-14T12:00:00Z",
+        },
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 2,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "update",
+            "tool_call_id": "c1",
+            "status": "completed",
+            "content": "body",
+            "ended_at": "2026-08-14T12:00:01Z",
+            "at": "2026-08-14T12:00:03Z",
+        },
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    tool = next(x for x in _read_lines(path) if x["type"] == "tool_call")
+    assert tool["ended_at"] == "2026-08-14T12:00:01Z"
+    assert tool["elapsed_ms"] == 1000.0
+
+
+def test_writer_drops_nonfinite_elapsed_ms(tmp_path: Path) -> None:
+    events = (
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 1,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "update",
+            "tool_call_id": "c1",
+            "function_name": "read",
+            "status": "completed",
+            "content": "x",
+            "elapsed_ms": float("inf"),
+        },
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    tool = next(x for x in _read_lines(path) if x["type"] == "tool_call")
+    assert "elapsed_ms" not in tool
+
+
 def test_writer_drops_invalid_timing(tmp_path: Path) -> None:
     events = (
         {
