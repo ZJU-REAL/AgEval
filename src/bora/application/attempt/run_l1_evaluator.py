@@ -71,7 +71,7 @@ def run_clean_evaluator_container(
     try:
         proc = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=90)
     except subprocess.TimeoutExpired:
-        subprocess.run(["docker", "rm", "-f", name], check=False, capture_output=True)
+        subprocess.run(["docker", "rm", "-fv", name], check=False, capture_output=True)
         return (
             {"status": "ERROR", "score": None, "metrics": {"error": "timeout"}},
             {"ok": False, "writer_stop_confirmed": True, "package_mounted": False},

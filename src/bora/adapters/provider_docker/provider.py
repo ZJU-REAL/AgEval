@@ -173,7 +173,7 @@ class DockerProvider(DockerMultiActorMixin):
 
         def _rm_force() -> str | None:
             subprocess.run(
-                ["docker", "rm", "-f", name], check=False, capture_output=True, text=True
+                ["docker", "rm", "-fv", name], check=False, capture_output=True, text=True
             )
             return "docker_rm_force"
 

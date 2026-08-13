@@ -51,7 +51,7 @@ class DockerMultiActorMixin:
 
         ledger = TargetLedger(topology=topology)
         net = network_mode or topology.network
-        created: list[str] = []
+        created: list[ExecutionTarget] = []
 
         try:
             if topology.mode == IsolationMode.SHARED_CONTAINER:
@@ -65,7 +65,7 @@ class DockerMultiActorMixin:
                     generation=1,
                     isolation_mode=IsolationMode.SHARED_CONTAINER,
                 )
-                created.append(target.container_id or "")
+                created.append(target)
                 ledger.targets[target.target_id] = target
                 shared_gid = _SHARED_GID_BASE
                 bindings: list[ActorPhysicalBinding] = []
@@ -101,7 +101,7 @@ class DockerMultiActorMixin:
                         generation=1,
                         isolation_mode=IsolationMode.CONTAINER_PER_GROUP,
                     )
-                    created.append(target.container_id or "")
+                    created.append(target)
                     ledger.targets[target.target_id] = target
                     shared_gid = _SHARED_GID_BASE + gidx
                     group_bindings: list[ActorPhysicalBinding] = []
@@ -135,7 +135,7 @@ class DockerMultiActorMixin:
                     )
 
             runtime.target_ledger = ledger
-            runtime.agent_container_ids = [c for c in created if c]
+            runtime.agent_container_ids = [t.container_id for t in created if t.container_id]
             for cid in runtime.agent_container_ids:
                 runtime.register_writer(f"agent_target:{cid[:12]}")
             # Public mount inventory (no host paths / docker ids).
@@ -144,14 +144,9 @@ class DockerMultiActorMixin:
             )
             return ledger
         except Exception:
-            # Partial prepare: reverse cleanup before Harness start.
-            for cid in reversed(created):
-                if cid:
-                    subprocess.run(
-                        ["docker", "rm", "-f", cid],
-                        check=False,
-                        capture_output=True,
-                    )
+            # Partial prepare: drop containers and Attempt-owned volumes.
+            for target in reversed(created):
+                self._rm_target(target)
             raise
 
     def stop_agent_targets(self, runtime: DockerRuntime) -> None:
@@ -166,7 +161,7 @@ class DockerMultiActorMixin:
                 self._rm_target_volumes(target)
                 continue
             kill = subprocess.run(
-                ["docker", "rm", "-f", cid],
+                ["docker", "rm", "-fv", cid],
                 check=False,
                 capture_output=True,
             )
@@ -184,6 +179,20 @@ class DockerMultiActorMixin:
             target.container_id = None
             self._rm_target_volumes(target)
         runtime.agent_container_ids.clear()
+
+    @classmethod
+    def _rm_target(cls, target: ExecutionTarget) -> None:
+        cid = target.container_id
+        if cid:
+            subprocess.run(
+                ["docker", "rm", "-fv", cid],
+                check=False,
+                capture_output=True,
+            )
+            target.container_id = None
+        cls._rm_target_volumes(target)
+        if target.state != "cleaned":
+            target.state = "dead"
 
     @staticmethod
     def _rm_target_volumes(target: ExecutionTarget) -> None:
@@ -207,14 +216,8 @@ class DockerMultiActorMixin:
         t = runtime.target_ledger.targets.get(target_id)
         if t is None:
             return
-        if t.container_id:
-            subprocess.run(
-                ["docker", "rm", "-f", t.container_id],
-                check=False,
-                capture_output=True,
-            )
+        self._rm_target(t)
         t.state = "dead"
-        t.container_id = None
 
     def _start_long_lived_target(
         self,

@@ -8,8 +8,8 @@ import re
 import shlex
 import subprocess
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from bora.adapters.provider_docker.errors import ProviderL1Error
 from bora.adapters.provider_docker.types import DockerImageLock

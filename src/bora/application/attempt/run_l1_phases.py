@@ -492,6 +492,11 @@ def bind_l1_result(ctx: AttemptStageContext) -> None:
 
 
 def cleanup_l1(ctx: AttemptStageContext) -> None:
+    from bora.application.attempt.run_command_environment import (
+        teardown_attempt_environment,
+    )
+
+    teardown_attempt_environment(ctx)
     _l1_host_cleanup(
         ctx.docker,
         ctx.runtime,

@@ -7,6 +7,7 @@ interpret free-form command dict rows.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +16,8 @@ from typing import Any
 from bora.config.model import thaw
 from bora.evaluation.result_binding import FlatResult, bind_result
 from bora.evidence.store import AttemptEvidenceStore
+
+ENV_CONTAINER_MARKER = "env_container_name.txt"
 
 
 def split_sql_statements(sql_text: str) -> list[str]:
@@ -89,6 +92,7 @@ def prepare_postgresql_environment(
         # Resource-type handoff only: container locator for package Tools.
         # No Benchmark/task/domain branch; package may ship environment/seed.sql.
         container = rid.split(":", 1)[-1] if ":" in rid else rid
+        (run_dir / ENV_CONTAINER_MARKER).write_text(f"{container}\n", encoding="utf-8")
         seed_file = package_root / "environment" / "seed.sql"
         seed_applied = False
         if seed_file.is_file():
@@ -222,8 +226,6 @@ def prepare_postgresql_environment(
 
         write_attempt_result(run_dir, summary)
         if env_manager is not None:
-            import contextlib
-
             with contextlib.suppress(Exception):
                 env_manager.close()
         return (
@@ -233,3 +235,53 @@ def prepare_postgresql_environment(
             (2, flat, {"environment": env_meta, "assurance": "l0"}),
         )
     return env_manager, evidence_store, env_meta, None
+
+
+def teardown_attempt_environment(ctx: Any) -> None:
+    """Stop env resources on every terminal path (success, failure, cancel).
+
+    ``--keep-workspace`` does not retain Docker volumes or env containers.
+    """
+    if getattr(ctx, "env_manager", None) is not None:
+        with contextlib.suppress(Exception):
+            from bora.application.attempt.extension_hooks import hook_env_teardown
+
+            attempt = getattr(ctx, "attempt", None)
+            td_ctx = SimpleNamespace(
+                attempt_id=str(
+                    (ctx.agent_meta or {}).get("attempt_id")
+                    or (attempt.value if attempt is not None else "")
+                ),
+                package_root=ctx.package_root,
+                workdir=ctx.package_root,
+                run_dir=ctx.run_dir,
+                env_manager=ctx.env_manager,
+                resource_id=(ctx.agent_meta.get("environment") or {}).get("resource_id"),
+            )
+            hook_env_teardown(
+                ctx.lock,
+                ctx.agent_meta.get("environment") or {"phase": "teardown"},
+                ctx=td_ctx,
+            )
+        with contextlib.suppress(Exception):
+            ctx.env_manager.close()
+        ctx.env_manager = None
+    marker = ctx.run_dir / ENV_CONTAINER_MARKER
+    if marker.is_file():
+        try:
+            from bora.adapters.environment_postgres import PostgresEnvironment
+
+            name = marker.read_text(encoding="utf-8").strip()
+            if name:
+                PostgresEnvironment(container_name=name).stop()
+        except Exception:
+            pass
+        with contextlib.suppress(OSError):
+            marker.unlink()
+    for handoff in (
+        ctx.package_root / ".bora_env_result.json",
+        ctx.run_dir / "env_manager.json",
+    ):
+        if handoff.exists():
+            with contextlib.suppress(OSError):
+                handoff.unlink()
