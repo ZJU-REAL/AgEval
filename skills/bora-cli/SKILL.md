@@ -83,7 +83,7 @@ options:
 Do **not** hardcode a fixed list; inventory is authoritative. Do **not** use
 `executor: codex|pi|opencode|claude-code` (migrated to ACP entry).
 
-Installed plugins (e.g. `nooa`) appear as additional `executor:` values after
+Installed plugins (e.g. `nooa`, `dsh`) appear as additional `executor:` values after
 `bora plugin install` — still selected only via profiles / `--set` bindings.
 
 ### Plugin install (local cache only)
@@ -212,6 +212,7 @@ Must not PASS agent packages. Typed errors only.
 | L1 SDK session               | `uv run bora run examples/l1 --task sdk-session-single-actor`                                                                                  |
 | L1 isolation contracts       | Provider tests: `uv run pytest tests/provider_l1/test_harness_isolation_contracts.py tests/provider_l1/test_filtered_mount.py -q`              |
 | nooa plugin (L1)             | `bora plugin install plugins/nooa` then `bora run examples/journeys --task terminal-jsonl-agg --profiles examples/journeys/profiles.nooa.yaml` |
+| dsh plugin (L1)              | `bora plugin install plugins/dsh` then `bora run examples/journeys --task terminal-jsonl-agg --profiles examples/journeys/profiles.dsh.yaml`   |
 
 ## Detail
 

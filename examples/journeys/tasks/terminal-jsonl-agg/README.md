@@ -26,5 +26,18 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 Requires `bora-attempt:l1` image with ACP entries baked in, host credentials for
 the chosen entry, and Docker.
 
+## dsh plugin (optional)
+
+Same harness; bind DeepSeek Harness via an alternate profiles file (not ACP):
+
+```bash
+uv run bora plugin install plugins/dsh
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.dsh.yaml
+```
+
+Needs locator `deepseek_api_key` in repo `.env`. L1 bake installs
+`deepseek-harness-sdk` in the Attempt image.
+
 `BORA_L1_USE_SOLUTION=1` seeds `solution/*` into the Attempt workspace for L1
 isolation smoke only — **not** the real Agent acceptance path for this journey.

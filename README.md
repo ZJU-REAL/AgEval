@@ -77,6 +77,7 @@ uv run bora executors -v
 
 # Mechanism plugins
 # uv run bora plugin install plugins/nooa
+# uv run bora plugin install plugins/dsh
 # uv run bora plugin list
 
 # Dataset draft → immutable release (Registry login + --org required)

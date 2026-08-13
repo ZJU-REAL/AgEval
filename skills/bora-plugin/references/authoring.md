@@ -1,7 +1,8 @@
 # Author a `bora.plugin/1`
 
-Reference implementations: `plugins/nooa` (real executor), `plugins/slot-probe`
-(multi-slot probe — not a business template).
+Reference implementations: `plugins/nooa` (real executor), `plugins/dsh`
+(DeepSeek Harness JSON-RPC, not ACP), `plugins/slot-probe` (multi-slot probe —
+not a business template).
 
 - [Package layout](#package-layout)
 - [ExecutorSPI](#executorspi)

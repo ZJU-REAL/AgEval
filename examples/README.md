@@ -74,6 +74,21 @@ Package agents under each task’s `lib/agents.py` are `nooa.Agent` subclasses
 (generation methods). L1 Ready bakes `nooa` + in-container worker and projects
 credentials — not parent host SPI success.
 
+### External dsh plugin (optional profiles)
+
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) path: official
+JSON-RPC SDK (`deepseek-harness-sdk`), not ACP. Same journeys harness; bind
+`executor: dsh` + `model` + locator `deepseek_api_key`. L1 bake installs the
+wheels in the Attempt image — host `--extra dsh` is only for L0 host SPI.
+
+```bash
+uv run bora plugin install plugins/dsh
+# repo/.env: deepseek_api_key (projected as DEEPSEEK_API_KEY)
+unset BORA_OFFLINE_AGENT
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.dsh.yaml
+```
+
 ## `slot-probe/` (`database_id: example/slot-probe`)
 
 Multi-slot extension e2e (not a default public smoke). Requires:

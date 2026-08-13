@@ -77,6 +77,7 @@ uv run bora executors -v
 
 # 机制插件
 # uv run bora plugin install plugins/nooa
+# uv run bora plugin install plugins/dsh
 # uv run bora plugin list
 
 # Dataset draft → 不可变 release（需 Registry 登录 + --org）

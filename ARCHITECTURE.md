@@ -153,12 +153,13 @@ BORA/
 │   ├── store.py               # 一份 MetadataStore + 薄 Postgres 适配
 │   └── routes.py              # ROUTES 必须声明 access；skip_auth 仅 access=none
 ├── examples/                  # 见 examples/README.md
-│   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa）
+│   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa / profiles.dsh）
 │   ├── core/                  # config / harness / eval / agent / SDK
 │   ├── l1/                    # Provider L1 isolation probes
 │   └── slot-probe/            # multi-slot 插件 e2e（需 bora plugin install）
 ├── plugins/                   # 外置 bora.plugin/1 示例（不进 Core contrib）
 │   ├── nooa/                  # executor provide + image_contribute Ready
+│   ├── dsh/                   # DeepSeek Harness JSON-RPC executor + bake
 │   └── slot-probe/            # multi 钩子可观测探针
 ├── tests/
 │   ├── acceptance/
