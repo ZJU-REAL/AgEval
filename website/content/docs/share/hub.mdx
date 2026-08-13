@@ -61,8 +61,8 @@ Jobs 列表里，已有运行产物的行可以点进去看；没上传的会显
 
 | 你想看 | 需要上传 | 怎么跑 / 传 |
 | --- | --- | --- |
-| Dataset **Leaderboard** 一行 | **suite** 结果 | 省略 `--task` 的 `bora run` → `bora results upload-suite --suite-run <id>` |
-| Task **Jobs** 可点开 Attempt / 轨迹 | suite + **attempt 证据** | `upload-suite --with-attempts`（或等价挂上 task_refs 的 attempt） |
+| Dataset **Leaderboard** 一行 | **完备**且绑定 **release** 的 suite | 先 `bora publish --draft` 再 `bora release`（或直接 `bora publish`）→ 省略 `--task` 的 `bora run` → `upload-suite --suite-run <id>` |
+| Task **Jobs** 可点开 Attempt / 轨迹 | suite + **attempt 证据** | `upload-suite --with-attempts`（或等价挂上 task_refs 的 attempt）；缺题 / draft 绑定也只出现在这里 |
 | 只归档一次 Attempt | `bora results upload --run <run_id>` | 可以进 Registry，但 **通常不会**出现在 Leaderboard |
 
 ```bash
@@ -70,7 +70,7 @@ Jobs 列表里，已有运行产物的行可以点进去看；没上传的会显
 uv run bora run <database> --profiles <profiles.yaml>
 uv run bora results upload-suite <database> --suite-run <8-hex> --public --with-attempts
 
-# 不够：单题 attempt upload  alone → 榜上经常空白
+# 不够：单题 attempt upload 单独上传 → 榜上经常空白
 # uv run bora run <database> --task <id>
 # uv run bora results upload <database> --run <run_id>
 ```

@@ -23,8 +23,8 @@ Agent benchmarks usually score the model and leave the **harness**—orchestrati
 - **Drop an existing harness into a shared boundary** — keep your workflow; the outer layer unifies config lock, isolation (host / Docker), visibility, and independent scoring for cross-framework reproduction
 - **Batch a full Dataset or a parameter matrix** — run every task in a suite, or campaign over allowlisted overrides such as seed / profile
 - **Aggregate suite scores and archive job results** — suite runs write observational `pass_rate` / `mean_score`; push them to the Registry when you need a shared results store
-- **Browse local suite runs in a Web UI** — `bora view` opens Jobs → Tasks → Attempt over `.bora/suite-runs/`; drill into a run for Trajectory, multi-role Time/Usage, and optional provenance links
-- **Share packages and results on Registry / Hub** — publish under an organization, invite members, share private results; browse remote jobs in the Hub when they are uploaded
+- **Browse local runs in a Web UI** — `bora view` opens Jobs → Tasks → Attempt for suite jobs and single-task Attempts in the opened Database; drill into a run for Trajectory, multi-role Time/Usage, and optional provenance links
+- **Share packages and results on Registry / Hub** — upload a Dataset draft then `bora release`, or publish a release directly; invite members; share private results. Public Leaderboard lists complete, release-bound suite runs; incomplete or draft-bound rows stay on Jobs
 - **Review and export trajectories** — each invoke lands on disk; `bora evidence` exports a sealed copy for failure analysis or training pipelines
 
 ---
@@ -70,6 +70,7 @@ uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 
 # Local results console (build SPA once: cd apps/viewer && pnpm build)
 uv run bora view examples/core --no-browser
+# uv run bora view examples/core --dev --open /jobs/<id>
 
 # List executor kinds / ACP entries ready on this host
 uv run bora executors -v
@@ -77,6 +78,10 @@ uv run bora executors -v
 # Mechanism plugins
 # uv run bora plugin install plugins/nooa
 # uv run bora plugin list
+
+# Dataset draft → immutable release (Registry login + --org required)
+# uv run bora publish <dataset> --org <org> --draft
+# uv run bora release <org/dataset>
 ```
 
 ### Let a coding agent drive it

@@ -1,16 +1,18 @@
 ---
 name: bora-cli
 description: >
-  Operate BORA public CLI (bora lock/run/plugin/executors/campaign/evidence/status/submit/cancel):
+  Operate BORA public CLI (bora lock/run/plugin/view/publish/release/executors/campaign/evidence/status/submit/cancel):
   install with uv, command flags, allowlisted --set pointers, exit codes, Result.logs
   trajectory locator, offline fail-closed (BORA_OFFLINE_AGENT), list supported executor
-  kinds and ACP entry readiness, plugin install/list/uninstall, and which example packages
-  to run. Use when the agent must lock a package, run an Attempt, list executor / entry
-  values, install a bora.plugin/1, export trajectory, upload suite results for Hub, interpret
-  PASS/FAIL/ERROR, debug CLI output, or choose a public smoke. Trigger phrases: "bora run",
-  "bora lock", "bora plugin", "bora executors", "upload-suite", "Hub Leaderboard",
-  "which executor", "ACP entry", "export trajectory", "Result.logs", "exit code",
-  "offline agent", "switch profile", "install nooa".
+  kinds and ACP entry readiness, plugin install/list/uninstall, dataset draft/release,
+  and which example packages to run. Use when the agent must lock a package, run an
+  Attempt, list executor / entry values, install a bora.plugin/1, open local Jobs,
+  export trajectory, upload suite results for Hub, interpret PASS/FAIL/ERROR, debug
+  CLI output, or choose a public smoke. Trigger phrases: "bora run", "bora lock",
+  "bora plugin", "bora view", "bora publish", "bora release", "bora executors",
+  "upload-suite", "Hub Leaderboard", "which executor", "ACP entry", "export trajectory",
+  "Result.logs", "exit code", "offline agent", "switch profile", "install nooa",
+  "draft slot".
   Do not invent flags not in production.
 ---
 
@@ -50,7 +52,9 @@ uv run bora --help
 | `bora results delete\|set-visibility … --kind attempt\|suite` | Owner delete (`--yes`) or flip visibility after upload                       |
 | `bora results share\|unshare …`                               | Grant / revoke private result access (owner only)                            |
 | `bora results export-profiles <suite_run_id> --out …`         | Rehydrate job binding as profiles.yaml (locators only)                       |
-| `bora publish … --org … [--replace]`                          | Package publish; replace same version is org-owner only                      |
+| `bora view <database> [--dev] [--open …]`                     | Local Jobs UI (no Registry). `--dev` starts Vite when possible; `--open` deep-links a job/task/run |
+| `bora publish … --org … [--draft] [--replace]`                | Package publish; `--draft` overwrites the draft slot; `--replace` is org-owner only |
+| `bora release <database_id>`                                  | Owner: promote the current dataset draft to an immutable version             |
 | `bora registry delete\|set-visibility <id@ver>`               | Org-owner package delete (`--yes`) / visibility flip                         |
 | `bora submit` / `bora status` / `bora cancel`                 | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`) |
 
@@ -158,7 +162,7 @@ Value after `=` is JSON (strings need quotes):
 | What you did                                                                           | Registry                                        | Hub Leaderboard / Task Jobs                                    |
 | -------------------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------- |
 | `bora run … --task X` then `bora results upload … --run <run_id>`                      | Attempt row exists (`suite_run_id` often empty) | **Usually invisible** as a leaderboard / Jobs row              |
-| `bora run <database>` (omit `--task`) → `bora results upload-suite … --suite-run <id>` | Suite row + metrics + task_refs                 | **Visible** on Leaderboard; Tasks → Jobs list suite membership |
+| `bora run <database>` (omit `--task`) → `bora results upload-suite … --suite-run <id>` | Suite row + metrics + task_refs                 | **Leaderboard** only if **complete** and bound to a **release**; Task Jobs list every visible suite (including incomplete / draft-bound) |
 | `upload-suite … --with-attempts`                                                       | Also packs each attempt under task_refs         | Task Jobs can **deep-link** Attempt detail / trajectory        |
 
 **Do this when the goal is “show on Hub”:**
@@ -183,6 +187,7 @@ Also:
 
 - Hub must point at the **same** Registry URL as `~/.bora/credentials` (local dev often `http://127.0.0.1:8700` + Hub `VITE_REGISTRY_PROXY_TARGET`).
 - `bora results upload` remains valid for archiving a single Attempt / deep-link when you already know `run_id`; it is **not** a substitute for `upload-suite` for Leaderboard.
+- Public Leaderboard further requires a **complete** suite (every task on the bound version has a result; FAIL / ERROR still count) bound to a **release**. `bora publish --draft` then `bora release` (or a direct `bora publish` release) before expecting a board row. Draft-bound and incomplete suites stay on Jobs.
 - Suite metrics (`pass_rate`, pass@k, …) are **observational** — not suite-level PASS.
 
 ## Offline / fail-closed

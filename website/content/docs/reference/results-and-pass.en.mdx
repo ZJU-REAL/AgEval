@@ -63,10 +63,10 @@ These are **observational aggregates**, not suite-level PASS.
 | Upload command | Artifact | Hub primary UI |
 | --- | --- | --- |
 | `bora results upload --run …` | Single Attempt | **Usually not** on Dataset Leaderboard / Task Jobs |
-| `bora results upload-suite --suite-run …` | Suite row + metrics / task_refs | **Leaderboard** row; Task Jobs under that suite |
+| `bora results upload-suite --suite-run …` | Suite row + metrics / task_refs | **Leaderboard** only when complete and release-bound; incomplete or draft-bound rows stay on Task Jobs |
 | `… --with-attempts` | Also packs attempt dirs | Jobs can open Attempt detail / trajectory |
 
-So: to show a package run on Hub, use **suite run → upload-suite**, not attempt-only upload. See [Suite](/docs/run/suite) and [Hub](/docs/share/hub).
+So: to show a package run on the public board, use **suite run → upload-suite** against a published release, not attempt-only upload. See [Suite](/docs/run/suite) and [Hub](/docs/share/hub).
 
 ## Browse
 
