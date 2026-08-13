@@ -143,7 +143,7 @@ BORA/
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── apps/
 │   ├── viewer/                # 本地 `bora view` SPA（Jobs → Trial；非 Registry）
-│   └── hub/                   # Registry Dataset / Plugin marketplace / Leaderboard SPA
+│   └── hub/                   # Registry Dataset / Plugin / Home / Leaderboard SPA
 ├── services/registry/         # 独立 HTTP：Route.access + _dispatch 强制策略
 │   ├── app.py                 # Handler 是 HTTP adapter（读 body → *Service → JSON）
 │   ├── auth_service.py / package_service.py / result_service.py / org_service.py
@@ -165,7 +165,7 @@ BORA/
 │   ├── config/
 │   ├── plugins/               # registry / lock bindings / slot wiring / CLI lifecycle
 │   └── test_package_baseline.py
-├── docs/                      # 设计权威（00–11）
+├── docs/                      # 设计权威（00–12）
 └── website/                   # 读者向文档站（Fumadocs；非设计权威）
 ```
 

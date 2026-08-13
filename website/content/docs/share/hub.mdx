@@ -13,7 +13,10 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - Task 下的 **Jobs**：已上传运行产物时可点进详情（界面与本机 Viewer 相近，含轨迹）  
 - Dataset 版本切换：有权限的人能看到 **draft (current)**，其他人只能切已发布 release  
 - Tasks 表：README 是否存在、近期 job 数、最近一次分数/状态  
-- Leaderboard：只列出**完备且绑定 release** 的 suite；缺题结果与 draft 绑定跑次不上榜，仍出现在 Task **Jobs**。可点表头排序；观测指标，非 suite PASS  
+- Leaderboard：只列出**完备且绑定 release** 的 suite；缺题结果与 draft 绑定跑次不上榜，仍出现在 Task **Jobs**。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）  
+- 插件详情：L0–L5 **声明槽**时间线，点开跳到包内文件预览；浏览器不执行插件  
+- 登录后的 **Home**：你上传的 Jobs、组织、可维护 Dataset / Task、你上传的插件。未登录会去登录页。无 publish / upload / release 按钮  
+- 列表搜索与 **Your organizations | Explore** 同一行；文件树分栏高度固定；轨迹里 tool-call 可折叠  
 
 - **用 GitHub 登录**（浏览器 OAuth；CLI 仍是 Device Flow）
 
@@ -32,9 +35,12 @@ pnpm dev   # http://127.0.0.1:5174
 
 | 路径 | 页面 |
 | --- | --- |
+| `/home` | 个人主页（需登录） |
 | `/datasets` | 列表（Your organizations / Explore） |
 | `/datasets/:id` | README · Tasks · Shared（有 shared/ 时）· Leaderboard |
 | `/datasets/:id/tasks/:task` | README · Files（Local \| Shared）· Jobs |
+| `/plugins` | 插件 marketplace |
+| `/plugins/:id` | 插件详情（声明槽时间线 · 文件预览 · CLI 安装命令） |
 | `/organizations` | 我的组织 · 加入组织 |
 | `/organizations/:orgId` | 概览 · 设置 |
 | `/jobs/...` | 远程 Attempt 详情（需已上传对应运行产物） |

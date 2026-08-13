@@ -55,12 +55,13 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 
 | Path | Page |
 | --- | --- |
-| `/datasets` | Dataset list (**Your organizations** / **Explore**) |
+| `/home` | Personal home (uploaded jobs, orgs, maintainable datasets/tasks, uploaded plugins) |
+| `/datasets` | Dataset list (**Your organizations** / **Explore** + search on one row) |
 | `/datasets/:id` | README · Tasks · Leaderboard |
-| `/datasets/:id?tab=leaderboard&demo=1` | Leaderboard with mock pass@k rows (local smoke only, #60) |
+| `/datasets/:id?tab=leaderboard&demo=1` | Leaderboard with mock pass@k rows (local smoke only) |
 | `/datasets/:id/tasks/:task` | README · Files · Jobs (row opens detail when uploaded) |
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
-| `/plugins/:id` | Plugin detail (badge · slots · files · CLI install) |
+| `/plugins/:id` | Plugin detail (declared L0–L5 timeline · files · CLI install) |
 | `/organizations` | Your orgs · Join |
 | `/organizations/:orgId` | Overview · Settings |
 | `/jobs/...` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |
