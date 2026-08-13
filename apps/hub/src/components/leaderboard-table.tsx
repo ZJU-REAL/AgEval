@@ -1,5 +1,5 @@
 import { Check, Copy } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,13 @@ import {
 } from "@/components/ui/table";
 import {
   encodeDatasetId,
+  latestPackageByDatabase,
+  listPackages,
   pluginsUsedBySuite,
+  type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { CodeHighlight } from "@/lib/code-highlight";
 import {
@@ -211,14 +215,32 @@ type ExpandTab = "profiles" | "plugin";
 export function LeaderboardTable({
   suites,
   databaseId,
+  orgId,
 }: {
   suites: SuiteRow[];
   databaseId: string;
+  /** Dataset owning org — used to pick `my-lab/nooa` over another org's copy. */
+  orgId?: string | null;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandTab, setExpandTab] = useState<ExpandTab>("profiles");
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pluginCatalog, setPluginCatalog] = useState<PackageRelease[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listPackages(getToken(), { packageKind: "plugin" })
+      .then((items) => {
+        if (!cancelled) setPluginCatalog(latestPackageByDatabase(items));
+      })
+      .catch(() => {
+        if (!cancelled) setPluginCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function toggleRow(id: string) {
     setOpenId((cur) => {
@@ -350,7 +372,7 @@ export function LeaderboardTable({
               const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
               const open = openId === s.suite_run_id;
               const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
-              const plugins = pluginsUsedBySuite(s);
+              const plugins = pluginsUsedBySuite(s, pluginCatalog, orgId);
               const rehydrateScript = [
                 "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
                 `bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,

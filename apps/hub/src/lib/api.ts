@@ -680,8 +680,48 @@ export function sharedFilesStats(items: FileItem[]): {
   return { fileCount, totalBytes };
 }
 
+/**
+ * Suite rows store the local plugin.yaml id (`nooa`). Marketplace routes use
+ * the Registry package id (`my-lab/nooa`). Map when a catalog is available.
+ */
+export function resolveMarketplacePluginId(
+  pluginId: string,
+  catalog: PackageRelease[],
+  preferredOrgId?: string | null,
+): string {
+  const id = pluginId.trim();
+  if (!id) return id;
+  if (catalog.some((p) => p.database_id === id)) return id;
+
+  const previewHits = catalog.filter((p) => p.plugin_preview?.plugin_id === id);
+  const suffixHits = catalog.filter((p) => {
+    const db = p.database_id;
+    return db === id || db.endsWith(`/${id}`);
+  });
+
+  const pick = (rows: PackageRelease[]): PackageRelease | undefined => {
+    if (!rows.length) return undefined;
+    if (preferredOrgId) {
+      const org = preferredOrgId;
+      const hit = rows.find(
+        (p) => p.org_id === org || p.database_id.startsWith(`${org}/`),
+      );
+      if (hit) return hit;
+    }
+    return rows[0];
+  };
+
+  return (
+    pick(previewHits)?.database_id ?? pick(suffixHits)?.database_id ?? id
+  );
+}
+
 /** Marketplace plugins for a suite row (stored list, else executor inference). */
-export function pluginsUsedBySuite(suite: SuiteRow): SuitePluginRef[] {
+export function pluginsUsedBySuite(
+  suite: SuiteRow,
+  catalog: PackageRelease[] = [],
+  preferredOrgId?: string | null,
+): SuitePluginRef[] {
   const stored = Array.isArray(suite.plugins) ? suite.plugins : [];
   const fromStore: SuitePluginRef[] = [];
   const seen = new Set<string>();
@@ -692,8 +732,17 @@ export function pluginsUsedBySuite(suite: SuiteRow): SuitePluginRef[] {
       continue;
     }
     seen.add(key);
+    const marketplaceId = resolveMarketplacePluginId(
+      id,
+      catalog,
+      preferredOrgId,
+    );
     const version = String(raw.version || "").trim();
-    fromStore.push(version ? { plugin_id: id, version } : { plugin_id: id });
+    fromStore.push(
+      version
+        ? { plugin_id: marketplaceId, version }
+        : { plugin_id: marketplaceId },
+    );
   }
   if (fromStore.length) return fromStore;
   const bindings = suite.job_overlay?.bindings;
@@ -705,7 +754,9 @@ export function pluginsUsedBySuite(suite: SuiteRow): SuitePluginRef[] {
       continue;
     }
     seen.add(key);
-    fromStore.push({ plugin_id: exec });
+    fromStore.push({
+      plugin_id: resolveMarketplacePluginId(exec, catalog, preferredOrgId),
+    });
   }
   return fromStore;
 }
