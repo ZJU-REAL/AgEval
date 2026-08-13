@@ -687,10 +687,11 @@ export function pluginsUsedBySuite(suite: SuiteRow): SuitePluginRef[] {
   const seen = new Set<string>();
   for (const raw of stored) {
     const id = String(raw?.plugin_id || "").trim();
-    if (!id || seen.has(id) || BUILTIN_EXECUTOR_KINDS.has(id) || id === "default") {
+    const key = id.toLowerCase();
+    if (!id || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {
       continue;
     }
-    seen.add(id);
+    seen.add(key);
     const version = String(raw.version || "").trim();
     fromStore.push(version ? { plugin_id: id, version } : { plugin_id: id });
   }
@@ -699,8 +700,11 @@ export function pluginsUsedBySuite(suite: SuiteRow): SuitePluginRef[] {
   if (!bindings || typeof bindings !== "object") return [];
   for (const raw of Object.values(bindings)) {
     const exec = String(raw?.executor || "").trim();
-    if (!exec || seen.has(exec) || BUILTIN_EXECUTOR_KINDS.has(exec)) continue;
-    seen.add(exec);
+    const key = exec.toLowerCase();
+    if (!exec || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {
+      continue;
+    }
+    seen.add(key);
     fromStore.push({ plugin_id: exec });
   }
   return fromStore;

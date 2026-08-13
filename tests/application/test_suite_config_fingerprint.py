@@ -252,6 +252,8 @@ def test_plugins_from_job_overlay_skips_builtin_executors() -> None:
         "bindings": {
             "solver": {"executor": "nooa", "model": "m"},
             "user": {"executor": "acp", "options": {"entry": "codex"}},
+            "alt": {"executor": "ACP"},
+            "http": {"executor": "OpenAI-HTTP"},
         }
     }
     refs = plugins_from_job_overlay(overlay)

@@ -126,7 +126,7 @@ def fingerprint_for_actors(actors: Sequence[Mapping[str, str]]) -> str:
 
 def _plugin_ref(plugin_id: str, version: str | None = None) -> dict[str, str] | None:
     pid = plugin_id.strip()
-    if not pid or pid in _SKIP_PLUGIN_IDS:
+    if not pid or pid.casefold() in _SKIP_PLUGIN_IDS:
         return None
     row = {"plugin_id": pid}
     if version is not None and str(version).strip():
@@ -190,7 +190,7 @@ def plugins_from_job_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str
         if not isinstance(executor, str):
             continue
         kind = executor.strip()
-        if not kind or kind in _BUILTIN_EXECUTOR_KINDS:
+        if not kind or kind.casefold() in _BUILTIN_EXECUTOR_KINDS:
             continue
         ref = _plugin_ref(kind)
         if ref is not None:

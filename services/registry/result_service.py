@@ -308,9 +308,10 @@ class ResultService:
                 if not isinstance(item, dict):
                     continue
                 pid = str(item.get("plugin_id") or "").strip()
-                if not pid or pid in seen or pid in {"default", "acp", "openai-http"}:
+                key = pid.casefold()
+                if not pid or key in seen or key in {"default", "acp", "openai-http"}:
                     continue
-                seen.add(pid)
+                seen.add(key)
                 row = {"plugin_id": pid}
                 ver = str(item.get("version") or "").strip()
                 if ver:
