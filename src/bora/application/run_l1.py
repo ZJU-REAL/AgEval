@@ -28,6 +28,7 @@ from bora.application.run_l1_prepare import (
     seed_l1_workspace,
 )
 from bora.evidence.locators import portable_run_locator
+from bora.runtime.identity import AttemptIdentity
 
 
 def _database_root_for_run(run_dir: Path) -> Path | None:
@@ -89,6 +90,7 @@ async def run_l1_attempt(
     agent_meta: dict[str, Any],
     allow_offline_agent: bool,
     keep_workspace: bool = False,
+    attempt: AttemptIdentity | None = None,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     """Dispatch L1 SDK session path when agent_profiles is non-empty.
 
@@ -109,6 +111,7 @@ async def run_l1_attempt(
             agent_meta=agent_meta,
             allow_offline_agent=allow_offline_agent,
             keep_workspace=keep_workspace,
+            attempt=attempt,
         )
 
     return l1_error_result(
@@ -129,6 +132,7 @@ async def run_l1_sdk_session_attempt(
     agent_meta: dict[str, Any],
     allow_offline_agent: bool,
     keep_workspace: bool = False,
+    attempt: AttemptIdentity | None = None,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     """L1 multi-actor SDK path: ParentAgentService → docker exec targets.
 
@@ -149,6 +153,10 @@ async def run_l1_sdk_session_attempt(
     from bora.evidence.store import AttemptEvidenceStore
     from bora.provider.isolation import parse_logical_topology
     from bora.runtime.agent_service_protocol import AgentServiceServer
+    from bora.runtime.identity import assert_same_attempt
+
+    if attempt is None:
+        raise TypeError("run_l1_sdk_session_attempt requires the caller-owned Attempt identity")
 
     package_root = package_root.resolve()
     timer = PhaseTimer()
@@ -191,7 +199,11 @@ async def run_l1_sdk_session_attempt(
     with timer.phase("prepare"):
         try:
             docker, runtime, l1_meta = prepare_l1_runtime(
-                package_root, lock, run_dir, network_mode=network_mode
+                package_root,
+                lock,
+                run_dir,
+                attempt=attempt,
+                network_mode=network_mode,
             )
         except Exception as exc:  # noqa: BLE001 — bake / contribute / docker prepare
             msg = str(exc)
@@ -211,6 +223,7 @@ async def run_l1_sdk_session_attempt(
             )
         assert runtime.workdir_host is not None
         assert runtime.attempt is not None
+        assert_same_attempt(attempt, runtime.attempt)
 
         workspace_host = runtime.workdir_host / "workspace"
         seed_l1_workspace(

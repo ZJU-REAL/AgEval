@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from bora.runtime.identity import AttemptIdentity
+from bora.runtime.identity import AttemptIdentity, assert_same_attempt
 from bora.runtime.lifecycle import LifecyclePhase
 from bora.runtime.outcomes import PhaseFact, PhaseStatus
 
@@ -26,11 +26,23 @@ class AttemptStageContext:
     agent_meta: dict[str, Any] = field(default_factory=dict)
     allow_offline_agent: bool = False
     keep_workspace: bool = False
+    attempt: AttemptIdentity | None = None
     # Outputs filled by stages.
     exit_code: int = 2
     result_doc: dict[str, Any] = field(default_factory=dict)
     details: dict[str, Any] = field(default_factory=dict)
     error_message: str = ""
+
+
+def _bind_stage_attempt(ctx: AttemptStageContext, attempt: AttemptIdentity) -> None:
+    """Record the Coordinator Attempt on the context; never mint a second chain."""
+    if ctx.attempt is not None:
+        assert_same_attempt(ctx.attempt, attempt)
+    else:
+        ctx.attempt = attempt
+    ctx.agent_meta.setdefault("attempt_id", attempt.value)
+    ctx.agent_meta.setdefault("trial_id", attempt.trial.value)
+    ctx.agent_meta.setdefault("run_id", attempt.trial.run.value)
 
 
 def _fact(
@@ -59,7 +71,8 @@ class LocalL0Stages:
 
     async def prepare(self, attempt: AttemptIdentity) -> PhaseFact:
         # Prepare remains owned by run_command (lock/evidence/env). This stage
-        # records that the L0 adapter was selected.
+        # records that the L0 adapter was selected and binds the incoming identity.
+        _bind_stage_attempt(self.ctx, attempt)
         return _fact(attempt, LifecyclePhase.PREPARE, detail={"adapter": "local_l0"})
 
     async def run(self, attempt: AttemptIdentity) -> PhaseFact:
@@ -87,11 +100,13 @@ class DockerL1Stages:
     ctx: AttemptStageContext
 
     async def prepare(self, attempt: AttemptIdentity) -> PhaseFact:
+        _bind_stage_attempt(self.ctx, attempt)
         return _fact(attempt, LifecyclePhase.PREPARE, detail={"adapter": "docker_l1"})
 
     async def run(self, attempt: AttemptIdentity) -> PhaseFact:
         from bora.application.run_l1 import run_l1_attempt
 
+        _bind_stage_attempt(self.ctx, attempt)
         code, doc, details = await run_l1_attempt(
             package_root=self.ctx.package_root,
             lock=self.ctx.lock,
@@ -99,6 +114,7 @@ class DockerL1Stages:
             agent_meta=self.ctx.agent_meta,
             allow_offline_agent=self.ctx.allow_offline_agent,
             keep_workspace=self.ctx.keep_workspace,
+            attempt=attempt,
         )
         self.ctx.exit_code = code
         self.ctx.result_doc = doc

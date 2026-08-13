@@ -14,11 +14,16 @@ from bora.adapters.provider_docker import (
     ensure_base_image,
     ensure_image_lock,
 )
-from bora.runtime.identity import IdentityFactory
+from bora.runtime.identity import AttemptIdentity
 
 
 def prepare_l1_runtime(
-    package_root: Path, lock: Any, run_dir: Path, *, network_mode: str = "none"
+    package_root: Path,
+    lock: Any,
+    run_dir: Path,
+    *,
+    attempt: AttemptIdentity,
+    network_mode: str = "none",
 ) -> tuple[DockerProvider, DockerRuntime, dict[str, Any]]:
     from bora.application.extension_hooks import hook_prepare
     from bora.application.image_contribute_bake import (
@@ -27,10 +32,6 @@ def prepare_l1_runtime(
     )
     from bora.config.model import thaw
 
-    factory = IdentityFactory()
-    run = factory.new_run()
-    trial = factory.new_trial(run, lock.digest)
-    attempt = factory.new_attempt(trial)
     package_root = package_root.resolve()
     provider = thaw(lock.provider) if hasattr(lock, "provider") else {}
     if not isinstance(provider, dict):

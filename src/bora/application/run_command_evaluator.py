@@ -14,7 +14,7 @@ from bora.config.model import thaw
 from bora.provider.contract import ExecutableGrant, ProcessLaunchPlan
 from bora.provider.outcomes import ProcessTerminalKind
 from bora.provider.workspace_plan import WorkspacePlan
-from bora.runtime.identity import IdentityFactory
+from bora.runtime.identity import AttemptIdentity, IdentityFactory
 
 # Conservative fallback when lock limits omit / cannot supply wall_time_seconds.
 _DEFAULT_EVALUATOR_TIMEOUT_SECONDS = 60.0
@@ -38,6 +38,7 @@ def run_evaluator_worker(
     artifacts_map: dict[str, str],
     *,
     database_root: Path | None = None,
+    attempt: AttemptIdentity | None = None,
 ) -> dict[str, Any]:
     """Run package evaluator in a dedicated subprocess (not parent import).
 
@@ -83,11 +84,12 @@ def run_evaluator_worker(
         if database_root is not None:
             child_env["BORA_DATABASE_ROOT"] = str(database_root.resolve())
 
-        factory = IdentityFactory()
-        digest = getattr(lock, "digest", None) or ("sha256:" + "e" * 64)
-        run = factory.new_run()
-        trial = factory.new_trial(run, str(digest))
-        attempt = factory.new_attempt(trial)
+        if attempt is None:
+            factory = IdentityFactory()
+            digest = getattr(lock, "digest", None) or ("sha256:" + "e" * 64)
+            run = factory.new_run()
+            trial = factory.new_trial(run, str(digest))
+            attempt = factory.new_attempt(trial)
         plan = ProcessLaunchPlan(
             attempt=attempt,
             workspace=WorkspacePlan(attempt=attempt, base_dir=work_base, relative_workdir="ws"),

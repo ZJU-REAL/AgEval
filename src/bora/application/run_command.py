@@ -22,6 +22,7 @@ from bora.config.load_and_lock import ConfigCore
 from bora.config.model import thaw
 from bora.evaluation.result_binding import FlatResult, bind_result
 from bora.evidence.locators import portable_run_locator, seal_harness_for_evidence
+from bora.runtime.identity import IdentityFactory
 
 
 async def run_task(
@@ -34,6 +35,7 @@ async def run_task(
     overrides: dict[str, Any] | None = None,
     profiles_path: Path | str | None = None,
     profile_bindings: dict[str, dict[str, Any]] | None = None,
+    identity_factory: IdentityFactory | None = None,
 ) -> tuple[int, FlatResult, dict[str, Any]]:
     """Run one foreground Attempt and return (exit_code, result, details).
 
@@ -60,6 +62,7 @@ async def run_task(
             overrides=overrides,
             profiles_path=profiles_path,
             profile_bindings=profile_bindings,
+            identity_factory=identity_factory,
         )
     finally:
         clear_imports_from_task_dir(package_root)
@@ -76,6 +79,7 @@ async def _run_task_body(
     overrides: dict[str, Any] | None,
     profiles_path: Path | str | None,
     profile_bindings: dict[str, dict[str, Any]] | None,
+    identity_factory: IdentityFactory | None,
 ) -> tuple[int, FlatResult, dict[str, Any]]:
     """Body of ``run_task`` after task_dir resolve (import cleanup wraps caller)."""
     from bora.application.env_bootstrap import load_host_env_files
@@ -109,11 +113,15 @@ async def _run_task_body(
         evidence_root = db_root / ".bora" / "runs"
     evidence_root = evidence_root.resolve()
     evidence_root.mkdir(parents=True, exist_ok=True)
-    # Unique Run identity per invocation — never overwrite prior evidence by lock digest alone.
+    # One Run/Trial/Attempt identity for this invocation — directory, evidence,
+    # Agent Service, harness, and stages all reuse this chain.
     from bora.evidence.store import AttemptEvidenceStore
-    from bora.runtime.identity import IdentityFactory
 
-    run_id = IdentityFactory().new_run().value
+    factory = identity_factory or IdentityFactory()
+    run_ident = factory.new_run()
+    trial_ident = factory.new_trial(run_ident, lock.digest)
+    attempt_ident = factory.new_attempt(trial_ident)
+    run_id = run_ident.value
     run_dir = evidence_root / f"{lock.digest.replace(':', '_')[:48]}_{run_id[:16]}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -145,7 +153,10 @@ async def _run_task_body(
     agent_service = None
     agent_server = None
     agent_sock_path = None
-    shared_attempt = None  # Runtime-owned Attempt shared with harness worker
+    shared_attempt = attempt_ident
+    agent_meta["attempt_id"] = attempt_ident.value
+    agent_meta["trial_id"] = trial_ident.value
+    agent_meta["run_id"] = run_ident.value
     if agent_profile is not None and provider_kind != "docker":
         from bora.runtime.agent_service_protocol import AgentServiceServer
 
@@ -157,12 +168,6 @@ async def _run_task_body(
             inv_limit = int(thaw(lock.limits).get("agent_invocations") or 1)  # type: ignore[union-attr]
         except Exception:
             inv_limit = 1
-        # One Runtime identity chain for Agent Service + harness worker (Attempt parent-owned).
-        factory = IdentityFactory()
-        run_ident = factory.new_run()
-        trial_ident = factory.new_trial(run_ident, lock.digest)
-        attempt_ident = factory.new_attempt(trial_ident)
-        shared_attempt = attempt_ident
         evidence_store = AttemptEvidenceStore(
             root=run_dir,
             attempt_id=attempt_ident.value,
@@ -239,9 +244,6 @@ async def _run_task_body(
         agent_sock_path = short
         agent_server = AgentServiceServer(agent_service, agent_sock_path)
         agent_server.start()
-        agent_meta["attempt_id"] = attempt_ident.value
-        agent_meta["trial_id"] = trial_ident.value
-        agent_meta["run_id"] = run_ident.value
 
     if provider_kind == "docker":
         # Full L1 orchestration via LifecycleStages adapter (Spec 07).
@@ -276,9 +278,10 @@ async def _run_task_body(
             agent_meta=agent_meta,
             allow_offline_agent=allow_offline_agent,
             keep_workspace=keep_workspace,
+            attempt=attempt_ident,
         )
         stages = DockerL1Stages(ctx=stage_ctx)
-        await run_lifecycle(lock, stages)
+        await run_lifecycle(lock, stages, attempt=attempt_ident)
         result_doc = stage_ctx.result_doc
         details = stage_ctx.details
         code = stage_ctx.exit_code
@@ -494,6 +497,7 @@ async def _run_task_body(
             lock,
             artifacts_map,
             database_root=resolved.database_root,
+            attempt=attempt_ident,
         )
         if isinstance(evaluator_raw, dict):
             evaluator_raw = hook_score_postprocess(lock, evaluator_raw)
