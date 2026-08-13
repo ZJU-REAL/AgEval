@@ -50,7 +50,7 @@ Issues                   增量交付与实现缺口
 | [08-conversion-security-testing.md](08-conversion-security-testing.md) | 转换、测试、安全边界 |
 | [09-owner-matrix-and-structure.md](09-owner-matrix-and-structure.md) | Owner 矩阵、决策检查表、目标结构 |
 | [10-examples-database-52.md](10-examples-database-52.md) | 设计意图下的示例对照（非进度） |
-| [11-extension-plugins.md](11-extension-plugins.md) | 扩展点 L0–L5、注册表、lock bindings、`bora.plugin/1`、Recognition ≠ Ready |
+| [11-extension-plugins.md](11-extension-plugins.md) | 扩展点 L0–L5、注册表、lock bindings、`bora.plugin/1`、Recognition ≠ L0 host-ready ≠ L1 bake-declared、`--probe` |
 | [12-hub-dataset-and-leaderboard.md](12-hub-dataset-and-leaderboard.md) | Dataset draft/release、dataset ACL、Leaderboard 完备性、suite 插件出处、个人主页、chrome |
 
 ### Runtime 子文（执行链）
