@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { Shell } from "@/components/layout";
@@ -18,9 +18,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJob, type Job, type TaskRow } from "@/lib/api";
+import { taskHref, taskRunIds } from "@/lib/routes";
 import { formatError, formatScore } from "@/lib/utils";
 
-type SortKey = "task_id" | "agent_label" | "provider_label" | "model_label" | "score" | "status";
+type SortKey = "task_id" | "agent_label" | "model_label" | "score" | "status";
 
 export function JobDetailPage() {
   const { jobId = "" } = useParams();
@@ -76,6 +77,10 @@ export function JobDetailPage() {
     );
   }
 
+  if (!loading && !error && job?.source_kind === "single" && tasks.length === 1) {
+    return <Navigate to={taskHref(jobId, tasks[0])} replace />;
+  }
+
   return (
     <Shell>
       <div className="space-y-4">
@@ -90,10 +95,7 @@ export function JobDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-ink">{jobId}</h1>
           {job && (
             <p className="text-sm text-mute mt-1">
-              {[job.agent_label, job.provider_label && job.model_label
-                ? `(${job.provider_label}/${job.model_label})`
-                : job.model_label,
-              job.source]
+              {[job.agent_label, job.model_label, job.source]
                 .filter(Boolean)
                 .join(" / ")}
             </p>
@@ -106,7 +108,6 @@ export function JobDetailPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead>{head("task_id", "Task")}</TableHead>
                 <TableHead>{head("agent_label", "Agent")}</TableHead>
-                <TableHead>{head("provider_label", "Provider")}</TableHead>
                 <TableHead>{head("model_label", "Model")}</TableHead>
                 <TableHead>Dataset</TableHead>
                 <TableHead>{head("score", "Avg Reward")}</TableHead>
@@ -119,14 +120,14 @@ export function JobDetailPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-mute py-10">
+                  <TableCell colSpan={9} className="text-center text-mute py-10">
                     Loading tasks...
                   </TableCell>
                 </TableRow>
               )}
               {error && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-error py-10">
+                  <TableCell colSpan={9} className="text-center text-error py-10">
                     {error}
                   </TableCell>
                 </TableRow>
@@ -137,22 +138,18 @@ export function JobDetailPage() {
                   const errText = formatError(t.error);
                   const isErr =
                     (t.status || "").toUpperCase() === "ERROR" || Boolean(errText);
+                  const href = taskHref(jobId, t);
+                  const trialCount = t.n ?? taskRunIds(t).length;
                   return (
                     <TableRow
                       key={t.task_id}
                       className="cursor-pointer"
                       tabIndex={0}
                       role="link"
-                      onClick={() =>
-                        navigate(
-                          `/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(t.task_id)}`,
-                        )
-                      }
+                      onClick={() => navigate(href)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
-                          navigate(
-                            `/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(t.task_id)}`,
-                          );
+                          navigate(href);
                         }
                       }}
                     >
@@ -171,16 +168,6 @@ export function JobDetailPage() {
                           {t.agent_label || job?.agent_label || "-"}
                         </span>
                       </TableCell>
-                      <TableCell className="max-w-[10rem]">
-                        <span
-                          className="block truncate"
-                          title={
-                            t.provider_label || job?.provider_label || undefined
-                          }
-                        >
-                          {t.provider_label || job?.provider_label || "-"}
-                        </span>
-                      </TableCell>
                       <TableCell className="max-w-[18rem]">
                         <span
                           className="block truncate font-mono text-xs"
@@ -195,7 +182,7 @@ export function JobDetailPage() {
                         {t.dataset || job?.source || "-"}
                       </TableCell>
                       <TableCell className="tabular">{formatScore(t.score)}</TableCell>
-                      <TableCell className="tabular">1</TableCell>
+                      <TableCell className="tabular">{trialCount || 1}</TableCell>
                       <TableCell className="tabular">
                         {isErr || (t.status || "").toUpperCase() === "ERROR" ? 1 : 0}
                       </TableCell>

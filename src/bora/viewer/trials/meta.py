@@ -12,7 +12,6 @@ from bora.config.errors import ConfigError
 from bora.viewer.browse import commands_for
 from bora.viewer.jobs import get_job, get_job_task, safe_id_segment
 from bora.viewer.trials.paths import (
-    _read_json_object,
     _safe_run_id,
     resolve_evidence_root,
 )
@@ -71,10 +70,9 @@ def list_task_trials(
 
     for run_dir in candidates:
         rid = run_dir.name
-        lock = _read_json_object(run_dir / "lock.json") or {}
-        locked_task = lock.get("task_id")
-        # Enrich suite-listed runs always; only *add* new runs when lock matches task.
-        if rid not in by_run and locked_task != task_id:
+        # Only enrich this job's attempts — extra local runs of the same task
+        # belong on the jobs list as single jobs, not this suite's trial list.
+        if rid not in by_run:
             continue
         suite_row = by_run.get(rid, {})
         meta = _trial_meta_from_evidence(
@@ -129,9 +127,22 @@ def get_trial(
     job = job_payload["job"]
     suite_row: dict[str, Any] = {}
     for row in job_payload.get("tasks") or []:
-        if row.get("task_id") == task_id and str(row.get("run_id") or "") == rid:
-            suite_row = row
-            break
+        if row.get("task_id") != task_id:
+            continue
+        extra = row.get("attempt_run_ids")
+        extra_ids = (
+            {str(x).strip() for x in extra if x is not None and str(x).strip()}
+            if isinstance(extra, list)
+            else set()
+        )
+        if str(row.get("run_id") or "") != rid and rid not in extra_ids:
+            continue
+        suite_row = dict(row)
+        for attempt in row.get("attempts") or []:
+            if isinstance(attempt, dict) and str(attempt.get("run_id") or "") == rid:
+                suite_row = {**row, **attempt}
+                break
+        break
 
     evidence: Path | None = None
     with contextlib.suppress(ConfigError):

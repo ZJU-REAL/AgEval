@@ -26,13 +26,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJobs, type Job } from "@/lib/api";
+import { jobDisplayName, jobHref } from "@/lib/routes";
 import { formatDate, formatScore, formatTrials } from "@/lib/utils";
 
 type SortKey =
   | "job_name"
-  | "source"
   | "agent_label"
-  | "provider_label"
   | "model_label"
   | "result"
   | "environment"
@@ -46,8 +45,9 @@ export function JobsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [kind, setKind] = useState("all");
+  const [source, setSource] = useState("all");
   const [agent, setAgent] = useState("all");
-  const [provider, setProvider] = useState("all");
   const [model, setModel] = useState("all");
   const [sortKey, setSortKey] = useState<string | null>("started");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -73,16 +73,31 @@ export function JobsPage() {
     };
   }, []);
 
+  const kinds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          jobs.map((j) => (j.source_kind === "single" ? "single" : "suite")),
+        ),
+      ).sort(),
+    [jobs],
+  );
+  const sources = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          jobs
+            .filter((j) => j.source_kind === "single")
+            .map((j) => j.task_id || "")
+            .filter(Boolean),
+        ),
+      ).sort(),
+    [jobs],
+  );
+  const showSourceFilter = kind !== "suite" && sources.length > 0;
   const agents = useMemo(
     () =>
       Array.from(new Set(jobs.map((j) => j.agent_label).filter(Boolean) as string[])).sort(),
-    [jobs],
-  );
-  const providers = useMemo(
-    () =>
-      Array.from(
-        new Set(jobs.map((j) => j.provider_label).filter(Boolean) as string[]),
-      ).sort(),
     [jobs],
   );
   const models = useMemo(
@@ -94,16 +109,23 @@ export function JobsPage() {
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     let rows = jobs.filter((j) => {
+      const rowKind = j.source_kind === "single" ? "single" : "suite";
+      if (kind !== "all" && rowKind !== kind) return false;
+      if (showSourceFilter && source !== "all" && (j.task_id || "") !== source) {
+        return false;
+      }
       if (agent !== "all" && (j.agent_label || "") !== agent) return false;
-      if (provider !== "all" && (j.provider_label || "") !== provider) return false;
       if (model !== "all" && (j.model_label || "") !== model) return false;
       if (!query) return true;
       const hay = [
+        jobDisplayName(j),
         j.job_name,
         j.source,
+        j.source_kind,
+        j.job_id,
+        j.task_id,
         j.agent_label,
         j.model_label,
-        j.provider_label,
         j.environment,
       ]
         .filter(Boolean)
@@ -119,18 +141,22 @@ export function JobsPage() {
             ? (a.mean_score ?? a.result)
             : key === "trials_total"
               ? a.trials_total
-              : a[key];
+              : key === "job_name"
+                ? jobDisplayName(a)
+                : a[key];
         const bv =
           key === "result"
             ? (b.mean_score ?? b.result)
             : key === "trials_total"
               ? b.trials_total
-              : b[key];
+              : key === "job_name"
+                ? jobDisplayName(b)
+                : b[key];
         return compareValues(av, bv, sortDir);
       });
     }
     return rows;
-  }, [jobs, q, agent, provider, model, sortKey, sortDir]);
+  }, [jobs, q, kind, source, showSourceFilter, agent, model, sortKey, sortDir]);
 
   function onSort(key: string) {
     const next = nextSort(sortKey, sortDir, key);
@@ -170,6 +196,40 @@ export function JobsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
+          <Select
+            value={kind}
+            onValueChange={(next) => {
+              setKind(next);
+              if (next === "suite") setSource("all");
+            }}
+          >
+            <SelectTrigger aria-label="Filter kind">
+              <SelectValue placeholder="All kinds" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All kinds</SelectItem>
+              {kinds.map((k) => (
+                <SelectItem key={k} value={k}>
+                  {k === "single" ? "single" : "suite"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {showSourceFilter ? (
+            <Select value={source} onValueChange={setSource}>
+              <SelectTrigger aria-label="Filter source">
+                <SelectValue placeholder="All sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                {sources.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           <Select value={agent} onValueChange={setAgent}>
             <SelectTrigger aria-label="Filter agents">
               <SelectValue placeholder="All agents" />
@@ -179,19 +239,6 @@ export function JobsPage() {
               {agents.map((a) => (
                 <SelectItem key={a} value={a}>
                   {a}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={provider} onValueChange={setProvider}>
-            <SelectTrigger aria-label="Filter providers">
-              <SelectValue placeholder="All providers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All providers</SelectItem>
-              {providers.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -220,9 +267,7 @@ export function JobsPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>{head("job_name", "Job Name")}</TableHead>
-                <TableHead>{head("source", "Source")}</TableHead>
                 <TableHead>{head("agent_label", "Agents")}</TableHead>
-                <TableHead>{head("provider_label", "Providers")}</TableHead>
                 <TableHead>{head("model_label", "Models")}</TableHead>
                 <TableHead>{head("result", "Result")}</TableHead>
                 <TableHead>{head("environment", "Environment")}</TableHead>
@@ -234,24 +279,28 @@ export function JobsPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-mute py-10 text-center">
+                  <TableCell colSpan={8} className="text-mute py-10 text-center">
                     Loading jobs...
                   </TableCell>
                 </TableRow>
               )}
               {!loading && error && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-error py-10 text-center">
+                  <TableCell colSpan={8} className="text-error py-10 text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               )}
               {!loading && !error && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-mute py-10 text-center">
-                    No suite jobs yet. Run{" "}
+                  <TableCell colSpan={8} className="text-mute py-10 text-center">
+                    No jobs yet. Run{" "}
                     <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
                       bora run &lt;database&gt;
+                    </code>{" "}
+                    or a single-task{" "}
+                    <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
+                      bora run &lt;database&gt; --task &lt;id&gt;
                     </code>{" "}
                     then refresh.
                   </TableCell>
@@ -263,23 +312,21 @@ export function JobsPage() {
                   <TableRow
                     key={job.job_id}
                     className="cursor-pointer"
-                    onClick={() => navigate(`/jobs/${encodeURIComponent(job.job_id)}`)}
+                    onClick={() => navigate(jobHref(job))}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
-                        navigate(`/jobs/${encodeURIComponent(job.job_id)}`);
+                        navigate(jobHref(job));
                       }
                     }}
                     tabIndex={0}
                     role="link"
                   >
-                    <TableCell className="font-medium max-w-[12rem]">
-                      <span className="block truncate" title={job.job_name}>
-                        {job.job_name}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-body max-w-[12rem]">
-                      <span className="block truncate" title={job.source || undefined}>
-                        {job.source || "-"}
+                    <TableCell className="font-medium max-w-[16rem]">
+                      <span
+                        className="block truncate"
+                        title={jobDisplayName(job)}
+                      >
+                        {jobDisplayName(job)}
                       </span>
                     </TableCell>
                     <TableCell className="max-w-[14rem]">
@@ -288,14 +335,6 @@ export function JobsPage() {
                         title={job.agent_label || undefined}
                       >
                         {job.agent_label || "-"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="max-w-[10rem]">
-                      <span
-                        className="block truncate"
-                        title={job.provider_label || undefined}
-                      >
-                        {job.provider_label || "-"}
                       </span>
                     </TableCell>
                     <TableCell className="max-w-[18rem]">

@@ -8,7 +8,7 @@ Local results console for a Database package:
 
 | Layer | Content |
 | --- | --- |
-| **Jobs** | Local suite runs under `.bora/suite-runs/` (summary metrics, optional Always-k) |
+| **Jobs** | Suite runs under `.bora/suite-runs/` **and** single-task Attempts under `.bora/runs/` (Kind column: suite vs single) |
 | **Tasks** | Per-task status / score / run refs from suite summary (+ local evidence when present) |
 | **Attempt** | One `run_id`: outcome strip, actors table, evidence tabs |
 
@@ -32,14 +32,24 @@ SPA lives under `src/`; Python serves the built `dist/` only.
 
 ## Develop
 
-```bash
-# Terminal A: API (after pnpm build)
-uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
+`bora view --dev` starts the API and **tries** to start `pnpm --dir apps/viewer dev` (same API). No pre-built SPA. If the repo / pnpm / `node_modules` is missing, it prints the two-process fallback instead of failing.
 
-# Terminal B: Vite HMR (proxies /api → :8765)
-cd apps/viewer
-pnpm install
-pnpm dev
+```bash
+uv run bora view tests/fixtures/databases/suite-min --dev --port 8765
+```
+
+Manual fallback (only if Vite did not start):
+
+```bash
+VITE_VIEWER_API=http://127.0.0.1:8765 pnpm --dir apps/viewer dev
+```
+
+Two-process contract: API port (`--port`, default 8765) + UI port (`--ui-port`, default 5173). Open `http://127.0.0.1:5173/` (or the `--open` path).
+
+```bash
+# Deep-link a job/task/run after bora run
+uv run bora view examples/core --open /jobs/<suite_or_run_id>
+uv run bora view examples/core --dev --open /jobs/<id>/tasks/<task>/trials/<run>
 ```
 
 If the port is already in use, stop the other `bora view` process or pass `--port <free>` (`--port 0` = ephemeral). The CLI error includes a concrete `http://host:port/` URL.
@@ -62,7 +72,7 @@ Python serves **`apps/viewer/dist/`** only (no separate `static/` tree). `dist/`
 | Path | Description |
 | --- | --- |
 | `GET /api/health` | Liveness |
-| `GET /api/jobs` | Suite runs under `.bora/suite-runs/` |
+| `GET /api/jobs` | Suite runs and single-task Attempts in this Database |
 | `GET /api/jobs/{id}` | Job + task rows |
 | `GET /api/jobs/{id}/tasks/{task_id}` | Task detail, trials list, copyable `bora run` |
 | `GET /api/jobs/{id}/tasks/{task_id}/trials` | Trials (suite + local evidence) |

@@ -21,9 +21,10 @@ uv run bora plugin install <path|ref>
 uv run bora plugin list
 uv run bora plugin uninstall <plugin_id>
 uv run bora evidence --help
-uv run bora view <dataset>
+uv run bora view <dataset> [--dev] [--open /jobs/<id>]
 # Registry / 结果（需 login；细节见 [Registry](/docs/share/registry)）
-uv run bora publish <dataset> --org <org> [--public] [--replace]
+uv run bora publish <dataset> --org <org> [--draft] [--public] [--replace]
+uv run bora release <database_id> [--public] [--replace]
 uv run bora registry list|show|set-visibility|delete …
 uv run bora results upload|upload-suite|share|unshare|set-visibility|delete …
 ```

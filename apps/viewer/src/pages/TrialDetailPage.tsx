@@ -9,6 +9,7 @@ import { OutcomeStrip } from "@/components/trial/outcome-strip";
 import { PhaseTimingBar } from "@/components/trial/phase-timing-bar";
 import { TrialHeader } from "@/components/trial/trial-header";
 import { useTrialDetail } from "@/hooks/use-trial-detail";
+import { jobPath, taskPath, trialPath } from "@/lib/routes";
 
 export function TrialDetailPage() {
   const { jobId = "", taskId = "", runId = "" } = useParams();
@@ -17,13 +18,13 @@ export function TrialDetailPage() {
 
   function goSibling(id: string | null) {
     if (!id) return;
-    navigate(
-      `/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(taskId)}/trials/${encodeURIComponent(id)}`,
-    );
+    navigate(trialPath(jobId, taskId, id));
   }
 
   const {
     trial,
+    job,
+    siblingRunIds,
     result,
     runCommand,
     prevId,
@@ -50,15 +51,23 @@ export function TrialDetailPage() {
     <Shell>
       <div className="space-y-5">
         <BreadcrumbNav
-          items={[
-            { label: "Jobs", href: "/" },
-            { label: jobId, href: `/jobs/${encodeURIComponent(jobId)}` },
-            {
-              label: taskId,
-              href: `/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(taskId)}`,
-            },
-            { label: runId, href: null },
-          ]}
+          items={
+            job?.source_kind === "single"
+              ? [
+                  { label: "Jobs", href: "/" },
+                  { label: taskId, href: null },
+                  { label: runId, href: null },
+                ]
+              : [
+                  { label: "Jobs", href: "/" },
+                  { label: jobId, href: jobPath(jobId) },
+                  {
+                    label: taskId,
+                    href: siblingRunIds.length > 1 ? taskPath(jobId, taskId) : null,
+                  },
+                  { label: runId, href: null },
+                ]
+          }
         />
 
         <TrialHeader
@@ -111,12 +120,22 @@ export function TrialDetailPage() {
             />
 
             <p className="text-xs text-mute">
-              <Link
-                to={`/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(taskId)}`}
-                className="text-link hover:text-link-deep"
-              >
-                ← Back to trials
-              </Link>
+              {job?.source_kind === "single" ? (
+                <Link to="/" className="text-link hover:text-link-deep">
+                  ← Back to jobs
+                </Link>
+              ) : siblingRunIds.length > 1 ? (
+                <Link
+                  to={taskPath(jobId, taskId)}
+                  className="text-link hover:text-link-deep"
+                >
+                  ← Back to trials
+                </Link>
+              ) : (
+                <Link to={jobPath(jobId)} className="text-link hover:text-link-deep">
+                  ← Back to job
+                </Link>
+              )}
             </p>
           </>
         )}

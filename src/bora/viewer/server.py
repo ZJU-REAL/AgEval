@@ -71,6 +71,9 @@ def _json(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any])
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(body)))
     handler.send_header("Cache-Control", "no-store")
+    cors = getattr(handler, "_cors", None)
+    if callable(cors):
+        cors()
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -79,9 +82,28 @@ def _error(handler: BaseHTTPRequestHandler, status: int, code: str, message: str
     _json(handler, status, {"error": code, "message": message})
 
 
-def make_handler(database_root: Path, assets: Path) -> type[BaseHTTPRequestHandler]:
+def normalize_open_path(raw: str | None) -> str:
+    """Client route to open after start. Must be a same-origin path."""
+    text = (raw or "/").strip() or "/"
+    if not text.startswith("/"):
+        text = f"/{text}"
+    if text.startswith("//") or "://" in text or "\\" in text or "\n" in text:
+        raise ConfigError(
+            "invalid_package",
+            f"invalid open path: {raw!r}",
+            location="open",
+        )
+    return text
+
+
+def make_handler(
+    database_root: Path,
+    assets: Path | None,
+    *,
+    cors_origin: str | None = None,
+) -> type[BaseHTTPRequestHandler]:
     root = database_root.resolve(strict=False)
-    assets = assets.resolve(strict=False)
+    assets_dir = assets.resolve(strict=False) if assets is not None else None
 
     class ViewerHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -93,6 +115,13 @@ def make_handler(database_root: Path, assets: Path) -> type[BaseHTTPRequestHandl
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             path = unquote(parsed.path)
+
+            if self.command == "OPTIONS":
+                self.send_response(204)
+                self._cors()
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
 
             if path == "/api/health":
                 _json(self, 200, {"ok": True, "service": "bora-viewer"})
@@ -107,19 +136,42 @@ def make_handler(database_root: Path, assets: Path) -> type[BaseHTTPRequestHandl
                 _error(self, 404, "not_found", "unknown API path")
                 return
 
+            if assets_dir is None:
+                _json(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "service": "bora-viewer",
+                        "dev": True,
+                        "message": "API only; open the Vite UI origin for the SPA",
+                    },
+                )
+                return
+
             # Static SPA (client-side routes fall through to index.html)
             rel = path.lstrip("/")
             if rel and ".." not in Path(rel).parts:
-                candidate = (assets / rel).resolve(strict=False)
+                candidate = (assets_dir / rel).resolve(strict=False)
                 try:
-                    candidate.relative_to(assets)
+                    candidate.relative_to(assets_dir)
                     if candidate.is_file():
                         mime, _ = mimetypes.guess_type(str(candidate))
                         self._serve_file(candidate, mime or "application/octet-stream")
                         return
                 except ValueError:
                     pass
-            self._serve_file(assets / "index.html", "text/html; charset=utf-8")
+            self._serve_file(assets_dir / "index.html", "text/html; charset=utf-8")
+
+        def do_OPTIONS(self) -> None:  # noqa: N802
+            self.do_GET()
+
+        def _cors(self) -> None:
+            if not cors_origin:
+                return
+            self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
         def _serve_file(self, path: Path, content_type: str) -> None:
             try:
@@ -245,16 +297,33 @@ def serve_viewer(
     port: int = DEFAULT_PORT,
     open_browser: bool = True,
     block: bool = True,
+    dev: bool = False,
+    open_path: str = "/",
+    ui_port: int = 5173,
 ) -> dict[str, Any]:
     """Start the local viewer. Returns connection info.
 
     When *block* is True (CLI default), serve forever until KeyboardInterrupt.
+    ``dev=True`` serves the JSON API only (no SPA bundle). Vite is the UI.
+    The CLI tries to start ``pnpm --dir apps/viewer dev``; if that cannot run,
+    it prints the two-process fallback instead of failing.
     """
+    from bora.viewer.dev_ui import (
+        DEFAULT_UI_PORT,
+        fallback_commands,
+        stop_dev_ui,
+        try_start_dev_ui,
+    )
+
     root = browse.open_database(database_ref)
     # Validate package early; reuse for startup metadata.
     overview = browse.database_overview(root)
-    assets = static_dir()
-    handler = make_handler(root, assets)
+    route = normalize_open_path(open_path)
+    ui_port_n = int(ui_port) if ui_port else DEFAULT_UI_PORT
+    ui_origin = f"http://127.0.0.1:{ui_port_n}"
+    assets = None if dev else static_dir()
+    cors_origin = ui_origin if dev else None
+    handler = make_handler(root, assets, cors_origin=cors_origin)
     try:
         server = ThreadingHTTPServer((host, port), handler)
     except OSError as exc:
@@ -262,34 +331,68 @@ def serve_viewer(
         raise  # pragma: no cover — _raise_bind_error always raises
     # If port 0, OS assigns.
     actual_host, actual_port = server.server_address[:2]
-    url = f"http://{actual_host}:{actual_port}/"
+    api_url = f"http://{actual_host}:{actual_port}/"
+    api_origin = f"http://{actual_host}:{actual_port}"
+    start_vite = bool(dev and block)
+    ui = try_start_dev_ui(
+        api_origin=api_origin,
+        ui_port=ui_port_n,
+        start=start_vite,
+    )
+    page_url = (
+        f"{ui_origin}{route}"
+        if dev and ui.started
+        else f"http://{actual_host}:{actual_port}{route}"
+    )
     info = {
         "ok": True,
-        "url": url,
+        "url": page_url,
+        "api_url": api_url,
+        "ui_url": page_url,
         "host": actual_host,
         "port": actual_port,
+        "ui_port": ui_port_n if dev else actual_port,
+        "dev": dev,
+        "ui_started": ui.started,
+        "ui_reason": ui.reason,
+        "open_path": route,
         "database_id": overview["database_id"],
         "root": str(root),
     }
 
-    if open_browser:
-        threading.Timer(0.4, lambda: webbrowser.open(url)).start()
+    if open_browser and (not dev or ui.started):
+        threading.Timer(0.4, lambda: webbrowser.open(page_url)).start()
 
     if block:
-        # Operator-facing startup line (stdout so CLI capture is easy).
+        if dev and ui.started:
+            message = (
+                "API + Vite listening; Ctrl+C stops both"
+                if not ui.reused
+                else "API listening; reused Vite already on ui_port"
+            )
+        elif dev:
+            cmd_a, cmd_b = fallback_commands(api_origin=api_origin, ui_port=ui_port_n)
+            message = f"API listening; Vite not started ({ui.reason})"
+            sys.stderr.write(f"viewer: {message}\n  {cmd_a}\n  {cmd_b}\n")
+            sys.stderr.flush()
+            info["ui_commands"] = [cmd_a, cmd_b]
+        else:
+            message = "viewer listening; Ctrl+C to stop"
+        payload = {
+            "ok": True,
+            "url": page_url,
+            "api_url": api_url,
+            "ui_url": page_url,
+            "dev": dev,
+            "ui_started": ui.started,
+            "database_id": info["database_id"],
+            "root": info["root"],
+            "message": message,
+        }
+        if info.get("ui_commands"):
+            payload["ui_commands"] = info["ui_commands"]
         print(
-            json.dumps(
-                {
-                    "ok": True,
-                    "url": url,
-                    "database_id": info["database_id"],
-                    "root": info["root"],
-                    "message": "viewer listening; Ctrl+C to stop",
-                },
-                ensure_ascii=False,
-                separators=(",", ":"),
-                sort_keys=True,
-            ),
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
             flush=True,
         )
         try:
@@ -297,6 +400,7 @@ def serve_viewer(
         except KeyboardInterrupt:
             pass
         finally:
+            stop_dev_ui(ui.proc)
             server.shutdown()
             server.server_close()
     else:

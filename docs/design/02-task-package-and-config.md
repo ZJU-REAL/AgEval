@@ -697,7 +697,7 @@ pass@k / pass^k **不是** package 身份 / `config_fingerprint` 键；不同 k 
 
 ### Suite/job 结果上传（Registry）
 
-本地 suite 跑完后可将 `.bora/suite-runs/<suite_run_id>/` 上传为 **suite result 行**（meta + 可选 archive），供 Leaderboard（#22 S5 / #60）查询：
+本地 suite 跑完后可将 `.bora/suite-runs/<suite_run_id>/` 上传为 **suite result 行**（meta + 可选 archive），供 Leaderboard 查询。公开榜只收**完备且绑定 release** 的 suite（见 [12](12-hub-dataset-and-leaderboard.md)）：
 
 | CLI | 语义 |
 | --- | --- |
@@ -706,6 +706,7 @@ pass@k / pass^k **不是** package 身份 / `config_fingerprint` 键；不同 k 
 | `… --local <db>` | 不启 Registry，回落本机 `.bora/suite-runs/` |
 
 API：`POST/GET /v1/results/suites`（可见性与 attempt 一致：public / `results:read`）。  
-响应含 `pass_rate`、`mean_score`、`metrics`（含 `pass_at_k` / `pass_power_k` 若有）、`task_refs`（可含 `n`/`c`/`attempt_run_ids`）；**不**接受/存储 suite PASS。  
+`GET …/suites?board=1` 只返回完备且 `bound_kind=release` 的行；Jobs 列表不加该过滤。  
+响应含 `pass_rate`、`mean_score`、`metrics`（含 `pass_at_k` / `pass_power_k` 若有）、`task_refs`（可含 `n`/`c`/`attempt_run_ids`）、`complete` / `bound_kind`；**不**接受/存储 suite PASS。  
 一等列仍是 `pass_rate` / `mean_score`；k 指标读 `metrics` 即可（无需额外 first-class 列也可展示）。
 

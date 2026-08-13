@@ -328,6 +328,23 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, payload)
 
+        def _release_draft(self, *, database_id: str, auth: TokenInfo) -> None:
+            body = self._read_json_body()
+            if body is None:
+                body = {}
+            try:
+                payload = state.packages.release_draft(
+                    database_id=database_id,
+                    auth=auth,
+                    visibility=str(body.get("visibility") or "") or None,
+                    replace=bool(body.get("replace")),
+                    version=str(body.get("version") or "") or None,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 201, payload)
+
         def _list_packages(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             try:
                 payload = state.packages.list_packages(
@@ -551,9 +568,11 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             try:
+                board_raw = (qs.get("board") or [""])[0]
                 payload = state.results.list_suites(
                     auth=auth,
                     database_id=(qs.get("database_id") or [None])[0],
+                    board=str(board_raw).strip().lower() in {"1", "true", "yes"},
                 )
             except RegistryAppError as exc:
                 _app_error(self, exc)

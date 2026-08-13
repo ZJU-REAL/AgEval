@@ -109,6 +109,45 @@ def test_http_health_jobs_and_spa(viewer_server: str) -> None:
     assert 'id="root"' in html
 
 
+def test_serve_viewer_dev_skips_spa_bundle(tmp_path: Path) -> None:
+    from bora.viewer.server import serve_viewer
+
+    info = serve_viewer(
+        SUITE,
+        host="127.0.0.1",
+        port=0,
+        open_browser=False,
+        block=False,
+        dev=True,
+        open_path="/jobs/demo",
+        ui_port=5173,
+    )
+    try:
+        assert info["dev"] is True
+        assert info["open_path"] == "/jobs/demo"
+        assert info["ui_url"].endswith("/jobs/demo")
+        # Vite was not started (block=False) — do not advertise :5173.
+        assert info["ui_started"] is False
+        assert info["ui_reason"] == "skipped"
+        assert ":5173" not in info["ui_url"]
+        with urlopen(f"{info['api_url']}api/health", timeout=5) as resp:  # noqa: S310
+            health = json.loads(resp.read().decode("utf-8"))
+        assert health["ok"] is True
+        with urlopen(info["api_url"], timeout=5) as resp:  # noqa: S310
+            body = json.loads(resp.read().decode("utf-8"))
+        assert body.get("dev") is True
+    finally:
+        info["server"].shutdown()
+
+
+def test_normalize_open_path_rejects_urls() -> None:
+    from bora.viewer.server import normalize_open_path
+
+    assert normalize_open_path("jobs/x") == "/jobs/x"
+    with pytest.raises(Exception, match="invalid open path"):
+        normalize_open_path("http://evil.example/")
+
+
 def test_http_removed_package_browse_404(viewer_server: str) -> None:
     """Old package-file browse endpoints are not part of the product surface."""
     for path in (

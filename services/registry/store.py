@@ -85,6 +85,46 @@ class SuiteResultRow:
     # #42 config comparability (optional; empty/default on legacy rows)
     config_json: str = "{}"
     uploaded_by: str = ""
+    complete: bool = False
+    bound_kind: str = "unknown"
+    task_set_digest: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DraftRow:
+    """One current draft slot per dataset (not a release)."""
+
+    database_id: str
+    org_id: str
+    visibility: str
+    package_digest: str
+    blob_digest: str
+    size: int
+    media_type: str
+    package_kind: str
+    uploaded_by: str
+    updated_at: float
+
+    def as_release(self) -> ReleaseRow:
+        return ReleaseRow(
+            database_id=self.database_id,
+            version="draft",
+            visibility=self.visibility,
+            package_digest=self.package_digest,
+            blob_digest=self.blob_digest,
+            size=self.size,
+            media_type=self.media_type,
+            created_at=self.updated_at,
+            org_id=self.org_id,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetAclRow:
+    database_id: str
+    user_id: str
+    role: str
+    created_at: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -615,6 +655,9 @@ class MetadataStore(MetadataStoreProtocol):
                         row.created_at,
                         row.config_json or "{}",
                         row.uploaded_by or "",
+                        1 if row.complete else 0,
+                        row.bound_kind or "unknown",
+                        row.task_set_digest or "",
                     ),
                 )
                 conn.commit()
@@ -729,7 +772,9 @@ class MetadataStore(MetadataStoreProtocol):
                 Q.COUNT_PACKAGE_BLOB_REFS,
                 (blob_digest,),
             )
-            return int(cur.fetchone()["n"])
+            n = int(cur.fetchone()["n"])
+            cur_d = self._exec(conn, Q.COUNT_DRAFT_BLOB_REFS, (blob_digest,))
+            return n + int(cur_d.fetchone()["n"])
 
     def delete_release(self, database_id: str, version: str) -> ReleaseRow:
         row = self.get_by_version(database_id, version)
@@ -760,6 +805,101 @@ class MetadataStore(MetadataStoreProtocol):
         updated = self.get_by_version(database_id, version)
         assert updated is not None
         return updated
+
+    def upsert_draft(self, row: DraftRow) -> DraftRow:
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPSERT_DRAFT,
+                (
+                    row.database_id,
+                    row.org_id,
+                    row.visibility,
+                    row.package_digest,
+                    row.blob_digest,
+                    row.size,
+                    row.media_type,
+                    row.package_kind,
+                    row.uploaded_by,
+                    row.updated_at,
+                ),
+            )
+            conn.commit()
+        stored = self.get_draft(row.database_id)
+        assert stored is not None
+        return stored
+
+    def get_draft(self, database_id: str) -> DraftRow | None:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_DRAFT, (database_id,))
+            r = cur.fetchone()
+            return self._draft_row(r) if r else None
+
+    def get_draft_by_digest(self, database_id: str, package_digest: str) -> DraftRow | None:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_DRAFT_BY_DIGEST, (database_id, package_digest))
+            r = cur.fetchone()
+            return self._draft_row(r) if r else None
+
+    def list_drafts(self) -> list[DraftRow]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.LIST_DRAFTS)
+            return [self._draft_row(r) for r in cur.fetchall()]
+
+    def delete_draft(self, database_id: str) -> DraftRow:
+        row = self.get_draft(database_id)
+        if row is None:
+            raise LookupError("draft not found")
+        with self._connect() as conn:
+            self._exec(conn, Q.DELETE_DRAFT, (database_id,))
+            conn.commit()
+        return row
+
+    def upsert_dataset_acl(
+        self, database_id: str, user_id: str, *, role: str, created_at: float | None = None
+    ) -> DatasetAclRow:
+        ts = created_at if created_at is not None else now()
+        with self._connect() as conn:
+            self._exec(conn, Q.UPSERT_DATASET_ACL, (database_id, user_id, role, ts))
+            conn.commit()
+        row = self.dataset_acl(database_id, user_id)
+        assert row is not None
+        return row
+
+    def dataset_acl(self, database_id: str, user_id: str) -> DatasetAclRow | None:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_DATASET_ACL, (database_id, user_id))
+            r = cur.fetchone()
+            return self._dataset_acl_row(r) if r else None
+
+    def list_dataset_acl(self, database_id: str) -> list[DatasetAclRow]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.LIST_DATASET_ACL, (database_id,))
+            return [self._dataset_acl_row(r) for r in cur.fetchall()]
+
+    @staticmethod
+    def _draft_row(r: sqlite3.Row) -> DraftRow:
+        return DraftRow(
+            database_id=str(r["database_id"]),
+            org_id=str(r["org_id"] or ""),
+            visibility=str(r["visibility"]),
+            package_digest=str(r["package_digest"]),
+            blob_digest=str(r["blob_digest"]),
+            size=int(r["size"]),
+            media_type=str(r["media_type"]),
+            package_kind=str(r["package_kind"] or "database"),
+            uploaded_by=str(r["uploaded_by"] or ""),
+            updated_at=float(r["updated_at"]),
+        )
+
+    @staticmethod
+    def _dataset_acl_row(r: sqlite3.Row) -> DatasetAclRow:
+        return DatasetAclRow(
+            database_id=str(r["database_id"]),
+            user_id=str(r["user_id"]),
+            role=str(r["role"]),
+            created_at=float(r["created_at"]),
+        )
 
     @staticmethod
     def _release_row(r: sqlite3.Row) -> ReleaseRow:
@@ -803,6 +943,17 @@ class MetadataStore(MetadataStoreProtocol):
         keys = r.keys()
         config_json = str(r["config_json"]) if "config_json" in keys and r["config_json"] else "{}"
         uploaded_by = str(r["uploaded_by"]) if "uploaded_by" in keys and r["uploaded_by"] else ""
+        complete = False
+        if "complete" in keys and r["complete"] is not None:
+            complete = bool(int(r["complete"]))
+        bound_kind = (
+            str(r["bound_kind"]) if "bound_kind" in keys and r["bound_kind"] else "unknown"
+        )
+        task_set_digest = (
+            str(r["task_set_digest"])
+            if "task_set_digest" in keys and r["task_set_digest"]
+            else ""
+        )
         return SuiteResultRow(
             suite_run_id=r["suite_run_id"],
             database_id=r["database_id"],
@@ -820,6 +971,9 @@ class MetadataStore(MetadataStoreProtocol):
             created_at=float(r["created_at"]),
             config_json=config_json,
             uploaded_by=uploaded_by,
+            complete=complete,
+            bound_kind=bound_kind,
+            task_set_digest=task_set_digest,
         )
 
     # ---- organizations ---------------------------------------------------
@@ -1397,6 +1551,9 @@ def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
     }
     if row.org_id:
         out["org_id"] = row.org_id
+    if row.version == "draft":
+        out["slot"] = "draft"
+        out["is_draft"] = True
     return out
 
 
@@ -1540,9 +1697,13 @@ def suite_to_dict(
         "size": row.size,
         "exit_code": row.exit_code,
         "created_at": row.created_at,
+        "complete": bool(row.complete),
+        "bound_kind": row.bound_kind or "unknown",
         # Explicit: no suite PASS authority
         "note": "per-task evaluator verdicts only; no suite-level PASS",
     }
+    if row.task_set_digest:
+        out["task_set_digest"] = row.task_set_digest
     if row.uploaded_by:
         out["uploaded_by"] = row.uploaded_by
     # #42 config fingerprint projection (absent on legacy rows)

@@ -75,8 +75,9 @@ INSERT INTO suite_results(
     suite_run_id, database_id, database_version, visibility,
     pass_rate, mean_score, metrics_json, tasks_json,
     agent_label, model_label, blob_digest, size,
-    exit_code, created_at, config_json, uploaded_by
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    exit_code, created_at, config_json, uploaded_by,
+    complete, bound_kind, task_set_digest
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 SELECT_SUITE = "SELECT * FROM suite_results WHERE suite_run_id=?"
@@ -211,7 +212,73 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         revoked_at REAL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS dataset_drafts (
+        database_id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL,
+        visibility TEXT NOT NULL,
+        package_digest TEXT NOT NULL,
+        blob_digest TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        media_type TEXT NOT NULL,
+        package_kind TEXT NOT NULL DEFAULT 'database',
+        uploaded_by TEXT NOT NULL,
+        updated_at REAL NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS dataset_acl (
+        database_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        PRIMARY KEY (database_id, user_id)
+    )
+    """,
 )
+
+# ---- dataset draft / ACL ---------------------------------------------------
+
+UPSERT_DRAFT = """
+INSERT INTO dataset_drafts(
+    database_id, org_id, visibility, package_digest,
+    blob_digest, size, media_type, package_kind,
+    uploaded_by, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(database_id) DO UPDATE SET
+    org_id=excluded.org_id,
+    visibility=excluded.visibility,
+    package_digest=excluded.package_digest,
+    blob_digest=excluded.blob_digest,
+    size=excluded.size,
+    media_type=excluded.media_type,
+    package_kind=excluded.package_kind,
+    uploaded_by=excluded.uploaded_by,
+    updated_at=excluded.updated_at
+"""
+
+SELECT_DRAFT = "SELECT * FROM dataset_drafts WHERE database_id=?"
+
+SELECT_DRAFT_BY_DIGEST = (
+    "SELECT * FROM dataset_drafts WHERE database_id=? AND package_digest=?"
+)
+
+LIST_DRAFTS = "SELECT * FROM dataset_drafts ORDER BY database_id"
+
+DELETE_DRAFT = "DELETE FROM dataset_drafts WHERE database_id=?"
+
+UPSERT_DATASET_ACL = """
+INSERT INTO dataset_acl(database_id, user_id, role, created_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(database_id, user_id) DO UPDATE SET
+    role=excluded.role
+"""
+
+SELECT_DATASET_ACL = "SELECT * FROM dataset_acl WHERE database_id=? AND user_id=?"
+
+LIST_DATASET_ACL = "SELECT * FROM dataset_acl WHERE database_id=? ORDER BY role, user_id"
+
+DELETE_DATASET_ACL = "DELETE FROM dataset_acl WHERE database_id=? AND user_id=?"
 
 # (table, column, sqlite/postgres-compatible type clause)
 SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
@@ -220,6 +287,9 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("attempt_results", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
     ("attempt_results", "suite_run_id", "TEXT NOT NULL DEFAULT ''"),
     ("suite_results", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
+    ("suite_results", "complete", "INTEGER NOT NULL DEFAULT 0"),
+    ("suite_results", "bound_kind", "TEXT NOT NULL DEFAULT 'unknown'"),
+    ("suite_results", "task_set_digest", "TEXT NOT NULL DEFAULT ''"),
 )
 
 # Do not bind created_at. Pre-unification Postgres token tables are
@@ -250,6 +320,7 @@ SELECT_ATTEMPTS_FOR_SUITE = (
 COUNT_ATTEMPT_BLOB_REFS = "SELECT COUNT(*) AS n FROM attempt_results WHERE blob_digest=?"
 COUNT_SUITE_BLOB_REFS = "SELECT COUNT(*) AS n FROM suite_results WHERE blob_digest=?"
 COUNT_PACKAGE_BLOB_REFS = "SELECT COUNT(*) AS n FROM releases WHERE blob_digest=?"
+COUNT_DRAFT_BLOB_REFS = "SELECT COUNT(*) AS n FROM dataset_drafts WHERE blob_digest=?"
 DELETE_RELEASE = "DELETE FROM releases WHERE database_id=? AND version=?"
 UPDATE_RELEASE_VISIBILITY = "UPDATE releases SET visibility=? WHERE database_id=? AND version=?"
 

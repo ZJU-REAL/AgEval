@@ -9,7 +9,7 @@ Registry 是独立的 HTTP 服务：发包、管组织、存结果、登录。
 ## 怎么用
 
 1. 按仓库 [`services/registry/README.md`](https://github.com/ZJU-REAL/BORA/blob/main/services/registry/README.md) 启动服务
-2. CLI 登录后创建组织、带组织发布 Dataset、按需上传 suite / Attempt 结果
+2. CLI 登录后创建组织。Dataset 用 `bora publish --draft` 覆盖当前工作树，owner 再用 `bora release` 固化为不可变版本；也可直接 `bora publish` 发 release。按需上传 suite / Attempt 结果
 3. 私有结果可以分享给某个组织或用户
 4. 用浏览器打开 [Hub](/docs/share/hub) 浏览；Hub 走浏览器 OAuth，CLI 走 Device Flow
 

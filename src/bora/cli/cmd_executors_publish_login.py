@@ -59,6 +59,13 @@ def register(app: typer.Typer) -> None:
                 help="Overwrite same database_id@version if org owner (default: conflict 409).",
             ),
         ] = False,
+        draft: Annotated[
+            bool,
+            typer.Option(
+                "--draft",
+                help="Upload/overwrite the dataset draft slot instead of creating a release.",
+            ),
+        ] = False,
         registry_url: Annotated[
             str | None,
             typer.Option(
@@ -79,6 +86,63 @@ def register(app: typer.Typer) -> None:
                 public=public,
                 org=org,
                 replace=replace,
+                draft=draft,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        except OSError as exc:
+            typer.echo(f"invalid_package: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+    @app.command("release")
+    def release_command(
+        database_id: Annotated[
+            str,
+            typer.Argument(help="Dataset id whose current draft becomes a durable release."),
+        ],
+        public: Annotated[
+            bool,
+            typer.Option(
+                "--public",
+                help="Publish the release as public (default: draft visibility).",
+            ),
+        ] = False,
+        replace: Annotated[
+            bool,
+            typer.Option(
+                "--replace",
+                help="Overwrite same database_id@version if org owner (default: conflict 409).",
+            ),
+        ] = False,
+        version: Annotated[
+            str | None,
+            typer.Option(
+                "--version",
+                help="Override version (default: bora.yaml inside the draft).",
+            ),
+        ] = None,
+        registry_url: Annotated[
+            str | None,
+            typer.Option(
+                "--registry-url",
+                help="Override BORA_REGISTRY_URL / credentials file registry URL.",
+            ),
+        ] = None,
+    ) -> None:
+        """Owner: promote the current dataset draft to an immutable release."""
+        from bora.application.composition import build_publish_command
+        from bora.config.errors import ConfigError
+
+        release_draft = build_publish_command().release_draft
+        try:
+            summary = release_draft(
+                database_id,
+                public=public,
+                replace=replace,
+                version=version,
                 registry_url=registry_url,
             )
         except ConfigError as exc:

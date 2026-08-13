@@ -12,6 +12,7 @@ import {
   fetchTrialFile,
   fetchTrialTrajectory,
   fetchTrialTree,
+  type Job,
   type TrajectoryStep,
   type TreeEntry,
   type Trial,
@@ -19,6 +20,8 @@ import {
 
 export function useTrialDetail(jobId: string, taskId: string, runId: string) {
   const [trial, setTrial] = useState<Trial | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
+  const [siblingRunIds, setSiblingRunIds] = useState<string[]>([]);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [runCommand, setRunCommand] = useState("");
   const [prevId, setPrevId] = useState<string | null>(null);
@@ -59,6 +62,8 @@ export function useTrialDetail(jobId: string, taskId: string, runId: string) {
       .then((data) => {
         if (cancelled) return;
         setTrial(data.trial);
+        setJob(data.job || null);
+        setSiblingRunIds(data.sibling_run_ids || []);
         setResult(data.result || null);
         setRunCommand(data.run_command || "");
         setPrevId(data.prev_run_id || null);
@@ -162,6 +167,8 @@ export function useTrialDetail(jobId: string, taskId: string, runId: string) {
 
   return {
     trial,
+    job,
+    siblingRunIds,
     result,
     runCommand,
     prevId,

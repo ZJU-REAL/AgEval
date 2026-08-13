@@ -148,6 +148,7 @@ BORA/
 │   ├── app.py                 # Handler 是 HTTP adapter（读 body → *Service → JSON）
 │   ├── auth_service.py / package_service.py / result_service.py / org_service.py
 │   ├── queries.py             # 唯一 SQL / schema 文本
+│   ├── dataset.py             # draft 槽常量、task 集指纹、suite 完备谓词
 │   ├── sql_adapter.py         # sqlite/postgres 只 connect / placeholder / row-map
 │   ├── store.py               # 一份 MetadataStore + 薄 Postgres 适配
 │   └── routes.py              # ROUTES 必须声明 access；skip_auth 仅 access=none

@@ -17,23 +17,13 @@ import {
 import {
   joinOrgWithInvite,
   listOrgs,
+  latestPackageByDatabase,
   listPackages,
   type OrgRow,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-
-function latestByDatabase(items: PackageRelease[]): PackageRelease[] {
-  const map = new Map<string, PackageRelease>();
-  for (const row of items) {
-    const prev = map.get(row.database_id);
-    if (!prev || (row.created_at ?? 0) >= (prev.created_at ?? 0)) {
-      map.set(row.database_id, row);
-    }
-  }
-  return Array.from(map.values());
-}
 
 export function OrganizationsPage() {
   const navigate = useNavigate();
@@ -103,7 +93,7 @@ export function OrganizationsPage() {
 
   const datasetCountByOrg = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const row of latestByDatabase(packages)) {
+    for (const row of latestPackageByDatabase(packages)) {
       if (!row.org_id) continue;
       counts.set(row.org_id, (counts.get(row.org_id) ?? 0) + 1);
     }

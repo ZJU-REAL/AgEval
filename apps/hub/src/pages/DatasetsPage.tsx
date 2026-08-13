@@ -17,30 +17,14 @@ import {
   encodeDatasetId,
   isDatabasePackage,
   listOrgs,
+  latestPackageByDatabase,
   listPackages,
+  versionLabel,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { cn, formatDate } from "@/lib/utils";
-
-/** Collapse multi-version list to latest per database_id (by created_at). */
-function latestByDatabase(items: PackageRelease[]): PackageRelease[] {
-  const map = new Map<string, PackageRelease>();
-  for (const row of items) {
-    const prev = map.get(row.database_id);
-    if (!prev) {
-      map.set(row.database_id, row);
-      continue;
-    }
-    const a = prev.created_at ?? 0;
-    const b = row.created_at ?? 0;
-    if (b >= a) map.set(row.database_id, row);
-  }
-  return Array.from(map.values()).sort((x, y) =>
-    x.database_id.localeCompare(y.database_id),
-  );
-}
 
 type Scope = "orgs" | "explore";
 
@@ -91,7 +75,7 @@ export function DatasetsPage() {
   }, [token]);
 
   const datasets = useMemo(() => {
-    const latest = latestByDatabase(items);
+    const latest = latestPackageByDatabase(items);
     const scoped =
       scope === "orgs"
         ? latest.filter(
@@ -245,7 +229,7 @@ export function DatasetsPage() {
                         )}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-body">
-                        {row.version}
+                        {versionLabel(row)}
                       </TableCell>
                       <TableCell className="text-body">{row.visibility}</TableCell>
                       <TableCell className="text-right tabular-nums text-body">

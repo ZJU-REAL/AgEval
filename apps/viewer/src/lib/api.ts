@@ -2,6 +2,8 @@ export type Job = {
   job_id: string;
   job_name: string;
   source: string;
+  /** suite = .bora/suite-runs; single = one-off bora run Attempt. */
+  source_kind?: "suite" | "single" | string;
   database_id?: string | null;
   database_version?: string | null;
   agent_label?: string;
@@ -17,6 +19,9 @@ export type Job = {
   trials_total?: number;
   exit_code?: number | null;
   task_count?: number;
+  task_id?: string | null;
+  run_id?: string | null;
+  n_attempts?: number | null;
   note?: string;
 };
 
@@ -32,6 +37,8 @@ export type TaskRow = {
   provider_label?: string;
   dataset?: string | null;
   duration?: string | null;
+  n?: number | null;
+  attempt_run_ids?: string[];
 };
 
 export type Trial = {
