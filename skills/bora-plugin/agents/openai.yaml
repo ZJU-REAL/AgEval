@@ -1,0 +1,4 @@
+interface:
+  display_name: "BORA plugins"
+  short_description: "Write BORA mechanism plugins (slots, bake)"
+  default_prompt: "Use $bora-plugin to author a bora.plugin/1 against slots.py and docs/design/11-extension-plugins.md. Do not invent slots or dual-path factories."

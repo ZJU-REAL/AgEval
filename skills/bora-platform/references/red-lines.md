@@ -17,6 +17,11 @@
 - **OK:** yaml `executor: acp` + `options.entry: codex|pi|opencode|…`; `openai-http`; `postgresql`; docker provider.
 - **Forbidden:** `executor: codex|pi|opencode|claude-code` as private CLI kinds (migrated); `TerminalBenchAdapter`; task-id branches; domain names as production adapter modules.
 
+## Plugins
+
+- **OK:** `bora plugin install plugins/nooa` then bind `executor: nooa` in profiles; L1 Ready only after `image_contribute` bake.
+- **Forbidden:** Treat install as L1-ready; rewrite profiles from install; `if kind == "nooa"` in Core.
+
 ## Evidence grade inflation
 
 - **OK:** Document `execution_location: parent-api-client` or `attempt-container` as measured.

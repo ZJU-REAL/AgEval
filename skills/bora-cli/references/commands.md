@@ -41,7 +41,9 @@ Stdout JSON (high level):
   CLI/job only — not `task.yaml`, not `config_fingerprint`. Feeds `metrics.pass_at_k` / `pass_power_k`.
 - **Suite**: omit `--task` → all members; also used as the job container when `k>1` or resume.
 - **`--max-concurrent-tasks`**: speeds wall time only; does not change k or PASS.
-- **`--resume-suite <suite_run_id>`**: skip finished `(task_id, attempt_index)`, append Attempts, recompute metrics.
+- **`--resume-suite <suite_run_id>`**: skip finished `(task_id, attempt_index)`
+  (PASS/FAIL/**ERROR** all count as finished), append missing Attempts, recompute
+  metrics. Retrying an ERROR needs a **new** suite, not resume of that index.
 - **`--keep-workspace`** (L1 / `provider.kind: docker` only): retain host
   `.bora/runs/<run_id>/l1-work/` after cleanup for local debug. **Default off** —
   Runtime deletes `l1-work` after container cleanup. Not required for Hub; upload

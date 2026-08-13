@@ -18,12 +18,12 @@
 - `provider.kind`: `local` | `docker`
 - When `provider.kind: docker`: package file **`environment/Dockerfile`** (or
   `provider.dockerfile` override) **required** at lock time
-- `agent_profiles`: list of `{id, executor, model}` (+ ACP `options.entry` when applicable)
+- `agent_profiles`: role slots only (`{id}`); executor / model / `options` live in Database `profiles.yaml`
 - `limits`: wall / agent_invocations / environment_actions / memory_mb
 - `evaluation`: runtime, entrypoint, inputs, output.format
 - Optional `provenance` (fully replaces Database-root default when set)
 
-## Provenance（溯源，可选）
+## Provenance (optional)
 
 Declare where a package/task was ported from. **Not PASS** and not a quality score.
 
@@ -92,7 +92,10 @@ agent_profiles:
 
 ## Allowlisted CLI overrides
 
-`/parameters/seed`, `/parameters/active_profile`, `/limits/wall_time_seconds`, `/limits/agent_invocations`, `/limits/environment_actions`, `/limits/memory_mb`.
+Fixed: `/parameters/seed`, `/parameters/active_profile`.
+Job binding: `/bindings/<role>/{model,executor,api_key,base_url}` and
+`/bindings/<role>/options/<key>`.
+**Not** overridable: `limits.*` (task contract).
 
 ## Environment packages
 

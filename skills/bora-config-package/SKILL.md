@@ -6,9 +6,9 @@ description: >
   artifacts, evaluation inputs, gold isolation, allowlisted overrides). Use when creating or
   editing packages under examples/, writing bora.yaml/task.yaml, adding profiles/executors,
   declaring limits, wiring evaluation inputs, or reviewing package ownership violations.
-  Triggers: "bora.yaml", "task.yaml", "database", "task package", "agent_profiles",
-  "evaluation gold", "workspace_output", "provider kind", "package layout". Never put secrets
-  in yaml; never branch adapters by benchmark name.
+  Triggers: "bora.yaml", "task.yaml", "profiles.yaml", "database", "task package",
+  "agent_profiles", "evaluation gold", "workspace_output", "provider kind",
+  "package layout". Never put secrets in yaml; never branch adapters by benchmark name.
 ---
 
 # Config / Database + Task
@@ -344,3 +344,4 @@ Do not invent kinds or entry ids.
 - Field catalog & allowlists: [references/bora-yaml.md](references/bora-yaml.md)
 - Isolation / gold / L1 / Dockerfile tiers / `data/` seed: [references/isolation.md](references/isolation.md)
 - Conversion / generators / upstream owner map: [references/conversion.md](references/conversion.md)
+- New mechanism plugin (`bora.plugin/1`): `$bora-plugin`

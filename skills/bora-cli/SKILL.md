@@ -94,6 +94,7 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 
 Cache root: `$BORA_HOME/plugins` (default `~/.bora/plugins`).  
 **Recognition** (list/lock) ≠ **L1 Ready** (`image_contribute` bake).
+Writing a new plugin package is `$bora-plugin`, not this skill.
 
 ## Allowlisted `--set` pointers
 

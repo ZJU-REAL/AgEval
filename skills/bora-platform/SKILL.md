@@ -6,13 +6,15 @@ description: >
   ownership, red lines (trajectory≠PASS, no secrets in lock/evidence, mechanism-named
   adapters only), evidence grades, and which sibling skill to load next. Use when an
   agent enters the BORA repo, needs orientation before changing code/packages, asks
-  "what is BORA", "who owns PASS", "read order", "evidence grade", or which docs are
-  authoritative. Not a substitute for docs/design; only routes and hard constraints.
+  "what is BORA", "who owns PASS", "read order", "evidence grade", "which skill",
+  or which docs are authoritative. Not a substitute for docs/design; only routes
+  and hard constraints.
 ---
 
 # BORA platform
 
-Harness 的 Harness：Runtime 管边界（lock、Attempt、隔离、Capability、轨迹、独立评测）；package 管业务 loop。
+Runtime owns the boundary (lock, Attempt, isolation, capability, trajectory,
+independent evaluation). The package owns the business loop.
 
 ## Read order (do not invent authority)
 
@@ -33,7 +35,8 @@ Conflict → stop; fix the highest authority artifact first, then sync downstrea
 | **Package harness:** loop, roles, local Tools, handoff data, `ctx.params` | PASS/FAIL, credentials, isolation mounts |
 | **Evaluator (package):** truth / score algorithm | Starting Agent, host secrets, rewriting runtime errors into PASS |
 
-**造包 / 复刻上游 / scenario 同构切 Dataset：** load `$bora-config-package`（Hub Leaderboard 可比性约定与 suite `config_fingerprint` 亦在该 skill）。
+Authoring / porting / scenario-homogeneous Datasets: load `$bora-config-package`
+(Hub Leaderboard comparability and suite `config_fingerprint` live there too).
 
 ## Red lines (fail closed)
 
@@ -61,6 +64,7 @@ Conflict → stop; fix the highest authority artifact first, then sync downstrea
 | Run CLI / interpret exit / export trajectory | `$bora-cli` |
 | Write or review `bora.yaml` / package layout | `$bora-config-package` |
 | Write harness / AgentSession / ToolSet | `$bora-sdk-harness` |
+| Write or review `bora.plugin/1` | `$bora-plugin` |
 
 ## Progressive detail
 

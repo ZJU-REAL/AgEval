@@ -62,8 +62,9 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
 
 Entrypoint in yaml: `harness: entrypoint: harness:run` with `async def run(ctx)`.
 
-Multi-role: open **separate** sessions with different profile ids (each profile may
-point at a different ACP `options.entry`).
+Multi-role: open **separate** sessions with different profile ids (each profile
+may bind a different executor / ACP `options.entry`). Writing a new executor
+mechanism is `$bora-plugin`, not this skill.
 
 **Multi-task packages:** keep `tasks/*/harness.py` thin; put shared orchestration under
 Dataset `shared/lib` and import `shared.lib.*` (see `bora-config-package`).
@@ -77,7 +78,8 @@ Dataset `shared/lib` and import `shared.lib.*` (see `bora-config-package`).
 | Return `completed` / `failed` terminal | Raise Core hard ceilings or isolation |
 | Package-local business events | Be the only trajectory source |
 
-Parent Agent Service writes §8.9 trajectory. `ctx.events` is optional supplement only.
+Parent Agent Service writes observational `bora.trajectory.event/1` into
+`trajectory.jsonl`. `ctx.events` is an optional supplement only.
 
 ## Tools (local soft policy)
 
