@@ -15,7 +15,11 @@ from services.registry.oauth_github import DeviceCodeResponse, GitHubIdentity
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
 from bora.application.registry_ops.publish_command import publish_database
-from bora.application.registry_ops.registry_list_command import cache_list, list_packages, show_package
+from bora.application.registry_ops.registry_list_command import (
+    cache_list,
+    list_packages,
+    show_package,
+)
 from bora.application.registry_ops.results_command import (
     get_attempt_result,
     get_suite_result,
@@ -55,9 +59,9 @@ def registry_server(tmp_path: Path):
     data = tmp_path / "reg-data"
     state, token = build_default_state(data, bootstrap_token="test-token-publish", memory_blob=True)
     # Enable OAuth config for login tests (mocked GitHub).
-    state.github_client_id = "test-client-id"
-    state.github_client_secret = "test-client-secret"
-    state.github_login_allowlist = frozenset({"testuser"})
+    state.auth.github_client_id = "test-client-id"
+    state.auth.github_client_secret = "test-client-secret"
+    state.auth.github_login_allowlist = frozenset({"testuser"})
     handler = make_handler(state)
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]
@@ -182,7 +186,7 @@ def test_oauth_device_flow_mocked(
 
     with (
         patch(
-            "services.registry.app.request_device_code",
+            "services.registry.auth_service.request_device_code",
             return_value=DeviceCodeResponse(
                 device_code="dev-code",
                 user_code="ABCD-1234",
@@ -192,11 +196,11 @@ def test_oauth_device_flow_mocked(
             ),
         ),
         patch(
-            "services.registry.app.poll_access_token",
+            "services.registry.auth_service.poll_access_token",
             side_effect=[None, "gho_test_token"],
         ),
         patch(
-            "services.registry.app.fetch_user",
+            "services.registry.auth_service.fetch_user",
             return_value=GitHubIdentity(login="testuser", id=1),
         ),
     ):
@@ -231,7 +235,7 @@ def test_oauth_allowlist_denies_unknown_user(
     client = RegistryClient(registry_server["url"], token=None)
     with (
         patch(
-            "services.registry.app.request_device_code",
+            "services.registry.auth_service.request_device_code",
             return_value=DeviceCodeResponse(
                 device_code="dev-deny",
                 user_code="ZZZZ-9999",
@@ -241,11 +245,11 @@ def test_oauth_allowlist_denies_unknown_user(
             ),
         ),
         patch(
-            "services.registry.app.poll_access_token",
+            "services.registry.auth_service.poll_access_token",
             return_value="gho_other",
         ),
         patch(
-            "services.registry.app.fetch_user",
+            "services.registry.auth_service.fetch_user",
             return_value=GitHubIdentity(login="not-allowed", id=99),
         ),
     ):

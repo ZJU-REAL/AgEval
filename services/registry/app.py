@@ -47,13 +47,11 @@ Blob GC: delete meta first; drop blob only when digest has zero remaining refs.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
 import secrets
 import sys
-import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -69,18 +67,9 @@ if str(_REPO) not in sys.path:
 from services.registry.access import AccessPolicy  # noqa: E402
 from services.registry.envload import load_env_file  # noqa: E402
 from services.registry.errors import RegistryAppError  # noqa: E402
-from services.registry.oauth_github import (  # noqa: E402
-    GitHubOAuthError,
-    build_web_authorize_url,
-    exchange_web_code,
-    fetch_user,
-    poll_access_token,
-    request_device_code,
-)
 from services.registry.routes import match_route  # noqa: E402
 from services.registry.store import (  # noqa: E402
     ADMIN_SCOPES,
-    DEFAULT_LOGIN_SCOPES,
     FilesystemBlobStore,
     MemoryBlobStore,
     MetadataStore,
@@ -89,19 +78,12 @@ from services.registry.store import (  # noqa: E402
     S3BlobStore,
     SqliteTokenStore,
     TokenInfo,
-    _normalize_user_id,
-    invite_key_to_dict,
-    membership_to_dict,
-    now,
-    org_to_dict,
 )
 
 from bora.registry.media_types import (  # noqa: E402
     ATTEMPT_RESULT_MEDIA_TYPE as RESULT_MEDIA_TYPE,
 )
 from bora.registry.media_types import SUITE_RESULT_MEDIA_TYPE  # noqa: E402
-
-_ORG_NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$")
 
 MAX_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB hard top for v1
 
@@ -127,17 +109,17 @@ class RegistryState:
         from services.registry.package_service import PackageService
         from services.registry.result_service import ResultService
 
-        self.auth = AuthService(tokens)
+        self.auth = AuthService(
+            tokens,
+            meta=meta,
+            github_client_id=github_client_id,
+            github_client_secret=github_client_secret,
+            github_login_allowlist=github_login_allowlist or frozenset(),
+        )
         self.packages = PackageService(meta, blobs, self.access, max_upload=max_upload)
         self.results = ResultService(meta, blobs, self.access, max_upload=max_upload)
         self.orgs = OrgService(meta, self.access)
         self.max_upload = max_upload
-        self.github_client_id = github_client_id
-        self.github_client_secret = github_client_secret
-        # Empty allowlist = refuse OAuth token issue (fail closed). Bootstrap token still works.
-        self.github_login_allowlist = github_login_allowlist or frozenset()
-        # Web OAuth (Hub): state -> {redirect_uri, created_at}
-        self.oauth_web_states: dict[str, dict[str, Any]] = {}
 
 
 def _cors_headers(handler: BaseHTTPRequestHandler) -> None:
@@ -211,10 +193,6 @@ def _parse_multipart(body: bytes, content_type: str) -> dict[str, bytes]:
     return out
 
 
-def _is_admin(scopes: frozenset[str]) -> bool:
-    return AccessPolicy.is_admin(scopes)
-
-
 def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -241,7 +219,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             route, kwargs = matched
             handler = getattr(self, f"_{route.name}")
             token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+            auth = state.auth.auth_for(token)
             denied = state.access.enforce_route_access(route.access, auth, kwargs=kwargs)
             if denied is not None:
                 status, body = denied
@@ -270,314 +248,54 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         # ---- OAuth -------------------------------------------------------
 
-        def _allowed_web_redirect(self, redirect_uri: str) -> bool:
-            """Local Hub defaults + optional BORA_GITHUB_WEB_REDIRECT_URIS allowlist."""
-            uri = (redirect_uri or "").strip()
-            if not uri:
-                return False
-            defaults = {
-                "http://127.0.0.1:5174/login/callback",
-                "http://localhost:5174/login/callback",
-            }
-            extra = os.environ.get("BORA_GITHUB_WEB_REDIRECT_URIS") or ""
-            for part in extra.split(","):
-                p = part.strip()
-                if p:
-                    defaults.add(p)
-            return uri in defaults
-
-        def _purge_stale_oauth_states(self) -> None:
-            now_ts = time.time()
-            dead = [
-                k
-                for k, v in state.oauth_web_states.items()
-                if now_ts - float(v.get("created_at") or 0) > 600
-            ]
-            for k in dead:
-                state.oauth_web_states.pop(k, None)
-
-        def _issue_registry_session(self, identity: Any) -> dict[str, Any] | None:
-            """Allowlist check + mint Registry API token. None if not allowed (response sent)."""
-            allow = state.github_login_allowlist
-            login = str(getattr(identity, "login", "") or "")
-            if not allow:
-                _json_response(
-                    self,
-                    403,
-                    {
-                        "error": "login_not_allowed",
-                        "message": (
-                            "BORA_GITHUB_LOGIN_ALLOWLIST is empty; "
-                            "set comma-separated GitHub logins before login"
-                        ),
-                    },
-                )
-                return None
-            if login.casefold() not in {u.casefold() for u in allow}:
-                _json_response(
-                    self,
-                    403,
-                    {
-                        "error": "login_not_allowed",
-                        "message": (
-                            f"GitHub user {login!r} is not on "
-                            "BORA_GITHUB_LOGIN_ALLOWLIST "
-                            f"(allowed: {', '.join(sorted(allow))})"
-                        ),
-                    },
-                )
-                return None
-            api_token = secrets.token_urlsafe(32)
-            state.tokens.add(
-                api_token,
-                DEFAULT_LOGIN_SCOPES,
-                github_user=login,
-            )
-            display_name = getattr(identity, "name", None) or ""
-            avatar_url = getattr(identity, "avatar_url", None) or ""
-            github_id = getattr(identity, "id", None)
-            try:
-                upsert = getattr(state.meta, "upsert_user_profile", None)
-                if callable(upsert):
-                    upsert(
-                        user_id=login,
-                        display_name=str(display_name or ""),
-                        avatar_url=str(avatar_url or ""),
-                        github_id="" if github_id is None else str(github_id),
-                    )
-            except Exception:  # noqa: BLE001
-                pass
-            payload: dict[str, Any] = {
-                "token": api_token,
-                "token_type": "bearer",
-                "scopes": sorted(DEFAULT_LOGIN_SCOPES),
-                "github_user": login,
-            }
-            if github_id is not None:
-                payload["github_id"] = github_id
-            if display_name:
-                payload["github_name"] = str(display_name)
-            if avatar_url:
-                payload["avatar_url"] = str(avatar_url)
-            return payload
-
         def _auth_web_start(self) -> None:
-            """Hub SPA: start Authorization Code flow (Harbor-style browser login)."""
-            if not state.github_client_id:
-                _json_response(
-                    self,
-                    503,
-                    {
-                        "error": "oauth_not_configured",
-                        "message": "BORA_GITHUB_CLIENT_ID not set",
-                    },
-                )
+            body = self._read_json_body()
+            if body is None:
                 return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
             try:
-                body = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            redirect_uri = str(body.get("redirect_uri") or "").strip()
-            if not self._allowed_web_redirect(redirect_uri):
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "invalid_redirect_uri",
-                        "message": (
-                            "redirect_uri not allowed "
-                            "(default: http://127.0.0.1:5174/login/callback; "
-                            "extend via BORA_GITHUB_WEB_REDIRECT_URIS)"
-                        ),
-                    },
+                payload = state.auth.web_start(
+                    redirect_uri=str(body.get("redirect_uri") or "").strip()
                 )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            self._purge_stale_oauth_states()
-            state_token = secrets.token_urlsafe(24)
-            state.oauth_web_states[state_token] = {
-                "redirect_uri": redirect_uri,
-                "created_at": time.time(),
-            }
-            sys.stderr.write(
-                f"oauth web start state={state_token[:8]}... "
-                f"redirect={redirect_uri!r} pending={len(state.oauth_web_states)}\n"
-            )
-            url = build_web_authorize_url(
-                client_id=state.github_client_id,
-                redirect_uri=redirect_uri,
-                state=state_token,
-            )
-            _json_response(
-                self,
-                200,
-                {"authorize_url": url, "state": state_token},
-            )
+            _json_response(self, 200, payload)
 
         def _auth_web_callback(self) -> None:
-            """Hub SPA: exchange GitHub code for Registry API token."""
-            if not state.github_client_id or not state.github_client_secret:
-                _json_response(
-                    self,
-                    503,
-                    {
-                        "error": "oauth_not_configured",
-                        "message": "GitHub OAuth client not configured",
-                    },
-                )
+            body = self._read_json_body()
+            if body is None:
                 return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
             try:
-                body = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            code = str(body.get("code") or "").strip()
-            state_token = str(body.get("state") or "").strip()
-            redirect_uri = str(body.get("redirect_uri") or "").strip()
-            if not code or not state_token:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": "code and state required"},
+                payload = state.auth.web_callback(
+                    code=str(body.get("code") or "").strip(),
+                    state=str(body.get("state") or "").strip(),
+                    redirect_uri=str(body.get("redirect_uri") or "").strip(),
                 )
-                return
-            self._purge_stale_oauth_states()
-            # Peek first; pop only after GitHub exchange succeeds so a double
-            # client call (React StrictMode) is less likely to hit invalid_state
-            # before the first exchange finishes.
-            pending = state.oauth_web_states.get(state_token)
-            if pending is None:
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "invalid_state",
-                        "message": "unknown or expired OAuth state; start login again",
-                    },
-                )
-                return
-            expected_redirect = str(pending.get("redirect_uri") or "")
-            if redirect_uri and redirect_uri != expected_redirect:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_redirect_uri", "message": "redirect_uri mismatch"},
-                )
-                return
-            redirect_uri = expected_redirect
-            try:
-                gh_token = exchange_web_code(
-                    client_id=state.github_client_id,
-                    client_secret=state.github_client_secret,
-                    code=code,
-                    redirect_uri=redirect_uri,
-                )
-                identity = fetch_user(gh_token)
-            except GitHubOAuthError as exc:
-                sys.stderr.write(f"oauth web callback failed code={exc.code} msg={exc.message!r}\n")
-                _json_response(self, 400, {"error": exc.code, "message": exc.message})
-                return
-            state.oauth_web_states.pop(state_token, None)
-            sys.stderr.write(
-                f"oauth web authorized github_user={identity.login!r} (issuing registry token)\n"
-            )
-            payload = self._issue_registry_session(identity)
-            if payload is None:
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
             _json_response(self, 200, payload)
 
         def _auth_device_code(self) -> None:
-            if not state.github_client_id:
-                _json_response(
-                    self,
-                    503,
-                    {
-                        "error": "oauth_not_configured",
-                        "message": "BORA_GITHUB_CLIENT_ID not set",
-                    },
-                )
-                return
             try:
-                dc = request_device_code(client_id=state.github_client_id)
-            except GitHubOAuthError as exc:
-                _json_response(self, 502, {"error": exc.code, "message": exc.message})
+                payload = state.auth.device_code()
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            from services.registry.oauth_github import _device_verify_url
-
-            payload = {
-                "device_code": dc.device_code,
-                "user_code": dc.user_code,
-                "verification_uri": dc.verification_uri,
-                "expires_in": dc.expires_in,
-                "interval": dc.interval,
-                # One-click prefill; always re-normalize (user_code + skip picker).
-                "verification_uri_complete": _device_verify_url(
-                    dc.verification_uri_complete or dc.verification_uri,
-                    dc.user_code,
-                ),
-            }
             _json_response(self, 200, payload)
 
         def _auth_device_poll(self) -> None:
-            if not state.github_client_id or not state.github_client_secret:
-                _json_response(
-                    self,
-                    503,
-                    {
-                        "error": "oauth_not_configured",
-                        "message": "GitHub OAuth client not configured",
-                    },
-                )
-                return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
-            try:
-                body = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            device_code = str(body.get("device_code") or "")
-            if not device_code:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": "device_code required"},
-                )
+            body = self._read_json_body()
+            if body is None:
                 return
             try:
-                gh_token = poll_access_token(
-                    client_id=state.github_client_id,
-                    client_secret=state.github_client_secret,
-                    device_code=device_code,
+                status, payload = state.auth.device_poll(
+                    device_code=str(body.get("device_code") or "")
                 )
-            except GitHubOAuthError as exc:
-                sys.stderr.write(f"oauth poll github_error code={exc.code} msg={exc.message!r}\n")
-                _json_response(self, 400, {"error": exc.code, "message": exc.message})
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            if gh_token is None:
-                _json_response(
-                    self,
-                    202,
-                    {"status": "authorization_pending", "message": "waiting for user"},
-                )
-                return
-            try:
-                identity = fetch_user(gh_token)
-            except GitHubOAuthError as exc:
-                sys.stderr.write(f"oauth fetch_user failed code={exc.code} msg={exc.message!r}\n")
-                _json_response(self, 502, {"error": exc.code, "message": exc.message})
-                return
-            sys.stderr.write(
-                f"oauth poll authorized github_user={identity.login!r} (issuing registry token)\n"
-            )
-            payload = self._issue_registry_session(identity)
-            if payload is None:
-                return
-            _json_response(self, 200, payload)
+            _json_response(self, status, payload)
 
         # ---- packages ----------------------------------------------------
 
@@ -867,360 +585,139 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         # ---- org ---------------------------------------------------------
 
         def _create_org(self, *, auth: TokenInfo) -> None:
-            if not auth.scopes:
-                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
-                return
-            if not auth.user_id:
-                _json_response(
-                    self,
-                    401,
-                    {"error": "unauthorized", "message": "user identity required"},
-                )
-                return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
-            try:
-                body = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            name = str(body.get("name") or "").strip().casefold()
-            display_name = str(body.get("display_name") or name)
-            is_claimable = bool(body.get("is_claimable", False))
-            if not name or not _ORG_NAME_RE.match(name):
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "invalid_request",
-                        "message": "name must be lowercase slug [a-z0-9][a-z0-9_-]*",
-                    },
-                )
+            body = self._read_json_body()
+            if body is None:
                 return
             try:
-                org = state.meta.create_org(
-                    name=name,
-                    owner_user_id=auth.user_id,
-                    display_name=display_name,
-                    is_claimable=is_claimable,
+                payload = state.orgs.create(
+                    name=str(body.get("name") or ""),
+                    display_name=str(body.get("display_name") or ""),
+                    is_claimable=bool(body.get("is_claimable", False)),
+                    auth=auth,
                 )
-            except ValueError:
-                _json_response(self, 409, {"error": "conflict", "message": "org already exists"})
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 201, org_to_dict(org))
+            _json_response(self, 201, payload)
 
         def _list_orgs(self, *, auth: TokenInfo) -> None:
-            if not auth.user_id:
-                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
+            try:
+                payload = state.orgs.list_for_user(auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            items = []
-            for org, role in state.meta.list_orgs_for_user(auth.user_id):
-                d = org_to_dict(org)
-                d["role"] = role
-                items.append(d)
-            _json_response(self, 200, {"items": items})
+            _json_response(self, 200, payload)
 
         def _get_org(self, *, org_id: str, auth: TokenInfo) -> None:
-            org = state.meta.get_org(org_id.casefold())
-            if org is None:
-                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+            try:
+                payload = state.orgs.get_public(org_id=org_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            # Public metadata of org is readable; membership list is restricted.
-            payload = org_to_dict(org)
-            if auth.user_id:
-                m = state.meta.membership(org.org_id, auth.user_id)
-                if m:
-                    payload["role"] = m.role
             _json_response(self, 200, payload)
 
         def _claim_org(self, *, org_id: str, auth: TokenInfo) -> None:
-            if not auth.user_id:
-                _json_response(
-                    self,
-                    401,
-                    {"error": "unauthorized", "message": "user identity required"},
-                )
-                return
             try:
-                org = state.meta.claim_org(org_id.casefold(), auth.user_id)
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                payload = state.orgs.claim(org_id=org_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            except PermissionError as exc:
-                _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
-                return
-            _json_response(self, 200, org_to_dict(org))
-
-        def _require_org_owner(self, *, org_id: str, auth: TokenInfo) -> bool:
-            """Return True if caller may manage org (owner or admin). Sends error response if not."""
-            status = state.access.org_owner_status(org_id=org_id, auth=auth)
-            if status == "ok":
-                return True
-            if status == "not_found":
-                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
-            elif status == "unauthorized":
-                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
-            else:
-                _json_response(
-                    self,
-                    403,
-                    {"error": "forbidden", "message": "owner required"},
-                )
-            return False
+            _json_response(self, 200, payload)
 
         def _create_invite_key(self, *, org_id: str, auth: TokenInfo) -> None:
-            org_id = org_id.casefold()
-            if not self._require_org_owner(org_id=org_id, auth=auth):
+            body = self._read_json_body()
+            if body is None:
                 return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
             try:
-                body = json.loads(raw.decode("utf-8") or "{}")
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            max_uses: int | None = None
-            if body.get("max_uses") is not None and body.get("max_uses") != "":
-                try:
-                    max_uses = int(body["max_uses"])
-                except (TypeError, ValueError):
-                    _json_response(
-                        self,
-                        400,
-                        {"error": "invalid_request", "message": "max_uses must be int"},
-                    )
-                    return
-            expires_at: float | None = None
-            if body.get("expires_at") is not None and body.get("expires_at") != "":
-                try:
-                    expires_at = float(body["expires_at"])
-                except (TypeError, ValueError):
-                    _json_response(
-                        self,
-                        400,
-                        {
-                            "error": "invalid_request",
-                            "message": "expires_at must be unix timestamp",
-                        },
-                    )
-                    return
-            if expires_at is not None and expires_at <= now():
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": "expires_at must be in the future"},
-                )
-                return
-            # days convenience: expires_in_days
-            if expires_at is None and body.get("expires_in_days") is not None:
-                try:
-                    days = float(body["expires_in_days"])
-                    if days <= 0:
-                        raise ValueError("non-positive")
-                    expires_at = now() + days * 86400.0
-                except (TypeError, ValueError):
-                    _json_response(
-                        self,
-                        400,
-                        {
-                            "error": "invalid_request",
-                            "message": "expires_in_days must be positive number",
-                        },
-                    )
-                    return
-            # Plaintext is returned once on create; store only hash + prefix.
-            plain = f"bora-inv_{secrets.token_urlsafe(24)}"
-            token_hash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
-            prefix = plain[:16] + "…"
-            try:
-                row = state.meta.create_invite_key(
+                payload = state.orgs.create_invite(
                     org_id=org_id,
-                    created_by=auth.user_id or "",
-                    token_hash=token_hash,
-                    token_prefix=prefix,
-                    max_uses=max_uses,
-                    expires_at=expires_at,
+                    max_uses=body.get("max_uses"),
+                    expires_at=body.get("expires_at"),
+                    expires_in_days=body.get("expires_in_days"),
+                    auth=auth,
                 )
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            except ValueError as exc:
-                _json_response(self, 400, {"error": "invalid_request", "message": str(exc)})
-                return
-            _json_response(self, 201, invite_key_to_dict(row, invite_key=plain))
+            _json_response(self, 201, payload)
 
         def _list_invite_keys(self, *, org_id: str, auth: TokenInfo) -> None:
-            org_id = org_id.casefold()
-            if not self._require_org_owner(org_id=org_id, auth=auth):
+            try:
+                payload = state.orgs.list_invites(org_id=org_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            items = [invite_key_to_dict(r) for r in state.meta.list_invite_keys(org_id)]
-            _json_response(self, 200, {"org_id": org_id, "items": items})
+            _json_response(self, 200, payload)
 
         def _revoke_invite_key(self, *, org_id: str, key_id: str, auth: TokenInfo) -> None:
-            org_id = org_id.casefold()
-            if not self._require_org_owner(org_id=org_id, auth=auth):
-                return
             try:
-                row = state.meta.revoke_invite_key(org_id, key_id)
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "invite key not found"})
+                payload = state.orgs.revoke_invite(org_id=org_id, key_id=key_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 200, invite_key_to_dict(row))
+            _json_response(self, 200, payload)
 
         def _join_org_with_invite(self, *, auth: TokenInfo) -> None:
-            if not auth.user_id:
-                _json_response(
-                    self,
-                    401,
-                    {"error": "unauthorized", "message": "user identity required"},
-                )
+            body = self._read_json_body()
+            if body is None:
                 return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
             try:
-                body = json.loads(raw.decode("utf-8") or "{}")
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            invite = str(body.get("invite_key") or "").strip()
-            if not invite:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": "invite_key required"},
+                payload = state.orgs.join(
+                    invite_key=str(body.get("invite_key") or ""),
+                    auth=auth,
                 )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            token_hash = hashlib.sha256(invite.encode("utf-8")).hexdigest()
-            try:
-                org, mem = state.meta.redeem_invite_key(token_hash=token_hash, user_id=auth.user_id)
-            except LookupError:
-                _json_response(
-                    self,
-                    404,
-                    {"error": "not_found", "message": "invalid invite key"},
-                )
-                return
-            except PermissionError as exc:
-                _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
-                return
-            except ValueError as exc:
-                _json_response(self, 409, {"error": "conflict", "message": str(exc)})
-                return
-            payload = org_to_dict(org)
-            payload["role"] = mem.role
-            payload["membership"] = membership_to_dict(mem)
             _json_response(self, 200, payload)
 
         def _list_org_members(self, *, org_id: str, auth: TokenInfo) -> None:
-            org_id = org_id.casefold()
-            org = state.meta.get_org(org_id)
-            if org is None:
-                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+            try:
+                payload = state.orgs.list_members(org_id=org_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            if not _is_admin(auth.scopes):
-                if not auth.user_id or state.meta.membership(org_id, auth.user_id) is None:
-                    _json_response(self, 404, {"error": "not_found", "message": "org not found"})
-                    return
-            member_rows = state.meta.list_members(org_id)
-            profiles = state.meta.get_user_profiles([m.user_id for m in member_rows])
-            members = [membership_to_dict(m, profile=profiles.get(m.user_id)) for m in member_rows]
-            _json_response(self, 200, {"org_id": org_id, "items": members})
+            _json_response(self, 200, payload)
 
         def _add_org_member(self, *, org_id: str, auth: TokenInfo) -> None:
-            org_id = org_id.casefold()
-            if not auth.user_id and not _is_admin(auth.scopes):
-                _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
-                return
-            mem = state.meta.membership(org_id, auth.user_id) if auth.user_id else None
-            if not _is_admin(auth.scopes) and (mem is None or mem.role != "owner"):
-                _json_response(
-                    self,
-                    403,
-                    {"error": "forbidden", "message": "owner required to add members"},
-                )
-                return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
-            try:
-                body = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            user_id = _normalize_user_id(str(body.get("user_id") or ""))
-            role = str(body.get("role") or "member")
-            if not user_id:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": "user_id required"},
-                )
+            body = self._read_json_body()
+            if body is None:
                 return
             try:
-                m = state.meta.add_member(org_id, user_id, role=role)
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                payload = state.orgs.add_member(
+                    org_id=org_id,
+                    user_id=str(body.get("user_id") or ""),
+                    role=str(body.get("role") or "member"),
+                    auth=auth,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            except ValueError as exc:
-                code = "conflict" if "exists" in str(exc) else "invalid_request"
-                status = 409 if code == "conflict" else 400
-                _json_response(self, status, {"error": code, "message": str(exc)})
-                return
-            _json_response(self, 201, membership_to_dict(m))
+            _json_response(self, 201, payload)
 
         def _remove_org_member(self, *, org_id: str, user_id: str, auth: TokenInfo) -> None:
-            org_id = org_id.casefold()
-            target = _normalize_user_id(user_id) or user_id.casefold()
-            mem = state.meta.membership(org_id, auth.user_id) if auth.user_id else None
-            if not _is_admin(auth.scopes) and (mem is None or mem.role != "owner"):
-                _json_response(
-                    self,
-                    403,
-                    {"error": "forbidden", "message": "owner required to remove members"},
-                )
-                return
             try:
-                state.meta.remove_member(org_id, target)
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "membership not found"})
+                payload = state.orgs.remove_member(org_id=org_id, user_id=user_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 200, {"ok": True, "org_id": org_id, "user_id": target})
+            _json_response(self, 200, payload)
 
         def _leave_org(self, *, org_id: str, auth: TokenInfo) -> None:
-            org_id = org_id.casefold()
-            if not auth.user_id:
-                _json_response(
-                    self,
-                    401,
-                    {"error": "unauthorized", "message": "user identity required"},
-                )
-                return
             try:
-                state.meta.leave_org(org_id, auth.user_id)
-            except LookupError:
-                _json_response(
-                    self,
-                    404,
-                    {"error": "not_found", "message": "membership not found"},
-                )
+                payload = state.orgs.leave(org_id=org_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            except PermissionError as exc:
-                _json_response(self, 403, {"error": "forbidden", "message": str(exc)})
-                return
-            _json_response(self, 200, {"ok": True, "org_id": org_id, "left": True})
+            _json_response(self, 200, payload)
 
         def _delete_org(self, *, org_id: str, auth: TokenInfo) -> None:
-            org_id = org_id.casefold()
-            if not self._require_org_owner(org_id=org_id, auth=auth):
-                return
             try:
-                state.meta.delete_org(org_id)
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "org not found"})
+                payload = state.orgs.delete(org_id=org_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            except ValueError as exc:
-                _json_response(self, 409, {"error": "conflict", "message": str(exc)})
-                return
-            _json_response(self, 200, {"ok": True, "org_id": org_id, "dissolved": True})
+            _json_response(self, 200, payload)
 
         # ---- result shares -----------------------------------------------
 
