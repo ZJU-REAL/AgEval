@@ -295,7 +295,8 @@ export function DatasetDetailPage() {
           </h1>
           {release ? (
             <p className="text-sm text-mute mt-1">
-              {versionLabel(release)} · {release.visibility}
+              <span className="font-mono">{versionLabel(release)}</span> ·{" "}
+              {release.visibility}
               {release.org_id ? (
                 <>
                   {" "}

@@ -15,23 +15,36 @@ export function formatTrials(done: number | null | undefined, total: number | nu
   return `${done ?? 0}/${total}`;
 }
 
-export function formatDate(
-  iso: string | number | null | undefined,
-): string {
-  if (iso == null || iso === "") return "-";
+function parseDisplayDate(iso: string | number | null | undefined): Date | null {
+  if (iso == null || iso === "") return null;
   try {
     const d =
       typeof iso === "number"
         ? new Date(iso < 1e12 ? iso * 1000 : iso)
         : new Date(iso);
-    if (Number.isNaN(d.getTime())) return String(iso);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${y}/${m}/${day} ${hh}:${mm}`;
+    return Number.isNaN(d.getTime()) ? null : d;
   } catch {
-    return String(iso);
+    return null;
   }
+}
+
+export function formatDay(
+  iso: string | number | null | undefined,
+): string {
+  const d = parseDisplayDate(iso);
+  if (!d) return iso == null || iso === "" ? "-" : String(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
+export function formatDate(
+  iso: string | number | null | undefined,
+): string {
+  const d = parseDisplayDate(iso);
+  if (!d) return iso == null || iso === "" ? "-" : String(iso);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${formatDay(iso)} ${hh}:${mm}`;
 }

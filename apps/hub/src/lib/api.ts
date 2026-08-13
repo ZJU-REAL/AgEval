@@ -265,7 +265,7 @@ export function isDraftRelease(row: PackageRelease): boolean {
 }
 
 export function versionLabel(row: PackageRelease): string {
-  return isDraftRelease(row) ? "draft (current)" : `v${row.version}`;
+  return isDraftRelease(row) ? "draft" : `v${row.version}`;
 }
 
 /** Prefer latest release; fall back to draft when that is the only slot. */
