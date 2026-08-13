@@ -35,7 +35,7 @@ class HostProbeExecutor:
 
     def invoke(self, prompt: str, **kwargs: Any) -> AgentResult:
         del kwargs
-        return AgentResult(model="host-probe", text=prompt, ok=True)
+        return AgentResult(model="host-probe", text=prompt, structured=None, ok=True)
 
 
 def build_executor(**kwargs: Any) -> HostProbeExecutor:
