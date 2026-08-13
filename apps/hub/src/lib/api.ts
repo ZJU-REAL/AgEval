@@ -1,5 +1,13 @@
 /** Registry HTTP client for Hub SPA (#39 / #40). */
 
+export type DeclaredSlot = {
+  id: string;
+  kind: "provide" | "on" | string;
+  entry?: string;
+  priority?: number;
+  level?: number;
+};
+
 export type PluginPreview = {
   plugin_id?: string;
   version?: string;
@@ -9,8 +17,16 @@ export type PluginPreview = {
     on?: string[];
     [key: string]: unknown;
   };
+  declared?: DeclaredSlot[];
   files?: string[];
 };
+
+export type SuitePluginRef = {
+  plugin_id: string;
+  version?: string;
+};
+
+const BUILTIN_EXECUTOR_KINDS = new Set(["acp", "openai-http"]);
 
 export type PackageRelease = {
   database_id: string;
@@ -29,6 +45,7 @@ export type PackageRelease = {
   /** Draft slot (entitled callers only). */
   is_draft?: boolean;
   slot?: string;
+  uploaded_by?: string;
 };
 
 export type OrgRow = {
@@ -139,6 +156,8 @@ export type SuiteRow = {
       }
     >;
   };
+  /** Secret-free marketplace plugins used by this job. */
+  plugins?: SuitePluginRef[];
   exit_code?: number | null;
   created_at?: number | string;
   note?: string;
@@ -228,11 +247,12 @@ export function decodeDatasetId(param: string): string {
 
 export async function listPackages(
   token: string | null,
-  opts?: { packageKind?: "database" | "plugin" },
+  opts?: { packageKind?: "database" | "plugin"; mine?: boolean },
 ): Promise<PackageRelease[]> {
   // With token, server may include private; without, public only.
   const q = new URLSearchParams();
   if (opts?.packageKind) q.set("package_kind", opts.packageKind);
+  if (opts?.mine) q.set("mine", "1");
   const path = q.toString() ? `/v1/packages?${q.toString()}` : "/v1/packages";
   const data = await requestJson<{ items?: PackageRelease[] }>(path, {
     token,
@@ -349,11 +369,12 @@ export async function getPackageFile(
 export async function listSuites(
   databaseId: string | null,
   token: string | null,
-  opts?: { board?: boolean },
+  opts?: { board?: boolean; uploadedBy?: string },
 ): Promise<SuiteRow[]> {
   const q = new URLSearchParams();
   if (databaseId) q.set("database_id", databaseId);
   if (opts?.board) q.set("board", "1");
+  if (opts?.uploadedBy) q.set("uploaded_by", opts.uploadedBy);
   const path = q.toString()
     ? `/v1/results/suites?${q.toString()}`
     : "/v1/results/suites";
@@ -657,6 +678,32 @@ export function sharedFilesStats(items: FileItem[]): {
     }
   }
   return { fileCount, totalBytes };
+}
+
+/** Marketplace plugins for a suite row (stored list, else executor inference). */
+export function pluginsUsedBySuite(suite: SuiteRow): SuitePluginRef[] {
+  const stored = Array.isArray(suite.plugins) ? suite.plugins : [];
+  const fromStore: SuitePluginRef[] = [];
+  const seen = new Set<string>();
+  for (const raw of stored) {
+    const id = String(raw?.plugin_id || "").trim();
+    if (!id || seen.has(id) || BUILTIN_EXECUTOR_KINDS.has(id) || id === "default") {
+      continue;
+    }
+    seen.add(id);
+    const version = String(raw.version || "").trim();
+    fromStore.push(version ? { plugin_id: id, version } : { plugin_id: id });
+  }
+  if (fromStore.length) return fromStore;
+  const bindings = suite.job_overlay?.bindings;
+  if (!bindings || typeof bindings !== "object") return [];
+  for (const raw of Object.values(bindings)) {
+    const exec = String(raw?.executor || "").trim();
+    if (!exec || seen.has(exec) || BUILTIN_EXECUTOR_KINDS.has(exec)) continue;
+    seen.add(exec);
+    fromStore.push({ plugin_id: exec });
+  }
+  return fromStore;
 }
 
 export function decodeFileContent(file: FileContent): string {

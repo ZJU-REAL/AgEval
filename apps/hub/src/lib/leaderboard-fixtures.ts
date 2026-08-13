@@ -76,6 +76,7 @@ export const LEADERBOARD_K_FIXTURES: SuiteRow[] = [
         },
       },
     },
+    plugins: [{ plugin_id: "nooa", version: "0.1.0" }],
     created_at: 1_700_000_100,
     note: "per-task evaluator verdicts only; no suite-level PASS",
   },
