@@ -454,6 +454,7 @@ export function DatasetDetailPage() {
           <LeaderboardTable
             suites={demoLeaderboard ? LEADERBOARD_K_FIXTURES : boardSuites}
             databaseId={datasetId}
+            orgId={release?.org_id}
           />
         </div>
       )}

@@ -13,7 +13,7 @@ import { FilePreview } from "@/components/file-preview";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { Input } from "@/components/ui/input";
 import { countFiles } from "@/lib/file-icons";
-import type { TreeNode } from "@/lib/file-tree";
+import { ancestorDirPaths, type TreeNode } from "@/lib/file-tree";
 import { cn } from "@/lib/utils";
 
 /** Fixed row height for windowed tree rendering (matches h-7). */
@@ -147,11 +147,13 @@ export function FileSplitPanel({
   const [openDirs, setOpenDirs] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const lastRevealed = useRef<string | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportH, setViewportH] = useState(480);
 
   // Default: keep dirs collapsed so we do not mount the full package tree.
   useEffect(() => {
+    lastRevealed.current = null;
     setOpenDirs(new Set(dirPathsUpToDepth(tree, DEFAULT_OPEN_DEPTH)));
     setScrollTop(0);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -169,6 +171,24 @@ export function FileSplitPanel({
       setOpenDirs(new Set(dirPathsUpToDepth(tree, DEFAULT_OPEN_DEPTH)));
     }
   }, [query, visibleTree, tree]);
+
+  // After search/tree reset, open ancestor folders so the selected file is visible.
+  useEffect(() => {
+    if (!selectedPath || query.trim()) return;
+    const ancestors = ancestorDirPaths(selectedPath);
+    if (!ancestors.length) return;
+    setOpenDirs((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const dir of ancestors) {
+        if (!next.has(dir)) {
+          next.add(dir);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [selectedPath, treeKey, query]);
 
   const flatRows = useMemo(
     () => flattenVisible(visibleTree, openDirs),
@@ -207,9 +227,10 @@ export function FileSplitPanel({
     });
   }
 
-  // Keep selected file row roughly in view after tree rebuilds (best-effort).
+  // After ancestor dirs open, scroll the selected file into the tree viewport.
   useEffect(() => {
     if (!selectedPath || !scrollRef.current) return;
+    if (lastRevealed.current === selectedPath) return;
     const idx = flatRows.findIndex(
       (r) => r.node.type === "file" && r.node.path === selectedPath,
     );
@@ -225,20 +246,21 @@ export function FileSplitPanel({
       el.scrollTop = next;
       setScrollTop(next);
     }
-  }, [selectedPath, treeKey]); // eslint-disable-line react-hooks/exhaustive-deps -- only on selection/tree identity
+    lastRevealed.current = selectedPath;
+  }, [selectedPath, flatRows, treeKey]);
 
   return (
     <div
       className={cn(
         "grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0",
         "rounded-[8px] border border-hairline overflow-hidden",
-        "min-h-[360px] md:min-h-[480px]",
+        "min-h-[360px] md:h-[75vh] md:min-h-[75vh] md:max-h-[75vh]",
       )}
     >
       <aside
         className={cn(
           "border-b md:border-b-0 md:border-r border-hairline bg-canvas-soft",
-          "min-h-[200px] md:min-h-[480px] max-h-[50vh] md:max-h-[75vh]",
+          "min-h-[200px] max-h-[50vh] md:min-h-0 md:h-full md:max-h-none",
           "flex flex-col",
         )}
       >
@@ -346,8 +368,8 @@ export function FileSplitPanel({
       </aside>
       <div
         className={cn(
-          "flex flex-col min-h-[200px] md:min-h-[480px]",
-          "max-h-[75vh] overflow-hidden",
+          "flex flex-col min-h-[200px] md:min-h-0 md:h-full",
+          "overflow-hidden",
         )}
       >
         {selectedPath ? (

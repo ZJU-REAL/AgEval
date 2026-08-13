@@ -3,8 +3,8 @@
 | 字段 | 值 |
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
-| 权威 | 本文件是 Dataset draft/release、dataset ACL、Leaderboard 完备性的机制权威 |
-| 摘要 | Dataset 按工作树 + 不可变 release 维护；公开榜只排完备且绑定 release 的 suite；写路径只在 CLI。 |
+| 权威 | 本文件是 Dataset draft/release、dataset ACL、Leaderboard 完备性、suite 插件出处、个人主页过滤与 Hub/Viewer chrome 的机制权威 |
+| 摘要 | Dataset 按工作树 + 不可变 release 维护；公开榜只排完备且绑定 release 的 suite；写路径只在 CLI。Leaderboard 展开分 profiles / plugin；插件页是声明槽时间线；个人主页按 uploader / ACL 聚合。 |
 
 ---
 
@@ -73,6 +73,47 @@ task 集指纹在上传时从绑定版本的包归档提取并落库。之后改
 
 过滤在 Registry list API（`board=1`），不靠 SPA 藏行作为唯一门。
 
+## Leaderboard 行展开：profiles | plugin
+
+行展开是只读条，**不是** Attempt 证据浏览器。
+
+| Tab | 内容 |
+| --- | --- |
+| **profiles** | 无密钥的 `job_overlay` YAML + `bora results export-profiles` 再跑命令 |
+| **plugin** | 该 job 用到的插件（`plugin_id` + 可选 `version`）；点击进 marketplace 详情 |
+
+插件名单来自上传播要的 secret-free `plugins` 列表；缺省时可由 `job_overlay.bindings.*.executor` 推断（排除内建 `acp` / `openai-http`）。**不**在条里画 L0–L5 时间线。名单不得含密钥或 host env。
+
+## 插件详情：声明槽时间线
+
+Plugin 页把 provide/on chips 换成 **L0–L5 声明槽时间线**：
+
+- 节点顺序固定 L0…L5；本插件 `provide` / `on` 命中的层高亮，未命中层静默可见。
+- 展开：槽名、短说明、跳到**已有**包内文件树预览（实现 `entry` 能对上路径时；否则 `plugin.yaml`）。
+- 时间线是 **manifest 声明**，不是某次 job 的执行轨迹。浏览器不执行插件代码。
+
+## 个人主页
+
+登录用户有只读聚合页（账号入口）。未登录进登录，不造空主页。
+
+| 段 | 过滤 |
+| --- | --- |
+| Jobs | `uploaded_by` = 当前用户（不是「所属 org 的全部 job」） |
+| Organizations | 成员关系（已有 list orgs） |
+| Datasets | 该用户在 dataset ACL 上为 owner / collaborator |
+| Tasks | 上述可维护 Dataset 的 task 成员 |
+| Plugins | 当前用户上传的 `package_kind=plugin`（`uploaded_by`） |
+
+列表过滤在 Registry（`uploaded_by=me`、`mine=1`），不把全库拉到浏览器再筛。本页无 publish / upload / release 按钮。
+
+## Hub / Viewer chrome
+
+不新增产品对象：
+
+1. Datasets / Plugins 等同一套列表：搜索框与 **Your organizations | Explore** 同一行、靠右。
+2. 文件树/预览分栏高度固定为面板上限；短树底部留白，不塌缩、不跳布局。
+3. 轨迹里每个 **tool-call**（及其他过长行）可折叠；Hub Attempt 与本地 Viewer 行为一致。只改呈现，不改 PASS / 证据内容。
+
 ## 本地 Viewer（操作面）
 
 本地 Viewer 绑定**一个** Database 根，不连 Registry。
@@ -88,3 +129,5 @@ task 集指纹在上传时从绑定版本的包归档提取并落库。之后改
 - suite-level PASS 权威
 - Viewer 跨 Dataset 扫描
 - 证据等级升级
+- Leaderboard 条内嵌 L0–L5 时间线（时间线只在插件详情）
+- 按 job 实际走过的槽画执行图（需要 run evidence，不是声明槽）

@@ -300,6 +300,25 @@ class ResultService:
         overlay_raw = meta.get("job_overlay")
         if isinstance(overlay_raw, dict) and overlay_raw:
             config_payload["job_overlay"] = overlay_raw
+        plugins_raw = meta.get("plugins")
+        if isinstance(plugins_raw, list):
+            plugins: list[dict[str, str]] = []
+            seen: set[str] = set()
+            for item in plugins_raw:
+                if not isinstance(item, dict):
+                    continue
+                pid = str(item.get("plugin_id") or "").strip()
+                key = pid.casefold()
+                if not pid or key in seen or key in {"default", "acp", "openai-http"}:
+                    continue
+                seen.add(key)
+                row = {"plugin_id": pid}
+                ver = str(item.get("version") or "").strip()
+                if ver:
+                    row["version"] = ver
+                plugins.append(row)
+            if plugins:
+                config_payload["plugins"] = plugins
         replace = bool(meta.get("replace")) or str(meta.get("replace") or "").lower() in {
             "1",
             "true",
@@ -364,9 +383,17 @@ class ResultService:
         auth: TokenInfo,
         database_id: str | None,
         board: bool = False,
+        uploaded_by: str | None = None,
     ) -> dict[str, Any]:
         rows = self.meta.list_suites(database_id=database_id or None, include_private=True)
         visible = [r for r in rows if self._visible_suite(r, auth)]
+        if uploaded_by:
+            want = (
+                (auth.user_id or "")
+                if uploaded_by.strip().casefold() == "me"
+                else uploaded_by.strip()
+            )
+            visible = [] if not want else [r for r in visible if r.uploaded_by == want]
         if board:
             visible = [r for r in visible if r.complete and r.bound_kind == BOUND_RELEASE]
         attempt_ids = self._suite_visible_attempt_ids(visible, auth=auth)

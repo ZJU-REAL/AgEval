@@ -1,10 +1,20 @@
-import { useMemo, type ComponentType } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+  type MouseEvent,
+} from "react";
 import {
   Bot,
+  Check,
+  Copy,
   Eye,
   FilePenLine,
   FileSearch,
   Flag,
+  FoldVertical,
+  UnfoldVertical,
   MessageSquare,
   Shield,
   Terminal,
@@ -18,6 +28,98 @@ import { cn } from "@/lib/utils";
 import { actorLabel, type ActorRow } from "./types";
 
 type IconComp = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+
+const LONG_BODY_CHARS = 240;
+const LONG_BODY_LINES = 4;
+
+function bodyIsLong(body: string): boolean {
+  return body.length > LONG_BODY_CHARS || body.split("\n").length > LONG_BODY_LINES;
+}
+
+function CopyBodyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  async function onCopy(e: MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      /* ignore */
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      aria-label={copied ? "Copied" : "Copy step"}
+      title={copied ? "Copied" : "Copy"}
+      className="shrink-0 rounded-[4px] p-0.5 text-mute hover:bg-row-hover hover:text-ink"
+    >
+      {copied ? (
+        <Check className="h-3.5 w-3.5" aria-hidden />
+      ) : (
+        <Copy className="h-3.5 w-3.5" aria-hidden />
+      )}
+    </button>
+  );
+}
+
+function StepBody({
+  body,
+  collapsible,
+  defaultCollapsed,
+  expandAll,
+  expandGen,
+}: {
+  body: string;
+  collapsible: boolean;
+  defaultCollapsed: boolean;
+  expandAll: boolean;
+  expandGen: number;
+}) {
+  const [open, setOpen] = useState(!defaultCollapsed);
+  const preview = body.split("\n")[0]?.slice(0, 160) || "";
+
+  useEffect(() => {
+    if (expandGen === 0) return;
+    setOpen(expandAll);
+  }, [expandAll, expandGen]);
+
+  if (!collapsible) {
+    return (
+      <pre className="m-0 px-3 pb-2.5 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
+        {body}
+      </pre>
+    );
+  }
+
+  function toggle() {
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString()) return;
+    setOpen((v) => !v);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-expanded={open}
+      className="block w-full cursor-pointer px-3 py-2.5 text-left hover:bg-row-hover"
+    >
+      {open ? (
+        <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
+          {body}
+        </pre>
+      ) : (
+        <pre className="m-0 truncate font-mono text-[13px] leading-5 text-mute">
+          {preview}
+          {body.length > preview.length ? "…" : ""}
+        </pre>
+      )}
+    </button>
+  );
+}
 
 function stepIcon(opts: {
   isUser: boolean;
@@ -76,6 +178,8 @@ export function TrajectoryPanel({
     const multi = order.filter((k) => k !== "__ungrouped__").length >= 2;
     return { order, byProfile, actorByPid, multi };
   }, [steps, actors]);
+  const [allExpanded, setAllExpanded] = useState(false);
+  const [expandGen, setExpandGen] = useState(0);
 
   if (loading) return <p className="text-sm text-mute">Loading trajectory…</p>;
   if (!steps.length) {
@@ -195,12 +299,11 @@ export function TrajectoryPanel({
             <li
               key={`${s.invocation || ""}-${s.line || i}-${i}`}
               className={cn(
-                "rounded-[8px] border border-hairline px-3 py-2.5",
-                isTerminal && "bg-canvas-soft",
+                "overflow-hidden rounded-[8px] border border-hairline",
                 isObservation && "bg-canvas-soft/40",
               )}
             >
-              <div className="flex items-start gap-3 text-xs mb-1">
+              <div className="flex items-start gap-3 px-3 pt-2.5 pb-1 text-xs">
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wide text-ink">
                     <Icon
@@ -239,34 +342,31 @@ export function TrajectoryPanel({
                       {statusRaw}
                     </span>
                   ) : null}
-                  {s.tool_call_id ? (
-                    <span className="break-all" title={s.tool_call_id}>
-                      {s.tool_call_id}
-                    </span>
-                  ) : null}
-                  {s.invocation ? (
-                    <span className="break-all" title={s.invocation}>
-                      {s.invocation}
-                    </span>
-                  ) : null}
                   {s.stop_reason ? <span>{s.stop_reason}</span> : null}
                   {s.ok === false ? (
                     <span className="text-error">not ok</span>
                   ) : null}
                 </div>
+                {body ? <CopyBodyButton text={body} /> : null}
               </div>
               {body ? (
-                <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
-                  {body}
-                </pre>
+                <StepBody
+                  body={body}
+                  collapsible={isToolCall || isObservation || bodyIsLong(body)}
+                  defaultCollapsed={
+                    isToolCall || isObservation || bodyIsLong(body)
+                  }
+                  expandAll={allExpanded}
+                  expandGen={expandGen}
+                />
               ) : s.error ? (
-                <p className="text-sm text-error">{String(s.error)}</p>
+                <p className="px-3 pb-2.5 text-sm text-error">{String(s.error)}</p>
               ) : isTerminal ? (
-                <p className="text-sm text-mute">terminal (no summary)</p>
+                <p className="px-3 pb-2.5 text-sm text-mute">terminal (no summary)</p>
               ) : isPermission ? (
-                <p className="text-sm text-mute">permission (no decision fields)</p>
+                <p className="px-3 pb-2.5 text-sm text-mute">permission (no decision fields)</p>
               ) : isToolCall || isObservation ? (
-                <p className="text-sm text-mute">
+                <p className="px-3 pb-2.5 text-sm text-mute">
                   {isToolCall ? "tool call (no args)" : "observation (empty)"}
                 </p>
               ) : null}
@@ -280,9 +380,27 @@ export function TrajectoryPanel({
   return (
     <div className="space-y-3">
       {note ? <p className="text-xs text-mute">{note}</p> : null}
-      <p className="text-[11px] text-mute">
-        Trajectory is observational only; independent evaluator owns PASS.
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] text-mute">
+          Trajectory is observational only; independent evaluator owns PASS.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setAllExpanded((v) => !v);
+            setExpandGen((n) => n + 1);
+          }}
+          aria-label={allExpanded ? "Collapse all" : "Expand all"}
+          title={allExpanded ? "Collapse all" : "Expand all"}
+          className="shrink-0 rounded-[4px] p-0.5 text-mute hover:bg-row-hover hover:text-ink"
+        >
+          {allExpanded ? (
+            <FoldVertical className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <UnfoldVertical className="h-3.5 w-3.5" aria-hidden />
+          )}
+        </button>
+      </div>
       {groups.multi ? (
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           {groups.order.map((pid) => {

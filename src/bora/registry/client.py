@@ -415,6 +415,7 @@ class RegistryClient:
         config_homogeneous: bool | None = None,
         actors_summary: list[dict[str, Any]] | None = None,
         job_overlay: dict[str, Any] | None = None,
+        plugins: list[dict[str, Any]] | None = None,
         replace: bool = False,
     ) -> dict[str, Any]:
         meta: dict[str, Any] = {
@@ -444,6 +445,8 @@ class RegistryClient:
         # #59 secret-free job binding for rehydrate (locators only; never values).
         if isinstance(job_overlay, dict) and job_overlay:
             meta["job_overlay"] = job_overlay
+        if isinstance(plugins, list) and plugins:
+            meta["plugins"] = plugins
         import secrets as _secrets
 
         boundary = f"bora-suite-{_secrets.token_hex(12)}"

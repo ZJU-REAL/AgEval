@@ -122,6 +122,9 @@ def _config_fields_from_summary(summary: dict[str, Any]) -> dict[str, Any]:
     overlay = summary.get("job_overlay")
     if isinstance(overlay, dict) and overlay:
         out["job_overlay"] = overlay
+    plugins = summary.get("plugins")
+    if isinstance(plugins, list) and plugins:
+        out["plugins"] = [p for p in plugins if isinstance(p, dict)]
     return out
 
 
@@ -411,6 +414,9 @@ class ResultsCommands:
                 job_overlay=config_proj.get("job_overlay")
                 if isinstance(config_proj.get("job_overlay"), dict)
                 else None,
+                plugins=list(config_proj.get("plugins") or [])
+                if isinstance(config_proj.get("plugins"), list)
+                else None,
                 replace=replace,
             )
         except RegistryError as exc:
@@ -432,7 +438,13 @@ class ResultsCommands:
         }
         if info.get("replaced"):
             out["replaced"] = True
-        for key in ("config_fingerprint", "config_homogeneous", "actors_summary", "job_overlay"):
+        for key in (
+            "config_fingerprint",
+            "config_homogeneous",
+            "actors_summary",
+            "job_overlay",
+            "plugins",
+        ):
             if key in info:
                 out[key] = info[key]
             elif key in config_proj:

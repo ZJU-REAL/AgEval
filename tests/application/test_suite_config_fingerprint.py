@@ -13,6 +13,8 @@ from bora.application.suite.suite_config_fingerprint import (
     fingerprint_for_actors,
     fingerprint_for_job_overlay,
     job_overlays_compatible,
+    plugins_from_extension_bindings,
+    plugins_from_job_overlay,
 )
 from bora.application.suite.suite_run import execute_suite_run, plan_suite_run
 
@@ -221,3 +223,38 @@ def test_journeys_profiles_are_suite_homogeneous() -> None:
     roles = set(fields["job_overlay"]["bindings"])
     assert "solver" in roles
     assert "user" in roles or "specialist" in roles
+
+
+def test_plugins_from_extension_bindings_skip_defaults() -> None:
+    bindings = {
+        "solver": {
+            "executor": {
+                "kind": "provide",
+                "plugin": "nooa",
+                "version": "0.1.0",
+            },
+            "before_run": {
+                "kind": "on",
+                "chain": [
+                    {"plugin": "default", "source": "default"},
+                    {"plugin": "slot-probe", "version": "1.0.0"},
+                ],
+            },
+        }
+    }
+    refs = plugins_from_extension_bindings(bindings)
+    assert [r["plugin_id"] for r in refs] == ["nooa", "slot-probe"]
+    assert refs[0]["version"] == "0.1.0"
+
+
+def test_plugins_from_job_overlay_skips_builtin_executors() -> None:
+    overlay = {
+        "bindings": {
+            "solver": {"executor": "nooa", "model": "m"},
+            "user": {"executor": "acp", "options": {"entry": "codex"}},
+            "alt": {"executor": "ACP"},
+            "http": {"executor": "OpenAI-HTTP"},
+        }
+    }
+    refs = plugins_from_job_overlay(overlay)
+    assert refs == [{"plugin_id": "nooa"}]

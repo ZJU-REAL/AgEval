@@ -6,6 +6,10 @@ import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { Shell } from "@/components/layout";
 import {
+  declaredSlotsFromPreview,
+  PluginSlotTimeline,
+} from "@/components/plugin-slot-timeline";
+import {
   decodeDatasetId,
   decodeFileContent,
   getPackageByDigest,
@@ -19,29 +23,6 @@ import {
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 
-function SlotChips({
-  label,
-  values,
-}: {
-  label: string;
-  values: string[] | undefined;
-}) {
-  if (!values || values.length === 0) return null;
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-xs text-mute w-16 shrink-0">{label}</span>
-      {values.map((v) => (
-        <span
-          key={`${label}-${v}`}
-          className="font-mono text-[11px] px-1.5 py-0.5 rounded border border-hairline bg-canvas-soft text-body"
-        >
-          {v}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export function PluginDetailPage() {
   const { pluginId: rawId } = useParams();
   const pluginId = decodeDatasetId(rawId || "");
@@ -50,6 +31,7 @@ export function PluginDetailPage() {
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [preview, setPreview] = useState<PluginPreview | null>(null);
   const [tree, setTree] = useState<TreeNode[]>([]);
+  const [filePaths, setFilePaths] = useState<string[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileNote, setFileNote] = useState<string | null>(null);
@@ -105,6 +87,9 @@ export function PluginDetailPage() {
         if (cancelled) return;
         const nested = buildNestedTree(files.items);
         setTree(nested);
+        setFilePaths(
+          files.items.filter((e) => e.type !== "dir").map((e) => e.path),
+        );
         const prefer =
           files.items.find((e) => e.path === "plugin.yaml") ||
           files.items.find((e) => e.path === "README.md") ||
@@ -120,6 +105,7 @@ export function PluginDetailPage() {
         setRelease(null);
         setPreview(null);
         setTree([]);
+        setFilePaths([]);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -178,8 +164,14 @@ export function PluginDetailPage() {
     preview?.format ||
     (release?.package_kind === "plugin" ? "bora.plugin/1" : null);
 
-  const provideSlots = preview?.slots?.provide;
-  const onSlots = preview?.slots?.on;
+  const declared = useMemo(() => declaredSlotsFromPreview(preview), [preview]);
+  const previewFiles = filePaths.length ? filePaths : preview?.files || [];
+
+  function openSlotPath(path: string) {
+    setSelectedPath(path);
+    const el = document.getElementById("plugin-files");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   return (
     <Shell>
@@ -247,39 +239,23 @@ export function PluginDetailPage() {
           <section className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Install (CLI)</h2>
             <CommandStrip command={installCmd} />
-            <p className="text-xs text-mute max-w-2xl">
-              Install = <strong className="font-medium text-body">Recognition only</strong>
-              {" "}
-              (registers the package in local plugin cache). It does{" "}
-              <strong className="font-medium text-body">not</strong> change
-              Database profiles or select executors. Bind with{" "}
-              <span className="font-mono">executor: &lt;plugin_id&gt;</span> in
-              profiles after install. Ready for L1 still depends on image
-              contribute / bake — not on install alone.
-            </p>
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Slots</h2>
-            {provideSlots?.length || onSlots?.length ? (
-              <div className="rounded-[8px] border border-hairline bg-canvas-soft p-3 space-y-2">
-                <SlotChips label="provide" values={provideSlots} />
-                <SlotChips label="on" values={onSlots} />
-              </div>
-            ) : (
-              <p className="text-sm text-mute">
-                No slot preview available (open{" "}
-                <span className="font-mono text-xs">plugin.yaml</span> in files).
-              </p>
-            )}
+            <h2 className="text-sm font-medium text-ink">Declared slots</h2>
+            <PluginSlotTimeline
+              declared={declared}
+              files={previewFiles}
+              onOpenPath={openSlotPath}
+            />
           </section>
 
-          <section className="space-y-2">
+          <section id="plugin-files" className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Files</h2>
             <p className="text-xs text-mute">
               Read-only preview. The browser never executes plugin code.
             </p>
-            <div className="rounded-[8px] border border-hairline overflow-hidden min-h-[320px]">
+            <div className="rounded-[8px] border border-hairline overflow-hidden">
               <FileSplitPanel
                 tree={tree}
                 treeLoading={treeLoading}

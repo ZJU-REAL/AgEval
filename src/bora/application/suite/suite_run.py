@@ -556,6 +556,9 @@ def _build_summary(
     }
     if config_fields.get("job_overlay") is not None:
         summary["job_overlay"] = config_fields["job_overlay"]
+    plugins = config_fields.get("plugins")
+    if isinstance(plugins, list) and plugins:
+        summary["plugins"] = plugins
     return summary
 
 

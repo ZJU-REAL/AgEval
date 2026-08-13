@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AttemptEvidencePage } from "@/pages/AttemptEvidencePage";
 import { DatasetDetailPage } from "@/pages/DatasetDetailPage";
 import { DatasetsPage } from "@/pages/DatasetsPage";
+import { HomePage } from "@/pages/HomePage";
 import { LoginCallbackPage } from "@/pages/LoginCallbackPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { OrganizationDetailPage } from "@/pages/OrganizationDetailPage";
@@ -16,6 +17,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/datasets" replace />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/datasets" element={<DatasetsPage />} />
         <Route path="/datasets/:datasetId" element={<DatasetDetailPage />} />
         <Route

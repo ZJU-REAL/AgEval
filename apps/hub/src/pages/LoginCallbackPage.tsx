@@ -6,6 +6,7 @@ import { SignInLink } from "@/components/sign-in-button";
 import { completeWebLogin, RegistryHttpError } from "@/lib/api";
 import { setToken } from "@/lib/auth";
 import { formatLoginError } from "@/lib/github-login";
+import { takeReturnPath } from "@/pages/HomePage";
 
 /** OAuth redirect target: ?code=&state= → Registry token → /datasets */
 export function LoginCallbackPage() {
@@ -40,7 +41,7 @@ export function LoginCallbackPage() {
           session.github_name,
           session.avatar_url,
         );
-        window.location.replace("/datasets");
+        window.location.replace(takeReturnPath("/datasets"));
       })
       .catch((err: unknown) => {
         if (err instanceof RegistryHttpError && err.code === "invalid_state") {

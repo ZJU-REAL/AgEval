@@ -1,5 +1,6 @@
 import { Check, Copy } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { SuiteRow } from "@/lib/api";
+import {
+  encodeDatasetId,
+  latestPackageByDatabase,
+  listPackages,
+  pluginsUsedBySuite,
+  type PackageRelease,
+  type SuiteRow,
+} from "@/lib/api";
+import { getToken } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import { CodeHighlight } from "@/lib/code-highlight";
 import {
   formatPassMetric,
@@ -200,16 +210,45 @@ function defaultCompare(a: SuiteRow, b: SuiteRow): number {
  * Column headers are clickable (Viewer Jobs pattern). pass@k / pass^k sort by
  * primary display k (max k_values / n_attempts); not job identity.
  */
+type ExpandTab = "profiles" | "plugin";
+
 export function LeaderboardTable({
   suites,
   databaseId,
+  orgId,
 }: {
   suites: SuiteRow[];
   databaseId: string;
+  /** Dataset owning org — used to pick `my-lab/nooa` over another org's copy. */
+  orgId?: string | null;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [expandTab, setExpandTab] = useState<ExpandTab>("profiles");
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pluginCatalog, setPluginCatalog] = useState<PackageRelease[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listPackages(getToken(), { packageKind: "plugin" })
+      .then((items) => {
+        if (!cancelled) setPluginCatalog(latestPackageByDatabase(items));
+      })
+      .catch(() => {
+        if (!cancelled) setPluginCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function toggleRow(id: string) {
+    setOpenId((cur) => {
+      const next = cur === id ? null : id;
+      if (next !== cur) setExpandTab("profiles");
+      return next;
+    });
+  }
 
   const showKColumns = suites.some(
     (s) => primaryDisplayK(s.metrics || {}) != null,
@@ -333,6 +372,7 @@ export function LeaderboardTable({
               const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
               const open = openId === s.suite_run_id;
               const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
+              const plugins = pluginsUsedBySuite(s, pluginCatalog, orgId);
               const rehydrateScript = [
                 "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
                 `bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
@@ -351,7 +391,7 @@ export function LeaderboardTable({
                 <Fragment key={s.suite_run_id}>
                   <TableRow
                     className="cursor-pointer"
-                    onClick={() => setOpenId(open ? null : s.suite_run_id)}
+                    onClick={() => toggleRow(s.suite_run_id)}
                     data-state={open ? "open" : undefined}
                   >
                     <TruncateCell text={agentText} className={COL_TEXT} />
@@ -451,16 +491,69 @@ export function LeaderboardTable({
                               .
                             </p>
                           ) : null}
-                          <CodeBlock
-                            path="profiles.yaml"
-                            content={yamlText}
-                            maxHeightClass="max-h-56"
-                          />
-                          <CodeBlock
-                            path="rehydrate.sh"
-                            content={rehydrateScript}
-                            maxHeightClass="max-h-40"
-                          />
+                          <div className="flex gap-1 border-b border-hairline">
+                            {(
+                              [
+                                ["profiles", "profiles"],
+                                ["plugin", "plugin"],
+                              ] as const
+                            ).map(([id, label]) => (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => setExpandTab(id)}
+                                className={cn(
+                                  "px-2.5 py-1.5 text-xs transition-colors border-b-2 -mb-px",
+                                  expandTab === id
+                                    ? "border-ink text-ink font-medium"
+                                    : "border-transparent text-body hover:text-ink",
+                                )}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          {expandTab === "profiles" ? (
+                            <>
+                              <CodeBlock
+                                path="profiles.yaml"
+                                content={yamlText}
+                                maxHeightClass="max-h-56"
+                              />
+                              <CodeBlock
+                                path="rehydrate.sh"
+                                content={rehydrateScript}
+                                maxHeightClass="max-h-40"
+                              />
+                            </>
+                          ) : (
+                            <div className="space-y-2">
+                              {plugins.length === 0 ? (
+                                <p className="text-sm text-mute">
+                                  No marketplace plugins recorded for this job.
+                                  Builtin executors stay off this list.
+                                </p>
+                              ) : (
+                                <ul className="divide-y divide-hairline rounded-[6px] border border-hairline bg-canvas">
+                                  {plugins.map((p) => (
+                                    <li key={p.plugin_id}>
+                                      <Link
+                                        to={`/plugins/${encodeDatasetId(p.plugin_id)}`}
+                                        className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-row-hover"
+                                      >
+                                        <span className="font-mono text-xs text-ink">
+                                          {p.plugin_id}
+                                        </span>
+                                        <span className="font-mono text-[11px] text-mute">
+                                          {p.version ? `v${p.version}` : "marketplace"}
+                                        </span>
+                                      </Link>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

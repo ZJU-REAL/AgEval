@@ -13,8 +13,8 @@ from typing import Any
 INSERT_RELEASE = """
 INSERT INTO releases(
     database_id, version, visibility, package_digest,
-    blob_digest, size, media_type, created_at, org_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    blob_digest, size, media_type, created_at, org_id, uploaded_by
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 SELECT_RELEASE_BY_VERSION = "SELECT * FROM releases WHERE database_id=? AND version=?"
@@ -259,9 +259,7 @@ ON CONFLICT(database_id) DO UPDATE SET
 
 SELECT_DRAFT = "SELECT * FROM dataset_drafts WHERE database_id=?"
 
-SELECT_DRAFT_BY_DIGEST = (
-    "SELECT * FROM dataset_drafts WHERE database_id=? AND package_digest=?"
-)
+SELECT_DRAFT_BY_DIGEST = "SELECT * FROM dataset_drafts WHERE database_id=? AND package_digest=?"
 
 LIST_DRAFTS = "SELECT * FROM dataset_drafts ORDER BY database_id"
 
@@ -278,6 +276,11 @@ SELECT_DATASET_ACL = "SELECT * FROM dataset_acl WHERE database_id=? AND user_id=
 
 LIST_DATASET_ACL = "SELECT * FROM dataset_acl WHERE database_id=? ORDER BY role, user_id"
 
+LIST_DATASET_ACL_FOR_USER = (
+    "SELECT * FROM dataset_acl WHERE user_id=? AND role IN ('owner', 'collaborator') "
+    "ORDER BY database_id"
+)
+
 DELETE_DATASET_ACL = "DELETE FROM dataset_acl WHERE database_id=? AND user_id=?"
 
 # (table, column, sqlite/postgres-compatible type clause)
@@ -290,6 +293,7 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("suite_results", "complete", "INTEGER NOT NULL DEFAULT 0"),
     ("suite_results", "bound_kind", "TEXT NOT NULL DEFAULT 'unknown'"),
     ("suite_results", "task_set_digest", "TEXT NOT NULL DEFAULT ''"),
+    ("releases", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
 )
 
 # Do not bind created_at. Pre-unification Postgres token tables are

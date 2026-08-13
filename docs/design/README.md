@@ -51,7 +51,7 @@ Issues                   增量交付与实现缺口
 | [09-owner-matrix-and-structure.md](09-owner-matrix-and-structure.md) | Owner 矩阵、决策检查表、目标结构 |
 | [10-examples-database-52.md](10-examples-database-52.md) | 设计意图下的示例对照（非进度） |
 | [11-extension-plugins.md](11-extension-plugins.md) | 扩展点 L0–L5、注册表、lock bindings、`bora.plugin/1`、Recognition ≠ Ready |
-| [12-hub-dataset-and-leaderboard.md](12-hub-dataset-and-leaderboard.md) | Dataset draft/release、dataset ACL、Leaderboard 完备性（非 suite PASS） |
+| [12-hub-dataset-and-leaderboard.md](12-hub-dataset-and-leaderboard.md) | Dataset draft/release、dataset ACL、Leaderboard 完备性、suite 插件出处、个人主页、chrome |
 
 ### Runtime 子文（执行链）
 
