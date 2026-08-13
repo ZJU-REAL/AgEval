@@ -1,0 +1,38 @@
+"""Multi-slot on-handlers for dsh (image_contribute / trajectory_collect)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from dsh_plugin import PLUGIN_ID
+
+
+async def image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
+    """Declare this plugin on the image_contribute chain (L1 Ready)."""
+    del ctx
+    base = list(value) if isinstance(value, list) else []
+    base.append({"plugin": PLUGIN_ID})
+    return await nxt(base)
+
+
+async def trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:
+    """Map native DSH dumps. Do not claim already-mapped foreign events."""
+    del ctx
+    out = await nxt(value)
+    if not isinstance(out, dict):
+        return out
+    from dsh_plugin.trajectory import SCHEMA, to_bora_trajectory_events
+
+    events = out.get("events")
+    if not isinstance(events, (list, tuple)) or not events:
+        return out
+    if all(isinstance(e, dict) and e.get("schema") == SCHEMA for e in events):
+        if not any(e.get("source") == PLUGIN_ID for e in events if isinstance(e, dict)):
+            return out
+        meta = dict(out.get("metadata") or {})
+        meta.setdefault("trajectory_source", PLUGIN_ID)
+        return {**out, "metadata": meta}
+    mapped = to_bora_trajectory_events(tuple(e for e in events if isinstance(e, dict)))
+    meta = dict(out.get("metadata") or {})
+    meta.setdefault("trajectory_source", PLUGIN_ID)
+    return {**out, "events": tuple(mapped), "metadata": meta}
