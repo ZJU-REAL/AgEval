@@ -79,7 +79,7 @@ class LocalProcessProvider:
         # Prefer plan.argv as full argv when argv[0] matches basename or path.
         if plan.argv:
             argv = list(plan.argv)
-            # Ensure argv[0] is the granted executable path.
+            # Granted path, not symlink target — see ExecutableGrant.resolve.
             argv[0] = str(exe)
 
         env = {str(k): str(v) for k, v in plan.env.items()}

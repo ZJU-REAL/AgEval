@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,7 +19,17 @@ class ExecutableGrant:
     path: Path
 
     def resolve(self) -> Path:
-        exe = self.path.expanduser().resolve(strict=False)
+        """Return the granted path (absolute). Do not follow the final symlink.
+
+        A venv ``python3`` is a symlink onto a shared CPython. Following it
+        makes ``argv[0]`` the base interpreter, which ignores ``pyvenv.cfg``
+        and drops venv ``site-packages`` (L0 evaluator then cannot import
+        package-host deps such as ``tau2``).
+        """
+        exe = self.path.expanduser()
+        if not exe.is_absolute():
+            exe = Path.cwd() / exe
+        exe = Path(os.path.normpath(exe))
         if not exe.exists() or not exe.is_file():
             raise ProviderError(
                 ERROR_UNDECLARED_EXECUTABLE,
