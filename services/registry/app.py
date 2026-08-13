@@ -303,15 +303,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 status, body = denied
                 _json_response(self, status, body)
                 return
-            if route.name == "delete_suite":
-                with_attempts = (qs.get("with_attempts") or ["0"])[0] in {
-                    "1",
-                    "true",
-                    "yes",
-                }
-                handler(suite_run_id=kwargs["suite_run_id"], with_attempts=with_attempts)
-                return
-            if not route.skip_auth:
+            if route.access != "none":
                 kwargs["auth"] = auth
             if route.pass_qs:
                 kwargs["qs"] = qs
@@ -645,28 +637,9 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         # ---- packages ----------------------------------------------------
 
-        def _publish_package(self) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _publish_package(self, *, auth: TokenInfo) -> None:
             scopes = auth.scopes
-            if "registry:publish" not in scopes and "admin" not in scopes:
-                _json_response(
-                    self,
-                    401,
-                    {"error": "unauthorized", "message": "publish scope required"},
-                )
-                return
-            user_id = auth.user_id
-            if not user_id:
-                _json_response(
-                    self,
-                    401,
-                    {
-                        "error": "unauthorized",
-                        "message": "publish requires authenticated user identity",
-                    },
-                )
-                return
+            user_id = auth.user_id or ""
             length = int(self.headers.get("Content-Length") or "0")
             if length <= 0 or length > state.max_upload:
                 _json_response(
@@ -1124,27 +1097,8 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         # ---- results -----------------------------------------------------
 
-        def _upload_attempt(self) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _upload_attempt(self, *, auth: TokenInfo) -> None:
             scopes = auth.scopes
-            if "results:upload" not in scopes and "admin" not in scopes:
-                _json_response(
-                    self,
-                    401,
-                    {"error": "unauthorized", "message": "results:upload scope required"},
-                )
-                return
-            if not auth.user_id:
-                _json_response(
-                    self,
-                    401,
-                    {
-                        "error": "unauthorized",
-                        "message": "upload requires authenticated user identity",
-                    },
-                )
-                return
             length = int(self.headers.get("Content-Length") or "0")
             if length <= 0 or length > state.max_upload:
                 _json_response(
@@ -1430,27 +1384,8 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         # ---- suite results -----------------------------------------------
 
-        def _upload_suite(self) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _upload_suite(self, *, auth: TokenInfo) -> None:
             scopes = auth.scopes
-            if "results:upload" not in scopes and "admin" not in scopes:
-                _json_response(
-                    self,
-                    401,
-                    {"error": "unauthorized", "message": "results:upload scope required"},
-                )
-                return
-            if not auth.user_id:
-                _json_response(
-                    self,
-                    401,
-                    {
-                        "error": "unauthorized",
-                        "message": "upload requires authenticated user identity",
-                    },
-                )
-                return
             length = int(self.headers.get("Content-Length") or "0")
             if length <= 0 or length > state.max_upload:
                 _json_response(
@@ -1699,9 +1634,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         # ---- org ---------------------------------------------------------
 
-        def _create_org(self) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _create_org(self, *, auth: TokenInfo) -> None:
             if not auth.scopes:
                 _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
                 return
@@ -1768,9 +1701,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     payload["role"] = m.role
             _json_response(self, 200, payload)
 
-        def _claim_org(self, *, org_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _claim_org(self, *, org_id: str, auth: TokenInfo) -> None:
             if not auth.user_id:
                 _json_response(
                     self,
@@ -1805,9 +1736,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 )
             return False
 
-        def _create_invite_key(self, *, org_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _create_invite_key(self, *, org_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
             if not self._require_org_owner(org_id=org_id, auth=auth):
                 return
@@ -1895,9 +1824,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             items = [invite_key_to_dict(r) for r in state.meta.list_invite_keys(org_id)]
             _json_response(self, 200, {"org_id": org_id, "items": items})
 
-        def _revoke_invite_key(self, *, org_id: str, key_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _revoke_invite_key(self, *, org_id: str, key_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
             if not self._require_org_owner(org_id=org_id, auth=auth):
                 return
@@ -1908,9 +1835,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 200, invite_key_to_dict(row))
 
-        def _join_org_with_invite(self) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _join_org_with_invite(self, *, auth: TokenInfo) -> None:
             if not auth.user_id:
                 _json_response(
                     self,
@@ -1969,9 +1894,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             members = [membership_to_dict(m, profile=profiles.get(m.user_id)) for m in member_rows]
             _json_response(self, 200, {"org_id": org_id, "items": members})
 
-        def _add_org_member(self, *, org_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _add_org_member(self, *, org_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
             if not auth.user_id and not _is_admin(auth.scopes):
                 _json_response(self, 401, {"error": "unauthorized", "message": "login required"})
@@ -2012,9 +1935,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, membership_to_dict(m))
 
-        def _remove_org_member(self, *, org_id: str, user_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _remove_org_member(self, *, org_id: str, user_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
             target = _normalize_user_id(user_id) or user_id.casefold()
             mem = state.meta.membership(org_id, auth.user_id) if auth.user_id else None
@@ -2032,9 +1953,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 200, {"ok": True, "org_id": org_id, "user_id": target})
 
-        def _leave_org(self, *, org_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _leave_org(self, *, org_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
             if not auth.user_id:
                 _json_response(
@@ -2057,9 +1976,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 200, {"ok": True, "org_id": org_id, "left": True})
 
-        def _delete_org(self, *, org_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _delete_org(self, *, org_id: str, auth: TokenInfo) -> None:
             org_id = org_id.casefold()
             if not self._require_org_owner(org_id=org_id, auth=auth):
                 return
@@ -2090,9 +2007,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 },
             )
 
-        def _add_result_share(self, *, result_kind: str, result_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _add_result_share(self, *, result_kind: str, result_id: str, auth: TokenInfo) -> None:
             if not self._can_manage_result(result_kind, result_id, auth, for_read=False):
                 _json_response(self, 404, {"error": "not_found", "message": "result not found"})
                 return
@@ -2138,9 +2053,9 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 201, share_to_dict(share))
 
-        def _remove_result_share(self, *, result_kind: str, result_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _remove_result_share(
+            self, *, result_kind: str, result_id: str, auth: TokenInfo
+        ) -> None:
             if not self._can_manage_result(result_kind, result_id, auth, for_read=False):
                 _json_response(self, 404, {"error": "not_found", "message": "result not found"})
                 return
@@ -2238,9 +2153,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 by_id[att.run_id] = att
             return list(by_id.values())
 
-        def _delete_attempt(self, *, run_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _delete_attempt(self, *, run_id: str, auth: TokenInfo) -> None:
             if not self._can_manage_result("attempt", run_id, auth, for_read=False):
                 # Fail-closed: conceal existence (matches private read policy).
                 _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
@@ -2261,9 +2174,14 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 },
             )
 
-        def _delete_suite(self, *, suite_run_id: str, with_attempts: bool) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _delete_suite(
+            self, *, suite_run_id: str, auth: TokenInfo, qs: dict[str, list[str]]
+        ) -> None:
+            with_attempts = (qs.get("with_attempts") or ["0"])[0] in {
+                "1",
+                "true",
+                "yes",
+            }
             if not self._can_manage_result("suite", suite_run_id, auth, for_read=False):
                 _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
                 return
@@ -2318,9 +2236,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return None
             return visibility
 
-        def _patch_attempt(self, *, run_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _patch_attempt(self, *, run_id: str, auth: TokenInfo) -> None:
             if not self._can_manage_result("attempt", run_id, auth, for_read=False):
                 _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
                 return
@@ -2334,9 +2250,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 200, attempt_to_dict(row))
 
-        def _patch_suite(self, *, suite_run_id: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _patch_suite(self, *, suite_run_id: str, auth: TokenInfo) -> None:
             if not self._can_manage_result("suite", suite_run_id, auth, for_read=False):
                 _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
                 return
@@ -2350,9 +2264,9 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 200, suite_to_dict(row))
 
-        def _delete_package_release(self, *, database_id: str, version: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _delete_package_release(
+            self, *, database_id: str, version: str, auth: TokenInfo
+        ) -> None:
             row = state.meta.get_by_version(database_id, version)
             if row is None or not self._can_manage_package(row, auth):
                 _json_response(self, 404, {"error": "not_found", "message": "release not found"})
@@ -2370,9 +2284,9 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 },
             )
 
-        def _patch_package_release(self, *, database_id: str, version: str) -> None:
-            token = _bearer(self)
-            auth = state.tokens.auth_for(token)
+        def _patch_package_release(
+            self, *, database_id: str, version: str, auth: TokenInfo
+        ) -> None:
             row = state.meta.get_by_version(database_id, version)
             if row is None or not self._can_manage_package(row, auth):
                 _json_response(self, 404, {"error": "not_found", "message": "release not found"})

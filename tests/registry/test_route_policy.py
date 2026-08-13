@@ -34,3 +34,21 @@ def test_publish_access_requires_scope() -> None:
         kwargs={},
     )
     assert ok is None
+
+
+def test_skip_auth_is_derived_from_access() -> None:
+    none = Route("GET", "health", access="none", exact="/health")
+    assert none.skip_auth is True
+    bearer = Route("GET", "list", access="bearer", exact="/v1/packages")
+    assert bearer.skip_auth is False
+    with pytest.raises(ValueError, match="skip_auth"):
+        Route("POST", "publish", access="publish", exact="/v1/packages", skip_auth=True)
+
+
+def test_bearer_helper_is_only_used_by_dispatch() -> None:
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[2] / "services" / "registry" / "app.py").read_text(
+        encoding="utf-8"
+    )
+    assert text.count("_bearer(") == 2

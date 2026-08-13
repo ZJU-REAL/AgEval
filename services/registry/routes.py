@@ -43,8 +43,9 @@ class Route:
         allowed = {"none", "bearer", "publish", "results_upload", "org_owner", "result_manage"}
         if self.access not in allowed:
             raise ValueError(f"invalid route access: {self.access!r}")
-        if self.access == "none" and not self.skip_auth:
-            object.__setattr__(self, "skip_auth", True)
+        if self.skip_auth and self.access != "none":
+            raise ValueError("skip_auth=True is only valid when access='none'")
+        object.__setattr__(self, "skip_auth", self.access == "none")
 
 
 def _package_id_list_ok(path: str) -> bool:
@@ -54,7 +55,7 @@ def _package_id_list_ok(path: str) -> bool:
 
 ROUTES: tuple[Route, ...] = (
     # GET
-    Route("GET", "health", access="none", exact="/health", skip_auth=True),
+    Route("GET", "health", access="none", exact="/health"),
     Route("GET", "list_orgs", access="bearer", exact="/v1/orgs"),
     Route(
         "GET",
@@ -197,34 +198,28 @@ ROUTES: tuple[Route, ...] = (
         "auth_device_code",
         access="none",
         exact="/v1/auth/github/device/code",
-        skip_auth=True,
     ),
     Route(
         "POST",
         "auth_device_poll",
         access="none",
         exact="/v1/auth/github/device/poll",
-        skip_auth=True,
     ),
-    Route(
-        "POST", "auth_web_start", access="none", exact="/v1/auth/github/web/start", skip_auth=True
-    ),
+    Route("POST", "auth_web_start", access="none", exact="/v1/auth/github/web/start"),
     Route(
         "POST",
         "auth_web_callback",
         access="none",
         exact="/v1/auth/github/web/callback",
-        skip_auth=True,
     ),
-    Route("POST", "create_org", access="bearer", exact="/v1/orgs", skip_auth=True),
-    Route("POST", "join_org_with_invite", access="bearer", exact="/v1/orgs/join", skip_auth=True),
+    Route("POST", "create_org", access="bearer", exact="/v1/orgs"),
+    Route("POST", "join_org_with_invite", access="bearer", exact="/v1/orgs/join"),
     Route(
         "POST",
         "claim_org",
         access="bearer",
         pattern=r"/v1/orgs/([^/]+)/claim",
         groups=("org_id",),
-        skip_auth=True,
     ),
     Route(
         "POST",
@@ -232,7 +227,6 @@ ROUTES: tuple[Route, ...] = (
         access="bearer",
         pattern=r"/v1/orgs/([^/]+)/leave",
         groups=("org_id",),
-        skip_auth=True,
     ),
     Route(
         "POST",
@@ -240,7 +234,6 @@ ROUTES: tuple[Route, ...] = (
         access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/invite-keys",
         groups=("org_id",),
-        skip_auth=True,
     ),
     Route(
         "POST",
@@ -248,19 +241,15 @@ ROUTES: tuple[Route, ...] = (
         access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/members",
         groups=("org_id",),
-        skip_auth=True,
     ),
-    Route("POST", "publish_package", access="publish", exact="/v1/packages", skip_auth=True),
+    Route("POST", "publish_package", access="publish", exact="/v1/packages"),
     Route(
         "POST",
         "upload_attempt",
         access="results_upload",
         exact="/v1/results/attempts",
-        skip_auth=True,
     ),
-    Route(
-        "POST", "upload_suite", access="results_upload", exact="/v1/results/suites", skip_auth=True
-    ),
+    Route("POST", "upload_suite", access="results_upload", exact="/v1/results/suites"),
     Route(
         "POST",
         "add_result_share",
@@ -268,7 +257,6 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/results/attempts/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "attempt"},
-        skip_auth=True,
     ),
     Route(
         "POST",
@@ -277,7 +265,6 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/results/suites/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "suite"},
-        skip_auth=True,
     ),
     # DELETE
     Route(
@@ -286,7 +273,6 @@ ROUTES: tuple[Route, ...] = (
         access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/invite-keys/([^/]+)",
         groups=("org_id", "key_id"),
-        skip_auth=True,
     ),
     Route(
         "DELETE",
@@ -294,7 +280,6 @@ ROUTES: tuple[Route, ...] = (
         access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/members/([^/]+)",
         groups=("org_id", "user_id"),
-        skip_auth=True,
     ),
     Route(
         "DELETE",
@@ -302,7 +287,6 @@ ROUTES: tuple[Route, ...] = (
         access="org_owner",
         pattern=r"/v1/orgs/([^/]+)",
         groups=("org_id",),
-        skip_auth=True,
     ),
     Route(
         "DELETE",
@@ -311,7 +295,6 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/results/attempts/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "attempt"},
-        skip_auth=True,
     ),
     Route(
         "DELETE",
@@ -320,7 +303,6 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/results/suites/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "suite"},
-        skip_auth=True,
     ),
     Route(
         "DELETE",
@@ -328,7 +310,6 @@ ROUTES: tuple[Route, ...] = (
         access="result_manage",
         pattern=r"/v1/results/attempts/([^/]+)",
         groups=("run_id",),
-        skip_auth=True,
     ),
     Route(
         "DELETE",
@@ -336,7 +317,6 @@ ROUTES: tuple[Route, ...] = (
         access="result_manage",
         pattern=r"/v1/results/suites/([^/]+)",
         groups=("suite_run_id",),
-        skip_auth=True,
         pass_qs=True,
     ),
     Route(
@@ -345,7 +325,6 @@ ROUTES: tuple[Route, ...] = (
         access="org_owner",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)",
         groups=("database_id", "version"),
-        skip_auth=True,
     ),
     # PATCH
     Route(
@@ -354,7 +333,6 @@ ROUTES: tuple[Route, ...] = (
         access="result_manage",
         pattern=r"/v1/results/attempts/([^/]+)",
         groups=("run_id",),
-        skip_auth=True,
     ),
     Route(
         "PATCH",
@@ -362,7 +340,6 @@ ROUTES: tuple[Route, ...] = (
         access="result_manage",
         pattern=r"/v1/results/suites/([^/]+)",
         groups=("suite_run_id",),
-        skip_auth=True,
     ),
     Route(
         "PATCH",
@@ -370,7 +347,6 @@ ROUTES: tuple[Route, ...] = (
         access="org_owner",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)",
         groups=("database_id", "version"),
-        skip_auth=True,
     ),
 )
 
