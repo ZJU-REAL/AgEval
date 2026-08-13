@@ -104,6 +104,71 @@ class AccessPolicy:
             bool(auth.user_id) and row_s.uploaded_by == auth.user_id
         )
 
+    def enforce_route_access(
+        self,
+        access: str,
+        auth: TokenInfo,
+        *,
+        kwargs: dict[str, Any],
+    ) -> tuple[int, dict[str, str]] | None:
+        """Return ``(status, body)`` when the route is denied; ``None`` if allowed."""
+        if access == "none":
+            return None
+        if access == "bearer":
+            return None
+        if access == "publish":
+            if "registry:publish" not in auth.scopes and "admin" not in auth.scopes:
+                return 401, {"error": "unauthorized", "message": "publish scope required"}
+            if not auth.user_id:
+                return 401, {
+                    "error": "unauthorized",
+                    "message": "publish requires authenticated user identity",
+                }
+            return None
+        if access == "results_upload":
+            if "results:upload" not in auth.scopes and "admin" not in auth.scopes:
+                return 401, {"error": "unauthorized", "message": "results:upload scope required"}
+            if not auth.user_id:
+                return 401, {
+                    "error": "unauthorized",
+                    "message": "upload requires authenticated user identity",
+                }
+            return None
+        if access == "org_owner":
+            org_id = str(kwargs.get("org_id") or "")
+            if not org_id:
+                database_id = str(kwargs.get("database_id") or "")
+                version = str(kwargs.get("version") or "")
+                if database_id and version:
+                    row = self.meta.get_by_version(database_id, version)
+                    if row is None:
+                        return 404, {"error": "not_found", "message": "package not found"}
+                    if not self.can_manage_package(row, auth):
+                        return 403, {"error": "forbidden", "message": "org owner required"}
+                    return None
+                return 400, {"error": "invalid_request", "message": "org_id required"}
+            status = self.org_owner_status(org_id=org_id, auth=auth)
+            if status == "ok":
+                return None
+            if status == "not_found":
+                return 404, {"error": "not_found", "message": "org not found"}
+            if status == "unauthorized":
+                return 401, {"error": "unauthorized", "message": "authentication required"}
+            return 403, {"error": "forbidden", "message": "org owner required"}
+        if access == "result_manage":
+            result_kind = str(kwargs.get("result_kind") or "")
+            result_id = str(
+                kwargs.get("result_id") or kwargs.get("run_id") or kwargs.get("suite_run_id") or ""
+            )
+            if not result_kind:
+                result_kind = "attempt" if kwargs.get("run_id") else "suite"
+            if not result_id:
+                return 400, {"error": "invalid_request", "message": "result id required"}
+            if not self.can_manage_result(result_kind, result_id, auth, for_read=False):
+                return 403, {"error": "forbidden", "message": "result owner required"}
+            return None
+        return 500, {"error": "internal", "message": f"unknown access {access}"}
+
     def org_owner_status(self, *, org_id: str, auth: TokenInfo) -> OrgOwnerStatus:
         org = self.meta.get_org(org_id)
         if org is None:

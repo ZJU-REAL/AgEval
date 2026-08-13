@@ -35,7 +35,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Create an organization; caller becomes owner."""
-        from bora.application.registry_org_command import create_org
+        from bora.application.composition import build_registry_org_commands
+
+        create_org = build_registry_org_commands().create_org
         from bora.config.errors import ConfigError
 
         try:
@@ -58,7 +60,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """List organizations the current user belongs to."""
-        from bora.application.registry_org_command import list_orgs
+        from bora.application.composition import build_registry_org_commands
+
+        list_orgs = build_registry_org_commands().list_orgs
         from bora.config.errors import ConfigError
 
         try:
@@ -84,7 +88,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """List package releases visible to the current credentials."""
-        from bora.application.registry_list_command import list_packages
+        from bora.application.composition import build_registry_list_commands
+
+        list_packages = build_registry_list_commands().list_packages
         from bora.config.errors import ConfigError
 
         try:
@@ -110,7 +116,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Show release metadata (digest, size, visibility)."""
-        from bora.application.registry_list_command import show_package
+        from bora.application.composition import build_registry_list_commands
+
+        show_package = build_registry_list_commands().show_package
         from bora.config.errors import ConfigError
 
         try:
@@ -136,7 +144,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Delete a package release. Org owner (or admin) only; requires --yes."""
-        from bora.application.registry_list_command import delete_package_release
+        from bora.application.composition import build_registry_list_commands
+
+        delete_package_release = build_registry_list_commands().delete_package_release
         from bora.config.errors import ConfigError
 
         if not yes:
@@ -165,7 +175,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Set package release visibility after publish. Org owner (or admin) only."""
-        from bora.application.registry_list_command import set_package_visibility
+        from bora.application.composition import build_registry_list_commands
+
+        set_package_visibility = build_registry_list_commands().set_package_visibility
         from bora.config.errors import ConfigError
 
         if visibility not in {"public", "private"}:

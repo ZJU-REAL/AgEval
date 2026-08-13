@@ -11,7 +11,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from bora.adapters.package_fs import LocalPackageReader
-from bora.application.lock_command import LockCommand
+from bora.application.attempt.lock_command import LockCommand
 from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.load_and_lock import ConfigCore
 from bora.evaluation.result_binding import FlatResult
@@ -45,17 +45,89 @@ def build_lock_command() -> LockCommand:
 def build_run_task() -> RunTask:
     """Wire the production ``bora run`` use case through the composition root.
 
-    Concrete adapters remain inside the use case module for now; the CLI must
-    not import ``run_command.run_task`` directly. Full lifecycle/authority
-    assembly is still residual vs Spec 05 text.
+    CLI must not import ``run_command.run_task`` directly. L0/L1 adapters are
+    still constructed inside the attempt package, not in this module.
     """
-    from bora.application.run_command import run_task
+    from bora.application.attempt.run_command import run_task
 
     return run_task
 
 
 def build_campaign_runner() -> Callable[..., Coroutine[Any, Any, dict[str, Any]]]:
     """Wire the production ``bora campaign`` sketch through the composition root."""
-    from bora.application.campaign import run_campaign
+    from bora.application.attempt.campaign import run_campaign
 
     return run_campaign
+
+
+def build_suite_runner() -> Any:
+    """Suite plan / execute / cancel / locator helpers."""
+    from bora.application.suite import suite_run
+
+    return suite_run
+
+
+def build_results_commands() -> Any:
+    """Attempt and suite result upload / get / list / share / delete."""
+    from bora.application.registry_ops.results_command import ResultsCommands
+
+    return ResultsCommands(client_factory=build_registry_client)
+
+
+def build_registry_list_commands() -> Any:
+    """Package list/show/delete/visibility and local cache helpers."""
+    from bora.application.registry_ops.registry_list_command import RegistryListCommands
+
+    return RegistryListCommands(client_factory=build_registry_client)
+
+
+def build_registry_org_commands() -> Any:
+    """Org create / list."""
+    from bora.application.registry_ops.registry_org_command import RegistryOrgCommands
+
+    return RegistryOrgCommands(client_factory=build_registry_client)
+
+
+def build_publish_command() -> Any:
+    from bora.application.registry_ops.publish_command import PublishCommand
+
+    return PublishCommand(client_factory=build_registry_client)
+
+
+def build_login_command() -> Any:
+    from bora.application.registry_ops.login_command import LoginCommand
+
+    return LoginCommand(client_factory=build_registry_client)
+
+
+def build_plugin_commands() -> Any:
+    from bora.application.plugin_ops.plugin_install_remote import PluginInstallCommand
+    from bora.application.plugin_ops.plugin_publish import PluginPublishCommand
+
+    install = PluginInstallCommand(client_factory=build_registry_client)
+    publish = PluginPublishCommand(client_factory=build_registry_client)
+    return type(
+        "PluginCommands",
+        (),
+        {
+            "install_plugin_from_registry": install.install_plugin_from_registry,
+            "publish_plugin": publish.publish_plugin,
+        },
+    )()
+
+
+def build_registry_client(
+    *,
+    registry_url: str | None = None,
+    token: str | None = None,
+    require_token: bool = True,
+    accept_results_url: bool = False,
+) -> Any:
+    from bora.application.registry_ops.client import build_registry_client as _build
+
+    return _build(
+        registry_url=registry_url,
+        token=token,
+        require_token=require_token,
+        accept_results_url=accept_results_url,
+    )

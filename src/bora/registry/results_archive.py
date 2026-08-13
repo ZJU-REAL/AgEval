@@ -64,7 +64,9 @@ def extract_attempt_archive(archive: bytes, dest_root: Path) -> Path:
             tar.extractall(path=dest, filter="data")  # type: ignore[call-arg]
         except TypeError:
             tar.extractall(path=dest)
-    runs = dest / ".bora" / "runs"
+    from bora.evidence.locators import default_runs_root
+
+    runs = default_runs_root(dest)
     if runs.is_dir():
         children = [p for p in runs.iterdir() if p.is_dir()]
         if len(children) == 1:

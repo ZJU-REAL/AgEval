@@ -1,0 +1,285 @@
+"""Org / members / invites."""
+
+from __future__ import annotations
+
+import hashlib
+import re
+import secrets
+from typing import Any
+
+from services.registry.access import AccessPolicy
+from services.registry.errors import RegistryAppError
+from services.registry.store import (
+    TokenInfo,
+    _normalize_user_id,
+    invite_key_to_dict,
+    membership_to_dict,
+    now,
+    org_to_dict,
+)
+
+_ORG_NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$")
+
+
+class OrgService:
+    def __init__(self, meta: Any, access: AccessPolicy) -> None:
+        self.meta = meta
+        self.access = access
+
+    def get(self, org_id: str) -> Any:
+        return self.meta.get_org(org_id)
+
+    def owner_status(self, org_id: str, auth: TokenInfo) -> str:
+        return self.access.org_owner_status(org_id=org_id, auth=auth)
+
+    def create(
+        self,
+        *,
+        name: str,
+        display_name: str,
+        is_claimable: bool,
+        auth: TokenInfo,
+    ) -> dict[str, Any]:
+        if not auth.scopes:
+            raise RegistryAppError("unauthorized", "login required", http_status=401)
+        if not auth.user_id:
+            raise RegistryAppError("unauthorized", "user identity required", http_status=401)
+        name = name.strip().casefold()
+        display_name = display_name or name
+        if not name or not _ORG_NAME_RE.match(name):
+            raise RegistryAppError(
+                "invalid_request",
+                "name must be lowercase slug [a-z0-9][a-z0-9_-]*",
+                http_status=400,
+            )
+        try:
+            org = self.meta.create_org(
+                name=name,
+                owner_user_id=auth.user_id,
+                display_name=display_name,
+                is_claimable=is_claimable,
+            )
+        except ValueError as exc:
+            raise RegistryAppError("conflict", "org already exists", http_status=409) from exc
+        return org_to_dict(org)
+
+    def list_for_user(self, *, auth: TokenInfo) -> dict[str, Any]:
+        if not auth.user_id:
+            raise RegistryAppError("unauthorized", "login required", http_status=401)
+        items = []
+        for org, role in self.meta.list_orgs_for_user(auth.user_id):
+            d = org_to_dict(org)
+            d["role"] = role
+            items.append(d)
+        return {"items": items}
+
+    def get_public(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:
+        org = self.meta.get_org(org_id.casefold())
+        if org is None:
+            raise RegistryAppError("not_found", "org not found", http_status=404)
+        payload = org_to_dict(org)
+        if auth.user_id:
+            m = self.meta.membership(org.org_id, auth.user_id)
+            if m:
+                payload["role"] = m.role
+        return payload
+
+    def claim(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:
+        if not auth.user_id:
+            raise RegistryAppError("unauthorized", "user identity required", http_status=401)
+        try:
+            org = self.meta.claim_org(org_id.casefold(), auth.user_id)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "org not found", http_status=404) from exc
+        except PermissionError as exc:
+            raise RegistryAppError("forbidden", str(exc), http_status=403) from exc
+        return org_to_dict(org)
+
+    def create_invite(
+        self,
+        *,
+        org_id: str,
+        max_uses: object,
+        expires_at: object,
+        expires_in_days: object,
+        auth: TokenInfo,
+    ) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        self._require_owner(org_id, auth)
+        uses: int | None = None
+        if max_uses is not None and max_uses != "":
+            try:
+                uses = int(max_uses)  # type: ignore[arg-type]
+            except (TypeError, ValueError) as exc:
+                raise RegistryAppError(
+                    "invalid_request", "max_uses must be int", http_status=400
+                ) from exc
+        exp: float | None = None
+        if expires_at is not None and expires_at != "":
+            try:
+                exp = float(expires_at)  # type: ignore[arg-type]
+            except (TypeError, ValueError) as exc:
+                raise RegistryAppError(
+                    "invalid_request",
+                    "expires_at must be unix timestamp",
+                    http_status=400,
+                ) from exc
+        if exp is not None and exp <= now():
+            raise RegistryAppError(
+                "invalid_request",
+                "expires_at must be in the future",
+                http_status=400,
+            )
+        if exp is None and expires_in_days is not None:
+            try:
+                days = float(expires_in_days)  # type: ignore[arg-type]
+                if days <= 0:
+                    raise ValueError("non-positive")
+                exp = now() + days * 86400.0
+            except (TypeError, ValueError) as exc:
+                raise RegistryAppError(
+                    "invalid_request",
+                    "expires_in_days must be positive number",
+                    http_status=400,
+                ) from exc
+        plain = f"bora-inv_{secrets.token_urlsafe(24)}"
+        token_hash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
+        prefix = plain[:16] + "…"
+        try:
+            row = self.meta.create_invite_key(
+                org_id=org_id,
+                created_by=auth.user_id or "",
+                token_hash=token_hash,
+                token_prefix=prefix,
+                max_uses=uses,
+                expires_at=exp,
+            )
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "org not found", http_status=404) from exc
+        except ValueError as exc:
+            raise RegistryAppError("invalid_request", str(exc), http_status=400) from exc
+        return invite_key_to_dict(row, invite_key=plain)
+
+    def list_invites(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        self._require_owner(org_id, auth)
+        items = [invite_key_to_dict(r) for r in self.meta.list_invite_keys(org_id)]
+        return {"org_id": org_id, "items": items}
+
+    def revoke_invite(self, *, org_id: str, key_id: str, auth: TokenInfo) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        self._require_owner(org_id, auth)
+        try:
+            row = self.meta.revoke_invite_key(org_id, key_id)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "invite key not found", http_status=404) from exc
+        return invite_key_to_dict(row)
+
+    def join(self, *, invite_key: str, auth: TokenInfo) -> dict[str, Any]:
+        if not auth.user_id:
+            raise RegistryAppError("unauthorized", "user identity required", http_status=401)
+        invite = invite_key.strip()
+        if not invite:
+            raise RegistryAppError("invalid_request", "invite_key required", http_status=400)
+        token_hash = hashlib.sha256(invite.encode("utf-8")).hexdigest()
+        try:
+            org, mem = self.meta.redeem_invite_key(token_hash=token_hash, user_id=auth.user_id)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "invalid invite key", http_status=404) from exc
+        except PermissionError as exc:
+            raise RegistryAppError("forbidden", str(exc), http_status=403) from exc
+        except ValueError as exc:
+            raise RegistryAppError("conflict", str(exc), http_status=409) from exc
+        payload = org_to_dict(org)
+        payload["role"] = mem.role
+        payload["membership"] = membership_to_dict(mem)
+        return payload
+
+    def list_members(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        org = self.meta.get_org(org_id)
+        if org is None:
+            raise RegistryAppError("not_found", "org not found", http_status=404)
+        if not AccessPolicy.is_admin(auth.scopes) and (
+            not auth.user_id or self.meta.membership(org_id, auth.user_id) is None
+        ):
+            raise RegistryAppError("not_found", "org not found", http_status=404)
+        member_rows = self.meta.list_members(org_id)
+        profiles = self.meta.get_user_profiles([m.user_id for m in member_rows])
+        members = [membership_to_dict(m, profile=profiles.get(m.user_id)) for m in member_rows]
+        return {"org_id": org_id, "items": members}
+
+    def add_member(
+        self, *, org_id: str, user_id: str, role: str, auth: TokenInfo
+    ) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        if not auth.user_id and not AccessPolicy.is_admin(auth.scopes):
+            raise RegistryAppError("unauthorized", "login required", http_status=401)
+        mem = self.meta.membership(org_id, auth.user_id) if auth.user_id else None
+        if not AccessPolicy.is_admin(auth.scopes) and (mem is None or mem.role != "owner"):
+            raise RegistryAppError(
+                "forbidden",
+                "owner required to add members",
+                http_status=403,
+            )
+        target = _normalize_user_id(user_id)
+        if not target:
+            raise RegistryAppError("invalid_request", "user_id required", http_status=400)
+        try:
+            m = self.meta.add_member(org_id, target, role=role or "member")
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "org not found", http_status=404) from exc
+        except ValueError as exc:
+            code = "conflict" if "exists" in str(exc) else "invalid_request"
+            status = 409 if code == "conflict" else 400
+            raise RegistryAppError(code, str(exc), http_status=status) from exc
+        return membership_to_dict(m)
+
+    def remove_member(self, *, org_id: str, user_id: str, auth: TokenInfo) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        target = _normalize_user_id(user_id) or user_id.casefold()
+        mem = self.meta.membership(org_id, auth.user_id) if auth.user_id else None
+        if not AccessPolicy.is_admin(auth.scopes) and (mem is None or mem.role != "owner"):
+            raise RegistryAppError(
+                "forbidden",
+                "owner required to remove members",
+                http_status=403,
+            )
+        try:
+            self.meta.remove_member(org_id, target)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "membership not found", http_status=404) from exc
+        return {"ok": True, "org_id": org_id, "user_id": target}
+
+    def leave(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        if not auth.user_id:
+            raise RegistryAppError("unauthorized", "user identity required", http_status=401)
+        try:
+            self.meta.leave_org(org_id, auth.user_id)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "membership not found", http_status=404) from exc
+        except PermissionError as exc:
+            raise RegistryAppError("forbidden", str(exc), http_status=403) from exc
+        return {"ok": True, "org_id": org_id, "left": True}
+
+    def delete(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        self._require_owner(org_id, auth)
+        try:
+            self.meta.delete_org(org_id)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "org not found", http_status=404) from exc
+        except ValueError as exc:
+            raise RegistryAppError("conflict", str(exc), http_status=409) from exc
+        return {"ok": True, "org_id": org_id, "dissolved": True}
+
+    def _require_owner(self, org_id: str, auth: TokenInfo) -> None:
+        status = self.access.org_owner_status(org_id=org_id, auth=auth)
+        if status == "ok":
+            return
+        if status == "not_found":
+            raise RegistryAppError("not_found", "org not found", http_status=404)
+        if status == "unauthorized":
+            raise RegistryAppError("unauthorized", "login required", http_status=401)
+        raise RegistryAppError("forbidden", "owner required", http_status=403)

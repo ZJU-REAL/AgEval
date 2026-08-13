@@ -9,12 +9,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bora.application.results_command import (
+from bora.application.composition import build_results_commands
+from bora.application.registry_ops.results_command import (
+    ResultsCommands,
     _run_ids_from_task_refs,
     _suite_metrics_and_refs,
-    get_suite_result,
-    upload_suite_result,
 )
+
+_results = build_results_commands()
+get_suite_result = _results.get_suite_result
+upload_suite_result = _results.upload_suite_result
 
 
 def _write_summary(db: Path, suite_run_id: str, summary: dict[str, Any]) -> Path:
@@ -152,15 +156,9 @@ def test_upload_payload_includes_recomputed_pass_at_k(
 
     mock_client = MagicMock()
     mock_client.upload_suite.side_effect = lambda **kw: fake_upload_suite(**kw)
-    monkeypatch.setattr(
-        "bora.application.results_command._client",
-        lambda **_kw: mock_client,
-    )
-    # Avoid real credentials / registry URL
-    monkeypatch.setenv("BORA_REGISTRY_URL", "http://127.0.0.1:9")
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", "test-token")
+    cmds = ResultsCommands(client_factory=lambda **_kw: mock_client)
 
-    out = upload_suite_result(db, suite_run_id=suite_run_id)
+    out = cmds.upload_suite_result(db, suite_run_id=suite_run_id)
     assert out["ok"] is True
     metrics = captured["metrics"]
     assert "pass_at_k" in metrics

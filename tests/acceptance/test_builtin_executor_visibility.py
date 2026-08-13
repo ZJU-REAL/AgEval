@@ -49,7 +49,7 @@ def test_sdk_session_records_attempt_container_location() -> None:
     l1 = data.get("l1") or {}
     loc = l1.get("execution_location") or l1.get("executor_containment")
     assert loc in {"attempt-container", "mixed"}
-    assert int(l1.get("host_fallback_count") or 0) == 0
+    assert "host_fallback_count" not in l1
     logs = data.get("logs") or data.get("evidence_path")
     root = Path(str(logs))
     if (root / "l1.json").is_file():

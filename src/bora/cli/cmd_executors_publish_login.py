@@ -68,7 +68,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Publish a local Database package to the configured Registry (must attach --org)."""
-        from bora.application.publish_command import publish_database
+        from bora.application.composition import build_publish_command
+
+        publish_database = build_publish_command().publish_database
         from bora.config.errors import ConfigError
 
         try:
@@ -98,7 +100,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """GitHub Device Flow login; write ``~/.bora/credentials`` (mode 0600)."""
-        from bora.application.login_command import login_registry
+        from bora.application.composition import build_login_command
+
+        login_registry = build_login_command().login_registry
         from bora.config.errors import ConfigError
 
         try:

@@ -17,6 +17,7 @@ async def run_lifecycle(
     lock: LockedTaskConfig,
     stages: LifecycleStages,
     *,
+    attempt: AttemptIdentity | None = None,
     identity_factory: IdentityFactory | None = None,
     cancellation: CancellationSignal | None = None,
     clock: MonotonicClock | None = None,
@@ -25,19 +26,23 @@ async def run_lifecycle(
     retry_of: AttemptIdentity | None = None,
     previous_record: AttemptRecord | None = None,
 ) -> AttemptRecord:
-    """Create identity and drive the Coordinator once.
+    """Drive the Coordinator once with a caller-owned or freshly minted Attempt.
 
     Parameters
     ----------
+    attempt:
+        When set, use this identity and do not call ``IdentityFactory.new_run``.
+        Production ``run_task`` always passes the single minted Attempt.
     retry_of:
-        When set, create a new Attempt under the same Trial as *retry_of*,
-        requiring *retry_of* to already be terminal (caller enforces).
+        When *attempt* is omitted and this is set, create a new Attempt under
+        the same Trial as *retry_of*, requiring *retry_of* to already be
+        terminal (caller enforces). Tests use this when they omit *attempt*.
     """
     factory = identity_factory or IdentityFactory()
     cancel = cancellation or CancellationSignal()
     mono = clock or default_monotonic_clock
 
-    if retry_of is not None:
+    if attempt is None and retry_of is not None:
         if previous_record is not None:
             assert_retryable(previous_record)
             if previous_record.attempt != retry_of:
@@ -56,7 +61,7 @@ async def run_lifecycle(
                 "retry Trial digest does not match current lock",
             )
         attempt = factory.new_attempt(trial, retry_of=retry_of)
-    else:
+    elif attempt is None:
         run = factory.new_run()
         trial = factory.new_trial(run, lock.digest)
         attempt = factory.new_attempt(trial)

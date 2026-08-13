@@ -51,7 +51,7 @@ def test_container_module_has_no_vendor_scrape() -> None:
 
 
 def test_agent_container_scrape_not_used_for_acp_kind() -> None:
-    app = REPO / "src" / "bora" / "application"
+    app = REPO / "src" / "bora" / "application" / "attempt"
     sources = "\n".join(p.read_text(encoding="utf-8") for p in sorted(app.glob("run_l1*.py")))
     assert "make_l1_placement_resolver" in sources
     assert "migrated_to_acp" not in sources

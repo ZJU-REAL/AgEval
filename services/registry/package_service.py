@@ -1,0 +1,435 @@
+"""Package publish / list / serve / delete / patch."""
+
+from __future__ import annotations
+
+import hashlib
+import tempfile
+from pathlib import Path
+from typing import Any
+
+from services.registry.access import AccessPolicy
+from services.registry.errors import RegistryAppError
+from services.registry.store import ReleaseRow, TokenInfo, now, release_to_dict
+
+
+class PackageService:
+    def __init__(
+        self,
+        meta: Any,
+        blobs: Any,
+        access: AccessPolicy,
+        *,
+        max_upload: int,
+    ) -> None:
+        self.meta = meta
+        self.blobs = blobs
+        self.access = access
+        self.max_upload = max_upload
+
+    def get(self, database_id: str, version: str) -> ReleaseRow | None:
+        return self.meta.get_by_version(database_id, version)
+
+    def can_manage(self, row: ReleaseRow, auth: TokenInfo) -> bool:
+        return self.access.can_manage_package(row, auth)
+
+    def publish(self, *, meta: dict[str, Any], archive: bytes, auth: TokenInfo) -> dict[str, Any]:
+        if len(archive) > self.max_upload:
+            raise RegistryAppError(
+                "payload_too_large",
+                f"max {self.max_upload} bytes",
+                http_status=413,
+            )
+        database_id = str(meta.get("database_id") or "")
+        version = str(meta.get("version") or "")
+        package_digest = str(meta.get("package_digest") or "")
+        blob_digest = str(meta.get("blob_digest") or "")
+        media_type = str(meta.get("media_type") or "")
+        visibility = str(meta.get("visibility") or "private")
+        raw_org = str(meta.get("org_id") or meta.get("org") or "").strip()
+        org_id = raw_org.casefold() if raw_org else None
+        size = int(meta.get("size") or len(archive))
+        user_id = auth.user_id or ""
+        if visibility not in {"private", "public"}:
+            raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
+        if not org_id:
+            raise RegistryAppError("org_required", "publish requires org_id", http_status=400)
+        if self.meta.get_org(org_id) is None:
+            raise RegistryAppError("org_not_found", f"org {org_id!r} not found", http_status=400)
+        if not AccessPolicy.is_admin(auth.scopes) and self.meta.membership(org_id, user_id) is None:
+            raise RegistryAppError(
+                "forbidden",
+                "must be org member to publish under this org",
+                http_status=403,
+            )
+        actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
+        if actual_blob != blob_digest or size != len(archive):
+            raise RegistryAppError(
+                "digest_mismatch",
+                "blob digest or size mismatch",
+                http_status=400,
+            )
+        package_kind = str(meta.get("package_kind") or "database").strip().casefold()
+        if package_kind not in {"database", "plugin"}:
+            raise RegistryAppError(
+                "invalid_request",
+                "package_kind must be database or plugin",
+                http_status=400,
+            )
+        self._validate_archive(
+            archive,
+            package_kind=package_kind,
+            media_type=media_type,
+            package_digest=package_digest,
+        )
+        replace = bool(meta.get("replace")) or str(meta.get("replace") or "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        existing_rel = self.meta.get_by_version(database_id, version)
+        if existing_rel is not None:
+            if not replace:
+                raise RegistryAppError("conflict", "release already exists", http_status=409)
+            if not self._may_replace(existing_rel, auth):
+                raise RegistryAppError("not_found", "release not found", http_status=404)
+            self.meta.delete_release(database_id, version)
+            self._gc_blob(existing_rel.blob_digest)
+        row = ReleaseRow(
+            database_id=database_id,
+            version=version,
+            visibility=visibility,
+            package_digest=package_digest,
+            blob_digest=blob_digest,
+            size=size,
+            media_type=media_type,
+            created_at=now(),
+            org_id=org_id,
+        )
+        try:
+            self.blobs.put_if_absent(blob_digest, archive, prefix="packages")
+            self.meta.insert(row)
+        except ValueError as exc:
+            raise RegistryAppError("conflict", "release already exists", http_status=409) from exc
+        payload = release_to_dict(row)
+        if existing_rel is not None and replace:
+            payload["replaced"] = True
+        return payload
+
+    def list_packages(
+        self,
+        *,
+        auth: TokenInfo,
+        prefix: str | None,
+        visibility: str | None,
+        version: str | None,
+        package_kind: str | None,
+    ) -> dict[str, Any]:
+        if visibility is not None and visibility not in {"public", "private"}:
+            raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
+        if package_kind is not None and package_kind not in {"database", "plugin"}:
+            raise RegistryAppError(
+                "invalid_request",
+                "package_kind must be database or plugin",
+                http_status=400,
+            )
+        rows = self.meta.list_releases(
+            database_id_prefix=prefix or None,
+            visibility=visibility,
+            version=version or None,
+            include_private=True,
+        )
+        items = [release_to_dict(r) for r in rows if self.access.visible_package(r, auth)]
+        if package_kind is not None:
+            items = [i for i in items if i.get("package_kind") == package_kind]
+        return {"items": items}
+
+    def list_versions(self, *, database_id: str, auth: TokenInfo) -> dict[str, Any]:
+        rows = self.meta.list_versions(database_id, include_private=True)
+        items = [release_to_dict(r) for r in rows if self.access.visible_package(r, auth)]
+        return {"database_id": database_id, "items": items}
+
+    def serve_meta(
+        self,
+        *,
+        database_id: str,
+        version: str | None,
+        package_digest: str | None,
+        auth: TokenInfo,
+    ) -> dict[str, Any]:
+        row = self._visible_release(
+            database_id=database_id,
+            auth=auth,
+            package_digest=package_digest,
+            version=version,
+        )
+        payload = release_to_dict(row)
+        try:
+            from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+
+            if row.media_type == PLUGIN_MEDIA_TYPE:
+                data = self.blobs.get(row.blob_digest, prefix="packages")
+                payload["package_kind"] = "plugin"
+                if data is not None:
+                    payload["plugin_preview"] = _plugin_preview_from_archive(data)
+            else:
+                payload["package_kind"] = "database"
+        except Exception:  # noqa: BLE001 — preview is best-effort
+            payload.setdefault("package_kind", "database")
+        return payload
+
+    def serve_content(
+        self,
+        *,
+        database_id: str,
+        package_digest: str,
+        auth: TokenInfo,
+    ) -> tuple[bytes, ReleaseRow]:
+        row = self._visible_release(
+            database_id=database_id,
+            auth=auth,
+            package_digest=package_digest,
+        )
+        data = self.blobs.get(row.blob_digest, prefix="packages")
+        if data is None:
+            raise RegistryAppError("not_found", "blob missing", http_status=404)
+        return data, row
+
+    def list_files(
+        self,
+        *,
+        database_id: str,
+        auth: TokenInfo,
+        package_digest: str | None = None,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        from services.registry.package_files import get_or_build_index
+
+        row = self._visible_release(
+            database_id=database_id,
+            auth=auth,
+            package_digest=package_digest,
+            version=version,
+        )
+        archive = self.blobs.get(row.blob_digest, prefix="packages")
+        if archive is None:
+            raise RegistryAppError("not_found", "blob missing", http_status=404)
+        try:
+            index = get_or_build_index(archive, package_digest=row.package_digest)
+        except Exception as exc:  # noqa: BLE001
+            raise RegistryAppError(
+                "archive_error",
+                f"cannot index package: {exc}",
+                http_status=500,
+            ) from exc
+        return {
+            "database_id": row.database_id,
+            "digest": row.package_digest,
+            "version": row.version,
+            "items": index.list_items(),
+        }
+
+    def read_file(
+        self,
+        *,
+        database_id: str,
+        file_path: str,
+        auth: TokenInfo,
+        package_digest: str | None = None,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        from services.registry.package_files import (
+            MAX_FILE_BYTES,
+            PackageFileNotFound,
+            PackageFileTooLarge,
+            PackagePathError,
+            file_payload,
+            normalize_package_path,
+            read_member,
+        )
+
+        row = self._visible_release(
+            database_id=database_id,
+            auth=auth,
+            package_digest=package_digest,
+            version=version,
+        )
+        try:
+            safe_path = normalize_package_path(file_path)
+        except PackagePathError as exc:
+            raise RegistryAppError("invalid_path", str(exc), http_status=400) from exc
+        archive = self.blobs.get(row.blob_digest, prefix="packages")
+        if archive is None:
+            raise RegistryAppError("not_found", "blob missing", http_status=404)
+        try:
+            data, size, truncated = read_member(
+                archive, safe_path, max_bytes=MAX_FILE_BYTES, allow_truncate=True
+            )
+        except PackagePathError as exc:
+            raise RegistryAppError("invalid_path", str(exc), http_status=400) from exc
+        except PackageFileNotFound as exc:
+            raise RegistryAppError(
+                "not_found", f"file not found: {safe_path}", http_status=404
+            ) from exc
+        except PackageFileTooLarge as exc:
+            raise RegistryAppError(
+                "payload_too_large",
+                f"file exceeds {MAX_FILE_BYTES} bytes (path={exc.path}, size={exc.size})",
+                http_status=413,
+                extra={"max_bytes": MAX_FILE_BYTES, "path": exc.path, "size": exc.size},
+            ) from exc
+        return file_payload(safe_path, data, size=size, truncated=truncated)
+
+    def delete_release(self, *, database_id: str, version: str, auth: TokenInfo) -> dict[str, Any]:
+        row = self.meta.get_by_version(database_id, version)
+        if row is None or not self.can_manage(row, auth):
+            raise RegistryAppError("not_found", "release not found", http_status=404)
+        self.meta.delete_release(database_id, version)
+        blob_deleted = self._gc_blob(row.blob_digest)
+        return {
+            "ok": True,
+            "database_id": database_id,
+            "version": version,
+            "blob_deleted": blob_deleted,
+        }
+
+    def patch_visibility(
+        self, *, database_id: str, version: str, visibility: str, auth: TokenInfo
+    ) -> dict[str, Any]:
+        row = self.meta.get_by_version(database_id, version)
+        if row is None or not self.can_manage(row, auth):
+            raise RegistryAppError("not_found", "release not found", http_status=404)
+        if visibility not in {"public", "private"}:
+            raise RegistryAppError(
+                "invalid_request",
+                "visibility must be public or private",
+                http_status=400,
+            )
+        try:
+            updated = self.meta.set_release_visibility(database_id, version, visibility)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "release not found", http_status=404) from exc
+        return release_to_dict(updated)
+
+    def _visible_release(
+        self,
+        *,
+        database_id: str,
+        auth: TokenInfo,
+        package_digest: str | None = None,
+        version: str | None = None,
+    ) -> ReleaseRow:
+        if package_digest:
+            row = self.meta.get_by_digest(database_id, package_digest)
+        elif version:
+            row = self.meta.get_by_version(database_id, version)
+        else:
+            row = None
+        if row is None or not self.access.visible_package(row, auth):
+            raise RegistryAppError("not_found", "release not found", http_status=404)
+        return row
+
+    def _may_replace(self, existing: ReleaseRow, auth: TokenInfo) -> bool:
+        if AccessPolicy.is_admin(auth.scopes):
+            return True
+        if not auth.user_id or not existing.org_id:
+            return False
+        mem = self.meta.membership(existing.org_id, auth.user_id)
+        return mem is not None and mem.role == "owner"
+
+    def _gc_blob(self, blob_digest: str) -> bool:
+        if not blob_digest:
+            return False
+        if self.meta.count_package_blob_refs(blob_digest) > 0:
+            return False
+        return bool(self.blobs.delete(blob_digest, prefix="packages"))
+
+    def _validate_archive(
+        self,
+        archive: bytes,
+        *,
+        package_kind: str,
+        media_type: str,
+        package_digest: str,
+    ) -> None:
+        from bora.registry.archive import extract_archive
+        from bora.registry.digest import compute_package_digest
+        from bora.registry.plugin_package import (
+            PLUGIN_MEDIA_TYPE,
+            assert_plugin_package,
+            compute_plugin_digest,
+        )
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="bora-reg-") as tmp:
+                extract_archive(archive, Path(tmp))
+                tmp_path = Path(tmp)
+                if package_kind == "plugin":
+                    if media_type != PLUGIN_MEDIA_TYPE:
+                        raise RegistryAppError(
+                            "invalid_format",
+                            f"plugin media_type must be {PLUGIN_MEDIA_TYPE}",
+                            http_status=400,
+                        )
+                    try:
+                        assert_plugin_package(tmp_path)
+                    except RegistryAppError:
+                        raise
+                    except Exception as exc:  # noqa: BLE001
+                        raise RegistryAppError(
+                            "invalid_format",
+                            f"not a valid bora.plugin/1: {exc}",
+                            http_status=400,
+                        ) from exc
+                    if (tmp_path / "bora.yaml").is_file() and not (
+                        (tmp_path / "plugin.yaml").is_file()
+                        or (tmp_path / "bora.plugin.yaml").is_file()
+                    ):
+                        raise RegistryAppError(
+                            "invalid_format",
+                            "database package cannot be published as plugin",
+                            http_status=400,
+                        )
+                    got = compute_plugin_digest(tmp_path)
+                else:
+                    if (
+                        (tmp_path / "plugin.yaml").is_file()
+                        or (tmp_path / "bora.plugin.yaml").is_file()
+                    ) and not (tmp_path / "bora.yaml").is_file():
+                        raise RegistryAppError(
+                            "invalid_format",
+                            "plugin package must use package_kind=plugin",
+                            http_status=400,
+                        )
+                    got = compute_package_digest(tmp_path)
+                if got != package_digest:
+                    raise RegistryAppError(
+                        "digest_mismatch",
+                        "package digest mismatch after extract",
+                        http_status=400,
+                    )
+        except RegistryAppError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise RegistryAppError("invalid_archive", str(exc), http_status=400) from exc
+
+
+def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
+    from bora.plugins.manifest import load_manifest
+    from bora.registry.archive import extract_archive
+
+    with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
+        root = Path(tmp)
+        extract_archive(archive, root)
+        man = load_manifest(root)
+        files = sorted(
+            p.relative_to(root).as_posix()
+            for p in root.rglob("*")
+            if p.is_file() and "__pycache__" not in p.parts
+        )
+        return {
+            "plugin_id": man.plugin_id,
+            "version": man.version,
+            "format": man.format,
+            "slots": man.slots_summary(),
+            "files": files[:200],
+        }

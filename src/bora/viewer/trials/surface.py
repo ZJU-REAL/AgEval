@@ -289,7 +289,7 @@ def _trial_meta_from_evidence(
     if duration is None and isinstance(phase_timing, dict):
         total_ms = phase_timing.get("total_ms")
         if isinstance(total_ms, (int, float)) and not isinstance(total_ms, bool):
-            from bora.application.phase_timing import format_duration_ms
+            from bora.application.suite import format_duration_ms
 
             duration = format_duration_ms(float(total_ms))
     started = (

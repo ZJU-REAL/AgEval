@@ -14,18 +14,26 @@ from services.registry.app import build_default_state, make_handler
 from services.registry.oauth_github import DeviceCodeResponse, GitHubIdentity
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.publish_command import publish_database
-from bora.application.registry_list_command import cache_list, list_packages, show_package
-from bora.application.results_command import (
-    get_attempt_result,
-    get_suite_result,
-    list_attempt_results,
-    list_suite_results,
-    upload_attempt_result,
-    upload_suite_result,
+from bora.application.composition import (
+    build_publish_command,
+    build_registry_list_commands,
+    build_results_commands,
 )
 from bora.registry.client import RegistryClient
 from bora.registry.credentials import write_credentials
+
+publish_database = build_publish_command().publish_database
+_list = build_registry_list_commands()
+cache_list = _list.cache_list
+list_packages = _list.list_packages
+show_package = _list.show_package
+_results = build_results_commands()
+get_attempt_result = _results.get_attempt_result
+get_suite_result = _results.get_suite_result
+list_attempt_results = _results.list_attempt_results
+list_suite_results = _results.list_suite_results
+upload_attempt_result = _results.upload_attempt_result
+upload_suite_result = _results.upload_suite_result
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
@@ -55,9 +63,9 @@ def registry_server(tmp_path: Path):
     data = tmp_path / "reg-data"
     state, token = build_default_state(data, bootstrap_token="test-token-publish", memory_blob=True)
     # Enable OAuth config for login tests (mocked GitHub).
-    state.github_client_id = "test-client-id"
-    state.github_client_secret = "test-client-secret"
-    state.github_login_allowlist = frozenset({"testuser"})
+    state.auth.github_client_id = "test-client-id"
+    state.auth.github_client_secret = "test-client-secret"
+    state.auth.github_login_allowlist = frozenset({"testuser"})
     handler = make_handler(state)
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]
@@ -182,7 +190,7 @@ def test_oauth_device_flow_mocked(
 
     with (
         patch(
-            "services.registry.app.request_device_code",
+            "services.registry.auth_service.request_device_code",
             return_value=DeviceCodeResponse(
                 device_code="dev-code",
                 user_code="ABCD-1234",
@@ -192,11 +200,11 @@ def test_oauth_device_flow_mocked(
             ),
         ),
         patch(
-            "services.registry.app.poll_access_token",
+            "services.registry.auth_service.poll_access_token",
             side_effect=[None, "gho_test_token"],
         ),
         patch(
-            "services.registry.app.fetch_user",
+            "services.registry.auth_service.fetch_user",
             return_value=GitHubIdentity(login="testuser", id=1),
         ),
     ):
@@ -231,7 +239,7 @@ def test_oauth_allowlist_denies_unknown_user(
     client = RegistryClient(registry_server["url"], token=None)
     with (
         patch(
-            "services.registry.app.request_device_code",
+            "services.registry.auth_service.request_device_code",
             return_value=DeviceCodeResponse(
                 device_code="dev-deny",
                 user_code="ZZZZ-9999",
@@ -241,11 +249,11 @@ def test_oauth_allowlist_denies_unknown_user(
             ),
         ),
         patch(
-            "services.registry.app.poll_access_token",
+            "services.registry.auth_service.poll_access_token",
             return_value="gho_other",
         ),
         patch(
-            "services.registry.app.fetch_user",
+            "services.registry.auth_service.fetch_user",
             return_value=GitHubIdentity(login="not-allowed", id=99),
         ),
     ):
@@ -343,7 +351,7 @@ def test_suite_results_upload_get_list_roundtrip(
     _ensure_org()
     import shutil
 
-    from bora.application.results_command import export_suite_profiles
+    export_suite_profiles = _results.export_suite_profiles
 
     db = tmp_path / "db-suite"
     shutil.copytree(FIXTURE, db)

@@ -135,7 +135,7 @@ def prepare_postgresql_environment(
         }
 
         # Live SPI — await multi handlers; they do work / rewrite handoff.
-        from bora.application.extension_hooks import (
+        from bora.application.attempt.extension_hooks import (
             hook_env_action,
             hook_env_inject,
             hook_env_prepare,

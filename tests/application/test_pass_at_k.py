@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bora.application.suite_metrics import (
+from bora.application.suite.suite_metrics import (
     aggregate_k_metrics,
     default_k_values,
     pass_at_k,

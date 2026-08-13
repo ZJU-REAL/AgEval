@@ -278,7 +278,9 @@ def load_run_lock_doc(
     """Load Attempt ``lock.json`` under ``.bora/runs/<run_id>/`` if present."""
     if not run_id or not str(run_id).strip():
         return None
-    path = database_root / ".bora" / "runs" / str(run_id) / "lock.json"
+    from bora.evidence.locators import default_runs_root
+
+    path = default_runs_root(database_root) / str(run_id) / "lock.json"
     if not path.is_file():
         return None
     try:

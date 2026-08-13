@@ -9,11 +9,14 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 
-from bora.application.plugin_install_remote import install_plugin_from_registry
-from bora.application.plugin_publish import publish_plugin
+from bora.application.composition import build_plugin_commands
 from bora.registry.client import RegistryClient
 from bora.registry.credentials import write_credentials
 from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+
+_plugins = build_plugin_commands()
+install_plugin_from_registry = _plugins.install_plugin_from_registry
+publish_plugin = _plugins.publish_plugin
 
 REPO = Path(__file__).resolve().parents[2]
 PLUGIN_FIXTURE = REPO / "tests" / "fixtures" / "plugins" / "sample-echo"

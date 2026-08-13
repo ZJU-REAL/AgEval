@@ -112,7 +112,6 @@ class ParentAgentService:
     _executors: dict[str, Any] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
     invocations_completed: int = 0
-    host_fallback_count: int = 0
 
     def __post_init__(self) -> None:
         if self.invoke_quota is None:

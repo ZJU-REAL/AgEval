@@ -72,7 +72,7 @@ def l1_error_result(
         doc["phase_timing"] = phase_timing
         total_ms = phase_timing.get("total_ms")
         if isinstance(total_ms, int | float) and not isinstance(total_ms, bool):
-            from bora.application.phase_timing import format_duration_ms
+            from bora.application.attempt.phase_timing import format_duration_ms
 
             doc["duration"] = format_duration_ms(float(total_ms))
     write_l1_evidence(run_dir, doc, agent_meta, sealed_meta, database_root=db_root)

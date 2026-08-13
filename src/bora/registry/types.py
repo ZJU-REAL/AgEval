@@ -18,3 +18,21 @@ class ReleaseInfo:
     media_type: str
     org_id: str | None = None
     replaced: bool = False
+    package_kind: str = "database"
+    created_at: float = 0.0
+
+    @classmethod
+    def from_payload(cls, data: dict) -> ReleaseInfo:
+        return cls(
+            database_id=str(data["database_id"]),
+            version=str(data["version"]),
+            visibility=str(data["visibility"]),
+            package_digest=str(data["package_digest"]),
+            blob_digest=str(data["blob_digest"]),
+            size=int(data["size"]),
+            media_type=str(data["media_type"]),
+            org_id=str(data["org_id"]) if data.get("org_id") else None,
+            replaced=bool(data.get("replaced")),
+            package_kind=str(data.get("package_kind") or "database"),
+            created_at=float(data["created_at"]) if data.get("created_at") is not None else 0.0,
+        )

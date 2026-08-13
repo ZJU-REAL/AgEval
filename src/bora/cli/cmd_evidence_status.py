@@ -64,7 +64,9 @@ def register(app: typer.Typer) -> None:
         """Query durable Run/suite control record (+ suite progress when available)."""
         import json as _json
 
-        from bora.application.suite_run import is_suite_run_locator
+        from bora.application.composition import build_suite_runner
+
+        is_suite_run_locator = build_suite_runner().is_suite_run_locator
         from bora.control.store import ControlStore
 
         path = store or (Path.cwd() / ".bora" / "control.db")

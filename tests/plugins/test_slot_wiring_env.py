@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from bora.application import extension_hooks as hooks
+from bora.application.attempt import extension_hooks as hooks
 from bora.environment.manager import EnvironmentManager
 from bora.plugins.defaults import register_defaults
 from bora.plugins.protocol import BindingIntent

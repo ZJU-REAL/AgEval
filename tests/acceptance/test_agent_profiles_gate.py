@@ -5,13 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
+from bora.application.attempt.attempt_stages import AttemptStageContext, DockerL1Stages
+from bora.application.attempt.run_l1_phases import prepare_l1_session
+from bora.runtime.identity import IdentityFactory
 
-from bora.application.run_l1 import run_l1_attempt
 
-
-@pytest.mark.asyncio
-async def test_l1_empty_profiles_without_profiles_is_unsupported(tmp_path: Path) -> None:
+def test_l1_empty_profiles_without_profiles_is_unsupported(tmp_path: Path) -> None:
     lock = SimpleNamespace(
         task_id="no-agent",
         parameters={},
@@ -22,13 +21,22 @@ async def test_l1_empty_profiles_without_profiles_is_unsupported(tmp_path: Path)
         evaluation={},
         harness={"entrypoint": "harness:run"},
     )
-    code, doc, _ = await run_l1_attempt(
+    factory = IdentityFactory()
+    run = factory.new_run()
+    trial = factory.new_trial(run, "sha256:" + "d" * 64)
+    attempt = factory.new_attempt(trial)
+    ctx = AttemptStageContext(
         package_root=tmp_path,
         lock=lock,
         run_dir=tmp_path / "run",
-        agent_meta={},
-        allow_offline_agent=True,
+        attempt=attempt,
+        task_id="no-agent",
     )
-    assert code == 2
-    err = doc.get("error") or {}
-    assert err.get("kind") == "l1_dispatch_unsupported" or doc.get("status") == "ERROR"
+    ctx.run_dir.mkdir()
+    ok = prepare_l1_session(ctx)
+    assert ok is False
+    assert ctx.exit_code == 2
+    err = ctx.result_doc.get("error") or {}
+    assert err.get("kind") == "l1_dispatch_unsupported" or ctx.result_doc.get("status") == "ERROR"
+    stages = DockerL1Stages(ctx=ctx)
+    assert stages.ctx is ctx

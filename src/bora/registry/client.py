@@ -131,17 +131,7 @@ class RegistryClient:
         if status not in {200, 201}:
             raise RegistryError("publish_failed", f"unexpected status {status}", status=status)
         data = json.loads(raw.decode("utf-8"))
-        return ReleaseInfo(
-            database_id=str(data["database_id"]),
-            version=str(data["version"]),
-            visibility=str(data["visibility"]),
-            package_digest=str(data["package_digest"]),
-            blob_digest=str(data["blob_digest"]),
-            size=int(data["size"]),
-            media_type=str(data["media_type"]),
-            org_id=str(data["org_id"]) if data.get("org_id") else None,
-            replaced=bool(data.get("replaced")),
-        )
+        return ReleaseInfo.from_payload(data)
 
     def get_metadata(
         self,
@@ -162,16 +152,7 @@ class RegistryClient:
         if status != 200:
             raise RegistryError("not_found", f"release not found ({status})", status=status)
         data = json.loads(raw.decode("utf-8"))
-        return ReleaseInfo(
-            database_id=str(data["database_id"]),
-            version=str(data["version"]),
-            visibility=str(data["visibility"]),
-            package_digest=str(data["package_digest"]),
-            blob_digest=str(data["blob_digest"]),
-            size=int(data["size"]),
-            media_type=str(data["media_type"]),
-            org_id=str(data["org_id"]) if data.get("org_id") else None,
-        )
+        return ReleaseInfo.from_payload(data)
 
     def fetch_content(self, *, database_id: str, package_digest: str) -> bytes:
         path = (
@@ -495,16 +476,7 @@ class RegistryClient:
     def _release_from_dict(data: Any) -> ReleaseInfo:
         if not isinstance(data, dict):
             raise RegistryError("list_failed", "invalid release item")
-        return ReleaseInfo(
-            database_id=str(data["database_id"]),
-            version=str(data["version"]),
-            visibility=str(data["visibility"]),
-            package_digest=str(data["package_digest"]),
-            blob_digest=str(data["blob_digest"]),
-            size=int(data["size"]),
-            media_type=str(data["media_type"]),
-            org_id=str(data["org_id"]) if data.get("org_id") else None,
-        )
+        return ReleaseInfo.from_payload(data)
 
     # ---- orgs / shares ---------------------------------------------------
 

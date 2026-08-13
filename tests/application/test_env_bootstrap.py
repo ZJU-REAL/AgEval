@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from bora.application.env_bootstrap import apply_dotenv_file, load_host_env_files
+from bora.application.attempt.env_bootstrap import apply_dotenv_file, load_host_env_files
 
 
 def test_apply_dotenv_no_override(tmp_path: Path, monkeypatch: object) -> None:

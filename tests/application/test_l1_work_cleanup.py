@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.application.run_l1 import drop_l1_work
+from bora.application.attempt.run_l1 import drop_l1_work
 
 
 def _seed_l1_work(run_dir: Path) -> Path:

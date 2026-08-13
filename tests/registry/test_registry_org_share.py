@@ -12,10 +12,14 @@ import pytest
 from services.registry.app import build_default_state, make_handler
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.publish_command import publish_database
-from bora.application.results_command import list_attempt_results, upload_attempt_result
+from bora.application.composition import build_publish_command, build_results_commands
 from bora.registry.client import RegistryClient, RegistryError
 from bora.registry.credentials import write_credentials
+
+publish_database = build_publish_command().publish_database
+_results = build_results_commands()
+list_attempt_results = _results.list_attempt_results
+upload_attempt_result = _results.upload_attempt_result
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"

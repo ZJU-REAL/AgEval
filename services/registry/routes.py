@@ -10,13 +10,23 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
+
+RouteAccess = Literal[
+    "none",
+    "bearer",
+    "publish",
+    "results_upload",
+    "org_owner",
+    "result_manage",
+]
 
 
 @dataclass(frozen=True, slots=True)
 class Route:
     method: str
     name: str
+    access: RouteAccess
     exact: str | None = None
     pattern: str | None = None
     groups: tuple[str, ...] = ()
@@ -24,10 +34,18 @@ class Route:
     fixed: Mapping[str, Any] | None = None
     # Optional path filter after a regex match (package id vs versions subpaths).
     predicate: Callable[[str], bool] | None = None
-    # When True, skip bearer resolution (only /health today).
+    # When True, skip bearer resolution. Prefer ``access``; skip_auth is derived.
     skip_auth: bool = False
     # Pass query-string dict as ``qs=``.
     pass_qs: bool = False
+
+    def __post_init__(self) -> None:
+        allowed = {"none", "bearer", "publish", "results_upload", "org_owner", "result_manage"}
+        if self.access not in allowed:
+            raise ValueError(f"invalid route access: {self.access!r}")
+        if self.skip_auth and self.access != "none":
+            raise ValueError("skip_auth=True is only valid when access='none'")
+        object.__setattr__(self, "skip_auth", self.access == "none")
 
 
 def _package_id_list_ok(path: str) -> bool:
@@ -37,25 +55,28 @@ def _package_id_list_ok(path: str) -> bool:
 
 ROUTES: tuple[Route, ...] = (
     # GET
-    Route("GET", "health", exact="/health", skip_auth=True),
-    Route("GET", "list_orgs", exact="/v1/orgs"),
+    Route("GET", "health", access="none", exact="/health"),
+    Route("GET", "list_orgs", access="bearer", exact="/v1/orgs"),
     Route(
         "GET",
         "list_invite_keys",
+        access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/invite-keys",
         groups=("org_id",),
     ),
     Route(
         "GET",
         "list_org_members",
+        access="bearer",
         pattern=r"/v1/orgs/([^/]+)/members",
         groups=("org_id",),
     ),
-    Route("GET", "get_org", pattern=r"/v1/orgs/([^/]+)", groups=("org_id",)),
-    Route("GET", "list_packages", exact="/v1/packages", pass_qs=True),
+    Route("GET", "get_org", access="bearer", pattern=r"/v1/orgs/([^/]+)", groups=("org_id",)),
+    Route("GET", "list_packages", access="bearer", exact="/v1/packages", pass_qs=True),
     Route(
         "GET",
         "list_package_versions",
+        access="bearer",
         pattern=r"/v1/packages/([^/]+(?:/[^/]+)*)",
         groups=("database_id",),
         predicate=_package_id_list_ok,
@@ -63,6 +84,7 @@ ROUTES: tuple[Route, ...] = (
     Route(
         "GET",
         "serve_meta",
+        access="bearer",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)",
         groups=("database_id", "version"),
         fixed={"package_digest": None},
@@ -70,62 +92,72 @@ ROUTES: tuple[Route, ...] = (
     Route(
         "GET",
         "serve_content",
+        access="bearer",
         pattern=r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/content",
         groups=("database_id", "package_digest"),
     ),
     Route(
         "GET",
         "serve_package_files_list",
+        access="bearer",
         pattern=r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files",
         groups=("database_id", "package_digest"),
     ),
     Route(
         "GET",
         "serve_package_file",
+        access="bearer",
         pattern=r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})/files/(.+)",
         groups=("database_id", "package_digest", "file_path"),
     ),
     Route(
         "GET",
         "serve_package_files_list",
+        access="bearer",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)/files",
         groups=("database_id", "version"),
     ),
     Route(
         "GET",
         "serve_package_file",
+        access="bearer",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)/files/(.+)",
         groups=("database_id", "version", "file_path"),
     ),
     Route(
         "GET",
         "serve_meta",
+        access="bearer",
         pattern=r"/v1/packages/(.+)/by-digest/(sha256:[0-9a-f]{64})",
         groups=("database_id", "package_digest"),
         fixed={"version": None},
     ),
-    Route("GET", "list_attempts", exact="/v1/results/attempts", pass_qs=True),
+    Route("GET", "list_attempts", access="bearer", exact="/v1/results/attempts", pass_qs=True),
     Route(
         "GET",
         "serve_attempt_content",
+        access="bearer",
         pattern=r"/v1/results/attempts/([^/]+)/content",
         groups=("run_id",),
     ),
     Route(
         "GET",
         "serve_attempt_file",
+        access="bearer",
         pattern=r"/v1/results/attempts/([^/]+)/files/(.+)",
         groups=("run_id", "file_path"),
     ),
     Route(
         "GET",
         "serve_attempt_files_list",
+        access="bearer",
         pattern=r"/v1/results/attempts/([^/]+)/files",
         groups=("run_id",),
     ),
     Route(
         "GET",
         "list_result_shares",
+        access="result_manage",
         pattern=r"/v1/results/attempts/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "attempt"},
@@ -133,19 +165,22 @@ ROUTES: tuple[Route, ...] = (
     Route(
         "GET",
         "serve_attempt_meta",
+        access="bearer",
         pattern=r"/v1/results/attempts/([^/]+)",
         groups=("run_id",),
     ),
-    Route("GET", "list_suites", exact="/v1/results/suites", pass_qs=True),
+    Route("GET", "list_suites", access="bearer", exact="/v1/results/suites", pass_qs=True),
     Route(
         "GET",
         "serve_suite_content",
+        access="bearer",
         pattern=r"/v1/results/suites/([^/]+)/content",
         groups=("suite_run_id",),
     ),
     Route(
         "GET",
         "list_result_shares",
+        access="result_manage",
         pattern=r"/v1/results/suites/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "suite"},
@@ -153,144 +188,165 @@ ROUTES: tuple[Route, ...] = (
     Route(
         "GET",
         "serve_suite_meta",
+        access="bearer",
         pattern=r"/v1/results/suites/([^/]+)",
         groups=("suite_run_id",),
     ),
     # POST
-    Route("POST", "auth_device_code", exact="/v1/auth/github/device/code", skip_auth=True),
-    Route("POST", "auth_device_poll", exact="/v1/auth/github/device/poll", skip_auth=True),
-    Route("POST", "auth_web_start", exact="/v1/auth/github/web/start", skip_auth=True),
-    Route("POST", "auth_web_callback", exact="/v1/auth/github/web/callback", skip_auth=True),
-    Route("POST", "create_org", exact="/v1/orgs", skip_auth=True),
-    Route("POST", "join_org_with_invite", exact="/v1/orgs/join", skip_auth=True),
+    Route(
+        "POST",
+        "auth_device_code",
+        access="none",
+        exact="/v1/auth/github/device/code",
+    ),
+    Route(
+        "POST",
+        "auth_device_poll",
+        access="none",
+        exact="/v1/auth/github/device/poll",
+    ),
+    Route("POST", "auth_web_start", access="none", exact="/v1/auth/github/web/start"),
+    Route(
+        "POST",
+        "auth_web_callback",
+        access="none",
+        exact="/v1/auth/github/web/callback",
+    ),
+    Route("POST", "create_org", access="bearer", exact="/v1/orgs"),
+    Route("POST", "join_org_with_invite", access="bearer", exact="/v1/orgs/join"),
     Route(
         "POST",
         "claim_org",
+        access="bearer",
         pattern=r"/v1/orgs/([^/]+)/claim",
         groups=("org_id",),
-        skip_auth=True,
     ),
     Route(
         "POST",
         "leave_org",
+        access="bearer",
         pattern=r"/v1/orgs/([^/]+)/leave",
         groups=("org_id",),
-        skip_auth=True,
     ),
     Route(
         "POST",
         "create_invite_key",
+        access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/invite-keys",
         groups=("org_id",),
-        skip_auth=True,
     ),
     Route(
         "POST",
         "add_org_member",
+        access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/members",
         groups=("org_id",),
-        skip_auth=True,
     ),
-    Route("POST", "publish_package", exact="/v1/packages", skip_auth=True),
-    Route("POST", "upload_attempt", exact="/v1/results/attempts", skip_auth=True),
-    Route("POST", "upload_suite", exact="/v1/results/suites", skip_auth=True),
+    Route("POST", "publish_package", access="publish", exact="/v1/packages"),
+    Route(
+        "POST",
+        "upload_attempt",
+        access="results_upload",
+        exact="/v1/results/attempts",
+    ),
+    Route("POST", "upload_suite", access="results_upload", exact="/v1/results/suites"),
     Route(
         "POST",
         "add_result_share",
+        access="result_manage",
         pattern=r"/v1/results/attempts/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "attempt"},
-        skip_auth=True,
     ),
     Route(
         "POST",
         "add_result_share",
+        access="result_manage",
         pattern=r"/v1/results/suites/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "suite"},
-        skip_auth=True,
     ),
     # DELETE
     Route(
         "DELETE",
         "revoke_invite_key",
+        access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/invite-keys/([^/]+)",
         groups=("org_id", "key_id"),
-        skip_auth=True,
     ),
     Route(
         "DELETE",
         "remove_org_member",
+        access="org_owner",
         pattern=r"/v1/orgs/([^/]+)/members/([^/]+)",
         groups=("org_id", "user_id"),
-        skip_auth=True,
     ),
     Route(
         "DELETE",
         "delete_org",
+        access="org_owner",
         pattern=r"/v1/orgs/([^/]+)",
         groups=("org_id",),
-        skip_auth=True,
     ),
     Route(
         "DELETE",
         "remove_result_share",
+        access="result_manage",
         pattern=r"/v1/results/attempts/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "attempt"},
-        skip_auth=True,
     ),
     Route(
         "DELETE",
         "remove_result_share",
+        access="result_manage",
         pattern=r"/v1/results/suites/([^/]+)/shares",
         groups=("result_id",),
         fixed={"result_kind": "suite"},
-        skip_auth=True,
     ),
     Route(
         "DELETE",
         "delete_attempt",
+        access="result_manage",
         pattern=r"/v1/results/attempts/([^/]+)",
         groups=("run_id",),
-        skip_auth=True,
     ),
     Route(
         "DELETE",
         "delete_suite",
+        access="result_manage",
         pattern=r"/v1/results/suites/([^/]+)",
         groups=("suite_run_id",),
-        skip_auth=True,
         pass_qs=True,
     ),
     Route(
         "DELETE",
         "delete_package_release",
+        access="org_owner",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)",
         groups=("database_id", "version"),
-        skip_auth=True,
     ),
     # PATCH
     Route(
         "PATCH",
         "patch_attempt",
+        access="result_manage",
         pattern=r"/v1/results/attempts/([^/]+)",
         groups=("run_id",),
-        skip_auth=True,
     ),
     Route(
         "PATCH",
         "patch_suite",
+        access="result_manage",
         pattern=r"/v1/results/suites/([^/]+)",
         groups=("suite_run_id",),
-        skip_auth=True,
     ),
     Route(
         "PATCH",
         "patch_package_release",
+        access="org_owner",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)",
         groups=("database_id", "version"),
-        skip_auth=True,
     ),
 )
 

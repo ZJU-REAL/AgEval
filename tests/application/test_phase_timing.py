@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
-from bora.application.phase_timing import (
+from bora.application.attempt.phase_timing import (
     PhaseTimer,
     bucket_phase_timing,
     format_duration_ms,

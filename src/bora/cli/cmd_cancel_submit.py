@@ -44,7 +44,11 @@ def register(app: typer.Typer) -> None:
         import os
         import signal
 
-        from bora.application.suite_run import is_suite_run_locator, request_suite_cancel
+        from bora.application.composition import build_suite_runner
+
+        _suite = build_suite_runner()
+        is_suite_run_locator = _suite.is_suite_run_locator
+        request_suite_cancel = _suite.request_suite_cancel
         from bora.control.store import ControlStore
 
         path = store or (Path.cwd() / ".bora" / "control.db")

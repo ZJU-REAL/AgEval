@@ -133,12 +133,10 @@ class TargetLedger:
     topology: LogicalIsolationTopology
     targets: dict[str, ExecutionTarget] = field(default_factory=dict)
     actors: dict[str, ActorPhysicalBinding] = field(default_factory=dict)
-    host_fallback_count: int = 0
 
     def public_summary(self) -> dict[str, Any]:
         return {
             "topology": self.topology.public_summary(),
             "targets": [t.public_view() for t in self.targets.values()],
             "actors": [a.public_view() for a in self.actors.values()],
-            "host_fallback_count": self.host_fallback_count,
         }
