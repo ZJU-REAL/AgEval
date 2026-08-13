@@ -23,8 +23,8 @@
 - **把已有 harness 接到统一边界** — 保留你自己的 workflow，外层统一锁定配置、隔离（本机 / Docker）、可见性与独立打分，便于跨框架复现
 - **整份 Dataset 或参数矩阵批量跑** — 一次跑完套件内多个 task，或用 campaign 扫 seed / profile 等允许覆盖的参数
 - **Suite 聚合分与 job 结果归档** — suite 跑完写入观测用的 `pass_rate` / `mean_score`；需要共享时可以上传到 Registry
-- **本机浏览 suite 跑次** — `bora view` 打开 Jobs → Tasks → Attempt；可钻进 run 看 Trajectory、多角色 Time/Usage 与 provenance 外链
-- **用 Registry / Hub 共享包与结果** — 按组织发布 Dataset、邀请成员、分享私有结果；已上传的远程 Jobs 可在 Hub 里浏览
+- **本机浏览跑次** — `bora view` 打开 Jobs → Tasks → Attempt，覆盖 suite job 与单题 Attempt；可钻进 run 看 Trajectory、多角色 Time/Usage 与 provenance 外链
+- **用 Registry / Hub 共享包与结果** — 先上传 Dataset draft 再 `bora release`，或直接发 release；邀请成员、分享私有结果。公开 Leaderboard 只列完备且绑定 release 的 suite；缺题或 draft 绑定行只出现在 Jobs
 - **复盘与导出轨迹** — 每次 invoke 落盘证据；需要时 `bora evidence` 导出，供失败分析或训练管线
 
 ---
@@ -70,13 +70,19 @@ uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 
 # 本机结果台（SPA 先构建一次：cd apps/viewer && pnpm build）
 uv run bora view examples/core --no-browser
+# uv run bora view examples/core --dev --open /jobs/<id>
 
 # 查看本机支持的 executor / ACP entry
 uv run bora executors -v
 
 # 机制插件
 # uv run bora plugin install plugins/nooa
+# uv run bora plugin install plugins/dsh
 # uv run bora plugin list
+
+# Dataset draft → 不可变 release（需 Registry 登录 + --org）
+# uv run bora publish <dataset> --org <org> --draft
+# uv run bora release <org/dataset>
 ```
 
 ### 让 coding agent 帮你跑

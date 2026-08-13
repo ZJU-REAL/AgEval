@@ -61,8 +61,8 @@ Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**.
 
 | You want | Upload | How |
 | --- | --- | --- |
-| A **Leaderboard** row | A **suite** result | `bora run <database>` **without** `--task` → `bora results upload-suite --suite-run <id>` |
-| Task **Jobs** with openable Attempt / trajectory | Suite + **attempt** evidence | `upload-suite --with-attempts` |
+| A **Leaderboard** row | A **complete**, **release-bound** suite | `bora publish --draft` then `bora release` (or a direct `bora publish`) → `bora run <database>` **without** `--task` → `upload-suite --suite-run <id>` |
+| Task **Jobs** with openable Attempt / trajectory | Suite + **attempt** evidence | `upload-suite --with-attempts`; incomplete / draft-bound suites stay here |
 | Archive one Attempt only | `bora results upload --run <run_id>` | May exist in Registry, but **usually not** on Leaderboard |
 
 ```bash

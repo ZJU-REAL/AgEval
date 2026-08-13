@@ -236,6 +236,8 @@ uv run bora release my-org/dataset
 uv run bora publish path/to/db --org my-lab --public
 # Same database_id@version → 409 unless org owner passes --replace (rewrites blob/digests/visibility):
 # uv run bora publish path/to/db --org my-lab --replace
+# Public Leaderboard lists complete, release-bound suite uploads only.
+# Draft-bound / incomplete suites stay on Task Jobs.
 ```
 
 ### Lock / run by ref
@@ -301,6 +303,8 @@ After `bora run <database>` (full suite or Always-k), summary lives at
 `upload-suite` **recomputes** missing k maps locally from `attempts[]` or task
 `n`/`c` before POST. Registry stores the full `metrics` blob (no strip).
 pass@k is **not** a `config_fingerprint` / job-identity key.
+Public Leaderboard lists only **complete**, **release-bound** suites; incomplete
+or draft-bound rows stay on Task Jobs.
 
 ```bash
 uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \

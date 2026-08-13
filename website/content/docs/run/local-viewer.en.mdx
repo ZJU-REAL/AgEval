@@ -28,11 +28,11 @@ uv run bora view examples/core --open /jobs/<id>
 
 | Layer | Content |
 | --- | --- |
-| Jobs | Local suite runs **and** single-task Attempts (Kind: suite / single) |
-| Tasks | Per-task status / score |
+| Jobs | Local suite runs **and** single-task Attempts (Kind: suite / single). Kind / Source are filters; suite Source lists task ids only |
+| Tasks | Per-task status / score. A suite task with one Attempt opens that trial directly |
 | Attempt | Outcome, **Timing** (and **Tokens** when present), actors, evidence tabs |
 
 Timing comes from Attempt `phase_timing` (`prepare` / `run` / `evaluate` / `cleanup`); hover bar segments for durations.  
-Time / tokens are **hints**, not PASS. Trajectory is not scoring authority. Each **tool-call** row (and other long rows) can collapse, matching the Hub Attempt page.
+Time / tokens are **hints**, not PASS. Trajectory is not scoring authority. Each **tool-call** row (and other long rows) can collapse; the observational PASS note has expand-all / collapse-all, matching the Hub Attempt page.
 
 Viewer does **not** talk to Registry — see [Hub](/docs/share/hub). SPA details: `apps/viewer/README.md`.

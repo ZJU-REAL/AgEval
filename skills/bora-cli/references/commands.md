@@ -109,17 +109,39 @@ Stdout JSON (high level):
   with `--with-attempts`, linked attempts also replace.
 - Registry stores full `metrics` blob (no strip). pass@k is **not**
   `config_fingerprint` / job identity.
-- Hub Leaderboard: lists **suite** rows; optional n_attempts / pass@k / pass^k when present;
-  default sort remains pass_rate → mean_score.
+- Hub Leaderboard: lists **complete, release-bound suite** rows (`board=1`); optional
+  n_attempts / pass@k / pass^k when present; default sort remains pass_rate → mean_score.
+  Incomplete or draft-bound suites stay on Task Jobs.
 
 ### Hub path checklist
 
 ```text
+bora publish <db> --org <org> --draft
+bora release <org/dataset>            # or bora publish … without --draft
 bora run <db> [--profiles …]          # omit --task → suite
   → .bora/suite-runs/<8-hex>/summary.json
 bora results upload-suite <db> --suite-run <8-hex> --public [--with-attempts]
-  → Hub: Dataset → Leaderboard row; Task → Jobs → optional Attempt deep-link
+  → Hub: Dataset → Leaderboard row (complete + release-bound);
+    Task → Jobs → optional Attempt deep-link (all visible suites)
 ```
+
+## `bora publish` / `bora release`
+
+- `bora publish <db> --org <org> --draft` overwrites the one draft slot for that
+  `database_id`. Reserved version name `draft` is not a release.
+- `bora release <database_id>` (owner) promotes the current draft to an immutable
+  `database_id@version`. `--version` overrides the draft `bora.yaml` version.
+- Direct `bora publish` without `--draft` still creates a release.
+- Plugin packages do **not** use the draft slot.
+- Unauthorized readers get 404 on draft; they never see whether a draft exists.
+
+## `bora view`
+
+- Local read-only Database UI. No Registry.
+- `--dev`: API only; starts `apps/viewer` Vite when possible, else prints the
+  two-process fallback. Advertise `:5173` only after Vite is listening.
+- `--open /jobs/<id>` (or a task/run path) deep-links after a local run.
+- Jobs list includes suite runs **and** single-task Attempts in the opened Database.
 
 ## Registry owner ops
 

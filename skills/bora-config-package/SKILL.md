@@ -292,7 +292,7 @@ Upload (`bora results upload-suite`) **projects** these fields to the Registry; 
 
 | Goal | Correct path | Wrong expectation |
 | --- | --- | --- |
-| Dataset **Leaderboard** has a row | `bora run <db>` (**omit** `--task`) → `upload-suite --suite-run <id>` | Only `bora run --task` + `results upload` (attempt lands in DB; board often **missing**) |
+| Dataset **Leaderboard** has a row | Bind a **release** (`bora publish --draft` then `bora release`, or a direct `bora publish`) → `bora run <db>` (**omit** `--task`) → `upload-suite --suite-run <id>` of a **complete** suite | Only `bora run --task` + `results upload`; or a draft-bound / incomplete suite (attempt or Jobs may exist; **board** often missing) |
 | Task **Jobs** openable trajectory | `upload-suite --with-attempts` (or later upload the run_id attached under suite `task_refs`) | Attempt-only upload, no suite row |
 
 Fingerprint / binding display requires a **suite row already uploaded** (with `job_overlay` / `config_fingerprint`).

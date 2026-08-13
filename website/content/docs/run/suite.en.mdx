@@ -87,4 +87,6 @@ uv run bora results upload-suite examples/journeys \
 
 **Common mistake:** only `bora run … --task X` then `bora results upload --run …` — the attempt may exist in Registry, but **Leaderboard usually still has no row**. Leaderboard needs a suite job + `upload-suite`.
 
+The public board has two more gates: the suite must be **complete** (every task on the bound version has a result; FAIL / ERROR still count) and bound to a **release**. Incomplete or draft-bound rows stay on Task **Jobs**. Upload a working tree with `bora publish --draft`, then an owner runs `bora release` — or `bora publish` a release directly.
+
 See [Results and PASS](/docs/reference/results-and-pass) and [Hub](/docs/share/hub).

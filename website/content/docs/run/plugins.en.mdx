@@ -10,6 +10,7 @@ package harness business loop.
 
 ```bash
 uv run bora plugin install plugins/nooa
+# or: uv run bora plugin install plugins/dsh
 uv run bora plugin list
 ```
 
@@ -39,6 +40,9 @@ Use an alternate profiles file at run time without changing Database ACP default
 ```bash
 uv run bora run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.nooa.yaml
+# DeepSeek Harness (not ACP):
+# uv run bora run examples/journeys --task terminal-jsonl-agg \
+#   --profiles examples/journeys/profiles.dsh.yaml
 ```
 
 `bora lock` writes the resolved extension graph into `extension_bindings` in the lock summary.
@@ -52,7 +56,8 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 | **L1 Ready** | `image_contribute` bake during prepare; execute in-container |
 
 A successful install does **not** imply the L1 isolated path is ready. Docker L1 tasks
-need a successful bake before the container worker runs (for example nooa’s in-container path).
+need a successful bake before the container worker runs (for example nooa or dsh
+in-container).
 
 ## Relation to ACP
 

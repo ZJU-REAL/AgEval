@@ -9,6 +9,7 @@ description: 安装 bora.plugin/1、绑定 executor、Recognition 与 L1 Ready �
 
 ```bash
 uv run bora plugin install plugins/nooa
+# 或：uv run bora plugin install plugins/dsh
 uv run bora plugin list
 ```
 
@@ -38,6 +39,9 @@ bindings:
 ```bash
 uv run bora run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.nooa.yaml
+# DeepSeek Harness（非 ACP）：
+# uv run bora run examples/journeys --task terminal-jsonl-agg \
+#   --profiles examples/journeys/profiles.dsh.yaml
 ```
 
 `bora lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
@@ -51,7 +55,7 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 | **L1 Ready** | `image_contribute` 在 prepare 时 bake 进 Attempt 镜像；容器内执行 |
 
 有 install 成功 **不等于** L1 隔离路径已就绪。Docker L1 任务需 bake 成功后，才在
-容器内调用 worker（例如 nooa 的 in-container 路径）。
+容器内调用 worker（例如 nooa / dsh 的 in-container 路径）。
 
 ## 与 ACP 的关系
 

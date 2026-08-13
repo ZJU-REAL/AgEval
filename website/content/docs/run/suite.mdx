@@ -87,4 +87,6 @@ uv run bora results upload-suite examples/journeys \
 
 **常见误解：** 只跑 `bora run … --task X` 再 `bora results upload --run …`——attempt 可能已经进 Registry，但 **Leaderboard 通常仍没有一行**。要上榜必须先 suite 再 `upload-suite`。
 
+公开榜还有两道门：suite **完备**（绑定版本的每题都有一条 result；题上 FAIL / ERROR 也算），且绑定 **release**。缺题或绑定 draft 的行只出现在 Task **Jobs**。先 `bora publish --draft`、owner 再 `bora release`，或直接 `bora publish` 发 release。
+
 详情见 [结果与 PASS](/docs/reference/results-and-pass) 与 [Hub](/docs/share/hub)。
