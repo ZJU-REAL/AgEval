@@ -69,6 +69,45 @@ async def test_outside_workdir(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_spawn_via_venv_symlink_keeps_site_packages(tmp_path: Path) -> None:
+    """argv[0] must stay the venv python symlink so pyvenv.cfg applies.
+
+    Following the symlink to the shared CPython drops venv site-packages
+    (L0 evaluator then cannot import host deps such as tau2).
+    """
+    real = Path(sys.executable).resolve()
+    venv = tmp_path / "venv"
+    bindir = venv / "bin"
+    py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    site = venv / "lib" / py_ver / "site-packages"
+    bindir.mkdir(parents=True)
+    site.mkdir(parents=True)
+    (venv / "pyvenv.cfg").write_text(
+        f"home = {real.parent}\ninclude-system-site-packages = false\n",
+        encoding="utf-8",
+    )
+    (site / "bora_venv_probe.py").write_text("MARKER = 'venv-site'\n", encoding="utf-8")
+    link = bindir / "python3"
+    link.symlink_to(real)
+
+    attempt = _attempt()
+    code = "import bora_venv_probe, sys; print(bora_venv_probe.MARKER); print(sys.prefix)"
+    plan = ProcessLaunchPlan(
+        attempt=attempt,
+        workspace=WorkspacePlan(attempt=attempt, base_dir=tmp_path, relative_workdir="ws"),
+        executable=ExecutableGrant(path=link),
+        argv=(str(link), "-c", code),
+        env={"PATH": "/usr/bin:/bin"},
+        timeout_seconds=10.0,
+    )
+    outcome = await LocalProcessProvider().execute(plan)
+    assert outcome.terminal == ProcessTerminalKind.EXITED
+    assert outcome.exit_code == 0
+    assert "venv-site" in outcome.stdout_summary
+    assert str(venv) in outcome.stdout_summary
+
+
+@pytest.mark.asyncio
 async def test_undeclared_executable(tmp_path: Path) -> None:
     attempt = _attempt()
     plan = ProcessLaunchPlan(
