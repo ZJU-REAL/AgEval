@@ -21,4 +21,8 @@ provider:
 
 官方 Attempt 基座在**构建期**安装常见 engine + ACP 入口。题目镜像应基于基座，不要在 `bora run` 时临时 `npm i`。
 
+本地 Attempt 镜像按 Dockerfile、基座 digest 和 COPY 进去的文件寻址；只改 `parameters` / profiles 不会再打一个 tag。第二次相同输入会复用已有镜像。evidence 仍记录 `image_digest`。
+
+Attempt 结束（成功、失败或取消）后会拆掉该次创建的 `bora-home-*` volume 和 env 容器。`--keep-workspace` 只留 host 上的 `l1-work/`，不留 Docker volume。
+
 探针与示例：[`examples/l1`](https://github.com/ZJU-REAL/BORA/tree/main/examples/l1)。可见性目录见 [Docker 与可见性](/docs/author/docker-and-visibility)。

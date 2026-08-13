@@ -46,8 +46,9 @@ Stdout JSON (high level):
   metrics. Retrying an ERROR needs a **new** suite, not resume of that index.
 - **`--keep-workspace`** (L1 / `provider.kind: docker` only): retain host
   `.bora/runs/<run_id>/l1-work/` after cleanup for local debug. **Default off** —
-  Runtime deletes `l1-work` after container cleanup. Not required for Hub; upload
-  pack excludes `l1-work/**` even if residual remains.
+  Runtime deletes `l1-work` after container cleanup. Docker volumes and env
+  containers are still removed. Not required for Hub; upload pack excludes
+  `l1-work/**` even if residual remains.
 - Suite artifacts: `.bora/suite-runs/<id>/summary.json`, `progress.json`.
 - Per invocation (any executor): Core writes `agent/invocations/<nnnn>-*/trajectory.jsonl`
   from `bora.trajectory.event/1` (user + merged assistant/thought + tool/observation +
