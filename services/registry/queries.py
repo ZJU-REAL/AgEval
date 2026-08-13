@@ -207,7 +207,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         token_hash TEXT PRIMARY KEY,
         scopes TEXT NOT NULL,
         github_user TEXT,
-        created_at REAL NOT NULL,
+        created_at REAL NOT NULL DEFAULT 0,
         revoked_at REAL
     )
     """,
@@ -222,9 +222,12 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("suite_results", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
 )
 
+# Do not bind created_at. Pre-unification Postgres token tables are
+# TIMESTAMPTZ DEFAULT now(); an epoch float fails to insert. New tables
+# use REAL DEFAULT 0. Token created_at is never read.
 UPSERT_TOKEN = """
-INSERT INTO api_tokens(token_hash, scopes, github_user, created_at, revoked_at)
-VALUES (?, ?, ?, ?, NULL)
+INSERT INTO api_tokens(token_hash, scopes, github_user)
+VALUES (?, ?, ?)
 ON CONFLICT(token_hash) DO UPDATE SET
     scopes=excluded.scopes,
     github_user=excluded.github_user,

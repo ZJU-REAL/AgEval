@@ -393,7 +393,7 @@ class PersistentTokenStore(TokenStoreProtocol):
             self._exec(
                 conn,
                 Q.UPSERT_TOKEN,
-                (self.hash_token(raw_token), scopes_json, github_user, time.time()),
+                (self.hash_token(raw_token), scopes_json, github_user),
             )
             conn.commit()
 

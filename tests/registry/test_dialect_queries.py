@@ -35,6 +35,11 @@ def test_match_route_package_version_meta() -> None:
     assert kwargs["package_digest"] is None
 
 
+def test_upsert_token_does_not_bind_created_at() -> None:
+    # Live Postgres api_tokens.created_at is timestamptz; epoch floats fail.
+    assert "created_at" not in Q.UPSERT_TOKEN
+
+
 def test_store_has_no_sql_literals() -> None:
     from pathlib import Path
 

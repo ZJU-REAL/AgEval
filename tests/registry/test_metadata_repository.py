@@ -9,6 +9,7 @@ import pytest
 from services.registry.store import (
     MetadataStore,
     PostgresMetadataStore,
+    PostgresTokenStore,
     ReleaseRow,
     SqliteTokenStore,
     now,
@@ -90,3 +91,31 @@ def test_sqlite_token_roundtrip(tmp_path: Path) -> None:
     assert info.user_id == "alice"
     assert "read" in info.scopes
     assert tokens.auth_for("nope").scopes == frozenset()
+
+
+def test_postgres_token_roundtrip_against_live_types() -> None:
+    """Must insert into existing TIMESTAMPTZ api_tokens, not only fresh REAL tables."""
+    from services.registry.envload import load_env_file
+
+    load_env_file()
+    url = os.environ.get("BORA_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    if not url:
+        pytest.skip("postgres daemon absent")
+    try:
+        import psycopg
+
+        psycopg.connect(url).close()
+    except Exception:
+        pytest.skip("postgres daemon absent")
+    tokens = PostgresTokenStore(url)
+    raw = "bora-registry-token-type-probe"
+    digest = tokens.hash_token(raw)
+    try:
+        tokens.add(raw, {"results:read"}, github_user="probe")
+        info = tokens.auth_for(raw)
+        assert info.user_id == "probe"
+        assert "results:read" in info.scopes
+    finally:
+        with tokens._connect() as conn:
+            tokens._exec(conn, "DELETE FROM api_tokens WHERE token_hash=?", (digest,))
+            conn.commit()
