@@ -106,11 +106,41 @@ ACP / nooa / …
 | `kind` | 字段 | 是否折进层 C |
 | --- | --- | --- |
 | `text` | `channel: thought\|assistant`，`text` | 是 |
-| `tool` | `phase: start\|update`，`tool_call_id`，可选 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output` | 是（Core 按 `tool_call_id` 合并） |
+| `tool` | `phase: start\|update`，`tool_call_id`，可选 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output`，以及下文逐步耗时 | 是（Core 按 `tool_call_id` 合并） |
 | `permission` | `outcome` / `option_id` / `policy` | 是 |
 | `opaque` | 任意 `payload` | **否**（只留 `events.jsonl`） |
 
 无 `schema: bora.trajectory.event/1` 的行不参与层 C 折叠。
+
+### 逐步耗时（观测；可选；fail-open）
+
+目的：Hub / Viewer 在 **单步**（尤其 `tool_call` / shell execute）上显示耗时，而不是只靠 Attempt 级 `phase_timing`。  
+**观测字段，不是 PASS。** 缺字段必须省略，禁止 Viewer / Hub 用文件 mtime 或页面时钟补造。
+
+| 字段 | 位置 | 含义 |
+| --- | --- | --- |
+| `at` | 信封（任意 `kind`，可选） | 生产者观测到本事件的时间（ISO-8601 UTC） |
+| `elapsed_ms` | `kind: tool`（start 或 update，可选） | 该 `tool_call_id` 截至本事件的墙钟毫秒（≥ 0） |
+| `started_at` | `kind: tool`（可选） | 该 call 首次观测到的开始时间（ISO-8601 UTC） |
+| `ended_at` | `kind: tool`（可选） | 该 call 完成 / 末次 update 的时间（ISO-8601 UTC） |
+
+**谁写：**
+
+| 角色 | 写什么 |
+| --- | --- |
+| Executor Adapter / 插件 | vendor 流里已有 duration / timestamp 则映射；可把 **接收时刻** 写成 `at`（adapter 时钟）。vendor 没有则整组省略 |
+| Core evidence writer | 按 `tool_call_id` 合并后抄到层 C；**不**从 filesystem mtime 推断 |
+| Hub / Viewer | 层 C 有 `elapsed_ms` 才在步骤头显示；没有则不画标签 |
+
+**合并（Core，同一 `tool_call_id`）：**
+
+- `started_at` = 第一条非空 `started_at`，否则第一条信封 `at`
+- `ended_at` = 最后一条非空 `ended_at`，否则最后一条信封 `at`
+- `elapsed_ms` = 最后一条非空 `elapsed_ms`；若仍缺且 `started_at` + `ended_at` 都能解析，则用二者之差（毫秒，≥ 0）
+- 非法值（负数、非数字、无法解析的时间）丢弃，不当错误
+
+**层 C：** 合并结果写在对应 `type=tool_call` 行；若发出 `observation`，可抄同一组耗时。缺省字段省略。  
+**禁止**用逐步耗时改 score / PASS / evaluator 输入。
 
 ## `trajectory.jsonl`（turn 级，训练默认）
 
@@ -158,6 +188,8 @@ ACP / nooa / …
 | `kind` | tool kind（`read` / `edit` / `execute` / …） |
 | `status` | 合并后的终态（`pending` / `in_progress` / `completed` / `failed`） |
 | `args` | 调用参数（若有；须 redact） |
+| `elapsed_ms` | 该 call 墙钟毫秒（有则写；缺省省略） |
+| `started_at` / `ended_at` | 该 call 起止（有则写；ISO-8601 UTC） |
 | `turn_index` / `session_id` / `source` | 与 turn 行一致；`source` = 生产者 |
 
 **`observation` 推荐字段：**
@@ -168,9 +200,10 @@ ACP / nooa / …
 | `status` | 该 call 终态 |
 | `content` | 可读摘要 |
 | `raw_output` | 结构化回传（若有；须 redact） |
+| `elapsed_ms` / `started_at` / `ended_at` | 与对应 `tool_call` 同一组（有则抄；缺省省略） |
 | `turn_index` / `session_id` / `source` | 同上 |
 
-**合并规则：** 同一 `tool_call_id` 累积 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output`；seal 发一条 `tool_call` + 可选 `observation`。  
+**合并规则：** 同一 `tool_call_id` 累积 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output` 以及逐步耗时（见上节）；seal 发一条 `tool_call` + 可选 `observation`。  
 **有 call 无 result：** 仍写 `tool_call`；observation 仅在存在 content / raw_output / 终态 completed|failed 时写出。  
 **禁止**只落盘 call 而系统性丢弃已有 result。
 
@@ -182,7 +215,7 @@ ACP / nooa / …
 
 **多轮会话：** `turn_index` 为 Attempt 内 invoke 序号（1-based）；跨 turn 的 ACP `session_id` 可相同。合并训练样本时以 **invocation / turn_index** 为边界，不要把整个 `session_id` 当成单 turn。
 
-**非目标：** 用 `trajectory.jsonl` 替代 evaluator；要求 harness 自己写训练文件；把 ACP skills 目录类 `AvailableCommandsUpdate` 灌进训练轨迹（应过滤）。训练导出流水线细节可链 Issues（如导出工具演进），不在 design 写进度。
+**非目标：** 用 `trajectory.jsonl` 替代 evaluator；要求 harness 自己写训练文件；把 ACP skills 目录类 `AvailableCommandsUpdate` 灌进训练轨迹（应过滤）；用文件 mtime 或 Viewer 时钟补造逐步耗时；要求每个 executor 都发出耗时（可选、fail-open）。训练导出流水线细节可链 Issues（如导出工具演进），不在 design 写进度。
 
 ## 所有权与非目标
 
