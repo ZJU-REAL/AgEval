@@ -89,7 +89,8 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora evidence` | Export sealed trajectory copy (does not change score) |
 | `bora submit` / `status` / `cancel` | Durable Run / suite job control (suite id + optional `--database`) |
 | `bora login` | GitHub **Device Flow** → write credentials (Hub uses browser OAuth instead) |
-| `bora publish` | Publish a Database package (**requires `--org`**); optional `--replace` |
+| `bora publish` | Publish a Database package (**requires `--org`**); `--draft` overwrites the draft slot; optional `--replace` |
+| `bora release` | Owner: promote the current dataset draft to an immutable version |
 | `bora registry list\|show` | Browse remote packages |
 | `bora registry delete\|set-visibility` | Owner ops on `database_id@version` (org owner; delete needs `--yes`) |
 | `bora registry org-create\|org-list` | Create / list organizations (packages belong to orgs) |
@@ -99,7 +100,7 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora results export-profiles` | Export suite `job_overlay` → re-runnable `profiles.yaml` (#59) |
 | `bora results share\|unshare` | Share / revoke private result access (owner only) |
 | `bora results delete\|set-visibility` | Delete or flip visibility (`--kind attempt\|suite`; delete needs `--yes`) |
-| `bora view` | Local read-only Database Web UI (no Registry) |
+| `bora view` | Local read-only Database Web UI (no Registry). `--dev` = API only + Vite; `--open` deep-links a job/task/run |
 
 Discover flags with `uv run bora <cmd> -h`.
 
@@ -113,6 +114,7 @@ uv run bora tasks examples/core
 # Local Web UI: Jobs → Tasks → Trial (suite-runs under .bora/; no Registry)
 uv run bora view examples/core
 # uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
+# uv run bora view examples/core --dev --open /jobs/<id>
 
 uv run bora lock examples/core --task config-minimal
 
@@ -229,6 +231,8 @@ uv run bora registry org-list
 
 # Default visibility private; explicit public. --org is required.
 uv run bora publish tests/fixtures/databases/publish-min --org my-lab
+uv run bora publish path/to/db --org my-lab --draft
+uv run bora release my-org/dataset
 uv run bora publish path/to/db --org my-lab --public
 # Same database_id@version → 409 unless org owner passes --replace (rewrites blob/digests/visibility):
 # uv run bora publish path/to/db --org my-lab --replace
