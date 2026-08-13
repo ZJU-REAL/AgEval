@@ -70,48 +70,49 @@ def build_suite_runner() -> Any:
 
 def build_results_commands() -> Any:
     """Attempt and suite result upload / get / list / share / delete."""
-    from bora.application.registry_ops import results_command
+    from bora.application.registry_ops.results_command import ResultsCommands
 
-    return results_command
+    return ResultsCommands(client_factory=build_registry_client)
 
 
 def build_registry_list_commands() -> Any:
     """Package list/show/delete/visibility and local cache helpers."""
-    from bora.application.registry_ops import registry_list_command
+    from bora.application.registry_ops.registry_list_command import RegistryListCommands
 
-    return registry_list_command
+    return RegistryListCommands(client_factory=build_registry_client)
 
 
 def build_registry_org_commands() -> Any:
     """Org create / list."""
-    from bora.application.registry_ops import registry_org_command
+    from bora.application.registry_ops.registry_org_command import RegistryOrgCommands
 
-    return registry_org_command
+    return RegistryOrgCommands(client_factory=build_registry_client)
 
 
 def build_publish_command() -> Any:
-    from bora.application.registry_ops import publish_command
+    from bora.application.registry_ops.publish_command import PublishCommand
 
-    return publish_command
+    return PublishCommand(client_factory=build_registry_client)
 
 
 def build_login_command() -> Any:
-    from bora.application.registry_ops import login_command
+    from bora.application.registry_ops.login_command import LoginCommand
 
-    return login_command
+    return LoginCommand(client_factory=build_registry_client)
 
 
 def build_plugin_commands() -> Any:
-    from bora.application.plugin_ops import plugin_install_remote, plugin_publish
+    from bora.application.plugin_ops.plugin_install_remote import PluginInstallCommand
+    from bora.application.plugin_ops.plugin_publish import PluginPublishCommand
 
+    install = PluginInstallCommand(client_factory=build_registry_client)
+    publish = PluginPublishCommand(client_factory=build_registry_client)
     return type(
         "PluginCommands",
         (),
         {
-            "install_plugin_from_registry": staticmethod(
-                plugin_install_remote.install_plugin_from_registry
-            ),
-            "publish_plugin": staticmethod(plugin_publish.publish_plugin),
+            "install_plugin_from_registry": install.install_plugin_from_registry,
+            "publish_plugin": publish.publish_plugin,
         },
     )()
 
@@ -119,6 +120,7 @@ def build_plugin_commands() -> Any:
 def build_registry_client(
     *,
     registry_url: str | None = None,
+    token: str | None = None,
     require_token: bool = True,
     accept_results_url: bool = False,
 ) -> Any:
@@ -126,6 +128,7 @@ def build_registry_client(
 
     return _build(
         registry_url=registry_url,
+        token=token,
         require_token=require_token,
         accept_results_url=accept_results_url,
     )

@@ -9,13 +9,14 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 
-from bora.application.composition import build_lock_command
-from bora.application.registry_ops.publish_command import publish_database
+from bora.application.composition import build_lock_command, build_publish_command
 from bora.config.errors import ConfigError
 from bora.registry.cache import PackageCache
 from bora.registry.client import RegistryClient
 from bora.registry.credentials import write_credentials
 from bora.registry.digest import compute_package_digest
+
+publish_database = build_publish_command().publish_database
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"

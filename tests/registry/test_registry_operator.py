@@ -14,22 +14,26 @@ from services.registry.app import build_default_state, make_handler
 from services.registry.oauth_github import DeviceCodeResponse, GitHubIdentity
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.registry_ops.publish_command import publish_database
-from bora.application.registry_ops.registry_list_command import (
-    cache_list,
-    list_packages,
-    show_package,
-)
-from bora.application.registry_ops.results_command import (
-    get_attempt_result,
-    get_suite_result,
-    list_attempt_results,
-    list_suite_results,
-    upload_attempt_result,
-    upload_suite_result,
+from bora.application.composition import (
+    build_publish_command,
+    build_registry_list_commands,
+    build_results_commands,
 )
 from bora.registry.client import RegistryClient
 from bora.registry.credentials import write_credentials
+
+publish_database = build_publish_command().publish_database
+_list = build_registry_list_commands()
+cache_list = _list.cache_list
+list_packages = _list.list_packages
+show_package = _list.show_package
+_results = build_results_commands()
+get_attempt_result = _results.get_attempt_result
+get_suite_result = _results.get_suite_result
+list_attempt_results = _results.list_attempt_results
+list_suite_results = _results.list_suite_results
+upload_attempt_result = _results.upload_attempt_result
+upload_suite_result = _results.upload_suite_result
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
@@ -347,7 +351,7 @@ def test_suite_results_upload_get_list_roundtrip(
     _ensure_org()
     import shutil
 
-    from bora.application.registry_ops.results_command import export_suite_profiles
+    export_suite_profiles = _results.export_suite_profiles
 
     db = tmp_path / "db-suite"
     shutil.copytree(FIXTURE, db)

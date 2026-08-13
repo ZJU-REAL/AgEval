@@ -12,6 +12,7 @@ from bora.registry.credentials import load_credentials
 def build_registry_client(
     *,
     registry_url: str | None = None,
+    token: str | None = None,
     require_token: bool = True,
     accept_results_url: bool = False,
 ) -> RegistryClient:
@@ -28,11 +29,13 @@ def build_registry_client(
             "registry URL required (BORA_REGISTRY_URL / BORA_RESULTS_URL or credentials)",
             location="registry",
         )
-    token = creds.token or os.environ.get("BORA_REGISTRY_TOKEN")
-    if require_token and not token:
+    resolved = (
+        token if token is not None else (creds.token or os.environ.get("BORA_REGISTRY_TOKEN"))
+    )
+    if require_token and not resolved:
         raise ConfigError(
             "unauthorized",
             "registry token required (bora login, credentials file, or BORA_REGISTRY_TOKEN)",
             location="registry",
         )
-    return RegistryClient(url, token=token)
+    return RegistryClient(url, token=resolved)

@@ -12,22 +12,26 @@ import pytest
 from services.registry.app import build_default_state, make_handler
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.registry_ops.publish_command import publish_database
-from bora.application.registry_ops.registry_list_command import (
-    delete_package_release,
-    set_package_visibility,
-)
-from bora.application.registry_ops.results_command import (
-    delete_result,
-    set_result_visibility,
-    share_result,
-    unshare_result,
-    upload_attempt_result,
-    upload_suite_result,
+from bora.application.composition import (
+    build_publish_command,
+    build_registry_list_commands,
+    build_results_commands,
 )
 from bora.config.errors import ConfigError
 from bora.registry.client import RegistryClient, RegistryError
 from bora.registry.credentials import write_credentials
+
+publish_database = build_publish_command().publish_database
+_list = build_registry_list_commands()
+delete_package_release = _list.delete_package_release
+set_package_visibility = _list.set_package_visibility
+_results = build_results_commands()
+delete_result = _results.delete_result
+set_result_visibility = _results.set_result_visibility
+share_result = _results.share_result
+unshare_result = _results.unshare_result
+upload_attempt_result = _results.upload_attempt_result
+upload_suite_result = _results.upload_suite_result
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"

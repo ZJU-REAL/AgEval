@@ -21,8 +21,10 @@ from services.registry.package_files import (
     read_member,
 )
 
-from bora.application.registry_ops.publish_command import publish_database
+from bora.application.composition import build_publish_command
 from bora.registry.client import RegistryClient, RegistryError
+
+publish_database = build_publish_command().publish_database
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
