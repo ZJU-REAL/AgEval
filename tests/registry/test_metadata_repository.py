@@ -25,12 +25,8 @@ def _postgres() -> MetadataStore | None:
     if not url:
         return None
     try:
-        import psycopg
-    except ImportError:
-        return None
-    try:
-        conn = psycopg.connect(url)
-        conn.close()
+        psycopg = __import__("psycopg")
+        psycopg.connect(url).close()
     except Exception:
         return None
     return PostgresMetadataStore(url)
@@ -102,9 +98,7 @@ def test_postgres_token_roundtrip_against_live_types() -> None:
     if not url:
         pytest.skip("postgres daemon absent")
     try:
-        import psycopg
-
-        psycopg.connect(url).close()
+        __import__("psycopg").connect(url).close()
     except Exception:
         pytest.skip("postgres daemon absent")
     tokens = PostgresTokenStore(url)

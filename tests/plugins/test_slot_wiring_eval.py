@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
-from bora.application import extension_hooks as hooks
+from bora.application.attempt import extension_hooks as hooks
 from bora.plugins.defaults import register_defaults
 from bora.plugins.lock_bind import extension_graph_to_lock
 from bora.plugins.protocol import BindingIntent

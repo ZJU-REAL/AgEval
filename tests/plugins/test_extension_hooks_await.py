@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from bora.application import extension_hooks as hooks
+from bora.application.attempt import extension_hooks as hooks
 from bora.plugins.protocol import BindingIntent, ExtensionGraph
 
 

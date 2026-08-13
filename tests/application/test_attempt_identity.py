@@ -90,8 +90,8 @@ def test_prepare_l1_runtime_uses_passed_attempt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import bora.application.attempt.extension_hooks as hooks
-    import bora.application.plugin_ops.image_contribute_bake as bake
     import bora.application.attempt.run_l1_prepare as prep
+    import bora.application.plugin_ops.image_contribute_bake as bake
 
     attempt = _attempt()
     image = DockerImageLock(
