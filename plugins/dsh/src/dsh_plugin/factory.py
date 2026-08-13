@@ -24,6 +24,9 @@ from dsh_plugin.trajectory import extract_usage, to_bora_trajectory_events
 DEFAULT_MODEL = "deepseek-v4-flash"
 DEFAULT_PROVIDER = "deepseek-official"
 DEFAULT_COMPOSITION = "slim"
+SANDBOXED_COMPOSITION = "sandboxed"
+PERMISSION_ENV = "DSH_PERMISSION_MODE"
+PERMISSION_MODES = frozenset({"read-only", "workspace-write", "danger-full-access"})
 _CREDENTIAL_ENV_NAMES = ("DEEPSEEK_API_KEY", "deepseek_api_key")
 _BASE_URL_ENV_FALLBACKS = ("DEEPSEEK_BASE_URL", "deepseek_base_url")
 _OK_REASONS = frozenset({"completed", "max-tokens"})
@@ -45,13 +48,18 @@ def _plugin_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def resolve_composition_path(name: str | None) -> Path:
+def _composition_slug(name: str | None) -> str:
     slug = (name or DEFAULT_COMPOSITION).strip() or DEFAULT_COMPOSITION
     if "/" in slug or "\\" in slug or slug.startswith("."):
         raise ExtensionMaterializeError(
             f"dsh_composition_invalid:{slug}",
             kind="extension_materialize_failed",
         )
+    return slug
+
+
+def resolve_composition_path(name: str | None) -> Path:
+    slug = _composition_slug(name)
     path = _plugin_root() / "compositions" / f"{slug}.cordis.yml"
     if not path.is_file():
         raise ExtensionMaterializeError(
@@ -59,6 +67,43 @@ def resolve_composition_path(name: str | None) -> Path:
             kind="extension_materialize_failed",
         )
     return path
+
+
+def container_cordis_path(name: str | None) -> str:
+    return f"/opt/dsh/compositions/{_composition_slug(name)}.cordis.yml"
+
+
+def resolve_permission(raw: Any) -> str | None:
+    """Validate ``options.permission``. Omit / blank → None (keep slim)."""
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise ExtensionMaterializeError(
+            f"dsh_permission_invalid:{raw!r}",
+            kind="extension_materialize_failed",
+        )
+    value = raw.strip()
+    if not value:
+        return None
+    if value not in PERMISSION_MODES:
+        raise ExtensionMaterializeError(
+            f"dsh_permission_invalid:{value}",
+            kind="extension_materialize_failed",
+        )
+    return value
+
+
+def resolve_effective_composition(*, composition: str | None, permission: str | None) -> str:
+    explicit = (composition or "").strip()
+    if permission and (not explicit or explicit == DEFAULT_COMPOSITION):
+        return SANDBOXED_COMPOSITION
+    return explicit or DEFAULT_COMPOSITION
+
+
+def permission_child_env(permission: str | None) -> dict[str, str]:
+    if not permission:
+        return {}
+    return {PERMISSION_ENV: permission}
 
 
 def resolve_api_key_value(locator: str | None) -> str | None:
@@ -139,8 +184,10 @@ class DshExecutorSPI:
         self.profile_id = profile_id
         self.model = (model or "").strip() or DEFAULT_MODEL
         self.provider = str(opts.get("provider") or DEFAULT_PROVIDER).strip() or DEFAULT_PROVIDER
-        self.composition = str(opts.get("composition") or DEFAULT_COMPOSITION).strip() or (
-            DEFAULT_COMPOSITION
+        self.permission = resolve_permission(opts.get("permission"))
+        self.composition = resolve_effective_composition(
+            composition=str(opts.get("composition") or "").strip() or None,
+            permission=self.permission,
         )
         self.base_url = base_url
         self.api_key_env = api_key
@@ -170,6 +217,7 @@ class DshExecutorSPI:
             model=self.model,
             provider=self.provider,
             composition=self.composition,
+            permission=self.permission,
             base_url=self.base_url if isinstance(self.base_url, str) else None,
             api_key_env=self.api_key_env if isinstance(self.api_key_env, str) else None,
             session_id=self._session_id,
@@ -275,6 +323,7 @@ class DshExecutorSPI:
                 "finish_reason": reason,
                 "session_root": result.session_root or self._session_root,
                 "composition": self.composition,
+                "permission": self.permission,
                 "execution_location": "host",
             },
         )
@@ -317,6 +366,7 @@ class DshExecutorSPI:
             env["DEEPSEEK_API_KEY"] = key
         if base:
             env["DEEPSEEK_BASE_URL"] = base
+        env.update(permission_child_env(self.permission))
         self._harness = DeepSeekHarness(
             provider=self.provider,
             model=self.model,

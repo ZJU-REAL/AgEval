@@ -14,6 +14,9 @@ DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL arrive via projected env)::
       "session_id": "bora-solver-…"
     }
 
+``DSH_PERMISSION_MODE`` (when set) is forwarded into the child runtime so
+``sandboxed.cordis.yml`` can resolve ``sandbox-policy.mode``.
+
 Writes one AgentResult-shaped JSON object to stdout.
 """
 
@@ -153,6 +156,15 @@ def main() -> int:
         )
 
     traj = _load_trajectory()
+    raw_perm = req.get("permission")
+    permission = (
+        os.environ.get("DSH_PERMISSION_MODE")
+        or (str(raw_perm).strip() if isinstance(raw_perm, str) else "")
+    )
+    child_env: dict[str, str] = {}
+    if permission:
+        child_env["DSH_PERMISSION_MODE"] = permission
+        os.environ["DSH_PERMISSION_MODE"] = permission
     try:
         with DeepSeekHarness(
             provider=provider,
@@ -160,7 +172,7 @@ def main() -> int:
             cwd=workdir,
             session_root=session_root,
             cordis=cordis,
-            env={},
+            env=child_env,
         ) as harness:
             session = harness.start_session(session_id_s)
             result = session.run(prompt)
@@ -189,6 +201,10 @@ def main() -> int:
                     "session_id": result.session_id,
                     "finish_reason": reason,
                     "session_root": result.session_root or session_root,
+                    "composition": str(
+                        req.get("composition") or Path(cordis).name.removesuffix(".cordis.yml")
+                    ),
+                    "permission": permission or None,
                 },
             },
             code=0 if ok else 1,
