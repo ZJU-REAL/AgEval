@@ -13,12 +13,13 @@
 
 Agent benchmarks usually score the model and leave the **harness**—orchestration, isolation, visibility, and evaluation boundaries—to each vendor’s private stack. Swap the coding agent, isolation mode, or upstream framework, and scores stop lining up; reproduction and trajectories fragment the same way.
 
-**BORA** is that outer runtime: lock task config, run a bounded Attempt, control what the agent can see, and let an independent evaluator own the score. Coding agents go through **ACP**, so popular ACP-capable harnesses plug in for evaluation without a new scraper in Core.
+**BORA** is that outer runtime: lock task config, run a bounded Attempt, control what the agent can see, and let an independent evaluator own the score. Coding agents go through **ACP**; other execution mechanisms install as `bora.plugin/1` packages and bind from job profiles—no per-vendor scraper in Core.
 
 ### What you can do with it
 
 - **Automate evaluation with agent + skill** — after clone, load the repo skills so a coding agent can pick examples, run `bora run`, and read results and trajectories for you
-- **Compose Harness × Agent × Model freely** — keep one task harness and switch Codex / Claude / Pi / OpenCode (and models) via ACP for near-cartesian comparison—no per-vendor stdout scraper
+- **Compose Harness × Agent × Model freely** — keep one task harness and switch Codex / Claude / Pi / OpenCode (and models) via ACP, or bind an installed mechanism plugin such as nooa, for near-cartesian comparison—no per-vendor stdout scraper
+- **Install a mechanism plugin** — `bora plugin install` caches a plugin locally; bind it from `profiles.yaml`
 - **Drop an existing harness into a shared boundary** — keep your workflow; the outer layer unifies config lock, isolation (host / Docker), visibility, and independent scoring for cross-framework reproduction
 - **Batch a full Dataset or a parameter matrix** — run every task in a suite, or campaign over allowlisted overrides such as seed / profile
 - **Aggregate suite scores and archive job results** — suite runs write observational `pass_rate` / `mean_score`; push them to the Registry when you need a shared results store
@@ -72,6 +73,10 @@ uv run bora view examples/core --no-browser
 
 # List executor kinds / ACP entries ready on this host
 uv run bora executors -v
+
+# Mechanism plugins
+# uv run bora plugin install plugins/nooa
+# uv run bora plugin list
 ```
 
 ### Let a coding agent drive it
@@ -82,6 +87,7 @@ Skills under [`skills/`](skills/) are discoverable via [`.agents/skills`](.agent
 | ---------------------------------------------------- | --------------------------------- |
 | [`bora-platform`](skills/bora-platform/)             | Product map and red lines         |
 | [`bora-cli`](skills/bora-cli/)                       | CLI and result interpretation     |
+| [`bora-plugin`](skills/bora-plugin/)                 | Author `bora.plugin/1` packages   |
 | [`bora-config-package`](skills/bora-config-package/) | Authoring Dataset / task config   |
 | [`bora-sdk-harness`](skills/bora-sdk-harness/)       | Writing harnesses with `bora_sdk` |
 

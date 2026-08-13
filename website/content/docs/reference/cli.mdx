@@ -17,6 +17,9 @@ uv run bora campaign <dataset> --task <id> ...
 uv run bora status <suite_run_id> --database <dataset>
 uv run bora cancel <suite_run_id> --database <dataset>
 uv run bora executors -v
+uv run bora plugin install <path|ref>
+uv run bora plugin list
+uv run bora plugin uninstall <plugin_id>
 uv run bora evidence --help
 uv run bora view <dataset>
 # Registry / 结果（需 login；细节见 [Registry](/docs/share/registry)）
@@ -35,6 +38,7 @@ uv run bora results upload|upload-suite|share|unshare|set-visibility|delete …
 | `--max-concurrent-tasks N` | 并行 unit 上限；**只加速**，不改 k / PASS |
 | `--n-attempts` / `-k N` | Always-k：每题 N 次独立 Attempt（默认 1）；**CLI/job only** |
 | `--resume-suite <suite_run_id>` | 并进已有 job：跳过已完成 unit，追加 Attempt，重算 pass@k / pass^k |
+| `--keep-workspace` | 仅 L1：清理后保留 host `l1-work/`（默认删除；上传不打包） |
 | `--set` / `--profiles` | 见下；与 job binding 相关 |
 
 ## `status` / `cancel`

@@ -81,9 +81,11 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | --- | --- |
 | `bora tasks` | List member task ids in a Database |
 | `bora lock` | Lock config (no Agent) |
-| `bora run` | Run one member or a full suite (Always-k via `-k` / `--n-attempts`) |
+| `bora run` | Run one member or a full suite (Always-k via `-k` / `--n-attempts`; L1 `--keep-workspace` keeps `l1-work/`) |
 | `bora campaign` | Serial parameter-matrix campaign (matrix axis ≠ k-attempt) |
 | `bora executors` | Host executor / ACP entry inventory |
+| `bora plugin install\|list\|uninstall` | Local `bora.plugin/1` cache (`$BORA_HOME/plugins`); never rewrites profiles |
+| `bora plugin publish` | Upload a plugin package (`package_kind=plugin`) |
 | `bora evidence` | Export sealed trajectory copy (does not change score) |
 | `bora submit` / `status` / `cancel` | Durable Run / suite job control (suite id + optional `--database`) |
 | `bora login` | GitHub **Device Flow** → write credentials (Hub uses browser OAuth instead) |

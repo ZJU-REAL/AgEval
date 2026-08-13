@@ -13,12 +13,13 @@
 
 主流 Agent Benchmark 往往只给模型打分，却把 **Harness**（编排、隔离、可见面、评测边界）留给各家私有实现。换 coding agent、换隔离方式或换上游 Framework，分数很难对齐，复现与轨迹也各自为政。
 
-**BORA** 是这层外层运行时：把 task 配置锁定、按边界跑 Attempt、控制 agent 能看见什么，再由独立 evaluator 出分。Coding agent 统一走 **ACP**，可接入支持该协议的主流 harness 做测评。
+**BORA** 是这层外层运行时：把 task 配置锁定、按边界跑 Attempt、控制 agent 能看见什么，再由独立 evaluator 出分。Coding agent 统一走 **ACP**；其它执行机制以 `bora.plugin/1` 安装，再由 job profiles 绑定，不必在 Core 里为每家后端单独解析输出。
 
 ### 你能用它做什么
 
 - **用 agent + skill 自动跑测评** — clone 后装上仓库自带 skill，让 coding agent 帮你选 example、执行 `bora run`、读结果与轨迹，少写样板脚本
-- **Harness × Agent × Model 自由组合** — 同一套 task harness 通过 ACP 换 Codex / Claude / Pi / OpenCode 等入口与模型，做接近笛卡尔积式的对比评测，而不是为每家后端写一套 scraper
+- **Harness × Agent × Model 自由组合** — 同一套 task harness 通过 ACP 换 Codex / Claude / Pi / OpenCode 等入口与模型，或绑定已安装的机制插件（如 nooa），做接近笛卡尔积式的对比评测，而不必为每家后端单独解析输出
+- **安装机制插件** — `bora plugin install` 装到本机，再在 `profiles.yaml` 里绑定
 - **把已有 harness 接到统一边界** — 保留你自己的 workflow，外层统一锁定配置、隔离（本机 / Docker）、可见性与独立打分，便于跨框架复现
 - **整份 Dataset 或参数矩阵批量跑** — 一次跑完套件内多个 task，或用 campaign 扫 seed / profile 等允许覆盖的参数
 - **Suite 聚合分与 job 结果归档** — suite 跑完写入观测用的 `pass_rate` / `mean_score`；需要共享时可以上传到 Registry
@@ -72,6 +73,10 @@ uv run bora view examples/core --no-browser
 
 # 查看本机支持的 executor / ACP entry
 uv run bora executors -v
+
+# 机制插件
+# uv run bora plugin install plugins/nooa
+# uv run bora plugin list
 ```
 
 ### 让 coding agent 帮你跑
@@ -82,6 +87,7 @@ uv run bora executors -v
 | ---------------------------------------------------- | ------------------------ |
 | [`bora-platform`](skills/bora-platform/)             | 产品地图与红线           |
 | [`bora-cli`](skills/bora-cli/)                       | CLI 与结果解读           |
+| [`bora-plugin`](skills/bora-plugin/)                 | 编写 `bora.plugin/1`     |
 | [`bora-config-package`](skills/bora-config-package/) | 编写 Dataset / task 配置 |
 | [`bora-sdk-harness`](skills/bora-sdk-harness/)       | 用 `bora_sdk` 写 harness |
 
