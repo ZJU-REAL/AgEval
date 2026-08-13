@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Any
 
 
+def default_runs_root(database_root: Path | str) -> Path:
+    """Database-root Attempt evidence directory: ``<db>/.bora/runs``."""
+    return Path(database_root) / ".bora" / "runs"
+
+
 def portable_run_locator(
     run_dir: Path | str,
     *,

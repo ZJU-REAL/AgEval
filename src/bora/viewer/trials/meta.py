@@ -56,14 +56,16 @@ def list_task_trials(
 
     # Scan database-level and task-local runs matching this task_id via lock.json
     candidates: list[Path] = []
-    db_runs = root / ".bora" / "runs"
+    from bora.evidence.locators import default_runs_root
+
+    db_runs = default_runs_root(root)
     if db_runs.is_dir():
         candidates.extend(p for p in db_runs.iterdir() if p.is_dir())
     tasks_root_name = "tasks"
     with contextlib.suppress(ConfigError):
         man = load_database_manifest(root)
         tasks_root_name = man.tasks_root or "tasks"
-    task_runs = root / tasks_root_name / task_id / ".bora" / "runs"
+    task_runs = default_runs_root(root / tasks_root_name / task_id)
     if task_runs.is_dir():
         candidates.extend(p for p in task_runs.iterdir() if p.is_dir())
 

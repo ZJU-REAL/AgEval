@@ -25,6 +25,8 @@ independent evaluation). The package owns the business loop.
 
 `website/` is reader-facing only; conflict → fix `docs/` first.
 
+Change the module tree in `ARCHITECTURE.md` first. Do not ship marker `LifecycleStages` (empty `cleanup`/`evaluate`/`bind` while production logic lives elsewhere).
+
 Conflict → stop; fix the highest authority artifact first, then sync downstream.
 
 ## Ownership split

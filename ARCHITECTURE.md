@@ -110,7 +110,12 @@ BORA/
 ├── src/bora/
 │   ├── __init__.py
 │   ├── cli/                   # Typer：argv、help、exit code（main 挂载 + cmd_*）
-│   ├── application/           # use cases + composition root（run_l1_* / run_command_* helpers）
+│   ├── application/           # 唯一 composition root + 按产品流拆的 use case
+│   │   ├── composition.py     # CLI 只从此处 import builders
+│   │   ├── attempt/           # run_task、LifecycleStages、L0/L1 phase helpers
+│   │   ├── suite/             # suite_run、fingerprint、suite_metrics
+│   │   ├── registry_ops/      # results / publish / login / org / list
+│   │   └── plugin_ops/        # plugin install / publish / image_contribute bake
 │   ├── config/                # Core 1（load_and_lock + constants/yaml_io/overrides/digest/validate）
 │   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker、
 │   │                          # parent_agent_service + agent_service_protocol/evidence
@@ -138,7 +143,11 @@ BORA/
 ├── apps/
 │   ├── viewer/                # 本地 `bora view` SPA（Jobs → Trial；非 Registry）
 │   └── hub/                   # Registry Dataset / Plugin marketplace / Leaderboard SPA
-├── services/registry/         # 独立 HTTP：publish / packages files / results / OAuth
+├── services/registry/         # 独立 HTTP：Route.access + domain services
+│   ├── queries.py             # 唯一 SQL / schema 文本
+│   ├── sql_adapter.py         # sqlite/postgres 只 connect / placeholder / row-map
+│   ├── store.py               # 一份 MetadataStore + 薄 Postgres 适配
+│   └── routes.py              # ROUTES 必须声明 access；dispatch 强制走完
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa）
 │   ├── core/                  # config / harness / eval / agent / SDK

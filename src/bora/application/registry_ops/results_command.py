@@ -12,7 +12,7 @@ from bora.application.suite.suite_metrics import (
 )
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
-from bora.evidence.locators import resolve_attempt_run_dir
+from bora.evidence.locators import default_runs_root, resolve_attempt_run_dir
 from bora.registry.client import RegistryClient, RegistryError
 from bora.registry.resolve import resolve_database_root
 from bora.registry.results_archive import (
@@ -383,7 +383,7 @@ def upload_suite_result(
                     f"--with-attempts: missing local run dir(s) under "
                     f".bora/runs/ for: {preview}{more}"
                 ),
-                location=str(root / ".bora" / "runs"),
+                location=str(default_runs_root(root)),
             )
 
     archive, blob_digest, size = build_suite_archive(suite_dir, suite_run_id=suite_run_id)

@@ -107,7 +107,9 @@ async def _run_task_body(
     # Evidence defaults under Database root so operators inspect one tree per suite.
     db_root = Path(resolved.database_root)
     if evidence_root is None:
-        evidence_root = db_root / ".bora" / "runs"
+        from bora.evidence.locators import default_runs_root
+
+        evidence_root = default_runs_root(db_root)
     evidence_root = evidence_root.resolve()
     evidence_root.mkdir(parents=True, exist_ok=True)
     # One Run/Trial/Attempt identity for this invocation — directory, evidence,
