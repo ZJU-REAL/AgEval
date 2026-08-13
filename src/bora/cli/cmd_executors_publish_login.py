@@ -23,9 +23,11 @@ def register(app: typer.Typer) -> None:
             ),
         ] = False,
     ) -> None:
-        """List supported agent executor kinds and whether host binaries are on PATH.
+        """List supported executor kinds, L0 host-ready, and L1 bake-declared.
 
         Thin CLI: inventory logic lives in ``bora.adapters.executor_inventory``.
+        Plugin ``host_ready`` is L0 constructability (declared host_requires /
+        describe()), not install Recognition or a missing PATH binary.
         """
         from bora.adapters.executor_inventory import build_executor_inventory
 
