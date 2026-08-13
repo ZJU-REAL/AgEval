@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any
 
 from services.registry import queries as Q
-from services.registry.dialect import pg_sql
 from services.registry.protocols import MetadataStoreProtocol, TokenStoreProtocol
 
 # ---------------------------------------------------------------------------
@@ -332,8 +331,7 @@ class TokenStore(TokenStoreProtocol):
         self._lock = threading.Lock()
         self._tokens: dict[str, TokenInfo] = {}
 
-    @staticmethod
-    def hash_token(raw: str) -> str:
+    def hash_token(self, raw: str) -> str:
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def add(
@@ -359,36 +357,28 @@ class TokenStore(TokenStoreProtocol):
         return self.auth_for(raw_token).scopes
 
 
-class SqliteTokenStore(TokenStoreProtocol):
-    """Persistent tokens in the same SQLite file as metadata (unit / zero-dep)."""
+class PersistentTokenStore(TokenStoreProtocol):
+    """One token repository; SQLite / Postgres only differ in the adapter."""
 
-    def __init__(self, db_path: Path) -> None:
-        self.db_path = db_path
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, *, adapter: Any) -> None:
+        self._adapter = adapter
+        self.db_path = getattr(adapter, "db_path", None)
         self._init()
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _connect(self) -> Any:
+        return self._adapter.connect()
+
+    def _exec(self, conn: Any, sql: str, params: Any = ()) -> Any:
+        return self._adapter.execute(conn, sql, params)
 
     def _init(self) -> None:
         with self._connect() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS api_tokens (
-                    token_hash TEXT PRIMARY KEY,
-                    scopes TEXT NOT NULL,
-                    github_user TEXT,
-                    created_at REAL NOT NULL,
-                    revoked_at REAL
-                )
-                """
-            )
+            for stmt in Q.SCHEMA_STATEMENTS:
+                if "api_tokens" in stmt:
+                    self._exec(conn, stmt)
             conn.commit()
 
-    @staticmethod
-    def hash_token(raw: str) -> str:
+    def hash_token(self, raw: str) -> str:
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def add(
@@ -400,12 +390,9 @@ class SqliteTokenStore(TokenStoreProtocol):
     ) -> None:
         scopes_json = json.dumps(sorted(scopes))
         with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO api_tokens(
-                    token_hash, scopes, github_user, created_at, revoked_at
-                ) VALUES (?, ?, ?, ?, NULL)
-                """,
+            self._exec(
+                conn,
+                Q.UPSERT_TOKEN,
                 (self.hash_token(raw_token), scopes_json, github_user, time.time()),
             )
             conn.commit()
@@ -414,16 +401,14 @@ class SqliteTokenStore(TokenStoreProtocol):
         if not raw_token:
             return TokenInfo(scopes=frozenset())
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT scopes, github_user, revoked_at FROM api_tokens WHERE token_hash=?",
-                (self.hash_token(raw_token),),
-            )
+            cur = self._exec(conn, Q.SELECT_TOKEN, (self.hash_token(raw_token),))
             row = cur.fetchone()
-            if row is None or row["revoked_at"] is not None:
+            if row is None or row.get("revoked_at") is not None:
                 return TokenInfo(scopes=frozenset())
+            scopes_raw = row["scopes"]
             try:
-                data = json.loads(row["scopes"])
-            except json.JSONDecodeError:
+                data = scopes_raw if isinstance(scopes_raw, list) else json.loads(scopes_raw)
+            except (TypeError, json.JSONDecodeError):
                 return TokenInfo(scopes=frozenset())
             return TokenInfo(
                 scopes=frozenset(str(s) for s in data),
@@ -434,88 +419,23 @@ class SqliteTokenStore(TokenStoreProtocol):
         return self.auth_for(raw_token).scopes
 
 
-class PostgresTokenStore(TokenStoreProtocol):
+class SqliteTokenStore(PersistentTokenStore):
+    """Persistent tokens in the same SQLite file as metadata."""
+
+    def __init__(self, db_path: Path) -> None:
+        from services.registry.sql_adapter import SqliteAdapter
+
+        PersistentTokenStore.__init__(self, adapter=SqliteAdapter(db_path))
+
+
+class PostgresTokenStore(PersistentTokenStore):
     """Persistent tokens in Postgres."""
 
     def __init__(self, database_url: str) -> None:
-        try:
-            import psycopg
-        except ImportError as exc:
-            raise RuntimeError(
-                "psycopg required for Postgres backend; install with: uv sync --extra registry"
-            ) from exc
-        self._psycopg = psycopg
+        from services.registry.sql_adapter import PostgresAdapter
+
+        PersistentTokenStore.__init__(self, adapter=PostgresAdapter(database_url))
         self.database_url = database_url
-        self._init()
-
-    def _connect(self):  # noqa: ANN202
-        return self._psycopg.connect(self.database_url)
-
-    def _init(self) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS api_tokens (
-                    token_hash TEXT PRIMARY KEY,
-                    scopes JSONB NOT NULL,
-                    github_user TEXT,
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                    revoked_at TIMESTAMPTZ
-                )
-                """
-            )
-            conn.commit()
-
-    @staticmethod
-    def hash_token(raw: str) -> str:
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-    def add(
-        self,
-        raw_token: str,
-        scopes: set[str] | frozenset[str],
-        *,
-        github_user: str | None = None,
-    ) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO api_tokens(token_hash, scopes, github_user)
-                VALUES (%s, %s::jsonb, %s)
-                ON CONFLICT (token_hash) DO UPDATE
-                  SET scopes = EXCLUDED.scopes,
-                      github_user = EXCLUDED.github_user,
-                      revoked_at = NULL
-                """,
-                (self.hash_token(raw_token), json.dumps(sorted(scopes)), github_user),
-            )
-            conn.commit()
-
-    def auth_for(self, raw_token: str | None) -> TokenInfo:
-        if not raw_token:
-            return TokenInfo(scopes=frozenset())
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT scopes, github_user FROM api_tokens
-                WHERE token_hash = %s AND revoked_at IS NULL
-                """,
-                (self.hash_token(raw_token),),
-            )
-            row = cur.fetchone()
-            if row is None:
-                return TokenInfo(scopes=frozenset())
-            scopes_raw = row[0]
-            if isinstance(scopes_raw, list):
-                scopes = frozenset(str(s) for s in scopes_raw)
-            elif isinstance(scopes_raw, str):
-                scopes = frozenset(str(s) for s in json.loads(scopes_raw))
-            else:
-                scopes = frozenset()
-            return TokenInfo(scopes=scopes, user_id=_normalize_user_id(row[1]))
-
-    def scopes_for(self, raw_token: str | None) -> frozenset[str]:
-        return self.auth_for(raw_token).scopes
 
 
 # ---------------------------------------------------------------------------
@@ -524,170 +444,34 @@ class PostgresTokenStore(TokenStoreProtocol):
 
 
 class MetadataStore(MetadataStoreProtocol):
-    """SQLite release + attempt_results metadata (unit tests / zero-dep)."""
+    """One metadata repository; SQLite / Postgres only differ in the adapter."""
 
-    def __init__(self, db_path: Path) -> None:
-        self.db_path = db_path
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, db_path: Path | None = None, *, adapter: Any | None = None) -> None:
+        from services.registry.sql_adapter import SqliteAdapter
+
+        if adapter is not None:
+            self._adapter = adapter
+        else:
+            if db_path is None:
+                raise TypeError("MetadataStore requires db_path or adapter")
+            self._adapter = SqliteAdapter(db_path)
+        self.db_path = getattr(self._adapter, "db_path", db_path)
         self._init()
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _connect(self) -> Any:
+        return self._adapter.connect()
 
-    def _exec(self, conn: sqlite3.Connection, sql: str, params: Any = ()) -> Any:
-        """Execute shared ``?`` SQL (SQLite dialect)."""
-        return conn.execute(sql, params)
+    def _exec(self, conn: Any, sql: str, params: Any = ()) -> Any:
+        return self._adapter.execute(conn, sql, params)
 
     def _init(self) -> None:
         with self._connect() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS releases (
-                    database_id TEXT NOT NULL,
-                    version TEXT NOT NULL,
-                    visibility TEXT NOT NULL,
-                    package_digest TEXT NOT NULL,
-                    blob_digest TEXT NOT NULL,
-                    size INTEGER NOT NULL,
-                    media_type TEXT NOT NULL,
-                    created_at REAL NOT NULL,
-                    PRIMARY KEY (database_id, version)
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_releases_digest
-                ON releases(database_id, package_digest)
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS attempt_results (
-                    run_id TEXT PRIMARY KEY,
-                    database_id TEXT NOT NULL,
-                    task_id TEXT NOT NULL,
-                    lock_digest TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    visibility TEXT NOT NULL,
-                    blob_digest TEXT NOT NULL,
-                    size INTEGER NOT NULL,
-                    created_at REAL NOT NULL
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS suite_results (
-                    suite_run_id TEXT PRIMARY KEY,
-                    database_id TEXT NOT NULL,
-                    database_version TEXT NOT NULL,
-                    visibility TEXT NOT NULL,
-                    pass_rate REAL NOT NULL,
-                    mean_score REAL NOT NULL,
-                    metrics_json TEXT NOT NULL,
-                    tasks_json TEXT NOT NULL,
-                    agent_label TEXT NOT NULL DEFAULT '',
-                    model_label TEXT NOT NULL DEFAULT '',
-                    blob_digest TEXT NOT NULL,
-                    size INTEGER NOT NULL,
-                    exit_code INTEGER NOT NULL DEFAULT 0,
-                    created_at REAL NOT NULL,
-                    config_json TEXT NOT NULL DEFAULT '{}'
-                )
-                """
-            )
-            # Migrate pre-#42 DBs: add config_json if missing.
-            cols = {str(r[1]) for r in conn.execute("PRAGMA table_info(suite_results)").fetchall()}
-            if "config_json" not in cols:
-                conn.execute(
-                    "ALTER TABLE suite_results ADD COLUMN config_json TEXT NOT NULL DEFAULT '{}'"
-                )
-            # Org + ACL columns (#52 / #53 / #54)
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS organizations (
-                    org_id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL UNIQUE,
-                    display_name TEXT NOT NULL DEFAULT '',
-                    is_claimable INTEGER NOT NULL DEFAULT 0,
-                    created_at REAL NOT NULL
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS org_memberships (
-                    org_id TEXT NOT NULL,
-                    user_id TEXT NOT NULL,
-                    role TEXT NOT NULL,
-                    created_at REAL NOT NULL,
-                    PRIMARY KEY (org_id, user_id)
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS result_shares (
-                    result_kind TEXT NOT NULL,
-                    result_id TEXT NOT NULL,
-                    target_type TEXT NOT NULL,
-                    target_id TEXT NOT NULL,
-                    created_at REAL NOT NULL,
-                    PRIMARY KEY (result_kind, result_id, target_type, target_id)
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS user_profiles (
-                    user_id TEXT PRIMARY KEY,
-                    display_name TEXT NOT NULL DEFAULT '',
-                    avatar_url TEXT NOT NULL DEFAULT '',
-                    github_id TEXT NOT NULL DEFAULT '',
-                    updated_at REAL NOT NULL
-                )
-                """
-            )
-            rel_cols = {str(r[1]) for r in conn.execute("PRAGMA table_info(releases)").fetchall()}
-            if "org_id" not in rel_cols:
-                conn.execute("ALTER TABLE releases ADD COLUMN org_id TEXT")
-            att_cols = {
-                str(r[1]) for r in conn.execute("PRAGMA table_info(attempt_results)").fetchall()
-            }
-            if "uploaded_by" not in att_cols:
-                conn.execute(
-                    "ALTER TABLE attempt_results ADD COLUMN uploaded_by TEXT NOT NULL DEFAULT ''"
-                )
-            if "suite_run_id" not in att_cols:
-                conn.execute(
-                    "ALTER TABLE attempt_results ADD COLUMN suite_run_id TEXT NOT NULL DEFAULT ''"
-                )
-            suite_cols = {
-                str(r[1]) for r in conn.execute("PRAGMA table_info(suite_results)").fetchall()
-            }
-            if "uploaded_by" not in suite_cols:
-                conn.execute(
-                    "ALTER TABLE suite_results ADD COLUMN uploaded_by TEXT NOT NULL DEFAULT ''"
-                )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS org_invite_keys (
-                    key_id TEXT PRIMARY KEY,
-                    org_id TEXT NOT NULL,
-                    token_hash TEXT NOT NULL UNIQUE,
-                    token_prefix TEXT NOT NULL,
-                    created_by TEXT NOT NULL DEFAULT '',
-                    max_uses INTEGER,
-                    use_count INTEGER NOT NULL DEFAULT 0,
-                    expires_at REAL,
-                    revoked_at REAL,
-                    created_at REAL NOT NULL
-                )
-                """
-            )
+            for stmt in Q.SCHEMA_STATEMENTS:
+                if "api_tokens" in stmt:
+                    continue
+                self._exec(conn, stmt)
+            for table, column, decl in Q.SCHEMA_MIGRATIONS:
+                self._adapter.add_column(conn, table, column, decl)
             conn.commit()
 
     def insert(self, row: ReleaseRow) -> None:
@@ -709,7 +493,7 @@ class MetadataStore(MetadataStoreProtocol):
                     ),
                 )
                 conn.commit()
-            except sqlite3.IntegrityError as exc:
+            except self._adapter.integrity_error as exc:
                 raise ValueError("release already exists") from exc
 
     def get_by_version(self, database_id: str, version: str) -> ReleaseRow | None:
@@ -769,7 +553,7 @@ class MetadataStore(MetadataStoreProtocol):
                     ),
                 )
                 conn.commit()
-            except sqlite3.IntegrityError as exc:
+            except self._adapter.integrity_error as exc:
                 raise ValueError("attempt result already exists") from exc
 
     def get_attempt(self, run_id: str) -> AttemptResultRow | None:
@@ -785,7 +569,8 @@ class MetadataStore(MetadataStoreProtocol):
             return []
         placeholders = ",".join("?" for _ in ids)
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 f"SELECT * FROM attempt_results WHERE run_id IN ({placeholders})",
                 ids,
             )
@@ -810,7 +595,8 @@ class MetadataStore(MetadataStoreProtocol):
             params.append(database_id)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 f"SELECT * FROM attempt_results {where} ORDER BY created_at DESC",
                 params,
             )
@@ -842,7 +628,7 @@ class MetadataStore(MetadataStoreProtocol):
                     ),
                 )
                 conn.commit()
-            except sqlite3.IntegrityError as exc:
+            except self._adapter.integrity_error as exc:
                 raise ValueError("suite result already exists") from exc
 
     def get_suite(self, suite_run_id: str) -> SuiteResultRow | None:
@@ -866,7 +652,8 @@ class MetadataStore(MetadataStoreProtocol):
             params.append(database_id)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 f"SELECT * FROM suite_results {where} ORDER BY created_at DESC",
                 params,
             )
@@ -878,11 +665,12 @@ class MetadataStore(MetadataStoreProtocol):
         if row is None:
             raise LookupError("attempt not found")
         with self._connect() as conn:
-            conn.execute(
+            self._exec(
+                conn,
                 "DELETE FROM result_shares WHERE result_kind='attempt' AND result_id=?",
                 (run_id,),
             )
-            conn.execute("DELETE FROM attempt_results WHERE run_id=?", (run_id,))
+            self._exec(conn, "DELETE FROM attempt_results WHERE run_id=?", (run_id,))
             conn.commit()
         return row
 
@@ -893,7 +681,8 @@ class MetadataStore(MetadataStoreProtocol):
         if row is None:
             raise LookupError("attempt not found")
         with self._connect() as conn:
-            conn.execute(
+            self._exec(
+                conn,
                 "UPDATE attempt_results SET visibility=? WHERE run_id=?",
                 (visibility, run_id),
             )
@@ -908,11 +697,12 @@ class MetadataStore(MetadataStoreProtocol):
         if row is None:
             raise LookupError("suite not found")
         with self._connect() as conn:
-            conn.execute(
+            self._exec(
+                conn,
                 "DELETE FROM result_shares WHERE result_kind='suite' AND result_id=?",
                 (suite_run_id,),
             )
-            conn.execute("DELETE FROM suite_results WHERE suite_run_id=?", (suite_run_id,))
+            self._exec(conn, "DELETE FROM suite_results WHERE suite_run_id=?", (suite_run_id,))
             conn.commit()
         return row
 
@@ -923,7 +713,8 @@ class MetadataStore(MetadataStoreProtocol):
         if row is None:
             raise LookupError("suite not found")
         with self._connect() as conn:
-            conn.execute(
+            self._exec(
+                conn,
                 "UPDATE suite_results SET visibility=? WHERE suite_run_id=?",
                 (visibility, suite_run_id),
             )
@@ -935,7 +726,8 @@ class MetadataStore(MetadataStoreProtocol):
     def list_attempts_for_suite(self, suite_run_id: str) -> list[AttemptResultRow]:
         """Attempts whose suite_run_id column matches (any visibility)."""
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT * FROM attempt_results WHERE suite_run_id=? ORDER BY created_at DESC",
                 (suite_run_id,),
             )
@@ -943,7 +735,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def count_attempt_blob_refs(self, blob_digest: str) -> int:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT COUNT(*) AS n FROM attempt_results WHERE blob_digest=?",
                 (blob_digest,),
             )
@@ -951,7 +744,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def count_suite_blob_refs(self, blob_digest: str) -> int:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT COUNT(*) AS n FROM suite_results WHERE blob_digest=?",
                 (blob_digest,),
             )
@@ -959,7 +753,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def count_package_blob_refs(self, blob_digest: str) -> int:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT COUNT(*) AS n FROM releases WHERE blob_digest=?",
                 (blob_digest,),
             )
@@ -970,23 +765,23 @@ class MetadataStore(MetadataStoreProtocol):
         if row is None:
             raise LookupError("release not found")
         with self._connect() as conn:
-            conn.execute(
+            self._exec(
+                conn,
                 "DELETE FROM releases WHERE database_id=? AND version=?",
                 (database_id, version),
             )
             conn.commit()
         return row
 
-    def set_release_visibility(
-        self, database_id: str, version: str, visibility: str
-    ) -> ReleaseRow:
+    def set_release_visibility(self, database_id: str, version: str, visibility: str) -> ReleaseRow:
         if visibility not in {"public", "private"}:
             raise ValueError("bad visibility")
         row = self.get_by_version(database_id, version)
         if row is None:
             raise LookupError("release not found")
         with self._connect() as conn:
-            conn.execute(
+            self._exec(
+                conn,
                 "UPDATE releases SET visibility=? WHERE database_id=? AND version=?",
                 (visibility, database_id, version),
             )
@@ -1093,7 +888,7 @@ class MetadataStore(MetadataStoreProtocol):
                     (row.org_id, owner_user_id, row.created_at),
                 )
                 conn.commit()
-            except sqlite3.IntegrityError as exc:
+            except self._adapter.integrity_error as exc:
                 raise ValueError("org already exists") from exc
         return row
 
@@ -1105,7 +900,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def list_orgs_for_user(self, user_id: str) -> list[tuple[OrgRow, str]]:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 """
                 SELECT o.*, m.role AS membership_role
                 FROM organizations o
@@ -1122,7 +918,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def claim_org(self, org_id: str, user_id: str) -> OrgRow:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT * FROM organizations WHERE org_id=?",
                 (org_id,),
             )
@@ -1132,20 +929,23 @@ class MetadataStore(MetadataStoreProtocol):
             org = self._org_row(r)
             if not org.is_claimable:
                 raise PermissionError("org not claimable")
-            owners = conn.execute(
+            owners = self._exec(
+                conn,
                 "SELECT 1 FROM org_memberships WHERE org_id=? AND role='owner' LIMIT 1",
                 (org_id,),
             ).fetchone()
             if owners is not None:
                 raise PermissionError("org already claimed")
-            conn.execute(
+            self._exec(
+                conn,
                 """
                 INSERT INTO org_memberships(org_id, user_id, role, created_at)
                 VALUES (?, ?, 'owner', ?)
                 """,
                 (org_id, user_id, now()),
             )
-            conn.execute(
+            self._exec(
+                conn,
                 "UPDATE organizations SET is_claimable=0 WHERE org_id=?",
                 (org_id,),
             )
@@ -1162,7 +962,8 @@ class MetadataStore(MetadataStoreProtocol):
             if self.get_org(org_id) is None:
                 raise LookupError("org not found")
             try:
-                conn.execute(
+                self._exec(
+                    conn,
                     """
                     INSERT INTO org_memberships(org_id, user_id, role, created_at)
                     VALUES (?, ?, ?, ?)
@@ -1170,13 +971,14 @@ class MetadataStore(MetadataStoreProtocol):
                     (org_id, user_id, role, ts),
                 )
                 conn.commit()
-            except sqlite3.IntegrityError as exc:
+            except self._adapter.integrity_error as exc:
                 raise ValueError("membership exists") from exc
         return MembershipRow(org_id=org_id, user_id=user_id, role=role, created_at=ts)
 
     def remove_member(self, org_id: str, user_id: str) -> None:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "DELETE FROM org_memberships WHERE org_id=? AND user_id=?",
                 (org_id, user_id),
             )
@@ -1186,7 +988,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def count_org_owners(self, org_id: str) -> int:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT COUNT(*) AS n FROM org_memberships WHERE org_id=? AND role='owner'",
                 (org_id,),
             )
@@ -1195,7 +998,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def count_org_packages(self, org_id: str) -> int:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT COUNT(*) AS n FROM releases WHERE org_id=?",
                 (org_id,),
             )
@@ -1222,20 +1026,22 @@ class MetadataStore(MetadataStoreProtocol):
                 f"org still has {n_pkg} package release(s); unpublish or reassign first"
             )
         with self._connect() as conn:
-            conn.execute("DELETE FROM org_invite_keys WHERE org_id=?", (org_id,))
-            conn.execute("DELETE FROM org_memberships WHERE org_id=?", (org_id,))
-            conn.execute(
+            self._exec(conn, "DELETE FROM org_invite_keys WHERE org_id=?", (org_id,))
+            self._exec(conn, "DELETE FROM org_memberships WHERE org_id=?", (org_id,))
+            self._exec(
+                conn,
                 "DELETE FROM result_shares WHERE target_type='org' AND target_id=?",
                 (org_id,),
             )
-            cur = conn.execute("DELETE FROM organizations WHERE org_id=?", (org_id,))
+            cur = self._exec(conn, "DELETE FROM organizations WHERE org_id=?", (org_id,))
             if cur.rowcount == 0:
                 raise LookupError("org not found")
             conn.commit()
 
     def list_members(self, org_id: str) -> list[MembershipRow]:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 """
                 SELECT org_id, user_id, role, created_at
                 FROM org_memberships WHERE org_id=? ORDER BY role, user_id
@@ -1298,7 +1104,8 @@ class MetadataStore(MetadataStoreProtocol):
             created_at=now(),
         )
         with self._connect() as conn:
-            conn.execute(
+            self._exec(
+                conn,
                 """
                 INSERT INTO org_invite_keys(
                     key_id, org_id, token_hash, token_prefix, created_by,
@@ -1323,7 +1130,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def list_invite_keys(self, org_id: str) -> list[OrgInviteKeyRow]:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 """
                 SELECT * FROM org_invite_keys
                 WHERE org_id=?
@@ -1335,7 +1143,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def get_invite_key(self, org_id: str, key_id: str) -> OrgInviteKeyRow | None:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT * FROM org_invite_keys WHERE org_id=? AND key_id=?",
                 (org_id, key_id),
             )
@@ -1345,7 +1154,8 @@ class MetadataStore(MetadataStoreProtocol):
     def revoke_invite_key(self, org_id: str, key_id: str) -> OrgInviteKeyRow:
         ts = now()
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT * FROM org_invite_keys WHERE org_id=? AND key_id=?",
                 (org_id, key_id),
             )
@@ -1355,7 +1165,8 @@ class MetadataStore(MetadataStoreProtocol):
             row = self._invite_key_row(r)
             if row.revoked_at is not None:
                 return row
-            conn.execute(
+            self._exec(
+                conn,
                 "UPDATE org_invite_keys SET revoked_at=? WHERE key_id=?",
                 (ts, key_id),
             )
@@ -1372,7 +1183,8 @@ class MetadataStore(MetadataStoreProtocol):
         """
         uid = _normalize_user_id(user_id) or user_id
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT * FROM org_invite_keys WHERE token_hash=?",
                 (token_hash,),
             )
@@ -1392,7 +1204,8 @@ class MetadataStore(MetadataStoreProtocol):
                 # Already a member: do not burn use_count.
                 return org, existing
             # Claim a slot atomically (check + increment). rowcount==0 ⇒ exhausted.
-            claim = conn.execute(
+            claim = self._exec(
+                conn,
                 """
                 UPDATE org_invite_keys
                 SET use_count = use_count + 1
@@ -1404,14 +1217,15 @@ class MetadataStore(MetadataStoreProtocol):
                 raise PermissionError("invite key exhausted")
             ts = now()
             try:
-                conn.execute(
+                self._exec(
+                    conn,
                     """
                     INSERT INTO org_memberships(org_id, user_id, role, created_at)
                     VALUES (?, ?, 'member', ?)
                     """,
                     (inv.org_id, uid, ts),
                 )
-            except sqlite3.IntegrityError as exc:
+            except self._adapter.integrity_error as exc:
                 # Same-transaction rollback drops the claim on context exit.
                 raise ValueError("membership exists") from exc
             conn.commit()
@@ -1458,7 +1272,8 @@ class MetadataStore(MetadataStoreProtocol):
         ts = now()
         with self._connect() as conn:
             try:
-                conn.execute(
+                self._exec(
+                    conn,
                     """
                     INSERT INTO result_shares(
                         result_kind, result_id, target_type, target_id, created_at
@@ -1467,7 +1282,7 @@ class MetadataStore(MetadataStoreProtocol):
                     (result_kind, result_id, target_type, target_id, ts),
                 )
                 conn.commit()
-            except sqlite3.IntegrityError as exc:
+            except self._adapter.integrity_error as exc:
                 raise ValueError("share already exists") from exc
         return ResultShareRow(
             result_kind=result_kind,
@@ -1486,7 +1301,8 @@ class MetadataStore(MetadataStoreProtocol):
         target_id: str,
     ) -> None:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 """
                 DELETE FROM result_shares
                 WHERE result_kind=? AND result_id=? AND target_type=? AND target_id=?
@@ -1499,7 +1315,8 @@ class MetadataStore(MetadataStoreProtocol):
 
     def list_result_shares(self, *, result_kind: str, result_id: str) -> list[ResultShareRow]:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 """
                 SELECT * FROM result_shares
                 WHERE result_kind=? AND result_id=?
@@ -1527,7 +1344,8 @@ class MetadataStore(MetadataStoreProtocol):
         user_orgs: set[str],
     ) -> bool:
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 """
                 SELECT 1 FROM result_shares
                 WHERE result_kind=? AND result_id=? AND target_type='user' AND target_id=?
@@ -1540,7 +1358,8 @@ class MetadataStore(MetadataStoreProtocol):
             if not user_orgs:
                 return False
             placeholders = ",".join("?" for _ in user_orgs)
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 f"""
                 SELECT 1 FROM result_shares
                 WHERE result_kind=? AND result_id=? AND target_type='org'
@@ -1578,7 +1397,8 @@ class MetadataStore(MetadataStoreProtocol):
             updated_at=now(),
         )
         with self._connect() as conn:
-            conn.execute(
+            self._exec(
+                conn,
                 """
                 INSERT INTO user_profiles(
                     user_id, display_name, avatar_url, github_id, updated_at
@@ -1603,7 +1423,8 @@ class MetadataStore(MetadataStoreProtocol):
     def get_user_profile(self, user_id: str) -> UserProfileRow | None:
         uid = _normalize_user_id(user_id) or user_id
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 "SELECT * FROM user_profiles WHERE user_id=?",
                 (uid,),
             )
@@ -1624,7 +1445,8 @@ class MetadataStore(MetadataStoreProtocol):
             return {}
         placeholders = ",".join("?" for _ in ids)
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = self._exec(
+                conn,
                 f"SELECT * FROM user_profiles WHERE user_id IN ({placeholders})",
                 ids,
             )
@@ -1641,1173 +1463,14 @@ class MetadataStore(MetadataStoreProtocol):
             return out
 
 
-class PostgresMetadataStore(MetadataStoreProtocol):
-    """Postgres release + attempt_results metadata."""
+class PostgresMetadataStore(MetadataStore):
+    """Postgres metadata: same repository, thin dialect adapter."""
 
     def __init__(self, database_url: str) -> None:
-        try:
-            import psycopg
-        except ImportError as exc:
-            raise RuntimeError(
-                "psycopg required for Postgres backend; install with: uv sync --extra registry"
-            ) from exc
-        self._psycopg = psycopg
+        from services.registry.sql_adapter import PostgresAdapter
+
+        MetadataStore.__init__(self, adapter=PostgresAdapter(database_url))
         self.database_url = database_url
-        self._init()
-
-    def _connect(self):  # noqa: ANN202
-        return self._psycopg.connect(self.database_url)
-
-    def _exec(self, conn: Any, sql: str, params: Any = ()) -> Any:
-        """Execute shared ``?`` SQL after Postgres placeholder translation."""
-        return conn.execute(pg_sql(sql), params)
-
-    def _init(self) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS releases (
-                    database_id TEXT NOT NULL,
-                    version TEXT NOT NULL,
-                    visibility TEXT NOT NULL CHECK (visibility IN ('public', 'private')),
-                    package_digest TEXT NOT NULL,
-                    blob_digest TEXT NOT NULL,
-                    size BIGINT NOT NULL,
-                    media_type TEXT NOT NULL,
-                    created_at DOUBLE PRECISION NOT NULL,
-                    PRIMARY KEY (database_id, version)
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_releases_digest
-                ON releases(database_id, package_digest)
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS attempt_results (
-                    run_id TEXT PRIMARY KEY,
-                    database_id TEXT NOT NULL,
-                    task_id TEXT NOT NULL,
-                    lock_digest TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    visibility TEXT NOT NULL CHECK (visibility IN ('public', 'private')),
-                    blob_digest TEXT NOT NULL,
-                    size BIGINT NOT NULL,
-                    created_at DOUBLE PRECISION NOT NULL
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS suite_results (
-                    suite_run_id TEXT PRIMARY KEY,
-                    database_id TEXT NOT NULL,
-                    database_version TEXT NOT NULL,
-                    visibility TEXT NOT NULL CHECK (visibility IN ('public', 'private')),
-                    pass_rate DOUBLE PRECISION NOT NULL,
-                    mean_score DOUBLE PRECISION NOT NULL,
-                    metrics_json TEXT NOT NULL,
-                    tasks_json TEXT NOT NULL,
-                    agent_label TEXT NOT NULL DEFAULT '',
-                    model_label TEXT NOT NULL DEFAULT '',
-                    blob_digest TEXT NOT NULL,
-                    size BIGINT NOT NULL,
-                    exit_code INTEGER NOT NULL DEFAULT 0,
-                    created_at DOUBLE PRECISION NOT NULL,
-                    config_json TEXT NOT NULL DEFAULT '{}'
-                )
-                """
-            )
-            # Migrate pre-#42 DBs.
-            conn.execute(
-                """
-                ALTER TABLE suite_results
-                ADD COLUMN IF NOT EXISTS config_json TEXT NOT NULL DEFAULT '{}'
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS organizations (
-                    org_id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL UNIQUE,
-                    display_name TEXT NOT NULL DEFAULT '',
-                    is_claimable BOOLEAN NOT NULL DEFAULT FALSE,
-                    created_at DOUBLE PRECISION NOT NULL
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS org_memberships (
-                    org_id TEXT NOT NULL,
-                    user_id TEXT NOT NULL,
-                    role TEXT NOT NULL,
-                    created_at DOUBLE PRECISION NOT NULL,
-                    PRIMARY KEY (org_id, user_id)
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS result_shares (
-                    result_kind TEXT NOT NULL,
-                    result_id TEXT NOT NULL,
-                    target_type TEXT NOT NULL,
-                    target_id TEXT NOT NULL,
-                    created_at DOUBLE PRECISION NOT NULL,
-                    PRIMARY KEY (result_kind, result_id, target_type, target_id)
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS user_profiles (
-                    user_id TEXT PRIMARY KEY,
-                    display_name TEXT NOT NULL DEFAULT '',
-                    avatar_url TEXT NOT NULL DEFAULT '',
-                    github_id TEXT NOT NULL DEFAULT '',
-                    updated_at DOUBLE PRECISION NOT NULL
-                )
-                """
-            )
-            conn.execute("ALTER TABLE releases ADD COLUMN IF NOT EXISTS org_id TEXT")
-            conn.execute(
-                "ALTER TABLE attempt_results "
-                "ADD COLUMN IF NOT EXISTS uploaded_by TEXT NOT NULL DEFAULT ''"
-            )
-            conn.execute(
-                "ALTER TABLE attempt_results "
-                "ADD COLUMN IF NOT EXISTS suite_run_id TEXT NOT NULL DEFAULT ''"
-            )
-            conn.execute(
-                "ALTER TABLE suite_results "
-                "ADD COLUMN IF NOT EXISTS uploaded_by TEXT NOT NULL DEFAULT ''"
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS org_invite_keys (
-                    key_id TEXT PRIMARY KEY,
-                    org_id TEXT NOT NULL,
-                    token_hash TEXT NOT NULL UNIQUE,
-                    token_prefix TEXT NOT NULL,
-                    created_by TEXT NOT NULL DEFAULT '',
-                    max_uses INTEGER,
-                    use_count INTEGER NOT NULL DEFAULT 0,
-                    expires_at DOUBLE PRECISION,
-                    revoked_at DOUBLE PRECISION,
-                    created_at DOUBLE PRECISION NOT NULL
-                )
-                """
-            )
-            conn.commit()
-
-    def insert(self, row: ReleaseRow) -> None:
-        with self._connect() as conn:
-            try:
-                self._exec(
-                    conn,
-                    Q.INSERT_RELEASE,
-                    (
-                        row.database_id,
-                        row.version,
-                        row.visibility,
-                        row.package_digest,
-                        row.blob_digest,
-                        row.size,
-                        row.media_type,
-                        row.created_at,
-                        row.org_id,
-                    ),
-                )
-                conn.commit()
-            except Exception as exc:
-                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
-                    raise ValueError("release already exists") from exc
-                raise
-
-    def get_by_version(self, database_id: str, version: str) -> ReleaseRow | None:
-        with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_RELEASE_BY_VERSION, (database_id, version))
-            r = cur.fetchone()
-            return self._release_from_cur(cur, r) if r else None
-
-    def get_by_digest(self, database_id: str, package_digest: str) -> ReleaseRow | None:
-        with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_RELEASE_BY_DIGEST, (database_id, package_digest))
-            r = cur.fetchone()
-            return self._release_from_cur(cur, r) if r else None
-
-    def list_releases(
-        self,
-        *,
-        database_id_prefix: str | None = None,
-        visibility: str | None = None,
-        version: str | None = None,
-        include_private: bool = False,
-    ) -> list[ReleaseRow]:
-        sql, params = Q.list_releases_query(
-            database_id_prefix=database_id_prefix,
-            visibility=visibility,
-            version=version,
-            include_private=include_private,
-        )
-        with self._connect() as conn:
-            cur = self._exec(conn, sql, params)
-            rows = cur.fetchall()
-            cols = [d.name for d in cur.description] if cur.description else []
-            return [self._release_from_cols(cols, r) for r in rows]
-
-    def list_versions(self, database_id: str, *, include_private: bool = False) -> list[ReleaseRow]:
-        sql, params = Q.list_versions_query(database_id, include_private=include_private)
-        with self._connect() as conn:
-            cur = self._exec(conn, sql, params)
-            rows = cur.fetchall()
-            cols = [d.name for d in cur.description] if cur.description else []
-            return [self._release_from_cols(cols, r) for r in rows]
-
-    def insert_attempt(self, row: AttemptResultRow) -> None:
-        with self._connect() as conn:
-            try:
-                self._exec(
-                    conn,
-                    Q.INSERT_ATTEMPT,
-                    (
-                        row.run_id,
-                        row.database_id,
-                        row.task_id,
-                        row.lock_digest,
-                        row.status,
-                        row.visibility,
-                        row.blob_digest,
-                        row.size,
-                        row.created_at,
-                        row.uploaded_by or "",
-                        row.suite_run_id or "",
-                    ),
-                )
-                conn.commit()
-            except Exception as exc:
-                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
-                    raise ValueError("attempt result already exists") from exc
-                raise
-
-    def get_attempt(self, run_id: str) -> AttemptResultRow | None:
-        with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_ATTEMPT, (run_id,))
-            r = cur.fetchone()
-            if r is None:
-                return None
-            cols = [d.name for d in cur.description] if cur.description else []
-            return self._attempt_from_cols(cols, r)
-
-    def attempts_for_ids(self, run_ids: list[str] | set[str]) -> list[AttemptResultRow]:
-        ids = sorted({str(r).strip() for r in run_ids if r and str(r).strip()})
-        if not ids:
-            return []
-        placeholders = ",".join("?" for _ in ids)
-        with self._connect() as conn:
-            cur = self._exec(
-                conn,
-                f"SELECT * FROM attempt_results WHERE run_id IN ({placeholders})",
-                ids,
-            )
-            cols = [d.name for d in cur.description] if cur.description else []
-            return [self._attempt_from_cols(cols, r) for r in cur.fetchall()]
-
-    def existing_attempt_ids(self, run_ids: list[str] | set[str]) -> set[str]:
-        return {row.run_id for row in self.attempts_for_ids(run_ids)}
-
-    def list_attempts(
-        self,
-        *,
-        database_id: str | None = None,
-        include_private: bool = False,
-    ) -> list[AttemptResultRow]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        if not include_private:
-            clauses.append("visibility = 'public'")
-        if database_id:
-            clauses.append("database_id = %s")
-            params.append(database_id)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        with self._connect() as conn:
-            cur = conn.execute(
-                f"SELECT * FROM attempt_results {where} ORDER BY created_at DESC",
-                params,
-            )
-            rows = cur.fetchall()
-            cols = [d.name for d in cur.description] if cur.description else []
-            return [self._attempt_from_cols(cols, r) for r in rows]
-
-    def insert_suite(self, row: SuiteResultRow) -> None:
-        with self._connect() as conn:
-            try:
-                self._exec(
-                    conn,
-                    Q.INSERT_SUITE,
-                    (
-                        row.suite_run_id,
-                        row.database_id,
-                        row.database_version,
-                        row.visibility,
-                        row.pass_rate,
-                        row.mean_score,
-                        row.metrics_json,
-                        row.tasks_json,
-                        row.agent_label,
-                        row.model_label,
-                        row.blob_digest,
-                        row.size,
-                        row.exit_code,
-                        row.created_at,
-                        row.config_json or "{}",
-                        row.uploaded_by or "",
-                    ),
-                )
-                conn.commit()
-            except Exception as exc:
-                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
-                    raise ValueError("suite result already exists") from exc
-                raise
-
-    def get_suite(self, suite_run_id: str) -> SuiteResultRow | None:
-        with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_SUITE, (suite_run_id,))
-            r = cur.fetchone()
-            if r is None:
-                return None
-            cols = [d.name for d in cur.description] if cur.description else []
-            return self._suite_from_cols(cols, r)
-
-    def list_suites(
-        self,
-        *,
-        database_id: str | None = None,
-        include_private: bool = False,
-    ) -> list[SuiteResultRow]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        if not include_private:
-            clauses.append("visibility = 'public'")
-        if database_id:
-            clauses.append("database_id = %s")
-            params.append(database_id)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        with self._connect() as conn:
-            cur = conn.execute(
-                f"SELECT * FROM suite_results {where} ORDER BY created_at DESC",
-                params,
-            )
-            rows = cur.fetchall()
-            cols = [d.name for d in cur.description] if cur.description else []
-            return [self._suite_from_cols(cols, r) for r in rows]
-
-    def delete_attempt(self, run_id: str) -> AttemptResultRow:
-        row = self.get_attempt(run_id)
-        if row is None:
-            raise LookupError("attempt not found")
-        with self._connect() as conn:
-            conn.execute(
-                "DELETE FROM result_shares WHERE result_kind='attempt' AND result_id=%s",
-                (run_id,),
-            )
-            conn.execute("DELETE FROM attempt_results WHERE run_id=%s", (run_id,))
-            conn.commit()
-        return row
-
-    def set_attempt_visibility(self, run_id: str, visibility: str) -> AttemptResultRow:
-        if visibility not in {"public", "private"}:
-            raise ValueError("bad visibility")
-        row = self.get_attempt(run_id)
-        if row is None:
-            raise LookupError("attempt not found")
-        with self._connect() as conn:
-            conn.execute(
-                "UPDATE attempt_results SET visibility=%s WHERE run_id=%s",
-                (visibility, run_id),
-            )
-            conn.commit()
-        updated = self.get_attempt(run_id)
-        assert updated is not None
-        return updated
-
-    def delete_suite(self, suite_run_id: str) -> SuiteResultRow:
-        row = self.get_suite(suite_run_id)
-        if row is None:
-            raise LookupError("suite not found")
-        with self._connect() as conn:
-            conn.execute(
-                "DELETE FROM result_shares WHERE result_kind='suite' AND result_id=%s",
-                (suite_run_id,),
-            )
-            conn.execute("DELETE FROM suite_results WHERE suite_run_id=%s", (suite_run_id,))
-            conn.commit()
-        return row
-
-    def set_suite_visibility(self, suite_run_id: str, visibility: str) -> SuiteResultRow:
-        if visibility not in {"public", "private"}:
-            raise ValueError("bad visibility")
-        row = self.get_suite(suite_run_id)
-        if row is None:
-            raise LookupError("suite not found")
-        with self._connect() as conn:
-            conn.execute(
-                "UPDATE suite_results SET visibility=%s WHERE suite_run_id=%s",
-                (visibility, suite_run_id),
-            )
-            conn.commit()
-        updated = self.get_suite(suite_run_id)
-        assert updated is not None
-        return updated
-
-    def list_attempts_for_suite(self, suite_run_id: str) -> list[AttemptResultRow]:
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT * FROM attempt_results WHERE suite_run_id=%s ORDER BY created_at DESC",
-                (suite_run_id,),
-            )
-            rows = cur.fetchall()
-            cols = [d.name for d in cur.description] if cur.description else []
-            return [self._attempt_from_cols(cols, r) for r in rows]
-
-    def count_attempt_blob_refs(self, blob_digest: str) -> int:
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT COUNT(*) FROM attempt_results WHERE blob_digest=%s",
-                (blob_digest,),
-            )
-            return int(cur.fetchone()[0])
-
-    def count_suite_blob_refs(self, blob_digest: str) -> int:
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT COUNT(*) FROM suite_results WHERE blob_digest=%s",
-                (blob_digest,),
-            )
-            return int(cur.fetchone()[0])
-
-    def count_package_blob_refs(self, blob_digest: str) -> int:
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT COUNT(*) FROM releases WHERE blob_digest=%s",
-                (blob_digest,),
-            )
-            return int(cur.fetchone()[0])
-
-    def delete_release(self, database_id: str, version: str) -> ReleaseRow:
-        row = self.get_by_version(database_id, version)
-        if row is None:
-            raise LookupError("release not found")
-        with self._connect() as conn:
-            conn.execute(
-                "DELETE FROM releases WHERE database_id=%s AND version=%s",
-                (database_id, version),
-            )
-            conn.commit()
-        return row
-
-    def set_release_visibility(
-        self, database_id: str, version: str, visibility: str
-    ) -> ReleaseRow:
-        if visibility not in {"public", "private"}:
-            raise ValueError("bad visibility")
-        row = self.get_by_version(database_id, version)
-        if row is None:
-            raise LookupError("release not found")
-        with self._connect() as conn:
-            conn.execute(
-                "UPDATE releases SET visibility=%s WHERE database_id=%s AND version=%s",
-                (visibility, database_id, version),
-            )
-            conn.commit()
-        updated = self.get_by_version(database_id, version)
-        assert updated is not None
-        return updated
-
-    @staticmethod
-    def _release_from_cur(cur: Any, r: Any) -> ReleaseRow:
-        cols = [d.name for d in cur.description]
-        return PostgresMetadataStore._release_from_cols(cols, r)
-
-    @staticmethod
-    def _release_from_cols(cols: list[str], r: Any) -> ReleaseRow:
-        d = dict(zip(cols, r, strict=True))
-        org_raw = d.get("org_id")
-        return ReleaseRow(
-            database_id=str(d["database_id"]),
-            version=str(d["version"]),
-            visibility=str(d["visibility"]),
-            package_digest=str(d["package_digest"]),
-            blob_digest=str(d["blob_digest"]),
-            size=int(d["size"]),
-            media_type=str(d["media_type"]),
-            created_at=float(d["created_at"]),
-            org_id=str(org_raw) if org_raw else None,
-        )
-
-    @staticmethod
-    def _attempt_from_cols(cols: list[str], r: Any) -> AttemptResultRow:
-        d = dict(zip(cols, r, strict=True))
-        return AttemptResultRow(
-            run_id=str(d["run_id"]),
-            database_id=str(d["database_id"]),
-            task_id=str(d["task_id"]),
-            lock_digest=str(d["lock_digest"]),
-            status=str(d["status"]),
-            visibility=str(d["visibility"]),
-            blob_digest=str(d["blob_digest"]),
-            size=int(d["size"]),
-            created_at=float(d["created_at"]),
-            uploaded_by=str(d.get("uploaded_by") or ""),
-            suite_run_id=str(d.get("suite_run_id") or ""),
-        )
-
-    @staticmethod
-    def _suite_from_cols(cols: list[str], r: Any) -> SuiteResultRow:
-        d = dict(zip(cols, r, strict=True))
-        return SuiteResultRow(
-            suite_run_id=str(d["suite_run_id"]),
-            database_id=str(d["database_id"]),
-            database_version=str(d["database_version"]),
-            visibility=str(d["visibility"]),
-            pass_rate=float(d["pass_rate"]),
-            mean_score=float(d["mean_score"]),
-            metrics_json=str(d["metrics_json"]),
-            tasks_json=str(d["tasks_json"]),
-            agent_label=str(d.get("agent_label") or ""),
-            model_label=str(d.get("model_label") or ""),
-            blob_digest=str(d["blob_digest"]),
-            size=int(d["size"]),
-            exit_code=int(d["exit_code"]),
-            created_at=float(d["created_at"]),
-            config_json=str(d.get("config_json") or "{}"),
-            uploaded_by=str(d.get("uploaded_by") or ""),
-        )
-
-    # Delegate org/share to same SQL shape as SQLite (psycopg %s).
-    def create_org(
-        self,
-        *,
-        name: str,
-        owner_user_id: str,
-        display_name: str = "",
-        is_claimable: bool = False,
-    ) -> OrgRow:
-        org_id = name
-        row = OrgRow(
-            org_id=org_id,
-            name=name,
-            display_name=display_name or name,
-            is_claimable=is_claimable,
-            created_at=now(),
-        )
-        with self._connect() as conn:
-            try:
-                self._exec(
-                    conn,
-                    Q.INSERT_ORG,
-                    (
-                        row.org_id,
-                        row.name,
-                        row.display_name,
-                        row.is_claimable,
-                        row.created_at,
-                    ),
-                )
-                self._exec(
-                    conn,
-                    Q.INSERT_ORG_OWNER_MEMBERSHIP,
-                    (row.org_id, owner_user_id, row.created_at),
-                )
-                conn.commit()
-            except Exception as exc:
-                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
-                    raise ValueError("org already exists") from exc
-                raise
-        return row
-
-    def get_org(self, org_id: str) -> OrgRow | None:
-        with self._connect() as conn:
-            cur = self._exec(
-                conn,
-                "SELECT org_id, name, display_name, is_claimable, created_at "
-                "FROM organizations WHERE org_id=?",
-                (org_id,),
-            )
-            r = cur.fetchone()
-            if r is None:
-                return None
-            return OrgRow(
-                org_id=str(r[0]),
-                name=str(r[1]),
-                display_name=str(r[2] or ""),
-                is_claimable=bool(r[3]),
-                created_at=float(r[4]),
-            )
-
-    def list_orgs_for_user(self, user_id: str) -> list[tuple[OrgRow, str]]:
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT o.org_id, o.name, o.display_name, o.is_claimable, o.created_at, m.role
-                FROM organizations o
-                JOIN org_memberships m ON m.org_id = o.org_id
-                WHERE m.user_id = %s
-                ORDER BY o.name
-                """,
-                (user_id,),
-            )
-            out: list[tuple[OrgRow, str]] = []
-            for r in cur.fetchall():
-                out.append(
-                    (
-                        OrgRow(
-                            org_id=str(r[0]),
-                            name=str(r[1]),
-                            display_name=str(r[2] or ""),
-                            is_claimable=bool(r[3]),
-                            created_at=float(r[4]),
-                        ),
-                        str(r[5]),
-                    )
-                )
-            return out
-
-    def claim_org(self, org_id: str, user_id: str) -> OrgRow:
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT org_id, name, display_name, is_claimable, created_at "
-                "FROM organizations WHERE org_id=%s",
-                (org_id,),
-            )
-            r = cur.fetchone()
-            if r is None:
-                raise LookupError("org not found")
-            if not bool(r[3]):
-                raise PermissionError("org not claimable")
-            owners = conn.execute(
-                "SELECT 1 FROM org_memberships WHERE org_id=%s AND role='owner' LIMIT 1",
-                (org_id,),
-            ).fetchone()
-            if owners is not None:
-                raise PermissionError("org already claimed")
-            conn.execute(
-                """
-                INSERT INTO org_memberships(org_id, user_id, role, created_at)
-                VALUES (%s, %s, 'owner', %s)
-                """,
-                (org_id, user_id, now()),
-            )
-            conn.execute(
-                "UPDATE organizations SET is_claimable=FALSE WHERE org_id=%s",
-                (org_id,),
-            )
-            conn.commit()
-        got = self.get_org(org_id)
-        assert got is not None
-        return got
-
-    def add_member(self, org_id: str, user_id: str, *, role: str = "member") -> MembershipRow:
-        if role not in {"owner", "member"}:
-            raise ValueError("invalid role")
-        ts = now()
-        if self.get_org(org_id) is None:
-            raise LookupError("org not found")
-        with self._connect() as conn:
-            try:
-                conn.execute(
-                    """
-                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (org_id, user_id, role, ts),
-                )
-                conn.commit()
-            except Exception as exc:
-                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
-                    raise ValueError("membership exists") from exc
-                raise
-        return MembershipRow(org_id=org_id, user_id=user_id, role=role, created_at=ts)
-
-    def remove_member(self, org_id: str, user_id: str) -> None:
-        with self._connect() as conn:
-            cur = conn.execute(
-                "DELETE FROM org_memberships WHERE org_id=%s AND user_id=%s",
-                (org_id, user_id),
-            )
-            if cur.rowcount == 0:
-                raise LookupError("membership not found")
-            conn.commit()
-
-    def count_org_owners(self, org_id: str) -> int:
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT COUNT(*) FROM org_memberships WHERE org_id=%s AND role='owner'",
-                (org_id,),
-            )
-            r = cur.fetchone()
-            return int(r[0] if r is not None else 0)
-
-    def count_org_packages(self, org_id: str) -> int:
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT COUNT(*) FROM releases WHERE org_id=%s",
-                (org_id,),
-            )
-            r = cur.fetchone()
-            return int(r[0] if r is not None else 0)
-
-    def leave_org(self, org_id: str, user_id: str) -> None:
-        uid = _normalize_user_id(user_id) or user_id
-        mem = self.membership(org_id, uid)
-        if mem is None:
-            raise LookupError("membership not found")
-        if mem.role == "owner" and self.count_org_owners(org_id) <= 1:
-            raise PermissionError("sole owner cannot leave; dissolve the organization instead")
-        self.remove_member(org_id, uid)
-
-    def delete_org(self, org_id: str) -> None:
-        if self.get_org(org_id) is None:
-            raise LookupError("org not found")
-        n_pkg = self.count_org_packages(org_id)
-        if n_pkg > 0:
-            raise ValueError(
-                f"org still has {n_pkg} package release(s); unpublish or reassign first"
-            )
-        with self._connect() as conn:
-            conn.execute("DELETE FROM org_invite_keys WHERE org_id=%s", (org_id,))
-            conn.execute("DELETE FROM org_memberships WHERE org_id=%s", (org_id,))
-            conn.execute(
-                "DELETE FROM result_shares WHERE target_type='org' AND target_id=%s",
-                (org_id,),
-            )
-            cur = conn.execute("DELETE FROM organizations WHERE org_id=%s", (org_id,))
-            if cur.rowcount == 0:
-                raise LookupError("org not found")
-            conn.commit()
-
-    def list_members(self, org_id: str) -> list[MembershipRow]:
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT org_id, user_id, role, created_at
-                FROM org_memberships WHERE org_id=%s ORDER BY role, user_id
-                """,
-                (org_id,),
-            )
-            return [
-                MembershipRow(
-                    org_id=str(r[0]),
-                    user_id=str(r[1]),
-                    role=str(r[2]),
-                    created_at=float(r[3]),
-                )
-                for r in cur.fetchall()
-            ]
-
-    def membership(self, org_id: str, user_id: str) -> MembershipRow | None:
-        with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_MEMBERSHIP, (org_id, user_id))
-            r = cur.fetchone()
-            if r is None:
-                return None
-            return MembershipRow(
-                org_id=str(r[0]),
-                user_id=str(r[1]),
-                role=str(r[2]),
-                created_at=float(r[3]),
-            )
-
-    def create_invite_key(
-        self,
-        *,
-        org_id: str,
-        created_by: str,
-        token_hash: str,
-        token_prefix: str,
-        max_uses: int | None = None,
-        expires_at: float | None = None,
-        key_id: str | None = None,
-    ) -> OrgInviteKeyRow:
-        import secrets as _secrets
-
-        if self.get_org(org_id) is None:
-            raise LookupError("org not found")
-        if max_uses is not None and max_uses < 1:
-            raise ValueError("max_uses must be >= 1")
-        if not token_hash or not token_prefix:
-            raise ValueError("token_hash and token_prefix required")
-        kid = key_id or _secrets.token_hex(8)
-        row = OrgInviteKeyRow(
-            key_id=kid,
-            org_id=org_id,
-            token_hash=token_hash,
-            token_prefix=token_prefix,
-            created_by=created_by or "",
-            max_uses=max_uses,
-            use_count=0,
-            expires_at=expires_at,
-            revoked_at=None,
-            created_at=now(),
-        )
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO org_invite_keys(
-                    key_id, org_id, token_hash, token_prefix, created_by,
-                    max_uses, use_count, expires_at, revoked_at, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    row.key_id,
-                    row.org_id,
-                    row.token_hash,
-                    row.token_prefix,
-                    row.created_by,
-                    row.max_uses,
-                    row.use_count,
-                    row.expires_at,
-                    row.revoked_at,
-                    row.created_at,
-                ),
-            )
-            conn.commit()
-        return row
-
-    def list_invite_keys(self, org_id: str) -> list[OrgInviteKeyRow]:
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT key_id, org_id, token_hash, token_prefix, created_by,
-                       max_uses, use_count, expires_at, revoked_at, created_at
-                FROM org_invite_keys
-                WHERE org_id=%s
-                ORDER BY created_at DESC
-                """,
-                (org_id,),
-            )
-            return [self._invite_key_from_tuple(r) for r in cur.fetchall()]
-
-    def get_invite_key(self, org_id: str, key_id: str) -> OrgInviteKeyRow | None:
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT key_id, org_id, token_hash, token_prefix, created_by,
-                       max_uses, use_count, expires_at, revoked_at, created_at
-                FROM org_invite_keys WHERE org_id=%s AND key_id=%s
-                """,
-                (org_id, key_id),
-            )
-            r = cur.fetchone()
-            return self._invite_key_from_tuple(r) if r else None
-
-    def revoke_invite_key(self, org_id: str, key_id: str) -> OrgInviteKeyRow:
-        ts = now()
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT key_id, org_id, token_hash, token_prefix, created_by,
-                       max_uses, use_count, expires_at, revoked_at, created_at
-                FROM org_invite_keys WHERE org_id=%s AND key_id=%s
-                """,
-                (org_id, key_id),
-            )
-            r = cur.fetchone()
-            if r is None:
-                raise LookupError("invite key not found")
-            row = self._invite_key_from_tuple(r)
-            if row.revoked_at is not None:
-                return row
-            conn.execute(
-                "UPDATE org_invite_keys SET revoked_at=%s WHERE key_id=%s",
-                (ts, key_id),
-            )
-            conn.commit()
-        out = self.get_invite_key(org_id, key_id)
-        assert out is not None
-        return out
-
-    def redeem_invite_key(self, *, token_hash: str, user_id: str) -> tuple[OrgRow, MembershipRow]:
-        """Join org via invite key. Fail closed on expired / exhausted / revoked.
-
-        ``max_uses`` is enforced by a conditional ``UPDATE`` so concurrent
-        redeems cannot over-admit under Postgres READ COMMITTED.
-        """
-        uid = _normalize_user_id(user_id) or user_id
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT key_id, org_id, token_hash, token_prefix, created_by,
-                       max_uses, use_count, expires_at, revoked_at, created_at
-                FROM org_invite_keys WHERE token_hash=%s
-                """,
-                (token_hash,),
-            )
-            r = cur.fetchone()
-            if r is None:
-                raise LookupError("invalid invite key")
-            inv = self._invite_key_from_tuple(r)
-            if inv.revoked_at is not None:
-                raise PermissionError("invite key revoked")
-            if inv.expires_at is not None and inv.expires_at <= now():
-                raise PermissionError("invite key expired")
-            org = self.get_org(inv.org_id)
-            if org is None:
-                raise LookupError("org not found")
-            existing = self.membership(inv.org_id, uid)
-            if existing is not None:
-                return org, existing
-            # Claim a slot atomically (check + increment). rowcount==0 ⇒ exhausted.
-            claim = conn.execute(
-                """
-                UPDATE org_invite_keys
-                SET use_count = use_count + 1
-                WHERE key_id=%s AND (max_uses IS NULL OR use_count < max_uses)
-                """,
-                (inv.key_id,),
-            )
-            if claim.rowcount == 0:
-                raise PermissionError("invite key exhausted")
-            ts = now()
-            try:
-                conn.execute(
-                    """
-                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
-                    VALUES (%s, %s, 'member', %s)
-                    """,
-                    (inv.org_id, uid, ts),
-                )
-            except Exception as exc:
-                # Same-transaction rollback drops the claim on context exit.
-                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
-                    raise ValueError("membership exists") from exc
-                raise
-            conn.commit()
-            mem = MembershipRow(org_id=inv.org_id, user_id=uid, role="member", created_at=ts)
-            return org, mem
-
-    @staticmethod
-    def _invite_key_from_tuple(r: Any) -> OrgInviteKeyRow:
-        max_uses = r[5]
-        expires_at = r[7]
-        revoked_at = r[8]
-        return OrgInviteKeyRow(
-            key_id=str(r[0]),
-            org_id=str(r[1]),
-            token_hash=str(r[2]),
-            token_prefix=str(r[3] or ""),
-            created_by=str(r[4] or ""),
-            max_uses=int(max_uses) if max_uses is not None else None,
-            use_count=int(r[6] or 0),
-            expires_at=float(expires_at) if expires_at is not None else None,
-            revoked_at=float(revoked_at) if revoked_at is not None else None,
-            created_at=float(r[9]),
-        )
-
-    def user_org_ids(self, user_id: str) -> set[str]:
-        with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_USER_ORG_IDS, (user_id,))
-            return {str(r[0]) for r in cur.fetchall()}
-
-    def add_result_share(
-        self,
-        *,
-        result_kind: str,
-        result_id: str,
-        target_type: str,
-        target_id: str,
-    ) -> ResultShareRow:
-        if result_kind not in {"attempt", "suite"}:
-            raise ValueError("invalid result_kind")
-        if target_type not in {"org", "user"}:
-            raise ValueError("invalid target_type")
-        ts = now()
-        with self._connect() as conn:
-            try:
-                conn.execute(
-                    """
-                    INSERT INTO result_shares(
-                        result_kind, result_id, target_type, target_id, created_at
-                    ) VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (result_kind, result_id, target_type, target_id, ts),
-                )
-                conn.commit()
-            except Exception as exc:
-                if type(exc).__name__ == "UniqueViolation" or "unique" in str(exc).lower():
-                    raise ValueError("share already exists") from exc
-                raise
-        return ResultShareRow(
-            result_kind=result_kind,
-            result_id=result_id,
-            target_type=target_type,
-            target_id=target_id,
-            created_at=ts,
-        )
-
-    def remove_result_share(
-        self,
-        *,
-        result_kind: str,
-        result_id: str,
-        target_type: str,
-        target_id: str,
-    ) -> None:
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                DELETE FROM result_shares
-                WHERE result_kind=%s AND result_id=%s AND target_type=%s AND target_id=%s
-                """,
-                (result_kind, result_id, target_type, target_id),
-            )
-            if cur.rowcount == 0:
-                raise LookupError("share not found")
-            conn.commit()
-
-    def list_result_shares(self, *, result_kind: str, result_id: str) -> list[ResultShareRow]:
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT result_kind, result_id, target_type, target_id, created_at
-                FROM result_shares
-                WHERE result_kind=%s AND result_id=%s
-                ORDER BY target_type, target_id
-                """,
-                (result_kind, result_id),
-            )
-            return [
-                ResultShareRow(
-                    result_kind=str(r[0]),
-                    result_id=str(r[1]),
-                    target_type=str(r[2]),
-                    target_id=str(r[3]),
-                    created_at=float(r[4]),
-                )
-                for r in cur.fetchall()
-            ]
-
-    def result_shared_with_user(
-        self,
-        *,
-        result_kind: str,
-        result_id: str,
-        user_id: str,
-        user_orgs: set[str],
-    ) -> bool:
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                SELECT 1 FROM result_shares
-                WHERE result_kind=%s AND result_id=%s AND target_type='user' AND target_id=%s
-                LIMIT 1
-                """,
-                (result_kind, result_id, user_id),
-            )
-            if cur.fetchone() is not None:
-                return True
-            if not user_orgs:
-                return False
-            cur = conn.execute(
-                """
-                SELECT 1 FROM result_shares
-                WHERE result_kind=%s AND result_id=%s AND target_type='org'
-                  AND target_id = ANY(%s)
-                LIMIT 1
-                """,
-                (result_kind, result_id, list(user_orgs)),
-            )
-            return cur.fetchone() is not None
-
-    def upsert_user_profile(
-        self,
-        *,
-        user_id: str,
-        display_name: str = "",
-        avatar_url: str = "",
-        github_id: str = "",
-    ) -> UserProfileRow:
-        uid = _normalize_user_id(user_id) or user_id
-        row = UserProfileRow(
-            user_id=uid,
-            display_name=(display_name or "").strip(),
-            avatar_url=(avatar_url or "").strip(),
-            github_id=str(github_id or "").strip(),
-            updated_at=now(),
-        )
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO user_profiles(
-                    user_id, display_name, avatar_url, github_id, updated_at
-                ) VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    display_name = EXCLUDED.display_name,
-                    avatar_url = EXCLUDED.avatar_url,
-                    github_id = EXCLUDED.github_id,
-                    updated_at = EXCLUDED.updated_at
-                """,
-                (
-                    row.user_id,
-                    row.display_name,
-                    row.avatar_url,
-                    row.github_id,
-                    row.updated_at,
-                ),
-            )
-            conn.commit()
-        return row
-
-    def get_user_profile(self, user_id: str) -> UserProfileRow | None:
-        uid = _normalize_user_id(user_id) or user_id
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT user_id, display_name, avatar_url, github_id, updated_at "
-                "FROM user_profiles WHERE user_id=%s",
-                (uid,),
-            )
-            r = cur.fetchone()
-            if r is None:
-                return None
-            return UserProfileRow(
-                user_id=str(r[0]),
-                display_name=str(r[1] or ""),
-                avatar_url=str(r[2] or ""),
-                github_id=str(r[3] or ""),
-                updated_at=float(r[4]),
-            )
-
-    def get_user_profiles(self, user_ids: list[str] | set[str]) -> dict[str, UserProfileRow]:
-        ids = sorted({_normalize_user_id(u) or u for u in user_ids if u})
-        if not ids:
-            return {}
-        with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT user_id, display_name, avatar_url, github_id, updated_at "
-                "FROM user_profiles WHERE user_id = ANY(%s)",
-                (ids,),
-            )
-            out: dict[str, UserProfileRow] = {}
-            for r in cur.fetchall():
-                p = UserProfileRow(
-                    user_id=str(r[0]),
-                    display_name=str(r[1] or ""),
-                    avatar_url=str(r[2] or ""),
-                    github_id=str(r[3] or ""),
-                    updated_at=float(r[4]),
-                )
-                out[p.user_id] = p
-            return out
-
-
-# ---------------------------------------------------------------------------
-# Serialization
-# ---------------------------------------------------------------------------
-
 
 def package_kind_for_media_type(media_type: str) -> str:
     """Derive list/meta ``package_kind`` without opening the blob."""
