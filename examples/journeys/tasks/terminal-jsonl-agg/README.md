@@ -36,6 +36,16 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml
 ```
 
+This journey writes `aggregates.json`, so omit `options.permission` or use
+`workspace-write`. `read-only` is a DSH file-effect policy for jobs that
+must not write; it is not BORA isolation.
+
+```bash
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.dsh.read-only.yaml
+# or: --set '/bindings/solver/options/permission="read-only"'
+```
+
 Needs locator `deepseek_api_key` in repo `.env`. L1 bake installs
 `deepseek-harness-sdk` in the Attempt image.
 

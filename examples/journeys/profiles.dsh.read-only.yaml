@@ -1,0 +1,18 @@
+# Journeys profiles: dsh with DSH file-effect policy read-only.
+# Usage:
+#   uv run bora plugin install plugins/dsh
+#   uv run bora run examples/journeys --task terminal-jsonl-agg \
+#     --profiles examples/journeys/profiles.dsh.read-only.yaml
+#
+# Coding tasks that must write workspace files should omit permission
+# (or use workspace-write). This binding is for dialog-style jobs and
+# for checking that DSH bash/fs writes are denied.
+# Same harness as profiles.dsh.yaml — only the job binding changes.
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: dsh
+    model: deepseek-v4-flash
+    api_key: deepseek_api_key
+    options:
+      permission: read-only

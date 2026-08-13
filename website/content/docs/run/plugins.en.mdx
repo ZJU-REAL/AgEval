@@ -43,7 +43,14 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 # DeepSeek Harness (not ACP):
 # uv run bora run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.yaml
+# Optional DSH file-effect policy (plugin-owned options.permission):
+# uv run bora run examples/journeys --task terminal-jsonl-agg \
+#   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
+
+`dsh` `options.permission` accepts `read-only`, `workspace-write`, or
+`danger-full-access`. Omit it to keep unrestricted local bash/fs. Invalid
+values fail closed. This is not a BORA isolation claim.
 
 `bora lock` writes the resolved extension graph into `extension_bindings` in the lock summary.
 

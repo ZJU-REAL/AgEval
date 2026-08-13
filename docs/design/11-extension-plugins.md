@@ -153,5 +153,5 @@ L1：bake 安装 `nooa` + **in-container worker**；parent 把 model/base_url/�
 - 结构地图：[`ARCHITECTURE.md`](../../ARCHITECTURE.md)（plugins 树、emit map）  
 - Owner：[`09-owner-matrix-and-structure.md`](09-owner-matrix-and-structure.md)  
 - Runtime Agent：[`05-runtime/agent-service.md`](05-runtime/agent-service.md)  
-- 示例：`plugins/nooa`、`plugins/dsh`、`plugins/slot-probe`、`examples/journeys/profiles.nooa.yaml`、`examples/journeys/profiles.dsh.yaml`、`examples/slot-probe/`  
+- 示例：`plugins/nooa`、`plugins/dsh`（`options.permission` 为插件自有键，非新 slot）、`plugins/slot-probe`、`examples/journeys/profiles.nooa.yaml`、`examples/journeys/profiles.dsh.yaml`、`examples/journeys/profiles.dsh.read-only.yaml`、`examples/slot-probe/`  
 - 交付跟踪：GitHub Issues（Epic 插件系统）

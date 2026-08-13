@@ -213,6 +213,7 @@ Must not PASS agent packages. Typed errors only.
 | L1 isolation contracts       | Provider tests: `uv run pytest tests/provider_l1/test_harness_isolation_contracts.py tests/provider_l1/test_filtered_mount.py -q`              |
 | nooa plugin (L1)             | `bora plugin install plugins/nooa` then `bora run examples/journeys --task terminal-jsonl-agg --profiles examples/journeys/profiles.nooa.yaml` |
 | dsh plugin (L1)              | `bora plugin install plugins/dsh` then `bora run examples/journeys --task terminal-jsonl-agg --profiles examples/journeys/profiles.dsh.yaml`   |
+| dsh file-effect policy       | same + `--profiles examples/journeys/profiles.dsh.read-only.yaml` or `--set '/bindings/solver/options/permission="read-only"'`                 |
 
 ## Detail
 

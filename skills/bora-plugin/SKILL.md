@@ -110,7 +110,7 @@ Discover flags with `bora plugin --help`. Do not invent commands.
 | `docs/design/05-runtime/evidence.md` | Three-layer trajectory contract |
 | `src/bora/plugins/slots.py` / `protocol.py` | Slot ids and `ExecutorSPI` |
 | `plugins/nooa` | External executor + bake + neutral trajectory |
-| `plugins/dsh` | External DeepSeek Harness JSON-RPC executor + bake (not ACP) |
+| `plugins/dsh` | External DeepSeek Harness JSON-RPC executor + bake (not ACP); `options.permission` is plugin-owned |
 | `plugins/slot-probe` + `examples/slot-probe` | Multi-slot on-handler regression, not a business template |
 
 Siblings: orientation → `$bora-platform`; CLI → `$bora-cli`; Database/profiles → `$bora-config-package`; harness → `$bora-sdk-harness`.

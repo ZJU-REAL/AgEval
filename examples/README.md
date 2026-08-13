@@ -87,6 +87,9 @@ uv run bora plugin install plugins/dsh
 unset BORA_OFFLINE_AGENT
 uv run bora run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml
+# Optional DSH file-effect policy (omit permission to keep unrestricted local tools):
+# uv run bora run examples/journeys --task terminal-jsonl-agg \
+#   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
 ## `slot-probe/` (`database_id: example/slot-probe`)

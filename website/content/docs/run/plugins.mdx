@@ -42,7 +42,14 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 # DeepSeek Harness（非 ACP）：
 # uv run bora run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.yaml
+# 可选 DSH 文件效果策略（插件自有 options.permission）：
+# uv run bora run examples/journeys --task terminal-jsonl-agg \
+#   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
+
+`dsh` 的 `options.permission` 只接受 `read-only`、`workspace-write`、
+`danger-full-access`。省略则仍用不受限的本地 bash/fs。非法值 fail-closed。
+这不是 BORA isolation 声明。
 
 `bora lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
 

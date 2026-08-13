@@ -38,8 +38,25 @@ bindings:
     model: deepseek-v4-flash
     api_key: deepseek_api_key          # env locator
     options:
-      composition: slim
+      composition: slim               # omit permission → unrestricted local bash/fs
+      # permission: read-only         # or workspace-write | danger-full-access
 ```
+
+`options.permission` is plugin-owned (same pattern as `composition`). Allowed
+values: `read-only` | `workspace-write` | `danger-full-access`. Setting it
+loads the sandboxed composition (`dsh-bash-sandbox` / `dsh-fs-sandbox` +
+`dsh-sandbox-policy`) and passes `DSH_PERMISSION_MODE`. Omit it to keep today's
+slim / unrestricted local tools. Invalid values fail closed at materialize —
+no spawn.
+
+Batch approval is `never` in the sandboxed tree so an unattended `bora run`
+cannot hang on a permission prompt. This is a DSH file-effect policy, not
+BORA isolation. L1 Docker + landlock / Seatbelt may fail to start
+(`SANDBOX_UNAVAILABLE`); that fails closed. Do not claim `isolated` from this
+knob.
+
+Same harness; switch only via profiles or
+`--set '/bindings/<role>/options/permission="read-only"'`.
 
 ## Journeys smoke (L1, real API)
 
@@ -48,6 +65,9 @@ uv run bora plugin install plugins/dsh
 unset BORA_OFFLINE_AGENT
 uv run bora run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml
+# file-effect policy (writes via DSH bash/fs are denied):
+# uv run bora run examples/journeys --task terminal-jsonl-agg \
+#   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
 ## Recognition ≠ Ready ≠ bind
