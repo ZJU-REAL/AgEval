@@ -127,7 +127,9 @@ def _install_l1_fakes(
     monkeypatch.setattr(
         "bora.application.attempt.run_l1_phases.project_executor_credentials", lambda **_k: cred
     )
-    monkeypatch.setattr("bora.application.attempt.run_l1_phases.seed_l1_workspace", lambda **_k: None)
+    monkeypatch.setattr(
+        "bora.application.attempt.run_l1_phases.seed_l1_workspace", lambda **_k: None
+    )
 
     if assemble_exc is not None:
 
@@ -345,3 +347,32 @@ async def test_success_path_cleanup_once(tmp_path: Path, monkeypatch: pytest.Mon
     # A second Coordinator-style cleanup must not raise.
     _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=True)
     assert docker.cleanup_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_run_l1_harness_stops_agent_targets_before_seal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Writers must be confirmed stopped in run finally, not only in cleanup."""
+    from bora.application.attempt.run_l1_phases import run_l1_harness
+
+    attempt = _attempt()
+    docker, runtime, _cred = _install_l1_fakes(monkeypatch, tmp_path, attempt)
+    server = FakeServer()
+    ctx = AttemptStageContext(
+        package_root=tmp_path,
+        lock=_lock(),
+        run_dir=tmp_path / "run",
+        attempt=attempt,
+        docker=docker,
+        runtime=runtime,
+        agent_server=server,
+        agent_service=FakeService(),
+        workspace_host=tmp_path / "ws",
+        wall_s=30.0,
+    )
+    ctx.run_dir.mkdir()
+    await run_l1_harness(ctx)
+    assert server.stopped is True
+    assert docker.stop_calls == 1
+    assert docker.cleanup_calls == 0

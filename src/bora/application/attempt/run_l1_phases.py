@@ -299,6 +299,11 @@ async def run_l1_harness(ctx: AttemptStageContext) -> None:
         if ctx.agent_service is not None:
             ctx.inv_count = ctx.agent_service.invocations_completed
             ctx.agent_meta["invocations"] = ctx.inv_count
+        # Confirm agent-target writers stopped before seal/evaluate. Full
+        # network + l1-work teardown stays in cleanup_l1 (docker.cleanup).
+        if ctx.docker is not None and ctx.runtime is not None:
+            with contextlib.suppress(Exception):
+                ctx.docker.stop_agent_targets(ctx.runtime)
 
 
 def seal_l1_inputs(ctx: AttemptStageContext) -> bool:
