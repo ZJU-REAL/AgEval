@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
+from typing import Iterable
 
 from bora.adapters.provider_docker.errors import ProviderL1Error
 from bora.adapters.provider_docker.types import DockerImageLock
+
+_OFFICIAL_BASE_TAG = "bora-attempt:l1"
+_COPY_HEAD = re.compile(r"^(COPY|ADD)\s+", re.IGNORECASE)
+_SKIP_COPY_DIR_NAMES = frozenset({".bora", ".git", "__pycache__", "node_modules"})
+_INSPECT_DIGEST_FMT = "{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}"
 
 
 def ensure_image_lock(repo_root: Path | None = None) -> Path:
@@ -34,17 +43,197 @@ def ensure_base_image(repo_root: Path | None = None) -> DockerImageLock:
     return DockerImageLock.load(path)
 
 
+def dockerfile_logical_lines(text: str) -> list[str]:
+    """Join backslash-continued Dockerfile lines; drop comments and blanks."""
+    lines: list[str] = []
+    buf: list[str] = []
+    for raw in text.splitlines():
+        stripped = raw.rstrip()
+        if stripped.endswith("\\"):
+            buf.append(stripped[:-1].rstrip())
+            continue
+        buf.append(stripped)
+        joined = " ".join(part.strip() for part in buf if part.strip())
+        buf = []
+        if not joined or joined.startswith("#"):
+            continue
+        lines.append(joined)
+    if buf:
+        joined = " ".join(part.strip() for part in buf if part.strip())
+        if joined and not joined.startswith("#"):
+            lines.append(joined)
+    return lines
+
+
+def parse_dockerfile_from_image(text: str) -> str | None:
+    """Return the first FROM image ref (skip scratch and substitution)."""
+    for line in dockerfile_logical_lines(text):
+        if not line.upper().startswith("FROM "):
+            continue
+        tokens = [t for t in line.split()[1:] if not t.startswith("-")]
+        if not tokens:
+            return None
+        image = tokens[0]
+        if image.upper() == "SCRATCH" or image.startswith("$"):
+            return None
+        return image
+    return None
+
+
+def parse_dockerfile_copy_sources(text: str) -> list[str]:
+    """COPY/ADD source paths in build context. Skip ``--from`` multi-stage copies."""
+    sources: list[str] = []
+    for line in dockerfile_logical_lines(text):
+        if not _COPY_HEAD.match(line):
+            continue
+        rest = _COPY_HEAD.sub("", line).strip()
+        if re.search(r"--from=", rest, flags=re.IGNORECASE):
+            continue
+        if rest.startswith("["):
+            try:
+                arr = json.loads(rest)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(arr, list) and len(arr) >= 2:
+                sources.extend(str(item) for item in arr[:-1])
+            continue
+        try:
+            tokens = shlex.split(rest)
+        except ValueError:
+            continue
+        tokens = [t for t in tokens if not t.startswith("-")]
+        if len(tokens) >= 2:
+            sources.extend(tokens[:-1])
+    return sources
+
+
+def _is_skipped_copy_path(path: Path, root: Path) -> bool:
+    try:
+        rel = path.relative_to(root)
+    except ValueError:
+        return True
+    if any(part in _SKIP_COPY_DIR_NAMES for part in rel.parts):
+        return True
+    return path.suffix == ".pyc" or path.name == ".DS_Store"
+
+
+def hash_copy_sources(context_root: Path, sources: Iterable[str], hasher: hashlib._Hash) -> None:
+    """Hash COPY/ADD sources under *context_root* in stable order."""
+    root = context_root.resolve()
+    seen: set[str] = set()
+    for src in sources:
+        rel = src.lstrip("./")
+        if not rel or rel.startswith("/"):
+            continue
+        if any(ch in rel for ch in "*?["):
+            matches = sorted(p for p in root.glob(rel) if p.exists())
+        else:
+            candidate = root / rel
+            matches = [candidate] if candidate.exists() else []
+        for path in matches:
+            try:
+                resolved = path.resolve()
+                resolved.relative_to(root)
+            except ValueError:
+                continue
+            files: list[Path]
+            if resolved.is_file():
+                files = [resolved]
+            elif resolved.is_dir():
+                files = sorted(p for p in resolved.rglob("*") if p.is_file())
+            else:
+                continue
+            for file_path in files:
+                if _is_skipped_copy_path(file_path, root):
+                    continue
+                key = str(file_path.relative_to(root)).replace("\\", "/")
+                if key in seen:
+                    continue
+                seen.add(key)
+                hasher.update(key.encode("utf-8"))
+                hasher.update(b"\0")
+                hasher.update(file_path.read_bytes())
+                hasher.update(b"\0")
+
+
+def package_image_content_digest(
+    *,
+    dockerfile: Path,
+    package_root: Path,
+    platform: str,
+    base_digest: str,
+) -> str:
+    """Hex digest of Dockerfile + FROM base digest + COPY set + platform."""
+    text = dockerfile.read_bytes()
+    hasher = hashlib.sha256()
+    hasher.update(b"dockerfile\0")
+    hasher.update(text)
+    hasher.update(b"\0base\0")
+    hasher.update(base_digest.encode("utf-8"))
+    hasher.update(b"\0platform\0")
+    hasher.update(platform.encode("utf-8"))
+    hasher.update(b"\0copy\0")
+    hash_copy_sources(
+        package_root,
+        parse_dockerfile_copy_sources(text.decode("utf-8")),
+        hasher,
+    )
+    return hasher.hexdigest()
+
+
+def official_base_digest(repo_root: Path | None = None) -> str:
+    """Official ``bora-attempt:l1`` digest from the lock (stable; not a fresh inspect)."""
+    lock = ensure_base_image(repo_root)
+    return lock.image_digest or lock.build_input_digest
+
+
+def resolve_from_base_digest(dockerfile_text: str, repo_root: Path | None = None) -> str:
+    """Base identity for the content key.
+
+    ``FROM bora-attempt:l1`` uses the official lock digest so a rebuilt base
+    invalidates package tags. Other FROM refs stay the Dockerfile text (already
+    hashed); do not inspect them — first-build inspect would change the key.
+    """
+    ref = parse_dockerfile_from_image(dockerfile_text)
+    if ref is None:
+        return ""
+    image = ref.rsplit("/", 1)[-1]
+    if image == _OFFICIAL_BASE_TAG or ref == _OFFICIAL_BASE_TAG:
+        return official_base_digest(repo_root)
+    return ref
+
+
+def package_local_tag(content_digest: str) -> str:
+    return f"bora-pkg:{content_digest[:12]}"
+
+
+def inspect_image_digest(tag: str) -> str | None:
+    """Evidence digest for an existing local tag, or None if missing."""
+    proc = subprocess.run(
+        ["docker", "image", "inspect", tag, "--format", _INSPECT_DIGEST_FMT],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return None
+    digest = (proc.stdout or "").strip()
+    return digest or None
+
+
 def build_package_image(
     *,
     package_root: Path,
     dockerfile_rel: str = "environment/Dockerfile",
     platform: str = "linux/arm64",
-    tag: str,
+    tag: str | None = None,
     repo_root: Path | None = None,
 ) -> DockerImageLock:
     """Build Attempt image from package Dockerfile (context = package root).
 
-    Ensures official base is available first so ``FROM bora-attempt:l1`` resolves.
+    Cache key is Dockerfile + FROM base digest + COPY set + platform — not
+    ``lock.digest`` or ``task_id``. Existing ``bora-pkg:{content[:12]}`` tags
+    skip ``buildx --load``.
     """
     package_root = package_root.resolve()
     df = (package_root / dockerfile_rel).resolve()
@@ -62,6 +251,24 @@ def build_package_image(
         )
 
     ensure_base_image(repo_root)
+    text = df.read_text(encoding="utf-8")
+    base_digest = resolve_from_base_digest(text, repo_root)
+    content = package_image_content_digest(
+        dockerfile=df,
+        package_root=package_root,
+        platform=platform,
+        base_digest=base_digest,
+    )
+    tag = tag or package_local_tag(content)
+    existing = inspect_image_digest(tag)
+    if existing is not None:
+        return DockerImageLock(
+            kind="docker-package-attempt",
+            platform=platform,
+            image_tag=tag,
+            image_digest=existing,
+            build_input_digest=f"sha256:{content}",
+        )
 
     cmd = [
         "docker",
@@ -83,29 +290,15 @@ def build_package_image(
             f"package image build failed: {(proc.stderr or proc.stdout or '')[-2000:]}",
         )
 
-    dig = subprocess.run(
-        [
-            "docker",
-            "image",
-            "inspect",
-            tag,
-            "--format",
-            "{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if dig.returncode != 0:
+    image_digest = inspect_image_digest(tag)
+    if not image_digest:
         raise ProviderL1Error("image_unresolved", "cannot inspect package image")
-    image_digest = (dig.stdout or "").strip()
-    build_input = hashlib.sha256(df.read_bytes()).hexdigest()
     return DockerImageLock(
         kind="docker-package-attempt",
         platform=platform,
         image_tag=tag,
         image_digest=image_digest,
-        build_input_digest=f"sha256:{build_input}",
+        build_input_digest=f"sha256:{content}",
     )
 
 

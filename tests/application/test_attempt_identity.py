@@ -116,7 +116,12 @@ def test_prepare_l1_runtime_uses_passed_attempt(
             )
 
     monkeypatch.setattr(prep, "ensure_base_image", lambda _cwd: None)
-    monkeypatch.setattr(prep, "build_package_image", lambda **_kw: image)
+
+    def _fake_build(**kw: object) -> DockerImageLock:
+        seen["build_kw"] = kw
+        return image
+
+    monkeypatch.setattr(prep, "build_package_image", _fake_build)
     monkeypatch.setattr(prep, "ensure_image_lock", lambda _cwd: tmp_path / "lock.json")
     monkeypatch.setattr(prep, "DockerProvider", FakeDocker)
     monkeypatch.setattr(hooks, "hook_prepare", lambda *_a, **_k: None)
@@ -136,6 +141,11 @@ def test_prepare_l1_runtime_uses_passed_attempt(
     assert seen["attempt"] is attempt
     assert runtime.attempt is attempt
     assert meta["attempt_id"] == attempt.value
+    build_kw = seen["build_kw"]
+    assert isinstance(build_kw, dict)
+    assert "tag" not in build_kw
+    assert lock.digest not in str(build_kw)
+    assert lock.task_id not in str(build_kw)
 
 
 def test_l1_prepare_source_has_no_identity_factory() -> None:

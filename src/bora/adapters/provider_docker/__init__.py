@@ -10,6 +10,8 @@ from bora.adapters.provider_docker.images import (
     build_package_image,
     ensure_base_image,
     ensure_image_lock,
+    package_image_content_digest,
+    package_local_tag,
     sys_executable,
 )
 from bora.adapters.provider_docker.provider import DockerProvider
@@ -23,5 +25,7 @@ __all__ = [
     "build_package_image",
     "ensure_base_image",
     "ensure_image_lock",
+    "package_image_content_digest",
+    "package_local_tag",
     "sys_executable",
 ]
