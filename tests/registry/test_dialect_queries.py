@@ -35,6 +35,23 @@ def test_match_route_package_version_meta() -> None:
     assert kwargs["package_digest"] is None
 
 
+def test_store_has_no_sql_literals() -> None:
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[2] / "services" / "registry" / "store.py").read_text(
+        encoding="utf-8"
+    )
+    needles = ("DELETE FROM", "INSERT INTO", "CREATE TABLE", "UPDATE ")
+    offenders: list[str] = []
+    for i, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if any(n in line for n in needles):
+            offenders.append(f"{i}:{stripped}")
+    assert offenders == []
+
+
 def test_match_route_health_skip_auth() -> None:
     matched = match_route("GET", "/health")
     assert matched is not None

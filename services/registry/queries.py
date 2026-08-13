@@ -1,7 +1,7 @@
 """Shared SQL text for Registry metadata stores (SQLite ``?`` placeholders).
 
-Postgres adapters run these through :func:`services.registry.dialect.pg_sql`
-before execute. DDL lives here once; dialect adapters only connect / placeholder.
+Postgres adapters rewrite placeholders in :mod:`services.registry.sql_adapter`.
+DDL lives here once; dialect adapters only connect / placeholder / row-map.
 """
 
 from __future__ import annotations
@@ -232,3 +232,154 @@ ON CONFLICT(token_hash) DO UPDATE SET
 """
 
 SELECT_TOKEN = "SELECT scopes, github_user, revoked_at FROM api_tokens WHERE token_hash=?"
+
+# ---- remaining store SQL ---------------------------------------------------
+
+DELETE_ATTEMPT_SHARES = "DELETE FROM result_shares WHERE result_kind='attempt' AND result_id=?"
+DELETE_ATTEMPT = "DELETE FROM attempt_results WHERE run_id=?"
+UPDATE_ATTEMPT_VISIBILITY = "UPDATE attempt_results SET visibility=? WHERE run_id=?"
+DELETE_SUITE_SHARES = "DELETE FROM result_shares WHERE result_kind='suite' AND result_id=?"
+DELETE_SUITE = "DELETE FROM suite_results WHERE suite_run_id=?"
+UPDATE_SUITE_VISIBILITY = "UPDATE suite_results SET visibility=? WHERE suite_run_id=?"
+SELECT_ATTEMPTS_FOR_SUITE = (
+    "SELECT * FROM attempt_results WHERE suite_run_id=? ORDER BY created_at DESC"
+)
+COUNT_ATTEMPT_BLOB_REFS = "SELECT COUNT(*) AS n FROM attempt_results WHERE blob_digest=?"
+COUNT_SUITE_BLOB_REFS = "SELECT COUNT(*) AS n FROM suite_results WHERE blob_digest=?"
+COUNT_PACKAGE_BLOB_REFS = "SELECT COUNT(*) AS n FROM releases WHERE blob_digest=?"
+DELETE_RELEASE = "DELETE FROM releases WHERE database_id=? AND version=?"
+UPDATE_RELEASE_VISIBILITY = "UPDATE releases SET visibility=? WHERE database_id=? AND version=?"
+
+SELECT_USER_ORGS = """
+SELECT o.*, m.role AS membership_role
+FROM organizations o
+JOIN org_memberships m ON m.org_id = o.org_id
+WHERE m.user_id = ?
+ORDER BY o.name
+"""
+SELECT_ORG_HAS_OWNER = "SELECT 1 FROM org_memberships WHERE org_id=? AND role='owner' LIMIT 1"
+INSERT_ORG_MEMBERSHIP_OWNER = """
+INSERT INTO org_memberships(org_id, user_id, role, created_at)
+VALUES (?, ?, 'owner', ?)
+"""
+UPDATE_ORG_CLAIMED = "UPDATE organizations SET is_claimable=0 WHERE org_id=?"
+INSERT_ORG_MEMBERSHIP = """
+INSERT INTO org_memberships(org_id, user_id, role, created_at)
+VALUES (?, ?, ?, ?)
+"""
+DELETE_ORG_MEMBERSHIP = "DELETE FROM org_memberships WHERE org_id=? AND user_id=?"
+COUNT_ORG_OWNERS = "SELECT COUNT(*) AS n FROM org_memberships WHERE org_id=? AND role='owner'"
+COUNT_ORG_PACKAGES = "SELECT COUNT(*) AS n FROM releases WHERE org_id=?"
+DELETE_ORG_INVITE_KEYS = "DELETE FROM org_invite_keys WHERE org_id=?"
+DELETE_ORG_MEMBERSHIPS = "DELETE FROM org_memberships WHERE org_id=?"
+DELETE_ORG_RESULT_SHARES = "DELETE FROM result_shares WHERE target_type='org' AND target_id=?"
+DELETE_ORG = "DELETE FROM organizations WHERE org_id=?"
+SELECT_ORG_MEMBERS = """
+SELECT org_id, user_id, role, created_at
+FROM org_memberships WHERE org_id=? ORDER BY role, user_id
+"""
+INSERT_INVITE_KEY = """
+INSERT INTO org_invite_keys(
+    key_id, org_id, token_hash, token_prefix, created_by,
+    max_uses, use_count, expires_at, revoked_at, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+"""
+SELECT_INVITE_KEYS = """
+SELECT * FROM org_invite_keys
+WHERE org_id=?
+ORDER BY created_at DESC
+"""
+SELECT_INVITE_KEY = "SELECT * FROM org_invite_keys WHERE org_id=? AND key_id=?"
+UPDATE_INVITE_REVOKED = "UPDATE org_invite_keys SET revoked_at=? WHERE key_id=?"
+SELECT_INVITE_BY_HASH = "SELECT * FROM org_invite_keys WHERE token_hash=?"
+CLAIM_INVITE_USE = """
+UPDATE org_invite_keys
+SET use_count = use_count + 1
+WHERE key_id=? AND (max_uses IS NULL OR use_count < max_uses)
+"""
+INSERT_ORG_MEMBERSHIP_MEMBER = """
+INSERT INTO org_memberships(org_id, user_id, role, created_at)
+VALUES (?, ?, 'member', ?)
+"""
+INSERT_RESULT_SHARE = """
+INSERT INTO result_shares(
+    result_kind, result_id, target_type, target_id, created_at
+) VALUES (?, ?, ?, ?, ?)
+"""
+DELETE_RESULT_SHARE = """
+DELETE FROM result_shares
+WHERE result_kind=? AND result_id=? AND target_type=? AND target_id=?
+"""
+SELECT_RESULT_SHARES = """
+SELECT * FROM result_shares
+WHERE result_kind=? AND result_id=?
+ORDER BY target_type, target_id
+"""
+SELECT_RESULT_SHARED_USER = """
+SELECT 1 FROM result_shares
+WHERE result_kind=? AND result_id=? AND target_type='user' AND target_id=?
+LIMIT 1
+"""
+UPSERT_USER_PROFILE = """
+INSERT INTO user_profiles(
+    user_id, display_name, avatar_url, github_id, updated_at
+) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(user_id) DO UPDATE SET
+    display_name=excluded.display_name,
+    avatar_url=excluded.avatar_url,
+    github_id=excluded.github_id,
+    updated_at=excluded.updated_at
+"""
+SELECT_USER_PROFILE = "SELECT * FROM user_profiles WHERE user_id=?"
+
+
+def list_attempts_query(
+    *,
+    database_id: str | None = None,
+    include_private: bool = False,
+) -> tuple[str, list[Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if not include_private:
+        clauses.append("visibility = 'public'")
+    if database_id:
+        clauses.append("database_id = ?")
+        params.append(database_id)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    return f"SELECT * FROM attempt_results {where} ORDER BY created_at DESC", params
+
+
+def list_suites_query(
+    *,
+    database_id: str | None = None,
+    include_private: bool = False,
+) -> tuple[str, list[Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if not include_private:
+        clauses.append("visibility = 'public'")
+    if database_id:
+        clauses.append("database_id = ?")
+        params.append(database_id)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    return f"SELECT * FROM suite_results {where} ORDER BY created_at DESC", params
+
+
+def select_attempts_in_query(n: int) -> str:
+    placeholders = ",".join("?" for _ in range(n))
+    return f"SELECT * FROM attempt_results WHERE run_id IN ({placeholders})"
+
+
+def select_user_profiles_in_query(n: int) -> str:
+    placeholders = ",".join("?" for _ in range(n))
+    return f"SELECT * FROM user_profiles WHERE user_id IN ({placeholders})"
+
+
+def select_result_shared_orgs_query(n: int) -> str:
+    placeholders = ",".join("?" for _ in range(n))
+    return f"""
+                SELECT 1 FROM result_shares
+                WHERE result_kind=? AND result_id=? AND target_type='org'
+                  AND target_id IN ({placeholders})
+                LIMIT 1
+                """

@@ -567,11 +567,10 @@ class MetadataStore(MetadataStoreProtocol):
         ids = sorted({str(r).strip() for r in run_ids if r and str(r).strip()})
         if not ids:
             return []
-        placeholders = ",".join("?" for _ in ids)
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                f"SELECT * FROM attempt_results WHERE run_id IN ({placeholders})",
+                Q.select_attempts_in_query(len(ids)),
                 ids,
             )
             return [self._attempt_row(r) for r in cur.fetchall()]
@@ -586,20 +585,11 @@ class MetadataStore(MetadataStoreProtocol):
         database_id: str | None = None,
         include_private: bool = False,
     ) -> list[AttemptResultRow]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        if not include_private:
-            clauses.append("visibility = 'public'")
-        if database_id:
-            clauses.append("database_id = ?")
-            params.append(database_id)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        sql, params = Q.list_attempts_query(
+            database_id=database_id, include_private=include_private
+        )
         with self._connect() as conn:
-            cur = self._exec(
-                conn,
-                f"SELECT * FROM attempt_results {where} ORDER BY created_at DESC",
-                params,
-            )
+            cur = self._exec(conn, sql, params)
             return [self._attempt_row(r) for r in cur.fetchall()]
 
     def insert_suite(self, row: SuiteResultRow) -> None:
@@ -643,20 +633,9 @@ class MetadataStore(MetadataStoreProtocol):
         database_id: str | None = None,
         include_private: bool = False,
     ) -> list[SuiteResultRow]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        if not include_private:
-            clauses.append("visibility = 'public'")
-        if database_id:
-            clauses.append("database_id = ?")
-            params.append(database_id)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        sql, params = Q.list_suites_query(database_id=database_id, include_private=include_private)
         with self._connect() as conn:
-            cur = self._exec(
-                conn,
-                f"SELECT * FROM suite_results {where} ORDER BY created_at DESC",
-                params,
-            )
+            cur = self._exec(conn, sql, params)
             return [self._suite_row(r) for r in cur.fetchall()]
 
     def delete_attempt(self, run_id: str) -> AttemptResultRow:
@@ -665,12 +644,8 @@ class MetadataStore(MetadataStoreProtocol):
         if row is None:
             raise LookupError("attempt not found")
         with self._connect() as conn:
-            self._exec(
-                conn,
-                "DELETE FROM result_shares WHERE result_kind='attempt' AND result_id=?",
-                (run_id,),
-            )
-            self._exec(conn, "DELETE FROM attempt_results WHERE run_id=?", (run_id,))
+            self._exec(conn, Q.DELETE_ATTEMPT_SHARES, (run_id,))
+            self._exec(conn, Q.DELETE_ATTEMPT, (run_id,))
             conn.commit()
         return row
 
@@ -683,7 +658,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             self._exec(
                 conn,
-                "UPDATE attempt_results SET visibility=? WHERE run_id=?",
+                Q.UPDATE_ATTEMPT_VISIBILITY,
                 (visibility, run_id),
             )
             conn.commit()
@@ -697,12 +672,8 @@ class MetadataStore(MetadataStoreProtocol):
         if row is None:
             raise LookupError("suite not found")
         with self._connect() as conn:
-            self._exec(
-                conn,
-                "DELETE FROM result_shares WHERE result_kind='suite' AND result_id=?",
-                (suite_run_id,),
-            )
-            self._exec(conn, "DELETE FROM suite_results WHERE suite_run_id=?", (suite_run_id,))
+            self._exec(conn, Q.DELETE_SUITE_SHARES, (suite_run_id,))
+            self._exec(conn, Q.DELETE_SUITE, (suite_run_id,))
             conn.commit()
         return row
 
@@ -715,7 +686,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             self._exec(
                 conn,
-                "UPDATE suite_results SET visibility=? WHERE suite_run_id=?",
+                Q.UPDATE_SUITE_VISIBILITY,
                 (visibility, suite_run_id),
             )
             conn.commit()
@@ -728,7 +699,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT * FROM attempt_results WHERE suite_run_id=? ORDER BY created_at DESC",
+                Q.SELECT_ATTEMPTS_FOR_SUITE,
                 (suite_run_id,),
             )
             return [self._attempt_row(r) for r in cur.fetchall()]
@@ -737,7 +708,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT COUNT(*) AS n FROM attempt_results WHERE blob_digest=?",
+                Q.COUNT_ATTEMPT_BLOB_REFS,
                 (blob_digest,),
             )
             return int(cur.fetchone()["n"])
@@ -746,7 +717,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT COUNT(*) AS n FROM suite_results WHERE blob_digest=?",
+                Q.COUNT_SUITE_BLOB_REFS,
                 (blob_digest,),
             )
             return int(cur.fetchone()["n"])
@@ -755,7 +726,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT COUNT(*) AS n FROM releases WHERE blob_digest=?",
+                Q.COUNT_PACKAGE_BLOB_REFS,
                 (blob_digest,),
             )
             return int(cur.fetchone()["n"])
@@ -767,7 +738,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             self._exec(
                 conn,
-                "DELETE FROM releases WHERE database_id=? AND version=?",
+                Q.DELETE_RELEASE,
                 (database_id, version),
             )
             conn.commit()
@@ -782,7 +753,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             self._exec(
                 conn,
-                "UPDATE releases SET visibility=? WHERE database_id=? AND version=?",
+                Q.UPDATE_RELEASE_VISIBILITY,
                 (visibility, database_id, version),
             )
             conn.commit()
@@ -900,17 +871,7 @@ class MetadataStore(MetadataStoreProtocol):
 
     def list_orgs_for_user(self, user_id: str) -> list[tuple[OrgRow, str]]:
         with self._connect() as conn:
-            cur = self._exec(
-                conn,
-                """
-                SELECT o.*, m.role AS membership_role
-                FROM organizations o
-                JOIN org_memberships m ON m.org_id = o.org_id
-                WHERE m.user_id = ?
-                ORDER BY o.name
-                """,
-                (user_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_USER_ORGS, (user_id,))
             out: list[tuple[OrgRow, str]] = []
             for r in cur.fetchall():
                 out.append((self._org_row(r), str(r["membership_role"])))
@@ -918,11 +879,7 @@ class MetadataStore(MetadataStoreProtocol):
 
     def claim_org(self, org_id: str, user_id: str) -> OrgRow:
         with self._connect() as conn:
-            cur = self._exec(
-                conn,
-                "SELECT * FROM organizations WHERE org_id=?",
-                (org_id,),
-            )
+            cur = self._exec(conn, Q.SELECT_ORG, (org_id,))
             r = cur.fetchone()
             if r is None:
                 raise LookupError("org not found")
@@ -931,22 +888,19 @@ class MetadataStore(MetadataStoreProtocol):
                 raise PermissionError("org not claimable")
             owners = self._exec(
                 conn,
-                "SELECT 1 FROM org_memberships WHERE org_id=? AND role='owner' LIMIT 1",
+                Q.SELECT_ORG_HAS_OWNER,
                 (org_id,),
             ).fetchone()
             if owners is not None:
                 raise PermissionError("org already claimed")
             self._exec(
                 conn,
-                """
-                INSERT INTO org_memberships(org_id, user_id, role, created_at)
-                VALUES (?, ?, 'owner', ?)
-                """,
+                Q.INSERT_ORG_MEMBERSHIP_OWNER,
                 (org_id, user_id, now()),
             )
             self._exec(
                 conn,
-                "UPDATE organizations SET is_claimable=0 WHERE org_id=?",
+                Q.UPDATE_ORG_CLAIMED,
                 (org_id,),
             )
             conn.commit()
@@ -964,10 +918,7 @@ class MetadataStore(MetadataStoreProtocol):
             try:
                 self._exec(
                     conn,
-                    """
-                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
-                    VALUES (?, ?, ?, ?)
-                    """,
+                    Q.INSERT_ORG_MEMBERSHIP,
                     (org_id, user_id, role, ts),
                 )
                 conn.commit()
@@ -979,7 +930,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "DELETE FROM org_memberships WHERE org_id=? AND user_id=?",
+                Q.DELETE_ORG_MEMBERSHIP,
                 (org_id, user_id),
             )
             if cur.rowcount == 0:
@@ -990,7 +941,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT COUNT(*) AS n FROM org_memberships WHERE org_id=? AND role='owner'",
+                Q.COUNT_ORG_OWNERS,
                 (org_id,),
             )
             r = cur.fetchone()
@@ -1000,7 +951,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT COUNT(*) AS n FROM releases WHERE org_id=?",
+                Q.COUNT_ORG_PACKAGES,
                 (org_id,),
             )
             r = cur.fetchone()
@@ -1026,14 +977,10 @@ class MetadataStore(MetadataStoreProtocol):
                 f"org still has {n_pkg} package release(s); unpublish or reassign first"
             )
         with self._connect() as conn:
-            self._exec(conn, "DELETE FROM org_invite_keys WHERE org_id=?", (org_id,))
-            self._exec(conn, "DELETE FROM org_memberships WHERE org_id=?", (org_id,))
-            self._exec(
-                conn,
-                "DELETE FROM result_shares WHERE target_type='org' AND target_id=?",
-                (org_id,),
-            )
-            cur = self._exec(conn, "DELETE FROM organizations WHERE org_id=?", (org_id,))
+            self._exec(conn, Q.DELETE_ORG_INVITE_KEYS, (org_id,))
+            self._exec(conn, Q.DELETE_ORG_MEMBERSHIPS, (org_id,))
+            self._exec(conn, Q.DELETE_ORG_RESULT_SHARES, (org_id,))
+            cur = self._exec(conn, Q.DELETE_ORG, (org_id,))
             if cur.rowcount == 0:
                 raise LookupError("org not found")
             conn.commit()
@@ -1042,10 +989,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                """
-                SELECT org_id, user_id, role, created_at
-                FROM org_memberships WHERE org_id=? ORDER BY role, user_id
-                """,
+                Q.SELECT_ORG_MEMBERS,
                 (org_id,),
             )
             return [
@@ -1106,12 +1050,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             self._exec(
                 conn,
-                """
-                INSERT INTO org_invite_keys(
-                    key_id, org_id, token_hash, token_prefix, created_by,
-                    max_uses, use_count, expires_at, revoked_at, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+                Q.INSERT_INVITE_KEY,
                 (
                     row.key_id,
                     row.org_id,
@@ -1132,11 +1071,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                """
-                SELECT * FROM org_invite_keys
-                WHERE org_id=?
-                ORDER BY created_at DESC
-                """,
+                Q.SELECT_INVITE_KEYS,
                 (org_id,),
             )
             return [self._invite_key_row(r) for r in cur.fetchall()]
@@ -1145,7 +1080,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT * FROM org_invite_keys WHERE org_id=? AND key_id=?",
+                Q.SELECT_INVITE_KEY,
                 (org_id, key_id),
             )
             r = cur.fetchone()
@@ -1156,7 +1091,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT * FROM org_invite_keys WHERE org_id=? AND key_id=?",
+                Q.SELECT_INVITE_KEY,
                 (org_id, key_id),
             )
             r = cur.fetchone()
@@ -1167,7 +1102,7 @@ class MetadataStore(MetadataStoreProtocol):
                 return row
             self._exec(
                 conn,
-                "UPDATE org_invite_keys SET revoked_at=? WHERE key_id=?",
+                Q.UPDATE_INVITE_REVOKED,
                 (ts, key_id),
             )
             conn.commit()
@@ -1185,7 +1120,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT * FROM org_invite_keys WHERE token_hash=?",
+                Q.SELECT_INVITE_BY_HASH,
                 (token_hash,),
             )
             r = cur.fetchone()
@@ -1206,11 +1141,7 @@ class MetadataStore(MetadataStoreProtocol):
             # Claim a slot atomically (check + increment). rowcount==0 ⇒ exhausted.
             claim = self._exec(
                 conn,
-                """
-                UPDATE org_invite_keys
-                SET use_count = use_count + 1
-                WHERE key_id=? AND (max_uses IS NULL OR use_count < max_uses)
-                """,
+                Q.CLAIM_INVITE_USE,
                 (inv.key_id,),
             )
             if claim.rowcount == 0:
@@ -1219,10 +1150,7 @@ class MetadataStore(MetadataStoreProtocol):
             try:
                 self._exec(
                     conn,
-                    """
-                    INSERT INTO org_memberships(org_id, user_id, role, created_at)
-                    VALUES (?, ?, 'member', ?)
-                    """,
+                    Q.INSERT_ORG_MEMBERSHIP_MEMBER,
                     (inv.org_id, uid, ts),
                 )
             except self._adapter.integrity_error as exc:
@@ -1274,11 +1202,7 @@ class MetadataStore(MetadataStoreProtocol):
             try:
                 self._exec(
                     conn,
-                    """
-                    INSERT INTO result_shares(
-                        result_kind, result_id, target_type, target_id, created_at
-                    ) VALUES (?, ?, ?, ?, ?)
-                    """,
+                    Q.INSERT_RESULT_SHARE,
                     (result_kind, result_id, target_type, target_id, ts),
                 )
                 conn.commit()
@@ -1303,10 +1227,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                """
-                DELETE FROM result_shares
-                WHERE result_kind=? AND result_id=? AND target_type=? AND target_id=?
-                """,
+                Q.DELETE_RESULT_SHARE,
                 (result_kind, result_id, target_type, target_id),
             )
             if cur.rowcount == 0:
@@ -1317,11 +1238,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                """
-                SELECT * FROM result_shares
-                WHERE result_kind=? AND result_id=?
-                ORDER BY target_type, target_id
-                """,
+                Q.SELECT_RESULT_SHARES,
                 (result_kind, result_id),
             )
             return [
@@ -1346,27 +1263,18 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                """
-                SELECT 1 FROM result_shares
-                WHERE result_kind=? AND result_id=? AND target_type='user' AND target_id=?
-                LIMIT 1
-                """,
+                Q.SELECT_RESULT_SHARED_USER,
                 (result_kind, result_id, user_id),
             )
             if cur.fetchone() is not None:
                 return True
             if not user_orgs:
                 return False
-            placeholders = ",".join("?" for _ in user_orgs)
+            orgs = sorted(user_orgs)
             cur = self._exec(
                 conn,
-                f"""
-                SELECT 1 FROM result_shares
-                WHERE result_kind=? AND result_id=? AND target_type='org'
-                  AND target_id IN ({placeholders})
-                LIMIT 1
-                """,
-                (result_kind, result_id, *sorted(user_orgs)),
+                Q.select_result_shared_orgs_query(len(orgs)),
+                (result_kind, result_id, *orgs),
             )
             return cur.fetchone() is not None
 
@@ -1399,16 +1307,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             self._exec(
                 conn,
-                """
-                INSERT INTO user_profiles(
-                    user_id, display_name, avatar_url, github_id, updated_at
-                ) VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET
-                    display_name=excluded.display_name,
-                    avatar_url=excluded.avatar_url,
-                    github_id=excluded.github_id,
-                    updated_at=excluded.updated_at
-                """,
+                Q.UPSERT_USER_PROFILE,
                 (
                     row.user_id,
                     row.display_name,
@@ -1425,7 +1324,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                "SELECT * FROM user_profiles WHERE user_id=?",
+                Q.SELECT_USER_PROFILE,
                 (uid,),
             )
             r = cur.fetchone()
@@ -1443,11 +1342,10 @@ class MetadataStore(MetadataStoreProtocol):
         ids = sorted({_normalize_user_id(u) or u for u in user_ids if u})
         if not ids:
             return {}
-        placeholders = ",".join("?" for _ in ids)
         with self._connect() as conn:
             cur = self._exec(
                 conn,
-                f"SELECT * FROM user_profiles WHERE user_id IN ({placeholders})",
+                Q.select_user_profiles_in_query(len(ids)),
                 ids,
             )
             out: dict[str, UserProfileRow] = {}
@@ -1471,6 +1369,7 @@ class PostgresMetadataStore(MetadataStore):
 
         MetadataStore.__init__(self, adapter=PostgresAdapter(database_url))
         self.database_url = database_url
+
 
 def package_kind_for_media_type(media_type: str) -> str:
     """Derive list/meta ``package_kind`` without opening the blob."""
