@@ -32,6 +32,18 @@ type IconComp = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 const LONG_BODY_CHARS = 240;
 const LONG_BODY_LINES = 4;
 
+function formatElapsedMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const totalS = ms / 1000;
+  if (totalS < 10) return `${totalS.toFixed(1)}s`;
+  if (totalS < 60) return `${Math.round(totalS)}s`;
+  const minutes = Math.floor(totalS / 60);
+  const seconds = Math.round(totalS - minutes * 60);
+  if (seconds === 60) return `${minutes + 1}m`;
+  return seconds ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${minutes}m`;
+}
+
 function bodyIsLong(body: string): boolean {
   return body.length > LONG_BODY_CHARS || body.split("\n").length > LONG_BODY_LINES;
 }
@@ -345,6 +357,13 @@ export function TrajectoryPanel({
                   {s.stop_reason ? <span>{s.stop_reason}</span> : null}
                   {s.ok === false ? (
                     <span className="text-error">not ok</span>
+                  ) : null}
+                  {typeof s.elapsed_ms === "number" &&
+                  Number.isFinite(s.elapsed_ms) &&
+                  s.elapsed_ms >= 0 ? (
+                    <span title="tool duration (observational)">
+                      {formatElapsedMs(s.elapsed_ms)}
+                    </span>
                   ) : null}
                 </div>
                 {body ? <CopyBodyButton text={body} /> : null}

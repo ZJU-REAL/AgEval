@@ -214,6 +214,18 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         "raw_output": raw_output
                         if isinstance(raw_output, (dict, list, str))
                         else None,
+                        "elapsed_ms": (
+                            obj.get("elapsed_ms")
+                            if isinstance(obj.get("elapsed_ms"), (int, float))
+                            and not isinstance(obj.get("elapsed_ms"), bool)
+                            else None
+                        ),
+                        "started_at": obj.get("started_at")
+                        if isinstance(obj.get("started_at"), str)
+                        else None,
+                        "ended_at": obj.get("ended_at")
+                        if isinstance(obj.get("ended_at"), str)
+                        else None,
                         # permission_decision summary fields
                         "outcome": obj.get("outcome"),
                         "option_id": obj.get("option_id"),

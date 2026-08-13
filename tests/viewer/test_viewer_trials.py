@@ -241,6 +241,9 @@ def test_trajectory_tool_call_and_observation_steps(tmp_path: Path) -> None:
             "kind": "read",
             "status": "completed",
             "args": {"path": "/w/a.txt"},
+            "elapsed_ms": 1420.5,
+            "started_at": "2026-08-14T12:00:00Z",
+            "ended_at": "2026-08-14T12:00:01.42Z",
             "turn_index": 1,
             "source": "acp",
         },
@@ -267,6 +270,8 @@ def test_trajectory_tool_call_and_observation_steps(tmp_path: Path) -> None:
     assert tool.get("tool_call_id") == "call_1"
     assert tool.get("kind") == "read"
     assert tool.get("function_name") == "read"
+    assert tool.get("elapsed_ms") == 1420.5
+    assert tool.get("started_at") == "2026-08-14T12:00:00Z"
     # args surfaced as content when no content field
     assert tool.get("content") and "a.txt" in tool["content"]
     obs = next(s for s in payload["steps"] if s.get("type") == "observation")

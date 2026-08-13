@@ -569,6 +569,12 @@ export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
       status: typeof rec.status === "string" ? rec.status : null,
       args: (args as TrajectoryStep["args"]) ?? null,
       raw_output: (rawOutput as TrajectoryStep["raw_output"]) ?? null,
+      elapsed_ms:
+        typeof rec.elapsed_ms === "number" && Number.isFinite(rec.elapsed_ms)
+          ? rec.elapsed_ms
+          : null,
+      started_at: typeof rec.started_at === "string" ? rec.started_at : null,
+      ended_at: typeof rec.ended_at === "string" ? rec.ended_at : null,
       outcome: typeof rec.outcome === "string" ? rec.outcome : null,
       option_id: typeof rec.option_id === "string" ? rec.option_id : null,
       policy: typeof rec.policy === "string" ? rec.policy : null,
