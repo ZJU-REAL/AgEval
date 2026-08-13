@@ -108,6 +108,7 @@ class PackageService:
             media_type=media_type,
             created_at=now(),
             org_id=org_id,
+            uploaded_by=auth.user_id or "",
         )
         try:
             self.blobs.put_if_absent(blob_digest, archive, prefix="packages")
@@ -238,6 +239,7 @@ class PackageService:
             media_type=draft.media_type,
             created_at=now(),
             org_id=draft.org_id,
+            uploaded_by=draft.uploaded_by or auth.user_id or "",
         )
         try:
             self.meta.insert(row)
@@ -257,6 +259,7 @@ class PackageService:
         visibility: str | None,
         version: str | None,
         package_kind: str | None,
+        mine: bool = False,
     ) -> dict[str, Any]:
         if visibility is not None and visibility not in {"public", "private"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
@@ -284,7 +287,31 @@ class PackageService:
                 items.append(release_to_dict(draft.as_release()))
         if package_kind is not None:
             items = [i for i in items if i.get("package_kind") == package_kind]
+        if mine:
+            items = self._filter_mine(items, auth)
         return {"items": items}
+
+    def _filter_mine(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
+        """Keep packages the caller uploaded or can maintain (ACL)."""
+        uid = auth.user_id or ""
+        if not uid:
+            return []
+        maintainable = {
+            row.database_id
+            for row in self.meta.list_dataset_acl_for_user(uid)
+            if row.role in {"owner", "collaborator"}
+        }
+        out: list[dict[str, Any]] = []
+        for item in items:
+            uploader = str(item.get("uploaded_by") or "")
+            db_id = str(item.get("database_id") or "")
+            kind = str(item.get("package_kind") or "database")
+            if uploader and uploader == uid:
+                out.append(item)
+                continue
+            if kind != "plugin" and db_id in maintainable:
+                out.append(item)
+        return out
 
     def list_versions(self, *, database_id: str, auth: TokenInfo) -> dict[str, Any]:
         rows = self.meta.list_versions(database_id, include_private=True)
@@ -588,6 +615,7 @@ class PackageService:
 
 def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
     from bora.plugins.manifest import load_manifest
+    from bora.plugins.slots import slot_level
     from bora.registry.archive import extract_archive
 
     with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
@@ -599,10 +627,24 @@ def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
             for p in root.rglob("*")
             if p.is_file() and "__pycache__" not in p.parts
         )
+        declared: list[dict[str, Any]] = []
+        for kind, entries in (("provide", man.provide), ("on", man.on)):
+            for slot in entries:
+                row: dict[str, Any] = {
+                    "id": slot.id,
+                    "kind": kind,
+                    "entry": slot.entry,
+                    "priority": slot.priority,
+                }
+                level = slot_level(slot.id)
+                if level is not None:
+                    row["level"] = level
+                declared.append(row)
         return {
             "plugin_id": man.plugin_id,
             "version": man.version,
             "format": man.format,
             "slots": man.slots_summary(),
+            "declared": declared,
             "files": files[:200],
         }

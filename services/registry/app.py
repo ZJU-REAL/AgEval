@@ -347,12 +347,14 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
 
         def _list_packages(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
             try:
+                mine_raw = (qs.get("mine") or [""])[0]
                 payload = state.packages.list_packages(
                     auth=auth,
                     prefix=(qs.get("database_id_prefix") or [None])[0],
                     visibility=(qs.get("visibility") or [None])[0],
                     version=(qs.get("version") or [None])[0],
                     package_kind=(qs.get("package_kind") or [None])[0],
+                    mine=str(mine_raw).strip().lower() in {"1", "true", "yes"},
                 )
             except RegistryAppError as exc:
                 _app_error(self, exc)
@@ -573,6 +575,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     auth=auth,
                     database_id=(qs.get("database_id") or [None])[0],
                     board=str(board_raw).strip().lower() in {"1", "true", "yes"},
+                    uploaded_by=(qs.get("uploaded_by") or [None])[0],
                 )
             except RegistryAppError as exc:
                 _app_error(self, exc)

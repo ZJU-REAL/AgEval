@@ -118,6 +118,54 @@ _SLOT_KINDS: Final[dict[str, SlotKind]] = {
 
 ALL_PUBLIC_SLOTS: Final[tuple[str, ...]] = tuple(_SLOT_KINDS.keys())
 
+# Declared-slot timeline layers (Hub plugin detail). Stable with the comments above.
+SLOT_LEVEL: Final[dict[str, int]] = {
+    BEFORE_PREPARE: 0,
+    AFTER_PREPARE: 0,
+    BEFORE_RUN: 0,
+    AFTER_RUN: 0,
+    BEFORE_EVALUATE: 0,
+    AFTER_EVALUATE: 0,
+    BEFORE_CLEANUP: 0,
+    AFTER_CLEANUP: 0,
+    IMAGE_CONTRIBUTE: 1,
+    ENV_PREPARE_COMMANDS: 1,
+    ENV_INJECT: 1,
+    ENV_ACTION: 1,
+    ENV_TEARDOWN_COMMANDS: 1,
+    EXECUTOR: 2,
+    BEFORE_AGENT_OPEN: 2,
+    AFTER_AGENT_OPEN: 2,
+    BEFORE_AGENT_INVOKE: 2,
+    AFTER_AGENT_INVOKE: 2,
+    BEFORE_AGENT_CLOSE: 2,
+    AFTER_AGENT_CLOSE: 2,
+    NORMALIZE_AGENT_RESULT: 2,
+    EVALUATION_INPUT_CONTRIBUTE: 3,
+    EVALUATION_RUNTIME: 3,
+    SCORE_POSTPROCESS: 3,
+    TRAJECTORY_COLLECT: 4,
+    TRAJECTORY_ENRICH: 4,
+    TRAJECTORY_SEAL: 4,
+    EVIDENCE_EXTRA: 4,
+    CLEANUP_ACTIONS: 5,
+    CLEANUP_REPORT: 5,
+}
+
+LEVEL_LABELS: Final[tuple[str, ...]] = (
+    "Attempt / phase bookends",
+    "Environment and image",
+    "Agent executor and session",
+    "Evaluation adjacency",
+    "Trajectory and evidence",
+    "Cleanup",
+)
+
+
+def slot_level(slot: str) -> int | None:
+    """L0–L5 index for a public slot id, or None if unknown."""
+    return SLOT_LEVEL.get(slot)
+
 
 def is_public_slot(slot: str) -> bool:
     return slot in _SLOT_KINDS

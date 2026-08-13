@@ -20,6 +20,10 @@ from typing import Any
 # Fields allowed in actors_summary / fingerprint material (no secrets).
 _ACTOR_KEYS = ("profile_id", "entry", "executor", "model", "options")
 
+# Builtin executor kinds are not marketplace plugins (Hub plugin tab).
+_BUILTIN_EXECUTOR_KINDS = frozenset({"acp", "openai-http"})
+_SKIP_PLUGIN_IDS = frozenset({"default", "acp", "openai-http"})
+
 
 def _profile_entry(profile: Mapping[str, Any]) -> str:
     """Display id: ACP ``options.entry``, else plugin ``options.agent``, else kind."""
@@ -118,6 +122,110 @@ def fingerprint_for_actors(actors: Sequence[Mapping[str, str]]) -> str:
     sorted_actors = actors_summary_from_profiles(list(actors))
     digest = hashlib.sha256(_canonical_bytes(sorted_actors)).hexdigest()
     return f"sha256:{digest}"
+
+
+def _plugin_ref(plugin_id: str, version: str | None = None) -> dict[str, str] | None:
+    pid = plugin_id.strip()
+    if not pid or pid in _SKIP_PLUGIN_IDS:
+        return None
+    row = {"plugin_id": pid}
+    if version is not None and str(version).strip():
+        row["version"] = str(version).strip()
+    return row
+
+
+def plugins_from_extension_bindings(
+    bindings: Mapping[str, Any] | None,
+) -> list[dict[str, str]]:
+    """Secret-free plugin_id[+version] from lock ``extension_bindings``."""
+    if not isinstance(bindings, Mapping):
+        return []
+    found: dict[str, dict[str, str]] = {}
+
+    def _take(raw: Mapping[str, Any]) -> None:
+        plugin = raw.get("plugin") or raw.get("plugin_id")
+        if not isinstance(plugin, str):
+            return
+        ver = raw.get("version")
+        ref = _plugin_ref(plugin, str(ver) if ver is not None else None)
+        if ref is None:
+            return
+        prev = found.get(ref["plugin_id"])
+        if prev is None or (ref.get("version") and not prev.get("version")):
+            found[ref["plugin_id"]] = ref
+
+    for subtree in bindings.values():
+        if not isinstance(subtree, Mapping):
+            continue
+        # Per-profile map: slot → provide row or on-chain.
+        slots = subtree
+        if "kind" in subtree and ("plugin" in subtree or "chain" in subtree):
+            slots = {"_": subtree}
+        for row in slots.values():
+            if not isinstance(row, Mapping):
+                continue
+            if row.get("kind") == "on" or "chain" in row:
+                chain = row.get("chain")
+                if isinstance(chain, list):
+                    for item in chain:
+                        if isinstance(item, Mapping):
+                            _take(item)
+                continue
+            _take(row)
+    return sorted(found.values(), key=lambda r: r["plugin_id"])
+
+
+def plugins_from_job_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str, str]]:
+    """Infer marketplace plugin ids from job_overlay executor kinds."""
+    if not isinstance(overlay, Mapping):
+        return []
+    bindings = overlay.get("bindings")
+    if not isinstance(bindings, Mapping):
+        return []
+    found: dict[str, dict[str, str]] = {}
+    for raw in bindings.values():
+        if not isinstance(raw, Mapping):
+            continue
+        executor = raw.get("executor")
+        if not isinstance(executor, str):
+            continue
+        kind = executor.strip()
+        if not kind or kind in _BUILTIN_EXECUTOR_KINDS:
+            continue
+        ref = _plugin_ref(kind)
+        if ref is not None:
+            found[ref["plugin_id"]] = ref
+    return sorted(found.values(), key=lambda r: r["plugin_id"])
+
+
+def merge_plugin_refs(*groups: Sequence[Mapping[str, str]]) -> list[dict[str, str]]:
+    """Union plugin refs; prefer a row that already has version."""
+    found: dict[str, dict[str, str]] = {}
+    for group in groups:
+        for raw in group:
+            if not isinstance(raw, Mapping):
+                continue
+            pid = str(raw.get("plugin_id") or "").strip()
+            if not pid:
+                continue
+            ref = _plugin_ref(pid, str(raw.get("version") or "") or None)
+            if ref is None:
+                continue
+            prev = found.get(pid)
+            if prev is None or (ref.get("version") and not prev.get("version")):
+                found[pid] = ref
+    return sorted(found.values(), key=lambda r: r["plugin_id"])
+
+
+def plugins_from_run_lock(
+    database_root: Path,
+    run_id: str | None,
+) -> list[dict[str, str]]:
+    data = load_run_lock_doc(database_root, run_id)
+    if data is None:
+        return []
+    bindings = data.get("extension_bindings")
+    return plugins_from_extension_bindings(bindings if isinstance(bindings, Mapping) else None)
 
 
 def fingerprint_for_job_overlay(overlay: Mapping[str, Any] | None) -> str:
@@ -441,6 +549,7 @@ def collect_suite_config(
         if tid:
             by_id[tid] = row
 
+    plugin_groups: list[list[dict[str, str]]] = []
     for tid in ids:
         if not tid:
             per_task.append([])
@@ -458,6 +567,7 @@ def collect_suite_config(
                 run_id = str(rid)
             actors = load_actors_from_run_lock(database_root, run_id)
             overlay = load_job_overlay_from_run_lock(database_root, run_id)
+            plugin_groups.append(plugins_from_run_lock(database_root, run_id))
         if actors is None:
             try:
                 actors = load_actors_from_task_lock(
@@ -500,8 +610,13 @@ def collect_suite_config(
             if merged:
                 suite_overlay = {"bindings": merged}
 
-    return compute_suite_config_fields(
+    fields = compute_suite_config_fields(
         per_task,
         job_overlay=suite_overlay,
         per_task_overlays=overlays,
     )
+    fields["plugins"] = merge_plugin_refs(
+        *plugin_groups,
+        plugins_from_job_overlay(suite_overlay),
+    )
+    return fields

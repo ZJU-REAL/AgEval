@@ -90,6 +90,13 @@ def test_publish_plugin_preview_and_install(
         body = json.loads(resp.read().decode("utf-8"))
     assert body.get("package_kind") == "plugin"
     assert body.get("plugin_preview", {}).get("slots", {}).get("provide") == ["executor"]
+    declared = body.get("plugin_preview", {}).get("declared") or []
+    ids = {d.get("id") for d in declared}
+    assert "executor" in ids
+    assert "before_agent_invoke" in ids
+    exec_row = next(d for d in declared if d.get("id") == "executor")
+    assert exec_row.get("kind") == "provide"
+    assert exec_row.get("level") == 2
     assert "plugin.yaml" in body.get("plugin_preview", {}).get("files", [])
 
     # Spec 06: list exposes package_kind without opening blob; filter works.

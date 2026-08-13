@@ -40,6 +40,7 @@ class ReleaseRow:
     media_type: str
     created_at: float
     org_id: str | None = None
+    uploaded_by: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +117,7 @@ class DraftRow:
             media_type=self.media_type,
             created_at=self.updated_at,
             org_id=self.org_id,
+            uploaded_by=self.uploaded_by,
         )
 
 
@@ -530,6 +532,7 @@ class MetadataStore(MetadataStoreProtocol):
                         row.media_type,
                         row.created_at,
                         row.org_id,
+                        row.uploaded_by or "",
                     ),
                 )
                 conn.commit()
@@ -877,6 +880,11 @@ class MetadataStore(MetadataStoreProtocol):
             cur = self._exec(conn, Q.LIST_DATASET_ACL, (database_id,))
             return [self._dataset_acl_row(r) for r in cur.fetchall()]
 
+    def list_dataset_acl_for_user(self, user_id: str) -> list[DatasetAclRow]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.LIST_DATASET_ACL_FOR_USER, (user_id,))
+            return [self._dataset_acl_row(r) for r in cur.fetchall()]
+
     @staticmethod
     def _draft_row(r: sqlite3.Row) -> DraftRow:
         return DraftRow(
@@ -905,6 +913,7 @@ class MetadataStore(MetadataStoreProtocol):
     def _release_row(r: sqlite3.Row) -> ReleaseRow:
         keys = r.keys()
         org_id = r["org_id"] if "org_id" in keys else None
+        uploaded_by = str(r["uploaded_by"]) if "uploaded_by" in keys and r["uploaded_by"] else ""
         return ReleaseRow(
             database_id=r["database_id"],
             version=r["version"],
@@ -915,6 +924,7 @@ class MetadataStore(MetadataStoreProtocol):
             media_type=r["media_type"],
             created_at=float(r["created_at"]),
             org_id=str(org_id) if org_id else None,
+            uploaded_by=uploaded_by,
         )
 
     @staticmethod
@@ -946,13 +956,9 @@ class MetadataStore(MetadataStoreProtocol):
         complete = False
         if "complete" in keys and r["complete"] is not None:
             complete = bool(int(r["complete"]))
-        bound_kind = (
-            str(r["bound_kind"]) if "bound_kind" in keys and r["bound_kind"] else "unknown"
-        )
+        bound_kind = str(r["bound_kind"]) if "bound_kind" in keys and r["bound_kind"] else "unknown"
         task_set_digest = (
-            str(r["task_set_digest"])
-            if "task_set_digest" in keys and r["task_set_digest"]
-            else ""
+            str(r["task_set_digest"]) if "task_set_digest" in keys and r["task_set_digest"] else ""
         )
         return SuiteResultRow(
             suite_run_id=r["suite_run_id"],
@@ -1551,6 +1557,8 @@ def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
     }
     if row.org_id:
         out["org_id"] = row.org_id
+    if row.uploaded_by:
+        out["uploaded_by"] = row.uploaded_by
     if row.version == "draft":
         out["slot"] = "draft"
         out["is_draft"] = True
@@ -1723,6 +1731,9 @@ def suite_to_dict(
         overlay = cfg.get("job_overlay")
         if isinstance(overlay, dict) and overlay:
             out["job_overlay"] = overlay
+        plugins = cfg.get("plugins")
+        if isinstance(plugins, list) and plugins:
+            out["plugins"] = plugins
     return out
 
 

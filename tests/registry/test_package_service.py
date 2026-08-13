@@ -73,9 +73,29 @@ def test_publish_happy_path(tmp_path: Path) -> None:
     payload = svc.publish(meta=meta, archive=archive, auth=auth)
     assert payload["database_id"] == "test/publish-min"
     assert payload["org_id"] == "acme"
+    assert payload.get("uploaded_by") == "alice"
     row = svc.get("test/publish-min", "0.1.0")
     assert row is not None
     assert svc.blobs.get(row.blob_digest, prefix="packages") == archive
+    mine = svc.list_packages(
+        auth=auth,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="database",
+        mine=True,
+    )
+    assert [i["database_id"] for i in mine["items"]] == ["test/publish-min"]
+    other = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="bob")
+    empty = svc.list_packages(
+        auth=other,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="database",
+        mine=True,
+    )
+    assert empty["items"] == []
 
 
 def test_draft_overwrite_and_entitled_list(tmp_path: Path) -> None:

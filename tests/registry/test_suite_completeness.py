@@ -138,6 +138,37 @@ def test_draft_bound_suite_stays_off_public_board(tmp_path: Path) -> None:
     assert jobs["items"][0]["suite_run_id"] == "suite_draft"
 
 
+def test_suite_plugins_and_uploaded_by_me_filter(tmp_path: Path) -> None:
+    packages, results = _services(tmp_path)
+    _publish_release(packages)
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    meta, archive = _suite_meta(
+        suite_run_id="suite_alice",
+        task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
+    )
+    meta["plugins"] = [
+        {"plugin_id": "nooa", "version": "0.1.0"},
+        {"plugin_id": "default"},
+        {"plugin_id": "nooa"},
+    ]
+    payload = results.upload_suite(meta=meta, archive=archive, auth=alice)
+    assert payload["plugins"] == [{"plugin_id": "nooa", "version": "0.1.0"}]
+    meta_b, arch_b = _suite_meta(
+        suite_run_id="suite_bob",
+        task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
+    )
+    results.upload_suite(meta=meta_b, archive=arch_b, auth=bob)
+    mine = results.list_suites(auth=alice, database_id="test/publish-min", uploaded_by="me")
+    assert [i["suite_run_id"] for i in mine["items"]] == ["suite_alice"]
+    empty = results.list_suites(
+        auth=TokenInfo(scopes=frozenset({"results:upload"}), user_id=""),
+        database_id="test/publish-min",
+        uploaded_by="me",
+    )
+    assert empty["items"] == []
+
+
 def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
     _publish_release(packages)
