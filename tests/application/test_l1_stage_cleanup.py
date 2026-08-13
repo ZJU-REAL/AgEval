@@ -41,7 +41,6 @@ class FakeDocker:
         return SimpleNamespace(
             targets={"t1": SimpleNamespace(public_view=lambda: {"id": "t1"})},
             actors={},
-            host_fallback_count=0,
         )
 
 
@@ -58,7 +57,6 @@ class FakeCred:
 
 class FakeService:
     invocations_completed = 1
-    host_fallback_count = 0
 
 
 class FakeServer:

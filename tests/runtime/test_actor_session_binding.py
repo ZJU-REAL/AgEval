@@ -111,3 +111,37 @@ def test_target_executor_path_no_host() -> None:
     r = svc.invoke(session_id=opened["session_id"], prompt="hi")
     assert r["ok"] is True
     assert len(fake.prompts) == 1
+
+
+def test_parent_service_has_no_host_fallback_count() -> None:
+    svc = ParentAgentService(
+        profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
+        agent_invocation_limit=1,
+        attempt_id="attempt_actortest005",
+        offline_env="",
+        extension_registry=registry_with_executor("fake", object()),
+        l1_container_only=True,
+    )
+    assert not hasattr(svc, "host_fallback_count")
+
+
+def test_l1_unbound_invoke_is_error_not_counter() -> None:
+    def validate(actor_id: str, profile_id: str) -> dict:
+        return {"ok": True, "target_id": "tgt", "generation": 1}
+
+    svc = ParentAgentService(
+        profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
+        agent_invocation_limit=1,
+        attempt_id="attempt_actortest006",
+        offline_env="",
+        extension_registry=registry_with_executor("fake", object()),
+        require_actor_id=True,
+        validate_actor_profile=validate,
+        resolve_placement=None,
+        l1_container_only=True,
+    )
+    opened = svc.open_session(profile_id="p1", actor_id="a1")
+    assert opened["ok"] is True
+    inv = svc.invoke(session_id=opened["session_id"], prompt="x")
+    assert inv["ok"] is False
+    assert inv["error"] == "l1_executor_unbound"

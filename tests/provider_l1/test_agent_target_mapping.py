@@ -64,5 +64,5 @@ def test_public_views_hide_handles() -> None:
     ledger.targets["tgt_abc"] = target
     ledger.actors["a1"] = binding
     summary = ledger.public_summary()
-    assert summary["host_fallback_count"] == 0
+    assert "host_fallback_count" not in summary
     assert "deadbeef" not in str(summary)

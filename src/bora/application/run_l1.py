@@ -391,9 +391,6 @@ async def run_l1_sdk_session_attempt(
         agent_server.stop()
         inv_count = agent_service.invocations_completed
         agent_meta["invocations"] = inv_count
-        agent_meta["host_fallback_count"] = (
-            agent_service.host_fallback_count + ledger.host_fallback_count
-        )
 
     envelope = harness_out.get("envelope") or {}
     harness_kind = "completed" if envelope.get("ok") else "failed"
@@ -438,7 +435,6 @@ async def run_l1_sdk_session_attempt(
                 {
                     **l1_meta,
                     "harness": envelope,
-                    "host_fallback_count": agent_meta.get("host_fallback_count", 0),
                 },
                 agent_meta,
                 inv_count,
@@ -520,7 +516,6 @@ async def run_l1_sdk_session_attempt(
         l1_meta["writer_stop_confirmed"] = runtime.writer_stop_confirmed and bool(
             eval_meta.get("writer_stop_confirmed")
         )
-        l1_meta["host_fallback_count"] = int(agent_meta.get("host_fallback_count") or 0)
         l1_meta["executor_containment"] = "attempt-container"
         l1_meta["execution_location"] = "attempt-container"
 
@@ -528,7 +523,6 @@ async def run_l1_sdk_session_attempt(
         harness_kind == "completed"
         and eval_meta.get("ok")
         and eval_meta.get("writer_stop_confirmed")
-        and l1_meta["host_fallback_count"] == 0
         and (inv_count >= 1 or bool(l1_meta.get("solution_seed")))
     )
     db_root = _database_root_for_run(run_dir)
@@ -555,7 +549,6 @@ async def run_l1_sdk_session_attempt(
         "run_dir": locator,
         "logs": locator,
         "digest": lock.digest,
-        "host_fallback_count": l1_meta["host_fallback_count"],
     }
     doc, details = _attach_timing(doc, details, timer)
     # Single write: write_l1_evidence copies phase_timing into summary.json.

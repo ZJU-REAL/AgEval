@@ -165,7 +165,6 @@ def test_l1_error_seals_harness_published_without_abs(tmp_path: Path) -> None:
         "evaluation_input",
         {
             "harness": envelope,
-            "host_fallback_count": 0,
         },
         {"executor_containment": "attempt-container"},
         0,
