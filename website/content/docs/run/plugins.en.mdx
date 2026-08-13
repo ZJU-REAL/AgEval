@@ -50,7 +50,8 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 
 `dsh` `options.permission` accepts `read-only`, `workspace-write`, or
 `danger-full-access`. Omit it to keep unrestricted local bash/fs. Invalid
-values fail closed. This is not a BORA isolation claim.
+values fail closed. On the bundled jsonrpc runtime, file-tool writes are
+fenced; bash stays local. This is not a BORA isolation claim.
 
 `bora lock` writes the resolved extension graph into `extension_bindings` in the lock summary.
 

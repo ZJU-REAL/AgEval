@@ -69,13 +69,14 @@ def test_permission_selects_sandboxed_unless_custom_composition() -> None:
 def test_sandboxed_composition_file_exists() -> None:
     path = resolve_composition_path(SANDBOXED_COMPOSITION)
     text = path.read_text(encoding="utf-8")
-    assert "dsh-bash-sandbox" in text
     assert "dsh-fs-sandbox" in text
     assert "dsh-sandbox-policy" in text
     assert "DSH_PERMISSION_MODE" in text
     assert "policy: never" in text
-    assert "dsh-bash-local" not in text
-    assert "dsh-fs-local" not in text
+    assert "name: '@deepseek-ai/dsh-bash-local'" in text
+    assert "name: '@deepseek-ai/dsh-fs-sandbox'" in text
+    assert "name: '@deepseek-ai/dsh-bash-sandbox'" not in text
+    assert "name: '@deepseek-ai/dsh-fs-local'" not in text
 
 
 def test_factory_permission_switches_composition_and_bind_env() -> None:

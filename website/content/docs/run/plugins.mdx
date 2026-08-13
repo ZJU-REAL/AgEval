@@ -49,7 +49,7 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 
 `dsh` 的 `options.permission` 只接受 `read-only`、`workspace-write`、
 `danger-full-access`。省略则仍用不受限的本地 bash/fs。非法值 fail-closed。
-这不是 BORA isolation 声明。
+随 jsonrpc 运行时：文件工具写入受围栏，bash 仍是本地。这不是 BORA isolation 声明。
 
 `bora lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
 

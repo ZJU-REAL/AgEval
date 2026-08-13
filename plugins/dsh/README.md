@@ -44,10 +44,15 @@ bindings:
 
 `options.permission` is plugin-owned (same pattern as `composition`). Allowed
 values: `read-only` | `workspace-write` | `danger-full-access`. Setting it
-loads the sandboxed composition (`dsh-bash-sandbox` / `dsh-fs-sandbox` +
-`dsh-sandbox-policy`) and passes `DSH_PERMISSION_MODE`. Omit it to keep today's
+loads the sandboxed composition (`dsh-fs-sandbox` + `dsh-sandbox-policy` +
+`dsh-sandbox-local`) and passes `DSH_PERMISSION_MODE`. Omit it to keep today's
 slim / unrestricted local tools. Invalid values fail closed at materialize —
 no spawn.
+
+The bundled `dsh-jsonrpc-agent` (`deepseek-harness-sdk==0.1.0rc6`) ships
+`dsh-fs-sandbox` but **not** `dsh-bash-sandbox`. The sandboxed tree therefore
+keeps `dsh-bash-local`. File-tool writes are fenced; a bash redirect can still
+write. Do not claim bash confinement on this runtime.
 
 Batch approval is `never` in the sandboxed tree so an unattended `bora run`
 cannot hang on a permission prompt. This is a DSH file-effect policy, not
