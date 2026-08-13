@@ -8,6 +8,15 @@ import re
 from typing import Any
 
 from services.registry.access import AccessPolicy
+from services.registry.dataset import (
+    BOUND_DRAFT,
+    BOUND_RELEASE,
+    BOUND_UNKNOWN,
+    is_draft_version,
+    suite_is_complete,
+    task_ids_from_file_paths,
+    task_set_digest,
+)
 from services.registry.errors import RegistryAppError
 from services.registry.store import (
     AttemptResultRow,
@@ -309,6 +318,9 @@ class ResultService:
                 raise RegistryAppError("not_found", "suite not found", http_status=404)
             self.meta.delete_suite(suite_run_id)
             self._gc_suite_blob(existing.blob_digest)
+        bound_kind, bound_ids = self._bound_task_ids(database_id, database_version)
+        digest = task_set_digest(bound_ids) if bound_ids else ""
+        complete = suite_is_complete(bound_task_ids=bound_ids, task_refs=task_refs)
         row = SuiteResultRow(
             suite_run_id=suite_run_id,
             database_id=database_id,
@@ -326,6 +338,9 @@ class ResultService:
             created_at=now(),
             config_json=json.dumps(config_payload, sort_keys=True),
             uploaded_by=auth.user_id or "",
+            complete=complete,
+            bound_kind=bound_kind,
+            task_set_digest=digest,
         )
         try:
             self.blobs.put_if_absent(blob_digest, archive, prefix="suite-results")
@@ -341,9 +356,17 @@ class ResultService:
             payload["replaced"] = True
         return payload
 
-    def list_suites(self, *, auth: TokenInfo, database_id: str | None) -> dict[str, Any]:
+    def list_suites(
+        self,
+        *,
+        auth: TokenInfo,
+        database_id: str | None,
+        board: bool = False,
+    ) -> dict[str, Any]:
         rows = self.meta.list_suites(database_id=database_id or None, include_private=True)
         visible = [r for r in rows if self._visible_suite(r, auth)]
+        if board:
+            visible = [r for r in visible if r.complete and r.bound_kind == BOUND_RELEASE]
         attempt_ids = self._suite_visible_attempt_ids(visible, auth=auth)
         return {"items": [suite_to_dict(r, attempt_content_ids=attempt_ids) for r in visible]}
 
@@ -525,6 +548,45 @@ class ResultService:
             uploaded_by=row.uploaded_by,
             auth=auth,
         )
+
+    def _bound_task_ids(
+        self, database_id: str, database_version: str
+    ) -> tuple[str, frozenset[str]]:
+        """Resolve bound package + task set at upload time.
+
+        Release match wins. Otherwise a live draft is draft-bound. Missing
+        package → unknown / empty set (incomplete, not on the public board).
+        """
+        release = None
+        draft = None
+        if is_draft_version(database_version):
+            draft = self.meta.get_draft(database_id)
+            kind = BOUND_DRAFT if draft is not None else BOUND_UNKNOWN
+        else:
+            release = self.meta.get_by_version(database_id, database_version)
+            if release is not None:
+                kind = BOUND_RELEASE
+            else:
+                draft = self.meta.get_draft(database_id)
+                kind = BOUND_DRAFT if draft is not None else BOUND_UNKNOWN
+        blob = None
+        digest = ""
+        if release is not None:
+            blob = self.blobs.get(release.blob_digest, prefix="packages")
+            digest = release.package_digest
+        elif draft is not None:
+            blob = self.blobs.get(draft.blob_digest, prefix="packages")
+            digest = draft.package_digest
+        if blob is None:
+            return kind, frozenset()
+        try:
+            from services.registry.package_files import get_or_build_index
+
+            index = get_or_build_index(blob, package_digest=digest or "bound")
+            paths = [item.get("path") or "" for item in index.list_items()]
+        except Exception:  # noqa: BLE001 — fail closed to incomplete
+            return kind, frozenset()
+        return kind, task_ids_from_file_paths(paths)
 
     def _visible_suite(self, row: SuiteResultRow, auth: TokenInfo) -> bool:
         return self.access.visible_result(
