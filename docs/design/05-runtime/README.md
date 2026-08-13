@@ -46,7 +46,7 @@ Application 层拥有 CLI 与 Campaign 调度；Harness 拥有 Attempt 内业务
 ```text
 lifecycle
   → provider-l1
-  → agent-service（ACP + entry）
+  → agent-service（ACP first-party inlet + 已安装插件 bind_to_target）
   → environment（按需）
   → evaluation
   → evidence
@@ -57,7 +57,7 @@ lifecycle
 | --- | --- |
 | [lifecycle.md](lifecycle.md) | Run Coordinator、三段路径、外层状态机、不变量 |
 | [provider-l1.md](provider-l1.md) | Provider、Docker L1 镜像/BOM、多 Actor isolation |
-| [agent-service.md](agent-service.md) | Agent Service、**ACP 唯一 coding-agent 入口**、插件扩展、归一化契约 |
+| [agent-service.md](agent-service.md) | Agent Service、ACP first-party coding inlet、已安装插件 L1 `bind_to_target`、归一化契约 |
 | [environment.md](environment.md) | Environment prepare / action / teardown |
 | [evaluation.md](evaluation.md) | Workspace/Artifact、Evaluator barrier、Result 绑定 |
 | [evidence.md](evidence.md) | Attempt evidence 树与 trajectory 契约 |

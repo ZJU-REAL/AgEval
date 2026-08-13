@@ -23,7 +23,7 @@ from bora.application.phase_timing import PhaseTimer, format_duration_ms
 from bora.application.run_l1_evaluator import run_clean_evaluator_container
 from bora.application.run_l1_evidence import l1_error_result, write_l1_evidence
 from bora.application.run_l1_prepare import (
-    make_l1_target_executor_factory,
+    make_l1_placement_resolver,
     prepare_l1_runtime,
     seed_l1_workspace,
 )
@@ -307,12 +307,7 @@ async def run_l1_sdk_session_attempt(
                 "generation": binding.generation,
             }
 
-        make_target_executor = make_l1_target_executor_factory(
-            ledger=ledger,
-            profiles=profiles,
-            workspace_host=workspace_host,
-            package_root=package_root,
-        )
+        resolve_placement = make_l1_placement_resolver(ledger=ledger)
 
         try:
             inv_limit = int(thaw(lock.limits).get("agent_invocations") or 1)
@@ -330,7 +325,7 @@ async def run_l1_sdk_session_attempt(
             workdir=workspace_host,
             require_actor_id=True,
             validate_actor_profile=validate_actor_profile,
-            make_target_executor=make_target_executor,
+            resolve_placement=resolve_placement,
             l1_container_only=True,
         )
         short = Path(tempfile.gettempdir()) / f"bora-ags-{run_ident.value[:12]}.sock"

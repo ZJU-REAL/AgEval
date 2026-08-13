@@ -47,11 +47,13 @@ Stdout JSON (high level):
   Runtime deletes `l1-work` after container cleanup. Not required for Hub; upload
   pack excludes `l1-work/**` even if residual remains.
 - Suite artifacts: `.bora/suite-runs/<id>/summary.json`, `progress.json`.
-- Per invocation (ACP path): `agent/invocations/<nnnn>-*/trajectory.jsonl` is **turn-level**
-  (user + merged assistant/thought + terminal). Stream chunks are not the training default;
-  see `docs/design/05-runtime/evidence.md`.
-- Docker packages use L1 path when `provider.kind: docker` (ACP via parent client +
-  `docker exec` placement for coding entries).
+- Per invocation (any executor): Core writes `agent/invocations/<nnnn>-*/trajectory.jsonl`
+  from `bora.trajectory.event/1` (user + merged assistant/thought + tool/observation +
+  terminal). Rows use `session_id` and producer `source` (not `acp_session_id`).
+  Stream chunks are not the training default; see `docs/design/05-runtime/evidence.md`.
+- Docker packages use L1 path when `provider.kind: docker`. First-party coding entries
+  stay on the parent ACP client + `docker exec` placement; other installed executors
+  bind via `bind_to_target`.
 - Attempt `result.json` may include `phase_timing` (`prepare` / `run` / `evaluate` / `cleanup`).
 
 ## `bora evidence`

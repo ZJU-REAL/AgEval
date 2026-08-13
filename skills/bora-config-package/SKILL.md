@@ -323,7 +323,7 @@ uv run bora plugin list        # installed mechanism plugins (e.g. nooa)
 | Installed plugins | Extra executor plugin_ids after `bora plugin install` (Recognition only) |
 
 **Target (coding agents):** `executor: acp` + `options.entry: <registry-id>`.  
-**Do not** write `executor: codex|pi|opencode|claude-code` — lock fails (`unsupported_capability`) or L1 fails (`migrated_to_acp`).
+**Do not** write `executor: codex|pi|opencode|claude-code` — lock fails (`unsupported_capability`) or L1 fails (`l1_executor_unbound`).
 
 **External mechanism (e.g. nooa):** `executor: nooa` + `options.agent: "lib.agents:Class"` in
 **profiles only** — never in member `task.yaml`. `bora plugin install` does **not** rewrite
@@ -336,7 +336,7 @@ Do not invent kinds or entry ids.
 1. Edit Database `profiles.yaml` bindings (role id → entry/model).
 2. Or CLI alternate file: `bora run ... --profiles path/to/profiles.yaml`
 3. Or CLI leaf override: `bora run ... --set '/bindings/solver/options/entry="pi"'`
-4. Campaign matrix may use `/bindings/<role>/model|executor|options/entry=[…]`
+4. Campaign matrix may use `/bindings/<role>/model|executor|options/<key>=[…]`
 5. Intent `limits.*` are **not** overridable via `--set`.
 
 ## Detail

@@ -79,6 +79,7 @@ export type TrajectoryStep = {
   role?: string | null;
   content?: string | null;
   turn_index?: number | null;
+  session_id?: string | null;
   source?: string | null;
   stop_reason?: string | null;
   ok?: boolean | null;

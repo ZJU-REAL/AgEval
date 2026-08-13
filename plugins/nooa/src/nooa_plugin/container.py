@@ -1,4 +1,4 @@
-"""L1 nooa executor: docker exec into Attempt container (Spec 05 Ready)."""
+"""L1 nooa executor: docker exec the baked in-container worker."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import os
 from typing import Any
 
+from bora.adapters.agent_container import wrap_docker_exec
 from bora.adapters.agent_contract import AgentExecutor, AgentResult
 from bora.adapters.provider_docker.cli_supervise import supervise_docker_cli
 from bora.provider.contract import TerminationPolicy
@@ -20,9 +21,6 @@ class NooaContainerExecutor(AgentExecutor):
     """Invoke package-local agents inside the Attempt container via baked worker.
 
     Parent never imports task ``lib.agents`` for L1 success path.
-    Projects ``model`` / ``base_url`` / API key (resolved on host from locator)
-    into the worker request + ``docker exec -e`` so NVIDIA nooa can call the
-    real upstream endpoint inside the Attempt.
     """
 
     kind = "nooa"
@@ -91,7 +89,7 @@ class NooaContainerExecutor(AgentExecutor):
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
-        del collect_dir, redaction_sentinels
+        del redaction_sentinels
         effective_workdir = workdir or self.workdir_container
         api_base = self._resolve_base_url()
         api_key = self._resolve_api_key()
@@ -107,32 +105,19 @@ class NooaContainerExecutor(AgentExecutor):
             payload["api_base"] = api_base
         if api_key:
             payload["api_key"] = api_key
-        cmd = [
-            "docker",
-            "exec",
-            "-i",
-            "-u",
-            f"{self.uid}:{self.gid}",
-            "-w",
-            effective_workdir,
-        ]
+        env: dict[str, str] = {"NOOA_MODEL": self.model}
         if api_base:
-            cmd.extend(["-e", f"OPENAI_BASE_URL={api_base}"])
+            env["OPENAI_BASE_URL"] = api_base
         if api_key:
-            cmd.extend(["-e", f"OPENAI_API_KEY={api_key}"])
-        cmd.extend(
-            [
-                "-e",
-                f"NOOA_MODEL={self.model}",
-                self.container_id,
-                "python3",
-                WORKER_PATH,
-            ]
+            env["OPENAI_API_KEY"] = api_key
+        cmd = wrap_docker_exec(
+            container_id=self.container_id,
+            uid=self.uid,
+            gid=self.gid,
+            workdir=effective_workdir,
+            env=env,
+            argv=["python3", WORKER_PATH],
         )
-        # No tracked remote PID: after client-side teardown we cannot prove the
-        # in-container worker is gone (terminate is a no-op). is_alive stays true
-        # once teardown was requested so writer_stop is never self-confirmed.
-        # A clean docker-exec exit means the remote command completed with the client.
         teardown_requested = {"value": False}
 
         def _terminate() -> str | None:
@@ -204,7 +189,6 @@ class NooaContainerExecutor(AgentExecutor):
                     "returncode": outcome.exit_code,
                 },
             )
-        # Worker prints one JSON line (last non-empty line).
         line = stdout.splitlines()[-1]
         try:
             doc = json.loads(line)
@@ -234,14 +218,32 @@ class NooaContainerExecutor(AgentExecutor):
         raw_meta = doc.get("metadata")
         if isinstance(raw_meta, dict):
             base_meta = {str(k): v for k, v in raw_meta.items()}
+        structured = doc.get("structured") if isinstance(doc.get("structured"), dict) else None
+        raw_events = doc.get("events")
+        events: tuple[dict[str, Any], ...] = ()
+        if isinstance(raw_events, list):
+            events = tuple(e for e in raw_events if isinstance(e, dict))
+        raw_native = doc.get("native_events")
+        native: list[dict[str, Any]] = []
+        if isinstance(raw_native, list):
+            native = [e for e in raw_native if isinstance(e, dict)]
         meta: dict[str, Any] = {
             **base_meta,
             "plugin": "nooa",
             "execution_location": self.execution_location,
             "agent": self.agent_ref,
             "returncode": outcome.exit_code,
+            "native_event_count": len(native),
         }
-        structured = doc.get("structured") if isinstance(doc.get("structured"), dict) else None
+        if collect_dir and native:
+            from pathlib import Path
+
+            root = Path(collect_dir)
+            root.mkdir(parents=True, exist_ok=True)
+            (root / "nooa_events.jsonl").write_text(
+                "\n".join(json.dumps(e, ensure_ascii=False, default=str) for e in native) + "\n",
+                encoding="utf-8",
+            )
         return AgentResult(
             model=str(doc.get("model") or self.model),
             text=str(doc.get("text") or ""),
@@ -249,5 +251,6 @@ class NooaContainerExecutor(AgentExecutor):
             ok=bool(doc.get("ok", False)),
             error=str(doc["error"]) if doc.get("error") else None,
             stderr=stderr,
+            events=events,
             metadata=meta,
         )

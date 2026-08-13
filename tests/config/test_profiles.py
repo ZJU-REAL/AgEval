@@ -197,3 +197,25 @@ def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
     loaded = load_profiles_document(path)
     assert loaded["solver"]["options"]["entry"] == "pi"
     assert loaded["solver"]["api_key"] == "LOC"
+
+
+def test_job_overlay_keeps_plugin_options() -> None:
+    overlay = project_job_overlay(
+        {
+            "solver": {
+                "executor": "nooa",
+                "model": "openai/glm-5.2",
+                "options": {
+                    "agent": "lib.agents:JsonlAggAgent",
+                    "method": "run",
+                    "command": ["secret"],
+                    "_acp_lock": {"entry_id": "x"},
+                },
+            }
+        }
+    )
+    opts = overlay["bindings"]["solver"]["options"]
+    assert opts["agent"] == "lib.agents:JsonlAggAgent"
+    assert opts["method"] == "run"
+    assert "command" not in opts
+    assert "_acp_lock" not in opts

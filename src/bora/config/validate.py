@@ -235,12 +235,25 @@ def validate_document(
                     f"unknown acp entry: {entry!r}",
                     location=f"{loc}/options/entry",
                 )
-            # Materialize lock-safe snapshot onto profile (mutates pre-freeze dict).
-            profile["options"] = {
-                **{k: v for k, v in options.items() if k == "entry"},
-                "entry": entry.strip(),
-                "_acp_lock": desc.as_lock_snapshot(),
+            cleaned = {
+                k: v
+                for k, v in options.items()
+                if k
+                not in {
+                    "command",
+                    "args",
+                    "detect_command",
+                    "install_command",
+                    "version",
+                    "acp_command",
+                    "engine_command",
+                    "acp_version",
+                    "credential_env_names",
+                    "_acp_lock",
+                }
             }
+            cleaned["entry"] = entry.strip()
+            profile["options"] = cleaned
         # Optional upstream routing (non-secret). api_key is an env *locator name*
         # only — values live in host/.env and are projected at invoke time.
         base_url = profile.get("base_url")

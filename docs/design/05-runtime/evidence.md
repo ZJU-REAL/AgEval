@@ -78,64 +78,100 @@ Hub Attempt tabs 与本地 `bora view` 仍只解析 Trajectory / Agent / Verifie
 | `final-response.json` | `content`、可选 `structured_output`、`usage`、session handle 摘要 |
 | redaction | secret、Authorization、cookie、DSN password 等不得进入任何轨迹文件 |
 
+## 三层轨迹契约
+
+轨迹分三层，所有权不得混：
+
+| 层 | 所有者 | 形状 | 落盘 / 内存 |
+| --- | --- | --- | --- |
+| A. vendor raw | 各 adapter / 插件 | 任意 | `backend_raw/*`（观测；不进 Viewer 合成） |
+| B. 中立事件流 | **Core schema**；adapter 只做映射 | `bora.trajectory.event/1` | `AgentResult.events` → invocation `events.jsonl` |
+| C. turn steps | **Core evidence writer**（不在 `adapters/acp/`） | `trajectory.jsonl` | Viewer / Hub / 训练导出 |
+
+```text
+plugin / first-party executor
+  → map vendor-native → bora.trajectory.event/1
+Core evidence writer
+  → fold events → trajectory.jsonl
+ACP / nooa / …
+  → 各自拥有映射；禁止伪装成另一种协议
+```
+
+**禁止：** 非 ACP 插件把 `AgentResult.events` 写成 ACP `session_update` / `tool_call` 再喂给 Core。ACP 是层 B 的一个生产者，不是 schema 权威。插件不得直接写层 C 行（合并规则集中在 Core）。
+
+### `bora.trajectory.event/1`（层 B）
+
+公共信封：`schema`、`seq`、可选 `session_id`、`source`（生产者 id：`acp` / `nooa` / 插件 id）、`kind`。
+
+| `kind` | 字段 | 是否折进层 C |
+| --- | --- | --- |
+| `text` | `channel: thought\|assistant`，`text` | 是 |
+| `tool` | `phase: start\|update`，`tool_call_id`，可选 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output` | 是（Core 按 `tool_call_id` 合并） |
+| `permission` | `outcome` / `option_id` / `policy` | 是 |
+| `opaque` | 任意 `payload` | **否**（只留 `events.jsonl`） |
+
+无 `schema: bora.trajectory.event/1` 的行不参与层 C 折叠。
+
 ## `trajectory.jsonl`（turn 级，训练默认）
 
-**单位：** 一次 BORA `invoke`（一次 ACP `session/prompt`）= **一个 turn unit**，写在该 invocation 目录下。
+**单位：** 一次 BORA `invoke` = **一个 turn unit**，写在该 invocation 目录下。
 
 **与流式 chunk 的关系：**
 
 | 层 | 谁产出 | 是否进 `trajectory.jsonl` |
 | --- | --- | --- |
-| ACP `session/update` 流式片（token/片级） | entry → parent client | **否**（仅内存拼接；可选仍进 `events.jsonl`） |
-| Turn 全文 | Parent 合并 chunk 后写出 | **是** |
-| 同一 BORA session 多轮 `invoke` | 多个 `invocations/000n-…/` | 每轮一个目录；可共享同一 ACP `session_id` |
+| 后端 token / 片级流 | adapter 内存拼接；可选 vendor raw | **否**（中立 `kind: text` 才进层 B） |
+| Turn 全文 | Core 从层 B 合并后写出 | **是** |
+| 同一 BORA session 多轮 `invoke` | 多个 `invocations/000n-…/` | 每轮一个目录；可共享同一 `session_id` |
 
 **推荐行类型（JSONL，一行一对象）：**
 
-1. `type=turn` · `role=user` · `content=<完整 prompt>` · `turn_index` · 可选 `acp_session_id`
+1. `type=turn` · `role=user` · `content=<完整 prompt>` · `turn_index` · 可选 `session_id` · `source`（生产者）
 2. `type=turn` · `role=assistant` · `part=thought` · `content=<合并后的 thought>`（有则写）
 3. **`type=tool_call`** · action 侧（有则写；见下）
 4. **`type=observation`** · 该 call 的环境回传 / tool result（有则写；与 call 成对）
 5. `type=turn` · `role=assistant` · `content=<合并后的最终 assistant 文本>`
 6. `type=permission_decision` · batch auto-approve 等（有则写；evidence 决策摘要）
-7. `type=terminal` · `ok` / `error` · `structured` / `usage` / `stop_reason` / entry·model 元数据摘要
+7. `type=terminal` · `ok` / `error` · `structured` / `usage` / `stop_reason` / executor 元数据摘要
 
 行序建议：user → thought →（按首次出现顺序的 tool_call + observation 对）→ assistant 终稿 → permission → terminal。  
-无 tool 的 invoke **不写** 3–4，行为与旧 turn/terminal 轨迹一致。
+无 tool 的 invoke **不写** 3–4。
 
-### `tool_call` / `observation`（ACP 汇总）
+`source` 是机制/插件 id，**不是**恒为 `acp`。会话字段名是 `session_id`，不是 `acp_session_id`。
 
-数据源是 parent ACP client 已收集的 `session/update` 事件（`events` / 可选 `events.jsonl`），**不是** parent 内 vendor stdout scrape。合成层从流里汇总：
+### `tool_call` / `observation`（Core 从层 B 折叠）
 
-| ACP `sessionUpdate` | 轨迹行 | 语义 |
+数据源是 `AgentResult.events` 中的 `bora.trajectory.event/1`（`kind: tool`），**不是** ACP wire，也不是 vendor stdout scrape。ACP adapter 把 `session/update` 映到层 B；其它插件映自己的 native dump。
+
+| 层 B | 轨迹行 | 语义 |
 | --- | --- | --- |
-| `tool_call` | `type=tool_call` | **Action**：模型/agent 发起的工具调用 |
-| `tool_call_update` | 合并进同一 `tool_call_id` 的终态；结果写入 `type=observation` | **Observation** ≈ tool result（agentic RL / Harbor ATIF 同构口径） |
+| `kind: tool` · `phase: start` | `type=tool_call` | **Action**：模型/agent 发起的工具调用 |
+| `kind: tool` · `phase: update` | 合并进同一 `tool_call_id` 的终态；结果写入 `type=observation` | **Observation** ≈ tool result |
 
 **`tool_call` 推荐字段（尽力；缺省可省略）：**
 
 | 字段 | 含义 |
 | --- | --- |
-| `tool_call_id` | ACP `toolCallId`（同 id 多次 update **合并**） |
+| `tool_call_id` | 同 id 多次 update **合并** |
 | `title` | 人读标题 |
-| `function_name` | 尽力从 title / rawInput 推断的逻辑名 |
-| `kind` | ACP ToolKind（`read` / `edit` / `execute` / …） |
+| `function_name` | adapter 推断的逻辑名 |
+| `kind` | tool kind（`read` / `edit` / `execute` / …） |
 | `status` | 合并后的终态（`pending` / `in_progress` / `completed` / `failed`） |
-| `args` | `rawInput`（若有；须 redact） |
-| `turn_index` / `acp_session_id` / `source` | 与 turn 行一致；`source` 一般为 `acp` |
+| `args` | 调用参数（若有；须 redact） |
+| `turn_index` / `session_id` / `source` | 与 turn 行一致；`source` = 生产者 |
 
 **`observation` 推荐字段：**
 
 | 字段 | 含义 |
 | --- | --- |
-| `tool_call_id` | 对齐对应 action（Harbor 语义上的 `source_call_id`） |
+| `tool_call_id` | 对齐对应 action |
 | `status` | 该 call 终态 |
-| `content` | 从 ACP `content` 块抽出的可读摘要（文本 / diff 路径等） |
-| `raw_output` | `rawOutput`（若有；须 redact） |
-| `turn_index` / `acp_session_id` / `source` | 同上 |
+| `content` | 可读摘要 |
+| `raw_output` | 结构化回传（若有；须 redact） |
+| `turn_index` / `session_id` / `source` | 同上 |
 
-**合并规则：** 同一 `toolCallId` 的多次 `tool_call_update` 折叠为**最终** observation；中间 `in_progress` 进度片可丢弃。  
-**有 call 无 result：** 仍写 `tool_call`；observation 仅在存在 content / rawOutput / 终态 completed|failed 时写出。  
+**合并规则：** 同一 `tool_call_id` 累积 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output`；seal 发一条 `tool_call` + 可选 `observation`。  
+**有 call 无 result：** 仍写 `tool_call`；observation 仅在存在 content / raw_output / 终态 completed|failed 时写出。  
 **禁止**只落盘 call 而系统性丢弃已有 result。
 
 **Redaction：** `args` / `content` / `raw_output` 与既有轨迹 redact 同一路径（pattern + sentinels）；禁止 host secret / token 进入 `trajectory.jsonl`。
@@ -152,10 +188,12 @@ Hub Attempt tabs 与本地 `bora view` 仍只解析 Trajectory / Agent / Verifie
 
 | 谁 | 写什么 |
 | --- | --- |
-| Agent Service + Executor Adapter | per-invocation 轨迹（上表） |
+| **Core evidence writer** | 从层 B 折叠 `trajectory.jsonl`（唯一层 C 作者） |
+| Executor Adapter / 插件 | vendor raw → `bora.trajectory.event/1`；`backend_raw/` 保持 native |
+| Agent Service | 调用 Core writer；`trajectory_*` 扩展 fail-open |
 | Capability / Runtime effect gate | `effects.jsonl` 中授权/拒绝决策摘要 |
 | Evaluation Core | evaluator raw + Result binding |
 | Harness `ctx.events` | 可选业务侧事件（不得成为唯一轨迹源） |
 | Evaluator | 可读 allowlisted 输入；**默认不**把完整 agent 轨迹当作 score 必要条件 |
 
-**非目标（本机制）：** 用轨迹文件替代 evaluator PASS；全局跨 Run 搜索 dashboard；实时 Web UI；保证任意第三方 CLI 的私有日志格式 100% 无损（Adapter 必须至少产出归一化 `final-response` + 尽力 `events.jsonl`，ACP 路径另应产出 turn 级 `trajectory.jsonl`）。
+**非目标（本机制）：** 用轨迹文件替代 evaluator PASS；全局跨 Run 搜索 dashboard；实时 Web UI；保证任意第三方 CLI 的私有日志格式 100% 无损（Adapter 必须至少产出归一化 `final-response` + 尽力层 B 事件；Core 再写层 C）。用 ACP 协议当插件中间格式。保留 `acp_session_id` 或强制 `source: "acp"` 的兼容读。

@@ -51,11 +51,14 @@ def test_container_module_has_no_vendor_scrape() -> None:
 
 
 def test_agent_container_scrape_not_used_for_acp_kind() -> None:
-    # Target executor factory lives in run_l1_prepare (chore #31 split).
     app = REPO / "src" / "bora" / "application"
     sources = "\n".join(p.read_text(encoding="utf-8") for p in sorted(app.glob("run_l1*.py")))
-    assert "AcpExecutor" in sources
-    assert "migrated_to_acp" in sources
+    assert "make_l1_placement_resolver" in sources
+    assert "migrated_to_acp" not in sources
+    assert "NooaContainerExecutor" not in sources
+    container = (ADAPTERS / "agent_container.py").read_text(encoding="utf-8")
+    assert "wrap_docker_exec" in container
+    assert "ContainerCLIExecutor" not in container
 
 
 def test_agent_acp_imports_typed_sdk() -> None:

@@ -79,6 +79,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.pyright]
 include = ["src", "tests"]
+extraPaths = ["plugins/nooa/src"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."

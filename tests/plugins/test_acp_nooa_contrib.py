@@ -168,4 +168,4 @@ def test_acp_entry_missing_fail_closed() -> None:
     )
     opened = svc.open_session(profile_id="p")
     assert opened["ok"] is False
-    assert opened["error"] == "acp_entry_required"
+    assert opened["error"] in {"acp_entry_required", "extension_materialize_failed"}

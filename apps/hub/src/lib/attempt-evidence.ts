@@ -21,15 +21,6 @@ import {
 const MAX_TRAJECTORY_STEPS = 2_000;
 const MAX_JSONL_LINE = 64_000;
 
-const ACP_ENTRY_SUFFIXES = [
-  "claude-code",
-  "grok-build",
-  "opencode",
-  "codex",
-  "grok",
-  "pi",
-] as const;
-
 export function runRootPrefix(runId: string): string {
   return `.bora/runs/${runId}`;
 }
@@ -203,36 +194,15 @@ export function scopeForTab(tab: TabId): string | null {
   return TREE_SCOPES[tab] ?? null;
 }
 
-function profileEntry(profile: Record<string, unknown>): string | null {
+function profileVariant(profile: Record<string, unknown>): string | null {
   const opts = profile.options;
-  if (opts && typeof opts === "object" && !Array.isArray(opts)) {
-    const entry = (opts as Record<string, unknown>).entry;
-    if (typeof entry === "string" && entry.trim()) return entry.trim();
-  }
-  const pid = profile.id;
-  if (typeof pid !== "string" || !pid) return null;
-  const lower = pid.toLowerCase();
-  for (const suf of ACP_ENTRY_SUFFIXES) {
-    if (lower === suf || lower.endsWith("-" + suf) || lower.endsWith("_" + suf)) {
-      return suf;
-    }
+  if (!opts || typeof opts !== "object" || Array.isArray(opts)) return null;
+  const rec = opts as Record<string, unknown>;
+  for (const key of ["entry", "agent", "label"] as const) {
+    const val = rec[key];
+    if (typeof val === "string" && val.trim()) return val.trim();
   }
   return null;
-}
-
-function profileRole(profileId: string, entry: string | null): string {
-  if (entry) {
-    for (const sep of ["-", "_"] as const) {
-      const suffix = sep + entry;
-      if (
-        profileId.toLowerCase().endsWith(suffix.toLowerCase()) &&
-        profileId.length > suffix.length
-      ) {
-        return profileId.slice(0, -suffix.length);
-      }
-    }
-  }
-  return profileId;
 }
 
 function dockerLabel(
@@ -354,25 +324,15 @@ export function buildTrialMeta(opts: {
   const executors: string[] = [];
   for (const pid of orderedIds) {
     const p = byId.get(pid) || { id: pid };
-    const entry = profileEntry(p);
+    const variant = profileVariant(p);
     let ex = typeof p.executor === "string" ? p.executor : null;
     if (!ex) ex = invExecutor.get(pid) || null;
     if (ex && !executors.includes(ex)) executors.push(ex);
-    const caps = p.capabilities;
-    if (
-      caps &&
-      typeof caps === "object" &&
-      !Array.isArray(caps) &&
-      (caps as Record<string, unknown>).execution_mode === "acp-stdio" &&
-      !executors.includes("acp")
-    ) {
-      executors.push("acp");
-    }
     const model =
       invModel.get(pid) ||
       (typeof p.model === "string" ? p.model : null);
-    const agentCol = entry || ex || pid;
-    const roleCol = entry ? profileRole(pid, entry) : pid;
+    const agentCol = variant || ex || pid;
+    const roleCol = pid;
     const nInv = invokeCount.get(pid) || 0;
     const latTotal = latencySum.get(pid);
     actors.push({
@@ -388,17 +348,7 @@ export function buildTrialMeta(opts: {
     });
   }
 
-  let framework: string | null = null;
-  if (
-    actors.some((a) =>
-      ACP_ENTRY_SUFFIXES.includes(a.agent as (typeof ACP_ENTRY_SUFFIXES)[number]),
-    ) ||
-    executors.includes("acp")
-  ) {
-    framework = "acp";
-  } else if (executors[0]) {
-    framework = executors[0];
-  }
+  const framework: string | null = executors[0] || null;
 
   const prov =
     lock.provenance && typeof lock.provenance === "object"
@@ -596,6 +546,7 @@ export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
       role: typeof role === "string" ? role : null,
       content: typeof content === "string" ? content : null,
       turn_index: typeof rec.turn_index === "number" ? rec.turn_index : null,
+      session_id: typeof rec.session_id === "string" ? rec.session_id : null,
       source: typeof rec.source === "string" ? rec.source : null,
       stop_reason: typeof rec.stop_reason === "string" ? rec.stop_reason : null,
       ok: typeof rec.ok === "boolean" ? rec.ok : null,

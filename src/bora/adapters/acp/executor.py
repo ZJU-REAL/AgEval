@@ -18,7 +18,7 @@ from bora.adapters.acp.client import (
     _map_stop_reason,
     _offline_result,
 )
-from bora.adapters.acp.trajectory import write_trajectory_jsonl
+from bora.adapters.acp.trajectory_map import acp_session_events_to_bora
 from bora.adapters.acp.types import ProcessLauncher
 from bora.adapters.acp.usage import _as_plain_mapping, normalize_acp_usage
 from bora.adapters.acp_registry import AcpEntryDescriptor, get_entry, readiness_for
@@ -313,7 +313,8 @@ class AcpExecutor(AgentExecutor):
             "stop_reason": str(stop) if stop is not None else None,
             "integration_mode": self.descriptor.integration_mode,
         }
-        events = tuple(self._client.events) if self._client else ()
+        vendor_events = tuple(self._client.events) if self._client else ()
+        events = tuple(acp_session_events_to_bora(vendor_events))
         # Dual-source normalize: tokens from PromptResponse.usage; cost/context
         # from latest UsageUpdate. Never maps context.used → input_tokens.
         usage = None
@@ -369,6 +370,7 @@ class AcpExecutor(AgentExecutor):
     ) -> AgentResult:
         from bora.runtime.offline import is_offline_agent
 
+        del redaction_sentinels
         if is_offline_agent():
             return _offline_result(self.model)
 
@@ -445,29 +447,15 @@ class AcpExecutor(AgentExecutor):
         if collect_dir is not None:
             root = Path(collect_dir)
             root.mkdir(parents=True, exist_ok=True)
-            if result.events:
+            # Vendor-native ACP stream (layer A). Layer C is Core-owned.
+            vendor = tuple(self._client.events) if self._client else ()
+            dump = vendor or result.events
+            if dump:
                 (root / "acp_events.jsonl").write_text(
-                    "\n".join(
-                        json.dumps(e, ensure_ascii=False, sort_keys=True) for e in result.events
-                    )
+                    "\n".join(json.dumps(e, ensure_ascii=False, sort_keys=True) for e in dump)
                     + "\n",
                     encoding="utf-8",
                 )
-            # Training-oriented full stream (parent of collect_dir is invocation dir
-            # when collect_dir is .../backend_raw).
-            inv_dir = root.parent if root.name == "backend_raw" else root
-            write_trajectory_jsonl(
-                inv_dir,
-                prompt=prompt,
-                events=result.events,
-                final_text=result.text,
-                structured=result.structured,
-                usage=result.usage,
-                ok=result.ok,
-                error=result.error,
-                metadata=result.metadata,
-                redaction_sentinels=redaction_sentinels,
-            )
         return result
 
     async def _cancel(self) -> None:

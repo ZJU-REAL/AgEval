@@ -195,6 +195,7 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         "role": role,
                         "content": content,
                         "turn_index": obj.get("turn_index"),
+                        "session_id": obj.get("session_id"),
                         "source": obj.get("source"),
                         "stop_reason": obj.get("stop_reason"),
                         "ok": obj.get("ok"),

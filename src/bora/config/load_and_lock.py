@@ -58,7 +58,7 @@ def _resolve_extension_bindings(
         return None
 
     from bora.plugins.bootstrap import ensure_bootstrapped
-    from bora.plugins.errors import ExtensionRegistryError
+    from bora.plugins.errors import ExtensionMaterializeError, ExtensionRegistryError
     from bora.plugins.lock_bind import extension_graph_to_lock
     from bora.plugins.protocol import intent_from_profile
     from bora.plugins.resolve import resolve as resolve_extensions
@@ -75,9 +75,9 @@ def _resolve_extension_bindings(
         if not intent.profile_id:
             intent.profile_id = pid.strip()
         try:
-            # Lock serialization does not need live SPI instances.
-            graph = resolve_extensions(intent, registry, materialize=False)
-        except ExtensionRegistryError as exc:
+            # Dry-run factory so missing plugin options fail at lock, not mid-Attempt.
+            graph = resolve_extensions(intent, registry, materialize=True)
+        except (ExtensionRegistryError, ExtensionMaterializeError) as exc:
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
                 f"extension resolve failed for profile {pid!r}: {exc}",

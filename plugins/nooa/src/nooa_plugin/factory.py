@@ -16,12 +16,27 @@ import asyncio
 import concurrent.futures
 import inspect
 import os
+from dataclasses import replace
 from typing import Any
 
 from bora.adapters.agent_contract import AgentResult
 from bora.plugins.errors import ExtensionMaterializeError
+from nooa_plugin.trajectory import attach_event_tap, to_bora_trajectory_events
 
 PLUGIN_ID = "nooa"
+
+
+def describe_nooa() -> dict[str, Any]:
+    return {
+        "execution_mode": "container-worker",
+        "tools": "native",
+        "structured_output": "validated-text",
+        "session": "unsupported",
+        "stream": "synthetic-lifecycle",
+        "credential_env_names": ("OPENAI_API_KEY", "litellm_api_key"),
+        "binary": "",
+    }
+
 
 # Env fallbacks when profile omits base_url (non-secret locators / common names).
 _BASE_URL_ENV_FALLBACKS = (
@@ -74,7 +89,29 @@ def _is_nooa_agent_type(obj: Any) -> bool:
     return isinstance(obj, type) and issubclass(obj, NooaAgent)
 
 
-def _normalize_raw(raw: Any, *, model: str, agent_ref: str, collect_dir: str | None) -> AgentResult:
+def _write_backend_raw(collect_dir: str | None, native: list[dict[str, Any]]) -> None:
+    if not collect_dir or not native:
+        return
+    from pathlib import Path
+
+    root = Path(collect_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    import json
+
+    (root / "nooa_events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False, default=str) for e in native) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _normalize_raw(
+    raw: Any,
+    *,
+    model: str,
+    agent_ref: str,
+    collect_dir: str | None,
+    events: tuple[dict[str, Any], ...] = (),
+) -> AgentResult:
     if isinstance(raw, AgentResult):
         return raw
     # Pydantic v2
@@ -90,9 +127,7 @@ def _normalize_raw(raw: Any, *, model: str, agent_ref: str, collect_dir: str | N
         if not isinstance(structured, dict):
             # Whole dict is the payload when agent returns domain JSON directly.
             if "ok" in raw or "text" in raw or "error" in raw:
-                structured = (
-                    raw["structured"] if isinstance(raw.get("structured"), dict) else None
-                )
+                structured = raw["structured"] if isinstance(raw.get("structured"), dict) else None
                 if structured is None:
                     structured = {
                         k: v for k, v in raw.items() if k not in {"ok", "error", "text"}
@@ -113,6 +148,7 @@ def _normalize_raw(raw: Any, *, model: str, agent_ref: str, collect_dir: str | N
             structured=structured if isinstance(structured, dict) else None,
             ok=bool(raw.get("ok", True)),
             error=str(raw["error"]) if raw.get("error") else None,
+            events=events,
             metadata={
                 "plugin": PLUGIN_ID,
                 "agent": agent_ref,
@@ -135,6 +171,7 @@ def _normalize_raw(raw: Any, *, model: str, agent_ref: str, collect_dir: str | N
         text=text,
         structured=structured,
         ok=True,
+        events=events,
         metadata={
             "plugin": PLUGIN_ID,
             "agent": agent_ref,
@@ -186,6 +223,27 @@ class NooaExecutorSPI:
         self._llm: Any = None
         self._llm_backed = False
         self._ready = False
+
+    @staticmethod
+    def describe() -> dict[str, Any]:
+        return describe_nooa()
+
+    def bind_to_target(self, placement: Any) -> Any:
+        """L1 Ready: in-container worker. Host SPI is not the success path."""
+        from nooa_plugin.container import NooaContainerExecutor
+
+        workdir = str(getattr(placement, "workdir", None) or "/attempt/workspace")
+        return NooaContainerExecutor(
+            container_id=str(placement.container_id),
+            agent_ref=self.agent_ref,
+            method=self.method,
+            model=self.model,
+            base_url=self.base_url if isinstance(self.base_url, str) else None,
+            api_key_env=self.api_key_env if isinstance(self.api_key_env, str) else None,
+            uid=int(placement.uid),
+            gid=int(placement.gid),
+            workdir_container=workdir,
+        )
 
     def open(self, **kwargs: Any) -> None:
         del kwargs
@@ -240,6 +298,7 @@ class NooaExecutorSPI:
         return get_llm_client(self.model, **overrides)
 
     def _load_agent_class(self) -> Any:
+        import importlib.util
         import sys
         from pathlib import Path
 
@@ -254,19 +313,48 @@ class NooaExecutorSPI:
             if isinstance(raw, str) and raw.strip():
                 roots.append(Path(raw).expanduser().resolve(strict=False))
         roots.append(Path.cwd())
-        for root in roots:
-            s = str(root)
-            if root.is_dir() and s not in sys.path:
-                sys.path.insert(0, s)
-        try:
-            import importlib
 
-            mod = importlib.import_module(mod_name)
-        except Exception as exc:  # noqa: BLE001
-            raise ExtensionMaterializeError(
-                f"nooa_agent_import_failed:{exc}",
-                kind="extension_materialize_failed",
-            ) from exc
+        mod = None
+        last_exc: Exception | None = None
+        for root in roots:
+            if not root.is_dir():
+                continue
+            rel = Path(*mod_name.split("."))
+            for candidate in (root / f"{rel}.py", root / rel / "__init__.py"):
+                if not candidate.is_file():
+                    continue
+                unique = f"nooa_pkg_{abs(hash(str(root.resolve())))}_{mod_name.replace('.', '_')}"
+                spec = importlib.util.spec_from_file_location(unique, candidate)
+                if spec is None or spec.loader is None:
+                    continue
+                loaded = importlib.util.module_from_spec(spec)
+                parent = str(root)
+                if parent not in sys.path:
+                    sys.path.insert(0, parent)
+                sys.modules[unique] = loaded
+                try:
+                    spec.loader.exec_module(loaded)
+                except Exception as exc:  # noqa: BLE001
+                    last_exc = exc
+                    continue
+                mod = loaded
+                break
+            if mod is not None:
+                break
+        if mod is None:
+            try:
+                import importlib
+
+                for root in roots:
+                    s = str(root)
+                    if root.is_dir() and s not in sys.path:
+                        sys.path.insert(0, s)
+                mod = importlib.import_module(mod_name)
+            except Exception as exc:  # noqa: BLE001
+                raise ExtensionMaterializeError(
+                    f"nooa_agent_import_failed:{last_exc or exc}",
+                    kind="extension_materialize_failed",
+                ) from exc
         if cls_name:
             cls = getattr(mod, cls_name, None)
             if cls is None:
@@ -319,6 +407,7 @@ class NooaExecutorSPI:
                 error=f"nooa_method_missing:{self.method}",
                 metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
             )
+        tap = attach_event_tap(self._agent)
         try:
             raw = self._call_method(method, prompt, effective_workdir)
         except ExtensionMaterializeError as exc:
@@ -339,9 +428,19 @@ class NooaExecutorSPI:
                 error=f"{type(exc).__name__}:{exc}",
                 metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
             )
-        return _normalize_raw(
-            raw, model=self.model, agent_ref=self.agent_ref, collect_dir=collect_dir
+        native = tap.finish(self._agent)
+        _write_backend_raw(collect_dir, native)
+        mapped = tuple(to_bora_trajectory_events(native))
+        result = _normalize_raw(
+            raw,
+            model=self.model,
+            agent_ref=self.agent_ref,
+            collect_dir=collect_dir,
+            events=mapped,
         )
+        meta = dict(result.metadata or {})
+        meta["trajectory_tap"] = tap.stats
+        return replace(result, metadata=meta)
 
     def _call_method(self, method: Any, prompt: str, workdir: str | None) -> Any:
         async def _async_call() -> Any:

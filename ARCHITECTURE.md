@@ -118,6 +118,7 @@ BORA/
 │   ├── capabilities/          # Core 4：Attempt authority（进程内）
 │   ├── evaluation/            # Core 5：flat Result binder（含 Result.logs locator）
 │   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
+│   │                          # + Core trajectory.jsonl writer (bora.trajectory.event/1)
 │   ├── plugins/               # 扩展点注册表（slots/registry/resolve/defaults/contrib）
 │   │   ├── defaults/          # L0–L5 默认 multi/provide（无 legacy executor 桥）
 │   │   ├── lifecycle.py       # emit helpers：host 在控制点 await chain / provide SPI
@@ -127,11 +128,11 @@ BORA/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
 │       ├── provider_docker/   # Docker L1 + multi-actor ExecutionTarget
-│       ├── acp/               # ACP 协议实现（parent client；contrib.acp 门面委托）
+│       ├── acp/               # ACP 协议实现 + vendor→bora.trajectory.event/1 映射
+│       │                      # （不拥有 trajectory.jsonl writer）
 │       ├── acp_entries.json   # Current: static entry pins / descriptors
 │       ├── acp_registry.py    # Current: registry + readiness
-│       ├── agent_container.py # L1 placement helpers / opaque target id
-│       ├── nooa_container.py  # L1 in-container nooa worker executor
+│       ├── agent_container.py # L1 placement helpers / docker exec wrap
 │       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── apps/
@@ -204,7 +205,8 @@ BORA/
 | `provider/`（契约）                         | 隔离档、workspace plan、进程/容器生命周期接口                                                                                   | Benchmark 名分支                                                |
 | `capabilities/`                             | Capability 面与 Attempt 注入契约                                                                                                | 具体 Codex/DB 实现                                              |
 | `evaluation/`                               | barrier 顺序、raw 校验、扁平 Result、与 evidence 衔接                                                                           | package 内评分逻辑                                              |
-| `adapters/*`                                | package fs、Docker、credentials、evidence；**ACP client + entry registry**（coding-agent 唯一 inlet）；`openai-http` api-client | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape |
+| `evidence/`                                 | Attempt store / redaction / 层 C `trajectory.jsonl` writer（只消费 `bora.trajectory.event/1`） | vendor 协议解析；PASS | 
+| `adapters/*`                                | package fs、Docker、credentials；**ACP client + entry registry**（coding-agent 唯一 inlet）；ACP/openai-http **映到层 B**；`openai-http` api-client | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape；写层 C |
 | `domain/`                                   | 跨模块稳定值对象与错误分类                                                                                                      | I/O、Typer、Docker SDK                                          |
 | `bora_sdk`                                  | Harness 侧类型与薄 helper                                                                                                       | Control Plane 内部类型、verdict                                 |
 | `examples/`                                 | 可信回归 package                                                                                                                | 声称支持完整 upstream suite                                     |
@@ -258,7 +260,8 @@ declaration rows for Core to interpret later.
 open_session → resolve graph pin → before/after_agent_open
 invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
              → normalize_agent_result
-             → seal: trajectory_collect → enrich → write trajectory.jsonl
+             → seal: trajectory_collect → enrich
+                    → Core evidence writer (bora.trajectory.event/1 → trajectory.jsonl)
                     → trajectory_seal provide → evidence_extra
 close_session → before_agent_close → executor.close → after_agent_close
 

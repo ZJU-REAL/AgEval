@@ -1,10 +1,14 @@
-"""Unit: ContainerCLIExecutor fails closed on dead/generation / migration."""
+"""Unit: L1 placement resolver fails closed on dead/generation targets."""
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
-from bora.adapters.agent_container import ContainerCLIExecutor, effective_run_gid
+import pytest
+
+from bora.adapters.agent_container import effective_run_gid
+from bora.application.run_l1_prepare import make_l1_placement_resolver
 from bora.provider.targets import ActorPhysicalBinding, ExecutionTarget
 
 
@@ -30,17 +34,10 @@ def test_target_dead_fail_closed() -> None:
         container_id=None,
         state="dead",
     )
-    ex = ContainerCLIExecutor(
-        kind="codex",
-        model="m",
-        container_id="",
-        actor=_binding(),
-        target=target,
-        env={},
-    )
-    r = ex.invoke("hi")
-    assert r.ok is False
-    assert r.error == "target_dead"
+    ledger = SimpleNamespace(actors={"a1": _binding()}, targets={"tgt_1": target})
+    resolve = make_l1_placement_resolver(ledger=ledger)
+    with pytest.raises(RuntimeError, match="target_dead"):
+        resolve(SimpleNamespace(actor_id="a1", generation=1, target_id="tgt_1"))
 
 
 def test_generation_mismatch_fail_closed() -> None:
@@ -51,38 +48,10 @@ def test_generation_mismatch_fail_closed() -> None:
         container_id="cid",
         state="ready",
     )
-    ex = ContainerCLIExecutor(
-        kind="codex",
-        model="m",
-        container_id="cid",
-        actor=_binding(generation=1),
-        target=target,
-        env={},
-    )
-    r = ex.invoke("hi")
-    assert r.ok is False
-    assert r.error == "generation_mismatch"
-
-
-def test_private_cli_invoke_refused() -> None:
-    target = ExecutionTarget(
-        target_id="tgt_1",
-        group_id="g1",
-        generation=1,
-        container_id="cid",
-        state="ready",
-    )
-    ex = ContainerCLIExecutor(
-        kind="codex",
-        model="m",
-        container_id="cid",
-        actor=_binding(),
-        target=target,
-        env={},
-    )
-    r = ex.invoke("hi")
-    assert r.ok is False
-    assert r.error == "migrated_to_acp"
+    ledger = SimpleNamespace(actors={"a1": _binding(generation=1)}, targets={"tgt_1": target})
+    resolve = make_l1_placement_resolver(ledger=ledger)
+    with pytest.raises(RuntimeError, match="generation_mismatch"):
+        resolve(SimpleNamespace(actor_id="a1", generation=1, target_id="tgt_1"))
 
 
 def test_effective_run_gid_shared_write() -> None:

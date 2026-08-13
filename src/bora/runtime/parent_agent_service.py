@@ -67,8 +67,6 @@ class SessionBinding:
     # Optional profile routing (lock-safe): base_url + api_key env *locator* name.
     base_url: str | None = None
     api_key: str | None = None
-    # Spec 19: ACP registry entry id when executor_kind == "acp".
-    acp_entry_id: str | None = None
     # L1 multi-actor binding (opaque target id only — no docker handle).
     actor_id: str | None = None
     target_id: str | None = None
@@ -84,7 +82,7 @@ class ParentAgentService:
 
     MVP: host executor path is **only** the session-pinned extension graph
     (constitution §0 — no resolve_executor dual path).
-    L1 may still bind container targets via ``make_target_executor``.
+    L1 binds container targets via ``resolve_placement`` + SPI ``bind_to_target``.
     """
 
     profiles: list[dict[str, Any]]
@@ -105,8 +103,8 @@ class ParentAgentService:
     require_actor_id: bool = False
     # Callable(actor_id, profile_id) -> dict with ok/error/target_id/generation or fail.
     validate_actor_profile: Callable[[str, str], dict[str, Any]] | None = None
-    # When set, builds container-bound executor from SessionBinding (L1 only).
-    make_target_executor: Callable[[SessionBinding], Any] | None = None
+    # L1: SessionBinding → TargetPlacement (ledger checks). SPI bind_to_target attaches.
+    resolve_placement: Callable[[SessionBinding], Any] | None = None
     # Forbid host graph path (L1 container-only).
     l1_container_only: bool = False
     _sessions: dict[str, SessionBinding] = field(default_factory=dict)
@@ -265,21 +263,6 @@ class ParentAgentService:
             else None
         )
 
-        # Fail closed on ACP entry before materializing the graph.
-        profile_executor = str(profile.get("executor") or "").strip()
-        acp_entry_id: str | None = None
-        if profile_executor == "acp":
-            options = profile.get("options") if isinstance(profile.get("options"), dict) else {}
-            entry_raw = options.get("entry") if isinstance(options, dict) else None
-            if isinstance(entry_raw, str) and entry_raw.strip():
-                acp_entry_id = entry_raw.strip()
-            else:
-                return {
-                    "ok": False,
-                    "error": "acp_entry_required",
-                    "profile_id": profile_id,
-                }
-
         # Resolve and pin extension graph (required; no legacy path).
         from bora.plugins.protocol import intent_from_profile
         from bora.plugins.resolve import resolve as resolve_extensions
@@ -317,7 +300,6 @@ class ParentAgentService:
                 executor_kind=executor_kind,
                 base_url=base_url,
                 api_key=api_key,
-                acp_entry_id=acp_entry_id,
                 actor_id=actor_id_n,
                 target_id=target_id,
                 generation=generation,
@@ -333,7 +315,6 @@ class ParentAgentService:
             "actor_id": actor_id_n,
             "target_id": target_id,
             "generation": generation,
-            "acp_entry_id": acp_entry_id,
         }
         try:
             open_meta = self._emit_agent_open(binding, open_meta)
@@ -359,7 +340,6 @@ class ParentAgentService:
             "generation": generation,
             "attempt_id": self.attempt_id,
             "provider_session_handle": None,
-            "acp_entry_id": acp_entry_id,
             "executor_plugin": executor_kind,
         }
 
@@ -397,7 +377,6 @@ class ParentAgentService:
             profile_id = binding.profile_id
             base_url = binding.base_url
             api_key = binding.api_key
-            acp_entry_id = binding.acp_entry_id
             binding_snap = binding
             actor_id = binding.actor_id
             target_id = binding.target_id
@@ -421,7 +400,6 @@ class ParentAgentService:
                     model=model,
                     base_url=base_url,
                     api_key=api_key,
-                    acp_entry_id=acp_entry_id,
                     actor_id=actor_id,
                     target_id=target_id,
                     generation=generation,
@@ -444,34 +422,33 @@ class ParentAgentService:
                 }
 
         try:
+            executor: Any
             if cached_executor is not None:
                 executor = cached_executor
-            elif self.make_target_executor is not None and binding_snap is not None:
-                # L1 container path — never host-fallback.
-                executor = self.make_target_executor(binding_snap)
+            elif self.l1_container_only:
+                if self.resolve_placement is None or binding_snap is None:
+                    raise RuntimeError("l1_executor_unbound")
+                placement = self.resolve_placement(binding_snap)
+                host = self._executor_from_graph(binding_snap)
+                bind = getattr(host, "bind_to_target", None)
+                if not callable(bind):
+                    raise RuntimeError("l1_executor_unbound")
+                executor = bind(placement)
                 with self._lock:
                     self._executors[session_id] = executor
-            elif self.l1_container_only:
-                seal_failure(
-                    handle,
-                    status="failed",
-                    error="l1_executor_unbound",
-                    latency_ms=(time.monotonic() - started) * 1000.0,
-                )
-                return {
-                    "ok": False,
-                    "error": "l1_executor_unbound",
-                    "executor": kind,
-                    "invocation_id": handle.invocation_id if handle else None,
-                    "evidence_relative": handle.relative_path if handle else None,
-                }
             else:
                 # Host path: only session-pinned graph provider (no legacy resolve).
                 executor = self._executor_from_graph(binding_snap)
                 with self._lock:
                     self._executors[session_id] = executor
         except Exception as exc:  # noqa: BLE001 — bind failures fail closed
-            err = getattr(exc, "error", None) or getattr(exc, "kind", None) or type(exc).__name__
+            err = getattr(exc, "error", None) or getattr(exc, "kind", None)
+            if not err and isinstance(exc, RuntimeError):
+                msg = str(exc)
+                if msg and " " not in msg:
+                    err = msg
+            if not err:
+                err = type(exc).__name__
             if self.l1_container_only or str(err) in {
                 "extension_graph_missing",
                 "executor_provider_missing",

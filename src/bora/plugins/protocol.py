@@ -11,9 +11,26 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 
+@dataclass(frozen=True, slots=True)
+class TargetPlacement:
+    """Core-owned L1 attach facts. Plugins bind; they do not pick container ids."""
+
+    container_id: str
+    uid: int
+    gid: int
+    workdir: str = "/attempt/workspace"
+    home: str = "/attempt/home"
+    shared_write: bool = False
+    shared_gid: int | None = None
+
+
 @runtime_checkable
 class ExecutorSPI(Protocol):
-    """Single-winner provider for the ``executor`` slot."""
+    """Single-winner provider for the ``executor`` slot.
+
+    Optional ``bind_to_target(placement) -> ExecutorSPI`` attaches the host
+    SPI to a Core-owned L1 container. Missing bind → ``l1_executor_unbound``.
+    """
 
     kind: str
 

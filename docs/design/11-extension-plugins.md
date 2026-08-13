@@ -34,7 +34,7 @@
 1. `profiles.executor`（及 `extensions` 显式绑定）选择 provide；**禁止** `resolve_executor` dual path / `bora.agent_executors` 旁路  
 2. **nooa 等生态插件外置**（`plugins/` + install），不进 first-party bootstrap  
 3. `bora plugin install` **只写本地 cache**（`$BORA_HOME/plugins`），**永不改写** profiles / task.yaml  
-4. **Recognition ≠ Ready**：install 可见 ≠ L1 镜像可跑；Ready 来自 `image_contribute` bake  
+4. **Recognition ≠ Ready**：install 可见 ≠ L1 镜像可跑；Ready 来自 `image_contribute` bake。Core 对每个已安装且声明 contribute、并带 `docker/Dockerfile.bake` 的**外置**插件链式 `docker buildx`（context = 插件根）。绑定了外置 executor 但链为空或缺 bake 文件 → fail closed。Core **不**按插件名解释 bake token。官方 ACP 五 entry 仍在 `docker/attempt` 基座 bake-in。  
 5. PASS 只来自独立 evaluator；扩展链不得发明 PASS  
 6. 凭据只经 scoped projection；不进 lock / evidence  
 
@@ -43,7 +43,7 @@
 | 保留在 Core | 交给插件 | 共存 |
 | --- | --- | --- |
 | package `data/` → `seed_l1_workspace` | 旧 builtin + entry_point dual path | Core seed 后 plugin `after_prepare` / env / image_contribute |
-| evaluator barrier / PASS | L1 Ready 靠 parent host SPI 冒充 | trajectory：Core 写盘；`trajectory_*` 扩展 fail-open（有意） |
+| evaluator barrier / PASS；层 C `trajectory.jsonl` writer | L1 Ready 靠 parent host SPI 冒充；ACP-shaped `AgentResult.events` 伪装 | 层 B：adapter 映 `bora.trajectory.event/1`；`trajectory_*` 扩展 fail-open（有意） |
 | credential 投影 | Runtime 直接散落工厂 | plugins 只拿 scoped env |
 
 固定顺序：**Core seed → 再 plugin chains**。
@@ -58,9 +58,9 @@
 | --- | --- | --- |
 | L0 | `before/after_prepare|run|evaluate|cleanup` | `application/extension_hooks` |
 | L1 | `image_contribute`、`env_*`、`env_action` | prepare bake；env prepare/teardown + action_gate |
-| L2 | `executor`、agent open/invoke/close、`normalize_agent_result` | `ParentAgentService` session 钉图 |
+| L2 | `executor`、agent open/invoke/close、`normalize_agent_result` | `ParentAgentService` session 钉图。L1 用 Core `TargetPlacement` + SPI `bind_to_target`；禁止 Core `if kind == …` 重建 executor |
 | L3 | `evaluation_input_contribute`、`evaluation_runtime`、`score_postprocess` | 评测前/后（fail closed；不得选 PASS 权威） |
-| L4 | `trajectory_collect|enrich|seal`、`evidence_extra` | seal 写路径（collect/enrich fail-open） |
+| L4 | `trajectory_collect|enrich|seal`、`evidence_extra` | seal 写路径（collect/enrich fail-open）。collect 可补层 B 事件；**不得**让插件直接写层 C 行，也不得再产出 ACP `session_update` 伪装 |
 | L5 | `cleanup_actions`、`cleanup_report` | cleanup emit |
 
 **生产 emit 图（摘要）：**

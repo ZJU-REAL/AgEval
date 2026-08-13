@@ -90,16 +90,18 @@ ctx.agent.invoke(profile_id, messages, ...)
   → 调后端：
        acp         → parent typed ACP client ↔ host/L1 ACP entry stdio
        openai-http → API client
-       <custom>    → entry-point 注册的其它 mechanism kind（须 fail closed）
-  → 归一化为 AgentResult（content / structured / usage / session）
+       <custom>    → 已安装 provide(executor)；L1 经 bind_to_target（须 fail closed）
+  → 归一化为 AgentResult（content / structured / usage / session / events）
 ```
+
+`AgentResult.events` 是 **中立** `bora.trajectory.event/1` 流（见 [evidence.md](evidence.md) 三层契约）。Adapter 把 vendor native（ACP `session/update`、nooa `event_manager`、…）映到该契约；**禁止**非 ACP 插件伪装 `session_update`。Core evidence writer 再折叠为 `trajectory.jsonl`。`backend_raw/` 仍是 vendor native。轨迹 ≠ PASS。
 
 职责：
 
 | 职责 | 说明 |
 | --- | --- |
 | Profile 解析 | 把逻辑 profile 绑到具体 executor + model + options（含 `options.entry`） |
-| Executor 路由 | `acp`（单一 client + entry registry）、`openai-http`、经 entry point 声明的其它 kind；**不是**每个 vendor 一套 stdout parser |
+| Executor 路由 | `acp`（单一 client + entry registry）、`openai-http`、已安装 `provide(executor)` 的其它 kind（L1 经 `bind_to_target`）；**不是**每个 vendor 一套 stdout parser |
 | Session 绑定 | 创建时固定 Attempt + profile + workspace；禁止跨 Attempt 复用 |
 | 统一 invoke 契约 | Harness 只见 messages / schema / tools 意图，不见各 CLI/ACP 细节 |
 | 额度与安全 | `limits.agent_invocations`、capability close、secret 不进 package 代码 |

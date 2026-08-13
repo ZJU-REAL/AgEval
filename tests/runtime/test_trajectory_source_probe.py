@@ -56,7 +56,7 @@ def test_real_acp_opencode_events_when_available(tmp_path: Path) -> None:
         result = ex.invoke(
             'Reply with ONLY JSON {"ok": true} and nothing else.',
             timeout=120.0,
-            collect_dir=h.directory / "backend_raw",
+            collect_dir=str(h.directory / "backend_raw"),
         )
     finally:
         ex.close()

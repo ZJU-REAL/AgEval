@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from bora.adapters.nooa_container import NooaContainerExecutor
 from bora.provider.outcomes import ProcessOutcome, ProcessTerminalKind
 from bora.runtime.identity import IdentityFactory
+
+_NOOA_SRC = Path(__file__).resolve().parents[2] / "plugins" / "nooa" / "src"
+if str(_NOOA_SRC) not in sys.path:
+    sys.path.insert(0, str(_NOOA_SRC))
+
+from nooa_plugin.container import NooaContainerExecutor  # noqa: E402
 
 
 def test_nooa_container_executor_parses_worker_stdout() -> None:
@@ -48,7 +54,7 @@ def test_nooa_container_executor_parses_worker_stdout() -> None:
         uid=10001,
         gid=10001,
     )
-    with patch("bora.adapters.nooa_container.supervise_docker_cli", side_effect=fake_supervise):
+    with patch("nooa_plugin.container.supervise_docker_cli", side_effect=fake_supervise):
         result = ex.invoke("do it", timeout=5.0)
     assert result.ok
     assert result.metadata is not None

@@ -122,6 +122,7 @@ export type TrajectoryStep = {
   role?: string | null;
   content?: string | null;
   turn_index?: number | null;
+  session_id?: string | null;
   source?: string | null;
   stop_reason?: string | null;
   ok?: boolean | null;
@@ -134,7 +135,7 @@ export type TrajectoryStep = {
   line?: number;
   usage?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
-  /** ACP tool_call / observation (observational; not PASS) */
+  /** tool_call / observation (observational; not PASS) */
   tool_call_id?: string | null;
   title?: string | null;
   function_name?: string | null;

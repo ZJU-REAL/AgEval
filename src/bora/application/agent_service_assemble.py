@@ -64,7 +64,7 @@ def assemble_parent_agent_service(
     workdir: Path | str | None = None,
     require_actor_id: bool = False,
     validate_actor_profile: Any = None,
-    make_target_executor: Any = None,
+    resolve_placement: Any = None,
     l1_container_only: bool = False,
 ) -> tuple[ParentAgentService, float]:
     """Build the sole production ParentAgentService used by L0/L1 paths.
@@ -93,8 +93,8 @@ def assemble_parent_agent_service(
         kwargs["require_actor_id"] = True
     if validate_actor_profile is not None:
         kwargs["validate_actor_profile"] = validate_actor_profile
-    if make_target_executor is not None:
-        kwargs["make_target_executor"] = make_target_executor
+    if resolve_placement is not None:
+        kwargs["resolve_placement"] = resolve_placement
     if l1_container_only:
         kwargs["l1_container_only"] = True
     return ParentAgentService(**kwargs), invoke_timeout
