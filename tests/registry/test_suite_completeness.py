@@ -192,3 +192,45 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
     assert new_payload["complete"] is False
     board_after = results.list_suites(auth=auth, database_id="test/publish-min", board=True)
     assert [i["suite_run_id"] for i in board_after["items"]] == ["suite_release"]
+
+
+def test_non_entitled_uploader_cannot_bind_private_draft(tmp_path: Path) -> None:
+    packages, results = _services(tmp_path)
+    packages.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    archive, blob_digest, size = build_archive(FIXTURE)
+    alice = TokenInfo(scopes=frozenset({"registry:publish", "results:upload"}), user_id="alice")
+    packages.publish(
+        meta={
+            "database_id": "test/publish-min",
+            "version": "0.1.0",
+            "package_digest": compute_package_digest(FIXTURE),
+            "blob_digest": blob_digest,
+            "media_type": MEDIA_TYPE,
+            "visibility": "private",
+            "org_id": "acme",
+            "size": size,
+            "slot": "draft",
+        },
+        archive=archive,
+        auth=alice,
+    )
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    meta, sarch = _suite_meta(
+        suite_run_id="suite_stranger",
+        version="draft",
+        task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
+    )
+    payload = results.upload_suite(meta=meta, archive=sarch, auth=bob)
+    assert payload["bound_kind"] == "unknown"
+    assert payload["complete"] is False
+    assert "task_set_digest" not in payload
+
+    fallback_meta, fallback_arch = _suite_meta(
+        suite_run_id="suite_stranger_fallback",
+        version="0.1.0",
+        task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
+    )
+    fallback = results.upload_suite(meta=fallback_meta, archive=fallback_arch, auth=bob)
+    assert fallback["bound_kind"] == "unknown"
+    assert fallback["complete"] is False
+    assert "task_set_digest" not in fallback

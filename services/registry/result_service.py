@@ -320,7 +320,7 @@ class ResultService:
                 raise RegistryAppError("not_found", "suite not found", http_status=404)
             self.meta.delete_suite(suite_run_id)
             self._gc_suite_blob(existing.blob_digest)
-        bound_kind, bound_ids = self._bound_task_ids(database_id, database_version)
+        bound_kind, bound_ids = self._bound_task_ids(database_id, database_version, auth=auth)
         digest = task_set_digest(bound_ids) if bound_ids else ""
         complete = suite_is_complete(bound_task_ids=bound_ids, task_refs=task_refs)
         row = SuiteResultRow(
@@ -552,17 +552,20 @@ class ResultService:
         )
 
     def _bound_task_ids(
-        self, database_id: str, database_version: str
+        self, database_id: str, database_version: str, *, auth: TokenInfo
     ) -> tuple[str, frozenset[str]]:
         """Resolve bound package + task set at upload time.
 
-        Release match wins. Otherwise a live draft is draft-bound. Missing
-        package → unknown / empty set (incomplete, not on the public board).
+        Release match wins. Otherwise a live draft the caller may see is
+        draft-bound. Unauthorized draft reads and missing packages → unknown
+        / empty set (incomplete, not on the public board; no existence leak).
         """
         release = None
         draft = None
         if is_draft_version(database_version):
             draft = self.meta.get_draft(database_id)
+            if draft is not None and not self.access.entitled_to_draft(draft, auth):
+                return BOUND_UNKNOWN, frozenset()
             kind = BOUND_DRAFT if draft is not None else BOUND_UNKNOWN
         else:
             release = self.meta.get_by_version(database_id, database_version)
@@ -570,6 +573,8 @@ class ResultService:
                 kind = BOUND_RELEASE
             else:
                 draft = self.meta.get_draft(database_id)
+                if draft is not None and not self.access.entitled_to_draft(draft, auth):
+                    return BOUND_UNKNOWN, frozenset()
                 kind = BOUND_DRAFT if draft is not None else BOUND_UNKNOWN
         blob = None
         digest = ""
