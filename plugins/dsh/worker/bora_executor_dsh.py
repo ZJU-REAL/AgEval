@@ -157,9 +157,8 @@ def main() -> int:
 
     traj = _load_trajectory()
     raw_perm = req.get("permission")
-    permission = (
-        os.environ.get("DSH_PERMISSION_MODE")
-        or (str(raw_perm).strip() if isinstance(raw_perm, str) else "")
+    permission = os.environ.get("DSH_PERMISSION_MODE") or (
+        str(raw_perm).strip() if isinstance(raw_perm, str) else ""
     )
     child_env: dict[str, str] = {}
     if permission:

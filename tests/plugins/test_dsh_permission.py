@@ -61,9 +61,7 @@ def test_permission_selects_sandboxed_unless_custom_composition() -> None:
         resolve_effective_composition(composition="sandboxed", permission="read-only")
         == SANDBOXED_COMPOSITION
     )
-    assert (
-        resolve_effective_composition(composition="custom", permission="read-only") == "custom"
-    )
+    assert resolve_effective_composition(composition="custom", permission="read-only") == "custom"
     assert resolve_effective_composition(composition=None, permission=None) == DEFAULT_COMPOSITION
     assert resolve_effective_composition(composition="slim", permission=None) == "slim"
 
