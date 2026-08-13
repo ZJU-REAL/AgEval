@@ -67,8 +67,8 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from services.registry.access import AccessPolicy  # noqa: E402
-from services.registry.errors import RegistryAppError  # noqa: E402
 from services.registry.envload import load_env_file  # noqa: E402
+from services.registry.errors import RegistryAppError  # noqa: E402
 from services.registry.oauth_github import (  # noqa: E402
     GitHubOAuthError,
     build_web_authorize_url,
@@ -81,26 +81,19 @@ from services.registry.routes import match_route  # noqa: E402
 from services.registry.store import (  # noqa: E402
     ADMIN_SCOPES,
     DEFAULT_LOGIN_SCOPES,
-    AttemptResultRow,
     FilesystemBlobStore,
     MemoryBlobStore,
     MetadataStore,
     PostgresMetadataStore,
     PostgresTokenStore,
-    ReleaseRow,
     S3BlobStore,
     SqliteTokenStore,
-    SuiteResultRow,
     TokenInfo,
     _normalize_user_id,
-    attempt_to_dict,
     invite_key_to_dict,
     membership_to_dict,
     now,
     org_to_dict,
-    release_to_dict,
-    share_to_dict,
-    suite_to_dict,
 )
 
 from bora.registry.media_types import (  # noqa: E402
@@ -136,7 +129,7 @@ class RegistryState:
 
         self.auth = AuthService(tokens)
         self.packages = PackageService(meta, blobs, self.access, max_upload=max_upload)
-        self.results = ResultService(meta, self.access)
+        self.results = ResultService(meta, blobs, self.access, max_upload=max_upload)
         self.orgs = OrgService(meta, self.access)
         self.max_upload = max_upload
         self.github_client_id = github_client_id
@@ -220,29 +213,6 @@ def _parse_multipart(body: bytes, content_type: str) -> dict[str, bytes]:
 
 def _is_admin(scopes: frozenset[str]) -> bool:
     return AccessPolicy.is_admin(scopes)
-
-
-def _require_user(auth: TokenInfo) -> str | None:
-    """Return user_id or None if missing (caller maps to 401)."""
-    return auth.user_id
-
-
-def _visible_result_row(
-    state: RegistryState,
-    *,
-    result_kind: str,
-    result_id: str,
-    visibility: str,
-    uploaded_by: str,
-    auth: TokenInfo,
-) -> bool:
-    return state.access.visible_result(
-        result_kind=result_kind,
-        result_id=result_id,
-        visibility=visibility,
-        uploaded_by=uploaded_by,
-        auth=auth,
-    )
 
 
 def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
@@ -747,10 +717,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 200, payload)
 
-        # ---- results -----------------------------------------------------
-
-        def _upload_attempt(self, *, auth: TokenInfo) -> None:
-            scopes = auth.scopes
+        def _read_multipart_archive(self) -> tuple[dict[str, Any], bytes] | None:
             length = int(self.headers.get("Content-Length") or "0")
             if length <= 0 or length > state.max_upload:
                 _json_response(
@@ -758,7 +725,7 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     413,
                     {"error": "payload_too_large", "message": f"max {state.max_upload} bytes"},
                 )
-                return
+                return None
             body = self.rfile.read(length)
             ctype = self.headers.get("Content-Type") or ""
             try:
@@ -771,150 +738,60 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     400,
                     {"error": "invalid_request", "message": f"bad multipart: {exc}"},
                 )
-                return
+                return None
+            return meta, archive
 
-            run_id = str(meta.get("run_id") or "")
-            database_id = str(meta.get("database_id") or "")
-            task_id = str(meta.get("task_id") or "")
-            lock_digest = str(meta.get("lock_digest") or "")
-            status = str(meta.get("status") or "")
-            visibility = str(meta.get("visibility") or "private")
-            blob_digest = str(meta.get("blob_digest") or "")
-            size = int(meta.get("size") or len(archive))
-            suite_run_id = str(meta.get("suite_run_id") or "").strip()
-            if not run_id or not database_id:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": "run_id and database_id required"},
-                )
-                return
-            if visibility not in {"private", "public"}:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
-                return
-            actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
-            if actual_blob != blob_digest or size != len(archive):
-                _json_response(
-                    self,
-                    400,
-                    {"error": "digest_mismatch", "message": "blob digest or size mismatch"},
-                )
-                return
-            if _archive_looks_like_secret_leak(archive):
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "secret_scan_failed",
-                        "message": "archive rejected: possible credential material",
-                    },
-                )
-                return
-
-            replace = bool(meta.get("replace")) or str(meta.get("replace") or "").lower() in {
-                "1",
-                "true",
-                "yes",
-            }
-            existing = state.meta.get_attempt(run_id)
-            if existing is not None:
-                if not replace:
-                    _json_response(
-                        self,
-                        409,
-                        {"error": "conflict", "message": "attempt result already exists"},
-                    )
-                    return
-                # Replace is owner-only (uploaded_by) or admin — never silent.
-                if not (
-                    _is_admin(scopes) or (auth.user_id and existing.uploaded_by == auth.user_id)
-                ):
-                    _json_response(
-                        self,
-                        404,
-                        {"error": "not_found", "message": "attempt not found"},
-                    )
-                    return
-                state.meta.delete_attempt(run_id)
-                self._gc_attempt_blob(existing.blob_digest)
-
-            row = AttemptResultRow(
-                run_id=run_id,
-                database_id=database_id,
-                task_id=task_id,
-                lock_digest=lock_digest,
-                status=status,
-                visibility=visibility,
-                blob_digest=blob_digest,
-                size=size,
-                created_at=now(),
-                uploaded_by=auth.user_id,
-                suite_run_id=suite_run_id,
-            )
+        def _read_json_body(self) -> dict[str, Any] | None:
+            length = int(self.headers.get("Content-Length") or "0")
+            raw = self.rfile.read(length) if length > 0 else b"{}"
             try:
-                state.blobs.put_if_absent(blob_digest, archive, prefix="results")
-                state.meta.insert_attempt(row)
-            except ValueError:
-                _json_response(
-                    self,
-                    409,
-                    {"error": "conflict", "message": "attempt result already exists"},
-                )
+                body = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return None
+            if not isinstance(body, dict):
+                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+                return None
+            return body
+
+        # ---- results -----------------------------------------------------
+
+        def _upload_attempt(self, *, auth: TokenInfo) -> None:
+            parsed = self._read_multipart_archive()
+            if parsed is None:
                 return
-            payload = attempt_to_dict(row)
-            if existing is not None and replace:
-                payload["replaced"] = True
+            meta, archive = parsed
+            try:
+                payload = state.results.upload_attempt(meta=meta, archive=archive, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
             _json_response(self, 201, payload)
 
         def _list_attempts(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
-            database_id = (qs.get("database_id") or [None])[0]
-            rows = state.meta.list_attempts(
-                database_id=database_id or None,
-                include_private=True,
-            )
-            items = [
-                attempt_to_dict(r)
-                for r in rows
-                if _visible_result_row(
-                    state,
-                    result_kind="attempt",
-                    result_id=r.run_id,
-                    visibility=r.visibility,
-                    uploaded_by=r.uploaded_by,
+            try:
+                payload = state.results.list_attempts(
                     auth=auth,
+                    database_id=(qs.get("database_id") or [None])[0],
                 )
-            ]
-            _json_response(self, 200, {"items": items})
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
 
         def _serve_attempt_meta(self, *, run_id: str, auth: TokenInfo) -> None:
-            row = state.meta.get_attempt(run_id)
-            if row is None or not _visible_result_row(
-                state,
-                result_kind="attempt",
-                result_id=row.run_id,
-                visibility=row.visibility,
-                uploaded_by=row.uploaded_by,
-                auth=auth,
-            ):
-                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+            try:
+                payload = state.results.serve_attempt_meta(run_id=run_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 200, attempt_to_dict(row))
+            _json_response(self, 200, payload)
 
         def _serve_attempt_content(self, *, run_id: str, auth: TokenInfo) -> None:
-            row = state.meta.get_attempt(run_id)
-            if row is None or not _visible_result_row(
-                state,
-                result_kind="attempt",
-                result_id=row.run_id,
-                visibility=row.visibility,
-                uploaded_by=row.uploaded_by,
-                auth=auth,
-            ):
-                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
-                return
-            data = state.blobs.get(row.blob_digest, prefix="results")
-            if data is None:
-                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+            try:
+                data, row = state.results.serve_attempt_content(run_id=run_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
@@ -924,357 +801,60 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(data)
 
-        def _resolve_visible_attempt(
-            self, *, run_id: str, auth: TokenInfo
-        ) -> AttemptResultRow | None:
-            row = state.meta.get_attempt(run_id)
-            if row is None or not _visible_result_row(
-                state,
-                result_kind="attempt",
-                result_id=row.run_id,
-                visibility=row.visibility,
-                uploaded_by=row.uploaded_by,
-                auth=auth,
-            ):
-                return None
-            return row
-
         def _serve_attempt_files_list(self, *, run_id: str, auth: TokenInfo) -> None:
-            from services.registry.package_files import get_or_build_index
-
-            row = self._resolve_visible_attempt(run_id=run_id, auth=auth)
-            if row is None:
-                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
-                return
-            archive = state.blobs.get(row.blob_digest, prefix="results")
-            if archive is None:
-                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
-                return
             try:
-                index = get_or_build_index(archive, package_digest=row.blob_digest)
-            except Exception as exc:  # noqa: BLE001
-                _json_response(
-                    self,
-                    500,
-                    {"error": "archive_error", "message": f"cannot index attempt: {exc}"},
-                )
+                payload = state.results.list_attempt_files(run_id=run_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(
-                self,
-                200,
-                {
-                    "run_id": row.run_id,
-                    "database_id": row.database_id,
-                    "task_id": row.task_id,
-                    "digest": row.blob_digest,
-                    "items": index.list_items(),
-                },
-            )
-
-        def _serve_attempt_file(self, *, run_id: str, file_path: str, auth: TokenInfo) -> None:
-            from services.registry.package_files import (
-                MAX_FILE_BYTES,
-                PackageFileNotFound,
-                PackageFileTooLarge,
-                PackagePathError,
-                file_payload,
-                normalize_package_path,
-                read_member,
-            )
-
-            row = self._resolve_visible_attempt(run_id=run_id, auth=auth)
-            if row is None:
-                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
-                return
-            # Path is already unquoted in do_GET; match package file route.
-            try:
-                safe_path = normalize_package_path(file_path)
-            except PackagePathError as exc:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_path", "message": str(exc)},
-                )
-                return
-            archive = state.blobs.get(row.blob_digest, prefix="results")
-            if archive is None:
-                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
-                return
-            try:
-                data, size, truncated = read_member(
-                    archive, safe_path, max_bytes=MAX_FILE_BYTES, allow_truncate=True
-                )
-            except PackagePathError as exc:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_path", "message": str(exc)},
-                )
-                return
-            except PackageFileNotFound:
-                _json_response(
-                    self,
-                    404,
-                    {"error": "not_found", "message": f"file not found: {safe_path}"},
-                )
-                return
-            except PackageFileTooLarge as exc:
-                _json_response(
-                    self,
-                    413,
-                    {
-                        "error": "file_too_large",
-                        "message": str(exc),
-                        "max_bytes": MAX_FILE_BYTES,
-                        "path": exc.path,
-                        "size": exc.size,
-                    },
-                )
-                return
-            payload = file_payload(safe_path, data, size=size, truncated=truncated)
             _json_response(self, 200, payload)
 
-        # ---- suite results -----------------------------------------------
+        def _serve_attempt_file(self, *, run_id: str, file_path: str, auth: TokenInfo) -> None:
+            try:
+                payload = state.results.read_attempt_file(
+                    run_id=run_id, file_path=file_path, auth=auth
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
 
         def _upload_suite(self, *, auth: TokenInfo) -> None:
-            scopes = auth.scopes
-            length = int(self.headers.get("Content-Length") or "0")
-            if length <= 0 or length > state.max_upload:
-                _json_response(
-                    self,
-                    413,
-                    {"error": "payload_too_large", "message": f"max {state.max_upload} bytes"},
-                )
+            parsed = self._read_multipart_archive()
+            if parsed is None:
                 return
-            body = self.rfile.read(length)
-            ctype = self.headers.get("Content-Type") or ""
+            meta, archive = parsed
             try:
-                parts = _parse_multipart(body, ctype)
-                meta = json.loads(parts["metadata"].decode("utf-8"))
-                archive = parts["archive"]
-            except (KeyError, ValueError, json.JSONDecodeError) as exc:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": f"bad multipart: {exc}"},
-                )
+                payload = state.results.upload_suite(meta=meta, archive=archive, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-
-            suite_run_id = str(meta.get("suite_run_id") or "")
-            database_id = str(meta.get("database_id") or "")
-            database_version = str(meta.get("database_version") or "")
-            visibility = str(meta.get("visibility") or "private")
-            blob_digest = str(meta.get("blob_digest") or "")
-            size = int(meta.get("size") or len(archive))
-            if not suite_run_id or not database_id:
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "invalid_request",
-                        "message": "suite_run_id and database_id required",
-                    },
-                )
-                return
-            if visibility not in {"private", "public"}:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
-                return
-            if "pass" in meta or "verdict" in meta or meta.get("suite_pass") is not None:
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "invalid_request",
-                        "message": "suite-level PASS/verdict fields are not accepted",
-                    },
-                )
-                return
-            actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
-            if actual_blob != blob_digest or size != len(archive):
-                _json_response(
-                    self,
-                    400,
-                    {"error": "digest_mismatch", "message": "blob digest or size mismatch"},
-                )
-                return
-            if _archive_looks_like_secret_leak(archive):
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "secret_scan_failed",
-                        "message": "archive rejected: possible credential material",
-                    },
-                )
-                return
-
-            metrics = meta.get("metrics") if isinstance(meta.get("metrics"), dict) else {}
-            task_refs = meta.get("task_refs") if isinstance(meta.get("task_refs"), list) else []
-            try:
-                pass_rate = float(meta.get("pass_rate", metrics.get("pass_rate", 0.0)))
-                mean_score = float(meta.get("mean_score", metrics.get("mean_score", 0.0)))
-            except (TypeError, ValueError):
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": "pass_rate/mean_score must be numeric"},
-                )
-                return
-            try:
-                exit_code = int(meta.get("exit_code", 0))
-            except (TypeError, ValueError):
-                exit_code = 0
-
-            config_payload: dict[str, Any] = {}
-            if meta.get("config_fingerprint"):
-                config_payload["config_fingerprint"] = str(meta["config_fingerprint"])
-            if "config_homogeneous" in meta:
-                config_payload["config_homogeneous"] = bool(meta.get("config_homogeneous"))
-            actors_raw = meta.get("actors_summary")
-            if isinstance(actors_raw, list):
-                config_payload["actors_summary"] = [a for a in actors_raw if isinstance(a, dict)]
-            # #59 job binding overlay (secret-free; locators only).
-            overlay_raw = meta.get("job_overlay")
-            if isinstance(overlay_raw, dict) and overlay_raw:
-                config_payload["job_overlay"] = overlay_raw
-
-            replace = bool(meta.get("replace")) or str(meta.get("replace") or "").lower() in {
-                "1",
-                "true",
-                "yes",
-            }
-            existing_suite = state.meta.get_suite(suite_run_id)
-            if existing_suite is not None:
-                if not replace:
-                    _json_response(
-                        self,
-                        409,
-                        {"error": "conflict", "message": "suite result already exists"},
-                    )
-                    return
-                if not (
-                    _is_admin(scopes)
-                    or (auth.user_id and existing_suite.uploaded_by == auth.user_id)
-                ):
-                    _json_response(
-                        self,
-                        404,
-                        {"error": "not_found", "message": "suite not found"},
-                    )
-                    return
-                state.meta.delete_suite(suite_run_id)
-                self._gc_suite_blob(existing_suite.blob_digest)
-
-            row = SuiteResultRow(
-                suite_run_id=suite_run_id,
-                database_id=database_id,
-                database_version=database_version,
-                visibility=visibility,
-                pass_rate=pass_rate,
-                mean_score=mean_score,
-                metrics_json=json.dumps(metrics, sort_keys=True),
-                tasks_json=json.dumps(task_refs, sort_keys=True),
-                agent_label=str(meta.get("agent_label") or ""),
-                model_label=str(meta.get("model_label") or ""),
-                blob_digest=blob_digest,
-                size=size,
-                exit_code=exit_code,
-                created_at=now(),
-                config_json=json.dumps(config_payload, sort_keys=True),
-                uploaded_by=auth.user_id,
-            )
-            try:
-                state.blobs.put_if_absent(blob_digest, archive, prefix="suite-results")
-                state.meta.insert_suite(row)
-            except ValueError:
-                _json_response(
-                    self,
-                    409,
-                    {"error": "conflict", "message": "suite result already exists"},
-                )
-                return
-            suite_payload = suite_to_dict(row)
-            if existing_suite is not None and replace:
-                suite_payload["replaced"] = True
-            _json_response(self, 201, suite_payload)
-
-        def _suite_visible_attempt_ids(self, rows: list[Any], *, auth: TokenInfo) -> set[str]:
-            """run_ids with attempt blobs the *auth* principal may open (fail-closed)."""
-            from services.registry.store import _run_ids_from_tasks_json
-
-            run_ids: list[str] = []
-            for r in rows:
-                run_ids.extend(_run_ids_from_tasks_json(r.tasks_json))
-            try:
-                attempts = state.meta.attempts_for_ids(run_ids)
-            except Exception:  # noqa: BLE001
-                # Projection only: omit flags rather than invent true deep-links.
-                return set()
-            visible_ids: set[str] = set()
-            for a in attempts:
-                if _visible_result_row(
-                    state,
-                    result_kind="attempt",
-                    result_id=a.run_id,
-                    visibility=a.visibility,
-                    uploaded_by=a.uploaded_by,
-                    auth=auth,
-                ):
-                    visible_ids.add(a.run_id)
-            return visible_ids
+            _json_response(self, 201, payload)
 
         def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
-            database_id = (qs.get("database_id") or [None])[0]
-            rows = state.meta.list_suites(
-                database_id=database_id or None,
-                include_private=True,
-            )
-            visible = [
-                r
-                for r in rows
-                if _visible_result_row(
-                    state,
-                    result_kind="suite",
-                    result_id=r.suite_run_id,
-                    visibility=r.visibility,
-                    uploaded_by=r.uploaded_by,
+            try:
+                payload = state.results.list_suites(
                     auth=auth,
+                    database_id=(qs.get("database_id") or [None])[0],
                 )
-            ]
-            attempt_ids = self._suite_visible_attempt_ids(visible, auth=auth)
-            items = [suite_to_dict(r, attempt_content_ids=attempt_ids) for r in visible]
-            _json_response(self, 200, {"items": items})
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
 
         def _serve_suite_meta(self, *, suite_run_id: str, auth: TokenInfo) -> None:
-            row = state.meta.get_suite(suite_run_id)
-            if row is None or not _visible_result_row(
-                state,
-                result_kind="suite",
-                result_id=row.suite_run_id,
-                visibility=row.visibility,
-                uploaded_by=row.uploaded_by,
-                auth=auth,
-            ):
-                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+            try:
+                payload = state.results.serve_suite_meta(suite_run_id=suite_run_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            attempt_ids = self._suite_visible_attempt_ids([row], auth=auth)
-            _json_response(self, 200, suite_to_dict(row, attempt_content_ids=attempt_ids))
+            _json_response(self, 200, payload)
 
         def _serve_suite_content(self, *, suite_run_id: str, auth: TokenInfo) -> None:
-            row = state.meta.get_suite(suite_run_id)
-            if row is None or not _visible_result_row(
-                state,
-                result_kind="suite",
-                result_id=row.suite_run_id,
-                visibility=row.visibility,
-                uploaded_by=row.uploaded_by,
-                auth=auth,
-            ):
-                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
-                return
-            data = state.blobs.get(row.blob_digest, prefix="suite-results")
-            if data is None:
-                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+            try:
+                data, row = state.results.serve_suite_content(suite_run_id=suite_run_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
@@ -1645,175 +1225,58 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         # ---- result shares -----------------------------------------------
 
         def _list_result_shares(self, *, result_kind: str, result_id: str, auth: TokenInfo) -> None:
-            if not self._can_manage_result(result_kind, result_id, auth, for_read=True):
-                _json_response(self, 404, {"error": "not_found", "message": "result not found"})
+            try:
+                payload = state.results.list_shares(
+                    result_kind=result_kind, result_id=result_id, auth=auth
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            shares = state.meta.list_result_shares(result_kind=result_kind, result_id=result_id)
-            _json_response(
-                self,
-                200,
-                {
-                    "result_kind": result_kind,
-                    "result_id": result_id,
-                    "items": [share_to_dict(s) for s in shares],
-                },
-            )
+            _json_response(self, 200, payload)
 
         def _add_result_share(self, *, result_kind: str, result_id: str, auth: TokenInfo) -> None:
-            if not self._can_manage_result(result_kind, result_id, auth, for_read=False):
-                _json_response(self, 404, {"error": "not_found", "message": "result not found"})
+            body = self._read_json_body()
+            if body is None:
                 return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
             try:
-                body = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            target_type = str(body.get("target_type") or "").strip()
-            target_id = str(body.get("target_id") or "").strip()
-            if target_type not in {"org", "user"} or not target_id:
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "invalid_request",
-                        "message": "target_type (org|user) and target_id required",
-                    },
-                )
-                return
-            if target_type == "user":
-                target_id = _normalize_user_id(target_id) or target_id.casefold()
-            else:
-                target_id = target_id.casefold()
-                if state.meta.get_org(target_id) is None:
-                    _json_response(
-                        self,
-                        400,
-                        {"error": "org_not_found", "message": f"org {target_id!r} not found"},
-                    )
-                    return
-            try:
-                share = state.meta.add_result_share(
+                payload = state.results.add_share(
                     result_kind=result_kind,
                     result_id=result_id,
-                    target_type=target_type,
-                    target_id=target_id,
+                    target_type=str(body.get("target_type") or ""),
+                    target_id=str(body.get("target_id") or ""),
+                    auth=auth,
                 )
-            except ValueError:
-                _json_response(self, 409, {"error": "conflict", "message": "share already exists"})
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 201, share_to_dict(share))
+            _json_response(self, 201, payload)
 
         def _remove_result_share(
             self, *, result_kind: str, result_id: str, auth: TokenInfo
         ) -> None:
-            if not self._can_manage_result(result_kind, result_id, auth, for_read=False):
-                _json_response(self, 404, {"error": "not_found", "message": "result not found"})
+            body = self._read_json_body()
+            if body is None:
                 return
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
             try:
-                body = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
-                return
-            target_type = str(body.get("target_type") or "").strip()
-            target_id = str(body.get("target_id") or "").strip()
-            if target_type == "user":
-                target_id = _normalize_user_id(target_id) or target_id.casefold()
-            else:
-                target_id = target_id.casefold()
-            try:
-                state.meta.remove_result_share(
+                payload = state.results.remove_share(
                     result_kind=result_kind,
                     result_id=result_id,
-                    target_type=target_type,
-                    target_id=target_id,
+                    target_type=str(body.get("target_type") or ""),
+                    target_id=str(body.get("target_id") or ""),
+                    auth=auth,
                 )
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "share not found"})
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 200, {"ok": True})
-
-        def _can_manage_result(
-            self,
-            result_kind: str,
-            result_id: str,
-            auth: TokenInfo,
-            *,
-            for_read: bool,
-        ) -> bool:
-            return state.access.can_manage_result(result_kind, result_id, auth, for_read=for_read)
-
-        def _gc_attempt_blob(self, blob_digest: str) -> bool:
-            if not blob_digest:
-                return False
-            if state.meta.count_attempt_blob_refs(blob_digest) > 0:
-                return False
-            return bool(state.blobs.delete(blob_digest, prefix="results"))
-
-        def _gc_suite_blob(self, blob_digest: str) -> bool:
-            if not blob_digest:
-                return False
-            if state.meta.count_suite_blob_refs(blob_digest) > 0:
-                return False
-            return bool(state.blobs.delete(blob_digest, prefix="suite-results"))
-
-        def _delete_attempt_row(self, row: AttemptResultRow) -> bool:
-            """Delete attempt meta + GC blob. Returns whether blob was removed."""
-            state.meta.delete_attempt(row.run_id)
-            return self._gc_attempt_blob(row.blob_digest)
-
-        def _collect_suite_linked_attempts(
-            self, suite_row: SuiteResultRow
-        ) -> list[AttemptResultRow]:
-            """Attempts linked by suite_run_id column or task_refs run ids."""
-            from services.registry.store import _run_ids_from_tasks_json
-
-            by_id: dict[str, AttemptResultRow] = {}
-            for att in state.meta.list_attempts_for_suite(suite_row.suite_run_id):
-                by_id[att.run_id] = att
-            run_ids = list(_run_ids_from_tasks_json(suite_row.tasks_json))
-            # Also harvest multi-attempt audit lists.
-            try:
-                refs = json.loads(suite_row.tasks_json)
-            except (json.JSONDecodeError, TypeError):
-                refs = []
-            if isinstance(refs, list):
-                for ref in refs:
-                    if not isinstance(ref, dict):
-                        continue
-                    extra = ref.get("attempt_run_ids")
-                    if isinstance(extra, list):
-                        for rid in extra:
-                            text = str(rid or "").strip()
-                            if text:
-                                run_ids.append(text)
-            for att in state.meta.attempts_for_ids(run_ids):
-                by_id[att.run_id] = att
-            return list(by_id.values())
+            _json_response(self, 200, payload)
 
         def _delete_attempt(self, *, run_id: str, auth: TokenInfo) -> None:
-            if not self._can_manage_result("attempt", run_id, auth, for_read=False):
-                # Fail-closed: conceal existence (matches private read policy).
-                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+            try:
+                payload = state.results.delete_attempt(run_id=run_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            row = state.meta.get_attempt(run_id)
-            if row is None:
-                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
-                return
-            blob_deleted = self._delete_attempt_row(row)
-            _json_response(
-                self,
-                200,
-                {
-                    "ok": True,
-                    "result_kind": "attempt",
-                    "result_id": run_id,
-                    "blob_deleted": blob_deleted,
-                },
-            )
+            _json_response(self, 200, payload)
 
         def _delete_suite(
             self, *, suite_run_id: str, auth: TokenInfo, qs: dict[str, list[str]]
@@ -1823,46 +1286,20 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 "true",
                 "yes",
             }
-            if not self._can_manage_result("suite", suite_run_id, auth, for_read=False):
-                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+            try:
+                payload = state.results.delete_suite(
+                    suite_run_id=suite_run_id,
+                    with_attempts=with_attempts,
+                    auth=auth,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            row = state.meta.get_suite(suite_run_id)
-            if row is None:
-                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
-                return
-            deleted_attempts: list[str] = []
-            skipped_attempts: list[str] = []
-            if with_attempts:
-                for att in self._collect_suite_linked_attempts(row):
-                    # Only cascade attempts owned by the same principal (or admin).
-                    if not (
-                        _is_admin(auth.scopes) or (auth.user_id and att.uploaded_by == auth.user_id)
-                    ):
-                        skipped_attempts.append(att.run_id)
-                        continue
-                    self._delete_attempt_row(att)
-                    deleted_attempts.append(att.run_id)
-            state.meta.delete_suite(suite_run_id)
-            blob_deleted = self._gc_suite_blob(row.blob_digest)
-            payload: dict[str, Any] = {
-                "ok": True,
-                "result_kind": "suite",
-                "result_id": suite_run_id,
-                "blob_deleted": blob_deleted,
-                "with_attempts": with_attempts,
-                "deleted_attempts": deleted_attempts,
-            }
-            if skipped_attempts:
-                payload["skipped_attempts"] = skipped_attempts
             _json_response(self, 200, payload)
 
         def _patch_visibility_body(self) -> str | None:
-            length = int(self.headers.get("Content-Length") or "0")
-            raw = self.rfile.read(length) if length > 0 else b"{}"
-            try:
-                body = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad JSON"})
+            body = self._read_json_body()
+            if body is None:
                 return None
             visibility = str(body.get("visibility") or "").strip()
             if visibility not in {"public", "private"}:
@@ -1878,32 +1315,30 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             return visibility
 
         def _patch_attempt(self, *, run_id: str, auth: TokenInfo) -> None:
-            if not self._can_manage_result("attempt", run_id, auth, for_read=False):
-                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
-                return
             visibility = self._patch_visibility_body()
             if visibility is None:
                 return
             try:
-                row = state.meta.set_attempt_visibility(run_id, visibility)
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "attempt not found"})
+                payload = state.results.patch_attempt(
+                    run_id=run_id, visibility=visibility, auth=auth
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 200, attempt_to_dict(row))
+            _json_response(self, 200, payload)
 
         def _patch_suite(self, *, suite_run_id: str, auth: TokenInfo) -> None:
-            if not self._can_manage_result("suite", suite_run_id, auth, for_read=False):
-                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
-                return
             visibility = self._patch_visibility_body()
             if visibility is None:
                 return
             try:
-                row = state.meta.set_suite_visibility(suite_run_id, visibility)
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "suite not found"})
+                payload = state.results.patch_suite(
+                    suite_run_id=suite_run_id, visibility=visibility, auth=auth
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 200, suite_to_dict(row))
+            _json_response(self, 200, payload)
 
         def _delete_package_release(
             self, *, database_id: str, version: str, auth: TokenInfo
@@ -1936,20 +1371,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             _json_response(self, 200, payload)
 
     return Handler
-
-
-_SECRET_PATTERNS = (
-    re.compile(rb"(?i)-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----"),
-    re.compile(rb"(?i)BORA_REGISTRY_TOKEN\s*="),
-    re.compile(rb"(?i)github_pat_[A-Za-z0-9_]{20,}"),
-    re.compile(rb"(?i)ghp_[A-Za-z0-9]{20,}"),
-)
-
-
-def _archive_looks_like_secret_leak(archive: bytes) -> bool:
-    # Scan raw gzip/tar bytes for high-signal credential markers only.
-    sample = archive if len(archive) < 4_000_000 else archive[:4_000_000]
-    return any(p.search(sample) for p in _SECRET_PATTERNS)
 
 
 def build_default_state(
