@@ -26,6 +26,8 @@ design/05-runtime/*      Runtime 稳定机制（按运行链读）
     ↓
 design/11                扩展点 / 机制插件（registry · lock · install · Ready）
     ↓
+design/12                Hub Dataset draft/release · ACL · Leaderboard 完备性
+    ↓
 design/02 + 10           配置形状与示例对照
     ↓
 ARCHITECTURE.md          代码放哪（结构，不是进度）
@@ -49,6 +51,7 @@ Issues                   增量交付与实现缺口
 | [09-owner-matrix-and-structure.md](09-owner-matrix-and-structure.md) | Owner 矩阵、决策检查表、目标结构 |
 | [10-examples-database-52.md](10-examples-database-52.md) | 设计意图下的示例对照（非进度） |
 | [11-extension-plugins.md](11-extension-plugins.md) | 扩展点 L0–L5、注册表、lock bindings、`bora.plugin/1`、Recognition ≠ Ready |
+| [12-hub-dataset-and-leaderboard.md](12-hub-dataset-and-leaderboard.md) | Dataset draft/release、dataset ACL、Leaderboard 完备性（非 suite PASS） |
 
 ### Runtime 子文（执行链）
 
