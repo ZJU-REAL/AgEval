@@ -1,6 +1,8 @@
-import { useMemo, type ComponentType } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import {
   Bot,
+  ChevronDown,
+  ChevronRight,
   Eye,
   FilePenLine,
   FileSearch,
@@ -18,6 +20,60 @@ import { cn } from "@/lib/utils";
 import { actorLabel, type ActorRow } from "./types";
 
 type IconComp = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+
+const LONG_BODY_CHARS = 240;
+const LONG_BODY_LINES = 4;
+
+function bodyIsLong(body: string): boolean {
+  return body.length > LONG_BODY_CHARS || body.split("\n").length > LONG_BODY_LINES;
+}
+
+function StepBody({
+  body,
+  collapsible,
+  defaultCollapsed,
+}: {
+  body: string;
+  collapsible: boolean;
+  defaultCollapsed: boolean;
+}) {
+  const [open, setOpen] = useState(!defaultCollapsed);
+  if (!collapsible) {
+    return (
+      <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
+        {body}
+      </pre>
+    );
+  }
+  const preview = body.split("\n")[0]?.slice(0, 160) || "";
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 text-[11px] text-mute hover:text-ink mb-1"
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDown className="h-3 w-3" aria-hidden />
+        ) : (
+          <ChevronRight className="h-3 w-3" aria-hidden />
+        )}
+        {open ? "Collapse" : "Expand"}
+      </button>
+      {open ? (
+        <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
+          {body}
+        </pre>
+      ) : (
+        <pre className="m-0 truncate font-mono text-[13px] leading-5 text-mute">
+          {preview}
+          {body.length > preview.length ? "…" : ""}
+        </pre>
+      )}
+    </div>
+  );
+}
 
 function stepIcon(opts: {
   isUser: boolean;
@@ -256,9 +312,13 @@ export function TrajectoryPanel({
                 </div>
               </div>
               {body ? (
-                <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
-                  {body}
-                </pre>
+                <StepBody
+                  body={body}
+                  collapsible={isToolCall || isObservation || bodyIsLong(body)}
+                  defaultCollapsed={
+                    isToolCall || isObservation || bodyIsLong(body)
+                  }
+                />
               ) : s.error ? (
                 <p className="text-sm text-error">{String(s.error)}</p>
               ) : isTerminal ? (

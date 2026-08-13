@@ -2,9 +2,9 @@ import { Puzzle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
+import { CatalogScopeBar } from "@/components/catalog-scope-bar";
 import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { cn, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 /** Collapse multi-version list to latest per package id (by created_at). */
 function latestByPackage(items: PackageRelease[]): PackageRelease[] {
@@ -126,28 +126,14 @@ export function PluginsPage() {
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-hairline mb-4">
-        {(
-          [
-            ["orgs", "Your organizations"],
-            ["explore", "Explore"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setScope(id)}
-            className={cn(
-              "px-3 py-2 text-sm transition-colors border-b-2 -mb-px",
-              scope === id
-                ? "border-ink text-ink font-medium"
-                : "border-transparent text-body hover:text-ink",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <CatalogScopeBar
+        scope={scope}
+        onScope={setScope}
+        query={query}
+        onQuery={setQuery}
+        searchLabel="Search plugins"
+        searchPlaceholder="Search plugins…"
+      />
 
       {scope === "orgs" && !token ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
@@ -174,14 +160,6 @@ export function PluginsPage() {
         </div>
       ) : (
         <>
-          <div className="mb-3 max-w-md">
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search plugins…"
-              aria-label="Search plugins"
-            />
-          </div>
           {plugins.length === 0 ? (
             <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm text-body">
               <div className="flex justify-center mb-4">

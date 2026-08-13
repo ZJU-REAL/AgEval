@@ -269,7 +269,7 @@ export function PluginDetailPage() {
             <p className="text-xs text-mute">
               Read-only preview. The browser never executes plugin code.
             </p>
-            <div className="rounded-[8px] border border-hairline overflow-hidden min-h-[320px]">
+            <div className="rounded-[8px] border border-hairline overflow-hidden">
               <FileSplitPanel
                 tree={tree}
                 treeLoading={treeLoading}

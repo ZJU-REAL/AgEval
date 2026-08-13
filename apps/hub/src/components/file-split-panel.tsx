@@ -232,13 +232,13 @@ export function FileSplitPanel({
       className={cn(
         "grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0",
         "rounded-[8px] border border-hairline overflow-hidden",
-        "min-h-[360px] md:min-h-[480px]",
+        "min-h-[360px] md:h-[75vh] md:min-h-[75vh] md:max-h-[75vh]",
       )}
     >
       <aside
         className={cn(
           "border-b md:border-b-0 md:border-r border-hairline bg-canvas-soft",
-          "min-h-[200px] md:min-h-[480px] max-h-[50vh] md:max-h-[75vh]",
+          "min-h-[200px] max-h-[50vh] md:min-h-0 md:h-full md:max-h-none",
           "flex flex-col",
         )}
       >
@@ -346,8 +346,8 @@ export function FileSplitPanel({
       </aside>
       <div
         className={cn(
-          "flex flex-col min-h-[200px] md:min-h-[480px]",
-          "max-h-[75vh] overflow-hidden",
+          "flex flex-col min-h-[200px] md:min-h-0 md:h-full",
+          "overflow-hidden",
         )}
       >
         {selectedPath ? (
