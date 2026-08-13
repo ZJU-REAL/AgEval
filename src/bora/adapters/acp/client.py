@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from contextlib import suppress as contextlib_suppress
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from bora.adapters.acp.usage import _as_plain_mapping
@@ -234,7 +234,7 @@ class _BoraAcpClient:
 
 
 def _utc_now_iso() -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stamp = now.strftime("%Y-%m-%dT%H:%M:%S")
     if now.microsecond:
         stamp = f"{stamp}.{now.microsecond:06d}".rstrip("0")
