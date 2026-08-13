@@ -73,8 +73,13 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 - **Harness（package）** 拥有 Attempt 内业务 workflow（loop、角色、本地 Tool 组合、handoff 数据）。
 - **Harness Core（SDK）** 可选；可被 upstream Framework 替代；**不**拥有 Run identity、Provider 控制、credential、final PASS。
 - Control Plane **不** import/execute task-local harness 或 evaluator **模块**；经进程/适配器边界调用。
-- 具体平台对象只在 **production composition root**（`application` 内 bootstrap）连接。
+- 具体平台对象只在 **production composition root**（`application/composition.py` 的 `build_*`）连接。
 - 第三方 Agent/workflow SDK 不得成为 Core identity / effect / verdict authority。
+- **禁止 marker `LifecycleStages`：** `cleanup` / `evaluate` / `bind` 不得只返回空 `_fact` 而生产另有一份真逻辑。
+- 一次 Attempt 只允许一次 `IdentityFactory.new_run`（测试 double 除外）。
+- CLI 只 import `bora.application.composition`。
+- `.bora/runs` 布局字符串只在 `evidence/`。
+- 新的 `application` 公开用例必须有 `build_*`。
 
 ### 安全与评测
 
