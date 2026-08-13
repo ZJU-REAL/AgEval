@@ -42,6 +42,13 @@ def build_lock_command() -> LockCommand:
     )
 
 
+def build_probe_command() -> Any:
+    """Wire the production ``bora lock|run --probe`` use case."""
+    from bora.application.attempt.probe_command import ProbeCommand
+
+    return ProbeCommand(lock_command=build_lock_command())
+
+
 def build_run_task() -> RunTask:
     """Wire the production ``bora run`` use case through the composition root.
 

@@ -14,7 +14,7 @@ from typing import Any
 from bora.config.capabilities import CapabilityCatalog
 from bora.config.database import load_database_manifest, resolve_task
 from bora.config.load_and_lock import ConfigCore
-from bora.config.model import locked_to_summary
+from bora.config.model import LockedTaskConfig, locked_to_summary
 from bora.config.overrides import parse_set_override
 from bora.config.profiles import resolve_profile_bindings
 from bora.registry.resolve import resolve_database_root
@@ -51,6 +51,29 @@ class LockCommand:
         profiles_path:
             Optional alternate ``profiles.yaml`` replacing Database-root defaults.
         """
+        locked, extra = self.lock_with_provenance(
+            database_root=database_root,
+            package_root=package_root,
+            task_id=task_id,
+            set_overrides=set_overrides,
+            variant=variant,
+            profiles_path=profiles_path,
+        )
+        summary = locked_to_summary(locked).as_dict()
+        summary.update(extra)
+        return summary
+
+    def lock_with_provenance(
+        self,
+        *,
+        database_root: Path | str | None = None,
+        package_root: Path | str | None = None,
+        task_id: str,
+        set_overrides: Sequence[str] = (),
+        variant: Mapping[str, object] | None = None,
+        profiles_path: Path | str | None = None,
+    ) -> tuple[LockedTaskConfig, dict[str, str]]:
+        """Same resolve + lock as ``run``, returning the frozen lock + provenance."""
         raw = database_root if database_root is not None else package_root
         if raw is None:
             msg = "database_root is required"
@@ -76,7 +99,8 @@ class LockCommand:
             database_provenance=man.provenance,
             profile_bindings=bindings or None,
         )
-        summary = locked_to_summary(locked).as_dict()
-        summary["database_id"] = resolved.database_id
-        summary["database_version"] = resolved.database_version
-        return summary
+        extra = {
+            "database_id": resolved.database_id,
+            "database_version": resolved.database_version,
+        }
+        return locked, extra

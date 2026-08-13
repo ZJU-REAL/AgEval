@@ -20,7 +20,7 @@ _BINARY_CANDIDATES: Mapping[str, tuple[str, ...]] = {
 _API_ALIASES: frozenset[str] = frozenset({"openai", "openai_responses"})
 
 # First-party contrib ids. Installed plugins join via provide(executor).
-_FIRST_PARTY_KINDS: frozenset[str] = frozenset(
+FIRST_PARTY_KINDS: frozenset[str] = frozenset(
     {
         "acp",
         "mock",
@@ -29,6 +29,7 @@ _FIRST_PARTY_KINDS: frozenset[str] = frozenset(
         "openai_responses",
     }
 )
+_FIRST_PARTY_KINDS = FIRST_PARTY_KINDS
 
 
 def _installed_executor_kinds() -> set[str]:
@@ -90,6 +91,9 @@ def describe_executor(
     else:
         mode = "unknown"
 
+    if kind not in FIRST_PARTY_KINDS and kind not in _API_ALIASES:
+        return _describe_plugin_executor(kind, caps=caps, mode=mode, verbose=verbose)
+
     candidates = binary_candidates_for(kind)
     binary_name, binary_path = probe_binary(candidates, which=which)
 
@@ -123,6 +127,63 @@ def describe_executor(
             row["stream"] = caps.stream
         else:
             row["credential_env_names"] = []
+    return row
+
+
+def _describe_plugin_executor(
+    kind: str,
+    *,
+    caps: Any,
+    mode: str,
+    verbose: bool,
+) -> dict[str, Any]:
+    """L0 host-ready from declared host_requires; never default True on missing describe()."""
+    from bora.plugins.host_requires import (
+        host_requires_satisfied,
+        installed_plugin,
+        l1_bake_declared,
+    )
+
+    found = installed_plugin(kind)
+    l1_declared = False
+    host_ready = False
+    binary_name = None
+    if caps is not None and getattr(caps, "binary", ""):
+        binary_name = caps.binary
+    if found is not None:
+        manifest, root = found
+        l1_declared = l1_bake_declared(manifest, root)
+        if manifest.host_requires:
+            host_ready = host_requires_satisfied(manifest.host_requires, root=root)
+        elif caps is not None:
+            host_ready = True
+    row: dict[str, Any] = {
+        "kind": kind,
+        "execution_mode": mode,
+        "binary": binary_name,
+        "binary_on_path": None,
+        "binary_path": None,
+        "host_ready": host_ready,
+        "l1_bake_declared": l1_declared,
+    }
+    if verbose:
+        if caps is not None:
+            row["credential_env_names"] = list(caps.credential_env_names)
+            row["tools"] = caps.tools
+            row["structured_output"] = caps.structured_output
+            row["session"] = caps.session
+            row["stream"] = caps.stream
+        else:
+            row["credential_env_names"] = []
+        if found is not None and found[0].host_requires:
+            row["host_requires"] = [
+                {
+                    **({"import": item.import_name} if item.import_name else {}),
+                    **({"file": item.file} if item.file else {}),
+                    **({"hint": item.hint} if item.hint else {}),
+                }
+                for item in found[0].host_requires
+            ]
     return row
 
 
