@@ -129,6 +129,15 @@ class RegistryState:
         self.blobs = blobs
         self.tokens = tokens
         self.access = AccessPolicy(meta=meta)
+        from services.registry.auth_service import AuthService
+        from services.registry.org_service import OrgService
+        from services.registry.package_service import PackageService
+        from services.registry.result_service import ResultService
+
+        self.auth = AuthService(tokens)
+        self.packages = PackageService(meta, self.access)
+        self.results = ResultService(meta, self.access)
+        self.orgs = OrgService(meta, self.access)
         self.max_upload = max_upload
         self.github_client_id = github_client_id
         self.github_client_secret = github_client_secret
@@ -287,6 +296,13 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             route, kwargs = matched
             handler = getattr(self, f"_{route.name}")
+            token = _bearer(self)
+            auth = state.tokens.auth_for(token)
+            denied = state.access.enforce_route_access(route.access, auth, kwargs=kwargs)
+            if denied is not None:
+                status, body = denied
+                _json_response(self, status, body)
+                return
             if route.name == "delete_suite":
                 with_attempts = (qs.get("with_attempts") or ["0"])[0] in {
                     "1",
@@ -296,8 +312,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 handler(suite_run_id=kwargs["suite_run_id"], with_attempts=with_attempts)
                 return
             if not route.skip_auth:
-                token = _bearer(self)
-                auth = state.tokens.auth_for(token)
                 kwargs["auth"] = auth
             if route.pass_qs:
                 kwargs["qs"] = qs
