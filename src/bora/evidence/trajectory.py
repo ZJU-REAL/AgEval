@@ -7,6 +7,7 @@ folds those events into Viewer/Hub turn steps. Observational — never PASS.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -132,6 +133,7 @@ def write_trajectory_jsonl(
         args = state.get("args")
         if args is not None:
             tool_line["args"] = args
+        _copy_timing(tool_line, state)
         lines.append(_drop_nulls(tool_line, keep={"type", "tool_call_id", "turn_index", "source"}))
 
         if _should_emit_observation(state):
@@ -147,6 +149,7 @@ def write_trajectory_jsonl(
                 obs["content"] = state["content"]
             if state.get("raw_output") is not None:
                 obs["raw_output"] = state["raw_output"]
+            _copy_timing(obs, state)
             lines.append(_drop_nulls(obs, keep={"type", "tool_call_id", "turn_index", "source"}))
 
     lines.append(
@@ -243,6 +246,8 @@ def _merge_tool(tool_states: dict[str, dict[str, Any]], ev: dict[str, Any]) -> N
         if not chunks or chunks[-1] != content:
             chunks.append(content)
 
+    _merge_timing(state, ev)
+
 
 def _finalize_tool_state(state: dict[str, Any]) -> None:
     if not state.get("function_name") or state.get("function_name") == "tool":
@@ -261,6 +266,7 @@ def _finalize_tool_state(state: dict[str, Any]) -> None:
         state["content"] = "\n\n".join(chunks)
     if state.get("args") is None:
         state["args"] = {}
+    _finalize_timing(state)
 
 
 def _should_emit_observation(state: dict[str, Any]) -> bool:
@@ -270,3 +276,88 @@ def _should_emit_observation(state: dict[str, Any]) -> bool:
         return True
     status = state.get("status")
     return isinstance(status, str) and status.lower() in {"completed", "failed"}
+
+
+def _copy_timing(row: dict[str, Any], state: dict[str, Any]) -> None:
+    elapsed = state.get("elapsed_ms")
+    if isinstance(elapsed, int | float) and not isinstance(elapsed, bool):
+        row["elapsed_ms"] = elapsed
+    started = state.get("started_at")
+    if isinstance(started, str) and started:
+        row["started_at"] = started
+    ended = state.get("ended_at")
+    if isinstance(ended, str) and ended:
+        row["ended_at"] = ended
+
+
+def _merge_timing(state: dict[str, Any], ev: dict[str, Any]) -> None:
+    elapsed = _coerce_elapsed_ms(ev.get("elapsed_ms"))
+    if elapsed is not None:
+        state["elapsed_ms"] = elapsed
+
+    started = _coerce_iso(ev.get("started_at"))
+    if started is not None and state.get("started_at") is None:
+        state["started_at"] = started
+
+    ended = _coerce_iso(ev.get("ended_at"))
+    if ended is not None:
+        state["ended_at"] = ended
+
+    at = _coerce_iso(ev.get("at"))
+    if at is None:
+        return
+    if state.get("started_at") is None:
+        state["started_at"] = at
+    state["ended_at"] = at
+
+
+def _finalize_timing(state: dict[str, Any]) -> None:
+    if state.get("elapsed_ms") is not None:
+        return
+    started = _parse_iso(state.get("started_at"))
+    ended = _parse_iso(state.get("ended_at"))
+    if started is None or ended is None:
+        return
+    delta_ms = (ended - started).total_seconds() * 1000.0
+    if delta_ms < 0:
+        delta_ms = 0.0
+    state["elapsed_ms"] = round(delta_ms, 3)
+
+
+def _coerce_elapsed_ms(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    if value < 0:
+        return None
+    return float(value)
+
+
+def _coerce_iso(value: Any) -> str | None:
+    parsed = _parse_iso(value)
+    if parsed is None:
+        return None
+    return _format_iso(parsed)
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _format_iso(value: datetime) -> str:
+    utc = value.astimezone(timezone.utc)
+    stamp = utc.strftime("%Y-%m-%dT%H:%M:%S")
+    micros = utc.microsecond
+    if micros:
+        stamp = f"{stamp}.{micros:06d}".rstrip("0")
+    return stamp + "Z"

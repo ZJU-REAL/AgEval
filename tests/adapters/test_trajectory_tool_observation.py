@@ -403,3 +403,118 @@ def test_opaque_not_folded(tmp_path: Path) -> None:
     lines = _read_lines(path)
     assert [x["type"] for x in lines] == ["turn", "turn", "terminal"]
     assert lines[1]["source"] == "nooa"
+
+
+def test_writer_copies_elapsed_ms_onto_tool_and_observation(tmp_path: Path) -> None:
+    events = (
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 1,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": "c1",
+            "title": "ls",
+            "function_name": "execute",
+            "tool_kind": "execute",
+            "status": "pending",
+            "args": {"command": "ls"},
+            "started_at": "2026-08-14T12:00:00Z",
+        },
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 2,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "update",
+            "tool_call_id": "c1",
+            "status": "completed",
+            "content": "ok",
+            "elapsed_ms": 1420.5,
+            "ended_at": "2026-08-14T12:00:01.420Z",
+        },
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    lines = _read_lines(path)
+    tool = next(x for x in lines if x["type"] == "tool_call")
+    obs = next(x for x in lines if x["type"] == "observation")
+    assert tool["elapsed_ms"] == 1420.5
+    assert tool["started_at"] == "2026-08-14T12:00:00Z"
+    assert tool["ended_at"] == "2026-08-14T12:00:01.42Z"
+    assert obs["elapsed_ms"] == 1420.5
+    assert obs["started_at"] == tool["started_at"]
+    assert "elapsed_ms" not in next(x for x in lines if x["type"] == "terminal")
+
+
+def test_writer_derives_elapsed_ms_from_started_and_ended(tmp_path: Path) -> None:
+    events = (
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 1,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": "c1",
+            "function_name": "read",
+            "at": "2026-08-14T12:00:00.000Z",
+        },
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 2,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "update",
+            "tool_call_id": "c1",
+            "status": "completed",
+            "content": "body",
+            "at": "2026-08-14T12:00:02.250Z",
+        },
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    tool = next(x for x in _read_lines(path) if x["type"] == "tool_call")
+    assert tool["elapsed_ms"] == 2250.0
+    assert tool["started_at"] == "2026-08-14T12:00:00Z"
+    assert tool["ended_at"] == "2026-08-14T12:00:02.25Z"
+
+
+def test_writer_omits_timing_when_absent(tmp_path: Path) -> None:
+    events = (
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 1,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": "c1",
+            "function_name": "read",
+            "status": "completed",
+            "content": "x",
+        },
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    tool = next(x for x in _read_lines(path) if x["type"] == "tool_call")
+    assert "elapsed_ms" not in tool
+    assert "started_at" not in tool
+    assert "ended_at" not in tool
+
+
+def test_writer_drops_invalid_timing(tmp_path: Path) -> None:
+    events = (
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 1,
+            "source": "acp",
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": "c1",
+            "function_name": "read",
+            "elapsed_ms": -3,
+            "started_at": "not-a-time",
+            "status": "completed",
+            "content": "x",
+        },
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    tool = next(x for x in _read_lines(path) if x["type"] == "tool_call")
+    assert "elapsed_ms" not in tool
+    assert "started_at" not in tool
