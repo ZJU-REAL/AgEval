@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { VersionSwitcher } from "@/components/version-switcher";
 import {
   decodeDatasetId,
   decodeFileContent,
@@ -22,6 +23,7 @@ import {
   listPackageFiles,
   listPackageVersions,
   listSuites,
+  pickPackageVersion,
   type FileItem,
   type PackageRelease,
   type SuiteRow,
@@ -42,7 +44,9 @@ export function TaskDetailPage() {
   const [search, setSearch] = useSearchParams();
   // Default tab: README (not Files)
   const tab = (search.get("tab") as Tab) || "readme";
+  const requestedVersion = search.get("v");
 
+  const [versions, setVersions] = useState<PackageRelease[]>([]);
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [tree, setTree] = useState<TreeNode[]>([]);
@@ -78,14 +82,16 @@ export function TaskDetailPage() {
       setTreeLoading(true);
       setError(null);
       try {
-        const versions = await listPackageVersions(datasetId, token);
-        if (!versions.length) {
+        const listed = await listPackageVersions(datasetId, token);
+        if (!listed.length) {
           throw new RegistryHttpError(404, "not_found", "package not found");
         }
-        const latest = [...versions].sort(
-          (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
-        )[0];
+        const latest = pickPackageVersion(listed, requestedVersion);
+        if (!latest) {
+          throw new RegistryHttpError(404, "not_found", "package not found");
+        }
         if (cancelled) return;
+        setVersions(listed);
         setRelease(latest);
         const files = await listPackageFiles(
           datasetId,
@@ -156,7 +162,7 @@ export function TaskDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [datasetId, taskId, token, localPrefix]);
+  }, [datasetId, taskId, token, localPrefix, requestedVersion]);
 
   // Rebuild tree when Local | Shared scope changes (#65).
   useEffect(() => {
@@ -230,6 +236,12 @@ export function TaskDetailPage() {
     setSearch(n, { replace: true });
   }
 
+  function setVersion(next: string) {
+    const n = new URLSearchParams(search);
+    n.set("v", next);
+    setSearch(n, { replace: true });
+  }
+
   return (
     <Shell>
       <BreadcrumbNav
@@ -237,17 +249,28 @@ export function TaskDetailPage() {
           { label: "Datasets", href: "/datasets" },
           {
             label: datasetId,
-            href: `/datasets/${encodeURIComponent(datasetId)}`,
+            href: `/datasets/${encodeURIComponent(datasetId)}${
+              requestedVersion ? `?v=${encodeURIComponent(requestedVersion)}` : ""
+            }`,
           },
           { label: taskId },
         ]}
         className="mb-4"
       />
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold tracking-tight text-ink font-mono">
-          {taskId}
-        </h1>
-        <p className="text-sm text-mute mt-1">{datasetId}</p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-ink font-mono">
+            {taskId}
+          </h1>
+          <p className="text-sm text-mute mt-1">{datasetId}</p>
+        </div>
+        {versions.length > 0 ? (
+          <VersionSwitcher
+            versions={versions}
+            value={release?.version || versions[0].version}
+            onChange={setVersion}
+          />
+        ) : null}
       </div>
 
       <div className="mb-4 max-w-3xl">

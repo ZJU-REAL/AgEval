@@ -7,6 +7,7 @@ import { FileSplitPanel } from "@/components/file-split-panel";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import { Shell } from "@/components/layout";
 import { Markdown } from "@/components/markdown";
+import { VersionSwitcher } from "@/components/version-switcher";
 import {
   Table,
   TableBody,
@@ -26,6 +27,8 @@ import {
   listPackageFiles,
   listPackageVersions,
   listSuites,
+  pickPackageVersion,
+  versionLabel,
   type FileItem,
   type PackageRelease,
   type SuiteRow,
@@ -35,9 +38,46 @@ import {
 import { getToken } from "@/lib/auth";
 import { buildNestedTree } from "@/lib/file-tree";
 import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
-import { cn } from "@/lib/utils";
+import { cn, formatScore } from "@/lib/utils";
 
 type Tab = "readme" | "tasks" | "shared" | "leaderboard";
+
+function taskHasReadme(files: FileItem[], taskId: string): boolean {
+  const path = `tasks/${taskId}/README.md`;
+  return files.some((f) => f.type !== "dir" && f.path === path);
+}
+
+function taskJobStats(suites: SuiteRow[], taskId: string): {
+  count: number;
+  lastStatus: string | null;
+  lastScore: number | null;
+} {
+  const hits: Array<{
+    created: number;
+    status: string | null;
+    score: number | null;
+  }> = [];
+  for (const suite of suites) {
+    const ref = (suite.task_refs || []).find((r) => r.task_id === taskId);
+    if (!ref) continue;
+    const created =
+      typeof suite.created_at === "number"
+        ? suite.created_at
+        : Date.parse(String(suite.created_at || "")) || 0;
+    hits.push({
+      created,
+      status: ref.status ?? null,
+      score: ref.score ?? null,
+    });
+  }
+  hits.sort((a, b) => b.created - a.created);
+  const last = hits[0];
+  return {
+    count: hits.length,
+    lastStatus: last?.status ?? null,
+    lastScore: last?.score ?? null,
+  };
+}
 
 export function DatasetDetailPage() {
   const navigate = useNavigate();
@@ -45,14 +85,17 @@ export function DatasetDetailPage() {
   const datasetId = decodeDatasetId(rawId || "");
   const [search, setSearch] = useSearchParams();
   const tab = (search.get("tab") as Tab) || "readme";
-  /** Local smoke: `?tab=leaderboard&demo=1` injects mock k-metric rows (#60 C4). */
+  const requestedVersion = search.get("v");
+  /** Local smoke: `?tab=leaderboard&demo=1` injects mock k-metric rows. */
   const demoLeaderboard = search.get("demo") === "1";
 
+  const [versions, setVersions] = useState<PackageRelease[]>([]);
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [taskIds, setTaskIds] = useState<string[]>([]);
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [readme, setReadme] = useState<string | null>(null);
-  const [suites, setSuites] = useState<SuiteRow[]>([]);
+  const [jobSuites, setJobSuites] = useState<SuiteRow[]>([]);
+  const [boardSuites, setBoardSuites] = useState<SuiteRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sharedSelected, setSharedSelected] = useState<string | null>(null);
@@ -67,36 +110,38 @@ export function DatasetDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const versions = await listPackageVersions(datasetId, token);
-        if (!versions.length) {
+        const listed = await listPackageVersions(datasetId, token);
+        if (!listed.length) {
           throw new RegistryHttpError(404, "not_found", "package not found");
         }
-        const latest = [...versions].sort(
-          (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
-        )[0];
+        const selected = pickPackageVersion(listed, requestedVersion);
+        if (!selected) {
+          throw new RegistryHttpError(404, "not_found", "package not found");
+        }
         if (cancelled) return;
-        // Fail closed if someone deep-links a plugin as a dataset.
-        let meta: PackageRelease = latest;
+        setVersions(listed);
+        let meta: PackageRelease = selected;
         try {
           meta = await getPackageByDigest(
             datasetId,
-            latest.package_digest,
+            selected.package_digest,
             token,
           );
         } catch {
           /* version list fields may already include package_kind */
         }
-        if (isPluginPackage(meta) || isPluginPackage(latest)) {
+        if (isPluginPackage(meta) || isPluginPackage(selected)) {
           throw new RegistryHttpError(
             404,
             "not_found",
             "not a database package (open Plugin marketplace instead)",
           );
         }
-        setRelease(meta.package_digest ? meta : latest);
+        const chosen = meta.package_digest ? meta : selected;
+        setRelease(chosen);
         const files = await listPackageFiles(
           datasetId,
-          latest.package_digest,
+          chosen.package_digest,
           token,
         );
         if (cancelled) return;
@@ -109,11 +154,13 @@ export function DatasetDetailPage() {
               (e) => e.type !== "dir" && e.path.startsWith("shared/"),
             );
           if (prefer) setSharedSelected(prefer.path);
+        } else {
+          setSharedSelected(null);
         }
         try {
           const readmeFile = await getPackageFile(
             datasetId,
-            latest.package_digest,
+            chosen.package_digest,
             "README.md",
             token,
           );
@@ -122,10 +169,19 @@ export function DatasetDetailPage() {
           if (!cancelled) setReadme(null);
         }
         try {
-          const suiteRows = await listSuites(datasetId, token);
-          if (!cancelled) setSuites(suiteRows);
+          const [jobs, board] = await Promise.all([
+            listSuites(datasetId, token),
+            listSuites(datasetId, token, { board: true }),
+          ]);
+          if (!cancelled) {
+            setJobSuites(jobs);
+            setBoardSuites(board);
+          }
         } catch {
-          if (!cancelled) setSuites([]);
+          if (!cancelled) {
+            setJobSuites([]);
+            setBoardSuites([]);
+          }
         }
       } catch (err) {
         if (cancelled) return;
@@ -142,7 +198,7 @@ export function DatasetDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [datasetId, token]);
+  }, [datasetId, token, requestedVersion]);
 
   const lockCmd = useMemo(() => {
     if (!release) return `bora lock ${datasetId} --task <task_id>`;
@@ -208,9 +264,18 @@ export function DatasetDetailPage() {
     setSearch(n, { replace: true });
   }
 
+  function setVersion(next: string) {
+    const n = new URLSearchParams(search);
+    n.set("v", next);
+    setSearch(n, { replace: true });
+  }
+
   function openTask(tid: string) {
+    const qs = requestedVersion
+      ? `?v=${encodeURIComponent(requestedVersion)}`
+      : "";
     navigate(
-      `/datasets/${encodeDatasetId(datasetId)}/tasks/${encodeURIComponent(tid)}`,
+      `/datasets/${encodeDatasetId(datasetId)}/tasks/${encodeURIComponent(tid)}${qs}`,
     );
   }
 
@@ -223,25 +288,34 @@ export function DatasetDetailPage() {
         ]}
         className="mb-4"
       />
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold tracking-tight text-ink font-mono">
-          {datasetId}
-        </h1>
-        {release ? (
-          <p className="text-sm text-mute mt-1">
-            v{release.version} · {release.visibility}
-            {release.org_id ? (
-              <>
-                {" "}
-                · org{" "}
-                <span className="font-mono text-xs text-body">{release.org_id}</span>
-              </>
-            ) : null}{" "}
-            ·{" "}
-            <span className="font-mono text-xs">
-              {release.package_digest.slice(0, 19)}…
-            </span>
-          </p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-ink font-mono">
+            {datasetId}
+          </h1>
+          {release ? (
+            <p className="text-sm text-mute mt-1">
+              {versionLabel(release)} · {release.visibility}
+              {release.org_id ? (
+                <>
+                  {" "}
+                  · org{" "}
+                  <span className="font-mono text-xs text-body">{release.org_id}</span>
+                </>
+              ) : null}{" "}
+              ·{" "}
+              <span className="font-mono text-xs">
+                {release.package_digest.slice(0, 19)}…
+              </span>
+            </p>
+          ) : null}
+        </div>
+        {versions.length > 0 ? (
+          <VersionSwitcher
+            versions={versions}
+            value={release?.version || versions[0].version}
+            onChange={setVersion}
+          />
         ) : null}
       </div>
 
@@ -254,7 +328,6 @@ export function DatasetDetailPage() {
           [
             ["readme", "README"],
             ["tasks", "Tasks"],
-            // Hide entirely when package has no shared/** (optional tree).
             ...(sharedPresent
               ? ([["shared", "Shared"]] as Array<[Tab, string]>)
               : []),
@@ -310,28 +383,49 @@ export function DatasetDetailPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Task</TableHead>
+                  <TableHead>README</TableHead>
+                  <TableHead>Recent jobs</TableHead>
+                  <TableHead>Last result</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {taskIds.map((tid) => (
-                  <TableRow
-                    key={tid}
-                    className="cursor-pointer"
-                    onClick={() => openTask(tid)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        openTask(tid);
-                      }
-                    }}
-                    tabIndex={0}
-                    role="link"
-                  >
-                    <TableCell className="font-mono text-sm font-medium">
-                      {tid}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {taskIds.map((tid) => {
+                  const stats = taskJobStats(jobSuites, tid);
+                  return (
+                    <TableRow
+                      key={tid}
+                      className="cursor-pointer"
+                      onClick={() => openTask(tid)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openTask(tid);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="link"
+                    >
+                      <TableCell className="font-mono text-sm font-medium">
+                        {tid}
+                      </TableCell>
+                      <TableCell className="text-sm text-body">
+                        {taskHasReadme(fileItems, tid) ? "yes" : "no"}
+                      </TableCell>
+                      <TableCell className="tabular text-sm">
+                        {stats.count}
+                      </TableCell>
+                      <TableCell className="text-sm tabular">
+                        {stats.lastStatus
+                          ? `${stats.lastStatus}${
+                              stats.lastScore != null
+                                ? ` · ${formatScore(stats.lastScore)}`
+                                : ""
+                            }`
+                          : "-"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -357,7 +451,7 @@ export function DatasetDetailPage() {
             </p>
           ) : null}
           <LeaderboardTable
-            suites={demoLeaderboard ? LEADERBOARD_K_FIXTURES : suites}
+            suites={demoLeaderboard ? LEADERBOARD_K_FIXTURES : boardSuites}
             databaseId={datasetId}
           />
         </div>

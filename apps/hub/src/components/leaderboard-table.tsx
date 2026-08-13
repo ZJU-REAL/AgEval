@@ -258,11 +258,10 @@ export function LeaderboardTable({
       <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
         <p className="text-sm font-medium text-ink">No Leaderboard rows yet</p>
         <p className="text-sm text-mute">
-          Upload suite aggregates with{" "}
-          <code className="font-mono">bora results upload-suite</code>. These
-          are observational metrics — not a suite-level PASS. Always-k jobs may
-          also show pass@k / pass^k and n_attempts when present in{" "}
-          <code className="font-mono">metrics</code>.
+          Public board lists complete, release-bound suite uploads only.
+          Incomplete or draft-bound runs stay on the task Jobs list. Upload with{" "}
+          <code className="font-mono">bora results upload-suite</code>. Metrics
+          are observational, not a suite-level PASS.
         </p>
       </div>
     );

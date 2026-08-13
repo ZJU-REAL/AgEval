@@ -26,6 +26,9 @@ export type PackageRelease = {
   org_id?: string;
   /** Present on by-digest / version get for plugins. */
   plugin_preview?: PluginPreview;
+  /** Draft slot (entitled callers only). */
+  is_draft?: boolean;
+  slot?: string;
 };
 
 export type OrgRow = {
@@ -140,6 +143,10 @@ export type SuiteRow = {
   created_at?: number | string;
   note?: string;
   uploaded_by?: string;
+  /** Stored at upload; complete ≠ suite PASS. */
+  complete?: boolean;
+  bound_kind?: "release" | "draft" | "unknown" | string;
+  task_set_digest?: string;
 };
 
 export type AttemptMeta = {
@@ -253,6 +260,29 @@ export async function getPackageByDigest(
   return requestJson(`/v1/packages/${id}/by-digest/${dig}`, { token });
 }
 
+export function isDraftRelease(row: PackageRelease): boolean {
+  return Boolean(row.is_draft || row.slot === "draft" || row.version === "draft");
+}
+
+export function versionLabel(row: PackageRelease): string {
+  return isDraftRelease(row) ? "draft (current)" : `v${row.version}`;
+}
+
+/** Prefer latest release; fall back to draft when that is the only slot. */
+export function pickPackageVersion(
+  versions: PackageRelease[],
+  requested?: string | null,
+): PackageRelease | null {
+  if (!versions.length) return null;
+  if (requested) {
+    const hit = versions.find((v) => v.version === requested);
+    if (hit) return hit;
+  }
+  const releases = versions.filter((v) => !isDraftRelease(v));
+  const pool = releases.length ? releases : versions;
+  return [...pool].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
+}
+
 export function isPluginPackage(row: PackageRelease): boolean {
   return row.package_kind === "plugin";
 }
@@ -301,9 +331,11 @@ export async function getPackageFile(
 export async function listSuites(
   databaseId: string | null,
   token: string | null,
+  opts?: { board?: boolean },
 ): Promise<SuiteRow[]> {
   const q = new URLSearchParams();
   if (databaseId) q.set("database_id", databaseId);
+  if (opts?.board) q.set("board", "1");
   const path = q.toString()
     ? `/v1/results/suites?${q.toString()}`
     : "/v1/results/suites";
