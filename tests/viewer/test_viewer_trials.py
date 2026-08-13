@@ -303,6 +303,23 @@ def test_tree_and_file_and_traversal(tmp_path: Path) -> None:
         )
 
 
+def test_trial_file_redacts_env_basename(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    evidence = _write_evidence(db, "run_alpha_1", task_id="alpha")
+    (evidence / ".env").write_text("OPENAI_API_KEY=sk-secret\n", encoding="utf-8")
+    payload = trials.trial_file(
+        db,
+        job_id,
+        "alpha",
+        "run_alpha_1",
+        relpath=".env",
+    )
+    assert payload["encoding"] == "redacted"
+    assert payload["content"] is None
+    assert "sk-secret" not in json.dumps(payload)
+
+
 def test_list_trials_enriches_evidence(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = _seed_suite_run(db)

@@ -159,3 +159,70 @@ def test_reserved_version_draft_rejected_on_release_publish(tmp_path: Path) -> N
     payload = svc.publish(meta=meta, archive=archive, auth=alice)
     assert payload["version"] == "draft"
     assert payload["is_draft"] is True
+
+
+def test_anon_sees_public_release_not_draft(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive = _meta_archive()
+    meta["slot"] = "draft"
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=alice)
+    svc.release_draft(database_id="test/publish-min", auth=alice, visibility="public")
+    svc.publish(meta=meta, archive=archive, auth=alice)
+
+    anon = TokenInfo(scopes=frozenset())
+    versions = svc.list_versions(database_id="test/publish-min", auth=anon)
+    assert [i["version"] for i in versions["items"]] == ["0.1.0"]
+    assert all(not i.get("is_draft") for i in versions["items"])
+    listed = svc.list_packages(
+        auth=anon, prefix=None, visibility=None, version=None, package_kind="database"
+    )
+    assert [i["version"] for i in listed["items"]] == ["0.1.0"]
+    with pytest.raises(RegistryAppError) as ei:
+        svc.serve_meta(
+            database_id="test/publish-min",
+            version="draft",
+            package_digest=None,
+            auth=anon,
+        )
+    assert ei.value.http_status == 404
+    release = svc.serve_meta(
+        database_id="test/publish-min",
+        version="0.1.0",
+        package_digest=None,
+        auth=anon,
+    )
+    assert release["version"] == "0.1.0"
+
+
+def test_org_member_can_read_draft(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    svc.meta.add_member("acme", "carol", role="member")
+    meta, archive = _meta_archive()
+    meta["slot"] = "draft"
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=alice)
+    carol = TokenInfo(scopes=frozenset(), user_id="carol")
+    versions = svc.list_versions(database_id="test/publish-min", auth=carol)
+    assert any(i.get("version") == "draft" for i in versions["items"])
+    draft = svc.serve_meta(
+        database_id="test/publish-min",
+        version="draft",
+        package_digest=None,
+        auth=carol,
+    )
+    assert draft["is_draft"] is True
+
+
+def test_draft_first_upload_requires_org_membership(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive = _meta_archive()
+    meta["slot"] = "draft"
+    bob = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="bob")
+    with pytest.raises(RegistryAppError) as ei:
+        svc.publish(meta=meta, archive=archive, auth=bob)
+    assert ei.value.error == "forbidden"
+    assert ei.value.http_status == 403

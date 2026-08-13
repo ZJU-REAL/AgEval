@@ -22,6 +22,7 @@ import {
   leaveOrg,
   listOrgInviteKeys,
   listOrgMembers,
+  latestPackageByDatabase,
   listPackages,
   listResultShares,
   listSuites,
@@ -35,19 +36,6 @@ import {
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { cn, formatDate } from "@/lib/utils";
-
-function latestByDatabase(items: PackageRelease[]): PackageRelease[] {
-  const map = new Map<string, PackageRelease>();
-  for (const row of items) {
-    const prev = map.get(row.database_id);
-    if (!prev || (row.created_at ?? 0) >= (prev.created_at ?? 0)) {
-      map.set(row.database_id, row);
-    }
-  }
-  return Array.from(map.values()).sort((a, b) =>
-    a.database_id.localeCompare(b.database_id),
-  );
-}
 
 type Tab = "overview" | "settings";
 
@@ -107,7 +95,7 @@ export function OrganizationDetailPage() {
         setOrg(orgRow);
         setMembers(memberRows);
         setDatasets(
-          latestByDatabase(packages).filter((p) => p.org_id === orgId),
+          latestPackageByDatabase(packages).filter((p) => p.org_id === orgId),
         );
         setError(null);
 

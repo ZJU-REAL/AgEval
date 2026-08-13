@@ -283,6 +283,24 @@ export function pickPackageVersion(
   return [...pool].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
 }
 
+/** One catalog row per database_id. Draft is never preferred over a release. */
+export function latestPackageByDatabase(
+  items: PackageRelease[],
+): PackageRelease[] {
+  const byId = new Map<string, PackageRelease[]>();
+  for (const row of items) {
+    const list = byId.get(row.database_id) ?? [];
+    list.push(row);
+    byId.set(row.database_id, list);
+  }
+  const out: PackageRelease[] = [];
+  for (const rows of byId.values()) {
+    const picked = pickPackageVersion(rows);
+    if (picked) out.push(picked);
+  }
+  return out.sort((a, b) => a.database_id.localeCompare(b.database_id));
+}
+
 export function isPluginPackage(row: PackageRelease): boolean {
   return row.package_kind === "plugin";
 }

@@ -44,7 +44,7 @@ pnpm install
 pnpm dev
 ```
 
-Two-process contract: API port (`--port`, default 8765) + UI port (`--ui-port`, default 5173). Open `http://127.0.0.1:5173/` (or the `--open` path).
+Two-process contract: API port (`--port`, default 8765) + UI port (`--ui-port`, default 5173). Open `http://127.0.0.1:5173/` (or the `--open` path). Non-default API port: `VITE_VIEWER_API=http://127.0.0.1:<port> pnpm --dir apps/viewer dev`.
 
 ```bash
 # Deep-link a job/task/run after bora run

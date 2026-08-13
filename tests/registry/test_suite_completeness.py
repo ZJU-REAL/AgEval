@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from services.registry.access import AccessPolicy
@@ -146,13 +147,26 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
         task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
     )
     results.upload_suite(meta=meta, archive=archive, auth=auth)
-    # Overwrite draft with the same package (simulates later draft edit).
-    pkg, blob_digest, size = build_archive(FIXTURE)
+    # Later draft adds a task; stored release fingerprint must not be rewritten.
+    wider = tmp_path / "wider"
+    shutil.copytree(FIXTURE, wider)
+    world = wider / "tasks" / "world"
+    world.mkdir()
+    hello = FIXTURE / "tasks" / "hello"
+    (world / "task.yaml").write_text(
+        (hello / "task.yaml")
+        .read_text(encoding="utf-8")
+        .replace("task_id: hello", "task_id: world"),
+        encoding="utf-8",
+    )
+    shutil.copy(hello / "harness.py", world / "harness.py")
+    shutil.copy(hello / "evaluator.py", world / "evaluator.py")
+    pkg, blob_digest, size = build_archive(wider)
     packages.publish(
         meta={
             "database_id": "test/publish-min",
             "version": "0.1.0",
-            "package_digest": compute_package_digest(FIXTURE),
+            "package_digest": compute_package_digest(wider),
             "blob_digest": blob_digest,
             "media_type": MEDIA_TYPE,
             "visibility": "private",
@@ -166,3 +180,15 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
     board = results.list_suites(auth=auth, database_id="test/publish-min", board=True)
     assert [i["suite_run_id"] for i in board["items"]] == ["suite_release"]
     assert board["items"][0]["complete"] is True
+    assert board["items"][0]["bound_kind"] == "release"
+
+    draft_meta, draft_arch = _suite_meta(
+        suite_run_id="suite_new_draft",
+        version="draft",
+        task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
+    )
+    new_payload = results.upload_suite(meta=draft_meta, archive=draft_arch, auth=auth)
+    assert new_payload["bound_kind"] == "draft"
+    assert new_payload["complete"] is False
+    board_after = results.list_suites(auth=auth, database_id="test/publish-min", board=True)
+    assert [i["suite_run_id"] for i in board_after["items"]] == ["suite_release"]

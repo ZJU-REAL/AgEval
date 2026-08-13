@@ -19,6 +19,7 @@ export type Job = {
   trials_total?: number;
   exit_code?: number | null;
   task_count?: number;
+  task_id?: string | null;
   note?: string;
 };
 

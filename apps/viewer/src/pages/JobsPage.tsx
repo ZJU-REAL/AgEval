@@ -104,6 +104,7 @@ export function JobsPage() {
         j.source,
         j.source_kind,
         j.job_id,
+        j.task_id,
         j.agent_label,
         j.model_label,
         j.provider_label,

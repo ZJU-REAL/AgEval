@@ -127,6 +127,30 @@ def test_list_includes_single_task_attempt(tmp_path: Path) -> None:
     assert detail["tasks"][0]["task_id"] == "alpha"
 
 
+def test_list_includes_task_local_single_attempt(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    run_id = "run_task_local_beta"
+    evidence = db / "tasks" / "beta" / ".bora" / "runs" / run_id
+    evidence.mkdir(parents=True)
+    (evidence / "result.json").write_text(
+        json.dumps(
+            {
+                "task_id": "beta",
+                "status": "FAIL",
+                "score": 0.0,
+                "created_at": "2026-08-13T13:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    listed = jobs.list_jobs(db)
+    row = next(item for item in listed["items"] if item["job_id"] == run_id)
+    assert row["source_kind"] == "single"
+    assert row["source"] == "beta"
+    assert row["task_id"] == "beta"
+
+
 def test_single_task_not_duplicated_when_in_suite(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     _seed_suite_run(db)
