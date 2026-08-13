@@ -27,6 +27,9 @@ class AttemptStageContext:
     allow_offline_agent: bool = False
     keep_workspace: bool = False
     attempt: AttemptIdentity | None = None
+    docker: Any = None
+    runtime: Any = None
+    cred: Any = None
     # Outputs filled by stages.
     exit_code: int = 2
     result_doc: dict[str, Any] = field(default_factory=dict)
@@ -107,15 +110,20 @@ class DockerL1Stages:
         from bora.application.run_l1 import run_l1_attempt
 
         _bind_stage_attempt(self.ctx, attempt)
-        code, doc, details = await run_l1_attempt(
-            package_root=self.ctx.package_root,
-            lock=self.ctx.lock,
-            run_dir=self.ctx.run_dir,
-            agent_meta=self.ctx.agent_meta,
-            allow_offline_agent=self.ctx.allow_offline_agent,
-            keep_workspace=self.ctx.keep_workspace,
-            attempt=attempt,
-        )
+        try:
+            code, doc, details = await run_l1_attempt(
+                package_root=self.ctx.package_root,
+                lock=self.ctx.lock,
+                run_dir=self.ctx.run_dir,
+                agent_meta=self.ctx.agent_meta,
+                allow_offline_agent=self.ctx.allow_offline_agent,
+                keep_workspace=self.ctx.keep_workspace,
+                attempt=attempt,
+                stage_ctx=self.ctx,
+            )
+        except Exception as exc:
+            self.ctx.error_message = f"{type(exc).__name__}: {exc}"
+            raise
         self.ctx.exit_code = code
         self.ctx.result_doc = doc
         self.ctx.details = details
@@ -145,4 +153,14 @@ class DockerL1Stages:
         return _fact(attempt, LifecyclePhase.BIND)
 
     async def cleanup(self, attempt: AttemptIdentity) -> PhaseFact:
-        return _fact(attempt, LifecyclePhase.CLEANUP)
+        from bora.application.run_l1 import _l1_host_cleanup
+
+        _bind_stage_attempt(self.ctx, attempt)
+        _l1_host_cleanup(
+            self.ctx.docker,
+            self.ctx.runtime,
+            self.ctx.cred,
+            self.ctx.run_dir,
+            keep_workspace=self.ctx.keep_workspace,
+        )
+        return _fact(attempt, LifecyclePhase.CLEANUP, detail={"adapter": "docker_l1"})

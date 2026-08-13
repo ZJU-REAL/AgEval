@@ -60,8 +60,15 @@ def _l1_host_cleanup(
     *,
     keep_workspace: bool,
 ) -> None:
-    """Stop containers/networks, drop credentials, then drop host ``l1-work``."""
-    docker.cleanup(runtime)
+    """Stop containers/networks, drop credentials, then drop host ``l1-work``.
+
+    Idempotent: ``DockerProvider.cleanup`` no-ops when ``runtime.cleaned``;
+    a second call (Coordinator + leftover path) must not raise on ``docker rm``.
+    Missing handles are a no-op so stages can run cleanup before prepare.
+    """
+    if docker is not None and runtime is not None:
+        with contextlib.suppress(Exception):
+            docker.cleanup(runtime)
     if cred is not None:
         with contextlib.suppress(Exception):
             cred.cleanup()
@@ -91,6 +98,7 @@ async def run_l1_attempt(
     allow_offline_agent: bool,
     keep_workspace: bool = False,
     attempt: AttemptIdentity | None = None,
+    stage_ctx: Any | None = None,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     """Dispatch L1 SDK session path when agent_profiles is non-empty.
 
@@ -112,6 +120,7 @@ async def run_l1_attempt(
             allow_offline_agent=allow_offline_agent,
             keep_workspace=keep_workspace,
             attempt=attempt,
+            stage_ctx=stage_ctx,
         )
 
     return l1_error_result(
@@ -133,6 +142,7 @@ async def run_l1_sdk_session_attempt(
     allow_offline_agent: bool,
     keep_workspace: bool = False,
     attempt: AttemptIdentity | None = None,
+    stage_ctx: Any | None = None,
 ) -> tuple[int, dict[str, Any], dict[str, Any]]:
     """L1 multi-actor SDK path: ParentAgentService → docker exec targets.
 
@@ -224,6 +234,9 @@ async def run_l1_sdk_session_attempt(
         assert runtime.workdir_host is not None
         assert runtime.attempt is not None
         assert_same_attempt(attempt, runtime.attempt)
+        if stage_ctx is not None:
+            stage_ctx.docker = docker
+            stage_ctx.runtime = runtime
 
         workspace_host = runtime.workdir_host / "workspace"
         seed_l1_workspace(
@@ -273,6 +286,8 @@ async def run_l1_sdk_session_attempt(
             evidence_store.write_lock_summary(lock_doc)
 
         cred = project_executor_credentials(work_root=runtime.workdir_host)
+        if stage_ctx is not None:
+            stage_ctx.cred = cred
         l1_meta["credential_projection"] = {
             "keys": list(cred.locator_keys),
             "has_material": cred.has_material,
@@ -289,7 +304,6 @@ async def run_l1_sdk_session_attempt(
                 network_mode=network_mode,
             )
         except Exception as exc:  # noqa: BLE001
-            _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "provider",
@@ -380,7 +394,6 @@ async def run_l1_sdk_session_attempt(
         agent_meta["host_fallback_count"] = (
             agent_service.host_fallback_count + ledger.host_fallback_count
         )
-        docker.stop_agent_targets(runtime)
 
     envelope = harness_out.get("envelope") or {}
     harness_kind = "completed" if envelope.get("ok") else "failed"
@@ -419,8 +432,6 @@ async def run_l1_sdk_session_attempt(
                     src_art = p
                     break
         if src_art is None or not src_art.is_file():
-            with timer.phase("cleanup"):
-                _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "harness" if not envelope.get("ok") else "evaluation_input",
@@ -447,8 +458,6 @@ async def run_l1_sdk_session_attempt(
 
         # Wait for writer stop before evaluator.
         if not runtime.writer_stop_confirmed:
-            with timer.phase("cleanup"):
-                _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
             return l1_error_result(
                 run_dir,
                 "evaluation_input",
@@ -514,9 +523,6 @@ async def run_l1_sdk_session_attempt(
         l1_meta["host_fallback_count"] = int(agent_meta.get("host_fallback_count") or 0)
         l1_meta["executor_containment"] = "attempt-container"
         l1_meta["execution_location"] = "attempt-container"
-
-    with timer.phase("cleanup"):
-        _l1_host_cleanup(docker, runtime, cred, run_dir, keep_workspace=keep_workspace)
 
     full_l1 = bool(
         harness_kind == "completed"
