@@ -89,7 +89,7 @@ class NooaContainerExecutor(AgentExecutor):
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
-        del collect_dir, redaction_sentinels
+        del redaction_sentinels
         effective_workdir = workdir or self.workdir_container
         api_base = self._resolve_base_url()
         api_key = self._resolve_api_key()
@@ -218,18 +218,32 @@ class NooaContainerExecutor(AgentExecutor):
         raw_meta = doc.get("metadata")
         if isinstance(raw_meta, dict):
             base_meta = {str(k): v for k, v in raw_meta.items()}
+        structured = doc.get("structured") if isinstance(doc.get("structured"), dict) else None
+        raw_events = doc.get("events")
+        events: tuple[dict[str, Any], ...] = ()
+        if isinstance(raw_events, list):
+            events = tuple(e for e in raw_events if isinstance(e, dict))
+        raw_native = doc.get("native_events")
+        native: list[dict[str, Any]] = []
+        if isinstance(raw_native, list):
+            native = [e for e in raw_native if isinstance(e, dict)]
         meta: dict[str, Any] = {
             **base_meta,
             "plugin": "nooa",
             "execution_location": self.execution_location,
             "agent": self.agent_ref,
             "returncode": outcome.exit_code,
+            "native_event_count": len(native),
         }
-        structured = doc.get("structured") if isinstance(doc.get("structured"), dict) else None
-        raw_events = doc.get("events")
-        events: tuple[dict[str, Any], ...] = ()
-        if isinstance(raw_events, list):
-            events = tuple(e for e in raw_events if isinstance(e, dict))
+        if collect_dir and native:
+            from pathlib import Path
+
+            root = Path(collect_dir)
+            root.mkdir(parents=True, exist_ok=True)
+            (root / "nooa_events.jsonl").write_text(
+                "\n".join(json.dumps(e, ensure_ascii=False, default=str) for e in native) + "\n",
+                encoding="utf-8",
+            )
         return AgentResult(
             model=str(doc.get("model") or self.model),
             text=str(doc.get("text") or ""),

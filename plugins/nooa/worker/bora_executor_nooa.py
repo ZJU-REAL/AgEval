@@ -85,9 +85,7 @@ def _build_llm(*, model: str, api_base: str | None, api_key: str | None) -> Any:
 
     overrides: dict[str, Any] = {"temperature": 0}
     base = (
-        api_base
-        or os.environ.get("OPENAI_BASE_URL")
-        or os.environ.get("litellm_base_url")  # noqa: SIM112
+        api_base or os.environ.get("OPENAI_BASE_URL") or os.environ.get("litellm_base_url")  # noqa: SIM112
     )
     key = api_key or os.environ.get("OPENAI_API_KEY")
     if base:
@@ -99,12 +97,40 @@ def _build_llm(*, model: str, api_base: str | None, api_key: str | None) -> Any:
     return get_llm_client(model or "openai/gpt-4.1-mini", **overrides)
 
 
-def _dump_and_map(agent: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _load_trajectory():
     try:
-        from nooa_plugin.trajectory import dump_native_events, to_bora_trajectory_events
+        from nooa_plugin import trajectory as traj
     except ImportError:
+        import importlib.util
+
+        path = Path("/opt/nooa/nooa_plugin/trajectory.py")
+        if not path.is_file():
+            return None
+        spec = importlib.util.spec_from_file_location("nooa_plugin_trajectory", path)
+        if spec is None or spec.loader is None:
+            return None
+        traj = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(traj)
+    return traj
+
+
+def _tap_agent(agent: Any) -> Any:
+    traj = _load_trajectory()
+    if traj is None:
+        return None
+    return traj.attach_event_tap(agent)
+
+
+def _finish_tap(tap: Any, agent: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    traj = _load_trajectory()
+    if traj is None:
         return [], []
-    native = dump_native_events(agent)
+    dump_native_events = traj.dump_native_events
+    to_bora_trajectory_events = traj.to_bora_trajectory_events
+    if tap is not None and hasattr(tap, "finish"):
+        native = tap.finish(agent)
+    else:
+        native = dump_native_events(agent)
     return native, to_bora_trajectory_events(native)
 
 
@@ -115,6 +141,7 @@ def _to_result(
     model: str,
     llm_backed: bool,
     events: list[dict[str, Any]] | None = None,
+    native_events: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     meta = {
         "plugin": "nooa",
@@ -146,6 +173,7 @@ def _to_result(
                 "ok": bool(raw.get("ok", True)),
                 "error": str(raw["error"]) if raw.get("error") else None,
                 "events": events or [],
+                "native_events": native_events or [],
                 "metadata": meta,
             }
         text = json.dumps(raw, ensure_ascii=False)
@@ -156,6 +184,7 @@ def _to_result(
             "ok": True,
             "error": None,
             "events": events or [],
+            "native_events": native_events or [],
             "metadata": meta,
         }
     text = str(raw) if raw is not None else ""
@@ -173,6 +202,7 @@ def _to_result(
         "ok": True,
         "error": None,
         "events": events or [],
+        "native_events": native_events or [],
         "metadata": meta,
     }
 
@@ -248,9 +278,12 @@ def main() -> int:
         if llm_backed:
             llm = _build_llm(model=model, api_base=api_base_s, api_key=api_key_s)
             agent = cls(llm=llm)
-            raw = asyncio.run(_invoke(agent, method_name, prompt, workdir))
         else:
             agent = cls() if callable(cls) else cls
+        tap = _tap_agent(agent)
+        if llm_backed:
+            raw = asyncio.run(_invoke(agent, method_name, prompt, workdir))
+        else:
             method = getattr(agent, method_name, None)
             if method is None or not callable(method):
                 raise RuntimeError(f"nooa_method_missing:{method_name}")
@@ -260,12 +293,20 @@ def main() -> int:
                 raw = method(prompt)
             if inspect.isawaitable(raw):
                 raw = asyncio.run(raw)
-        _native, mapped = _dump_and_map(agent)
-        del _native
+        native, mapped = _finish_tap(tap, agent)
         out = _to_result(
-            raw, agent_ref=agent_ref, model=model, llm_backed=llm_backed, events=mapped
+            raw,
+            agent_ref=agent_ref,
+            model=model,
+            llm_backed=llm_backed,
+            events=mapped,
+            native_events=native,
         )
-        print(json.dumps(out, ensure_ascii=False))
+        if tap is not None and hasattr(tap, "stats"):
+            md = dict(out.get("metadata") or {})
+            md["trajectory_tap"] = tap.stats
+            out["metadata"] = md
+        print(json.dumps(out, ensure_ascii=False, default=str))
         return 0 if out.get("ok") else 1
     except Exception as exc:  # noqa: BLE001
         print(

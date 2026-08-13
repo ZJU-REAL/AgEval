@@ -1,7 +1,10 @@
-"""nooa external plugin — host SPI executor for package-local agents."""
+"""nooa plugin package.
 
-from __future__ import annotations
+Submodules that need BORA Core (factory, container) must be imported by
+name. Package import itself stays Core-free so the in-container worker can
+load ``nooa_plugin.trajectory``.
+"""
 
-from nooa_plugin.factory import PLUGIN_ID, NooaExecutorSPI, build_executor
+PLUGIN_ID = "nooa"
 
-__all__ = ["PLUGIN_ID", "NooaExecutorSPI", "build_executor"]
+__all__ = ["PLUGIN_ID"]

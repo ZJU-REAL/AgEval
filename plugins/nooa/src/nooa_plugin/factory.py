@@ -16,11 +16,12 @@ import asyncio
 import concurrent.futures
 import inspect
 import os
+from dataclasses import replace
 from typing import Any
 
 from bora.adapters.agent_contract import AgentResult
 from bora.plugins.errors import ExtensionMaterializeError
-from nooa_plugin.trajectory import dump_native_events, to_bora_trajectory_events
+from nooa_plugin.trajectory import attach_event_tap, to_bora_trajectory_events
 
 PLUGIN_ID = "nooa"
 
@@ -406,6 +407,7 @@ class NooaExecutorSPI:
                 error=f"nooa_method_missing:{self.method}",
                 metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
             )
+        tap = attach_event_tap(self._agent)
         try:
             raw = self._call_method(method, prompt, effective_workdir)
         except ExtensionMaterializeError as exc:
@@ -426,16 +428,19 @@ class NooaExecutorSPI:
                 error=f"{type(exc).__name__}:{exc}",
                 metadata={"plugin": PLUGIN_ID, "agent": self.agent_ref},
             )
-        native = dump_native_events(self._agent)
+        native = tap.finish(self._agent)
         _write_backend_raw(collect_dir, native)
         mapped = tuple(to_bora_trajectory_events(native))
-        return _normalize_raw(
+        result = _normalize_raw(
             raw,
             model=self.model,
             agent_ref=self.agent_ref,
             collect_dir=collect_dir,
             events=mapped,
         )
+        meta = dict(result.metadata or {})
+        meta["trajectory_tap"] = tap.stats
+        return replace(result, metadata=meta)
 
     def _call_method(self, method: Any, prompt: str, workdir: str | None) -> Any:
         async def _async_call() -> Any:
