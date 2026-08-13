@@ -85,6 +85,25 @@ def test_tool_call_event_with_result() -> None:
     assert mapped[0]["args"] == {"path": "/tmp/a"}
 
 
+def test_tool_call_copies_vendor_elapsed_ms() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "event_type": "ToolCallEvent",
+                "tool_call_id": "c1",
+                "name": "read_file",
+                "arguments": {"path": "/tmp/a"},
+                "result": {"ok": True, "text": "hi"},
+                "elapsed_ms": 88,
+                "at": "2026-08-14T12:00:01Z",
+            },
+        )
+    )
+    update = next(e for e in mapped if e.get("phase") == "update")
+    assert update["elapsed_ms"] == 88.0
+    assert update["at"] == "2026-08-14T12:00:01Z"
+
+
 async def _passthrough(value: object) -> object:
     return value
 

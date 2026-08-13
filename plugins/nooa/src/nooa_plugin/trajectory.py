@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from contextlib import suppress
+from datetime import datetime, timezone
 from typing import Any
 
 SCHEMA = "bora.trajectory.event/1"
@@ -180,6 +181,8 @@ class EventTap:
             return
         if tag is not None and "tag" not in row:
             row["tag"] = str(tag)
+        if "at" not in row:
+            row["at"] = _utc_now_iso()
         key = _row_key(row)
         if key in self._seen:
             # Later ToolCallEvent updates carry the result — replace.
@@ -344,43 +347,43 @@ def _emit_tool_pair(
         args = {"code": pending_code}
         pending_code = None
     if call_id not in emitted_tools:
-        out.append(
-            {
-                "schema": SCHEMA,
-                "seq": seq,
-                "session_id": session_id,
-                "source": _SOURCE,
-                "kind": "tool",
-                "phase": "start",
-                "tool_call_id": call_id,
-                "title": name,
-                "function_name": name,
-                "tool_kind": _tool_kind(name),
-                "status": "pending",
-                "args": args,
-            }
-        )
+        start = {
+            "schema": SCHEMA,
+            "seq": seq,
+            "session_id": session_id,
+            "source": _SOURCE,
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": call_id,
+            "title": name,
+            "function_name": name,
+            "tool_kind": _tool_kind(name),
+            "status": "pending",
+            "args": args,
+        }
+        _attach_timing(start, raw)
+        out.append(start)
         emitted_tools.add(call_id)
     if raw.get("result") is not None:
         seq += 1
         result = raw["result"]
-        out.append(
-            {
-                "schema": SCHEMA,
-                "seq": seq,
-                "session_id": session_id,
-                "source": _SOURCE,
-                "kind": "tool",
-                "phase": "update",
-                "tool_call_id": call_id,
-                "title": name,
-                "function_name": name,
-                "tool_kind": _tool_kind(name),
-                "status": "failed" if _is_error_result(result) else "completed",
-                "content": _stringify_result(result),
-                "raw_output": result,
-            }
-        )
+        update = {
+            "schema": SCHEMA,
+            "seq": seq,
+            "session_id": session_id,
+            "source": _SOURCE,
+            "kind": "tool",
+            "phase": "update",
+            "tool_call_id": call_id,
+            "title": name,
+            "function_name": name,
+            "tool_kind": _tool_kind(name),
+            "status": "failed" if _is_error_result(result) else "completed",
+            "content": _stringify_result(result),
+            "raw_output": result,
+        }
+        _attach_timing(update, raw)
+        out.append(update)
     return seq, pending_code
 
 
@@ -417,41 +420,41 @@ def _emit_python_output(
         args = {"code": pending_code}
         pending_code = None
     if call_id not in emitted_tools:
-        out.append(
-            {
-                "schema": SCHEMA,
-                "seq": seq,
-                "session_id": session_id,
-                "source": _SOURCE,
-                "kind": "tool",
-                "phase": "start",
-                "tool_call_id": call_id,
-                "title": "execute_python",
-                "function_name": "execute_python",
-                "tool_kind": "execute",
-                "status": "pending",
-                "args": args,
-            }
-        )
-        emitted_tools.add(call_id)
-        seq += 1
-    out.append(
-        {
+        start = {
             "schema": SCHEMA,
             "seq": seq,
             "session_id": session_id,
             "source": _SOURCE,
             "kind": "tool",
-            "phase": "update",
+            "phase": "start",
             "tool_call_id": call_id,
             "title": "execute_python",
             "function_name": "execute_python",
             "tool_kind": "execute",
-            "status": status,
-            "content": _python_obs_text(payload),
-            "raw_output": payload,
+            "status": "pending",
+            "args": args,
         }
-    )
+        _attach_timing(start, raw)
+        out.append(start)
+        emitted_tools.add(call_id)
+        seq += 1
+    update = {
+        "schema": SCHEMA,
+        "seq": seq,
+        "session_id": session_id,
+        "source": _SOURCE,
+        "kind": "tool",
+        "phase": "update",
+        "tool_call_id": call_id,
+        "title": "execute_python",
+        "function_name": "execute_python",
+        "tool_kind": "execute",
+        "status": status,
+        "content": _python_obs_text(payload),
+        "raw_output": payload,
+    }
+    _attach_timing(update, raw)
+    out.append(update)
     return seq, pending_code
 
 
@@ -465,6 +468,32 @@ def _text(seq: int, session_id: str, channel: str, text: str) -> dict[str, Any]:
         "channel": channel,
         "text": text,
     }
+
+
+def _utc_now_iso() -> str:
+    now = datetime.now(timezone.utc)
+    stamp = now.strftime("%Y-%m-%dT%H:%M:%S")
+    if now.microsecond:
+        stamp = f"{stamp}.{now.microsecond:06d}".rstrip("0")
+    return stamp + "Z"
+
+
+def _attach_timing(ev: dict[str, Any], raw: dict[str, Any]) -> None:
+    at = raw.get("at") or raw.get("timestamp") or raw.get("created_at")
+    if isinstance(at, str) and at.strip():
+        ev["at"] = at.strip()
+    for key in ("elapsed_ms", "elapsedMs", "duration_ms", "durationMs"):
+        val = raw.get(key)
+        if isinstance(val, bool) or not isinstance(val, int | float) or val < 0:
+            continue
+        ev["elapsed_ms"] = float(val)
+        break
+    started = raw.get("started_at") or raw.get("startedAt")
+    if isinstance(started, str) and started.strip():
+        ev["started_at"] = started.strip()
+    ended = raw.get("ended_at") or raw.get("endedAt")
+    if isinstance(ended, str) and ended.strip():
+        ev["ended_at"] = ended.strip()
 
 
 def _event_manager(agent: Any) -> Any | None:

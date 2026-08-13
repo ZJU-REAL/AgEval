@@ -119,6 +119,7 @@ def acp_session_events_to_bora(
             "content": content_text,
             "raw_output": raw_output,
         }
+        _attach_timing(ev, raw, upd)
         out.append(ev)
 
     for call_id, title in longest_title.items():
@@ -142,6 +143,51 @@ def acp_session_events_to_bora(
             }
         )
     return out
+
+
+def _attach_timing(ev: dict[str, Any], raw: dict[str, Any], upd: dict[str, Any]) -> None:
+    """Copy vendor duration / timestamps; fail-open when absent."""
+    at = raw.get("at")
+    if isinstance(at, str) and at.strip():
+        ev["at"] = at
+    meta = upd.get("_meta") if isinstance(upd.get("_meta"), dict) else None
+    if meta is None:
+        meta = upd.get("field_meta") if isinstance(upd.get("field_meta"), dict) else None
+    elapsed = _first_elapsed_ms(upd, meta, raw)
+    if elapsed is not None:
+        ev["elapsed_ms"] = elapsed
+    started = _first_iso(upd, meta, raw, keys=("started_at", "startedAt"))
+    if started is not None:
+        ev["started_at"] = started
+    ended = _first_iso(upd, meta, raw, keys=("ended_at", "endedAt"))
+    if ended is not None:
+        ev["ended_at"] = ended
+
+
+def _first_elapsed_ms(*sources: Any) -> float | None:
+    keys = ("elapsed_ms", "elapsedMs", "duration_ms", "durationMs")
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        for key in keys:
+            val = src.get(key)
+            if isinstance(val, bool) or not isinstance(val, int | float):
+                continue
+            if val < 0:
+                continue
+            return float(val)
+    return None
+
+
+def _first_iso(*sources: Any, keys: tuple[str, ...]) -> str | None:
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        for key in keys:
+            val = src.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+    return None
 
 
 def _session_update_name(ev: dict[str, Any], upd: dict[str, Any]) -> str:

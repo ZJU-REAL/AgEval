@@ -63,42 +63,42 @@ def to_bora_trajectory_events(
             call_id = str(data.get("callId") or data.get("id") or f"dsh_tool_{seq_n}")
             name = str(data.get("name") or "tool")
             names[call_id] = name
-            out.append(
-                {
-                    "schema": SCHEMA,
-                    "seq": seq_n,
-                    "session_id": session_id,
-                    "source": _SOURCE,
-                    "kind": "tool",
-                    "phase": "start",
-                    "tool_call_id": call_id,
-                    "title": name,
-                    "function_name": name,
-                    "tool_kind": _tool_kind(name),
-                    "status": "pending",
-                    "args": _as_args(data.get("arguments")),
-                }
-            )
+            start = {
+                "schema": SCHEMA,
+                "seq": seq_n,
+                "session_id": session_id,
+                "source": _SOURCE,
+                "kind": "tool",
+                "phase": "start",
+                "tool_call_id": call_id,
+                "title": name,
+                "function_name": name,
+                "tool_kind": _tool_kind(name),
+                "status": "pending",
+                "args": _as_args(data.get("arguments")),
+            }
+            _attach_timing(start, event, data)
+            out.append(start)
         elif et == "tool/result":
             seq_n = _next()
             call_id, content, is_error = _parse_tool_result(data)
             name = names.get(call_id, "tool")
-            out.append(
-                {
-                    "schema": SCHEMA,
-                    "seq": seq_n,
-                    "session_id": session_id,
-                    "source": _SOURCE,
-                    "kind": "tool",
-                    "phase": "update",
-                    "tool_call_id": call_id or f"dsh_tool_{seq_n}",
-                    "title": name,
-                    "function_name": name,
-                    "tool_kind": "other",
-                    "status": "failed" if is_error else "completed",
-                    "content": content,
-                }
-            )
+            update = {
+                "schema": SCHEMA,
+                "seq": seq_n,
+                "session_id": session_id,
+                "source": _SOURCE,
+                "kind": "tool",
+                "phase": "update",
+                "tool_call_id": call_id or f"dsh_tool_{seq_n}",
+                "title": name,
+                "function_name": name,
+                "tool_kind": "other",
+                "status": "failed" if is_error else "completed",
+                "content": content,
+            }
+            _attach_timing(update, event, data)
+            out.append(update)
         elif et == "turn/end":
             continue
         else:
@@ -230,6 +230,28 @@ def _parse_tool_result(data: dict[str, Any]) -> tuple[str, str, bool]:
             elif isinstance(inner, str):
                 parts.append(inner)
     return call_id, "".join(parts), is_error
+
+
+def _attach_timing(ev: dict[str, Any], *sources: Any) -> None:
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        at = src.get("at") or src.get("timestamp") or src.get("created_at")
+        if isinstance(at, str) and at.strip() and "at" not in ev:
+            ev["at"] = at.strip()
+        for key in ("elapsed_ms", "elapsedMs", "duration_ms", "durationMs"):
+            if "elapsed_ms" in ev:
+                break
+            val = src.get(key)
+            if isinstance(val, bool) or not isinstance(val, int | float) or val < 0:
+                continue
+            ev["elapsed_ms"] = float(val)
+        started = src.get("started_at") or src.get("startedAt")
+        if isinstance(started, str) and started.strip() and "started_at" not in ev:
+            ev["started_at"] = started.strip()
+        ended = src.get("ended_at") or src.get("endedAt")
+        if isinstance(ended, str) and ended.strip():
+            ev["ended_at"] = ended.strip()
 
 
 def _unwrap_event(raw: dict[str, Any]) -> dict[str, Any]:

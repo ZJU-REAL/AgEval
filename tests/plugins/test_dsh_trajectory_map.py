@@ -190,3 +190,37 @@ def test_foreign_wrapped_event_unwraps() -> None:
     )
     assert mapped[0]["function_name"] == "read_file"
     assert mapped[0]["args"]["path"] == "a"
+
+
+def test_tool_result_copies_vendor_elapsed_ms() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "type": "tool/call",
+                "timestamp": "2026-08-14T12:00:00Z",
+                "data": {"callId": "c1", "name": "bash", "arguments": {"command": "echo"}},
+            },
+            {
+                "type": "tool/result",
+                "timestamp": "2026-08-14T12:00:01Z",
+                "data": {
+                    "elapsed_ms": 1000,
+                    "message": {
+                        "source": {"kind": "tool", "callId": "c1"},
+                        "content": [
+                            {
+                                "type": "tool-result",
+                                "toolCallId": "c1",
+                                "content": [{"type": "text", "text": "ok"}],
+                            }
+                        ],
+                    },
+                },
+            },
+        )
+    )
+    start = next(e for e in mapped if e.get("phase") == "start")
+    update = next(e for e in mapped if e.get("phase") == "update")
+    assert start["at"] == "2026-08-14T12:00:00Z"
+    assert update["elapsed_ms"] == 1000.0
+    assert update["at"] == "2026-08-14T12:00:01Z"

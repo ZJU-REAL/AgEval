@@ -498,6 +498,46 @@ def test_writer_omits_timing_when_absent(tmp_path: Path) -> None:
     assert "ended_at" not in tool
 
 
+def test_acp_mapper_copies_vendor_elapsed_and_at(tmp_path: Path) -> None:
+    events = (
+        {
+            "type": "session_update",
+            "session_id": "s1",
+            "at": "2026-08-14T12:00:00Z",
+            "update": {
+                "sessionUpdate": "tool_call",
+                "toolCallId": "c1",
+                "title": "ls",
+                "kind": "execute",
+                "status": "pending",
+                "rawInput": {"command": "ls"},
+                "startedAt": "2026-08-14T12:00:00Z",
+            },
+        },
+        {
+            "type": "session_update",
+            "session_id": "s1",
+            "at": "2026-08-14T12:00:01.5Z",
+            "update": {
+                "sessionUpdate": "tool_call_update",
+                "toolCallId": "c1",
+                "status": "completed",
+                "content": [{"type": "content", "content": {"type": "text", "text": "ok"}}],
+                "durationMs": 1500,
+                "endedAt": "2026-08-14T12:00:01.5Z",
+            },
+        },
+    )
+    mapped = acp_session_events_to_bora(events)
+    tools = [e for e in mapped if e.get("kind") == "tool"]
+    assert tools[0]["at"] == "2026-08-14T12:00:00Z"
+    assert tools[0]["started_at"] == "2026-08-14T12:00:00Z"
+    assert tools[-1]["elapsed_ms"] == 1500.0
+    path = _write(tmp_path, events=mapped, prompt="p", final_text="done")
+    tool = next(x for x in _read_lines(path) if x["type"] == "tool_call")
+    assert tool["elapsed_ms"] == 1500.0
+
+
 def test_writer_drops_invalid_timing(tmp_path: Path) -> None:
     events = (
         {
