@@ -239,24 +239,10 @@ export function PluginDetailPage() {
           <section className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Install (CLI)</h2>
             <CommandStrip command={installCmd} />
-            <p className="text-xs text-mute max-w-2xl">
-              Install = <strong className="font-medium text-body">Recognition only</strong>
-              {" "}
-              (registers the package in local plugin cache). It does{" "}
-              <strong className="font-medium text-body">not</strong> change
-              Database profiles or select executors. Bind with{" "}
-              <span className="font-mono">executor: &lt;plugin_id&gt;</span> in
-              profiles after install. Ready for L1 still depends on image
-              contribute / bake — not on install alone.
-            </p>
           </section>
 
           <section className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Declared slots</h2>
-            <p className="text-xs text-mute">
-              L0–L5 timeline of slots this package declares. Not a per-job
-              execution trace.
-            </p>
             <PluginSlotTimeline
               declared={declared}
               files={previewFiles}
