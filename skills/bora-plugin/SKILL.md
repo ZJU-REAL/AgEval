@@ -3,7 +3,7 @@ name: bora-plugin
 description: >
   Author and review BORA mechanism plugins (bora.plugin/1): extension slots L0–L5,
   registry resolve, ExecutorSPI + bind_to_target, image_contribute bake, neutral
-  trajectory events, Recognition ≠ Ready. Use when writing or reviewing plugins/,
+  trajectory events, Recognition ≠ L0 host-ready ≠ L1 bake-declared. Use when writing or reviewing plugins/,
   plugin.yaml, provide(executor), on-handlers, Dockerfile.bake, or asking "how do
   plugins work", "write a plugin", "add an executor", "extension_bindings",
   "image_contribute", "bind_to_target", "l1_executor_unbound". Not an app store.
@@ -51,13 +51,14 @@ Handlers are **awaited** at the control point with a live `ctx`. Do not dump
 `bora plugin install` writes **only** `$BORA_HOME/plugins` (default `~/.bora/plugins`).
 It **never** rewrites `profiles.yaml` / `task.yaml` / harness.
 
-### Recognition ≠ Ready
+### Recognition ≠ L0 host-ready ≠ L1 bake-declared
 
 | Stage | Meaning |
 | --- | --- |
 | install / `bora plugin list` / lock recognizes the kind | **Recognition** |
+| declared `host_requires` satisfied (L0) | **L0 host-ready** |
 | profiles bind `executor: <plugin_id>` | Job selection |
-| `image_contribute` + `docker/Dockerfile.bake` chained buildx | **L1 Ready** |
+| `image_contribute` + `docker/Dockerfile.bake` chained buildx | **L1 bake-declared** |
 
 Bound external executor with an empty contribute chain or missing bake file →
 L1 **fail-closed**. Install success ≠ runnable in the container. Official ACP
@@ -93,8 +94,9 @@ no inline executor / options.
 uv run bora plugin install plugins/nooa
 uv run bora plugin list
 uv run bora plugin uninstall nooa
-uv run bora executors          # Recognition: .supported includes installed provide
+uv run bora executors          # Recognition + L0 host_ready + l1_bake_declared
 uv run bora lock <db> --task <id> --profiles path/to/profiles.yaml
+uv run bora lock <db> --task <id> --profiles path/to/profiles.yaml --probe
 uv run bora run  <db> --task <id> --profiles path/to/profiles.yaml
 ```
 

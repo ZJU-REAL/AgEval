@@ -12,13 +12,14 @@ Stdout JSON (high level):
 | Key | Meaning |
 | --- | --- |
 | `supported` | Kind names valid for `agent_profiles[].executor` (e.g. `acp`, `openai-http`) |
-| `host_ready` | Subset of kinds ready on this machine |
+| `host_ready` | Subset of kinds whose **L0 host SPI** can be constructed here |
 | `missing_binary` | Legacy CLI kinds missing PATH binary (ACP uses per-entry fields) |
-| `executors[]` | Per kind: `execution_mode`, readiness, capability fields |
+| `executors[]` | Per kind: `execution_mode` (from `describe()` when published), L0 `host_ready`, plugin `l1_bake_declared` |
 | `acp_entries[]` | Per ACP `entry_id`: `acp_command`, `engine_ready`, `acp_entry_ready`, `host_ready`, credential env *names* |
 
 - Logic: `bora.adapters.executor_inventory` (CLI is thin print)
 - ACP registry: `bora.adapters.acp_registry` (static pins; not package-overridable)
+- Plugin `host_ready` uses declared `host_requires` / reachable `describe()` — not “installed” and not PATH-probing wheel binaries
 - `-v` adds tools/session/stream + richer entry fields
 - No package path; no secrets; exit 0
 
@@ -30,9 +31,15 @@ Stdout JSON (high level):
 - No secret values.
 - Does not create Run/Attempt or start Agent.
 - Rejects unknown `executor` kinds and ACP profiles missing `options.entry`.
+- `--probe`: same lock plus observational `probe` (path, ready, checks). Does not
+  change the digest. Exit 1 when the **selected** `provider.kind` path is unsatisfied.
+  L0 runs declared `host_requires`; L1 checks bake file + Docker daemon + locator
+  **names** (never values). `BORA_OFFLINE_AGENT=1` is reported; probe still does not spawn.
 
 ## `bora run`
 
+- `--probe` (with or without `--task`): same feasibility report as `lock --probe`;
+  does not start an Attempt. Omit `--task` to probe every member.
 - One foreground Attempt via production composition root **when** `--task` is set, `-k` defaults to 1, and no `--resume-suite`.
 - Evidence under Dataset root `.bora/runs/<run_id>/` (Hub-facing curated tree).
 - `logs` / `evidence_path` are portable relative to the Dataset root (e.g. `.bora/runs/<run_id>`);

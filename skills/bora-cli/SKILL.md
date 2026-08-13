@@ -37,6 +37,7 @@ uv run bora --help
 | `bora plugin publish`                                         | Upload plugin package (`package_kind=plugin`) to Registry                                          |
 | `bora -V` / `bora --version`                                  | Package version (`-V`; keep `-v` free for verbose)                                                 |
 | `bora lock <package> --task <id>`                             | Config lock summary (no Agent); includes `job_overlay`                                             |
+| `bora lock\|run … --probe`                                    | Host vs L1 feasibility for this binding/`provider.kind`; no Agent, no bake                         |
 | `bora lock ... --set /parameters/seed=7`                      | Allowlisted override                                                                               |
 | `bora lock/run ... --profiles path/to/profiles.yaml`          | Alternate job binding file (replaces Database `profiles.yaml`)                                     |
 | `bora run <package> --task <id>`                              | One foreground Attempt                                                                             |
@@ -67,7 +68,8 @@ uv run bora executors
 uv run bora executors -v
 # .supported     = agent_profiles[].executor values (e.g. acp, openai-http)
 # .acp_entries   = options.entry ids + engine/acp binary readiness
-# .host_ready    = kinds that can actually run here
+# .host_ready    = L0 host SPI constructable (declared host_requires / describe())
+# .executors[].l1_bake_declared = image_contribute + Dockerfile.bake (plugins)
 # .missing_binary = (legacy CLI kinds only; ACP uses per-entry readiness)
 # Note: package version is `bora -V` / `--version` (not `-v`).
 ```
@@ -97,7 +99,7 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 ```
 
 Cache root: `$BORA_HOME/plugins` (default `~/.bora/plugins`).  
-**Recognition** (list/lock) ≠ **L1 Ready** (`image_contribute` bake).
+**Recognition** (list/lock) ≠ **L0 host-ready** (`host_requires`) ≠ **L1 bake-declared** (`image_contribute` bake).
 Writing a new plugin package is `$bora-plugin`, not this skill.
 
 ## Allowlisted `--set` pointers
@@ -124,8 +126,8 @@ Value after `=` is JSON (strings need quotes):
 
 | Code | Meaning                  |
 | ---- | ------------------------ |
-| `0`  | PASS                     |
-| `1`  | FAIL (evaluator)         |
+| `0`  | PASS; or `--probe` ready |
+| `1`  | FAIL (evaluator); or `--probe` selected path unsatisfied |
 | `2`  | ERROR / config / runtime |
 
 ## Interpret `bora run` JSON

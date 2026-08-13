@@ -198,8 +198,10 @@ uv run bora cancel <suite_run_id> --database examples/core
 ### Executors
 
 ```bash
-uv run bora executors      # JSON: supported / host_ready / acp_entries
+uv run bora executors      # JSON: supported / host_ready / acp_entries / l1_bake_declared
 uv run bora executors -v   # --verbose: credential env names and extra detail
+uv run bora lock examples/core --task config-minimal --probe
+# --probe: plan + readiness for this binding / provider.kind; no Agent, no bake
 ```
 
 Coding-agent packages use `executor: acp` + `options.entry: …`. Prefer inventory output over hardcoded vendor lists.

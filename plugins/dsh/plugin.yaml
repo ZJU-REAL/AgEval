@@ -1,6 +1,10 @@
 format: bora.plugin/1
 plugin_id: dsh
 version: 0.1.0
+host_requires:
+  - import: deepseek_harness
+    hint: "uv sync --extra dsh"
+  - file: compositions/slim.cordis.yml
 slots:
   provide:
     - id: executor

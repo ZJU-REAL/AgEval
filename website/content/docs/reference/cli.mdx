@@ -8,7 +8,9 @@ description: 命令、--task、Always-k、--set 白名单。
 ```bash
 uv run bora tasks <dataset>
 uv run bora lock <dataset> --task <id>
+uv run bora lock <dataset> --task <id> --probe
 uv run bora run <dataset> --task <id>
+uv run bora run <dataset> --task <id> --probe
 uv run bora run <dataset>                         # suite
 uv run bora run <dataset> --max-concurrent-tasks 2
 uv run bora run <dataset> -k 5                    # Always-k（每题 k 次）
@@ -41,6 +43,7 @@ uv run bora results upload|upload-suite|share|unshare|set-visibility|delete …
 | `--resume-suite <suite_run_id>` | 并进已有 job：跳过已完成 unit，追加 Attempt，重算 pass@k / pass^k |
 | `--keep-workspace` | 仅 L1：清理后保留 host `l1-work/`（默认删除；上传不打包）。Docker volume 仍删除 |
 | `--set` / `--profiles` | 见下；与 job binding 相关 |
+| `--probe` | 只做可行性：按绑定 / `provider.kind` 打印 plan + readiness。不 invoke Agent、不 bake、不改 lock digest。选中路径不满足则 exit 1。 |
 
 ## `status` / `cancel`
 

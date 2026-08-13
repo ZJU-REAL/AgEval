@@ -14,6 +14,9 @@ uv run bora tasks examples/core
 # 仅锁定配置（不启动 agent、不评测）
 uv run bora lock examples/core --task config-minimal
 
+# 同一 lock 上做本机可行性探针（不 invoke、不 bake）
+uv run bora lock examples/core --task config-minimal --probe
+
 # 执行真实多轮 agent 路径（需要本机 ACP 入口与凭据）
 uv run bora run examples/core --task sdk-agent-session
 ```

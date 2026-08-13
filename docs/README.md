@@ -46,7 +46,7 @@
 | [design/08-conversion-security-testing.md](design/08-conversion-security-testing.md)     | 转换、测试、安全边界                                                                   |
 | [design/09-owner-matrix-and-structure.md](design/09-owner-matrix-and-structure.md)       | Owner 矩阵、决策检查表、目标结构、相关资料                                             |
 | [design/10-examples-database-52.md](design/10-examples-database-52.md)                   | 设计意图下的示例对照（非进度）                                                         |
-| [design/11-extension-plugins.md](design/11-extension-plugins.md)                         | 扩展点 L0–L5、注册表、lock bindings、`bora.plugin/1`、Recognition ≠ Ready             |
+| [design/11-extension-plugins.md](design/11-extension-plugins.md)                         | 扩展点 L0–L5、注册表、lock bindings、`bora.plugin/1`、Recognition ≠ L0 host-ready ≠ L1 bake-declared、`--probe` |
 | [design/12-hub-dataset-and-leaderboard.md](design/12-hub-dataset-and-leaderboard.md)     | Dataset draft/release、dataset ACL、Leaderboard 完备性、个人主页                       |
 
 正文标题**不再**沿用 vault 总文档的 `## N.` / `### N.M.` 序号（避免跨文件序号断裂）；文件名前缀 `00`–`12` 仍作读序。Runtime 已按执行链拆分为 `05-runtime/*`。
