@@ -2,6 +2,8 @@ export type Job = {
   job_id: string;
   job_name: string;
   source: string;
+  /** suite = .bora/suite-runs; single = one-off bora run Attempt. */
+  source_kind?: "suite" | "single" | string;
   database_id?: string | null;
   database_version?: string | null;
   agent_label?: string;

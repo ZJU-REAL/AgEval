@@ -33,6 +33,24 @@ def register(app: typer.Typer) -> None:
             bool,
             typer.Option("--no-browser", help="Do not open a browser tab."),
         ] = False,
+        dev: Annotated[
+            bool,
+            typer.Option(
+                "--dev",
+                help="API only (no SPA bundle). Pair with pnpm --dir apps/viewer dev.",
+            ),
+        ] = False,
+        open_path: Annotated[
+            str,
+            typer.Option(
+                "--open",
+                help="Client path to open (e.g. /jobs/<id> or /jobs/<id>/tasks/<tid>).",
+            ),
+        ] = "/",
+        ui_port: Annotated[
+            int,
+            typer.Option("--ui-port", help="Vite UI port used with --dev (default 5173)."),
+        ] = 5173,
     ) -> None:
         """Start local Jobs→Tasks→Trial results UI for a Database (no Registry)."""
         from bora.config.errors import ConfigError
@@ -45,6 +63,9 @@ def register(app: typer.Typer) -> None:
                 port=port,
                 open_browser=not no_browser,
                 block=True,
+                dev=dev,
+                open_path=open_path,
+                ui_port=ui_port,
             )
         except ConfigError as exc:
             typer.echo(str(exc), err=True)

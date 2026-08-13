@@ -1,6 +1,7 @@
-"""Local suite-run (job) listing for the Database results viewer.
+"""Local job listing for the Database results viewer.
 
-Jobs = ``.bora/suite-runs/<suite_run_id>/summary.json`` under a Database root.
+Jobs are suite runs under ``.bora/suite-runs/`` **and** single-task Attempts
+under ``.bora/runs/`` or ``tasks/<id>/.bora/runs/`` in the opened Database.
 No suite-level PASS authority — scores are observational aggregates only.
 """
 
@@ -115,6 +116,7 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
     return {
         "job_id": str(summary.get("suite_run_id") or suite_dir.name),
         "job_name": str(summary.get("suite_run_id") or suite_dir.name),
+        "source_kind": "suite",
         "source": str(
             summary.get("database_id") or (man.database_id if man else "") or database_root.name
         ),
@@ -151,6 +153,129 @@ def _load_progress(suite_dir: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _suite_run_ids(items: list[dict[str, Any]]) -> set[str]:
+    ids: set[str] = set()
+    for row in items:
+        jid = str(row.get("job_id") or "")
+        if jid:
+            ids.add(jid)
+    return ids
+
+
+def _referenced_run_ids(database_root: Path, suite_items: list[dict[str, Any]]) -> set[str]:
+    ids: set[str] = set()
+    root = database_root.expanduser().resolve(strict=False)
+    for row in suite_items:
+        job_id = str(row.get("job_id") or "")
+        if not job_id:
+            continue
+        try:
+            summary = _load_summary(_suite_root(root) / job_id / "summary.json")
+        except ConfigError:
+            continue
+        for ref in _ensure_task_refs(summary):
+            rid = str(ref.get("run_id") or "").strip()
+            if rid:
+                ids.add(rid)
+        for task in _task_dicts(summary):
+            rid = str(task.get("run_id") or "").strip()
+            if rid:
+                ids.add(rid)
+    return ids
+
+
+def _iter_attempt_dirs(database_root: Path) -> list[tuple[str, Path]]:
+    root = database_root.expanduser().resolve(strict=False)
+    found: list[tuple[str, Path]] = []
+    seen: set[str] = set()
+
+    def _add(run_id: str, path: Path) -> None:
+        if run_id in seen:
+            return
+        try:
+            safe_id_segment(run_id, field="run_id")
+        except ConfigError:
+            return
+        found.append((run_id, path))
+        seen.add(run_id)
+
+    db_runs = root / ".bora" / "runs"
+    if db_runs.is_dir():
+        for child in db_runs.iterdir():
+            if child.is_dir():
+                _add(child.name, child)
+
+    tasks_root_name = "tasks"
+    with contextlib.suppress(ConfigError):
+        man = load_database_manifest(root)
+        tasks_root_name = man.tasks_root or "tasks"
+    tasks_dir = root / tasks_root_name
+    if tasks_dir.is_dir():
+        for task_dir in tasks_dir.iterdir():
+            if not task_dir.is_dir():
+                continue
+            local = task_dir / ".bora" / "runs"
+            if not local.is_dir():
+                continue
+            for child in local.iterdir():
+                if child.is_dir():
+                    _add(child.name, child)
+    return found
+
+
+def _read_json_object(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict[str, Any]:
+    from bora.evidence.attempt_record import read_attempt_result
+
+    result = read_attempt_result(evidence) or {}
+    lock = _read_json_object(evidence / "lock.json") or {}
+    task_id = str(result.get("task_id") or lock.get("task_id") or "")
+    status = str(result.get("status") or result.get("verdict") or "")
+    score = result.get("score")
+    started = result.get("created_at") or result.get("started_at")
+    man = None
+    with contextlib.suppress(ConfigError):
+        man = load_database_manifest(database_root)
+    return {
+        "job_id": run_id,
+        "job_name": run_id,
+        "source_kind": "single",
+        "source": task_id or "single",
+        "database_id": man.database_id if man else None,
+        "database_version": man.version if man else None,
+        "agent_label": str(lock.get("agent_label") or result.get("agent_label") or ""),
+        "model_label": str(lock.get("model_label") or result.get("model_label") or ""),
+        "provider_label": str(lock.get("provider_label") or result.get("provider_label") or ""),
+        "environment": str(result.get("environment") or "local"),
+        "result": score,
+        "pass_rate": 1.0 if status.upper() == "PASS" else 0.0,
+        "mean_score": score,
+        "metrics": {"n_tasks": 1, "n_pass": 1 if status.upper() == "PASS" else 0},
+        "started": started,
+        "duration": result.get("duration"),
+        "n_attempts": 1,
+        "trials_done": 1,
+        "trials_total": 1,
+        "exit_code": result.get("exit_code"),
+        "task_count": 1,
+        "summary_path": str(evidence / "result.json"),
+        "task_id": task_id,
+        "status": status.upper() if status else None,
+        "score": score,
+        "run_id": run_id,
+        "note": "single-task attempt; per-task evaluator verdicts only",
+    }
+
+
 def list_jobs(database_root: Path) -> dict[str, Any]:
     root = database_root.expanduser().resolve(strict=False)
     suite_root = _suite_root(root)
@@ -167,6 +292,13 @@ def list_jobs(database_root: Path) -> dict[str, Any]:
             except ConfigError:
                 continue
             items.append(_job_row(summary, suite_dir=child, database_root=root))
+
+    claimed = _referenced_run_ids(root, items) | _suite_run_ids(items)
+    for run_id, evidence in _iter_attempt_dirs(root):
+        if run_id in claimed:
+            continue
+        items.append(_single_job_row(evidence, run_id=run_id, database_root=root))
+    items.sort(key=lambda r: str(r.get("started") or r.get("job_id") or ""), reverse=True)
 
     try:
         man = load_database_manifest(root)
@@ -203,11 +335,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         ) from exc
     summary_path = suite_dir / "summary.json"
     if not summary_path.is_file():
-        raise ConfigError(
-            "unknown_task",
-            f"suite run not found: {job_id}",
-            location=str(suite_dir),
-        )
+        return _get_single_job(root, job_id)
     summary = _load_summary(summary_path)
     job = _job_row(summary, suite_dir=suite_dir, database_root=root)
     progress = _load_progress(suite_dir)
@@ -252,6 +380,46 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         "task_count": len(task_rows),
         "progress": progress,
         "commands": commands_for(root),
+        "note": job.get("note"),
+    }
+
+
+def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
+    evidence = None
+    for rid, path in _iter_attempt_dirs(root):
+        if rid == job_id:
+            evidence = path
+            break
+    if evidence is None:
+        raise ConfigError(
+            "unknown_task",
+            f"suite run not found: {job_id}",
+            location=job_id,
+        )
+    job = _single_job_row(evidence, run_id=job_id, database_root=root)
+    task_id = str(job.get("task_id") or "")
+    task_rows = [
+        {
+            "task_id": task_id,
+            "status": job.get("status"),
+            "score": job.get("score"),
+            "run_id": job_id,
+            "error": None,
+            "exit_code": job.get("exit_code"),
+            "agent_label": job.get("agent_label") or "",
+            "model_label": job.get("model_label") or "",
+            "provider_label": job.get("provider_label") or "",
+            "dataset": job.get("source") or job.get("database_id"),
+            "duration": job.get("duration"),
+        }
+    ]
+    return {
+        "ok": True,
+        "job": job,
+        "tasks": task_rows,
+        "task_count": 1,
+        "progress": None,
+        "commands": commands_for(root, task_id=task_id or None),
         "note": job.get("note"),
     }
 

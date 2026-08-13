@@ -31,6 +31,7 @@ import { formatDate, formatScore, formatTrials } from "@/lib/utils";
 type SortKey =
   | "job_name"
   | "source"
+  | "source_kind"
   | "agent_label"
   | "provider_label"
   | "model_label"
@@ -101,6 +102,8 @@ export function JobsPage() {
       const hay = [
         j.job_name,
         j.source,
+        j.source_kind,
+        j.job_id,
         j.agent_label,
         j.model_label,
         j.provider_label,
@@ -220,6 +223,7 @@ export function JobsPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>{head("job_name", "Job Name")}</TableHead>
+                <TableHead>{head("source_kind", "Kind")}</TableHead>
                 <TableHead>{head("source", "Source")}</TableHead>
                 <TableHead>{head("agent_label", "Agents")}</TableHead>
                 <TableHead>{head("provider_label", "Providers")}</TableHead>
@@ -234,24 +238,28 @@ export function JobsPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-mute py-10 text-center">
+                  <TableCell colSpan={11} className="text-mute py-10 text-center">
                     Loading jobs...
                   </TableCell>
                 </TableRow>
               )}
               {!loading && error && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-error py-10 text-center">
+                  <TableCell colSpan={11} className="text-error py-10 text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               )}
               {!loading && !error && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-mute py-10 text-center">
-                    No suite jobs yet. Run{" "}
+                  <TableCell colSpan={11} className="text-mute py-10 text-center">
+                    No jobs yet. Run{" "}
                     <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
                       bora run &lt;database&gt;
+                    </code>{" "}
+                    or a single-task{" "}
+                    <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
+                      bora run &lt;database&gt; --task &lt;id&gt;
                     </code>{" "}
                     then refresh.
                   </TableCell>
@@ -276,6 +284,9 @@ export function JobsPage() {
                       <span className="block truncate" title={job.job_name}>
                         {job.job_name}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-body">
+                      {job.source_kind === "single" ? "single" : "suite"}
                     </TableCell>
                     <TableCell className="text-body max-w-[12rem]">
                       <span className="block truncate" title={job.source || undefined}>

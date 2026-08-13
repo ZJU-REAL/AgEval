@@ -18,7 +18,7 @@ When UI conflicts with taste: **DESIGN.md wins**.
 **In scope (MVP):**
 
 1. **Jobs list** — search; filter dropdowns; sortable columns; row click  
-   Jobs = local suite runs under `.bora/suite-runs/`
+   Jobs = suite runs under `.bora/suite-runs/` and single-task Attempts under `.bora/runs/`
 2. **Job → tasks** — task table with scores / status / agent-model meta
 3. **Task detail** — trials/run row(s), status/error coloring, **copyable CLI**
 4. **Attempt / trial detail** — `Jobs > job > task > run_id`; Outcome + actors
@@ -73,7 +73,7 @@ Python API under `/api/*` (see `src/bora/viewer/`):
 | Path | Purpose |
 | --- | --- |
 | `GET /api/health` | Liveness |
-| `GET /api/jobs` | Suite-run job list (local `.bora/suite-runs`) |
+| `GET /api/jobs` | Job list (suite-runs + single-task Attempts) |
 | `GET /api/jobs/{id}` | Job detail + task rows |
 | `GET /api/jobs/{id}/tasks/{task_id}` | Task detail + enriched trials list + commands |
 | `GET /api/jobs/{id}/tasks/{task_id}/trials` | Trials list (suite + local evidence) |
@@ -112,7 +112,7 @@ uv run bora view <database> --no-browser
 ```
 
 Python must serve **`apps/viewer/dist/`** (production build). There is **no** separate `static/` source tree.  
-Dev: `pnpm dev` proxies `/api` to the Python viewer port when both run.
+Dev: `bora view --dev` (API only) + `pnpm --dir apps/viewer dev` (Vite UI, proxies `/api`). Same API as production `bora view`. Deep-link with `--open /jobs/...`.
 
 ## Theme
 

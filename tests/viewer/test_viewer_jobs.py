@@ -97,3 +97,46 @@ def test_list_empty_without_suite_runs(tmp_path: Path) -> None:
     listed = jobs.list_jobs(db)
     assert listed["count"] == 0
     assert listed["items"] == []
+
+
+def test_list_includes_single_task_attempt(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    run_id = "run_single_alpha"
+    evidence = db / ".bora" / "runs" / run_id
+    evidence.mkdir(parents=True)
+    (evidence / "result.json").write_text(
+        json.dumps(
+            {
+                "task_id": "alpha",
+                "status": "PASS",
+                "score": 1.0,
+                "created_at": "2026-08-13T12:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    listed = jobs.list_jobs(db)
+    assert listed["count"] == 1
+    row = listed["items"][0]
+    assert row["job_id"] == run_id
+    assert row["source_kind"] == "single"
+    assert row["source"] == "alpha"
+    detail = jobs.get_job(db, run_id)
+    assert detail["task_count"] == 1
+    assert detail["tasks"][0]["task_id"] == "alpha"
+
+
+def test_single_task_not_duplicated_when_in_suite(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    _seed_suite_run(db)
+    evidence = db / ".bora" / "runs" / "run_a"
+    evidence.mkdir(parents=True)
+    (evidence / "result.json").write_text(
+        json.dumps({"task_id": "alpha", "status": "PASS", "score": 1.0}) + "\n",
+        encoding="utf-8",
+    )
+    listed = jobs.list_jobs(db)
+    kinds = {item["job_id"]: item.get("source_kind") for item in listed["items"]}
+    assert kinds.get("suite_demo_job_001") == "suite"
+    assert "run_a" not in kinds
