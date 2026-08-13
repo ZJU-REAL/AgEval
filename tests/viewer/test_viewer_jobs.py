@@ -151,6 +151,67 @@ def test_list_includes_task_local_single_attempt(tmp_path: Path) -> None:
     assert row["task_id"] == "beta"
 
 
+def test_job_task_exposes_attempt_run_ids_for_k(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = "suite_k2"
+    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir.mkdir(parents=True, exist_ok=True)
+    summary = {
+        "schema": "bora.suite.summary/1",
+        "suite_run_id": job_id,
+        "database_id": "test/suite-min",
+        "n_attempts": 2,
+        "tasks": [
+            {
+                "task_id": "alpha",
+                "status": "PASS",
+                "score": 1.0,
+                "run_id": "run_alpha_0",
+                "n": 2,
+                "c": 1,
+            }
+        ],
+        "attempts": [
+            {
+                "task_id": "alpha",
+                "run_id": "run_alpha_0",
+                "status": "PASS",
+                "score": 1.0,
+                "attempt_index": 0,
+            },
+            {
+                "task_id": "alpha",
+                "run_id": "run_alpha_1",
+                "status": "FAIL",
+                "score": 0.0,
+                "attempt_index": 1,
+            },
+        ],
+        "metrics": {"n_tasks": 1, "n_pass": 1, "n_fail": 0, "mean_score": 1.0},
+    }
+    (suite_dir / "summary.json").write_text(json.dumps(summary) + "\n", encoding="utf-8")
+
+    detail = jobs.get_job(db, job_id)
+    row = detail["tasks"][0]
+    assert row["attempt_run_ids"] == ["run_alpha_0", "run_alpha_1"]
+    assert row["n"] == 2
+
+    payload = jobs.get_job_task(db, job_id, "alpha")
+    assert [t["run_id"] for t in payload["trials"]] == ["run_alpha_0", "run_alpha_1"]
+    extra = db / ".bora" / "runs" / "run_alpha_other"
+    extra.mkdir(parents=True)
+    (extra / "result.json").write_text(
+        json.dumps({"task_id": "alpha", "status": "PASS", "score": 1.0}) + "\n",
+        encoding="utf-8",
+    )
+    listed = jobs.list_jobs(db)
+    kinds = {item["job_id"]: item.get("source_kind") for item in listed["items"]}
+    assert kinds.get(job_id) == "suite"
+    assert kinds.get("run_alpha_other") == "single"
+    assert "run_alpha_0" not in kinds
+    assert "run_alpha_1" not in kinds
+
+
 def test_single_task_not_duplicated_when_in_suite(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     _seed_suite_run(db)

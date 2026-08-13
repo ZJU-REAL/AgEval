@@ -20,6 +20,8 @@ export type Job = {
   exit_code?: number | null;
   task_count?: number;
   task_id?: string | null;
+  run_id?: string | null;
+  n_attempts?: number | null;
   note?: string;
 };
 
@@ -35,6 +37,8 @@ export type TaskRow = {
   provider_label?: string;
   dataset?: string | null;
   duration?: string | null;
+  n?: number | null;
+  attempt_run_ids?: string[];
 };
 
 export type Trial = {

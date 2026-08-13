@@ -12,7 +12,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora.application.suite import aggregate_task_metrics, task_refs_for_summary
+from bora.application.suite import (
+    aggregate_task_metrics,
+    ensure_suite_task_refs,
+    task_refs_for_summary,
+)
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
 from bora.viewer.browse import commands_for
@@ -85,10 +89,56 @@ def _ensure_metrics(summary: dict[str, Any]) -> dict[str, Any]:
 
 
 def _ensure_task_refs(summary: dict[str, Any]) -> list[dict[str, Any]]:
-    refs = summary.get("task_refs")
-    if isinstance(refs, list) and refs:
-        return [r for r in refs if isinstance(r, dict)]
+    raw = summary.get("task_refs")
+    existing = [r for r in raw if isinstance(r, dict)] if isinstance(raw, list) else None
+    refs = ensure_suite_task_refs(summary, existing_refs=existing)
+    if refs:
+        return refs
     return task_refs_for_summary(_task_dicts(summary))
+
+
+def _attempt_dicts(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    raw = summary.get("attempts")
+    if not isinstance(raw, list):
+        return []
+    return [a for a in raw if isinstance(a, dict)]
+
+
+def _attempts_for_task(summary: dict[str, Any], task_id: str) -> list[dict[str, Any]]:
+    """This job's attempts for *task_id* (not other suite/single runs of the same task)."""
+    rows = [
+        a
+        for a in _attempt_dicts(summary)
+        if str(a.get("task_id") or "") == task_id and a.get("run_id")
+    ]
+    if rows:
+        return rows
+    for ref in _ensure_task_refs(summary):
+        if str(ref.get("task_id") or "") != task_id:
+            continue
+        ids = ref.get("attempt_run_ids")
+        if isinstance(ids, list) and ids:
+            return [
+                {
+                    "task_id": task_id,
+                    "run_id": str(rid).strip(),
+                    "status": ref.get("status"),
+                    "score": ref.get("score"),
+                }
+                for rid in ids
+                if rid is not None and str(rid).strip()
+            ]
+        rid = str(ref.get("run_id") or "").strip()
+        if rid:
+            return [
+                {
+                    "task_id": task_id,
+                    "run_id": rid,
+                    "status": ref.get("status"),
+                    "score": ref.get("score"),
+                }
+            ]
+    return []
 
 
 def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -> dict[str, Any]:
@@ -177,8 +227,18 @@ def _referenced_run_ids(database_root: Path, suite_items: list[dict[str, Any]]) 
             rid = str(ref.get("run_id") or "").strip()
             if rid:
                 ids.add(rid)
+            extra = ref.get("attempt_run_ids")
+            if isinstance(extra, list):
+                for item in extra:
+                    text = str(item or "").strip()
+                    if text:
+                        ids.add(text)
         for task in _task_dicts(summary):
             rid = str(task.get("run_id") or "").strip()
+            if rid:
+                ids.add(rid)
+        for attempt in _attempt_dicts(summary):
+            rid = str(attempt.get("run_id") or "").strip()
             if rid:
                 ids.add(rid)
     return ids
@@ -354,12 +414,39 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         full = by_id.get(tid, {})
         status = str(full.get("status") or ref.get("status") or "")
         score = full.get("score") if full.get("score") is not None else ref.get("score")
+        attempt_rows = _attempts_for_task(summary, tid)
+        if not attempt_rows:
+            rid = full.get("run_id") or ref.get("run_id")
+            if rid:
+                attempt_rows = [
+                    {
+                        "task_id": tid,
+                        "run_id": rid,
+                        "status": status,
+                        "score": score,
+                        "error": full.get("error"),
+                        "exit_code": full.get("exit_code"),
+                        "duration": full.get("duration"),
+                    }
+                ]
+        attempt_run_ids = [
+            str(a.get("run_id")).strip()
+            for a in attempt_rows
+            if a.get("run_id") and str(a.get("run_id")).strip()
+        ]
+        n_val = full.get("n") if full.get("n") is not None else ref.get("n")
+        if n_val is None:
+            n_val = len(attempt_run_ids) or None
         task_rows.append(
             {
                 "task_id": tid,
                 "status": status.upper() if status else None,
                 "score": score,
-                "run_id": full.get("run_id") or ref.get("run_id"),
+                "run_id": attempt_run_ids[0]
+                if attempt_run_ids
+                else full.get("run_id") or ref.get("run_id"),
+                "attempt_run_ids": attempt_run_ids,
+                "attempts": attempt_rows,
                 "error": full.get("error"),
                 "exit_code": full.get("exit_code"),
                 "agent_label": job.get("agent_label") or "",
@@ -368,8 +455,8 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
                 "dataset": job.get("source") or job.get("database_id"),
                 "duration": full.get("duration"),
                 "phase_timing": full.get("phase_timing"),
-                "n": full.get("n"),
-                "c": full.get("c"),
+                "n": n_val,
+                "c": full.get("c") if full.get("c") is not None else ref.get("c"),
             }
         )
 
@@ -404,6 +491,17 @@ def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
             "status": job.get("status"),
             "score": job.get("score"),
             "run_id": job_id,
+            "attempt_run_ids": [job_id],
+            "attempts": [
+                {
+                    "task_id": task_id,
+                    "run_id": job_id,
+                    "status": job.get("status"),
+                    "score": job.get("score"),
+                    "exit_code": job.get("exit_code"),
+                    "duration": job.get("duration"),
+                }
+            ],
             "error": None,
             "exit_code": job.get("exit_code"),
             "agent_label": job.get("agent_label") or "",
@@ -411,6 +509,7 @@ def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
             "provider_label": job.get("provider_label") or "",
             "dataset": job.get("source") or job.get("database_id"),
             "duration": job.get("duration"),
+            "n": 1,
         }
     ]
     return {
@@ -444,24 +543,53 @@ def get_job_task(database_root: Path, job_id: str, task_id: str) -> dict[str, An
     # One-liner re-run command for the task (or full suite)
     run_cmd = cmds.get("run_task") or cmds.get("run_suite")
 
-    trial = {
-        "trial_id": match.get("run_id") or f"{task_id}",
-        "task_id": task_id,
-        "status": match.get("status"),
-        "reward": match.get("score"),
-        "score": match.get("score"),
-        "duration": match.get("duration"),
-        "started": job_payload["job"].get("started"),
-        "error": match.get("error"),
-        "run_id": match.get("run_id"),
-        "exit_code": match.get("exit_code"),
-    }
+    started = job_payload["job"].get("started")
+    attempt_src = match.get("attempts")
+    if not isinstance(attempt_src, list) or not attempt_src:
+        rid = match.get("run_id")
+        attempt_src = [
+            {
+                "run_id": rid,
+                "status": match.get("status"),
+                "score": match.get("score"),
+                "error": match.get("error"),
+                "exit_code": match.get("exit_code"),
+                "duration": match.get("duration"),
+            }
+        ]
+        if not rid:
+            attempt_src = []
+    trials_out: list[dict[str, Any]] = []
+    for row in attempt_src:
+        if not isinstance(row, dict):
+            continue
+        rid = row.get("run_id") or match.get("run_id")
+        if not rid:
+            continue
+        score = row.get("score") if row.get("score") is not None else match.get("score")
+        trials_out.append(
+            {
+                "trial_id": rid,
+                "task_id": task_id,
+                "status": row.get("status") or match.get("status"),
+                "reward": score,
+                "score": score,
+                "duration": row.get("duration") or match.get("duration"),
+                "started": row.get("started") or started,
+                "error": row.get("error") if row.get("error") is not None else match.get("error"),
+                "run_id": rid,
+                "exit_code": row.get("exit_code")
+                if row.get("exit_code") is not None
+                else match.get("exit_code"),
+                "attempt_index": row.get("attempt_index"),
+            }
+        )
 
     return {
         "ok": True,
         "job": job_payload["job"],
         "task": match,
-        "trials": [trial],
+        "trials": trials_out,
         "agent_label": match.get("agent_label") or job_payload["job"].get("agent_label"),
         "model_label": match.get("model_label") or job_payload["job"].get("model_label"),
         "provider_label": match.get("provider_label") or job_payload["job"].get("provider_label"),

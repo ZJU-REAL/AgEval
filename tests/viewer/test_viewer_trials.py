@@ -329,8 +329,8 @@ def test_list_trials_enriches_evidence(tmp_path: Path) -> None:
 
     listed = trials.list_task_trials(db, job_id, "alpha")
     run_ids = {t["run_id"] for t in listed["trials"]}
-    assert "run_alpha_1" in run_ids
-    assert "run_alpha_extra" in run_ids
+    assert run_ids == {"run_alpha_1"}
+    assert "run_alpha_extra" not in run_ids
     alpha1 = next(t for t in listed["trials"] if t["run_id"] == "run_alpha_1")
     assert alpha1["has_evidence"] is True
     assert "trajectory" in alpha1["available_tabs"]

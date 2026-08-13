@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJobTask, type Job, type TaskRow, type Trial } from "@/lib/api";
+import { jobPath, trialPath } from "@/lib/routes";
 import { cn, formatDate, formatError, formatScore } from "@/lib/utils";
 
 export function TaskDetailPage() {
@@ -24,7 +25,6 @@ export function TaskDetailPage() {
   const [runCommand, setRunCommand] = useState<string>("");
   const [meta, setMeta] = useState({
     agent: "",
-    provider: "",
     model: "",
     dataset: "",
   });
@@ -43,7 +43,6 @@ export function TaskDetailPage() {
         setRunCommand(data.run_command || "");
         setMeta({
           agent: data.agent_label || data.job.agent_label || "",
-          provider: data.provider_label || data.job.provider_label || "",
           model: data.model_label || data.job.model_label || "",
           dataset: data.dataset || data.job.source || "",
         });
@@ -60,13 +59,20 @@ export function TaskDetailPage() {
     };
   }, [jobId, taskId]);
 
+  if (!loading && !error && trials.length === 1) {
+    const rid = trials[0].run_id || trials[0].trial_id || task?.run_id || "";
+    if (rid) {
+      return <Navigate to={trialPath(jobId, taskId, rid)} replace />;
+    }
+  }
+
   return (
     <Shell>
       <div className="space-y-5">
         <BreadcrumbNav
           items={[
             { label: "Jobs", href: "/" },
-            { label: jobId, href: `/jobs/${encodeURIComponent(jobId)}` },
+            { label: jobId, href: jobPath(jobId) },
             { label: taskId, href: null },
           ]}
         />
@@ -75,15 +81,7 @@ export function TaskDetailPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-ink">{taskId}</h1>
             <p className="text-sm text-mute mt-1">
-              {[
-                meta.agent,
-                meta.provider || meta.model
-                  ? `(${[meta.provider, meta.model].filter(Boolean).join("/")})`
-                  : "",
-                meta.dataset,
-              ]
-                .filter(Boolean)
-                .join(" / ")}
+              {[meta.agent, meta.model, meta.dataset].filter(Boolean).join(" / ")}
             </p>
           </div>
           <p className="text-xs text-mute hidden md:block">
@@ -125,17 +123,13 @@ export function TaskDetailPage() {
                       className={cn(openable && "cursor-pointer")}
                       onClick={() => {
                         if (!openable) return;
-                        navigate(
-                          `/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(taskId)}/trials/${encodeURIComponent(rid)}`,
-                        );
+                        navigate(trialPath(jobId, taskId, rid));
                       }}
                       onKeyDown={(e) => {
                         if (!openable) return;
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          navigate(
-                            `/jobs/${encodeURIComponent(jobId)}/tasks/${encodeURIComponent(taskId)}/trials/${encodeURIComponent(rid)}`,
-                          );
+                          navigate(trialPath(jobId, taskId, rid));
                         }
                       }}
                       tabIndex={openable ? 0 : undefined}
