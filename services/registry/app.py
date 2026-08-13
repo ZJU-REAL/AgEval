@@ -53,7 +53,6 @@ import os
 import re
 import secrets
 import sys
-import tempfile
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -68,6 +67,7 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from services.registry.access import AccessPolicy  # noqa: E402
+from services.registry.errors import RegistryAppError  # noqa: E402
 from services.registry.envload import load_env_file  # noqa: E402
 from services.registry.oauth_github import (  # noqa: E402
     GitHubOAuthError,
@@ -135,7 +135,7 @@ class RegistryState:
         from services.registry.result_service import ResultService
 
         self.auth = AuthService(tokens)
-        self.packages = PackageService(meta, self.access)
+        self.packages = PackageService(meta, blobs, self.access, max_upload=max_upload)
         self.results = ResultService(meta, self.access)
         self.orgs = OrgService(meta, self.access)
         self.max_upload = max_upload
@@ -169,6 +169,10 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[s
     _cors_headers(handler)
     handler.end_headers()
     handler.wfile.write(body)
+
+
+def _app_error(handler: BaseHTTPRequestHandler, exc: RegistryAppError) -> None:
+    _json_response(handler, exc.http_status, exc.payload())
 
 
 def _bearer(handler: BaseHTTPRequestHandler) -> str | None:
@@ -223,10 +227,6 @@ def _require_user(auth: TokenInfo) -> str | None:
     return auth.user_id
 
 
-def _visible_package_row(state: RegistryState, row: ReleaseRow, auth: TokenInfo) -> bool:
-    return state.access.visible_package(row, auth)
-
-
 def _visible_result_row(
     state: RegistryState,
     *,
@@ -243,32 +243,6 @@ def _visible_result_row(
         uploaded_by=uploaded_by,
         auth=auth,
     )
-
-
-def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
-    """Extract slots + top-level files for Hub/API plugin preview (read-only)."""
-    import tempfile
-    from pathlib import Path
-
-    from bora.plugins.manifest import load_manifest
-    from bora.registry.archive import extract_archive
-
-    with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
-        root = Path(tmp)
-        extract_archive(archive, root)
-        man = load_manifest(root)
-        files = sorted(
-            p.relative_to(root).as_posix()
-            for p in root.rglob("*")
-            if p.is_file() and "__pycache__" not in p.parts
-        )
-        return {
-            "plugin_id": man.plugin_id,
-            "version": man.version,
-            "format": man.format,
-            "slots": man.slots_summary(),
-            "files": files[:200],
-        }
 
 
 def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
@@ -638,8 +612,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         # ---- packages ----------------------------------------------------
 
         def _publish_package(self, *, auth: TokenInfo) -> None:
-            scopes = auth.scopes
-            user_id = auth.user_id or ""
             length = int(self.headers.get("Content-Length") or "0")
             if length <= 0 or length > state.max_upload:
                 _json_response(
@@ -661,243 +633,34 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                     {"error": "invalid_request", "message": f"bad multipart: {exc}"},
                 )
                 return
-
-            database_id = str(meta.get("database_id") or "")
-            version = str(meta.get("version") or "")
-            package_digest = str(meta.get("package_digest") or "")
-            blob_digest = str(meta.get("blob_digest") or "")
-            media_type = str(meta.get("media_type") or "")
-            visibility = str(meta.get("visibility") or "private")
-            raw_org = str(meta.get("org_id") or meta.get("org") or "").strip()
-            org_id = raw_org.casefold() if raw_org else None
-            size = int(meta.get("size") or len(archive))
-            if visibility not in {"private", "public"}:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
-                return
-            if not org_id:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "org_required", "message": "publish requires org_id"},
-                )
-                return
-            if state.meta.get_org(org_id) is None:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "org_not_found", "message": f"org {org_id!r} not found"},
-                )
-                return
-            if not _is_admin(scopes) and state.meta.membership(org_id, user_id) is None:
-                _json_response(
-                    self,
-                    403,
-                    {
-                        "error": "forbidden",
-                        "message": "must be org member to publish under this org",
-                    },
-                )
-                return
-            actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
-            if actual_blob != blob_digest or size != len(archive):
-                _json_response(
-                    self,
-                    400,
-                    {"error": "digest_mismatch", "message": "blob digest or size mismatch"},
-                )
-                return
-            package_kind = str(meta.get("package_kind") or "database").strip().casefold()
-            if package_kind not in {"database", "plugin"}:
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "invalid_request",
-                        "message": "package_kind must be database or plugin",
-                    },
-                )
-                return
-
             try:
-                from bora.registry.archive import extract_archive
-                from bora.registry.digest import compute_package_digest
-                from bora.registry.plugin_package import (
-                    PLUGIN_MEDIA_TYPE,
-                    assert_plugin_package,
-                    compute_plugin_digest,
-                )
-
-                with tempfile.TemporaryDirectory(prefix="bora-reg-") as tmp:
-                    extract_archive(archive, Path(tmp))
-                    tmp_path = Path(tmp)
-                    if package_kind == "plugin":
-                        if media_type != PLUGIN_MEDIA_TYPE:
-                            _json_response(
-                                self,
-                                400,
-                                {
-                                    "error": "invalid_format",
-                                    "message": f"plugin media_type must be {PLUGIN_MEDIA_TYPE}",
-                                },
-                            )
-                            return
-                        try:
-                            assert_plugin_package(tmp_path)
-                        except Exception as exc:  # noqa: BLE001
-                            _json_response(
-                                self,
-                                400,
-                                {
-                                    "error": "invalid_format",
-                                    "message": f"not a valid bora.plugin/1: {exc}",
-                                },
-                            )
-                            return
-                        if (tmp_path / "bora.yaml").is_file() and not (
-                            (tmp_path / "plugin.yaml").is_file()
-                            or (tmp_path / "bora.plugin.yaml").is_file()
-                        ):
-                            _json_response(
-                                self,
-                                400,
-                                {
-                                    "error": "invalid_format",
-                                    "message": "database package cannot be published as plugin",
-                                },
-                            )
-                            return
-                        got = compute_plugin_digest(tmp_path)
-                    else:
-                        if (tmp_path / "plugin.yaml").is_file() or (
-                            tmp_path / "bora.plugin.yaml"
-                        ).is_file():
-                            if not (tmp_path / "bora.yaml").is_file():
-                                _json_response(
-                                    self,
-                                    400,
-                                    {
-                                        "error": "invalid_format",
-                                        "message": "plugin package must use package_kind=plugin",
-                                    },
-                                )
-                                return
-                        got = compute_package_digest(tmp_path)
-                    if got != package_digest:
-                        _json_response(
-                            self,
-                            400,
-                            {
-                                "error": "digest_mismatch",
-                                "message": "package digest mismatch after extract",
-                            },
-                        )
-                        return
-            except Exception as exc:  # noqa: BLE001
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_archive", "message": str(exc)},
-                )
+                payload = state.packages.publish(meta=meta, archive=archive, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-
-            replace = bool(meta.get("replace")) or str(meta.get("replace") or "").lower() in {
-                "1",
-                "true",
-                "yes",
-            }
-            existing_rel = state.meta.get_by_version(database_id, version)
-            if existing_rel is not None:
-                if not replace:
-                    _json_response(
-                        self,
-                        409,
-                        {"error": "conflict", "message": "release already exists"},
-                    )
-                    return
-                # Package replace: org owner (or admin), same as delete.
-                if not (
-                    _is_admin(scopes)
-                    or (
-                        auth.user_id
-                        and existing_rel.org_id
-                        and (mem := state.meta.membership(existing_rel.org_id, auth.user_id))
-                        is not None
-                        and mem.role == "owner"
-                    )
-                ):
-                    _json_response(
-                        self,
-                        404,
-                        {"error": "not_found", "message": "release not found"},
-                    )
-                    return
-                state.meta.delete_release(database_id, version)
-                self._gc_package_blob(existing_rel.blob_digest)
-
-            row = ReleaseRow(
-                database_id=database_id,
-                version=version,
-                visibility=visibility,
-                package_digest=package_digest,
-                blob_digest=blob_digest,
-                size=size,
-                media_type=media_type,
-                created_at=now(),
-                org_id=org_id,
-            )
-            try:
-                state.blobs.put_if_absent(blob_digest, archive, prefix="packages")
-                state.meta.insert(row)
-            except ValueError:
-                _json_response(
-                    self,
-                    409,
-                    {"error": "conflict", "message": "release already exists"},
-                )
-                return
-            rel_payload = release_to_dict(row)
-            if existing_rel is not None and replace:
-                rel_payload["replaced"] = True
-            _json_response(self, 201, rel_payload)
+            _json_response(self, 201, payload)
 
         def _list_packages(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> None:
-            prefix = (qs.get("database_id_prefix") or [None])[0]
-            visibility = (qs.get("visibility") or [None])[0]
-            version = (qs.get("version") or [None])[0]
-            package_kind = (qs.get("package_kind") or [None])[0]
-            if visibility is not None and visibility not in {"public", "private"}:
-                _json_response(self, 400, {"error": "invalid_request", "message": "bad visibility"})
-                return
-            if package_kind is not None and package_kind not in {"database", "plugin"}:
-                _json_response(
-                    self,
-                    400,
-                    {
-                        "error": "invalid_request",
-                        "message": "package_kind must be database or plugin",
-                    },
+            try:
+                payload = state.packages.list_packages(
+                    auth=auth,
+                    prefix=(qs.get("database_id_prefix") or [None])[0],
+                    visibility=(qs.get("visibility") or [None])[0],
+                    version=(qs.get("version") or [None])[0],
+                    package_kind=(qs.get("package_kind") or [None])[0],
                 )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            # Fetch public + private candidates; filter by ACL (no private leakage).
-            rows = state.meta.list_releases(
-                database_id_prefix=prefix or None,
-                visibility=visibility,
-                version=version or None,
-                include_private=True,
-            )
-            items = [release_to_dict(r) for r in rows if _visible_package_row(state, r, auth)]
-            if package_kind is not None:
-                items = [i for i in items if i.get("package_kind") == package_kind]
-            _json_response(self, 200, {"items": items})
+            _json_response(self, 200, payload)
 
         def _list_package_versions(self, *, database_id: str, auth: TokenInfo) -> None:
-            rows = state.meta.list_versions(database_id, include_private=True)
-            items = [release_to_dict(r) for r in rows if _visible_package_row(state, r, auth)]
-            _json_response(
-                self,
-                200,
-                {"database_id": database_id, "items": items},
-            )
+            try:
+                payload = state.packages.list_versions(database_id=database_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
 
         def _serve_meta(
             self,
@@ -907,30 +670,16 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             package_digest: str | None,
             auth: TokenInfo,
         ) -> None:
-            if package_digest:
-                row = state.meta.get_by_digest(database_id, package_digest)
-            else:
-                assert version is not None
-                row = state.meta.get_by_version(database_id, version)
-            if row is None or not _visible_package_row(state, row, auth):
-                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
-                return
-            payload = release_to_dict(row)
-            # Plugin preview — slots from plugin.yaml inside the blob.
             try:
-                from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
-
-                if row.media_type == PLUGIN_MEDIA_TYPE:
-                    data = state.blobs.get(row.blob_digest, prefix="packages")
-                    if data is not None:
-                        payload["package_kind"] = "plugin"
-                        payload["plugin_preview"] = _plugin_preview_from_archive(data)
-                    else:
-                        payload["package_kind"] = "plugin"
-                else:
-                    payload["package_kind"] = "database"
-            except Exception:  # noqa: BLE001 — preview is best-effort
-                payload.setdefault("package_kind", "database")
+                payload = state.packages.serve_meta(
+                    database_id=database_id,
+                    version=version,
+                    package_digest=package_digest,
+                    auth=auth,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
             _json_response(self, 200, payload)
 
         def _serve_content(
@@ -940,13 +689,14 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             package_digest: str,
             auth: TokenInfo,
         ) -> None:
-            row = state.meta.get_by_digest(database_id, package_digest)
-            if row is None or not _visible_package_row(state, row, auth):
-                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
-                return
-            data = state.blobs.get(row.blob_digest, prefix="packages")
-            if data is None:
-                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
+            try:
+                data, row = state.packages.serve_content(
+                    database_id=database_id,
+                    package_digest=package_digest,
+                    auth=auth,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
@@ -954,24 +704,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.send_header("X-Bora-Blob-Digest", row.blob_digest)
             self.end_headers()
             self.wfile.write(data)
-
-        def _resolve_visible_release(
-            self,
-            *,
-            database_id: str,
-            auth: TokenInfo,
-            package_digest: str | None = None,
-            version: str | None = None,
-        ) -> ReleaseRow | None:
-            if package_digest:
-                row = state.meta.get_by_digest(database_id, package_digest)
-            elif version:
-                row = state.meta.get_by_version(database_id, version)
-            else:
-                return None
-            if row is None or not _visible_package_row(state, row, auth):
-                return None
-            return row
 
         def _serve_package_files_list(
             self,
@@ -981,40 +713,17 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             package_digest: str | None = None,
             version: str | None = None,
         ) -> None:
-            from services.registry.package_files import get_or_build_index
-
-            row = self._resolve_visible_release(
-                database_id=database_id,
-                auth=auth,
-                package_digest=package_digest,
-                version=version,
-            )
-            if row is None:
-                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
-                return
-            archive = state.blobs.get(row.blob_digest, prefix="packages")
-            if archive is None:
-                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
-                return
             try:
-                index = get_or_build_index(archive, package_digest=row.package_digest)
-            except Exception as exc:  # noqa: BLE001
-                _json_response(
-                    self,
-                    500,
-                    {"error": "archive_error", "message": f"cannot index package: {exc}"},
+                payload = state.packages.list_files(
+                    database_id=database_id,
+                    auth=auth,
+                    package_digest=package_digest,
+                    version=version,
                 )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(
-                self,
-                200,
-                {
-                    "database_id": row.database_id,
-                    "digest": row.package_digest,
-                    "version": row.version,
-                    "items": index.list_items(),
-                },
-            )
+            _json_response(self, 200, payload)
 
         def _serve_package_file(
             self,
@@ -1025,74 +734,17 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             package_digest: str | None = None,
             version: str | None = None,
         ) -> None:
-            from services.registry.package_files import (
-                MAX_FILE_BYTES,
-                PackageFileNotFound,
-                PackageFileTooLarge,
-                PackagePathError,
-                file_payload,
-                normalize_package_path,
-                read_member,
-            )
-
-            row = self._resolve_visible_release(
-                database_id=database_id,
-                auth=auth,
-                package_digest=package_digest,
-                version=version,
-            )
-            if row is None:
-                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
-                return
             try:
-                safe_path = normalize_package_path(file_path)
-            except PackagePathError as exc:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_path", "message": str(exc)},
+                payload = state.packages.read_file(
+                    database_id=database_id,
+                    file_path=file_path,
+                    auth=auth,
+                    package_digest=package_digest,
+                    version=version,
                 )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            archive = state.blobs.get(row.blob_digest, prefix="packages")
-            if archive is None:
-                _json_response(self, 404, {"error": "not_found", "message": "blob missing"})
-                return
-            try:
-                # Hub preview: oversize members return a truncated head (not 413).
-                data, size, truncated = read_member(
-                    archive, safe_path, max_bytes=MAX_FILE_BYTES, allow_truncate=True
-                )
-            except PackagePathError as exc:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_path", "message": str(exc)},
-                )
-                return
-            except PackageFileNotFound:
-                _json_response(
-                    self,
-                    404,
-                    {"error": "not_found", "message": f"file not found: {safe_path}"},
-                )
-                return
-            except PackageFileTooLarge as exc:
-                _json_response(
-                    self,
-                    413,
-                    {
-                        "error": "payload_too_large",
-                        "message": (
-                            f"file exceeds {MAX_FILE_BYTES} bytes "
-                            f"(path={exc.path}, size={exc.size})"
-                        ),
-                        "max_bytes": MAX_FILE_BYTES,
-                        "path": exc.path,
-                        "size": exc.size,
-                    },
-                )
-                return
-            payload = file_payload(safe_path, data, size=size, truncated=truncated)
             _json_response(self, 200, payload)
 
         # ---- results -----------------------------------------------------
@@ -2094,10 +1746,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         ) -> bool:
             return state.access.can_manage_result(result_kind, result_id, auth, for_read=for_read)
 
-        def _can_manage_package(self, row: ReleaseRow, auth: TokenInfo) -> bool:
-            """Package delete / set-visibility: org owner or admin."""
-            return state.access.can_manage_package(row, auth)
-
         def _gc_attempt_blob(self, blob_digest: str) -> bool:
             if not blob_digest:
                 return False
@@ -2111,13 +1759,6 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             if state.meta.count_suite_blob_refs(blob_digest) > 0:
                 return False
             return bool(state.blobs.delete(blob_digest, prefix="suite-results"))
-
-        def _gc_package_blob(self, blob_digest: str) -> bool:
-            if not blob_digest:
-                return False
-            if state.meta.count_package_blob_refs(blob_digest) > 0:
-                return False
-            return bool(state.blobs.delete(blob_digest, prefix="packages"))
 
         def _delete_attempt_row(self, row: AttemptResultRow) -> bool:
             """Delete attempt meta + GC blob. Returns whether blob was removed."""
@@ -2267,39 +1908,32 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         def _delete_package_release(
             self, *, database_id: str, version: str, auth: TokenInfo
         ) -> None:
-            row = state.meta.get_by_version(database_id, version)
-            if row is None or not self._can_manage_package(row, auth):
-                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+            try:
+                payload = state.packages.delete_release(
+                    database_id=database_id, version=version, auth=auth
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            state.meta.delete_release(database_id, version)
-            blob_deleted = self._gc_package_blob(row.blob_digest)
-            _json_response(
-                self,
-                200,
-                {
-                    "ok": True,
-                    "database_id": database_id,
-                    "version": version,
-                    "blob_deleted": blob_deleted,
-                },
-            )
+            _json_response(self, 200, payload)
 
         def _patch_package_release(
             self, *, database_id: str, version: str, auth: TokenInfo
         ) -> None:
-            row = state.meta.get_by_version(database_id, version)
-            if row is None or not self._can_manage_package(row, auth):
-                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
-                return
             visibility = self._patch_visibility_body()
             if visibility is None:
                 return
             try:
-                updated = state.meta.set_release_visibility(database_id, version, visibility)
-            except LookupError:
-                _json_response(self, 404, {"error": "not_found", "message": "release not found"})
+                payload = state.packages.patch_visibility(
+                    database_id=database_id,
+                    version=version,
+                    visibility=visibility,
+                    auth=auth,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
                 return
-            _json_response(self, 200, release_to_dict(updated))
+            _json_response(self, 200, payload)
 
     return Handler
 
