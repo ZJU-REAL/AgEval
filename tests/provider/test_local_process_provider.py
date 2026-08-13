@@ -91,11 +91,7 @@ async def test_spawn_via_venv_symlink_keeps_site_packages(tmp_path: Path) -> Non
     link.symlink_to(real)
 
     attempt = _attempt()
-    code = (
-        "import bora_venv_probe, sys; "
-        "print(bora_venv_probe.MARKER); "
-        "print(sys.prefix)"
-    )
+    code = "import bora_venv_probe, sys; print(bora_venv_probe.MARKER); print(sys.prefix)"
     plan = ProcessLaunchPlan(
         attempt=attempt,
         workspace=WorkspacePlan(attempt=attempt, base_dir=tmp_path, relative_workdir="ws"),
