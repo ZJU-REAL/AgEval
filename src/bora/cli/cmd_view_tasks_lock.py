@@ -37,7 +37,10 @@ def register(app: typer.Typer) -> None:
             bool,
             typer.Option(
                 "--dev",
-                help="API only (no SPA bundle). Pair with pnpm --dir apps/viewer dev.",
+                help=(
+                    "API only (no SPA bundle). Starts apps/viewer Vite when possible; "
+                    "otherwise prints the two-process commands."
+                ),
             ),
         ] = False,
         open_path: Annotated[

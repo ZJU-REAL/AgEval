@@ -126,7 +126,10 @@ def test_serve_viewer_dev_skips_spa_bundle(tmp_path: Path) -> None:
         assert info["dev"] is True
         assert info["open_path"] == "/jobs/demo"
         assert info["ui_url"].endswith("/jobs/demo")
-        assert "5173" in info["ui_url"]
+        # Vite was not started (block=False) — do not advertise :5173.
+        assert info["ui_started"] is False
+        assert info["ui_reason"] == "skipped"
+        assert ":5173" not in info["ui_url"]
         with urlopen(f"{info['api_url']}api/health", timeout=5) as resp:  # noqa: S310
             health = json.loads(resp.read().decode("utf-8"))
         assert health["ok"] is True

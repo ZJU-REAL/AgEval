@@ -32,19 +32,19 @@ SPA lives under `src/`; Python serves the built `dist/` only.
 
 ## Develop
 
-`bora view --dev` and `pnpm --dir apps/viewer dev` are equivalent against the **same** local API. `--dev` does **not** need a pre-built SPA; Vite is the UI.
+`bora view --dev` starts the API and **tries** to start `pnpm --dir apps/viewer dev` (same API). No pre-built SPA. If the repo / pnpm / `node_modules` is missing, it prints the two-process fallback instead of failing.
 
 ```bash
-# Terminal A: API only (no dist/ required)
-uv run bora view tests/fixtures/databases/suite-min --dev --port 8765 --no-browser
-
-# Terminal B: Vite HMR (proxies /api → :8765)
-cd apps/viewer
-pnpm install
-pnpm dev
+uv run bora view tests/fixtures/databases/suite-min --dev --port 8765
 ```
 
-Two-process contract: API port (`--port`, default 8765) + UI port (`--ui-port`, default 5173). Open `http://127.0.0.1:5173/` (or the `--open` path). Non-default API port: `VITE_VIEWER_API=http://127.0.0.1:<port> pnpm --dir apps/viewer dev`.
+Manual fallback (only if Vite did not start):
+
+```bash
+VITE_VIEWER_API=http://127.0.0.1:8765 pnpm --dir apps/viewer dev
+```
+
+Two-process contract: API port (`--port`, default 8765) + UI port (`--ui-port`, default 5173). Open `http://127.0.0.1:5173/` (or the `--open` path).
 
 ```bash
 # Deep-link a job/task/run after bora run

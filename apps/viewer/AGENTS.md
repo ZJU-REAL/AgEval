@@ -112,7 +112,7 @@ uv run bora view <database> --no-browser
 ```
 
 Python must serve **`apps/viewer/dist/`** (production build). There is **no** separate `static/` source tree.  
-Dev: `bora view --dev` (API only) + `pnpm --dir apps/viewer dev` (Vite UI, proxies `/api`). Same API as production `bora view`. Deep-link with `--open /jobs/...`.
+Dev: `bora view --dev` starts the API and tries to spawn Vite. If that cannot run, it prints `pnpm --dir apps/viewer dev`. Same API as production `bora view`. Deep-link with `--open /jobs/...`.
 
 ## Theme
 

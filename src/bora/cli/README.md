@@ -100,7 +100,7 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora results export-profiles` | Export suite `job_overlay` → re-runnable `profiles.yaml` (#59) |
 | `bora results share\|unshare` | Share / revoke private result access (owner only) |
 | `bora results delete\|set-visibility` | Delete or flip visibility (`--kind attempt\|suite`; delete needs `--yes`) |
-| `bora view` | Local read-only Database Web UI (no Registry). `--dev` = API only + Vite; `--open` deep-links a job/task/run |
+| `bora view` | Local read-only Database Web UI (no Registry). `--dev` starts API and Vite when possible; `--open` deep-links a job/task/run |
 
 Discover flags with `uv run bora <cmd> -h`.
 

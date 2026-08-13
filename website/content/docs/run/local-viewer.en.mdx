@@ -13,15 +13,14 @@ uv run bora view examples/core
 # or
 uv run bora view examples/core --no-browser --port 8765
 
-# Dev: API + Vite HMR (no dist/ required)
-uv run bora view examples/core --dev --port 8765 --no-browser
-pnpm --dir apps/viewer dev
+# Dev: one command (starts Vite when possible; otherwise prints fallback)
+uv run bora view examples/core --dev --port 8765
 
 # Deep-link the run you just finished
 uv run bora view examples/core --open /jobs/<id>
 ```
 
-`bora view --dev` and `pnpm dev` talk to the **same** local API. Two-process contract: API port (default 8765) + UI port (default 5173). Production `bora view` serves `apps/viewer/dist/`.
+`bora view --dev` talks to the **same** local API and starts Vite when it can. If it cannot, it prints `pnpm --dir apps/viewer dev`. Two-process contract: API port (default 8765) + UI port (default 5173). Production `bora view` serves `apps/viewer/dist/`.
 
 ## Layout
 

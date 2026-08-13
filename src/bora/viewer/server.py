@@ -304,14 +304,23 @@ def serve_viewer(
     """Start the local viewer. Returns connection info.
 
     When *block* is True (CLI default), serve forever until KeyboardInterrupt.
-    ``dev=True`` serves the JSON API only (no SPA bundle). The Vite origin is
-    the UI; both processes talk to the same ``/api``.
+    ``dev=True`` serves the JSON API only (no SPA bundle). Vite is the UI.
+    The CLI tries to start ``pnpm --dir apps/viewer dev``; if that cannot run,
+    it prints the two-process fallback instead of failing.
     """
+    from bora.viewer.dev_ui import (
+        DEFAULT_UI_PORT,
+        fallback_commands,
+        stop_dev_ui,
+        try_start_dev_ui,
+    )
+
     root = browse.open_database(database_ref)
     # Validate package early; reuse for startup metadata.
     overview = browse.database_overview(root)
     route = normalize_open_path(open_path)
-    ui_origin = f"http://127.0.0.1:{int(ui_port)}"
+    ui_port_n = int(ui_port) if ui_port else DEFAULT_UI_PORT
+    ui_origin = f"http://127.0.0.1:{ui_port_n}"
     assets = None if dev else static_dir()
     cors_origin = ui_origin if dev else None
     handler = make_handler(root, assets, cors_origin=cors_origin)
@@ -323,7 +332,18 @@ def serve_viewer(
     # If port 0, OS assigns.
     actual_host, actual_port = server.server_address[:2]
     api_url = f"http://{actual_host}:{actual_port}/"
-    page_url = f"{ui_origin}{route}" if dev else f"http://{actual_host}:{actual_port}{route}"
+    api_origin = f"http://{actual_host}:{actual_port}"
+    start_vite = bool(dev and block)
+    ui = try_start_dev_ui(
+        api_origin=api_origin,
+        ui_port=ui_port_n,
+        start=start_vite,
+    )
+    page_url = (
+        f"{ui_origin}{route}"
+        if dev and ui.started
+        else f"http://{actual_host}:{actual_port}{route}"
+    )
     info = {
         "ok": True,
         "url": page_url,
@@ -331,38 +351,48 @@ def serve_viewer(
         "ui_url": page_url,
         "host": actual_host,
         "port": actual_port,
-        "ui_port": int(ui_port) if dev else actual_port,
+        "ui_port": ui_port_n if dev else actual_port,
         "dev": dev,
+        "ui_started": ui.started,
+        "ui_reason": ui.reason,
         "open_path": route,
         "database_id": overview["database_id"],
         "root": str(root),
     }
 
-    if open_browser:
+    if open_browser and (not dev or ui.started):
         threading.Timer(0.4, lambda: webbrowser.open(page_url)).start()
 
     if block:
-        message = (
-            "API listening; run pnpm --dir apps/viewer dev for HMR, then open ui_url"
-            if dev
-            else "viewer listening; Ctrl+C to stop"
-        )
+        if dev and ui.started:
+            message = (
+                "API + Vite listening; Ctrl+C stops both"
+                if not ui.reused
+                else "API listening; reused Vite already on ui_port"
+            )
+        elif dev:
+            cmd_a, cmd_b = fallback_commands(api_origin=api_origin, ui_port=ui_port_n)
+            message = f"API listening; Vite not started ({ui.reason})"
+            sys.stderr.write(f"viewer: {message}\n  {cmd_a}\n  {cmd_b}\n")
+            sys.stderr.flush()
+            info["ui_commands"] = [cmd_a, cmd_b]
+        else:
+            message = "viewer listening; Ctrl+C to stop"
+        payload = {
+            "ok": True,
+            "url": page_url,
+            "api_url": api_url,
+            "ui_url": page_url,
+            "dev": dev,
+            "ui_started": ui.started,
+            "database_id": info["database_id"],
+            "root": info["root"],
+            "message": message,
+        }
+        if info.get("ui_commands"):
+            payload["ui_commands"] = info["ui_commands"]
         print(
-            json.dumps(
-                {
-                    "ok": True,
-                    "url": page_url,
-                    "api_url": api_url,
-                    "ui_url": page_url,
-                    "dev": dev,
-                    "database_id": info["database_id"],
-                    "root": info["root"],
-                    "message": message,
-                },
-                ensure_ascii=False,
-                separators=(",", ":"),
-                sort_keys=True,
-            ),
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
             flush=True,
         )
         try:
@@ -370,6 +400,7 @@ def serve_viewer(
         except KeyboardInterrupt:
             pass
         finally:
+            stop_dev_ui(ui.proc)
             server.shutdown()
             server.server_close()
     else:
