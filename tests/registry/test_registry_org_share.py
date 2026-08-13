@@ -12,8 +12,8 @@ import pytest
 from services.registry.app import build_default_state, make_handler
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.publish_command import publish_database
-from bora.application.results_command import list_attempt_results, upload_attempt_result
+from bora.application.registry_ops.publish_command import publish_database
+from bora.application.registry_ops.results_command import list_attempt_results, upload_attempt_result
 from bora.registry.client import RegistryClient, RegistryError
 from bora.registry.credentials import write_credentials
 

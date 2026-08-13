@@ -150,8 +150,11 @@ def register(app: typer.Typer) -> None:
         """Run one member or a full Database suite (Application-layer task_id axis)."""
         import asyncio
 
-        from bora.application.composition import build_run_task
-        from bora.application.suite_run import execute_suite_run, plan_suite_run
+        from bora.application.composition import build_run_task, build_suite_runner
+
+        _suite = build_suite_runner()
+        execute_suite_run = _suite.execute_suite_run
+        plan_suite_run = _suite.plan_suite_run
         from bora.config.errors import ConfigError
         from bora.config.overrides import parse_set_override
 

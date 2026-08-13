@@ -21,7 +21,9 @@ def register(app: typer.Typer) -> None:
     @sub.command("list")
     def cache_list_command() -> None:
         """List verified entries under BORA_CACHE_ROOT / .bora/cache."""
-        from bora.application.registry_list_command import cache_list
+        from bora.application.composition import build_registry_list_commands
+
+        cache_list = build_registry_list_commands().cache_list
 
         summary = cache_list()
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
@@ -34,7 +36,9 @@ def register(app: typer.Typer) -> None:
         ],
     ) -> None:
         """Print filesystem path of a verified cache entry."""
-        from bora.application.registry_list_command import cache_path
+        from bora.application.composition import build_registry_list_commands
+
+        cache_path = build_registry_list_commands().cache_path
         from bora.config.errors import ConfigError
 
         try:
@@ -56,7 +60,9 @@ def register(app: typer.Typer) -> None:
         ] = False,
     ) -> None:
         """Delete verified cache entries (requires --yes)."""
-        from bora.application.registry_list_command import cache_purge
+        from bora.application.composition import build_registry_list_commands
+
+        cache_purge = build_registry_list_commands().cache_purge
         from bora.config.errors import ConfigError
 
         try:

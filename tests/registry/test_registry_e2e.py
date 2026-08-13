@@ -10,7 +10,7 @@ import pytest
 from services.registry.app import build_default_state, make_handler
 
 from bora.application.composition import build_lock_command
-from bora.application.publish_command import publish_database
+from bora.application.registry_ops.publish_command import publish_database
 from bora.config.errors import ConfigError
 from bora.registry.cache import PackageCache
 from bora.registry.client import RegistryClient

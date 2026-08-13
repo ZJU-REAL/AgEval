@@ -197,6 +197,37 @@ def resolve_evidence_root(
     )
 
 
+def resolve_attempt_run_dir(database_root: Path | str, run_id: str) -> Path:
+    """Resolve ``.bora/runs/<run_id>`` under the Database root; fail closed."""
+    from bora.config.errors import ConfigError
+
+    text = (run_id or "").strip()
+    if not text or text in {".", ".."} or "/" in text or "\\" in text or ".." in text:
+        raise ConfigError(
+            "invalid_package",
+            f"invalid run_id: {run_id!r}",
+            location="run_id",
+        )
+    root = Path(database_root).expanduser().resolve(strict=False)
+    runs_root = (root / ".bora" / "runs").resolve(strict=False)
+    candidate = (runs_root / text).resolve(strict=False)
+    try:
+        candidate.relative_to(runs_root)
+    except ValueError as exc:
+        raise ConfigError(
+            "invalid_package",
+            f"invalid run_id path: {run_id!r}",
+            location="run_id",
+        ) from exc
+    if candidate.is_dir():
+        return candidate
+    raise ConfigError(
+        "invalid_package",
+        f"run directory not found: {candidate}",
+        location=str(candidate),
+    )
+
+
 def resolve_run_dir(
     database_root: Path | str,
     locator: Path | str | None,

@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
-from bora.application.attempt_stages import AttemptStageContext, DockerL1Stages
-from bora.application.run_l1 import _l1_host_cleanup
+from bora.application.attempt.attempt_stages import AttemptStageContext, DockerL1Stages
+from bora.application.attempt.run_l1 import _l1_host_cleanup
 from bora.runtime.coordinator import LifecycleCoordinator
 from bora.runtime.identity import IdentityFactory
 from bora.runtime.lifecycle import LifecyclePhase
@@ -121,13 +121,13 @@ def _install_l1_fakes(
     cred.root.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(
-        "bora.application.run_l1_phases.prepare_l1_runtime",
+        "bora.application.attempt.run_l1_phases.prepare_l1_runtime",
         lambda *_a, **_k: (docker, runtime, {"containment": "full_l1_attempt"}),
     )
     monkeypatch.setattr(
-        "bora.application.run_l1_phases.project_executor_credentials", lambda **_k: cred
+        "bora.application.attempt.run_l1_phases.project_executor_credentials", lambda **_k: cred
     )
-    monkeypatch.setattr("bora.application.run_l1_phases.seed_l1_workspace", lambda **_k: None)
+    monkeypatch.setattr("bora.application.attempt.run_l1_phases.seed_l1_workspace", lambda **_k: None)
 
     if assemble_exc is not None:
 
@@ -135,12 +135,12 @@ def _install_l1_fakes(
             raise assemble_exc
 
         monkeypatch.setattr(
-            "bora.application.agent_service_assemble.assemble_parent_agent_service",
+            "bora.application.attempt.agent_service_assemble.assemble_parent_agent_service",
             _boom_assemble,
         )
     else:
         monkeypatch.setattr(
-            "bora.application.agent_service_assemble.assemble_parent_agent_service",
+            "bora.application.attempt.agent_service_assemble.assemble_parent_agent_service",
             lambda **_k: (FakeService(), 30.0, object()),
         )
 
@@ -160,7 +160,7 @@ def _install_l1_fakes(
             "artifact_hold": str(hold),
         }
 
-    monkeypatch.setattr("bora.application.run_harness.run_harness_package", _harness)
+    monkeypatch.setattr("bora.application.attempt.run_harness.run_harness_package", _harness)
 
     if eval_exc is not None:
 
@@ -168,11 +168,11 @@ def _install_l1_fakes(
             raise eval_exc
 
         monkeypatch.setattr(
-            "bora.application.run_l1_phases.run_clean_evaluator_container", _boom_eval
+            "bora.application.attempt.run_l1_phases.run_clean_evaluator_container", _boom_eval
         )
     else:
         monkeypatch.setattr(
-            "bora.application.run_l1_phases.run_clean_evaluator_container",
+            "bora.application.attempt.run_l1_phases.run_clean_evaluator_container",
             lambda **_k: (
                 {"status": "PASS", "score": 1.0},
                 {"ok": True, "writer_stop_confirmed": True},

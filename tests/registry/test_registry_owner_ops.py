@@ -12,12 +12,12 @@ import pytest
 from services.registry.app import build_default_state, make_handler
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.publish_command import publish_database
-from bora.application.registry_list_command import (
+from bora.application.registry_ops.publish_command import publish_database
+from bora.application.registry_ops.registry_list_command import (
     delete_package_release,
     set_package_visibility,
 )
-from bora.application.results_command import (
+from bora.application.registry_ops.results_command import (
     delete_result,
     set_result_visibility,
     share_result,

@@ -95,7 +95,7 @@ class LocalL0Stages:
     ctx: AttemptStageContext
 
     async def prepare(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l0 import prepare_l0_attempt
+        from bora.application.attempt.run_l0 import prepare_l0_attempt
 
         _bind_stage_attempt(self.ctx, attempt)
         early = prepare_l0_attempt(self.ctx)
@@ -110,35 +110,35 @@ class LocalL0Stages:
         return _fact(attempt, LifecyclePhase.PREPARE, detail={"adapter": "local_l0"})
 
     async def run(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l0 import run_l0_harness
+        from bora.application.attempt.run_l0 import run_l0_harness
 
         _bind_stage_attempt(self.ctx, attempt)
         await run_l0_harness(self.ctx)
         return _fact(attempt, LifecyclePhase.RUN, detail={"adapter": "local_l0"})
 
     async def seal(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l0 import seal_l0_inputs
+        from bora.application.attempt.run_l0 import seal_l0_inputs
 
         _bind_stage_attempt(self.ctx, attempt)
         seal_l0_inputs(self.ctx)
         return _fact(attempt, LifecyclePhase.SEAL)
 
     async def evaluate(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l0 import evaluate_l0
+        from bora.application.attempt.run_l0 import evaluate_l0
 
         _bind_stage_attempt(self.ctx, attempt)
         evaluate_l0(self.ctx)
         return _fact(attempt, LifecyclePhase.EVALUATE, detail={"evaluator": "host_subprocess"})
 
     async def bind(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l0 import bind_l0_result
+        from bora.application.attempt.run_l0 import bind_l0_result
 
         _bind_stage_attempt(self.ctx, attempt)
         bind_l0_result(self.ctx)
         return _fact(attempt, LifecyclePhase.BIND)
 
     async def cleanup(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l0 import cleanup_l0
+        from bora.application.attempt.run_l0 import cleanup_l0
 
         _bind_stage_attempt(self.ctx, attempt)
         cleanup_l0(self.ctx)
@@ -152,7 +152,7 @@ class DockerL1Stages:
     ctx: AttemptStageContext
 
     async def prepare(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l1_phases import prepare_l1_session
+        from bora.application.attempt.run_l1_phases import prepare_l1_session
 
         _bind_stage_attempt(self.ctx, attempt)
         try:
@@ -170,7 +170,7 @@ class DockerL1Stages:
         )
 
     async def run(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l1_phases import run_l1_harness
+        from bora.application.attempt.run_l1_phases import run_l1_harness
 
         _bind_stage_attempt(self.ctx, attempt)
         try:
@@ -181,7 +181,7 @@ class DockerL1Stages:
         return _fact(attempt, LifecyclePhase.RUN, detail={"adapter": "docker_l1"})
 
     async def seal(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l1_phases import seal_l1_inputs
+        from bora.application.attempt.run_l1_phases import seal_l1_inputs
 
         _bind_stage_attempt(self.ctx, attempt)
         ok = seal_l1_inputs(self.ctx)
@@ -193,7 +193,7 @@ class DockerL1Stages:
         )
 
     async def evaluate(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l1_phases import evaluate_l1
+        from bora.application.attempt.run_l1_phases import evaluate_l1
 
         _bind_stage_attempt(self.ctx, attempt)
         evaluate_l1(self.ctx)
@@ -204,14 +204,14 @@ class DockerL1Stages:
         )
 
     async def bind(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l1_phases import bind_l1_result
+        from bora.application.attempt.run_l1_phases import bind_l1_result
 
         _bind_stage_attempt(self.ctx, attempt)
         bind_l1_result(self.ctx)
         return _fact(attempt, LifecyclePhase.BIND)
 
     async def cleanup(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l1_phases import cleanup_l1
+        from bora.application.attempt.run_l1_phases import cleanup_l1
 
         _bind_stage_attempt(self.ctx, attempt)
         cleanup_l1(self.ctx)

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite_run import (
+from bora.application.suite.suite_run import (
     _existing_attempt_keys,
     execute_suite_run,
     is_suite_cancel_requested,

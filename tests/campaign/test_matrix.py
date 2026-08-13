@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bora.application.campaign import MatrixAxis, expand_matrix, parse_matrix_arg
+from bora.application.attempt.campaign import MatrixAxis, expand_matrix, parse_matrix_arg
 from bora.config.errors import ConfigError
 
 

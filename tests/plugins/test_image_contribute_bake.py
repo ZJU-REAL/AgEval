@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from bora.adapters.provider_docker.types import DockerImageLock
-from bora.application.image_contribute_bake import (
+from bora.application.plugin_ops.image_contribute_bake import (
     ImageContributeError,
     apply_image_contribute_bake,
     bound_executor_ids,
@@ -45,7 +45,7 @@ def test_bound_executor_ids() -> None:
 def test_apply_skips_first_party_only() -> None:
     lock = _lock_with_profiles([{"id": "s", "executor": "acp"}])
     with patch(
-        "bora.application.image_contribute_bake.collect_declares_for_lock",
+        "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
         return_value=[{"plugin": "acp"}],
     ):
         out, meta = apply_image_contribute_bake(
@@ -61,7 +61,7 @@ def test_apply_fail_closed_when_bound_but_no_declare() -> None:
     )
     with (
         patch(
-            "bora.application.image_contribute_bake.collect_declares_for_lock",
+            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[],
         ),
         pytest.raises(ImageContributeError) as ei,
@@ -76,11 +76,11 @@ def test_apply_fail_closed_when_not_installed() -> None:
     )
     with (
         patch(
-            "bora.application.image_contribute_bake.collect_declares_for_lock",
+            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[{"plugin": "nooa"}],
         ),
         patch(
-            "bora.application.image_contribute_bake._find_installed_plugin_root",
+            "bora.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
             return_value=None,
         ),
         pytest.raises(ImageContributeError) as ei,

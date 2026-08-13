@@ -76,7 +76,7 @@ class AcpExecutorSPI(ExecutorSPI):
         """Attach parent ACP client to the Attempt container via docker exec."""
         from bora.adapters.acp import AcpExecutor
         from bora.adapters.agent_container import wrap_docker_exec
-        from bora.application.run_l1_prepare import cli_env_for_container
+        from bora.adapters.child_env import cli_env_for_container
 
         child_env = cli_env_for_container(
             self._entry_id, api_key_env=self._api_key_env, base_url=self._base_url

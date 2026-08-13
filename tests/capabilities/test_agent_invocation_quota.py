@@ -65,7 +65,7 @@ def test_parent_service_uses_shared_quota(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_assemble_parent_and_authority_share_quota(tmp_path: Path) -> None:
-    from bora.application.agent_service_assemble import assemble_parent_agent_service
+    from bora.application.attempt.agent_service_assemble import assemble_parent_agent_service
 
     factory = IdentityFactory()
     run = factory.new_run()

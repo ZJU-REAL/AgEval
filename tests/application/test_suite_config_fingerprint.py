@@ -7,14 +7,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite_config_fingerprint import (
+from bora.application.suite.suite_config_fingerprint import (
     actors_summary_from_profiles,
     compute_suite_config_fields,
     fingerprint_for_actors,
     fingerprint_for_job_overlay,
     job_overlays_compatible,
 )
-from bora.application.suite_run import execute_suite_run, plan_suite_run
+from bora.application.suite.suite_run import execute_suite_run, plan_suite_run
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
@@ -198,7 +198,7 @@ async def test_suite_summary_includes_homogeneous_config() -> None:
 
 def test_journeys_profiles_are_suite_homogeneous() -> None:
     """example/journeys multi-topology package shares one profiles.yaml axis."""
-    from bora.application.suite_config_fingerprint import collect_suite_config
+    from bora.application.suite.suite_config_fingerprint import collect_suite_config
 
     # Fake per-task rows without needing a full run
     fields = collect_suite_config(

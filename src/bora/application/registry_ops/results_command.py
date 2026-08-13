@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
-from bora.application.suite_metrics import (
+from bora.application.suite.suite_metrics import (
     ensure_suite_metrics,
     ensure_suite_task_refs,
 )
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
+from bora.evidence.locators import resolve_attempt_run_dir
 from bora.registry.client import RegistryClient, RegistryError
-from bora.registry.credentials import load_credentials
 from bora.registry.resolve import resolve_database_root
 from bora.registry.results_archive import (
     build_attempt_archive,
@@ -25,61 +24,12 @@ from bora.registry.results_archive import (
 
 
 def _client(*, registry_url: str | None = None) -> RegistryClient:
-    creds = load_credentials()
-    url = (
-        registry_url
-        or os.environ.get("BORA_RESULTS_URL")
-        or creds.url
-        or os.environ.get("BORA_REGISTRY_URL")
-        or ""
-    ).rstrip("/")
-    if not url:
-        raise ConfigError(
-            "registry_unavailable",
-            "registry URL required (BORA_REGISTRY_URL / BORA_RESULTS_URL or credentials)",
-            location="registry",
-        )
-    token = creds.token or os.environ.get("BORA_REGISTRY_TOKEN")
-    if not token:
-        raise ConfigError(
-            "unauthorized",
-            "registry token required (bora login, credentials file, or BORA_REGISTRY_TOKEN)",
-            location="registry",
-        )
-    return RegistryClient(url, token=token)
+    from bora.application.registry_ops.client import build_registry_client
 
-
-def _safe_run_id_segment(run_id: str) -> str:
-    """Single path segment for ``.bora/runs/<run_id>``; reject traversal."""
-    text = (run_id or "").strip()
-    if not text or text in {".", ".."} or "/" in text or "\\" in text or ".." in text:
-        raise ConfigError(
-            "invalid_package",
-            f"invalid run_id: {run_id!r}",
-            location="run_id",
-        )
-    return text
-
-
-def _resolve_run_dir(database_root: Path, run_id: str) -> Path:
-    root = database_root.expanduser().resolve(strict=False)
-    rid = _safe_run_id_segment(run_id)
-    runs_root = (root / ".bora" / "runs").resolve(strict=False)
-    candidate = (runs_root / rid).resolve(strict=False)
-    try:
-        candidate.relative_to(runs_root)
-    except ValueError as exc:
-        raise ConfigError(
-            "invalid_package",
-            f"invalid run_id path: {run_id!r}",
-            location="run_id",
-        ) from exc
-    if candidate.is_dir():
-        return candidate
-    raise ConfigError(
-        "invalid_package",
-        f"run directory not found: {candidate}",
-        location=str(candidate),
+    return build_registry_client(
+        registry_url=registry_url,
+        require_token=True,
+        accept_results_url=True,
     )
 
 
@@ -135,7 +85,7 @@ def upload_attempt_result(
     except Exception as exc:  # noqa: BLE001
         raise ConfigError("invalid_package", str(exc), location=str(root)) from exc
 
-    run_dir = _resolve_run_dir(root, run_id)
+    run_dir = resolve_attempt_run_dir(root, run_id)
     archive, blob_digest, size = build_attempt_archive(run_dir, run_id=run_id)
     meta = _read_run_meta(run_dir)
     task_id = str(meta.get("task_id") or "")
@@ -421,7 +371,7 @@ def upload_suite_result(
         missing: list[str] = []
         for rid in run_ids:
             try:
-                _resolve_run_dir(root, rid)
+                resolve_attempt_run_dir(root, rid)
             except ConfigError:
                 missing.append(rid)
         if missing:

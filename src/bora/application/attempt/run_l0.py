@@ -8,11 +8,11 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from bora.application.attempt_stages import AttemptStageContext
-from bora.application.phase_timing import PhaseTimer, format_duration_ms
-from bora.application.run_command_environment import prepare_postgresql_environment
-from bora.application.run_command_evaluator import run_evaluator_worker
-from bora.application.run_harness import run_harness_package
+from bora.application.attempt.attempt_stages import AttemptStageContext
+from bora.application.attempt.phase_timing import PhaseTimer, format_duration_ms
+from bora.application.attempt.run_command_environment import prepare_postgresql_environment
+from bora.application.attempt.run_command_evaluator import run_evaluator_worker
+from bora.application.attempt.run_harness import run_harness_package
 from bora.config.model import thaw
 from bora.evaluation.result_binding import FlatResult, bind_result
 from bora.evidence.locators import portable_run_locator, seal_harness_for_evidence
@@ -115,11 +115,11 @@ def prepare_l0_attempt(ctx: AttemptStageContext) -> tuple[int, FlatResult, dict[
     import tempfile
     import time
 
-    from bora.application.agent_service_assemble import (
+    from bora.application.attempt.agent_service_assemble import (
         assemble_parent_agent_service,
         read_wall_deadline,
     )
-    from bora.application.extension_hooks import hook_prepare
+    from bora.application.attempt.extension_hooks import hook_prepare
     from bora.runtime.agent_service_protocol import AgentServiceServer
 
     timer = _timer(ctx)
@@ -174,7 +174,7 @@ def prepare_l0_attempt(ctx: AttemptStageContext) -> tuple[int, FlatResult, dict[
 
 
 async def run_l0_harness(ctx: AttemptStageContext) -> None:
-    from bora.application.extension_hooks import hook_run
+    from bora.application.attempt.extension_hooks import hook_run
 
     timer = _timer(ctx)
     attempt = _attempt(ctx)
@@ -256,7 +256,7 @@ def seal_l0_inputs(ctx: AttemptStageContext) -> None:
 
 
 def evaluate_l0(ctx: AttemptStageContext) -> None:
-    from bora.application.extension_hooks import (
+    from bora.application.attempt.extension_hooks import (
         hook_evaluate,
         hook_evaluation_input,
         hook_evaluation_runtime,
@@ -395,7 +395,7 @@ def bind_l0_result(ctx: AttemptStageContext) -> None:
 
 
 def cleanup_l0(ctx: AttemptStageContext) -> None:
-    from bora.application.extension_hooks import hook_cleanup, hook_env_teardown
+    from bora.application.attempt.extension_hooks import hook_cleanup, hook_env_teardown
 
     timer = _timer(ctx)
     attempt = ctx.attempt

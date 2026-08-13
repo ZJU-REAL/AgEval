@@ -11,9 +11,9 @@ import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
 from bora.adapters.provider_docker.types import DockerImageLock, DockerRuntime
-from bora.application.run_command import run_task
-from bora.application.run_l1_prepare import prepare_l1_runtime
-from bora.application.run_lifecycle import run_lifecycle
+from bora.application.attempt.run_command import run_task
+from bora.application.attempt.run_l1_prepare import prepare_l1_runtime
+from bora.application.attempt.run_lifecycle import run_lifecycle
 from bora.runtime.identity import IdentityFactory
 
 REPO = Path(__file__).resolve().parents[2]
@@ -89,9 +89,9 @@ async def test_run_task_mints_one_run_identity(tmp_path: Path) -> None:
 def test_prepare_l1_runtime_uses_passed_attempt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import bora.application.extension_hooks as hooks
-    import bora.application.image_contribute_bake as bake
-    import bora.application.run_l1_prepare as prep
+    import bora.application.attempt.extension_hooks as hooks
+    import bora.application.plugin_ops.image_contribute_bake as bake
+    import bora.application.attempt.run_l1_prepare as prep
 
     attempt = _attempt()
     image = DockerImageLock(

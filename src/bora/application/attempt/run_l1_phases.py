@@ -10,15 +10,15 @@ from pathlib import Path
 from typing import Any
 
 from bora.adapters.credential_projection import project_executor_credentials
-from bora.application.attempt_stages import AttemptStageContext
-from bora.application.phase_timing import PhaseTimer, format_duration_ms
-from bora.application.run_l1 import (
+from bora.application.attempt.attempt_stages import AttemptStageContext
+from bora.application.attempt.phase_timing import PhaseTimer, format_duration_ms
+from bora.application.attempt.run_l1 import (
     _database_root_for_run,
     _l1_host_cleanup,
 )
-from bora.application.run_l1_evaluator import run_clean_evaluator_container
-from bora.application.run_l1_evidence import l1_error_result, write_l1_evidence
-from bora.application.run_l1_prepare import (
+from bora.application.attempt.run_l1_evaluator import run_clean_evaluator_container
+from bora.application.attempt.run_l1_evidence import l1_error_result, write_l1_evidence
+from bora.application.attempt.run_l1_prepare import (
     make_l1_placement_resolver,
     prepare_l1_runtime,
     seed_l1_workspace,
@@ -68,11 +68,11 @@ def _store_error(
 
 def prepare_l1_session(ctx: AttemptStageContext) -> bool:
     """Prepare runtime, creds, targets, and agent service. False = fail the stage."""
-    from bora.application.agent_service_assemble import (
+    from bora.application.attempt.agent_service_assemble import (
         assemble_parent_agent_service,
         read_wall_deadline,
     )
-    from bora.application.run_l0 import prepare_postgresql_on_ctx
+    from bora.application.attempt.run_l0 import prepare_postgresql_on_ctx
     from bora.runtime.agent_service_protocol import AgentServiceServer
 
     timer = _timer(ctx)
@@ -272,7 +272,7 @@ def prepare_l1_session(ctx: AttemptStageContext) -> bool:
 
 
 async def run_l1_harness(ctx: AttemptStageContext) -> None:
-    from bora.application.run_harness import run_harness_package
+    from bora.application.attempt.run_harness import run_harness_package
     from bora.config.shared import infer_database_root_from_task
 
     timer = _timer(ctx)
@@ -376,7 +376,7 @@ def seal_l1_inputs(ctx: AttemptStageContext) -> bool:
 
 
 def evaluate_l1(ctx: AttemptStageContext) -> None:
-    from bora.application.extension_hooks import (
+    from bora.application.attempt.extension_hooks import (
         hook_evaluation_input,
         hook_evaluation_runtime,
         hook_score_postprocess,

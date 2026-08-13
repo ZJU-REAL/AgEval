@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Any
 
 from bora.application.composition import build_run_task
-from bora.application.suite_config_fingerprint import collect_suite_config
-from bora.application.suite_metrics import (
+from bora.application.suite.suite_config_fingerprint import collect_suite_config
+from bora.application.suite.suite_metrics import (
     aggregate_k_metrics,
     flatten_legacy_tasks_as_attempts,
     task_refs_for_summary,
@@ -298,7 +298,7 @@ async def _run_one(
             phase_timing = None
         duration = None
         if phase_timing is not None:
-            from bora.application.phase_timing import format_duration_ms
+            from bora.application.attempt.phase_timing import format_duration_ms
 
             duration = format_duration_ms(phase_timing.get("total_ms"))  # type: ignore[arg-type]
         return {

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from bora.adapters.package_fs import LocalPackageReader
-from bora.application.run_harness import run_harness_package
+from bora.application.attempt.run_harness import run_harness_package
 from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.load_and_lock import ConfigCore
 

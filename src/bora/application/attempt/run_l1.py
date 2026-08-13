@@ -18,9 +18,6 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from bora.application.run_l1_evidence import l1_error_result
-from bora.runtime.identity import AttemptIdentity
-
 
 def _database_root_for_run(run_dir: Path) -> Path | None:
     """Infer Database root when run_dir is ``…/.bora/runs/<run_id>``."""
@@ -64,32 +61,3 @@ def _l1_host_cleanup(
         with contextlib.suppress(Exception):
             cred.cleanup()
     drop_l1_work(run_dir, keep_workspace=keep_workspace)
-
-
-async def run_l1_attempt(
-    *,
-    package_root: Path,
-    lock: Any,
-    run_dir: Path,
-    agent_meta: dict[str, Any],
-    allow_offline_agent: bool,
-    keep_workspace: bool = False,
-    attempt: AttemptIdentity | None = None,
-    stage_ctx: Any | None = None,
-) -> tuple[int, dict[str, Any], dict[str, Any]]:
-    """Dispatch L1 SDK session path when agent_profiles is non-empty.
-
-    Isolation (hidden gold, credential/network projection, writer-stop) is enforced
-    by Provider prepare/run and the SDK session barrier — not by Application
-    task_id/probe special cases. Provider contract tests live under tests/provider_l1/.
-    """
-    del package_root, allow_offline_agent, keep_workspace, attempt, stage_ctx
-    task_id = str(lock.task_id)
-    return l1_error_result(
-        run_dir,
-        "config",
-        {"error": "l1_dispatch_unsupported", "task_id": task_id},
-        agent_meta,
-        0,
-        kind="l1_dispatch_unsupported",
-    )

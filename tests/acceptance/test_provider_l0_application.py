@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from bora.adapters.package_fs import LocalPackageReader
-from bora.application.run_provider_probe import run_provider_probe
+from bora.application.attempt.run_provider_probe import run_provider_probe
 from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.load_and_lock import ConfigCore
 from bora.provider.contract import ExecutableGrant, ProcessLaunchPlan

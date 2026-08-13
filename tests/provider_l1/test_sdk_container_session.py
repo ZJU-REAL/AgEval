@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from bora.adapters.agent_container import effective_run_gid
-from bora.application.run_l1_prepare import make_l1_placement_resolver
+from bora.application.attempt.run_l1_prepare import make_l1_placement_resolver
 from bora.provider.targets import ActorPhysicalBinding, ExecutionTarget
 
 

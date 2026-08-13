@@ -3,29 +3,20 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 from pathlib import Path
 from typing import Any
 
 from bora.config.errors import ConfigError
 from bora.registry.cache import PackageCache, default_cache_root
-from bora.registry.client import RegistryClient, RegistryError
-from bora.registry.credentials import load_credentials
+from bora.registry.client import RegistryError
 from bora.registry.ref import parse_package_ref
 
 
-def _client(*, registry_url: str | None = None) -> RegistryClient:
-    creds = load_credentials()
-    url = (registry_url or creds.url or os.environ.get("BORA_REGISTRY_URL") or "").rstrip("/")
-    if not url:
-        raise ConfigError(
-            "registry_unavailable",
-            "registry URL required (BORA_REGISTRY_URL or ~/.bora/credentials)",
-            location="registry",
-        )
-    token = creds.token or os.environ.get("BORA_REGISTRY_TOKEN")
-    return RegistryClient(url, token=token)
+def _client(*, registry_url: str | None = None) -> Any:
+    from bora.application.registry_ops.client import build_registry_client
+
+    return build_registry_client(registry_url=registry_url, require_token=False)
 
 
 def list_packages(

@@ -47,7 +47,9 @@ def plugin_install(
     # Registry locator: contains @ and does not exist as a local path.
     src_path = Path(source)
     if "@" in source and not src_path.exists():
-        from bora.application.plugin_install_remote import install_plugin_from_registry
+        from bora.application.composition import build_plugin_commands
+
+        install_plugin_from_registry = build_plugin_commands().install_plugin_from_registry
 
         try:
             summary = install_plugin_from_registry(source)
@@ -90,7 +92,9 @@ def plugin_publish(
     public: Annotated[bool, typer.Option("--public", help="Publish as public")] = False,
 ) -> None:
     """Publish a plugin package to the Registry (package_kind=plugin)."""
-    from bora.application.plugin_publish import publish_plugin
+    from bora.application.composition import build_plugin_commands
+
+    publish_plugin = build_plugin_commands().publish_plugin
     from bora.config.errors import ConfigError
 
     try:

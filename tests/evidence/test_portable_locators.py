@@ -93,7 +93,7 @@ def test_resolve_run_dir_portable_and_legacy(tmp_path: Path) -> None:
 
 
 def test_write_l1_evidence_portable(tmp_path: Path) -> None:
-    from bora.application.run_l1_evidence import write_l1_evidence
+    from bora.application.attempt.run_l1_evidence import write_l1_evidence
 
     db = tmp_path / "db"
     rid = "sha256_l1_run_zzz"
@@ -146,7 +146,7 @@ def test_export_source_evidence_portable(tmp_path: Path) -> None:
 
 def test_l1_error_seals_harness_published_without_abs(tmp_path: Path) -> None:
     """L1 error path must not dump hold abs paths into sealed l1.harness (#70 review)."""
-    from bora.application.run_l1_evidence import l1_error_result
+    from bora.application.attempt.run_l1_evidence import l1_error_result
 
     db = tmp_path / "db"
     rid = "sha256_err_run_1"

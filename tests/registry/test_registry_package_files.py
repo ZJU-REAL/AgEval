@@ -21,7 +21,7 @@ from services.registry.package_files import (
     read_member,
 )
 
-from bora.application.publish_command import publish_database
+from bora.application.registry_ops.publish_command import publish_database
 from bora.registry.client import RegistryClient, RegistryError
 
 REPO = Path(__file__).resolve().parents[2]

@@ -25,8 +25,8 @@ def prepare_l1_runtime(
     attempt: AttemptIdentity,
     network_mode: str = "none",
 ) -> tuple[DockerProvider, DockerRuntime, dict[str, Any]]:
-    from bora.application.extension_hooks import hook_prepare
-    from bora.application.image_contribute_bake import (
+    from bora.application.attempt.extension_hooks import hook_prepare
+    from bora.application.plugin_ops.image_contribute_bake import (
         ImageContributeError,
         apply_image_contribute_bake,
     )
@@ -110,47 +110,6 @@ def seed_l1_workspace(
                 if src.is_file():
                     shutil.copy2(src, workspace_host / src.name)
             l1_meta["solution_seed"] = True
-
-
-def cli_env_for_container(
-    kind: str, *, api_key_env: str | None, base_url: str | None
-) -> dict[str, str]:
-    """Project host credentials into docker ``-e`` (values never logged).
-
-    Never copy host ``PATH`` / ``HOME`` / ``XDG_*`` — those are macOS/Linux host
-    paths and break in-container engines (e.g. opencode ``mkdir /Users``).
-    Callers set container ``HOME`` / ``PATH`` after this returns.
-    """
-    from bora.adapters.child_env import project_cli_child_env
-
-    if kind in {"codex"}:
-        env: dict[str, str] = {}
-        if api_key_env and os.environ.get(api_key_env):
-            env[api_key_env] = os.environ[api_key_env]
-            env.setdefault("OPENAI_API_KEY", os.environ[api_key_env])
-        elif os.environ.get("OPENAI_API_KEY"):
-            env["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
-        if base_url:
-            env["OPENAI_BASE_URL"] = base_url
-        return env
-    projected = project_cli_child_env(
-        kind if kind != "claude" else "claude-code",
-        api_key_env=api_key_env,
-        base_url=base_url,
-    )
-    # Locator + declared names only — no host filesystem path env.
-    host_path_denylist = {
-        "PATH",
-        "HOME",
-        "XDG_DATA_HOME",
-        "XDG_CONFIG_HOME",
-        "XDG_CACHE_HOME",
-        "XDG_STATE_HOME",
-        "TMPDIR",
-        "TEMP",
-        "TMP",
-    }
-    return {k: v for k, v in projected.items() if v and k not in host_path_denylist}
 
 
 def make_l1_placement_resolver(*, ledger: Any) -> Any:

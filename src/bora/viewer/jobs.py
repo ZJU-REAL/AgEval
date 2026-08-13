@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora.application.suite_metrics import aggregate_task_metrics, task_refs_for_summary
+from bora.application.suite import aggregate_task_metrics, task_refs_for_summary
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
 from bora.viewer.browse import commands_for

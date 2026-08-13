@@ -46,7 +46,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Upload a sealed Attempt directory to the results store."""
-        from bora.application.results_command import upload_attempt_result
+        from bora.application.composition import build_results_commands
+
+        upload_attempt_result = build_results_commands().upload_attempt_result
         from bora.config.errors import ConfigError
 
         try:
@@ -81,7 +83,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Download and extract an Attempt result bundle."""
-        from bora.application.results_command import get_attempt_result
+        from bora.application.composition import build_results_commands
+
+        get_attempt_result = build_results_commands().get_attempt_result
         from bora.config.errors import ConfigError
 
         try:
@@ -103,7 +107,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """List Attempt results visible to the current credentials."""
-        from bora.application.results_command import list_attempt_results
+        from bora.application.composition import build_results_commands
+
+        list_attempt_results = build_results_commands().list_attempt_results
         from bora.config.errors import ConfigError
 
         try:
@@ -161,7 +167,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Upload a suite/job result row (metrics + task refs; no suite PASS)."""
-        from bora.application.results_command import upload_suite_result
+        from bora.application.composition import build_results_commands
+
+        upload_suite_result = build_results_commands().upload_suite_result
         from bora.config.errors import ConfigError
 
         try:
@@ -206,7 +214,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Get suite/job result meta; optionally extract archive from registry."""
-        from bora.application.results_command import get_suite_result
+        from bora.application.composition import build_results_commands
+
+        get_suite_result = build_results_commands().get_suite_result
         from bora.config.errors import ConfigError
 
         try:
@@ -251,7 +261,9 @@ def register(app: typer.Typer) -> None:
         Secrets are never included — only env locator names. Fill Database .env
         locally, then: bora run <db> --profiles <out>.
         """
-        from bora.application.results_command import export_suite_profiles
+        from bora.application.composition import build_results_commands
+
+        export_suite_profiles = build_results_commands().export_suite_profiles
         from bora.config.errors import ConfigError
 
         try:
@@ -288,7 +300,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """List suite/job results (registry or --local Database path)."""
-        from bora.application.results_command import list_suite_results
+        from bora.application.composition import build_results_commands
+
+        list_suite_results = build_results_commands().list_suite_results
         from bora.config.errors import ConfigError
 
         try:
@@ -326,7 +340,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Share a private result with org(s) and/or user(s). Owner only."""
-        from bora.application.results_command import share_result
+        from bora.application.composition import build_results_commands
+
+        share_result = build_results_commands().share_result
         from bora.config.errors import ConfigError
 
         if kind not in {"attempt", "suite"}:
@@ -372,7 +388,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Revoke a private result share. Owner only."""
-        from bora.application.results_command import unshare_result
+        from bora.application.composition import build_results_commands
+
+        unshare_result = build_results_commands().unshare_result
         from bora.config.errors import ConfigError
 
         if kind not in {"attempt", "suite"}:
@@ -421,7 +439,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Delete an owned attempt or suite result. Requires --yes."""
-        from bora.application.results_command import delete_result
+        from bora.application.composition import build_results_commands
+
+        delete_result = build_results_commands().delete_result
         from bora.config.errors import ConfigError
 
         if kind not in {"attempt", "suite"}:
@@ -462,7 +482,9 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Set visibility of an owned attempt or suite result after upload."""
-        from bora.application.results_command import set_result_visibility
+        from bora.application.composition import build_results_commands
+
+        set_result_visibility = build_results_commands().set_result_visibility
         from bora.config.errors import ConfigError
 
         if kind not in {"attempt", "suite"}:

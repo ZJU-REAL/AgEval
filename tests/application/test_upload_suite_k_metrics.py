@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bora.application.results_command import (
+from bora.application.registry_ops.results_command import (
     _run_ids_from_task_refs,
     _suite_metrics_and_refs,
     get_suite_result,
@@ -153,7 +153,7 @@ def test_upload_payload_includes_recomputed_pass_at_k(
     mock_client = MagicMock()
     mock_client.upload_suite.side_effect = lambda **kw: fake_upload_suite(**kw)
     monkeypatch.setattr(
-        "bora.application.results_command._client",
+        "bora.application.registry_ops.results_command._client",
         lambda **_kw: mock_client,
     )
     # Avoid real credentials / registry URL

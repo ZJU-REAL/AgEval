@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite_run import (
+from bora.application.suite.suite_run import (
     execute_suite_run,
     get_inflight_peak,
     plan_suite_run,

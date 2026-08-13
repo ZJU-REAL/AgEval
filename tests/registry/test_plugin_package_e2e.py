@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 
-from bora.application.plugin_install_remote import install_plugin_from_registry
-from bora.application.plugin_publish import publish_plugin
+from bora.application.plugin_ops.plugin_install_remote import install_plugin_from_registry
+from bora.application.plugin_ops.plugin_publish import publish_plugin
 from bora.registry.client import RegistryClient
 from bora.registry.credentials import write_credentials
 from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE

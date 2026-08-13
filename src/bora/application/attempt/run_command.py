@@ -6,9 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from bora.adapters.package_fs import LocalPackageReader
-from bora.application.attempt_stages import AttemptStageContext, DockerL1Stages, LocalL0Stages
-from bora.application.phase_timing import PhaseTimer
-from bora.application.run_lifecycle import run_lifecycle
+from bora.application.attempt.attempt_stages import (
+    AttemptStageContext,
+    DockerL1Stages,
+    LocalL0Stages,
+)
+from bora.application.attempt.phase_timing import PhaseTimer
+from bora.application.attempt.run_lifecycle import run_lifecycle
 from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.errors import ConfigError
 from bora.config.load_and_lock import ConfigCore
@@ -75,7 +79,7 @@ async def _run_task_body(
     identity_factory: IdentityFactory | None,
 ) -> tuple[int, FlatResult, dict[str, Any]]:
     """Body of ``run_task`` after task_dir resolve (import cleanup wraps caller)."""
-    from bora.application.env_bootstrap import load_host_env_files
+    from bora.application.attempt.env_bootstrap import load_host_env_files
     from bora.config.database import load_database_manifest
     from bora.config.profiles import resolve_profile_bindings
 
