@@ -168,7 +168,7 @@ BORA/
 └── website/                   # 读者向文档站（Fumadocs；非设计权威）
 ```
 
-Production Attempt path: `run_task` mints identity once, then `run_lifecycle(lock, LocalL0Stages | DockerL1Stages, attempt=)`. L1 `agent_server.stop` stays in the run `finally` (intentional); host teardown still goes through `DockerL1Stages.cleanup`. Parent + authority share one `AgentInvocationQuota` object from `assemble_parent_agent_service`.
+Production Attempt path: `run_task` mints identity once, then `run_lifecycle(lock, LocalL0Stages | DockerL1Stages, attempt=)`. L1 `agent_server.stop` and `stop_agent_targets` (writer confirmation before seal) stay in the run `finally`; network / `l1-work` teardown still goes through `DockerL1Stages.cleanup`. Parent + authority share one `AgentInvocationQuota` object from `assemble_parent_agent_service`.
 
 ### Target Source Layout（planned — 随 Core 交付出现）
 
