@@ -32,7 +32,7 @@ uv run bora run examples/core --task sdk-agent-session
 
 ## 无 agent 时的验证
 
-`config-minimal` 仅验证 lock。若 `sdk-agent-session` 因入口缺失失败，先执行：
+`config-minimal` 仅验证 lock。`--probe` 在同一 lock 上附加本机可行性报告（不 invoke Agent、不改 digest）。若 `sdk-agent-session` 因入口缺失失败，先执行：
 
 ```bash
 uv run bora executors -v
