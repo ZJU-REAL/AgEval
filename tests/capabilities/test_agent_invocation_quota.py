@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from pathlib import Path
 
 import pytest
 
@@ -61,3 +62,22 @@ def test_parent_service_uses_shared_quota(monkeypatch: pytest.MonkeyPatch) -> No
     assert out.get("ok") is False
     assert out.get("error") == "agent_invocation_limit"
     assert os.environ.get("BORA_OFFLINE_AGENT") != "1"
+
+
+def test_assemble_parent_and_authority_share_quota(tmp_path: Path) -> None:
+    from bora.application.agent_service_assemble import assemble_parent_agent_service
+
+    factory = IdentityFactory()
+    run = factory.new_run()
+    trial = factory.new_trial(run, "sha256:" + "d" * 64)
+    attempt = factory.new_attempt(trial)
+    service, _timeout, authority = assemble_parent_agent_service(
+        profiles=[{"id": "p", "executor": "mock", "model": "m"}],
+        package_root=tmp_path,
+        attempt=attempt,
+        inv_limit=2,
+        params={},
+        evidence_store=None,
+        deadline_monotonic=None,
+    )
+    assert service.invoke_quota is authority.invoke_quota

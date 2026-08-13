@@ -25,7 +25,13 @@ def test_composition_has_no_lifecycle_double() -> None:
     composition = (SRC / "bora" / "application" / "composition.py").read_text(encoding="utf-8")
     assert "ScriptedLifecycleStages" not in composition
     assert "lifecycle_stages" not in composition
-    assert "run_lifecycle" not in composition  # not wired into production CLI composition
+    cli = SRC / "bora" / "cli"
+    offenders: list[str] = []
+    for path in cli.rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        if "ScriptedLifecycleStages" in text or "tests.doubles" in text:
+            offenders.append(str(path.relative_to(SRC)))
+    assert offenders == []
 
 
 def test_cli_has_lock_and_run() -> None:

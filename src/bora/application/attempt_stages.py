@@ -30,6 +30,29 @@ class AttemptStageContext:
     docker: Any = None
     runtime: Any = None
     cred: Any = None
+    database_root: Path | None = None
+    task_id: str = ""
+    evidence_store: Any = None
+    env_manager: Any = None
+    agent_service: Any = None
+    agent_server: Any = None
+    agent_sock_path: Path | None = None
+    authority: Any = None
+    timer: Any = None
+    harness_out: dict[str, Any] = field(default_factory=dict)
+    envelope: dict[str, Any] = field(default_factory=dict)
+    harness_kind: str = "failed"
+    error_phase: str | None = None
+    artifacts_map: dict[str, str] = field(default_factory=dict)
+    evaluator_raw: dict[str, Any] | None = None
+    eval_extension_meta: dict[str, Any] = field(default_factory=dict)
+    eval_meta: dict[str, Any] = field(default_factory=dict)
+    l1_meta: dict[str, Any] = field(default_factory=dict)
+    inv_count: int = 0
+    wall_s: float = 0.0
+    workspace_host: Path | None = None
+    ledger: Any = None
+    topology: Any = None
     # Outputs filled by stages.
     exit_code: int = 2
     result_doc: dict[str, Any] = field(default_factory=dict)
@@ -70,30 +93,56 @@ class LocalL0Stages:
     """L0: host subprocess evaluator; no agent-target ledger."""
 
     ctx: AttemptStageContext
-    _ran: bool = False
 
     async def prepare(self, attempt: AttemptIdentity) -> PhaseFact:
-        # Prepare remains owned by run_command (lock/evidence/env). This stage
-        # records that the L0 adapter was selected and binds the incoming identity.
+        from bora.application.run_l0 import prepare_l0_attempt
+
         _bind_stage_attempt(self.ctx, attempt)
+        early = prepare_l0_attempt(self.ctx)
+        if early is not None:
+            return _fact(
+                attempt,
+                LifecyclePhase.PREPARE,
+                ok=False,
+                message="environment",
+                detail={"adapter": "local_l0"},
+            )
         return _fact(attempt, LifecyclePhase.PREPARE, detail={"adapter": "local_l0"})
 
     async def run(self, attempt: AttemptIdentity) -> PhaseFact:
-        # Body still executed by run_command for this slice; marker only.
-        self._ran = True
+        from bora.application.run_l0 import run_l0_harness
+
+        _bind_stage_attempt(self.ctx, attempt)
+        await run_l0_harness(self.ctx)
         return _fact(attempt, LifecyclePhase.RUN, detail={"adapter": "local_l0"})
 
     async def seal(self, attempt: AttemptIdentity) -> PhaseFact:
+        from bora.application.run_l0 import seal_l0_inputs
+
+        _bind_stage_attempt(self.ctx, attempt)
+        seal_l0_inputs(self.ctx)
         return _fact(attempt, LifecyclePhase.SEAL)
 
     async def evaluate(self, attempt: AttemptIdentity) -> PhaseFact:
+        from bora.application.run_l0 import evaluate_l0
+
+        _bind_stage_attempt(self.ctx, attempt)
+        evaluate_l0(self.ctx)
         return _fact(attempt, LifecyclePhase.EVALUATE, detail={"evaluator": "host_subprocess"})
 
     async def bind(self, attempt: AttemptIdentity) -> PhaseFact:
+        from bora.application.run_l0 import bind_l0_result
+
+        _bind_stage_attempt(self.ctx, attempt)
+        bind_l0_result(self.ctx)
         return _fact(attempt, LifecyclePhase.BIND)
 
     async def cleanup(self, attempt: AttemptIdentity) -> PhaseFact:
-        return _fact(attempt, LifecyclePhase.CLEANUP)
+        from bora.application.run_l0 import cleanup_l0
+
+        _bind_stage_attempt(self.ctx, attempt)
+        cleanup_l0(self.ctx)
+        return _fact(attempt, LifecyclePhase.CLEANUP, detail={"adapter": "local_l0"})
 
 
 @dataclass
@@ -103,46 +152,51 @@ class DockerL1Stages:
     ctx: AttemptStageContext
 
     async def prepare(self, attempt: AttemptIdentity) -> PhaseFact:
-        _bind_stage_attempt(self.ctx, attempt)
-        return _fact(attempt, LifecyclePhase.PREPARE, detail={"adapter": "docker_l1"})
-
-    async def run(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l1 import run_l1_attempt
+        from bora.application.run_l1_phases import prepare_l1_session
 
         _bind_stage_attempt(self.ctx, attempt)
         try:
-            code, doc, details = await run_l1_attempt(
-                package_root=self.ctx.package_root,
-                lock=self.ctx.lock,
-                run_dir=self.ctx.run_dir,
-                agent_meta=self.ctx.agent_meta,
-                allow_offline_agent=self.ctx.allow_offline_agent,
-                keep_workspace=self.ctx.keep_workspace,
-                attempt=attempt,
-                stage_ctx=self.ctx,
-            )
+            ok = prepare_l1_session(self.ctx)
         except Exception as exc:
             self.ctx.error_message = f"{type(exc).__name__}: {exc}"
             raise
-        self.ctx.exit_code = code
-        self.ctx.result_doc = doc
-        self.ctx.details = details
-        status = str(doc.get("status") or "ERROR")
-        # PASS/FAIL are runtime-success (evaluator authority elsewhere); ERROR fails the stage.
-        runtime_ok = status in {"PASS", "FAIL"} or code in {0, 1}
         return _fact(
             attempt,
-            LifecyclePhase.RUN,
-            ok=runtime_ok,
-            message=str((doc.get("error") or {}).get("kind") or ""),
-            detail={"adapter": "docker_l1", "status": status},
+            LifecyclePhase.PREPARE,
+            ok=ok,
+            message=self.ctx.error_message
+            or str((self.ctx.result_doc.get("error") or {}).get("kind") or ""),
+            detail={"adapter": "docker_l1"},
         )
 
+    async def run(self, attempt: AttemptIdentity) -> PhaseFact:
+        from bora.application.run_l1_phases import run_l1_harness
+
+        _bind_stage_attempt(self.ctx, attempt)
+        try:
+            await run_l1_harness(self.ctx)
+        except Exception as exc:
+            self.ctx.error_message = f"{type(exc).__name__}: {exc}"
+            raise
+        return _fact(attempt, LifecyclePhase.RUN, detail={"adapter": "docker_l1"})
+
     async def seal(self, attempt: AttemptIdentity) -> PhaseFact:
-        return _fact(attempt, LifecyclePhase.SEAL)
+        from bora.application.run_l1_phases import seal_l1_inputs
+
+        _bind_stage_attempt(self.ctx, attempt)
+        ok = seal_l1_inputs(self.ctx)
+        return _fact(
+            attempt,
+            LifecyclePhase.SEAL,
+            ok=ok,
+            message=str((self.ctx.result_doc.get("error") or {}).get("kind") or ""),
+        )
 
     async def evaluate(self, attempt: AttemptIdentity) -> PhaseFact:
-        # Evaluator already ran inside run_l1_attempt; record containment fact only.
+        from bora.application.run_l1_phases import evaluate_l1
+
+        _bind_stage_attempt(self.ctx, attempt)
+        evaluate_l1(self.ctx)
         return _fact(
             attempt,
             LifecyclePhase.EVALUATE,
@@ -150,17 +204,15 @@ class DockerL1Stages:
         )
 
     async def bind(self, attempt: AttemptIdentity) -> PhaseFact:
+        from bora.application.run_l1_phases import bind_l1_result
+
+        _bind_stage_attempt(self.ctx, attempt)
+        bind_l1_result(self.ctx)
         return _fact(attempt, LifecyclePhase.BIND)
 
     async def cleanup(self, attempt: AttemptIdentity) -> PhaseFact:
-        from bora.application.run_l1 import _l1_host_cleanup
+        from bora.application.run_l1_phases import cleanup_l1
 
         _bind_stage_attempt(self.ctx, attempt)
-        _l1_host_cleanup(
-            self.ctx.docker,
-            self.ctx.runtime,
-            self.ctx.cred,
-            self.ctx.run_dir,
-            keep_workspace=self.ctx.keep_workspace,
-        )
+        cleanup_l1(self.ctx)
         return _fact(attempt, LifecyclePhase.CLEANUP, detail={"adapter": "docker_l1"})

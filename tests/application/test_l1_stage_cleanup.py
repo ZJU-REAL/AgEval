@@ -121,11 +121,13 @@ def _install_l1_fakes(
     cred.root.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(
-        "bora.application.run_l1.prepare_l1_runtime",
+        "bora.application.run_l1_phases.prepare_l1_runtime",
         lambda *_a, **_k: (docker, runtime, {"containment": "full_l1_attempt"}),
     )
-    monkeypatch.setattr("bora.application.run_l1.project_executor_credentials", lambda **_k: cred)
-    monkeypatch.setattr("bora.application.run_l1.seed_l1_workspace", lambda **_k: None)
+    monkeypatch.setattr(
+        "bora.application.run_l1_phases.project_executor_credentials", lambda **_k: cred
+    )
+    monkeypatch.setattr("bora.application.run_l1_phases.seed_l1_workspace", lambda **_k: None)
 
     if assemble_exc is not None:
 
@@ -139,7 +141,7 @@ def _install_l1_fakes(
     else:
         monkeypatch.setattr(
             "bora.application.agent_service_assemble.assemble_parent_agent_service",
-            lambda **_k: (FakeService(), 30.0),
+            lambda **_k: (FakeService(), 30.0, object()),
         )
 
     monkeypatch.setattr("bora.runtime.agent_service_protocol.AgentServiceServer", FakeServer)
@@ -165,10 +167,12 @@ def _install_l1_fakes(
         def _boom_eval(*_a: object, **_k: object) -> None:
             raise eval_exc
 
-        monkeypatch.setattr("bora.application.run_l1.run_clean_evaluator_container", _boom_eval)
+        monkeypatch.setattr(
+            "bora.application.run_l1_phases.run_clean_evaluator_container", _boom_eval
+        )
     else:
         monkeypatch.setattr(
-            "bora.application.run_l1.run_clean_evaluator_container",
+            "bora.application.run_l1_phases.run_clean_evaluator_container",
             lambda **_k: (
                 {"status": "PASS", "score": 1.0},
                 {"ok": True, "writer_stop_confirmed": True},

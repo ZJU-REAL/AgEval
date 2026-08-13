@@ -9,8 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from bora.capabilities.authority import AttemptCapabilityAuthority
+from bora.capabilities.quota import AgentInvocationQuota
 from bora.config.model import thaw
 from bora.plugins.bootstrap import ensure_bootstrapped
+from bora.runtime.identity import AttemptIdentity
 from bora.runtime.parent_agent_service import (
     ParentAgentService,
     resolve_invoke_timeout_seconds,
@@ -56,7 +59,7 @@ def assemble_parent_agent_service(
     *,
     profiles: list[Any],
     package_root: Path,
-    attempt_id: str,
+    attempt: AttemptIdentity,
     inv_limit: int,
     params: dict[str, Any] | None,
     evidence_store: Any,
@@ -66,25 +69,25 @@ def assemble_parent_agent_service(
     validate_actor_profile: Any = None,
     resolve_placement: Any = None,
     l1_container_only: bool = False,
-) -> tuple[ParentAgentService, float]:
+) -> tuple[ParentAgentService, float, AttemptCapabilityAuthority]:
     """Build the sole production ParentAgentService used by L0/L1 paths.
 
-    Returns ``(service, invoke_timeout_seconds)``.
+    Returns ``(service, invoke_timeout_seconds, authority)``. The service and
+    authority share one ``AgentInvocationQuota`` object.
     """
-    from bora.capabilities.quota import AgentInvocationQuota
-
     invoke_timeout = resolve_invoke_timeout_seconds(params if isinstance(params, dict) else {})
     service_profiles = inject_service_profiles(
         profiles,
         package_root=package_root,
         workdir=workdir,
     )
+    quota = AgentInvocationQuota(limit=inv_limit)
     kwargs: dict[str, Any] = {
         "profiles": service_profiles,
         "agent_invocation_limit": inv_limit,
-        "attempt_id": attempt_id,
+        "attempt_id": attempt.value,
         "extension_registry": ensure_bootstrapped(),
-        "invoke_quota": AgentInvocationQuota(limit=inv_limit),
+        "invoke_quota": quota,
         "evidence_store": evidence_store,
         "deadline_monotonic": deadline_monotonic,
         "invoke_timeout_seconds": invoke_timeout,
@@ -97,4 +100,11 @@ def assemble_parent_agent_service(
         kwargs["resolve_placement"] = resolve_placement
     if l1_container_only:
         kwargs["l1_container_only"] = True
-    return ParentAgentService(**kwargs), invoke_timeout
+    service = ParentAgentService(**kwargs)
+    authority = AttemptCapabilityAuthority(
+        attempt=attempt,
+        params=params if isinstance(params, dict) else {},
+        agent_invocation_limit=inv_limit,
+        invoke_quota=quota,
+    )
+    return service, invoke_timeout, authority
