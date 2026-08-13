@@ -76,3 +76,86 @@ def test_publish_happy_path(tmp_path: Path) -> None:
     row = svc.get("test/publish-min", "0.1.0")
     assert row is not None
     assert svc.blobs.get(row.blob_digest, prefix="packages") == archive
+
+
+def test_draft_overwrite_and_entitled_list(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive = _meta_archive()
+    meta["slot"] = "draft"
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    first = svc.publish(meta=meta, archive=archive, auth=alice)
+    assert first["version"] == "draft"
+    assert first["is_draft"] is True
+    assert first["replaced"] is False
+    assert svc.meta.dataset_acl("test/publish-min", "alice") is not None
+
+    second = svc.publish(meta=meta, archive=archive, auth=alice)
+    assert second["replaced"] is True
+
+    versions = svc.list_versions(database_id="test/publish-min", auth=alice)
+    assert any(i.get("version") == "draft" for i in versions["items"])
+
+    stranger = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="bob")
+    hidden = svc.list_versions(database_id="test/publish-min", auth=stranger)
+    assert hidden["items"] == []
+
+
+def test_draft_hidden_from_non_entitled_get(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive = _meta_archive()
+    meta["slot"] = "draft"
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=alice)
+    stranger = TokenInfo(scopes=frozenset(), user_id="bob")
+    with pytest.raises(RegistryAppError) as ei:
+        svc.serve_meta(
+            database_id="test/publish-min",
+            version="draft",
+            package_digest=None,
+            auth=stranger,
+        )
+    assert ei.value.http_status == 404
+
+
+def test_release_draft_creates_durable_version(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive = _meta_archive()
+    meta["slot"] = "draft"
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=alice)
+    released = svc.release_draft(database_id="test/publish-min", auth=alice)
+    assert released["version"] == "0.1.0"
+    assert released.get("from_draft") is True
+    assert released.get("is_draft") is not True
+    row = svc.get("test/publish-min", "0.1.0")
+    assert row is not None
+
+
+def test_collaborator_cannot_release(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    svc.meta.add_member("acme", "bob", role="member")
+    meta, archive = _meta_archive()
+    meta["slot"] = "draft"
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=alice)
+    svc.meta.upsert_dataset_acl("test/publish-min", "bob", role="collaborator")
+    bob = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="bob")
+    with pytest.raises(RegistryAppError) as ei:
+        svc.release_draft(database_id="test/publish-min", auth=bob)
+    assert ei.value.http_status == 404
+
+
+def test_reserved_version_draft_rejected_on_release_publish(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive = _meta_archive()
+    meta["version"] = "draft"
+    # Without slot, version=draft still takes the draft path (reserved).
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    payload = svc.publish(meta=meta, archive=archive, auth=alice)
+    assert payload["version"] == "draft"
+    assert payload["is_draft"] is True

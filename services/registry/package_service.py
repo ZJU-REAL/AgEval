@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from services.registry.access import AccessPolicy
+from services.registry.dataset import DRAFT_SLOT, is_draft_version
 from services.registry.errors import RegistryAppError
-from services.registry.store import ReleaseRow, TokenInfo, now, release_to_dict
+from services.registry.store import DraftRow, ReleaseRow, TokenInfo, now, release_to_dict
 
 
 class PackageService:
@@ -45,12 +46,15 @@ class PackageService:
         blob_digest = str(meta.get("blob_digest") or "")
         media_type = str(meta.get("media_type") or "")
         visibility = str(meta.get("visibility") or "private")
+        slot = str(meta.get("slot") or "").strip().casefold()
         raw_org = str(meta.get("org_id") or meta.get("org") or "").strip()
         org_id = raw_org.casefold() if raw_org else None
         size = int(meta.get("size") or len(archive))
         user_id = auth.user_id or ""
         if visibility not in {"private", "public"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
+        if slot == DRAFT_SLOT or is_draft_version(version):
+            return self.upsert_draft(meta=meta, archive=archive, auth=auth)
         if not org_id:
             raise RegistryAppError("org_required", "publish requires org_id", http_status=400)
         if self.meta.get_org(org_id) is None:
@@ -115,6 +119,136 @@ class PackageService:
             payload["replaced"] = True
         return payload
 
+    def upsert_draft(
+        self, *, meta: dict[str, Any], archive: bytes, auth: TokenInfo
+    ) -> dict[str, Any]:
+        if len(archive) > self.max_upload:
+            raise RegistryAppError(
+                "payload_too_large",
+                f"max {self.max_upload} bytes",
+                http_status=413,
+            )
+        database_id = str(meta.get("database_id") or "")
+        package_digest = str(meta.get("package_digest") or "")
+        blob_digest = str(meta.get("blob_digest") or "")
+        media_type = str(meta.get("media_type") or "")
+        visibility = str(meta.get("visibility") or "private")
+        raw_org = str(meta.get("org_id") or meta.get("org") or "").strip()
+        org_id = raw_org.casefold() if raw_org else None
+        size = int(meta.get("size") or len(archive))
+        user_id = auth.user_id or ""
+        if not database_id:
+            raise RegistryAppError("invalid_request", "database_id required", http_status=400)
+        if visibility not in {"private", "public"}:
+            raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
+        if not org_id:
+            raise RegistryAppError("org_required", "draft requires org_id", http_status=400)
+        if self.meta.get_org(org_id) is None:
+            raise RegistryAppError("org_not_found", f"org {org_id!r} not found", http_status=400)
+        package_kind = str(meta.get("package_kind") or "database").strip().casefold()
+        if package_kind != "database":
+            raise RegistryAppError(
+                "invalid_request",
+                "draft slot is only for database packages",
+                http_status=400,
+            )
+        existing = self.meta.get_draft(database_id)
+        if not self.access.can_write_draft(existing, org_id=org_id, auth=auth):
+            raise RegistryAppError(
+                "forbidden",
+                "dataset collaborator or first-upload org member required",
+                http_status=403,
+            )
+        actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
+        if actual_blob != blob_digest or size != len(archive):
+            raise RegistryAppError(
+                "digest_mismatch",
+                "blob digest or size mismatch",
+                http_status=400,
+            )
+        self._validate_archive(
+            archive,
+            package_kind="database",
+            media_type=media_type,
+            package_digest=package_digest,
+        )
+        old_blob = existing.blob_digest if existing else None
+        row = DraftRow(
+            database_id=database_id,
+            org_id=org_id,
+            visibility=visibility,
+            package_digest=package_digest,
+            blob_digest=blob_digest,
+            size=size,
+            media_type=media_type,
+            package_kind="database",
+            uploaded_by=user_id,
+            updated_at=now(),
+        )
+        self.blobs.put_if_absent(blob_digest, archive, prefix="packages")
+        stored = self.meta.upsert_draft(row)
+        if existing is None and user_id:
+            self.meta.upsert_dataset_acl(database_id, user_id, role="owner")
+        if old_blob and old_blob != blob_digest:
+            self._gc_blob(old_blob)
+        payload = release_to_dict(stored.as_release())
+        payload["replaced"] = existing is not None
+        return payload
+
+    def release_draft(
+        self,
+        *,
+        database_id: str,
+        auth: TokenInfo,
+        visibility: str | None = None,
+        replace: bool = False,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        draft = self.meta.get_draft(database_id)
+        if draft is None or not self.access.can_release_draft(draft, auth):
+            raise RegistryAppError("not_found", "draft not found", http_status=404)
+        archive = self.blobs.get(draft.blob_digest, prefix="packages")
+        if archive is None:
+            raise RegistryAppError("not_found", "draft blob missing", http_status=404)
+        rel_version = (version or "").strip() or self._version_from_archive(archive)
+        if not rel_version or is_draft_version(rel_version):
+            raise RegistryAppError(
+                "invalid_request",
+                "release version is required and cannot be 'draft'",
+                http_status=400,
+            )
+        vis = visibility or draft.visibility
+        if vis not in {"private", "public"}:
+            raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
+        existing_rel = self.meta.get_by_version(database_id, rel_version)
+        if existing_rel is not None:
+            if not replace:
+                raise RegistryAppError("conflict", "release already exists", http_status=409)
+            if not self._may_replace(existing_rel, auth):
+                raise RegistryAppError("not_found", "release not found", http_status=404)
+            self.meta.delete_release(database_id, rel_version)
+            self._gc_blob(existing_rel.blob_digest)
+        row = ReleaseRow(
+            database_id=database_id,
+            version=rel_version,
+            visibility=vis,
+            package_digest=draft.package_digest,
+            blob_digest=draft.blob_digest,
+            size=draft.size,
+            media_type=draft.media_type,
+            created_at=now(),
+            org_id=draft.org_id,
+        )
+        try:
+            self.meta.insert(row)
+        except ValueError as exc:
+            raise RegistryAppError("conflict", "release already exists", http_status=409) from exc
+        payload = release_to_dict(row)
+        if existing_rel is not None and replace:
+            payload["replaced"] = True
+        payload["from_draft"] = True
+        return payload
+
     def list_packages(
         self,
         *,
@@ -139,6 +273,15 @@ class PackageService:
             include_private=True,
         )
         items = [release_to_dict(r) for r in rows if self.access.visible_package(r, auth)]
+        if package_kind in (None, "database"):
+            for draft in self.meta.list_drafts():
+                if not self.access.entitled_to_draft(draft, auth):
+                    continue
+                if prefix and not draft.database_id.startswith(prefix):
+                    continue
+                if visibility in {"public", "private"} and draft.visibility != visibility:
+                    continue
+                items.append(release_to_dict(draft.as_release()))
         if package_kind is not None:
             items = [i for i in items if i.get("package_kind") == package_kind]
         return {"items": items}
@@ -146,6 +289,9 @@ class PackageService:
     def list_versions(self, *, database_id: str, auth: TokenInfo) -> dict[str, Any]:
         rows = self.meta.list_versions(database_id, include_private=True)
         items = [release_to_dict(r) for r in rows if self.access.visible_package(r, auth)]
+        draft = self.meta.get_draft(database_id)
+        if draft is not None and self.access.entitled_to_draft(draft, auth):
+            items.insert(0, release_to_dict(draft.as_release()))
         return {"database_id": database_id, "items": items}
 
     def serve_meta(
@@ -318,15 +464,42 @@ class PackageService:
         package_digest: str | None = None,
         version: str | None = None,
     ) -> ReleaseRow:
+        draft: DraftRow | None = None
         if package_digest:
             row = self.meta.get_by_digest(database_id, package_digest)
+            if row is None:
+                draft = self.meta.get_draft_by_digest(database_id, package_digest)
         elif version:
-            row = self.meta.get_by_version(database_id, version)
+            if is_draft_version(version):
+                draft = self.meta.get_draft(database_id)
+                row = None
+            else:
+                row = self.meta.get_by_version(database_id, version)
         else:
             row = None
+        if draft is not None:
+            if not self.access.entitled_to_draft(draft, auth):
+                raise RegistryAppError("not_found", "release not found", http_status=404)
+            return draft.as_release()
         if row is None or not self.access.visible_package(row, auth):
             raise RegistryAppError("not_found", "release not found", http_status=404)
         return row
+
+    def _version_from_archive(self, archive: bytes) -> str:
+        from bora.config.database import load_database_manifest
+        from bora.registry.archive import extract_archive
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="bora-rel-") as tmp:
+                extract_archive(archive, Path(tmp))
+                man = load_database_manifest(Path(tmp))
+                return str(man.version or "").strip()
+        except Exception as exc:  # noqa: BLE001
+            raise RegistryAppError(
+                "invalid_archive",
+                f"cannot read draft version: {exc}",
+                http_status=400,
+            ) from exc
 
     def _may_replace(self, existing: ReleaseRow, auth: TokenInfo) -> bool:
         if AccessPolicy.is_admin(auth.scopes):

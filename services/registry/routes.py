@@ -245,6 +245,13 @@ ROUTES: tuple[Route, ...] = (
     Route("POST", "publish_package", access="publish", exact="/v1/packages"),
     Route(
         "POST",
+        "release_draft",
+        access="publish",
+        pattern=r"/v1/packages/(.+)/release",
+        groups=("database_id",),
+    ),
+    Route(
+        "POST",
         "upload_attempt",
         access="results_upload",
         exact="/v1/results/attempts",

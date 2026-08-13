@@ -94,6 +94,7 @@ class RegistryClient:
         org_id: str,
         replace: bool = False,
         package_kind: str = "database",
+        slot: str | None = None,
     ) -> ReleaseInfo:
         meta: dict[str, Any] = {
             "database_id": database_id,
@@ -108,6 +109,8 @@ class RegistryClient:
         }
         if replace:
             meta["replace"] = True
+        if slot:
+            meta["slot"] = slot
         import secrets as _secrets
 
         boundary = f"bora-{_secrets.token_hex(12)}"
@@ -130,6 +133,32 @@ class RegistryClient:
         status, raw, _ = self._request("POST", "/v1/packages", body=body, headers=headers)
         if status not in {200, 201}:
             raise RegistryError("publish_failed", f"unexpected status {status}", status=status)
+        data = json.loads(raw.decode("utf-8"))
+        return ReleaseInfo.from_payload(data)
+
+    def release_draft(
+        self,
+        *,
+        database_id: str,
+        visibility: str | None = None,
+        replace: bool = False,
+        version: str | None = None,
+    ) -> ReleaseInfo:
+        body: dict[str, Any] = {}
+        if visibility:
+            body["visibility"] = visibility
+        if replace:
+            body["replace"] = True
+        if version:
+            body["version"] = version
+        status, raw, _ = self._request(
+            "POST",
+            f"/v1/packages/{quote(database_id, safe='/')}/release",
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json", auth=True),
+        )
+        if status not in {200, 201}:
+            raise RegistryError("release_failed", f"unexpected status {status}", status=status)
         data = json.loads(raw.decode("utf-8"))
         return ReleaseInfo.from_payload(data)
 
@@ -457,12 +486,19 @@ class RegistryClient:
             raise RegistryError("not_found", f"content not found ({status})", status=status)
         return raw
 
-    def list_suites(self, *, database_id: str | None = None) -> list[dict[str, Any]]:
+    def list_suites(
+        self, *, database_id: str | None = None, board: bool = False
+    ) -> list[dict[str, Any]]:
         from urllib.parse import urlencode
 
         path = "/v1/results/suites"
+        q: dict[str, str] = {}
         if database_id:
-            path = f"{path}?{urlencode({'database_id': database_id})}"
+            q["database_id"] = database_id
+        if board:
+            q["board"] = "1"
+        if q:
+            path = f"{path}?{urlencode(q)}"
         status, raw, _ = self._request("GET", path, auth=True)
         if status != 200:
             raise RegistryError("list_failed", f"status {status}", status=status)

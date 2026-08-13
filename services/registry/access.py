@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from services.registry.store import ReleaseRow, TokenInfo
+from services.registry.store import DraftRow, ReleaseRow, TokenInfo
 
 OrgOwnerStatus = Literal["ok", "not_found", "unauthorized", "forbidden"]
 
@@ -57,6 +57,40 @@ class AccessPolicy:
             user_id=auth.user_id,
             user_orgs=orgs,
         )
+
+    def entitled_to_draft(self, draft: DraftRow, auth: TokenInfo) -> bool:
+        if self.is_admin(auth.scopes):
+            return True
+        if not auth.user_id:
+            return False
+        acl = self.meta.dataset_acl(draft.database_id, auth.user_id)
+        if acl is not None:
+            return True
+        return bool(draft.org_id and self.meta.membership(draft.org_id, auth.user_id) is not None)
+
+    def can_write_draft(self, draft: DraftRow | None, *, org_id: str, auth: TokenInfo) -> bool:
+        if self.is_admin(auth.scopes):
+            return True
+        if not auth.user_id:
+            return False
+        if draft is None:
+            return self.meta.membership(org_id, auth.user_id) is not None
+        acl = self.meta.dataset_acl(draft.database_id, auth.user_id)
+        return bool(acl is not None and acl.role in {"owner", "collaborator"})
+
+    def can_release_draft(self, draft: DraftRow, auth: TokenInfo) -> bool:
+        if self.is_admin(auth.scopes):
+            return True
+        if not auth.user_id:
+            return False
+        acl = self.meta.dataset_acl(draft.database_id, auth.user_id)
+        if acl is not None and acl.role == "owner":
+            return True
+        if draft.org_id:
+            mem = self.meta.membership(draft.org_id, auth.user_id)
+            if mem is not None and mem.role == "owner":
+                return True
+        return False
 
     def can_manage_package(self, row: ReleaseRow, auth: TokenInfo) -> bool:
         if self.is_admin(auth.scopes):

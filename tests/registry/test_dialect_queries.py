@@ -25,6 +25,14 @@ def test_list_releases_query_private_filter() -> None:
     assert "visibility = %s" in pg_sql(sql)
 
 
+def test_match_route_release_draft() -> None:
+    matched = match_route("POST", "/v1/packages/acme/db/release")
+    assert matched is not None
+    route, kwargs = matched
+    assert route.name == "release_draft"
+    assert kwargs["database_id"] == "acme/db"
+
+
 def test_match_route_package_version_meta() -> None:
     matched = match_route("GET", "/v1/packages/acme/db/versions/1.0.0")
     assert matched is not None

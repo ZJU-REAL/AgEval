@@ -20,6 +20,8 @@ class ReleaseInfo:
     replaced: bool = False
     package_kind: str = "database"
     created_at: float = 0.0
+    is_draft: bool = False
+    slot: str | None = None
 
     @classmethod
     def from_payload(cls, data: dict) -> ReleaseInfo:
@@ -35,4 +37,6 @@ class ReleaseInfo:
             replaced=bool(data.get("replaced")),
             package_kind=str(data.get("package_kind") or "database"),
             created_at=float(data["created_at"]) if data.get("created_at") is not None else 0.0,
+            is_draft=bool(data.get("is_draft") or data.get("slot") == "draft"),
+            slot=str(data["slot"]) if data.get("slot") else None,
         )
