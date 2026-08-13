@@ -45,9 +45,8 @@ def build_lock_command() -> LockCommand:
 def build_run_task() -> RunTask:
     """Wire the production ``bora run`` use case through the composition root.
 
-    Concrete adapters remain inside the use case module for now; the CLI must
-    not import ``run_command.run_task`` directly. Full lifecycle/authority
-    assembly is still residual vs Spec 05 text.
+    CLI must not import ``run_command.run_task`` directly. L0/L1 adapters are
+    still constructed inside the attempt package, not in this module.
     """
     from bora.application.attempt.run_command import run_task
 

@@ -111,10 +111,11 @@ BORA/
 │   ├── __init__.py
 │   ├── cli/                   # Typer：argv、help、exit code（main 挂载 + cmd_*）
 │   ├── application/           # 唯一 composition root + 按产品流拆的 use case
-│   │   ├── composition.py     # CLI 只从此处 import builders
-│   │   ├── attempt/           # run_task、LifecycleStages、L0/L1 phase helpers
+│   │   ├── composition.py     # CLI 只从此处 import builders（含 registry client factory）
+│   │   ├── attempt/           # run_task → run_lifecycle(LocalL0Stages | DockerL1Stages, attempt=)
+│   │   │                      # phase 体在 run_l0.py / run_l1_phases.py
 │   │   ├── suite/             # suite_run、fingerprint、suite_metrics
-│   │   ├── registry_ops/      # results / publish / login / org / list
+│   │   ├── registry_ops/      # results / publish / login / org / list（注入 client factory）
 │   │   └── plugin_ops/        # plugin install / publish / image_contribute bake
 │   ├── config/                # Core 1（load_and_lock + constants/yaml_io/overrides/digest/validate）
 │   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker、
@@ -143,11 +144,13 @@ BORA/
 ├── apps/
 │   ├── viewer/                # 本地 `bora view` SPA（Jobs → Trial；非 Registry）
 │   └── hub/                   # Registry Dataset / Plugin marketplace / Leaderboard SPA
-├── services/registry/         # 独立 HTTP：Route.access + domain services
+├── services/registry/         # 独立 HTTP：Route.access + _dispatch 强制策略
+│   ├── app.py                 # Handler 是 HTTP adapter（读 body → *Service → JSON）
+│   ├── auth_service.py / package_service.py / result_service.py / org_service.py
 │   ├── queries.py             # 唯一 SQL / schema 文本
 │   ├── sql_adapter.py         # sqlite/postgres 只 connect / placeholder / row-map
 │   ├── store.py               # 一份 MetadataStore + 薄 Postgres 适配
-│   └── routes.py              # ROUTES 必须声明 access；dispatch 强制走完
+│   └── routes.py              # ROUTES 必须声明 access；skip_auth 仅 access=none
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa）
 │   ├── core/                  # config / harness / eval / agent / SDK
@@ -164,6 +167,8 @@ BORA/
 ├── docs/                      # 设计权威（00–11）
 └── website/                   # 读者向文档站（Fumadocs；非设计权威）
 ```
+
+Production Attempt path: `run_task` mints identity once, then `run_lifecycle(lock, LocalL0Stages | DockerL1Stages, attempt=)`. L1 `agent_server.stop` stays in the run `finally` (intentional); host teardown still goes through `DockerL1Stages.cleanup`. Parent + authority share one `AgentInvocationQuota` object from `assemble_parent_agent_service`.
 
 ### Target Source Layout（planned — 随 Core 交付出现）
 

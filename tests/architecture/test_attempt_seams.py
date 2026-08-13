@@ -81,3 +81,98 @@ def test_queries_own_single_releases_ddl() -> None:
     assert queries.count("CREATE TABLE IF NOT EXISTS releases") == 1
     adapter = (REPO / "services" / "registry" / "sql_adapter.py").read_text(encoding="utf-8")
     assert "CREATE TABLE IF NOT EXISTS releases" not in adapter
+
+
+def _stage_method_src(text: str, class_name: str, method: str) -> str:
+    tree = ast.parse(text)
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef) or node.name != class_name:
+            continue
+        fn = next(
+            (
+                n
+                for n in node.body
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == method
+            ),
+            None,
+        )
+        assert fn is not None, f"{class_name}.{method}"
+        return ast.get_source_segment(text, fn) or ""
+    raise AssertionError(class_name)
+
+
+def test_evaluate_and_bind_are_not_empty_markers() -> None:
+    text = (SRC / "application" / "attempt" / "attempt_stages.py").read_text(encoding="utf-8")
+    pairs = (
+        ("LocalL0Stages", "evaluate", "evaluate_l0"),
+        ("LocalL0Stages", "bind", "bind_l0_result"),
+        ("DockerL1Stages", "evaluate", "evaluate_l1"),
+        ("DockerL1Stages", "bind", "bind_l1_result"),
+    )
+    for cls, method, needle in pairs:
+        src = _stage_method_src(text, cls, method)
+        assert needle in src, f"{cls}.{method} must call {needle}"
+        assert "return _fact" not in src or needle in src
+
+
+def test_assemble_quota_object_is_shared_in_source() -> None:
+    text = (SRC / "application" / "attempt" / "agent_service_assemble.py").read_text(
+        encoding="utf-8"
+    )
+    assert "quota = AgentInvocationQuota" in text
+    assert "ParentAgentService(" in text
+    assert "AttemptCapabilityAuthority(" in text
+    assert '"invoke_quota": quota' in text
+    assert "invoke_quota=quota" in text
+
+
+def test_handler_calls_all_domain_services() -> None:
+    app = (REPO / "services" / "registry" / "app.py").read_text(encoding="utf-8")
+    for needle in ("state.packages.", "state.results.", "state.orgs.", "state.auth."):
+        assert needle in app, needle
+
+
+def test_handler_methods_do_not_touch_store() -> None:
+    text = (REPO / "services" / "registry" / "app.py").read_text(encoding="utf-8")
+    tree = ast.parse(text)
+    handler = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "make_handler":
+            handler = next(
+                (n for n in ast.walk(node) if isinstance(n, ast.ClassDef) and n.name == "Handler"),
+                None,
+            )
+            break
+    assert handler is not None
+    src = ast.get_source_segment(text, handler) or ""
+    assert "state.meta." not in src
+    assert "state.blobs." not in src
+
+
+def test_bearer_is_only_used_by_dispatch() -> None:
+    text = (REPO / "services" / "registry" / "app.py").read_text(encoding="utf-8")
+    assert text.count("_bearer(") == 2
+
+
+def test_store_has_no_sql_literals() -> None:
+    text = (REPO / "services" / "registry" / "store.py").read_text(encoding="utf-8")
+    needles = ("DELETE FROM", "INSERT INTO", "CREATE TABLE", "UPDATE ")
+    offenders: list[str] = []
+    for i, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if any(n in line for n in needles):
+            offenders.append(f"{i}:{stripped}")
+    assert offenders == []
+
+
+def test_registry_ops_have_no_private_client_helpers() -> None:
+    root = SRC / "application" / "registry_ops"
+    for path in root.glob("*_command.py"):
+        text = path.read_text(encoding="utf-8")
+        assert "def _client(" not in text, path.name
+        if path.name != "client.py":
+            assert "RegistryClient(" not in text, path.name
+    results = (root / "results_command.py").read_text(encoding="utf-8")
+    assert "suite.suite_metrics" not in results

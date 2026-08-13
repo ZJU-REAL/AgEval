@@ -80,6 +80,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 - CLI 只 import `bora.application.composition`。
 - `.bora/runs` 布局字符串只在 `evidence/`。
 - 新的 `application` 公开用例必须有 `build_*`。
+- Registry Handler 不得直接 `state.meta` / 再 `_bearer`；业务在 `*Service`。
 
 ### 安全与评测
 
