@@ -272,8 +272,10 @@ class ResultService:
                 "archive rejected: possible credential material",
                 http_status=400,
             )
-        metrics = meta.get("metrics") if isinstance(meta.get("metrics"), dict) else {}
-        task_refs = meta.get("task_refs") if isinstance(meta.get("task_refs"), list) else []
+        metrics: dict[str, Any] = meta["metrics"] if isinstance(meta.get("metrics"), dict) else {}
+        task_refs: list[Any] = (
+            list(meta["task_refs"]) if isinstance(meta.get("task_refs"), list) else []
+        )
         try:
             pass_rate = float(meta.get("pass_rate", metrics.get("pass_rate", 0.0)))
             mean_score = float(meta.get("mean_score", metrics.get("mean_score", 0.0)))
