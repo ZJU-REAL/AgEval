@@ -70,7 +70,7 @@ uv run bora plugin install plugins/dsh
 unset BORA_OFFLINE_AGENT
 uv run bora run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml
-# file-effect policy (writes via DSH bash/fs are denied):
+# file-effect policy (file-tool writes denied; bash can still write):
 # uv run bora run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```

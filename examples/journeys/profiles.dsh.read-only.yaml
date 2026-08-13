@@ -5,8 +5,8 @@
 #     --profiles examples/journeys/profiles.dsh.read-only.yaml
 #
 # Coding tasks that must write workspace files should omit permission
-# (or use workspace-write). This binding is for dialog-style jobs and
-# for checking that DSH bash/fs writes are denied.
+# (or use workspace-write). This binding fences file-tool writes.
+# bash redirects still write on the bundled jsonrpc runtime.
 # Same harness as profiles.dsh.yaml — only the job binding changes.
 format: bora.profiles/1
 bindings:

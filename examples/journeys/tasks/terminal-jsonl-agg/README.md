@@ -37,8 +37,8 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 ```
 
 This journey writes `aggregates.json`, so omit `options.permission` or use
-`workspace-write`. `read-only` is a DSH file-effect policy for jobs that
-must not write; it is not BORA isolation.
+`workspace-write`. `read-only` fences DSH file-tool writes only; bash can
+still write on the bundled jsonrpc runtime. It is not BORA isolation.
 
 ```bash
 uv run bora run examples/journeys --task terminal-jsonl-agg \
