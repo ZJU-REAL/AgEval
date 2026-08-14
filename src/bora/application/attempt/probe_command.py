@@ -16,6 +16,7 @@ from bora.adapters.acp_registry import readiness_for
 from bora.adapters.executor_capabilities import get_capabilities
 from bora.adapters.executor_inventory import FIRST_PARTY_KINDS
 from bora.application.attempt.lock_command import LockCommand
+from bora.application.plugin_ops.image_contribute_bake import selected_contribute_plugin_ids
 from bora.config.model import LockedTaskConfig, locked_to_summary, thaw
 from bora.plugins.host_requires import (
     evaluate_host_requires,
@@ -91,6 +92,7 @@ def _probe_external(
     binding: Mapping[str, Any],
     path: str,
     environ: Mapping[str, str],
+    selected_contribute: Sequence[str],
 ) -> list[dict[str, Any]]:
     kind = str(binding["executor"])
     found = installed_plugin(kind)
@@ -114,11 +116,20 @@ def _probe_external(
             )
         )
     else:
-        bake_ok = l1_bake_declared(manifest, root)
+        selected = kind in selected_contribute
+        bake_file = l1_bake_declared(manifest, root)
+        checks.append(
+            {
+                "id": "l1_contribute_selected",
+                "ok": selected,
+                "plugin": kind,
+                "role": binding["role"],
+            }
+        )
         checks.append(
             {
                 "id": "l1_bake_declared",
-                "ok": bake_ok,
+                "ok": selected and bake_file,
                 "plugin": kind,
                 "role": binding["role"],
             }
@@ -203,6 +214,7 @@ def probe_locked(
     env = environ if environ is not None else os.environ
     provider_kind, path = provider_path(lock)
     bindings = bound_bindings(lock)
+    selected_contribute = selected_contribute_plugin_ids(lock) if path == "l1" else ()
     checks: list[dict[str, Any]] = []
     if path == "l1":
         docker_ok = (docker_reachable or docker_daemon_reachable)()
@@ -224,6 +236,7 @@ def probe_locked(
                     binding=binding,
                     path=path,
                     environ=env,
+                    selected_contribute=selected_contribute,
                 )
             )
     ready = all(bool(c.get("ok")) for c in checks)

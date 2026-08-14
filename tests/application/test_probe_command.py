@@ -87,10 +87,29 @@ def test_l1_passes_without_host_import(bora_home: Path, monkeypatch: pytest.Monk
     assert payload["probe"]["path"] == "l1"
     ids = {c["id"] for c in payload["probe"]["checks"]}
     assert "host_import" not in ids
+    assert "l1_contribute_selected" in ids
     assert "l1_bake_declared" in ids
     assert "docker_daemon" in ids
+    selected = next(c for c in payload["probe"]["checks"] if c["id"] == "l1_contribute_selected")
+    assert selected["ok"] is True
     bake = next(c for c in payload["probe"]["checks"] if c["id"] == "l1_bake_declared")
     assert bake["ok"] is True
+
+
+def test_l1_executor_without_extensions_fails(bora_home: Path) -> None:
+    del bora_home
+    payload, ready = build_probe_command().run(
+        database_root=DB,
+        task_id="l1-task",
+        profiles_path=DB / "profiles.no-ext.yaml",
+        environ={"PROBE_API_KEY": "x"},
+        docker_reachable=lambda: True,
+    )
+    assert ready is False
+    selected = next(c for c in payload["probe"]["checks"] if c["id"] == "l1_contribute_selected")
+    assert selected["ok"] is False
+    bake = next(c for c in payload["probe"]["checks"] if c["id"] == "l1_bake_declared")
+    assert bake["ok"] is False
 
 
 def test_l1_docker_down_fails(bora_home: Path) -> None:
