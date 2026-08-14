@@ -157,6 +157,10 @@ class ExtensionRegistry:
     def plugins_for_slot(self, slot: str) -> list[str]:
         return sorted((self._rows.get(slot) or {}).keys())
 
+    def slots_for_plugin(self, plugin_id: str) -> list[str]:
+        """Public slots this plugin registered (provide + on), stable order."""
+        return [slot for slot, rows in self._rows.items() if plugin_id in rows]
+
     def clear(self) -> None:
         self._rows.clear()
 

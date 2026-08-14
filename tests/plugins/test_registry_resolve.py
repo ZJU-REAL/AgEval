@@ -11,7 +11,7 @@ from bora.plugins.defaults import register_defaults
 from bora.plugins.errors import ExtensionPluginNotFoundError, UnknownExtensionSlotError
 from bora.plugins.lock_bind import extension_graph_to_lock
 from bora.plugins.middleware import run_chain
-from bora.plugins.protocol import BindingIntent, ExplicitBinding
+from bora.plugins.protocol import BindingIntent, ExplicitBinding, ExtensionSelect
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.resolve import resolve
 from bora.plugins.slots import BEFORE_AGENT_INVOKE, EXECUTOR
@@ -65,11 +65,11 @@ def test_two_intents_do_not_pollute() -> None:
     reg = ExtensionRegistry()
     register_defaults(reg)
     reg.provide(EXECUTOR, "nooa", _FakeExec(), priority=10, source="first-party")
-    reg.provide(EXECUTOR, "acp", _FakeExec(), priority=10, source="first-party")
+    reg.provide(EXECUTOR, "Official/acp", _FakeExec(), priority=10, source="first-party")
     g1 = resolve(BindingIntent(profile_id="solver", executor="nooa"), reg)
-    g2 = resolve(BindingIntent(profile_id="user", executor="acp"), reg)
+    g2 = resolve(BindingIntent(profile_id="user", executor="Official/acp"), reg)
     assert g1.providers[EXECUTOR].plugin_id == "nooa"
-    assert g2.providers[EXECUTOR].plugin_id == "acp"
+    assert g2.providers[EXECUTOR].plugin_id == "Official/acp"
     assert g1.profile_id == "solver"
     assert g2.profile_id == "user"
 
@@ -77,16 +77,16 @@ def test_two_intents_do_not_pollute() -> None:
 def test_lock_bind_includes_source_priority_replaced_default() -> None:
     reg = ExtensionRegistry()
     register_defaults(reg)
-    reg.provide(EXECUTOR, "acp", _FakeExec(), priority=100, source="first-party")
-    graph = resolve(BindingIntent(profile_id="solver", executor="acp"), reg)
+    reg.provide(EXECUTOR, "Official/acp", _FakeExec(), priority=100, source="first-party")
+    graph = resolve(BindingIntent(profile_id="solver", executor="Official/acp"), reg)
     frag = extension_graph_to_lock(graph)
     row = frag["executor"]
     assert row["kind"] == "provide"
-    assert row["plugin"] == "acp"
+    assert row["plugin"] == "Official/acp"
     assert row["source"] == "profile_executor_field"
     assert "priority" in row
     assert frag[BEFORE_AGENT_INVOKE]["kind"] == "on"
-    assert frag[BEFORE_AGENT_INVOKE]["chain"][0]["plugin"] == "default"
+    assert frag[BEFORE_AGENT_INVOKE]["chain"][0]["plugin"] == "Official/default"
 
 
 def test_multi_chain_order_lower_priority_number_first() -> None:
@@ -104,7 +104,16 @@ def test_multi_chain_order_lower_priority_number_first() -> None:
 
     make("late", 100)
     make("early", 10)
-    graph = resolve(BindingIntent(profile_id="s"), reg)
+    graph = resolve(
+        BindingIntent(
+            profile_id="s",
+            extension_selects=[
+                ExtensionSelect(plugin="late"),
+                ExtensionSelect(plugin="early"),
+            ],
+        ),
+        reg,
+    )
     result = asyncio.run(run_chain(graph, BEFORE_AGENT_INVOKE, "prompt"))
     assert result == "prompt"
     assert order[0] == "enter:early"
@@ -128,10 +137,10 @@ def test_executor_field_plugin_not_registered_fail_closed() -> None:
 def test_profile_executor_field_selects_plugin() -> None:
     reg = ExtensionRegistry()
     register_defaults(reg)
-    reg.provide(EXECUTOR, "acp", _FakeExec(), priority=100, source="first-party")
+    reg.provide(EXECUTOR, "Official/acp", _FakeExec(), priority=100, source="first-party")
     graph = resolve(
-        BindingIntent(profile_id="solver", executor="acp", options={"entry": "pi"}),
+        BindingIntent(profile_id="solver", executor="Official/acp", options={"entry": "pi"}),
         reg,
     )
-    assert graph.providers[EXECUTOR].plugin_id == "acp"
+    assert graph.providers[EXECUTOR].plugin_id == "Official/acp"
     assert graph.providers[EXECUTOR].source == "profile_executor_field"

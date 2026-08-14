@@ -30,7 +30,7 @@ def test_lock_cli_extension_bindings_solver_acp() -> None:
     data = json.loads(proc.stdout)
     bindings = data["extension_bindings"]
     assert "solver" in bindings
-    assert bindings["solver"]["executor"]["plugin"] == "acp"
+    assert bindings["solver"]["executor"]["plugin"] == "Official/acp"
     assert bindings["solver"]["executor"]["source"] == "profile_executor_field"
     assert bindings["solver"]["executor"]["kind"] == "provide"
     assert bindings["solver"]["before_agent_invoke"]["kind"] == "on"

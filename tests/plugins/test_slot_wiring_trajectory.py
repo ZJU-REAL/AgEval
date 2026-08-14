@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from bora.plugins.defaults import register_defaults
-from bora.plugins.protocol import BindingIntent
+from bora.plugins.protocol import BindingIntent, ExtensionSelect
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.resolve import resolve
 from bora.plugins.slots import (
@@ -86,7 +86,11 @@ def test_trajectory_chain_enriches_metadata_and_evidence_extra(tmp_path: Path) -
     reg.on(EVIDENCE_EXTRA, "spy", extras, priority=10, source="test")
     # trajectory_seal provide stays on default marker
 
-    graph = resolve(BindingIntent(profile_id="p"), reg, materialize=True)
+    graph = resolve(
+        BindingIntent(profile_id="p", extension_selects=[ExtensionSelect(plugin="spy")]),
+        reg,
+        materialize=True,
+    )
     inv_dir = tmp_path / "inv_001"
     inv_dir.mkdir()
     handle = _FakeHandle(inv_dir)
@@ -150,7 +154,11 @@ def test_trajectory_rewrite_on_collect_changes_prompt_written(tmp_path: Path) ->
         return out
 
     reg.on(TRAJECTORY_COLLECT, "spy", collect, priority=10, source="test")
-    graph = resolve(BindingIntent(profile_id="p"), reg, materialize=True)
+    graph = resolve(
+        BindingIntent(profile_id="p", extension_selects=[ExtensionSelect(plugin="spy")]),
+        reg,
+        materialize=True,
+    )
     inv_dir = tmp_path / "inv_002"
     inv_dir.mkdir()
     handle = _FakeHandle(inv_dir)

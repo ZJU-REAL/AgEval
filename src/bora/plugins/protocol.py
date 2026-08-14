@@ -69,6 +69,20 @@ class ExplicitBinding:
     source: str = "explicit"
 
 
+@dataclass(frozen=True, slots=True)
+class ExtensionSelect:
+    """One ``profiles.extensions`` row before per-slot expansion.
+
+    ``slots is None`` means every slot that plugin registered (provide + on).
+    """
+
+    plugin: str
+    slots: tuple[str, ...] | None = None
+    priority: int | None = None
+    replace_default: bool = False
+    source: str = "explicit"
+
+
 @dataclass
 class BindingIntent:
     """Per-profile binding intent used at resolve / lock time."""
@@ -77,6 +91,7 @@ class BindingIntent:
     executor: str | None = None  # sugar: executor slot selects this plugin's provide
     options: dict[str, Any] = field(default_factory=dict)
     extensions: list[ExplicitBinding] = field(default_factory=list)
+    extension_selects: list[ExtensionSelect] = field(default_factory=list)
     # Optional model / locator fields carried for factory materialize.
     model: str | None = None
     base_url: str | None = None
@@ -153,25 +168,23 @@ def intent_from_profile(profile: Mapping[str, Any]) -> BindingIntent:
     options_raw = profile.get("options")
     options: dict[str, Any] = dict(options_raw) if isinstance(options_raw, Mapping) else {}
     extensions: list[ExplicitBinding] = []
+    extension_selects: list[ExtensionSelect] = []
     ext_raw = profile.get("extensions")
-    if isinstance(ext_raw, Sequence) and not isinstance(ext_raw, (str, bytes)):
-        for item in ext_raw:
-            if not isinstance(item, Mapping):
-                continue
-            slot = item.get("slot")
-            plugin = item.get("plugin")
-            if not isinstance(slot, str) or not isinstance(plugin, str):
-                continue
-            prio = item.get("priority")
-            extensions.append(
-                ExplicitBinding(
-                    slot=str(slot),
-                    plugin=str(plugin),
-                    priority=int(prio) if prio is not None else None,
-                    replace_default=bool(item.get("replace_default")),
-                    source="explicit",
-                )
-            )
+    if ext_raw is None:
+        ext_raw = []
+    if not isinstance(ext_raw, Sequence) or isinstance(ext_raw, (str, bytes)):
+        from bora.plugins.errors import ExtensionRegistryError
+
+        raise ExtensionRegistryError(
+            "extensions must be a list of mappings",
+            kind="invalid_extension_binding",
+        )
+    for item in ext_raw:
+        parsed_binding, parsed_select = parse_extension_row(item)
+        if parsed_binding is not None:
+            extensions.append(parsed_binding)
+        if parsed_select is not None:
+            extension_selects.append(parsed_select)
     model_raw = profile.get("model")
     model = str(model_raw) if model_raw is not None else None
     base_url_raw = profile.get("base_url")
@@ -189,7 +202,89 @@ def intent_from_profile(profile: Mapping[str, Any]) -> BindingIntent:
         executor=executor,
         options=options,
         extensions=extensions,
+        extension_selects=extension_selects,
         model=model,
         base_url=base_url,
         api_key=api_key,
+    )
+
+
+def parse_extension_row(item: Any) -> tuple[ExplicitBinding | None, ExtensionSelect | None]:
+    """Parse one extensions row. ``{slot, plugin}`` is a single-slot binding."""
+    from bora.plugins.errors import ExtensionRegistryError
+
+    if not isinstance(item, Mapping):
+        raise ExtensionRegistryError(
+            "each extensions row must be a mapping",
+            kind="invalid_extension_binding",
+        )
+    plugin_raw = item.get("plugin")
+    if not isinstance(plugin_raw, str) or not plugin_raw.strip():
+        raise ExtensionRegistryError(
+            "extensions row requires plugin",
+            kind="invalid_extension_binding",
+        )
+    plugin = plugin_raw.strip()
+    slot_raw = item.get("slot")
+    slots_raw = item.get("slots")
+    prio = item.get("priority")
+    priority = int(prio) if prio is not None else None
+    replace_default = bool(item.get("replace_default"))
+    if slot_raw is not None and slots_raw is not None:
+        raise ExtensionRegistryError(
+            "extensions row cannot set both slot and slots",
+            kind="invalid_extension_binding",
+        )
+    if slot_raw is not None:
+        if not isinstance(slot_raw, str) or not slot_raw.strip():
+            raise ExtensionRegistryError(
+                "extensions.slot must be a non-empty string",
+                kind="invalid_extension_binding",
+            )
+        return (
+            ExplicitBinding(
+                slot=slot_raw.strip(),
+                plugin=plugin,
+                priority=priority,
+                replace_default=replace_default,
+                source="explicit",
+            ),
+            None,
+        )
+    if slots_raw is not None:
+        if not isinstance(slots_raw, Sequence) or isinstance(slots_raw, (str, bytes)):
+            raise ExtensionRegistryError(
+                "extensions.slots must be a list of slot ids",
+                kind="invalid_extension_binding",
+            )
+        if not slots_raw:
+            raise ExtensionRegistryError(
+                "extensions.slots must not be empty",
+                kind="invalid_extension_binding",
+            )
+        slots: list[str] = []
+        for slot in slots_raw:
+            if not isinstance(slot, str) or not slot.strip():
+                raise ExtensionRegistryError(
+                    "extensions.slots entries must be non-empty strings",
+                    kind="invalid_extension_binding",
+                )
+            slots.append(slot.strip())
+        return (
+            None,
+            ExtensionSelect(
+                plugin=plugin,
+                slots=tuple(slots),
+                priority=priority,
+                replace_default=replace_default,
+            ),
+        )
+    return (
+        None,
+        ExtensionSelect(
+            plugin=plugin,
+            slots=None,
+            priority=priority,
+            replace_default=replace_default,
+        ),
     )
