@@ -53,6 +53,7 @@ uv run bora --help
 | `bora results share\|unshare …`                               | Grant / revoke private result access (owner only)                                                  |
 | `bora results export-profiles <suite_run_id> --out …`         | Rehydrate job binding as profiles.yaml (locators only)                                             |
 | `bora view <database> [--dev] [--open …]`                     | Local Jobs UI (no Registry). `--dev` starts Vite when possible; `--open` deep-links a job/task/run |
+| `bora jobs delete --local <db> --job <id> --yes`              | Delete a local Job tree (suite always cascades Attempts). Preview without `--yes`; not Registry |
 | `bora publish … --org … [--draft] [--replace]`                | Package publish; `--draft` overwrites the draft slot; `--replace` is org-owner only                |
 | `bora release <database_id>`                                  | Owner: promote the current dataset draft to an immutable version                                   |
 | `bora registry delete\|set-visibility <id@ver>`               | Org-owner package delete (`--yes`) / visibility flip                                               |

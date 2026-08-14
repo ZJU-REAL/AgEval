@@ -19,6 +19,7 @@ from bora.cli import (
     cmd_cancel_submit,
     cmd_evidence_status,
     cmd_executors_publish_login,
+    cmd_jobs,
     cmd_plugin,
     cmd_registry,
     cmd_results,
@@ -66,6 +67,7 @@ cmd_plugin.register(app)
 cmd_registry.register(app)
 cmd_cache.register(app)
 cmd_results.register(app)
+cmd_jobs.register(app)
 cmd_view_tasks_lock.register(app)
 
 
