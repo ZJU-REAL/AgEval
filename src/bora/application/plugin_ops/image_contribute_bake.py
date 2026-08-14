@@ -19,18 +19,17 @@ from typing import Any
 from bora.adapters.provider_docker.images import (
     hash_copy_sources,
     inspect_image_digest,
+    is_official_base_noop_dockerfile,
     parse_dockerfile_copy_sources,
 )
 from bora.adapters.provider_docker.types import DockerImageLock
 from bora.config.model import LockedTaskConfig, thaw
 from bora.plugins.bootstrap import ensure_bootstrapped
 from bora.plugins.lifecycle import collect_image_contribute
+from bora.plugins.manifest import is_official_acp, is_official_plugin
 from bora.plugins.protocol import intent_from_profile
 from bora.plugins.resolve import resolve
 from bora.plugins.store import list_installed, resolve_package_root
-
-# First-party contrib: official L1 image BOM, not this bake path.
-FIRST_PARTY_PLUGIN_IDS: frozenset[str] = frozenset({"acp", "openai-http", "mock"})
 
 
 class ImageContributeError(Exception):
@@ -54,7 +53,9 @@ def _await(coro: Any) -> Any:
 def graphs_for_lock(lock: LockedTaskConfig) -> list[Any]:
     """Resolve materialized graphs for every agent profile (for multi-slot chains)."""
     reg = ensure_bootstrapped()
-    profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
+    profiles = (
+        thaw(getattr(lock, "agent_profiles", None)) if getattr(lock, "agent_profiles", None) else []
+    )
     graphs: list[Any] = []
     if not isinstance(profiles, list) or not profiles:
         return graphs
@@ -84,7 +85,9 @@ def collect_declares_for_lock(lock: LockedTaskConfig) -> list[Any]:
 
 
 def bound_executor_ids(lock: LockedTaskConfig) -> list[str]:
-    profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
+    profiles = (
+        thaw(getattr(lock, "agent_profiles", None)) if getattr(lock, "agent_profiles", None) else []
+    )
     if not isinstance(profiles, list):
         return []
     out: list[str] = []
@@ -151,8 +154,25 @@ def _base_content_digest(base_image: DockerImageLock) -> str:
     return base_image.build_input_digest or base_image.image_tag
 
 
+def plugin_id_for_image_tag(plugin_id: str) -> str:
+    """Docker tags cannot contain ``/``; Hub ``org/name`` becomes ``org--name``."""
+    return plugin_id.replace("/", "--")
+
+
 def baked_image_tag(base_image: DockerImageLock, plugin_id: str, bake_digest: str) -> str:
-    return f"{base_image.image_tag}-{plugin_id}-{bake_digest[:12]}"
+    return f"{base_image.image_tag}-{plugin_id_for_image_tag(plugin_id)}-{bake_digest[:12]}"
+
+
+def should_reuse_official_attempt_image(lock: LockedTaskConfig, dockerfile_text: str) -> bool:
+    """Official ACP + FROM-only package Dockerfile + no selected bake → reuse base."""
+    bound = bound_executor_ids(lock)
+    if not bound or any(not is_official_acp(kind) for kind in bound):
+        return False
+    declares = collect_declares_for_lock(lock)
+    external = [p for p in _plugin_ids_from_declares(declares) if not is_official_plugin(p)]
+    if external:
+        return False
+    return is_official_base_noop_dockerfile(dockerfile_text)
 
 
 def bake_plugin_layer(
@@ -231,7 +251,7 @@ def apply_image_contribute_bake(
     """Collect contribute declares and bake required plugin layers (fail closed)."""
     declares = collect_declares_for_lock(lock)
     bound = bound_executor_ids(lock)
-    external_bound = [k for k in bound if k not in FIRST_PARTY_PLUGIN_IDS]
+    external_bound = [k for k in bound if not is_official_plugin(k)]
     declared = _plugin_ids_from_declares(declares)
     meta: dict[str, Any] = {
         "declares": declares,
@@ -247,7 +267,7 @@ def apply_image_contribute_bake(
                 kind="image_contribute_unsatisfied",
             )
 
-    plugins_to_bake = [p for p in declared if p not in FIRST_PARTY_PLUGIN_IDS]
+    plugins_to_bake = [p for p in declared if not is_official_plugin(p)]
     if not plugins_to_bake:
         meta["status"] = "skipped"
         return base_image, meta
