@@ -105,7 +105,7 @@ ACP / nooa / …
 
 | `kind` | 字段 | 是否折进层 C |
 | --- | --- | --- |
-| `text` | `channel: thought\|assistant`，`text` | 是 |
+| `text` | `channel: thought\|assistant`，`text`，以及下文逐步耗时（按 burst 抄到层 C） | 是 |
 | `tool` | `phase: start\|update`，`tool_call_id`，可选 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output`，以及下文逐步耗时 | 是（Core 按 `tool_call_id` 合并） |
 | `permission` | `outcome` / `option_id` / `policy` | 是 |
 | `opaque` | 任意 `payload` | **否**（只留 `events.jsonl`） |
@@ -114,22 +114,23 @@ ACP / nooa / …
 
 ### 逐步耗时（观测；可选；fail-open）
 
-目的：Hub / Viewer 在 **单步**（尤其 `tool_call` / shell execute）上显示耗时，而不是只靠 Attempt 级 `phase_timing`。  
+目的：Hub / Viewer 在 **单步**（thought / `tool_call` / 最终 assistant）上显示耗时，而不是只靠 Attempt 级 `phase_timing`。  
 **观测字段，不是 PASS。** 缺字段必须省略，禁止 Viewer / Hub 用文件 mtime 或页面时钟补造。
 
 | 字段 | 位置 | 含义 |
 | --- | --- | --- |
 | `at` | 信封（任意 `kind`，可选） | 生产者观测到本事件的时间（ISO-8601 UTC） |
 | `elapsed_ms` | `kind: tool`（start 或 update，可选） | 该 `tool_call_id` 截至本事件的墙钟毫秒（≥ 0） |
-| `started_at` | `kind: tool`（可选） | 该 call 首次观测到的开始时间（ISO-8601 UTC） |
-| `ended_at` | `kind: tool`（可选） | 该 call 完成 / 末次 update 的时间（ISO-8601 UTC） |
+| `elapsed_ms` | `kind: text`（thought / assistant，可选） | 该次文本 burst（一次 LLM 回复）的墙钟毫秒（≥ 0） |
+| `started_at` | `kind: tool` 或 `kind: text`（可选） | 该 call / burst 首次观测到的开始时间（ISO-8601 UTC） |
+| `ended_at` | `kind: tool` 或 `kind: text`（可选） | 该 call / burst 完成时间（ISO-8601 UTC） |
 
 **谁写：**
 
 | 角色 | 写什么 |
 | --- | --- |
 | Executor Adapter / 插件 | vendor 流里已有 duration / timestamp 则映射；可把 **接收时刻** 写成 `at`（adapter 时钟）。vendor 没有则整组省略 |
-| Core evidence writer | 按 `tool_call_id` 合并后抄到层 C；**不**从 filesystem mtime 推断 |
+| Core evidence writer | 按 `tool_call_id` 合并 tool 耗时；把 **同一 burst** 的 text 耗时抄到对应 thought / assistant 行；**不**从 filesystem mtime 推断 |
 | Hub / Viewer | 层 C 有 `elapsed_ms` 才在步骤头显示；没有则不画标签 |
 
 **合并（Core，同一 `tool_call_id`）：**
@@ -139,7 +140,13 @@ ACP / nooa / …
 - `elapsed_ms` = 最后一条非空 `elapsed_ms`；若仍缺且 `started_at` + `ended_at` 都能解析，则用二者之差（毫秒，≥ 0）
 - 非法值（负数、非数字、无法解析的时间）丢弃，不当错误
 
-**层 C：** 合并结果写在对应 `type=tool_call` 行；若发出 `observation`，可抄同一组耗时。缺省字段省略。  
+**合并（Core，同一 thought / assistant burst）：**
+
+- 连续、中间无 tool 的同 channel `kind: text` 算一次 burst；burst 内可累加 `elapsed_ms`
+- 该 burst 的耗时只写在 **对应那一行**；禁止堆到本 invoke 第一条 thought，也禁止把 thought 耗时抄到最终 assistant
+- 缺字段省略
+
+**层 C：** tool 合并结果写在对应 `type=tool_call` 行；若发出 `observation`，可抄同一组耗时。thought / 最终 assistant 各带本 burst 耗时。缺省字段省略。  
 **禁止**用逐步耗时改 score / PASS / evaluator 输入。
 
 ## `trajectory.jsonl`（turn 级，训练默认）
@@ -157,15 +164,25 @@ ACP / nooa / …
 **推荐行类型（JSONL，一行一对象）：**
 
 1. `type=turn` · `role=user` · `content=<完整 prompt>` · `turn_index` · 可选 `session_id` · `source`（生产者）
-2. `type=turn` · `role=assistant` · `part=thought` · `content=<合并后的 thought>`（有则写）
-3. **`type=tool_call`** · action 侧（有则写；见下）
-4. **`type=observation`** · 该 call 的环境回传 / tool result（有则写；与 call 成对）
-5. `type=turn` · `role=assistant` · `content=<合并后的最终 assistant 文本>`
-6. `type=permission_decision` · batch auto-approve 等（有则写；evidence 决策摘要）
-7. `type=terminal` · `ok` / `error` · `structured` / `usage` / `stop_reason` / executor 元数据摘要
+2. **ReAct 循环（可重复，按层 B 顺序）：**
+   - `type=turn` · `role=assistant` · `part=thought` · `content=<该次 burst 的 thought>`（有则写；**一次 burst 一行**）
+   - **`type=tool_call`** · action 侧（有则写；见下）
+   - **`type=observation`** · 该 call 的环境回传 / tool result（有则写；与 call 成对）
+3. `type=turn` · `role=assistant` · `content=<最终 assistant 文本>`（本 invoke 终稿；后无 tool）
+4. `type=permission_decision` · batch auto-approve 等（有则写；evidence 决策摘要）
+5. `type=terminal` · `ok` / `error` · `structured` / `usage` / `stop_reason` / executor 元数据摘要
 
-行序建议：user → thought →（按首次出现顺序的 tool_call + observation 对）→ assistant 终稿 → permission → terminal。  
-无 tool 的 invoke **不写** 3–4。
+**行序（契约）：**
+
+```text
+user → (thought? → tool_call → observation)* → assistant (final) → permission* → terminal
+```
+
+层 C **只由 Core evidence writer** 写出（不在 adapter / 插件里拼行）。Core 按层 B 输入顺序（`seq`）行走：thought 出现就冲刷该 burst；某个 `tool_call_id` 完成、或下一条非 tool 事件开始时，写出该 call 的 `tool_call` + 可选 `observation`。
+
+**禁止**按 type 分桶（先拼全部 thought，再倒全部 tool）。无兼容路径：旧的「一条胖 thought + 全部 tool + 一条终稿」不再写出。
+
+无 tool 的 invoke **不写** tool_call / observation；连续、中间无 tool 的 thought 仍可合成一条。
 
 `source` 是机制/插件 id，**不是**恒为 `acp`。会话字段名是 `session_id`，不是 `acp_session_id`。
 
@@ -203,9 +220,10 @@ ACP / nooa / …
 | `elapsed_ms` / `started_at` / `ended_at` | 与对应 `tool_call` 同一组（有则抄；缺省省略） |
 | `turn_index` / `session_id` / `source` | 同上 |
 
-**合并规则：** 同一 `tool_call_id` 累积 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output` 以及逐步耗时（见上节）；seal 发一条 `tool_call` + 可选 `observation`。  
+**合并规则：** 同一 `tool_call_id` 累积 `title` / `function_name` / `tool_kind` / `status` / `args` / `content` / `raw_output` 以及逐步耗时（见上节）；在该 id 完成或下一条非 tool 事件开始时发一条 `tool_call` + 可选 `observation`。连续不同 id 的 tool 事件可并行缓冲，直到下一条非 tool。  
 **有 call 无 result：** 仍写 `tool_call`；observation 仅在存在 content / raw_output / 终态 completed|failed 时写出。  
-**禁止**只落盘 call 而系统性丢弃已有 result。
+**禁止**只落盘 call 而系统性丢弃已有 result。  
+**禁止**把跨 tool 的 thought 拼成一条，或把本 burst 以外的 `elapsed_ms` 抄到可见行。
 
 **Redaction：** `args` / `content` / `raw_output` 与既有轨迹 redact 同一路径（pattern + sentinels）；禁止 host secret / token 进入 `trajectory.jsonl`。
 
