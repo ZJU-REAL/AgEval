@@ -138,10 +138,12 @@ BORA Viewer is a **local results console** for one opened Database (no Registry)
 1. **Jobs** — suite runs under `.bora/suite-runs/` and unclaimed single Attempts
 2. **Tasks** — per-task rows inside a job summary
 3. **Trial / task detail** — run meta, reward/status, copyable `bora` command
-4. **Delete a Job** — Jobs-row action only. Suite delete always cascades
-   referenced Attempts. There is no control to delete one inner Attempt.
-   Preview paths and sizes, then confirm. Hub publish / upload / release stay
-   out of this UI.
+4. **Job row menu** — action slot is note, else pin, else hover settings.
+   Hover a note icon for the text. Click for Pin / Note / Delete.
+   Checkboxes select rows; with a selection, the filter-row count becomes
+   a bulk delete. Pin and notes live in this browser only. Delete still
+   previews, then confirms; suite delete always cascades Attempts. Hub
+   write stays out.
 
 Design is **Vercel product chrome**, not marketing hero mesh:
 
@@ -157,7 +159,7 @@ Upstream design inventory (marketing + full tokens) lives in the source
 
 | Route | Content |
 | --- | --- |
-| `/` | Jobs table: search, column sort, filters; delete row after preview |
+| `/` | Jobs table: search, filters, select, hover-reveal click menu (pin / note / delete) |
 | `/jobs/:jobId` | Tasks table for that suite run (no per-Attempt delete) |
 | `/jobs/:jobId/tasks/:taskId` | Trial-level detail + command strip |
 

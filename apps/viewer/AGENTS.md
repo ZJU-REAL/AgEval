@@ -27,10 +27,15 @@ When UI conflicts with taste: **DESIGN.md wins**.
    framework / docker / `provenance.upstream.url`. Multi-role groups Trajectory
    and Agent tree by `profile_id`. Usage/trajectory are observational ≠ PASS.
 5. **Breadcrumb** — `Jobs > jobId > taskId > runId` with `>` separators; click to navigate
-6. **Delete a local Job** — Jobs row action. Preview paths / bytes / cascade
-   `run_id`s, then confirm. Suite delete always removes referenced Attempts.
-   No delete control on an inner trial. Does not call Registry. Same
-   Application use case as `bora jobs delete --local … --yes`.
+6. **Delete a local Job** — Jobs row menu or bulk selection. Preview paths /
+   bytes / cascade `run_id`s, then confirm. Suite delete always removes
+   referenced Attempts. No delete control on an inner trial. Does not call
+   Registry. Same Application use case as `bora jobs delete --local … --yes`.
+7. **Pin / note (this browser)** — `localStorage` keyed by `database_id` +
+   `job_id`. Not written to evidence, lock, or Registry. Pinned rows sort
+   first. Action icon (always on): note, else pin, else hover settings.
+   Hover a note icon to read the note.
+   Click the settings/note control to open the menu (do not open on hover).
 
 **Out of scope unless user asks:**
 
