@@ -29,10 +29,14 @@ uv run bora plugin uninstall nooa
 bindings:
   solver:
     executor: nooa
+    extensions:
+      - plugin: nooa
     options:
       agent: "lib.agents:JsonlAggAgent"
       method: "run"
 ```
+
+`executor:` 只选 `provide(executor)`，**不**自动 bake 或挂上其它 `on:`。L1 需要 bake / 轨迹收集时，在同一 role 下写 `extensions`（短 id 与路径安装一致）。纯 ACP profile 省略 `extensions`。
 
 运行时用备用 profiles 文件切换，不必改 Database 默认 ACP 配置：
 
@@ -61,8 +65,10 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 | **profiles 绑定** | Job 选择该 executor |
 | **L1 Ready** | `image_contribute` 在 prepare 时 bake 进 Attempt 镜像；容器内执行 |
 
-有 install 成功 **不等于** L1 隔离路径已就绪。Docker L1 任务需 bake 成功后，才在
-容器内调用 worker（例如 nooa / dsh 的 in-container 路径）。
+有 install 成功 **不等于** L1 隔离路径已就绪。Docker L1 任务需该 profile 的
+`extensions` 选中 `image_contribute` 并 bake 成功后，才在容器内调用 worker
+（例如 nooa / dsh 的 in-container 路径）。已安装但未写入 `extensions` 的插件
+不会进 Attempt 镜像。
 
 ## 与 ACP 的关系
 

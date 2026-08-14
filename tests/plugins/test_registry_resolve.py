@@ -11,7 +11,7 @@ from bora.plugins.defaults import register_defaults
 from bora.plugins.errors import ExtensionPluginNotFoundError, UnknownExtensionSlotError
 from bora.plugins.lock_bind import extension_graph_to_lock
 from bora.plugins.middleware import run_chain
-from bora.plugins.protocol import BindingIntent, ExplicitBinding
+from bora.plugins.protocol import BindingIntent, ExplicitBinding, ExtensionSelect
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.resolve import resolve
 from bora.plugins.slots import BEFORE_AGENT_INVOKE, EXECUTOR
@@ -104,7 +104,16 @@ def test_multi_chain_order_lower_priority_number_first() -> None:
 
     make("late", 100)
     make("early", 10)
-    graph = resolve(BindingIntent(profile_id="s"), reg)
+    graph = resolve(
+        BindingIntent(
+            profile_id="s",
+            extension_selects=[
+                ExtensionSelect(plugin="late"),
+                ExtensionSelect(plugin="early"),
+            ],
+        ),
+        reg,
+    )
     result = asyncio.run(run_chain(graph, BEFORE_AGENT_INVOKE, "prompt"))
     assert result == "prompt"
     assert order[0] == "enter:early"

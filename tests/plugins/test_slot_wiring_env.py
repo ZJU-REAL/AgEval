@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 from bora.application.attempt import extension_hooks as hooks
 from bora.environment.manager import EnvironmentManager
 from bora.plugins.defaults import register_defaults
-from bora.plugins.protocol import BindingIntent
+from bora.plugins.protocol import BindingIntent, ExtensionSelect
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.resolve import resolve
 from bora.plugins.slots import ENV_ACTION, ENV_INJECT, ENV_PREPARE_COMMANDS, ENV_TEARDOWN_COMMANDS
@@ -55,7 +55,14 @@ def test_env_prepare_handler_does_real_work_and_rewrites_handoff(tmp_path: Path)
     reg.on(ENV_PREPARE_COMMANDS, "spy-env", after_prepare, priority=10, source="test")
     reg.on(ENV_INJECT, "spy-env", inject, priority=10, source="test")
     reg.on(ENV_TEARDOWN_COMMANDS, "spy-env", teardown, priority=10, source="test")
-    graph = resolve(BindingIntent(profile_id="p"), reg, materialize=True)
+    graph = resolve(
+        BindingIntent(
+            profile_id="p",
+            extension_selects=[ExtensionSelect(plugin="spy-env")],
+        ),
+        reg,
+        materialize=True,
+    )
 
     lock = _lock()
     handoff = {"ok": True, "resource": "postgresql"}
@@ -117,7 +124,14 @@ def test_env_action_provide_materializes() -> None:
         return AllowAll()
 
     reg.provide(ENV_ACTION, "gate-plugin", factory, priority=10, source="test", is_factory=True)
-    graph = resolve(BindingIntent(profile_id="p"), reg, materialize=True)
+    graph = resolve(
+        BindingIntent(
+            profile_id="p",
+            extension_selects=[ExtensionSelect(plugin="gate-plugin")],
+        ),
+        reg,
+        materialize=True,
+    )
     lock = _lock()
     with patch.object(hooks, "graph_for_lock", return_value=graph):
         spi = hooks.hook_env_action(lock, {"op": "prepare"})

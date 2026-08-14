@@ -1,16 +1,21 @@
 format: bora.profiles/1
 bindings:
   # L0: nooa host SPI + package FixedAnswerAgent (deterministic, capability-catalog known).
-  # slot-probe multi hooks still attach via install (env / trajectory / open / …).
+  # slot-probe multi hooks attach only when named here (install is Recognition only).
   probe-nooa:
     executor: nooa
+    extensions:
+      - plugin: nooa
+      - plugin: slot-probe
     options:
       agent: "lib.agents:FixedAnswerAgent"
       method: "run"
     model: none
-  # L1: real ACP in attempt-container.
+  # L1: real ACP in attempt-container. slot-probe still needs an explicit row.
   probe-acp:
     executor: acp
+    extensions:
+      - plugin: slot-probe
     options:
       entry: pi
     model: zai-coding-cn/glm-5.2

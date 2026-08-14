@@ -19,6 +19,7 @@ from typing import Any
 from bora.adapters.provider_docker.images import (
     hash_copy_sources,
     inspect_image_digest,
+    is_official_base_noop_dockerfile,
     parse_dockerfile_copy_sources,
 )
 from bora.adapters.provider_docker.types import DockerImageLock
@@ -27,6 +28,7 @@ from bora.plugins.bootstrap import ensure_bootstrapped
 from bora.plugins.lifecycle import collect_image_contribute
 from bora.plugins.protocol import intent_from_profile
 from bora.plugins.resolve import resolve
+from bora.plugins.slots import IMAGE_CONTRIBUTE
 from bora.plugins.store import list_installed, resolve_package_root
 
 # First-party contrib: official L1 image BOM, not this bake path.
@@ -54,7 +56,9 @@ def _await(coro: Any) -> Any:
 def graphs_for_lock(lock: LockedTaskConfig) -> list[Any]:
     """Resolve materialized graphs for every agent profile (for multi-slot chains)."""
     reg = ensure_bootstrapped()
-    profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
+    profiles = (
+        thaw(getattr(lock, "agent_profiles", None)) if getattr(lock, "agent_profiles", None) else []
+    )
     graphs: list[Any] = []
     if not isinstance(profiles, list) or not profiles:
         return graphs
@@ -84,7 +88,9 @@ def collect_declares_for_lock(lock: LockedTaskConfig) -> list[Any]:
 
 
 def bound_executor_ids(lock: LockedTaskConfig) -> list[str]:
-    profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
+    profiles = (
+        thaw(getattr(lock, "agent_profiles", None)) if getattr(lock, "agent_profiles", None) else []
+    )
     if not isinstance(profiles, list):
         return []
     out: list[str] = []
@@ -97,6 +103,30 @@ def bound_executor_ids(lock: LockedTaskConfig) -> list[str]:
             continue
         seen.add(kind)
         out.append(kind)
+    return out
+
+
+def _is_bootstrap_contribute(plugin_id: str, source: str) -> bool:
+    return (
+        plugin_id in FIRST_PARTY_PLUGIN_IDS
+        or plugin_id == "default"
+        or source in {"default", "first-party"}
+    )
+
+
+def selected_contribute_plugin_ids(lock: LockedTaskConfig) -> list[str]:
+    """Installed plugins this job selected on ``image_contribute`` (not bootstrap)."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for graph in graphs_for_lock(lock):
+        for href in graph.chain(IMAGE_CONTRIBUTE):
+            plugin_id = str(href.plugin_id)
+            if _is_bootstrap_contribute(plugin_id, str(href.source or "")):
+                continue
+            if plugin_id in seen:
+                continue
+            seen.add(plugin_id)
+            out.append(plugin_id)
     return out
 
 
@@ -151,8 +181,23 @@ def _base_content_digest(base_image: DockerImageLock) -> str:
     return base_image.build_input_digest or base_image.image_tag
 
 
+def plugin_id_for_image_tag(plugin_id: str) -> str:
+    """Docker tags cannot contain ``/``; Hub ``org/name`` becomes ``org--name``."""
+    return plugin_id.replace("/", "--")
+
+
 def baked_image_tag(base_image: DockerImageLock, plugin_id: str, bake_digest: str) -> str:
-    return f"{base_image.image_tag}-{plugin_id}-{bake_digest[:12]}"
+    return f"{base_image.image_tag}-{plugin_id_for_image_tag(plugin_id)}-{bake_digest[:12]}"
+
+
+def should_reuse_official_attempt_image(lock: LockedTaskConfig, dockerfile_text: str) -> bool:
+    """First-party ACP + FROM-only package Dockerfile + no selected bake → reuse base."""
+    bound = bound_executor_ids(lock)
+    if not bound or any(kind != "acp" for kind in bound):
+        return False
+    if selected_contribute_plugin_ids(lock):
+        return False
+    return is_official_base_noop_dockerfile(dockerfile_text)
 
 
 def bake_plugin_layer(
@@ -232,22 +277,23 @@ def apply_image_contribute_bake(
     declares = collect_declares_for_lock(lock)
     bound = bound_executor_ids(lock)
     external_bound = [k for k in bound if k not in FIRST_PARTY_PLUGIN_IDS]
-    declared = _plugin_ids_from_declares(declares)
+    selected = selected_contribute_plugin_ids(lock)
     meta: dict[str, Any] = {
         "declares": declares,
         "baked": [],
         "bound_executors": bound,
         "external_bound": external_bound,
+        "selected_contribute": selected,
     }
 
     for kind in external_bound:
-        if kind not in declared:
+        if kind not in selected:
             raise ImageContributeError(
                 f"executor {kind!r} bound but image_contribute chain empty or unsatisfied",
                 kind="image_contribute_unsatisfied",
             )
 
-    plugins_to_bake = [p for p in declared if p not in FIRST_PARTY_PLUGIN_IDS]
+    plugins_to_bake = [p for p in selected if p not in FIRST_PARTY_PLUGIN_IDS]
     if not plugins_to_bake:
         meta["status"] = "skipped"
         return base_image, meta

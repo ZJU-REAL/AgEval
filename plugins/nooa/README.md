@@ -36,6 +36,8 @@ Install updates `~/.bora/plugins` (or `$BORA_HOME/plugins`) only — **never** e
 bindings:
   solver:
     executor: nooa
+    extensions:
+      - plugin: nooa
     model: openai/glm-5.2
     api_key: litellm_api_key          # env locator
     # base_url: http://127.0.0.1:8000/v1   # optional; else litellm_base_url / OPENAI_BASE_URL
@@ -57,8 +59,9 @@ uv run bora run examples/journeys \
 ## Recognition ≠ Ready ≠ bind
 
 - **install** → Recognition only (`plugin list` / executor visible)
-- **profiles `executor: nooa`** → bind (+ model / base_url / api_key)
-- **L1 Ready** → `image_contribute` bake installs `nooa` + `bora-executor-nooa` in the Attempt image; invoke is **docker exec** with projected credentials
+- **profiles `executor: nooa`** → bind provide only (+ model / base_url / api_key)
+- **`extensions: [{plugin: nooa}]`** → opt-in bake / trajectory collect (required for L1 Ready)
+- **L1 Ready** → selected `image_contribute` bake installs `nooa` + `bora-executor-nooa` in the Attempt image; invoke is **docker exec** with projected credentials
 
 ## L1 Ready strategy
 

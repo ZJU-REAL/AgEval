@@ -97,8 +97,10 @@ the image).
 ## `image_contribute` + bake
 
 The handler appends a declare (`{plugin: <id>}`) onto the chain list, then
-`return await nxt(base)`. Core `docker buildx`es each declared external plugin
-that has `docker/Dockerfile.bake`. **Context = installed plugin root.**
+`return await nxt(base)`. Core `docker buildx`es each **extensions-selected**
+installed plugin that registered `image_contribute` and ships
+`docker/Dockerfile.bake`. **Context = installed plugin root.**
+`executor:` alone does not bake.
 
 ```dockerfile
 ARG BASE_IMAGE
@@ -131,6 +133,8 @@ format: bora.profiles/1
 bindings:
   solver:
     executor: my-mech
+    extensions:
+      - plugin: my-mech
     model: openai/glm-5.2
     api_key: litellm_api_key # locator
     options:

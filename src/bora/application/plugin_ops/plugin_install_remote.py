@@ -63,7 +63,7 @@ class PluginInstallCommand:
             extract_dir = Path(tmp) / "pkg"
             extract_dir.mkdir()
             extract_archive(archive, extract_dir)
-            entry = install_from_path(extract_dir)
+            entry = install_from_path(extract_dir, plugin_id=package_id)
         return {
             "ok": True,
             "plugin_id": entry.plugin_id,

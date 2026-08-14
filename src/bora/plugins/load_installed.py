@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import importlib
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from bora.plugins.manifest import PluginManifestError, load_manifest
+from bora.plugins.manifest import PluginManifest, PluginManifestError, load_manifest
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import get_slot_kind
 from bora.plugins.store import list_installed, resolve_package_root
@@ -44,6 +45,12 @@ def _import_entry(package_root: Path, entry: str) -> Any:
         raise
     except Exception as exc:  # noqa: BLE001
         raise PluginLoadError(f"import failed for {entry}: {exc}") from exc
+
+
+def _manifest_with_index_id(manifest: PluginManifest, plugin_id: str) -> PluginManifest:
+    if manifest.plugin_id == plugin_id:
+        return manifest
+    return replace(manifest, plugin_id=plugin_id)
 
 
 def register_manifest(
@@ -107,9 +114,10 @@ def load_installed_plugins(registry: ExtensionRegistry) -> list[str]:
             manifest = load_manifest(root)
         except PluginManifestError as exc:
             raise PluginLoadError(str(exc), kind=exc.kind) from exc
+        # Index id wins (Hub install stores org/name; path install keeps short id).
         register_manifest(
             registry,
-            manifest,
+            _manifest_with_index_id(manifest, entry.plugin_id),
             package_root=root,
             digest=entry.digest,
             source="installed",

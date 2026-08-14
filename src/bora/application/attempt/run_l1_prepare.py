@@ -29,6 +29,7 @@ def prepare_l1_runtime(
     from bora.application.plugin_ops.image_contribute_bake import (
         ImageContributeError,
         apply_image_contribute_bake,
+        should_reuse_official_attempt_image,
     )
     from bora.config.model import thaw
 
@@ -38,15 +39,20 @@ def prepare_l1_runtime(
         provider = {}
     dockerfile_rel = str(provider.get("dockerfile") or "environment/Dockerfile")
     platform = str(provider.get("platform") or "linux/arm64")
-    # Official base (FROM bora-attempt:l1) then package Dockerfile → Attempt image.
-    # Tag is content-addressed (Dockerfile + FROM digest + COPY set); not lock.digest.
-    ensure_base_image(Path.cwd())
-    pkg_image = build_package_image(
-        package_root=package_root,
-        dockerfile_rel=dockerfile_rel,
-        platform=platform,
-        repo_root=Path.cwd(),
-    )
+    # First-party ACP + FROM-only Dockerfile + no selected bake reuses bora-attempt:l1.
+    # Otherwise official base then package Dockerfile → content-addressed tag.
+    official = ensure_base_image(Path.cwd())
+    df = package_root / dockerfile_rel
+    dockerfile_text = df.read_text(encoding="utf-8") if df.is_file() else ""
+    if should_reuse_official_attempt_image(lock, dockerfile_text):
+        pkg_image = official
+    else:
+        pkg_image = build_package_image(
+            package_root=package_root,
+            dockerfile_rel=dockerfile_rel,
+            platform=platform,
+            repo_root=Path.cwd(),
+        )
     # Lifecycle prepare + image_contribute consume (fail closed).
     hook_prepare(lock, {"phase": "l1_prepare", "package_image": pkg_image.image_tag})
     try:

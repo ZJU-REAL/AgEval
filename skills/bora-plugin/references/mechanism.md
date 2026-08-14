@@ -7,7 +7,9 @@ authoring agents only; it does not own new contract.
 
 - First-party contrib bootstraps in Core: `acp`, `openai-http`, `mock` + default multi handlers.
 - External `bora plugin install` joins the same table. Recognition = first-party ∪ installed `provide(executor)`.
-- `profiles.executor: <plugin_id>` is sugar for the executor provide. `extensions:` can bind other slots explicitly.
+- `profiles.executor: <plugin_id>` is sugar for the executor provide only. It does **not** enable bake / trajectory / other `on:` slots.
+- `extensions:` is the opt-in list (`- plugin: nooa`, or `slots: [...]`, or `{slot, plugin}`). Installed-but-unlisted plugins stay off MULTI chains and off the image.
+- Local path install and `bora run` use the short `plugin.yaml` id. Hub publish/install uses `org/name`.
 - Resolve: explicit binding > lower priority wins; a tie with no explicit pick fail-closes.
 - `bora lock` writes the resolved graph as `extension_bindings` (plugin_id / slot / source / priority / digest).
 

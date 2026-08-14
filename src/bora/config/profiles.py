@@ -449,6 +449,9 @@ def project_job_overlay(
         for k in ("executor", "model", "base_url", "api_key", "label"):
             if k in raw and raw[k] is not None:
                 row[k] = raw[k]
+        extensions = raw.get("extensions")
+        if isinstance(extensions, Sequence) and not isinstance(extensions, (str, bytes)):
+            row["extensions"] = copy.deepcopy(list(extensions))
         options = secret_free_options(
             raw.get("options") if isinstance(raw.get("options"), Mapping) else None
         )

@@ -48,9 +48,15 @@ def test_bound_executor_ids() -> None:
 
 def test_apply_skips_first_party_only() -> None:
     lock = _lock_with_profiles([{"id": "s", "executor": "acp"}])
-    with patch(
-        "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
-        return_value=[{"plugin": "acp"}],
+    with (
+        patch(
+            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
+            return_value=[{"plugin": "acp"}],
+        ),
+        patch(
+            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            return_value=[],
+        ),
     ):
         out, meta = apply_image_contribute_bake(
             lock=lock, base_image=_base(), platform="linux/arm64"
@@ -68,6 +74,10 @@ def test_apply_fail_closed_when_bound_but_no_declare() -> None:
             "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[],
         ),
+        patch(
+            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            return_value=[],
+        ),
         pytest.raises(ImageContributeError) as ei,
     ):
         apply_image_contribute_bake(lock=lock, base_image=_base(), platform="linux/arm64")
@@ -82,6 +92,10 @@ def test_apply_fail_closed_when_not_installed() -> None:
         patch(
             "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[{"plugin": "nooa"}],
+        ),
+        patch(
+            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            return_value=["nooa"],
         ),
         patch(
             "bora.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
@@ -157,6 +171,10 @@ def test_apply_fail_closed_when_bake_file_missing(tmp_path: Path) -> None:
             return_value=[{"plugin": "nooa"}],
         ),
         patch(
+            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            return_value=["nooa"],
+        ),
+        patch(
             "bora.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
             return_value=empty,
         ),
@@ -184,6 +202,10 @@ def test_apply_reuses_baked_tag_without_inspect_suffix(tmp_path: Path) -> None:
         patch(
             "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[{"plugin": "nooa"}],
+        ),
+        patch(
+            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            return_value=["nooa"],
         ),
         patch(
             "bora.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",

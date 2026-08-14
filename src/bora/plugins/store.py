@@ -130,27 +130,31 @@ class contextlib_suppress:
         return True
 
 
-def install_from_path(source: Path) -> IndexEntry:
+def install_from_path(source: Path, *, plugin_id: str | None = None) -> IndexEntry:
     """Copy a plugin package into the local cache and update index.
 
     Does **not** modify project profiles / bora.yaml / task.yaml (§7.5).
+    *plugin_id* overrides the manifest id (Hub install records ``org/name``).
     """
     source = source.expanduser().resolve(strict=False)
     if not source.is_dir():
         raise PluginManifestError(f"plugin path is not a directory: {source}")
 
     manifest = load_manifest(source)
+    resolved_id = plugin_id.strip() if isinstance(plugin_id, str) and plugin_id.strip() else None
+    index_id = resolved_id or manifest.plugin_id
     digest = compute_tree_digest(source)
-    rel = f"{manifest.plugin_id}/{manifest.version}"
-    dest = package_dir(manifest.plugin_id, manifest.version)
+    rel = f"{index_id}/{manifest.version}"
+    dest = package_dir(index_id, manifest.version)
     dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp_prefix = index_id.replace("/", ".")
 
     # Idempotent: same digest already installed.
     if dest.is_dir():
         existing = compute_tree_digest(dest)
         if existing == digest:
             entry = IndexEntry(
-                plugin_id=manifest.plugin_id,
+                plugin_id=index_id,
                 version=manifest.version,
                 digest=digest,
                 path=rel,
@@ -163,7 +167,7 @@ def install_from_path(source: Path) -> IndexEntry:
         shutil.rmtree(dest)
 
     tmp_parent = dest.parent
-    tmp = Path(tempfile.mkdtemp(prefix=f".{manifest.plugin_id}.", dir=str(tmp_parent)))
+    tmp = Path(tempfile.mkdtemp(prefix=f".{tmp_prefix}.", dir=str(tmp_parent)))
     try:
         shutil.copytree(source, tmp / "pkg")
         os.replace(tmp / "pkg", dest)
@@ -181,7 +185,7 @@ def install_from_path(source: Path) -> IndexEntry:
         )
 
     entry = IndexEntry(
-        plugin_id=manifest.plugin_id,
+        plugin_id=index_id,
         version=manifest.version,
         digest=digest,
         path=rel,
@@ -209,10 +213,12 @@ def uninstall(plugin_id: str) -> bool:
     dest = plugins_root() / entry.path
     if dest.is_dir():
         shutil.rmtree(dest)
-    # Clean empty parent plugin_id dir
+    # Clean empty parent dirs (org/name nests two levels).
     parent = dest.parent
-    if parent.is_dir() and not any(parent.iterdir()):
+    root = plugins_root()
+    while parent != root and parent.is_dir() and not any(parent.iterdir()):
         parent.rmdir()
+        parent = parent.parent
     index.plugins = [p for p in index.plugins if p.plugin_id != plugin_id]
     save_index(index)
     return True

@@ -40,12 +40,16 @@ export type PackageRelease = {
   package_kind?: "database" | "plugin" | string;
   created_at?: number;
   org_id?: string;
+  /** Registry marketplace display: upload org is on the official-org allowlist. */
+  official?: boolean;
   /** Present on by-digest / version get for plugins. */
   plugin_preview?: PluginPreview;
   /** Draft slot (entitled callers only). */
   is_draft?: boolean;
   slot?: string;
   uploaded_by?: string;
+  /** Owner-set marketplace title; id stays database_id. */
+  display_name?: string;
 };
 
 export type OrgRow = {
@@ -241,6 +245,19 @@ export function encodeDatasetId(id: string): string {
   return encodeURIComponent(id);
 }
 
+/** Hub plugin/package id is ``org/name``. Display edits only the name leaf. */
+export function splitPackageId(id: string): { org: string | null; name: string } {
+  const slash = id.indexOf("/");
+  if (slash <= 0 || slash === id.length - 1) return { org: null, name: id };
+  return { org: id.slice(0, slash), name: id.slice(slash + 1) };
+}
+
+export function packageDisplayTitle(id: string, displayName?: string | null): string {
+  const { org, name } = splitPackageId(id);
+  const leaf = (displayName || "").trim() || name;
+  return org ? `${org}/${leaf}` : leaf;
+}
+
 export function decodeDatasetId(param: string): string {
   return decodeURIComponent(param);
 }
@@ -426,6 +443,30 @@ export async function getOrg(
   token: string | null,
 ): Promise<OrgRow> {
   return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}`, { token });
+}
+
+export async function updateOrgDisplayName(
+  orgId: string,
+  displayName: string,
+  token: string | null,
+): Promise<OrgRow> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}`, {
+    token,
+    method: "PATCH",
+    body: { display_name: displayName },
+  });
+}
+
+export async function updatePackageDisplayName(
+  packageId: string,
+  displayName: string,
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}`, {
+    token,
+    method: "PATCH",
+    body: { display_name: displayName },
+  });
 }
 
 export async function listOrgMembers(

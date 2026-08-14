@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
+import { DisplayNameEditor } from "@/components/display-name-editor";
 import { HoverTip } from "@/components/hover-tip";
 import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
@@ -24,6 +25,7 @@ import {
   listOrgInviteKeys,
   listOrgMembers,
   latestPackageByDatabase,
+  updateOrgDisplayName,
   listPackages,
   listResultShares,
   listSuites,
@@ -216,9 +218,15 @@ export function OrganizationDetailPage() {
       ) : (
         <>
           <div className="mb-4">
-            <h1 className="text-2xl font-semibold tracking-tight text-ink">
-              {title}
-            </h1>
+            <DisplayNameEditor
+              value={title}
+              canEdit={isOwner}
+              headingClassName="text-2xl font-semibold tracking-tight text-ink"
+              onSave={async (next) => {
+                const updated = await updateOrgDisplayName(orgId, next, token);
+                setOrg(updated);
+              }}
+            />
             <p className="font-mono text-sm text-mute mt-1">@{orgId}</p>
             {org?.role ? (
               <p className="text-xs text-body mt-1 capitalize">

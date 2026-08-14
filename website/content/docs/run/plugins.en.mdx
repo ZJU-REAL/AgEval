@@ -30,10 +30,17 @@ uv run bora plugin uninstall nooa
 bindings:
   solver:
     executor: nooa
+    extensions:
+      - plugin: nooa
     options:
       agent: "lib.agents:JsonlAggAgent"
       method: "run"
 ```
+
+`executor:` selects `provide(executor)` only — it does **not** bake or attach
+other `on:` slots. Add `extensions` on the same role when L1 needs bake /
+trajectory collect (short ids match a path install). ACP-only profiles omit
+`extensions`.
 
 Use an alternate profiles file at run time without changing Database ACP defaults:
 
@@ -63,9 +70,10 @@ fenced; bash stays local. This is not a BORA isolation claim.
 | **profiles bind** | Job selects that executor |
 | **L1 Ready** | `image_contribute` bake during prepare; execute in-container |
 
-A successful install does **not** imply the L1 isolated path is ready. Docker L1 tasks
-need a successful bake before the container worker runs (for example nooa or dsh
-in-container).
+A successful install does **not** imply the L1 isolated path is ready. Docker L1
+tasks need this profile's `extensions` to select `image_contribute` and a
+successful bake before the container worker runs (for example nooa or dsh
+in-container). Installed plugins that are not listed stay off the Attempt image.
 
 ## Relation to ACP
 

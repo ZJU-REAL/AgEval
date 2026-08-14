@@ -13,6 +13,32 @@ from services.registry.errors import RegistryAppError
 from services.registry.store import DraftRow, ReleaseRow, TokenInfo, now, release_to_dict
 
 
+def _normalize_plugin_name_segment(database_id: str, raw: object) -> str:
+    """Store only the name leaf. ``org/name`` ids cannot change the org prefix."""
+    from services.registry.org_service import _normalize_display_name
+
+    name = _normalize_display_name(raw)
+    org, _leaf = (database_id.split("/", 1) + [""])[:2] if "/" in database_id else ("", database_id)
+    if "/" in name:
+        prefix, rest = name.split("/", 1)
+        if org and prefix.casefold() != org.casefold():
+            raise RegistryAppError(
+                "invalid_request",
+                "display_name cannot change the org prefix",
+                http_status=400,
+            )
+        name = _normalize_display_name(rest)
+    if not name:
+        raise RegistryAppError("invalid_request", "display_name required", http_status=400)
+    if "/" in name:
+        raise RegistryAppError(
+            "invalid_request",
+            "display_name is the name after org/, not org/name",
+            http_status=400,
+        )
+    return name
+
+
 class PackageService:
     def __init__(
         self,
@@ -289,6 +315,11 @@ class PackageService:
             items = [i for i in items if i.get("package_kind") == package_kind]
         if mine:
             items = self._filter_mine(items, auth)
+        labels = self.meta.package_display_names()
+        for item in items:
+            label = labels.get(str(item.get("database_id") or ""))
+            if label:
+                item["display_name"] = label
         return {"items": items}
 
     def _filter_mine(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
@@ -319,6 +350,10 @@ class PackageService:
         draft = self.meta.get_draft(database_id)
         if draft is not None and self.access.entitled_to_draft(draft, auth):
             items.insert(0, release_to_dict(draft.as_release()))
+        label = self.meta.get_package_display_name(database_id)
+        if label:
+            for item in items:
+                item["display_name"] = label
         return {"database_id": database_id, "items": items}
 
     def serve_meta(
@@ -336,6 +371,9 @@ class PackageService:
             version=version,
         )
         payload = release_to_dict(row)
+        label = self.meta.get_package_display_name(database_id)
+        if label:
+            payload["display_name"] = label
         try:
             from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
@@ -464,6 +502,33 @@ class PackageService:
             "version": version,
             "blob_deleted": blob_deleted,
         }
+
+    def patch_display_name(
+        self, *, database_id: str, display_name: object, auth: TokenInfo
+    ) -> dict[str, Any]:
+        row = self._latest_managed_release(database_id, auth)
+        name = _normalize_plugin_name_segment(database_id, display_name)
+        stored = self.meta.set_package_display_name(database_id, name)
+        payload = release_to_dict(row)
+        if stored:
+            payload["display_name"] = stored
+        return payload
+
+    def _latest_managed_release(self, database_id: str, auth: TokenInfo) -> Any:
+        rows = self.meta.list_releases(
+            database_id_prefix=database_id,
+            include_private=True,
+        )
+        owned = [r for r in rows if r.database_id == database_id and self.can_manage(r, auth)]
+        if not owned:
+            draft = self.meta.get_draft(database_id)
+            if draft is not None and self.access.can_write_draft(
+                draft, org_id=draft.org_id, auth=auth
+            ):
+                return draft.as_release()
+            raise RegistryAppError("forbidden", "org owner required", http_status=403)
+        owned.sort(key=lambda r: r.created_at, reverse=True)
+        return owned[0]
 
     def patch_visibility(
         self, *, database_id: str, version: str, visibility: str, auth: TokenInfo

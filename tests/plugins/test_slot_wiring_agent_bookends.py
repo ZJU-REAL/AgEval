@@ -100,7 +100,14 @@ def _svc_with_spies() -> tuple[ParentAgentService, _FakeExecutor, list[str]]:
     reg.on(BEFORE_AGENT_INVOKE, "spy", rewrite_prompt, priority=10, source="test")
 
     svc = ParentAgentService(
-        profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
+        profiles=[
+            {
+                "id": "p1",
+                "executor": "fake",
+                "model": "m",
+                "extensions": [{"plugin": "spy"}],
+            }
+        ],
         agent_invocation_limit=5,
         attempt_id="att_test",
         offline_env="",
@@ -145,7 +152,14 @@ def test_open_hook_fail_closed_no_half_open_session() -> None:
 
     reg.on(BEFORE_AGENT_OPEN, "spy", boom, priority=10, source="test")
     svc = ParentAgentService(
-        profiles=[{"id": "p1", "executor": "fake", "model": "m"}],
+        profiles=[
+            {
+                "id": "p1",
+                "executor": "fake",
+                "model": "m",
+                "extensions": [{"plugin": "spy"}],
+            }
+        ],
         agent_invocation_limit=2,
         attempt_id="att_fail",
         offline_env="",

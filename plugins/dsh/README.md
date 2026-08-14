@@ -35,6 +35,8 @@ edits `profiles.yaml` / `bora.yaml` / `task.yaml`.
 bindings:
   solver:
     executor: dsh
+    extensions:
+      - plugin: dsh
     model: deepseek-v4-flash
     api_key: deepseek_api_key          # env locator
     options:
@@ -78,8 +80,9 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 ## Recognition ≠ Ready ≠ bind
 
 - **install** → Recognition only (`plugin list` / executor visible)
-- **profiles `executor: dsh`** → bind (+ model / api_key locator)
-- **L1 Ready** → `image_contribute` bake installs the SDK wheels +
+- **profiles `executor: dsh`** → bind provide only (+ model / api_key locator)
+- **`extensions: [{plugin: dsh}]`** → opt-in bake / trajectory collect (required for L1 Ready)
+- **L1 Ready** → selected `image_contribute` bake installs the SDK wheels +
   `bora-executor-dsh`; invoke is **docker exec** with projected `DEEPSEEK_API_KEY`
 
 Host SPI success is not L1 Ready. Offline (`BORA_OFFLINE_AGENT=1`) fail-closes

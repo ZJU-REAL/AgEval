@@ -355,6 +355,21 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/packages/(.+)/versions/([^/]+)",
         groups=("database_id", "version"),
     ),
+    Route(
+        "PATCH",
+        "patch_org",
+        access="org_owner",
+        pattern=r"/v1/orgs/([^/]+)",
+        groups=("org_id",),
+    ),
+    Route(
+        "PATCH",
+        "patch_package_display_name",
+        access="bearer",
+        pattern=r"/v1/packages/([^/]+(?:/[^/]+)*)",
+        groups=("database_id",),
+        predicate=_package_id_list_ok,
+    ),
 )
 
 

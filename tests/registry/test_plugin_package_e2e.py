@@ -109,6 +109,9 @@ def test_publish_plugin_preview_and_install(
     plugin_items = listed.get("items") or []
     assert any(i.get("database_id") == summary["package_id"] for i in plugin_items)
     assert all(i.get("package_kind") == "plugin" for i in plugin_items)
+    echo_row = next(i for i in plugin_items if i.get("database_id") == summary["package_id"])
+    assert echo_row.get("official") is False
+    assert echo_row.get("org_id") == TEST_ORG
     db_req = urllib.request.Request(
         registry_server["url"] + "/v1/packages?package_kind=database",
         headers={"Authorization": f"Bearer {registry_server['token']}"},
@@ -121,7 +124,9 @@ def test_publish_plugin_preview_and_install(
 
     installed = install_plugin_from_registry(ref)
     assert installed["ok"] is True
-    assert installed["plugin_id"] == "sample-echo"
+    assert installed["plugin_id"] == f"{TEST_ORG}/sample-echo"
+    assert installed["version"] == summary["version"]
+    assert installed["digest"].startswith("sha256:")
     assert (home / "plugins" / "index.json").is_file()
 
 
