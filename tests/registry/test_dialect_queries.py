@@ -48,6 +48,23 @@ def test_upsert_token_does_not_bind_created_at() -> None:
     assert "created_at" not in Q.UPSERT_TOKEN
 
 
+def test_sqlite_align_integer_flag_is_noop(tmp_path) -> None:
+    from services.registry.sql_adapter import SqliteAdapter
+
+    adapter = SqliteAdapter(tmp_path / "meta.sqlite3")
+    with adapter.connect() as conn:
+        adapter.align_integer_flag(conn, "organizations", "is_claimable")
+
+
+def test_align_integer_flag_rejects_bad_ident() -> None:
+    import pytest
+    from services.registry.sql_adapter import PostgresAdapter
+
+    fake = object.__new__(PostgresAdapter)
+    with pytest.raises(ValueError, match="identifier"):
+        fake.align_integer_flag(None, "organizations;drop", "is_claimable")
+
+
 def test_store_has_no_sql_literals() -> None:
     from pathlib import Path
 

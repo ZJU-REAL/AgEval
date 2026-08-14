@@ -6,12 +6,21 @@ translate placeholders, and map rows to ``Mapping``.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from services.registry.dialect import pg_sql
+
+_SQL_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _require_ident(name: str) -> str:
+    if not _SQL_IDENT.fullmatch(name):
+        raise ValueError(f"invalid SQL identifier: {name!r}")
+    return name
 
 
 class _MappedCursor:
@@ -75,6 +84,10 @@ class SqliteAdapter:
             return
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
+    def align_integer_flag(self, conn: Any, table: str, column: str) -> None:
+        """SQLite stores flags as INTEGER; nothing to rewrite."""
+        del conn, table, column
+
 
 class PostgresAdapter:
     """Postgres connect / placeholder translation / row-map."""
@@ -107,3 +120,26 @@ class PostgresAdapter:
 
     def add_column(self, conn: Any, table: str, column: str, decl: str) -> None:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {decl}")
+
+    def align_integer_flag(self, conn: Any, table: str, column: str) -> None:
+        """Live Postgres may have BOOLEAN while CREATE TABLE text uses INTEGER."""
+        table = _require_ident(table)
+        column = _require_ident(column)
+        cur = conn.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name = %s AND column_name = %s",
+            (table, column),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return
+        dtype = row["data_type"] if hasattr(row, "keys") else row[0]
+        if str(dtype).lower() != "boolean":
+            return
+        conn.execute(f"ALTER TABLE {table} ALTER COLUMN {column} DROP DEFAULT")
+        conn.execute(
+            f"ALTER TABLE {table} ALTER COLUMN {column} TYPE integer "
+            f"USING (CASE WHEN {column} THEN 1 ELSE 0 END)"
+        )
+        conn.execute(f"ALTER TABLE {table} ALTER COLUMN {column} SET DEFAULT 0")
+        conn.execute(f"ALTER TABLE {table} ALTER COLUMN {column} SET NOT NULL")

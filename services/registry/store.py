@@ -514,6 +514,8 @@ class MetadataStore(MetadataStoreProtocol):
                 self._exec(conn, stmt)
             for table, column, decl in Q.SCHEMA_MIGRATIONS:
                 self._adapter.add_column(conn, table, column, decl)
+            for table, column in Q.SCHEMA_INTEGER_FLAGS:
+                self._adapter.align_integer_flag(conn, table, column)
             conn.commit()
 
     def insert(self, row: ReleaseRow) -> None:

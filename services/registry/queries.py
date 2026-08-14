@@ -107,9 +107,7 @@ ON CONFLICT(database_id) DO UPDATE SET
     updated_at=excluded.updated_at
 """
 
-SELECT_PACKAGE_DISPLAY_NAME = (
-    "SELECT display_name FROM package_display_names WHERE database_id=?"
-)
+SELECT_PACKAGE_DISPLAY_NAME = "SELECT display_name FROM package_display_names WHERE database_id=?"
 
 SELECT_PACKAGE_DISPLAY_NAMES = "SELECT database_id, display_name FROM package_display_names"
 
@@ -305,6 +303,9 @@ LIST_DATASET_ACL_FOR_USER = (
 )
 
 DELETE_DATASET_ACL = "DELETE FROM dataset_acl WHERE database_id=? AND user_id=?"
+
+# Live Postgres may have created these as BOOLEAN; inserts bind 0/1 (INTEGER).
+SCHEMA_INTEGER_FLAGS: tuple[tuple[str, str], ...] = (("organizations", "is_claimable"),)
 
 # (table, column, sqlite/postgres-compatible type clause)
 SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
