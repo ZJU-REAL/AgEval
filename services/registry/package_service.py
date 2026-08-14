@@ -506,8 +506,6 @@ class PackageService:
     def patch_display_name(
         self, *, database_id: str, display_name: object, auth: TokenInfo
     ) -> dict[str, Any]:
-        from services.registry.org_service import _normalize_display_name
-
         row = self._latest_managed_release(database_id, auth)
         name = _normalize_plugin_name_segment(database_id, display_name)
         stored = self.meta.set_package_display_name(database_id, name)
@@ -521,11 +519,7 @@ class PackageService:
             database_id_prefix=database_id,
             include_private=True,
         )
-        owned = [
-            r
-            for r in rows
-            if r.database_id == database_id and self.can_manage(r, auth)
-        ]
+        owned = [r for r in rows if r.database_id == database_id and self.can_manage(r, auth)]
         if not owned:
             draft = self.meta.get_draft(database_id)
             if draft is not None and self.access.can_write_draft(

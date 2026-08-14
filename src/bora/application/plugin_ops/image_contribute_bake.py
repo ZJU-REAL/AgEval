@@ -278,7 +278,6 @@ def apply_image_contribute_bake(
     bound = bound_executor_ids(lock)
     external_bound = [k for k in bound if k not in FIRST_PARTY_PLUGIN_IDS]
     selected = selected_contribute_plugin_ids(lock)
-    declared = _plugin_ids_from_declares(declares)
     meta: dict[str, Any] = {
         "declares": declares,
         "baked": [],

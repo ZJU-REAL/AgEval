@@ -129,9 +129,7 @@ def test_path_install_keeps_short_id(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert list_installed() == []
 
 
-def test_hub_install_records_namespaced_id(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_hub_install_records_namespaced_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("BORA_HOME", str(home))
@@ -152,9 +150,7 @@ def test_hub_install_records_namespaced_id(
     assert list_installed()[0].plugin_id == "Official/nooa"
 
 
-def test_hub_install_registers_index_id(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_hub_install_registers_index_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("BORA_HOME", str(home))
@@ -175,8 +171,9 @@ def test_hub_install_registers_index_id(
 
 
 def test_release_dict_marks_official_from_allowlist() -> None:
-    from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
     from services.registry.store import ReleaseRow, release_to_dict
+
+    from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
     official = release_to_dict(
         ReleaseRow(
