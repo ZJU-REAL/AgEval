@@ -13,6 +13,7 @@ from services.registry.app import build_default_state, make_handler
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
 from bora.application.composition import build_publish_command, build_results_commands
+from bora.application.registry_ops.registry_org_command import RegistryOrgCommands
 from bora.registry.client import RegistryClient, RegistryError
 from bora.registry.credentials import write_credentials
 
@@ -42,6 +43,36 @@ def _user_token(state, *, user: str, scopes=DEFAULT_LOGIN_SCOPES) -> str:
     raw = f"tok-{user}"
     state.tokens.add(raw, scopes, github_user=user)
     return raw
+
+
+def test_official_org_reserved_admin_adds_and_removes_member(
+    registry_server, tmp_path: Path
+) -> None:
+    url = registry_server["url"]
+    boot = RegistryClient(url, token=registry_server["token"])
+    alice = RegistryClient(url, token=_user_token(registry_server["state"], user="alice"))
+
+    with pytest.raises(RegistryError) as ei:
+        alice.create_org(name="official", display_name="Official")
+    assert ei.value.status == 403
+
+    org = boot.create_org(name="official", display_name="Official", is_claimable=True)
+    assert org["org_id"] == "official"
+    assert org["is_claimable"] is False
+
+    with pytest.raises(RegistryError) as claim_err:
+        alice._request("POST", "/v1/orgs/official/claim")
+    assert claim_err.value.status == 403
+
+    cmds = RegistryOrgCommands(
+        client_factory=lambda **_kw: RegistryClient(url, token=registry_server["token"])
+    )
+    added = cmds.add_member(org_id="official", user_id="Alice", role="owner")
+    assert added["user_id"] == "alice"
+    assert added["role"] == "owner"
+    removed = cmds.remove_member(org_id="official", user_id="Alice")
+    assert removed["ok"] is True
+    assert removed["user_id"] == "alice"
 
 
 def test_org_create_list_and_publish_requires_org(

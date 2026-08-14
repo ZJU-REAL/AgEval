@@ -9,6 +9,7 @@ from typing import Any
 
 from services.registry.access import AccessPolicy
 from services.registry.errors import RegistryAppError
+from services.registry.official import is_official_upload_org
 from services.registry.store import (
     TokenInfo,
     _normalize_user_id,
@@ -72,6 +73,14 @@ class OrgService:
                 "name must be lowercase slug [a-z0-9][a-z0-9_-]*",
                 http_status=400,
             )
+        if is_official_upload_org(name) and not AccessPolicy.is_admin(auth.scopes):
+            raise RegistryAppError(
+                "forbidden",
+                "official org is reserved; admin required",
+                http_status=403,
+            )
+        if is_official_upload_org(name):
+            is_claimable = False
         try:
             org = self.meta.create_org(
                 name=name,
@@ -122,8 +131,15 @@ class OrgService:
     def claim(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:
         if not auth.user_id:
             raise RegistryAppError("unauthorized", "user identity required", http_status=401)
+        org_id = org_id.casefold()
+        if is_official_upload_org(org_id):
+            raise RegistryAppError(
+                "forbidden",
+                "official org is reserved; cannot claim",
+                http_status=403,
+            )
         try:
-            org = self.meta.claim_org(org_id.casefold(), auth.user_id)
+            org = self.meta.claim_org(org_id, auth.user_id)
         except LookupError as exc:
             raise RegistryAppError("not_found", "org not found", http_status=404) from exc
         except PermissionError as exc:

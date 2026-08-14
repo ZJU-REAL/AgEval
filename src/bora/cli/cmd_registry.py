@@ -72,6 +72,63 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2) from exc
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
 
+    @sub.command("org-add-member")
+    def registry_org_add_member(
+        org_id: Annotated[str, typer.Argument(help="Org slug.")],
+        user: Annotated[str, typer.Argument(help="GitHub login to add.")],
+        role: Annotated[
+            str,
+            typer.Option("--role", help="owner or member."),
+        ] = "member",
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry URL."),
+        ] = None,
+    ) -> None:
+        """Add a member by GitHub login. Target need not be logged in."""
+        from bora.application.composition import build_registry_org_commands
+
+        add_member = build_registry_org_commands().add_member
+        from bora.config.errors import ConfigError
+
+        try:
+            summary = add_member(
+                org_id=org_id,
+                user_id=user,
+                role=role,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+    @sub.command("org-remove-member")
+    def registry_org_remove_member(
+        org_id: Annotated[str, typer.Argument(help="Org slug.")],
+        user: Annotated[str, typer.Argument(help="GitHub login to remove.")],
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry URL."),
+        ] = None,
+    ) -> None:
+        """Remove a member by GitHub login. Target need not be logged in."""
+        from bora.application.composition import build_registry_org_commands
+
+        remove_member = build_registry_org_commands().remove_member
+        from bora.config.errors import ConfigError
+
+        try:
+            summary = remove_member(
+                org_id=org_id,
+                user_id=user,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
     @sub.command("list")
     def registry_list_command(
         prefix: Annotated[

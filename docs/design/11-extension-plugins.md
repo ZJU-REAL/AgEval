@@ -110,7 +110,7 @@ evaluate     → evaluation_input_contribute → evaluation_runtime
 
 `bora lock` / `bora run` / 路径 `bora plugin install` **只**从 bootstrap ∪ 本地 index resolve；缺绑定 id → fail closed。**不**问插件是否 official，**不**调 Registry，**不**用环境变量把 `nooa` 改写成 `${OFFICIAL_ORG}/nooa`（lock digest 不得随 env 漂移）。路径安装不需要凭据或 Registry URL。
 
-「Official」是 **市场展示策略**，不是运行时门闩。默认 allowlist 是单个 Registry 常量（org slug `official`，与 `org-create` 小写规则一致）。可选覆盖只在 **Registry 进程**（如 `BORA_OFFICIAL_ORGS`）——不是前端 `VITE_*`，也不是 CLI→Registry 拉取。改 allowlist **不得**要求改 `plugins/nooa/plugin.yaml` 或 journeys profiles。比较时 casefold，避免 `Official` / `official` 漂移。
+「Official」是 **市场展示策略**，不是运行时门闩。默认 allowlist 是单个 Registry 常量（org slug `official`，与 `org-create` 小写规则一致）。可选覆盖只在 **Registry 进程**（如 `BORA_OFFICIAL_ORGS`）——不是前端 `VITE_*`，也不是 CLI→Registry 拉取。改 allowlist **不得**要求改 `plugins/nooa/plugin.yaml` 或 journeys profiles。比较时 casefold，避免 `Official` / `official` 漂移。allowlist 上的 slug **禁止自助 create / claim**；只有带 `admin` scope 的 token（启动时的 `BORA_REGISTRY_BOOTSTRAP_TOKEN`）能创建。成员由 admin 或 org owner 按 GitHub login 写入，对方不必在线。bootstrap token 留在运维手里，不发给 owner。
 
 Core 槽 id（`executor`、`image_contribute`、…）仍归 Core。
 

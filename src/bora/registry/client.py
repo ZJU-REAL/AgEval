@@ -582,6 +582,15 @@ class RegistryClient:
             raise RegistryError("org_member_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
 
+    def remove_org_member(self, *, org_id: str, user_id: str) -> dict[str, Any]:
+        status, raw, _ = self._request(
+            "DELETE",
+            f"/v1/orgs/{quote(org_id, safe='')}/members/{quote(user_id, safe='')}",
+        )
+        if status != 200:
+            raise RegistryError("org_member_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
     def share_result(
         self,
         *,

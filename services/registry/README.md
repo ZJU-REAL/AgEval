@@ -44,6 +44,11 @@ export BORA_REGISTRY_TOKEN=<token>
 # Orgs (packages must belong to an org; results belong to the uploader)
 uv run bora registry org-create my-lab --display-name "My Lab"
 uv run bora registry org-list
+# Reserved official slugs (BORA_OFFICIAL_ORGS, default official): admin only.
+# Bootstrap token stays with operators; add owners by GitHub login.
+# uv run bora registry org-create official --display-name Official
+# uv run bora registry org-add-member official alice --role owner
+# uv run bora registry org-remove-member official alice
 
 uv run bora publish tests/fixtures/databases/publish-min --org my-lab
 # Same version again conflicts (409) unless explicit replace (org owner):

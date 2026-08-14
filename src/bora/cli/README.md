@@ -94,6 +94,7 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora registry list\|show` | Browse remote packages |
 | `bora registry delete\|set-visibility` | Owner ops on `database_id@version` (org owner; delete needs `--yes`) |
 | `bora registry org-create\|org-list` | Create / list organizations (packages belong to orgs) |
+| `bora registry org-add-member\|org-remove-member` | Add / remove org members by GitHub login (owner or admin; target need not be logged in) |
 | `bora cache list\|path\|purge` | Local verified cache |
 | `bora results upload\|get\|list` | Attempt run evidence bundles; upload accepts `--replace` |
 | `bora results upload-suite\|get-suite\|list-suites` | Suite/job aggregates + task refs (no suite PASS); meta may include `job_overlay` |
@@ -234,6 +235,10 @@ export BORA_REGISTRY_TOKEN=<bootstrap-or-ci-token>
 
 uv run bora registry org-create my-lab --display-name "My Lab"
 uv run bora registry org-list
+# Official slug (default `official`) is reserved: admin bootstrap token only.
+# uv run bora registry org-create official
+# uv run bora registry org-add-member official alice --role owner
+# uv run bora registry org-remove-member official alice
 
 # Default visibility private; explicit public. --org is required.
 uv run bora publish tests/fixtures/databases/publish-min --org my-lab

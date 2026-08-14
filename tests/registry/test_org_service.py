@@ -33,3 +33,42 @@ def test_list_members_visible_to_member(tmp_path: Path) -> None:
     payload = svc.list_members(org_id="acme", auth=owner)
     assert payload["org_id"] == "acme"
     assert any(item["user_id"] == "alice" for item in payload["items"])
+
+
+def _user(*, admin: bool = False, user_id: str = "alice") -> TokenInfo:
+    scopes = frozenset({"admin"}) if admin else frozenset({"registry:publish"})
+    return TokenInfo(scopes=scopes, user_id=user_id)
+
+
+def test_non_admin_cannot_create_official_org(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    with pytest.raises(RegistryAppError) as ei:
+        svc.create(name="official", display_name="Official", is_claimable=False, auth=_user())
+    assert ei.value.http_status == 403
+    assert ei.value.error == "forbidden"
+
+
+def test_admin_creates_official_org_not_claimable(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    payload = svc.create(
+        name="Official",
+        display_name="Official",
+        is_claimable=True,
+        auth=_user(admin=True, user_id="bootstrap"),
+    )
+    assert payload["org_id"] == "official"
+    assert payload["is_claimable"] is False
+
+
+def test_official_org_cannot_be_claimed(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    svc.meta.create_org(
+        name="official",
+        owner_user_id="bootstrap",
+        display_name="Official",
+        is_claimable=True,
+    )
+    with pytest.raises(RegistryAppError) as ei:
+        svc.claim(org_id="official", auth=_user())
+    assert ei.value.http_status == 403
+    assert "cannot claim" in ei.value.message

@@ -96,7 +96,7 @@ def build_registry_list_commands() -> Any:
 
 
 def build_registry_org_commands() -> Any:
-    """Org create / list."""
+    """Org create / list / add-member / remove-member."""
     from bora.application.registry_ops.registry_org_command import RegistryOrgCommands
 
     return RegistryOrgCommands(client_factory=build_registry_client)
