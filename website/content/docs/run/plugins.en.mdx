@@ -30,6 +30,8 @@ uv run bora plugin uninstall nooa
 bindings:
   solver:
     executor: nooa
+    extensions:
+      - plugin: nooa
     options:
       agent: "lib.agents:JsonlAggAgent"
       method: "run"
@@ -69,7 +71,9 @@ in-container).
 
 ## Relation to ACP
 
-The default coding-agent path remains `executor: acp` + `options.entry`. Plugins are
-**optional** mechanisms beside first-party ACP; the same harness switches only via profiles.
+The default coding-agent path remains `executor: Official/acp` + `options.entry`.
+Install does not bake a plugin into an ACP-only job. Name the plugin under
+`extensions` to opt in to bake and other `on:` slots. Plugins are **optional**
+mechanisms beside first-party ACP; the same harness switches only via profiles.
 
 Mechanism contracts live in design docs (`docs/design`); this page does not raise evidence grades.

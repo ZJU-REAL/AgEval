@@ -131,6 +131,8 @@ format: bora.profiles/1
 bindings:
   solver:
     executor: my-mech
+    extensions:
+      - plugin: my-mech
     model: openai/glm-5.2
     api_key: litellm_api_key # locator
     options:

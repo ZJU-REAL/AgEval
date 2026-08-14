@@ -62,7 +62,7 @@ uv run bora executors -v   # + tools/session/stream; .acp_entries[] for ACP
 ```
 
 - **`.supported`**: kinds valid for yaml `executor:` (this BORA install).
-- **Coding agents (ACP Target):** `executor: acp` + `options.entry`.
+- **Coding agents (ACP Target):** `executor: Official/acp` + `options.entry`.
 - **HTTP agents:** e.g. `executor: openai-http` (+ optional `base_url` / `api_key` locator).
 - Unknown kind fails at lock (`unsupported_capability`).
 - Private CLI kinds (`codex` / `pi` / `opencode` / `claude-code` as **executor**) are **removed**; use ACP entry ids instead.
@@ -72,12 +72,12 @@ uv run bora executors -v   # + tools/session/stream; .acp_entries[] for ACP
 ```yaml
 agent_profiles:
   - id: codex-acp
-    executor: acp
+    executor: Official/acp
     model: entry-default          # or a model the entry accepts
     options:
       entry: codex                # registry entry_id
   - id: pi-acp
-    executor: acp
+    executor: Official/acp
     model: zai-coding-cn/glm-5.2
     api_key: glm_coding_api_key   # host env locator name only
     options:
@@ -86,7 +86,7 @@ agent_profiles:
 
 | Field | Rule |
 | --- | --- |
-| `options.entry` | **Required** when `executor: acp`. Registry ids (discover via `bora executors -v` → `acp_entries`): typically `codex`, `claude-code`, `pi`, `opencode`, `grok-build`. |
+| `options.entry` | **Required** when `executor: Official/acp`. Registry ids (discover via `bora executors -v` → `acp_entries`): typically `codex`, `claude-code`, `pi`, `opencode`, `grok-build`. |
 | `options.command` / `version` / `install_command` / … | **Forbidden** in package yaml (registry owns pins). |
 | Host readiness | Per-entry `engine_ready` + `acp_entry_ready` in inventory — not the same as yaml `executor` kind. |
 

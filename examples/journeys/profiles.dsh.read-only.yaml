@@ -12,6 +12,8 @@ format: bora.profiles/1
 bindings:
   solver:
     executor: dsh
+    extensions:
+      - plugin: dsh
     model: deepseek-v4-flash
     api_key: deepseek_api_key
     options:

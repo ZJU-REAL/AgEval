@@ -230,7 +230,7 @@ evaluation:
 format: bora.profiles/1
 bindings:
   solver:
-    executor: acp
+    executor: Official/acp
     options:
       entry: opencode       # registry: codex | claude-code | pi | opencode | grok-build
     model: entry-default
@@ -318,11 +318,11 @@ uv run bora plugin list        # installed mechanism plugins (e.g. nooa)
 | Surface | Meaning |
 | --- | --- |
 | `.supported` | Valid `agent_profiles[].executor` values (this install): typically `acp`, `openai-http`, … |
-| `.acp_entries[]` | When `executor: acp`, valid `options.entry` ids + host binary readiness |
+| `.acp_entries[]` | When `executor: Official/acp`, valid `options.entry` ids + host binary readiness |
 | `.host_ready` | Kinds that can run here (ACP needs at least one ready entry; HTTP needs no CLI) |
 | Installed plugins | Extra executor plugin_ids after `bora plugin install` (Recognition only) |
 
-**Target (coding agents):** `executor: acp` + `options.entry: <registry-id>`.  
+**Target (coding agents):** `executor: Official/acp` + `options.entry: <registry-id>`.  
 **Do not** write `executor: codex|pi|opencode|claude-code` — lock fails (`unsupported_capability`) or L1 fails (`l1_executor_unbound`).
 
 **External mechanism (e.g. nooa):** `executor: nooa` + `options.agent: "lib.agents:Class"` in

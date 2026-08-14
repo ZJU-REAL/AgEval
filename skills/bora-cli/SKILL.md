@@ -75,7 +75,7 @@ uv run bora executors -v
 Coding-agent packages use:
 
 ```yaml
-executor: acp
+executor: Official/acp
 options:
   entry: opencode # or codex | claude-code | pi | grok-build | …
 ```

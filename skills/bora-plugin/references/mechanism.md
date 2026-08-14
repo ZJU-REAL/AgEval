@@ -5,9 +5,9 @@ authoring agents only; it does not own new contract.
 
 ## Registry
 
-- First-party contrib bootstraps in Core: `acp`, `openai-http`, `mock` + default multi handlers.
+- First-party contrib bootstraps in Core: `Official/acp`, `Official/openai-http`, `Official/mock` + `Official/default` multi handlers.
 - External `bora plugin install` joins the same table. Recognition = first-party ∪ installed `provide(executor)`.
-- `profiles.executor: <plugin_id>` is sugar for the executor provide. `extensions:` can bind other slots explicitly.
+- `profiles.executor: <plugin_id>` is sugar for the executor provide. MULTI / bake slots join only via `extensions`.
 - Resolve: explicit binding > lower priority wins; a tie with no explicit pick fail-closes.
 - `bora lock` writes the resolved graph as `extension_bindings` (plugin_id / slot / source / priority / digest).
 
@@ -41,7 +41,7 @@ close        → before_agent_close → executor.close → after_agent_close
 
 ## Coexists with ACP
 
-The default coding-agent inlet remains first-party `executor: acp` + `options.entry`.
+The default coding-agent inlet remains first-party `executor: Official/acp` + `options.entry`.
 An external plugin is an optional mechanism. The **same harness** switches via
 profiles. ACP is not the trajectory schema authority.
 

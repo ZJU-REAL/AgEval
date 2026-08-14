@@ -1,24 +1,24 @@
 format: bora.profiles/1
 bindings:
   mock-default:
-    executor: mock
+    executor: Official/mock
     model: none
   solver:
-    executor: acp
+    executor: Official/acp
     options:
       entry: codex
     model: gpt-5.4-mini
   http-solver:
-    executor: openai-http
+    executor: Official/openai-http
     model: gpt-4.1-mini
   primary:
-    executor: acp
+    executor: Official/acp
     options:
       entry: opencode
     model: zai-coding-plan/glm-5.2
     api_key: glm_coding_api_key
   secondary:
-    executor: acp
+    executor: Official/acp
     options:
       entry: pi
     model: zai-coding-cn/glm-5.2
@@ -27,6 +27,8 @@ bindings:
   # External nooa host SPI (task-local lib.agents; after bora plugin install)
   nooa-solver:
     executor: nooa
+    extensions:
+      - plugin: nooa
     options:
       agent: "lib.agents:FixedAnswerAgent"
       method: "run"

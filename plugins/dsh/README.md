@@ -35,6 +35,8 @@ edits `profiles.yaml` / `bora.yaml` / `task.yaml`.
 bindings:
   solver:
     executor: dsh
+    extensions:
+      - plugin: dsh
     model: deepseek-v4-flash
     api_key: deepseek_api_key          # env locator
     options:
@@ -78,7 +80,7 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 ## Recognition ≠ Ready ≠ bind
 
 - **install** → Recognition only (`plugin list` / executor visible)
-- **profiles `executor: dsh`** → bind (+ model / api_key locator)
+- **profiles `executor: dsh` + `extensions: [{plugin: dsh}]`** → bind and bake (+ model / api_key locator)
 - **L1 Ready** → `image_contribute` bake installs the SDK wheels +
   `bora-executor-dsh`; invoke is **docker exec** with projected `DEEPSEEK_API_KEY`
 

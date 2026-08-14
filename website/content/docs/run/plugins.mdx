@@ -29,6 +29,8 @@ uv run bora plugin uninstall nooa
 bindings:
   solver:
     executor: nooa
+    extensions:
+      - plugin: nooa
     options:
       agent: "lib.agents:JsonlAggAgent"
       method: "run"
@@ -66,7 +68,9 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 
 ## 与 ACP 的关系
 
-默认 coding-agent 路径仍是 `executor: acp` + `options.entry`。插件是 **可选** 机制，
-与 ACP first-party 并列；同一 harness 只靠 profiles 切换。
+默认 coding-agent 路径仍是 `executor: Official/acp` + `options.entry`。
+install 不会把未点名的插件 bake 进纯 ACP job。要 bake 或其它 `on:` 槽，在
+`extensions` 里写出插件。插件是 **可选** 机制，与 ACP first-party 并列；同一
+harness 只靠 profiles 切换。
 
 更多机制契约见设计文档（贡献者侧 `docs/design`）；本页不改变证据等级声明。

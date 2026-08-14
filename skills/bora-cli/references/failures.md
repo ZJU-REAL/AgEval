@@ -3,7 +3,7 @@
 | Symptom | Check |
 | --- | --- |
 | exit 2, empty stdout on lock | Config error on stderr (`unknown_profile`, schema, etc.) |
-| lock `unsupported_capability` / `unsupported executor` | Kind not in `bora executors` `.supported` — coding agents need `executor: acp` |
+| lock `unsupported_capability` / `unsupported executor` | Kind not in `bora executors` `.supported` — coding agents need `executor: Official/acp` |
 | lock `options.entry required` | ACP profile missing `options.entry` |
 | Agent ERROR offline | Expected under `BORA_OFFLINE_AGENT=1` |
 | `l1_executor_unbound` | L1 invoke has no SPI ``bind_to_target`` (or placement resolver missing) |

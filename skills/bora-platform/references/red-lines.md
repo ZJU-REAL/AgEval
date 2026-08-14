@@ -14,7 +14,7 @@
 
 ## Adapter naming
 
-- **OK:** yaml `executor: acp` + `options.entry: codex|pi|opencode|…`; `openai-http`; `postgresql`; docker provider.
+- **OK:** yaml `executor: Official/acp` + `options.entry: codex|pi|opencode|…`; `openai-http`; `postgresql`; docker provider.
 - **Forbidden:** `executor: codex|pi|opencode|claude-code` as private CLI kinds (migrated); `TerminalBenchAdapter`; task-id branches; domain names as production adapter modules.
 
 ## Plugins

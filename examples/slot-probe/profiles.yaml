@@ -4,13 +4,18 @@ bindings:
   # slot-probe multi hooks still attach via install (env / trajectory / open / …).
   probe-nooa:
     executor: nooa
+    extensions:
+      - plugin: nooa
+      - plugin: slot-probe
     options:
       agent: "lib.agents:FixedAnswerAgent"
       method: "run"
     model: none
   # L1: real ACP in attempt-container.
   probe-acp:
-    executor: acp
+    executor: Official/acp
+    extensions:
+      - plugin: slot-probe
     options:
       entry: pi
     model: zai-coding-cn/glm-5.2

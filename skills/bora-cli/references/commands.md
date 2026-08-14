@@ -22,7 +22,7 @@ Stdout JSON (high level):
 - `-v` adds tools/session/stream + richer entry fields
 - No package path; no secrets; exit 0
 
-**Author packages with:** `executor: acp` + `options.entry: <entry_id from acp_entries>`.
+**Author packages with:** `executor: Official/acp` + `options.entry: <entry_id from acp_entries>`.
 
 ## `bora lock`
 

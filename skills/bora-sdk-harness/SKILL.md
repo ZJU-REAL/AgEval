@@ -28,7 +28,7 @@ from bora_sdk import (
 
 ## Minimal harness
 
-Profile **ids** come from package `agent_profiles` (which use `executor: acp` +
+Profile **ids** come from package `agent_profiles` (which use `executor: Official/acp` +
 `options.entry` for coding agents). Harness only opens profiles by id — never
 branches Core policy on entry/executor name.
 
