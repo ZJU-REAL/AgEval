@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 
 import { GitHubIcon } from "@/components/github-icon";
+import { HoverTip } from "@/components/hover-tip";
 import { Button } from "@/components/ui/button";
 import {
   formatLoginError,
@@ -48,9 +49,9 @@ export function SignInButton({
         {busy ? "Redirecting…" : label}
       </Button>
       {error ? (
-        <span className="text-[11px] text-error" title={error}>
-          {error}
-        </span>
+        <HoverTip content={error}>
+          <span className="text-[11px] text-error">{error}</span>
+        </HoverTip>
       ) : null}
     </span>
   );

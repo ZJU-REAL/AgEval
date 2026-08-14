@@ -82,6 +82,9 @@ def actors_summary_from_profiles(
         row: dict[str, str] = {"profile_id": pid, "entry": entry, "model": model}
         if executor:
             row["executor"] = executor
+        label = str(raw.get("label") or "").strip()
+        if label:
+            row["label"] = label
         if options_s:
             row["options"] = options_s
         rows.append(row)
@@ -292,21 +295,17 @@ def topology_key(actors: Sequence[Mapping[str, str]]) -> str:
 
 
 def derive_labels(actors: Sequence[Mapping[str, str]]) -> tuple[str, str]:
-    """Default agent_label / model_label from actors (suite-level display)."""
+    """Default agent_label / model_label from actors (suite / Jobs / Hub).
+
+    Display only: ``label`` → ACP ``entry`` → ``executor``. Never ``options.agent``.
+    """
+    from bora.config.profiles import display_agent_name, join_display_names
+
     if not actors:
         return "", ""
-    if len(actors) == 1:
-        a = actors[0]
-        agent = a.get("entry") or a.get("profile_id") or ""
-        model = a.get("model") or ""
-        return agent, model
-    agent = "+".join(a.get("profile_id") or a.get("entry") or "?" for a in actors)
-    models = [a.get("model") or "" for a in actors]
-    if all(models) and len(set(models)) == 1:
-        model = models[0]
-    else:
-        model = "+".join(m or "?" for m in models)
-    return agent, model
+    agents = [display_agent_name(a) for a in actors]
+    models = [str(a.get("model") or "").strip() for a in actors]
+    return join_display_names(agents), join_display_names(models)
 
 
 def compute_suite_config_fields(

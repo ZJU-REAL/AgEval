@@ -148,6 +148,22 @@ def test_homogeneous_true_identical_topology() -> None:
     assert fields["model_label"] == "x"
 
 
+def test_derive_labels_nooa_uses_executor_not_options_agent() -> None:
+    a = actors_summary_from_profiles(
+        [
+            {
+                "id": "solver",
+                "executor": "nooa",
+                "model": "openai/glm-5.2",
+                "options": {"agent": "lib.agents:JsonlAggAgent"},
+            }
+        ]
+    )
+    fields = compute_suite_config_fields([a])
+    assert fields["agent_label"] == "nooa"
+    assert fields["model_label"] == "openai/glm-5.2"
+
+
 def test_empty_agent_tasks_do_not_break_fallback_homogeneity() -> None:
     """No-agent tasks + identical agent tasks remain homogeneous (fallback path)."""
     solo = actors_summary_from_profiles(

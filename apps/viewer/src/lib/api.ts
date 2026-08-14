@@ -150,6 +150,10 @@ export type TrajectoryStep = {
   status?: string | null;
   args?: Record<string, unknown> | unknown[] | string | null;
   raw_output?: Record<string, unknown> | unknown[] | string | null;
+  /** Observational tool duration; omit when the sealed step has none. */
+  elapsed_ms?: number | null;
+  started_at?: string | null;
+  ended_at?: string | null;
   /** permission_decision (batch auto-approve evidence) */
   outcome?: string | null;
   option_id?: string | null;

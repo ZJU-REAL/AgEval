@@ -134,7 +134,7 @@ Value after `=` is JSON (strings need quotes):
 
 - On disk: `<dataset>/.bora/runs/<run_id>/` — Hub-facing curated evidence (`result.json`, `agent/`, `evaluation/`, `artifacts/`, lock/runtime JSON).
 - L1 host sandbox lives at `l1-work/` **during** the Attempt; **default cleanup deletes it**. Use `--keep-workspace` only for local debug. `bora results upload` never packs `l1-work/**`.
-- Inspect trajectory: open `<dataset>/.bora/runs/<run_id>/agent/invocations/<nnnn>-*/trajectory.jsonl` (**turn-level** training rows) and `events.jsonl` (optional stream/debug)
+- Inspect trajectory: open `<dataset>/.bora/runs/<run_id>/agent/invocations/<nnnn>-*/trajectory.jsonl` (**turn-level** training rows) and `events.jsonl` (optional stream/debug). `tool_call` / `observation` may include observational `elapsed_ms` (omit when the adapter had no timing)
 - Export: `uv run bora evidence <dataset>/.bora/runs/<run_id> --out /tmp/bora-export`
 - Trajectory presence **never** upgrades score
 

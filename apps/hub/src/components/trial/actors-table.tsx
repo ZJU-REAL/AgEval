@@ -1,3 +1,4 @@
+import { HoverTip } from "@/components/hover-tip";
 import {
   Table,
   TableBody,
@@ -40,15 +41,14 @@ export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }
                 <TableCell className="font-mono text-[13px] tabular text-body">
                   {a.time_label || "-"}
                 </TableCell>
-                <TableCell
-                  className="font-mono text-[12px] text-mute max-w-[36ch]"
-                  title={
-                    a.usage_label
-                      ? "Observational usage (tokens/cost); not PASS authority. Cache hit = cached_read / input when present. Session-last invoke for cumulative fields."
-                      : undefined
-                  }
-                >
-                  {a.usage_label || "-"}
+                <TableCell className="font-mono text-[12px] text-mute max-w-[36ch]">
+                  {a.usage_label ? (
+                    <HoverTip content="Observational usage (tokens/cost); not PASS authority. Cache hit = cached_read / input when present. Session-last invoke for cumulative fields.">
+                      <span className="block truncate">{a.usage_label}</span>
+                    </HoverTip>
+                  ) : (
+                    "-"
+                  )}
                 </TableCell>
               </TableRow>
             ))}

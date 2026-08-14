@@ -32,7 +32,6 @@ export function ThemeToggle() {
           variant="outline"
           size="icon"
           aria-label={`Theme: ${mode}`}
-          title="Theme"
         >
           <ActiveIcon className="h-4 w-4" />
         </Button>

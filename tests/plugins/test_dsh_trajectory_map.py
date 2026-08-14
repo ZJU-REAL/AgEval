@@ -190,3 +190,113 @@ def test_foreign_wrapped_event_unwraps() -> None:
     )
     assert mapped[0]["function_name"] == "read_file"
     assert mapped[0]["args"]["path"] == "a"
+
+
+def test_assistant_elapsed_from_step_start() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {"type": "step/start", "time": 1_786_675_378_000, "data": {"step": 1}},
+            {
+                "type": "assistant/message",
+                "time": 1_786_675_379_250,
+                "data": {"message": {"content": [{"type": "text", "text": "working"}]}},
+            },
+            {
+                "type": "tool/call",
+                "time": 1_786_675_379_251,
+                "data": {"callId": "c1", "name": "bash", "arguments": {"command": "ls"}},
+            },
+            {
+                "type": "tool/result",
+                "time": 1_786_675_379_271,
+                "data": {
+                    "message": {
+                        "source": {"kind": "tool", "callId": "c1"},
+                        "content": [
+                            {
+                                "type": "tool-result",
+                                "toolCallId": "c1",
+                                "content": [{"type": "text", "text": "ok"}],
+                            }
+                        ],
+                    }
+                },
+            },
+        )
+    )
+    texts = [e for e in mapped if e.get("kind") == "text"]
+    assert texts[-1]["channel"] == "assistant"
+    assert texts[-1]["elapsed_ms"] == 1250.0
+    update = next(e for e in mapped if e.get("phase") == "update")
+    assert update["elapsed_ms"] == 20.0
+
+
+def test_tool_result_derives_elapsed_from_epoch_time() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "type": "tool/call",
+                "seq": 10,
+                "time": 1_786_675_378_287,
+                "data": {"callId": "c1", "name": "bash", "arguments": {"command": "ls"}},
+            },
+            {
+                "type": "tool/result",
+                "seq": 11,
+                "time": 1_786_675_378_347,
+                "sourceEventSeqs": [10],
+                "data": {
+                    "message": {
+                        "source": {"kind": "tool", "callId": "c1"},
+                        "content": [
+                            {
+                                "type": "tool-result",
+                                "toolCallId": "c1",
+                                "content": [{"type": "text", "text": "ok"}],
+                            }
+                        ],
+                    },
+                },
+            },
+        )
+    )
+    start = next(e for e in mapped if e.get("phase") == "start")
+    update = next(e for e in mapped if e.get("phase") == "update")
+    assert start["at"]
+    assert update["elapsed_ms"] == 60.0
+    assert update["started_at"] == start["at"]
+    assert update["ended_at"] == update["at"]
+
+
+def test_tool_result_copies_vendor_elapsed_ms() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "type": "tool/call",
+                "timestamp": "2026-08-14T12:00:00Z",
+                "data": {"callId": "c1", "name": "bash", "arguments": {"command": "echo"}},
+            },
+            {
+                "type": "tool/result",
+                "timestamp": "2026-08-14T12:00:01Z",
+                "data": {
+                    "elapsed_ms": 1000,
+                    "message": {
+                        "source": {"kind": "tool", "callId": "c1"},
+                        "content": [
+                            {
+                                "type": "tool-result",
+                                "toolCallId": "c1",
+                                "content": [{"type": "text", "text": "ok"}],
+                            }
+                        ],
+                    },
+                },
+            },
+        )
+    )
+    start = next(e for e in mapped if e.get("phase") == "start")
+    update = next(e for e in mapped if e.get("phase") == "update")
+    assert start["at"] == "2026-08-14T12:00:00Z"
+    assert update["elapsed_ms"] == 1000.0
+    assert update["at"] == "2026-08-14T12:00:01Z"
