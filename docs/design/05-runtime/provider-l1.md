@@ -23,7 +23,7 @@ Provider 负责代码运行位置和 OS 级限制：
 ## Docker L1 镜像来源（package 拥有 Dockerfile）
 
 1. `provider.kind: docker` 时，package 必须提供 **`environment/Dockerfile`**（或 `provider.dockerfile` 指向的 package 内路径）。
-2. Runtime prepare：**确保官方基座** `bora-attempt:l1`（仓库 `docker/attempt`）。若每个绑定 profile 都是 first-party `executor: acp`、选中的 `extensions` 不要求 bake、且 package Dockerfile 仅 `FROM bora-attempt:l1`（无 `COPY`/`RUN`/其它层），**直接复用**官方 tag，**不**再 `buildx --load` 出 `bora-pkg:*`。否则 **`docker build -f <package Dockerfile>`** 得到 Attempt 用 image。**`image_digest` 写入 evidence**。本地 tag 只是 `docker run` 别名，不是寻址身份；Agent 流量仍是 `session_id` → 已绑定 target 上的 `docker exec`。
+2. Runtime prepare：**确保官方基座** `bora-attempt:l1`（仓库 `docker/attempt`）。若每个绑定 profile 都是 `executor: Official/acp`、选中的 `extensions` 不要求 bake、且 package Dockerfile 仅 `FROM bora-attempt:l1`（无 `COPY`/`RUN`/其它层），**直接复用**官方 tag，**不**再 `buildx --load` 出 `bora-pkg:*`。否则 **`docker build -f <package Dockerfile>`** 得到 Attempt 用 image。**`image_digest` 写入 evidence**。本地 tag 只是 `docker run` 别名，不是寻址身份；Agent 流量仍是 `session_id` → 已绑定 target 上的 `docker exec`。
 3. 官方基座构建一次、多处 `FROM` 复用；上游基座由 package Dockerfile 自行 `FROM` 并安装**同一 pin 表**声明的入口（禁止 package 自选 floating 版本）。官方基座自身的 `build_input_digest` 覆盖 `Dockerfile` + `install-executors.sh` + `acp-entries.lock.json`；**不**因本条改变 `bora-attempt:l1` 的 tag 名。
 4. **基座预装（设计契约）：** 最低 coding-agent 验收 entry 的 **engine + ACP 入口** bake-in：
    - Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；

@@ -17,7 +17,7 @@ from bora.config.provenance import merge_provenance, validate_provenance
 
 REPO = Path(__file__).resolve().parents[2]
 MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
-MOCK_BINDINGS = {"mock-default": {"executor": "mock", "model": "none"}}
+MOCK_BINDINGS = {"mock-default": {"executor": "Official/mock", "model": "none"}}
 
 
 def _minimal_task_yaml(*, extra: str = "", task_id: str = "config-minimal") -> str:

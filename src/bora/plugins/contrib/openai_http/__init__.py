@@ -7,7 +7,7 @@ from typing import Any
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import EXECUTOR
 
-PLUGIN_ID = "openai-http"
+PLUGIN_ID = "Official/openai-http"
 PRIORITY = 120
 
 
@@ -33,15 +33,6 @@ def register_openai_http_contrib(registry: ExtensionRegistry) -> None:
         PLUGIN_ID,
         _factory,
         priority=PRIORITY,
-        source="first-party",
-        is_factory=True,
-    )
-    # Alias used by older profiles/tests.
-    registry.provide(
-        EXECUTOR,
-        "openai",
-        _factory,
-        priority=PRIORITY + 1,
         source="first-party",
         is_factory=True,
     )

@@ -20,13 +20,15 @@ def test_normalize_short_and_namespaced() -> None:
     assert normalize_plugin_id("nooa") == "nooa"
     assert normalize_plugin_id("sample-echo") == "sample-echo"
     assert normalize_plugin_id("acme/nooa") == "acme/nooa"
+    assert normalize_plugin_id("Official/acp") == "Official/acp"
+    assert normalize_plugin_id("Official/openai-http") == "Official/openai-http"
     assert split_plugin_id("acme/nooa") == ("acme", "nooa")
     assert split_plugin_id("dsh") == (None, "dsh")
 
 
 @pytest.mark.parametrize(
     "raw",
-    ["Acme/nooa", "org.name", "acme//nooa", "acme/nooa/extra", "-bad", "acme/", "/nooa", ""],
+    ["org.name", "acme//nooa", "acme/nooa/extra", "-bad", "acme/", "/nooa", ""],
 )
 def test_normalize_rejects_invalid(raw: str) -> None:
     with pytest.raises(PluginManifestError) as ei:

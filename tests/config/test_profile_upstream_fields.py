@@ -55,7 +55,7 @@ def test_accepts_base_url_and_api_key_locator(tmp_path: Path) -> None:
         capabilities=DeclarationCapabilityCatalog(),
         profile_bindings={
             "glm": {
-                "executor": "openai-http",
+                "executor": "Official/openai-http",
                 "model": "glm-4.7",
                 "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
                 "api_key": "zhipu_coding_api_key",
@@ -77,7 +77,7 @@ def test_rejects_secret_like_api_key(tmp_path: Path) -> None:
             capabilities=DeclarationCapabilityCatalog(),
             profile_bindings={
                 "bad": {
-                    "executor": "openai-http",
+                    "executor": "Official/openai-http",
                     "model": "glm-4.7",
                     "api_key": "sk-this-is-a-secret-value-not-a-locator",
                 }
@@ -96,7 +96,7 @@ def test_rejects_non_url_base(tmp_path: Path) -> None:
             capabilities=DeclarationCapabilityCatalog(),
             profile_bindings={
                 "bad": {
-                    "executor": "openai-http",
+                    "executor": "Official/openai-http",
                     "model": "glm-4.7",
                     "base_url": "not-a-url",
                 }
@@ -108,7 +108,7 @@ def test_resolve_executor_honors_profile_fields() -> None:
     from bora.adapters.agent_registry import resolve_executor
 
     ex = resolve_executor(
-        "openai-http",
+        "Official/openai-http",
         model="glm-4.7",
         base_url="https://open.bigmodel.cn/api/coding/paas/v4",
         api_key="zhipu_coding_api_key",

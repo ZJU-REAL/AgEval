@@ -86,7 +86,9 @@ def _profile_variant(profile: dict[str, Any]) -> str | None:
     val = opts.get("label")
     if isinstance(val, str) and val.strip():
         return val.strip()
-    if str(profile.get("executor") or "").strip() == "acp":
+    from bora.plugins.manifest import is_official_acp
+
+    if is_official_acp(str(profile.get("executor") or "").strip()):
         entry = opts.get("entry")
         if isinstance(entry, str) and entry.strip():
             return entry.strip()

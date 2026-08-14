@@ -48,7 +48,7 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
         capabilities=DeclarationCapabilityCatalog(),
         profile_bindings={
             "p": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "model": "entry-default",
                 "options": {"entry": "codex"},
                 "api_key": "OPENAI_API_KEY",

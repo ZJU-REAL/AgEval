@@ -100,9 +100,9 @@ evaluate     → evaluation_input_contribute → evaluation_runtime
 
 | 来源 | `plugin_id` 形状 |
 | --- | --- |
-| first-party contrib | 短 id：`acp`、`openai-http`、`mock`（+ `default` multi） |
+| first-party contrib | **`Official/<name>`**：`Official/acp`、`Official/openai-http`、`Official/mock`（+ `Official/default` multi）。不用短 id 特例。 |
 | 仓内示例（未 publish） | 可暂用短 id（`nooa`、`dsh`、`slot-probe`） |
-| Hub 上架 / Registry 安装 | **必须** `org/name`（与 Dataset `database_id` 同形；不是 `org.name`） |
+| Hub 上架 / Registry 安装 | **必须** `org/name`（与 Dataset `database_id` 同形；不是 `org.name`）。官方包用 org `Official`。 |
 
 `plugin_id` 写在 `plugin.yaml`，path install 与 Hub install 读同一字段。不另设 `org-id`。`bora plugin publish --org` 必须等于 `plugin_id` 的前缀，否则拒绝；Hub 展示该 org，不改写 id。Registry 定位器是 `org/name@version`（或 digest）；本地 cache 记下 org/name、version、digest。
 
@@ -112,7 +112,7 @@ evaluate     → evaluation_input_contribute → evaluation_runtime
 
 | 来源 | 例子 |
 | --- | --- |
-| first-party contrib（bootstrap） | `acp`、`openai-http`、`mock` + `defaults` multi |
+| first-party contrib（bootstrap） | `Official/acp`、`Official/openai-http`、`Official/mock` + `Official/default` multi |
 | 外置 install | `nooa`、`dsh`、`slot-probe`（仓库 `plugins/` 仅示例，不进 Core） |
 
 ---
@@ -179,7 +179,7 @@ L1：bake 安装 `nooa` + **in-container worker**；parent 把 model/base_url/�
 
 下列条件**同时**成立时，prepare **不** `buildx --load` package 标签；Attempt 镜像就是已有官方 `bora-attempt:l1`：
 
-- 每个已绑定 profile 都是 first-party `executor: acp`（无外置 executor）；  
+- 每个已绑定 profile 都是 `executor: Official/acp`（无外置 executor）；  
 - 选中的 `extensions` 不要求 `image_contribute` bake；  
 - package Dockerfile 相对官方基座是空操作（今天：仅 `FROM bora-attempt:l1`，无 `COPY` / `RUN` / 其它层）。
 

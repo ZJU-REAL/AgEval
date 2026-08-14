@@ -194,7 +194,9 @@ def validate_document(
             )
         # Spec 19: executor: acp requires options.entry from static registry.
         # Packages must not override command/version/install.
-        if executor == "acp":
+        from bora.plugins.manifest import is_official_acp
+
+        if is_official_acp(executor):
             from bora.adapters.acp_registry import get_entry
 
             options = profile.get("options")

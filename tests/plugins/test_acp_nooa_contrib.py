@@ -42,13 +42,13 @@ def test_acp_provide_selected_by_profile_executor() -> None:
     reg = ExtensionRegistry()
     bootstrap_registry(reg, include_mock=False, include_openai_http=False)
     graph = resolve(
-        BindingIntent(profile_id="solver", executor="acp", options={"entry": "pi"}),
+        BindingIntent(profile_id="solver", executor="Official/acp", options={"entry": "pi"}),
         reg,
         materialize=False,
     )
     assert graph.providers[EXECUTOR].plugin_id == ACP_ID
     lock = extension_graph_to_lock(graph)
-    assert lock["executor"]["plugin"] == "acp"
+    assert lock["executor"]["plugin"] == "Official/acp"
     assert lock["executor"]["source"] == "profile_executor_field"
 
 
@@ -113,7 +113,7 @@ def test_dual_profile_acp_and_nooa_session_graphs(bora_home_with_nooa: Path) -> 
             },
             {
                 "id": "user",
-                "executor": "acp",
+                "executor": "Official/acp",
                 "model": "m",
                 "options": {"entry": "pi"},
             },
@@ -160,7 +160,7 @@ def test_acp_entry_missing_fail_closed() -> None:
     reg = ExtensionRegistry()
     bootstrap_registry(reg, include_mock=False, include_openai_http=False)
     svc = ParentAgentService(
-        profiles=[{"id": "p", "executor": "acp", "model": "m", "options": {}}],
+        profiles=[{"id": "p", "executor": "Official/acp", "model": "m", "options": {}}],
         agent_invocation_limit=1,
         attempt_id="a",
         offline_env="",

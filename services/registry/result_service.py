@@ -309,7 +309,9 @@ class ResultService:
                     continue
                 pid = str(item.get("plugin_id") or "").strip()
                 key = pid.casefold()
-                if not pid or key in seen or key in {"default", "acp", "openai-http"}:
+                from bora.plugins.manifest import is_official_plugin
+
+                if not pid or key in seen or is_official_plugin(pid):
                     continue
                 seen.add(key)
                 row = {"plugin_id": pid}

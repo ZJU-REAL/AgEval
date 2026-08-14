@@ -10,8 +10,8 @@ from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import EXECUTOR
 from bora.runtime.offline import is_offline_agent
 
-PLUGIN_ID = "mock"
-PRIORITY = 900  # weak; only selected via profiles executor: mock
+PLUGIN_ID = "Official/mock"
+PRIORITY = 900  # weak; only selected via profiles executor: Official/mock
 
 
 class MockExecutorSPI(ExecutorSPI):

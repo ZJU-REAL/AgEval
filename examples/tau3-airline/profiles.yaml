@@ -1,12 +1,12 @@
 format: bora.profiles/1
 bindings:
   user:
-    executor: acp
+    executor: Official/acp
     options:
       entry: grok-build
     model: entry-default
   service:
-    executor: acp
+    executor: Official/acp
     options:
       entry: grok-build
     model: entry-default

@@ -48,7 +48,7 @@ def test_parent_service_uses_shared_quota(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
     q = AgentInvocationQuota(limit=1)
     svc = ParentAgentService(
-        profiles=[{"id": "p", "executor": "mock", "model": "m"}],
+        profiles=[{"id": "p", "executor": "Official/mock", "model": "m"}],
         agent_invocation_limit=1,
         attempt_id="att-1",
         offline_env="",
@@ -72,7 +72,7 @@ def test_assemble_parent_and_authority_share_quota(tmp_path: Path) -> None:
     trial = factory.new_trial(run, "sha256:" + "d" * 64)
     attempt = factory.new_attempt(trial)
     service, _timeout, authority = assemble_parent_agent_service(
-        profiles=[{"id": "p", "executor": "mock", "model": "m"}],
+        profiles=[{"id": "p", "executor": "Official/mock", "model": "m"}],
         package_root=tmp_path,
         attempt=attempt,
         inv_limit=2,

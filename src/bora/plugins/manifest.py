@@ -11,8 +11,10 @@ import yaml
 
 PLUGIN_FORMAT = "bora.plugin/1"
 MANIFEST_NAMES = ("plugin.yaml", "bora.plugin.yaml")
-# Same slash form as Dataset database_id. Not org.name.
-_PLUGIN_ID_SEGMENT = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+# First-party org. Hub-bound packages use the same org/name form.
+OFFICIAL_ORG = "Official"
+# Same slash form as Dataset database_id. Not org.name. Official is mixed-case.
+_PLUGIN_ID_SEGMENT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$")
 
 
 class PluginManifestError(Exception):
@@ -50,6 +52,20 @@ def normalize_plugin_id(raw: str) -> str:
             kind="plugin_id_invalid",
         )
     return plugin_id
+
+
+def official_plugin_id(name: str) -> str:
+    return f"{OFFICIAL_ORG}/{name}"
+
+
+def is_official_plugin(plugin_id: str) -> bool:
+    org, _name = split_plugin_id(plugin_id)
+    return org == OFFICIAL_ORG
+
+
+def is_official_acp(plugin_id: str) -> bool:
+    org, name = split_plugin_id(plugin_id)
+    return org == OFFICIAL_ORG and name == "acp"
 
 
 def require_namespaced_plugin_id(plugin_id: str, *, org: str) -> str:

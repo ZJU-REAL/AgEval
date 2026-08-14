@@ -27,14 +27,14 @@ def test_actors_summary_sorted_and_secret_free() -> None:
     profiles = [
         {
             "id": "worker",
-            "executor": "acp",
+            "executor": "Official/acp",
             "model": "m2",
             "api_key": "SECRET_LOCATOR",
             "options": {"entry": "pi"},
         },
         {
             "id": "planner",
-            "executor": "acp",
+            "executor": "Official/acp",
             "model": "m1",
             "options": {"entry": "codex"},
         },
@@ -53,17 +53,17 @@ def test_job_overlay_axis_ignores_role_topology_diff() -> None:
     suite_overlay = {
         "bindings": {
             "solver": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "options": {"entry": "pi"},
                 "model": "m",
             },
             "user": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "options": {"entry": "grok-build"},
                 "model": "entry-default",
             },
             "service": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "options": {"entry": "opencode"},
                 "model": "m2",
             },
@@ -99,7 +99,7 @@ def test_job_overlay_conflict_not_homogeneous() -> None:
     suite_overlay = {
         "bindings": {
             "solver": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "options": {"entry": "pi"},
                 "model": "m1",
             }
@@ -108,7 +108,7 @@ def test_job_overlay_conflict_not_homogeneous() -> None:
     conflict = {
         "bindings": {
             "solver": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "options": {"entry": "codex"},
                 "model": "m1",
             }
@@ -125,20 +125,30 @@ def test_job_overlay_conflict_not_homogeneous() -> None:
 def test_job_overlays_compatible_helper() -> None:
     suite = {
         "bindings": {
-            "a": {"executor": "acp", "options": {"entry": "pi"}, "model": "m"},
-            "b": {"executor": "acp", "options": {"entry": "codex"}, "model": "n"},
+            "a": {"executor": "Official/acp", "options": {"entry": "pi"}, "model": "m"},
+            "b": {"executor": "Official/acp", "options": {"entry": "codex"}, "model": "n"},
         }
     }
     assert job_overlays_compatible(suite, [None, {"bindings": {"a": suite["bindings"]["a"]}}])
     assert not job_overlays_compatible(
         suite,
-        [{"bindings": {"a": {"executor": "acp", "options": {"entry": "opencode"}, "model": "m"}}}],
+        [
+            {
+                "bindings": {
+                    "a": {
+                        "executor": "Official/acp",
+                        "options": {"entry": "opencode"},
+                        "model": "m",
+                    }
+                }
+            }
+        ],
     )
 
 
 def test_homogeneous_true_identical_topology() -> None:
     a = actors_summary_from_profiles(
-        [{"id": "solo", "executor": "acp", "model": "x", "options": {"entry": "pi"}}]
+        [{"id": "solo", "executor": "Official/acp", "model": "x", "options": {"entry": "pi"}}]
     )
     fields = compute_suite_config_fields([a, a, a])
     assert fields["config_homogeneous"] is True
@@ -167,7 +177,7 @@ def test_derive_labels_nooa_uses_executor_not_options_agent() -> None:
 def test_empty_agent_tasks_do_not_break_fallback_homogeneity() -> None:
     """No-agent tasks + identical agent tasks remain homogeneous (fallback path)."""
     solo = actors_summary_from_profiles(
-        [{"id": "solo", "executor": "acp", "model": "x", "options": {"entry": "pi"}}]
+        [{"id": "solo", "executor": "Official/acp", "model": "x", "options": {"entry": "pi"}}]
     )
     fields = compute_suite_config_fields([[], solo, solo])
     assert fields["config_homogeneous"] is True
@@ -176,10 +186,24 @@ def test_empty_agent_tasks_do_not_break_fallback_homogeneity() -> None:
 
 def test_fallback_different_models_not_homogeneous() -> None:
     a = actors_summary_from_profiles(
-        [{"id": "solo", "executor": "acp", "model": "gpt-a", "options": {"entry": "codex"}}]
+        [
+            {
+                "id": "solo",
+                "executor": "Official/acp",
+                "model": "gpt-a",
+                "options": {"entry": "codex"},
+            }
+        ]
     )
     b = actors_summary_from_profiles(
-        [{"id": "solo", "executor": "acp", "model": "gpt-b", "options": {"entry": "codex"}}]
+        [
+            {
+                "id": "solo",
+                "executor": "Official/acp",
+                "model": "gpt-b",
+                "options": {"entry": "codex"},
+            }
+        ]
     )
     fields = compute_suite_config_fields([a, b])
     assert fields["config_homogeneous"] is False
@@ -188,8 +212,8 @@ def test_fallback_different_models_not_homogeneous() -> None:
 def test_fingerprint_stable() -> None:
     actors = actors_summary_from_profiles(
         [
-            {"id": "b", "executor": "openai-http", "model": "m"},
-            {"id": "a", "executor": "acp", "model": "n", "options": {"entry": "pi"}},
+            {"id": "b", "executor": "Official/openai-http", "model": "m"},
+            {"id": "a", "executor": "Official/acp", "model": "n", "options": {"entry": "pi"}},
         ]
     )
     assert fingerprint_for_actors(actors) == fingerprint_for_actors(list(reversed(actors)))
@@ -252,7 +276,7 @@ def test_plugins_from_extension_bindings_skip_defaults() -> None:
             "before_run": {
                 "kind": "on",
                 "chain": [
-                    {"plugin": "default", "source": "default"},
+                    {"plugin": "Official/default", "source": "default"},
                     {"plugin": "slot-probe", "version": "1.0.0"},
                 ],
             },
@@ -267,9 +291,8 @@ def test_plugins_from_job_overlay_skips_builtin_executors() -> None:
     overlay = {
         "bindings": {
             "solver": {"executor": "nooa", "model": "m"},
-            "user": {"executor": "acp", "options": {"entry": "codex"}},
-            "alt": {"executor": "ACP"},
-            "http": {"executor": "OpenAI-HTTP"},
+            "user": {"executor": "Official/acp", "options": {"entry": "codex"}},
+            "http": {"executor": "Official/openai-http"},
         }
     }
     refs = plugins_from_job_overlay(overlay)

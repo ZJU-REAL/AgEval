@@ -56,7 +56,7 @@ def _write_task(tmp: Path, *, slots: list[dict], task_id: str = "t") -> Path:
 def test_reject_inline_binding_in_task_yaml(tmp_path: Path) -> None:
     pkg = _write_task(
         tmp_path,
-        slots=[{"id": "solver", "executor": "mock", "model": "none"}],
+        slots=[{"id": "solver", "executor": "Official/mock", "model": "none"}],
     )
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei:
@@ -64,7 +64,7 @@ def test_reject_inline_binding_in_task_yaml(tmp_path: Path) -> None:
             pkg,
             "t",
             capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={"solver": {"executor": "mock", "model": "none"}},
+            profile_bindings={"solver": {"executor": "Official/mock", "model": "none"}},
         )
     assert ei.value.error_code == "invalid_schema"
     assert "role slots only" in str(ei.value).lower() or "job binding" in str(ei.value).lower()
@@ -92,7 +92,7 @@ def test_merge_bindings_and_cli_override(tmp_path: Path) -> None:
         capabilities=DeclarationCapabilityCatalog(),
         profile_bindings={
             "solver": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "options": {"entry": "codex"},
                 "model": "gpt-5.4-mini",
             }
@@ -104,7 +104,7 @@ def test_merge_bindings_and_cli_override(tmp_path: Path) -> None:
     )
     profiles = thaw(locked.agent_profiles)
     assert profiles[0]["id"] == "solver"
-    assert profiles[0]["executor"] == "acp"
+    assert profiles[0]["executor"] == "Official/acp"
     assert profiles[0]["options"]["entry"] == "pi"
     assert profiles[0]["model"] == "claude-haiku-4-5"
     assert locked.job_overlay is not None
@@ -133,7 +133,7 @@ def test_profiles_document_parse(tmp_path: Path) -> None:
                 "format": "bora.profiles/1",
                 "bindings": {
                     "solver": {
-                        "executor": "acp",
+                        "executor": "Official/acp",
                         "options": {"entry": "codex"},
                         "model": "m",
                     }
@@ -149,23 +149,23 @@ def test_profiles_document_parse(tmp_path: Path) -> None:
 
 def test_assert_slots_helper() -> None:
     with pytest.raises(ConfigError):
-        assert_slots_have_no_inline_binding([{"id": "x", "executor": "mock"}])
+        assert_slots_have_no_inline_binding([{"id": "x", "executor": "Official/mock"}])
     assert_slots_have_no_inline_binding([{"id": "x"}])
 
 
 def test_merge_helper() -> None:
     rows = merge_bindings_onto_slots(
         [{"id": "solver"}],
-        {"solver": {"executor": "mock", "model": "none"}},
+        {"solver": {"executor": "Official/mock", "model": "none"}},
     )
-    assert rows[0]["executor"] == "mock"
+    assert rows[0]["executor"] == "Official/mock"
 
 
 def test_job_overlay_omits_secrets() -> None:
     overlay = project_job_overlay(
         {
             "solver": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "options": {"entry": "pi"},
                 "model": "m",
                 "api_key": "MY_KEY_LOCATOR",
@@ -187,7 +187,7 @@ def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
     overlay = project_job_overlay(
         {
             "solver": {
-                "executor": "acp",
+                "executor": "Official/acp",
                 "options": {"entry": "pi"},
                 "model": "m",
                 "api_key": "LOC",
@@ -244,7 +244,7 @@ def test_display_agent_name_never_uses_options_agent() -> None:
         )
         == "nooa"
     )
-    assert display_agent_name({"executor": "acp", "options": {"entry": "pi"}}) == "pi"
+    assert display_agent_name({"executor": "Official/acp", "options": {"entry": "pi"}}) == "pi"
     assert display_agent_name({"executor": "dsh"}) == "dsh"
 
 
@@ -252,7 +252,7 @@ def test_display_labels_from_overlay_joins_distinct() -> None:
     agent, model = display_labels_from_overlay(
         {
             "bindings": {
-                "a": {"executor": "acp", "options": {"entry": "pi"}, "model": "m1"},
+                "a": {"executor": "Official/acp", "options": {"entry": "pi"}, "model": "m1"},
                 "b": {"executor": "dsh", "model": "m2"},
             }
         }

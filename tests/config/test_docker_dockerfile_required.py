@@ -61,7 +61,7 @@ evaluation:
 
 _P1_BINDINGS = {
     "p1": {
-        "executor": "acp",
+        "executor": "Official/acp",
         "model": "entry-default",
         "options": {"entry": "pi"},
     }

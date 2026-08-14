@@ -24,7 +24,7 @@ CORE_DB = REPO / "examples" / "core"
 
 # Role bindings for config-minimal / config-invalid (from Database profiles.yaml).
 MOCK_BINDINGS: dict[str, dict[str, Any]] = {
-    "mock-default": {"executor": "mock", "model": "none"},
+    "mock-default": {"executor": "Official/mock", "model": "none"},
 }
 
 
@@ -60,7 +60,7 @@ def test_lock_success_deterministic(
     assert a.canonical_payload() == b.canonical_payload()
     assert a.digest.startswith("sha256:")
     assert len(a.digest) == len("sha256:") + 64
-    assert thaw(a.agent_profiles)[0]["executor"] == "mock"
+    assert thaw(a.agent_profiles)[0]["executor"] == "Official/mock"
     assert a.job_overlay is not None
 
 
@@ -302,4 +302,4 @@ def test_database_profiles_load_via_cli_path(
         profile_bindings=bindings,
     )
     assert thaw(locked.agent_profiles)[0]["id"] == "mock-default"
-    assert thaw(locked.agent_profiles)[0]["executor"] == "mock"
+    assert thaw(locked.agent_profiles)[0]["executor"] == "Official/mock"

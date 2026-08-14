@@ -11,22 +11,18 @@ from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES, get_capabi
 from bora.adapters.path_probe import WhichFn, probe_commands
 
 _BINARY_CANDIDATES: Mapping[str, tuple[str, ...]] = {
-    "acp": (),
-    "openai-http": (),
-    "openai": (),
-    "openai_responses": (),
+    "Official/acp": (),
+    "Official/openai-http": (),
 }
 
-_API_ALIASES: frozenset[str] = frozenset({"openai", "openai_responses"})
+_API_ALIASES: frozenset[str] = frozenset()
 
 # First-party contrib ids. Installed plugins join via provide(executor).
 _FIRST_PARTY_KINDS: frozenset[str] = frozenset(
     {
-        "acp",
-        "mock",
-        "openai-http",
-        "openai",
-        "openai_responses",
+        "Official/acp",
+        "Official/mock",
+        "Official/openai-http",
     }
 )
 
@@ -174,7 +170,9 @@ def build_executor_inventory(
     rows = [describe_executor(k, which=which, verbose=verbose) for k in supported]
     acp_rows = [describe_acp_entry(eid, which=which, verbose=verbose) for eid in list_entry_ids()]
     for row in rows:
-        if row.get("kind") == "acp":
+        from bora.plugins.manifest import is_official_acp
+
+        if is_official_acp(str(row.get("kind") or "")):
             row["host_ready"] = any(r.get("host_ready") for r in acp_rows)
             row["acp_entries_ready"] = sorted(
                 r["entry_id"] for r in acp_rows if r.get("host_ready")

@@ -149,9 +149,9 @@ def test_suite_plugins_and_uploaded_by_me_filter(tmp_path: Path) -> None:
     )
     meta["plugins"] = [
         {"plugin_id": "nooa", "version": "0.1.0"},
-        {"plugin_id": "default"},
-        {"plugin_id": "ACP"},
-        {"plugin_id": "openai-http"},
+        {"plugin_id": "Official/default"},
+        {"plugin_id": "Official/acp"},
+        {"plugin_id": "Official/openai-http"},
         {"plugin_id": "nooa"},
     ]
     payload = results.upload_suite(meta=meta, archive=archive, auth=alice)

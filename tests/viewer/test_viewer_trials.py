@@ -67,7 +67,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
                 "profiles": [
                     {
                         "id": "main",
-                        "executor": "acp",
+                        "executor": "Official/acp",
                         "model": "test-model",
                         "options": {"entry": "pi"},
                         "capabilities": {"execution_mode": "acp-stdio"},
@@ -189,15 +189,15 @@ def test_resolve_and_trial_detail(tmp_path: Path) -> None:
     assert "verifier" in tabs
     assert "lock" in tabs
     assert "runtime" in tabs
-    assert detail["trial"].get("framework") == "acp"
+    assert detail["trial"].get("framework") == "Official/acp"
     assert detail["trial"].get("docker") is None
     actors = detail["trial"].get("actors") or []
     assert len(actors) == 1
     assert actors[0]["role"] == "main"
     assert actors[0]["agent"] == "pi"
     assert actors[0]["model"] == "test-model"
-    assert actors[0].get("executor_kind") == "acp"
-    assert detail["trial"].get("executor_kind") == "acp"
+    assert actors[0].get("executor_kind") == "Official/acp"
+    assert detail["trial"].get("executor_kind") == "Official/acp"
     assert actors[0]["invokes"] == 1
     assert actors[0]["latency_ms_sum"] == pytest.approx(1234.5)
     assert actors[0]["time_label"]
@@ -411,14 +411,14 @@ def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha")
                 "profiles": [
                     {
                         "id": "user-grok",
-                        "executor": "acp",
+                        "executor": "Official/acp",
                         "model": "entry-default",
                         "options": {"entry": "grok"},
                         "capabilities": {"execution_mode": "acp-stdio"},
                     },
                     {
                         "id": "service-opencode",
-                        "executor": "acp",
+                        "executor": "Official/acp",
                         "model": "glm-5.2",
                         "options": {"entry": "opencode"},
                         "capabilities": {"execution_mode": "acp-stdio"},
@@ -573,7 +573,7 @@ def test_legacy_usage_cost_only_no_used_as_tokens(tmp_path: Path) -> None:
                 "profiles": [
                     {
                         "id": "main-pi",
-                        "executor": "acp",
+                        "executor": "Official/acp",
                         "options": {"entry": "pi"},
                         "capabilities": {"execution_mode": "acp-stdio"},
                     }

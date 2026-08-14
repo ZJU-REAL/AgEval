@@ -95,7 +95,7 @@ def _lock() -> SimpleNamespace:
         digest="sha256:" + "c" * 64,
         task_id="sample",
         parameters={"harness_timeout_seconds": 5},
-        agent_profiles=[{"id": "solver", "executor": "mock"}],
+        agent_profiles=[{"id": "solver", "executor": "Official/mock"}],
         provider={"kind": "docker"},
         limits={"agent_invocations": 1, "wall_time_seconds": 30},
         evaluation={

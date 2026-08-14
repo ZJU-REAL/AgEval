@@ -332,7 +332,7 @@ def _write_suite_summary(db: Path, suite_run_id: str) -> Path:
         "job_overlay": {
             "bindings": {
                 "solver": {
-                    "executor": "acp",
+                    "executor": "Official/acp",
                     "options": {"entry": "pi"},
                     "model": "m1",
                     "api_key": "LOCATOR_ONLY",

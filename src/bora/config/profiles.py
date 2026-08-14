@@ -380,7 +380,9 @@ def display_agent_name(binding: Mapping[str, Any]) -> str:
     if isinstance(label, str) and label.strip():
         return label.strip()
     executor = str(binding.get("executor") or "").strip()
-    if executor == "acp":
+    from bora.plugins.manifest import is_official_acp
+
+    if is_official_acp(executor):
         options = binding.get("options")
         if isinstance(options, Mapping):
             entry = options.get("entry")

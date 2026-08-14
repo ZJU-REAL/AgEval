@@ -10,15 +10,15 @@ from bora.adapters.agent_registry import discover_executor_kinds, resolve_execut
 
 def test_discover_includes_builtins() -> None:
     kinds = discover_executor_kinds()
-    assert "acp" in kinds
-    assert "openai-http" in kinds
+    assert "Official/acp" in kinds
+    assert "Official/openai-http" in kinds
     assert "codex" not in kinds
 
 
 def test_resolve_acp_and_openai() -> None:
-    a = resolve_executor("acp", model="entry-default", entry="opencode")
+    a = resolve_executor("Official/acp", model="entry-default", entry="opencode")
     assert getattr(a, "kind", None) == "acp"
-    o = resolve_executor("openai-http", model="gpt-4.1-mini")
+    o = resolve_executor("Official/openai-http", model="gpt-4.1-mini")
     assert o is not None
 
 

@@ -33,7 +33,7 @@ def test_agent_service_with_acp_offline_no_secret_in_evidence(
         profiles=[
             {
                 "id": "p1",
-                "executor": "acp",
+                "executor": "Official/acp",
                 "model": "entry-default",
                 "options": {"entry": "opencode"},
             }

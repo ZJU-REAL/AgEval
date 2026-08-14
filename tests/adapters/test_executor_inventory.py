@@ -26,13 +26,13 @@ def test_probe_binary_miss() -> None:
 
 
 def test_describe_acp_kind() -> None:
-    row = describe_executor("acp", which=lambda _n: None, verbose=False)
-    assert row["kind"] == "acp"
+    row = describe_executor("Official/acp", which=lambda _n: None, verbose=False)
+    assert row["kind"] == "Official/acp"
     assert row["execution_mode"] == "acp-stdio"
 
 
 def test_describe_api_client_no_binary() -> None:
-    row = describe_executor("openai-http", which=lambda _n: None, verbose=False)
+    row = describe_executor("Official/openai-http", which=lambda _n: None, verbose=False)
     assert row["execution_mode"] == "api-client"
     assert row["binary_on_path"] is None
     assert row["host_ready"] is True
@@ -60,8 +60,8 @@ def test_inventory_aggregates() -> None:
         }.get(name)
 
     inv = build_executor_inventory(which=fake_which, verbose=False)
-    assert "acp" in inv["supported"]
-    assert "openai-http" in inv["supported"]
+    assert "Official/acp" in inv["supported"]
+    assert "Official/openai-http" in inv["supported"]
     assert "codex" not in inv["supported"]
     entry_ids = {r["entry_id"] for r in inv["acp_entries"]}
     assert "codex" in entry_ids

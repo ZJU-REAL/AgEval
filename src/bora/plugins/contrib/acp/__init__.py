@@ -15,7 +15,7 @@ from bora.plugins.slots import (
     TRAJECTORY_COLLECT,
 )
 
-PLUGIN_ID = "acp"
+PLUGIN_ID = "Official/acp"
 # Stronger than default multi (1000); weaker than explicit profile binding.
 ACP_PRIORITY = 100
 

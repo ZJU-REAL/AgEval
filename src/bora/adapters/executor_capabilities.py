@@ -33,7 +33,7 @@ class ExecutorCapabilities:
 
 
 BUILTIN_CAPABILITIES: Final[dict[str, ExecutorCapabilities]] = {
-    "acp": ExecutorCapabilities(
+    "Official/acp": ExecutorCapabilities(
         kind="acp",
         tools="native",
         structured_output="validated-text",
@@ -44,7 +44,7 @@ BUILTIN_CAPABILITIES: Final[dict[str, ExecutorCapabilities]] = {
         credential_env_names=(),
         binary="",
     ),
-    "openai-http": ExecutorCapabilities(
+    "Official/openai-http": ExecutorCapabilities(
         kind="openai-http",
         tools="unsupported",
         structured_output="validated-text",
@@ -59,6 +59,12 @@ BUILTIN_CAPABILITIES: Final[dict[str, ExecutorCapabilities]] = {
 
 def get_capabilities(kind: str) -> ExecutorCapabilities | None:
     found = BUILTIN_CAPABILITIES.get(kind)
+    if found is not None:
+        return found
+    from bora.plugins.manifest import split_plugin_id
+
+    _org, name = split_plugin_id(kind)
+    found = BUILTIN_CAPABILITIES.get(name)
     if found is not None:
         return found
     return _plugin_published_capabilities(kind)
@@ -123,7 +129,7 @@ def _describe_from_provider(impl: Any) -> dict[str, Any] | None:
 
 def required_kinds_for_v014() -> frozenset[str]:
     """Historical name: coding-agent surface is now ACP."""
-    return frozenset({"acp"})
+    return frozenset({"Official/acp"})
 
 
 def residual_kinds() -> frozenset[str]:

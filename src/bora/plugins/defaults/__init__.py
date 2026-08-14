@@ -47,7 +47,7 @@ from bora.plugins.slots import (
     get_slot_kind,
 )
 
-PLUGIN_ID = "default"
+PLUGIN_ID = "Official/default"
 
 
 def _default_eval_runtime(**_kwargs: Any) -> dict[str, Any]:

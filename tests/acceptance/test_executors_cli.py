@@ -36,13 +36,13 @@ def test_executors_lists_supported_and_host_probe() -> None:
         "executors",
         "acp_entries",
     }
-    assert "acp" in data["supported"]
-    assert "openai-http" in data["supported"]
+    assert "Official/acp" in data["supported"]
+    assert "Official/openai-http" in data["supported"]
     for gone in ("codex", "pi", "opencode", "claude-code"):
         assert gone not in data["supported"]
 
     by_kind = {r["kind"]: r for r in data["executors"]}
-    http = by_kind["openai-http"]
+    http = by_kind["Official/openai-http"]
     assert http["execution_mode"] == "api-client"
     assert http["host_ready"] is True
     assert "sk-" not in result.stdout.lower()
@@ -56,6 +56,6 @@ def test_executors_verbose_adds_detail() -> None:
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
     by_kind = {r["kind"]: r for r in data["executors"]}
-    assert by_kind["acp"].get("tools") is not None or data.get("acp_entries")
+    assert by_kind["Official/acp"].get("tools") is not None or data.get("acp_entries")
     acp_rows = {r["entry_id"]: r for r in data["acp_entries"]}
     assert "credential_env_names" in acp_rows["opencode"]

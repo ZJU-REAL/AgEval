@@ -53,11 +53,9 @@ class DeclarationCapabilityCatalog:
     # Kept for introspection / tests; runtime answer is known_executor_kinds().
     EXECUTOR_KINDS: frozenset[str] = frozenset(
         {
-            "acp",
-            "mock",
-            "openai",
-            "openai-http",
-            "openai_responses",
+            "Official/acp",
+            "Official/mock",
+            "Official/openai-http",
         }
     )
     ENVIRONMENT_KINDS: frozenset[str] = frozenset(

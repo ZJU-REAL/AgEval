@@ -17,12 +17,10 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from bora.plugins.manifest import is_official_plugin
+
 # Fields allowed in actors_summary / fingerprint material (no secrets).
 _ACTOR_KEYS = ("profile_id", "entry", "executor", "model", "options")
-
-# Builtin executor kinds are not marketplace plugins (Hub plugin tab).
-_BUILTIN_EXECUTOR_KINDS = frozenset({"acp", "openai-http"})
-_SKIP_PLUGIN_IDS = frozenset({"default", "acp", "openai-http"})
 
 
 def _profile_entry(profile: Mapping[str, Any]) -> str:
@@ -129,7 +127,7 @@ def fingerprint_for_actors(actors: Sequence[Mapping[str, str]]) -> str:
 
 def _plugin_ref(plugin_id: str, version: str | None = None) -> dict[str, str] | None:
     pid = plugin_id.strip()
-    if not pid or pid.casefold() in _SKIP_PLUGIN_IDS:
+    if not pid or is_official_plugin(pid):
         return None
     row = {"plugin_id": pid}
     if version is not None and str(version).strip():
@@ -193,7 +191,7 @@ def plugins_from_job_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str
         if not isinstance(executor, str):
             continue
         kind = executor.strip()
-        if not kind or kind.casefold() in _BUILTIN_EXECUTOR_KINDS:
+        if not kind or is_official_plugin(kind):
             continue
         ref = _plugin_ref(kind)
         if ref is not None:

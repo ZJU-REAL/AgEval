@@ -39,18 +39,18 @@ def test_bound_executor_ids() -> None:
     lock = _lock_with_profiles(
         [
             {"id": "s", "executor": "nooa", "options": {"agent": "x:Y"}},
-            {"id": "t", "executor": "acp"},
+            {"id": "t", "executor": "Official/acp"},
             {"id": "u", "executor": "nooa"},
         ]
     )
-    assert bound_executor_ids(lock) == ["nooa", "acp"]
+    assert bound_executor_ids(lock) == ["nooa", "Official/acp"]
 
 
 def test_apply_skips_first_party_only() -> None:
-    lock = _lock_with_profiles([{"id": "s", "executor": "acp"}])
+    lock = _lock_with_profiles([{"id": "s", "executor": "Official/acp"}])
     with patch(
         "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
-        return_value=[{"plugin": "acp"}],
+        return_value=[{"plugin": "Official/acp"}],
     ):
         out, meta = apply_image_contribute_bake(
             lock=lock, base_image=_base(), platform="linux/arm64"

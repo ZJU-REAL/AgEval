@@ -12,20 +12,20 @@ from bora.adapters.executor_capabilities import (
 
 def test_acp_kind_registered() -> None:
     kinds = discover_executor_kinds()
-    assert "acp" in kinds
-    assert "openai-http" in kinds
+    assert "Official/acp" in kinds
+    assert "Official/openai-http" in kinds
     assert "codex" not in kinds
     assert "pi" not in kinds
-    assert get_capabilities("acp") is not None
-    assert get_capabilities("acp").execution_mode == "acp-stdio"  # type: ignore[union-attr]
+    assert get_capabilities("Official/acp") is not None
+    assert get_capabilities("Official/acp").execution_mode == "acp-stdio"  # type: ignore[union-attr]
 
 
 def test_required_surface_is_acp() -> None:
-    assert required_kinds_for_v014() == frozenset({"acp"})
+    assert required_kinds_for_v014() == frozenset({"Official/acp"})
 
 
 def test_capability_fields_frozen() -> None:
-    for kind in ("acp", "openai-http"):
+    for kind in ("Official/acp", "Official/openai-http"):
         cap = BUILTIN_CAPABILITIES[kind]
         assert cap.stream in {"native-events", "synthetic-lifecycle"}
         assert cap.execution_mode in {"cli-process", "api-client", "acp-stdio"}
@@ -49,7 +49,7 @@ def test_private_kinds_gone() -> None:
 
 
 def test_resolve_acp_constructor() -> None:
-    ex = resolve_executor("acp", model="entry-default", entry="opencode")
+    ex = resolve_executor("Official/acp", model="entry-default", entry="opencode")
     assert getattr(ex, "kind", None) == "acp"
     # SPI may wrap adapters.acp.AcpExecutor
     inner = getattr(ex, "_inner", ex)
