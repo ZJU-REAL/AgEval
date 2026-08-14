@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
 import { Shell } from "@/components/layout";
+import { OfficialMark } from "@/components/official-mark";
 import { SignInLink } from "@/components/sign-in-button";
 import {
   Table,
@@ -17,6 +18,7 @@ import {
   encodeDatasetId,
   listOrgs,
   listPackages,
+  packageDisplayTitle,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
@@ -203,16 +205,25 @@ export function PluginsPage() {
                       role="link"
                     >
                       <TableCell className="font-medium font-mono text-sm">
-                        <span className="inline-flex items-center gap-2">
-                          {row.database_id}
-                          <span className="text-[10px] font-sans font-medium uppercase tracking-wide px-1.5 py-0.5 rounded border border-hairline text-mute bg-canvas-soft">
-                            plugin
-                          </span>
-                          {row.official ? (
-                            <span className="text-[10px] font-sans font-medium uppercase tracking-wide px-1.5 py-0.5 rounded border border-hairline text-ink bg-canvas-soft">
-                              official
+                        <span className="inline-flex items-center gap-1.5 min-w-0">
+                          <span className="min-w-0">
+                            <span className="block truncate">
+                              {packageDisplayTitle(
+                                row.database_id,
+                                row.display_name,
+                              )}
                             </span>
-                          ) : null}
+                            {row.display_name &&
+                            packageDisplayTitle(
+                              row.database_id,
+                              row.display_name,
+                            ) !== row.database_id ? (
+                              <span className="block font-mono text-[11px] text-mute truncate">
+                                {row.database_id}
+                              </span>
+                            ) : null}
+                          </span>
+                          {row.official ? <OfficialMark /> : null}
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs text-mute">

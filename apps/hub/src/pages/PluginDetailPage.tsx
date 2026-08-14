@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
+import { DisplayNameEditor } from "@/components/display-name-editor";
+import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { Shell } from "@/components/layout";
 import {
@@ -12,10 +14,13 @@ import {
 import {
   decodeDatasetId,
   decodeFileContent,
+  getOrg,
   getPackageByDigest,
   getPackageFile,
   listPackageFiles,
   listPackageVersions,
+  splitPackageId,
+  updatePackageDisplayName,
   type PackageRelease,
   type PluginPreview,
   RegistryHttpError,
@@ -39,6 +44,7 @@ export function PluginDetailPage() {
   const [fileLoading, setFileLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [canEditName, setCanEditName] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +84,18 @@ export function PluginDetailPage() {
 
         setRelease(meta);
         setPreview(meta.plugin_preview || null);
+        if (token && meta.org_id) {
+          try {
+            const org = await getOrg(meta.org_id, token);
+            if (!cancelled) {
+              setCanEditName((org.role || "").toLowerCase() === "owner");
+            }
+          } catch {
+            if (!cancelled) setCanEditName(false);
+          }
+        } else if (!cancelled) {
+          setCanEditName(false);
+        }
 
         const files = await listPackageFiles(
           pluginId,
@@ -164,6 +182,8 @@ export function PluginDetailPage() {
     preview?.format ||
     (release?.package_kind === "plugin" ? "bora.plugin/1" : null);
 
+  const packageParts = useMemo(() => splitPackageId(pluginId), [pluginId]);
+
   const declared = useMemo(() => declaredSlotsFromPreview(preview), [preview]);
   const previewFiles = filePaths.length ? filePaths : preview?.files || [];
 
@@ -185,26 +205,29 @@ export function PluginDetailPage() {
 
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold tracking-tight text-ink font-mono">
-            {pluginId}
-          </h1>
+          <DisplayNameEditor
+            value={release?.display_name?.trim() || packageParts.name}
+            prefix={packageParts.org ? `${packageParts.org}/` : null}
+            canEdit={Boolean(token && canEditName && release)}
+            headingClassName="text-xl font-semibold tracking-tight text-ink"
+            onSave={async (next) => {
+              const updated = await updatePackageDisplayName(pluginId, next, token);
+              setRelease((prev) =>
+                prev ? { ...prev, display_name: updated.display_name || next } : prev,
+              );
+            }}
+          />
           {formatBadge ? (
             <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
               {formatBadge}
             </span>
-          ) : (
-            <span className="text-[11px] font-medium uppercase tracking-wide px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-mute">
-              plugin
-            </span>
-          )}
-          {release?.official ? (
-            <span className="text-[11px] font-medium uppercase tracking-wide px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-ink">
-              official
-            </span>
           ) : null}
+          {release?.official ? <OfficialMark /> : null}
         </div>
         {release ? (
           <p className="text-sm text-mute mt-1">
+            <span className="font-mono">@{pluginId}</span>
+            {" · "}
             v{release.version} · {release.visibility}
             {release.org_id ? (
               <>
@@ -217,11 +240,7 @@ export function PluginDetailPage() {
                   {release.org_id}
                 </Link>
               </>
-            ) : null}{" "}
-            ·{" "}
-            <span className="font-mono text-xs">
-              {release.package_digest.slice(0, 19)}…
-            </span>
+            ) : null}
           </p>
         ) : null}
       </div>
