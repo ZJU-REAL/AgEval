@@ -277,6 +277,13 @@ class ProbeCommand:
             variant=variant,
             profiles_path=profiles_path,
         )
+        if environ is None:
+            from bora.application.attempt.env_bootstrap import load_host_env_files
+            from bora.registry.resolve import resolve_database_root
+
+            raw = database_root if database_root is not None else package_root
+            if raw is not None:
+                load_host_env_files(package_root=resolve_database_root(raw))
         summary = locked_to_summary(locked).as_dict()
         summary.update(extra)
         probe = probe_locked(

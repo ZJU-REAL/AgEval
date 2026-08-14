@@ -138,6 +138,32 @@ def test_probe_does_not_change_lock_digest(bora_home: Path) -> None:
     assert "probe" in probed
 
 
+def test_probe_reads_dataset_dotenv(
+    bora_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    del bora_home
+    monkeypatch.delenv("PROBE_API_KEY", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("PROBE_API_KEY=from-dotenv-secret\n", encoding="utf-8")
+    link = DB / ".env"
+    if link.exists() or link.is_symlink():
+        link.unlink()
+    link.symlink_to(env_file)
+    try:
+        payload, _ready = build_probe_command().run(
+            database_root=DB,
+            task_id="l0-task",
+        )
+    finally:
+        if link.exists() or link.is_symlink():
+            link.unlink()
+        monkeypatch.delenv("PROBE_API_KEY", raising=False)
+    loc = [c for c in payload["probe"]["checks"] if c["id"] == "credential_locator"]
+    assert loc and loc[0]["ok"] is True
+    assert loc[0]["present"] == ["PROBE_API_KEY"]
+    assert "from-dotenv-secret" not in str(payload)
+
+
 def test_offline_is_reported(bora_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     del bora_home
     monkeypatch.setenv("BORA_OFFLINE_AGENT", "1")
