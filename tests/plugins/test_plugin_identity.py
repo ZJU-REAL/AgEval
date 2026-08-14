@@ -174,6 +174,40 @@ def test_hub_install_registers_index_id(
     assert "sample-echo" not in reg.plugins_for_slot(EXECUTOR)
 
 
+def test_release_dict_marks_official_from_allowlist() -> None:
+    from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+    from services.registry.store import ReleaseRow, release_to_dict
+
+    official = release_to_dict(
+        ReleaseRow(
+            database_id="Official/nooa",
+            version="0.1.0",
+            visibility="public",
+            package_digest="sha256:a",
+            blob_digest="sha256:b",
+            size=1,
+            media_type=PLUGIN_MEDIA_TYPE,
+            created_at=0.0,
+            org_id="Official",
+        )
+    )
+    other = release_to_dict(
+        ReleaseRow(
+            database_id="acme/nooa",
+            version="0.1.0",
+            visibility="public",
+            package_digest="sha256:a",
+            blob_digest="sha256:b",
+            size=1,
+            media_type=PLUGIN_MEDIA_TYPE,
+            created_at=0.0,
+            org_id="acme",
+        )
+    )
+    assert official["official"] is True
+    assert other["official"] is False
+
+
 def test_official_org_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
     from services.registry.official import is_official_upload_org, official_orgs
 
