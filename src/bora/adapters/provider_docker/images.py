@@ -207,6 +207,26 @@ def package_local_tag(content_digest: str) -> str:
     return f"bora-pkg:{content_digest[:12]}"
 
 
+def is_official_base_noop_dockerfile(text: str) -> bool:
+    """True when the Dockerfile is only ``FROM bora-attempt:l1`` (optional AS)."""
+    lines = dockerfile_logical_lines(text)
+    if len(lines) != 1:
+        return False
+    line = lines[0]
+    if not line.upper().startswith("FROM "):
+        return False
+    tokens = [t for t in line.split()[1:] if not t.startswith("-")]
+    if not tokens:
+        return False
+    image = tokens[0]
+    if image != _OFFICIAL_BASE_TAG and image.rsplit("/", 1)[-1] != _OFFICIAL_BASE_TAG:
+        return False
+    extra = tokens[1:]
+    if not extra:
+        return True
+    return len(extra) == 2 and extra[0].upper() == "AS"
+
+
 def inspect_image_digest(tag: str) -> str | None:
     """Evidence digest for an existing local tag, or None if missing."""
     proc = subprocess.run(
