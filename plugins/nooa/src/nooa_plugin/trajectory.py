@@ -269,6 +269,8 @@ def to_bora_trajectory_events(
     emitted_tools: set[str] = set()
     pending_code: str | None = None
     started_at: dict[str, str] = {}
+    llm_started_at: str | None = None
+    pending_llm_elapsed: float | None = None
     has_vendor_tools = any(
         isinstance(row, dict)
         and _event_type(row) in {"ToolCallEvent", "ToolCall", "PythonOutput"}
@@ -287,6 +289,15 @@ def to_bora_trajectory_events(
         if has_vendor_tools and str(raw.get("id") or "").startswith("tap_"):
             continue
         et = _event_type(raw)
+        if et == "LLMCallStart":
+            llm_started_at = _coerce_event_at(raw)
+            continue
+        if et == "LLMCallEnd":
+            end_at = _coerce_event_at(raw)
+            if llm_started_at and end_at:
+                pending_llm_elapsed = _iso_delta_ms(llm_started_at, end_at)
+            llm_started_at = None
+            continue
         if et in _SKIP_KINDS:
             continue
         if et == "Task":
@@ -298,20 +309,28 @@ def to_bora_trajectory_events(
             if not isinstance(text, str):
                 text = str(text or "")
             if text:
-                out.append(_text(_next(), session_id, "assistant", text))
+                row = _text(_next(), session_id, "assistant", text)
+                pending_llm_elapsed = _attach_llm_elapsed(row, pending_llm_elapsed)
+                out.append(row)
         elif et == "LLMOutput":
             text = raw.get("content")
             if not isinstance(text, str):
                 text = str(text or "")
             if text and _looks_like_code(text):
                 pending_code = text
-                out.append(_text(_next(), session_id, "thought", text))
+                row = _text(_next(), session_id, "thought", text)
+                pending_llm_elapsed = _attach_llm_elapsed(row, pending_llm_elapsed)
+                out.append(row)
             elif text:
-                out.append(_text(_next(), session_id, "assistant", text))
+                row = _text(_next(), session_id, "assistant", text)
+                pending_llm_elapsed = _attach_llm_elapsed(row, pending_llm_elapsed)
+                out.append(row)
         elif et in {"Reasoning", "Error", "Feedback"}:
             text = raw.get("content")
             if text:
-                out.append(_text(_next(), session_id, "thought", str(text)))
+                row = _text(_next(), session_id, "thought", str(text))
+                pending_llm_elapsed = _attach_llm_elapsed(row, pending_llm_elapsed)
+                out.append(row)
         elif et in {"ToolCallEvent", "ToolCall"}:
             seq, pending_code = _emit_tool_pair(
                 out,
@@ -335,7 +354,9 @@ def to_bora_trajectory_events(
         elif et == "LLMComplete":
             reason = raw.get("reasoning_content")
             if isinstance(reason, str) and reason.strip():
-                out.append(_text(_next(), session_id, "thought", reason))
+                row = _text(_next(), session_id, "thought", reason)
+                pending_llm_elapsed = _attach_llm_elapsed(row, pending_llm_elapsed)
+                out.append(row)
             # Proposed calls on the LLM row are not the execute span.
             # ToolCallEvent + PythonOutput own start/end when present.
             if has_vendor_tools:
@@ -579,21 +600,30 @@ def _remember_start(started_at: dict[str, str], call_id: str, ev: dict[str, Any]
 
 
 def _apply_span(ev: dict[str, Any], started_at: dict[str, str], call_id: str) -> None:
-    start_iso = ev.get("started_at") if isinstance(ev.get("started_at"), str) else None
-    if not start_iso:
-        start_iso = started_at.get(call_id)
+    # Remembered ToolCallEvent start wins. PythonOutput.started_at is often the
+    # output timestamp (same as ended_at) and must not zero the span.
+    start_iso = started_at.get(call_id)
+    if not start_iso and isinstance(ev.get("started_at"), str):
+        start_iso = ev["started_at"]
     if start_iso:
-        ev.setdefault("started_at", start_iso)
+        ev["started_at"] = start_iso
         started_at.setdefault(call_id, start_iso)
     end_iso = ev.get("ended_at") if isinstance(ev.get("ended_at"), str) else None
     if not end_iso and isinstance(ev.get("at"), str):
         end_iso = ev["at"]
     if end_iso:
-        ev.setdefault("ended_at", end_iso)
+        ev["ended_at"] = end_iso
     if ev.get("elapsed_ms") is None and start_iso and end_iso:
         elapsed = _iso_delta_ms(start_iso, end_iso)
-        if elapsed is not None:
+        if elapsed is not None and elapsed > 0:
             ev["elapsed_ms"] = elapsed
+
+
+def _attach_llm_elapsed(ev: dict[str, Any], elapsed_ms: float | None) -> float | None:
+    if elapsed_ms is None or elapsed_ms <= 0:
+        return elapsed_ms
+    ev["elapsed_ms"] = float(elapsed_ms)
+    return None
 
 
 def _iso_delta_ms(started: str, ended: str) -> float | None:

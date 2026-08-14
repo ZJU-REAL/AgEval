@@ -43,6 +43,9 @@ def write_trajectory_jsonl(
 
     thought_parts: list[str] = []
     assistant_parts: list[str] = []
+    thought_timing: dict[str, Any] = {}
+    assistant_timing: dict[str, Any] = {}
+    last_text_timing: dict[str, Any] = {}
     permission_events: list[dict[str, Any]] = []
     tool_states: dict[str, dict[str, Any]] = {}
     session_id: str | None = None
@@ -63,8 +66,14 @@ def write_trajectory_jsonl(
             channel = ev.get("channel")
             if channel == "thought" and text:
                 thought_parts.append(text)
+                _accumulate_text_timing(thought_timing, ev)
+                last_text_timing = {}
+                _accumulate_text_timing(last_text_timing, ev)
             elif channel == "assistant" and text:
                 assistant_parts.append(text)
+                _accumulate_text_timing(assistant_timing, ev)
+                last_text_timing = {}
+                _accumulate_text_timing(last_text_timing, ev)
         elif kind == "tool":
             _merge_tool(tool_states, ev)
         elif kind == "permission":
@@ -106,17 +115,17 @@ def write_trajectory_jsonl(
         }
     ]
     if merged_thought:
-        lines.append(
-            {
-                "type": "turn",
-                "role": "assistant",
-                "part": "thought",
-                "content": merged_thought,
-                "turn_index": turn_index,
-                "session_id": session_id,
-                "source": producer,
-            }
-        )
+        thought_line: dict[str, Any] = {
+            "type": "turn",
+            "role": "assistant",
+            "part": "thought",
+            "content": merged_thought,
+            "turn_index": turn_index,
+            "session_id": session_id,
+            "source": producer,
+        }
+        _copy_timing(thought_line, thought_timing)
+        lines.append(_drop_nulls(thought_line, keep={"type", "role", "turn_index", "source"}))
 
     for call_id, state in tool_states.items():
         _finalize_tool_state(state)
@@ -153,16 +162,22 @@ def write_trajectory_jsonl(
             _copy_timing(obs, state)
             lines.append(_drop_nulls(obs, keep={"type", "tool_call_id", "turn_index", "source"}))
 
-    lines.append(
-        {
-            "type": "turn",
-            "role": "assistant",
-            "content": merged_assistant,
-            "turn_index": turn_index,
-            "session_id": session_id,
-            "source": producer,
-        }
-    )
+    assistant_line: dict[str, Any] = {
+        "type": "turn",
+        "role": "assistant",
+        "content": merged_assistant,
+        "turn_index": turn_index,
+        "session_id": session_id,
+        "source": producer,
+    }
+    # Final agent bubble is often final_text with no timed assistant-channel
+    # event (nooa return_result / dsh reply after a thought). Use the last
+    # timed text burst so the visible reply is not blank.
+    if _coerce_elapsed_ms(assistant_timing.get("elapsed_ms")) in (None, 0.0):
+        _copy_timing(assistant_line, last_text_timing)
+    else:
+        _copy_timing(assistant_line, assistant_timing)
+    lines.append(_drop_nulls(assistant_line, keep={"type", "role", "turn_index", "source"}))
     for pe in permission_events:
         pe = {**pe, "turn_index": turn_index, "session_id": session_id}
         lines.append(pe)
@@ -281,7 +296,7 @@ def _should_emit_observation(state: dict[str, Any]) -> bool:
 
 def _copy_timing(row: dict[str, Any], state: dict[str, Any]) -> None:
     elapsed = _coerce_elapsed_ms(state.get("elapsed_ms"))
-    if elapsed is not None:
+    if elapsed is not None and elapsed > 0:
         row["elapsed_ms"] = elapsed
     started = state.get("started_at")
     if isinstance(started, str) and started:
@@ -289,6 +304,20 @@ def _copy_timing(row: dict[str, Any], state: dict[str, Any]) -> None:
     ended = state.get("ended_at")
     if isinstance(ended, str) and ended:
         row["ended_at"] = ended
+
+
+def _accumulate_text_timing(state: dict[str, Any], ev: dict[str, Any]) -> None:
+    """Sum observational LLM/step duration onto the merged thought/assistant turn."""
+    elapsed = _coerce_elapsed_ms(ev.get("elapsed_ms"))
+    if elapsed is not None and elapsed > 0:
+        prev = _coerce_elapsed_ms(state.get("elapsed_ms")) or 0.0
+        state["elapsed_ms"] = prev + elapsed
+    started = _coerce_iso(ev.get("started_at") or ev.get("at"))
+    if started is not None and state.get("started_at") is None:
+        state["started_at"] = started
+    ended = _coerce_iso(ev.get("ended_at") or ev.get("at"))
+    if ended is not None:
+        state["ended_at"] = ended
 
 
 def _merge_timing(state: dict[str, Any], ev: dict[str, Any]) -> None:

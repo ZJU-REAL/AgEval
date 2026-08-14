@@ -45,6 +45,7 @@ def to_bora_trajectory_events(
     seq = 0
     names: dict[str, str] = {}
     started_at: dict[str, str] = {}
+    step_started_ms: float | None = None
 
     def _next() -> int:
         nonlocal seq
@@ -56,11 +57,21 @@ def to_bora_trajectory_events(
             continue
         event = _unwrap_event(raw)
         et = str(event.get("type") or "")
+        if et == "step/start":
+            raw_t = event.get("time")
+            if raw_t is None:
+                raw_t = raw.get("time")
+            if isinstance(raw_t, int | float) and not isinstance(raw_t, bool):
+                step_started_ms = float(raw_t)
+            continue
         if et in _SKIP_TYPES:
             continue
         data = event.get("data") if isinstance(event.get("data"), dict) else {}
         if et == "assistant/message":
-            seq = _emit_assistant_message(out, _next, session_id, data)
+            llm_ms = _delta_epoch_ms(step_started_ms, event.get("time", raw.get("time")))
+            seq = _emit_assistant_message(
+                out, _next, session_id, data, elapsed_ms=llm_ms, event=event, raw=raw
+            )
         elif et == "tool/call":
             seq_n = _next()
             call_id = str(data.get("callId") or data.get("id") or f"dsh_tool_{seq_n}")
@@ -113,7 +124,7 @@ def to_bora_trajectory_events(
                 update.setdefault("ended_at", end_iso)
             if update.get("elapsed_ms") is None and start_iso and end_iso:
                 elapsed = _iso_delta_ms(start_iso, end_iso)
-                if elapsed is not None:
+                if elapsed is not None and elapsed > 0:
                     update["elapsed_ms"] = elapsed
             out.append(update)
         elif et == "turn/end":
@@ -197,12 +208,17 @@ def _emit_assistant_message(
     next_seq: Any,
     session_id: str,
     data: dict[str, Any],
+    *,
+    elapsed_ms: float | None = None,
+    event: dict[str, Any] | None = None,
+    raw: dict[str, Any] | None = None,
 ) -> int:
     message = data.get("message") if isinstance(data.get("message"), dict) else data
     content = message.get("content") if isinstance(message, dict) else None
     if not isinstance(content, list):
         return 0
     seq = 0
+    emitted: list[dict[str, Any]] = []
     for block in content:
         if not isinstance(block, dict):
             continue
@@ -211,16 +227,25 @@ def _emit_assistant_message(
             text = str(block.get("text") or "")
             if text:
                 seq = next_seq()
-                out.append(_text(seq, session_id, "thought", text))
+                emitted.append(_text(seq, session_id, "thought", text))
         elif btype == "text":
             text = str(block.get("text") or "")
             if text:
                 seq = next_seq()
-                out.append(_text(seq, session_id, "assistant", text))
+                emitted.append(_text(seq, session_id, "assistant", text))
         elif btype == "tool-call":
             # Committed tool-call on the message — tool/call event is the source
             # of truth; skip the duplicate block.
             continue
+    # Stamp the visible reply (assistant text) when present. Reasoning-only
+    # steps keep the duration on thought. Never leave the final agent bubble
+    # empty because the time went to a hidden thought fold.
+    stamp = next((row for row in reversed(emitted) if row.get("channel") == "assistant"), None)
+    if stamp is None and emitted:
+        stamp = emitted[-1]
+    if stamp is not None:
+        _stamp_llm_elapsed(stamp, elapsed_ms, event, raw)
+    out.extend(emitted)
     return seq
 
 
@@ -294,6 +319,32 @@ def _coerce_event_at(*sources: Any) -> str | None:
     if strings:
         return strings[0]
     return epoch_iso or receive
+
+
+def _stamp_llm_elapsed(
+    ev: dict[str, Any],
+    elapsed_ms: float | None,
+    event: dict[str, Any] | None,
+    raw: dict[str, Any] | None,
+) -> None:
+    if elapsed_ms is not None and elapsed_ms > 0:
+        ev["elapsed_ms"] = float(elapsed_ms)
+    if event is not None or raw is not None:
+        at = _coerce_event_at(*(x for x in (event, raw) if x is not None))
+        if at:
+            ev["at"] = at
+            ev["ended_at"] = at
+
+
+def _delta_epoch_ms(start: float | None, end: Any) -> float | None:
+    if start is None or isinstance(end, bool) or not isinstance(end, int | float):
+        return None
+    if not math.isfinite(end):
+        return None
+    delta = float(end) - float(start)
+    if delta <= 0:
+        return None
+    return round(delta, 3)
 
 
 def _epoch_to_iso(value: Any) -> str | None:
