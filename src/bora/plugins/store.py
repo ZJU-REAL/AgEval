@@ -144,6 +144,7 @@ def install_from_path(source: Path) -> IndexEntry:
     rel = f"{manifest.plugin_id}/{manifest.version}"
     dest = package_dir(manifest.plugin_id, manifest.version)
     dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp_prefix = manifest.plugin_id.replace("/", ".")
 
     # Idempotent: same digest already installed.
     if dest.is_dir():
@@ -163,7 +164,7 @@ def install_from_path(source: Path) -> IndexEntry:
         shutil.rmtree(dest)
 
     tmp_parent = dest.parent
-    tmp = Path(tempfile.mkdtemp(prefix=f".{manifest.plugin_id}.", dir=str(tmp_parent)))
+    tmp = Path(tempfile.mkdtemp(prefix=f".{tmp_prefix}.", dir=str(tmp_parent)))
     try:
         shutil.copytree(source, tmp / "pkg")
         os.replace(tmp / "pkg", dest)
@@ -209,10 +210,12 @@ def uninstall(plugin_id: str) -> bool:
     dest = plugins_root() / entry.path
     if dest.is_dir():
         shutil.rmtree(dest)
-    # Clean empty parent plugin_id dir
+    # Clean empty parent dirs (org/name nests two levels).
     parent = dest.parent
-    if parent.is_dir() and not any(parent.iterdir()):
+    root = plugins_root()
+    while parent != root and parent.is_dir() and not any(parent.iterdir()):
         parent.rmdir()
+        parent = parent.parent
     index.plugins = [p for p in index.plugins if p.plugin_id != plugin_id]
     save_index(index)
     return True

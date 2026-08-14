@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import threading
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -67,7 +68,17 @@ def test_publish_plugin_preview_and_install(
 
     _ensure_org(registry_server["url"], registry_server["token"])
 
-    summary = publish_plugin(PLUGIN_FIXTURE, public=False, org=TEST_ORG)
+    namespaced = tmp_path / "sample-echo"
+    shutil.copytree(PLUGIN_FIXTURE, namespaced)
+    yaml_path = namespaced / "plugin.yaml"
+    yaml_path.write_text(
+        yaml_path.read_text(encoding="utf-8").replace(
+            "plugin_id: sample-echo",
+            f"plugin_id: {TEST_ORG}/sample-echo",
+        ),
+        encoding="utf-8",
+    )
+    summary = publish_plugin(namespaced, public=False, org=TEST_ORG)
     assert summary["ok"] is True
     assert summary["package_kind"] == "plugin"
     assert summary["media_type"] == PLUGIN_MEDIA_TYPE
@@ -121,7 +132,8 @@ def test_publish_plugin_preview_and_install(
 
     installed = install_plugin_from_registry(ref)
     assert installed["ok"] is True
-    assert installed["plugin_id"] == "sample-echo"
+    assert installed["plugin_id"] == f"{TEST_ORG}/sample-echo"
+    assert installed["digest"].startswith("sha256:")
     assert (home / "plugins" / "index.json").is_file()
 
 

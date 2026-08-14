@@ -64,6 +64,12 @@ class PluginInstallCommand:
             extract_dir.mkdir()
             extract_archive(archive, extract_dir)
             entry = install_from_path(extract_dir)
+        if entry.plugin_id != package_id:
+            raise ConfigError(
+                "plugin_id_mismatch",
+                f"plugin.yaml plugin_id {entry.plugin_id!r} does not match locator {package_id!r}",
+                location=locator,
+            )
         return {
             "ok": True,
             "plugin_id": entry.plugin_id,
