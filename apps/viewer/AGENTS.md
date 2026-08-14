@@ -27,13 +27,24 @@ When UI conflicts with taste: **DESIGN.md wins**.
    framework / docker / `provenance.upstream.url`. Multi-role groups Trajectory
    and Agent tree by `profile_id`. Usage/trajectory are observational ≠ PASS.
 5. **Breadcrumb** — `Jobs > jobId > taskId > runId` with `>` separators; click to navigate
+6. **Delete a local Job** — Jobs row menu or bulk selection. Preview paths /
+   bytes / cascade `run_id`s, then confirm. Suite delete always removes
+   referenced Attempts. No delete control on an inner trial. Does not call
+   Registry. Same Application use case as `bora jobs delete --local … --yes`.
+7. **Pin / note (this browser)** — `localStorage` keyed by `database_id` +
+   `job_id`. Not written to evidence, lock, or Registry. Pinned rows sort
+   first. Action icon (always on): note, else pin, else hover settings.
+   Hover a note icon to read the note.
+   Click the settings/note control to open the menu (do not open on hover).
 
 **Out of scope unless user asks:**
 
 - Public catalog, OAuth, Postgres, Leaderboard SPA (#22)
+- Hub / Registry write (publish, upload, release, remote delete)
 - Package file-tree / task-package browser (removed; Jobs is the product surface)
 - Marketing mesh gradients, dark neon skins, custom CSS component kits
 - Fabricating Harbor-only files or empty evidence tabs
+- Soft-delete trash, live cancel, `l1-work` cleanup, deleting one Attempt inside a suite
 
 ## Stack (mandatory)
 
@@ -75,6 +86,8 @@ Python API under `/api/*` (see `src/bora/viewer/`):
 | `GET /api/health` | Liveness |
 | `GET /api/jobs` | Job list (suite-runs + single-task Attempts) |
 | `GET /api/jobs/{id}` | Job detail + task rows |
+| `GET /api/jobs/{id}/delete-preview` | Paths, bytes, cascade run ids, confirm token; refuse reasons |
+| `DELETE /api/jobs/{id}?confirm=` | Hard-delete after preview token (suite cascades Attempts) |
 | `GET /api/jobs/{id}/tasks/{task_id}` | Task detail + enriched trials list + commands |
 | `GET /api/jobs/{id}/tasks/{task_id}/trials` | Trials list (suite + local evidence) |
 | `GET /api/jobs/{id}/tasks/{task_id}/trials/{run_id}` | Attempt meta + `available_tabs` |

@@ -11,6 +11,7 @@
 > [!important] 设计决定
 > Dataset 在 Registry 上按 git 隐喻维护：**一份可覆盖的 draft** 与 **不可变 releases**。ACL 在 dataset 上，不在 task 上。Hub 是只读操作面，不提供 publish / upload / release 按钮。
 > Leaderboard 行是**完备的 suite 跑次**，不是 suite-level PASS。缺题结果不上榜；题上 FAIL 仍算完备。公开榜只收绑定 **release** 的完备 suite；draft 绑定行只出现在 Jobs。
+> 本地 Viewer 可删除**当前打开的** Database 根下的 Job 树（suite 始终级联 Attempt）。这不是第二条 Control Plane，也不写 Hub / Registry。
 
 ## Dataset：draft 与 release
 
@@ -116,18 +117,44 @@ Plugin 页把 provide/on chips 换成 **L0–L5 声明槽时间线**：
 
 ## 本地 Viewer（操作面）
 
-本地 Viewer 绑定**一个** Database 根，不连 Registry。
+本地 Viewer 绑定**一个** Database 根，不连 Registry。Hub 的写路径（publish / upload / release）仍只在 CLI；本地 Viewer **不是**第二条 Control Plane。
 
 - `bora view --dev` 只起 API，不要求预构建 SPA；Vite 源是 UI。两进程契约：API 端口 + UI 端口。
 - CLI 接受打开路径（job / task / run），深链到同一套客户端路由。
 - Jobs 列出该根下的 suite-run **和** 单题 Attempt（database 级与 task-local `.bora/runs`）；用 `source_kind` 区分。不扫描其它 Database。
 
+### 本机 Job 删除
+
+操作者可从 Jobs 列表删除**一行**本地 Job。删除是擦除该 Database 根下的证据树，不是改 `result.json`、分数或 PASS。同一 `run_id` / `suite_run_id` 若已上传到 Hub，Registry 行是另一对象，本地删除不调用 Registry。
+
+| 动作 | 磁盘 | 之后 |
+| --- | --- | --- |
+| 删除 `source_kind=single` | 该 Attempt 树：`<db>/.bora/runs/<run_id>/` 或 `tasks/<id>/.bora/runs/<run_id>/` | 该行消失；其它 Job 不动 |
+| 删除 `source_kind=suite` | suite 树 **以及它引用的每一个 Attempt**（`task_refs` / `attempts[]` / `attempt_run_ids`） | suite 与这些 Attempt 都消失；**不得**再以 single 回流 |
+| 从 suite 内删一条 Attempt | **拒绝** | 只能删整行 suite Job，或什么都不删 |
+
+级联是 suite 删除的**唯一**行为，不是开关。没有「只删 suite 元数据」的路径。
+
+硬规则：
+
+1. 二次确认：先 preview（相对路径、字节数、将删除的 `run_id`），再确认。CLI 对等入口需要显式 `--yes`。
+2. suite 仍在进行（`progress.json` 未结束，或 `cancel.requested` 仍在）→ 拒绝。
+3. 引用的 Attempt 仍被**另一尚未删除的** suite 认领 → 拒绝（不得静默偷走）。
+4. 路径逃逸（`..`、多段 id）→ 拒绝。路径字符串由 evidence locator 拥有（`.bora/runs/`、`.bora/suite-runs/`）。
+5. Preview / 删除载荷不得含密钥或 host 绝对路径。
+6. 不重算 suite 指标；没有「去掉一条 Attempt 再改 `summary.json`」。
+7. `l1-work/`（`--keep-workspace` 残留）不在本操作范围内。
+
+同一 Application 用例同时服务 Viewer HTTP 与 CLI。HTTP 只路由。
+
 ## 非目标
 
 - Hub GUI 写操作（publish / upload-suite / release 按钮）
+- 经 Viewer 删除 / 改可见性 Registry 行
 - per-task ACL、多份 named draft
 - suite-level PASS 权威
 - Viewer 跨 Dataset 扫描
 - 证据等级升级
 - Leaderboard 条内嵌 L0–L5 时间线（时间线只在插件详情）
 - 按 job 实际走过的槽画执行图（需要 run evidence，不是声明槽）
+- 软删除回收站 / 事后 gc；v1 是确认后的硬删除

@@ -141,11 +141,22 @@ bora results upload-suite <db> --suite-run <8-hex> --public [--with-attempts]
 
 ## `bora view`
 
-- Local read-only Database UI. No Registry.
+- Local Database UI. No Registry. Jobs row can delete a local Job after preview.
 - `--dev`: API only; starts `apps/viewer` Vite when possible, else prints the
   two-process fallback. Advertise `:5173` only after Vite is listening.
 - `--open /jobs/<id>` (or a task/run path) deep-links after a local run.
 - Jobs list includes suite runs **and** single-task Attempts in the opened Database.
+
+## `bora jobs delete`
+
+- Same use case as Viewer Job delete. **Not** `bora results delete` (Registry).
+- `--local <database>` `--job <id>`: `id` is a suite_run_id or an **unclaimed**
+  single `run_id`.
+- Without `--yes`: print preview JSON (paths, bytes, cascade run ids) and exit 2.
+- With `--yes`: hard-delete those trees. Suite delete always cascades referenced
+  Attempts; they must not reappear as singles.
+- Refuses: inner Attempt still claimed by a suite; in-progress suite /
+  live `cancel.requested`; path escape; Attempt claimed by another remaining suite.
 
 ## Registry owner ops
 

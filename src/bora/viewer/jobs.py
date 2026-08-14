@@ -19,31 +19,12 @@ from bora.application.suite import (
 )
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
-from bora.evidence.locators import default_runs_root
+from bora.evidence.locators import default_runs_root, default_suite_runs_root, safe_id_segment
 from bora.viewer.browse import commands_for
 
 
-def safe_id_segment(value: str, *, field: str) -> str:
-    """Single path segment (job_id / task_id / run_id); reject traversal."""
-    text = (value or "").strip()
-    if (
-        not text
-        or text in {".", ".."}
-        or "/" in text
-        or "\\" in text
-        or ".." in text
-        or text.startswith(".")
-    ):
-        raise ConfigError(
-            "invalid_package",
-            f"invalid {field}: {value!r}",
-            location=field,
-        )
-    return text
-
-
 def _suite_root(database_root: Path) -> Path:
-    return database_root.expanduser().resolve(strict=False) / ".bora" / "suite-runs"
+    return default_suite_runs_root(database_root.expanduser().resolve(strict=False))
 
 
 def _load_summary(path: Path) -> dict[str, Any]:

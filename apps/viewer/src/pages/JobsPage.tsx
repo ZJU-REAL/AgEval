@@ -1,7 +1,11 @@
-import { Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Search, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { DeleteJobDialog } from "@/components/delete-job-dialog";
+import { JobCheck } from "@/components/job-check";
+import { JobNoteDialog } from "@/components/job-note-dialog";
+import { JobRowActions } from "@/components/job-row-actions";
 import { Shell } from "@/components/layout";
 import {
   compareValues,
@@ -17,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -26,6 +31,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJobs, type Job } from "@/lib/api";
+import {
+  emptyJobPref,
+  loadJobPrefs,
+  saveJobPrefs,
+  type JobPref,
+} from "@/lib/job-prefs";
 import { jobDisplayName, jobHref } from "@/lib/routes";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
@@ -53,6 +64,11 @@ export function JobsPage() {
   const [model, setModel] = useState("all");
   const [sortKey, setSortKey] = useState<string | null>("started");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pendingDelete, setPendingDelete] = useState<Job[] | null>(null);
+  const [pendingNote, setPendingNote] = useState<Job | null>(null);
+  const [prefs, setPrefs] = useState<Record<string, JobPref>>({});
+  const [selected, setSelected] = useState<Record<string, true>>({});
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +89,34 @@ export function JobsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
+
+  useEffect(() => {
+    setPrefs(loadJobPrefs(dbId));
+  }, [dbId]);
+
+  const writePrefs = useCallback(
+    (next: Record<string, JobPref>) => {
+      setPrefs(next);
+      saveJobPrefs(dbId, next);
+    },
+    [dbId],
+  );
+
+  function prefFor(jobId: string): JobPref {
+    return prefs[jobId] || emptyJobPref();
+  }
+
+  function patchPref(jobId: string, patch: Partial<JobPref>) {
+    const merged: JobPref = { ...prefFor(jobId), ...patch };
+    const next = { ...prefs };
+    if (!merged.pinned && !merged.note.trim()) {
+      delete next[jobId];
+    } else {
+      next[jobId] = merged;
+    }
+    writePrefs(next);
+  }
 
   const kinds = useMemo(
     () =>
@@ -129,36 +172,64 @@ export function JobsPage() {
         j.agent_label,
         j.model_label,
         j.environment,
+        prefs[j.job_id]?.note,
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return hay.includes(query);
     });
-    if (sortKey && sortDir) {
+    rows = [...rows].sort((a, b) => {
+      const pin = Number(Boolean(prefs[b.job_id]?.pinned)) - Number(Boolean(prefs[a.job_id]?.pinned));
+      if (pin !== 0) return pin;
+      if (!sortKey || !sortDir) return 0;
       const key = sortKey as SortKey;
-      rows = [...rows].sort((a, b) => {
-        const av =
-          key === "result"
-            ? (a.mean_score ?? a.result)
-            : key === "trials_total"
-              ? a.trials_total
-              : key === "job_name"
-                ? jobDisplayName(a)
-                : a[key];
-        const bv =
-          key === "result"
-            ? (b.mean_score ?? b.result)
-            : key === "trials_total"
-              ? b.trials_total
-              : key === "job_name"
-                ? jobDisplayName(b)
-                : b[key];
-        return compareValues(av, bv, sortDir);
-      });
-    }
+      const av =
+        key === "result"
+          ? (a.mean_score ?? a.result)
+          : key === "trials_total"
+            ? a.trials_total
+            : key === "job_name"
+              ? jobDisplayName(a)
+              : a[key];
+      const bv =
+        key === "result"
+          ? (b.mean_score ?? b.result)
+          : key === "trials_total"
+            ? b.trials_total
+            : key === "job_name"
+              ? jobDisplayName(b)
+              : b[key];
+      return compareValues(av, bv, sortDir);
+    });
     return rows;
-  }, [jobs, q, kind, source, showSourceFilter, agent, model, sortKey, sortDir]);
+  }, [jobs, q, kind, source, showSourceFilter, agent, model, sortKey, sortDir, prefs]);
+
+  const selectedVisible = filtered.filter((j) => selected[j.job_id]);
+  const selectedCount = selectedVisible.length;
+  const allVisibleSelected =
+    filtered.length > 0 && selectedVisible.length === filtered.length;
+  const someVisibleSelected = selectedVisible.length > 0 && !allVisibleSelected;
+
+  function toggleOne(jobId: string, next: boolean) {
+    setSelected((prev) => {
+      const copy = { ...prev };
+      if (next) copy[jobId] = true;
+      else delete copy[jobId];
+      return copy;
+    });
+  }
+
+  function toggleAllVisible(next: boolean) {
+    setSelected((prev) => {
+      const copy = { ...prev };
+      for (const job of filtered) {
+        if (next) copy[job.job_id] = true;
+        else delete copy[job.job_id];
+      }
+      return copy;
+    });
+  }
 
   function onSort(key: string) {
     const next = nextSort(sortKey, sortDir, key);
@@ -259,15 +330,39 @@ export function JobsPage() {
             </SelectContent>
           </Select>
           <div className="flex-1" />
-          <span className="text-xs text-mute">
-            {filtered.length} job{filtered.length === 1 ? "" : "s"}
-          </span>
+          {selectedCount > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-error hover:text-error"
+              onClick={() => {
+                const rows = filtered.filter((j) => selected[j.job_id]);
+                if (rows.length) setPendingDelete(rows);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete {selectedCount}
+            </Button>
+          ) : (
+            <span className="text-xs text-mute">
+              {filtered.length} job{filtered.length === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
 
         <div className="rounded-[8px] border border-hairline overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-8 pr-0">
+                  <JobCheck
+                    checked={allVisibleSelected}
+                    indeterminate={someVisibleSelected}
+                    label="Select all jobs"
+                    onChange={toggleAllVisible}
+                  />
+                </TableHead>
                 <TableHead>{head("job_name", "Job Name")}</TableHead>
                 <TableHead>{head("agent_label", "Agents")}</TableHead>
                 <TableHead>{head("model_label", "Models")}</TableHead>
@@ -276,26 +371,29 @@ export function JobsPage() {
                 <TableHead>{head("started", "Started")}</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>{head("trials_total", "Trials")}</TableHead>
+                <TableHead className="w-7 pl-0 pr-2">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-mute py-10 text-center">
+                  <TableCell colSpan={10} className="text-mute py-10 text-center">
                     Loading jobs...
                   </TableCell>
                 </TableRow>
               )}
               {!loading && error && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-error py-10 text-center">
+                  <TableCell colSpan={10} className="text-error py-10 text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               )}
               {!loading && !error && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-mute py-10 text-center">
+                  <TableCell colSpan={10} className="text-mute py-10 text-center">
                     No jobs yet. Run{" "}
                     <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
                       bora run &lt;database&gt;
@@ -313,9 +411,17 @@ export function JobsPage() {
                 filtered.map((job) => (
                   <TableRow
                     key={job.job_id}
-                    className="cursor-pointer"
-                    onClick={() => navigate(jobHref(job))}
+                    className="group cursor-pointer"
+                    onClick={(e) => {
+                      const el = e.target as HTMLElement;
+                      if (el.closest("input, button, [role='menu'], [role='menuitem']")) {
+                        return;
+                      }
+                      navigate(jobHref(job));
+                    }}
                     onKeyDown={(e) => {
+                      const el = e.target as HTMLElement;
+                      if (el.closest("input, button")) return;
                       if (e.key === "Enter") {
                         navigate(jobHref(job));
                       }
@@ -323,11 +429,16 @@ export function JobsPage() {
                     tabIndex={0}
                     role="link"
                   >
+                    <TableCell className="w-8 pr-0">
+                      <JobCheck
+                        checked={Boolean(selected[job.job_id])}
+                        label={`Select ${jobDisplayName(job)}`}
+                        onChange={(next) => toggleOne(job.job_id, next)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium max-w-[16rem]">
                       <HoverTip content={jobDisplayName(job)}>
-                        <span className="block truncate">
-                          {jobDisplayName(job)}
-                        </span>
+                        <span className="block truncate">{jobDisplayName(job)}</span>
                       </HoverTip>
                     </TableCell>
                     <TableCell className="max-w-[14rem]">
@@ -353,12 +464,54 @@ export function JobsPage() {
                     <TableCell className="tabular">
                       {formatTrials(job.trials_done, job.trials_total)}
                     </TableCell>
+                    <TableCell className="w-7 pl-0 pr-2 text-right">
+                      <JobRowActions
+                        job={job}
+                        pref={prefFor(job.job_id)}
+                        onPin={() =>
+                          patchPref(job.job_id, {
+                            pinned: !prefFor(job.job_id).pinned,
+                          })
+                        }
+                        onNote={() => setPendingNote(job)}
+                        onDelete={() => setPendingDelete([job])}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
             </TableBody>
           </Table>
         </div>
       </div>
+      {pendingNote ? (
+        <JobNoteDialog
+          job={pendingNote}
+          initialNote={prefFor(pendingNote.job_id).note}
+          onClose={() => setPendingNote(null)}
+          onSave={(note) => {
+            patchPref(pendingNote.job_id, { note });
+            setPendingNote(null);
+          }}
+        />
+      ) : null}
+      {pendingDelete ? (
+        <DeleteJobDialog
+          jobs={pendingDelete}
+          onClose={() => setPendingDelete(null)}
+          onDeleted={(jobIds) => {
+            const nextPrefs = { ...prefs };
+            const nextSelected = { ...selected };
+            for (const id of jobIds) {
+              delete nextPrefs[id];
+              delete nextSelected[id];
+            }
+            writePrefs(nextPrefs);
+            setSelected(nextSelected);
+            setPendingDelete(null);
+            setReloadToken((n) => n + 1);
+          }}
+        />
+      ) : null}
     </Shell>
   );
 }

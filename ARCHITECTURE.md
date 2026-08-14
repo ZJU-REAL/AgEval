@@ -116,7 +116,8 @@ BORA/
 │   │   │                      # phase 体在 run_l0.py / run_l1_phases.py
 │   │   ├── suite/             # suite_run、fingerprint、suite_metrics
 │   │   ├── registry_ops/      # results / publish / login / org / list（注入 client factory）
-│   │   └── plugin_ops/        # plugin install / publish / image_contribute bake
+│   │   ├── plugin_ops/        # plugin install / publish / image_contribute bake
+│   │   └── local_jobs/        # 本机 Job 删除（Viewer / bora jobs delete；suite 级联 Attempt）
 │   ├── config/                # Core 1（load_and_lock + constants/yaml_io/overrides/digest/validate）
 │   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker、
 │   │                          # parent_agent_service + agent_service_protocol/evidence

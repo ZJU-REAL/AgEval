@@ -18,6 +18,32 @@ def default_runs_root(database_root: Path | str) -> Path:
     return Path(database_root) / ".bora" / "runs"
 
 
+def default_suite_runs_root(database_root: Path | str) -> Path:
+    """Database-root suite job directory: ``<db>/.bora/suite-runs``."""
+    return Path(database_root) / ".bora" / "suite-runs"
+
+
+def safe_id_segment(value: str, *, field: str) -> str:
+    """Single path segment (job_id / task_id / run_id); reject traversal."""
+    from bora.config.errors import ConfigError
+
+    text = (value or "").strip()
+    if (
+        not text
+        or text in {".", ".."}
+        or "/" in text
+        or "\\" in text
+        or ".." in text
+        or text.startswith(".")
+    ):
+        raise ConfigError(
+            "invalid_package",
+            f"invalid {field}: {value!r}",
+            location=field,
+        )
+    return text
+
+
 def portable_run_locator(
     run_dir: Path | str,
     *,

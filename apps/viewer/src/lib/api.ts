@@ -162,6 +162,36 @@ export type TrajectoryStep = {
 
 export type Breadcrumb = { label: string; href: string | null };
 
+export type DeletePath = {
+  locator: string;
+  bytes: number;
+  role: "suite" | "attempt" | string;
+  exists: boolean;
+  run_id?: string;
+};
+
+export type DeletePreview = {
+  ok: boolean;
+  job_id: string;
+  kind: "suite" | "single" | string;
+  can_delete: boolean;
+  paths: DeletePath[];
+  bytes: number;
+  cascade_run_ids: string[];
+  confirm_token: string;
+  error?: { code?: string; message?: string } | null;
+};
+
+export type DeleteResult = {
+  ok: boolean;
+  job_id: string;
+  kind: "suite" | "single" | string;
+  deleted: string[];
+  missing: string[];
+  bytes: number;
+  cascade_run_ids: string[];
+};
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: { Accept: "application/json" } });
   const data = (await res.json().catch(() => ({}))) as {
@@ -172,6 +202,28 @@ async function getJson<T>(path: string): Promise<T> {
     throw new Error(data.message || data.error || `HTTP ${res.status}`);
   }
   return data as T;
+}
+
+export function fetchDeletePreview(jobId: string) {
+  return getJson<DeletePreview>(
+    `/api/jobs/${encodeURIComponent(jobId)}/delete-preview`,
+  );
+}
+
+export async function deleteJob(jobId: string, confirmToken: string) {
+  const q = new URLSearchParams({ confirm: confirmToken });
+  const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}?${q}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    message?: string;
+  } & DeleteResult;
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  }
+  return data;
 }
 
 export function fetchJobs() {

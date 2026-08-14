@@ -100,7 +100,8 @@ Credentials file `~/.bora/credentials` (mode `0600`):
 | `bora results export-profiles` | Export suite `job_overlay` → re-runnable `profiles.yaml` (#59) |
 | `bora results share\|unshare` | Share / revoke private result access (owner only) |
 | `bora results delete\|set-visibility` | Delete or flip visibility (`--kind attempt\|suite`; delete needs `--yes`) |
-| `bora view` | Local read-only Database Web UI (no Registry). `--dev` starts API and Vite when possible; `--open` deep-links a job/task/run |
+| `bora view` | Local Database Web UI (no Registry). `--dev` starts API and Vite when possible; `--open` deep-links a job/task/run |
+| `bora jobs delete` | Delete a local Job under `--local` (suite always cascades Attempts). Requires `--yes` |
 
 Discover flags with `uv run bora <cmd> -h`.
 
@@ -115,6 +116,9 @@ uv run bora tasks examples/core
 uv run bora view examples/core
 # uv run bora view tests/fixtures/databases/suite-min --port 8765 --no-browser
 # uv run bora view examples/core --dev --open /jobs/<id>
+# Preview local delete, then confirm (suite cascades Attempts; not Registry)
+# uv run bora jobs delete --local examples/core --job <id>
+# uv run bora jobs delete --local examples/core --job <id> --yes
 
 uv run bora lock examples/core --task config-minimal
 

@@ -169,3 +169,11 @@
   font-family: var(--font-mono);
   font-size: 13px;
 }
+
+/* Table-row hover is more reliable than Tailwind group-hover on <tr>. */
+tbody tr.group:hover [data-job-actions],
+tbody tr.group:focus-within [data-job-actions],
+[data-job-actions][data-has-note],
+[data-job-actions][data-pinned] {
+  opacity: 1;
+}

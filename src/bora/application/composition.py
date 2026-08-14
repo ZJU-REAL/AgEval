@@ -74,6 +74,13 @@ def build_results_commands() -> Any:
     return ResultsCommands(client_factory=build_registry_client)
 
 
+def build_local_jobs_commands() -> Any:
+    """Local Job delete for Viewer / ``bora jobs delete`` (no Registry)."""
+    from bora.application.local_jobs import LocalJobsCommands
+
+    return LocalJobsCommands()
+
+
 def build_registry_list_commands() -> Any:
     """Package list/show/delete/visibility and local cache helpers."""
     from bora.application.registry_ops.registry_list_command import RegistryListCommands

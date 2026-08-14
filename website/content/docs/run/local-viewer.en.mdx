@@ -5,6 +5,8 @@ description: Browse suite runs in the browser — no Registry.
 
 After a suite or a single-task run, use Viewer for scores, trajectories, and copyable commands. It reads the **opened** Database only (`.bora/suite-runs/` and `.bora/runs/`) and never talks to Registry.
 
+From the Jobs table you can delete a local Job after a path preview. Deleting a suite always removes the Attempts it references; they do not come back as singles. You cannot delete one Attempt from inside a suite. This is a local erase, not a Registry delete (`bora results delete` is a different object). The same use case is `bora jobs delete --local <dataset> --job <id> --yes`.
+
 ## Open
 
 ```bash
