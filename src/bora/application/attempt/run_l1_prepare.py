@@ -39,14 +39,12 @@ def prepare_l1_runtime(
     dockerfile_rel = str(provider.get("dockerfile") or "environment/Dockerfile")
     platform = str(provider.get("platform") or "linux/arm64")
     # Official base (FROM bora-attempt:l1) then package Dockerfile → Attempt image.
+    # Tag is content-addressed (Dockerfile + FROM digest + COPY set); not lock.digest.
     ensure_base_image(Path.cwd())
-    short = lock.digest.replace("sha256:", "")[:12]
-    tag = f"bora-pkg:{lock.task_id}-{short}"
     pkg_image = build_package_image(
         package_root=package_root,
         dockerfile_rel=dockerfile_rel,
         platform=platform,
-        tag=tag,
         repo_root=Path.cwd(),
     )
     # Lifecycle prepare + image_contribute consume (fail closed).

@@ -16,6 +16,11 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from bora.adapters.provider_docker.images import (
+    hash_copy_sources,
+    inspect_image_digest,
+    parse_dockerfile_copy_sources,
+)
 from bora.adapters.provider_docker.types import DockerImageLock
 from bora.config.model import LockedTaskConfig, thaw
 from bora.plugins.bootstrap import ensure_bootstrapped
@@ -118,6 +123,38 @@ def _find_installed_plugin_root(plugin_id: str) -> Path | None:
     return None
 
 
+def bake_layer_content_digest(
+    *,
+    plugin_id: str,
+    plugin_root: Path,
+    dockerfile: Path,
+    base_content_digest: str,
+) -> str:
+    """Hex digest of bake inputs — not ``docker image inspect`` id."""
+    hasher = hashlib.sha256()
+    hasher.update(b"plugin\0")
+    hasher.update(plugin_id.encode("utf-8"))
+    hasher.update(b"\0bake\0")
+    hasher.update(dockerfile.read_bytes())
+    hasher.update(b"\0base\0")
+    hasher.update(base_content_digest.encode("utf-8"))
+    hasher.update(b"\0copy\0")
+    hash_copy_sources(
+        plugin_root,
+        parse_dockerfile_copy_sources(dockerfile.read_text(encoding="utf-8")),
+        hasher,
+    )
+    return hasher.hexdigest()
+
+
+def _base_content_digest(base_image: DockerImageLock) -> str:
+    return base_image.build_input_digest or base_image.image_tag
+
+
+def baked_image_tag(base_image: DockerImageLock, plugin_id: str, bake_digest: str) -> str:
+    return f"{base_image.image_tag}-{plugin_id}-{bake_digest[:12]}"
+
+
 def bake_plugin_layer(
     *,
     base_image: DockerImageLock,
@@ -132,6 +169,21 @@ def bake_plugin_layer(
         raise ImageContributeError(
             f"{plugin_id} bake Dockerfile missing: {dockerfile}",
             kind="plugin_not_ready",
+        )
+    bake_digest = bake_layer_content_digest(
+        plugin_id=plugin_id,
+        plugin_root=plugin_root,
+        dockerfile=dockerfile,
+        base_content_digest=_base_content_digest(base_image),
+    )
+    existing = inspect_image_digest(out_tag)
+    if existing is not None:
+        return DockerImageLock(
+            kind="docker-package-attempt",
+            platform=platform,
+            image_tag=out_tag,
+            image_digest=existing,
+            build_input_digest=f"sha256:{bake_digest}",
         )
 
     cmd = [
@@ -156,33 +208,17 @@ def bake_plugin_layer(
             kind="image_contribute_unsatisfied",
         )
 
-    dig = subprocess.run(
-        [
-            "docker",
-            "image",
-            "inspect",
-            out_tag,
-            "--format",
-            "{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if dig.returncode != 0:
+    image_digest = inspect_image_digest(out_tag)
+    if not image_digest:
         raise ImageContributeError(
             f"cannot inspect baked {plugin_id} image", kind="image_unresolved"
         )
-    image_digest = (dig.stdout or "").strip()
-    build_input = hashlib.sha256(
-        plugin_id.encode() + dockerfile.read_bytes() + base_image.image_digest.encode()
-    ).hexdigest()
     return DockerImageLock(
         kind="docker-package-attempt",
         platform=platform,
         image_tag=out_tag,
         image_digest=image_digest,
-        build_input_digest=f"sha256:{build_input}",
+        build_input_digest=f"sha256:{bake_digest}",
     )
 
 
@@ -231,8 +267,13 @@ def apply_image_contribute_bake(
                 f"{plugin_id} bound/declared but docker/Dockerfile.bake missing",
                 kind="plugin_not_ready",
             )
-        short = hashlib.sha256(f"{current.image_digest}:{plugin_id}".encode()).hexdigest()[:12]
-        out_tag = f"{base_image.image_tag}-{plugin_id}-{short}"
+        bake_digest = bake_layer_content_digest(
+            plugin_id=plugin_id,
+            plugin_root=plugin_root,
+            dockerfile=dockerfile,
+            base_content_digest=_base_content_digest(current),
+        )
+        out_tag = baked_image_tag(current, plugin_id, bake_digest)
         current = bake_plugin_layer(
             base_image=current,
             platform=platform,

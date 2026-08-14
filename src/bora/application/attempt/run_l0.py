@@ -403,56 +403,19 @@ def bind_l0_result(ctx: AttemptStageContext) -> None:
 
 
 def cleanup_l0(ctx: AttemptStageContext) -> None:
-    from bora.application.attempt.extension_hooks import hook_cleanup, hook_env_teardown
+    from bora.application.attempt.extension_hooks import hook_cleanup
 
     timer = _timer(ctx)
-    attempt = ctx.attempt
     with timer.phase("cleanup"):
         if ctx.agent_server is not None:
             with contextlib.suppress(Exception):
                 ctx.agent_server.stop()
             ctx.agent_server = None
-        if ctx.env_manager is not None:
-            with contextlib.suppress(Exception):
-                from types import SimpleNamespace
+        from bora.application.attempt.run_command_environment import (
+            teardown_attempt_environment,
+        )
 
-                td_ctx = SimpleNamespace(
-                    attempt_id=str(
-                        ctx.agent_meta.get("attempt_id")
-                        or (attempt.value if attempt is not None else "")
-                    ),
-                    package_root=ctx.package_root,
-                    workdir=ctx.package_root,
-                    run_dir=ctx.run_dir,
-                    env_manager=ctx.env_manager,
-                    resource_id=(ctx.agent_meta.get("environment") or {}).get("resource_id"),
-                )
-                hook_env_teardown(
-                    ctx.lock,
-                    ctx.agent_meta.get("environment") or {"phase": "teardown"},
-                    ctx=td_ctx,
-                )
-            with contextlib.suppress(Exception):
-                ctx.env_manager.close()
-            ctx.env_manager = None
-        marker = ctx.run_dir / "env_container_name.txt"
-        if marker.is_file():
-            try:
-                from bora.adapters.environment_postgres import PostgresEnvironment
-
-                name = marker.read_text(encoding="utf-8").strip()
-                PostgresEnvironment(container_name=name).stop()
-            except Exception:
-                pass
-            with contextlib.suppress(OSError):
-                marker.unlink()
-        for handoff in (
-            ctx.package_root / ".bora_env_result.json",
-            ctx.run_dir / "env_manager.json",
-        ):
-            if handoff.exists():
-                with contextlib.suppress(OSError):
-                    handoff.unlink()
+        teardown_attempt_environment(ctx)
         hook_cleanup(ctx.lock)
         for leftover in (
             ctx.package_root / ".bora_agent_result.json",

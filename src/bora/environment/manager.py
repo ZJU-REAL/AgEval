@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import contextlib
 from dataclasses import dataclass, field
 from typing import Any
@@ -22,6 +23,7 @@ class EnvironmentManager:
     _resources: dict[str, Any] = field(default_factory=dict)
     _actions: int = 0
     closed: bool = False
+    _atexit_registered: bool = False
 
     def _effect(self, decision: dict[str, Any]) -> None:
         if self.evidence_store is None:
@@ -56,6 +58,9 @@ class EnvironmentManager:
         env.start(timeout=90.0)
         rid = f"{kind}:{env.container_name}"
         self._resources[rid] = env
+        if not self._atexit_registered:
+            atexit.register(self.close)
+            self._atexit_registered = True
         self._effect({"decision": "allow", "op": "open", "kind": kind, "resource_id": rid})
         return {"ok": True, "resource_id": rid, "kind": kind}
 
@@ -142,6 +147,10 @@ class EnvironmentManager:
         if self.closed:
             return
         self.closed = True
+        if self._atexit_registered:
+            with contextlib.suppress(Exception):
+                atexit.unregister(self.close)
+            self._atexit_registered = False
         for env in list(self._resources.values()):
             with contextlib.suppress(Exception):
                 env.stop()

@@ -116,8 +116,9 @@ class PostgresEnvironment:
         }
 
     def stop(self) -> None:
+        # -v drops anonymous Postgres data volumes; --rm does not on force-rm.
         subprocess.run(
-            ["docker", "rm", "-f", self.container_name],
+            ["docker", "rm", "-fv", self.container_name],
             check=False,
             capture_output=True,
         )

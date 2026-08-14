@@ -62,7 +62,7 @@ L1 prepare 把 host work root 放在 **同一 run 目录**下：`.bora/runs/<run
 | 策略 | 行为 |
 | --- | --- |
 | **默认** | Attempt cleanup（含已有 Docker cleanup 的失败路径）后 **删除** `l1-work/`，只保留 Hub-facing 证据 |
-| **`--keep-workspace`** | 保留 `l1-work/` 供本地调试；**不**要求 Hub / CI 开启 |
+| **`--keep-workspace`** | 保留 host `l1-work/` 供本地调试；Docker volume / env 容器仍删除；**不**要求 Hub / CI 开启 |
 | **Upload pack** | `build_attempt_archive` **排除** `l1-work/**`（即使 residual 仍在磁盘），Registry blob 只含 curated evidence |
 
 Hub Attempt tabs 与本地 `bora view` 仍只解析 Trajectory / Agent / Verifier / Artifacts / Lock / Runtime 等既有相对路径；不新增 Workspace tab。
