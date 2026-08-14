@@ -8,7 +8,9 @@ Trust `uv run bora --help`.
 ```bash
 uv run bora tasks <dataset>
 uv run bora lock <dataset> --task <id>
+uv run bora lock <dataset> --task <id> --probe
 uv run bora run <dataset> --task <id>
+uv run bora run <dataset> --task <id> --probe
 uv run bora run <dataset>
 uv run bora run <dataset> --max-concurrent-tasks 2
 uv run bora run <dataset> -k 5
@@ -42,6 +44,7 @@ Path = Dataset root. Destructive commands require `--yes`; overwrite same identi
 | `--resume-suite <suite_run_id>` | Resume job: skip finished units, append Attempts, recompute pass@k / pass^k |
 | `--keep-workspace` | L1 only: keep host `l1-work/` after cleanup (default: delete; uploads never pack it). Docker volumes are still removed |
 | `--set` / `--profiles` | Overrides / alternate job binding |
+| `--probe` | Feasibility only: plan + readiness for this binding/`provider.kind`. No Agent, no bake, no lock digest change. Exit 1 if the selected path is unsatisfied. |
 
 ## `status` / `cancel`
 

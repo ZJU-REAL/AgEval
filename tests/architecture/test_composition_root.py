@@ -9,6 +9,11 @@ from bora.application import composition
 from bora.cli import main as cli_main
 
 
+def test_build_probe_command_uses_lock() -> None:
+    probe = composition.build_probe_command()
+    assert callable(probe.run)
+
+
 def test_build_run_task_returns_callable() -> None:
     run_task = composition.build_run_task()
     assert callable(run_task)

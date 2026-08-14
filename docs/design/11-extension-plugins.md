@@ -4,7 +4,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 权威 | 本文件与同目录其它 design 文档共同构成设计权威 |
-| 摘要 | 固定扩展点 L0–L5、注册表 resolve/冲突、lock `extension_bindings`、外置 `bora.plugin/1`、Recognition ≠ Ready |
+| 摘要 | 固定扩展点 L0–L5、注册表 resolve/冲突、lock `extension_bindings`、外置 `bora.plugin/1`、Recognition ≠ L0 host-ready ≠ L1 bake-declared、`--probe` |
 
 ---
 
@@ -34,7 +34,7 @@
 1. `profiles.executor`（及 `extensions` 显式绑定）选择 provide；**禁止** `resolve_executor` dual path / `bora.agent_executors` 旁路  
 2. **nooa 等生态插件外置**（`plugins/` + install），不进 first-party bootstrap  
 3. `bora plugin install` **只写本地 cache**（`$BORA_HOME/plugins`），**永不改写** profiles / task.yaml  
-4. **Recognition ≠ Ready**：install 可见 ≠ L1 镜像可跑；Ready 来自本 profile `extensions` 选中的 `image_contribute` bake。`executor:` 只选 `provide(executor)`，**不**暗示 bake / trajectory / 其它 `on:`。MULTI 链只含 first-party/default **加上** 本 profile `extensions` 点名的插件；已安装但未列入的外置插件不进链、不进镜像。绑定了已安装 executor 但未选中 contribute 或缺 bake 文件 → fail closed。Core **不**按插件名解释 bake token。官方 ACP 五 entry 仍在 `docker/attempt` 基座 bake-in。不要用「official org」跳过 bake。
+4. **Recognition ≠ L0 host-ready ≠ L1 bake-declared**：install 可见 ≠ 本机 L0 SPI 可构造 ≠ 本 profile 会 bake。L0 host-ready 只执行插件声明的 `host_requires`（至少 `import:`）。L1 bake-declared 是本 profile `extensions` **选中**的 `image_contribute` 且已安装根有 `docker/Dockerfile.bake`。`executor:` 只选 `provide(executor)`，**不**暗示 bake / trajectory / 其它 `on:`。MULTI 链只含 first-party/default **加上** 本 profile `extensions` 点名的插件；已安装但未列入的外置插件不进链、不进镜像。绑定了已安装 executor 但未选中 contribute 或缺 bake 文件 → fail closed。Core **不**按插件名解释 bake token，也**不**维护 plugin-id → pip extra 表。官方 ACP 五 entry 仍在 `docker/attempt` 基座 bake-in。不要用「official org」跳过 bake。
 5. PASS 只来自独立 evaluator；扩展链不得发明 PASS  
 6. 凭据只经 scoped projection；不进 lock / evidence  
 
@@ -89,7 +89,8 @@ evaluate     → evaluation_input_contribute → evaluation_runtime
 外置机制包（非 Dataset）：
 
 - 根 `plugin.yaml`：`plugin_id`、`version`、`slots.provide` / `slots.on` + entry  
-- 可选 `docker/Dockerfile.bake`（L1 Ready）  
+- 可选 `host_requires`（L0 host SPI 构造前提；见下）  
+- 可选 `docker/Dockerfile.bake`（L1 bake-declared，须本 profile `extensions` 选中 `image_contribute`）  
 - install：`bora plugin install <path|org/name@version>` → `~/.bora/plugins`  
 - Hub/Registry：`package_kind=plugin`；media type `application/vnd.bora.plugin.v1.tar+gzip`  
 - Dataset 与 plugin **fail closed** 区分（Hub 列表过滤 / detail 拒绝混开）
@@ -112,6 +113,40 @@ evaluate     → evaluation_input_contribute → evaluation_runtime
 「Official」是 **市场展示策略**，不是运行时门闩。默认 allowlist 是单个 Registry 常量（org slug `official`，与 `org-create` 小写规则一致）。可选覆盖只在 **Registry 进程**（如 `BORA_OFFICIAL_ORGS`）——不是前端 `VITE_*`，也不是 CLI→Registry 拉取。改 allowlist **不得**要求改 `plugins/nooa/plugin.yaml` 或 journeys profiles。比较时 casefold，避免 `Official` / `official` 漂移。
 
 Core 槽 id（`executor`、`image_contribute`、…）仍归 Core。
+
+### `host_requires`（插件声明，Core 只执行）
+
+外置 executor 若 L0 需要宿主 Python extra 或插件缓存内文件，必须在 `plugin.yaml` **声明**。Core 不得解析插件源码 / `Dockerfile.bake` 推断依赖，也不得写 `if plugin_id == …` extra 表。
+
+```yaml
+format: bora.plugin/1
+plugin_id: dsh
+host_requires:
+  - import: deepseek_harness   # importlib.util.find_spec；不 spawn、不联网
+    hint: "uv sync --extra dsh"  # 操作者提示；Core 不执行
+  - file: compositions/slim.cordis.yml  # 相对已安装插件根
+```
+
+| 规则 | 语义 |
+| --- | --- |
+| 条目允许键 | **allowlist**：`import`、`file`、`hint`。**未知键 fail closed**（`plugin_host_requires_invalid`） |
+| 每条至少 | `import` 和/或 `file`（可同时有）；`hint` 可选字符串 |
+| `import:` | `importlib.util.find_spec`；不 import 模块、不调用工厂、不 spawn |
+| `file:` | 相对已安装插件根的正规文件存在 |
+| 谁消费 | 仅 L0 路径（`provider.kind` 为 `local` / 省略）与 `bora executors.host_ready` |
+| 谁不消费 | L1（`provider.kind: docker`）**不**要求 host extra |
+
+未声明 `host_requires`：插件主张「无宿主 extra」。此时 `host_ready` 仍要求能经工厂到达 `describe()`（registry 持有的是 factory，不得因缺 binary PATH 默认 `true`）。既无声明又看不到 `describe()` → `host_ready: false`。
+
+### 三级就绪
+
+| 等级 | 含义 | 来源 |
+| --- | --- | --- |
+| **Recognition** | 本机识别到 `provide(executor)` | `bora plugin install` / `plugin list` / `executors.supported` / lock `extension_bindings` |
+| **L0 host-ready** | 宿主可构造 host SPI | 已安装 + 声明的 `host_requires` 全满足（或无声明且 `describe()` 可达） |
+| **L1 bake-declared** | **本 profile** 会走 contribute bake | `extensions` 选中 `image_contribute` 且已安装根有 `docker/Dockerfile.bake` |
+
+`bora executors.host_ready` = **L0 host-ready**（无 package，故不看 `extensions`）。`l1_bake_declared` 在 inventory 上只表示插件 **具备** bake 文件 + 槽；`--probe` 的 L1 就绪还要求本 profile `extensions` 选中了 contribute。不得对插件 PATH 探测 wheel 内二进制（如 `dsh-jsonrpc-agent`）来代替 `host_requires`。
 
 ### First-party vs 外置
 
@@ -202,6 +237,53 @@ Dockerfile 另有文件或其它 `FROM`，或任一选中扩展要 bake，仍走
 | `bora plugin uninstall` | 可逆移除；不改 profiles |
 | `bora plugin publish` | `package_kind=plugin` 上传 Registry |
 | `bora plugin materialize-docs` | 显式拷贝 README/skills；非 silent |
+| `bora lock … --probe` / `bora run … --probe` | 绑定感知的本机可行性探针（下节）；不是新动词 |
+| `bora executors` | Recognition ∪ L0 host-ready ∪ `l1_bake_declared`；`execution_mode` 来自 `describe()` |
+
+### `--probe`（机器可行性，不是 Attempt plan）
+
+操作者在 `bora run` 前问：给定 Database + profiles + `provider.kind`，**这条已选路径**在本机能否开工。探针：
+
+- 挂在已有命令上（`--probe`），**不**新增 `bora dry-run` / `bora preview`
+- 读与 `lock`/`run` 相同的输入（package、`--task`、`--profiles`、`--set`）
+- 按 **`provider.kind`** 分支，不按 plugin id
+- **不** invoke Agent、**不** `docker build` / bake、**不** spawn 厂商运行时
+- **不**把探针结果写入 lock digest / `config_fingerprint`；无 `--probe` 的 `bora lock` 行为不变
+- 选中路径不满足 → 非零退出；仍打印 plan + checks（配置错误仍走 lock 的 exit 2）
+- `BORA_OFFLINE_AGENT=1` 记入报告；探针仍不 spawn
+- 凭据只报 **locator 名是否存在**；值永不进探针 JSON
+
+#### L0（`provider.kind` 为 `local` / 省略）
+
+对每个绑定的**外置** executor：
+
+1. 插件已安装（Recognition）
+2. 每条 `host_requires` 在宿主上满足
+3. profile / `describe()` 声明的 credential locator **名**在 env 中存在（只查名）
+4. 声明的 `file:` 在已安装插件缓存中存在
+
+缺 `import` → 类型化 miss（如 `host_import: missing`）+ 插件 `hint`。
+
+#### L1（`provider.kind: docker`）
+
+**不**要求 host extra。检查：
+
+1. 插件已安装
+2. 本 profile `extensions` 选中了 `image_contribute`，且 `Dockerfile.bake` 存在
+3. Docker daemon 可达（`BORA_SKIP_DOCKER=1` 视为不可达）
+4. credential locator **名**存在（parent 投影需要）
+
+`executor:` 单独不够。绑定了已安装外置 executor 但未在 `extensions` 点名 contribute → 探针 **不 ready**（与生产 fail closed 一致）。ACP-only（无 `extensions`）不要求 bake；官方 `FROM`-only 包复用 `bora-attempt:l1`。
+
+宿主没有 vendor extra、但 docker 任务 **选中** 了该插件的 contribute：只要 bake 文件 + Docker + locator 在，探针 **ready**。
+
+#### `bora executors`（无 package，无 `provider.kind`）
+
+- 不得因「已安装 / 无 PATH 候选」默认 `host_ready: true`
+- 经工厂到达 `describe()`（registry 存的是 factory，不是 SPI 实例）；不得 PATH 探测 wheel 二进制
+- `host_ready` = L0 host SPI 可构造
+- `l1_bake_declared` 单独给出
+- `execution_mode` 在 `describe()` 已发布时取其值，否则 `unknown`
 
 ---
 

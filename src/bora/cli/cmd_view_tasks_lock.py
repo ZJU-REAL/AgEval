@@ -150,6 +150,16 @@ def register(app: typer.Typer) -> None:
                 ),
             ),
         ] = None,
+        probe: Annotated[
+            bool,
+            typer.Option(
+                "--probe",
+                help=(
+                    "Report whether this locked path can start on this host. "
+                    "Does not invoke an Agent, bake an image, or change the lock digest."
+                ),
+            ),
+        ] = False,
     ) -> None:
         """Resolve a Database member, lock its task.yaml; print a deterministic JSON summary."""
         if task is None or not str(task).strip():
@@ -160,14 +170,25 @@ def register(app: typer.Typer) -> None:
             )
             raise typer.Exit(code=2)
 
-        use_case = build_lock_command()
         try:
-            summary = use_case.run(
-                database_root=package,
-                task_id=task,
-                set_overrides=set_overrides or (),
-                profiles_path=profiles,
-            )
+            if probe:
+                from bora.application.composition import build_probe_command
+
+                summary, ready = build_probe_command().run(
+                    database_root=package,
+                    task_id=task,
+                    set_overrides=set_overrides or (),
+                    profiles_path=profiles,
+                )
+            else:
+                use_case = build_lock_command()
+                summary = use_case.run(
+                    database_root=package,
+                    task_id=task,
+                    set_overrides=set_overrides or (),
+                    profiles_path=profiles,
+                )
+                ready = True
         except ConfigError as exc:
             # Stable operator-facing failure: exit 2, message on stderr, empty stdout.
             typer.echo(str(exc), err=True)
@@ -178,3 +199,5 @@ def register(app: typer.Typer) -> None:
 
         # Success: exactly one JSON object on stdout (stable key order via model).
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+        if probe and not ready:
+            raise typer.Exit(code=1)

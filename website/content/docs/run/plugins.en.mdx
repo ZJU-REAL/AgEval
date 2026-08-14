@@ -62,18 +62,35 @@ fenced; bash stays local. This is not a BORA isolation claim.
 
 `bora lock` writes the resolved extension graph into `extension_bindings` in the lock summary.
 
-## Recognition ≠ Ready
+Before a run, probe the same inputs for host feasibility (no Agent invoke, no bake, no lock digest change):
+
+```bash
+uv run bora lock examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.dsh.yaml --probe
+# or: uv run bora run … --probe
+```
+
+`--probe` branches on **`provider.kind`**: L0 checks declared `host_requires` (for example
+`import: deepseek_harness`); L1 does not require a host extra and checks that this
+profile's `extensions` selected `image_contribute`, plus the bake file, Docker daemon,
+and whether credential locator **names** exist. `executor:` alone is not enough.
+Unsatisfied paths exit non-zero.
+
+## Recognition ≠ L0 host-ready ≠ L1 bake-declared
 
 | Stage | Meaning |
 | --- | --- |
 | **install / list** | Host recognizes a provide (Recognition) |
+| **L0 host-ready** | Host SPI can be constructed (declared `host_requires` satisfied) |
 | **profiles bind** | Job selects that executor |
-| **L1 Ready** | `image_contribute` bake during prepare; execute in-container |
+| **L1 bake-declared** | this profile's `extensions` selected `image_contribute` and `Dockerfile.bake` exists |
 
-A successful install does **not** imply the L1 isolated path is ready. Docker L1
-tasks need this profile's `extensions` to select `image_contribute` and a
-successful bake before the container worker runs (for example nooa or dsh
-in-container). Installed plugins that are not listed stay off the Attempt image.
+`bora executors.host_ready` means L0 host-ready, not “installed” and not “L1 will bake”.
+A successful install does **not** imply the host extra is present, and does **not** imply
+the L1 isolated path is ready. Docker L1 tasks need this profile's `extensions` to
+select `image_contribute` and a successful bake before the container worker runs
+(for example nooa or dsh in-container). Installed plugins that are not listed stay
+off the Attempt image.
 
 ## Relation to ACP
 

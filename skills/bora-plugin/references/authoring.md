@@ -34,6 +34,9 @@ plugins/my-mech/
 format: bora.plugin/1
 plugin_id: my-mech # = profiles.executor value
 version: "0.1.0"
+host_requires: # L0 only; omit if the host SPI needs no extra
+  - import: my_vendor_sdk
+    hint: "uv sync --extra my-mech"
 slots:
   provide:
     - id: executor
@@ -49,6 +52,11 @@ slots:
 ```
 
 Hub: `package_kind=plugin`. Dataset vs plugin fail-closes; do not mix the two.
+
+`host_requires` allowlist keys: `import`, `file`, `hint`. Unknown keys fail closed.
+`import:` is `importlib.util.find_spec` (no spawn). `file:` is relative to the
+installed plugin root. Core does not map plugin-id → pip extra. L1 (`provider.kind:
+docker`) does **not** consume `host_requires`.
 
 ## ExecutorSPI
 
@@ -180,7 +188,9 @@ uv run bora plugin install plugins/my-mech
 uv run bora plugin list
 uv run bora executors                 # .supported includes my-mech
 uv run bora lock <db> --task <id> --profiles path/to/profiles.yaml
+uv run bora lock <db> --task <id> --profiles path/to/profiles.yaml --probe
 # lock JSON: extension_bindings lists this plugin; no secrets
+# --probe: L0 needs declared imports; L1 needs bake file + Docker, not the host extra
 ```
 
 For L1, run one docker task and confirm bake succeeded and

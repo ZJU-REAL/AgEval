@@ -15,6 +15,7 @@ MANIFEST_NAMES = ("plugin.yaml", "bora.plugin.yaml")
 DEFAULT_OFFICIAL_ORG = "official"
 # Same slash form as Dataset database_id. Not org.name. Official is mixed-case.
 _PLUGIN_ID_SEGMENT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$")
+HOST_REQUIRES_KEYS = frozenset({"import", "file", "hint"})
 
 
 class PluginManifestError(Exception):
@@ -80,12 +81,22 @@ class SlotEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class HostRequire:
+    """One declared L0 host prerequisite. Core executes this list only."""
+
+    import_name: str | None = None
+    file: str | None = None
+    hint: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PluginManifest:
     format: str
     plugin_id: str
     version: str
     provide: tuple[SlotEntry, ...] = ()
     on: tuple[SlotEntry, ...] = ()
+    host_requires: tuple[HostRequire, ...] = ()
     source_path: str | None = None
 
     def slots_summary(self) -> dict[str, list[str]]:
@@ -171,8 +182,62 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
         version=version.strip(),
         provide=_entries("provide"),
         on=_entries("on"),
+        host_requires=_parse_host_requires(raw.get("host_requires")),
         source_path=location,
     )
+
+
+def _parse_host_requires(raw: Any) -> tuple[HostRequire, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise PluginManifestError(
+            "host_requires must be a list",
+            kind="plugin_host_requires_invalid",
+        )
+    out: list[HostRequire] = []
+    for i, row in enumerate(raw):
+        if not isinstance(row, dict):
+            raise PluginManifestError(
+                f"host_requires[{i}] must be a mapping",
+                kind="plugin_host_requires_invalid",
+            )
+        unknown = sorted(str(k) for k in row if str(k) not in HOST_REQUIRES_KEYS)
+        if unknown:
+            raise PluginManifestError(
+                f"host_requires[{i}] unknown keys: {unknown}",
+                kind="plugin_host_requires_invalid",
+            )
+        import_name = row.get("import")
+        file_rel = row.get("file")
+        hint = row.get("hint")
+        if import_name is not None and (
+            not isinstance(import_name, str) or not import_name.strip()
+        ):
+            raise PluginManifestError(
+                f"host_requires[{i}].import must be a non-empty string",
+                kind="plugin_host_requires_invalid",
+            )
+        if file_rel is not None and (not isinstance(file_rel, str) or not file_rel.strip()):
+            raise PluginManifestError(
+                f"host_requires[{i}].file must be a non-empty string",
+                kind="plugin_host_requires_invalid",
+            )
+        if hint is not None and (not isinstance(hint, str) or not hint.strip()):
+            raise PluginManifestError(
+                f"host_requires[{i}].hint must be a non-empty string",
+                kind="plugin_host_requires_invalid",
+            )
+        imp = import_name.strip() if isinstance(import_name, str) else None
+        file_s = file_rel.strip() if isinstance(file_rel, str) else None
+        hint_s = hint.strip() if isinstance(hint, str) else None
+        if not imp and not file_s:
+            raise PluginManifestError(
+                f"host_requires[{i}] must declare import and/or file",
+                kind="plugin_host_requires_invalid",
+            )
+        out.append(HostRequire(import_name=imp, file=file_s, hint=hint_s))
+    return tuple(out)
 
 
 def load_manifest(root: Path) -> PluginManifest:

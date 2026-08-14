@@ -7,7 +7,7 @@ Private vendor CLI kinds are not first-class.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, get_type_hints
 
 ToolsCap = Literal["native", "adapter-loop", "unsupported"]
 StructuredCap = Literal["native", "validated-text", "unsupported"]
@@ -96,29 +96,45 @@ def _plugin_published_capabilities(kind: str) -> ExecutorCapabilities | None:
 def _describe_from_provider(impl: Any) -> dict[str, Any] | None:
     if impl is None:
         return None
-    fn = getattr(impl, "describe", None)
-    if callable(fn):
-        try:
-            out = fn() if impl is type(impl) else fn()
-        except TypeError:
-            try:
-                out = impl.describe()  # type: ignore[misc]
-            except Exception:  # noqa: BLE001
-                return None
-        except Exception:  # noqa: BLE001
-            return None
-        return out if isinstance(out, dict) else None
+    found = _call_describe(impl)
+    if found is not None:
+        return found
     cls = impl if isinstance(impl, type) else type(impl)
-    fn = getattr(cls, "describe", None)
-    if callable(fn):
+    found = _call_describe(cls)
+    if found is not None:
+        return found
+    # Registry holds the factory function; describe() lives on the SPI class.
+    ret = _factory_return_type(impl)
+    if ret is not None:
+        return _call_describe(ret)
+    return None
+
+
+def _call_describe(obj: Any) -> dict[str, Any] | None:
+    fn = getattr(obj, "describe", None)
+    if not callable(fn):
+        return None
+    try:
+        out = fn()
+    except TypeError:
         try:
-            out = fn()
-        except TypeError:
-            return None
+            out = obj.describe()  # type: ignore[misc]
         except Exception:  # noqa: BLE001
             return None
-        return out if isinstance(out, dict) else None
-    return None
+    except Exception:  # noqa: BLE001
+        return None
+    return out if isinstance(out, dict) else None
+
+
+def _factory_return_type(impl: Any) -> Any | None:
+    if impl is None or isinstance(impl, type) or not callable(impl):
+        return None
+    try:
+        hints = get_type_hints(impl)
+    except Exception:  # noqa: BLE001
+        hints = getattr(impl, "__annotations__", {}) or {}
+    ret = hints.get("return")
+    return ret if isinstance(ret, type) else None
 
 
 def required_kinds_for_v014() -> frozenset[str]:

@@ -68,7 +68,7 @@ Database root (bora.yaml / bora.database/1)
 
 | 项                          | 值                                                                                                        |
 | --------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Public entrypoint           | `bora lock` / `bora run` / `bora tasks` / `bora campaign` / `bora view` 等（以 CLI 为准）                 |
+| Public entrypoint           | `bora lock` / `bora run`（含 `--probe`）/ `bora tasks` / `bora campaign` / `bora view` 等（以 CLI 为准） |
 | Production composition root | `src/bora/application/composition.py`                                                                     |
 | Smoke journey               | `uv run bora lock examples/core --task config-minimal`（exit 0，确定性 JSON 摘要含 `database_id`）        |
 | Expected failure            | `uv run bora lock examples/core --task config-invalid`（exit 2，`unknown_profile`）；缺 `--task` → exit 2 |
@@ -114,6 +114,7 @@ BORA/
 │   │   ├── composition.py     # CLI 只从此处 import builders（含 registry client factory）
 │   │   ├── attempt/           # run_task → run_lifecycle(LocalL0Stages | DockerL1Stages, attempt=)
 │   │   │                      # phase 体在 run_l0.py / run_l1_phases.py
+│   │   │                      # lock_command / probe_command（--probe；不进 lock digest）
 │   │   ├── suite/             # suite_run、fingerprint、suite_metrics
 │   │   ├── registry_ops/      # results / publish / login / org / list（注入 client factory）
 │   │   ├── plugin_ops/        # plugin install / publish / image_contribute bake
@@ -129,6 +130,7 @@ BORA/
 │   ├── plugins/               # 扩展点注册表（slots/registry/resolve/defaults/contrib）
 │   │   ├── defaults/          # L0–L5 默认 multi/provide（无 legacy executor 桥）
 │   │   ├── lifecycle.py       # emit helpers：host 在控制点 await chain / provide SPI
+│   │   ├── manifest.py        # bora.plugin/1 + host_requires allowlist
 │   │   └── contrib/           # first-party：acp / openai_http / mock（nooa 为外置包）
 │   ├── viewer/                # 本地 Jobs/Trial HTTP API（trials/ 包）
 │   └── adapters/

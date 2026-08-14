@@ -1,0 +1,8 @@
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: host-probe
+    extensions:
+      - plugin: host-probe
+    model: none
+    api_key: PROBE_API_KEY

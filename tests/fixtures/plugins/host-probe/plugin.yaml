@@ -1,0 +1,16 @@
+format: bora.plugin/1
+plugin_id: host-probe
+version: 0.1.0
+host_requires:
+  - import: host_probe_vendor_sdk
+    hint: "install the host extra for L0"
+  - file: compositions/default.yml
+slots:
+  provide:
+    - id: executor
+      priority: 50
+      entry: "host_probe_plugin.factory:build_executor"
+  "on":
+    - id: image_contribute
+      priority: 50
+      entry: "host_probe_plugin.hooks:image_contribute"

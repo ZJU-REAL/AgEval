@@ -57,18 +57,32 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 
 `bora lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
 
-## Recognition ≠ Ready
+跑之前可用同一套输入做本机可行性探针（不 invoke Agent、不 bake、不改 lock digest）：
+
+```bash
+uv run bora lock examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.dsh.yaml --probe
+# 或：uv run bora run … --probe
+```
+
+`--probe` 按 **`provider.kind`** 分支：L0 检查插件声明的 `host_requires`（如 `import: deepseek_harness`）；
+L1 不要求宿主 extra，只看本 profile `extensions` 是否选中 `image_contribute`、bake 文件、Docker daemon
+与 locator **名**是否存在。`executor:` 单独不够。缺项非零退出。
+
+## Recognition ≠ L0 host-ready ≠ L1 bake-declared
 
 | 阶段 | 含义 |
 | --- | --- |
 | **install / list** | 本机识别到 provide（Recognition） |
+| **L0 host-ready** | 宿主能构造 host SPI（声明的 `host_requires` 满足） |
 | **profiles 绑定** | Job 选择该 executor |
-| **L1 Ready** | `image_contribute` 在 prepare 时 bake 进 Attempt 镜像；容器内执行 |
+| **L1 bake-declared** | 本 profile `extensions` 选中 `image_contribute` 且 `Dockerfile.bake` 存在 |
 
-有 install 成功 **不等于** L1 隔离路径已就绪。Docker L1 任务需该 profile 的
-`extensions` 选中 `image_contribute` 并 bake 成功后，才在容器内调用 worker
-（例如 nooa / dsh 的 in-container 路径）。已安装但未写入 `extensions` 的插件
-不会进 Attempt 镜像。
+`bora executors.host_ready` 回答的是 L0 host-ready，不是「已安装」或「L1 将 bake」。
+有 install 成功 **不等于** L0 extra 已装，也不等于 L1 隔离路径已就绪。Docker L1
+任务需该 profile 的 `extensions` 选中 `image_contribute` 并 bake 成功后，才在
+容器内调用 worker（例如 nooa / dsh 的 in-container 路径）。已安装但未写入
+`extensions` 的插件不会进 Attempt 镜像。
 
 ## 与 ACP 的关系
 

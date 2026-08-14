@@ -1,6 +1,9 @@
 format: bora.plugin/1
 plugin_id: nooa
 version: 0.1.0
+host_requires:
+  - import: nooa
+    hint: "uv sync --extra nooa"
 slots:
   provide:
     - id: executor

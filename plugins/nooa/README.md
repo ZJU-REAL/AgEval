@@ -56,12 +56,14 @@ uv run bora run examples/journeys \
   --profiles examples/journeys/profiles.nooa.yaml
 ```
 
-## Recognition ≠ Ready ≠ bind
+## Recognition ≠ L0 host-ready ≠ L1 bake-declared
 
 - **install** → Recognition only (`plugin list` / executor visible)
+- **`host_requires`** → L0 needs the `nooa` import (`uv sync --extra nooa`); L1 bake does not
 - **profiles `executor: nooa`** → bind provide only (+ model / base_url / api_key)
 - **`extensions: [{plugin: nooa}]`** → opt-in bake / trajectory collect (required for L1 Ready)
-- **L1 Ready** → selected `image_contribute` bake installs `nooa` + `bora-executor-nooa` in the Attempt image; invoke is **docker exec** with projected credentials
+- **`--probe`** → binding-aware feasibility; no Agent, no bake
+- **L1 bake-declared** → this profile selected `image_contribute` bake installs `nooa` + `bora-executor-nooa` in the Attempt image; invoke is **docker exec** with projected credentials
 
 ## L1 Ready strategy
 

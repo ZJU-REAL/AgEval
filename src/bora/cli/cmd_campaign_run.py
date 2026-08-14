@@ -147,11 +147,25 @@ def register(app: typer.Typer) -> None:
                 ),
             ),
         ] = False,
+        probe: Annotated[
+            bool,
+            typer.Option(
+                "--probe",
+                help=(
+                    "Report whether this path can start on this host, then exit. "
+                    "Does not invoke an Agent, bake an image, or write a Run."
+                ),
+            ),
+        ] = False,
     ) -> None:
         """Run one member or a full Database suite (Application-layer task_id axis)."""
         import asyncio
 
-        from bora.application.composition import build_run_task, build_suite_runner
+        from bora.application.composition import (
+            build_probe_command,
+            build_run_task,
+            build_suite_runner,
+        )
 
         _suite = build_suite_runner()
         execute_suite_run = _suite.execute_suite_run
@@ -164,6 +178,54 @@ def register(app: typer.Typer) -> None:
             for raw in set_overrides or ():
                 pointer, value = parse_set_override(raw)
                 overrides[pointer] = value
+
+            if probe:
+                probe_uc = build_probe_command()
+                task_id = task.strip() if task and str(task).strip() else None
+                if task_id:
+                    summary, ready = probe_uc.run(
+                        database_root=package,
+                        task_id=task_id,
+                        set_overrides=set_overrides or (),
+                        profiles_path=profiles,
+                    )
+                    typer.echo(
+                        json.dumps(
+                            summary,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        )
+                    )
+                    raise typer.Exit(code=0 if ready else 1)
+                plan = plan_suite_run(
+                    package,
+                    task_id=None,
+                    max_concurrent_tasks=max_concurrent_tasks,
+                    n_attempts=1,
+                    suite_run_id=None,
+                )
+                members: list[dict[str, object]] = []
+                all_ready = True
+                for member_id in plan.task_ids:
+                    summary, ready = probe_uc.run(
+                        database_root=package,
+                        task_id=member_id,
+                        set_overrides=set_overrides or (),
+                        profiles_path=profiles,
+                    )
+                    members.append(summary)
+                    all_ready = all_ready and ready
+                payload = {"probe": True, "ready": all_ready, "tasks": members}
+                typer.echo(
+                    json.dumps(
+                        payload,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                )
+                raise typer.Exit(code=0 if all_ready else 1)
 
             k = n_attempts if n_attempts is not None else 1
             resume_id = resume_suite.strip() if resume_suite and str(resume_suite).strip() else None

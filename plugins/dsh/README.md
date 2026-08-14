@@ -22,8 +22,10 @@ not the task workspace.
 ## Install
 
 ```bash
-uv sync --extra dsh          # optional; L1 bake installs the wheels in-image
+uv sync --extra dsh          # L0 host SPI only; L1 bake installs the wheels in-image
 uv run bora plugin install plugins/dsh
+uv run bora lock examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.dsh.yaml --probe
 ```
 
 Install updates `$BORA_HOME/plugins` (default `~/.bora/plugins`) only — **never**
@@ -77,12 +79,14 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
-## Recognition ≠ Ready ≠ bind
+## Recognition ≠ L0 host-ready ≠ L1 bake-declared
 
 - **install** → Recognition only (`plugin list` / executor visible)
+- **`host_requires`** → L0 needs `deepseek_harness` on the host (`uv sync --extra dsh`); L1 does not
 - **profiles `executor: dsh`** → bind provide only (+ model / api_key locator)
 - **`extensions: [{plugin: dsh}]`** → opt-in bake / trajectory collect (required for L1 Ready)
-- **L1 Ready** → selected `image_contribute` bake installs the SDK wheels +
+- **`--probe`** → binding-aware feasibility (`provider.kind` local vs docker); no Agent, no bake
+- **L1 bake-declared** → this profile selected `image_contribute` + `docker/Dockerfile.bake`; prepare bakes wheels +
   `bora-executor-dsh`; invoke is **docker exec** with projected `DEEPSEEK_API_KEY`
 
 Host SPI success is not L1 Ready. Offline (`BORA_OFFLINE_AGENT=1`) fail-closes
