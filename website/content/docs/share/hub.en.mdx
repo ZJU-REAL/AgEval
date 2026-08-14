@@ -16,7 +16,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Leaderboard: complete, release-bound suite rows only. Incomplete or draft-bound runs stay on the task Jobs list. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace)  
 - Plugin detail: L0–L5 **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
 - Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins you uploaded. Signed-out visitors go to sign-in. No publish / upload / release buttons  
-- List search sits on the same row as **Your organizations | Explore**; file-tree pane height is stable; trajectory tool-call rows collapse; a step shows duration only when `elapsed_ms` is on the sealed row  
+- List search sits on the same row as **Your organizations | Explore**; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
 - **Sign in with GitHub** (browser OAuth; CLI stays on Device Flow)
 

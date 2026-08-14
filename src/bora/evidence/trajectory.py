@@ -35,8 +35,8 @@ def write_trajectory_jsonl(
     Consumes only events with ``schema == bora.trajectory.event/1``. Other
     rows are ignored (vendor raw belongs in ``backend_raw/`` / ``events.jsonl``).
 
-    Row order: user → thought → tool_call/observation* → assistant →
-    permission* → terminal.
+    Row order: user → (thought? → tool_call → observation)* →
+    assistant (final) → permission* → terminal.
     """
     inv_dir.mkdir(parents=True, exist_ok=True)
     path = inv_dir / "trajectory.jsonl"
@@ -45,7 +45,6 @@ def write_trajectory_jsonl(
     assistant_parts: list[str] = []
     thought_timing: dict[str, Any] = {}
     assistant_timing: dict[str, Any] = {}
-    last_text_timing: dict[str, Any] = {}
     permission_events: list[dict[str, Any]] = []
     tool_states: dict[str, dict[str, Any]] = {}
     session_id: str | None = None
@@ -60,36 +59,6 @@ def write_trajectory_jsonl(
         src = ev.get("source")
         if isinstance(src, str) and src:
             producer = src
-        kind = ev.get("kind")
-        if kind == "text":
-            text = ev.get("text") if isinstance(ev.get("text"), str) else ""
-            channel = ev.get("channel")
-            if channel == "thought" and text:
-                thought_parts.append(text)
-                _accumulate_text_timing(thought_timing, ev)
-                last_text_timing = {}
-                _accumulate_text_timing(last_text_timing, ev)
-            elif channel == "assistant" and text:
-                assistant_parts.append(text)
-                _accumulate_text_timing(assistant_timing, ev)
-                last_text_timing = {}
-                _accumulate_text_timing(last_text_timing, ev)
-        elif kind == "tool":
-            _merge_tool(tool_states, ev)
-        elif kind == "permission":
-            permission_events.append(
-                {
-                    "type": "permission_decision",
-                    "outcome": ev.get("outcome"),
-                    "option_id": ev.get("option_id"),
-                    "policy": ev.get("policy"),
-                    "source": producer or "bora",
-                }
-            )
-        # kind == opaque: events.jsonl only
-
-    merged_thought = "".join(thought_parts)
-    merged_assistant = final_text if final_text else "".join(assistant_parts)
 
     turn_index = 1
     if isinstance(metadata, dict):
@@ -114,54 +83,96 @@ def write_trajectory_jsonl(
             "source": "bora",
         }
     ]
-    if merged_thought:
-        thought_line: dict[str, Any] = {
+
+    def flush_thought() -> None:
+        content = "".join(thought_parts)
+        thought_parts.clear()
+        timing = dict(thought_timing)
+        thought_timing.clear()
+        if not content:
+            return
+        _finalize_timing(timing)
+        row: dict[str, Any] = {
             "type": "turn",
             "role": "assistant",
             "part": "thought",
-            "content": merged_thought,
+            "content": content,
             "turn_index": turn_index,
             "session_id": session_id,
             "source": producer,
         }
-        _copy_timing(thought_line, thought_timing)
-        lines.append(_drop_nulls(thought_line, keep={"type", "role", "turn_index", "source"}))
+        _copy_timing(row, timing)
+        lines.append(_drop_nulls(row, keep={"type", "role", "turn_index", "source"}))
 
-    for call_id, state in tool_states.items():
-        _finalize_tool_state(state)
-        tool_line: dict[str, Any] = {
-            "type": "tool_call",
-            "tool_call_id": call_id,
-            "title": state.get("title"),
-            "function_name": state.get("function_name") or "tool",
-            "kind": state.get("tool_kind"),
-            "status": state.get("status"),
+    def flush_assistant_burst() -> None:
+        content = "".join(assistant_parts)
+        assistant_parts.clear()
+        timing = dict(assistant_timing)
+        assistant_timing.clear()
+        if not content:
+            return
+        _finalize_timing(timing)
+        row: dict[str, Any] = {
+            "type": "turn",
+            "role": "assistant",
+            "content": content,
             "turn_index": turn_index,
             "session_id": session_id,
             "source": producer,
         }
-        args = state.get("args")
-        if args is not None:
-            tool_line["args"] = args
-        _copy_timing(tool_line, state)
-        lines.append(_drop_nulls(tool_line, keep={"type", "tool_call_id", "turn_index", "source"}))
+        _copy_timing(row, timing)
+        lines.append(_drop_nulls(row, keep={"type", "role", "turn_index", "source"}))
 
-        if _should_emit_observation(state):
-            obs: dict[str, Any] = {
-                "type": "observation",
-                "tool_call_id": call_id,
-                "status": state.get("status"),
-                "turn_index": turn_index,
-                "session_id": session_id,
-                "source": producer,
-            }
-            if state.get("content") is not None:
-                obs["content"] = state["content"]
-            if state.get("raw_output") is not None:
-                obs["raw_output"] = state["raw_output"]
-            _copy_timing(obs, state)
-            lines.append(_drop_nulls(obs, keep={"type", "tool_call_id", "turn_index", "source"}))
+    def flush_tools() -> None:
+        for call_id, state in tool_states.items():
+            _emit_tool_rows(
+                lines,
+                call_id=call_id,
+                state=state,
+                turn_index=turn_index,
+                session_id=session_id,
+                producer=producer,
+            )
+        tool_states.clear()
 
+    for ev in events:
+        if not isinstance(ev, dict) or ev.get("schema") != EVENT_SCHEMA_VERSION:
+            continue
+        kind = ev.get("kind")
+        if kind == "text":
+            text = ev.get("text") if isinstance(ev.get("text"), str) else ""
+            channel = ev.get("channel")
+            if channel == "thought" and text:
+                flush_assistant_burst()
+                flush_tools()
+                thought_parts.append(text)
+                _accumulate_text_timing(thought_timing, ev)
+            elif channel == "assistant" and text:
+                flush_thought()
+                flush_tools()
+                assistant_parts.append(text)
+                _accumulate_text_timing(assistant_timing, ev)
+        elif kind == "tool":
+            flush_thought()
+            flush_assistant_burst()
+            _merge_tool(tool_states, ev)
+        elif kind == "permission":
+            flush_thought()
+            flush_tools()
+            permission_events.append(
+                {
+                    "type": "permission_decision",
+                    "outcome": ev.get("outcome"),
+                    "option_id": ev.get("option_id"),
+                    "policy": ev.get("policy"),
+                    "source": producer,
+                }
+            )
+        # kind == opaque: events.jsonl only
+
+    flush_thought()
+    flush_tools()
+    merged_assistant = final_text if final_text else "".join(assistant_parts)
     assistant_line: dict[str, Any] = {
         "type": "turn",
         "role": "assistant",
@@ -170,13 +181,8 @@ def write_trajectory_jsonl(
         "session_id": session_id,
         "source": producer,
     }
-    # Final agent bubble is often final_text with no timed assistant-channel
-    # event (nooa return_result / dsh reply after a thought). Use the last
-    # timed text burst so the visible reply is not blank.
-    if _coerce_elapsed_ms(assistant_timing.get("elapsed_ms")) in (None, 0.0):
-        _copy_timing(assistant_line, last_text_timing)
-    else:
-        _copy_timing(assistant_line, assistant_timing)
+    _finalize_timing(assistant_timing)
+    _copy_timing(assistant_line, assistant_timing)
     lines.append(_drop_nulls(assistant_line, keep={"type", "role", "turn_index", "source"}))
     for pe in permission_events:
         pe = {**pe, "turn_index": turn_index, "session_id": session_id}
@@ -211,6 +217,50 @@ def write_trajectory_jsonl(
         encoding="utf-8",
     )
     return path
+
+
+def _emit_tool_rows(
+    lines: list[dict[str, Any]],
+    *,
+    call_id: str,
+    state: dict[str, Any],
+    turn_index: int,
+    session_id: str | None,
+    producer: str,
+) -> None:
+    _finalize_tool_state(state)
+    tool_line: dict[str, Any] = {
+        "type": "tool_call",
+        "tool_call_id": call_id,
+        "title": state.get("title"),
+        "function_name": state.get("function_name") or "tool",
+        "kind": state.get("tool_kind"),
+        "status": state.get("status"),
+        "turn_index": turn_index,
+        "session_id": session_id,
+        "source": producer,
+    }
+    args = state.get("args")
+    if args is not None:
+        tool_line["args"] = args
+    _copy_timing(tool_line, state)
+    lines.append(_drop_nulls(tool_line, keep={"type", "tool_call_id", "turn_index", "source"}))
+    if not _should_emit_observation(state):
+        return
+    obs: dict[str, Any] = {
+        "type": "observation",
+        "tool_call_id": call_id,
+        "status": state.get("status"),
+        "turn_index": turn_index,
+        "session_id": session_id,
+        "source": producer,
+    }
+    if state.get("content") is not None:
+        obs["content"] = state["content"]
+    if state.get("raw_output") is not None:
+        obs["raw_output"] = state["raw_output"]
+    _copy_timing(obs, state)
+    lines.append(_drop_nulls(obs, keep={"type", "tool_call_id", "turn_index", "source"}))
 
 
 def _drop_nulls(row: dict[str, Any], *, keep: set[str]) -> dict[str, Any]:
@@ -307,7 +357,7 @@ def _copy_timing(row: dict[str, Any], state: dict[str, Any]) -> None:
 
 
 def _accumulate_text_timing(state: dict[str, Any], ev: dict[str, Any]) -> None:
-    """Sum observational LLM/step duration onto the merged thought/assistant turn."""
+    """Sum observational LLM/step duration onto the current thought/assistant burst."""
     elapsed = _coerce_elapsed_ms(ev.get("elapsed_ms"))
     if elapsed is not None and elapsed > 0:
         prev = _coerce_elapsed_ms(state.get("elapsed_ms")) or 0.0

@@ -78,7 +78,7 @@ credential_env_names, binary
 Layer B: each `AgentResult.events` row has `schema: bora.trajectory.event/1`,
 `source` = this plugin id, `session_id` (never `acp_session_id`).
 Layer C: only Core `bora.evidence.trajectory.write_trajectory_jsonl` writes
-`trajectory.jsonl`.
+`trajectory.jsonl` (ReAct seq order; do not emit layer-C rows yourself).
 
 `on: trajectory_collect`:
 

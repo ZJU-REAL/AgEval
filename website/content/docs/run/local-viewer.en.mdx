@@ -33,7 +33,7 @@ uv run bora view examples/core --open /jobs/<id>
 | Attempt | Outcome, **Timing** (and **Tokens** when present), actors, evidence tabs |
 
 Timing comes from Attempt `phase_timing` (`prepare` / `run` / `evaluate` / `cleanup`); hover bar segments for durations.  
-When a sealed `tool_call` row carries `elapsed_ms`, the step header shows that duration. Missing timing is omitted — Viewer does not invent it from file mtimes or the page clock.  
+Trajectory steps follow the sealed file order: a thought, then the tools that thought invoked, then the next thought. When a sealed step (thought, `tool_call`, or final assistant) carries `elapsed_ms`, the step header shows that duration. Missing timing is omitted — Viewer does not invent it from file mtimes or the page clock.  
 Time / tokens / step duration are **hints**, not PASS. Trajectory is not scoring authority. Each **tool-call** row (and other long rows) can collapse; the observational PASS note has expand-all / collapse-all, matching the Hub Attempt page.
 
 Viewer does **not** talk to Registry — see [Hub](/docs/share/hub). SPA details: `apps/viewer/README.md`.

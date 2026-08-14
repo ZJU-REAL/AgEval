@@ -271,6 +271,8 @@ def to_bora_trajectory_events(
     started_at: dict[str, str] = {}
     llm_started_at: str | None = None
     pending_llm_elapsed: float | None = None
+    last_llm_elapsed: float | None = None
+    last_return: dict[str, Any] | None = None
     has_vendor_tools = any(
         isinstance(row, dict)
         and _event_type(row) in {"ToolCallEvent", "ToolCall", "PythonOutput"}
@@ -296,6 +298,8 @@ def to_bora_trajectory_events(
             end_at = _coerce_event_at(raw)
             if llm_started_at and end_at:
                 pending_llm_elapsed = _iso_delta_ms(llm_started_at, end_at)
+                if pending_llm_elapsed and pending_llm_elapsed > 0:
+                    last_llm_elapsed = pending_llm_elapsed
             llm_started_at = None
             continue
         if et in _SKIP_KINDS:
@@ -341,6 +345,9 @@ def to_bora_trajectory_events(
                 started_at,
                 pending_code=pending_code,
             )
+            name = str(raw.get("name") or raw.get("tool") or "")
+            if name == "return_result":
+                last_return = raw
         elif et == "PythonOutput":
             seq, pending_code = _emit_python_output(
                 out,
@@ -383,6 +390,8 @@ def to_bora_trajectory_events(
                     started_at,
                     pending_code=pending_code,
                 )
+                if name == "return_result":
+                    last_return = fake
         else:
             seq = _next()
             out.append(
@@ -395,6 +404,16 @@ def to_bora_trajectory_events(
                     "payload": _clip(raw),
                 }
             )
+    has_assistant = any(ev.get("channel") == "assistant" for ev in out)
+    if last_return is not None and last_llm_elapsed and last_llm_elapsed > 0 and not has_assistant:
+        payload = last_return.get("arguments")
+        if payload is None:
+            payload = last_return.get("result")
+        text = _stringify_result(payload) if payload is not None else ""
+        if text:
+            row = _text(_next(), session_id, "assistant", text)
+            row["elapsed_ms"] = float(last_llm_elapsed)
+            out.append(row)
     return out
 
 
