@@ -78,8 +78,9 @@ credentials — not parent host SPI success.
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) path: official
 JSON-RPC SDK (`deepseek-harness-sdk`), not ACP. Same journeys harness; bind
-`executor: dsh` + `model` + locator `deepseek_api_key`. L1 bake installs the
-wheels in the Attempt image — host `--extra dsh` is only for L0 host SPI.
+`executor: dsh` + `extensions: [{plugin: dsh}]` + `model` + locator
+`deepseek_api_key`. L1 bake installs the wheels in the Attempt image — host
+`--extra dsh` is only for L0 host SPI. `executor:` alone does not bake.
 
 ```bash
 uv run bora plugin install plugins/dsh

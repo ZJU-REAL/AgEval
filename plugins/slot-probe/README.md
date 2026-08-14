@@ -1,7 +1,6 @@
 # slot-probe
 
-`bora.plugin/1` multi-slot **observability** plugin for extension SPI regression
-([Issue #71](https://github.com/ZJU-REAL/BORA/issues/71)).
+`bora.plugin/1` multi-slot **observability** plugin for extension SPI regression.
 
 Paired dataset: [`examples/slot-probe`](../../examples/slot-probe/).
 
@@ -54,7 +53,8 @@ Config capability catalog still allowlists **declaration** executor kinds
 installed plugin `provide(executor)`. The `slot-probe` package still **provides**
 an echo executor for experiments, but the shipped L0 profile binds **nooa** +
 package-local `lib.agents:FixedAnswerAgent` so lock/run stay green while multi
-hooks prove emit.
+hooks prove emit. Those hooks attach only when `profiles.extensions` names
+`slot-probe` (install alone does not join the chain).
 
 ## Anti-pattern
 

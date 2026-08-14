@@ -27,6 +27,8 @@ bindings:
   # External nooa host SPI (task-local lib.agents; after bora plugin install)
   nooa-solver:
     executor: nooa
+    extensions:
+      - plugin: nooa
     options:
       agent: "lib.agents:FixedAnswerAgent"
       method: "run"
