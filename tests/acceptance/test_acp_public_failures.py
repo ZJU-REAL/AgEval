@@ -32,7 +32,7 @@ parameters: {}
 provider: {kind: local, assurance: l0}
 agent_profiles:
   - id: bad
-    executor: acp
+    executor: Official/acp
     model: m
     options: {entry: not-registered}
 limits: {wall_time_seconds: 10, agent_invocations: 1, environment_actions: 0}

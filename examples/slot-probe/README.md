@@ -1,6 +1,6 @@
 # example/slot-probe
 
-Database for **multi-slot extension SPI** regression ([Issue #71](https://github.com/ZJU-REAL/BORA/issues/71)).
+Database for **multi-slot extension SPI** regression.
 
 Companion plugin: [`plugins/slot-probe`](../../plugins/slot-probe/).
 

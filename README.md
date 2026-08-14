@@ -134,7 +134,7 @@ agent_profiles:
 # format: bora.profiles/1
 # bindings:
 #   solver:
-#     executor: acp
+#     executor: Official/acp
 #     options: { entry: codex }  # see: bora executors
 #     model: gpt-5.4-mini
 ```
