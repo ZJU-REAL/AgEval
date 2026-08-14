@@ -29,9 +29,9 @@ jobs:
       ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_API_KEY }}
       API_TIMEOUT_MS: "3000000"
       # Optional model map for GLM Coding Plan (server may remap Claude names → GLM).
-      ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.ANTHROPIC_DEFAULT_OPUS_MODEL || 'glm-5.2' }}
-      ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.ANTHROPIC_DEFAULT_SONNET_MODEL || 'glm-5.2' }}
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'glm-5.2' }}
+      ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.ANTHROPIC_DEFAULT_OPUS_MODEL || 'glm-5.3' }}
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.ANTHROPIC_DEFAULT_SONNET_MODEL || 'glm-5.3' }}
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'glm-5.3' }}
 
     steps:
       - name: Checkout repository
@@ -78,17 +78,23 @@ jobs:
             **Posting policy (strict — follow exactly):**
 
             1. First decide: are there **any blockers**?
-            2. **No blockers** → post **exactly one** top-level `gh pr comment` that is a **single short
-               approve-ready sentence** (optional: one more sentence listing which CI jobs should cover
-               the diff). Examples:
-               - `No blockers — approve-ready for this PR's owned surface.`
-               - `No blockers — approve-ready. Path-filtered: python-core, hub-app.`
-               Do **not** post inline comments. Do **not** list nits, observations, “what's solid”,
-               checklists, or multi-section essays. Silence on non-blocking findings is required.
-            3. **Has blockers** → one concise top-level `gh pr comment` that **only** summarizes
-               blockers (bullet list). Use `mcp__github_inline_comment__create_inline_comment` **only**
-               for those blocker lines. Do **not** add nits / polish / non-blocking asides in summary
-               or inline.
+            2. **No blockers** → post **exactly one** top-level `gh pr comment`. Open with a short
+               approve-ready sentence (optional: which path-filtered CI jobs should cover the diff).
+               Then add **2–3 sentences** that cover:
+               - work quality (focused / sloppy / over-scoped — be specific, not generic praise)
+               - the core change (what actually moved, not a file list)
+               - issue alignment: if the PR / commits / description link an Issue, say whether the
+                 diff matches that Issue's owned surface; if none is linked, say so in one clause
+               Example shape:
+               `No blockers — approve-ready. Path-filtered: python-core.`
+               `Solid, tightly scoped. Core change is X (the mechanism that moved). Aligns with #N's
+               acceptance; does not expand into Y.`
+               Do **not** post inline comments. Do **not** list nits, checklists, “what's solid”
+               sections, or multi-section essays. Keep the whole comment to those 3–4 sentences.
+            3. **Has blockers** → one concise top-level `gh pr comment`: first the same 2–3 sentence
+               quality / core-change / issue-alignment brief, then a **blockers-only** bullet list.
+               Use `mcp__github_inline_comment__create_inline_comment` **only** for those blocker
+               lines. Do **not** add nits / polish / non-blocking asides in summary or inline.
             4. Only post GitHub review comments — do not dump the review as assistant chat text.
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*)"
