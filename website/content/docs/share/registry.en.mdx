@@ -24,13 +24,18 @@ Exact commands: `bora --help` and the registry README.
 
 Joining an org does **not** reveal others’ private results until they share.  
 Any org **member** may `publish` under that org; **package delete / set-visibility / `--replace`** require **org owner**.  
-Invite keys show the full secret only once at create time; later you only see a prefix.
+Invite keys show the full secret only once at create time; later you only see a prefix.  
+Owners or admins add / remove members by GitHub login (`bora registry org-add-member` / `org-remove-member`); the person need not be logged in. Allowlisted official slugs (default `official`) cannot be self-serve created or claimed — only an admin bootstrap token can `org-create` them.
 
 ## Owner ops after create (CLI)
 
 `--public` at create time only sets **initial** visibility. Owners can change it later without republishing:
 
 ```bash
+# Members by GitHub login (owner or admin; target need not be logged in)
+# uv run bora registry org-add-member my-lab alice --role member
+# uv run bora registry org-remove-member my-lab alice
+
 # Package: visibility / delete (delete requires --yes)
 uv run bora registry set-visibility 'my-org/dataset@0.1.0' --visibility public
 # uv run bora registry delete 'my-org/dataset@0.1.0' --yes

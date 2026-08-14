@@ -40,7 +40,8 @@ bindings:
 `executor:` selects `provide(executor)` only — it does **not** bake or attach
 other `on:` slots. Add `extensions` on the same role when L1 needs bake /
 trajectory collect (short ids match a path install). ACP-only profiles omit
-`extensions`.
+`extensions`. Hub publish stores `org/name`; a Hub install records that
+namespaced id, and profiles for that cache row must use the same address.
 
 Use an alternate profiles file at run time without changing Database ACP defaults:
 

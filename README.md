@@ -18,7 +18,7 @@ Agent benchmarks usually score the model and leave the **harness**—orchestrati
 ### What you can do with it
 
 - **Automate evaluation with agent + skill** — after clone, load the repo skills so a coding agent can pick examples, run `bora run`, and read results and trajectories for you
-- **Compose Harness × Agent × Model freely** — keep one task harness and switch Codex / Claude / Pi / OpenCode (and models) via ACP, or bind an installed mechanism plugin such as nooa, for near-cartesian comparison—no per-vendor stdout scraper
+- **Compose Harness × Agent × Model freely** — keep one task harness and switch Codex / Claude / Pi / OpenCode (and models) via ACP, or bind an installed mechanism plugin such as nooa or dsh, for near-cartesian comparison—no per-vendor stdout scraper
 - **Install a mechanism plugin** — `bora plugin install` caches a plugin locally; bind it from `profiles.yaml`
 - **Drop an existing harness into a shared boundary** — keep your workflow; the outer layer unifies config lock, isolation (host / Docker), visibility, and independent scoring for cross-framework reproduction
 - **Batch a full Dataset or a parameter matrix** — run every task in a suite, or campaign over allowlisted overrides such as seed / profile
@@ -48,6 +48,8 @@ uv run bora tasks examples/core
 
 # Lock only (no agent / evaluator)
 uv run bora lock examples/core --task config-minimal
+# Same lock plus host/L1 feasibility (no Agent, no digest change)
+# uv run bora lock examples/core --task config-minimal --probe
 
 # Real multi-turn agent path (host ACP entry + credentials required)
 uv run bora run examples/core --task sdk-agent-session

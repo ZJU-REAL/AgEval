@@ -24,13 +24,18 @@ Registry 是独立的 HTTP 服务：发包、管组织、存结果、登录。
 
 加入组织**不会**自动看到别人的私有结果，除非对方分享给你。  
 任意组织 **member** 都可在该组织下 `publish`；**删除包 / 改包可见性 / `--replace` 覆盖同版本** 需要 **org owner**。  
-邀请码在创建时只完整展示一次，之后只能看到前缀。
+邀请码在创建时只完整展示一次，之后只能看到前缀。  
+owner 或 admin 按 GitHub login 加减成员（`bora registry org-add-member` / `org-remove-member`），对方不必在线。allowlist 上的官方 slug（默认 `official`）不能自助 create / claim，只有 admin bootstrap token 能 `org-create`。
 
 ## 发布后 owner 操作（CLI）
 
 创建时 `--public` 只决定**当时**的可见性；之后可用 CLI 改，不必重新发包或重传结果：
 
 ```bash
+# 按 GitHub login 加减成员（owner 或 admin；对方不必在线）
+# uv run bora registry org-add-member my-lab alice --role member
+# uv run bora registry org-remove-member my-lab alice
+
 # 包：可见性 / 删除（删除必须 --yes）
 uv run bora registry set-visibility 'my-org/dataset@0.1.0' --visibility public
 # uv run bora registry delete 'my-org/dataset@0.1.0' --yes

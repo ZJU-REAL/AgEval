@@ -18,7 +18,7 @@
 ### 你能用它做什么
 
 - **用 agent + skill 自动跑测评** — clone 后装上仓库自带 skill，让 coding agent 帮你选 example、执行 `bora run`、读结果与轨迹，少写样板脚本
-- **Harness × Agent × Model 自由组合** — 同一套 task harness 通过 ACP 换 Codex / Claude / Pi / OpenCode 等入口与模型，或绑定已安装的机制插件（如 nooa），做接近笛卡尔积式的对比评测，而不必为每家后端单独解析输出
+- **Harness × Agent × Model 自由组合** — 同一套 task harness 通过 ACP 换 Codex / Claude / Pi / OpenCode 等入口与模型，或绑定已安装的机制插件（如 nooa / dsh），做接近笛卡尔积式的对比评测，而不必为每家后端单独解析输出
 - **安装机制插件** — `bora plugin install` 装到本机，再在 `profiles.yaml` 里绑定
 - **把已有 harness 接到统一边界** — 保留你自己的 workflow，外层统一锁定配置、隔离（本机 / Docker）、可见性与独立打分，便于跨框架复现
 - **整份 Dataset 或参数矩阵批量跑** — 一次跑完套件内多个 task，或用 campaign 扫 seed / profile 等允许覆盖的参数
@@ -48,6 +48,8 @@ uv run bora tasks examples/core
 
 # 仅锁定配置（不启 agent / evaluator）
 uv run bora lock examples/core --task config-minimal
+# 同一 lock 上做本机 / L1 可行性探针（不 invoke、不改 digest）
+# uv run bora lock examples/core --task config-minimal --probe
 
 # 真实多轮 agent 路径（需本机 ACP entry 就绪 + 凭证）
 uv run bora run examples/core --task sdk-agent-session

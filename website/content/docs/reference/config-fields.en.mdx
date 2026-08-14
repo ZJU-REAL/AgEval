@@ -35,6 +35,10 @@ Empty suite fails lock.
 | `evaluation` | entrypoint, network, inputs, output |
 | `provenance` | optional; member replaces root |
 
+## Job binding (`profiles.yaml`)
+
+Optional `label` on a role is the Jobs / Hub Agents axis. If omitted: ACP uses `options.entry`, other kinds use `executor`. Never treat `options.agent` as a display name.
+
 ## Allowed top-level dirs
 
 `prompts` · `schemas` · `environment` · `evaluation` · `data` · `lib` · `upstream` · `solution`

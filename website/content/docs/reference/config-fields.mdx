@@ -35,6 +35,10 @@ description: bora.yaml / task.yaml 字段与校验要点速查。
 | `evaluation` | entrypoint、network、inputs、output.format |
 | `provenance` | 可选；成员整块替换根默认 |
 
+## Job binding（`profiles.yaml`）
+
+role 上可选 `label`，作为 Jobs / Hub 的 Agents 轴。缺省：ACP 用 `options.entry`，其它 kind 用 `executor`。**不要**把 `options.agent` 当展示名。
+
 ## 成员一级目录白名单
 
 `prompts` · `schemas` · `environment` · `evaluation` · `data` · `lib` · `upstream` · `solution`

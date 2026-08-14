@@ -58,6 +58,8 @@ uv run bora --help
 | `bora publish … --org … [--draft] [--replace]`                | Package publish; `--draft` overwrites the draft slot; `--replace` is org-owner only                |
 | `bora release <database_id>`                                  | Owner: promote the current dataset draft to an immutable version                                   |
 | `bora registry delete\|set-visibility <id@ver>`               | Org-owner package delete (`--yes`) / visibility flip                                               |
+| `bora registry org-create\|org-list`                          | Create / list orgs. Allowlisted official slugs (default `official`) need admin bootstrap token     |
+| `bora registry org-add-member\|org-remove-member`             | Owner or admin add / remove members by GitHub login; target need not be logged in                |
 | `bora submit` / `bora status` / `bora cancel`                 | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`)                       |
 
 Discover flags with `uv run bora <cmd> --help`. Source of truth: `src/bora/cli/main.py`.

@@ -36,7 +36,7 @@ bindings:
       method: "run"
 ```
 
-`executor:` 只选 `provide(executor)`，**不**自动 bake 或挂上其它 `on:`。L1 需要 bake / 轨迹收集时，在同一 role 下写 `extensions`（短 id 与路径安装一致）。纯 ACP profile 省略 `extensions`。
+`executor:` 只选 `provide(executor)`，**不**自动 bake 或挂上其它 `on:`。L1 需要 bake / 轨迹收集时，在同一 role 下写 `extensions`（短 id 与路径安装一致）。纯 ACP profile 省略 `extensions`。Hub 发布存 `org/name`；从 Hub 安装后本地 index 记这个带命名空间的 id，该 cache 行的 profiles 必须写同一地址。
 
 运行时用备用 profiles 文件切换，不必改 Database 默认 ACP 配置：
 
