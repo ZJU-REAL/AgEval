@@ -2,6 +2,7 @@ import { Building2, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { HoverTip } from "@/components/hover-tip";
 import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
@@ -174,13 +175,13 @@ export function OrganizationsPage() {
               aria-label="Search organizations"
               className="flex-1 min-w-0"
             />
+            <HoverTip content="Join with invite key">
             <Button
               type="button"
               variant="outline"
               size="icon"
               className="shrink-0"
               aria-label="Join organization with invite key"
-              title="Join with invite key"
               onClick={() => {
                 setJoinOpen(true);
                 setJoinError(null);
@@ -188,6 +189,7 @@ export function OrganizationsPage() {
             >
               <Plus className="h-4 w-4" />
             </Button>
+            </HoverTip>
           </div>
           {filtered.length === 0 ? (
             <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm">

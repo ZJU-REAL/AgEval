@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/table";
 import { fetchJobs, type Job } from "@/lib/api";
 import { jobDisplayName, jobHref } from "@/lib/routes";
+import { AxisLabel } from "@/components/axis-label";
+import { HoverTip } from "@/components/hover-tip";
 import { formatDate, formatScore, formatTrials } from "@/lib/utils";
 
 type SortKey =
@@ -322,28 +324,23 @@ export function JobsPage() {
                     role="link"
                   >
                     <TableCell className="font-medium max-w-[16rem]">
-                      <span
-                        className="block truncate"
-                        title={jobDisplayName(job)}
-                      >
-                        {jobDisplayName(job)}
-                      </span>
+                      <HoverTip content={jobDisplayName(job)}>
+                        <span className="block truncate">
+                          {jobDisplayName(job)}
+                        </span>
+                      </HoverTip>
                     </TableCell>
                     <TableCell className="max-w-[14rem]">
-                      <span
+                      <AxisLabel
+                        value={job.agent_label}
                         className="block truncate"
-                        title={job.agent_label || undefined}
-                      >
-                        {job.agent_label || "-"}
-                      </span>
+                      />
                     </TableCell>
                     <TableCell className="max-w-[18rem]">
-                      <span
+                      <AxisLabel
+                        value={job.model_label}
                         className="block truncate font-mono text-xs"
-                        title={job.model_label || undefined}
-                      >
-                        {job.model_label || "-"}
-                      </span>
+                      />
                     </TableCell>
                     <TableCell className="tabular">
                       {formatScore(job.mean_score ?? job.result)}

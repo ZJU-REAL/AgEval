@@ -1,3 +1,4 @@
+import { HoverTip } from "@/components/hover-tip";
 import type { DeclaredSlot, PluginPreview } from "@/lib/api";
 
 const SLOT_LEVEL: Record<string, number> = {
@@ -134,15 +135,16 @@ export function PluginSlotTimeline({
                   {slots.map((slot) => {
                     const path = resolvePluginEntryPath(slot.entry, files);
                     return (
+                      <HoverTip content={path}>
                       <button
                         key={`${slot.kind}-${slot.id}`}
                         type="button"
                         onClick={() => onOpenPath(path)}
-                        title={path}
                         className="cursor-pointer font-mono text-xs text-ink underline-offset-2 hover:underline hover:decoration-mute"
                       >
                         {slot.id}
                       </button>
+                      </HoverTip>
                     );
                   })}
                 </span>

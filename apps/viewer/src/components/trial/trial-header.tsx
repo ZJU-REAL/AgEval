@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { HoverTip } from "@/components/hover-tip";
 import { Button } from "@/components/ui/button";
 import type { Trial } from "@/lib/api";
 
@@ -54,15 +55,16 @@ export function TrialHeader({
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
-              <a
-                href={trial.upstream_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-link hover:text-link-deep font-mono text-[13px] truncate max-w-[min(48ch,100%)]"
-                title={trial.upstream_name || trial.upstream_url}
-              >
-                {trial.upstream_url}
-              </a>
+              <HoverTip content={trial.upstream_name || trial.upstream_url}>
+                <a
+                  href={trial.upstream_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-link hover:text-link-deep font-mono text-[13px] truncate max-w-[min(48ch,100%)]"
+                >
+                  {trial.upstream_url}
+                </a>
+              </HoverTip>
             </>
           ) : null}
         </p>

@@ -26,6 +26,18 @@ export function formatTrials(done: number | null | undefined, total: number | nu
   return `${done ?? 0}/${total}`;
 }
 
+/** Jobs / Hub axis: ``a+b+c`` → ``a+...``; tooltip keeps the full string. */
+export function formatAxisLabel(raw: string | null | undefined): {
+  text: string;
+  title?: string;
+} {
+  const value = (raw || "").trim();
+  if (!value) return { text: "-" };
+  const parts = value.split("+").map((s) => s.trim()).filter(Boolean);
+  if (parts.length <= 1) return { text: value, title: value };
+  return { text: `${parts[0]}+...`, title: parts.join("+") };
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "-";
   try {

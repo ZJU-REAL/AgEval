@@ -64,7 +64,6 @@ export function Shell({
               <Link
                 to="/home"
                 className="hidden sm:inline-flex items-center gap-2 min-w-0 max-w-[14rem] hover:opacity-90"
-                title="Home"
               >
                 {githubAvatar || githubUser ? (
                   <img
@@ -78,7 +77,7 @@ export function Shell({
                     className="h-7 w-7 rounded-full border border-hairline bg-canvas-soft object-cover shrink-0"
                   />
                 ) : null}
-                <span className="text-sm text-body truncate" title={githubUser || undefined}>
+                <span className="text-sm text-body truncate">
                   {displayName}
                 </span>
               </Link>
