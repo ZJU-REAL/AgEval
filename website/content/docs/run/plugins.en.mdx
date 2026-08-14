@@ -71,9 +71,10 @@ uv run bora lock examples/journeys --task terminal-jsonl-agg \
 ```
 
 `--probe` branches on **`provider.kind`**: L0 checks declared `host_requires` (for example
-`import: deepseek_harness`); L1 does not require a host extra and only checks the bake
-file, Docker daemon, and whether credential locator **names** exist. Unsatisfied paths
-exit non-zero.
+`import: deepseek_harness`); L1 does not require a host extra and checks that this
+profile's `extensions` selected `image_contribute`, plus the bake file, Docker daemon,
+and whether credential locator **names** exist. `executor:` alone is not enough.
+Unsatisfied paths exit non-zero.
 
 ## Recognition ≠ L0 host-ready ≠ L1 bake-declared
 
@@ -82,7 +83,7 @@ exit non-zero.
 | **install / list** | Host recognizes a provide (Recognition) |
 | **L0 host-ready** | Host SPI can be constructed (declared `host_requires` satisfied) |
 | **profiles bind** | Job selects that executor |
-| **L1 bake-declared** | `image_contribute` + `Dockerfile.bake` exist; bake happens at prepare |
+| **L1 bake-declared** | this profile's `extensions` selected `image_contribute` and `Dockerfile.bake` exists |
 
 `bora executors.host_ready` means L0 host-ready, not “installed” and not “L1 will bake”.
 A successful install does **not** imply the host extra is present, and does **not** imply
