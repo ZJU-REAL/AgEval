@@ -40,6 +40,8 @@ export type PackageRelease = {
   package_kind?: "database" | "plugin" | string;
   created_at?: number;
   org_id?: string;
+  /** Registry marketplace display: upload org is on the official-org allowlist. */
+  official?: boolean;
   /** Present on by-digest / version get for plugins. */
   plugin_preview?: PluginPreview;
   /** Draft slot (entitled callers only). */

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from bora.config.errors import ConfigError
-from bora.plugins.manifest import load_manifest
+from bora.plugins.manifest import PluginManifestError, hub_plugin_package_id, load_manifest
 from bora.registry.client import RegistryError
 from bora.registry.plugin_package import (
     PLUGIN_MEDIA_TYPE,
@@ -38,13 +38,6 @@ class PluginPublishCommand:
                 location=str(root),
             ) from exc
 
-        package_digest = compute_plugin_digest(root)
-        archive, blob_digest, size = build_plugin_archive(root)
-        client = self._client_factory(
-            registry_url=registry_url,
-            token=token,
-            require_token=True,
-        )
         org_id = (org or "").strip()
         if not org_id:
             raise ConfigError(
@@ -52,8 +45,18 @@ class PluginPublishCommand:
                 "plugin publish requires --org",
                 location="registry",
             )
+        try:
+            package_id = hub_plugin_package_id(manifest.plugin_id, org=org_id)
+        except PluginManifestError as exc:
+            raise ConfigError(exc.kind, exc.message, location="plugin.yaml:/plugin_id") from exc
 
-        package_id = f"{org_id}/{manifest.plugin_id}"
+        package_digest = compute_plugin_digest(root)
+        archive, blob_digest, size = build_plugin_archive(root)
+        client = self._client_factory(
+            registry_url=registry_url,
+            token=token,
+            require_token=True,
+        )
         visibility = "public" if public else "private"
         try:
             info = client.publish(

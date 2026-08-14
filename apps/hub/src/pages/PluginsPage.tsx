@@ -208,6 +208,11 @@ export function PluginsPage() {
                           <span className="text-[10px] font-sans font-medium uppercase tracking-wide px-1.5 py-0.5 rounded border border-hairline text-mute bg-canvas-soft">
                             plugin
                           </span>
+                          {row.official ? (
+                            <span className="text-[10px] font-sans font-medium uppercase tracking-wide px-1.5 py-0.5 rounded border border-hairline text-ink bg-canvas-soft">
+                              official
+                            </span>
+                          ) : null}
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs text-mute">

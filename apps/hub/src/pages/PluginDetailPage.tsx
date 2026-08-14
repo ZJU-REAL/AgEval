@@ -197,6 +197,11 @@ export function PluginDetailPage() {
               plugin
             </span>
           )}
+          {release?.official ? (
+            <span className="text-[11px] font-medium uppercase tracking-wide px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-ink">
+              official
+            </span>
+          ) : null}
         </div>
         {release ? (
           <p className="text-sm text-mute mt-1">

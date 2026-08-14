@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,10 @@ import yaml
 
 PLUGIN_FORMAT = "bora.plugin/1"
 MANIFEST_NAMES = ("plugin.yaml", "bora.plugin.yaml")
+# Default Hub official-org allowlist. Runtime lock/run never consults this.
+DEFAULT_OFFICIAL_ORG = "Official"
+# Same slash form as Dataset database_id. Not org.name. Official is mixed-case.
+_PLUGIN_ID_SEGMENT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$")
 
 
 class PluginManifestError(Exception):
@@ -19,6 +24,52 @@ class PluginManifestError(Exception):
         super().__init__(message)
         self.kind = kind
         self.message = message
+
+
+def split_plugin_id(plugin_id: str) -> tuple[str | None, str]:
+    """Return ``(org, name)`` for ``org/name``, or ``(None, short_id)``."""
+    if "/" not in plugin_id:
+        return None, plugin_id
+    org, name = plugin_id.split("/", 1)
+    return org, name
+
+
+def normalize_plugin_id(raw: str) -> str:
+    """Validate short ``name`` or Hub ``org/name``. Reject ``org.name``."""
+    plugin_id = raw.strip()
+    if not plugin_id:
+        raise PluginManifestError("plugin_id required", kind="plugin_manifest_invalid")
+    if plugin_id.count("/") > 1:
+        raise PluginManifestError(
+            f"plugin_id must be name or org/name, not {plugin_id!r}",
+            kind="plugin_id_invalid",
+        )
+    org, name = split_plugin_id(plugin_id)
+    parts = (org, name) if org is not None else (name,)
+    if any(p is None or not _PLUGIN_ID_SEGMENT.fullmatch(p) for p in parts):
+        raise PluginManifestError(
+            f"plugin_id must be name or org/name, not {plugin_id!r}",
+            kind="plugin_id_invalid",
+        )
+    return plugin_id
+
+
+def hub_plugin_package_id(plugin_id: str, *, org: str) -> str:
+    """Hub address for publish: short id concatenates; namespaced must match *org*."""
+    org_id = org.strip()
+    if not org_id:
+        raise PluginManifestError("org required", kind="plugin_org_required")
+    prefix, name = split_plugin_id(plugin_id)
+    if prefix is None:
+        if not name:
+            raise PluginManifestError("plugin_id required", kind="plugin_manifest_invalid")
+        return f"{org_id}/{name}"
+    if prefix != org_id:
+        raise PluginManifestError(
+            f"plugin_id prefix {prefix!r} does not match upload org {org_id!r}",
+            kind="plugin_org_mismatch",
+        )
+    return plugin_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +117,7 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
     version = raw.get("version")
     if not isinstance(plugin_id, str) or not plugin_id.strip():
         raise PluginManifestError("plugin_id required", kind="plugin_manifest_invalid")
+    plugin_id = normalize_plugin_id(plugin_id)
     if not isinstance(version, str) or not version.strip():
         raise PluginManifestError("version required", kind="plugin_manifest_invalid")
 
@@ -115,7 +167,7 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
 
     return PluginManifest(
         format=PLUGIN_FORMAT,
-        plugin_id=plugin_id.strip(),
+        plugin_id=plugin_id,
         version=version.strip(),
         provide=_entries("provide"),
         on=_entries("on"),

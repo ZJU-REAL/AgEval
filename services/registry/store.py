@@ -1557,6 +1557,10 @@ def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
     }
     if row.org_id:
         out["org_id"] = row.org_id
+    if out.get("package_kind") == "plugin":
+        from services.registry.official import is_official_upload_org
+
+        out["official"] = is_official_upload_org(row.org_id)
     if row.uploaded_by:
         out["uploaded_by"] = row.uploaded_by
     if row.version == "draft":
