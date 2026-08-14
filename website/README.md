@@ -62,7 +62,7 @@ Writing rules: usage-path IA with professional product tone; bilingual zh-CN / e
 
 ## Design system
 
-[DESIGN.md](DESIGN.md) defines landing visual rules (brown accent, dark/light bands, Newsreader + Geist).
+[DESIGN.md](DESIGN.md) defines one chrome: Klein Blue + cool ink, shared by landing and docs (Anton wordmark on landing; Geist / Noto Sans SC everywhere else).
 
 ## Checks
 

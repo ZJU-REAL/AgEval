@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { HomeLayout } from "fumadocs-ui/layouts/home";
-import { baseOptions } from "@/lib/layout.shared";
 import { isSiteLocale } from "@/lib/i18n";
+import "@/components/landing/landing.css";
 
 export default async function Layout({
   children,
@@ -14,5 +13,5 @@ export default async function Layout({
   const { lang } = await params;
   if (!isSiteLocale(lang)) notFound();
 
-  return <HomeLayout {...baseOptions(lang)}>{children}</HomeLayout>;
+  return children;
 }
