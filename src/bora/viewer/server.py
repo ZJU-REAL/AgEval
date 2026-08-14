@@ -11,7 +11,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from bora.config.errors import ConfigError
 from bora.viewer import browse, jobs, trials
@@ -19,6 +19,16 @@ from bora.viewer import browse, jobs, trials
 # Default bind: loopback only.
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+
+_WRITE_CONFLICT = frozenset({"job_in_progress", "job_claimed_elsewhere", "job_inner_attempt"})
+
+
+def _job_write_status(exc: ConfigError) -> int:
+    if exc.error_code == "unknown_task":
+        return 404
+    if exc.error_code in _WRITE_CONFLICT:
+        return 409
+    return 400
 
 
 def _bind_url(host: str, port: int) -> str:
@@ -166,11 +176,39 @@ def make_handler(
         def do_OPTIONS(self) -> None:  # noqa: N802
             self.do_GET()
 
+        def do_DELETE(self) -> None:  # noqa: N802
+            parsed = urlparse(self.path)
+            path = unquote(parsed.path)
+            if not path.startswith("/api/jobs/"):
+                _error(self, 404, "not_found", "unknown API path")
+                return
+            parts = [p for p in path[len("/api/jobs/") :].split("/") if p]
+            if len(parts) != 1:
+                _error(self, 404, "not_found", "unknown jobs API path")
+                return
+            qs = parse_qs(parsed.query)
+            confirm = (qs.get("confirm") or [""])[0]
+            self._api_job_delete(parts[0], confirm)
+
+        def _api_job_delete(self, job_id: str, confirm: str) -> None:
+            from bora.application.composition import build_local_jobs_commands
+
+            try:
+                payload = build_local_jobs_commands().delete_job(
+                    root,
+                    job_id=job_id,
+                    confirm_token=confirm or None,
+                )
+            except ConfigError as exc:
+                _error(self, _job_write_status(exc), exc.error_code, str(exc))
+                return
+            _json(self, 200, payload)
+
         def _cors(self) -> None:
             if not cors_origin:
                 return
             self.send_header("Access-Control-Allow-Origin", cors_origin)
-            self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
         def _serve_file(self, path: Path, content_type: str) -> None:
@@ -207,6 +245,15 @@ def make_handler(
             query = urlparse(self.path).query
             q = trials.parse_query(query)
             try:
+                if len(parts) == 2 and parts[1] == "delete-preview":
+                    from bora.application.composition import build_local_jobs_commands
+
+                    _json(
+                        self,
+                        200,
+                        build_local_jobs_commands().preview_delete_job(root, job_id=job_id),
+                    )
+                    return
                 if len(parts) == 1:
                     _json(self, 200, jobs.get_job(root, job_id))
                     return

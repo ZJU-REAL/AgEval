@@ -1,7 +1,8 @@
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { DeleteJobDialog } from "@/components/delete-job-dialog";
 import { Shell } from "@/components/layout";
 import {
   compareValues,
@@ -25,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { fetchJobs, type Job } from "@/lib/api";
 import { jobDisplayName, jobHref } from "@/lib/routes";
 import { AxisLabel } from "@/components/axis-label";
@@ -53,6 +55,8 @@ export function JobsPage() {
   const [model, setModel] = useState("all");
   const [sortKey, setSortKey] = useState<string | null>("started");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pendingDelete, setPendingDelete] = useState<Job | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +77,7 @@ export function JobsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
 
   const kinds = useMemo(
     () =>
@@ -276,26 +280,29 @@ export function JobsPage() {
                 <TableHead>{head("started", "Started")}</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>{head("trials_total", "Trials")}</TableHead>
+                <TableHead className="w-12">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-mute py-10 text-center">
+                  <TableCell colSpan={9} className="text-mute py-10 text-center">
                     Loading jobs...
                   </TableCell>
                 </TableRow>
               )}
               {!loading && error && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-error py-10 text-center">
+                  <TableCell colSpan={9} className="text-error py-10 text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               )}
               {!loading && !error && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-mute py-10 text-center">
+                  <TableCell colSpan={9} className="text-mute py-10 text-center">
                     No jobs yet. Run{" "}
                     <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
                       bora run &lt;database&gt;
@@ -353,12 +360,36 @@ export function JobsPage() {
                     <TableCell className="tabular">
                       {formatTrials(job.trials_done, job.trials_total)}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete job ${jobDisplayName(job)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPendingDelete(job);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
             </TableBody>
           </Table>
         </div>
       </div>
+      {pendingDelete ? (
+        <DeleteJobDialog
+          job={pendingDelete}
+          onClose={() => setPendingDelete(null)}
+          onDeleted={() => {
+            setPendingDelete(null);
+            setReloadToken((n) => n + 1);
+          }}
+        />
+      ) : null}
     </Shell>
   );
 }

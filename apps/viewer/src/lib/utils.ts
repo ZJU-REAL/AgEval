@@ -38,6 +38,22 @@ export function formatAxisLabel(raw: string | null | undefined): {
   return { text: `${parts[0]}+...`, title: parts.join("+") };
 }
 
+export function formatBytes(value: number | null | undefined): string {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return "-";
+  if (n < 1024) return `${Math.round(n)} B`;
+  const units = ["KB", "MB", "GB"];
+  let amount = n / 1024;
+  let unit = units[0];
+  for (const next of units.slice(1)) {
+    if (amount < 1024) break;
+    amount /= 1024;
+    unit = next;
+  }
+  const digits = amount < 10 ? 1 : 0;
+  return `${amount.toFixed(digits)} ${unit}`;
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "-";
   try {
