@@ -71,6 +71,34 @@ def test_org_create_list_and_publish_requires_org(
     assert meta.org_id == "acme"
 
 
+def test_owner_can_patch_org_and_package_display_name(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    url = registry_server["url"]
+    boot = RegistryClient(url, token=registry_server["token"])
+    boot.create_org(name="lab", display_name="lab")
+    patched = boot.patch_org("lab", display_name="My Lab")
+    assert patched["display_name"] == "My Lab"
+    assert patched["org_id"] == "lab"
+
+    write_credentials(url=url, token=registry_server["token"], path=tmp_path / "c")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("BORA_REGISTRY_URL", url)
+    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    from bora.application.composition import build_plugin_commands
+
+    plugin = REPO / "tests/fixtures/plugins/sample-echo"
+    summary = build_plugin_commands().publish_plugin(plugin, public=True, org="lab")
+    labeled = boot.patch_package_display_name(summary["package_id"], display_name="Echo probe")
+    assert labeled["display_name"] == "Echo probe"
+    via_prefix = boot.patch_package_display_name(
+        summary["package_id"], display_name="lab/Echo probe"
+    )
+    assert via_prefix["display_name"] == "Echo probe"
+    with pytest.raises(RegistryError):
+        boot.patch_package_display_name(summary["package_id"], display_name="other/Echo")
+
+
 def test_private_package_visible_to_org_member_only(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -1023,6 +1023,44 @@ class MetadataStore(MetadataStoreProtocol):
                 raise ValueError("org already exists") from exc
         return row
 
+    def update_org_display_name(self, org_id: str, display_name: str) -> OrgRow:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.UPDATE_ORG_DISPLAY_NAME, (display_name, org_id))
+            if getattr(cur, "rowcount", 1) == 0:
+                raise LookupError("org not found")
+            conn.commit()
+        org = self.get_org(org_id)
+        if org is None:
+            raise LookupError("org not found")
+        return org
+
+    def set_package_display_name(self, database_id: str, display_name: str) -> str:
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPSERT_PACKAGE_DISPLAY_NAME,
+                (database_id, display_name, now()),
+            )
+            conn.commit()
+        return display_name
+
+    def get_package_display_name(self, database_id: str) -> str:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_DISPLAY_NAME, (database_id,))
+            row = cur.fetchone()
+        if row is None:
+            return ""
+        return str(row["display_name"] or "")
+
+    def package_display_names(self) -> dict[str, str]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_DISPLAY_NAMES)
+            return {
+                str(r["database_id"]): str(r["display_name"] or "")
+                for r in cur.fetchall()
+                if r["display_name"]
+            }
+
     def get_org(self, org_id: str) -> OrgRow | None:
         with self._connect() as conn:
             cur = self._exec(conn, Q.SELECT_ORG, (org_id,))

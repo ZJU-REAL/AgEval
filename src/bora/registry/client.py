@@ -547,6 +547,29 @@ class RegistryClient:
             raise RegistryError("org_list_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
 
+    def patch_org(self, org_id: str, *, display_name: str) -> dict[str, Any]:
+        status, raw, _ = self._request(
+            "PATCH",
+            f"/v1/orgs/{quote(org_id, safe='')}",
+            body=json.dumps({"display_name": display_name}, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("org_patch_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def patch_package_display_name(self, database_id: str, *, display_name: str) -> dict[str, Any]:
+        path = f"/v1/packages/{quote(database_id, safe='/')}"
+        status, raw, _ = self._request(
+            "PATCH",
+            path,
+            body=json.dumps({"display_name": display_name}, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("package_patch_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
     def add_org_member(self, *, org_id: str, user_id: str, role: str = "member") -> dict[str, Any]:
         body = {"user_id": user_id, "role": role}
         status, raw, _ = self._request(

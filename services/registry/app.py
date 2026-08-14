@@ -638,6 +638,36 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
                 return
             _json_response(self, 200, payload)
 
+        def _patch_org(self, *, org_id: str, auth: TokenInfo) -> None:
+            body = self._read_json_body()
+            if body is None:
+                return
+            try:
+                payload = state.orgs.patch(
+                    org_id=org_id,
+                    display_name=body.get("display_name"),
+                    auth=auth,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
+
+        def _patch_package_display_name(self, *, database_id: str, auth: TokenInfo) -> None:
+            body = self._read_json_body()
+            if body is None:
+                return
+            try:
+                payload = state.packages.patch_display_name(
+                    database_id=database_id,
+                    display_name=body.get("display_name"),
+                    auth=auth,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
+
         def _claim_org(self, *, org_id: str, auth: TokenInfo) -> None:
             try:
                 payload = state.orgs.claim(org_id=org_id, auth=auth)

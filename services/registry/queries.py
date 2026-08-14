@@ -97,6 +97,22 @@ VALUES (?, ?, 'owner', ?)
 
 SELECT_ORG = "SELECT * FROM organizations WHERE org_id=?"
 
+UPDATE_ORG_DISPLAY_NAME = "UPDATE organizations SET display_name=? WHERE org_id=?"
+
+UPSERT_PACKAGE_DISPLAY_NAME = """
+INSERT INTO package_display_names(database_id, display_name, updated_at)
+VALUES (?, ?, ?)
+ON CONFLICT(database_id) DO UPDATE SET
+    display_name=excluded.display_name,
+    updated_at=excluded.updated_at
+"""
+
+SELECT_PACKAGE_DISPLAY_NAME = (
+    "SELECT display_name FROM package_display_names WHERE database_id=?"
+)
+
+SELECT_PACKAGE_DISPLAY_NAMES = "SELECT database_id, display_name FROM package_display_names"
+
 SELECT_MEMBERSHIP = "SELECT * FROM org_memberships WHERE org_id=? AND user_id=?"
 
 SELECT_USER_ORG_IDS = "SELECT org_id FROM org_memberships WHERE user_id=?"
@@ -233,6 +249,13 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         role TEXT NOT NULL,
         created_at REAL NOT NULL,
         PRIMARY KEY (database_id, user_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS package_display_names (
+        database_id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL DEFAULT '',
+        updated_at REAL NOT NULL
     )
     """,
 )

@@ -19,6 +19,26 @@ from services.registry.store import (
 )
 
 _ORG_NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$")
+_DISPLAY_NAME_MAX = 80
+
+
+def _normalize_display_name(raw: object) -> str:
+    if not isinstance(raw, str):
+        raise RegistryAppError("invalid_request", "display_name must be a string", http_status=400)
+    name = " ".join(raw.split())
+    if any(ord(ch) < 32 for ch in name):
+        raise RegistryAppError(
+            "invalid_request",
+            "display_name cannot include control characters",
+            http_status=400,
+        )
+    if len(name) > _DISPLAY_NAME_MAX:
+        raise RegistryAppError(
+            "invalid_request",
+            f"display_name must be at most {_DISPLAY_NAME_MAX} characters",
+            http_status=400,
+        )
+    return name
 
 
 class OrgService:
@@ -72,6 +92,21 @@ class OrgService:
             d["role"] = role
             items.append(d)
         return {"items": items}
+
+    def patch(self, *, org_id: str, display_name: object, auth: TokenInfo) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        self._require_owner(org_id, auth)
+        name = _normalize_display_name(display_name)
+        try:
+            org = self.meta.update_org_display_name(org_id, name)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "org not found", http_status=404) from exc
+        payload = org_to_dict(org)
+        if auth.user_id:
+            mem = self.meta.membership(org.org_id, auth.user_id)
+            if mem:
+                payload["role"] = mem.role
+        return payload
 
     def get_public(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:
         org = self.meta.get_org(org_id.casefold())
