@@ -26,6 +26,17 @@ def test_list_members_hides_org_from_outsiders(tmp_path: Path) -> None:
     assert ei.value.error == "not_found"
 
 
+def test_regular_org_is_not_official(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    payload = svc.create(
+        name="acme",
+        display_name="Acme",
+        is_claimable=False,
+        auth=_user(),
+    )
+    assert payload["official"] is False
+
+
 def test_list_members_visible_to_member(tmp_path: Path) -> None:
     svc = _orgs(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
@@ -58,6 +69,7 @@ def test_admin_creates_official_org_not_claimable(tmp_path: Path) -> None:
     )
     assert payload["org_id"] == "official"
     assert payload["is_claimable"] is False
+    assert payload["official"] is True
 
 
 def test_official_org_cannot_be_claimed(tmp_path: Path) -> None:

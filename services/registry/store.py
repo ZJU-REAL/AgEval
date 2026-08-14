@@ -1629,12 +1629,15 @@ def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
 
 
 def org_to_dict(row: OrgRow) -> dict[str, Any]:
+    from services.registry.official import is_official_upload_org
+
     return {
         "org_id": row.org_id,
         "name": row.name,
         "display_name": row.display_name,
         "is_claimable": row.is_claimable,
         "created_at": row.created_at,
+        "official": is_official_upload_org(row.org_id),
     }
 
 

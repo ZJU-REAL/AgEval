@@ -1,5 +1,5 @@
 import { Check, Pencil, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { HoverTip } from "@/components/hover-tip";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ export function DisplayNameEditor({
   canEdit,
   headingClassName,
   prefix,
+  afterTitle,
   onSave,
 }: {
   value: string;
@@ -18,6 +19,7 @@ export function DisplayNameEditor({
   headingClassName?: string;
   /** Locked ``org/`` prefix for plugin ids. Saved value is the leaf only. */
   prefix?: string | null;
+  afterTitle?: ReactNode;
   onSave: (next: string) => Promise<void>;
 }) {
   const locked = (prefix || "").trim();
@@ -111,6 +113,7 @@ export function DisplayNameEditor({
   return (
     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
       <h1 className={cn("min-w-0 truncate", headingClassName)}>{title}</h1>
+      {afterTitle}
       {canEdit ? (
         <HoverTip content="Edit display name">
           <button

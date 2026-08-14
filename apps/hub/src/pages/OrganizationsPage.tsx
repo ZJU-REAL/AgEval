@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { HoverTip } from "@/components/hover-tip";
+import { OfficialMark } from "@/components/official-mark";
 import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
@@ -242,7 +243,12 @@ export function OrganizationsPage() {
                       role="link"
                     >
                       <TableCell className="font-medium text-ink">
-                        {org.display_name || org.name || org.org_id}
+                        <span className="inline-flex items-center gap-1.5 min-w-0">
+                          <span className="truncate">
+                            {org.display_name || org.name || org.org_id}
+                          </span>
+                          {org.official ? <OfficialMark kind="org" /> : null}
+                        </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs text-mute">
                         @{org.org_id}

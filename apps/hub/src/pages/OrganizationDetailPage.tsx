@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { HoverTip } from "@/components/hover-tip";
+import { OfficialMark } from "@/components/official-mark";
 import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
@@ -222,6 +223,7 @@ export function OrganizationDetailPage() {
               value={title}
               canEdit={isOwner}
               headingClassName="text-2xl font-semibold tracking-tight text-ink"
+              afterTitle={org?.official ? <OfficialMark kind="org" /> : null}
               onSave={async (next) => {
                 const updated = await updateOrgDisplayName(orgId, next, token);
                 setOrg(updated);

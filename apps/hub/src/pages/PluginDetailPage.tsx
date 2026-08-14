@@ -210,6 +210,7 @@ export function PluginDetailPage() {
             prefix={packageParts.org ? `${packageParts.org}/` : null}
             canEdit={Boolean(token && canEditName && release)}
             headingClassName="text-xl font-semibold tracking-tight text-ink"
+            afterTitle={release?.official ? <OfficialMark /> : null}
             onSave={async (next) => {
               const updated = await updatePackageDisplayName(pluginId, next, token);
               setRelease((prev) =>
@@ -222,7 +223,6 @@ export function PluginDetailPage() {
               {formatBadge}
             </span>
           ) : null}
-          {release?.official ? <OfficialMark /> : null}
         </div>
         {release ? (
           <p className="text-sm text-mute mt-1">
@@ -233,12 +233,15 @@ export function PluginDetailPage() {
               <>
                 {" "}
                 · org{" "}
-                <Link
-                  to={`/organizations/${encodeURIComponent(release.org_id)}`}
-                  className="font-mono text-xs text-body hover:text-ink"
-                >
-                  {release.org_id}
-                </Link>
+                <span className="inline-flex items-center gap-1">
+                  <Link
+                    to={`/organizations/${encodeURIComponent(release.org_id)}`}
+                    className="font-mono text-xs text-body hover:text-ink"
+                  >
+                    {release.org_id}
+                  </Link>
+                  {release.official ? <OfficialMark kind="org" /> : null}
+                </span>
               </>
             ) : null}
           </p>

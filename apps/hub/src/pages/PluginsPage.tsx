@@ -206,35 +206,27 @@ export function PluginsPage() {
                     >
                       <TableCell className="font-medium font-mono text-sm">
                         <span className="inline-flex items-center gap-1.5 min-w-0">
-                          <span className="min-w-0">
-                            <span className="block truncate">
-                              {packageDisplayTitle(
-                                row.database_id,
-                                row.display_name,
-                              )}
-                            </span>
-                            {row.display_name &&
-                            packageDisplayTitle(
+                          <span className="truncate">
+                            {packageDisplayTitle(
                               row.database_id,
                               row.display_name,
-                            ) !== row.database_id ? (
-                              <span className="block font-mono text-[11px] text-mute truncate">
-                                {row.database_id}
-                              </span>
-                            ) : null}
+                            )}
                           </span>
                           {row.official ? <OfficialMark /> : null}
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs text-mute">
                         {row.org_id ? (
-                          <Link
-                            to={`/organizations/${encodeURIComponent(row.org_id)}`}
-                            className="hover:text-ink"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            @{row.org_id}
-                          </Link>
+                          <span className="inline-flex items-center gap-1">
+                            <Link
+                              to={`/organizations/${encodeURIComponent(row.org_id)}`}
+                              className="hover:text-ink"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              @{row.org_id}
+                            </Link>
+                            {row.official ? <OfficialMark kind="org" /> : null}
+                          </span>
                         ) : (
                           "—"
                         )}

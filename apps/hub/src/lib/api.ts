@@ -59,6 +59,8 @@ export type OrgRow = {
   is_claimable?: boolean;
   created_at?: number;
   role?: string;
+  /** Upload org is on the Registry official-org allowlist. */
+  official?: boolean;
 };
 
 export type OrgMember = {

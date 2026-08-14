@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
+import { OfficialMark } from "@/components/official-mark";
 import { Shell } from "@/components/layout";
 import {
   Table,
@@ -238,13 +239,14 @@ export function HomePage() {
                   onClick: () =>
                     navigate(`/organizations/${encodeURIComponent(o.org_id)}`),
                   cells: [
-                    <span key="id">
+                    <span key="id" className="inline-flex items-center gap-1.5 min-w-0">
                       <span className="font-mono text-sm">{o.org_id}</span>
                       {o.display_name ? (
-                        <span className="text-mute text-xs ml-2">
+                        <span className="text-mute text-xs">
                           {o.display_name}
                         </span>
                       ) : null}
+                      {o.official ? <OfficialMark kind="org" /> : null}
                     </span>,
                     o.role || "—",
                   ],
