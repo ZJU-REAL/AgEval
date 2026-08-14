@@ -538,6 +538,63 @@ def test_acp_mapper_copies_vendor_elapsed_and_at(tmp_path: Path) -> None:
     assert tool["elapsed_ms"] == 1500.0
 
 
+def test_acp_mapper_copies_at_onto_text_and_core_derives_thought_elapsed(
+    tmp_path: Path,
+) -> None:
+    events = (
+        {
+            "type": "session_update",
+            "session_id": "s1",
+            "channel": "thought",
+            "text": "Now",
+            "at": "2026-08-14T12:00:00.000Z",
+        },
+        {
+            "type": "session_update",
+            "session_id": "s1",
+            "channel": "thought",
+            "text": " write it.",
+            "at": "2026-08-14T12:00:01.250Z",
+        },
+        {
+            "type": "session_update",
+            "session_id": "s1",
+            "at": "2026-08-14T12:00:01.300Z",
+            "title": "bash",
+            "kind": "execute",
+            "tool_call_id": "c1",
+            "update": {
+                "sessionUpdate": "tool_call",
+                "toolCallId": "c1",
+                "title": "echo hi",
+                "kind": "execute",
+                "status": "pending",
+            },
+        },
+    )
+    mapped = acp_session_events_to_bora(events)
+    texts = [e for e in mapped if e.get("kind") == "text"]
+    assert all(e.get("at") for e in texts)
+    tools = [e for e in mapped if e.get("kind") == "tool"]
+    assert tools[0]["args"] == {"command": "echo hi"}
+    assert not any(
+        e.get("kind") == "tool" and e.get("seq", 0) > tools[-1]["seq"] for e in mapped[1:]
+    )
+    path = _write(tmp_path, events=mapped, prompt="p", final_text="done")
+    lines = _read_lines(path)
+    thought = next(x for x in lines if x.get("part") == "thought")
+    assert thought["elapsed_ms"] == 1250.0
+    tool = next(x for x in lines if x["type"] == "tool_call")
+    assert tool["args"] == {"command": "echo hi"}
+    assert [x["type"] for x in lines] == [
+        "turn",
+        "turn",
+        "tool_call",
+        "turn",
+        "terminal",
+    ]
+
+
 def test_writer_keeps_explicit_ended_at_over_later_at(tmp_path: Path) -> None:
     events = (
         {

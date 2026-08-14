@@ -91,6 +91,7 @@ def write_trajectory_jsonl(
         thought_timing.clear()
         if not content:
             return
+        _finalize_timing(timing)
         row: dict[str, Any] = {
             "type": "turn",
             "role": "assistant",
@@ -110,6 +111,7 @@ def write_trajectory_jsonl(
         assistant_timing.clear()
         if not content:
             return
+        _finalize_timing(timing)
         row: dict[str, Any] = {
             "type": "turn",
             "role": "assistant",
@@ -179,6 +181,7 @@ def write_trajectory_jsonl(
         "session_id": session_id,
         "source": producer,
     }
+    _finalize_timing(assistant_timing)
     _copy_timing(assistant_line, assistant_timing)
     lines.append(_drop_nulls(assistant_line, keep={"type", "role", "turn_index", "source"}))
     for pe in permission_events:

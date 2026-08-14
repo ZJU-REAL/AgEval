@@ -247,9 +247,14 @@ export function TrajectoryPanel({
             kind: s.kind,
             functionName: s.function_name,
           });
+          const toolArgsEmpty =
+            s.args == null ||
+            (typeof s.args === "object" &&
+              !Array.isArray(s.args) &&
+              Object.keys(s.args).length === 0);
           let body: string | null =
             s.content ||
-            (isToolCall && s.args != null
+            (isToolCall && !toolArgsEmpty
               ? typeof s.args === "string"
                 ? s.args
                 : JSON.stringify(s.args, null, 2)

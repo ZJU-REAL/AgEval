@@ -48,17 +48,17 @@ def acp_session_events_to_bora(
 
         if raw.get("channel") in {"thought", "assistant"} and isinstance(raw.get("text"), str):
             seq += 1
-            out.append(
-                {
-                    "schema": EVENT_SCHEMA_VERSION,
-                    "seq": seq,
-                    "session_id": sid,
-                    "source": _SOURCE,
-                    "kind": "text",
-                    "channel": raw["channel"],
-                    "text": raw["text"],
-                }
-            )
+            text_ev: dict[str, Any] = {
+                "schema": EVENT_SCHEMA_VERSION,
+                "seq": seq,
+                "session_id": sid,
+                "source": _SOURCE,
+                "kind": "text",
+                "channel": raw["channel"],
+                "text": raw["text"],
+            }
+            _attach_timing(text_ev, raw, {})
+            out.append(text_ev)
             # A session_update may also carry a tool payload; fall through.
 
         raw_upd = raw.get("update")
@@ -123,26 +123,26 @@ def acp_session_events_to_bora(
         _attach_timing(ev, raw, upd)
         out.append(ev)
 
-    for call_id, title in longest_title.items():
-        if call_id in had_raw_input:
+    # Pi streams the command in title, not rawInput. Fill args on the
+    # existing tool events so Core does not see a late extra update.
+    for ev in out:
+        if ev.get("kind") != "tool":
+            continue
+        call_id = ev.get("tool_call_id")
+        if not isinstance(call_id, str) or call_id in had_raw_input:
             continue
         kind_l = (tool_kind_by_id.get(call_id) or "").lower()
         if kind_l not in {"execute", "other", ""}:
             continue
-        seq += 1
-        out.append(
-            {
-                "schema": EVENT_SCHEMA_VERSION,
-                "seq": seq,
-                "session_id": out[-1].get("session_id") if out else None,
-                "source": _SOURCE,
-                "kind": "tool",
-                "phase": "update",
-                "tool_call_id": call_id,
-                "title": title,
-                "args": {"command": title},
-            }
-        )
+        title = longest_title.get(call_id)
+        if not isinstance(title, str) or not title.strip():
+            continue
+        args = ev.get("args")
+        if args not in (None, {}):
+            continue
+        ev["args"] = {"command": title}
+        if not ev.get("title"):
+            ev["title"] = title
     return out
 
 

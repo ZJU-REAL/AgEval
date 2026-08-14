@@ -218,6 +218,39 @@ def test_tool_call_copies_vendor_elapsed_ms() -> None:
     assert update["at"] == "2026-08-14T12:00:01Z"
 
 
+def test_return_result_emits_assistant_with_last_llm_elapsed() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "event_type": "LLMCallStart",
+                "at": "2026-08-14T12:00:00.000Z",
+            },
+            {
+                "event_type": "LLMCallEnd",
+                "at": "2026-08-14T12:00:08.405Z",
+            },
+            {
+                "event_type": "LLMComplete",
+                "reasoning_content": "return the aggregates",
+            },
+            {
+                "event_type": "ToolCallEvent",
+                "tool_call_id": "ret1",
+                "name": "return_result",
+                "arguments": {"result": {"ok": True}},
+                "timestamp": "2026-08-14T12:00:08.406Z",
+            },
+        )
+    )
+    thought = next(e for e in mapped if e.get("channel") == "thought")
+    assert thought["elapsed_ms"] == 8405.0
+    assistant = next(e for e in mapped if e.get("channel") == "assistant")
+    assert assistant["elapsed_ms"] == 8405.0
+    assert "ok" in assistant["text"]
+    tools = [e for e in mapped if e.get("kind") == "tool"]
+    assert any(e.get("function_name") == "return_result" for e in tools)
+
+
 async def _passthrough(value: object) -> object:
     return value
 
