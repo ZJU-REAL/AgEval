@@ -14,6 +14,9 @@ from bora.config.load_and_lock import ConfigCore
 from bora.config.model import thaw
 from bora.config.profiles import (
     assert_slots_have_no_inline_binding,
+    display_agent_name,
+    display_labels_from_overlay,
+    join_display_names,
     load_profiles_document,
     merge_bindings_onto_slots,
     project_job_overlay,
@@ -219,3 +222,46 @@ def test_job_overlay_keeps_plugin_options() -> None:
     assert opts["method"] == "run"
     assert "command" not in opts
     assert "_acp_lock" not in opts
+
+
+def test_display_agent_name_never_uses_options_agent() -> None:
+    assert (
+        display_agent_name(
+            {
+                "executor": "nooa",
+                "options": {"agent": "lib.agents:JsonlAggAgent"},
+            }
+        )
+        == "nooa"
+    )
+    assert (
+        display_agent_name(
+            {
+                "executor": "nooa",
+                "label": "nooa",
+                "options": {"agent": "lib.agents:JsonlAggAgent"},
+            }
+        )
+        == "nooa"
+    )
+    assert display_agent_name({"executor": "acp", "options": {"entry": "pi"}}) == "pi"
+    assert display_agent_name({"executor": "dsh"}) == "dsh"
+
+
+def test_display_labels_from_overlay_joins_distinct() -> None:
+    agent, model = display_labels_from_overlay(
+        {
+            "bindings": {
+                "a": {"executor": "acp", "options": {"entry": "pi"}, "model": "m1"},
+                "b": {"executor": "dsh", "model": "m2"},
+            }
+        }
+    )
+    assert agent == "pi+dsh"
+    assert model == "m1+m2"
+    assert join_display_names(["nooa", "nooa"]) == "nooa"
+
+
+def test_project_job_overlay_keeps_label() -> None:
+    overlay = project_job_overlay({"solver": {"executor": "nooa", "label": "nooa", "model": "x"}})
+    assert overlay["bindings"]["solver"]["label"] == "nooa"

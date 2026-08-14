@@ -254,7 +254,8 @@ member task.yaml（角色槽 + intent + harness/eval）
   → actors_summary → config_fingerprint
 ```
 
-- 成员 `task.yaml` **禁止**内联 `executor` / `model` / `options` / `api_key` / `base_url`（无向后兼容双写法）。
+- 成员 `task.yaml` **禁止**内联 `executor` / `model` / `options` / `api_key` / `base_url` / `label`（无向后兼容双写法）。
+- Job binding 可选 `label`：Jobs / Hub 的 Agents 轴。缺省：`executor: acp` 用 `options.entry`，其它 kind 用 `executor`。**禁止**用 `options.agent` 当展示名。写入 lock `job_overlay` 与 Attempt/suite `agent_label`。
 - 缺 required role binding → `missing_binding` fail closed。
 - Intent `limits.*` **不可**经 `--set` 覆盖。
 - Leaderboard **job 轴**是 suite 级 `profiles.yaml` / `job_overlay`（role id → entry/model），不是「各 task 角色槽拓扑是否相同」。不同 task 可用不同 role id；只要绑定文档一致，`config_homogeneous` 仍为 true，公开可比榜展示该 yaml。

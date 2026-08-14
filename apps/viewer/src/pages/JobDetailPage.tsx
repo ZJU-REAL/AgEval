@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/table";
 import { fetchJob, type Job, type TaskRow } from "@/lib/api";
 import { taskHref, taskRunIds } from "@/lib/routes";
+import { AxisLabel } from "@/components/axis-label";
+import { HoverTip } from "@/components/hover-tip";
 import { formatError, formatScore } from "@/lib/utils";
 
 type SortKey = "task_id" | "agent_label" | "model_label" | "score" | "status";
@@ -154,29 +156,21 @@ export function JobDetailPage() {
                       }}
                     >
                       <TableCell className="font-medium max-w-[12rem]">
-                        <span className="block truncate" title={t.task_id}>
-                          {t.task_id}
-                        </span>
+                        <HoverTip content={t.task_id}>
+                          <span className="block truncate">{t.task_id}</span>
+                        </HoverTip>
                       </TableCell>
                       <TableCell className="max-w-[14rem]">
-                        <span
+                        <AxisLabel
+                          value={t.agent_label || job?.agent_label}
                           className="block truncate"
-                          title={
-                            t.agent_label || job?.agent_label || undefined
-                          }
-                        >
-                          {t.agent_label || job?.agent_label || "-"}
-                        </span>
+                        />
                       </TableCell>
                       <TableCell className="max-w-[18rem]">
-                        <span
+                        <AxisLabel
+                          value={t.model_label || job?.model_label}
                           className="block truncate font-mono text-xs"
-                          title={
-                            t.model_label || job?.model_label || undefined
-                          }
-                        >
-                          {t.model_label || job?.model_label || "-"}
-                        </span>
+                        />
                       </TableCell>
                       <TableCell className="text-body">
                         {t.dataset || job?.source || "-"}

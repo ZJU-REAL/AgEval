@@ -342,6 +342,12 @@ def bind_l0_result(ctx: AttemptStageContext) -> None:
     phase_timing = timer.as_dict()
     result_doc["phase_timing"] = phase_timing
     result_doc["duration"] = format_duration_ms(phase_timing.get("total_ms"))
+    from bora.config.profiles import attach_display_labels
+
+    attach_display_labels(
+        result_doc,
+        thaw(ctx.lock.job_overlay) if ctx.lock.job_overlay is not None else None,
+    )
     from bora.evidence.attempt_record import write_attempt_result
 
     write_attempt_result(ctx.run_dir, result_doc)
@@ -372,6 +378,8 @@ def bind_l0_result(ctx: AttemptStageContext) -> None:
                     "phase_timing": phase_timing,
                     "started_at": phase_timing.get("started_at"),
                     "finished_at": phase_timing.get("finished_at"),
+                    "agent_label": result_doc.get("agent_label") or "",
+                    "model_label": result_doc.get("model_label") or "",
                 }
             )
     if flat.status == "PASS":

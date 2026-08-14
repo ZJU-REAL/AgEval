@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from contextlib import suppress as contextlib_suppress
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from bora.adapters.acp.usage import _as_plain_mapping
@@ -103,7 +104,7 @@ class _BoraAcpClient:
         except Exception:  # noqa: BLE001
             decision["option_id"] = "allow"
         self.permission_decisions.append(decision)
-        self.events.append(decision)
+        self.record(decision)
         return resp
 
     async def session_update(self, session_id: str, update: Any, **kwargs: Any) -> None:
@@ -170,7 +171,7 @@ class _BoraAcpClient:
                 # Keep legacy key for older event consumers (raw UsageUpdate shape).
                 event["usage"] = raw_update
             event["has_usage_update"] = True
-        self.events.append(event)
+        self.record(event)
 
     async def write_text_file(
         self, session_id: str, path: str, content: str, **kwargs: Any
@@ -206,7 +207,7 @@ class _BoraAcpClient:
     async def create_elicitation(self, message: str, mode: Any, **kwargs: Any) -> Any:
         import acp
 
-        self.events.append(
+        self.record(
             {
                 "type": "elicitation",
                 "action": "decline",
@@ -219,11 +220,25 @@ class _BoraAcpClient:
     async def complete_elicitation(self, elicitation_id: str, **kwargs: Any) -> None:
         return None
 
+    def record(self, event: dict[str, Any]) -> None:
+        """Append a vendor event and stamp receive-time ``at`` when missing."""
+        if "at" not in event:
+            event["at"] = _utc_now_iso()
+        self.events.append(event)
+
     async def ext_method(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         return {}
 
     async def ext_notification(self, method: str, params: dict[str, Any]) -> None:
         return None
+
+
+def _utc_now_iso() -> str:
+    now = datetime.now(UTC)
+    stamp = now.strftime("%Y-%m-%dT%H:%M:%S")
+    if now.microsecond:
+        stamp = f"{stamp}.{now.microsecond:06d}".rstrip("0")
+    return stamp + "Z"
 
 
 def _map_stop_reason(stop: str | None) -> tuple[bool, str | None]:

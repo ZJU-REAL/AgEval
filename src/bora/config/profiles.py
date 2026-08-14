@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +30,7 @@ PROFILES_FORMAT = "bora.profiles/1"
 
 # Fields that constitute job binding — forbidden on member task.yaml slots.
 BINDING_FIELD_KEYS = frozenset(
-    {"executor", "model", "options", "api_key", "base_url", "extensions"}
+    {"executor", "model", "options", "api_key", "base_url", "extensions", "label"}
 )
 
 # Allowlisted nested binding override leaves under /bindings/<role_id>/…
@@ -371,6 +371,65 @@ def secret_free_options(options: Mapping[str, Any] | None) -> dict[str, Any]:
     return out
 
 
+def display_agent_name(binding: Mapping[str, Any]) -> str:
+    """Jobs / Hub agent axis. Never reads ``options.agent`` (plugin start path).
+
+    Priority: binding ``label`` → ACP ``options.entry`` → ``executor``.
+    """
+    label = binding.get("label")
+    if isinstance(label, str) and label.strip():
+        return label.strip()
+    executor = str(binding.get("executor") or "").strip()
+    if executor == "acp":
+        options = binding.get("options")
+        if isinstance(options, Mapping):
+            entry = options.get("entry")
+            if entry is not None and str(entry).strip():
+                return str(entry).strip()
+        projected = binding.get("entry")
+        if isinstance(projected, str) and projected.strip():
+            return projected.strip()
+        return executor
+    return executor
+
+
+def join_display_names(names: Sequence[str]) -> str:
+    """Collapse identical names; join distinct ones with ``+`` (UI may shorten)."""
+    cleaned = [n.strip() for n in names if isinstance(n, str) and n.strip()]
+    if not cleaned:
+        return ""
+    if len(set(cleaned)) == 1:
+        return cleaned[0]
+    return "+".join(cleaned)
+
+
+def display_labels_from_overlay(overlay: Mapping[str, Any] | None) -> tuple[str, str]:
+    """``(agent_label, model_label)`` from secret-free ``job_overlay``."""
+    if not isinstance(overlay, Mapping):
+        return "", ""
+    bindings = overlay.get("bindings")
+    if not isinstance(bindings, Mapping) or not bindings:
+        return "", ""
+    agents: list[str] = []
+    models: list[str] = []
+    for raw in bindings.values():
+        if not isinstance(raw, Mapping):
+            continue
+        agents.append(display_agent_name(raw))
+        model = raw.get("model")
+        models.append(model.strip() if isinstance(model, str) else "")
+    return join_display_names(agents), join_display_names(models)
+
+
+def attach_display_labels(doc: dict[str, Any], overlay: Mapping[str, Any] | None) -> None:
+    """Write sealed ``agent_label`` / ``model_label`` onto result or summary."""
+    agent, model = display_labels_from_overlay(overlay)
+    if agent:
+        doc["agent_label"] = agent
+    if model:
+        doc["model_label"] = model
+
+
 def project_job_overlay(
     bindings: Mapping[str, Mapping[str, Any]],
     *,
@@ -387,7 +446,7 @@ def project_job_overlay(
         if not isinstance(raw, Mapping):
             continue
         row: dict[str, Any] = {}
-        for k in ("executor", "model", "base_url", "api_key"):
+        for k in ("executor", "model", "base_url", "api_key", "label"):
             if k in raw and raw[k] is not None:
                 row[k] = raw[k]
         options = secret_free_options(

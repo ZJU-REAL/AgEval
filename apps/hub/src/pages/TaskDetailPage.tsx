@@ -31,6 +31,8 @@ import {
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
+import { AxisLabel } from "@/components/axis-label";
+import { HoverTip } from "@/components/hover-tip";
 import { cn, formatScore } from "@/lib/utils";
 
 type Tab = "readme" | "files" | "jobs";
@@ -405,6 +407,11 @@ export function TaskDetailPage() {
                       canOpen && j.run_id
                         ? `/datasets/${encodeURIComponent(datasetId)}/tasks/${encodeURIComponent(taskId)}/attempts/${encodeURIComponent(j.run_id)}`
                         : null;
+                    const rowTip = canOpen
+                      ? "Open attempt detail"
+                      : j.run_id
+                        ? "Summary only — full Attempt not uploaded"
+                        : "No run_id for this task";
                     return (
                       <TableRow
                         key={j.suite_run_id}
@@ -425,16 +432,11 @@ export function TaskDetailPage() {
                         }}
                         tabIndex={canOpen ? 0 : undefined}
                         role={canOpen ? "link" : undefined}
-                        title={
-                          canOpen
-                            ? "Open attempt detail"
-                            : j.run_id
-                              ? "Summary only — full Attempt not uploaded"
-                              : "No run_id for this task"
-                        }
                       >
                         <TableCell className="font-mono text-xs">
+                          <HoverTip content={rowTip}>
                           <span className="text-ink">{j.suite_run_id}</span>
+                          </HoverTip>
                           {!canOpen ? (
                             <span className="ml-2 text-[11px] text-mute font-sans">
                               summary only
@@ -448,10 +450,10 @@ export function TaskDetailPage() {
                           {formatScore(j.score)}
                         </TableCell>
                         <TableCell className="text-sm text-body">
-                          {j.agent_label || "-"}
+                          <AxisLabel value={j.agent_label} />
                         </TableCell>
                         <TableCell className="text-sm font-mono text-xs">
-                          {j.model_label || "-"}
+                          <AxisLabel value={j.model_label} />
                         </TableCell>
                       </TableRow>
                     );

@@ -35,6 +35,8 @@ import {
   passPowerPrimaryK,
   primaryDisplayK,
 } from "@/lib/suite-metrics";
+import { AxisLabel } from "@/components/axis-label";
+import { HoverTip } from "@/components/hover-tip";
 import { formatScore } from "@/lib/utils";
 
 /** Shared column widths — keep Agent/Model tight so columns stay similar. */
@@ -137,15 +139,13 @@ function TruncateCell({
   className?: string;
   mono?: boolean;
 }) {
-  const display = text || "—";
   return (
     <TableCell className={className}>
-      <span
+      <AxisLabel
+        value={text}
+        empty="—"
         className={`block truncate ${mono ? "font-mono text-xs" : "text-sm"}`}
-        title={text || undefined}
-      >
-        {display}
-      </span>
+      />
     </TableCell>
   );
 }
@@ -335,17 +335,15 @@ export function LeaderboardTable({
                   <TableHead className={`text-right ${COL_METRIC}`}>
                     {head("n_attempts", "n_attempts", true)}
                   </TableHead>
-                  <TableHead
-                    className={`text-right ${COL_METRIC}`}
-                    title="Largest k from metrics.k_values / n_attempts; cell labels @k"
-                  >
-                    {head("pass_at_k", "pass@k", true)}
+                  <TableHead className={`text-right ${COL_METRIC}`}>
+                    <HoverTip content="Largest k from metrics.k_values / n_attempts; cell labels @k">
+                      <span className="inline-flex">{head("pass_at_k", "pass@k", true)}</span>
+                    </HoverTip>
                   </TableHead>
-                  <TableHead
-                    className={`text-right ${COL_METRIC}`}
-                    title="Same display k as pass@k; cell labels ^k"
-                  >
-                    {head("pass_power_k", "pass^k", true)}
+                  <TableHead className={`text-right ${COL_METRIC}`}>
+                    <HoverTip content="Same display k as pass@k; cell labels ^k">
+                      <span className="inline-flex">{head("pass_power_k", "pass^k", true)}</span>
+                    </HoverTip>
                   </TableHead>
                 </>
               ) : null}
@@ -421,10 +419,12 @@ export function LeaderboardTable({
                           {atK.value == null ? (
                             "—"
                           ) : (
-                            <span title={`pass@${atK.k}`}>
+                            <HoverTip content={`pass@${atK.k}`}>
+                              <span>
                               {formatPassMetric(atK.value)}
                               <span className="ml-1 text-mute">@{atK.k}</span>
-                            </span>
+                              </span>
+                            </HoverTip>
                           )}
                         </TableCell>
                         <TableCell
@@ -433,10 +433,12 @@ export function LeaderboardTable({
                           {powK.value == null ? (
                             "—"
                           ) : (
-                            <span title={`pass^${powK.k}`}>
+                            <HoverTip content={`pass^${powK.k}`}>
+                              <span>
                               {formatPassMetric(powK.value)}
                               <span className="ml-1 text-mute">^{powK.k}</span>
-                            </span>
+                              </span>
+                            </HoverTip>
                           )}
                         </TableCell>
                       </>
@@ -451,22 +453,20 @@ export function LeaderboardTable({
                           : "—"}
                     </TableCell>
                     <TableCell className={`font-mono text-xs ${COL_TEXT}`}>
-                      <span
-                        className="block truncate"
-                        title={s.uploaded_by || undefined}
-                      >
-                        {s.uploaded_by || "—"}
-                      </span>
+                      <HoverTip content={s.uploaded_by || undefined}>
+                        <span className="block truncate">
+                          {s.uploaded_by || "—"}
+                        </span>
+                      </HoverTip>
                     </TableCell>
                     <TableCell
                       className={`font-mono text-[11px] ${COL_METRIC}`}
                     >
-                      <span
-                        className="block truncate"
-                        title={s.suite_run_id}
-                      >
-                        {shortSuiteId(s.suite_run_id)}
-                      </span>
+                      <HoverTip content={s.suite_run_id}>
+                        <span className="block truncate">
+                          {shortSuiteId(s.suite_run_id)}
+                        </span>
+                      </HoverTip>
                     </TableCell>
                   </TableRow>
                   {open ? (

@@ -273,7 +273,7 @@ class AcpExecutor(AgentExecutor):
                     dumped_prompt = prompt_usage_raw.model_dump(by_alias=True, exclude_none=True)
                     if isinstance(dumped_prompt, dict):
                         event_prompt_usage = dumped_prompt
-            self._client.events.append(
+            self._client.record(
                 {
                     "type": "prompt_usage",
                     "session_id": self._acp_session_id,

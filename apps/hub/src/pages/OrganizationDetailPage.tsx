@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
+import { HoverTip } from "@/components/hover-tip";
 import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
@@ -566,12 +567,11 @@ export function OrganizationDetailPage() {
                             return (
                               <TableRow key={k.key_id}>
                                 <TableCell className="font-mono text-xs max-w-[min(40rem,50vw)]">
-                                  <span
-                                    className="block truncate"
-                                    title={display}
-                                  >
-                                    {display}
-                                  </span>
+                                  <HoverTip content={display}>
+                                    <span className="block truncate">
+                                      {display}
+                                    </span>
+                                  </HoverTip>
                                 </TableCell>
                                 <TableCell className="text-sm tabular-nums">
                                   {uses}

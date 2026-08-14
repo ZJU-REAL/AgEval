@@ -294,6 +294,46 @@ def _read_json_object(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _started_from_evidence(evidence: Path, result: dict[str, Any] | None = None) -> str | None:
+    """Single-task result.json has no created_at; wall start lives on phase_timing."""
+    src = result if isinstance(result, dict) else {}
+    for key in ("created_at", "started_at"):
+        val = src.get(key)
+        if isinstance(val, str) and val.strip():
+            return val
+    pt = src.get("phase_timing")
+    if isinstance(pt, dict):
+        val = pt.get("started_at")
+        if isinstance(val, str) and val.strip():
+            return val
+    summary = _read_json_object(evidence / "summary.json") or {}
+    for key in ("started_at", "created_at"):
+        val = summary.get(key)
+        if isinstance(val, str) and val.strip():
+            return val
+    spt = summary.get("phase_timing")
+    if isinstance(spt, dict):
+        val = spt.get("started_at")
+        if isinstance(val, str) and val.strip():
+            return val
+    return None
+
+
+def _labels_from_lock(lock: dict[str, Any], result: dict[str, Any]) -> tuple[str, str]:
+    """Prefer sealed result labels; else Core display_labels_from_overlay."""
+    from bora.config.profiles import display_labels_from_overlay
+
+    agent = result.get("agent_label") or lock.get("agent_label")
+    model = result.get("model_label") or lock.get("model_label")
+    a = agent.strip() if isinstance(agent, str) else ""
+    m = model.strip() if isinstance(model, str) else ""
+    if a and m:
+        return a, m
+    overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
+    derived_a, derived_m = display_labels_from_overlay(overlay)
+    return a or derived_a, m or derived_m
+
+
 def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict[str, Any]:
     from bora.evidence.attempt_record import read_attempt_result
 
@@ -302,7 +342,8 @@ def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict
     task_id = str(result.get("task_id") or lock.get("task_id") or "")
     status = str(result.get("status") or result.get("verdict") or "")
     score = result.get("score")
-    started = result.get("created_at") or result.get("started_at")
+    started = _started_from_evidence(evidence, result)
+    agent_label, model_label = _labels_from_lock(lock, result)
     man = None
     with contextlib.suppress(ConfigError):
         man = load_database_manifest(database_root)
@@ -313,8 +354,8 @@ def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict
         "source": task_id or "single",
         "database_id": man.database_id if man else None,
         "database_version": man.version if man else None,
-        "agent_label": str(lock.get("agent_label") or result.get("agent_label") or ""),
-        "model_label": str(lock.get("model_label") or result.get("model_label") or ""),
+        "agent_label": agent_label,
+        "model_label": model_label,
         "provider_label": str(lock.get("provider_label") or result.get("provider_label") or ""),
         "environment": str(result.get("environment") or "local"),
         "result": score,
@@ -501,6 +542,7 @@ def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
                     "score": job.get("score"),
                     "exit_code": job.get("exit_code"),
                     "duration": job.get("duration"),
+                    "started": job.get("started"),
                 }
             ],
             "error": None,

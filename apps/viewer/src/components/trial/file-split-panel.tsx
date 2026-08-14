@@ -344,7 +344,6 @@ export function FileSplitPanel({
                             "text-body hover:bg-row-hover transition-colors rounded-[4px]",
                           )}
                           style={{ paddingLeft: 8 + depth * 12 }}
-                          title={node.path}
                         >
                           {open ? (
                             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-mute" />
@@ -381,7 +380,6 @@ export function FileSplitPanel({
                             : "text-body hover:bg-row-hover",
                         )}
                         style={{ paddingLeft: 8 + depth * 12 + 18 }}
-                        title={node.path}
                       >
                         <FileTypeIcon name={node.name} kind="file" />
                         <span className="truncate">{node.name}</span>
@@ -404,9 +402,7 @@ export function FileSplitPanel({
         {selectedPath ? (
           <div className="px-3 py-2 border-b border-hairline text-[12px] font-mono text-mute shrink-0 bg-canvas-soft flex items-center gap-2">
             <FileTypeIcon name={selectedName || selectedPath} kind="file" />
-            <span className="truncate text-ink" title={selectedPath}>
-              {selectedPath}
-            </span>
+            <span className="truncate text-ink">{selectedPath}</span>
           </div>
         ) : null}
         <div className="p-0 flex-1 min-h-0 overflow-auto">
