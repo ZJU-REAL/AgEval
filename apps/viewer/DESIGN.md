@@ -1,34 +1,31 @@
 ---
 version: alpha
-name: BORA-Viewer-Vercel-inspired
+name: BORA-Viewer-IKB
 description: >
-  Local BORA Database results viewer. Visual language adapted from Vercel
-  (stark ink-on-near-white, hairline tables, Geist/Inter + mono captions).
-  Product surface is Jobs → Tasks → Trial drill-down — not a marketing site.
-  Full upstream visual reference:
-  https://github.com/VoltAgent/awesome-design-md/blob/main/design-md/vercel/DESIGN.md
-source: vercel/DESIGN.md (VoltAgent awesome-design-md), adapted for apps/viewer
+  Local BORA Database results viewer. Product chrome on the shared Klein Blue
+  / cool-ink system (website landing + docs). Hairline tables, Geist/Inter +
+  mono captions. Surface is Jobs → Tasks → Trial drill-down — not a marketing site.
 
 colors:
-  primary: "#171717"
-  on-primary: "#ffffff"
-  ink: "#171717"
-  body: "#4d4d4d"
-  mute: "#888888"
-  hairline: "#ebebeb"
-  hairline-strong: "#a1a1a1"
-  canvas: "#ffffff"
-  canvas-soft: "#fafafa"
-  canvas-soft-2: "#f5f5f5"
-  link: "#0070f3"
-  link-deep: "#0761d1"
-  success: "#0070f3"
+  primary: "#14161f"
+  on-primary: "#f4f5f8"
+  ink: "#14161f"
+  body: "#4a4e5c"
+  mute: "#7a7f90"
+  hairline: "#d5d8e2"
+  hairline-strong: "#9aa0b4"
+  canvas: "#f4f5f8"
+  canvas-soft: "#e8eaf1"
+  canvas-soft-2: "#e4e7f0"
+  link: "#002FA7"
+  link-deep: "#001f73"
+  success: "#002FA7"
   error: "#ee0000"
   error-soft: "#f7d4d6"
   warning: "#f5a623"
-  selection-bg: "#171717"
-  selection-fg: "#f2f2f2"
-  row-hover: "#fafafa"
+  selection-bg: "#002FA7"
+  selection-fg: "#14161f"
+  row-hover: "#e8eaf1"
 
 typography:
   sans: "Geist, Inter, system-ui, -apple-system, sans-serif"
@@ -145,15 +142,13 @@ BORA Viewer is a **local results console** for one opened Database (no Registry)
    previews, then confirms; suite delete always cascades Attempts. Hub
    write stays out.
 
-Design is **Vercel product chrome**, not marketing hero mesh:
+Design is **product chrome on Klein Blue / cool ink**, not a marketing hero:
 
-- Near-white canvas, ink text, hairline dividers
+- Cool paper / cool ink canvas, ink text, hairline dividers
+- Accent and links use IKB `#002FA7` (light) / `#5B7BFF` (dark)
 - No decorative multi-color mesh gradients in this app
 - Tables + filters + breadcrumbs carry the UI
 - Geist / Inter + mono for numbers and commands
-
-Upstream design inventory (marketing + full tokens) lives in the source
-`vercel/DESIGN.md`; this file is the **viewer-specific subset**.
 
 ## Information architecture
 
@@ -169,12 +164,12 @@ segment is clickable.
 ## Visual rules
 
 ### Do
-- Use hairline borders (`#ebebeb`) for table rows and toolbars
+- Use hairline borders (`#d5d8e2` light / `#2a2f3e` dark) for table rows and toolbars
 - Tabular numbers for Result / score / duration / trial counts
 - Mono only for commands, digests, technical labels
-- Primary action = ink `#171717` (copy, primary buttons)
+- Primary action = ink (copy, primary buttons); links use IKB
 - Error / exception text in `#ee0000`
-- Row hover = soft canvas `#fafafa`
+- Row hover = soft canvas `#e8eaf1` / `#1a1e2a`
 - Max content width ~1400px, generous but calm padding
 
 ### Don't
@@ -203,8 +198,8 @@ Prefer **shadcn/ui** (Radix + Tailwind), tokens mapped to CSS variables in
 
 | Mode | Behavior |
 | --- | --- |
-| `light` | Near-white canvas, ink text |
-| `dark` | Near-black canvas (`#0a0a0a`), light ink |
+| `light` | Cool paper canvas (`#f4f5f8`), ink text, IKB links |
+| `dark` | Cool ink canvas (`#11141c`), light ink, `#5B7BFF` links |
 | `system` | Follow `prefers-color-scheme` (default) |
 
 Toggle lives in the top-right header. Persist preference client-side.

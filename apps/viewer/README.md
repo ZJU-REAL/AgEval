@@ -27,7 +27,7 @@ SPA lives under `src/`; Python serves the built `dist/` only.
 
 ## Design
 
-- [DESIGN.md](./DESIGN.md) — Vercel-inspired tokens + IA
+- [DESIGN.md](./DESIGN.md) — IKB / cool-ink tokens + IA
 - [AGENTS.md](./AGENTS.md) — implementation constraints (shadcn, no hand-rolled chrome)
 
 ## Develop
