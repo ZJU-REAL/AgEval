@@ -101,8 +101,8 @@ def order_chain(
     by_plugin = {c.plugin_id: c for c in candidates}
     slot_explicit = [e for e in explicit if e.slot == slot]
 
-    # Start from registered candidates.
-    selected: dict[str, Candidate] = {c.plugin_id: c for c in candidates}
+    # Opt-in: first-party / default only. Installed plugins join via extensions.
+    selected: dict[str, Candidate] = {c.plugin_id: c for c in candidates if _auto_on_multi_chain(c)}
 
     replace_default = any(e.replace_default for e in slot_explicit)
     if replace_default:
@@ -130,3 +130,7 @@ def order_chain(
     # Provide-slot ties fail closed in pick_one; chains need multi-plugin coexistence.
     del slot  # slot used only for error context in provide path
     return sorted(selected.values(), key=lambda c: (c.priority, c.plugin_id))
+
+
+def _auto_on_multi_chain(candidate: Candidate) -> bool:
+    return bool(candidate.is_default) or candidate.source in {"default", "first-party"}

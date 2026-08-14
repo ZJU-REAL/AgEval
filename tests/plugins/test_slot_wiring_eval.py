@@ -9,7 +9,7 @@ from unittest.mock import patch
 from bora.application.attempt import extension_hooks as hooks
 from bora.plugins.defaults import register_defaults
 from bora.plugins.lock_bind import extension_graph_to_lock
-from bora.plugins.protocol import BindingIntent
+from bora.plugins.protocol import BindingIntent, ExtensionSelect
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.resolve import resolve
 from bora.plugins.slots import EVALUATION_INPUT_CONTRIBUTE, EVALUATION_RUNTIME, SCORE_POSTPROCESS
@@ -48,7 +48,11 @@ def test_evaluation_input_and_score_postprocess_rewrite() -> None:
 
     reg.on(EVALUATION_INPUT_CONTRIBUTE, "spy", ein, priority=10, source="test")
     reg.on(SCORE_POSTPROCESS, "spy", spp, priority=10, source="test")
-    graph = resolve(BindingIntent(profile_id="p"), reg, materialize=True)
+    graph = resolve(
+        BindingIntent(profile_id="p", extension_selects=[ExtensionSelect(plugin="spy")]),
+        reg,
+        materialize=True,
+    )
 
     lock = _lock()
     with patch.object(hooks, "graph_for_lock", return_value=graph):
@@ -74,7 +78,14 @@ def test_l3_bindings_appear_in_lock_fragment() -> None:
         return await nxt(value)
 
     reg.on(SCORE_POSTPROCESS, "score-spy", spp, priority=50, source="test")
-    graph = resolve(BindingIntent(profile_id="solver"), reg, materialize=False)
+    graph = resolve(
+        BindingIntent(
+            profile_id="solver",
+            extension_selects=[ExtensionSelect(plugin="score-spy")],
+        ),
+        reg,
+        materialize=False,
+    )
     frag = extension_graph_to_lock(graph)
     assert SCORE_POSTPROCESS in frag
     assert frag[SCORE_POSTPROCESS]["kind"] == "on"
