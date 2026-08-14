@@ -76,14 +76,20 @@ def _available_tabs(evidence: Path) -> list[str]:
 
 
 def _profile_variant(profile: dict[str, Any]) -> str | None:
-    """Lock options variant: ACP entry, else plugin agent/label, else none."""
+    """Lock display variant: binding label, else ACP entry. Never options.agent."""
+    label = profile.get("label")
+    if isinstance(label, str) and label.strip():
+        return label.strip()
     opts = profile.get("options") if isinstance(profile.get("options"), dict) else {}
     if not isinstance(opts, dict):
         return None
-    for key in ("entry", "agent", "label"):
-        val = opts.get(key)
-        if isinstance(val, str) and val.strip():
-            return val.strip()
+    val = opts.get("label")
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    if str(profile.get("executor") or "").strip() == "acp":
+        entry = opts.get("entry")
+        if isinstance(entry, str) and entry.strip():
+            return entry.strip()
     return None
 
 
@@ -294,6 +300,9 @@ def _trial_meta_from_evidence(
             duration = format_duration_ms(float(total_ms))
     started = (
         summary.get("started_at")
+        or summary.get("created_at")
+        or result.get("started_at")
+        or result.get("created_at")
         or (phase_timing or {}).get("started_at")
         or suite_row.get("started")
     )

@@ -131,6 +131,18 @@ def write_l1_evidence(
     from bora.evidence.redaction import RedactionError, redact_and_assert, redact_value
 
     result_doc["l1"] = {**(result_doc.get("l1") or {}), **l1_meta}
+    from bora.config.profiles import attach_display_labels
+
+    lock_doc: dict[str, Any] = {}
+    lock_path = run_dir / "lock.json"
+    if lock_path.is_file():
+        try:
+            loaded = json.loads(lock_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            loaded = None
+        if isinstance(loaded, dict):
+            lock_doc = loaded
+    attach_display_labels(result_doc, lock_doc.get("job_overlay"))
     write_attempt_result(run_dir, result_doc)
     write_attempt_json(run_dir, AGENT_FILENAME, agent_meta)
     # Fail-closed redaction (no string-replace self-confirm).
@@ -159,6 +171,10 @@ def write_l1_evidence(
             summary["finished_at"] = pt.get("finished_at")
     if result_doc.get("duration") is not None:
         summary["duration"] = result_doc.get("duration")
+    if result_doc.get("agent_label"):
+        summary["agent_label"] = result_doc["agent_label"]
+    if result_doc.get("model_label"):
+        summary["model_label"] = result_doc["model_label"]
     (run_dir / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
