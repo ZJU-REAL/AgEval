@@ -212,7 +212,8 @@ def test_official_org_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
     from services.registry.official import is_official_upload_org, official_orgs
 
     monkeypatch.delenv("BORA_OFFICIAL_ORGS", raising=False)
-    assert "Official" in official_orgs()
+    assert "official" in official_orgs()
+    assert is_official_upload_org("official") is True
     assert is_official_upload_org("Official") is True
     assert is_official_upload_org("acme") is False
     monkeypatch.setenv("BORA_OFFICIAL_ORGS", "Acme, Labs")

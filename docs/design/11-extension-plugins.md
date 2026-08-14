@@ -109,7 +109,7 @@ evaluate     → evaluation_input_contribute → evaluation_runtime
 
 `bora lock` / `bora run` / 路径 `bora plugin install` **只**从 bootstrap ∪ 本地 index resolve；缺绑定 id → fail closed。**不**问插件是否 official，**不**调 Registry，**不**用环境变量把 `nooa` 改写成 `${OFFICIAL_ORG}/nooa`（lock digest 不得随 env 漂移）。路径安装不需要凭据或 Registry URL。
 
-「Official」是 **市场展示策略**，不是运行时门闩。默认 allowlist 是单个 Core/Registry 常量（org `Official`）。可选覆盖只在 **Registry 进程**（如 `BORA_OFFICIAL_ORGS`）——不是前端 `VITE_*`，也不是 CLI→Registry 拉取。改 allowlist **不得**要求改 `plugins/nooa/plugin.yaml` 或 journeys profiles。
+「Official」是 **市场展示策略**，不是运行时门闩。默认 allowlist 是单个 Registry 常量（org slug `official`，与 `org-create` 小写规则一致）。可选覆盖只在 **Registry 进程**（如 `BORA_OFFICIAL_ORGS`）——不是前端 `VITE_*`，也不是 CLI→Registry 拉取。改 allowlist **不得**要求改 `plugins/nooa/plugin.yaml` 或 journeys profiles。比较时 casefold，避免 `Official` / `official` 漂移。
 
 Core 槽 id（`executor`、`image_contribute`、…）仍归 Core。
 

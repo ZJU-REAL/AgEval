@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-DEFAULT_OFFICIAL_ORGS: tuple[str, ...] = ("Official",)
+DEFAULT_OFFICIAL_ORGS: tuple[str, ...] = ("official",)
 ENV_OFFICIAL_ORGS = "BORA_OFFICIAL_ORGS"
 
 
@@ -18,4 +18,5 @@ def official_orgs() -> frozenset[str]:
 def is_official_upload_org(org_id: str | None) -> bool:
     if not org_id:
         return False
-    return org_id in official_orgs()
+    allowed = {item.casefold() for item in official_orgs()}
+    return org_id.casefold() in allowed

@@ -11,8 +11,8 @@ import yaml
 
 PLUGIN_FORMAT = "bora.plugin/1"
 MANIFEST_NAMES = ("plugin.yaml", "bora.plugin.yaml")
-# Default Hub official-org allowlist. Runtime lock/run never consults this.
-DEFAULT_OFFICIAL_ORG = "Official"
+# Default Hub official-org allowlist (org slug). Runtime lock/run never consults this.
+DEFAULT_OFFICIAL_ORG = "official"
 # Same slash form as Dataset database_id. Not org.name. Official is mixed-case.
 _PLUGIN_ID_SEGMENT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$")
 
