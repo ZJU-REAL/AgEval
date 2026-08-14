@@ -15,12 +15,15 @@ from dsh_plugin.factory import (
     DEFAULT_COMPOSITION,
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
+    container_cordis_path,
+    permission_child_env,
     resolve_api_key_value,
     resolve_base_url,
+    resolve_effective_composition,
+    resolve_permission,
 )
 
 WORKER_PATH = "/usr/local/bin/bora-executor-dsh"
-CORDIS_CONTAINER = "/opt/dsh/compositions/slim.cordis.yml"
 WORKDIR_CONTAINER = "/attempt/workspace"
 HOME_CONTAINER = "/attempt/home"
 
@@ -38,6 +41,7 @@ class DshContainerExecutor(AgentExecutor):
         model: str = DEFAULT_MODEL,
         provider: str = DEFAULT_PROVIDER,
         composition: str = DEFAULT_COMPOSITION,
+        permission: str | None = None,
         base_url: str | None = None,
         api_key_env: str | None = None,
         uid: int = 10001,
@@ -49,7 +53,11 @@ class DshContainerExecutor(AgentExecutor):
         self.container_id = container_id
         self.model = model or DEFAULT_MODEL
         self.provider = provider or DEFAULT_PROVIDER
-        self.composition = composition or DEFAULT_COMPOSITION
+        self.permission = resolve_permission(permission)
+        self.composition = resolve_effective_composition(
+            composition=composition, permission=self.permission
+        )
+        self.cordis_container = container_cordis_path(self.composition)
         self.base_url = (base_url or "").strip() or None
         self.api_key_env = (api_key_env or "").strip() or None
         self.uid = uid
@@ -71,7 +79,8 @@ class DshContainerExecutor(AgentExecutor):
         env: dict[str, str] = {
             "DSH_CWD": self.workdir_container,
             "DSH_SESSION_ROOT": f"{self.home_container.rstrip('/')}/dsh-sessions",
-            "DSH_CORDIS_CONFIG": CORDIS_CONTAINER,
+            "DSH_CORDIS_CONFIG": self.cordis_container,
+            **permission_child_env(self.permission),
         }
         key = resolve_api_key_value(self.api_key_env)
         if key:
@@ -97,9 +106,10 @@ class DshContainerExecutor(AgentExecutor):
             "model": self.model,
             "provider": self.provider,
             "composition": self.composition,
+            "permission": self.permission,
             "workdir": effective_workdir,
             "session_root": f"{self.home_container.rstrip('/')}/dsh-sessions",
-            "cordis": CORDIS_CONTAINER,
+            "cordis": self.cordis_container,
             "session_id": self.session_id,
         }
         env = self._child_env()

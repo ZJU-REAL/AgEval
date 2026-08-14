@@ -8,11 +8,12 @@ FROM ${BASE_IMAGE}
 USER root
 COPY src/dsh_plugin /opt/dsh/dsh_plugin
 COPY worker/bora_executor_dsh.py /usr/local/bin/bora-executor-dsh
-COPY compositions/slim.cordis.yml /opt/dsh/compositions/slim.cordis.yml
+COPY compositions/ /opt/dsh/compositions/
 # Pin official wheels at image build. No invoke-time npm i / floating pip.
 RUN chmod 755 /usr/local/bin/bora-executor-dsh \
     && test -f /usr/local/bin/bora-executor-dsh \
     && test -f /opt/dsh/compositions/slim.cordis.yml \
+    && test -f /opt/dsh/compositions/sandboxed.cordis.yml \
     && python3 -m py_compile /usr/local/bin/bora-executor-dsh \
     && python3 -m pip install --no-cache-dir "deepseek-harness-sdk==0.1.0rc6"
 

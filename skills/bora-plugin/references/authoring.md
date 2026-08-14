@@ -139,7 +139,10 @@ bindings:
 ```
 
 `--set /bindings/<role>/options/<key>=…` is allowed (ACP still rejects
-`command` / engine keys).
+`command` / engine keys). Plugin-owned keys stay opaque to Core — for
+example dsh `options.permission` (`read-only` / `workspace-write` /
+`danger-full-access`) selects a plugin composition and child env. Invalid
+values fail closed at materialize.
 
 ## Typed failures
 

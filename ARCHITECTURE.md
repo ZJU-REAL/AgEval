@@ -153,7 +153,7 @@ BORA/
 │   ├── store.py               # 一份 MetadataStore + 薄 Postgres 适配
 │   └── routes.py              # ROUTES 必须声明 access；skip_auth 仅 access=none
 ├── examples/                  # 见 examples/README.md
-│   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa / profiles.dsh）
+│   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa / profiles.dsh[.read-only]）
 │   ├── core/                  # config / harness / eval / agent / SDK
 │   ├── l1/                    # Provider L1 isolation probes
 │   └── slot-probe/            # multi-slot 插件 e2e（需 bora plugin install）

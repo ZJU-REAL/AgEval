@@ -4,6 +4,8 @@
 #   # repo/.env should define deepseek_api_key (projected as DEEPSEEK_API_KEY)
 #   uv run bora run examples/journeys --task terminal-jsonl-agg \
 #     --profiles examples/journeys/profiles.dsh.yaml
+# File-effect policy: profiles.dsh.read-only.yaml, or
+#   --set '/bindings/solver/options/permission="read-only"'
 #
 # api_key = env locator name (never a secret value).
 # Same harness as ACP / nooa — only the job binding changes.
