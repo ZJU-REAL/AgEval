@@ -192,6 +192,43 @@ def test_foreign_wrapped_event_unwraps() -> None:
     assert mapped[0]["args"]["path"] == "a"
 
 
+def test_tool_result_derives_elapsed_from_epoch_time() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "type": "tool/call",
+                "seq": 10,
+                "time": 1_786_675_378_287,
+                "data": {"callId": "c1", "name": "bash", "arguments": {"command": "ls"}},
+            },
+            {
+                "type": "tool/result",
+                "seq": 11,
+                "time": 1_786_675_378_347,
+                "sourceEventSeqs": [10],
+                "data": {
+                    "message": {
+                        "source": {"kind": "tool", "callId": "c1"},
+                        "content": [
+                            {
+                                "type": "tool-result",
+                                "toolCallId": "c1",
+                                "content": [{"type": "text", "text": "ok"}],
+                            }
+                        ],
+                    },
+                },
+            },
+        )
+    )
+    start = next(e for e in mapped if e.get("phase") == "start")
+    update = next(e for e in mapped if e.get("phase") == "update")
+    assert start["at"]
+    assert update["elapsed_ms"] == 60.0
+    assert update["started_at"] == start["at"]
+    assert update["ended_at"] == update["at"]
+
+
 def test_tool_result_copies_vendor_elapsed_ms() -> None:
     mapped = to_bora_trajectory_events(
         (

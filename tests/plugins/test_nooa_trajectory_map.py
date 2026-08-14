@@ -85,6 +85,120 @@ def test_tool_call_event_with_result() -> None:
     assert mapped[0]["args"] == {"path": "/tmp/a"}
 
 
+def test_python_output_derives_elapsed_from_vendor_timestamp() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "event_type": "ToolCallEvent",
+                "id": "vendor-1",
+                "tool_call_id": "c1",
+                "name": "execute_python",
+                "arguments": {"code": "print(1)"},
+                "timestamp": "2026-08-14T12:00:00.000Z",
+                "at": "2026-08-14T12:00:59Z",
+            },
+            {
+                "event_type": "PythonOutput",
+                "id": "vendor-1-out",
+                "tool_call_id": "c1",
+                "execution_status": "complete",
+                "stdout": "1\n",
+                "timestamp": "2026-08-14T12:00:01.250Z",
+                "at": "2026-08-14T12:00:59Z",
+            },
+        )
+    )
+    start = next(e for e in mapped if e.get("phase") == "start")
+    update = next(e for e in mapped if e.get("phase") == "update")
+    assert start["at"] == "2026-08-14T12:00:00.000Z"
+    assert update["elapsed_ms"] == 1250.0
+
+
+def test_mapper_skips_tap_duplicates_when_vendor_tools_exist() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "event_type": "ToolCallEvent",
+                "id": "tap_py_4",
+                "tool_call_id": "tap_py_4",
+                "name": "execute_python",
+                "at": "2026-08-14T12:00:00.000Z",
+            },
+            {
+                "event_type": "PythonOutput",
+                "id": "tap_py_4_out",
+                "tool_call_id": "tap_py_4",
+                "execution_status": "complete",
+                "stdout": "x",
+                "at": "2026-08-14T12:00:00.001Z",
+            },
+            {
+                "event_type": "ToolCallEvent",
+                "id": "vendor-1",
+                "tool_call_id": "c1",
+                "name": "execute_python",
+                "timestamp": "2026-08-14T12:00:00.000Z",
+            },
+            {
+                "event_type": "PythonOutput",
+                "id": "vendor-1-out",
+                "tool_call_id": "c1",
+                "execution_status": "complete",
+                "stdout": "x",
+                "timestamp": "2026-08-14T12:00:00.400Z",
+            },
+        )
+    )
+    tools = [e for e in mapped if e.get("kind") == "tool"]
+    ids = {e.get("tool_call_id") for e in tools}
+    assert ids == {"c1"}
+    update = next(e for e in tools if e.get("phase") == "update")
+    assert update["elapsed_ms"] == 400.0
+
+
+def test_llmcomplete_does_not_steal_execute_span() -> None:
+    mapped = to_bora_trajectory_events(
+        (
+            {
+                "event_type": "LLMComplete",
+                "id": "tap_llmcomplete_3",
+                "tool_calls": [
+                    {
+                        "tool_call_id": "c1",
+                        "function_name": "execute_python",
+                        "arguments": {"code": "print(1)"},
+                    }
+                ],
+            },
+            {
+                "event_type": "ToolCallEvent",
+                "id": "vendor-1",
+                "tool_call_id": "c1",
+                "name": "execute_python",
+                "arguments": {"code": "print(1)"},
+                "result": {"ok": True},
+                "timestamp": "2026-08-14T12:00:00.000Z",
+            },
+            {
+                "event_type": "PythonOutput",
+                "id": "vendor-1-out",
+                "tool_call_id": "c1",
+                "execution_status": "complete",
+                "stdout": "1\n",
+                "timestamp": "2026-08-14T12:00:00.080Z",
+            },
+        )
+    )
+    starts = [e for e in mapped if e.get("kind") == "tool" and e.get("phase") == "start"]
+    assert len(starts) == 1
+    update = next(
+        e
+        for e in mapped
+        if e.get("kind") == "tool" and e.get("phase") == "update" and e.get("elapsed_ms")
+    )
+    assert update["elapsed_ms"] == 80.0
+
+
 def test_tool_call_copies_vendor_elapsed_ms() -> None:
     mapped = to_bora_trajectory_events(
         (

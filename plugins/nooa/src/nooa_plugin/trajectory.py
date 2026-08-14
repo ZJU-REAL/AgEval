@@ -11,6 +11,8 @@ are notify-only — they must be tapped via ``on("*")`` during invoke.
 from __future__ import annotations
 
 import json
+import math
+import time
 from collections.abc import Callable
 from contextlib import suppress
 from datetime import datetime, timezone
@@ -95,9 +97,12 @@ class EventTap:
         return out
 
     async def _on_python(self, ctx: Any, nxt: Any) -> Any:
+        started_at = _utc_now_iso()
+        t0 = time.monotonic()
         out = await nxt(ctx)
+        elapsed_ms = max(0.0, (time.monotonic() - t0) * 1000.0)
         with suppress(Exception):
-            self._capture_python(out)
+            self._capture_python(out, started_at=started_at, elapsed_ms=elapsed_ms)
         return out
 
     def _capture_llm(self, ctx: Any) -> None:
@@ -143,37 +148,48 @@ class EventTap:
                 }
             )
 
-    def _capture_python(self, ctx: Any) -> None:
+    def _capture_python(
+        self,
+        ctx: Any,
+        *,
+        started_at: str | None = None,
+        elapsed_ms: float | None = None,
+    ) -> None:
         code = getattr(ctx, "code", None)
         result = getattr(ctx, "result", None)
         call_id = f"tap_py_{len(self._rows) + 1}"
         args = {"code": code} if isinstance(code, str) and code else {}
-        self._ingest(
-            {
-                "event_type": "ToolCallEvent",
-                "id": call_id,
-                "tool_call_id": call_id,
-                "name": "execute_python",
-                "arguments": args,
-            }
-        )
+        start_row: dict[str, Any] = {
+            "event_type": "ToolCallEvent",
+            "id": call_id,
+            "tool_call_id": call_id,
+            "name": "execute_python",
+            "arguments": args,
+        }
+        if started_at:
+            start_row["started_at"] = started_at
+            start_row["at"] = started_at
+        self._ingest(start_row)
         stdout = getattr(result, "stdout", "") if result is not None else ""
         stderr = getattr(result, "stderr", "") if result is not None else ""
         error = getattr(result, "error", None) if result is not None else None
         value = getattr(result, "returned_value", None) if result is not None else None
         success = bool(getattr(result, "success", True)) if result is not None else True
-        self._ingest(
-            {
-                "event_type": "PythonOutput",
-                "id": f"{call_id}_out",
-                "tool_call_id": call_id,
-                "execution_status": "complete" if success else "error",
-                "stdout": stdout or "",
-                "stderr": stderr or "",
-                "error": "" if error is None else str(error),
-                "value": None if value is None else _jsonable(value),
-            }
-        )
+        end_row: dict[str, Any] = {
+            "event_type": "PythonOutput",
+            "id": f"{call_id}_out",
+            "tool_call_id": call_id,
+            "execution_status": "complete" if success else "error",
+            "stdout": stdout or "",
+            "stderr": stderr or "",
+            "error": "" if error is None else str(error),
+            "value": None if value is None else _jsonable(value),
+        }
+        if started_at:
+            end_row["started_at"] = started_at
+        if elapsed_ms is not None and math.isfinite(elapsed_ms) and elapsed_ms >= 0:
+            end_row["elapsed_ms"] = float(elapsed_ms)
+        self._ingest(end_row)
 
     def _ingest(self, ev: Any, *, tag: Any = None) -> None:
         row = _event_to_dict(ev)
@@ -181,13 +197,23 @@ class EventTap:
             return
         if tag is not None and "tag" not in row:
             row["tag"] = str(tag)
-        if "at" not in row:
+        vendor_ts = row.get("timestamp") or row.get("created_at")
+        if isinstance(vendor_ts, str) and vendor_ts.strip():
+            row.setdefault("at", vendor_ts.strip())
+        elif "at" not in row:
             row["at"] = _utc_now_iso()
         key = _row_key(row)
         if key in self._seen:
-            # Later ToolCallEvent updates carry the result — replace.
+            # Later ToolCallEvent updates carry the result — replace, keep start.
             for i, existing in enumerate(self._rows):
                 if _row_key(existing) == key:
+                    first = (
+                        existing.get("started_at")
+                        or existing.get("timestamp")
+                        or existing.get("at")
+                    )
+                    if isinstance(first, str) and first.strip():
+                        row.setdefault("started_at", first.strip())
                     self._rows[i] = row
                     return
             return
@@ -242,6 +268,13 @@ def to_bora_trajectory_events(
     seq = 0
     emitted_tools: set[str] = set()
     pending_code: str | None = None
+    started_at: dict[str, str] = {}
+    has_vendor_tools = any(
+        isinstance(row, dict)
+        and _event_type(row) in {"ToolCallEvent", "ToolCall", "PythonOutput"}
+        and not str(row.get("id") or "").startswith("tap_")
+        for row in raw_events
+    )
 
     def _next() -> int:
         nonlocal seq
@@ -250,6 +283,8 @@ def to_bora_trajectory_events(
 
     for raw in raw_events:
         if not isinstance(raw, dict):
+            continue
+        if has_vendor_tools and str(raw.get("id") or "").startswith("tap_"):
             continue
         et = _event_type(raw)
         if et in _SKIP_KINDS:
@@ -284,6 +319,7 @@ def to_bora_trajectory_events(
                 session_id,
                 raw,
                 emitted_tools,
+                started_at,
                 pending_code=pending_code,
             )
         elif et == "PythonOutput":
@@ -293,12 +329,17 @@ def to_bora_trajectory_events(
                 session_id,
                 raw,
                 emitted_tools,
+                started_at,
                 pending_code=pending_code,
             )
         elif et == "LLMComplete":
             reason = raw.get("reasoning_content")
             if isinstance(reason, str) and reason.strip():
                 out.append(_text(_next(), session_id, "thought", reason))
+            # Proposed calls on the LLM row are not the execute span.
+            # ToolCallEvent + PythonOutput own start/end when present.
+            if has_vendor_tools:
+                continue
             for call in raw.get("tool_calls") or []:
                 if not isinstance(call, dict):
                     continue
@@ -313,7 +354,13 @@ def to_bora_trajectory_events(
                     "arguments": args,
                 }
                 seq, pending_code = _emit_tool_pair(
-                    out, seq, session_id, fake, emitted_tools, pending_code=pending_code
+                    out,
+                    seq,
+                    session_id,
+                    fake,
+                    emitted_tools,
+                    started_at,
+                    pending_code=pending_code,
                 )
         else:
             seq = _next()
@@ -336,6 +383,7 @@ def _emit_tool_pair(
     session_id: str,
     raw: dict[str, Any],
     emitted_tools: set[str],
+    started_at: dict[str, str],
     *,
     pending_code: str | None,
 ) -> tuple[int, str | None]:
@@ -362,8 +410,11 @@ def _emit_tool_pair(
             "args": args,
         }
         _attach_timing(start, raw)
+        _remember_start(started_at, call_id, start)
         out.append(start)
         emitted_tools.add(call_id)
+    else:
+        _remember_start(started_at, call_id, {"at": _coerce_event_at(raw)})
     if raw.get("result") is not None:
         seq += 1
         result = raw["result"]
@@ -383,6 +434,17 @@ def _emit_tool_pair(
             "raw_output": result,
         }
         _attach_timing(update, raw)
+        # Folded ToolCallEvent.timestamp is the start, not the end.
+        if _event_type(raw) in {"ToolCallEvent", "ToolCall"}:
+            start_iso = started_at.get(call_id)
+            if start_iso:
+                update["started_at"] = start_iso
+            if "elapsed_ms" not in raw and "ended_at" not in raw:
+                update.pop("ended_at", None)
+                if update.get("at") == start_iso:
+                    update.pop("at", None)
+                    update.pop("elapsed_ms", None)
+        _apply_span(update, started_at, call_id)
         out.append(update)
     return seq, pending_code
 
@@ -393,6 +455,7 @@ def _emit_python_output(
     session_id: str,
     raw: dict[str, Any],
     emitted_tools: set[str],
+    started_at: dict[str, str],
     *,
     pending_code: str | None,
 ) -> tuple[int, str | None]:
@@ -435,6 +498,7 @@ def _emit_python_output(
             "args": args,
         }
         _attach_timing(start, raw)
+        _remember_start(started_at, call_id, start)
         out.append(start)
         emitted_tools.add(call_id)
         seq += 1
@@ -454,6 +518,7 @@ def _emit_python_output(
         "raw_output": payload,
     }
     _attach_timing(update, raw)
+    _apply_span(update, started_at, call_id)
     out.append(update)
     return seq, pending_code
 
@@ -479,12 +544,14 @@ def _utc_now_iso() -> str:
 
 
 def _attach_timing(ev: dict[str, Any], raw: dict[str, Any]) -> None:
-    at = raw.get("at") or raw.get("timestamp") or raw.get("created_at")
-    if isinstance(at, str) and at.strip():
-        ev["at"] = at.strip()
+    at = _coerce_event_at(raw)
+    if at:
+        ev["at"] = at
     for key in ("elapsed_ms", "elapsedMs", "duration_ms", "durationMs"):
         val = raw.get(key)
-        if isinstance(val, bool) or not isinstance(val, int | float) or val < 0:
+        if isinstance(val, bool) or not isinstance(val, int | float):
+            continue
+        if not math.isfinite(val) or val < 0:
             continue
         ev["elapsed_ms"] = float(val)
         break
@@ -494,6 +561,63 @@ def _attach_timing(ev: dict[str, Any], raw: dict[str, Any]) -> None:
     ended = raw.get("ended_at") or raw.get("endedAt")
     if isinstance(ended, str) and ended.strip():
         ev["ended_at"] = ended.strip()
+
+
+def _coerce_event_at(raw: dict[str, Any]) -> str | None:
+    for key in ("timestamp", "created_at", "started_at", "at"):
+        val = raw.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return None
+
+
+def _remember_start(started_at: dict[str, str], call_id: str, ev: dict[str, Any]) -> None:
+    at = ev.get("started_at") or ev.get("at")
+    if isinstance(at, str) and at and call_id not in started_at:
+        started_at[call_id] = at
+        ev.setdefault("started_at", at)
+
+
+def _apply_span(ev: dict[str, Any], started_at: dict[str, str], call_id: str) -> None:
+    start_iso = ev.get("started_at") if isinstance(ev.get("started_at"), str) else None
+    if not start_iso:
+        start_iso = started_at.get(call_id)
+    if start_iso:
+        ev.setdefault("started_at", start_iso)
+        started_at.setdefault(call_id, start_iso)
+    end_iso = ev.get("ended_at") if isinstance(ev.get("ended_at"), str) else None
+    if not end_iso and isinstance(ev.get("at"), str):
+        end_iso = ev["at"]
+    if end_iso:
+        ev.setdefault("ended_at", end_iso)
+    if ev.get("elapsed_ms") is None and start_iso and end_iso:
+        elapsed = _iso_delta_ms(start_iso, end_iso)
+        if elapsed is not None:
+            ev["elapsed_ms"] = elapsed
+
+
+def _iso_delta_ms(started: str, ended: str) -> float | None:
+    a = _parse_iso(started)
+    b = _parse_iso(ended)
+    if a is None or b is None:
+        return None
+    delta = (b - a).total_seconds() * 1000.0
+    if delta < 0:
+        return 0.0
+    return round(delta, 3)
+
+
+def _parse_iso(value: str) -> datetime | None:
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _event_manager(agent: Any) -> Any | None:

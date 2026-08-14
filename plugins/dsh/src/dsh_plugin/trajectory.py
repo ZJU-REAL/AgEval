@@ -7,6 +7,8 @@ Vendor-native rows stay in ``backend_raw/``. This module never emits ACP
 from __future__ import annotations
 
 import json
+import math
+from datetime import UTC, datetime
 from typing import Any
 
 SCHEMA = "bora.trajectory.event/1"
@@ -42,6 +44,7 @@ def to_bora_trajectory_events(
     out: list[dict[str, Any]] = []
     seq = 0
     names: dict[str, str] = {}
+    started_at: dict[str, str] = {}
 
     def _next() -> int:
         nonlocal seq
@@ -77,7 +80,10 @@ def to_bora_trajectory_events(
                 "status": "pending",
                 "args": _as_args(data.get("arguments")),
             }
-            _attach_timing(start, event, data)
+            _attach_timing(start, event, data, raw)
+            if isinstance(start.get("at"), str):
+                started_at[call_id] = start["at"]
+                start.setdefault("started_at", start["at"])
             out.append(start)
         elif et == "tool/result":
             seq_n = _next()
@@ -97,7 +103,18 @@ def to_bora_trajectory_events(
                 "status": "failed" if is_error else "completed",
                 "content": content,
             }
-            _attach_timing(update, event, data)
+            _attach_timing(update, event, data, raw)
+            call_key = str(update.get("tool_call_id") or "")
+            start_iso = started_at.get(call_key)
+            if start_iso:
+                update.setdefault("started_at", start_iso)
+            end_iso = update.get("at") if isinstance(update.get("at"), str) else None
+            if end_iso:
+                update.setdefault("ended_at", end_iso)
+            if update.get("elapsed_ms") is None and start_iso and end_iso:
+                elapsed = _iso_delta_ms(start_iso, end_iso)
+                if elapsed is not None:
+                    update["elapsed_ms"] = elapsed
             out.append(update)
         elif et == "turn/end":
             continue
@@ -233,17 +250,19 @@ def _parse_tool_result(data: dict[str, Any]) -> tuple[str, str, bool]:
 
 
 def _attach_timing(ev: dict[str, Any], *sources: Any) -> None:
+    at = _coerce_event_at(*sources)
+    if at and "at" not in ev:
+        ev["at"] = at
     for src in sources:
         if not isinstance(src, dict):
             continue
-        at = src.get("at") or src.get("timestamp") or src.get("created_at")
-        if isinstance(at, str) and at.strip() and "at" not in ev:
-            ev["at"] = at.strip()
         for key in ("elapsed_ms", "elapsedMs", "duration_ms", "durationMs"):
             if "elapsed_ms" in ev:
                 break
             val = src.get(key)
-            if isinstance(val, bool) or not isinstance(val, int | float) or val < 0:
+            if isinstance(val, bool) or not isinstance(val, int | float):
+                continue
+            if not math.isfinite(val) or val < 0:
                 continue
             ev["elapsed_ms"] = float(val)
         started = src.get("started_at") or src.get("startedAt")
@@ -252,6 +271,71 @@ def _attach_timing(ev: dict[str, Any], *sources: Any) -> None:
         ended = src.get("ended_at") or src.get("endedAt")
         if isinstance(ended, str) and ended.strip():
             ev["ended_at"] = ended.strip()
+
+
+def _coerce_event_at(*sources: Any) -> str | None:
+    """Vendor clock first (timestamp / epoch ``time``), then receive-time ``at``."""
+    strings: list[str] = []
+    epoch_iso: str | None = None
+    receive: str | None = None
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        for key in ("timestamp", "created_at", "started_at"):
+            val = src.get(key)
+            if isinstance(val, str) and val.strip():
+                strings.append(val.strip())
+        iso = _epoch_to_iso(src.get("time"))
+        if iso and epoch_iso is None:
+            epoch_iso = iso
+        at = src.get("at")
+        if isinstance(at, str) and at.strip() and receive is None:
+            receive = at.strip()
+    if strings:
+        return strings[0]
+    return epoch_iso or receive
+
+
+def _epoch_to_iso(value: Any) -> str | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    if not math.isfinite(value) or value <= 0:
+        return None
+    ms = float(value)
+    if ms < 1e11:
+        ms *= 1000.0
+    try:
+        parsed = datetime.fromtimestamp(ms / 1000.0, tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        return None
+    stamp = parsed.strftime("%Y-%m-%dT%H:%M:%S")
+    if parsed.microsecond:
+        stamp = f"{stamp}.{parsed.microsecond:06d}".rstrip("0")
+    return stamp + "Z"
+
+
+def _iso_delta_ms(started: str, ended: str) -> float | None:
+    a = _parse_iso(started)
+    b = _parse_iso(ended)
+    if a is None or b is None:
+        return None
+    delta = (b - a).total_seconds() * 1000.0
+    if delta < 0:
+        return 0.0
+    return round(delta, 3)
+
+
+def _parse_iso(value: str) -> datetime | None:
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _unwrap_event(raw: dict[str, Any]) -> dict[str, Any]:
