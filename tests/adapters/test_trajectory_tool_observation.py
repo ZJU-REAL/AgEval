@@ -590,6 +590,168 @@ def test_writer_drops_nonfinite_elapsed_ms(tmp_path: Path) -> None:
     assert "elapsed_ms" not in tool
 
 
+def _text(
+    *,
+    seq: int,
+    channel: str,
+    text: str,
+    elapsed_ms: float | None = None,
+    source: str = "acp",
+) -> dict[str, Any]:
+    ev: dict[str, Any] = {
+        "schema": EVENT_SCHEMA_VERSION,
+        "seq": seq,
+        "source": source,
+        "kind": "text",
+        "channel": channel,
+        "text": text,
+    }
+    if elapsed_ms is not None:
+        ev["elapsed_ms"] = elapsed_ms
+    return ev
+
+
+def _tool(
+    *,
+    seq: int,
+    call_id: str,
+    phase: str,
+    status: str = "completed",
+    content: str | None = None,
+    elapsed_ms: float | None = None,
+    function_name: str = "read",
+    source: str = "acp",
+) -> dict[str, Any]:
+    ev: dict[str, Any] = {
+        "schema": EVENT_SCHEMA_VERSION,
+        "seq": seq,
+        "source": source,
+        "kind": "tool",
+        "phase": phase,
+        "tool_call_id": call_id,
+        "function_name": function_name,
+        "status": status,
+    }
+    if content is not None:
+        ev["content"] = content
+    if elapsed_ms is not None:
+        ev["elapsed_ms"] = elapsed_ms
+    return ev
+
+
+def test_writer_interleaves_thought_and_tool_in_seq_order(tmp_path: Path) -> None:
+    events = (
+        _text(seq=1, channel="thought", text="thought A", elapsed_ms=8000),
+        _tool(seq=2, call_id="t1", phase="start", status="pending"),
+        _tool(seq=3, call_id="t1", phase="update", content="a-out", elapsed_ms=12),
+        _text(seq=4, channel="thought", text="thought B", elapsed_ms=5000),
+        _tool(seq=5, call_id="t2", phase="start", status="pending", function_name="exec"),
+        _tool(
+            seq=6,
+            call_id="t2",
+            phase="update",
+            content="b-out",
+            elapsed_ms=20,
+            function_name="exec",
+        ),
+        _text(seq=7, channel="assistant", text="done", elapsed_ms=3000),
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    lines = _read_lines(path)
+    shape = []
+    for row in lines:
+        if row["type"] == "turn" and row.get("part") == "thought":
+            shape.append(("thought", row["content"], row.get("elapsed_ms")))
+        elif row["type"] == "tool_call":
+            shape.append(("tool", row["tool_call_id"], row.get("elapsed_ms")))
+        elif row["type"] == "observation":
+            shape.append(("obs", row["tool_call_id"], None))
+        elif row["type"] == "turn" and row.get("role") == "user":
+            shape.append(("user", row["content"], None))
+        elif row["type"] == "turn" and row.get("role") == "assistant":
+            shape.append(("assistant", row["content"], row.get("elapsed_ms")))
+        elif row["type"] == "terminal":
+            shape.append(("terminal", None, None))
+    assert shape == [
+        ("user", "p", None),
+        ("thought", "thought A", 8000.0),
+        ("tool", "t1", 12.0),
+        ("obs", "t1", None),
+        ("thought", "thought B", 5000.0),
+        ("tool", "t2", 20.0),
+        ("obs", "t2", None),
+        ("assistant", "done", 3000.0),
+        ("terminal", None, None),
+    ]
+    assert lines[0]["role"] == "user"
+
+
+def test_writer_merges_consecutive_thoughts_without_tool(tmp_path: Path) -> None:
+    events = (
+        _text(seq=1, channel="thought", text="A", elapsed_ms=10),
+        _text(seq=2, channel="thought", text="B", elapsed_ms=20),
+        _text(seq=3, channel="assistant", text="ok"),
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="ok")
+    lines = _read_lines(path)
+    thoughts = [x for x in lines if x.get("part") == "thought"]
+    assert len(thoughts) == 1
+    assert thoughts[0]["content"] == "AB"
+    assert thoughts[0]["elapsed_ms"] == 30.0
+    assert [x["type"] for x in lines] == ["turn", "turn", "turn", "terminal"]
+
+
+def test_writer_does_not_copy_thought_elapsed_onto_final_assistant(
+    tmp_path: Path,
+) -> None:
+    events = (
+        _text(seq=1, channel="thought", text="plan", elapsed_ms=9000),
+        _tool(seq=2, call_id="t1", phase="start", status="pending"),
+        _tool(seq=3, call_id="t1", phase="update", content="out", elapsed_ms=8),
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    lines = _read_lines(path)
+    thought = next(x for x in lines if x.get("part") == "thought")
+    assistant = next(
+        x
+        for x in lines
+        if x["type"] == "turn" and x.get("role") == "assistant" and x.get("part") != "thought"
+    )
+    assert thought["elapsed_ms"] == 9000.0
+    assert "elapsed_ms" not in assistant
+
+
+def test_writer_omits_thought_elapsed_when_absent(tmp_path: Path) -> None:
+    events = (
+        _text(seq=1, channel="thought", text="plan"),
+        _tool(seq=2, call_id="t1", phase="update", content="out", status="completed"),
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="done")
+    thought = next(x for x in _read_lines(path) if x.get("part") == "thought")
+    assert "elapsed_ms" not in thought
+    assert "started_at" not in thought
+
+
+def test_writer_flushes_assistant_when_a_tool_follows(tmp_path: Path) -> None:
+    events = (
+        _text(seq=1, channel="assistant", text="mid", elapsed_ms=1100),
+        _tool(seq=2, call_id="t1", phase="update", content="out", elapsed_ms=5),
+        _text(seq=3, channel="assistant", text="end", elapsed_ms=400),
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="end")
+    lines = _read_lines(path)
+    assistants = [
+        x
+        for x in lines
+        if x["type"] == "turn" and x.get("role") == "assistant" and x.get("part") != "thought"
+    ]
+    assert [x["content"] for x in assistants] == ["mid", "end"]
+    assert assistants[0]["elapsed_ms"] == 1100.0
+    assert assistants[1]["elapsed_ms"] == 400.0
+    types = [x["type"] for x in lines]
+    assert types == ["turn", "turn", "tool_call", "observation", "turn", "terminal"]
+
+
 def test_writer_drops_invalid_timing(tmp_path: Path) -> None:
     events = (
         {
