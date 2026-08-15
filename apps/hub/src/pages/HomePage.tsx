@@ -19,6 +19,7 @@ import {
   listPackages,
   listSuites,
   taskIdsFromFiles,
+  packageDisplayTitle,
   versionLabel,
   type OrgRow,
   type PackageRelease,
@@ -329,8 +330,14 @@ export function HomePage() {
                   onClick: () =>
                     navigate(`/plugins/${encodeDatasetId(p.database_id)}`),
                   cells: [
-                    <span key="id" className="font-mono text-sm">
-                      {p.database_id}
+                    <span
+                      key="id"
+                      className="inline-flex items-center gap-1.5 min-w-0"
+                    >
+                      <span className="font-mono text-sm truncate">
+                        {packageDisplayTitle(p.database_id, p.display_name)}
+                      </span>
+                      {p.official ? <OfficialMark /> : null}
                     </span>,
                     `v${p.version}`,
                   ],

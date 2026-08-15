@@ -22,6 +22,7 @@ import {
   dissolveOrg,
   encodeDatasetId,
   getOrg,
+  packageDisplayTitle,
   leaveOrg,
   listOrgInviteKeys,
   listOrgMembers,
@@ -57,6 +58,7 @@ export function OrganizationDetailPage() {
   const [org, setOrg] = useState<OrgRow | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
+  const [plugins, setPlugins] = useState<PackageRelease[]>([]);
   const [sharedSuites, setSharedSuites] = useState<SuiteRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,17 +92,19 @@ export function OrganizationDetailPage() {
 
     (async () => {
       try {
-        const [orgRow, memberRows, packages] = await Promise.all([
+        const [orgRow, memberRows, datasetRows, pluginRows] = await Promise.all([
           getOrg(orgId, token),
           listOrgMembers(orgId, token),
-          listPackages(token),
+          listPackages(token, { packageKind: "database" }),
+          listPackages(token, { packageKind: "plugin" }),
         ]);
         if (cancelled) return;
         setOrg(orgRow);
         setMembers(memberRows);
-        setDatasets(
-          latestPackageByDatabase(packages).filter((p) => p.org_id === orgId),
-        );
+        const inOrg = (rows: PackageRelease[]) =>
+          latestPackageByDatabase(rows).filter((p) => p.org_id === orgId);
+        setDatasets(inOrg(datasetRows));
+        setPlugins(inOrg(pluginRows));
         setError(null);
 
         // Invite keys: owner-only; ignore 403 for non-owners.
@@ -332,7 +336,7 @@ export function OrganizationDetailPage() {
                 <h2 className="text-sm font-medium text-ink mb-2">Datasets</h2>
                 {datasets.length === 0 ? (
                   <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
-                    No packages published under this org yet.
+                    No datasets published under this org yet.
                   </div>
                 ) : (
                   <div className="rounded-[8px] border border-hairline overflow-hidden">
@@ -360,6 +364,53 @@ export function OrganizationDetailPage() {
                             </TableCell>
                             <TableCell className="text-sm text-body">
                               {d.visibility}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h2 className="text-sm font-medium text-ink mb-2">Plugins</h2>
+                {plugins.length === 0 ? (
+                  <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+                    No plugins published under this org yet.
+                  </div>
+                ) : (
+                  <div className="rounded-[8px] border border-hairline overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>Plugin</TableHead>
+                          <TableHead>Version</TableHead>
+                          <TableHead>Visibility</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {plugins.map((p) => (
+                          <TableRow key={p.database_id}>
+                            <TableCell>
+                              <Link
+                                to={`/plugins/${encodeDatasetId(p.database_id)}`}
+                                className="inline-flex items-center gap-1.5 font-mono text-sm hover:underline min-w-0"
+                              >
+                                <span className="truncate">
+                                  {packageDisplayTitle(
+                                    p.database_id,
+                                    p.display_name,
+                                  )}
+                                </span>
+                                {p.official ? <OfficialMark /> : null}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs text-body">
+                              {p.version}
+                            </TableCell>
+                            <TableCell className="text-sm text-body">
+                              {p.visibility}
                             </TableCell>
                           </TableRow>
                         ))}

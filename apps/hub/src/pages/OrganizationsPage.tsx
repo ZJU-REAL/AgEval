@@ -31,7 +31,8 @@ export function OrganizationsPage() {
   const navigate = useNavigate();
   const token = getToken();
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
-  const [packages, setPackages] = useState<PackageRelease[]>([]);
+  const [datasets, setDatasets] = useState<PackageRelease[]>([]);
+  const [plugins, setPlugins] = useState<PackageRelease[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -44,10 +45,15 @@ export function OrganizationsPage() {
   function reload() {
     if (!token) return;
     setLoading(true);
-    Promise.all([listOrgs(token), listPackages(token)])
-      .then(([orgRows, pkgRows]) => {
+    Promise.all([
+      listOrgs(token),
+      listPackages(token, { packageKind: "database" }),
+      listPackages(token, { packageKind: "plugin" }),
+    ])
+      .then(([orgRows, datasetRows, pluginRows]) => {
         setOrgs(orgRows);
-        setPackages(pkgRows);
+        setDatasets(datasetRows);
+        setPlugins(pluginRows);
         setError(null);
       })
       .catch((err: unknown) => {
@@ -69,11 +75,16 @@ export function OrganizationsPage() {
     }
     let cancelled = false;
     setLoading(true);
-    Promise.all([listOrgs(token), listPackages(token)])
-      .then(([orgRows, pkgRows]) => {
+    Promise.all([
+      listOrgs(token),
+      listPackages(token, { packageKind: "database" }),
+      listPackages(token, { packageKind: "plugin" }),
+    ])
+      .then(([orgRows, datasetRows, pluginRows]) => {
         if (cancelled) return;
         setOrgs(orgRows);
-        setPackages(pkgRows);
+        setDatasets(datasetRows);
+        setPlugins(pluginRows);
         setError(null);
       })
       .catch((err: unknown) => {
@@ -95,12 +106,21 @@ export function OrganizationsPage() {
 
   const datasetCountByOrg = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const row of latestPackageByDatabase(packages)) {
+    for (const row of latestPackageByDatabase(datasets)) {
       if (!row.org_id) continue;
       counts.set(row.org_id, (counts.get(row.org_id) ?? 0) + 1);
     }
     return counts;
-  }, [packages]);
+  }, [datasets]);
+
+  const pluginCountByOrg = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of latestPackageByDatabase(plugins)) {
+      if (!row.org_id) continue;
+      counts.set(row.org_id, (counts.get(row.org_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [plugins]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -219,6 +239,9 @@ export function OrganizationsPage() {
                     <TableHead className="text-right tabular-nums">
                       Datasets
                     </TableHead>
+                    <TableHead className="text-right tabular-nums">
+                      Plugins
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -258,6 +281,9 @@ export function OrganizationsPage() {
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-body">
                         {datasetCountByOrg.get(org.org_id) ?? 0}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-body">
+                        {pluginCountByOrg.get(org.org_id) ?? 0}
                       </TableCell>
                     </TableRow>
                   ))}

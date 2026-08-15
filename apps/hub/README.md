@@ -5,7 +5,7 @@ files, browse Task Jobs, and Leaderboard.
 
 Also covers the **Plugin marketplace** (`/plugins` — `bora.plugin/1` browse +
 CLI install copy; no browser-side install), **organizations** (members, org
-packages, shared suite results, invite keys, leave / dissolve), **GitHub
+datasets and plugins, shared suite results, invite keys, leave / dissolve), **GitHub
 browser login**, and opening a Job’s run detail when the corresponding Attempt
 artifacts were uploaded.
 
@@ -63,7 +63,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
 | `/plugins/:id` | Plugin detail (declared L0–L5 timeline · files · CLI install) |
 | `/organizations` | Your orgs · Join |
-| `/organizations/:orgId` | Overview · Settings |
+| `/organizations/:orgId` | Overview (members · datasets · plugins) · Settings |
 | `/users/:login` | Public user profile (official orgs only; signed-out OK) |
 | `/jobs/...` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |
 | `/login` | Starts browser OAuth |
