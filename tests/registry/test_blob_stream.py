@@ -64,8 +64,8 @@ def test_s3_stub_uses_upload_fileobj(tmp_path: Path) -> None:
 
     store = object.__new__(S3BlobStore)
     store.bucket = "bora"
-    store._ClientError = KeyError
-    store._client = _Client()
+    store._ClientError = KeyError  # type: ignore[assignment]
+    store._client = _Client()  # type: ignore[assignment]
     src = tmp_path / "s3.bin"
     src.write_bytes(b"abc")
     store.put_if_absent("sha256:s3", src, prefix="packages")
