@@ -111,17 +111,18 @@ def build_asgi_app(state: Any) -> Any:
             if spool is not None:
                 shutil.rmtree(spool.parent, ignore_errors=True)
         headers = dict(result.headers)
-        if result.stream is not None:
+        stream = result.stream
+        if stream is not None:
 
             def _iter() -> Any:
                 try:
                     while True:
-                        chunk = result.stream.read(64 * 1024)
+                        chunk = stream.read(64 * 1024)
                         if not chunk:
                             break
                         yield chunk
                 finally:
-                    result.stream.close()
+                    stream.close()
 
             return StreamingResponse(
                 _iter(),
