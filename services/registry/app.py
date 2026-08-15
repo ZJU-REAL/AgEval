@@ -67,6 +67,10 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from services.registry.access import AccessPolicy  # noqa: E402
+from services.registry.backend import (  # noqa: E402
+    PublicBackendError,
+    require_public_backend,
+)
 from services.registry.envload import load_env_file  # noqa: E402
 from services.registry.errors import RegistryAppError  # noqa: E402
 from services.registry.routes import match_route  # noqa: E402
@@ -80,6 +84,10 @@ from services.registry.store import (  # noqa: E402
     S3BlobStore,
     SqliteTokenStore,
     TokenInfo,
+)
+from services.registry.upload_slots import (  # noqa: E402
+    UploadSlotPool,
+    slots_from_env,
 )
 
 from bora.registry.media_types import (  # noqa: E402
@@ -101,11 +109,18 @@ class RegistryState:
         github_client_id: str | None = None,
         github_client_secret: str | None = None,
         github_login_allowlist: frozenset[str] | None = None,
+        upload_slots: int | UploadSlotPool | None = None,
     ) -> None:
         self.meta = meta
         self.blobs = blobs
         self.tokens = tokens
         self.access = AccessPolicy(meta=meta)
+        if isinstance(upload_slots, UploadSlotPool):
+            self.upload_slots = upload_slots
+        else:
+            self.upload_slots = UploadSlotPool(
+                slots_from_env() if upload_slots is None else upload_slots
+            )
         from services.registry.auth_service import AuthService
         from services.registry.org_service import OrgService
         from services.registry.package_service import PackageService
@@ -304,29 +319,33 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         # ---- packages ----------------------------------------------------
 
         def _publish_package(self, *, auth: TokenInfo) -> None:
-            length = int(self.headers.get("Content-Length") or "0")
-            if length <= 0 or length > state.max_upload:
-                _json_response(
-                    self,
-                    413,
-                    {"error": "payload_too_large", "message": f"max {state.max_upload} bytes"},
-                )
-                return
-            body = self.rfile.read(length)
-            ctype = self.headers.get("Content-Type") or ""
             try:
-                parts = _parse_multipart(body, ctype)
-                meta = json.loads(parts["metadata"].decode("utf-8"))
-                archive = parts["archive"]
-            except (KeyError, ValueError, json.JSONDecodeError) as exc:
-                _json_response(
-                    self,
-                    400,
-                    {"error": "invalid_request", "message": f"bad multipart: {exc}"},
-                )
-                return
-            try:
-                payload = state.packages.publish(meta=meta, archive=archive, auth=auth)
+                with state.upload_slots.hold():
+                    length = int(self.headers.get("Content-Length") or "0")
+                    if length <= 0 or length > state.max_upload:
+                        _json_response(
+                            self,
+                            413,
+                            {
+                                "error": "payload_too_large",
+                                "message": f"max {state.max_upload} bytes",
+                            },
+                        )
+                        return
+                    body = self.rfile.read(length)
+                    ctype = self.headers.get("Content-Type") or ""
+                    try:
+                        parts = _parse_multipart(body, ctype)
+                        meta = json.loads(parts["metadata"].decode("utf-8"))
+                        archive = parts["archive"]
+                    except (KeyError, ValueError, json.JSONDecodeError) as exc:
+                        _json_response(
+                            self,
+                            400,
+                            {"error": "invalid_request", "message": f"bad multipart: {exc}"},
+                        )
+                        return
+                    payload = state.packages.publish(meta=meta, archive=archive, auth=auth)
             except RegistryAppError as exc:
                 _app_error(self, exc)
                 return
@@ -498,12 +517,13 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         # ---- results -----------------------------------------------------
 
         def _upload_attempt(self, *, auth: TokenInfo) -> None:
-            parsed = self._read_multipart_archive()
-            if parsed is None:
-                return
-            meta, archive = parsed
             try:
-                payload = state.results.upload_attempt(meta=meta, archive=archive, auth=auth)
+                with state.upload_slots.hold():
+                    parsed = self._read_multipart_archive()
+                    if parsed is None:
+                        return
+                    meta, archive = parsed
+                    payload = state.results.upload_attempt(meta=meta, archive=archive, auth=auth)
             except RegistryAppError as exc:
                 _app_error(self, exc)
                 return
@@ -561,12 +581,13 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             _json_response(self, 200, payload)
 
         def _upload_suite(self, *, auth: TokenInfo) -> None:
-            parsed = self._read_multipart_archive()
-            if parsed is None:
-                return
-            meta, archive = parsed
             try:
-                payload = state.results.upload_suite(meta=meta, archive=archive, auth=auth)
+                with state.upload_slots.hold():
+                    parsed = self._read_multipart_archive()
+                    if parsed is None:
+                        return
+                    meta, archive = parsed
+                    payload = state.results.upload_suite(meta=meta, archive=archive, auth=auth)
             except RegistryAppError as exc:
                 _app_error(self, exc)
                 return
@@ -1002,20 +1023,22 @@ def build_state_from_env(
     *,
     bootstrap_token: str | None = None,
     force_local: bool = False,
+    memory_blob: bool = False,
 ) -> tuple[RegistryState, str]:
-    """Prefer Postgres + S3 when env is set; else SQLite/fs under data dir."""
+    """Public path is Postgres + S3. Local/test path is explicit."""
     load_env_file()
-    database_url = os.environ.get("BORA_REGISTRY_DATABASE_URL")
-    s3_endpoint = os.environ.get("BORA_REGISTRY_S3_ENDPOINT")
-    if force_local or not database_url or not s3_endpoint:
+    if force_local:
         data_dir = (
             Path(os.environ.get("BORA_REGISTRY_DATA_DIR") or ".bora/registry-data")
             .expanduser()
             .resolve()
         )
         data_dir.mkdir(parents=True, exist_ok=True)
-        return build_default_state(data_dir, bootstrap_token=bootstrap_token)
+        return build_default_state(
+            data_dir, bootstrap_token=bootstrap_token, memory_blob=memory_blob
+        )
 
+    database_url, s3_endpoint = require_public_backend()
     meta = PostgresMetadataStore(database_url)
     tokens = PostgresTokenStore(database_url)
     blobs = S3BlobStore(
@@ -1090,9 +1113,10 @@ def main(argv: list[str] | None = None) -> int:
                 bootstrap_token=args.bootstrap_token,
                 force_local=False,
             )
-            database_url = os.environ.get("BORA_REGISTRY_DATABASE_URL")
-            s3_endpoint = os.environ.get("BORA_REGISTRY_S3_ENDPOINT")
-            backend = "postgres+s3" if database_url and s3_endpoint else "sqlite+filesystem"
+            backend = "postgres+s3"
+        except PublicBackendError as exc:
+            sys.stderr.write(f"registry public start refused: {exc}\n")
+            return 2
         except Exception as exc:  # noqa: BLE001
             sys.stderr.write(f"registry backend init failed: {exc}\n")
             return 1
