@@ -70,7 +70,7 @@
 
 ### 文档阅读层
 
-- Fumadocs 的页面标题和正文 H1-H4 使用 Geist / Noto Sans SC，字重 700。
+- Fumadocs 的页面标题和正文 H1-H4 使用 Geist / Noto Sans SC，字重 700；颜色跟正文 ink（浅色近黑、深色近白），不用克莱因蓝。
 - 文档正文、导航、sidebar、TOC、搜索、面包屑和分页保持 Geist Sans。
 - code、pre、kbd、字段名和配置示例使用 Geist Mono。
 - Fumadocs semantic token 与 landing 共用冷墨半透明原则，light / dark 均禁止纯黑、纯白或完全不透明的近黑/近白大色块。
