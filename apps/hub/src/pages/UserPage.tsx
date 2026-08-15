@@ -62,7 +62,9 @@ export function UserPage() {
         if (cancelled) return;
         const mine = (rows: PackageRelease[]) =>
           latestPackageByDatabase(rows).filter(
-            (row) => (row.uploaded_by || "").toLowerCase() === uid,
+            (row) =>
+              row.visibility === "public" &&
+              (row.uploaded_by || "").toLowerCase() === uid,
           );
         setDatasets(mine(datasetRows));
         setPlugins(mine(pluginRows));
