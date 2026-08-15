@@ -104,7 +104,7 @@ export function PluginSlotTimeline({
   }
 
   return (
-    <div className="rounded-[8px] border border-hairline bg-canvas-soft">
+    <div className="rounded-[8px] border border-hairline bg-canvas overflow-hidden">
       <ol className="divide-y divide-hairline">
         {LEVEL_LABELS.map((label, level) => {
           const slots = declaredForLevel(declared, level);
@@ -114,8 +114,8 @@ export function PluginSlotTimeline({
               key={level}
               className={
                 hit
-                  ? "flex items-center gap-3 px-3 py-2.5 text-ink"
-                  : "flex items-center gap-3 px-3 py-2.5 text-mute"
+                  ? "flex items-center gap-3 px-3 py-2.5 text-ink bg-canvas-soft"
+                  : "flex items-center gap-3 px-3 py-2.5 text-mute bg-canvas"
               }
             >
               <span className="font-mono text-[11px] w-6 shrink-0">

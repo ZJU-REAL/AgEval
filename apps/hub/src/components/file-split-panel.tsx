@@ -259,7 +259,7 @@ export function FileSplitPanel({
     >
       <aside
         className={cn(
-          "border-b md:border-b-0 md:border-r border-hairline bg-canvas-soft",
+          "border-b md:border-b-0 md:border-r border-hairline bg-canvas",
           "min-h-[200px] max-h-[50vh] md:min-h-0 md:h-full md:max-h-none",
           "flex flex-col",
         )}
@@ -347,7 +347,7 @@ export function FileSplitPanel({
                         className={cn(
                           "w-full flex items-center gap-1.5 text-left h-7 pr-2 text-[12.5px] truncate transition-colors rounded-[4px]",
                           selected
-                            ? "bg-canvas text-ink font-medium shadow-[inset_0_0_0_1px_var(--color-hairline)]"
+                            ? "bg-canvas-soft text-ink font-medium"
                             : "text-body hover:bg-row-hover",
                         )}
                         style={{ paddingLeft: 8 + depth * 12 + 18 }}
@@ -371,7 +371,7 @@ export function FileSplitPanel({
         )}
       >
         {selectedPath ? (
-          <div className="px-3 py-2 border-b border-hairline text-[12px] font-mono text-mute shrink-0 bg-canvas-soft flex items-center gap-2">
+          <div className="px-3 py-2 border-b border-hairline text-[12px] font-mono text-mute shrink-0 bg-canvas flex items-center gap-2">
             <FileTypeIcon
               name={selectedPath.split("/").pop() || selectedPath}
               kind="file"

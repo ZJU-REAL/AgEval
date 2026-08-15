@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import { Anton, Geist, Geist_Mono, Noto_Sans_SC } from "next/font/google";
 import { notFound } from "next/navigation";
 import { i18nProvider } from "fumadocs-ui/i18n";
 import { SiteProvider } from "@/components/site-provider";
@@ -10,7 +10,12 @@ import "../global.css";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
-const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-newsreader" });
+const anton = Anton({ weight: "400", subsets: ["latin"], variable: "--font-anton" });
+const notoSansSC = Noto_Sans_SC({
+  weight: ["400", "500", "700"],
+  subsets: ["latin"],
+  variable: "--font-noto-sans-sc",
+});
 
 export const metadata: Metadata = {
   title: { default: "BORA Docs", template: "%s · BORA Docs" },
@@ -35,7 +40,7 @@ export default async function LocaleLayout({
   return (
     <html
       lang={lang}
-      className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} ${notoSansSC.variable}`}
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col antialiased">

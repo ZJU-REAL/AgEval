@@ -1,318 +1,464 @@
-import Link from "next/link";
-import { ArrowRight, Boxes, FileCheck2, PackageCheck, ShieldCheck } from "lucide-react";
-import Image from "next/image";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArchitectureFlowDemo } from "@/components/landing/architecture-flow-demo";
-import { AuditLifecycle } from "@/components/landing/audit-lifecycle";
+import { DshWhale } from "@/components/landing/dsh-whale";
+import { landingCopy } from "@/components/landing/copy";
+import { LandingNav } from "@/components/landing/landing-nav";
 import { isSiteLocale } from "@/lib/i18n";
 import { gitConfig } from "@/lib/shared";
-import styles from "@/components/landing/landing.module.css";
 
-const issuesUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}/issues`;
+const repoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 const designUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}/tree/${gitConfig.branch}/docs/design`;
 
-const copy = {
-  "zh-CN": {
-    title: "给 Agent 测评一条可复现的外层边界",
-    summary:
-      "BORA（Bounded Orchestration for Runtime Agents）锁定 Dataset 配置、按边界跑 Attempt、控制 agent 可见面，再由独立 evaluator 出分。Coding agent 统一走 ACP，轨迹可审计，但轨迹永远不等于 PASS。",
-    primary: "入门",
-    secondary: "编写 Task",
-    console: {
-      label: "本机公开路径",
-      run: "bora lock → bora run → bora view",
-      status: "lock · run · evidence",
-      steps: [
-        ["01", "load_and_lock", "Database + task 规格锁定"],
-        ["02", "Attempt", "Harness × ACP × 可见性投影"],
-        ["03", "Evaluator", "独立 barrier · 唯一 PASS 权威"],
-        ["04", "Evidence", "轨迹落盘 · bora view / export"],
-      ],
-    },
-    platform: {
-      eyebrow: "Authority-first runtime",
-      title: "Harness 写业务 loop，Core 守运行边界",
-      summary:
-        "package 拥有 workflow、角色与本地 Tool；BORA Core 拥有 lock、Attempt 生命周期、Provider 隔离、Capability、硬顶与 evaluator barrier。第三方 Agent SDK 不得成为 PASS 或 identity 权威。",
-      items: [
-        [
-          "01",
-          "Dataset · Task package",
-          "根 bora.yaml 描述 suite；tasks/*/task.yaml 描述 harness、profiles、limits 与 evaluator。",
-          PackageCheck,
-        ],
-        [
-          "02",
-          "Locked Attempt",
-          "正式运行只消费 lock 快照；参数与 envelope 分离，禁止 harness 再读第二份真配置。",
-          Boxes,
-        ],
-        [
-          "03",
-          "Visibility & ceilings",
-          "路径 / secret / network 靠投影强制；硬顶在 effect 前执行，事后 usage 只作观测。",
-          ShieldCheck,
-        ],
-        [
-          "04",
-          "Independent evaluation",
-          "Harness completed ≠ PASS。PASS 只来自独立 evaluator 与 Core 绑定后的结果。",
-          FileCheck2,
-        ],
-      ],
-    },
-    graph: {
-      eyebrow: "Architecture paths",
-      title: "三条路径，一个权威边界",
-    },
-    foundations: {
-      eyebrow: "Product surfaces",
-      title: "运行 · 查看结果 · 可选归档",
-      items: [
-        [
-          "CLI",
-          "lock / run / campaign / evidence",
-          "公开入口以 bora --help 为准；suite 可并发，PASS 仍 per-task。",
-        ],
-        [
-          "VIEWER",
-          "本机 Jobs → Tasks → Attempt",
-          "bora view 浏览 .bora/suite-runs/ 与轨迹；不连 Registry。",
-        ],
-        [
-          "HUB",
-          "Registry 目录 · 组织 · Jobs",
-          "浏览共享的包与组织、Leaderboard；已上传的 Jobs 可点开看运行结果。",
-        ],
-        [
-          "DOCS",
-          "设计在 docs/ · 用法在站内",
-          "本站是读者向重写；机制权威在仓库 docs/design，交付跟踪在 GitHub Issues。",
-        ],
-      ],
-    },
-    audit: {
-      eyebrow: "Sealed facts",
-      title: "从 invoke 到 evaluation 的事实链",
-    },
-    cta: {
-      eyebrow: "Issues + docs",
-      title: "增量交付在 Issues，机制细节在 docs/design",
-      primary: "打开文档",
-      secondary: "GitHub Issues",
-    },
-  },
-  en: {
-    title: "An outer boundary for reproducible agent evaluation",
-    summary:
-      "BORA (Bounded Orchestration for Runtime Agents) locks Dataset config, runs bounded Attempts, projects visibility, and lets an independent evaluator own the score. Coding agents enter via ACP. Trajectories are auditable — and never PASS.",
-    primary: "Get started",
-    secondary: "Authoring",
-    console: {
-      label: "Local public path",
-      run: "bora lock → bora run → bora view",
-      status: "lock · run · evidence",
-      steps: [
-        ["01", "load_and_lock", "Dataset + task snapshot"],
-        ["02", "Attempt", "Harness × ACP × visibility"],
-        ["03", "Evaluator", "Independent barrier · PASS authority"],
-        ["04", "Evidence", "On-disk trajectory · view / export"],
-      ],
-    },
-    platform: {
-      eyebrow: "Authority-first runtime",
-      title: "Harness owns the loop. Core owns the boundary.",
-      summary:
-        "Packages own workflow, roles, and local tools. BORA Core owns lock, Attempt lifecycle, Provider isolation, Capability, hard ceilings, and the evaluator barrier. Third-party agent SDKs must not become PASS or identity authority.",
-      items: [
-        [
-          "01",
-          "Dataset · Task package",
-          "Root bora.yaml describes the suite; tasks/*/task.yaml describes harness, profiles, limits, and evaluator.",
-          PackageCheck,
-        ],
-        [
-          "02",
-          "Locked Attempt",
-          "Formal runs consume only the lock snapshot. Parameters and envelope stay separate; harness must not re-read a second truth.",
-          Boxes,
-        ],
-        [
-          "03",
-          "Visibility & ceilings",
-          "Paths, secrets, and network are projected. Hard ceilings reject before effect; post-hoc usage is observation only.",
-          ShieldCheck,
-        ],
-        [
-          "04",
-          "Independent evaluation",
-          "Harness completed ≠ PASS. Only an independent evaluator plus Core binding may form PASS.",
-          FileCheck2,
-        ],
-      ],
-    },
-    graph: {
-      eyebrow: "Architecture paths",
-      title: "Three paths, one authority boundary",
-    },
-    foundations: {
-      eyebrow: "Product surfaces",
-      title: "Run · inspect · optionally archive",
-      items: [
-        [
-          "CLI",
-          "lock / run / campaign / evidence",
-          "Public entrypoints follow bora --help. Suites may run concurrently; PASS stays per-task.",
-        ],
-        [
-          "VIEWER",
-          "Local Jobs → Tasks → Attempt",
-          "bora view browses .bora/suite-runs/ and trajectories without Registry.",
-        ],
-        [
-          "HUB",
-          "Registry catalog · orgs · Jobs",
-          "Browse shared packages and orgs, Leaderboard; open uploaded Jobs for run detail.",
-        ],
-        [
-          "DOCS",
-          "Design in docs/ · how-to on this site",
-          "This site is reader-facing. Mechanism truth lives in docs/design; delivery tracks on GitHub Issues.",
-        ],
-      ],
-    },
-    audit: {
-      eyebrow: "Sealed facts",
-      title: "Fact chain from invoke to evaluation",
-    },
-    cta: {
-      eyebrow: "Issues + docs",
-      title: "Ship work via Issues; keep mechanism detail in docs/design",
-      primary: "Open docs",
-      secondary: "GitHub Issues",
-    },
-  },
-} as const;
+type HomeParams = { lang: string };
 
-export default async function HomePage({ params }: { params: Promise<{ lang: string }> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<HomeParams>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  if (!isSiteLocale(lang)) return {};
+  const text = landingCopy[lang];
+  return {
+    title: { absolute: text.metaTitle },
+    description: text.metaDescription,
+  };
+}
+
+export default async function HomePage({ params }: { params: Promise<HomeParams> }) {
   const { lang } = await params;
   if (!isSiteLocale(lang)) notFound();
-  const text = copy[lang];
+  const text = landingCopy[lang];
 
   return (
-    <main className={styles.landing}>
-      <section className={styles.heroBand}>
-        <div className={styles.heroGrid}>
-          <div className={styles.heroCopy}>
-            <Image
-              className={styles.brandIllustration}
-              src="/images/bora-hero.png"
-              alt="BORA runtime boundary and evaluation"
-              width={1536}
-              height={1024}
-              priority
-              unoptimized
-            />
-            <h1>{text.title}</h1>
-            <p className={styles.heroSummary}>{text.summary}</p>
-            <div className={styles.heroActions}>
-              <Link className={styles.primaryActionOnDark} href={`/${lang}/docs/getting-started/install`}>
-                {text.primary}
-                <ArrowRight aria-hidden="true" />
-              </Link>
-              <Link className={styles.ghostActionOnDark} href={`/${lang}/docs/author/tutorial`}>
-                {text.secondary}
-              </Link>
+    <div className="bora-landing">
+      <a className="skip" href="#main">
+        {text.skip}
+      </a>
+
+      <LandingNav lang={lang} copy={text.nav} navAria={text.navAria} repoUrl={repoUrl} />
+
+      <main id="main">
+        <section className="hero" id="top">
+          <div className="hero-grid" aria-hidden="true" />
+          <div className="wrap-wide hero-layout">
+            <div>
+              <h1 className="hero-brand">
+                {text.hero.brand}
+                <span>.</span>
+              </h1>
+              <p className="hero-sub">
+                {text.hero.title[0]}
+                <br />
+                {text.hero.title[1]}
+              </p>
+              <p className="hero-lead">{text.hero.lead}</p>
+              <div className="hero-ctas">
+                <a className="btn btn-pri" href={repoUrl} rel="noopener noreferrer">
+                  {text.hero.primary}
+                </a>
+                <a className="btn btn-ghost" href={`/${lang}/docs`}>
+                  {text.hero.secondary}
+                </a>
+              </div>
+            </div>
+            <aside className="stage" aria-label={text.hero.stageAria}>
+              <span className="cross tl" aria-hidden="true" />
+              <span className="cross br" aria-hidden="true" />
+              <p className="stage-head">
+                <b>{text.hero.stagePkg}</b>
+                <span>{text.hero.stagePhase}</span>
+              </p>
+              <ol className="inspect">
+                {text.hero.rows.map(([key, value, note]) => (
+                  <li key={key}>
+                    <p className="k">{key}</p>
+                    <div>
+                      <strong>{value}</strong>
+                      <span>{note}</span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <p className="stage-foot">
+                {text.hero.foot} <code>{text.hero.help}</code> {text.hero.footAfter}
+                <code>{text.hero.footCmd}</code>
+              </p>
+            </aside>
+          </div>
+        </section>
+
+        <section className="pact" aria-label={text.pactAria}>
+          <div className="wrap pact-inner">
+            {text.pact.map(([en, zh, body]) => (
+              <article key={en}>
+                <p className="en">{en}</p>
+                <p className="zh">{zh}</p>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="block" id="problem">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.problem.index}</span>
+              <span className="sec-name">{text.problem.name}</span>
+            </div>
+            <h2>
+              {text.problem.title[0]}
+              <br />
+              {text.problem.title[1]}
+            </h2>
+            <div className="problem-grid">
+              {text.problem.items.map(([k, title, body]) => (
+                <article key={k}>
+                  <p className="k">{k}</p>
+                  <h3>{title}</h3>
+                  <p>{body}</p>
+                </article>
+              ))}
+            </div>
+            <p className="sol">
+              {text.problem.solLabel} <b>{text.problem.sol}</b>
+            </p>
+          </div>
+        </section>
+
+        <section className="block" id="position">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.position.index}</span>
+              <span className="sec-name">{text.position.name}</span>
+            </div>
+            <h2>{text.position.title}</h2>
+            <p className="lead">{text.position.lead}</p>
+            <div className="split">
+              <div className="owned">
+                <h3>{text.position.ownedLabel}</h3>
+                <p>{text.position.owned}</p>
+                <small>{text.position.ownedNote}</small>
+              </div>
+              <div className="not">
+                <h3>{text.position.notLabel}</h3>
+                <p>{text.position.not}</p>
+                <small>{text.position.notNote}</small>
+              </div>
             </div>
           </div>
+        </section>
 
-          <div className={styles.heroRunPanel} aria-label={text.console.label}>
-            <div className={styles.heroRunHeader}>
-              <span>{text.console.label}</span>
-              <strong>{text.console.status}</strong>
+        <section className="block" id="principles">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.principles.index}</span>
+              <span className="sec-name">{text.principles.name}</span>
             </div>
-            <p className={styles.heroRunName}>{text.console.run}</p>
-            <ol className={styles.heroRunSteps}>
-              {text.console.steps.map(([number, label, status], index) => (
-                <li key={label} data-current={index === 0}>
-                  <span>{number}</span>
-                  <strong>{label}</strong>
-                  <small>{status}</small>
+            <h2>{text.principles.title}</h2>
+            <ol className="principles">
+              {text.principles.items.map(([title, body]) => (
+                <li key={title}>
+                  <strong>{title}</strong>
+                  <p>{body}</p>
+                </li>
+              ))}
+            </ol>
+            <div className="ink-banner">
+              <div className="en">
+                {text.principles.bannerEn[0]}
+                <br />
+                {text.principles.bannerEn[1]}
+                <br />
+                {text.principles.bannerEn[2]}
+              </div>
+              <p className="zh">{text.principles.bannerZh}</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="block" id="core">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.core.index}</span>
+              <span className="sec-name">{text.core.name}</span>
+            </div>
+            <h2>{text.core.title}</h2>
+            <p className="lead">{text.core.lead}</p>
+            <div className="core-grid">
+              {text.core.items.map(([id, title, body, own, hot]) => (
+                <article key={id} className={hot ? "hot" : undefined}>
+                  <span className="id">{id}</span>
+                  <h3>{title}</h3>
+                  <p>{body}</p>
+                  <p className="own">{own}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="block" id="isolation">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.isolation.index}</span>
+              <span className="sec-name">{text.isolation.name}</span>
+            </div>
+            <h2>{text.isolation.title}</h2>
+            <p className="lead">{text.isolation.lead}</p>
+            <div className="tiers">
+              {text.isolation.items.map(([st, title, body, tag, hot]) => (
+                <article key={st} className={hot ? "hot" : undefined}>
+                  <p className="st">{st}</p>
+                  <h3>{title}</h3>
+                  <p>{body}</p>
+                  <p className="tag">{tag}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="block" id="eval">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.eval.index}</span>
+              <span className="sec-name">{text.eval.name}</span>
+            </div>
+            <h2>{text.eval.title}</h2>
+            <div className="barrier">
+              <div>
+                <p className="lead">{text.eval.lead}</p>
+                <p className="ne" aria-hidden="true">
+                  {text.eval.neLeft} <span>≠</span> {text.eval.neRight}
+                </p>
+              </div>
+              <dl className="barrier-note">
+                {text.eval.steps.map(([dt, dd]) => (
+                  <div key={dt}>
+                    <dt>{dt}</dt>
+                    <dd>{dd}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </section>
+
+        <section className="block" id="plugin">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.plugin.index}</span>
+              <span className="sec-name">{text.plugin.name}</span>
+            </div>
+            <h2>{text.plugin.title}</h2>
+            <p className="lead">{text.plugin.lead}</p>
+            <div className="slots">
+              {text.plugin.slots.map(([lv, title, body]) => (
+                <article key={lv}>
+                  <div className="lv">{lv}</div>
+                  <h3>{title}</h3>
+                  <p>{body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="block" id="plugin-code">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.pluginCode.index}</span>
+              <span className="sec-name">{text.pluginCode.name}</span>
+            </div>
+            <h2>{text.pluginCode.title}</h2>
+            <p className="lead">{text.pluginCode.lead}</p>
+            <div className="duo">
+              <div className="duo-col">
+                <p className="duo-tag">
+                  <span className="num">01</span> {text.pluginCode.coreTag}
+                </p>
+                <pre className="code-panel" tabIndex={0}>
+                  <span className="cc"># src/bora/plugins/slots.py</span>
+                  {"\n"}
+                  <span className="ck">class</span> SlotKind(StrEnum):{"\n"}
+                  {"    "}MULTI = <span className="cs">&quot;multi&quot;</span>
+                  {"      "}
+                  <span className="cc"># 有序链 (ctx, value, next)</span>
+                  {"\n"}
+                  {"    "}PROVIDE = <span className="cs">&quot;provide&quot;</span>
+                  {"  "}
+                  <span className="cc"># 单赢家</span>
+                  {"\n\n"}
+                  EXECUTOR: Final = <span className="cs">&quot;executor&quot;</span>
+                  {"\n"}
+                  BEFORE_AGENT_INVOKE: Final = <span className="cs">&quot;before_agent_invoke&quot;</span>
+                  {"\n\n"}
+                  <span className="cc"># src/bora/plugins/protocol.py</span>
+                  {"\n"}
+                  <span className="ck">class</span> ExecutorSPI(Protocol):{"\n"}
+                  {"    "}kind: str{"\n"}
+                  {"    "}
+                  <span className="ck">def</span> invoke(self, prompt, *, timeout=60.0,{"\n"}
+                  {"               "}workdir=None, collect_dir=None) -&gt; Any: ...{"\n"}
+                  {"    "}
+                  <span className="ck">def</span> close(self) -&gt; None: ...{"\n\n"}
+                  HookHandler = Callable[[Any, Any, NextFn], Awaitable[Any]]
+                </pre>
+                <p className="code-note">{text.pluginCode.note}</p>
+              </div>
+              <div className="duo-col accent">
+                <DshWhale />
+                <p className="duo-tag">
+                  <span className="num">02</span> {text.pluginCode.pluginTag}
+                </p>
+                <pre className="code-panel" tabIndex={0}>
+                  <span className="cc"># plugins/dsh/plugin.yaml</span>
+                  {"\n"}
+                  <span className="ck">format:</span> bora.plugin/1{"\n"}
+                  <span className="ck">plugin_id:</span> dsh{"\n"}
+                  <span className="ck">host_requires:</span>
+                  {"\n"}
+                  {"  "}- <span className="ck">import:</span> deepseek_harness{"\n"}
+                  <span className="ck">slots:</span>
+                  {"\n"}
+                  {"  "}
+                  <span className="ck">provide:</span>
+                  {"\n"}
+                  {"    "}- <span className="ck">id:</span> executor{"\n"}
+                  {"      "}
+                  <span className="ck">entry:</span> <span className="cs">&quot;dsh_plugin.factory:build_executor&quot;</span>
+                  {"\n"}
+                  {"  "}
+                  <span className="cs">&quot;on&quot;</span>:{"\n"}
+                  {"    "}- <span className="ck">id:</span> image_contribute{"\n"}
+                  {"    "}- <span className="ck">id:</span> trajectory_collect
+                </pre>
+                <pre className="code-panel mini" tabIndex={0}>
+                  <span className="cc"># plugins/dsh/src/dsh_plugin/factory.py</span>
+                  {"\n"}
+                  <span className="ck">DEFAULT_MODEL</span> = <span className="cs">&quot;deepseek-v4-flash&quot;</span>
+                  {"\n\n"}
+                  <span className="ck">def</span> build_executor(**kwargs) -&gt; DshExecutorSPI:{"\n"}
+                  {"    "}
+                  <span className="ck">return</span> DshExecutorSPI(**kwargs){"\n\n"}
+                  <span className="ck">class</span> DshExecutorSPI:{"\n"}
+                  {"    "}kind = <span className="cs">&quot;dsh&quot;</span>
+                  {"\n"}
+                  {"    "}
+                  <span className="ck">def</span> bind_to_target(self, placement):{"\n"}
+                  {"        "}
+                  <span className="cc"># L1:接进 Core 拥有的容器</span>
+                  {"\n"}
+                  {"        "}
+                  <span className="ck">return</span> DshContainerExecutor(...)
+                </pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="block" id="flow">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.flow.index}</span>
+              <span className="sec-name">{text.flow.name}</span>
+            </div>
+            <h2>{text.flow.title}</h2>
+            <ol className="flow">
+              {text.flow.steps.map(([n, title, body]) => (
+                <li key={n}>
+                  <span className="n">{n}</span>
+                  <strong>{title}</strong>
+                  <span>{body}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="traj">
+              {text.flow.traj.map(([title, body]) => (
+                <article key={title}>
+                  <h3>{title}</h3>
+                  <p>{body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="take">
+          <div className="take-left">
+            <div>
+              <p className="hero-tag">{text.take.tag}</p>
+              <h2>{text.take.title}</h2>
+            </div>
+            <p>{text.take.body}</p>
+          </div>
+          <div className="take-right">
+            <ol>
+              {text.take.items.map(([num, title, body]) => (
+                <li key={num}>
+                  <div className="num">{num}</div>
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{body}</p>
+                  </div>
                 </li>
               ))}
             </ol>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className={styles.platformBand}>
-        <div className={styles.sectionHeader}>
-          <p className={styles.monoEyebrow}>{text.platform.eyebrow}</p>
-          <h2>{text.platform.title}</h2>
-          <p>{text.platform.summary}</p>
-        </div>
-        <div className={styles.capabilityRows}>
-          {text.platform.items.map(([number, title, body, Icon]) => (
-            <article key={number} className={styles.capabilityRow}>
-              <span className={styles.capabilityNumber}>{number}</span>
-              <Icon aria-hidden="true" />
-              <h3>{title}</h3>
-              <p>{body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+        <section className="cta-band">
+          <div className="wrap">
+            <h2>
+              {text.cta.title[0]}
+              <br />
+              {text.cta.title[1]}
+            </h2>
+            <p className="lead">{text.cta.lead}</p>
+            <div className="hero-ctas">
+              <a className="btn btn-pri" href={repoUrl} rel="noopener noreferrer">
+                {text.cta.primary}
+              </a>
+              <a className="btn btn-ghost" href={`/${lang}/docs`}>
+                {text.cta.docs}
+              </a>
+            </div>
+          </div>
+        </section>
 
-      <section className={styles.graphBand}>
-        <div className={styles.sectionHeaderCompact}>
-          <p className={styles.monoEyebrow}>{text.graph.eyebrow}</p>
-          <h2>{text.graph.title}</h2>
-        </div>
-        <ArchitectureFlowDemo lang={lang} />
-      </section>
+        <section className="block" id="faq">
+          <div className="wrap">
+            <div className="sec-head">
+              <span className="sec-index">{text.faq.index}</span>
+              <span className="sec-name">{text.faq.name}</span>
+            </div>
+            <h2>{text.faq.title}</h2>
+            <div className="faq-list">
+              {text.faq.items.map(([question, answer]) => (
+                <article key={question} className="faq-item" tabIndex={0}>
+                  <p className="faq-q">{question}</p>
+                  <div className="faq-a">{answer}</div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
 
-      <section className={styles.foundationBand}>
-        <div className={styles.sectionHeaderOnDark}>
-          <p className={styles.monoEyebrow}>{text.foundations.eyebrow}</p>
-          <h2>{text.foundations.title}</h2>
+      <footer>
+        <div className="wrap foot">
+          <div>
+            <a className="logo" href="#top">
+              BORA<span>.</span>
+            </a>
+            <p>{text.footer.body}</p>
+          </div>
+          <small>
+            <a href={designUrl}>{text.footer.mark}</a>
+          </small>
         </div>
-        <div className={styles.foundationGrid}>
-          {text.foundations.items.map(([label, title, body]) => (
-            <article key={label} className={styles.foundationCard}>
-              <p>{label}</p>
-              <h3>{title}</h3>
-              <span>{body}</span>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.auditBand}>
-        <div className={styles.sectionHeaderCompact}>
-          <p className={styles.monoEyebrow}>{text.audit.eyebrow}</p>
-          <h2>{text.audit.title}</h2>
-        </div>
-        <AuditLifecycle lang={lang} />
-      </section>
-
-      <section className={styles.ctaBand}>
-        <div>
-          <p className={styles.monoEyebrow}>{text.cta.eyebrow}</p>
-          <h2>{text.cta.title}</h2>
-        </div>
-        <div className={styles.ctaActions}>
-          <Link className={styles.primaryAction} href={`/${lang}/docs/getting-started/first-run`}>
-            {text.cta.primary}
-            <ArrowRight aria-hidden="true" />
-          </Link>
-          <Link className={styles.secondaryAction} href={issuesUrl}>
-            {text.cta.secondary}
-          </Link>
-        </div>
-        <p className="mt-4 text-sm opacity-70">
-          <a href={designUrl}>docs/design</a>
-        </p>
-      </section>
-    </main>
+      </footer>
+    </div>
   );
 }

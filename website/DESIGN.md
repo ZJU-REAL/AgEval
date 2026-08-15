@@ -2,15 +2,15 @@
 
 本文档是 `website/` 的视觉与交互规范。
 
-**色板策略：** 取原 docs 暖棕体系与 `apps/viewer` / `apps/hub` 冷灰 ink 体系的**中间值**——中性色略向 viewer 靠拢（更干净），保留暖 canvas 与棕褐 accent 作为文档站辨识。viewer 的 link 蓝不直接搬进 docs chrome。
+**色板策略：** 全站统一为 PPT / landing 的克莱因蓝（IKB `#002FA7`，暗底提亮 `#5B7BFF`）+ 冷墨中性色。文档站与 landing 共用同一套色相，不再使用暖棕 canvas。
 
 ## 设计方向
 
 ### 产品气质
 
 - 面向 benchmark 作者、研究工程师和 Agent infrastructure 团队。
-- 视觉应冷静、精确、可信，优先展示真实运行结构和审计信息。
-- 页面使用深色技术区域与明亮内容区域交替形成节奏。
+- **Landing** 使用深色冷墨 + Anton 字标 + Geist / Noto Sans SC + 切角按钮。
+- **文档阅读层** 使用同一套克莱因蓝与冷墨中性色；标题与正文都走 Geist / Noto Sans SC，不再用衬线。
 - 装饰服从信息，不使用生成插画、拟真场景图或无语义的发光背景。
 
 ### 设计参数
@@ -27,35 +27,33 @@
 
 | Token | Light | Dark | 用途 |
 | --- | --- | --- | --- |
-| `canvas` | `#faf9f7` | `#12100e` | 页面底（略暖，比纯白/纯黑柔） |
-| `canvas-soft` | `#f3f1ee` | `#1c1916` | 次级面、表头 |
-| `ink` | `#171615` | `#f2efe9` | 主文字 / 主按钮 |
-| `body` | `#4e4c49` | `#b5aea5` | 正文与说明 |
-| `hairline` | `#e4e0db` | 暖白 12% | 1px 边界 |
-| `accent` | `#936546` | `#c89b78` | 链接、焦点、运行路径（保留原 docs 棕褐） |
-| `accent-deep` | `#70482f` | `#ddb28f` | hover / active |
-| `dark`（landing 技术带） | `#12100e` | `#0a0908` | hero / foundation（比 viewer 纯黑略暖） |
+| `canvas` | `#f4f5f8` | `#11141c` | 页面底（冷纸 / 冷墨） |
+| `canvas-soft` | `#e8eaf1` | `#1a1e2a` | 次级面、表头 |
+| `ink` | `#14161f` | `#eef0f6` | 主文字 |
+| `body` | `#4a4e5c` | `#9aa0b4` | 正文与说明 |
+| `hairline` | `#d5d8e2` | 冷白 12% | 1px 边界 |
+| `accent` | `#002FA7` | `#5B7BFF` | 链接、焦点、主按钮（克莱因蓝） |
+| `accent-deep` | `#001f73` | `#8aa0ff` | hover / active |
+| `dark`（landing 底） | `#11141c` | `#0c0e14` | landing 深色面 |
 
-参考：`apps/viewer/DESIGN.md`（产品 SPA 冷灰 + link 蓝）；本站**不**把 viewer link 蓝当作主 accent，以免丢掉文档站原有气质。
+参考：`bora-ppt` 的 IKB 主题；viewer / hub 的冷灰 ink 仅作对比，不把 viewer link 蓝搬进本站。
 
 ### 使用规则
 
-- 一个视口内最多出现一个主 CTA；主 CTA 用深 ink 实底，链接与路径强调用棕褐 accent。
-- 中性色可向 viewer 靠拢，但 canvas 保持轻微暖相，避免整站变成纯冷灰。
+- 一个视口内最多出现一个主 CTA；主 CTA 用 accent 实底，链接与路径强调用同一套克莱因蓝。
+- 中性色保持冷相，不要回暖棕。
 - 浅色卡片用 hairline 与表面色差建层级，少用重阴影。
-- 深色技术区可用极轻的棕色径向光带作路径提示，不使用多色 AI 渐变。
+- 深色技术区可用极轻的蓝色径向光带作路径提示，不使用多色 AI 渐变。
 
 ## 字体
 
 ### 字体职责
 
-- Hero、section 标题与 Fumadocs 文档内容标题使用 `Newsreader`；中文以 `Songti SC` / `Noto Serif CJK SC` 补全字形，形成编辑式标题层级。
-- 正文、产品演示和卡片标题使用 `Geist Sans`，字重以 400、500、600 为主。
+- Landing 字标使用 `Anton`。文档标题与正文使用 `Geist Sans`，中文由 `Noto Sans SC` 补全。
 - 技术标签、按钮、状态和字段名使用 `Geist Mono`。
-- 文档导航、sidebar、TOC、搜索和交互控件使用 `Geist Sans`，不能跟随内容标题切换为 serif。
-- BORA 品牌锁定使用紧凑的 Geist Sans 字标。
+- 文档导航、sidebar、TOC、搜索和交互控件使用 `Geist Sans`。
 - 标题使用 sentence case；mono 标签可以 uppercase。
-- 正文不能使用 monospace；流程节点、产品演示标题和品牌字标不使用 serif。
+- 正文不能使用 monospace。不使用衬线作为文档标题。
 
 ### 字号层级
 
@@ -68,14 +66,14 @@
 | Body MD | `16px/1.55` | `16px/1.55` | 正文 |
 | Mono label | `11px/1.4` | `11px/1.4` | eyebrow、字段与状态 |
 
-首屏标题桌面最多两行，正文最多四行。Newsreader 只用于营销层级和文档阅读层标题，不能扩散到产品数据、正文和交互控件。
+首屏标题桌面最多两行，正文最多四行。Anton 只用于 landing 字标，不能扩散到文档正文和交互控件。
 
 ### 文档阅读层
 
-- Fumadocs 的页面标题和正文 H1-H4 延续 landing 的 Newsreader / 中文宋体层级。
+- Fumadocs 的页面标题和正文 H1-H4 使用 Geist / Noto Sans SC，字重 700；颜色跟正文 ink（浅色近黑、深色近白），不用克莱因蓝。
 - 文档正文、导航、sidebar、TOC、搜索、面包屑和分页保持 Geist Sans。
 - code、pre、kbd、字段名和配置示例使用 Geist Mono。
-- Fumadocs semantic token 与 landing 共用暖灰半透明原则，light / dark 均禁止纯黑、纯白或完全不透明的近黑/近白大色块。
+- Fumadocs semantic token 与 landing 共用冷墨半透明原则，light / dark 均禁止纯黑、纯白或完全不透明的近黑/近白大色块。
 - 搜索、popover 和菜单使用接近实色的稳定 surface，确保叠加在正文上时仍有清晰边界和可读性。
 
 ## 布局

@@ -7,7 +7,7 @@ Python serves the built SPA; React app lives here.
 
 | Doc | Role |
 | --- | --- |
-| [DESIGN.md](./DESIGN.md) | Visual + IA authority (Vercel-inspired product chrome) |
+| [DESIGN.md](./DESIGN.md) | Visual + IA authority (IKB / cool-ink product chrome) |
 | This file | Implementation constraints for agents |
 | `src/bora/viewer/` | HTTP API + static file serving (stdlib) |
 
@@ -69,11 +69,11 @@ When UI conflicts with taste: **DESIGN.md wins**.
 ## Design discipline
 
 1. Read [DESIGN.md](./DESIGN.md) before changing colors, type, or density.
-2. Keep **product chrome**: near-white (light) or near-black (dark) canvas, ink text, hairline borders.
+2. Keep **product chrome**: cool paper (light) or cool ink (dark) canvas, ink text, hairline borders.
 3. **Tabular nums** for scores, rates, durations, trial fractions.
 4. Mono **only** for commands, digests, technical IDs.
 5. No em-dash (`—`) in UI strings.
-6. Primary CTA color is ink; link blue for true hyperlinks only (CLI strips use shell highlight).
+6. Primary CTA color is ink; IKB for true hyperlinks only (CLI strips use shell highlight).
 7. Error / exception text uses the design-token error color.
 8. Prefer density of a results console, not an art gallery landing page.
 

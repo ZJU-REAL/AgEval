@@ -2,9 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
 import { OfficialMark } from "@/components/official-mark";
-import { Shell } from "@/components/layout";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -19,6 +17,7 @@ import {
   listPackages,
   listSuites,
   taskIdsFromFiles,
+  packageDisplayTitle,
   versionLabel,
   type OrgRow,
   type PackageRelease,
@@ -161,14 +160,19 @@ export function HomePage() {
   }
 
   return (
-    <Shell>
+    <>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Home</h1>
         <p className="text-sm text-body mt-1">
           {githubUser ? (
             <>
               Signed in as{" "}
-              <span className="font-mono text-xs">{githubUser}</span>
+              <span className="inline-flex items-center gap-1 align-middle">
+                <span className="font-mono text-xs">{githubUser}</span>
+                {orgs.some((o) => o.official) ? (
+                  <OfficialMark kind="org" />
+                ) : null}
+              </span>
               {" · "}
             </>
           ) : null}
@@ -186,45 +190,6 @@ export function HomePage() {
 
       {!loading && !error ? (
         <div className="space-y-8">
-          <HomeSection
-            title="Jobs"
-            hint="Suites you uploaded (uploaded_by), not every job in your orgs."
-            empty="No suite uploads under this account yet."
-            count={jobs.length}
-          >
-            {jobs.length ? (
-              <HomeTable
-                headers={["Suite", "Dataset", "Pass rate", "Uploaded"]}
-                rows={jobs.map((s) => ({
-                  key: s.suite_run_id,
-                  onClick: () => {
-                    if (!s.database_id) return;
-                    const tid = (s.task_refs || []).find((r) => r.task_id)
-                      ?.task_id;
-                    const ds = `/datasets/${encodeDatasetId(s.database_id)}`;
-                    navigate(
-                      tid
-                        ? `${ds}/tasks/${encodeURIComponent(tid)}?tab=jobs`
-                        : `${ds}?tab=leaderboard`,
-                    );
-                  },
-                  cells: [
-                    <span key="id" className="font-mono text-xs">
-                      {s.suite_run_id}
-                    </span>,
-                    s.database_id || "—",
-                    s.pass_rate == null
-                      ? "—"
-                      : `${(Number(s.pass_rate) * 100).toFixed(1)}%`,
-                    typeof s.created_at === "number"
-                      ? formatDate(new Date(s.created_at * 1000).toISOString())
-                      : "—",
-                  ],
-                }))}
-              />
-            ) : null}
-          </HomeSection>
-
           <HomeSection
             title="Organizations"
             hint="Membership only."
@@ -324,8 +289,14 @@ export function HomePage() {
                   onClick: () =>
                     navigate(`/plugins/${encodeDatasetId(p.database_id)}`),
                   cells: [
-                    <span key="id" className="font-mono text-sm">
-                      {p.database_id}
+                    <span
+                      key="id"
+                      className="inline-flex items-center gap-1.5 min-w-0"
+                    >
+                      <span className="font-mono text-sm truncate">
+                        {packageDisplayTitle(p.database_id, p.display_name)}
+                      </span>
+                      {p.official ? <OfficialMark /> : null}
                     </span>,
                     `v${p.version}`,
                   ],
@@ -333,9 +304,48 @@ export function HomePage() {
               />
             ) : null}
           </HomeSection>
+
+          <HomeSection
+            title="Jobs"
+            hint="Suites you uploaded (uploaded_by), not every job in your orgs."
+            empty="No suite uploads under this account yet."
+            count={jobs.length}
+          >
+            {jobs.length ? (
+              <HomeTable
+                headers={["Suite", "Dataset", "Pass rate", "Uploaded"]}
+                rows={jobs.map((s) => ({
+                  key: s.suite_run_id,
+                  onClick: () => {
+                    if (!s.database_id) return;
+                    const tid = (s.task_refs || []).find((r) => r.task_id)
+                      ?.task_id;
+                    const ds = `/datasets/${encodeDatasetId(s.database_id)}`;
+                    navigate(
+                      tid
+                        ? `${ds}/tasks/${encodeURIComponent(tid)}?tab=jobs`
+                        : `${ds}?tab=leaderboard`,
+                    );
+                  },
+                  cells: [
+                    <span key="id" className="font-mono text-xs">
+                      {s.suite_run_id}
+                    </span>,
+                    s.database_id || "—",
+                    s.pass_rate == null
+                      ? "—"
+                      : `${(Number(s.pass_rate) * 100).toFixed(1)}%`,
+                    typeof s.created_at === "number"
+                      ? formatDate(new Date(s.created_at * 1000).toISOString())
+                      : "—",
+                  ],
+                }))}
+              />
+            ) : null}
+          </HomeSection>
         </div>
       ) : null}
-    </Shell>
+    </>
   );
 }
 
@@ -382,9 +392,9 @@ function HomeTable({
   }>;
 }) {
   return (
-    <div className="rounded-[8px] border border-hairline overflow-hidden">
-      <Table>
-        <TableHeader>
+    <div className="rounded-[8px] border border-hairline max-h-72 overflow-y-auto">
+      <table className="w-full caption-bottom text-sm">
+        <TableHeader className="sticky top-0 z-10 bg-canvas">
           <TableRow className="hover:bg-transparent">
             {headers.map((h) => (
               <TableHead key={h}>{h}</TableHead>
@@ -415,7 +425,7 @@ function HomeTable({
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+      </table>
     </div>
   );
 }

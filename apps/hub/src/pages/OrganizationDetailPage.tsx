@@ -5,7 +5,6 @@ import { BreadcrumbNav } from "@/components/breadcrumb";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { HoverTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
-import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +21,7 @@ import {
   dissolveOrg,
   encodeDatasetId,
   getOrg,
+  packageDisplayTitle,
   leaveOrg,
   listOrgInviteKeys,
   listOrgMembers,
@@ -57,6 +57,7 @@ export function OrganizationDetailPage() {
   const [org, setOrg] = useState<OrgRow | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
+  const [plugins, setPlugins] = useState<PackageRelease[]>([]);
   const [sharedSuites, setSharedSuites] = useState<SuiteRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,17 +91,19 @@ export function OrganizationDetailPage() {
 
     (async () => {
       try {
-        const [orgRow, memberRows, packages] = await Promise.all([
+        const [orgRow, memberRows, datasetRows, pluginRows] = await Promise.all([
           getOrg(orgId, token),
           listOrgMembers(orgId, token),
-          listPackages(token),
+          listPackages(token, { packageKind: "database" }),
+          listPackages(token, { packageKind: "plugin" }),
         ]);
         if (cancelled) return;
         setOrg(orgRow);
         setMembers(memberRows);
-        setDatasets(
-          latestPackageByDatabase(packages).filter((p) => p.org_id === orgId),
-        );
+        const inOrg = (rows: PackageRelease[]) =>
+          latestPackageByDatabase(rows).filter((p) => p.org_id === orgId);
+        setDatasets(inOrg(datasetRows));
+        setPlugins(inOrg(pluginRows));
         setError(null);
 
         // Invite keys: owner-only; ignore 403 for non-owners.
@@ -181,7 +184,7 @@ export function OrganizationDetailPage() {
 
   if (!token) {
     return (
-      <Shell>
+      <>
         <BreadcrumbNav
           items={[
             { label: "Organizations", href: "/organizations" },
@@ -195,12 +198,12 @@ export function OrganizationDetailPage() {
             <SignInLink /> to view this organization.
           </p>
         </div>
-      </Shell>
+      </>
     );
   }
 
   return (
-    <Shell>
+    <>
       <BreadcrumbNav
         items={[
           { label: "Organizations", href: "/organizations" },
@@ -281,8 +284,21 @@ export function OrganizationDetailPage() {
                             m.avatar_url ||
                             `https://github.com/${encodeURIComponent(m.user_id)}.png?size=64`;
                           const title = m.display_name || m.user_id;
+                          const href = `/users/${encodeURIComponent(m.user_id)}`;
                           return (
-                            <TableRow key={m.user_id}>
+                            <TableRow
+                              key={m.user_id}
+                              className="cursor-pointer"
+                              onClick={() => navigate(href)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  navigate(href);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="link"
+                            >
                               <TableCell>
                                 <div className="flex items-center gap-3 min-w-0">
                                   <img
@@ -319,7 +335,7 @@ export function OrganizationDetailPage() {
                 <h2 className="text-sm font-medium text-ink mb-2">Datasets</h2>
                 {datasets.length === 0 ? (
                   <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
-                    No packages published under this org yet.
+                    No datasets published under this org yet.
                   </div>
                 ) : (
                   <div className="rounded-[8px] border border-hairline overflow-hidden">
@@ -332,24 +348,93 @@ export function OrganizationDetailPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {datasets.map((d) => (
-                          <TableRow key={d.database_id}>
-                            <TableCell>
-                              <Link
-                                to={`/datasets/${encodeDatasetId(d.database_id)}`}
-                                className="font-mono text-sm hover:underline"
-                              >
+                        {datasets.map((d) => {
+                          const href = `/datasets/${encodeDatasetId(d.database_id)}`;
+                          return (
+                            <TableRow
+                              key={d.database_id}
+                              className="cursor-pointer"
+                              onClick={() => navigate(href)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  navigate(href);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="link"
+                            >
+                              <TableCell className="font-mono text-sm">
                                 {d.database_id}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="font-mono text-xs text-body">
-                              {d.version}
-                            </TableCell>
-                            <TableCell className="text-sm text-body">
-                              {d.visibility}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-body">
+                                {d.version}
+                              </TableCell>
+                              <TableCell className="text-sm text-body">
+                                {d.visibility}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h2 className="text-sm font-medium text-ink mb-2">Plugins</h2>
+                {plugins.length === 0 ? (
+                  <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+                    No plugins published under this org yet.
+                  </div>
+                ) : (
+                  <div className="rounded-[8px] border border-hairline overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>Plugin</TableHead>
+                          <TableHead>Version</TableHead>
+                          <TableHead>Visibility</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {plugins.map((p) => {
+                          const href = `/plugins/${encodeDatasetId(p.database_id)}`;
+                          return (
+                            <TableRow
+                              key={p.database_id}
+                              className="cursor-pointer"
+                              onClick={() => navigate(href)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  navigate(href);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="link"
+                            >
+                              <TableCell>
+                                <span className="inline-flex items-center gap-1.5 font-mono text-sm min-w-0">
+                                  <span className="truncate">
+                                    {packageDisplayTitle(
+                                      p.database_id,
+                                      p.display_name,
+                                    )}
+                                  </span>
+                                  {p.official ? <OfficialMark /> : null}
+                                </span>
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-body">
+                                {p.version}
+                              </TableCell>
+                              <TableCell className="text-sm text-body">
+                                {p.visibility}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -792,6 +877,6 @@ export function OrganizationDetailPage() {
           </div>
         </div>
       ) : null}
-    </Shell>
+    </>
   );
 }

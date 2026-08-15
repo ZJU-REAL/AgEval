@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
-import { Shell } from "@/components/layout";
 import { OfficialMark } from "@/components/official-mark";
 import { SignInLink } from "@/components/sign-in-button";
 import {
@@ -116,7 +115,7 @@ export function PluginsPage() {
   }
 
   return (
-    <Shell>
+    <>
       <div className="mb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">
           Plugin marketplace
@@ -256,6 +255,6 @@ export function PluginsPage() {
           </p>
         </>
       )}
-    </Shell>
+    </>
   );
 }

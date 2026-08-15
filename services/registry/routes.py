@@ -56,6 +56,13 @@ def _package_id_list_ok(path: str) -> bool:
 ROUTES: tuple[Route, ...] = (
     # GET
     Route("GET", "health", access="none", exact="/health"),
+    Route(
+        "GET",
+        "get_user",
+        access="none",
+        pattern=r"/v1/users/([^/]+)",
+        groups=("user_id",),
+    ),
     Route("GET", "list_orgs", access="bearer", exact="/v1/orgs"),
     Route(
         "GET",

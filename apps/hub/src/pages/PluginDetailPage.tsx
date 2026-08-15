@@ -6,7 +6,6 @@ import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
-import { Shell } from "@/components/layout";
 import {
   declaredSlotsFromPreview,
   PluginSlotTimeline,
@@ -194,7 +193,7 @@ export function PluginDetailPage() {
   }
 
   return (
-    <Shell>
+    <>
       <BreadcrumbNav
         items={[
           { label: "Plugin marketplace", href: "/plugins" },
@@ -296,6 +295,6 @@ export function PluginDetailPage() {
           </section>
         </div>
       )}
-    </Shell>
+    </>
   );
 }
