@@ -216,11 +216,15 @@ export function LeaderboardTable({
   suites,
   databaseId,
   orgId,
+  emptyTitle,
+  emptyBody,
 }: {
   suites: SuiteRow[];
   databaseId: string;
   /** Dataset owning org — used to pick `my-lab/nooa` over another org's copy. */
   orgId?: string | null;
+  emptyTitle?: string;
+  emptyBody?: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandTab, setExpandTab] = useState<ExpandTab>("profiles");
@@ -295,12 +299,12 @@ export function LeaderboardTable({
   if (suites.length === 0) {
     return (
       <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
-        <p className="text-sm font-medium text-ink">No Leaderboard rows yet</p>
+        <p className="text-sm font-medium text-ink">
+          {emptyTitle || "No Leaderboard rows yet"}
+        </p>
         <p className="text-sm text-mute">
-          Public board lists complete, release-bound suite uploads only.
-          Incomplete or draft-bound runs stay on the task Jobs list. Upload with{" "}
-          <code className="font-mono">bora results upload-suite</code>. Metrics
-          are observational, not a suite-level PASS.
+          {emptyBody ||
+            "Public board lists complete, release-bound suite uploads only. Incomplete or draft-bound runs stay on Internal and the task Jobs list. Upload with bora results upload-suite. Metrics are observational, not a suite-level PASS."}
         </p>
       </div>
     );
