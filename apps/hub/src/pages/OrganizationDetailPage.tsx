@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  addOrgMember,
   createOrgInviteKey,
   dissolveOrg,
   encodeDatasetId,
@@ -30,7 +31,10 @@ import {
   listPackages,
   listResultShares,
   listSuites,
+  removeOrgMember,
   revokeOrgInviteKey,
+  setOrgMemberRole,
+  transferOrg,
   type OrgInviteKey,
   type OrgMember,
   type OrgRow,
@@ -38,7 +42,7 @@ import {
   type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { getGithubUser, getToken } from "@/lib/auth";
 import { cn, formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "settings";
@@ -79,7 +83,16 @@ export function OrganizationDetailPage() {
   const [dangerBusy, setDangerBusy] = useState(false);
   const [dangerError, setDangerError] = useState<string | null>(null);
 
+  const [addLogin, setAddLogin] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
+  const [memberBusy, setMemberBusy] = useState<string | null>(null);
+  /** First click arms remove/transfer; second confirms. */
+  const [memberConfirm, setMemberConfirm] = useState<string | null>(null);
+
   const isOwner = (org?.role || "").toLowerCase() === "owner";
+  const selfLogin = (getGithubUser() || "").toLowerCase();
+  const ownerCount = members.filter((m) => m.role === "owner").length;
 
   useEffect(() => {
     if (!orgId || !token) {
@@ -181,6 +194,86 @@ export function OrganizationDetailPage() {
     () => org?.display_name || org?.name || orgId,
     [org, orgId],
   );
+
+  function memberErr(err: unknown): string {
+    if (err instanceof RegistryHttpError) return `${err.code}: ${err.message}`;
+    return err instanceof Error ? err.message : String(err);
+  }
+
+  async function refreshOrgAndMembers() {
+    if (!token) return;
+    const [orgRow, memberRows] = await Promise.all([
+      getOrg(orgId, token),
+      listOrgMembers(orgId, token),
+    ]);
+    setOrg(orgRow);
+    setMembers(memberRows);
+  }
+
+  async function confirmMemberAction(
+    key: string,
+    run: () => Promise<void>,
+  ): Promise<void> {
+    if (memberConfirm !== key) {
+      setMemberConfirm(key);
+      setMemberError(null);
+      return;
+    }
+    setMemberBusy(key);
+    setMemberError(null);
+    try {
+      await run();
+      setMemberConfirm(null);
+    } catch (err: unknown) {
+      setMemberError(memberErr(err));
+      setMemberConfirm(null);
+    } finally {
+      setMemberBusy(null);
+    }
+  }
+
+  async function addMember() {
+    if (!token) return;
+    const login = addLogin.trim();
+    if (!login) return;
+    setAddBusy(true);
+    setMemberError(null);
+    try {
+      await addOrgMember(orgId, login, token, "member");
+      setAddLogin("");
+      await refreshOrgAndMembers();
+    } catch (err: unknown) {
+      setMemberError(memberErr(err));
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
+  async function changeRole(userId: string, role: "owner" | "member") {
+    if (!token) return;
+    setMemberBusy(`role:${userId}`);
+    setMemberError(null);
+    try {
+      await setOrgMemberRole(orgId, userId, role, token);
+      await refreshOrgAndMembers();
+    } catch (err: unknown) {
+      setMemberError(memberErr(err));
+    } finally {
+      setMemberBusy(null);
+    }
+  }
+
+  async function removeMember(userId: string) {
+    if (!token) return;
+    await removeOrgMember(orgId, userId, token);
+    await refreshOrgAndMembers();
+  }
+
+  async function transferTo(userId: string) {
+    if (!token) return;
+    await transferOrg(orgId, userId, token);
+    await refreshOrgAndMembers();
+  }
 
   if (!token) {
     return (
@@ -517,6 +610,157 @@ export function OrganizationDetailPage() {
                   .
                 </p>
               </section>
+
+              {(org?.role || "").toLowerCase() === "owner" ? (
+                <section className="space-y-4">
+                  <h2 className="text-sm font-medium text-ink">Members</h2>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="w-full sm:w-56">
+                      <label className="text-xs font-medium text-mute uppercase tracking-wide">
+                        GitHub login
+                      </label>
+                      <Input
+                        value={addLogin}
+                        onChange={(e) => setAddLogin(e.target.value)}
+                        placeholder="alice"
+                        className="mt-1.5 font-mono"
+                        disabled={addBusy}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void addMember();
+                          }
+                        }}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={addBusy || !addLogin.trim()}
+                      onClick={() => void addMember()}
+                    >
+                      {addBusy ? "Adding…" : "Add member"}
+                    </Button>
+                  </div>
+                  {memberError ? (
+                    <p className="text-sm text-error">{memberError}</p>
+                  ) : null}
+                  {members.length === 0 ? (
+                    <p className="text-sm text-mute">No members listed.</p>
+                  ) : (
+                    <div className="rounded-[8px] border border-hairline overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead>Member</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead className="text-right w-[1%]">
+                              Actions
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {members.map((m) => {
+                            const isSelf = m.user_id === selfLogin;
+                            const lastOwner =
+                              m.role === "owner" && ownerCount <= 1;
+                            const roleBusy = memberBusy === `role:${m.user_id}`;
+                            const removeKey = `remove:${m.user_id}`;
+                            const transferKey = `transfer:${m.user_id}`;
+                            return (
+                              <TableRow key={m.user_id}>
+                                <TableCell>
+                                  <div className="min-w-0 leading-tight">
+                                    <div className="text-sm font-medium text-ink truncate">
+                                      {m.display_name || m.user_id}
+                                      {isSelf ? (
+                                        <span className="ml-2 text-xs font-normal text-mute">
+                                          you
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className="text-xs font-mono text-mute truncate">
+                                      @{m.user_id}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <select
+                                    className="h-8 rounded-[6px] border border-hairline bg-canvas px-2 text-sm capitalize"
+                                    value={m.role}
+                                    disabled={roleBusy || lastOwner}
+                                    onChange={(e) => {
+                                      const next = e.target.value;
+                                      if (
+                                        next !== "owner" &&
+                                        next !== "member"
+                                      ) {
+                                        return;
+                                      }
+                                      void changeRole(m.user_id, next);
+                                    }}
+                                  >
+                                    <option value="owner">owner</option>
+                                    <option value="member">member</option>
+                                  </select>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
+                                    {!isSelf ? (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={memberBusy === transferKey}
+                                        onClick={() =>
+                                          void confirmMemberAction(
+                                            transferKey,
+                                            () => transferTo(m.user_id),
+                                          )
+                                        }
+                                      >
+                                        {memberBusy === transferKey
+                                          ? "…"
+                                          : memberConfirm === transferKey
+                                            ? "Confirm"
+                                            : "Transfer"}
+                                      </Button>
+                                    ) : null}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className={
+                                        memberConfirm === removeKey
+                                          ? "border-transparent bg-error/15 text-error hover:bg-error/25 hover:text-error"
+                                          : undefined
+                                      }
+                                      disabled={
+                                        lastOwner || memberBusy === removeKey
+                                      }
+                                      onClick={() =>
+                                        void confirmMemberAction(
+                                          removeKey,
+                                          () => removeMember(m.user_id),
+                                        )
+                                      }
+                                    >
+                                      {memberBusy === removeKey
+                                        ? "…"
+                                        : memberConfirm === removeKey
+                                          ? "Confirm"
+                                          : "Remove"}
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </section>
+              ) : null}
 
               {(org?.role || "").toLowerCase() === "owner" ? (
                 <section className="space-y-4">
