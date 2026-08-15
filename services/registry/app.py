@@ -6,6 +6,7 @@ Endpoints:
   POST /v1/auth/github/device/poll
   POST /v1/auth/github/web/start
   POST /v1/auth/github/web/callback
+  GET  /v1/users/{user_id}
   POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id} | DELETE /v1/orgs/{id}
   POST /v1/orgs/join | POST /v1/orgs/{id}/leave
   POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | DELETE .../members/{user}
@@ -108,6 +109,7 @@ class RegistryState:
         from services.registry.org_service import OrgService
         from services.registry.package_service import PackageService
         from services.registry.result_service import ResultService
+        from services.registry.user_service import UserService
 
         self.auth = AuthService(
             tokens,
@@ -119,6 +121,7 @@ class RegistryState:
         self.packages = PackageService(meta, blobs, self.access, max_upload=max_upload)
         self.results = ResultService(meta, blobs, self.access, max_upload=max_upload)
         self.orgs = OrgService(meta, self.access)
+        self.users = UserService(meta)
         self.max_upload = max_upload
 
 
@@ -603,6 +606,16 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
             self.send_header("X-Bora-Media-Type", SUITE_RESULT_MEDIA_TYPE)
             self.end_headers()
             self.wfile.write(data)
+
+        # ---- users -------------------------------------------------------
+
+        def _get_user(self, *, user_id: str) -> None:
+            try:
+                payload = state.users.get_public(user_id)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
 
         # ---- org ---------------------------------------------------------
 
