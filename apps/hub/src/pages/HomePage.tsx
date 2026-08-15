@@ -2,13 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
 import { OfficialMark } from "@/components/official-mark";
-import {
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ScrollTable } from "@/components/scroll-table";
 import {
   encodeDatasetId,
   latestPackageByDatabase,
@@ -197,7 +191,7 @@ export function HomePage() {
             count={orgs.length}
           >
             {orgs.length ? (
-              <HomeTable
+              <ScrollTable
                 headers={["Org", "Role"]}
                 rows={orgs.map((o) => ({
                   key: o.org_id,
@@ -227,7 +221,7 @@ export function HomePage() {
             count={datasets.length}
           >
             {datasets.length ? (
-              <HomeTable
+              <ScrollTable
                 headers={["Dataset", "Version", "Visibility"]}
                 rows={datasets.map((d) => ({
                   key: d.database_id,
@@ -254,7 +248,7 @@ export function HomePage() {
             count={tasks.length}
           >
             {tasks.length ? (
-              <HomeTable
+              <ScrollTable
                 headers={["Dataset", "Task"]}
                 rows={tasks.map((t) => ({
                   key: `${t.databaseId}/${t.taskId}`,
@@ -282,7 +276,7 @@ export function HomePage() {
             count={plugins.length}
           >
             {plugins.length ? (
-              <HomeTable
+              <ScrollTable
                 headers={["Plugin", "Version"]}
                 rows={plugins.map((p) => ({
                   key: p.database_id,
@@ -312,7 +306,7 @@ export function HomePage() {
             count={jobs.length}
           >
             {jobs.length ? (
-              <HomeTable
+              <ScrollTable
                 headers={["Suite", "Dataset", "Pass rate", "Uploaded"]}
                 rows={jobs.map((s) => ({
                   key: s.suite_run_id,
@@ -380,52 +374,4 @@ function HomeSection({
   );
 }
 
-function HomeTable({
-  headers,
-  rows,
-}: {
-  headers: string[];
-  rows: Array<{
-    key: string;
-    onClick?: () => void;
-    cells: ReactNode[];
-  }>;
-}) {
-  return (
-    <div className="rounded-[8px] border border-hairline max-h-72 overflow-y-auto">
-      <table className="w-full caption-bottom text-sm">
-        <TableHeader className="sticky top-0 z-10 bg-canvas">
-          <TableRow className="hover:bg-transparent">
-            {headers.map((h) => (
-              <TableHead key={h}>{h}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow
-              key={row.key}
-              className={row.onClick ? "cursor-pointer" : undefined}
-              onClick={row.onClick}
-              tabIndex={row.onClick ? 0 : undefined}
-              role={row.onClick ? "link" : undefined}
-              onKeyDown={(e) => {
-                if (!row.onClick) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  row.onClick();
-                }
-              }}
-            >
-              {row.cells.map((cell, i) => (
-                <TableCell key={i} className="text-body text-sm">
-                  {cell}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </table>
-    </div>
-  );
-}
+

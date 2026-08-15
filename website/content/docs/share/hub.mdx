@@ -9,11 +9,11 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - 包内有根 `shared/` 时：Dataset **Shared** tab；Task **Files** 顶栏 **Local | Shared**（默认 Local；Attempt 证据页不切换）  
 - 大文件预览：超过 Registry 上限时返回截断头并标注 truncated（非整文件下载）  
 - **组织**：成员、组织内的 Dataset 与插件（分表）、别人分享过来的 suite 结果  
-- **组织设置**：邀请码（创建后只展示一次）、离开或解散组织  
+- **组织设置**：邀请码（创建后只展示一次）；owner 可按 GitHub login 加人、改角色、移除或转让；离开或解散组织  
 - Task 下的 **Jobs**：已上传运行产物时可点进详情（界面与本机 Viewer 相近，含轨迹）  
 - Dataset 版本切换：有权限的人能看到 **draft (current)**，其他人只能切已发布 release  
 - Tasks 表：README 是否存在、近期 job 数、最近一次分数/状态  
-- Leaderboard：只列出**完备且绑定 release** 的 suite；缺题结果与 draft 绑定跑次不上榜，仍出现在 Task **Jobs**。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）  
+- Leaderboard：**Public**（默认）只列完备且绑定 release 的 suite；**Internal** 用同一张表列出当前可见的缺题 / draft 绑定跑次。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）。Task Jobs 不变。  
 - 插件详情：L0–L5 **声明槽**时间线，点开跳到包内文件预览；浏览器不执行插件  
 - 官方组织、这些组织的成员、以及这些组织上的插件显示已验证对勾  
 - 公开用户页只展示身份和官方组织，不列出私有成员关系  
@@ -65,8 +65,9 @@ Jobs 列表里，已有运行产物的行可以点进去看；没上传的会显
 
 | 你想看 | 需要上传 | 怎么跑 / 传 |
 | --- | --- | --- |
-| Dataset **Leaderboard** 一行 | **完备**且绑定 **release** 的 suite | 先 `bora publish --draft` 再 `bora release`（或直接 `bora publish`）→ 省略 `--task` 的 `bora run` → `upload-suite --suite-run <id>` |
-| Task **Jobs** 可点开 Attempt / 轨迹 | suite + **attempt 证据** | `upload-suite --with-attempts`（或等价挂上 task_refs 的 attempt）；缺题 / draft 绑定也只出现在这里 |
+| Dataset **Public Leaderboard** 一行 | **完备**且绑定 **release** 的 suite | 先 `bora publish --draft` 再 `bora release`（或直接 `bora publish`）→ 省略 `--task` 的 `bora run` → `upload-suite --suite-run <id>` |
+| Leaderboard **Internal** | 当前可见的缺题或 draft 绑定 suite | 同样 `upload-suite`；不会出现在 Public |
+| Task **Jobs** 可点开 Attempt / 轨迹 | suite + **attempt 证据** | `upload-suite --with-attempts`（或等价挂上 task_refs 的 attempt）；缺题 / draft 绑定也出现在这里 |
 | 只归档一次 Attempt | `bora results upload --run <run_id>` | 可以进 Registry，但 **通常不会**出现在 Leaderboard |
 
 ```bash

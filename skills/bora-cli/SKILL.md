@@ -60,6 +60,7 @@ uv run bora --help
 | `bora registry delete\|set-visibility <id@ver>`               | Org-owner package delete (`--yes`) / visibility flip                                               |
 | `bora registry org-create\|org-list`                          | Create / list orgs. Allowlisted official slugs (default `official`) need admin bootstrap token     |
 | `bora registry org-add-member\|org-remove-member`             | Owner or admin add / remove members by GitHub login; target need not be logged in                |
+| `bora registry org-set-role\|org-transfer`                    | Change an existing member's role, or hand the org to a current member (caller becomes member)    |
 | `bora submit` / `bora status` / `bora cancel`                 | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`)                       |
 
 Discover flags with `uv run bora <cmd> --help`. Source of truth: `src/bora/cli/main.py`.
@@ -167,7 +168,7 @@ Value after `=` is JSON (strings need quotes):
 | What you did                                                                           | Registry                                        | Hub Leaderboard / Task Jobs                                                                                                              |
 | -------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `bora run … --task X` then `bora results upload … --run <run_id>`                      | Attempt row exists (`suite_run_id` often empty) | **Usually invisible** as a leaderboard / Jobs row                                                                                        |
-| `bora run <database>` (omit `--task`) → `bora results upload-suite … --suite-run <id>` | Suite row + metrics + task_refs                 | **Leaderboard** only if **complete** and bound to a **release**; Task Jobs list every visible suite (including incomplete / draft-bound) |
+| `bora run <database>` (omit `--task`) → `bora results upload-suite … --suite-run <id>` | Suite row + metrics + task_refs                 | **Public Leaderboard** only if **complete** and bound to a **release**; **Internal** and Task Jobs list every visible suite (including incomplete / draft-bound) |
 | `upload-suite … --with-attempts`                                                       | Also packs each attempt under task_refs         | Task Jobs can **deep-link** Attempt detail / trajectory                                                                                  |
 
 **Do this when the goal is “show on Hub”:**

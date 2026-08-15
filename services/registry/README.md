@@ -48,6 +48,8 @@ uv run bora registry org-list
 # Bootstrap token stays with operators; add owners by GitHub login.
 # uv run bora registry org-create official --display-name Official
 # uv run bora registry org-add-member official alice --role owner
+# uv run bora registry org-set-role official alice --role owner
+# uv run bora registry org-transfer official alice
 # uv run bora registry org-remove-member official alice
 
 uv run bora publish tests/fixtures/databases/publish-min --org my-lab

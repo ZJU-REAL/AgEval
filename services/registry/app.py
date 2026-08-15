@@ -9,7 +9,8 @@ Endpoints:
   GET  /v1/users/{user_id}
   POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id} | DELETE /v1/orgs/{id}
   POST /v1/orgs/join | POST /v1/orgs/{id}/leave
-  POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | DELETE .../members/{user}
+  POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | PATCH .../members/{user}
+  POST /v1/orgs/{id}/transfer | DELETE .../members/{user}
   GET|POST /v1/orgs/{id}/invite-keys | DELETE /v1/orgs/{id}/invite-keys/{key_id}
   POST /v1/packages
   GET  /v1/packages
@@ -134,7 +135,7 @@ def _cors_headers(handler: BaseHTTPRequestHandler) -> None:
     origin = (os.environ.get("BORA_REGISTRY_CORS_ORIGIN") or "*").strip() or "*"
     handler.send_header("Access-Control-Allow-Origin", origin)
     handler.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
-    handler.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
     if origin != "*":
         handler.send_header("Vary", "Origin")
 
@@ -763,6 +764,37 @@ def make_handler(state: RegistryState) -> type[BaseHTTPRequestHandler]:
         def _remove_org_member(self, *, org_id: str, user_id: str, auth: TokenInfo) -> None:
             try:
                 payload = state.orgs.remove_member(org_id=org_id, user_id=user_id, auth=auth)
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
+
+        def _patch_org_member(self, *, org_id: str, user_id: str, auth: TokenInfo) -> None:
+            body = self._read_json_body()
+            if body is None:
+                return
+            try:
+                payload = state.orgs.set_member_role(
+                    org_id=org_id,
+                    user_id=user_id,
+                    role=str(body.get("role") or ""),
+                    auth=auth,
+                )
+            except RegistryAppError as exc:
+                _app_error(self, exc)
+                return
+            _json_response(self, 200, payload)
+
+        def _transfer_org(self, *, org_id: str, auth: TokenInfo) -> None:
+            body = self._read_json_body()
+            if body is None:
+                return
+            try:
+                payload = state.orgs.transfer(
+                    org_id=org_id,
+                    user_id=str(body.get("user_id") or ""),
+                    auth=auth,
+                )
             except RegistryAppError as exc:
                 _app_error(self, exc)
                 return

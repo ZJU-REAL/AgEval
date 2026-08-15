@@ -360,3 +360,74 @@ def test_org_leave_and_dissolve(registry_server) -> None:
     assert st3 == 200, raw3
     listed = boot.list_orgs()
     assert all(i["org_id"] != "doomed" for i in listed.get("items") or [])
+
+
+def test_org_set_role_and_transfer_http(registry_server) -> None:
+    state = registry_server["state"]
+    url = registry_server["url"]
+    boot = RegistryClient(url, token=registry_server["token"])
+    boot.create_org(name="handoff", display_name="Handoff Lab")
+    boot.add_org_member(org_id="handoff", user_id="alice", role="member")
+    alice = RegistryClient(url, token=_user_token(state, user="alice"))
+
+    st, raw, _ = boot._request(
+        "PATCH",
+        "/v1/orgs/handoff/members/alice",
+        body=json.dumps({"role": "owner"}).encode(),
+        headers=boot._headers(content_type="application/json", auth=True),
+    )
+    assert st == 200, raw
+    body = json.loads(raw.decode())
+    assert body["role"] == "owner"
+
+    # Last remaining owner after bootstrap also owns; remove bootstrap? skip.
+    # Sole-owner delete is 403: create a one-owner org via alice.
+    alice.create_org(name="solo", display_name="Solo")
+    with pytest.raises(RegistryError) as last:
+        alice._request(
+            "DELETE",
+            "/v1/orgs/solo/members/alice",
+            headers=alice._headers(auth=True),
+        )
+    assert last.value.status == 403
+
+    st2, raw2, _ = boot._request(
+        "POST",
+        "/v1/orgs/handoff/transfer",
+        body=json.dumps({"user_id": "alice"}).encode(),
+        headers=boot._headers(content_type="application/json", auth=True),
+    )
+    assert st2 == 200, raw2
+    xfer = json.loads(raw2.decode())
+    assert xfer["from"]["user_id"] == "bootstrap"
+    assert xfer["from"]["role"] == "member"
+    assert xfer["to"]["user_id"] == "alice"
+    assert xfer["to"]["role"] == "owner"
+
+    with pytest.raises(RegistryError) as non_member:
+        alice._request(
+            "POST",
+            "/v1/orgs/handoff/transfer",
+            body=json.dumps({"user_id": "carol"}).encode(),
+            headers=alice._headers(content_type="application/json", auth=True),
+        )
+    assert non_member.value.status == 404
+
+
+def test_org_set_role_and_transfer_commands(registry_server) -> None:
+    url = registry_server["url"]
+    boot = RegistryClient(url, token=registry_server["token"])
+    boot.create_org(name="lab", display_name="Lab")
+    cmds = RegistryOrgCommands(client_factory=lambda **_kw: boot)
+    added = cmds.add_member(org_id="lab", user_id="Dana", role="member")
+    assert added["role"] == "member"
+    promoted = cmds.set_member_role(org_id="lab", user_id="Dana", role="owner")
+    assert promoted["ok"] is True
+    assert promoted["user_id"] == "dana"
+    assert promoted["role"] == "owner"
+    handed = cmds.transfer(org_id="lab", user_id="dana")
+    assert handed["ok"] is True
+    assert handed["from"]["user_id"] == "bootstrap"
+    assert handed["from"]["role"] == "member"
+    assert handed["to"]["user_id"] == "dana"
+    assert handed["to"]["role"] == "owner"

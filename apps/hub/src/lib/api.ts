@@ -500,6 +500,61 @@ export async function listOrgMembers(
   return Array.isArray(data.items) ? data.items : [];
 }
 
+export async function addOrgMember(
+  orgId: string,
+  userId: string,
+  token: string | null,
+  role: "owner" | "member" = "member",
+): Promise<OrgMember> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}/members`, {
+    token,
+    method: "POST",
+    body: { user_id: userId, role },
+  });
+}
+
+export async function setOrgMemberRole(
+  orgId: string,
+  userId: string,
+  role: "owner" | "member",
+  token: string | null,
+): Promise<OrgMember> {
+  return requestJson(
+    `/v1/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`,
+    { token, method: "PATCH", body: { role } },
+  );
+}
+
+export async function removeOrgMember(
+  orgId: string,
+  userId: string,
+  token: string | null,
+): Promise<{ ok: boolean; org_id: string; user_id: string }> {
+  return requestJson(
+    `/v1/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`,
+    { token, method: "DELETE" },
+  );
+}
+
+export type OrgTransferResult = {
+  ok: boolean;
+  org_id: string;
+  from: OrgMember;
+  to: OrgMember;
+};
+
+export async function transferOrg(
+  orgId: string,
+  userId: string,
+  token: string | null,
+): Promise<OrgTransferResult> {
+  return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}/transfer`, {
+    token,
+    method: "POST",
+    body: { user_id: userId },
+  });
+}
+
 export async function joinOrgWithInvite(
   inviteKey: string,
   token: string | null,

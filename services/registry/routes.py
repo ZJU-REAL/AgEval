@@ -249,6 +249,13 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/orgs/([^/]+)/members",
         groups=("org_id",),
     ),
+    Route(
+        "POST",
+        "transfer_org",
+        access="bearer",
+        pattern=r"/v1/orgs/([^/]+)/transfer",
+        groups=("org_id",),
+    ),
     Route("POST", "publish_package", access="publish", exact="/v1/packages"),
     Route(
         "POST",
@@ -341,6 +348,13 @@ ROUTES: tuple[Route, ...] = (
         groups=("database_id", "version"),
     ),
     # PATCH
+    Route(
+        "PATCH",
+        "patch_org_member",
+        access="org_owner",
+        pattern=r"/v1/orgs/([^/]+)/members/([^/]+)",
+        groups=("org_id", "user_id"),
+    ),
     Route(
         "PATCH",
         "patch_attempt",

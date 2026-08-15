@@ -286,6 +286,83 @@ class OrgService:
             raise RegistryAppError(code, str(exc), http_status=status) from exc
         return membership_to_dict(m)
 
+    def set_member_role(
+        self, *, org_id: str, user_id: str, role: str, auth: TokenInfo
+    ) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        if not auth.user_id and not AccessPolicy.is_admin(auth.scopes):
+            raise RegistryAppError("unauthorized", "login required", http_status=401)
+        mem = self.meta.membership(org_id, auth.user_id) if auth.user_id else None
+        if not AccessPolicy.is_admin(auth.scopes) and (mem is None or mem.role != "owner"):
+            raise RegistryAppError(
+                "forbidden",
+                "owner required to change member role",
+                http_status=403,
+            )
+        target = _normalize_user_id(user_id)
+        if not target:
+            raise RegistryAppError("invalid_request", "user_id required", http_status=400)
+        wanted = (role or "").strip().casefold()
+        if wanted not in {"owner", "member"}:
+            raise RegistryAppError(
+                "invalid_request",
+                "role must be owner or member",
+                http_status=400,
+            )
+        try:
+            m = self.meta.set_member_role(org_id, target, role=wanted)
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "membership not found", http_status=404) from exc
+        except PermissionError as exc:
+            raise RegistryAppError("forbidden", str(exc), http_status=403) from exc
+        except ValueError as exc:
+            raise RegistryAppError("invalid_request", str(exc), http_status=400) from exc
+        return membership_to_dict(m)
+
+    def transfer(self, *, org_id: str, user_id: str, auth: TokenInfo) -> dict[str, Any]:
+        org_id = org_id.casefold()
+        if not auth.user_id:
+            raise RegistryAppError("unauthorized", "user identity required", http_status=401)
+        caller = self.meta.membership(org_id, auth.user_id)
+        if caller is None or caller.role != "owner":
+            raise RegistryAppError(
+                "forbidden",
+                "owner required to transfer",
+                http_status=403,
+            )
+        target = _normalize_user_id(user_id)
+        if not target:
+            raise RegistryAppError("invalid_request", "user_id required", http_status=400)
+        if target == auth.user_id:
+            raise RegistryAppError(
+                "invalid_request",
+                "cannot transfer to self",
+                http_status=400,
+            )
+        try:
+            new_target, new_caller = self.meta.transfer_owner(
+                org_id, from_user_id=auth.user_id, to_user_id=target
+            )
+        except LookupError as exc:
+            msg = str(exc)
+            if "caller" in msg:
+                raise RegistryAppError("not_found", msg, http_status=404) from exc
+            raise RegistryAppError(
+                "not_found",
+                "target must be an existing member",
+                http_status=404,
+            ) from exc
+        except PermissionError as exc:
+            raise RegistryAppError("forbidden", str(exc), http_status=403) from exc
+        except ValueError as exc:
+            raise RegistryAppError("invalid_request", str(exc), http_status=400) from exc
+        return {
+            "ok": True,
+            "org_id": org_id,
+            "from": membership_to_dict(new_caller),
+            "to": membership_to_dict(new_target),
+        }
+
     def remove_member(self, *, org_id: str, user_id: str, auth: TokenInfo) -> dict[str, Any]:
         org_id = org_id.casefold()
         target = _normalize_user_id(user_id) or user_id.casefold()
@@ -300,6 +377,8 @@ class OrgService:
             self.meta.remove_member(org_id, target)
         except LookupError as exc:
             raise RegistryAppError("not_found", "membership not found", http_status=404) from exc
+        except PermissionError as exc:
+            raise RegistryAppError("forbidden", str(exc), http_status=403) from exc
         return {"ok": True, "org_id": org_id, "user_id": target}
 
     def leave(self, *, org_id: str, auth: TokenInfo) -> dict[str, Any]:

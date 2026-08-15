@@ -40,6 +40,11 @@ import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
 import { cn, formatScore } from "@/lib/utils";
 
 type Tab = "readme" | "tasks" | "shared" | "leaderboard";
+type BoardView = "public" | "internal";
+
+function isInternalSuite(suite: SuiteRow): boolean {
+  return suite.complete !== true || suite.bound_kind !== "release";
+}
 
 function taskHasReadme(files: FileItem[], taskId: string): boolean {
   const path = `tasks/${taskId}/README.md`;
@@ -85,6 +90,8 @@ export function DatasetDetailPage() {
   const [search, setSearch] = useSearchParams();
   const tab = (search.get("tab") as Tab) || "readme";
   const requestedVersion = search.get("v");
+  const boardView: BoardView =
+    search.get("board") === "internal" ? "internal" : "public";
   /** Local smoke: `?tab=leaderboard&demo=1` injects mock k-metric rows. */
   const demoLeaderboard = search.get("demo") === "1";
 
@@ -260,8 +267,22 @@ export function DatasetDetailPage() {
     const n = new URLSearchParams(search);
     if (next === "readme") n.delete("tab");
     else n.set("tab", next);
+    if (next !== "leaderboard") n.delete("board");
     setSearch(n, { replace: true });
   }
+
+  function setBoardView(next: BoardView) {
+    const n = new URLSearchParams(search);
+    n.set("tab", "leaderboard");
+    if (next === "public") n.delete("board");
+    else n.set("board", "internal");
+    setSearch(n, { replace: true });
+  }
+
+  const internalSuites = useMemo(
+    () => jobSuites.filter(isInternalSuite),
+    [jobSuites],
+  );
 
   function setVersion(next: string) {
     const n = new URLSearchParams(search);
@@ -442,18 +463,63 @@ export function DatasetDetailPage() {
           rootPrefix="shared"
         />
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {demoLeaderboard ? (
             <p className="text-xs text-mute">
               Demo fixtures loaded (
               <code className="font-mono">?demo=1</code>) — mock pass@k rows for
               local smoke only; not Registry data.
             </p>
+          ) : (
+            <div className="flex gap-1 border-b border-hairline">
+              {(
+                [
+                  ["public", "Public"],
+                  ["internal", "Internal"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setBoardView(id)}
+                  className={cn(
+                    "px-3 py-1.5 text-sm transition-colors border-b-2 -mb-px",
+                    boardView === id
+                      ? "border-ink text-ink font-medium"
+                      : "border-transparent text-body hover:text-ink",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {boardView === "internal" && !demoLeaderboard ? (
+            <p className="text-xs text-mute">
+              Incomplete or draft-bound suite runs visible to you. Observational
+              metrics only — not suite PASS. Public board is unchanged.
+            </p>
           ) : null}
           <LeaderboardTable
-            suites={demoLeaderboard ? LEADERBOARD_K_FIXTURES : boardSuites}
+            suites={
+              demoLeaderboard
+                ? LEADERBOARD_K_FIXTURES
+                : boardView === "internal"
+                  ? internalSuites
+                  : boardSuites
+            }
             databaseId={datasetId}
             orgId={release?.org_id}
+            emptyTitle={
+              boardView === "internal" && !demoLeaderboard
+                ? "No internal suite runs"
+                : undefined
+            }
+            emptyBody={
+              boardView === "internal" && !demoLeaderboard
+                ? "Caller-visible incomplete or draft-bound suite uploads appear here. Complete, release-bound rows stay on Public. Task Jobs and attempt evidence are unchanged."
+                : undefined
+            }
           />
         </div>
       )}

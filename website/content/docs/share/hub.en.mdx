@@ -9,11 +9,11 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - When the package has root `shared/`: Dataset **Shared** tab; Task **Files** header **Local | Shared** (Local default; Attempt evidence does not switch)  
 - Large file preview: oversize members return a truncated head with a `truncated` flag (not full download)  
 - **Organizations**: members, org datasets and plugins (separate tables), shared suite results  
-- **Org settings**: invite keys (shown once on create), leave or dissolve  
+- **Org settings**: invite keys (shown once on create); owners add members by GitHub login, change role, remove, or transfer ownership; leave or dissolve  
 - Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
 - Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases  
 - Tasks table: README present, recent job count, last score/status  
-- Leaderboard: complete, release-bound suite rows only. Incomplete or draft-bound runs stay on the task Jobs list. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace)  
+- Leaderboard: **Public** (default) lists complete, release-bound suite rows only. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). Task Jobs stay as they are.  
 - Plugin detail: L0–L5 **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
 - Official orgs, members of those orgs, and plugins from those orgs show a verified check  
 - Public user page lists identity and official orgs only — private memberships stay hidden  
@@ -65,7 +65,8 @@ Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**.
 
 | You want | Upload | How |
 | --- | --- | --- |
-| A **Leaderboard** row | A **complete**, **release-bound** suite | `bora publish --draft` then `bora release` (or a direct `bora publish`) → `bora run <database>` **without** `--task` → `upload-suite --suite-run <id>` |
+| A **Public Leaderboard** row | A **complete**, **release-bound** suite | `bora publish --draft` then `bora release` (or a direct `bora publish`) → `bora run <database>` **without** `--task` → `upload-suite --suite-run <id>` |
+| Leaderboard **Internal** | A caller-visible incomplete or draft-bound suite | Same `upload-suite`; does not appear on Public |
 | Task **Jobs** with openable Attempt / trajectory | Suite + **attempt** evidence | `upload-suite --with-attempts`; incomplete / draft-bound suites stay here |
 | Archive one Attempt only | `bora results upload --run <run_id>` | May exist in Registry, but **usually not** on Leaderboard |
 

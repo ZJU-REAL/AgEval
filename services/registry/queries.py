@@ -370,6 +370,7 @@ INSERT INTO org_memberships(org_id, user_id, role, created_at)
 VALUES (?, ?, ?, ?)
 """
 DELETE_ORG_MEMBERSHIP = "DELETE FROM org_memberships WHERE org_id=? AND user_id=?"
+UPDATE_ORG_MEMBERSHIP_ROLE = "UPDATE org_memberships SET role=? WHERE org_id=? AND user_id=?"
 COUNT_ORG_OWNERS = "SELECT COUNT(*) AS n FROM org_memberships WHERE org_id=? AND role='owner'"
 COUNT_ORG_PACKAGES = "SELECT COUNT(*) AS n FROM releases WHERE org_id=?"
 DELETE_ORG_INVITE_KEYS = "DELETE FROM org_invite_keys WHERE org_id=?"
