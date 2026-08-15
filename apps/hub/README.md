@@ -5,7 +5,8 @@ files, browse Task Jobs, and Leaderboard.
 
 Also covers the **Plugin marketplace** (`/plugins` — `bora.plugin/1` browse +
 CLI install copy; no browser-side install), **organizations** (members, org
-datasets and plugins, shared suite results, invite keys, leave / dissolve), **GitHub
+datasets and plugins, shared suite results, invite keys, member add / role /
+transfer, leave / dissolve), **GitHub
 browser login**, and opening a Job’s run detail when the corresponding Attempt
 artifacts were uploaded.
 

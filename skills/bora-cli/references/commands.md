@@ -120,9 +120,9 @@ Stdout JSON (high level):
   with `--with-attempts`, linked attempts also replace.
 - Registry stores full `metrics` blob (no strip). pass@k is **not**
   `config_fingerprint` / job identity.
-- Hub Leaderboard: lists **complete, release-bound suite** rows (`board=1`); optional
+- Hub Leaderboard: **Public** lists **complete, release-bound suite** rows (`board=1`); optional
   n_attempts / pass@k / pass^k when present; default sort remains pass_rate → mean_score.
-  Incomplete or draft-bound suites stay on Task Jobs.
+  Incomplete or draft-bound suites appear on Leaderboard **Internal** (same table) and Task Jobs.
 
 ### Hub path checklist
 
