@@ -68,7 +68,7 @@ class SqliteAdapter:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
     def connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=30.0)
         conn.row_factory = sqlite3.Row
         return conn
 

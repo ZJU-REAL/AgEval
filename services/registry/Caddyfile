@@ -1,0 +1,23 @@
+# Example reverse proxy in front of Registry workers.
+# Do not expose the Python process on the public internet.
+#
+# Align client_max_body / request_body with the application cap
+# (BORA_REGISTRY_MAX_UPLOAD, default 64 MiB until streaming lands).
+# In-flight uploads: workers × BORA_REGISTRY_UPLOAD_SLOTS.
+
+{
+	# optional
+}
+
+:443 {
+	reverse_proxy 127.0.0.1:8700 {
+		flush_interval -1
+		transport http {
+			read_timeout 15m
+			write_timeout 15m
+		}
+	}
+	request_body {
+		max_size 64MB
+	}
+}

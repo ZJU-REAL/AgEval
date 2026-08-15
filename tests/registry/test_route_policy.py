@@ -48,7 +48,7 @@ def test_skip_auth_is_derived_from_access() -> None:
 def test_bearer_helper_is_only_used_by_dispatch() -> None:
     from pathlib import Path
 
-    text = (Path(__file__).resolve().parents[2] / "services" / "registry" / "app.py").read_text(
-        encoding="utf-8"
-    )
+    text = (
+        Path(__file__).resolve().parents[2] / "services" / "registry" / "http_api.py"
+    ).read_text(encoding="utf-8")
     assert text.count("_bearer(") == 2

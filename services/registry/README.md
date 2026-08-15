@@ -15,13 +15,13 @@ cp services/registry/.env.example services/registry/.env
 # set BORA_GITHUB_CLIENT_ID / BORA_GITHUB_CLIENT_SECRET for bora login
 
 uv sync --extra registry
+# Public start is fail-closed: Postgres + S3 env must be set (see .env.example).
 uv run --extra registry python -m services.registry.app --host 127.0.0.1 --port 8700
 # stderr prints bootstrap token once — or use bora login after OAuth is configured
 ```
 
-When `BORA_REGISTRY_DATABASE_URL` and `BORA_REGISTRY_S3_ENDPOINT` are set (via
-`.env` or the environment), the service uses **Postgres + S3**. Otherwise it
-falls back to SQLite + filesystem under `--data-dir`.
+Public mode **refuses to start** without `BORA_REGISTRY_DATABASE_URL` and
+`BORA_REGISTRY_S3_ENDPOINT`. There is no silent SQLite fallback.
 
 ## Zero-dep / tests
 
@@ -29,6 +29,42 @@ falls back to SQLite + filesystem under `--data-dir`.
 python -m services.registry.app --local --host 127.0.0.1 --port 8700
 # or --memory-blob for tests
 ```
+
+`--local` / `--memory-blob` are the only SQLite paths. They are for
+dev and tests, not a public Hub.
+
+## Public deploy (proxy + workers)
+
+Do **not** put the Python port on the public internet. Terminate TLS and
+connection limits on nginx or Caddy, then proxy to uvicorn workers.
+
+| Knob | Where | Same number |
+| --- | --- | --- |
+| Body limit | Proxy `client_max_body_size` / Caddy `request_body.max_size` | Application `MAX_UPLOAD_BYTES` (64 MiB) |
+| In-flight uploads | Proxy concurrent-request cap (optional) | `workers × BORA_REGISTRY_UPLOAD_SLOTS` |
+| Workers | `--workers` / `BORA_REGISTRY_WORKERS` (default 2 in public mode) | One process per worker; each has its own slot pool |
+
+```bash
+export BORA_REGISTRY_WORKERS=4
+export BORA_REGISTRY_UPLOAD_SLOTS=4
+# 4 × 4 = 16 in-flight uploads across the process group
+uv run --extra registry python -m services.registry.app --host 127.0.0.1 --port 8700
+# or: uvicorn services.registry.asgi:app_factory --factory --host 127.0.0.1 --port 8700 --workers 4
+```
+
+Example Caddyfile: [`Caddyfile`](Caddyfile). nginx equivalent:
+
+```nginx
+client_max_body_size 64m;
+proxy_read_timeout 900s;
+proxy_send_timeout 900s;
+location / {
+    proxy_pass http://127.0.0.1:8700;
+}
+```
+
+Replace / blob GC under several workers is Postgres-authoritative. Do not run
+public mode on SQLite.
 
 ## CLI
 
@@ -123,7 +159,7 @@ Set `BORA_REGISTRY_CORS_ORIGIN` (default `*` when unset) so a browser Hub on
 another origin can call `/v1/*` with `Authorization`. Local Hub dev usually
 proxies via Vite (`apps/hub`) and does not need CORS.
 
-### Package files API (Hub S2 / #38)
+### Package files API
 
 Browse published package contents **without** downloading the whole tar to the browser:
 
@@ -146,7 +182,7 @@ optional `?package_kind=database|plugin` (Hub plugin marketplace).
 - Private unauthorized → **404** (not 403)
 - Server indexes tar on first access (process LRU by digest); does not change upload format
 
-### Organizations + ACL (design #52)
+### Organizations + ACL
 
 | Surface | Ownership | Private read | Delete / set-visibility / replace |
 | --- | --- | --- | --- |
@@ -216,9 +252,9 @@ files (no `..`, 2 MiB cap, **413** when larger):
 Row fields: `database_id`, `database_version`, `pass_rate`, `mean_score`, `metrics`,
 `task_refs`, optional `agent_label` / `model_label`, `exit_code`, and optional
 config-comparability projection (`config_fingerprint`, `config_homogeneous`,
-`actors_summary`) written at suite-run time (#42) — **not** invented at upload.
+`actors_summary`) written at suite-run time — **not** invented at upload.
 **No suite-level PASS** is stored or accepted (client keys `pass` / `verdict` / `suite_pass` → 400).
-Leaderboard (#40) should refuse comparable ranking when `config_homogeneous` is
+Leaderboard should refuse comparable ranking when `config_homogeneous` is
 false; missing fingerprint on legacy rows degrades to labels-only.
 
 Result archives keep layout `.bora/runs/<run_id>/…` so download extracts into a
