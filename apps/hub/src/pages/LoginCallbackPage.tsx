@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import { completeWebLogin, RegistryHttpError } from "@/lib/api";
 import { setToken } from "@/lib/auth";
@@ -53,7 +52,7 @@ export function LoginCallbackPage() {
   }, [code, oauthState, oauthError, desc]);
 
   return (
-    <Shell>
+    <>
       <div className="max-w-md">
         <h1 className="text-xl font-semibold tracking-tight text-ink mb-2">
           {error ? "Sign-in failed" : "Completing sign-in…"}
@@ -69,6 +68,6 @@ export function LoginCallbackPage() {
           <p className="text-sm text-mute">Finishing with GitHub…</p>
         )}
       </div>
-    </Shell>
+    </>
   );
 }

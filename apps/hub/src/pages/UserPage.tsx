@@ -3,7 +3,6 @@ import { Link, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { OfficialMark } from "@/components/official-mark";
-import { Shell } from "@/components/layout";
 import {
   Table,
   TableBody,
@@ -98,7 +97,7 @@ export function UserPage() {
       : "");
 
   return (
-    <Shell>
+    <>
       <BreadcrumbNav
         items={[{ label: title || "…" }]}
         className="mb-4"
@@ -187,7 +186,7 @@ export function UserPage() {
           />
         </div>
       ) : null}
-    </Shell>
+    </>
   );
 }
 

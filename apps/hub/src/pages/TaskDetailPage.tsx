@@ -4,7 +4,6 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
-import { Shell } from "@/components/layout";
 import { Markdown } from "@/components/markdown";
 import {
   Table,
@@ -245,7 +244,7 @@ export function TaskDetailPage() {
   }
 
   return (
-    <Shell>
+    <>
       <BreadcrumbNav
         items={[
           { label: "Datasets", href: "/datasets" },
@@ -481,6 +480,6 @@ export function TaskDetailPage() {
           </div>
         )
       ) : null}
-    </Shell>
+    </>
   );
 }

@@ -2,7 +2,6 @@ import { Link, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
-import { Shell } from "@/components/layout";
 import { ActorsTable } from "@/components/trial/actors-table";
 import { EvidenceTabs } from "@/components/trial/evidence-tabs";
 import { OutcomeStrip } from "@/components/trial/outcome-strip";
@@ -51,7 +50,7 @@ export function AttemptEvidencePage() {
   const jobsHref = `/datasets/${encodeURIComponent(datasetId)}/tasks/${encodeURIComponent(taskId)}?tab=jobs`;
 
   return (
-    <Shell>
+    <>
       <div className="space-y-5">
         <BreadcrumbNav
           items={[
@@ -131,6 +130,6 @@ export function AttemptEvidencePage() {
           <p className="text-sm text-mute">No trial meta for this run.</p>
         ) : null}
       </div>
-    </Shell>
+    </>
   );
 }

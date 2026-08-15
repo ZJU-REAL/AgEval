@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
-import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import {
   Table,
@@ -102,7 +101,7 @@ export function DatasetsPage() {
   }
 
   return (
-    <Shell>
+    <>
       <div className="mb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">
           {scope === "orgs" ? "Your datasets" : "Explore datasets"}
@@ -231,6 +230,6 @@ export function DatasetsPage() {
           </p>
         </>
       )}
-    </Shell>
+    </>
   );
 }

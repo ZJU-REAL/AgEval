@@ -5,7 +5,6 @@ import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { LeaderboardTable } from "@/components/leaderboard-table";
-import { Shell } from "@/components/layout";
 import { Markdown } from "@/components/markdown";
 import { VersionSwitcher } from "@/components/version-switcher";
 import {
@@ -280,7 +279,7 @@ export function DatasetDetailPage() {
   }
 
   return (
-    <Shell>
+    <>
       <BreadcrumbNav
         items={[
           { label: "Datasets", href: "/datasets" },
@@ -458,6 +457,6 @@ export function DatasetDetailPage() {
           />
         </div>
       )}
-    </Shell>
+    </>
   );
 }

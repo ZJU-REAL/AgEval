@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 
 import { HoverTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
-import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,7 +161,7 @@ export function OrganizationsPage() {
   }
 
   return (
-    <Shell>
+    <>
       <div className="mb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">
           Organizations
@@ -363,6 +362,6 @@ export function OrganizationsPage() {
           </div>
         </div>
       ) : null}
-    </Shell>
+    </>
   );
 }
