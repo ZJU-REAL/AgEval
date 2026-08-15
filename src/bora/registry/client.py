@@ -591,6 +591,30 @@ class RegistryClient:
             raise RegistryError("org_member_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
 
+    def set_org_member_role(self, *, org_id: str, user_id: str, role: str) -> dict[str, Any]:
+        body = {"role": role}
+        status, raw, _ = self._request(
+            "PATCH",
+            f"/v1/orgs/{quote(org_id, safe='')}/members/{quote(user_id, safe='')}",
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("org_member_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def transfer_org(self, *, org_id: str, user_id: str) -> dict[str, Any]:
+        body = {"user_id": user_id}
+        status, raw, _ = self._request(
+            "POST",
+            f"/v1/orgs/{quote(org_id, safe='')}/transfer",
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("org_transfer_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
     def share_result(
         self,
         *,

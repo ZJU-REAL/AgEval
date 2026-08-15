@@ -1191,9 +1191,7 @@ class MetadataStore(MetadataStoreProtocol):
         if mem is None:
             raise LookupError("membership not found")
         if mem.role == "owner" and self.count_org_owners(org_id) <= 1:
-            raise PermissionError(
-                "sole owner cannot be removed; dissolve the organization instead"
-            )
+            raise PermissionError("sole owner cannot be removed; dissolve the organization instead")
         with self._connect() as conn:
             cur = self._exec(
                 conn,

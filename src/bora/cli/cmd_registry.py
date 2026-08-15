@@ -129,6 +129,63 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2) from exc
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
 
+    @sub.command("org-set-role")
+    def registry_org_set_role(
+        org_id: Annotated[str, typer.Argument(help="Org slug.")],
+        user: Annotated[str, typer.Argument(help="GitHub login to update.")],
+        role: Annotated[
+            str,
+            typer.Option("--role", help="owner or member."),
+        ],
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry URL."),
+        ] = None,
+    ) -> None:
+        """Change an existing member's role. Target must already belong to the org."""
+        from bora.application.composition import build_registry_org_commands
+
+        set_member_role = build_registry_org_commands().set_member_role
+        from bora.config.errors import ConfigError
+
+        try:
+            summary = set_member_role(
+                org_id=org_id,
+                user_id=user,
+                role=role,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
+    @sub.command("org-transfer")
+    def registry_org_transfer(
+        org_id: Annotated[str, typer.Argument(help="Org slug.")],
+        user: Annotated[str, typer.Argument(help="Existing member who becomes owner.")],
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry URL."),
+        ] = None,
+    ) -> None:
+        """Hand ownership to an existing member; caller becomes member."""
+        from bora.application.composition import build_registry_org_commands
+
+        transfer = build_registry_org_commands().transfer
+        from bora.config.errors import ConfigError
+
+        try:
+            summary = transfer(
+                org_id=org_id,
+                user_id=user,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
     @sub.command("list")
     def registry_list_command(
         prefix: Annotated[

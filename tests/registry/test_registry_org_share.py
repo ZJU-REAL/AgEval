@@ -412,3 +412,22 @@ def test_org_set_role_and_transfer_http(registry_server) -> None:
             headers=alice._headers(content_type="application/json", auth=True),
         )
     assert non_member.value.status == 404
+
+
+def test_org_set_role_and_transfer_commands(registry_server) -> None:
+    url = registry_server["url"]
+    boot = RegistryClient(url, token=registry_server["token"])
+    boot.create_org(name="lab", display_name="Lab")
+    cmds = RegistryOrgCommands(client_factory=lambda **_kw: boot)
+    added = cmds.add_member(org_id="lab", user_id="Dana", role="member")
+    assert added["role"] == "member"
+    promoted = cmds.set_member_role(org_id="lab", user_id="Dana", role="owner")
+    assert promoted["ok"] is True
+    assert promoted["user_id"] == "dana"
+    assert promoted["role"] == "owner"
+    handed = cmds.transfer(org_id="lab", user_id="dana")
+    assert handed["ok"] is True
+    assert handed["from"]["user_id"] == "bootstrap"
+    assert handed["from"]["role"] == "member"
+    assert handed["to"]["user_id"] == "dana"
+    assert handed["to"]["role"] == "owner"

@@ -76,3 +76,38 @@ class RegistryOrgCommands:
         except RegistryError as exc:
             raise ConfigError(exc.code, exc.message, location="registry") from exc
         return {"ok": True, **data}
+
+    def set_member_role(
+        self,
+        *,
+        org_id: str,
+        user_id: str,
+        role: str,
+        registry_url: str | None = None,
+    ) -> dict[str, Any]:
+        if role not in {"owner", "member"}:
+            raise ConfigError(
+                "invalid_request",
+                "role must be owner or member",
+                location="registry",
+            )
+        client = self._client_factory(registry_url=registry_url, require_token=True)
+        try:
+            data = client.set_org_member_role(org_id=org_id, user_id=user_id, role=role)
+        except RegistryError as exc:
+            raise ConfigError(exc.code, exc.message, location="registry") from exc
+        return {"ok": True, **data}
+
+    def transfer(
+        self,
+        *,
+        org_id: str,
+        user_id: str,
+        registry_url: str | None = None,
+    ) -> dict[str, Any]:
+        client = self._client_factory(registry_url=registry_url, require_token=True)
+        try:
+            data = client.transfer_org(org_id=org_id, user_id=user_id)
+        except RegistryError as exc:
+            raise ConfigError(exc.code, exc.message, location="registry") from exc
+        return {"ok": True, **data}
