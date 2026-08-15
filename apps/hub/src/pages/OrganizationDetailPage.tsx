@@ -5,7 +5,6 @@ import { BreadcrumbNav } from "@/components/breadcrumb";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { HoverTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
-import { Shell } from "@/components/layout";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,7 +184,7 @@ export function OrganizationDetailPage() {
 
   if (!token) {
     return (
-      <Shell>
+      <>
         <BreadcrumbNav
           items={[
             { label: "Organizations", href: "/organizations" },
@@ -199,12 +198,12 @@ export function OrganizationDetailPage() {
             <SignInLink /> to view this organization.
           </p>
         </div>
-      </Shell>
+      </>
     );
   }
 
   return (
-    <Shell>
+    <>
       <BreadcrumbNav
         items={[
           { label: "Organizations", href: "/organizations" },
@@ -349,24 +348,34 @@ export function OrganizationDetailPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {datasets.map((d) => (
-                          <TableRow key={d.database_id}>
-                            <TableCell>
-                              <Link
-                                to={`/datasets/${encodeDatasetId(d.database_id)}`}
-                                className="font-mono text-sm hover:underline"
-                              >
+                        {datasets.map((d) => {
+                          const href = `/datasets/${encodeDatasetId(d.database_id)}`;
+                          return (
+                            <TableRow
+                              key={d.database_id}
+                              className="cursor-pointer"
+                              onClick={() => navigate(href)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  navigate(href);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="link"
+                            >
+                              <TableCell className="font-mono text-sm">
                                 {d.database_id}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="font-mono text-xs text-body">
-                              {d.version}
-                            </TableCell>
-                            <TableCell className="text-sm text-body">
-                              {d.visibility}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-body">
+                                {d.version}
+                              </TableCell>
+                              <TableCell className="text-sm text-body">
+                                {d.visibility}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -390,30 +399,42 @@ export function OrganizationDetailPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {plugins.map((p) => (
-                          <TableRow key={p.database_id}>
-                            <TableCell>
-                              <Link
-                                to={`/plugins/${encodeDatasetId(p.database_id)}`}
-                                className="inline-flex items-center gap-1.5 font-mono text-sm hover:underline min-w-0"
-                              >
-                                <span className="truncate">
-                                  {packageDisplayTitle(
-                                    p.database_id,
-                                    p.display_name,
-                                  )}
+                        {plugins.map((p) => {
+                          const href = `/plugins/${encodeDatasetId(p.database_id)}`;
+                          return (
+                            <TableRow
+                              key={p.database_id}
+                              className="cursor-pointer"
+                              onClick={() => navigate(href)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  navigate(href);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="link"
+                            >
+                              <TableCell>
+                                <span className="inline-flex items-center gap-1.5 font-mono text-sm min-w-0">
+                                  <span className="truncate">
+                                    {packageDisplayTitle(
+                                      p.database_id,
+                                      p.display_name,
+                                    )}
+                                  </span>
+                                  {p.official ? <OfficialMark /> : null}
                                 </span>
-                                {p.official ? <OfficialMark /> : null}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="font-mono text-xs text-body">
-                              {p.version}
-                            </TableCell>
-                            <TableCell className="text-sm text-body">
-                              {p.visibility}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-body">
+                                {p.version}
+                              </TableCell>
+                              <TableCell className="text-sm text-body">
+                                {p.visibility}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -856,6 +877,6 @@ export function OrganizationDetailPage() {
           </div>
         </div>
       ) : null}
-    </Shell>
+    </>
   );
 }
