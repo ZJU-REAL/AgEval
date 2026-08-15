@@ -6,12 +6,16 @@ only terminates HTTP and fans out workers. FastAPI / OpenAPI are out of scope.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import os
+import shutil
 import sys
+import tempfile
+from pathlib import Path
 from typing import Any
 
-from services.registry.http_api import RegistryHttpApi
+from services.registry.http_api import RegistryHttpApi, json_result
 
 
 def build_asgi_app(state: Any) -> Any:
@@ -23,19 +27,89 @@ def build_asgi_app(state: Any) -> Any:
 
     api = RegistryHttpApi(state)
 
+    async def _spool_multipart(request: Request) -> tuple[Path, int] | Any:
+        try:
+            declared = int(request.headers.get("content-length") or "0")
+        except ValueError:
+            declared = 0
+        if declared <= 0 or declared > state.max_upload:
+            return json_result(
+                413,
+                {
+                    "error": "payload_too_large",
+                    "message": f"max {state.max_upload} bytes",
+                },
+            )
+        parent = getattr(state, "spool_dir", None)
+        root = (
+            parent
+            if isinstance(parent, Path)
+            else Path(tempfile.gettempdir()) / "bora-registry-spool"
+        )
+        root.mkdir(parents=True, exist_ok=True)
+        work = Path(tempfile.mkdtemp(prefix="bora-asgi-", dir=str(root)))
+        dest = work / "body.spool"
+        written = 0
+        try:
+            with dest.open("wb") as out:
+                async for chunk in request.stream():
+                    written += len(chunk)
+                    if written > state.max_upload:
+                        raise OSError("payload_too_large")
+                    out.write(chunk)
+        except OSError:
+            shutil.rmtree(work, ignore_errors=True)
+            return json_result(
+                413,
+                {
+                    "error": "payload_too_large",
+                    "message": f"max {state.max_upload} bytes",
+                },
+            )
+        return dest, written
+
     async def endpoint(request: Request) -> Response:
-        body = await request.body()
         header_map = {k.decode("latin1"): v.decode("latin1") for k, v in request.scope["headers"]}
         target = request.url.path
         if request.url.query:
             target = f"{target}?{request.url.query}"
-        result = api.dispatch(
-            method=request.method,
-            path=target,
-            headers=header_map,
-            body=io.BytesIO(body),
-            content_length=len(body),
-        )
+        ctype = header_map.get("content-type", "")
+        spool: Path | None = None
+        body_fh: Any = None
+        try:
+            if (
+                request.method in {"POST", "PUT", "PATCH"}
+                and "multipart/form-data" in ctype.lower()
+            ):
+                spooled = await _spool_multipart(request)
+                if not isinstance(spooled, tuple):
+                    result = spooled
+                else:
+                    spool, written = spooled
+                    body_fh = spool.open("rb")
+                    result = await asyncio.to_thread(
+                        api.dispatch,
+                        method=request.method,
+                        path=target,
+                        headers=header_map,
+                        body=body_fh,
+                        content_length=written,
+                    )
+            else:
+                raw = await request.body()
+                result = await asyncio.to_thread(
+                    api.dispatch,
+                    method=request.method,
+                    path=target,
+                    headers=header_map,
+                    body=io.BytesIO(raw),
+                    content_length=len(raw),
+                )
+        finally:
+            if body_fh is not None:
+                body_fh.close()
+            if spool is not None:
+                shutil.rmtree(spool.parent, ignore_errors=True)
         headers = dict(result.headers)
         if result.stream is not None:
 

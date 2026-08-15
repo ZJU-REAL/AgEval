@@ -23,6 +23,10 @@ uv run --extra registry python -m services.registry.app --host 127.0.0.1 --port 
 Public mode **refuses to start** without `BORA_REGISTRY_DATABASE_URL` and
 `BORA_REGISTRY_S3_ENDPOINT`. There is no silent SQLite fallback.
 
+Whole-object publish/upload on the ASGI pipe streams the multipart body to a
+spool file (hash/validate from disk, then BlobStore put). JSON bodies stay
+small. Proxy `client_max_body_size` must still match `MAX_UPLOAD_BYTES`.
+
 ## Zero-dep / tests
 
 ```bash

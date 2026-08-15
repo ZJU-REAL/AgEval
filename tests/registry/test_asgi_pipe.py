@@ -92,6 +92,13 @@ def test_asgi_health_and_json(tmp_path: Path) -> None:
     assert "items" in payload
 
 
+def test_asgi_multipart_uses_stream_not_full_body() -> None:
+    src = Path(__file__).resolve().parents[2] / "services" / "registry" / "asgi.py"
+    text = src.read_text(encoding="utf-8")
+    assert "request.stream()" in text
+    assert "multipart/form-data" in text
+
+
 def test_http_api_matches_asgi_health(tmp_path: Path) -> None:
     state, _token = build_default_state(tmp_path / "d", bootstrap_token="t", memory_blob=True)
     api = RegistryHttpApi(state)
