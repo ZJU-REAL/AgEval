@@ -281,8 +281,21 @@ export function OrganizationDetailPage() {
                             m.avatar_url ||
                             `https://github.com/${encodeURIComponent(m.user_id)}.png?size=64`;
                           const title = m.display_name || m.user_id;
+                          const href = `/users/${encodeURIComponent(m.user_id)}`;
                           return (
-                            <TableRow key={m.user_id}>
+                            <TableRow
+                              key={m.user_id}
+                              className="cursor-pointer"
+                              onClick={() => navigate(href)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  navigate(href);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="link"
+                            >
                               <TableCell>
                                 <div className="flex items-center gap-3 min-w-0">
                                   <img

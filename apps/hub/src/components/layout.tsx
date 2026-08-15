@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 
+import { OfficialMark } from "@/components/official-mark";
 import { SignInButton } from "@/components/sign-in-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { usePublicUser } from "@/hooks/use-public-user";
 import {
   clearToken,
   getGithubAvatar,
@@ -32,6 +34,8 @@ export function Shell({
   const githubName = getGithubName();
   const githubAvatar = getGithubAvatar();
   const displayName = githubName || githubUser;
+  const publicUser = usePublicUser(token ? githubUser : null);
+  const showOfficial = Boolean(publicUser?.official);
 
   return (
     <div className="min-h-full flex flex-col bg-canvas">
@@ -77,8 +81,11 @@ export function Shell({
                     className="h-7 w-7 rounded-full border border-hairline bg-canvas-soft object-cover shrink-0"
                   />
                 ) : null}
-                <span className="text-sm text-body truncate">
-                  {displayName}
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <span className="text-sm text-body truncate">
+                    {displayName}
+                  </span>
+                  {showOfficial ? <OfficialMark kind="org" /> : null}
                 </span>
               </Link>
             ) : null}

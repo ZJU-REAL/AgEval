@@ -11,6 +11,7 @@ import { OrganizationsPage } from "@/pages/OrganizationsPage";
 import { PluginDetailPage } from "@/pages/PluginDetailPage";
 import { PluginsPage } from "@/pages/PluginsPage";
 import { TaskDetailPage } from "@/pages/TaskDetailPage";
+import { UserPage } from "@/pages/UserPage";
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
           path="/organizations/:orgId"
           element={<OrganizationDetailPage />}
         />
+        <Route path="/users/:login" element={<UserPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/login/callback" element={<LoginCallbackPage />} />
         <Route path="*" element={<Navigate to="/datasets" replace />} />

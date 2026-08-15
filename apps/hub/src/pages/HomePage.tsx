@@ -168,7 +168,12 @@ export function HomePage() {
           {githubUser ? (
             <>
               Signed in as{" "}
-              <span className="font-mono text-xs">{githubUser}</span>
+              <span className="inline-flex items-center gap-1 align-middle">
+                <span className="font-mono text-xs">{githubUser}</span>
+                {orgs.some((o) => o.official) ? (
+                  <OfficialMark kind="org" />
+                ) : null}
+              </span>
               {" · "}
             </>
           ) : null}

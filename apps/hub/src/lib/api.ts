@@ -74,6 +74,20 @@ export type OrgMember = {
   github_id?: string;
 };
 
+export type UserOfficialOrg = {
+  org_id: string;
+  display_name?: string;
+  official: true;
+};
+
+export type UserPublic = {
+  user_id: string;
+  display_name?: string;
+  avatar_url?: string;
+  official: boolean;
+  official_orgs: UserOfficialOrg[];
+};
+
 export type OrgInviteKey = {
   key_id: string;
   org_id: string;
@@ -433,6 +447,10 @@ export async function getAttemptFile(
     `/v1/results/attempts/${encodeURIComponent(runId)}/files/${fp}`,
     { token },
   );
+}
+
+export async function getUser(userId: string): Promise<UserPublic> {
+  return requestJson(`/v1/users/${encodeURIComponent(userId)}`);
 }
 
 export async function listOrgs(token: string | null): Promise<OrgRow[]> {

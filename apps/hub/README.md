@@ -64,6 +64,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/plugins/:id` | Plugin detail (declared L0–L5 timeline · files · CLI install) |
 | `/organizations` | Your orgs · Join |
 | `/organizations/:orgId` | Overview · Settings |
+| `/users/:login` | Public user profile (official orgs only; signed-out OK) |
 | `/jobs/...` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |
 | `/login` | Starts browser OAuth |
 | `/login/callback` | OAuth redirect target |
