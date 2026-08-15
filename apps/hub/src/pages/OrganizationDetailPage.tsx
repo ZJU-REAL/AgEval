@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { Plus } from "lucide-react";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { DisplayNameEditor } from "@/components/display-name-editor";
@@ -8,6 +9,13 @@ import { OfficialMark } from "@/components/official-mark";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -83,6 +91,7 @@ export function OrganizationDetailPage() {
   const [dangerBusy, setDangerBusy] = useState(false);
   const [dangerError, setDangerError] = useState<string | null>(null);
 
+  const [addOpen, setAddOpen] = useState(false);
   const [addLogin, setAddLogin] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
@@ -241,6 +250,7 @@ export function OrganizationDetailPage() {
     try {
       await addOrgMember(orgId, login, token, "member");
       setAddLogin("");
+      setAddOpen(false);
       await refreshOrgAndMembers();
     } catch (err: unknown) {
       setMemberError(memberErr(err));
@@ -613,35 +623,25 @@ export function OrganizationDetailPage() {
 
               {(org?.role || "").toLowerCase() === "owner" ? (
                 <section className="space-y-4">
-                  <h2 className="text-sm font-medium text-ink">Members</h2>
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="w-full sm:w-56">
-                      <label className="text-xs font-medium text-mute uppercase tracking-wide">
-                        GitHub login
-                      </label>
-                      <Input
-                        value={addLogin}
-                        onChange={(e) => setAddLogin(e.target.value)}
-                        placeholder="alice"
-                        className="mt-1.5 font-mono"
-                        disabled={addBusy}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            void addMember();
-                          }
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-medium text-ink">Members</h2>
+                    <HoverTip content="Add member by GitHub Id">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        aria-label="Add member by GitHub Id"
+                        onClick={() => {
+                          setAddOpen(true);
+                          setMemberError(null);
                         }}
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      disabled={addBusy || !addLogin.trim()}
-                      onClick={() => void addMember()}
-                    >
-                      {addBusy ? "Adding…" : "Add member"}
-                    </Button>
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </HoverTip>
                   </div>
-                  {memberError ? (
+                  {memberError && !addOpen ? (
                     <p className="text-sm text-error">{memberError}</p>
                   ) : null}
                   {members.length === 0 ? (
@@ -684,24 +684,31 @@ export function OrganizationDetailPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <select
-                                    className="h-8 rounded-[6px] border border-hairline bg-canvas px-2 text-sm capitalize"
-                                    value={m.role}
+                                  <Select
+                                    value={m.role === "owner" ? "owner" : "member"}
                                     disabled={roleBusy || lastOwner}
-                                    onChange={(e) => {
-                                      const next = e.target.value;
+                                    onValueChange={(next) => {
                                       if (
                                         next !== "owner" &&
                                         next !== "member"
                                       ) {
                                         return;
                                       }
+                                      if (next === m.role) return;
                                       void changeRole(m.user_id, next);
                                     }}
                                   >
-                                    <option value="owner">owner</option>
-                                    <option value="member">member</option>
-                                  </select>
+                                    <SelectTrigger
+                                      aria-label={`Role for ${m.user_id}`}
+                                      className="h-8 min-w-[7rem] w-auto"
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="w-max min-w-0">
+                                      <SelectItem value="owner">owner</SelectItem>
+                                      <SelectItem value="member">member</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-2">
@@ -1063,6 +1070,82 @@ export function OrganizationDetailPage() {
           )}
         </>
       )}
+
+      {addOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-member-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !addBusy) {
+              setAddOpen(false);
+              setMemberError(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-lg p-5 space-y-4">
+            <div>
+              <h2
+                id="add-member-title"
+                className="text-lg font-semibold tracking-tight text-ink"
+              >
+                Add member
+              </h2>
+              <p className="text-sm text-mute mt-1">
+                Add by GitHub Id. They join as a member; change the role
+                after if needed.
+              </p>
+            </div>
+            <div>
+              <label
+                htmlFor="add-member-login"
+                className="text-xs font-medium text-mute uppercase tracking-wide"
+              >
+                GitHub Id
+              </label>
+              <Input
+                id="add-member-login"
+                value={addLogin}
+                onChange={(e) => setAddLogin(e.target.value)}
+                placeholder="alice"
+                className="mt-1.5 font-mono text-sm"
+                autoFocus
+                disabled={addBusy}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void addMember();
+                  }
+                }}
+              />
+            </div>
+            {memberError ? (
+              <p className="text-sm text-error">{memberError}</p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={addBusy}
+                onClick={() => {
+                  setAddOpen(false);
+                  setMemberError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={addBusy || !addLogin.trim()}
+                onClick={() => void addMember()}
+              >
+                {addBusy ? "Adding…" : "Add member"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {revealedKey ? (
         <div
