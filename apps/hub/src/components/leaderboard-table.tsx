@@ -1,6 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +37,7 @@ import {
 } from "@/lib/suite-metrics";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
+import { ScrollTable } from "@/components/scroll-table";
 import { formatScore } from "@/lib/utils";
 
 /** Shared column widths — keep Agent/Model tight so columns stay similar. */
@@ -210,7 +211,118 @@ function defaultCompare(a: SuiteRow, b: SuiteRow): number {
  * Column headers are clickable (Viewer Jobs pattern). pass@k / pass^k sort by
  * primary display k (max k_values / n_attempts); not job identity.
  */
-type ExpandTab = "profiles" | "plugin";
+type ExpandTab = "profiles" | "plugin" | "jobs";
+
+function SuiteJobsList({
+  suite,
+  databaseId,
+  onOpen,
+}: {
+  suite: SuiteRow;
+  databaseId: string;
+  onOpen: (href: string) => void;
+}) {
+  const rows = suiteJobRows(suite);
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-mute">
+        No task results on this suite. Upload with{" "}
+        <code className="font-mono">bora results upload-suite</code>.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-mute">
+        Each row is this suite&apos;s result for one task. Click a row with
+        uploaded Attempt evidence to open the same job detail as Task Jobs.
+      </p>
+      <ScrollTable
+        headers={["Task", "Status", "Score", "Attempt"]}
+        rows={rows.map((j) => {
+          const href =
+            j.hasAttempt && j.runId
+              ? `/datasets/${encodeDatasetId(databaseId)}/tasks/${encodeURIComponent(j.taskId)}/attempts/${encodeURIComponent(j.runId)}`
+              : null;
+          return {
+            key: j.key,
+            onClick: href ? () => onOpen(href) : undefined,
+            muted: !href,
+            cells: [
+              <span key="t" className="font-mono text-xs">
+                {j.taskId}
+              </span>,
+              j.status || "—",
+              formatScore(j.score),
+              j.runId ? (
+                <span key="r" className="font-mono text-xs">
+                  {shortSuiteId(j.runId)}
+                  {!href ? (
+                    <span className="ml-2 font-sans text-[11px] text-mute">
+                      summary only
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                "—"
+              ),
+            ],
+          };
+        })}
+      />
+    </div>
+  );
+}
+
+function suiteJobRows(suite: SuiteRow): Array<{
+  key: string;
+  taskId: string;
+  runId: string | null;
+  status: string | null;
+  score: number | null;
+  hasAttempt: boolean;
+}> {
+  const rows: Array<{
+    key: string;
+    taskId: string;
+    runId: string | null;
+    status: string | null;
+    score: number | null;
+    hasAttempt: boolean;
+  }> = [];
+  for (const ref of suite.task_refs || []) {
+    const taskId = (ref.task_id || "").trim();
+    if (!taskId) continue;
+    const ids =
+      Array.isArray(ref.attempt_run_ids) && ref.attempt_run_ids.length
+        ? ref.attempt_run_ids.filter((id): id is string => Boolean(id))
+        : ref.run_id
+          ? [ref.run_id]
+          : [];
+    if (ids.length === 0) {
+      rows.push({
+        key: `${suite.suite_run_id}:${taskId}:none`,
+        taskId,
+        runId: null,
+        status: ref.status ?? null,
+        score: ref.score ?? null,
+        hasAttempt: false,
+      });
+      continue;
+    }
+    for (const runId of ids) {
+      rows.push({
+        key: `${suite.suite_run_id}:${taskId}:${runId}`,
+        taskId,
+        runId,
+        status: ref.status ?? null,
+        score: ref.score ?? null,
+        hasAttempt: Boolean(ref.has_attempt_content) && Boolean(runId),
+      });
+    }
+  }
+  return rows;
+}
 
 export function LeaderboardTable({
   suites,
@@ -226,6 +338,7 @@ export function LeaderboardTable({
   emptyTitle?: string;
   emptyBody?: string;
 }) {
+  const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandTab, setExpandTab] = useState<ExpandTab>("profiles");
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
@@ -500,6 +613,7 @@ export function LeaderboardTable({
                               [
                                 ["profiles", "profiles"],
                                 ["plugin", "plugin"],
+                                ["jobs", "jobs"],
                               ] as const
                             ).map(([id, label]) => (
                               <button
@@ -530,7 +644,7 @@ export function LeaderboardTable({
                                 maxHeightClass="max-h-40"
                               />
                             </>
-                          ) : (
+                          ) : expandTab === "plugin" ? (
                             <div className="space-y-2">
                               {plugins.length === 0 ? (
                                 <p className="text-sm text-mute">
@@ -557,6 +671,12 @@ export function LeaderboardTable({
                                 </ul>
                               )}
                             </div>
+                          ) : (
+                            <SuiteJobsList
+                              suite={s}
+                              databaseId={databaseId}
+                              onOpen={(href) => navigate(href)}
+                            />
                           )}
                         </div>
                       </TableCell>
