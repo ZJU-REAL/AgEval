@@ -158,6 +158,7 @@ BORA/
 │   ├── dataset.py             # draft 槽常量、task 集指纹、suite 完备谓词
 │   ├── sql_adapter.py         # sqlite/postgres 只 connect / placeholder / row-map
 │   ├── store.py               # 一份 MetadataStore + 薄 Postgres 适配
+│   ├── blob_io.py / spool.py  # 整包 put/open 走 Path；上传 spool 后再校验
 │   └── routes.py              # ROUTES 必须声明 access；skip_auth 仅 access=none
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa / profiles.dsh[.read-only]）

@@ -11,14 +11,17 @@ import json
 import os
 import re
 import shutil
+import tempfile
 from collections.abc import Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, BinaryIO
 from urllib.parse import parse_qs, unquote, urlparse
 
 from services.registry.errors import RegistryAppError
 from services.registry.routes import match_route
+from services.registry.spool import extract_multipart_archive, spool_body
 from services.registry.store import TokenInfo
 
 from bora.registry.media_types import (
@@ -71,14 +74,21 @@ def empty_result(status: int) -> HttpResult:
     return HttpResult(status, headers, body=b"")
 
 
-def octet_result(data: bytes, extra: Mapping[str, str]) -> HttpResult:
+def octet_result(
+    data: bytes | None,
+    extra: Mapping[str, str],
+    *,
+    stream: BinaryIO | None = None,
+    size: int | None = None,
+) -> HttpResult:
+    length = size if size is not None else (len(data) if data is not None else 0)
     headers = {
         "Content-Type": "application/octet-stream",
-        "Content-Length": str(len(data)),
+        "Content-Length": str(length),
         **dict(extra),
         **cors_headers(),
     }
-    return HttpResult(200, headers, body=data)
+    return HttpResult(200, headers, body=data or b"", stream=stream)
 
 
 def parse_multipart(body: bytes, content_type: str) -> dict[str, bytes]:
@@ -191,7 +201,14 @@ class RegistryHttpApi:
             return json_result(400, {"error": "invalid_request", "message": "bad JSON"})
         return parsed
 
-    def _read_multipart_archive(self) -> tuple[dict[str, Any], bytes] | HttpResult:
+    def _spool_dir(self) -> Path:
+        raw = getattr(self.state, "spool_dir", None)
+        if isinstance(raw, Path):
+            return raw
+        return Path(tempfile.gettempdir()) / "bora-registry-spool"
+
+    def _read_multipart_archive(self) -> tuple[dict[str, Any], Path, Path] | HttpResult:
+        """Return metadata, archive path, and the parent spool dir to delete later."""
         ctx = _ctx.get()
         length = ctx.content_length
         if length <= 0 or length > self.state.max_upload:
@@ -202,18 +219,29 @@ class RegistryHttpApi:
                     "message": f"max {self.state.max_upload} bytes",
                 },
             )
-        raw = ctx.body.read(length)
-        ctype = _header(ctx.headers, "Content-Type")
+        parent = self._spool_dir()
+        parent.mkdir(parents=True, exist_ok=True)
+        work = Path(tempfile.mkdtemp(prefix="bora-up-", dir=str(parent)))
         try:
-            parts = parse_multipart(raw, ctype)
-            meta = json.loads(parts["metadata"].decode("utf-8"))
-            archive = parts["archive"]
-        except (KeyError, ValueError, json.JSONDecodeError) as exc:
+            spool = spool_body(
+                ctx.body,
+                length=length,
+                max_bytes=self.state.max_upload,
+                dest_dir=work,
+            )
+            ctype = _header(ctx.headers, "Content-Type")
+            meta, archive = extract_multipart_archive(spool, ctype, work)
+            spool.unlink(missing_ok=True)
+            return meta, archive, work
+        except RegistryAppError as exc:
+            shutil.rmtree(work, ignore_errors=True)
+            return _caught(exc)
+        except (KeyError, ValueError, json.JSONDecodeError, OSError) as exc:
+            shutil.rmtree(work, ignore_errors=True)
             return json_result(
                 400,
                 {"error": "invalid_request", "message": f"bad multipart: {exc}"},
             )
-        return meta, archive
 
     def _visibility_body(self) -> str | HttpResult:
         body = self._read_json_body()
@@ -278,15 +306,19 @@ class RegistryHttpApi:
         return json_result(status, payload)
 
     def _publish_package(self, *, auth: TokenInfo) -> HttpResult:
+        work: Path | None = None
         try:
             with self.state.upload_slots.hold():
                 parsed = self._read_multipart_archive()
                 if isinstance(parsed, HttpResult):
                     return parsed
-                meta, archive = parsed
+                meta, archive, work = parsed
                 payload = self.state.packages.publish(meta=meta, archive=archive, auth=auth)
         except RegistryAppError as exc:
             return _caught(exc)
+        finally:
+            if work is not None:
+                shutil.rmtree(work, ignore_errors=True)
         return json_result(201, payload)
 
     def _release_draft(self, *, database_id: str, auth: TokenInfo) -> HttpResult:
@@ -350,14 +382,19 @@ class RegistryHttpApi:
         self, *, database_id: str, package_digest: str, auth: TokenInfo
     ) -> HttpResult:
         try:
-            data, row = self.state.packages.serve_content(
+            fh, size, row = self.state.packages.serve_content(
                 database_id=database_id,
                 package_digest=package_digest,
                 auth=auth,
             )
         except RegistryAppError as exc:
             return _caught(exc)
-        return octet_result(data, {"X-Bora-Blob-Digest": row.blob_digest})
+        return octet_result(
+            None,
+            {"X-Bora-Blob-Digest": row.blob_digest},
+            stream=fh,
+            size=size,
+        )
 
     def _serve_package_files_list(
         self,
@@ -400,15 +437,19 @@ class RegistryHttpApi:
         return json_result(200, payload)
 
     def _upload_attempt(self, *, auth: TokenInfo) -> HttpResult:
+        work: Path | None = None
         try:
             with self.state.upload_slots.hold():
                 parsed = self._read_multipart_archive()
                 if isinstance(parsed, HttpResult):
                     return parsed
-                meta, archive = parsed
+                meta, archive, work = parsed
                 payload = self.state.results.upload_attempt(meta=meta, archive=archive, auth=auth)
         except RegistryAppError as exc:
             return _caught(exc)
+        finally:
+            if work is not None:
+                shutil.rmtree(work, ignore_errors=True)
         return json_result(201, payload)
 
     def _list_attempts(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> HttpResult:
@@ -430,15 +471,17 @@ class RegistryHttpApi:
 
     def _serve_attempt_content(self, *, run_id: str, auth: TokenInfo) -> HttpResult:
         try:
-            data, row = self.state.results.serve_attempt_content(run_id=run_id, auth=auth)
+            fh, size, row = self.state.results.serve_attempt_content(run_id=run_id, auth=auth)
         except RegistryAppError as exc:
             return _caught(exc)
         return octet_result(
-            data,
+            None,
             {
                 "X-Bora-Blob-Digest": row.blob_digest,
                 "X-Bora-Media-Type": RESULT_MEDIA_TYPE,
             },
+            stream=fh,
+            size=size,
         )
 
     def _serve_attempt_files_list(self, *, run_id: str, auth: TokenInfo) -> HttpResult:
@@ -458,15 +501,19 @@ class RegistryHttpApi:
         return json_result(200, payload)
 
     def _upload_suite(self, *, auth: TokenInfo) -> HttpResult:
+        work: Path | None = None
         try:
             with self.state.upload_slots.hold():
                 parsed = self._read_multipart_archive()
                 if isinstance(parsed, HttpResult):
                     return parsed
-                meta, archive = parsed
+                meta, archive, work = parsed
                 payload = self.state.results.upload_suite(meta=meta, archive=archive, auth=auth)
         except RegistryAppError as exc:
             return _caught(exc)
+        finally:
+            if work is not None:
+                shutil.rmtree(work, ignore_errors=True)
         return json_result(201, payload)
 
     def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> HttpResult:
@@ -491,15 +538,19 @@ class RegistryHttpApi:
 
     def _serve_suite_content(self, *, suite_run_id: str, auth: TokenInfo) -> HttpResult:
         try:
-            data, row = self.state.results.serve_suite_content(suite_run_id=suite_run_id, auth=auth)
+            fh, size, row = self.state.results.serve_suite_content(
+                suite_run_id=suite_run_id, auth=auth
+            )
         except RegistryAppError as exc:
             return _caught(exc)
         return octet_result(
-            data,
+            None,
             {
                 "X-Bora-Blob-Digest": row.blob_digest,
                 "X-Bora-Media-Type": SUITE_RESULT_MEDIA_TYPE,
             },
+            stream=fh,
+            size=size,
         )
 
     def _get_user(self, *, user_id: str) -> HttpResult:

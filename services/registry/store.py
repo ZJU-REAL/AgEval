@@ -201,7 +201,7 @@ class OrgInviteKeyRow:
 
 
 class MemoryBlobStore:
-    """Unit-test only blob backend."""
+    """Unit-test only blob backend (bytes adapter behind a Path/fileobj put)."""
 
     def __init__(self) -> None:
         self._data: dict[str, bytes] = {}
@@ -210,13 +210,26 @@ class MemoryBlobStore:
     def _key(self, blob_digest: str, prefix: str) -> str:
         return f"{prefix}/{blob_digest}"
 
-    def put_if_absent(self, blob_digest: str, data: bytes, *, prefix: str = "packages") -> None:
+    def put_if_absent(
+        self, blob_digest: str, source: Path | Any, *, prefix: str = "packages"
+    ) -> None:
+        payload = source.read_bytes() if isinstance(source, Path) else source.read()
         with self._lock:
-            self._data.setdefault(self._key(blob_digest, prefix), data)
+            self._data.setdefault(self._key(blob_digest, prefix), payload)
 
-    def get(self, blob_digest: str, *, prefix: str = "packages") -> bytes | None:
+    def open(self, blob_digest: str, *, prefix: str = "packages") -> Any:
+        import io
+
         with self._lock:
-            return self._data.get(self._key(blob_digest, prefix))
+            data = self._data.get(self._key(blob_digest, prefix))
+        if data is None:
+            return None
+        return io.BytesIO(data)
+
+    def size(self, blob_digest: str, *, prefix: str = "packages") -> int | None:
+        with self._lock:
+            data = self._data.get(self._key(blob_digest, prefix))
+        return None if data is None else len(data)
 
     def delete(self, blob_digest: str, *, prefix: str = "packages") -> bool:
         """Remove blob if present. Returns True when a key was deleted."""
@@ -235,20 +248,38 @@ class FilesystemBlobStore:
         key = blob_digest.replace(":", "_")
         return self.root / prefix / key
 
-    def put_if_absent(self, blob_digest: str, data: bytes, *, prefix: str = "packages") -> None:
+    def put_if_absent(
+        self, blob_digest: str, source: Path | Any, *, prefix: str = "packages"
+    ) -> None:
+        import shutil
+
         path = self._path(blob_digest, prefix)
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists():
             return
-        tmp = path.with_suffix(".tmp")
-        tmp.write_bytes(data)
-        tmp.replace(path)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        try:
+            if isinstance(source, Path):
+                shutil.copyfile(source, tmp)
+            else:
+                with tmp.open("wb") as out:
+                    shutil.copyfileobj(source, out)
+            tmp.replace(path)
+        except Exception:
+            tmp.unlink(missing_ok=True)
+            raise
 
-    def get(self, blob_digest: str, *, prefix: str = "packages") -> bytes | None:
+    def open(self, blob_digest: str, *, prefix: str = "packages") -> Any:
         path = self._path(blob_digest, prefix)
         if not path.is_file():
             return None
-        return path.read_bytes()
+        return path.open("rb")
+
+    def size(self, blob_digest: str, *, prefix: str = "packages") -> int | None:
+        path = self._path(blob_digest, prefix)
+        if not path.is_file():
+            return None
+        return path.stat().st_size
 
     def delete(self, blob_digest: str, *, prefix: str = "packages") -> bool:
         path = self._path(blob_digest, prefix)
@@ -302,22 +333,35 @@ class S3BlobStore:
     def _object_key(self, blob_digest: str, prefix: str) -> str:
         return f"{prefix}/{blob_digest.replace(':', '_')}"
 
-    def put_if_absent(self, blob_digest: str, data: bytes, *, prefix: str = "packages") -> None:
+    def put_if_absent(
+        self, blob_digest: str, source: Path | Any, *, prefix: str = "packages"
+    ) -> None:
         key = self._object_key(blob_digest, prefix)
         try:
             self._client.head_object(Bucket=self.bucket, Key=key)
             return
         except self._ClientError:
             pass
-        self._client.put_object(Bucket=self.bucket, Key=key, Body=data)
+        if isinstance(source, Path):
+            self._client.upload_file(str(source), self.bucket, key)
+            return
+        self._client.upload_fileobj(source, self.bucket, key)
 
-    def get(self, blob_digest: str, *, prefix: str = "packages") -> bytes | None:
+    def open(self, blob_digest: str, *, prefix: str = "packages") -> Any:
         key = self._object_key(blob_digest, prefix)
         try:
             resp = self._client.get_object(Bucket=self.bucket, Key=key)
         except self._ClientError:
             return None
-        return bytes(resp["Body"].read())
+        return resp["Body"]
+
+    def size(self, blob_digest: str, *, prefix: str = "packages") -> int | None:
+        key = self._object_key(blob_digest, prefix)
+        try:
+            resp = self._client.head_object(Bucket=self.bucket, Key=key)
+        except self._ClientError:
+            return None
+        return int(resp["ContentLength"])
 
     def delete(self, blob_digest: str, *, prefix: str = "packages") -> bool:
         key = self._object_key(blob_digest, prefix)

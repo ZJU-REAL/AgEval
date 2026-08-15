@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from services.registry.access import AccessPolicy
+from services.registry.blob_io import read_blob
 from services.registry.errors import RegistryAppError
 from services.registry.package_service import PackageService
 from services.registry.store import (
@@ -27,8 +28,10 @@ def _service(tmp_path: Path) -> PackageService:
     return PackageService(meta, blobs, AccessPolicy(meta=meta), max_upload=64 * 1024 * 1024)
 
 
-def _meta_archive() -> tuple[dict[str, object], bytes]:
+def _meta_archive(tmp_path: Path) -> tuple[dict[str, object], Path, bytes]:
     archive, blob_digest, size = build_archive(FIXTURE)
+    path = tmp_path / "pkg.tar.gz"
+    path.write_bytes(archive)
     return (
         {
             "database_id": "test/publish-min",
@@ -40,13 +43,14 @@ def _meta_archive() -> tuple[dict[str, object], bytes]:
             "org_id": "acme",
             "size": size,
         },
+        path,
         archive,
     )
 
 
 def test_publish_missing_org(tmp_path: Path) -> None:
     svc = _service(tmp_path)
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     with pytest.raises(RegistryAppError) as ei:
         svc.publish(meta=meta, archive=archive, auth=auth)
@@ -57,7 +61,7 @@ def test_publish_missing_org(tmp_path: Path) -> None:
 def test_publish_requires_membership(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="owner", display_name="Acme")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     with pytest.raises(RegistryAppError) as ei:
         svc.publish(meta=meta, archive=archive, auth=auth)
@@ -68,7 +72,7 @@ def test_publish_requires_membership(tmp_path: Path) -> None:
 def test_publish_happy_path(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     payload = svc.publish(meta=meta, archive=archive, auth=auth)
     assert payload["database_id"] == "test/publish-min"
@@ -76,7 +80,7 @@ def test_publish_happy_path(tmp_path: Path) -> None:
     assert payload.get("uploaded_by") == "alice"
     row = svc.get("test/publish-min", "0.1.0")
     assert row is not None
-    assert svc.blobs.get(row.blob_digest, prefix="packages") == archive
+    assert read_blob(svc.blobs, row.blob_digest, prefix="packages") == _raw
     mine = svc.list_packages(
         auth=auth,
         prefix=None,
@@ -101,7 +105,7 @@ def test_publish_happy_path(tmp_path: Path) -> None:
 def test_draft_overwrite_and_entitled_list(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     meta["slot"] = "draft"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     first = svc.publish(meta=meta, archive=archive, auth=alice)
@@ -124,7 +128,7 @@ def test_draft_overwrite_and_entitled_list(tmp_path: Path) -> None:
 def test_draft_hidden_from_non_entitled_get(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     meta["slot"] = "draft"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
@@ -142,7 +146,7 @@ def test_draft_hidden_from_non_entitled_get(tmp_path: Path) -> None:
 def test_release_draft_creates_durable_version(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     meta["slot"] = "draft"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
@@ -158,7 +162,7 @@ def test_collaborator_cannot_release(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
     svc.meta.add_member("acme", "bob", role="member")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     meta["slot"] = "draft"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
@@ -172,7 +176,7 @@ def test_collaborator_cannot_release(tmp_path: Path) -> None:
 def test_reserved_version_draft_rejected_on_release_publish(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     meta["version"] = "draft"
     # Without slot, version=draft still takes the draft path (reserved).
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
@@ -184,7 +188,7 @@ def test_reserved_version_draft_rejected_on_release_publish(tmp_path: Path) -> N
 def test_anon_sees_public_release_not_draft(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     meta["slot"] = "draft"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
@@ -220,7 +224,7 @@ def test_org_member_can_read_draft(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
     svc.meta.add_member("acme", "carol", role="member")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     meta["slot"] = "draft"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
@@ -239,7 +243,7 @@ def test_org_member_can_read_draft(tmp_path: Path) -> None:
 def test_draft_first_upload_requires_org_membership(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
-    meta, archive = _meta_archive()
+    meta, archive, _raw = _meta_archive(tmp_path)
     meta["slot"] = "draft"
     bob = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="bob")
     with pytest.raises(RegistryAppError) as ei:

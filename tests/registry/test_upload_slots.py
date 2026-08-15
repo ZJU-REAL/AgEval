@@ -39,6 +39,8 @@ def test_http_429_when_slot_held(tmp_path: Path) -> None:
         client = RegistryClient(url, token=token)
         assert client.health()["ok"] is True
         with state.upload_slots.hold():
+            bogus = tmp_path / "nope.bin"
+            bogus.write_bytes(b"nope")
             with pytest.raises(RegistryError) as ei:
                 client.publish(
                     database_id="test/publish-min",
@@ -48,7 +50,7 @@ def test_http_429_when_slot_held(tmp_path: Path) -> None:
                     size=4,
                     media_type="application/vnd.bora.database.v1.tar+gzip",
                     visibility="private",
-                    archive=b"nope",
+                    archive=bogus,
                     org_id="test",
                 )
             assert ei.value.status == 429

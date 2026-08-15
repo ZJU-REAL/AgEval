@@ -52,6 +52,7 @@ import argparse
 import os
 import secrets
 import sys
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -95,7 +96,7 @@ __all__ = [
     "SUITE_RESULT_MEDIA_TYPE",
 ]
 
-MAX_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB hard top for v1
+MAX_UPLOAD_BYTES = 512 * 1024 * 1024  # 512 MiB after whole-object streaming
 
 
 class RegistryState:
@@ -139,6 +140,8 @@ class RegistryState:
         self.orgs = OrgService(meta, self.access)
         self.users = UserService(meta)
         self.max_upload = max_upload
+        self.spool_dir = Path(tempfile.gettempdir()) / "bora-registry-spool"
+        self.spool_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _parse_multipart(body: bytes, content_type: str) -> dict[str, bytes]:

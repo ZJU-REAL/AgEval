@@ -53,8 +53,11 @@ class PluginInstallCommand:
                     f"release is not a plugin (media_type={meta.media_type})",
                     location=locator,
                 )
-            archive = client.fetch_content(
-                database_id=package_id, package_digest=meta.package_digest
+            archive_path = Path(tempfile.mkdtemp(prefix="bora-plugin-dl-")) / "plugin.tar.gz"
+            client.fetch_content(
+                database_id=package_id,
+                package_digest=meta.package_digest,
+                dest=archive_path,
             )
         except RegistryError as exc:
             raise ConfigError(exc.code, exc.message, location="registry") from exc
@@ -62,7 +65,8 @@ class PluginInstallCommand:
         with tempfile.TemporaryDirectory(prefix="bora-plugin-") as tmp:
             extract_dir = Path(tmp) / "pkg"
             extract_dir.mkdir()
-            extract_archive(archive, extract_dir)
+            extract_archive(archive_path, extract_dir)
+            archive_path.unlink(missing_ok=True)
             entry = install_from_path(extract_dir, plugin_id=package_id)
         return {
             "ok": True,

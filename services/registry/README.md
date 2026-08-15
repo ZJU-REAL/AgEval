@@ -40,7 +40,7 @@ connection limits on nginx or Caddy, then proxy to uvicorn workers.
 
 | Knob | Where | Same number |
 | --- | --- | --- |
-| Body limit | Proxy `client_max_body_size` / Caddy `request_body.max_size` | Application `MAX_UPLOAD_BYTES` (64 MiB) |
+| Body limit | Proxy `client_max_body_size` / Caddy `request_body.max_size` | Application `MAX_UPLOAD_BYTES` (512 MiB) |
 | In-flight uploads | Proxy concurrent-request cap (optional) | `workers × BORA_REGISTRY_UPLOAD_SLOTS` |
 | Workers | `--workers` / `BORA_REGISTRY_WORKERS` (default 2 in public mode) | One process per worker; each has its own slot pool |
 
@@ -55,7 +55,7 @@ uv run --extra registry python -m services.registry.app --host 127.0.0.1 --port 
 Example Caddyfile: [`Caddyfile`](Caddyfile). nginx equivalent:
 
 ```nginx
-client_max_body_size 64m;
+client_max_body_size 512m;
 proxy_read_timeout 900s;
 proxy_send_timeout 900s;
 location / {

@@ -64,15 +64,21 @@ def resolve_database_root(
         hit = pkg_cache.lookup(meta.database_id, meta.package_digest)
         if hit is not None:
             return hit
-        archive = reg_client.fetch_content(
-            database_id=meta.database_id, package_digest=meta.package_digest
-        )
-        return pkg_cache.publish_atomic(
-            database_id=meta.database_id,
-            package_digest=meta.package_digest,
-            archive=archive,
-            expected_blob_digest=meta.blob_digest,
-        )
+        import tempfile
+
+        with tempfile.TemporaryDirectory(prefix="bora-fetch-") as tmp:
+            dest = Path(tmp) / "package.tar.gz"
+            reg_client.fetch_content(
+                database_id=meta.database_id,
+                package_digest=meta.package_digest,
+                dest=dest,
+            )
+            return pkg_cache.publish_atomic(
+                database_id=meta.database_id,
+                package_digest=meta.package_digest,
+                archive=dest,
+                expected_blob_digest=meta.blob_digest,
+            )
     except RegistryError as exc:
         # Offline: digest ref may still hit cache (already checked); version cannot.
         if exc.code == "registry_unavailable" and ref.kind == "digest" and ref.package_digest:

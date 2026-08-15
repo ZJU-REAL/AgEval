@@ -144,6 +144,8 @@ def test_reject_database_as_plugin(
     db = REPO / "tests" / "fixtures" / "databases" / "publish-min"
     archive, blob_digest, size = build_archive(db)
     package_digest = compute_package_digest(db)
+    archive_path = tmp_path / "not-plugin.tar.gz"
+    archive_path.write_bytes(archive)
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
     with pytest.raises(RegistryError) as ei:
         client.publish(
@@ -154,7 +156,7 @@ def test_reject_database_as_plugin(
             size=size,
             media_type=PLUGIN_MEDIA_TYPE,
             visibility="private",
-            archive=archive,
+            archive=archive_path,
             org_id=TEST_ORG,
             package_kind="plugin",
         )

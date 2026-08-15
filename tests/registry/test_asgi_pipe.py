@@ -166,6 +166,8 @@ def test_uvicorn_workers_health_not_starved(tmp_path: Path) -> None:
         client.create_org(name="test", display_name="Test")
         archive, blob_digest, size = build_archive(FIXTURE)
         digest = compute_package_digest(FIXTURE)
+        archive_path = tmp_path / "pkg.tar.gz"
+        archive_path.write_bytes(archive)
 
         def _health() -> int:
             return int(client.health()["ok"] is True)
@@ -179,7 +181,7 @@ def test_uvicorn_workers_health_not_starved(tmp_path: Path) -> None:
                 size=size,
                 media_type=MEDIA_TYPE,
                 visibility="private",
-                archive=archive,
+                archive=archive_path,
                 org_id="test",
             )
             return int(info.database_id == "test/publish-min")

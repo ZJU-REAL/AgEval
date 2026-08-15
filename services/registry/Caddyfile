@@ -2,7 +2,7 @@
 # Do not expose the Python process on the public internet.
 #
 # Align client_max_body / request_body with the application cap
-# (BORA_REGISTRY_MAX_UPLOAD, default 64 MiB until streaming lands).
+# (512 MiB after whole-object streaming).
 # In-flight uploads: workers × BORA_REGISTRY_UPLOAD_SLOTS.
 
 {
@@ -18,6 +18,6 @@
 		}
 	}
 	request_body {
-		max_size 64MB
+		max_size 512MB
 	}
 }
