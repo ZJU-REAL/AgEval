@@ -1126,12 +1126,79 @@ class MetadataStore(MetadataStoreProtocol):
                 raise ValueError("membership exists") from exc
         return MembershipRow(org_id=org_id, user_id=user_id, role=role, created_at=ts)
 
+    def set_member_role(self, org_id: str, user_id: str, *, role: str) -> MembershipRow:
+        if role not in {"owner", "member"}:
+            raise ValueError("invalid role")
+        uid = _normalize_user_id(user_id) or user_id
+        mem = self.membership(org_id, uid)
+        if mem is None:
+            raise LookupError("membership not found")
+        if mem.role == role:
+            return mem
+        if mem.role == "owner" and role == "member" and self.count_org_owners(org_id) <= 1:
+            raise PermissionError("sole owner cannot be demoted; dissolve the organization instead")
+        with self._connect() as conn:
+            cur = self._exec(
+                conn,
+                Q.UPDATE_ORG_MEMBERSHIP_ROLE,
+                (role, org_id, uid),
+            )
+            if cur.rowcount == 0:
+                raise LookupError("membership not found")
+            conn.commit()
+        updated = self.membership(org_id, uid)
+        if updated is None:
+            raise LookupError("membership not found")
+        return updated
+
+    def transfer_owner(
+        self, org_id: str, *, from_user_id: str, to_user_id: str
+    ) -> tuple[MembershipRow, MembershipRow]:
+        """Atomic: target → owner, caller → member. Target must already be a member."""
+        src = _normalize_user_id(from_user_id) or from_user_id
+        dst = _normalize_user_id(to_user_id) or to_user_id
+        if not src or not dst:
+            raise ValueError("user_id required")
+        if src == dst:
+            raise ValueError("cannot transfer to self")
+        target = self.membership(org_id, dst)
+        if target is None:
+            raise LookupError("membership not found")
+        caller = self.membership(org_id, src)
+        if caller is None:
+            raise LookupError("caller membership not found")
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPDATE_ORG_MEMBERSHIP_ROLE,
+                ("owner", org_id, dst),
+            )
+            self._exec(
+                conn,
+                Q.UPDATE_ORG_MEMBERSHIP_ROLE,
+                ("member", org_id, src),
+            )
+            conn.commit()
+        new_target = self.membership(org_id, dst)
+        new_caller = self.membership(org_id, src)
+        if new_target is None or new_caller is None:
+            raise LookupError("membership not found")
+        return new_target, new_caller
+
     def remove_member(self, org_id: str, user_id: str) -> None:
+        uid = _normalize_user_id(user_id) or user_id
+        mem = self.membership(org_id, uid)
+        if mem is None:
+            raise LookupError("membership not found")
+        if mem.role == "owner" and self.count_org_owners(org_id) <= 1:
+            raise PermissionError(
+                "sole owner cannot be removed; dissolve the organization instead"
+            )
         with self._connect() as conn:
             cur = self._exec(
                 conn,
                 Q.DELETE_ORG_MEMBERSHIP,
-                (org_id, user_id),
+                (org_id, uid),
             )
             if cur.rowcount == 0:
                 raise LookupError("membership not found")

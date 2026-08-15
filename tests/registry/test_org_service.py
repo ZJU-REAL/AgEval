@@ -84,3 +84,71 @@ def test_official_org_cannot_be_claimed(tmp_path: Path) -> None:
         svc.claim(org_id="official", auth=_user())
     assert ei.value.http_status == 403
     assert "cannot claim" in ei.value.message
+
+
+def test_promote_existing_member_without_readd(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    svc.meta.add_member("acme", "bob", role="member")
+    owner = _user()
+    promoted = svc.set_member_role(org_id="acme", user_id="Bob", role="owner", auth=owner)
+    assert promoted["user_id"] == "bob"
+    assert promoted["role"] == "owner"
+    mem = svc.meta.membership("acme", "bob")
+    assert mem is not None and mem.role == "owner"
+
+
+def test_last_owner_cannot_be_demoted_removed_or_transfer_to_non_member(
+    tmp_path: Path,
+) -> None:
+    svc = _orgs(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    owner = _user()
+    with pytest.raises(RegistryAppError) as demote:
+        svc.set_member_role(org_id="acme", user_id="alice", role="member", auth=owner)
+    assert demote.value.http_status == 403
+    with pytest.raises(RegistryAppError) as removed:
+        svc.remove_member(org_id="acme", user_id="alice", auth=owner)
+    assert removed.value.http_status == 403
+    with pytest.raises(RegistryAppError) as missing:
+        svc.transfer(org_id="acme", user_id="carol", auth=owner)
+    assert missing.value.http_status == 404
+    assert svc.meta.membership("acme", "alice") is not None
+    assert svc.meta.membership("acme", "alice").role == "owner"  # type: ignore[union-attr]
+
+
+def test_transfer_is_atomic_and_demotes_caller(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    svc.meta.add_member("acme", "bob", role="member")
+    payload = svc.transfer(org_id="acme", user_id="bob", auth=_user())
+    assert payload["ok"] is True
+    assert payload["from"]["user_id"] == "alice"
+    assert payload["from"]["role"] == "member"
+    assert payload["to"]["user_id"] == "bob"
+    assert payload["to"]["role"] == "owner"
+    assert svc.meta.membership("acme", "alice").role == "member"  # type: ignore[union-attr]
+    assert svc.meta.membership("acme", "bob").role == "owner"  # type: ignore[union-attr]
+
+
+def test_transfer_when_target_already_owner_only_demotes_caller(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    svc.meta.add_member("acme", "bob", role="owner")
+    payload = svc.transfer(org_id="acme", user_id="bob", auth=_user())
+    assert payload["to"]["role"] == "owner"
+    assert payload["from"]["role"] == "member"
+    assert svc.meta.count_org_owners("acme") == 1
+
+
+def test_member_cannot_set_role_or_transfer(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    svc.meta.add_member("acme", "bob", role="member")
+    member = _user(user_id="bob")
+    with pytest.raises(RegistryAppError) as role_err:
+        svc.set_member_role(org_id="acme", user_id="bob", role="owner", auth=member)
+    assert role_err.value.http_status == 403
+    with pytest.raises(RegistryAppError) as xfer_err:
+        svc.transfer(org_id="acme", user_id="alice", auth=member)
+    assert xfer_err.value.http_status == 403
