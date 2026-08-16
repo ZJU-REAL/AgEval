@@ -263,6 +263,37 @@ def test_heterogeneous_bindings_two_cards(tmp_path: Path) -> None:
     assert grok["options"] == {"entry": "grok-build"}
 
 
+def test_same_harness_different_models_one_card(tmp_path: Path) -> None:
+    packages, results, runtimes = _services(tmp_path)
+    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
+    grok_g1 = dict(GROK)
+    grok_g2 = dict(GROK)
+    grok_g2["model"] = "g2"
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_g1",
+        database_id="official/gaia",
+        bindings={"solver": grok_g1},
+    )
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_g2",
+        database_id="official/gaia",
+        bindings={"solver": grok_g2},
+    )
+    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
+    assert [i["runtime_id"] for i in listed["items"]] == [harness_fingerprint(GROK)]
+    assert listed["items"][0]["n_appearances"] == 2
+    detail = runtimes.get_runtime(
+        runtime_id=harness_fingerprint(GROK),
+        auth=TokenInfo(scopes=frozenset(), user_id=""),
+    )
+    models = {a["model"] for a in detail["appearances"]}
+    assert models == {"g1", "g2"}
+
+
 def test_unknown_runtime_is_404(tmp_path: Path) -> None:
     _packages, _results, runtimes = _services(tmp_path)
     with pytest.raises(RegistryAppError) as ei:
