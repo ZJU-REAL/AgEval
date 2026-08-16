@@ -19,6 +19,8 @@ from services.registry.dataset import (
     task_set_digest,
 )
 from services.registry.errors import RegistryAppError
+from services.registry.official import official_dataset_ids
+from services.registry.runtime_service import attach_runtime_refs
 from services.registry.store import (
     AttemptResultRow,
     SuiteResultRow,
@@ -402,12 +404,19 @@ class ResultService:
         if board:
             visible = [r for r in visible if r.complete and r.bound_kind == BOUND_RELEASE]
         attempt_ids = self._suite_visible_attempt_ids(visible, auth=auth)
-        return {"items": [suite_to_dict(r, attempt_content_ids=attempt_ids) for r in visible]}
+        official = official_dataset_ids(self.meta.list_releases(include_private=True))
+        return {
+            "items": [
+                attach_runtime_refs(suite_to_dict(r, attempt_content_ids=attempt_ids), official)
+                for r in visible
+            ]
+        }
 
     def serve_suite_meta(self, *, suite_run_id: str, auth: TokenInfo) -> dict[str, Any]:
         row = self._require_visible_suite(suite_run_id, auth)
         attempt_ids = self._suite_visible_attempt_ids([row], auth=auth)
-        return suite_to_dict(row, attempt_content_ids=attempt_ids)
+        official = official_dataset_ids(self.meta.list_releases(include_private=True))
+        return attach_runtime_refs(suite_to_dict(row, attempt_content_ids=attempt_ids), official)
 
     def serve_suite_content(
         self, *, suite_run_id: str, auth: TokenInfo
