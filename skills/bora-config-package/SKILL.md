@@ -217,6 +217,7 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
+  # tmpfs_mb: 256          # optional L1 clean-eval /tmp (MiB); omit → 32. Not limits.*
   inputs:
     - artifact: session-output
       target: artifacts/session-output.json

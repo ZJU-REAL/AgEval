@@ -19,6 +19,7 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
+  # tmpfs_mb: 256   # 可选；L1 clean-eval /tmp（MiB），省略则 32。不是 limits.*
   inputs:
     - artifact: session-output
       target: artifacts/session-output.json
@@ -34,5 +35,6 @@ evaluation:
 | 屏障 | harness 结束后才 materialize 输入 |
 | gold | 放 `evaluation/`，不要指望「删 yaml 字段」当隔离 |
 | artifact id | 必须和 harness 实际写出的文件对上 |
+| `tmpfs_mb` | 只改 L1 clean-eval `/tmp`；省略 32 MiB。大 snapshot 在 **task** 上声明，不要写进 `limits` |
 
 读结果时 runtime 与 evaluation 是分开的事实。见 [结果与 PASS](/docs/reference/results-and-pass)。

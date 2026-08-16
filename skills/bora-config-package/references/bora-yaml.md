@@ -20,7 +20,9 @@
   `provider.dockerfile` override) **required** at lock time
 - `agent_profiles`: role slots only (`{id}`); executor / model / `options` live in Database `profiles.yaml`
 - `limits`: wall / agent_invocations / environment_actions / memory_mb
-- `evaluation`: runtime, entrypoint, inputs, output.format
+- `evaluation`: runtime, entrypoint, inputs, output.format; optional `network`;
+  optional `tmpfs_mb` (positive int, L1 clean-eval `/tmp` MiB, default 32).
+  **Not** a `limits.*` field.
 - Optional `provenance` (fully replaces Database-root default when set)
 
 ## Provenance (optional)

@@ -230,7 +230,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 | `agent_profiles` | **角色槽**（role id + 可选 workspace 约束）；**不含** executor/entry/model | Config Core 合并后 → **Agent Service** |
 | `environment` | 外部资源、lifecycle、action allowlist | Runtime、Environment Manager |
 | `limits` | wall time、memory、process、Agent/Environment 外层硬上限（**任务契约**，job 不可覆盖） | Runtime、Provider、Capability |
-| `artifacts` / `evaluation` | 可发布产物、Evaluator 输入、隔离和结果格式 | Artifact Owner、Evaluator Runner |
+| `artifacts` / `evaluation` | 可发布产物、Evaluator 输入、隔离、结果格式、**评测沙箱**（`network`、`tmpfs_mb`） | Artifact Owner、Evaluator Runner |
 
 `parameters` 是统一的实验参数空间。`harness` 只定位入口（`runtime` + `entrypoint`），不再同时保存另一套 `params`，也不挂载任务说明或 prompt 路径。这样可以避免 `harness.params`、`tool_limits` 和 Campaign override 分散在多个位置；自然语言提示词由 package 的 `prompts/` 与 `harness.py` 负责。
 
@@ -432,6 +432,7 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
+  tmpfs_mb: 256   # optional; L1 clean-eval /tmp size (MiB); omit → 32
   inputs:
     - artifact: reducer-output
       target: artifacts/reducer-output.json
@@ -582,7 +583,8 @@ Config Core 至少检查：
 - `action_commands` 只引用已有 component；
 - limits 为非负且在实现支持范围内；
 - Artifact producer、path 和 evaluator input 引用一致；
-- evaluator runtime、network 和 output format 有对应实现。
+- evaluator runtime、network 和 output format 有对应实现；
+- `evaluation.tmpfs_mb` 若出现则必须是正整数（省略则锁定为 32）。**不是** `limits.*`。
 
 Config Core 不校验某个 Planner 会选择哪个 specialist，也不检查 Harness 是否真的调用某个 Tool。前者属于运行时算法，后者由 Harness 和测试确认。
 

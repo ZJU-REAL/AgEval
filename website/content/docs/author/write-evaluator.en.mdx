@@ -19,6 +19,7 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
+  # tmpfs_mb: 256   # optional L1 clean-eval /tmp (MiB); omit → 32. Not limits.*
   inputs:
     - artifact: session-output
       target: artifacts/session-output.json
@@ -31,5 +32,6 @@ evaluation:
 | Barrier | Inputs materialize after harness ends |
 | Gold | Under `evaluation/`; omitting yaml paths ≠ isolation |
 | Artifact ids | Must match files the harness actually writes |
+| `tmpfs_mb` | L1 clean-eval `/tmp` only; omit → 32 MiB. Declare a larger sandbox on the **task**, not under `limits` |
 
 Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).
