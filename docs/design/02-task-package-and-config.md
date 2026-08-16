@@ -665,9 +665,9 @@ bora lock|run <path|ref> --task <id>      # ref 经 verified cache 后走 Databa
 | | Suite run | Campaign | Always-k |
 | --- | --- | --- | --- |
 | 轴 | 同一 Database 的 **task_id** | 同一 task 的 **parameter matrix** | 每 task **k 次独立 Attempt** |
-| CLI | `bora run <database> [--task] [--max-concurrent-tasks N] [-k N] [--resume-suite id]` | `bora campaign … --matrix` | 同上 `-k` / `--n-attempts`（**非** matrix） |
+| CLI | `bora run <database> [--task] [--max-concurrent-tasks N] [-k N] [--resume-suite id] [--replace-slot]` | `bora campaign … --matrix` | 同上 `-k` / `--n-attempts`（**非** matrix） |
 | PASS | **仅** per-task evaluator；无 suite PASS | 每 variant 独立 Trial PASS | 仍仅 per-Attempt evaluator；job 再算 pass@k |
-| 失败 | 默认可 `bora cancel suite_…` 停新 unit | 既有 campaign 策略 | 补跑只追加 Attempt |
+| 失败 | 默认可 `bora cancel suite_…` 停新 unit | 既有 campaign 策略 | 默认补跑只追加；`--replace-slot` 点名重跑一格 finished 槽 |
 
 Summary 写在 Database 根：`.bora/suite-runs/<suite_run_id>/summary.json`（另有 `progress.json`；cancel 可写 `cancel.requested`）。
 
@@ -694,7 +694,8 @@ Suite summary 含 `metrics` 对象（`bora.suite.summary/1` 附加字段），�
 ```
 
 **禁止** suite-level PASS 字段作为最终权威；PASS 仅 per-task evaluator。`exit_code` 与 `counts` 仍是操作者退出/计数语义，不是榜单 PASS。  
-pass@k / pass^k **不是** package 身份 / `config_fingerprint` 键；不同 k 的 job 可并列展示，身份仍是 agent×model 绑定。
+pass@k / pass^k **不是** package 身份 / `config_fingerprint` 键；不同 k 的 job 可并列展示，身份仍是 agent×model 绑定。  
+点名换槽后指标**只**按现行指针重算；`task_refs[].previous[]` 是审计链（见 [05-runtime/campaign-suite.md](05-runtime/campaign-suite.md) 与 [12](12-hub-dataset-and-leaderboard.md)）。
 
 ### Suite/job 结果上传（Registry）
 
@@ -703,11 +704,12 @@ pass@k / pass^k **不是** package 身份 / `config_fingerprint` 键；不同 k 
 | CLI | 语义 |
 | --- | --- |
 | `bora results upload-suite <db> --suite-run <id>` | 上传聚合分 + `task_refs` + summary 归档；上传前本地 **ensure/recompute** k 指标 |
-| `bora results get-suite <id>` / `list-suites` | Registry 查询（`metrics` 原样返回，**不剥除** pass@k） |
+| `bora results upload-suite … --task T --run <run_id>` | 向**已有** suite 行 PATCH 一槽现行指针（新 Attempt 须已上传）；**不是**整行 `--replace` |
+| `bora results get-suite <id>` / `list-suites` | Registry 查询（`metrics` 原样返回，**不剥除** pass@k；`task_refs` 可含 `previous[]`） |
 | `… --local <db>` | 不启 Registry，回落本机 `.bora/suite-runs/` |
 
-API：`POST/GET /v1/results/suites`（可见性与 attempt 一致：public / `results:read`）。  
+API：`POST/GET /v1/results/suites`（可见性与 attempt 一致：public / `results:read`）；换槽为对已有 `suite_run_id` 的 PATCH（一槽现行 + `previous[]`）。  
 `GET …/suites?board=1` 只返回完备且 `bound_kind=release` 的行；Jobs 列表不加该过滤。  
-响应含 `pass_rate`、`mean_score`、`metrics`（含 `pass_at_k` / `pass_power_k` 若有）、`task_refs`（可含 `n`/`c`/`attempt_run_ids`）、`complete` / `bound_kind`；**不**接受/存储 suite PASS。  
+响应含 `pass_rate`、`mean_score`、`metrics`（含 `pass_at_k` / `pass_power_k` 若有）、`task_refs`（可含 `n`/`c`/`attempt_run_ids`/`previous[]`）、`complete` / `bound_kind` / 可选 `amended`；**不**接受/存储 suite PASS。  
 一等列仍是 `pass_rate` / `mean_score`；k 指标读 `metrics` 即可（无需额外 first-class 列也可展示）。
 
