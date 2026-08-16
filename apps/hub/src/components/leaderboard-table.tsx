@@ -22,6 +22,7 @@ import {
   latestPackageByDatabase,
   listPackages,
   pluginsUsedBySuite,
+  uniqueRuntimeRefs,
   type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
@@ -330,6 +331,7 @@ export function LeaderboardTable({
   orgId,
   emptyTitle,
   emptyBody,
+  openSuiteId,
 }: {
   suites: SuiteRow[];
   databaseId: string;
@@ -337,6 +339,8 @@ export function LeaderboardTable({
   orgId?: string | null;
   emptyTitle?: string;
   emptyBody?: string;
+  /** Open this public-board row on load; ignored when the suite is absent. */
+  openSuiteId?: string | null;
 }) {
   const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -344,6 +348,13 @@ export function LeaderboardTable({
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pluginCatalog, setPluginCatalog] = useState<PackageRelease[]>([]);
+
+  useEffect(() => {
+    if (!openSuiteId) return;
+    if (suites.some((s) => s.suite_run_id === openSuiteId)) {
+      setOpenId(openSuiteId);
+    }
+  }, [openSuiteId, suites]);
 
   useEffect(() => {
     let cancelled = false;
@@ -501,6 +512,7 @@ export function LeaderboardTable({
               const powK = passPowerPrimaryK(m);
               const agentText = s.agent_label || "";
               const modelText = s.model_label || "";
+              const runtimeLinks = uniqueRuntimeRefs(s.runtime_refs);
 
               return (
                 <Fragment key={s.suite_run_id}>
@@ -509,7 +521,25 @@ export function LeaderboardTable({
                     onClick={() => toggleRow(s.suite_run_id)}
                     data-state={open ? "open" : undefined}
                   >
-                    <TruncateCell text={agentText} className={COL_TEXT} />
+                    {runtimeLinks.length ? (
+                      <TableCell className={COL_TEXT}>
+                        <span className="flex flex-col gap-0.5 min-w-0">
+                          {runtimeLinks.map((ref) => (
+                            <Link
+                              key={ref.runtime_id}
+                              to={`/runtimes/${encodeURIComponent(ref.runtime_id)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="truncate text-sm hover:text-ink hover:underline underline-offset-2"
+                              title={ref.display_name}
+                            >
+                              {ref.display_name}
+                            </Link>
+                          ))}
+                        </span>
+                      </TableCell>
+                    ) : (
+                      <TruncateCell text={agentText} className={COL_TEXT} />
+                    )}
                     <TruncateCell text={modelText} className={COL_TEXT} mono />
                     <TableCell
                       className={`text-right tabular-nums text-xs ${COL_METRIC}`}
