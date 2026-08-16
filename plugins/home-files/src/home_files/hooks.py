@@ -91,7 +91,12 @@ def _copy_one(src: Path, dest: Path) -> None:
         if dest.exists() and dest.is_file():
             raise HomeFilesError("dest_file_src_dir", kind="home_files_dest_invalid")
         dest.mkdir(parents=True, exist_ok=True)
+        src_root = src.resolve()
         for child in src.iterdir():
+            try:
+                child.resolve().relative_to(src_root)
+            except ValueError as exc:
+                raise HomeFilesError("src_symlink_escapes", kind="home_files_path_invalid") from exc
             _copy_one(child, dest / child.name)
         return
     if dest.exists() and dest.is_dir():

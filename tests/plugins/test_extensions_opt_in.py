@@ -165,7 +165,11 @@ def test_intent_from_profile_parses_all_three_shapes() -> None:
             "executor": "dsh",
             "extensions": [
                 {"plugin": "nooa"},
-                {"plugin": "dsh", "slots": ["image_contribute"], "options": {"composition": "slim"}},
+                {
+                    "plugin": "dsh",
+                    "slots": ["image_contribute"],
+                    "options": {"composition": "slim"},
+                },
                 {"slot": "trajectory_collect", "plugin": "dsh"},
             ],
         }

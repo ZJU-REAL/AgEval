@@ -49,8 +49,10 @@ role 上可选 `label`，作为 Jobs / Hub 的 Agents 轴。缺省：ACP 用 `op
 - id: main
   executor: acp
   model: gpt-5.4-mini
-  options:
-    entry: codex
+  extensions:
+    - plugin: acp
+      options:
+        entry: codex
 ```
 
 `bora executors -v` 查 entry 与就绪状态。

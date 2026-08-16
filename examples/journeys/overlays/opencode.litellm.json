@@ -5,7 +5,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "LiteLLM",
       "options": {
-        "baseURL": "http://10.130.138.46:8010/v1"
+        "baseURL": "http://10.130.138.46:8010/v1",
+        "apiKey": "{env:litellm_api_key}"
       },
       "models": {
         "dashscope/qwen3.8-max": { "name": "qwen3.8-max" },

@@ -11,16 +11,21 @@ parameters:
     planner: planner-pi
     worker: worker-codex
 
-agent_profiles:
-  - id: planner-pi
+# Database profiles.yaml
+bindings:
+  planner-pi:
     executor: acp
-    options:
-      entry: pi
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi
     model: …
-  - id: worker-codex
+  worker-codex:
     executor: acp
-    options:
-      entry: codex
+    extensions:
+      - plugin: acp
+        options:
+          entry: codex
     model: …
 ```
 

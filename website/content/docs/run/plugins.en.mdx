@@ -32,16 +32,17 @@ bindings:
     executor: nooa
     extensions:
       - plugin: nooa
-    options:
-      agent: "lib.agents:JsonlAggAgent"
-      method: "run"
+        options:
+          agent: "lib.agents:JsonlAggAgent"
+          method: "run"
 ```
 
 `executor:` selects `provide(executor)` only — it does **not** bake or attach
-other `on:` slots. Add `extensions` on the same role when L1 needs bake /
-trajectory collect (short ids match a path install). ACP-only profiles omit
-`extensions`. Hub publish stores `org/name`; a Hub install records that
-namespaced id, and profiles for that cache row must use the same address.
+other `on:` slots. Plugin knobs live on that plugin's `extensions` row. Add
+`extensions` on the same role when L1 needs bake / trajectory collect (short
+ids match a path install). ACP `entry` lives on `- plugin: acp`. Hub publish
+stores `org/name`; a Hub install records that namespaced id, and profiles for
+that cache row must use the same address.
 
 Use an alternate profiles file at run time without changing Database ACP defaults:
 

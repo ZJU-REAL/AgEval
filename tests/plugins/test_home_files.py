@@ -158,6 +158,21 @@ def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.Monk
     assert "home-files" in plugins
 
 
+def test_symlink_child_outside_src_fails(tmp_path: Path) -> None:
+    ctx = _ctx(tmp_path)
+    src_dir = ctx["package_root"] / "overlays" / "skills"
+    src_dir.mkdir(parents=True)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("secret\n", encoding="utf-8")
+    (src_dir / "link").symlink_to(outside)
+    with pytest.raises(HomeFilesError) as ei:
+        apply_files(
+            [{"src": "overlays/skills", "dest": ".agents/skills", "dest_root": "workspace"}],
+            {k: str(v) for k, v in ctx.items()},
+        )
+    assert ei.value.kind == "home_files_path_invalid"
+
+
 def test_dest_root_required(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path)
     src = ctx["package_root"] / "overlays" / "a.json"

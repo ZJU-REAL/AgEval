@@ -16,21 +16,24 @@ uv run bora executors -v
 ## 配置里声明
 
 ```yaml
-parameters:
-  active_profile: codex-mini
-
-agent_profiles:
-  - id: codex-mini
+# Database profiles.yaml
+bindings:
+  solver:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: codex
     model: gpt-5.4-mini
-    options:
-      entry: codex
-  - id: pi-mini
-    executor: acp
-    model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key   # 环境变量名
-    options:
-      entry: pi
+  # 或换一条 binding / --profiles / --set
+  # solver:
+  #   executor: acp
+  #   extensions:
+  #     - plugin: acp
+  #       options:
+  #         entry: pi
+  #   model: zai-coding-cn/glm-5.2
+  #   api_key: glm_coding_api_key
 ```
 
 ## 临时切换（不用改文件）
