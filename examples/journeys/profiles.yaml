@@ -7,7 +7,7 @@ bindings:
         options:
           entry: pi
     model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}
   user:
     executor: acp
     extensions:
@@ -22,7 +22,7 @@ bindings:
         options:
           entry: opencode
     model: zai-coding-plan/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}
   specialist:
     executor: acp
     extensions:
@@ -30,7 +30,7 @@ bindings:
         options:
           entry: pi
     model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}
   planner:
     executor: acp
     extensions:
@@ -38,7 +38,7 @@ bindings:
         options:
           entry: opencode
     model: zai-coding-plan/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}
   reducer:
     executor: acp
     extensions:

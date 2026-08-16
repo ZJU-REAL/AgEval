@@ -19,7 +19,7 @@ uv run bora plugin install plugins/slot-probe
 uv run bora plugin install plugins/nooa   # L0 host SPI agent
 ```
 
-L1 PASS needs ACP credentials (profile `probe-acp` uses `api_key: glm_coding_api_key`).
+L1 PASS needs ACP credentials (profile `probe-acp` uses `api_key: ${glm_coding_api_key}`).
 Copy from another Database `.env` or set the locator env var on the host
 (values never enter lock/evidence).
 

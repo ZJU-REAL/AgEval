@@ -242,8 +242,8 @@ bindings:
           agent: "lib.agents:JsonlAggAgent"  # package-local nooa.Agent
           method: "run"
     model: openai/glm-5.2
-    api_key: litellm_api_key          # env locator；值不进 lock
-    # base_url: https://…/v1          # 可选；否则回落 litellm_base_url / OPENAI_BASE_URL
+    api_key: ${litellm_api_key}          # ${ENV_NAME} locator；值不进 lock
+    # base_url: ${litellm_base_url}   # 可选；字面 URL 或 ${ENV_NAME}
 ```
 
 L1：bake 安装 `nooa` + **in-container worker**；parent 把 model/base_url/密钥投影进 worker；host SPI 不是 L1 成功路径。

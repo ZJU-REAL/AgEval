@@ -17,4 +17,4 @@ bindings:
         options:
           permission: read-only
     model: deepseek-v4-flash
-    api_key: deepseek_api_key
+    api_key: ${deepseek_api_key}

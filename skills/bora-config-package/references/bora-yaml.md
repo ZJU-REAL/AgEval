@@ -86,7 +86,7 @@ bindings:
         options:
           entry: pi
     model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key   # host env locator name only
+    api_key: ${glm_coding_api_key}   # host env locator name only
 ```
 
 | Field | Rule |
@@ -137,7 +137,7 @@ agent_profiles:
     executor: openai-http
     model: glm-4.7
     base_url: https://open.bigmodel.cn/api/coding/paas/v4
-    api_key: zhipu_coding_api_key
+    api_key: ${zhipu_coding_api_key}
 ```
 
 Design: `docs/design/02-task-package-and-config.md`, `docs/design/05-runtime/agent-service.md`.

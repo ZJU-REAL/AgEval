@@ -147,7 +147,7 @@ bindings:
           agent: "lib.agents:MyAgent" # plugin-owned, secret-free opaque keys
           method: "run"
     model: openai/glm-5.2
-    api_key: litellm_api_key # locator
+    api_key: ${litellm_api_key} # locator
 ```
 
 `--set /bindings/<role>/options/<key>=…` writes the **executor plugin**

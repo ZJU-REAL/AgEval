@@ -20,4 +20,4 @@ bindings:
           entry: pi
       - plugin: slot-probe
     model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}

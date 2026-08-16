@@ -55,13 +55,13 @@ bindings:
   # api-client（非 coding-agent ACP 路径）
   # 可选 per-profile 上游路由（与 model 同级）：
   # - base_url: non-secret endpoint（进入 lock digest）
-  # - api_key: 环境变量 *名* only（locator）；值来自 host/.env，
+  # - api_key: ${ENV_NAME} locator only；值来自 host/.env，
   #   投影进 Executor 时使用 — 永不写入 lock/evidence
   glm-coding-http:
     executor: openai-http
     model: glm-4.7
     base_url: https://open.bigmodel.cn/api/coding/paas/v4
-    api_key: zhipu_coding_api_key
+    api_key: ${zhipu_coding_api_key}
 
 parameters:
   models:

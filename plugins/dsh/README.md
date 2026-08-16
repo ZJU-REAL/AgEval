@@ -43,7 +43,7 @@ bindings:
           composition: slim               # omit permission → unrestricted local bash/fs
           # permission: read-only         # or workspace-write | danger-full-access
     model: deepseek-v4-flash
-    api_key: deepseek_api_key          # env locator
+    api_key: ${deepseek_api_key}          # env locator
 ```
 
 `options.permission` is plugin-owned (same pattern as `composition`). Allowed

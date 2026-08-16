@@ -236,13 +236,13 @@ bindings:
         options:
           entry: opencode       # registry: codex | claude-code | pi | opencode | grok-build
     model: entry-default
-    api_key: glm_coding_api_key   # env *locator name* only
+    api_key: ${glm_coding_api_key}   # ${ENV_NAME} locator; value never in YAML/lock
   # HTTP / non-ACP example:
   # http-solver:
   #   executor: openai-http
   #   model: glm-4.7
-  #   base_url: https://open.bigmodel.cn/api/coding/paas/v4
-  #   api_key: zhipu_coding_api_key
+  #   base_url: ${OPENAI_BASE_URL}
+  #   api_key: ${zhipu_coding_api_key}
 ```
 
 ## Ownership rules

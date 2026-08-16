@@ -15,7 +15,7 @@ bindings:
         options:
           entry: codex
     model: gpt-5.4-mini
-    # api_key: MY_ENV_NAME
+    # api_key: ${MY_ENV_NAME}
 ```
 
 | 字段 | 说明 |
@@ -23,7 +23,8 @@ bindings:
 | `executor` | coding agent 用 `acp`（不要用已废弃的 `executor: codex` 等） |
 | `- plugin: acp` / `options.entry` | **必填**；本机可用 id 以 `bora executors -v` 为准 |
 | `model` | 交给该 entry 的模型 |
-| `api_key` | 可选；**环境变量名** |
+| `api_key` | 可选；`${ENV_NAME}` locator |
+| `base_url` | 可选；字面 URL 或 `${ENV_NAME}` |
 
 不要在 yaml 里写 command / version / install——版本钉在安装与镜像构建。
 
