@@ -86,7 +86,7 @@ L1 不要求宿主 extra，只看本 profile `extensions` 是否选中 `image_co
 
 ## 与 ACP 的关系
 
-默认 coding-agent 路径仍是 `executor: acp` + `options.entry`。插件是 **可选** 机制，
+默认 coding-agent 路径仍是 `executor: acp` + `- plugin: acp` / `options.entry`。插件是 **可选** 机制，
 与 ACP first-party 并列；同一 harness 只靠 profiles 切换。
 
 更多机制契约见设计文档（贡献者侧 `docs/design`）；本页不改变证据等级声明。

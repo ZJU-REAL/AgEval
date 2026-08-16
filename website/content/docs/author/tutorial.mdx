@@ -98,7 +98,7 @@ Evaluator 读 `evaluation.inputs` 准备好的文件，输出分数 / 判定。
 | 问题                     | 处理                                                     |
 | ------------------------ | -------------------------------------------------------- |
 | `task_id` 和目录名不一致 | 改到一致                                                 |
-| 缺 `options.entry`       | ACP 必填                                                 |
+| 缺 `- plugin: acp` / `entry` | ACP 必填；写在 Database `profiles.yaml`               |
 | docker 无 Dockerfile     | 见 [Docker 与可见性](/docs/author/docker-and-visibility) |
 | 评测找不到 artifact      | harness 是否写出、id 是否对上                            |
 

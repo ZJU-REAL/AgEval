@@ -47,7 +47,7 @@ Authoring / porting / scenario-homogeneous Datasets: load `$bora-config-package`
 3. **Adapters** named by mechanism/protocol/resource (`acp`, `openai-http`, `postgresql`, docker; ACP **entries** `codex`/`pi`/…) — never Benchmark/task/domain names.
 4. **Do not claim** suite-wide `isolated` or `real-benchmark-verified` from one happy path.
 5. **Skills only describe shipped surfaces** — never invent CLI flags or Core APIs.
-6. **Coding-agent Target:** `executor: acp` + `options.entry` — not private CLI `executor: codex|pi|…`.
+6. **Coding-agent Target:** `executor: acp` + `- plugin: acp` / `options.entry` — not private CLI `executor: codex|pi|…`.
 7. **Plugins:** fixed L0–L5 extension points + registry; `bora plugin install` never rewrites profiles; Recognition ≠ L1 Ready (`image_contribute` bake); no executor dual path.
 8. **Hub Leaderboard / Task Jobs need suite uploads** — `bora results upload` (single Attempt) is not enough for primary Hub surfaces; use suite run + `bora results upload-suite` (often `--with-attempts`). Public Leaderboard further requires a **complete**, **release-bound** suite; incomplete or draft-bound rows stay on Jobs. Detail: `$bora-cli` § Hub visibility.
 

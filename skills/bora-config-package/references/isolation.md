@@ -16,7 +16,7 @@
   (see docs/design/05-runtime/provider-l1.md).
   Upstream base: `FROM <image>` then install required ACP entries in that Dockerfile.
   Secrets never baked into image layers.
-- Coding agents on L1: `executor: acp` + `options.entry`; parent ACP client +
+- Coding agents on L1: `executor: acp` + `- plugin: acp` / `options.entry`; parent ACP client +
   `docker exec` placement — no private CLI scrape.
 
 ## L1 Dockerfile depth tiers (conversion)

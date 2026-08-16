@@ -82,8 +82,10 @@ Coding-agent packages use:
 
 ```yaml
 executor: acp
-options:
-  entry: opencode # or codex | claude-code | pi | grok-build | …
+extensions:
+  - plugin: acp
+    options:
+      entry: opencode # or codex | claude-code | pi | grok-build | …
 ```
 
 Do **not** hardcode a fixed list; inventory is authoritative. Do **not** use

@@ -360,32 +360,14 @@ provider:
 
 agent_profiles:
   # profile = 可切换的 Agent 后端绑定；见 design/05-runtime/agent-service.md
-  # coding-agent: executor: acp + options.entry
+  # 成员只声明角色槽。coding-agent 绑定见 Database profiles.yaml：
+  # executor: acp + - plugin: acp / options.entry
   - id: codex-database-specialist
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
   - id: codex-database-planner
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
   - id: codex-database-reducer
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
-  # 混用示例：planner 换 OpenCode 或 Pi ACP entry
-  # - id: opencode-database-planner
-  #   executor: acp
-  #   options: { entry: opencode }
-  # - id: pi-database-planner
-  #   executor: acp
-  #   options: { entry: pi }
 
 environment:
   id: database-attempt

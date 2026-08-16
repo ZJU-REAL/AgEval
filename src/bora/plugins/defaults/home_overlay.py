@@ -87,6 +87,7 @@ async def default_home_overlay(ctx: Any, value: Any, nxt: NextFn) -> Any:
 
     docker = getattr(ctx, "docker", None) if ctx is not None else None
     if docker is not None:
+        assert ctx is not None
         ledger = docker.prepare_agent_targets(
             ctx.runtime,
             ctx.topology,

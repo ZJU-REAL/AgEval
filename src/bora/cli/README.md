@@ -210,7 +210,7 @@ uv run bora lock examples/core --task config-minimal --probe
 # --probe: plan + readiness for this binding / provider.kind; no Agent, no bake
 ```
 
-Coding-agent packages use `executor: acp` + `options.entry: …`. Prefer inventory output over hardcoded vendor lists.
+Coding-agent packages use `executor: acp` + `- plugin: acp` / `options.entry: …`. Prefer inventory output over hardcoded vendor lists.
 
 ---
 
