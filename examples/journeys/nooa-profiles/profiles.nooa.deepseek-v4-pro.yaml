@@ -1,0 +1,15 @@
+# LiteLLM feasibility overlay for terminal-jsonl-agg (nooa).
+# model: openai/DeepSeek-V4-Pro
+# nooa LiteLLM client needs an openai/ prefix to hit litellm_base_url
+# (bare catalog id → "LLM Provider NOT provided").
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: nooa
+    extensions:
+      - plugin: nooa
+        options:
+          agent: "lib.agents:JsonlAggAgent"
+          method: "run"
+    model: openai/DeepSeek-V4-Pro
+    api_key: ${litellm_api_key}
