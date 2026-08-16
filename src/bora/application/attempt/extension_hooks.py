@@ -18,6 +18,8 @@ from typing import Any
 
 from bora.config.model import LockedTaskConfig, thaw
 from bora.plugins.bootstrap import ensure_bootstrapped
+from bora.plugins.defaults.home_overlay import PLUGIN_ID as DEFAULT_PLUGIN_ID
+from bora.plugins.defaults.home_overlay import default_home_overlay
 from bora.plugins.lifecycle import (
     call_env_action,
     call_evaluation_runtime,
@@ -31,8 +33,10 @@ from bora.plugins.lifecycle import (
     emit_run,
     score_postprocess,
 )
+from bora.plugins.middleware import run_handlers
 from bora.plugins.protocol import BindingIntent, ExtensionGraph, intent_from_profile
 from bora.plugins.resolve import resolve
+from bora.plugins.slots import HOME_OVERLAY
 
 _LOG = logging.getLogger(__name__)
 
@@ -80,6 +84,51 @@ def _run(coro: Any) -> Any:
         return asyncio.run(coro)
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(asyncio.run, coro).result()
+
+
+def _per_profile_graphs(lock: LockedTaskConfig, *, materialize: bool) -> list[ExtensionGraph]:
+    reg = ensure_bootstrapped()
+    profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
+    graphs: list[ExtensionGraph] = []
+    if isinstance(profiles, list):
+        for row in profiles:
+            if not isinstance(row, dict):
+                continue
+            intent = intent_from_profile(row)
+            if not intent.profile_id:
+                intent.profile_id = str(row.get("id") or "default")
+            graphs.append(resolve(intent, reg, materialize=materialize))
+    return graphs
+
+
+def hook_home_overlay(
+    lock: LockedTaskConfig,
+    value: Any = None,
+    *,
+    ctx: Any = None,
+    fail_closed: bool = True,
+) -> Any:
+    """Emit home_overlay: Core default wraps per-profile plugin handlers."""
+
+    async def _emit() -> Any:
+        plugin_handlers = []
+        for graph in _per_profile_graphs(lock, materialize=True):
+            for href in graph.chain(HOME_OVERLAY):
+                if href.plugin_id != DEFAULT_PLUGIN_ID:
+                    plugin_handlers.append(href)
+
+        async def nxt(v: Any) -> Any:
+            return await run_handlers(plugin_handlers, v, ctx=ctx)
+
+        return await default_home_overlay(ctx, value, nxt)
+
+    try:
+        return _run(_emit())
+    except Exception:
+        if fail_closed:
+            raise
+        _LOG.exception("extension hook_home_overlay failed (fail-open)")
+        return value
 
 
 def hook_prepare(

@@ -124,8 +124,18 @@ def _install_l1_fakes(
         "bora.application.attempt.run_l1_phases.prepare_l1_runtime",
         lambda *_a, **_k: (docker, runtime, {"containment": "full_l1_attempt"}),
     )
+
+    def _fake_home_overlay(_lock, _value, *, ctx=None, **_k):  # type: ignore[no-untyped-def]
+        if ctx is not None:
+            ctx.cred = cred
+            ctx.ledger = docker.prepare_agent_targets(
+                runtime, SimpleNamespace(), cred_root=cred.root
+            )
+        return {"cred": cred}
+
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_phases.project_executor_credentials", lambda **_k: cred
+        "bora.application.attempt.run_l1_phases.hook_home_overlay",
+        _fake_home_overlay,
     )
     monkeypatch.setattr(
         "bora.application.attempt.run_l1_phases.seed_l1_workspace", lambda **_k: None

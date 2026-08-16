@@ -39,6 +39,7 @@ def inject_service_profiles(
     *,
     package_root: Path,
     workdir: Path | str | None = None,
+    home: Path | str | None = None,
 ) -> list[dict[str, Any]]:
     """Copy profiles and inject package/workdir context for executor materialize."""
     service_profiles: list[dict[str, Any]] = []
@@ -49,6 +50,8 @@ def inject_service_profiles(
         row["_package_root"] = str(package_root)
         if workdir is not None:
             row.setdefault("_workdir", str(workdir))
+        if home is not None:
+            row["_home"] = str(home)
         service_profiles.append(row)
     return service_profiles
 
@@ -63,6 +66,7 @@ def assemble_parent_agent_service(
     evidence_store: Any,
     deadline_monotonic: float | None,
     workdir: Path | str | None = None,
+    home: Path | str | None = None,
     require_actor_id: bool = False,
     validate_actor_profile: Any = None,
     resolve_placement: Any = None,
@@ -78,6 +82,7 @@ def assemble_parent_agent_service(
         profiles,
         package_root=package_root,
         workdir=workdir,
+        home=home,
     )
     quota = AgentInvocationQuota(limit=inv_limit)
     kwargs: dict[str, Any] = {

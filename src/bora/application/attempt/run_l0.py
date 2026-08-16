@@ -151,6 +151,29 @@ def prepare_l0_attempt(ctx: AttemptStageContext) -> tuple[int, FlatResult, dict[
                     database_root=ctx.database_root,
                 )
             write_l0_lock_summary(ctx)
+            from types import SimpleNamespace
+
+            from bora.application.attempt.extension_hooks import hook_home_overlay
+
+            workspace_root = ctx.run_dir / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            overlay_ctx = SimpleNamespace(
+                work_root=ctx.run_dir,
+                package_root=ctx.database_root or ctx.package_root,
+                workspace_root=workspace_root,
+            )
+            overlay_value = hook_home_overlay(
+                ctx.lock,
+                {
+                    "package_root": str(ctx.database_root or ctx.package_root),
+                    "workspace_root": str(workspace_root),
+                    "work_root": str(ctx.run_dir),
+                },
+                ctx=overlay_ctx,
+            )
+            attempt_home = None
+            if isinstance(overlay_value, dict):
+                attempt_home = overlay_value.get("home_root")
             wall_s, deadline = read_wall_deadline(lock=ctx.lock, monotonic_now=time.monotonic())
             ctx.wall_s = wall_s
             service, invoke_timeout, authority = assemble_parent_agent_service(
@@ -161,6 +184,7 @@ def prepare_l0_attempt(ctx: AttemptStageContext) -> tuple[int, FlatResult, dict[
                 params=params if isinstance(params, dict) else {},
                 evidence_store=ctx.evidence_store,
                 deadline_monotonic=deadline,
+                home=attempt_home,
             )
             ctx.agent_service = service
             ctx.authority = authority

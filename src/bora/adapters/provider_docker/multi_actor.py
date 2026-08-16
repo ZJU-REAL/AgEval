@@ -397,6 +397,10 @@ class DockerMultiActorMixin:
             lines.append(f"mkdir -p '{home}'")
             lines.append(f"chmod 0700 '{home}'")
             lines.append(f"chown {b.uid}:{b.gid} '{home}'")
+            # Plugin extras first; allowlisted auth copies win on overlap.
+            lines.append(
+                f"if [ -d /creds/home_overlay ]; then cp -a /creds/home_overlay/. '{home}/'; fi"
+            )
             # Projected credential copies (allowlist) into actor HOME.
             lines.append(f"mkdir -p '{home}/.codex'")
             lines.append(
