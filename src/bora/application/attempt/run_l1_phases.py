@@ -28,7 +28,12 @@ from bora.evaluation.result_binding import bind_result
 from bora.evidence.locators import portable_run_locator
 from bora.evidence.store import AttemptEvidenceStore
 from bora.provider.isolation import parse_logical_topology
+from bora.config.profiles import acp_entry_from_binding
 from bora.runtime.identity import AttemptIdentity, assert_same_attempt
+
+
+def _lock_acp_entry(profile: dict[str, Any]) -> str | None:
+    return acp_entry_from_binding(profile)
 
 
 def _timer(ctx: AttemptStageContext) -> PhaseTimer:
@@ -169,9 +174,8 @@ def prepare_l1_session(ctx: AttemptStageContext) -> bool:
                         "executor": p.get("executor"),
                         "model": p.get("model"),
                         **(
-                            {"options": {"entry": (p.get("options") or {}).get("entry")}}
-                            if isinstance(p.get("options"), dict)
-                            and (p.get("options") or {}).get("entry") is not None
+                            {"options": {"entry": _lock_acp_entry(p)}}
+                            if _lock_acp_entry(p) is not None
                             else {}
                         ),
                     }

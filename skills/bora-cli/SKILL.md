@@ -119,7 +119,7 @@ Job binding axes:
 - `/bindings/<role_id>/executor`
 - `/bindings/<role_id>/api_key`
 - `/bindings/<role_id>/base_url`
-- `/bindings/<role_id>/options/<key>` (plugin-opaque; ACP denylist still rejects `command` / engine keys)
+- `/bindings/<role_id>/options/<key>` (writes the **executor plugin** extensions row; ACP denylist still rejects `command` / engine keys)
 
 **Not** overridable: intent `limits.*` (task contract).
 

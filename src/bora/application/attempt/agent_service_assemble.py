@@ -46,11 +46,9 @@ def inject_service_profiles(
         if not isinstance(p, dict):
             continue
         row = dict(p)
-        opts = dict(row.get("options") or {}) if isinstance(row.get("options"), dict) else {}
-        opts["_package_root"] = str(package_root)
+        row["_package_root"] = str(package_root)
         if workdir is not None:
-            opts.setdefault("_workdir", str(workdir))
-        row["options"] = opts
+            row.setdefault("_workdir", str(workdir))
         service_profiles.append(row)
     return service_profiles
 

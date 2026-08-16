@@ -27,12 +27,15 @@ _SKIP_PLUGIN_IDS = frozenset({"default", "acp", "openai-http"})
 
 def _profile_entry(profile: Mapping[str, Any]) -> str:
     """Display id: ACP ``options.entry``, else plugin ``options.agent``, else kind."""
-    options = profile.get("options")
-    if isinstance(options, Mapping):
-        for key in ("entry", "agent"):
-            val = options.get(key)
-            if val is not None and str(val).strip():
-                return str(val).strip()
+    from bora.config.profiles import acp_entry_from_binding, executor_plugin_options
+
+    entry = acp_entry_from_binding(profile)
+    if entry:
+        return entry
+    plugin_opts = executor_plugin_options(profile)
+    agent = plugin_opts.get("agent")
+    if agent is not None and str(agent).strip():
+        return str(agent).strip()
     executor = profile.get("executor")
     if executor is not None and str(executor).strip():
         return str(executor).strip()
@@ -40,10 +43,9 @@ def _profile_entry(profile: Mapping[str, Any]) -> str:
 
 
 def _profile_options(profile: Mapping[str, Any]) -> dict[str, Any]:
-    from bora.config.profiles import secret_free_options
+    from bora.config.profiles import executor_plugin_options, secret_free_options
 
-    raw = profile.get("options")
-    return secret_free_options(raw if isinstance(raw, Mapping) else None)
+    return secret_free_options(executor_plugin_options(profile))
 
 
 def actors_summary_from_profiles(

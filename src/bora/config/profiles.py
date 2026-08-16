@@ -325,13 +325,36 @@ def apply_binding_override(
     target = bindings[role_id]
     if field.startswith("options/"):
         opt_key = field[len("options/") :]
-        options = target.get("options")
-        if not isinstance(options, dict):
-            options = {}
-            target["options"] = options
-        options[opt_key] = value
+        executor = target.get("executor")
+        if not isinstance(executor, str) or not executor.strip():
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "options override requires bindings.<role>.executor",
+                location=pointer,
+            )
+        _upsert_executor_option(target, plugin=executor.strip(), key=opt_key, value=value)
         return
     target[field] = value
+
+
+def _upsert_executor_option(binding: dict[str, Any], *, plugin: str, key: str, value: Any) -> None:
+    """Write ``--set /bindings/<role>/options/<key>`` onto the executor plugin row."""
+    rows = binding.get("extensions")
+    if not isinstance(rows, list):
+        rows = []
+        binding["extensions"] = rows
+    match: dict[str, Any] | None = None
+    for item in rows:
+        if isinstance(item, dict) and str(item.get("plugin") or "").strip() == plugin:
+            match = item
+    if match is None:
+        match = {"plugin": plugin}
+        rows.append(match)
+    options = match.get("options")
+    if not isinstance(options, dict):
+        options = {}
+        match["options"] = options
+    options[key] = value
 
 
 def is_binding_override_pointer(pointer: str) -> bool:
@@ -371,6 +394,48 @@ def secret_free_options(options: Mapping[str, Any] | None) -> dict[str, Any]:
     return out
 
 
+def _secret_free_extension_row(item: Mapping[str, Any]) -> dict[str, Any]:
+    out = {k: copy.deepcopy(v) for k, v in item.items() if k != "options"}
+    cleaned = secret_free_options(
+        item.get("options") if isinstance(item.get("options"), Mapping) else None
+    )
+    if cleaned:
+        out["options"] = cleaned
+    return out
+
+
+def plugin_row_options(binding: Mapping[str, Any], plugin_id: str) -> dict[str, Any]:
+    """Last ``extensions`` row for *plugin_id* wins. Profile-level options are ignored."""
+    found: dict[str, Any] = {}
+    rows = binding.get("extensions")
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return {}
+    for item in rows:
+        if not isinstance(item, Mapping):
+            continue
+        if str(item.get("plugin") or "").strip() != plugin_id:
+            continue
+        raw = item.get("options")
+        if isinstance(raw, Mapping):
+            found = dict(raw)
+    return found
+
+
+def executor_plugin_options(binding: Mapping[str, Any]) -> dict[str, Any]:
+    executor = binding.get("executor")
+    if not isinstance(executor, str) or not executor.strip():
+        return {}
+    return plugin_row_options(binding, executor.strip())
+
+
+def acp_entry_from_binding(binding: Mapping[str, Any]) -> str | None:
+    """ACP ``entry`` lives on ``- plugin: acp`` options. No profile-options fallback."""
+    entry = plugin_row_options(binding, "acp").get("entry")
+    if entry is not None and str(entry).strip():
+        return str(entry).strip()
+    return None
+
+
 def display_agent_name(binding: Mapping[str, Any]) -> str:
     """Jobs / Hub agent axis. Never reads ``options.agent`` (plugin start path).
 
@@ -381,11 +446,9 @@ def display_agent_name(binding: Mapping[str, Any]) -> str:
         return label.strip()
     executor = str(binding.get("executor") or "").strip()
     if executor == "acp":
-        options = binding.get("options")
-        if isinstance(options, Mapping):
-            entry = options.get("entry")
-            if entry is not None and str(entry).strip():
-                return str(entry).strip()
+        entry = acp_entry_from_binding(binding)
+        if entry:
+            return entry
         projected = binding.get("entry")
         if isinstance(projected, str) and projected.strip():
             return projected.strip()
@@ -451,7 +514,12 @@ def project_job_overlay(
                 row[k] = raw[k]
         extensions = raw.get("extensions")
         if isinstance(extensions, Sequence) and not isinstance(extensions, (str, bytes)):
-            row["extensions"] = copy.deepcopy(list(extensions))
+            row["extensions"] = [
+                _secret_free_extension_row(item)
+                if isinstance(item, Mapping)
+                else copy.deepcopy(item)
+                for item in extensions
+            ]
         options = secret_free_options(
             raw.get("options") if isinstance(raw.get("options"), Mapping) else None
         )

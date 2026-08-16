@@ -69,7 +69,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
                         "id": "main",
                         "executor": "acp",
                         "model": "test-model",
-                        "options": {"entry": "pi"},
+                        "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
                         "capabilities": {"execution_mode": "acp-stdio"},
                     }
                 ],
@@ -413,14 +413,14 @@ def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha")
                         "id": "user-grok",
                         "executor": "acp",
                         "model": "entry-default",
-                        "options": {"entry": "grok"},
+                        "extensions": [{"plugin": "acp", "options": {"entry": "grok"}}],
                         "capabilities": {"execution_mode": "acp-stdio"},
                     },
                     {
                         "id": "service-opencode",
                         "executor": "acp",
                         "model": "glm-5.2",
-                        "options": {"entry": "opencode"},
+                        "extensions": [{"plugin": "acp", "options": {"entry": "opencode"}}],
                         "capabilities": {"execution_mode": "acp-stdio"},
                     },
                 ],
@@ -574,7 +574,7 @@ def test_legacy_usage_cost_only_no_used_as_tokens(tmp_path: Path) -> None:
                     {
                         "id": "main-pi",
                         "executor": "acp",
-                        "options": {"entry": "pi"},
+                        "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
                         "capabilities": {"execution_mode": "acp-stdio"},
                     }
                 ],

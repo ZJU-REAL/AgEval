@@ -35,7 +35,7 @@ def test_agent_service_with_acp_offline_no_secret_in_evidence(
                 "id": "p1",
                 "executor": "acp",
                 "model": "entry-default",
-                "options": {"entry": "opencode"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "opencode"}}],
             }
         ],
         agent_invocation_limit=1,

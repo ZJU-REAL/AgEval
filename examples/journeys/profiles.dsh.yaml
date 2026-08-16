@@ -15,7 +15,7 @@ bindings:
     executor: dsh
     extensions:
       - plugin: dsh
+        options:
+          composition: slim
     model: deepseek-v4-flash
     api_key: deepseek_api_key
-    options:
-      composition: slim

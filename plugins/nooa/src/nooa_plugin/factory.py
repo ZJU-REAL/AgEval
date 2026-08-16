@@ -200,10 +200,14 @@ class NooaExecutorSPI:
         base_url: str | None = None,
         api_key: str | None = None,
         plugin_id: str | None = None,
+        package_root: str | None = None,
+        workdir: str | None = None,
         **_kwargs: Any,
     ) -> None:
         del plugin_id
         opts = dict(options or {})
+        if package_root:
+            opts.setdefault("_package_root", package_root)
         agent_ref = opts.get("agent")
         if not agent_ref or not str(agent_ref).strip():
             raise ExtensionMaterializeError(
@@ -217,7 +221,7 @@ class NooaExecutorSPI:
         self.base_url = base_url
         self.api_key_env = api_key  # locator name
         self.options = opts
-        self.default_workdir = str(opts.get("_workdir")).strip() if opts.get("_workdir") else None
+        self.default_workdir = str(workdir).strip() if workdir else None
         self._agent_cls: Any = None
         self._agent: Any = None
         self._llm: Any = None

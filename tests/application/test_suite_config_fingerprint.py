@@ -30,13 +30,13 @@ def test_actors_summary_sorted_and_secret_free() -> None:
             "executor": "acp",
             "model": "m2",
             "api_key": "SECRET_LOCATOR",
-            "options": {"entry": "pi"},
+            "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
         },
         {
             "id": "planner",
             "executor": "acp",
             "model": "m1",
-            "options": {"entry": "codex"},
+            "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
         },
     ]
     actors = actors_summary_from_profiles(profiles)
@@ -54,17 +54,17 @@ def test_job_overlay_axis_ignores_role_topology_diff() -> None:
         "bindings": {
             "solver": {
                 "executor": "acp",
-                "options": {"entry": "pi"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
                 "model": "m",
             },
             "user": {
                 "executor": "acp",
-                "options": {"entry": "grok-build"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
                 "model": "entry-default",
             },
             "service": {
                 "executor": "acp",
-                "options": {"entry": "opencode"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "opencode"}}],
                 "model": "m2",
             },
         }
@@ -100,7 +100,7 @@ def test_job_overlay_conflict_not_homogeneous() -> None:
         "bindings": {
             "solver": {
                 "executor": "acp",
-                "options": {"entry": "pi"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
                 "model": "m1",
             }
         }
@@ -109,7 +109,7 @@ def test_job_overlay_conflict_not_homogeneous() -> None:
         "bindings": {
             "solver": {
                 "executor": "acp",
-                "options": {"entry": "codex"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
                 "model": "m1",
             }
         }
@@ -125,20 +125,20 @@ def test_job_overlay_conflict_not_homogeneous() -> None:
 def test_job_overlays_compatible_helper() -> None:
     suite = {
         "bindings": {
-            "a": {"executor": "acp", "options": {"entry": "pi"}, "model": "m"},
-            "b": {"executor": "acp", "options": {"entry": "codex"}, "model": "n"},
+            "a": {"executor": "acp", "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}], "model": "m"},
+            "b": {"executor": "acp", "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}], "model": "n"},
         }
     }
     assert job_overlays_compatible(suite, [None, {"bindings": {"a": suite["bindings"]["a"]}}])
     assert not job_overlays_compatible(
         suite,
-        [{"bindings": {"a": {"executor": "acp", "options": {"entry": "opencode"}, "model": "m"}}}],
+        [{"bindings": {"a": {"executor": "acp", "extensions": [{"plugin": "acp", "options": {"entry": "opencode"}}], "model": "m"}}}],
     )
 
 
 def test_homogeneous_true_identical_topology() -> None:
     a = actors_summary_from_profiles(
-        [{"id": "solo", "executor": "acp", "model": "x", "options": {"entry": "pi"}}]
+        [{"id": "solo", "executor": "acp", "model": "x", "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}]}]
     )
     fields = compute_suite_config_fields([a, a, a])
     assert fields["config_homogeneous"] is True
@@ -167,7 +167,7 @@ def test_derive_labels_nooa_uses_executor_not_options_agent() -> None:
 def test_empty_agent_tasks_do_not_break_fallback_homogeneity() -> None:
     """No-agent tasks + identical agent tasks remain homogeneous (fallback path)."""
     solo = actors_summary_from_profiles(
-        [{"id": "solo", "executor": "acp", "model": "x", "options": {"entry": "pi"}}]
+        [{"id": "solo", "executor": "acp", "model": "x", "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}]}]
     )
     fields = compute_suite_config_fields([[], solo, solo])
     assert fields["config_homogeneous"] is True
@@ -176,10 +176,10 @@ def test_empty_agent_tasks_do_not_break_fallback_homogeneity() -> None:
 
 def test_fallback_different_models_not_homogeneous() -> None:
     a = actors_summary_from_profiles(
-        [{"id": "solo", "executor": "acp", "model": "gpt-a", "options": {"entry": "codex"}}]
+        [{"id": "solo", "executor": "acp", "model": "gpt-a", "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}]}]
     )
     b = actors_summary_from_profiles(
-        [{"id": "solo", "executor": "acp", "model": "gpt-b", "options": {"entry": "codex"}}]
+        [{"id": "solo", "executor": "acp", "model": "gpt-b", "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}]}]
     )
     fields = compute_suite_config_fields([a, b])
     assert fields["config_homogeneous"] is False
@@ -189,7 +189,7 @@ def test_fingerprint_stable() -> None:
     actors = actors_summary_from_profiles(
         [
             {"id": "b", "executor": "openai-http", "model": "m"},
-            {"id": "a", "executor": "acp", "model": "n", "options": {"entry": "pi"}},
+            {"id": "a", "executor": "acp", "model": "n", "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}]},
         ]
     )
     assert fingerprint_for_actors(actors) == fingerprint_for_actors(list(reversed(actors)))
@@ -267,7 +267,7 @@ def test_plugins_from_job_overlay_skips_builtin_executors() -> None:
     overlay = {
         "bindings": {
             "solver": {"executor": "nooa", "model": "m"},
-            "user": {"executor": "acp", "options": {"entry": "codex"}},
+            "user": {"executor": "acp", "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}]},
             "alt": {"executor": "ACP"},
             "http": {"executor": "OpenAI-HTTP"},
         }

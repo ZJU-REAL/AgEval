@@ -5,22 +5,28 @@ bindings:
     model: none
   solver:
     executor: acp
-    options:
-      entry: codex
+    extensions:
+      - plugin: acp
+        options:
+          entry: codex
     model: gpt-5.4-mini
   http-solver:
     executor: openai-http
     model: gpt-4.1-mini
   primary:
     executor: acp
-    options:
-      entry: opencode
+    extensions:
+      - plugin: acp
+        options:
+          entry: opencode
     model: zai-coding-plan/glm-5.2
     api_key: glm_coding_api_key
   secondary:
     executor: acp
-    options:
-      entry: pi
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi
     model: zai-coding-cn/glm-5.2
     api_key: glm_coding_api_key
 
@@ -29,8 +35,7 @@ bindings:
     executor: nooa
     extensions:
       - plugin: nooa
-    options:
-      agent: "lib.agents:FixedAnswerAgent"
-      method: "run"
+        options:
+          agent: "lib.agents:FixedAnswerAgent"
+          method: "run"
     model: none
-

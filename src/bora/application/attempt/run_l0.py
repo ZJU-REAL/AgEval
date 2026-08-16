@@ -82,9 +82,11 @@ def write_l0_lock_summary(ctx: AttemptStageContext) -> None:
                 "executor": kind,
                 "model": p.get("model"),
             }
-            opts = p.get("options")
-            if isinstance(opts, dict) and opts.get("entry") is not None:
-                row["options"] = {"entry": opts.get("entry")}
+            from bora.config.profiles import acp_entry_from_binding
+
+            entry = acp_entry_from_binding(p)
+            if entry is not None:
+                row["options"] = {"entry": entry}
             if p.get("base_url"):
                 row["base_url"] = p.get("base_url")
             if p.get("api_key"):

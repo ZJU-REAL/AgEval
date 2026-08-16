@@ -50,7 +50,7 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
             "p": {
                 "executor": "acp",
                 "model": "entry-default",
-                "options": {"entry": "codex"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
                 "api_key": "OPENAI_API_KEY",
             }
         },
@@ -60,6 +60,6 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
     assert "/Users/" not in payload
     assert "/home/" not in payload
     assert "OPENAI_API_KEY" in payload  # locator ok
-    opts = thaw(lock.agent_profiles)[0]["options"]
+    opts = thaw(lock.agent_profiles)[0]["extensions"][0]["options"]
     assert opts["entry"] == "codex"
     assert "_acp_lock" not in opts
