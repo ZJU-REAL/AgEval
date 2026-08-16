@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -113,6 +116,46 @@ def test_dest_file_src_dir_fails(tmp_path: Path) -> None:
             {k: str(v) for k, v in ctx.items()},
         )
     assert ei.value.kind == "home_files_dest_invalid"
+
+
+def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from bora.plugins import bootstrap as boot
+    from bora.plugins.registry import reset_global_registry
+    from bora.plugins.store import install_from_path
+
+    home = tmp_path / "bora-home"
+    home.mkdir()
+    monkeypatch.setenv("BORA_HOME", str(home))
+    boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
+    reset_global_registry()
+    install_from_path(Path(__file__).resolve().parents[2] / "plugins" / "home-files")
+
+    root = Path(__file__).resolve().parents[2]
+    env = os.environ.copy()
+    env["BORA_HOME"] = str(home)
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "bora.cli.main",
+            "lock",
+            str(root / "examples/journeys"),
+            "--task",
+            "terminal-jsonl-agg",
+            "--profiles",
+            str(root / "examples/journeys/acp-profiles/profiles.acp.opencode.qwen3.8-max.yaml"),
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    data = json.loads(proc.stdout)
+    solver = data["extension_bindings"]["solver"]
+    plugins = {item.get("plugin") for item in (solver.get("home_overlay") or {}).get("chain") or []}
+    assert "home-files" in plugins
 
 
 def test_dest_root_required(tmp_path: Path) -> None:

@@ -1,0 +1,20 @@
+# ACP job binding for terminal-jsonl-agg.
+# entry: pi  model: openai/gpt-5.4
+# LiteLLM catalog is a Database overlay (home-files), not a Core prefix.
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi
+      - plugin: home-files
+        options:
+          files:
+            - src: overlays/pi.litellm.json
+              dest: .pi/agent/models.json
+              dest_root: home
+    model: openai/gpt-5.4
+    api_key: litellm_api_key
+    base_url: http://10.130.138.46:8010/v1
