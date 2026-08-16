@@ -87,6 +87,18 @@ class MetadataStoreProtocol(Protocol):
 
     def set_attempt_visibility(self, run_id: str, visibility: str) -> AttemptResultRow: ...
 
+    def update_suite_slot(
+        self,
+        suite_run_id: str,
+        *,
+        pass_rate: float,
+        mean_score: float,
+        metrics_json: str,
+        tasks_json: str,
+        exit_code: int,
+        complete: bool,
+    ) -> SuiteResultRow: ...
+
     def set_suite_visibility(self, suite_run_id: str, visibility: str) -> SuiteResultRow: ...
 
     def list_attempts_for_suite(self, suite_run_id: str) -> list[AttemptResultRow]: ...

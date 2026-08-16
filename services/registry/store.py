@@ -769,6 +769,40 @@ class MetadataStore(MetadataStoreProtocol):
             conn.commit()
         return row
 
+    def update_suite_slot(
+        self,
+        suite_run_id: str,
+        *,
+        pass_rate: float,
+        mean_score: float,
+        metrics_json: str,
+        tasks_json: str,
+        exit_code: int,
+        complete: bool,
+    ) -> SuiteResultRow:
+        """In-place slot append. Keeps created_at, owner, visibility, shares, blob."""
+        row = self.get_suite(suite_run_id)
+        if row is None:
+            raise LookupError("suite not found")
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPDATE_SUITE_SLOT,
+                (
+                    pass_rate,
+                    mean_score,
+                    metrics_json,
+                    tasks_json,
+                    exit_code,
+                    1 if complete else 0,
+                    suite_run_id,
+                ),
+            )
+            conn.commit()
+        updated = self.get_suite(suite_run_id)
+        assert updated is not None
+        return updated
+
     def set_suite_visibility(self, suite_run_id: str, visibility: str) -> SuiteResultRow:
         if visibility not in {"public", "private"}:
             raise ValueError("bad visibility")
@@ -1890,6 +1924,11 @@ def suite_to_dict(
         plugins = cfg.get("plugins")
         if isinstance(plugins, list) and plugins:
             out["plugins"] = plugins
+    if any(
+        isinstance(ref, dict) and isinstance(ref.get("previous"), list) and ref["previous"]
+        for ref in task_refs
+    ):
+        out["amended"] = True
     return out
 
 

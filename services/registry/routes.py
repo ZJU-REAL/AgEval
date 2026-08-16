@@ -273,6 +273,13 @@ ROUTES: tuple[Route, ...] = (
     Route("POST", "upload_suite", access="results_upload", exact="/v1/results/suites"),
     Route(
         "POST",
+        "append_suite_slot",
+        access="results_upload",
+        pattern=r"/v1/results/suites/([^/]+)/slots",
+        groups=("suite_run_id",),
+    ),
+    Route(
+        "POST",
         "add_result_share",
         access="result_manage",
         pattern=r"/v1/results/attempts/([^/]+)/shares",

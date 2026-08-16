@@ -504,6 +504,49 @@ class RegistryClient:
             )
         return json.loads(raw.decode("utf-8"))
 
+    def append_suite_slot(
+        self,
+        *,
+        suite_run_id: str,
+        task_id: str,
+        run_id: str,
+        task_refs: list[dict[str, Any]],
+        metrics: dict[str, Any],
+        attempt_index: int = 0,
+        pass_rate: float | None = None,
+        mean_score: float | None = None,
+        exit_code: int | None = None,
+        config_fingerprint: str | None = None,
+    ) -> dict[str, Any]:
+        """PATCH one scoring slot onto an existing suite. Never uses --replace."""
+        body: dict[str, Any] = {
+            "task_id": task_id,
+            "run_id": run_id,
+            "attempt_index": attempt_index,
+            "task_refs": task_refs,
+            "metrics": metrics,
+        }
+        if pass_rate is not None:
+            body["pass_rate"] = pass_rate
+        if mean_score is not None:
+            body["mean_score"] = mean_score
+        if exit_code is not None:
+            body["exit_code"] = exit_code
+        if config_fingerprint:
+            body["config_fingerprint"] = config_fingerprint
+        raw_body = json.dumps(body, sort_keys=True).encode("utf-8")
+        path = f"/v1/results/suites/{quote(suite_run_id, safe='')}/slots"
+        status, raw, _ = self._request(
+            "POST",
+            path,
+            body=raw_body,
+            headers=self._headers(content_type="application/json", auth=True),
+            auth=True,
+        )
+        if status != 200:
+            raise RegistryError("upload_failed", f"unexpected status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
     def get_suite(self, suite_run_id: str) -> dict[str, Any]:
         path = f"/v1/results/suites/{quote(suite_run_id, safe='')}"
         status, raw, _ = self._request("GET", path, auth=True)

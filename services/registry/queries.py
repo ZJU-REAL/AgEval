@@ -342,6 +342,12 @@ UPDATE_ATTEMPT_VISIBILITY = "UPDATE attempt_results SET visibility=? WHERE run_i
 DELETE_SUITE_SHARES = "DELETE FROM result_shares WHERE result_kind='suite' AND result_id=?"
 DELETE_SUITE = "DELETE FROM suite_results WHERE suite_run_id=?"
 UPDATE_SUITE_VISIBILITY = "UPDATE suite_results SET visibility=? WHERE suite_run_id=?"
+UPDATE_SUITE_SLOT = """
+UPDATE suite_results SET
+    pass_rate=?, mean_score=?, metrics_json=?, tasks_json=?,
+    exit_code=?, complete=?
+WHERE suite_run_id=?
+"""
 SELECT_ATTEMPTS_FOR_SUITE = (
     "SELECT * FROM attempt_results WHERE suite_run_id=? ORDER BY created_at DESC"
 )

@@ -516,6 +516,18 @@ class RegistryHttpApi:
                 shutil.rmtree(work, ignore_errors=True)
         return json_result(201, payload)
 
+    def _append_suite_slot(self, *, suite_run_id: str, auth: TokenInfo) -> HttpResult:
+        body = self._read_json_body()
+        if isinstance(body, HttpResult):
+            return body
+        try:
+            payload = self.state.results.append_suite_slot(
+                suite_run_id=suite_run_id, body=body, auth=auth
+            )
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
     def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> HttpResult:
         try:
             board_raw = (qs.get("board") or [""])[0]
