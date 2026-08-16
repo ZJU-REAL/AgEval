@@ -26,6 +26,12 @@ export type SuitePluginRef = {
   version?: string;
 };
 
+export type RuntimeRef = {
+  role: string;
+  runtime_id: string;
+  display_name: string;
+};
+
 const BUILTIN_EXECUTOR_KINDS = new Set(["acp", "openai-http"]);
 
 export type PackageRelease = {
@@ -186,6 +192,42 @@ export type SuiteRow = {
   complete?: boolean;
   bound_kind?: "release" | "draft" | "unknown" | string;
   task_set_digest?: string;
+  /** Official public board only; Hub must not invent plaza ids. */
+  runtime_refs?: RuntimeRef[];
+};
+
+export type RuntimeCard = {
+  runtime_id: string;
+  display_name: string;
+  executor: string;
+  entry: string;
+  options: Record<string, unknown>;
+  n_datasets: number;
+  n_appearances: number;
+};
+
+export type RuntimeTeammate = {
+  role: string;
+  executor: string;
+  entry: string;
+  display_name: string;
+};
+
+export type RuntimeAppearance = {
+  database_id: string;
+  suite_run_id: string;
+  role: string;
+  model: string;
+  pass_rate?: number | null;
+  mean_score?: number | null;
+  metrics?: Record<string, unknown>;
+  uploaded_by?: string;
+  created_at?: number;
+  teammates?: RuntimeTeammate[];
+};
+
+export type RuntimeDetail = RuntimeCard & {
+  appearances: RuntimeAppearance[];
 };
 
 export type AttemptMeta = {
@@ -413,6 +455,31 @@ export async function listSuites(
     : "/v1/results/suites";
   const data = await requestJson<{ items?: SuiteRow[] }>(path, { token });
   return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function listRuntimes(token: string | null): Promise<RuntimeCard[]> {
+  const data = await requestJson<{ items?: RuntimeCard[] }>("/v1/runtimes", { token });
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function getRuntime(
+  runtimeId: string,
+  token: string | null,
+): Promise<RuntimeDetail> {
+  return requestJson(`/v1/runtimes/${encodeURIComponent(runtimeId)}`, { token });
+}
+
+export function uniqueRuntimeRefs(refs: RuntimeRef[] | undefined): RuntimeRef[] {
+  if (!refs?.length) return [];
+  const seen = new Set<string>();
+  const out: RuntimeRef[] = [];
+  for (const ref of refs) {
+    const id = (ref.runtime_id || "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(ref);
+  }
+  return out;
 }
 
 export async function getAttempt(

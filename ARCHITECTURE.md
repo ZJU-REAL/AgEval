@@ -146,14 +146,14 @@ BORA/
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
 ├── apps/
 │   ├── viewer/                # 本地 `bora view` SPA（Jobs → Trial；非 Registry）
-│   └── hub/                   # Registry Dataset / Plugin / Home / Leaderboard SPA
+│   └── hub/                   # Registry Dataset / Plugin / Home / Leaderboard / derived Runtime plaza SPA
 ├── services/registry/         # 独立 HTTP：Route.access + _dispatch 强制策略
 │   ├── app.py                 # 启动 / 后端选择；stdlib Handler 是薄 HTTP adapter
 │   ├── http_api.py            # Route.access + *Service → HttpResult（stdlib 与 ASGI 共用）
 │   ├── asgi.py                # Starlette/uvicorn 管；不持有 ACL
 │   ├── backend.py             # 公网 fail-closed：Postgres + S3；--local 才 SQLite
 │   ├── upload_slots.py        # 进程内 in-flight upload 上限
-│   ├── auth_service.py / package_service.py / result_service.py / org_service.py
+│   ├── auth_service.py / package_service.py / result_service.py / org_service.py / runtime_service.py
 │   ├── queries.py             # 唯一 SQL / schema 文本
 │   ├── dataset.py             # draft 槽常量、task 集指纹、suite 完备谓词
 │   ├── sql_adapter.py         # sqlite/postgres 只 connect / placeholder / row-map
@@ -177,6 +177,8 @@ BORA/
 ├── docs/                      # 设计权威（00–12）
 └── website/                   # 读者向文档站（Fumadocs；非设计权威）
 ```
+
+Hub `/runtimes` is a **derived view** over official public suite rows (`GET /v1/runtimes`); not a Core object and not a stored Runtime.
 
 Production Attempt path: `run_task` mints identity once, then `run_lifecycle(lock, LocalL0Stages | DockerL1Stages, attempt=)`. L1 `agent_server.stop` and `stop_agent_targets` (writer confirmation before seal) stay in the run `finally`; network / `l1-work` teardown still goes through `DockerL1Stages.cleanup`. Parent + authority share one `AgentInvocationQuota` object from `assemble_parent_agent_service`.
 
