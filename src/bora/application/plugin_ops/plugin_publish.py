@@ -52,27 +52,32 @@ class PluginPublishCommand:
 
         package_digest = compute_plugin_digest(root)
         archive, blob_digest, size = build_plugin_archive(root)
+        import tempfile
+
+        visibility = "public" if public else "private"
         client = self._client_factory(
             registry_url=registry_url,
             token=token,
             require_token=True,
         )
-        visibility = "public" if public else "private"
-        try:
-            info = client.publish(
-                database_id=package_id,
-                version=manifest.version,
-                package_digest=package_digest,
-                blob_digest=blob_digest,
-                size=size,
-                media_type=PLUGIN_MEDIA_TYPE,
-                visibility=visibility,
-                archive=archive,
-                org_id=org_id,
-                package_kind="plugin",
-            )
-        except RegistryError as exc:
-            raise ConfigError(exc.code, exc.message, location="registry") from exc
+        with tempfile.TemporaryDirectory(prefix="bora-plug-") as tmp:
+            archive_path = Path(tmp) / "plugin.tar.gz"
+            archive_path.write_bytes(archive)
+            try:
+                info = client.publish(
+                    database_id=package_id,
+                    version=manifest.version,
+                    package_digest=package_digest,
+                    blob_digest=blob_digest,
+                    size=size,
+                    media_type=PLUGIN_MEDIA_TYPE,
+                    visibility=visibility,
+                    archive=archive_path,
+                    org_id=org_id,
+                    package_kind="plugin",
+                )
+            except RegistryError as exc:
+                raise ConfigError(exc.code, exc.message, location="registry") from exc
 
         return {
             "ok": True,

@@ -148,12 +148,17 @@ BORA/
 │   ├── viewer/                # 本地 `bora view` SPA（Jobs → Trial；非 Registry）
 │   └── hub/                   # Registry Dataset / Plugin / Home / Leaderboard SPA
 ├── services/registry/         # 独立 HTTP：Route.access + _dispatch 强制策略
-│   ├── app.py                 # Handler 是 HTTP adapter（读 body → *Service → JSON）
+│   ├── app.py                 # 启动 / 后端选择；stdlib Handler 是薄 HTTP adapter
+│   ├── http_api.py            # Route.access + *Service → HttpResult（stdlib 与 ASGI 共用）
+│   ├── asgi.py                # Starlette/uvicorn 管；不持有 ACL
+│   ├── backend.py             # 公网 fail-closed：Postgres + S3；--local 才 SQLite
+│   ├── upload_slots.py        # 进程内 in-flight upload 上限
 │   ├── auth_service.py / package_service.py / result_service.py / org_service.py
 │   ├── queries.py             # 唯一 SQL / schema 文本
 │   ├── dataset.py             # draft 槽常量、task 集指纹、suite 完备谓词
 │   ├── sql_adapter.py         # sqlite/postgres 只 connect / placeholder / row-map
 │   ├── store.py               # 一份 MetadataStore + 薄 Postgres 适配
+│   ├── blob_io.py / spool.py  # 整包 put/open 走 Path；上传 spool 后再校验
 │   └── routes.py              # ROUTES 必须声明 access；skip_auth 仅 access=none
 ├── examples/                  # 见 examples/README.md
 │   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa / profiles.dsh[.read-only]）

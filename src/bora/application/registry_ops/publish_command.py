@@ -7,7 +7,7 @@ from typing import Any
 
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
-from bora.registry.archive import MEDIA_TYPE, build_archive
+from bora.registry.archive import MEDIA_TYPE, write_archive
 from bora.registry.client import RegistryError
 from bora.registry.digest import compute_package_digest
 
@@ -40,12 +40,6 @@ class PublishCommand:
             raise
 
         package_digest = compute_package_digest(root)
-        archive, blob_digest, size = build_archive(root)
-        client = self._client_factory(
-            registry_url=registry_url,
-            token=token,
-            require_token=True,
-        )
         visibility = "public" if public else "private"
         org_id = (org or "").strip()
         if not org_id:
@@ -54,22 +48,32 @@ class PublishCommand:
                 "publish requires --org (package must belong to an organization)",
                 location="registry",
             )
-        try:
-            info = client.publish(
-                database_id=manifest.database_id,
-                version=manifest.version,
-                package_digest=package_digest,
-                blob_digest=blob_digest,
-                size=size,
-                media_type=MEDIA_TYPE,
-                visibility=visibility,
-                archive=archive,
-                org_id=org_id,
-                replace=replace,
-                slot="draft" if draft else None,
+        import tempfile
+
+        with tempfile.TemporaryDirectory(prefix="bora-pub-") as tmp:
+            archive_path = Path(tmp) / "package.tar.gz"
+            blob_digest, size = write_archive(root, archive_path)
+            client = self._client_factory(
+                registry_url=registry_url,
+                token=token,
+                require_token=True,
             )
-        except RegistryError as exc:
-            raise ConfigError(exc.code, exc.message, location="registry") from exc
+            try:
+                info = client.publish(
+                    database_id=manifest.database_id,
+                    version=manifest.version,
+                    package_digest=package_digest,
+                    blob_digest=blob_digest,
+                    size=size,
+                    media_type=MEDIA_TYPE,
+                    visibility=visibility,
+                    archive=archive_path,
+                    org_id=org_id,
+                    replace=replace,
+                    slot="draft" if draft else None,
+                )
+            except RegistryError as exc:
+                raise ConfigError(exc.code, exc.message, location="registry") from exc
 
         out: dict[str, Any] = {
             "ok": True,

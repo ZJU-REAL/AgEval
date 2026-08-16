@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import shutil
+import tempfile
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -42,7 +45,7 @@ class RegistryClient:
         method: str,
         path: str,
         *,
-        body: bytes | None = None,
+        body: bytes | Any | None = None,
         headers: dict[str, str] | None = None,
         auth: bool = True,
     ) -> tuple[int, bytes, dict[str, str]]:
@@ -74,6 +77,81 @@ class RegistryClient:
                 f"cannot reach registry: {exc.reason}",
             ) from exc
 
+    def _put_multipart(
+        self,
+        path: str,
+        *,
+        meta: dict[str, Any],
+        archive: Path,
+        filename: str,
+        boundary_prefix: str,
+    ) -> tuple[int, bytes, dict[str, str]]:
+        import secrets as _secrets
+
+        boundary = f"{boundary_prefix}-{_secrets.token_hex(12)}"
+        header = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="metadata"\r\n'
+            "Content-Type: application/json\r\n\r\n"
+        ).encode()
+        mid = (
+            f"\r\n--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="archive"; filename="{filename}"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode()
+        tail = f"\r\n--{boundary}--\r\n".encode()
+        meta_bytes = json.dumps(meta, sort_keys=True).encode()
+        with tempfile.NamedTemporaryFile(prefix="bora-mp-", suffix=".http", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+        try:
+            with tmp_path.open("wb") as out, archive.open("rb") as inf:
+                out.write(header)
+                out.write(meta_bytes)
+                out.write(mid)
+                shutil.copyfileobj(inf, out)
+                out.write(tail)
+            size = tmp_path.stat().st_size
+            headers = self._headers(
+                content_type=f"multipart/form-data; boundary={boundary}",
+                auth=True,
+            )
+            headers["Content-Length"] = str(size)
+            with tmp_path.open("rb") as body:
+                return self._request("POST", path, body=body, headers=headers)  # type: ignore[arg-type]
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    def _download_to(self, path: str, dest: Path) -> Path:
+        dest = dest.expanduser()
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dest.with_name(dest.name + ".part")
+        url = f"{self.base_url}{path}"
+        req = urllib.request.Request(url, method="GET", headers=self._headers(auth=True))
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp, tmp.open("wb") as out:  # noqa: S310
+                shutil.copyfileobj(resp, out)
+        except urllib.error.HTTPError as exc:
+            tmp.unlink(missing_ok=True)
+            raw = exc.read() if exc.fp else b""
+            try:
+                payload = json.loads(raw.decode("utf-8")) if raw else {}
+            except json.JSONDecodeError:
+                payload = {}
+            code = str(payload.get("error") or "registry_http_error")
+            msg = str(payload.get("message") or exc.reason or "HTTP error")
+            raise RegistryError(code, msg, status=int(exc.code)) from exc
+        except urllib.error.URLError as exc:
+            tmp.unlink(missing_ok=True)
+            raise RegistryError(
+                "registry_unavailable",
+                f"cannot reach registry: {exc.reason}",
+            ) from exc
+        except Exception:
+            tmp.unlink(missing_ok=True)
+            raise
+        tmp.replace(dest)
+        return dest
+
     def health(self) -> dict[str, Any]:
         status, raw, _ = self._request("GET", "/health", auth=False)
         if status != 200:
@@ -90,7 +168,7 @@ class RegistryClient:
         size: int,
         media_type: str,
         visibility: str,
-        archive: bytes,
+        archive: Path,
         org_id: str,
         replace: bool = False,
         package_kind: str = "database",
@@ -111,26 +189,13 @@ class RegistryClient:
             meta["replace"] = True
         if slot:
             meta["slot"] = slot
-        import secrets as _secrets
-
-        boundary = f"bora-{_secrets.token_hex(12)}"
-        body = b""
-        body += f"--{boundary}\r\n".encode()
-        body += b'Content-Disposition: form-data; name="metadata"\r\n'
-        body += b"Content-Type: application/json\r\n\r\n"
-        body += json.dumps(meta, sort_keys=True).encode("utf-8")
-        body += b"\r\n"
-        body += f"--{boundary}\r\n".encode()
-        body += b'Content-Disposition: form-data; name="archive"; filename="package.tar.gz"\r\n'
-        body += b"Content-Type: application/octet-stream\r\n\r\n"
-        body += archive
-        body += b"\r\n"
-        body += f"--{boundary}--\r\n".encode()
-        headers = self._headers(
-            content_type=f"multipart/form-data; boundary={boundary}",
-            auth=True,
+        status, raw, _ = self._put_multipart(
+            "/v1/packages",
+            meta=meta,
+            archive=archive,
+            filename="package.tar.gz",
+            boundary_prefix="bora",
         )
-        status, raw, _ = self._request("POST", "/v1/packages", body=body, headers=headers)
         if status not in {200, 201}:
             raise RegistryError("publish_failed", f"unexpected status {status}", status=status)
         data = json.loads(raw.decode("utf-8"))
@@ -183,15 +248,12 @@ class RegistryClient:
         data = json.loads(raw.decode("utf-8"))
         return ReleaseInfo.from_payload(data)
 
-    def fetch_content(self, *, database_id: str, package_digest: str) -> bytes:
+    def fetch_content(self, *, database_id: str, package_digest: str, dest: Path) -> Path:
         path = (
             f"/v1/packages/{quote(database_id, safe='/')}"
             f"/by-digest/{quote(package_digest, safe=':')}/content"
         )
-        status, raw, _ = self._request("GET", path, auth=True)
-        if status != 200:
-            raise RegistryError("not_found", f"content not found ({status})", status=status)
-        return raw
+        return self._download_to(path, dest)
 
     def list_package_files(
         self,
@@ -319,7 +381,7 @@ class RegistryClient:
         visibility: str,
         blob_digest: str,
         size: int,
-        archive: bytes,
+        archive: Path,
         suite_run_id: str | None = None,
         replace: bool = False,
     ) -> dict[str, Any]:
@@ -337,27 +399,12 @@ class RegistryClient:
             meta["suite_run_id"] = suite_run_id
         if replace:
             meta["replace"] = True
-        import secrets as _secrets
-
-        boundary = f"bora-result-{_secrets.token_hex(12)}"
-        body = b""
-        body += f"--{boundary}\r\n".encode()
-        body += b'Content-Disposition: form-data; name="metadata"\r\n'
-        body += b"Content-Type: application/json\r\n\r\n"
-        body += json.dumps(meta, sort_keys=True).encode("utf-8")
-        body += b"\r\n"
-        body += f"--{boundary}\r\n".encode()
-        body += b'Content-Disposition: form-data; name="archive"; filename="attempt.tar.gz"\r\n'
-        body += b"Content-Type: application/octet-stream\r\n\r\n"
-        body += archive
-        body += b"\r\n"
-        body += f"--{boundary}--\r\n".encode()
-        headers = self._headers(
-            content_type=f"multipart/form-data; boundary={boundary}",
-            auth=True,
-        )
-        http_status, raw, _ = self._request(
-            "POST", "/v1/results/attempts", body=body, headers=headers
+        http_status, raw, _ = self._put_multipart(
+            "/v1/results/attempts",
+            meta=meta,
+            archive=archive,
+            filename="attempt.tar.gz",
+            boundary_prefix="bora-result",
         )
         if http_status not in {200, 201}:
             raise RegistryError(
@@ -372,12 +419,9 @@ class RegistryClient:
             raise RegistryError("not_found", f"attempt not found ({status})", status=status)
         return json.loads(raw.decode("utf-8"))
 
-    def fetch_attempt_content(self, run_id: str) -> bytes:
+    def fetch_attempt_content(self, run_id: str, dest: Path) -> Path:
         path = f"/v1/results/attempts/{quote(run_id, safe='')}/content"
-        status, raw, _ = self._request("GET", path, auth=True)
-        if status != 200:
-            raise RegistryError("not_found", f"content not found ({status})", status=status)
-        return raw
+        return self._download_to(path, dest)
 
     def list_attempts(self, *, database_id: str | None = None) -> list[dict[str, Any]]:
         from urllib.parse import urlencode
@@ -410,7 +454,7 @@ class RegistryClient:
         exit_code: int,
         blob_digest: str,
         size: int,
-        archive: bytes,
+        archive: Path,
         config_fingerprint: str | None = None,
         config_homogeneous: bool | None = None,
         actors_summary: list[dict[str, Any]] | None = None,
@@ -447,27 +491,12 @@ class RegistryClient:
             meta["job_overlay"] = job_overlay
         if isinstance(plugins, list) and plugins:
             meta["plugins"] = plugins
-        import secrets as _secrets
-
-        boundary = f"bora-suite-{_secrets.token_hex(12)}"
-        body = b""
-        body += f"--{boundary}\r\n".encode()
-        body += b'Content-Disposition: form-data; name="metadata"\r\n'
-        body += b"Content-Type: application/json\r\n\r\n"
-        body += json.dumps(meta, sort_keys=True).encode("utf-8")
-        body += b"\r\n"
-        body += f"--{boundary}\r\n".encode()
-        body += b'Content-Disposition: form-data; name="archive"; filename="suite.tar.gz"\r\n'
-        body += b"Content-Type: application/octet-stream\r\n\r\n"
-        body += archive
-        body += b"\r\n"
-        body += f"--{boundary}--\r\n".encode()
-        headers = self._headers(
-            content_type=f"multipart/form-data; boundary={boundary}",
-            auth=True,
-        )
-        http_status, raw, _ = self._request(
-            "POST", "/v1/results/suites", body=body, headers=headers
+        http_status, raw, _ = self._put_multipart(
+            "/v1/results/suites",
+            meta=meta,
+            archive=archive,
+            filename="suite.tar.gz",
+            boundary_prefix="bora-suite",
         )
         if http_status not in {200, 201}:
             raise RegistryError(
@@ -482,12 +511,9 @@ class RegistryClient:
             raise RegistryError("not_found", f"suite not found ({status})", status=status)
         return json.loads(raw.decode("utf-8"))
 
-    def fetch_suite_content(self, suite_run_id: str) -> bytes:
+    def fetch_suite_content(self, suite_run_id: str, dest: Path) -> Path:
         path = f"/v1/results/suites/{quote(suite_run_id, safe='')}/content"
-        status, raw, _ = self._request("GET", path, auth=True)
-        if status != 200:
-            raise RegistryError("not_found", f"content not found ({status})", status=status)
-        return raw
+        return self._download_to(path, dest)
 
     def list_suites(
         self, *, database_id: str | None = None, board: bool = False

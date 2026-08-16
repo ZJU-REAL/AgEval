@@ -52,14 +52,21 @@ class PackageCache:
         *,
         database_id: str,
         package_digest: str,
-        archive: bytes,
+        archive: Path,
         expected_blob_digest: str | None = None,
     ) -> Path:
         """Extract archive into a temp dir, verify packageDigest, then atomic rename."""
         import hashlib
 
         if expected_blob_digest is not None:
-            actual = f"sha256:{hashlib.sha256(archive).hexdigest()}"
+            digest = hashlib.sha256()
+            with archive.open("rb") as fh:
+                while True:
+                    block = fh.read(1024 * 1024)
+                    if not block:
+                        break
+                    digest.update(block)
+            actual = f"sha256:{digest.hexdigest()}"
             if actual != expected_blob_digest:
                 msg = f"blob digest mismatch: expected {expected_blob_digest}, got {actual}"
                 raise ValueError(msg)

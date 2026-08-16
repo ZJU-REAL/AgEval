@@ -14,6 +14,7 @@ import hashlib
 import io
 import tarfile
 from pathlib import Path
+from typing import Any
 
 from bora.registry.media_types import ATTEMPT_RESULT_MEDIA_TYPE, SUITE_RESULT_MEDIA_TYPE
 
@@ -52,18 +53,29 @@ def build_attempt_archive(run_dir: Path, *, run_id: str) -> tuple[bytes, str, in
     return _pack_tree(members)
 
 
-def extract_attempt_archive(archive: bytes, dest_root: Path) -> Path:
+def extract_attempt_archive(archive: bytes | Path, dest_root: Path) -> Path:
     """Extract into *dest_root*; return path to ``.bora/runs/<run_id>`` if found."""
     dest = dest_root.expanduser().resolve(strict=False)
     dest.mkdir(parents=True, exist_ok=True)
-    with (
-        gzip.GzipFile(fileobj=io.BytesIO(archive), mode="rb") as gz,
-        tarfile.open(fileobj=gz, mode="r:") as tar,
-    ):
-        try:
-            tar.extractall(path=dest, filter="data")  # type: ignore[call-arg]
-        except TypeError:
-            tar.extractall(path=dest)
+    closer = None
+    fileobj: Any
+    if isinstance(archive, Path):
+        fileobj = archive.open("rb")
+        closer = fileobj
+    else:
+        fileobj = io.BytesIO(archive)
+    try:
+        with (
+            gzip.GzipFile(fileobj=fileobj, mode="rb") as gz,
+            tarfile.open(fileobj=gz, mode="r:") as tar,
+        ):
+            try:
+                tar.extractall(path=dest, filter="data")  # type: ignore[call-arg]
+            except TypeError:
+                tar.extractall(path=dest)
+    finally:
+        if closer is not None:
+            closer.close()
     from bora.evidence.locators import default_runs_root
 
     runs = default_runs_root(dest)
@@ -139,18 +151,29 @@ def build_suite_archive(suite_dir: Path, *, suite_run_id: str) -> tuple[bytes, s
     return _pack_tree(members)
 
 
-def extract_suite_archive(archive: bytes, dest_root: Path) -> Path:
+def extract_suite_archive(archive: bytes | Path, dest_root: Path) -> Path:
     """Extract suite bundle; return path to ``.bora/suite-runs/<id>`` if found."""
     dest = dest_root.expanduser().resolve(strict=False)
     dest.mkdir(parents=True, exist_ok=True)
-    with (
-        gzip.GzipFile(fileobj=io.BytesIO(archive), mode="rb") as gz,
-        tarfile.open(fileobj=gz, mode="r:") as tar,
-    ):
-        try:
-            tar.extractall(path=dest, filter="data")  # type: ignore[call-arg]
-        except TypeError:
-            tar.extractall(path=dest)
+    closer = None
+    fileobj: Any
+    if isinstance(archive, Path):
+        fileobj = archive.open("rb")
+        closer = fileobj
+    else:
+        fileobj = io.BytesIO(archive)
+    try:
+        with (
+            gzip.GzipFile(fileobj=fileobj, mode="rb") as gz,
+            tarfile.open(fileobj=gz, mode="r:") as tar,
+        ):
+            try:
+                tar.extractall(path=dest, filter="data")  # type: ignore[call-arg]
+            except TypeError:
+                tar.extractall(path=dest)
+    finally:
+        if closer is not None:
+            closer.close()
     suites = dest / ".bora" / "suite-runs"
     if suites.is_dir():
         children = [p for p in suites.iterdir() if p.is_dir()]

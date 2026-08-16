@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 from services.registry.access import AccessPolicy
+from services.registry.blob_io import read_blob, sha256_file
 from services.registry.dataset import (
     BOUND_DRAFT,
     BOUND_RELEASE,
@@ -38,8 +39,9 @@ _SECRET_PATTERNS = (
 )
 
 
-def _archive_looks_like_secret_leak(archive: bytes) -> bool:
-    sample = archive if len(archive) < 4_000_000 else archive[:4_000_000]
+def _archive_looks_like_secret_leak(archive: Path) -> bool:
+    with archive.open("rb") as fh:
+        sample = fh.read(4_000_000)
     return any(p.search(sample) for p in _SECRET_PATTERNS)
 
 
@@ -67,9 +69,10 @@ class ResultService:
         return self.access.can_manage_result(result_kind, result_id, auth, for_read=False)
 
     def upload_attempt(
-        self, *, meta: dict[str, Any], archive: bytes, auth: TokenInfo
+        self, *, meta: dict[str, Any], archive: Path, auth: TokenInfo
     ) -> dict[str, Any]:
-        if len(archive) > self.max_upload:
+        size_on_disk = archive.stat().st_size
+        if size_on_disk > self.max_upload:
             raise RegistryAppError(
                 "payload_too_large",
                 f"max {self.max_upload} bytes",
@@ -82,7 +85,7 @@ class ResultService:
         status = str(meta.get("status") or "")
         visibility = str(meta.get("visibility") or "private")
         blob_digest = str(meta.get("blob_digest") or "")
-        size = int(meta.get("size") or len(archive))
+        size = int(meta.get("size") or size_on_disk)
         suite_run_id = str(meta.get("suite_run_id") or "").strip()
         if not run_id or not database_id:
             raise RegistryAppError(
@@ -92,8 +95,8 @@ class ResultService:
             )
         if visibility not in {"private", "public"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
-        actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
-        if actual_blob != blob_digest or size != len(archive):
+        actual_blob = sha256_file(archive)
+        if actual_blob != blob_digest or size != size_on_disk:
             raise RegistryAppError(
                 "digest_mismatch",
                 "blob digest or size mismatch",
@@ -162,18 +165,19 @@ class ResultService:
 
     def serve_attempt_content(
         self, *, run_id: str, auth: TokenInfo
-    ) -> tuple[bytes, AttemptResultRow]:
+    ) -> tuple[Any, int, AttemptResultRow]:
         row = self._require_visible_attempt(run_id, auth)
-        data = self.blobs.get(row.blob_digest, prefix="results")
-        if data is None:
+        size = self.blobs.size(row.blob_digest, prefix="results")
+        fh = self.blobs.open(row.blob_digest, prefix="results")
+        if fh is None or size is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
-        return data, row
+        return fh, int(size), row
 
     def list_attempt_files(self, *, run_id: str, auth: TokenInfo) -> dict[str, Any]:
         from services.registry.package_files import get_or_build_index
 
         row = self._require_visible_attempt(run_id, auth)
-        archive = self.blobs.get(row.blob_digest, prefix="results")
+        archive = read_blob(self.blobs, row.blob_digest, prefix="results")
         if archive is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
         try:
@@ -208,7 +212,7 @@ class ResultService:
             safe_path = normalize_package_path(file_path)
         except PackagePathError as exc:
             raise RegistryAppError("invalid_path", str(exc), http_status=400) from exc
-        archive = self.blobs.get(row.blob_digest, prefix="results")
+        archive = read_blob(self.blobs, row.blob_digest, prefix="results")
         if archive is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
         try:
@@ -231,9 +235,10 @@ class ResultService:
         return file_payload(safe_path, data, size=size, truncated=truncated)
 
     def upload_suite(
-        self, *, meta: dict[str, Any], archive: bytes, auth: TokenInfo
+        self, *, meta: dict[str, Any], archive: Path, auth: TokenInfo
     ) -> dict[str, Any]:
-        if len(archive) > self.max_upload:
+        size_on_disk = archive.stat().st_size
+        if size_on_disk > self.max_upload:
             raise RegistryAppError(
                 "payload_too_large",
                 f"max {self.max_upload} bytes",
@@ -244,7 +249,7 @@ class ResultService:
         database_version = str(meta.get("database_version") or "")
         visibility = str(meta.get("visibility") or "private")
         blob_digest = str(meta.get("blob_digest") or "")
-        size = int(meta.get("size") or len(archive))
+        size = int(meta.get("size") or size_on_disk)
         if not suite_run_id or not database_id:
             raise RegistryAppError(
                 "invalid_request",
@@ -259,8 +264,8 @@ class ResultService:
                 "suite-level PASS/verdict fields are not accepted",
                 http_status=400,
             )
-        actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
-        if actual_blob != blob_digest or size != len(archive):
+        actual_blob = sha256_file(archive)
+        if actual_blob != blob_digest or size != size_on_disk:
             raise RegistryAppError(
                 "digest_mismatch",
                 "blob digest or size mismatch",
@@ -406,12 +411,13 @@ class ResultService:
 
     def serve_suite_content(
         self, *, suite_run_id: str, auth: TokenInfo
-    ) -> tuple[bytes, SuiteResultRow]:
+    ) -> tuple[Any, int, SuiteResultRow]:
         row = self._require_visible_suite(suite_run_id, auth)
-        data = self.blobs.get(row.blob_digest, prefix="suite-results")
-        if data is None:
+        size = self.blobs.size(row.blob_digest, prefix="suite-results")
+        fh = self.blobs.open(row.blob_digest, prefix="suite-results")
+        if fh is None or size is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
-        return data, row
+        return fh, int(size), row
 
     def list_shares(self, *, result_kind: str, result_id: str, auth: TokenInfo) -> dict[str, Any]:
         if not self.access.can_manage_result(result_kind, result_id, auth, for_read=True):
@@ -606,10 +612,10 @@ class ResultService:
         blob = None
         digest = ""
         if release is not None:
-            blob = self.blobs.get(release.blob_digest, prefix="packages")
+            blob = read_blob(self.blobs, release.blob_digest, prefix="packages")
             digest = release.package_digest
         elif draft is not None:
-            blob = self.blobs.get(draft.blob_digest, prefix="packages")
+            blob = read_blob(self.blobs, draft.blob_digest, prefix="packages")
             digest = draft.package_digest
         if blob is None:
             return kind, frozenset()

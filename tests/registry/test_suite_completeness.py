@@ -26,7 +26,13 @@ def _services(tmp_path: Path) -> tuple[PackageService, ResultService]:
     return packages, results
 
 
-def _publish_release(packages: PackageService) -> None:
+def _as_path(tmp_path: Path, data: bytes, name: str = "blob.bin") -> Path:
+    path = tmp_path / name
+    path.write_bytes(data)
+    return path
+
+
+def _publish_release(packages: PackageService, tmp_path: Path) -> None:
     archive, blob_digest, size = build_archive(FIXTURE)
     packages.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
     auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
@@ -41,17 +47,18 @@ def _publish_release(packages: PackageService) -> None:
             "org_id": "acme",
             "size": size,
         },
-        archive=archive,
+        archive=_as_path(tmp_path, archive, "release.tar.gz"),
         auth=auth,
     )
 
 
 def _suite_meta(
+    tmp_path: Path,
     *,
     suite_run_id: str,
     task_refs: list[dict[str, object]],
     version: str = "0.1.0",
-) -> tuple[dict[str, object], bytes]:
+) -> tuple[dict[str, object], Path]:
     archive = b"suite-archive"
     import hashlib
 
@@ -69,15 +76,16 @@ def _suite_meta(
             "metrics": {"n_tasks": len(task_refs)},
             "task_refs": task_refs,
         },
-        archive,
+        _as_path(tmp_path, archive, f"{suite_run_id}.bin"),
     )
 
 
 def test_fail_on_all_tasks_is_complete_and_on_board(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
-    _publish_release(packages)
+    _publish_release(packages, tmp_path)
     auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
     meta, archive = _suite_meta(
+        tmp_path,
         suite_run_id="suite_fail_all",
         task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
     )
@@ -90,9 +98,10 @@ def test_fail_on_all_tasks_is_complete_and_on_board(tmp_path: Path) -> None:
 
 def test_missing_task_is_incomplete_hidden_from_board(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
-    _publish_release(packages)
+    _publish_release(packages, tmp_path)
     auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
     meta, archive = _suite_meta(
+        tmp_path,
         suite_run_id="suite_missing",
         task_refs=[],
     )
@@ -121,10 +130,11 @@ def test_draft_bound_suite_stays_off_public_board(tmp_path: Path) -> None:
             "size": size,
             "slot": "draft",
         },
-        archive=archive,
+        archive=_as_path(tmp_path, archive, "draft.tar.gz"),
         auth=alice,
     )
     meta, sarch = _suite_meta(
+        tmp_path,
         suite_run_id="suite_draft",
         version="0.1.0",
         task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
@@ -140,10 +150,11 @@ def test_draft_bound_suite_stays_off_public_board(tmp_path: Path) -> None:
 
 def test_suite_plugins_and_uploaded_by_me_filter(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
-    _publish_release(packages)
+    _publish_release(packages, tmp_path)
     alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
     bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
     meta, archive = _suite_meta(
+        tmp_path,
         suite_run_id="suite_alice",
         task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
     )
@@ -157,6 +168,7 @@ def test_suite_plugins_and_uploaded_by_me_filter(tmp_path: Path) -> None:
     payload = results.upload_suite(meta=meta, archive=archive, auth=alice)
     assert payload["plugins"] == [{"plugin_id": "nooa", "version": "0.1.0"}]
     meta_b, arch_b = _suite_meta(
+        tmp_path,
         suite_run_id="suite_bob",
         task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
     )
@@ -173,9 +185,10 @@ def test_suite_plugins_and_uploaded_by_me_filter(tmp_path: Path) -> None:
 
 def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
-    _publish_release(packages)
+    _publish_release(packages, tmp_path)
     auth = TokenInfo(scopes=frozenset({"registry:publish", "results:upload"}), user_id="alice")
     meta, archive = _suite_meta(
+        tmp_path,
         suite_run_id="suite_release",
         task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
     )
@@ -207,7 +220,7 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
             "size": size,
             "slot": "draft",
         },
-        archive=pkg,
+        archive=_as_path(tmp_path, pkg, "wider.tar.gz"),
         auth=auth,
     )
     board = results.list_suites(auth=auth, database_id="test/publish-min", board=True)
@@ -216,6 +229,7 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
     assert board["items"][0]["bound_kind"] == "release"
 
     draft_meta, draft_arch = _suite_meta(
+        tmp_path,
         suite_run_id="suite_new_draft",
         version="draft",
         task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
@@ -244,11 +258,12 @@ def test_non_entitled_uploader_cannot_bind_private_draft(tmp_path: Path) -> None
             "size": size,
             "slot": "draft",
         },
-        archive=archive,
+        archive=_as_path(tmp_path, archive, "priv-draft.tar.gz"),
         auth=alice,
     )
     bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
     meta, sarch = _suite_meta(
+        tmp_path,
         suite_run_id="suite_stranger",
         version="draft",
         task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],
@@ -259,6 +274,7 @@ def test_non_entitled_uploader_cannot_bind_private_draft(tmp_path: Path) -> None
     assert "task_set_digest" not in payload
 
     fallback_meta, fallback_arch = _suite_meta(
+        tmp_path,
         suite_run_id="suite_stranger_fallback",
         version="0.1.0",
         task_refs=[{"task_id": "hello", "status": "PASS", "score": 1.0}],

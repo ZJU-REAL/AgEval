@@ -127,9 +127,9 @@ def test_assemble_quota_object_is_shared_in_source() -> None:
 
 
 def test_handler_calls_all_domain_services() -> None:
-    app = (REPO / "services" / "registry" / "app.py").read_text(encoding="utf-8")
+    api = (REPO / "services" / "registry" / "http_api.py").read_text(encoding="utf-8")
     for needle in ("state.packages.", "state.results.", "state.orgs.", "state.auth."):
-        assert needle in app, needle
+        assert needle in api, needle
 
 
 def test_handler_methods_do_not_touch_store() -> None:
@@ -150,7 +150,7 @@ def test_handler_methods_do_not_touch_store() -> None:
 
 
 def test_bearer_is_only_used_by_dispatch() -> None:
-    text = (REPO / "services" / "registry" / "app.py").read_text(encoding="utf-8")
+    text = (REPO / "services" / "registry" / "http_api.py").read_text(encoding="utf-8")
     assert text.count("_bearer(") == 2
 
 

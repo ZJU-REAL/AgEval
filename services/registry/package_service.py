@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 import tempfile
 from pathlib import Path
 from typing import Any
 
 from services.registry.access import AccessPolicy
+from services.registry.blob_io import read_blob, sha256_file
 from services.registry.dataset import DRAFT_SLOT, is_draft_version
 from services.registry.errors import RegistryAppError
 from services.registry.store import DraftRow, ReleaseRow, TokenInfo, now, release_to_dict
@@ -59,8 +59,9 @@ class PackageService:
     def can_manage(self, row: ReleaseRow, auth: TokenInfo) -> bool:
         return self.access.can_manage_package(row, auth)
 
-    def publish(self, *, meta: dict[str, Any], archive: bytes, auth: TokenInfo) -> dict[str, Any]:
-        if len(archive) > self.max_upload:
+    def publish(self, *, meta: dict[str, Any], archive: Path, auth: TokenInfo) -> dict[str, Any]:
+        size_on_disk = archive.stat().st_size
+        if size_on_disk > self.max_upload:
             raise RegistryAppError(
                 "payload_too_large",
                 f"max {self.max_upload} bytes",
@@ -75,7 +76,7 @@ class PackageService:
         slot = str(meta.get("slot") or "").strip().casefold()
         raw_org = str(meta.get("org_id") or meta.get("org") or "").strip()
         org_id = raw_org.casefold() if raw_org else None
-        size = int(meta.get("size") or len(archive))
+        size = int(meta.get("size") or size_on_disk)
         user_id = auth.user_id or ""
         if visibility not in {"private", "public"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
@@ -91,8 +92,8 @@ class PackageService:
                 "must be org member to publish under this org",
                 http_status=403,
             )
-        actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
-        if actual_blob != blob_digest or size != len(archive):
+        actual_blob = sha256_file(archive)
+        if actual_blob != blob_digest or size != size_on_disk:
             raise RegistryAppError(
                 "digest_mismatch",
                 "blob digest or size mismatch",
@@ -147,9 +148,10 @@ class PackageService:
         return payload
 
     def upsert_draft(
-        self, *, meta: dict[str, Any], archive: bytes, auth: TokenInfo
+        self, *, meta: dict[str, Any], archive: Path, auth: TokenInfo
     ) -> dict[str, Any]:
-        if len(archive) > self.max_upload:
+        size_on_disk = archive.stat().st_size
+        if size_on_disk > self.max_upload:
             raise RegistryAppError(
                 "payload_too_large",
                 f"max {self.max_upload} bytes",
@@ -162,7 +164,7 @@ class PackageService:
         visibility = str(meta.get("visibility") or "private")
         raw_org = str(meta.get("org_id") or meta.get("org") or "").strip()
         org_id = raw_org.casefold() if raw_org else None
-        size = int(meta.get("size") or len(archive))
+        size = int(meta.get("size") or size_on_disk)
         user_id = auth.user_id or ""
         if not database_id:
             raise RegistryAppError("invalid_request", "database_id required", http_status=400)
@@ -186,8 +188,8 @@ class PackageService:
                 "dataset collaborator or first-upload org member required",
                 http_status=403,
             )
-        actual_blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
-        if actual_blob != blob_digest or size != len(archive):
+        actual_blob = sha256_file(archive)
+        if actual_blob != blob_digest or size != size_on_disk:
             raise RegistryAppError(
                 "digest_mismatch",
                 "blob digest or size mismatch",
@@ -234,7 +236,7 @@ class PackageService:
         draft = self.meta.get_draft(database_id)
         if draft is None or not self.access.can_release_draft(draft, auth):
             raise RegistryAppError("not_found", "draft not found", http_status=404)
-        archive = self.blobs.get(draft.blob_digest, prefix="packages")
+        archive = read_blob(self.blobs, draft.blob_digest, prefix="packages")
         if archive is None:
             raise RegistryAppError("not_found", "draft blob missing", http_status=404)
         rel_version = (version or "").strip() or self._version_from_archive(archive)
@@ -378,7 +380,7 @@ class PackageService:
             from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
             if row.media_type == PLUGIN_MEDIA_TYPE:
-                data = self.blobs.get(row.blob_digest, prefix="packages")
+                data = read_blob(self.blobs, row.blob_digest, prefix="packages")
                 payload["package_kind"] = "plugin"
                 if data is not None:
                     payload["plugin_preview"] = _plugin_preview_from_archive(data)
@@ -394,16 +396,17 @@ class PackageService:
         database_id: str,
         package_digest: str,
         auth: TokenInfo,
-    ) -> tuple[bytes, ReleaseRow]:
+    ) -> tuple[Any, int, ReleaseRow]:
         row = self._visible_release(
             database_id=database_id,
             auth=auth,
             package_digest=package_digest,
         )
-        data = self.blobs.get(row.blob_digest, prefix="packages")
-        if data is None:
+        size = self.blobs.size(row.blob_digest, prefix="packages")
+        fh = self.blobs.open(row.blob_digest, prefix="packages")
+        if fh is None or size is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
-        return data, row
+        return fh, int(size), row
 
     def list_files(
         self,
@@ -421,7 +424,7 @@ class PackageService:
             package_digest=package_digest,
             version=version,
         )
-        archive = self.blobs.get(row.blob_digest, prefix="packages")
+        archive = read_blob(self.blobs, row.blob_digest, prefix="packages")
         if archive is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
         try:
@@ -468,7 +471,7 @@ class PackageService:
             safe_path = normalize_package_path(file_path)
         except PackagePathError as exc:
             raise RegistryAppError("invalid_path", str(exc), http_status=400) from exc
-        archive = self.blobs.get(row.blob_digest, prefix="packages")
+        archive = read_blob(self.blobs, row.blob_digest, prefix="packages")
         if archive is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
         try:
@@ -610,7 +613,7 @@ class PackageService:
 
     def _validate_archive(
         self,
-        archive: bytes,
+        archive: Path,
         *,
         package_kind: str,
         media_type: str,

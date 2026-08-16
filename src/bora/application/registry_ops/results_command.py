@@ -217,7 +217,7 @@ class ResultsCommands:
             raise ConfigError("invalid_package", str(exc), location=str(root)) from exc
 
         run_dir = resolve_attempt_run_dir(root, run_id)
-        archive, blob_digest, size = build_attempt_archive(run_dir, run_id=run_id)
+        archive_bytes, blob_digest, size = build_attempt_archive(run_dir, run_id=run_id)
         meta = _read_run_meta(run_dir)
         task_id = str(meta.get("task_id") or "")
         lock_digest = str(meta.get("lock_digest") or meta.get("digest") or "")
@@ -227,36 +227,41 @@ class ResultsCommands:
         client = self._client_factory(
             registry_url=registry_url, require_token=True, accept_results_url=True
         )
-        try:
-            info = client.upload_attempt(
-                run_id=run_id,
-                database_id=database_id,
-                task_id=task_id,
-                lock_digest=lock_digest,
-                status=status,
-                visibility="public" if public else "private",
-                blob_digest=blob_digest,
-                size=size,
-                archive=archive,
-                suite_run_id=suite_link,
-                replace=replace,
-            )
-        except RegistryError as exc:
-            if allow_existing and (
-                exc.code == "conflict" or (exc.status == 409) or "already exists" in exc.message
-            ):
-                return {
-                    "ok": True,
-                    "already_exists": True,
-                    "run_id": run_id,
-                    "database_id": database_id,
-                    "blob_digest": blob_digest,
-                    "size": size,
-                    "visibility": "public" if public else "private",
-                    "status": status,
-                    "suite_run_id": suite_link,
-                }
-            raise ConfigError(exc.code, exc.message, location="registry") from exc
+        import tempfile
+
+        with tempfile.TemporaryDirectory(prefix="bora-att-") as tmp:
+            archive = Path(tmp) / "attempt.tar.gz"
+            archive.write_bytes(archive_bytes)
+            try:
+                info = client.upload_attempt(
+                    run_id=run_id,
+                    database_id=database_id,
+                    task_id=task_id,
+                    lock_digest=lock_digest,
+                    status=status,
+                    visibility="public" if public else "private",
+                    blob_digest=blob_digest,
+                    size=size,
+                    archive=archive,
+                    suite_run_id=suite_link,
+                    replace=replace,
+                )
+            except RegistryError as exc:
+                if allow_existing and (
+                    exc.code == "conflict" or (exc.status == 409) or "already exists" in exc.message
+                ):
+                    return {
+                        "ok": True,
+                        "already_exists": True,
+                        "run_id": run_id,
+                        "database_id": database_id,
+                        "blob_digest": blob_digest,
+                        "size": size,
+                        "visibility": "public" if public else "private",
+                        "status": status,
+                        "suite_run_id": suite_link,
+                    }
+                raise ConfigError(exc.code, exc.message, location="registry") from exc
 
         out: dict[str, Any] = {
             "ok": True,
@@ -289,12 +294,14 @@ class ResultsCommands:
         )
         try:
             meta = client.get_attempt(run_id)
-            archive = client.fetch_attempt_content(run_id)
+            dest = out_dir.expanduser().resolve(strict=False)
+            archive_path = dest / f"{run_id}.tar.gz"
+            client.fetch_attempt_content(run_id, dest=archive_path)
         except RegistryError as exc:
             raise ConfigError(exc.code, exc.message, location="registry") from exc
 
-        dest = out_dir.expanduser().resolve(strict=False)
-        run_path = extract_attempt_archive(archive, dest)
+        run_path = extract_attempt_archive(archive_path, dest)
+        archive_path.unlink(missing_ok=True)
         return {
             "ok": True,
             "run_id": run_id,
@@ -387,40 +394,45 @@ class ResultsCommands:
                     location=str(default_runs_root(root)),
                 )
 
-        archive, blob_digest, size = build_suite_archive(suite_dir, suite_run_id=suite_run_id)
+        archive_bytes, blob_digest, size = build_suite_archive(suite_dir, suite_run_id=suite_run_id)
         config_proj = _config_fields_from_summary(summary)
         client = self._client_factory(
             registry_url=registry_url, require_token=True, accept_results_url=True
         )
-        try:
-            info = client.upload_suite(
-                suite_run_id=suite_run_id,
-                database_id=database_id,
-                database_version=database_version,
-                visibility="public" if public else "private",
-                pass_rate=pass_rate,
-                mean_score=mean_score,
-                metrics=dict(metrics),
-                task_refs=list(task_refs),
-                agent_label=agent_label or str(summary.get("agent_label") or ""),
-                model_label=model_label or str(summary.get("model_label") or ""),
-                exit_code=exit_code,
-                blob_digest=blob_digest,
-                size=size,
-                archive=archive,
-                config_fingerprint=config_proj.get("config_fingerprint"),
-                config_homogeneous=config_proj.get("config_homogeneous"),
-                actors_summary=list(config_proj.get("actors_summary") or []),
-                job_overlay=config_proj.get("job_overlay")
-                if isinstance(config_proj.get("job_overlay"), dict)
-                else None,
-                plugins=list(config_proj.get("plugins") or [])
-                if isinstance(config_proj.get("plugins"), list)
-                else None,
-                replace=replace,
-            )
-        except RegistryError as exc:
-            raise ConfigError(exc.code, exc.message, location="registry") from exc
+        import tempfile
+
+        with tempfile.TemporaryDirectory(prefix="bora-suite-") as tmp:
+            archive = Path(tmp) / "suite.tar.gz"
+            archive.write_bytes(archive_bytes)
+            try:
+                info = client.upload_suite(
+                    suite_run_id=suite_run_id,
+                    database_id=database_id,
+                    database_version=database_version,
+                    visibility="public" if public else "private",
+                    pass_rate=pass_rate,
+                    mean_score=mean_score,
+                    metrics=dict(metrics),
+                    task_refs=list(task_refs),
+                    agent_label=agent_label or str(summary.get("agent_label") or ""),
+                    model_label=model_label or str(summary.get("model_label") or ""),
+                    exit_code=exit_code,
+                    blob_digest=blob_digest,
+                    size=size,
+                    archive=archive,
+                    config_fingerprint=config_proj.get("config_fingerprint"),
+                    config_homogeneous=config_proj.get("config_homogeneous"),
+                    actors_summary=list(config_proj.get("actors_summary") or []),
+                    job_overlay=config_proj.get("job_overlay")
+                    if isinstance(config_proj.get("job_overlay"), dict)
+                    else None,
+                    plugins=list(config_proj.get("plugins") or [])
+                    if isinstance(config_proj.get("plugins"), list)
+                    else None,
+                    replace=replace,
+                )
+            except RegistryError as exc:
+                raise ConfigError(exc.code, exc.message, location="registry") from exc
 
         out: dict[str, Any] = {
             "ok": True,
@@ -522,12 +534,14 @@ class ResultsCommands:
 
         result: dict[str, Any] = {"ok": True, "source": "registry", **meta}
         if out_dir is not None:
+            dest = out_dir.expanduser().resolve(strict=False)
+            archive_path = dest / f"{suite_run_id}.tar.gz"
             try:
-                archive = client.fetch_suite_content(suite_run_id)
+                client.fetch_suite_content(suite_run_id, dest=archive_path)
             except RegistryError as exc:
                 raise ConfigError(exc.code, exc.message, location="registry") from exc
-            dest = out_dir.expanduser().resolve(strict=False)
-            suite_path = extract_suite_archive(archive, dest)
+            suite_path = extract_suite_archive(archive_path, dest)
+            archive_path.unlink(missing_ok=True)
             result["out"] = str(suite_path)
             # #59: materialize job_overlay as profiles.yaml next to extract when present.
             overlay = meta.get("job_overlay")

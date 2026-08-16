@@ -199,7 +199,7 @@ def test_oversize_file_raises_when_truncate_disabled() -> None:
 
 
 def test_oversize_http_returns_truncated_preview(
-    registry_server, monkeypatch: pytest.MonkeyPatch
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Inject a large blob; Hub preview gets a truncated head (not 413)."""
     summary = _publish_public(registry_server, monkeypatch)
@@ -209,7 +209,9 @@ def test_oversize_http_returns_truncated_preview(
     big = b"z" * (MAX_FILE_BYTES + 50)
     archive = _gzip_tar_with_file("huge.txt", big)
     # Overwrite package blob (memory store)
-    state.blobs.put_if_absent(row.blob_digest + "-unused", b"x", prefix="packages")
+    unused = tmp_path / "unused.bin"
+    unused.write_bytes(b"x")
+    state.blobs.put_if_absent(row.blob_digest + "-unused", unused, prefix="packages")
     # Force replace in memory store
     key = f"packages/{row.blob_digest}"
     if hasattr(state.blobs, "_data"):
