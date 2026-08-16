@@ -143,18 +143,19 @@ bindings:
     executor: my-mech
     extensions:
       - plugin: my-mech
+        options:
+          agent: "lib.agents:MyAgent" # plugin-owned, secret-free opaque keys
+          method: "run"
     model: openai/glm-5.2
     api_key: litellm_api_key # locator
-    options:
-      agent: "lib.agents:MyAgent" # plugin-owned, secret-free opaque keys
-      method: "run"
 ```
 
-`--set /bindings/<role>/options/<key>=…` is allowed (ACP still rejects
-`command` / engine keys). Plugin-owned keys stay opaque to Core — for
-example dsh `options.permission` (`read-only` / `workspace-write` /
-`danger-full-access`) selects a plugin composition and child env. Invalid
-values fail closed at materialize.
+`--set /bindings/<role>/options/<key>=…` writes the **executor plugin**
+row (ACP still rejects `command` / engine keys). Other plugins' options
+stay on their own `extensions` row. Plugin-owned keys stay opaque to
+Core — for example dsh `options.permission` (`read-only` /
+`workspace-write` / `danger-full-access`) selects a plugin composition
+and child env. Invalid values fail closed at materialize.
 
 ## Typed failures
 

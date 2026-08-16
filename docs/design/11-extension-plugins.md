@@ -57,7 +57,7 @@
 | 层 | 代表槽 | 生产消费点 |
 | --- | --- | --- |
 | L0 | `before/after_prepare|run|evaluate|cleanup` | `application/extension_hooks` |
-| L1 | `image_contribute`、`env_*`、`env_action` | prepare bake；env prepare/teardown + action_gate |
+| L1 | `image_contribute`、`home_overlay`、`env_*`、`env_action` | prepare bake；cred 后 / HOME 拷贝前；env prepare/teardown + action_gate |
 | L2 | `executor`、agent open/invoke/close、`normalize_agent_result` | `ParentAgentService` session 钉图。L1 用 Core `TargetPlacement` + SPI `bind_to_target`；禁止 Core `if kind == …` 重建 executor |
 | L3 | `evaluation_input_contribute`、`evaluation_runtime`、`score_postprocess` | 评测前/后（fail closed；不得选 PASS 权威） |
 | L4 | `trajectory_collect|enrich|seal`、`evidence_extra` | seal 写路径（collect/enrich fail-open）。collect 可补层 B 事件；**不得**让插件直接写层 C 行，也不得再产出 ACP `session_update` 伪装 |
@@ -73,6 +73,7 @@ invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
                     → trajectory_seal → evidence_extra
 close_session → before_agent_close → executor.close → after_agent_close
 
+home_overlay → Core default 建 cred 树 → nxt（插件写 HOME/workspace 文件）→ 拷入 actor HOME
 env prepare  → seed/health → env_prepare multi → env_inject → env_action provide
 env teardown → env_teardown multi → EnvironmentManager.close
 
@@ -159,10 +160,41 @@ host_requires:
 
 ## 配置与绑定
 
-- Job binding 在 `profiles.yaml`：`executor` / `options` / `extensions`（binding 字段）；选择按 **profile（role）**，不是 task 级插件列表  
+- Job binding 在 `profiles.yaml`：`executor` / `extensions`（binding 字段）；选择按 **profile（role）**，不是 task 级插件列表  
+- 插件 knobs 只写在 **`extensions[]` 行上的 `options`**。`executor:` 只选 `provide(executor)`。  
+- Profile 级 `options` **不是**插件输入（无 dual-read、无回落）。  
 - member `task.yaml` 只声明 role slot，禁止内联 binding  
 - `bora lock` 解析每个 profile → `extension_bindings` 进 digest（快照，不是选择器）  
 - 切换机制：**同一 harness**，改 profiles +（必要时）install，不改 harness 业务代码  
+
+### 每插件 `extensions[].options`
+
+`executor:` 不携带插件 knobs。每个插件只读本行 `options`。工厂与 `on` handler 物化时只拿到该行 map。
+
+```yaml
+executor: acp
+extensions:
+  - plugin: acp
+    options:
+      entry: opencode
+  - plugin: home-files
+    options:
+      files:
+        - src: overlays/opencode.litellm.json
+          dest: .config/opencode/opencode.json
+          dest_root: home
+  - plugin: dsh
+    options:
+      composition: slim
+```
+
+`--set /bindings/<role>/options/<key>` 写到 **该 role 的 executor 插件** 行（没有则补一行 `- plugin: <executor>`）。不能用同一指针表达非 executor 行（如 `home-files` 的 `files`）；那些只写 YAML。
+
+### `home_overlay`（L1 multi；L0 在 Attempt HOME 存在后同样 emit）
+
+插在 **cred 投影之后、actor HOME 拷贝之前**。不是 `after_prepare`（后者仍在选镜像 / bake 旁），也不是 `env_inject`。
+
+Core default（低 priority，先跑）：建 cred 树（今日 allowlist）；把 `package_root` / `workspace_root` / `cred_root` 放上 `ctx`/`value`；`await nxt(value)`；再把 `cred_root/home_overlay/.` 拷进 actor `$HOME/`，并完成今日 `prepare_agent_targets` 的其余步骤。插件只在 `nxt` 里写文件，不调 Docker，不发明 PASS。L0 不得写用户真 `~`。
 
 ### `extensions` 按 profile 显式 opt-in
 
@@ -190,7 +222,7 @@ bindings:
 2. `slots: [...]` → 只开列出的槽；未知槽或该插件未登记 → fail closed。  
 3. `{slot, plugin}` → 恰好那一个槽。  
 4. MULTI 链 **只**含本 profile `extensions` 点名的项。已安装但未列入的插件不进链、不进镜像。  
-5. `executor:` **不**隐含 `image_contribute`。纯 ACP profile 省略 `extensions`。  
+5. `executor:` **不**隐含 `image_contribute`。ACP 的 `entry` 写在 `- plugin: acp` 的 `options`；不再写 profile 级 `options`。  
 6. 绑定了**已安装** executor 但未选中 `image_contribute`（或缺 bake 文件）→ L1 fail closed。  
 7. 同一 job 里不同 role 可独立绑定不同插件。  
 8. 省略 `executor:` 时，若某条 `- plugin: …`（全槽）含该插件的 executor provide，可用它补上；两套都写时以 `executor:` 为准。
@@ -206,12 +238,12 @@ bindings:
     executor: nooa
     extensions:
       - plugin: nooa
+        options:
+          agent: "lib.agents:JsonlAggAgent"  # package-local nooa.Agent
+          method: "run"
     model: openai/glm-5.2
     api_key: litellm_api_key          # env locator；值不进 lock
     # base_url: https://…/v1          # 可选；否则回落 litellm_base_url / OPENAI_BASE_URL
-    options:
-      agent: "lib.agents:JsonlAggAgent"  # package-local nooa.Agent
-      method: "run"
 ```
 
 L1：bake 安装 `nooa` + **in-container worker**；parent 把 model/base_url/密钥投影进 worker；host SPI 不是 L1 成功路径。
@@ -297,5 +329,5 @@ Dockerfile 另有文件或其它 `FROM`，或任一选中扩展要 bake，仍走
 - 结构地图：[`ARCHITECTURE.md`](../../ARCHITECTURE.md)（plugins 树、emit map）  
 - Owner：[`09-owner-matrix-and-structure.md`](09-owner-matrix-and-structure.md)  
 - Runtime Agent：[`05-runtime/agent-service.md`](05-runtime/agent-service.md)  
-- 示例：`plugins/nooa`、`plugins/dsh`（`options.permission` 为插件自有键，非新 slot）、`plugins/slot-probe`、`examples/journeys/profiles.nooa.yaml`、`examples/journeys/profiles.dsh.yaml`、`examples/journeys/profiles.dsh.read-only.yaml`、`examples/slot-probe/`  
+- 示例：`plugins/nooa`、`plugins/dsh`（`options.permission` 为插件自有键，非新 slot）、`plugins/home-files`（`on: home_overlay`）、`plugins/slot-probe`、`examples/journeys/profiles.nooa.yaml`、`examples/journeys/profiles.dsh.yaml`、`examples/journeys/profiles.dsh.read-only.yaml`、`examples/slot-probe/`  
 - 交付跟踪：GitHub Issues（Epic 插件系统）

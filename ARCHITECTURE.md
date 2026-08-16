@@ -289,6 +289,7 @@ invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
                     → trajectory_seal provide → evidence_extra
 close_session → before_agent_close → executor.close → after_agent_close
 
+home_overlay → Core default builds cred tree → nxt (plugin files) → copy actor HOME
 env prepare  → seed/health → env_prepare multi (live ctx)
              → env_inject multi → env_action provide (optional action_gate)
 env teardown → env_teardown multi → EnvironmentManager.close
