@@ -12,11 +12,7 @@ from bora.config.constants import DEFAULT_EVAL_TMPFS_MB
 
 
 def clean_eval_tmpfs_mount(tmpfs_mb: int) -> str:
-    """Docker ``--tmpfs`` spec for the clean-eval ``/tmp``.
-
-    Fail closed on non-positive values. Never clamp to a huge default.
-    Distinct from the Agent Attempt 64 MiB ``/tmp``.
-    """
+    """Docker ``--tmpfs`` spec for clean-eval ``/tmp``."""
     if not isinstance(tmpfs_mb, int) or isinstance(tmpfs_mb, bool) or tmpfs_mb < 1:
         raise ValueError("evaluation.tmpfs_mb must be a positive integer")
     return f"/tmp:rw,noexec,nosuid,size={tmpfs_mb}m"

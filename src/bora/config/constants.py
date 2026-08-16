@@ -41,7 +41,7 @@ ALLOWLISTED_OVERRIDE_POINTERS = frozenset(
     }
 )
 
-# L1 clean-eval /tmp tmpfs (MiB). Not a limits.* hard ceiling — Evaluation sandbox.
+# L1 clean-eval /tmp size (MiB).
 DEFAULT_EVAL_TMPFS_MB = 32
 
 # Explicit defaults applied after reading task.yaml, before variant/overrides.
