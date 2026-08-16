@@ -54,6 +54,30 @@ def appearance_entry(binding: Mapping[str, Any] | None) -> str:
     return str(raw.get("executor") or "").strip()
 
 
+def runtime_refs_from_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str, str]]:
+    """Per-role plaza refs from ``job_overlay.bindings``. Empty if none."""
+    if not isinstance(overlay, Mapping):
+        return []
+    bindings = overlay.get("bindings")
+    if not isinstance(bindings, Mapping):
+        return []
+    refs: list[dict[str, str]] = []
+    for role, raw in bindings.items():
+        if not isinstance(raw, Mapping):
+            continue
+        role_id = str(role).strip()
+        if not role_id:
+            continue
+        refs.append(
+            {
+                "role": role_id,
+                "runtime_id": harness_fingerprint(raw),
+                "display_name": harness_display_name(raw),
+            }
+        )
+    return refs
+
+
 def _humanize(stem: str) -> str:
     tokens = [part for part in _TOKEN_SPLIT.split(stem.strip()) if part]
     return " ".join(token[:1].upper() + token[1:] for token in tokens)

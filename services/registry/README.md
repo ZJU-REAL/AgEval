@@ -253,6 +253,23 @@ files (no `..`, 2 MiB cap, **413** when larger):
 | PATCH | `/v1/results/suites/{suite_run_id}` | uploader (or `admin`); `{ "visibility" }` |
 | GET | `/v1/results/suites/{suite_run_id}/content` | same |
 
+### Runtime plaza (derived)
+
+Read-only. No Runtime table and no upload. Source rows are **public**,
+**complete**, **release-bound** suites on a Dataset that has a non-draft
+official-org database release. Identity is executor + secret-free options
+(`rt_` + 16 hex). Scores are the source suite's observational metrics.
+
+| Method | Path | Scope |
+| --- | --- | --- |
+| GET | `/v1/runtimes` | bearer (anonymous allowed); public official boards only |
+| GET | `/v1/runtimes/{runtime_id}` | same; **404** when no public official appearance |
+
+List cards have counts (`n_datasets`, `n_appearances`) and **no** headline
+score. Detail adds `appearances` (one row per role on that suite). Public
+official board suite JSON may include `runtime_refs` (`role`, `runtime_id`,
+`display_name`); other suites omit it.
+
 Row fields: `database_id`, `database_version`, `pass_rate`, `mean_score`, `metrics`,
 `task_refs`, optional `agent_label` / `model_label`, `exit_code`, and optional
 config-comparability projection (`config_fingerprint`, `config_homogeneous`,

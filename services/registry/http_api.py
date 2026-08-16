@@ -516,6 +516,20 @@ class RegistryHttpApi:
                 shutil.rmtree(work, ignore_errors=True)
         return json_result(201, payload)
 
+    def _list_runtimes(self, *, auth: TokenInfo) -> HttpResult:
+        try:
+            payload = self.state.runtimes.list_runtimes(auth)
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
+    def _get_runtime(self, *, runtime_id: str, auth: TokenInfo) -> HttpResult:
+        try:
+            payload = self.state.runtimes.get_runtime(runtime_id=runtime_id, auth=auth)
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
     def _list_suites(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> HttpResult:
         try:
             board_raw = (qs.get("board") or [""])[0]
