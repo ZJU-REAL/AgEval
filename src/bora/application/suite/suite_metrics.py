@@ -102,6 +102,53 @@ def aggregate_task_metrics(task_rows: Sequence[Mapping[str, Any]]) -> dict[str, 
     }
 
 
+def slot_key(row: Mapping[str, Any]) -> tuple[str, int]:
+    """Scoring-slot identity: ``(task_id, attempt_index)`` (missing index → 0)."""
+    tid = str(row.get("task_id") or "")
+    idx = row.get("attempt_index")
+    if not isinstance(idx, int) or isinstance(idx, bool):
+        idx = 0
+    return tid, idx
+
+
+def previous_entry(row: Mapping[str, Any], *, replaced_at: str) -> dict[str, Any]:
+    """Slim superseded snapshot. Old Attempt identity/score stay immutable."""
+    _tid, idx = slot_key(row)
+    return {
+        "run_id": row.get("run_id"),
+        "status": _normalize_status(row.get("status")) or None,
+        "score": _numeric_score_or_none(row.get("score")),
+        "attempt_index": idx,
+        "replaced_at": replaced_at,
+    }
+
+
+def extend_slot_previous(old_row: Mapping[str, Any], *, replaced_at: str) -> list[dict[str, Any]]:
+    """Oldest → newest superseded: keep prior chain, then the outgoing current."""
+    chain: list[dict[str, Any]] = []
+    raw = old_row.get("previous")
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, Mapping):
+                chain.append(dict(item))
+    chain.append(previous_entry(old_row, replaced_at=replaced_at))
+    return chain
+
+
+def previous_from_attempts(attempt_rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Flatten per-slot ``previous[]`` in attempt_index order."""
+    ordered = sorted(attempt_rows, key=lambda r: slot_key(r)[1])
+    out: list[dict[str, Any]] = []
+    for row in ordered:
+        raw = row.get("previous")
+        if not isinstance(raw, list):
+            continue
+        for item in raw:
+            if isinstance(item, Mapping):
+                out.append(dict(item))
+    return out
+
+
 def task_refs_for_summary(
     task_rows: Sequence[Mapping[str, Any]],
     *,
@@ -111,7 +158,8 @@ def task_refs_for_summary(
 
     When *attempts* is provided (or a task row nests ``attempts``), each ref
     may include ``n``, ``c``, and ``attempt_run_ids`` for multi-attempt audit
-    and ``--with-attempts`` upload completeness (#60 A3).
+    and ``--with-attempts`` upload completeness (#60 A3). ``previous[]`` is the
+    superseded chain (audit only; not in metrics).
     """
     by_task: dict[str, list[Mapping[str, Any]]] = {}
     if attempts is not None:
@@ -171,6 +219,13 @@ def task_refs_for_summary(
             # Prefer primary run_id when missing: PASS attempt, else first.
             if not ref.get("run_id"):
                 ref["run_id"] = attempt_run_ids[0]
+        history = previous_from_attempts(nested_rows)
+        if not history:
+            raw_prev = row.get("previous")
+            if isinstance(raw_prev, list):
+                history = [dict(item) for item in raw_prev if isinstance(item, Mapping)]
+        if history:
+            ref["previous"] = history
         refs.append(ref)
     return refs
 
@@ -727,6 +782,11 @@ def ensure_suite_task_refs(
                     if not ref.get("attempt_run_ids") and isinstance(prior_ids, list):
                         ref["attempt_run_ids"] = [
                             str(x).strip() for x in prior_ids if x is not None and str(x).strip()
+                        ]
+                    prior_prev = prior.get("previous")
+                    if not ref.get("previous") and isinstance(prior_prev, list):
+                        ref["previous"] = [
+                            dict(item) for item in prior_prev if isinstance(item, Mapping)
                         ]
             return rebuilt
 

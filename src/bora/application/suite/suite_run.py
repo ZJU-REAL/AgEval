@@ -23,7 +23,9 @@ from bora.application.composition import build_run_task
 from bora.application.suite.suite_config_fingerprint import collect_suite_config
 from bora.application.suite.suite_metrics import (
     aggregate_k_metrics,
+    extend_slot_previous,
     flatten_legacy_tasks_as_attempts,
+    slot_key,
     task_refs_for_summary,
 )
 from bora.config.database import list_tasks, load_database_manifest
@@ -237,6 +239,11 @@ def _is_cancelled_placeholder(row: Mapping[str, Any]) -> bool:
     return str(row.get("error") or "") == "suite_cancelled"
 
 
+_FINISHED_PROGRESS = frozenset(
+    {"complete", "completed", "finished", "done", "cancelled", "canceled"}
+)
+
+
 def _existing_attempt_keys(attempts: list[dict[str, Any]]) -> set[tuple[str, int]]:
     """Keys of finished attempts that resume must **not** re-run.
 
@@ -248,14 +255,34 @@ def _existing_attempt_keys(attempts: list[dict[str, Any]]) -> set[tuple[str, int
     for row in attempts:
         if _is_cancelled_placeholder(row):
             continue
-        tid = str(row.get("task_id") or "")
-        idx = row.get("attempt_index")
+        tid, idx = slot_key(row)
         if not tid:
             continue
-        if not isinstance(idx, int) or isinstance(idx, bool):
-            idx = 0
         keys.add((tid, idx))
     return keys
+
+
+def suite_is_settled(database_root: Path, suite_run_id: str) -> bool:
+    """True when the suite is not in-flight and has no pending cancel request."""
+    if is_suite_cancel_requested(database_root, suite_run_id):
+        return False
+    progress_path = (
+        database_root.expanduser().resolve(strict=False)
+        / ".bora"
+        / "suite-runs"
+        / suite_run_id
+        / "progress.json"
+    )
+    if not progress_path.is_file():
+        return True
+    try:
+        data = json.loads(progress_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    status = str(data.get("status") or "").strip().lower()
+    return status in _FINISHED_PROGRESS
 
 
 async def _run_one(
@@ -559,6 +586,8 @@ def _build_summary(
     plugins = config_fields.get("plugins")
     if isinstance(plugins, list) and plugins:
         summary["plugins"] = plugins
+    if any(isinstance(a.get("previous"), list) and a["previous"] for a in attempts):
+        summary["amended"] = True
     return summary
 
 
@@ -576,6 +605,50 @@ def _write_summary(plan: SuitePlan, summary: dict[str, Any]) -> dict[str, Any]:
     return summary
 
 
+def _assert_replace_slots(
+    plan: SuitePlan,
+    existing: list[dict[str, Any]],
+    old_summary: Mapping[str, Any],
+    replace: set[tuple[str, int]],
+    overrides: dict[str, Any] | None,
+    profiles_path: Path | str | None,
+) -> None:
+    """Fail closed: named slot must exist; binding family must match the suite."""
+    finished = _existing_attempt_keys(existing)
+    planned = set(plan.task_ids)
+    for tid, idx in sorted(replace):
+        if tid not in planned:
+            raise ConfigError(
+                "suite_replace_slot_missing",
+                f"replace-slot task is not in this resume filter: {tid}",
+                location="--task",
+            )
+        if (tid, idx) not in finished:
+            raise ConfigError(
+                "suite_replace_slot_missing",
+                f"no finished slot {tid}[{idx}] to replace",
+                location="--replace-slot",
+            )
+    old_fp = old_summary.get("config_fingerprint")
+    if not isinstance(old_fp, str) or not old_fp.strip():
+        return
+    fp_rows = [{"task_id": a.get("task_id"), "run_id": a.get("run_id")} for a in existing]
+    new_cfg = collect_suite_config(
+        plan.database_root,
+        fp_rows,
+        overrides=overrides,
+        task_ids=list(plan.task_ids),
+        profiles_path=profiles_path,
+    )
+    new_fp = new_cfg.get("config_fingerprint")
+    if str(new_fp or "") != old_fp:
+        raise ConfigError(
+            "suite_replace_fingerprint_mismatch",
+            "replace-slot requires the same config_fingerprint / job overlay",
+            location="--profiles",
+        )
+
+
 async def execute_suite_run(
     plan: SuitePlan,
     *,
@@ -583,6 +656,7 @@ async def execute_suite_run(
     run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]] | None = None,
     profiles_path: Path | str | None = None,
     resume: bool = False,
+    replace_slots: set[tuple[str, int]] | None = None,
     on_progress: ProgressCallback | None = None,
     keep_workspace: bool = False,
 ) -> dict[str, Any]:
@@ -594,31 +668,61 @@ async def execute_suite_run(
     Real finished attempt rows are never rewritten; cancel placeholders are
     dropped when their slot is re-executed.
 
+    ``replace_slots`` (named finished slots only) re-runs those keys even when
+    they already have a real result. The outgoing current is pushed onto that
+    slot's ``previous[]``; metrics use the new current only.
+
     Cancel (#47 D4): if ``suite-runs/<id>/cancel.requested`` appears, no new units
     start; in-flight units finish; remaining planned units get cancelled rows.
-    Resume clears a prior cancel request so scheduling can proceed.
+    Resume without replace-slot clears a prior cancel request so scheduling can
+    proceed. Replace-slot refuses an unsettled suite.
     """
     reset_inflight_metrics()
     runner = run_fn or build_run_task()
     suite_dir_for(plan).mkdir(parents=True, exist_ok=True)
 
+    replace = {(str(t), int(i)) for t, i in (replace_slots or set()) if str(t)}
+    if replace and not resume:
+        raise ConfigError(
+            "suite_replace_requires_resume",
+            "replace-slot requires --resume-suite",
+            location="--replace-slot",
+        )
+
     existing: list[dict[str, Any]] = []
+    old_summary: dict[str, Any] | None = None
     if resume:
-        # Allow re-scheduling after a previous cancel.
-        clear_suite_cancel(plan.database_root, plan.suite_run_id)
-        old = load_suite_summary(plan.database_root, plan.suite_run_id)
-        raw_attempts = old.get("attempts")
+        if replace:
+            if not suite_is_settled(plan.database_root, plan.suite_run_id):
+                raise ConfigError(
+                    "suite_in_progress",
+                    "cannot replace a slot while the suite is in progress "
+                    "or cancel.requested is set",
+                    location=str(suite_dir_for(plan)),
+                )
+        else:
+            # Allow re-scheduling after a previous cancel.
+            clear_suite_cancel(plan.database_root, plan.suite_run_id)
+        old_summary = load_suite_summary(plan.database_root, plan.suite_run_id)
+        raw_attempts = old_summary.get("attempts")
         if isinstance(raw_attempts, list) and raw_attempts:
             existing = [dict(a) for a in raw_attempts if isinstance(a, Mapping)]
         else:
-            legacy_tasks = old.get("tasks")
+            legacy_tasks = old_summary.get("tasks")
             if isinstance(legacy_tasks, list):
                 existing = flatten_legacy_tasks_as_attempts(
                     [t for t in legacy_tasks if isinstance(t, Mapping)]
                 )
+        if replace:
+            _assert_replace_slots(plan, existing, old_summary, replace, overrides, profiles_path)
 
     done_keys = _existing_attempt_keys(existing)
+    if replace:
+        done_keys -= replace
     units = planned_units(plan)
+    for slot in replace:
+        if slot[0] in plan.task_ids and slot not in units:
+            units.append(slot)
     todo = [(tid, idx) for tid, idx in units if (tid, idx) not in done_keys]
     total_units = max(len(units), len(todo) + len(done_keys & set(units)))
     # Progress: completed existing + in-flight bookkeeping.
@@ -773,6 +877,15 @@ async def execute_suite_run(
             completed_count += 1
     if skipped_cancelled:
         new_results.extend(skipped_cancelled)
+
+    if replace and new_results:
+        replaced_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        outgoing = {slot_key(row): row for row in existing if slot_key(row) in replace}
+        for row in new_results:
+            old_row = outgoing.get(slot_key(row))
+            if old_row is None:
+                continue
+            row["previous"] = extend_slot_previous(old_row, replaced_at=replaced_at)
 
     # Merge: keep real finished rows; drop cancel placeholders for slots we
     # re-ran (or re-cancelled). Never mutate real finished attempt payloads.
