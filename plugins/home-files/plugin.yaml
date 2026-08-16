@@ -1,0 +1,8 @@
+format: bora.plugin/1
+plugin_id: home-files
+version: 0.1.0
+slots:
+  "on":
+    - id: home_overlay
+      priority: 110
+      entry: "home_files.hooks:build_home_overlay"
