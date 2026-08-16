@@ -23,6 +23,7 @@ from bora.application.attempt.run_l1_prepare import (
     prepare_l1_runtime,
     seed_l1_workspace,
 )
+from bora.config.constants import DEFAULT_EVAL_TMPFS_MB
 from bora.config.model import thaw
 from bora.evaluation.result_binding import bind_result
 from bora.evidence.locators import portable_run_locator
@@ -421,12 +422,15 @@ def evaluate_l1(ctx: AttemptStageContext) -> None:
             ctx.l1_meta["evaluation_runtime"] = (
                 dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}
             )
+        eval_cfg = thaw(ctx.lock.evaluation)
+        raw_tmpfs = eval_cfg.get("tmpfs_mb", DEFAULT_EVAL_TMPFS_MB)
         eval_raw, eval_meta = run_clean_evaluator_container(
             image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
             staging=staging,
             artifact_filename=artifact_filename,
             artifact_key=artifact_key,
             expected_filename=expected_filename,
+            tmpfs_mb=raw_tmpfs,
         )
         if isinstance(eval_raw, dict):
             eval_raw = hook_score_postprocess(ctx.lock, eval_raw)
