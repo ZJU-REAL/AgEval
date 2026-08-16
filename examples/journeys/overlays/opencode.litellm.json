@@ -14,9 +14,9 @@
         "dashscope/kimi-k2.7-code": { "name": "kimi-k2.7-code" },
         "MiniMax-M2.7": { "name": "MiniMax-M2.7" },
         "glm-5.2": { "name": "glm-5.2" },
-        "claude-sonnet-4-6": { "name": "claude-sonnet-4-6" },
-        "gpt-5.4": { "name": "gpt-5.4" },
-        "deepseek-v4-pro": { "name": "deepseek-v4-pro" }
+        "anthropic/claude-sonnet-4-6": { "name": "claude-sonnet-4-6" },
+        "openai/gpt-5.4": { "name": "gpt-5.4" },
+        "dashscope/deepseek-v4-pro": { "name": "deepseek-v4-pro" }
       }
     }
   }

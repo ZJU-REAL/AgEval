@@ -1,5 +1,5 @@
 # ACP job binding for terminal-jsonl-agg.
-# entry: pi  model: deepseek/deepseek-v4-pro
+# entry: pi  model: litellm/dashscope/deepseek-v4-pro
 # LiteLLM catalog is a Database overlay (home-files), not a Core prefix.
 format: bora.profiles/1
 bindings:
@@ -15,6 +15,6 @@ bindings:
             - src: overlays/pi.litellm.json
               dest: .pi/agent/models.json
               dest_root: home
-    model: deepseek/deepseek-v4-pro
-    api_key: litellm_api_key
-    base_url: http://10.130.138.46:8010/v1
+    model: litellm/dashscope/deepseek-v4-pro
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}

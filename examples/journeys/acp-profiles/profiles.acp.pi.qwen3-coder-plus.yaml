@@ -16,5 +16,5 @@ bindings:
               dest: .pi/agent/models.json
               dest_root: home
     model: litellm/dashscope/qwen3-coder-plus
-    api_key: litellm_api_key
-    base_url: http://10.130.138.46:8010/v1
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
