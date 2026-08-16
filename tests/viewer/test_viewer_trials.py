@@ -348,6 +348,64 @@ def test_missing_run_raises(tmp_path: Path) -> None:
         trials.resolve_evidence_root(db, "does_not_exist")
 
 
+def test_get_trial_opens_previous_without_listing_it(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = "suite_amended"
+    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir.mkdir(parents=True)
+    summary = {
+        "schema": "bora.suite.summary/1",
+        "suite_run_id": job_id,
+        "database_id": "test/suite-min",
+        "tasks": [{"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_new"}],
+        "attempts": [
+            {
+                "task_id": "alpha",
+                "attempt_index": 0,
+                "status": "PASS",
+                "run_id": "run_new",
+                "previous": [
+                    {
+                        "run_id": "run_old",
+                        "status": "ERROR",
+                        "score": None,
+                        "attempt_index": 0,
+                    }
+                ],
+            }
+        ],
+        "task_refs": [
+            {
+                "task_id": "alpha",
+                "status": "PASS",
+                "score": 1.0,
+                "run_id": "run_new",
+                "previous": [
+                    {
+                        "run_id": "run_old",
+                        "status": "ERROR",
+                        "score": None,
+                        "attempt_index": 0,
+                    }
+                ],
+            }
+        ],
+        "metrics": {"n_tasks": 1, "n_pass": 1},
+    }
+    suite_dir.joinpath("summary.json").write_text(json.dumps(summary) + "\n", encoding="utf-8")
+    _write_evidence(db, "run_new", task_id="alpha")
+    _write_evidence(db, "run_old", task_id="alpha")
+
+    listed = trials.list_task_trials(db, job_id, "alpha")
+    assert [t["run_id"] for t in listed["trials"]] == ["run_new"]
+
+    old = trials.get_trial(db, job_id, "alpha", "run_old")
+    assert old["trial"]["run_id"] == "run_old"
+    assert old["slot_current_run_id"] == "run_new"
+    assert old["slot_previous"][0]["run_id"] == "run_old"
+    assert "run_old" not in old["sibling_run_ids"]
+
+
 def test_path_ids_reject_traversal(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = _seed_suite_run(db)

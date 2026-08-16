@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
@@ -8,7 +9,7 @@ import { OutcomeStrip } from "@/components/trial/outcome-strip";
 import { PhaseTimingBar } from "@/components/trial/phase-timing-bar";
 import { TrialHeader } from "@/components/trial/trial-header";
 import { useAttemptEvidence } from "@/hooks/use-attempt-evidence";
-import { decodeDatasetId } from "@/lib/api";
+import { decodeDatasetId, listSuites } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
 /**
@@ -24,6 +25,11 @@ export function AttemptEvidencePage() {
   const taskId = decodeURIComponent(rawTask || "");
   const runId = decodeURIComponent(rawRun || "");
   const token = getToken();
+  const navigate = useNavigate();
+  const [slotCurrentRunId, setSlotCurrentRunId] = useState<string | null>(null);
+  const [slotPrevious, setSlotPrevious] = useState<
+    Array<{ run_id?: string | null; status?: string | null }>
+  >([]);
 
   const {
     trial,
@@ -47,7 +53,43 @@ export function AttemptEvidencePage() {
     fileLoading,
   } = useAttemptEvidence(runId, taskId, token);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!datasetId || !taskId || !runId) return;
+    listSuites(datasetId, token)
+      .then((suites) => {
+        if (cancelled) return;
+        for (const suite of suites) {
+          const hit = (suite.task_refs || []).find((ref) => ref.task_id === taskId);
+          if (!hit) continue;
+          const prev = hit.previous || [];
+          const ids = [
+            hit.run_id,
+            ...(hit.attempt_run_ids || []),
+            ...prev.map((item) => item.run_id),
+          ];
+          if (!ids.includes(runId)) continue;
+          setSlotCurrentRunId(hit.run_id ?? null);
+          setSlotPrevious(prev);
+          return;
+        }
+        setSlotCurrentRunId(null);
+        setSlotPrevious([]);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSlotCurrentRunId(null);
+          setSlotPrevious([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, taskId, runId, token]);
+
   const jobsHref = `/datasets/${encodeURIComponent(datasetId)}/tasks/${encodeURIComponent(taskId)}?tab=jobs`;
+  const attemptHref = (id: string) =>
+    `/datasets/${encodeURIComponent(datasetId)}/tasks/${encodeURIComponent(taskId)}/attempts/${encodeURIComponent(id)}`;
 
   return (
     <>
@@ -64,7 +106,14 @@ export function AttemptEvidencePage() {
           ]}
         />
 
-        <TrialHeader runId={runId} taskId={taskId} trial={trial} />
+        <TrialHeader
+          runId={runId}
+          taskId={taskId}
+          trial={trial}
+          slotCurrentRunId={slotCurrentRunId}
+          slotPrevious={slotPrevious}
+          onSlotSelect={(id) => navigate(attemptHref(id))}
+        />
 
         {runCommand ? <CommandStrip command={runCommand} /> : null}
 

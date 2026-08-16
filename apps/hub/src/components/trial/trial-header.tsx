@@ -1,4 +1,8 @@
 import { HoverTip } from "@/components/hover-tip";
+import {
+  SlotHistorySelect,
+  type SlotHistoryEntry,
+} from "@/components/trial/slot-history-select";
 import type { Trial } from "@/lib/trial-types";
 
 /** Header without sibling nav (Hub has no local trial list siblings by default). */
@@ -6,10 +10,16 @@ export function TrialHeader({
   runId,
   taskId,
   trial,
+  slotCurrentRunId,
+  slotPrevious,
+  onSlotSelect,
 }: {
   runId: string;
   taskId: string;
   trial: Trial | null;
+  slotCurrentRunId?: string | null;
+  slotPrevious?: SlotHistoryEntry[];
+  onSlotSelect?: (id: string) => void;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -60,6 +70,14 @@ export function TrialHeader({
           ) : null}
         </p>
       </div>
+      {onSlotSelect ? (
+        <SlotHistorySelect
+          viewingRunId={runId}
+          currentRunId={slotCurrentRunId}
+          previous={slotPrevious}
+          onSelect={onSlotSelect}
+        />
+      ) : null}
     </div>
   );
 }

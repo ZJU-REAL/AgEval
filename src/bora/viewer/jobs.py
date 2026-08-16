@@ -123,6 +123,23 @@ def _attempts_for_task(summary: dict[str, Any], task_id: str) -> list[dict[str, 
     return []
 
 
+def _previous_entries(
+    ref: dict[str, Any], attempt_rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    raw = ref.get("previous")
+    if isinstance(raw, list) and raw:
+        return [dict(item) for item in raw if isinstance(item, dict)]
+    out: list[dict[str, Any]] = []
+    for row in attempt_rows:
+        nested = row.get("previous")
+        if not isinstance(nested, list):
+            continue
+        for item in nested:
+            if isinstance(item, dict):
+                out.append(dict(item))
+    return out
+
+
 def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -> dict[str, Any]:
     metrics = _ensure_metrics(summary)
     refs = _ensure_task_refs(summary)
@@ -460,6 +477,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         n_val = full.get("n") if full.get("n") is not None else ref.get("n")
         if n_val is None:
             n_val = len(attempt_run_ids) or None
+        previous = _previous_entries(ref, attempt_rows)
         task_rows.append(
             {
                 "task_id": tid,
@@ -469,6 +487,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
                 if attempt_run_ids
                 else full.get("run_id") or ref.get("run_id"),
                 "attempt_run_ids": attempt_run_ids,
+                "previous": previous,
                 "attempts": attempt_rows,
                 "error": full.get("error"),
                 "exit_code": full.get("exit_code"),

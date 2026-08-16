@@ -195,6 +195,7 @@ def test_job_task_exposes_attempt_run_ids_for_k(tmp_path: Path) -> None:
     row = detail["tasks"][0]
     assert row["attempt_run_ids"] == ["run_alpha_0", "run_alpha_1"]
     assert row["n"] == 2
+    assert row.get("previous") == []
 
     payload = jobs.get_job_task(db, job_id, "alpha")
     assert [t["run_id"] for t in payload["trials"]] == ["run_alpha_0", "run_alpha_1"]
