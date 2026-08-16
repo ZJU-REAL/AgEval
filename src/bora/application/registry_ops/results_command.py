@@ -539,9 +539,22 @@ class ResultsCommands:
             )
         current = (run_id or "").strip()
         if not current:
-            ids = hit.get("attempt_run_ids")
-            if isinstance(ids, list) and 0 <= attempt_index < len(ids):
-                current = str(ids[attempt_index] or "").strip()
+            for raw in summary.get("attempts") or []:
+                if not isinstance(raw, dict):
+                    continue
+                if str(raw.get("task_id") or "") != tid:
+                    continue
+                idx = raw.get("attempt_index")
+                if not isinstance(idx, int) or isinstance(idx, bool):
+                    idx = 0
+                if idx != attempt_index:
+                    continue
+                current = str(raw.get("run_id") or "").strip()
+                break
+            if not current:
+                ids = hit.get("attempt_run_ids")
+                if isinstance(ids, list) and 0 <= attempt_index < len(ids):
+                    current = str(ids[attempt_index] or "").strip()
             if not current:
                 current = str(hit.get("run_id") or "").strip()
         if not current:

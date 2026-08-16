@@ -100,16 +100,31 @@ def _collect_referenced_run_ids(summary: dict[str, Any]) -> list[str]:
             if isinstance(extra, list):
                 for item in extra:
                     _add(item)
+            prev = ref.get("previous")
+            if isinstance(prev, list):
+                for item in prev:
+                    if isinstance(item, dict):
+                        _add(item.get("run_id"))
     tasks = summary.get("tasks")
     if isinstance(tasks, list):
         for task in tasks:
             if isinstance(task, dict):
                 _add(task.get("run_id"))
+                prev = task.get("previous")
+                if isinstance(prev, list):
+                    for item in prev:
+                        if isinstance(item, dict):
+                            _add(item.get("run_id"))
     attempts = summary.get("attempts")
     if isinstance(attempts, list):
         for attempt in attempts:
             if isinstance(attempt, dict):
                 _add(attempt.get("run_id"))
+                prev = attempt.get("previous")
+                if isinstance(prev, list):
+                    for item in prev:
+                        if isinstance(item, dict):
+                            _add(item.get("run_id"))
     return ids
 
 

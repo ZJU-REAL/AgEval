@@ -56,16 +56,20 @@ def _previous_run_ids(ref: dict[str, Any]) -> set[str]:
     return out
 
 
-def _outgoing_slot_run_id(ref: dict[str, Any], attempt_index: int) -> str:
-    ids = ref.get("attempt_run_ids")
-    if isinstance(ids, list) and 0 <= attempt_index < len(ids):
-        raw = ids[attempt_index]
-        if raw is not None and str(raw).strip():
-            return str(raw).strip()
+def _current_run_ids(ref: dict[str, Any]) -> set[str]:
+    out: set[str] = set()
     rid = ref.get("run_id")
-    if attempt_index == 0 and rid is not None:
-        return str(rid).strip()
-    return ""
+    if rid is not None and str(rid).strip():
+        out.add(str(rid).strip())
+    extra = ref.get("attempt_run_ids")
+    if isinstance(extra, list):
+        for item in extra:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if text:
+                out.add(text)
+    return out
 
 
 def _archive_looks_like_secret_leak(archive: Path) -> bool:
@@ -529,9 +533,9 @@ class ResultService:
                     old_hit = raw
                     break
         if isinstance(old_hit, dict):
-            outgoing = _outgoing_slot_run_id(old_hit, attempt_index)
+            dropped = _current_run_ids(old_hit) - _current_run_ids(hit)
             prev_ids = _previous_run_ids(hit)
-            if outgoing and outgoing != new_run_id and outgoing not in prev_ids:
+            if dropped and not dropped <= prev_ids:
                 raise RegistryAppError(
                     "invalid_request",
                     "previous[] must keep the outgoing current",

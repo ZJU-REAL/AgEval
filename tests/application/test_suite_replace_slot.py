@@ -175,6 +175,12 @@ async def test_replace_one_always_k_index_leaves_siblings() -> None:
     assert second["metrics"]["n_pass"] == 1
     # pass@1 uses current 3 samples (1 pass).
     assert second["metrics"]["pass_at_k"]["1"]["value"] == pytest.approx(1 / 3)
+    refs = {r["task_id"]: r for r in second["task_refs"]}
+    assert refs["alpha"]["attempt_run_ids"] == [
+        cur[0]["run_id"],
+        cur[1]["run_id"],
+        cur[2]["run_id"],
+    ]
 
 
 @pytest.mark.asyncio

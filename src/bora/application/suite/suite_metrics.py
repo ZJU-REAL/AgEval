@@ -187,6 +187,7 @@ def task_refs_for_summary(
             nested_rows = list(by_task[tid])
 
         if nested_rows:
+            nested_rows = sorted(nested_rows, key=lambda r: slot_key(r)[1])
             n_from, c_from = count_passes(nested_rows)
             if n_val is None:
                 n_val = n_from

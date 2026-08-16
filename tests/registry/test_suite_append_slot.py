@@ -219,6 +219,49 @@ def test_append_slot_refuses_foreign_run_and_fingerprint(tmp_path: Path) -> None
         )
 
     _upload_attempt(results, tmp_path, "newrun", auth=auth, suite_run_id="suite_a")
+    _upload_attempt(results, tmp_path, "id0", auth=auth, suite_run_id="suite_k")
+    _upload_attempt(results, tmp_path, "id2", auth=auth, suite_run_id="suite_k")
+    _upload_attempt(results, tmp_path, "id1new", auth=auth, suite_run_id="suite_k")
+    meta_k, archive_k = _suite_archive(tmp_path, "suite_k")
+    meta_k["task_refs"] = [
+        {
+            "task_id": "hello",
+            "status": "ERROR",
+            "run_id": "id0",
+            "attempt_run_ids": ["id0", "id2", "id1old"],
+        }
+    ]
+    results.upload_suite(meta=meta_k, archive=archive_k, auth=auth)
+    payload = results.append_suite_slot(
+        suite_run_id="suite_k",
+        body={
+            "task_id": "hello",
+            "run_id": "id1new",
+            "attempt_index": 1,
+            "config_fingerprint": "sha256:suite-fp",
+            "pass_rate": 0.0,
+            "mean_score": 0.0,
+            "metrics": {},
+            "task_refs": [
+                {
+                    "task_id": "hello",
+                    "status": "PASS",
+                    "run_id": "id1new",
+                    "attempt_run_ids": ["id0", "id1new", "id2"],
+                    "previous": [
+                        {
+                            "run_id": "id1old",
+                            "status": "ERROR",
+                            "attempt_index": 1,
+                        }
+                    ],
+                }
+            ],
+        },
+        auth=auth,
+    )
+    assert payload["task_refs"][0]["previous"][0]["run_id"] == "id1old"
+
     with pytest.raises(RegistryAppError, match="config_fingerprint"):
         results.append_suite_slot(
             suite_run_id="suite_a",

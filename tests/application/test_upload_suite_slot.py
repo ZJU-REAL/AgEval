@@ -105,6 +105,64 @@ def test_append_slot_uploads_attempt_and_patches_suite(tmp_path: Path) -> None:
     assert mock.upload_attempt.call_args.kwargs.get("replace") is False
 
 
+def test_append_slot_resolves_always_k_index_from_attempts(tmp_path: Path) -> None:
+    db = tmp_path / "dbk"
+    db.mkdir()
+    (db / "bora.yaml").write_text(
+        "format: bora.database/1\ndatabase_id: test/db\nversion: 0.1.0\n",
+        encoding="utf-8",
+    )
+    suite_dir = db / ".bora" / "suite-runs" / "suitek"
+    suite_dir.mkdir(parents=True)
+    suite_dir.joinpath("summary.json").write_text(
+        """{
+  "schema": "bora.suite.summary/1",
+  "suite_run_id": "suitek",
+  "database_id": "test/db",
+  "database_version": "0.1.0",
+  "exit_code": 0,
+  "attempts": [
+    {"task_id": "hello", "attempt_index": 0, "status": "FAIL", "run_id": "idx0"},
+    {"task_id": "hello", "attempt_index": 2, "status": "FAIL", "run_id": "idx2"},
+    {"task_id": "hello", "attempt_index": 1, "status": "PASS", "run_id": "idx1new",
+     "previous": [{"run_id": "idx1old", "status": "ERROR", "attempt_index": 1}]}
+  ],
+  "tasks": [{"task_id": "hello", "status": "PASS", "run_id": "idx1new", "n": 3, "c": 1}],
+  "task_refs": [{
+    "task_id": "hello",
+    "status": "PASS",
+    "run_id": "idx1new",
+    "attempt_run_ids": ["idx0", "idx2", "idx1new"],
+    "previous": [{"run_id": "idx1old", "status": "ERROR", "attempt_index": 1}]
+  }],
+  "metrics": {"pass_rate": 1.0, "mean_score": 1.0, "n_tasks": 1, "n_pass": 1}
+}
+""",
+        encoding="utf-8",
+    )
+    for rid in ("idx0", "idx2", "idx1new", "idx1old"):
+        run_dir = db / ".bora" / "runs" / rid
+        run_dir.mkdir(parents=True)
+        run_dir.joinpath("result.json").write_text("{}\n", encoding="utf-8")
+
+    captured: dict[str, Any] = {}
+    mock = MagicMock()
+    mock.upload_attempt.return_value = {"run_id": "idx1new", "ok": True}
+    mock.append_suite_slot.side_effect = lambda **kw: (
+        captured.update(kw)
+        or {
+            "suite_run_id": "suitek",
+            "task_refs": kw["task_refs"],
+            "metrics": kw["metrics"],
+        }
+    )
+    cmds = ResultsCommands(client_factory=lambda **_kw: mock)
+    out = cmds.append_suite_slot_result(db, suite_run_id="suitek", task_id="hello", attempt_index=1)
+    assert out["run_id"] == "idx1new"
+    assert captured["run_id"] == "idx1new"
+    assert captured["attempt_index"] == 1
+
+
 def test_append_slot_refuses_foreign_run(tmp_path: Path) -> None:
     db = tmp_path / "db"
     db.mkdir()
