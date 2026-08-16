@@ -51,7 +51,7 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
                 "executor": "acp",
                 "model": "entry-default",
                 "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
-                "api_key": "OPENAI_API_KEY",
+                "api_key": "${OPENAI_API_KEY}",
             }
         },
     )

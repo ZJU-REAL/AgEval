@@ -80,6 +80,9 @@ class LockCommand:
             raise TypeError(msg)
 
         root = resolve_database_root(raw)
+        from bora.application.attempt.env_bootstrap import load_host_env_files
+
+        load_host_env_files(package_root=root)
         resolved = resolve_task(root, task_id)
         man = load_database_manifest(root)
 

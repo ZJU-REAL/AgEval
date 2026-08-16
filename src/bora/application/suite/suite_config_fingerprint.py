@@ -437,12 +437,14 @@ def load_actors_from_task_lock(
 ) -> list[dict[str, str]]:
     """Lock a task (same overrides as suite) and project agent_profiles."""
     from bora.adapters.package_fs import LocalPackageReader
+    from bora.application.attempt.env_bootstrap import load_host_env_files
     from bora.config.capabilities import DeclarationCapabilityCatalog
     from bora.config.database import load_database_manifest, resolve_task
     from bora.config.load_and_lock import ConfigCore
     from bora.config.model import thaw
     from bora.config.profiles import resolve_profile_bindings
 
+    load_host_env_files(package_root=database_root)
     resolved = resolve_task(database_root, task_id)
     man = load_database_manifest(resolved.database_root)
     bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
@@ -470,12 +472,14 @@ def load_job_overlay_from_task_lock(
 ) -> dict[str, Any] | None:
     """Live-lock a task and project secret-free job_overlay (#59)."""
     from bora.adapters.package_fs import LocalPackageReader
+    from bora.application.attempt.env_bootstrap import load_host_env_files
     from bora.config.capabilities import DeclarationCapabilityCatalog
     from bora.config.database import load_database_manifest, resolve_task
     from bora.config.load_and_lock import ConfigCore
     from bora.config.model import thaw
     from bora.config.profiles import resolve_profile_bindings
 
+    load_host_env_files(package_root=database_root)
     resolved = resolve_task(database_root, task_id)
     man = load_database_manifest(resolved.database_root)
     bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
@@ -521,6 +525,13 @@ def _suite_level_job_overlay(
                 except Exception:  # noqa: BLE001
                     continue
     if not bindings:
+        return None
+    from bora.config.env_refs import expand_binding_env_refs
+
+    try:
+        for role_id, row in bindings.items():
+            expand_binding_env_refs(row, location=f"/bindings/{role_id}")
+    except Exception:  # noqa: BLE001
         return None
     return project_job_overlay(bindings)
 

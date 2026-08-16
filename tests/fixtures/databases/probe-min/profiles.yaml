@@ -5,4 +5,4 @@ bindings:
     extensions:
       - plugin: host-probe
     model: none
-    api_key: PROBE_API_KEY
+    api_key: ${PROBE_API_KEY}

@@ -58,7 +58,7 @@ def test_accepts_base_url_and_api_key_locator(tmp_path: Path) -> None:
                 "executor": "openai-http",
                 "model": "glm-4.7",
                 "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
-                "api_key": "zhipu_coding_api_key",
+                "api_key": "${zhipu_coding_api_key}",
             }
         },
     )
@@ -99,6 +99,66 @@ def test_rejects_non_url_base(tmp_path: Path) -> None:
                     "executor": "openai-http",
                     "model": "glm-4.7",
                     "base_url": "not-a-url",
+                }
+            },
+        )
+
+
+def test_expands_base_url_env_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEST_LITELLM_BASE", "http://127.0.0.1:8010/v1")
+    pkg = _write_pkg(tmp_path, slot_id="glm")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    locked = core.load_and_lock(
+        pkg,
+        "profile-upstream",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings={
+            "glm": {
+                "executor": "openai-http",
+                "model": "glm-4.7",
+                "base_url": "${TEST_LITELLM_BASE}",
+                "api_key": "${zhipu_coding_api_key}",
+            }
+        },
+    )
+    profiles = thaw(locked.agent_profiles)
+    assert profiles[0]["base_url"] == "http://127.0.0.1:8010/v1"
+    assert profiles[0]["api_key"] == "zhipu_coding_api_key"
+
+
+def test_rejects_bare_api_key_locator(tmp_path: Path) -> None:
+    pkg = _write_pkg(tmp_path, slot_id="glm")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    with pytest.raises(ConfigError, match=r"\$\{ENV_NAME\}"):
+        core.load_and_lock(
+            pkg,
+            "profile-upstream",
+            capabilities=DeclarationCapabilityCatalog(),
+            profile_bindings={
+                "glm": {
+                    "executor": "openai-http",
+                    "model": "glm-4.7",
+                    "api_key": "zhipu_coding_api_key",
+                }
+            },
+        )
+
+
+def test_rejects_unset_base_url_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MISSING_BASE_URL", raising=False)
+    pkg = _write_pkg(tmp_path, slot_id="glm")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    with pytest.raises(ConfigError, match="unset"):
+        core.load_and_lock(
+            pkg,
+            "profile-upstream",
+            capabilities=DeclarationCapabilityCatalog(),
+            profile_bindings={
+                "glm": {
+                    "executor": "openai-http",
+                    "model": "glm-4.7",
+                    "base_url": "${MISSING_BASE_URL}",
+                    "api_key": "${zhipu_coding_api_key}",
                 }
             },
         )

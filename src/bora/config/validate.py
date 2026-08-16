@@ -251,8 +251,9 @@ def validate_document(
                     location=f"{loc}/extensions",
                 )
             _write_acp_entry(profile, entry.strip())
-        # Optional upstream routing (non-secret). api_key is an env *locator name*
-        # only — values live in host/.env and are projected at invoke time.
+        # Optional upstream routing (non-secret). api_key is the unwrapped
+        # ${ENV_NAME} locator — values live in host/.env and are projected
+        # at invoke time. base_url ${ENV_NAME} is already substituted.
         base_url = profile.get("base_url")
         if base_url is not None:
             if not isinstance(base_url, str) or not base_url.strip():
@@ -272,7 +273,7 @@ def validate_document(
             if not isinstance(api_key, str) or not api_key:
                 raise ConfigError(
                     ERROR_INVALID_SCHEMA,
-                    "profile.api_key must be a non-empty env locator name when set",
+                    "profile.api_key must be ${ENV_NAME} (locator only)",
                     location=f"{loc}/api_key",
                 )
             if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", api_key):

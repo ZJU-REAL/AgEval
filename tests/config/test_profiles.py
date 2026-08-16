@@ -199,7 +199,7 @@ def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
     write_profiles_yaml(path, doc)
     loaded = load_profiles_document(path)
     assert loaded["solver"]["extensions"][0]["options"]["entry"] == "pi"
-    assert loaded["solver"]["api_key"] == "LOC"
+    assert loaded["solver"]["api_key"] == "${LOC}"
 
 
 def test_job_overlay_keeps_plugin_options() -> None:

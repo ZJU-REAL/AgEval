@@ -3,8 +3,8 @@
 Task identity (member ``task.yaml``) declares **role slots** only.
 Job binding (executor / entry / model / key locator) lives in Database
 ``profiles.yaml`` (or CLI ``--profiles`` / binding overrides) and is merged by
-Config Core at ``load_and_lock`` time. Secrets never appear here — only env
-locator names.
+Config Core at ``load_and_lock`` time. ``api_key`` is ``${ENV_NAME}`` (unwraps
+to a locator). ``base_url`` may be a literal URL or ``${ENV_NAME}`` (substituted).
 """
 
 from __future__ import annotations
@@ -72,10 +72,6 @@ def load_profiles_document(path: Path) -> dict[str, dict[str, Any]]:
             f"cannot read profiles file: {exc}",
             location=str(path),
         ) from exc
-
-    from bora.config.checks import reject_env_interpolation
-
-    reject_env_interpolation(text, what="profiles.yaml", location=str(path))
 
     try:
         data = yaml.safe_load(text)
@@ -544,10 +540,21 @@ def job_overlay_to_profiles_document(overlay: Mapping[str, Any]) -> dict[str, An
             location="/job_overlay/bindings",
         )
     # Re-validate shape via parse so export stays lock-safe.
+    # Lock stores the unwrapped locator; YAML form is ${NAME}.
+    bindings: dict[str, Any] = {}
+    for role_id, raw in bindings_raw.items():
+        if not isinstance(raw, Mapping):
+            bindings[str(role_id)] = raw
+            continue
+        row = dict(raw)
+        api_key = row.get("api_key")
+        if isinstance(api_key, str) and api_key and not api_key.startswith("${"):
+            row["api_key"] = f"${{{api_key}}}"
+        bindings[str(role_id)] = row
     return {
         "format": PROFILES_FORMAT,
         "bindings": parse_profiles_mapping(
-            {"format": PROFILES_FORMAT, "bindings": dict(bindings_raw)},
+            {"format": PROFILES_FORMAT, "bindings": bindings},
             location="job_overlay",
         ),
     }
