@@ -41,6 +41,9 @@ ALLOWLISTED_OVERRIDE_POINTERS = frozenset(
     }
 )
 
+# L1 clean-eval /tmp tmpfs (MiB). Not a limits.* hard ceiling — Evaluation sandbox.
+DEFAULT_EVAL_TMPFS_MB = 32
+
 # Explicit defaults applied after reading task.yaml, before variant/overrides.
 # Every allowlisted override pointer leaf must exist after defaults so --set can set it.
 DEFAULTS: dict[str, Any] = {
@@ -59,4 +62,7 @@ DEFAULTS: dict[str, Any] = {
     },
     "agent_profiles": [],
     "environment": None,
+    "evaluation": {
+        "tmpfs_mb": DEFAULT_EVAL_TMPFS_MB,
+    },
 }

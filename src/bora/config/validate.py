@@ -447,6 +447,15 @@ def validate_document(
                     ERROR_PATH_OUTSIDE_PACKAGE, f"path escapes package: {pp}", location=loc
                 )
 
+    if "tmpfs_mb" in evaluation:
+        tmpfs_mb = evaluation["tmpfs_mb"]
+        if not isinstance(tmpfs_mb, int) or isinstance(tmpfs_mb, bool) or tmpfs_mb < 1:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation.tmpfs_mb must be a positive integer",
+                location="/evaluation/tmpfs_mb",
+            )
+
 
 def collect_resolved_references(doc: dict[str, Any], root: Path) -> dict[str, Any]:
     """Collect logical, package-relative references for the lock summary."""
