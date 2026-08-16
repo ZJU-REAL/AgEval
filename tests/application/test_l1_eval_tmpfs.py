@@ -87,9 +87,7 @@ def test_run_clean_evaluator_defaults_to_32m(
     assert captured["cmd"][idx + 1] == "/tmp:rw,noexec,nosuid,size=32m"
 
 
-def test_evaluate_l1_passes_lock_tmpfs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_evaluate_l1_passes_lock_tmpfs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from bora.application.attempt.attempt_stages import AttemptStageContext
     from bora.application.attempt.run_l1_phases import evaluate_l1
 

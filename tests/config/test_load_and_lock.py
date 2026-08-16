@@ -320,9 +320,7 @@ def _clone_minimal(tmp_path: Path, *, evaluation_extra: str = "") -> Path:
     return pkg
 
 
-def test_eval_tmpfs_defaults_to_32(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog
-) -> None:
+def test_eval_tmpfs_defaults_to_32(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
     locked = _lock(core, catalog, MINIMAL, "config-minimal")
     assert thaw(locked.evaluation)["tmpfs_mb"] == 32
     assert "eval_tmpfs" not in thaw(locked.limits)
