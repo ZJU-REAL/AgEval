@@ -134,6 +134,8 @@ uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 uv run bora run examples/core --task sdk-agent-session -k 5
 # Resume / top-up: skip real finished units; re-run suite-cancel placeholders; recompute pass@k
 # uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
+# Replace one finished slot (new Attempt; old current → previous[]):
+# uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
 
 # Allowlisted --set (JSON Pointer = JSON value)
 uv run bora lock examples/core --task config-minimal --set /parameters/seed=7
@@ -312,7 +314,7 @@ After `bora run <database>` (full suite or Always-k), summary lives at
 | `metrics.pass_at_k["<k>"]` | `{ value, n_tasks, incomplete_tasks }` (k as string key) |
 | `metrics.pass_power_k["<k>"]` | same |
 | `metrics.n_attempts` / `k_values` / `per_task` | job sample budget, k list, per-task n/c audit |
-| `task_refs[]` | `task_id`, `status`, `score`, `run_id`; multi-attempt may add `n`, `c`, `attempt_run_ids` |
+| `task_refs[]` | `task_id`, `status`, `score`, `run_id`; multi-attempt may add `n`, `c`, `attempt_run_ids`; replaced slots add `previous[]` |
 
 `upload-suite` **recomputes** missing k maps locally from `attempts[]` or task
 `n`/`c` before POST. Registry stores the full `metrics` blob (no strip).
@@ -326,8 +328,10 @@ uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
 # Optional full Attempt evidence (Hub Jobs deep-link / evidence browser):
 uv run bora results upload-suite /path/to/database --suite-run <suite_run_id> \
   --with-attempts
-# Owner overwrite of same suite_run_id (default is 409):
+# Owner overwrite of same suite_run_id (default is 409; no history):
 # uv run bora results upload-suite … --suite-run <id> --replace
+# Patch one slot onto an already-uploaded suite (new Attempt + previous[]):
+# uv run bora results upload-suite … --suite-run <id> --task <task_id> [--run <run_id>] --with-attempts
 # Or backfill one run later:
 uv run bora results upload /path/to/database --run <run_id>
 uv run bora results list-suites --database-id test/suite-min

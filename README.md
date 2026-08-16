@@ -65,6 +65,7 @@ uv run bora run examples/core --max-concurrent-tasks 2
 uv run bora run examples/core -k 5 --max-concurrent-tasks 2
 # uv run bora run examples/core --task sdk-agent-session -k 5
 # uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
+# uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
 
 # Suite job control (optional --database for progress / cancel.requested)
 # uv run bora status <suite_run_id> --database examples/core

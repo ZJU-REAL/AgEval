@@ -26,12 +26,18 @@ uv run bora run examples/core --task sdk-agent-session -k 5
 
 # Resume: append into an existing suite job and recompute metrics
 uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
+
+# Replace one finished slot (PASS / FAIL / ERROR): new Attempt, same suite id
+uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
+# Always-k: one (task_id, attempt_index)
+# uv run bora run examples/core --resume-suite <id> --task sdk-agent-session --replace-slot --attempt-index 1
 ```
 
 Hard rules:
 
 - `n_attempts` is **not** allowed in `task.yaml` and is **not** part of `config_fingerprint`  
-- Resume only **appends** Attempts; finished Attempt scores / identity stay intact  
+- Resume without `--replace-slot` only **appends** missing indices; finished PASS / FAIL / ERROR stay skipped  
+- `--replace-slot` writes a **new** Attempt; the old row stays on disk and in `previous[]`; metrics use the new current only  
 - Slots that only have a **suite-cancel placeholder** (never actually ran) are **retried** on resume so pass@k is not permanently deflated
 - Progress / cancel below; Hub Leaderboard shows pass@k / pass^k / n_attempts when `metrics.pass_at_k` is present; local `metrics` are always written after Always-k  
 - Default system `suite_run_id` is **8 hex** (no `suite_` prefix)

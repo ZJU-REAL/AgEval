@@ -50,7 +50,11 @@ Stdout JSON (high level):
 - **`--max-concurrent-tasks`**: speeds wall time only; does not change k or PASS.
 - **`--resume-suite <suite_run_id>`**: skip finished `(task_id, attempt_index)`
   (PASS/FAIL/**ERROR** all count as finished), append missing Attempts, recompute
-  metrics. Retrying an ERROR needs a **new** suite, not resume of that index.
+  metrics. Cancel placeholders are retried.
+- **`--replace-slot`** (with `--resume-suite` and `--task`): re-run that finished
+  slot even if PASS / FAIL / ERROR. Writes a new `run_id`; old current moves to
+  `previous[]`. Always-k uses `--attempt-index` (default 0). Same
+  `config_fingerprint` required. In-progress / `cancel.requested` refuse.
 - **`--keep-workspace`** (L1 / `provider.kind: docker` only): retain host
   `.bora/runs/<run_id>/l1-work/` after cleanup for local debug. **Default off** —
   Runtime deletes `l1-work` after container cleanup. Docker volumes and env
@@ -111,13 +115,16 @@ Stdout JSON (high level):
   `k_values` / `per_task` when recoverable from `attempts[]` or task `n`/`c`
   (Hub does **not** recompute live).
 - Contract: `metrics.pass_at_k["<k>"] = { value, n_tasks, incomplete_tasks }` (k string keys).
-- `task_refs` may carry `n`, `c`, `attempt_run_ids` for multi-attempt audit.
+- `task_refs` may carry `n`, `c`, `attempt_run_ids`, and `previous[]` (superseded current).
 - **`--with-attempts`:** packs `.bora/runs/<run_id>/` for each id in
   `attempt_run_ids` (preferred) or primary `run_id`; missing dirs fail closed.
   Sets `task_refs[].has_attempt_content` so Hub Task Jobs can open Attempt detail.
 - **`--agent` / `--model`:** optional Leaderboard labels (else derived from suite summary).
 - **`--replace`:** owner overwrite of same `suite_run_id` (default remains 409);
-  with `--with-attempts`, linked attempts also replace.
+  with `--with-attempts`, linked attempts also replace. **No** `previous[]`.
+- **`--task` / `--run`:** append one local slot onto an already-uploaded suite
+  (upload the new Attempt, then PATCH current + `previous[]`). Must not combine
+  with `--replace`.
 - Registry stores full `metrics` blob (no strip). pass@k is **not**
   `config_fingerprint` / job identity.
 - Hub Leaderboard: **Public** lists **complete, release-bound suite** rows (`board=1`); optional
