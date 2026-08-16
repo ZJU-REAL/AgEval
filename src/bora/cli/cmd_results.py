@@ -161,6 +161,30 @@ def register(app: typer.Typer) -> None:
                 help="Overwrite same suite_run_id if you own it (default: conflict 409).",
             ),
         ] = False,
+        task: Annotated[
+            str | None,
+            typer.Option(
+                "--task",
+                help=(
+                    "Append one local slot onto an already-uploaded suite "
+                    "(current + previous[]). Not whole-row --replace."
+                ),
+            ),
+        ] = None,
+        run: Annotated[
+            str | None,
+            typer.Option(
+                "--run",
+                help="Attempt run_id to attach (default: local current for --task).",
+            ),
+        ] = None,
+        attempt_index: Annotated[
+            int,
+            typer.Option(
+                "--attempt-index",
+                help="Always-k slot index to append (default 0). Only with --task.",
+            ),
+        ] = 0,
         registry_url: Annotated[
             str | None,
             typer.Option("--registry-url", help="Override registry / results URL."),
@@ -169,20 +193,51 @@ def register(app: typer.Typer) -> None:
         """Upload a suite/job result row (metrics + task refs; no suite PASS)."""
         from bora.application.composition import build_results_commands
 
-        upload_suite_result = build_results_commands().upload_suite_result
+        cmds = build_results_commands()
         from bora.config.errors import ConfigError
 
         try:
-            summary = upload_suite_result(
-                database,
-                suite_run_id=suite_run,
-                public=public,
-                agent_label=agent,
-                model_label=model,
-                with_attempts=with_attempts,
-                replace=replace,
-                registry_url=registry_url,
-            )
+            task_id = task.strip() if task and str(task).strip() else None
+            if task_id:
+                if replace:
+                    raise ConfigError(
+                        "invalid_request",
+                        "slot append must not use --replace",
+                        location="--replace",
+                    )
+                if attempt_index < 0:
+                    raise ConfigError(
+                        "invalid_override",
+                        "attempt-index must be an integer ≥ 0",
+                        location="--attempt-index",
+                    )
+                summary = cmds.append_suite_slot_result(
+                    database,
+                    suite_run_id=suite_run,
+                    task_id=task_id,
+                    run_id=run,
+                    attempt_index=attempt_index,
+                    public=public,
+                    with_attempts=with_attempts,
+                    registry_url=registry_url,
+                )
+            else:
+                if run:
+                    raise ConfigError(
+                        "invalid_request",
+                        "--run requires --task (slot append)",
+                        location="--run",
+                    )
+                summary = cmds.upload_suite_result(
+                    database,
+                    suite_run_id=suite_run,
+                    public=public,
+                    agent_label=agent,
+                    model_label=model,
+                    with_attempts=with_attempts,
+                    replace=replace,
+                    registry_url=registry_url,
+                )
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc

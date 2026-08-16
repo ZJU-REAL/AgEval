@@ -504,6 +504,140 @@ class ResultsCommands:
                 out["task_refs"] = enriched_refs
         return out
 
+    def append_suite_slot_result(
+        self,
+        database_root: Path,
+        *,
+        suite_run_id: str,
+        task_id: str,
+        run_id: str | None = None,
+        attempt_index: int = 0,
+        public: bool = False,
+        with_attempts: bool = False,
+        registry_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Upload one new Attempt and PATCH that slot onto an existing suite.
+
+        Does **not** call whole-row ``upload_suite --replace``. Old Attempt blobs
+        stay. ``task_refs`` come from the local summary (current + previous[]).
+        """
+        root = database_root.expanduser().resolve(strict=False)
+        suite_dir = _resolve_suite_dir(root, suite_run_id)
+        summary = _load_suite_summary(suite_dir)
+        metrics, task_refs = _suite_metrics_and_refs(summary)
+        tid = task_id.strip()
+        hit: dict[str, Any] | None = None
+        for ref in task_refs:
+            if str(ref.get("task_id") or "") == tid:
+                hit = ref
+                break
+        if hit is None:
+            raise ConfigError(
+                "suite_replace_slot_missing",
+                f"local suite has no task_ref for {tid}",
+                location="--task",
+            )
+        current = (run_id or "").strip()
+        if not current:
+            ids = hit.get("attempt_run_ids")
+            if isinstance(ids, list) and 0 <= attempt_index < len(ids):
+                current = str(ids[attempt_index] or "").strip()
+            if not current:
+                current = str(hit.get("run_id") or "").strip()
+        if not current:
+            raise ConfigError(
+                "suite_replace_slot_missing",
+                f"no current run_id for {tid}[{attempt_index}]",
+                location="--run",
+            )
+        current_ids = {str(hit.get("run_id") or "").strip()}
+        extra = hit.get("attempt_run_ids")
+        if isinstance(extra, list):
+            current_ids.update(str(x).strip() for x in extra if x is not None)
+        if current not in current_ids:
+            raise ConfigError(
+                "invalid_request",
+                "--run must be the local current pointer for that slot",
+                location="--run",
+            )
+        resolve_attempt_run_dir(root, current)
+
+        upload_ids = [current]
+        if with_attempts:
+            prev = hit.get("previous")
+            if isinstance(prev, list):
+                for item in prev:
+                    if not isinstance(item, dict):
+                        continue
+                    rid = str(item.get("run_id") or "").strip()
+                    if rid and rid not in upload_ids:
+                        try:
+                            resolve_attempt_run_dir(root, rid)
+                        except ConfigError:
+                            continue
+                        upload_ids.append(rid)
+
+        attempt_uploads: list[dict[str, Any]] = []
+        for rid in upload_ids:
+            attempt_uploads.append(
+                self.upload_attempt_result(
+                    root,
+                    run_id=rid,
+                    public=public,
+                    suite_run_id=suite_run_id,
+                    registry_url=registry_url,
+                    allow_existing=True,
+                    replace=False,
+                )
+            )
+
+        try:
+            pass_rate = float(metrics.get("pass_rate", 0.0))
+            mean_score = float(metrics.get("mean_score", 0.0))
+        except (TypeError, ValueError):
+            pass_rate = 0.0
+            mean_score = 0.0
+        try:
+            exit_code = int(summary.get("exit_code", 0))
+        except (TypeError, ValueError):
+            exit_code = 0
+        config_proj = _config_fields_from_summary(summary)
+        client = self._client_factory(
+            registry_url=registry_url, require_token=True, accept_results_url=True
+        )
+        try:
+            info = client.append_suite_slot(
+                suite_run_id=suite_run_id,
+                task_id=tid,
+                run_id=current,
+                attempt_index=attempt_index,
+                task_refs=list(task_refs),
+                metrics=dict(metrics),
+                pass_rate=pass_rate,
+                mean_score=mean_score,
+                exit_code=exit_code,
+                config_fingerprint=config_proj.get("config_fingerprint"),
+            )
+        except RegistryError as exc:
+            raise ConfigError(exc.code, exc.message, location="registry") from exc
+
+        out: dict[str, Any] = {
+            "ok": True,
+            "appended": True,
+            "suite_run_id": info.get("suite_run_id", suite_run_id),
+            "task_id": tid,
+            "run_id": current,
+            "attempt_index": attempt_index,
+            "pass_rate": info.get("pass_rate", pass_rate),
+            "mean_score": info.get("mean_score", mean_score),
+            "metrics": info.get("metrics", metrics),
+            "task_refs": info.get("task_refs", task_refs),
+            "amended": True,
+            "note": info.get("note", "per-task evaluator verdicts only; no suite-level PASS"),
+            "attempts": attempt_uploads,
+        }
+        return out
+
     def get_suite_result(
         self,
         suite_run_id: str,
