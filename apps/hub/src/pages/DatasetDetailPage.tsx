@@ -267,7 +267,10 @@ export function DatasetDetailPage() {
     const n = new URLSearchParams(search);
     if (next === "readme") n.delete("tab");
     else n.set("tab", next);
-    if (next !== "leaderboard") n.delete("board");
+    if (next !== "leaderboard") {
+      n.delete("board");
+      n.delete("suite");
+    }
     setSearch(n, { replace: true });
   }
 
@@ -510,6 +513,11 @@ export function DatasetDetailPage() {
             }
             databaseId={datasetId}
             orgId={release?.org_id}
+            openSuiteId={
+              boardView === "public" && !demoLeaderboard
+                ? search.get("suite")
+                : null
+            }
             emptyTitle={
               boardView === "internal" && !demoLeaderboard
                 ? "No internal suite runs"
