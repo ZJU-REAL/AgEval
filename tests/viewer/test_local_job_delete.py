@@ -146,6 +146,50 @@ def test_delete_suite_cascades_attempts(tmp_path: Path) -> None:
     assert not (db / ".bora" / "runs" / "run_a").exists()
 
 
+def test_refuse_delete_attempt_without_result(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    live = db / ".bora" / "runs" / "run_live"
+    live.mkdir(parents=True)
+    (live / "lock.json").write_text("{}\n", encoding="utf-8")
+    cmds = build_local_jobs_commands()
+    preview = cmds.preview_delete_job(db, job_id="run_live")
+    assert preview["can_delete"] is False
+    assert preview["error"]["code"] == "job_in_progress"
+    with pytest.raises(ConfigError, match="job_in_progress"):
+        cmds.delete_job(db, job_id="run_live", yes=True)
+    assert live.is_dir()
+    assert "run_live" not in _job_ids(db)
+
+
+def test_list_jobs_includes_progress_only_suite(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    suite_dir = db / ".bora" / "suite-runs" / "suite_live"
+    _write_json(
+        suite_dir / "progress.json",
+        {
+            "schema": "bora.suite.progress/1",
+            "suite_run_id": "suite_live",
+            "status": "running",
+            "done": 1,
+            "total": 100,
+        },
+    )
+    listed = jobs.list_jobs(db)
+    ids = {item["job_id"] for item in listed["items"]}
+    assert "suite_live" in ids
+    row = next(item for item in listed["items"] if item["job_id"] == "suite_live")
+    assert row["status"] == "running"
+    cmds = build_local_jobs_commands()
+    preview = cmds.preview_delete_job(db, job_id="suite_live")
+    assert preview["can_delete"] is False
+    assert preview["error"]["code"] == "job_in_progress"
+    detail = jobs.get_job(db, "suite_live")
+    assert detail["ok"] is True
+    assert detail["job"]["job_id"] == "suite_live"
+    assert detail["job"]["status"] == "running"
+    assert detail["progress"]["status"] == "running"
+
+
 def test_refuse_inner_attempt_delete(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     _seed_suite(db)

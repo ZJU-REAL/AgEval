@@ -123,6 +123,45 @@ def _attempts_for_task(summary: dict[str, Any], task_id: str) -> list[dict[str, 
     return []
 
 
+def _in_progress_suite_row(
+    progress: dict[str, Any], *, suite_dir: Path, database_root: Path
+) -> dict[str, Any]:
+    """Suite that has progress.json but no summary yet — still running."""
+    man = None
+    with contextlib.suppress(ConfigError):
+        man = load_database_manifest(database_root)
+    sid = str(progress.get("suite_run_id") or suite_dir.name)
+    total = int(progress.get("total") or 0)
+    done = int(progress.get("done") or 0)
+    return {
+        "job_id": sid,
+        "job_name": sid,
+        "source_kind": "suite",
+        "source": man.database_id if man else database_root.name,
+        "database_id": man.database_id if man else None,
+        "database_version": man.version if man else None,
+        "agent_label": "",
+        "model_label": "",
+        "provider_label": "",
+        "environment": "local",
+        "result": None,
+        "pass_rate": None,
+        "mean_score": None,
+        "metrics": {"n_tasks": total, "n_pass": 0, "n_fail": 0, "n_error": 0},
+        "started": progress.get("updated_at"),
+        "duration": None,
+        "n_attempts": progress.get("n_attempts"),
+        "trials_done": done,
+        "trials_total": total,
+        "exit_code": None,
+        "task_count": total,
+        "summary_path": str(suite_dir / "progress.json"),
+        "progress": progress,
+        "status": str(progress.get("status") or "running"),
+        "note": "suite in progress — not deletable until finished",
+    }
+
+
 def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -> dict[str, Any]:
     metrics = _ensure_metrics(summary)
     refs = _ensure_task_refs(summary)
@@ -368,17 +407,26 @@ def list_jobs(database_root: Path) -> dict[str, Any]:
             if not child.is_dir():
                 continue
             summary_path = child / "summary.json"
-            if not summary_path.is_file():
+            if summary_path.is_file():
+                try:
+                    summary = _load_summary(summary_path)
+                except ConfigError:
+                    continue
+                items.append(_job_row(summary, suite_dir=child, database_root=root))
                 continue
-            try:
-                summary = _load_summary(summary_path)
-            except ConfigError:
-                continue
-            items.append(_job_row(summary, suite_dir=child, database_root=root))
+            progress = _load_progress(child)
+            if progress is not None:
+                items.append(
+                    _in_progress_suite_row(progress, suite_dir=child, database_root=root)
+                )
 
     claimed = _referenced_run_ids(root, items) | _suite_run_ids(items)
     for run_id, evidence in _iter_attempt_dirs(root):
         if run_id in claimed:
+            continue
+        if not (evidence / "result.json").is_file():
+            # Live/incomplete Attempt — not a finished Job; delete would
+            # rmtree a suite that is still writing.
             continue
         items.append(_single_job_row(evidence, run_id=run_id, database_root=root))
     items.sort(key=lambda r: str(r.get("started") or r.get("job_id") or ""), reverse=True)
@@ -418,6 +466,9 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         ) from exc
     summary_path = suite_dir / "summary.json"
     if not summary_path.is_file():
+        progress = _load_progress(suite_dir)
+        if progress is not None:
+            return _get_in_progress_suite_job(root, suite_dir=suite_dir, progress=progress)
         return _get_single_job(root, job_id)
     summary = _load_summary(summary_path)
     job = _job_row(summary, suite_dir=suite_dir, database_root=root)
@@ -488,6 +539,41 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         "job": job,
         "tasks": task_rows,
         "task_count": len(task_rows),
+        "progress": progress,
+        "commands": commands_for(root),
+        "note": job.get("note"),
+    }
+
+
+def _get_in_progress_suite_job(
+    root: Path, *, suite_dir: Path, progress: dict[str, Any]
+) -> dict[str, Any]:
+    job = _in_progress_suite_row(progress, suite_dir=suite_dir, database_root=root)
+    running = progress.get("running") if isinstance(progress.get("running"), list) else []
+    task_rows: list[dict[str, Any]] = []
+    for item in running:
+        if not isinstance(item, dict):
+            continue
+        tid = str(item.get("task_id") or "")
+        if not tid:
+            continue
+        task_rows.append(
+            {
+                "task_id": tid,
+                "status": str(item.get("phase") or "running").upper(),
+                "score": None,
+                "run_id": None,
+                "attempt_run_ids": [],
+                "attempts": [],
+                "error": None,
+                "n": 1,
+            }
+        )
+    return {
+        "ok": True,
+        "job": job,
+        "tasks": task_rows,
+        "task_count": int(progress.get("total") or len(task_rows) or 0),
         "progress": progress,
         "commands": commands_for(root),
         "note": job.get("note"),
