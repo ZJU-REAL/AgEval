@@ -105,25 +105,47 @@ def resolve_base_url(explicit: str | None) -> str | None:
     return None
 
 
-def _load_official_mini_config() -> dict[str, Any]:
-    """Read templates from the installed mini-swe-agent package (not a BORA copy)."""
-    from minisweagent import package_dir
+def _config_search_roots() -> list[Path]:
+    roots: list[Path] = []
+    try:
+        import minisweagent
 
-    for name in ("mini.yaml", "default.yaml"):
-        path = package_dir / "config" / name
-        if path.is_file():
-            text = path.read_text(encoding="utf-8")
-            try:
-                import yaml
-            except ImportError as exc:
-                raise ExtensionMaterializeError(
-                    "miniswe_config_missing: PyYAML required to read official mini.yaml",
-                    kind="extension_materialize_failed",
-                ) from exc
-            data = yaml.safe_load(text)
-            return data if isinstance(data, dict) else {}
+        roots.append(Path(minisweagent.package_dir) / "config")
+        roots.append(Path(minisweagent.__file__).resolve().parent / "config")
+    except Exception:
+        pass
+    try:
+        from importlib.resources import files
+
+        roots.append(Path(str(files("minisweagent").joinpath("config"))))
+    except Exception:
+        pass
+    # Last resort: official mini.yaml copied into the plugin (not a BORA-authored prompt).
+    roots.append(Path(__file__).resolve().parents[2] / "vendor")
+    return roots
+
+
+def _load_official_mini_config() -> dict[str, Any]:
+    """Read official mini-swe-agent templates (installed package, then plugin vendor)."""
+    try:
+        import yaml
+    except ImportError as exc:
+        raise ExtensionMaterializeError(
+            "miniswe_config_missing: PyYAML required to read official mini.yaml",
+            kind="extension_materialize_failed",
+        ) from exc
+    names = ("mini.yaml", "default.yaml", "mini_textbased.yaml")
+    tried: list[str] = []
+    for root in _config_search_roots():
+        for name in names:
+            path = root / name
+            tried.append(str(path))
+            if path.is_file():
+                data = yaml.safe_load(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("agent"):
+                    return data
     raise ExtensionMaterializeError(
-        "miniswe_config_missing: no mini.yaml/default.yaml in minisweagent package",
+        "miniswe_config_missing: no official mini.yaml; tried " + " | ".join(tried),
         kind="extension_materialize_failed",
     )
 
