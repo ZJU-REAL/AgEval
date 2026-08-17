@@ -66,7 +66,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
 | `/plugins/:id` | Plugin detail (declared L0–L5 timeline · files · CLI install) |
 | `/runtimes` | Runtime plaza (derived from official public Leaderboards) |
-| `/runtimes/:id` | Appearance table; dataset cell opens `?tab=leaderboard&suite=` |
+| `/runtimes/:id` | Results table; dataset cell opens `?tab=leaderboard&suite=` |
 | `/datasets/:id?tab=leaderboard&suite=` | Public Leaderboard with that suite row expanded |
 | `/organizations` | Your orgs · Join |
 | `/organizations/:orgId` | Overview (members · datasets · plugins) · Settings |

@@ -3,6 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
+import { HoverTip, TruncateTip } from "@/components/hover-tip";
+import {
+  compareValues,
+  nextSort,
+  SortableHead,
+  type SortDir,
+} from "@/components/sortable-head";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -38,6 +45,14 @@ function harnessYaml(card: RuntimeDetail): string {
   return `${lines.join("\n")}\n`;
 }
 
+const COL_MODEL = "min-w-0 overflow-hidden";
+const COL_METRIC = "w-[7.5rem]";
+const COL_DATASET = "w-[12rem] overflow-hidden";
+const COL_ROLE = "w-[5rem]";
+const COL_TEAM = "w-[7rem] overflow-hidden";
+const COL_USER = "w-[6.5rem] overflow-hidden";
+const COL_SUITE = "w-[6rem]";
+
 function shortSuiteId(id: string): string {
   const raw = id.trim();
   if (raw.length <= 12) return raw;
@@ -51,6 +66,8 @@ export function RuntimeDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [sortKey, setSortKey] = useState<string | null>("pass_rate");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const token = getToken();
 
   useEffect(() => {
@@ -80,6 +97,22 @@ export function RuntimeDetailPage() {
   }, [runtimeId, token]);
 
   const yamlText = useMemo(() => (detail ? harnessYaml(detail) : ""), [detail]);
+
+  const appearances = useMemo(() => {
+    const rows = detail?.appearances ?? [];
+    if (!sortKey || !sortDir) return rows;
+    return [...rows].sort((a, b) => {
+      const av = sortKey === "mean_score" ? a.mean_score : a.pass_rate;
+      const bv = sortKey === "mean_score" ? b.mean_score : b.pass_rate;
+      return compareValues(av, bv, sortDir);
+    });
+  }, [detail, sortKey, sortDir]);
+
+  function onSort(key: string) {
+    const next = nextSort(sortKey, sortDir, key);
+    setSortKey(next.dir ? next.key : null);
+    setSortDir(next.dir);
+  }
 
   async function onCopy() {
     try {
@@ -120,15 +153,9 @@ export function RuntimeDetailPage() {
             <h1 className="text-xl font-semibold tracking-tight text-ink">
               {detail.display_name}
             </h1>
-            <p className="text-sm text-mute mt-1 font-mono">{detail.runtime_id}</p>
-            <p className="text-xs text-mute mt-2">
-              Appearance scores are the source suite board metrics — not a
-              Runtime index and not suite PASS.
-            </p>
           </div>
 
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Harness</h2>
+          <section>
             <div className="relative rounded-[6px] border border-hairline bg-code-bg">
               <Button
                 type="button"
@@ -153,63 +180,103 @@ export function RuntimeDetailPage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Appearances</h2>
+            <h2 className="text-sm font-medium text-ink">Results</h2>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Dataset</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Model</TableHead>
-                    <TableHead className="text-right">Pass rate</TableHead>
-                    <TableHead className="text-right">Mean score</TableHead>
-                    <TableHead>Teammates</TableHead>
-                    <TableHead>Uploader</TableHead>
-                    <TableHead>Suite run</TableHead>
+                    <TableHead className={COL_MODEL}>Model</TableHead>
+                    <TableHead className={`text-right ${COL_METRIC}`}>
+                      <SortableHead
+                        label="Pass rate"
+                        active={sortKey === "pass_rate"}
+                        dir={sortKey === "pass_rate" ? sortDir : null}
+                        onClick={() => onSort("pass_rate")}
+                        className="ml-auto"
+                      />
+                    </TableHead>
+                    <TableHead className={`text-right ${COL_METRIC}`}>
+                      <SortableHead
+                        label="Mean score"
+                        active={sortKey === "mean_score"}
+                        dir={sortKey === "mean_score" ? sortDir : null}
+                        onClick={() => onSort("mean_score")}
+                        className="ml-auto"
+                      />
+                    </TableHead>
+                    <TableHead className={COL_DATASET}>Dataset</TableHead>
+                    <TableHead className={COL_ROLE}>Role</TableHead>
+                    <TableHead className={COL_TEAM}>Teammates</TableHead>
+                    <TableHead className={COL_USER}>Uploader</TableHead>
+                    <TableHead className={COL_SUITE}>Suite run</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {detail.appearances.map((row) => {
+                  {appearances.map((row) => {
                     const href = `/datasets/${encodeDatasetId(row.database_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`;
                     const teammates = row.teammates || [];
+                    const suiteShort = shortSuiteId(row.suite_run_id);
                     return (
                       <TableRow
                         key={`${row.suite_run_id}:${row.role}`}
                       >
-                        <TableCell className="font-mono text-xs">
-                          <Link
-                            to={href}
-                            className="hover:text-ink hover:underline underline-offset-2"
-                          >
-                            {row.database_id}
-                          </Link>
+                        <TableCell className={COL_MODEL}>
+                          <TruncateTip
+                            text={row.model}
+                            className="font-mono text-xs"
+                          />
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-body">
-                          {row.role}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-body">
-                          {row.model || "—"}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">
+                        <TableCell
+                          className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                        >
                           {row.pass_rate == null
                             ? "—"
                             : `${(Number(row.pass_rate) * 100).toFixed(1)}%`}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">
+                        <TableCell
+                          className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                        >
                           {formatScore(row.mean_score)}
                         </TableCell>
-                        <TableCell className="text-xs text-body">
-                          {teammates.length
-                            ? teammates
-                                .map((t) => `${t.display_name} (${t.role})`)
-                                .join(", ")
-                            : "—"}
+                        <TableCell className={COL_DATASET}>
+                          <Link
+                            to={href}
+                            className="inline-block max-w-full hover:text-ink hover:underline underline-offset-2"
+                          >
+                            <TruncateTip
+                              text={row.database_id}
+                              className="font-mono text-xs"
+                            />
+                          </Link>
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-mute">
-                          {row.uploaded_by || "—"}
+                        <TableCell className={`font-mono text-xs text-body ${COL_ROLE}`}>
+                          {row.role}
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-mute" title={row.suite_run_id}>
-                          {shortSuiteId(row.suite_run_id)}
+                        <TableCell className={`text-xs text-body ${COL_TEAM}`}>
+                          <TruncateTip
+                            text={
+                              teammates.length
+                                ? teammates
+                                    .map((t) => `${t.display_name} (${t.role})`)
+                                    .join(", ")
+                                : ""
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className={`font-mono text-xs text-mute ${COL_USER}`}>
+                          <TruncateTip
+                            text={row.uploaded_by}
+                            className="font-mono text-xs text-mute"
+                          />
+                        </TableCell>
+                        <TableCell className={`font-mono text-xs text-mute ${COL_SUITE}`}>
+                          {suiteShort === row.suite_run_id ? (
+                            suiteShort
+                          ) : (
+                            <HoverTip content={row.suite_run_id}>
+                              <span className="inline-block">{suiteShort}</span>
+                            </HoverTip>
+                          )}
                         </TableCell>
                       </TableRow>
                     );

@@ -71,8 +71,8 @@ export function RuntimesPage() {
           Runtimes
         </h1>
         <p className="text-sm text-body mt-1">
-          Harnesses seen on official public Leaderboards. Derived view — not a
-          stored Runtime object and not suite PASS.
+          Agents on official public Leaderboards. Derived view — not a stored
+          Runtime object and not suite PASS.
         </p>
       </div>
 
@@ -102,12 +102,12 @@ export function RuntimesPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Display name</TableHead>
-                  <TableHead>Entry / executor</TableHead>
+                  <TableHead>Agent</TableHead>
                   <TableHead className="text-right tabular-nums">
                     Datasets
                   </TableHead>
                   <TableHead className="text-right tabular-nums">
-                    Appearances
+                    Results
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -131,9 +131,6 @@ export function RuntimesPage() {
                     </TableCell>
                     <TableCell className="font-mono text-xs text-body">
                       {row.entry || "—"}
-                      {row.executor ? (
-                        <span className="text-mute"> / {row.executor}</span>
-                      ) : null}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-body">
                       {row.n_datasets}

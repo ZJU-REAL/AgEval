@@ -36,13 +36,12 @@ import {
   passPowerPrimaryK,
   primaryDisplayK,
 } from "@/lib/suite-metrics";
-import { AxisLabel } from "@/components/axis-label";
-import { HoverTip } from "@/components/hover-tip";
+import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ScrollTable } from "@/components/scroll-table";
 import { formatScore } from "@/lib/utils";
 
 /** Shared column widths — keep Agent/Model tight so columns stay similar. */
-const COL_TEXT = "w-[6.5rem] max-w-[6.5rem]";
+const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
 const COL_METRIC = "w-[5.5rem] max-w-[5.5rem]";
 
 /** Compact suite id for cells; full id in title. System ids are bare 8-hex. */
@@ -143,10 +142,9 @@ function TruncateCell({
 }) {
   return (
     <TableCell className={className}>
-      <AxisLabel
-        value={text}
-        empty="—"
-        className={`block truncate ${mono ? "font-mono text-xs" : "text-sm"}`}
+      <TruncateTip
+        text={text}
+        className={mono ? "font-mono text-xs" : "text-sm"}
       />
     </TableCell>
   );
@@ -529,10 +527,12 @@ export function LeaderboardTable({
                               key={ref.runtime_id}
                               to={`/runtimes/${encodeURIComponent(ref.runtime_id)}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="truncate text-sm hover:text-ink hover:underline underline-offset-2"
-                              title={ref.display_name}
+                              className="inline-block max-w-full text-sm hover:text-ink hover:underline underline-offset-2"
                             >
-                              {ref.display_name}
+                              <TruncateTip
+                                text={ref.display_name}
+                                className="text-sm"
+                              />
                             </Link>
                           ))}
                         </span>
