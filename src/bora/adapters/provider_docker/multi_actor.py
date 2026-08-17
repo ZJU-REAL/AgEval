@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import time
 import uuid
 from pathlib import Path
 
@@ -27,6 +28,49 @@ from bora.runtime.identity import AttemptIdentity
 
 # Actor FS bootstrap is short host→container setup; never hang forever.
 _ACTOR_FS_BOOTSTRAP_TIMEOUT_SECONDS = 120.0
+# Wait until image ENTRYPOINT has exec'd the sleeper (seed finished).
+_ENTRYPOINT_IDLE_TIMEOUT_SECONDS = 180.0
+
+
+def wait_entrypoint_idle(
+    container_id: str, *, timeout_seconds: float = _ENTRYPOINT_IDLE_TIMEOUT_SECONDS
+) -> None:
+    """Block until PID 1 is ``sleep`` (entrypoint finished) or the container died."""
+    deadline = time.monotonic() + timeout_seconds
+    last = ""
+    while time.monotonic() < deadline:
+        state = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "-f",
+                "{{.State.Running}} {{.State.Status}}",
+                container_id,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        running = (state.stdout or "").strip()
+        last = running
+        if not running.startswith("true"):
+            raise ProviderL1Error(
+                ERROR_SPAWN_FAILED,
+                f"agent target exited before entrypoint idle: {running}",
+            )
+        comm = subprocess.run(
+            ["docker", "exec", container_id, "cat", "/proc/1/comm"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if comm.returncode == 0 and (comm.stdout or "").strip() == "sleep":
+            return
+        time.sleep(0.2)
+    raise ProviderL1Error(
+        ERROR_SPAWN_FAILED,
+        f"entrypoint did not reach idle within {timeout_seconds:g}s ({last})",
+    )
 
 
 class DockerMultiActorMixin:
@@ -335,6 +379,22 @@ class DockerMultiActorMixin:
         cid = (proc.stdout or "").strip()
         if not cid:
             raise ProviderL1Error(ERROR_SPAWN_FAILED, "agent target missing container id")
+        try:
+            wait_entrypoint_idle(cid)
+        except ProviderL1Error:
+            subprocess.run(["docker", "rm", "-fv", cid], check=False, capture_output=True)
+            subprocess.run(
+                ["docker", "volume", "rm", "-f", home_vol],
+                check=False,
+                capture_output=True,
+            )
+            if workspace_volume:
+                subprocess.run(
+                    ["docker", "volume", "rm", "-f", workspace_volume],
+                    check=False,
+                    capture_output=True,
+                )
+            raise
         # Stash home volume name on container_name side-channel via labels? Keep
         # both volume names in workspace_volume field joined for cleanup.
         vol_ledger = home_vol if not workspace_volume else f"{workspace_volume},{home_vol}"
