@@ -22,7 +22,7 @@ Ids live in `src/bora/plugins/slots.py`. Summary:
 | Layer | Representative slots | Who emits |
 | --- | --- | --- |
 | L0 | `before/after_prepare\|run\|evaluate\|cleanup` | `application/extension_hooks` (merge **all** profile chains, not `profiles[0]`) |
-| L1 | `image_contribute`, `env_*`, `env_action` | bake; env prepare/teardown + action |
+| L1 | `image_contribute`, `home_overlay`, `env_*`, `env_action` | bake; cred → HOME copy; env prepare/teardown + action |
 | L2 | `executor`, agent open/invoke/close, `normalize_agent_result` | `ParentAgentService`. L1: Core `TargetPlacement` + SPI `bind_to_target` |
 | L3 | `evaluation_input_contribute`, `evaluation_runtime`, `score_postprocess` | around evaluator (fail-closed; must not pick PASS) |
 | L4 | `trajectory_collect\|enrich\|seal`, `evidence_extra` | seal. collect/enrich are **fail-open** |
@@ -43,7 +43,7 @@ close        → before_agent_close → executor.close → after_agent_close
 
 ## Coexists with ACP
 
-The default coding-agent inlet remains first-party `executor: acp` + `options.entry`.
+The default coding-agent inlet remains first-party `executor: acp` + `- plugin: acp` / `options.entry`.
 An external plugin is an optional mechanism. The **same harness** switches via
 profiles. ACP is not the trajectory schema authority.
 

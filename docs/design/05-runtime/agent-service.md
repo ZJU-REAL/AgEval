@@ -11,7 +11,7 @@
 | 概念 | 是什么 | 谁拥有 |
 | --- | --- | --- |
 | **Task Harness** | package 的 `harness.py` / upstream workflow | Task Package |
-| **Agent 后端 / Executor** | 真正执行一次模型/agent 调用的实现。**coding-agent** 走 `executor: acp` + `options.entry`；另保留 `openai-http`（api-client） | Runtime **Agent Service** + Executor Adapter |
+| **Agent 后端 / Executor** | 真正执行一次模型/agent 调用的实现。**coding-agent** 走 `executor: acp` + `- plugin: acp` / `options.entry`；另保留 `openai-http`（api-client） | Runtime **Agent Service** + Executor Adapter |
 | **agent_profile** | 命名绑定：`executor` + `model` + `options` + `workspace_view` | `task.yaml` / Database 成员配置 → LockedTaskConfig |
 | **ACP entry** | 标准 ACP stdio 入口（官方 shim / 原生 `acp` 子命令 / 厂商包）；翻译 vendor 私有协议 | 进程外二进制；由 registry pin，L1 镜像 bake-in |
 | **profile 引用** | Harness 使用的逻辑名（如 `parameters.models.planner`） | `parameters`（可被 Campaign override） |
@@ -21,46 +21,47 @@
 ## 配置如何表达切换与混用
 
 ```yaml
-agent_profiles:
-  # coding-agent：统一 ACP client + entry
-  - id: specialist-codex
+# Database profiles.yaml（成员 task.yaml 只声明角色槽）
+bindings:
+  specialist-codex:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: codex              # registry entry_id；非 package 自带 command
     model: o4-mini
-    workspace_view: agents
-    options:
-      entry: codex              # registry entry_id；非 package 自带 command
-
-  - id: specialist-cc
+  specialist-cc:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: claude-code
     model: claude-sonnet-4
-    workspace_view: agents
-    options:
-      entry: claude-code
-
-  - id: planner-opencode
+  planner-opencode:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: opencode
     model: entry-default        # 或 entry 支持的 exact model id
-    workspace_view: agents
-    options:
-      entry: opencode
-
-  - id: planner-pi
+  planner-pi:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi                 # Mode 1: engine pi + pi-acp；entry_id=pi，包名 pi-acp
     model: entry-default
-    workspace_view: agents
-    options:
-      entry: pi                 # Mode 1: engine pi + pi-acp；entry_id=pi，包名 pi-acp
 
   # api-client（非 coding-agent ACP 路径）
   # 可选 per-profile 上游路由（与 model 同级）：
   # - base_url: non-secret endpoint（进入 lock digest）
-  # - api_key: 环境变量 *名* only（locator）；值来自 host/.env，
+  # - api_key: ${ENV_NAME} locator only；值来自 host/.env，
   #   投影进 Executor 时使用 — 永不写入 lock/evidence
-  - id: glm-coding-http
+  glm-coding-http:
     executor: openai-http
     model: glm-4.7
     base_url: https://open.bigmodel.cn/api/coding/paas/v4
-    api_key: zhipu_coding_api_key
+    api_key: ${zhipu_coding_api_key}
 
 parameters:
   models:
@@ -69,14 +70,14 @@ parameters:
     reducer: specialist-codex
 ```
 
-- **整 task 换后端（Codex entry → Claude entry）：** 改 profile 的 `options.entry` / `model` 或 `parameters.models.*` 引用；**不必改** `harness.py`。
+- **整 task 换后端（Codex entry → Claude entry）：** 改 binding 的 `- plugin: acp` / `options.entry` / `model` 或 `parameters.models.*` 引用；**不必改** `harness.py`。
 - **同 task 不同 Agent 用不同后端：** 各 role 引用不同 profile id；specialist=Codex entry、planner=OpenCode entry 合法。
 - **同 entry 不同模型：** 改 `model`（经 ACP config option 绑定）或并列 profile。
 - **上游 endpoint / 密钥定位：** 可选 `base_url` 与 `api_key`（env 名）与 `model` 同级；`bora run` 从 package/cwd/repo `.env` 注入宿主环境后，Runtime 按 locator 投影给 Executor / ACP child env。
 
-`load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`executor: acp` 必须有 registry 内 `options.entry`；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/entry/model/base_url/api_key(locator) 与 descriptor digest 的解析快照，进入 Trial identity / digest。
+`load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`executor: acp` 必须有 `- plugin: acp` 行上 registry 内 `options.entry`；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/entry/model/base_url/api_key(locator) 与 descriptor digest 的解析快照，进入 Trial identity / digest。
 
-**禁止：** 在 parent 内按 vendor 再写第二套 stdout scrape（含 container heuristic JSON）。coding-agent 配置形状为 `executor: acp` + `options.entry`，不是 `executor: codex|claude-code|pi|opencode` 私有 kind。
+**禁止：** 在 parent 内按 vendor 再写第二套 stdout scrape（含 container heuristic JSON）。coding-agent 配置形状为 `executor: acp` + `- plugin: acp` / `options.entry`，不是 `executor: codex|claude-code|pi|opencode` 私有 kind。
 
 ## Agent Service（Runtime）
 
@@ -100,7 +101,7 @@ ctx.agent.invoke(profile_id, messages, ...)
 
 | 职责 | 说明 |
 | --- | --- |
-| Profile 解析 | 把逻辑 profile 绑到具体 executor + model + options（含 `options.entry`） |
+| Profile 解析 | 把逻辑 profile 绑到具体 executor + model + 该插件行 options（ACP 含 `entry`） |
 | Executor 路由 | `acp`（单一 client + entry registry）、`openai-http`、已安装 `provide(executor)` 的其它 kind（L1 经 `bind_to_target`）；**不是**每个 vendor 一套 stdout parser |
 | Session 绑定 | 创建时固定 Attempt + profile + workspace；禁止跨 Attempt 复用 |
 | 统一 invoke 契约 | Harness 只见 messages / schema / tools 意图，不见各 CLI/ACP 细节 |
@@ -175,7 +176,7 @@ BORA **允许用户与第三方按 Core 契约实现定制化插件**，并以 P
 
 | 扩展面 | Core 开放的契约（方向） | 配置选型（例） | 示例实现 |
 | --- | --- | --- | --- |
-| **Agent 后端** | `AgentExecutor.invoke` | `agent_profiles.executor`（+ `options.entry` for `acp`） | 内置 `acp`、`openai-http`；第三方自定义 kind |
+| **Agent 后端** | `AgentExecutor.invoke` | `executor`（ACP 再加 `- plugin: acp` / `options.entry`） | 内置 `acp`、`openai-http`；第三方自定义 kind |
 | **Provider** | 隔离与 workspace 执行协议 | `provider.kind` | `docker` / `local` |
 | **Environment** | prepare / action / teardown（+ 可选 freeze） | component / resource kind | `postgres` / `browser` |
 | **Artifact** | publish / materialize 策略 | `artifacts` 与 materializer 实现 | filesystem 等 |
@@ -267,7 +268,7 @@ my-api = "bora_executor_my_api.executor:MyApiExecutor"
 
 ### 示例：自定义 API Executor 插件（非 coding-agent 私有 CLI）
 
-**仅演示 Agent 扩展面。** coding-agent 请用内置 `executor: acp` + `options.entry`。Provider / Environment 等面写法类似，只是接口与 entry point 组不同。
+**仅演示 Agent 扩展面。** coding-agent 请用内置 `executor: acp` + `- plugin: acp` / `options.entry`。Provider / Environment 等面写法类似，只是接口与 entry point 组不同。
 
 用户本机/CI 在 `.env` 放测试 key；Runtime 只把密钥投影给 Executor，不进 `harness.py`，也不进 Agent 可读 workspace。
 

@@ -61,7 +61,7 @@ def test_private_kind_resolve_fails_closed() -> None:
         resolve_executor("codex", model="x")
 
 
-def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object) -> None:
+def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object, tmp_path: Path) -> None:
     """Mode 1 adapter missing → readiness adapter-missing; no private invoke."""
     from bora.adapters.acp_registry import get_entry, readiness_for
 
@@ -77,13 +77,14 @@ def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object) -> None
     assert row["readiness"] == "adapter-missing"
     os.environ["BORA_OFFLINE_AGENT"] = "0"
     # Executor still constructs but host readiness fails at ensure_session.
+    # workdir is required before the PATH probe; pass a dummy so we reach it.
     ex = AcpExecutor(entry_id="codex", model="entry-default")
     # Force host path probe by ensuring no command_override
     monkeypatch.setattr(  # type: ignore[attr-defined]
         "bora.adapters.acp.executor.readiness_for",
         lambda *_a, **_k: row,
     )
-    r = ex.invoke("hi", timeout=5)
+    r = ex.invoke("hi", timeout=5, workdir=str(tmp_path))
     assert r.ok is False
     assert "adapter_missing" in str(r.error) or "adapter-missing" in str(r.error).replace("_", "-")
 

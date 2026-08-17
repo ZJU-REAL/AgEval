@@ -20,7 +20,11 @@
   `provider.dockerfile` override) **required** at lock time
 - `agent_profiles`: role slots only (`{id}`); executor / model / `options` live in Database `profiles.yaml`
 - `limits`: wall / agent_invocations / environment_actions / memory_mb
-- `evaluation`: runtime, entrypoint, inputs, output.format
+- `evaluation`: runtime, entrypoint, inputs, output.format; optional `network`
+  (`none` only); optional `tmpfs_mb` (positive int, L1 `/tmp` MiB, default 32);
+  optional `placement` (`staging` \| `writable`); optional `timeout_seconds`.
+  **Not** `limits.*`. `writable` allows exec on `/tmp` and sets
+  `BORA_EVAL_WORKDIR`; still `--read-only` root. Size stays `tmpfs_mb`.
 - Optional `provenance` (fully replaces Database-root default when set)
 
 ## Provenance (optional)
@@ -62,7 +66,7 @@ uv run bora executors -v   # + tools/session/stream; .acp_entries[] for ACP
 ```
 
 - **`.supported`**: kinds valid for yaml `executor:` (this BORA install).
-- **Coding agents (ACP Target):** `executor: acp` + `options.entry`.
+- **Coding agents (ACP Target):** `executor: acp` + `- plugin: acp` / `options.entry`.
 - **HTTP agents:** e.g. `executor: openai-http` (+ optional `base_url` / `api_key` locator).
 - Unknown kind fails at lock (`unsupported_capability`).
 - Private CLI kinds (`codex` / `pi` / `opencode` / `claude-code` as **executor**) are **removed**; use ACP entry ids instead.
@@ -70,23 +74,28 @@ uv run bora executors -v   # + tools/session/stream; .acp_entries[] for ACP
 ### ACP profiles
 
 ```yaml
-agent_profiles:
-  - id: codex-acp
+# Database profiles.yaml
+bindings:
+  solver:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: codex                # registry entry_id
     model: entry-default          # or a model the entry accepts
-    options:
-      entry: codex                # registry entry_id
-  - id: pi-acp
+  pi-solver:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi
     model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key   # host env locator name only
-    options:
-      entry: pi
+    api_key: ${glm_coding_api_key}   # host env locator name only
 ```
 
 | Field | Rule |
 | --- | --- |
-| `options.entry` | **Required** when `executor: acp`. Registry ids (discover via `bora executors -v` → `acp_entries`): typically `codex`, `claude-code`, `pi`, `opencode`, `grok-build`. |
+| `- plugin: acp` / `options.entry` | **Required** when `executor: acp`. Registry ids (discover via `bora executors -v` → `acp_entries`): typically `codex`, `claude-code`, `pi`, `opencode`, `grok-build`. |
 | `options.command` / `version` / `install_command` / … | **Forbidden** in package yaml (registry owns pins). |
 | Host readiness | Per-entry `engine_ready` + `acp_entry_ready` in inventory — not the same as yaml `executor` kind. |
 
@@ -132,7 +141,7 @@ agent_profiles:
     executor: openai-http
     model: glm-4.7
     base_url: https://open.bigmodel.cn/api/coding/paas/v4
-    api_key: zhipu_coding_api_key
+    api_key: ${zhipu_coding_api_key}
 ```
 
 Design: `docs/design/02-task-package-and-config.md`, `docs/design/05-runtime/agent-service.md`.

@@ -60,7 +60,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | 证据等级        | **限定 `runnable-mvp`（L0）** 及部分 L1 路径；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated`                                                                                                                                                  |
 | 交付跟踪        | **GitHub Issues**（无 ROADMAP / Active Spec）                                                                                                                                                                                                                               |
 | 文档站          | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/`                                                                                                                                                                                                                |
-| ACP             | 产品决策已接受（`executor: acp` + `options.entry`）；余量与 gap 见 Issues（如 #4）；**有站 ≠ 证据升级**                                                                                                                                                                     |
+| ACP             | 产品决策已接受（`executor: acp` + `- plugin: acp` / `options.entry`）；余量与 gap 见 Issues（如 #4）；**有站 ≠ 证据升级**                                                                                                                                                                     |
 
 **禁止**从文档存在、Issue 存在、`bora lock` 成功或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
 
@@ -93,7 +93,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 ### Agent 后端 / ACP
 
-- Coding-agent **Target inlet**：`executor: acp` + `options.entry`；parent **唯一** ACP JSON-RPC client → `AgentResult` + evidence。
+- Coding-agent **Target inlet**：`executor: acp` + `- plugin: acp` / `options.entry`；parent **唯一** ACP JSON-RPC client → `AgentResult` + evidence。
 - Vendor 私有格式翻译在 **进程外** ACP entry（Mode 1 shim / Mode 2 原生 / Mode 3 厂商包）；**禁止**在 BORA 内再写第二套 vendor stdout scrape（含 `agent_container` heuristic JSON）。
 - **L1 官方基座** `docker/attempt` 在 **build 期** bake-in 最低 **五** entry 的 engine + ACP 入口（Mode 1 **双装**：codex/claude/**pi**+各自 adapter）；禁止 invoke 时 `npm i` / floating `npx`。Python ACP SDK **只在 parent**，不进 Attempt 镜像。
 - Pi：官方 registry **`pi-acp`**（npm `pi-acp`，桥 `pi --mode rpc`）纳入最低集；勿与反向桥 `pi-shell-acp` 混淆。

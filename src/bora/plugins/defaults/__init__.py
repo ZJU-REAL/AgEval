@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from bora.plugins.defaults.home_overlay import HOME_OVERLAY_PRIORITY, default_home_overlay
 from bora.plugins.middleware import passthrough_handler
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import (
@@ -37,6 +38,7 @@ from bora.plugins.slots import (
     EVALUATION_INPUT_CONTRIBUTE,
     EVALUATION_RUNTIME,
     EVIDENCE_EXTRA,
+    HOME_OVERLAY,
     IMAGE_CONTRIBUTE,
     NORMALIZE_AGENT_RESULT,
     SCORE_POSTPROCESS,
@@ -93,6 +95,15 @@ def register_defaults(registry: ExtensionRegistry) -> None:
         CLEANUP_ACTIONS,
         CLEANUP_REPORT,
     ]
+    registry.on(
+        HOME_OVERLAY,
+        PLUGIN_ID,
+        default_home_overlay,
+        priority=HOME_OVERLAY_PRIORITY,
+        source="default",
+        is_default=True,
+        is_factory=False,
+    )
     for slot in multi_slots:
         assert get_slot_kind(slot) is SlotKind.MULTI
         registry.on(

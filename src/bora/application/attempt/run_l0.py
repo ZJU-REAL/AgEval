@@ -82,9 +82,11 @@ def write_l0_lock_summary(ctx: AttemptStageContext) -> None:
                 "executor": kind,
                 "model": p.get("model"),
             }
-            opts = p.get("options")
-            if isinstance(opts, dict) and opts.get("entry") is not None:
-                row["options"] = {"entry": opts.get("entry")}
+            from bora.config.profiles import acp_entry_from_binding
+
+            entry = acp_entry_from_binding(p)
+            if entry is not None:
+                row["options"] = {"entry": entry}
             if p.get("base_url"):
                 row["base_url"] = p.get("base_url")
             if p.get("api_key"):
@@ -149,6 +151,36 @@ def prepare_l0_attempt(ctx: AttemptStageContext) -> tuple[int, FlatResult, dict[
                     database_root=ctx.database_root,
                 )
             write_l0_lock_summary(ctx)
+            from types import SimpleNamespace
+
+            from bora.application.attempt.extension_hooks import hook_home_overlay
+
+            host_root = Path(tempfile.mkdtemp(prefix="bora-l0-"))
+            workspace_root = host_root / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            ctx.host_work_root = host_root
+            ctx.workspace_host = workspace_root
+            overlay_ctx = SimpleNamespace(
+                work_root=host_root,
+                package_root=ctx.database_root or ctx.package_root,
+                workspace_root=workspace_root,
+            )
+            overlay_value = hook_home_overlay(
+                ctx.lock,
+                {
+                    "package_root": str(ctx.database_root or ctx.package_root),
+                    "workspace_root": str(workspace_root),
+                    "work_root": str(host_root),
+                },
+                ctx=overlay_ctx,
+            )
+            ctx.cred = getattr(overlay_ctx, "cred", None)
+            attempt_home = None
+            if isinstance(overlay_value, dict):
+                attempt_home = overlay_value.get("home_root")
+            ctx.agent_meta["workspace"] = str(workspace_root)
+            if attempt_home is not None:
+                ctx.agent_meta["attempt_home"] = str(attempt_home)
             wall_s, deadline = read_wall_deadline(lock=ctx.lock, monotonic_now=time.monotonic())
             ctx.wall_s = wall_s
             service, invoke_timeout, authority = assemble_parent_agent_service(
@@ -159,6 +191,8 @@ def prepare_l0_attempt(ctx: AttemptStageContext) -> tuple[int, FlatResult, dict[
                 params=params if isinstance(params, dict) else {},
                 evidence_store=ctx.evidence_store,
                 deadline_monotonic=deadline,
+                workdir=workspace_root,
+                home=attempt_home,
             )
             ctx.agent_service = service
             ctx.authority = authority
@@ -198,6 +232,7 @@ async def run_l0_harness(ctx: AttemptStageContext) -> None:
             timeout_seconds=harness_timeout,
             agent_service_sock=str(ctx.agent_sock_path) if ctx.agent_sock_path else None,
             attempt=attempt,
+            workspace_root=ctx.workspace_host,
             database_root=ctx.database_root,
         )
     if ctx.agent_service is not None:
@@ -402,6 +437,15 @@ def bind_l0_result(ctx: AttemptStageContext) -> None:
     }
 
 
+def drop_l0_host_work(host_work_root: Path | None, *, keep_workspace: bool = False) -> None:
+    """Remove the Attempt-private L0 host directory (cred + HOME + workspace)."""
+    if keep_workspace or host_work_root is None:
+        return
+    if host_work_root.exists():
+        with contextlib.suppress(OSError):
+            shutil.rmtree(host_work_root)
+
+
 def cleanup_l0(ctx: AttemptStageContext) -> None:
     from bora.application.attempt.extension_hooks import hook_cleanup
 
@@ -417,6 +461,11 @@ def cleanup_l0(ctx: AttemptStageContext) -> None:
 
         teardown_attempt_environment(ctx)
         hook_cleanup(ctx.lock)
+        if ctx.cred is not None:
+            with contextlib.suppress(Exception):
+                ctx.cred.cleanup()
+            ctx.cred = None
+        drop_l0_host_work(ctx.host_work_root, keep_workspace=ctx.keep_workspace)
         for leftover in (
             ctx.package_root / ".bora_agent_result.json",
             ctx.package_root / ".bora_workspace_output.json",

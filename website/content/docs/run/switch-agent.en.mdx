@@ -16,21 +16,15 @@ Check `engine_ready` / `acp_entry_ready` per ACP entry.
 ## Declare in config
 
 ```yaml
-parameters:
-  active_profile: codex-mini
-
-agent_profiles:
-  - id: codex-mini
+# Database profiles.yaml
+bindings:
+  solver:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: codex
     model: gpt-5.4-mini
-    options:
-      entry: codex
-  - id: pi-mini
-    executor: acp
-    model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
-    options:
-      entry: pi
 ```
 
 ## Temporary switch

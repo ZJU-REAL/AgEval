@@ -32,6 +32,7 @@ from bora.plugins.slots import (
     EVALUATION_INPUT_CONTRIBUTE,
     EVALUATION_RUNTIME,
     EVIDENCE_EXTRA,
+    HOME_OVERLAY,
     IMAGE_CONTRIBUTE,
     NORMALIZE_AGENT_RESULT,
     SCORE_POSTPROCESS,
@@ -78,6 +79,11 @@ async def emit_cleanup(graph: ExtensionGraph, value: Any = None, *, ctx: Any = N
     )
     mid = await run_chain(graph, CLEANUP_ACTIONS, mid, ctx=ctx)
     return await run_chain(graph, CLEANUP_REPORT, mid, ctx=ctx)
+
+
+async def emit_home_overlay(graph: ExtensionGraph, value: Any = None, *, ctx: Any = None) -> Any:
+    """Multi home_overlay: cred → plugin files → actor HOME copy."""
+    return await run_chain(graph, HOME_OVERLAY, value, ctx=ctx)
 
 
 async def collect_image_contribute(

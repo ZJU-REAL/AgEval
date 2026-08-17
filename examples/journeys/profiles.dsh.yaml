@@ -7,7 +7,7 @@
 # File-effect policy: profiles.dsh.read-only.yaml, or
 #   --set '/bindings/solver/options/permission="read-only"'
 #
-# api_key = env locator name (never a secret value).
+# api_key = ${ENV_NAME} locator (never a secret value).
 # Same harness as ACP / nooa — only the job binding changes.
 format: bora.profiles/1
 bindings:
@@ -15,7 +15,7 @@ bindings:
     executor: dsh
     extensions:
       - plugin: dsh
+        options:
+          composition: slim
     model: deepseek-v4-flash
-    api_key: deepseek_api_key
-    options:
-      composition: slim
+    api_key: ${deepseek_api_key}

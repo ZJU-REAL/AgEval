@@ -303,3 +303,50 @@ def test_database_profiles_load_via_cli_path(
     )
     assert thaw(locked.agent_profiles)[0]["id"] == "mock-default"
     assert thaw(locked.agent_profiles)[0]["executor"] == "mock"
+
+
+def _clone_minimal(tmp_path: Path, *, evaluation_extra: str = "") -> Path:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
+    if evaluation_extra:
+        yaml = yaml.replace(
+            "  output:\n    format: json\n",
+            f"  output:\n    format: json\n{evaluation_extra}",
+        )
+    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
+    (pkg / "harness.py").write_text((MINIMAL / "harness.py").read_text(encoding="utf-8"))
+    (pkg / "evaluator.py").write_text((MINIMAL / "evaluator.py").read_text(encoding="utf-8"))
+    return pkg
+
+
+def test_eval_tmpfs_defaults_to_32(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
+    locked = _lock(core, catalog, MINIMAL, "config-minimal")
+    assert thaw(locked.evaluation)["tmpfs_mb"] == 32
+    assert "eval_tmpfs" not in thaw(locked.limits)
+    sources = {(e.source, e.pointer) for e in locked.resolution.entries}
+    assert ("default", "/evaluation/tmpfs_mb") in sources
+
+
+def test_eval_tmpfs_override_accepted(
+    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
+) -> None:
+    pkg = _clone_minimal(tmp_path, evaluation_extra="  tmpfs_mb: 256\n")
+    locked = _lock(core, catalog, pkg, "config-minimal")
+    assert thaw(locked.evaluation)["tmpfs_mb"] == 256
+    sources = {(e.source, e.pointer) for e in locked.resolution.entries}
+    assert ("default", "/evaluation/tmpfs_mb") not in sources
+
+
+@pytest.mark.parametrize("raw", ["0", "-1", "true", "32.5", '"256"'])
+def test_eval_tmpfs_rejects_bad_value(
+    core: ConfigCore,
+    catalog: DeclarationCapabilityCatalog,
+    tmp_path: Path,
+    raw: str,
+) -> None:
+    pkg = _clone_minimal(tmp_path, evaluation_extra=f"  tmpfs_mb: {raw}\n")
+    with pytest.raises(ConfigError) as ei:
+        _lock(core, catalog, pkg, "config-minimal")
+    assert ei.value.error_code == "invalid_schema"
+    assert ei.value.location == "/evaluation/tmpfs_mb"

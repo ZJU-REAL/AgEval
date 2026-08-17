@@ -176,6 +176,7 @@ class DshExecutorSPI:
         base_url: str | None = None,
         api_key: str | None = None,
         plugin_id: str | None = None,
+        workdir: str | None = None,
         **_kwargs: Any,
     ) -> None:
         del plugin_id
@@ -191,7 +192,7 @@ class DshExecutorSPI:
         )
         self.base_url = base_url
         self.api_key_env = api_key
-        self.default_workdir = str(opts.get("_workdir")).strip() if opts.get("_workdir") else None
+        self.default_workdir = str(workdir).strip() if workdir else None
         self._harness: Any = None
         self._session: Any = None
         self._session_id = f"bora-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"

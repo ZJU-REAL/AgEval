@@ -63,7 +63,7 @@ _P1_BINDINGS = {
     "p1": {
         "executor": "acp",
         "model": "entry-default",
-        "options": {"entry": "pi"},
+        "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
     }
 }
 

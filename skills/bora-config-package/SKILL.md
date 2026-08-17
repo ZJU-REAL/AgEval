@@ -217,6 +217,7 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
+  # tmpfs_mb: 256          # optional L1 clean-eval /tmp (MiB); omit → 32. Not limits.*
   inputs:
     - artifact: session-output
       target: artifacts/session-output.json
@@ -231,16 +232,18 @@ format: bora.profiles/1
 bindings:
   solver:
     executor: acp
-    options:
-      entry: opencode       # registry: codex | claude-code | pi | opencode | grok-build
+    extensions:
+      - plugin: acp
+        options:
+          entry: opencode       # registry: codex | claude-code | pi | opencode | grok-build
     model: entry-default
-    api_key: glm_coding_api_key   # env *locator name* only
+    api_key: ${glm_coding_api_key}   # ${ENV_NAME} locator; value never in YAML/lock
   # HTTP / non-ACP example:
   # http-solver:
   #   executor: openai-http
   #   model: glm-4.7
-  #   base_url: https://open.bigmodel.cn/api/coding/paas/v4
-  #   api_key: zhipu_coding_api_key
+  #   base_url: ${OPENAI_BASE_URL}
+  #   api_key: ${zhipu_coding_api_key}
 ```
 
 ## Ownership rules
@@ -322,10 +325,10 @@ uv run bora plugin list        # installed mechanism plugins (e.g. nooa)
 | `.host_ready` | Kinds that can run here (ACP needs at least one ready entry; HTTP needs no CLI) |
 | Installed plugins | Extra executor plugin_ids after `bora plugin install` (Recognition only) |
 
-**Target (coding agents):** `executor: acp` + `options.entry: <registry-id>`.  
+**Target (coding agents):** `executor: acp` + `- plugin: acp` / `options.entry: <registry-id>`.  
 **Do not** write `executor: codex|pi|opencode|claude-code` — lock fails (`unsupported_capability`) or L1 fails (`l1_executor_unbound`).
 
-**External mechanism (e.g. nooa):** `executor: nooa` + `options.agent: "lib.agents:Class"` in
+**External mechanism (e.g. nooa):** `executor: nooa` + `- plugin: nooa` / `options.agent: "lib.agents:Class"` in
 **profiles only** — never in member `task.yaml`. `bora plugin install` does **not** rewrite
 profiles. `bora lock` writes full `extension_bindings` for the resolved extension graph.
 

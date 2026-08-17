@@ -67,6 +67,7 @@ class ExplicitBinding:
     priority: int | None = None
     replace_default: bool = False
     source: str = "explicit"
+    options: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +82,7 @@ class ExtensionSelect:
     priority: int | None = None
     replace_default: bool = False
     source: str = "explicit"
+    options: Mapping[str, Any] | None = None
 
 
 @dataclass
@@ -96,6 +98,9 @@ class BindingIntent:
     model: str | None = None
     base_url: str | None = None
     api_key: str | None = None
+    package_root: str | None = None
+    workdir: str | None = None
+    home: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +115,7 @@ class ProviderRef:
     digest: str | None = None
     replaced_default: bool = False
     slot: str = ""
+    options: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +130,7 @@ class HandlerRef:
     digest: str | None = None
     replaced_default: bool = False
     slot: str = ""
+    options: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +204,9 @@ def intent_from_profile(profile: Mapping[str, Any]) -> BindingIntent:
     api_key = (
         str(api_key_raw).strip() if isinstance(api_key_raw, str) and api_key_raw.strip() else None
     )
+    package_root = _optional_str(profile.get("_package_root") or profile.get("package_root"))
+    workdir = _optional_str(profile.get("_workdir") or profile.get("workdir"))
+    home = _optional_str(profile.get("_home") or profile.get("home"))
     return BindingIntent(
         profile_id=profile_id,
         executor=executor,
@@ -206,7 +216,43 @@ def intent_from_profile(profile: Mapping[str, Any]) -> BindingIntent:
         model=model,
         base_url=base_url,
         api_key=api_key,
+        package_root=package_root,
+        workdir=workdir,
+        home=home,
     )
+
+
+def _optional_str(raw: Any) -> str | None:
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
+def row_options(item: Mapping[str, Any]) -> dict[str, Any]:
+    """Parse optional ``options`` on one extensions row. Missing → empty map."""
+    raw = item.get("options")
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        from bora.plugins.errors import ExtensionRegistryError
+
+        raise ExtensionRegistryError(
+            "extensions.options must be a mapping",
+            kind="invalid_extension_binding",
+        )
+    return dict(raw)
+
+
+def options_for_plugin(intent: BindingIntent, plugin_id: str) -> dict[str, Any]:
+    """Last matching extensions row for *plugin_id* wins (same dest last-writer)."""
+    found: dict[str, Any] = {}
+    for sel in intent.extension_selects:
+        if sel.plugin == plugin_id and sel.options:
+            found = dict(sel.options)
+    for binding in intent.extensions:
+        if binding.plugin == plugin_id and binding.options:
+            found = dict(binding.options)
+    return found
 
 
 def parse_extension_row(item: Any) -> tuple[ExplicitBinding | None, ExtensionSelect | None]:
@@ -230,6 +276,7 @@ def parse_extension_row(item: Any) -> tuple[ExplicitBinding | None, ExtensionSel
     prio = item.get("priority")
     priority = int(prio) if prio is not None else None
     replace_default = bool(item.get("replace_default"))
+    options = row_options(item)
     if slot_raw is not None and slots_raw is not None:
         raise ExtensionRegistryError(
             "extensions row cannot set both slot and slots",
@@ -248,6 +295,7 @@ def parse_extension_row(item: Any) -> tuple[ExplicitBinding | None, ExtensionSel
                 priority=priority,
                 replace_default=replace_default,
                 source="explicit",
+                options=options or None,
             ),
             None,
         )
@@ -277,6 +325,7 @@ def parse_extension_row(item: Any) -> tuple[ExplicitBinding | None, ExtensionSel
                 slots=tuple(slots),
                 priority=priority,
                 replace_default=replace_default,
+                options=options or None,
             ),
         )
     return (
@@ -286,5 +335,6 @@ def parse_extension_row(item: Any) -> tuple[ExplicitBinding | None, ExtensionSel
             slots=None,
             priority=priority,
             replace_default=replace_default,
+            options=options or None,
         ),
     )

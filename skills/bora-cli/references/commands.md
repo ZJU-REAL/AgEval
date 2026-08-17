@@ -23,14 +23,14 @@ Stdout JSON (high level):
 - `-v` adds tools/session/stream + richer entry fields
 - No package path; no secrets; exit 0
 
-**Author packages with:** `executor: acp` + `options.entry: <entry_id from acp_entries>`.
+**Author packages with:** `executor: acp` + `- plugin: acp` / `options.entry: <entry_id from acp_entries>`.
 
 ## `bora lock`
 
 - Deterministic JSON on stdout (digest, task_id, resolution, resolved_references).
 - No secret values.
 - Does not create Run/Attempt or start Agent.
-- Rejects unknown `executor` kinds and ACP profiles missing `options.entry`.
+- Rejects unknown `executor` kinds and ACP profiles missing `- plugin: acp` / `options.entry`.
 - `--probe`: same lock plus observational `probe` (path, ready, checks). Does not
   change the digest. Exit 1 when the **selected** `provider.kind` path is unsatisfied.
   L0 runs declared `host_requires`; L1 checks bake file + Docker daemon + locator

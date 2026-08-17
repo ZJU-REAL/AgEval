@@ -2,35 +2,47 @@ format: bora.profiles/1
 bindings:
   solver:
     executor: acp
-    options:
-      entry: pi
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi
     model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}
   user:
     executor: acp
-    options:
-      entry: grok-build
+    extensions:
+      - plugin: acp
+        options:
+          entry: grok-build
     model: entry-default
   service:
     executor: acp
-    options:
-      entry: opencode
+    extensions:
+      - plugin: acp
+        options:
+          entry: opencode
     model: zai-coding-plan/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}
   specialist:
     executor: acp
-    options:
-      entry: pi
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi
     model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}
   planner:
     executor: acp
-    options:
-      entry: opencode
+    extensions:
+      - plugin: acp
+        options:
+          entry: opencode
     model: zai-coding-plan/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}
   reducer:
     executor: acp
-    options:
-      entry: grok-build
+    extensions:
+      - plugin: acp
+        options:
+          entry: grok-build
     model: entry-default

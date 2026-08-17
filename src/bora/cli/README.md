@@ -159,7 +159,7 @@ Job binding axes:
 - `/bindings/<role_id>/executor`
 - `/bindings/<role_id>/api_key`
 - `/bindings/<role_id>/base_url`
-- `/bindings/<role_id>/options/<key>` (opaque plugin options; ACP still rejects `command` / engine keys)
+- `/bindings/<role_id>/options/<key>` (executor plugin row; ACP still rejects `command` / engine keys)
 
 **Not** overridable: intent `limits.*` (task contract).
 
@@ -212,7 +212,7 @@ uv run bora lock examples/core --task config-minimal --probe
 # --probe: plan + readiness for this binding / provider.kind; no Agent, no bake
 ```
 
-Coding-agent packages use `executor: acp` + `options.entry: …`. Prefer inventory output over hardcoded vendor lists.
+Coding-agent packages use `executor: acp` + `- plugin: acp` / `options.entry: …`. Prefer inventory output over hardcoded vendor lists.
 
 ---
 

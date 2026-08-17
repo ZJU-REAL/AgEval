@@ -18,6 +18,7 @@ from bora.adapters.executor_inventory import FIRST_PARTY_KINDS
 from bora.application.attempt.lock_command import LockCommand
 from bora.application.plugin_ops.image_contribute_bake import selected_contribute_plugin_ids
 from bora.config.model import LockedTaskConfig, locked_to_summary, thaw
+from bora.config.profiles import acp_entry_from_binding
 from bora.plugins.host_requires import (
     evaluate_host_requires,
     installed_plugin,
@@ -68,11 +69,9 @@ def bound_bindings(lock: LockedTaskConfig) -> list[dict[str, Any]]:
         api_key = row.get("api_key")
         if isinstance(api_key, str) and api_key.strip():
             item["api_key"] = api_key.strip()
-        options = row.get("options")
-        if isinstance(options, Mapping):
-            entry = options.get("entry")
-            if isinstance(entry, str) and entry.strip():
-                item["entry"] = entry.strip()
+        entry = acp_entry_from_binding(row)
+        if entry:
+            item["entry"] = entry
         rows.append(item)
     return rows
 

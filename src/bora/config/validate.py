@@ -55,6 +55,26 @@ def validate_top_level_layout(reader: PackageReader, root: Path) -> None:
                 )
 
 
+def _write_acp_entry(profile: dict[str, Any], entry: str) -> None:
+    """Normalize ``entry`` onto the acp extensions row (no profile-level options)."""
+    rows = profile.get("extensions")
+    if not isinstance(rows, list):
+        rows = []
+        profile["extensions"] = rows
+    match: dict[str, Any] | None = None
+    for item in rows:
+        if isinstance(item, dict) and str(item.get("plugin") or "").strip() == "acp":
+            match = item
+    if match is None:
+        match = {"plugin": "acp"}
+        rows.append(match)
+    options = match.get("options")
+    if not isinstance(options, dict):
+        options = {}
+        match["options"] = options
+    options["entry"] = entry
+
+
 def validate_document(
     reader: PackageReader,
     doc: dict[str, Any],
@@ -192,24 +212,19 @@ def validate_document(
             raise ConfigError(
                 ERROR_INVALID_SCHEMA, "profile.model required", location=f"{loc}/model"
             )
-        # Spec 19: executor: acp requires options.entry from static registry.
+        # executor: acp requires - plugin: acp / options.entry from static registry.
         # Packages must not override command/version/install.
         if executor == "acp":
             from bora.adapters.acp_registry import get_entry
+            from bora.config.profiles import plugin_row_options
 
-            options = profile.get("options")
-            if not isinstance(options, dict):
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    "executor acp requires options mapping with entry",
-                    location=f"{loc}/options",
-                )
+            options = plugin_row_options(profile, "acp")
             entry = options.get("entry")
             if not isinstance(entry, str) or not entry.strip():
                 raise ConfigError(
                     ERROR_INVALID_SCHEMA,
-                    "options.entry required for executor acp",
-                    location=f"{loc}/options/entry",
+                    "executor acp requires - plugin: acp options.entry",
+                    location=f"{loc}/extensions",
                 )
             for forbidden in (
                 "command",
@@ -226,36 +241,19 @@ def validate_document(
                     raise ConfigError(
                         ERROR_INVALID_SCHEMA,
                         f"options.{forbidden} is not package-overridable for acp",
-                        location=f"{loc}/options/{forbidden}",
+                        location=f"{loc}/extensions",
                     )
             desc = get_entry(entry.strip())
             if desc is None:
                 raise ConfigError(
                     ERROR_UNSUPPORTED_CAPABILITY,
                     f"unknown acp entry: {entry!r}",
-                    location=f"{loc}/options/entry",
+                    location=f"{loc}/extensions",
                 )
-            cleaned = {
-                k: v
-                for k, v in options.items()
-                if k
-                not in {
-                    "command",
-                    "args",
-                    "detect_command",
-                    "install_command",
-                    "version",
-                    "acp_command",
-                    "engine_command",
-                    "acp_version",
-                    "credential_env_names",
-                    "_acp_lock",
-                }
-            }
-            cleaned["entry"] = entry.strip()
-            profile["options"] = cleaned
-        # Optional upstream routing (non-secret). api_key is an env *locator name*
-        # only — values live in host/.env and are projected at invoke time.
+            _write_acp_entry(profile, entry.strip())
+        # Optional upstream routing (non-secret). api_key is the unwrapped
+        # ${ENV_NAME} locator — values live in host/.env and are projected
+        # at invoke time. base_url ${ENV_NAME} is already substituted.
         base_url = profile.get("base_url")
         if base_url is not None:
             if not isinstance(base_url, str) or not base_url.strip():
@@ -275,7 +273,7 @@ def validate_document(
             if not isinstance(api_key, str) or not api_key:
                 raise ConfigError(
                     ERROR_INVALID_SCHEMA,
-                    "profile.api_key must be a non-empty env locator name when set",
+                    "profile.api_key must be ${ENV_NAME} (locator only)",
                     location=f"{loc}/api_key",
                 )
             if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", api_key):
@@ -446,6 +444,26 @@ def validate_document(
                 raise ConfigError(
                     ERROR_PATH_OUTSIDE_PACKAGE, f"path escapes package: {pp}", location=loc
                 )
+
+    if "tmpfs_mb" in evaluation:
+        tmpfs_mb = evaluation["tmpfs_mb"]
+        if not isinstance(tmpfs_mb, int) or isinstance(tmpfs_mb, bool) or tmpfs_mb < 1:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "evaluation.tmpfs_mb must be a positive integer",
+                location="/evaluation/tmpfs_mb",
+            )
+
+    from bora.config.eval_placement import validate_evaluation_extras
+
+    wall: float | None = None
+    try:
+        wall_raw = (doc.get("limits") or {}).get("wall_time_seconds")
+        if wall_raw is not None:
+            wall = float(wall_raw)
+    except (TypeError, ValueError):
+        wall = None
+    validate_evaluation_extras(evaluation, wall_time_seconds=wall)
 
 
 def collect_resolved_references(doc: dict[str, Any], root: Path) -> dict[str, Any]:

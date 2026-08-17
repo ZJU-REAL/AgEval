@@ -343,11 +343,13 @@ class AcpExecutor(AgentExecutor):
                 return None
         # Host PATH readiness only when launching locally. L1 uses command_override
         # (docker exec) and image BOM preflight for entry presence.
+        cwd = workdir or self.workdir
+        if not cwd:
+            return "acp_workdir_required"
         if self._command_override is None and self._process_launcher is None:
             ready = readiness_for(self.descriptor)
             if ready["readiness"] != "ready":
                 return str(ready["readiness"]).replace("-", "_")
-        cwd = workdir or self.workdir or os.getcwd()
         try:
             self._run(self._spawn_and_init(cwd=cwd), timeout=min(timeout, 120.0))
         except RuntimeError as exc:

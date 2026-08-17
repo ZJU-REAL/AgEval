@@ -1,0 +1,6 @@
+# miniswe loop stays on the host. Attempt image only needs bash (already on
+# bora-attempt:l1). Bake file is required for L1 bind of an external executor.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER bora
+WORKDIR /attempt/workspace

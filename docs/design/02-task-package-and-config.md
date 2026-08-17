@@ -230,7 +230,7 @@ Package 里的自然语言按读者与用途分层，**不**强制存在根级 `
 | `agent_profiles` | **角色槽**（role id + 可选 workspace 约束）；**不含** executor/entry/model | Config Core 合并后 → **Agent Service** |
 | `environment` | 外部资源、lifecycle、action allowlist | Runtime、Environment Manager |
 | `limits` | wall time、memory、process、Agent/Environment 外层硬上限（**任务契约**，job 不可覆盖） | Runtime、Provider、Capability |
-| `artifacts` / `evaluation` | 可发布产物、Evaluator 输入、隔离和结果格式 | Artifact Owner、Evaluator Runner |
+| `artifacts` / `evaluation` | 可发布产物、Evaluator 输入、隔离、结果格式、**评测沙箱**（`network`、`tmpfs_mb`） | Artifact Owner、Evaluator Runner |
 
 `parameters` 是统一的实验参数空间。`harness` 只定位入口（`runtime` + `entrypoint`），不再同时保存另一套 `params`，也不挂载任务说明或 prompt 路径。这样可以避免 `harness.params`、`tool_limits` 和 Campaign override 分散在多个位置；自然语言提示词由 package 的 `prompts/` 与 `harness.py` 负责。
 
@@ -261,7 +261,7 @@ member task.yaml（角色槽 + intent + harness/eval）
 - Leaderboard **job 轴**是 suite 级 `profiles.yaml` / `job_overlay`（role id → entry/model），不是「各 task 角色槽拓扑是否相同」。不同 task 可用不同 role id；只要绑定文档一致，`config_homogeneous` 仍为 true，公开可比榜展示该 yaml。
 - 仅当同一 suite 内出现**同一 role id 的 entry/model 冲突**（或无法解析 job 轴）时 `config_homogeneous: false`。
 
-**Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*` 只点 **role / profile id**；真正跑哪条 coding-agent 后端写在 Database `profiles.yaml`（或 CLI overlay）。coding-agent 配置形状为 `executor: acp` + `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 binding 的 `options.entry`/`model`（`--set '/bindings/solver/…'` 或 `--matrix`），不必改 `harness.py`。
+**Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*` 只点 **role / profile id**；真正跑哪条 coding-agent 后端写在 Database `profiles.yaml`（或 CLI overlay）。coding-agent 配置形状为 `executor: acp` + `- plugin: acp` 行上的 `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 binding 的 executor 行 `options.entry`/`model`（`--set '/bindings/solver/…'` 或 `--matrix`），不必改 `harness.py`。
 
 #### L1 / `provider.kind: docker` 与 package Dockerfile
 
@@ -360,32 +360,14 @@ provider:
 
 agent_profiles:
   # profile = 可切换的 Agent 后端绑定；见 design/05-runtime/agent-service.md
-  # coding-agent: executor: acp + options.entry
+  # 成员只声明角色槽。coding-agent 绑定见 Database profiles.yaml：
+  # executor: acp + - plugin: acp / options.entry
   - id: codex-database-specialist
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
   - id: codex-database-planner
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
   - id: codex-database-reducer
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
-  # 混用示例：planner 换 OpenCode 或 Pi ACP entry
-  # - id: opencode-database-planner
-  #   executor: acp
-  #   options: { entry: opencode }
-  # - id: pi-database-planner
-  #   executor: acp
-  #   options: { entry: pi }
 
 environment:
   id: database-attempt
@@ -432,6 +414,9 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
+  tmpfs_mb: 256   # optional; L1 clean-eval /tmp size (MiB); omit → 32
+  # placement: staging | writable   # writable → /tmp exec + BORA_EVAL_WORKDIR
+  # timeout_seconds: 180            # optional; capped by wall_time_seconds
   inputs:
     - artifact: reducer-output
       target: artifacts/reducer-output.json
@@ -582,7 +567,8 @@ Config Core 至少检查：
 - `action_commands` 只引用已有 component；
 - limits 为非负且在实现支持范围内；
 - Artifact producer、path 和 evaluator input 引用一致；
-- evaluator runtime、network 和 output format 有对应实现。
+- evaluator runtime、network 和 output format 有对应实现；
+- `evaluation.tmpfs_mb` 若出现则必须是正整数（省略则锁定为 32）。**不是** `limits.*`。
 
 Config Core 不校验某个 Planner 会选择哪个 specialist，也不检查 Harness 是否真的调用某个 Tool。前者属于运行时算法，后者由 Harness 和测试确认。
 

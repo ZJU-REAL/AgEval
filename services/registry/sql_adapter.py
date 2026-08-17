@@ -16,6 +16,10 @@ from services.registry.dialect import pg_sql
 
 _SQL_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
+# pg_advisory_xact_lock(int, int). 0x424F5241 == b"BORA"; 1 = schema init.
+_SCHEMA_LOCK_NS = 0x424F5241
+_SCHEMA_LOCK_ID = 1
+
 
 def _require_ident(name: str) -> str:
     if not _SQL_IDENT.fullmatch(name):
@@ -79,6 +83,10 @@ class SqliteAdapter:
         cur = conn.execute(f"PRAGMA table_info({table})")
         return {str(r[1]) for r in cur.fetchall()}
 
+    def lock_schema(self, conn: Any) -> None:
+        """SQLite is single-writer; the connection already serializes DDL."""
+        del conn
+
     def add_column(self, conn: Any, table: str, column: str, decl: str) -> None:
         if column in self.table_columns(conn, table):
             return
@@ -118,7 +126,20 @@ class PostgresAdapter:
         )
         return {str(r[0]) for r in cur.fetchall()}
 
+    def lock_schema(self, conn: Any) -> None:
+        """Hold until commit so concurrent workers cannot interleave DDL."""
+        self.execute(
+            conn,
+            "SELECT pg_advisory_xact_lock(?, ?)",
+            (_SCHEMA_LOCK_NS, _SCHEMA_LOCK_ID),
+        )
+
     def add_column(self, conn: Any, table: str, column: str, decl: str) -> None:
+        # ADD COLUMN takes AccessExclusiveLock even with IF NOT EXISTS.
+        if column in self.table_columns(conn, table):
+            return
+        table = _require_ident(table)
+        column = _require_ident(column)
         conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {decl}")
 
     def align_integer_flag(self, conn: Any, table: str, column: str) -> None:

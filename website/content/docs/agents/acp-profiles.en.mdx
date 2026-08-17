@@ -1,23 +1,26 @@
 ---
 title: ACP profiles
-description: "Plug coding agents with executor: acp + options.entry."
+description: "Plug coding agents with executor: acp and - plugin: acp options.entry."
 ---
 
 ## Recommended config
 
 ```yaml
-agent_profiles:
-  - id: main
+# Database profiles.yaml
+bindings:
+  main:
     executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: codex
     model: gpt-5.4-mini
-    options:
-      entry: codex
 ```
 
 | Field | Note |
 | --- | --- |
 | `executor` | Use `acp` for coding agents |
-| `options.entry` | **Required**; discover with `bora executors -v` |
+| `- plugin: acp` / `options.entry` | **Required**; discover with `bora executors -v` |
 | `model` | Model id for that entry |
 | `api_key` | Optional env **name** |
 

@@ -18,6 +18,7 @@ from bora.plugins.protocol import (
     ExtensionSelect,
     HandlerRef,
     ProviderRef,
+    options_for_plugin,
 )
 from bora.plugins.registry import ExtensionRegistry, Registration
 from bora.plugins.slots import ALL_PUBLIC_SLOTS, EXECUTOR, SlotKind, get_slot_kind, is_public_slot
@@ -52,6 +53,7 @@ def resolve(
                 slot=EXECUTOR,
                 plugin=str(intent.executor),
                 source="profile_executor_field",
+                options=options_for_plugin(intent, str(intent.executor)) or None,
             )
         )
 
@@ -87,7 +89,8 @@ def resolve(
                     f"invalid registration object for {slot}",
                     kind="extension_materialize_failed",
                 )
-            impl = _materialize(reg, intent) if materialize else reg.impl
+            plugin_opts = _options_for_winner(intent, explicit, slot, winner.plugin_id)
+            impl = _materialize(reg, intent, plugin_opts) if materialize else reg.impl
             # replaced_default if a default candidate existed and winner is not default.
             replaced_default = any(c.is_default for c in candidates) and not winner.is_default
             pref = ProviderRef(
@@ -99,6 +102,7 @@ def resolve(
                 digest=winner.digest,
                 replaced_default=replaced_default,
                 slot=slot,
+                options=plugin_opts or None,
             )
             graph.providers[slot] = pref
             graph.records.append(
@@ -126,7 +130,8 @@ def resolve(
                         f"invalid registration object for {slot}",
                         kind="extension_materialize_failed",
                     )
-                handler = _materialize(reg, intent) if materialize else reg.impl
+                plugin_opts = _options_for_winner(intent, explicit, slot, item.plugin_id)
+                handler = _materialize(reg, intent, plugin_opts) if materialize else reg.impl
                 href = HandlerRef(
                     plugin_id=item.plugin_id,
                     handler=handler,
@@ -136,6 +141,7 @@ def resolve(
                     digest=item.digest,
                     replaced_default=False,
                     slot=slot,
+                    options=plugin_opts or None,
                 )
                 refs.append(href)
                 graph.records.append(
@@ -155,28 +161,61 @@ def resolve(
     return graph
 
 
-def _materialize(reg: Registration, intent: BindingIntent) -> Any:
-    """If registration is a factory, construct with intent options; else return impl."""
+def _materialize(
+    reg: Registration,
+    intent: BindingIntent,
+    options: dict[str, Any] | None = None,
+) -> Any:
+    """If registration is a factory, construct with *row* options only."""
     impl = reg.impl
+    plugin_opts = dict(options or {})
     if not reg.is_factory:
+        if _looks_like_handler(impl):
+            return impl
+        if callable(impl):
+            return _call_factory(reg, intent, impl, plugin_opts)
         return impl
     if not callable(impl):
         raise ExtensionMaterializeError(
             f"factory for plugin {reg.plugin_id!r} slot {reg.slot!r} is not callable",
             kind="extension_materialize_failed",
         )
+    return _call_factory(reg, intent, impl, plugin_opts)
+
+
+def _looks_like_handler(impl: Any) -> bool:
+    import inspect
+
+    if not inspect.iscoroutinefunction(impl):
+        return False
+    try:
+        params = list(inspect.signature(impl).parameters)
+    except (TypeError, ValueError):
+        return False
+    return len(params) >= 3
+
+
+def _call_factory(
+    reg: Registration,
+    intent: BindingIntent,
+    impl: Any,
+    plugin_opts: dict[str, Any],
+) -> Any:
     try:
         return impl(
-            options=dict(intent.options),
+            options=plugin_opts,
             profile_id=intent.profile_id,
             model=intent.model,
             base_url=intent.base_url,
             api_key=intent.api_key,
             plugin_id=reg.plugin_id,
+            package_root=intent.package_root,
+            workdir=intent.workdir,
+            home=intent.home,
         )
     except TypeError:
         try:
-            return impl(options=dict(intent.options), profile_id=intent.profile_id)
+            return impl(options=plugin_opts, profile_id=intent.profile_id)
         except TypeError:
             try:
                 return impl()
@@ -192,6 +231,21 @@ def _materialize(reg: Registration, intent: BindingIntent) -> Any:
             f"materialize failed for plugin {reg.plugin_id!r} slot {reg.slot!r}: {exc}",
             kind="extension_materialize_failed",
         ) from exc
+
+
+def _options_for_winner(
+    intent: BindingIntent,
+    explicit: list[ExplicitBinding],
+    slot: str,
+    plugin_id: str,
+) -> dict[str, Any]:
+    found: dict[str, Any] = {}
+    for binding in explicit:
+        if binding.slot == slot and binding.plugin == plugin_id and binding.options:
+            found = dict(binding.options)
+    if found:
+        return found
+    return options_for_plugin(intent, plugin_id)
 
 
 def resolve_for_lock(
@@ -239,6 +293,7 @@ def expand_extension_selects(
                     priority=sel.priority,
                     replace_default=sel.replace_default,
                     source=sel.source,
+                    options=dict(sel.options) if sel.options else None,
                 )
             )
     return out

@@ -14,7 +14,7 @@ must be discovered from seeded DB rows via tools.
 
 ## ACP mix (default)
 
-| Role                    | profile id         | `options.entry` |
+| Role                    | profile id         | ACP `entry`     |
 | ----------------------- | ------------------ | --------------- |
 | specialists (×5 probes) | `specialist-pi`    | `pi`            |
 | planner                 | `planner-opencode` | `opencode`      |
