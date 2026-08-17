@@ -12,7 +12,7 @@
 | ACP entry not ready | `bora executors -v` → that `entry_id` `host_ready` / install pin; no invoke-time `npm i` |
 | PASS without real model | Forbidden — do not use fixtures as public proof |
 | Trajectory empty | Non-empty `agent_profiles` + harness `Agent.session`/`invoke`. Plugin L1 with no tools: worker import / collect — `$bora-plugin` |
-| Resume skipped an ERROR | `--resume-suite` skips finished `(task_id, attempt_index)` including ERROR. New suite to retry. |
+| Resume skipped an ERROR | Default `--resume-suite` skips finished PASS / FAIL / ERROR. Use `--replace-slot --task T` on the same suite. |
 | Export fails `unsealed_invocation` | Attempt still running or metadata not terminal |
 | Export fails `secret_residual` | Fix source evidence; do not strip secrets by hand in export dir |
 | Docker L1 ERROR | Docker daemon, image build, network/creds projection; read `l1.json` / agent meta under logs |

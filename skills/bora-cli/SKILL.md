@@ -43,13 +43,15 @@ uv run bora --help
 | `bora run <package> --task <id>`                              | One foreground Attempt                                                                             |
 | `bora run <package> [-k N] [--max-concurrent-tasks N]`        | Suite / Always-k job (`-k` = `--n-attempts`; CLI only)                                             |
 | `bora run … --resume-suite <id> [--task id] -k N`             | Append Attempts into existing suite job; recompute pass@k / pass^k                                 |
+| `bora run … --resume-suite <id> --task T --replace-slot`      | Re-run one finished slot; new Attempt; old row stays in `previous[]`                               |
 | `bora run … --keep-workspace`                                 | L1 only: retain host `l1-work/` after cleanup (default: delete; Docker volumes still go)           |
 | `bora run ... --set '/bindings/solver/options/entry="pi"'`    | Job binding override (entry/model)                                                                 |
 | `bora campaign <package> --task <id> --matrix ...`            | Serial matrix (`/parameters/*` or `/bindings/<role>/…`); ≠ Always-k                                |
 | `bora evidence <logs-path> --out <dir>`                       | Sealed trajectory export (no score change)                                                         |
 | `bora results upload-suite …`                                 | Suite aggregates → Registry; recompute pass@k if missing; job_overlay                              |
 | `bora results upload-suite … --with-attempts`                 | Also upload attempt dirs from task_refs.attempt_run_ids / run_id                                   |
-| `bora results upload\|upload-suite … --replace`               | Owner overwrite same run_id / suite_run_id (default 409)                                           |
+| `bora results upload-suite … --task T [--run]`                | Patch one slot onto an already-uploaded suite (not whole-row `--replace`)                          |
+| `bora results upload\|upload-suite … --replace`               | Owner overwrite same run_id / suite_run_id (default 409); no history                               |
 | `bora results delete\|set-visibility … --kind attempt\|suite` | Owner delete (`--yes`) or flip visibility after upload                                             |
 | `bora results share\|unshare …`                               | Grant / revoke private result access (owner only)                                                  |
 | `bora results export-profiles <suite_run_id> --out …`         | Rehydrate job binding as profiles.yaml (locators only)                                             |
@@ -151,7 +153,7 @@ Value after `=` is JSON (strings need quotes):
 | Path                         | Content                                                                                      |
 | ---------------------------- | -------------------------------------------------------------------------------------------- |
 | `summary.json` → `metrics`   | `pass_rate`, `mean_score`, `pass_at_k`, `pass_power_k`, `n_attempts`, `k_values`, `per_task` |
-| `summary.json` → `task_refs` | May include `n`, `c`, `attempt_run_ids` (multi-attempt audit / upload)                       |
+| `summary.json` → `task_refs` | May include `n`, `c`, `attempt_run_ids`, `previous[]` (current + superseded)                 |
 | `progress.json`              | Multi-unit progress                                                                          |
 | Attempt `result.json`        | May include `phase_timing` (prepare/run/evaluate/cleanup)                                    |
 

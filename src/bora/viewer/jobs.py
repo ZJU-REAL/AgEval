@@ -17,9 +17,15 @@ from bora.application.suite import (
     ensure_suite_task_refs,
     task_refs_for_summary,
 )
+from bora.application.suite.suite_metrics import attempt_started_at
 from bora.config.database import load_database_manifest
 from bora.config.errors import ConfigError
-from bora.evidence.locators import default_runs_root, default_suite_runs_root, safe_id_segment
+from bora.evidence.locators import (
+    default_runs_root,
+    default_suite_runs_root,
+    resolve_evidence_root,
+    safe_id_segment,
+)
 from bora.viewer.browse import commands_for
 
 
@@ -121,6 +127,60 @@ def _attempts_for_task(summary: dict[str, Any], task_id: str) -> list[dict[str, 
                 }
             ]
     return []
+
+
+def _started_from_run_dir(database_root: Path, run_id: str) -> str | None:
+    try:
+        rid = safe_id_segment(run_id, field="run_id")
+        evidence = resolve_evidence_root(database_root, rid, require_task_match=False)
+    except ConfigError:
+        return None
+    for name in ("summary.json", "result.json"):
+        path = evidence / name
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if isinstance(data, dict):
+            started = attempt_started_at(data)
+            if started:
+                return started
+    return None
+
+
+def _previous_entries(
+    ref: dict[str, Any],
+    attempt_rows: list[dict[str, Any]],
+    *,
+    database_root: Path | None = None,
+) -> list[dict[str, Any]]:
+    raw = ref.get("previous")
+    items: list[dict[str, Any]]
+    if isinstance(raw, list) and raw:
+        items = [dict(item) for item in raw if isinstance(item, dict)]
+    else:
+        items = []
+        for row in attempt_rows:
+            nested = row.get("previous")
+            if not isinstance(nested, list):
+                continue
+            for item in nested:
+                if isinstance(item, dict):
+                    items.append(dict(item))
+    if database_root is None:
+        return items
+    for item in items:
+        if item.get("started_at"):
+            continue
+        rid = str(item.get("run_id") or "").strip()
+        if not rid:
+            continue
+        started = _started_from_run_dir(database_root, rid)
+        if started:
+            item["started_at"] = started
+    return items
 
 
 def _in_progress_suite_row(
@@ -509,6 +569,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         n_val = full.get("n") if full.get("n") is not None else ref.get("n")
         if n_val is None:
             n_val = len(attempt_run_ids) or None
+        previous = _previous_entries(ref, attempt_rows, database_root=root)
         task_rows.append(
             {
                 "task_id": tid,
@@ -518,6 +579,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
                 if attempt_run_ids
                 else full.get("run_id") or ref.get("run_id"),
                 "attempt_run_ids": attempt_run_ids,
+                "previous": previous,
                 "attempts": attempt_rows,
                 "error": full.get("error"),
                 "exit_code": full.get("exit_code"),

@@ -163,6 +163,15 @@ export type SuiteRow = {
     attempt_run_ids?: string[];
     /** True when full Attempt evidence archive is present on Registry (#43). */
     has_attempt_content?: boolean;
+    /** Superseded Attempts for this scoring slot (oldest first). */
+    previous?: Array<{
+      run_id?: string | null;
+      status?: string | null;
+      score?: number | null;
+      attempt_index?: number | null;
+      started_at?: string | null;
+      replaced_at?: string | null;
+    }>;
   }>;
   agent_label?: string;
   model_label?: string;

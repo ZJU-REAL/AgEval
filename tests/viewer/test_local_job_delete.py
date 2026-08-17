@@ -146,6 +146,48 @@ def test_delete_suite_cascades_attempts(tmp_path: Path) -> None:
     assert not (db / ".bora" / "runs" / "run_a").exists()
 
 
+def test_delete_suite_cascades_previous_attempts(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = "suite_hist"
+    suite_dir = db / ".bora" / "suite-runs" / job_id
+    _write_json(
+        suite_dir / "summary.json",
+        {
+            "schema": "bora.suite.summary/1",
+            "suite_run_id": job_id,
+            "database_id": "test/suite-min",
+            "tasks": [{"task_id": "alpha", "status": "PASS", "run_id": "run_new"}],
+            "task_refs": [
+                {
+                    "task_id": "alpha",
+                    "status": "PASS",
+                    "run_id": "run_new",
+                    "previous": [{"run_id": "run_old", "status": "ERROR", "attempt_index": 0}],
+                }
+            ],
+            "attempts": [
+                {
+                    "task_id": "alpha",
+                    "run_id": "run_new",
+                    "previous": [{"run_id": "run_old", "status": "ERROR", "attempt_index": 0}],
+                }
+            ],
+            "metrics": {"n_tasks": 1, "n_pass": 1},
+        },
+    )
+    _seed_attempt(db, "run_new")
+    _seed_attempt(db, "run_old")
+    leftover = _seed_attempt(db, "run_other")
+    cmds = build_local_jobs_commands()
+    preview = cmds.preview_delete_job(db, job_id=job_id)
+    assert set(preview["cascade_run_ids"]) >= {"run_new", "run_old"}
+    inner = cmds.preview_delete_job(db, job_id="run_old")
+    assert inner["can_delete"] is False
+    cmds.delete_job(db, job_id=job_id, yes=True)
+    assert not (db / ".bora" / "runs" / "run_old").exists()
+    assert leftover.is_dir()
+
+
 def test_refuse_delete_attempt_without_result(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     live = db / ".bora" / "runs" / "run_live"

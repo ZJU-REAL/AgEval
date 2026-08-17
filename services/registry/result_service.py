@@ -41,6 +41,39 @@ _SECRET_PATTERNS = (
 )
 
 
+def _previous_run_ids(ref: dict[str, Any]) -> set[str]:
+    raw = ref.get("previous")
+    if not isinstance(raw, list):
+        return set()
+    out: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        rid = item.get("run_id")
+        if rid is None:
+            continue
+        text = str(rid).strip()
+        if text:
+            out.add(text)
+    return out
+
+
+def _current_run_ids(ref: dict[str, Any]) -> set[str]:
+    out: set[str] = set()
+    rid = ref.get("run_id")
+    if rid is not None and str(rid).strip():
+        out.add(str(rid).strip())
+    extra = ref.get("attempt_run_ids")
+    if isinstance(extra, list):
+        for item in extra:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if text:
+                out.add(text)
+    return out
+
+
 def _archive_looks_like_secret_leak(archive: Path) -> bool:
     with archive.open("rb") as fh:
         sample = fh.read(4_000_000)
@@ -382,6 +415,163 @@ class ResultService:
         payload = suite_to_dict(row)
         if existing is not None and replace:
             payload["replaced"] = True
+        return payload
+
+    def append_suite_slot(
+        self, *, suite_run_id: str, body: dict[str, Any], auth: TokenInfo
+    ) -> dict[str, Any]:
+        """Point one scoring slot at a new uploaded Attempt; keep previous[] + old blobs."""
+        if body.get("replace") is not None:
+            raise RegistryAppError(
+                "invalid_request",
+                "slot append must not use replace",
+                http_status=400,
+            )
+        existing = self.meta.get_suite(suite_run_id)
+        if existing is None:
+            raise RegistryAppError("not_found", "suite not found", http_status=404)
+        if not (
+            AccessPolicy.is_admin(auth.scopes)
+            or (auth.user_id and existing.uploaded_by == auth.user_id)
+        ):
+            raise RegistryAppError("not_found", "suite not found", http_status=404)
+        if "pass" in body or "verdict" in body or body.get("suite_pass") is not None:
+            raise RegistryAppError(
+                "invalid_request",
+                "suite-level PASS/verdict fields are not accepted",
+                http_status=400,
+            )
+        task_id = str(body.get("task_id") or "").strip()
+        new_run_id = str(body.get("run_id") or "").strip()
+        if not task_id or not new_run_id:
+            raise RegistryAppError(
+                "invalid_request",
+                "task_id and run_id required",
+                http_status=400,
+            )
+        try:
+            attempt_index = int(body.get("attempt_index") or 0)
+        except (TypeError, ValueError) as exc:
+            raise RegistryAppError(
+                "invalid_request",
+                "attempt_index must be an integer ≥ 0",
+                http_status=400,
+            ) from exc
+        if attempt_index < 0:
+            raise RegistryAppError(
+                "invalid_request",
+                "attempt_index must be an integer ≥ 0",
+                http_status=400,
+            )
+        attempt = self.meta.get_attempt(new_run_id)
+        if attempt is None:
+            raise RegistryAppError(
+                "invalid_request",
+                "run_id is missing",
+                http_status=400,
+            )
+        if attempt.suite_run_id and attempt.suite_run_id != suite_run_id:
+            raise RegistryAppError(
+                "invalid_request",
+                "run_id belongs to another suite",
+                http_status=400,
+            )
+        if attempt.database_id and attempt.database_id != existing.database_id:
+            raise RegistryAppError(
+                "invalid_request",
+                "run_id database_id does not match the suite",
+                http_status=400,
+            )
+        incoming_fp = str(body.get("config_fingerprint") or "").strip()
+        try:
+            stored_cfg = json.loads(existing.config_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            stored_cfg = {}
+        stored_fp = ""
+        if isinstance(stored_cfg, dict):
+            stored_fp = str(stored_cfg.get("config_fingerprint") or "").strip()
+        if incoming_fp and stored_fp and incoming_fp != stored_fp:
+            raise RegistryAppError(
+                "invalid_request",
+                "replace-slot requires the same config_fingerprint / job overlay",
+                http_status=400,
+            )
+        task_refs = body.get("task_refs")
+        if not isinstance(task_refs, list) or not task_refs:
+            raise RegistryAppError(
+                "invalid_request",
+                "task_refs required",
+                http_status=400,
+            )
+        hit: dict[str, Any] | None = None
+        for raw in task_refs:
+            if isinstance(raw, dict) and str(raw.get("task_id") or "") == task_id:
+                hit = raw
+                break
+        if hit is None:
+            raise RegistryAppError(
+                "invalid_request",
+                f"task_refs missing task {task_id}",
+                http_status=400,
+            )
+        current_ids = {str(hit.get("run_id") or "").strip()}
+        extra_ids = hit.get("attempt_run_ids")
+        if isinstance(extra_ids, list):
+            current_ids.update(str(x).strip() for x in extra_ids if x is not None)
+        if new_run_id not in current_ids:
+            raise RegistryAppError(
+                "invalid_request",
+                "task_refs current pointer must be the new run_id",
+                http_status=400,
+            )
+        try:
+            old_refs = json.loads(existing.tasks_json)
+        except (json.JSONDecodeError, TypeError):
+            old_refs = []
+        old_hit = None
+        if isinstance(old_refs, list):
+            for raw in old_refs:
+                if isinstance(raw, dict) and str(raw.get("task_id") or "") == task_id:
+                    old_hit = raw
+                    break
+        if isinstance(old_hit, dict):
+            dropped = _current_run_ids(old_hit) - _current_run_ids(hit)
+            prev_ids = _previous_run_ids(hit)
+            if dropped and not dropped <= prev_ids:
+                raise RegistryAppError(
+                    "invalid_request",
+                    "previous[] must keep the outgoing current",
+                    http_status=400,
+                )
+        metrics: dict[str, Any] = body["metrics"] if isinstance(body.get("metrics"), dict) else {}
+        try:
+            pass_rate = float(body.get("pass_rate", metrics.get("pass_rate", 0.0)))
+            mean_score = float(body.get("mean_score", metrics.get("mean_score", 0.0)))
+        except (TypeError, ValueError) as exc:
+            raise RegistryAppError(
+                "invalid_request",
+                "pass_rate/mean_score must be numeric",
+                http_status=400,
+            ) from exc
+        try:
+            exit_code = int(body.get("exit_code", existing.exit_code))
+        except (TypeError, ValueError):
+            exit_code = existing.exit_code
+        _bound_kind, bound_ids = self._bound_task_ids(
+            existing.database_id, existing.database_version, auth=auth
+        )
+        complete = suite_is_complete(bound_task_ids=bound_ids, task_refs=task_refs)
+        row = self.meta.update_suite_slot(
+            suite_run_id,
+            pass_rate=pass_rate,
+            mean_score=mean_score,
+            metrics_json=json.dumps(metrics, sort_keys=True),
+            tasks_json=json.dumps(task_refs, sort_keys=True),
+            exit_code=exit_code,
+            complete=complete,
+        )
+        payload = suite_to_dict(row)
+        payload["amended"] = True
         return payload
 
     def list_suites(

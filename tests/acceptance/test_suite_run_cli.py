@@ -63,3 +63,13 @@ def test_unknown_task_suite_cli() -> None:
     r = _bora("run", str(SUITE), "--task", "missing-task")
     assert r.returncode == 2
     assert "unknown_task" in r.stderr
+
+
+def test_replace_slot_requires_resume_and_task() -> None:
+    r = _bora("run", str(SUITE), "--task", "alpha", "--replace-slot")
+    assert r.returncode == 2
+    assert "suite_replace_requires_resume" in r.stderr
+
+    r2 = _bora("run", str(SUITE), "--resume-suite", "deadbeef", "--replace-slot")
+    assert r2.returncode == 2
+    assert "suite_replace_requires_task" in r2.stderr

@@ -121,6 +121,8 @@ uv run bora results upload-suite <database> --suite-run <suite_run_id> [--public
 # Optional: also pack each task's Attempt tree (Hub can open Job detail)
 uv run bora results upload-suite <database> --suite-run <suite_run_id> --with-attempts
 # uv run bora results upload-suite … --suite-run <id> --replace
+# Patch one slot (current + previous[]); not whole-row --replace:
+# uv run bora results upload-suite … --suite-run <id> --task <task_id> [--run <run_id>]
 uv run bora results get-suite <suite_run_id> [--out /tmp/restored-suite]
 uv run bora results list-suites [--database-id <id>]
 # Suite delete keeps attempts by default; optional cascade:
@@ -219,12 +221,14 @@ Publish may be done by any org **member**; destructive package ops require **own
 | PATCH | `/v1/results/attempts/{run_id}` body `{ "visibility" }` |
 | DELETE | `/v1/results/suites/{id}[?with_attempts=1]` (uploader; cascade optional) |
 | PATCH | `/v1/results/suites/{id}` body `{ "visibility" }` |
+| POST | `/v1/results/suites/{id}/slots` (uploader; one new Attempt + `previous[]`; not `--replace`) |
 | GET/POST/DELETE | `/v1/results/attempts\|suites/{id}/shares` |
 
 **Replace policy:** same `database_id@version` / `run_id` / `suite_run_id` defaults
 to **409 conflict**. Explicit `replace: true` (CLI `--replace`) deletes the prior
 row then inserts: blob, digests, metrics/labels, and visibility from the new
-upload. No silent overwrite.
+upload. No silent overwrite. Slot append (`POST …/slots` / `upload-suite --task`)
+updates current + `previous[]` in place and never deletes old Attempt blobs.
 
 **Blob GC:** meta (+ result shares) deleted first; blob object removed only when
 no remaining row references that digest (packages / attempt / suite prefixes

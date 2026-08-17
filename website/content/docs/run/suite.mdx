@@ -26,12 +26,19 @@ uv run bora run examples/core --task sdk-agent-session -k 5
 
 # 补跑：并进已有 suite job，重算指标（可加 --task 只补一题）
 uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
+
+# 点名换槽（PASS / FAIL / ERROR）：新 Attempt，同一 suite id
+uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
+# Always-k：只换一格 (task_id, attempt_index)
+# uv run bora run examples/core --resume-suite <id> --task sdk-agent-session --replace-slot --attempt-index 1
 ```
 
 硬约束：
 
 - `n_attempts` **禁止**写进 `task.yaml`；也不进 `config_fingerprint`  
-- 补跑只**追加** Attempt，不改写已完成 Attempt 的 score / 身份  
+- 不加 `--replace-slot` 的补跑只**追加**缺失 index；已完成的 PASS / FAIL / ERROR 仍跳过  
+- `--replace-slot` 写**新** Attempt；旧行留在盘上并进入 `previous[]`；指标只按现行指针重算  
+- Hub / Viewer 历史列表是 `patch N` + 该 Attempt 开始时间（不是 suite 换槽时刻，也不展示 `run_id`）  
 - 因 **cancel 未真正跑过** 的占位会在 resume 时**重跑**（避免 pass@k 永久偏低）
 - 进度 / 取消见下方；Hub Leaderboard 在有 `metrics.pass_at_k` 时展示 pass@k / pass^k / n_attempts；本机 summary 始终可写 metrics  
 - 系统默认 `suite_run_id` 为 **8 位 hex**（无 `suite_` 前缀）

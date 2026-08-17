@@ -29,6 +29,9 @@ export function TrialDetailPage() {
     runCommand,
     prevId,
     nextId,
+    slotCurrentRunId,
+    slotCurrentStartedAt,
+    slotPrevious,
     error,
     loading,
     activeTab,
@@ -77,6 +80,10 @@ export function TrialDetailPage() {
           prevId={prevId}
           nextId={nextId}
           onSibling={goSibling}
+          slotCurrentRunId={slotCurrentRunId}
+          slotCurrentStartedAt={slotCurrentStartedAt}
+          slotPrevious={slotPrevious}
+          onSlotSelect={goSibling}
         />
 
         {runCommand ? <CommandStrip command={runCommand} /> : null}

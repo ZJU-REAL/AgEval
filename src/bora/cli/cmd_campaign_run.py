@@ -114,7 +114,28 @@ def register(app: typer.Typer) -> None:
                 help=(
                     "Resume an existing suite_run_id under .bora/suite-runs/. "
                     "Skips finished (task_id, attempt_index) units, appends new Attempts, "
-                    "recomputes pass@k / pass^k. Combine with --task to top up one task."
+                    "recomputes pass@k / pass^k. Combine with --task to top up one task. "
+                    "With --replace-slot, re-run one named finished slot instead."
+                ),
+            ),
+        ] = None,
+        replace_slot: Annotated[
+            bool,
+            typer.Option(
+                "--replace-slot",
+                help=(
+                    "With --resume-suite and --task: re-run that finished slot "
+                    "(PASS / FAIL / ERROR). Writes a new run_id; old row stays on "
+                    "disk and in previous[]. Metrics use the new current only."
+                ),
+            ),
+        ] = False,
+        attempt_index: Annotated[
+            int | None,
+            typer.Option(
+                "--attempt-index",
+                help=(
+                    "Always-k slot to replace (0-based). Default 0. Only valid with --replace-slot."
                 ),
             ),
         ] = None,
@@ -229,6 +250,35 @@ def register(app: typer.Typer) -> None:
 
             k = n_attempts if n_attempts is not None else 1
             resume_id = resume_suite.strip() if resume_suite and str(resume_suite).strip() else None
+            task_id = task.strip() if task and str(task).strip() else None
+            replace_keys: set[tuple[str, int]] | None = None
+            if replace_slot:
+                if resume_id is None:
+                    raise ConfigError(
+                        "suite_replace_requires_resume",
+                        "replace-slot requires --resume-suite",
+                        location="--replace-slot",
+                    )
+                if not task_id:
+                    raise ConfigError(
+                        "suite_replace_requires_task",
+                        "replace-slot requires --task",
+                        location="--replace-slot",
+                    )
+                idx = 0 if attempt_index is None else attempt_index
+                if not isinstance(idx, int) or isinstance(idx, bool) or idx < 0:
+                    raise ConfigError(
+                        "invalid_override",
+                        "attempt-index must be an integer ≥ 0",
+                        location="--attempt-index",
+                    )
+                replace_keys = {(task_id, idx)}
+            elif attempt_index is not None:
+                raise ConfigError(
+                    "invalid_override",
+                    "--attempt-index is only valid with --replace-slot",
+                    location="--attempt-index",
+                )
 
             # Full suite when --task omitted; single task when provided.
             plan = plan_suite_run(
@@ -340,6 +390,7 @@ def register(app: typer.Typer) -> None:
                     overrides=overrides or None,
                     profiles_path=profiles,
                     resume=resume_id is not None,
+                    replace_slots=replace_keys,
                     on_progress=_progress,
                     keep_workspace=keep_workspace,
                 )

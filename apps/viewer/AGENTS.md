@@ -77,6 +77,23 @@ When UI conflicts with taste: **DESIGN.md wins**.
 7. Error / exception text uses the design-token error color.
 8. Prefer density of a results console, not an art gallery landing page.
 
+## UI reuse (mandatory)
+
+Same stack as Hub: shadcn/ui in `src/components/ui/`. **Reuse what is already
+shipped** (`Select` on Jobs filters, `DropdownMenu` on theme / row actions,
+`Table`, `Button`).
+
+1. Version / filter / action lists go through `@/components/ui/select` or
+   `@/components/ui/dropdown-menu`. Match Hub `VersionSwitcher` (label +
+   trailing date on `SelectItem`).
+2. **No native `<select>` / `<option>`** and no hand-rolled dropdown for
+   product chrome. If the primitive is missing a slot (e.g. `trailing`),
+   extend `src/components/ui/select.tsx` so Hub and Viewer stay aligned.
+3. Operator-facing list text is a short label plus time. Slot history:
+   `patch N` + `formatDate` / `formatDay`. Do **not** put `run_id` or sha256
+   in the trigger or the menu. Digests stay on the trial heading / breadcrumb.
+4. Do not add a second component library or a one-off styled native control.
+
 ## Backend contract
 
 Python API under `/api/*` (see `src/bora/viewer/`):
@@ -152,3 +169,5 @@ Dev: `bora view --dev` starts the API and tries to spawn Vite. If that cannot ru
 - Ignoring breadcrumb click-through
 - Unsortable tables when columns are metric-like
 - Shipping unbuilt `src/` only (always produce `dist/` for `bora view`)
+- Native `<select>` for a product list when shadcn `Select` already exists
+- Digest / `run_id` as the visible label in a version or filter menu

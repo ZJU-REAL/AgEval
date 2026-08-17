@@ -66,6 +66,8 @@ task 集指纹在上传时从绑定版本的包归档提取并落库。之后改
 - 缺行或无 status 且无 score → incomplete
 - `n_attempts` 不对齐 **不**取消资格
 - Complete **不是** suite PASS；指标仍是观测值
+- 点名换槽后的 suite **仍按现行指针**判定完备；`previous[]` 不参与完备、也不进 `pass_rate` / `mean_score` / `pass@k` / `pass^k`
+- `amended: true` 只作审计。**不得**仅因某槽被换过就把该行踢出 Public Leaderboard
 
 | 表面 | 谁出现 |
 | --- | --- |
@@ -73,6 +75,20 @@ task 集指纹在上传时从绑定版本的包归档提取并落库。之后改
 | Task Jobs | 调用者可见的全部 suite（含 incomplete、draft-bound） |
 
 过滤在 Registry list API（`board=1`），不靠 SPA 藏行作为唯一门。
+
+### Suite `task_refs`：现行指针与槽历史
+
+每个评分槽一条链：`run_id`（及 Always-k 的 `attempt_run_ids`）是**现行** Attempt；被换下的现行收进该槽 `previous[]`（oldest → newest superseded）。v1 没有整份 suite 快照版本。
+
+| 字段 | 语义 |
+| --- | --- |
+| `run_id` / `attempt_run_ids` | 现行样本。Hub / Viewer 默认打开这些。 |
+| `previous[]` | 该槽被换下的 Attempt 瘦记录（`run_id`、`status`、`score`、`attempt_index`、`started_at`、`replaced_at`）。无历史则省略。`started_at` 是该 Attempt 的开始时间，不是 suite 换槽时刻。 |
+| `status` / `score` / `n` / `c` | **只**由现行样本计算。 |
+
+Hub / Viewer 打开 suite 题 / run 时默认现行。操作者用同一套 shadcn `Select` 只读切版本：列表文案是 `patch N` + 该 Attempt 的开始时间，**不**把 `run_id` / digest 写进菜单。内部仍按 `run_id` 打开证据。**没有** GUI 写（上传 / 换槽 / 回滚整份 suite）。
+
+写路径只在 CLI + Registry：本地 `--resume-suite --replace-slot` 之后，上传**新** Attempt 并对已有 `suite_run_id` PATCH 一槽。`upload-suite --replace` 仍是整行覆盖、不留 `previous[]`，换槽不得走它。旧 Attempt blob 保留，直到独立的 delete。
 
 ## Leaderboard 行展开：profiles | plugin
 

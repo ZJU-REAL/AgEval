@@ -135,7 +135,13 @@ def get_trial(
             if isinstance(extra, list)
             else set()
         )
-        if str(row.get("run_id") or "") != rid and rid not in extra_ids:
+        prev_ids: set[str] = set()
+        raw_prev = row.get("previous")
+        if isinstance(raw_prev, list):
+            for item in raw_prev:
+                if isinstance(item, dict) and item.get("run_id"):
+                    prev_ids.add(str(item["run_id"]).strip())
+        if str(row.get("run_id") or "") != rid and rid not in extra_ids and rid not in prev_ids:
             continue
         suite_row = dict(row)
         for attempt in row.get("attempts") or []:
@@ -189,8 +195,36 @@ def get_trial(
 
     listed = list_task_trials(root, job_id, task_id)
     sibling_ids = [str(t.get("run_id")) for t in listed["trials"] if t.get("run_id")]
-    if rid not in sibling_ids:
+    if rid not in sibling_ids and rid not in {
+        str(item.get("run_id") or "").strip()
+        for item in (suite_row.get("previous") or [])
+        if isinstance(item, dict)
+    }:
         sibling_ids.insert(0, rid)
+    from bora.application.suite.suite_metrics import attempt_started_at
+    from bora.viewer.jobs import _started_from_run_dir
+
+    slot_previous = [
+        dict(item) for item in (suite_row.get("previous") or []) if isinstance(item, dict)
+    ]
+    for item in slot_previous:
+        if item.get("started_at"):
+            continue
+        prev_id = str(item.get("run_id") or "").strip()
+        if prev_id:
+            started = _started_from_run_dir(root, prev_id)
+            if started:
+                item["started_at"] = started
+    slot_current = str(suite_row.get("run_id") or "") or (sibling_ids[0] if sibling_ids else rid)
+    slot_current_started = None
+    for attempt in suite_row.get("attempts") or []:
+        if isinstance(attempt, dict) and str(attempt.get("run_id") or "") == slot_current:
+            slot_current_started = attempt_started_at(attempt)
+            break
+    if not slot_current_started:
+        slot_current_started = attempt_started_at(suite_row)
+    if not slot_current_started and slot_current:
+        slot_current_started = _started_from_run_dir(root, slot_current)
     try:
         idx = sibling_ids.index(rid)
     except ValueError:
@@ -208,6 +242,9 @@ def get_trial(
         "prev_run_id": prev_id,
         "next_run_id": next_id,
         "sibling_run_ids": sibling_ids,
+        "slot_current_run_id": slot_current,
+        "slot_current_started_at": slot_current_started,
+        "slot_previous": slot_previous,
         "commands": cmds,
         "run_command": cmds.get("run_task") or cmds.get("run_suite"),
         "breadcrumb": [

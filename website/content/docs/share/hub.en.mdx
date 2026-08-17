@@ -70,6 +70,7 @@ Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**.
 | A **Public Leaderboard** row | A **complete**, **release-bound** suite | `bora publish --draft` then `bora release` (or a direct `bora publish`) → `bora run <database>` **without** `--task` → `upload-suite --suite-run <id>` |
 | Leaderboard **Internal** | A caller-visible incomplete or draft-bound suite | Same `upload-suite`; does not appear on Public |
 | Task **Jobs** with openable Attempt / trajectory | Suite + **attempt** evidence | `upload-suite --with-attempts`; incomplete / draft-bound suites stay here |
+| Patch one finished slot on an uploaded suite | New Attempt + suite slot pointer | Local `--resume-suite --replace-slot`, then `upload-suite --suite-run <id> --task <id> [--run <run_id>]`. Hub/Viewer default to current; the version list is `patch N` plus that Attempt’s start time |
 | Archive one Attempt only | `bora results upload --run <run_id>` | May exist in Registry, but **usually not** on Leaderboard |
 
 ```bash
