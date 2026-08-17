@@ -27,7 +27,24 @@ Evaluator Runner 创建 clean runtime，只 materialize `evaluation.inputs` 允�
 - task identity 和必要 metric config；
 - evaluator-only hidden material。
 
-Evaluator 看不到 Agent credential、mutable workspace、Harness memory 或仍在运行的 writer。Harness 的 `completed` 只表示 loop 已停止，不能直接形成 `PASS`。
+Evaluator 看不到 Agent credential、Harness 用过的可变 workspace、Harness memory 或仍在运行的 writer。Harness 的 `completed` 只表示 loop 已停止，不能直接形成 `PASS`。PASS 只来自包 `evaluator.py` 的返回值。
+
+### L1 落点
+
+L1 用 Attempt **同一张包镜像** 新起评测容器：不挂 package、不挂 `/creds`、不挂 docker.sock、根文件系统 `--read-only`、网络 `none`。入口仍是 `evaluator.py` 的 `evaluate()`。
+
+可写面只有 `/tmp` tmpfs。容量读 `evaluation.tmpfs_mb`（省略 32 MiB，#133）。默认 **`noexec`**。
+
+`evaluation.placement`：
+
+| 值 | `/tmp` exec | 默认超时 | 用途 |
+| --- | --- | --- | --- |
+| `staging`（默认） | 否 | 90s | 解 snapshot / 读 artifact |
+| `writable` | 是 | 300s | 在 `/tmp` 拷干净树、apply、跑测 |
+
+`timeout_seconds` 可选，不超过 `limits.wall_time_seconds`。`writable` 注入 `BORA_EVAL_WORKDIR=/tmp/eval-work`。需要更大磁盘时仍声明 `tmpfs_mb`，不要另起字段。
+
+`evaluation_runtime` 插件不得改笼子、不得决定 PASS。
 
 ## Result Binder
 

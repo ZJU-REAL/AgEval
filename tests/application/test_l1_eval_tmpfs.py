@@ -57,6 +57,7 @@ def test_run_clean_evaluator_uses_declared_tmpfs(
     idx = cmd.index("--tmpfs")
     assert cmd[idx + 1] == "/tmp:rw,noexec,nosuid,size=256m"
     assert "--read-only" in cmd
+    assert cmd[cmd.index("--entrypoint") + 1] == "python"
     assert "size=32m" not in cmd
     assert "size=64m" not in cmd
 

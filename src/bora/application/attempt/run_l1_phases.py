@@ -24,7 +24,6 @@ from bora.application.attempt.run_l1_prepare import (
     prepare_l1_runtime,
     seed_l1_workspace,
 )
-from bora.config.constants import DEFAULT_EVAL_TMPFS_MB
 from bora.config.model import thaw
 from bora.config.profiles import acp_entry_from_binding
 from bora.evaluation.result_binding import bind_result
@@ -447,15 +446,33 @@ def evaluate_l1(ctx: AttemptStageContext) -> None:
             ctx.l1_meta["evaluation_runtime"] = (
                 dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}
             )
+        from bora.config.eval_placement import resolve_eval_placement
+
         eval_cfg = thaw(ctx.lock.evaluation)
-        raw_tmpfs = eval_cfg.get("tmpfs_mb", DEFAULT_EVAL_TMPFS_MB)
+        if not isinstance(eval_cfg, dict):
+            eval_cfg = {}
+        wall: float | None = None
+        try:
+            wall_raw = thaw(ctx.lock.limits).get("wall_time_seconds") if ctx.lock else None
+            if wall_raw is not None:
+                wall = float(wall_raw)
+        except (TypeError, ValueError, AttributeError):
+            wall = None
+        placement = resolve_eval_placement(eval_cfg, wall_time_seconds=wall)
+        ctx.l1_meta["eval_placement"] = {
+            "mode": placement.mode,
+            "timeout_seconds": placement.timeout_seconds,
+            "tmpfs_mb": placement.tmpfs_mb,
+            "tmpfs_exec": placement.tmpfs_exec,
+        }
         eval_raw, eval_meta = run_clean_evaluator_container(
             image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
             staging=staging,
             artifact_filename=artifact_filename,
             artifact_key=artifact_key,
             expected_filename=expected_filename,
-            tmpfs_mb=raw_tmpfs,
+            tmpfs_mb=placement.tmpfs_mb,
+            placement=placement,
         )
         if isinstance(eval_raw, dict):
             eval_raw = hook_score_postprocess(ctx.lock, eval_raw)

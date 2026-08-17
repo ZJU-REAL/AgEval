@@ -415,6 +415,8 @@ evaluation:
   entrypoint: evaluator:evaluate
   network: none
   tmpfs_mb: 256   # optional; L1 clean-eval /tmp size (MiB); omit → 32
+  # placement: staging | writable   # writable → /tmp exec + BORA_EVAL_WORKDIR
+  # timeout_seconds: 180            # optional; capped by wall_time_seconds
   inputs:
     - artifact: reducer-output
       target: artifacts/reducer-output.json

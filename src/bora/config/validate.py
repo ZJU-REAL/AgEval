@@ -454,6 +454,17 @@ def validate_document(
                 location="/evaluation/tmpfs_mb",
             )
 
+    from bora.config.eval_placement import validate_evaluation_extras
+
+    wall: float | None = None
+    try:
+        wall_raw = (doc.get("limits") or {}).get("wall_time_seconds")
+        if wall_raw is not None:
+            wall = float(wall_raw)
+    except (TypeError, ValueError):
+        wall = None
+    validate_evaluation_extras(evaluation, wall_time_seconds=wall)
+
 
 def collect_resolved_references(doc: dict[str, Any], root: Path) -> dict[str, Any]:
     """Collect logical, package-relative references for the lock summary."""

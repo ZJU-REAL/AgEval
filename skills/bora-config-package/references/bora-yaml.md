@@ -20,9 +20,11 @@
   `provider.dockerfile` override) **required** at lock time
 - `agent_profiles`: role slots only (`{id}`); executor / model / `options` live in Database `profiles.yaml`
 - `limits`: wall / agent_invocations / environment_actions / memory_mb
-- `evaluation`: runtime, entrypoint, inputs, output.format; optional `network`;
-  optional `tmpfs_mb` (positive int, L1 clean-eval `/tmp` MiB, default 32).
-  **Not** a `limits.*` field.
+- `evaluation`: runtime, entrypoint, inputs, output.format; optional `network`
+  (`none` only); optional `tmpfs_mb` (positive int, L1 `/tmp` MiB, default 32);
+  optional `placement` (`staging` \| `writable`); optional `timeout_seconds`.
+  **Not** `limits.*`. `writable` allows exec on `/tmp` and sets
+  `BORA_EVAL_WORKDIR`; still `--read-only` root. Size stays `tmpfs_mb`.
 - Optional `provenance` (fully replaces Database-root default when set)
 
 ## Provenance (optional)
