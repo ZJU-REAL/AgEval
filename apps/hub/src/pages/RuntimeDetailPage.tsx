@@ -12,6 +12,13 @@ import {
 } from "@/components/sortable-head";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -52,6 +59,7 @@ const COL_ROLE = "w-[5rem]";
 const COL_TEAM = "w-[7rem] overflow-hidden";
 const COL_USER = "w-[6.5rem] overflow-hidden";
 const COL_SUITE = "w-[6rem]";
+const ALL_DATASETS = "all";
 
 function shortSuiteId(id: string): string {
   const raw = id.trim();
@@ -68,6 +76,7 @@ export function RuntimeDetailPage() {
   const [copied, setCopied] = useState(false);
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [datasetFilter, setDatasetFilter] = useState(ALL_DATASETS);
   const token = getToken();
 
   useEffect(() => {
@@ -98,15 +107,31 @@ export function RuntimeDetailPage() {
 
   const yamlText = useMemo(() => (detail ? harnessYaml(detail) : ""), [detail]);
 
+  const datasetIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const row of detail?.appearances ?? []) {
+      if (row.database_id) ids.add(row.database_id);
+    }
+    return [...ids].sort();
+  }, [detail]);
+
+  useEffect(() => {
+    if (datasetFilter === ALL_DATASETS) return;
+    if (!datasetIds.includes(datasetFilter)) setDatasetFilter(ALL_DATASETS);
+  }, [datasetFilter, datasetIds]);
+
   const appearances = useMemo(() => {
-    const rows = detail?.appearances ?? [];
+    let rows = detail?.appearances ?? [];
+    if (datasetFilter !== ALL_DATASETS) {
+      rows = rows.filter((row) => row.database_id === datasetFilter);
+    }
     if (!sortKey || !sortDir) return rows;
     return [...rows].sort((a, b) => {
       const av = sortKey === "mean_score" ? a.mean_score : a.pass_rate;
       const bv = sortKey === "mean_score" ? b.mean_score : b.pass_rate;
       return compareValues(av, bv, sortDir);
     });
-  }, [detail, sortKey, sortDir]);
+  }, [datasetFilter, detail, sortKey, sortDir]);
 
   function onSort(key: string) {
     const next = nextSort(sortKey, sortDir, key);
@@ -180,7 +205,25 @@ export function RuntimeDetailPage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Results</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-medium text-ink">Results</h2>
+              <Select value={datasetFilter} onValueChange={setDatasetFilter}>
+                <SelectTrigger
+                  aria-label="Filter results by dataset"
+                  className="h-8 min-w-[10rem] max-w-[18rem]"
+                >
+                  <SelectValue placeholder="All sources" />
+                </SelectTrigger>
+                <SelectContent className="max-w-[24rem]">
+                  <SelectItem value={ALL_DATASETS}>All sources</SelectItem>
+                  {datasetIds.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table className="table-fixed">
                 <TableHeader>
@@ -212,6 +255,16 @@ export function RuntimeDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {appearances.length === 0 ? (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell
+                        colSpan={8}
+                        className="text-sm text-mute text-center py-8"
+                      >
+                        No results for this dataset.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                   {appearances.map((row) => {
                     const href = `/datasets/${encodeDatasetId(row.database_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`;
                     const teammates = row.teammates || [];
