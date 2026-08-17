@@ -201,10 +201,30 @@ def get_trial(
         if isinstance(item, dict)
     }:
         sibling_ids.insert(0, rid)
+    from bora.application.suite.suite_metrics import attempt_started_at
+    from bora.viewer.jobs import _started_from_run_dir
+
     slot_previous = [
         dict(item) for item in (suite_row.get("previous") or []) if isinstance(item, dict)
     ]
+    for item in slot_previous:
+        if item.get("started_at"):
+            continue
+        prev_id = str(item.get("run_id") or "").strip()
+        if prev_id:
+            started = _started_from_run_dir(root, prev_id)
+            if started:
+                item["started_at"] = started
     slot_current = str(suite_row.get("run_id") or "") or (sibling_ids[0] if sibling_ids else rid)
+    slot_current_started = None
+    for attempt in suite_row.get("attempts") or []:
+        if isinstance(attempt, dict) and str(attempt.get("run_id") or "") == slot_current:
+            slot_current_started = attempt_started_at(attempt)
+            break
+    if not slot_current_started:
+        slot_current_started = attempt_started_at(suite_row)
+    if not slot_current_started and slot_current:
+        slot_current_started = _started_from_run_dir(root, slot_current)
     try:
         idx = sibling_ids.index(rid)
     except ValueError:
@@ -223,6 +243,7 @@ def get_trial(
         "next_run_id": next_id,
         "sibling_run_ids": sibling_ids,
         "slot_current_run_id": slot_current,
+        "slot_current_started_at": slot_current_started,
         "slot_previous": slot_previous,
         "commands": cmds,
         "run_command": cmds.get("run_task") or cmds.get("run_suite"),

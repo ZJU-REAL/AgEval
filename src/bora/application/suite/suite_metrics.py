@@ -111,16 +111,34 @@ def slot_key(row: Mapping[str, Any]) -> tuple[str, int]:
     return tid, idx
 
 
+def attempt_started_at(row: Mapping[str, Any]) -> str | None:
+    """Per-Attempt start, not suite replace time."""
+    for key in ("started_at", "started"):
+        raw = row.get(key)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    timing = row.get("phase_timing")
+    if isinstance(timing, Mapping):
+        raw = timing.get("started_at")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    return None
+
+
 def previous_entry(row: Mapping[str, Any], *, replaced_at: str) -> dict[str, Any]:
     """Slim superseded snapshot. Old Attempt identity/score stay immutable."""
     _tid, idx = slot_key(row)
-    return {
+    out: dict[str, Any] = {
         "run_id": row.get("run_id"),
         "status": _normalize_status(row.get("status")) or None,
         "score": _numeric_score_or_none(row.get("score")),
         "attempt_index": idx,
         "replaced_at": replaced_at,
     }
+    started = attempt_started_at(row)
+    if started:
+        out["started_at"] = started
+    return out
 
 
 def extend_slot_previous(old_row: Mapping[str, Any], *, replaced_at: str) -> list[dict[str, Any]]:
