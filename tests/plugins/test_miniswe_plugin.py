@@ -46,6 +46,7 @@ def test_describe_and_bind_to_target() -> None:
     )
     assert isinstance(bound, MinisweExecutorSPI)
     assert bound.execution_location == "attempt-container"
+    assert bound._placement is not None
     assert bound._placement.container_id == "cid123"
 
 

@@ -14,7 +14,6 @@ from bora.config.eval_placement import (
     WORKDIR_ENV,
     WORKDIR_PATH,
     EvalPlacement,
-    resolve_eval_placement,
 )
 
 

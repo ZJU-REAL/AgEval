@@ -416,9 +416,7 @@ def list_jobs(database_root: Path) -> dict[str, Any]:
                 continue
             progress = _load_progress(child)
             if progress is not None:
-                items.append(
-                    _in_progress_suite_row(progress, suite_dir=child, database_root=root)
-                )
+                items.append(_in_progress_suite_row(progress, suite_dir=child, database_root=root))
 
     claimed = _referenced_run_ids(root, items) | _suite_run_ids(items)
     for run_id, evidence in _iter_attempt_dirs(root):
@@ -549,7 +547,8 @@ def _get_in_progress_suite_job(
     root: Path, *, suite_dir: Path, progress: dict[str, Any]
 ) -> dict[str, Any]:
     job = _in_progress_suite_row(progress, suite_dir=suite_dir, database_root=root)
-    running = progress.get("running") if isinstance(progress.get("running"), list) else []
+    raw_running = progress.get("running")
+    running: list[Any] = raw_running if isinstance(raw_running, list) else []
     task_rows: list[dict[str, Any]] = []
     for item in running:
         if not isinstance(item, dict):

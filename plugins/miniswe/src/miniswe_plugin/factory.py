@@ -191,6 +191,7 @@ class MinisweExecutorSPI:
         self.cmd_timeout = _as_positive_int(opts.get("cmd_timeout"), name="cmd_timeout", default=30)
         self.session_id = f"bora-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
         self._placement: Any | None = None
+        self.execution_location = "host"
         self._ready = False
 
     @staticmethod
