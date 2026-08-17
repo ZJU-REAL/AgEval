@@ -30,6 +30,31 @@
 inside the Attempt after start. Bake deps in the image; keep invoke path offline-capable
 for those tools.
 
+### `FROM bora-attempt:l1` is not the upstream runtime
+
+The official Attempt image is **CPython 3.12 + baked ACP entries**. It is **not**
+the upstream bench’s Python, conda env, or pinned wheels. If the package
+Dockerfile `FROM`s this base (instead of the vendor instance image):
+
+1. **Do not** copy upstream `pip install foo` unpinned. Latest wheels on 3.12
+   often delete APIs the checkout still imports (e.g. Jinja2 3.1 dropped
+   `environmentfilter`; urllib3 2 / astroid 3 break old requests / pylint).
+2. **Pin to what the checkout imports**, not “whatever resolves today”. Prefer
+   the upstream image’s versions or a range the tree actually supports.
+3. **Gate at image build**, not first eval: `python -c "from jinja2 import …"`
+   (or the equivalent import) so a bad pin fails `docker build`, not a 20‑min
+   agent run.
+4. **One extra dump for every repo is wrong.** Astropy headers on a Django /
+   Sympy image do not make those suites collectable; use per-repo (or
+   per-era) extras.
+5. **Collection / conftest ImportError is eval ERROR**, not FAIL. FAIL is
+   “tests ran, F2P/P2P missed”. Do not treat a broken env as a model miss.
+6. **`host_requires` / `bora lock --probe` do not catch this.** They are
+   host-side. In-image eval deps are the package Dockerfile’s job.
+
+If the checkout cannot run on 3.12 even with pins, say so in `provenance` /
+package notes — do not claim official-image parity from a successful build.
+
 ### `data/` → `seed_l1_workspace` auto-seed
 
 For **simple file-into-workspace** needs (prompts, starter code, agent-visible fixtures):
@@ -107,3 +132,5 @@ Notes:
 - Depend on bare leaf imports (`from bridge import …`) — use `shared.lib.*`.
 - Expect Core to auto-COPY `shared/` into L1 images.
 - Use runtime package installs as the default parity path for converted suites.
+- Treat `FROM bora-attempt:l1` + unpinned `pip install` as equivalent to the
+  upstream instance image.

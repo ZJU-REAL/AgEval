@@ -120,6 +120,11 @@ COPY worker/worker.py /usr/local/bin/bora-executor-my-mech
 RUN chmod 755 /usr/local/bin/bora-executor-my-mech
 ```
 
+`${BASE_IMAGE}` is usually `bora-attempt:l1` (CPython 3.12). Pin bake-time
+wheels to what the worker actually imports; unpinned latest on this base is
+not the vendor image. Package `FROM bora-attempt:l1` checkouts: see
+`$bora-config-package` `references/isolation.md`.
+
 Do not invent a `docker-package-attempt-<plugin>` image kind. Official ACP
 entries do not use this external chain.
 

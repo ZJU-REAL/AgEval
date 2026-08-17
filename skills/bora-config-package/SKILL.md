@@ -345,6 +345,6 @@ Do not invent kinds or entry ids.
 ## Detail
 
 - Field catalog & allowlists: [references/bora-yaml.md](references/bora-yaml.md)
-- Isolation / gold / L1 / Dockerfile tiers / `data/` seed: [references/isolation.md](references/isolation.md)
-- Conversion / generators / upstream owner map: [references/conversion.md](references/conversion.md)
+- Isolation / gold / L1 / Dockerfile tiers / `data/` seed / **`FROM bora-attempt:l1` dep pins**: [references/isolation.md](references/isolation.md)
+- Conversion / generators / upstream owner map / **replicating vendor images**: [references/conversion.md](references/conversion.md)
 - New mechanism plugin (`bora.plugin/1`): `$bora-plugin`

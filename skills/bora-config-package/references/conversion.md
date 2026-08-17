@@ -41,7 +41,7 @@ do not invent Core hooks.
 | --- | --- | --- | --- |
 | Instruction / prompt / agent-visible files | `tasks/<id>/data/` | Agent (L1 seed) / harness params | Gold under `data/` |
 | Hidden tests / labels / expected answers | `tasks/<id>/evaluation/` | Evaluator only | `shared/`, Agent mount |
-| Container image / apt / system deps | `tasks/<id>/environment/Dockerfile` | Provider L1 build | Runtime `apt`/`pip` as parity default |
+| Container image / apt / system deps | `tasks/<id>/environment/Dockerfile` | Provider L1 build | Runtime `apt`/`pip` as parity default; unpinned extras on `bora-attempt:l1` |
 | Domain tools / bridge / dual-agent loop | `shared/lib/` (multi-task) or `tasks/<id>/lib/` (one-off) | Harness + Evaluator import | Gold files |
 | Shared policies / DB dumps / static assets | `shared/assets/` | Code paths | Agent default mount of gold |
 | Offline known-good workspace files | `tasks/<id>/solution/` | Human / CI / offline flag only | Default Agent seed |
@@ -78,6 +78,22 @@ tasks/task-00/
 
 Do not fork Core Runtime for “setup hooks”; use `data/` seed + Dockerfile tiers
 (see `isolation.md`) and package-local glue only.
+
+## Replicating an upstream image on `bora-attempt:l1`
+
+When the port keeps BORA’s official base (`FROM bora-attempt:l1`) instead of
+`FROM` the vendor instance image, **re-check every migrated `RUN pip` / `apt`
+against this base** before claiming the eval env works:
+
+- Upstream Dockerfiles assume *their* Python (often 3.6–3.11) and *their*
+  frozen requirements. Ours is 3.12 + current indexes unless you pin.
+- Bake an import that the hidden tests / conftest actually execute (not just
+  `import pytest`). A green `docker build` that never imports `environmentfilter`
+  / `astroid` 2.x / `urllib3` 1.x still ERROR at collection.
+- Score after a real eval collect, not after `bora lock`. Image digest change
+  is required after pin edits — old tags will keep the broken wheels.
+
+Details: `references/isolation.md` § `FROM bora-attempt:l1` is not the upstream runtime.
 
 ## Evidence / claims
 
