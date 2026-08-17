@@ -15,7 +15,6 @@ from typing import Any
 from bora.config.digest import canonical_json_bytes
 from bora.config.profiles import (
     acp_entry_from_binding,
-    display_agent_name,
     plugin_row_options,
     secret_free_options,
 )
@@ -33,13 +32,7 @@ def resolve_agent_id(binding: Mapping[str, Any] | None) -> str:
     raw = binding if isinstance(binding, Mapping) else {}
     executor = str(raw.get("executor") or "").strip()
     if executor == _TRANSPORT:
-        entry = acp_entry_from_binding(raw)
-        if entry:
-            return entry
-        projected = raw.get("entry")
-        if isinstance(projected, str) and projected.strip():
-            return projected.strip()
-        return ""
+        return acp_entry_from_binding(raw) or ""
     return executor
 
 
@@ -69,19 +62,7 @@ def harness_display_name(binding: Mapping[str, Any] | None) -> str:
         return label.strip()
     agent = resolve_agent_id(raw)
     stem = _humanize(agent) if agent else ""
-    if stem:
-        return stem
-    name = display_agent_name(raw)
-    if name and name.strip() != _TRANSPORT:
-        stem = _humanize(name)
-        if stem:
-            return stem
-    return "Runtime"
-
-
-def appearance_entry(binding: Mapping[str, Any] | None) -> str:
-    """Card / teammate agent id (never bare ``acp``)."""
-    return resolve_agent_id(binding)
+    return stem or "Runtime"
 
 
 def runtime_refs_from_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str, str]]:

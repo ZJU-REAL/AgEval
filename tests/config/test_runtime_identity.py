@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from bora.config.runtime_identity import (
-    appearance_entry,
     binding_options,
     harness_display_name,
     harness_fingerprint,
@@ -129,11 +128,10 @@ def test_display_name_follows_hub_agent_axis() -> None:
     assert harness_display_name({}) == "Runtime"
 
 
-def test_appearance_entry_is_agent_product() -> None:
-    assert appearance_entry(GROK_BUILD) == "grok-build"
-    assert appearance_entry(_acp("pi")) == "pi"
+def test_resolve_agent_id_is_product() -> None:
+    assert resolve_agent_id(_acp("pi")) == "pi"
     assert (
-        appearance_entry(
+        resolve_agent_id(
             {
                 "executor": "nooa",
                 "extensions": [{"plugin": "nooa", "options": {"agent": "lib.x"}}],
@@ -141,6 +139,5 @@ def test_appearance_entry_is_agent_product() -> None:
         )
         == "nooa"
     )
-    assert appearance_entry({"executor": "dsh"}) == "dsh"
-    assert appearance_entry({"executor": "acp"}) == ""
+    assert resolve_agent_id({"executor": "dsh"}) == "dsh"
     assert binding_options(GROK_BUILD) == {"entry": "grok-build"}

@@ -14,10 +14,10 @@ from services.registry.official import official_dataset_ids
 from services.registry.store import TokenInfo
 
 from bora.config.runtime_identity import (
-    appearance_entry,
     binding_options,
     harness_display_name,
     harness_fingerprint,
+    resolve_agent_id,
     runtime_refs_from_overlay,
 )
 
@@ -103,7 +103,7 @@ def _card_from_binding(runtime_id: str, binding: Mapping[str, Any]) -> dict[str,
         "runtime_id": runtime_id,
         "display_name": harness_display_name(binding),
         "executor": str(binding.get("executor") or "").strip(),
-        "entry": appearance_entry(binding),
+        "entry": resolve_agent_id(binding),
         "options": binding_options(binding),
         "n_datasets": 0,
         "n_appearances": 0,
@@ -132,7 +132,7 @@ def _appearances_from_suite(
             {
                 "role": role_id,
                 "executor": str(raw.get("executor") or "").strip(),
-                "entry": appearance_entry(raw),
+                "entry": resolve_agent_id(raw),
                 "display_name": harness_display_name(raw),
             }
         )
@@ -140,7 +140,6 @@ def _appearances_from_suite(
         return []
     metrics = suite.get("metrics")
     metrics_out = dict(metrics) if isinstance(metrics, Mapping) else {}
-    model_default = ""
     out: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for role_id, raw in valid:
         model = raw.get("model")
@@ -151,7 +150,7 @@ def _appearances_from_suite(
                     "database_id": str(suite.get("database_id") or ""),
                     "suite_run_id": str(suite.get("suite_run_id") or ""),
                     "role": role_id,
-                    "model": model.strip() if isinstance(model, str) else model_default,
+                    "model": model.strip() if isinstance(model, str) else "",
                     "pass_rate": suite.get("pass_rate"),
                     "mean_score": suite.get("mean_score"),
                     "metrics": metrics_out,
