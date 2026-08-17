@@ -83,10 +83,10 @@ task 集指纹在上传时从绑定版本的包归档提取并落库。之后改
 | 字段 | 语义 |
 | --- | --- |
 | `run_id` / `attempt_run_ids` | 现行样本。Hub / Viewer 默认打开这些。 |
-| `previous[]` | 该槽被换下的 Attempt 瘦记录（`run_id`、`status`、`score`、`attempt_index`、`replaced_at`）。无历史则省略。 |
+| `previous[]` | 该槽被换下的 Attempt 瘦记录（`run_id`、`status`、`score`、`attempt_index`、`started_at`、`replaced_at`）。无历史则省略。`started_at` 是该 Attempt 的开始时间，不是 suite 换槽时刻。 |
 | `status` / `score` / `n` / `c` | **只**由现行样本计算。 |
 
-Hub / Viewer 打开 suite 题 / run 时默认现行。操作者可从版本列表选一个 `previous[].run_id` 只读打开该 Attempt 证据。**没有** GUI 写（上传 / 换槽 / 回滚整份 suite）。
+Hub / Viewer 打开 suite 题 / run 时默认现行。操作者用同一套 shadcn `Select` 只读切版本：列表文案是 `patch N` + 该 Attempt 的开始时间，**不**把 `run_id` / digest 写进菜单。内部仍按 `run_id` 打开证据。**没有** GUI 写（上传 / 换槽 / 回滚整份 suite）。
 
 写路径只在 CLI + Registry：本地 `--resume-suite --replace-slot` 之后，上传**新** Attempt 并对已有 `suite_run_id` PATCH 一槽。`upload-suite --replace` 仍是整行覆盖、不留 `previous[]`，换槽不得走它。旧 Attempt blob 保留，直到独立的 delete。
 

@@ -74,7 +74,7 @@ Summary / suite-run 布局见 [02-task-package-and-config.md](../02-task-package
 
 落盘（`bora.suite.summary/1`）：
 
-- `attempts[]` 只含**现行**样本（每槽一行）。被换下的现行行收成瘦快照推进该槽 `previous[]`（`run_id` / `status` / `score` / `attempt_index` / `replaced_at`）；旧行若已有 `previous[]` 则前缀保留。
+- `attempts[]` 只含**现行**样本（每槽一行）。被换下的现行行收成瘦快照推进该槽 `previous[]`（`run_id` / `status` / `score` / `attempt_index` / `started_at` / `replaced_at`）；旧行若已有 `previous[]` 则前缀保留。`started_at` 是该 Attempt 自己的开始时间；`replaced_at` 只记录指针何时挪走。
 - `task_refs[]` 的 `run_id` / `attempt_run_ids` 只列现行；另带该 task 各槽的 `previous[]`（无历史则省略）。
 - 任一槽被换过：`amended: true`（审计；**不**取消 Public Leaderboard 资格）。完备性仍按现行指针：PASS / FAIL / ERROR 都算「有 result」。
 

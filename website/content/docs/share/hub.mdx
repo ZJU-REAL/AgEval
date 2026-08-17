@@ -70,7 +70,7 @@ Jobs 列表里，已有运行产物的行可以点进去看；没上传的会显
 | Dataset **Public Leaderboard** 一行 | **完备**且绑定 **release** 的 suite | 先 `bora publish --draft` 再 `bora release`（或直接 `bora publish`）→ 省略 `--task` 的 `bora run` → `upload-suite --suite-run <id>` |
 | Leaderboard **Internal** | 当前可见的缺题或 draft 绑定 suite | 同样 `upload-suite`；不会出现在 Public |
 | Task **Jobs** 可点开 Attempt / 轨迹 | suite + **attempt 证据** | `upload-suite --with-attempts`（或等价挂上 task_refs 的 attempt）；缺题 / draft 绑定也出现在这里 |
-| 给已上传 suite 换一格 finished 槽 | 新 Attempt + suite 现行指针 | 本机 `--resume-suite --replace-slot`，再 `upload-suite --suite-run <id> --task <id> [--run <run_id>]`。Hub / Viewer 默认现行，可打开 `previous[]` |
+| 给已上传 suite 换一格 finished 槽 | 新 Attempt + suite 现行指针 | 本机 `--resume-suite --replace-slot`，再 `upload-suite --suite-run <id> --task <id> [--run <run_id>]`。Hub / Viewer 默认现行；版本列表是 `patch N` + 该 Attempt 开始时间 |
 | 只归档一次 Attempt | `bora results upload --run <run_id>` | 可以进 Registry，但 **通常不会**出现在 Leaderboard |
 
 ```bash
