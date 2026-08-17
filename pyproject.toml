@@ -31,6 +31,10 @@ nooa = [
 dsh = [
     "deepseek-harness-sdk==0.1.0rc6",
 ]
+miniswe = [
+    "mini-swe-agent>=2.0",
+    "socksio>=1.0.0",
+]
 
 [project.scripts]
 bora = "bora.cli.main:app"
@@ -84,7 +88,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.pyright]
 include = ["src", "tests"]
-extraPaths = ["plugins/nooa/src", "plugins/dsh/src", "plugins/home-files/src"]
+extraPaths = ["plugins/nooa/src", "plugins/dsh/src", "plugins/home-files/src", "plugins/miniswe/src"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."

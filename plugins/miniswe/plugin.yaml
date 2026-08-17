@@ -1,0 +1,18 @@
+format: bora.plugin/1
+plugin_id: miniswe
+version: 0.1.0
+host_requires:
+  - import: minisweagent
+    hint: "uv sync --extra miniswe"
+slots:
+  provide:
+    - id: executor
+      priority: 110
+      entry: "miniswe_plugin.factory:build_executor"
+  "on":
+    - id: image_contribute
+      priority: 110
+      entry: "miniswe_plugin.hooks:image_contribute"
+    - id: trajectory_collect
+      priority: 110
+      entry: "miniswe_plugin.hooks:trajectory_collect"
