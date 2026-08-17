@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from services.registry.dataset import BOUND_RELEASE
 from services.registry.official import is_official_dataset, official_dataset_ids
+from services.registry.runtime_service import is_plaza_source_suite
 from services.registry.store import ReleaseRow, release_to_dict
 
 from bora.registry.media_types import DATABASE_MEDIA_TYPE, PLUGIN_MEDIA_TYPE
@@ -52,6 +54,21 @@ def test_plugin_release_is_not_official_dataset() -> None:
 def test_other_database_id_does_not_qualify() -> None:
     rows = [_row()]
     assert is_official_dataset("official/other", rows) is False
+
+
+def test_plaza_source_suite_table() -> None:
+    official = frozenset({"official/gaia"})
+    base = {
+        "visibility": "public",
+        "complete": True,
+        "bound_kind": BOUND_RELEASE,
+        "database_id": "official/gaia",
+    }
+    assert is_plaza_source_suite(base, official) is True
+    assert is_plaza_source_suite({**base, "visibility": "private"}, official) is False
+    assert is_plaza_source_suite({**base, "complete": False}, official) is False
+    assert is_plaza_source_suite({**base, "bound_kind": "draft"}, official) is False
+    assert is_plaza_source_suite({**base, "database_id": "acme/x"}, official) is False
 
 
 def test_release_to_dict_marks_database_official() -> None:

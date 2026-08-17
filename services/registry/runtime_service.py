@@ -22,14 +22,21 @@ from bora.config.runtime_identity import (
 )
 
 
-def attach_runtime_refs(payload: dict[str, Any], official_ids: frozenset[str]) -> dict[str, Any]:
-    """Add ``runtime_refs`` only on public official board-shaped suite rows."""
-    if (
+def is_plaza_source_suite(
+    payload: Mapping[str, Any], official_ids: frozenset[str]
+) -> bool:
+    """Public complete release-bound suite on an official Dataset."""
+    return (
         payload.get("visibility") == "public"
         and bool(payload.get("complete"))
         and payload.get("bound_kind") == BOUND_RELEASE
         and str(payload.get("database_id") or "") in official_ids
-    ):
+    )
+
+
+def attach_runtime_refs(payload: dict[str, Any], official_ids: frozenset[str]) -> dict[str, Any]:
+    """Add ``runtime_refs`` only on plaza-source suite rows."""
+    if is_plaza_source_suite(payload, official_ids):
         refs = runtime_refs_from_overlay(
             payload.get("job_overlay") if isinstance(payload.get("job_overlay"), Mapping) else None
         )
@@ -71,15 +78,9 @@ class RuntimeService:
         datasets: dict[str, set[str]] = {}
         named_from_label: dict[str, bool] = {}
         for suite in listed.get("items") or []:
-            if not isinstance(suite, Mapping):
-                continue
-            if suite.get("visibility") != "public":
-                continue
-            if not suite.get("complete") or suite.get("bound_kind") != BOUND_RELEASE:
+            if not isinstance(suite, Mapping) or not is_plaza_source_suite(suite, official):
                 continue
             database_id = str(suite.get("database_id") or "")
-            if database_id not in official:
-                continue
             for appearance, binding in _appearances_from_suite(suite):
                 rid = appearance["runtime_id"]
                 grouped.setdefault(rid, []).append(appearance)
