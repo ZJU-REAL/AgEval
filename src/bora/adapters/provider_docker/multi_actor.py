@@ -397,6 +397,10 @@ class DockerMultiActorMixin:
             lines.append(f"mkdir -p '{home}'")
             lines.append(f"chmod 0700 '{home}'")
             lines.append(f"chown {b.uid}:{b.gid} '{home}'")
+            # Plugin extras first; allowlisted auth copies win on overlap.
+            lines.append(
+                f"if [ -d /creds/home_overlay ]; then cp -a /creds/home_overlay/. '{home}/'; fi"
+            )
             # Projected credential copies (allowlist) into actor HOME.
             lines.append(f"mkdir -p '{home}/.codex'")
             lines.append(
@@ -434,6 +438,8 @@ class DockerMultiActorMixin:
             )
             lines.append(f"chown -R {b.uid}:{b.gid} '{home}/.grok' 2>/dev/null || true")
             lines.append(f"chmod 0700 '{home}/.grok' 2>/dev/null || true")
+            # Overlay + auth copies land as root; actor must own the whole HOME.
+            lines.append(f"chown -R {b.uid}:{b.gid} '{home}'")
             # Create private primary group if needed (numeric chown works without).
             lines.append(f"groupadd -g {b.gid} actor-g-{b.gid} 2>/dev/null || true")
             lines.append(

@@ -63,14 +63,14 @@ def test_acp_profile_lock_snapshot(tmp_path: Path) -> None:
             "opencode-acp": {
                 "executor": "acp",
                 "model": "entry-default",
-                "options": {"entry": "opencode"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "opencode"}}],
             }
         },
     )
     profiles = thaw(lock.agent_profiles)
     assert profiles[0]["executor"] == "acp"
-    assert profiles[0]["options"]["entry"] == "opencode"
-    assert "_acp_lock" not in profiles[0]["options"]
+    assert profiles[0]["extensions"][0]["options"]["entry"] == "opencode"
+    assert "_acp_lock" not in profiles[0]["extensions"][0]["options"]
     blob = str(profiles)
     assert "/opt/" not in blob
     assert "sk-" not in blob
@@ -79,7 +79,7 @@ def test_acp_profile_lock_snapshot(tmp_path: Path) -> None:
 def test_acp_missing_entry_fails(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path / "pkg", ["bad"])
     with pytest.raises(ConfigError):
-        _lock(pkg, {"bad": {"executor": "acp", "model": "m", "options": {}}})
+        _lock(pkg, {"bad": {"executor": "acp", "model": "m"}})
 
 
 def test_acp_unknown_entry_fails(tmp_path: Path) -> None:
@@ -91,7 +91,7 @@ def test_acp_unknown_entry_fails(tmp_path: Path) -> None:
                 "bad": {
                     "executor": "acp",
                     "model": "m",
-                    "options": {"entry": "not-registered"},
+                    "extensions": [{"plugin": "acp", "options": {"entry": "not-registered"}}],
                 }
             },
         )
@@ -106,7 +106,9 @@ def test_acp_package_cannot_override_command(tmp_path: Path) -> None:
                 "bad": {
                     "executor": "acp",
                     "model": "m",
-                    "options": {"entry": "opencode", "command": ["evil"]},
+                    "extensions": [
+                        {"plugin": "acp", "options": {"entry": "opencode", "command": ["evil"]}}
+                    ],
                 }
             },
         )

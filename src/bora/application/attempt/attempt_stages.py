@@ -51,6 +51,7 @@ class AttemptStageContext:
     inv_count: int = 0
     wall_s: float = 0.0
     workspace_host: Path | None = None
+    host_work_root: Path | None = None
     ledger: Any = None
     topology: Any = None
     # Outputs filled by stages.

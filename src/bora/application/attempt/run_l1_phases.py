@@ -7,10 +7,11 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
-from bora.adapters.credential_projection import project_executor_credentials
 from bora.application.attempt.attempt_stages import AttemptStageContext
+from bora.application.attempt.extension_hooks import hook_home_overlay
 from bora.application.attempt.phase_timing import PhaseTimer, format_duration_ms
 from bora.application.attempt.run_l1 import (
     _database_root_for_run,
@@ -24,11 +25,16 @@ from bora.application.attempt.run_l1_prepare import (
     seed_l1_workspace,
 )
 from bora.config.model import thaw
+from bora.config.profiles import acp_entry_from_binding
 from bora.evaluation.result_binding import bind_result
 from bora.evidence.locators import portable_run_locator
 from bora.evidence.store import AttemptEvidenceStore
 from bora.provider.isolation import parse_logical_topology
 from bora.runtime.identity import AttemptIdentity, assert_same_attempt
+
+
+def _lock_acp_entry(profile: dict[str, Any]) -> str | None:
+    return acp_entry_from_binding(profile)
 
 
 def _timer(ctx: AttemptStageContext) -> PhaseTimer:
@@ -169,9 +175,8 @@ def prepare_l1_session(ctx: AttemptStageContext) -> bool:
                         "executor": p.get("executor"),
                         "model": p.get("model"),
                         **(
-                            {"options": {"entry": (p.get("options") or {}).get("entry")}}
-                            if isinstance(p.get("options"), dict)
-                            and (p.get("options") or {}).get("entry") is not None
+                            {"options": {"entry": _lock_acp_entry(p)}}
+                            if _lock_acp_entry(p) is not None
                             else {}
                         ),
                     }
@@ -184,22 +189,24 @@ def prepare_l1_session(ctx: AttemptStageContext) -> bool:
                 lock_doc["job_overlay"] = thaw(ctx.lock.job_overlay)
             ctx.evidence_store.write_lock_summary(lock_doc)
 
-        cred = project_executor_credentials(work_root=runtime.workdir_host)
-        ctx.cred = cred
-        l1_meta["credential_projection"] = {
-            "keys": list(cred.locator_keys),
-            "has_material": cred.has_material,
-        }
-        l1_meta["isolation"] = topology.public_summary()
-        l1_meta["scheduling"] = "sdk_session"
-        l1_meta["residual_one_shot"] = False
-
+        overlay_ctx = SimpleNamespace(
+            docker=docker,
+            runtime=runtime,
+            topology=topology,
+            network_mode=network_mode,
+            work_root=runtime.workdir_host,
+            package_root=ctx.database_root or ctx.package_root,
+            workspace_root=ctx.workspace_host,
+        )
         try:
-            ledger = docker.prepare_agent_targets(
-                runtime,
-                topology,
-                cred_root=cred.root,
-                network_mode=network_mode,
+            hook_home_overlay(
+                ctx.lock,
+                {
+                    "package_root": str(ctx.database_root or ctx.package_root),
+                    "workspace_root": str(ctx.workspace_host),
+                    "work_root": str(runtime.workdir_host),
+                },
+                ctx=overlay_ctx,
             )
         except Exception as exc:  # noqa: BLE001
             _store_error(
@@ -209,7 +216,25 @@ def prepare_l1_session(ctx: AttemptStageContext) -> bool:
                 kind="target_prepare_failed",
             )
             return False
+        cred = getattr(overlay_ctx, "cred", None)
+        ledger = getattr(overlay_ctx, "ledger", None)
+        if cred is None or ledger is None:
+            _store_error(
+                ctx,
+                "provider",
+                {**l1_meta, "prepare_error": "home_overlay_incomplete"},
+                kind="target_prepare_failed",
+            )
+            return False
+        ctx.cred = cred
         ctx.ledger = ledger
+        l1_meta["credential_projection"] = {
+            "keys": list(cred.locator_keys),
+            "has_material": cred.has_material,
+        }
+        l1_meta["isolation"] = topology.public_summary()
+        l1_meta["scheduling"] = "sdk_session"
+        l1_meta["residual_one_shot"] = False
         l1_meta["targets"] = [t.public_view() for t in ledger.targets.values()]
         l1_meta["actors"] = [a.public_view() for a in ledger.actors.values()]
 

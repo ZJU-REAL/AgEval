@@ -34,6 +34,7 @@ class AcpExecutorSPI(ExecutorSPI):
         base_url: str | None = None,
         api_key: str | None = None,
         plugin_id: str | None = None,
+        home: str | None = None,
         **_kwargs: Any,
     ) -> None:
         del plugin_id
@@ -53,11 +54,26 @@ class AcpExecutorSPI(ExecutorSPI):
         self._model = model or "entry-default"
         self._base_url = base_url
         self._api_key_env = api_key
+        extra_env: dict[str, str] | None = None
+        if home and str(home).strip():
+            home_s = str(home).strip()
+            extra_env = {
+                "HOME": home_s,
+                "CODEX_HOME": f"{home_s}/.codex",
+                "XDG_CONFIG_HOME": f"{home_s}/.config",
+                "XDG_CACHE_HOME": f"{home_s}/.cache",
+                "XDG_STATE_HOME": f"{home_s}/.local/state",
+                "XDG_DATA_HOME": f"{home_s}/.local/share",
+            }
+        workdir = _kwargs.get("workdir")
+        workdir_s = str(workdir).strip() if workdir else None
         self._inner = AcpExecutor(
             entry_id=self._entry_id,
             model=self._model,
             base_url=base_url,
             api_key_env=api_key,
+            workdir=workdir_s or None,
+            env=extra_env,
         )
 
     @staticmethod

@@ -137,7 +137,9 @@ agent_profiles:
 # bindings:
 #   solver:
 #     executor: acp
-#     options: { entry: codex }  # 以 bora executors 为准
+#     extensions:
+#       - plugin: acp
+#         options: { entry: codex }  # 以 bora executors 为准
 #     model: gpt-5.4-mini
 ```
 

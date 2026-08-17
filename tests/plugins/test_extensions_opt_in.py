@@ -165,7 +165,11 @@ def test_intent_from_profile_parses_all_three_shapes() -> None:
             "executor": "dsh",
             "extensions": [
                 {"plugin": "nooa"},
-                {"plugin": "dsh", "slots": ["image_contribute"]},
+                {
+                    "plugin": "dsh",
+                    "slots": ["image_contribute"],
+                    "options": {"composition": "slim"},
+                },
                 {"slot": "trajectory_collect", "plugin": "dsh"},
             ],
         }
@@ -175,6 +179,7 @@ def test_intent_from_profile_parses_all_three_shapes() -> None:
     assert intent.extension_selects[0].plugin == "nooa"
     assert intent.extension_selects[0].slots is None
     assert intent.extension_selects[1].slots == (IMAGE_CONTRIBUTE,)
+    assert intent.extension_selects[1].options == {"composition": "slim"}
     assert len(intent.extensions) == 1
     assert intent.extensions[0].slot == TRAJECTORY_COLLECT
     assert intent.extensions[0].plugin == "dsh"

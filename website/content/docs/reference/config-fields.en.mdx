@@ -29,7 +29,7 @@ Empty suite fails lock.
 | `harness` | `runtime` + `entrypoint` |
 | `parameters` | For harness; common keys: `active_profile`, `harness_timeout_seconds`, `agent_timeout_seconds`, `roles`, `seed` |
 | `provider` | `local` \| `docker` (+ Dockerfile) |
-| `agent_profiles` | ACP needs `options.entry`; `api_key` = env name |
+| `agent_profiles` | Role slots `{id}` only; ACP `entry` lives on Database `- plugin: acp`; `api_key` = env name |
 | `limits` | wall / invokes / env actions / memory |
 | `artifacts` | publishable id + path |
 | `evaluation` | entrypoint, network, inputs, output |
@@ -37,7 +37,7 @@ Empty suite fails lock.
 
 ## Job binding (`profiles.yaml`)
 
-Optional `label` on a role is the Jobs / Hub Agents axis. If omitted: ACP uses `options.entry`, other kinds use `executor`. Never treat `options.agent` as a display name.
+Optional `label` on a role is the Jobs / Hub Agents axis. If omitted: ACP uses `- plugin: acp` / `options.entry`, other kinds use `executor`. Never treat `options.agent` as a display name.
 
 ## Allowed top-level dirs
 

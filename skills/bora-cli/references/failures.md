@@ -4,7 +4,7 @@
 | --- | --- |
 | exit 2, empty stdout on lock | Config error on stderr (`unknown_profile`, schema, etc.) |
 | lock `unsupported_capability` / `unsupported executor` | Kind not in `bora executors` `.supported` — coding agents need `executor: acp` |
-| lock `options.entry required` | ACP profile missing `options.entry` |
+| lock `options.entry required` | ACP profile missing `- plugin: acp` / `options.entry` |
 | Agent ERROR offline | Expected under `BORA_OFFLINE_AGENT=1` |
 | `l1_executor_unbound` | L1 invoke has no SPI ``bind_to_target`` (or placement resolver missing) |
 | `image_contribute_unsatisfied` | Bound external executor but bake chain empty / no `Dockerfile.bake` — `$bora-plugin` |

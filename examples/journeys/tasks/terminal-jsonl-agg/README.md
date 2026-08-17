@@ -10,7 +10,7 @@ v1 **terminal-bench / jsonl-aggregator** case class:
 
 ## ACP (default)
 
-| profile id    | `options.entry` | placement                                |
+| profile id    | ACP `entry`     | placement                                |
 | ------------- | --------------- | ---------------------------------------- |
 | `terminal-pi` | `pi`            | L1 `docker exec` target (assurance:l1)   |
 

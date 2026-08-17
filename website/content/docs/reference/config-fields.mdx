@@ -29,7 +29,7 @@ description: bora.yaml / task.yaml 字段与校验要点速查。
 | `harness` | `runtime` + `entrypoint`（`模块:函数`） |
 | `parameters` | 给 harness；常见 `active_profile`、`harness_timeout_seconds`、`agent_timeout_seconds`、`roles`、`seed`、`environment_resource` |
 | `provider` | `kind: local\|docker`；docker 要 `environment/Dockerfile` |
-| `agent_profiles` | `{id, executor, model, …}`；ACP 必填 `options.entry`；`api_key` 只写环境变量名 |
+| `agent_profiles` | 成员只写 `{id}`；ACP `entry` 写在 Database `profiles.yaml` 的 `- plugin: acp`；`api_key` 只写环境变量名 |
 | `limits` | wall / agent_invocations / environment_actions / memory_mb |
 | `artifacts.publishable` | id + path + producer |
 | `evaluation` | entrypoint、network、inputs、output.format |
@@ -37,7 +37,7 @@ description: bora.yaml / task.yaml 字段与校验要点速查。
 
 ## Job binding（`profiles.yaml`）
 
-role 上可选 `label`，作为 Jobs / Hub 的 Agents 轴。缺省：ACP 用 `options.entry`，其它 kind 用 `executor`。**不要**把 `options.agent` 当展示名。
+role 上可选 `label`，作为 Jobs / Hub 的 Agents 轴。缺省：ACP 用 `- plugin: acp` 的 `options.entry`，其它 kind 用 `executor`。**不要**把 `options.agent` 当展示名。
 
 ## 成员一级目录白名单
 
@@ -46,11 +46,15 @@ role 上可选 `label`，作为 Jobs / Hub 的 Agents 轴。缺省：ACP 用 `op
 ## ACP profile 片段
 
 ```yaml
-- id: main
-  executor: acp
-  model: gpt-5.4-mini
-  options:
-    entry: codex
+# Database profiles.yaml
+bindings:
+  main:
+    executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: codex
+    model: gpt-5.4-mini
 ```
 
 `bora executors -v` 查 entry 与就绪状态。

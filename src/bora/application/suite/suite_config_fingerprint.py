@@ -27,12 +27,15 @@ _SKIP_PLUGIN_IDS = frozenset({"default", "acp", "openai-http"})
 
 def _profile_entry(profile: Mapping[str, Any]) -> str:
     """Display id: ACP ``options.entry``, else plugin ``options.agent``, else kind."""
-    options = profile.get("options")
-    if isinstance(options, Mapping):
-        for key in ("entry", "agent"):
-            val = options.get(key)
-            if val is not None and str(val).strip():
-                return str(val).strip()
+    from bora.config.profiles import acp_entry_from_binding, executor_plugin_options
+
+    entry = acp_entry_from_binding(profile)
+    if entry:
+        return entry
+    plugin_opts = executor_plugin_options(profile)
+    agent = plugin_opts.get("agent")
+    if agent is not None and str(agent).strip():
+        return str(agent).strip()
     executor = profile.get("executor")
     if executor is not None and str(executor).strip():
         return str(executor).strip()
@@ -40,10 +43,9 @@ def _profile_entry(profile: Mapping[str, Any]) -> str:
 
 
 def _profile_options(profile: Mapping[str, Any]) -> dict[str, Any]:
-    from bora.config.profiles import secret_free_options
+    from bora.config.profiles import executor_plugin_options, secret_free_options
 
-    raw = profile.get("options")
-    return secret_free_options(raw if isinstance(raw, Mapping) else None)
+    return secret_free_options(executor_plugin_options(profile))
 
 
 def actors_summary_from_profiles(
@@ -435,12 +437,14 @@ def load_actors_from_task_lock(
 ) -> list[dict[str, str]]:
     """Lock a task (same overrides as suite) and project agent_profiles."""
     from bora.adapters.package_fs import LocalPackageReader
+    from bora.application.attempt.env_bootstrap import load_host_env_files
     from bora.config.capabilities import DeclarationCapabilityCatalog
     from bora.config.database import load_database_manifest, resolve_task
     from bora.config.load_and_lock import ConfigCore
     from bora.config.model import thaw
     from bora.config.profiles import resolve_profile_bindings
 
+    load_host_env_files(package_root=database_root)
     resolved = resolve_task(database_root, task_id)
     man = load_database_manifest(resolved.database_root)
     bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
@@ -468,12 +472,14 @@ def load_job_overlay_from_task_lock(
 ) -> dict[str, Any] | None:
     """Live-lock a task and project secret-free job_overlay (#59)."""
     from bora.adapters.package_fs import LocalPackageReader
+    from bora.application.attempt.env_bootstrap import load_host_env_files
     from bora.config.capabilities import DeclarationCapabilityCatalog
     from bora.config.database import load_database_manifest, resolve_task
     from bora.config.load_and_lock import ConfigCore
     from bora.config.model import thaw
     from bora.config.profiles import resolve_profile_bindings
 
+    load_host_env_files(package_root=database_root)
     resolved = resolve_task(database_root, task_id)
     man = load_database_manifest(resolved.database_root)
     bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
@@ -519,6 +525,13 @@ def _suite_level_job_overlay(
                 except Exception:  # noqa: BLE001
                     continue
     if not bindings:
+        return None
+    from bora.config.env_refs import expand_binding_env_refs
+
+    try:
+        for role_id, row in bindings.items():
+            expand_binding_env_refs(row, location=f"/bindings/{role_id}")
+    except Exception:  # noqa: BLE001
         return None
     return project_job_overlay(bindings)
 

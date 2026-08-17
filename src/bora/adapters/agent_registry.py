@@ -37,24 +37,27 @@ def resolve_executor(
     ``entry`` / ``entry_id`` select ACP entry when *kind* is ``acp``.
     """
     from bora.plugins.bootstrap import ensure_bootstrapped
-    from bora.plugins.protocol import BindingIntent
+    from bora.plugins.protocol import BindingIntent, ExtensionSelect
     from bora.plugins.resolve import resolve
     from bora.plugins.slots import EXECUTOR
 
-    options: dict[str, Any] = {}
+    plugin_opts: dict[str, Any] = {}
     eid = entry or entry_id
     if eid:
-        options["entry"] = str(eid)
-    # Pass through known option keys from **_kw (e.g. agent for nooa).
+        plugin_opts["entry"] = str(eid)
     for key in ("agent", "method", "entry"):
         if key in _kw and _kw[key] is not None:
-            options[key] = _kw[key]
+            plugin_opts[key] = _kw[key]
 
+    plugin_id = str(kind)
+    selects = (
+        [ExtensionSelect(plugin=plugin_id, options=plugin_opts or None)] if plugin_opts else []
+    )
     reg = ensure_bootstrapped()
     intent = BindingIntent(
         profile_id="_resolve",
-        executor=str(kind),
-        options=options,
+        executor=plugin_id,
+        extension_selects=selects,
         model=model,
         base_url=base_url,
         api_key=api_key,

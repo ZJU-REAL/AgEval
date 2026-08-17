@@ -11,6 +11,7 @@ const SLOT_LEVEL: Record<string, number> = {
   before_cleanup: 0,
   after_cleanup: 0,
   image_contribute: 1,
+  home_overlay: 1,
   env_prepare_commands: 1,
   env_inject: 1,
   env_action: 1,

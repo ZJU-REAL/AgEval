@@ -14,7 +14,7 @@ bindings:
     executor: dsh
     extensions:
       - plugin: dsh
+        options:
+          permission: read-only
     model: deepseek-v4-flash
-    api_key: deepseek_api_key
-    options:
-      permission: read-only
+    api_key: ${deepseek_api_key}

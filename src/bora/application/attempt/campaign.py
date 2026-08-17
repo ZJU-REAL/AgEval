@@ -79,6 +79,9 @@ async def run_campaign(
     from bora.registry.resolve import resolve_database_root
 
     database_root = resolve_database_root(package_root)
+    from bora.application.attempt.env_bootstrap import load_host_env_files
+
+    load_host_env_files(package_root=database_root)
     resolved = resolve_task(database_root, task_id)
     task_dir = resolved.task_dir
     man = load_database_manifest(resolved.database_root)

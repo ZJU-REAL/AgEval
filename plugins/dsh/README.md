@@ -39,11 +39,11 @@ bindings:
     executor: dsh
     extensions:
       - plugin: dsh
+        options:
+          composition: slim               # omit permission → unrestricted local bash/fs
+          # permission: read-only         # or workspace-write | danger-full-access
     model: deepseek-v4-flash
-    api_key: deepseek_api_key          # env locator
-    options:
-      composition: slim               # omit permission → unrestricted local bash/fs
-      # permission: read-only         # or workspace-write | danger-full-access
+    api_key: ${deepseek_api_key}          # env locator
 ```
 
 `options.permission` is plugin-owned (same pattern as `composition`). Allowed

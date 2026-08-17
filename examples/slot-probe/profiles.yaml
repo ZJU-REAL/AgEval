@@ -6,17 +6,18 @@ bindings:
     executor: nooa
     extensions:
       - plugin: nooa
+        options:
+          agent: "lib.agents:FixedAnswerAgent"
+          method: "run"
       - plugin: slot-probe
-    options:
-      agent: "lib.agents:FixedAnswerAgent"
-      method: "run"
     model: none
   # L1: real ACP in attempt-container. slot-probe still needs an explicit row.
   probe-acp:
     executor: acp
     extensions:
+      - plugin: acp
+        options:
+          entry: pi
       - plugin: slot-probe
-    options:
-      entry: pi
     model: zai-coding-cn/glm-5.2
-    api_key: glm_coding_api_key
+    api_key: ${glm_coding_api_key}

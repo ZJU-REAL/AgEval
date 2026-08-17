@@ -3,4 +3,4 @@ bindings:
   solver:
     executor: host-probe
     model: none
-    api_key: PROBE_API_KEY
+    api_key: ${PROBE_API_KEY}

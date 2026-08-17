@@ -84,7 +84,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.pyright]
 include = ["src", "tests"]
-extraPaths = ["plugins/nooa/src", "plugins/dsh/src"]
+extraPaths = ["plugins/nooa/src", "plugins/dsh/src", "plugins/home-files/src"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."

@@ -7,6 +7,7 @@ Production consumers (#71 — host **awaits** handlers / SPI methods; no command
 
 - L0 ``before/after_*`` phase bookends → ``application/extension_hooks``
 - L1 ``image_contribute`` → bake path
+- L1 ``home_overlay`` → after cred pack, before actor HOME copy
 - L1 env multi/provide → env prepare/teardown + optional action gate
 - L2 ``executor`` + agent open/invoke/close/normalize → ``ParentAgentService``
 - L3 evaluation input/runtime/score → pre/post evaluator (fail closed)
@@ -43,6 +44,7 @@ AFTER_CLEANUP: Final = "after_cleanup"
 
 # --- L1: environment / image (mostly multi merge; env_action single) ---
 IMAGE_CONTRIBUTE: Final = "image_contribute"
+HOME_OVERLAY: Final = "home_overlay"
 ENV_PREPARE_COMMANDS: Final = "env_prepare_commands"
 ENV_INJECT: Final = "env_inject"
 ENV_ACTION: Final = "env_action"
@@ -89,6 +91,7 @@ _SLOT_KINDS: Final[dict[str, SlotKind]] = {
     AFTER_CLEANUP: SlotKind.MULTI,
     # L1
     IMAGE_CONTRIBUTE: SlotKind.MULTI,
+    HOME_OVERLAY: SlotKind.MULTI,
     ENV_PREPARE_COMMANDS: SlotKind.MULTI,
     ENV_INJECT: SlotKind.MULTI,
     ENV_ACTION: SlotKind.PROVIDE,
@@ -129,6 +132,7 @@ SLOT_LEVEL: Final[dict[str, int]] = {
     BEFORE_CLEANUP: 0,
     AFTER_CLEANUP: 0,
     IMAGE_CONTRIBUTE: 1,
+    HOME_OVERLAY: 1,
     ENV_PREPARE_COMMANDS: 1,
     ENV_INJECT: 1,
     ENV_ACTION: 1,

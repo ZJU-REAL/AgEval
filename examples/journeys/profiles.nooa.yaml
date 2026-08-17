@@ -14,53 +14,53 @@ bindings:
     executor: nooa
     extensions:
       - plugin: nooa
-    options:
-      agent: "lib.agents:JsonlAggAgent"
-      method: "run"
+        options:
+          agent: "lib.agents:JsonlAggAgent"
+          method: "run"
     model: openai/glm-5.2
-    api_key: litellm_api_key
+    api_key: ${litellm_api_key}
   user:
     executor: nooa
     extensions:
       - plugin: nooa
-    options:
-      agent: "lib.agents:UserSimAgent"
-      method: "run"
+        options:
+          agent: "lib.agents:UserSimAgent"
+          method: "run"
     model: openai/glm-5.2
-    api_key: litellm_api_key
+    api_key: ${litellm_api_key}
   service:
     executor: nooa
     extensions:
       - plugin: nooa
-    options:
-      agent: "lib.agents:ServiceAgent"
-      method: "run"
+        options:
+          agent: "lib.agents:ServiceAgent"
+          method: "run"
     model: openai/glm-5.2
-    api_key: litellm_api_key
+    api_key: ${litellm_api_key}
   specialist:
     executor: nooa
     extensions:
       - plugin: nooa
-    options:
-      agent: "lib.agents:SpecialistAgent"
-      method: "run"
+        options:
+          agent: "lib.agents:SpecialistAgent"
+          method: "run"
     model: openai/glm-5.2
-    api_key: litellm_api_key
+    api_key: ${litellm_api_key}
   planner:
     executor: nooa
     extensions:
       - plugin: nooa
-    options:
-      agent: "lib.agents:PlannerAgent"
-      method: "run"
+        options:
+          agent: "lib.agents:PlannerAgent"
+          method: "run"
     model: openai/glm-5.2
-    api_key: litellm_api_key
+    api_key: ${litellm_api_key}
   reducer:
     executor: nooa
     extensions:
       - plugin: nooa
-    options:
-      agent: "lib.agents:ReducerAgent"
-      method: "run"
+        options:
+          agent: "lib.agents:ReducerAgent"
+          method: "run"
     model: openai/glm-5.2
-    api_key: litellm_api_key
+    api_key: ${litellm_api_key}

@@ -10,7 +10,7 @@ from bora.plugins.bootstrap import bootstrap_registry
 from bora.plugins.contrib.acp import PLUGIN_ID as ACP_ID
 from bora.plugins.errors import ExtensionMaterializeError
 from bora.plugins.lock_bind import extension_graph_to_lock
-from bora.plugins.protocol import BindingIntent
+from bora.plugins.protocol import BindingIntent, ExtensionSelect
 from bora.plugins.registry import ExtensionRegistry, reset_global_registry
 from bora.plugins.resolve import resolve
 from bora.plugins.slots import EXECUTOR
@@ -109,13 +109,18 @@ def test_dual_profile_acp_and_nooa_session_graphs(bora_home_with_nooa: Path) -> 
                 "id": "solver",
                 "executor": "nooa",
                 "model": "m",
-                "options": {"agent": "types:SimpleNamespace", "method": "__str__"},
+                "extensions": [
+                    {
+                        "plugin": "nooa",
+                        "options": {"agent": "types:SimpleNamespace", "method": "__str__"},
+                    }
+                ],
             },
             {
                 "id": "user",
                 "executor": "acp",
                 "model": "m",
-                "options": {"entry": "pi"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
             },
         ],
         agent_invocation_limit=2,
@@ -150,7 +155,13 @@ def test_nooa_uninstalled_fail_closed(tmp_path: Path, monkeypatch: pytest.Monkey
     bootstrap_registry(reg, include_mock=False, include_openai_http=False)
     with pytest.raises(ExtensionPluginNotFoundError):
         resolve(
-            BindingIntent(profile_id="s", executor="nooa", options={"agent": "x:Y"}),
+            BindingIntent(
+                profile_id="s",
+                executor="nooa",
+                extension_selects=[
+                    ExtensionSelect(plugin="nooa", options={"agent": "x:Y"}),
+                ],
+            ),
             reg,
             materialize=False,
         )

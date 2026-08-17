@@ -1,0 +1,20 @@
+# ACP job binding for terminal-jsonl-agg.
+# entry: pi  model: zai-coding-cn/glm-5.2
+# LiteLLM catalog is a Database overlay (home-files), not a Core prefix.
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi
+      - plugin: home-files
+        options:
+          files:
+            - src: overlays/pi.litellm.json
+              dest: .pi/agent/models.json
+              dest_root: home
+    model: zai-coding-cn/glm-5.2
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}

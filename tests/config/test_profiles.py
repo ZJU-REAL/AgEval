@@ -93,7 +93,7 @@ def test_merge_bindings_and_cli_override(tmp_path: Path) -> None:
         profile_bindings={
             "solver": {
                 "executor": "acp",
-                "options": {"entry": "codex"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
                 "model": "gpt-5.4-mini",
             }
         },
@@ -105,11 +105,11 @@ def test_merge_bindings_and_cli_override(tmp_path: Path) -> None:
     profiles = thaw(locked.agent_profiles)
     assert profiles[0]["id"] == "solver"
     assert profiles[0]["executor"] == "acp"
-    assert profiles[0]["options"]["entry"] == "pi"
+    assert profiles[0]["extensions"][0]["options"]["entry"] == "pi"
     assert profiles[0]["model"] == "claude-haiku-4-5"
     assert locked.job_overlay is not None
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["options"]["entry"] == "pi"
+    assert overlay["bindings"]["solver"]["extensions"][0]["options"]["entry"] == "pi"
 
 
 def test_empty_slots_need_no_bindings(tmp_path: Path) -> None:
@@ -134,7 +134,7 @@ def test_profiles_document_parse(tmp_path: Path) -> None:
                 "bindings": {
                     "solver": {
                         "executor": "acp",
-                        "options": {"entry": "codex"},
+                        "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
                         "model": "m",
                     }
                 },
@@ -166,7 +166,7 @@ def test_job_overlay_omits_secrets() -> None:
         {
             "solver": {
                 "executor": "acp",
-                "options": {"entry": "pi"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
                 "model": "m",
                 "api_key": "MY_KEY_LOCATOR",
             }
@@ -188,7 +188,7 @@ def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
         {
             "solver": {
                 "executor": "acp",
-                "options": {"entry": "pi"},
+                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
                 "model": "m",
                 "api_key": "LOC",
             }
@@ -198,8 +198,8 @@ def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
     path = tmp_path / "profiles.from-suite.yaml"
     write_profiles_yaml(path, doc)
     loaded = load_profiles_document(path)
-    assert loaded["solver"]["options"]["entry"] == "pi"
-    assert loaded["solver"]["api_key"] == "LOC"
+    assert loaded["solver"]["extensions"][0]["options"]["entry"] == "pi"
+    assert loaded["solver"]["api_key"] == "${LOC}"
 
 
 def test_job_overlay_keeps_plugin_options() -> None:
@@ -208,16 +208,21 @@ def test_job_overlay_keeps_plugin_options() -> None:
             "solver": {
                 "executor": "nooa",
                 "model": "openai/glm-5.2",
-                "options": {
-                    "agent": "lib.agents:JsonlAggAgent",
-                    "method": "run",
-                    "command": ["secret"],
-                    "_acp_lock": {"entry_id": "x"},
-                },
+                "extensions": [
+                    {
+                        "plugin": "nooa",
+                        "options": {
+                            "agent": "lib.agents:JsonlAggAgent",
+                            "method": "run",
+                            "command": ["secret"],
+                            "_acp_lock": {"entry_id": "x"},
+                        },
+                    }
+                ],
             }
         }
     )
-    opts = overlay["bindings"]["solver"]["options"]
+    opts = overlay["bindings"]["solver"]["extensions"][0]["options"]
     assert opts["agent"] == "lib.agents:JsonlAggAgent"
     assert opts["method"] == "run"
     assert "command" not in opts
@@ -229,7 +234,9 @@ def test_display_agent_name_never_uses_options_agent() -> None:
         display_agent_name(
             {
                 "executor": "nooa",
-                "options": {"agent": "lib.agents:JsonlAggAgent"},
+                "extensions": [
+                    {"plugin": "nooa", "options": {"agent": "lib.agents:JsonlAggAgent"}}
+                ],
             }
         )
         == "nooa"
@@ -239,12 +246,19 @@ def test_display_agent_name_never_uses_options_agent() -> None:
             {
                 "executor": "nooa",
                 "label": "nooa",
-                "options": {"agent": "lib.agents:JsonlAggAgent"},
+                "extensions": [
+                    {"plugin": "nooa", "options": {"agent": "lib.agents:JsonlAggAgent"}}
+                ],
             }
         )
         == "nooa"
     )
-    assert display_agent_name({"executor": "acp", "options": {"entry": "pi"}}) == "pi"
+    assert (
+        display_agent_name(
+            {"executor": "acp", "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}]}
+        )
+        == "pi"
+    )
     assert display_agent_name({"executor": "dsh"}) == "dsh"
 
 
@@ -252,7 +266,11 @@ def test_display_labels_from_overlay_joins_distinct() -> None:
     agent, model = display_labels_from_overlay(
         {
             "bindings": {
-                "a": {"executor": "acp", "options": {"entry": "pi"}, "model": "m1"},
+                "a": {
+                    "executor": "acp",
+                    "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
+                    "model": "m1",
+                },
                 "b": {"executor": "dsh", "model": "m2"},
             }
         }

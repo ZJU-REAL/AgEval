@@ -24,7 +24,7 @@ pi does **not** use `base_url: .../api/anthropic` for this path. Built-in provid
 **Wrong:** `model: glm-5.2` alone → pi fuzzy-matches **OpenCode Zen** → wants
 `OPENCODE_API_KEY` → `Invalid API key` if you pass a 智谱 coding key.
 
-BORA `api_key: glm_coding_api_key` projects that host env into
+BORA `api_key: ${glm_coding_api_key}` projects that host env into
 `ZAI_CODING_CN_API_KEY` / `ZAI_API_KEY` (and others) for the child process.
 
 Host/repo `.env`:

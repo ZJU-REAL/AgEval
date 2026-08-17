@@ -102,20 +102,11 @@ provider:
 
 agent_profiles:
   - id: codex-database-specialist
-    executor: acp
     workspace_view: agents
-    options:
-      entry: codex
   - id: codex-database-planner
-    executor: acp
     workspace_view: agents
-    options:
-      entry: codex
   - id: codex-database-reducer
-    executor: acp
     workspace_view: agents
-    options:
-      entry: codex
 
 environment:
   id: database-attempt

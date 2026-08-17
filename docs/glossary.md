@@ -20,7 +20,7 @@
 | **Capability** | Attempt 内已授权操作面：agent、environment、workspace、artifacts… |
 | **Adapter / Plugin** | Capability/Provider 的实现；entry point 可分发 |
 | **Agent Service** | 主仓调度面：按 profile 路由 AgentExecutor、session、额度、投影、轨迹落盘 |
-| **AgentExecutor** | 具体 Agent 后端实现；coding-agent 为 `acp`（+ `options.entry`），另有 `openai-http` 与可分发自定义 kind |
+| **AgentExecutor** | 具体 Agent 后端实现；coding-agent 为 `acp`（+ `- plugin: acp` / `options.entry`），另有 `openai-http` 与可分发自定义 kind |
 | **ACP entry** | registry `entry_id`（如 `codex` / `pi`）；Mode 1 常与 engine + ACP 桥包（如 `pi` + npm `pi-acp`）双装 |
 | **Provider** | 物理运行时与隔离（process/container、mount、network、secret） |
 | **可见性投影** | 消费者受限视图（path/secret/network/params/materialize） |

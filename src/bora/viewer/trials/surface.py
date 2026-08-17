@@ -80,16 +80,12 @@ def _profile_variant(profile: dict[str, Any]) -> str | None:
     label = profile.get("label")
     if isinstance(label, str) and label.strip():
         return label.strip()
-    opts = profile.get("options") if isinstance(profile.get("options"), dict) else {}
-    if not isinstance(opts, dict):
-        return None
-    val = opts.get("label")
-    if isinstance(val, str) and val.strip():
-        return val.strip()
+    from bora.config.profiles import acp_entry_from_binding
+
     if str(profile.get("executor") or "").strip() == "acp":
-        entry = opts.get("entry")
-        if isinstance(entry, str) and entry.strip():
-            return entry.strip()
+        entry = acp_entry_from_binding(profile)
+        if entry:
+            return entry
     return None
 
 

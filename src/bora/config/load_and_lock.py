@@ -1,8 +1,9 @@
 """Config Core façade: load, merge, validate, canonicalize, digest, freeze.
 
 This module is the only normative reader of member ``task.yaml``. It never imports or
-executes package-local Python, never expands environment variables as experiment
-semantics, and never starts an Attempt.
+executes package-local Python and never starts an Attempt. Profile ``api_key`` /
+``base_url`` may use ``${ENV_NAME}`` refs (locator unwrap / value substitute);
+other package YAML still rejects interpolation.
 
 Pure helpers: ``constants``, ``yaml_io``, ``overrides``, ``digest``, ``validate`` (chore #31).
 """
@@ -242,6 +243,10 @@ class ConfigCore:
                     param_overrides[pointer_s] = value
 
         if bindings:
+            from bora.config.env_refs import expand_binding_env_refs
+
+            for role_id, row in bindings.items():
+                expand_binding_env_refs(row, location=f"/bindings/{role_id}")
             resolution.append(
                 ResolutionEntry(
                     source="profiles.yaml",

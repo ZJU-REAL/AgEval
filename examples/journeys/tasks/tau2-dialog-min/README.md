@@ -15,7 +15,7 @@ v1 **tau2-bench retail** case class on BORA v2 package surfaces.
 
 ## ACP mix (default)
 
-| Role           | profile id         | `options.entry` |
+| Role           | profile id         | ACP `entry`     |
 | -------------- | ------------------ | --------------- |
 | user simulator | `user-grok`        | `grok-build`    |
 | service agent  | `service-opencode` | `opencode`      |

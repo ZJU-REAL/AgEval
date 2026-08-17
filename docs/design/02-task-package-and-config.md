@@ -261,7 +261,7 @@ member task.yaml（角色槽 + intent + harness/eval）
 - Leaderboard **job 轴**是 suite 级 `profiles.yaml` / `job_overlay`（role id → entry/model），不是「各 task 角色槽拓扑是否相同」。不同 task 可用不同 role id；只要绑定文档一致，`config_homogeneous` 仍为 true，公开可比榜展示该 yaml。
 - 仅当同一 suite 内出现**同一 role id 的 entry/model 冲突**（或无法解析 job 轴）时 `config_homogeneous: false`。
 
-**Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*` 只点 **role / profile id**；真正跑哪条 coding-agent 后端写在 Database `profiles.yaml`（或 CLI overlay）。coding-agent 配置形状为 `executor: acp` + `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 binding 的 `options.entry`/`model`（`--set '/bindings/solver/…'` 或 `--matrix`），不必改 `harness.py`。
+**Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*` 只点 **role / profile id**；真正跑哪条 coding-agent 后端写在 Database `profiles.yaml`（或 CLI overlay）。coding-agent 配置形状为 `executor: acp` + `- plugin: acp` 行上的 `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 binding 的 executor 行 `options.entry`/`model`（`--set '/bindings/solver/…'` 或 `--matrix`），不必改 `harness.py`。
 
 #### L1 / `provider.kind: docker` 与 package Dockerfile
 
@@ -360,32 +360,14 @@ provider:
 
 agent_profiles:
   # profile = 可切换的 Agent 后端绑定；见 design/05-runtime/agent-service.md
-  # coding-agent: executor: acp + options.entry
+  # 成员只声明角色槽。coding-agent 绑定见 Database profiles.yaml：
+  # executor: acp + - plugin: acp / options.entry
   - id: codex-database-specialist
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
   - id: codex-database-planner
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
   - id: codex-database-reducer
-    executor: acp
-    model: o4-mini
     workspace_view: agents
-    options:
-      entry: codex
-  # 混用示例：planner 换 OpenCode 或 Pi ACP entry
-  # - id: opencode-database-planner
-  #   executor: acp
-  #   options: { entry: opencode }
-  # - id: pi-database-planner
-  #   executor: acp
-  #   options: { entry: pi }
 
 environment:
   id: database-attempt
