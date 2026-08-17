@@ -29,6 +29,13 @@ def test_offline_forced() -> None:
         os.environ.pop("BORA_OFFLINE_AGENT", None)
 
 
+def test_ensure_session_requires_workdir() -> None:
+    os.environ.pop("BORA_OFFLINE_AGENT", None)
+    ex = AcpExecutor(entry_id="opencode", model="entry-default")
+    err = ex._ensure_session(workdir=None, timeout=1.0)
+    assert err == "acp_workdir_required"
+
+
 def test_unknown_entry_raises() -> None:
     try:
         AcpExecutor(entry_id="not-an-entry", model="x")

@@ -65,11 +65,14 @@ class AcpExecutorSPI(ExecutorSPI):
                 "XDG_STATE_HOME": f"{home_s}/.local/state",
                 "XDG_DATA_HOME": f"{home_s}/.local/share",
             }
+        workdir = _kwargs.get("workdir")
+        workdir_s = str(workdir).strip() if workdir else None
         self._inner = AcpExecutor(
             entry_id=self._entry_id,
             model=self._model,
             base_url=base_url,
             api_key_env=api_key,
+            workdir=workdir_s or None,
             env=extra_env,
         )
 
