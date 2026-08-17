@@ -12,6 +12,11 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from bora.adapters.provider_docker.errors import ProviderL1Error
+from bora.adapters.provider_docker.official_base import (
+    official_attempt_dir,
+    official_build_input_digest,
+    prepare_official_build_env,
+)
 from bora.adapters.provider_docker.types import DockerImageLock
 
 _OFFICIAL_BASE_TAG = "bora-attempt:l1"
@@ -20,11 +25,31 @@ _SKIP_COPY_DIR_NAMES = frozenset({".bora", ".git", "__pycache__", "node_modules"
 _INSPECT_DIGEST_FMT = "{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}"
 
 
+def _official_lock_reusable(lock_path: Path, expected_digest: str) -> bool:
+    """True when lock digest matches current inputs and the tagged image exists."""
+    if not lock_path.is_file():
+        return False
+    try:
+        lock = DockerImageLock.load(lock_path)
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    if lock.build_input_digest != expected_digest:
+        return False
+    tag = lock.image_tag or _OFFICIAL_BASE_TAG
+    return inspect_image_digest(tag) is not None
+
+
 def ensure_image_lock(repo_root: Path | None = None) -> Path:
-    """Build official base image lock if missing; return lock path."""
+    """Build official base image lock if missing or inputs changed; return path."""
     root = repo_root or Path.cwd()
     lock_path = root / ".bora" / "runtime-images" / "provider-l1.json"
-    if lock_path.is_file():
+    apt_mirror, pip_index = prepare_official_build_env(root)
+    expected = "sha256:" + official_build_input_digest(
+        official_attempt_dir(root),
+        apt_mirror=apt_mirror,
+        pip_index=pip_index,
+    )
+    if _official_lock_reusable(lock_path, expected):
         return lock_path
     build = root / "docker" / "attempt" / "build.py"
     proc = subprocess.run(

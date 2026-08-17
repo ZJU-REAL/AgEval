@@ -6,6 +6,62 @@
 FROM python:3.12-slim-bookworm
 
 USER root
+# Optional host build-args (empty = official Debian / PyPI). Applied before
+# install-executors.sh so apt-get sees rewritten sources. Child images that
+# FROM this tag inherit debian.sources + /etc/pip.conf. Do not ENV an empty
+# PIP_INDEX_URL — a blank value overrides pip's default index.
+ARG BORA_APT_MIRROR=
+ARG BORA_PIP_INDEX=
+RUN set -eu; \
+    if [ -n "${BORA_APT_MIRROR}" ]; then \
+      mirror="${BORA_APT_MIRROR%/}"; \
+      src=/etc/apt/sources.list.d/debian.sources; \
+      if [ ! -f "${src}" ]; then \
+        echo "BORA_APT_MIRROR set but ${src} missing" >&2; \
+        exit 1; \
+      fi; \
+      sec="${mirror}"; \
+      case "${mirror}" in \
+        */debian) sec="${mirror%/debian}/debian-security" ;; \
+      esac; \
+      sed -i \
+        -e "s|https://deb.debian.org/debian-security|${sec}|g" \
+        -e "s|http://deb.debian.org/debian-security|${sec}|g" \
+        -e "s|https://deb.debian.org/debian|${mirror}|g" \
+        -e "s|http://deb.debian.org/debian|${mirror}|g" \
+        "${src}"; \
+      if [ -f /etc/apt/sources.list ]; then \
+        sed -i \
+          -e "s|https://deb.debian.org/debian-security|${sec}|g" \
+          -e "s|http://deb.debian.org/debian-security|${sec}|g" \
+          -e "s|https://deb.debian.org/debian|${mirror}|g" \
+          -e "s|http://deb.debian.org/debian|${mirror}|g" \
+          /etc/apt/sources.list; \
+      fi; \
+      printf '%s\n' \
+        'Acquire::http::Proxy "false";' \
+        'Acquire::https::Proxy "false";' \
+        > /etc/apt/apt.conf.d/99bora-no-proxy; \
+    fi; \
+    if [ -n "${BORA_PIP_INDEX}" ]; then \
+      index="${BORA_PIP_INDEX%/}"; \
+      host="${index#*://}"; \
+      host="${host%%/*}"; \
+      printf '%s\n' \
+        '[global]' \
+        "index-url = ${index}" \
+        "trusted-host = ${host}" \
+        > /etc/pip.conf; \
+    fi
+
+COPY sitecustomize.py /tmp/bora-sitecustomize.py
+RUN set -eu; \
+    if [ -f /etc/pip.conf ]; then \
+      sitepkg="$(python3 -c 'import site; print(site.getsitepackages()[0])')"; \
+      cp /tmp/bora-sitecustomize.py "${sitepkg}/sitecustomize.py"; \
+    fi; \
+    rm -f /tmp/bora-sitecustomize.py
+
 COPY install-executors.sh /tmp/install-executors.sh
 COPY acp-entries.lock.json /etc/bora/acp-entries.lock.json
 RUN bash /tmp/install-executors.sh \

@@ -24,7 +24,7 @@ Provider 负责代码运行位置和 OS 级限制：
 
 1. `provider.kind: docker` 时，package 必须提供 **`environment/Dockerfile`**（或 `provider.dockerfile` 指向的 package 内路径）。
 2. Runtime prepare：**确保官方基座** `bora-attempt:l1`（仓库 `docker/attempt`）。若每个绑定 profile 都是 first-party `executor: acp`、选中的 `extensions` 不要求 bake、且 package Dockerfile 仅 `FROM bora-attempt:l1`（无 `COPY`/`RUN`/其它层），**直接复用**官方 tag，**不**再 `buildx --load` 出 `bora-pkg:*`。否则 **`docker build -f <package Dockerfile>`** 得到 Attempt 用 image。**`image_digest` 写入 evidence**。本地 tag 只是 `docker run` 别名，不是寻址身份；Agent 流量仍是 `session_id` → 已绑定 target 上的 `docker exec`。
-3. 官方基座构建一次、多处 `FROM` 复用；上游基座由 package Dockerfile 自行 `FROM` 并安装**同一 pin 表**声明的入口（禁止 package 自选 floating 版本）。官方基座自身的 `build_input_digest` 覆盖 `Dockerfile` + `install-executors.sh` + `acp-entries.lock.json`；**不**因本条改变 `bora-attempt:l1` 的 tag 名。
+3. 官方基座构建一次、多处 `FROM` 复用；上游基座由 package Dockerfile 自行 `FROM` 并安装**同一 pin 表**声明的入口（禁止 package 自选 floating 版本）。官方基座自身的 `build_input_digest` 覆盖 `Dockerfile` + `install-executors.sh` + `acp-entries.lock.json` + `sitecustomize.py`，以及可选构建参数 `BORA_APT_MIRROR` / `BORA_PIP_INDEX`（空则保持官方 Debian / PyPI；镜像源是 build input，不是 task 身份）。改任一参数会改 digest 并重建基座；`FROM bora-attempt:l1` 的包镜像 digest 已含官方基座 digest，旧 `bora-pkg:*` 不会被当成新镜像源复用。**不**因本条改变 `bora-attempt:l1` 的 tag 名。不在 package YAML 里 `${BORA_*}` 插值。
 4. **基座预装（设计契约）：** 最低 coding-agent 验收 entry 的 **engine + ACP 入口** bake-in：
    - Mode 1：`codex`+`codex-acp`、`claude`+`claude-agent-acp`、**`pi`+`pi-acp`**；
    - Mode 2：`opencode` 含 `acp` 子命令；
@@ -53,6 +53,8 @@ bora-pkg:{content_key[:12]}-{plugin}-{bake_input[:12]}   # 仅当 extensions 选
 ```
 
 `plugin` 段不得含 `/`（Hub `org/name` 在 tag 里写成 `org--name`）。`content_key` / `bake_input` 是上述输入的 digest。同一组输入第二次 prepare **跳过** `buildx --load`，复用已有 tag 与 image id。只改 `parameters` / `agent_profiles` / bindings（Dockerfile 与 bake 输入不变）**不得**产生新 tag。
+
+操作者可在仓库或 Dataset `.env`（gitignore）或当前进程里设置 `BORA_APT_MIRROR` / `BORA_PIP_INDEX`，只作用于官方基座 build-arg；`FROM bora-attempt:l1` 的后续 `apt-get` / `pip` 继承基座里的 sources 与 `/etc/pip.conf`。空值保持 `deb.debian.org` 与 PyPI。不要写进 `~/.zshrc`（进程环境会盖掉 Dataset `.env`）。
 
 Bake 后缀来自 bake **输入** digest，禁止用 inspect id。bake **只**覆盖本 job 各 profile `extensions` 选中的、已安装且带 `Dockerfile.bake` 的 contribute；`executor:` 单独出现不 bake。绑定已安装 executor 但 contribute 链为空或缺少 `Dockerfile.bake` 仍 fail closed。不要用「official org」跳过 bake。workspace、`ctx.params`、gold **不**进入镜像。
 
