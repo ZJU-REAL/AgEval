@@ -257,7 +257,8 @@ files (no `..`, 2 MiB cap, **413** when larger):
 
 Read-only. No Runtime table and no upload. Source rows are **public**,
 **complete**, **release-bound** suites on a Dataset that has a non-draft
-official-org database release. Identity is executor + secret-free options
+official-org database release. Identity is the agent product (ACP
+``options.entry``, else plugin executor) — not transport ``acp``
 (`rt_` + 16 hex). Scores are the source suite's observational metrics.
 
 | Method | Path | Scope |

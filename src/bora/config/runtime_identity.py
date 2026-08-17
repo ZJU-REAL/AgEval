@@ -1,7 +1,8 @@
-"""Harness identity for Hub Runtime plaza (derived; not a stored object).
+"""Agent identity for Hub Runtime plaza (derived; not a stored object).
 
-Identity is executor + secret-free options. Model, credentials, label, role,
-and team are excluded. Digest is independent of suite ``config_fingerprint``.
+Plaza unit is the agent product (ACP ``options.entry``, else plugin executor).
+Transport ``acp``, model, credentials, label, role, and team are not identity.
+Digest is independent of suite ``config_fingerprint``.
 """
 
 from __future__ import annotations
@@ -12,46 +13,75 @@ from collections.abc import Mapping
 from typing import Any
 
 from bora.config.digest import canonical_json_bytes
-from bora.config.profiles import display_agent_name, secret_free_options
+from bora.config.profiles import (
+    acp_entry_from_binding,
+    display_agent_name,
+    plugin_row_options,
+    secret_free_options,
+)
 
 _TOKEN_SPLIT = re.compile(r"[-_]+")
+_TRANSPORT = "acp"
+
+
+def resolve_agent_id(binding: Mapping[str, Any] | None) -> str:
+    """Product id: ACP extension-row ``entry``, else non-transport executor.
+
+    Empty when the binding is transport-only ``acp`` (no entry). Does not read
+    profile-level ``options.entry`` — same contract as ``acp_entry_from_binding``.
+    """
+    raw = binding if isinstance(binding, Mapping) else {}
+    executor = str(raw.get("executor") or "").strip()
+    if executor == _TRANSPORT:
+        entry = acp_entry_from_binding(raw)
+        if entry:
+            return entry
+        projected = raw.get("entry")
+        if isinstance(projected, str) and projected.strip():
+            return projected.strip()
+        return ""
+    return executor
 
 
 def project_harness(binding: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Canonical harness object: ``executor`` + secret-free ``options``."""
-    raw = binding if isinstance(binding, Mapping) else {}
-    executor = str(raw.get("executor") or "").strip()
-    raw_options = raw.get("options") if isinstance(raw.get("options"), Mapping) else None
-    options = secret_free_options(raw_options)
-    return {"executor": executor, "options": options}
+    """Canonical plaza object: the agent product only."""
+    return {"agent": resolve_agent_id(binding)}
 
 
 def harness_fingerprint(binding: Mapping[str, Any] | None) -> str:
-    """Stable plaza id: ``rt_`` + first 16 hex of sha256(canonical harness)."""
+    """Stable plaza id: ``rt_`` + first 16 hex of sha256(canonical agent)."""
+    agent = resolve_agent_id(binding)
+    if not agent:
+        return ""
     digest = hashlib.sha256(canonical_json_bytes(project_harness(binding))).hexdigest()
     return f"rt_{digest[:16]}"
 
 
 def harness_display_name(binding: Mapping[str, Any] | None) -> str:
-    """Humanized stem from ``display_agent_name``; no collision suffix."""
+    """Same agent axis as Hub/Viewer ``agent_label``.
+
+    Binding ``label`` is kept as written. Otherwise humanize the agent id.
+    Never name a card after transport ``acp``.
+    """
     raw = binding if isinstance(binding, Mapping) else {}
-    stem = _humanize(display_agent_name(raw))
+    label = raw.get("label")
+    if isinstance(label, str) and label.strip():
+        return label.strip()
+    agent = resolve_agent_id(raw)
+    stem = _humanize(agent) if agent else ""
     if stem:
         return stem
-    fallback = _humanize(str(raw.get("executor") or "").strip())
-    return fallback or "Runtime"
+    name = display_agent_name(raw)
+    if name and name.strip() != _TRANSPORT:
+        stem = _humanize(name)
+        if stem:
+            return stem
+    return "Runtime"
 
 
 def appearance_entry(binding: Mapping[str, Any] | None) -> str:
-    """Card entry: ``options.entry`` or ``options.agent`` or ``executor``."""
-    raw = binding if isinstance(binding, Mapping) else {}
-    options = raw.get("options")
-    if isinstance(options, Mapping):
-        for key in ("entry", "agent"):
-            val = options.get(key)
-            if val is not None and str(val).strip():
-                return str(val).strip()
-    return str(raw.get("executor") or "").strip()
+    """Card / teammate agent id (never bare ``acp``)."""
+    return resolve_agent_id(binding)
 
 
 def runtime_refs_from_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str, str]]:
@@ -66,16 +96,26 @@ def runtime_refs_from_overlay(overlay: Mapping[str, Any] | None) -> list[dict[st
         if not isinstance(raw, Mapping):
             continue
         role_id = str(role).strip()
-        if not role_id:
+        rid = harness_fingerprint(raw)
+        if not role_id or not rid:
             continue
         refs.append(
             {
                 "role": role_id,
-                "runtime_id": harness_fingerprint(raw),
+                "runtime_id": rid,
                 "display_name": harness_display_name(raw),
             }
         )
     return refs
+
+
+def binding_options(binding: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Secret-free executor-plugin row options (not the shared profile bag)."""
+    raw = binding if isinstance(binding, Mapping) else {}
+    executor = str(raw.get("executor") or "").strip()
+    if not executor:
+        return {}
+    return secret_free_options(plugin_row_options(raw, executor))
 
 
 def _humanize(stem: str) -> str:

@@ -24,14 +24,22 @@ from bora.registry.digest import compute_package_digest
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
 
-NOOA = {"executor": "nooa", "options": {"agent": "nooa"}, "model": "m1"}
+NOOA = {
+    "executor": "nooa",
+    "extensions": [{"plugin": "nooa", "options": {"agent": "nooa"}}],
+    "model": "m1",
+}
 GROK = {
     "executor": "acp",
-    "options": {"entry": "grok-build"},
+    "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
     "model": "g1",
     "api_key": "OPENAI_API_KEY",
 }
-CODEX = {"executor": "acp", "options": {"entry": "codex"}, "model": "g1"}
+CODEX = {
+    "executor": "acp",
+    "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
+    "model": "g1",
+}
 
 
 def _services(tmp_path: Path) -> tuple[PackageService, ResultService, RuntimeService]:
@@ -318,6 +326,24 @@ def test_unknown_runtime_is_404(tmp_path: Path) -> None:
     assert "message" in payload
 
 
+def test_display_name_prefers_binding_label(tmp_path: Path) -> None:
+    packages, results, runtimes = _services(tmp_path)
+    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
+    labeled = dict(GROK)
+    labeled["label"] = "pi-agent"
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_label",
+        database_id="official/gaia",
+        bindings={"solver": labeled},
+    )
+    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
+    assert listed["items"][0]["display_name"] == "pi-agent"
+    assert listed["items"][0]["entry"] == "grok-build"
+    assert listed["items"][0]["executor"] == "acp"
+
+
 def test_team_overlay_still_extracts_members(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
@@ -332,6 +358,25 @@ def test_team_overlay_still_extracts_members(tmp_path: Path) -> None:
     listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
     assert len(listed["items"]) == 1
     assert listed["items"][0]["display_name"] == "Nooa"
+
+
+def test_bare_acp_is_not_projected(tmp_path: Path) -> None:
+    packages, results, runtimes = _services(tmp_path)
+    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_acp_only",
+        database_id="official/gaia",
+        bindings={"solver": {"executor": "acp", "model": "g1"}},
+    )
+    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
+    assert listed["items"] == []
+    suites = results.list_suites(
+        auth=TokenInfo(scopes=frozenset(), user_id=""),
+        database_id=None,
+    )
+    assert suites["items"][0].get("runtime_refs") in (None, [])
 
 
 def test_no_overlay_skipped(tmp_path: Path) -> None:

@@ -15,9 +15,9 @@ from services.registry.store import TokenInfo
 
 from bora.config.runtime_identity import (
     appearance_entry,
+    binding_options,
     harness_display_name,
     harness_fingerprint,
-    project_harness,
     runtime_refs_from_overlay,
 )
 
@@ -69,6 +69,7 @@ class RuntimeService:
         cards: dict[str, dict[str, Any]] = {}
         grouped: dict[str, list[dict[str, Any]]] = {}
         datasets: dict[str, set[str]] = {}
+        named_from_label: dict[str, bool] = {}
         for suite in listed.get("items") or []:
             if not isinstance(suite, Mapping):
                 continue
@@ -79,26 +80,31 @@ class RuntimeService:
             database_id = str(suite.get("database_id") or "")
             if database_id not in official:
                 continue
-            for appearance, harness in _appearances_from_suite(suite):
+            for appearance, binding in _appearances_from_suite(suite):
                 rid = appearance["runtime_id"]
                 grouped.setdefault(rid, []).append(appearance)
                 datasets.setdefault(rid, set()).add(database_id)
-                if rid not in cards:
-                    cards[rid] = _card_from_harness(rid, harness)
+                if rid not in cards or (_has_label(binding) and not named_from_label.get(rid)):
+                    cards[rid] = _card_from_binding(rid, binding)
+                    named_from_label[rid] = _has_label(binding)
         for rid, card in cards.items():
             card["n_datasets"] = len(datasets.get(rid) or ())
             card["n_appearances"] = len(grouped.get(rid) or ())
         return cards, grouped
 
 
-def _card_from_harness(runtime_id: str, harness: Mapping[str, Any]) -> dict[str, Any]:
-    binding = {"executor": harness.get("executor") or "", "options": harness.get("options") or {}}
+def _has_label(binding: Mapping[str, Any]) -> bool:
+    label = binding.get("label")
+    return isinstance(label, str) and bool(label.strip())
+
+
+def _card_from_binding(runtime_id: str, binding: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "runtime_id": runtime_id,
         "display_name": harness_display_name(binding),
-        "executor": str(harness.get("executor") or ""),
+        "executor": str(binding.get("executor") or "").strip(),
         "entry": appearance_entry(binding),
-        "options": dict(harness.get("options") or {}),
+        "options": binding_options(binding),
         "n_datasets": 0,
         "n_appearances": 0,
     }
@@ -119,7 +125,7 @@ def _appearances_from_suite(
         if not isinstance(raw, Mapping):
             continue
         role_id = str(role).strip()
-        if not role_id:
+        if not role_id or not harness_fingerprint(raw):
             continue
         valid.append((role_id, raw))
         teammates_all.append(
@@ -153,7 +159,7 @@ def _appearances_from_suite(
                     "created_at": suite.get("created_at"),
                     "teammates": [t for t in teammates_all if t["role"] != role_id],
                 },
-                project_harness(raw),
+                raw,
             )
         )
     return out
