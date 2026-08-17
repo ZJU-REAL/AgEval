@@ -133,6 +133,9 @@ def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.Monk
     root = Path(__file__).resolve().parents[2]
     env = os.environ.copy()
     env["BORA_HOME"] = str(home)
+    # Overlay profiles expand ${litellm_base_url}; CI has no repo .env.
+    env.setdefault("litellm_api_key", "ci-test-key")
+    env.setdefault("litellm_base_url", "http://127.0.0.1:9")
     proc = subprocess.run(
         [
             sys.executable,
