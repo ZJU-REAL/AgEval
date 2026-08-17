@@ -32,7 +32,7 @@ description: bora.yaml / task.yaml 字段与校验要点速查。
 | `agent_profiles` | 成员只写 `{id}`；ACP `entry` 写在 Database `profiles.yaml` 的 `- plugin: acp`；`api_key` 只写环境变量名 |
 | `limits` | wall / agent_invocations / environment_actions / memory_mb |
 | `artifacts.publishable` | id + path + producer |
-| `evaluation` | entrypoint、network、inputs、output.format |
+| `evaluation` | entrypoint、network、inputs、output.format；可选 `tmpfs_mb`（L1 clean-eval `/tmp`，正整数 MiB，省略 32；**不是** `limits.*`） |
 | `provenance` | 可选；成员整块替换根默认 |
 
 ## Job binding（`profiles.yaml`）

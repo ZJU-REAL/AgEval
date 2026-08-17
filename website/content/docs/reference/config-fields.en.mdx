@@ -32,7 +32,7 @@ Empty suite fails lock.
 | `agent_profiles` | Role slots `{id}` only; ACP `entry` lives on Database `- plugin: acp`; `api_key` = env name |
 | `limits` | wall / invokes / env actions / memory |
 | `artifacts` | publishable id + path |
-| `evaluation` | entrypoint, network, inputs, output |
+| `evaluation` | entrypoint, network, inputs, output; optional `tmpfs_mb` (L1 clean-eval `/tmp`, positive MiB, default 32; **not** `limits.*`) |
 | `provenance` | optional; member replaces root |
 
 ## Job binding (`profiles.yaml`)

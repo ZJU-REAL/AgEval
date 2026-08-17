@@ -8,6 +8,15 @@ import textwrap
 from pathlib import Path
 from typing import Any
 
+from bora.config.constants import DEFAULT_EVAL_TMPFS_MB
+
+
+def clean_eval_tmpfs_mount(tmpfs_mb: int) -> str:
+    """Docker ``--tmpfs`` spec for clean-eval ``/tmp``."""
+    if not isinstance(tmpfs_mb, int) or isinstance(tmpfs_mb, bool) or tmpfs_mb < 1:
+        raise ValueError("evaluation.tmpfs_mb must be a positive integer")
+    return f"/tmp:rw,noexec,nosuid,size={tmpfs_mb}m"
+
 
 def run_clean_evaluator_container(
     *,
@@ -16,6 +25,7 @@ def run_clean_evaluator_container(
     artifact_filename: str,
     artifact_key: str,
     expected_filename: str | None,
+    tmpfs_mb: int = DEFAULT_EVAL_TMPFS_MB,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     arts = f'"artifacts": {{"{artifact_key}": "/eval/{artifact_filename}"'
     if expected_filename:
@@ -58,7 +68,7 @@ def run_clean_evaluator_container(
         "none",
         "--read-only",
         "--tmpfs",
-        "/tmp:rw,noexec,nosuid,size=32m",
+        clean_eval_tmpfs_mount(tmpfs_mb),
         "-v",
         f"{staging}:/eval:ro",
         "--workdir",
