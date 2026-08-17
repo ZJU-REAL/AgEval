@@ -1,4 +1,4 @@
-import { HoverTip } from "@/components/hover-tip";
+import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { formatAxisLabel } from "@/lib/utils";
 
 export function AxisLabel({
@@ -13,12 +13,15 @@ export function AxisLabel({
   const { text, title } = formatAxisLabel(value);
   const shown = text === "-" ? empty : text;
   const compacted = Boolean(title && title.includes("+") && text.endsWith("+..."));
-  if (!compacted) {
+  if (compacted) {
+    return (
+      <HoverTip content={title}>
+        <span className={`${className ?? ""} cursor-help`.trim()}>{shown}</span>
+      </HoverTip>
+    );
+  }
+  if (!value?.trim() || shown === empty) {
     return <span className={className}>{shown}</span>;
   }
-  return (
-    <HoverTip content={title}>
-      <span className={`${className ?? ""} cursor-help`.trim()}>{shown}</span>
-    </HoverTip>
-  );
+  return <TruncateTip text={value} className={className} />;
 }

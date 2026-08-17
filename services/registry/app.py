@@ -34,6 +34,8 @@ Endpoints:
   POST /v1/results/suites
   GET  /v1/results/suites
   GET  /v1/results/suites/{suite_run_id}
+  GET  /v1/runtimes
+  GET  /v1/runtimes/{runtime_id}
   DELETE /v1/results/suites/{suite_run_id}[?with_attempts=1]
   PATCH /v1/results/suites/{suite_run_id}  (visibility)
   GET  /v1/results/suites/{suite_run_id}/content
@@ -126,6 +128,7 @@ class RegistryState:
         from services.registry.org_service import OrgService
         from services.registry.package_service import PackageService
         from services.registry.result_service import ResultService
+        from services.registry.runtime_service import RuntimeService
         from services.registry.user_service import UserService
 
         self.auth = AuthService(
@@ -137,6 +140,7 @@ class RegistryState:
         )
         self.packages = PackageService(meta, blobs, self.access, max_upload=max_upload)
         self.results = ResultService(meta, blobs, self.access, max_upload=max_upload)
+        self.runtimes = RuntimeService(meta, self.results)
         self.orgs = OrgService(meta, self.access)
         self.users = UserService(meta)
         self.max_upload = max_upload

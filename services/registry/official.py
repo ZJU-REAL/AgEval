@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
+from typing import Any
+
+from services.registry.dataset import is_draft_version
 
 DEFAULT_OFFICIAL_ORGS: tuple[str, ...] = ("official",)
 ENV_OFFICIAL_ORGS = "BORA_OFFICIAL_ORGS"
@@ -20,3 +24,27 @@ def is_official_upload_org(org_id: str | None) -> bool:
         return False
     allowed = {item.casefold() for item in official_orgs()}
     return org_id.casefold() in allowed
+
+
+def official_dataset_ids(releases: Iterable[Any]) -> frozenset[str]:
+    """Database ids that have a non-draft official-org database release."""
+    from services.registry.store import package_kind_for_media_type
+
+    out: set[str] = set()
+    for row in releases:
+        database_id = str(row.database_id or "").strip()
+        if not database_id or is_draft_version(row.version):
+            continue
+        if package_kind_for_media_type(str(row.media_type or "")) != "database":
+            continue
+        if is_official_upload_org(row.org_id):
+            out.add(database_id)
+    return frozenset(out)
+
+
+def is_official_dataset(database_id: str, releases: Iterable[Any]) -> bool:
+    """True iff any non-draft database release for *database_id* is official-org."""
+    want = (database_id or "").strip()
+    if not want:
+        return False
+    return want in official_dataset_ids(releases)

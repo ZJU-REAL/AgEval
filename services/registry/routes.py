@@ -176,6 +176,14 @@ ROUTES: tuple[Route, ...] = (
         pattern=r"/v1/results/attempts/([^/]+)",
         groups=("run_id",),
     ),
+    Route("GET", "list_runtimes", access="bearer", exact="/v1/runtimes"),
+    Route(
+        "GET",
+        "get_runtime",
+        access="bearer",
+        pattern=r"/v1/runtimes/([^/]+)",
+        groups=("runtime_id",),
+    ),
     Route("GET", "list_suites", access="bearer", exact="/v1/results/suites", pass_qs=True),
     Route(
         "GET",

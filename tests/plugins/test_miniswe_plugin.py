@@ -15,6 +15,7 @@ if str(_SRC) not in sys.path:
 from miniswe_plugin.env import DockerExecEnv, build_docker_exec_argv  # noqa: E402
 from miniswe_plugin.factory import (  # noqa: E402
     MinisweExecutorSPI,
+    _load_official_mini_config,
     build_executor,
     describe_miniswe,
 )
@@ -72,6 +73,13 @@ def test_docker_env_never_starts_container() -> None:
         workdir="/attempt/workspace",
     )
     assert env.container_id == "already-running"
+
+
+def test_official_mini_yaml_loads() -> None:
+    data = _load_official_mini_config()
+    agent = data.get("agent") or {}
+    assert agent.get("system_template")
+    assert "{{task}}" in str(agent.get("instance_template") or "")
 
 
 def test_invalid_step_limit() -> None:

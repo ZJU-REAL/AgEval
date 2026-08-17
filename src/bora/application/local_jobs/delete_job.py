@@ -208,7 +208,7 @@ class LocalJobsCommands:
             default_suite_runs_root(root) / job_id,
             location=job_id,
         )
-        if (suite_dir / "summary.json").is_file():
+        if (suite_dir / "summary.json").is_file() or (suite_dir / "progress.json").is_file():
             return self._preview_suite(root, job_id=job_id, suite_dir=suite_dir)
         return self._preview_single(root, job_id=job_id)
 
@@ -330,7 +330,13 @@ class LocalJobsCommands:
             )
         claimants = _suites_claiming_run(root, job_id)
         error: dict[str, str] | None = None
-        if claimants:
+        result = _load_json_object(found / "result.json") if found is not None else None
+        if result is None:
+            error = {
+                "code": "job_in_progress",
+                "message": "attempt has no sealed result.json (still running or incomplete)",
+            }
+        elif claimants:
             error = {
                 "code": "job_inner_attempt",
                 "message": "cannot delete an attempt that still belongs to a suite",
