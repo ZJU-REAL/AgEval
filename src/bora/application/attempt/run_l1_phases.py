@@ -508,7 +508,8 @@ def bind_l1_result(ctx: AttemptStageContext) -> None:
         agent_invocations=ctx.inv_count,
         evidence_path=locator,
         error_phase=None
-        if eval_raw and eval_raw.get("status") in {"PASS", "FAIL"}
+        if isinstance(eval_raw, dict)
+        and eval_raw.get("status") in {"PASS", "FAIL", "ERROR"}
         else "evaluation",
         logs=locator,
     )
