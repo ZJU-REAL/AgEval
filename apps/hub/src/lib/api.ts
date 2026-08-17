@@ -163,6 +163,7 @@ export type SuiteRow = {
       status?: string | null;
       score?: number | null;
       attempt_index?: number | null;
+      started_at?: string | null;
       replaced_at?: string | null;
     }>;
   }>;

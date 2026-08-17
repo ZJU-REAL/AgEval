@@ -30,6 +30,7 @@ export function TrialDetailPage() {
     prevId,
     nextId,
     slotCurrentRunId,
+    slotCurrentStartedAt,
     slotPrevious,
     error,
     loading,
@@ -80,6 +81,7 @@ export function TrialDetailPage() {
           nextId={nextId}
           onSibling={goSibling}
           slotCurrentRunId={slotCurrentRunId}
+          slotCurrentStartedAt={slotCurrentStartedAt}
           slotPrevious={slotPrevious}
           onSlotSelect={goSibling}
         />

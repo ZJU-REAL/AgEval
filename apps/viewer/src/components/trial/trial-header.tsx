@@ -16,6 +16,7 @@ export function TrialHeader({
   nextId,
   onSibling,
   slotCurrentRunId,
+  slotCurrentStartedAt,
   slotPrevious,
   onSlotSelect,
 }: {
@@ -26,6 +27,7 @@ export function TrialHeader({
   nextId: string | null;
   onSibling: (id: string | null) => void;
   slotCurrentRunId?: string | null;
+  slotCurrentStartedAt?: string | null;
   slotPrevious?: SlotHistoryEntry[];
   onSlotSelect?: (id: string) => void;
 }) {
@@ -85,6 +87,7 @@ export function TrialHeader({
             viewingRunId={runId}
             currentRunId={slotCurrentRunId}
             previous={slotPrevious}
+            currentAt={slotCurrentStartedAt ?? trial?.started}
             onSelect={onSlotSelect}
           />
         ) : null}

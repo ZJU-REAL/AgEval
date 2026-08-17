@@ -27,8 +27,16 @@ export function useTrialDetail(jobId: string, taskId: string, runId: string) {
   const [prevId, setPrevId] = useState<string | null>(null);
   const [nextId, setNextId] = useState<string | null>(null);
   const [slotCurrentRunId, setSlotCurrentRunId] = useState<string | null>(null);
+  const [slotCurrentStartedAt, setSlotCurrentStartedAt] = useState<string | null>(
+    null,
+  );
   const [slotPrevious, setSlotPrevious] = useState<
-    Array<{ run_id?: string | null; status?: string | null }>
+    Array<{
+      run_id?: string | null;
+      status?: string | null;
+      started_at?: string | null;
+      replaced_at?: string | null;
+    }>
   >([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +81,7 @@ export function useTrialDetail(jobId: string, taskId: string, runId: string) {
         setPrevId(data.prev_run_id || null);
         setNextId(data.next_run_id || null);
         setSlotCurrentRunId(data.slot_current_run_id || null);
+        setSlotCurrentStartedAt(data.slot_current_started_at || null);
         setSlotPrevious(data.slot_previous || []);
         setError(null);
         const tabs = (data.trial.available_tabs || []).map(normalizeTabId) as TabId[];
@@ -180,6 +189,7 @@ export function useTrialDetail(jobId: string, taskId: string, runId: string) {
     prevId,
     nextId,
     slotCurrentRunId,
+    slotCurrentStartedAt,
     slotPrevious,
     error,
     loading,

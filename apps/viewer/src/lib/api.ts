@@ -44,6 +44,7 @@ export type TaskRow = {
     status?: string | null;
     score?: number | null;
     attempt_index?: number | null;
+    started_at?: string | null;
     replaced_at?: string | null;
   }>;
 };
@@ -290,11 +291,13 @@ export function fetchTrial(jobId: string, taskId: string, runId: string) {
     next_run_id?: string | null;
     sibling_run_ids?: string[];
     slot_current_run_id?: string | null;
+    slot_current_started_at?: string | null;
     slot_previous?: Array<{
       run_id?: string | null;
       status?: string | null;
       score?: number | null;
       attempt_index?: number | null;
+      started_at?: string | null;
       replaced_at?: string | null;
     }>;
     commands?: Record<string, string>;

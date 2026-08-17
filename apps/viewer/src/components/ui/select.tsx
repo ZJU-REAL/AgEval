@@ -49,8 +49,10 @@ SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 export const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> & {
+    trailing?: React.ReactNode;
+  }
+>(({ className, children, trailing, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
@@ -65,6 +67,11 @@ export const SelectItem = React.forwardRef<
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    {trailing != null && trailing !== "" ? (
+      <span className="ml-auto shrink-0 pl-4 text-right text-xs tabular whitespace-nowrap text-mute">
+        {trailing}
+      </span>
+    ) : null}
   </SelectPrimitive.Item>
 ));
 SelectItem.displayName = SelectPrimitive.Item.displayName;
