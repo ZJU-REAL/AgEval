@@ -48,6 +48,10 @@ connection limits on nginx or Caddy, then proxy to uvicorn workers.
 | In-flight uploads | Proxy concurrent-request cap (optional) | `workers × BORA_REGISTRY_UPLOAD_SLOTS` |
 | Workers | `--workers` / `BORA_REGISTRY_WORKERS` (default 2 in public mode) | One process per worker; each has its own slot pool |
 
+Schema init (`CREATE` / `ALTER`) is serialized with a Postgres transaction
+advisory lock. Without it, two workers racing `ALTER TABLE` take
+`AccessExclusiveLock` on different tables and deadlock on startup.
+
 ```bash
 export BORA_REGISTRY_WORKERS=4
 export BORA_REGISTRY_UPLOAD_SLOTS=4

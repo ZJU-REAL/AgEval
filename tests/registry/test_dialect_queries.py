@@ -56,6 +56,67 @@ def test_sqlite_align_integer_flag_is_noop(tmp_path) -> None:
         adapter.align_integer_flag(conn, "organizations", "is_claimable")
 
 
+def test_sqlite_lock_schema_is_noop(tmp_path) -> None:
+    from services.registry.sql_adapter import SqliteAdapter
+
+    adapter = SqliteAdapter(tmp_path / "meta.sqlite3")
+    with adapter.connect() as conn:
+        adapter.lock_schema(conn)
+
+
+def test_postgres_lock_schema_uses_xact_advisory_lock() -> None:
+    from services.registry.sql_adapter import (
+        _SCHEMA_LOCK_ID,
+        _SCHEMA_LOCK_NS,
+        PostgresAdapter,
+    )
+
+    recorded: list[tuple[str, object]] = []
+    fake = object.__new__(PostgresAdapter)
+
+    def _execute(_conn: object, sql: str, params: object = ()) -> None:
+        recorded.append((sql, params))
+
+    fake.execute = _execute  # type: ignore[method-assign]
+    fake.lock_schema(object())
+    assert recorded == [
+        ("SELECT pg_advisory_xact_lock(?, ?)", (_SCHEMA_LOCK_NS, _SCHEMA_LOCK_ID)),
+    ]
+
+
+def test_postgres_add_column_skips_when_present() -> None:
+    from services.registry.sql_adapter import PostgresAdapter
+
+    executed: list[str] = []
+
+    class _Conn:
+        def execute(self, sql: str, params: object = ()) -> None:
+            executed.append(sql)
+
+    fake = object.__new__(PostgresAdapter)
+    fake.table_columns = lambda _conn, _table: {"org_id"}  # type: ignore[method-assign]
+    PostgresAdapter.add_column(fake, _Conn(), "releases", "org_id", "TEXT")
+    assert executed == []
+
+
+def test_metadata_and_token_init_take_schema_lock(tmp_path, monkeypatch) -> None:
+    from services.registry.sql_adapter import SqliteAdapter
+    from services.registry.store import MetadataStore, SqliteTokenStore
+
+    calls: list[str] = []
+    orig = SqliteAdapter.lock_schema
+
+    def _spy(self: SqliteAdapter, conn: object) -> None:
+        calls.append(self.name)
+        orig(self, conn)
+
+    monkeypatch.setattr(SqliteAdapter, "lock_schema", _spy)
+    db = tmp_path / "meta.sqlite3"
+    MetadataStore(db)
+    SqliteTokenStore(db)
+    assert calls == ["sqlite", "sqlite"]
+
+
 def test_align_integer_flag_rejects_bad_ident() -> None:
     import pytest
     from services.registry.sql_adapter import PostgresAdapter

@@ -459,6 +459,7 @@ class PersistentTokenStore(TokenStoreProtocol):
 
     def _init(self) -> None:
         with self._connect() as conn:
+            self._adapter.lock_schema(conn)
             for stmt in Q.SCHEMA_STATEMENTS:
                 if "api_tokens" in stmt:
                     self._exec(conn, stmt)
@@ -552,6 +553,7 @@ class MetadataStore(MetadataStoreProtocol):
 
     def _init(self) -> None:
         with self._connect() as conn:
+            self._adapter.lock_schema(conn)
             for stmt in Q.SCHEMA_STATEMENTS:
                 if "api_tokens" in stmt:
                     continue
