@@ -132,6 +132,13 @@ def build_plugin_commands() -> Any:
     )()
 
 
+def build_agent_projection() -> Callable[[list[str]], Any]:
+    """--agent specs → synthesized profiles document path (design/14)."""
+    from bora.application.agent_ops.resolve import resolve_agent_specs
+
+    return resolve_agent_specs
+
+
 def build_registry_client(
     *,
     registry_url: str | None = None,
