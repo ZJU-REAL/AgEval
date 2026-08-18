@@ -4,7 +4,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 权威 | 本文件是 Dataset draft/release、dataset ACL、Leaderboard 完备性、suite 插件出处、个人主页过滤与 Hub/Viewer chrome 的机制权威 |
-| 摘要 | Dataset 按工作树 + 不可变 release 维护；公开榜只排完备且绑定 release 的 suite；写路径只在 CLI。Leaderboard 展开分 profiles / plugin；插件页是声明槽时间线；个人主页按 uploader / ACL 聚合。 |
+| 摘要 | Dataset 按工作树 + 不可变 release 维护；公开榜只排完备且绑定 release 的 suite；写路径只在 CLI。Leaderboard 展开分 profiles / plugin；Runtime plaza 用 binding.overlays 连接包文件预览（不随 suite 再传字节）；插件页是声明槽时间线；个人主页按 uploader / ACL 聚合。 |
 
 ---
 
@@ -163,6 +163,25 @@ Plugin 页把 provide/on chips 换成 **L0–L5 声明槽时间线**：
 
 同一 Application 用例同时服务 Viewer HTTP 与 CLI。HTTP 只路由。
 
+## Runtime plaza（派生）
+
+Hub `/runtimes` 是官方公开、完备、**release-bound** Leaderboard suite 的派生视图。**不**存 Runtime 行。身份是 agent 产品（ACP `options.entry`，否则插件 executor）。运输层 `acp`、model、凭据、`label`、role、组队 **不是** plaza id。`rt_*` **不得**哈希 overlay 路径或文件字节。
+
+`GET /v1/runtimes/{id}` 的每条 appearance 带绑定 release 坐标：`database_id`、`database_version`、`package_digest`（或 suite 行上已有的等价字段）。Hub 用已有
+
+`GET /v1/packages/{database_id}/by-digest/{digest}/files` 与 `…/files/{path}`
+
+打开 Dataset 包内文件。**不**新增 Runtime 表，**不**提供 `/v1/runtimes/{id}/files`。
+
+详情页：
+
+1. Header + 无密钥 profiles YAML（含该出场 binding 的 `overlays:`）。
+2. 选中 Results 行 → 该 role `overlays:` 的前缀闭包。
+3. 复用 Dataset / Plugin 页的文件树分栏（`FileSplitPanel`）。
+4. 换行换树。一个 `rt_*` 可对应多棵树。该 binding 省略 `overlays` → 无树（只 YAML）。
+
+`bora results upload-suite` 继续只上传 secret-free `job_overlay` JSON（现含 `bindings.*.overlays` **路径**）。**不**把 overlay 字节打进 suite archive。字节留在 suite 绑定的官方 Dataset **release**。Hub 只读，无写按钮。两 role 列同一路径时 Dataset 仍是一份 blob。`bora results export-profiles` 写回 `overlays:`；再跑仍要 Database 里那些相对路径上的文件，Hub 不另下一份。
+
 ## 非目标
 
 - Hub GUI 写操作（publish / upload-suite / release 按钮）
@@ -174,3 +193,6 @@ Plugin 页把 provide/on chips 换成 **L0–L5 声明槽时间线**：
 - Leaderboard 条内嵌 L0–L5 时间线（时间线只在插件详情）
 - 按 job 实际走过的槽画执行图（需要 run evidence，不是声明槽）
 - 软删除回收站 / 事后 gc；v1 是确认后的硬删除
+- 从插件 `options` / `src` 推断 plaza 发布树
+- 把 overlay 字节随 suite 再上传，或新 Runtime files API
+- 把 overlay 路径或内容摘要打进 plaza `rt_*` 或 suite `config_fingerprint`
