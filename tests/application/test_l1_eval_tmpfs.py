@@ -144,6 +144,123 @@ def test_evaluate_l1_passes_lock_tmpfs(tmp_path: Path, monkeypatch: pytest.Monke
     assert captured["image_tag"] == "bora-pkg:test"
 
 
+def test_evaluate_l1_reuse_attempt_skips_new_container(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from bora.application.attempt.attempt_stages import AttemptStageContext
+    from bora.application.attempt.run_l1_phases import evaluate_l1
+
+    isolated: dict[str, Any] = {}
+    reused: dict[str, Any] = {}
+
+    def _fake_isolated(**kwargs: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+        isolated.update(kwargs)
+        return ({"status": "PASS", "score": 1.0}, {"ok": True, "writer_stop_confirmed": True})
+
+    def _fake_reuse(**kwargs: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+        reused.update(kwargs)
+        return (
+            {"status": "FAIL", "score": 0.0, "metrics": {}},
+            {"ok": True, "writer_stop_confirmed": True, "reuse_attempt": True},
+        )
+
+    monkeypatch.setattr(
+        "bora.application.attempt.run_l1_phases.run_clean_evaluator_container",
+        _fake_isolated,
+    )
+    monkeypatch.setattr(
+        "bora.application.attempt.run_l1_phases.run_reuse_attempt_evaluator",
+        _fake_reuse,
+    )
+    monkeypatch.setattr(
+        "bora.application.attempt.extension_hooks.hook_evaluation_input",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        "bora.application.attempt.extension_hooks.hook_evaluation_runtime",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        "bora.application.attempt.extension_hooks.hook_score_postprocess",
+        lambda _lock, raw: raw,
+    )
+
+    src = tmp_path / "art.json"
+    src.write_text("{}", encoding="utf-8")
+    staging = tmp_path / "eval_staging"
+    staging.mkdir()
+    lock = SimpleNamespace(evaluation={"reuse_attempt": True, "network": "bridge", "tmpfs_mb": 256})
+    runtime = SimpleNamespace(
+        image_lock=SimpleNamespace(image_tag="bora-pkg:test"),
+        writer_inventory=[],
+        writer_stop_confirmed=True,
+        agent_container_ids=["cid-live"],
+        target_ledger=None,
+        container_id=None,
+    )
+    ctx = AttemptStageContext(
+        package_root=tmp_path,
+        lock=lock,
+        run_dir=tmp_path,
+        runtime=runtime,
+        artifacts_map={
+            "artifact_key": "workspace-snapshot",
+            "artifact_filename": "workspace-snapshot.tar.gz",
+            "src": str(src),
+        },
+    )
+    evaluate_l1(ctx)
+    assert isolated == {}
+    assert reused["container_id"] == "cid-live"
+    assert ctx.evaluator_raw is not None
+    assert ctx.evaluator_raw["status"] == "FAIL"
+    assert ctx.l1_meta["eval_placement"]["reuse_attempt"] is True
+    assert ctx.l1_meta["eval_placement"]["network"] == "bridge"
+
+
+def test_seal_l1_inputs_copies_hidden_package_path(tmp_path: Path) -> None:
+    from bora.application.attempt.attempt_stages import AttemptStageContext
+    from bora.application.attempt.run_l1_phases import seal_l1_inputs
+
+    pkg = tmp_path / "pkg"
+    ev = pkg / "evaluation"
+    ev.mkdir(parents=True)
+    gold = ev / "hidden.json"
+    gold.write_text('{"gold": 1}\n', encoding="utf-8")
+    (pkg / "evaluator.py").write_text("def evaluate(ctx): ...\n", encoding="utf-8")
+    art = tmp_path / "session-output.json"
+    art.write_text("{}\n", encoding="utf-8")
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    lock = SimpleNamespace(
+        evaluation={
+            "inputs": [
+                {"artifact": "session-output", "target": "artifacts/session-output.json"},
+                {"package_path": "evaluation/hidden.json", "target": "hidden.json"},
+            ]
+        }
+    )
+    ctx = AttemptStageContext(
+        package_root=pkg,
+        lock=lock,
+        run_dir=run_dir,
+        runtime=SimpleNamespace(writer_stop_confirmed=True),
+        harness_out={
+            "envelope": {
+                "ok": True,
+                "terminal": {"kind": "completed"},
+                "published": {"session-output": str(art)},
+            }
+        },
+    )
+    assert seal_l1_inputs(ctx) is True
+    staging = run_dir / "eval_staging"
+    assert (staging / "hidden.json").read_text(encoding="utf-8") == '{"gold": 1}\n'
+    # Agent package view is a filtered host copy; gold stays out of package_root
+    # until this host staging step (then docker cp at eval).
+    assert not (pkg / "package_view").exists()
+
+
 def test_run_clean_evaluator_rejects_bad_tmpfs_before_docker(tmp_path: Path) -> None:
     staging = tmp_path / "eval"
     staging.mkdir()

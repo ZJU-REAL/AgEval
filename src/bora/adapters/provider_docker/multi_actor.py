@@ -193,6 +193,32 @@ class DockerMultiActorMixin:
                 self._rm_target(target)
             raise
 
+    def fence_agent_writers(self, runtime: DockerRuntime) -> None:
+        """Confirm agent writers stopped; keep containers for same-Attempt eval.
+
+        Does not ``docker rm``, reconnect, or rewrite the live network.
+        """
+        if runtime.target_ledger is None:
+            return
+        for target in runtime.target_ledger.targets.values():
+            cid = target.container_id
+            if not cid:
+                target.state = "dead"
+                runtime.record_writer_stop(True)
+                continue
+            inspect = subprocess.run(
+                ["docker", "inspect", "-f", "{{.State.Running}}", cid],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            running = inspect.returncode == 0 and inspect.stdout.strip().lower() == "true"
+            if not running:
+                target.state = "dead"
+                runtime.record_writer_stop(False)
+                continue
+            runtime.record_writer_stop(True)
+
     def stop_agent_targets(self, runtime: DockerRuntime) -> None:
         """Stop all agent targets; mark writer stop facts."""
         if runtime.target_ledger is None:

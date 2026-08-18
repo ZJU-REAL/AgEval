@@ -31,7 +31,9 @@ Evaluator 看不到 Agent credential、Harness 用过的可变 workspace、Harne
 
 ### L1 落点
 
-L1 用 Attempt **同一张包镜像** 新起评测容器：不挂 package、不挂 `/creds`、不挂 docker.sock、根文件系统 `--read-only`、网络 `none`。入口仍是 `evaluator.py` 的 `evaluate()`。
+L1 默认用 Attempt **同一张包镜像** 新起评测容器：不挂 package、不挂 `/creds`、不挂 docker.sock、根文件系统 `--read-only`。入口仍是 `evaluator.py` 的 `evaluate()`。PASS 只来自该函数返回的 `status` / `score`，轨迹与 harness `completed` 不是 PASS。
+
+`evaluation.network` 与 `provider.network` 同形：`none | bridge`。省略或 `none` 保持今日 isolated eval 离线（`docker run --network none`）。`bridge` 只作用于**新起的** isolated 评测容器。其它值 lock 失败。
 
 可写面只有 `/tmp` tmpfs。容量读 `evaluation.tmpfs_mb`（省略 32 MiB，#133）。默认 **`noexec`**。
 
@@ -44,7 +46,20 @@ L1 用 Attempt **同一张包镜像** 新起评测容器：不挂 package、不�
 
 `timeout_seconds` 可选，不超过 `limits.wall_time_seconds`。`writable` 注入 `BORA_EVAL_WORKDIR=/tmp/eval-work`。需要更大磁盘时仍声明 `tmpfs_mb`，不要另起字段。
 
-`evaluation_runtime` 插件不得改笼子、不得决定 PASS。
+`evaluation.reuse_attempt`（省略 ≡ `false`）：`true` 时 **不**新起评测容器。writer barrier 确认停止后，在 **Attempt 容器**内执行 `evaluator.py`（`docker exec` 或等价）。此时：
+
+- `evaluation.inputs` / hidden tests / gold **只在这一步** materialize；Agent 阶段不得挂载。
+- 评测进程不挂 `/creds`、不继承 host credential env；不得把 Agent 凭证留给 eval 调用。
+- 网络沿用 Attempt 容器已有的 `provider.network`。**不**重连、不改写 live 容器网络。`evaluation.network` 只约束 isolated（新容器）路径，对本路径忽略。
+- `placement` / `tmpfs_mb` 仍是 isolated-eval 笼子旋钮，不改写 Attempt rootfs。
+
+| `reuse_attempt` | `evaluation.network` | 评测落点 | 网络 |
+| --- | --- | --- | --- |
+| omit / `false` | omit / `none` | 新容器（默认） | `none` |
+| omit / `false` | `bridge` | 新容器 | `bridge` |
+| `true` | 路由忽略 | Attempt 容器 | `provider.network` |
+
+省略两字段 = 今日 isolated、离线 eval。`evaluation_runtime` 插件不得改笼子、不得决定 PASS。
 
 ## Result Binder
 

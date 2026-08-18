@@ -108,6 +108,43 @@ def test_stop_agent_targets_drops_named_home_volume() -> None:
     assert runtime.agent_container_ids == []
 
 
+def test_fence_agent_writers_keeps_container_and_network() -> None:
+    cmds: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> _Proc:
+        cmds.append(list(cmd))
+        if cmd[:2] == ["docker", "inspect"]:
+            return _Proc(returncode=0, stdout="true\n")
+        return _Proc()
+
+    attempt = _attempt()
+    runtime = DockerRuntime(
+        attempt=attempt,
+        image_lock=DockerImageLock(
+            kind="t",
+            platform="linux/arm64",
+            image_tag="bora-pkg:x",
+            image_digest="sha256:img",
+            build_input_digest="sha256:d",
+        ),
+        target_ledger=TargetLedger(topology=_topology()),
+    )
+    target = _target()
+    runtime.target_ledger.targets[target.target_id] = target  # type: ignore[union-attr]
+    runtime.agent_container_ids = ["cid1"]
+
+    with patch("bora.adapters.provider_docker.multi_actor.subprocess.run", side_effect=fake_run):
+        DockerProvider().fence_agent_writers(runtime)
+
+    assert runtime.writer_stop_confirmed is True
+    assert target.container_id == "cid1"
+    assert target.workspace_volume == "bora-home-abc"
+    assert runtime.agent_container_ids == ["cid1"]
+    assert not any(cmd[:2] == ["docker", "rm"] for cmd in cmds)
+    assert not any(cmd[:2] == ["docker", "network"] for cmd in cmds)
+    assert ["docker", "inspect", "-f", "{{.State.Running}}", "cid1"] in cmds
+
+
 def test_prepare_rollback_removes_container_and_volume() -> None:
     cmds: list[list[str]] = []
 
