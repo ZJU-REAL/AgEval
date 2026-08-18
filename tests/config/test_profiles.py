@@ -283,3 +283,79 @@ def test_display_labels_from_overlay_joins_distinct() -> None:
 def test_project_job_overlay_keeps_label() -> None:
     overlay = project_job_overlay({"solver": {"executor": "nooa", "label": "nooa", "model": "x"}})
     assert overlay["bindings"]["solver"]["label"] == "nooa"
+
+
+def test_unknown_binding_key_fail_closed(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "format": "bora.profiles/1",
+                "bindings": {"solver": {"executor": "mock", "not_a_field": 1}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError) as ei:
+        load_profiles_document(path)
+    assert ei.value.error_code == "invalid_schema"
+    assert "unknown binding keys" in str(ei.value)
+
+
+def test_top_level_overlays_fail_closed(tmp_path: Path) -> None:
+    path = tmp_path / "profiles.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "format": "bora.profiles/1",
+                "overlays": ["overlays/AGENTS.md"],
+                "bindings": {"solver": {"executor": "mock"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError) as ei:
+        load_profiles_document(path)
+    assert ei.value.error_code == "invalid_schema"
+    assert "unknown profiles keys" in str(ei.value)
+
+
+def test_overlays_allowlisted_and_projected() -> None:
+    overlay = project_job_overlay(
+        {
+            "solver": {
+                "executor": "acp",
+                "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
+                "overlays": ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"],
+            }
+        }
+    )
+    assert overlay["bindings"]["solver"]["overlays"] == [
+        "overlays/skills/jsonl-agg",
+        "overlays/AGENTS.md",
+    ]
+    assert "-----BEGIN" not in str(overlay)
+
+
+def test_job_overlay_omits_empty_overlays() -> None:
+    overlay = project_job_overlay({"solver": {"executor": "mock", "overlays": []}})
+    assert "overlays" not in overlay["bindings"]["solver"]
+
+
+def test_export_profiles_roundtrips_overlays(tmp_path: Path) -> None:
+    from bora.config.profiles import job_overlay_to_profiles_document, write_profiles_yaml
+
+    overlay = project_job_overlay(
+        {
+            "solver": {
+                "executor": "acp",
+                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
+                "overlays": ["overlays/AGENTS.md"],
+            }
+        }
+    )
+    doc = job_overlay_to_profiles_document(overlay)
+    path = tmp_path / "profiles.from-suite.yaml"
+    write_profiles_yaml(path, doc)
+    loaded = load_profiles_document(path)
+    assert loaded["solver"]["overlays"] == ["overlays/AGENTS.md"]
