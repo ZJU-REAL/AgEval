@@ -34,6 +34,6 @@ uv run bora run examples/core --task builtin-executor-conformance \
   --set '/parameters/active_profile="pi-mini"'
 ```
 
-Only allowlisted `--set` pointers work — see [CLI](/docs/reference/cli).
+Only allowlisted `--set` pointers work, e.g. `/bindings/solver/options/reasoning_effort="high"` — see [CLI](/docs/reference/cli).
 
 `api_key` is always an env **name**, never the secret. More: [ACP profiles](/docs/agents/acp-profiles).

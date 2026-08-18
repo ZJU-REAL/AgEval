@@ -97,6 +97,27 @@ def test_acp_unknown_entry_fails(tmp_path: Path) -> None:
         )
 
 
+def test_acp_reasoning_effort_option_survives_lock(tmp_path: Path) -> None:
+    pkg = _write_pkg(tmp_path / "pkg", ["solver"])
+    lock = _lock(
+        pkg,
+        {
+            "solver": {
+                "executor": "acp",
+                "model": "entry-default",
+                "extensions": [
+                    {
+                        "plugin": "acp",
+                        "options": {"entry": "pi", "reasoning_effort": "high"},
+                    }
+                ],
+            }
+        },
+    )
+    profiles = thaw(lock.agent_profiles)
+    assert profiles[0]["extensions"][0]["options"]["reasoning_effort"] == "high"
+
+
 def test_acp_package_cannot_override_command(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path / "pkg", ["bad"])
     with pytest.raises(ConfigError, match="not package-overridable"):

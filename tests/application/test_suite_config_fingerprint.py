@@ -30,7 +30,9 @@ def test_actors_summary_sorted_and_secret_free() -> None:
             "executor": "acp",
             "model": "m2",
             "api_key": "SECRET_LOCATOR",
-            "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
+            "extensions": [
+                {"plugin": "acp", "options": {"entry": "pi", "reasoning_effort": "high"}}
+            ],
         },
         {
             "id": "planner",
@@ -43,6 +45,7 @@ def test_actors_summary_sorted_and_secret_free() -> None:
     assert [a["profile_id"] for a in actors] == ["planner", "worker"]
     assert actors[0]["entry"] == "codex"
     assert actors[1]["entry"] == "pi"
+    assert "reasoning_effort" in actors[1]["options"]
     blob = str(actors)
     assert "SECRET" not in blob
     assert "api_key" not in blob

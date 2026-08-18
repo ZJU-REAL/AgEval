@@ -54,10 +54,11 @@ bindings:
       - plugin: acp
         options:
           entry: codex
+          # reasoning_effort: high
     model: gpt-5.4-mini
 ```
 
-`bora executors -v` 查 entry 与就绪状态。
+`bora executors -v` 查 entry 与就绪状态。`options.reasoning_effort` 可选，值必须是该 session 广告的 thinking selector。
 
 ## lock 常见失败
 
