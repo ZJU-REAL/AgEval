@@ -27,7 +27,7 @@ import {
   type SuiteRow,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { cn } from "@/lib/utils";
+import { cn, formatScore, reasoningEffortFromOverlay } from "@/lib/utils";
 import { CodeHighlight } from "@/lib/code-highlight";
 import {
   formatPassMetric,
@@ -37,8 +37,8 @@ import {
   primaryDisplayK,
 } from "@/lib/suite-metrics";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
+import { ModelLabel } from "@/components/model-label";
 import { ScrollTable } from "@/components/scroll-table";
-import { formatScore } from "@/lib/utils";
 
 /** Shared column widths — keep Agent/Model tight so columns stay similar. */
 const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
@@ -540,7 +540,13 @@ export function LeaderboardTable({
                     ) : (
                       <TruncateCell text={agentText} className={COL_TEXT} />
                     )}
-                    <TruncateCell text={modelText} className={COL_TEXT} mono />
+                    <TableCell className={COL_TEXT}>
+                      <ModelLabel
+                        value={modelText}
+                        effort={reasoningEffortFromOverlay(s.job_overlay)}
+                        className="font-mono text-xs"
+                      />
+                    </TableCell>
                     <TableCell
                       className={`text-right tabular-nums text-xs ${COL_METRIC}`}
                     >

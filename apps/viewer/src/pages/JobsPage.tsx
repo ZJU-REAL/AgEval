@@ -41,7 +41,8 @@ import {
 import { jobDisplayName, jobHref } from "@/lib/routes";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
-import { formatDate, formatScore, formatTrials } from "@/lib/utils";
+import { ModelLabel } from "@/components/model-label";
+import { formatDate, formatModelLabel, formatScore, formatTrials } from "@/lib/utils";
 
 type SortKey =
   | "job_name"
@@ -326,7 +327,7 @@ export function JobsPage() {
               <SelectItem value="all">All models</SelectItem>
               {models.map((m) => (
                 <SelectItem key={m} value={m}>
-                  {m}
+                  {formatModelLabel(m).text}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -450,9 +451,10 @@ export function JobsPage() {
                       />
                     </TableCell>
                     <TableCell className="max-w-[18rem]">
-                      <AxisLabel
+                      <ModelLabel
                         value={job.model_label}
-                        className="block truncate font-mono text-xs"
+                        effort={job.reasoning_effort}
+                        className="truncate font-mono text-xs"
                       />
                     </TableCell>
                     <TableCell className="tabular">

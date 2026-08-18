@@ -215,8 +215,8 @@ def validate_document(
         # executor: acp requires - plugin: acp / options.entry from static registry.
         # Packages must not override command/version/install.
         if executor == "acp":
-            from bora.adapters.acp_registry import get_entry
             from bora.config.profiles import plugin_row_options
+            from bora.plugins.contrib.acp.registry import get_entry
 
             options = plugin_row_options(profile, "acp")
             entry = options.get("entry")

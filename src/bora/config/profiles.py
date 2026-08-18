@@ -10,6 +10,7 @@ to a locator). ``base_url`` may be a literal URL or ``${ENV_NAME}`` (substituted
 from __future__ import annotations
 
 import copy
+import json
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -476,6 +477,46 @@ def join_display_names(names: Sequence[str]) -> str:
     if len(set(cleaned)) == 1:
         return cleaned[0]
     return "+".join(cleaned)
+
+
+def reasoning_effort_from_binding(binding: Mapping[str, Any] | None) -> str:
+    """ACP ``options.reasoning_effort`` from extensions, lock options, or actors_summary."""
+    if not isinstance(binding, Mapping):
+        return ""
+
+    def _from_opts(opts: Any) -> str:
+        raw = opts
+        if isinstance(raw, str) and raw.strip().startswith("{"):
+            try:
+                raw = json.loads(raw)
+            except json.JSONDecodeError:
+                return ""
+        if not isinstance(raw, Mapping):
+            return ""
+        val = raw.get("reasoning_effort")
+        return val.strip() if isinstance(val, str) and val.strip() else ""
+
+    entry = _from_opts(plugin_row_options(binding, "acp"))
+    if entry:
+        return entry
+    return _from_opts(binding.get("options"))
+
+
+def reasoning_effort_from_overlay(overlay: Mapping[str, Any] | None) -> str:
+    """Join distinct binding efforts; identical values collapse."""
+    if not isinstance(overlay, Mapping):
+        return ""
+    bindings = overlay.get("bindings")
+    if not isinstance(bindings, Mapping):
+        return ""
+    found: list[str] = []
+    for raw in bindings.values():
+        if not isinstance(raw, Mapping):
+            continue
+        effort = reasoning_effort_from_binding(raw)
+        if effort:
+            found.append(effort)
+    return join_display_names(found)
 
 
 def display_labels_from_overlay(overlay: Mapping[str, Any] | None) -> tuple[str, str]:

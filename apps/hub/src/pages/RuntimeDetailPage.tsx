@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
+import { ModelLabel } from "@/components/model-label";
 import {
   compareValues,
   nextSort,
@@ -417,8 +418,8 @@ export function RuntimeDetailPage() {
                         onClick={() => setSelectedKey(key)}
                       >
                         <TableCell className={COL_MODEL}>
-                          <TruncateTip
-                            text={row.model}
+                          <ModelLabel
+                            value={row.model}
                             className="font-mono text-xs"
                           />
                         </TableCell>

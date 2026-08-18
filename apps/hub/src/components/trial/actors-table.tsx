@@ -1,4 +1,5 @@
 import { HoverTip } from "@/components/hover-tip";
+import { ModelLabel } from "@/components/model-label";
 import {
   Table,
   TableBody,
@@ -36,7 +37,7 @@ export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }
                   {a.agent}
                 </TableCell>
                 <TableCell className="font-mono text-[13px] text-mute">
-                  {a.model || "-"}
+                  <ModelLabel value={a.model} effort={a.reasoning_effort} />
                 </TableCell>
                 <TableCell className="font-mono text-[13px] tabular text-body">
                   {a.time_label || "-"}

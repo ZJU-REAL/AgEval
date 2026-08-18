@@ -91,6 +91,7 @@ bindings:
       - plugin: acp
         options:
           entry: pi
+          reasoning_effort: high      # optional; exact advertised thinking value
     model: zai-coding-cn/glm-5.2
     api_key: ${glm_coding_api_key}   # host env locator name only
 ```
@@ -99,6 +100,7 @@ bindings:
 | --- | --- |
 | `- plugin: acp` / `options.entry` | **Required** when `executor: acp`. Registry ids (discover via `bora executors -v` → `acp_entries`): typically `codex`, `claude-code`, `pi`, `opencode`, `grok-build`. |
 | `overlays` | Optional list of Database-relative paths starting with `overlays/`. Plaza published set for that role. Not inferred from plugin `src`. |
+| `options.reasoning_effort` | Optional. Entries that advertise an ACP thinking selector (`category: thought_level` or a known id) bind after model via `set_config_option`. `grok-build` does not speak that method: the plugin adds `--reasoning-effort` to `grok agent … stdio` and records the selected `_meta` row. Exact value match; missing selector or unknown value fail closed. Unset does not fail. |
 | `options.command` / `version` / `install_command` / … | **Forbidden** in package yaml (registry owns pins). |
 | Host readiness | Per-entry `engine_ready` + `acp_entry_ready` in inventory — not the same as yaml `executor` kind. |
 

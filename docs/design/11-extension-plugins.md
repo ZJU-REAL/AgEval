@@ -234,7 +234,9 @@ extensions:
       composition: slim
 ```
 
-`--set /bindings/<role>/options/<key>` 写到 **该 role 的 executor 插件** 行（没有则补一行 `- plugin: <executor>`）。不能用同一指针表达非 executor 行（如 `home-files` 的 `files`）；那些只写 YAML。
+`--set /bindings/<role>/options/<key>` 写到 **该 role 的 executor 插件** 行（没有则补一行 `- plugin: <executor>`）。不能用同一指针表达非 executor 行（如 `home-files` 的 `files`）；那些只写 YAML。`--set /bindings/<role>/options/reasoning_effort` 因此写到 **acp** 行。
+
+first-party `acp` 插件拥有 parent ACP client、entry registry 与 entry-local 绑定。公开形状仍是 `executor: acp` + `- plugin: acp` / `options.entry`，**不是** `plugin: grok-build` / `executor: grok-build`。`options.entry: grok-build` 的 model / thinking 走 argv（`grok agent --model … --reasoning-effort … stdio`），不走 ACP `set_config_option`。广告了标准 `configOptions` 的其它 entry 仍用 `set_config_option`。官方五 entry 继续 bake-in `docker/attempt`，不经 `bora plugin install` / `image_contribute`。
 
 ### `home_overlay`（L1 multi；L0 在 Attempt HOME 存在后同样 emit）
 

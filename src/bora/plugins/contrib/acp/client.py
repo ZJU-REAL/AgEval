@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from bora.adapters.acp.usage import _as_plain_mapping
 from bora.adapters.agent_contract import AgentResult
+from bora.plugins.contrib.acp.usage import _as_plain_mapping
 
 
 def _offline_result(model: str) -> AgentResult:

@@ -13,20 +13,85 @@ from pathlib import Path
 from typing import Any
 
 from bora import __version__ as BORA_VERSION
-from bora.adapters.acp.client import (
-    _BoraAcpClient,
-    _map_stop_reason,
-    _offline_result,
-)
-from bora.adapters.acp.trajectory_map import acp_session_events_to_bora
-from bora.adapters.acp.types import ProcessLauncher
-from bora.adapters.acp.usage import _as_plain_mapping, normalize_acp_usage
-from bora.adapters.acp_registry import AcpEntryDescriptor, get_entry, readiness_for
 from bora.adapters.agent_contract import (
     AgentExecutor,
     AgentResult,
     parse_validated_text_structured,
 )
+from bora.plugins.contrib.acp.client import (
+    _BoraAcpClient,
+    _map_stop_reason,
+    _offline_result,
+)
+from bora.plugins.contrib.acp.entry_local import (
+    acp_stdio_argv,
+    apply_grok_build_bind,
+    uses_entry_local_bind,
+)
+from bora.plugins.contrib.acp.registry import AcpEntryDescriptor, get_entry, readiness_for
+from bora.plugins.contrib.acp.trajectory_map import acp_session_events_to_bora
+from bora.plugins.contrib.acp.types import ProcessLauncher
+from bora.plugins.contrib.acp.usage import _as_plain_mapping, normalize_acp_usage
+
+# Advertised ACP config option ids that mean thinking / reasoning effort.
+# Category ``thought_level`` is the protocol selector; these ids cover entries
+# that omit the category or use a vendor-shaped id.
+_REASONING_OPTION_IDS = frozenset(
+    {"thought_level", "reasoning_effort", "reasoning", "thinking", "effort"}
+)
+
+
+def _field(obj: Any, *names: str) -> Any:
+    """Read a snake_case or camelCase attribute / mapping key."""
+    if obj is None:
+        return None
+    for name in names:
+        if isinstance(obj, dict) and name in obj:
+            val = obj[name]
+            if val is not None:
+                return val
+        val = getattr(obj, name, None)
+        if val is not None:
+            return val
+    return None
+
+
+def _config_options_from(obj: Any) -> Any:
+    return _field(obj, "config_options", "configOptions")
+
+
+def _select_option_values(opt: Any) -> list[str]:
+    """Flatten a select option's values, including grouped choices."""
+    raw = _field(opt, "options")
+    if not raw:
+        return []
+    values: list[str] = []
+    for item in raw:
+        grouped = _field(item, "options")
+        own = _field(item, "value")
+        if grouped and own is None:
+            for child in grouped:
+                val = _field(child, "value")
+                if val is not None:
+                    values.append(str(val))
+            continue
+        if own is not None:
+            values.append(str(own))
+    return values
+
+
+def _find_reasoning_config_option(config_options: Any) -> Any:
+    """First advertised thinking selector (category, then known ids)."""
+    if not config_options:
+        return None
+    by_id = None
+    for opt in config_options:
+        if _field(opt, "category") == "thought_level":
+            return opt
+        oid = _field(opt, "id")
+        if by_id is None and oid in _REASONING_OPTION_IDS:
+            by_id = opt
+    return by_id
 
 
 class AcpExecutor(AgentExecutor):
@@ -39,6 +104,7 @@ class AcpExecutor(AgentExecutor):
         *,
         entry_id: str,
         model: str = "entry-default",
+        reasoning_effort: str | None = None,
         base_url: str | None = None,
         api_key_env: str | None = None,
         descriptor: AcpEntryDescriptor | None = None,
@@ -49,6 +115,9 @@ class AcpExecutor(AgentExecutor):
     ) -> None:
         self.entry_id = entry_id
         self.model = model
+        self.reasoning_effort = reasoning_effort.strip() if reasoning_effort else None
+        if self.reasoning_effort == "":
+            self.reasoning_effort = None
         self.base_url = base_url
         self.api_key_env = api_key_env
         resolved = descriptor if descriptor is not None else get_entry(entry_id)
@@ -69,6 +138,7 @@ class AcpExecutor(AgentExecutor):
         self._agent_info: dict[str, Any] | None = None
         self._protocol_version: int | None = None
         self._actual_model: str | None = None
+        self._actual_reasoning_effort: str | None = None
         self._lock = threading.Lock()
         self._closed = False
         self._cm: Any = None  # async context manager for spawn
@@ -112,7 +182,7 @@ class AcpExecutor(AgentExecutor):
 
         client = _BoraAcpClient()
         self._client = client
-        cmd = self._command_override or list(self.descriptor.acp_command)
+        cmd = self._command_override or self.host_stdio_argv()
         if not cmd:
             raise RuntimeError("acp_entry_missing")
         command, *args = cmd
@@ -156,53 +226,60 @@ class AcpExecutor(AgentExecutor):
         if not self._acp_session_id:
             raise RuntimeError("acp_protocol_error")
 
-        await self._bind_model(new)
+        await self._bind_entry(init, new)
 
-    async def _bind_model(self, new_session_resp: Any) -> None:
+    def host_stdio_argv(self) -> list[str]:
+        """ACP stdio argv for a host spawn (no docker-exec prefix)."""
+        return acp_stdio_argv(
+            self.entry_id,
+            list(self.descriptor.acp_command),
+            model=self.model,
+            reasoning_effort=self.reasoning_effort,
+        )
+
+    async def _bind_entry(self, initialize: Any, new_session_resp: Any) -> None:
+        if uses_entry_local_bind(self.entry_id):
+            actual_model, actual_effort = apply_grok_build_bind(
+                initialize=initialize,
+                session=new_session_resp,
+                model=self.model,
+                reasoning_effort=self.reasoning_effort,
+            )
+            self._actual_model = actual_model
+            self._actual_reasoning_effort = actual_effort
+            return
+        latest = await self._bind_model(new_session_resp)
+        await self._bind_reasoning_effort(latest)
+
+    async def _bind_model(self, new_session_resp: Any) -> Any:
+        """Bind model. Returns the latest ``configOptions`` (refreshed after set)."""
         desired = self.model
+        initial = _config_options_from(new_session_resp)
         if self.descriptor.model_binding == "entry-default-only":
             if desired not in ("entry-default", "", None):
                 raise RuntimeError("acp_model_unavailable")
             # Record whatever the entry uses by default if present.
             self._actual_model = "entry-default"
-            return
+            return initial
 
-        config_options = getattr(new_session_resp, "config_options", None) or getattr(
-            new_session_resp, "configOptions", None
-        )
-        if config_options:
-            for opt in config_options:
-                category = getattr(opt, "category", None) or (
-                    opt.get("category") if isinstance(opt, dict) else None
-                )
-                if category != "model":
+        if initial:
+            for opt in initial:
+                if _field(opt, "category") != "model":
                     continue
-                config_id = getattr(opt, "id", None) or (
-                    opt.get("id") if isinstance(opt, dict) else None
-                )
-                current = getattr(opt, "current_value", None) or getattr(opt, "currentValue", None)
-                options = getattr(opt, "options", None) or (
-                    opt.get("options") if isinstance(opt, dict) else None
-                )
-                values: list[str] = []
-                if options:
-                    for o in options:
-                        val = getattr(o, "value", None) or (
-                            o.get("value") if isinstance(o, dict) else None
-                        )
-                        if val is not None:
-                            values.append(str(val))
+                config_id = _field(opt, "id")
+                current = _field(opt, "current_value", "currentValue")
+                values = _select_option_values(opt)
                 if desired == "entry-default":
                     self._actual_model = str(current) if current is not None else "entry-default"
-                    return
+                    return initial
                 if desired in values:
-                    await self._conn.set_config_option(
+                    resp = await self._conn.set_config_option(
                         config_id=str(config_id),
                         session_id=self._acp_session_id,
                         value=desired,
                     )
                     self._actual_model = desired
-                    return
+                    return _config_options_from(resp) or initial
                 # exact match failed
                 raise RuntimeError("acp_model_unavailable")
 
@@ -221,7 +298,7 @@ class AcpExecutor(AgentExecutor):
                 if desired not in ids and not any(desired in i for i in ids):
                     raise RuntimeError("acp_model_unavailable")
             self._actual_model = desired if desired != "entry-default" else "entry-default"
-            return
+            return initial
 
         # No model surface — accept entry default only.
         if desired not in ("entry-default",):
@@ -229,6 +306,30 @@ class AcpExecutor(AgentExecutor):
             self._actual_model = desired
         else:
             self._actual_model = "entry-default"
+        return initial
+
+    async def _bind_reasoning_effort(self, config_options: Any) -> None:
+        """Apply profile ``options.reasoning_effort`` to the advertised selector."""
+        desired = self.reasoning_effort
+        if not desired:
+            return
+        opt = _find_reasoning_config_option(config_options)
+        if opt is None:
+            raise RuntimeError("acp_reasoning_effort_unavailable")
+        config_id = _field(opt, "id")
+        current = _field(opt, "current_value", "currentValue")
+        values = _select_option_values(opt)
+        if current is not None and desired == str(current):
+            self._actual_reasoning_effort = desired
+            return
+        if not config_id or desired not in values:
+            raise RuntimeError("acp_reasoning_effort_unavailable")
+        await self._conn.set_config_option(
+            config_id=str(config_id),
+            session_id=self._acp_session_id,
+            value=desired,
+        )
+        self._actual_reasoning_effort = desired
 
     async def _prompt_once(self, prompt: str) -> AgentResult:
         import acp
@@ -310,6 +411,8 @@ class AcpExecutor(AgentExecutor):
             "agent_info": self._agent_info,
             "locked_model": self.model,
             "actual_model": self._actual_model,
+            "locked_reasoning_effort": self.reasoning_effort,
+            "actual_reasoning_effort": self._actual_reasoning_effort,
             "stop_reason": str(stop) if stop is not None else None,
             "integration_mode": self.descriptor.integration_mode,
         }

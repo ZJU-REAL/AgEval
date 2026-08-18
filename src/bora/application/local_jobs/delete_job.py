@@ -272,22 +272,22 @@ class LocalJobsCommands:
         summary = _load_json_object(suite_dir / "summary.json") or {}
         run_ids = _collect_referenced_run_ids(summary)
         error: dict[str, str] | None = None
+        warning: dict[str, str] | None = None
         if _suite_in_progress(suite_dir):
-            error = {
+            warning = {
                 "code": "job_in_progress",
                 "message": "suite is still in progress or cancel is live",
             }
-        else:
-            stolen: list[str] = []
-            for rid in run_ids:
-                others = _suites_claiming_run(root, rid, exclude=job_id)
-                if others:
-                    stolen.append(rid)
-            if stolen:
-                error = {
-                    "code": "job_claimed_elsewhere",
-                    "message": ("attempt still claimed by another suite: " + ", ".join(stolen)),
-                }
+        stolen: list[str] = []
+        for rid in run_ids:
+            others = _suites_claiming_run(root, rid, exclude=job_id)
+            if others:
+                stolen.append(rid)
+        if stolen:
+            error = {
+                "code": "job_claimed_elsewhere",
+                "message": ("attempt still claimed by another suite: " + ", ".join(stolen)),
+            }
         paths = [
             _path_entry(
                 root,
@@ -318,6 +318,7 @@ class LocalJobsCommands:
             "cascade_run_ids": run_ids,
             "confirm_token": _confirm_token(job_id, "suite", locators),
             "error": error,
+            "warning": warning,
         }
 
     def _preview_single(self, root: Path, *, job_id: str) -> dict[str, Any]:

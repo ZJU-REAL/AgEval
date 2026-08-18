@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJobTask, type Job, type TaskRow, type Trial } from "@/lib/api";
+import { ModelLabel } from "@/components/model-label";
 import { jobPath, trialPath } from "@/lib/routes";
 import { cn, formatDate, formatError, formatScore } from "@/lib/utils";
 
@@ -80,8 +81,23 @@ export function TaskDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono">{taskId}</h1>
-            <p className="text-sm text-mute mt-1">
-              {[meta.agent, meta.model, meta.dataset].filter(Boolean).join(" / ")}
+            <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5">
+              {meta.agent ? <span>{meta.agent}</span> : null}
+              {meta.model ? (
+                <>
+                  {meta.agent ? <span aria-hidden>/</span> : null}
+                  <ModelLabel
+                    value={meta.model}
+                    effort={job?.reasoning_effort}
+                  />
+                </>
+              ) : null}
+              {meta.dataset ? (
+                <>
+                  {meta.agent || meta.model ? <span aria-hidden>/</span> : null}
+                  <span>{meta.dataset}</span>
+                </>
+              ) : null}
             </p>
           </div>
           <p className="text-xs text-mute hidden md:block">

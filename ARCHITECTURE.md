@@ -132,15 +132,14 @@ BORA/
 │   │   ├── lifecycle.py       # emit helpers：host 在控制点 await chain / provide SPI
 │   │   ├── manifest.py        # bora.plugin/1 + host_requires / plugin_requires allowlist
 │   │   └── contrib/           # first-party：acp / openai_http / mock（nooa 为外置包）
+│   │       └── acp/           # parent ACP client + executor + entry registry
+│   │           ├── acp_entries.json
+│   │           └── registry.py  # pins + host readiness（不拥有 trajectory.jsonl writer）
 │   ├── viewer/                # 本地 Jobs/Trial HTTP API（trials/ 包）
 │   └── adapters/
 │       ├── package_fs.py
 │       ├── provider_local.py  # LocalProcessProvider
 │       ├── provider_docker/   # Docker L1 + multi-actor ExecutionTarget
-│       ├── acp/               # ACP 协议实现 + vendor→bora.trajectory.event/1 映射
-│       │                      # （不拥有 trajectory.jsonl writer）
-│       ├── acp_entries.json   # Current: static entry pins / descriptors
-│       ├── acp_registry.py    # Current: registry + readiness
 │       ├── agent_container.py # L1 placement helpers / docker exec wrap
 │       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
@@ -200,10 +199,8 @@ BORA/
 │   ├── capabilities/          # Core 4：agent/env/workspace/artifacts/events 契约
 │   ├── evaluation/            # Core 5：barrier、bind、result 模型
 │   ├── domain/                # 薄共享 value types / 错误类型
+│   ├── plugins/contrib/acp/   # first-party ACP：parent client + entry registry
 │   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
-│       ├── acp/                # 唯一 typed ACP client（parent）
-│       ├── acp_entries.json   # entry descriptor + exact pins
-│       ├── acp_registry.py    # entry registry
 │       ├── agent_container.py # L1 placement helpers
 │       └── agent_openai_http.py
 ├── sdk/python/bora_sdk/       # Harness Core：HarnessContext 等（可选 import）
@@ -234,7 +231,8 @@ BORA/
 | `capabilities/`                             | Capability 面与 Attempt 注入契约                                                                                                | 具体 Codex/DB 实现                                              |
 | `evaluation/`                               | barrier 顺序、raw 校验、扁平 Result、与 evidence 衔接                                                                           | package 内评分逻辑                                              |
 | `evidence/`                                 | Attempt store / redaction / 层 C `trajectory.jsonl` writer（只消费 `bora.trajectory.event/1`） | vendor 协议解析；PASS | 
-| `adapters/*`                                | package fs、Docker、credentials；**ACP client + entry registry**（coding-agent 唯一 inlet）；ACP/openai-http **映到层 B**；`openai-http` api-client | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape；写层 C |
+| `plugins/contrib/acp/`                      | first-party parent ACP client、entry registry、entry-local bind                                                                  | 层 C writer；`bora plugin install`；按 vendor 再写 stdout scrape |
+| `adapters/*`                                | package fs、Docker、credentials；`openai-http` api-client                                                                        | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape；写层 C；拥有 ACP client |
 | `domain/`                                   | 跨模块稳定值对象与错误分类                                                                                                      | I/O、Typer、Docker SDK                                          |
 | `bora_sdk`                                  | Harness 侧类型与薄 helper                                                                                                       | Control Plane 内部类型、verdict                                 |
 | `examples/`                                 | 可信回归 package                                                                                                                | 声称支持完整 upstream suite                                     |
@@ -356,7 +354,7 @@ created
 | ----------------------- | ---------------------------------- | ----------------------- |
 | 本机 process（L0）      | Provider adapter                   | `v0.3`                  |
 | Docker Attempt（L1）    | Provider adapter                   | `v0.8`                  |
-| ACP coding-agent        | `adapters/acp` + entry registry    | 唯一 coding-agent inlet |
+| ACP coding-agent        | first-party `plugins/contrib/acp`  | 唯一 coding-agent inlet；entry-local bind 留在插件内 |
 | 其他 Agent 后端         | `openai-http` / 插件 Executor kind | 非 vendor stdout scrape |
 | DB/浏览器等             | Environment adapter                | `v0.10`                 |
 | 宿主持久化 ControlStore | 未定；默认不做                     | 勿提前引入              |

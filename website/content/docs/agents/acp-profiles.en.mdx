@@ -14,6 +14,7 @@ bindings:
       - plugin: acp
         options:
           entry: codex
+          # reasoning_effort: high   # optional; must be a value the session advertises
     model: gpt-5.4-mini
 ```
 
@@ -21,6 +22,7 @@ bindings:
 | --- | --- |
 | `executor` | Use `acp` for coding agents |
 | `- plugin: acp` / `options.entry` | **Required**; discover with `bora executors -v` |
+| `options.reasoning_effort` | Optional. Entries with an advertised thinking selector use `set_config_option`. `grok-build` adds `--reasoning-effort` on `grok agent … stdio` |
 | `model` | Model id for that entry |
 | `api_key` | Optional env **name** |
 

@@ -124,7 +124,7 @@ def project_cli_child_env(
     else:
         # ACP entry ids (codex/pi/opencode/…) carry allowlists here.
         try:
-            from bora.adapters.acp_registry import get_entry
+            from bora.plugins.contrib.acp.registry import get_entry
 
             desc = get_entry(kind)
             if desc is not None:
@@ -210,7 +210,7 @@ def cli_credential_available(
     else:
         names = _ENTRY_CREDENTIAL_ENV.get(kind, ())
         try:
-            from bora.adapters.acp_registry import get_entry
+            from bora.plugins.contrib.acp.registry import get_entry
 
             desc = get_entry(kind)
             if desc is not None:

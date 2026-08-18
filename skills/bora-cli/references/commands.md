@@ -18,7 +18,7 @@ Stdout JSON (high level):
 | `acp_entries[]` | Per ACP `entry_id`: `acp_command`, `engine_ready`, `acp_entry_ready`, `host_ready`, credential env *names* |
 
 - Logic: `bora.adapters.executor_inventory` (CLI is thin print)
-- ACP registry: `bora.adapters.acp_registry` (static pins; not package-overridable)
+- ACP registry: `bora.plugins.contrib.acp.registry` (static pins; not package-overridable)
 - Plugin `host_ready` uses declared `host_requires` / reachable `describe()` — not “installed” and not PATH-probing wheel binaries
 - `-v` adds tools/session/stream + richer entry fields
 - No package path; no secrets; exit 0

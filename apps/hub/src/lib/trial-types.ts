@@ -4,6 +4,7 @@ export type TrialActor = {
   role: string;
   agent: string;
   model?: string | null;
+  reasoning_effort?: string | null;
   profile_id?: string;
   invokes?: number;
   latency_ms_sum?: number | null;

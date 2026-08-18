@@ -7,9 +7,9 @@ import shutil
 
 import pytest
 
-from bora.adapters.acp import AcpExecutor
-from bora.adapters.acp_registry import get_entry, list_entry_ids, readiness_for
 from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES
+from bora.plugins.contrib.acp import AcpExecutor
+from bora.plugins.contrib.acp.registry import get_entry, list_entry_ids, readiness_for
 
 
 def test_acp_offline_forced() -> None:

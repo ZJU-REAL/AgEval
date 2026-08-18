@@ -17,7 +17,8 @@ from bora.config.eval_placement import (
 )
 
 _EVAL_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-_DEFAULT_EVAL_USER = "10001:10001"
+_REUSE_DEFAULT_USER = "12000:12000"
+_REUSE_DEFAULT_HOME = "/actor-homes/default"
 _EMPTY_CREDS = "/tmp/bora-empty-creds"
 
 
@@ -225,14 +226,19 @@ def run_reuse_attempt_evaluator(
     artifact_key: str,
     expected_filename: str | None,
     placement: EvalPlacement,
-    uid_gid: str = _DEFAULT_EVAL_USER,
+    uid_gid: str | None = None,
     image_tag: str = "bora-attempt:l1",
+    actor_home: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Run ``evaluator.py`` in the live Attempt container. No new eval box.
 
     Network stays whatever ``provider.network`` already is. Host credential
     env is not forwarded. Hidden inputs must already be on ``staging``.
     ``/creds`` is overlaid empty before exec; hide failure is ERROR.
+
+    Actor ``HOME`` / ``PYTHONUSERBASE`` stay on the Attempt home so
+    ``pip install --user`` packages remain importable. Host TOKEN/API_KEY
+    env is still dropped via ``env -i``.
     """
     fail_meta = {
         "ok": False,
@@ -293,18 +299,21 @@ def run_reuse_attempt_evaluator(
                 },
                 fail_meta,
             )
+    home = actor_home if actor_home else _REUSE_DEFAULT_HOME
+    user = uid_gid if uid_gid else _REUSE_DEFAULT_USER
     cmd = [
         "docker",
         "exec",
         "-u",
-        uid_gid,
+        user,
         "-w",
         "/eval",
         container_id,
         "env",
         "-i",
         f"PATH={_EVAL_PATH}",
-        "HOME=/tmp",
+        f"HOME={home}",
+        f"PYTHONUSERBASE={home}/.local",
         "python",
         "-c",
         script,

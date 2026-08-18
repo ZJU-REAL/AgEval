@@ -51,6 +51,6 @@ def test_private_kinds_gone() -> None:
 def test_resolve_acp_constructor() -> None:
     ex = resolve_executor("acp", model="entry-default", entry="opencode")
     assert getattr(ex, "kind", None) == "acp"
-    # SPI may wrap adapters.acp.AcpExecutor
+    # SPI may wrap plugins.contrib.acp.AcpExecutor
     inner = getattr(ex, "_inner", ex)
     assert getattr(inner, "entry_id", None) == "opencode"
