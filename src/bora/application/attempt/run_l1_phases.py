@@ -27,6 +27,7 @@ from bora.application.attempt.run_l1_prepare import (
     prepare_l1_runtime,
     seed_l1_workspace,
 )
+from bora.config.eval_placement import resolve_eval_placement
 from bora.config.model import thaw
 from bora.config.profiles import acp_entry_from_binding
 from bora.evaluation.result_binding import bind_result
@@ -41,15 +42,12 @@ def _lock_acp_entry(profile: dict[str, Any]) -> str | None:
 
 
 def _reuse_attempt(ctx: AttemptStageContext) -> bool:
-    try:
-        from bora.config.eval_placement import resolve_eval_placement
-
-        ev = thaw(ctx.lock.evaluation) if ctx.lock is not None else {}
-        if not isinstance(ev, dict):
-            ev = {}
-        return resolve_eval_placement(ev).reuse_attempt
-    except Exception:
+    if ctx.lock is None:
         return False
+    ev = thaw(ctx.lock.evaluation)
+    if not isinstance(ev, dict):
+        ev = {}
+    return resolve_eval_placement(ev).reuse_attempt
 
 
 def _reuse_container_id(runtime: Any) -> str | None:
@@ -506,8 +504,6 @@ def evaluate_l1(ctx: AttemptStageContext) -> None:
             ctx.l1_meta["evaluation_runtime"] = (
                 dict(runtime_ann) if isinstance(runtime_ann, dict) else {"value": runtime_ann}
             )
-        from bora.config.eval_placement import resolve_eval_placement
-
         eval_cfg = thaw(ctx.lock.evaluation)
         if not isinstance(eval_cfg, dict):
             eval_cfg = {}

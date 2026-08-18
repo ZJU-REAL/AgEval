@@ -217,51 +217,27 @@ def run_reuse_attempt_evaluator(
         print(json.dumps(raw))
         """
     )
-    mkdir = subprocess.run(
-        ["docker", "exec", "-u", "0:0", container_id, "mkdir", "-p", "/eval"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if mkdir.returncode != 0:
-        return (
-            {
-                "status": "ERROR",
-                "score": None,
-                "metrics": {"error": "eval_mkdir_failed", "stderr": (mkdir.stderr or "")[-500:]},
-            },
-            fail_meta,
-        )
-    copied = subprocess.run(
-        ["docker", "cp", f"{staging}/.", f"{container_id}:/eval/"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if copied.returncode != 0:
-        return (
-            {
-                "status": "ERROR",
-                "score": None,
-                "metrics": {"error": "eval_copy_failed", "stderr": (copied.stderr or "")[-500:]},
-            },
-            fail_meta,
-        )
-    chmod = subprocess.run(
-        ["docker", "exec", "-u", "0:0", container_id, "chmod", "-R", "a+rX", "/eval"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if chmod.returncode != 0:
-        return (
-            {
-                "status": "ERROR",
-                "score": None,
-                "metrics": {"error": "eval_chmod_failed", "stderr": (chmod.stderr or "")[-500:]},
-            },
-            fail_meta,
-        )
+    for cmd, err in (
+        (
+            ["docker", "exec", "-u", "0:0", container_id, "mkdir", "-p", "/eval"],
+            "eval_mkdir_failed",
+        ),
+        (["docker", "cp", f"{staging}/.", f"{container_id}:/eval/"], "eval_copy_failed"),
+        (
+            ["docker", "exec", "-u", "0:0", container_id, "chmod", "-R", "a+rX", "/eval"],
+            "eval_chmod_failed",
+        ),
+    ):
+        step = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if step.returncode != 0:
+            return (
+                {
+                    "status": "ERROR",
+                    "score": None,
+                    "metrics": {"error": err, "stderr": (step.stderr or "")[-500:]},
+                },
+                fail_meta,
+            )
     cmd = [
         "docker",
         "exec",
