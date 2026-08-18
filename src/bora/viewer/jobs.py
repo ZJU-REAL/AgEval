@@ -59,21 +59,28 @@ def _task_dicts(summary: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _ensure_metrics(summary: dict[str, Any]) -> dict[str, Any]:
+    from bora.application.suite.suite_metrics import ensure_suite_metrics
+
     metrics = summary.get("metrics")
     if isinstance(metrics, dict) and metrics:
-        return metrics
+        n_tasks = metrics.get("n_tasks")
+        if n_tasks:
+            return metrics
     rows = _task_dicts(summary)
-    if not rows:
-        return {
-            "pass_rate": 0.0,
-            "mean_score": 0.0,
-            "n_tasks": 0,
-            "n_pass": 0,
-            "n_fail": 0,
-            "n_error": 0,
-            "missing_score_as": 0.0,
-        }
-    return aggregate_task_metrics(rows)
+    if rows:
+        return aggregate_task_metrics(rows)
+    rebuilt = ensure_suite_metrics(summary)
+    if isinstance(rebuilt, dict) and rebuilt.get("n_tasks"):
+        return rebuilt
+    return {
+        "pass_rate": 0.0,
+        "mean_score": 0.0,
+        "n_tasks": 0,
+        "n_pass": 0,
+        "n_fail": 0,
+        "n_error": 0,
+        "missing_score_as": 0.0,
+    }
 
 
 def _ensure_task_refs(summary: dict[str, Any]) -> list[dict[str, Any]]:

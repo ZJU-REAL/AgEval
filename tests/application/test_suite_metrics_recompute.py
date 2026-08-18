@@ -239,3 +239,17 @@ def test_ensure_suite_task_refs_from_summary_attempts() -> None:
     assert refs[0]["n"] == 2
     assert refs[0]["c"] == 2
     assert refs[0]["attempt_run_ids"] == ["a0", "a1"]
+
+
+def test_ensure_suite_task_refs_attempts_only() -> None:
+    summary = {
+        "attempts": [
+            {"task_id": "a", "attempt_index": 0, "status": "PASS", "score": 1.0, "run_id": "a0"},
+            {"task_id": "b", "attempt_index": 0, "status": "FAIL", "score": 0.0, "run_id": "b0"},
+        ]
+    }
+    refs = ensure_suite_task_refs(summary)
+    by_id = {str(r["task_id"]): r for r in refs}
+    assert set(by_id) == {"a", "b"}
+    assert by_id["a"]["attempt_run_ids"] == ["a0"]
+    assert by_id["b"]["status"] == "FAIL"

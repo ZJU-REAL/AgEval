@@ -60,6 +60,46 @@ def _clean_db(tmp_path: Path) -> Path:
     return db
 
 
+def test_get_job_from_attempts_only_summary(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = "suite_attempts_only"
+    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir.mkdir(parents=True, exist_ok=True)
+    (suite_dir / "summary.json").write_text(
+        json.dumps(
+            {
+                "schema": "bora.suite.summary/1",
+                "suite_run_id": job_id,
+                "attempts": [
+                    {
+                        "task_id": "alpha",
+                        "attempt_index": 0,
+                        "status": "PASS",
+                        "score": 1.0,
+                        "run_id": "run_a",
+                    },
+                    {
+                        "task_id": "beta",
+                        "attempt_index": 0,
+                        "status": "FAIL",
+                        "score": 0.0,
+                        "run_id": "run_b",
+                    },
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    detail = jobs.get_job(db, job_id)
+    assert detail["task_count"] == 2
+    ids = {row["task_id"] for row in detail["tasks"]}
+    assert ids == {"alpha", "beta"}
+    by_id = {row["task_id"]: row for row in detail["tasks"]}
+    assert by_id["alpha"]["status"] == "PASS"
+    assert by_id["beta"]["status"] == "FAIL"
+
+
 def test_list_and_get_job(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = _seed_suite_run(db)

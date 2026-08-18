@@ -774,6 +774,22 @@ def ensure_suite_task_refs(
     if isinstance(attempts_raw, list) and attempts_raw:
         attempts = [a for a in attempts_raw if isinstance(a, Mapping)]
 
+    if not rows and attempts:
+        # Interrupted resume may persist attempts[] without tasks[].
+        by_tid: dict[str, dict[str, Any]] = {}
+        for attempt in attempts:
+            tid = str(attempt.get("task_id") or "").strip()
+            if not tid or tid in by_tid:
+                continue
+            by_tid[tid] = {
+                "task_id": tid,
+                "status": attempt.get("status"),
+                "score": attempt.get("score"),
+                "run_id": attempt.get("run_id"),
+                "error": attempt.get("error"),
+            }
+        rows = list(by_tid.values())
+
     # Prefer rebuilding from tasks + attempts so n/c/run_ids stay complete.
     if rows:
         rebuilt = task_refs_for_summary(rows, attempts=attempts)
