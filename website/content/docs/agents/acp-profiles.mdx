@@ -23,7 +23,7 @@ bindings:
 | --- | --- |
 | `executor` | coding agent 用 `acp`（不要用已废弃的 `executor: codex` 等） |
 | `- plugin: acp` / `options.entry` | **必填**；本机可用 id 以 `bora executors -v` 为准 |
-| `options.reasoning_effort` | 可选；绑完 model 后原样设到 ACP thinking selector |
+| `options.reasoning_effort` | 可选；广告了 thinking selector 的 entry 走 `set_config_option`。`grok-build` 写进 `grok agent --reasoning-effort … stdio` |
 | `model` | 交给该 entry 的模型 |
 | `api_key` | 可选；`${ENV_NAME}` locator |
 | `base_url` | 可选；字面 URL 或 `${ENV_NAME}` |

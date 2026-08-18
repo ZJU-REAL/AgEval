@@ -114,6 +114,8 @@ class AcpExecutorSPI(ExecutorSPI):
         child_env.setdefault("XDG_CACHE_HOME", f"{home}/.cache")
         child_env.setdefault("XDG_STATE_HOME", f"{home}/.local/state")
         child_env.setdefault("XDG_DATA_HOME", f"{home}/.local/share")
+        from bora.plugins.contrib.acp.entry_local import acp_stdio_argv
+
         desc = self._inner.descriptor
         for k, v in desc.fixed_env.items():
             child_env.setdefault(str(k), str(v))
@@ -123,7 +125,12 @@ class AcpExecutorSPI(ExecutorSPI):
             gid=int(placement.gid),
             workdir=str(getattr(placement, "workdir", None) or "/attempt/workspace"),
             env=child_env,
-            argv=list(desc.acp_command),
+            argv=acp_stdio_argv(
+                self._entry_id,
+                list(desc.acp_command),
+                model=self._model,
+                reasoning_effort=self._reasoning_effort,
+            ),
             shared_write=bool(getattr(placement, "shared_write", False)),
             shared_gid=getattr(placement, "shared_gid", None),
         )
