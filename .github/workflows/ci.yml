@@ -3,6 +3,7 @@
 #   python-registry — offline pytest tests/registry only
 #   viewer-app / hub-app — pnpm lint + build
 #   website         — pnpm build
+#   design-tokens   — web UI token machine-check (docs/design/13)
 #
 # Jobs always start (required-check friendly) and no-op when their path filter
 # is false. Workflow edits re-run every job. No Docker L1 / real Agent e2e.
@@ -31,6 +32,7 @@ jobs:
       viewer_app: ${{ steps.filter.outputs.viewer_app }}
       hub_app: ${{ steps.filter.outputs.hub_app }}
       website: ${{ steps.filter.outputs.website }}
+      design_tokens: ${{ steps.filter.outputs.design_tokens }}
       workflow: ${{ steps.filter.outputs.workflow }}
     steps:
       - name: Checkout
@@ -59,6 +61,11 @@ jobs:
               - 'apps/hub/**'
             website:
               - 'website/**'
+            design_tokens:
+              - 'website/**'
+              - 'apps/**'
+              - 'docs/design/13-web-ui-tokens.md'
+              - 'scripts/check_design_tokens.py'
             workflow:
               - '.github/workflows/ci.yml'
 
@@ -293,3 +300,20 @@ jobs:
       - name: Build
         if: needs.changes.outputs.website == 'true' || needs.changes.outputs.workflow == 'true'
         run: pnpm build
+
+  design-tokens:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Skip (no web-UI paths)
+        if: needs.changes.outputs.design_tokens != 'true' && needs.changes.outputs.workflow != 'true'
+        run: echo "Skipping design-tokens."
+
+      - name: Checkout
+        if: needs.changes.outputs.design_tokens == 'true' || needs.changes.outputs.workflow == 'true'
+        uses: actions/checkout@v4
+
+      - name: Check design tokens
+        if: needs.changes.outputs.design_tokens == 'true' || needs.changes.outputs.workflow == 'true'
+        run: python3 scripts/check_design_tokens.py

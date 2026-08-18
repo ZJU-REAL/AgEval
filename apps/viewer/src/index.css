@@ -2,7 +2,7 @@
 
 /* Semantic color aliases → CSS variables (swapped by theme) */
 @theme {
-  --font-sans: "Inter", "Geist", system-ui, -apple-system, sans-serif;
+  --font-sans: "Geist", "Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, monospace;
 
   --color-ink: var(--viewer-ink);
@@ -30,6 +30,8 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  --color-on-accent: #ffffff;
 }
 
 /* Light tokens: cool paper + Klein Blue (shared with website) */
@@ -43,19 +45,21 @@
   --viewer-canvas: #f4f5f8;
   --viewer-canvas-soft: #e8eaf1;
   --viewer-canvas-soft-2: #e4e7f0;
-  --viewer-link: #002fa7;
+  --viewer-link: #1b54e8;
   --viewer-link-deep: #001f73;
   --viewer-error: #ee0000;
   --viewer-error-soft: #f7d4d6;
   --viewer-warning: #f5a623;
   --viewer-row-hover: #e8eaf1;
   --viewer-code-bg: #f4f5f8;
-  --viewer-shell-cmd: #002fa7;
+  --viewer-shell-cmd: #1b54e8;
   --viewer-shell-flag: #6b4fbb;
   --viewer-shell-string: #0b6e4f;
   --viewer-shell-path: #0d7a4f;
   --viewer-shell-punct: #7a7f90;
   --viewer-shell-plain: #14161f;
+
+  --viewer-shadow-pop: 0 1px 1px rgb(0 0 0 / 3%), 0 8px 16px -4px rgb(0 0 0 / 8%);
 }
 
 /* Dark product chrome: cool ink + IKB bright */
@@ -106,6 +110,8 @@
     --viewer-shell-path: #7ee787;
     --viewer-shell-punct: #8b949e;
     --viewer-shell-plain: #eef0f6;
+
+    --viewer-shadow-pop: 0 1px 1px rgb(0 0 0 / 40%), 0 8px 16px -4px rgb(0 0 0 / 50%);
   }
 }
 
@@ -119,14 +125,14 @@
     --viewer-canvas: #f4f5f8;
     --viewer-canvas-soft: #e8eaf1;
     --viewer-canvas-soft-2: #e4e7f0;
-    --viewer-link: #002fa7;
+    --viewer-link: #1b54e8;
     --viewer-link-deep: #001f73;
     --viewer-error: #ee0000;
     --viewer-error-soft: #f7d4d6;
     --viewer-warning: #f5a623;
     --viewer-row-hover: #e8eaf1;
     --viewer-code-bg: #f4f5f8;
-    --viewer-shell-cmd: #002fa7;
+    --viewer-shell-cmd: #1b54e8;
     --viewer-shell-flag: #6b4fbb;
     --viewer-shell-string: #0b6e4f;
     --viewer-shell-path: #0d7a4f;
@@ -138,6 +144,30 @@
 @layer base {
   * {
     border-color: var(--color-hairline);
+  }
+
+  :root {
+    /* Chamfer for primary CTA / brand slots (see docs/design/13-web-ui-tokens.md). */
+    --chamfer: polygon(
+      0 0,
+      calc(100% - 9px) 0,
+      100% 9px,
+      100% 100%,
+      9px 100%,
+      0 calc(100% - 9px)
+    );
+
+    /* Focus edge for chamfered controls: drop-shadow follows the clipped
+       silhouette, unlike ring/outline which clip-path would clip away. */
+    --chamfer-focus-ring: var(--color-link);
+
+    /* Phase/token ramp for timing bars: IKB lead + neutral follow (docs/design/13). */
+    --viewer-phase-1: var(--viewer-link);
+    --viewer-phase-2: var(--viewer-link-deep);
+    --viewer-phase-3: var(--viewer-ink);
+    --viewer-phase-4: var(--viewer-body);
+    --viewer-phase-5: var(--viewer-mute);
+    --viewer-phase-6: var(--viewer-hairline-strong);
   }
 
   html,
@@ -165,6 +195,20 @@
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-size: 13px;
+}
+
+@utility chamfer {
+  clip-path: var(--chamfer);
+}
+
+@utility chamfer-focus {
+  &:focus-visible {
+    filter:
+      drop-shadow(2px 0 0 var(--chamfer-focus-ring))
+      drop-shadow(-2px 0 0 var(--chamfer-focus-ring))
+      drop-shadow(0 2px 0 var(--chamfer-focus-ring))
+      drop-shadow(0 -2px 0 var(--chamfer-focus-ring));
+  }
 }
 
 /* Table-row hover is more reliable than Tailwind group-hover on <tr>. */

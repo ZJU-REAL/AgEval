@@ -4,7 +4,7 @@
 
 /*
   Site chrome shares landing's Klein Blue / cool ink system.
-  Light: cool paper + IKB #002FA7. Dark: cool navy ink + #5B7BFF.
+  Light: cool paper + IKB #1B54E8. Dark: cool navy ink + #5B7BFF.
 */
 
 :root {
@@ -17,13 +17,13 @@
   --color-fd-card: #eef0f6;
   --color-fd-card-foreground: #14161f;
   --color-fd-border: #d5d8e2;
-  --color-fd-primary: #002fa7;
+  --color-fd-primary: #1b54e8;
   --color-fd-primary-foreground: #ffffff;
   --color-fd-secondary: #e4e7f0;
   --color-fd-secondary-foreground: #14161f;
-  --color-fd-accent: rgb(0 47 167 / 10%);
+  --color-fd-accent: rgb(27 84 232 / 10%);
   --color-fd-accent-foreground: #14161f;
-  --color-fd-ring: #002fa7;
+  --color-fd-ring: #1b54e8;
   --color-fd-overlay: rgb(16 18 28 / 24%);
 }
 
@@ -54,7 +54,7 @@
 }
 
 :root {
-  --bora-link: #002fa7;
+  --bora-link: #1b54e8;
   --bora-link-deep: #001f73;
 }
 
@@ -116,4 +116,17 @@ samp {
 html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
+}
+
+/* Prose alignment with the web UI system (docs/design/13-web-ui-tokens.md). */
+::selection {
+  background: color-mix(in srgb, var(--color-fd-primary) 28%, transparent);
+}
+
+.prose :not(pre) > code {
+  font-size: 0.85em;
+  background: var(--color-fd-muted);
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
 }

@@ -52,6 +52,7 @@ Issues                   增量交付与实现缺口
 | [10-examples-database-52.md](10-examples-database-52.md) | 设计意图下的示例对照（非进度） |
 | [11-extension-plugins.md](11-extension-plugins.md) | 扩展点 L0–L5、注册表、lock bindings、`bora.plugin/1`、Recognition ≠ L0 host-ready ≠ L1 bake-declared、`--probe` |
 | [12-hub-dataset-and-leaderboard.md](12-hub-dataset-and-leaderboard.md) | Dataset draft/release、dataset ACL、Leaderboard 完备性、suite 插件出处、个人主页、chrome |
+| [13-web-ui-tokens.md](13-web-ui-tokens.md) | Web UI 令牌与不变量(website/hub/viewer 三端):色彩、字体、形状、十条不变量、机检 |
 
 ### Runtime 子文（执行链）
 
