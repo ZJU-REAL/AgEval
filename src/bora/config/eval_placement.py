@@ -12,6 +12,10 @@ PLACEMENT_STAGING = "staging"
 PLACEMENT_WRITABLE = "writable"
 PLACEMENTS = frozenset({PLACEMENT_STAGING, PLACEMENT_WRITABLE})
 
+NETWORK_NONE = "none"
+NETWORK_BRIDGE = "bridge"
+NETWORKS = frozenset({NETWORK_NONE, NETWORK_BRIDGE})
+
 TIMEOUT_ABS_MAX = 3600.0
 WORKDIR_ENV = "BORA_EVAL_WORKDIR"
 WORKDIR_PATH = "/tmp/eval-work"
@@ -28,6 +32,7 @@ class EvalPlacement:
     timeout_seconds: float
     tmpfs_mb: int
     tmpfs_exec: bool
+    network: str = NETWORK_NONE
 
     @property
     def tmpfs_spec(self) -> str:
@@ -62,10 +67,12 @@ def resolve_eval_placement(
     mode = raw_mode
 
     network = doc.get("network")
-    if network is not None and network != "none":
+    if network is None:
+        network = NETWORK_NONE
+    if not isinstance(network, str) or network not in NETWORKS:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            "evaluation.network must be 'none'",
+            "evaluation.network must be none|bridge",
             location="/evaluation/network",
         )
 
@@ -110,4 +117,5 @@ def resolve_eval_placement(
         timeout_seconds=timeout,
         tmpfs_mb=tmpfs,
         tmpfs_exec=(mode == PLACEMENT_WRITABLE),
+        network=network,
     )

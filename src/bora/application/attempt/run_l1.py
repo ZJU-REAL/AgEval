@@ -4,7 +4,8 @@ Containment rules:
 - Harness container: network none, filtered package (no evaluation/), no credentials.
 - Agent Executor container: optional bridge network + credential projection only;
   workspace-only write; filtered package; never evaluation/.
-- Clean evaluator container: staging only, network none, no package mount, no creds.
+- Clean evaluator container: staging only, no package mount, no creds;
+  network from evaluation.network (omit ≡ none).
 - assurance:l1 only when harness + agent (if any) + evaluator writers confirmed and
   isolation probes pass.
 

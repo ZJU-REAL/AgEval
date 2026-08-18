@@ -464,6 +464,7 @@ def evaluate_l1(ctx: AttemptStageContext) -> None:
             "timeout_seconds": placement.timeout_seconds,
             "tmpfs_mb": placement.tmpfs_mb,
             "tmpfs_exec": placement.tmpfs_exec,
+            "network": placement.network,
         }
         eval_raw, eval_meta = run_clean_evaluator_container(
             image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",

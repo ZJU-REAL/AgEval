@@ -23,7 +23,24 @@ def test_defaults_staging() -> None:
     assert spec.timeout_seconds == 90.0
     assert spec.tmpfs_mb == 32
     assert spec.tmpfs_exec is False
+    assert spec.network == "none"
     assert spec.tmpfs_spec == "/tmp:rw,noexec,nosuid,size=32m"
+
+
+def test_network_omit_and_none_are_offline() -> None:
+    assert resolve_eval_placement({"tmpfs_mb": 32}).network == "none"
+    assert resolve_eval_placement({"network": "none", "tmpfs_mb": 32}).network == "none"
+
+
+def test_network_bridge_accepted() -> None:
+    spec = resolve_eval_placement({"network": "bridge", "tmpfs_mb": 32})
+    assert spec.network == "bridge"
+
+
+def test_bad_network() -> None:
+    with pytest.raises(ConfigError, match="network") as ei:
+        resolve_eval_placement({"network": "host", "tmpfs_mb": 32})
+    assert ei.value.location == "/evaluation/network"
 
 
 def test_writable_keeps_declared_tmpfs() -> None:
@@ -98,7 +115,6 @@ artifacts:
 evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
-  network: none
 {extra}
   inputs: []
   output:
@@ -123,6 +139,47 @@ def test_lock_accepts_writable_with_tmpfs(tmp_path: Path) -> None:
     assert ev.get("placement") == "writable"
     assert ev.get("timeout_seconds") == 180
     assert ev.get("tmpfs_mb") == 4096
+
+
+def test_lock_omits_network(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    _pkg(pkg, "  tmpfs_mb: 32")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    locked = core.load_and_lock(
+        pkg,
+        "eval-place",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings=_P1,
+    )
+    ev = dict(locked.evaluation)
+    assert "network" not in ev or ev.get("network") is None
+
+
+def test_lock_accepts_network_bridge(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    _pkg(pkg, "  network: bridge\n  tmpfs_mb: 32")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    locked = core.load_and_lock(
+        pkg,
+        "eval-place",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings=_P1,
+    )
+    assert dict(locked.evaluation).get("network") == "bridge"
+
+
+def test_lock_rejects_unknown_network(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    _pkg(pkg, "  network: host")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    with pytest.raises(ConfigError, match="network") as ei:
+        core.load_and_lock(
+            pkg,
+            "eval-place",
+            capabilities=DeclarationCapabilityCatalog(),
+            profile_bindings=_P1,
+        )
+    assert ei.value.location == "/evaluation/network"
 
 
 def test_lock_rejects_timeout_over_wall(tmp_path: Path) -> None:

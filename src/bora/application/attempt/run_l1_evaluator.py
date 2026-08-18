@@ -1,4 +1,7 @@
-"""L1 clean evaluator container — staging-only, network none, no package/creds."""
+"""L1 clean evaluator container — staging-only, no package/creds.
+
+Network is ``evaluation.network`` (omit ≡ none). Isolated eval only.
+"""
 
 from __future__ import annotations
 
@@ -72,6 +75,7 @@ def run_clean_evaluator_container(
             timeout_seconds=90.0,
             tmpfs_mb=tmpfs_mb,
             tmpfs_exec=False,
+            network="none",
         )
     else:
         spec = placement
@@ -87,7 +91,7 @@ def run_clean_evaluator_container(
         "--security-opt",
         "no-new-privileges",
         "--network",
-        "none",
+        spec.network,
         "--read-only",
         "--tmpfs",
         clean_eval_tmpfs_mount(spec.tmpfs_mb, allow_exec=spec.tmpfs_exec),
