@@ -35,6 +35,10 @@ extensions:
 
 Secrets stay locators. Overlay JSON must not embed tokens. No JSON deep-merge.
 
+To show the same files on the Hub Runtime plaza, list them on this role as
+`overlays:` (Database-relative paths under `overlays/`). That field is the
+published set; this plugin still copies only its own `files[].src`.
+
 ## Run
 
 ```bash

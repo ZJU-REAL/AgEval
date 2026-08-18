@@ -25,6 +25,7 @@ CLI: `bora lock|run <database-root> --task <task_id>` · `bora tasks <database-r
 my-database/                 # CLI path (bora.database/1)
 ├── bora.yaml                # Database identity / version / tasks.root
 ├── profiles.yaml            # job binding defaults (role id → entry/model/locator)
+├── overlays/                # optional plaza-published files (binding.overlays)
 ├── env.example              # documented credential locator names only
 ├── .env                     # local secrets (gitignore; never publish)
 ├── README.md                # author/run notes (optional but recommended)
@@ -232,6 +233,9 @@ format: bora.profiles/1
 bindings:
   solver:
     executor: acp
+    overlays:                   # optional; plaza published set for this role
+      - overlays/skills/jsonl-agg
+      - overlays/AGENTS.md
     extensions:
       - plugin: acp
         options:
@@ -245,6 +249,11 @@ bindings:
   #   base_url: ${OPENAI_BASE_URL}
   #   api_key: ${zhipu_coding_api_key}
 ```
+
+`overlays` is a list of Database-relative paths under `overlays/`. Omit or `[]`
+means no Runtime plaza file tree. Config does **not** infer this list from
+plugin `src`. Listed files must stay locator-only (no tokens / PEM). Two roles
+that publish the same path each list it; the Dataset still has one blob.
 
 ## Ownership rules
 

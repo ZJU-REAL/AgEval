@@ -78,6 +78,8 @@ uv run bora executors -v   # + tools/session/stream; .acp_entries[] for ACP
 bindings:
   solver:
     executor: acp
+    overlays:                     # optional plaza published set
+      - overlays/AGENTS.md
     extensions:
       - plugin: acp
         options:
@@ -96,6 +98,7 @@ bindings:
 | Field | Rule |
 | --- | --- |
 | `- plugin: acp` / `options.entry` | **Required** when `executor: acp`. Registry ids (discover via `bora executors -v` → `acp_entries`): typically `codex`, `claude-code`, `pi`, `opencode`, `grok-build`. |
+| `overlays` | Optional list of Database-relative paths starting with `overlays/`. Plaza published set for that role. Not inferred from plugin `src`. |
 | `options.command` / `version` / `install_command` / … | **Forbidden** in package yaml (registry owns pins). |
 | Host readiness | Per-entry `engine_ready` + `acp_entry_ready` in inventory — not the same as yaml `executor` kind. |
 
