@@ -124,10 +124,11 @@ def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: objec
     assert len(helpers) == 1
     helper = helpers[0]
     assert "--privileged" in helper
+    assert helper[helper.index("--user") + 1] == "0:0"
+    assert helper[helper.index("--entrypoint") + 1] == "nsenter"
     assert "--pid" in helper
     assert helper[helper.index("--pid") + 1] == "container:cid-live"
     assert helper[helper.index("--network") + 1] == "none"
-    assert "nsenter" in helper
     assert "/creds" in helper
     execs = [cmd for cmd in captured if cmd[:2] == ["docker", "exec"]]
     assert execs
