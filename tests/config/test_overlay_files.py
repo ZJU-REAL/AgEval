@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -23,7 +24,7 @@ from bora.config.profiles import load_profiles_document
 def _write_database(
     tmp: Path,
     *,
-    bindings: dict[str, object],
+    bindings: dict[str, Any],
     overlay_files: dict[str, str] | None = None,
 ) -> Path:
     db = tmp / "db"
@@ -73,13 +74,13 @@ def _write_database(
     return db
 
 
-def _lock(db: Path, bindings: dict[str, object]):
+def _lock(db: Path, bindings: dict[str, dict[str, Any]]):
     core = ConfigCore(package_reader=LocalPackageReader())
     return core.load_and_lock(
         db / "tasks" / "t",
         "t",
         capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=bindings,  # type: ignore[arg-type]
+        profile_bindings=bindings,
     )
 
 
