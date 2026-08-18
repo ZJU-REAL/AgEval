@@ -275,7 +275,10 @@ official-org database release. Identity is the agent product (ACP
 | GET | `/v1/runtimes/{runtime_id}` | same; **404** when no public official appearance |
 
 List cards have counts (`n_datasets`, `n_appearances`) and **no** headline
-score. Detail adds `appearances` (one row per role on that suite). Public
+score. Detail adds `appearances` (one row per role on that suite) with bound
+release coordinates (`database_id`, `database_version`, `package_digest`) and
+optional `overlays` paths from that binding. Hub opens those paths via the
+existing package files API; there is no `/v1/runtimes/{id}/files`. Public
 official board suite JSON may include `runtime_refs` (`role`, `runtime_id`,
 `display_name`); other suites omit it.
 
