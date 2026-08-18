@@ -49,7 +49,9 @@ Handlers are **awaited** at the control point with a live `ctx`. Do not dump
 | Credential **projection** (locator → scoped env) | Use only projected env | Secrets in lock / plugin.yaml / evidence |
 
 `bora plugin install` writes **only** `$BORA_HOME/plugins` (default `~/.bora/plugins`).
-It **never** rewrites `profiles.yaml` / `task.yaml` / harness.
+It **never** rewrites `profiles.yaml` / `task.yaml` / harness. A declared
+`plugin_requires` row is installed first: short `name` is cache or local
+sibling only (never Hub); `org/name` fetches that exact Hub package.
 
 ### Recognition ≠ L0 host-ready ≠ L1 bake-declared
 

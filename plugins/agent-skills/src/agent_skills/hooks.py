@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from home_files.hooks import apply_files
-
 PLUGIN_ID = "agent-skills"
 DEST_ROOTS = frozenset({"home", "workspace"})
 KNOWN_ACP_ENTRIES = frozenset({"codex", "claude-code", "opencode", "pi", "grok-build"})
@@ -181,6 +179,8 @@ def build_home_overlay(**kwargs: Any) -> Any:
 
     async def handler(ctx: Any, value: Any, nxt: Any) -> Any:
         del ctx
+        from home_files.hooks import apply_files
+
         payload = dict(value) if isinstance(value, dict) else {}
         files = expand_files(options, payload)
         _assert_skill_markdown(files, payload)

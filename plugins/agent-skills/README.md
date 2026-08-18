@@ -43,7 +43,25 @@ extensions:
 | `instructions[]` | `AGENTS.md` and (when `claude-code` is bound) `CLAUDE.md`. |
 | `dest_roots` | Default `[home]`. Authors may add `workspace`. |
 
-`grok-build` uses the generic `.agents/skills/` dests only.
+Skills copy `<src>` → `<root>/<prefix>/<skill-name>/`. Dests are deduped.
+
+| entry | HOME prefix (default) | workspace prefix (opt-in) |
+| --- | --- | --- |
+| always | `.agents/skills/` | `.agents/skills/` |
+| `codex` | `.codex/skills/` | `.codex/skills/` |
+| `claude-code` | `.claude/skills/` | `.claude/skills/` |
+| `opencode` | `.config/opencode/skills/` | `.opencode/skills/` |
+| `pi` | `.pi/agent/skills/` | `.pi/skills/` |
+| `grok-build` | generic `.agents` only | generic `.agents` only |
+
+Instruction files (same bytes as each `instructions[]` src):
+
+| file | when | HOME | workspace |
+| --- | --- | --- | --- |
+| `AGENTS.md` | any `instructions` row | `.codex/AGENTS.md` if lock has `codex` | always workspace root `AGENTS.md` |
+| `CLAUDE.md` | lock has `claude-code` | `.claude/CLAUDE.md` | workspace root `CLAUDE.md` |
+
+Do not drop `AGENTS.md` at `$HOME/AGENTS.md`. Engines do not look there.
 
 ## Run
 
