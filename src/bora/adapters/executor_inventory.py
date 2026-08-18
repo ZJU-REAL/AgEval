@@ -143,6 +143,7 @@ def _describe_plugin_executor(
         installed_plugin,
         l1_bake_declared,
     )
+    from bora.plugins.plugin_requires import plugin_requires_satisfied
 
     found = installed_plugin(kind)
     l1_declared = False
@@ -153,7 +154,10 @@ def _describe_plugin_executor(
     if found is not None:
         manifest, root = found
         l1_declared = l1_bake_declared(manifest, root)
-        if manifest.host_requires:
+        requires_ok = plugin_requires_satisfied(manifest.plugin_requires)
+        if not requires_ok:
+            host_ready = False
+        elif manifest.host_requires:
             host_ready = host_requires_satisfied(manifest.host_requires, root=root)
         elif caps is not None:
             host_ready = True

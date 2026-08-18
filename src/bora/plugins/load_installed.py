@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import importlib
 import sys
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from bora.plugins.host_requires import installed_plugin
 from bora.plugins.manifest import PluginManifest, PluginManifestError, load_manifest
+from bora.plugins.plugin_requires import PluginRequiresError, assert_no_plugin_requires_cycle
 from bora.plugins.registry import ExtensionRegistry
 from bora.plugins.slots import get_slot_kind
 from bora.plugins.store import list_installed, resolve_package_root
@@ -21,13 +24,17 @@ class PluginLoadError(Exception):
         self.message = message
 
 
-def _import_entry(package_root: Path, entry: str) -> Any:
-    """Load ``module:attr`` with *package_root* (and package_root/src) on sys.path."""
+def _import_entry(package_root: Path, entry: str, extra_roots: Sequence[Path] = ()) -> Any:
+    """Load ``module:attr`` with required neighbors then *package_root* on sys.path."""
     if ":" not in entry:
         raise PluginLoadError(f"bad entry {entry!r}", kind="plugin_entry_invalid")
     mod_name, attr = entry.split(":", 1)
     added: list[str] = []
-    for p in (package_root, package_root / "src"):
+    roots: list[Path] = []
+    for extra in extra_roots:
+        roots.extend((extra, extra / "src"))
+    roots.extend((package_root, package_root / "src"))
+    for p in roots:
         s = str(p.resolve(strict=False))
         if p.is_dir() and s not in sys.path:
             sys.path.insert(0, s)
@@ -53,6 +60,21 @@ def _manifest_with_index_id(manifest: PluginManifest, plugin_id: str) -> PluginM
     return replace(manifest, plugin_id=plugin_id)
 
 
+def _required_roots(manifest: PluginManifest) -> list[Path]:
+    """Package roots of declared plugin_requires that are already cached."""
+    try:
+        assert_no_plugin_requires_cycle(manifest.plugin_id)
+    except PluginRequiresError as exc:
+        raise PluginLoadError(exc.message, kind=exc.kind) from exc
+    roots: list[Path] = []
+    for item in manifest.plugin_requires:
+        found = installed_plugin(item.plugin_id)
+        if found is None:
+            continue
+        roots.append(found[1])
+    return roots
+
+
 def register_manifest(
     registry: ExtensionRegistry,
     manifest: Any,
@@ -62,6 +84,7 @@ def register_manifest(
     source: str = "installed",
 ) -> None:
     """Register all provide/on entries from a loaded manifest."""
+    extra_roots = _required_roots(manifest)
     for slot_entry in manifest.provide:
         kind = get_slot_kind(slot_entry.id)
         if kind.value != "provide":
@@ -69,7 +92,7 @@ def register_manifest(
                 f"slot {slot_entry.id!r} is multi; cannot provide()",
                 kind="plugin_slot_kind_mismatch",
             )
-        factory = _import_entry(package_root, slot_entry.entry)
+        factory = _import_entry(package_root, slot_entry.entry, extra_roots)
         registry.provide(
             slot_entry.id,
             manifest.plugin_id,
@@ -87,7 +110,7 @@ def register_manifest(
                 f"slot {slot_entry.id!r} is provide; cannot on()",
                 kind="plugin_slot_kind_mismatch",
             )
-        handler = _import_entry(package_root, slot_entry.entry)
+        handler = _import_entry(package_root, slot_entry.entry, extra_roots)
         registry.on(
             slot_entry.id,
             manifest.plugin_id,

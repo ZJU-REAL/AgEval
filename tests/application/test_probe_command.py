@@ -175,6 +175,96 @@ def test_offline_is_reported(bora_home: Path, monkeypatch: pytest.MonkeyPatch) -
     assert payload["probe"]["offline_agent"] is True
 
 
+def test_probe_walks_extension_plugin_requires(
+    bora_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from bora.application.attempt.probe_command import probe_locked
+    from bora.application.composition import build_lock_command
+    from bora.plugins.install import install_from_local
+    from bora.plugins.store import uninstall
+
+    del bora_home
+    monkeypatch.setenv("PROBE_API_KEY", "x")
+    plugins = tmp_path / "plugins"
+    for name in ("neighbor", "needs-neighbor"):
+        root = plugins / name
+        root.mkdir(parents=True)
+        requires = "plugin_requires:\n  - plugin_id: neighbor\n" if name == "needs-neighbor" else ""
+        (root / "plugin.yaml").write_text(
+            (
+                "format: bora.plugin/1\n"
+                f"plugin_id: {name}\n"
+                "version: 0.1.0\n"
+                f"{requires}"
+                "slots:\n"
+                '  "on":\n'
+                "    - id: home_overlay\n"
+                "      priority: 120\n"
+                "      entry: demo.hooks:build\n"
+            ),
+            encoding="utf-8",
+        )
+        src = root / "src" / "demo"
+        src.mkdir(parents=True)
+        (src / "__init__.py").write_text("", encoding="utf-8")
+        (src / "hooks.py").write_text(
+            "def build(**_k):\n    async def h(ctx, value, nxt):\n        return await nxt(value)\n    return h\n",
+            encoding="utf-8",
+        )
+    install_from_local(plugins / "needs-neighbor")
+    profiles = tmp_path / "profiles.yaml"
+    profiles.write_text(
+        (
+            "format: bora.profiles/1\n"
+            "bindings:\n"
+            "  solver:\n"
+            "    executor: host-probe\n"
+            "    extensions:\n"
+            "      - plugin: host-probe\n"
+            "      - plugin: needs-neighbor\n"
+            "    model: none\n"
+            "    api_key: ${PROBE_API_KEY}\n"
+        ),
+        encoding="utf-8",
+    )
+    from bora.plugins import bootstrap as boot
+    from bora.plugins.registry import reset_global_registry
+
+    boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
+    reset_global_registry()
+    locked, _extra = build_lock_command().lock_with_provenance(
+        database_root=DB,
+        task_id="l0-task",
+        profiles_path=profiles,
+    )
+    locked_l1, _ = build_lock_command().lock_with_provenance(
+        database_root=DB,
+        task_id="l1-task",
+        profiles_path=profiles,
+    )
+    ok_probe = probe_locked(locked, environ={"PROBE_API_KEY": "x"})
+    reqs = [c for c in ok_probe["checks"] if c["id"] == "plugin_requires"]
+    assert reqs and all(c["ok"] for c in reqs)
+    installed = [c for c in ok_probe["checks"] if c["id"] == "plugin_installed"]
+    assert any(c["plugin"] == "needs-neighbor" and c["ok"] for c in installed)
+
+    uninstall("neighbor")
+    missing = probe_locked(locked, environ={"PROBE_API_KEY": "x"})
+    assert missing["ready"] is False
+    reqs = [c for c in missing["checks"] if c["id"] == "plugin_requires"]
+    assert reqs and any(c["ok"] is False and c["required"] == "neighbor" for c in reqs)
+
+    l1_probe = probe_locked(
+        locked_l1,
+        environ={"PROBE_API_KEY": "x"},
+        docker_reachable=lambda: True,
+    )
+    assert l1_probe["path"] == "l1"
+    assert l1_probe["ready"] is False
+    assert any(c["id"] == "plugin_requires" and c["ok"] is False for c in l1_probe["checks"])
+    assert "host_import" not in {c["id"] for c in l1_probe["checks"]}
+
+
 def test_no_plugin_id_extra_table() -> None:
     text = (
         Path(__file__).resolve().parents[2]

@@ -25,6 +25,7 @@ from bora.plugins.host_requires import (
     l1_bake_declared,
     locator_names_present,
 )
+from bora.plugins.plugin_requires import evaluate_plugin_requires
 from bora.runtime.offline import is_offline_agent
 
 DockerProbe = Callable[[], bool]
@@ -73,6 +74,38 @@ def bound_bindings(lock: LockedTaskConfig) -> list[dict[str, Any]]:
         if entry:
             item["entry"] = entry
         rows.append(item)
+    return rows
+
+
+def bound_extension_plugins(lock: LockedTaskConfig) -> list[dict[str, str]]:
+    """Every ``extensions[].plugin`` (and executor) named on the locked job."""
+    overlay = thaw(lock.job_overlay) or {}
+    bindings = overlay.get("bindings") if isinstance(overlay, Mapping) else None
+    if not isinstance(bindings, Mapping):
+        return []
+    rows: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for role, row in bindings.items():
+        if not isinstance(row, Mapping):
+            continue
+        role_id = str(role)
+        candidates: list[str] = []
+        extensions = row.get("extensions")
+        if isinstance(extensions, Sequence) and not isinstance(extensions, (str, bytes)):
+            for item in extensions:
+                if isinstance(item, Mapping):
+                    plugin = str(item.get("plugin") or "").strip()
+                    if plugin:
+                        candidates.append(plugin)
+        executor = str(row.get("executor") or "").strip()
+        if executor:
+            candidates.append(executor)
+        for plugin in candidates:
+            key = (role_id, plugin)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({"role": role_id, "plugin": plugin})
     return rows
 
 
@@ -202,6 +235,44 @@ def _probe_first_party(
     return checks
 
 
+def _probe_extension_plugins(lock: LockedTaskConfig) -> list[dict[str, Any]]:
+    """plugin_installed + plugin_requires for every bound extension (L0 and L1)."""
+    checks: list[dict[str, Any]] = []
+    seen_plugins: set[str] = set()
+    for row in bound_extension_plugins(lock):
+        plugin_id = row["plugin"]
+        if plugin_id in seen_plugins:
+            continue
+        seen_plugins.add(plugin_id)
+        if plugin_id in FIRST_PARTY_KINDS:
+            checks.append(
+                {
+                    "id": "plugin_installed",
+                    "ok": True,
+                    "plugin": plugin_id,
+                    "role": row["role"],
+                    "source": "first-party",
+                }
+            )
+            continue
+        found = installed_plugin(plugin_id)
+        checks.append(
+            {
+                "id": "plugin_installed",
+                "ok": found is not None,
+                "plugin": plugin_id,
+                "role": row["role"],
+            }
+        )
+        if found is None:
+            continue
+        manifest, _root = found
+        checks.extend(
+            evaluate_plugin_requires(manifest.plugin_requires, plugin_id=plugin_id)
+        )
+    return checks
+
+
 def probe_locked(
     lock: LockedTaskConfig,
     *,
@@ -238,6 +309,7 @@ def probe_locked(
                     selected_contribute=selected_contribute,
                 )
             )
+    checks.extend(_probe_extension_plugins(lock))
     ready = all(bool(c.get("ok")) for c in checks)
     return {
         "ready": ready,
