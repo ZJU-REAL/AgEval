@@ -199,10 +199,8 @@ src/bora/
 │   ├── inputs.py
 │   └── result_binding.py
 ├── evidence/                # Attempt evidence store / trajectory
+├── plugins/contrib/acp/     # first-party ACP：parent client + entry registry + pins
 ├── adapters/                # first-party 参考实现；亦可外置为独立包
-│   ├── acp/                 # 唯一 typed ACP client（parent）
-│   ├── acp_entries.json     # entry descriptor + exact pins
-│   ├── acp_registry.py      # entry registry
 │   ├── agent_openai_http.py # api-client kind
 │   ├── provider_docker/
 │   ├── provider_local.py
@@ -215,4 +213,4 @@ src/bora/
 └── （可选 SDK 在 sdk/python/bora_sdk/）
 ```
 
-“Core”表示必须稳定的职责，不要求按图中每个名字硬拆文件。Application 负责组装；**机制实现**可以是主仓 first-party，也可以是实现约定 entry point 的用户/第三方包（见 [05-runtime/agent-service.md](05-runtime/agent-service.md) 扩展模型）。coding-agent 入口为 **`executor: acp` + `- plugin: acp` / `options.entry`**（adapters/acp + entry registry），不是 per-vendor 私有 CLI adapter 目录。Harness Core 是 Task Package 侧可选 library。
+“Core”表示必须稳定的职责，不要求按图中每个名字硬拆文件。Application 负责组装；**机制实现**可以是主仓 first-party，也可以是实现约定 entry point 的用户/第三方包（见 [05-runtime/agent-service.md](05-runtime/agent-service.md) 扩展模型）。coding-agent 入口为 **`executor: acp` + `- plugin: acp` / `options.entry`**（first-party `plugins/contrib/acp` + entry registry），不是 per-vendor 私有 CLI adapter 目录。Harness Core 是 Task Package 侧可选 library。

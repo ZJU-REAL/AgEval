@@ -86,7 +86,7 @@ Hub Attempt tabs 与本地 `bora view` 仍只解析 Trajectory / Agent / Verifie
 | --- | --- | --- | --- |
 | A. vendor raw | 各 adapter / 插件 | 任意 | `backend_raw/*`（观测；不进 Viewer 合成） |
 | B. 中立事件流 | **Core schema**；adapter 只做映射 | `bora.trajectory.event/1` | `AgentResult.events` → invocation `events.jsonl` |
-| C. turn steps | **Core evidence writer**（不在 `adapters/acp/`） | `trajectory.jsonl` | Viewer / Hub / 训练导出 |
+| C. turn steps | **Core evidence writer**（不在 first-party `plugins/contrib/acp`） | `trajectory.jsonl` | Viewer / Hub / 训练导出 |
 
 ```text
 plugin / first-party executor
