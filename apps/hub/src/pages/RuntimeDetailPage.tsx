@@ -164,15 +164,6 @@ export function RuntimeDetailPage() {
     return appearances.find((row) => appearanceKey(row) === selectedKey) ?? appearances[0];
   }, [appearances, selectedKey]);
 
-  useEffect(() => {
-    if (!selectedAppearance) {
-      if (selectedKey !== null) setSelectedKey(null);
-      return;
-    }
-    const next = appearanceKey(selectedAppearance);
-    if (selectedKey !== next) setSelectedKey(next);
-  }, [selectedAppearance, selectedKey]);
-
   const yamlText = useMemo(
     () => (detail ? harnessYaml(detail, selectedAppearance) : ""),
     [detail, selectedAppearance],

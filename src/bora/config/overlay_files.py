@@ -110,15 +110,6 @@ def normalize_overlay_path(raw: Any, *, location: str) -> str:
     return "/".join(parts)
 
 
-def overlay_paths_from_binding(binding: Mapping[str, Any] | None) -> list[str]:
-    if not isinstance(binding, Mapping) or "overlays" not in binding:
-        return []
-    return parse_overlay_paths(
-        binding.get("overlays"),
-        location="overlays",
-    )
-
-
 def resolve_overlay_target(database_root: Path, rel: str, *, location: str) -> Path:
     """Resolve *rel* under the Database root; fail if missing or escaping."""
     root = database_root.expanduser().resolve(strict=False)
