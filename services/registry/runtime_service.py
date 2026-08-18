@@ -22,9 +22,7 @@ from bora.config.runtime_identity import (
 )
 
 
-def is_plaza_source_suite(
-    payload: Mapping[str, Any], official_ids: frozenset[str]
-) -> bool:
+def is_plaza_source_suite(payload: Mapping[str, Any], official_ids: frozenset[str]) -> bool:
     """Public complete release-bound suite on an official Dataset."""
     return (
         payload.get("visibility") == "public"

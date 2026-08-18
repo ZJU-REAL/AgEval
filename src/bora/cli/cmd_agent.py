@@ -61,8 +61,8 @@ def agent_install(
         str,
         typer.Argument(
             help=(
-                "Local path to a bora.agent/1 directory "
-                "(registry locator org/agent_id@version arrives with registry support)"
+                "Local path to a bora.agent/1 directory, or registry locator "
+                "org/agent_id@version | org/agent_id@sha256:… (remote requires credentials)"
             )
         ),
     ],
@@ -72,17 +72,19 @@ def agent_install(
 
     src_path = Path(source)
     if "@" in source and not src_path.exists():
-        typer.echo(
-            json.dumps(
-                {
-                    "ok": False,
-                    "error": "not_supported",
-                    "message": "registry install not available yet; pass a local path",
-                }
-            ),
-            err=True,
-        )
-        raise typer.Exit(code=2)
+        from bora.application.composition import build_agent_commands
+
+        cmds = build_agent_commands()
+        try:
+            summary = cmds.install_agent_from_registry(source)
+        except ConfigError as exc:
+            typer.echo(
+                json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
+                err=True,
+            )
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, sort_keys=True))
+        return
 
     from bora.agents.store import install_from_path
 
@@ -101,6 +103,27 @@ def agent_install(
     payload["ok"] = True
     payload["ref"] = f"{entry.agent_id}@{entry.version}"
     typer.echo(json.dumps(payload, sort_keys=True))
+
+
+@agent_app.command("publish")
+def agent_publish(
+    source: Annotated[Path, typer.Argument(help="Local bora.agent/1 package directory")],
+    org: Annotated[str, typer.Option("--org", help="Organization id (required)")],
+    public: Annotated[bool, typer.Option("--public", help="Publish as public")] = False,
+) -> None:
+    """Publish an agent package to the Registry (package_kind=agent)."""
+    from bora.application.composition import build_agent_commands
+    from bora.config.errors import ConfigError
+
+    try:
+        summary = build_agent_commands().publish_agent(source, public=public, org=org)
+    except ConfigError as exc:
+        typer.echo(
+            json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
+            err=True,
+        )
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(summary, sort_keys=True))
 
 
 @agent_app.command("list")

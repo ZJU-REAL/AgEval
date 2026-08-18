@@ -139,6 +139,23 @@ def build_agent_projection() -> Callable[[list[str]], Any]:
     return resolve_agent_specs
 
 
+def build_agent_commands() -> Any:
+    from bora.application.agent_ops.install_remote import AgentInstallCommand
+    from bora.application.agent_ops.publish import AgentPublishCommand
+
+    install = AgentInstallCommand(client_factory=build_registry_client)
+    publish = AgentPublishCommand(client_factory=build_registry_client)
+    return type(
+        "AgentCommands",
+        (),
+        {
+            "install_agent_from_registry": install.install_agent_from_registry,
+            "cleanup_agent_tmp": install.cleanup_tmp,
+            "publish_agent": publish.publish_agent,
+        },
+    )()
+
+
 def build_registry_client(
     *,
     registry_url: str | None = None,

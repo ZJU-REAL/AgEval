@@ -85,9 +85,7 @@ def request_device_code(*, client_id: str, scope: str = "read:user") -> DeviceCo
     )
     if "error" in data:
         raise GitHubOAuthError(str(data["error"]), str(data.get("error_description") or ""))
-    verification_uri = str(
-        data.get("verification_uri") or "https://github.com/login/device"
-    )
+    verification_uri = str(data.get("verification_uri") or "https://github.com/login/device")
     user_code = str(data["user_code"])
     # Prefer GitHub's complete URI when present; always ensure user_code + skip
     # account picker. Multi-account sessions hit /login/device/select_account and

@@ -100,10 +100,10 @@ class PackageService:
                 http_status=400,
             )
         package_kind = str(meta.get("package_kind") or "database").strip().casefold()
-        if package_kind not in {"database", "plugin"}:
+        if package_kind not in {"database", "plugin", "agent"}:
             raise RegistryAppError(
                 "invalid_request",
-                "package_kind must be database or plugin",
+                "package_kind must be database, plugin or agent",
                 http_status=400,
             )
         self._validate_archive(
@@ -291,10 +291,10 @@ class PackageService:
     ) -> dict[str, Any]:
         if visibility is not None and visibility not in {"public", "private"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
-        if package_kind is not None and package_kind not in {"database", "plugin"}:
+        if package_kind is not None and package_kind not in {"database", "plugin", "agent"}:
             raise RegistryAppError(
                 "invalid_request",
-                "package_kind must be database or plugin",
+                "package_kind must be database, plugin or agent",
                 http_status=400,
             )
         rows = self.meta.list_releases(
@@ -342,7 +342,7 @@ class PackageService:
             if uploader and uploader == uid:
                 out.append(item)
                 continue
-            if kind != "plugin" and db_id in maintainable:
+            if kind == "database" and db_id in maintainable:
                 out.append(item)
         return out
 
@@ -377,6 +377,7 @@ class PackageService:
         if label:
             payload["display_name"] = label
         try:
+            from bora.registry.media_types import AGENT_MEDIA_TYPE
             from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
             if row.media_type == PLUGIN_MEDIA_TYPE:
@@ -384,6 +385,11 @@ class PackageService:
                 payload["package_kind"] = "plugin"
                 if data is not None:
                     payload["plugin_preview"] = _plugin_preview_from_archive(data)
+            elif row.media_type == AGENT_MEDIA_TYPE:
+                data = read_blob(self.blobs, row.blob_digest, prefix="packages")
+                payload["package_kind"] = "agent"
+                if data is not None:
+                    payload["agent_preview"] = _agent_preview_from_archive(data)
             else:
                 payload["package_kind"] = "database"
         except Exception:  # noqa: BLE001 — preview is best-effort
@@ -658,6 +664,30 @@ class PackageService:
                             http_status=400,
                         )
                     got = compute_plugin_digest(tmp_path)
+                elif package_kind == "agent":
+                    from bora.registry.agent_package import (
+                        AGENT_MEDIA_TYPE,
+                        assert_agent_package,
+                        compute_agent_digest,
+                    )
+
+                    if media_type != AGENT_MEDIA_TYPE:
+                        raise RegistryAppError(
+                            "invalid_format",
+                            f"agent media_type must be {AGENT_MEDIA_TYPE}",
+                            http_status=400,
+                        )
+                    try:
+                        assert_agent_package(tmp_path)
+                    except RegistryAppError:
+                        raise
+                    except Exception as exc:  # noqa: BLE001
+                        raise RegistryAppError(
+                            "invalid_format",
+                            f"not a valid bora.agent/1: {exc}",
+                            http_status=400,
+                        ) from exc
+                    got = compute_agent_digest(tmp_path)
                 else:
                     if (
                         (tmp_path / "plugin.yaml").is_file()
@@ -666,6 +696,14 @@ class PackageService:
                         raise RegistryAppError(
                             "invalid_format",
                             "plugin package must use package_kind=plugin",
+                            http_status=400,
+                        )
+                    if (tmp_path / "agent.yaml").is_file() and not (
+                        tmp_path / "bora.yaml"
+                    ).is_file():
+                        raise RegistryAppError(
+                            "invalid_format",
+                            "agent package must use package_kind=agent",
                             http_status=400,
                         )
                     got = compute_package_digest(tmp_path)
@@ -679,6 +717,34 @@ class PackageService:
             raise
         except Exception as exc:  # noqa: BLE001
             raise RegistryAppError("invalid_archive", str(exc), http_status=400) from exc
+
+
+def _agent_preview_from_archive(archive: bytes) -> dict[str, Any]:
+    """Secret-free agent detail preview (design/14): manifest + binding + files."""
+    from bora.agents.manifest import load_agent_manifest
+    from bora.config.profiles import project_job_overlay
+    from bora.registry.archive import extract_archive
+
+    with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
+        root = Path(tmp)
+        extract_archive(archive, root)
+        man = load_agent_manifest(root)
+        files = sorted(
+            p.relative_to(root).as_posix()
+            for p in root.rglob("*")
+            if p.is_file() and "__pycache__" not in p.parts
+        )
+        overlay = project_job_overlay({"agent": man.binding})
+        return {
+            "agent_id": man.agent_id,
+            "version": man.version,
+            "format": "bora.agent/1",
+            "label": man.label,
+            "description": man.description,
+            "tags": list(man.tags),
+            "binding": overlay["bindings"].get("agent", {}),
+            "files": files[:200],
+        }
 
 
 def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
