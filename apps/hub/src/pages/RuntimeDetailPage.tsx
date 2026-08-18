@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
+import { ModelLabel } from "@/components/model-label";
 import {
   compareValues,
   nextSort,
@@ -274,8 +275,8 @@ export function RuntimeDetailPage() {
                         key={`${row.suite_run_id}:${row.role}`}
                       >
                         <TableCell className={COL_MODEL}>
-                          <TruncateTip
-                            text={row.model}
+                          <ModelLabel
+                            value={row.model}
                             className="font-mono text-xs"
                           />
                         </TableCell>

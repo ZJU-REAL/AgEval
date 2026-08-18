@@ -9,6 +9,7 @@ import type {
   TrajectoryStep,
   TreeEntry,
 } from "@/lib/trial-types";
+import { reasoningEffortFromBinding } from "@/lib/utils";
 
 import {
   FIRST_TAB_ORDER,
@@ -298,6 +299,17 @@ export function buildTrialMeta(opts: {
   const orderedIds: string[] = [];
   const invModel = new Map<string, string>();
   const invExecutor = new Map<string, string>();
+  const invEffort = new Map<string, string>();
+  const overlayBindings =
+    lock.job_overlay &&
+    typeof lock.job_overlay === "object" &&
+    (lock.job_overlay as Record<string, unknown>).bindings &&
+    typeof (lock.job_overlay as Record<string, unknown>).bindings === "object"
+      ? ((lock.job_overlay as Record<string, unknown>).bindings as Record<
+          string,
+          unknown
+        >)
+      : {};
   const latencySum = new Map<string, number>();
   const invokeCount = new Map<string, number>();
 
@@ -309,6 +321,13 @@ export function buildTrialMeta(opts: {
     if (typeof mid === "string" && mid) invModel.set(pid, mid);
     const ek = meta.executor_kind;
     if (typeof ek === "string" && ek) invExecutor.set(pid, ek);
+    const effort =
+      (typeof meta.actual_reasoning_effort === "string" &&
+        meta.actual_reasoning_effort.trim()) ||
+      (typeof meta.locked_reasoning_effort === "string" &&
+        meta.locked_reasoning_effort.trim()) ||
+      "";
+    if (effort) invEffort.set(pid, effort);
     invokeCount.set(pid, (invokeCount.get(pid) || 0) + 1);
     const lat = meta.latency_ms;
     if (typeof lat === "number" && !Number.isNaN(lat)) {
@@ -331,6 +350,12 @@ export function buildTrialMeta(opts: {
     const model =
       invModel.get(pid) ||
       (typeof p.model === "string" ? p.model : null);
+    const overlay = overlayBindings[pid];
+    const effort =
+      invEffort.get(pid) ||
+      reasoningEffortFromBinding(overlay) ||
+      reasoningEffortFromBinding(p) ||
+      null;
     const agentCol = variant || ex || pid;
     const roleCol = pid;
     const nInv = invokeCount.get(pid) || 0;
@@ -339,6 +364,7 @@ export function buildTrialMeta(opts: {
       role: roleCol,
       agent: agentCol,
       model,
+      reasoning_effort: effort,
       profile_id: pid,
       invokes: nInv,
       latency_ms_sum: latTotal ?? null,
