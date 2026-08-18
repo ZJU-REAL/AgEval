@@ -21,6 +21,18 @@ export type PluginPreview = {
   files?: string[];
 };
 
+export type AgentPreview = {
+  agent_id?: string;
+  version?: string;
+  format?: string;
+  label?: string | null;
+  description?: string | null;
+  tags?: string[];
+  /** Secret-free job binding (design/14): executor/model/options/extensions. */
+  binding?: Record<string, unknown>;
+  files?: string[];
+};
+
 export type SuitePluginRef = {
   plugin_id: string;
   version?: string;
@@ -42,14 +54,16 @@ export type PackageRelease = {
   blob_digest: string;
   size: number;
   media_type?: string;
-  /** Registry package_kind: database | plugin. */
-  package_kind?: "database" | "plugin" | string;
+  /** Registry package_kind: database | plugin | agent. */
+  package_kind?: "database" | "plugin" | "agent" | string;
   created_at?: number;
   org_id?: string;
   /** Registry marketplace display: upload org is on the official-org allowlist. */
   official?: boolean;
   /** Present on by-digest / version get for plugins. */
   plugin_preview?: PluginPreview;
+  /** Present on by-digest / version get for agents (design/14). */
+  agent_preview?: AgentPreview;
   /** Draft slot (entitled callers only). */
   is_draft?: boolean;
   slot?: string;
@@ -236,7 +250,17 @@ export type RuntimeAppearance = {
   created_at?: number;
   teammates?: RuntimeTeammate[];
   overlays?: string[];
+  /** Provenance: bora.agent/1 ref that produced this binding (design/14). */
+  agent_ref?: string;
 };
+
+/** Hub package id from an agent_ref (`org/name@ver+sha…`); null for local/file refs. */
+export function agentRefPackageId(ref: string | undefined | null): string | null {
+  if (!ref || ref.startsWith("file:")) return null;
+  const id = ref.split("@", 1)[0] ?? "";
+  if (!id.includes("/") || id.startsWith("local/")) return null;
+  return id;
+}
 
 export type RuntimeDetail = RuntimeCard & {
   appearances: RuntimeAppearance[];
@@ -334,7 +358,7 @@ export function decodeDatasetId(param: string): string {
 
 export async function listPackages(
   token: string | null,
-  opts?: { packageKind?: "database" | "plugin"; mine?: boolean },
+  opts?: { packageKind?: "database" | "plugin" | "agent"; mine?: boolean },
 ): Promise<PackageRelease[]> {
   // With token, server may include private; without, public only.
   const q = new URLSearchParams();

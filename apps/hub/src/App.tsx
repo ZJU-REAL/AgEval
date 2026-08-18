@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { Shell } from "@/components/layout";
+import { AgentDetailPage } from "@/pages/AgentDetailPage";
+import { AgentsPage } from "@/pages/AgentsPage";
 import { AttemptEvidencePage } from "@/pages/AttemptEvidencePage";
 import { DatasetDetailPage } from "@/pages/DatasetDetailPage";
 import { DatasetsPage } from "@/pages/DatasetsPage";
@@ -35,6 +37,8 @@ export default function App() {
           />
           <Route path="/plugins" element={<PluginsPage />} />
           <Route path="/plugins/:pluginId" element={<PluginDetailPage />} />
+          <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/agents/:agentId" element={<AgentDetailPage />} />
           <Route path="/runtimes" element={<RuntimesPage />} />
           <Route path="/runtimes/:runtimeId" element={<RuntimeDetailPage />} />
           <Route path="/organizations" element={<OrganizationsPage />} />

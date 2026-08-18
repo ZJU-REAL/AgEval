@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  agentRefPackageId,
   decodeFileContent,
   encodeDatasetId,
   getPackageFile,
@@ -339,6 +340,25 @@ export function RuntimeDetailPage() {
                 </code>
               </pre>
             </div>
+            {selectedAppearance?.agent_ref ? (
+              <p className="text-xs text-mute">
+                Agent:{" "}
+                {agentRefPackageId(selectedAppearance.agent_ref) ? (
+                  <Link
+                    to={`/agents/${encodeDatasetId(
+                      agentRefPackageId(selectedAppearance.agent_ref) ?? "",
+                    )}`}
+                    className="font-mono text-body underline underline-offset-2 hover:text-ink"
+                  >
+                    {selectedAppearance.agent_ref}
+                  </Link>
+                ) : (
+                  <span className="font-mono text-body">
+                    {selectedAppearance.agent_ref}
+                  </span>
+                )}
+              </p>
+            ) : null}
           </section>
 
           <section className="space-y-2">

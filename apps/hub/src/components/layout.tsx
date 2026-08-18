@@ -61,6 +61,9 @@ export function Shell({
           <NavLink to="/plugins" className={navClass} end={false}>
             Plugins
           </NavLink>
+          <NavLink to="/agents" className={navClass} end={false}>
+            Agents
+          </NavLink>
           <NavLink to="/runtimes" className={navClass} end={false}>
             Runtimes
           </NavLink>

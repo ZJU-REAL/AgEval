@@ -197,5 +197,9 @@ def _appearances_from_suite(
         overlays = _overlay_paths(raw)
         if overlays:
             row["overlays"] = overlays
+        # Provenance passthrough (design/14): never part of the rt_* identity.
+        agent_ref = raw.get("agent_ref")
+        if isinstance(agent_ref, str) and agent_ref.strip():
+            row["agent_ref"] = agent_ref.strip()
         out.append((row, raw))
     return out
