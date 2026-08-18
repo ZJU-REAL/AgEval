@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { OwlIcon } from "@/components/owl-icon";
 
 export function Shell({
   children,
@@ -13,7 +14,11 @@ export function Shell({
   return (
     <div className="min-h-full flex flex-col bg-canvas">
       <header className="h-14 border-b border-hairline flex items-center px-6 gap-4 shrink-0">
-        <Link to="/" className="font-semibold tracking-tight text-ink text-[15px]">
+        <Link
+          to="/"
+          className="flex items-center gap-1.5 font-semibold tracking-tight text-ink text-[15px]"
+        >
+          <OwlIcon className="h-6 w-6" />
           BORA
         </Link>
         <span className="text-mute text-sm">viewer</span>

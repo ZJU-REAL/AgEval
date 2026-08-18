@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DshWhale } from "@/components/landing/dsh-whale";
 import { landingCopy } from "@/components/landing/copy";
 import { LandingNav } from "@/components/landing/landing-nav";
+import { OwlFlatMark } from "@/components/owl-flat";
 import { isSiteLocale } from "@/lib/i18n";
 import { gitConfig } from "@/lib/shared";
 
@@ -41,6 +42,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
       <main id="main">
         <section className="hero" id="top">
           <div className="hero-grid" aria-hidden="true" />
+          <OwlFlatMark className="owl-wash" />
           <div className="wrap-wide hero-layout">
             <div>
               <h1 className="hero-brand">

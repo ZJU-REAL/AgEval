@@ -142,6 +142,19 @@ html:has(.bora-landing) body {
   letter-spacing: 0.04em;
   line-height: 1;
   color: var(--cream);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bora-landing .logo .nav-owl {
+  width: 24px;
+  height: 24px;
+}
+
+/* Outdent the nav logo so its owl aligns with the wider hero .wrap-wide. */
+.bora-landing nav .logo {
+  margin-left: calc(-1 * clamp(0px, (100vw - 1228px) / 2, 50px));
 }
 
 .bora-landing .logo span {
@@ -391,7 +404,9 @@ html:has(.bora-landing) body {
 
 .bora-landing .stage {
   position: relative;
-  background: var(--ink-deep);
+  background: oklch(11.6% 0.022 264 / 0.42);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--border);
   min-height: 448px;
   padding: 28px 24px 22px;
@@ -1324,6 +1339,19 @@ html:has(.bora-landing) body {
   display: block;
 }
 
+.bora-landing .owl-wash {
+  position: absolute;
+  right: 3%;
+  bottom: 2%;
+  z-index: 1;
+  width: min(460px, 40vw);
+  height: auto;
+  color: var(--cream);
+  opacity: 0.16;
+  pointer-events: none;
+  user-select: none;
+}
+
 .bora-landing footer {
   border-top: 1px solid var(--border);
   padding: 36px 0 40px;
@@ -1485,6 +1513,13 @@ html:has(.bora-landing) body {
 
   .bora-landing .dsh-whale {
     display: none;
+  }
+
+  .bora-landing .owl-wash {
+    right: 2%;
+    bottom: 4%;
+    width: min(300px, 60vw);
+    opacity: 0.09;
   }
 
   .bora-landing .code-panel,

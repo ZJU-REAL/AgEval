@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 
 import { OfficialMark } from "@/components/official-mark";
+import { OwlIcon } from "@/components/owl-icon";
 import { SignInButton } from "@/components/sign-in-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,11 @@ export function Shell({
   return (
     <div className="min-h-full flex flex-col bg-canvas">
       <header className="sticky top-0 z-40 h-14 border-b border-hairline flex items-center px-6 gap-4 shrink-0 bg-canvas/95 backdrop-blur supports-[backdrop-filter]:bg-canvas/80">
-        <Link to="/datasets" className="font-semibold tracking-tight text-ink text-[15px]">
+        <Link
+          to="/datasets"
+          className="flex items-center gap-1.5 font-semibold tracking-tight text-ink text-[15px]"
+        >
+          <OwlIcon className="h-6 w-6" />
           BORA
         </Link>
         <span className="text-mute text-sm">hub</span>

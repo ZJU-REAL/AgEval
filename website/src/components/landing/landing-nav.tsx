@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
+import { OwlFlatIcon } from "@/components/owl-flat";
 import type { SiteLocale } from "@/lib/i18n";
 import type { LandingCopy } from "./copy";
 
@@ -34,6 +35,7 @@ export function LandingNav({ lang, copy, navAria, repoUrl }: LandingNavProps) {
     <nav aria-label={navAria}>
       <div className="wrap nav-inner">
         <a className="logo" href="#top">
+          <OwlFlatIcon className="nav-owl" />
           BORA<span>.</span>
         </a>
         <div className="nav-links">
