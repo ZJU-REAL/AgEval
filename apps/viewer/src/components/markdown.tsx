@@ -1,69 +1,9 @@
 import type { Components } from "react-markdown";
-import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { splitMarkdownFrontmatter } from "@/lib/markdown-frontmatter";
-import { codeToHtml } from "@/lib/shiki-preview";
-import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-
-function FencedCode({ lang, text }: { lang: string; text: string }) {
-  const { resolved } = useTheme();
-  const [html, setHtml] = useState<string | null>(null);
-  const fakePath =
-    lang === "python" || lang === "py"
-      ? "x.py"
-      : lang === "yaml" || lang === "yml"
-        ? "x.yaml"
-        : lang === "json"
-          ? "x.json"
-          : lang === "bash" || lang === "sh" || lang === "shell"
-            ? "x.sh"
-            : lang === "sql"
-              ? "x.sql"
-              : lang === "toml"
-                ? "x.toml"
-                : lang === "ts" || lang === "typescript"
-                  ? "x.ts"
-                  : lang === "js" || lang === "javascript"
-                    ? "x.js"
-                    : "x.txt";
-
-  useEffect(() => {
-    let cancelled = false;
-    void codeToHtml(text, fakePath, resolved).then((out) => {
-      if (!cancelled) setHtml(out);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [text, fakePath, resolved]);
-
-  if (!html) {
-    return (
-      <pre
-        className={cn(
-          "my-3 overflow-x-auto rounded-[8px] border border-hairline",
-          "bg-code-bg p-3 font-mono text-[12px] leading-5",
-        )}
-      >
-        <code className="font-mono">{text}</code>
-      </pre>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        "my-3 overflow-x-auto rounded-[8px] border border-hairline",
-        "bg-code-bg text-[12px] leading-5",
-        "[&_pre]:m-0 [&_pre]:p-3 [&_pre]:!bg-transparent [&_code]:font-mono",
-      )}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
 
 const components: Components = {
   h1: ({ children }) => (
@@ -121,8 +61,16 @@ const components: Components = {
         </code>
       );
     }
-    const lang = (className || "").replace(/^language-/, "") || "text";
-    return <FencedCode lang={lang} text={text} />;
+    return (
+      <pre
+        className={cn(
+          "my-3 overflow-x-auto rounded-[8px] border border-hairline",
+          "bg-code-bg p-3 font-mono text-[12px] leading-5",
+        )}
+      >
+        <code className="font-mono">{text}</code>
+      </pre>
+    );
   },
   pre: ({ children }) => <>{children}</>,
   table: ({ children }) => (
@@ -130,9 +78,7 @@ const components: Components = {
       <table className="w-full text-sm border-collapse">{children}</table>
     </div>
   ),
-  thead: ({ children }) => (
-    <thead className="bg-canvas-soft">{children}</thead>
-  ),
+  thead: ({ children }) => <thead className="bg-canvas-soft">{children}</thead>,
   tbody: ({ children }) => <tbody>{children}</tbody>,
   tr: ({ children }) => (
     <tr className="border-b border-hairline last:border-0">{children}</tr>

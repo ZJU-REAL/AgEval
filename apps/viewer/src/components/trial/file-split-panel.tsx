@@ -9,11 +9,13 @@ import {
 } from "react";
 
 import { FileTypeIcon } from "@/components/file-type-icon";
+import { Markdown } from "@/components/markdown";
 import { Input } from "@/components/ui/input";
 import type { TreeEntry } from "@/lib/api";
 import { CodeHighlight } from "@/lib/code-highlight";
 import { countFiles } from "@/lib/file-icons";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
+import { isMarkdownPath } from "@/lib/markdown-frontmatter";
 import { cn } from "@/lib/utils";
 
 import { actorLabel, type ActorRow } from "./types";
@@ -423,7 +425,14 @@ export function FileSplitPanel({
                   .
                 </p>
               ) : null}
-              {previewDisplay != null ? (
+              {previewDisplay != null && isMarkdownPath(selectedPath) ? (
+                <div className="p-4">
+                  <Markdown
+                    source={previewDisplay}
+                    className="border-0 rounded-none p-0"
+                  />
+                </div>
+              ) : previewDisplay != null ? (
                 <pre
                   className={cn(
                     "m-0 p-3 min-h-full overflow-auto",
