@@ -61,6 +61,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | 交付跟踪        | **GitHub Issues**（无 ROADMAP / Active Spec）                                                                                                                                                                                                                               |
 | 文档站          | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/`                                                                                                                                                                                                                |
 | ACP             | 产品决策已接受（`executor: acp` + `- plugin: acp` / `options.entry`）；余量与 gap 见 Issues（如 #4）；**有站 ≠ 证据升级**                                                                                                                                                                     |
+| Agent Hub       | 设计定稿 [docs/design/14](docs/design/14-agent-hub.md)：`bora.agent/1` 单 binding 对象、`--agent` 投影进 profiles 通道、`agent_ref` 溯源非身份、Registry `package_kind=agent`；交付进度以 Issues 为准                                                                        |
 
 **禁止**从文档存在、Issue 存在、`bora lock` 成功或设计示意推导 `runnable-mvp` / `isolated` / `real-benchmark-verified`。
 

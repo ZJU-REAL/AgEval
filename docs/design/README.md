@@ -53,6 +53,7 @@ Issues                   增量交付与实现缺口
 | [11-extension-plugins.md](11-extension-plugins.md) | 扩展点 L0–L5、注册表、lock bindings、`bora.plugin/1`、Recognition ≠ L0 host-ready ≠ L1 bake-declared、`--probe` |
 | [12-hub-dataset-and-leaderboard.md](12-hub-dataset-and-leaderboard.md) | Dataset draft/release、dataset ACL、Leaderboard 完备性、suite 插件出处、个人主页、chrome |
 | [13-web-ui-tokens.md](13-web-ui-tokens.md) | Web UI 令牌与不变量(website/hub/viewer 三端):色彩、字体、形状、十条不变量、机检 |
+| [14-agent-hub.md](14-agent-hub.md) | 一等 Agent 对象:`bora.agent/1`、`--agent` 投影、通配 `"*"` 默认绑定、`agent_ref` 溯源、`package_kind=agent` |
 
 ### Runtime 子文（执行链）
 
