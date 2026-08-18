@@ -76,6 +76,16 @@ export function buildNestedTree(
   return root;
 }
 
+/** True when *path* is one of the prefixes or a descendant. */
+export function pathMatchesPrefixes(path: string, prefixes: string[]): boolean {
+  for (const raw of prefixes) {
+    const prefix = raw.replace(/\/$/, "");
+    if (!prefix) continue;
+    if (path === prefix || path.startsWith(`${prefix}/`)) return true;
+  }
+  return false;
+}
+
 /** Parent directory paths of a file (`src/pkg/hooks.py` → `src`, `src/pkg`). */
 export function ancestorDirPaths(filePath: string): string[] {
   const parts = filePath.split("/").filter(Boolean);
