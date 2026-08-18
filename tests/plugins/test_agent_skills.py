@@ -63,7 +63,7 @@ def test_acp_entries_from_lock() -> None:
         },
         agent_profiles=(),
     )
-    assert acp_entries_from_lock(lock) == ["grok-build", "codex"]
+    assert acp_entries_from_lock(lock) == ["grok-build", "codex"]  # type: ignore[arg-type]
 
 
 def test_expand_generic_and_bound_entry() -> None:

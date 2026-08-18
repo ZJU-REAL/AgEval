@@ -156,7 +156,7 @@ def test_materialize_can_import_required_module(bora_home: Path, tmp_path: Path)
     from bora.plugins.bootstrap import ensure_bootstrapped
 
     ensure_bootstrapped()
-    import neighbor_mod
+    import neighbor_mod  # type: ignore[import-not-found]
 
     assert neighbor_mod.VALUE == "ok"
 
