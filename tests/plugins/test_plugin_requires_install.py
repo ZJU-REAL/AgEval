@@ -21,7 +21,7 @@ def _write_plugin(root: Path, plugin_id: str, *, requires: list[str] | None = No
     root.mkdir(parents=True, exist_ok=True)
     rows = ""
     if requires:
-        req_yaml = "\n".join(f'  - plugin_id: {pid}' for pid in requires)
+        req_yaml = "\n".join(f"  - plugin_id: {pid}" for pid in requires)
         rows = f"plugin_requires:\n{req_yaml}\n"
     (root / "plugin.yaml").write_text(
         (

@@ -47,8 +47,7 @@ def _write_plugin(
     src.mkdir(parents=True)
     (src / "__init__.py").write_text('VALUE = "ok"\n', encoding="utf-8")
     (src / "hooks.py").write_text(
-        extra_py
-        + "def build(**_k):\n"
+        extra_py + "def build(**_k):\n"
         "    async def h(ctx, value, nxt):\n"
         "        return await nxt(value)\n"
         "    return h\n",
@@ -137,9 +136,7 @@ def test_lock_ok_when_required_plugin_installed(
     assert "needs-neighbor" in plugins_in_chain
 
 
-def test_materialize_can_import_required_module(
-    bora_home: Path, tmp_path: Path
-) -> None:
+def test_materialize_can_import_required_module(bora_home: Path, tmp_path: Path) -> None:
     del bora_home
     plugins = tmp_path / "plugins"
     _write_plugin(plugins / "neighbor", "neighbor", module="neighbor_mod")

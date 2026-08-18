@@ -267,9 +267,7 @@ def _probe_extension_plugins(lock: LockedTaskConfig) -> list[dict[str, Any]]:
         if found is None:
             continue
         manifest, _root = found
-        checks.extend(
-            evaluate_plugin_requires(manifest.plugin_requires, plugin_id=plugin_id)
-        )
+        checks.extend(evaluate_plugin_requires(manifest.plugin_requires, plugin_id=plugin_id))
     return checks
 
 
