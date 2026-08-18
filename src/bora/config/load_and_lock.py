@@ -11,7 +11,7 @@ Pure helpers: ``constants``, ``yaml_io``, ``overrides``, ``digest``, ``validate`
 from __future__ import annotations
 
 import copy
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +47,46 @@ from bora.config.validate import (
 from bora.config.yaml_io import deep_merge, parse_yaml
 
 
+def _bound_plugin_ids(profile: Mapping[str, Any]) -> list[str]:
+    ids: list[str] = []
+    seen: set[str] = set()
+
+    def add(raw: object) -> None:
+        plugin_id = str(raw or "").strip()
+        if plugin_id and plugin_id not in seen:
+            seen.add(plugin_id)
+            ids.append(plugin_id)
+
+    add(profile.get("executor"))
+    rows = profile.get("extensions")
+    if isinstance(rows, Sequence) and not isinstance(rows, (str, bytes)):
+        for item in rows:
+            if isinstance(item, Mapping):
+                add(item.get("plugin"))
+    return ids
+
+
+def _assert_bound_plugin_requires(profile: Mapping[str, Any]) -> None:
+    from bora.plugins.host_requires import installed_plugin
+    from bora.plugins.plugin_requires import (
+        PluginRequiresError,
+        assert_plugin_requires_installed,
+    )
+
+    for plugin_id in _bound_plugin_ids(profile):
+        found = installed_plugin(plugin_id)
+        if found is None:
+            continue
+        try:
+            assert_plugin_requires_installed(found[0])
+        except PluginRequiresError as exc:
+            raise ConfigError(
+                exc.kind,
+                f"extension resolve failed for profile {profile.get('id')!r}: {exc}",
+                location=f"/agent_profiles/{profile.get('id')}/plugin_requires",
+            ) from exc
+
+
 def _resolve_extension_bindings(
     profiles_raw: list[Any],
 ) -> dict[str, dict[str, Any]] | None:
@@ -76,8 +116,11 @@ def _resolve_extension_bindings(
         if not intent.profile_id:
             intent.profile_id = pid.strip()
         try:
+            _assert_bound_plugin_requires(profile)
             # Dry-run factory so missing plugin options fail at lock, not mid-Attempt.
             graph = resolve_extensions(intent, registry, materialize=True)
+        except ConfigError:
+            raise
         except (ExtensionRegistryError, ExtensionMaterializeError) as exc:
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,

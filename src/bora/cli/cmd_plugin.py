@@ -41,8 +41,9 @@ def plugin_install(
 ) -> None:
     """Install a plugin into the local cache (never edits profiles)."""
     from bora.config.errors import ConfigError
+    from bora.plugins.install import install_from_local
     from bora.plugins.manifest import PluginManifestError
-    from bora.plugins.store import install_from_path
+    from bora.plugins.plugin_requires import PluginRequiresError
 
     # Registry locator: contains @ and does not exist as a local path.
     src_path = Path(source)
@@ -62,27 +63,33 @@ def plugin_install(
         typer.echo(json.dumps(summary, sort_keys=True))
         return
 
+    from bora.application.composition import build_plugin_commands
+
+    cmds = build_plugin_commands()
+
+    def _hub_fetch(package_id: str) -> Path:
+        return cmds.fetch_latest_plugin(package_id)
+
     try:
-        entry = install_from_path(src_path)
+        result = install_from_local(src_path, hub_fetch=_hub_fetch)
+    except PluginRequiresError as exc:
+        typer.echo(json.dumps({"ok": False, "error": exc.kind, "message": exc.message}), err=True)
+        raise typer.Exit(code=2) from exc
     except PluginManifestError as exc:
         typer.echo(json.dumps({"ok": False, "error": exc.kind, "message": exc.message}), err=True)
+        raise typer.Exit(code=2) from exc
+    except ConfigError as exc:
+        typer.echo(
+            json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
+            err=True,
+        )
         raise typer.Exit(code=2) from exc
     except OSError as exc:
         typer.echo(json.dumps({"ok": False, "error": "io_error", "message": str(exc)}), err=True)
         raise typer.Exit(code=2) from exc
-    typer.echo(
-        json.dumps(
-            {
-                "ok": True,
-                "plugin_id": entry.plugin_id,
-                "version": entry.version,
-                "digest": entry.digest,
-                "path": entry.path,
-                "slots_summary": entry.slots_summary,
-            },
-            sort_keys=True,
-        )
-    )
+    finally:
+        cmds.cleanup_plugin_tmp()
+    typer.echo(json.dumps(result.as_cli_dict(), sort_keys=True))
 
 
 @plugin_app.command("publish")
@@ -111,9 +118,10 @@ def plugin_publish(
 @plugin_app.command("list")
 def plugin_list() -> None:
     """List installed plugins from the local index."""
+    from bora.plugins.plugin_requires import list_row_with_requires
     from bora.plugins.store import list_installed
 
-    rows = [e.as_dict() for e in list_installed()]
+    rows = [list_row_with_requires(e) for e in list_installed()]
     typer.echo(json.dumps({"ok": True, "plugins": rows}, sort_keys=True))
 
 
