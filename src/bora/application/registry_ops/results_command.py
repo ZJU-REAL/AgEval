@@ -394,8 +394,14 @@ class ResultsCommands:
                     location=str(default_runs_root(root)),
                 )
 
-        archive_bytes, blob_digest, size = build_suite_archive(suite_dir, suite_run_id=suite_run_id)
         config_proj = _config_fields_from_summary(summary)
+        overlay = config_proj.get("job_overlay")
+        if isinstance(overlay, dict):
+            from bora.config.overlay_files import assert_job_overlay_files
+
+            assert_job_overlay_files(root, overlay)
+
+        archive_bytes, blob_digest, size = build_suite_archive(suite_dir, suite_run_id=suite_run_id)
         client = self._client_factory(
             registry_url=registry_url, require_token=True, accept_results_url=True
         )

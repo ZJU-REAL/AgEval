@@ -246,6 +246,27 @@ def test_fingerprint_stable() -> None:
     assert fingerprint_for_actors(actors) == fingerprint_for_actors(list(reversed(actors)))
 
 
+def test_overlays_do_not_change_config_fingerprint() -> None:
+    base = {
+        "bindings": {
+            "solver": {
+                "executor": "acp",
+                "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
+                "model": "m",
+            }
+        }
+    }
+    with_overlays = {
+        "bindings": {
+            "solver": {
+                **base["bindings"]["solver"],
+                "overlays": ["overlays/AGENTS.md"],
+            }
+        }
+    }
+    assert fingerprint_for_job_overlay(base) == fingerprint_for_job_overlay(with_overlays)
+
+
 @pytest.mark.asyncio
 async def test_suite_summary_includes_homogeneous_config() -> None:
     plan = plan_suite_run(SUITE, max_concurrent_tasks=2)

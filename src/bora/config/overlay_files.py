@@ -221,6 +221,27 @@ def scan_overlay_files(files: Iterable[Path], *, location: str) -> None:
             )
 
 
+def assert_job_overlay_files(
+    database_root: Path,
+    overlay: Mapping[str, Any] | None,
+) -> None:
+    """Scan ``job_overlay.bindings.*.overlays`` before upload-suite."""
+    if not isinstance(overlay, Mapping):
+        return
+    bindings = overlay.get("bindings")
+    if not isinstance(bindings, Mapping):
+        return
+    for role_id, raw in bindings.items():
+        if not isinstance(raw, Mapping):
+            continue
+        rid = str(role_id).strip() or str(role_id)
+        assert_overlays_at_lock(
+            database_root,
+            raw,
+            location=f"/job_overlay/bindings/{rid}/overlays",
+        )
+
+
 def assert_overlays_at_lock(
     database_root: Path | None,
     binding: Mapping[str, Any],
