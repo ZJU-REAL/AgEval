@@ -125,6 +125,8 @@ def build_plugin_commands() -> Any:
         (),
         {
             "install_plugin_from_registry": install.install_plugin_from_registry,
+            "fetch_latest_plugin": install.fetch_latest_plugin,
+            "cleanup_plugin_tmp": install._cleanup_tmp,
             "publish_plugin": publish.publish_plugin,
         },
     )()
