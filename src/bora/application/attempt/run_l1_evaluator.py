@@ -18,6 +18,7 @@ from bora.config.eval_placement import (
 
 _EVAL_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 _DEFAULT_EVAL_USER = "10001:10001"
+_EMPTY_CREDS = "/tmp/bora-empty-creds"
 
 
 def clean_eval_tmpfs_mount(tmpfs_mb: int, *, allow_exec: bool = False) -> str:
@@ -171,6 +172,38 @@ def run_clean_evaluator_container(
     )
 
 
+def _hide_creds_cmds(container_id: str, image_tag: str) -> list[tuple[list[str], str]]:
+    """Overlay empty /creds in the live container without changing its network."""
+    return [
+        (
+            ["docker", "exec", "-u", "0:0", container_id, "mkdir", "-p", _EMPTY_CREDS],
+            "eval_creds_hide_mkdir_failed",
+        ),
+        (
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--privileged",
+                "--pid",
+                f"container:{container_id}",
+                "--network",
+                "none",
+                image_tag,
+                "nsenter",
+                "-t",
+                "1",
+                "-m",
+                "mount",
+                "--bind",
+                _EMPTY_CREDS,
+                "/creds",
+            ],
+            "eval_creds_hide_failed",
+        ),
+    ]
+
+
 def run_reuse_attempt_evaluator(
     *,
     container_id: str,
@@ -180,11 +213,13 @@ def run_reuse_attempt_evaluator(
     expected_filename: str | None,
     placement: EvalPlacement,
     uid_gid: str = _DEFAULT_EVAL_USER,
+    image_tag: str = "bora-attempt:l1",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Run ``evaluator.py`` in the live Attempt container. No new eval box.
 
     Network stays whatever ``provider.network`` already is. Host credential
     env is not forwarded. Hidden inputs must already be on ``staging``.
+    ``/creds`` is overlaid empty before exec; hide failure is ERROR.
     """
     fail_meta = {
         "ok": False,
@@ -203,12 +238,18 @@ def run_reuse_attempt_evaluator(
     script = textwrap.dedent(
         f"""
         import json, importlib.util, os
+        from pathlib import Path
         for _k in os.environ:
             _u = _k.upper()
             if any(s in _u for s in ("TOKEN", "SECRET", "API_KEY", "PASSWORD")):
                 print(json.dumps({{"status": "ERROR", "score": None,
                                    "metrics": {{"leak": "credential_env"}}}}))
                 raise SystemExit(3)
+        _creds = Path("/creds")
+        if _creds.exists() and any(p.is_file() for p in _creds.rglob("*")):
+            print(json.dumps({{"status": "ERROR", "score": None,
+                               "metrics": {{"leak": "credential"}}}}))
+            raise SystemExit(3)
         spec = importlib.util.spec_from_file_location("ev", "/eval/evaluator.py")
         mod = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
@@ -227,6 +268,7 @@ def run_reuse_attempt_evaluator(
             ["docker", "exec", "-u", "0:0", container_id, "chmod", "-R", "a+rX", "/eval"],
             "eval_chmod_failed",
         ),
+        *_hide_creds_cmds(container_id, image_tag),
     ):
         step = subprocess.run(cmd, check=False, capture_output=True, text=True)
         if step.returncode != 0:

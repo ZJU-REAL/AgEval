@@ -119,8 +119,16 @@ def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: objec
     assert raw["status"] == "FAIL"
     assert raw["score"] == 0.0
     assert meta["reuse_attempt"] is True
-    assert captured[0][:2] != ["docker", "run"]
     assert any(cmd[:2] == ["docker", "cp"] for cmd in captured)
+    helpers = [cmd for cmd in captured if cmd[:2] == ["docker", "run"]]
+    assert len(helpers) == 1
+    helper = helpers[0]
+    assert "--privileged" in helper
+    assert "--pid" in helper
+    assert helper[helper.index("--pid") + 1] == "container:cid-live"
+    assert helper[helper.index("--network") + 1] == "none"
+    assert "nsenter" in helper
+    assert "/creds" in helper
     execs = [cmd for cmd in captured if cmd[:2] == ["docker", "exec"]]
     assert execs
     python_exec = [cmd for cmd in execs if "python" in cmd]
@@ -134,6 +142,40 @@ def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: objec
         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
         "HOME=/tmp",
     ]
-    assert not any("/creds" in part for part in cmd)
-    assert not any(cmd[:2] == ["docker", "run"] for cmd in captured)
+    assert not any(part == "/creds" for part in cmd)
     assert not any(cmd[:3] == ["docker", "network", "connect"] for cmd in captured)
+    assert not any("--read-only" in cmd for cmd in captured)
+
+
+def test_reuse_attempt_hide_creds_failure_is_error(tmp_path: Path, monkeypatch: object) -> None:
+    from types import SimpleNamespace
+
+    from bora.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
+
+    captured: list[list[str]] = []
+
+    def _run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        captured.append(list(cmd))
+        if cmd[:2] == ["docker", "run"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="nsenter: denied")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        _run,
+    )
+    spec = resolve_eval_placement({"reuse_attempt": True, "tmpfs_mb": 32})
+    staging = tmp_path / "eval"
+    staging.mkdir()
+    raw, meta = run_reuse_attempt_evaluator(
+        container_id="cid-live",
+        staging=staging,
+        artifact_filename="out.json",
+        artifact_key="out",
+        expected_filename=None,
+        placement=spec,
+    )
+    assert raw["status"] == "ERROR"
+    assert raw["metrics"]["error"] == "eval_creds_hide_failed"
+    assert meta["ok"] is False
+    assert not any("python" in cmd for cmd in captured)

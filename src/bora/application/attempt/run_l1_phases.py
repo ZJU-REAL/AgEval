@@ -533,6 +533,7 @@ def evaluate_l1(ctx: AttemptStageContext) -> None:
                 expected_filename=expected_filename,
                 placement=placement,
                 uid_gid=_reuse_eval_user(runtime),
+                image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
             )
         else:
             eval_raw, eval_meta = run_clean_evaluator_container(
