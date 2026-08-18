@@ -255,6 +255,8 @@ bindings:
 means no Runtime plaza file tree. Config does **not** infer this list from
 plugin `src`. Listed files must stay locator-only (no tokens / PEM). Two roles
 that publish the same path each list it; the Dataset still has one blob.
+`bora publish` packs **only** those declared paths (directory prefix closure),
+not everything under `overlays/`.
 
 ## Ownership rules
 

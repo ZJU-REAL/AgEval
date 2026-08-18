@@ -432,6 +432,67 @@ def resolve_task(
     )
 
 
+_SKIP_PROFILE_DIRS = frozenset({"tasks", "shared", "overlays", "evaluation", "environment"})
+
+
+def _iter_profiles_documents(database_root: Path) -> list[Path]:
+    """Database-root and one-level ``bora.profiles/1`` candidates (not task trees)."""
+    root = database_root.expanduser().resolve(strict=False)
+    candidates: list[Path] = []
+    if (root / "profiles.yaml").is_file():
+        candidates.append(root / "profiles.yaml")
+    candidates.extend(sorted(root.glob("profiles*.yaml")))
+    for child in sorted(root.iterdir()):
+        if not child.is_dir() or child.name in _SKIP_PROFILE_DIRS or child.name.startswith("."):
+            continue
+        candidates.extend(sorted(child.glob("*.yaml")))
+    out: list[Path] = []
+    seen: set[Path] = set()
+    for path in candidates:
+        resolved = path.resolve(strict=False)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        out.append(path)
+    return out
+
+
+def _declared_overlay_member_paths(database_root: Path) -> list[str]:
+    """Prefix closure of binding ``overlays:`` — not the whole ``overlays/`` tree."""
+    from bora.config.overlay_files import iter_overlay_files, overlay_paths_from_job_overlay
+    from bora.config.profiles import load_profiles_document
+
+    root = database_root.expanduser().resolve(strict=False)
+    declared: list[str] = []
+    seen: set[str] = set()
+    source_docs: list[str] = []
+    for yaml_path in _iter_profiles_documents(root):
+        try:
+            bindings = load_profiles_document(yaml_path)
+        except ConfigError:
+            continue
+        found = overlay_paths_from_job_overlay({"bindings": bindings})
+        if not found:
+            continue
+        rel_doc = _digest_member_file(root, yaml_path)
+        if rel_doc is not None:
+            source_docs.append(rel_doc)
+        for path in found:
+            if path in seen:
+                continue
+            seen.add(path)
+            declared.append(path)
+    if not declared:
+        return []
+    files = iter_overlay_files(root, declared, location="/overlays")
+    rels: list[str] = []
+    for file_path in files:
+        rel = _digest_member_file(root, file_path)
+        if rel is not None:
+            rels.append(rel)
+    return sorted(set(source_docs + rels))
+
+
 def _digest_member_file(root: Path, file_path: Path) -> str | None:
     """Return package-relative posix path if *file_path* should enter packageDigest."""
     if not file_path.is_file():
@@ -454,7 +515,8 @@ def member_paths_for_digest(
 
     Returns posix-relative paths under the database root: root ``bora.yaml``,
     optional job-binding / env docs (``profiles.yaml``, ``env.example``,
-    ``README.md``), optional Dataset-level ``shared/**`` (#65), plus every file
+    ``README.md``), optional Dataset-level ``shared/**``, files named by
+    binding ``overlays:`` (not the whole ``overlays/`` tree), plus every file
     under each member directory, sorted. Does not compute hashes.
     Secrets (``.env``) are never included.
     """
@@ -473,6 +535,9 @@ def member_paths_for_digest(
             rel = _digest_member_file(root, file_path)
             if rel is not None:
                 paths.append(rel)
+    for rel in _declared_overlay_member_paths(root):
+        if rel not in paths:
+            paths.append(rel)
     for tid in task_ids:
         task_dir = root / man.tasks_root / tid
         for file_path in sorted(task_dir.rglob("*")):

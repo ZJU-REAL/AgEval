@@ -307,6 +307,8 @@ bindings:
 
 `project_job_overlay` 把 `overlays` **路径**投影进 suite `job_overlay`（无文件字节）。`bora results export-profiles` 必须写回该字段。再跑仍依赖 Database 里这些相对路径上的文件；Hub 不另下一份 blob。
 
+**Digest / publish：** 只有 profiles 里 `overlays:` **声明的**路径（文件或目录前缀闭包）进入 `member_paths_for_digest` 与 publish blob。不是 `overlays/` 目录有什么打什么。Hub 预览读这份 release，不是 suite archive。
+
 `overlays` **不得**进入 plaza `rt_*`（`harness_fingerprint` 仍只哈希 agent 产品）或 suite `config_fingerprint`。
 
 **Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*` 只点 **role / profile id**；真正跑哪条 coding-agent 后端写在 Database `profiles.yaml`（或 CLI overlay）。coding-agent 配置形状为 `executor: acp` + `- plugin: acp` 行上的 `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 binding 的 executor 行 `options.entry`/`model`（`--set '/bindings/solver/…'` 或 `--matrix`），不必改 `harness.py`。
@@ -663,7 +665,7 @@ provenance:
 
 ## Database Registry 分发
 
-**Release 单位 = Database 整包**（根 `bora.yaml` + 可选 `shared/**` + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。
+**Release 单位 = Database 整包**（根 `bora.yaml` + 可选 `shared/**` + 已声明的 `overlays:` 文件 + 全部 `tasks/**`）。Registry 是独立服务（`services/registry/`），不进入 Core 五组。
 
 ### PackageRef
 

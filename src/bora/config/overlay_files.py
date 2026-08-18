@@ -45,6 +45,29 @@ _ENTROPY_MIN_LEN = 32
 _ENTROPY_MIN = 4.5
 
 
+def overlay_paths_from_job_overlay(overlay: Mapping[str, Any] | None) -> list[str]:
+    """Unique ``overlays/…`` paths from secret-free ``job_overlay.bindings``."""
+    if not isinstance(overlay, Mapping):
+        return []
+    bindings = overlay.get("bindings")
+    if not isinstance(bindings, Mapping):
+        return []
+    raw: list[str] = []
+    for item in bindings.values():
+        if not isinstance(item, Mapping):
+            continue
+        listed = item.get("overlays")
+        if not isinstance(listed, list):
+            continue
+        raw.extend(str(path).strip() for path in listed if str(path).strip())
+    if not raw:
+        return []
+    try:
+        return parse_overlay_paths(raw, location="/job_overlay/overlays")
+    except ConfigError:
+        return []
+
+
 def parse_overlay_paths(raw: Any, *, location: str) -> list[str]:
     """Validate the ``overlays`` list shape and return normalized paths."""
     if raw is None:

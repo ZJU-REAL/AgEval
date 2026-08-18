@@ -39,7 +39,7 @@ Empty suite fails lock.
 
 Optional `label` on a role is the Jobs / Hub Agents axis. If omitted: ACP uses `- plugin: acp` / `options.entry`, other kinds use `executor`. Never treat `options.agent` as a display name. Optional `options.reasoning_effort` must match an advertised thinking value; `grok-build` applies it on `grok agent --reasoning-effort`, other entries use ACP `set_config_option`.
 
-Optional `overlays` is that role’s published file set for the Runtime plaza (Database-relative paths under `overlays/`). Omit or `[]` = YAML only, no tree. Core does not infer the list from plugin `src`. Listed files stay locator-only.
+Optional `overlays` is that role’s published file set for the Runtime plaza (Database-relative paths under `overlays/`). Omit or `[]` = YAML only, no tree. Core does not infer the list from plugin `src`. Listed files stay locator-only. `bora publish` includes only declared paths, not the whole `overlays/` directory.
 
 ## Allowed top-level dirs
 

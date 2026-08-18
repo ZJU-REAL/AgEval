@@ -206,6 +206,46 @@ def test_member_paths_include_shared_tree(tmp_path: Path) -> None:
     assert shared_idx < task_idx
 
 
+def test_member_paths_include_only_declared_overlays(tmp_path: Path) -> None:
+    _write_db(tmp_path)
+    _write_task(tmp_path / "tasks" / "a", "a")
+    skill = tmp_path / "overlays" / "skills" / "jsonl-agg"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("# skill\n", encoding="utf-8")
+    (tmp_path / "overlays" / "AGENTS.md").write_text("# agents\n", encoding="utf-8")
+    (tmp_path / "overlays" / "secret.json").write_text("{}\n", encoding="utf-8")
+    alt = tmp_path / "acp-profiles"
+    alt.mkdir()
+    (alt / "profiles.acp.demo.yaml").write_text(
+        "format: bora.profiles/1\n"
+        "bindings:\n"
+        "  solver:\n"
+        "    executor: mock\n"
+        "    overlays:\n"
+        "      - overlays/skills/jsonl-agg\n"
+        "      - overlays/AGENTS.md\n",
+        encoding="utf-8",
+    )
+
+    paths = member_paths_for_digest(tmp_path)
+    assert "acp-profiles/profiles.acp.demo.yaml" in paths
+    assert "overlays/AGENTS.md" in paths
+    assert "overlays/skills/jsonl-agg/SKILL.md" in paths
+    assert "overlays/secret.json" not in paths
+    overlay_idx = paths.index("overlays/AGENTS.md")
+    task_idx = next(i for i, p in enumerate(paths) if p.startswith("tasks/a/"))
+    assert overlay_idx < task_idx
+
+
+def test_member_paths_omit_undeclared_overlays(tmp_path: Path) -> None:
+    _write_db(tmp_path)
+    _write_task(tmp_path / "tasks" / "a", "a")
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "AGENTS.md").write_text("# agents\n", encoding="utf-8")
+    paths = member_paths_for_digest(tmp_path)
+    assert not any(p.startswith("overlays/") for p in paths)
+
+
 def test_member_paths_without_shared_unchanged_shape(tmp_path: Path) -> None:
     _write_db(tmp_path)
     _write_task(tmp_path / "tasks" / "a", "a")
