@@ -225,7 +225,7 @@ def _in_progress_suite_row(
         "summary_path": str(suite_dir / "progress.json"),
         "progress": progress,
         "status": str(progress.get("status") or "running"),
-        "note": "suite in progress — not deletable until finished",
+        "note": "suite in progress",
     }
 
 

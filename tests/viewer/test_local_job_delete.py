@@ -223,8 +223,8 @@ def test_list_jobs_includes_progress_only_suite(tmp_path: Path) -> None:
     assert row["status"] == "running"
     cmds = build_local_jobs_commands()
     preview = cmds.preview_delete_job(db, job_id="suite_live")
-    assert preview["can_delete"] is False
-    assert preview["error"]["code"] == "job_in_progress"
+    assert preview["can_delete"] is True
+    assert preview["warning"]["code"] == "job_in_progress"
     detail = jobs.get_job(db, "suite_live")
     assert detail["ok"] is True
     assert detail["job"]["job_id"] == "suite_live"
@@ -245,7 +245,7 @@ def test_refuse_inner_attempt_delete(tmp_path: Path) -> None:
     assert (db / ".bora" / "runs" / "run_a").is_dir()
 
 
-def test_refuse_in_progress_suite(tmp_path: Path) -> None:
+def test_in_progress_suite_warns_but_deletes(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = _seed_suite(db)
     _seed_attempt(db, "run_a")
@@ -255,20 +255,22 @@ def test_refuse_in_progress_suite(tmp_path: Path) -> None:
     )
     cmds = build_local_jobs_commands()
     preview = cmds.preview_delete_job(db, job_id=job_id)
-    assert preview["can_delete"] is False
-    assert preview["error"]["code"] == "job_in_progress"
-    with pytest.raises(ConfigError, match="job_in_progress"):
-        cmds.delete_job(db, job_id=job_id, yes=True)
-    assert (db / ".bora" / "suite-runs" / job_id / "summary.json").is_file()
+    assert preview["can_delete"] is True
+    assert preview["warning"]["code"] == "job_in_progress"
+    cmds.delete_job(db, job_id=job_id, yes=True)
+    assert not (db / ".bora" / "suite-runs" / job_id).exists()
 
 
-def test_refuse_live_cancel_request(tmp_path: Path) -> None:
+def test_live_cancel_request_warns_but_deletes(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = _seed_suite(db)
     (db / ".bora" / "suite-runs" / job_id / "cancel.requested").write_text("{}\n", encoding="utf-8")
     cmds = build_local_jobs_commands()
-    with pytest.raises(ConfigError, match="job_in_progress"):
-        cmds.delete_job(db, job_id=job_id, yes=True)
+    preview = cmds.preview_delete_job(db, job_id=job_id)
+    assert preview["can_delete"] is True
+    assert preview["warning"]["code"] == "job_in_progress"
+    cmds.delete_job(db, job_id=job_id, yes=True)
+    assert not (db / ".bora" / "suite-runs" / job_id).exists()
 
 
 def test_complete_progress_allows_delete(tmp_path: Path) -> None:

@@ -13,8 +13,38 @@ import { formatBytes } from "@/lib/utils";
 type PreviewRow = {
   job: Job;
   preview: DeletePreview | null;
+  errorCode: string | null;
   error: string | null;
+  warningCode: string | null;
 };
+
+function inProgressCopy(count: number, bulk: boolean): string {
+  if (!bulk || count === 1) return "You can delete it anyway.";
+  return `You can delete all ${count} anyway.`;
+}
+
+function blockedCopy(rows: PreviewRow[], bulk: boolean): string | null {
+  if (rows.length === 0) return null;
+  const codes = new Set(rows.map((r) => r.errorCode).filter(Boolean));
+  const one = !bulk || rows.length === 1;
+  if (codes.size === 1 && codes.has("job_inner_attempt")) {
+    return one
+      ? "This attempt still belongs to a suite. Delete the suite instead."
+      : "These attempts still belong to a suite. Delete the suite instead.";
+  }
+  if (codes.size === 1 && codes.has("job_claimed_elsewhere")) {
+    return one
+      ? "Another suite still claims an attempt here."
+      : "Another suite still claims some of these attempts.";
+  }
+  if (codes.size === 1 && codes.has("job_in_progress")) {
+    return one
+      ? "This attempt isn't finished yet."
+      : "Some of these attempts aren't finished yet.";
+  }
+  if (one) return rows[0].error || "Can't delete this job.";
+  return `${rows.length} jobs can't be deleted.`;
+}
 
 type Props = {
   jobs: Job[];
@@ -36,12 +66,22 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
       jobs.map(async (job) => {
         try {
           const preview = await fetchDeletePreview(job.job_id);
-          return { job, preview, error: preview.can_delete ? null : preview.error?.message || "cannot delete" };
+          return {
+            job,
+            preview,
+            errorCode: preview.can_delete ? null : preview.error?.code || null,
+            error: preview.can_delete
+              ? null
+              : preview.error?.message || "cannot delete",
+            warningCode: preview.warning?.code || null,
+          };
         } catch (e) {
           return {
             job,
             preview: null,
+            errorCode: null,
             error: e instanceof Error ? e.message : String(e),
+            warningCode: null,
           };
         }
       }),
@@ -65,10 +105,13 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
 
   const ready = rows.filter((r) => r.preview?.can_delete && r.preview.confirm_token);
   const blocked = rows.filter((r) => r.error);
+  const running = rows.filter((r) => r.warningCode === "job_in_progress");
+  const bulk = jobs.length > 1;
+  const runningHint = running.length ? inProgressCopy(running.length, bulk) : null;
+  const blockedHint = blockedCopy(blocked, bulk);
   const paths = ready.flatMap((r) => r.preview?.paths || []);
   const bytes = ready.reduce((sum, r) => sum + (r.preview?.bytes || 0), 0);
   const cascade = ready.reduce((sum, r) => sum + (r.preview?.cascade_run_ids.length || 0), 0);
-  const bulk = jobs.length > 1;
   const singleKind = rows[0]?.preview?.kind || jobs[0]?.source_kind || "job";
 
   async function onConfirm() {
@@ -83,9 +126,7 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
         await deleteJob(row.job.job_id, token);
         deleted.push(row.job.job_id);
       } catch (e) {
-        failures.push(
-          `${jobDisplayName(row.job)}: ${e instanceof Error ? e.message : String(e)}`,
-        );
+        failures.push(e instanceof Error ? e.message : String(e));
       }
     }
     if (deleted.length && !failures.length) {
@@ -135,12 +176,14 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
             <p className="text-body">This removes this Attempt directory.</p>
           )}
           {loading && <p className="text-mute">Loading preview...</p>}
-          {error ? <p className="text-error">{error}</p> : null}
-          {blocked.map((row) => (
-            <p key={row.job.job_id} className="text-error">
-              {jobDisplayName(row.job)}: {row.error}
+          {runningHint ? (
+            <p className="text-xs text-body">
+              <span className="text-mute">Still running or canceling. </span>
+              {runningHint}
             </p>
-          ))}
+          ) : null}
+          {blockedHint ? <p className="text-sm text-body">{blockedHint}</p> : null}
+          {error ? <p className="text-sm text-error">{error}</p> : null}
           {paths.length > 0 && (
             <>
               <ul className="max-h-48 overflow-auto rounded-[6px] border border-hairline bg-canvas-soft divide-y divide-hairline">

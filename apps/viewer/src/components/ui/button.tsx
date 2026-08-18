@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "chamfer chamfer-focus focus-visible:[--chamfer-focus-ring:var(--color-ink)] bg-link text-on-accent hover:bg-link-deep font-mono text-[13px] font-semibold",
+          "bg-link text-on-accent hover:bg-link-deep font-mono text-[13px] font-semibold",
         secondary:
           "bg-canvas border border-hairline text-ink hover:bg-canvas-soft",
         ghost: "text-body hover:bg-canvas-soft hover:text-ink",

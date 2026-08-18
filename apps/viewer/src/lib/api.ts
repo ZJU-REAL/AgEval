@@ -188,6 +188,7 @@ export type DeletePreview = {
   cascade_run_ids: string[];
   confirm_token: string;
   error?: { code?: string; message?: string } | null;
+  warning?: { code?: string; message?: string } | null;
 };
 
 export type DeleteResult = {
