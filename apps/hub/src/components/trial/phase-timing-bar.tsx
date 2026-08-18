@@ -30,20 +30,20 @@ export type TokenTiming = {
 };
 
 const PHASE_COLORS: Record<string, string> = {
-  prepare: "bg-zinc-300 dark:bg-zinc-600",
-  run: "bg-zinc-500 dark:bg-zinc-400",
-  evaluate: "bg-zinc-400 dark:bg-zinc-500",
-  cleanup: "bg-zinc-200 dark:bg-zinc-700",
-  env_setup: "bg-zinc-300 dark:bg-zinc-600",
-  agent_setup: "bg-zinc-500 dark:bg-zinc-400",
-  agent_execution: "bg-zinc-500 dark:bg-zinc-400",
-  verifier: "bg-zinc-400 dark:bg-zinc-500",
+  prepare: "bg-[var(--viewer-phase-5)]",
+  run: "bg-[var(--viewer-phase-1)]",
+  evaluate: "bg-[var(--viewer-phase-3)]",
+  cleanup: "bg-[var(--viewer-phase-6)]",
+  env_setup: "bg-[var(--viewer-phase-5)]",
+  agent_setup: "bg-[var(--viewer-phase-1)]",
+  agent_execution: "bg-[var(--viewer-phase-1)]",
+  verifier: "bg-[var(--viewer-phase-3)]",
 };
 
 const TOKEN_COLORS: Record<string, string> = {
-  cached_input: "bg-zinc-300 dark:bg-zinc-600",
-  uncached_input: "bg-zinc-500 dark:bg-zinc-400",
-  output: "bg-zinc-700 dark:bg-zinc-300",
+  cached_input: "bg-[var(--viewer-phase-5)]",
+  uncached_input: "bg-[var(--viewer-phase-1)]",
+  output: "bg-[var(--viewer-phase-3)]",
 };
 
 function formatMs(ms: number | undefined | null): string {
@@ -65,7 +65,7 @@ function formatTokens(n: number | undefined | null): string {
 
 function colorFor(id: string, kind: "phase" | "token"): string {
   const map = kind === "phase" ? PHASE_COLORS : TOKEN_COLORS;
-  return map[id] || "bg-zinc-400 dark:bg-zinc-500";
+  return map[id] || "bg-[var(--viewer-phase-4)]";
 }
 
 function SegmentBar({

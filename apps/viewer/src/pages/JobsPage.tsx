@@ -7,6 +7,7 @@ import { JobCheck } from "@/components/job-check";
 import { JobNoteDialog } from "@/components/job-note-dialog";
 import { JobRowActions } from "@/components/job-row-actions";
 import { Shell } from "@/components/layout";
+import { PageHead } from "@/components/page-head";
 import {
   compareValues,
   nextSort,
@@ -257,6 +258,7 @@ export function JobsPage() {
       }
     >
       <div className="space-y-4">
+        <PageHead title="Jobs" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-mute" />
           <Input

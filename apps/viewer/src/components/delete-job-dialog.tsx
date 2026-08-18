@@ -107,7 +107,7 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-job-title"
-        className="w-full max-w-lg rounded-[8px] border border-hairline bg-canvas shadow-[0_8px_24px_-8px_#00000024]"
+        className="w-full max-w-lg rounded-[8px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-hairline px-4 py-3">

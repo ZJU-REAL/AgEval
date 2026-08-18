@@ -363,10 +363,10 @@ export function DatasetDetailPage() {
             type="button"
             onClick={() => setTab(id)}
             className={cn(
-              "px-3 py-2 text-sm transition-colors border-b-2 -mb-px",
+              "px-3 py-2 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
               tab === id
-                ? "border-ink text-ink font-medium"
-                : "border-transparent text-body hover:text-ink",
+                ? "border-link text-ink font-semibold"
+                : "border-transparent text-mute hover:text-body",
             )}
           >
             {label}
@@ -486,10 +486,10 @@ export function DatasetDetailPage() {
                   type="button"
                   onClick={() => setBoardView(id)}
                   className={cn(
-                    "px-3 py-1.5 text-sm transition-colors border-b-2 -mb-px",
+                    "px-3 py-1.5 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
                     boardView === id
-                      ? "border-ink text-ink font-medium"
-                      : "border-transparent text-body hover:text-ink",
+                      ? "border-link text-ink font-semibold"
+                      : "border-transparent text-mute hover:text-body",
                   )}
                 >
                   {label}

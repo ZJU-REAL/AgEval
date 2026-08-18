@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
+import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
 import {
   Table,
@@ -102,16 +103,14 @@ export function DatasetsPage() {
 
   return (
     <>
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">
-          {scope === "orgs" ? "Your datasets" : "Explore datasets"}
-        </h1>
-        <p className="text-sm text-body mt-1">
-          {scope === "orgs"
+      <PageHead
+        title={scope === "orgs" ? "Your datasets" : "Explore datasets"}
+        sub={
+          scope === "orgs"
             ? "Packages published by organizations you belong to."
-            : "Public packages on this Registry."}
-        </p>
-      </div>
+            : "Public packages on this Registry."
+        }
+      />
 
       <CatalogScopeBar
         scope={scope}

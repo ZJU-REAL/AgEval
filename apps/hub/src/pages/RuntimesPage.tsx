@@ -2,6 +2,7 @@ import { Bot } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { PageHead } from "@/components/page-head";
 import {
   Table,
   TableBody,
@@ -66,15 +67,10 @@ export function RuntimesPage() {
 
   return (
     <>
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">
-          Runtimes
-        </h1>
-        <p className="text-sm text-body mt-1">
-          Agents on official public Leaderboards. Derived view — not a stored
-          Runtime object and not suite PASS.
-        </p>
-      </div>
+      <PageHead
+        title="Runtimes"
+        sub="Agents on official public Leaderboards. Derived view — not a stored Runtime object and not suite PASS."
+      />
 
       {loading ? (
         <p className="text-sm text-mute">Loading…</p>

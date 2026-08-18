@@ -79,7 +79,7 @@ export function TaskDetailPage() {
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-ink">{taskId}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono">{taskId}</h1>
             <p className="text-sm text-mute mt-1">
               {[meta.agent, meta.model, meta.dataset].filter(Boolean).join(" / ")}
             </p>

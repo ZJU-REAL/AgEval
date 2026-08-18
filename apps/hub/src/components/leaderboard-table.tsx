@@ -651,10 +651,10 @@ export function LeaderboardTable({
                                 type="button"
                                 onClick={() => setExpandTab(id)}
                                 className={cn(
-                                  "px-2.5 py-1.5 text-xs transition-colors border-b-2 -mb-px",
+                                  "px-2.5 py-1.5 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
                                   expandTab === id
-                                    ? "border-ink text-ink font-medium"
-                                    : "border-transparent text-body hover:text-ink",
+                                    ? "border-link text-ink font-semibold"
+                                    : "border-transparent text-mute hover:text-body",
                                 )}
                               >
                                 {label}

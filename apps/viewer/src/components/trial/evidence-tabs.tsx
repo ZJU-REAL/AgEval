@@ -67,9 +67,9 @@ export function EvidenceTabs({
             aria-selected={activeTab === tab}
             onClick={() => onTabChange(tab)}
             className={cn(
-              "px-3 py-2 text-sm transition-colors border-b-2 -mb-px",
+              "px-3 py-2 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
               activeTab === tab
-                ? "border-ink text-ink font-medium"
+                ? "border-link text-ink font-semibold"
                 : "border-transparent text-mute hover:text-body",
             )}
           >

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
 import { OfficialMark } from "@/components/official-mark";
+import { PageHead } from "@/components/page-head";
 import { ScrollTable } from "@/components/scroll-table";
 import {
   encodeDatasetId,
@@ -155,24 +156,26 @@ export function HomePage() {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Home</h1>
-        <p className="text-sm text-body mt-1">
-          {githubUser ? (
-            <>
-              Signed in as{" "}
-              <span className="inline-flex items-center gap-1 align-middle">
-                <span className="font-mono text-xs">{githubUser}</span>
-                {orgs.some((o) => o.official) ? (
-                  <OfficialMark kind="org" />
-                ) : null}
-              </span>
-              {" · "}
-            </>
-          ) : null}
-          Read-only lists. Publish, upload, and release stay on the CLI.
-        </p>
-      </div>
+      <PageHead
+        title="Home"
+        sub={
+          <>
+            {githubUser ? (
+              <>
+                Signed in as{" "}
+                <span className="inline-flex items-center gap-1 align-middle">
+                  <span className="font-mono text-xs">{githubUser}</span>
+                  {orgs.some((o) => o.official) ? (
+                    <OfficialMark kind="org" />
+                  ) : null}
+                </span>
+                {" · "}
+              </>
+            ) : null}
+            Read-only lists. Publish, upload, and release stay on the CLI.
+          </>
+        }
+      />
 
       {loading ? <p className="text-sm text-mute">Loading…</p> : null}
       {error ? (

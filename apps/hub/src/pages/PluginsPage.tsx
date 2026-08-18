@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
 import { OfficialMark } from "@/components/official-mark";
+import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
 import {
   Table,
@@ -116,16 +117,16 @@ export function PluginsPage() {
 
   return (
     <>
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">
-          Plugin marketplace
-        </h1>
-        <p className="text-sm text-body mt-1">
-          Browse{" "}
-          <span className="font-mono text-xs">bora.plugin/1</span> packages.
-          Install is CLI-only (Recognition only — does not change profiles).
-        </p>
-      </div>
+      <PageHead
+        title="Plugin marketplace"
+        sub={
+          <>
+            Browse <span className="font-mono text-xs">bora.plugin/1</span>{" "}
+            packages. Install is CLI-only (Recognition only — does not change
+            profiles).
+          </>
+        }
+      />
 
       <CatalogScopeBar
         scope={scope}

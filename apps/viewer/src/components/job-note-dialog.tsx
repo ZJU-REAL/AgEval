@@ -39,7 +39,7 @@ export function JobNoteDialog({ job, initialNote, onClose, onSave }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-lg rounded-[8px] border border-hairline bg-canvas shadow-[0_8px_24px_-8px_#00000024]"
+        className="w-full max-w-lg rounded-[8px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-hairline px-4 py-3">
@@ -63,7 +63,7 @@ export function JobNoteDialog({ job, initialNote, onClose, onSave }: Props) {
               }
             }}
             placeholder="Local note for this browser. Not written to evidence."
-            className="min-h-[8rem] w-full resize-y rounded-[6px] border border-hairline bg-canvas px-3 py-2 text-sm text-ink placeholder:text-mute focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/15 focus-visible:border-hairline-strong"
+            className="min-h-[8rem] w-full resize-y rounded-[6px] border border-hairline bg-canvas px-3 py-2 text-sm text-ink placeholder:text-mute focus-visible:outline-none focus-visible:border-link"
             aria-label="Job note"
           />
           <p className="text-xs text-mute tabular">

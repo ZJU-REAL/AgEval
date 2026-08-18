@@ -94,7 +94,7 @@ export function JobDetailPage() {
         />
 
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">{jobId}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono">{jobId}</h1>
           {job && (
             <p className="text-sm text-mute mt-1">
               {[job.agent_label, job.model_label, job.source]
