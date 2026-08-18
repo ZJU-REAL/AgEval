@@ -43,6 +43,18 @@ def test_bad_network() -> None:
     assert ei.value.location == "/evaluation/network"
 
 
+def test_reuse_attempt_omit_false_true() -> None:
+    assert resolve_eval_placement({"tmpfs_mb": 32}).reuse_attempt is False
+    assert resolve_eval_placement({"reuse_attempt": False, "tmpfs_mb": 32}).reuse_attempt is False
+    assert resolve_eval_placement({"reuse_attempt": True, "tmpfs_mb": 32}).reuse_attempt is True
+
+
+def test_bad_reuse_attempt() -> None:
+    with pytest.raises(ConfigError, match="reuse_attempt") as ei:
+        resolve_eval_placement({"reuse_attempt": "yes", "tmpfs_mb": 32})
+    assert ei.value.location == "/evaluation/reuse_attempt"
+
+
 def test_writable_keeps_declared_tmpfs() -> None:
     spec = resolve_eval_placement({"placement": "writable", "tmpfs_mb": 4096})
     assert spec.mode == PLACEMENT_WRITABLE
@@ -166,6 +178,33 @@ def test_lock_accepts_network_bridge(tmp_path: Path) -> None:
         profile_bindings=_P1,
     )
     assert dict(locked.evaluation).get("network") == "bridge"
+
+
+def test_lock_accepts_reuse_attempt(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    _pkg(pkg, "  reuse_attempt: true\n  tmpfs_mb: 32")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    locked = core.load_and_lock(
+        pkg,
+        "eval-place",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings=_P1,
+    )
+    assert dict(locked.evaluation).get("reuse_attempt") is True
+
+
+def test_lock_rejects_invalid_reuse_attempt(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    _pkg(pkg, "  reuse_attempt: maybe")
+    core = ConfigCore(package_reader=LocalPackageReader())
+    with pytest.raises(ConfigError, match="reuse_attempt") as ei:
+        core.load_and_lock(
+            pkg,
+            "eval-place",
+            capabilities=DeclarationCapabilityCatalog(),
+            profile_bindings=_P1,
+        )
+    assert ei.value.location == "/evaluation/reuse_attempt"
 
 
 def test_lock_rejects_unknown_network(tmp_path: Path) -> None:

@@ -148,7 +148,7 @@ class LocalL0Stages:
 
 @dataclass
 class DockerL1Stages:
-    """L1: clean-container evaluator; agent targets via Provider ledger."""
+    """L1: isolated or same-Attempt evaluator; agent targets via Provider ledger."""
 
     ctx: AttemptStageContext
 

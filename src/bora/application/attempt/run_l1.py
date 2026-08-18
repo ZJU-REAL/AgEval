@@ -6,6 +6,8 @@ Containment rules:
   workspace-only write; filtered package; never evaluation/.
 - Clean evaluator container: staging only, no package mount, no creds;
   network from evaluation.network (omit ≡ none).
+- Same-Attempt eval (evaluation.reuse_attempt): fence writers, keep the
+  Attempt container, docker exec evaluator.py. Network stays provider.network.
 - assurance:l1 only when harness + agent (if any) + evaluator writers confirmed and
   isolation probes pass.
 

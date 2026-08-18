@@ -1,7 +1,4 @@
-"""L1 clean evaluator container — staging-only, no package/creds.
-
-Network is ``evaluation.network`` (omit ≡ none). Isolated eval only.
-"""
+"""L1 evaluator runners: isolated new container, or same-Attempt exec."""
 
 from __future__ import annotations
 
@@ -19,6 +16,9 @@ from bora.config.eval_placement import (
     EvalPlacement,
 )
 
+_EVAL_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+_DEFAULT_EVAL_USER = "10001:10001"
+
 
 def clean_eval_tmpfs_mount(tmpfs_mb: int, *, allow_exec: bool = False) -> str:
     """Docker ``--tmpfs`` spec for clean-eval ``/tmp``.
@@ -32,6 +32,48 @@ def clean_eval_tmpfs_mount(tmpfs_mb: int, *, allow_exec: bool = False) -> str:
     return f"/tmp:rw,{exec_flag},nosuid,size={tmpfs_mb}m"
 
 
+def _artifact_payload(
+    artifact_key: str, artifact_filename: str, expected_filename: str | None
+) -> str:
+    arts = f'"artifacts": {{"{artifact_key}": "/eval/{artifact_filename}"'
+    if expected_filename:
+        arts += f', "expected": "/eval/{expected_filename}"'
+    arts += "}"
+    return arts
+
+
+def _parse_eval_process(
+    stdout: str,
+    stderr: str,
+    *,
+    returncode: int,
+    placement: str,
+    extra_meta: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    meta: dict[str, Any] = {
+        "ok": returncode == 0,
+        "exit": returncode,
+        "writer_stop_confirmed": True,
+        "placement": placement,
+        "stderr": (stderr or "")[-500:],
+    }
+    if extra_meta:
+        meta.update(extra_meta)
+    try:
+        line = (stdout or "").strip().splitlines()[-1]
+        raw = json.loads(line)
+        if not isinstance(raw, dict):
+            raw = {"status": "ERROR", "score": None, "metrics": {}}
+    except (json.JSONDecodeError, IndexError):
+        raw = {
+            "status": "ERROR",
+            "score": None,
+            "metrics": {"stderr": meta["stderr"], "stdout": (stdout or "")[-500:]},
+        }
+        meta["ok"] = False
+    return raw, meta
+
+
 def run_clean_evaluator_container(
     *,
     image_tag: str,
@@ -42,10 +84,7 @@ def run_clean_evaluator_container(
     tmpfs_mb: int = DEFAULT_EVAL_TMPFS_MB,
     placement: EvalPlacement | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    arts = f'"artifacts": {{"{artifact_key}": "/eval/{artifact_filename}"'
-    if expected_filename:
-        arts += f', "expected": "/eval/{expected_filename}"'
-    arts += "}"
+    arts = _artifact_payload(artifact_key, artifact_filename, expected_filename)
     script = textwrap.dedent(
         f"""
         import json, importlib.util
@@ -120,26 +159,142 @@ def run_clean_evaluator_container(
                 "writer_stop_confirmed": True,
                 "package_mounted": False,
                 "placement": spec.mode,
+                "reuse_attempt": False,
             },
         )
-    meta = {
-        "ok": proc.returncode == 0,
-        "exit": proc.returncode,
+    return _parse_eval_process(
+        proc.stdout or "",
+        proc.stderr or "",
+        returncode=proc.returncode,
+        placement=spec.mode,
+        extra_meta={"package_mounted": False, "reuse_attempt": False},
+    )
+
+
+def run_reuse_attempt_evaluator(
+    *,
+    container_id: str,
+    staging: Path,
+    artifact_filename: str,
+    artifact_key: str,
+    expected_filename: str | None,
+    placement: EvalPlacement,
+    uid_gid: str = _DEFAULT_EVAL_USER,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run ``evaluator.py`` in the live Attempt container. No new eval box.
+
+    Network stays whatever ``provider.network`` already is. Host credential
+    env is not forwarded. Hidden inputs must already be on ``staging``.
+    """
+    fail_meta = {
+        "ok": False,
         "writer_stop_confirmed": True,
-        "package_mounted": False,
-        "placement": spec.mode,
-        "stderr": (proc.stderr or "")[-500:],
+        "package_mounted": True,
+        "placement": placement.mode,
+        "reuse_attempt": True,
     }
+    if not container_id:
+        return (
+            {"status": "ERROR", "score": None, "metrics": {"error": "missing_attempt_container"}},
+            fail_meta,
+        )
+
+    arts = _artifact_payload(artifact_key, artifact_filename, expected_filename)
+    script = textwrap.dedent(
+        f"""
+        import json, importlib.util, os
+        for _k in os.environ:
+            _u = _k.upper()
+            if any(s in _u for s in ("TOKEN", "SECRET", "API_KEY", "PASSWORD")):
+                print(json.dumps({{"status": "ERROR", "score": None,
+                                   "metrics": {{"leak": "credential_env"}}}}))
+                raise SystemExit(3)
+        spec = importlib.util.spec_from_file_location("ev", "/eval/evaluator.py")
+        mod = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(mod)
+        raw = mod.evaluate({{{arts}}})
+        print(json.dumps(raw))
+        """
+    )
+    mkdir = subprocess.run(
+        ["docker", "exec", "-u", "0:0", container_id, "mkdir", "-p", "/eval"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if mkdir.returncode != 0:
+        return (
+            {
+                "status": "ERROR",
+                "score": None,
+                "metrics": {"error": "eval_mkdir_failed", "stderr": (mkdir.stderr or "")[-500:]},
+            },
+            fail_meta,
+        )
+    copied = subprocess.run(
+        ["docker", "cp", f"{staging}/.", f"{container_id}:/eval/"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if copied.returncode != 0:
+        return (
+            {
+                "status": "ERROR",
+                "score": None,
+                "metrics": {"error": "eval_copy_failed", "stderr": (copied.stderr or "")[-500:]},
+            },
+            fail_meta,
+        )
+    chmod = subprocess.run(
+        ["docker", "exec", "-u", "0:0", container_id, "chmod", "-R", "a+rX", "/eval"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if chmod.returncode != 0:
+        return (
+            {
+                "status": "ERROR",
+                "score": None,
+                "metrics": {"error": "eval_chmod_failed", "stderr": (chmod.stderr or "")[-500:]},
+            },
+            fail_meta,
+        )
+    cmd = [
+        "docker",
+        "exec",
+        "-u",
+        uid_gid,
+        "-w",
+        "/eval",
+        container_id,
+        "env",
+        "-i",
+        f"PATH={_EVAL_PATH}",
+        "HOME=/tmp",
+        "python",
+        "-c",
+        script,
+    ]
     try:
-        line = (proc.stdout or "").strip().splitlines()[-1]
-        raw = json.loads(line)
-        if not isinstance(raw, dict):
-            raw = {"status": "ERROR", "score": None, "metrics": {}}
-    except (json.JSONDecodeError, IndexError):
-        raw = {
-            "status": "ERROR",
-            "score": None,
-            "metrics": {"stderr": meta["stderr"], "stdout": (proc.stdout or "")[-500:]},
-        }
-        meta["ok"] = False
-    return raw, meta
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=placement.timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            {"status": "ERROR", "score": None, "metrics": {"error": "timeout"}},
+            fail_meta,
+        )
+    return _parse_eval_process(
+        proc.stdout or "",
+        proc.stderr or "",
+        returncode=proc.returncode,
+        placement=placement.mode,
+        extra_meta={"package_mounted": True, "reuse_attempt": True},
+    )

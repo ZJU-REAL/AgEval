@@ -83,3 +83,57 @@ def test_bridge_run_sets_network(tmp_path: Path, monkeypatch: object) -> None:
     assert cmd[cmd.index("--network") + 1] == "bridge"
     assert "--read-only" in cmd
     assert not any(part.startswith("/creds") or ":/creds" in part for part in cmd)
+
+
+def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: object) -> None:
+    from types import SimpleNamespace
+
+    from bora.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
+
+    captured: list[list[str]] = []
+
+    def _run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        captured.append(list(cmd))
+        if cmd[:2] == ["docker", "exec"] and "-c" in cmd:
+            return SimpleNamespace(
+                returncode=0, stdout='{"status":"FAIL","score":0.0}\n', stderr=""
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        _run,
+    )
+    spec = resolve_eval_placement({"reuse_attempt": True, "network": "bridge", "tmpfs_mb": 32})
+    staging = tmp_path / "eval"
+    staging.mkdir()
+    (staging / "evaluator.py").write_text("def evaluate(ctx): return {}\n", encoding="utf-8")
+    raw, meta = run_reuse_attempt_evaluator(
+        container_id="cid-live",
+        staging=staging,
+        artifact_filename="out.json",
+        artifact_key="out",
+        expected_filename="expected.json",
+        placement=spec,
+    )
+    assert raw["status"] == "FAIL"
+    assert raw["score"] == 0.0
+    assert meta["reuse_attempt"] is True
+    assert captured[0][:2] != ["docker", "run"]
+    assert any(cmd[:2] == ["docker", "cp"] for cmd in captured)
+    execs = [cmd for cmd in captured if cmd[:2] == ["docker", "exec"]]
+    assert execs
+    python_exec = [cmd for cmd in execs if "python" in cmd]
+    assert python_exec
+    cmd = python_exec[0]
+    assert "env" in cmd and "-i" in cmd
+    assert "--network" not in cmd
+    assert "-e" not in cmd
+    env_assigns = [part for part in cmd if "=" in part and part.split("=", 1)[0].isidentifier()]
+    assert env_assigns == [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME=/tmp",
+    ]
+    assert not any("/creds" in part for part in cmd)
+    assert not any(cmd[:2] == ["docker", "run"] for cmd in captured)
+    assert not any(cmd[:3] == ["docker", "network", "connect"] for cmd in captured)

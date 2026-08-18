@@ -180,7 +180,7 @@ BORA/
 
 Hub `/runtimes` is a **derived view** over official public suite rows (`GET /v1/runtimes`); not a Core object and not a stored Runtime.
 
-Production Attempt path: `run_task` mints identity once, then `run_lifecycle(lock, LocalL0Stages | DockerL1Stages, attempt=)`. L1 `agent_server.stop` and `stop_agent_targets` (writer confirmation before seal) stay in the run `finally`; network / `l1-work` teardown still goes through `DockerL1Stages.cleanup`. Parent + authority share one `AgentInvocationQuota` object from `assemble_parent_agent_service`.
+Production Attempt path: `run_task` mints identity once, then `run_lifecycle(lock, LocalL0Stages | DockerL1Stages, attempt=)`. L1 `agent_server.stop` and writer confirmation (`stop_agent_targets`, or `fence_agent_writers` when `evaluation.reuse_attempt`) stay in the run `finally`; network / `l1-work` teardown still goes through `DockerL1Stages.cleanup`. Parent + authority share one `AgentInvocationQuota` object from `assemble_parent_agent_service`.
 
 ### Target Source Layout（planned — 随 Core 交付出现）
 

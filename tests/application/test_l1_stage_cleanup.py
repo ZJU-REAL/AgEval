@@ -27,6 +27,7 @@ class FakeDocker:
     def __init__(self) -> None:
         self.cleanup_calls = 0
         self.stop_calls = 0
+        self.fence_calls = 0
 
     def cleanup(self, runtime: SimpleNamespace) -> None:
         self.cleanup_calls += 1
@@ -36,6 +37,9 @@ class FakeDocker:
 
     def stop_agent_targets(self, runtime: SimpleNamespace) -> None:
         self.stop_calls += 1
+
+    def fence_agent_writers(self, runtime: SimpleNamespace) -> None:
+        self.fence_calls += 1
 
     def prepare_agent_targets(self, runtime: SimpleNamespace, topology, **_kwargs):  # type: ignore[no-untyped-def]
         return SimpleNamespace(
@@ -385,4 +389,36 @@ async def test_run_l1_harness_stops_agent_targets_before_seal(
     await run_l1_harness(ctx)
     assert server.stopped is True
     assert docker.stop_calls == 1
+    assert docker.fence_calls == 0
+    assert docker.cleanup_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_run_l1_harness_fences_writers_when_reuse_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from bora.application.attempt.run_l1_phases import run_l1_harness
+
+    attempt = _attempt()
+    docker, runtime, _cred = _install_l1_fakes(monkeypatch, tmp_path, attempt)
+    lock = _lock()
+    lock.evaluation = {**lock.evaluation, "reuse_attempt": True}
+    server = FakeServer()
+    ctx = AttemptStageContext(
+        package_root=tmp_path,
+        lock=lock,
+        run_dir=tmp_path / "run",
+        attempt=attempt,
+        docker=docker,
+        runtime=runtime,
+        agent_server=server,
+        agent_service=FakeService(),
+        workspace_host=tmp_path / "ws",
+        wall_s=30.0,
+    )
+    ctx.run_dir.mkdir()
+    await run_l1_harness(ctx)
+    assert server.stopped is True
+    assert docker.fence_calls == 1
+    assert docker.stop_calls == 0
     assert docker.cleanup_calls == 0

@@ -33,6 +33,7 @@ class EvalPlacement:
     tmpfs_mb: int
     tmpfs_exec: bool
     network: str = NETWORK_NONE
+    reuse_attempt: bool = False
 
     @property
     def tmpfs_spec(self) -> str:
@@ -45,7 +46,7 @@ def validate_evaluation_extras(
     *,
     wall_time_seconds: float | None,
 ) -> None:
-    """Validate placement / timeout / network. ``tmpfs_mb`` stays in validate.py."""
+    """Validate placement / timeout / network / reuse_attempt. ``tmpfs_mb`` stays in validate.py."""
     resolve_eval_placement(evaluation, wall_time_seconds=wall_time_seconds)
 
 
@@ -74,6 +75,18 @@ def resolve_eval_placement(
             ERROR_INVALID_SCHEMA,
             "evaluation.network must be none|bridge",
             location="/evaluation/network",
+        )
+
+    raw_reuse = doc.get("reuse_attempt")
+    if raw_reuse is None:
+        reuse_attempt = False
+    elif isinstance(raw_reuse, bool):
+        reuse_attempt = raw_reuse
+    else:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "evaluation.reuse_attempt must be a boolean",
+            location="/evaluation/reuse_attempt",
         )
 
     tmpfs = doc.get("tmpfs_mb", DEFAULT_EVAL_TMPFS_MB)
@@ -118,4 +131,5 @@ def resolve_eval_placement(
         tmpfs_mb=tmpfs,
         tmpfs_exec=(mode == PLACEMENT_WRITABLE),
         network=network,
+        reuse_attempt=reuse_attempt,
     )

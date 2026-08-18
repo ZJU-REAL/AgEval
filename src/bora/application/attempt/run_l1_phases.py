@@ -17,7 +17,10 @@ from bora.application.attempt.run_l1 import (
     _database_root_for_run,
     _l1_host_cleanup,
 )
-from bora.application.attempt.run_l1_evaluator import run_clean_evaluator_container
+from bora.application.attempt.run_l1_evaluator import (
+    run_clean_evaluator_container,
+    run_reuse_attempt_evaluator,
+)
 from bora.application.attempt.run_l1_evidence import l1_error_result, write_l1_evidence
 from bora.application.attempt.run_l1_prepare import (
     make_l1_placement_resolver,
@@ -35,6 +38,43 @@ from bora.runtime.identity import AttemptIdentity, assert_same_attempt
 
 def _lock_acp_entry(profile: dict[str, Any]) -> str | None:
     return acp_entry_from_binding(profile)
+
+
+def _reuse_attempt(ctx: AttemptStageContext) -> bool:
+    try:
+        from bora.config.eval_placement import resolve_eval_placement
+
+        ev = thaw(ctx.lock.evaluation) if ctx.lock is not None else {}
+        if not isinstance(ev, dict):
+            ev = {}
+        return resolve_eval_placement(ev).reuse_attempt
+    except Exception:
+        return False
+
+
+def _reuse_container_id(runtime: Any) -> str | None:
+    ids = getattr(runtime, "agent_container_ids", None) or []
+    if ids:
+        return str(ids[0])
+    ledger = getattr(runtime, "target_ledger", None)
+    targets = getattr(ledger, "targets", None) or {}
+    for target in targets.values():
+        cid = getattr(target, "container_id", None)
+        if cid:
+            return str(cid)
+    cid = getattr(runtime, "container_id", None)
+    return str(cid) if cid else None
+
+
+def _reuse_eval_user(runtime: Any) -> str:
+    ledger = getattr(runtime, "target_ledger", None)
+    actors = getattr(ledger, "actors", None) or {}
+    for actor in actors.values():
+        uid = getattr(actor, "uid", None)
+        gid = getattr(actor, "gid", None)
+        if isinstance(uid, int) and isinstance(gid, int):
+            return f"{uid}:{gid}"
+    return "10001:10001"
 
 
 def _timer(ctx: AttemptStageContext) -> PhaseTimer:
@@ -326,9 +366,13 @@ async def run_l1_harness(ctx: AttemptStageContext) -> None:
             ctx.agent_meta["invocations"] = ctx.inv_count
         # Confirm agent-target writers stopped before seal/evaluate. Full
         # network + l1-work teardown stays in cleanup_l1 (docker.cleanup).
+        # reuse_attempt keeps the live container; isolated eval still rms it.
         if ctx.docker is not None and ctx.runtime is not None:
             with contextlib.suppress(Exception):
-                ctx.docker.stop_agent_targets(ctx.runtime)
+                if _reuse_attempt(ctx):
+                    ctx.docker.fence_agent_writers(ctx.runtime)
+                else:
+                    ctx.docker.stop_agent_targets(ctx.runtime)
 
 
 def seal_l1_inputs(ctx: AttemptStageContext) -> bool:
@@ -385,6 +429,22 @@ def seal_l1_inputs(ctx: AttemptStageContext) -> bool:
     if expected_host.is_file():
         (staging / "expected.json").write_bytes(expected_host.read_bytes())
         expected_filename = "expected.json"
+    if isinstance(eval_inputs, list):
+        for inp in eval_inputs:
+            if not isinstance(inp, dict):
+                continue
+            pp = inp.get("package_path")
+            if not isinstance(pp, str) or not pp:
+                continue
+            src = ctx.package_root / pp
+            if not src.is_file():
+                continue
+            dest_name = Path(str(inp.get("target") or src.name)).name
+            dest = staging / dest_name
+            if not dest.exists():
+                dest.write_bytes(src.read_bytes())
+            if dest_name == "expected.json":
+                expected_filename = "expected.json"
     ctx.artifacts_map = {
         "artifact_filename": artifact_filename,
         "artifact_key": artifact_key,
@@ -465,16 +525,29 @@ def evaluate_l1(ctx: AttemptStageContext) -> None:
             "tmpfs_mb": placement.tmpfs_mb,
             "tmpfs_exec": placement.tmpfs_exec,
             "network": placement.network,
+            "reuse_attempt": placement.reuse_attempt,
         }
-        eval_raw, eval_meta = run_clean_evaluator_container(
-            image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
-            staging=staging,
-            artifact_filename=artifact_filename,
-            artifact_key=artifact_key,
-            expected_filename=expected_filename,
-            tmpfs_mb=placement.tmpfs_mb,
-            placement=placement,
-        )
+        if placement.reuse_attempt:
+            cid = _reuse_container_id(runtime)
+            eval_raw, eval_meta = run_reuse_attempt_evaluator(
+                container_id=cid or "",
+                staging=staging,
+                artifact_filename=artifact_filename,
+                artifact_key=artifact_key,
+                expected_filename=expected_filename,
+                placement=placement,
+                uid_gid=_reuse_eval_user(runtime),
+            )
+        else:
+            eval_raw, eval_meta = run_clean_evaluator_container(
+                image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
+                staging=staging,
+                artifact_filename=artifact_filename,
+                artifact_key=artifact_key,
+                expected_filename=expected_filename,
+                tmpfs_mb=placement.tmpfs_mb,
+                placement=placement,
+            )
         if isinstance(eval_raw, dict):
             eval_raw = hook_score_postprocess(ctx.lock, eval_raw)
             if not isinstance(eval_raw, dict):
