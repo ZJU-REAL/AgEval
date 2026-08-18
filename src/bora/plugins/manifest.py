@@ -16,6 +16,7 @@ DEFAULT_OFFICIAL_ORG = "official"
 # Same slash form as Dataset database_id. Not org.name. Official is mixed-case.
 _PLUGIN_ID_SEGMENT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$")
 HOST_REQUIRES_KEYS = frozenset({"import", "file", "hint"})
+PLUGIN_REQUIRES_KEYS = frozenset({"plugin_id", "hint"})
 
 
 class PluginManifestError(Exception):
@@ -90,6 +91,14 @@ class HostRequire:
 
 
 @dataclass(frozen=True, slots=True)
+class PluginRequire:
+    """One declared plugin-cache dependency. Not a host extra."""
+
+    plugin_id: str
+    hint: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PluginManifest:
     format: str
     plugin_id: str
@@ -97,6 +106,7 @@ class PluginManifest:
     provide: tuple[SlotEntry, ...] = ()
     on: tuple[SlotEntry, ...] = ()
     host_requires: tuple[HostRequire, ...] = ()
+    plugin_requires: tuple[PluginRequire, ...] = ()
     source_path: str | None = None
 
     def slots_summary(self) -> dict[str, list[str]]:
@@ -183,6 +193,7 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
         provide=_entries("provide"),
         on=_entries("on"),
         host_requires=_parse_host_requires(raw.get("host_requires")),
+        plugin_requires=_parse_plugin_requires(raw.get("plugin_requires")),
         source_path=location,
     )
 
@@ -237,6 +248,51 @@ def _parse_host_requires(raw: Any) -> tuple[HostRequire, ...]:
                 kind="plugin_host_requires_invalid",
             )
         out.append(HostRequire(import_name=imp, file=file_s, hint=hint_s))
+    return tuple(out)
+
+
+def _parse_plugin_requires(raw: Any) -> tuple[PluginRequire, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise PluginManifestError(
+            "plugin_requires must be a list",
+            kind="plugin_requires_invalid",
+        )
+    out: list[PluginRequire] = []
+    for i, row in enumerate(raw):
+        if not isinstance(row, dict):
+            raise PluginManifestError(
+                f"plugin_requires[{i}] must be a mapping",
+                kind="plugin_requires_invalid",
+            )
+        unknown = sorted(str(k) for k in row if str(k) not in PLUGIN_REQUIRES_KEYS)
+        if unknown:
+            raise PluginManifestError(
+                f"plugin_requires[{i}] unknown keys: {unknown}",
+                kind="plugin_requires_invalid",
+            )
+        plugin_id = row.get("plugin_id")
+        hint = row.get("hint")
+        if not isinstance(plugin_id, str) or not plugin_id.strip():
+            raise PluginManifestError(
+                f"plugin_requires[{i}].plugin_id required",
+                kind="plugin_requires_invalid",
+            )
+        try:
+            normalized = normalize_plugin_id(plugin_id)
+        except PluginManifestError as exc:
+            raise PluginManifestError(
+                f"plugin_requires[{i}].plugin_id invalid: {exc.message}",
+                kind="plugin_requires_invalid",
+            ) from exc
+        if hint is not None and (not isinstance(hint, str) or not hint.strip()):
+            raise PluginManifestError(
+                f"plugin_requires[{i}].hint must be a non-empty string",
+                kind="plugin_requires_invalid",
+            )
+        hint_s = hint.strip() if isinstance(hint, str) else None
+        out.append(PluginRequire(plugin_id=normalized, hint=hint_s))
     return tuple(out)
 
 
