@@ -140,6 +140,7 @@ class InvocationHandle:
         final_response: dict[str, Any] | None = None,
         error: str | None = None,
         latency_ms: float | None = None,
+        error_detail: str | None = None,
     ) -> None:
         """Atomically finalize metadata (+ optional final-response). Idempotent."""
         with self._lock:
@@ -164,6 +165,8 @@ class InvocationHandle:
                 "event_schema": "bora.trajectory.event/1",
                 "event_count": self._event_seq,
             }
+            if error_detail:
+                meta["error_detail"] = error_detail
             try:
                 # Redact first; fail closed only on residual secrets after redaction.
                 cleaned_meta = redact_value(meta, extra_sentinels=self.store.sentinels)
