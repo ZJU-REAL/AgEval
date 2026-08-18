@@ -31,6 +31,8 @@ PROFILES_FILENAME = "profiles.yaml"
 PROFILES_FORMAT = "bora.profiles/1"
 
 # Fields that constitute job binding — forbidden on member task.yaml slots.
+# ``agent_ref`` is provenance injected by the --agent projection (design/14);
+# it rides job_overlay / lock but never suite fingerprint identity.
 BINDING_FIELD_KEYS = frozenset(
     {
         "executor",
@@ -41,8 +43,13 @@ BINDING_FIELD_KEYS = frozenset(
         "extensions",
         "label",
         "overlays",
+        "agent_ref",
     }
 )
+
+# Wildcard bindings key: default binding for any role id without an exact row
+# (design/14). Exact role id always wins; projection expands per real role.
+WILDCARD_ROLE = "*"
 
 # Allowlisted nested binding override leaves under /bindings/<role_id>/…
 _BINDING_OVERRIDE_LEAVES = frozenset(
@@ -189,7 +196,7 @@ def parse_profiles_mapping(
                 location=f"{location}:/bindings",
             )
         rid = role_id.strip()
-        if not _ROLE_ID_RE.fullmatch(rid):
+        if rid != WILDCARD_ROLE and not _ROLE_ID_RE.fullmatch(rid):
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
                 f"invalid binding role id: {rid!r}",
@@ -280,6 +287,8 @@ def merge_bindings_onto_slots(
             )
         role_id = pid.strip()
         binding = bindings.get(role_id)
+        if binding is None:
+            binding = bindings.get(WILDCARD_ROLE)
         if binding is None:
             raise ConfigError(
                 ERROR_MISSING_BINDING,
@@ -559,10 +568,13 @@ def project_job_overlay(
     out: dict[str, Any] = {}
     for rid in keys:
         raw = bindings.get(rid)
+        if raw is None and role_ids is not None:
+            # Wildcard default binding expands to the real role ids (design/14).
+            raw = bindings.get(WILDCARD_ROLE)
         if not isinstance(raw, Mapping):
             continue
         row: dict[str, Any] = {}
-        for k in ("executor", "model", "base_url", "api_key", "label"):
+        for k in ("executor", "model", "base_url", "api_key", "label", "agent_ref"):
             if k in raw and raw[k] is not None:
                 row[k] = raw[k]
         extensions = raw.get("extensions")
