@@ -91,8 +91,9 @@ evaluate     → evaluation_input_contribute → evaluation_runtime
 
 - 根 `plugin.yaml`：`plugin_id`、`version`、`slots.provide` / `slots.on` + entry  
 - 可选 `host_requires`（L0 host SPI 构造前提；见下）  
+- 可选 `plugin_requires`（本地 plugin cache 依赖；见下。与 `host_requires` 并列，不是同一列表）  
 - 可选 `docker/Dockerfile.bake`（L1 bake-declared，须本 profile `extensions` 选中 `image_contribute`）  
-- install：`bora plugin install <path|org/name@version>` → `~/.bora/plugins`  
+- install：`bora plugin install <path|org/name@version>` → `~/.bora/plugins`；默认先装 `plugin_requires` 再装被请求的包  
 - Hub/Registry：`package_kind=plugin`；media type `application/vnd.bora.plugin.v1.tar+gzip`  
 - Dataset 与 plugin **fail closed** 区分（Hub 列表过滤 / detail 拒绝混开）
 
@@ -139,15 +140,58 @@ host_requires:
 
 未声明 `host_requires`：插件主张「无宿主 extra」。此时 `host_ready` 仍要求能经工厂到达 `describe()`（registry 持有的是 factory，不得因缺 binary PATH 默认 `true`）。既无声明又看不到 `describe()` → `host_ready: false`。
 
+### `plugin_requires`（插件图，不是 host extra）
+
+`host_requires` 只声明宿主 extra（import / 插件根内文件）。插件之间的依赖另写 **`plugin_requires`**。不要把 `plugin_id` 塞进 `host_requires`。
+
+```yaml
+format: bora.plugin/1
+plugin_id: agent-skills
+version: 0.1.0
+plugin_requires:
+  - plugin_id: home-files              # 短 id：只认 cache / 本地 sibling
+  # - plugin_id: Official/home-files   # Hub 地址：才允许从 Hub 拉
+    hint: "bora plugin install plugins/home-files"
+```
+
+| 规则 | 语义 |
+| --- | --- |
+| 条目允许键 | **allowlist**：`plugin_id`（必填）、`hint`（可选操作者字符串；Core 不执行）。未知键 → `plugin_requires_invalid` |
+| `plugin_id` 语法 | 与 manifest `plugin_id` 相同：短 `name` **或** Hub `org/name`（`normalize_plugin_id`） |
+| 满足条件 | 本地 cache 里存在 **恰好** 该 id 的已安装行。`Official/home-files` 与短 `home-files` **不是** 同一行 |
+| 版本 | 任一已装版本即可。本增量不做 version range / pin |
+| 绑定 | **不**把依赖自动写入 `extensions[]`。profiles 仍显式 opt-in |
+| 省略 | 省略或 `[]` ≡ 今日单树安装 |
+
+**解析只看该行声明的 `plugin_id`。禁止用正在安装的父插件 org 改写短 id**（装 `OrgA/foo` 且依赖写 `bar`，不得变成 `OrgA/bar`）。
+
+| 声明的 `plugin_id` | 解析顺序（先命中先赢） |
+| --- | --- |
+| 短 `name`（无 `/`） | (1) cache 已有 `name` → skip。(2) 仅当 install **源是本地目录**：sibling `<source.parent>/<name>/` 且其 manifest `plugin_id` 就是 `name`。(3) 否则 fail closed。**短 id 永不访问 Hub** |
+| Hub `org/name` | (1) cache 已有 `org/name` → skip。(2) 拉该 **精确** Hub 包 `org/name` 的最新已发布 plugin release。(3) 否则 fail closed。不查 sibling |
+
+`bora plugin install <source>` **默认传递**：先装 `plugin_requires`，再装被请求的包。本增量无 `--no-deps`。成功 JSON 列出被请求的包以及每个已装或已在 cache 的依赖。
+
+其它语义：
+
+- 环（`A → B → A`）在 install **和** lock / materialize fail closed  
+- `bora plugin uninstall` **不**卸依赖  
+- 依赖装失败 → 被请求的包 **不**写入 index（无部分行）  
+- `bora plugin list` / `bora executors`：每个已装插件报告 `plugin_requires` 是否满足；不满足 → 不是 host-ready  
+- `bora lock` / materialize：本 profile `extensions` 点名的每个插件，其 `plugin_requires` 必须已装（exact id）；否则 fail closed  
+- materialize 插件 P 时，先把它声明的每个依赖的包根与 `src/` 放上 `sys.path`，再 import P 的 entry  
+
+外置 `plugins/agent-skills` 是 `home_overlay` 的 dest 展开消费者：声明 `plugin_requires: [{plugin_id: home-files}]`（仓内短 id），调用 `home-files` 的 copy helper，不另造复制引擎。Hub 发布该插件时必须把依赖写成 `<org>/home-files`。authoring 面在插件 README。
+
 ### 三级就绪
 
 | 等级 | 含义 | 来源 |
 | --- | --- | --- |
 | **Recognition** | 本机识别到 `provide(executor)` | `bora plugin install` / `plugin list` / `executors.supported` / lock `extension_bindings` |
-| **L0 host-ready** | 宿主可构造 host SPI | 已安装 + 声明的 `host_requires` 全满足（或无声明且 `describe()` 可达） |
+| **L0 host-ready** | 宿主可构造 host SPI | 已安装 + 声明的 `host_requires` 全满足（或无声明且 `describe()` 可达）**且** `plugin_requires` 全满足 |
 | **L1 bake-declared** | **本 profile** 会走 contribute bake | `extensions` 选中 `image_contribute` 且已安装根有 `docker/Dockerfile.bake` |
 
-`bora executors.host_ready` = **L0 host-ready**（无 package，故不看 `extensions`）。`l1_bake_declared` 在 inventory 上只表示插件 **具备** bake 文件 + 槽；`--probe` 的 L1 就绪还要求本 profile `extensions` 选中了 contribute。不得对插件 PATH 探测 wheel 内二进制（如 `dsh-jsonrpc-agent`）来代替 `host_requires`。
+`bora executors.host_ready` = **L0 host-ready**（无 package，故不看 `extensions`）。`plugin_requires` 是 cache 图，L0 与 L1 `--probe` 都检查。`l1_bake_declared` 在 inventory 上只表示插件 **具备** bake 文件 + 槽；`--probe` 的 L1 就绪还要求本 profile `extensions` 选中了 contribute。不得对插件 PATH 探测 wheel 内二进制（如 `dsh-jsonrpc-agent`）来代替 `host_requires`。
 
 ### First-party vs 外置
 
@@ -194,7 +238,7 @@ extensions:
 
 插在 **cred 投影之后、actor HOME 拷贝之前**。不是 `after_prepare`（后者仍在选镜像 / bake 旁），也不是 `env_inject`。
 
-Core default（低 priority，先跑）：建 cred 树（今日 allowlist）；把 `package_root` / `workspace_root` / `cred_root` 放上 `ctx`/`value`；`await nxt(value)`；再把 `cred_root/home_overlay/.` 拷进 actor `$HOME/`，并完成今日 `prepare_agent_targets` 的其余步骤。插件只在 `nxt` 里写文件，不调 Docker，不发明 PASS。L0 不得写用户真 `~`。
+Core default（低 priority，先跑）：建 cred 树（今日 allowlist）；把 `package_root` / `workspace_root` / `cred_root` 放上 `ctx`/`value`；`hook_home_overlay` 还把本 lock 全部 ACP `options.entry` 收集为 `value.acp_entries`（插件不读 sibling `acp` 行）；`await nxt(value)`；再把 `cred_root/home_overlay/.` 拷进 actor `$HOME/`，并完成今日 `prepare_agent_targets` 的其余步骤。插件只在 `nxt` 里写文件，不调 Docker，不发明 PASS。L0 不得写用户真 `~`。`plugins/agent-skills` 只展开 dest，复制仍走 `home-files`。
 
 ### `extensions` 按 profile 显式 opt-in
 
@@ -264,8 +308,8 @@ Dockerfile 另有文件或其它 `FROM`，或任一选中扩展要 bake，仍走
 
 | 命令 | 行为 |
 | --- | --- |
-| `bora plugin install` | 写 cache / index；可 registry 远程 |
-| `bora plugin list` | 读 index |
+| `bora plugin install` | 写 cache / index；可 registry 远程。默认先解析并安装 `plugin_requires`（短 id = sibling/cache；`org/name` = Hub 精确地址） |
+| `bora plugin list` | 读 index；报告每包 `plugin_requires` 是否满足 |
 | `bora plugin uninstall` | 可逆移除；不改 profiles |
 | `bora plugin publish` | `package_kind=plugin` 上传 Registry |
 | `bora plugin materialize-docs` | 显式拷贝 README/skills；非 silent |
@@ -294,16 +338,19 @@ Dockerfile 另有文件或其它 `FROM`，或任一选中扩展要 bake，仍走
 3. profile / `describe()` 声明的 credential locator **名**在 env 中存在（只查名）
 4. 声明的 `file:` 在已安装插件缓存中存在
 
+另外：走本 profile `extensions` **全部**已绑定插件（不只是 executor）。新检查：`plugin_installed`、`plugin_requires`（cache 图；缺行 → `ready: false`）。
+
 缺 `import` → 类型化 miss（如 `host_import: missing`）+ 插件 `hint`。
 
 #### L1（`provider.kind: docker`）
 
-**不**要求 host extra。检查：
+**不**要求 host extra（`host_requires.import` / `.file` 仍跳过）。检查：
 
 1. 插件已安装
 2. 本 profile `extensions` 选中了 `image_contribute`，且 `Dockerfile.bake` 存在
 3. Docker daemon 可达（`BORA_SKIP_DOCKER=1` 视为不可达）
 4. credential locator **名**存在（parent 投影需要）
+5. 与 L0 相同：走全部已绑定 extension 插件的 `plugin_installed` / `plugin_requires`（这是 plugin cache，不是 host extra）
 
 `executor:` 单独不够。绑定了已安装外置 executor 但未在 `extensions` 点名 contribute → 探针 **不 ready**（与生产 fail closed 一致）。ACP-only（无 `extensions`）不要求 bake；官方 `FROM`-only 包复用 `bora-attempt:l1`。
 
@@ -329,5 +376,5 @@ Dockerfile 另有文件或其它 `FROM`，或任一选中扩展要 bake，仍走
 - 结构地图：[`ARCHITECTURE.md`](../../ARCHITECTURE.md)（plugins 树、emit map）  
 - Owner：[`09-owner-matrix-and-structure.md`](09-owner-matrix-and-structure.md)  
 - Runtime Agent：[`05-runtime/agent-service.md`](05-runtime/agent-service.md)  
-- 示例：`plugins/nooa`、`plugins/dsh`（`options.permission` 为插件自有键，非新 slot）、`plugins/home-files`（`on: home_overlay`）、`plugins/slot-probe`、`examples/journeys/profiles.nooa.yaml`、`examples/journeys/profiles.dsh.yaml`、`examples/journeys/profiles.dsh.read-only.yaml`、`examples/slot-probe/`  
+- 示例：`plugins/nooa`、`plugins/dsh`（`options.permission` 为插件自有键，非新 slot）、`plugins/home-files`（`on: home_overlay` 复制原语）、`plugins/agent-skills`（`home_overlay` dest 展开，`plugin_requires: home-files`）、`plugins/slot-probe`、`examples/journeys/profiles.nooa.yaml`、`examples/journeys/profiles.dsh.yaml`、`examples/journeys/profiles.dsh.read-only.yaml`、`examples/slot-probe/`  
 - 交付跟踪：GitHub Issues（Epic 插件系统）
