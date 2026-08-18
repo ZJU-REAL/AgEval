@@ -8,6 +8,16 @@
 
 ---
 
+## 概念对照(三个易混词)
+
+| 词 | 所在文件 | 是什么 | 类比 |
+| --- | --- | --- | --- |
+| 角色槽(`agent_profiles`) | 成员 `task.yaml` | 任务身份:声明需要哪些 role id,**禁止**内嵌绑定字段 | 插座 |
+| 绑定映射(profiles) | `bora.profiles/1`(库根 / `--profiles` / `--agent` 投影产物) | job 轴:role → binding 的映射表,随 Dataset/本次运行走 | 接线表 |
+| **Agent** | `bora.agent/1` 包 | **一条** binding + 身份元数据;版本化、digest 钉死、可发布/拉取、跨 Dataset 复用 | 有版本号的插头 |
+
+运行期恒有:Agent → 投影成 profiles 文档 → merge 到角色槽 → lock 的 `agent_profiles` 行 + `job_overlay`。
+
 ## 模型
 
 **Agent** 是可发布、可拉取、版本化的 **job 绑定配置对象**：恰好一条 `bora.profiles/1` binding（executor / model / options / extensions / locator），加显示元数据。它回答「怎么跑一个 agent」，与 Dataset（「测什么」）和 plugin（「机制怎么实现」）正交。
@@ -80,7 +90,13 @@ install **只写本地缓存**,永不改写 profiles / task.yaml（同 11 不变
 
 ### 通配 `"*"` 默认绑定（`bora.profiles/1` 语义扩展）
 
-`bindings` 映射允许保留键 `"*"`：merge 时**先精确 role id,缺则回退 `"*"`**,再走既有缺绑定 fail-closed;`project_job_overlay` 按实际 role id 展开(overlay 内无 `"*"` 残留)。该扩展对手写 profiles.yaml 同样可用(套件内异构 role 拓扑的默认绑定),不改变既有文档的行为。
+`bindings` 映射允许保留键 `"*"`,语义为**字段级默认值**:
+
+1. **解析**:某 role 的有效绑定 = 通配行字段 ⊕ 精确行字段(精确覆盖同名字段;`options`/`extensions` 被设置了的精确行整体替换,不做深合并)。两行都缺 → 既有缺绑定 fail-closed。由此 `--set /bindings/<role>/<leaf>` 可对通配绑定做单字段微调而不丢其余字段。
+2. **溯源不继承**:`agent_ref` 只在该 role 纯由通配覆盖时随通配流动;存在精确行且其未声明 `agent_ref` 时,通配的 `agent_ref` **不**参与回退——显式改绑过的角色不归因于该 Agent。
+3. **身份**:通配与显式展开是**同一 job 配置**。suite fingerprint 在摘要前把 `"*"` 按任务实际 role id 展开(`project_job_overlay` 与 lock 侧同理),两种写法产生相同 `config_fingerprint`;摘要存储的 `job_overlay` 保留操作者书写形态以保复跑保真。
+
+该扩展对手写 profiles.yaml 同样可用,不改变无通配文档的行为。
 
 ### `agent_ref`：溯源,不是身份
 
