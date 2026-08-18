@@ -9,6 +9,7 @@ export type Job = {
   agent_label?: string;
   model_label?: string;
   reasoning_effort?: string;
+  overlays?: string[];
   provider_label?: string;
   environment?: string;
   result?: number | null;
@@ -248,6 +249,25 @@ export function fetchJobs() {
     root?: string;
     commands?: Record<string, string>;
   }>("/api/jobs");
+}
+
+export function fetchJobOverlays(jobId: string) {
+  return getJson<{
+    ok: boolean;
+    items: TreeEntry[];
+    prefixes?: string[];
+  }>(`/api/jobs/${encodeURIComponent(jobId)}/overlays`);
+}
+
+export function fetchJobOverlayFile(jobId: string, filePath: string) {
+  const q = new URLSearchParams({ path: filePath });
+  return getJson<{
+    ok: boolean;
+    path: string;
+    size: number;
+    encoding: string;
+    content: string;
+  }>(`/api/jobs/${encodeURIComponent(jobId)}/overlays/file?${q.toString()}`);
 }
 
 export function fetchJob(jobId: string) {

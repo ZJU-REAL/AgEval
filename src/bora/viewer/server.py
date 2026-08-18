@@ -257,6 +257,25 @@ def make_handler(
                 if len(parts) == 1:
                     _json(self, 200, jobs.get_job(root, job_id))
                     return
+                if len(parts) >= 2 and parts[1] == "overlays":
+                    from bora.viewer.overlays import (
+                        declared_overlay_paths,
+                        list_overlay_files,
+                        read_overlay_file,
+                    )
+
+                    overlay = jobs.job_overlay_mapping(root, job_id)
+                    prefixes = declared_overlay_paths(root, overlay)
+                    if len(parts) == 2:
+                        _json(self, 200, list_overlay_files(root, prefixes))
+                        return
+                    if len(parts) == 3 and parts[2] == "file":
+                        rel = q.get("path") or ""
+                        if not rel:
+                            _error(self, 400, "invalid_package", "path query required")
+                            return
+                        _json(self, 200, read_overlay_file(root, rel, prefixes))
+                        return
                 if len(parts) == 3 and parts[1] == "tasks":
                     # Trial-enriched listing (suite summary + local evidence)
                     task_id = parts[2]

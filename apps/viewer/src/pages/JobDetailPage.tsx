@@ -17,7 +17,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchJob, type Job, type TaskRow } from "@/lib/api";
+import { FileSplitPanel } from "@/components/trial/file-split-panel";
+import {
+  fetchJob,
+  fetchJobOverlayFile,
+  fetchJobOverlays,
+  type Job,
+  type TaskRow,
+  type TreeEntry,
+} from "@/lib/api";
 import { taskHref, taskRunIds } from "@/lib/routes";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
@@ -35,6 +43,12 @@ export function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<string | null>("task_id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [overlayTree, setOverlayTree] = useState<TreeEntry[]>([]);
+  const [overlayPath, setOverlayPath] = useState<string | null>(null);
+  const [overlayContent, setOverlayContent] = useState<string | null>(null);
+  const [overlayTreeLoading, setOverlayTreeLoading] = useState(false);
+  const [overlayFileLoading, setOverlayFileLoading] = useState(false);
+  const [overlayNote, setOverlayNote] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +70,66 @@ export function JobDetailPage() {
       cancelled = true;
     };
   }, [jobId]);
+
+  const overlayPrefixes = job?.overlays ?? [];
+
+  useEffect(() => {
+    if (!overlayPrefixes.length) {
+      setOverlayTree([]);
+      setOverlayPath(null);
+      setOverlayContent(null);
+      setOverlayNote(null);
+      return;
+    }
+    let cancelled = false;
+    setOverlayTreeLoading(true);
+    fetchJobOverlays(jobId)
+      .then((data) => {
+        if (cancelled) return;
+        const items = data.items || [];
+        setOverlayTree(items);
+        setOverlayPath(items[0]?.path ?? null);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setOverlayTree([]);
+          setOverlayNote(err.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setOverlayTreeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, overlayPrefixes.length]);
+
+  useEffect(() => {
+    if (!overlayPath) {
+      setOverlayContent(null);
+      return;
+    }
+    let cancelled = false;
+    setOverlayFileLoading(true);
+    fetchJobOverlayFile(jobId, overlayPath)
+      .then((data) => {
+        if (cancelled) return;
+        setOverlayContent(data.content);
+        setOverlayNote(null);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setOverlayContent(null);
+          setOverlayNote(err.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setOverlayFileLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, overlayPath]);
 
   const rows = useMemo(() => {
     if (!sortKey || !sortDir) return tasks;
@@ -218,6 +292,27 @@ export function JobDetailPage() {
             </TableBody>
           </Table>
         </div>
+
+        {overlayPrefixes.length ? (
+          <section className="space-y-2">
+            <h2 className="text-sm font-medium text-ink">Published files</h2>
+            <p className="text-xs text-mute">
+              Declared <code className="font-mono">overlays:</code> from this
+              job binding. Files are read from the opened Database root.
+            </p>
+            <div className="rounded-[8px] border border-hairline overflow-hidden">
+              <FileSplitPanel
+                tree={overlayTree}
+                treeLoading={overlayTreeLoading}
+                selectedPath={overlayPath}
+                onSelect={setOverlayPath}
+                fileContent={overlayContent}
+                fileLoading={overlayFileLoading}
+                fileNote={overlayNote}
+              />
+            </div>
+          </section>
+        ) : null}
       </div>
     </Shell>
   );

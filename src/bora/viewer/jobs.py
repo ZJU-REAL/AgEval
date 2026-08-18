@@ -252,6 +252,9 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
     with contextlib.suppress(ConfigError):
         man = load_database_manifest(database_root)
 
+    overlay = summary.get("job_overlay") if isinstance(summary.get("job_overlay"), dict) else None
+    from bora.config.overlay_files import overlay_paths_from_job_overlay
+
     return {
         "job_id": str(summary.get("suite_run_id") or suite_dir.name),
         "job_name": str(summary.get("suite_run_id") or suite_dir.name),
@@ -264,6 +267,7 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
         "agent_label": str(summary.get("agent_label") or ""),
         "model_label": str(summary.get("model_label") or ""),
         "reasoning_effort": _reasoning_effort_from_summary(summary),
+        "overlays": overlay_paths_from_job_overlay(overlay),
         "provider_label": str(summary.get("provider_label") or ""),
         "environment": str(summary.get("environment") or "local"),
         "result": metrics.get("mean_score"),
@@ -457,6 +461,7 @@ def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict
     score = result.get("score")
     started = _started_from_evidence(evidence, result)
     agent_label, model_label = _labels_from_lock(lock, result)
+    from bora.config.overlay_files import overlay_paths_from_job_overlay
     from bora.config.profiles import reasoning_effort_from_overlay
 
     overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
@@ -473,6 +478,7 @@ def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict
         "agent_label": agent_label,
         "model_label": model_label,
         "reasoning_effort": reasoning_effort_from_overlay(overlay),
+        "overlays": overlay_paths_from_job_overlay(overlay) if overlay else [],
         "provider_label": str(lock.get("provider_label") or result.get("provider_label") or ""),
         "environment": str(result.get("environment") or "local"),
         "result": score,
@@ -543,6 +549,24 @@ def list_jobs(database_root: Path) -> dict[str, Any]:
         "count": len(items),
         "commands": commands_for(root),
     }
+
+
+def job_overlay_mapping(database_root: Path, job_id: str) -> dict[str, Any] | None:
+    """Secret-free job_overlay from a suite summary or single-attempt lock."""
+    root = database_root.expanduser().resolve(strict=False)
+    job_id = safe_id_segment(job_id, field="job_id")
+    suite_summary = _suite_root(root) / job_id / "summary.json"
+    if suite_summary.is_file():
+        summary = _load_summary(suite_summary)
+        overlay = summary.get("job_overlay")
+        return overlay if isinstance(overlay, dict) else None
+    for rid, evidence in _iter_attempt_dirs(root):
+        if rid != job_id:
+            continue
+        lock = _read_json_object(evidence / "lock.json") or {}
+        overlay = lock.get("job_overlay")
+        return overlay if isinstance(overlay, dict) else None
+    return None
 
 
 def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
