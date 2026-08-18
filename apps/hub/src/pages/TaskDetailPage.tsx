@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
+import { OverlayFilePanel } from "@/components/overlay-file-panel";
 import { Markdown } from "@/components/markdown";
 import {
   Table,
@@ -29,14 +30,53 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
+import { buildNestedTree, overlayPathsFromProfilesYaml, type TreeNode } from "@/lib/file-tree";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
-import { cn, formatScore, reasoningEffortFromOverlay } from "@/lib/utils";
+import { cn, formatDate, formatScore, reasoningEffortFromOverlay } from "@/lib/utils";
 
 type Tab = "readme" | "files" | "jobs";
-type FilesScope = "local" | "shared";
+type FilesScope = "local" | "shared" | "overlays";
+
+function FilesScopeSwitch({
+  filesScope,
+  onChange,
+  overlaysPresent,
+}: {
+  filesScope: FilesScope;
+  onChange: (next: FilesScope) => void;
+  overlaysPresent: boolean;
+}) {
+  const items: Array<[FilesScope, string]> = [
+    ["local", "Local"],
+    ["shared", "Shared"],
+    ...(overlaysPresent ? ([["overlays", "Overlays"]] as Array<[FilesScope, string]>) : []),
+  ];
+  return (
+    <div
+      className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
+      role="group"
+      aria-label="Files scope"
+    >
+      {items.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onChange(id)}
+          className={cn(
+            "px-2 py-0.5 text-[11px] rounded-[4px] transition-colors",
+            filesScope === id
+              ? "bg-canvas-soft text-ink font-medium shadow-sm"
+              : "text-mute hover:text-ink",
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function TaskDetailPage() {
   const { datasetId: rawId, taskId: rawTask } = useParams();
@@ -58,6 +98,7 @@ export function TaskDetailPage() {
   const [treeLoading, setTreeLoading] = useState(true);
   const [fileLoading, setFileLoading] = useState(false);
   const [filesScope, setFilesScope] = useState<FilesScope>("local");
+  const [overlayPrefixes, setOverlayPrefixes] = useState<string[]>([]);
   const [readme, setReadme] = useState<string | null>(null);
   const [jobs, setJobs] = useState<
     Array<{
@@ -78,6 +119,7 @@ export function TaskDetailPage() {
   const localPrefix = `tasks/${taskId}`;
   const prefix = filesScope === "shared" ? "shared" : localPrefix;
   const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
+  const overlaysPresent = overlayPrefixes.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +147,38 @@ export function TaskDetailPage() {
         setFileItems(files.items);
         const nested = buildNestedTree(files.items, localPrefix);
         setTree(nested);
+        const profilePaths = files.items
+          .filter(
+            (item) =>
+              item.type !== "dir" &&
+              item.path.endsWith(".yaml") &&
+              !item.path.startsWith("tasks/") &&
+              /(^|\/)profiles(\.|$)/.test(item.path.split("/").pop() || ""),
+          )
+          .map((item) => item.path);
+        try {
+          const docs = await Promise.all(
+            profilePaths.map((path) =>
+              getPackageFile(datasetId, latest.package_digest, path, token)
+                .then((file) => decodeFileContent(file))
+                .catch(() => ""),
+            ),
+          );
+          if (!cancelled) {
+            const seen = new Set<string>();
+            const prefixes: string[] = [];
+            for (const doc of docs) {
+              for (const path of overlayPathsFromProfilesYaml(doc)) {
+                if (seen.has(path)) continue;
+                seen.add(path);
+                prefixes.push(path);
+              }
+            }
+            setOverlayPrefixes(prefixes);
+          }
+        } catch {
+          if (!cancelled) setOverlayPrefixes([]);
+        }
 
         // Prefer task.yaml for initial Files selection (when user opens Files)
         const prefer =
@@ -168,9 +242,14 @@ export function TaskDetailPage() {
     };
   }, [datasetId, taskId, token, localPrefix, requestedVersion]);
 
-  // Rebuild tree when Local | Shared scope changes (#65).
+  // Rebuild tree when Local | Shared | Overlays scope changes.
   useEffect(() => {
     if (!fileItems.length) return;
+    if (filesScope === "overlays") {
+      setFileContent(null);
+      setFileNote(null);
+      return;
+    }
     const nextPrefix = filesScope === "shared" ? "shared" : localPrefix;
     setTree(buildNestedTree(fileItems, nextPrefix));
     const prefer =
@@ -190,7 +269,7 @@ export function TaskDetailPage() {
   }, [filesScope, fileItems, localPrefix]);
 
   useEffect(() => {
-    if (!release || !selectedPath) {
+    if (!release || !selectedPath || filesScope === "overlays") {
       setFileContent(null);
       return;
     }
@@ -226,7 +305,7 @@ export function TaskDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [datasetId, release, selectedPath, token]);
+  }, [datasetId, filesScope, release, selectedPath, token]);
 
   const runCmd = useMemo(() => {
     if (!release) return `bora run ${datasetId} --task ${taskId}`;
@@ -321,6 +400,22 @@ export function TaskDetailPage() {
       ) : null}
 
       {tab === "files" ? (
+        filesScope === "overlays" && release && overlaysPresent ? (
+          <div className="space-y-2">
+            <div className="flex justify-end">
+              <FilesScopeSwitch
+                filesScope={filesScope}
+                onChange={setFilesScope}
+                overlaysPresent={overlaysPresent}
+              />
+            </div>
+            <OverlayFilePanel
+              databaseId={datasetId}
+              packageDigest={release.package_digest}
+              prefixes={overlayPrefixes}
+            />
+          </div>
+        ) : (
         <FileSplitPanel
           tree={tree}
           treeLoading={treeLoading}
@@ -339,34 +434,14 @@ export function TaskDetailPage() {
           }
           rootPrefix={prefix}
           headerEnd={
-            <div
-              className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
-              role="group"
-              aria-label="Files scope"
-            >
-              {(
-                [
-                  ["local", "Local"],
-                  ["shared", "Shared"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setFilesScope(id)}
-                  className={cn(
-                    "px-2 py-0.5 text-[11px] rounded-[4px] transition-colors",
-                    filesScope === id
-                      ? "bg-canvas-soft text-ink font-medium shadow-sm"
-                      : "text-mute hover:text-ink",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <FilesScopeSwitch
+              filesScope={filesScope}
+              onChange={setFilesScope}
+              overlaysPresent={overlaysPresent}
+            />
           }
         />
+        )
       ) : null}
 
       {tab === "jobs" ? (
@@ -399,6 +474,7 @@ export function TaskDetailPage() {
                     <TableHead className="text-right">Score</TableHead>
                     <TableHead>Agent</TableHead>
                     <TableHead>Model</TableHead>
+                    <TableHead>Time</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -459,6 +535,11 @@ export function TaskDetailPage() {
                             value={j.model_label}
                             effort={j.reasoning_effort}
                           />
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-mute tabular">
+                          {j.created_at != null && j.created_at !== ""
+                            ? formatDate(j.created_at)
+                            : "-"}
                         </TableCell>
                       </TableRow>
                     );

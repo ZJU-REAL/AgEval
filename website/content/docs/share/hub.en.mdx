@@ -7,6 +7,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 
 - Dataset list (**Your organizations** / **Explore**), README, task file preview  
 - When the package has root `shared/`: Dataset **Shared** tab; Task **Files** header **Local | Shared** (Local default; Attempt evidence does not switch)  
+- When profiles declare `overlays:`: Dataset **Overlays** tab; Task **Files** adds an Overlays scope; Leaderboard **profiles** expand shows the same tree from the bound release (not the suite archive)  
 - Large file preview: oversize members return a truncated head with a `truncated` flag (not full download)  
 - **Organizations**: members, org datasets and plugins (separate tables), shared suite results  
 - **Org settings**: invite keys (shown once on create); owners add members by GitHub login, change role, remove, or transfer ownership; leave or dissolve  
@@ -42,8 +43,8 @@ pnpm dev   # http://127.0.0.1:5174
 | --- | --- |
 | `/home` | Personal home (signed in) |
 | `/datasets` | List (Your organizations / Explore) |
-| `/datasets/:id` | README · Tasks · Shared (when `shared/` present) · Leaderboard |
-| `/datasets/:id/tasks/:task` | README · Files (Local \| Shared) · Jobs |
+| `/datasets/:id` | README · Tasks · Shared (when `shared/` present) · Overlays (when `overlays:` is declared) · Leaderboard |
+| `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs |
 | `/plugins` | Plugin marketplace |
 | `/plugins/:id` | Plugin detail (declared-slot timeline · file preview · CLI install) |
 | `/runtimes` | Runtime plaza (harness cards derived from official public Leaderboards) |

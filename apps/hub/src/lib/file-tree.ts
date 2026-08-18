@@ -86,6 +86,42 @@ export function pathMatchesPrefixes(path: string, prefixes: string[]): boolean {
   return false;
 }
 
+/** Unique ``overlays/…`` paths from a secret-free job_overlay. */
+export function overlayPathsFromJobOverlay(overlay: {
+  bindings?: Record<string, { overlays?: string[] } | undefined>;
+} | null | undefined): string[] {
+  const bindings = overlay?.bindings;
+  if (!bindings) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of Object.values(bindings)) {
+    const list = raw?.overlays;
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      const path = String(item || "").trim();
+      if (!path.startsWith("overlays/") || seen.has(path)) continue;
+      seen.add(path);
+      out.push(path);
+    }
+  }
+  return out;
+}
+
+/** Best-effort extract of ``- overlays/…`` list items from a profiles.yaml. */
+export function overlayPathsFromProfilesYaml(text: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.match(/^\s*-\s+["']?(overlays\/\S+?)["']?\s*$/);
+    if (!match) continue;
+    const path = match[1];
+    if (seen.has(path)) continue;
+    seen.add(path);
+    out.push(path);
+  }
+  return out;
+}
+
 /** Parent directory paths of a file (`src/pkg/hooks.py` → `src`, `src/pkg`). */
 export function ancestorDirPaths(filePath: string): string[] {
   const parts = filePath.split("/").filter(Boolean);

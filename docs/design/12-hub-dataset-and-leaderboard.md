@@ -182,6 +182,8 @@ Hub `/runtimes` 是官方公开、完备、**release-bound** Leaderboard suite �
 
 `bora results upload-suite` 继续只上传 secret-free `job_overlay` JSON（现含 `bindings.*.overlays` **路径**）。**不**把 overlay 字节打进 suite archive。字节留在 suite 绑定的官方 Dataset **release**。Hub 只读，无写按钮。两 role 列同一路径时 Dataset 仍是一份 blob。`bora results export-profiles` 写回 `overlays:`；再跑仍要 Database 里那些相对路径上的文件，Hub 不另下一份。
 
+同一套声明列表也出现在 Dataset **Overlays** tab、Task Files 的 Overlays 范围、Leaderboard 展开的 profiles 条，以及本地 Viewer 的 suite Job 详情。仍走已有包文件 / Database 根预览，不新建 Runtime files API。
+
 ## 非目标
 
 - Hub GUI 写操作（publish / upload-suite / release 按钮）

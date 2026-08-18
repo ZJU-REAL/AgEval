@@ -187,7 +187,8 @@ export type SuiteRow = {
         model?: string;
         base_url?: string;
         api_key?: string;
-        options?: { entry?: string };
+        options?: { entry?: string; reasoning_effort?: string };
+        overlays?: string[];
       }
     >;
   };

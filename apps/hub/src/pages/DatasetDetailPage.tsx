@@ -5,6 +5,7 @@ import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { LeaderboardTable } from "@/components/leaderboard-table";
+import { OverlayFilePanel } from "@/components/overlay-file-panel";
 import { Markdown } from "@/components/markdown";
 import { VersionSwitcher } from "@/components/version-switcher";
 import {
@@ -35,11 +36,11 @@ import {
   taskIdsFromFiles,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { buildNestedTree } from "@/lib/file-tree";
+import { buildNestedTree, overlayPathsFromProfilesYaml } from "@/lib/file-tree";
 import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
 import { cn, formatScore } from "@/lib/utils";
 
-type Tab = "readme" | "tasks" | "shared" | "leaderboard";
+type Tab = "readme" | "tasks" | "shared" | "overlays" | "leaderboard";
 type BoardView = "public" | "internal";
 
 function isInternalSuite(suite: SuiteRow): boolean {
@@ -108,6 +109,7 @@ export function DatasetDetailPage() {
   const [sharedContent, setSharedContent] = useState<string | null>(null);
   const [sharedNote, setSharedNote] = useState<string | null>(null);
   const [sharedFileLoading, setSharedFileLoading] = useState(false);
+  const [overlayPrefixes, setOverlayPrefixes] = useState<string[]>([]);
   const token = getToken();
 
   useEffect(() => {
@@ -174,6 +176,38 @@ export function DatasetDetailPage() {
         } catch {
           if (!cancelled) setReadme(null);
         }
+        const profilePaths = files.items
+          .filter(
+            (item) =>
+              item.type !== "dir" &&
+              item.path.endsWith(".yaml") &&
+              !item.path.startsWith("tasks/") &&
+              /(^|\/)profiles(\.|$)/.test(item.path.split("/").pop() || ""),
+          )
+          .map((item) => item.path);
+        try {
+          const docs = await Promise.all(
+            profilePaths.map((path) =>
+              getPackageFile(datasetId, chosen.package_digest, path, token)
+                .then((file) => decodeFileContent(file))
+                .catch(() => ""),
+            ),
+          );
+          if (!cancelled) {
+            const seen = new Set<string>();
+            const prefixes: string[] = [];
+            for (const doc of docs) {
+              for (const path of overlayPathsFromProfilesYaml(doc)) {
+                if (seen.has(path)) continue;
+                seen.add(path);
+                prefixes.push(path);
+              }
+            }
+            setOverlayPrefixes(prefixes);
+          }
+        } catch {
+          if (!cancelled) setOverlayPrefixes([]);
+        }
         try {
           const [jobs, board] = await Promise.all([
             listSuites(datasetId, token),
@@ -212,17 +246,18 @@ export function DatasetDetailPage() {
   }, [datasetId, release]);
 
   const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
+  const overlaysPresent = overlayPrefixes.length > 0;
   const sharedTree = useMemo(
     () => buildNestedTree(fileItems, "shared"),
     [fileItems],
   );
 
-  // Stale ?tab=shared when package has no shared/ → fall back to README.
+  // Stale ?tab=shared|overlays when the package has neither → fall back to README.
   useEffect(() => {
-    if (!loading && tab === "shared" && !sharedPresent) {
-      setTab("readme");
-    }
-  }, [loading, tab, sharedPresent]);
+    if (loading) return;
+    if (tab === "shared" && !sharedPresent) setTab("readme");
+    if (tab === "overlays" && !overlaysPresent) setTab("readme");
+  }, [loading, tab, sharedPresent, overlaysPresent]);
 
   useEffect(() => {
     if (!release || !sharedSelected || tab !== "shared" || !sharedPresent) {
@@ -355,6 +390,9 @@ export function DatasetDetailPage() {
             ...(sharedPresent
               ? ([["shared", "Shared"]] as Array<[Tab, string]>)
               : []),
+            ...(overlaysPresent
+              ? ([["overlays", "Overlays"]] as Array<[Tab, string]>)
+              : []),
             ["leaderboard", "Leaderboard"],
           ] as Array<[Tab, string]>
         ).map(([id, label]) => (
@@ -465,6 +503,18 @@ export function DatasetDetailPage() {
           fileNote={sharedNote}
           rootPrefix="shared"
         />
+      ) : tab === "overlays" && overlaysPresent && release ? (
+        <div className="space-y-2">
+          <p className="text-xs text-mute">
+            Declared <code className="font-mono">overlays:</code> from package
+            profiles. Prefix closure of the bound release. Read-only.
+          </p>
+          <OverlayFilePanel
+            databaseId={datasetId}
+            packageDigest={release.package_digest}
+            prefixes={overlayPrefixes}
+          />
+        </div>
       ) : (
         <div className="space-y-3">
           {demoLeaderboard ? (
@@ -513,6 +563,8 @@ export function DatasetDetailPage() {
             }
             databaseId={datasetId}
             orgId={release?.org_id}
+            packageDigest={release?.package_digest}
+            versions={versions}
             openSuiteId={
               boardView === "public" && !demoLeaderboard
                 ? search.get("suite")

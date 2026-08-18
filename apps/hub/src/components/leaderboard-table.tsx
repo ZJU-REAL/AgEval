@@ -38,7 +38,9 @@ import {
 } from "@/lib/suite-metrics";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
+import { OverlayFilePanel } from "@/components/overlay-file-panel";
 import { ScrollTable } from "@/components/scroll-table";
+import { overlayPathsFromJobOverlay } from "@/lib/file-tree";
 
 /** Shared column widths — keep Agent/Model tight so columns stay similar. */
 const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
@@ -79,6 +81,13 @@ function jobOverlayToProfilesYaml(overlay: SuiteRow["job_overlay"]): string {
     if (b.base_url != null) lines.push(`    base_url: ${String(b.base_url)}`);
     // Locator name only — never a secret value.
     if (b.api_key != null) lines.push(`    api_key: ${String(b.api_key)}`);
+    const overlays = Array.isArray(b.overlays) ? b.overlays.filter(Boolean) : [];
+    if (overlays.length) {
+      lines.push("    overlays:");
+      for (const path of overlays) {
+        lines.push(`      - ${String(path)}`);
+      }
+    }
   }
   return lines.join("\n") + "\n";
 }
@@ -330,6 +339,8 @@ export function LeaderboardTable({
   emptyTitle,
   emptyBody,
   openSuiteId,
+  packageDigest,
+  versions,
 }: {
   suites: SuiteRow[];
   databaseId: string;
@@ -339,6 +350,9 @@ export function LeaderboardTable({
   emptyBody?: string;
   /** Open this public-board row on load; ignored when the suite is absent. */
   openSuiteId?: string | null;
+  /** Currently viewed Dataset release digest (fallback for overlay preview). */
+  packageDigest?: string;
+  versions?: PackageRelease[];
 }) {
   const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -496,6 +510,10 @@ export function LeaderboardTable({
               const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
               const open = openId === s.suite_run_id;
               const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
+              const overlayPrefixes = overlayPathsFromJobOverlay(s.job_overlay);
+              const overlayDigest =
+                versions?.find((row) => row.version === s.database_version)
+                  ?.package_digest || packageDigest;
               const plugins = pluginsUsedBySuite(s, pluginCatalog, orgId);
               const rehydrateScript = [
                 "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
@@ -679,6 +697,19 @@ export function LeaderboardTable({
                                 content={rehydrateScript}
                                 maxHeightClass="max-h-40"
                               />
+                              {overlayPrefixes.length && overlayDigest ? (
+                                <div className="space-y-2">
+                                  <p className="text-xs text-mute">
+                                    Declared overlays from this job binding.
+                                    Bytes stay in the bound Dataset release.
+                                  </p>
+                                  <OverlayFilePanel
+                                    databaseId={databaseId}
+                                    packageDigest={overlayDigest}
+                                    prefixes={overlayPrefixes}
+                                  />
+                                </div>
+                              ) : null}
                             </>
                           ) : expandTab === "plugin" ? (
                             <div className="space-y-2">
