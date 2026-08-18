@@ -5,6 +5,9 @@ format: bora.profiles/1
 bindings:
   solver:
     executor: acp
+    overlays:
+      - overlays/skills/jsonl-agg
+      - overlays/AGENTS.md
     extensions:
       - plugin: acp
         options:

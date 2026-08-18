@@ -37,6 +37,9 @@ def test_stable_fingerprint_vector() -> None:
         harness_fingerprint(_acp("grok-build", model="other-model", label="ignored"))
         == GROK_BUILD_ID
     )
+    with_overlays = dict(GROK_BUILD)
+    with_overlays["overlays"] = ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"]
+    assert harness_fingerprint(with_overlays) == GROK_BUILD_ID
 
 
 def test_extension_row_with_home_files_still_resolves() -> None:

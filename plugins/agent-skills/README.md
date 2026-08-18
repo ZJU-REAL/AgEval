@@ -63,6 +63,10 @@ Instruction files (same bytes as each `instructions[]` src):
 
 Do not drop `AGENTS.md` at `$HOME/AGENTS.md`. Engines do not look there.
 
+To publish the same skill / instruction files on the Hub Runtime plaza, list
+them on this role as `overlays:` (for example `overlays/skills/jsonl-agg` and
+`overlays/AGENTS.md`). Core does not infer that list from `src`.
+
 ## Run
 
 ```bash

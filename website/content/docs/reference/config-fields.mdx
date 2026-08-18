@@ -39,6 +39,8 @@ description: bora.yaml / task.yaml 字段与校验要点速查。
 
 role 上可选 `label`，作为 Jobs / Hub 的 Agents 轴。缺省：ACP 用 `- plugin: acp` 的 `options.entry`，其它 kind 用 `executor`。**不要**把 `options.agent` 当展示名。
 
+可选 `overlays` 是该 role 在 Runtime plaza 上的发布文件集（Database 相对路径，必须以 `overlays/` 开头）。省略或 `[]` = 只有 YAML、无文件树。Core **不会**从插件 `src` 推断这份列表。列出的文件只能含 locator，不能含密钥。
+
 ## 成员一级目录白名单
 
 `prompts` · `schemas` · `environment` · `evaluation` · `data` · `lib` · `upstream` · `solution`

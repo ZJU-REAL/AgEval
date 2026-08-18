@@ -204,7 +204,7 @@ plugin_requires:
 
 ## 配置与绑定
 
-- Job binding 在 `profiles.yaml`：`executor` / `extensions`（binding 字段）；选择按 **profile（role）**，不是 task 级插件列表  
+- Job binding 在 `profiles.yaml`：`executor` / `extensions` / 可选 `overlays`（binding 字段）；选择按 **profile（role）**，不是 task 级插件列表  
 - 插件 knobs 只写在 **`extensions[]` 行上的 `options`**。`executor:` 只选 `provide(executor)`。  
 - Profile 级 `options` **不是**插件输入（无 dual-read、无回落）。  
 - member `task.yaml` 只声明 role slot，禁止内联 binding  
@@ -213,7 +213,9 @@ plugin_requires:
 
 ### 每插件 `extensions[].options`
 
-`executor:` 不携带插件 knobs。每个插件只读本行 `options`。工厂与 `on` handler 物化时只拿到该行 map。
+`executor:` 不携带插件 knobs。每个插件只读本行 `options`。工厂与 `on` handler 物化时只拿到该行 map。`options` 对 Core 是**不透明 map**。
+
+plaza 发布树只来自 binding 级 `overlays:`（见 [02](02-task-package-and-config.md)）。Core **不得**遍历 `extensions[].options` 寻找 `src`（或任何路径形键）来构造、补全或校验该列表。不同插件的路径键名不同；有的 `src` 根本不是 overlay 文件。本增量接受 `overlays:` 与插件实际复制集之间的漂移，Core 不调和。`home_overlay` 运行时仍只按该插件自己的 `src` 拷贝。
 
 ```yaml
 executor: acp

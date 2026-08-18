@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { BreadcrumbNav } from "@/components/breadcrumb";
+import { FileSplitPanel } from "@/components/file-split-panel";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
 import {
@@ -28,16 +29,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  decodeFileContent,
   encodeDatasetId,
+  getPackageFile,
   getRuntime,
+  listPackageFiles,
   RegistryHttpError,
+  type FileItem,
+  type RuntimeAppearance,
   type RuntimeDetail,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { CodeHighlight } from "@/lib/code-highlight";
+import { buildNestedTree, pathMatchesPrefixes, type TreeNode } from "@/lib/file-tree";
 import { formatScore } from "@/lib/utils";
 
-function harnessYaml(card: RuntimeDetail): string {
+function appearanceKey(row: RuntimeAppearance): string {
+  return `${row.suite_run_id}:${row.role}`;
+}
+
+function harnessYaml(
+  card: RuntimeDetail,
+  appearance: RuntimeAppearance | null,
+): string {
   const lines = [`executor: ${card.executor || '""'}`, `entry: ${card.entry || '""'}`, "options:"];
   const keys = Object.keys(card.options || {}).sort();
   if (!keys.length) {
@@ -48,6 +62,13 @@ function harnessYaml(card: RuntimeDetail): string {
       lines.push(
         `  ${key}: ${typeof val === "string" ? val : JSON.stringify(val)}`,
       );
+    }
+  }
+  const overlays = appearance?.overlays ?? [];
+  if (overlays.length) {
+    lines.push("overlays:");
+    for (const path of overlays) {
+      lines.push(`  - ${path}`);
     }
   }
   return `${lines.join("\n")}\n`;
@@ -78,6 +99,13 @@ export function RuntimeDetailPage() {
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [datasetFilter, setDatasetFilter] = useState(ALL_DATASETS);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [fileItems, setFileItems] = useState<FileItem[]>([]);
+  const [treeLoading, setTreeLoading] = useState(false);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [fileNote, setFileNote] = useState<string | null>(null);
   const token = getToken();
 
   useEffect(() => {
@@ -106,8 +134,6 @@ export function RuntimeDetailPage() {
     };
   }, [runtimeId, token]);
 
-  const yamlText = useMemo(() => (detail ? harnessYaml(detail) : ""), [detail]);
-
   const datasetIds = useMemo(() => {
     const ids = new Set<string>();
     for (const row of detail?.appearances ?? []) {
@@ -133,6 +159,116 @@ export function RuntimeDetailPage() {
       return compareValues(av, bv, sortDir);
     });
   }, [datasetFilter, detail, sortKey, sortDir]);
+
+  const selectedAppearance = useMemo(() => {
+    if (!appearances.length) return null;
+    return appearances.find((row) => appearanceKey(row) === selectedKey) ?? appearances[0];
+  }, [appearances, selectedKey]);
+
+  const yamlText = useMemo(
+    () => (detail ? harnessYaml(detail, selectedAppearance) : ""),
+    [detail, selectedAppearance],
+  );
+
+  const overlayKey = (selectedAppearance?.overlays ?? []).join("\n");
+  const canPreview = Boolean(
+    selectedAppearance?.database_id &&
+      selectedAppearance.package_digest &&
+      overlayKey,
+  );
+
+  useEffect(() => {
+    if (!canPreview || !selectedAppearance?.database_id || !selectedAppearance.package_digest) {
+      setFileItems([]);
+      setSelectedPath(null);
+      setFileContent(null);
+      setFileNote(null);
+      setTreeLoading(false);
+      return;
+    }
+    const databaseId = selectedAppearance.database_id;
+    const digest = selectedAppearance.package_digest;
+    const prefixes = selectedAppearance.overlays ?? [];
+    let cancelled = false;
+    setTreeLoading(true);
+    setFileNote(null);
+    listPackageFiles(databaseId, digest, token)
+      .then((files) => {
+        if (cancelled) return;
+        const matched = files.items.filter(
+          (item) => item.type !== "dir" && pathMatchesPrefixes(item.path, prefixes),
+        );
+        setFileItems(matched);
+        const prefer =
+          prefixes
+            .map((prefix) =>
+              matched.find((item) => item.path === prefix || item.path.startsWith(`${prefix}/`)),
+            )
+            .find(Boolean) || matched[0];
+        setSelectedPath(prefer?.path ?? null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setFileItems([]);
+        setSelectedPath(null);
+        if (err instanceof RegistryHttpError) {
+          setFileNote(`${err.code}: ${err.message}`);
+        } else {
+          setFileNote(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setTreeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canPreview, overlayKey, selectedAppearance, token]);
+
+  const tree: TreeNode[] = useMemo(
+    () => (canPreview ? buildNestedTree(fileItems, "overlays") : []),
+    [canPreview, fileItems],
+  );
+
+  useEffect(() => {
+    if (!canPreview || !selectedAppearance || !selectedPath) {
+      setFileContent(null);
+      return;
+    }
+    let cancelled = false;
+    setFileLoading(true);
+    getPackageFile(
+      selectedAppearance.database_id,
+      selectedAppearance.package_digest || "",
+      selectedPath,
+      token,
+    )
+      .then((file) => {
+        if (cancelled) return;
+        try {
+          setFileContent(decodeFileContent(file));
+          setFileNote(null);
+        } catch {
+          setFileContent(null);
+          setFileNote("Could not decode file content.");
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setFileContent(null);
+        if (err instanceof RegistryHttpError) {
+          setFileNote(`${err.code}: ${err.message}`);
+        } else {
+          setFileNote(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFileLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canPreview, selectedAppearance, selectedPath, token]);
 
   function onSort(key: string) {
     const next = nextSort(sortKey, sortDir, key);
@@ -270,9 +406,16 @@ export function RuntimeDetailPage() {
                     const href = `/datasets/${encodeDatasetId(row.database_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`;
                     const teammates = row.teammates || [];
                     const suiteShort = shortSuiteId(row.suite_run_id);
+                    const key = appearanceKey(row);
+                    const selected = selectedAppearance
+                      ? appearanceKey(selectedAppearance) === key
+                      : false;
                     return (
                       <TableRow
-                        key={`${row.suite_run_id}:${row.role}`}
+                        key={key}
+                        data-state={selected ? "selected" : undefined}
+                        className="cursor-pointer"
+                        onClick={() => setSelectedKey(key)}
                       >
                         <TableCell className={COL_MODEL}>
                           <ModelLabel
@@ -295,6 +438,7 @@ export function RuntimeDetailPage() {
                         <TableCell className={COL_DATASET}>
                           <Link
                             to={href}
+                            onClick={(event) => event.stopPropagation()}
                             className="inline-block max-w-full hover:text-ink hover:underline underline-offset-2"
                           >
                             <TruncateTip
@@ -339,6 +483,28 @@ export function RuntimeDetailPage() {
               </Table>
             </div>
           </section>
+
+          {canPreview ? (
+            <section className="space-y-2">
+              <h2 className="text-sm font-medium text-ink">Published files</h2>
+              <p className="text-xs text-mute">
+                Prefix closure of this role&apos;s overlays from the bound Dataset
+                release. Read-only.
+              </p>
+              <div className="rounded-[8px] border border-hairline overflow-hidden">
+                <FileSplitPanel
+                  tree={tree}
+                  treeLoading={treeLoading}
+                  selectedPath={selectedPath}
+                  onSelect={setSelectedPath}
+                  fileContent={fileContent}
+                  fileLoading={fileLoading}
+                  fileNote={fileNote}
+                  rootPrefix="overlays"
+                />
+              </div>
+            </section>
+          ) : null}
         </div>
       ) : null}
     </>

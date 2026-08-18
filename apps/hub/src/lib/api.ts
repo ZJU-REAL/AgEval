@@ -224,6 +224,8 @@ export type RuntimeTeammate = {
 
 export type RuntimeAppearance = {
   database_id: string;
+  database_version?: string;
+  package_digest?: string;
   suite_run_id: string;
   role: string;
   model: string;
@@ -233,6 +235,7 @@ export type RuntimeAppearance = {
   uploaded_by?: string;
   created_at?: number;
   teammates?: RuntimeTeammate[];
+  overlays?: string[];
 };
 
 export type RuntimeDetail = RuntimeCard & {

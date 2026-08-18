@@ -243,6 +243,9 @@ def test_same_harness_two_roles_one_card(tmp_path: Path) -> None:
     assert {a["mean_score"] for a in detail["appearances"]} == {0.5}
     service = next(a for a in detail["appearances"] if a["role"] == "service")
     assert [t["role"] for t in service["teammates"]] == ["user"]
+    assert service["database_version"] == "0.1.0"
+    assert service["package_digest"] == compute_package_digest(FIXTURE)
+    assert "overlays" not in service
     assert "api_key" not in json.dumps(listed)
     assert "api_key" not in json.dumps(detail["options"])
 
@@ -300,6 +303,41 @@ def test_same_harness_different_models_one_card(tmp_path: Path) -> None:
     )
     models = {a["model"] for a in detail["appearances"]}
     assert models == {"g1", "g2"}
+
+
+def test_appearance_overlays_are_per_role(tmp_path: Path) -> None:
+    packages, results, runtimes = _services(tmp_path)
+    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
+    grok = dict(GROK)
+    grok["overlays"] = ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"]
+    pi = {
+        "executor": "acp",
+        "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
+        "model": "g1",
+    }
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_overlays",
+        database_id="official/gaia",
+        bindings={"solver": grok, "user": pi},
+    )
+    grok_detail = runtimes.get_runtime(
+        runtime_id=harness_fingerprint(GROK),
+        auth=TokenInfo(scopes=frozenset(), user_id=""),
+    )
+    solver = grok_detail["appearances"][0]
+    assert solver["role"] == "solver"
+    assert solver["overlays"] == ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"]
+    assert solver["package_digest"] == compute_package_digest(FIXTURE)
+    pi_detail = runtimes.get_runtime(
+        runtime_id=harness_fingerprint(pi),
+        auth=TokenInfo(scopes=frozenset(), user_id=""),
+    )
+    user = pi_detail["appearances"][0]
+    assert user["role"] == "user"
+    assert "overlays" not in user
+    assert user["package_digest"] == solver["package_digest"]
 
 
 def test_unknown_runtime_is_404(tmp_path: Path) -> None:

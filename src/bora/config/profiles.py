@@ -25,13 +25,23 @@ from bora.config.errors import (
     ERROR_MISSING_BINDING,
     ConfigError,
 )
+from bora.config.overlay_files import parse_overlay_paths
 
 PROFILES_FILENAME = "profiles.yaml"
 PROFILES_FORMAT = "bora.profiles/1"
 
 # Fields that constitute job binding — forbidden on member task.yaml slots.
 BINDING_FIELD_KEYS = frozenset(
-    {"executor", "model", "options", "api_key", "base_url", "extensions", "label"}
+    {
+        "executor",
+        "model",
+        "options",
+        "api_key",
+        "base_url",
+        "extensions",
+        "label",
+        "overlays",
+    }
 )
 
 # Allowlisted nested binding override leaves under /bindings/<role_id>/…
@@ -205,7 +215,13 @@ def parse_profiles_mapping(
                 "binding must not set id (role id is the map key)",
                 location=f"{location}:/bindings/{rid}/id",
             )
-        out[rid] = copy.deepcopy(binding)
+        row = copy.deepcopy(binding)
+        if "overlays" in row:
+            row["overlays"] = parse_overlay_paths(
+                row.get("overlays"),
+                location=f"{location}:/bindings/{rid}/overlays",
+            )
+        out[rid] = row
     return out
 
 
@@ -562,6 +578,11 @@ def project_job_overlay(
         )
         if options:
             row["options"] = options
+        overlays = raw.get("overlays")
+        if isinstance(overlays, Sequence) and not isinstance(overlays, (str, bytes)):
+            paths = [str(item).strip() for item in overlays if str(item).strip()]
+            if paths:
+                row["overlays"] = paths
         if row:
             out[rid] = row
     return {"bindings": out}

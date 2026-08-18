@@ -37,6 +37,7 @@ database_root
 my-database/                      # Database 根（CLI path）
 ├── bora.yaml                     # format: bora.database/1
 ├── profiles.yaml                 # job binding 默认（role id → entry/model/locator；#59）
+├── overlays/                     # 可选；plaza 发布文件（仅 binding.overlays 引用）
 ├── env.example                   # 文档化 credential locator 名（无密钥）
 ├── .env                          # 本机密钥（gitignore；永不 publish/upload）
 ├── README.md                     # suite 级说明（可选）
@@ -254,12 +255,59 @@ member task.yaml（角色槽 + intent + harness/eval）
   → actors_summary → config_fingerprint
 ```
 
-- 成员 `task.yaml` **禁止**内联 `executor` / `model` / `options` / `api_key` / `base_url` / `label`（无向后兼容双写法）。
+- 成员 `task.yaml` **禁止**内联 `executor` / `model` / `options` / `api_key` / `base_url` / `label` / `overlays`（无向后兼容双写法）。
 - Job binding 可选 `label`：Jobs / Hub 的 Agents 轴。缺省：`executor: acp` 用 `options.entry`，其它 kind 用 `executor`。**禁止**用 `options.agent` 当展示名。写入 lock `job_overlay` 与 Attempt/suite `agent_label`。
+- Job binding 可选 `overlays`：该 role **发布到 Hub Runtime plaza 的文件集**（见下节）。省略或 `[]` = 无发布树。
 - 缺 required role binding → `missing_binding` fail closed。
 - Intent `limits.*` **不可**经 `--set` 覆盖。
 - Leaderboard **job 轴**是 suite 级 `profiles.yaml` / `job_overlay`（role id → entry/model），不是「各 task 角色槽拓扑是否相同」。不同 task 可用不同 role id；只要绑定文档一致，`config_homogeneous` 仍为 true，公开可比榜展示该 yaml。
 - 仅当同一 suite 内出现**同一 role id 的 entry/model 冲突**（或无法解析 job 轴）时 `config_homogeneous: false`。
+
+#### Binding `overlays`（plaza 发布树）
+
+`profiles.yaml` 顶层仍只有 `format` + `bindings`。**禁止**在 `bindings` 旁写顶层 `overlays`。`overlays` 与 `executor` / `extensions` 同级，是 Config 拥有的 binding 字段，**不是**复制指令、也不是 role executor。
+
+```yaml
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: acp
+    overlays:
+      - overlays/skills/jsonl-agg
+      - overlays/AGENTS.md
+    extensions:
+      - plugin: acp
+        options:
+          entry: grok-build
+      - plugin: agent-skills
+        options:
+          dest_roots: [home, workspace]
+          skills:
+            - src: overlays/skills/jsonl-agg
+          instructions:
+            - src: overlays/AGENTS.md
+  user:
+    executor: acp
+    extensions:
+      - plugin: acp
+        options:
+          entry: pi
+```
+
+| 规则 | 含义 |
+| --- | --- |
+| 类型 | 非空字符串列表。省略或 `[]` = 无发布树（今日 Runtime 卡：只 YAML）。 |
+| 路径 | Database 相对。必须以 `overlays/` 开头。禁止 `..`、绝对路径、host `~`。 |
+| 存在 | lock 时每条必须是 Database 根下的文件或目录。目录在 snapshot / plaza 预览时递归展开。 |
+| 所有权 | Config 拥有此字段。Core **不得**读插件 `options` 里的 `src` 来构造或校验本列表。 |
+| 共享 | 两 role 发布同一路径：各 binding 各列一次；Dataset 里仍是一份 blob。 |
+| 密钥 | 列出的文件必须无密钥（locator only，与 `home-files` 同规）。可检测的 token / PEM / 高熵密钥 → lock 与 `upload-suite` fail closed。`{env:…}` locator 允许。不该公开的文件不要列入（通常也不放 `overlays/`）。 |
+
+插件 `src` 仍只告诉该插件运行时拷什么。本增量接受 `overlays:` 与插件实际复制集之间的漂移，Core 不调和。
+
+`project_job_overlay` 把 `overlays` **路径**投影进 suite `job_overlay`（无文件字节）。`bora results export-profiles` 必须写回该字段。再跑仍依赖 Database 里这些相对路径上的文件；Hub 不另下一份 blob。
+
+`overlays` **不得**进入 plaza `rt_*`（`harness_fingerprint` 仍只哈希 agent 产品）或 suite `config_fingerprint`。
 
 **Agent 后端可切换、可混用**是一等需求（见 [05-runtime/agent-service.md](05-runtime/agent-service.md)）：`parameters.models.*` 只点 **role / profile id**；真正跑哪条 coding-agent 后端写在 Database `profiles.yaml`（或 CLI overlay）。coding-agent 配置形状为 `executor: acp` + `- plugin: acp` 行上的 `options.entry`（registry entry_id：`codex` / `claude-code` / **`pi`** / `opencode` / `grok-build`…）；`openai-http` 为独立 api-client。Campaign 换后端时优先改 binding 的 executor 行 `options.entry`/`model`（`--set '/bindings/solver/…'` 或 `--matrix`），不必改 `harness.py`。
 

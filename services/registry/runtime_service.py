@@ -77,11 +77,15 @@ class RuntimeService:
         grouped: dict[str, list[dict[str, Any]]] = {}
         datasets: dict[str, set[str]] = {}
         named_from_label: dict[str, bool] = {}
+        digest_cache: dict[tuple[str, str], str] = {}
         for suite in listed.get("items") or []:
             if not isinstance(suite, Mapping) or not is_plaza_source_suite(suite, official):
                 continue
             database_id = str(suite.get("database_id") or "")
-            for appearance, binding in _appearances_from_suite(suite):
+            package_digest = _package_digest_for_suite(self.meta, suite, digest_cache)
+            for appearance, binding in _appearances_from_suite(
+                suite, package_digest=package_digest
+            ):
                 rid = appearance["runtime_id"]
                 grouped.setdefault(rid, []).append(appearance)
                 datasets.setdefault(rid, set()).add(database_id)
@@ -111,8 +115,40 @@ def _card_from_binding(runtime_id: str, binding: Mapping[str, Any]) -> dict[str,
     }
 
 
+def _package_digest_for_suite(
+    meta: Any,
+    suite: Mapping[str, Any],
+    cache: dict[tuple[str, str], str],
+) -> str:
+    database_id = str(suite.get("database_id") or "")
+    version = str(suite.get("database_version") or "")
+    if not database_id or not version:
+        return ""
+    key = (database_id, version)
+    if key in cache:
+        return cache[key]
+    digest = ""
+    try:
+        release = meta.get_by_version(database_id, version)
+    except Exception:  # noqa: BLE001 — appearance stays YAML-only
+        release = None
+    if release is not None:
+        digest = str(getattr(release, "package_digest", "") or "")
+    cache[key] = digest
+    return digest
+
+
+def _overlay_paths(binding: Mapping[str, Any]) -> list[str]:
+    raw = binding.get("overlays")
+    if not isinstance(raw, list):
+        return []
+    return [str(item).strip() for item in raw if str(item).strip()]
+
+
 def _appearances_from_suite(
     suite: Mapping[str, Any],
+    *,
+    package_digest: str = "",
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     overlay = suite.get("job_overlay")
     if not isinstance(overlay, Mapping):
@@ -144,22 +180,24 @@ def _appearances_from_suite(
     out: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for role_id, raw in valid:
         model = raw.get("model")
-        out.append(
-            (
-                {
-                    "runtime_id": harness_fingerprint(raw),
-                    "database_id": str(suite.get("database_id") or ""),
-                    "suite_run_id": str(suite.get("suite_run_id") or ""),
-                    "role": role_id,
-                    "model": model.strip() if isinstance(model, str) else "",
-                    "pass_rate": suite.get("pass_rate"),
-                    "mean_score": suite.get("mean_score"),
-                    "metrics": metrics_out,
-                    "uploaded_by": str(suite.get("uploaded_by") or ""),
-                    "created_at": suite.get("created_at"),
-                    "teammates": [t for t in teammates_all if t["role"] != role_id],
-                },
-                raw,
-            )
-        )
+        row: dict[str, Any] = {
+            "runtime_id": harness_fingerprint(raw),
+            "database_id": str(suite.get("database_id") or ""),
+            "database_version": str(suite.get("database_version") or ""),
+            "suite_run_id": str(suite.get("suite_run_id") or ""),
+            "role": role_id,
+            "model": model.strip() if isinstance(model, str) else "",
+            "pass_rate": suite.get("pass_rate"),
+            "mean_score": suite.get("mean_score"),
+            "metrics": metrics_out,
+            "uploaded_by": str(suite.get("uploaded_by") or ""),
+            "created_at": suite.get("created_at"),
+            "teammates": [t for t in teammates_all if t["role"] != role_id],
+        }
+        if package_digest:
+            row["package_digest"] = package_digest
+        overlays = _overlay_paths(raw)
+        if overlays:
+            row["overlays"] = overlays
+        out.append((row, raw))
     return out
