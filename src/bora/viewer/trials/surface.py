@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -75,18 +76,70 @@ def _available_tabs(evidence: Path) -> list[str]:
     return tabs
 
 
-def _profile_variant(profile: dict[str, Any]) -> str | None:
-    """Lock display variant: binding label, else ACP entry. Never options.agent."""
-    label = profile.get("label")
-    if isinstance(label, str) and label.strip():
-        return label.strip()
-    from bora.config.profiles import acp_entry_from_binding
+_TRANSPORT_ACP = "acp"
 
-    if str(profile.get("executor") or "").strip() == "acp":
-        entry = acp_entry_from_binding(profile)
-        if entry:
-            return entry
+
+def _overlay_bindings(lock: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    overlay = lock.get("job_overlay")
+    if not isinstance(overlay, dict):
+        return {}
+    bindings = overlay.get("bindings")
+    if not isinstance(bindings, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for key, raw in bindings.items():
+        if isinstance(key, str) and key and isinstance(raw, dict):
+            out[key] = raw
+    return out
+
+
+def _projected_acp_entry(profile: Mapping[str, Any] | None) -> str | None:
+    """Lock summary writes ACP entry on ``options.entry``, not extensions."""
+    if not isinstance(profile, Mapping):
+        return None
+    entry = profile.get("entry")
+    if isinstance(entry, str) and entry.strip():
+        return entry.strip()
+    opts = profile.get("options")
+    if isinstance(opts, dict):
+        val = opts.get("entry")
+        if isinstance(val, str) and val.strip():
+            return val.strip()
     return None
+
+
+def _display_binding(
+    profile: dict[str, Any],
+    overlay_binding: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Richest binding for ``display_agent_name`` (overlay label/extensions first)."""
+    src = overlay_binding or profile
+    entry = _projected_acp_entry(src) or _projected_acp_entry(profile)
+    if not entry or src.get("entry") == entry:
+        return src
+    merged = dict(src)
+    merged["entry"] = entry
+    return merged
+
+
+def _actor_agent_name(
+    profile: dict[str, Any],
+    *,
+    overlay_binding: dict[str, Any] | None = None,
+    inv_entry: str | None = None,
+) -> str:
+    """Same axis as Jobs / Hub: label → ACP entry → executor. Never transport ``acp``."""
+    from bora.config.profiles import display_agent_name
+
+    name = display_agent_name(_display_binding(profile, overlay_binding))
+    if name and name != _TRANSPORT_ACP:
+        return name
+    if isinstance(inv_entry, str) and inv_entry.strip():
+        return inv_entry.strip()
+    pid = profile.get("id")
+    if isinstance(pid, str) and pid.strip():
+        return pid.strip()
+    return ""
 
 
 def _docker_label(result: dict[str, Any], summary: dict[str, Any]) -> str | None:
@@ -162,10 +215,14 @@ def _agent_surface(
     ordered_ids: list[str] = []
     inv_model: dict[str, str] = {}
     inv_executor: dict[str, str] = {}
+    inv_entry: dict[str, str] = {}
+    inv_effort: dict[str, str] = {}
     # Aggregation state per profile_id
     latency_sum: dict[str, float] = {}
     invoke_count: dict[str, int] = {}
     last_usage: dict[str, dict[str, Any]] = {}
+    overlay_by_id = _overlay_bindings(lock)
+    from bora.config.profiles import reasoning_effort_from_binding
 
     inv_root = evidence / "agent" / "invocations"
     if inv_root.is_dir():
@@ -185,6 +242,14 @@ def _agent_surface(
                 ek = meta.get("executor_kind")
                 if isinstance(ek, str) and ek:
                     inv_executor[pid] = ek
+                acp_entry = meta.get("acp_entry_id")
+                if isinstance(acp_entry, str) and acp_entry.strip():
+                    inv_entry[pid] = acp_entry.strip()
+                for key in ("actual_reasoning_effort", "locked_reasoning_effort"):
+                    val = meta.get(key)
+                    if isinstance(val, str) and val.strip():
+                        inv_effort[pid] = val.strip()
+                        break
                 invoke_count[pid] = invoke_count.get(pid, 0) + 1
                 lat = meta.get("latency_ms")
                 if isinstance(lat, (int, float)) and not isinstance(lat, bool):
@@ -200,14 +265,27 @@ def _agent_surface(
     executors: list[str] = []
     for pid in ordered_ids:
         p = by_id.get(pid, {"id": pid})
-        variant = _profile_variant(p)
         ex = p.get("executor") if isinstance(p.get("executor"), str) else None
         if not ex:
             ex = inv_executor.get(pid)
         if isinstance(ex, str) and ex and ex not in executors:
             executors.append(ex)
         model = inv_model.get(pid) or (p.get("model") if isinstance(p.get("model"), str) else None)
-        agent_col = variant or ex or pid
+        overlay = overlay_by_id.get(pid)
+        effort = (
+            inv_effort.get(pid)
+            or reasoning_effort_from_binding(overlay)
+            or reasoning_effort_from_binding(p)
+            or None
+        )
+        agent_col = (
+            _actor_agent_name(
+                p,
+                overlay_binding=overlay,
+                inv_entry=inv_entry.get(pid),
+            )
+            or pid
+        )
         role_col = pid
         n_inv = invoke_count.get(pid, 0)
         lat_total = latency_sum.get(pid)
@@ -217,6 +295,7 @@ def _agent_surface(
                 "role": role_col,
                 "agent": agent_col,
                 "model": model,
+                "reasoning_effort": effort,
                 "profile_id": pid,
                 # Surface executor mechanism on actor rows (nooa/acp/…).
                 "executor_kind": ex,

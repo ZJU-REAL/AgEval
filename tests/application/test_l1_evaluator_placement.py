@@ -115,6 +115,8 @@ def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: objec
         artifact_key="out",
         expected_filename="expected.json",
         placement=spec,
+        uid_gid="12000:12000",
+        actor_home="/actor-homes/default",
     )
     assert raw["status"] == "FAIL"
     assert raw["score"] == 0.0
@@ -136,13 +138,16 @@ def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: objec
     assert python_exec
     cmd = python_exec[0]
     assert "env" in cmd and "-i" in cmd
+    assert cmd[cmd.index("-u") + 1] == "12000:12000"
     assert "--network" not in cmd
     assert "-e" not in cmd
     env_assigns = [part for part in cmd if "=" in part and part.split("=", 1)[0].isidentifier()]
     assert env_assigns == [
         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-        "HOME=/tmp",
+        "HOME=/actor-homes/default",
+        "PYTHONUSERBASE=/actor-homes/default/.local",
     ]
+    assert "HOME=/tmp" not in cmd
     assert not any(part == "/creds" for part in cmd)
     assert not any(cmd[:3] == ["docker", "network", "connect"] for cmd in captured)
     assert not any("--read-only" in cmd for cmd in captured)
@@ -180,3 +185,51 @@ def test_reuse_attempt_hide_creds_failure_is_error(tmp_path: Path, monkeypatch: 
     assert raw["metrics"]["error"] == "eval_creds_hide_failed"
     assert meta["ok"] is False
     assert not any("python" in cmd for cmd in captured)
+
+
+def test_reuse_attempt_exec_env_includes_actor_user_site(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    from types import SimpleNamespace
+
+    from bora.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
+
+    captured: list[list[str]] = []
+
+    def _run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        captured.append(list(cmd))
+        if cmd[:2] == ["docker", "exec"] and "python" in cmd:
+            return SimpleNamespace(
+                returncode=0, stdout='{"status":"PASS","score":1.0}\n', stderr=""
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        _run,
+    )
+    spec = resolve_eval_placement({"reuse_attempt": True, "tmpfs_mb": 32})
+    staging = tmp_path / "eval"
+    staging.mkdir()
+    run_reuse_attempt_evaluator(
+        container_id="cid-live",
+        staging=staging,
+        artifact_filename="out.json",
+        artifact_key="out",
+        expected_filename=None,
+        placement=spec,
+        uid_gid="12000:12000",
+        actor_home="/actor-homes/default",
+    )
+    python_exec = [cmd for cmd in captured if cmd[:2] == ["docker", "exec"] and "python" in cmd]
+    assert python_exec
+    cmd = python_exec[0]
+    assert "env" in cmd and "-i" in cmd
+    assert cmd[cmd.index("-u") + 1] == "12000:12000"
+    assert "HOME=/actor-homes/default" in cmd
+    assert "PYTHONUSERBASE=/actor-homes/default/.local" in cmd
+    assert "HOME=/tmp" not in cmd
+    keys = [part.split("=", 1)[0] for part in cmd if "=" in part]
+    assert "API_KEY" not in keys
+    assert "TOKEN" not in keys
+    assert "SECRET" not in keys

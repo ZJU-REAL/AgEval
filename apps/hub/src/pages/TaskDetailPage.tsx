@@ -32,7 +32,8 @@ import { getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
-import { cn, formatScore } from "@/lib/utils";
+import { ModelLabel } from "@/components/model-label";
+import { cn, formatScore, reasoningEffortFromOverlay } from "@/lib/utils";
 
 type Tab = "readme" | "files" | "jobs";
 type FilesScope = "local" | "shared";
@@ -65,6 +66,7 @@ export function TaskDetailPage() {
       score?: number | null;
       agent_label?: string;
       model_label?: string;
+      reasoning_effort?: string;
       created_at?: number | string;
       run_id?: string | null;
       has_attempt_content?: boolean;
@@ -139,6 +141,7 @@ export function TaskDetailPage() {
               score: hit.score,
               agent_label: s.agent_label,
               model_label: s.model_label,
+              reasoning_effort: reasoningEffortFromOverlay(s.job_overlay),
               created_at: s.created_at,
               run_id: hit.run_id ?? null,
               has_attempt_content: Boolean(hit.has_attempt_content),
@@ -452,7 +455,10 @@ export function TaskDetailPage() {
                           <AxisLabel value={j.agent_label} />
                         </TableCell>
                         <TableCell className="text-sm font-mono text-xs">
-                          <AxisLabel value={j.model_label} />
+                          <ModelLabel
+                            value={j.model_label}
+                            effort={j.reasoning_effort}
+                          />
                         </TableCell>
                       </TableRow>
                     );

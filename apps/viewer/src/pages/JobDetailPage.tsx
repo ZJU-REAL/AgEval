@@ -21,6 +21,7 @@ import { fetchJob, type Job, type TaskRow } from "@/lib/api";
 import { taskHref, taskRunIds } from "@/lib/routes";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
+import { ModelLabel } from "@/components/model-label";
 import { formatError, formatScore } from "@/lib/utils";
 
 type SortKey = "task_id" | "agent_label" | "model_label" | "score" | "status";
@@ -96,10 +97,25 @@ export function JobDetailPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono">{jobId}</h1>
           {job && (
-            <p className="text-sm text-mute mt-1">
-              {[job.agent_label, job.model_label, job.source]
-                .filter(Boolean)
-                .join(" / ")}
+            <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5">
+              {job.agent_label ? <span>{job.agent_label}</span> : null}
+              {job.model_label ? (
+                <>
+                  {job.agent_label ? <span aria-hidden>/</span> : null}
+                  <ModelLabel
+                    value={job.model_label}
+                    effort={job.reasoning_effort}
+                  />
+                </>
+              ) : null}
+              {job.source ? (
+                <>
+                  {job.agent_label || job.model_label ? (
+                    <span aria-hidden>/</span>
+                  ) : null}
+                  <span>{job.source}</span>
+                </>
+              ) : null}
             </p>
           )}
         </div>
@@ -167,9 +183,10 @@ export function JobDetailPage() {
                         />
                       </TableCell>
                       <TableCell className="max-w-[18rem]">
-                        <AxisLabel
+                        <ModelLabel
                           value={t.model_label || job?.model_label}
-                          className="block truncate font-mono text-xs"
+                          effort={t.reasoning_effort || job?.reasoning_effort}
+                          className="truncate font-mono text-xs"
                         />
                       </TableCell>
                       <TableCell className="text-body">

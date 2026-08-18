@@ -8,6 +8,7 @@ export type Job = {
   database_version?: string | null;
   agent_label?: string;
   model_label?: string;
+  reasoning_effort?: string;
   provider_label?: string;
   environment?: string;
   result?: number | null;
@@ -34,6 +35,7 @@ export type TaskRow = {
   exit_code?: number | null;
   agent_label?: string;
   model_label?: string;
+  reasoning_effort?: string;
   provider_label?: string;
   dataset?: string | null;
   duration?: string | null;
@@ -74,6 +76,7 @@ export type Trial = {
     role: string;
     agent: string;
     model?: string | null;
+    reasoning_effort?: string | null;
     profile_id?: string;
     /** Executor mechanism when present (e.g. acp, nooa). */
     executor_kind?: string | null;
@@ -188,6 +191,7 @@ export type DeletePreview = {
   cascade_run_ids: string[];
   confirm_token: string;
   error?: { code?: string; message?: string } | null;
+  warning?: { code?: string; message?: string } | null;
 };
 
 export type DeleteResult = {
@@ -265,6 +269,7 @@ export function fetchJobTask(jobId: string, taskId: string) {
     trials: Trial[];
     agent_label?: string;
     model_label?: string;
+    reasoning_effort?: string;
     provider_label?: string;
     dataset?: string;
     commands?: Record<string, string>;

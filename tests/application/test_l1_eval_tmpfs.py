@@ -212,6 +212,8 @@ def test_evaluate_l1_reuse_attempt_skips_new_container(
     evaluate_l1(ctx)
     assert isolated == {}
     assert reused["container_id"] == "cid-live"
+    assert reused["uid_gid"] == "12000:12000"
+    assert reused["actor_home"] == "/actor-homes/default"
     assert ctx.evaluator_raw is not None
     assert ctx.evaluator_raw["status"] == "FAIL"
     assert ctx.l1_meta["eval_placement"]["reuse_attempt"] is True

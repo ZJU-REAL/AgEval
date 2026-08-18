@@ -64,15 +64,30 @@ def _reuse_container_id(runtime: Any) -> str | None:
     return str(cid) if cid else None
 
 
-def _reuse_eval_user(runtime: Any) -> str:
-    ledger = getattr(runtime, "target_ledger", None)
-    actors = getattr(ledger, "actors", None) or {}
-    for actor in actors.values():
-        uid = getattr(actor, "uid", None)
-        gid = getattr(actor, "gid", None)
-        if isinstance(uid, int) and isinstance(gid, int):
-            return f"{uid}:{gid}"
-    return "10001:10001"
+def _reuse_eval_identity(ctx: AttemptStageContext) -> tuple[str, str]:
+    """Actor uid:gid and container HOME for same-Attempt eval user-site."""
+    from bora.application.attempt.run_l1_evaluator import (
+        _REUSE_DEFAULT_HOME,
+        _REUSE_DEFAULT_USER,
+    )
+
+    ledgers = (
+        getattr(ctx.runtime, "target_ledger", None),
+        ctx.ledger,
+    )
+    for ledger in ledgers:
+        actors = getattr(ledger, "actors", None) or {}
+        for actor in actors.values():
+            uid = getattr(actor, "uid", None)
+            gid = getattr(actor, "gid", None)
+            if not isinstance(uid, int) or not isinstance(gid, int):
+                continue
+            home = getattr(actor, "home_container", None)
+            if not isinstance(home, str) or not home:
+                aid = getattr(actor, "actor_id", None)
+                home = f"/actor-homes/{aid}" if aid else _REUSE_DEFAULT_HOME
+            return f"{uid}:{gid}", home
+    return _REUSE_DEFAULT_USER, _REUSE_DEFAULT_HOME
 
 
 def _timer(ctx: AttemptStageContext) -> PhaseTimer:
@@ -525,6 +540,7 @@ def evaluate_l1(ctx: AttemptStageContext) -> None:
         }
         if placement.reuse_attempt:
             cid = _reuse_container_id(runtime)
+            uid_gid, actor_home = _reuse_eval_identity(ctx)
             eval_raw, eval_meta = run_reuse_attempt_evaluator(
                 container_id=cid or "",
                 staging=staging,
@@ -532,7 +548,8 @@ def evaluate_l1(ctx: AttemptStageContext) -> None:
                 artifact_key=artifact_key,
                 expected_filename=expected_filename,
                 placement=placement,
-                uid_gid=_reuse_eval_user(runtime),
+                uid_gid=uid_gid,
+                actor_home=actor_home,
                 image_tag=runtime.image_lock.image_tag if runtime.image_lock else "bora-attempt:l1",
             )
         else:

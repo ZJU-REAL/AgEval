@@ -273,6 +273,8 @@ def make_handler(
                             or payload["job"].get("agent_label"),
                             "model_label": payload["task"].get("model_label")
                             or payload["job"].get("model_label"),
+                            "reasoning_effort": payload["task"].get("reasoning_effort")
+                            or payload["job"].get("reasoning_effort"),
                             "provider_label": payload["task"].get("provider_label")
                             or payload["job"].get("provider_label"),
                             "dataset": payload["task"].get("dataset")
