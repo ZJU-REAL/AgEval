@@ -7,7 +7,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 ADAPTERS = REPO / "src" / "bora" / "adapters"
-ACP_PKG = ADAPTERS / "acp"
+ACP_PKG = REPO / "src" / "bora" / "plugins" / "contrib" / "acp"
 
 
 def _acp_sources() -> str:
@@ -17,6 +17,9 @@ def _acp_sources() -> str:
 def test_single_acp_executor_package() -> None:
     assert ACP_PKG.is_dir()
     assert (ACP_PKG / "executor.py").is_file()
+    assert not (ADAPTERS / "acp").exists()
+    assert not (ADAPTERS / "acp_registry.py").is_file()
+    assert not (ADAPTERS / "acp_entries.json").is_file()
     # No legacy monolith next to the package.
     assert not (ADAPTERS / "agent_acp.py").is_file()
     # No extra top-level agent_acp* modules.

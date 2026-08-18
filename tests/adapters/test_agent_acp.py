@@ -8,12 +8,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.adapters.acp import AcpExecutor, normalize_acp_usage
-from bora.adapters.acp.executor import (
+from bora.adapters.agent_contract import parse_validated_text_structured
+from bora.plugins.contrib.acp import AcpExecutor, normalize_acp_usage
+from bora.plugins.contrib.acp.executor import (
     _find_reasoning_config_option,
     _select_option_values,
 )
-from bora.adapters.agent_contract import parse_validated_text_structured
 
 
 def test_validated_text_structured_policy() -> None:
@@ -263,3 +263,160 @@ def test_acp_plugin_forwards_reasoning_effort_to_executor_and_l1() -> None:
         SimpleNamespace(container_id="c", uid=1, gid=1, workdir="/w", home="/h")
     )
     assert bound._inner.reasoning_effort == "high"
+
+
+def test_grok_build_argv_inserts_model_and_effort() -> None:
+    from bora.plugins.contrib.acp.entry_local import acp_stdio_argv
+
+    assert acp_stdio_argv(
+        "grok-build",
+        ["grok", "agent", "stdio"],
+        model="grok-4.5",
+        reasoning_effort="low",
+    ) == ["grok", "agent", "--model", "grok-4.5", "--reasoning-effort", "low", "stdio"]
+    assert acp_stdio_argv(
+        "grok-build",
+        ["grok", "agent", "stdio"],
+        model="entry-default",
+        reasoning_effort=None,
+    ) == ["grok", "agent", "stdio"]
+    assert acp_stdio_argv(
+        "pi",
+        ["pi-acp"],
+        model="grok-4.5",
+        reasoning_effort="low",
+    ) == ["pi-acp"]
+
+
+def test_grok_build_host_and_l1_share_rewritten_argv() -> None:
+    from bora.plugins.contrib.acp import AcpExecutorSPI
+
+    ex = AcpExecutor(entry_id="grok-build", model="grok-4.5", reasoning_effort="low")
+    assert ex.host_stdio_argv() == [
+        "grok",
+        "agent",
+        "--model",
+        "grok-4.5",
+        "--reasoning-effort",
+        "low",
+        "stdio",
+    ]
+    spi = AcpExecutorSPI(
+        options={"entry": "grok-build", "reasoning_effort": "low"},
+        model="grok-4.5",
+    )
+    bound = spi.bind_to_target(
+        SimpleNamespace(container_id="c", uid=1, gid=1, workdir="/w", home="/h")
+    )
+    override = list(bound._inner._command_override or [])
+    assert override[-7:] == [
+        "grok",
+        "agent",
+        "--model",
+        "grok-4.5",
+        "--reasoning-effort",
+        "low",
+        "stdio",
+    ]
+
+
+def _grok_init(*, current: str = "grok-4.6") -> dict[str, object]:
+    return {
+        "_meta": {
+            "modelState": {
+                "currentModelId": current,
+                "availableModels": [
+                    {
+                        "modelId": "grok-4.6",
+                        "_meta": {
+                            "reasoningEffort": "xhigh",
+                            "reasoningEfforts": [
+                                {"id": "xhigh", "value": "xhigh"},
+                                {"id": "high", "value": "high"},
+                                {"id": "low", "value": "low"},
+                            ],
+                        },
+                    },
+                    {
+                        "modelId": "grok-4.5",
+                        "_meta": {
+                            "reasoningEffort": "high",
+                            "reasoningEfforts": [
+                                {"id": "high", "value": "high"},
+                                {"id": "low", "value": "low"},
+                            ],
+                        },
+                    },
+                    {"modelId": "glm-coding", "_meta": {"agentType": "grok-build-plan"}},
+                ],
+            }
+        }
+    }
+
+
+def _grok_session(*, model: str = "grok-4.6", effort: str = "xhigh") -> SimpleNamespace:
+    return SimpleNamespace(
+        session_id="sess",
+        config_options=None,
+        _meta={
+            "x.ai/sessionConfig": {
+                "options": [
+                    {"id": "grok-4.6", "category": "model", "selected": model == "grok-4.6"},
+                    {"id": "grok-4.5", "category": "model", "selected": model == "grok-4.5"},
+                    {"id": "glm-coding", "category": "model", "selected": model == "glm-coding"},
+                    {"id": "xhigh", "category": "mode", "selected": effort == "xhigh"},
+                    {"id": "low", "category": "mode", "selected": effort == "low"},
+                ]
+            },
+            "x.ai/sessionDetail": {"currentModelId": model},
+        },
+    )
+
+
+def test_grok_build_records_actuals_from_meta_and_skips_set_config() -> None:
+    ex = AcpExecutor(entry_id="grok-build", model="grok-4.5", reasoning_effort="low")
+    conn = _FakeConn()
+    ex._conn = conn
+    ex._acp_session_id = "sess"
+    asyncio.run(
+        ex._bind_entry(
+            _grok_init(current="grok-4.5"), _grok_session(model="grok-4.5", effort="low")
+        )
+    )
+    assert conn.calls == []
+    assert ex._actual_model == "grok-4.5"
+    assert ex._actual_reasoning_effort == "low"
+
+
+def test_grok_build_unset_effort_records_default_and_does_not_fail() -> None:
+    ex = AcpExecutor(entry_id="grok-build", model="entry-default")
+    asyncio.run(ex._bind_entry(_grok_init(), _grok_session()))
+    assert ex._actual_model == "grok-4.6"
+    assert ex._actual_reasoning_effort == "xhigh"
+
+
+def test_grok_build_unknown_model_fails_closed() -> None:
+    ex = AcpExecutor(entry_id="grok-build", model="not-a-model")
+    with pytest.raises(RuntimeError, match="acp_model_unavailable"):
+        asyncio.run(ex._bind_entry(_grok_init(), _grok_session()))
+
+
+def test_grok_build_unknown_effort_fails_closed() -> None:
+    ex = AcpExecutor(entry_id="grok-build", model="grok-4.5", reasoning_effort="xhigh")
+    with pytest.raises(RuntimeError, match="acp_reasoning_effort_unavailable"):
+        asyncio.run(
+            ex._bind_entry(
+                _grok_init(current="grok-4.5"), _grok_session(model="grok-4.5", effort="xhigh")
+            )
+        )
+
+
+def test_grok_build_effort_on_model_without_selector_fails() -> None:
+    ex = AcpExecutor(entry_id="grok-build", model="glm-coding", reasoning_effort="low")
+    with pytest.raises(RuntimeError, match="acp_reasoning_effort_unavailable"):
+        asyncio.run(
+            ex._bind_entry(
+                _grok_init(current="glm-coding"),
+                _grok_session(model="glm-coding", effort="low"),
+            )
+        )

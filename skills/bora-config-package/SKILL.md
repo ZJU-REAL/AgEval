@@ -236,7 +236,7 @@ bindings:
       - plugin: acp
         options:
           entry: opencode       # registry: codex | claude-code | pi | opencode | grok-build
-          # reasoning_effort: high   # optional; exact advertised thinking value
+          # reasoning_effort: high   # optional; exact advertised value (selector or grok-build argv)
     model: entry-default
     api_key: ${glm_coding_api_key}   # ${ENV_NAME} locator; value never in YAML/lock
   # HTTP / non-ACP example:

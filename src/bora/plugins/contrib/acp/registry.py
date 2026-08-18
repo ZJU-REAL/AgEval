@@ -202,7 +202,7 @@ def load_registry_document(path: Path | None = None) -> dict[str, Any]:
     if path is not None:
         return json.loads(path.read_text(encoding="utf-8"))
     try:
-        ref = resources.files("bora.adapters").joinpath(_REGISTRY_RESOURCE)
+        ref = resources.files("bora.plugins.contrib.acp").joinpath(_REGISTRY_RESOURCE)
         with ref.open("r", encoding="utf-8") as fh:
             return json.load(fh)
     except (FileNotFoundError, ModuleNotFoundError, TypeError, AttributeError):

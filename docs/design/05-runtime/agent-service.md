@@ -73,8 +73,9 @@ parameters:
 
 - **整 task 换后端（Codex entry → Claude entry）：** 改 binding 的 `- plugin: acp` / `options.entry` / `model` 或 `parameters.models.*` 引用；**不必改** `harness.py`。
 - **同 task 不同 Agent 用不同后端：** 各 role 引用不同 profile id；specialist=Codex entry、planner=OpenCode entry 合法。
-- **同 entry 不同模型：** 改 `model`（经 ACP config option 绑定）或并列 profile。
-- **同 entry 不同 reasoning：** 改 `- plugin: acp` / `options.reasoning_effort`。Runtime 在绑完 model 后，把该字符串精确匹配到当场广告的 thinking selector（优先 `category: thought_level`）；不在表里或 entry 未广告该旋钮 → fail closed。
+- **同 entry 不同模型：** 改 `model`（经 ACP config option 绑定，或见下条 grok-build）或并列 profile。
+- **同 entry 不同 reasoning：** 改 `- plugin: acp` / `options.reasoning_effort`。广告了标准 ACP `configOptions`（`category: thought_level` 或已知 id）的 entry：Runtime 在绑完 model 后精确匹配该 selector；不在表里或未广告该旋钮 → fail closed。
+- **`options.entry: grok-build`：** 该 entry **不**实现 `session/set_config_option`（`configOptions` 为空）。first-party `acp` 插件按 entry **本地**绑定：host spawn 与 L1 `bind_to_target` 都把 `model`（非 `entry-default`）和已设的 `options.reasoning_effort` 写成 `grok agent --model … --reasoning-effort … stdio`。`initialize` / `session/new` 之后从 vendor `_meta.modelState` 与 `session/new._meta["x.ai/sessionConfig"]` 记录 `actual_model` / `actual_reasoning_effort`；请求的 exact id/level 不在当场广告列表 → fail closed。省略 `reasoning_effort` 不失败，沿用该 entry 内建默认（隔离 Attempt HOME，不投影 host `config.toml`）。**禁止** Core 在插件外写 `if entry == "grok-build"`。
 - **上游 endpoint / 密钥定位：** 可选 `base_url` 与 `api_key`（env 名）与 `model` 同级；`bora run` 从 package/cwd/repo `.env` 注入宿主环境后，Runtime 按 locator 投影给 Executor / ACP child env。
 
 `load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`executor: acp` 必须有 `- plugin: acp` 行上 registry 内 `options.entry`；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/entry/model/base_url/api_key(locator) 与 descriptor digest 的解析快照，进入 Trial identity / digest。

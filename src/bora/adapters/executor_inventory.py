@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from bora.adapters.acp_registry import list_entry_ids, load_acp_entries, readiness_for
 from bora.adapters.agent_registry import discover_executor_kinds
 from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES, get_capabilities
 from bora.adapters.path_probe import WhichFn, probe_commands
+from bora.plugins.contrib.acp.registry import list_entry_ids, load_acp_entries, readiness_for
 
 _BINARY_CANDIDATES: Mapping[str, tuple[str, ...]] = {
     "acp": (),

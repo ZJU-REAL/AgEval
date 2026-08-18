@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bora.adapters.acp.executor import AcpExecutor
+from bora.plugins.contrib.acp.executor import AcpExecutor
 
 
 def resolve_acp_executor(

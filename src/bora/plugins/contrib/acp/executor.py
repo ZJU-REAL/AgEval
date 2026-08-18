@@ -13,20 +13,25 @@ from pathlib import Path
 from typing import Any
 
 from bora import __version__ as BORA_VERSION
-from bora.adapters.acp.client import (
-    _BoraAcpClient,
-    _map_stop_reason,
-    _offline_result,
-)
-from bora.adapters.acp.trajectory_map import acp_session_events_to_bora
-from bora.adapters.acp.types import ProcessLauncher
-from bora.adapters.acp.usage import _as_plain_mapping, normalize_acp_usage
-from bora.adapters.acp_registry import AcpEntryDescriptor, get_entry, readiness_for
 from bora.adapters.agent_contract import (
     AgentExecutor,
     AgentResult,
     parse_validated_text_structured,
 )
+from bora.plugins.contrib.acp.client import (
+    _BoraAcpClient,
+    _map_stop_reason,
+    _offline_result,
+)
+from bora.plugins.contrib.acp.entry_local import (
+    acp_stdio_argv,
+    apply_grok_build_bind,
+    uses_entry_local_bind,
+)
+from bora.plugins.contrib.acp.registry import AcpEntryDescriptor, get_entry, readiness_for
+from bora.plugins.contrib.acp.trajectory_map import acp_session_events_to_bora
+from bora.plugins.contrib.acp.types import ProcessLauncher
+from bora.plugins.contrib.acp.usage import _as_plain_mapping, normalize_acp_usage
 
 # Advertised ACP config option ids that mean thinking / reasoning effort.
 # Category ``thought_level`` is the protocol selector; these ids cover entries
@@ -177,7 +182,7 @@ class AcpExecutor(AgentExecutor):
 
         client = _BoraAcpClient()
         self._client = client
-        cmd = self._command_override or list(self.descriptor.acp_command)
+        cmd = self._command_override or self.host_stdio_argv()
         if not cmd:
             raise RuntimeError("acp_entry_missing")
         command, *args = cmd
@@ -221,7 +226,29 @@ class AcpExecutor(AgentExecutor):
         if not self._acp_session_id:
             raise RuntimeError("acp_protocol_error")
 
-        latest = await self._bind_model(new)
+        await self._bind_entry(init, new)
+
+    def host_stdio_argv(self) -> list[str]:
+        """ACP stdio argv for a host spawn (no docker-exec prefix)."""
+        return acp_stdio_argv(
+            self.entry_id,
+            list(self.descriptor.acp_command),
+            model=self.model,
+            reasoning_effort=self.reasoning_effort,
+        )
+
+    async def _bind_entry(self, initialize: Any, new_session_resp: Any) -> None:
+        if uses_entry_local_bind(self.entry_id):
+            actual_model, actual_effort = apply_grok_build_bind(
+                initialize=initialize,
+                session=new_session_resp,
+                model=self.model,
+                reasoning_effort=self.reasoning_effort,
+            )
+            self._actual_model = actual_model
+            self._actual_reasoning_effort = actual_effort
+            return
+        latest = await self._bind_model(new_session_resp)
         await self._bind_reasoning_effort(latest)
 
     async def _bind_model(self, new_session_resp: Any) -> Any:

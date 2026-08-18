@@ -97,7 +97,7 @@ bindings:
 | Field | Rule |
 | --- | --- |
 | `- plugin: acp` / `options.entry` | **Required** when `executor: acp`. Registry ids (discover via `bora executors -v` → `acp_entries`): typically `codex`, `claude-code`, `pi`, `opencode`, `grok-build`. |
-| `options.reasoning_effort` | Optional. Applied after model bind to the advertised ACP thinking selector (`category: thought_level` or a known id). Exact value match; missing selector or unknown value fail closed. |
+| `options.reasoning_effort` | Optional. Entries that advertise an ACP thinking selector (`category: thought_level` or a known id) bind after model via `set_config_option`. `grok-build` does not speak that method: the plugin adds `--reasoning-effort` to `grok agent … stdio` and records the selected `_meta` row. Exact value match; missing selector or unknown value fail closed. Unset does not fail. |
 | `options.command` / `version` / `install_command` / … | **Forbidden** in package yaml (registry owns pins). |
 | Host readiness | Per-entry `engine_ready` + `acp_entry_ready` in inventory — not the same as yaml `executor` kind. |
 
