@@ -212,6 +212,7 @@ def test_evaluate_l1_reuse_attempt_skips_new_container(
     evaluate_l1(ctx)
     assert isolated == {}
     assert reused["container_id"] == "cid-live"
+    assert ctx.evaluator_raw is not None
     assert ctx.evaluator_raw["status"] == "FAIL"
     assert ctx.l1_meta["eval_placement"]["reuse_attempt"] is True
     assert ctx.l1_meta["eval_placement"]["network"] == "bridge"
