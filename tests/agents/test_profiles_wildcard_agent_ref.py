@@ -98,3 +98,51 @@ def test_suite_compat_and_labels_with_wildcard_binding() -> None:
     fields = compute_suite_config_fields([], job_overlay=suite_overlay, per_task_overlays=per_task)
     assert fields["config_homogeneous"] is True
     assert fields["agent_label"] == "Claude Code (entry default)"
+
+
+def test_wildcard_and_explicit_spellings_share_fingerprint() -> None:
+    """Identity must not depend on '*'-vs-explicit spelling (design/14)."""
+    from bora.application.suite.suite_config_fingerprint import compute_suite_config_fields
+
+    binding = {
+        "executor": "acp",
+        "model": "entry-default",
+        "extensions": [{"plugin": "acp", "options": {"entry": "claude-code"}}],
+    }
+    per_task = [{"bindings": {"solver": dict(binding)}}]
+    via_wildcard = compute_suite_config_fields(
+        [], job_overlay={"bindings": {"*": binding}}, per_task_overlays=per_task
+    )
+    via_explicit = compute_suite_config_fields(
+        [], job_overlay={"bindings": {"solver": dict(binding)}}, per_task_overlays=per_task
+    )
+    assert via_wildcard["config_fingerprint"] == via_explicit["config_fingerprint"]
+    assert [a["profile_id"] for a in via_wildcard["actors_summary"]] == ["solver"]
+
+
+def test_exact_row_overrides_wildcard_field_wise() -> None:
+    """--set on one field of a wildcard-bound agent must not drop the rest."""
+    from bora.config.profiles import apply_binding_override, effective_binding
+
+    bindings = parse_profiles_mapping(
+        {
+            "format": "bora.profiles/1",
+            "bindings": {
+                "*": {
+                    "executor": "acp",
+                    "model": "entry-default",
+                    "extensions": [{"plugin": "acp", "options": {"entry": "claude-code"}}],
+                }
+            },
+        }
+    )
+    apply_binding_override(bindings, "/bindings/solver/model", "claude-opus-5")
+    merged = merge_bindings_onto_slots([{"id": "solver"}, {"id": "critic"}], bindings)
+    by_id = {row["id"]: row for row in merged}
+    assert by_id["solver"]["model"] == "claude-opus-5"  # override wins
+    assert by_id["solver"]["executor"] == "acp"  # inherited from wildcard
+    assert by_id["solver"]["extensions"][0]["options"]["entry"] == "claude-code"
+    assert by_id["critic"]["model"] == "entry-default"  # untouched fallback
+
+    eff = effective_binding(bindings, "solver")
+    assert eff is not None and eff["model"] == "claude-opus-5" and eff["executor"] == "acp"
