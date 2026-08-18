@@ -72,3 +72,29 @@ def test_task_yaml_slots_reject_agent_ref_inline() -> None:
 
     with pytest.raises(ConfigError):
         assert_slots_have_no_inline_binding([{"id": "solver", "agent_ref": "x@1"}])
+
+
+def test_suite_compat_and_labels_with_wildcard_binding() -> None:
+    """Found via live eval: '*' suite binding blanked labels / homogeneity."""
+    from bora.application.suite.suite_config_fingerprint import (
+        compute_suite_config_fields,
+        job_overlays_compatible,
+    )
+
+    binding = {
+        "executor": "acp",
+        "model": "entry-default",
+        "label": "Claude Code (entry default)",
+        "extensions": [{"plugin": "acp", "options": {"entry": "claude-code"}}],
+    }
+    suite_overlay = {"bindings": {"*": binding}}
+    per_task = [{"bindings": {"solver": dict(binding)}}]
+
+    assert job_overlays_compatible(suite_overlay, per_task) is True
+    # A conflicting model for the same role still breaks compatibility.
+    conflicting = [{"bindings": {"solver": {**binding, "model": "other"}}}]
+    assert job_overlays_compatible(suite_overlay, conflicting) is False
+
+    fields = compute_suite_config_fields([], job_overlay=suite_overlay, per_task_overlays=per_task)
+    assert fields["config_homogeneous"] is True
+    assert fields["agent_label"] == "Claude Code (entry default)"

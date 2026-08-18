@@ -280,6 +280,11 @@ def job_overlays_compatible(
             rid = str(role_id)
             suite_b = suite_bindings.get(rid)
             if not isinstance(suite_b, Mapping):
+                # Wildcard default binding covers any role id (design/14).
+                from bora.config.profiles import WILDCARD_ROLE
+
+                suite_b = suite_bindings.get(WILDCARD_ROLE)
+            if not isinstance(suite_b, Mapping):
                 # Task used a role not in suite profiles map → incompatible
                 return False
             if _binding_role_key(binding) != _binding_role_key(suite_b):
