@@ -50,6 +50,7 @@ bindings:
       - plugin: acp
         options:
           entry: pi                 # Mode 1: engine pi + pi-acp；entry_id=pi，包名 pi-acp
+          reasoning_effort: high    # 可选；值必须是该 session 当场广告的 thinking selector value
     model: entry-default
 
   # api-client（非 coding-agent ACP 路径）
@@ -73,6 +74,7 @@ parameters:
 - **整 task 换后端（Codex entry → Claude entry）：** 改 binding 的 `- plugin: acp` / `options.entry` / `model` 或 `parameters.models.*` 引用；**不必改** `harness.py`。
 - **同 task 不同 Agent 用不同后端：** 各 role 引用不同 profile id；specialist=Codex entry、planner=OpenCode entry 合法。
 - **同 entry 不同模型：** 改 `model`（经 ACP config option 绑定）或并列 profile。
+- **同 entry 不同 reasoning：** 改 `- plugin: acp` / `options.reasoning_effort`。Runtime 在绑完 model 后，把该字符串精确匹配到当场广告的 thinking selector（优先 `category: thought_level`）；不在表里或 entry 未广告该旋钮 → fail closed。
 - **上游 endpoint / 密钥定位：** 可选 `base_url` 与 `api_key`（env 名）与 `model` 同级；`bora run` 从 package/cwd/repo `.env` 注入宿主环境后，Runtime 按 locator 投影给 Executor / ACP child env。
 
 `load_and_lock` 必须校验：每个 `parameters` 中的 profile 引用存在；每个 `executor` kind 在 Agent Service 的注册表中可用；`executor: acp` 必须有 `- plugin: acp` 行上 registry 内 `options.entry`；`workspace_view` 存在；若声明 `base_url`/`api_key` 则校验 URL 与 env 名形态（`api_key` 不得为 secret 值）。锁定结果含 profile → executor/entry/model/base_url/api_key(locator) 与 descriptor digest 的解析快照，进入 Trial identity / digest。
@@ -101,7 +103,7 @@ ctx.agent.invoke(profile_id, messages, ...)
 
 | 职责 | 说明 |
 | --- | --- |
-| Profile 解析 | 把逻辑 profile 绑到具体 executor + model + 该插件行 options（ACP 含 `entry`） |
+| Profile 解析 | 把逻辑 profile 绑到具体 executor + model + 该插件行 options（ACP 含 `entry`、可选 `reasoning_effort`） |
 | Executor 路由 | `acp`（单一 client + entry registry）、`openai-http`、已安装 `provide(executor)` 的其它 kind（L1 经 `bind_to_target`）；**不是**每个 vendor 一套 stdout parser |
 | Session 绑定 | 创建时固定 Attempt + profile + workspace；禁止跨 Attempt 复用 |
 | 统一 invoke 契约 | Harness 只见 messages / schema / tools 意图，不见各 CLI/ACP 细节 |

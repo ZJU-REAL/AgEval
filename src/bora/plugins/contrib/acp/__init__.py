@@ -52,6 +52,7 @@ class AcpExecutorSPI(ExecutorSPI):
         self.profile_id = profile_id
         self._entry_id = str(entry).strip()
         self._model = model or "entry-default"
+        self._reasoning_effort = _optional_str(opts.get("reasoning_effort"))
         self._base_url = base_url
         self._api_key_env = api_key
         extra_env: dict[str, str] | None = None
@@ -70,6 +71,7 @@ class AcpExecutorSPI(ExecutorSPI):
         self._inner = AcpExecutor(
             entry_id=self._entry_id,
             model=self._model,
+            reasoning_effort=self._reasoning_effort,
             base_url=base_url,
             api_key_env=api_key,
             workdir=workdir_s or None,
@@ -125,11 +127,13 @@ class AcpExecutorSPI(ExecutorSPI):
         bound.profile_id = self.profile_id
         bound._entry_id = self._entry_id
         bound._model = self._model
+        bound._reasoning_effort = self._reasoning_effort
         bound._base_url = self._base_url
         bound._api_key_env = self._api_key_env
         bound._inner = AcpExecutor(
             entry_id=self._entry_id,
             model=self._model,
+            reasoning_effort=self._reasoning_effort,
             descriptor=desc,
             workdir=str(getattr(placement, "workdir", None) or "/attempt/workspace"),
             api_key_env=self._api_key_env,
@@ -161,6 +165,13 @@ class AcpExecutorSPI(ExecutorSPI):
             collect_dir=collect_dir,
             redaction_sentinels=redaction_sentinels,
         )
+
+
+def _optional_str(raw: Any) -> str | None:
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    return text or None
 
 
 def _acp_factory(**kwargs: Any) -> AcpExecutorSPI:
