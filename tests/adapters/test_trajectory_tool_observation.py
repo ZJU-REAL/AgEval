@@ -6,9 +6,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora.adapters.acp.trajectory_map import acp_session_events_to_bora
 from bora.evidence.schema import EVENT_SCHEMA_VERSION
 from bora.evidence.trajectory import write_trajectory_jsonl
+from bora.plugins.contrib.acp.trajectory_map import acp_session_events_to_bora
 
 
 def _read_lines(path: Path) -> list[dict]:

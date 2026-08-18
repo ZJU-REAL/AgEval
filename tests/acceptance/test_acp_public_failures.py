@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.acp import AcpExecutor
 from bora.adapters.agent_registry import resolve_executor
 from bora.adapters.package_fs import LocalPackageReader
 from bora.config.capabilities import DeclarationCapabilityCatalog
 from bora.config.errors import ConfigError
 from bora.config.load_and_lock import ConfigCore
+from bora.plugins.contrib.acp import AcpExecutor
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -63,7 +63,7 @@ def test_private_kind_resolve_fails_closed() -> None:
 
 def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object, tmp_path: Path) -> None:
     """Mode 1 adapter missing → readiness adapter-missing; no private invoke."""
-    from bora.adapters.acp_registry import get_entry, readiness_for
+    from bora.plugins.contrib.acp.registry import get_entry, readiness_for
 
     desc = get_entry("codex")
     assert desc is not None
@@ -81,7 +81,7 @@ def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object, tmp_pat
     ex = AcpExecutor(entry_id="codex", model="entry-default")
     # Force host path probe by ensuring no command_override
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.adapters.acp.executor.readiness_for",
+        "bora.plugins.contrib.acp.executor.readiness_for",
         lambda *_a, **_k: row,
     )
     r = ex.invoke("hi", timeout=5, workdir=str(tmp_path))

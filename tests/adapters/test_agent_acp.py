@@ -8,12 +8,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.adapters.acp import AcpExecutor, normalize_acp_usage
-from bora.adapters.acp.executor import (
+from bora.adapters.agent_contract import parse_validated_text_structured
+from bora.plugins.contrib.acp import AcpExecutor, normalize_acp_usage
+from bora.plugins.contrib.acp.executor import (
     _find_reasoning_config_option,
     _select_option_values,
 )
-from bora.adapters.agent_contract import parse_validated_text_structured
 
 
 def test_validated_text_structured_policy() -> None:

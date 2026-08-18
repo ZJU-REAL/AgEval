@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.acp import AcpExecutor
 from bora.adapters.agent_contract import parse_validated_text_structured
 from bora.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
+from bora.plugins.contrib.acp import AcpExecutor
 
 
 def test_validated_text_no_regex_salvage() -> None:

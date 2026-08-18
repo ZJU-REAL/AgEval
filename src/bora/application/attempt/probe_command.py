@@ -12,13 +12,13 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from bora.adapters.acp_registry import readiness_for
 from bora.adapters.executor_capabilities import get_capabilities
 from bora.adapters.executor_inventory import FIRST_PARTY_KINDS
 from bora.application.attempt.lock_command import LockCommand
 from bora.application.plugin_ops.image_contribute_bake import selected_contribute_plugin_ids
 from bora.config.model import LockedTaskConfig, locked_to_summary, thaw
 from bora.config.profiles import acp_entry_from_binding
+from bora.plugins.contrib.acp.registry import readiness_for
 from bora.plugins.host_requires import (
     evaluate_host_requires,
     installed_plugin,
@@ -196,7 +196,7 @@ def _probe_first_party(
         entry = binding.get("entry")
         if isinstance(entry, str) and entry.strip():
             try:
-                from bora.adapters.acp_registry import load_acp_entries
+                from bora.plugins.contrib.acp.registry import load_acp_entries
 
                 desc = load_acp_entries()[entry.strip()]
                 ready = readiness_for(desc, which=which)

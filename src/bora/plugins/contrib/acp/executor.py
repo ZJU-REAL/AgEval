@@ -13,20 +13,20 @@ from pathlib import Path
 from typing import Any
 
 from bora import __version__ as BORA_VERSION
-from bora.adapters.acp.client import (
-    _BoraAcpClient,
-    _map_stop_reason,
-    _offline_result,
-)
-from bora.adapters.acp.trajectory_map import acp_session_events_to_bora
-from bora.adapters.acp.types import ProcessLauncher
-from bora.adapters.acp.usage import _as_plain_mapping, normalize_acp_usage
-from bora.adapters.acp_registry import AcpEntryDescriptor, get_entry, readiness_for
 from bora.adapters.agent_contract import (
     AgentExecutor,
     AgentResult,
     parse_validated_text_structured,
 )
+from bora.plugins.contrib.acp.client import (
+    _BoraAcpClient,
+    _map_stop_reason,
+    _offline_result,
+)
+from bora.plugins.contrib.acp.registry import AcpEntryDescriptor, get_entry, readiness_for
+from bora.plugins.contrib.acp.trajectory_map import acp_session_events_to_bora
+from bora.plugins.contrib.acp.types import ProcessLauncher
+from bora.plugins.contrib.acp.usage import _as_plain_mapping, normalize_acp_usage
 
 # Advertised ACP config option ids that mean thinking / reasoning effort.
 # Category ``thought_level`` is the protocol selector; these ids cover entries

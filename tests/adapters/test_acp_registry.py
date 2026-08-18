@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.acp_registry import (
+from bora.plugins.contrib.acp.registry import (
     clear_registry_cache,
     get_entry,
     list_entry_ids,
@@ -34,7 +34,7 @@ def test_unknown_entry() -> None:
 
 def test_duplicate_entry_rejected(tmp_path: Path) -> None:
     clear_registry_cache()
-    src = Path(__file__).resolve().parents[2] / "src/bora/adapters/acp_entries.json"
+    src = Path(__file__).resolve().parents[2] / "src/bora/plugins/contrib/acp/acp_entries.json"
     doc = json.loads(src.read_text(encoding="utf-8"))
     doc["entries"].append(doc["entries"][0])
     bad = tmp_path / "bad.json"
