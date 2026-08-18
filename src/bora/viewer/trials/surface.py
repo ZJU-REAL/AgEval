@@ -216,11 +216,13 @@ def _agent_surface(
     inv_model: dict[str, str] = {}
     inv_executor: dict[str, str] = {}
     inv_entry: dict[str, str] = {}
+    inv_effort: dict[str, str] = {}
     # Aggregation state per profile_id
     latency_sum: dict[str, float] = {}
     invoke_count: dict[str, int] = {}
     last_usage: dict[str, dict[str, Any]] = {}
     overlay_by_id = _overlay_bindings(lock)
+    from bora.config.profiles import reasoning_effort_from_binding
 
     inv_root = evidence / "agent" / "invocations"
     if inv_root.is_dir():
@@ -243,6 +245,11 @@ def _agent_surface(
                 acp_entry = meta.get("acp_entry_id")
                 if isinstance(acp_entry, str) and acp_entry.strip():
                     inv_entry[pid] = acp_entry.strip()
+                for key in ("actual_reasoning_effort", "locked_reasoning_effort"):
+                    val = meta.get(key)
+                    if isinstance(val, str) and val.strip():
+                        inv_effort[pid] = val.strip()
+                        break
                 invoke_count[pid] = invoke_count.get(pid, 0) + 1
                 lat = meta.get("latency_ms")
                 if isinstance(lat, (int, float)) and not isinstance(lat, bool):
@@ -265,6 +272,12 @@ def _agent_surface(
             executors.append(ex)
         model = inv_model.get(pid) or (p.get("model") if isinstance(p.get("model"), str) else None)
         overlay = overlay_by_id.get(pid)
+        effort = (
+            inv_effort.get(pid)
+            or reasoning_effort_from_binding(overlay)
+            or reasoning_effort_from_binding(p)
+            or None
+        )
         agent_col = (
             _actor_agent_name(
                 p,
@@ -282,6 +295,7 @@ def _agent_surface(
                 "role": role_col,
                 "agent": agent_col,
                 "model": model,
+                "reasoning_effort": effort,
                 "profile_id": pid,
                 # Surface executor mechanism on actor rows (nooa/acp/…).
                 "executor_kind": ex,

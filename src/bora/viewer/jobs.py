@@ -209,6 +209,7 @@ def _in_progress_suite_row(
         "database_version": man.version if man else None,
         "agent_label": "",
         "model_label": "",
+        "reasoning_effort": "",
         "provider_label": "",
         "environment": "local",
         "result": None,
@@ -262,6 +263,7 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
         "database_version": summary.get("database_version") or (man.version if man else None),
         "agent_label": str(summary.get("agent_label") or ""),
         "model_label": str(summary.get("model_label") or ""),
+        "reasoning_effort": _reasoning_effort_from_summary(summary),
         "provider_label": str(summary.get("provider_label") or ""),
         "environment": str(summary.get("environment") or "local"),
         "result": metrics.get("mean_score"),
@@ -406,6 +408,30 @@ def _started_from_evidence(evidence: Path, result: dict[str, Any] | None = None)
     return None
 
 
+def _reasoning_effort_from_summary(summary: dict[str, Any]) -> str:
+    from bora.config.profiles import (
+        join_display_names,
+        reasoning_effort_from_binding,
+        reasoning_effort_from_overlay,
+    )
+
+    overlay = summary.get("job_overlay")
+    effort = reasoning_effort_from_overlay(overlay if isinstance(overlay, dict) else None)
+    if effort:
+        return effort
+    actors = summary.get("actors_summary")
+    if not isinstance(actors, list):
+        return ""
+    found: list[str] = []
+    for raw in actors:
+        if not isinstance(raw, dict):
+            continue
+        item = reasoning_effort_from_binding(raw)
+        if item:
+            found.append(item)
+    return join_display_names(found)
+
+
 def _labels_from_lock(lock: dict[str, Any], result: dict[str, Any]) -> tuple[str, str]:
     """Prefer sealed result labels; else Core display_labels_from_overlay."""
     from bora.config.profiles import display_labels_from_overlay
@@ -431,6 +457,9 @@ def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict
     score = result.get("score")
     started = _started_from_evidence(evidence, result)
     agent_label, model_label = _labels_from_lock(lock, result)
+    from bora.config.profiles import reasoning_effort_from_overlay
+
+    overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
     man = None
     with contextlib.suppress(ConfigError):
         man = load_database_manifest(database_root)
@@ -443,6 +472,7 @@ def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict
         "database_version": man.version if man else None,
         "agent_label": agent_label,
         "model_label": model_label,
+        "reasoning_effort": reasoning_effort_from_overlay(overlay),
         "provider_label": str(lock.get("provider_label") or result.get("provider_label") or ""),
         "environment": str(result.get("environment") or "local"),
         "result": score,
@@ -592,6 +622,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
                 "exit_code": full.get("exit_code"),
                 "agent_label": job.get("agent_label") or "",
                 "model_label": job.get("model_label") or "",
+                "reasoning_effort": job.get("reasoning_effort") or "",
                 "provider_label": job.get("provider_label") or "",
                 "dataset": job.get("source") or job.get("database_id"),
                 "duration": full.get("duration"),
@@ -684,6 +715,7 @@ def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
             "exit_code": job.get("exit_code"),
             "agent_label": job.get("agent_label") or "",
             "model_label": job.get("model_label") or "",
+            "reasoning_effort": job.get("reasoning_effort") or "",
             "provider_label": job.get("provider_label") or "",
             "dataset": job.get("source") or job.get("database_id"),
             "duration": job.get("duration"),
@@ -770,6 +802,8 @@ def get_job_task(database_root: Path, job_id: str, task_id: str) -> dict[str, An
         "trials": trials_out,
         "agent_label": match.get("agent_label") or job_payload["job"].get("agent_label"),
         "model_label": match.get("model_label") or job_payload["job"].get("model_label"),
+        "reasoning_effort": match.get("reasoning_effort")
+        or job_payload["job"].get("reasoning_effort"),
         "provider_label": match.get("provider_label") or job_payload["job"].get("provider_label"),
         "dataset": match.get("dataset") or job_payload["job"].get("source"),
         "commands": cmds,
