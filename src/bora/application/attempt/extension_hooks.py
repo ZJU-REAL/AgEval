@@ -14,9 +14,11 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from bora.config.model import LockedTaskConfig, thaw
+from bora.config.profiles import acp_entry_from_binding
 from bora.plugins.bootstrap import ensure_bootstrapped
 from bora.plugins.defaults.home_overlay import PLUGIN_ID as DEFAULT_PLUGIN_ID
 from bora.plugins.defaults.home_overlay import default_home_overlay
@@ -101,6 +103,29 @@ def _per_profile_graphs(lock: LockedTaskConfig, *, materialize: bool) -> list[Ex
     return graphs
 
 
+def acp_entries_from_lock(lock: LockedTaskConfig) -> list[str]:
+    """Unique ACP ``options.entry`` values on this lock (job overlay + profiles)."""
+    seen: list[str] = []
+
+    def add(binding: Mapping[str, Any]) -> None:
+        entry = acp_entry_from_binding(binding)
+        if entry and entry not in seen:
+            seen.append(entry)
+
+    overlay = thaw(lock.job_overlay) or {}
+    bindings = overlay.get("bindings") if isinstance(overlay, Mapping) else None
+    if isinstance(bindings, Mapping):
+        for row in bindings.values():
+            if isinstance(row, Mapping):
+                add(row)
+    profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
+    if isinstance(profiles, list):
+        for row in profiles:
+            if isinstance(row, Mapping):
+                add(row)
+    return seen
+
+
 def hook_home_overlay(
     lock: LockedTaskConfig,
     value: Any = None,
@@ -117,10 +142,13 @@ def hook_home_overlay(
                 if href.plugin_id != DEFAULT_PLUGIN_ID:
                     plugin_handlers.append(href)
 
+        payload = dict(value) if isinstance(value, dict) else {}
+        payload["acp_entries"] = acp_entries_from_lock(lock)
+
         async def nxt(v: Any) -> Any:
             return await run_handlers(plugin_handlers, v, ctx=ctx)
 
-        return await default_home_overlay(ctx, value, nxt)
+        return await default_home_overlay(ctx, payload, nxt)
 
     try:
         return _run(_emit())

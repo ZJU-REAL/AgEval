@@ -41,7 +41,10 @@ def _write_plugin(root: Path, plugin_id: str, *, requires: list[str] | None = No
     src.mkdir(parents=True)
     (src / "__init__.py").write_text("", encoding="utf-8")
     (src / "hooks.py").write_text(
-        "def build(**_k):\n    async def h(ctx, value, nxt):\n        return await nxt(value)\n    return h\n",
+        "def build(**_k):\n"
+        "    async def h(ctx, value, nxt):\n"
+        "        return await nxt(value)\n"
+        "    return h\n",
         encoding="utf-8",
     )
     return root

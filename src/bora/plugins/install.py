@@ -116,7 +116,8 @@ def _install_tree(
             items.append(item)
     prior = load_index().find(index_id)
     entry = install_from_path(source, plugin_id=index_id)
-    status = "already_present" if prior is not None and prior.digest == entry.digest else "installed"
+    same_digest = prior is not None and prior.digest == entry.digest
+    status = "already_present" if same_digest else "installed"
     if index_id not in seen:
         items.append(
             InstalledItem(

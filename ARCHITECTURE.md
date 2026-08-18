@@ -130,7 +130,7 @@ BORA/
 │   ├── plugins/               # 扩展点注册表（slots/registry/resolve/defaults/contrib）
 │   │   ├── defaults/          # L0–L5 默认 multi/provide（无 legacy executor 桥）
 │   │   ├── lifecycle.py       # emit helpers：host 在控制点 await chain / provide SPI
-│   │   ├── manifest.py        # bora.plugin/1 + host_requires allowlist
+│   │   ├── manifest.py        # bora.plugin/1 + host_requires / plugin_requires allowlist
 │   │   └── contrib/           # first-party：acp / openai_http / mock（nooa 为外置包）
 │   ├── viewer/                # 本地 Jobs/Trial HTTP API（trials/ 包）
 │   └── adapters/
@@ -168,6 +168,8 @@ BORA/
 ├── plugins/                   # 外置 bora.plugin/1 示例（不进 Core contrib）
 │   ├── nooa/                  # executor provide + image_contribute Ready
 │   ├── dsh/                   # DeepSeek Harness JSON-RPC executor + bake
+│   ├── home-files/            # on: home_overlay 复制原语
+│   ├── agent-skills/          # home_overlay dest 展开（plugin_requires: home-files）
 │   └── slot-probe/            # multi 钩子可观测探针
 ├── tests/
 │   ├── acceptance/

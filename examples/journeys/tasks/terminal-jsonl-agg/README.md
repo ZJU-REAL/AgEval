@@ -14,7 +14,9 @@ v1 **terminal-bench / jsonl-aggregator** case class:
 | ------------- | --------------- | ---------------------------------------- |
 | `terminal-pi` | `pi`            | L1 `docker exec` target (assurance:l1)   |
 
-Profiles: `terminal-pi` (default), `terminal-opencode`, `terminal-grok`.
+Profiles: Database `profiles.yaml` (default ACP mix), `acp-profiles/` overlays
+(including `profiles.acp.grok-build.agent-skills.yaml` for grok-build plus a
+shipped `jsonl-agg` skill).
 
 ```bash
 uv run bora run examples/journeys --task terminal-jsonl-agg

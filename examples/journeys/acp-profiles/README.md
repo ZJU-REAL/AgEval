@@ -11,3 +11,11 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 ```
 
 `api_key` is the env locator `litellm_api_key`. Overlay JSON must not embed tokens.
+
+To ship skill folders for a cwd-scanning ACP entry (generic `.agents/skills`):
+
+```bash
+uv run bora plugin install plugins/agent-skills
+uv run bora run examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
+```

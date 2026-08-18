@@ -208,7 +208,10 @@ def test_probe_walks_extension_plugin_requires(
         src.mkdir(parents=True)
         (src / "__init__.py").write_text("", encoding="utf-8")
         (src / "hooks.py").write_text(
-            "def build(**_k):\n    async def h(ctx, value, nxt):\n        return await nxt(value)\n    return h\n",
+            "def build(**_k):\n"
+            "    async def h(ctx, value, nxt):\n"
+            "        return await nxt(value)\n"
+            "    return h\n",
             encoding="utf-8",
         )
     install_from_local(plugins / "needs-neighbor")

@@ -70,7 +70,9 @@ def assert_no_plugin_requires_cycle(plugin_id: str, *, stack: tuple[str, ...] = 
 def assert_plugin_requires_installed(manifest: PluginManifest) -> None:
     """Fail closed when a declared neighbor is missing or the graph cycles."""
     assert_no_plugin_requires_cycle(manifest.plugin_id)
-    missing = [item for item in manifest.plugin_requires if installed_plugin(item.plugin_id) is None]
+    missing = [
+        item for item in manifest.plugin_requires if installed_plugin(item.plugin_id) is None
+    ]
     if not missing:
         return
     first = missing[0]
