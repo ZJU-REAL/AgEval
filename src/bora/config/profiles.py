@@ -294,7 +294,7 @@ def merge_bindings_onto_slots(
                 ERROR_MISSING_BINDING,
                 f"no job binding for role {role_id!r} "
                 f"(add bindings.{role_id} in Database {PROFILES_FILENAME} "
-                "or pass --profiles / binding overrides)",
+                "or pass --profiles / --agent / binding overrides)",
                 location=f"{loc}/id",
             )
         # Slot identity + non-binding fields, then binding fields on top.
