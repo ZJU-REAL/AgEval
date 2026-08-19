@@ -135,6 +135,8 @@ Harness / Harness Core 的 `Agent(..., model_profile=params.planner_model)` **�
 
 `session/request_permission` 的 approve 只是「允许 agent 继续该 tool」；Linux DAC 与容器 mount 仍是硬边界（non-root 无法写 root 私有目录）。Elicitation 默认 decline。
 
+**L0 ACP child env（allowlist-only）：** Host spawn 的子进程环境与 `project_cli_child_env` 同一套投影，**不是** `os.environ.copy()`。默认只带 `_CORE_HOST_KEYS`（`PATH` / `HOME` / `LANG`，空值丢弃）、entry 的 `credential_env_names`、`_KIND_EXTRA_HOST_KEYS`、binding `api_key` / `base_url` locator 以及 descriptor `fixed_env`。未声明的 host token **不得**到达 entry。`HOME` 仍投影，engine 在 attempt home 下的 OAuth 文件仍可读。调试若要全量继承，必须显式 env 且默认关闭；禁止静默 fallback。L1 仍走 `cli_env_for_container`（不把 host `PATH`/`HOME`/`XDG_*` 拷进容器）。
+
 **非目标：** parent 内 vendor 私有协议第二套 parser；invoke 时网络装包；把 ACP permission 当作 filesystem 提权。
 
 ## 归一化 invoke 契约（跨后端）
