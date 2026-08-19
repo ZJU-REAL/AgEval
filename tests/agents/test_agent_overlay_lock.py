@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 import yaml
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.agents import store
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
@@ -23,11 +23,11 @@ def _ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
-def _write_database(tmp: Path, *, overlay_files: dict[str, str] | None = None) -> Path:
+def _write_dataset(tmp: Path, *, overlay_files: dict[str, str] | None = None) -> Path:
     db = tmp / "db"
     (db / "tasks" / "t").mkdir(parents=True)
     (db / "ageval.yaml").write_text(
-        "format: ageval.dataset/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
+        "format: ageval.dataset/1\ndataset_id: example/overlays\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
@@ -120,7 +120,7 @@ def test_lock_with_agent_ref_uses_agent_cache_not_dataset(tmp_path: Path) -> Non
         listed=["overlays/skills/demo"],
     )
     entry = store.install_from_path(pkg, agent_id="official/xx")
-    db = _write_database(tmp_path)
+    db = _write_dataset(tmp_path)
     short = entry.digest[len("sha256:") :][:12]
     locked = _lock(
         db,
@@ -141,7 +141,7 @@ def test_lock_with_agent_ref_uses_agent_cache_not_dataset(tmp_path: Path) -> Non
 def test_lock_agent_ref_ignores_dataset_same_path(tmp_path: Path) -> None:
     pkg = _make_agent(tmp_path, agent_id="official/xx")
     entry = store.install_from_path(pkg, agent_id="official/xx")
-    db = _write_database(
+    db = _write_dataset(
         tmp_path,
         overlay_files={"overlays/skills/demo/SKILL.md": "# dataset copy\n"},
     )
@@ -171,7 +171,7 @@ def test_lock_exact_role_without_overlays_not_attributed(tmp_path: Path) -> None
     yy = _make_agent(tmp_path, agent_id="official/yy")
     xx_entry = store.install_from_path(xx, agent_id="official/xx")
     yy_entry = store.install_from_path(yy, agent_id="official/yy")
-    db = _write_database(tmp_path)
+    db = _write_dataset(tmp_path)
     xx_short = xx_entry.digest[len("sha256:") :][:12]
     yy_short = yy_entry.digest[len("sha256:") :][:12]
     locked = _lock(
@@ -197,8 +197,8 @@ def test_lock_exact_role_without_overlays_not_attributed(tmp_path: Path) -> None
     assert overlay["bindings"]["user"]["agent_ref"].startswith("official/yy@")
 
 
-def test_handwritten_profiles_still_use_database_root(tmp_path: Path) -> None:
-    db = _write_database(
+def test_handwritten_profiles_still_use_dataset_root(tmp_path: Path) -> None:
+    db = _write_dataset(
         tmp_path,
         overlay_files={"overlays/AGENTS.md": "# hello\n"},
     )

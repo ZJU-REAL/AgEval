@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from tests.helpers.extension_registry import registry_with_executor
 
-from ageval.adapters.agent_contract import AgentResult
+from ageval.plugins.agent_result import AgentResult
 from ageval.plugins.protocol import TargetPlacement
 from ageval.runtime.parent_agent_service import ParentAgentService
 

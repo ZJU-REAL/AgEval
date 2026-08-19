@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.application.attempt.run_command_evaluator import run_evaluator_worker
 from ageval.application.attempt.run_harness import run_harness_package
 from ageval.config.capabilities import DeclarationCapabilityCatalog
@@ -19,7 +19,7 @@ def _scaffold(root: Path, *, with_task_lib: bool = False) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     (root / "ageval.yaml").write_text(
         "format: ageval.dataset/1\n"
-        "database_id: test/shared-import\n"
+        "dataset_id: test/shared-import\n"
         'version: "0.1.0"\n'
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
@@ -77,7 +77,7 @@ evaluation:
             encoding="utf-8",
         )
         harness_body = """
-from ageval_sdk.terminal import HarnessTerminal
+from ageval_sdk.terminal import RunTerminal
 from lib.bridge_mod import TOKEN as TASK_TOKEN
 from shared.lib.bridge_mod import TOKEN as SHARED_TOKEN
 
@@ -86,7 +86,7 @@ def run(ctx):
         "session-output",
         {"task": TASK_TOKEN, "shared": SHARED_TOKEN},
     )
-    return HarnessTerminal.completed()
+    return RunTerminal.completed()
 """
         eval_body = """
 from lib.bridge_mod import TOKEN as TASK_TOKEN
@@ -102,12 +102,12 @@ def evaluate(payload):
 """
     else:
         harness_body = """
-from ageval_sdk.terminal import HarnessTerminal
+from ageval_sdk.terminal import RunTerminal
 from shared.lib.bridge_mod import TOKEN
 
 def run(ctx):
     ctx.publish_json("session-output", {"token": TOKEN})
-    return HarnessTerminal.completed()
+    return RunTerminal.completed()
 """
         eval_body = """
 from shared.lib.bridge_mod import TOKEN
@@ -131,7 +131,7 @@ async def test_harness_imports_shared_lib_namespace(tmp_path: Path) -> None:
     task = _scaffold(tmp_path)
     core = ConfigCore(package_reader=LocalPackageReader())
     lock = core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
-    result = await run_harness_package(lock, task, timeout_seconds=20.0, database_root=tmp_path)
+    result = await run_harness_package(lock, task, timeout_seconds=20.0, dataset_root=tmp_path)
     env = result["envelope"]
     assert env.get("ok") is True, env
     published = env.get("published") or {}
@@ -150,20 +150,20 @@ def test_evaluator_imports_shared_lib_namespace(tmp_path: Path) -> None:
         task,
         lock,
         {"session-output": str(art)},
-        database_root=tmp_path,
+        dataset_root=tmp_path,
     )
     assert raw.get("status") == "PASS"
     assert (raw.get("metrics") or {}).get("token") == "from-shared"
 
 
-def test_evaluator_path_order_task_dir_before_database_root(tmp_path: Path) -> None:
-    """L0 evaluator inject must match harness: [task_dir, database_root]."""
+def test_evaluator_path_order_task_dir_before_dataset_root(tmp_path: Path) -> None:
+    """L0 evaluator inject must match harness: [task_dir, dataset_root]."""
     # Bypass full package lock: only the evaluator worker path inject is under test.
     # Same bare top-level name under both path roots — first on path wins.
     task = tmp_path / "tasks" / "t1"
     task.mkdir(parents=True)
     (task / "order_probe.py").write_text("SOURCE = 'task'\n", encoding="utf-8")
-    (tmp_path / "order_probe.py").write_text("SOURCE = 'database'\n", encoding="utf-8")
+    (tmp_path / "order_probe.py").write_text("SOURCE = 'dataset'\n", encoding="utf-8")
     (task / "evaluator.py").write_text(
         """
 import order_probe
@@ -183,7 +183,7 @@ def evaluate(payload):
         task,
         lock=object(),
         artifacts_map={"session-output": str(art)},
-        database_root=tmp_path,
+        dataset_root=tmp_path,
     )
     assert raw.get("status") == "PASS", raw
     assert (raw.get("metrics") or {}).get("source") == "task"
@@ -195,7 +195,7 @@ async def test_same_basename_shared_and_task_lib_coexist(tmp_path: Path) -> None
     task = _scaffold(tmp_path, with_task_lib=True)
     core = ConfigCore(package_reader=LocalPackageReader())
     lock = core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
-    result = await run_harness_package(lock, task, timeout_seconds=20.0, database_root=tmp_path)
+    result = await run_harness_package(lock, task, timeout_seconds=20.0, dataset_root=tmp_path)
     env = result["envelope"]
     assert env.get("ok") is True, env
     text = Path((env.get("published") or {})["session-output"]).read_text(encoding="utf-8")
@@ -207,7 +207,7 @@ async def test_same_basename_shared_and_task_lib_coexist(tmp_path: Path) -> None
         task,
         lock,
         {"session-output": str(art)},
-        database_root=tmp_path,
+        dataset_root=tmp_path,
     )
     assert raw.get("status") == "PASS", raw
     metrics = raw.get("metrics") or {}
@@ -235,7 +235,7 @@ def test_evaluator_timeout_returns_error_not_raise(tmp_path: Path) -> None:
         task,
         lock,
         {"session-output": str(art)},
-        database_root=tmp_path,
+        dataset_root=tmp_path,
     )
     assert raw.get("status") == "ERROR"
     metrics = raw.get("metrics") or {}
@@ -264,7 +264,7 @@ def test_evaluator_timeout_respects_lock_limits(tmp_path: Path) -> None:
         task,
         lock,
         {"session-output": str(art)},
-        database_root=tmp_path,
+        dataset_root=tmp_path,
     )
     assert raw.get("status") == "ERROR"
     assert (raw.get("metrics") or {}).get("timeout_seconds") == 0.4

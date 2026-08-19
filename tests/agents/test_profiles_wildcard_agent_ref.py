@@ -150,7 +150,7 @@ def test_overlays_do_not_inherit_onto_exact_row() -> None:
 
 def test_exact_row_overrides_wildcard_field_wise() -> None:
     """--set on one field of a wildcard-bound agent must not drop the rest."""
-    from ageval.config.profiles import apply_binding_override, effective_binding
+    from ageval.config.profiles import apply_binding_override, effective_profile
 
     bindings = parse_profiles_mapping(
         {
@@ -172,5 +172,5 @@ def test_exact_row_overrides_wildcard_field_wise() -> None:
     assert by_id["solver"]["extensions"][0]["options"]["entry"] == "claude-code"
     assert by_id["critic"]["model"] == "entry-default"  # untouched fallback
 
-    eff = effective_binding(bindings, "solver")
+    eff = effective_profile(bindings, "solver")
     assert eff is not None and eff["model"] == "claude-opus-5" and eff["executor"] == "acp"

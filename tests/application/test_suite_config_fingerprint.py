@@ -19,7 +19,7 @@ from ageval.application.suite.suite_config_fingerprint import (
 from ageval.application.suite.suite_run import execute_suite_run, plan_suite_run
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 JOURNEYS = REPO / "examples" / "journeys"
 
 

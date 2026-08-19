@@ -133,7 +133,7 @@ def test_prepare_l0_uses_host_root_not_run_dir(tmp_path: Path, monkeypatch) -> N
         lock=_lock(),
         run_dir=run_dir,
         attempt=_attempt(),
-        database_root=tmp_path,
+        dataset_root=tmp_path,
     )
     early = prepare_l0_attempt(ctx)
     assert early is None

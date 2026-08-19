@@ -13,7 +13,7 @@ def test_visible_package_public_and_org_member(tmp_path: Path) -> None:
     meta.create_org(name="acme", display_name="Acme", owner_user_id="alice")
     policy = AccessPolicy(meta=meta)
     private = ReleaseRow(
-        database_id="acme/db",
+        dataset_id="acme/db",
         version="1.0.0",
         visibility="private",
         package_digest="sha256:" + "a" * 64,
@@ -25,7 +25,7 @@ def test_visible_package_public_and_org_member(tmp_path: Path) -> None:
     )
     meta.insert(private)
     public = ReleaseRow(
-        database_id="acme/pub",
+        dataset_id="acme/pub",
         version="1.0.0",
         visibility="public",
         package_digest="sha256:" + "c" * 64,
@@ -53,7 +53,7 @@ def test_can_manage_package_owner_only(tmp_path: Path) -> None:
     meta.add_member("acme", "dave", role="member")
     policy = AccessPolicy(meta=meta)
     row = ReleaseRow(
-        database_id="acme/db",
+        dataset_id="acme/db",
         version="1.0.0",
         visibility="private",
         package_digest="sha256:" + "a" * 64,

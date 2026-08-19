@@ -1,4 +1,4 @@
-"""Database manifest, list_tasks, resolve_task unit tests (Spec 20)."""
+"""Dataset manifest, list_tasks, resolve_task unit tests (Spec 20)."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
-from ageval.config.database import (
+from ageval.config.dataset import (
     list_tasks,
-    load_database_manifest,
+    load_dataset_manifest,
     member_paths_for_digest,
     resolve_task,
-    validate_database_id,
+    validate_dataset_id,
 )
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
@@ -26,7 +26,7 @@ JOURNEYS_DB = REPO / "examples" / "journeys"
 def _write_db(
     root: Path,
     *,
-    database_id: str = "test/suite",
+    dataset_id: str = "test/suite",
     version: str = "0.1.0",
     defaults: str | None = None,
     extra_root: str = "",
@@ -34,7 +34,7 @@ def _write_db(
     root.mkdir(parents=True, exist_ok=True)
     body = (
         f"format: ageval.dataset/1\n"
-        f"database_id: {database_id}\n"
+        f"dataset_id: {dataset_id}\n"
         f'version: "{version}"\n'
         f"tasks:\n  root: tasks\n"
     )
@@ -72,8 +72,8 @@ evaluation:
 
 
 def test_examples_core_manifest() -> None:
-    man = load_database_manifest(CORE_DB)
-    assert man.database_id == "example/core"
+    man = load_dataset_manifest(CORE_DB)
+    assert man.dataset_id == "example/core"
     assert man.format == "ageval.dataset/1"
     ids = list_tasks(CORE_DB, manifest=man)
     assert "config-minimal" in ids
@@ -82,12 +82,12 @@ def test_examples_core_manifest() -> None:
 
 
 def test_resolve_and_lock_public_example() -> None:
-    from ageval.config.profiles import load_database_profiles
+    from ageval.config.profiles import resolve_job_document
 
     resolved = resolve_task(CORE_DB, "config-minimal")
-    assert resolved.database_id == "example/core"
+    assert resolved.dataset_id == "example/core"
     assert resolved.task_dir.name == "config-minimal"
-    bindings = load_database_profiles(CORE_DB)
+    bindings = resolve_job_document(CORE_DB)
     lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
         resolved.task_dir,
         "config-minimal",
@@ -107,7 +107,7 @@ def test_unknown_task(tmp_path: Path) -> None:
     assert ei.value.error_code == "unknown_task"
 
 
-def test_empty_database_fail_closed(tmp_path: Path) -> None:
+def test_empty_dataset_fail_closed(tmp_path: Path) -> None:
     _write_db(tmp_path)
     (tmp_path / "tasks").mkdir()
     with pytest.raises(ConfigError) as ei:
@@ -124,48 +124,48 @@ def test_directory_task_id_mismatch(tmp_path: Path) -> None:
     assert ei.value.error_code == "unknown_task"
 
 
-def test_task_schema_at_database_root_rejected(tmp_path: Path) -> None:
+def test_task_schema_at_dataset_root_rejected(tmp_path: Path) -> None:
     (tmp_path / "ageval.yaml").write_text(
         "format: ageval.task/1\ntask_id: x\n",
         encoding="utf-8",
     )
     with pytest.raises(ConfigError) as ei:
-        load_database_manifest(tmp_path)
+        load_dataset_manifest(tmp_path)
     assert ei.value.error_code == "invalid_format"
 
 
-def test_illegal_database_id(tmp_path: Path) -> None:
+def test_illegal_dataset_id(tmp_path: Path) -> None:
     for bad in ("../escape", "/abs", "HasCaps", "trail/", "//double", ""):
         if not bad:
             continue
-        _write_db(tmp_path, database_id=bad)
+        _write_db(tmp_path, dataset_id=bad)
         with pytest.raises(ConfigError) as ei:
-            load_database_manifest(tmp_path)
+            load_dataset_manifest(tmp_path)
         assert ei.value.error_code in {"invalid_schema", "invalid_format"}
 
 
-def test_validate_database_id_charset() -> None:
-    validate_database_id("a")
-    validate_database_id("example/core")
-    validate_database_id("org.name/area_1")
+def test_validate_dataset_id_charset() -> None:
+    validate_dataset_id("a")
+    validate_dataset_id("example/core")
+    validate_dataset_id("org.name/area_1")
     with pytest.raises(ConfigError):
-        validate_database_id("Bad")
+        validate_dataset_id("Bad")
     with pytest.raises(ConfigError):
-        validate_database_id("a//b")
+        validate_dataset_id("a//b")
 
 
 def test_illegal_defaults_key(tmp_path: Path) -> None:
     _write_db(tmp_path, defaults="  max_concurrent_tasks: 2\n  limits: {}\n")
     with pytest.raises(ConfigError) as ei:
-        load_database_manifest(tmp_path)
+        load_dataset_manifest(tmp_path)
     assert ei.value.error_code == "invalid_schema"
     assert "defaults" in ei.value.message
 
 
-def test_forbidden_task_fields_on_database_root(tmp_path: Path) -> None:
+def test_forbidden_task_fields_on_dataset_root(tmp_path: Path) -> None:
     _write_db(tmp_path, extra_root="harness:\n  runtime: python\n")
     with pytest.raises(ConfigError) as ei:
-        load_database_manifest(tmp_path)
+        load_dataset_manifest(tmp_path)
     assert "harness" in ei.value.message
 
 

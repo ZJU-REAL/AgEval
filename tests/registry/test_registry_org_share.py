@@ -17,13 +17,13 @@ from ageval.application.registry_ops.registry_org_command import RegistryOrgComm
 from ageval.registry.client import RegistryClient, RegistryError
 from ageval.registry.credentials import write_credentials
 
-publish_database = build_publish_command().publish_database
+publish_dataset = build_publish_command().publish_dataset
 _results = build_results_commands()
 list_attempt_results = _results.list_attempt_results
 upload_attempt_result = _results.upload_attempt_result
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 @pytest.fixture()
@@ -91,14 +91,14 @@ def test_org_create_list_and_publish_requires_org(
     monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
 
     with pytest.raises(Exception) as ei:
-        publish_database(FIXTURE, public=False)
+        publish_dataset(FIXTURE, public=False)
     assert "org" in str(ei.value).lower()
 
-    summary = publish_database(FIXTURE, public=False, org="acme")
+    summary = publish_dataset(FIXTURE, public=False, org="acme")
     assert summary["ok"] is True
     assert summary["org_id"] == "acme"
 
-    meta = boot.get_metadata(database_id=summary["database_id"], version=summary["version"])
+    meta = boot.get_metadata(dataset_id=summary["dataset_id"], version=summary["version"])
     assert meta.org_id == "acme"
 
 
@@ -147,14 +147,14 @@ def test_private_package_visible_to_org_member_only(
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("AGEVAL_REGISTRY_URL", url)
     monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", alice_tok)
-    summary = publish_database(FIXTURE, public=False, org="lab")
+    summary = publish_dataset(FIXTURE, public=False, org="lab")
 
     alice = RegistryClient(url, token=alice_tok)
-    alice.get_metadata(database_id=summary["database_id"], version=summary["version"])
+    alice.get_metadata(dataset_id=summary["dataset_id"], version=summary["version"])
 
     bob = RegistryClient(url, token=bob_tok)
     with pytest.raises(RegistryError) as ei:
-        bob.get_metadata(database_id=summary["database_id"], version=summary["version"])
+        bob.get_metadata(dataset_id=summary["dataset_id"], version=summary["version"])
     assert ei.value.status == 404
 
 
@@ -227,7 +227,7 @@ def test_result_uploaded_by_and_share_org(
 
     # list does not leak to bob
     monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", bob_tok)
-    listed = list_attempt_results(database_id="test/publish-min")
+    listed = list_attempt_results(dataset_id="test/publish-min")
     assert listed["count"] == 0
 
 

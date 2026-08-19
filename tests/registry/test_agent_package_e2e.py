@@ -79,12 +79,12 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
 
     listed = _get(env["url"], env["token"], "/v1/packages?package_kind=agent")
     items = listed.get("items") or []
-    assert any(i.get("database_id") == summary["package_id"] for i in items)
+    assert any(i.get("dataset_id") == summary["package_id"] for i in items)
     assert all(i.get("package_kind") == "agent" for i in items)
 
-    db_listed = _get(env["url"], env["token"], "/v1/packages?package_kind=database")
+    db_listed = _get(env["url"], env["token"], "/v1/packages?package_kind=dataset")
     assert not any(
-        i.get("database_id") == summary["package_id"] for i in (db_listed.get("items") or [])
+        i.get("dataset_id") == summary["package_id"] for i in (db_listed.get("items") or [])
     )
 
     installed = install_agent_from_registry(summary["ref"])
@@ -168,8 +168,8 @@ def test_reject_secret_bearing_agent(env: dict[str, str], tmp_path: Path) -> Non
         publish_agent(pkg, public=False, org=TEST_ORG)
 
 
-def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> None:
-    """agent.yaml trees must not slip through as package_kind=database.
+def test_reject_agent_yaml_as_dataset(env: dict[str, str], tmp_path: Path) -> None:
+    """agent.yaml trees must not slip through as package_kind=dataset.
 
     The client already fails closed locally (no ageval.yaml); the server guard
     in ``_validate_archive`` is exercised directly as defense in depth.
@@ -186,7 +186,7 @@ def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> N
         "binding: {executor: mock, model: none}\n",
         encoding="utf-8",
     )
-    # Hand-rolled tarball: ageval.registry.archive validates database trees.
+    # Hand-rolled tarball: ageval.registry.archive validates dataset trees.
     archive_path = tmp_path / "sneaky.tar.gz"
     with tarfile.open(archive_path, "w:gz") as tar:
         tar.add(pkg / "agent.yaml", arcname="agent.yaml")
@@ -195,8 +195,8 @@ def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> N
     with pytest.raises(RegistryAppError) as exc:
         svc._validate_archive(
             archive_path,
-            package_kind="database",
-            media_type="application/vnd.ageval.database.v1.tar+gzip",
+            package_kind="dataset",
+            media_type="application/vnd.ageval.dataset.v1.tar+gzip",
             package_digest="sha256:" + "0" * 64,  # guard fires before digest compare
         )
     assert "package_kind=agent" in str(exc.value)

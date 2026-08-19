@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 from ageval.cli.main import app
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _clean_db(tmp_path: Path) -> Path:

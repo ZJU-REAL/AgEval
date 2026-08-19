@@ -22,7 +22,7 @@ from ageval.application.suite.suite_run import (
 from ageval.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _runner(status: str = "PASS", score: float | None = 1.0, *, prefix: str = "cur"):
@@ -102,7 +102,7 @@ async def test_replace_slot_reruns_finished_and_keeps_history(
     first = await execute_suite_run(plan, run_fn=_runner(status, score, prefix="old"))
     old_id = first["attempts"][0]["run_id"]
     assert first["attempts"][0]["status"] == status
-    old_dir = Path(plan.database_root) / ".ageval" / "runs" / old_id
+    old_dir = Path(plan.dataset_root) / ".ageval" / "runs" / old_id
     assert old_dir.is_dir()
 
     plan2 = plan_suite_run(SUITE, task_id="alpha", n_attempts=1, suite_run_id=first["suite_run_id"])
@@ -190,7 +190,7 @@ async def test_replace_refuses_in_progress_and_missing_slot() -> None:
     suite_id = first["suite_run_id"]
     plan2 = plan_suite_run(SUITE, task_id="alpha", n_attempts=1, suite_run_id=suite_id)
 
-    request_suite_cancel(plan.database_root, suite_id)
+    request_suite_cancel(plan.dataset_root, suite_id)
     with pytest.raises(ConfigError, match="in progress"):
         await execute_suite_run(
             plan2,

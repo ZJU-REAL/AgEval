@@ -44,7 +44,7 @@ def meta(request: pytest.FixtureRequest, tmp_path: Path) -> MetadataStore:
 
 def test_insert_and_get_release(meta: MetadataStore) -> None:
     row = ReleaseRow(
-        database_id="acme/db",
+        dataset_id="acme/db",
         version="1.0.0",
         visibility="public",
         package_digest="sha256:" + "a" * 64,
@@ -60,7 +60,7 @@ def test_insert_and_get_release(meta: MetadataStore) -> None:
     assert got is not None
     assert got.package_digest == row.package_digest
     assert got.org_id == "acme"
-    listed = meta.list_releases(database_id_prefix="acme/")
+    listed = meta.list_releases(dataset_id_prefix="acme/")
     assert any(r.version == "1.0.0" for r in listed)
 
 

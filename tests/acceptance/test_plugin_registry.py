@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from ageval.adapters.agent_openai_http import OpenAIHTTPExecutor
+from ageval.plugins.contrib.openai_http.executor import OpenAIHTTPExecutor
 from ageval.adapters.agent_registry import discover_executor_kinds, resolve_executor
 
 

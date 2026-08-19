@@ -12,7 +12,7 @@ from ageval.plugins.install import install_from_local
 from ageval.plugins.store import install_from_path, uninstall
 
 ROOT = Path(__file__).resolve().parents[2]
-PROBE_DB = ROOT / "tests/fixtures/databases/probe-min"
+PROBE_DB = ROOT / "tests/fixtures/datasets/probe-min"
 HOST_PROBE = ROOT / "tests/fixtures/plugins/host-probe"
 
 
@@ -108,7 +108,7 @@ def test_lock_fails_when_required_plugin_missing(
 
     with pytest.raises(ConfigError) as ei:
         build_lock_command().run(
-            database_root=PROBE_DB,
+            dataset_root=PROBE_DB,
             task_id="l0-task",
             profiles_path=_profiles(tmp_path, "needs-neighbor"),
         )
@@ -127,7 +127,7 @@ def test_lock_ok_when_required_plugin_installed(
     from ageval.application.composition import build_lock_command
 
     summary = build_lock_command().run(
-        database_root=PROBE_DB,
+        dataset_root=PROBE_DB,
         task_id="l0-task",
         profiles_path=_profiles(tmp_path, "needs-neighbor"),
     )
@@ -174,7 +174,7 @@ def test_uninstall_depender_lock_still_works_with_dep(
     from ageval.application.composition import build_lock_command
 
     summary = build_lock_command().run(
-        database_root=PROBE_DB,
+        dataset_root=PROBE_DB,
         task_id="l0-task",
     )
     assert summary["task_id"] == "l0-task"

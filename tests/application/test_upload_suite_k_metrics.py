@@ -27,8 +27,8 @@ def _write_summary(db: Path, suite_run_id: str, summary: dict[str, Any]) -> Path
     payload = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "test/db",
-        "database_version": "0.1.0",
+        "dataset_id": "test/db",
+        "dataset_version": "0.1.0",
         "exit_code": 0,
         **summary,
     }
@@ -100,7 +100,7 @@ def test_upload_payload_includes_recomputed_pass_at_k(
 ) -> None:
     db = tmp_path / "db-up"
     db.mkdir()
-    # Minimal database root so upload can resolve id when needed
+    # Minimal dataset root so upload can resolve id when needed
     (db / "ageval.yaml").write_text(
         "format: ageval.dataset/1\nid: test/db\nversion: 0.1.0\n",
         encoding="utf-8",
@@ -144,8 +144,8 @@ def test_upload_payload_includes_recomputed_pass_at_k(
         captured.update(kwargs)
         return {
             "suite_run_id": kwargs["suite_run_id"],
-            "database_id": kwargs["database_id"],
-            "database_version": kwargs["database_version"],
+            "dataset_id": kwargs["dataset_id"],
+            "dataset_version": kwargs["dataset_version"],
             "pass_rate": kwargs["pass_rate"],
             "mean_score": kwargs["mean_score"],
             "metrics": kwargs["metrics"],

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ageval.adapters.executor_inventory import (
+from ageval.plugins.executor_inventory import (
     build_executor_inventory,
     describe_acp_entry,
     describe_executor,
@@ -76,7 +76,7 @@ def test_plugin_without_describe_is_not_host_ready(
     row = describe_executor("sample-echo", which=lambda _n: None, verbose=True)
     assert row["execution_mode"] == "unknown"
     assert row["host_ready"] is False
-    assert row["l1_bake_declared"] is False
+    assert row["bake_recipe_declared"] is False
     assert row["binary_on_path"] is None
 
 
@@ -101,7 +101,7 @@ def test_plugin_host_ready_uses_host_requires(
     row = describe_executor("host-probe", which=lambda _n: "/bin/host-probe-bin", verbose=True)
     assert row["execution_mode"] == "container-worker"
     assert row["host_ready"] is False
-    assert row["l1_bake_declared"] is True
+    assert row["bake_recipe_declared"] is True
     assert row["binary"] == "host-probe-bin"
     assert row["binary_on_path"] is None
     assert row["binary_path"] is None

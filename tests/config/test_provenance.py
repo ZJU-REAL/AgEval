@@ -1,4 +1,4 @@
-"""Package provenance field validation, lock inclusion, Database→task merge (#18)."""
+"""Package provenance field validation, lock inclusion, Dataset→task merge (#18)."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
-from ageval.config.database import load_database_manifest
+from ageval.config.dataset import load_dataset_manifest
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
@@ -82,12 +82,12 @@ def test_validate_port_requires_url_and_pin() -> None:
     assert ok["parity"]["claims"] == ["protocol"]
 
 
-def test_merge_task_overrides_database() -> None:
+def test_merge_task_overrides_dataset() -> None:
     db = {"kind": "port", "upstream": {"url": "https://a.example", "ref": "v1"}}
     task = {"kind": "original"}
-    assert merge_provenance(database=db, task=task) == task
-    assert merge_provenance(database=db, task=None) == db
-    assert merge_provenance(database=None, task=None) is None
+    assert merge_provenance(dataset=db, task=task) == task
+    assert merge_provenance(dataset=db, task=None) == db
+    assert merge_provenance(dataset=None, task=None) is None
 
 
 def test_lock_includes_task_provenance(
@@ -118,7 +118,7 @@ def test_lock_includes_task_provenance(
     assert locked.digest != base.digest
 
 
-def test_database_default_applied(
+def test_dataset_default_applied(
     core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
 ) -> None:
     pkg = _write_task_pkg(tmp_path, yaml_text=_minimal_task_yaml())
@@ -127,7 +127,7 @@ def test_database_default_applied(
         "config-minimal",
         capabilities=catalog,
         profile_bindings=MOCK_BINDINGS,
-        database_provenance={
+        dataset_provenance={
             "kind": "wrapper",
             "upstream": {
                 "url": "https://github.com/example/suite",
@@ -139,10 +139,10 @@ def test_database_default_applied(
     assert prov["kind"] == "wrapper"
     assert prov["upstream"]["ref"] == "v0.2.0"
     sources = [e.source for e in locked.resolution.entries]
-    assert "database" in sources
+    assert "dataset" in sources
 
 
-def test_task_provenance_overrides_database(
+def test_task_provenance_overrides_dataset(
     core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
 ) -> None:
     yaml = _minimal_task_yaml(
@@ -157,7 +157,7 @@ def test_task_provenance_overrides_database(
         "config-minimal",
         capabilities=catalog,
         profile_bindings=MOCK_BINDINGS,
-        database_provenance={
+        dataset_provenance={
             "kind": "port",
             "upstream": {
                 "url": "https://github.com/example/x",
@@ -190,14 +190,14 @@ def test_invalid_port_fails_lock(
     assert ei.value.error_code == "invalid_schema"
 
 
-def test_database_manifest_accepts_provenance(tmp_path: Path) -> None:
+def test_dataset_manifest_accepts_provenance(tmp_path: Path) -> None:
     root = tmp_path / "db"
     root.mkdir()
     (root / "ageval.yaml").write_text(
         textwrap.dedent(
             """
             format: ageval.dataset/1
-            database_id: test/prov-db
+            dataset_id: test/prov-db
             version: "0.1.0"
             tasks:
               root: tasks
@@ -240,6 +240,6 @@ def test_database_manifest_accepts_provenance(tmp_path: Path) -> None:
     (root / "tasks" / "alpha" / "harness.py").write_text("#\n", encoding="utf-8")
     (root / "tasks" / "alpha" / "evaluator.py").write_text("#\n", encoding="utf-8")
 
-    man = load_database_manifest(root)
+    man = load_dataset_manifest(root)
     assert man.provenance is not None
     assert man.provenance["kind"] == "original"

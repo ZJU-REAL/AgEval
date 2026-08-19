@@ -75,7 +75,7 @@ def test_s3_stub_uses_upload_fileobj(tmp_path: Path) -> None:
 def test_spool_and_multipart_do_not_require_bytes_archive(tmp_path: Path) -> None:
     archive = b"ARCHIVE-BYTES-NOT-IN-RAM-CONTRACT"
     boundary = "ageval-test"
-    meta = b'{"database_id":"a/b"}'
+    meta = b'{"dataset_id":"a/b"}'
     body = (
         f"--{boundary}\r\n"
         'Content-Disposition: form-data; name="metadata"\r\n'
@@ -100,6 +100,6 @@ def test_spool_and_multipart_do_not_require_bytes_archive(tmp_path: Path) -> Non
         f"multipart/form-data; boundary={boundary}",
         tmp_path,
     )
-    assert parsed_meta["database_id"] == "a/b"
+    assert parsed_meta["dataset_id"] == "a/b"
     assert archive_path.read_bytes() == archive
     assert archive_path.is_file()

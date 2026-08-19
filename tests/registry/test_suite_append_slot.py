@@ -16,7 +16,7 @@ from ageval.registry.archive import MEDIA_TYPE, build_archive
 from ageval.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 def _services(tmp_path: Path) -> ResultService:
@@ -29,7 +29,7 @@ def _services(tmp_path: Path) -> ResultService:
     auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     packages.publish(
         meta={
-            "database_id": "test/publish-min",
+            "dataset_id": "test/publish-min",
             "version": "0.1.0",
             "package_digest": compute_package_digest(FIXTURE),
             "blob_digest": blob_digest,
@@ -59,8 +59,8 @@ def _suite_archive(tmp_path: Path, suite_run_id: str) -> tuple[dict[str, object]
     return (
         {
             "suite_run_id": suite_run_id,
-            "database_id": "test/publish-min",
-            "database_version": "0.1.0",
+            "dataset_id": "test/publish-min",
+            "dataset_version": "0.1.0",
             "visibility": "public",
             "blob_digest": _blob(raw),
             "size": len(raw),
@@ -91,13 +91,13 @@ def _upload_attempt(
     auth: TokenInfo,
     status: str = "PASS",
     suite_run_id: str = "",
-    database_id: str = "test/publish-min",
+    dataset_id: str = "test/publish-min",
 ) -> None:
     raw = f"attempt-{run_id}".encode()
     results.upload_attempt(
         meta={
             "run_id": run_id,
-            "database_id": database_id,
+            "dataset_id": dataset_id,
             "task_id": "hello",
             "lock_digest": "sha256:x",
             "status": status,

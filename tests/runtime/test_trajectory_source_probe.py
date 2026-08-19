@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from ageval.adapters.agent_contract import parse_validated_text_structured
+from ageval.plugins.agent_result import parse_validated_text_structured
 from ageval.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
 from ageval.plugins.contrib.acp import AcpExecutor
 

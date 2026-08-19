@@ -24,7 +24,7 @@ def _write_db(
     db = tmp / "db"
     db.mkdir()
     (db / "ageval.yaml").write_text(
-        "format: ageval.dataset/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
+        "format: ageval.dataset/1\ndataset_id: example/overlays\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
@@ -47,8 +47,8 @@ def _write_db(
     summary = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "example/overlays",
-        "database_version": "0.1.0",
+        "dataset_id": "example/overlays",
+        "dataset_version": "0.1.0",
         "exit_code": 0,
         "metrics": {"pass_rate": 1.0, "mean_score": 1.0, "n_tasks": 1},
         "task_refs": [{"task_id": "t", "status": "PASS", "score": 1.0}],
@@ -68,8 +68,8 @@ def _cmds() -> tuple[ResultsCommands, dict[str, Any]]:
             captured["archive_bytes"] = Path(archive).read_bytes()
         return {
             "suite_run_id": kwargs["suite_run_id"],
-            "database_id": kwargs["database_id"],
-            "database_version": kwargs["database_version"],
+            "dataset_id": kwargs["dataset_id"],
+            "dataset_version": kwargs["dataset_version"],
             "pass_rate": kwargs["pass_rate"],
             "mean_score": kwargs["mean_score"],
             "metrics": kwargs["metrics"],

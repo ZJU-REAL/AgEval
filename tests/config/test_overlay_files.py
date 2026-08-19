@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 import yaml
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
@@ -18,10 +18,10 @@ from ageval.config.overlay_files import (
     overlay_secret_hits,
     parse_overlay_paths,
 )
-from ageval.config.profiles import load_profiles_document
+from ageval.config.profiles import load_job_document
 
 
-def _write_database(
+def _write_dataset(
     tmp: Path,
     *,
     bindings: dict[str, Any],
@@ -30,7 +30,7 @@ def _write_database(
     db = tmp / "db"
     (db / "tasks" / "t").mkdir(parents=True)
     (db / "ageval.yaml").write_text(
-        "format: ageval.dataset/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
+        "format: ageval.dataset/1\ndataset_id: example/overlays\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
@@ -126,7 +126,7 @@ def test_pem_and_token_are_secrets() -> None:
 
 
 def test_omit_overlays_lock_unchanged(tmp_path: Path) -> None:
-    db = _write_database(
+    db = _write_dataset(
         tmp_path,
         bindings={
             "solver": {
@@ -151,7 +151,7 @@ def test_omit_overlays_lock_unchanged(tmp_path: Path) -> None:
 
 
 def test_lock_requires_existing_overlay_path(tmp_path: Path) -> None:
-    db = _write_database(
+    db = _write_dataset(
         tmp_path,
         bindings={"solver": {"executor": "mock", "model": "none"}},
     )
@@ -170,7 +170,7 @@ def test_lock_requires_existing_overlay_path(tmp_path: Path) -> None:
 
 
 def test_lock_accepts_file_and_directory(tmp_path: Path) -> None:
-    db = _write_database(
+    db = _write_dataset(
         tmp_path,
         bindings={"solver": {"executor": "mock", "model": "none"}},
         overlay_files={
@@ -194,7 +194,7 @@ def test_lock_accepts_file_and_directory(tmp_path: Path) -> None:
 
 
 def test_lock_rejects_secret_in_overlay_file(tmp_path: Path) -> None:
-    db = _write_database(
+    db = _write_dataset(
         tmp_path,
         bindings={"solver": {"executor": "mock", "model": "none"}},
         overlay_files={"overlays/secret.md": "-----BEGIN PRIVATE KEY-----\nabc\n"},
@@ -215,7 +215,7 @@ def test_lock_rejects_secret_in_overlay_file(tmp_path: Path) -> None:
 
 
 def test_lock_allows_env_locator_in_overlay_json(tmp_path: Path) -> None:
-    db = _write_database(
+    db = _write_dataset(
         tmp_path,
         bindings={"solver": {"executor": "mock", "model": "none"}},
         overlay_files={
@@ -300,5 +300,5 @@ def test_profiles_document_normalizes_overlays(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    bindings = load_profiles_document(path)
+    bindings = load_job_document(path)
     assert bindings["solver"]["overlays"] == ["overlays/AGENTS.md"]

@@ -75,7 +75,7 @@ def test_publish_plugin_preview_and_install(
     ref = summary["ref"]
 
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
-    meta = client.get_metadata(database_id=summary["package_id"], version=summary["version"])
+    meta = client.get_metadata(dataset_id=summary["package_id"], version=summary["version"])
     assert meta.media_type == PLUGIN_MEDIA_TYPE
     # Raw client returns ReleaseInfo; full preview via direct HTTP
     import json
@@ -107,19 +107,19 @@ def test_publish_plugin_preview_and_install(
     with urllib.request.urlopen(list_req) as resp:  # noqa: S310
         listed = json.loads(resp.read().decode("utf-8"))
     plugin_items = listed.get("items") or []
-    assert any(i.get("database_id") == summary["package_id"] for i in plugin_items)
+    assert any(i.get("dataset_id") == summary["package_id"] for i in plugin_items)
     assert all(i.get("package_kind") == "plugin" for i in plugin_items)
-    echo_row = next(i for i in plugin_items if i.get("database_id") == summary["package_id"])
+    echo_row = next(i for i in plugin_items if i.get("dataset_id") == summary["package_id"])
     assert echo_row.get("official") is False
     assert echo_row.get("org_id") == TEST_ORG
     db_req = urllib.request.Request(
-        registry_server["url"] + "/v1/packages?package_kind=database",
+        registry_server["url"] + "/v1/packages?package_kind=dataset",
         headers={"Authorization": f"Bearer {registry_server['token']}"},
     )
     with urllib.request.urlopen(db_req) as resp:  # noqa: S310
         db_listed = json.loads(resp.read().decode("utf-8"))
     assert not any(
-        i.get("database_id") == summary["package_id"] for i in (db_listed.get("items") or [])
+        i.get("dataset_id") == summary["package_id"] for i in (db_listed.get("items") or [])
     )
 
     installed = install_plugin_from_registry(ref)
@@ -130,7 +130,7 @@ def test_publish_plugin_preview_and_install(
     assert (home / "plugins" / "index.json").is_file()
 
 
-def test_reject_database_as_plugin(
+def test_reject_dataset_as_plugin(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from ageval.registry.archive import build_archive
@@ -141,7 +141,7 @@ def test_reject_database_as_plugin(
     monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org(registry_server["url"], registry_server["token"])
 
-    db = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+    db = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
     archive, blob_digest, size = build_archive(db)
     package_digest = compute_package_digest(db)
     archive_path = tmp_path / "not-plugin.tar.gz"
@@ -149,7 +149,7 @@ def test_reject_database_as_plugin(
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
     with pytest.raises(RegistryError) as ei:
         client.publish(
-            database_id=f"{TEST_ORG}/not-a-plugin",
+            dataset_id=f"{TEST_ORG}/not-a-plugin",
             version="0.0.1",
             package_digest=package_digest,
             blob_digest=blob_digest,

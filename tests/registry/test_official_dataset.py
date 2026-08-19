@@ -1,4 +1,4 @@
-"""Official Dataset plaza source: non-draft official-org database releases."""
+"""Official Dataset plaza source: non-draft official-org dataset releases."""
 
 from __future__ import annotations
 
@@ -7,18 +7,18 @@ from services.registry.official import is_official_dataset, official_dataset_ids
 from services.registry.runtime_service import is_plaza_source_suite
 from services.registry.store import ReleaseRow, release_to_dict
 
-from ageval.registry.media_types import DATABASE_MEDIA_TYPE, PLUGIN_MEDIA_TYPE
+from ageval.registry.media_types import DATASET_MEDIA_TYPE, PLUGIN_MEDIA_TYPE
 
 
 def _row(
     *,
-    database_id: str = "official/gaia-level1-15",
+    dataset_id: str = "official/gaia-level1-15",
     version: str = "1.0.0",
     org_id: str | None = "official",
-    media_type: str = DATABASE_MEDIA_TYPE,
+    media_type: str = DATASET_MEDIA_TYPE,
 ) -> ReleaseRow:
     return ReleaseRow(
-        database_id=database_id,
+        dataset_id=dataset_id,
         version=version,
         visibility="public",
         package_digest="sha256:" + "a" * 64,
@@ -30,7 +30,7 @@ def _row(
     )
 
 
-def test_official_non_draft_database_counts() -> None:
+def test_official_non_draft_dataset_counts() -> None:
     rows = [_row()]
     assert is_official_dataset("official/gaia-level1-15", rows) is True
     assert official_dataset_ids(rows) == {"official/gaia-level1-15"}
@@ -42,16 +42,16 @@ def test_draft_only_is_not_official_dataset() -> None:
 
 
 def test_community_org_is_not_official_dataset() -> None:
-    rows = [_row(database_id="acme/looks-official", org_id="acme")]
+    rows = [_row(dataset_id="acme/looks-official", org_id="acme")]
     assert is_official_dataset("acme/looks-official", rows) is False
 
 
 def test_plugin_release_is_not_official_dataset() -> None:
-    rows = [_row(database_id="official/sample-echo", media_type=PLUGIN_MEDIA_TYPE)]
+    rows = [_row(dataset_id="official/sample-echo", media_type=PLUGIN_MEDIA_TYPE)]
     assert is_official_dataset("official/sample-echo", rows) is False
 
 
-def test_other_database_id_does_not_qualify() -> None:
+def test_other_dataset_id_does_not_qualify() -> None:
     rows = [_row()]
     assert is_official_dataset("official/other", rows) is False
 
@@ -62,18 +62,18 @@ def test_plaza_source_suite_table() -> None:
         "visibility": "public",
         "complete": True,
         "bound_kind": BOUND_RELEASE,
-        "database_id": "official/gaia",
+        "dataset_id": "official/gaia",
     }
     assert is_plaza_source_suite(base, official) is True
     assert is_plaza_source_suite({**base, "visibility": "private"}, official) is False
     assert is_plaza_source_suite({**base, "complete": False}, official) is False
     assert is_plaza_source_suite({**base, "bound_kind": "draft"}, official) is False
-    assert is_plaza_source_suite({**base, "database_id": "acme/x"}, official) is False
+    assert is_plaza_source_suite({**base, "dataset_id": "acme/x"}, official) is False
 
 
-def test_release_to_dict_marks_database_official() -> None:
+def test_release_to_dict_marks_dataset_official() -> None:
     official = release_to_dict(_row())
-    assert official["package_kind"] == "database"
+    assert official["package_kind"] == "dataset"
     assert official["official"] is True
     community = release_to_dict(_row(org_id="acme"))
     assert community["official"] is False

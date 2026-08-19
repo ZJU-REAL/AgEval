@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ageval.adapters.credential_projection import project_executor_credentials
+from ageval.plugins.contrib.acp.credentials import project_executor_credentials
 
 
 def test_projection_locator_has_no_raw_secret_in_keys_list(tmp_path: Path) -> None:
@@ -29,7 +29,7 @@ def test_projection_copies_grok_auth_when_present(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """L1 must project host ~/.grok/auth.json for grok-build ACP (OAuth path)."""
-    import ageval.adapters.credential_projection as cp
+    import ageval.plugins.contrib.acp.credentials as cp
 
     fake_home = tmp_path / "host-home"
     grok_auth = fake_home / ".grok" / "auth.json"

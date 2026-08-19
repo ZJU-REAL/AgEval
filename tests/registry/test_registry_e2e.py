@@ -16,10 +16,10 @@ from ageval.registry.client import RegistryClient
 from ageval.registry.credentials import write_credentials
 from ageval.registry.digest import compute_package_digest
 
-publish_database = build_publish_command().publish_database
+publish_dataset = build_publish_command().publish_dataset
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 TEST_ORG = "test"
 
@@ -71,17 +71,17 @@ def test_publish_and_lock_by_ref(
     monkeypatch.setenv("AGEVAL_CACHE_ROOT", str(cache_root))
     _ensure_org()
 
-    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
+    summary = publish_dataset(FIXTURE, public=False, org=TEST_ORG)
     assert summary["ok"] is True
-    assert summary["database_id"] == "test/publish-min"
+    assert summary["dataset_id"] == "test/publish-min"
     assert summary["package_digest"] == compute_package_digest(FIXTURE)
     ref = summary["ref"]
 
     # Wipe any accidental local path preference: lock by registry ref only.
     lock = build_lock_command()
-    out = lock.run(database_root=ref, task_id="hello")
+    out = lock.run(dataset_root=ref, task_id="hello")
     assert out["task_id"] == "hello"
-    assert out["database_id"] == "test/publish-min"
+    assert out["dataset_id"] == "test/publish-min"
     assert out["digest"].startswith("sha256:")
 
     # Cache should now contain verified tree.
@@ -93,7 +93,7 @@ def test_publish_and_lock_by_ref(
     # (server still up here — stop then retry)
     # Call shutdown via fixture teardown after; for offline, hit cache only:
     offline = lock.run(
-        database_root=summary["digest_ref"],
+        dataset_root=summary["digest_ref"],
         task_id="hello",
     )
     assert offline["task_id"] == "hello"
@@ -105,12 +105,12 @@ def test_private_without_token_is_not_found(
     monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
     monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org()
-    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
+    summary = publish_dataset(FIXTURE, public=False, org=TEST_ORG)
 
     # Client without token
     client = RegistryClient(registry_server["url"], token=None)
     with pytest.raises(Exception) as ei:
-        client.get_metadata(database_id=summary["database_id"], version=summary["version"])
+        client.get_metadata(dataset_id=summary["dataset_id"], version=summary["version"])
     # RegistryError with not_found / 404
     assert "not_found" in str(ei.value) or "404" in str(ei.value)
 
@@ -121,5 +121,5 @@ def test_publish_requires_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     # Empty token via missing credentials
     monkeypatch.setenv("HOME", str(tmp_path))
     with pytest.raises(ConfigError) as ei:
-        publish_database(FIXTURE, org=TEST_ORG)
+        publish_dataset(FIXTURE, org=TEST_ORG)
     assert ei.value.error_code in {"unauthorized", "registry_unavailable"}

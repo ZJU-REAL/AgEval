@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
@@ -22,7 +22,7 @@ def _write_db(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
     (root / "ageval.yaml").write_text(
         "format: ageval.dataset/1\n"
-        "database_id: test/shared-suite\n"
+        "dataset_id: test/shared-suite\n"
         'version: "0.1.0"\n'
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
@@ -179,11 +179,11 @@ def test_lock_ok_with_shared_no_shadow(tmp_path: Path) -> None:
 
 def test_infer_walks_up_for_nested_tasks_root(tmp_path: Path) -> None:
     """Shadow gate must fire even when tasks.root is nested (not just tasks/)."""
-    from ageval.config.shared import infer_database_root_from_task
+    from ageval.config.shared import infer_dataset_root_from_task
 
     (tmp_path / "ageval.yaml").write_text(
         "format: ageval.dataset/1\n"
-        "database_id: test/nested\n"
+        "dataset_id: test/nested\n"
         'version: "0.1.0"\n'
         "tasks:\n  root: members/group\n",
         encoding="utf-8",
@@ -194,7 +194,7 @@ def test_infer_walks_up_for_nested_tasks_root(tmp_path: Path) -> None:
     task = tmp_path / "members" / "group" / "t1"
     _write_task(task, "t1", lib_mod="bridge")
     (task / "shared.py").write_text("bad=1\n", encoding="utf-8")
-    assert infer_database_root_from_task(task) == tmp_path.resolve()
+    assert infer_dataset_root_from_task(task) == tmp_path.resolve()
     with pytest.raises(ConfigError) as ei:
         validate_shared_layout(tmp_path, tasks_root="members/group")
     assert "shared" in ei.value.message

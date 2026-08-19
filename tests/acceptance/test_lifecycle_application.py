@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.application.attempt.run_lifecycle import assert_retryable, run_lifecycle
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.load_and_lock import ConfigCore
@@ -27,11 +27,11 @@ MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 
 
 def _lock():
-    from ageval.config.profiles import load_database_profiles
+    from ageval.config.profiles import resolve_job_document
 
     core = ConfigCore(package_reader=LocalPackageReader())
     catalog = DeclarationCapabilityCatalog()
-    bindings = load_database_profiles(REPO / "examples" / "core")
+    bindings = resolve_job_document(REPO / "examples" / "core")
     return core.load_and_lock(
         MINIMAL,
         "config-minimal",

@@ -8,21 +8,21 @@ from typing import Any
 
 import pytest
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.digest import digest_payload
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
 from ageval.config.overrides import parse_set_override
-from ageval.config.profiles import load_database_profiles
+from ageval.config.profiles import resolve_job_document
 
 REPO = Path(__file__).resolve().parents[2]
 MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 INVALID = REPO / "examples" / "core" / "tasks" / "config-invalid"
 CORE_DB = REPO / "examples" / "core"
 
-# Role bindings for config-minimal / config-invalid (from Database profiles.yaml).
+# Role bindings for config-minimal / config-invalid (from Dataset profiles.yaml).
 MOCK_BINDINGS: dict[str, dict[str, Any]] = {
     "mock-default": {"executor": "mock", "model": "none"},
 }
@@ -290,11 +290,11 @@ def test_does_not_import_harness_module(
     )
 
 
-def test_database_profiles_load_via_cli_path(
+def test_dataset_profiles_load_via_cli_path(
     core: ConfigCore, catalog: DeclarationCapabilityCatalog
 ) -> None:
-    """End-to-end: Database profiles.yaml merges onto role slots."""
-    bindings = load_database_profiles(CORE_DB)
+    """End-to-end: Dataset profiles.yaml merges onto role slots."""
+    bindings = resolve_job_document(CORE_DB)
     locked = core.load_and_lock(
         MINIMAL,
         "config-minimal",

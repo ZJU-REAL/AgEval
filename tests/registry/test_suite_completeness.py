@@ -14,7 +14,7 @@ from ageval.registry.archive import MEDIA_TYPE, build_archive
 from ageval.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 def _services(tmp_path: Path) -> tuple[PackageService, ResultService]:
@@ -38,7 +38,7 @@ def _publish_release(packages: PackageService, tmp_path: Path) -> None:
     auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     packages.publish(
         meta={
-            "database_id": "test/publish-min",
+            "dataset_id": "test/publish-min",
             "version": "0.1.0",
             "package_digest": compute_package_digest(FIXTURE),
             "blob_digest": blob_digest,
@@ -66,8 +66,8 @@ def _suite_meta(
     return (
         {
             "suite_run_id": suite_run_id,
-            "database_id": "test/publish-min",
-            "database_version": version,
+            "dataset_id": "test/publish-min",
+            "dataset_version": version,
             "visibility": "public",
             "blob_digest": blob,
             "size": len(archive),
@@ -92,7 +92,7 @@ def test_fail_on_all_tasks_is_complete_and_on_board(tmp_path: Path) -> None:
     payload = results.upload_suite(meta=meta, archive=archive, auth=auth)
     assert payload["complete"] is True
     assert payload["bound_kind"] == "release"
-    board = results.list_suites(auth=auth, database_id="test/publish-min", board=True)
+    board = results.list_suites(auth=auth, dataset_id="test/publish-min", board=True)
     assert [i["suite_run_id"] for i in board["items"]] == ["suite_fail_all"]
 
 
@@ -107,8 +107,8 @@ def test_missing_task_is_incomplete_hidden_from_board(tmp_path: Path) -> None:
     )
     payload = results.upload_suite(meta=meta, archive=archive, auth=auth)
     assert payload["complete"] is False
-    board = results.list_suites(auth=auth, database_id="test/publish-min", board=True)
-    jobs = results.list_suites(auth=auth, database_id="test/publish-min", board=False)
+    board = results.list_suites(auth=auth, dataset_id="test/publish-min", board=True)
+    jobs = results.list_suites(auth=auth, dataset_id="test/publish-min", board=False)
     assert board["items"] == []
     assert [i["suite_run_id"] for i in jobs["items"]] == ["suite_missing"]
 
@@ -120,7 +120,7 @@ def test_draft_bound_suite_stays_off_public_board(tmp_path: Path) -> None:
     alice = TokenInfo(scopes=frozenset({"registry:publish", "results:upload"}), user_id="alice")
     packages.publish(
         meta={
-            "database_id": "test/publish-min",
+            "dataset_id": "test/publish-min",
             "version": "0.1.0",
             "package_digest": compute_package_digest(FIXTURE),
             "blob_digest": blob_digest,
@@ -142,8 +142,8 @@ def test_draft_bound_suite_stays_off_public_board(tmp_path: Path) -> None:
     payload = results.upload_suite(meta=meta, archive=sarch, auth=alice)
     assert payload["bound_kind"] == "draft"
     assert payload["complete"] is True
-    board = results.list_suites(auth=alice, database_id="test/publish-min", board=True)
-    jobs = results.list_suites(auth=alice, database_id="test/publish-min", board=False)
+    board = results.list_suites(auth=alice, dataset_id="test/publish-min", board=True)
+    jobs = results.list_suites(auth=alice, dataset_id="test/publish-min", board=False)
     assert board["items"] == []
     assert jobs["items"][0]["suite_run_id"] == "suite_draft"
 
@@ -173,11 +173,11 @@ def test_suite_plugins_and_uploaded_by_me_filter(tmp_path: Path) -> None:
         task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
     )
     results.upload_suite(meta=meta_b, archive=arch_b, auth=bob)
-    mine = results.list_suites(auth=alice, database_id="test/publish-min", uploaded_by="me")
+    mine = results.list_suites(auth=alice, dataset_id="test/publish-min", uploaded_by="me")
     assert [i["suite_run_id"] for i in mine["items"]] == ["suite_alice"]
     empty = results.list_suites(
         auth=TokenInfo(scopes=frozenset({"results:upload"}), user_id=""),
-        database_id="test/publish-min",
+        dataset_id="test/publish-min",
         uploaded_by="me",
     )
     assert empty["items"] == []
@@ -210,7 +210,7 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
     pkg, blob_digest, size = build_archive(wider)
     packages.publish(
         meta={
-            "database_id": "test/publish-min",
+            "dataset_id": "test/publish-min",
             "version": "0.1.0",
             "package_digest": compute_package_digest(wider),
             "blob_digest": blob_digest,
@@ -223,7 +223,7 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
         archive=_as_path(tmp_path, pkg, "wider.tar.gz"),
         auth=auth,
     )
-    board = results.list_suites(auth=auth, database_id="test/publish-min", board=True)
+    board = results.list_suites(auth=auth, dataset_id="test/publish-min", board=True)
     assert [i["suite_run_id"] for i in board["items"]] == ["suite_release"]
     assert board["items"][0]["complete"] is True
     assert board["items"][0]["bound_kind"] == "release"
@@ -237,7 +237,7 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
     new_payload = results.upload_suite(meta=draft_meta, archive=draft_arch, auth=auth)
     assert new_payload["bound_kind"] == "draft"
     assert new_payload["complete"] is False
-    board_after = results.list_suites(auth=auth, database_id="test/publish-min", board=True)
+    board_after = results.list_suites(auth=auth, dataset_id="test/publish-min", board=True)
     assert [i["suite_run_id"] for i in board_after["items"]] == ["suite_release"]
 
 
@@ -248,7 +248,7 @@ def test_non_entitled_uploader_cannot_bind_private_draft(tmp_path: Path) -> None
     alice = TokenInfo(scopes=frozenset({"registry:publish", "results:upload"}), user_id="alice")
     packages.publish(
         meta={
-            "database_id": "test/publish-min",
+            "dataset_id": "test/publish-min",
             "version": "0.1.0",
             "package_digest": compute_package_digest(FIXTURE),
             "blob_digest": blob_digest,

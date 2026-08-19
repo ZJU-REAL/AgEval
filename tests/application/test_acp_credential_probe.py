@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ageval.adapters.executor_inventory import describe_acp_entry
+from ageval.plugins.executor_inventory import describe_acp_entry
 from ageval.application.attempt.probe_command import _probe_first_party
 
 

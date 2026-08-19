@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ageval.adapters.executor_inventory import known_executor_kinds, supported_executor_kinds
-from ageval.adapters.path_probe import probe_commands
+from ageval.plugins.executor_inventory import known_executor_kinds, supported_executor_kinds
+from ageval.plugins.contrib.acp.path_probe import probe_commands
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 
 

@@ -16,12 +16,12 @@ from ageval.viewer import browse
 from ageval.viewer.server import make_handler, serve_viewer
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
-def test_database_overview_suite_min() -> None:
-    ov = browse.database_overview(SUITE)
-    assert ov["database_id"] == "test/suite-min"
+def test_dataset_overview_suite_min() -> None:
+    ov = browse.dataset_overview(SUITE)
+    assert ov["dataset_id"] == "test/suite-min"
     assert ov["task_count"] >= 3
     assert "alpha" in ov["task_ids"]
 
@@ -151,7 +151,7 @@ def test_normalize_open_path_rejects_urls() -> None:
 def test_http_removed_package_browse_404(viewer_server: str) -> None:
     """Old package-file browse endpoints are not part of the product surface."""
     for path in (
-        "/api/database",
+        "/api/dataset",
         "/api/commands",
         "/api/tasks/alpha",
         "/api/tasks/alpha/tree",

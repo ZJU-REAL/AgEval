@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ageval.adapters.agent_contract import (
+from ageval.plugins.agent_result import (
     RESULT_HEALTH_NOOP_TURN,
     observational_result_health,
     parse_validated_text_structured,

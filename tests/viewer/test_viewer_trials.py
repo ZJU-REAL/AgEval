@@ -12,7 +12,7 @@ from ageval.config.errors import ConfigError
 from ageval.viewer import jobs, trials
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
@@ -21,8 +21,8 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
     summary = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
-        "database_id": "test/suite-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/suite-min",
+        "dataset_version": "0.1.0",
         "agent_label": "codex",
         "model_label": "gpt-test",
         "provider_label": "openai",
@@ -356,7 +356,7 @@ def test_get_trial_opens_previous_without_listing_it(tmp_path: Path) -> None:
     summary = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
-        "database_id": "test/suite-min",
+        "dataset_id": "test/suite-min",
         "tasks": [{"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_new"}],
         "attempts": [
             {

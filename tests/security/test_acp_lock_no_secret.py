@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw

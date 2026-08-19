@@ -83,7 +83,7 @@ def test_publish_command_concatenates_short_id(tmp_path: Path) -> None:
                 "Info",
                 (),
                 {
-                    "database_id": kwargs["database_id"],
+                    "dataset_id": kwargs["dataset_id"],
                     "version": kwargs["version"],
                     "visibility": kwargs["visibility"],
                     "package_digest": kwargs["package_digest"],
@@ -177,7 +177,7 @@ def test_release_dict_marks_official_from_allowlist() -> None:
 
     official = release_to_dict(
         ReleaseRow(
-            database_id="Official/nooa",
+            dataset_id="Official/nooa",
             version="0.1.0",
             visibility="public",
             package_digest="sha256:a",
@@ -190,7 +190,7 @@ def test_release_dict_marks_official_from_allowlist() -> None:
     )
     other = release_to_dict(
         ReleaseRow(
-            database_id="acme/nooa",
+            dataset_id="acme/nooa",
             version="0.1.0",
             visibility="public",
             package_digest="sha256:a",

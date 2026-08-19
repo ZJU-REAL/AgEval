@@ -15,7 +15,7 @@ import pytest
 from ageval.viewer.server import make_handler
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _minimal_spa(tmp_path: Path) -> Path:

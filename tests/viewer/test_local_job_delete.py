@@ -13,7 +13,7 @@ from ageval.config.errors import ConfigError
 from ageval.viewer import jobs
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _clean_db(tmp_path: Path) -> Path:
@@ -73,7 +73,7 @@ def _seed_suite(
         {
             "schema": "ageval.suite.summary/1",
             "suite_run_id": job_id,
-            "database_id": "test/suite-min",
+            "dataset_id": "test/suite-min",
             "tasks": tasks,
             "task_refs": refs,
             "attempts": [
@@ -155,7 +155,7 @@ def test_delete_suite_cascades_previous_attempts(tmp_path: Path) -> None:
         {
             "schema": "ageval.suite.summary/1",
             "suite_run_id": job_id,
-            "database_id": "test/suite-min",
+            "dataset_id": "test/suite-min",
             "tasks": [{"task_id": "alpha", "status": "PASS", "run_id": "run_new"}],
             "task_refs": [
                 {

@@ -17,7 +17,7 @@ from ageval.application.suite.suite_run import (
 )
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 @pytest.mark.asyncio
@@ -30,7 +30,7 @@ async def test_cancel_stops_new_units() -> None:
         calls.append(task_id)
         if task_id == "alpha":
             # After first unit starts, request cancel so remaining are not run.
-            request_suite_cancel(plan.database_root, plan.suite_run_id)
+            request_suite_cancel(plan.dataset_root, plan.suite_run_id)
             await asyncio.sleep(0.05)
         await asyncio.sleep(0.02)
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
@@ -38,7 +38,7 @@ async def test_cancel_stops_new_units() -> None:
 
     summary = await execute_suite_run(plan, run_fn=runner)
     assert summary.get("cancelled") is True
-    assert is_suite_cancel_requested(plan.database_root, plan.suite_run_id)
+    assert is_suite_cancel_requested(plan.dataset_root, plan.suite_run_id)
     # At most alpha fully ran; beta/gamma cancelled (or not started as real runs).
     assert "alpha" in calls
     assert len(calls) < 3
@@ -79,7 +79,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
     async def runner1(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         first_calls.append(task_id)
         if task_id == "alpha":
-            request_suite_cancel(plan.database_root, plan.suite_run_id)
+            request_suite_cancel(plan.dataset_root, plan.suite_run_id)
             await asyncio.sleep(0.05)
         await asyncio.sleep(0.02)
         run_id = f"sha256_dead_run_{task_id}_1"
@@ -98,7 +98,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
     suite_id = first["suite_run_id"]
     cancelled = [a for a in first["attempts"] if a.get("phase") == "cancelled"]
     assert cancelled
-    assert is_suite_cancel_requested(plan.database_root, suite_id)
+    assert is_suite_cancel_requested(plan.dataset_root, suite_id)
 
     plan2 = plan_suite_run(
         SUITE,
@@ -125,7 +125,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
     second = await execute_suite_run(plan2, run_fn=runner2, resume=True)
     assert second.get("resumed") is True
     # Cancel file cleared so scheduling works again.
-    assert not is_suite_cancel_requested(plan.database_root, suite_id)
+    assert not is_suite_cancel_requested(plan.dataset_root, suite_id)
     # Cancelled slots re-ran; finished alpha not re-run.
     assert "alpha" not in second_calls
     assert (

@@ -11,7 +11,7 @@ from ageval.plugins.store import install_from_path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "tests/fixtures/plugins/host-probe"
-DB = ROOT / "tests/fixtures/databases/probe-min"
+DB = ROOT / "tests/fixtures/datasets/probe-min"
 SECRET = "sk-probe-must-never-appear"
 
 
@@ -43,7 +43,7 @@ def test_l0_missing_import_fails_probe(ageval_home: Path, monkeypatch: pytest.Mo
     del ageval_home
     monkeypatch.delenv("PROBE_API_KEY", raising=False)
     payload, ready = build_probe_command().run(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l0-task",
         environ={},
     )
@@ -61,7 +61,7 @@ def test_l0_import_present_and_locator_ready(
     del ageval_home
     _vendor_sdk(tmp_path, monkeypatch)
     payload, ready = build_probe_command().run(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l0-task",
         environ={"PROBE_API_KEY": SECRET},
     )
@@ -78,7 +78,7 @@ def test_l1_passes_without_host_import(ageval_home: Path, monkeypatch: pytest.Mo
     del ageval_home
     monkeypatch.delenv("PROBE_API_KEY", raising=False)
     payload, ready = build_probe_command().run(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l1-task",
         environ={"PROBE_API_KEY": "x"},
         docker_reachable=lambda: True,
@@ -88,18 +88,18 @@ def test_l1_passes_without_host_import(ageval_home: Path, monkeypatch: pytest.Mo
     ids = {c["id"] for c in payload["probe"]["checks"]}
     assert "host_import" not in ids
     assert "l1_contribute_selected" in ids
-    assert "l1_bake_declared" in ids
+    assert "bake_recipe_declared" in ids
     assert "docker_daemon" in ids
     selected = next(c for c in payload["probe"]["checks"] if c["id"] == "l1_contribute_selected")
     assert selected["ok"] is True
-    bake = next(c for c in payload["probe"]["checks"] if c["id"] == "l1_bake_declared")
+    bake = next(c for c in payload["probe"]["checks"] if c["id"] == "bake_recipe_declared")
     assert bake["ok"] is True
 
 
 def test_l1_executor_without_extensions_fails(ageval_home: Path) -> None:
     del ageval_home
     payload, ready = build_probe_command().run(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l1-task",
         profiles_path=DB / "profiles.no-ext.yaml",
         environ={"PROBE_API_KEY": "x"},
@@ -108,14 +108,14 @@ def test_l1_executor_without_extensions_fails(ageval_home: Path) -> None:
     assert ready is False
     selected = next(c for c in payload["probe"]["checks"] if c["id"] == "l1_contribute_selected")
     assert selected["ok"] is False
-    bake = next(c for c in payload["probe"]["checks"] if c["id"] == "l1_bake_declared")
+    bake = next(c for c in payload["probe"]["checks"] if c["id"] == "bake_recipe_declared")
     assert bake["ok"] is False
 
 
 def test_l1_docker_down_fails(ageval_home: Path) -> None:
     del ageval_home
     payload, ready = build_probe_command().run(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l1-task",
         environ={"PROBE_API_KEY": "x"},
         docker_reachable=lambda: False,
@@ -127,9 +127,9 @@ def test_l1_docker_down_fails(ageval_home: Path) -> None:
 
 def test_probe_does_not_change_lock_digest(ageval_home: Path) -> None:
     del ageval_home
-    locked = build_lock_command().run(database_root=DB, task_id="l0-task")
+    locked = build_lock_command().run(dataset_root=DB, task_id="l0-task")
     probed, _ready = build_probe_command().run(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l0-task",
         environ={},
     )
@@ -151,7 +151,7 @@ def test_probe_reads_dataset_dotenv(
     link.symlink_to(env_file)
     try:
         payload, _ready = build_probe_command().run(
-            database_root=DB,
+            dataset_root=DB,
             task_id="l0-task",
         )
     finally:
@@ -168,7 +168,7 @@ def test_offline_is_reported(ageval_home: Path, monkeypatch: pytest.MonkeyPatch)
     del ageval_home
     monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")
     payload, _ready = build_probe_command().run(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l0-task",
         environ={},
     )
@@ -236,12 +236,12 @@ def test_probe_walks_extension_plugin_requires(
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
     locked, _extra = build_lock_command().lock_with_provenance(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l0-task",
         profiles_path=profiles,
     )
     locked_l1, _ = build_lock_command().lock_with_provenance(
-        database_root=DB,
+        dataset_root=DB,
         task_id="l1-task",
         profiles_path=profiles,
     )

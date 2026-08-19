@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.application.attempt.run_harness import run_harness_package
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.load_and_lock import ConfigCore
@@ -101,16 +101,16 @@ async def test_harness_reaps_same_group_grandchild(tmp_path: Path) -> None:
                 "from __future__ import annotations",
                 "import os",
                 "import time",
-                "from ageval_sdk import HarnessContext, HarnessTerminal",
+                "from ageval_sdk import RunContext, RunTerminal",
                 "",
-                "async def run(ctx: HarnessContext) -> HarnessTerminal:",
+                "async def run(ctx: RunContext) -> RunTerminal:",
                 "    pid = os.fork()",
                 "    if pid == 0:",
                 "        time.sleep(30)",
                 "        os._exit(0)",
                 "    time.sleep(0.1)",
                 "    ctx.publish_json('result', {'grandchild_pid': pid})",
-                "    return HarnessTerminal.completed('spawned-grandchild')",
+                "    return RunTerminal.completed('spawned-grandchild')",
                 "",
             ]
         ),

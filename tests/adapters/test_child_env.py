@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ageval.adapters.child_env import (
+from ageval.plugins.contrib.acp.child_env import (
     cli_credential_available,
     entry_credentials_missing,
     project_cli_child_env,

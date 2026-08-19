@@ -1,4 +1,4 @@
-"""Database profiles.yaml merge + fail-closed role binding (#59)."""
+"""Dataset profiles.yaml merge + fail-closed role binding (#59)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
@@ -17,7 +17,7 @@ from ageval.config.profiles import (
     display_agent_name,
     display_labels_from_overlay,
     join_display_names,
-    load_profiles_document,
+    load_job_document,
     merge_bindings_onto_slots,
     project_job_overlay,
 )
@@ -142,7 +142,7 @@ def test_profiles_document_parse(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    bindings = load_profiles_document(path)
+    bindings = load_job_document(path)
     assert "solver" in bindings
     assert bindings["solver"]["model"] == "m"
 
@@ -180,7 +180,7 @@ def test_job_overlay_omits_secrets() -> None:
 def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
     from ageval.config.profiles import (
         job_overlay_to_profiles_document,
-        load_profiles_document,
+        load_job_document,
         write_profiles_yaml,
     )
 
@@ -197,7 +197,7 @@ def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
     doc = job_overlay_to_profiles_document(overlay)
     path = tmp_path / "profiles.from-suite.yaml"
     write_profiles_yaml(path, doc)
-    loaded = load_profiles_document(path)
+    loaded = load_job_document(path)
     assert loaded["solver"]["extensions"][0]["options"]["entry"] == "pi"
     assert loaded["solver"]["api_key"] == "${LOC}"
 
@@ -297,7 +297,7 @@ def test_unknown_binding_key_fail_closed(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(ConfigError) as ei:
-        load_profiles_document(path)
+        load_job_document(path)
     assert ei.value.error_code == "invalid_schema"
     assert "unknown binding keys" in str(ei.value)
 
@@ -315,7 +315,7 @@ def test_top_level_overlays_fail_closed(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(ConfigError) as ei:
-        load_profiles_document(path)
+        load_job_document(path)
     assert ei.value.error_code == "invalid_schema"
     assert "unknown profiles keys" in str(ei.value)
 
@@ -357,5 +357,5 @@ def test_export_profiles_roundtrips_overlays(tmp_path: Path) -> None:
     doc = job_overlay_to_profiles_document(overlay)
     path = tmp_path / "profiles.from-suite.yaml"
     write_profiles_yaml(path, doc)
-    loaded = load_profiles_document(path)
+    loaded = load_job_document(path)
     assert loaded["solver"]["overlays"] == ["overlays/AGENTS.md"]

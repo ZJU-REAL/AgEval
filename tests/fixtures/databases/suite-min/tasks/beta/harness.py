@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from ageval_sdk import HarnessTerminal
+from ageval_sdk import RunTerminal
 
 
 async def run(ctx):
@@ -13,4 +13,4 @@ async def run(ctx):
     ok = bool(expect) if not isinstance(expect, str) else expect.lower() == "true"
     payload = {"ok": ok, "task": "beta"}
     ctx.publish_json("result", payload)
-    return HarnessTerminal.completed()
+    return RunTerminal.completed()

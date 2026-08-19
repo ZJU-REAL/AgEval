@@ -39,16 +39,16 @@ def _attempt(digest: str = "sha256:" + "a" * 64):
 
 @pytest.mark.asyncio
 async def test_run_lifecycle_uses_passed_attempt() -> None:
-    from ageval.adapters.package_fs import LocalPackageReader
+    from ageval.config.package_fs import LocalPackageReader
     from ageval.config.capabilities import DeclarationCapabilityCatalog
     from ageval.config.load_and_lock import ConfigCore
-    from ageval.config.profiles import load_database_profiles
+    from ageval.config.profiles import resolve_job_document
 
     lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
         CORE / "tasks" / "config-minimal",
         "config-minimal",
         capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=load_database_profiles(CORE),
+        profile_bindings=resolve_job_document(CORE),
     )
     attempt = _attempt(lock.digest)
     record = await run_lifecycle(lock, ScriptedLifecycleStages(), attempt=attempt)

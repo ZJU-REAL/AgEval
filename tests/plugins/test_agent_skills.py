@@ -224,7 +224,7 @@ def test_home_overlay_src_from_agent_package_not_dataset(ageval_home: Path, tmp_
 
     import yaml
 
-    from ageval.adapters.package_fs import LocalPackageReader
+    from ageval.config.package_fs import LocalPackageReader
     from ageval.agents import store
     from ageval.application.attempt.extension_hooks import hook_home_overlay
     from ageval.config.capabilities import DeclarationCapabilityCatalog
@@ -273,7 +273,7 @@ def test_home_overlay_src_from_agent_package_not_dataset(ageval_home: Path, tmp_
     db = tmp_path / "db"
     (db / "tasks" / "t").mkdir(parents=True)
     (db / "ageval.yaml").write_text(
-        "format: ageval.dataset/1\ndatabase_id: example/ov\nversion: '0.1.0'\n"
+        "format: ageval.dataset/1\ndataset_id: example/ov\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )

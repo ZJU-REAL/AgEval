@@ -22,7 +22,7 @@ from ageval.application.composition import (
 from ageval.registry.client import RegistryClient
 from ageval.registry.credentials import write_credentials
 
-publish_database = build_publish_command().publish_database
+publish_dataset = build_publish_command().publish_dataset
 _list = build_registry_list_commands()
 cache_list = _list.cache_list
 list_packages = _list.list_packages
@@ -36,7 +36,7 @@ upload_attempt_result = _results.upload_attempt_result
 upload_suite_result = _results.upload_suite_result
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 TEST_ORG = "test"
 
@@ -97,10 +97,10 @@ def test_list_private_packages_with_and_without_token(
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
     _ensure_org()
-    publish_database(FIXTURE, public=False, org=TEST_ORG)
+    publish_dataset(FIXTURE, public=False, org=TEST_ORG)
     listed = list_packages()
     assert listed["count"] >= 1
-    assert any(i["database_id"] == "test/publish-min" for i in listed["items"])
+    assert any(i["dataset_id"] == "test/publish-min" for i in listed["items"])
 
     # No token: private packages filtered out.
     monkeypatch.delenv("AGEVAL_REGISTRY_TOKEN", raising=False)
@@ -119,7 +119,7 @@ def test_show_matches_publish(
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
     _ensure_org()
-    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
+    summary = publish_dataset(FIXTURE, public=False, org=TEST_ORG)
     shown = show_package(summary["ref"])
     assert shown["package_digest"] == summary["package_digest"]
     assert shown["blob_digest"] == summary["blob_digest"]
@@ -149,7 +149,7 @@ def test_results_upload_get_roundtrip(
     assert up["ok"] is True
     assert up["run_id"] == run_id
 
-    listed = list_attempt_results(database_id="test/publish-min")
+    listed = list_attempt_results(dataset_id="test/publish-min")
     assert listed["count"] == 1
 
     out = tmp_path / "restored"
@@ -223,7 +223,7 @@ def test_oauth_device_flow_mocked(
     write_credentials(url=registry_server["url"], token=tok, path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))
     _ensure_org()
-    summary = publish_database(FIXTURE, public=True, org=TEST_ORG)
+    summary = publish_dataset(FIXTURE, public=True, org=TEST_ORG)
     assert summary["ok"] is True
 
 
@@ -299,8 +299,8 @@ def _write_suite_summary(db: Path, suite_run_id: str) -> Path:
     summary = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0.1.0",
         "tasks": [
             {"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "r1"},
             {"task_id": "b", "status": "FAIL", "score": 0.0, "run_id": "r2"},
@@ -381,7 +381,7 @@ def test_suite_results_upload_get_list_roundtrip(
     )
     assert "sk-" not in str(up.get("job_overlay"))
 
-    listed = list_suite_results(database_id="test/publish-min")
+    listed = list_suite_results(dataset_id="test/publish-min")
     assert listed["count"] == 1
     assert listed["items"][0]["suite_run_id"] == suite_run_id
     assert listed["items"][0]["agent_label"] == "codex"
@@ -442,8 +442,8 @@ def test_suite_results_recompute_metrics_when_missing(tmp_path: Path) -> None:
     summary = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0.1.0",
         "tasks": [
             {"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "r1"},
             {"task_id": "b", "status": "FAIL", "score": 0.0, "run_id": "r2"},
@@ -475,8 +475,8 @@ def test_suite_upload_preserves_pass_at_k_metrics(
     summary = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0.1.0",
         "n_attempts": 2,
         "attempts": [
             {"task_id": "a", "attempt_index": 0, "status": "PASS", "run_id": "a0"},
@@ -518,7 +518,7 @@ def test_suite_upload_preserves_pass_at_k_metrics(
     assert up["metrics"]["n_attempts"] == 2
     assert up["task_refs"][0]["attempt_run_ids"] == ["a0", "a1"]
 
-    listed = list_suite_results(database_id="test/publish-min")
+    listed = list_suite_results(dataset_id="test/publish-min")
     item = next(i for i in listed["items"] if i["suite_run_id"] == suite_run_id)
     assert item["metrics"]["pass_at_k"]["2"]["n_tasks"] == 2
     assert item["metrics"]["k_values"] == [1, 2]
@@ -581,8 +581,8 @@ def test_suite_upload_rejects_suite_pass_field(
 
     meta = {
         "suite_run_id": "suite_bad",
-        "database_id": "test/x",
-        "database_version": "0",
+        "dataset_id": "test/x",
+        "dataset_version": "0",
         "visibility": "private",
         "pass_rate": 1.0,
         "mean_score": 1.0,
@@ -681,7 +681,7 @@ def test_suite_upload_with_attempts_and_has_content_projection(
     up_summary = upload_suite_result(db, suite_run_id=suite_run_id, public=True)
     assert up_summary["ok"] is True
     assert "attempts" not in up_summary or up_summary.get("with_attempts") is not True
-    listed = list_suite_results(database_id="test/publish-min")
+    listed = list_suite_results(dataset_id="test/publish-min")
     refs0 = listed["items"][0]["task_refs"]
     assert all(r.get("has_attempt_content") is False for r in refs0)
 
@@ -756,7 +756,7 @@ def test_suite_with_attempts_missing_run_dir_fails_closed(
     assert ei.value.error_code == "invalid_package"
     assert "missing local run dir" in str(ei.value).lower() or "missing" in str(ei.value).lower()
     # Suite must not have been uploaded when preflight fails
-    listed = list_suite_results(database_id="test/publish-min")
+    listed = list_suite_results(dataset_id="test/publish-min")
     assert all(i.get("suite_run_id") != suite_run_id for i in listed["items"])
 
 
@@ -807,7 +807,7 @@ def test_has_attempt_content_respects_attempt_visibility(
     )
 
     anon = RegistryClient(registry_server["url"], token=None)
-    items = anon.list_suites(database_id="test/publish-min")
+    items = anon.list_suites(dataset_id="test/publish-min")
     hit = next(i for i in items if i.get("suite_run_id") == suite_run_id)
     for ref in hit["task_refs"]:
         if ref.get("run_id"):
@@ -862,8 +862,8 @@ def test_with_attempts_rejects_traversal_run_id(
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0",
         "pass_rate": 1.0,
         "mean_score": 1.0,
         "metrics": {"n_pass": 1, "n_fail": 0, "n_error": 0, "n_total": 1},

@@ -1,4 +1,4 @@
-"""Eval-mini example Databases lock offline (mock default binding + --agent lane)."""
+"""Eval-mini example Datasets lock offline (mock default binding + --agent lane)."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def _lock(env: dict[str, str], db: str, task: str, *extra: str) -> dict:
 
 
 @pytest.mark.parametrize(("db", "task"), CASES)
-def test_lock_with_database_profiles(env: dict[str, str], db: str, task: str) -> None:
+def test_lock_with_dataset_profiles(env: dict[str, str], db: str, task: str) -> None:
     summary = _lock(env, db, task)
     binding = summary["job_overlay"]["bindings"]["solver"]
     assert binding["executor"] == "mock"

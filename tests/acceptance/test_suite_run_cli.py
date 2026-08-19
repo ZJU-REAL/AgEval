@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _ageval(*args: str) -> subprocess.CompletedProcess[str]:
@@ -32,7 +32,7 @@ def test_suite_full_concurrent_cli() -> None:
     assert r.stdout.strip().startswith("{"), (r.stdout, r.stderr)
     data = json.loads(r.stdout.strip().splitlines()[-1])
     assert data.get("schema") == "ageval.suite.summary/1"
-    assert data.get("database_id") == "test/suite-min"
+    assert data.get("dataset_id") == "test/suite-min"
     assert "tasks" in data and len(data["tasks"]) >= 3
     assert data.get("counts", {}).get("pass", 0) >= 3
     assert data.get("counts", {}).get("fail", 0) >= 1

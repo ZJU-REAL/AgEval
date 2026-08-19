@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from tests.helpers.extension_registry import registry_with_executor
 
-from ageval.adapters.agent_contract import AgentResult
+from ageval.plugins.agent_result import AgentResult
 from ageval.runtime.agent_service_protocol import (
     AgentServiceServer,
     agent_service_client_call,

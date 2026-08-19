@@ -14,12 +14,12 @@ from ageval.evidence.locators import (
 from ageval.evidence.store import AttemptEvidenceStore
 
 
-def test_portable_run_locator_relative_to_database(tmp_path: Path) -> None:
+def test_portable_run_locator_relative_to_dataset(tmp_path: Path) -> None:
     db = tmp_path / "my-db"
     run = db / ".ageval" / "runs" / "sha256_deadbeef_run_abc123"
     run.mkdir(parents=True)
-    assert portable_run_locator(run, database_root=db) == ".ageval/runs/sha256_deadbeef_run_abc123"
-    # Without database_root, still strip to .ageval/runs/<id>
+    assert portable_run_locator(run, dataset_root=db) == ".ageval/runs/sha256_deadbeef_run_abc123"
+    # Without dataset_root, still strip to .ageval/runs/<id>
     assert portable_run_locator(run) == ".ageval/runs/sha256_deadbeef_run_abc123"
 
 
@@ -40,7 +40,7 @@ def test_store_locator_and_summary_portable(tmp_path: Path) -> None:
         root=run,
         attempt_id="attempt_1",
         run_id="run_1",
-        database_root=db,
+        dataset_root=db,
     )
     assert store.locator == f".ageval/runs/{run_id}"
     store.write_summary({"status": "PASS", "score": 1.0, "logs": store.locator})
@@ -104,7 +104,7 @@ def test_write_l1_evidence_portable(tmp_path: Path) -> None:
         doc,
         {"executor_containment": "attempt-container"},
         {"probe": True},
-        database_root=db,
+        dataset_root=db,
     )
     result = json.loads((run / "result.json").read_text(encoding="utf-8"))
     summary = json.loads((run / "summary.json").read_text(encoding="utf-8"))
@@ -113,7 +113,7 @@ def test_write_l1_evidence_portable(tmp_path: Path) -> None:
         text = json.dumps(blob)
         assert "/Users/" not in text
         assert "/var/folders/" not in text
-        # Sealed locators must not embed the host Database absolute path
+        # Sealed locators must not embed the host Dataset absolute path
         assert str(db.resolve()) not in text
     assert result["logs"] == f".ageval/runs/{rid}"
     assert result["evidence_path"] == f".ageval/runs/{rid}"
@@ -128,7 +128,7 @@ def test_export_source_evidence_portable(tmp_path: Path) -> None:
     db = tmp_path / "db"
     rid = "sha256_exp_run_1"
     run = db / ".ageval" / "runs" / rid
-    store = AttemptEvidenceStore(root=run, attempt_id="a", database_root=db)
+    store = AttemptEvidenceStore(root=run, attempt_id="a", dataset_root=db)
     h = store.begin_invocation(profile_id="p", executor_kind="codex", model="m")
     h.write_request({"messages": [{"role": "user", "content": "hi"}]})
     h.seal(

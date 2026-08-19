@@ -18,7 +18,7 @@ from ageval.application.suite.suite_run import (
 from ageval.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def test_extract_run_id_from_absolute_or_relative(tmp_path: Path) -> None:
@@ -34,7 +34,7 @@ def test_extract_run_id_from_absolute_or_relative(tmp_path: Path) -> None:
 
 def test_plan_full_and_single() -> None:
     plan = plan_suite_run(SUITE)
-    assert plan.database_id == "test/suite-min"
+    assert plan.dataset_id == "test/suite-min"
     assert set(plan.task_ids) >= {"alpha", "beta", "gamma", "delta-fail"}
     assert plan.max_concurrent_tasks == 2  # from defaults
 

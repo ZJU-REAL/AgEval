@@ -74,14 +74,14 @@ def test_stale_agent_result_cannot_force_pass(tmp_path: Path) -> None:
     db.mkdir()
     (db / "ageval.yaml").write_text(
         "format: ageval.dataset/1\n"
-        "database_id: test/stale-agent\n"
+        "dataset_id: test/stale-agent\n"
         'version: "0.0.1"\n'
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
     task_dir = db / "tasks" / "sdk-agent-session"
     shutil.copytree(REPO / "examples" / "core" / "tasks" / "sdk-agent-session", task_dir)
-    # Job bindings live at Database root (#59).
+    # Job bindings live at Dataset root (#59).
     shutil.copy(
         REPO / "examples" / "core" / "profiles.yaml",
         db / "profiles.yaml",

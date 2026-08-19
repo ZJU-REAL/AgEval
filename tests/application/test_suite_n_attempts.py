@@ -19,7 +19,7 @@ from ageval.application.suite.suite_run import (
 from ageval.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def test_plan_n_attempts_default_and_reject() -> None:

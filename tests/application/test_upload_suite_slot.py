@@ -14,7 +14,7 @@ from ageval.config.errors import ConfigError
 
 def _seed(db: Path, *, suite_id: str = "suite1") -> None:
     (db / "ageval.yaml").write_text(
-        "format: ageval.dataset/1\ndatabase_id: test/db\nversion: 0.1.0\n",
+        "format: ageval.dataset/1\ndataset_id: test/db\nversion: 0.1.0\n",
         encoding="utf-8",
     )
     suite_dir = db / ".ageval" / "suite-runs" / suite_id
@@ -23,8 +23,8 @@ def _seed(db: Path, *, suite_id: str = "suite1") -> None:
         """{
   "schema": "ageval.suite.summary/1",
   "suite_run_id": "suite1",
-  "database_id": "test/db",
-  "database_version": "0.1.0",
+  "dataset_id": "test/db",
+  "dataset_version": "0.1.0",
   "exit_code": 0,
   "config_fingerprint": "sha256:fp",
   "amended": true,
@@ -109,7 +109,7 @@ def test_append_slot_resolves_always_k_index_from_attempts(tmp_path: Path) -> No
     db = tmp_path / "dbk"
     db.mkdir()
     (db / "ageval.yaml").write_text(
-        "format: ageval.dataset/1\ndatabase_id: test/db\nversion: 0.1.0\n",
+        "format: ageval.dataset/1\ndataset_id: test/db\nversion: 0.1.0\n",
         encoding="utf-8",
     )
     suite_dir = db / ".ageval" / "suite-runs" / "suitek"
@@ -118,8 +118,8 @@ def test_append_slot_resolves_always_k_index_from_attempts(tmp_path: Path) -> No
         """{
   "schema": "ageval.suite.summary/1",
   "suite_run_id": "suitek",
-  "database_id": "test/db",
-  "database_version": "0.1.0",
+  "dataset_id": "test/db",
+  "dataset_version": "0.1.0",
   "exit_code": 0,
   "attempts": [
     {"task_id": "hello", "attempt_index": 0, "status": "FAIL", "run_id": "idx0"},

@@ -7,7 +7,7 @@ import shutil
 
 import pytest
 
-from ageval.adapters.executor_capabilities import BUILTIN_CAPABILITIES
+from ageval.plugins.executor_capabilities import BUILTIN_CAPABILITIES
 from ageval.plugins.contrib.acp import AcpExecutor
 from ageval.plugins.contrib.acp.registry import get_entry, list_entry_ids, readiness_for
 

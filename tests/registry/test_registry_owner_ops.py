@@ -21,7 +21,7 @@ from ageval.config.errors import ConfigError
 from ageval.registry.client import RegistryClient, RegistryError
 from ageval.registry.credentials import write_credentials
 
-publish_database = build_publish_command().publish_database
+publish_dataset = build_publish_command().publish_dataset
 _list = build_registry_list_commands()
 delete_package_release = _list.delete_package_release
 set_package_visibility = _list.set_package_visibility
@@ -34,7 +34,7 @@ upload_attempt_result = _results.upload_attempt_result
 upload_suite_result = _results.upload_suite_result
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 @pytest.fixture()
@@ -93,8 +93,8 @@ def _seed_suite(tmp_path: Path, *, suite_run_id: str, attempt_run_id: str) -> Pa
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0.1.0",
         "pass_rate": 1.0,
         "mean_score": 1.0,
         "metrics": {"pass_rate": 1.0, "mean_score": 1.0},
@@ -258,14 +258,14 @@ def test_package_delete_and_visibility_org_owner_only(
     boot.add_org_member(org_id="ownlab", user_id="bob", role="member")
 
     _env_as(monkeypatch, tmp_path, url=url, token=registry_server["token"])
-    pub = publish_database(FIXTURE, public=False, org="ownlab")
-    ref = f"{pub['database_id']}@{pub['version']}"
+    pub = publish_dataset(FIXTURE, public=False, org="ownlab")
+    ref = f"{pub['dataset_id']}@{pub['version']}"
 
     # owner (bootstrap) can set visibility
     flipped = set_package_visibility(ref, visibility="public")
     assert flipped["visibility"] == "public"
     bob = RegistryClient(url, token=bob_tok)
-    assert bob.get_metadata(database_id=pub["database_id"], version=pub["version"]).visibility == (
+    assert bob.get_metadata(dataset_id=pub["dataset_id"], version=pub["version"]).visibility == (
         "public"
     )
 
@@ -281,7 +281,7 @@ def test_package_delete_and_visibility_org_owner_only(
     deleted = delete_package_release(ref)
     assert deleted["ok"] is True
     with pytest.raises(RegistryError) as ei:
-        boot.get_metadata(database_id=pub["database_id"], version=pub["version"])
+        boot.get_metadata(dataset_id=pub["dataset_id"], version=pub["version"])
     assert ei.value.status == 404
 
 
@@ -338,16 +338,16 @@ def test_package_replace_conflict_and_owner(
     boot.create_org(name="replacelab")
     _env_as(monkeypatch, tmp_path, url=url, token=registry_server["token"])
 
-    first = publish_database(FIXTURE, public=False, org="replacelab")
+    first = publish_dataset(FIXTURE, public=False, org="replacelab")
     assert first["ok"] is True
 
     with pytest.raises(ConfigError) as ei:
-        publish_database(FIXTURE, public=False, org="replacelab")
+        publish_dataset(FIXTURE, public=False, org="replacelab")
     assert "already exists" in str(ei.value).lower() or "conflict" in str(ei.value).lower()
 
-    again = publish_database(FIXTURE, public=True, org="replacelab", replace=True)
+    again = publish_dataset(FIXTURE, public=True, org="replacelab", replace=True)
     assert again["ok"] is True
     assert again.get("replaced") is True
     assert again["visibility"] == "public"
-    meta = boot.get_metadata(database_id=first["database_id"], version=first["version"])
+    meta = boot.get_metadata(dataset_id=first["dataset_id"], version=first["version"])
     assert meta.visibility == "public"

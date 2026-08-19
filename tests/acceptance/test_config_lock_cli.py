@@ -34,8 +34,8 @@ def test_success_smoke() -> None:
     data = json.loads(result.stdout)
     assert data["task_id"] == "config-minimal"
     assert data["format"] == "ageval.task/1"
-    assert data["database_id"] == "example/core"
-    assert data["database_version"] == "0.1.0"
+    assert data["dataset_id"] == "example/core"
+    assert data["dataset_version"] == "0.1.0"
     assert data["digest"].startswith("sha256:")
     assert "resolved_references" in data
     assert "resolution" in data
@@ -87,7 +87,7 @@ def test_override_changes_digest() -> None:
 def test_no_ageval_artifacts_on_success(tmp_path: Path) -> None:
     result = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal", cwd=tmp_path)
     assert result.returncode == 0, result.stderr
-    # `ageval lock` is read-only: must not create a lock store under cwd or Database.
+    # `ageval lock` is read-only: must not create a lock store under cwd or Dataset.
     assert not (tmp_path / ".ageval").exists()
     assert not (MINIMAL / ".ageval" / "locks").exists()
 
@@ -109,7 +109,7 @@ def test_tasks_list_journeys() -> None:
     result = _run_ageval("tasks", str(REPO / "examples" / "journeys"))
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
-    assert data["database_id"] == "example/journeys"
+    assert data["dataset_id"] == "example/journeys"
     assert data["count"] == 4
     assert "terminal-jsonl-agg" in data["tasks"]
 

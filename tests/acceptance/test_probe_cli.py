@@ -14,7 +14,7 @@ from ageval.plugins.store import install_from_path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "tests/fixtures/plugins/host-probe"
-DB = ROOT / "tests/fixtures/databases/probe-min"
+DB = ROOT / "tests/fixtures/datasets/probe-min"
 CORE = ROOT / "examples/core"
 SECRET = "sk-cli-probe-secret"
 
@@ -107,7 +107,7 @@ def test_lock_probe_l1_without_host_import(
     assert data["probe"]["path"] == "l1"
     assert SECRET not in result.stdout
     assert not any(c["id"] == "host_import" for c in data["probe"]["checks"])
-    bake = next(c for c in data["probe"]["checks"] if c["id"] == "l1_bake_declared")
+    bake = next(c for c in data["probe"]["checks"] if c["id"] == "bake_recipe_declared")
     assert bake["ok"] is True
     # Docker may be down in CI; only assert bake + no secret + no host_import.
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ageval.adapters.child_env import project_cli_child_env
+from ageval.plugins.contrib.acp.child_env import project_cli_child_env
 from ageval.evidence.store import AttemptEvidenceStore
 from ageval.runtime.parent_agent_service import ParentAgentService
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.package_fs import LocalPackageReader
 from ageval.application.attempt.run_capability_probe import run_capability_probe
 from ageval.capabilities.errors import CapabilityError
 from ageval.config.capabilities import DeclarationCapabilityCatalog
@@ -17,9 +17,9 @@ MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 
 
 def _lock():
-    from ageval.config.profiles import load_database_profiles
+    from ageval.config.profiles import resolve_job_document
 
-    bindings = load_database_profiles(REPO / "examples" / "core")
+    bindings = resolve_job_document(REPO / "examples" / "core")
     return ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
         MINIMAL,
         "config-minimal",

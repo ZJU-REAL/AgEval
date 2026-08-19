@@ -24,7 +24,7 @@ from ageval.registry.client import RegistryClient
 from ageval.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 def _asgi_call(
@@ -181,7 +181,7 @@ def test_uvicorn_workers_health_not_starved(tmp_path: Path) -> None:
 
         def _publish() -> int:
             info = client.publish(
-                database_id="test/publish-min",
+                dataset_id="test/publish-min",
                 version="0.1.0",
                 package_digest=digest,
                 blob_digest=blob_digest,
@@ -191,7 +191,7 @@ def test_uvicorn_workers_health_not_starved(tmp_path: Path) -> None:
                 archive=archive_path,
                 org_id="test",
             )
-            return int(info.database_id == "test/publish-min")
+            return int(info.dataset_id == "test/publish-min")
 
         with ThreadPoolExecutor(max_workers=6) as pool:
             futs = [pool.submit(_health) for _ in range(8)]
@@ -200,7 +200,7 @@ def test_uvicorn_workers_health_not_starved(tmp_path: Path) -> None:
             results = [f.result(timeout=30) for f in as_completed(futs, timeout=40)]
         assert all(results)
         listed = client.list_packages()
-        assert any(item.database_id == "test/publish-min" for item in listed)
+        assert any(item.dataset_id == "test/publish-min" for item in listed)
     finally:
         proc.terminate()
         try:

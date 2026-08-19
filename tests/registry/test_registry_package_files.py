@@ -24,10 +24,10 @@ from services.registry.package_files import (
 from ageval.application.composition import build_publish_command
 from ageval.registry.client import RegistryClient, RegistryError
 
-publish_database = build_publish_command().publish_database
+publish_dataset = build_publish_command().publish_dataset
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 TEST_ORG = "test"
 
 
@@ -67,7 +67,7 @@ def _publish_public(registry_server, monkeypatch: pytest.MonkeyPatch) -> dict:
     monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
     monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org()
-    return publish_database(FIXTURE, public=True, org=TEST_ORG)
+    return publish_dataset(FIXTURE, public=True, org=TEST_ORG)
 
 
 def test_normalize_path_rejects_traversal() -> None:
@@ -88,22 +88,22 @@ def test_public_list_and_read_without_token(
     summary = _publish_public(registry_server, monkeypatch)
     client = RegistryClient(registry_server["url"], token=None)
     listing = client.list_package_files(
-        database_id=summary["database_id"],
+        dataset_id=summary["dataset_id"],
         package_digest=summary["package_digest"],
     )
-    assert listing["database_id"] == summary["database_id"]
+    assert listing["dataset_id"] == summary["dataset_id"]
     assert listing["digest"] == summary["package_digest"]
     paths = {item["path"] for item in listing["items"]}
     assert "ageval.yaml" in paths
     assert any(p.startswith("tasks/") for p in paths)
 
     body = client.get_package_file(
-        database_id=summary["database_id"],
+        dataset_id=summary["dataset_id"],
         package_digest=summary["package_digest"],
         file_path="ageval.yaml",
     )
     assert body["encoding"] == "utf-8"
-    assert "database_id" in body["content"] or "format" in body["content"]
+    assert "dataset_id" in body["content"] or "format" in body["content"]
     assert body["truncated"] is False
     assert "token" not in body["content"].lower()
     assert "secret" not in json.dumps(body).lower() or True  # no secret fields in envelope
@@ -115,19 +115,19 @@ def test_private_without_token_404(
     monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
     monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org()
-    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
+    summary = publish_dataset(FIXTURE, public=False, org=TEST_ORG)
 
     anon = RegistryClient(registry_server["url"], token=None)
     with pytest.raises(RegistryError) as ei:
         anon.list_package_files(
-            database_id=summary["database_id"],
+            dataset_id=summary["dataset_id"],
             package_digest=summary["package_digest"],
         )
     assert ei.value.status == 404
 
     auth = RegistryClient(registry_server["url"], token=registry_server["token"])
     listing = auth.list_package_files(
-        database_id=summary["database_id"],
+        dataset_id=summary["dataset_id"],
         package_digest=summary["package_digest"],
     )
     assert listing["items"]
@@ -138,7 +138,7 @@ def test_bad_path_and_missing(registry_server, monkeypatch: pytest.MonkeyPatch) 
     client = RegistryClient(registry_server["url"], token=None)
     with pytest.raises(RegistryError) as ei:
         client.get_package_file(
-            database_id=summary["database_id"],
+            dataset_id=summary["dataset_id"],
             package_digest=summary["package_digest"],
             file_path="../secret",
         )
@@ -146,7 +146,7 @@ def test_bad_path_and_missing(registry_server, monkeypatch: pytest.MonkeyPatch) 
 
     with pytest.raises(RegistryError) as ei2:
         client.get_package_file(
-            database_id=summary["database_id"],
+            dataset_id=summary["dataset_id"],
             package_digest=summary["package_digest"],
             file_path="no/such/file.txt",
         )
@@ -157,12 +157,12 @@ def test_version_alias_files(registry_server, monkeypatch: pytest.MonkeyPatch) -
     summary = _publish_public(registry_server, monkeypatch)
     client = RegistryClient(registry_server["url"], token=None)
     listing = client.list_package_files(
-        database_id=summary["database_id"],
+        dataset_id=summary["dataset_id"],
         version=summary["version"],
     )
     assert listing["digest"] == summary["package_digest"]
     body = client.get_package_file(
-        database_id=summary["database_id"],
+        dataset_id=summary["dataset_id"],
         version=summary["version"],
         file_path="ageval.yaml",
     )
@@ -204,7 +204,7 @@ def test_oversize_http_returns_truncated_preview(
     """Inject a large blob; Hub preview gets a truncated head (not 413)."""
     summary = _publish_public(registry_server, monkeypatch)
     state = registry_server["state"]
-    row = state.meta.get_by_digest(summary["database_id"], summary["package_digest"])
+    row = state.meta.get_by_digest(summary["dataset_id"], summary["package_digest"])
     assert row is not None
     big = b"z" * (MAX_FILE_BYTES + 50)
     archive = _gzip_tar_with_file("huge.txt", big)
@@ -222,7 +222,7 @@ def test_oversize_http_returns_truncated_preview(
     clear_index_cache()
     client = RegistryClient(registry_server["url"], token=None)
     body = client.get_package_file(
-        database_id=summary["database_id"],
+        dataset_id=summary["dataset_id"],
         package_digest=summary["package_digest"],
         file_path="huge.txt",
     )

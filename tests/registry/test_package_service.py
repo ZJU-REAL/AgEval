@@ -19,7 +19,7 @@ from ageval.registry.archive import MEDIA_TYPE, build_archive
 from ageval.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 def _service(tmp_path: Path) -> PackageService:
@@ -34,7 +34,7 @@ def _meta_archive(tmp_path: Path) -> tuple[dict[str, object], Path, bytes]:
     path.write_bytes(archive)
     return (
         {
-            "database_id": "test/publish-min",
+            "dataset_id": "test/publish-min",
             "version": "0.1.0",
             "package_digest": compute_package_digest(FIXTURE),
             "blob_digest": blob_digest,
@@ -75,7 +75,7 @@ def test_publish_happy_path(tmp_path: Path) -> None:
     meta, archive, _raw = _meta_archive(tmp_path)
     auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     payload = svc.publish(meta=meta, archive=archive, auth=auth)
-    assert payload["database_id"] == "test/publish-min"
+    assert payload["dataset_id"] == "test/publish-min"
     assert payload["org_id"] == "acme"
     assert payload.get("uploaded_by") == "alice"
     row = svc.get("test/publish-min", "0.1.0")
@@ -86,17 +86,17 @@ def test_publish_happy_path(tmp_path: Path) -> None:
         prefix=None,
         visibility=None,
         version=None,
-        package_kind="database",
+        package_kind="dataset",
         mine=True,
     )
-    assert [i["database_id"] for i in mine["items"]] == ["test/publish-min"]
+    assert [i["dataset_id"] for i in mine["items"]] == ["test/publish-min"]
     other = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="bob")
     empty = svc.list_packages(
         auth=other,
         prefix=None,
         visibility=None,
         version=None,
-        package_kind="database",
+        package_kind="dataset",
         mine=True,
     )
     assert empty["items"] == []
@@ -117,11 +117,11 @@ def test_draft_overwrite_and_entitled_list(tmp_path: Path) -> None:
     second = svc.publish(meta=meta, archive=archive, auth=alice)
     assert second["replaced"] is True
 
-    versions = svc.list_versions(database_id="test/publish-min", auth=alice)
+    versions = svc.list_versions(dataset_id="test/publish-min", auth=alice)
     assert any(i.get("version") == "draft" for i in versions["items"])
 
     stranger = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="bob")
-    hidden = svc.list_versions(database_id="test/publish-min", auth=stranger)
+    hidden = svc.list_versions(dataset_id="test/publish-min", auth=stranger)
     assert hidden["items"] == []
 
 
@@ -135,7 +135,7 @@ def test_draft_hidden_from_non_entitled_get(tmp_path: Path) -> None:
     stranger = TokenInfo(scopes=frozenset(), user_id="bob")
     with pytest.raises(RegistryAppError) as ei:
         svc.serve_meta(
-            database_id="test/publish-min",
+            dataset_id="test/publish-min",
             version="draft",
             package_digest=None,
             auth=stranger,
@@ -150,7 +150,7 @@ def test_release_draft_creates_durable_version(tmp_path: Path) -> None:
     meta["slot"] = "draft"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
-    released = svc.release_draft(database_id="test/publish-min", auth=alice)
+    released = svc.release_draft(dataset_id="test/publish-min", auth=alice)
     assert released["version"] == "0.1.0"
     assert released.get("from_draft") is True
     assert released.get("is_draft") is not True
@@ -169,7 +169,7 @@ def test_collaborator_cannot_release(tmp_path: Path) -> None:
     svc.meta.upsert_dataset_acl("test/publish-min", "bob", role="collaborator")
     bob = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="bob")
     with pytest.raises(RegistryAppError) as ei:
-        svc.release_draft(database_id="test/publish-min", auth=bob)
+        svc.release_draft(dataset_id="test/publish-min", auth=bob)
     assert ei.value.http_status == 404
 
 
@@ -192,27 +192,27 @@ def test_anon_sees_public_release_not_draft(tmp_path: Path) -> None:
     meta["slot"] = "draft"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
-    svc.release_draft(database_id="test/publish-min", auth=alice, visibility="public")
+    svc.release_draft(dataset_id="test/publish-min", auth=alice, visibility="public")
     svc.publish(meta=meta, archive=archive, auth=alice)
 
     anon = TokenInfo(scopes=frozenset())
-    versions = svc.list_versions(database_id="test/publish-min", auth=anon)
+    versions = svc.list_versions(dataset_id="test/publish-min", auth=anon)
     assert [i["version"] for i in versions["items"]] == ["0.1.0"]
     assert all(not i.get("is_draft") for i in versions["items"])
     listed = svc.list_packages(
-        auth=anon, prefix=None, visibility=None, version=None, package_kind="database"
+        auth=anon, prefix=None, visibility=None, version=None, package_kind="dataset"
     )
     assert [i["version"] for i in listed["items"]] == ["0.1.0"]
     with pytest.raises(RegistryAppError) as ei:
         svc.serve_meta(
-            database_id="test/publish-min",
+            dataset_id="test/publish-min",
             version="draft",
             package_digest=None,
             auth=anon,
         )
     assert ei.value.http_status == 404
     release = svc.serve_meta(
-        database_id="test/publish-min",
+        dataset_id="test/publish-min",
         version="0.1.0",
         package_digest=None,
         auth=anon,
@@ -229,10 +229,10 @@ def test_org_member_can_read_draft(tmp_path: Path) -> None:
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
     carol = TokenInfo(scopes=frozenset(), user_id="carol")
-    versions = svc.list_versions(database_id="test/publish-min", auth=carol)
+    versions = svc.list_versions(dataset_id="test/publish-min", auth=carol)
     assert any(i.get("version") == "draft" for i in versions["items"])
     draft = svc.serve_meta(
-        database_id="test/publish-min",
+        dataset_id="test/publish-min",
         version="draft",
         package_digest=None,
         auth=carol,

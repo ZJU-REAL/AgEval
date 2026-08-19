@@ -8,7 +8,7 @@ from ageval.registry.archive import MEDIA_TYPE, build_archive, extract_archive
 from ageval.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 def test_package_digest_stable() -> None:

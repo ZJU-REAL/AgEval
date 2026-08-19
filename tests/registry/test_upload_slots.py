@@ -43,12 +43,12 @@ def test_http_429_when_slot_held(tmp_path: Path) -> None:
             bogus.write_bytes(b"nope")
             with pytest.raises(RegistryError) as ei:
                 client.publish(
-                    database_id="test/publish-min",
+                    dataset_id="test/publish-min",
                     version="0.1.0",
                     package_digest="sha256:" + "ab" * 32,
                     blob_digest="sha256:" + "cd" * 32,
                     size=4,
-                    media_type="application/vnd.ageval.database.v1.tar+gzip",
+                    media_type="application/vnd.ageval.dataset.v1.tar+gzip",
                     visibility="private",
                     archive=bogus,
                     org_id="test",

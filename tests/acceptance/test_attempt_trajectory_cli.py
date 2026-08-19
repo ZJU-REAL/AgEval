@@ -13,7 +13,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 DATABASE = REPO / "examples" / "core"
 TASK_DIR = DATABASE / "tasks" / "attempt-trajectory"
-PACKAGE = DATABASE  # CLI path = Database root
+PACKAGE = DATABASE  # CLI path = Dataset root
 
 
 def _run_cli(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ageval.adapters.agent_registry import discover_executor_kinds, resolve_executor
-from ageval.adapters.executor_capabilities import (
+from ageval.plugins.executor_capabilities import (
     BUILTIN_CAPABILITIES,
     get_capabilities,
     required_kinds_for_v014,

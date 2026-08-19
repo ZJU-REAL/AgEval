@@ -11,7 +11,7 @@ import pytest
 from ageval.viewer import jobs
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
@@ -20,8 +20,8 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
     summary = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
-        "database_id": "test/suite-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/suite-min",
+        "dataset_version": "0.1.0",
         "agent_label": "codex",
         "model_label": "gpt-test",
         "provider_label": "openai",
@@ -199,7 +199,7 @@ def test_job_task_exposes_attempt_run_ids_for_k(tmp_path: Path) -> None:
     summary = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
-        "database_id": "test/suite-min",
+        "dataset_id": "test/suite-min",
         "n_attempts": 2,
         "tasks": [
             {
