@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -21,8 +21,8 @@ def register(app: typer.Typer) -> None:
             typer.Argument(help="Dataset root (ageval.dataset/1) for campaign matrix."),
         ],
         task: Annotated[
-            str,
-            typer.Option("--task", help="Member task id under the Dataset."),
+            list[str],
+            typer.Option("--task", help="Member task id; repeat for a task axis."),
         ],
         matrix: Annotated[
             list[str] | None,
@@ -58,7 +58,7 @@ def register(app: typer.Typer) -> None:
             summary = asyncio.run(
                 run_campaign(
                     package,
-                    task,
+                    list(task),
                     matrix_args=list(matrix or []),
                     profiles_path=profiles,
                 )
@@ -168,6 +168,16 @@ def register(app: typer.Typer) -> None:
             list[str] | None,
             typer.Option("--agent", help=AGENT_OPTION_HELP),
         ] = None,
+        probe: Annotated[
+            bool,
+            typer.Option(
+                "--probe",
+                help=(
+                    "Lock and preflight only: report whether this task could run "
+                    "here. No box is opened and no Agent is invoked."
+                ),
+            ),
+        ] = False,
         keep_workspace: Annotated[
             bool,
             typer.Option(
@@ -183,9 +193,18 @@ def register(app: typer.Typer) -> None:
         """Run one member or a full Dataset suite (Application-layer task_id axis)."""
         import asyncio
 
-        from ageval.application.composition import build_run_attempt, build_suite_runner
+        from ageval.application.composition import (
+            build_probe_attempt,
+            build_run_attempt,
+            build_suite_runner,
+        )
 
         profiles = resolve_agent_option(agent, profiles)
+        if probe:
+            if not task:
+                typer.echo("probe requires --task", err=True)
+                raise typer.Exit(code=2)
+            _probe_one(build_probe_attempt(), package, task.strip(), profiles, set_overrides)
         _suite = build_suite_runner()
         execute_suite_run = _suite.execute_suite_run
         plan_suite_run = _suite.plan_suite_run
@@ -362,3 +381,28 @@ def register(app: typer.Typer) -> None:
             json.dumps(suite_summary, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         )
         raise typer.Exit(code=int(suite_summary.get("exit_code", 2)))
+
+
+def _probe_one(
+    probe_attempt: Any,
+    package: str,
+    task: str,
+    profiles: Path | None,
+    set_overrides: list[str] | None,
+) -> None:
+    """Print the probe answer and exit: 0 when this task could run here."""
+    import asyncio
+
+    from ageval.config.errors import ConfigError
+    from ageval.config.overrides import parse_set_override
+
+    try:
+        overrides = dict(parse_set_override(raw) for raw in set_overrides or ())
+        answer = asyncio.run(
+            probe_attempt(package, task, overrides=overrides or None, profiles_path=profiles)
+        )
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(json.dumps(answer, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    raise typer.Exit(code=0 if answer.get("ready") else 2)

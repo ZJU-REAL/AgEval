@@ -59,6 +59,13 @@ def build_run_attempt() -> Callable[..., Any]:
     return run_attempt
 
 
+def build_probe_attempt() -> Callable[..., Any]:
+    """Wire ``ageval run --probe``: lock plus preflight, and nothing else."""
+    from ageval.application.run import probe_attempt
+
+    return probe_attempt
+
+
 def build_campaign_runner() -> Callable[..., Any]:
     """Wire the production ``ageval campaign`` use case."""
     from ageval.application.campaign import run_campaign

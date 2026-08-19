@@ -17,7 +17,7 @@ from ageval.cli import (
     cmd_agent,
     cmd_cache,
     cmd_campaign_run,
-    cmd_cancel_submit,
+    cmd_cancel,
     cmd_evidence_status,
     cmd_executors_publish_login,
     cmd_jobs,
@@ -61,7 +61,7 @@ def _root(
 
 cmd_campaign_run.register(app)
 cmd_evidence_status.register(app)
-cmd_cancel_submit.register(app)
+cmd_cancel.register(app)
 cmd_executors_publish_login.register(app)
 cmd_plugin.register(app)
 cmd_agent.register(app)

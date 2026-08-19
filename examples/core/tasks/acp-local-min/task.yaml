@@ -3,6 +3,7 @@ task_id: acp-local-min
 description: One real ACP invoke in a local box; the evaluator judges what it wrote.
 
 parameters:
+  seed: 1
   instruction: >-
     Create a file named answer.txt in your current working directory whose only
     content is the number 42. Then reply with the single word DONE.

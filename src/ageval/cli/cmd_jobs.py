@@ -19,6 +19,19 @@ def register(app: typer.Typer) -> None:
         add_completion=False,
     )
 
+    @sub.command("list")
+    def jobs_list_command(
+        dataset: Annotated[
+            Path,
+            typer.Argument(help="Dataset root (ageval.dataset/1) whose Jobs to list."),
+        ],
+    ) -> None:
+        """List the Jobs already on disk under a Dataset root."""
+        from ageval.viewer.jobs import list_jobs
+
+        summary = list_jobs(dataset)
+        typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+
     @sub.command("delete")
     def jobs_delete_command(
         local: Annotated[

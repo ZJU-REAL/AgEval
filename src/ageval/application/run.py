@@ -40,6 +40,67 @@ EXIT_FAIL = 1
 EXIT_ERROR = 2
 
 
+async def probe_attempt(
+    dataset: Path | str,
+    task: str,
+    *,
+    profile: str | None = None,
+    profiles_path: Path | str | None = None,
+    overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Lock and preflight without opening a box or invoking an Agent.
+
+    Answers "would this run here?" — the lock resolves, the winning box says
+    whether it could open, and nothing is started either way.
+    """
+    from ageval.application.composition import build_lock_command
+
+    locked = build_lock_command().lock(
+        dataset,
+        task,
+        profile=profile,
+        profiles_path=profiles_path,
+        overrides=overrides,
+    )
+    lock = locked.lock
+    registry = ensure_bootstrapped()
+    binder = AgentBinder(
+        profiles=tuple(lock.agent_profiles),
+        services=ServiceTable(),
+        registry=registry,
+        environment=lock.environment,
+        environment_options=_environment_options(lock),
+        requires=thaw(lock.requires),
+    )
+    graph = binder.graph(_selected_profile_id(lock))
+    host = bind_winner(
+        registry,
+        graph,
+        ENVIRONMENT,
+        spec=_box_spec(
+            lock,
+            task_root=locked.resolved.task_dir,
+            attempt_root=Path(tempfile.mkdtemp(prefix="ageval-probe-")),
+        ),
+        plugin_layers=_plugin_image_layers(graph),
+    )
+    probe: dict[str, Any] = {
+        "task_id": lock.task_id,
+        "digest": lock.digest,
+        "environment": lock.environment,
+        "capabilities": sorted(host.capabilities.names()),
+        "started": False,
+    }
+    try:
+        await host.preflight()
+    except Exception as exc:  # noqa: BLE001 — the reason is the answer
+        probe["ready"] = False
+        probe["error"] = f"{type(exc).__name__}: {exc}"
+        return probe
+    probe["ready"] = True
+    return probe
+
+
 async def run_attempt(
     dataset: Path | str,
     task: str,
