@@ -1,4 +1,0 @@
-interface:
-  display_name: "BORA CLI"
-  short_description: "lock/run/evidence and exit codes"
-  default_prompt: "Use $bora-cli to run the correct bora lock/run/evidence commands and interpret Result.logs without inventing flags."

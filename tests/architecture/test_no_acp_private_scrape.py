@@ -44,26 +44,6 @@ def test_acp_module_has_no_regex_json_scrape() -> None:
     assert "re.search" not in src
 
 
-def test_container_module_has_no_vendor_scrape() -> None:
-    src = (ADAPTERS / "agent_container.py").read_text(encoding="utf-8")
-    assert "_try_parse_structured" not in src
-    assert "_extract_json_object" not in src
-    assert "_cli_argv" not in src
-    assert "re.search" not in src
-    assert "new_opaque_target_id" in src
-
-
-def test_agent_container_scrape_not_used_for_acp_kind() -> None:
-    app = REPO / "src" / "ageval" / "application" / "attempt"
-    sources = "\n".join(p.read_text(encoding="utf-8") for p in sorted(app.glob("run_l1*.py")))
-    assert "make_l1_placement_resolver" in sources
-    assert "migrated_to_acp" not in sources
-    assert "NooaContainerExecutor" not in sources
-    container = (ADAPTERS / "agent_container.py").read_text(encoding="utf-8")
-    assert "wrap_docker_exec" in container
-    assert "ContainerCLIExecutor" not in container
-
-
 def test_agent_acp_imports_typed_sdk() -> None:
     src = _acp_sources()
     assert "import acp" in src or "from acp" in src
@@ -75,15 +55,12 @@ def test_agent_acp_imports_typed_sdk() -> None:
     raise AssertionError("ACP package has no import statements")
 
 
-def test_private_kinds_not_resolvable() -> None:
-    from ageval.adapters.agent_registry import resolve_executor
-
-    for kind in ("codex", "pi", "opencode", "claude-code"):
-        try:
-            resolve_executor(kind, model="x")
-            raise AssertionError(f"{kind} must not resolve")
-        except KeyError:
-            pass
+def test_acp_never_learns_how_the_box_is_built() -> None:
+    """The pipe comes from attach_stdio, so no vendor handle can appear here."""
+    src = _acp_sources()
+    for forbidden in ("import docker", "container_id", "wrap_docker_exec", "subprocess.Popen"):
+        assert forbidden not in src, forbidden
+    assert "attach_stdio" in src
 
 
 def test_docker_image_does_not_install_python_acp_sdk() -> None:

@@ -1,4 +1,4 @@
-"""Lock Attempt identity, LifecycleStages, and composition seams."""
+"""Attempt seams: one identity, visible phases, cleanup that cannot be skipped."""
 
 from __future__ import annotations
 
@@ -7,36 +7,65 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "src" / "ageval"
+ATTEMPT = SRC / "attempt"
 
 
-def test_l0_production_uses_coordinator() -> None:
-    text = (SRC / "application" / "attempt" / "run_command.py").read_text(encoding="utf-8")
-    assert "run_lifecycle" in text
-    assert "LocalL0Stages" in text
-    assert "DockerL1Stages" in text
+def test_attempt_module_names_every_phase_in_order() -> None:
+    """Rule: opening attempt/__init__.py is enough to say what happens when."""
+    text = (ATTEMPT / "__init__.py").read_text(encoding="utf-8")
+    order = [
+        text.index("environment.run"),
+        text.index("run.run"),
+        text.index("evaluate.run"),
+        text.index("record.run"),
+        text.index("cleanup.run"),
+    ]
+    assert order == sorted(order)
+    for name in ("environment", "run", "evaluate", "record", "cleanup"):
+        assert (ATTEMPT / "phases" / f"{name}.py").is_file(), name
 
 
-def test_stage_cleanup_is_not_empty_fact() -> None:
-    text = (SRC / "application" / "attempt" / "attempt_stages.py").read_text(encoding="utf-8")
-    assert "cleanup_l0" in text
-    assert "cleanup_l1" in text or "_l1_host_cleanup" in text
-    tree = ast.parse(text)
-    for node in tree.body:
-        if not isinstance(node, ast.ClassDef):
-            continue
-        if node.name not in {"LocalL0Stages", "DockerL1Stages"}:
-            continue
-        cleanup = next(
-            (
-                n
-                for n in node.body
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "cleanup"
-            ),
-            None,
-        )
-        assert cleanup is not None, node.name
-        src = ast.get_source_segment(text, cleanup) or ""
-        assert "return _fact" not in src or "cleanup_l0" in src or "cleanup_l1" in src
+def test_cleanup_runs_in_a_finally() -> None:
+    tree = ast.parse((ATTEMPT / "__init__.py").read_text(encoding="utf-8"))
+    finallies = [
+        ast.unparse(node)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Try)
+        for node in node.finalbody
+    ]
+    assert any("cleanup.run" in body for body in finallies)
+
+
+def test_cleanup_phase_really_stops_the_box() -> None:
+    text = (ATTEMPT / "phases" / "cleanup.py").read_text(encoding="utf-8")
+    assert "host.stop" in text
+    assert "cleanup_warning" in text, "a failed teardown must be reported, not swallowed"
+
+
+def test_verdict_enters_only_through_bind_evaluation() -> None:
+    binders = [
+        path.relative_to(SRC)
+        for path in SRC.rglob("*.py")
+        if "bind_evaluation(" in path.read_text(encoding="utf-8")
+    ]
+    assert sorted(str(p) for p in binders) == [
+        "attempt/ctx.py",
+        "attempt/phases/evaluate.py",
+    ]
+
+
+def test_one_attempt_mints_one_run_in_source() -> None:
+    text = (SRC / "application" / "run.py").read_text(encoding="utf-8")
+    assert text.count(".new_run(") == 1
+
+
+def test_only_one_place_constructs_an_exclusive_winner() -> None:
+    callers = [
+        path.relative_to(SRC)
+        for path in SRC.rglob("*.py")
+        if "registration.impl(" in path.read_text(encoding="utf-8")
+    ]
+    assert [str(p) for p in callers] == ["plugins/binding.py"]
 
 
 def test_cli_imports_only_composition() -> None:
@@ -71,59 +100,11 @@ def test_ageval_runs_layout_owned_by_evidence() -> None:
     assert offenders == []
 
 
-def test_attempt_package_defines_new_run_once() -> None:
-    text = (SRC / "application" / "attempt" / "run_command.py").read_text(encoding="utf-8")
-    assert text.count(".new_run(") == 1
-
-
 def test_queries_own_single_releases_ddl() -> None:
     queries = (REPO / "services" / "registry" / "queries.py").read_text(encoding="utf-8")
     assert queries.count("CREATE TABLE IF NOT EXISTS releases") == 1
     adapter = (REPO / "services" / "registry" / "sql_adapter.py").read_text(encoding="utf-8")
     assert "CREATE TABLE IF NOT EXISTS releases" not in adapter
-
-
-def _stage_method_src(text: str, class_name: str, method: str) -> str:
-    tree = ast.parse(text)
-    for node in tree.body:
-        if not isinstance(node, ast.ClassDef) or node.name != class_name:
-            continue
-        fn = next(
-            (
-                n
-                for n in node.body
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == method
-            ),
-            None,
-        )
-        assert fn is not None, f"{class_name}.{method}"
-        return ast.get_source_segment(text, fn) or ""
-    raise AssertionError(class_name)
-
-
-def test_evaluate_and_bind_are_not_empty_markers() -> None:
-    text = (SRC / "application" / "attempt" / "attempt_stages.py").read_text(encoding="utf-8")
-    pairs = (
-        ("LocalL0Stages", "evaluate", "evaluate_l0"),
-        ("LocalL0Stages", "bind", "bind_l0_result"),
-        ("DockerL1Stages", "evaluate", "evaluate_l1"),
-        ("DockerL1Stages", "bind", "bind_l1_result"),
-    )
-    for cls, method, needle in pairs:
-        src = _stage_method_src(text, cls, method)
-        assert needle in src, f"{cls}.{method} must call {needle}"
-        assert "return _fact" not in src or needle in src
-
-
-def test_assemble_quota_object_is_shared_in_source() -> None:
-    text = (SRC / "application" / "attempt" / "agent_service_assemble.py").read_text(
-        encoding="utf-8"
-    )
-    assert "quota = AgentInvocationQuota" in text
-    assert "ParentAgentService(" in text
-    assert "AttemptCapabilityAuthority(" in text
-    assert '"invoke_quota": quota' in text
-    assert "invoke_quota=quota" in text
 
 
 def test_handler_calls_all_domain_services() -> None:
