@@ -72,6 +72,7 @@ binding:                        # 恰好一条 bora.profiles/1 binding；同一�
 | `--agent` 引用 | 本地 index 中的 id（`local/x@0.1.0` / `acme/x@1.0.0`）,或**直连文件路径**（开发环） |
 
 缓存布局镜像 plugins：`$BORA_HOME/agents/<id>/<version>/` + `index.json`。
+**index 按 `(agent_id, version)` 一行**（包目录本来就是按 version 分的）。同 id 可并排 pin（`x@1.0` 与 `x@2.0` 同时可 resolve）。`find(id)` / `bora agent show <id>` 返回最新一行；`resolve_installed_ref` 与 `--agent id@version` 查精确行。`uninstall id@version` 只删该 version；裸 `id` 删该 id 下全部 version。旧的「一 id 一行」index 仍能加载；缺行时从磁盘 `<id>/<version>/` 补建。plugins 缓存仍可一 id 一活跃 version。
 install **只写本地缓存**,永不改写 profiles / task.yaml（同 11 不变量 3）。
 
 ## 运行投影：`--agent` → profiles 通道
