@@ -15,9 +15,11 @@ import asyncio
 import concurrent.futures
 import logging
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from bora.config.model import LockedTaskConfig, thaw
+from bora.config.overlay_files import overlay_root_for_binding
 from bora.config.profiles import acp_entry_from_binding
 from bora.plugins.bootstrap import ensure_bootstrapped
 from bora.plugins.defaults.home_overlay import PLUGIN_ID as DEFAULT_PLUGIN_ID
@@ -126,6 +128,49 @@ def acp_entries_from_lock(lock: LockedTaskConfig) -> list[str]:
     return seen
 
 
+def _profile_rows(lock: LockedTaskConfig) -> list[Mapping[str, Any]]:
+    profiles = thaw(lock.agent_profiles) if lock.agent_profiles else []
+    if not isinstance(profiles, list):
+        return []
+    return [row for row in profiles if isinstance(row, Mapping)]
+
+
+async def _run_per_profile_home_overlay(
+    lock: LockedTaskConfig,
+    value: Any,
+    *,
+    ctx: Any,
+) -> Any:
+    """Run each profile's home_overlay chain with that profile's overlay root.
+
+    ``agent_ref`` bindings resolve ``src`` against the installed Agent package.
+    Hand-written profiles keep the Database root. Copy still lands in the
+    Attempt home_overlay dest — never the Dataset tree or the agents cache.
+    """
+    payload = dict(value) if isinstance(value, dict) else {}
+    default_raw = payload.get("package_root")
+    default_root = Path(str(default_raw)) if default_raw else None
+    current: Any = payload
+    for row in _profile_rows(lock):
+        intent = intent_from_profile(row)
+        if not intent.profile_id:
+            intent.profile_id = str(row.get("id") or "default")
+        graph = resolve(intent, ensure_bootstrapped(), materialize=True)
+        handlers = [href for href in graph.chain(HOME_OVERLAY) if href.plugin_id != DEFAULT_PLUGIN_ID]
+        if not handlers:
+            continue
+        profile_payload = dict(current) if isinstance(current, dict) else dict(payload)
+        root = overlay_root_for_binding(row, default_root)
+        if root is not None:
+            profile_payload["package_root"] = str(root)
+        entry = acp_entry_from_binding(row)
+        if entry:
+            profile_payload["acp_entries"] = [entry]
+        result = await run_handlers(handlers, profile_payload, ctx=ctx)
+        current = result if isinstance(result, dict) else profile_payload
+    return current
+
+
 def hook_home_overlay(
     lock: LockedTaskConfig,
     value: Any = None,
@@ -136,17 +181,11 @@ def hook_home_overlay(
     """Emit home_overlay: Core default wraps per-profile plugin handlers."""
 
     async def _emit() -> Any:
-        plugin_handlers = []
-        for graph in _per_profile_graphs(lock, materialize=True):
-            for href in graph.chain(HOME_OVERLAY):
-                if href.plugin_id != DEFAULT_PLUGIN_ID:
-                    plugin_handlers.append(href)
-
         payload = dict(value) if isinstance(value, dict) else {}
         payload["acp_entries"] = acp_entries_from_lock(lock)
 
         async def nxt(v: Any) -> Any:
-            return await run_handlers(plugin_handlers, v, ctx=ctx)
+            return await _run_per_profile_home_overlay(lock, v, ctx=ctx)
 
         return await default_home_overlay(ctx, payload, nxt)
 
