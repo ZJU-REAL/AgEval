@@ -23,7 +23,11 @@ from bora.config.errors import (
     ERROR_INVALID_SCHEMA,
     ConfigError,
 )
-from bora.config.overlay_files import assert_overlays_at_lock, parse_overlay_paths, scan_overlay_files
+from bora.config.overlay_files import (
+    assert_overlays_at_lock,
+    parse_overlay_paths,
+    scan_overlay_files,
+)
 from bora.config.profiles import PROFILES_FORMAT, parse_profiles_mapping
 
 AGENT_FILENAME = "agent.yaml"

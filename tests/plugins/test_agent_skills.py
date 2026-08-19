@@ -218,12 +218,11 @@ def bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
-def test_home_overlay_src_from_agent_package_not_dataset(
-    bora_home: Path, tmp_path: Path
-) -> None:
+def test_home_overlay_src_from_agent_package_not_dataset(bora_home: Path, tmp_path: Path) -> None:
     """agent_ref bindings copy skills from the Agent cache, never Dataset overlays/."""
-    import yaml
     from types import SimpleNamespace
+
+    import yaml
 
     from bora.adapters.package_fs import LocalPackageReader
     from bora.agents import store

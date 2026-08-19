@@ -27,6 +27,8 @@ GROK = {
     "model": "g1",
     "api_key": "OPENAI_API_KEY",
 }
+
+
 def _ref(package_id: str, version: str = "0.1.0") -> str:
     return f"{package_id}@{version}+sha256:aaaaaaaaaaaa"
 
@@ -178,8 +180,6 @@ def test_official_public_suite_appears_community_does_not(tmp_path: Path) -> Non
     assert "runtime_refs" not in by_id["suite_official"]
 
 
-
-
 def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
@@ -281,9 +281,7 @@ def test_versions_group_on_same_package(tmp_path: Path) -> None:
         database_id="official/gaia",
         bindings={"solver": _bound("official/foo", version="0.2.0")},
     )
-    rows = runtimes.appearances_for_agent(
-        "official/foo", TokenInfo(scopes=frozenset(), user_id="")
-    )
+    rows = runtimes.appearances_for_agent("official/foo", TokenInfo(scopes=frozenset(), user_id=""))
     versions = {r["suite_run_id"]: r["agent_version"] for r in rows}
     assert versions == {"suite_v1": "0.1.0", "suite_v2": "0.2.0"}
 

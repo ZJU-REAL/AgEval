@@ -156,7 +156,9 @@ async def _run_per_profile_home_overlay(
         if not intent.profile_id:
             intent.profile_id = str(row.get("id") or "default")
         graph = resolve(intent, ensure_bootstrapped(), materialize=True)
-        handlers = [href for href in graph.chain(HOME_OVERLAY) if href.plugin_id != DEFAULT_PLUGIN_ID]
+        handlers = [
+            href for href in graph.chain(HOME_OVERLAY) if href.plugin_id != DEFAULT_PLUGIN_ID
+        ]
         if not handlers:
             continue
         profile_payload = dict(current) if isinstance(current, dict) else dict(payload)
