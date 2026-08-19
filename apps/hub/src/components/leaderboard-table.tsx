@@ -22,7 +22,7 @@ import {
   latestPackageByDatabase,
   listPackages,
   pluginsUsedBySuite,
-  uniqueRuntimeRefs,
+  uniqueAgentRefs,
   type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
@@ -38,9 +38,8 @@ import {
 } from "@/lib/suite-metrics";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
-import { OverlayFilePanel } from "@/components/overlay-file-panel";
+import { JobOverlayPreview } from "@/components/overlay-file-panel";
 import { ScrollTable } from "@/components/scroll-table";
-import { overlayPathsFromJobOverlay } from "@/lib/file-tree";
 
 /** Shared column widths — keep Agent/Model tight so columns stay similar. */
 const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
@@ -510,7 +509,6 @@ export function LeaderboardTable({
               const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
               const open = openId === s.suite_run_id;
               const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
-              const overlayPrefixes = overlayPathsFromJobOverlay(s.job_overlay);
               const overlayDigest =
                 versions?.find((row) => row.version === s.database_version)
                   ?.package_digest || packageDigest;
@@ -528,7 +526,7 @@ export function LeaderboardTable({
               const powK = passPowerPrimaryK(m);
               const agentText = s.agent_label || "";
               const modelText = s.model_label || "";
-              const runtimeLinks = uniqueRuntimeRefs(s.runtime_refs);
+              const runtimeLinks = uniqueAgentRefs(s.agent_refs);
 
               return (
                 <Fragment key={s.suite_run_id}>
@@ -542,13 +540,13 @@ export function LeaderboardTable({
                         <span className="flex flex-col gap-0.5 min-w-0">
                           {runtimeLinks.map((ref) => (
                             <Link
-                              key={ref.runtime_id}
-                              to={`/runtimes/${encodeURIComponent(ref.runtime_id)}`}
+                              key={ref.package_id}
+                              to={`/agents/${encodeDatasetId(ref.package_id)}`}
                               onClick={(e) => e.stopPropagation()}
                               className="inline-block max-w-full text-sm hover:text-ink hover:underline underline-offset-2"
                             >
                               <TruncateTip
-                                text={ref.display_name}
+                                text={ref.package_id}
                                 className="text-sm"
                               />
                             </Link>
@@ -697,19 +695,11 @@ export function LeaderboardTable({
                                 content={rehydrateScript}
                                 maxHeightClass="max-h-40"
                               />
-                              {overlayPrefixes.length && overlayDigest ? (
-                                <div className="space-y-2">
-                                  <p className="text-xs text-mute">
-                                    Declared overlays from this job binding.
-                                    Bytes stay in the bound Dataset release.
-                                  </p>
-                                  <OverlayFilePanel
-                                    databaseId={databaseId}
-                                    packageDigest={overlayDigest}
-                                    prefixes={overlayPrefixes}
-                                  />
-                                </div>
-                              ) : null}
+                              <JobOverlayPreview
+                                overlay={s.job_overlay}
+                                datasetId={databaseId}
+                                datasetDigest={overlayDigest || ""}
+                              />
                             </>
                           ) : expandTab === "plugin" ? (
                             <div className="space-y-2">

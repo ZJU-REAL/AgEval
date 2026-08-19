@@ -253,7 +253,7 @@ export function FileSplitPanel({
     <div
       className={cn(
         "grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0",
-        "rounded-[8px] border border-hairline overflow-hidden",
+        "rounded-[8px] border border-hairline overflow-hidden bg-canvas",
         "min-h-[360px] md:h-[75vh] md:min-h-[75vh] md:max-h-[75vh]",
       )}
     >
@@ -367,7 +367,7 @@ export function FileSplitPanel({
       <div
         className={cn(
           "flex flex-col min-h-[200px] md:min-h-0 md:h-full",
-          "overflow-hidden",
+          "overflow-hidden bg-canvas",
         )}
       >
         {selectedPath ? (
@@ -381,7 +381,7 @@ export function FileSplitPanel({
             </span>
           </div>
         ) : null}
-        <div className="p-0 flex-1 min-h-0 overflow-auto">
+        <div className="p-0 flex-1 min-h-0 overflow-auto bg-canvas">
           {fileLoading ? (
             <p className="text-sm text-mute p-3">Loading file…</p>
           ) : fileContent != null ? (

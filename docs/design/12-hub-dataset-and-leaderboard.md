@@ -4,7 +4,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 权威 | 本文件是 Dataset draft/release、dataset ACL、Leaderboard 完备性、suite 插件出处、个人主页过滤与 Hub/Viewer chrome 的机制权威 |
-| 摘要 | Dataset 按工作树 + 不可变 release 维护；公开榜只排完备且绑定 release 的 suite；写路径只在 CLI。Leaderboard 展开分 profiles / plugin；Runtime plaza 用 binding.overlays 连接包文件预览（不随 suite 再传字节）；插件页是声明槽时间线；个人主页按 uploader / ACL 聚合。 |
+| 摘要 | Dataset 按工作树 + 不可变 release 维护；公开榜只排完备且绑定 release 的 suite；写路径只在 CLI。Leaderboard 展开分 profiles / plugin；已发布 Agent 详情挂 `agent_ref` 出场（不存 Runtime 表，无 `/runtimes`）；overlay 预览有 `agent_ref` 走 Agent 包；插件页是声明槽时间线；个人主页按 uploader / ACL 聚合。 |
 
 ---
 
@@ -163,26 +163,27 @@ Plugin 页把 provide/on chips 换成 **L0–L5 声明槽时间线**：
 
 同一 Application 用例同时服务 Viewer HTTP 与 CLI。HTTP 只路由。
 
-## Runtime plaza（派生）
+## Agent 出场（派生；原 Runtime plaza）
 
-Hub `/runtimes` 是官方公开、完备、**release-bound** Leaderboard suite 的派生视图。**不**存 Runtime 行。身份是 agent 产品（ACP `options.entry`，否则插件 executor）。运输层 `acp`、model、凭据、`label`、role、组队 **不是** plaza id。`rt_*` **不得**哈希 overlay 路径或文件字节。
+Hub **没有** `/runtimes` 产品页，Registry **没有** `GET /v1/runtimes`。采集谓词与今日 plaza 相同：suite `visibility=public` ∧ `complete` ∧ `bound_kind=release` ∧ 官方 Dataset。**不**存 Runtime 行，也**不**存 appearance 表；对 suite 行现场 reduce。
 
-`GET /v1/runtimes/{id}` 的每条 appearance 带绑定 release 坐标：`database_id`、`database_version`、`package_digest`（或 suite 行上已有的等价字段）。Hub 用已有
+归组键是已发布 Hub 包 id `org/name`（`agent_ref` 解析出的 package id）。Agent 详情再按 **version** 分组。不按 `rt_*`、digest 或 ACP `options.entry` / executor 归组。
 
-`GET /v1/packages/{database_id}/by-digest/{digest}/files` 与 `…/files/{path}`
+挂接规则（显式指针，禁止模糊匹配）：
 
-打开 Dataset 包内文件。**不**新增 Runtime 表，**不**提供 `/v1/runtimes/{id}/files`。
+1. 只当 suite role 行的 `job_overlay.bindings.<role>.agent_ref` 解析为 `org/name`（忽略 `file:` 与 `local/`）时，该行挂到该 Agent。
+2. 两个共享同一 `options.entry` 的已发布 Agent **不会**收到对方的 suite，也不会收到任何 `--profiles`（无 `agent_ref`）suite。
+3. `--profiles` only 的 suite 仍上 Dataset Leaderboard / Jobs，**不**出现在任何 Agent 页。
+4. `official/foo@0.1.0` 与 `official/foo@0.2.0` 出现在同一 `official/foo` 页，按 version 分列。
 
-详情页：
+Overlay 文件预览（见 14）：
 
-1. Header + 无密钥 profiles YAML（含该出场 binding 的 `overlays:`）。
-2. 选中 Results 行 → 该 role `overlays:` 的前缀闭包。
-3. 复用 Dataset / Plugin 页的文件树分栏（`FileSplitPanel`）。
-4. 换行换树。一个 `rt_*` 可对应多棵树。该 binding 省略 `overlays` → 无树（只 YAML）。
+- 出场 **有** 已发布 `agent_ref`：listed `overlays/` 前缀闭包走 **Agent** 包 `GET /v1/packages/{org/name}/by-digest/{digest}/files`。Dataset 同路径不算。不提供 `/v1/runtimes/{id}/files`。
+- 出场 **无** `agent_ref`：该 suite 不挂 Agent 页；Dataset Overlays / Leaderboard profiles 展开仍走 Dataset release 文件 API。
 
-`bora results upload-suite` 继续只上传 secret-free `job_overlay` JSON（现含 `bindings.*.overlays` **路径**）。**不**把 overlay 字节打进 suite archive。字节留在 suite 绑定的官方 Dataset **release**。Hub 只读，无写按钮。两 role 列同一路径时 Dataset 仍是一份 blob。`bora results export-profiles` 写回 `overlays:`；再跑仍要 Database 里那些相对路径上的文件，Hub 不另下一份。
+Leaderboard 深链：suite 行有已发布 `agent_ref` → `/agents/{org/name}`；无则只显示 label，**没有** Runtime/Agent 深链。suite JSON 不再需要 `runtime_refs`；可派生 `agent_refs`（`role`, `package_id`）供 SPA，仍不是存储对象。
 
-同一套声明列表也出现在 Dataset **Overlays** tab、Task Files 的 Overlays 范围、Leaderboard 展开的 profiles 条，以及本地 Viewer 的 suite Job 详情。仍走已有包文件 / Database 根预览，不新建 Runtime files API。
+`bora results upload-suite` 继续只上传 secret-free `job_overlay` JSON（含 `bindings.*.overlays` **路径** 与 `agent_ref`）。**不**把 overlay 字节打进 suite archive。Hub 只读，无写按钮。`rt_*`（harness fingerprint）与 suite `config_fingerprint` 仍独立于 `agent_ref` 与 overlay 字节——它们是可比性身份，不是 Hub 目录键。
 
 ## 非目标
 
@@ -197,4 +198,7 @@ Hub `/runtimes` 是官方公开、完备、**release-bound** Leaderboard suite �
 - 软删除回收站 / 事后 gc；v1 是确认后的硬删除
 - 从插件 `options` / `src` 推断 plaza 发布树
 - 把 overlay 字节随 suite 再上传，或新 Runtime files API
-- 把 overlay 路径或内容摘要打进 plaza `rt_*` 或 suite `config_fingerprint`
+- 把 overlay 路径或内容摘要打进 `rt_*` 或 suite `config_fingerprint`
+- 按 `options.entry` / executor 把未署名 suite 认亲到已发布 Agent
+- 保留 Hub `/runtimes` 或 Registry `GET /v1/runtimes` 作为产品面
+- Agent 级评分 / 用 Agent 榜替换 suite Leaderboard

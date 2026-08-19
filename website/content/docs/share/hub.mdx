@@ -7,7 +7,7 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 
 - Dataset 列表（你的组织 / 探索）、README、Task 文件预览  
 - 包内有根 `shared/` 时：Dataset **Shared** tab；Task **Files** 顶栏 **Local | Shared**（默认 Local；Attempt 证据页不切换）  
-- profiles 声明了 `overlays:` 时：Dataset **Overlays** tab；Task **Files** 增加 Overlays 范围；Leaderboard **profiles** 展开用绑定的 Dataset release 预览同一棵树（不是 suite archive）  
+- profiles 声明了 `overlays:` 时：Dataset **Overlays** tab；Task **Files** 增加 Overlays 范围；Leaderboard **profiles** 展开可显示 Job 树（Dataset 包）和/或 Agent 树（`agent_ref` 包）。只有一源时不显示另一个 tab；都没有则不显示文件树。不是 suite archive。  
 - 大文件预览：超过 Registry 上限时返回截断头并标注 truncated（非整文件下载）  
 - **组织**：成员、组织内的 Dataset 与插件（分表）、别人分享过来的 suite 结果  
 - **组织设置**：邀请码（创建后只展示一次）；owner 可按 GitHub login 加人、改角色、移除或转让；离开或解散组织  
@@ -22,7 +22,7 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - 登录后的 **Home**：你上传的 Jobs、组织、可维护 Dataset / Task、你上传的插件（标记与标题同 marketplace）。未登录会去登录页。无 publish / upload / release 按钮  
 - 列表搜索与 **Your organizations | Explore** 同一行；文件树分栏高度固定；轨迹按密封文件顺序展示、tool-call 可折叠；步骤头只在密封行带 `elapsed_ms` 时显示耗时  
 
-- Runtime 详情：无密钥 YAML；该 role 声明了 `overlays:` 时，从绑定的 Dataset release 打开只读文件树（与 Dataset / Plugin 页同一套包文件 API）。省略 `overlays` 则只有 YAML。
+- Agent 详情：已发布包（binding + 文件，含 bundled `overlays/`），加上用 `agent_ref` 点名该 Agent 的官方公开 suite 出场。只用 `--profiles` 的 suite 留在 Dataset Leaderboard。
 
 - **用 GitHub 登录**（浏览器 OAuth；CLI 仍是 Device Flow）
 
@@ -47,8 +47,8 @@ pnpm dev   # http://127.0.0.1:5174
 | `/datasets/:id/tasks/:task` | README · Files（Local \| Shared \| Overlays）· Jobs |
 | `/plugins` | 插件 marketplace |
 | `/plugins/:id` | 插件详情（声明槽时间线 · 文件预览 · CLI 安装命令） |
-| `/runtimes` | Runtime plaza（从官方公开 Leaderboard 派生的 harness 卡片） |
-| `/runtimes/:id` | 出场表；点行看该 role 的 overlay 树；点 Dataset 回到该 suite 的公开榜 |
+| `/agents` | 已发布 Agent 目录 |
+| `/agents/:id` | 绑定、文件、按 version 分组的出场 |
 | `/organizations` | 我的组织 · 加入组织 · Dataset / 插件计数 |
 | `/organizations/:orgId` | 概览（成员 · Dataset · 插件）· 设置 |
 | `/users/:login` | 公开用户页（只列官方组织；未登录可看） |

@@ -1,8 +1,9 @@
-"""Agent identity for Hub Runtime plaza (derived; not a stored object).
+"""Harness fingerprint (``rt_*``) for suite comparability, not Hub grouping.
 
-Plaza unit is the agent product (ACP ``options.entry``, else plugin executor).
-Transport ``acp``, model, credentials, label, role, and team are not identity.
-Digest is independent of suite ``config_fingerprint``.
+Identity is the agent product (ACP ``options.entry``, else plugin executor).
+Transport ``acp``, model, credentials, label, role, team, overlays, and
+``agent_ref`` are not this digest. Hub appearances group by published
+``org/name`` instead (design/12). Independent of suite ``config_fingerprint``.
 """
 
 from __future__ import annotations

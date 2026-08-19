@@ -91,6 +91,62 @@ def test_secret_in_package_fails_closed(tmp_path: Path) -> None:
         load_agent_manifest(pkg)
 
 
+def test_listed_overlay_must_exist_in_package(tmp_path: Path) -> None:
+    pkg = _write_pkg(
+        tmp_path / "missing-overlay",
+        "format: bora.agent/1\nagent_id: missing\nversion: '1.0'\n"
+        "binding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/skills/demo]\n",
+    )
+    with pytest.raises(ConfigError) as ei:
+        load_agent_manifest(pkg)
+    assert ei.value.error_code == "missing_reference"
+
+
+def test_listed_overlay_files_are_accepted(tmp_path: Path) -> None:
+    pkg = _write_pkg(
+        tmp_path / "with-overlay",
+        "format: bora.agent/1\nagent_id: withov\nversion: '1.0'\n"
+        "binding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/skills/demo]\n",
+    )
+    skill = pkg / "overlays" / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("# demo\n", encoding="utf-8")
+    m = load_agent_manifest(pkg)
+    assert m.binding["overlays"] == ["overlays/skills/demo"]
+    m_yaml = load_agent_manifest(pkg / AGENT_FILENAME)
+    assert m_yaml.root is None
+    assert m_yaml.binding["overlays"] == ["overlays/skills/demo"]
+
+
+def test_listed_overlay_missing_from_bare_yaml_fails_closed(tmp_path: Path) -> None:
+    pkg = _write_pkg(
+        tmp_path / "missing-overlay-yaml",
+        "format: bora.agent/1\nagent_id: missing\nversion: '1.0'\n"
+        "binding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/skills/demo]\n",
+    )
+    with pytest.raises(ConfigError) as ei:
+        load_agent_manifest(pkg / AGENT_FILENAME)
+    assert ei.value.error_code == "missing_reference"
+
+
+def test_secret_in_overlay_file_fails_closed(tmp_path: Path) -> None:
+    pkg = _write_pkg(
+        tmp_path / "secret-overlay",
+        "format: bora.agent/1\nagent_id: secretov\nversion: '1.0'\n"
+        "binding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/secret.md]\n",
+    )
+    path = pkg / "overlays" / "secret.md"
+    path.parent.mkdir(parents=True)
+    path.write_text("-----BEGIN PRIVATE KEY-----\nabc\n", encoding="utf-8")
+    with pytest.raises(ConfigError) as ei:
+        load_agent_manifest(pkg)
+    assert ei.value.error_code == "invalid_package"
+
+
 def test_locator_name_is_clean(tmp_path: Path) -> None:
     pkg = _write_pkg(
         tmp_path / "locator",

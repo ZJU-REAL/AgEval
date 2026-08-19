@@ -5,7 +5,7 @@ selected popular-bench **conversion** packages.
 
 ```text
 examples/
-├── agents/         # bora.agent/1 examples (mock-default / cc-default / pi-default)
+├── agents/         # bora.agent/1 examples (mock-default / cc-default / pi-default / grok-jsonl-agg)
 ├── alfworld-mini/  # Database eval/alfworld-mini — ALFWorld-style text household eval
 ├── core/           # Database example/core — Core surface gates
 ├── journeys/       # Database example/journeys — case-class fidelity

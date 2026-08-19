@@ -257,13 +257,13 @@ member task.yaml（角色槽 + intent + harness/eval）
 
 - 成员 `task.yaml` **禁止**内联 `executor` / `model` / `options` / `api_key` / `base_url` / `label` / `overlays`（无向后兼容双写法）。
 - Job binding 可选 `label`：Jobs / Hub 的 Agents 轴。缺省：`executor: acp` 用 `options.entry`，其它 kind 用 `executor`。**禁止**用 `options.agent` 当展示名。写入 lock `job_overlay` 与 Attempt/suite `agent_label`。
-- Job binding 可选 `overlays`：该 role **发布到 Hub Runtime plaza 的文件集**（见下节）。省略或 `[]` = 无发布树。
+- Job binding 可选 `overlays`：该 role **发布到 Hub 的文件集**（见下节）。省略或 `[]` = 无发布树。带 `agent_ref` 时字节在 Agent 包；无 `agent_ref` 时字节在 Database `overlays/`。
 - 缺 required role binding → `missing_binding` fail closed。
 - Intent `limits.*` **不可**经 `--set` 覆盖。
 - Leaderboard **job 轴**是 suite 级 `profiles.yaml` / `job_overlay`（role id → entry/model），不是「各 task 角色槽拓扑是否相同」。不同 task 可用不同 role id；只要绑定文档一致，`config_homogeneous` 仍为 true，公开可比榜展示该 yaml。
 - 仅当同一 suite 内出现**同一 role id 的 entry/model 冲突**（或无法解析 job 轴）时 `config_homogeneous: false`。
 
-#### Binding `overlays`（plaza 发布树）
+#### Binding `overlays`（发布树）
 
 `profiles.yaml` 顶层仍只有 `format` + `bindings`。**禁止**在 `bindings` 旁写顶层 `overlays`。`overlays` 与 `executor` / `extensions` 同级，是 Config 拥有的 binding 字段，**不是**复制指令、也不是 role executor。
 
@@ -296,18 +296,19 @@ bindings:
 
 | 规则 | 含义 |
 | --- | --- |
-| 类型 | 非空字符串列表。省略或 `[]` = 无发布树（今日 Runtime 卡：只 YAML）。 |
-| 路径 | Database 相对。必须以 `overlays/` 开头。禁止 `..`、绝对路径、host `~`。 |
-| 存在 | lock 时每条必须是 Database 根下的文件或目录。目录在 snapshot / plaza 预览时递归展开。 |
+| 类型 | 非空字符串列表。省略或 `[]` = 无发布树。 |
+| 路径 | 相对路径，必须以 `overlays/` 开头。禁止 `..`、绝对路径、host `~`。形状不随解析根改变。 |
+| 存在 / 解析根 | lock 时每条必须是解析根下的文件或目录。绑定带 `agent_ref` → **只**在已安装 Agent 包（或 `file:` 包根）下解析，Dataset 同路径**不算**。无 `agent_ref`（手写 `--profiles`）→ 运行 Database 根。目录在 snapshot / Hub 预览时递归展开。 |
+| 通配不继承 | `"*"` 行上的 `overlays` **不**落到精确 role 行（与 `agent_ref` 同规，见 14）。精确行省略该字段 = 该 role 无树。 |
 | 所有权 | Config 拥有此字段。Core **不得**读插件 `options` 里的 `src` 来构造或校验本列表。 |
-| 共享 | 两 role 发布同一路径：各 binding 各列一次；Dataset 里仍是一份 blob。 |
-| 密钥 | 列出的文件必须无密钥（locator only，与 `home-files` 同规）。可检测的 token / PEM / 高熵密钥 → lock 与 `upload-suite` fail closed。`{env:…}` locator 允许。不该公开的文件不要列入（通常也不放 `overlays/`）。 |
+| 共享 | 两 role 发布同一路径：各 binding 各列一次。无 `agent_ref` 时 Dataset 里仍是一份 blob；有 `agent_ref` 时各 Agent 包各有一份。 |
+| 密钥 | 列出的文件必须无密钥（locator only，与 `home-files` 同规）。可检测的 token / PEM / 高熵密钥 → publish / install / lock / `upload-suite` fail closed。`{env:…}` locator 允许。不该公开的文件不要列入。 |
 
-插件 `src` 仍只告诉该插件运行时拷什么。本增量接受 `overlays:` 与插件实际复制集之间的漂移，Core 不调和。
+插件 `src` 仍只告诉该插件运行时拷什么。本增量接受 `overlays:` 与插件实际复制集之间的漂移，Core 不调和。带 `agent_ref` 时该 `src` 与 listed overlays 同一解析根（Agent 包）。
 
-`project_job_overlay` 把 `overlays` **路径**投影进 suite `job_overlay`（无文件字节）。`bora results export-profiles` 必须写回该字段。再跑仍依赖 Database 里这些相对路径上的文件；Hub 不另下一份 blob。
+`project_job_overlay` 把 `overlays` **路径**投影进 suite `job_overlay`（无文件字节）。`bora results export-profiles` 必须写回该字段（含 `agent_ref`）。带 `agent_ref` 再跑走 `--agent org/id@version`（Agent 仍须已安装），或把导出文档交给 `--profiles`（行上仍有 `agent_ref` → 仍只在 Agent 缓存解析；缓存缺失 fail closed，不得用 Dataset `overlays/` 顶替）。无 `agent_ref` 的手写 profiles 仍依赖 Database 相对路径上的文件。Hub 不把 overlay 字节打进 suite archive。
 
-**Digest / publish：** 只有 profiles 里 `overlays:` **声明的**路径（文件或目录前缀闭包）进入 `member_paths_for_digest` 与 publish blob。不是 `overlays/` 目录有什么打什么。Hub 预览读这份 release，不是 suite archive。
+**Digest / publish：** Dataset 包只有 profiles 里 `overlays:` **声明的**路径（文件或目录前缀闭包）进入 `member_paths_for_digest` 与 Dataset publish blob。Agent 包 listed `overlays` 路径必须在包内存在才可 publish / install；字节进 Agent archive，**不** staging 进 Dataset。Hub 预览：有 `agent_ref` 读 Agent 包 files API；无则读 Dataset release。不是 suite archive。
 
 `overlays` **不得**进入 plaza `rt_*`（`harness_fingerprint` 仍只哈希 agent 产品）或 suite `config_fingerprint`。
 

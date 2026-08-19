@@ -355,6 +355,13 @@ class RegistryHttpApi:
     def _list_package_versions(self, *, database_id: str, auth: TokenInfo) -> HttpResult:
         try:
             payload = self.state.packages.list_versions(database_id=database_id, auth=auth)
+            items = payload.get("items") or []
+            if any(
+                isinstance(item, dict) and item.get("package_kind") == "agent" for item in items
+            ):
+                payload["appearances"] = self.state.runtimes.appearances_for_agent(
+                    database_id, auth
+                )
         except RegistryAppError as exc:
             return _caught(exc)
         return json_result(200, payload)
@@ -524,20 +531,6 @@ class RegistryHttpApi:
             payload = self.state.results.append_suite_slot(
                 suite_run_id=suite_run_id, body=body, auth=auth
             )
-        except RegistryAppError as exc:
-            return _caught(exc)
-        return json_result(200, payload)
-
-    def _list_runtimes(self, *, auth: TokenInfo) -> HttpResult:
-        try:
-            payload = self.state.runtimes.list_runtimes(auth)
-        except RegistryAppError as exc:
-            return _caught(exc)
-        return json_result(200, payload)
-
-    def _get_runtime(self, *, runtime_id: str, auth: TokenInfo) -> HttpResult:
-        try:
-            payload = self.state.runtimes.get_runtime(runtime_id=runtime_id, auth=auth)
         except RegistryAppError as exc:
             return _caught(exc)
         return json_result(200, payload)

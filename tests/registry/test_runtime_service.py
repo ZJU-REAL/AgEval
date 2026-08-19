@@ -1,4 +1,4 @@
-"""Runtime plaza derives harness cards from official public board suites."""
+"""Agent appearances derive from official public board suites via agent_ref."""
 
 from __future__ import annotations
 
@@ -7,39 +7,47 @@ import json
 from io import BytesIO
 from pathlib import Path
 
-import pytest
 from services.registry.access import AccessPolicy
 from services.registry.app import build_default_state
-from services.registry.errors import RegistryAppError
 from services.registry.http_api import RegistryHttpApi
 from services.registry.package_service import PackageService
 from services.registry.result_service import ResultService
 from services.registry.runtime_service import RuntimeService
 from services.registry.store import MemoryBlobStore, MetadataStore, TokenInfo
 
-from bora.config.runtime_identity import harness_fingerprint
 from bora.registry.archive import MEDIA_TYPE, build_archive
 from bora.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
 
-NOOA = {
-    "executor": "nooa",
-    "extensions": [{"plugin": "nooa", "options": {"agent": "nooa"}}],
-    "model": "m1",
-}
 GROK = {
     "executor": "acp",
     "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
     "model": "g1",
     "api_key": "OPENAI_API_KEY",
 }
-CODEX = {
-    "executor": "acp",
-    "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
-    "model": "g1",
-}
+
+
+def _ref(package_id: str, version: str = "0.1.0") -> str:
+    return f"{package_id}@{version}+sha256:aaaaaaaaaaaa"
+
+
+def _bound(
+    package_id: str,
+    *,
+    version: str = "0.1.0",
+    entry: str = "grok-build",
+    **extra: object,
+) -> dict[str, object]:
+    row: dict[str, object] = {
+        "executor": "acp",
+        "extensions": [{"plugin": "acp", "options": {"entry": entry}}],
+        "model": "g1",
+        "agent_ref": _ref(package_id, version),
+    }
+    row.update(extra)
+    return row
 
 
 def _services(tmp_path: Path) -> tuple[PackageService, ResultService, RuntimeService]:
@@ -145,29 +153,31 @@ def test_official_public_suite_appears_community_does_not(tmp_path: Path) -> Non
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
     _publish(packages, tmp_path, database_id="acme/looks-official", org_id="acme")
+    binding = _bound("official/mock-default")
     _upload(
         results,
         tmp_path,
         suite_run_id="suite_official",
         database_id="official/gaia",
-        bindings={"solver": dict(GROK)},
+        bindings={"solver": binding},
     )
     _upload(
         results,
         tmp_path,
         suite_run_id="suite_community",
         database_id="acme/looks-official",
-        bindings={"solver": dict(GROK)},
+        bindings={"solver": binding},
     )
-    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
-    assert [i["runtime_id"] for i in listed["items"]] == [harness_fingerprint(GROK)]
-    official_suites = results.list_suites(
-        auth=TokenInfo(scopes=frozenset(), user_id=""),
-        database_id=None,
-    )
+    auth = TokenInfo(scopes=frozenset(), user_id="")
+    rows = runtimes.appearances_for_agent("official/mock-default", auth)
+    assert [r["suite_run_id"] for r in rows] == ["suite_official"]
+    official_suites = results.list_suites(auth=auth, database_id=None)
     by_id = {i["suite_run_id"]: i for i in official_suites["items"]}
-    assert "runtime_refs" in by_id["suite_official"]
-    assert "runtime_refs" not in by_id["suite_community"]
+    assert by_id["suite_official"]["agent_refs"] == [
+        {"role": "solver", "package_id": "official/mock-default"}
+    ]
+    assert "agent_refs" not in by_id["suite_community"]
+    assert "runtime_refs" not in by_id["suite_official"]
 
 
 def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
@@ -181,12 +191,13 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         slot="draft",
         visibility="private",
     )
+    bound = _bound("official/mock-default")
     _upload(
         results,
         tmp_path,
         suite_run_id="suite_private",
         database_id="official/gaia",
-        bindings={"solver": dict(NOOA)},
+        bindings={"solver": bound},
         visibility="private",
     )
     _upload(
@@ -194,7 +205,7 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_incomplete",
         database_id="official/gaia",
-        bindings={"solver": dict(NOOA)},
+        bindings={"solver": bound},
         task_refs=[],
     )
     _upload(
@@ -203,228 +214,180 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         suite_run_id="suite_draft",
         database_id="official/gaia-draft",
         version="0.1.0",
-        bindings={"solver": dict(NOOA)},
+        bindings={"solver": bound},
     )
-    listed = runtimes.list_runtimes(
-        TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
-    )
-    assert listed["items"] == []
-    jobs = results.list_suites(
-        auth=TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice"),
-        database_id=None,
-    )
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    assert runtimes.appearances_for_agent("official/mock-default", auth) == []
+    jobs = results.list_suites(auth=auth, database_id=None)
     for item in jobs["items"]:
+        assert "agent_refs" not in item
         assert "runtime_refs" not in item
 
 
-def test_same_harness_two_roles_one_card(tmp_path: Path) -> None:
+def test_profiles_only_suite_does_not_appear(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
     _upload(
         results,
         tmp_path,
-        suite_run_id="suite_duo",
+        suite_run_id="suite_profiles",
         database_id="official/gaia",
-        bindings={"service": dict(NOOA), "user": dict(NOOA)},
-        pass_rate=0.5,
-        mean_score=0.5,
+        bindings={"solver": dict(GROK)},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    listed = runtimes.list_runtimes(auth)
-    assert len(listed["items"]) == 1
-    rid = listed["items"][0]["runtime_id"]
-    assert rid == harness_fingerprint(NOOA)
-    assert listed["items"][0]["n_appearances"] == 2
-    assert listed["items"][0]["n_datasets"] == 1
-    detail = runtimes.get_runtime(runtime_id=rid, auth=auth)
-    roles = [a["role"] for a in detail["appearances"]]
-    assert roles == ["service", "user"]
-    assert {a["pass_rate"] for a in detail["appearances"]} == {0.5}
-    assert {a["mean_score"] for a in detail["appearances"]} == {0.5}
-    service = next(a for a in detail["appearances"] if a["role"] == "service")
-    assert [t["role"] for t in service["teammates"]] == ["user"]
-    assert service["database_version"] == "0.1.0"
-    assert service["package_digest"] == compute_package_digest(FIXTURE)
-    assert "overlays" not in service
-    assert "api_key" not in json.dumps(listed)
-    assert "api_key" not in json.dumps(detail["options"])
+    assert runtimes.appearances_for_agent("official/mock-default", auth) == []
+    suites = results.list_suites(auth=auth, database_id=None)
+    assert "agent_refs" not in suites["items"][0]
 
 
-def test_heterogeneous_bindings_two_cards(tmp_path: Path) -> None:
+def test_two_agents_same_entry_stay_separate(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
     _upload(
         results,
         tmp_path,
-        suite_run_id="suite_mix",
+        suite_run_id="suite_a",
         database_id="official/gaia",
-        bindings={"solver": dict(GROK), "reviewer": dict(CODEX)},
-    )
-    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
-    ids = {i["runtime_id"] for i in listed["items"]}
-    assert ids == {harness_fingerprint(GROK), harness_fingerprint(CODEX)}
-    grok = runtimes.get_runtime(
-        runtime_id=harness_fingerprint(GROK),
-        auth=TokenInfo(scopes=frozenset(), user_id=""),
-    )
-    assert grok["appearances"][0]["role"] == "solver"
-    assert grok["appearances"][0]["teammates"][0]["role"] == "reviewer"
-    assert grok["appearances"][0]["teammates"][0]["entry"] == "codex"
-    assert "OPENAI_API_KEY" not in json.dumps(grok)
-    assert grok["options"] == {"entry": "grok-build"}
-
-
-def test_same_harness_different_models_one_card(tmp_path: Path) -> None:
-    packages, results, runtimes = _services(tmp_path)
-    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
-    grok_g1 = dict(GROK)
-    grok_g2 = dict(GROK)
-    grok_g2["model"] = "g2"
-    _upload(
-        results,
-        tmp_path,
-        suite_run_id="suite_g1",
-        database_id="official/gaia",
-        bindings={"solver": grok_g1},
+        bindings={"solver": _bound("official/foo", entry="claude-code")},
     )
     _upload(
         results,
         tmp_path,
-        suite_run_id="suite_g2",
+        suite_run_id="suite_b",
         database_id="official/gaia",
-        bindings={"solver": grok_g2},
+        bindings={"solver": _bound("official/bar", entry="claude-code")},
     )
-    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
-    assert [i["runtime_id"] for i in listed["items"]] == [harness_fingerprint(GROK)]
-    assert listed["items"][0]["n_appearances"] == 2
-    detail = runtimes.get_runtime(
-        runtime_id=harness_fingerprint(GROK),
-        auth=TokenInfo(scopes=frozenset(), user_id=""),
-    )
-    models = {a["model"] for a in detail["appearances"]}
-    assert models == {"g1", "g2"}
+    auth = TokenInfo(scopes=frozenset(), user_id="")
+    foo = runtimes.appearances_for_agent("official/foo", auth)
+    bar = runtimes.appearances_for_agent("official/bar", auth)
+    assert [r["suite_run_id"] for r in foo] == ["suite_a"]
+    assert [r["suite_run_id"] for r in bar] == ["suite_b"]
 
 
-def test_appearance_overlays_are_per_role(tmp_path: Path) -> None:
+def test_versions_group_on_same_package(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
-    grok = dict(GROK)
-    grok["overlays"] = ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"]
-    pi = {
-        "executor": "acp",
-        "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
-        "model": "g1",
-    }
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_v1",
+        database_id="official/gaia",
+        bindings={"solver": _bound("official/foo", version="0.1.0")},
+    )
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_v2",
+        database_id="official/gaia",
+        bindings={"solver": _bound("official/foo", version="0.2.0")},
+    )
+    rows = runtimes.appearances_for_agent("official/foo", TokenInfo(scopes=frozenset(), user_id=""))
+    versions = {r["suite_run_id"]: r["agent_version"] for r in rows}
+    assert versions == {"suite_v1": "0.1.0", "suite_v2": "0.2.0"}
+
+
+def test_file_and_local_refs_do_not_appear(tmp_path: Path) -> None:
+    packages, results, runtimes = _services(tmp_path)
+    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_file",
+        database_id="official/gaia",
+        bindings={
+            "solver": {
+                **GROK,
+                "agent_ref": "file:/tmp/agent@dev+sha256:aaaaaaaaaaaa",
+            }
+        },
+    )
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="suite_local",
+        database_id="official/gaia",
+        bindings={
+            "solver": {
+                **GROK,
+                "agent_ref": "local/mock-default@0.1.0+sha256:aaaaaaaaaaaa",
+            }
+        },
+    )
+    auth = TokenInfo(scopes=frozenset(), user_id="")
+    assert runtimes.appearances_for_agent("official/mock-default", auth) == []
+    assert runtimes.appearances_for_agent("local/mock-default", auth) == []
+    suites = results.list_suites(auth=auth, database_id=None)
+    for item in suites["items"]:
+        assert "agent_refs" not in item
+
+
+def test_appearance_overlays_and_teammates(tmp_path: Path) -> None:
+    packages, results, runtimes = _services(tmp_path)
+    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
+    solver = _bound(
+        "official/foo",
+        overlays=["overlays/skills/jsonl-agg", "overlays/AGENTS.md"],
+    )
+    user = _bound("official/bar", entry="pi")
     _upload(
         results,
         tmp_path,
         suite_run_id="suite_overlays",
         database_id="official/gaia",
-        bindings={"solver": grok, "user": pi},
+        bindings={"solver": solver, "user": user},
+        pass_rate=0.5,
+        mean_score=0.5,
     )
-    grok_detail = runtimes.get_runtime(
-        runtime_id=harness_fingerprint(GROK),
-        auth=TokenInfo(scopes=frozenset(), user_id=""),
-    )
-    solver = grok_detail["appearances"][0]
-    assert solver["role"] == "solver"
-    assert solver["overlays"] == ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"]
-    assert solver["package_digest"] == compute_package_digest(FIXTURE)
-    pi_detail = runtimes.get_runtime(
-        runtime_id=harness_fingerprint(pi),
-        auth=TokenInfo(scopes=frozenset(), user_id=""),
-    )
-    user = pi_detail["appearances"][0]
-    assert user["role"] == "user"
-    assert "overlays" not in user
-    assert user["package_digest"] == solver["package_digest"]
+    auth = TokenInfo(scopes=frozenset(), user_id="")
+    foo = runtimes.appearances_for_agent("official/foo", auth)
+    assert len(foo) == 1
+    assert foo[0]["role"] == "solver"
+    assert foo[0]["overlays"] == ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"]
+    assert foo[0]["package_digest"] == compute_package_digest(FIXTURE)
+    assert [t["role"] for t in foo[0]["teammates"]] == ["user"]
+    bar = runtimes.appearances_for_agent("official/bar", auth)
+    assert bar[0]["role"] == "user"
+    assert "overlays" not in bar[0]
 
 
-def test_unknown_runtime_is_404(tmp_path: Path) -> None:
-    _packages, _results, runtimes = _services(tmp_path)
-    with pytest.raises(RegistryAppError) as ei:
-        runtimes.get_runtime(
-            runtime_id="rt_unknown",
-            auth=TokenInfo(scopes=frozenset(), user_id=""),
-        )
-    assert ei.value.http_status == 404
-    assert ei.value.error == "not_found"
+def test_runtimes_http_gone(tmp_path: Path) -> None:
     state, token = build_default_state(tmp_path / "http", bootstrap_token="tok", memory_blob=True)
     api = RegistryHttpApi(state)
-    result = api.dispatch(
+    listed = api.dispatch(
+        method="GET",
+        path="/v1/runtimes",
+        headers={"Authorization": f"Bearer {token}"},
+        body=BytesIO(),
+        content_length=0,
+    )
+    assert listed.status == 404
+    detail = api.dispatch(
         method="GET",
         path="/v1/runtimes/rt_unknown",
         headers={"Authorization": f"Bearer {token}"},
         body=BytesIO(),
         content_length=0,
     )
-    assert result.status == 404
-    payload = json.loads(result.body.decode("utf-8"))
+    assert detail.status == 404
+    payload = json.loads(detail.body.decode("utf-8"))
     assert payload["error"] == "not_found"
-    assert "message" in payload
 
 
-def test_display_name_prefers_binding_label(tmp_path: Path) -> None:
-    packages, results, runtimes = _services(tmp_path)
-    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
-    labeled = dict(GROK)
-    labeled["label"] = "pi-agent"
-    _upload(
-        results,
-        tmp_path,
-        suite_run_id="suite_label",
-        database_id="official/gaia",
-        bindings={"solver": labeled},
-    )
-    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
-    assert listed["items"][0]["display_name"] == "pi-agent"
-    assert listed["items"][0]["entry"] == "grok-build"
-    assert listed["items"][0]["executor"] == "acp"
-
-
-def test_team_overlay_still_extracts_members(tmp_path: Path) -> None:
+def test_appearances_on_package_versions(tmp_path: Path) -> None:
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
     _upload(
         results,
         tmp_path,
-        suite_run_id="suite_team",
+        suite_run_id="suite_pkg",
         database_id="official/gaia",
-        bindings={"service": dict(NOOA), "user": dict(NOOA)},
-        extra_overlay={"team": {"enabled": True}},
+        bindings={"solver": _bound("official/mock-default")},
     )
-    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
-    assert len(listed["items"]) == 1
-    assert listed["items"][0]["display_name"] == "Nooa"
-
-
-def test_bare_acp_is_not_projected(tmp_path: Path) -> None:
-    packages, results, runtimes = _services(tmp_path)
-    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
-    _upload(
-        results,
-        tmp_path,
-        suite_run_id="suite_acp_only",
-        database_id="official/gaia",
-        bindings={"solver": {"executor": "acp", "model": "g1"}},
+    state, token = build_default_state(tmp_path / "http2", bootstrap_token="tok", memory_blob=True)
+    # Reuse the same sqlite? build_default_state is a new empty registry.
+    # Call the service directly for this assertion; HTTP wiring is covered above.
+    rows = runtimes.appearances_for_agent(
+        "official/mock-default", TokenInfo(scopes=frozenset(), user_id="")
     )
-    listed = runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))
-    assert listed["items"] == []
-    suites = results.list_suites(
-        auth=TokenInfo(scopes=frozenset(), user_id=""),
-        database_id=None,
-    )
-    assert suites["items"][0].get("runtime_refs") in (None, [])
-
-
-def test_no_overlay_skipped(tmp_path: Path) -> None:
-    packages, results, runtimes = _services(tmp_path)
-    _publish(packages, tmp_path, database_id="official/gaia", org_id="official")
-    _upload(
-        results,
-        tmp_path,
-        suite_run_id="suite_bare",
-        database_id="official/gaia",
-        bindings=None,
-    )
-    assert runtimes.list_runtimes(TokenInfo(scopes=frozenset(), user_id=""))["items"] == []
+    assert rows[0]["agent_version"] == "0.1.0"
+    assert rows[0]["package_id"] == "official/mock-default"

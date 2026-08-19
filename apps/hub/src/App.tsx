@@ -13,8 +13,6 @@ import { OrganizationDetailPage } from "@/pages/OrganizationDetailPage";
 import { OrganizationsPage } from "@/pages/OrganizationsPage";
 import { PluginDetailPage } from "@/pages/PluginDetailPage";
 import { PluginsPage } from "@/pages/PluginsPage";
-import { RuntimeDetailPage } from "@/pages/RuntimeDetailPage";
-import { RuntimesPage } from "@/pages/RuntimesPage";
 import { TaskDetailPage } from "@/pages/TaskDetailPage";
 import { UserPage } from "@/pages/UserPage";
 
@@ -39,8 +37,8 @@ export default function App() {
           <Route path="/plugins/:pluginId" element={<PluginDetailPage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/agents/:agentId" element={<AgentDetailPage />} />
-          <Route path="/runtimes" element={<RuntimesPage />} />
-          <Route path="/runtimes/:runtimeId" element={<RuntimeDetailPage />} />
+          <Route path="/runtimes" element={<Navigate to="/agents" replace />} />
+          <Route path="/runtimes/:runtimeId" element={<Navigate to="/agents" replace />} />
           <Route path="/organizations" element={<OrganizationsPage />} />
           <Route
             path="/organizations/:orgId"

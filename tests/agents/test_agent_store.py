@@ -71,6 +71,25 @@ def test_resolve_version_mismatch_fails_closed(tmp_path: Path) -> None:
     assert "9.9" in str(exc.value)
 
 
+def test_install_writes_overlay_files(tmp_path: Path) -> None:
+    pkg = _make_pkg(tmp_path)
+    skill = pkg / "overlays" / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("# demo\n", encoding="utf-8")
+    (pkg / "agent.yaml").write_text(
+        "format: bora.agent/1\nagent_id: mock-default\nversion: '0.1.0'\n"
+        "label: T\nbinding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/skills/demo]\n",
+        encoding="utf-8",
+    )
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    entry = store.install_from_path(pkg)
+    root = store.resolve_package_root(entry)
+    assert (root / "overlays" / "skills" / "demo" / "SKILL.md").is_file()
+    assert not (dataset / "overlays").exists()
+
+
 def test_uninstall(tmp_path: Path) -> None:
     store.install_from_path(_make_pkg(tmp_path))
     assert store.uninstall("local/mock-default") is True

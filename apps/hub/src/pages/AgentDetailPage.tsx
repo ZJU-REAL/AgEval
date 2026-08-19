@@ -1,27 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { BindingPreview } from "@/components/binding-preview";
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   decodeDatasetId,
   decodeFileContent,
+  encodeDatasetId,
   getOrg,
   getPackageByDigest,
   getPackageFile,
   listPackageFiles,
-  listPackageVersions,
+  listPackageVersionsWithAppearances,
   splitPackageId,
   updatePackageDisplayName,
+  type AgentAppearance,
   type AgentPreview,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
+import { formatScore } from "@/lib/utils";
 
 export function AgentDetailPage() {
   const { agentId: rawId } = useParams();
@@ -31,6 +43,7 @@ export function AgentDetailPage() {
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [preview, setPreview] = useState<AgentPreview | null>(null);
   const [tree, setTree] = useState<TreeNode[]>([]);
+  const [filePaths, setFilePaths] = useState<string[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileNote, setFileNote] = useState<string | null>(null);
@@ -39,6 +52,7 @@ export function AgentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [canEditName, setCanEditName] = useState(false);
+  const [appearances, setAppearances] = useState<AgentAppearance[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,10 +61,12 @@ export function AgentDetailPage() {
       setTreeLoading(true);
       setError(null);
       try {
-        const versions = await listPackageVersions(agentId, token);
+        const listed = await listPackageVersionsWithAppearances(agentId, token);
+        const versions = listed.items;
         if (!versions.length) {
           throw new RegistryHttpError(404, "not_found", "agent not found");
         }
+        setAppearances(listed.appearances);
         const latest = [...versions].sort(
           (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
         )[0];
@@ -91,6 +107,7 @@ export function AgentDetailPage() {
         if (cancelled) return;
         const nested = buildNestedTree(files.items);
         setTree(nested);
+        setFilePaths(files.items.filter((e) => e.type !== "dir").map((e) => e.path));
         const prefer =
           files.items.find((e) => e.path === "agent.yaml") ||
           files.items.find((e) => e.path === "README.md") ||
@@ -106,6 +123,8 @@ export function AgentDetailPage() {
         setRelease(null);
         setPreview(null);
         setTree([]);
+        setFilePaths([]);
+        setAppearances([]);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -170,10 +189,31 @@ export function AgentDetailPage() {
 
   const packageParts = useMemo(() => splitPackageId(agentId), [agentId]);
 
-  const bindingRows = useMemo(() => {
-    const binding = preview?.binding || {};
-    return Object.entries(binding).filter(([, v]) => v !== null && v !== undefined);
-  }, [preview]);
+  const binding = (preview?.binding || {}) as Record<string, unknown>;
+  const hasBinding = Object.keys(binding).length > 0;
+
+  function openOverlayPath(declared: string) {
+    const prefix = declared.endsWith("/") ? declared : `${declared}/`;
+    const resolved =
+      filePaths.find((p) => p === declared) ||
+      filePaths.find((p) => p.startsWith(prefix)) ||
+      declared;
+    setSelectedPath(resolved);
+    document
+      .getElementById("agent-files")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const appearancesByVersion = useMemo(() => {
+    const groups = new Map<string, AgentAppearance[]>();
+    for (const row of appearances) {
+      const key = row.agent_version || "unknown";
+      const list = groups.get(key) ?? [];
+      list.push(row);
+      groups.set(key, list);
+    }
+    return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a));
+  }, [appearances]);
 
   return (
     <>
@@ -275,31 +315,84 @@ export function AgentDetailPage() {
 
           <section className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Job binding</h2>
-            {bindingRows.length === 0 ? (
-              <p className="text-sm text-mute">No binding preview available.</p>
+            {hasBinding ? (
+              <BindingPreview binding={binding} onOpenOverlay={openOverlayPath} />
             ) : (
-              <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4">
-                <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
-                  {bindingRows.map(([key, value]) => (
-                    <div key={key} className="contents">
-                      <dt className="font-mono text-xs text-mute pt-0.5">{key}</dt>
-                      <dd className="font-mono text-xs text-body break-all">
-                        {typeof value === "string"
-                          ? value
-                          : JSON.stringify(value, null, 1)}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
+              <p className="text-sm text-mute">No binding preview available.</p>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium text-ink">Appearances</h2>
+            <p className="text-xs text-mute">
+              Official public complete release-bound suites that named this Agent
+              via <span className="font-mono">agent_ref</span>. Observational
+              metrics only — PASS stays on the independent evaluator.
+            </p>
+            {appearancesByVersion.length === 0 ? (
+              <p className="text-sm text-mute">
+                No Hub appearances yet. Run with{" "}
+                <span className="font-mono">--agent {agentId}@&lt;version&gt;</span>{" "}
+                and upload a complete official suite.
+              </p>
+            ) : (
+              appearancesByVersion.map(([version, rows]) => (
+                <div key={version} className="space-y-2">
+                  <h3 className="text-xs font-mono text-mute">v{version}</h3>
+                  <div className="rounded-[8px] border border-hairline overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Dataset</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Model</TableHead>
+                          <TableHead className="text-right">Pass rate</TableHead>
+                          <TableHead className="text-right">Mean</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows.map((row) => {
+                          const key = `${row.suite_run_id}:${row.role}`;
+                          return (
+                            <TableRow key={key}>
+                              <TableCell className="font-mono text-xs">
+                                <Link
+                                  to={`/datasets/${encodeDatasetId(row.database_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="hover:underline underline-offset-2"
+                                >
+                                  {row.database_id}
+                                </Link>
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {row.role}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {row.model || "—"}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {formatScore(row.pass_rate)}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {formatScore(row.mean_score)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ))
             )}
           </section>
 
           <section id="agent-files" className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Files</h2>
             <p className="text-xs text-mute">
-              Read-only preview. Agent packages carry configuration only — locator
-              names, never secret values.
+              Read-only preview of this package, including any bundled{" "}
+              <span className="font-mono">overlays/</span> files. Locator names
+              only, never secret values.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <FileSplitPanel

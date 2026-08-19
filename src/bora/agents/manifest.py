@@ -23,7 +23,11 @@ from bora.config.errors import (
     ERROR_INVALID_SCHEMA,
     ConfigError,
 )
-from bora.config.overlay_files import scan_overlay_files
+from bora.config.overlay_files import (
+    assert_overlays_at_lock,
+    parse_overlay_paths,
+    scan_overlay_files,
+)
 from bora.config.profiles import PROFILES_FORMAT, parse_profiles_mapping
 
 AGENT_FILENAME = "agent.yaml"
@@ -178,8 +182,9 @@ def _package_files(root: Path) -> list[Path]:
 def load_agent_manifest(path: Path) -> AgentManifest:
     """Load ``agent.yaml`` from a package dir or a direct yaml path.
 
-    Fail closed on schema errors and on secret material anywhere in the
-    package (locator names are fine; values are not).
+    Fail closed on schema errors, on secret material anywhere in the
+    package (locator names are fine; values are not), and when
+    ``binding.overlays`` lists a path that is missing from the package.
     """
     path = path.expanduser().resolve(strict=False)
     if path.is_dir():
@@ -206,6 +211,17 @@ def load_agent_manifest(path: Path) -> AgentManifest:
 
     scan_files = _package_files(root) if root is not None else [yaml_path]
     scan_overlay_files(scan_files, location=str(yaml_path))
+    listed = parse_overlay_paths(
+        manifest.binding.get("overlays"),
+        location=f"{yaml_path}:/binding/overlays",
+    )
+    if listed:
+        # Direct agent.yaml: listed overlays resolve from the sibling package dir.
+        assert_overlays_at_lock(
+            root if root is not None else yaml_path.parent,
+            manifest.binding,
+            location=f"{yaml_path}:/binding/overlays",
+        )
 
     return AgentManifest(
         agent_id=manifest.agent_id,
