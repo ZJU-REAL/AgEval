@@ -20,7 +20,7 @@ from services.registry.dataset import (
 )
 from services.registry.errors import RegistryAppError
 from services.registry.official import official_dataset_ids
-from services.registry.runtime_service import attach_runtime_refs
+from services.registry.runtime_service import attach_agent_refs
 from services.registry.store import (
     AttemptResultRow,
     SuiteResultRow,
@@ -597,7 +597,7 @@ class ResultService:
         official = official_dataset_ids(self.meta.list_releases(include_private=True))
         return {
             "items": [
-                attach_runtime_refs(suite_to_dict(r, attempt_content_ids=attempt_ids), official)
+                attach_agent_refs(suite_to_dict(r, attempt_content_ids=attempt_ids), official)
                 for r in visible
             ]
         }
@@ -606,7 +606,7 @@ class ResultService:
         row = self._require_visible_suite(suite_run_id, auth)
         attempt_ids = self._suite_visible_attempt_ids([row], auth=auth)
         official = official_dataset_ids(self.meta.list_releases(include_private=True))
-        return attach_runtime_refs(suite_to_dict(row, attempt_content_ids=attempt_ids), official)
+        return attach_agent_refs(suite_to_dict(row, attempt_content_ids=attempt_ids), official)
 
     def serve_suite_content(
         self, *, suite_run_id: str, auth: TokenInfo

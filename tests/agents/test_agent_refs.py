@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from bora.agents import store
-from bora.agents.refs import package_root_from_agent_ref
+from bora.agents.refs import package_root_from_agent_ref, published_agent_ref_parts
 from bora.config.errors import ConfigError
 from bora.plugins.store import compute_tree_digest
 
@@ -28,6 +28,16 @@ def _make_pkg(tmp_path: Path, agent_id: str = "mock-default", version: str = "0.
         encoding="utf-8",
     )
     return pkg
+
+
+def test_published_agent_ref_parts() -> None:
+    assert published_agent_ref_parts("official/mock-default@0.1.0+sha256:aaaaaaaaaaaa") == (
+        "official/mock-default",
+        "0.1.0",
+    )
+    assert published_agent_ref_parts("local/mock-default@0.1.0+sha256:aaaaaaaaaaaa") is None
+    assert published_agent_ref_parts("file:/tmp/agent@dev+sha256:aaaaaaaaaaaa") is None
+    assert published_agent_ref_parts(None) is None
 
 
 def test_file_ref_resolves_directory(tmp_path: Path) -> None:

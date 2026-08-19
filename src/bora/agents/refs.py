@@ -20,6 +20,32 @@ _FILE_PREFIX = "file:"
 _DEV_PLUS = "@dev+"
 _DEV_SUFFIX = "@dev"
 _SHA_PREFIX = "sha256:"
+_LOCAL_PREFIX = "local/"
+
+
+def published_agent_ref_parts(ref: object) -> tuple[str, str] | None:
+    """Hub-publishable ``(org/name, version)`` from an ``agent_ref``.
+
+    ``file:`` and ``local/`` refs return ``None`` — they must not create
+    Hub appearances (design/12, design/14).
+    """
+    if not isinstance(ref, str):
+        return None
+    text = ref.strip()
+    if not text or text.startswith(_FILE_PREFIX):
+        return None
+    at = text.find("@")
+    if at <= 0:
+        return None
+    package_id = text[:at]
+    if "/" not in package_id or package_id.startswith(_LOCAL_PREFIX):
+        return None
+    rest = text[at + 1 :]
+    plus = rest.find("+")
+    version = (rest[:plus] if plus >= 0 else rest).strip()
+    if not version:
+        return None
+    return package_id, version
 
 
 def package_root_from_agent_ref(ref: str) -> Path:
