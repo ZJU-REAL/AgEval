@@ -1,4 +1,4 @@
-"""HTTP(S) JSON client for the Database Registry service."""
+"""HTTP(S) JSON client for the Dataset Registry service."""
 
 from __future__ import annotations
 
@@ -161,7 +161,7 @@ class RegistryClient:
     def publish(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         version: str,
         package_digest: str,
         blob_digest: str,
@@ -171,11 +171,11 @@ class RegistryClient:
         archive: Path,
         org_id: str,
         replace: bool = False,
-        package_kind: str = "database",
+        package_kind: str = "dataset",
         slot: str | None = None,
     ) -> ReleaseInfo:
         meta: dict[str, Any] = {
-            "database_id": database_id,
+            "dataset_id": dataset_id,
             "version": version,
             "package_digest": package_digest,
             "blob_digest": blob_digest,
@@ -204,7 +204,7 @@ class RegistryClient:
     def release_draft(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         visibility: str | None = None,
         replace: bool = False,
         version: str | None = None,
@@ -218,7 +218,7 @@ class RegistryClient:
             body["version"] = version
         status, raw, _ = self._request(
             "POST",
-            f"/v1/packages/{quote(database_id, safe='/')}/release",
+            f"/v1/packages/{quote(dataset_id, safe='/')}/release",
             body=json.dumps(body, sort_keys=True).encode("utf-8"),
             headers=self._headers(content_type="application/json", auth=True),
         )
@@ -230,16 +230,16 @@ class RegistryClient:
     def get_metadata(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         version: str | None = None,
         package_digest: str | None = None,
     ) -> ReleaseInfo:
         if package_digest:
             dig = quote(package_digest, safe=":")
-            path = f"/v1/packages/{quote(database_id, safe='/')}/by-digest/{dig}"
+            path = f"/v1/packages/{quote(dataset_id, safe='/')}/by-digest/{dig}"
         elif version:
             ver = quote(version, safe="")
-            path = f"/v1/packages/{quote(database_id, safe='/')}/versions/{ver}"
+            path = f"/v1/packages/{quote(dataset_id, safe='/')}/versions/{ver}"
         else:
             raise RegistryError("invalid_ref", "version or package_digest required")
         status, raw, _ = self._request("GET", path, auth=True)
@@ -248,9 +248,9 @@ class RegistryClient:
         data = json.loads(raw.decode("utf-8"))
         return ReleaseInfo.from_payload(data)
 
-    def fetch_content(self, *, database_id: str, package_digest: str, dest: Path) -> Path:
+    def fetch_content(self, *, dataset_id: str, package_digest: str, dest: Path) -> Path:
         path = (
-            f"/v1/packages/{quote(database_id, safe='/')}"
+            f"/v1/packages/{quote(dataset_id, safe='/')}"
             f"/by-digest/{quote(package_digest, safe=':')}/content"
         )
         return self._download_to(path, dest)
@@ -258,12 +258,12 @@ class RegistryClient:
     def list_package_files(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         package_digest: str | None = None,
         version: str | None = None,
     ) -> dict[str, Any]:
         """List package archive paths (Hub S2 / #38). Prefer immutable digest."""
-        base = f"/v1/packages/{quote(database_id, safe='/')}"
+        base = f"/v1/packages/{quote(dataset_id, safe='/')}"
         if package_digest:
             path = f"{base}/by-digest/{quote(package_digest, safe=':')}/files"
         elif version:
@@ -278,13 +278,13 @@ class RegistryClient:
     def get_package_file(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         file_path: str,
         package_digest: str | None = None,
         version: str | None = None,
     ) -> dict[str, Any]:
         """Read one package file as JSON envelope (utf-8 or base64)."""
-        base = f"/v1/packages/{quote(database_id, safe='/')}"
+        base = f"/v1/packages/{quote(dataset_id, safe='/')}"
         # Keep path segments; encode each for URL safety without collapsing slashes.
         encoded_file = "/".join(quote(seg, safe="") for seg in file_path.split("/"))
         if package_digest:
@@ -307,15 +307,15 @@ class RegistryClient:
     def list_packages(
         self,
         *,
-        database_id_prefix: str | None = None,
+        dataset_id_prefix: str | None = None,
         visibility: str | None = None,
         version: str | None = None,
     ) -> list[ReleaseInfo]:
         from urllib.parse import urlencode
 
         q: dict[str, str] = {}
-        if database_id_prefix:
-            q["database_id_prefix"] = database_id_prefix
+        if dataset_id_prefix:
+            q["dataset_id_prefix"] = dataset_id_prefix
         if visibility:
             q["visibility"] = visibility
         if version:
@@ -332,8 +332,8 @@ class RegistryClient:
             raise RegistryError("list_failed", "invalid list response")
         return [self._release_from_dict(item) for item in items]
 
-    def list_package_versions(self, database_id: str) -> list[ReleaseInfo]:
-        path = f"/v1/packages/{quote(database_id, safe='/')}"
+    def list_package_versions(self, dataset_id: str) -> list[ReleaseInfo]:
+        path = f"/v1/packages/{quote(dataset_id, safe='/')}"
         status, raw, _ = self._request("GET", path, auth=True)
         if status != 200:
             raise RegistryError("list_failed", f"status {status}", status=status)
@@ -374,7 +374,7 @@ class RegistryClient:
         self,
         *,
         run_id: str,
-        database_id: str,
+        dataset_id: str,
         task_id: str,
         lock_digest: str,
         status: str,
@@ -387,7 +387,7 @@ class RegistryClient:
     ) -> dict[str, Any]:
         meta: dict[str, Any] = {
             "run_id": run_id,
-            "database_id": database_id,
+            "dataset_id": dataset_id,
             "task_id": task_id,
             "lock_digest": lock_digest,
             "status": status,
@@ -423,12 +423,12 @@ class RegistryClient:
         path = f"/v1/results/attempts/{quote(run_id, safe='')}/content"
         return self._download_to(path, dest)
 
-    def list_attempts(self, *, database_id: str | None = None) -> list[dict[str, Any]]:
+    def list_attempts(self, *, dataset_id: str | None = None) -> list[dict[str, Any]]:
         from urllib.parse import urlencode
 
         path = "/v1/results/attempts"
-        if database_id:
-            path = f"{path}?{urlencode({'database_id': database_id})}"
+        if dataset_id:
+            path = f"{path}?{urlencode({'dataset_id': dataset_id})}"
         status, raw, _ = self._request("GET", path, auth=True)
         if status != 200:
             raise RegistryError("list_failed", f"status {status}", status=status)
@@ -442,8 +442,8 @@ class RegistryClient:
         self,
         *,
         suite_run_id: str,
-        database_id: str,
-        database_version: str,
+        dataset_id: str,
+        dataset_version: str,
         visibility: str,
         pass_rate: float,
         mean_score: float,
@@ -464,8 +464,8 @@ class RegistryClient:
     ) -> dict[str, Any]:
         meta: dict[str, Any] = {
             "suite_run_id": suite_run_id,
-            "database_id": database_id,
-            "database_version": database_version,
+            "dataset_id": dataset_id,
+            "dataset_version": dataset_version,
             "visibility": visibility,
             "pass_rate": pass_rate,
             "mean_score": mean_score,
@@ -559,14 +559,14 @@ class RegistryClient:
         return self._download_to(path, dest)
 
     def list_suites(
-        self, *, database_id: str | None = None, board: bool = False
+        self, *, dataset_id: str | None = None, board: bool = False
     ) -> list[dict[str, Any]]:
         from urllib.parse import urlencode
 
         path = "/v1/results/suites"
         q: dict[str, str] = {}
-        if database_id:
-            q["database_id"] = database_id
+        if dataset_id:
+            q["dataset_id"] = dataset_id
         if board:
             q["board"] = "1"
         if q:
@@ -627,8 +627,8 @@ class RegistryClient:
             raise RegistryError("org_patch_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
 
-    def patch_package_display_name(self, database_id: str, *, display_name: str) -> dict[str, Any]:
-        path = f"/v1/packages/{quote(database_id, safe='/')}"
+    def patch_package_display_name(self, dataset_id: str, *, display_name: str) -> dict[str, Any]:
+        path = f"/v1/packages/{quote(dataset_id, safe='/')}"
         status, raw, _ = self._request(
             "PATCH",
             path,
@@ -773,19 +773,19 @@ class RegistryClient:
             raise RegistryError("set_visibility_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
 
-    def delete_package_release(self, *, database_id: str, version: str) -> dict[str, Any]:
-        path = f"/v1/packages/{quote(database_id, safe='/')}/versions/{quote(version, safe='')}"
+    def delete_package_release(self, *, dataset_id: str, version: str) -> dict[str, Any]:
+        path = f"/v1/packages/{quote(dataset_id, safe='/')}/versions/{quote(version, safe='')}"
         status, raw, _ = self._request("DELETE", path)
         if status != 200:
             raise RegistryError("delete_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
 
     def set_package_visibility(
-        self, *, database_id: str, version: str, visibility: str
+        self, *, dataset_id: str, version: str, visibility: str
     ) -> dict[str, Any]:
         if visibility not in {"public", "private"}:
             raise RegistryError("invalid_request", "visibility must be public or private")
-        path = f"/v1/packages/{quote(database_id, safe='/')}/versions/{quote(version, safe='')}"
+        path = f"/v1/packages/{quote(dataset_id, safe='/')}/versions/{quote(version, safe='')}"
         status, raw, _ = self._request(
             "PATCH",
             path,

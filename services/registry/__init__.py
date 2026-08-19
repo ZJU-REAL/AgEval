@@ -1,1 +1,1 @@
-"""Standalone Database Registry service (not ageval Core)."""
+"""Standalone Dataset Registry service (not ageval Core)."""

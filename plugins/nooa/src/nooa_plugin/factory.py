@@ -19,7 +19,7 @@ import os
 from dataclasses import replace
 from typing import Any
 
-from ageval.adapters.agent_contract import AgentResult
+from ageval.plugins.agent_result import AgentResult
 from ageval.plugins.errors import ExtensionMaterializeError
 from nooa_plugin.trajectory import attach_event_tap, to_ageval_trajectory_events
 

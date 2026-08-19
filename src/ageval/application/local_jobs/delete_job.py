@@ -15,7 +15,7 @@ from ageval.evidence.locators import (
     resolve_evidence_root,
     safe_id_segment,
 )
-from ageval.registry.resolve import resolve_database_root
+from ageval.registry.resolve import resolve_dataset_root
 
 _FINISHED_PROGRESS = frozenset(
     {"complete", "completed", "finished", "done", "cancelled", "canceled"}
@@ -40,7 +40,7 @@ def _confine(root: Path, path: Path, *, location: str) -> Path:
     except ValueError as exc:
         raise ConfigError(
             "invalid_package",
-            "path escapes database sandbox",
+            "path escapes dataset sandbox",
             location=location,
         ) from exc
     return cand
@@ -52,7 +52,7 @@ def _portable(root: Path, path: Path) -> str:
     if not text or text.startswith(".."):
         raise ConfigError(
             "invalid_package",
-            "path escapes database sandbox",
+            "path escapes dataset sandbox",
             location=text or ".",
         )
     return text
@@ -200,8 +200,8 @@ def _confirm_token(job_id: str, kind: str, locators: list[str]) -> str:
 class LocalJobsCommands:
     """Preview / delete local Job trees. No Registry, no score rewrite."""
 
-    def preview_delete_job(self, database_root: Path | str, *, job_id: str) -> dict[str, Any]:
-        root = resolve_database_root(database_root)
+    def preview_delete_job(self, dataset_root: Path | str, *, job_id: str) -> dict[str, Any]:
+        root = resolve_dataset_root(dataset_root)
         job_id = safe_id_segment(job_id, field="job_id")
         suite_dir = _confine(
             root,
@@ -214,13 +214,13 @@ class LocalJobsCommands:
 
     def delete_job(
         self,
-        database_root: Path | str,
+        dataset_root: Path | str,
         *,
         job_id: str,
         confirm_token: str | None = None,
         yes: bool = False,
     ) -> dict[str, Any]:
-        preview = self.preview_delete_job(database_root, job_id=job_id)
+        preview = self.preview_delete_job(dataset_root, job_id=job_id)
         if not preview.get("can_delete"):
             raw_err = preview.get("error")
             err = raw_err if isinstance(raw_err, dict) else {}
@@ -244,7 +244,7 @@ class LocalJobsCommands:
                 "confirm token does not match current preview",
                 location=job_id,
             )
-        root = resolve_database_root(database_root)
+        root = resolve_dataset_root(dataset_root)
         deleted: list[str] = []
         missing: list[str] = []
         for item in preview["paths"]:

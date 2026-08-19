@@ -3,7 +3,7 @@
 Thinnest **worker harness** smoke: no Agent, no Environment.
 
 The harness reads `ctx.params` (`seed`, `message`), publishes a JSON artifact, and
-returns `HarnessTerminal.completed`. Used to pin Attempt worker entry, param
+returns `RunTerminal.completed`. Used to pin Attempt worker entry, param
 projection, and publish paths.
 
 ## What you learn

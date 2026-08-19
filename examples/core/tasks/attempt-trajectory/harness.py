@@ -8,10 +8,10 @@ trajectory_mode in parameters:
 
 from __future__ import annotations
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     mode = str(ctx.params.get("trajectory_mode") or "success")
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     async with agent.session("solver", max_turns=2) as session:
@@ -19,7 +19,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             'Return ONLY JSON {"answer": 40} with no other keys.'
         )
         if not first.get("ok"):
-            return HarnessTerminal.failed(first.get("error") or "first_invoke_failed")
+            return RunTerminal.failed(first.get("error") or "first_invoke_failed")
 
         if mode == "success":
             second = await session.invoke(
@@ -57,11 +57,11 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
                 "partial": True,
             },
         )
-        return HarnessTerminal.failed(second.get("error") or "second_invoke_failed")
+        return RunTerminal.failed(second.get("error") or "second_invoke_failed")
 
     structured = second.get("structured")
     if not isinstance(structured, dict) or "answer" not in structured:
-        return HarnessTerminal.failed("agent_output_missing_answer")
+        return RunTerminal.failed("agent_output_missing_answer")
 
     ctx.publish_json(
         "session-output",
@@ -79,4 +79,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             ],
         },
     )
-    return HarnessTerminal.completed("attempt-trajectory")
+    return RunTerminal.completed("attempt-trajectory")

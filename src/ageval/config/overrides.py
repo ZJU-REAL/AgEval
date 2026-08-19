@@ -7,14 +7,14 @@ from typing import Any
 
 from ageval.config.constants import ALLOWLISTED_OVERRIDE_POINTERS
 from ageval.config.errors import ERROR_INVALID_OVERRIDE, ConfigError
-from ageval.config.profiles import is_binding_override_pointer
+from ageval.config.profiles import is_profile_override_pointer
 
 
 def is_allowlisted_override_pointer(pointer: str) -> bool:
-    """True for fixed parameter pointers or ``/bindings/<role>/…`` axes (#59)."""
+    """True for fixed parameter pointers or ``/agent_profiles/<role>/…`` axes."""
     if pointer in ALLOWLISTED_OVERRIDE_POINTERS:
         return True
-    return is_binding_override_pointer(pointer)
+    return is_profile_override_pointer(pointer)
 
 
 def parse_set_override(raw: str) -> tuple[str, Any]:

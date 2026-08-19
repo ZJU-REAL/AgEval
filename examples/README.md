@@ -1,6 +1,6 @@
 # ageval examples
 
-Tracked **Databases** (suites) for public smokes, case-class journeys, and
+Tracked **Datasets** (suites) for public smokes, case-class journeys, and
 selected popular-bench **conversion** packages.
 
 ```text
@@ -16,7 +16,7 @@ examples/
 └── webshop-mini/   # Database eval/webshop-mini — WebShop-style shopping eval (graded reward)
 ```
 
-The three `*-mini` Databases are agent-eval suites: `profiles.yaml` binds the
+The three `*-mini` Datasets are agent-eval suites: `profiles.yaml` binds the
 CI-safe `mock` executor so `ageval lock` works offline; real evals swap the whole
 binding via the Agent lane (design/14), e.g.
 
@@ -60,7 +60,7 @@ uv run ageval lock examples/core                            # missing --task →
 uv run ageval lock examples/core --task config-invalid       # exit 2, unknown_profile
 ```
 
-## `journeys/` (`database_id: example/journeys`)
+## `journeys/` (`dataset_id: example/journeys`)
 
 | Task                                                       | Case class                        |
 | ---------------------------------------------------------- | --------------------------------- |
@@ -106,7 +106,7 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
-## `slot-probe/` (`database_id: example/slot-probe`)
+## `slot-probe/` (`dataset_id: example/slot-probe`)
 
 Multi-slot extension e2e (not a default public smoke). Requires:
 
@@ -118,7 +118,7 @@ uv run ageval run examples/slot-probe --task l0-env-agent
 
 See [`slot-probe/README.md`](slot-probe/README.md).
 
-## `core/` (`database_id: example/core`)
+## `core/` (`dataset_id: example/core`)
 
 | Task                                                                       | Role                                    |
 | -------------------------------------------------------------------------- | --------------------------------------- |
@@ -136,7 +136,7 @@ See [`slot-probe/README.md`](slot-probe/README.md).
 | [`sdk-tool-guard-denied`](core/tasks/sdk-tool-guard-denied/)               | Tool policy denial                      |
 | [`environment-action-denied`](core/tasks/environment-action-denied/)       | Env undeclared/dangerous action deny    |
 
-## `l1/` (`database_id: example/l1`)
+## `l1/` (`dataset_id: example/l1`)
 
 | Task                                                                           | Role                                    |
 | ------------------------------------------------------------------------------ | --------------------------------------- |
@@ -150,7 +150,7 @@ Isolation (hidden gold, harness without credentials, writer-stop) is covered by
 **Provider tests**: `tests/provider_l1/test_harness_isolation_contracts.py`,
 `tests/provider_l1/test_filtered_mount.py` — not public probe packages.
 
-## `tau3-airline/` (`database_id: my-lab/tau3-airline`)
+## `tau3-airline/` (`dataset_id: my-lab/tau3-airline`)
 
 Popular-bench **port** of [tau2-bench](https://github.com/sierra-research/tau2-bench)
 `airline` (τ³-bench) as **one domain = one Dataset**. Dual-role dialog

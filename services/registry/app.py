@@ -1,4 +1,4 @@
-"""Stdlib HTTP Database Registry + results service.
+"""Stdlib HTTP Dataset Registry + results service.
 
 Endpoints:
   GET  /health
@@ -282,7 +282,7 @@ def build_state_from_env(
 
 def main(argv: list[str] | None = None) -> int:
     load_env_file()
-    parser = argparse.ArgumentParser(description="ageval Database Registry service")
+    parser = argparse.ArgumentParser(description="ageval Dataset Registry service")
     parser.add_argument(
         "--host",
         default=os.environ.get("AGEVAL_REGISTRY_HOST") or "127.0.0.1",

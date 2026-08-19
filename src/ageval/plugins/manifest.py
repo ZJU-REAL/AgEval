@@ -13,7 +13,7 @@ PLUGIN_FORMAT = "ageval.plugin/1"
 MANIFEST_NAMES = ("plugin.yaml", "ageval.plugin.yaml")
 # Default Hub official-org allowlist (org slug). Runtime lock/run never consults this.
 DEFAULT_OFFICIAL_ORG = "official"
-# Same slash form as Dataset database_id. Not org.name. Official is mixed-case.
+# Same slash form as Dataset dataset_id. Not org.name. Official is mixed-case.
 _PLUGIN_ID_SEGMENT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$")
 HOST_REQUIRES_KEYS = frozenset({"import", "file", "hint"})
 PLUGIN_REQUIRES_KEYS = frozenset({"plugin_id", "hint"})
@@ -99,20 +99,38 @@ class PluginRequire:
 
 
 @dataclass(frozen=True, slots=True)
+class ServiceExport:
+    """One ``exports.services`` row (extra named capability)."""
+
+    id: str
+    entry: str
+
+
+@dataclass(frozen=True, slots=True)
+class InjectRow:
+    """One ``inject`` row: service name plus the capabilities it will call."""
+
+    service: str
+    capabilities: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class PluginManifest:
     format: str
     plugin_id: str
     version: str
-    provide: tuple[SlotEntry, ...] = ()
-    on: tuple[SlotEntry, ...] = ()
+    exclusive: tuple[SlotEntry, ...] = ()
+    chain: tuple[SlotEntry, ...] = ()
+    services: tuple[ServiceExport, ...] = ()
+    inject: tuple[InjectRow, ...] = ()
     host_requires: tuple[HostRequire, ...] = ()
     plugin_requires: tuple[PluginRequire, ...] = ()
     source_path: str | None = None
 
     def slots_summary(self) -> dict[str, list[str]]:
         return {
-            "provide": [s.id for s in self.provide],
-            "on": [s.id for s in self.on],
+            "exclusive": [s.id for s in self.exclusive],
+            "chain": [s.id for s in self.chain],
         }
 
 
@@ -148,12 +166,15 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
     if not isinstance(slots, dict):
         raise PluginManifestError("slots must be a mapping", kind="plugin_manifest_invalid")
 
+    unknown_slot_keys = sorted(str(k) for k in slots if str(k) not in {"exclusive", "chain"})
+    if unknown_slot_keys:
+        raise PluginManifestError(
+            f"unknown slots keys: {unknown_slot_keys} (expected exclusive / chain)",
+            kind="plugin_manifest_invalid",
+        )
+
     def _entries(key: str) -> tuple[SlotEntry, ...]:
-        # PyYAML 1.1 may coerce bare mapping key ``on:`` to boolean True.
-        rows = slots.get(key)
-        if rows is None and key == "on":
-            rows = slots.get(True)
-        rows = rows or []
+        rows = slots.get(key) or []
         if not isinstance(rows, list):
             raise PluginManifestError(f"slots.{key} must be a list", kind="plugin_manifest_invalid")
         out: list[SlotEntry] = []
@@ -190,12 +211,83 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
         format=PLUGIN_FORMAT,
         plugin_id=plugin_id,
         version=version.strip(),
-        provide=_entries("provide"),
-        on=_entries("on"),
+        exclusive=_entries("exclusive"),
+        chain=_entries("chain"),
+        services=_parse_services(raw.get("exports")),
+        inject=_parse_inject(raw.get("inject")),
         host_requires=_parse_host_requires(raw.get("host_requires")),
         plugin_requires=_parse_plugin_requires(raw.get("plugin_requires")),
         source_path=location,
     )
+
+
+def _parse_services(raw: Any) -> tuple[ServiceExport, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        raise PluginManifestError("exports must be a mapping", kind="plugin_manifest_invalid")
+    unknown = sorted(str(k) for k in raw if str(k) != "services")
+    if unknown:
+        raise PluginManifestError(
+            f"unknown exports keys: {unknown}", kind="plugin_manifest_invalid"
+        )
+    rows = raw.get("services") or []
+    if not isinstance(rows, list):
+        raise PluginManifestError("exports.services must be a list", kind="plugin_manifest_invalid")
+    out: list[ServiceExport] = []
+    for i, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise PluginManifestError(
+                f"exports.services[{i}] must be a mapping", kind="plugin_manifest_invalid"
+            )
+        sid = row.get("id")
+        entry = row.get("entry")
+        if not isinstance(sid, str) or not sid.strip():
+            raise PluginManifestError(
+                f"exports.services[{i}].id required", kind="plugin_manifest_invalid"
+            )
+        if not isinstance(entry, str) or ":" not in entry:
+            raise PluginManifestError(
+                f"exports.services[{i}].entry must be module:attr",
+                kind="plugin_manifest_invalid",
+            )
+        out.append(ServiceExport(id=sid.strip(), entry=entry.strip()))
+    return tuple(out)
+
+
+def _parse_inject(raw: Any) -> tuple[InjectRow, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise PluginManifestError("inject must be a list", kind="plugin_manifest_invalid")
+    out: list[InjectRow] = []
+    for i, row in enumerate(raw):
+        if not isinstance(row, dict):
+            raise PluginManifestError(
+                f"inject[{i}] must be a mapping", kind="plugin_manifest_invalid"
+            )
+        unknown = sorted(str(k) for k in row if str(k) not in {"service", "capabilities"})
+        if unknown:
+            raise PluginManifestError(
+                f"inject[{i}] unknown keys: {unknown}", kind="plugin_manifest_invalid"
+            )
+        service = row.get("service")
+        if not isinstance(service, str) or not service.strip():
+            raise PluginManifestError(
+                f"inject[{i}].service required", kind="plugin_manifest_invalid"
+            )
+        caps_raw = row.get("capabilities") or []
+        if not isinstance(caps_raw, list):
+            raise PluginManifestError(
+                f"inject[{i}].capabilities must be a list", kind="plugin_manifest_invalid"
+            )
+        out.append(
+            InjectRow(
+                service=service.strip(),
+                capabilities=tuple(str(c).strip() for c in caps_raw if str(c).strip()),
+            )
+        )
+    return tuple(out)
 
 
 def _parse_host_requires(raw: Any) -> tuple[HostRequire, ...]:

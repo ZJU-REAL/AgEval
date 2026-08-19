@@ -4,7 +4,7 @@ Config owns this list. Plugin ``options.src`` is never read to build or
 check it. Listed files must stay secret-free (locators only).
 
 Resolve root is the installed Agent package when the binding has
-``agent_ref``, otherwise the Database root (design/14).
+``agent_ref``, otherwise the Dataset root (design/14).
 """
 
 from __future__ import annotations
@@ -241,19 +241,19 @@ def scan_overlay_files(files: Iterable[Path], *, location: str) -> None:
 
 def overlay_root_for_binding(
     binding: Mapping[str, Any],
-    database_root: Path | None,
+    dataset_root: Path | None,
 ) -> Path | None:
-    """Agent package when ``agent_ref`` is set, else the Database root."""
+    """Agent package when ``agent_ref`` is set, else the Dataset root."""
     ref = binding.get("agent_ref")
     if isinstance(ref, str) and ref.strip():
         from ageval.agents.refs import package_root_from_agent_ref
 
         return package_root_from_agent_ref(ref.strip())
-    return database_root
+    return dataset_root
 
 
 def assert_job_overlay_files(
-    database_root: Path,
+    dataset_root: Path,
     overlay: Mapping[str, Any] | None,
 ) -> None:
     """Scan ``job_overlay.bindings.*.overlays`` before upload-suite."""
@@ -267,7 +267,7 @@ def assert_job_overlay_files(
             continue
         rid = str(role_id).strip() or str(role_id)
         assert_overlays_at_lock(
-            overlay_root_for_binding(raw, database_root),
+            overlay_root_for_binding(raw, dataset_root),
             raw,
             location=f"/job_overlay/bindings/{rid}/overlays",
         )

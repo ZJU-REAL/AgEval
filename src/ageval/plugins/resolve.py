@@ -1,10 +1,15 @@
-"""Resolve BindingIntent + registry → ExtensionGraph (session pin / lock source)."""
+"""Resolve BindingIntent + registry → ExtensionGraph (lock source of truth).
+
+Everything fails closed here, at lock time: an unknown slot, two plugins on one
+exclusive slot, a missing service, or a capability the winning box cannot
+deliver. Nothing probes at invoke time.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
-from ageval.plugins.conflict import order_chain, pick_one
+from ageval.plugins.conflict import Candidate, order_chain, pick_one
 from ageval.plugins.errors import (
     ExtensionMaterializeError,
     ExtensionPluginNotFoundError,
@@ -17,11 +22,23 @@ from ageval.plugins.protocol import (
     ExtensionGraph,
     ExtensionSelect,
     HandlerRef,
-    ProviderRef,
+    InjectRequirement,
+    WinnerRef,
     options_for_plugin,
 )
 from ageval.plugins.registry import ExtensionRegistry, Registration
-from ageval.plugins.slots import ALL_PUBLIC_SLOTS, EXECUTOR, SlotKind, get_slot_kind, is_public_slot
+from ageval.plugins.services import assert_inject_satisfied
+from ageval.plugins.slots import (
+    ALL_SLOTS,
+    ENVIRONMENT,
+    EXECUTOR,
+    SlotKind,
+    get_slot_kind,
+    is_slot,
+)
+
+# Exclusive slots selected by a job field rather than by an extensions row.
+_SUGAR_SLOTS: dict[str, str] = {ENVIRONMENT: "environment", EXECUTOR: "executor"}
 
 
 def resolve(
@@ -30,135 +47,226 @@ def resolve(
     *,
     materialize: bool = True,
 ) -> ExtensionGraph:
-    """Resolve all public slots for one profile intent.
-
-    When ``materialize`` is False, provider/handler refs keep Registration
-    wrappers (useful for lock-only serialization without constructing executors).
-    """
+    """Resolve every slot for one profile intent."""
     graph = ExtensionGraph(profile_id=intent.profile_id)
     explicit = list(intent.extensions)
     explicit.extend(expand_extension_selects(intent.extension_selects, registry))
     for binding in explicit:
-        if not is_public_slot(binding.slot):
+        if not is_slot(binding.slot):
             raise UnknownExtensionSlotError(
                 f"unknown extension slot: {binding.slot!r}",
                 kind="unknown_extension_slot",
             )
 
-    # Sugar: profiles executor: <plugin_id> → explicit binding for executor slot.
-    # Appended last so it wins over an all-slots ``- plugin:`` row.
-    if intent.executor:
-        explicit.append(
-            ExplicitBinding(
-                slot=EXECUTOR,
-                plugin=str(intent.executor),
-                source="profile_executor_field",
-                options=options_for_plugin(intent, str(intent.executor)) or None,
-            )
-        )
-
-    for slot in ALL_PUBLIC_SLOTS:
-        kind = get_slot_kind(slot)
-        raw_candidates = registry.candidates(slot)
-        # Expand Registration-backed candidates for conflict helpers.
-        candidates = list(raw_candidates)
-        slot_explicit = [e for e in explicit if e.slot == slot]
-
-        if kind is SlotKind.PROVIDE:
-            if slot != EXECUTOR and not slot_explicit:
-                candidates = [c for c in candidates if _auto_on_provide(c)]
-            if not candidates and not slot_explicit:
-                # Optional provide slots may be empty (e.g. env_action when unused).
-                # executor is required when profiles set executor field (handled by
-                # pick_one raising plugin_not_found).
-                if slot == EXECUTOR and intent.executor:
-                    pick_one([], slot_explicit, slot=slot)  # raises
-                continue
-            if not candidates and not slot_explicit:
-                continue
-            try:
-                winner = pick_one(candidates, explicit, slot=slot)
-            except Exception:
-                # Re-raise; empty optional provide without intent is skip only above.
-                if not candidates and not slot_explicit:
-                    continue
-                raise
-            reg = winner.impl
-            if not isinstance(reg, Registration):
-                raise ExtensionMaterializeError(
-                    f"invalid registration object for {slot}",
-                    kind="extension_materialize_failed",
-                )
-            plugin_opts = _options_for_winner(intent, explicit, slot, winner.plugin_id)
-            impl = _materialize(reg, intent, plugin_opts) if materialize else reg.impl
-            # replaced_default if a default candidate existed and winner is not default.
-            replaced_default = any(c.is_default for c in candidates) and not winner.is_default
-            pref = ProviderRef(
-                plugin_id=winner.plugin_id,
-                impl=impl,
-                priority=winner.priority,
-                source=winner.source,
-                version=winner.version,
-                digest=winner.digest,
-                replaced_default=replaced_default,
-                slot=slot,
-                options=plugin_opts or None,
-            )
-            graph.providers[slot] = pref
-            graph.records.append(
-                BindingRecord(
+    # Job fields select exclusive winners; appended last so they beat a bare
+    # ``- plugin:`` row that also registered the slot.
+    for slot, attr in _SUGAR_SLOTS.items():
+        chosen = getattr(intent, attr, None)
+        if chosen:
+            explicit.append(
+                ExplicitBinding(
                     slot=slot,
-                    kind="provide",
-                    plugin=winner.plugin_id,
-                    priority=winner.priority,
-                    source=winner.source,
-                    version=winner.version,
-                    digest=winner.digest,
-                    replaced_default=replaced_default,
+                    plugin=str(chosen),
+                    source=f"profile_{attr}_field",
+                    options=options_for_plugin(intent, str(chosen)) or None,
                 )
+            )
+
+    for slot in ALL_SLOTS:
+        slot_explicit = [e for e in explicit if e.slot == slot]
+        candidates = registry.candidates(slot)
+        if get_slot_kind(slot) is SlotKind.EXCLUSIVE:
+            _resolve_exclusive(
+                graph,
+                intent,
+                slot,
+                candidates=candidates,
+                explicit=explicit,
+                slot_explicit=slot_explicit,
+                materialize=materialize,
             )
         else:
-            # multi
-            if not candidates and not slot_explicit:
-                continue
-            chain = order_chain(candidates, explicit, slot=slot)
-            refs: list[HandlerRef] = []
-            for item in chain:
-                reg = item.impl
-                if not isinstance(reg, Registration):
-                    raise ExtensionMaterializeError(
-                        f"invalid registration object for {slot}",
-                        kind="extension_materialize_failed",
-                    )
-                plugin_opts = _options_for_winner(intent, explicit, slot, item.plugin_id)
-                handler = _materialize(reg, intent, plugin_opts) if materialize else reg.impl
-                href = HandlerRef(
-                    plugin_id=item.plugin_id,
-                    handler=handler,
-                    priority=item.priority,
-                    source=item.source,
-                    version=item.version,
-                    digest=item.digest,
-                    replaced_default=False,
-                    slot=slot,
-                    options=plugin_opts or None,
-                )
-                refs.append(href)
-                graph.records.append(
-                    BindingRecord(
-                        slot=slot,
-                        kind="on",
-                        plugin=item.plugin_id,
-                        priority=item.priority,
-                        source=item.source,
-                        version=item.version,
-                        digest=item.digest,
-                        replaced_default=False,
-                    )
-                )
-            graph.chains[slot] = refs
+            _resolve_chain(
+                graph,
+                intent,
+                slot,
+                candidates=candidates,
+                explicit=explicit,
+                slot_explicit=slot_explicit,
+                materialize=materialize,
+            )
 
+    _collect_services(graph, registry, materialize=materialize)
+    _collect_injects(graph, registry)
+    if materialize:
+        available = {sid: graph.winners[sid].impl for sid in graph.winners}
+        available.update(
+            {sid: graph.winners[sid].impl for sid in graph.services if sid in graph.winners}
+        )
+        for sid, plugin_id in graph.services.items():
+            if sid in available:
+                continue
+            reg = registry.service(sid)
+            if reg is not None and reg.plugin_id == plugin_id:
+                available[sid] = reg.impl
+        assert_inject_satisfied(graph.injects, available)
+    _assert_requires(intent, graph)
     return graph
+
+
+def _resolve_exclusive(
+    graph: ExtensionGraph,
+    intent: BindingIntent,
+    slot: str,
+    *,
+    candidates: list[Candidate],
+    explicit: list[ExplicitBinding],
+    slot_explicit: list[ExplicitBinding],
+    materialize: bool,
+) -> None:
+    if not slot_explicit:
+        # No job field and no explicit row: only a registered default may win.
+        candidates = [c for c in candidates if c.is_default]
+        if not candidates:
+            return
+    winner = pick_one(candidates, explicit, slot=slot)
+    reg = winner.impl
+    if not isinstance(reg, Registration):
+        raise ExtensionMaterializeError(
+            f"invalid registration object for {slot}",
+            kind="extension_materialize_failed",
+        )
+    options = _options_for(intent, explicit, slot, winner.plugin_id)
+    impl = _materialize(reg, intent, options) if materialize else reg.impl
+    graph.winners[slot] = WinnerRef(
+        plugin_id=winner.plugin_id,
+        impl=impl,
+        priority=winner.priority,
+        source=winner.source,
+        version=winner.version,
+        digest=winner.digest,
+        slot=slot,
+        options=options or None,
+    )
+    graph.services[slot] = winner.plugin_id
+    graph.records.append(
+        BindingRecord(
+            slot=slot,
+            kind="exclusive",
+            plugin=winner.plugin_id,
+            priority=winner.priority,
+            source=winner.source,
+            version=winner.version,
+            digest=winner.digest,
+        )
+    )
+
+
+def _resolve_chain(
+    graph: ExtensionGraph,
+    intent: BindingIntent,
+    slot: str,
+    *,
+    candidates: list[Candidate],
+    explicit: list[ExplicitBinding],
+    slot_explicit: list[ExplicitBinding],
+    materialize: bool,
+) -> None:
+    if not candidates and not slot_explicit:
+        return
+    chain = order_chain(candidates, explicit, slot=slot)
+    if not chain:
+        return
+    refs: list[HandlerRef] = []
+    for item in chain:
+        reg = item.impl
+        if not isinstance(reg, Registration):
+            raise ExtensionMaterializeError(
+                f"invalid registration object for {slot}",
+                kind="extension_materialize_failed",
+            )
+        options = _options_for(intent, explicit, slot, item.plugin_id)
+        handler = _materialize(reg, intent, options) if materialize else reg.impl
+        refs.append(
+            HandlerRef(
+                plugin_id=item.plugin_id,
+                handler=handler,
+                priority=item.priority,
+                source=item.source,
+                version=item.version,
+                digest=item.digest,
+                slot=slot,
+                options=options or None,
+            )
+        )
+        graph.records.append(
+            BindingRecord(
+                slot=slot,
+                kind="chain",
+                plugin=item.plugin_id,
+                priority=item.priority,
+                source=item.source,
+                version=item.version,
+                digest=item.digest,
+            )
+        )
+    graph.chains[slot] = refs
+
+
+def _collect_services(
+    graph: ExtensionGraph,
+    registry: ExtensionRegistry,
+    *,
+    materialize: bool,
+) -> None:
+    """Add ``exports.services`` of every bound plugin to the graph."""
+    del materialize
+    bound = {ref.plugin_id for ref in graph.winners.values()}
+    for chain in graph.chains.values():
+        bound.update(h.plugin_id for h in chain)
+    for plugin_id in sorted(bound):
+        for service_id in registry.services_for_plugin(plugin_id):
+            graph.services[service_id] = plugin_id
+
+
+def _collect_injects(graph: ExtensionGraph, registry: ExtensionRegistry) -> None:
+    bound = {ref.plugin_id for ref in graph.winners.values()}
+    for chain in graph.chains.values():
+        bound.update(h.plugin_id for h in chain)
+    for plugin_id in sorted(bound):
+        rows = tuple(
+            row
+            for row in registry.injects_for_plugin(plugin_id)
+            if isinstance(row, InjectRequirement)
+        )
+        if rows:
+            graph.injects[plugin_id] = rows
+
+
+def _assert_requires(intent: BindingIntent, graph: ExtensionGraph) -> None:
+    """Task ``requires.environment`` must be a subset of the winner's caps."""
+    wanted = intent.requires.get(ENVIRONMENT) or ()
+    if not wanted:
+        return
+    winner = graph.winners.get(ENVIRONMENT)
+    if winner is None:
+        raise ExtensionPluginNotFoundError(
+            "task requires environment capabilities but no environment winner is bound",
+            kind="extension_plugin_not_found",
+        )
+    caps = getattr(winner.impl, "capabilities", None)
+    if caps is None:
+        raise ExtensionPluginNotFoundError(
+            f"environment kind {winner.plugin_id!r} declares no capabilities",
+            kind="extension_plugin_not_found",
+        )
+    missing = list(caps.missing(wanted))
+    if missing:
+        from ageval.plugins.errors import InjectUnsatisfiedError
+
+        raise InjectUnsatisfiedError(
+            f"environment kind {winner.plugin_id!r} cannot deliver required capabilities {missing}"
+        )
 
 
 def _materialize(
@@ -166,21 +274,36 @@ def _materialize(
     intent: BindingIntent,
     options: dict[str, Any] | None = None,
 ) -> Any:
-    """If registration is a factory, construct with *row* options only."""
+    """Construct the contribution when the registration is a factory."""
     impl = reg.impl
     plugin_opts = dict(options or {})
     if not reg.is_factory:
         if _looks_like_handler(impl):
             return impl
-        if callable(impl):
-            return _call_factory(reg, intent, impl, plugin_opts)
         return impl
     if not callable(impl):
         raise ExtensionMaterializeError(
             f"factory for plugin {reg.plugin_id!r} slot {reg.slot!r} is not callable",
             kind="extension_materialize_failed",
         )
-    return _call_factory(reg, intent, impl, plugin_opts)
+    try:
+        return impl(
+            options=plugin_opts,
+            profile_id=intent.profile_id,
+            model=intent.model,
+            base_url=intent.base_url,
+            api_key=intent.api_key,
+            plugin_id=reg.plugin_id,
+            package_root=intent.package_root,
+            attempt_root=intent.attempt_root,
+        )
+    except ExtensionMaterializeError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — one lock-time failure, no retry
+        raise ExtensionMaterializeError(
+            f"materialize failed for plugin {reg.plugin_id!r} slot {reg.slot!r}: {exc}",
+            kind="extension_materialize_failed",
+        ) from exc
 
 
 def _looks_like_handler(impl: Any) -> bool:
@@ -195,45 +318,7 @@ def _looks_like_handler(impl: Any) -> bool:
     return len(params) >= 3
 
 
-def _call_factory(
-    reg: Registration,
-    intent: BindingIntent,
-    impl: Any,
-    plugin_opts: dict[str, Any],
-) -> Any:
-    try:
-        return impl(
-            options=plugin_opts,
-            profile_id=intent.profile_id,
-            model=intent.model,
-            base_url=intent.base_url,
-            api_key=intent.api_key,
-            plugin_id=reg.plugin_id,
-            package_root=intent.package_root,
-            workdir=intent.workdir,
-            home=intent.home,
-        )
-    except TypeError:
-        try:
-            return impl(options=plugin_opts, profile_id=intent.profile_id)
-        except TypeError:
-            try:
-                return impl()
-            except Exception as exc:  # noqa: BLE001
-                raise ExtensionMaterializeError(
-                    f"materialize failed for plugin {reg.plugin_id!r} slot {reg.slot!r}: {exc}",
-                    kind="extension_materialize_failed",
-                ) from exc
-    except ExtensionMaterializeError:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        raise ExtensionMaterializeError(
-            f"materialize failed for plugin {reg.plugin_id!r} slot {reg.slot!r}: {exc}",
-            kind="extension_materialize_failed",
-        ) from exc
-
-
-def _options_for_winner(
+def _options_for(
     intent: BindingIntent,
     explicit: list[ExplicitBinding],
     slot: str,
@@ -248,10 +333,7 @@ def _options_for_winner(
     return options_for_plugin(intent, plugin_id)
 
 
-def resolve_for_lock(
-    intent: BindingIntent,
-    registry: ExtensionRegistry,
-) -> ExtensionGraph:
+def resolve_for_lock(intent: BindingIntent, registry: ExtensionRegistry) -> ExtensionGraph:
     """Resolve without constructing heavy SPI instances (lock field only)."""
     return resolve(intent, registry, materialize=False)
 
@@ -274,7 +356,7 @@ def expand_extension_selects(
         else:
             wanted = []
             for slot in sel.slots:
-                if not is_public_slot(slot):
+                if not is_slot(slot):
                     raise UnknownExtensionSlotError(
                         f"unknown extension slot: {slot!r}",
                         kind="unknown_extension_slot",
@@ -291,7 +373,6 @@ def expand_extension_selects(
                     slot=slot,
                     plugin=sel.plugin,
                     priority=sel.priority,
-                    replace_default=sel.replace_default,
                     source=sel.source,
                     options=dict(sel.options) if sel.options else None,
                 )
@@ -299,8 +380,43 @@ def expand_extension_selects(
     return out
 
 
-def _auto_on_provide(candidate: Any) -> bool:
-    return bool(getattr(candidate, "is_default", False)) or getattr(candidate, "source", "") in {
-        "default",
-        "first-party",
-    }
+def inject_rows_from_manifest(raw: Any) -> tuple[InjectRequirement, ...]:
+    """Parse ``inject:`` rows from a plugin manifest mapping."""
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        from ageval.plugins.errors import ExtensionRegistryError
+
+        raise ExtensionRegistryError("inject must be a list", kind="invalid_extension_binding")
+    out: list[InjectRequirement] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            from ageval.plugins.errors import ExtensionRegistryError
+
+            raise ExtensionRegistryError(
+                "inject rows must be mappings",
+                kind="invalid_extension_binding",
+            )
+        service = str(row.get("service") or "").strip()
+        if not service:
+            from ageval.plugins.errors import ExtensionRegistryError
+
+            raise ExtensionRegistryError(
+                "inject row requires service",
+                kind="invalid_extension_binding",
+            )
+        caps_raw = row.get("capabilities") or []
+        if not isinstance(caps_raw, list):
+            from ageval.plugins.errors import ExtensionRegistryError
+
+            raise ExtensionRegistryError(
+                "inject.capabilities must be a list",
+                kind="invalid_extension_binding",
+            )
+        out.append(
+            InjectRequirement(
+                service=service,
+                capabilities=tuple(str(c).strip() for c in caps_raw if str(c).strip()),
+            )
+        )
+    return tuple(out)

@@ -28,7 +28,7 @@ from ageval.config.overlay_files import (
     parse_overlay_paths,
     scan_overlay_files,
 )
-from ageval.config.profiles import PROFILES_FORMAT, parse_profiles_mapping
+from ageval.config.profiles import PROFILES_FORMAT, parse_job_mapping
 
 AGENT_FILENAME = "agent.yaml"
 AGENT_FORMAT = "ageval.agent/1"
@@ -152,11 +152,11 @@ def parse_agent_document(raw: Any, *, location: str = AGENT_FILENAME) -> AgentMa
             "binding.agent_ref is reserved (injected by --agent projection)",
             location=f"{location}:/binding/agent_ref",
         )
-    parsed = parse_profiles_mapping(
-        {"format": PROFILES_FORMAT, "bindings": {_VALIDATION_ROLE: binding_raw}},
+    parsed = parse_job_mapping(
+        {"format": PROFILES_FORMAT, "agent_profiles": {_VALIDATION_ROLE: binding_raw}},
         location=f"{location}:/binding",
     )
-    binding = parsed[_VALIDATION_ROLE]
+    binding = parsed.profiles[_VALIDATION_ROLE]
     if label and "label" not in binding:
         binding["label"] = label
 

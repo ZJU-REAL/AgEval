@@ -1,4 +1,4 @@
-"""Atomic verified Database cache under ``.ageval/cache/databases/``."""
+"""Atomic verified Dataset cache under ``.ageval/cache/datasets/``."""
 
 from __future__ import annotations
 
@@ -20,19 +20,19 @@ def default_cache_root() -> Path:
 
 
 class PackageCache:
-    """Filesystem cache: ``<root>/databases/<id>/<packageDigest>/``."""
+    """Filesystem cache: ``<root>/datasets/<id>/<packageDigest>/``."""
 
     def __init__(self, cache_root: Path | None = None) -> None:
         self.root = (cache_root or default_cache_root()).resolve()
 
-    def entry_dir(self, database_id: str, package_digest: str) -> Path:
-        # database_id may contain '/'; encode as nested path is fine (validated charset).
+    def entry_dir(self, dataset_id: str, package_digest: str) -> Path:
+        # dataset_id may contain '/'; encode as nested path is fine (validated charset).
         digest_key = package_digest.replace(":", "_")
-        return self.root / "databases" / database_id / digest_key
+        return self.root / "datasets" / dataset_id / digest_key
 
-    def lookup(self, database_id: str, package_digest: str) -> Path | None:
+    def lookup(self, dataset_id: str, package_digest: str) -> Path | None:
         """Return verified cache path or None if missing/corrupt."""
-        entry = self.entry_dir(database_id, package_digest)
+        entry = self.entry_dir(dataset_id, package_digest)
         marker = entry / ".ageval-verified"
         if not marker.is_file():
             return None
@@ -50,7 +50,7 @@ class PackageCache:
     def publish_atomic(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         package_digest: str,
         archive: Path,
         expected_blob_digest: str | None = None,
@@ -71,8 +71,8 @@ class PackageCache:
                 msg = f"blob digest mismatch: expected {expected_blob_digest}, got {actual}"
                 raise ValueError(msg)
 
-        final = self.entry_dir(database_id, package_digest)
-        if self.lookup(database_id, package_digest) is not None:
+        final = self.entry_dir(dataset_id, package_digest)
+        if self.lookup(dataset_id, package_digest) is not None:
             return final
 
         final.parent.mkdir(parents=True, exist_ok=True)
@@ -85,7 +85,7 @@ class PackageCache:
                 raise ValueError(msg)
             marker = {
                 "package_digest": package_digest,
-                "database_id": database_id,
+                "dataset_id": dataset_id,
                 "schema": "ageval.cache.verified/1",
             }
             (tmp / ".ageval-verified").write_text(

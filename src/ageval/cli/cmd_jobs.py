@@ -14,7 +14,7 @@ def register(app: typer.Typer) -> None:
 
     sub = typer.Typer(
         name="jobs",
-        help="Local Jobs under a Database root (no Registry).",
+        help="Local Jobs under a Dataset root (no Registry).",
         no_args_is_help=True,
         add_completion=False,
     )
@@ -23,7 +23,7 @@ def register(app: typer.Typer) -> None:
     def jobs_delete_command(
         local: Annotated[
             Path,
-            typer.Option("--local", help="Local Database root (ageval.dataset/1)."),
+            typer.Option("--local", help="Local Dataset root (ageval.dataset/1)."),
         ],
         job: Annotated[
             str,

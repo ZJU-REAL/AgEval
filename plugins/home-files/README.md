@@ -29,7 +29,7 @@ extensions:
 
 | Field | Rule |
 | --- | --- |
-| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Database root. No `..`, no absolute path. |
+| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Dataset root. No `..`, no absolute path. |
 | `dest_root` | Required: `home` or `workspace`. |
 | `dest` | Relative to that root. No `..`. Not under `evaluation/`. |
 

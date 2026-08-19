@@ -117,9 +117,9 @@ class PluginInstallCommand:
     ) -> Path:
         try:
             if package_digest:
-                meta = client.get_metadata(database_id=package_id, package_digest=package_digest)
+                meta = client.get_metadata(dataset_id=package_id, package_digest=package_digest)
             else:
-                meta = client.get_metadata(database_id=package_id, version=version)
+                meta = client.get_metadata(dataset_id=package_id, version=version)
             if meta.media_type != PLUGIN_MEDIA_TYPE:
                 raise ConfigError(
                     "invalid_package_kind",
@@ -130,7 +130,7 @@ class PluginInstallCommand:
             self._tmp_dirs.append(tmp)
             archive_path = Path(tmp.name) / "plugin.tar.gz"
             client.fetch_content(
-                database_id=package_id,
+                dataset_id=package_id,
                 package_digest=meta.package_digest,
                 dest=archive_path,
             )

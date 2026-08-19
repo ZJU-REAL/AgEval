@@ -22,13 +22,13 @@ def _factory(
     **_kwargs: Any,
 ) -> Any:
     del options, profile_id, plugin_id
-    from ageval.adapters.agent_openai_http import OpenAIHTTPExecutor
+    from ageval.plugins.contrib.openai_http.executor import OpenAIHTTPExecutor
 
     return OpenAIHTTPExecutor(model=model or "gpt-4.1-mini", base_url=base_url, api_key_env=api_key)
 
 
 def register_openai_http_contrib(registry: ExtensionRegistry) -> None:
-    registry.provide(
+    registry.exclusive(
         EXECUTOR,
         PLUGIN_ID,
         _factory,
@@ -37,7 +37,7 @@ def register_openai_http_contrib(registry: ExtensionRegistry) -> None:
         is_factory=True,
     )
     # Alias used by older profiles/tests.
-    registry.provide(
+    registry.exclusive(
         EXECUTOR,
         "openai",
         _factory,

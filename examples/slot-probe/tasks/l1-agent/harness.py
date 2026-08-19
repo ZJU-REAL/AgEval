@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     async with agent.session("probe-acp", actor_id="default", max_turns=1) as session:
         inv = await session.invoke(
@@ -13,7 +13,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         )
 
     if not inv.get("ok"):
-        return HarnessTerminal.failed(inv.get("error") or "invoke_failed")
+        return RunTerminal.failed(inv.get("error") or "invoke_failed")
 
     structured = inv.get("structured") if isinstance(inv.get("structured"), dict) else {}
     answer = structured.get("answer")
@@ -35,5 +35,5 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         },
     )
     if answer != 42:
-        return HarnessTerminal.failed(f"unexpected_answer:{answer}")
-    return HarnessTerminal.completed("l1-agent")
+        return RunTerminal.failed(f"unexpected_answer:{answer}")
+    return RunTerminal.completed("l1-agent")

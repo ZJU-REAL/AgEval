@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
 def _payload(inv: dict[str, Any]) -> dict[str, Any] | None:
@@ -22,14 +22,14 @@ def _payload(inv: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     async with agent.session("nooa-solver", max_turns=1) as session:
         inv = await session.invoke('Return JSON {"answer": 42}')
     if not inv.get("ok"):
-        return HarnessTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
+        return RunTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
     payload = _payload(dict(inv))
     if payload is None:
-        return HarnessTerminal.failed("agent_output_missing_answer")
+        return RunTerminal.failed("agent_output_missing_answer")
     ctx.publish_json("agent-output", payload)
-    return HarnessTerminal.completed("nooa-host-min")
+    return RunTerminal.completed("nooa-host-min")

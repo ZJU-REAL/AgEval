@@ -1,6 +1,6 @@
 """Attempt / trial evidence APIs for the local viewer (issue #26 / #31).
 
-Resolves ``run_id`` → evidence root under the opened Database sandbox and exposes
+Resolves ``run_id`` → evidence root under the opened Dataset sandbox and exposes
 read-only meta, file tree, file preview, and trajectory steps. Tabs are derived
 from files that exist — never fabricated. Trajectory is observational, not PASS.
 

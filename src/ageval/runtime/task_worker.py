@@ -41,16 +41,16 @@ def _send_msg(fd: int, obj: dict[str, Any]) -> None:
     os.write(fd, struct.pack("!I", len(raw)) + raw)
 
 
-def _inject_import_paths(package_root: Path, database_root: Path | None) -> None:
+def _inject_import_paths(package_root: Path, dataset_root: Path | None) -> None:
     """Make task root and Dataset root importable (#68).
 
-    Authoritative prefix: ``[task_dir, database_root, ...]``.
+    Authoritative prefix: ``[task_dir, dataset_root, ...]``.
     Do **not** inject ``shared/lib`` or ``tasks/<id>/lib`` as path roots —
     authors import ``shared.lib.*`` / ``lib.*``.
     """
-    # Insert database_root first, then task_dir so task_dir ends up at front.
-    if database_root is not None:
-        db = str(database_root.resolve())
+    # Insert dataset_root first, then task_dir so task_dir ends up at front.
+    if dataset_root is not None:
+        db = str(dataset_root.resolve())
         if db not in sys.path:
             sys.path.insert(0, db)
     task = str(package_root.resolve())
@@ -60,7 +60,7 @@ def _inject_import_paths(package_root: Path, database_root: Path | None) -> None
 
 
 def _load_entrypoint(
-    package_root: Path, entrypoint: str, *, database_root: Path | None = None
+    package_root: Path, entrypoint: str, *, dataset_root: Path | None = None
 ) -> Any:
     module_name, _, func_name = entrypoint.partition(":")
     if not module_name or not func_name:
@@ -73,7 +73,7 @@ def _load_entrypoint(
     if spec is None or spec.loader is None:
         raise ImportError("cannot load harness.py")
     mod = importlib.util.module_from_spec(spec)
-    _inject_import_paths(package_root, database_root)
+    _inject_import_paths(package_root, dataset_root)
     spec.loader.exec_module(mod)
     fn = getattr(mod, func_name)
     return fn
@@ -91,15 +91,15 @@ async def _run(fd: int) -> int:
     ws_raw = launch.get("workspace_root")
     workspace_root = Path(ws_raw) if ws_raw else package_root
     # #68 Dataset root for shared.lib.* import + code-path assets.
-    db_raw = launch.get("database_root")
-    database_root = Path(db_raw) if db_raw else None
+    db_raw = launch.get("dataset_root")
+    dataset_root = Path(db_raw) if db_raw else None
 
     # Build SDK context inside worker only.
-    from ageval_sdk.context import HarnessContext, HarnessParameterView, RunScope
-    from ageval_sdk.terminal import HarnessTerminal
+    from ageval_sdk.context import RunContext, RunParameterView, RunScope
+    from ageval_sdk.terminal import RunTerminal
 
-    ctx = HarnessContext(
-        params=HarnessParameterView(params),
+    ctx = RunContext(
+        params=RunParameterView(params),
         scope=RunScope(
             attempt_id=attempt_id,
             trial_id=launch.get("trial_id", ""),
@@ -107,19 +107,19 @@ async def _run(fd: int) -> int:
         ),
         workspace_root=workspace_root,
         artifact_dir=artifact_dir,
-        database_root=database_root,
+        dataset_root=dataset_root,
     )
     try:
-        fn = _load_entrypoint(package_root, entrypoint, database_root=database_root)
+        fn = _load_entrypoint(package_root, entrypoint, dataset_root=dataset_root)
         result = fn(ctx)
         if asyncio.iscoroutine(result):
             result = await result
-        if isinstance(result, HarnessTerminal):
+        if isinstance(result, RunTerminal):
             terminal = result.to_dict()
         elif result is None:
-            terminal = HarnessTerminal.completed().to_dict()
+            terminal = RunTerminal.completed().to_dict()
         else:
-            terminal = HarnessTerminal.failed("invalid_terminal").to_dict()
+            terminal = RunTerminal.failed("invalid_terminal").to_dict()
         published = {k: str(v) for k, v in (ctx._published or {}).items()}
         _send_msg(
             fd,

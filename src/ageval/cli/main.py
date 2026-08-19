@@ -1,9 +1,9 @@
 """Public CLI entrypoint (``ageval`` console script).
 
 This module maps argv → use case → stdout/stderr/exit code. It must not
-implement Config merge, path validation, or digests itself.
-
-Command implementations live in ``cmd_*`` modules (chore #31).
+implement Config merge, path validation, digests, or orchestration itself, and
+command implementations only reach the domain through
+``ageval.application.composition``.
 """
 
 from __future__ import annotations
@@ -28,14 +28,13 @@ from ageval.cli import (
 )
 from ageval.cli.version import version_callback
 
-# Typer application object exposed as the console script target.
 app = typer.Typer(
     name="ageval",
     help=(
-        "ageval — Bounded Orchestration for Runtime Agents.\n\n"
-        "CLI path arguments are Database roots (`ageval.dataset/1`). "
+        "ageval — agent evaluation runtime.\n\n"
+        "CLI path arguments are dataset roots (`ageval.dataset/1`). "
         "Use `--task <id>` to select a member under `tasks/<id>/task.yaml`. "
-        "List members with `ageval tasks <database>`."
+        "List members with `ageval tasks <dataset>`."
     ),
     no_args_is_help=True,
     add_completion=False,

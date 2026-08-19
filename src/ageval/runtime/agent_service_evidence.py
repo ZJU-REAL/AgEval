@@ -11,9 +11,7 @@ provide + ``evidence_extra``.
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
-from pathlib import Path
 from typing import Any
 
 from ageval.evidence.redaction import RedactionError
@@ -182,42 +180,19 @@ def seal_invoke_result(
 
     if extension_graph is not None:
         try:
-            from ageval.plugins.lifecycle import (
-                call_trajectory_seal,
-                collect_evidence_extra,
-                collect_trajectory,
-                enrich_trajectory,
-            )
+            from ageval.attempt.emit import run_chain
+            from ageval.plugins.slots import TRAJECTORY_COLLECT, TRAJECTORY_ENRICH
 
-            traj_payload = _run_async(
-                collect_trajectory(extension_graph, traj_payload, ctx=extension_ctx)
-            )
-            if not isinstance(traj_payload, dict):
-                traj_payload = {"prompt": prompt, "events": events, "metadata": meta}
-            traj_payload = _run_async(
-                enrich_trajectory(extension_graph, traj_payload, ctx=extension_ctx)
-            )
-            if not isinstance(traj_payload, dict):
-                traj_payload = {"prompt": prompt, "events": events, "metadata": meta}
-            sealed = _run_async(
-                call_trajectory_seal(extension_graph, traj_payload, ctx=extension_ctx)
-            )
-            if isinstance(sealed, dict):
-                traj_payload = sealed
-                sm = traj_payload.get("seal_marker")
-                if isinstance(sm, dict):
-                    md = dict(traj_payload.get("metadata") or {})
-                    md.setdefault("trajectory_seal", sm)
-                    traj_payload["metadata"] = md
-            extras = _run_async(collect_evidence_extra(extension_graph, [], ctx=extension_ctx))
-            if isinstance(extras, list) and extras:
-                extra_path = Path(handle.directory) / "evidence_extra.jsonl"
-                with extra_path.open("w", encoding="utf-8") as fh:
-                    for row in extras:
-                        fh.write(json.dumps(row, sort_keys=True, default=str) + "\n")
+            for slot in (TRAJECTORY_COLLECT, TRAJECTORY_ENRICH):
+                out = _run_async(run_chain(extension_graph, slot, traj_payload, ctx=extension_ctx))
+                traj_payload = (
+                    out
+                    if isinstance(out, dict)
+                    else {"prompt": prompt, "events": events, "metadata": meta}
+                )
         except Exception:
-            # Trajectory extension must not invent PASS; fail open to base write.
-            _LOG.exception("trajectory extension chain failed (fail-open)")
+            # Trajectory chains are observational; they must never invent PASS.
+            _LOG.exception("trajectory chain failed (fail-open)")
 
     from ageval.evidence.trajectory import write_trajectory_jsonl
 

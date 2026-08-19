@@ -1,10 +1,10 @@
-"""Config Core: Database resolve + load_and_lock → immutable LockedTaskConfig."""
+"""Config Core: Dataset resolve + load_and_lock → immutable LockedTaskConfig."""
 
-from ageval.config.database import (
-    DatabaseManifest,
+from ageval.config.dataset import (
+    DatasetManifest,
     ResolvedTask,
     list_tasks,
-    load_database_manifest,
+    load_dataset_manifest,
     member_paths_for_digest,
     resolve_task,
 )
@@ -16,13 +16,13 @@ from ageval.config.shared import find_lib_collisions, validate_shared_layout
 __all__ = [
     "ConfigCore",
     "ConfigError",
-    "DatabaseManifest",
+    "DatasetManifest",
     "LockSummary",
     "LockedTaskConfig",
     "ResolvedTask",
     "find_lib_collisions",
     "list_tasks",
-    "load_database_manifest",
+    "load_dataset_manifest",
     "member_paths_for_digest",
     "resolve_task",
     "validate_shared_layout",

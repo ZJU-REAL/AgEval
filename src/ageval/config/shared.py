@@ -21,22 +21,22 @@ _FORBIDDEN_SHARED_TOP_LEVEL = frozenset(
 _RESERVED_TOP_LEVEL_PACKAGE = "shared"
 
 
-def shared_dir(database_root: Path) -> Path:
-    return database_root.expanduser().resolve(strict=False) / "shared"
+def shared_dir(dataset_root: Path) -> Path:
+    return dataset_root.expanduser().resolve(strict=False) / "shared"
 
 
-def shared_lib_dir(database_root: Path) -> Path:
-    return shared_dir(database_root) / "lib"
+def shared_lib_dir(dataset_root: Path) -> Path:
+    return shared_dir(dataset_root) / "lib"
 
 
-def infer_database_root_from_task(task_dir: Path) -> Path | None:
-    """Best-effort Database root from a member task directory.
+def infer_dataset_root_from_task(task_dir: Path) -> Path | None:
+    """Best-effort dataset root from a member task directory.
 
     Walks ancestors until a ``ageval.yaml`` is found (supports nested
     ``tasks.root``, e.g. ``members/group/<task_id>``).
     """
     cur = task_dir.expanduser().resolve(strict=False)
-    # Do not treat the task dir itself as the Database root.
+    # Do not treat the task dir itself as the dataset root.
     for parent in cur.parents:
         if (parent / "ageval.yaml").is_file():
             return parent
@@ -70,9 +70,9 @@ def top_level_import_names(lib_dir: Path) -> set[str]:
     return names
 
 
-def collect_shared_lib_names(database_root: Path) -> set[str]:
+def collect_shared_lib_names(dataset_root: Path) -> set[str]:
     """Top-level stems under ``shared/lib`` (informational; no longer a lock ban)."""
-    return top_level_import_names(shared_lib_dir(database_root))
+    return top_level_import_names(shared_lib_dir(dataset_root))
 
 
 def collect_task_lib_names(task_dir: Path) -> set[str]:
@@ -80,7 +80,7 @@ def collect_task_lib_names(task_dir: Path) -> set[str]:
 
 
 def find_lib_collisions(
-    database_root: Path,
+    dataset_root: Path,
     *,
     tasks_root: str = "tasks",
     task_ids: list[str] | None = None,
@@ -90,7 +90,7 @@ def find_lib_collisions(
     Kept as an empty-list API for callers that still import the name; always
     returns ``[]``. Prefer :func:`find_task_shared_shadows`.
     """
-    _ = (database_root, tasks_root, task_ids)
+    _ = (dataset_root, tasks_root, task_ids)
     return []
 
 
@@ -108,7 +108,7 @@ def _task_ids_under(
 
 
 def find_task_shared_shadows(
-    database_root: Path,
+    dataset_root: Path,
     *,
     tasks_root: str = "tasks",
     task_ids: list[str] | None = None,
@@ -120,7 +120,7 @@ def find_task_shared_shadows(
     - ``tasks/<id>/shared/`` (directory)
     - ``tasks/<id>/shared.py`` (module)
     """
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     hits: list[str] = []
     for tid in _task_ids_under(root, tasks_root, task_ids):
         task_dir = root / tasks_root / tid
@@ -134,7 +134,7 @@ def find_task_shared_shadows(
 
 
 def validate_shared_layout(
-    database_root: Path,
+    dataset_root: Path,
     *,
     tasks_root: str = "tasks",
     task_ids: list[str] | None = None,
@@ -142,9 +142,9 @@ def validate_shared_layout(
     """Fail closed on forbidden ``shared/`` content or task ``shared`` shadows (#68).
 
     No-op when ``shared/`` is absent **and** no task owns top-level ``shared``.
-    Task-level ``shared`` shadow is always checked when a Database root is known.
+    Task-level ``shared`` shadow is always checked when a dataset root is known.
     """
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     shared = root / "shared"
     if shared.exists():
         if not shared.is_dir():

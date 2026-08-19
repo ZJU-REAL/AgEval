@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     # Implicit topology actor id is "default".
     async with agent.session("solver", actor_id="default", max_turns=2) as session:
@@ -17,13 +17,13 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         )
 
     if not first.get("ok"):
-        return HarnessTerminal.failed(first.get("error") or "first_invoke_failed")
+        return RunTerminal.failed(first.get("error") or "first_invoke_failed")
     if not second.get("ok"):
-        return HarnessTerminal.failed(second.get("error") or "second_invoke_failed")
+        return RunTerminal.failed(second.get("error") or "second_invoke_failed")
 
     structured = second.get("structured")
     if not isinstance(structured, dict) or "answer" not in structured:
-        return HarnessTerminal.failed("agent_output_missing_answer")
+        return RunTerminal.failed("agent_output_missing_answer")
 
     ctx.publish_json(
         "session-output",
@@ -36,4 +36,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             "provider_session_handle": None,
         },
     )
-    return HarnessTerminal.completed("sdk-session-single-actor")
+    return RunTerminal.completed("sdk-session-single-actor")

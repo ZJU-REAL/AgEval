@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
 def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
@@ -31,7 +31,7 @@ def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     profile_id = str(ctx.params.get("active_profile") or "solver")
     prompt_path = Path(__file__).resolve().parent / "prompts" / "agent.md"
     prompt = (
@@ -45,11 +45,11 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         handle = session.provider_session_handle
 
     if not result.get("ok"):
-        return HarnessTerminal.failed(result.get("error") or "invoke_failed")
+        return RunTerminal.failed(result.get("error") or "invoke_failed")
 
     payload = _answer_payload(dict(result))
     if payload is None:
-        return HarnessTerminal.failed("agent_output_missing_answer")
+        return RunTerminal.failed("agent_output_missing_answer")
 
     ctx.publish_json(
         "session-output",
@@ -61,4 +61,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             "executor_error": result.get("error"),
         },
     )
-    return HarnessTerminal.completed("builtin-executor-conformance")
+    return RunTerminal.completed("builtin-executor-conformance")

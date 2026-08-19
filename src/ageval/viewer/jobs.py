@@ -1,7 +1,7 @@
-"""Local job listing for the Database results viewer.
+"""Local job listing for the Dataset results viewer.
 
 Jobs are suite runs under ``.ageval/suite-runs/`` **and** single-task Attempts
-under ``.ageval/runs/`` or ``tasks/<id>/.ageval/runs/`` in the opened Database.
+under ``.ageval/runs/`` or ``tasks/<id>/.ageval/runs/`` in the opened Dataset.
 No suite-level PASS authority — scores are observational aggregates only.
 """
 
@@ -18,7 +18,7 @@ from ageval.application.suite import (
     task_refs_for_summary,
 )
 from ageval.application.suite.suite_metrics import attempt_started_at
-from ageval.config.database import load_database_manifest
+from ageval.config.dataset import load_dataset_manifest
 from ageval.config.errors import ConfigError
 from ageval.evidence.locators import (
     default_runs_root,
@@ -29,8 +29,8 @@ from ageval.evidence.locators import (
 from ageval.viewer.browse import commands_for
 
 
-def _suite_root(database_root: Path) -> Path:
-    return default_suite_runs_root(database_root.expanduser().resolve(strict=False))
+def _suite_root(dataset_root: Path) -> Path:
+    return default_suite_runs_root(dataset_root.expanduser().resolve(strict=False))
 
 
 def _load_summary(path: Path) -> dict[str, Any]:
@@ -136,10 +136,10 @@ def _attempts_for_task(summary: dict[str, Any], task_id: str) -> list[dict[str, 
     return []
 
 
-def _started_from_run_dir(database_root: Path, run_id: str) -> str | None:
+def _started_from_run_dir(dataset_root: Path, run_id: str) -> str | None:
     try:
         rid = safe_id_segment(run_id, field="run_id")
-        evidence = resolve_evidence_root(database_root, rid, require_task_match=False)
+        evidence = resolve_evidence_root(dataset_root, rid, require_task_match=False)
     except ConfigError:
         return None
     for name in ("summary.json", "result.json"):
@@ -161,7 +161,7 @@ def _previous_entries(
     ref: dict[str, Any],
     attempt_rows: list[dict[str, Any]],
     *,
-    database_root: Path | None = None,
+    dataset_root: Path | None = None,
 ) -> list[dict[str, Any]]:
     raw = ref.get("previous")
     items: list[dict[str, Any]]
@@ -176,7 +176,7 @@ def _previous_entries(
             for item in nested:
                 if isinstance(item, dict):
                     items.append(dict(item))
-    if database_root is None:
+    if dataset_root is None:
         return items
     for item in items:
         if item.get("started_at"):
@@ -184,19 +184,19 @@ def _previous_entries(
         rid = str(item.get("run_id") or "").strip()
         if not rid:
             continue
-        started = _started_from_run_dir(database_root, rid)
+        started = _started_from_run_dir(dataset_root, rid)
         if started:
             item["started_at"] = started
     return items
 
 
 def _in_progress_suite_row(
-    progress: dict[str, Any], *, suite_dir: Path, database_root: Path
+    progress: dict[str, Any], *, suite_dir: Path, dataset_root: Path
 ) -> dict[str, Any]:
     """Suite that has progress.json but no summary yet — still running."""
     man = None
     with contextlib.suppress(ConfigError):
-        man = load_database_manifest(database_root)
+        man = load_dataset_manifest(dataset_root)
     sid = str(progress.get("suite_run_id") or suite_dir.name)
     total = int(progress.get("total") or 0)
     done = int(progress.get("done") or 0)
@@ -204,9 +204,9 @@ def _in_progress_suite_row(
         "job_id": sid,
         "job_name": sid,
         "source_kind": "suite",
-        "source": man.database_id if man else database_root.name,
-        "database_id": man.database_id if man else None,
-        "database_version": man.version if man else None,
+        "source": man.dataset_id if man else dataset_root.name,
+        "dataset_id": man.dataset_id if man else None,
+        "dataset_version": man.version if man else None,
         "agent_label": "",
         "model_label": "",
         "reasoning_effort": "",
@@ -230,7 +230,7 @@ def _in_progress_suite_row(
     }
 
 
-def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -> dict[str, Any]:
+def _job_row(summary: dict[str, Any], *, suite_dir: Path, dataset_root: Path) -> dict[str, Any]:
     metrics = _ensure_metrics(summary)
     refs = _ensure_task_refs(summary)
     n_tasks = int(metrics.get("n_tasks") or len(refs) or 0)
@@ -250,7 +250,7 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
 
     man = None
     with contextlib.suppress(ConfigError):
-        man = load_database_manifest(database_root)
+        man = load_dataset_manifest(dataset_root)
 
     overlay = summary.get("job_overlay") if isinstance(summary.get("job_overlay"), dict) else None
     from ageval.config.overlay_files import overlay_paths_from_job_overlay
@@ -260,10 +260,10 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, database_root: Path) -
         "job_name": str(summary.get("suite_run_id") or suite_dir.name),
         "source_kind": "suite",
         "source": str(
-            summary.get("database_id") or (man.database_id if man else "") or database_root.name
+            summary.get("dataset_id") or (man.dataset_id if man else "") or dataset_root.name
         ),
-        "database_id": summary.get("database_id") or (man.database_id if man else None),
-        "database_version": summary.get("database_version") or (man.version if man else None),
+        "dataset_id": summary.get("dataset_id") or (man.dataset_id if man else None),
+        "dataset_version": summary.get("dataset_version") or (man.version if man else None),
         "agent_label": str(summary.get("agent_label") or ""),
         "model_label": str(summary.get("model_label") or ""),
         "reasoning_effort": _reasoning_effort_from_summary(summary),
@@ -306,9 +306,9 @@ def _suite_run_ids(items: list[dict[str, Any]]) -> set[str]:
     return ids
 
 
-def _referenced_run_ids(database_root: Path, suite_items: list[dict[str, Any]]) -> set[str]:
+def _referenced_run_ids(dataset_root: Path, suite_items: list[dict[str, Any]]) -> set[str]:
     ids: set[str] = set()
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     for row in suite_items:
         job_id = str(row.get("job_id") or "")
         if not job_id:
@@ -338,8 +338,8 @@ def _referenced_run_ids(database_root: Path, suite_items: list[dict[str, Any]]) 
     return ids
 
 
-def _iter_attempt_dirs(database_root: Path) -> list[tuple[str, Path]]:
-    root = database_root.expanduser().resolve(strict=False)
+def _iter_attempt_dirs(dataset_root: Path) -> list[tuple[str, Path]]:
+    root = dataset_root.expanduser().resolve(strict=False)
     found: list[tuple[str, Path]] = []
     seen: set[str] = set()
 
@@ -361,7 +361,7 @@ def _iter_attempt_dirs(database_root: Path) -> list[tuple[str, Path]]:
 
     tasks_root_name = "tasks"
     with contextlib.suppress(ConfigError):
-        man = load_database_manifest(root)
+        man = load_dataset_manifest(root)
         tasks_root_name = man.tasks_root or "tasks"
     tasks_dir = root / tasks_root_name
     if tasks_dir.is_dir():
@@ -415,8 +415,8 @@ def _started_from_evidence(evidence: Path, result: dict[str, Any] | None = None)
 def _reasoning_effort_from_summary(summary: dict[str, Any]) -> str:
     from ageval.config.profiles import (
         join_display_names,
-        reasoning_effort_from_binding,
         reasoning_effort_from_overlay,
+        reasoning_effort_from_profile,
     )
 
     overlay = summary.get("job_overlay")
@@ -430,7 +430,7 @@ def _reasoning_effort_from_summary(summary: dict[str, Any]) -> str:
     for raw in actors:
         if not isinstance(raw, dict):
             continue
-        item = reasoning_effort_from_binding(raw)
+        item = reasoning_effort_from_profile(raw)
         if item:
             found.append(item)
     return join_display_names(found)
@@ -451,7 +451,7 @@ def _labels_from_lock(lock: dict[str, Any], result: dict[str, Any]) -> tuple[str
     return a or derived_a, m or derived_m
 
 
-def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict[str, Any]:
+def _single_job_row(evidence: Path, *, run_id: str, dataset_root: Path) -> dict[str, Any]:
     from ageval.evidence.attempt_record import read_attempt_result
 
     result = read_attempt_result(evidence) or {}
@@ -467,14 +467,14 @@ def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict
     overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
     man = None
     with contextlib.suppress(ConfigError):
-        man = load_database_manifest(database_root)
+        man = load_dataset_manifest(dataset_root)
     return {
         "job_id": run_id,
         "job_name": run_id,
         "source_kind": "single",
         "source": task_id or "single",
-        "database_id": man.database_id if man else None,
-        "database_version": man.version if man else None,
+        "dataset_id": man.dataset_id if man else None,
+        "dataset_version": man.version if man else None,
         "agent_label": agent_label,
         "model_label": model_label,
         "reasoning_effort": reasoning_effort_from_overlay(overlay),
@@ -501,8 +501,8 @@ def _single_job_row(evidence: Path, *, run_id: str, database_root: Path) -> dict
     }
 
 
-def list_jobs(database_root: Path) -> dict[str, Any]:
-    root = database_root.expanduser().resolve(strict=False)
+def list_jobs(dataset_root: Path) -> dict[str, Any]:
+    root = dataset_root.expanduser().resolve(strict=False)
     suite_root = _suite_root(root)
     items: list[dict[str, Any]] = []
     if suite_root.is_dir():
@@ -515,11 +515,11 @@ def list_jobs(database_root: Path) -> dict[str, Any]:
                     summary = _load_summary(summary_path)
                 except ConfigError:
                     continue
-                items.append(_job_row(summary, suite_dir=child, database_root=root))
+                items.append(_job_row(summary, suite_dir=child, dataset_root=root))
                 continue
             progress = _load_progress(child)
             if progress is not None:
-                items.append(_in_progress_suite_row(progress, suite_dir=child, database_root=root))
+                items.append(_in_progress_suite_row(progress, suite_dir=child, dataset_root=root))
 
     claimed = _referenced_run_ids(root, items) | _suite_run_ids(items)
     for run_id, evidence in _iter_attempt_dirs(root):
@@ -529,20 +529,20 @@ def list_jobs(database_root: Path) -> dict[str, Any]:
             # Live/incomplete Attempt — not a finished Job; delete would
             # rmtree a suite that is still writing.
             continue
-        items.append(_single_job_row(evidence, run_id=run_id, database_root=root))
+        items.append(_single_job_row(evidence, run_id=run_id, dataset_root=root))
     items.sort(key=lambda r: str(r.get("started") or r.get("job_id") or ""), reverse=True)
 
     try:
-        man = load_database_manifest(root)
-        database_id = man.database_id
+        man = load_dataset_manifest(root)
+        dataset_id = man.dataset_id
         version = man.version
     except ConfigError:
-        database_id = None
+        dataset_id = None
         version = None
 
     return {
         "ok": True,
-        "database_id": database_id,
+        "dataset_id": dataset_id,
         "version": version,
         "root": str(root),
         "items": items,
@@ -551,9 +551,9 @@ def list_jobs(database_root: Path) -> dict[str, Any]:
     }
 
 
-def job_overlay_mapping(database_root: Path, job_id: str) -> dict[str, Any] | None:
+def job_overlay_mapping(dataset_root: Path, job_id: str) -> dict[str, Any] | None:
     """Secret-free job_overlay from a suite summary or single-attempt lock."""
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     job_id = safe_id_segment(job_id, field="job_id")
     suite_summary = _suite_root(root) / job_id / "summary.json"
     if suite_summary.is_file():
@@ -569,18 +569,18 @@ def job_overlay_mapping(database_root: Path, job_id: str) -> dict[str, Any] | No
     return None
 
 
-def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
-    root = database_root.expanduser().resolve(strict=False)
+def get_job(dataset_root: Path, job_id: str) -> dict[str, Any]:
+    root = dataset_root.expanduser().resolve(strict=False)
     job_id = safe_id_segment(job_id, field="job_id")
     suite_dir = _suite_root(root) / job_id
-    # Confine suite dir under database root
+    # Confine suite dir under dataset root
     suite_resolved = suite_dir.resolve(strict=False)
     try:
         suite_resolved.relative_to(root)
     except ValueError as exc:
         raise ConfigError(
             "invalid_package",
-            "job path escapes database sandbox",
+            "job path escapes dataset sandbox",
             location=job_id,
         ) from exc
     summary_path = suite_dir / "summary.json"
@@ -590,7 +590,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
             return _get_in_progress_suite_job(root, suite_dir=suite_dir, progress=progress)
         return _get_single_job(root, job_id)
     summary = _load_summary(summary_path)
-    job = _job_row(summary, suite_dir=suite_dir, database_root=root)
+    job = _job_row(summary, suite_dir=suite_dir, dataset_root=root)
     progress = _load_progress(suite_dir)
     if progress is not None:
         job["progress"] = progress
@@ -630,7 +630,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
         n_val = full.get("n") if full.get("n") is not None else ref.get("n")
         if n_val is None:
             n_val = len(attempt_run_ids) or None
-        previous = _previous_entries(ref, attempt_rows, database_root=root)
+        previous = _previous_entries(ref, attempt_rows, dataset_root=root)
         task_rows.append(
             {
                 "task_id": tid,
@@ -648,7 +648,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
                 "model_label": job.get("model_label") or "",
                 "reasoning_effort": job.get("reasoning_effort") or "",
                 "provider_label": job.get("provider_label") or "",
-                "dataset": job.get("source") or job.get("database_id"),
+                "dataset": job.get("source") or job.get("dataset_id"),
                 "duration": full.get("duration"),
                 "phase_timing": full.get("phase_timing"),
                 "n": n_val,
@@ -670,7 +670,7 @@ def get_job(database_root: Path, job_id: str) -> dict[str, Any]:
 def _get_in_progress_suite_job(
     root: Path, *, suite_dir: Path, progress: dict[str, Any]
 ) -> dict[str, Any]:
-    job = _in_progress_suite_row(progress, suite_dir=suite_dir, database_root=root)
+    job = _in_progress_suite_row(progress, suite_dir=suite_dir, dataset_root=root)
     raw_running = progress.get("running")
     running: list[Any] = raw_running if isinstance(raw_running, list) else []
     task_rows: list[dict[str, Any]] = []
@@ -715,7 +715,7 @@ def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
             f"suite run not found: {job_id}",
             location=job_id,
         )
-    job = _single_job_row(evidence, run_id=job_id, database_root=root)
+    job = _single_job_row(evidence, run_id=job_id, dataset_root=root)
     task_id = str(job.get("task_id") or "")
     task_rows = [
         {
@@ -741,7 +741,7 @@ def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
             "model_label": job.get("model_label") or "",
             "reasoning_effort": job.get("reasoning_effort") or "",
             "provider_label": job.get("provider_label") or "",
-            "dataset": job.get("source") or job.get("database_id"),
+            "dataset": job.get("source") or job.get("dataset_id"),
             "duration": job.get("duration"),
             "n": 1,
         }
@@ -757,9 +757,9 @@ def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
     }
 
 
-def get_job_task(database_root: Path, job_id: str, task_id: str) -> dict[str, Any]:
+def get_job_task(dataset_root: Path, job_id: str, task_id: str) -> dict[str, Any]:
     task_id = safe_id_segment(task_id, field="task_id")
-    job_payload = get_job(database_root, job_id)
+    job_payload = get_job(dataset_root, job_id)
     match = None
     for row in job_payload["tasks"]:
         if row.get("task_id") == task_id:
@@ -772,7 +772,7 @@ def get_job_task(database_root: Path, job_id: str, task_id: str) -> dict[str, An
             location=task_id,
         )
 
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     cmds = commands_for(root, task_id=task_id)
     # One-liner re-run command for the task (or full suite)
     run_cmd = cmds.get("run_task") or cmds.get("run_suite")

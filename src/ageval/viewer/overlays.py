@@ -1,4 +1,4 @@
-"""Local Viewer preview of declared binding.overlays (Database files)."""
+"""Local Viewer preview of declared binding.overlays (Dataset files)."""
 
 from __future__ import annotations
 
@@ -17,21 +17,21 @@ from ageval.config.overlay_files import (
 
 
 def declared_overlay_paths(
-    database_root: Path,
+    dataset_root: Path,
     overlay: Mapping[str, Any] | None,
 ) -> list[str]:
-    """Prefer the job's job_overlay list; else Database-root profiles.yaml."""
+    """Prefer the job's job_overlay list; else Dataset-root profiles.yaml."""
     listed = overlay_paths_from_job_overlay(overlay)
     if listed:
         return listed
-    path = database_root.expanduser().resolve(strict=False) / "profiles.yaml"
+    path = dataset_root.expanduser().resolve(strict=False) / "profiles.yaml"
     if not path.is_file():
         return []
-    from ageval.config.profiles import load_profiles_document
+    from ageval.config.profiles import load_job_document
 
-    bindings = load_profiles_document(path)
+    job = load_job_document(path)
     raw: list[str] = []
-    for row in bindings.values():
+    for row in job.profiles.values():
         if not isinstance(row, Mapping):
             continue
         items = row.get("overlays")
@@ -42,8 +42,8 @@ def declared_overlay_paths(
     return parse_overlay_paths(raw, location="profiles.yaml:/overlays")
 
 
-def list_overlay_files(database_root: Path, prefixes: Sequence[str]) -> dict[str, Any]:
-    root = database_root.expanduser().resolve(strict=False)
+def list_overlay_files(dataset_root: Path, prefixes: Sequence[str]) -> dict[str, Any]:
+    root = dataset_root.expanduser().resolve(strict=False)
     paths = parse_overlay_paths(list(prefixes), location="/overlays")
     files = iter_overlay_files(root, paths, location="/overlays") if paths else []
     items = [
@@ -59,11 +59,11 @@ def list_overlay_files(database_root: Path, prefixes: Sequence[str]) -> dict[str
 
 
 def read_overlay_file(
-    database_root: Path,
+    dataset_root: Path,
     relpath: str,
     prefixes: Sequence[str],
 ) -> dict[str, Any]:
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     allowed = parse_overlay_paths(list(prefixes), location="/overlays")
     path = normalize_overlay_path(relpath, location="/overlays")
     if not any(path == prefix or path.startswith(f"{prefix}/") for prefix in allowed):

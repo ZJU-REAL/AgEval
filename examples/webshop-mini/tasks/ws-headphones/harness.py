@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 CMD_RE = re.compile(
     r"^\s*(search\s+(?P<q>.+)|click\s+(?P<item>[a-z0-9_-]+)"
@@ -116,7 +116,7 @@ def _extract_command(text: str) -> str | None:
     return None
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     instruction = ctx.params.require_str("instruction")
     catalog = ctx.params.get("catalog") or []
     max_steps = int(ctx.params.get("max_steps") or 12)
@@ -137,7 +137,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         for _step in range(max_steps):
             resp = await session.invoke(system + "Current page:\n" + observation)
             if not resp.get("ok"):
-                return HarnessTerminal.failed(str(resp.get("error") or "invoke_failed"))
+                return RunTerminal.failed(str(resp.get("error") or "invoke_failed"))
             reply = str(resp.get("text") or "")
             cmd = _extract_command(reply)
             if cmd is None:
@@ -155,4 +155,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         {"instruction": instruction, "purchase": shop.purchase, "steps": trace,
          "n_steps": len(trace)},
     )
-    return HarnessTerminal.completed("webshop-mini")
+    return RunTerminal.completed("webshop-mini")

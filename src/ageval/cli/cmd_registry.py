@@ -190,7 +190,7 @@ def register(app: typer.Typer) -> None:
     def registry_list_command(
         prefix: Annotated[
             str | None,
-            typer.Option("--prefix", help="Filter by database_id prefix."),
+            typer.Option("--prefix", help="Filter by dataset_id prefix."),
         ] = None,
         visibility: Annotated[
             str | None,
@@ -209,7 +209,7 @@ def register(app: typer.Typer) -> None:
 
         try:
             summary = list_packages(
-                database_id_prefix=prefix,
+                dataset_id_prefix=prefix,
                 visibility=visibility,
                 registry_url=registry_url,
             )
@@ -222,7 +222,7 @@ def register(app: typer.Typer) -> None:
     def registry_show_command(
         ref: Annotated[
             str,
-            typer.Argument(help="Package ref: database_id@version or @sha256:…"),
+            typer.Argument(help="Package ref: dataset_id@version or @sha256:…"),
         ],
         registry_url: Annotated[
             str | None,
@@ -246,7 +246,7 @@ def register(app: typer.Typer) -> None:
     def registry_delete_command(
         ref: Annotated[
             str,
-            typer.Argument(help="Package release: database_id@version"),
+            typer.Argument(help="Package release: dataset_id@version"),
         ],
         yes: Annotated[
             bool,
@@ -277,7 +277,7 @@ def register(app: typer.Typer) -> None:
     def registry_set_visibility_command(
         ref: Annotated[
             str,
-            typer.Argument(help="Package release: database_id@version"),
+            typer.Argument(help="Package release: dataset_id@version"),
         ],
         visibility: Annotated[
             str,

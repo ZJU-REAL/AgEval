@@ -1,4 +1,4 @@
-"""Stdlib HTTP server for the local Database viewer SPA + Jobs JSON API."""
+"""Stdlib HTTP server for the local Dataset viewer SPA + Jobs JSON API."""
 
 from __future__ import annotations
 
@@ -107,12 +107,12 @@ def normalize_open_path(raw: str | None) -> str:
 
 
 def make_handler(
-    database_root: Path,
+    dataset_root: Path,
     assets: Path | None,
     *,
     cors_origin: str | None = None,
 ) -> type[BaseHTTPRequestHandler]:
-    root = database_root.resolve(strict=False)
+    root = dataset_root.resolve(strict=False)
     assets_dir = assets.resolve(strict=False) if assets is not None else None
 
     class ViewerHandler(BaseHTTPRequestHandler):
@@ -359,7 +359,7 @@ def make_handler(
 
 
 def serve_viewer(
-    database_ref: str | Path,
+    dataset_ref: str | Path,
     *,
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
@@ -383,9 +383,9 @@ def serve_viewer(
         try_start_dev_ui,
     )
 
-    root = browse.open_database(database_ref)
+    root = browse.open_dataset(dataset_ref)
     # Validate package early; reuse for startup metadata.
-    overview = browse.database_overview(root)
+    overview = browse.dataset_overview(root)
     route = normalize_open_path(open_path)
     ui_port_n = int(ui_port) if ui_port else DEFAULT_UI_PORT
     ui_origin = f"http://127.0.0.1:{ui_port_n}"
@@ -424,7 +424,7 @@ def serve_viewer(
         "ui_started": ui.started,
         "ui_reason": ui.reason,
         "open_path": route,
-        "database_id": overview["database_id"],
+        "dataset_id": overview["dataset_id"],
         "root": str(root),
     }
 
@@ -453,7 +453,7 @@ def serve_viewer(
             "ui_url": page_url,
             "dev": dev,
             "ui_started": ui.started,
-            "database_id": info["database_id"],
+            "dataset_id": info["dataset_id"],
             "root": info["root"],
             "message": message,
         }

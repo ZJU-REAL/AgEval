@@ -1,7 +1,7 @@
 """Portable evidence locators for sealed Attempt / campaign products (#70).
 
 Sealed JSON must never embed host absolute paths (home dirs, /var/folders, …).
-Canonical form (option A): ``.ageval/runs/<run_id>`` relative to the Database root.
+Canonical form (option A): ``.ageval/runs/<run_id>`` relative to the Dataset root.
 
 Readers should accept this form, bare ``run_id`` directory names, and legacy
 absolute paths (via ``extract_run_id``-style parsing).
@@ -13,14 +13,14 @@ from pathlib import Path
 from typing import Any
 
 
-def default_runs_root(database_root: Path | str) -> Path:
-    """Database-root Attempt evidence directory: ``<db>/.ageval/runs``."""
-    return Path(database_root) / ".ageval" / "runs"
+def default_runs_root(dataset_root: Path | str) -> Path:
+    """Dataset-root Attempt evidence directory: ``<db>/.ageval/runs``."""
+    return Path(dataset_root) / ".ageval" / "runs"
 
 
-def default_suite_runs_root(database_root: Path | str) -> Path:
-    """Database-root suite job directory: ``<db>/.ageval/suite-runs``."""
-    return Path(database_root) / ".ageval" / "suite-runs"
+def default_suite_runs_root(dataset_root: Path | str) -> Path:
+    """Dataset-root suite job directory: ``<db>/.ageval/suite-runs``."""
+    return Path(dataset_root) / ".ageval" / "suite-runs"
 
 
 def safe_id_segment(value: str, *, field: str) -> str:
@@ -47,19 +47,19 @@ def safe_id_segment(value: str, *, field: str) -> str:
 def portable_run_locator(
     run_dir: Path | str,
     *,
-    database_root: Path | str | None = None,
+    dataset_root: Path | str | None = None,
 ) -> str:
     """Return a portable locator for an Attempt evidence directory.
 
     Preference order:
-    1. Relative path under *database_root* (typically ``.ageval/runs/<run_id>``).
+    1. Relative path under *dataset_root* (typically ``.ageval/runs/<run_id>``).
     2. Suffix ``.ageval/runs/<run_id>`` extracted from an absolute path.
     3. Bare directory name (last path component) when it looks like a run id.
     4. As a last resort, the string form of *run_dir* only if it is already
        relative and does not start with a host root — never expanduser homes.
     """
     path = Path(run_dir)
-    db = Path(database_root).expanduser().resolve(strict=False) if database_root else None
+    db = Path(dataset_root).expanduser().resolve(strict=False) if dataset_root else None
 
     if db is not None:
         try:
@@ -117,17 +117,17 @@ def _looks_like_host_root(path: Path) -> bool:
 
 
 def resolve_evidence_root(
-    database_root: Path | str,
+    dataset_root: Path | str,
     run_id: str,
     *,
     task_id: str | None = None,
     require_task_match: bool = True,
 ) -> Path:
-    """Locate Attempt evidence for *run_id* under the Database root sandbox.
+    """Locate Attempt evidence for *run_id* under the Dataset root sandbox.
 
     Lookup order mirrors the former viewer helper:
-    1. ``{database}/.ageval/runs/{run_id}``
-    2. ``{database}/{tasks_root}/{task_id}/.ageval/runs/{run_id}`` when task_id given
+    1. ``{dataset}/.ageval/runs/{run_id}``
+    2. ``{dataset}/{tasks_root}/{task_id}/.ageval/runs/{run_id}`` when task_id given
     3. Bounded scan under ``tasks/*/.ageval/runs/{run_id}``
 
     Raises ``ConfigError`` when no candidate is found (or task_id mismatches).
@@ -135,7 +135,7 @@ def resolve_evidence_root(
     import contextlib
     import json
 
-    from ageval.config.database import load_database_manifest
+    from ageval.config.dataset import load_dataset_manifest
     from ageval.config.errors import ConfigError
 
     def _safe_segment(value: str, *, field: str) -> str:
@@ -152,7 +152,7 @@ def resolve_evidence_root(
         except ValueError as exc:
             raise ConfigError(
                 "invalid_package",
-                "path escapes database sandbox",
+                "path escapes dataset sandbox",
                 location=location,
             ) from exc
         return cand
@@ -174,7 +174,7 @@ def resolve_evidence_root(
             return True
         return str(locked) == tid
 
-    root = Path(database_root).expanduser().resolve(strict=False)
+    root = Path(dataset_root).expanduser().resolve(strict=False)
     rid = _safe_segment(run_id, field="run_id")
     tid = _safe_segment(task_id, field="task_id") if task_id else None
 
@@ -185,7 +185,7 @@ def resolve_evidence_root(
 
     tasks_root_name = "tasks"
     with contextlib.suppress(ConfigError):
-        man = load_database_manifest(root)
+        man = load_dataset_manifest(root)
         tasks_root_name = man.tasks_root or "tasks"
     if ".." in Path(tasks_root_name).parts or tasks_root_name.startswith(("/", "\\")):
         tasks_root_name = "tasks"
@@ -228,8 +228,8 @@ def resolve_evidence_root(
     )
 
 
-def resolve_attempt_run_dir(database_root: Path | str, run_id: str) -> Path:
-    """Resolve ``.ageval/runs/<run_id>`` under the Database root; fail closed."""
+def resolve_attempt_run_dir(dataset_root: Path | str, run_id: str) -> Path:
+    """Resolve ``.ageval/runs/<run_id>`` under the Dataset root; fail closed."""
     from ageval.config.errors import ConfigError
 
     text = (run_id or "").strip()
@@ -239,7 +239,7 @@ def resolve_attempt_run_dir(database_root: Path | str, run_id: str) -> Path:
             f"invalid run_id: {run_id!r}",
             location="run_id",
         )
-    root = Path(database_root).expanduser().resolve(strict=False)
+    root = Path(dataset_root).expanduser().resolve(strict=False)
     runs_root = (root / ".ageval" / "runs").resolve(strict=False)
     candidate = (runs_root / text).resolve(strict=False)
     try:
@@ -260,13 +260,13 @@ def resolve_attempt_run_dir(database_root: Path | str, run_id: str) -> Path:
 
 
 def resolve_run_dir(
-    database_root: Path | str,
+    dataset_root: Path | str,
     locator: Path | str | None,
 ) -> Path | None:
     """Resolve a portable (or legacy absolute) locator to an on-disk run directory.
 
     Returns ``None`` when *locator* is empty or cannot be resolved under the
-    Database root (legacy abs outside the root still returns the abs Path if it
+    Dataset root (legacy abs outside the root still returns the abs Path if it
     exists — operator recovery).
     """
     if locator is None:
@@ -274,7 +274,7 @@ def resolve_run_dir(
     text = str(locator).strip()
     if not text:
         return None
-    root = Path(database_root).expanduser().resolve(strict=False)
+    root = Path(dataset_root).expanduser().resolve(strict=False)
     path = Path(text)
 
     if path.is_absolute():
@@ -282,7 +282,7 @@ def resolve_run_dir(
         if resolved.is_dir():
             return resolved
         # Fall through: maybe abs path is dead but portable form can be derived
-        portable = portable_run_locator(path, database_root=root)
+        portable = portable_run_locator(path, dataset_root=root)
         cand = root / portable
         if cand.is_dir():
             return cand

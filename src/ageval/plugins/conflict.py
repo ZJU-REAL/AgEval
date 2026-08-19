@@ -1,8 +1,6 @@
 """Conflict resolution: explicit binding > numeric priority; ties fail closed.
 
-Priority convention (documented):
-- **Lower number wins** for provide (single winner).
-- **Lower number runs first** for multi (chain order).
+Lower number wins an exclusive slot and runs first in a chain.
 """
 
 from __future__ import annotations
@@ -37,33 +35,24 @@ def pick_one(
     *,
     slot: str,
 ) -> Candidate:
-    """Select the single provide winner or raise ExtensionConflictError."""
-    if not candidates and not explicit:
-        raise ExtensionPluginNotFoundError(
-            f"no providers registered for slot {slot!r}",
-            kind="extension_plugin_not_found",
-        )
-
+    """Select the single exclusive winner or fail closed."""
     by_plugin = {c.plugin_id: c for c in candidates}
-    # Last explicit for this slot wins among explicits (profiles order).
     slot_explicit = [e for e in explicit if e.slot == slot]
     if slot_explicit:
-        chosen_binding = slot_explicit[-1]
-        cand = by_plugin.get(chosen_binding.plugin)
+        chosen = slot_explicit[-1]
+        cand = by_plugin.get(chosen.plugin)
         if cand is None:
             raise ExtensionPluginNotFoundError(
-                f"plugin {chosen_binding.plugin!r} has no provide for slot {slot!r}",
+                f"plugin {chosen.plugin!r} does not fill exclusive slot {slot!r} "
+                f"(registered: {sorted(by_plugin)})",
                 kind="extension_plugin_not_found",
             )
-        # Explicit may override priority for lock record; keep registered impl.
-        prio = (
-            int(chosen_binding.priority) if chosen_binding.priority is not None else cand.priority
-        )
+        priority = int(chosen.priority) if chosen.priority is not None else cand.priority
         return Candidate(
             plugin_id=cand.plugin_id,
             impl=cand.impl,
-            priority=prio,
-            source=chosen_binding.source or "explicit",
+            priority=priority,
+            source=chosen.source or "explicit",
             version=cand.version,
             digest=cand.digest,
             is_default=cand.is_default,
@@ -71,18 +60,16 @@ def pick_one(
 
     if not candidates:
         raise ExtensionPluginNotFoundError(
-            f"no providers registered for slot {slot!r}",
+            f"no plugin fills exclusive slot {slot!r}",
             kind="extension_plugin_not_found",
         )
 
-    # Lowest priority number wins; tie → fail closed.
-    best_prio = min(c.priority for c in candidates)
-    winners = [c for c in candidates if c.priority == best_prio]
+    best = min(c.priority for c in candidates)
+    winners = [c for c in candidates if c.priority == best]
     if len(winners) > 1:
         ids = sorted({c.plugin_id for c in winners})
         raise ExtensionConflictError(
-            f"extension conflict on slot {slot!r}: equal priority {best_prio} "
-            f"among {ids} without explicit binding",
+            f"exclusive slot {slot!r} claimed at equal priority {best} by {ids}",
             kind="extension_conflict",
         )
     return winners[0]
@@ -94,43 +81,27 @@ def order_chain(
     *,
     slot: str,
 ) -> list[Candidate]:
-    """Order multi-slot handlers; apply replace_default and explicit priority.
-
-    Returns chain sorted by ascending priority (lower runs first).
-    """
+    """Order chain handlers: defaults / first-party join automatically, others opt in."""
     by_plugin = {c.plugin_id: c for c in candidates}
     slot_explicit = [e for e in explicit if e.slot == slot]
-
-    # Opt-in: first-party / default only. Installed plugins join via extensions.
-    selected: dict[str, Candidate] = {c.plugin_id: c for c in candidates if _auto_on_multi_chain(c)}
-
-    replace_default = any(e.replace_default for e in slot_explicit)
-    if replace_default:
-        selected = {pid: c for pid, c in selected.items() if not c.is_default}
-
+    selected: dict[str, Candidate] = {
+        c.plugin_id: c for c in candidates if c.is_default or c.source in {"default", "first-party"}
+    }
     for binding in slot_explicit:
         cand = by_plugin.get(binding.plugin)
         if cand is None:
             raise ExtensionPluginNotFoundError(
-                f"plugin {binding.plugin!r} has no on() for slot {slot!r}",
+                f"plugin {binding.plugin!r} has no handler for chain slot {slot!r}",
                 kind="extension_plugin_not_found",
             )
-        prio = int(binding.priority) if binding.priority is not None else cand.priority
+        priority = int(binding.priority) if binding.priority is not None else cand.priority
         selected[binding.plugin] = Candidate(
             plugin_id=cand.plugin_id,
             impl=cand.impl,
-            priority=prio,
+            priority=priority,
             source=binding.source or "explicit",
             version=cand.version,
             digest=cand.digest,
             is_default=cand.is_default,
         )
-
-    # Multi: same priority is OK — stable secondary key is plugin_id.
-    # Provide-slot ties fail closed in pick_one; chains need multi-plugin coexistence.
-    del slot  # slot used only for error context in provide path
     return sorted(selected.values(), key=lambda c: (c.priority, c.plugin_id))
-
-
-def _auto_on_multi_chain(candidate: Candidate) -> bool:
-    return bool(candidate.is_default) or candidate.source in {"default", "first-party"}

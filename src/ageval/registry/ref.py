@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from ageval.config.database import validate_database_id
+from ageval.config.dataset import validate_dataset_id
 from ageval.config.errors import ConfigError
 
 # identity@version  OR  identity@sha256:<64hex>
@@ -16,11 +16,11 @@ _DIGEST_TAIL_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 
 @dataclass(frozen=True, slots=True)
 class PackageRef:
-    """Either a local Database path or a registry coordinate."""
+    """Either a local Dataset path or a registry coordinate."""
 
     kind: str  # "path" | "version" | "digest"
     path: Path | None = None
-    database_id: str | None = None
+    dataset_id: str | None = None
     version: str | None = None
     package_digest: str | None = None
 
@@ -28,16 +28,16 @@ class PackageRef:
         if self.kind == "path":
             return str(self.path)
         if self.kind == "version":
-            return f"{self.database_id}@{self.version}"
-        return f"{self.database_id}@{self.package_digest}"
+            return f"{self.dataset_id}@{self.version}"
+        return f"{self.dataset_id}@{self.package_digest}"
 
 
 def parse_package_ref(raw: str | Path, *, cwd: Path | None = None) -> PackageRef:
     """Parse a CLI path/ref argument into a PackageRef.
 
     Existing directories are always treated as local paths (even if the string
-    contains ``@``). Registry refs use ``database_id@version`` or
-    ``database_id@sha256:<hex>``.
+    contains ``@``). Registry refs use ``dataset_id@version`` or
+    ``dataset_id@sha256:<hex>``.
     """
     if isinstance(raw, Path):
         path = raw.expanduser()
@@ -71,17 +71,17 @@ def parse_package_ref(raw: str | Path, *, cwd: Path | None = None) -> PackageRef
     if not m:
         raise ConfigError(
             "invalid_package",
-            "expected local Database path or <database_id>@<version|sha256:…>",
+            "expected local Dataset path or <dataset_id>@<version|sha256:…>",
             location=text,
         )
-    database_id = m.group("id")
+    dataset_id = m.group("id")
     tail = m.group("tail")
     try:
-        validate_database_id(database_id)
+        validate_dataset_id(dataset_id)
     except ConfigError as exc:
         raise ConfigError(
             "invalid_package",
-            f"invalid database_id in ref: {exc.message}",
+            f"invalid dataset_id in ref: {exc.message}",
             location=text,
         ) from exc
 
@@ -89,7 +89,7 @@ def parse_package_ref(raw: str | Path, *, cwd: Path | None = None) -> PackageRef
     if dm:
         return PackageRef(
             kind="digest",
-            database_id=database_id,
+            dataset_id=dataset_id,
             package_digest=f"sha256:{dm.group(1)}",
         )
     if not tail or "/" in tail and tail.startswith("sha256:"):
@@ -105,4 +105,4 @@ def parse_package_ref(raw: str | Path, *, cwd: Path | None = None) -> PackageRef
             "invalid version in package ref",
             location=text,
         )
-    return PackageRef(kind="version", database_id=database_id, version=tail)
+    return PackageRef(kind="version", dataset_id=dataset_id, version=tail)

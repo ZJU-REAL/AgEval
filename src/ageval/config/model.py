@@ -1,8 +1,8 @@
 """Immutable Config models and lock summary view.
 
 All nested structures returned from ``load_and_lock`` are recursively frozen
-(mapping → MappingProxyType, list → tuple) so consumers cannot mutate the
-canonical Trial truth.
+(mapping → MappingProxyType, list → tuple) so consumers cannot mutate Trial
+truth.
 """
 
 from __future__ import annotations
@@ -55,39 +55,46 @@ class ResolutionRecord:
 
 @dataclass(frozen=True, slots=True)
 class LockedTaskConfig:
-    """Immutable locked task configuration — Trial configuration truth for v0.1+."""
+    """Immutable locked task configuration — Trial configuration truth."""
 
     format: str
+    dataset_id: str
+    dataset_version: str
     task_id: str
-    harness: Mapping[str, Any]
-    parameters: Mapping[str, Any]
-    provider: Mapping[str, Any]
+    # Exclusive slot winner ids resolved for this Trial.
+    environment: str
+    profile: str | None
     agent_profiles: tuple[Mapping[str, Any], ...]
-    environment: Mapping[str, Any] | None
+    parameters: Mapping[str, Any]
+    requires: Mapping[str, Any]
     limits: Mapping[str, Any]
     artifacts: Mapping[str, Any]
     evaluation: Mapping[str, Any]
     resolution: ResolutionRecord
     digest: str
-    # Package-relative resolved references (entrypoints, artifact paths, inputs).
+    # Package-relative resolved references (entrypoints, recipes, artifact paths).
     resolved_references: Mapping[str, Any] = field(default_factory=lambda: freeze({}))
     # Optional package provenance (溯源); observational — never Attempt PASS.
     provenance: Mapping[str, Any] | None = None
-    # Secret-free job binding overlay used for this lock (#59); not task identity.
+    # Secret-free job document used for this lock; not task identity.
     job_overlay: Mapping[str, Any] | None = None
-    # Per-profile resolved extension point graph (plugin system lock bindings).
+    # Per-profile resolved slot / service / inject graph.
     extension_bindings: Mapping[str, Any] | None = None
+    # Set when the operator asked to rebuild the box recipe.
+    force_build: bool = False
 
     def canonical_payload(self) -> dict[str, Any]:
         """Payload used for digest: everything except the digest field itself."""
         payload: dict[str, Any] = {
             "format": self.format,
+            "dataset_id": self.dataset_id,
+            "dataset_version": self.dataset_version,
             "task_id": self.task_id,
-            "harness": thaw(self.harness),
-            "parameters": thaw(self.parameters),
-            "provider": thaw(self.provider),
+            "environment": self.environment,
+            "profile": self.profile,
             "agent_profiles": thaw(self.agent_profiles),
-            "environment": thaw(self.environment),
+            "parameters": thaw(self.parameters),
+            "requires": thaw(self.requires),
             "limits": thaw(self.limits),
             "artifacts": thaw(self.artifacts),
             "evaluation": thaw(self.evaluation),
@@ -96,13 +103,23 @@ class LockedTaskConfig:
         }
         if self.provenance is not None:
             payload["provenance"] = thaw(self.provenance)
-        # job_overlay is derived from resolved agent_profiles binding; include so
-        # digest reflects the job binding artifact operators can rehydrate.
         if self.job_overlay is not None:
             payload["job_overlay"] = thaw(self.job_overlay)
         if self.extension_bindings is not None:
             payload["extension_bindings"] = thaw(self.extension_bindings)
         return payload
+
+    def profile_row(self, profile_id: str) -> Mapping[str, Any] | None:
+        for row in self.agent_profiles:
+            if str(row.get("id")) == profile_id:
+                return row
+        return None
+
+    def bindings_for(self, profile_id: str) -> Mapping[str, Any] | None:
+        if self.extension_bindings is None:
+            return None
+        found = self.extension_bindings.get(profile_id)
+        return found if isinstance(found, Mapping) else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,23 +127,31 @@ class LockSummary:
     """Deterministic CLI stdout view (no secrets, no host absolute paths)."""
 
     format: str
+    dataset_id: str
+    dataset_version: str
     task_id: str
+    environment: str
     resolved_references: Mapping[str, Any]
     resolution: Sequence[Mapping[str, str]]
     digest: str
+    profile: str | None = None
     provenance: Mapping[str, Any] | None = None
     job_overlay: Mapping[str, Any] | None = None
     extension_bindings: Mapping[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        # Always return plain JSON-serializable dict/list trees (no MappingProxy).
         out: dict[str, Any] = {
+            "dataset_id": self.dataset_id,
+            "dataset_version": self.dataset_version,
             "digest": self.digest,
+            "environment": self.environment,
             "format": self.format,
             "resolution": thaw(list(self.resolution)),
             "resolved_references": thaw(self.resolved_references),
             "task_id": self.task_id,
         }
+        if self.profile is not None:
+            out["profile"] = self.profile
         if self.provenance is not None:
             out["provenance"] = thaw(self.provenance)
         if self.job_overlay is not None:
@@ -140,10 +165,14 @@ def locked_to_summary(lock: LockedTaskConfig) -> LockSummary:
     """Project a LockedTaskConfig into the public lock summary."""
     return LockSummary(
         format=lock.format,
+        dataset_id=lock.dataset_id,
+        dataset_version=lock.dataset_version,
         task_id=lock.task_id,
+        environment=lock.environment,
         resolved_references=lock.resolved_references,
         resolution=tuple(freeze(e) for e in lock.resolution.as_plain()),
         digest=lock.digest,
+        profile=lock.profile,
         provenance=lock.provenance,
         job_overlay=lock.job_overlay,
         extension_bindings=lock.extension_bindings,

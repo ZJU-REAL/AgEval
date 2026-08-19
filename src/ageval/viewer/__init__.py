@@ -1,4 +1,4 @@
-"""Local read-only Database results viewer (HTTP + Vite SPA).
+"""Local read-only Dataset results viewer (HTTP + Vite SPA).
 
 Serves Jobs → Tasks → Trial over suite-runs. Not ageval Core.
 Does not require Registry, Postgres, or OAuth.

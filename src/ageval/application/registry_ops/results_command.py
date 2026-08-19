@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from ageval.application.suite import ensure_suite_metrics, ensure_suite_task_refs
-from ageval.config.database import load_database_manifest
+from ageval.config.dataset import load_dataset_manifest
 from ageval.config.errors import ConfigError
 from ageval.evidence.locators import default_runs_root, resolve_attempt_run_dir
 from ageval.registry.client import RegistryError
-from ageval.registry.resolve import resolve_database_root
+from ageval.registry.resolve import resolve_dataset_root
 from ageval.registry.results_archive import (
     build_attempt_archive,
     build_suite_archive,
@@ -40,8 +40,8 @@ def _read_run_meta(run_dir: Path) -> dict[str, Any]:
     return meta
 
 
-def _resolve_suite_dir(database_root: Path, suite_run_id: str) -> Path:
-    root = database_root.expanduser().resolve(strict=False)
+def _resolve_suite_dir(dataset_root: Path, suite_run_id: str) -> Path:
+    root = dataset_root.expanduser().resolve(strict=False)
     candidate = root / ".ageval" / "suite-runs" / suite_run_id
     if candidate.is_dir():
         return candidate
@@ -132,8 +132,8 @@ def _local_suite_item(summary: dict[str, Any], *, suite_dir: Path) -> dict[str, 
     metrics, task_refs = _suite_metrics_and_refs(summary)
     item: dict[str, Any] = {
         "suite_run_id": summary.get("suite_run_id") or suite_dir.name,
-        "database_id": summary.get("database_id"),
-        "database_version": summary.get("database_version"),
+        "dataset_id": summary.get("dataset_id"),
+        "dataset_version": summary.get("dataset_version"),
         "visibility": "local",
         "pass_rate": metrics.get("pass_rate"),
         "mean_score": metrics.get("mean_score"),
@@ -185,7 +185,7 @@ class ResultsCommands:
 
     def upload_attempt_result(
         self,
-        database_root: Path,
+        dataset_root: Path,
         *,
         run_id: str,
         public: bool = False,
@@ -207,10 +207,10 @@ class ResultsCommands:
                 "replace and allow_existing are mutually exclusive",
                 location="registry",
             )
-        root = database_root.expanduser().resolve(strict=False)
+        root = dataset_root.expanduser().resolve(strict=False)
         try:
-            manifest = load_database_manifest(root)
-            database_id = manifest.database_id
+            manifest = load_dataset_manifest(root)
+            dataset_id = manifest.dataset_id
         except ConfigError:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -235,7 +235,7 @@ class ResultsCommands:
             try:
                 info = client.upload_attempt(
                     run_id=run_id,
-                    database_id=database_id,
+                    dataset_id=dataset_id,
                     task_id=task_id,
                     lock_digest=lock_digest,
                     status=status,
@@ -254,7 +254,7 @@ class ResultsCommands:
                         "ok": True,
                         "already_exists": True,
                         "run_id": run_id,
-                        "database_id": database_id,
+                        "dataset_id": dataset_id,
                         "blob_digest": blob_digest,
                         "size": size,
                         "visibility": "public" if public else "private",
@@ -267,7 +267,7 @@ class ResultsCommands:
             "ok": True,
             "already_exists": False,
             "run_id": info.get("run_id", run_id),
-            "database_id": info.get("database_id", database_id),
+            "dataset_id": info.get("dataset_id", dataset_id),
             "blob_digest": info.get("blob_digest", blob_digest),
             "size": info.get("size", size),
             "visibility": info.get("visibility", "private"),
@@ -305,7 +305,7 @@ class ResultsCommands:
         return {
             "ok": True,
             "run_id": run_id,
-            "database_id": meta.get("database_id"),
+            "dataset_id": meta.get("dataset_id"),
             "blob_digest": meta.get("blob_digest"),
             "out": str(run_path),
             "meta": meta,
@@ -314,21 +314,21 @@ class ResultsCommands:
     def list_attempt_results(
         self,
         *,
-        database_id: str | None = None,
+        dataset_id: str | None = None,
         registry_url: str | None = None,
     ) -> dict[str, Any]:
         client = self._client_factory(
             registry_url=registry_url, require_token=True, accept_results_url=True
         )
         try:
-            items = client.list_attempts(database_id=database_id)
+            items = client.list_attempts(dataset_id=dataset_id)
         except RegistryError as exc:
             raise ConfigError(exc.code, exc.message, location="registry") from exc
         return {"ok": True, "items": items, "count": len(items)}
 
     def upload_suite_result(
         self,
-        database_root: Path,
+        dataset_root: Path,
         *,
         suite_run_id: str,
         public: bool = False,
@@ -346,7 +346,7 @@ class ResultsCommands:
         existing suite_run_id conflict (409); attempt re-uploads under
         ``--with-attempts`` remain idempotent (``already_exists``).
         """
-        root = database_root.expanduser().resolve(strict=False)
+        root = dataset_root.expanduser().resolve(strict=False)
         suite_dir = _resolve_suite_dir(root, suite_run_id)
         summary = _load_suite_summary(suite_dir)
 
@@ -362,13 +362,13 @@ class ResultsCommands:
         except (TypeError, ValueError):
             exit_code = 0
 
-        database_id = str(summary.get("database_id") or "")
-        database_version = str(summary.get("database_version") or "")
-        if not database_id:
+        dataset_id = str(summary.get("dataset_id") or "")
+        dataset_version = str(summary.get("dataset_version") or "")
+        if not dataset_id:
             try:
-                man = load_database_manifest(root)
-                database_id = man.database_id
-                database_version = database_version or man.version
+                man = load_dataset_manifest(root)
+                dataset_id = man.dataset_id
+                dataset_version = dataset_version or man.version
             except ConfigError:
                 raise
             except Exception as exc:  # noqa: BLE001
@@ -413,8 +413,8 @@ class ResultsCommands:
             try:
                 info = client.upload_suite(
                     suite_run_id=suite_run_id,
-                    database_id=database_id,
-                    database_version=database_version,
+                    dataset_id=dataset_id,
+                    dataset_version=dataset_version,
                     visibility="public" if public else "private",
                     pass_rate=pass_rate,
                     mean_score=mean_score,
@@ -443,8 +443,8 @@ class ResultsCommands:
         out: dict[str, Any] = {
             "ok": True,
             "suite_run_id": info.get("suite_run_id", suite_run_id),
-            "database_id": info.get("database_id", database_id),
-            "database_version": info.get("database_version", database_version),
+            "dataset_id": info.get("dataset_id", dataset_id),
+            "dataset_version": info.get("dataset_version", dataset_version),
             "pass_rate": info.get("pass_rate", pass_rate),
             "mean_score": info.get("mean_score", mean_score),
             "metrics": info.get("metrics", metrics),
@@ -512,7 +512,7 @@ class ResultsCommands:
 
     def append_suite_slot_result(
         self,
-        database_root: Path,
+        dataset_root: Path,
         *,
         suite_run_id: str,
         task_id: str,
@@ -527,7 +527,7 @@ class ResultsCommands:
         Does **not** call whole-row ``upload_suite --replace``. Old Attempt blobs
         stay. ``task_refs`` come from the local summary (current + previous[]).
         """
-        root = database_root.expanduser().resolve(strict=False)
+        root = dataset_root.expanduser().resolve(strict=False)
         suite_dir = _resolve_suite_dir(root, suite_run_id)
         summary = _load_suite_summary(suite_dir)
         metrics, task_refs = _suite_metrics_and_refs(summary)
@@ -667,11 +667,11 @@ class ResultsCommands:
     ) -> dict[str, Any]:
         """Fetch suite result meta (+ optional archive extract).
 
-        When *local* is a Database root, read ``.ageval/suite-runs/<id>/summary.json``
+        When *local* is a Dataset root, read ``.ageval/suite-runs/<id>/summary.json``
         without contacting the registry.
         """
         if local is not None:
-            root = resolve_database_root(local)
+            root = resolve_dataset_root(local)
             suite_dir = _resolve_suite_dir(root, suite_run_id)
             summary = _load_suite_summary(suite_dir)
             item = _local_suite_item(summary, suite_dir=suite_dir)
@@ -740,7 +740,7 @@ class ResultsCommands:
             "profiles_path": str(dest),
             "job_overlay": overlay,
             "source": meta.get("source") or ("local" if local else "registry"),
-            "note": "re-run with: ageval run <database> --profiles "
+            "note": "re-run with: ageval run <dataset> --profiles "
             + str(dest)
             + " (fill .env locators locally; secrets never in overlay)",
         }
@@ -748,13 +748,13 @@ class ResultsCommands:
     def list_suite_results(
         self,
         *,
-        database_id: str | None = None,
+        dataset_id: str | None = None,
         local: Path | str | None = None,
         registry_url: str | None = None,
     ) -> dict[str, Any]:
         """List suite results from registry, or local ``.ageval/suite-runs/`` when *local* set."""
         if local is not None:
-            root = resolve_database_root(local)
+            root = resolve_dataset_root(local)
             suite_root = root / ".ageval" / "suite-runs"
             items: list[dict[str, Any]] = []
             if suite_root.is_dir():
@@ -769,7 +769,7 @@ class ResultsCommands:
                     except ConfigError:
                         continue
                     item = _local_suite_item(summary, suite_dir=child)
-                    if database_id and item.get("database_id") != database_id:
+                    if dataset_id and item.get("dataset_id") != dataset_id:
                         continue
                     items.append(item)
             return {"ok": True, "items": items, "count": len(items), "source": "local"}
@@ -778,7 +778,7 @@ class ResultsCommands:
             registry_url=registry_url, require_token=True, accept_results_url=True
         )
         try:
-            items = client.list_suites(database_id=database_id)
+            items = client.list_suites(dataset_id=dataset_id)
         except RegistryError as exc:
             raise ConfigError(exc.code, exc.message, location="registry") from exc
         return {"ok": True, "items": items, "count": len(items), "source": "registry"}

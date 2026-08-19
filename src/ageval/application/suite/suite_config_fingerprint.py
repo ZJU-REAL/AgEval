@@ -1,6 +1,6 @@
 """Suite config fingerprint for Leaderboard comparability (#42 + #59).
 
-#59: Leaderboard job axis is Database ``profiles.yaml`` (job_overlay), not
+#59: Leaderboard job axis is Dataset ``profiles.yaml`` (job_overlay), not
 per-task role-slot topology. Different tasks may use different role *ids*;
 agent×model bindings are distributed by one suite-level profiles document.
 
@@ -27,9 +27,9 @@ _SKIP_PLUGIN_IDS = frozenset({"default", "acp", "openai-http"})
 
 def _profile_entry(profile: Mapping[str, Any]) -> str:
     """Display id: ACP ``options.entry``, else plugin ``options.agent``, else kind."""
-    from ageval.config.profiles import acp_entry_from_binding, executor_plugin_options
+    from ageval.config.profiles import acp_entry_from_profile, executor_plugin_options
 
-    entry = acp_entry_from_binding(profile)
+    entry = acp_entry_from_profile(profile)
     if entry:
         return entry
     plugin_opts = executor_plugin_options(profile)
@@ -223,10 +223,10 @@ def merge_plugin_refs(*groups: Sequence[Mapping[str, str]]) -> list[dict[str, st
 
 
 def plugins_from_run_lock(
-    database_root: Path,
+    dataset_root: Path,
     run_id: str | None,
 ) -> list[dict[str, str]]:
-    data = load_run_lock_doc(database_root, run_id)
+    data = load_run_lock_doc(dataset_root, run_id)
     if data is None:
         return []
     bindings = data.get("extension_bindings")
@@ -279,9 +279,9 @@ def job_overlays_compatible(
                 continue
             rid = str(role_id)
             # Wildcard default binding covers any role id, field-wise (design/14).
-            from ageval.config.profiles import effective_binding
+            from ageval.config.profiles import effective_profile
 
-            suite_b = effective_binding(suite_bindings, rid)
+            suite_b = effective_profile(suite_bindings, rid)
             if not isinstance(suite_b, Mapping):
                 # Task used a role not in suite profiles map → incompatible
                 return False
@@ -323,7 +323,7 @@ def _expand_wildcard_overlay(
     bindings are the same job configuration. Without per-task roles to expand
     against, the overlay is returned unchanged.
     """
-    from ageval.config.profiles import WILDCARD_ROLE, effective_binding
+    from ageval.config.profiles import WILDCARD_ROLE, effective_profile
 
     bindings = job_overlay.get("bindings")
     if not isinstance(bindings, Mapping) or WILDCARD_ROLE not in bindings:
@@ -340,7 +340,7 @@ def _expand_wildcard_overlay(
         return job_overlay
     expanded: dict[str, Any] = {}
     for rid in sorted(role_ids):
-        row = effective_binding(bindings, rid)
+        row = effective_profile(bindings, rid)
         if row is not None:
             expanded[rid] = row
     return {**dict(job_overlay), "bindings": expanded}
@@ -421,7 +421,7 @@ def compute_suite_config_fields(
 
 
 def load_run_lock_doc(
-    database_root: Path,
+    dataset_root: Path,
     run_id: str | None,
 ) -> dict[str, Any] | None:
     """Load Attempt ``lock.json`` under ``.ageval/runs/<run_id>/`` if present."""
@@ -429,7 +429,7 @@ def load_run_lock_doc(
         return None
     from ageval.evidence.locators import default_runs_root
 
-    path = default_runs_root(database_root) / str(run_id) / "lock.json"
+    path = default_runs_root(dataset_root) / str(run_id) / "lock.json"
     if not path.is_file():
         return None
     try:
@@ -440,14 +440,14 @@ def load_run_lock_doc(
 
 
 def load_actors_from_run_lock(
-    database_root: Path,
+    dataset_root: Path,
     run_id: str | None,
 ) -> list[dict[str, str]] | None:
     """Read actors from Attempt ``lock.json`` under ``.ageval/runs/<run_id>/``.
 
     Returns None if missing/unreadable (caller may fall back to live lock).
     """
-    data = load_run_lock_doc(database_root, run_id)
+    data = load_run_lock_doc(dataset_root, run_id)
     if data is None:
         return None
     profiles = data.get("profiles") or data.get("agent_profiles") or []
@@ -457,11 +457,11 @@ def load_actors_from_run_lock(
 
 
 def load_job_overlay_from_run_lock(
-    database_root: Path,
+    dataset_root: Path,
     run_id: str | None,
 ) -> dict[str, Any] | None:
     """Secret-free ``job_overlay`` from Attempt lock (#59), if recorded."""
-    data = load_run_lock_doc(database_root, run_id)
+    data = load_run_lock_doc(dataset_root, run_id)
     if data is None:
         return None
     overlay = data.get("job_overlay")
@@ -469,33 +469,25 @@ def load_job_overlay_from_run_lock(
 
 
 def load_actors_from_task_lock(
-    database_root: Path,
+    dataset_root: Path,
     task_id: str,
     *,
     overrides: dict[str, Any] | None = None,
     profiles_path: Path | str | None = None,
 ) -> list[dict[str, str]]:
     """Lock a task (same overrides as suite) and project agent_profiles."""
-    from ageval.adapters.package_fs import LocalPackageReader
-    from ageval.application.attempt.env_bootstrap import load_host_env_files
-    from ageval.config.capabilities import DeclarationCapabilityCatalog
-    from ageval.config.database import load_database_manifest, resolve_task
-    from ageval.config.load_and_lock import ConfigCore
+    from ageval.application.composition import build_lock_command
     from ageval.config.model import thaw
-    from ageval.config.profiles import resolve_profile_bindings
 
-    load_host_env_files(package_root=database_root)
-    resolved = resolve_task(database_root, task_id)
-    man = load_database_manifest(resolved.database_root)
-    bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
-    config = ConfigCore(package_reader=LocalPackageReader())
-    lock = config.load_and_lock(
-        resolved.task_dir,
-        task_id,
-        overrides=overrides,
-        capabilities=DeclarationCapabilityCatalog(),
-        database_provenance=man.provenance,
-        profile_bindings=bindings or None,
+    lock = (
+        build_lock_command()
+        .lock(
+            dataset_root,
+            task_id,
+            overrides=overrides,
+            profiles_path=profiles_path,
+        )
+        .lock
     )
     profiles = thaw(lock.agent_profiles)
     if not isinstance(profiles, list):
@@ -504,33 +496,25 @@ def load_actors_from_task_lock(
 
 
 def load_job_overlay_from_task_lock(
-    database_root: Path,
+    dataset_root: Path,
     task_id: str,
     *,
     overrides: dict[str, Any] | None = None,
     profiles_path: Path | str | None = None,
 ) -> dict[str, Any] | None:
     """Live-lock a task and project secret-free job_overlay (#59)."""
-    from ageval.adapters.package_fs import LocalPackageReader
-    from ageval.application.attempt.env_bootstrap import load_host_env_files
-    from ageval.config.capabilities import DeclarationCapabilityCatalog
-    from ageval.config.database import load_database_manifest, resolve_task
-    from ageval.config.load_and_lock import ConfigCore
+    from ageval.application.composition import build_lock_command
     from ageval.config.model import thaw
-    from ageval.config.profiles import resolve_profile_bindings
 
-    load_host_env_files(package_root=database_root)
-    resolved = resolve_task(database_root, task_id)
-    man = load_database_manifest(resolved.database_root)
-    bindings = resolve_profile_bindings(resolved.database_root, profiles_path=profiles_path)
-    config = ConfigCore(package_reader=LocalPackageReader())
-    lock = config.load_and_lock(
-        resolved.task_dir,
-        task_id,
-        overrides=overrides,
-        capabilities=DeclarationCapabilityCatalog(),
-        database_provenance=man.provenance,
-        profile_bindings=bindings or None,
+    lock = (
+        build_lock_command()
+        .lock(
+            dataset_root,
+            task_id,
+            overrides=overrides,
+            profiles_path=profiles_path,
+        )
+        .lock
     )
     if lock.job_overlay is None:
         return None
@@ -539,45 +523,34 @@ def load_job_overlay_from_task_lock(
 
 
 def _suite_level_job_overlay(
-    database_root: Path,
+    dataset_root: Path,
     *,
     overrides: dict[str, Any] | None = None,
     profiles_path: Path | str | None = None,
 ) -> dict[str, Any] | None:
-    """Full Database profiles.yaml (+ binding overrides) as secret-free overlay."""
+    """Full Dataset profiles.yaml (+ binding overrides) as secret-free overlay."""
+    from ageval.config.env_refs import expand_profile_env_refs
     from ageval.config.profiles import (
-        apply_binding_override,
-        is_binding_override_pointer,
+        apply_profile_override,
+        is_profile_override_pointer,
         project_job_overlay,
-        resolve_profile_bindings,
+        resolve_job_document,
     )
 
-    try:
-        bindings = resolve_profile_bindings(database_root, profiles_path=profiles_path)
-    except Exception:  # noqa: BLE001
+    job = resolve_job_document(dataset_root, profiles_path=profiles_path)
+    for pointer, value in (overrides or {}).items():
+        ptr = str(pointer)
+        if is_profile_override_pointer(ptr):
+            apply_profile_override(job, ptr, value)
+    if not job.profiles:
         return None
-    if overrides:
-        for pointer, value in overrides.items():
-            ptr = str(pointer)
-            if is_binding_override_pointer(ptr):
-                try:
-                    apply_binding_override(bindings, ptr, value)
-                except Exception:  # noqa: BLE001
-                    continue
-    if not bindings:
-        return None
-    from ageval.config.env_refs import expand_binding_env_refs
-
-    try:
-        for role_id, row in bindings.items():
-            expand_binding_env_refs(row, location=f"/bindings/{role_id}")
-    except Exception:  # noqa: BLE001
-        return None
-    return project_job_overlay(bindings)
+    for role_id, row in job.profiles.items():
+        expand_profile_env_refs(row, location=f"/agent_profiles/{role_id}")
+    return project_job_overlay(job.profiles, environment=job.environment)
 
 
 def collect_suite_config(
-    database_root: Path,
+    dataset_root: Path,
     task_rows: Sequence[Mapping[str, Any]],
     *,
     overrides: dict[str, Any] | None = None,
@@ -586,7 +559,7 @@ def collect_suite_config(
 ) -> dict[str, Any]:
     """Build suite config fingerprint fields from task result rows + package.
 
-    Suite job axis = Database ``profiles.yaml`` (optional CLI ``--profiles`` /
+    Suite job axis = Dataset ``profiles.yaml`` (optional CLI ``--profiles`` /
     ``/bindings/*`` overrides). Per-task role topology may differ freely (#59).
     """
     per_task: list[list[dict[str, str]]] = []
@@ -617,13 +590,13 @@ def collect_suite_config(
                 run_id = rid
             elif rid is not None:
                 run_id = str(rid)
-            actors = load_actors_from_run_lock(database_root, run_id)
-            overlay = load_job_overlay_from_run_lock(database_root, run_id)
-            plugin_groups.append(plugins_from_run_lock(database_root, run_id))
+            actors = load_actors_from_run_lock(dataset_root, run_id)
+            overlay = load_job_overlay_from_run_lock(dataset_root, run_id)
+            plugin_groups.append(plugins_from_run_lock(dataset_root, run_id))
         if actors is None:
             try:
                 actors = load_actors_from_task_lock(
-                    database_root,
+                    dataset_root,
                     tid,
                     overrides=overrides,
                     profiles_path=profiles_path,
@@ -633,7 +606,7 @@ def collect_suite_config(
         if overlay is None:
             try:
                 overlay = load_job_overlay_from_task_lock(
-                    database_root,
+                    dataset_root,
                     tid,
                     overrides=overrides,
                     profiles_path=profiles_path,
@@ -644,7 +617,7 @@ def collect_suite_config(
         overlays.append(overlay)
 
     suite_overlay = _suite_level_job_overlay(
-        database_root, overrides=overrides, profiles_path=profiles_path
+        dataset_root, overrides=overrides, profiles_path=profiles_path
     )
     # Prefer full suite profiles map; fall back to union of task overlays.
     if suite_overlay is None:

@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from ageval.adapters.agent_container import wrap_docker_exec
-from ageval.adapters.agent_contract import AgentExecutor, AgentResult
+from ageval.plugins.agent_result import AgentExecutor, AgentResult
 from ageval.adapters.provider_docker.cli_supervise import supervise_docker_cli
 from ageval.provider.contract import TerminationPolicy
 from ageval.provider.outcomes import ProcessTerminalKind

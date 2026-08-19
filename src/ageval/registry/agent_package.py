@@ -31,7 +31,7 @@ def assert_agent_package(root: Path) -> None:
     """Fail closed unless *root* is a valid, secret-free ageval.agent/1 tree."""
     load_agent_manifest(root)  # schema + package-wide secret scan
     if (root / "ageval.yaml").is_file() or (root / "plugin.yaml").is_file():
-        raise ValueError(f"agent package must not also carry a Database/plugin manifest ({root})")
+        raise ValueError(f"agent package must not also carry a Dataset/plugin manifest ({root})")
     _ = AGENT_FORMAT  # format pinned by load_agent_manifest
 
 

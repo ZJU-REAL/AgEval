@@ -1,4 +1,4 @@
-"""HarnessContext and parameter view (HC-1)."""
+"""RunContext and parameter view (HC-1)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class RunScope:
-    """Logical run scope visible to Harness (no host secrets)."""
+    """Logical run scope visible to the task run (no host secrets)."""
 
     attempt_id: str
     trial_id: str
@@ -19,7 +19,7 @@ class RunScope:
     deadline_monotonic: float | None = None
 
 
-class HarnessParameterView:
+class RunParameterView:
     """Read-only parameter projection (JSON-compatible)."""
 
     def __init__(self, data: Mapping[str, Any]) -> None:
@@ -50,15 +50,15 @@ class HarnessParameterView:
 
 
 @dataclass
-class HarnessContext:
+class RunContext:
     """Minimal HC-1 context injected into ``async def run(ctx)``."""
 
-    params: HarnessParameterView
+    params: RunParameterView
     scope: RunScope
     workspace_root: Path
     artifact_dir: Path
     # Database root when known (#65): code-path access to shared/assets (not Agent mount).
-    database_root: Path | None = None
+    dataset_root: Path | None = None
     _closed: bool = False
     _published: dict[str, Path] | None = None
 
@@ -74,7 +74,7 @@ class HarnessContext:
         return self._closed
 
     def publish_json(self, artifact_id: str, data: Mapping[str, Any]) -> Path:
-        """Write declared JSON artifact under artifact_dir (Harness-local)."""
+        """Write declared JSON artifact under artifact_dir (task-local)."""
         import json
 
         if self._closed:

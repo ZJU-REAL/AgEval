@@ -1,6 +1,6 @@
-# ageval Database Registry service
+# ageval Dataset Registry service
 
-Standalone HTTP(S) JSON service for **Database package** publish/get/list and
+Standalone HTTP(S) JSON service for **Dataset package** publish/get/list and
 **Attempt result** upload/get. **Not** ageval Core. Local path workflows never
 require this process.
 
@@ -96,7 +96,7 @@ uv run ageval registry org-list
 # uv run ageval registry org-transfer official alice
 # uv run ageval registry org-remove-member official alice
 
-uv run ageval publish tests/fixtures/databases/publish-min --org my-lab
+uv run ageval publish tests/fixtures/datasets/publish-min --org my-lab
 # Same version again conflicts (409) unless explicit replace (org owner):
 # uv run ageval publish … --org my-lab --replace
 uv run ageval registry list
@@ -106,7 +106,7 @@ uv run ageval registry set-visibility 'test/publish-min@0.1.0' --visibility publ
 uv run ageval lock 'test/publish-min@0.1.0' --task hello
 
 # After a local run produced .ageval/runs/<run_id>/
-uv run ageval results upload <database> --run <run_id>
+uv run ageval results upload <dataset> --run <run_id>
 # uv run ageval results upload … --run <run_id> --replace   # owner overwrite
 uv run ageval results get <run_id> --out /tmp/restored
 uv run ageval results list
@@ -117,20 +117,20 @@ uv run ageval results unshare <run_id> --kind attempt --share-org my-lab
 # uv run ageval results delete <run_id> --kind attempt --yes
 
 # After a suite run produced .ageval/suite-runs/<suite_run_id>/summary.json
-uv run ageval results upload-suite <database> --suite-run <suite_run_id> [--public] [--agent x] [--model y]
+uv run ageval results upload-suite <dataset> --suite-run <suite_run_id> [--public] [--agent x] [--model y]
 # Optional: also pack each task's Attempt tree (Hub can open Job detail)
-uv run ageval results upload-suite <database> --suite-run <suite_run_id> --with-attempts
+uv run ageval results upload-suite <dataset> --suite-run <suite_run_id> --with-attempts
 # uv run ageval results upload-suite … --suite-run <id> --replace
 # Patch one slot (current + previous[]); not whole-row --replace:
 # uv run ageval results upload-suite … --suite-run <id> --task <task_id> [--run <run_id>]
 uv run ageval results get-suite <suite_run_id> [--out /tmp/restored-suite]
-uv run ageval results list-suites [--database-id <id>]
+uv run ageval results list-suites [--dataset-id <id>]
 # Suite delete keeps attempts by default; optional cascade:
 # uv run ageval results delete <suite_run_id> --kind suite --yes
 # uv run ageval results delete <suite_run_id> --kind suite --with-attempts --yes
 # Local fallback (no registry process):
-uv run ageval results list-suites --local <database>
-uv run ageval results get-suite <suite_run_id> --local <database>
+uv run ageval results list-suites --local <dataset>
+uv run ageval results get-suite <suite_run_id> --local <dataset>
 
 # Suite task_refs get has_attempt_content when Attempt blobs exist and are visible.
 # Hub Jobs: clickable when true; grey "Not uploaded" otherwise.
@@ -159,7 +159,7 @@ Env overrides: `AGEVAL_REGISTRY_URL`, `AGEVAL_REGISTRY_TOKEN`, optional
 
 | Kind | Digest | Media type |
 | --- | --- | --- |
-| Database package | packageDigest + blobDigest | `application/vnd.ageval.database.v1.tar+gzip` |
+| Dataset package | packageDigest + blobDigest | `application/vnd.ageval.dataset.v1.tar+gzip` |
 | Attempt result | blobDigest of archive | `application/vnd.ageval.attempt-result.v1.tar+gzip` |
 | Suite/job result | blobDigest of suite-run tree | `application/vnd.ageval.suite-result.v1.tar+gzip` |
 
@@ -181,11 +181,11 @@ Browse published package contents **without** downloading the whole tar to the b
 | GET | `/v1/packages/{id}/versions/{ver}/files/{path}` | resolves to digest |
 
 List/get package meta (`GET /v1/packages`, versions, by-digest) includes
-`package_kind` (`database` | `plugin`, derived from media type). List accepts
-optional `?package_kind=database|plugin` (Hub plugin marketplace).
+`package_kind` (`dataset` | `plugin`, derived from media type). List accepts
+optional `?package_kind=dataset|plugin` (Hub plugin marketplace).
 
 
-- List JSON: `{ database_id, digest, version, items: [{path, type, size}, …] }`
+- List JSON: `{ dataset_id, digest, version, items: [{path, type, size}, …] }`
 - File JSON: `{ path, size, encoding: "utf-8"|"base64", content, truncated }`
 - **Hard top:** single file default **2 MiB** (`MAX_FILE_BYTES`); larger → **413**
 - Path rules: reject `..`, absolute paths, empty segments
@@ -224,7 +224,7 @@ Publish may be done by any org **member**; destructive package ops require **own
 | POST | `/v1/results/suites/{id}/slots` (uploader; one new Attempt + `previous[]`; not `--replace`) |
 | GET/POST/DELETE | `/v1/results/attempts\|suites/{id}/shares` |
 
-**Replace policy:** same `database_id@version` / `run_id` / `suite_run_id` defaults
+**Replace policy:** same `dataset_id@version` / `run_id` / `suite_run_id` defaults
 to **409 conflict**. Explicit `replace: true` (CLI `--replace`) deletes the prior
 row then inserts: blob, digests, metrics/labels, and visibility from the new
 upload. No silent overwrite. Slot append (`POST …/slots` / `upload-suite --task`)
@@ -275,7 +275,7 @@ Overlay bytes preview via the existing Agent package files API. Public official
 board suite JSON may include ``agent_refs`` (``role``, ``package_id``); other
 suites omit it.
 
-Row fields: `database_id`, `database_version`, `pass_rate`, `mean_score`, `metrics`,
+Row fields: `dataset_id`, `dataset_version`, `pass_rate`, `mean_score`, `metrics`,
 `task_refs`, optional `agent_label` / `model_label`, `exit_code`, and optional
 config-comparability projection (`config_fingerprint`, `config_homogeneous`,
 `actors_summary`) written at suite-run time — **not** invented at upload.

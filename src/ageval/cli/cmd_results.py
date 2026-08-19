@@ -21,9 +21,9 @@ def register(app: typer.Typer) -> None:
 
     @sub.command("upload")
     def results_upload_command(
-        database: Annotated[
+        dataset: Annotated[
             Path,
-            typer.Argument(help="Local Database root containing .ageval/runs/<run_id>."),
+            typer.Argument(help="Local Dataset root containing .ageval/runs/<run_id>."),
         ],
         run: Annotated[
             str,
@@ -53,7 +53,7 @@ def register(app: typer.Typer) -> None:
 
         try:
             summary = upload_attempt_result(
-                database,
+                dataset,
                 run_id=run,
                 public=public,
                 replace=replace,
@@ -97,9 +97,9 @@ def register(app: typer.Typer) -> None:
 
     @sub.command("list")
     def results_list_command(
-        database_id: Annotated[
+        dataset_id: Annotated[
             str | None,
-            typer.Option("--database-id", help="Filter by database_id."),
+            typer.Option("--dataset-id", help="Filter by dataset_id."),
         ] = None,
         registry_url: Annotated[
             str | None,
@@ -114,7 +114,7 @@ def register(app: typer.Typer) -> None:
 
         try:
             summary = list_attempt_results(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 registry_url=registry_url,
             )
         except ConfigError as exc:
@@ -124,9 +124,9 @@ def register(app: typer.Typer) -> None:
 
     @sub.command("upload-suite")
     def results_upload_suite_command(
-        database: Annotated[
+        dataset: Annotated[
             Path,
-            typer.Argument(help="Local Database root containing .ageval/suite-runs/<id>."),
+            typer.Argument(help="Local Dataset root containing .ageval/suite-runs/<id>."),
         ],
         suite_run: Annotated[
             str,
@@ -212,7 +212,7 @@ def register(app: typer.Typer) -> None:
                         location="--attempt-index",
                     )
                 summary = cmds.append_suite_slot_result(
-                    database,
+                    dataset,
                     suite_run_id=suite_run,
                     task_id=task_id,
                     run_id=run,
@@ -229,7 +229,7 @@ def register(app: typer.Typer) -> None:
                         location="--run",
                     )
                 summary = cmds.upload_suite_result(
-                    database,
+                    dataset,
                     suite_run_id=suite_run,
                     public=public,
                     agent_label=agent,
@@ -260,7 +260,7 @@ def register(app: typer.Typer) -> None:
             Path | None,
             typer.Option(
                 "--local",
-                help="Read from local Database .ageval/suite-runs/ (no registry).",
+                help="Read from local Dataset .ageval/suite-runs/ (no registry).",
             ),
         ] = None,
         registry_url: Annotated[
@@ -303,7 +303,7 @@ def register(app: typer.Typer) -> None:
             Path | None,
             typer.Option(
                 "--local",
-                help="Read from local Database .ageval/suite-runs/ (no registry).",
+                help="Read from local Dataset .ageval/suite-runs/ (no registry).",
             ),
         ] = None,
         registry_url: Annotated[
@@ -313,7 +313,7 @@ def register(app: typer.Typer) -> None:
     ) -> None:
         """Export suite job_overlay as profiles.yaml for re-run (#59).
 
-        Secrets are never included — only env locator names. Fill Database .env
+        Secrets are never included — only env locator names. Fill Dataset .env
         locally, then: ageval run <db> --profiles <out>.
         """
         from ageval.application.composition import build_results_commands
@@ -338,15 +338,15 @@ def register(app: typer.Typer) -> None:
 
     @sub.command("list-suites")
     def results_list_suites_command(
-        database_id: Annotated[
+        dataset_id: Annotated[
             str | None,
-            typer.Option("--database-id", help="Filter by database_id."),
+            typer.Option("--dataset-id", help="Filter by dataset_id."),
         ] = None,
         local: Annotated[
             Path | None,
             typer.Option(
                 "--local",
-                help="List local Database .ageval/suite-runs/ (no registry).",
+                help="List local Dataset .ageval/suite-runs/ (no registry).",
             ),
         ] = None,
         registry_url: Annotated[
@@ -354,7 +354,7 @@ def register(app: typer.Typer) -> None:
             typer.Option("--registry-url", help="Override registry / results URL."),
         ] = None,
     ) -> None:
-        """List suite/job results (registry or --local Database path)."""
+        """List suite/job results (registry or --local Dataset path)."""
         from ageval.application.composition import build_results_commands
 
         list_suite_results = build_results_commands().list_suite_results
@@ -362,7 +362,7 @@ def register(app: typer.Typer) -> None:
 
         try:
             summary = list_suite_results(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 local=local,
                 registry_url=registry_url,
             )

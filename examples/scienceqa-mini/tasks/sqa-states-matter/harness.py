@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import re
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 LETTER_RE = re.compile(r"\b([ABCD])\b")
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     question = ctx.params.require_str("question")
     opts = ctx.params.get("options") or {}
     lines = [f"{k}. {opts[k]}" for k in sorted(opts)]
@@ -22,8 +22,8 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     async with agent.session("solver", max_turns=2) as session:
         resp = await session.invoke(prompt)
     if not resp.get("ok"):
-        return HarnessTerminal.failed(str(resp.get("error") or "invoke_failed"))
+        return RunTerminal.failed(str(resp.get("error") or "invoke_failed"))
     text = str(resp.get("text") or "")
     match = LETTER_RE.search(text.strip().upper())
     ctx.publish_json("answer", {"raw": text, "letter": match.group(1) if match else None})
-    return HarnessTerminal.completed("scienceqa-mini")
+    return RunTerminal.completed("scienceqa-mini")

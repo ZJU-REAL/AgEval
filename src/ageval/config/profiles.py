@@ -1,10 +1,13 @@
-"""Database-root ``profiles.yaml`` — job agent/model binding overlay (#59).
+"""Dataset-root ``profiles.yaml`` — the job document (``ageval.profiles/1``).
 
-Task identity (member ``task.yaml``) declares **role slots** only.
-Job binding (executor / entry / model / key locator) lives in Database
-``profiles.yaml`` (or CLI ``--profiles`` / binding overrides) and is merged by
-Config Core at ``load_and_lock`` time. ``api_key`` is ``${ENV_NAME}`` (unwraps
-to a locator). ``base_url`` may be a literal URL or ``${ENV_NAME}`` (substituted).
+The job answers two questions the task must not answer:
+
+* which box wins the ``environment`` exclusive slot;
+* which Agent backend, model and credential locator bind each role slot the
+  task declared.
+
+A member ``task.yaml`` declares role slots only. ``api_key`` is an environment
+variable *name* — never a value.
 """
 
 from __future__ import annotations
@@ -25,15 +28,13 @@ from ageval.config.errors import (
     ERROR_MISSING_BINDING,
     ConfigError,
 )
-from ageval.config.overlay_files import parse_overlay_paths
 
 PROFILES_FILENAME = "profiles.yaml"
 PROFILES_FORMAT = "ageval.profiles/1"
+DEFAULT_ENVIRONMENT = "docker"
 
-# Fields that constitute job binding — forbidden on member task.yaml slots.
-# ``agent_ref`` is provenance injected by the --agent projection (design/14);
-# it rides job_overlay / lock but never suite fingerprint identity.
-BINDING_FIELD_KEYS = frozenset(
+# Keys allowed on one agent profile.
+PROFILE_FIELD_KEYS = frozenset(
     {
         "executor",
         "model",
@@ -42,63 +43,19 @@ BINDING_FIELD_KEYS = frozenset(
         "base_url",
         "extensions",
         "label",
-        "overlays",
-        "agent_ref",
     }
 )
 
-# Wildcard bindings key: default binding for any role id (design/14). An exact
-# role row overrides the wildcard **field-wise** (missing fields fall back to
-# the wildcard), so binding overrides can tweak one field of a wildcard-bound
-# agent; projection expands per real role.
+# Job binding fields a member task.yaml may never declare on a role slot.
+BINDING_FIELD_KEYS = PROFILE_FIELD_KEYS
+
+# Default profile for any role the job did not name explicitly.
 WILDCARD_ROLE = "*"
 
+_BINDING_OVERRIDE_LEAVES = frozenset({"model", "executor", "api_key", "base_url"})
 
-def effective_binding(
-    bindings: Mapping[str, Mapping[str, Any]],
-    role_id: str,
-) -> dict[str, Any] | None:
-    """Resolve one role's binding with wildcard field-level fallback.
-
-    Exact row fields win; fields absent on the exact row fall back to the
-    wildcard row (top-level fields only — ``options``/``extensions`` are
-    replaced wholesale by an exact row that sets them). ``None`` when neither
-    row exists.
-    """
-    exact = bindings.get(role_id)
-    wild = bindings.get(WILDCARD_ROLE) if role_id != WILDCARD_ROLE else None
-    if not isinstance(exact, Mapping):
-        exact = None
-    if not isinstance(wild, Mapping):
-        wild = None
-    if exact is None and wild is None:
-        return None
-    out: dict[str, Any] = {}
-    for source in (wild, exact):
-        if source is None:
-            continue
-        for key, val in source.items():
-            out[key] = copy.deepcopy(val)
-    # Provenance and overlay trees never inherit: a role with its own row is
-    # not "produced by" the wildcard's agent unless the exact row says so.
-    if exact is not None and "agent_ref" not in exact:
-        out.pop("agent_ref", None)
-    if exact is not None and "overlays" not in exact:
-        out.pop("overlays", None)
-    return out
-
-
-# Allowlisted nested binding override leaves under /bindings/<role_id>/…
-_BINDING_OVERRIDE_LEAVES = frozenset(
-    {
-        "model",
-        "executor",
-        "api_key",
-        "base_url",
-    }
-)
-
-# Plugin options are an opaque map. These keys never ride the job axis.
+# Plugin options are opaque, except these: they are entry-registry truth and
+# never ride the job axis.
 _OPTIONS_DENYLIST = frozenset(
     {
         "command",
@@ -110,15 +67,42 @@ _OPTIONS_DENYLIST = frozenset(
         "engine_command",
         "acp_version",
         "credential_env_names",
-        "_acp_lock",
     }
 )
 
 _ROLE_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 
 
-def load_profiles_document(path: Path) -> dict[str, dict[str, Any]]:
-    """Load and validate a ``profiles.yaml`` (or alternate) file → bindings map."""
+class JobDocument:
+    """Parsed ``profiles.yaml``: the environment winner plus role profiles."""
+
+    __slots__ = ("environment", "profiles", "source")
+
+    def __init__(
+        self,
+        *,
+        environment: str,
+        profiles: dict[str, dict[str, Any]],
+        source: str | None = None,
+    ) -> None:
+        self.environment = environment
+        self.profiles = profiles
+        self.source = source
+
+    def profile_for(self, role_id: str, *, selected: str | None = None) -> dict[str, Any] | None:
+        """Resolve one role: ``--profile`` selection, exact row, then wildcard."""
+        if selected is not None:
+            row = self.profiles.get(selected)
+            return copy.deepcopy(row) if isinstance(row, Mapping) else None
+        for key in (role_id, WILDCARD_ROLE):
+            row = self.profiles.get(key)
+            if isinstance(row, Mapping):
+                return copy.deepcopy(row)
+        return None
+
+
+def load_job_document(path: Path) -> JobDocument:
+    """Load and validate one ``ageval.profiles/1`` document."""
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -127,7 +111,6 @@ def load_profiles_document(path: Path) -> dict[str, dict[str, Any]]:
             f"cannot read profiles file: {exc}",
             location=str(path),
         ) from exc
-
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
@@ -136,7 +119,6 @@ def load_profiles_document(path: Path) -> dict[str, dict[str, Any]]:
             f"invalid YAML: {exc}",
             location=str(path),
         ) from exc
-
     if data is None:
         raise ConfigError(ERROR_INVALID_SCHEMA, "empty profiles document", location=str(path))
     if not isinstance(data, dict):
@@ -145,29 +127,15 @@ def load_profiles_document(path: Path) -> dict[str, dict[str, Any]]:
             "profiles document root must be a mapping",
             location=str(path),
         )
-    return parse_profiles_mapping(data, location=str(path))
+    return parse_job_mapping(data, location=str(path))
 
 
-def load_database_profiles(database_root: Path) -> dict[str, dict[str, Any]]:
-    """Load Database-root ``profiles.yaml`` when present; else empty bindings."""
-    root = database_root.expanduser().resolve(strict=False)
-    path = root / PROFILES_FILENAME
-    if not path.is_file():
-        return {}
-    return load_profiles_document(path)
-
-
-def resolve_profile_bindings(
-    database_root: Path,
+def resolve_job_document(
+    dataset_root: Path,
     *,
     profiles_path: Path | str | None = None,
-) -> dict[str, dict[str, Any]]:
-    """Resolve effective job bindings for a Database run.
-
-    * ``profiles_path`` when set **replaces** Database-root ``profiles.yaml``
-      entirely (alternate job overlay for the run).
-    * Otherwise load Database-root ``profiles.yaml`` (may be empty).
-    """
+) -> JobDocument:
+    """Job document for this run: ``--profiles`` file, else the dataset root file."""
     if profiles_path is not None:
         path = Path(profiles_path).expanduser().resolve(strict=False)
         if not path.is_file():
@@ -176,16 +144,16 @@ def resolve_profile_bindings(
                 f"profiles file not found: {profiles_path}",
                 location=str(profiles_path),
             )
-        return load_profiles_document(path)
-    return load_database_profiles(database_root)
+        return load_job_document(path)
+    root = Path(dataset_root).expanduser().resolve(strict=False)
+    path = root / PROFILES_FILENAME
+    if not path.is_file():
+        return JobDocument(environment=DEFAULT_ENVIRONMENT, profiles={}, source=None)
+    return load_job_document(path)
 
 
-def parse_profiles_mapping(
-    raw: Mapping[str, Any],
-    *,
-    location: str = "profiles.yaml",
-) -> dict[str, dict[str, Any]]:
-    """Validate profiles document and return ``{role_id: binding}``."""
+def parse_job_mapping(raw: Mapping[str, Any], *, location: str = "profiles.yaml") -> JobDocument:
+    """Validate a job document and return it."""
     fmt = raw.get("format")
     if fmt is not None:
         if not isinstance(fmt, str) or not fmt:
@@ -201,22 +169,7 @@ def parse_profiles_mapping(
                 location=f"{location}:/format",
             )
 
-    bindings_raw = raw.get("bindings")
-    if bindings_raw is None:
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA,
-            "profiles document requires bindings mapping",
-            location=f"{location}:/bindings",
-        )
-    if not isinstance(bindings_raw, dict):
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA,
-            "bindings must be a mapping of role id → binding",
-            location=f"{location}:/bindings",
-        )
-
-    allowed_top = {"format", "bindings"}
-    unknown_top = set(raw) - allowed_top
+    unknown_top = set(raw) - {"format", "environment", "agent_profiles"}
     if unknown_top:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
@@ -224,210 +177,168 @@ def parse_profiles_mapping(
             location=f"{location}:/",
         )
 
+    env_raw = raw.get("environment", DEFAULT_ENVIRONMENT)
+    if not isinstance(env_raw, str) or not env_raw.strip():
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "environment must be the id of the box kind that wins the slot",
+            location=f"{location}:/environment",
+        )
+
+    profiles_raw = raw.get("agent_profiles")
+    if profiles_raw is None:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "profiles document requires agent_profiles mapping",
+            location=f"{location}:/agent_profiles",
+        )
+    if not isinstance(profiles_raw, dict):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "agent_profiles must be a mapping of role id → profile",
+            location=f"{location}:/agent_profiles",
+        )
+
     out: dict[str, dict[str, Any]] = {}
-    for role_id, binding in bindings_raw.items():
+    for role_id, profile in profiles_raw.items():
         if not isinstance(role_id, str) or not role_id.strip():
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                "binding role id must be a non-empty string",
-                location=f"{location}:/bindings",
+                "profile role id must be a non-empty string",
+                location=f"{location}:/agent_profiles",
             )
         rid = role_id.strip()
         if rid != WILDCARD_ROLE and not _ROLE_ID_RE.fullmatch(rid):
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                f"invalid binding role id: {rid!r}",
-                location=f"{location}:/bindings/{rid}",
+                f"invalid profile role id: {rid!r}",
+                location=f"{location}:/agent_profiles/{rid}",
             )
-        if not isinstance(binding, dict):
+        if not isinstance(profile, dict):
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                "each binding must be a mapping",
-                location=f"{location}:/bindings/{rid}",
+                "each profile must be a mapping",
+                location=f"{location}:/agent_profiles/{rid}",
             )
-        # Forbid embedding secrets; allow only known binding keys.
-        unknown = set(binding) - BINDING_FIELD_KEYS
+        unknown = set(profile) - PROFILE_FIELD_KEYS
         if unknown:
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                f"unknown binding keys for {rid!r}: {sorted(unknown)}",
-                location=f"{location}:/bindings/{rid}",
+                f"unknown profile keys for {rid!r}: {sorted(unknown)}",
+                location=f"{location}:/agent_profiles/{rid}",
             )
-        if "id" in binding:
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                "binding must not set id (role id is the map key)",
-                location=f"{location}:/bindings/{rid}/id",
-            )
-        row = copy.deepcopy(binding)
-        if "overlays" in row:
-            row["overlays"] = parse_overlay_paths(
-                row.get("overlays"),
-                location=f"{location}:/bindings/{rid}/overlays",
-            )
-        out[rid] = row
-    return out
+        out[rid] = copy.deepcopy(profile)
+    return JobDocument(environment=env_raw.strip(), profiles=out, source=location)
 
 
 def assert_slots_have_no_inline_binding(
-    profiles: list[Any],
+    slots: list[Any],
     *,
     location_prefix: str = "/agent_profiles",
 ) -> None:
-    """Fail closed if member task.yaml embeds full job binding on a role slot."""
-    if not isinstance(profiles, list):
-        return
-    for idx, profile in enumerate(profiles):
-        if not isinstance(profile, dict):
+    """Fail closed if a member task.yaml embeds job binding on a role slot."""
+    for idx, slot in enumerate(slots):
+        if not isinstance(slot, dict):
             continue
-        bad = sorted(k for k in BINDING_FIELD_KEYS if k in profile)
+        bad = sorted(k for k in BINDING_FIELD_KEYS if k in slot)
         if bad:
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                "task.yaml agent_profiles must declare role slots only "
-                f"(no job binding fields {bad}); put executor/entry/model in "
-                f"Database {PROFILES_FILENAME}",
+                "task.yaml agent_profiles declares role slots only "
+                f"(job binding fields {bad} belong in dataset {PROFILES_FILENAME})",
                 location=f"{location_prefix}/{idx}",
             )
 
 
-def merge_bindings_onto_slots(
+def merge_job_onto_slots(
     slots: list[Any],
-    bindings: Mapping[str, Mapping[str, Any]],
+    job: JobDocument,
     *,
+    selected_profile: str | None = None,
     location_prefix: str = "/agent_profiles",
 ) -> list[dict[str, Any]]:
-    """Merge job bindings onto role slots; fail closed on missing required binding.
-
-    Empty slots list → no bindings required. Non-empty slots each need a binding
-    for their ``id``. Slot-only fields (e.g. future workspace constraints) are
-    preserved; binding fields always come from *bindings*.
-    """
+    """Bind every declared role slot; fail closed when a role has no profile."""
     if not slots:
         return []
-
-    merged_list: list[dict[str, Any]] = []
+    merged: list[dict[str, Any]] = []
     for idx, slot in enumerate(slots):
         loc = f"{location_prefix}/{idx}"
         if not isinstance(slot, dict):
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                "profile must be a mapping",
-                location=loc,
-            )
+            raise ConfigError(ERROR_INVALID_SCHEMA, "profile must be a mapping", location=loc)
         pid = slot.get("id")
         if not isinstance(pid, str) or not pid.strip():
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                "profile.id required",
-                location=f"{loc}/id",
-            )
+            raise ConfigError(ERROR_INVALID_SCHEMA, "profile.id required", location=f"{loc}/id")
         role_id = pid.strip()
-        binding = effective_binding(bindings, role_id)
-        if binding is None:
+        profile = job.profile_for(role_id, selected=selected_profile)
+        if profile is None:
+            wanted = selected_profile or role_id
             raise ConfigError(
                 ERROR_MISSING_BINDING,
-                f"no job binding for role {role_id!r} "
-                f"(add bindings.{role_id} in Database {PROFILES_FILENAME} "
-                "or pass --profiles / --agent / binding overrides)",
+                f"no agent profile for role {role_id!r} "
+                f"(add agent_profiles.{wanted} in dataset {PROFILES_FILENAME} "
+                "or pass --profiles / --profile)",
                 location=f"{loc}/id",
             )
-        # Slot identity + non-binding fields, then binding fields on top.
         row = {k: copy.deepcopy(v) for k, v in slot.items() if k not in BINDING_FIELD_KEYS}
         row["id"] = role_id
-        for key, val in binding.items():
+        for key, val in profile.items():
             if key == "id":
                 continue
             row[key] = copy.deepcopy(val)
-        merged_list.append(row)
-    return merged_list
+        merged.append(row)
+    return merged
 
 
-def apply_binding_override(
-    bindings: dict[str, dict[str, Any]],
-    pointer: str,
-    value: Any,
-) -> None:
-    """Apply ``/bindings/<role_id>/<leaf>`` override onto a mutable bindings map."""
-    if not pointer.startswith("/bindings/"):
+def apply_profile_override(job: JobDocument, pointer: str, value: Any) -> None:
+    """Apply ``/agent_profiles/<role>/<leaf>`` override onto a job document."""
+    prefix = "/agent_profiles/"
+    if not pointer.startswith(prefix):
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            f"not a binding override pointer: {pointer}",
+            f"not a profile override pointer: {pointer}",
             location=pointer,
         )
-    rest = pointer[len("/bindings/") :]
-    if not rest or "/" not in rest:
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA,
-            "binding override must be /bindings/<role_id>/<field>",
-            location=pointer,
-        )
+    rest = pointer[len(prefix) :]
     role_id, _, field = rest.partition("/")
     if not role_id or not field:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            "binding override must be /bindings/<role_id>/<field>",
+            "profile override must be /agent_profiles/<role_id>/<field>",
             location=pointer,
         )
-    if not _is_allowlisted_binding_field(field):
+    if not _is_allowlisted_profile_field(field):
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            f"binding field not allowlisted for override: {field}",
+            f"profile field not allowlisted for override: {field}",
             location=pointer,
         )
-    if role_id not in bindings:
-        # Create a partial binding so CLI can complete roles declared in profiles
-        # after a base file load; merge still fail-closes if executor/model missing.
-        bindings[role_id] = {}
-    target = bindings[role_id]
+    target = job.profiles.setdefault(role_id, {})
     if field.startswith("options/"):
-        opt_key = field[len("options/") :]
-        executor = target.get("executor")
-        if not isinstance(executor, str) or not executor.strip():
+        options = target.setdefault("options", {})
+        if not isinstance(options, dict):
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                "options override requires bindings.<role>.executor",
+                "profile options must be a mapping",
                 location=pointer,
             )
-        _upsert_executor_option(target, plugin=executor.strip(), key=opt_key, value=value)
+        options[field[len("options/") :]] = value
         return
     target[field] = value
 
 
-def _upsert_executor_option(binding: dict[str, Any], *, plugin: str, key: str, value: Any) -> None:
-    """Write ``--set /bindings/<role>/options/<key>`` onto the executor plugin row."""
-    rows = binding.get("extensions")
-    if not isinstance(rows, list):
-        rows = []
-        binding["extensions"] = rows
-    match: dict[str, Any] | None = None
-    for item in rows:
-        if isinstance(item, dict) and str(item.get("plugin") or "").strip() == plugin:
-            match = item
-    if match is None:
-        match = {"plugin": plugin}
-        rows.append(match)
-    options = match.get("options")
-    if not isinstance(options, dict):
-        options = {}
-        match["options"] = options
-    options[key] = value
-
-
-def is_binding_override_pointer(pointer: str) -> bool:
-    """True when pointer is an allowlisted ``/bindings/<role>/<leaf>`` form."""
-    if not pointer.startswith("/bindings/"):
+def is_profile_override_pointer(pointer: str) -> bool:
+    """True when pointer is an allowlisted ``/agent_profiles/<role>/<leaf>`` form."""
+    prefix = "/agent_profiles/"
+    if not pointer.startswith(prefix):
         return False
-    rest = pointer[len("/bindings/") :]
-    if "/" not in rest:
-        return False
+    rest = pointer[len(prefix) :]
     role_id, _, field = rest.partition("/")
     if not role_id or not _ROLE_ID_RE.fullmatch(role_id):
         return False
-    return _is_allowlisted_binding_field(field)
+    return _is_allowlisted_profile_field(field)
 
 
-def _is_allowlisted_binding_field(field: str) -> bool:
+def _is_allowlisted_profile_field(field: str) -> bool:
     if field in _BINDING_OVERRIDE_LEAVES:
         return True
     if not field.startswith("options/"):
@@ -442,13 +353,11 @@ def secret_free_options(options: Mapping[str, Any] | None) -> dict[str, Any]:
     """Opaque plugin options minus denylisted / private keys."""
     if not isinstance(options, Mapping):
         return {}
-    out: dict[str, Any] = {}
-    for key, val in options.items():
-        name = str(key)
-        if name in _OPTIONS_DENYLIST or name.startswith("_"):
-            continue
-        out[name] = val
-    return out
+    return {
+        str(k): v
+        for k, v in options.items()
+        if str(k) not in _OPTIONS_DENYLIST and not str(k).startswith("_")
+    }
 
 
 def _secret_free_extension_row(item: Mapping[str, Any]) -> dict[str, Any]:
@@ -461,60 +370,65 @@ def _secret_free_extension_row(item: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
-def plugin_row_options(binding: Mapping[str, Any], plugin_id: str) -> dict[str, Any]:
-    """Last ``extensions`` row for *plugin_id* wins. Profile-level options are ignored."""
+def plugin_row_options(profile: Mapping[str, Any], plugin_id: str) -> dict[str, Any]:
+    """Options for *plugin_id*: profile ``options`` then its extensions row."""
     found: dict[str, Any] = {}
-    rows = binding.get("extensions")
-    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
-        return {}
-    for item in rows:
-        if not isinstance(item, Mapping):
-            continue
-        if str(item.get("plugin") or "").strip() != plugin_id:
-            continue
-        raw = item.get("options")
+    if str(profile.get("executor") or "").strip() == plugin_id:
+        raw = profile.get("options")
         if isinstance(raw, Mapping):
-            found = dict(raw)
+            found.update(dict(raw))
+    rows = profile.get("extensions")
+    if isinstance(rows, Sequence) and not isinstance(rows, (str, bytes)):
+        for item in rows:
+            if not isinstance(item, Mapping):
+                continue
+            if str(item.get("plugin") or "").strip() != plugin_id:
+                continue
+            raw = item.get("options")
+            if isinstance(raw, Mapping):
+                found.update(dict(raw))
     return found
 
 
-def executor_plugin_options(binding: Mapping[str, Any]) -> dict[str, Any]:
-    executor = binding.get("executor")
-    if not isinstance(executor, str) or not executor.strip():
-        return {}
-    return plugin_row_options(binding, executor.strip())
+def executor_plugin_options(profile: Mapping[str, Any]) -> dict[str, Any]:
+    """Options for the plugin that wins ``executor`` in this profile."""
+    executor = str(profile.get("executor") or "").strip()
+    return plugin_row_options(profile, executor) if executor else {}
 
 
-def acp_entry_from_binding(binding: Mapping[str, Any]) -> str | None:
-    """ACP ``entry`` lives on ``- plugin: acp`` options. No profile-options fallback."""
-    entry = plugin_row_options(binding, "acp").get("entry")
+def effective_profile(
+    profiles: Mapping[str, Mapping[str, Any]],
+    role_id: str,
+) -> dict[str, Any] | None:
+    """Resolve one role: exact row, else the wildcard row. ``None`` when neither."""
+    for key in (role_id, WILDCARD_ROLE):
+        row = profiles.get(key)
+        if isinstance(row, Mapping):
+            return copy.deepcopy(dict(row))
+    return None
+
+
+def acp_entry_from_profile(profile: Mapping[str, Any]) -> str | None:
+    """ACP ``entry`` from profile options or the ``- plugin: acp`` row."""
+    entry = plugin_row_options(profile, "acp").get("entry")
     if entry is not None and str(entry).strip():
         return str(entry).strip()
     return None
 
 
-def display_agent_name(binding: Mapping[str, Any]) -> str:
-    """Jobs / Hub agent axis. Never reads ``options.agent`` (plugin start path).
-
-    Priority: binding ``label`` → ACP ``options.entry`` → ``executor``.
-    """
-    label = binding.get("label")
+def display_agent_name(profile: Mapping[str, Any]) -> str:
+    """Jobs / Hub agent axis: ``label`` → ACP ``entry`` → ``executor``."""
+    label = profile.get("label")
     if isinstance(label, str) and label.strip():
         return label.strip()
-    executor = str(binding.get("executor") or "").strip()
+    executor = str(profile.get("executor") or "").strip()
     if executor == "acp":
-        entry = acp_entry_from_binding(binding)
-        if entry:
-            return entry
-        projected = binding.get("entry")
-        if isinstance(projected, str) and projected.strip():
-            return projected.strip()
-        return executor
+        return acp_entry_from_profile(profile) or executor
     return executor
 
 
 def join_display_names(names: Sequence[str]) -> str:
-    """Collapse identical names; join distinct ones with ``+`` (UI may shorten)."""
+    """Collapse identical names; join distinct ones with ``+``."""
     cleaned = [n.strip() for n in names if isinstance(n, str) and n.strip()]
     if not cleaned:
         return ""
@@ -523,56 +437,24 @@ def join_display_names(names: Sequence[str]) -> str:
     return "+".join(cleaned)
 
 
-def reasoning_effort_from_binding(binding: Mapping[str, Any] | None) -> str:
-    """ACP ``options.reasoning_effort`` from extensions, lock options, or actors_summary."""
-    if not isinstance(binding, Mapping):
+def reasoning_effort_from_profile(profile: Mapping[str, Any] | None) -> str:
+    """ACP ``options.reasoning_effort`` when set."""
+    if not isinstance(profile, Mapping):
         return ""
-
-    def _from_opts(opts: Any) -> str:
-        raw = opts
-        if isinstance(raw, str) and raw.strip().startswith("{"):
-            try:
-                raw = json.loads(raw)
-            except json.JSONDecodeError:
-                return ""
-        if not isinstance(raw, Mapping):
-            return ""
-        val = raw.get("reasoning_effort")
-        return val.strip() if isinstance(val, str) and val.strip() else ""
-
-    entry = _from_opts(plugin_row_options(binding, "acp"))
-    if entry:
-        return entry
-    return _from_opts(binding.get("options"))
-
-
-def reasoning_effort_from_overlay(overlay: Mapping[str, Any] | None) -> str:
-    """Join distinct binding efforts; identical values collapse."""
-    if not isinstance(overlay, Mapping):
-        return ""
-    bindings = overlay.get("bindings")
-    if not isinstance(bindings, Mapping):
-        return ""
-    found: list[str] = []
-    for raw in bindings.values():
-        if not isinstance(raw, Mapping):
-            continue
-        effort = reasoning_effort_from_binding(raw)
-        if effort:
-            found.append(effort)
-    return join_display_names(found)
+    raw = plugin_row_options(profile, "acp").get("reasoning_effort")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return ""
 
 
 def display_labels_from_overlay(overlay: Mapping[str, Any] | None) -> tuple[str, str]:
-    """``(agent_label, model_label)`` from secret-free ``job_overlay``."""
-    if not isinstance(overlay, Mapping):
-        return "", ""
-    bindings = overlay.get("bindings")
-    if not isinstance(bindings, Mapping) or not bindings:
+    """``(agent_label, model_label)`` from a secret-free ``job_overlay``."""
+    profiles = _overlay_profiles(overlay)
+    if not profiles:
         return "", ""
     agents: list[str] = []
     models: list[str] = []
-    for raw in bindings.values():
+    for raw in profiles.values():
         if not isinstance(raw, Mapping):
             continue
         agents.append(display_agent_name(raw))
@@ -581,38 +463,56 @@ def display_labels_from_overlay(overlay: Mapping[str, Any] | None) -> tuple[str,
     return join_display_names(agents), join_display_names(models)
 
 
-def attach_display_labels(doc: dict[str, Any], overlay: Mapping[str, Any] | None) -> None:
-    """Write sealed ``agent_label`` / ``model_label`` onto result or summary."""
-    agent, model = display_labels_from_overlay(overlay)
-    if agent:
-        doc["agent_label"] = agent
-    if model:
-        doc["model_label"] = model
+def reasoning_effort_from_overlay(overlay: Mapping[str, Any] | None) -> str:
+    """Join distinct reasoning efforts across a ``job_overlay``."""
+    found = [
+        reasoning_effort_from_profile(raw)
+        for raw in _overlay_profiles(overlay).values()
+        if isinstance(raw, Mapping)
+    ]
+    return join_display_names([effort for effort in found if effort])
+
+
+def environment_from_overlay(overlay: Mapping[str, Any] | None) -> str:
+    """Box kind recorded in a ``job_overlay``."""
+    if not isinstance(overlay, Mapping):
+        return ""
+    kind = overlay.get("environment")
+    return kind.strip() if isinstance(kind, str) else ""
+
+
+def _overlay_profiles(overlay: Mapping[str, Any] | None) -> Mapping[str, Any]:
+    if not isinstance(overlay, Mapping):
+        return {}
+    profiles = overlay.get("agent_profiles")
+    return profiles if isinstance(profiles, Mapping) else {}
 
 
 def project_job_overlay(
-    bindings: Mapping[str, Mapping[str, Any]],
+    profiles: Mapping[str, Mapping[str, Any]],
     *,
-    role_ids: list[str] | None = None,
+    environment: str,
+    role_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Secret-free job overlay projection for lock summary / upload rehydration.
+    """Secret-free projection of the job used for this lock.
 
-    Includes only locator names for ``api_key`` (never values).
+    Includes only locator *names* for ``api_key``, never values.
     """
-    keys = role_ids if role_ids is not None else sorted(bindings.keys())
+    keys = list(role_ids) if role_ids is not None else sorted(profiles)
     out: dict[str, Any] = {}
     for rid in keys:
-        if role_ids is not None:
-            # Wildcard expands (field-wise) onto the real role ids (design/14).
-            raw: Mapping[str, Any] | None = effective_binding(bindings, rid)
-        else:
-            raw = bindings.get(rid)
+        raw = profiles.get(rid)
         if not isinstance(raw, Mapping):
             continue
         row: dict[str, Any] = {}
-        for k in ("executor", "model", "base_url", "api_key", "label", "agent_ref"):
-            if k in raw and raw[k] is not None:
-                row[k] = raw[k]
+        for key in ("executor", "model", "base_url", "api_key", "label"):
+            if raw.get(key) is not None:
+                row[key] = raw[key]
+        options = secret_free_options(
+            raw.get("options") if isinstance(raw.get("options"), Mapping) else None
+        )
+        if options:
+            row["options"] = options
         extensions = raw.get("extensions")
         if isinstance(extensions, Sequence) and not isinstance(extensions, (str, bytes)):
             row["extensions"] = [
@@ -621,58 +521,56 @@ def project_job_overlay(
                 else copy.deepcopy(item)
                 for item in extensions
             ]
-        options = secret_free_options(
-            raw.get("options") if isinstance(raw.get("options"), Mapping) else None
-        )
-        if options:
-            row["options"] = options
-        overlays = raw.get("overlays")
-        if isinstance(overlays, Sequence) and not isinstance(overlays, (str, bytes)):
-            paths = [str(item).strip() for item in overlays if str(item).strip()]
-            if paths:
-                row["overlays"] = paths
         if row:
             out[rid] = row
-    return {"bindings": out}
+    return {"environment": environment, "agent_profiles": out}
 
 
 def job_overlay_to_profiles_document(overlay: Mapping[str, Any]) -> dict[str, Any]:
-    """Turn a secret-free job_overlay into a ``ageval.profiles/1`` document.
-
-    Suitable for writing ``profiles.yaml`` and re-running with ``--profiles``.
-    Never includes secret values — only locator names already in the overlay.
-    """
-    bindings_raw = overlay.get("bindings")
-    if not isinstance(bindings_raw, Mapping):
+    """Turn a secret-free job overlay back into an ``ageval.profiles/1`` document."""
+    profiles_raw = overlay.get("agent_profiles")
+    if not isinstance(profiles_raw, Mapping):
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            "job_overlay.bindings must be a mapping",
-            location="/job_overlay/bindings",
+            "job_overlay.agent_profiles must be a mapping",
+            location="/job_overlay/agent_profiles",
         )
-    # Re-validate shape via parse so export stays lock-safe.
-    # Lock stores the unwrapped locator; YAML form is ${NAME}.
-    bindings: dict[str, Any] = {}
-    for role_id, raw in bindings_raw.items():
+    profiles: dict[str, Any] = {}
+    for role_id, raw in profiles_raw.items():
         if not isinstance(raw, Mapping):
-            bindings[str(role_id)] = raw
+            profiles[str(role_id)] = raw
             continue
         row = dict(raw)
         api_key = row.get("api_key")
         if isinstance(api_key, str) and api_key and not api_key.startswith("${"):
             row["api_key"] = f"${{{api_key}}}"
-        bindings[str(role_id)] = row
-    return {
+        profiles[str(role_id)] = row
+    document = {
         "format": PROFILES_FORMAT,
-        "bindings": parse_profiles_mapping(
-            {"format": PROFILES_FORMAT, "bindings": bindings},
-            location="job_overlay",
-        ),
+        "environment": str(overlay.get("environment") or DEFAULT_ENVIRONMENT),
+        "agent_profiles": profiles,
     }
+    parse_job_mapping(document, location="job_overlay")
+    return document
 
 
 def write_profiles_yaml(path: Path, document: Mapping[str, Any]) -> None:
-    """Write a profiles document as YAML (UTF-8)."""
+    """Write a job document as YAML (UTF-8)."""
     path = path.expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
     text = yaml.safe_dump(dict(document), sort_keys=False, allow_unicode=True)
     path.write_text(text, encoding="utf-8")
+
+
+def attach_display_labels(doc: dict[str, Any], overlay: Mapping[str, Any] | None) -> None:
+    """Write sealed ``agent_label`` / ``model_label`` onto a result document."""
+    agent, model_label = display_labels_from_overlay(overlay)
+    if agent:
+        doc["agent_label"] = agent
+    if model_label:
+        doc["model_label"] = model_label
+
+
+def dumps_job(document: Mapping[str, Any]) -> str:
+    """Deterministic JSON form (evidence / tests)."""
+    return json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)

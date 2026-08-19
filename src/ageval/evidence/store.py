@@ -256,7 +256,7 @@ class AttemptEvidenceStore:
     root: Path
     attempt_id: str
     run_id: str | None = None
-    database_root: Path | None = None
+    dataset_root: Path | None = None
     sentinels: list[str] = field(default_factory=list)
     _seq: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock)
@@ -265,8 +265,8 @@ class AttemptEvidenceStore:
 
     def __post_init__(self) -> None:
         self.root = Path(self.root)
-        if self.database_root is not None:
-            self.database_root = Path(self.database_root)
+        if self.dataset_root is not None:
+            self.dataset_root = Path(self.dataset_root)
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "agent" / "invocations").mkdir(parents=True, exist_ok=True)
         (self.root / "evaluation").mkdir(parents=True, exist_ok=True)
@@ -281,7 +281,7 @@ class AttemptEvidenceStore:
     @property
     def locator(self) -> str:
         """Portable sealed locator (``.ageval/runs/<run_id>``), never host abs (#70)."""
-        return portable_run_locator(self.root, database_root=self.database_root)
+        return portable_run_locator(self.root, dataset_root=self.dataset_root)
 
     def path(self, relative: str) -> Path:
         return _safe_relpath(self.root, relative)

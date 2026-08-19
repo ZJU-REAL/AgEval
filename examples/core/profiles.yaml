@@ -1,41 +1,41 @@
 format: ageval.profiles/1
-bindings:
-  mock-default:
-    executor: mock
-    model: none
+
+# Which box wins the exclusive `environment` slot for this job.
+environment: local
+
+agent_profiles:
   solver:
     executor: acp
+    model: entry-default
+    options:
+      entry: codex
     extensions:
       - plugin: acp
-        options:
-          entry: codex
-    model: gpt-5.4-mini
+      - plugin: local
+
+  primary:
+    executor: acp
+    model: zai-coding-plan/glm-5.2
+    api_key: ${glm_coding_api_key}
+    options:
+      entry: opencode
+    extensions:
+      - plugin: acp
+      - plugin: local
+
+  secondary:
+    executor: acp
+    model: zai-coding-cn/glm-5.2
+    api_key: ${glm_coding_api_key}
+    options:
+      entry: pi
+    extensions:
+      - plugin: acp
+      - plugin: local
+
   http-solver:
     executor: openai-http
     model: gpt-4.1-mini
-  primary:
-    executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: opencode
-    model: zai-coding-plan/glm-5.2
-    api_key: ${glm_coding_api_key}
-  secondary:
-    executor: acp
-    extensions:
-      - plugin: acp
-        options:
-          entry: pi
-    model: zai-coding-cn/glm-5.2
-    api_key: ${glm_coding_api_key}
-
-  # External nooa host SPI (task-local lib.agents; after ageval plugin install)
-  nooa-solver:
-    executor: nooa
-    extensions:
-      - plugin: nooa
-        options:
-          agent: "lib.agents:FixedAnswerAgent"
-          method: "run"
-    model: none
+      - plugin: openai-http
+      - plugin: local

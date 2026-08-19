@@ -1,4 +1,4 @@
-"""Database registry client: digests, archive, PackageRef, verified cache, HTTP client.
+"""Dataset registry client: digests, archive, PackageRef, verified cache, HTTP client.
 
 Registry is optional. Local path workflows never require it. Config Core still only
 reads materialised local trees after resolve.

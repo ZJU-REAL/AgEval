@@ -25,12 +25,12 @@ def register(app: typer.Typer) -> None:
             Path | None,
             typer.Option("--store", help="ControlStore sqlite path (default .ageval/control.db)."),
         ] = None,
-        database: Annotated[
+        dataset: Annotated[
             Path | None,
             typer.Option(
-                "--database",
+                "--dataset",
                 help=(
-                    "Database root for suite cancel when ControlStore has no record "
+                    "Dataset root for suite cancel when ControlStore has no record "
                     "(writes suite-runs/<id>/cancel.requested)."
                 ),
             ),
@@ -56,10 +56,10 @@ def register(app: typer.Typer) -> None:
         rec = cs.get(run_id)
         payload: dict = dict((rec or {}).get("payload") or {})
         kind = str(payload.get("kind") or "")
-        db_root = database
-        if db_root is None and payload.get("database_root"):
-            db_root = Path(str(payload["database_root"]))
-        is_suite = is_suite_run_locator(run_id, database_root=db_root, control_kind=kind)
+        db_root = dataset
+        if db_root is None and payload.get("dataset_root"):
+            db_root = Path(str(payload["dataset_root"]))
+        is_suite = is_suite_run_locator(run_id, dataset_root=db_root, control_kind=kind)
 
         cancel_file = None
         if is_suite and db_root is not None:
@@ -75,7 +75,7 @@ def register(app: typer.Typer) -> None:
                         "ok": False,
                         "error": "unknown_suite",
                         "run_id": run_id,
-                        "hint": "pass --database <root> or cancel while suite is registered",
+                        "hint": "pass --dataset <root> or cancel while suite is registered",
                     },
                     sort_keys=True,
                     separators=(",", ":"),
@@ -123,7 +123,7 @@ def register(app: typer.Typer) -> None:
 
     @app.command("submit")
     def submit_command(
-        package: Annotated[Path, typer.Argument(help="Database root (ageval.dataset/1).")],
+        package: Annotated[Path, typer.Argument(help="Dataset root (ageval.dataset/1).")],
         task: Annotated[str, typer.Option("--task", help="Member task id.")],
         store: Annotated[
             Path | None,
@@ -152,7 +152,7 @@ def register(app: typer.Typer) -> None:
         if wait:
             import asyncio
 
-            from ageval.application.composition import build_run_task
+            from ageval.application.composition import build_run_attempt
 
             cs.put(
                 run_id,
@@ -161,7 +161,7 @@ def register(app: typer.Typer) -> None:
                 payload={"package": str(package), "task": task, "mode": "wait"},
             )
             try:
-                code, result, _details = asyncio.run(build_run_task()(package, task))
+                code, result = asyncio.run(build_run_attempt()(package, task))
                 status = "completed" if code == 0 else "failed"
                 cs.put(
                     run_id,

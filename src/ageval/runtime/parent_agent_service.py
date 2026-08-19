@@ -159,13 +159,13 @@ class ParentAgentService:
         graph = binding.extension_graph
         if graph is None:
             raise RuntimeError("extension_graph_missing")
-        providers = getattr(graph, "providers", None)
-        if not isinstance(providers, dict):
+        winners = getattr(graph, "winners", None)
+        if not isinstance(winners, dict):
             raise RuntimeError("extension_graph_invalid")
-        pref = providers.get("executor")
-        if pref is None:
-            raise RuntimeError("executor_provider_missing")
-        impl = getattr(pref, "impl", None)
+        winner = winners.get("executor")
+        if winner is None:
+            raise RuntimeError("executor_winner_missing")
+        impl = getattr(winner, "impl", None)
         if impl is None:
             raise RuntimeError("executor_impl_missing")
         return impl
@@ -173,11 +173,11 @@ class ParentAgentService:
     def _run_extension_chain(
         self, binding: SessionBinding, slot: str, value: Any, *, ctx: Any | None = None
     ) -> Any:
-        """Run multi-slot middleware for the session-pinned graph (sync host path)."""
+        """Run one chain slot for the session-pinned graph (sync host path)."""
         graph = binding.extension_graph
         if graph is None:
             return value
-        from ageval.plugins.middleware import run_chain
+        from ageval.attempt.emit import run_chain
 
         return self._run_async_hook(
             run_chain(graph, slot, value, ctx=ctx if ctx is not None else binding)
@@ -196,20 +196,15 @@ class ParentAgentService:
             return pool.submit(asyncio.run, coro).result()
 
     def _emit_agent_open(self, binding: SessionBinding, value: Any) -> Any:
-        graph = binding.extension_graph
-        if graph is None:
-            return value
-        from ageval.plugins.lifecycle import emit_agent_open
+        from ageval.plugins.slots import AFTER_AGENT_OPEN, BEFORE_AGENT_OPEN
 
-        return self._run_async_hook(emit_agent_open(graph, value, ctx=binding))
+        out = self._run_extension_chain(binding, BEFORE_AGENT_OPEN, value)
+        return self._run_extension_chain(binding, AFTER_AGENT_OPEN, out)
 
     def _normalize_agent_result(self, binding: SessionBinding, value: Any) -> Any:
-        graph = binding.extension_graph
-        if graph is None:
-            return value
-        from ageval.plugins.lifecycle import normalize_agent_result
+        from ageval.plugins.slots import NORMALIZE_AGENT_RESULT
 
-        return self._run_async_hook(normalize_agent_result(graph, value, ctx=binding))
+        return self._run_extension_chain(binding, NORMALIZE_AGENT_RESULT, value)
 
     def get_session_extension_graph(self, session_id: str) -> ExtensionGraphLike | None:
         """Test/debug helper: return the pinned graph for a session."""
@@ -280,7 +275,7 @@ class ParentAgentService:
                 "detail": str(exc),
             }
 
-        pref = extension_graph.providers.get("executor")
+        pref = extension_graph.winners.get("executor")
         if pref is None:
             return {
                 "ok": False,

@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
 def _parse_obj(raw: Any) -> dict[str, Any] | None:
@@ -34,8 +34,8 @@ def _parse_obj(raw: Any) -> dict[str, Any] | None:
     return None
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
-    # HarnessParameterView supports dotted get — do not coerce via dict().
+async def run(ctx: RunContext) -> RunTerminal:
+    # RunParameterView supports dotted get — do not coerce via dict().
     models = ctx.params.get("models") if isinstance(ctx.params.get("models"), dict) else {}
     # Prefer allowlisted CLI override, then package models.default.
     profile_id = str(
@@ -44,18 +44,18 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     out_name = str(ctx.params.get("workspace_output") or "aggregates.json")
     out_path = Path(out_name)
     if out_path.is_absolute() or ".." in out_path.parts:
-        return HarnessTerminal.failed("workspace_output_invalid")
+        return RunTerminal.failed("workspace_output_invalid")
 
     target = ctx.workspace_root / out_name
     # Isolation fixture may pre-seed solution/* into workspace (no Runtime Agent invoke).
     if target.is_file():
         data = json.loads(target.read_text(encoding="utf-8"))
         ctx.publish_json("aggregates", data)
-        return HarnessTerminal.completed("terminal-jsonl-agg")
+        return RunTerminal.completed("terminal-jsonl-agg")
 
     instruction_path = ctx.workspace_root / "instruction.md"
     if not instruction_path.is_file():
-        return HarnessTerminal.failed("instruction_missing")
+        return RunTerminal.failed("instruction_missing")
     instruction = instruction_path.read_text(encoding="utf-8")
 
     agent = Agent(attempt_id=ctx.scope.attempt_id)
@@ -64,14 +64,14 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         inv = await session.invoke(instruction)
 
     if not inv.get("ok"):
-        return HarnessTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
+        return RunTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
 
     if target.is_file():
         data = json.loads(target.read_text(encoding="utf-8"))
     else:
         data = _parse_obj(inv.get("structured")) or _parse_obj(inv.get("text"))
         if data is None:
-            return HarnessTerminal.failed("workspace_output_missing")
+            return RunTerminal.failed("workspace_output_missing")
 
     ctx.publish_json("aggregates", data)
-    return HarnessTerminal.completed("terminal-jsonl-agg")
+    return RunTerminal.completed("terminal-jsonl-agg")

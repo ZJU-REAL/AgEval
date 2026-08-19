@@ -1,23 +1,19 @@
 """Production composition root.
 
-All concrete adapters and use cases that the public CLI needs must be assembled
-here. Domain modules (config, future runtime) must not construct global
-singletons at import time.
+Every concrete adapter the public CLI needs is wired here and nowhere else.
+Domain modules must not construct platform objects or global singletons at
+import time, and the CLI must not import anything but this module.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from typing import Any
 
-from ageval.adapters.package_fs import LocalPackageReader
-from ageval.application.attempt.lock_command import LockCommand
+from ageval.application.lock import LockCommand
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.load_and_lock import ConfigCore
-from ageval.evaluation.result_binding import FlatResult
-
-# Public use-case type: one foreground Attempt.
-RunTask = Callable[..., Coroutine[Any, Any, tuple[int, FlatResult, dict[str, Any]]]]
+from ageval.config.package_fs import LocalPackageReader
 
 
 def build_config_core() -> ConfigCore:
@@ -26,10 +22,10 @@ def build_config_core() -> ConfigCore:
 
 
 def build_declaration_catalog() -> DeclarationCapabilityCatalog:
-    """Return the declaration-only catalog used at lock time.
+    """Declaration-only catalog used at lock time.
 
-    A positive catalog answer means "Config recognizes this declaration",
-    never "the runtime adapter is implemented and ready".
+    A positive answer means "Config recognizes this declaration", never "the
+    adapter is implemented and ready".
     """
     return DeclarationCapabilityCatalog()
 
@@ -42,27 +38,30 @@ def build_lock_command() -> LockCommand:
     )
 
 
-def build_probe_command() -> Any:
-    """Wire the production ``ageval lock|run --probe`` use case."""
-    from ageval.application.attempt.probe_command import ProbeCommand
+def build_override_parser() -> Callable[[list[str]], dict[str, Any]]:
+    """Parse ``--set`` rows into an allowlisted pointer → value mapping."""
+    from ageval.config.overrides import parse_set_override
 
-    return ProbeCommand(lock_command=build_lock_command())
+    def _parse(rows: list[str]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for row in rows:
+            pointer, value = parse_set_override(row)
+            out[pointer] = value
+        return out
 
-
-def build_run_task() -> RunTask:
-    """Wire the production ``ageval run`` use case through the composition root.
-
-    CLI must not import ``run_command.run_task`` directly. L0/L1 adapters are
-    still constructed inside the attempt package, not in this module.
-    """
-    from ageval.application.attempt.run_command import run_task
-
-    return run_task
+    return _parse
 
 
-def build_campaign_runner() -> Callable[..., Coroutine[Any, Any, dict[str, Any]]]:
-    """Wire the production ``ageval campaign`` sketch through the composition root."""
-    from ageval.application.attempt.campaign import run_campaign
+def build_run_attempt() -> Callable[..., Any]:
+    """Wire the production ``ageval run`` use case (one foreground Attempt)."""
+    from ageval.application.run import run_attempt
+
+    return run_attempt
+
+
+def build_campaign_runner() -> Callable[..., Any]:
+    """Wire the production ``ageval campaign`` use case."""
+    from ageval.application.campaign import run_campaign
 
     return run_campaign
 
@@ -133,7 +132,7 @@ def build_plugin_commands() -> Any:
 
 
 def build_agent_projection() -> Callable[[list[str]], Any]:
-    """--agent specs → synthesized profiles document path (design/14)."""
+    """``--agent`` specs → synthesized job document path."""
     from ageval.application.agent_ops.resolve import resolve_agent_specs
 
     return resolve_agent_specs

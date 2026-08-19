@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 from lib.agent_json import agent_struct
 from lib.db_tools import build_db_toolset, load_env_meta
 from lib.diagnostics import ALLOWED_LABELS, SPECIALIST_SQL
@@ -22,13 +22,13 @@ def _role_profile(params: dict[str, Any], role: str, default: str) -> str:
     return str(raw or default)
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     package_dir = Path(__file__).resolve().parent
     params = ctx.params if isinstance(ctx.params, dict) else {}
     try:
         env = load_env_meta(package_dir, ctx.workspace_root)
     except (OSError, RuntimeError, json.JSONDecodeError, FileNotFoundError) as exc:
-        return HarnessTerminal.failed(str(exc))
+        return RunTerminal.failed(str(exc))
 
     specialist_profile = _role_profile(params, "specialist", "specialist")
     planner_profile = _role_profile(params, "planner", "planner")
@@ -44,7 +44,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             obs = await tools.call("db_query", {"sql": sql})
             raw = obs.get("result") if isinstance(obs.get("result"), dict) else obs
             if obs.get("status") != "ok" or not isinstance(raw, dict) or not raw.get("ok"):
-                return HarnessTerminal.failed(f"specialist_tool_failed:{name}:{obs}")
+                return RunTerminal.failed(f"specialist_tool_failed:{name}:{obs}")
             rows = str(raw.get("stdout") or "")
             inv = await specialist.invoke(
                 f"Specialist role: {name}. Allowed labels: {list(ALLOWED_LABELS)}.\n"
@@ -57,7 +57,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
                 "If ROWS do not support it: active=false, label=null. Never invent metrics."
             )
             if not inv.get("ok"):
-                return HarnessTerminal.failed(inv.get("error") or f"specialist_failed:{name}")
+                return RunTerminal.failed(inv.get("error") or f"specialist_failed:{name}")
             finding = agent_struct(inv) or {
                 "specialist": name,
                 "active": False,
@@ -81,7 +81,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             "follow_up_sql must be null or a read-only SELECT. Do not list final labels."
         )
         if not plan_inv.get("ok"):
-            return HarnessTerminal.failed(plan_inv.get("error") or "planner_failed")
+            return RunTerminal.failed(plan_inv.get("error") or "planner_failed")
         plan = agent_struct(plan_inv) or {}
         follow_sql = plan.get("follow_up_sql")
         follow_rows = ""
@@ -107,17 +107,17 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             "Do not invent labels unsupported by tool_rows/evidence."
         )
         if not red_inv.get("ok"):
-            return HarnessTerminal.failed(red_inv.get("error") or "reducer_failed")
+            return RunTerminal.failed(red_inv.get("error") or "reducer_failed")
         reduced = agent_struct(red_inv)
         if not isinstance(reduced, dict):
-            return HarnessTerminal.failed("reducer_output_unstructured")
+            return RunTerminal.failed("reducer_output_unstructured")
         labels = reduced.get("predicted_labels")
         if not isinstance(labels, list) or len(labels) != 3:
-            return HarnessTerminal.failed("reducer_labels_invalid")
+            return RunTerminal.failed("reducer_labels_invalid")
         if any(str(x) not in ALLOWED_LABELS for x in labels):
-            return HarnessTerminal.failed("reducer_label_not_allowed")
+            return RunTerminal.failed("reducer_label_not_allowed")
         if len({str(x) for x in labels}) != 3:
-            return HarnessTerminal.failed("reducer_labels_not_unique")
+            return RunTerminal.failed("reducer_labels_not_unique")
 
         ctx.publish_json(
             "reducer-output",
@@ -137,4 +137,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
                 "tool_calls": tools.side_effect_counter,
             },
         )
-    return HarnessTerminal.completed("multiagent-env-min")
+    return RunTerminal.completed("multiagent-env-min")

@@ -9,13 +9,15 @@ from __future__ import annotations
 from typing import Any
 
 from ageval.plugins.contrib.acp.executor import AcpExecutor
-from ageval.plugins.contrib.acp.resolve import resolve_acp_executor
+from ageval.plugins.contrib.acp.hooks import ENSURE_RUNTIME_PRIORITY, ensure_runtime
 from ageval.plugins.contrib.acp.trajectory_map import acp_session_events_to_ageval
 from ageval.plugins.contrib.acp.types import ProcessLauncher
 from ageval.plugins.contrib.acp.usage import normalize_acp_usage
-from ageval.plugins.protocol import ExecutorSPI
+from ageval.plugins.protocol import ExecutorSPI, InjectRequirement
 from ageval.plugins.registry import ExtensionRegistry
 from ageval.plugins.slots import (
+    AFTER_ENVIRONMENT_READY,
+    ENVIRONMENT,
     EXECUTOR,
     TRAJECTORY_COLLECT,
 )
@@ -103,65 +105,6 @@ class AcpExecutorSPI(ExecutorSPI):
             "binary": "",
         }
 
-    def bind_to_target(self, placement: Any) -> AcpExecutorSPI:
-        """Attach parent ACP client to the Attempt container via docker exec."""
-        from ageval.adapters.agent_container import wrap_docker_exec
-        from ageval.adapters.child_env import cli_env_for_container
-        from ageval.plugins.contrib.acp.executor import AcpExecutor
-
-        child_env = cli_env_for_container(
-            self._entry_id, api_key_env=self._api_key_env, base_url=self._base_url
-        )
-        home = str(getattr(placement, "home", None) or "/attempt/home")
-        child_env["HOME"] = home
-        child_env["CODEX_HOME"] = f"{home}/.codex"
-        child_env["PATH"] = "/usr/local/bin:/usr/bin:/bin"
-        child_env.setdefault("TERM", "xterm")
-        child_env["NO_BROWSER"] = "1"
-        child_env.setdefault("XDG_CONFIG_HOME", f"{home}/.config")
-        child_env.setdefault("XDG_CACHE_HOME", f"{home}/.cache")
-        child_env.setdefault("XDG_STATE_HOME", f"{home}/.local/state")
-        child_env.setdefault("XDG_DATA_HOME", f"{home}/.local/share")
-        from ageval.plugins.contrib.acp.entry_local import acp_stdio_argv
-
-        desc = self._inner.descriptor
-        for k, v in desc.fixed_env.items():
-            child_env.setdefault(str(k), str(v))
-        docker_cmd = wrap_docker_exec(
-            container_id=str(placement.container_id),
-            uid=int(placement.uid),
-            gid=int(placement.gid),
-            workdir=str(getattr(placement, "workdir", None) or "/attempt/workspace"),
-            env=child_env,
-            argv=acp_stdio_argv(
-                self._entry_id,
-                list(desc.acp_command),
-                model=self._model,
-                reasoning_effort=self._reasoning_effort,
-            ),
-            shared_write=bool(getattr(placement, "shared_write", False)),
-            shared_gid=getattr(placement, "shared_gid", None),
-        )
-        bound = AcpExecutorSPI.__new__(AcpExecutorSPI)
-        bound.kind = "acp"
-        bound.profile_id = self.profile_id
-        bound._entry_id = self._entry_id
-        bound._model = self._model
-        bound._reasoning_effort = self._reasoning_effort
-        bound._base_url = self._base_url
-        bound._api_key_env = self._api_key_env
-        bound._inner = AcpExecutor(
-            entry_id=self._entry_id,
-            model=self._model,
-            reasoning_effort=self._reasoning_effort,
-            descriptor=desc,
-            workdir=str(getattr(placement, "workdir", None) or "/attempt/workspace"),
-            api_key_env=self._api_key_env,
-            base_url=self._base_url,
-            command_override=docker_cmd,
-        )
-        return bound
-
     def open(self, **kwargs: Any) -> None:
         del kwargs
 
@@ -209,21 +152,33 @@ async def _acp_trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:
 
 
 def register_acp_contrib(registry: ExtensionRegistry) -> None:
-    registry.provide(
+    registry.exclusive(
         EXECUTOR,
         PLUGIN_ID,
         _acp_factory,
         priority=ACP_PRIORITY,
         source="first-party",
-        is_default=False,
         is_factory=True,
     )
-    registry.on(
+    registry.chain(
+        AFTER_ENVIRONMENT_READY,
+        PLUGIN_ID,
+        ensure_runtime,
+        priority=ENSURE_RUNTIME_PRIORITY,
+        source="first-party",
+        is_factory=True,
+    )
+    registry.chain(
         TRAJECTORY_COLLECT,
         PLUGIN_ID,
         _acp_trajectory_collect,
         priority=ACP_PRIORITY,
         source="first-party",
+    )
+    # The pipe always comes from the box, so the box must be able to attach one.
+    registry.declare_inject(
+        PLUGIN_ID,
+        (InjectRequirement(service=ENVIRONMENT, capabilities=("attach_stdio",)),),
     )
 
 
@@ -233,7 +188,7 @@ __all__ = [
     "AcpExecutorSPI",
     "ProcessLauncher",
     "acp_session_events_to_ageval",
+    "ensure_runtime",
     "normalize_acp_usage",
     "register_acp_contrib",
-    "resolve_acp_executor",
 ]

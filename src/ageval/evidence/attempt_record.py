@@ -18,8 +18,8 @@ HARNESS_FILENAME = "harness.json"
 L1_FILENAME = "l1.json"
 
 
-def infer_database_root_from_run_dir(run_dir: Path | str) -> Path | None:
-    """Infer Database root when *run_dir* is ``…/.ageval/runs/<run_id>``."""
+def infer_dataset_root_from_run_dir(run_dir: Path | str) -> Path | None:
+    """Infer Dataset root when *run_dir* is ``…/.ageval/runs/<run_id>``."""
     p = Path(run_dir).resolve(strict=False)
     if p.parent.name == "runs" and p.parent.parent.name == ".ageval":
         return p.parent.parent.parent

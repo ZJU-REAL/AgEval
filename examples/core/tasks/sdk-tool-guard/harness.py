@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ageval_sdk import HarnessContext, HarnessTerminal, Tool, ToolSet
+from ageval_sdk import RunContext, RunTerminal, Tool, ToolSet
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     limit = int(ctx.params.get("call_limit", 2))
     mode = str(ctx.params.get("mode", "success"))
     hooks: list[str] = []
@@ -31,4 +31,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             "mode": mode,
         },
     )
-    return HarnessTerminal.completed("sdk-tool-guard")
+    return RunTerminal.completed("sdk-tool-guard")

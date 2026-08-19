@@ -25,3 +25,15 @@ class ExtensionPluginNotFoundError(ExtensionRegistryError):
 
 class ExtensionMaterializeError(ExtensionRegistryError):
     kind = "extension_materialize_failed"
+
+
+class ServiceNotFoundError(ExtensionRegistryError):
+    kind = "service_not_found"
+
+
+class ServiceConflictError(ExtensionRegistryError):
+    kind = "service_conflict"
+
+
+class InjectUnsatisfiedError(ExtensionRegistryError):
+    kind = "inject_unsatisfied"

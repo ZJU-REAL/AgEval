@@ -1,11 +1,12 @@
 """Config Core façade: load, merge, validate, canonicalize, digest, freeze.
 
-This module is the only normative reader of member ``task.yaml``. It never imports or
-executes package-local Python and never starts an Attempt. Profile ``api_key`` /
-``base_url`` may use ``${ENV_NAME}`` refs (locator unwrap / value substitute);
-other package YAML still rejects interpolation.
+This module is the only normative reader of a member ``task.yaml``. It never
+imports or executes package-local Python and never starts an Attempt.
 
-Pure helpers: ``constants``, ``yaml_io``, ``overrides``, ``digest``, ``validate`` (chore #31).
+What the task ships decides what runs: ``run.py``, ``evaluator.py``,
+``environment/Dockerfile`` and ``environment/setup.sh`` are picked up by
+presence, so a minimal ``task.yaml`` is two lines plus the fields that really
+vary.
 """
 
 from __future__ import annotations
@@ -29,14 +30,14 @@ from ageval.config.model import (
     ResolutionRecord,
     freeze,
 )
-from ageval.config.overlay_files import assert_overlays_at_lock, overlay_root_for_binding
 from ageval.config.overrides import apply_json_pointer, is_allowlisted_override_pointer
 from ageval.config.ports import PackageReader
 from ageval.config.profiles import (
-    apply_binding_override,
+    JobDocument,
+    apply_profile_override,
     assert_slots_have_no_inline_binding,
-    is_binding_override_pointer,
-    merge_bindings_onto_slots,
+    is_profile_override_pointer,
+    merge_job_onto_slots,
     project_job_overlay,
 )
 from ageval.config.provenance import merge_provenance, validate_provenance
@@ -45,97 +46,7 @@ from ageval.config.validate import (
     validate_document,
     validate_top_level_layout,
 )
-from ageval.config.yaml_io import deep_merge, parse_yaml
-
-
-def _bound_plugin_ids(profile: Mapping[str, Any]) -> list[str]:
-    ids: list[str] = []
-    seen: set[str] = set()
-
-    def add(raw: object) -> None:
-        plugin_id = str(raw or "").strip()
-        if plugin_id and plugin_id not in seen:
-            seen.add(plugin_id)
-            ids.append(plugin_id)
-
-    add(profile.get("executor"))
-    rows = profile.get("extensions")
-    if isinstance(rows, Sequence) and not isinstance(rows, (str, bytes)):
-        for item in rows:
-            if isinstance(item, Mapping):
-                add(item.get("plugin"))
-    return ids
-
-
-def _assert_bound_plugin_requires(profile: Mapping[str, Any]) -> None:
-    from ageval.plugins.host_requires import installed_plugin
-    from ageval.plugins.plugin_requires import (
-        PluginRequiresError,
-        assert_plugin_requires_installed,
-    )
-
-    for plugin_id in _bound_plugin_ids(profile):
-        found = installed_plugin(plugin_id)
-        if found is None:
-            continue
-        try:
-            assert_plugin_requires_installed(found[0])
-        except PluginRequiresError as exc:
-            raise ConfigError(
-                exc.kind,
-                f"extension resolve failed for profile {profile.get('id')!r}: {exc}",
-                location=f"/agent_profiles/{profile.get('id')}/plugin_requires",
-            ) from exc
-
-
-def _resolve_extension_bindings(
-    profiles_raw: list[Any],
-) -> dict[str, dict[str, Any]] | None:
-    """Resolve extension graphs for each locked profile.
-
-    Failures propagate as ConfigError so ``ageval lock`` fails closed on conflict
-    or missing plugin provide.
-    """
-    if not profiles_raw:
-        return None
-
-    from ageval.plugins.bootstrap import ensure_bootstrapped
-    from ageval.plugins.errors import ExtensionMaterializeError, ExtensionRegistryError
-    from ageval.plugins.lock_bind import extension_graph_to_lock
-    from ageval.plugins.protocol import intent_from_profile
-    from ageval.plugins.resolve import resolve as resolve_extensions
-
-    registry = ensure_bootstrapped()
-    out: dict[str, dict[str, Any]] = {}
-    for profile in profiles_raw:
-        if not isinstance(profile, Mapping):
-            continue
-        pid = profile.get("id")
-        if not isinstance(pid, str) or not pid.strip():
-            continue
-        intent = intent_from_profile(profile)
-        if not intent.profile_id:
-            intent.profile_id = pid.strip()
-        try:
-            _assert_bound_plugin_requires(profile)
-            # Dry-run factory so missing plugin options fail at lock, not mid-Attempt.
-            graph = resolve_extensions(intent, registry, materialize=True)
-        except ConfigError:
-            raise
-        except (ExtensionRegistryError, ExtensionMaterializeError) as exc:
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                f"extension resolve failed for profile {pid!r}: {exc}",
-                location=f"/agent_profiles/{pid}/extension_bindings",
-            ) from exc
-        except Exception as exc:  # noqa: BLE001
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                f"extension resolve failed for profile {pid!r}: {exc}",
-                location=f"/agent_profiles/{pid}/extension_bindings",
-            ) from exc
-        out[pid.strip()] = extension_graph_to_lock(graph)
-    return out or None
+from ageval.config.yaml_io import parse_yaml
 
 
 class ConfigCore:
@@ -146,59 +57,160 @@ class ConfigCore:
 
     def load_and_lock(
         self,
-        package_root: Path,
+        task_root: Path,
         task_id: str,
         *,
-        variant: Mapping[str, object] | None = None,
+        dataset_id: str,
+        dataset_version: str,
+        job: JobDocument,
+        selected_profile: str | None = None,
         overrides: Mapping[str, object] | None = None,
         capabilities: CapabilityCatalog,
-        database_provenance: Mapping[str, object] | None = None,
-        profile_bindings: Mapping[str, Mapping[str, object]] | None = None,
+        dataset_provenance: Mapping[str, object] | None = None,
+        force_build: bool = False,
     ) -> LockedTaskConfig:
-        """Read, merge, validate, canonicalize, digest, and freeze a task package.
+        """Read, merge, validate, canonicalize, digest, and freeze one task.
 
         Parameters
         ----------
-        package_root:
-            Directory containing ``task.yaml`` (Database member task root).
+        task_root:
+            Member task directory (contains ``task.yaml``).
         task_id:
-            Must equal ``task.yaml`` ``task_id`` (operator-selected task).
-        variant:
-            Optional Campaign variant overlay (merge step 2). CLI does not expose
-            this in v0.1; tests exercise the merge order.
+            Must equal ``task.yaml`` ``task_id``.
+        job:
+            Dataset-root job document: the ``environment`` winner plus the agent
+            profiles that bind the role slots this task declares.
+        selected_profile:
+            ``--profile`` key: bind every declared role to that profile.
         overrides:
-            Explicit overrides as a mapping of JSON Pointer → value.
-            Parameter pointers apply after profile merge; ``/bindings/<role>/…``
-            pointers apply to the job binding map before slot merge (#59).
-        capabilities:
-            Declaration-only catalog used for kind/format recognition.
-        database_provenance:
-            Optional Database-root ``provenance`` (suite default). Member
-            ``task.yaml`` provenance fully replaces this when present.
-        profile_bindings:
-            Job agent/model bindings from Database ``profiles.yaml`` and/or
-            CLI ``--profiles`` (role id → executor/entry/model/locator).
+            JSON Pointer → value. ``/agent_profiles/<role>/…`` pointers apply to
+            the job document before the slot merge; the rest are parameter leaves.
         """
+        root = self._resolve_root(task_root)
+        validate_top_level_layout(self._reader, root)
+        self._validate_dataset_shared(root)
+
+        raw = self._read_task_document(root)
+        resolution: list[ResolutionEntry] = [
+            ResolutionEntry(source="task.yaml", pointer="/", note="task document"),
+        ]
+        merged = self._apply_defaults(raw, resolution)
+
+        job_doc = copy.deepcopy(job)
+        param_overrides = self._split_overrides(overrides, job_doc, resolution)
+
+        slots_raw = merged.get("agent_profiles") or []
+        if not isinstance(slots_raw, list):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA, "agent_profiles must be a list", location="/agent_profiles"
+            )
+        assert_slots_have_no_inline_binding(slots_raw)
+        if slots_raw:
+            self._expand_profile_env_refs(job_doc)
+            merged["agent_profiles"] = merge_job_onto_slots(
+                slots_raw, job_doc, selected_profile=selected_profile
+            )
+            resolution.append(
+                ResolutionEntry(
+                    source="profiles.yaml",
+                    pointer="/agent_profiles",
+                    note="job agent profiles bound onto role slots",
+                )
+            )
+        else:
+            merged["agent_profiles"] = []
+
+        for pointer, value in param_overrides.items():
+            apply_json_pointer(merged, pointer, value)
+            resolution.append(
+                ResolutionEntry(source="cli-override", pointer=pointer, note="explicit override")
+            )
+
+        validate_document(
+            self._reader,
+            merged,
+            task_id=task_id,
+            root=root,
+            capabilities=capabilities,
+        )
+        resolved_refs = collect_resolved_references(self._reader, merged, root)
+        resolution.append(
+            ResolutionEntry(
+                source="package-files",
+                pointer="/resolved_references",
+                note="entrypoints and recipes recognized from shipped files",
+            )
+        )
+
+        provenance = self._effective_provenance(merged, dataset_provenance, resolution)
+        profiles_rows = list(merged["agent_profiles"])
+        role_ids = [str(row.get("id")) for row in profiles_rows if row.get("id") is not None]
+        job_overlay = project_job_overlay(
+            {rid: row for rid, row in ((str(r.get("id")), r) for r in profiles_rows)},
+            environment=job_doc.environment,
+            role_ids=role_ids,
+        )
+        extension_bindings = self._resolve_extension_bindings(
+            profiles_rows,
+            environment=job_doc.environment,
+            requires=merged.get("requires") or {},
+        )
+        if extension_bindings:
+            resolution.append(
+                ResolutionEntry(
+                    source="extension_registry",
+                    pointer="/extension_bindings",
+                    note="resolved exclusive winners, chains, services and inject",
+                )
+            )
+
+        fields: dict[str, Any] = {
+            "format": str(merged["format"]),
+            "dataset_id": dataset_id,
+            "dataset_version": dataset_version,
+            "task_id": str(merged["task_id"]),
+            "environment": job_doc.environment,
+            "profile": selected_profile,
+            "agent_profiles": tuple(freeze(row) for row in profiles_rows),
+            "parameters": freeze(merged.get("parameters") or {}),
+            "requires": freeze(merged.get("requires") or {}),
+            "limits": freeze(merged["limits"]),
+            "artifacts": freeze(merged["artifacts"]),
+            "evaluation": freeze(merged["evaluation"]),
+            "resolution": ResolutionRecord(entries=tuple(resolution)),
+            "resolved_references": freeze(resolved_refs),
+            "provenance": freeze(provenance) if provenance is not None else None,
+            "job_overlay": freeze(job_overlay),
+            "extension_bindings": freeze(extension_bindings) if extension_bindings else None,
+            "force_build": force_build,
+        }
+        provisional = LockedTaskConfig(digest="", **fields)
+        return LockedTaskConfig(digest=digest_payload(provisional.canonical_payload()), **fields)
+
+    # --- steps ---------------------------------------------------------------
+
+    def _resolve_root(self, task_root: Path) -> Path:
         try:
-            root = self._reader.resolve_root(package_root)
+            return self._reader.resolve_root(task_root)
         except (OSError, FileNotFoundError) as exc:
             raise ConfigError(
                 ERROR_INVALID_PACKAGE,
-                f"cannot open package root: {package_root}",
-                location=str(package_root),
+                f"cannot open task root: {task_root}",
+                location=str(task_root),
             ) from exc
 
-        validate_top_level_layout(self._reader, root)
+    def _validate_dataset_shared(self, root: Path) -> None:
+        from ageval.config.dataset import load_dataset_manifest
+        from ageval.config.shared import infer_dataset_root_from_task, validate_shared_layout
 
-        # #68 Dataset shared/ bans + task top-level ``shared`` shadow ban.
-        from ageval.config.shared import infer_database_root_from_task, validate_shared_layout
+        dataset_root = infer_dataset_root_from_task(root)
+        if dataset_root is None:
+            return
+        manifest = load_dataset_manifest(dataset_root)
+        validate_shared_layout(dataset_root, tasks_root=manifest.tasks_root)
 
-        db_root = infer_database_root_from_task(root)
-        if db_root is not None:
-            from ageval.config.database import load_database_manifest
-
-            man = load_database_manifest(db_root)
-            validate_shared_layout(db_root, tasks_root=man.tasks_root)
+    def _read_task_document(self, root: Path) -> dict[str, Any]:
+        from ageval.config.checks import reject_env_interpolation
 
         if not self._reader.exists(root, "task.yaml"):
             raise ConfigError(
@@ -206,7 +218,6 @@ class ConfigCore:
                 "task.yaml not found",
                 location="task.yaml",
             )
-
         try:
             text = self._reader.read_text(root, "task.yaml")
         except (OSError, ValueError) as exc:
@@ -215,21 +226,17 @@ class ConfigCore:
                 f"cannot read task.yaml: {exc}",
                 location="task.yaml",
             ) from exc
-
-        from ageval.config.checks import reject_env_interpolation, require_agent_profiles_list
-
-        # Reject env-style interpolation markers so experiment semantics stay in yaml.
         reject_env_interpolation(text, what="task.yaml", location="task.yaml")
+        return parse_yaml(text)
 
-        raw = parse_yaml(text)
-        resolution: list[ResolutionEntry] = [
-            ResolutionEntry(source="task.yaml", pointer="/", note="task document"),
-        ]
-
-        # Apply explicit defaults for missing top-level sections / known keys.
+    @staticmethod
+    def _apply_defaults(
+        raw: dict[str, Any],
+        resolution: list[ResolutionEntry],
+    ) -> dict[str, Any]:
         merged = copy.deepcopy(raw)
         for key, default_value in DEFAULTS.items():
-            if key not in merged or merged[key] is None:
+            if merged.get(key) is None:
                 merged[key] = copy.deepcopy(default_value)
                 resolution.append(
                     ResolutionEntry(source="default", pointer=f"/{key}", note="explicit default")
@@ -245,196 +252,106 @@ class ConfigCore:
                                 note="explicit default",
                             )
                         )
+        return merged
 
-        if variant:
-            merged = deep_merge(merged, dict(variant))
-            resolution.append(
-                ResolutionEntry(source="campaign-variant", pointer="/", note="variant overlay")
-            )
-
-        # --- #59 job binding merge -------------------------------------------------
-        # 1) Role slots from task.yaml must not embed executor/entry/model.
-        slots_raw = require_agent_profiles_list(merged.get("agent_profiles") or [])
-        assert_slots_have_no_inline_binding(slots_raw)
-
-        bindings: dict[str, dict[str, Any]] = {
-            str(k): dict(v) for k, v in (profile_bindings or {}).items() if isinstance(v, Mapping)
-        }
-
-        # 2) Split overrides: binding axes vs parameter leaves.
+    @staticmethod
+    def _split_overrides(
+        overrides: Mapping[str, object] | None,
+        job: JobDocument,
+        resolution: list[ResolutionEntry],
+    ) -> dict[str, object]:
+        """Job axis overrides go to the job document; the rest stay parameters."""
         param_overrides: dict[str, object] = {}
-        if overrides:
-            for pointer, value in overrides.items():
-                pointer_s = str(pointer)
-                if not is_allowlisted_override_pointer(pointer_s):
-                    from ageval.config.errors import ERROR_INVALID_OVERRIDE
+        for pointer, value in (overrides or {}).items():
+            pointer_s = str(pointer)
+            if not is_allowlisted_override_pointer(pointer_s):
+                from ageval.config.errors import ERROR_INVALID_OVERRIDE
 
-                    raise ConfigError(
-                        ERROR_INVALID_OVERRIDE,
-                        f"pointer not allowlisted for override: {pointer_s}",
-                        location=pointer_s,
-                    )
-                if is_binding_override_pointer(pointer_s):
-                    apply_binding_override(bindings, pointer_s, value)
-                    resolution.append(
-                        ResolutionEntry(
-                            source="cli-override",
-                            pointer=pointer_s,
-                            note="binding override",
-                        )
-                    )
-                else:
-                    param_overrides[pointer_s] = value
-
-        if bindings:
-            from ageval.config.env_refs import expand_binding_env_refs
-
-            for role_id, row in bindings.items():
-                expand_binding_env_refs(row, location=f"/bindings/{role_id}")
-                assert_overlays_at_lock(
-                    overlay_root_for_binding(row, db_root),
-                    row,
-                    location=f"/bindings/{role_id}/overlays",
+                raise ConfigError(
+                    ERROR_INVALID_OVERRIDE,
+                    f"pointer not allowlisted for override: {pointer_s}",
+                    location=pointer_s,
                 )
-            resolution.append(
-                ResolutionEntry(
-                    source="profiles.yaml",
-                    pointer="/agent_profiles",
-                    note="database/job profile bindings",
-                )
-            )
-
-        # 3) Merge bindings onto slots (fail closed if a required role is unbound).
-        if slots_raw:
-            merged["agent_profiles"] = merge_bindings_onto_slots(slots_raw, bindings)
-        else:
-            merged["agent_profiles"] = []
-
-        # 4) Parameter overrides after binding merge.
-        if param_overrides:
-            for pointer_s, value in param_overrides.items():
-                apply_json_pointer(merged, pointer_s, value)
+            if is_profile_override_pointer(pointer_s):
+                apply_profile_override(job, pointer_s, value)
                 resolution.append(
                     ResolutionEntry(
-                        source="cli-override", pointer=pointer_s, note="explicit override"
+                        source="cli-override",
+                        pointer=pointer_s,
+                        note="job profile override",
                     )
                 )
+            else:
+                param_overrides[pointer_s] = value
+        return param_overrides
 
-        validate_document(
-            self._reader,
-            merged,
-            task_id=task_id,
-            root=root,
-            capabilities=capabilities,
-        )
-        resolved_refs = collect_resolved_references(merged, root)
+    @staticmethod
+    def _expand_profile_env_refs(job: JobDocument) -> None:
+        from ageval.config.env_refs import expand_profile_env_refs
 
-        # Provenance: task fully replaces Database default; omit when neither set.
+        for role_id, row in job.profiles.items():
+            expand_profile_env_refs(row, location=f"/agent_profiles/{role_id}")
+
+    @staticmethod
+    def _effective_provenance(
+        merged: dict[str, Any],
+        dataset_provenance: Mapping[str, object] | None,
+        resolution: list[ResolutionEntry],
+    ) -> dict[str, Any] | None:
         task_prov_raw = merged.get("provenance")
         task_prov: dict[str, Any] | None = None
         if task_prov_raw is not None:
             task_prov = validate_provenance(task_prov_raw, location="/provenance")
             resolution.append(
-                ResolutionEntry(
-                    source="task.yaml",
-                    pointer="/provenance",
-                    note="task provenance",
-                )
+                ResolutionEntry(source="task.yaml", pointer="/provenance", note="task provenance")
             )
-        db_prov: dict[str, Any] | None = None
-        if database_provenance is not None:
-            db_prov = validate_provenance(
-                dict(database_provenance), location="database:/provenance"
+        dataset_prov: dict[str, Any] | None = None
+        if dataset_provenance is not None:
+            dataset_prov = validate_provenance(
+                dict(dataset_provenance), location="dataset:/provenance"
             )
             if task_prov is None:
                 resolution.append(
                     ResolutionEntry(
-                        source="database",
+                        source="dataset",
                         pointer="/provenance",
-                        note="database default provenance",
+                        note="dataset default provenance",
                     )
                 )
-        effective_prov = merge_provenance(database=db_prov, task=task_prov)
+        return merge_provenance(dataset=dataset_prov, task=task_prov)
 
-        # Freeze section views.
-        format_id = str(merged["format"])
-        locked_task_id = str(merged["task_id"])
-        harness = freeze(merged["harness"])
-        parameters = freeze(merged.get("parameters") or {})
-        provider = freeze(merged["provider"])
-        profiles_raw = require_agent_profiles_list(merged.get("agent_profiles") or [])
-        agent_profiles = tuple(freeze(p) for p in profiles_raw)
-        environment = (
-            freeze(merged["environment"]) if merged.get("environment") is not None else None
-        )
-        limits = freeze(merged["limits"])
-        artifacts = freeze(merged["artifacts"])
-        evaluation = freeze(merged["evaluation"])
-        provenance_frozen = freeze(effective_prov) if effective_prov is not None else None
-        resolution_record = ResolutionRecord(entries=tuple(resolution))
-        resolved_references = freeze(resolved_refs)
+    @staticmethod
+    def _resolve_extension_bindings(
+        profiles_rows: Sequence[Mapping[str, Any]],
+        *,
+        environment: str,
+        requires: Mapping[str, Any],
+    ) -> dict[str, dict[str, Any]] | None:
+        """Resolve the slot / service / inject graph per profile. Fails closed."""
+        if not profiles_rows:
+            return None
 
-        # Secret-free job overlay used for this lock (rehydrate / Leaderboard binding).
-        role_ids = [
-            str(p.get("id"))
-            for p in profiles_raw
-            if isinstance(p, dict) and p.get("id") is not None
-        ]
-        job_overlay_plain = project_job_overlay(bindings, role_ids=role_ids) if role_ids else None
-        job_overlay_frozen = freeze(job_overlay_plain) if job_overlay_plain else None
+        from ageval.plugins.bootstrap import ensure_bootstrapped
+        from ageval.plugins.errors import ExtensionRegistryError
+        from ageval.plugins.lock_bind import extension_graph_to_lock
+        from ageval.plugins.protocol import intent_from_profile
+        from ageval.plugins.resolve import resolve as resolve_extensions
 
-        # Resolve per-profile extension graph into lock extension_bindings.
-        extension_bindings_plain = _resolve_extension_bindings(profiles_raw)
-        extension_bindings_frozen = (
-            freeze(extension_bindings_plain) if extension_bindings_plain else None
-        )
-        if extension_bindings_plain:
-            resolution.append(
-                ResolutionEntry(
-                    source="extension_registry",
-                    pointer="/extension_bindings",
-                    note="resolved extension point graph per profile",
-                )
-            )
-            resolution_record = ResolutionRecord(entries=tuple(resolution))
-
-        # Build digest over a stable payload without the digest field.
-        provisional = LockedTaskConfig(
-            format=format_id,
-            task_id=locked_task_id,
-            harness=harness,  # type: ignore[arg-type]
-            parameters=parameters,  # type: ignore[arg-type]
-            provider=provider,  # type: ignore[arg-type]
-            agent_profiles=agent_profiles,  # type: ignore[arg-type]
-            environment=environment,  # type: ignore[arg-type]
-            limits=limits,  # type: ignore[arg-type]
-            artifacts=artifacts,  # type: ignore[arg-type]
-            evaluation=evaluation,  # type: ignore[arg-type]
-            resolution=resolution_record,
-            digest="",  # filled below
-            resolved_references=resolved_references,  # type: ignore[arg-type]
-            provenance=provenance_frozen,  # type: ignore[arg-type]
-            job_overlay=job_overlay_frozen,  # type: ignore[arg-type]
-            extension_bindings=extension_bindings_frozen,  # type: ignore[arg-type]
-        )
-        payload = provisional.canonical_payload()
-        digest = digest_payload(payload)
-
-        return LockedTaskConfig(
-            format=format_id,
-            task_id=locked_task_id,
-            harness=harness,  # type: ignore[arg-type]
-            parameters=parameters,  # type: ignore[arg-type]
-            provider=provider,  # type: ignore[arg-type]
-            agent_profiles=agent_profiles,  # type: ignore[arg-type]
-            environment=environment,  # type: ignore[arg-type]
-            limits=limits,  # type: ignore[arg-type]
-            artifacts=artifacts,  # type: ignore[arg-type]
-            evaluation=evaluation,  # type: ignore[arg-type]
-            resolution=resolution_record,
-            digest=digest,
-            resolved_references=resolved_references,  # type: ignore[arg-type]
-            provenance=provenance_frozen,  # type: ignore[arg-type]
-            job_overlay=job_overlay_frozen,  # type: ignore[arg-type]
-            extension_bindings=extension_bindings_frozen,  # type: ignore[arg-type]
-        )
+        registry = ensure_bootstrapped()
+        out: dict[str, dict[str, Any]] = {}
+        for profile in profiles_rows:
+            pid = str(profile.get("id") or "").strip()
+            if not pid:
+                continue
+            intent = intent_from_profile(profile, environment=environment, requires=requires)
+            intent.profile_id = pid
+            try:
+                graph = resolve_extensions(intent, registry, materialize=True)
+            except ExtensionRegistryError as exc:
+                raise ConfigError(
+                    ERROR_INVALID_SCHEMA,
+                    f"extension resolve failed for profile {pid!r}: {exc}",
+                    location=f"/agent_profiles/{pid}/extension_bindings",
+                ) from exc
+            out[pid] = extension_graph_to_lock(graph)
+        return out or None

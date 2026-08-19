@@ -1,4 +1,4 @@
-"""Package provenance (溯源) validation and Database→task merge (#18).
+"""Package provenance (溯源) validation and Dataset→task merge (#18).
 
 Provenance records *where a package/task came from* for fidelity audits.
 It never participates in Attempt PASS and is not a quality score.
@@ -158,13 +158,13 @@ def validate_provenance(raw: object, *, location: str = "/provenance") -> dict[s
 
 def merge_provenance(
     *,
-    database: dict[str, Any] | None,
+    dataset: dict[str, Any] | None,
     task: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Task provenance fully replaces Database default when present.
+    """Task provenance fully replaces Dataset default when present.
 
     Returns None when neither layer declares provenance.
     """
     if task is not None:
         return task
-    return database
+    return dataset

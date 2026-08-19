@@ -139,7 +139,7 @@ def export_trajectory(
 
         manifest = {
             "schema": EXPORT_SCHEMA,
-            # Portable under Database root when layout is …/.ageval/runs/<id> (#70).
+            # Portable under Dataset root when layout is …/.ageval/runs/<id> (#70).
             "source_evidence": portable_run_locator(evidence_root),
             "invocation_count": len(manifest_invocations),
             "invocations": manifest_invocations,

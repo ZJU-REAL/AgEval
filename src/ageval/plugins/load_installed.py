@@ -12,8 +12,9 @@ from typing import Any
 from ageval.plugins.host_requires import installed_plugin
 from ageval.plugins.manifest import PluginManifest, PluginManifestError, load_manifest
 from ageval.plugins.plugin_requires import PluginRequiresError, assert_no_plugin_requires_cycle
+from ageval.plugins.protocol import InjectRequirement
 from ageval.plugins.registry import ExtensionRegistry
-from ageval.plugins.slots import get_slot_kind
+from ageval.plugins.slots import SlotKind, get_slot_kind
 from ageval.plugins.store import list_installed, resolve_package_root
 
 
@@ -83,17 +84,17 @@ def register_manifest(
     digest: str | None = None,
     source: str = "installed",
 ) -> None:
-    """Register all provide/on entries from a loaded manifest."""
+    """Register exclusive / chain / exported services and inject rows."""
     extra_roots = _required_roots(manifest)
-    for slot_entry in manifest.provide:
+    for slot_entry in manifest.exclusive:
         kind = get_slot_kind(slot_entry.id)
-        if kind.value != "provide":
+        if kind is not SlotKind.EXCLUSIVE:
             raise PluginLoadError(
-                f"slot {slot_entry.id!r} is multi; cannot provide()",
+                f"slot {slot_entry.id!r} is a chain slot; declare it under slots.chain",
                 kind="plugin_slot_kind_mismatch",
             )
         factory = _import_entry(package_root, slot_entry.entry, extra_roots)
-        registry.provide(
+        registry.exclusive(
             slot_entry.id,
             manifest.plugin_id,
             factory,
@@ -103,15 +104,15 @@ def register_manifest(
             digest=digest,
             is_factory=True,
         )
-    for slot_entry in manifest.on:
+    for slot_entry in manifest.chain:
         kind = get_slot_kind(slot_entry.id)
-        if kind.value != "multi":
+        if kind is not SlotKind.CHAIN:
             raise PluginLoadError(
-                f"slot {slot_entry.id!r} is provide; cannot on()",
+                f"slot {slot_entry.id!r} is exclusive; declare it under slots.exclusive",
                 kind="plugin_slot_kind_mismatch",
             )
         handler = _import_entry(package_root, slot_entry.entry, extra_roots)
-        registry.on(
+        registry.chain(
             slot_entry.id,
             manifest.plugin_id,
             handler,
@@ -120,6 +121,23 @@ def register_manifest(
             version=manifest.version,
             digest=digest,
             is_factory=False,
+        )
+    for export in manifest.services:
+        impl = _import_entry(package_root, export.entry, extra_roots)
+        registry.export_service(
+            export.id,
+            manifest.plugin_id,
+            impl,
+            source=source,
+            is_factory=True,
+        )
+    if manifest.inject:
+        registry.declare_inject(
+            manifest.plugin_id,
+            tuple(
+                InjectRequirement(service=row.service, capabilities=row.capabilities)
+                for row in manifest.inject
+            ),
         )
 
 

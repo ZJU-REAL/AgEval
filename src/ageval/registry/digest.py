@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from ageval.config.database import member_paths_for_digest
+from ageval.config.dataset import member_paths_for_digest
 
 
 def file_sha256(path: Path) -> str:
@@ -31,9 +31,9 @@ def file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def compute_package_digest(database_root: Path) -> str:
+def compute_package_digest(dataset_root: Path) -> str:
     """Return ``sha256:<64 hex>`` over the canonical package tree."""
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     lines: list[str] = []
     for rel in member_paths_for_digest(root):
         abs_path = root / rel

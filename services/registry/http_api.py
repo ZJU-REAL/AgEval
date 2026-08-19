@@ -321,13 +321,13 @@ class RegistryHttpApi:
                 shutil.rmtree(work, ignore_errors=True)
         return json_result(201, payload)
 
-    def _release_draft(self, *, database_id: str, auth: TokenInfo) -> HttpResult:
+    def _release_draft(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
         try:
             payload = self.state.packages.release_draft(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 auth=auth,
                 visibility=str(body.get("visibility") or "") or None,
                 replace=bool(body.get("replace")),
@@ -342,7 +342,7 @@ class RegistryHttpApi:
             mine_raw = (qs.get("mine") or [""])[0]
             payload = self.state.packages.list_packages(
                 auth=auth,
-                prefix=(qs.get("database_id_prefix") or [None])[0],
+                prefix=(qs.get("dataset_id_prefix") or [None])[0],
                 visibility=(qs.get("visibility") or [None])[0],
                 version=(qs.get("version") or [None])[0],
                 package_kind=(qs.get("package_kind") or [None])[0],
@@ -352,15 +352,15 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(200, payload)
 
-    def _list_package_versions(self, *, database_id: str, auth: TokenInfo) -> HttpResult:
+    def _list_package_versions(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
         try:
-            payload = self.state.packages.list_versions(database_id=database_id, auth=auth)
+            payload = self.state.packages.list_versions(dataset_id=dataset_id, auth=auth)
             items = payload.get("items") or []
             if any(
                 isinstance(item, dict) and item.get("package_kind") == "agent" for item in items
             ):
                 payload["appearances"] = self.state.runtimes.appearances_for_agent(
-                    database_id, auth
+                    dataset_id, auth
                 )
         except RegistryAppError as exc:
             return _caught(exc)
@@ -369,14 +369,14 @@ class RegistryHttpApi:
     def _serve_meta(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         version: str | None,
         package_digest: str | None,
         auth: TokenInfo,
     ) -> HttpResult:
         try:
             payload = self.state.packages.serve_meta(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 version=version,
                 package_digest=package_digest,
                 auth=auth,
@@ -386,11 +386,11 @@ class RegistryHttpApi:
         return json_result(200, payload)
 
     def _serve_content(
-        self, *, database_id: str, package_digest: str, auth: TokenInfo
+        self, *, dataset_id: str, package_digest: str, auth: TokenInfo
     ) -> HttpResult:
         try:
             fh, size, row = self.state.packages.serve_content(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 package_digest=package_digest,
                 auth=auth,
             )
@@ -406,14 +406,14 @@ class RegistryHttpApi:
     def _serve_package_files_list(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         auth: TokenInfo,
         package_digest: str | None = None,
         version: str | None = None,
     ) -> HttpResult:
         try:
             payload = self.state.packages.list_files(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 auth=auth,
                 package_digest=package_digest,
                 version=version,
@@ -425,7 +425,7 @@ class RegistryHttpApi:
     def _serve_package_file(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         file_path: str,
         auth: TokenInfo,
         package_digest: str | None = None,
@@ -433,7 +433,7 @@ class RegistryHttpApi:
     ) -> HttpResult:
         try:
             payload = self.state.packages.read_file(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 file_path=file_path,
                 auth=auth,
                 package_digest=package_digest,
@@ -463,7 +463,7 @@ class RegistryHttpApi:
         try:
             payload = self.state.results.list_attempts(
                 auth=auth,
-                database_id=(qs.get("database_id") or [None])[0],
+                dataset_id=(qs.get("dataset_id") or [None])[0],
             )
         except RegistryAppError as exc:
             return _caught(exc)
@@ -540,7 +540,7 @@ class RegistryHttpApi:
             board_raw = (qs.get("board") or [""])[0]
             payload = self.state.results.list_suites(
                 auth=auth,
-                database_id=(qs.get("database_id") or [None])[0],
+                dataset_id=(qs.get("dataset_id") or [None])[0],
                 board=str(board_raw).strip().lower() in {"1", "true", "yes"},
                 uploaded_by=(qs.get("uploaded_by") or [None])[0],
             )
@@ -622,13 +622,13 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(200, payload)
 
-    def _patch_package_display_name(self, *, database_id: str, auth: TokenInfo) -> HttpResult:
+    def _patch_package_display_name(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
         try:
             payload = self.state.packages.patch_display_name(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 display_name=body.get("display_name"),
                 auth=auth,
             )
@@ -849,25 +849,25 @@ class RegistryHttpApi:
         return json_result(200, payload)
 
     def _delete_package_release(
-        self, *, database_id: str, version: str, auth: TokenInfo
+        self, *, dataset_id: str, version: str, auth: TokenInfo
     ) -> HttpResult:
         try:
             payload = self.state.packages.delete_release(
-                database_id=database_id, version=version, auth=auth
+                dataset_id=dataset_id, version=version, auth=auth
             )
         except RegistryAppError as exc:
             return _caught(exc)
         return json_result(200, payload)
 
     def _patch_package_release(
-        self, *, database_id: str, version: str, auth: TokenInfo
+        self, *, dataset_id: str, version: str, auth: TokenInfo
     ) -> HttpResult:
         visibility = self._visibility_body()
         if isinstance(visibility, HttpResult):
             return visibility
         try:
             payload = self.state.packages.patch_visibility(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 version=version,
                 visibility=visibility,
                 auth=auth,

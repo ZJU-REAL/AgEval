@@ -31,7 +31,7 @@ from services.registry.protocols import MetadataStoreProtocol, TokenStoreProtoco
 
 @dataclass(frozen=True, slots=True)
 class ReleaseRow:
-    database_id: str
+    dataset_id: str
     version: str
     visibility: str
     package_digest: str
@@ -45,10 +45,10 @@ class ReleaseRow:
 
 @dataclass(frozen=True, slots=True)
 class AttemptResultRow:
-    """Sealed Attempt evidence bundle metadata (not a Database package)."""
+    """Sealed Attempt evidence bundle metadata (not a Dataset package)."""
 
     run_id: str
-    database_id: str
+    dataset_id: str
     task_id: str
     lock_digest: str
     status: str
@@ -70,8 +70,8 @@ class SuiteResultRow:
     """
 
     suite_run_id: str
-    database_id: str
-    database_version: str
+    dataset_id: str
+    dataset_version: str
     visibility: str
     pass_rate: float
     mean_score: float
@@ -95,7 +95,7 @@ class SuiteResultRow:
 class DraftRow:
     """One current draft slot per dataset (not a release)."""
 
-    database_id: str
+    dataset_id: str
     org_id: str
     visibility: str
     package_digest: str
@@ -108,7 +108,7 @@ class DraftRow:
 
     def as_release(self) -> ReleaseRow:
         return ReleaseRow(
-            database_id=self.database_id,
+            dataset_id=self.dataset_id,
             version="draft",
             visibility=self.visibility,
             package_digest=self.package_digest,
@@ -123,7 +123,7 @@ class DraftRow:
 
 @dataclass(frozen=True, slots=True)
 class DatasetAclRow:
-    database_id: str
+    dataset_id: str
     user_id: str
     role: str
     created_at: float
@@ -571,7 +571,7 @@ class MetadataStore(MetadataStoreProtocol):
                     conn,
                     Q.INSERT_RELEASE,
                     (
-                        row.database_id,
+                        row.dataset_id,
                         row.version,
                         row.visibility,
                         row.package_digest,
@@ -587,28 +587,28 @@ class MetadataStore(MetadataStoreProtocol):
             except self._adapter.integrity_error as exc:
                 raise ValueError("release already exists") from exc
 
-    def get_by_version(self, database_id: str, version: str) -> ReleaseRow | None:
+    def get_by_version(self, dataset_id: str, version: str) -> ReleaseRow | None:
         with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_RELEASE_BY_VERSION, (database_id, version))
+            cur = self._exec(conn, Q.SELECT_RELEASE_BY_VERSION, (dataset_id, version))
             r = cur.fetchone()
             return self._release_row(r) if r else None
 
-    def get_by_digest(self, database_id: str, package_digest: str) -> ReleaseRow | None:
+    def get_by_digest(self, dataset_id: str, package_digest: str) -> ReleaseRow | None:
         with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_RELEASE_BY_DIGEST, (database_id, package_digest))
+            cur = self._exec(conn, Q.SELECT_RELEASE_BY_DIGEST, (dataset_id, package_digest))
             r = cur.fetchone()
             return self._release_row(r) if r else None
 
     def list_releases(
         self,
         *,
-        database_id_prefix: str | None = None,
+        dataset_id_prefix: str | None = None,
         visibility: str | None = None,
         version: str | None = None,
         include_private: bool = False,
     ) -> list[ReleaseRow]:
         sql, params = Q.list_releases_query(
-            database_id_prefix=database_id_prefix,
+            dataset_id_prefix=dataset_id_prefix,
             visibility=visibility,
             version=version,
             include_private=include_private,
@@ -617,8 +617,8 @@ class MetadataStore(MetadataStoreProtocol):
             cur = self._exec(conn, sql, params)
             return [self._release_row(r) for r in cur.fetchall()]
 
-    def list_versions(self, database_id: str, *, include_private: bool = False) -> list[ReleaseRow]:
-        sql, params = Q.list_versions_query(database_id, include_private=include_private)
+    def list_versions(self, dataset_id: str, *, include_private: bool = False) -> list[ReleaseRow]:
+        sql, params = Q.list_versions_query(dataset_id, include_private=include_private)
         with self._connect() as conn:
             cur = self._exec(conn, sql, params)
             return [self._release_row(r) for r in cur.fetchall()]
@@ -631,7 +631,7 @@ class MetadataStore(MetadataStoreProtocol):
                     Q.INSERT_ATTEMPT,
                     (
                         row.run_id,
-                        row.database_id,
+                        row.dataset_id,
                         row.task_id,
                         row.lock_digest,
                         row.status,
@@ -673,11 +673,11 @@ class MetadataStore(MetadataStoreProtocol):
     def list_attempts(
         self,
         *,
-        database_id: str | None = None,
+        dataset_id: str | None = None,
         include_private: bool = False,
     ) -> list[AttemptResultRow]:
         sql, params = Q.list_attempts_query(
-            database_id=database_id, include_private=include_private
+            dataset_id=dataset_id, include_private=include_private
         )
         with self._connect() as conn:
             cur = self._exec(conn, sql, params)
@@ -691,8 +691,8 @@ class MetadataStore(MetadataStoreProtocol):
                     Q.INSERT_SUITE,
                     (
                         row.suite_run_id,
-                        row.database_id,
-                        row.database_version,
+                        row.dataset_id,
+                        row.dataset_version,
                         row.visibility,
                         row.pass_rate,
                         row.mean_score,
@@ -724,10 +724,10 @@ class MetadataStore(MetadataStoreProtocol):
     def list_suites(
         self,
         *,
-        database_id: str | None = None,
+        dataset_id: str | None = None,
         include_private: bool = False,
     ) -> list[SuiteResultRow]:
-        sql, params = Q.list_suites_query(database_id=database_id, include_private=include_private)
+        sql, params = Q.list_suites_query(dataset_id=dataset_id, include_private=include_private)
         with self._connect() as conn:
             cur = self._exec(conn, sql, params)
             return [self._suite_row(r) for r in cur.fetchall()]
@@ -861,33 +861,33 @@ class MetadataStore(MetadataStoreProtocol):
             cur_d = self._exec(conn, Q.COUNT_DRAFT_BLOB_REFS, (blob_digest,))
             return n + int(cur_d.fetchone()["n"])
 
-    def delete_release(self, database_id: str, version: str) -> ReleaseRow:
-        row = self.get_by_version(database_id, version)
+    def delete_release(self, dataset_id: str, version: str) -> ReleaseRow:
+        row = self.get_by_version(dataset_id, version)
         if row is None:
             raise LookupError("release not found")
         with self._connect() as conn:
             self._exec(
                 conn,
                 Q.DELETE_RELEASE,
-                (database_id, version),
+                (dataset_id, version),
             )
             conn.commit()
         return row
 
-    def set_release_visibility(self, database_id: str, version: str, visibility: str) -> ReleaseRow:
+    def set_release_visibility(self, dataset_id: str, version: str, visibility: str) -> ReleaseRow:
         if visibility not in {"public", "private"}:
             raise ValueError("bad visibility")
-        row = self.get_by_version(database_id, version)
+        row = self.get_by_version(dataset_id, version)
         if row is None:
             raise LookupError("release not found")
         with self._connect() as conn:
             self._exec(
                 conn,
                 Q.UPDATE_RELEASE_VISIBILITY,
-                (visibility, database_id, version),
+                (visibility, dataset_id, version),
             )
             conn.commit()
-        updated = self.get_by_version(database_id, version)
+        updated = self.get_by_version(dataset_id, version)
         assert updated is not None
         return updated
 
@@ -897,7 +897,7 @@ class MetadataStore(MetadataStoreProtocol):
                 conn,
                 Q.UPSERT_DRAFT,
                 (
-                    row.database_id,
+                    row.dataset_id,
                     row.org_id,
                     row.visibility,
                     row.package_digest,
@@ -910,19 +910,19 @@ class MetadataStore(MetadataStoreProtocol):
                 ),
             )
             conn.commit()
-        stored = self.get_draft(row.database_id)
+        stored = self.get_draft(row.dataset_id)
         assert stored is not None
         return stored
 
-    def get_draft(self, database_id: str) -> DraftRow | None:
+    def get_draft(self, dataset_id: str) -> DraftRow | None:
         with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_DRAFT, (database_id,))
+            cur = self._exec(conn, Q.SELECT_DRAFT, (dataset_id,))
             r = cur.fetchone()
             return self._draft_row(r) if r else None
 
-    def get_draft_by_digest(self, database_id: str, package_digest: str) -> DraftRow | None:
+    def get_draft_by_digest(self, dataset_id: str, package_digest: str) -> DraftRow | None:
         with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_DRAFT_BY_DIGEST, (database_id, package_digest))
+            cur = self._exec(conn, Q.SELECT_DRAFT_BY_DIGEST, (dataset_id, package_digest))
             r = cur.fetchone()
             return self._draft_row(r) if r else None
 
@@ -931,35 +931,35 @@ class MetadataStore(MetadataStoreProtocol):
             cur = self._exec(conn, Q.LIST_DRAFTS)
             return [self._draft_row(r) for r in cur.fetchall()]
 
-    def delete_draft(self, database_id: str) -> DraftRow:
-        row = self.get_draft(database_id)
+    def delete_draft(self, dataset_id: str) -> DraftRow:
+        row = self.get_draft(dataset_id)
         if row is None:
             raise LookupError("draft not found")
         with self._connect() as conn:
-            self._exec(conn, Q.DELETE_DRAFT, (database_id,))
+            self._exec(conn, Q.DELETE_DRAFT, (dataset_id,))
             conn.commit()
         return row
 
     def upsert_dataset_acl(
-        self, database_id: str, user_id: str, *, role: str, created_at: float | None = None
+        self, dataset_id: str, user_id: str, *, role: str, created_at: float | None = None
     ) -> DatasetAclRow:
         ts = created_at if created_at is not None else now()
         with self._connect() as conn:
-            self._exec(conn, Q.UPSERT_DATASET_ACL, (database_id, user_id, role, ts))
+            self._exec(conn, Q.UPSERT_DATASET_ACL, (dataset_id, user_id, role, ts))
             conn.commit()
-        row = self.dataset_acl(database_id, user_id)
+        row = self.dataset_acl(dataset_id, user_id)
         assert row is not None
         return row
 
-    def dataset_acl(self, database_id: str, user_id: str) -> DatasetAclRow | None:
+    def dataset_acl(self, dataset_id: str, user_id: str) -> DatasetAclRow | None:
         with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_DATASET_ACL, (database_id, user_id))
+            cur = self._exec(conn, Q.SELECT_DATASET_ACL, (dataset_id, user_id))
             r = cur.fetchone()
             return self._dataset_acl_row(r) if r else None
 
-    def list_dataset_acl(self, database_id: str) -> list[DatasetAclRow]:
+    def list_dataset_acl(self, dataset_id: str) -> list[DatasetAclRow]:
         with self._connect() as conn:
-            cur = self._exec(conn, Q.LIST_DATASET_ACL, (database_id,))
+            cur = self._exec(conn, Q.LIST_DATASET_ACL, (dataset_id,))
             return [self._dataset_acl_row(r) for r in cur.fetchall()]
 
     def list_dataset_acl_for_user(self, user_id: str) -> list[DatasetAclRow]:
@@ -970,14 +970,14 @@ class MetadataStore(MetadataStoreProtocol):
     @staticmethod
     def _draft_row(r: sqlite3.Row) -> DraftRow:
         return DraftRow(
-            database_id=str(r["database_id"]),
+            dataset_id=str(r["dataset_id"]),
             org_id=str(r["org_id"] or ""),
             visibility=str(r["visibility"]),
             package_digest=str(r["package_digest"]),
             blob_digest=str(r["blob_digest"]),
             size=int(r["size"]),
             media_type=str(r["media_type"]),
-            package_kind=str(r["package_kind"] or "database"),
+            package_kind=str(r["package_kind"] or "dataset"),
             uploaded_by=str(r["uploaded_by"] or ""),
             updated_at=float(r["updated_at"]),
         )
@@ -985,7 +985,7 @@ class MetadataStore(MetadataStoreProtocol):
     @staticmethod
     def _dataset_acl_row(r: sqlite3.Row) -> DatasetAclRow:
         return DatasetAclRow(
-            database_id=str(r["database_id"]),
+            dataset_id=str(r["dataset_id"]),
             user_id=str(r["user_id"]),
             role=str(r["role"]),
             created_at=float(r["created_at"]),
@@ -997,7 +997,7 @@ class MetadataStore(MetadataStoreProtocol):
         org_id = r["org_id"] if "org_id" in keys else None
         uploaded_by = str(r["uploaded_by"]) if "uploaded_by" in keys and r["uploaded_by"] else ""
         return ReleaseRow(
-            database_id=r["database_id"],
+            dataset_id=r["dataset_id"],
             version=r["version"],
             visibility=r["visibility"],
             package_digest=r["package_digest"],
@@ -1018,7 +1018,7 @@ class MetadataStore(MetadataStoreProtocol):
         )
         return AttemptResultRow(
             run_id=r["run_id"],
-            database_id=r["database_id"],
+            dataset_id=r["dataset_id"],
             task_id=r["task_id"],
             lock_digest=r["lock_digest"],
             status=r["status"],
@@ -1044,8 +1044,8 @@ class MetadataStore(MetadataStoreProtocol):
         )
         return SuiteResultRow(
             suite_run_id=r["suite_run_id"],
-            database_id=r["database_id"],
-            database_version=r["database_version"],
+            dataset_id=r["dataset_id"],
+            dataset_version=r["dataset_version"],
             visibility=r["visibility"],
             pass_rate=float(r["pass_rate"]),
             mean_score=float(r["mean_score"]),
@@ -1116,19 +1116,19 @@ class MetadataStore(MetadataStoreProtocol):
             raise LookupError("org not found")
         return org
 
-    def set_package_display_name(self, database_id: str, display_name: str) -> str:
+    def set_package_display_name(self, dataset_id: str, display_name: str) -> str:
         with self._connect() as conn:
             self._exec(
                 conn,
                 Q.UPSERT_PACKAGE_DISPLAY_NAME,
-                (database_id, display_name, now()),
+                (dataset_id, display_name, now()),
             )
             conn.commit()
         return display_name
 
-    def get_package_display_name(self, database_id: str) -> str:
+    def get_package_display_name(self, dataset_id: str) -> str:
         with self._connect() as conn:
-            cur = self._exec(conn, Q.SELECT_PACKAGE_DISPLAY_NAME, (database_id,))
+            cur = self._exec(conn, Q.SELECT_PACKAGE_DISPLAY_NAME, (dataset_id,))
             row = cur.fetchone()
         if row is None:
             return ""
@@ -1138,7 +1138,7 @@ class MetadataStore(MetadataStoreProtocol):
         with self._connect() as conn:
             cur = self._exec(conn, Q.SELECT_PACKAGE_DISPLAY_NAMES)
             return {
-                str(r["database_id"]): str(r["display_name"] or "")
+                str(r["dataset_id"]): str(r["display_name"] or "")
                 for r in cur.fetchall()
                 if r["display_name"]
             }
@@ -1728,12 +1728,12 @@ def package_kind_for_media_type(media_type: str) -> str:
             return "agent"
     except Exception:  # noqa: BLE001 — kind is best-effort for clients
         pass
-    return "database"
+    return "dataset"
 
 
 def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
     out: dict[str, Any] = {
-        "database_id": row.database_id,
+        "dataset_id": row.dataset_id,
         "version": row.version,
         "visibility": row.visibility,
         "package_digest": row.package_digest,
@@ -1759,7 +1759,7 @@ def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
 def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
     out: dict[str, Any] = {
         "run_id": row.run_id,
-        "database_id": row.database_id,
+        "dataset_id": row.dataset_id,
         "task_id": row.task_id,
         "lock_digest": row.lock_digest,
         "status": row.status,
@@ -1886,8 +1886,8 @@ def suite_to_dict(
         task_refs = enriched
     out: dict[str, Any] = {
         "suite_run_id": row.suite_run_id,
-        "database_id": row.database_id,
-        "database_version": row.database_version,
+        "dataset_id": row.dataset_id,
+        "dataset_version": row.dataset_version,
         "visibility": row.visibility,
         "pass_rate": row.pass_rate,
         "mean_score": row.mean_score,

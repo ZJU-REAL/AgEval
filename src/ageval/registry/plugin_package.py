@@ -1,4 +1,4 @@
-"""ageval.plugin/1 archive + digest helpers (separate from Database packages)."""
+"""ageval.plugin/1 archive + digest helpers (separate from Dataset packages)."""
 
 from __future__ import annotations
 
@@ -93,5 +93,5 @@ def assert_plugin_package(root: Path) -> None:
     man = load_manifest(root)
     if man.format != PLUGIN_FORMAT:
         raise ValueError(f"expected {PLUGIN_FORMAT}")
-    # Must not look like a Database package claimed as plugin without manifest
-    # (manifest already required). Database-only trees fail at load_manifest.
+    # Must not look like a Dataset package claimed as plugin without manifest
+    # (manifest already required). Dataset-only trees fail at load_manifest.

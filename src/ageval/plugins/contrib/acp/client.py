@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from ageval.adapters.agent_contract import AgentResult
+from ageval.plugins.agent_result import AgentResult
 from ageval.plugins.contrib.acp.usage import _as_plain_mapping
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 CMD_RE = re.compile(
     r"^\s*(look|inventory|open\s+(?P<open_r>[\w ]+)|take\s+(?P<take_o>[\w ]+)"
@@ -83,7 +83,7 @@ def _extract_command(text: str) -> str | None:
     return None
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     goal = ctx.params.require_str("goal")
     spec = ctx.params.get("world") or {}
     max_steps = int(ctx.params.get("max_steps") or 8)
@@ -105,7 +105,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         for _step in range(max_steps):
             resp = await session.invoke(system + "Current observation: " + observation)
             if not resp.get("ok"):
-                return HarnessTerminal.failed(str(resp.get("error") or "invoke_failed"))
+                return RunTerminal.failed(str(resp.get("error") or "invoke_failed"))
             reply = str(resp.get("text") or "")
             cmd = _extract_command(reply)
             if cmd is None:
@@ -123,4 +123,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         {"goal": goal, "steps": trace, "final_locations": dict(world.loc),
          "holding": list(world.holding)},
     )
-    return HarnessTerminal.completed("alfworld-mini")
+    return RunTerminal.completed("alfworld-mini")

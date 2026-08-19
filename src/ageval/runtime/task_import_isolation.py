@@ -5,7 +5,7 @@ modules often share names (e.g. ``lib.agents``). After each task, drop modules
 whose ``__file__`` lives under that task directory so the next task reloads
 from disk.
 
-Does **not** clear first-party / site-packages / Database ``shared/`` imports
+Does **not** clear first-party / site-packages / Dataset ``shared/`` imports
 unless those files live under the task dir.
 """
 

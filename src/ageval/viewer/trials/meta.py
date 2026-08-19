@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ageval.config.database import load_database_manifest
+from ageval.config.dataset import load_dataset_manifest
 from ageval.config.errors import ConfigError
 from ageval.viewer.browse import commands_for
 from ageval.viewer.jobs import get_job, get_job_task, safe_id_segment
@@ -19,12 +19,12 @@ from ageval.viewer.trials.surface import _trial_meta_from_evidence
 
 
 def list_task_trials(
-    database_root: Path,
+    dataset_root: Path,
     job_id: str,
     task_id: str,
 ) -> dict[str, Any]:
     """List trials for a task within a suite job, enriched with local evidence when present."""
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     job_id = safe_id_segment(job_id, field="job_id")
     task_id = safe_id_segment(task_id, field="task_id")
     task_payload = get_job_task(root, job_id, task_id)
@@ -53,7 +53,7 @@ def list_task_trials(
             "note": "from suite summary",
         }
 
-    # Scan database-level and task-local runs matching this task_id via lock.json
+    # Scan dataset-level and task-local runs matching this task_id via lock.json
     candidates: list[Path] = []
     from ageval.evidence.locators import default_runs_root
 
@@ -62,7 +62,7 @@ def list_task_trials(
         candidates.extend(p for p in db_runs.iterdir() if p.is_dir())
     tasks_root_name = "tasks"
     with contextlib.suppress(ConfigError):
-        man = load_database_manifest(root)
+        man = load_dataset_manifest(root)
         tasks_root_name = man.tasks_root or "tasks"
     task_runs = default_runs_root(root / tasks_root_name / task_id)
     if task_runs.is_dir():
@@ -114,12 +114,12 @@ def list_task_trials(
 
 
 def get_trial(
-    database_root: Path,
+    dataset_root: Path,
     job_id: str,
     task_id: str,
     run_id: str,
 ) -> dict[str, Any]:
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     job_id = safe_id_segment(job_id, field="job_id")
     task_id = safe_id_segment(task_id, field="task_id")
     rid = _safe_run_id(run_id)

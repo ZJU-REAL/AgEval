@@ -1,5 +1,5 @@
 format: ageval.dataset/1
-database_id: eval/scienceqa-mini
+dataset_id: eval/scienceqa-mini
 version: 0.1.0
 description: ScienceQA-style MCQ mini suite
 tasks:

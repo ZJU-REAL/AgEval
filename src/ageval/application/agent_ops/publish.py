@@ -63,7 +63,7 @@ class AgentPublishCommand:
             archive_path.write_bytes(archive)
             try:
                 info = client.publish(
-                    database_id=package_id,
+                    dataset_id=package_id,
                     version=manifest.version,
                     package_digest=package_digest,
                     blob_digest=blob_digest,
@@ -81,14 +81,14 @@ class AgentPublishCommand:
             "ok": True,
             "package_kind": "agent",
             "agent_id": manifest.agent_id,
-            "package_id": info.database_id,
+            "package_id": info.dataset_id,
             "version": info.version,
             "visibility": info.visibility,
             "package_digest": info.package_digest,
             "blob_digest": info.blob_digest,
             "size": info.size,
             "media_type": info.media_type,
-            "ref": f"{info.database_id}@{info.version}",
+            "ref": f"{info.dataset_id}@{info.version}",
             "org_id": info.org_id or (org or "").strip(),
             "label": manifest.label,
         }

@@ -7,7 +7,19 @@ from pathlib import Path
 from typing import Any
 
 from ageval.config.capabilities import CapabilityCatalog
-from ageval.config.constants import ALLOWED_TOP_LEVEL_DIRS, ALLOWED_TOP_LEVEL_FILES
+from ageval.config.constants import (
+    ALLOWED_TOP_LEVEL_DIRS,
+    ALLOWED_TOP_LEVEL_FILES,
+    DOCKERFILE_DEFAULT,
+    EVALUATION_DIR,
+    EVALUATOR_ENTRYPOINT_DEFAULT,
+    EVALUATOR_MODULE_FILE,
+    REJECTED_TASK_KEYS,
+    RUN_ENTRYPOINT_DEFAULT,
+    RUN_MODULE_FILE,
+    SEED_DIR,
+    SETUP_SCRIPT_DEFAULT,
+)
 from ageval.config.digest import normalize_package_relpath
 from ageval.config.errors import (
     ERROR_INVALID_FORMAT,
@@ -22,6 +34,24 @@ from ageval.config.errors import (
     ConfigError,
 )
 from ageval.config.ports import PackageReader
+from ageval.environments.protocol import CAPABILITY_NAMES
+
+ALLOWED_TASK_KEYS = frozenset(
+    {
+        "format",
+        "task_id",
+        "description",
+        "parameters",
+        "agent_profiles",
+        "requires",
+        "limits",
+        "artifacts",
+        "evaluation",
+        "provenance",
+    }
+)
+
+ALLOWED_LIMIT_KEYS = frozenset({"wall_time_seconds", "agent_invocations"})
 
 
 def validate_top_level_layout(reader: PackageReader, root: Path) -> None:
@@ -36,7 +66,6 @@ def validate_top_level_layout(reader: PackageReader, root: Path) -> None:
 
     for name in names:
         if name.startswith(".") or name == "__pycache__":
-            # Hidden / interpreter caches are ignored (not package contract).
             continue
         path = root / name
         if path.is_dir():
@@ -46,33 +75,12 @@ def validate_top_level_layout(reader: PackageReader, root: Path) -> None:
                     f"unknown top-level directory: {name}",
                     location=name,
                 )
-        else:
-            if name not in ALLOWED_TOP_LEVEL_FILES:
-                raise ConfigError(
-                    ERROR_UNKNOWN_PACKAGE_PATH,
-                    f"unknown top-level file: {name}",
-                    location=name,
-                )
-
-
-def _write_acp_entry(profile: dict[str, Any], entry: str) -> None:
-    """Normalize ``entry`` onto the acp extensions row (no profile-level options)."""
-    rows = profile.get("extensions")
-    if not isinstance(rows, list):
-        rows = []
-        profile["extensions"] = rows
-    match: dict[str, Any] | None = None
-    for item in rows:
-        if isinstance(item, dict) and str(item.get("plugin") or "").strip() == "acp":
-            match = item
-    if match is None:
-        match = {"plugin": "acp"}
-        rows.append(match)
-    options = match.get("options")
-    if not isinstance(options, dict):
-        options = {}
-        match["options"] = options
-    options["entry"] = entry
+        elif name not in ALLOWED_TOP_LEVEL_FILES:
+            raise ConfigError(
+                ERROR_UNKNOWN_PACKAGE_PATH,
+                f"unknown top-level file: {name}",
+                location=name,
+            )
 
 
 def validate_document(
@@ -83,20 +91,25 @@ def validate_document(
     root: Path,
     capabilities: CapabilityCatalog,
 ) -> None:
+    """Validate a merged ``ageval.task/1`` document against the package on disk."""
+    _reject_retired_keys(doc)
+
     fmt = doc.get("format")
     if not isinstance(fmt, str) or not fmt:
         raise ConfigError(ERROR_INVALID_FORMAT, "missing or invalid format", location="/format")
-    if fmt == "ageval.dataset/1":
-        raise ConfigError(
-            ERROR_INVALID_FORMAT,
-            "task.yaml must use ageval.task/1, not ageval.dataset/1",
-            location="/format",
-        )
     if not capabilities.supports_format(fmt):
         raise ConfigError(
             ERROR_INVALID_FORMAT,
             f"unsupported format: {fmt}",
             location="/format",
+        )
+
+    unknown = sorted(set(doc) - ALLOWED_TASK_KEYS)
+    if unknown:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            f"unknown task keys: {unknown}",
+            location="/",
         )
 
     yaml_task = doc.get("task_id")
@@ -109,81 +122,49 @@ def validate_document(
             location="/task_id",
         )
 
-    harness = doc.get("harness")
-    if not isinstance(harness, dict):
-        raise ConfigError(ERROR_INVALID_SCHEMA, "harness must be a mapping", location="/harness")
-    runtime = harness.get("runtime")
-    if not isinstance(runtime, str) or not capabilities.supports_harness_runtime(runtime):
-        raise ConfigError(
-            ERROR_UNSUPPORTED_CAPABILITY,
-            f"unsupported harness.runtime: {runtime!r}",
-            location="/harness/runtime",
-        )
-    entrypoint = harness.get("entrypoint")
-    if not isinstance(entrypoint, str) or ":" not in entrypoint:
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA,
-            "harness.entrypoint must be module:function",
-            location="/harness/entrypoint",
-        )
-    # Default package entry file is harness.py; only the file presence is checked.
-    if not reader.exists(root, "harness.py"):
+    if not reader.exists(root, RUN_MODULE_FILE):
         raise ConfigError(
             ERROR_MISSING_REFERENCE,
-            "harness.py not found for entrypoint",
-            location="harness.py",
+            f"{RUN_MODULE_FILE} not found (a task must ship its run phase entry)",
+            location=RUN_MODULE_FILE,
+        )
+    if not reader.exists(root, EVALUATOR_MODULE_FILE):
+        raise ConfigError(
+            ERROR_MISSING_REFERENCE,
+            f"{EVALUATOR_MODULE_FILE} not found (PASS may only come from an evaluator)",
+            location=EVALUATOR_MODULE_FILE,
         )
 
-    parameters = doc.get("parameters", {})
-    if parameters is None:
-        parameters = {}
+    parameters = doc.get("parameters") or {}
     if not isinstance(parameters, dict):
         raise ConfigError(
             ERROR_INVALID_SCHEMA, "parameters must be a mapping", location="/parameters"
         )
     assert_json_compatible(parameters, "/parameters")
 
-    provider = doc.get("provider")
-    if not isinstance(provider, dict):
-        raise ConfigError(ERROR_INVALID_SCHEMA, "provider must be a mapping", location="/provider")
-    kind = provider.get("kind")
-    if not isinstance(kind, str) or not capabilities.supports_provider_kind(kind):
-        raise ConfigError(
-            ERROR_UNSUPPORTED_CAPABILITY,
-            f"unsupported provider.kind: {kind!r}",
-            location="/provider/kind",
-        )
-    # L1 docker: package must ship environment/Dockerfile (or provider.dockerfile).
-    if kind == "docker":
-        df_raw = provider.get("dockerfile", "environment/Dockerfile")
-        if not isinstance(df_raw, str) or not df_raw.strip():
+    profile_ids = _validate_profiles(doc, capabilities=capabilities)
+    _validate_parameter_model_refs(parameters, profile_ids)
+    _validate_requires(doc.get("requires"))
+    _validate_limits(doc.get("limits"))
+    artifact_ids = _validate_artifacts(doc.get("artifacts"))
+    _validate_evaluation(doc.get("evaluation"), artifact_ids=artifact_ids)
+
+
+def _reject_retired_keys(doc: dict[str, Any]) -> None:
+    for key, hint in REJECTED_TASK_KEYS.items():
+        if key in doc:
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                "provider.dockerfile must be a non-empty relative path when set",
-                location="/provider/dockerfile",
-            )
-        df_rel = df_raw.strip().lstrip("./")
-        if df_rel.startswith("/") or ".." in Path(df_rel).parts:
-            raise ConfigError(
-                ERROR_PATH_OUTSIDE_PACKAGE,
-                "provider.dockerfile must stay inside the package",
-                location="/provider/dockerfile",
-            )
-        if not reader.exists(root, df_rel):
-            raise ConfigError(
-                ERROR_MISSING_REFERENCE,
-                "docker L1 package requires Dockerfile at "
-                f"{df_rel!r} (default environment/Dockerfile)",
-                location=f"/provider/dockerfile:{df_rel}",
-            )
-        net = provider.get("network")
-        if net is not None and net not in {"bridge", "none"}:
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                "provider.network must be bridge|none",
-                location="/provider/network",
+                f"task.yaml key {key!r} is not part of ageval.task/1: {hint}",
+                location=f"/{key}",
             )
 
+
+def _validate_profiles(
+    doc: dict[str, Any],
+    *,
+    capabilities: CapabilityCatalog,
+) -> set[str]:
     from ageval.config.checks import require_agent_profiles_list
 
     profiles = require_agent_profiles_list(doc.get("agent_profiles") or [])
@@ -201,149 +182,164 @@ def validate_document(
             )
         profile_ids.add(pid)
         executor = profile.get("executor")
-        if not isinstance(executor, str) or not capabilities.supports_executor_kind(executor):
-            raise ConfigError(
-                ERROR_UNSUPPORTED_CAPABILITY,
-                f"unsupported executor: {executor!r}",
-                location=f"{loc}/executor",
-            )
-        model = profile.get("model")
-        if not isinstance(model, str) or not model:
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA, "profile.model required", location=f"{loc}/model"
-            )
-        # executor: acp requires - plugin: acp / options.entry from static registry.
-        # Packages must not override command/version/install.
-        if executor == "acp":
-            from ageval.config.profiles import plugin_row_options
-            from ageval.plugins.contrib.acp.registry import get_entry
-
-            options = plugin_row_options(profile, "acp")
-            entry = options.get("entry")
-            if not isinstance(entry, str) or not entry.strip():
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    "executor acp requires - plugin: acp options.entry",
-                    location=f"{loc}/extensions",
-                )
-            for forbidden in (
-                "command",
-                "args",
-                "detect_command",
-                "install_command",
-                "version",
-                "acp_command",
-                "engine_command",
-                "acp_version",
-                "credential_env_names",
-            ):
-                if forbidden in options:
-                    raise ConfigError(
-                        ERROR_INVALID_SCHEMA,
-                        f"options.{forbidden} is not package-overridable for acp",
-                        location=f"{loc}/extensions",
-                    )
-            desc = get_entry(entry.strip())
-            if desc is None:
-                raise ConfigError(
-                    ERROR_UNSUPPORTED_CAPABILITY,
-                    f"unknown acp entry: {entry!r}",
-                    location=f"{loc}/extensions",
-                )
-            _write_acp_entry(profile, entry.strip())
-        # Optional upstream routing (non-secret). api_key is the unwrapped
-        # ${ENV_NAME} locator — values live in host/.env and are projected
-        # at invoke time. base_url ${ENV_NAME} is already substituted.
-        base_url = profile.get("base_url")
-        if base_url is not None:
-            if not isinstance(base_url, str) or not base_url.strip():
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    "profile.base_url must be a non-empty string when set",
-                    location=f"{loc}/base_url",
-                )
-            if not (base_url.startswith("https://") or base_url.startswith("http://")):
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    "profile.base_url must start with http:// or https://",
-                    location=f"{loc}/base_url",
-                )
-        api_key = profile.get("api_key")
-        if api_key is not None:
-            if not isinstance(api_key, str) or not api_key:
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    "profile.api_key must be ${ENV_NAME} (locator only)",
-                    location=f"{loc}/api_key",
-                )
-            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", api_key):
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    "profile.api_key must be an environment variable name "
-                    "(locator only; never a secret value)",
-                    location=f"{loc}/api_key",
-                )
-            # Fail closed on values that look like embedded secrets, not locators.
-            if api_key.startswith("sk-") or len(api_key) > 64:
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    "profile.api_key looks like a secret value; use env var name only",
-                    location=f"{loc}/api_key",
-                )
-
-    # L1 multi-actor logical topology (lock-safe only; no physical fields).
-    if isinstance(provider, dict) and provider.get("agent_isolation") is not None:
-        from ageval.provider.isolation import validate_agent_isolation_in_provider
-
-        validate_agent_isolation_in_provider(provider, profile_ids=profile_ids)
-
-    # parameters.models.* must reference known profile ids when present.
-    models = parameters.get("models") if isinstance(parameters, dict) else None
-    if isinstance(models, dict):
-        for key, ref in models.items():
-            if not isinstance(ref, str):
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    "parameters.models values must be profile id strings",
-                    location=f"/parameters/models/{key}",
-                )
-            if ref not in profile_ids:
-                raise ConfigError(
-                    ERROR_UNKNOWN_PROFILE,
-                    f"unknown agent profile reference: {ref}",
-                    location=f"/parameters/models/{key}",
-                )
-
-    environment = doc.get("environment")
-    if environment is not None:
-        if not isinstance(environment, dict):
+        if not isinstance(executor, str) or not executor.strip():
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                "environment must be a mapping or null",
-                location="/environment",
+                "profile.executor required (bound from the job document)",
+                location=f"{loc}/executor",
             )
-        ekind = environment.get("kind")
-        if not isinstance(ekind, str) or not capabilities.supports_environment_kind(ekind):
+        if executor == "acp":
+            _validate_acp_profile(profile, loc=loc, capabilities=capabilities)
+        _validate_routing(profile, loc=loc)
+    return profile_ids
+
+
+def _validate_acp_profile(
+    profile: dict[str, Any],
+    *,
+    loc: str,
+    capabilities: CapabilityCatalog,
+) -> None:
+    """``executor: acp`` needs a known ``options.entry`` and no recipe overrides."""
+    from ageval.config.profiles import plugin_row_options
+
+    options = plugin_row_options(profile, "acp")
+    entry = options.get("entry")
+    if not isinstance(entry, str) or not entry.strip():
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "executor acp requires options.entry",
+            location=f"{loc}/options/entry",
+        )
+    for forbidden in (
+        "command",
+        "args",
+        "detect_command",
+        "install_command",
+        "version",
+        "acp_command",
+        "engine_command",
+        "acp_version",
+        "credential_env_names",
+    ):
+        if forbidden in options:
             raise ConfigError(
-                ERROR_UNSUPPORTED_CAPABILITY,
-                f"unsupported environment.kind: {ekind!r}",
-                location="/environment/kind",
+                ERROR_INVALID_SCHEMA,
+                f"options.{forbidden} belongs to the entry registry, not the job",
+                location=f"{loc}/options/{forbidden}",
+            )
+    if not capabilities.supports_acp_entry(entry.strip()):
+        raise ConfigError(
+            ERROR_UNSUPPORTED_CAPABILITY,
+            f"unknown acp entry: {entry!r}",
+            location=f"{loc}/options/entry",
+        )
+
+
+def _validate_routing(profile: dict[str, Any], *, loc: str) -> None:
+    """``base_url`` is a literal URL; ``api_key`` is an env var name only."""
+    base_url = profile.get("base_url")
+    if base_url is not None:
+        if not isinstance(base_url, str) or not base_url.strip():
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "profile.base_url must be a non-empty string when set",
+                location=f"{loc}/base_url",
+            )
+        if not base_url.startswith(("http://", "https://")):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "profile.base_url must start with http:// or https://",
+                location=f"{loc}/base_url",
+            )
+    api_key = profile.get("api_key")
+    if api_key is None:
+        return
+    if not isinstance(api_key, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", api_key):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "profile.api_key must be an environment variable name (locator only)",
+            location=f"{loc}/api_key",
+        )
+    if api_key.startswith("sk-") or len(api_key) > 64:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "profile.api_key looks like a secret value; use the env var name only",
+            location=f"{loc}/api_key",
+        )
+
+
+def _validate_parameter_model_refs(parameters: dict[str, Any], profile_ids: set[str]) -> None:
+    models = parameters.get("models")
+    if not isinstance(models, dict):
+        return
+    for key, ref in models.items():
+        if not isinstance(ref, str):
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                "parameters.models values must be profile id strings",
+                location=f"/parameters/models/{key}",
+            )
+        if ref not in profile_ids:
+            raise ConfigError(
+                ERROR_UNKNOWN_PROFILE,
+                f"unknown agent profile reference: {ref}",
+                location=f"/parameters/models/{key}",
             )
 
-    limits = doc.get("limits")
+
+def _validate_requires(requires: Any) -> None:
+    """``requires.environment`` names capabilities the box must deliver."""
+    if requires is None:
+        return
+    if not isinstance(requires, dict):
+        raise ConfigError(ERROR_INVALID_SCHEMA, "requires must be a mapping", location="/requires")
+    unknown = sorted(set(requires) - {"environment"})
+    if unknown:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            f"unknown requires keys: {unknown}",
+            location="/requires",
+        )
+    caps = requires.get("environment") or []
+    if not isinstance(caps, list):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "requires.environment must be a list of capability names",
+            location="/requires/environment",
+        )
+    bad = sorted({str(c) for c in caps} - CAPABILITY_NAMES)
+    if bad:
+        raise ConfigError(
+            ERROR_UNSUPPORTED_CAPABILITY,
+            f"unknown environment capabilities: {bad} (known: {sorted(CAPABILITY_NAMES)})",
+            location="/requires/environment",
+        )
+
+
+def _validate_limits(limits: Any) -> None:
     if not isinstance(limits, dict):
         raise ConfigError(ERROR_INVALID_SCHEMA, "limits must be a mapping", location="/limits")
-    for key in ("wall_time_seconds", "agent_invocations", "environment_actions", "memory_mb"):
-        if key in limits:
-            val = limits[key]
-            if not isinstance(val, int) or isinstance(val, bool) or val < 0:
-                raise ConfigError(
-                    ERROR_INVALID_SCHEMA,
-                    f"limits.{key} must be a non-negative integer",
-                    location=f"/limits/{key}",
-                )
+    unknown = sorted(set(limits) - ALLOWED_LIMIT_KEYS)
+    if unknown:
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            f"unknown limits keys: {unknown} (known: {sorted(ALLOWED_LIMIT_KEYS)})",
+            location="/limits",
+        )
+    for key in sorted(ALLOWED_LIMIT_KEYS):
+        if key not in limits:
+            continue
+        val = limits[key]
+        if not isinstance(val, int) or isinstance(val, bool) or val < 0:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                f"limits.{key} must be a non-negative integer",
+                location=f"/limits/{key}",
+            )
 
-    artifacts = doc.get("artifacts")
+
+def _validate_artifacts(artifacts: Any) -> set[str]:
     if not isinstance(artifacts, dict):
         raise ConfigError(
             ERROR_INVALID_SCHEMA, "artifacts must be a mapping", location="/artifacts"
@@ -372,43 +368,27 @@ def validate_document(
                 ERROR_INVALID_SCHEMA, "artifact.path required", location=f"{loc}/path"
             )
         normalize_package_relpath(path)
+    return artifact_ids
 
-    evaluation = doc.get("evaluation")
+
+def _validate_evaluation(evaluation: Any, *, artifact_ids: set[str]) -> None:
     if not isinstance(evaluation, dict):
         raise ConfigError(
             ERROR_INVALID_SCHEMA, "evaluation must be a mapping", location="/evaluation"
         )
-    eruntime = evaluation.get("runtime")
-    if not isinstance(eruntime, str) or not capabilities.supports_harness_runtime(eruntime):
+    unknown = sorted(set(evaluation) - {"entrypoint", "inputs"})
+    if unknown:
         raise ConfigError(
-            ERROR_UNSUPPORTED_CAPABILITY,
-            f"unsupported evaluation.runtime: {eruntime!r}",
-            location="/evaluation/runtime",
+            ERROR_INVALID_SCHEMA,
+            f"unknown evaluation keys: {unknown}",
+            location="/evaluation",
         )
-    eentry = evaluation.get("entrypoint")
-    if not isinstance(eentry, str) or ":" not in eentry:
+    entrypoint = evaluation.get("entrypoint")
+    if entrypoint is not None and (not isinstance(entrypoint, str) or ":" not in entrypoint):
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
             "evaluation.entrypoint must be module:function",
             location="/evaluation/entrypoint",
-        )
-    if not reader.exists(root, "evaluator.py"):
-        raise ConfigError(
-            ERROR_MISSING_REFERENCE,
-            "evaluator.py not found for evaluation.entrypoint",
-            location="evaluator.py",
-        )
-    output = evaluation.get("output")
-    if not isinstance(output, dict):
-        raise ConfigError(
-            ERROR_INVALID_SCHEMA, "evaluation.output required", location="/evaluation/output"
-        )
-    ofmt = output.get("format")
-    if not isinstance(ofmt, str) or not capabilities.supports_evaluation_output_format(ofmt):
-        raise ConfigError(
-            ERROR_UNSUPPORTED_CAPABILITY,
-            f"unsupported evaluation.output.format: {ofmt!r}",
-            location="/evaluation/output/format",
         )
     inputs = evaluation.get("inputs", [])
     if not isinstance(inputs, list):
@@ -423,14 +403,19 @@ def validate_document(
             raise ConfigError(
                 ERROR_INVALID_SCHEMA, "evaluation input must be a mapping", location=loc
             )
-        if "artifact" in inp:
-            ref = inp["artifact"]
-            if ref not in artifact_ids:
-                raise ConfigError(
-                    ERROR_MISSING_REFERENCE,
-                    f"evaluation input references unknown artifact: {ref}",
-                    location=loc,
-                )
+        unknown_input = sorted(set(inp) - {"artifact", "package_path", "target"})
+        if unknown_input:
+            raise ConfigError(
+                ERROR_INVALID_SCHEMA,
+                f"unknown evaluation input keys: {unknown_input}",
+                location=loc,
+            )
+        if "artifact" in inp and inp["artifact"] not in artifact_ids:
+            raise ConfigError(
+                ERROR_MISSING_REFERENCE,
+                f"evaluation input references unknown artifact: {inp['artifact']}",
+                location=loc,
+            )
         if "package_path" in inp:
             pp = inp["package_path"]
             if not isinstance(pp, str):
@@ -438,45 +423,36 @@ def validate_document(
                     ERROR_INVALID_SCHEMA, "package_path must be a string", location=loc
                 )
             rel = normalize_package_relpath(pp)
-            # Ensure path stays inside package when present on disk; missing
-            # optional files are still recorded as references for later phases.
             if ".." in Path(rel).parts:
                 raise ConfigError(
                     ERROR_PATH_OUTSIDE_PACKAGE, f"path escapes package: {pp}", location=loc
                 )
 
-    if "tmpfs_mb" in evaluation:
-        tmpfs_mb = evaluation["tmpfs_mb"]
-        if not isinstance(tmpfs_mb, int) or isinstance(tmpfs_mb, bool) or tmpfs_mb < 1:
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                "evaluation.tmpfs_mb must be a positive integer",
-                location="/evaluation/tmpfs_mb",
-            )
 
-    from ageval.config.eval_placement import validate_evaluation_extras
-
-    wall: float | None = None
-    try:
-        wall_raw = (doc.get("limits") or {}).get("wall_time_seconds")
-        if wall_raw is not None:
-            wall = float(wall_raw)
-    except (TypeError, ValueError):
-        wall = None
-    validate_evaluation_extras(evaluation, wall_time_seconds=wall)
-
-
-def collect_resolved_references(doc: dict[str, Any], root: Path) -> dict[str, Any]:
-    """Collect logical, package-relative references for the lock summary."""
+def collect_resolved_references(
+    reader: PackageReader,
+    doc: dict[str, Any],
+    root: Path,
+) -> dict[str, Any]:
+    """Resolve the file-based defaults: what the task ships is what runs."""
+    evaluation = doc.get("evaluation") or {}
     refs: dict[str, Any] = {
-        "harness_entrypoint": doc["harness"]["entrypoint"],
-        "harness_module_file": "harness.py",
-        "evaluation_entrypoint": doc["evaluation"]["entrypoint"],
-        "evaluation_module_file": "evaluator.py",
+        "run_entrypoint": RUN_ENTRYPOINT_DEFAULT,
+        "run_module_file": RUN_MODULE_FILE,
+        "evaluation_entrypoint": str(evaluation.get("entrypoint") or EVALUATOR_ENTRYPOINT_DEFAULT),
+        "evaluation_module_file": EVALUATOR_MODULE_FILE,
         "artifacts": [],
         "evaluation_inputs": [],
     }
-    for item in doc.get("artifacts", {}).get("publishable", []) or []:
+    if reader.exists(root, DOCKERFILE_DEFAULT):
+        refs["environment_dockerfile"] = DOCKERFILE_DEFAULT
+    if reader.exists(root, SETUP_SCRIPT_DEFAULT):
+        refs["environment_setup"] = SETUP_SCRIPT_DEFAULT
+    if reader.exists(root, SEED_DIR):
+        refs["seed_dir"] = SEED_DIR
+    if reader.exists(root, EVALUATION_DIR):
+        refs["evaluation_dir"] = EVALUATION_DIR
+    for item in (doc.get("artifacts") or {}).get("publishable") or []:
         if isinstance(item, dict):
             refs["artifacts"].append(
                 {
@@ -484,7 +460,7 @@ def collect_resolved_references(doc: dict[str, Any], root: Path) -> dict[str, An
                     "path": normalize_package_relpath(str(item.get("path", ""))),
                 }
             )
-    for inp in doc.get("evaluation", {}).get("inputs", []) or []:
+    for inp in evaluation.get("inputs") or []:
         if not isinstance(inp, dict):
             continue
         entry: dict[str, Any] = {}
@@ -495,8 +471,6 @@ def collect_resolved_references(doc: dict[str, Any], root: Path) -> dict[str, An
         if "target" in inp:
             entry["target"] = str(inp["target"])
         refs["evaluation_inputs"].append(entry)
-    # root is intentionally unused in the summary (no host absolute paths).
-    _ = root
     return refs
 
 

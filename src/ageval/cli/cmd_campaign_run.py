@@ -18,11 +18,11 @@ def register(app: typer.Typer) -> None:
     def campaign_command(
         package: Annotated[
             Path,
-            typer.Argument(help="Database root (ageval.dataset/1) for campaign matrix."),
+            typer.Argument(help="Dataset root (ageval.dataset/1) for campaign matrix."),
         ],
         task: Annotated[
             str,
-            typer.Option("--task", help="Member task id under the Database."),
+            typer.Option("--task", help="Member task id under the Dataset."),
         ],
         matrix: Annotated[
             list[str] | None,
@@ -38,7 +38,7 @@ def register(app: typer.Typer) -> None:
             Path | None,
             typer.Option(
                 "--profiles",
-                help="Alternate profiles.yaml replacing Database-root job bindings.",
+                help="Alternate profiles.yaml replacing Dataset-root job bindings.",
             ),
         ] = None,
         agent: Annotated[
@@ -76,8 +76,8 @@ def register(app: typer.Typer) -> None:
             str,
             typer.Argument(
                 help=(
-                    "Database root path or registry ref "
-                    "(<database_id>@<version> | <database_id>@sha256:<digest>)."
+                    "Dataset root path or registry ref "
+                    "(<dataset_id>@<version> | <dataset_id>@sha256:<digest>)."
                 ),
             ),
         ],
@@ -96,7 +96,7 @@ def register(app: typer.Typer) -> None:
             typer.Option(
                 "--max-concurrent-tasks",
                 help=(
-                    "Max concurrent suite work units (integer ≥1). Default 1 or Database "
+                    "Max concurrent suite work units (integer ≥1). Default 1 or Dataset "
                     "defaults.max_concurrent_tasks. Speeds wall time only; does not change "
                     "n_attempts or pass/fail. Forced to 1 when a single task runs once."
                 ),
@@ -161,7 +161,7 @@ def register(app: typer.Typer) -> None:
             Path | None,
             typer.Option(
                 "--profiles",
-                help="Alternate profiles.yaml replacing Database-root job bindings.",
+                help="Alternate profiles.yaml replacing Dataset-root job bindings.",
             ),
         ] = None,
         agent: Annotated[
@@ -179,25 +179,11 @@ def register(app: typer.Typer) -> None:
                 ),
             ),
         ] = False,
-        probe: Annotated[
-            bool,
-            typer.Option(
-                "--probe",
-                help=(
-                    "Report whether this path can start on this host, then exit. "
-                    "Does not invoke an Agent, bake an image, or write a Run."
-                ),
-            ),
-        ] = False,
     ) -> None:
-        """Run one member or a full Database suite (Application-layer task_id axis)."""
+        """Run one member or a full Dataset suite (Application-layer task_id axis)."""
         import asyncio
 
-        from ageval.application.composition import (
-            build_probe_command,
-            build_run_task,
-            build_suite_runner,
-        )
+        from ageval.application.composition import build_run_attempt, build_suite_runner
 
         profiles = resolve_agent_option(agent, profiles)
         _suite = build_suite_runner()
@@ -211,54 +197,6 @@ def register(app: typer.Typer) -> None:
             for raw in set_overrides or ():
                 pointer, value = parse_set_override(raw)
                 overrides[pointer] = value
-
-            if probe:
-                probe_uc = build_probe_command()
-                task_id = task.strip() if task and str(task).strip() else None
-                if task_id:
-                    summary, ready = probe_uc.run(
-                        database_root=package,
-                        task_id=task_id,
-                        set_overrides=set_overrides or (),
-                        profiles_path=profiles,
-                    )
-                    typer.echo(
-                        json.dumps(
-                            summary,
-                            ensure_ascii=False,
-                            sort_keys=True,
-                            separators=(",", ":"),
-                        )
-                    )
-                    raise typer.Exit(code=0 if ready else 1)
-                plan = plan_suite_run(
-                    package,
-                    task_id=None,
-                    max_concurrent_tasks=max_concurrent_tasks,
-                    n_attempts=1,
-                    suite_run_id=None,
-                )
-                members: list[dict[str, object]] = []
-                all_ready = True
-                for member_id in plan.task_ids:
-                    summary, ready = probe_uc.run(
-                        database_root=package,
-                        task_id=member_id,
-                        set_overrides=set_overrides or (),
-                        profiles_path=profiles,
-                    )
-                    members.append(summary)
-                    all_ready = all_ready and ready
-                payload = {"probe": True, "ready": all_ready, "tasks": members}
-                typer.echo(
-                    json.dumps(
-                        payload,
-                        ensure_ascii=False,
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    )
-                )
-                raise typer.Exit(code=0 if all_ready else 1)
 
             k = n_attempts if n_attempts is not None else 1
             resume_id = resume_suite.strip() if resume_suite and str(resume_suite).strip() else None
@@ -308,9 +246,8 @@ def register(app: typer.Typer) -> None:
                 and plan.n_attempts == 1
                 and resume_id is None
             ):
-                run_task = build_run_task()
-                code, result, _details = asyncio.run(
-                    run_task(
+                code, result = asyncio.run(
+                    build_run_attempt()(
                         package,
                         plan.task_ids[0],
                         overrides=overrides or None,
@@ -318,22 +255,7 @@ def register(app: typer.Typer) -> None:
                         keep_workspace=keep_workspace,
                     )
                 )
-                summary = {
-                    "status": result.status,
-                    "score": result.score,
-                    "assurance": result.assurance,
-                    "harness_kind": result.harness_kind,
-                    "runtime_kind": result.runtime_kind,
-                    "agent_invocations": result.agent_invocations,
-                    "evidence_path": result.evidence_path,
-                    "logs": result.logs or result.evidence_path,
-                    "cleanup_warning": result.cleanup_warning,
-                }
-                if _details.get("l1"):
-                    summary["l1"] = _details["l1"]
-                for key in ("assurance", "l1", "logs"):
-                    if key in _details:
-                        summary[key] = _details[key]
+                summary = result.as_dict()
                 typer.echo(
                     json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
                 )
@@ -354,7 +276,7 @@ def register(app: typer.Typer) -> None:
                 payload={
                     "kind": "suite",
                     "suite_run_id": plan.suite_run_id,
-                    "database_root": str(plan.database_root),
+                    "dataset_root": str(plan.dataset_root),
                     "pid": os.getpid(),
                     "n_attempts": plan.n_attempts,
                     "task_ids": list(plan.task_ids),
@@ -419,7 +341,7 @@ def register(app: typer.Typer) -> None:
                 payload={
                     "kind": "suite",
                     "suite_run_id": plan.suite_run_id,
-                    "database_root": str(plan.database_root),
+                    "dataset_root": str(plan.dataset_root),
                     "exit_code": suite_summary.get("exit_code"),
                     "summary_path": suite_summary.get("summary_path"),
                     "n_attempts": plan.n_attempts,

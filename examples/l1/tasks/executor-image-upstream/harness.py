@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
 def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
@@ -31,7 +31,7 @@ def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     package_dir = Path(__file__).resolve().parent
     prompt_path = package_dir / "prompts" / "agent.md"
     prompt = (
@@ -43,9 +43,9 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     async with agent.session("pi-solver", actor_id="default", max_turns=1) as session:
         inv = await session.invoke(prompt)
     if not inv.get("ok"):
-        return HarnessTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
+        return RunTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
     payload = _answer_payload(dict(inv))
     if payload is None:
-        return HarnessTerminal.failed("agent_output_missing_answer")
+        return RunTerminal.failed("agent_output_missing_answer")
     ctx.publish_json("agent-output", payload)
-    return HarnessTerminal.completed("executor-image-upstream")
+    return RunTerminal.completed("executor-image-upstream")

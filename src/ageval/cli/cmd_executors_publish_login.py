@@ -25,20 +25,20 @@ def register(app: typer.Typer) -> None:
     ) -> None:
         """List supported executor kinds, L0 host-ready, and L1 bake-declared.
 
-        Thin CLI: inventory logic lives in ``ageval.adapters.executor_inventory``.
+        Thin CLI: inventory logic lives in ``ageval.plugins.executor_inventory``.
         Plugin ``host_ready`` is L0 constructability (declared host_requires /
         describe()), not install Recognition or a missing PATH binary.
         """
-        from ageval.adapters.executor_inventory import build_executor_inventory
+        from ageval.plugins.executor_inventory import build_executor_inventory
 
         summary = build_executor_inventory(verbose=verbose)
         typer.echo(json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
 
     @app.command("publish")
     def publish_command(
-        database: Annotated[
+        dataset: Annotated[
             Path,
-            typer.Argument(help="Local Database root to publish (ageval.dataset/1)."),
+            typer.Argument(help="Local Dataset root to publish (ageval.dataset/1)."),
         ],
         org: Annotated[
             str,
@@ -58,7 +58,7 @@ def register(app: typer.Typer) -> None:
             bool,
             typer.Option(
                 "--replace",
-                help="Overwrite same database_id@version if org owner (default: conflict 409).",
+                help="Overwrite same dataset_id@version if org owner (default: conflict 409).",
             ),
         ] = False,
         draft: Annotated[
@@ -76,15 +76,15 @@ def register(app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> None:
-        """Publish a local Database package to the configured Registry (must attach --org)."""
+        """Publish a local Dataset package to the configured Registry (must attach --org)."""
         from ageval.application.composition import build_publish_command
 
-        publish_database = build_publish_command().publish_database
+        publish_dataset = build_publish_command().publish_dataset
         from ageval.config.errors import ConfigError
 
         try:
-            summary = publish_database(
-                database,
+            summary = publish_dataset(
+                dataset,
                 public=public,
                 org=org,
                 replace=replace,
@@ -101,7 +101,7 @@ def register(app: typer.Typer) -> None:
 
     @app.command("release")
     def release_command(
-        database_id: Annotated[
+        dataset_id: Annotated[
             str,
             typer.Argument(help="Dataset id whose current draft becomes a durable release."),
         ],
@@ -116,7 +116,7 @@ def register(app: typer.Typer) -> None:
             bool,
             typer.Option(
                 "--replace",
-                help="Overwrite same database_id@version if org owner (default: conflict 409).",
+                help="Overwrite same dataset_id@version if org owner (default: conflict 409).",
             ),
         ] = False,
         version: Annotated[
@@ -141,7 +141,7 @@ def register(app: typer.Typer) -> None:
         release_draft = build_publish_command().release_draft
         try:
             summary = release_draft(
-                database_id,
+                dataset_id,
                 public=public,
                 replace=replace,
                 version=version,

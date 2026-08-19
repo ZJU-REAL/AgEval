@@ -30,7 +30,7 @@ from ageval.config.errors import ERROR_INVALID_SCHEMA, ConfigError
 from ageval.config.profiles import (
     PROFILES_FORMAT,
     WILDCARD_ROLE,
-    parse_profiles_mapping,
+    parse_job_mapping,
     write_profiles_yaml,
 )
 from ageval.plugins.store import compute_tree_digest
@@ -127,9 +127,9 @@ def resolve_agent_specs(specs: list[str]) -> Path:
     when the Dataset itself is a registry ref with no local root).
     """
     bindings = bindings_from_agent_specs(specs)
-    document = {"format": PROFILES_FORMAT, "bindings": bindings}
+    document = {"format": PROFILES_FORMAT, "agent_profiles": bindings}
     # Re-parse for shape safety before anything reads the file.
-    parse_profiles_mapping(document, location="--agent")
+    parse_job_mapping(document, location="--agent")
     canon = json.dumps(document, sort_keys=True, separators=(",", ":"))
     name = hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]
     out = agents_root() / PROJECTIONS_DIRNAME / f"{name}.yaml"

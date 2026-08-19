@@ -40,14 +40,14 @@ def _scope_base(evidence: Path, scope: str) -> Path:
 
 
 def trial_tree(
-    database_root: Path,
+    dataset_root: Path,
     job_id: str,
     task_id: str,
     run_id: str,
     *,
     scope: str = "root",
 ) -> dict[str, Any]:
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     safe_id_segment(job_id, field="job_id")
     task_id = safe_id_segment(task_id, field="task_id")
     rid = _safe_run_id(run_id)
@@ -295,14 +295,14 @@ def _walk_tree(evidence: Path, base: Path, *, max_entries: int) -> list[dict[str
 
 
 def trial_file(
-    database_root: Path,
+    dataset_root: Path,
     job_id: str,
     task_id: str,
     run_id: str,
     *,
     relpath: str,
 ) -> dict[str, Any]:
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     safe_id_segment(job_id, field="job_id")
     task_id = safe_id_segment(task_id, field="task_id")
     rid = _safe_run_id(run_id)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 from lib.agent_json import agent_struct
 from lib.retail_tools import (
     TOOL_CATALOG,
@@ -26,7 +26,7 @@ def _role_profile(params: dict[str, Any], role: str, default: str) -> str:
     return str(raw or default)
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     params = ctx.params if isinstance(ctx.params, dict) else {}
     user_profile = _role_profile(params, "user", "user")
     service_profile = _role_profile(params, "service", "service")
@@ -52,11 +52,11 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             'Return ONLY JSON: {"message":"<customer text>"} with no prose.'
         )
         if not user.get("ok"):
-            return HarnessTerminal.failed(user.get("error") or "user_sim_failed")
+            return RunTerminal.failed(user.get("error") or "user_sim_failed")
         u = agent_struct(user) or {}
         user_message = str(u.get("message") or "").strip()
         if not user_message:
-            return HarnessTerminal.failed("empty_user_message")
+            return RunTerminal.failed("empty_user_message")
 
     finished = False
     async with agent.session(service_profile, max_turns=12) as session:
@@ -78,7 +78,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
                 '{"tool":"<name>","args":{...}} with no prose.'
             )
             if not svc.get("ok"):
-                return HarnessTerminal.failed(svc.get("error") or "service_failed")
+                return RunTerminal.failed(svc.get("error") or "service_failed")
             action = agent_struct(svc) or {}
             tool_name = str(action.get("tool") or "")
             args = action.get("args") if isinstance(action.get("args"), dict) else {}
@@ -106,7 +106,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
                         }
                     )
                     continue
-                return HarnessTerminal.failed(f"unknown_tool:{tool_name}")
+                return RunTerminal.failed(f"unknown_tool:{tool_name}")
             if not workflow_allows(tools_used, tool_name):
                 observations.append(
                     {
@@ -135,13 +135,13 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
                 break
 
         if not finished and not state.get("exchanges"):
-            return HarnessTerminal.failed("dialog_incomplete_no_exchange")
+            return RunTerminal.failed("dialog_incomplete_no_exchange")
 
     for i, step in enumerate(WORKFLOW_PREFIX):
         if step not in tools_used:
-            return HarnessTerminal.failed(f"workflow_incomplete_missing:{step}")
+            return RunTerminal.failed(f"workflow_incomplete_missing:{step}")
         if i > 0 and tools_used.index(step) < tools_used.index(WORKFLOW_PREFIX[i - 1]):
-            return HarnessTerminal.failed(f"workflow_order_broken:{step}")
+            return RunTerminal.failed(f"workflow_order_broken:{step}")
 
     exchanges = state.get("exchanges") if isinstance(state.get("exchanges"), list) else []
     last_ex = exchanges[-1] if exchanges else {}
@@ -162,4 +162,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             "provider_session_handle": None,
         },
     )
-    return HarnessTerminal.completed("tau2-dialog-min")
+    return RunTerminal.completed("tau2-dialog-min")

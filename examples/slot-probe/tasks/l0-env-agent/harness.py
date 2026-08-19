@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
 def _load_env_doc(package_dir: Path) -> dict:
@@ -19,7 +19,7 @@ def _load_env_doc(package_dir: Path) -> dict:
     return {}
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     package_dir = Path(__file__).resolve().parent
     env_doc = _load_env_doc(package_dir)
     post_setup = env_doc.get("post_setup") if isinstance(env_doc, dict) else None
@@ -37,7 +37,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         )
 
     if not inv.get("ok"):
-        return HarnessTerminal.failed(inv.get("error") or "invoke_failed")
+        return RunTerminal.failed(inv.get("error") or "invoke_failed")
 
     structured = inv.get("structured") if isinstance(inv.get("structured"), dict) else {}
     answer = structured.get("answer")
@@ -60,7 +60,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
     if not post_setup_file and not (
         isinstance(post_setup, dict) and post_setup.get("ok")
     ):
-        return HarnessTerminal.failed("env_post_setup_not_observed")
+        return RunTerminal.failed("env_post_setup_not_observed")
     if answer != 42:
-        return HarnessTerminal.failed(f"unexpected_answer:{answer}")
-    return HarnessTerminal.completed("l0-env-agent")
+        return RunTerminal.failed(f"unexpected_answer:{answer}")
+    return RunTerminal.completed("l0-env-agent")

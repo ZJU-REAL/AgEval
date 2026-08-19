@@ -16,12 +16,12 @@ from ageval.viewer.trials.paths import (
 
 
 def trial_trajectory(
-    database_root: Path,
+    dataset_root: Path,
     job_id: str,
     task_id: str,
     run_id: str,
 ) -> dict[str, Any]:
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     safe_id_segment(job_id, field="job_id")
     task_id = safe_id_segment(task_id, field="task_id")
     rid = _safe_run_id(run_id)

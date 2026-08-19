@@ -222,7 +222,7 @@ def _agent_surface(
     invoke_count: dict[str, int] = {}
     last_usage: dict[str, dict[str, Any]] = {}
     overlay_by_id = _overlay_bindings(lock)
-    from ageval.config.profiles import reasoning_effort_from_binding
+    from ageval.config.profiles import reasoning_effort_from_profile
 
     inv_root = evidence / "agent" / "invocations"
     if inv_root.is_dir():
@@ -274,8 +274,8 @@ def _agent_surface(
         overlay = overlay_by_id.get(pid)
         effort = (
             inv_effort.get(pid)
-            or reasoning_effort_from_binding(overlay)
-            or reasoning_effort_from_binding(p)
+            or reasoning_effort_from_profile(overlay)
+            or reasoning_effort_from_profile(p)
             or None
         )
         agent_col = (

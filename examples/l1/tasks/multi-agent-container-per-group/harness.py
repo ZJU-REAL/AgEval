@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     models = ctx.params.get("models") or {}
     planner_profile = str(models.get("planner") or "planner")
@@ -18,7 +18,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             'Return ONLY JSON {"plan": "finalize", "seed": 40} with no other keys.'
         )
     if not plan.get("ok"):
-        return HarnessTerminal.failed(plan.get("error") or "planner_failed")
+        return RunTerminal.failed(plan.get("error") or "planner_failed")
 
     plan_struct = plan.get("structured") if isinstance(plan.get("structured"), dict) else {}
     seed = plan_struct.get("seed", 40)
@@ -32,11 +32,11 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             f'{memory} Return ONLY JSON {{"answer": 42}} with no other keys.'
         )
     if not out.get("ok"):
-        return HarnessTerminal.failed(out.get("error") or "worker_failed")
+        return RunTerminal.failed(out.get("error") or "worker_failed")
 
     structured = out.get("structured")
     if not isinstance(structured, dict) or "answer" not in structured:
-        return HarnessTerminal.failed("agent_output_missing_answer")
+        return RunTerminal.failed("agent_output_missing_answer")
 
     ctx.publish_json(
         "session-output",
@@ -49,4 +49,4 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
             "provider_session_handle": None,
         },
     )
-    return HarnessTerminal.completed("multi-agent-container-per-group")
+    return RunTerminal.completed("multi-agent-container-per-group")

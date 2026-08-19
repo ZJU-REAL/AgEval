@@ -1,4 +1,4 @@
-"""Resolve PackageRef → local Database root (path or verified cache)."""
+"""Resolve PackageRef → local Dataset root (path or verified cache)."""
 
 from __future__ import annotations
 
@@ -11,26 +11,26 @@ from ageval.registry.credentials import load_credentials
 from ageval.registry.ref import parse_package_ref
 
 
-def resolve_database_root(
+def resolve_dataset_root(
     raw: str | Path,
     *,
     cwd: Path | None = None,
     cache: PackageCache | None = None,
     client: RegistryClient | None = None,
 ) -> Path:
-    """Return a local filesystem Database root for *raw* path or registry ref."""
+    """Return a local filesystem Dataset root for *raw* path or registry ref."""
     ref = parse_package_ref(raw, cwd=cwd)
     if ref.kind == "path":
         assert ref.path is not None
         return ref.path
 
     pkg_cache = cache or PackageCache()
-    assert ref.database_id is not None
+    assert ref.dataset_id is not None
 
     # Prefer cache hit before contacting registry.
     if ref.kind == "digest":
         assert ref.package_digest is not None
-        hit = pkg_cache.lookup(ref.database_id, ref.package_digest)
+        hit = pkg_cache.lookup(ref.dataset_id, ref.package_digest)
         if hit is not None:
             return hit
     # For version refs we need metadata first (or cache index). version→digest map
@@ -41,7 +41,7 @@ def resolve_database_root(
         creds = load_credentials()
         if not creds.url:
             if ref.kind == "digest" and ref.package_digest:
-                hit = pkg_cache.lookup(ref.database_id, ref.package_digest)
+                hit = pkg_cache.lookup(ref.dataset_id, ref.package_digest)
                 if hit is not None:
                     return hit
             raise ConfigError(
@@ -56,12 +56,12 @@ def resolve_database_root(
         if ref.kind == "digest":
             assert ref.package_digest is not None
             meta = reg_client.get_metadata(
-                database_id=ref.database_id, package_digest=ref.package_digest
+                dataset_id=ref.dataset_id, package_digest=ref.package_digest
             )
         else:
             assert ref.version is not None
-            meta = reg_client.get_metadata(database_id=ref.database_id, version=ref.version)
-        hit = pkg_cache.lookup(meta.database_id, meta.package_digest)
+            meta = reg_client.get_metadata(dataset_id=ref.dataset_id, version=ref.version)
+        hit = pkg_cache.lookup(meta.dataset_id, meta.package_digest)
         if hit is not None:
             return hit
         import tempfile
@@ -69,12 +69,12 @@ def resolve_database_root(
         with tempfile.TemporaryDirectory(prefix="ageval-fetch-") as tmp:
             dest = Path(tmp) / "package.tar.gz"
             reg_client.fetch_content(
-                database_id=meta.database_id,
+                dataset_id=meta.dataset_id,
                 package_digest=meta.package_digest,
                 dest=dest,
             )
             return pkg_cache.publish_atomic(
-                database_id=meta.database_id,
+                dataset_id=meta.dataset_id,
                 package_digest=meta.package_digest,
                 archive=dest,
                 expected_blob_digest=meta.blob_digest,
@@ -82,7 +82,7 @@ def resolve_database_root(
     except RegistryError as exc:
         # Offline: digest ref may still hit cache (already checked); version cannot.
         if exc.code == "registry_unavailable" and ref.kind == "digest" and ref.package_digest:
-            hit = pkg_cache.lookup(ref.database_id, ref.package_digest)
+            hit = pkg_cache.lookup(ref.dataset_id, ref.package_digest)
             if hit is not None:
                 return hit
         raise ConfigError(exc.code, exc.message, location=ref.display()) from exc
@@ -92,4 +92,4 @@ def resolve_database_root(
 
 def resolve_ref(raw: str | Path, **kwargs: object) -> Path:
     """Alias used by application layer."""
-    return resolve_database_root(raw, **kwargs)  # type: ignore[arg-type]
+    return resolve_dataset_root(raw, **kwargs)  # type: ignore[arg-type]

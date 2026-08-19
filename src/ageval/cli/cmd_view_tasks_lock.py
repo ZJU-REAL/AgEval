@@ -18,9 +18,9 @@ def register(app: typer.Typer) -> None:
 
     @app.command("view")
     def view_command(
-        database: Annotated[
+        dataset: Annotated[
             Path,
-            typer.Argument(help="Local Database root to open (ageval.dataset/1)."),
+            typer.Argument(help="Local Dataset root to open (ageval.dataset/1)."),
         ],
         host: Annotated[
             str,
@@ -56,13 +56,13 @@ def register(app: typer.Typer) -> None:
             typer.Option("--ui-port", help="Vite UI port used with --dev (default 5173)."),
         ] = 5173,
     ) -> None:
-        """Start local Jobs→Tasks→Trial results UI for a Database (no Registry)."""
+        """Start local Jobs→Tasks→Trial results UI for a Dataset (no Registry)."""
         from ageval.config.errors import ConfigError
         from ageval.viewer.server import serve_viewer
 
         try:
             serve_viewer(
-                database,
+                dataset,
                 host=host,
                 port=port,
                 open_browser=not no_browser,
@@ -85,18 +85,18 @@ def register(app: typer.Typer) -> None:
 
     @app.command("tasks")
     def tasks_command(
-        database: Annotated[
+        dataset: Annotated[
             Path,
-            typer.Argument(help="Path to the Database root directory (ageval.dataset/1)."),
+            typer.Argument(help="Path to the Dataset root directory (ageval.dataset/1)."),
         ],
     ) -> None:
-        """List member task ids under a Database (fail closed on empty or id mismatch)."""
-        from ageval.config.database import list_tasks, load_database_manifest
+        """List member task ids under a Dataset (fail closed on empty or id mismatch)."""
+        from ageval.config.dataset import list_tasks, load_dataset_manifest
         from ageval.config.errors import ConfigError
 
         try:
-            manifest = load_database_manifest(database)
-            ids = list_tasks(database, manifest=manifest)
+            manifest = load_dataset_manifest(dataset)
+            ids = list_tasks(dataset, manifest=manifest)
         except ConfigError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
@@ -105,7 +105,7 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2) from exc
 
         payload = {
-            "database_id": manifest.database_id,
+            "dataset_id": manifest.dataset_id,
             "version": manifest.version,
             "tasks": ids,
             "count": len(ids),
@@ -118,8 +118,8 @@ def register(app: typer.Typer) -> None:
             str,
             typer.Argument(
                 help=(
-                    "Database root path or registry ref "
-                    "(<database_id>@<version> | <database_id>@sha256:<digest>)."
+                    "Dataset root path or registry ref "
+                    "(<dataset_id>@<version> | <dataset_id>@sha256:<digest>)."
                 ),
             ),
         ],
@@ -136,7 +136,7 @@ def register(app: typer.Typer) -> None:
                 "--set",
                 help=(
                     "Repeatable override as <JSON Pointer>=<JSON value>, e.g. "
-                    '`/parameters/seed=7` or `/bindings/solver/model="x"`. '
+                    '`/parameters/seed=7` or `/agent_profiles/solver/model="x"`. '
                     "Allowlisted pointers only (intent limits are not overridable)."
                 ),
             ),
@@ -146,27 +146,24 @@ def register(app: typer.Typer) -> None:
             typer.Option(
                 "--profiles",
                 help=(
-                    "Alternate job binding file (ageval.profiles/1) replacing Database-root "
+                    "Alternate job document (ageval.profiles/1) replacing the dataset-root "
                     "profiles.yaml for this lock."
                 ),
+            ),
+        ] = None,
+        profile: Annotated[
+            str | None,
+            typer.Option(
+                "--profile",
+                help="Bind every role slot the task declares to this agent profile key.",
             ),
         ] = None,
         agent: Annotated[
             list[str] | None,
             typer.Option("--agent", help=AGENT_OPTION_HELP),
         ] = None,
-        probe: Annotated[
-            bool,
-            typer.Option(
-                "--probe",
-                help=(
-                    "Report whether this locked path can start on this host. "
-                    "Does not invoke an Agent, bake an image, or change the lock digest."
-                ),
-            ),
-        ] = False,
     ) -> None:
-        """Resolve a Database member, lock its task.yaml; print a deterministic JSON summary."""
+        """Resolve a Dataset member, lock its task.yaml; print a deterministic JSON summary."""
         if task is None or not str(task).strip():
             typer.echo(
                 "invalid_override: --task is required "
@@ -178,24 +175,13 @@ def register(app: typer.Typer) -> None:
 
         profiles = resolve_agent_option(agent, profiles)
         try:
-            if probe:
-                from ageval.application.composition import build_probe_command
-
-                summary, ready = build_probe_command().run(
-                    database_root=package,
-                    task_id=task,
-                    set_overrides=set_overrides or (),
-                    profiles_path=profiles,
-                )
-            else:
-                use_case = build_lock_command()
-                summary = use_case.run(
-                    database_root=package,
-                    task_id=task,
-                    set_overrides=set_overrides or (),
-                    profiles_path=profiles,
-                )
-                ready = True
+            summary = build_lock_command().run(
+                dataset_root=package,
+                task_id=task,
+                set_overrides=set_overrides or (),
+                profiles_path=profiles,
+                profile=profile,
+            )
         except ConfigError as exc:
             # Stable operator-facing failure: exit 2, message on stderr, empty stdout.
             typer.echo(str(exc), err=True)
@@ -206,5 +192,3 @@ def register(app: typer.Typer) -> None:
 
         # Success: exactly one JSON object on stdout (stable key order via model).
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
-        if probe and not ready:
-            raise typer.Exit(code=1)

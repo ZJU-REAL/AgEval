@@ -114,7 +114,7 @@ class ResultService:
                 http_status=413,
             )
         run_id = str(meta.get("run_id") or "")
-        database_id = str(meta.get("database_id") or "")
+        dataset_id = str(meta.get("dataset_id") or "")
         task_id = str(meta.get("task_id") or "")
         lock_digest = str(meta.get("lock_digest") or "")
         status = str(meta.get("status") or "")
@@ -122,10 +122,10 @@ class ResultService:
         blob_digest = str(meta.get("blob_digest") or "")
         size = int(meta.get("size") or size_on_disk)
         suite_run_id = str(meta.get("suite_run_id") or "").strip()
-        if not run_id or not database_id:
+        if not run_id or not dataset_id:
             raise RegistryAppError(
                 "invalid_request",
-                "run_id and database_id required",
+                "run_id and dataset_id required",
                 http_status=400,
             )
         if visibility not in {"private", "public"}:
@@ -165,7 +165,7 @@ class ResultService:
             self._gc_attempt_blob(existing.blob_digest)
         row = AttemptResultRow(
             run_id=run_id,
-            database_id=database_id,
+            dataset_id=dataset_id,
             task_id=task_id,
             lock_digest=lock_digest,
             status=status,
@@ -190,8 +190,8 @@ class ResultService:
             payload["replaced"] = True
         return payload
 
-    def list_attempts(self, *, auth: TokenInfo, database_id: str | None) -> dict[str, Any]:
-        rows = self.meta.list_attempts(database_id=database_id or None, include_private=True)
+    def list_attempts(self, *, auth: TokenInfo, dataset_id: str | None) -> dict[str, Any]:
+        rows = self.meta.list_attempts(dataset_id=dataset_id or None, include_private=True)
         items = [attempt_to_dict(r) for r in rows if self._visible_attempt(r, auth)]
         return {"items": items}
 
@@ -225,7 +225,7 @@ class ResultService:
             ) from exc
         return {
             "run_id": row.run_id,
-            "database_id": row.database_id,
+            "dataset_id": row.dataset_id,
             "task_id": row.task_id,
             "digest": row.blob_digest,
             "items": index.list_items(),
@@ -280,15 +280,15 @@ class ResultService:
                 http_status=413,
             )
         suite_run_id = str(meta.get("suite_run_id") or "")
-        database_id = str(meta.get("database_id") or "")
-        database_version = str(meta.get("database_version") or "")
+        dataset_id = str(meta.get("dataset_id") or "")
+        dataset_version = str(meta.get("dataset_version") or "")
         visibility = str(meta.get("visibility") or "private")
         blob_digest = str(meta.get("blob_digest") or "")
         size = int(meta.get("size") or size_on_disk)
-        if not suite_run_id or not database_id:
+        if not suite_run_id or not dataset_id:
             raise RegistryAppError(
                 "invalid_request",
-                "suite_run_id and database_id required",
+                "suite_run_id and dataset_id required",
                 http_status=400,
             )
         if visibility not in {"private", "public"}:
@@ -379,13 +379,13 @@ class ResultService:
                 raise RegistryAppError("not_found", "suite not found", http_status=404)
             self.meta.delete_suite(suite_run_id)
             self._gc_suite_blob(existing.blob_digest)
-        bound_kind, bound_ids = self._bound_task_ids(database_id, database_version, auth=auth)
+        bound_kind, bound_ids = self._bound_task_ids(dataset_id, dataset_version, auth=auth)
         digest = task_set_digest(bound_ids) if bound_ids else ""
         complete = suite_is_complete(bound_task_ids=bound_ids, task_refs=task_refs)
         row = SuiteResultRow(
             suite_run_id=suite_run_id,
-            database_id=database_id,
-            database_version=database_version,
+            dataset_id=dataset_id,
+            dataset_version=dataset_version,
             visibility=visibility,
             pass_rate=pass_rate,
             mean_score=mean_score,
@@ -476,10 +476,10 @@ class ResultService:
                 "run_id belongs to another suite",
                 http_status=400,
             )
-        if attempt.database_id and attempt.database_id != existing.database_id:
+        if attempt.dataset_id and attempt.dataset_id != existing.dataset_id:
             raise RegistryAppError(
                 "invalid_request",
-                "run_id database_id does not match the suite",
+                "run_id dataset_id does not match the suite",
                 http_status=400,
             )
         incoming_fp = str(body.get("config_fingerprint") or "").strip()
@@ -558,7 +558,7 @@ class ResultService:
         except (TypeError, ValueError):
             exit_code = existing.exit_code
         _bound_kind, bound_ids = self._bound_task_ids(
-            existing.database_id, existing.database_version, auth=auth
+            existing.dataset_id, existing.dataset_version, auth=auth
         )
         complete = suite_is_complete(bound_task_ids=bound_ids, task_refs=task_refs)
         row = self.meta.update_suite_slot(
@@ -578,11 +578,11 @@ class ResultService:
         self,
         *,
         auth: TokenInfo,
-        database_id: str | None,
+        dataset_id: str | None,
         board: bool = False,
         uploaded_by: str | None = None,
     ) -> dict[str, Any]:
-        rows = self.meta.list_suites(database_id=database_id or None, include_private=True)
+        rows = self.meta.list_suites(dataset_id=dataset_id or None, include_private=True)
         visible = [r for r in rows if self._visible_suite(r, auth)]
         if uploaded_by:
             want = (
@@ -784,7 +784,7 @@ class ResultService:
         )
 
     def _bound_task_ids(
-        self, database_id: str, database_version: str, *, auth: TokenInfo
+        self, dataset_id: str, dataset_version: str, *, auth: TokenInfo
     ) -> tuple[str, frozenset[str]]:
         """Resolve bound package + task set at upload time.
 
@@ -794,17 +794,17 @@ class ResultService:
         """
         release = None
         draft = None
-        if is_draft_version(database_version):
-            draft = self.meta.get_draft(database_id)
+        if is_draft_version(dataset_version):
+            draft = self.meta.get_draft(dataset_id)
             if draft is not None and not self.access.entitled_to_draft(draft, auth):
                 return BOUND_UNKNOWN, frozenset()
             kind = BOUND_DRAFT if draft is not None else BOUND_UNKNOWN
         else:
-            release = self.meta.get_by_version(database_id, database_version)
+            release = self.meta.get_by_version(dataset_id, dataset_version)
             if release is not None:
                 kind = BOUND_RELEASE
             else:
-                draft = self.meta.get_draft(database_id)
+                draft = self.meta.get_draft(dataset_id)
                 if draft is not None and not self.access.entitled_to_draft(draft, auth):
                     return BOUND_UNKNOWN, frozenset()
                 kind = BOUND_DRAFT if draft is not None else BOUND_UNKNOWN

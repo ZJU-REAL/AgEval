@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from ageval.adapters.agent_contract import AgentResult, parse_validated_text_structured
+from ageval.plugins.agent_result import AgentResult, parse_validated_text_structured
 from ageval.plugins.errors import ExtensionMaterializeError
 from miniswe_plugin import PLUGIN_ID
 from miniswe_plugin.env import DockerExecEnv, LocalBashEnv

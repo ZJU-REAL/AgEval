@@ -28,8 +28,8 @@ uv sync --extra registry
 
 | Item | Meaning |
 | --- | --- |
-| Database path | Root with `ageval.yaml` (`ageval.dataset/1`) |
-| Registry ref | `<database_id>@<version>` or `<database_id>@sha256:<64hex>` |
+| Dataset path | Root with `ageval.yaml` (`ageval.dataset/1`) |
+| Registry ref | `<dataset_id>@<version>` or `<dataset_id>@sha256:<64hex>` |
 | `--task` | Member `task_id` under `tasks/<id>/task.yaml` |
 | Success output | Most commands print **one JSON object** on stdout (`sort_keys`) |
 | Failure | Human message on stderr + stable `error_code`; often exit **2** |
@@ -79,7 +79,7 @@ Credentials file `~/.ageval/credentials` (mode `0600`):
 
 | Command | Purpose |
 | --- | --- |
-| `ageval tasks` | List member task ids in a Database |
+| `ageval tasks` | List member task ids in a Dataset |
 | `ageval lock` | Lock config (no Agent) |
 | `ageval run` | Run one member or a full suite (Always-k via `-k` / `--n-attempts`; L1 `--keep-workspace` keeps host `l1-work/`, not Docker volumes) |
 | `ageval campaign` | Serial parameter-matrix campaign (matrix axis ≠ k-attempt) |
@@ -87,12 +87,12 @@ Credentials file `~/.ageval/credentials` (mode `0600`):
 | `ageval plugin install\|list\|uninstall` | Local `ageval.plugin/1` cache (`$AGEVAL_HOME/plugins`); never rewrites profiles |
 | `ageval plugin publish` | Upload a plugin package (`package_kind=plugin`) |
 | `ageval evidence` | Export sealed trajectory copy (does not change score) |
-| `ageval submit` / `status` / `cancel` | Durable Run / suite job control (suite id + optional `--database`) |
+| `ageval submit` / `status` / `cancel` | Durable Run / suite job control (suite id + optional `--dataset`) |
 | `ageval login` | GitHub **Device Flow** → write credentials (Hub uses browser OAuth instead) |
-| `ageval publish` | Publish a Database package (**requires `--org`**); `--draft` overwrites the draft slot; optional `--replace` |
+| `ageval publish` | Publish a Dataset package (**requires `--org`**); `--draft` overwrites the draft slot; optional `--replace` |
 | `ageval release` | Owner: promote the current dataset draft to an immutable version |
 | `ageval registry list\|show` | Browse remote packages |
-| `ageval registry delete\|set-visibility` | Owner ops on `database_id@version` (org owner; delete needs `--yes`) |
+| `ageval registry delete\|set-visibility` | Owner ops on `dataset_id@version` (org owner; delete needs `--yes`) |
 | `ageval registry org-create\|org-list` | Create / list organizations (packages belong to orgs) |
 | `ageval registry org-add-member\|org-remove-member` | Add / remove org members by GitHub login (owner or admin; target need not be logged in) |
 | `ageval registry org-set-role\|org-transfer` | Change an existing member's role, or hand the org to a current member (caller becomes member) |
@@ -102,7 +102,7 @@ Credentials file `~/.ageval/credentials` (mode `0600`):
 | `ageval results export-profiles` | Export suite `job_overlay` → re-runnable `profiles.yaml` (#59) |
 | `ageval results share\|unshare` | Share / revoke private result access (owner only) |
 | `ageval results delete\|set-visibility` | Delete or flip visibility (`--kind attempt\|suite`; delete needs `--yes`) |
-| `ageval view` | Local Database Web UI (no Registry). `--dev` starts API and Vite when possible; `--open` deep-links a job/task/run |
+| `ageval view` | Local Dataset Web UI (no Registry). `--dev` starts API and Vite when possible; `--open` deep-links a job/task/run |
 | `ageval jobs delete` | Delete a local Job under `--local` (suite always cascades Attempts). Requires `--yes` |
 
 Discover flags with `uv run ageval <cmd> -h`.
@@ -116,7 +116,7 @@ uv run ageval tasks examples/core
 
 # Local Web UI: Jobs → Tasks → Trial (suite-runs under .ageval/; no Registry)
 uv run ageval view examples/core
-# uv run ageval view tests/fixtures/databases/suite-min --port 8765 --no-browser
+# uv run ageval view tests/fixtures/datasets/suite-min --port 8765 --no-browser
 # uv run ageval view examples/core --dev --open /jobs/<id>
 # Preview local delete, then confirm (suite cascades Attempts; not Registry)
 # uv run ageval jobs delete --local examples/core --job <id>
@@ -142,7 +142,7 @@ uv run ageval lock examples/core --task config-minimal --set /parameters/seed=7
 # Job binding override: entry/model/plugin options live in profiles.yaml, not task.yaml
 uv run ageval run examples/core --task sdk-agent-session \
   --set '/bindings/solver/options/entry="pi"'
-# Or replace Database profiles.yaml for the run:
+# Or replace Dataset profiles.yaml for the run:
 # uv run ageval run examples/core --task sdk-agent-session --profiles /path/to/profiles.yaml
 ```
 
@@ -199,14 +199,14 @@ uv run ageval status <run_id>
 uv run ageval cancel <run_id>
 
 # Suite job (#47 D)
-uv run ageval status <suite_run_id> --database examples/core
-uv run ageval cancel <suite_run_id> --database examples/core
+uv run ageval status <suite_run_id> --dataset examples/core
+uv run ageval cancel <suite_run_id> --dataset examples/core
 ```
 
 ### Executors
 
 ```bash
-uv run ageval executors      # JSON: supported / host_ready / acp_entries / l1_bake_declared
+uv run ageval executors      # JSON: supported / host_ready / acp_entries / bake_recipe_declared
 uv run ageval executors -v   # --verbose: credential env names and extra detail
 uv run ageval lock examples/core --task config-minimal --probe
 # --probe: plan + readiness for this binding / provider.kind; no Agent, no bake
@@ -246,11 +246,11 @@ uv run ageval registry org-list
 # uv run ageval registry org-remove-member official alice
 
 # Default visibility private; explicit public. --org is required.
-uv run ageval publish tests/fixtures/databases/publish-min --org my-lab
+uv run ageval publish tests/fixtures/datasets/publish-min --org my-lab
 uv run ageval publish path/to/db --org my-lab --draft
 uv run ageval release my-org/dataset
 uv run ageval publish path/to/db --org my-lab --public
-# Same database_id@version → 409 unless org owner passes --replace (rewrites blob/digests/visibility):
+# Same dataset_id@version → 409 unless org owner passes --replace (rewrites blob/digests/visibility):
 # uv run ageval publish path/to/db --org my-lab --replace
 # Public Leaderboard lists complete, release-bound suite uploads only.
 # Draft-bound / incomplete suites stay on Task Jobs.
@@ -281,13 +281,13 @@ uv run ageval cache purge all --yes   # destructive; requires --yes
 
 ### Attempt results
 
-Upload sealed trees under `<database>/.ageval/runs/<run_id>/` (not package releases).
+Upload sealed trees under `<dataset>/.ageval/runs/<run_id>/` (not package releases).
 
 ```bash
-uv run ageval results upload /path/to/database --run <run_id>
+uv run ageval results upload /path/to/dataset --run <run_id>
 # Same run_id → 409 unless owner passes --replace (rewrites archive + meta):
-# uv run ageval results upload /path/to/database --run <run_id> --replace
-uv run ageval results list --database-id test/publish-min
+# uv run ageval results upload /path/to/dataset --run <run_id> --replace
+uv run ageval results list --dataset-id test/publish-min
 uv run ageval results get <run_id> --out /tmp/restored-run
 uv run ageval results set-visibility <run_id> --kind attempt --visibility public
 # Share / unshare a private result (owner only):
@@ -303,8 +303,8 @@ for public at create time, or `set-visibility` later.
 
 ### Suite / job results
 
-After `ageval run <database>` (full suite or Always-k), summary lives at
-`<database>/.ageval/suite-runs/<suite_run_id>/summary.json` with observational
+After `ageval run <dataset>` (full suite or Always-k), summary lives at
+`<dataset>/.ageval/suite-runs/<suite_run_id>/summary.json` with observational
 `metrics.pass_rate` / `mean_score` / `pass_at_k` / `pass_power_k` (not suite PASS).
 
 **Metrics contract (upload / Registry, #60):**
@@ -323,26 +323,26 @@ Public Leaderboard lists only **complete**, **release-bound** suites; incomplete
 or draft-bound rows stay on Task Jobs.
 
 ```bash
-uv run ageval results upload-suite /path/to/database --suite-run <suite_run_id> \
+uv run ageval results upload-suite /path/to/dataset --suite-run <suite_run_id> \
   --agent codex --model gpt-test
 # Optional full Attempt evidence (Hub Jobs deep-link / evidence browser):
-uv run ageval results upload-suite /path/to/database --suite-run <suite_run_id> \
+uv run ageval results upload-suite /path/to/dataset --suite-run <suite_run_id> \
   --with-attempts
 # Owner overwrite of same suite_run_id (default is 409; no history):
 # uv run ageval results upload-suite … --suite-run <id> --replace
 # Patch one slot onto an already-uploaded suite (new Attempt + previous[]):
 # uv run ageval results upload-suite … --suite-run <id> --task <task_id> [--run <run_id>] --with-attempts
 # Or backfill one run later:
-uv run ageval results upload /path/to/database --run <run_id>
-uv run ageval results list-suites --database-id test/suite-min
+uv run ageval results upload /path/to/dataset --run <run_id>
+uv run ageval results list-suites --dataset-id test/suite-min
 uv run ageval results get-suite <suite_run_id> --out /tmp/restored-suite
 uv run ageval results set-visibility <suite_run_id> --kind suite --visibility private
 # Delete suite meta only (attempts remain); cascade with --with-attempts:
 # uv run ageval results delete <suite_run_id> --kind suite --yes
 # uv run ageval results delete <suite_run_id> --kind suite --with-attempts --yes
 # No registry: fall back to local suite-runs
-uv run ageval results list-suites --local /path/to/database
-uv run ageval results get-suite <suite_run_id> --local /path/to/database
+uv run ageval results list-suites --local /path/to/dataset
+uv run ageval results get-suite <suite_run_id> --local /path/to/dataset
 ```
 
 **`--with-attempts` (issue #43 / #60):** after the suite summary archive uploads,

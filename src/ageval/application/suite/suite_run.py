@@ -1,4 +1,4 @@
-"""Database suite run: task_id-axis scheduling (+ multi-attempt Always-k, #47).
+"""Dataset suite run: task_id-axis scheduling (+ multi-attempt Always-k, #47).
 
 Orthogonal to Campaign (parameter matrix on one task). Application-layer only;
 does not invent suite-level PASS.
@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ageval.application.composition import build_run_task
+from ageval.application.composition import build_run_attempt
 from ageval.application.suite.suite_config_fingerprint import collect_suite_config
 from ageval.application.suite.suite_metrics import (
     aggregate_k_metrics,
@@ -28,9 +28,9 @@ from ageval.application.suite.suite_metrics import (
     slot_key,
     task_refs_for_summary,
 )
-from ageval.config.database import list_tasks, load_database_manifest
+from ageval.config.dataset import list_tasks, load_dataset_manifest
 from ageval.config.errors import ConfigError
-from ageval.registry.resolve import resolve_database_root
+from ageval.registry.resolve import resolve_dataset_root
 
 # Instrumentation for tests: peaks concurrent in-flight workers.
 _inflight_lock = asyncio.Lock()
@@ -50,9 +50,9 @@ def get_inflight_peak() -> int:
 
 @dataclass
 class SuitePlan:
-    database_id: str
-    database_version: str
-    database_root: Path
+    dataset_id: str
+    dataset_version: str
+    dataset_root: Path
     task_ids: list[str]
     max_concurrent_tasks: int
     n_attempts: int = 1
@@ -61,14 +61,14 @@ class SuitePlan:
 
 
 def plan_suite_run(
-    database_ref: str | Path,
+    dataset_ref: str | Path,
     *,
     task_id: str | None = None,
     max_concurrent_tasks: int | None = None,
     n_attempts: int | None = None,
     suite_run_id: str | None = None,
 ) -> SuitePlan:
-    """Build a suite plan from Database root/ref and optional single-task filter.
+    """Build a suite plan from Dataset root/ref and optional single-task filter.
 
     Parameters
     ----------
@@ -78,11 +78,11 @@ def plan_suite_run(
     suite_run_id:
         When resuming, reuse an existing suite run id.
     """
-    root = resolve_database_root(database_ref)
-    man = load_database_manifest(root)
+    root = resolve_dataset_root(dataset_ref)
+    man = load_dataset_manifest(root)
     if task_id:
         # Validate membership via resolve path
-        from ageval.config.database import resolve_task
+        from ageval.config.dataset import resolve_task
 
         resolve_task(root, task_id, manifest=man)
         ids = [task_id]
@@ -115,9 +115,9 @@ def plan_suite_run(
         n = 1
 
     plan = SuitePlan(
-        database_id=man.database_id,
-        database_version=man.version,
-        database_root=root,
+        dataset_id=man.dataset_id,
+        dataset_version=man.version,
+        dataset_root=root,
         task_ids=ids,
         max_concurrent_tasks=n,
         n_attempts=k,
@@ -127,9 +127,9 @@ def plan_suite_run(
     return plan
 
 
-def suite_summary_path(database_root: Path, suite_run_id: str) -> Path:
+def suite_summary_path(dataset_root: Path, suite_run_id: str) -> Path:
     return (
-        database_root.expanduser().resolve(strict=False)
+        dataset_root.expanduser().resolve(strict=False)
         / ".ageval"
         / "suite-runs"
         / suite_run_id
@@ -140,30 +140,30 @@ def suite_summary_path(database_root: Path, suite_run_id: str) -> Path:
 def is_suite_run_locator(
     run_id: str,
     *,
-    database_root: Path | str | None = None,
+    dataset_root: Path | str | None = None,
     control_kind: str | None = None,
 ) -> bool:
     """True if *run_id* names a suite job.
 
     Detection (any):
     - ControlStore payload ``kind == suite``
-    - Directory ``.ageval/suite-runs/<run_id>`` under *database_root*
+    - Directory ``.ageval/suite-runs/<run_id>`` under *dataset_root*
     """
     rid = str(run_id or "").strip()
     if not rid:
         return False
     if str(control_kind or "").strip() == "suite":
         return True
-    if database_root is None:
+    if dataset_root is None:
         return False
-    root = Path(database_root).expanduser().resolve(strict=False)
+    root = Path(dataset_root).expanduser().resolve(strict=False)
     suite_dir = root / ".ageval" / "suite-runs" / rid
     return suite_dir.is_dir()
 
 
-def load_suite_summary(database_root: Path, suite_run_id: str) -> dict[str, Any]:
+def load_suite_summary(dataset_root: Path, suite_run_id: str) -> dict[str, Any]:
     """Load an existing suite ``summary.json`` or raise ConfigError."""
-    path = suite_summary_path(database_root, suite_run_id)
+    path = suite_summary_path(dataset_root, suite_run_id)
     if not path.is_file():
         raise ConfigError(
             "suite_not_found",
@@ -187,13 +187,13 @@ def load_suite_summary(database_root: Path, suite_run_id: str) -> dict[str, Any]
     return data
 
 
-def extract_run_id(database_root: Path, *candidates: object) -> str | None:
+def extract_run_id(dataset_root: Path, *candidates: object) -> str | None:
     """Extract Attempt ``run_id`` (directory name under ``.ageval/runs/``).
 
     Suite summary only stores ``run_id``; local path is always
-    ``{database_root}/.ageval/runs/{run_id}/``. Host absolute paths must not appear.
+    ``{dataset_root}/.ageval/runs/{run_id}/``. Host absolute paths must not appear.
     """
-    root = database_root.expanduser().resolve(strict=False)
+    root = dataset_root.expanduser().resolve(strict=False)
     for raw in candidates:
         if raw is None:
             continue
@@ -262,12 +262,12 @@ def _existing_attempt_keys(attempts: list[dict[str, Any]]) -> set[tuple[str, int
     return keys
 
 
-def suite_is_settled(database_root: Path, suite_run_id: str) -> bool:
+def suite_is_settled(dataset_root: Path, suite_run_id: str) -> bool:
     """True when the suite is not in-flight and has no pending cancel request."""
-    if is_suite_cancel_requested(database_root, suite_run_id):
+    if is_suite_cancel_requested(dataset_root, suite_run_id):
         return False
     progress_path = (
-        database_root.expanduser().resolve(strict=False)
+        dataset_root.expanduser().resolve(strict=False)
         / ".ageval"
         / "suite-runs"
         / suite_run_id
@@ -291,7 +291,7 @@ async def _run_one(
     attempt_index: int,
     *,
     overrides: dict[str, Any] | None,
-    run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]],
+    run_fn: Callable[..., Awaitable[Any]],
     profiles_path: Path | str | None = None,
     keep_workspace: bool = False,
 ) -> dict[str, Any]:
@@ -301,45 +301,29 @@ async def _run_one(
         _inflight_current += 1
         _inflight_peak = max(_inflight_peak, _inflight_current)
     try:
-        code, result, details = await run_fn(
-            plan.database_root,
+        code, result = await run_fn(
+            plan.dataset_root,
             task_id,
             overrides=overrides,
             profiles_path=profiles_path,
             keep_workspace=keep_workspace,
         )
-        status = getattr(result, "status", None) or details.get("status") or "ERROR"
+        status = getattr(result, "status", None) or "ERROR"
         run_id = extract_run_id(
-            plan.database_root,
+            plan.dataset_root,
             getattr(result, "evidence_path", None),
-            details.get("run_dir"),
-            details.get("logs"),
             getattr(result, "logs", None),
         )
         raw_metrics = getattr(result, "metrics", None)
-        if not isinstance(raw_metrics, dict):
-            detail_metrics = details.get("metrics")
-            raw_metrics = detail_metrics if isinstance(detail_metrics, dict) else {}
-        phase_timing = details.get("phase_timing")
-        if not isinstance(phase_timing, dict):
-            phase_timing = None
-        duration = None
-        if phase_timing is not None:
-            from ageval.application.attempt.phase_timing import format_duration_ms
-
-            duration = format_duration_ms(phase_timing.get("total_ms"))  # type: ignore[arg-type]
         return {
             "task_id": task_id,
             "attempt_index": attempt_index,
             "exit_code": code,
             "status": status,
             "score": getattr(result, "score", None),
-            "metrics": dict(raw_metrics) if raw_metrics else {},
+            "metrics": dict(raw_metrics) if isinstance(raw_metrics, dict) else {},
             "run_id": run_id,
-            "digest": details.get("digest"),
-            "error": None if code != 2 else (details.get("error") or status),
-            "phase_timing": phase_timing,
-            "duration": duration,
+            "error": None if code != 2 else str(getattr(result, "error_phase", None) or status),
             "phase": "terminal",
         }
     except ConfigError as exc:
@@ -378,12 +362,12 @@ async def _run_one(
 
 
 def suite_dir_for(plan: SuitePlan) -> Path:
-    return plan.database_root / ".ageval" / "suite-runs" / plan.suite_run_id
+    return plan.dataset_root / ".ageval" / "suite-runs" / plan.suite_run_id
 
 
-def cancel_request_path(database_root: Path, suite_run_id: str) -> Path:
+def cancel_request_path(dataset_root: Path, suite_run_id: str) -> Path:
     return (
-        database_root.expanduser().resolve(strict=False)
+        dataset_root.expanduser().resolve(strict=False)
         / ".ageval"
         / "suite-runs"
         / suite_run_id
@@ -391,13 +375,13 @@ def cancel_request_path(database_root: Path, suite_run_id: str) -> Path:
     )
 
 
-def is_suite_cancel_requested(database_root: Path, suite_run_id: str) -> bool:
-    return cancel_request_path(database_root, suite_run_id).is_file()
+def is_suite_cancel_requested(dataset_root: Path, suite_run_id: str) -> bool:
+    return cancel_request_path(dataset_root, suite_run_id).is_file()
 
 
-def request_suite_cancel(database_root: Path, suite_run_id: str) -> Path:
+def request_suite_cancel(dataset_root: Path, suite_run_id: str) -> Path:
     """Create cancel.requested so the suite loop stops starting new units."""
-    path = cancel_request_path(database_root, suite_run_id)
+    path = cancel_request_path(dataset_root, suite_run_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -414,9 +398,9 @@ def request_suite_cancel(database_root: Path, suite_run_id: str) -> Path:
     return path
 
 
-def clear_suite_cancel(database_root: Path, suite_run_id: str) -> bool:
+def clear_suite_cancel(dataset_root: Path, suite_run_id: str) -> bool:
     """Remove cancel.requested (e.g. before resume so the job can schedule again)."""
-    path = cancel_request_path(database_root, suite_run_id)
+    path = cancel_request_path(dataset_root, suite_run_id)
     if not path.is_file():
         return False
     path.unlink(missing_ok=True)
@@ -444,7 +428,7 @@ def _write_suite_progress(
         "max_concurrent_tasks": plan.max_concurrent_tasks,
         "running": running,
         "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "cancel_requested": is_suite_cancel_requested(plan.database_root, plan.suite_run_id),
+        "cancel_requested": is_suite_cancel_requested(plan.dataset_root, plan.suite_run_id),
     }
     out = suite_dir / "progress.json"
     tmp = out.with_suffix(".tmp")
@@ -550,7 +534,7 @@ def _build_summary(
             fp_rows.append({"task_id": tid, "run_id": None})
 
     config_fields = collect_suite_config(
-        plan.database_root,
+        plan.dataset_root,
         fp_rows,
         overrides=overrides,
         task_ids=plan.task_ids,
@@ -560,8 +544,8 @@ def _build_summary(
     summary: dict[str, Any] = {
         "schema": "ageval.suite.summary/1",
         "suite_run_id": plan.suite_run_id,
-        "database_id": plan.database_id,
-        "database_version": plan.database_version,
+        "dataset_id": plan.dataset_id,
+        "dataset_version": plan.dataset_version,
         "max_concurrent_tasks": plan.max_concurrent_tasks,
         "n_attempts": plan.n_attempts,
         "task_ids": list(plan.task_ids),
@@ -592,7 +576,7 @@ def _build_summary(
 
 
 def _write_summary(plan: SuitePlan, summary: dict[str, Any]) -> dict[str, Any]:
-    suite_dir = plan.database_root / ".ageval" / "suite-runs" / plan.suite_run_id
+    suite_dir = plan.dataset_root / ".ageval" / "suite-runs" / plan.suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     out = suite_dir / "summary.json"
     tmp = out.with_suffix(".tmp")
@@ -634,7 +618,7 @@ def _assert_replace_slots(
         return
     fp_rows = [{"task_id": a.get("task_id"), "run_id": a.get("run_id")} for a in existing]
     new_cfg = collect_suite_config(
-        plan.database_root,
+        plan.dataset_root,
         fp_rows,
         overrides=overrides,
         task_ids=list(plan.task_ids),
@@ -678,7 +662,7 @@ async def execute_suite_run(
     proceed. Replace-slot refuses an unsettled suite.
     """
     reset_inflight_metrics()
-    runner = run_fn or build_run_task()
+    runner = run_fn or build_run_attempt()
     suite_dir_for(plan).mkdir(parents=True, exist_ok=True)
 
     replace = {(str(t), int(i)) for t, i in (replace_slots or set()) if str(t)}
@@ -693,7 +677,7 @@ async def execute_suite_run(
     old_summary: dict[str, Any] | None = None
     if resume:
         if replace:
-            if not suite_is_settled(plan.database_root, plan.suite_run_id):
+            if not suite_is_settled(plan.dataset_root, plan.suite_run_id):
                 raise ConfigError(
                     "suite_in_progress",
                     "cannot replace a slot while the suite is in progress "
@@ -702,8 +686,8 @@ async def execute_suite_run(
                 )
         else:
             # Allow re-scheduling after a previous cancel.
-            clear_suite_cancel(plan.database_root, plan.suite_run_id)
-        old_summary = load_suite_summary(plan.database_root, plan.suite_run_id)
+            clear_suite_cancel(plan.dataset_root, plan.suite_run_id)
+        old_summary = load_suite_summary(plan.dataset_root, plan.suite_run_id)
         raw_attempts = old_summary.get("attempts")
         if isinstance(raw_attempts, list) and raw_attempts:
             existing = [dict(a) for a in raw_attempts if isinstance(a, Mapping)]
@@ -788,7 +772,7 @@ async def execute_suite_run(
     async def _worker() -> None:
         nonlocal completed_count, cancelled, claim_index
         while True:
-            if is_suite_cancel_requested(plan.database_root, plan.suite_run_id):
+            if is_suite_cancel_requested(plan.dataset_root, plan.suite_run_id):
                 cancelled = True
                 return
             async with claim_lock:
@@ -797,7 +781,7 @@ async def execute_suite_run(
                 tid, idx = todo_list[claim_index]
                 claim_index += 1
             # Re-check after claim: do not start new work once cancel is requested.
-            if is_suite_cancel_requested(plan.database_root, plan.suite_run_id):
+            if is_suite_cancel_requested(plan.dataset_root, plan.suite_run_id):
                 cancelled = True
                 async with progress_lock:
                     skipped_cancelled.append(_cancelled_row(tid, idx))
@@ -836,7 +820,7 @@ async def execute_suite_run(
                 new_results.append(row)
                 inflight_labels.pop((tid, idx), None)
                 completed_count += 1
-                cancel_now = is_suite_cancel_requested(plan.database_root, plan.suite_run_id)
+                cancel_now = is_suite_cancel_requested(plan.dataset_root, plan.suite_run_id)
                 if cancel_now:
                     cancelled = True
                     st = "cancelling"
@@ -937,9 +921,9 @@ async def execute_suite_run(
                 seen.add(tid)
         # Mutate a shallow copy of plan fields for summary only.
         summary_plan = SuitePlan(
-            database_id=plan.database_id,
-            database_version=plan.database_version,
-            database_root=plan.database_root,
+            dataset_id=plan.dataset_id,
+            dataset_version=plan.dataset_version,
+            dataset_root=plan.dataset_root,
             task_ids=all_ids,
             max_concurrent_tasks=plan.max_concurrent_tasks,
             n_attempts=plan.n_attempts,
@@ -967,7 +951,7 @@ async def execute_suite_run(
         summary["resumed"] = True
         summary["new_attempts"] = len([r for r in new_results if r.get("phase") != "cancelled"])
         summary["skipped_attempts"] = len(done_keys & set(units))
-    if cancelled or is_suite_cancel_requested(plan.database_root, plan.suite_run_id):
+    if cancelled or is_suite_cancel_requested(plan.dataset_root, plan.suite_run_id):
         summary["cancelled"] = True
         summary["status"] = "cancelled"
         # Prefer non-zero exit when cancelled with incomplete work.

@@ -16,7 +16,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Final, Literal
 
-from ageval.adapters.path_probe import probe_commands
+from ageval.plugins.contrib.acp.path_probe import probe_commands
 
 IntegrationMode = Literal[1, 2, 3]
 ModelBinding = Literal["config-option", "entry-default-only"]

@@ -26,7 +26,7 @@ def is_plaza_source_suite(payload: Mapping[str, Any], official_ids: frozenset[st
         payload.get("visibility") == "public"
         and bool(payload.get("complete"))
         and payload.get("bound_kind") == BOUND_RELEASE
-        and str(payload.get("database_id") or "") in official_ids
+        and str(payload.get("dataset_id") or "") in official_ids
     )
 
 
@@ -65,7 +65,7 @@ class RuntimeService:
 
     def _reduce(self, auth: TokenInfo) -> dict[str, list[dict[str, Any]]]:
         official = official_dataset_ids(self.meta.list_releases(include_private=True))
-        listed = self.results.list_suites(auth=auth, database_id=None)
+        listed = self.results.list_suites(auth=auth, dataset_id=None)
         grouped: dict[str, list[dict[str, Any]]] = {}
         digest_cache: dict[tuple[str, str], str] = {}
         for suite in listed.get("items") or []:
@@ -111,16 +111,16 @@ def _package_digest_for_suite(
     suite: Mapping[str, Any],
     cache: dict[tuple[str, str], str],
 ) -> str:
-    database_id = str(suite.get("database_id") or "")
-    version = str(suite.get("database_version") or "")
-    if not database_id or not version:
+    dataset_id = str(suite.get("dataset_id") or "")
+    version = str(suite.get("dataset_version") or "")
+    if not dataset_id or not version:
         return ""
-    key = (database_id, version)
+    key = (dataset_id, version)
     if key in cache:
         return cache[key]
     digest = ""
     try:
-        release = meta.get_by_version(database_id, version)
+        release = meta.get_by_version(dataset_id, version)
     except Exception:  # noqa: BLE001 — appearance stays YAML-only
         release = None
     if release is not None:
@@ -179,8 +179,8 @@ def _appearances_from_suite(
         row: dict[str, Any] = {
             "package_id": package_id,
             "agent_version": agent_version,
-            "database_id": str(suite.get("database_id") or ""),
-            "database_version": str(suite.get("database_version") or ""),
+            "dataset_id": str(suite.get("dataset_id") or ""),
+            "dataset_version": str(suite.get("dataset_version") or ""),
             "suite_run_id": str(suite.get("suite_run_id") or ""),
             "role": role_id,
             "model": model.strip() if isinstance(model, str) else "",

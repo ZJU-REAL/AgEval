@@ -1,4 +1,4 @@
-"""ageval_sdk — optional Harness Core surface for Task Package authors.
+"""ageval_sdk — optional task SDK surface for dataset task authors.
 
 Does not own Run identity, Provider, credentials, or final PASS.
 """
@@ -8,8 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from ageval_sdk.agent import Agent, AgentSession
-from ageval_sdk.context import HarnessContext, HarnessParameterView, RunScope
-from ageval_sdk.terminal import HarnessTerminal
+from ageval_sdk.context import RunContext, RunParameterView, RunScope
+from ageval_sdk.terminal import RunTerminal
 from ageval_sdk.tool import AllowList, CallLimit, Tool, ToolSet
 from ageval_sdk.workflow import bounded_gather, collect_results, first_success
 
@@ -33,9 +33,9 @@ __all__ = [
     "AgentSession",
     "AllowList",
     "CallLimit",
-    "HarnessContext",
-    "HarnessParameterView",
-    "HarnessTerminal",
+    "RunContext",
+    "RunParameterView",
+    "RunTerminal",
     "RunScope",
     "Tool",
     "ToolSet",

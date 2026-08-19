@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
 def _answer_payload(inv: dict[str, Any]) -> dict[str, Any] | None:
@@ -38,16 +38,16 @@ def _load_prompt(package_dir: Path) -> str:
     return 'Return JSON {"answer": 42}'
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     package_dir = Path(__file__).resolve().parent
     prompt = _load_prompt(package_dir)
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     async with agent.session("http-solver", max_turns=1) as session:
         inv = await session.invoke(prompt)
     if not inv.get("ok"):
-        return HarnessTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
+        return RunTerminal.failed(str(inv.get("error") or "agent_invoke_failed"))
     payload = _answer_payload(dict(inv))
     if payload is None:
-        return HarnessTerminal.failed("agent_output_missing_answer")
+        return RunTerminal.failed("agent_output_missing_answer")
     ctx.publish_json("agent-output", payload)
-    return HarnessTerminal.completed("plugin-agent-executor")
+    return RunTerminal.completed("plugin-agent-executor")

@@ -1,4 +1,4 @@
-"""Execute declared ``host_requires`` and L1 bake-declared checks.
+"""Execute declared ``host_requires`` and report a shipped bake recipe.
 
 Core only runs this allowlisted contract. No plugin-id → extra tables.
 """
@@ -13,7 +13,6 @@ from typing import Any
 from ageval.plugins.manifest import HostRequire, PluginManifest
 from ageval.plugins.store import list_installed, resolve_package_root
 
-IMAGE_CONTRIBUTE = "image_contribute"
 BAKE_REL = Path("docker") / "Dockerfile.bake"
 
 
@@ -53,9 +52,10 @@ def installed_plugin(plugin_id: str) -> tuple[PluginManifest, Path] | None:
     return None
 
 
-def l1_bake_declared(manifest: PluginManifest, root: Path) -> bool:
-    has_slot = any(s.id == IMAGE_CONTRIBUTE for s in manifest.on)
-    return has_slot and (root / BAKE_REL).is_file()
+def bake_recipe_declared(manifest: PluginManifest, root: Path) -> bool:
+    """True when the plugin ships a bake recipe the box build can consume."""
+    del manifest
+    return (root / BAKE_REL).is_file()
 
 
 def evaluate_host_requires(

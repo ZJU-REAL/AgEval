@@ -16,7 +16,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from ageval.adapters.agent_contract import AgentResult, parse_validated_text_structured
+from ageval.plugins.agent_result import AgentResult, parse_validated_text_structured
 from ageval.plugins.errors import ExtensionMaterializeError
 from dsh_plugin import PLUGIN_ID
 from dsh_plugin.trajectory import extract_usage, to_ageval_trajectory_events

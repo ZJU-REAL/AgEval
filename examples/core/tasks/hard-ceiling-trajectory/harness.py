@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ageval_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
 
 
-async def run(ctx: HarnessContext) -> HarnessTerminal:
+async def run(ctx: RunContext) -> RunTerminal:
     agent = Agent(attempt_id=ctx.scope.attempt_id)
     async with agent.session("solver", max_turns=2) as session:
         first = await session.invoke('Return ONLY JSON {"n": 1}')
@@ -28,6 +28,6 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         },
     )
     if not denied:
-        return HarnessTerminal.failed(f"expected_limit_deny_got:{second_err}")
+        return RunTerminal.failed(f"expected_limit_deny_got:{second_err}")
     # Harness completed the probe (denial is success of the negative mechanism).
-    return HarnessTerminal.completed("hard-ceiling-trajectory")
+    return RunTerminal.completed("hard-ceiling-trajectory")

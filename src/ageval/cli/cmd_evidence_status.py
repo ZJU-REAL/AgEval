@@ -53,11 +53,11 @@ def register(app: typer.Typer) -> None:
             Path | None,
             typer.Option("--store", help="ControlStore sqlite path (default .ageval/control.db)."),
         ] = None,
-        database: Annotated[
+        dataset: Annotated[
             Path | None,
             typer.Option(
-                "--database",
-                help="Database root to also load suite progress.json when kind=suite.",
+                "--dataset",
+                help="Dataset root to also load suite progress.json when kind=suite.",
             ),
         ] = None,
     ) -> None:
@@ -73,10 +73,10 @@ def register(app: typer.Typer) -> None:
         rec = ControlStore(path).get(run_id)
         payload = dict((rec or {}).get("payload") or {})
         kind = str(payload.get("kind") or "")
-        db_root = database
-        if db_root is None and payload.get("database_root"):
-            db_root = Path(str(payload["database_root"]))
-        is_suite = is_suite_run_locator(run_id, database_root=db_root, control_kind=kind)
+        db_root = dataset
+        if db_root is None and payload.get("dataset_root"):
+            db_root = Path(str(payload["dataset_root"]))
+        is_suite = is_suite_run_locator(run_id, dataset_root=db_root, control_kind=kind)
         if rec is None and not is_suite:
             typer.echo(json.dumps({"ok": False, "error": "unknown_run", "run_id": run_id}))
             raise typer.Exit(code=2)

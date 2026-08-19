@@ -13,13 +13,13 @@ from pathlib import Path
 from typing import Any
 
 from ageval import __version__ as AGEVAL_VERSION
-from ageval.adapters.agent_contract import (
+from ageval.plugins.agent_result import (
     AgentExecutor,
     AgentResult,
     observational_result_health,
     parse_validated_text_structured,
 )
-from ageval.adapters.child_env import entry_credentials_missing, project_cli_child_env
+from ageval.plugins.contrib.acp.child_env import entry_credentials_missing, project_cli_child_env
 from ageval.plugins.contrib.acp.client import (
     _AgevalAcpClient,
     _map_stop_reason,

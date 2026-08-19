@@ -54,14 +54,14 @@ def expand_base_url_value(
     return str(val).strip()
 
 
-def expand_binding_env_refs(
-    binding: dict[str, Any],
+def expand_profile_env_refs(
+    profile: dict[str, Any],
     *,
     location: str,
     environ: Mapping[str, str] | None = None,
 ) -> None:
-    """Rewrite api_key / base_url ${} refs in place on one binding."""
-    api_key = binding.get("api_key")
+    """Rewrite api_key / base_url ${} refs in place on one profile."""
+    api_key = profile.get("api_key")
     if api_key is not None:
         if not isinstance(api_key, str) or not api_key.strip():
             raise ConfigError(
@@ -69,8 +69,8 @@ def expand_binding_env_refs(
                 "profile.api_key must be a non-empty ${ENV_NAME} when set",
                 location=f"{location}/api_key",
             )
-        binding["api_key"] = expand_api_key_locator(api_key, location=f"{location}/api_key")
-    base_url = binding.get("base_url")
+        profile["api_key"] = expand_api_key_locator(api_key, location=f"{location}/api_key")
+    base_url = profile.get("base_url")
     if base_url is not None:
         if not isinstance(base_url, str) or not base_url.strip():
             raise ConfigError(
@@ -78,7 +78,7 @@ def expand_binding_env_refs(
                 "profile.base_url must be a non-empty string when set",
                 location=f"{location}/base_url",
             )
-        binding["base_url"] = expand_base_url_value(
+        profile["base_url"] = expand_base_url_value(
             base_url,
             location=f"{location}/base_url",
             environ=environ,
