@@ -86,6 +86,7 @@ async def run_attempt(
         services=services,
         registry=registry,
         environment=lock.environment,
+        environment_options=_environment_options(lock),
         requires=thaw(lock.requires),
     )
     graph = binder.graph(profile_id)
@@ -189,6 +190,13 @@ def _selected_profile_id(lock: LockedTaskConfig) -> str:
     if isinstance(active, str) and active.strip():
         return active.strip()
     return str(rows[0].get("id"))
+
+
+def _environment_options(lock: LockedTaskConfig) -> dict[str, Any]:
+    """Job options the box kind reads (never the executor's own options)."""
+    overlay = thaw(lock.job_overlay) if lock.job_overlay is not None else {}
+    options = overlay.get("environment_options")
+    return dict(options) if isinstance(options, dict) else {}
 
 
 def _box_spec(

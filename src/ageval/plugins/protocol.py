@@ -80,6 +80,7 @@ class BindingIntent:
 
     profile_id: str
     environment: str | None = None  # exclusive slot environment winner (job level)
+    environment_options: dict[str, Any] = field(default_factory=dict)
     executor: str | None = None  # exclusive slot executor winner
     options: dict[str, Any] = field(default_factory=dict)
     extensions: list[ExplicitBinding] = field(default_factory=list)
@@ -153,6 +154,7 @@ def intent_from_profile(
     profile: Mapping[str, Any],
     *,
     environment: str | None = None,
+    environment_options: Mapping[str, Any] | None = None,
     requires: Mapping[str, Sequence[str]] | None = None,
 ) -> BindingIntent:
     """Build BindingIntent from a resolved ``agent_profiles`` row."""
@@ -179,6 +181,7 @@ def intent_from_profile(
     return BindingIntent(
         profile_id=profile_id,
         environment=_optional_str(environment),
+        environment_options=dict(environment_options or {}),
         executor=executor,
         options=options,
         extensions=extensions,

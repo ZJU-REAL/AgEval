@@ -149,12 +149,14 @@ class ConfigCore:
         job_overlay = project_job_overlay(
             {rid: row for rid, row in ((str(r.get("id")), r) for r in profiles_rows)},
             environment=job_doc.environment,
+            environment_options=job_doc.environment_options,
             role_ids=role_ids,
         )
         extension_bindings = self._resolve_extension_bindings(
             profiles_rows,
             environment=job_doc.environment,
             requires=_required_capabilities(merged.get("requires") or {}, resolved_refs),
+            environment_options=job_doc.environment_options,
         )
         if extension_bindings:
             resolution.append(
@@ -327,11 +329,13 @@ class ConfigCore:
         *,
         environment: str,
         requires: Mapping[str, Any],
+        environment_options: Mapping[str, Any] | None = None,
     ) -> dict[str, dict[str, Any]] | None:
-        """Resolve the slot / service / inject graph per profile. Fails closed."""
-        if not profiles_rows:
-            return None
+        """Resolve the slot / service / inject graph per profile. Fails closed.
 
+        A task with no role slot still gets one resolve: it needs a box, and the
+        capabilities it requires must be checked before anything starts.
+        """
         from ageval.plugins.bootstrap import ensure_bootstrapped
         from ageval.plugins.errors import ExtensionRegistryError
         from ageval.plugins.lock_bind import extension_graph_to_lock
@@ -340,19 +344,26 @@ class ConfigCore:
 
         registry = ensure_bootstrapped()
         out: dict[str, dict[str, Any]] = {}
-        for profile in profiles_rows:
+        rows = list(profiles_rows) or [{}]
+        for profile in rows:
             pid = str(profile.get("id") or "").strip()
-            if not pid:
-                continue
-            intent = intent_from_profile(profile, environment=environment, requires=requires)
+            intent = intent_from_profile(
+                profile,
+                environment=environment,
+                environment_options=environment_options,
+                requires=requires,
+            )
             intent.profile_id = pid
             try:
                 graph = resolve_extensions(intent, registry, materialize=True)
             except ExtensionRegistryError as exc:
+                where = f"/agent_profiles/{pid}/extension_bindings" if pid else "/requires"
                 raise ConfigError(
                     ERROR_INVALID_SCHEMA,
-                    f"extension resolve failed for profile {pid!r}: {exc}",
-                    location=f"/agent_profiles/{pid}/extension_bindings",
+                    f"extension resolve failed for profile {pid!r}: {exc}"
+                    if pid
+                    else f"the box this job selected cannot run this task: {exc}",
+                    location=where,
                 ) from exc
             out[pid] = extension_graph_to_lock(graph)
         return out or None

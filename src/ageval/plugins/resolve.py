@@ -67,12 +67,19 @@ def resolve(
     for slot, attr in _SUGAR_SLOTS.items():
         chosen = getattr(intent, attr, None)
         if chosen:
+            # The box reads job ``environment_options``; the executor reads the
+            # profile's own ``options``. They are different vocabularies.
+            options = (
+                dict(intent.environment_options)
+                if slot == ENVIRONMENT
+                else options_for_plugin(intent, str(chosen))
+            )
             explicit.append(
                 ExplicitBinding(
                     slot=slot,
                     plugin=str(chosen),
                     source=f"profile_{attr}_field",
-                    options=options_for_plugin(intent, str(chosen)) or None,
+                    options=options or None,
                 )
             )
 

@@ -42,6 +42,7 @@ class AgentBinder:
     services: ServiceTable
     registry: ExtensionRegistry
     environment: str | None = None
+    environment_options: Mapping[str, Any] = field(default_factory=dict)
     requires: Mapping[str, Sequence[str]] = field(default_factory=dict)
     _graphs: dict[str, ExtensionGraph] = field(default_factory=dict, repr=False)
 
@@ -61,7 +62,12 @@ class AgentBinder:
         if found is not None:
             return found
         row = self.profile(profile_id) if profile_id else {}
-        intent = intent_from_profile(row, environment=self.environment, requires=self.requires)
+        intent = intent_from_profile(
+            row,
+            environment=self.environment,
+            environment_options=self.environment_options,
+            requires=self.requires,
+        )
         intent.profile_id = profile_id
         graph = resolve(intent, self.registry)
         self._graphs[profile_id] = graph

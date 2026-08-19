@@ -79,16 +79,18 @@ _ROLE_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 class JobDocument:
     """Parsed ``profiles.yaml``: the environment winner plus role profiles."""
 
-    __slots__ = ("environment", "profiles", "source")
+    __slots__ = ("environment", "environment_options", "profiles", "source")
 
     def __init__(
         self,
         *,
         environment: str,
         profiles: dict[str, dict[str, Any]],
+        environment_options: dict[str, Any] | None = None,
         source: str | None = None,
     ) -> None:
         self.environment = environment
+        self.environment_options = dict(environment_options or {})
         self.profiles = profiles
         self.source = source
 
@@ -172,7 +174,7 @@ def parse_job_mapping(raw: Mapping[str, Any], *, location: str = "profiles.yaml"
                 location=f"{location}:/format",
             )
 
-    unknown_top = set(raw) - {"format", "environment", "agent_profiles"}
+    unknown_top = set(raw) - {"format", "environment", "environment_options", "agent_profiles"}
     if unknown_top:
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
@@ -186,6 +188,14 @@ def parse_job_mapping(raw: Mapping[str, Any], *, location: str = "profiles.yaml"
             ERROR_INVALID_SCHEMA,
             "environment must be the id of the box kind that wins the slot",
             location=f"{location}:/environment",
+        )
+
+    env_options_raw = raw.get("environment_options") or {}
+    if not isinstance(env_options_raw, dict):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "environment_options must be a mapping the box kind understands",
+            location=f"{location}:/environment_options",
         )
 
     profiles_raw = raw.get("agent_profiles")
@@ -231,7 +241,12 @@ def parse_job_mapping(raw: Mapping[str, Any], *, location: str = "profiles.yaml"
                 location=f"{location}:/agent_profiles/{rid}",
             )
         out[rid] = copy.deepcopy(profile)
-    return JobDocument(environment=env_raw.strip(), profiles=out, source=location)
+    return JobDocument(
+        environment=env_raw.strip(),
+        environment_options=copy.deepcopy(env_options_raw),
+        profiles=out,
+        source=location,
+    )
 
 
 def assert_slots_have_no_inline_binding(
@@ -501,6 +516,7 @@ def project_job_overlay(
     profiles: Mapping[str, Mapping[str, Any]],
     *,
     environment: str,
+    environment_options: Mapping[str, Any] | None = None,
     role_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Secret-free projection of the job used for this lock.
@@ -535,7 +551,11 @@ def project_job_overlay(
             ]
         if row:
             out[rid] = row
-    return {"environment": environment, "agent_profiles": out}
+    overlay: dict[str, Any] = {"environment": environment, "agent_profiles": out}
+    if environment_options:
+        # Locator names only: an option like ``${FLEET_HOST}`` stays unresolved.
+        overlay["environment_options"] = secret_free_options(environment_options)
+    return overlay
 
 
 def job_overlay_to_profiles_document(overlay: Mapping[str, Any]) -> dict[str, Any]:
@@ -557,11 +577,14 @@ def job_overlay_to_profiles_document(overlay: Mapping[str, Any]) -> dict[str, An
         if isinstance(api_key, str) and api_key and not api_key.startswith("${"):
             row["api_key"] = f"${{{api_key}}}"
         profiles[str(role_id)] = row
-    document = {
+    document: dict[str, Any] = {
         "format": PROFILES_FORMAT,
         "environment": str(overlay.get("environment") or DEFAULT_ENVIRONMENT),
         "agent_profiles": profiles,
     }
+    options = overlay.get("environment_options")
+    if isinstance(options, Mapping) and options:
+        document["environment_options"] = dict(options)
     parse_job_mapping(document, location="job_overlay")
     return document
 
