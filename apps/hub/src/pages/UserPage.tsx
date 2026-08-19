@@ -14,7 +14,7 @@ import {
 import {
   encodeDatasetId,
   getUser,
-  latestPackageByDatabase,
+  latestPackageByDataset,
   listPackages,
   packageDisplayTitle,
   versionLabel,
@@ -51,7 +51,7 @@ export function UserPage() {
         setError(null);
         const uid = profile.user_id;
         const [datasetRows, pluginRows] = await Promise.all([
-          listPackages(token, { packageKind: "database" }).catch(
+          listPackages(token, { packageKind: "dataset" }).catch(
             () => [] as PackageRelease[],
           ),
           listPackages(token, { packageKind: "plugin" }).catch(
@@ -60,7 +60,7 @@ export function UserPage() {
         ]);
         if (cancelled) return;
         const mine = (rows: PackageRelease[]) =>
-          latestPackageByDatabase(rows).filter(
+          latestPackageByDataset(rows).filter(
             (row) =>
               row.visibility === "public" &&
               (row.uploaded_by || "").toLowerCase() === uid,
@@ -175,13 +175,13 @@ export function UserPage() {
             title="Public datasets"
             empty="No public datasets uploaded by this account."
             rows={datasets}
-            href={(row) => `/datasets/${encodeDatasetId(row.database_id)}`}
+            href={(row) => `/datasets/${encodeDatasetId(row.dataset_id)}`}
           />
           <UserPackageSection
             title="Public plugins"
             empty="No public plugins uploaded by this account."
             rows={plugins}
-            href={(row) => `/plugins/${encodeDatasetId(row.database_id)}`}
+            href={(row) => `/plugins/${encodeDatasetId(row.dataset_id)}`}
             plugin
           />
         </div>
@@ -221,7 +221,7 @@ function UserPackageSection({
             </TableHeader>
             <TableBody>
               {rows.map((row) => (
-                <TableRow key={row.database_id}>
+                <TableRow key={row.dataset_id}>
                   <TableCell>
                     <Link
                       to={href(row)}
@@ -230,10 +230,10 @@ function UserPackageSection({
                       <span className="truncate">
                         {plugin
                           ? packageDisplayTitle(
-                              row.database_id,
+                              row.dataset_id,
                               row.display_name,
                             )
-                          : row.database_id}
+                          : row.dataset_id}
                       </span>
                       {plugin && row.official ? <OfficialMark /> : null}
                     </Link>

@@ -1,6 +1,6 @@
 /**
  * Client-side projection of uploaded Attempt archives into viewer trial shapes.
- * Mirrors `bora.viewer.trials` tab / tree / trajectory rules (read-only).
+ * Mirrors `ageval.viewer.trials` tab / tree / trajectory rules (read-only).
  */
 
 import type {
@@ -23,7 +23,7 @@ const MAX_TRAJECTORY_STEPS = 2_000;
 const MAX_JSONL_LINE = 64_000;
 
 export function runRootPrefix(runId: string): string {
-  return `.bora/runs/${runId}`;
+  return `.ageval/runs/${runId}`;
 }
 
 /** Map archive path → path relative to run root (or null if outside). */
@@ -50,7 +50,7 @@ export function hasAnyUnder(relPaths: string[], dir: string): boolean {
   return relPaths.some((p) => p === d || p.startsWith(d + "/"));
 }
 
-/** Same rules as `bora.viewer.trials.surface._available_tabs`. */
+/** Same rules as `ageval.viewer.trials.surface._available_tabs`. */
 export function availableTabsFromPaths(relFiles: string[]): TabId[] {
   const tabs: string[] = [];
   const hasTraj = relFiles.some(
@@ -446,7 +446,7 @@ export function buildTrialMeta(opts: {
     }
     if (anyTok) {
       token_timing = {
-        schema: "bora.token_timing/1",
+        schema: "ageval.token_timing/1",
         segments: [
           { id: "cached_input", label: "Cached Input", tokens: Math.round(cached) },
           {

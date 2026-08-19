@@ -1,9 +1,9 @@
 /** Browser-local token storage for Hub login (never written to packages/evidence). */
 
-const TOKEN_KEY = "bora-hub-registry-token";
-const USER_KEY = "bora-hub-github-user";
-const NAME_KEY = "bora-hub-github-name";
-const AVATAR_KEY = "bora-hub-github-avatar";
+const TOKEN_KEY = "ageval-hub-registry-token";
+const USER_KEY = "ageval-hub-github-user";
+const NAME_KEY = "ageval-hub-github-name";
+const AVATAR_KEY = "ageval-hub-github-avatar";
 
 export function getToken(): string | null {
   try {

@@ -6,7 +6,7 @@ import { ThemeProvider } from "./lib/theme";
 import "./index.css";
 
 try {
-  const stored = localStorage.getItem("bora-hub-theme");
+  const stored = localStorage.getItem("ageval-hub-theme");
   const mode =
     stored === "light" || stored === "dark" || stored === "system"
       ? stored

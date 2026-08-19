@@ -313,10 +313,10 @@ export function useAttemptEvidence(
   }, [selectedPath, runId, token]);
 
   const runCommand = useMemo(() => {
-    const db = meta?.database_id;
+    const db = meta?.dataset_id;
     const t = trial?.task_id || taskId;
-    if (db && t) return `bora run registry://${db} --task ${t}`;
-    if (t) return `bora run <database> --task ${t}`;
+    if (db && t) return `ageval run registry://${db} --task ${t}`;
+    if (t) return `ageval run <dataset> --task ${t}`;
     return "";
   }, [meta, trial, taskId]);
 

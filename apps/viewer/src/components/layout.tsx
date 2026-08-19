@@ -19,7 +19,7 @@ export function Shell({
           className="flex items-center gap-1.5 font-semibold tracking-tight text-ink text-[15px]"
         >
           <OwlIcon className="h-6 w-6" />
-          BORA
+          AGEVAL
         </Link>
         <span className="text-mute text-sm">viewer</span>
         <div className="flex-1" />

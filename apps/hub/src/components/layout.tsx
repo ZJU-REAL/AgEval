@@ -46,7 +46,7 @@ export function Shell({
           className="flex items-center gap-1.5 font-semibold tracking-tight text-ink text-[15px]"
         >
           <OwlIcon className="h-6 w-6" />
-          BORA
+          AGEVAL
         </Link>
         <span className="text-mute text-sm">hub</span>
         <nav className="flex items-center gap-4 text-sm ml-2">

@@ -10,7 +10,7 @@ import {
 
 export type ThemeMode = "light" | "dark" | "system";
 
-const STORAGE_KEY = "bora-viewer-theme";
+const STORAGE_KEY = "ageval-viewer-theme";
 
 type ThemeContextValue = {
   mode: ThemeMode;

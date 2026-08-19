@@ -185,7 +185,7 @@ export function AttemptEvidencePage() {
             <p className="text-sm text-error font-mono">{error}</p>
             <p className="text-sm text-mute">
               Full evidence may not be uploaded yet. Upload with{" "}
-              <code className="font-mono">bora results upload</code> or{" "}
+              <code className="font-mono">ageval results upload</code> or{" "}
               <code className="font-mono">upload-suite --with-attempts</code>,
               then return from{" "}
               <Link
@@ -197,7 +197,7 @@ export function AttemptEvidencePage() {
               .
             </p>
             <CommandStrip
-              command={`bora results upload <database-root> --run ${runId}`}
+              command={`ageval results upload <dataset-root> --run ${runId}`}
             />
           </div>
         ) : null}

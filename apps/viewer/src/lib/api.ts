@@ -2,10 +2,10 @@ export type Job = {
   job_id: string;
   job_name: string;
   source: string;
-  /** suite = .bora/suite-runs; single = one-off bora run Attempt. */
+  /** suite = .ageval/suite-runs; single = one-off ageval run Attempt. */
   source_kind?: "suite" | "single" | string;
-  database_id?: string | null;
-  database_version?: string | null;
+  dataset_id?: string | null;
+  dataset_version?: string | null;
   agent_label?: string;
   model_label?: string;
   reasoning_effort?: string;
@@ -244,7 +244,7 @@ export function fetchJobs() {
     ok: boolean;
     items: Job[];
     count: number;
-    database_id?: string;
+    dataset_id?: string;
     version?: string;
     root?: string;
     commands?: Record<string, string>;

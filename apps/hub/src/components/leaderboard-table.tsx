@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import {
   encodeDatasetId,
-  latestPackageByDatabase,
+  latestPackageByDataset,
   listPackages,
   pluginsUsedBySuite,
   uniqueAgentRefs,
@@ -55,13 +55,13 @@ function shortSuiteId(id: string): string {
   return `${raw.slice(0, 10)}…`;
 }
 
-/** Render secret-free job_overlay as bora.profiles/1 YAML for rehydrate display. */
+/** Render secret-free job_overlay as ageval.profiles/1 YAML for rehydrate display. */
 function jobOverlayToProfilesYaml(overlay: SuiteRow["job_overlay"]): string {
   const bindings = overlay?.bindings;
   if (!bindings || typeof bindings !== "object") {
     return "# no job_overlay on this suite\n";
   }
-  const lines: string[] = ["format: bora.profiles/1", "bindings:"];
+  const lines: string[] = ["format: ageval.profiles/1", "bindings:"];
   const roles = Object.keys(bindings).sort();
   if (roles.length === 0) {
     lines.push("  {}");
@@ -222,11 +222,11 @@ type ExpandTab = "profiles" | "plugin" | "jobs";
 
 function SuiteJobsList({
   suite,
-  databaseId,
+  datasetId,
   onOpen,
 }: {
   suite: SuiteRow;
-  databaseId: string;
+  datasetId: string;
   onOpen: (href: string) => void;
 }) {
   const rows = suiteJobRows(suite);
@@ -234,7 +234,7 @@ function SuiteJobsList({
     return (
       <p className="text-sm text-mute">
         No task results on this suite. Upload with{" "}
-        <code className="font-mono">bora results upload-suite</code>.
+        <code className="font-mono">ageval results upload-suite</code>.
       </p>
     );
   }
@@ -249,7 +249,7 @@ function SuiteJobsList({
         rows={rows.map((j) => {
           const href =
             j.hasAttempt && j.runId
-              ? `/datasets/${encodeDatasetId(databaseId)}/tasks/${encodeURIComponent(j.taskId)}/attempts/${encodeURIComponent(j.runId)}`
+              ? `/datasets/${encodeDatasetId(datasetId)}/tasks/${encodeURIComponent(j.taskId)}/attempts/${encodeURIComponent(j.runId)}`
               : null;
           return {
             key: j.key,
@@ -333,7 +333,7 @@ function suiteJobRows(suite: SuiteRow): Array<{
 
 export function LeaderboardTable({
   suites,
-  databaseId,
+  datasetId,
   orgId,
   emptyTitle,
   emptyBody,
@@ -342,7 +342,7 @@ export function LeaderboardTable({
   versions,
 }: {
   suites: SuiteRow[];
-  databaseId: string;
+  datasetId: string;
   /** Dataset owning org — used to pick `my-lab/nooa` over another org's copy. */
   orgId?: string | null;
   emptyTitle?: string;
@@ -371,7 +371,7 @@ export function LeaderboardTable({
     let cancelled = false;
     listPackages(getToken(), { packageKind: "plugin" })
       .then((items) => {
-        if (!cancelled) setPluginCatalog(latestPackageByDatabase(items));
+        if (!cancelled) setPluginCatalog(latestPackageByDataset(items));
       })
       .catch(() => {
         if (!cancelled) setPluginCatalog([]);
@@ -439,7 +439,7 @@ export function LeaderboardTable({
         </p>
         <p className="text-sm text-mute">
           {emptyBody ||
-            "Public board lists complete, release-bound suite uploads only. Incomplete or draft-bound runs stay on Internal and the task Jobs list. Upload with bora results upload-suite. Metrics are observational, not a suite-level PASS."}
+            "Public board lists complete, release-bound suite uploads only. Incomplete or draft-bound runs stay on Internal and the task Jobs list. Upload with ageval results upload-suite. Metrics are observational, not a suite-level PASS."}
         </p>
       </div>
     );
@@ -448,7 +448,7 @@ export function LeaderboardTable({
   return (
     <div className="space-y-3">
       <p className="text-xs text-mute">
-        <span className="font-mono">{databaseId}</span>
+        <span className="font-mono">{datasetId}</span>
         {" · "}metrics only (not suite PASS)
         {" · "}click headers to sort
         {showKColumns ? " · pass@k uses job max k" : null}
@@ -510,15 +510,15 @@ export function LeaderboardTable({
               const open = openId === s.suite_run_id;
               const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
               const overlayDigest =
-                versions?.find((row) => row.version === s.database_version)
+                versions?.find((row) => row.version === s.dataset_version)
                   ?.package_digest || packageDigest;
               const plugins = pluginsUsedBySuite(s, pluginCatalog, orgId);
               const rehydrateScript = [
                 "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
-                `bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
+                `ageval results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
                 "",
-                "# Re-run with that binding (fill Database .env locally for credentials)",
-                "bora run <database-root> --profiles profiles.from-suite.yaml",
+                "# Re-run with that binding (fill Dataset .env locally for credentials)",
+                "ageval run <dataset-root> --profiles profiles.from-suite.yaml",
                 "",
               ].join("\n");
               const nAtt = metricsNAttempts(m);
@@ -697,7 +697,7 @@ export function LeaderboardTable({
                               />
                               <JobOverlayPreview
                                 overlay={s.job_overlay}
-                                datasetId={databaseId}
+                                datasetId={datasetId}
                                 datasetDigest={overlayDigest || ""}
                               />
                             </>
@@ -731,7 +731,7 @@ export function LeaderboardTable({
                           ) : (
                             <SuiteJobsList
                               suite={s}
-                              databaseId={databaseId}
+                              datasetId={datasetId}
                               onOpen={(href) => navigate(href)}
                             />
                           )}

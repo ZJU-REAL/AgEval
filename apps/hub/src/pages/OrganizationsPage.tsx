@@ -19,7 +19,7 @@ import {
 import {
   joinOrgWithInvite,
   listOrgs,
-  latestPackageByDatabase,
+  latestPackageByDataset,
   listPackages,
   type OrgRow,
   type PackageRelease,
@@ -47,7 +47,7 @@ export function OrganizationsPage() {
     setLoading(true);
     Promise.all([
       listOrgs(token),
-      listPackages(token, { packageKind: "database" }),
+      listPackages(token, { packageKind: "dataset" }),
       listPackages(token, { packageKind: "plugin" }),
     ])
       .then(([orgRows, datasetRows, pluginRows]) => {
@@ -77,7 +77,7 @@ export function OrganizationsPage() {
     setLoading(true);
     Promise.all([
       listOrgs(token),
-      listPackages(token, { packageKind: "database" }),
+      listPackages(token, { packageKind: "dataset" }),
       listPackages(token, { packageKind: "plugin" }),
     ])
       .then(([orgRows, datasetRows, pluginRows]) => {
@@ -106,7 +106,7 @@ export function OrganizationsPage() {
 
   const datasetCountByOrg = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const row of latestPackageByDatabase(datasets)) {
+    for (const row of latestPackageByDataset(datasets)) {
       if (!row.org_id) continue;
       counts.set(row.org_id, (counts.get(row.org_id) ?? 0) + 1);
     }
@@ -115,7 +115,7 @@ export function OrganizationsPage() {
 
   const pluginCountByOrg = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const row of latestPackageByDatabase(plugins)) {
+    for (const row of latestPackageByDataset(plugins)) {
       if (!row.org_id) continue;
       counts.set(row.org_id, (counts.get(row.org_id) ?? 0) + 1);
     }
@@ -219,7 +219,7 @@ export function OrganizationsPage() {
               <p className="mt-1 text-mute">
                 Create one with{" "}
                 <code className="font-mono text-xs">
-                  bora registry org-create &lt;name&gt;
+                  ageval registry org-create &lt;name&gt;
                 </code>
                 , or join with an invite key via +.
               </p>
@@ -327,7 +327,7 @@ export function OrganizationsPage() {
                 id="invite-key-input"
                 value={inviteKey}
                 onChange={(e) => setInviteKey(e.target.value)}
-                placeholder="bora-inv_…"
+                placeholder="ageval-inv_…"
                 className="mt-1.5 font-mono text-sm"
                 autoFocus
                 disabled={joinBusy}

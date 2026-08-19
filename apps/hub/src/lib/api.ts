@@ -41,15 +41,15 @@ export type SuitePluginRef = {
 const BUILTIN_EXECUTOR_KINDS = new Set(["acp", "openai-http"]);
 
 export type PackageRelease = {
-  database_id: string;
+  dataset_id: string;
   version: string;
   visibility: string;
   package_digest: string;
   blob_digest: string;
   size: number;
   media_type?: string;
-  /** Registry package_kind: database | plugin | agent. */
-  package_kind?: "database" | "plugin" | "agent" | string;
+  /** Registry package_kind: dataset | plugin | agent. */
+  package_kind?: "dataset" | "plugin" | "agent" | string;
   created_at?: number;
   org_id?: string;
   /** Registry marketplace display: upload org is on the official-org allowlist. */
@@ -62,7 +62,7 @@ export type PackageRelease = {
   is_draft?: boolean;
   slot?: string;
   uploaded_by?: string;
-  /** Owner-set marketplace title; id stays database_id. */
+  /** Owner-set marketplace title; id stays dataset_id. */
   display_name?: string;
 };
 
@@ -148,8 +148,8 @@ export type FileContent = {
 
 export type SuiteRow = {
   suite_run_id: string;
-  database_id?: string;
-  database_version?: string;
+  dataset_id?: string;
+  dataset_version?: string;
   visibility?: string;
   pass_rate?: number | null;
   mean_score?: number | null;
@@ -232,8 +232,8 @@ export type RuntimeTeammate = {
 export type AgentAppearance = {
   package_id: string;
   agent_version: string;
-  database_id: string;
-  database_version?: string;
+  dataset_id: string;
+  dataset_version?: string;
   package_digest?: string;
   suite_run_id: string;
   role: string;
@@ -356,7 +356,7 @@ export async function resolveAgentPackageDigest(
 
 export type AttemptMeta = {
   run_id: string;
-  database_id?: string;
+  dataset_id?: string;
   task_id?: string;
   status?: string;
   visibility?: string;
@@ -446,7 +446,7 @@ export function decodeDatasetId(param: string): string {
 
 export async function listPackages(
   token: string | null,
-  opts?: { packageKind?: "database" | "plugin" | "agent"; mine?: boolean },
+  opts?: { packageKind?: "dataset" | "plugin" | "agent"; mine?: boolean },
 ): Promise<PackageRelease[]> {
   // With token, server may include private; without, public only.
   const q = new URLSearchParams();
@@ -460,10 +460,10 @@ export async function listPackages(
 }
 
 export async function listPackageVersionsWithAppearances(
-  databaseId: string,
+  datasetId: string,
   token: string | null,
 ): Promise<{ items: PackageRelease[]; appearances: AgentAppearance[] }> {
-  const path = `/v1/packages/${databaseId.split("/").map(encodeURIComponent).join("/")}`;
+  const path = `/v1/packages/${datasetId.split("/").map(encodeURIComponent).join("/")}`;
   const data = await requestJson<{
     items?: PackageRelease[];
     appearances?: AgentAppearance[];
@@ -475,13 +475,13 @@ export async function listPackageVersionsWithAppearances(
 }
 
 export async function listPackageVersions(
-  databaseId: string,
+  datasetId: string,
   token: string | null,
 ): Promise<PackageRelease[]> {
-  return (await listPackageVersionsWithAppearances(databaseId, token)).items;
+  return (await listPackageVersionsWithAppearances(datasetId, token)).items;
 }
 
-/** Package meta by digest (includes plugin_preview for bora.plugin/1). */
+/** Package meta by digest (includes plugin_preview for ageval.plugin/1). */
 export async function getPackageByDigest(
   packageId: string,
   digest: string,
@@ -515,34 +515,34 @@ export function pickPackageVersion(
   return [...pool].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
 }
 
-/** One catalog row per database_id. Draft is never preferred over a release. */
-export function latestPackageByDatabase(
+/** One catalog row per dataset_id. Draft is never preferred over a release. */
+export function latestPackageByDataset(
   items: PackageRelease[],
 ): PackageRelease[] {
   const byId = new Map<string, PackageRelease[]>();
   for (const row of items) {
-    const list = byId.get(row.database_id) ?? [];
+    const list = byId.get(row.dataset_id) ?? [];
     list.push(row);
-    byId.set(row.database_id, list);
+    byId.set(row.dataset_id, list);
   }
   const out: PackageRelease[] = [];
   for (const rows of byId.values()) {
     const picked = pickPackageVersion(rows);
     if (picked) out.push(picked);
   }
-  return out.sort((a, b) => a.database_id.localeCompare(b.database_id));
+  return out.sort((a, b) => a.dataset_id.localeCompare(b.dataset_id));
 }
 
 export function isPluginPackage(row: PackageRelease): boolean {
   return row.package_kind === "plugin";
 }
 
-export function isDatabasePackage(row: PackageRelease): boolean {
+export function isDatasetPackage(row: PackageRelease): boolean {
   return !isPluginPackage(row);
 }
 
-function packageIdPath(databaseId: string): string {
-  return databaseId.split("/").map(encodeURIComponent).join("/");
+function packageIdPath(datasetId: string): string {
+  return datasetId.split("/").map(encodeURIComponent).join("/");
 }
 
 /** Keep ``sha256:`` colon unescaped (matches Registry path regex). */
@@ -554,22 +554,22 @@ function digestPath(digest: string): string {
 }
 
 export async function listPackageFiles(
-  databaseId: string,
+  datasetId: string,
   digest: string,
   token: string | null,
 ): Promise<{ items: FileItem[]; digest: string; version?: string }> {
-  const id = packageIdPath(databaseId);
+  const id = packageIdPath(datasetId);
   const dig = digestPath(digest);
   return requestJson(`/v1/packages/${id}/by-digest/${dig}/files`, { token });
 }
 
 export async function getPackageFile(
-  databaseId: string,
+  datasetId: string,
   digest: string,
   filePath: string,
   token: string | null,
 ): Promise<FileContent> {
-  const id = packageIdPath(databaseId);
+  const id = packageIdPath(datasetId);
   const dig = digestPath(digest);
   const fp = filePath
     .split("/")
@@ -579,12 +579,12 @@ export async function getPackageFile(
 }
 
 export async function listSuites(
-  databaseId: string | null,
+  datasetId: string | null,
   token: string | null,
   opts?: { board?: boolean; uploadedBy?: string },
 ): Promise<SuiteRow[]> {
   const q = new URLSearchParams();
-  if (databaseId) q.set("database_id", databaseId);
+  if (datasetId) q.set("dataset_id", datasetId);
   if (opts?.board) q.set("board", "1");
   if (opts?.uploadedBy) q.set("uploaded_by", opts.uploadedBy);
   const path = q.toString()
@@ -999,11 +999,11 @@ export function resolveMarketplacePluginId(
 ): string {
   const id = pluginId.trim();
   if (!id) return id;
-  if (catalog.some((p) => p.database_id === id)) return id;
+  if (catalog.some((p) => p.dataset_id === id)) return id;
 
   const previewHits = catalog.filter((p) => p.plugin_preview?.plugin_id === id);
   const suffixHits = catalog.filter((p) => {
-    const db = p.database_id;
+    const db = p.dataset_id;
     return db === id || db.endsWith(`/${id}`);
   });
 
@@ -1012,7 +1012,7 @@ export function resolveMarketplacePluginId(
     if (preferredOrgId) {
       const org = preferredOrgId;
       const hit = rows.find(
-        (p) => p.org_id === org || p.database_id.startsWith(`${org}/`),
+        (p) => p.org_id === org || p.dataset_id.startsWith(`${org}/`),
       );
       if (hit) return hit;
     }
@@ -1020,7 +1020,7 @@ export function resolveMarketplacePluginId(
   };
 
   return (
-    pick(previewHits)?.database_id ?? pick(suffixHits)?.database_id ?? id
+    pick(previewHits)?.dataset_id ?? pick(suffixHits)?.dataset_id ?? id
   );
 }
 

@@ -15,9 +15,9 @@ import {
 } from "@/components/ui/table";
 import {
   encodeDatasetId,
-  isDatabasePackage,
+  isDatasetPackage,
   listOrgs,
-  latestPackageByDatabase,
+  latestPackageByDataset,
   listPackages,
   versionLabel,
   type PackageRelease,
@@ -45,7 +45,7 @@ export function DatasetsPage() {
     let cancelled = false;
     setLoading(true);
     // Datasets surface must not list package_kind=plugin.
-    const packagesP = listPackages(token, { packageKind: "database" });
+    const packagesP = listPackages(token, { packageKind: "dataset" });
     const orgsP = token
       ? listOrgs(token).catch(() => [] as Awaited<ReturnType<typeof listOrgs>>)
       : Promise.resolve([]);
@@ -53,7 +53,7 @@ export function DatasetsPage() {
     Promise.all([packagesP, orgsP])
       .then(([rows, orgs]) => {
         if (cancelled) return;
-        setItems(rows.filter(isDatabasePackage));
+        setItems(rows.filter(isDatasetPackage));
         setMyOrgIds(new Set(orgs.map((o) => o.org_id)));
         setError(null);
       })
@@ -75,7 +75,7 @@ export function DatasetsPage() {
   }, [token]);
 
   const datasets = useMemo(() => {
-    const latest = latestPackageByDatabase(items);
+    const latest = latestPackageByDataset(items);
     const scoped =
       scope === "orgs"
         ? latest.filter(
@@ -86,7 +86,7 @@ export function DatasetsPage() {
     if (!q) return scoped;
     return scoped.filter(
       (r) =>
-        r.database_id.toLowerCase().includes(q) ||
+        r.dataset_id.toLowerCase().includes(q) ||
         (r.org_id && r.org_id.toLowerCase().includes(q)),
     );
   }, [items, scope, myOrgIds, query, token]);
@@ -156,7 +156,7 @@ export function DatasetsPage() {
               <p className="font-medium text-ink">No datasets found</p>
               <p className="mt-1 text-mute">
                 {scope === "orgs"
-                  ? "No packages from your organizations yet. Publish with bora publish --org <id>."
+                  ? "No packages from your organizations yet. Publish with ageval publish --org <id>."
                   : "No public packages on this Registry yet."}
               </p>
             </div>
@@ -176,20 +176,20 @@ export function DatasetsPage() {
                 <TableBody>
                   {datasets.map((row) => (
                     <TableRow
-                      key={`${row.database_id}@${row.version}`}
+                      key={`${row.dataset_id}@${row.version}`}
                       className="cursor-pointer"
-                      onClick={() => openDataset(row.database_id)}
+                      onClick={() => openDataset(row.dataset_id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          openDataset(row.database_id);
+                          openDataset(row.dataset_id);
                         }
                       }}
                       tabIndex={0}
                       role="link"
                     >
                       <TableCell className="font-medium font-mono text-sm">
-                        {row.database_id}
+                        {row.dataset_id}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-mute">
                         {row.org_id ? (

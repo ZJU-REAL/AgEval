@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ageval.evidence.trajectory import TRAJECTORY_FILENAME
 from ageval.viewer.jobs import get_job, safe_id_segment
 from ageval.viewer.trials.constants import MAX_JSONL_LINE, MAX_TRAJECTORY_STEPS
 from ageval.viewer.trials.paths import (
@@ -27,51 +28,51 @@ def trial_trajectory(
     rid = _safe_run_id(run_id)
     get_job(root, job_id)
     evidence = resolve_evidence_root(root, rid, task_id=task_id, require_task_match=True)
-    inv_root = evidence / "agent" / "invocations"
+    # One trajectory per Attempt, written by the record phase. The invocation
+    # directories still hold the per-call metadata, so the rows are labelled
+    # from them by session.
     steps: list[dict[str, Any]] = []
     invocations: list[dict[str, Any]] = []
     truncated = False
 
+    rows = _parse_trajectory_jsonl(evidence / TRAJECTORY_FILENAME)
+    truncated = len(rows) >= MAX_TRAJECTORY_STEPS
+    by_session: dict[str, dict[str, Any]] = {}
+    inv_root = evidence / "agent" / "invocations"
     if inv_root.is_dir():
-        inv_dirs = sorted(
-            [p for p in inv_root.iterdir() if p.is_dir()],
-            key=lambda p: p.name,
+        for inv in sorted((p for p in inv_root.iterdir() if p.is_dir()), key=lambda p: p.name):
+            meta = _read_json_object(inv / "metadata.json") or {}
+            row = {
+                "dirname": inv.name,
+                "invocation_id": meta.get("invocation_id") or inv.name,
+                "profile_id": meta.get("profile_id"),
+                "executor_kind": meta.get("executor_kind"),
+                "model": meta.get("model") or meta.get("locked_model"),
+                "status": meta.get("status"),
+                "latency_ms": meta.get("latency_ms"),
+                "session_id": meta.get("session_id"),
+                "step_count": 0,
+            }
+            invocations.append(row)
+            session = str(meta.get("session_id") or "")
+            if session:
+                by_session[session] = row
+
+    for entry in rows:
+        label = by_session.get(str(entry.get("session_id") or "")) or (
+            invocations[0] if len(invocations) == 1 else None
         )
-        for inv in inv_dirs:
-            inv_meta = _read_json_object(inv / "metadata.json") or {}
-            traj_path = inv / "trajectory.jsonl"
-            inv_steps: list[dict[str, Any]] = []
-            if traj_path.is_file():
-                inv_steps = _parse_trajectory_jsonl(traj_path)
-            profile_id = inv_meta.get("profile_id")
-            for step in inv_steps:
-                if len(steps) >= MAX_TRAJECTORY_STEPS:
-                    truncated = True
-                    break
-                steps.append(
-                    {
-                        **step,
-                        "invocation": inv.name,
-                        "invocation_id": inv_meta.get("invocation_id") or inv.name,
-                        "profile_id": profile_id,
-                        "model": inv_meta.get("model") or inv_meta.get("locked_model"),
-                    }
-                )
-            invocations.append(
-                {
-                    "dirname": inv.name,
-                    "invocation_id": inv_meta.get("invocation_id") or inv.name,
-                    "profile_id": profile_id,
-                    "executor_kind": inv_meta.get("executor_kind"),
-                    "model": inv_meta.get("model") or inv_meta.get("locked_model"),
-                    "status": inv_meta.get("status"),
-                    "latency_ms": inv_meta.get("latency_ms"),
-                    "step_count": len(inv_steps),
-                    "has_trajectory": traj_path.is_file(),
-                }
-            )
-            if truncated:
-                break
+        if label is not None:
+            label["step_count"] = int(label["step_count"]) + 1
+        steps.append(
+            {
+                **entry,
+                "invocation": (label or {}).get("dirname"),
+                "invocation_id": (label or {}).get("invocation_id"),
+                "profile_id": (label or {}).get("profile_id"),
+                "model": (label or {}).get("model"),
+            }
+        )
 
     return {
         "ok": True,

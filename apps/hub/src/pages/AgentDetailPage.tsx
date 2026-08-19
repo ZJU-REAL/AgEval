@@ -175,17 +175,17 @@ export function AgentDetailPage() {
   }, [agentId, release, selectedPath, token]);
 
   const installCmd = useMemo(() => {
-    if (!release) return `bora agent install ${agentId}@<version>`;
-    return `bora agent install ${agentId}@${release.version}`;
+    if (!release) return `ageval agent install ${agentId}@<version>`;
+    return `ageval agent install ${agentId}@${release.version}`;
   }, [agentId, release]);
 
   const runCmd = useMemo(() => {
     const ver = release?.version || "<version>";
-    return `bora run <dataset> --agent ${agentId}@${ver}`;
+    return `ageval run <dataset> --agent ${agentId}@${ver}`;
   }, [agentId, release]);
 
   const formatBadge =
-    preview?.format || (release?.package_kind === "agent" ? "bora.agent/1" : null);
+    preview?.format || (release?.package_kind === "agent" ? "ageval.agent/1" : null);
 
   const packageParts = useMemo(() => splitPackageId(agentId), [agentId]);
 
@@ -357,11 +357,11 @@ export function AgentDetailPage() {
                             <TableRow key={key}>
                               <TableCell className="font-mono text-xs">
                                 <Link
-                                  to={`/datasets/${encodeDatasetId(row.database_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
+                                  to={`/datasets/${encodeDatasetId(row.dataset_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
                                   onClick={(e) => e.stopPropagation()}
                                   className="hover:underline underline-offset-2"
                                 >
-                                  {row.database_id}
+                                  {row.dataset_id}
                                 </Link>
                               </TableCell>
                               <TableCell className="font-mono text-xs">

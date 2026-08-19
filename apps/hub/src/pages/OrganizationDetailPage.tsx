@@ -34,7 +34,7 @@ import {
   leaveOrg,
   listOrgInviteKeys,
   listOrgMembers,
-  latestPackageByDatabase,
+  latestPackageByDataset,
   updateOrgDisplayName,
   listPackages,
   listResultShares,
@@ -116,14 +116,14 @@ export function OrganizationDetailPage() {
         const [orgRow, memberRows, datasetRows, pluginRows] = await Promise.all([
           getOrg(orgId, token),
           listOrgMembers(orgId, token),
-          listPackages(token, { packageKind: "database" }),
+          listPackages(token, { packageKind: "dataset" }),
           listPackages(token, { packageKind: "plugin" }),
         ]);
         if (cancelled) return;
         setOrg(orgRow);
         setMembers(memberRows);
         const inOrg = (rows: PackageRelease[]) =>
-          latestPackageByDatabase(rows).filter((p) => p.org_id === orgId);
+          latestPackageByDataset(rows).filter((p) => p.org_id === orgId);
         setDatasets(inOrg(datasetRows));
         setPlugins(inOrg(pluginRows));
         setError(null);
@@ -452,10 +452,10 @@ export function OrganizationDetailPage() {
                       </TableHeader>
                       <TableBody>
                         {datasets.map((d) => {
-                          const href = `/datasets/${encodeDatasetId(d.database_id)}`;
+                          const href = `/datasets/${encodeDatasetId(d.dataset_id)}`;
                           return (
                             <TableRow
-                              key={d.database_id}
+                              key={d.dataset_id}
                               className="cursor-pointer"
                               onClick={() => navigate(href)}
                               onKeyDown={(e) => {
@@ -468,7 +468,7 @@ export function OrganizationDetailPage() {
                               role="link"
                             >
                               <TableCell className="font-mono text-sm">
-                                {d.database_id}
+                                {d.dataset_id}
                               </TableCell>
                               <TableCell className="font-mono text-xs text-body">
                                 {d.version}
@@ -503,10 +503,10 @@ export function OrganizationDetailPage() {
                       </TableHeader>
                       <TableBody>
                         {plugins.map((p) => {
-                          const href = `/plugins/${encodeDatasetId(p.database_id)}`;
+                          const href = `/plugins/${encodeDatasetId(p.dataset_id)}`;
                           return (
                             <TableRow
-                              key={p.database_id}
+                              key={p.dataset_id}
                               className="cursor-pointer"
                               onClick={() => navigate(href)}
                               onKeyDown={(e) => {
@@ -522,7 +522,7 @@ export function OrganizationDetailPage() {
                                 <span className="inline-flex items-center gap-1.5 font-mono text-sm min-w-0">
                                   <span className="truncate">
                                     {packageDisplayTitle(
-                                      p.database_id,
+                                      p.dataset_id,
                                       p.display_name,
                                     )}
                                   </span>
@@ -575,12 +575,12 @@ export function OrganizationDetailPage() {
                               {s.suite_run_id}
                             </TableCell>
                             <TableCell className="font-mono text-xs text-body">
-                              {s.database_id ? (
+                              {s.dataset_id ? (
                                 <Link
-                                  to={`/datasets/${encodeDatasetId(s.database_id)}`}
+                                  to={`/datasets/${encodeDatasetId(s.dataset_id)}`}
                                   className="hover:underline"
                                 >
-                                  {s.database_id}
+                                  {s.dataset_id}
                                 </Link>
                               ) : (
                                 "—"
@@ -995,7 +995,7 @@ export function OrganizationDetailPage() {
                 <h2 className="text-sm font-medium text-ink mb-1">Secrets</h2>
                 <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
                   Organization-scoped secrets (API keys for hosted jobs) are not
-                  implemented in BORA Registry. Use host env / CLI credentials
+                  implemented in AGEVAL Registry. Use host env / CLI credentials
                   instead.
                 </div>
               </section>

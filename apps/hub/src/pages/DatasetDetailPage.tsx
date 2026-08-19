@@ -142,14 +142,14 @@ export function DatasetDetailPage() {
           throw new RegistryHttpError(
             404,
             "not_found",
-            "not a database package (open Plugin marketplace instead)",
+            "not a dataset package (open Plugin marketplace instead)",
           );
         }
         if (meta.package_kind === "agent" || selected.package_kind === "agent") {
           throw new RegistryHttpError(
             404,
             "not_found",
-            "not a database package (open Agent hub instead)",
+            "not a dataset package (open Agent hub instead)",
           );
         }
         const chosen = meta.package_digest ? meta : selected;
@@ -248,8 +248,8 @@ export function DatasetDetailPage() {
   }, [datasetId, token, requestedVersion]);
 
   const lockCmd = useMemo(() => {
-    if (!release) return `bora lock ${datasetId} --task <task_id>`;
-    return `bora lock registry://${datasetId}@${release.version} --task <task_id>`;
+    if (!release) return `ageval lock ${datasetId} --task <task_id>`;
+    return `ageval lock registry://${datasetId}@${release.version} --task <task_id>`;
   }, [datasetId, release]);
 
   const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
@@ -517,7 +517,7 @@ export function DatasetDetailPage() {
             profiles. Prefix closure of the bound release. Read-only.
           </p>
           <OverlayFilePanel
-            databaseId={datasetId}
+            datasetId={datasetId}
             packageDigest={release.package_digest}
             prefixes={overlayPrefixes}
           />
@@ -568,7 +568,7 @@ export function DatasetDetailPage() {
                   ? internalSuites
                   : boardSuites
             }
-            databaseId={datasetId}
+            datasetId={datasetId}
             orgId={release?.org_id}
             packageDigest={release?.package_digest}
             versions={versions}

@@ -14,8 +14,8 @@ const kCell = (value: number, nTasks = 2, incomplete = 0) => ({
 export const LEADERBOARD_K_FIXTURES: SuiteRow[] = [
   {
     suite_run_id: "suite_demo_k4_high",
-    database_id: "demo/pass-at-k",
-    database_version: "0.1.0",
+    dataset_id: "demo/pass-at-k",
+    dataset_version: "0.1.0",
     visibility: "public",
     pass_rate: 0.5,
     mean_score: 0.5,
@@ -82,8 +82,8 @@ export const LEADERBOARD_K_FIXTURES: SuiteRow[] = [
   },
   {
     suite_run_id: "suite_demo_legacy_no_k",
-    database_id: "demo/pass-at-k",
-    database_version: "0.1.0",
+    dataset_id: "demo/pass-at-k",
+    dataset_version: "0.1.0",
     visibility: "public",
     pass_rate: 0.75,
     mean_score: 0.7,

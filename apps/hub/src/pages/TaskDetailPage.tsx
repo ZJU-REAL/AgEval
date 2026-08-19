@@ -308,8 +308,8 @@ export function TaskDetailPage() {
   }, [datasetId, filesScope, release, selectedPath, token]);
 
   const runCmd = useMemo(() => {
-    if (!release) return `bora run ${datasetId} --task ${taskId}`;
-    return `bora run registry://${datasetId}@${release.version} --task ${taskId}`;
+    if (!release) return `ageval run ${datasetId} --task ${taskId}`;
+    return `ageval run registry://${datasetId}@${release.version} --task ${taskId}`;
   }, [datasetId, release, taskId]);
 
   function setTab(next: Tab) {
@@ -410,7 +410,7 @@ export function TaskDetailPage() {
               />
             </div>
             <OverlayFilePanel
-              databaseId={datasetId}
+              datasetId={datasetId}
               packageDigest={release.package_digest}
               prefixes={overlayPrefixes}
             />
@@ -455,7 +455,7 @@ export function TaskDetailPage() {
               Jobs to open a read-only evidence browser.
             </p>
             <CommandStrip
-              command={`bora results upload-suite <database-root> --suite-run <id> --with-attempts`}
+              command={`ageval results upload-suite <dataset-root> --suite-run <id> --with-attempts`}
             />
           </div>
         ) : (
@@ -554,12 +554,12 @@ export function TaskDetailPage() {
                   enable the evidence browser:
                 </p>
                 <CommandStrip
-                  command={`bora results upload-suite <database-root> --suite-run <id> --with-attempts`}
+                  command={`ageval results upload-suite <dataset-root> --suite-run <id> --with-attempts`}
                 />
                 <p className="text-xs text-mute">
                   Or backfill one run:{" "}
                   <code className="font-mono">
-                    bora results upload &lt;db&gt; --run &lt;run_id&gt;
+                    ageval results upload &lt;db&gt; --run &lt;run_id&gt;
                   </code>
                 </p>
               </div>

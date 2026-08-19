@@ -29,17 +29,17 @@ import { formatDate } from "@/lib/utils";
 function latestByPackage(items: PackageRelease[]): PackageRelease[] {
   const map = new Map<string, PackageRelease>();
   for (const row of items) {
-    const prev = map.get(row.database_id);
+    const prev = map.get(row.dataset_id);
     if (!prev) {
-      map.set(row.database_id, row);
+      map.set(row.dataset_id, row);
       continue;
     }
     const a = prev.created_at ?? 0;
     const b = row.created_at ?? 0;
-    if (b >= a) map.set(row.database_id, row);
+    if (b >= a) map.set(row.dataset_id, row);
   }
   return Array.from(map.values()).sort((x, y) =>
-    x.database_id.localeCompare(y.database_id),
+    x.dataset_id.localeCompare(y.dataset_id),
   );
 }
 
@@ -100,7 +100,7 @@ export function PluginsPage() {
     if (!q) return scoped;
     return scoped.filter(
       (r) =>
-        r.database_id.toLowerCase().includes(q) ||
+        r.dataset_id.toLowerCase().includes(q) ||
         (r.org_id && r.org_id.toLowerCase().includes(q)),
     );
   }, [items, scope, myOrgIds, query, token]);
@@ -121,7 +121,7 @@ export function PluginsPage() {
         title="Plugin marketplace"
         sub={
           <>
-            Browse <span className="font-mono text-xs">bora.plugin/1</span>{" "}
+            Browse <span className="font-mono text-xs">ageval.plugin/1</span>{" "}
             packages. Install is CLI-only (Recognition only — does not change
             profiles).
           </>
@@ -172,7 +172,7 @@ export function PluginsPage() {
               <p className="font-medium text-ink">No plugins found</p>
               <p className="mt-1 text-mute max-w-md mx-auto">
                 {scope === "orgs"
-                  ? "No plugin packages from your organizations yet. Publish with bora plugin publish <path> --org <id>."
+                  ? "No plugin packages from your organizations yet. Publish with ageval plugin publish <path> --org <id>."
                   : "No public plugin packages on this Registry yet."}
               </p>
             </div>
@@ -192,13 +192,13 @@ export function PluginsPage() {
                 <TableBody>
                   {plugins.map((row) => (
                     <TableRow
-                      key={`${row.database_id}@${row.version}`}
+                      key={`${row.dataset_id}@${row.version}`}
                       className="cursor-pointer"
-                      onClick={() => openPlugin(row.database_id)}
+                      onClick={() => openPlugin(row.dataset_id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          openPlugin(row.database_id);
+                          openPlugin(row.dataset_id);
                         }
                       }}
                       tabIndex={0}
@@ -208,7 +208,7 @@ export function PluginsPage() {
                         <span className="inline-flex items-center gap-1.5 min-w-0">
                           <span className="truncate">
                             {packageDisplayTitle(
-                              row.database_id,
+                              row.dataset_id,
                               row.display_name,
                             )}
                           </span>

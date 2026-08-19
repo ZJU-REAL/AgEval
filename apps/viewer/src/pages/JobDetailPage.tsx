@@ -298,7 +298,7 @@ export function JobDetailPage() {
             <h2 className="text-sm font-medium text-ink">Published files</h2>
             <p className="text-xs text-mute">
               Declared <code className="font-mono">overlays:</code> from this
-              job binding. Files are read from the opened Database root.
+              job binding. Files are read from the opened Dataset root.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <FileSplitPanel

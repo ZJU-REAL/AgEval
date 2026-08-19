@@ -77,7 +77,7 @@ export function PluginDetailPage() {
           throw new RegistryHttpError(
             404,
             "not_found",
-            "not a plugin package (use Datasets for databases)",
+            "not a plugin package (use Datasets for datasets)",
           );
         }
 
@@ -173,13 +173,13 @@ export function PluginDetailPage() {
   }, [pluginId, release, selectedPath, token]);
 
   const installCmd = useMemo(() => {
-    if (!release) return `bora plugin install ${pluginId}@<version>`;
-    return `bora plugin install ${pluginId}@${release.version}`;
+    if (!release) return `ageval plugin install ${pluginId}@<version>`;
+    return `ageval plugin install ${pluginId}@${release.version}`;
   }, [pluginId, release]);
 
   const formatBadge =
     preview?.format ||
-    (release?.package_kind === "plugin" ? "bora.plugin/1" : null);
+    (release?.package_kind === "plugin" ? "ageval.plugin/1" : null);
 
   const packageParts = useMemo(() => splitPackageId(pluginId), [pluginId]);
 

@@ -79,7 +79,7 @@ export function JobsPage() {
       .then((data) => {
         if (cancelled) return;
         setJobs(data.items || []);
-        setDbId(data.database_id || "");
+        setDbId(data.dataset_id || "");
         setError(null);
       })
       .catch((e: Error) => {
@@ -399,11 +399,11 @@ export function JobsPage() {
                   <TableCell colSpan={10} className="text-mute py-10 text-center">
                     No jobs yet. Run{" "}
                     <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
-                      bora run &lt;database&gt;
+                      ageval run &lt;dataset&gt;
                     </code>{" "}
                     or a single-task{" "}
                     <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
-                      bora run &lt;database&gt; --task &lt;id&gt;
+                      ageval run &lt;dataset&gt; --task &lt;id&gt;
                     </code>{" "}
                     then refresh.
                   </TableCell>
