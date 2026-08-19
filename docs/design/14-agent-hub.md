@@ -105,8 +105,10 @@ install **只写本地缓存**,永不改写 profiles / task.yaml（同 11 不变
 | 去向 | 是否包含 | 理由 |
 | --- | --- | --- |
 | binding 键（`BINDING_FIELD_KEYS`） | ✅ 新增保留键 | 让合成文档可解析、job_overlay 可 round-trip;task.yaml 槽位自动被禁(inline-binding 断言) |
-| `job_overlay` / lock digest | ✅ 投影透传 | 运行可归因、可 `results export-profiles` 复跑 |
+| `job_overlay` / lock digest / Trial identity | ✅ 投影透传 | 运行可归因、可 `results export-profiles` 复跑;包树 digest 经 `agent_ref` 进入 Trial（overlay 字节只记路径） |
 | suite fingerprint `_ACTOR_KEYS` / plaza `rt_*` | ❌ | **binding 相同的两个 Agent 是同一 runtime**;可比性只看 entry/executor/model/options |
+
+`canonical_payload` 含整份 `job_overlay`，因此 **`agent_ref` 在 lock digest / Trial 身份里**。手写 `--profiles` 若缺 `agent_ref`，即便 executor/model/options 与某次 `--agent` 投影相同，也是**另一 Trial**。`--agent` 与一份 **round-trip 了同一 `agent_ref`** 的 `--profiles` 仍是同一 Trial。不要把 `agent_ref` 从 digest 里拿掉：去掉之后，两个声明路径相同、包树不同的 Agent 会撞成一个 Trial。
 
 ## Registry / Hub
 
@@ -120,7 +122,7 @@ install **只写本地缓存**,永不改写 profiles / task.yaml（同 11 不变
 1. Agent 只是 binding 选型：Config Core 之下**不得**出现 `if agent…` 新分支;投影后与手写 profiles 完全同构。
 2. `agent.yaml` 与缓存包内**永不**出现 secret 值;`api_key` / `base_url` 只承载 locator 名。
 3. lock 内 agent 引用必须钉死 `version+digest`;**禁止**浮动 `@latest` 进 lock。
-4. `agent_ref` 不进 suite fingerprint / `rt_*`;进 `job_overlay` 与 lock digest。
+4. `agent_ref` 不进 suite fingerprint / `rt_*`；进 `job_overlay` 与 lock digest / Trial identity。缺 `agent_ref` 的手写 profiles 与带同一 binding 的 `--agent` 不是同一 Trial。
 5. `--agent` 与 `--profiles` 互斥;`bora agent install` 只写本地缓存。
 6. PASS 仍只来自独立 evaluator;Agent 对象与评分无关。
 
