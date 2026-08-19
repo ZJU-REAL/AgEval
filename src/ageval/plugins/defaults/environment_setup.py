@@ -25,8 +25,11 @@ async def default_environment_setup(ctx: Any, value: Any, nxt: NextFn) -> Any:
 
     host = ctx.host
     await host.upload(source, BOX_ENVIRONMENT_DIR)
+    # Relative argv against the mapped cwd: in-box absolute paths are literals
+    # to the process, and a local box has no ``/attempt`` on disk.
     result = await host.exec(
-        ["sh", f"{BOX_ENVIRONMENT_DIR}/{SETUP_FILENAME}"],
+        ["sh", SETUP_FILENAME],
+        cwd=BOX_ENVIRONMENT_DIR,
         timeout_sec=ctx.remaining_seconds(),
     )
     ctx.record_fact(

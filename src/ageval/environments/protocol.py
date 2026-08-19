@@ -84,6 +84,7 @@ class StdioTransport(Protocol):
 
     stdin: object
     stdout: object
+    stderr: object
 
     def terminate(self) -> None: ...
 
@@ -96,12 +97,18 @@ class EnvironmentProvider(Protocol):
 
     kind: str
     capabilities: EnvironmentCapabilities
+    # argv prefix that runs a Python module inside this box, e.g. ``("python3",)``.
+    python_command: tuple[str, ...]
 
     async def preflight(self) -> None:
         """Fail closed at lock time when this box cannot be opened here."""
         ...
 
     async def start(self, *, force_build: bool = False) -> None: ...
+
+    def placement(self) -> Placement:
+        """Engine-issued attach facts for the open box (no vendor handle)."""
+        ...
 
     async def exec(
         self,

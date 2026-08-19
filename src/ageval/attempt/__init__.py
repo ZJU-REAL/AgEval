@@ -16,12 +16,22 @@ from ageval.attempt.phases import cleanup, environment, evaluate, record, run
 
 
 async def run_attempt(ctx: AttemptCtx) -> None:
-    """Open the box, run the task, judge it, record it, tear the box down."""
+    """Open the box, run the task, judge it, record it, tear the box down.
+
+    A phase failure is an outcome, not a crash: it is recorded against the phase
+    that failed and the Attempt still produces a result document. Cancellation
+    (``BaseException``) still propagates, and cleanup still runs either way.
+    """
     try:
         await environment.run(ctx)
         await run.run(ctx)
         await evaluate.run(ctx)
         await record.run(ctx)
+    except Exception as exc:  # noqa: BLE001 — the phase name is the operator's answer
+        ctx.record_fact(
+            "phase_failed",
+            {"phase": ctx.phase, "error": f"{type(exc).__name__}: {exc}"},
+        )
     finally:
         await cleanup.run(ctx)
 

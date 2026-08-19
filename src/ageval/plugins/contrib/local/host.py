@@ -8,6 +8,7 @@ import os
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -34,6 +35,7 @@ class LocalStdio:
         self._process = process
         self.stdin = process.stdin
         self.stdout = process.stdout
+        self.stderr = process.stderr
 
     @property
     def pid(self) -> int:
@@ -61,6 +63,8 @@ class LocalHost:
     """Real local box: one work root per Attempt, real subprocesses."""
 
     kind = "local"
+    # The box is this interpreter's own machine, so it is also its Python.
+    python_command = (sys.executable,)
     capabilities = EnvironmentCapabilities(
         exec=True,
         upload=True,
@@ -77,10 +81,10 @@ class LocalHost:
         options: Mapping[str, object] | None = None,
         attempt_root: Path | str | None = None,
     ) -> None:
-        opts = dict(options or {})
-        root_raw = attempt_root or opts.get("attempt_root")
-        self._root = Path(str(root_raw)).expanduser().resolve(strict=False) if root_raw else None
-        self._owns_root = root_raw is None
+        del options  # local takes no job options
+        self._root = (
+            Path(str(attempt_root)).expanduser().resolve(strict=False) if attempt_root else None
+        )
         self._started = False
         self._stopped = False
         self._attached: list[LocalStdio] = []
@@ -265,12 +269,17 @@ class LocalHost:
         return (self.root / rel) if rel else self.root
 
     def _child_env(self, env: Mapping[str, str] | None) -> dict[str, str]:
-        """Only what the caller declared, plus the minimum a process needs."""
+        """Only what the caller declared, plus this box's own path publication.
+
+        A kind publishes the paths *as its processes see them*; here the box is
+        a host directory, so the in-box contract maps onto real host paths.
+        """
         out = {str(k): str(v) for k, v in (env or {}).items()}
         out.setdefault("PATH", os.environ.get("PATH", "/usr/bin:/bin"))
         out.setdefault("LANG", os.environ.get("LANG", "C"))
-        out.setdefault("AGEVAL_WORKSPACE", WORKSPACE_PATH)
-        out.setdefault("AGEVAL_ARTIFACTS", ARTIFACTS_PATH)
+        out.setdefault("AGEVAL_WORKSPACE", str(self.host_path(WORKSPACE_PATH)))
+        out.setdefault("AGEVAL_ARTIFACTS", str(self.host_path(ARTIFACTS_PATH)))
+        out.setdefault("AGEVAL_EVALUATION", str(self.host_path(EVALUATION_PATH)))
         return out
 
     def _assert_started(self) -> None:

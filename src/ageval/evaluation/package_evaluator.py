@@ -12,10 +12,9 @@ from typing import Any
 
 from ageval.attempt.ctx import AttemptCtx
 from ageval.config.model import thaw
-from ageval.environments.protocol import ARTIFACTS_PATH, EVALUATION_PATH
+from ageval.environments.protocol import EVALUATION_PATH
 
 _RUNNER_NAME = "_ageval_evaluator_runner.py"
-_RESULT_NAME = "evaluation.json"
 _BOX_EVALUATOR_DIR = f"{EVALUATION_PATH}/_evaluator"
 
 
@@ -31,21 +30,18 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
 
     await ctx.host.upload(evaluator_src, f"{_BOX_EVALUATOR_DIR}/{module_file}")
     await ctx.host.upload(_runner_source_path(), f"{_BOX_EVALUATOR_DIR}/{_RUNNER_NAME}")
-    await _upload_published_artifacts(ctx)
 
     request = {
         "entrypoint": entrypoint,
         "module_file": module_file,
-        "artifacts_dir": ARTIFACTS_PATH,
-        "evaluation_dir": EVALUATION_PATH,
-        "artifacts": _artifact_paths(ctx),
         "inputs": refs.get("evaluation_inputs") or [],
         "parameters": thaw(ctx.lock.parameters),
-        "result_path": f"{ARTIFACTS_PATH}/{_RESULT_NAME}",
     }
+    # argv is relative to the mapped cwd: an in-box absolute path would be a
+    # literal string to a local box, which has no ``/attempt`` on disk.
     result = await ctx.host.exec(
-        ["python3", f"{_BOX_EVALUATOR_DIR}/{_RUNNER_NAME}", json.dumps(request)],
-        cwd=ARTIFACTS_PATH,
+        [*ctx.host.python_command, _RUNNER_NAME, json.dumps(request)],
+        cwd=_BOX_EVALUATOR_DIR,
         timeout_sec=ctx.remaining_seconds(),
     )
     ctx.record_fact("evaluator_exec", {"exit_code": result.exit_code})
@@ -54,25 +50,6 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
             f"evaluator exited {result.exit_code}: {(result.stderr or result.stdout)[-500:]}"
         )
     return _read_verdict(ctx, result.stdout)
-
-
-async def _upload_published_artifacts(ctx: AttemptCtx) -> None:
-    """Move host-side published artifacts into the box before judging."""
-    staged = ctx.evidence.path("task-artifacts")
-    if staged.is_dir() and any(staged.iterdir()):
-        await ctx.host.upload(staged, ARTIFACTS_PATH)
-
-
-def _artifact_paths(ctx: AttemptCtx) -> dict[str, str]:
-    """Declared artifact id → in-box path, for what the task actually published."""
-    staged = ctx.evidence.path("task-artifacts")
-    if not staged.is_dir():
-        return {}
-    return {
-        item.stem: f"{ARTIFACTS_PATH}/{item.name}"
-        for item in sorted(staged.iterdir())
-        if item.is_file()
-    }
 
 
 def _read_verdict(ctx: AttemptCtx, stdout: str) -> dict[str, Any]:

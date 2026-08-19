@@ -7,8 +7,6 @@ ACP a real ``Popen`` pipe.
 
 from __future__ import annotations
 
-from typing import Any
-
 from ageval.plugins.contrib.local.host import LocalHost
 from ageval.plugins.registry import ExtensionRegistry
 from ageval.plugins.slots import ENVIRONMENT
@@ -17,18 +15,13 @@ PLUGIN_ID = "local"
 LOCAL_PRIORITY = 100
 
 
-def _local_factory(**kwargs: Any) -> LocalHost:
-    return LocalHost(
-        options=dict(kwargs.get("options") or {}),
-        attempt_root=kwargs.get("attempt_root"),
-    )
-
-
 def register_local_contrib(registry: ExtensionRegistry) -> None:
+    # The class is the factory, so its declared capabilities are readable at
+    # lock time — before any box exists.
     registry.exclusive(
         ENVIRONMENT,
         PLUGIN_ID,
-        _local_factory,
+        LocalHost,
         priority=LOCAL_PRIORITY,
         source="first-party",
         is_factory=True,

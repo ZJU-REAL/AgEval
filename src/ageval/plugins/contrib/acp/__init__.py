@@ -40,11 +40,9 @@ class AcpExecutorSPI(ExecutorSPI):
         model: str | None = None,
         base_url: str | None = None,
         api_key: str | None = None,
-        plugin_id: str | None = None,
         home: str | None = None,
         **_kwargs: Any,
     ) -> None:
-        del plugin_id
         opts = dict(options or {})
         entry = opts.get("entry") or opts.get("entry_id")
         if not entry or not str(entry).strip():

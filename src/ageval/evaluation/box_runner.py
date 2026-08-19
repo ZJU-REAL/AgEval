@@ -2,16 +2,22 @@
 
 Reads one JSON request argument, loads the task's ``evaluator.py`` from the box
 filesystem, calls the entrypoint, and prints the verdict as the last stdout line.
-Runs with only the standard library so any box image can host it.
+
+Every directory comes from the environment the box published, so this file never
+needs to know whether it is running in a container or in a host work root. Only
+the standard library is used, so any box image can host it.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
+
+RESULT_NAME = "evaluation.json"
 
 
 def _load_callable(module_path: Path, entrypoint: str) -> Any:
@@ -30,32 +36,45 @@ def _load_callable(module_path: Path, entrypoint: str) -> Any:
     return func
 
 
+def _published(artifacts_dir: Path) -> dict[str, str]:
+    """Artifact id → in-box path for what the task actually produced."""
+    if not artifacts_dir.is_dir():
+        return {}
+    return {
+        item.stem: str(item)
+        for item in sorted(artifacts_dir.iterdir())
+        if item.is_file() and item.name != RESULT_NAME
+    }
+
+
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
         print(json.dumps({"status": "ERROR", "error": "missing_request"}))
         return 2
     request = json.loads(argv[1])
     here = Path(__file__).resolve().parent
-    module_path = here / str(request.get("module_file") or "evaluator.py")
-    func = _load_callable(module_path, str(request["entrypoint"]))
+    func = _load_callable(here / str(request["module_file"]), str(request["entrypoint"]))
 
-    context = {
-        "artifacts": request.get("artifacts") or {},
-        "artifacts_dir": request.get("artifacts_dir"),
-        "evaluation_dir": request.get("evaluation_dir"),
-        "inputs": request.get("inputs") or [],
-        "parameters": request.get("parameters") or {},
-    }
-    verdict = func(context)
+    artifacts_dir = Path(os.environ["AGEVAL_ARTIFACTS"])
+    # Judge from the artifacts directory: relative paths in an evaluator mean
+    # "the thing the task produced".
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    os.chdir(artifacts_dir)
+    verdict = func(
+        {
+            "artifacts": _published(artifacts_dir),
+            "artifacts_dir": str(artifacts_dir),
+            "evaluation_dir": os.environ["AGEVAL_EVALUATION"],
+            "inputs": request.get("inputs") or [],
+            "parameters": request.get("parameters") or {},
+        }
+    )
     if not isinstance(verdict, dict):
         print(json.dumps({"status": "ERROR", "error": "verdict_not_object"}))
         return 1
-    result_path = request.get("result_path")
-    if result_path:
-        Path(str(result_path)).write_text(
-            json.dumps(verdict, sort_keys=True, ensure_ascii=False), encoding="utf-8"
-        )
-    print(json.dumps(verdict, sort_keys=True, ensure_ascii=False))
+    payload = json.dumps(verdict, sort_keys=True, ensure_ascii=False)
+    (artifacts_dir / RESULT_NAME).write_text(payload, encoding="utf-8")
+    print(payload)
     return 0
 
 

@@ -45,4 +45,3 @@ __all__ = [
 ]
 
 __version__ = _load_version()
-

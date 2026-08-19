@@ -89,9 +89,6 @@ class BindingIntent:
     model: str | None = None
     base_url: str | None = None
     api_key: str | None = None
-    package_root: str | None = None
-    # Engine-owned box root handed to the environment winner at run time.
-    attempt_root: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,11 +1,6 @@
 """Evidence helpers for ParentAgentService invokes.
 
 Trajectory is observational only — never PASS authority.
-
-When an extension graph is provided (#71 B), seal runs multi
-``trajectory_collect`` → ``trajectory_enrich``, then writes trajectory.jsonl
-from the chain payload (single Core writer), then optional ``trajectory_seal``
-provide + ``evidence_extra``.
 """
 
 from __future__ import annotations
@@ -76,42 +71,24 @@ def write_invoke_request(
     profile_id: str,
     kind: str,
     model: str,
-    base_url: str | None,
-    api_key: str | None,
-    actor_id: str | None,
-    target_id: str | None,
-    generation: int | None,
-    l1_container_only: bool,
+    actor_id: str | None = None,
 ) -> None:
     """Write request.json + invoke_start lifecycle event. Raises RedactionError."""
-    req_doc: dict[str, Any] = {
+    request: dict[str, Any] = {
         "messages": [{"role": "user", "content": prompt}],
         "profile_id": profile_id,
         "executor_kind": kind,
         "model": model,
-        "schema_hint": None,
-        "tool_specs": [],
     }
-    # Locator/name only — never secret values.
-    if base_url:
-        req_doc["base_url"] = base_url
-    if api_key:
-        req_doc["api_key"] = api_key
     if actor_id:
-        req_doc["actor_id"] = actor_id
-    if target_id:
-        req_doc["target_id"] = target_id
-    if generation is not None:
-        req_doc["generation"] = generation
-    handle.write_request(req_doc)
+        request["actor_id"] = actor_id
+    handle.write_request(request)
     handle.append_event(
         {
             "type": "lifecycle",
             "phase": "invoke_start",
             "source": "agent_service",
-            **({"execution_location": "attempt-container"} if l1_container_only else {}),
             **({"actor_id": actor_id} if actor_id else {}),
-            **({"target_id": target_id} if target_id else {}),
         }
     )
 
@@ -127,14 +104,11 @@ def seal_invoke_result(
     extension_graph: Any | None = None,
     extension_ctx: Any | None = None,
 ) -> str | None:
-    """Stream events, write trajectory.jsonl for every executor, seal handle.
+    """Stream events, write trajectory.jsonl, then seal the invocation.
 
-    When *extension_graph* is set (#71 B), runs ``trajectory_collect`` →
-    ``trajectory_enrich`` on a live payload, writes from that payload, then
-    ``trajectory_seal`` provide + ``evidence_extra``. Trajectory extension
-    failures fail-open so the base write still succeeds (never invent PASS).
-
-    Returns ``\"redaction_failed\"`` on RedactionError, else None.
+    The ``trajectory_collect`` → ``trajectory_enrich`` chains may shape the
+    payload; the write itself stays here so the engine remains the only author
+    of evidence. Returns ``"redaction_failed"`` on RedactionError, else None.
     """
     # Stream backend events into invocation events.jsonl.
     events = getattr(result, "events", ()) or ()
@@ -179,75 +153,24 @@ def seal_invoke_result(
     }
 
     if extension_graph is not None:
-        try:
-            from ageval.attempt.emit import run_chain
-            from ageval.plugins.slots import TRAJECTORY_COLLECT, TRAJECTORY_ENRICH
-
-            for slot in (TRAJECTORY_COLLECT, TRAJECTORY_ENRICH):
-                out = _run_async(run_chain(extension_graph, slot, traj_payload, ctx=extension_ctx))
-                traj_payload = (
-                    out
-                    if isinstance(out, dict)
-                    else {"prompt": prompt, "events": events, "metadata": meta}
-                )
-        except Exception:
-            # Trajectory chains are observational; they must never invent PASS.
-            _LOG.exception("trajectory chain failed (fail-open)")
+        traj_payload = _shape_trajectory(extension_graph, extension_ctx, traj_payload)
 
     from ageval.evidence.trajectory import write_trajectory_jsonl
 
-    sentinels = ()
     store = getattr(handle, "store", None)
-    if store is not None:
-        sentinels = tuple(getattr(store, "sentinels", ()) or ())
-
-    write_prompt = str(traj_payload.get("prompt") if isinstance(traj_payload, dict) else prompt)
-    write_events = traj_payload.get("events", events) if isinstance(traj_payload, dict) else events
-    if not isinstance(write_events, (tuple, list)):
-        write_events = events
-    write_final = str(
-        traj_payload.get("final_text", getattr(result, "text", "") or "")
-        if isinstance(traj_payload, dict)
-        else (getattr(result, "text", "") or "")
-    )
-    write_meta = (
-        dict(traj_payload.get("metadata") or meta) if isinstance(traj_payload, dict) else meta
-    )
-    write_structured = (
-        traj_payload.get("structured")
-        if isinstance(traj_payload, dict)
-        else getattr(result, "structured", None)
-    )
-    if not isinstance(write_structured, dict):
-        write_structured = (
-            result.structured if isinstance(getattr(result, "structured", None), dict) else None
-        )
-    write_usage = (
-        traj_payload.get("usage")
-        if isinstance(traj_payload, dict)
-        else getattr(result, "usage", None)
-    )
-    write_ok = (
-        bool(traj_payload.get("ok", result.ok))
-        if isinstance(traj_payload, dict)
-        else bool(result.ok)
-    )
-    write_error = (
-        traj_payload.get("error", result.error) if isinstance(traj_payload, dict) else result.error
-    )
+    sentinels = tuple(getattr(store, "sentinels", ()) or ()) if store is not None else ()
+    payload_events = traj_payload["events"]
 
     write_trajectory_jsonl(
         handle.directory,
-        prompt=write_prompt,
-        events=tuple(write_events) if not isinstance(write_events, tuple) else write_events,
-        final_text=write_final,
-        structured=write_structured,
-        usage=write_usage if isinstance(write_usage, dict) else getattr(result, "usage", None),
-        ok=write_ok,
-        error=write_error
-        if isinstance(write_error, str) or write_error is None
-        else str(write_error),
-        metadata=write_meta,
+        prompt=str(traj_payload["prompt"]),
+        events=tuple(payload_events),
+        final_text=str(traj_payload["final_text"]),
+        structured=traj_payload["structured"],
+        usage=traj_payload["usage"],
+        ok=bool(traj_payload["ok"]),
+        error=traj_payload["error"],
+        metadata=dict(traj_payload["metadata"]),
         redaction_sentinels=sentinels,
     )
 
@@ -266,9 +189,7 @@ def seal_invoke_result(
                     "note": "ephemeral; no reusable session secret",
                 },
             }
-            seal_marker = (
-                traj_payload.get("seal_marker") if isinstance(traj_payload, dict) else None
-            )
+            seal_marker = traj_payload.get("seal_marker")
             if isinstance(seal_marker, dict):
                 final["trajectory_seal"] = seal_marker
             handle.seal(
@@ -293,3 +214,30 @@ def seal_invoke_result(
     except RedactionError:
         return "redaction_failed"
     return None
+
+
+def _shape_trajectory(
+    extension_graph: Any,
+    extension_ctx: Any,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Let plugins shape the payload; the engine still writes the file.
+
+    Observational only, so a broken chain leaves the engine's own payload
+    standing rather than taking the invocation down.
+    """
+    from ageval.attempt.emit import run_chain
+    from ageval.plugins.slots import TRAJECTORY_COLLECT, TRAJECTORY_ENRICH
+
+    shaped = payload
+    for slot in (TRAJECTORY_COLLECT, TRAJECTORY_ENRICH):
+        try:
+            out = _run_async(run_chain(extension_graph, slot, shaped, ctx=extension_ctx))
+        except Exception:
+            _LOG.exception("trajectory chain %s failed (fail-open)", slot)
+            continue
+        if isinstance(out, dict) and out.keys() >= payload.keys():
+            shaped = out
+        else:
+            _LOG.warning("trajectory chain %s returned an unusable payload; kept engine copy", slot)
+    return shaped

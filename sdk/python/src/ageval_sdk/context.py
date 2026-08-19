@@ -1,9 +1,9 @@
-"""RunContext and parameter view (HC-1)."""
+"""RunContext and parameter view handed to a task's ``run.py``."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -48,23 +48,36 @@ class RunParameterView:
     def as_mapping(self) -> Mapping[str, Any]:
         return self._data
 
+    def __getitem__(self, path: str) -> Any:
+        value = self.get(path, _MISSING)
+        if value is _MISSING:
+            raise KeyError(path)
+        return value
+
+    def __contains__(self, path: str) -> bool:
+        return self.get(path, _MISSING) is not _MISSING
+
+
+_MISSING = object()
+
 
 @dataclass
 class RunContext:
-    """Minimal HC-1 context injected into ``async def run(ctx)``."""
+    """What ``async def run(ctx)`` may touch.
+
+    No box handle and no path into ``evaluation/``: the task drives its Agent
+    session and writes artifacts, and that is the whole surface.
+    """
 
     params: RunParameterView
     scope: RunScope
     workspace_root: Path
     artifact_dir: Path
-    # Database root when known (#65): code-path access to shared/assets (not Agent mount).
+    # Dataset root when known: code-path access to shared assets (not an Agent mount).
     dataset_root: Path | None = None
+    agent: Any = None
     _closed: bool = False
-    _published: dict[str, Path] | None = None
-
-    def __post_init__(self) -> None:
-        if self._published is None:
-            self._published = {}
+    _published: dict[str, Path] = field(default_factory=dict)
 
     def close(self) -> None:
         self._closed = True
@@ -72,6 +85,11 @@ class RunContext:
     @property
     def is_closed(self) -> bool:
         return self._closed
+
+    @property
+    def published(self) -> Mapping[str, Path]:
+        """Artifacts this run declared, in publish order."""
+        return MappingProxyType(self._published)
 
     def publish_json(self, artifact_id: str, data: Mapping[str, Any]) -> Path:
         """Write declared JSON artifact under artifact_dir (task-local)."""
@@ -83,7 +101,6 @@ class RunContext:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         path.write_text(payload + "\n", encoding="utf-8")
-        assert self._published is not None
         self._published[artifact_id] = path
         return path
 
@@ -92,6 +109,5 @@ class RunContext:
             raise RuntimeError("context closed")
         dest = self.artifact_dir / source.name
         dest.write_bytes(source.read_bytes())
-        assert self._published is not None
         self._published[artifact_id] = dest
         return dest

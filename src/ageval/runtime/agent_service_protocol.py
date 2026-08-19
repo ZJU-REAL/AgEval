@@ -13,7 +13,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from ageval.runtime.parent_agent_service import ParentAgentService
+from ageval.runtime.parent_agent import ParentAgentService
 
 
 def _recv_msg(conn: socket.socket) -> dict[str, Any]:
@@ -43,19 +43,19 @@ def _read_exact(conn: socket.socket, n: int) -> bytes:
 class AgentServiceServer:
     """Unix-socket server exposing ParentAgentService to the task worker."""
 
-    def __init__(self, service: ParentAgentService, sock_path: Path) -> None:
+    def __init__(self, service: ParentAgentService, socket_path: Path) -> None:
         self.service = service
-        self.sock_path = sock_path
+        self.socket_path = socket_path
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._server: socket.socket | None = None
 
     def start(self) -> None:
-        if self.sock_path.exists():
-            self.sock_path.unlink()
-        self.sock_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.socket_path.exists():
+            self.socket_path.unlink()
+        self.socket_path.parent.mkdir(parents=True, exist_ok=True)
         srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        srv.bind(str(self.sock_path))
+        srv.bind(str(self.socket_path))
         srv.listen(8)
         srv.settimeout(0.5)
         self._server = srv
@@ -63,15 +63,18 @@ class AgentServiceServer:
         self._thread.start()
 
     def stop(self) -> None:
+        """Close every session, then the socket. No Agent can write after this."""
+        for session_id in self.service.open_session_ids():
+            self.service.close_session(session_id=session_id)
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=2.0)
         if self._server is not None:
             with contextlib.suppress(OSError):
                 self._server.close()
-        if self.sock_path.exists():
+        if self.socket_path.exists():
             with contextlib.suppress(OSError):
-                self.sock_path.unlink()
+                self.socket_path.unlink()
 
     def _loop(self) -> None:
         assert self._server is not None

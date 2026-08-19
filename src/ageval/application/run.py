@@ -6,6 +6,7 @@ no orchestration: the phase order lives in ``ageval.attempt``.
 
 from __future__ import annotations
 
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -21,11 +22,15 @@ from ageval.config.model import LockedTaskConfig, locked_to_summary, thaw
 from ageval.evaluation.bind import AttemptResult, bind_result
 from ageval.evidence.locators import default_runs_root
 from ageval.evidence.store import AttemptEvidenceStore
-from ageval.plugins.protocol import ExtensionGraph
+from ageval.plugins.binding import bind_winner
+from ageval.plugins.bootstrap import ensure_bootstrapped
 from ageval.plugins.services import ServiceTable
-from ageval.plugins.slots import ENVIRONMENT, EXECUTOR
+from ageval.plugins.slots import ENVIRONMENT
+from ageval.runtime.agent_binding import AgentBinder
+from ageval.runtime.agent_service_protocol import AgentServiceServer
 from ageval.runtime.cancellation import CancellationSignal
 from ageval.runtime.identity import IdentityFactory
+from ageval.runtime.parent_agent import ParentAgentService, resolve_invoke_timeout_seconds
 
 EXIT_PASS = 0
 EXIT_FAIL = 1
@@ -71,15 +76,29 @@ async def run_attempt(
     )
     evidence.write_lock_summary(locked.summary())
 
-    profile_id, graph = _selected_profile(lock)
+    registry = ensure_bootstrapped()
+    profile_id = _selected_profile_id(lock)
     services = ServiceTable()
-    host = _bind_environment(graph, services, attempt_root=evidence.path("box"))
-    executor_winner = graph.winners.get(EXECUTOR)
-    if executor_winner is not None:
-        services.register(EXECUTOR, executor_winner.impl, plugin_id=executor_winner.plugin_id)
-
+    binder = AgentBinder(
+        profiles=tuple(lock.agent_profiles),
+        services=services,
+        registry=registry,
+        environment=lock.environment,
+        requires=thaw(lock.requires),
+    )
+    graph = binder.graph(profile_id)
+    host = bind_winner(registry, graph, ENVIRONMENT, attempt_root=str(evidence.path("box")))
+    services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
     await host.preflight()
 
+    deadline = _deadline(lock)
+    agent_service = _agent_service(
+        attempt_id=attempt_ident.value,
+        binder=binder,
+        lock=lock,
+        evidence=evidence,
+        deadline_monotonic=deadline,
+    )
     ctx = AttemptCtx(
         run_id=run_ident.value,
         trial_id=trial_ident.value,
@@ -96,18 +115,16 @@ async def run_attempt(
         seed_dir=_optional_dir(task_root, lock, "seed_dir", SEED_DIR),
         environment_src=_optional_dir(task_root, lock, "environment_dir", ENVIRONMENT_DIR),
         evaluation_src=_optional_dir(task_root, lock, "evaluation_dir", EVALUATION_DIR),
-        deadline_monotonic=_deadline(lock),
+        agent_service=agent_service,
+        deadline_monotonic=deadline,
         keep_workspace=keep_workspace,
     )
 
-    error_phase: str | None = None
     try:
         await run_attempt_pipeline(ctx)
-    except Exception as exc:  # noqa: BLE001 — the phase name is the operator's answer
-        error_phase = ctx.phase
-        ctx.record_fact(
-            "phase_failed", {"phase": ctx.phase, "error": f"{type(exc).__name__}: {exc}"}
-        )
+    finally:
+        # The run phase stops it too; this is the guarantee for earlier failures.
+        agent_service.stop()
 
     result = bind_result(
         evaluator_raw=ctx.evaluation_result,
@@ -115,8 +132,8 @@ async def run_attempt(
         capabilities_used=sorted(host.capabilities.names()),
         agent_invocations=len(evidence.list_invocations()),
         evidence_path=evidence.locator,
-        cleanup_warning=_cleanup_warning(ctx),
-        error_phase=error_phase,
+        cleanup_warning=_fact_detail(ctx, "cleanup_warning", "error"),
+        error_phase=_fact_detail(ctx, "phase_failed", "phase"),
         facts=tuple(ctx.facts_as_list()),
     )
     evidence.write_summary({"result": result.as_dict(), "facts": ctx.facts_as_list()})
@@ -142,45 +159,41 @@ def _open_evidence(
     )
 
 
-def _selected_profile(lock: LockedTaskConfig) -> tuple[str, ExtensionGraph]:
-    """Re-resolve the locked graph for this run (same registry, same bindings)."""
-    from ageval.plugins.bootstrap import ensure_bootstrapped
-    from ageval.plugins.protocol import intent_from_profile
-    from ageval.plugins.resolve import resolve
-
+def _selected_profile_id(lock: LockedTaskConfig) -> str:
+    """The role slot this Attempt runs. Extra roles open on demand per session."""
     rows = list(lock.agent_profiles)
     if not rows:
         raise RuntimeError("task declares no agent profile role slot to run")
-    profile = rows[0]
-    profile_id = str(profile.get("id"))
-    intent = intent_from_profile(
-        profile,
-        environment=lock.environment,
-        requires=thaw(lock.requires),
+    active = thaw(lock.parameters).get("active_profile")
+    if isinstance(active, str) and active.strip():
+        return active.strip()
+    return str(rows[0].get("id"))
+
+
+def _agent_service(
+    *,
+    attempt_id: str,
+    binder: AgentBinder,
+    lock: LockedTaskConfig,
+    evidence: AttemptEvidenceStore,
+    deadline_monotonic: float | None,
+) -> AgentServiceServer:
+    """Start the parent Agent Service the worker will call back into."""
+    limits = thaw(lock.limits)
+    parameters = thaw(lock.parameters)
+    service = ParentAgentService(
+        attempt_id=attempt_id,
+        binder=binder,
+        agent_invocation_limit=int(limits["agent_invocations"]),
+        evidence_store=evidence,
+        deadline_monotonic=deadline_monotonic,
+        invoke_timeout_seconds=resolve_invoke_timeout_seconds(parameters),
     )
-    intent.profile_id = profile_id
-    return profile_id, resolve(intent, ensure_bootstrapped(), materialize=True)
-
-
-def _bind_environment(graph: ExtensionGraph, services: ServiceTable, *, attempt_root: Path) -> Any:
-    """Materialize the box winner with the engine-owned work root."""
-    from ageval.plugins.bootstrap import ensure_bootstrapped
-    from ageval.plugins.registry import Registration
-
-    winner = graph.winners.get(ENVIRONMENT)
-    if winner is None:
-        raise RuntimeError("no environment kind is bound for this Attempt")
-    registration = ensure_bootstrapped().get_registration(ENVIRONMENT, winner.plugin_id)
-    if isinstance(registration, Registration) and registration.is_factory:
-        host = registration.impl(
-            options=dict(winner.options or {}),
-            attempt_root=str(attempt_root),
-            plugin_id=winner.plugin_id,
-        )
-    else:
-        host = winner.impl
-    services.register(ENVIRONMENT, host, plugin_id=winner.plugin_id)
-    return host
+    # Short path: a Unix socket name has ~100 usable bytes, evidence roots do not.
+    socket_dir = Path(tempfile.mkdtemp(prefix="ageval-"))
+    server = AgentServiceServer(service, socket_dir / "agent.sock")
+    server.start()
+    return server
 
 
 def _optional_dir(task_root: Path, lock: LockedTaskConfig, ref: str, fallback: str) -> Path | None:
@@ -197,10 +210,12 @@ def _deadline(lock: LockedTaskConfig) -> float | None:
     return time.monotonic() + float(wall)
 
 
-def _cleanup_warning(ctx: AttemptCtx) -> str | None:
+def _fact_detail(ctx: AttemptCtx, name: str, key: str) -> str | None:
+    """Last recorded value of one fact detail, for the result document."""
     for fact in reversed(ctx.phase_facts):
-        if fact.name == "cleanup_warning":
-            return str(fact.detail.get("error") or "cleanup failed")
+        if fact.name == name:
+            value = fact.detail.get(key)
+            return str(value) if value else None
     return None
 
 

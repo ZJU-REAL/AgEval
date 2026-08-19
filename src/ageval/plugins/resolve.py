@@ -47,7 +47,11 @@ def resolve(
     *,
     materialize: bool = True,
 ) -> ExtensionGraph:
-    """Resolve every slot for one profile intent."""
+    """Resolve every slot for one profile intent.
+
+    *materialize* builds the chain handlers, which is what an Attempt needs.
+    Lock only wants the graph, so it resolves without building anything.
+    """
     graph = ExtensionGraph(profile_id=intent.profile_id)
     explicit = list(intent.extensions)
     explicit.extend(expand_extension_selects(intent.extension_selects, registry))
@@ -83,7 +87,6 @@ def resolve(
                 candidates=candidates,
                 explicit=explicit,
                 slot_explicit=slot_explicit,
-                materialize=materialize,
             )
         else:
             _resolve_chain(
@@ -96,22 +99,27 @@ def resolve(
                 materialize=materialize,
             )
 
-    _collect_services(graph, registry, materialize=materialize)
+    _collect_services(graph, registry)
     _collect_injects(graph, registry)
-    if materialize:
-        available = {sid: graph.winners[sid].impl for sid in graph.winners}
-        available.update(
-            {sid: graph.winners[sid].impl for sid in graph.services if sid in graph.winners}
-        )
-        for sid, plugin_id in graph.services.items():
-            if sid in available:
-                continue
-            reg = registry.service(sid)
-            if reg is not None and reg.plugin_id == plugin_id:
-                available[sid] = reg.impl
-        assert_inject_satisfied(graph.injects, available)
+    assert_inject_satisfied(graph.injects, _declared_services(graph, registry))
     _assert_requires(intent, graph)
     return graph
+
+
+def _declared_services(graph: ExtensionGraph, registry: ExtensionRegistry) -> dict[str, Any]:
+    """Service id → declared implementation, for lock-time capability checks.
+
+    Winners are still classes here, and capabilities are declared on the class,
+    so a box that cannot ``attach_stdio`` fails the lock rather than an invoke.
+    """
+    available: dict[str, Any] = {slot: ref.impl for slot, ref in graph.winners.items()}
+    for service_id, plugin_id in graph.services.items():
+        if service_id in available:
+            continue
+        registration = registry.service(service_id)
+        if registration is not None and registration.plugin_id == plugin_id:
+            available[service_id] = registration.impl
+    return available
 
 
 def _resolve_exclusive(
@@ -122,7 +130,6 @@ def _resolve_exclusive(
     candidates: list[Candidate],
     explicit: list[ExplicitBinding],
     slot_explicit: list[ExplicitBinding],
-    materialize: bool,
 ) -> None:
     if not slot_explicit:
         # No job field and no explicit row: only a registered default may win.
@@ -137,10 +144,10 @@ def _resolve_exclusive(
             kind="extension_materialize_failed",
         )
     options = _options_for(intent, explicit, slot, winner.plugin_id)
-    impl = _materialize(reg, intent, options) if materialize else reg.impl
+    # Winners stay declared, not constructed: see ``plugins/binding.py``.
     graph.winners[slot] = WinnerRef(
         plugin_id=winner.plugin_id,
-        impl=impl,
+        impl=reg.impl,
         priority=winner.priority,
         source=winner.source,
         version=winner.version,
@@ -186,7 +193,7 @@ def _resolve_chain(
                 kind="extension_materialize_failed",
             )
         options = _options_for(intent, explicit, slot, item.plugin_id)
-        handler = _materialize(reg, intent, options) if materialize else reg.impl
+        handler = _build_handler(reg, intent, options) if materialize else reg.impl
         refs.append(
             HandlerRef(
                 plugin_id=item.plugin_id,
@@ -213,14 +220,8 @@ def _resolve_chain(
     graph.chains[slot] = refs
 
 
-def _collect_services(
-    graph: ExtensionGraph,
-    registry: ExtensionRegistry,
-    *,
-    materialize: bool,
-) -> None:
+def _collect_services(graph: ExtensionGraph, registry: ExtensionRegistry) -> None:
     """Add ``exports.services`` of every bound plugin to the graph."""
-    del materialize
     bound = {ref.plugin_id for ref in graph.winners.values()}
     for chain in graph.chains.values():
         bound.update(h.plugin_id for h in chain)
@@ -269,17 +270,14 @@ def _assert_requires(intent: BindingIntent, graph: ExtensionGraph) -> None:
         )
 
 
-def _materialize(
+def _build_handler(
     reg: Registration,
     intent: BindingIntent,
     options: dict[str, Any] | None = None,
 ) -> Any:
-    """Construct the contribution when the registration is a factory."""
+    """Turn a chain registration into the handler that will run in the onion."""
     impl = reg.impl
-    plugin_opts = dict(options or {})
     if not reg.is_factory:
-        if _looks_like_handler(impl):
-            return impl
         return impl
     if not callable(impl):
         raise ExtensionMaterializeError(
@@ -288,14 +286,11 @@ def _materialize(
         )
     try:
         return impl(
-            options=plugin_opts,
+            options=dict(options or {}),
             profile_id=intent.profile_id,
             model=intent.model,
             base_url=intent.base_url,
             api_key=intent.api_key,
-            plugin_id=reg.plugin_id,
-            package_root=intent.package_root,
-            attempt_root=intent.attempt_root,
         )
     except ExtensionMaterializeError:
         raise
@@ -304,18 +299,6 @@ def _materialize(
             f"materialize failed for plugin {reg.plugin_id!r} slot {reg.slot!r}: {exc}",
             kind="extension_materialize_failed",
         ) from exc
-
-
-def _looks_like_handler(impl: Any) -> bool:
-    import inspect
-
-    if not inspect.iscoroutinefunction(impl):
-        return False
-    try:
-        params = list(inspect.signature(impl).parameters)
-    except (TypeError, ValueError):
-        return False
-    return len(params) >= 3
 
 
 def _options_for(

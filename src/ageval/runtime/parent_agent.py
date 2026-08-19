@@ -1,8 +1,10 @@
-"""Parent-owned Agent Service: session bind + pre-spawn hard ceiling + trajectory.
+"""Parent-owned Agent Service: the only place an Agent invocation is allowed.
 
-Worker/SDK only holds an opaque session id and talks over a Unix socket.
-Shared application code does not branch on benchmark/task names.
-Each parent-bound invoke writes per-invocation evidence before returning.
+The task worker holds an opaque session id and a socket path. Everything that
+could be abused stays here: the invocation quota, the wall deadline, the offline
+gate, credential-free executor binding, and per-invocation evidence. A ceiling
+is enforced *before* the external effect, so a task cannot spend its way past a
+limit and apologise afterwards.
 """
 
 from __future__ import annotations
@@ -13,15 +15,23 @@ import os
 import threading
 import time
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from ageval.capabilities.quota import AgentInvocationQuota
 from ageval.evidence.redaction import RedactionError
-from ageval.evidence.store import AttemptEvidenceStore
+from ageval.evidence.store import AttemptEvidenceStore, InvocationHandle
+from ageval.plugins.protocol import ExtensionGraph
+from ageval.plugins.slots import (
+    AFTER_AGENT_CLOSE,
+    AFTER_AGENT_INVOKE,
+    AFTER_AGENT_OPEN,
+    BEFORE_AGENT_CLOSE,
+    BEFORE_AGENT_INVOKE,
+    BEFORE_AGENT_OPEN,
+    NORMALIZE_AGENT_RESULT,
+)
+from ageval.runtime.agent_binding import AgentBinder, UnknownProfileError
 from ageval.runtime.agent_service_evidence import (
-    map_error_status,
     seal_failure,
     seal_invoke_result,
     write_invoke_request,
@@ -30,10 +40,7 @@ from ageval.runtime.offline import is_offline_agent
 
 _LOG = logging.getLogger(__name__)
 
-# Optional extension graph (Spec 00); kept as Any to avoid hard import cycles in types.
-ExtensionGraphLike = Any
-
-# Default per-invoke ceiling when package does not declare one.
+# Per-invoke ceiling when the task declares none.
 DEFAULT_INVOKE_TIMEOUT_SECONDS = 300.0
 
 
@@ -42,14 +49,9 @@ def resolve_invoke_timeout_seconds(
     *,
     default: float = DEFAULT_INVOKE_TIMEOUT_SECONDS,
 ) -> float:
-    """Read package ``parameters.agent_timeout_seconds`` (or alias).
-
-    Also accepts ``agent_invoke_timeout_seconds``. Non-positive / missing → default.
-    """
+    """Read ``parameters.agent_timeout_seconds``; non-positive falls back."""
     data = params if isinstance(params, dict) else {}
     raw = data.get("agent_timeout_seconds")
-    if raw is None:
-        raw = data.get("agent_invoke_timeout_seconds")
     try:
         value = float(raw)  # type: ignore[arg-type]
     except (TypeError, ValueError):
@@ -58,482 +60,203 @@ def resolve_invoke_timeout_seconds(
 
 
 @dataclass
+class AgentInvocationQuota:
+    """Pre-effect invoke budget for one Attempt. No refund on failure.
+
+    Thread-safe because the socket server answers each worker call on its own
+    thread, and the ceiling must hold across all of them.
+    """
+
+    limit: int
+    _used: int = field(default=0, init=False)
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
+
+    def __post_init__(self) -> None:
+        self.limit = max(0, int(self.limit))
+
+    @property
+    def remaining(self) -> int:
+        with self._lock:
+            return max(0, self.limit - self._used)
+
+    def try_consume(self) -> bool:
+        """Reserve one slot. False when the ceiling is already exhausted."""
+        with self._lock:
+            if self._used >= self.limit:
+                return False
+            self._used += 1
+            return True
+
+
+@dataclass
 class SessionBinding:
+    """One open logical session: a bound executor and its locked graph."""
+
     session_id: str
     attempt_id: str
     profile_id: str
     model: str
     executor_kind: str
-    # Optional profile routing (lock-safe): base_url + api_key env *locator* name.
-    base_url: str | None = None
-    api_key: str | None = None
-    # L1 multi-actor binding (opaque target id only — no docker handle).
+    executor: Any
+    graph: ExtensionGraph
     actor_id: str | None = None
-    target_id: str | None = None
-    generation: int | None = None
     closed: bool = False
-    # Spec 00: session-pinned extension graph for this profile (not re-resolved per invoke).
-    extension_graph: ExtensionGraphLike | None = None
 
 
 @dataclass
 class ParentAgentService:
-    """Process-local parent authority for Agent invocations.
+    """Process-local parent authority for one Attempt's Agent invocations."""
 
-    MVP: host executor path is **only** the session-pinned extension graph
-    (constitution §0 — no resolve_executor dual path).
-    L1 binds container targets via ``resolve_placement`` + SPI ``bind_to_target``.
-    """
-
-    profiles: list[dict[str, Any]]
+    attempt_id: str  # Runtime-owned; never taken from the worker
+    binder: AgentBinder
     agent_invocation_limit: int
-    attempt_id: str  # Runtime-owned; never taken from Harness client
-    extension_registry: Any  # ExtensionRegistry — required
-    offline_env: str = "AGEVAL_OFFLINE_AGENT"
-    # Shared with AttemptCapabilityAuthority when both are assembled for one Attempt.
     invoke_quota: AgentInvocationQuota | None = None
     evidence_store: AttemptEvidenceStore | None = None
     # Wall hard ceiling (monotonic seconds); checked before each external invoke.
     deadline_monotonic: float | None = None
-    # Per-invoke executor timeout (seconds). Default 300; packages set via
-    # ``parameters.agent_timeout_seconds`` (wired by run_l1 / run_command).
-    # Operator override: env ``AGEVAL_AGENT_INVOKE_TIMEOUT`` (seconds).
-    invoke_timeout_seconds: float = 300.0
-    # L1: require actor_id; validate against logical topology; bind target generation.
-    require_actor_id: bool = False
-    # Callable(actor_id, profile_id) -> dict with ok/error/target_id/generation or fail.
-    validate_actor_profile: Callable[[str, str], dict[str, Any]] | None = None
-    # L1: SessionBinding → TargetPlacement (ledger checks). SPI bind_to_target attaches.
-    resolve_placement: Callable[[SessionBinding], Any] | None = None
-    # Forbid host graph path (L1 container-only).
-    l1_container_only: bool = False
-    _sessions: dict[str, SessionBinding] = field(default_factory=dict)
-    # Reuse executor instances across multi-invoke ageval sessions (ACP process/session).
-    _executors: dict[str, Any] = field(default_factory=dict)
-    _lock: threading.Lock = field(default_factory=threading.Lock)
+    invoke_timeout_seconds: float = DEFAULT_INVOKE_TIMEOUT_SECONDS
+    offline_env: str = "AGEVAL_OFFLINE_AGENT"
     invocations_completed: int = 0
+    _sessions: dict[str, SessionBinding] = field(default_factory=dict, repr=False)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def __post_init__(self) -> None:
         if self.invoke_quota is None:
             self.invoke_quota = AgentInvocationQuota(limit=self.agent_invocation_limit)
-        if self.extension_registry is None:
-            msg = "extension_registry is required"
-            raise TypeError(msg)
-        # Normalize non-positive package values to default.
-        try:
-            t = float(self.invoke_timeout_seconds)
-        except (TypeError, ValueError):
-            t = DEFAULT_INVOKE_TIMEOUT_SECONDS
-        self.invoke_timeout_seconds = t if t > 0 else DEFAULT_INVOKE_TIMEOUT_SECONDS
-
-    def _wall_expired(self) -> bool:
-        return self.deadline_monotonic is not None and time.monotonic() >= self.deadline_monotonic
-
-    def _remaining_after(self) -> int:
-        assert self.invoke_quota is not None
-        return self.invoke_quota.remaining
-
-    def _resolve_invoke_timeout(self) -> float:
-        """Seconds for this executor.invoke call.
-
-        Priority: env ``AGEVAL_AGENT_INVOKE_TIMEOUT`` > service field; then
-        capped by remaining wall deadline when armed.
-        """
         timeout = float(self.invoke_timeout_seconds)
-        env_raw = os.environ.get("AGEVAL_AGENT_INVOKE_TIMEOUT", "").strip()
-        if env_raw:
-            with contextlib.suppress(ValueError):
-                env_t = float(env_raw)
-                if env_t > 0:
-                    timeout = env_t
-        timeout = max(1.0, timeout)
-        if self.deadline_monotonic is not None:
-            remaining = self.deadline_monotonic - time.monotonic()
-            if remaining <= 0:
-                return 0.1
-            timeout = min(timeout, remaining)
-        return timeout
+        self.invoke_timeout_seconds = timeout if timeout > 0 else DEFAULT_INVOKE_TIMEOUT_SECONDS
 
-    def _executor_from_graph(self, binding: SessionBinding) -> Any:
-        """Return the session-pinned executor provider impl (fail closed)."""
-        graph = binding.extension_graph
-        if graph is None:
-            raise RuntimeError("extension_graph_missing")
-        winners = getattr(graph, "winners", None)
-        if not isinstance(winners, dict):
-            raise RuntimeError("extension_graph_invalid")
-        winner = winners.get("executor")
-        if winner is None:
-            raise RuntimeError("executor_winner_missing")
-        impl = getattr(winner, "impl", None)
-        if impl is None:
-            raise RuntimeError("executor_impl_missing")
-        return impl
-
-    def _run_extension_chain(
-        self, binding: SessionBinding, slot: str, value: Any, *, ctx: Any | None = None
-    ) -> Any:
-        """Run one chain slot for the session-pinned graph (sync host path)."""
-        graph = binding.extension_graph
-        if graph is None:
-            return value
-        from ageval.attempt.emit import run_chain
-
-        return self._run_async_hook(
-            run_chain(graph, slot, value, ctx=ctx if ctx is not None else binding)
-        )
-
-    def _run_async_hook(self, coro: Any) -> Any:
-        """Drive an async lifecycle helper to completion (no drop)."""
-        import asyncio
-        import concurrent.futures
-
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            return asyncio.run(coro)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, coro).result()
-
-    def _emit_agent_open(self, binding: SessionBinding, value: Any) -> Any:
-        from ageval.plugins.slots import AFTER_AGENT_OPEN, BEFORE_AGENT_OPEN
-
-        out = self._run_extension_chain(binding, BEFORE_AGENT_OPEN, value)
-        return self._run_extension_chain(binding, AFTER_AGENT_OPEN, out)
-
-    def _normalize_agent_result(self, binding: SessionBinding, value: Any) -> Any:
-        from ageval.plugins.slots import NORMALIZE_AGENT_RESULT
-
-        return self._run_extension_chain(binding, NORMALIZE_AGENT_RESULT, value)
-
-    def get_session_extension_graph(self, session_id: str) -> ExtensionGraphLike | None:
-        """Test/debug helper: return the pinned graph for a session."""
-        with self._lock:
-            binding = self._sessions.get(session_id)
-            return None if binding is None else binding.extension_graph
+    # --- sessions ------------------------------------------------------------
 
     def open_session(self, *, profile_id: str, actor_id: str | None = None) -> dict[str, Any]:
         if self._wall_expired():
             return {"ok": False, "error": "wall_time_exceeded", "profile_id": profile_id}
-        if self.require_actor_id and (not actor_id or not str(actor_id).strip()):
-            return {
-                "ok": False,
-                "error": "actor_id_required",
-                "profile_id": profile_id,
-            }
-        actor_id_n = str(actor_id).strip() if actor_id else None
-        profile = next((p for p in self.profiles if p.get("id") == profile_id), None)
-        if profile is None:
-            return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
-
-        target_id: str | None = None
-        generation: int | None = None
-        if actor_id_n is not None and self.validate_actor_profile is not None:
-            check = self.validate_actor_profile(actor_id_n, profile_id)
-            if not check.get("ok"):
-                return {
-                    "ok": False,
-                    "error": str(check.get("error") or "actor_profile_denied"),
-                    "profile_id": profile_id,
-                    "actor_id": actor_id_n,
-                }
-            target_id = check.get("target_id")  # type: ignore[assignment]
-            generation = check.get("generation")  # type: ignore[assignment]
-            if target_id is not None:
-                target_id = str(target_id)
-            if generation is not None:
-                generation = int(generation)
-
-        base_url_raw = profile.get("base_url")
-        base_url = (
-            str(base_url_raw).strip()
-            if isinstance(base_url_raw, str) and base_url_raw.strip()
-            else None
-        )
-        api_key_raw = profile.get("api_key")
-        api_key = (
-            str(api_key_raw).strip()
-            if isinstance(api_key_raw, str) and api_key_raw.strip()
-            else None
-        )
-
-        # Resolve and pin extension graph (required; no legacy path).
-        from ageval.plugins.protocol import intent_from_profile
-        from ageval.plugins.resolve import resolve as resolve_extensions
-
-        intent = intent_from_profile(profile)
-        if not intent.profile_id:
-            intent.profile_id = profile_id
+        actor = str(actor_id).strip() if actor_id and str(actor_id).strip() else None
         try:
-            extension_graph = resolve_extensions(intent, self.extension_registry)
-        except Exception as exc:  # noqa: BLE001 — fail closed on resolve
-            err_kind = getattr(exc, "kind", None) or type(exc).__name__
+            bound = self.binder.bind(profile_id)
+        except UnknownProfileError:
+            return {"ok": False, "error": "unknown_profile", "profile_id": profile_id}
+        except Exception as exc:  # noqa: BLE001 — binding fails closed, once
+            kind = getattr(exc, "kind", None) or type(exc).__name__
             return {
                 "ok": False,
-                "error": str(err_kind),
+                "error": str(kind),
                 "profile_id": profile_id,
                 "detail": str(exc),
             }
 
-        pref = extension_graph.winners.get("executor")
-        if pref is None:
-            return {
-                "ok": False,
-                "error": "executor_provider_missing",
-                "profile_id": profile_id,
-            }
-        executor_kind = str(pref.plugin_id)
-
+        binding = SessionBinding(
+            session_id=f"sess_{uuid.uuid4().hex[:16]}",
+            attempt_id=self.attempt_id,
+            profile_id=profile_id,
+            model=bound.model,
+            executor_kind=bound.plugin_id,
+            executor=bound.executor,
+            graph=bound.graph,
+            actor_id=actor,
+        )
         with self._lock:
-            sid = f"sess_{uuid.uuid4().hex[:16]}"
-            binding = SessionBinding(
-                session_id=sid,
-                attempt_id=self.attempt_id,
-                profile_id=profile_id,
-                model=str(profile.get("model") or "gpt-5.4-mini"),
-                executor_kind=executor_kind,
-                base_url=base_url,
-                api_key=api_key,
-                actor_id=actor_id_n,
-                target_id=target_id,
-                generation=generation,
-                extension_graph=extension_graph,
-            )
-            self._sessions[sid] = binding
+            self._sessions[binding.session_id] = binding
 
-        # #71 A: before/after_agent_open after graph pin (fail closed — no half-open session).
-        open_meta: dict[str, Any] = {
-            "session_id": sid,
+        meta: dict[str, Any] = {
+            "session_id": binding.session_id,
             "profile_id": profile_id,
-            "executor_plugin": executor_kind,
-            "actor_id": actor_id_n,
-            "target_id": target_id,
-            "generation": generation,
+            "executor_plugin": binding.executor_kind,
+            "actor_id": actor,
         }
         try:
-            open_meta = self._emit_agent_open(binding, open_meta)
-            if not isinstance(open_meta, dict):
-                open_meta = {"session_id": sid, "profile_id": profile_id}
-        except Exception as exc:  # noqa: BLE001
+            self._chain(binding, BEFORE_AGENT_OPEN, meta)
+            self._chain(binding, AFTER_AGENT_OPEN, meta)
+        except Exception as exc:  # noqa: BLE001 — no half-open session
             with self._lock:
-                self._sessions.pop(sid, None)
-            err_kind = getattr(exc, "kind", None) or type(exc).__name__
+                self._sessions.pop(binding.session_id, None)
+            kind = getattr(exc, "kind", None) or type(exc).__name__
             return {
                 "ok": False,
                 "error": "agent_open_hook_failed",
                 "profile_id": profile_id,
-                "detail": f"{err_kind}: {exc}",
+                "detail": f"{kind}: {exc}",
             }
-
         return {
             "ok": True,
-            "session_id": sid,
+            "session_id": binding.session_id,
             "profile_id": profile_id,
-            "actor_id": actor_id_n,
-            "target_id": target_id,  # opaque only
-            "generation": generation,
+            "actor_id": actor,
             "attempt_id": self.attempt_id,
             "provider_session_handle": None,
-            "executor_plugin": executor_kind,
+            "executor_plugin": binding.executor_kind,
         }
 
-    def invoke(self, *, session_id: str, prompt: str) -> dict[str, Any]:
-        # Wall hard ceiling: refuse before external executor effect.
-        if self._wall_expired():
-            return {
-                "ok": False,
-                "error": "wall_time_exceeded",
-                "text": "",
-                "structured": None,
-                "provider_session_handle": None,
-            }
-        if is_offline_agent(env_name=self.offline_env):
-            return {
-                "ok": False,
-                "error": "offline_forced",
-                "text": "",
-                "structured": None,
-                "provider_session_handle": None,
-            }
+    def close_session(self, *, session_id: str) -> dict[str, Any]:
         with self._lock:
             binding = self._sessions.get(session_id)
             if binding is None:
-                return {"ok": False, "error": "unknown_session"}
-            if binding.closed:
-                return {"ok": False, "error": "session_closed"}
-            if binding.attempt_id != self.attempt_id:
-                return {"ok": False, "error": "cross_attempt_session"}
+                return {"ok": True, "already": "missing"}
+            binding.closed = True
+
+        payload: dict[str, Any] = {
+            "session_id": session_id,
+            "profile_id": binding.profile_id,
+            "executor_plugin": binding.executor_kind,
+        }
+        # The session is already closed; a reporting hook must not resurrect it.
+        try:
+            self._chain(binding, BEFORE_AGENT_CLOSE, payload)
+        except Exception:
+            _LOG.exception("before_agent_close failed (fail-open) session_id=%s", session_id)
+        close = getattr(binding.executor, "close", None)
+        if callable(close):
+            with contextlib.suppress(Exception):
+                close()
+        try:
+            self._chain(binding, AFTER_AGENT_CLOSE, payload)
+        except Exception:
+            _LOG.exception("after_agent_close failed (fail-open) session_id=%s", session_id)
+        return {"ok": True}
+
+    def session_graph(self, session_id: str) -> ExtensionGraph | None:
+        """The graph pinned to an open session (evidence / inspection)."""
+        with self._lock:
+            binding = self._sessions.get(session_id)
+        return None if binding is None else binding.graph
+
+    def open_session_ids(self) -> list[str]:
+        with self._lock:
+            return [sid for sid, binding in self._sessions.items() if not binding.closed]
+
+    # --- invoke --------------------------------------------------------------
+
+    def invoke(self, *, session_id: str, prompt: str) -> dict[str, Any]:
+        refusal = self._refuse_before_effect(session_id)
+        if refusal is not None:
+            return refusal
+        with self._lock:
+            binding = self._sessions[session_id]
             assert self.invoke_quota is not None
             if not self.invoke_quota.try_consume():
                 return {"ok": False, "error": "agent_invocation_limit"}
-            kind = binding.executor_kind
-            model = binding.model
-            profile_id = binding.profile_id
-            base_url = binding.base_url
-            api_key = binding.api_key
-            binding_snap = binding
-            actor_id = binding.actor_id
-            target_id = binding.target_id
-            generation = binding.generation
-            cached_executor = self._executors.get(session_id)
 
-        handle = None
         started = time.monotonic()
-        if self.evidence_store is not None:
-            handle = self.evidence_store.begin_invocation(
-                profile_id=profile_id,
-                executor_kind=kind,
-                model=model,
-            )
-            try:
-                write_invoke_request(
-                    handle,
-                    prompt=prompt,
-                    profile_id=profile_id,
-                    kind=kind,
-                    model=model,
-                    base_url=base_url,
-                    api_key=api_key,
-                    actor_id=actor_id,
-                    target_id=target_id,
-                    generation=generation,
-                    l1_container_only=self.l1_container_only,
-                )
-            except RedactionError:
-                # Already sealed as redaction_failed by store.
-                with self._lock:
-                    self.invocations_completed += 1
-                return {
-                    "ok": False,
-                    "error": "redaction_failed",
-                    "model": model,
-                    "text": "",
-                    "structured": None,
-                    "provider_session_handle": None,
-                    "remaining_after": self._remaining_after(),
-                    "invocation_id": handle.invocation_id if handle else None,
-                    "evidence_relative": handle.relative_path if handle else None,
-                }
+        handle, refused = self._begin_evidence(binding, prompt)
+        if refused is not None:
+            return self._failed(binding, handle, error=refused)
 
-        try:
-            executor: Any
-            if cached_executor is not None:
-                executor = cached_executor
-            elif self.l1_container_only:
-                if self.resolve_placement is None or binding_snap is None:
-                    raise RuntimeError("l1_executor_unbound")
-                placement = self.resolve_placement(binding_snap)
-                host = self._executor_from_graph(binding_snap)
-                bind = getattr(host, "bind_to_target", None)
-                if not callable(bind):
-                    raise RuntimeError("l1_executor_unbound")
-                executor = bind(placement)
-                with self._lock:
-                    self._executors[session_id] = executor
-            else:
-                # Host path: only session-pinned graph provider (no legacy resolve).
-                executor = self._executor_from_graph(binding_snap)
-                with self._lock:
-                    self._executors[session_id] = executor
-        except Exception as exc:  # noqa: BLE001 — bind failures fail closed
-            err = getattr(exc, "error", None) or getattr(exc, "kind", None)
-            if not err and isinstance(exc, RuntimeError):
-                msg = str(exc)
-                if msg and " " not in msg:
-                    err = msg
-            if not err:
-                err = type(exc).__name__
-            if self.l1_container_only or str(err) in {
-                "extension_graph_missing",
-                "executor_provider_missing",
-                "executor_impl_missing",
-                "extension_graph_invalid",
-            }:
-                seal_failure(
-                    handle,
-                    status="failed",
-                    error=str(err),
-                    latency_ms=(time.monotonic() - started) * 1000.0,
-                )
-                return {
-                    "ok": False,
-                    "error": str(err),
-                    "executor": kind,
-                    "invocation_id": handle.invocation_id if handle else None,
-                    "evidence_relative": handle.relative_path if handle else None,
-                }
-            raise
-
-        collect_dir = None
-        if handle is not None:
-            collect_dir = handle.directory / "backend_raw"
+        collect_dir = None if handle is None else handle.directory / "backend_raw"
+        if collect_dir is not None:
             collect_dir.mkdir(parents=True, exist_ok=True)
-
-        # Mechanism test hook: force typed partial terminal on N-th invocation
-        # (1-based). Values: crash | timeout | cancel | failed. Never invents PASS.
-        force_err = os.environ.get("AGEVAL_FORCE_INVOCATION_ERROR", "").strip()
-        force_n = os.environ.get("AGEVAL_FORCE_INVOCATION_N", "2").strip()
-        try:
-            force_at = int(force_n)
-        except ValueError:
-            force_at = 2
-        next_n = self.invocations_completed + 1
-        if force_err and next_n == force_at:
-            latency = (time.monotonic() - started) * 1000.0
-            status = map_error_status(force_err if force_err != "crash" else "crash")
-            if force_err == "crash":
-                status = "crash"
-            if handle is not None:
-                handle.append_event(
-                    {
-                        "type": "lifecycle",
-                        "phase": status,
-                        "source": "force_hook",
-                        "forced": force_err,
-                    }
-                )
-                if force_err == "crash":
-                    seal_failure(handle, status="crash", error="forced_crash", latency_ms=latency)
-                else:
-                    allowed = {"timeout", "cancelled", "failed", "crash"}
-                    seal_status = status if status in allowed else "failed"
-                    seal_failure(
-                        handle,
-                        status=seal_status,
-                        error=f"forced_{force_err}",
-                        latency_ms=latency,
-                    )
-            with self._lock:
-                self.invocations_completed += 1
-            return {
-                "ok": False,
-                "error": f"forced_{force_err}",
-                "model": model,
-                "text": "",
-                "structured": None,
-                "provider_session_handle": None,
-                "remaining_after": self._remaining_after(),
-                "invocation_id": handle.invocation_id if handle else None,
-                "evidence_relative": handle.relative_path if handle else None,
-            }
-
         sentinels = tuple(self.evidence_store.sentinels) if self.evidence_store else ()
-        invoke_timeout = self._resolve_invoke_timeout()
+
         try:
-            # Constitution §7.6: before_agent_invoke → provider.invoke → after_agent_invoke.
-            prompt_out = self._run_extension_chain(binding_snap, "before_agent_invoke", prompt)
-            # Single call: real TypeError inside the executor must not be
-            # misread as a signature mismatch and silently downgraded.
-            result = executor.invoke(
-                prompt_out,
-                timeout=invoke_timeout,
+            sent = self._chain(binding, BEFORE_AGENT_INVOKE, prompt)
+            result = binding.executor.invoke(
+                sent,
+                timeout=self._invoke_timeout(),
                 collect_dir=collect_dir,
                 redaction_sentinels=sentinels,
             )
-            result = self._run_extension_chain(binding_snap, "after_agent_invoke", result)
-            # #71 A: normalize_agent_result after invoke bookends (fail closed via this try).
-            result = self._normalize_agent_result(binding_snap, result)
-        except Exception as exc:  # noqa: BLE001 — executor crash must leave partial evidence
+            result = self._chain(binding, AFTER_AGENT_INVOKE, result)
+            result = self._chain(binding, NORMALIZE_AGENT_RESULT, result)
+        except Exception as exc:  # noqa: BLE001 — a crash still leaves evidence
             latency = (time.monotonic() - started) * 1000.0
             if handle is not None:
                 handle.append_event(
@@ -544,54 +267,23 @@ class ParentAgentService:
                         "source": "agent_service",
                     }
                 )
-                seal_failure(
-                    handle,
-                    status="crash",
-                    error=type(exc).__name__,
-                    latency_ms=latency,
-                )
-            with self._lock:
-                self.invocations_completed += 1
-            return {
-                "ok": False,
-                "error": type(exc).__name__,
-                "model": model,
-                "text": "",
-                "structured": None,
-                "provider_session_handle": None,
-                "remaining_after": self._remaining_after(),
-                "invocation_id": handle.invocation_id if handle else None,
-                "evidence_relative": handle.relative_path if handle else None,
-            }
+                seal_failure(handle, status="crash", error=type(exc).__name__, latency_ms=latency)
+            return self._failed(binding, handle, error=type(exc).__name__)
 
         latency = (time.monotonic() - started) * 1000.0
         if handle is not None:
-            # Seal trajectory from the prompt actually sent (post before_agent_invoke).
-            seal_prompt = prompt_out if isinstance(prompt_out, str) else prompt
-            redaction_err = seal_invoke_result(
+            redaction_error = seal_invoke_result(
                 handle,
                 result=result,
-                prompt=seal_prompt,
-                kind=kind,
+                prompt=sent if isinstance(sent, str) else prompt,
+                kind=binding.executor_kind,
                 turn_index=self.invocations_completed + 1,
                 latency_ms=latency,
-                extension_graph=getattr(binding_snap, "extension_graph", None),
-                extension_ctx=binding_snap,
+                extension_graph=binding.graph,
+                extension_ctx=binding,
             )
-            if redaction_err is not None:
-                with self._lock:
-                    self.invocations_completed += 1
-                return {
-                    "ok": False,
-                    "error": "redaction_failed",
-                    "model": result.model,
-                    "text": "",
-                    "structured": None,
-                    "provider_session_handle": None,
-                    "remaining_after": self._remaining_after(),
-                    "invocation_id": handle.invocation_id,
-                    "evidence_relative": handle.relative_path,
-                }
+            if redaction_error is not None:
+                return self._failed(binding, handle, error=redaction_error)
 
         with self._lock:
             self.invocations_completed += 1
@@ -602,43 +294,122 @@ class ParentAgentService:
             "text": (result.text or "")[-4000:],
             "structured": result.structured if isinstance(result.structured, dict) else None,
             "provider_session_handle": None,
-            "remaining_after": self._remaining_after(),
+            "remaining_after": self._remaining(),
             "invocation_id": handle.invocation_id if handle else None,
             "evidence_relative": handle.relative_path if handle else None,
         }
 
-    def close_session(self, *, session_id: str) -> dict[str, Any]:
+    # --- guards --------------------------------------------------------------
+
+    def _refuse_before_effect(self, session_id: str) -> dict[str, Any] | None:
+        """Every reason to refuse before anything external happens."""
+        if self._wall_expired():
+            return _refusal("wall_time_exceeded")
+        if is_offline_agent(env_name=self.offline_env):
+            return _refusal("offline_forced")
         with self._lock:
             binding = self._sessions.get(session_id)
-            if binding is None:
-                return {"ok": True, "already": "missing"}
-            binding.closed = True
-            executor = self._executors.pop(session_id, None)
-            binding_snap = binding
+        if binding is None:
+            return {"ok": False, "error": "unknown_session"}
+        if binding.closed:
+            return {"ok": False, "error": "session_closed"}
+        if binding.attempt_id != self.attempt_id:
+            return {"ok": False, "error": "cross_attempt_session"}
+        return None
 
-        # #71 A: before_agent_close → executor.close → after_agent_close
-        # Close hooks fail-open (session already marked closed; record and continue).
-        close_payload: dict[str, Any] = {
-            "session_id": session_id,
-            "profile_id": binding_snap.profile_id,
-            "executor_plugin": binding_snap.executor_kind,
-            "had_executor": executor is not None,
-        }
+    def _wall_expired(self) -> bool:
+        return self.deadline_monotonic is not None and time.monotonic() >= self.deadline_monotonic
+
+    def _remaining(self) -> int:
+        assert self.invoke_quota is not None
+        return self.invoke_quota.remaining
+
+    def _invoke_timeout(self) -> float:
+        """Task ceiling, operator override, then whatever wall time is left."""
+        timeout = float(self.invoke_timeout_seconds)
+        override = os.environ.get("AGEVAL_AGENT_INVOKE_TIMEOUT", "").strip()
+        if override:
+            with contextlib.suppress(ValueError):
+                parsed = float(override)
+                if parsed > 0:
+                    timeout = parsed
+        timeout = max(1.0, timeout)
+        if self.deadline_monotonic is None:
+            return timeout
+        remaining = self.deadline_monotonic - time.monotonic()
+        return 0.1 if remaining <= 0 else min(timeout, remaining)
+
+    # --- evidence ------------------------------------------------------------
+
+    def _begin_evidence(
+        self, binding: SessionBinding, prompt: str
+    ) -> tuple[InvocationHandle | None, str | None]:
+        """Open the invocation record. A redaction failure refuses the invoke."""
+        if self.evidence_store is None:
+            return None, None
+        handle = self.evidence_store.begin_invocation(
+            profile_id=binding.profile_id,
+            executor_kind=binding.executor_kind,
+            model=binding.model,
+        )
         try:
-            close_payload = self._run_extension_chain(
-                binding_snap, "before_agent_close", close_payload
+            write_invoke_request(
+                handle,
+                prompt=prompt,
+                profile_id=binding.profile_id,
+                kind=binding.executor_kind,
+                model=binding.model,
+                actor_id=binding.actor_id,
             )
-            if not isinstance(close_payload, dict):
-                close_payload = {"session_id": session_id}
-        except Exception:
-            _LOG.exception("before_agent_close failed (fail-open) session_id=%s", session_id)
+        except RedactionError:
+            # The store already sealed this invocation as redaction_failed.
+            return handle, "redaction_failed"
+        return handle, None
 
-        if executor is not None and hasattr(executor, "close"):
-            with contextlib.suppress(Exception):
-                executor.close()
+    def _failed(
+        self, binding: SessionBinding, handle: InvocationHandle | None, *, error: str
+    ) -> dict[str, Any]:
+        with self._lock:
+            self.invocations_completed += 1
+        return {
+            "ok": False,
+            "error": error,
+            "model": binding.model,
+            "text": "",
+            "structured": None,
+            "provider_session_handle": None,
+            "remaining_after": self._remaining(),
+            "invocation_id": handle.invocation_id if handle else None,
+            "evidence_relative": handle.relative_path if handle else None,
+        }
 
-        try:
-            self._run_extension_chain(binding_snap, "after_agent_close", close_payload)
-        except Exception:
-            _LOG.exception("after_agent_close failed (fail-open) session_id=%s", session_id)
-        return {"ok": True}
+    # --- chains --------------------------------------------------------------
+
+    def _chain(self, binding: SessionBinding, slot: str, value: Any) -> Any:
+        """Run one locked chain slot on this synchronous invoke path."""
+        from ageval.attempt.emit import run_chain
+
+        return _drive(run_chain(binding.graph, slot, value, ctx=binding))
+
+
+def _refusal(error: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "error": error,
+        "text": "",
+        "structured": None,
+        "provider_session_handle": None,
+    }
+
+
+def _drive(coro: Any) -> Any:
+    """Run an async chain from this sync path without dropping it."""
+    import asyncio
+    import concurrent.futures
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
