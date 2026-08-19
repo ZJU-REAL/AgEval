@@ -13,7 +13,9 @@ from ageval.config.errors import ConfigError
 from ageval.evidence.locators import (
     default_suite_runs_root,
     resolve_evidence_root,
+    run_locator,
     safe_id_segment,
+    suite_run_locator,
 )
 from ageval.registry.resolve import resolve_dataset_root
 
@@ -292,7 +294,7 @@ class LocalJobsCommands:
             _path_entry(
                 root,
                 suite_dir,
-                locator=f".ageval/suite-runs/{job_id}",
+                locator=suite_run_locator(job_id),
                 role="suite",
             )
         ]
@@ -302,7 +304,7 @@ class LocalJobsCommands:
                 _path_entry(
                     root,
                     found,
-                    locator=f".ageval/runs/{rid}",
+                    locator=run_locator(rid),
                     role="attempt",
                     run_id=rid,
                 )
@@ -346,7 +348,7 @@ class LocalJobsCommands:
             _path_entry(
                 root,
                 found,
-                locator=f".ageval/runs/{job_id}",
+                locator=run_locator(job_id),
                 role="attempt",
                 run_id=job_id,
             )

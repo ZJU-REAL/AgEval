@@ -16,6 +16,7 @@ import tarfile
 from pathlib import Path
 from typing import Any
 
+from ageval.evidence.locators import run_locator, suite_run_locator
 from ageval.registry.media_types import ATTEMPT_RESULT_MEDIA_TYPE, SUITE_RESULT_MEDIA_TYPE
 
 MEDIA_TYPE = ATTEMPT_RESULT_MEDIA_TYPE
@@ -40,7 +41,7 @@ def build_attempt_archive(run_dir: Path, *, run_id: str) -> tuple[bytes, str, in
         msg = f"run directory not found: {root}"
         raise FileNotFoundError(msg)
 
-    prefix = f".ageval/runs/{run_id}"
+    prefix = run_locator(run_id)
     members: list[tuple[str, Path]] = []
     for path in sorted(root.rglob("*")):
         if not path.is_file():
@@ -138,7 +139,7 @@ def build_suite_archive(suite_dir: Path, *, suite_run_id: str) -> tuple[bytes, s
         msg = f"suite directory not found: {root}"
         raise FileNotFoundError(msg)
 
-    prefix = f".ageval/suite-runs/{suite_run_id}"
+    prefix = suite_run_locator(suite_run_id)
     members: list[tuple[str, Path]] = []
     for path in sorted(root.rglob("*")):
         if not path.is_file():

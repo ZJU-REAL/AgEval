@@ -11,6 +11,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
+AGEVAL_DIR = ".ageval"
+RUNS_DIR = "runs"
+SUITE_RUNS_DIR = "suite-runs"
+CAMPAIGNS_DIR = "campaigns"
+
+
+def run_locator(run_id: str) -> str:
+    """The portable form of one Attempt: ``.ageval/runs/<run_id>``."""
+    return f"{AGEVAL_DIR}/{RUNS_DIR}/{run_id}"
+
+
+def suite_run_locator(suite_run_id: str) -> str:
+    """The portable form of one suite job: ``.ageval/suite-runs/<id>``."""
+    return f"{AGEVAL_DIR}/{SUITE_RUNS_DIR}/{suite_run_id}"
+
+
+def campaign_locator(name: str) -> str:
+    """The portable form of one campaign summary: ``.ageval/campaigns/<name>``."""
+    return f"{AGEVAL_DIR}/{CAMPAIGNS_DIR}/{name}"
+
 
 def default_runs_root(dataset_root: Path | str) -> Path:
     """Dataset-root Attempt evidence directory: ``<db>/.ageval/runs``."""

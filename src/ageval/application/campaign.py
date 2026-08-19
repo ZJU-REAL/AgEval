@@ -10,6 +10,7 @@ from typing import Any
 
 from ageval.application.composition import build_run_attempt
 from ageval.config.errors import ConfigError
+from ageval.evidence.locators import campaign_locator
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,4 +144,4 @@ def _write_summary(dataset_root: Path, tasks: Sequence[str], summary: dict[str, 
     try:
         return out.relative_to(dataset_root.resolve()).as_posix()
     except ValueError:
-        return f".ageval/campaigns/{out.name}"
+        return campaign_locator(out.name)
