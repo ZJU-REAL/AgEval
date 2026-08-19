@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bora.plugins.errors import ExtensionMaterializeError
+from ageval.plugins.errors import ExtensionMaterializeError
 
 _DSH_SRC = Path(__file__).resolve().parents[2] / "plugins" / "dsh" / "src"
 if str(_DSH_SRC) not in sys.path:
@@ -134,7 +134,7 @@ def test_invalid_permission_raises_before_spawn() -> None:
 
 
 def test_host_invoke_forwards_permission_env(monkeypatch: object) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")  # type: ignore[attr-defined]
     harness = MagicMock()
     session = MagicMock()

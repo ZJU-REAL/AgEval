@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 
-from bora.application.composition import build_plugin_commands
-from bora.registry.client import RegistryClient
-from bora.registry.credentials import write_credentials
-from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+from ageval.application.composition import build_plugin_commands
+from ageval.registry.client import RegistryClient
+from ageval.registry.credentials import write_credentials
+from ageval.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
 _plugins = build_plugin_commands()
 install_plugin_from_registry = _plugins.install_plugin_from_registry
@@ -54,13 +54,13 @@ def test_publish_plugin_preview_and_install(
         token=registry_server["token"],
         path=creds,
     )
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
-    home = tmp_path / "bora-home"
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -133,12 +133,12 @@ def test_publish_plugin_preview_and_install(
 def test_reject_database_as_plugin(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.registry.archive import build_archive
-    from bora.registry.client import RegistryClient, RegistryError
-    from bora.registry.digest import compute_package_digest
+    from ageval.registry.archive import build_archive
+    from ageval.registry.client import RegistryClient, RegistryError
+    from ageval.registry.digest import compute_package_digest
 
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org(registry_server["url"], registry_server["token"])
 
     db = REPO / "tests" / "fixtures" / "databases" / "publish-min"

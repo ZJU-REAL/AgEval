@@ -1,4 +1,4 @@
-"""host_requires allowlist on bora.plugin/1."""
+"""host_requires allowlist on ageval.plugin/1."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from bora.plugins.manifest import PluginManifestError, parse_manifest_mapping
+from ageval.plugins.manifest import PluginManifestError, parse_manifest_mapping
 
 
 def _base(**extra: object) -> dict[str, object]:
     payload: dict[str, object] = {
-        "format": "bora.plugin/1",
+        "format": "ageval.plugin/1",
         "plugin_id": "demo",
         "version": "0.1.0",
         "slots": {

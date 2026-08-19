@@ -1,14 +1,14 @@
 # Journeys profiles bound to external nooa plugin (NVIDIA OO Agents + real LLM).
 # Usage:
 #   uv sync --extra nooa
-#   uv run bora plugin install plugins/nooa
+#   uv run ageval plugin install plugins/nooa
 #   # ensure repo/.env has litellm_api_key (+ litellm_base_url) or set base_url below
-#   uv run bora run examples/journeys --profiles examples/journeys/profiles.nooa.yaml
+#   uv run ageval run examples/journeys --profiles examples/journeys/profiles.nooa.yaml
 #
 # api_key = env locator name (never a secret value).
 # base_url optional — factory falls back to litellm_base_url / OPENAI_BASE_URL.
 # Agents are package-local nooa.Agent subclasses; generation methods hit LiteLLM.
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: nooa

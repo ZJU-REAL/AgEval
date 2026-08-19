@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from bora.runtime.errors import LifecycleError
-from bora.runtime.lifecycle import LifecycleState, success_path, validate_transition
+from ageval.runtime.errors import LifecycleError
+from ageval.runtime.lifecycle import LifecycleState, success_path, validate_transition
 
 
 def test_success_path_adjacent() -> None:

@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from bora.agents import store
-from bora.config.errors import ConfigError
+from ageval.agents import store
+from ageval.config.errors import ConfigError
 
 
 @pytest.fixture(autouse=True)
-def _bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
-    monkeypatch.setenv("BORA_HOME", str(home))
+def _ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     return home
 
 
@@ -21,7 +21,7 @@ def _make_pkg(tmp_path: Path, agent_id: str = "mock-default", version: str = "0.
     pkg = tmp_path / f"pkg-{agent_id}-{version}"
     pkg.mkdir(parents=True, exist_ok=True)
     (pkg / "agent.yaml").write_text(
-        f"format: bora.agent/1\nagent_id: {agent_id}\nversion: '{version}'\n"
+        f"format: ageval.agent/1\nagent_id: {agent_id}\nversion: '{version}'\n"
         "label: T\nbinding: {executor: mock, model: none}\n",
         encoding="utf-8",
     )
@@ -77,7 +77,7 @@ def test_install_writes_overlay_files(tmp_path: Path) -> None:
     skill.parent.mkdir(parents=True)
     skill.write_text("# demo\n", encoding="utf-8")
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: mock-default\nversion: '0.1.0'\n"
+        "format: ageval.agent/1\nagent_id: mock-default\nversion: '0.1.0'\n"
         "label: T\nbinding:\n  executor: mock\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
         encoding="utf-8",

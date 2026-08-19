@@ -6,15 +6,15 @@ import asyncio
 
 import pytest
 
-from bora.plugins.conflict import ExtensionConflictError
-from bora.plugins.defaults import register_defaults
-from bora.plugins.errors import ExtensionPluginNotFoundError, UnknownExtensionSlotError
-from bora.plugins.lock_bind import extension_graph_to_lock
-from bora.plugins.middleware import run_chain
-from bora.plugins.protocol import BindingIntent, ExplicitBinding, ExtensionSelect
-from bora.plugins.registry import ExtensionRegistry
-from bora.plugins.resolve import resolve
-from bora.plugins.slots import BEFORE_AGENT_INVOKE, EXECUTOR
+from ageval.plugins.conflict import ExtensionConflictError
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.errors import ExtensionPluginNotFoundError, UnknownExtensionSlotError
+from ageval.plugins.lock_bind import extension_graph_to_lock
+from ageval.plugins.middleware import run_chain
+from ageval.plugins.protocol import BindingIntent, ExplicitBinding, ExtensionSelect
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import BEFORE_AGENT_INVOKE, EXECUTOR
 
 
 class _FakeExec:

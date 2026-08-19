@@ -13,8 +13,8 @@ from services.registry.dataset import BOUND_RELEASE
 from services.registry.official import official_dataset_ids
 from services.registry.store import TokenInfo
 
-from bora.agents.refs import published_agent_ref_parts
-from bora.config.runtime_identity import (
+from ageval.agents.refs import published_agent_ref_parts
+from ageval.config.runtime_identity import (
     harness_display_name,
     resolve_agent_id,
 )

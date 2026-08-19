@@ -7,9 +7,9 @@ from typing import Any
 
 import pytest
 
-from bora.adapters.agent_container import effective_run_gid
-from bora.application.attempt.run_l1_prepare import make_l1_placement_resolver
-from bora.provider.targets import ActorPhysicalBinding, ExecutionTarget
+from ageval.adapters.agent_container import effective_run_gid
+from ageval.application.attempt.run_l1_prepare import make_l1_placement_resolver
+from ageval.provider.targets import ActorPhysicalBinding, ExecutionTarget
 
 
 def _binding(**kw: Any) -> ActorPhysicalBinding:

@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from bora.provider.contract import ExecutableGrant
-from bora.provider.errors import ProviderError
+from ageval.provider.contract import ExecutableGrant
+from ageval.provider.errors import ProviderError
 
 
 def test_resolve_keeps_symlink_to_real_python(tmp_path: Path) -> None:

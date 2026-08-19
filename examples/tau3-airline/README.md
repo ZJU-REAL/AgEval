@@ -1,19 +1,19 @@
-# tau3-airline (BORA Dataset)
+# tau3-airline (ageval Dataset)
 
-Port of **τ³-bench / tau2-bench** `airline` domain onto BORA outer lifecycle.
+Port of **τ³-bench / tau2-bench** `airline` domain onto ageval outer lifecycle.
 
 | Field | Value |
 | --- | --- |
 | Upstream | https://github.com/sierra-research/tau2-bench @ `v1.0.1` |
 | Domain | airline (50 tasks, base split) |
 | Agents | `user` + `service` via `profiles.yaml` → `grok-build` |
-| Bridge | BORA Agent ACP ↔ tau2 `Environment` tools + `evaluate_simulation` |
+| Bridge | ageval Agent ACP ↔ tau2 `Environment` tools + `evaluate_simulation` |
 | Shared | Dataset-level `shared/lib` + `shared/assets` (`from shared.lib…`) |
 
 ## Layout
 
 ```text
-bora.yaml / profiles.yaml
+ageval.yaml / profiles.yaml
 shared/                 # real package (shared/__init__.py)
   lib/                  # shared.lib.harness_core / bridge / evaluator_core
   assets/               # db.json, policy.md, tasks.json (in packageDigest)
@@ -29,9 +29,9 @@ as `shared.lib.*` (Runtime puts Database root on `sys.path`, not the `lib/` leaf
 ## Run
 
 ```bash
-uv run bora lock examples/tau3-airline --task airline-00
-uv run bora run  examples/tau3-airline --task airline-00
-uv run bora run  examples/tau3-airline   # full suite
+uv run ageval lock examples/tau3-airline --task airline-00
+uv run ageval run  examples/tau3-airline --task airline-00
+uv run ageval run  examples/tau3-airline   # full suite
 uv run python scripts/check_shared_lib_collisions.py examples/tau3-airline
 ```
 

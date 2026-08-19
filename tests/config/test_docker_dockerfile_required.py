@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ERROR_MISSING_REFERENCE, ConfigError
-from bora.config.load_and_lock import ConfigCore
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ERROR_MISSING_REFERENCE, ConfigError
+from ageval.config.load_and_lock import ConfigCore
 
 
 def _write_minimal_docker_pkg(root: Path, *, with_dockerfile: bool) -> None:
@@ -18,7 +18,7 @@ def _write_minimal_docker_pkg(root: Path, *, with_dockerfile: bool) -> None:
     (root / "evaluator.py").write_text("def evaluate(ctx): ...\n", encoding="utf-8")
     (root / "task.yaml").write_text(
         """
-format: bora.task/1
+format: ageval.task/1
 task_id: docker-df-probe
 
 harness:
@@ -56,7 +56,7 @@ evaluation:
     if with_dockerfile:
         env = root / "environment"
         env.mkdir(parents=True, exist_ok=True)
-        (env / "Dockerfile").write_text("FROM bora-attempt:l1\n", encoding="utf-8")
+        (env / "Dockerfile").write_text("FROM ageval-attempt:l1\n", encoding="utf-8")
 
 
 _P1_BINDINGS = {

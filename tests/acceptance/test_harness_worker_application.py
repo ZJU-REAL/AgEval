@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.application.attempt.run_harness import run_harness_package
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.load_and_lock import ConfigCore
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.application.attempt.run_harness import run_harness_package
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.load_and_lock import ConfigCore
 
 REPO = Path(__file__).resolve().parents[2]
 PKG = REPO / "examples" / "core" / "tasks" / "harness-minimal"
@@ -59,7 +59,7 @@ async def test_missing_entrypoint(tmp_path: Path) -> None:
     )
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
     # harness.py missing → lock fails at Config with missing_reference
-    from bora.config.errors import ConfigError
+    from ageval.config.errors import ConfigError
 
     with pytest.raises(ConfigError):
         ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
@@ -101,7 +101,7 @@ async def test_harness_reaps_same_group_grandchild(tmp_path: Path) -> None:
                 "from __future__ import annotations",
                 "import os",
                 "import time",
-                "from bora_sdk import HarnessContext, HarnessTerminal",
+                "from ageval_sdk import HarnessContext, HarnessTerminal",
                 "",
                 "async def run(ctx: HarnessContext) -> HarnessTerminal:",
                 "    pid = os.fork()",

@@ -1,4 +1,4 @@
-"""First-party ACP reuses bora-attempt:l1; extra Dockerfile layers still build."""
+"""First-party ACP reuses ageval-attempt:l1; extra Dockerfile layers still build."""
 
 from __future__ import annotations
 
@@ -6,15 +6,15 @@ from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import patch
 
-from bora.adapters.provider_docker.images import is_official_base_noop_dockerfile
-from bora.adapters.provider_docker.types import DockerImageLock
-from bora.application.plugin_ops.image_contribute_bake import (
+from ageval.adapters.provider_docker.images import is_official_base_noop_dockerfile
+from ageval.adapters.provider_docker.types import DockerImageLock
+from ageval.application.plugin_ops.image_contribute_bake import (
     apply_image_contribute_bake,
     baked_image_tag,
     plugin_id_for_image_tag,
     should_reuse_official_attempt_image,
 )
-from bora.config.model import LockedTaskConfig
+from ageval.config.model import LockedTaskConfig
 
 
 def _lock(profiles: list[dict[str, Any]]) -> LockedTaskConfig:
@@ -25,53 +25,53 @@ def _base() -> DockerImageLock:
     return DockerImageLock(
         kind="docker-attempt",
         platform="linux/arm64",
-        image_tag="bora-attempt:l1",
+        image_tag="ageval-attempt:l1",
         image_digest="sha256:official",
         build_input_digest="sha256:official-in",
     )
 
 
 def test_noop_dockerfile_detection() -> None:
-    assert is_official_base_noop_dockerfile("FROM bora-attempt:l1\n")
-    assert is_official_base_noop_dockerfile("# comment\nFROM bora-attempt:l1 AS base\n")
-    assert not is_official_base_noop_dockerfile("FROM bora-attempt:l1\nCOPY x /x\n")
-    assert not is_official_base_noop_dockerfile("FROM bora-attempt:l1\nRUN true\n")
+    assert is_official_base_noop_dockerfile("FROM ageval-attempt:l1\n")
+    assert is_official_base_noop_dockerfile("# comment\nFROM ageval-attempt:l1 AS base\n")
+    assert not is_official_base_noop_dockerfile("FROM ageval-attempt:l1\nCOPY x /x\n")
+    assert not is_official_base_noop_dockerfile("FROM ageval-attempt:l1\nRUN true\n")
     assert not is_official_base_noop_dockerfile("FROM other:latest\n")
 
 
 def test_reuse_official_acp_from_only() -> None:
     lock = _lock([{"id": "s", "executor": "acp", "options": {"entry": "pi"}}])
     with patch(
-        "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+        "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
         return_value=[],
     ):
-        assert should_reuse_official_attempt_image(lock, "FROM bora-attempt:l1\n") is True
+        assert should_reuse_official_attempt_image(lock, "FROM ageval-attempt:l1\n") is True
 
 
 def test_copy_or_run_still_builds_package_tag() -> None:
     lock = _lock([{"id": "s", "executor": "acp", "options": {"entry": "pi"}}])
     with patch(
-        "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+        "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
         return_value=[],
     ):
         assert (
             should_reuse_official_attempt_image(
-                lock, "FROM bora-attempt:l1\nCOPY environment/tool.sh /bin/tool\n"
+                lock, "FROM ageval-attempt:l1\nCOPY environment/tool.sh /bin/tool\n"
             )
             is False
         )
         assert (
-            should_reuse_official_attempt_image(lock, "FROM bora-attempt:l1\nRUN true\n") is False
+            should_reuse_official_attempt_image(lock, "FROM ageval-attempt:l1\nRUN true\n") is False
         )
 
 
 def test_external_executor_does_not_reuse() -> None:
     lock = _lock([{"id": "s", "executor": "dsh"}])
     with patch(
-        "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+        "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
         return_value=["dsh"],
     ):
-        assert should_reuse_official_attempt_image(lock, "FROM bora-attempt:l1\n") is False
+        assert should_reuse_official_attempt_image(lock, "FROM ageval-attempt:l1\n") is False
 
 
 def test_selected_bake_does_not_reuse() -> None:
@@ -86,28 +86,28 @@ def test_selected_bake_does_not_reuse() -> None:
         ]
     )
     with patch(
-        "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+        "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
         return_value=["dsh"],
     ):
-        assert should_reuse_official_attempt_image(lock, "FROM bora-attempt:l1\n") is False
+        assert should_reuse_official_attempt_image(lock, "FROM ageval-attempt:l1\n") is False
 
 
 def test_apply_acp_only_does_not_bake_installed_declares() -> None:
     lock = _lock([{"id": "s", "executor": "acp", "options": {"entry": "pi"}}])
     with (
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
+            "ageval.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[{"plugin": "acp"}],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
             return_value=[],
         ),
     ):
         out, meta = apply_image_contribute_bake(
             lock=lock, base_image=_base(), platform="linux/arm64"
         )
-    assert out.image_tag == "bora-attempt:l1"
+    assert out.image_tag == "ageval-attempt:l1"
     assert meta["status"] == "skipped"
     assert meta["baked"] == []
 
@@ -116,14 +116,16 @@ def test_prepare_reuses_official_tag_without_buildx(
     tmp_path,
     monkeypatch,  # type: ignore[no-untyped-def]
 ) -> None:
-    import bora.application.attempt.extension_hooks as hooks
-    import bora.application.attempt.run_l1_prepare as prep
-    import bora.application.plugin_ops.image_contribute_bake as bake
-    from bora.application.attempt.run_l1_prepare import prepare_l1_runtime
-    from bora.runtime.identity import IdentityFactory
+    import ageval.application.attempt.extension_hooks as hooks
+    import ageval.application.attempt.run_l1_prepare as prep
+    import ageval.application.plugin_ops.image_contribute_bake as bake
+    from ageval.application.attempt.run_l1_prepare import prepare_l1_runtime
+    from ageval.runtime.identity import IdentityFactory
 
     (tmp_path / "environment").mkdir()
-    (tmp_path / "environment" / "Dockerfile").write_text("FROM bora-attempt:l1\n", encoding="utf-8")
+    (tmp_path / "environment" / "Dockerfile").write_text(
+        "FROM ageval-attempt:l1\n", encoding="utf-8"
+    )
     official = _base()
 
     class FakeDocker:
@@ -131,7 +133,7 @@ def test_prepare_reuses_official_tag_without_buildx(
             del image_lock_path
 
         def prepare(self, attempt, **_kwargs):  # type: ignore[no-untyped-def]
-            from bora.adapters.provider_docker.types import DockerRuntime
+            from ageval.adapters.provider_docker.types import DockerRuntime
 
             return DockerRuntime(
                 attempt=attempt,
@@ -168,12 +170,12 @@ def test_prepare_reuses_official_tag_without_buildx(
         attempt=factory.new_attempt(trial),
     )
     assert runtime.image_lock is not None
-    assert runtime.image_lock.image_tag == "bora-attempt:l1"
-    assert meta["image_tag"] == "bora-attempt:l1"
+    assert runtime.image_lock.image_tag == "ageval-attempt:l1"
+    assert meta["image_tag"] == "ageval-attempt:l1"
 
 
 def test_namespaced_plugin_id_in_bake_tag() -> None:
     assert plugin_id_for_image_tag("acme/nooa") == "acme--nooa"
     tag = baked_image_tag(_base(), "acme/nooa", "d" * 24)
-    assert tag.startswith("bora-attempt:l1-acme--nooa-")
+    assert tag.startswith("ageval-attempt:l1-acme--nooa-")
     assert "/" not in tag.split(":", 1)[1]

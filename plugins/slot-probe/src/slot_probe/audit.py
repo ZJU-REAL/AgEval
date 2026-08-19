@@ -10,17 +10,17 @@ from typing import Any
 
 
 def probe_dir() -> Path:
-    raw = (os.environ.get("BORA_SLOT_PROBE_DIR") or "").strip()
+    raw = (os.environ.get("AGEVAL_SLOT_PROBE_DIR") or "").strip()
     if raw:
         p = Path(raw)
     else:
-        p = Path.cwd() / ".bora_slot_probe"
+        p = Path.cwd() / ".ageval_slot_probe"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def audit(slot: str, **fields: Any) -> None:
-    """Append one JSON line to hooks.jsonl under BORA_SLOT_PROBE_DIR."""
+    """Append one JSON line to hooks.jsonl under AGEVAL_SLOT_PROBE_DIR."""
     row = {
         "slot": slot,
         "ts": time.time(),

@@ -8,18 +8,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite.suite_metrics import (
+from ageval.application.suite.suite_metrics import (
     extend_slot_previous,
     previous_from_attempts,
     task_refs_for_summary,
 )
-from bora.application.suite.suite_run import (
+from ageval.application.suite.suite_run import (
     execute_suite_run,
     plan_suite_run,
     request_suite_cancel,
     suite_dir_for,
 )
-from bora.config.errors import ConfigError
+from ageval.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
@@ -31,7 +31,7 @@ def _runner(status: str = "PASS", score: float | None = 1.0, *, prefix: str = "c
     async def run(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         n["n"] += 1
         run_id = f"sha256_dead_run_{prefix}_{task_id}_{n['n']}"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         st = status
         sc = score
@@ -102,7 +102,7 @@ async def test_replace_slot_reruns_finished_and_keeps_history(
     first = await execute_suite_run(plan, run_fn=_runner(status, score, prefix="old"))
     old_id = first["attempts"][0]["run_id"]
     assert first["attempts"][0]["status"] == status
-    old_dir = Path(plan.database_root) / ".bora" / "runs" / old_id
+    old_dir = Path(plan.database_root) / ".ageval" / "runs" / old_id
     assert old_dir.is_dir()
 
     plan2 = plan_suite_run(SUITE, task_id="alpha", n_attempts=1, suite_run_id=first["suite_run_id"])

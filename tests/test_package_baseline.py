@@ -6,24 +6,24 @@ import subprocess
 import sys
 from pathlib import Path
 
-import bora
-from bora.application import composition
+import ageval
+from ageval.application import composition
 
 
 def test_version_present() -> None:
-    assert bora.__version__  # non-empty semver-ish package version
-    assert len(bora.__version__.split(".")) >= 2
+    assert ageval.__version__  # non-empty semver-ish package version
+    assert len(ageval.__version__.split(".")) >= 2
 
 
-def test_bora_help_via_console_script() -> None:
+def test_ageval_help_via_console_script() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "--help"],
+        [sys.executable, "-m", "ageval.cli.main", "--help"],
         check=False,
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0
-    assert "bora" in result.stdout.lower() or "Usage" in result.stdout
+    assert "ageval" in result.stdout.lower() or "Usage" in result.stdout
 
 
 def test_composition_builds_lock_command() -> None:
@@ -34,7 +34,7 @@ def test_composition_builds_lock_command() -> None:
 
 def test_cli_does_not_import_task_packages() -> None:
     """CLI module graph must not pull examples or harness modules."""
-    import bora.cli.main as m
+    import ageval.cli.main as m
 
     # Ensure examples are not side-imported.
     assert "examples" not in sys.modules or not any(k.startswith("examples.") for k in sys.modules)
@@ -43,8 +43,8 @@ def test_cli_does_not_import_task_packages() -> None:
 
 def test_config_does_not_import_cli() -> None:
     """Domain Config must not depend on the CLI framework."""
-    import bora.config.load_and_lock as core
+    import ageval.config.load_and_lock as core
 
     source = Path(core.__file__).read_text(encoding="utf-8")
     assert "typer" not in source
-    assert "bora.cli" not in source
+    assert "ageval.cli" not in source

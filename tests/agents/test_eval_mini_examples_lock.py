@@ -21,19 +21,19 @@ CASES = [
 
 @pytest.fixture()
 def env(tmp_path: Path) -> dict[str, str]:
-    home = tmp_path / "bora-home"
+    home = tmp_path / "ageval-home"
     home.mkdir()
     return {
         **os.environ,
-        "BORA_HOME": str(home),
-        "BORA_OFFLINE_AGENT": "1",
-        "BORA_SKIP_DOCKER": "1",
+        "AGEVAL_HOME": str(home),
+        "AGEVAL_OFFLINE_AGENT": "1",
+        "AGEVAL_SKIP_DOCKER": "1",
     }
 
 
 def _lock(env: dict[str, str], db: str, task: str, *extra: str) -> dict:
     proc = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "lock", str(ROOT / db), "--task", task, *extra],
+        [sys.executable, "-m", "ageval.cli.main", "lock", str(ROOT / db), "--task", task, *extra],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -57,7 +57,7 @@ def test_lock_with_example_agent(env: dict[str, str], db: str, task: str) -> Non
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "agent",
             "install",
             str(ROOT / "examples/agents/cc-default"),

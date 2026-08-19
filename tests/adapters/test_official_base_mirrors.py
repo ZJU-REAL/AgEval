@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
-from bora.adapters.provider_docker import images
-from bora.adapters.provider_docker.official_base import (
+from ageval.adapters.provider_docker import images
+from ageval.adapters.provider_docker.official_base import (
     BUILD_INPUT_NAMES,
     official_attempt_dir,
     official_build_input_digest,
@@ -25,7 +25,7 @@ ATTEMPT = official_attempt_dir(REPO)
 
 def _load_sitecustomize() -> ModuleType:
     path = ATTEMPT / "sitecustomize.py"
-    spec = importlib.util.spec_from_file_location("bora_attempt_sitecustomize", path)
+    spec = importlib.util.spec_from_file_location("ageval_attempt_sitecustomize", path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -47,7 +47,7 @@ def _write_lock(path: Path, digest: str) -> None:
             {
                 "kind": "docker-attempt",
                 "platform": "linux/arm64",
-                "image_tag": "bora-attempt:l1",
+                "image_tag": "ageval-attempt:l1",
                 "image_digest": "sha256:img",
                 "build_input_digest": digest,
             }
@@ -83,11 +83,11 @@ def test_prepare_env_process_wins_over_dotenv(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text(
-        "BORA_APT_MIRROR=http://from-file/debian\nBORA_PIP_INDEX=https://from-file/simple\n",
+        "AGEVAL_APT_MIRROR=http://from-file/debian\nAGEVAL_PIP_INDEX=https://from-file/simple\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("BORA_APT_MIRROR", "http://from-process/debian")
-    monkeypatch.delenv("BORA_PIP_INDEX", raising=False)
+    monkeypatch.setenv("AGEVAL_APT_MIRROR", "http://from-process/debian")
+    monkeypatch.delenv("AGEVAL_PIP_INDEX", raising=False)
     apt, pip = prepare_official_build_env(tmp_path)
     assert apt == "http://from-process/debian"
     assert pip == "https://from-file/simple"
@@ -96,7 +96,7 @@ def test_prepare_env_process_wins_over_dotenv(
 def test_buildx_command_always_passes_both_args() -> None:
     cmd = official_buildx_command(
         dockerfile=ATTEMPT / "Dockerfile",
-        tag="bora-attempt:l1",
+        tag="ageval-attempt:l1",
         platform="linux/arm64",
         context=ATTEMPT,
         apt_mirror="http://mirrors.example/debian",
@@ -104,18 +104,18 @@ def test_buildx_command_always_passes_both_args() -> None:
     )
     assert cmd[:3] == ["docker", "buildx", "build"]
     assert "--build-arg" in cmd
-    assert "BORA_APT_MIRROR=http://mirrors.example/debian" in cmd
-    assert "BORA_PIP_INDEX=" in cmd
+    assert "AGEVAL_APT_MIRROR=http://mirrors.example/debian" in cmd
+    assert "AGEVAL_PIP_INDEX=" in cmd
 
 
 def test_official_dockerfile_rewrites_before_install_executors() -> None:
     text = (ATTEMPT / "Dockerfile").read_text(encoding="utf-8")
-    assert "ARG BORA_APT_MIRROR" in text
-    assert "ARG BORA_PIP_INDEX" in text
+    assert "ARG AGEVAL_APT_MIRROR" in text
+    assert "ARG AGEVAL_PIP_INDEX" in text
     assert "ENV PIP_INDEX_URL" not in text
-    assert text.index("ARG BORA_APT_MIRROR") < text.index("COPY install-executors.sh")
+    assert text.index("ARG AGEVAL_APT_MIRROR") < text.index("COPY install-executors.sh")
     assert text.index("/etc/pip.conf") < text.index("COPY install-executors.sh")
-    assert text.index("99bora-no-proxy") < text.index("COPY install-executors.sh")
+    assert text.index("99ageval-no-proxy") < text.index("COPY install-executors.sh")
     assert "COPY sitecustomize.py" in text
     assert text.index("COPY sitecustomize.py") < text.index("COPY install-executors.sh")
     assert "if [ -f /etc/pip.conf ]" in text
@@ -156,7 +156,7 @@ def test_sitecustomize_guard_is_site_hook_name() -> None:
     text = (ATTEMPT / "sitecustomize.py").read_text(encoding="utf-8")
     assert 'if __name__ == "sitecustomize"' in text
     other = _load_sitecustomize()
-    assert other.__name__ == "bora_attempt_sitecustomize"
+    assert other.__name__ == "ageval_attempt_sitecustomize"
 
 
 def test_ensure_image_lock_skips_when_digest_and_image_match(
@@ -164,10 +164,10 @@ def test_ensure_image_lock_skips_when_digest_and_image_match(
 ) -> None:
     attempt = _seed_attempt(tmp_path)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("BORA_APT_MIRROR", raising=False)
-    monkeypatch.delenv("BORA_PIP_INDEX", raising=False)
+    monkeypatch.delenv("AGEVAL_APT_MIRROR", raising=False)
+    monkeypatch.delenv("AGEVAL_PIP_INDEX", raising=False)
     digest = "sha256:" + official_build_input_digest(attempt)
-    lock_path = tmp_path / ".bora" / "runtime-images" / "provider-l1.json"
+    lock_path = tmp_path / ".ageval" / "runtime-images" / "provider-l1.json"
     _write_lock(lock_path, digest)
 
     def boom(*_args: Any, **_kwargs: Any) -> Any:
@@ -183,10 +183,10 @@ def test_ensure_image_lock_rebuilds_when_image_missing(
 ) -> None:
     attempt = _seed_attempt(tmp_path)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("BORA_APT_MIRROR", raising=False)
-    monkeypatch.delenv("BORA_PIP_INDEX", raising=False)
+    monkeypatch.delenv("AGEVAL_APT_MIRROR", raising=False)
+    monkeypatch.delenv("AGEVAL_PIP_INDEX", raising=False)
     digest = "sha256:" + official_build_input_digest(attempt)
-    lock_path = tmp_path / ".bora" / "runtime-images" / "provider-l1.json"
+    lock_path = tmp_path / ".ageval" / "runtime-images" / "provider-l1.json"
     _write_lock(lock_path, digest)
     called: list[list[str]] = []
 
@@ -205,12 +205,12 @@ def test_ensure_image_lock_rebuilds_when_mirror_changes(
 ) -> None:
     attempt = _seed_attempt(tmp_path)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("BORA_APT_MIRROR", raising=False)
-    monkeypatch.delenv("BORA_PIP_INDEX", raising=False)
+    monkeypatch.delenv("AGEVAL_APT_MIRROR", raising=False)
+    monkeypatch.delenv("AGEVAL_PIP_INDEX", raising=False)
     empty = "sha256:" + official_build_input_digest(attempt)
-    lock_path = tmp_path / ".bora" / "runtime-images" / "provider-l1.json"
+    lock_path = tmp_path / ".ageval" / "runtime-images" / "provider-l1.json"
     _write_lock(lock_path, empty)
-    monkeypatch.setenv("BORA_APT_MIRROR", "http://mirrors.example/debian")
+    monkeypatch.setenv("AGEVAL_APT_MIRROR", "http://mirrors.example/debian")
     called: list[list[str]] = []
 
     def fake_run(cmd: list[str], **_kwargs: Any) -> Any:
@@ -229,15 +229,15 @@ def test_ensure_image_lock_rebuilds_when_mirror_changes(
 def test_package_buildx_does_not_receive_mirror_args(tmp_path: Path) -> None:
     from unittest.mock import patch
 
-    from bora.adapters.provider_docker.types import DockerImageLock
+    from ageval.adapters.provider_docker.types import DockerImageLock
 
     df = tmp_path / "environment" / "Dockerfile"
     df.parent.mkdir(parents=True)
-    df.write_text("FROM bora-attempt:l1\n", encoding="utf-8")
+    df.write_text("FROM ageval-attempt:l1\n", encoding="utf-8")
     base = DockerImageLock(
         kind="docker-attempt",
         platform="linux/arm64",
-        image_tag="bora-attempt:l1",
+        image_tag="ageval-attempt:l1",
         image_digest="sha256:official",
         build_input_digest="sha256:official-in",
     )
@@ -265,5 +265,5 @@ def test_package_buildx_does_not_receive_mirror_args(tmp_path: Path) -> None:
     buildx = [cmd for cmd in cmds if cmd[:2] == ["docker", "buildx"]]
     assert buildx
     joined = " ".join(buildx[0])
-    assert "BORA_APT_MIRROR" not in joined
-    assert "BORA_PIP_INDEX" not in joined
+    assert "AGEVAL_APT_MIRROR" not in joined
+    assert "AGEVAL_PIP_INDEX" not in joined

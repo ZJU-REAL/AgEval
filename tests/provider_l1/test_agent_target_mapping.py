@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from bora.provider.isolation import parse_logical_topology
-from bora.provider.targets import (
+from ageval.provider.isolation import parse_logical_topology
+from ageval.provider.targets import (
     ActorPhysicalBinding,
     ExecutionTarget,
     IsolationMode,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from bora_sdk import HarnessContext, HarnessTerminal
+from ageval_sdk import HarnessContext, HarnessTerminal
 from lib.db_tools import build_db_toolset, load_env_meta
 
 

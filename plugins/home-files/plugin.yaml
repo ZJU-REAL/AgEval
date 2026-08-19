@@ -1,4 +1,4 @@
-format: bora.plugin/1
+format: ageval.plugin/1
 plugin_id: home-files
 version: 0.1.0
 slots:

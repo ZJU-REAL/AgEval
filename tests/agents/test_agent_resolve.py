@@ -7,18 +7,18 @@ from pathlib import Path
 import pytest
 import yaml
 
-from bora.application.agent_ops.resolve import (
+from ageval.application.agent_ops.resolve import (
     bindings_from_agent_specs,
     parse_agent_spec,
     resolve_agent_specs,
 )
-from bora.config.errors import ConfigError
+from ageval.config.errors import ConfigError
 
 
 @pytest.fixture(autouse=True)
-def _bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
-    monkeypatch.setenv("BORA_HOME", str(home))
+def _ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     return home
 
 
@@ -26,7 +26,7 @@ def _make_pkg(tmp_path: Path, agent_id: str = "mock-default", version: str = "0.
     pkg = tmp_path / f"pkg-{agent_id}-{version}"
     pkg.mkdir(parents=True, exist_ok=True)
     (pkg / "agent.yaml").write_text(
-        f"format: bora.agent/1\nagent_id: {agent_id}\nversion: '{version}'\n"
+        f"format: ageval.agent/1\nagent_id: {agent_id}\nversion: '{version}'\n"
         "label: T\nbinding: {executor: mock, model: none}\n",
         encoding="utf-8",
     )
@@ -54,7 +54,7 @@ def test_bindings_from_path_spec(tmp_path: Path) -> None:
 
 
 def test_bindings_from_cache_ref_with_local_fallback(tmp_path: Path) -> None:
-    from bora.agents.store import install_from_path
+    from ageval.agents.store import install_from_path
 
     install_from_path(_make_pkg(tmp_path))
     for ref in ("local/mock-default@0.1.0", "mock-default@0.1.0"):
@@ -63,7 +63,7 @@ def test_bindings_from_cache_ref_with_local_fallback(tmp_path: Path) -> None:
 
 
 def test_both_installed_versions_project(tmp_path: Path) -> None:
-    from bora.agents.store import install_from_path
+    from ageval.agents.store import install_from_path
 
     install_from_path(_make_pkg(tmp_path, version="1.0.0"))
     install_from_path(_make_pkg(tmp_path, version="2.0.0"))
@@ -91,7 +91,7 @@ def test_resolve_writes_parseable_profiles_document(tmp_path: Path) -> None:
     out = resolve_agent_specs([str(pkg), f"critic={pkg}"])
     assert out.is_file()
     doc = yaml.safe_load(out.read_text(encoding="utf-8"))
-    assert doc["format"] == "bora.profiles/1"
+    assert doc["format"] == "ageval.profiles/1"
     assert set(doc["bindings"]) == {"*", "critic"}
     # Content-addressed: same specs → same path.
     assert resolve_agent_specs([str(pkg), f"critic={pkg}"]) == out

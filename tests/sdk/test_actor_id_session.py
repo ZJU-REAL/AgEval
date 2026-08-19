@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bora_sdk import Agent
+from ageval_sdk import Agent
 
 
 def test_session_carries_actor_id() -> None:

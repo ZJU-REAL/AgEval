@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
-from bora.provider.isolation import parse_logical_topology
-from bora.provider.targets import IsolationMode
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
+from ageval.provider.isolation import parse_logical_topology
+from ageval.provider.targets import IsolationMode
 
 
 def _write_pkg(root: Path, yaml_body: str) -> Path:
@@ -22,12 +22,12 @@ def _write_pkg(root: Path, yaml_body: str) -> Path:
     (root / "evaluator.py").write_text("def evaluate(i): return {}\n", encoding="utf-8")
     env = root / "environment"
     env.mkdir(exist_ok=True)
-    (env / "Dockerfile").write_text("FROM bora-attempt:l1\n", encoding="utf-8")
+    (env / "Dockerfile").write_text("FROM ageval-attempt:l1\n", encoding="utf-8")
     return root
 
 
 _BASE = """
-format: bora.task/1
+format: ageval.task/1
 task_id: iso-test
 harness:
   runtime: python

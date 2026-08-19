@@ -1,14 +1,14 @@
 # Journeys profiles: dsh with DSH file-effect policy read-only.
 # Usage:
-#   uv run bora plugin install plugins/dsh
-#   uv run bora run examples/journeys --task terminal-jsonl-agg \
+#   uv run ageval plugin install plugins/dsh
+#   uv run ageval run examples/journeys --task terminal-jsonl-agg \
 #     --profiles examples/journeys/profiles.dsh.read-only.yaml
 #
 # Coding tasks that must write workspace files should omit permission
 # (or use workspace-write). This binding fences file-tool writes.
 # bash redirects still write on the bundled jsonrpc runtime.
 # Same harness as profiles.dsh.yaml — only the job binding changes.
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: dsh

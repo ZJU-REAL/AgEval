@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from bora.config.errors import ConfigError
-from bora.plugins.manifest import (
+from ageval.config.errors import ConfigError
+from ageval.plugins.manifest import (
     PluginManifestError,
     hub_plugin_package_id,
     normalize_plugin_id,
@@ -38,7 +38,7 @@ def test_normalize_rejects_invalid(raw: str) -> None:
 def test_parse_manifest_keeps_short_id() -> None:
     manifest = parse_manifest_mapping(
         {
-            "format": "bora.plugin/1",
+            "format": "ageval.plugin/1",
             "plugin_id": "dsh",
             "version": "0.1.0",
             "slots": {"provide": [{"id": "executor", "entry": "pkg:fn"}]},
@@ -60,12 +60,12 @@ def test_hub_publish_namespaced_must_match_org() -> None:
 
 
 def test_publish_command_rejects_org_mismatch(tmp_path: Path) -> None:
-    from bora.application.plugin_ops.plugin_publish import PluginPublishCommand
+    from ageval.application.plugin_ops.plugin_publish import PluginPublishCommand
 
     root = tmp_path / "plug"
     root.mkdir()
     (root / "plugin.yaml").write_text(
-        "format: bora.plugin/1\nplugin_id: acme/echo\nversion: 0.0.1\n",
+        "format: ageval.plugin/1\nplugin_id: acme/echo\nversion: 0.0.1\n",
         encoding="utf-8",
     )
     cmd = PluginPublishCommand(client_factory=lambda **_k: None)
@@ -75,7 +75,7 @@ def test_publish_command_rejects_org_mismatch(tmp_path: Path) -> None:
 
 
 def test_publish_command_concatenates_short_id(tmp_path: Path) -> None:
-    from bora.application.plugin_ops.plugin_publish import PluginPublishCommand
+    from ageval.application.plugin_ops.plugin_publish import PluginPublishCommand
 
     class _Client:
         def publish(self, **kwargs):  # type: ignore[no-untyped-def]
@@ -97,7 +97,7 @@ def test_publish_command_concatenates_short_id(tmp_path: Path) -> None:
     root = tmp_path / "plug"
     root.mkdir()
     (root / "plugin.yaml").write_text(
-        "format: bora.plugin/1\nplugin_id: sample-echo\nversion: 0.0.1\n",
+        "format: ageval.plugin/1\nplugin_id: sample-echo\nversion: 0.0.1\n",
         encoding="utf-8",
     )
     cmd = PluginPublishCommand(client_factory=lambda **_k: _Client())
@@ -110,13 +110,13 @@ def test_publish_command_concatenates_short_id(tmp_path: Path) -> None:
 def test_path_install_keeps_short_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins.store import install_from_path, list_installed, uninstall
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins.store import install_from_path, list_installed, uninstall
 
     src = tmp_path / "src"
     src.mkdir()
     (src / "plugin.yaml").write_text(
-        "format: bora.plugin/1\nplugin_id: nooa\nversion: 0.1.0\n",
+        "format: ageval.plugin/1\nplugin_id: nooa\nversion: 0.1.0\n",
         encoding="utf-8",
     )
     (src / "readme.txt").write_text("hi\n", encoding="utf-8")
@@ -132,13 +132,13 @@ def test_path_install_keeps_short_id(tmp_path: Path, monkeypatch: pytest.MonkeyP
 def test_hub_install_records_namespaced_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins.store import install_from_path, list_installed
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins.store import install_from_path, list_installed
 
     src = tmp_path / "src"
     src.mkdir()
     (src / "plugin.yaml").write_text(
-        "format: bora.plugin/1\nplugin_id: nooa\nversion: 0.1.0\n"
+        "format: ageval.plugin/1\nplugin_id: nooa\nversion: 0.1.0\n"
         "slots:\n  provide:\n    - id: executor\n      entry: missing:fn\n",
         encoding="utf-8",
     )
@@ -153,12 +153,12 @@ def test_hub_install_records_namespaced_id(tmp_path: Path, monkeypatch: pytest.M
 def test_hub_install_registers_index_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.bootstrap import bootstrap_registry
-    from bora.plugins.registry import ExtensionRegistry, reset_global_registry
-    from bora.plugins.slots import EXECUTOR
-    from bora.plugins.store import install_from_path
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.bootstrap import bootstrap_registry
+    from ageval.plugins.registry import ExtensionRegistry, reset_global_registry
+    from ageval.plugins.slots import EXECUTOR
+    from ageval.plugins.store import install_from_path
 
     fixture = Path(__file__).resolve().parents[1] / "fixtures" / "plugins" / "sample-echo"
     install_from_path(fixture, plugin_id="Official/sample-echo")
@@ -173,7 +173,7 @@ def test_hub_install_registers_index_id(tmp_path: Path, monkeypatch: pytest.Monk
 def test_release_dict_marks_official_from_allowlist() -> None:
     from services.registry.store import ReleaseRow, release_to_dict
 
-    from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+    from ageval.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
     official = release_to_dict(
         ReleaseRow(
@@ -208,12 +208,12 @@ def test_release_dict_marks_official_from_allowlist() -> None:
 def test_official_org_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
     from services.registry.official import is_official_upload_org, official_orgs
 
-    monkeypatch.delenv("BORA_OFFICIAL_ORGS", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFICIAL_ORGS", raising=False)
     assert "official" in official_orgs()
     assert is_official_upload_org("official") is True
     assert is_official_upload_org("Official") is True
     assert is_official_upload_org("acme") is False
-    monkeypatch.setenv("BORA_OFFICIAL_ORGS", "Acme, Labs")
+    monkeypatch.setenv("AGEVAL_OFFICIAL_ORGS", "Acme, Labs")
     assert official_orgs() == frozenset({"Acme", "Labs"})
     assert is_official_upload_org("Acme") is True
     assert is_official_upload_org("Official") is False

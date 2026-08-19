@@ -35,7 +35,7 @@ from services.registry.store import (
 
 _SECRET_PATTERNS = (
     re.compile(rb"(?i)-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----"),
-    re.compile(rb"(?i)BORA_REGISTRY_TOKEN\s*="),
+    re.compile(rb"(?i)AGEVAL_REGISTRY_TOKEN\s*="),
     re.compile(rb"(?i)github_pat_[A-Za-z0-9_]{20,}"),
     re.compile(rb"(?i)ghp_[A-Za-z0-9]{20,}"),
 )

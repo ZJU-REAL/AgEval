@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from bora.runtime.task_import_isolation import clear_imports_from_task_dir
+from ageval.runtime.task_import_isolation import clear_imports_from_task_dir
 
 
 def test_clear_imports_allows_reload_of_same_module_name(tmp_path: Path) -> None:

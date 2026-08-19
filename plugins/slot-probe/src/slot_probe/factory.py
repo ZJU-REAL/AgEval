@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult
+from ageval.adapters.agent_contract import AgentResult
 
 from slot_probe.audit import audit
 

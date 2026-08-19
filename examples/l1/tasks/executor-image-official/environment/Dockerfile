@@ -1,2 +1,2 @@
-# Example A: reuse official BORA L1 base (preinstalled codex/pi/opencode/claude-code).
-FROM bora-attempt:l1
+# Example A: reuse official ageval L1 base (preinstalled codex/pi/opencode/claude-code).
+FROM ageval-attempt:l1

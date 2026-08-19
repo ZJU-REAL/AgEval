@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from bora.runtime.identity import IdentityFactory
-from bora.runtime.lifecycle import LifecyclePhase
-from bora.runtime.outcomes import PhaseFact, PhaseStatus
+from ageval.runtime.identity import IdentityFactory
+from ageval.runtime.lifecycle import LifecyclePhase
+from ageval.runtime.outcomes import PhaseFact, PhaseStatus
 
 
 def test_phase_fact_detail_frozen() -> None:

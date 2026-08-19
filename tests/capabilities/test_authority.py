@@ -6,9 +6,9 @@ import asyncio
 
 import pytest
 
-from bora.capabilities.authority import AttemptCapabilityAuthority
-from bora.capabilities.errors import CapabilityError
-from bora.runtime.identity import IdentityFactory
+from ageval.capabilities.authority import AttemptCapabilityAuthority
+from ageval.capabilities.errors import CapabilityError
+from ageval.runtime.identity import IdentityFactory
 
 
 def _auth(**kwargs) -> AttemptCapabilityAuthority:

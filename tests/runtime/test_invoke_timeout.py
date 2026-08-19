@@ -6,8 +6,8 @@ import time
 
 from tests.helpers.extension_registry import registry_with_executor
 
-from bora.adapters.agent_contract import AgentResult
-from bora.runtime.parent_agent_service import (
+from ageval.adapters.agent_contract import AgentResult
+from ageval.runtime.parent_agent_service import (
     ParentAgentService,
     resolve_invoke_timeout_seconds,
 )
@@ -37,7 +37,7 @@ def test_resolve_invoke_timeout_from_params() -> None:
 
 
 def test_invoke_passes_configured_timeout(monkeypatch: object) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
     fake = _CaptureTimeout()
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],
@@ -54,9 +54,9 @@ def test_invoke_passes_configured_timeout(monkeypatch: object) -> None:
 
 
 def test_env_override_wins_over_field(monkeypatch: object) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
     fake = _CaptureTimeout()
-    monkeypatch.setenv("BORA_AGENT_INVOKE_TIMEOUT", "42")  # type: ignore[attr-defined]
+    monkeypatch.setenv("AGEVAL_AGENT_INVOKE_TIMEOUT", "42")  # type: ignore[attr-defined]
     try:
         svc = ParentAgentService(
             profiles=[{"id": "p", "executor": "fake", "model": "m"}],
@@ -70,11 +70,11 @@ def test_env_override_wins_over_field(monkeypatch: object) -> None:
         svc.invoke(session_id=sid, prompt="hi")
         assert fake.last_timeout == 42.0
     finally:
-        monkeypatch.delenv("BORA_AGENT_INVOKE_TIMEOUT", raising=False)  # type: ignore[attr-defined]
+        monkeypatch.delenv("AGEVAL_AGENT_INVOKE_TIMEOUT", raising=False)  # type: ignore[attr-defined]
 
 
 def test_invoke_timeout_capped_by_remaining_wall(monkeypatch: object) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)  # type: ignore[attr-defined]
     fake = _CaptureTimeout()
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "fake", "model": "m"}],

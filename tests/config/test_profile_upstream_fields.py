@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -22,7 +22,7 @@ def _write_pkg(tmp: Path, *, slot_id: str = "glm") -> Path:
     (pkg / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
     doc = {
-        "format": "bora.task/1",
+        "format": "ageval.task/1",
         "task_id": "profile-upstream",
         "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {},
@@ -165,7 +165,7 @@ def test_rejects_unset_base_url_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
 
 def test_resolve_executor_honors_profile_fields() -> None:
-    from bora.adapters.agent_registry import resolve_executor
+    from ageval.adapters.agent_registry import resolve_executor
 
     ex = resolve_executor(
         "openai-http",

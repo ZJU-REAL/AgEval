@@ -1,4 +1,4 @@
-format: bora.plugin/1
+format: ageval.plugin/1
 plugin_id: host-probe
 version: 0.1.0
 host_requires:

@@ -209,7 +209,7 @@ def fetch_user(access_token: str, *, timeout: float = 30.0) -> GitHubIdentity:
         headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {access_token}",
-            "User-Agent": "bora-registry",
+            "User-Agent": "ageval-registry",
         },
     )
     try:

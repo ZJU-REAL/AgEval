@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 from tests.helpers.extension_registry import registry_with_executor
 
-from bora.adapters.agent_contract import AgentResult
-from bora.runtime.agent_service_protocol import (
+from ageval.adapters.agent_contract import AgentResult
+from ageval.runtime.agent_service_protocol import (
     AgentServiceServer,
     agent_service_client_call,
 )
-from bora.runtime.parent_agent_service import ParentAgentService
+from ageval.runtime.parent_agent_service import ParentAgentService
 
 
 class _FakeExecutor:
@@ -144,7 +144,7 @@ def test_executor_type_error_not_swallowed_by_signature_downgrade() -> None:
 
 def test_unix_socket_server_open_invoke_close(monkeypatch: pytest.MonkeyPatch) -> None:
     # Client helper also honors offline gate before the Unix round-trip.
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
     fake = _FakeExecutor()
     svc = ParentAgentService(
         profiles=[{"id": "codex-mini", "executor": "fake", "model": "m"}],

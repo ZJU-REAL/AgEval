@@ -22,7 +22,7 @@ on executor name — it only opens `session(active_profile)` from
 
 ```bash
 # default profile (codex)
-uv run bora run examples/core --task builtin-executor-conformance
+uv run ageval run examples/core --task builtin-executor-conformance
 
 # other profiles (allowlisted --set, if enabled for this pointer)
 # active_profile: pi-mini | opencode-mini

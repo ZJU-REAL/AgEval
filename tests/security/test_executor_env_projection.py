@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.adapters.child_env import project_cli_child_env
-from bora.evidence.store import AttemptEvidenceStore
-from bora.runtime.parent_agent_service import ParentAgentService
+from ageval.adapters.child_env import project_cli_child_env
+from ageval.evidence.store import AttemptEvidenceStore
+from ageval.runtime.parent_agent_service import ParentAgentService
 
 
 def test_shared_project_cli_child_env_allowlist(monkeypatch: object) -> None:
@@ -20,14 +20,14 @@ def test_shared_project_cli_child_env_allowlist(monkeypatch: object) -> None:
 def test_agent_service_with_acp_offline_no_secret_in_evidence(
     tmp_path: Path, monkeypatch: object
 ) -> None:
-    monkeypatch.setenv("BORA_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
+    monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
     monkeypatch.setenv("ZHIPU_API_KEY", "SENTINEL_ACP_KEY_NOT_FOR_DISK")  # type: ignore[attr-defined]
     store = AttemptEvidenceStore(
         root=tmp_path / "ev",
         attempt_id="a",
         sentinels=["SENTINEL_ACP_KEY_NOT_FOR_DISK"],
     )
-    from bora.plugins.bootstrap import ensure_bootstrapped
+    from ageval.plugins.bootstrap import ensure_bootstrapped
 
     svc = ParentAgentService(
         profiles=[

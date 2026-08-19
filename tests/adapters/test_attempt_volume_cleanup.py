@@ -6,16 +6,16 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from bora.adapters.environment_postgres import PostgresEnvironment
-from bora.adapters.provider_docker.multi_actor import DockerMultiActorMixin
-from bora.adapters.provider_docker.provider import DockerProvider
-from bora.adapters.provider_docker.types import DockerImageLock, DockerRuntime
-from bora.application.attempt.run_command_environment import (
+from ageval.adapters.environment_postgres import PostgresEnvironment
+from ageval.adapters.provider_docker.multi_actor import DockerMultiActorMixin
+from ageval.adapters.provider_docker.provider import DockerProvider
+from ageval.adapters.provider_docker.types import DockerImageLock, DockerRuntime
+from ageval.application.attempt.run_command_environment import (
     ENV_CONTAINER_MARKER,
     teardown_attempt_environment,
 )
-from bora.environment.manager import EnvironmentManager
-from bora.provider.targets import (
+from ageval.environment.manager import EnvironmentManager
+from ageval.provider.targets import (
     ExecutionTarget,
     IsolationMode,
     LogicalActor,
@@ -23,7 +23,7 @@ from bora.provider.targets import (
     LogicalIsolationTopology,
     TargetLedger,
 )
-from bora.runtime.identity import IdentityFactory
+from ageval.runtime.identity import IdentityFactory
 
 
 def _attempt():
@@ -41,17 +41,17 @@ def _topology() -> LogicalIsolationTopology:
     )
 
 
-def _target(*, cid: str = "cid1", volume: str = "bora-home-abc") -> ExecutionTarget:
+def _target(*, cid: str = "cid1", volume: str = "ageval-home-abc") -> ExecutionTarget:
     return ExecutionTarget(
         target_id="t1",
         group_id="g",
         generation=1,
         container_id=cid,
-        container_name="bora-agt-x",
+        container_name="ageval-agt-x",
         workspace_volume=volume,
         state="ready",
         image_digest="sha256:img",
-        image_tag="bora-pkg:deadbeefcaf0",
+        image_tag="ageval-pkg:deadbeefcaf0",
     )
 
 
@@ -69,10 +69,10 @@ def test_postgres_stop_removes_anonymous_volumes() -> None:
         cmds.append(list(cmd))
         return _Proc()
 
-    env = PostgresEnvironment(container_name="bora-env-deadbeef")
-    with patch("bora.adapters.environment_postgres.subprocess.run", side_effect=fake_run):
+    env = PostgresEnvironment(container_name="ageval-env-deadbeef")
+    with patch("ageval.adapters.environment_postgres.subprocess.run", side_effect=fake_run):
         env.stop()
-    assert ["docker", "rm", "-fv", "bora-env-deadbeef"] in cmds
+    assert ["docker", "rm", "-fv", "ageval-env-deadbeef"] in cmds
     assert env.ready is False
 
 
@@ -89,7 +89,7 @@ def test_stop_agent_targets_drops_named_home_volume() -> None:
         image_lock=DockerImageLock(
             kind="t",
             platform="linux/arm64",
-            image_tag="bora-pkg:x",
+            image_tag="ageval-pkg:x",
             image_digest="sha256:img",
             build_input_digest="sha256:d",
         ),
@@ -99,11 +99,11 @@ def test_stop_agent_targets_drops_named_home_volume() -> None:
     runtime.target_ledger.targets[target.target_id] = target  # type: ignore[union-attr]
     runtime.agent_container_ids = ["cid1"]
 
-    with patch("bora.adapters.provider_docker.multi_actor.subprocess.run", side_effect=fake_run):
+    with patch("ageval.adapters.provider_docker.multi_actor.subprocess.run", side_effect=fake_run):
         DockerProvider().stop_agent_targets(runtime)
 
     assert ["docker", "rm", "-fv", "cid1"] in cmds
-    assert ["docker", "volume", "rm", "-f", "bora-home-abc"] in cmds
+    assert ["docker", "volume", "rm", "-f", "ageval-home-abc"] in cmds
     assert target.workspace_volume is None
     assert runtime.agent_container_ids == []
 
@@ -123,7 +123,7 @@ def test_fence_agent_writers_keeps_container_and_network() -> None:
         image_lock=DockerImageLock(
             kind="t",
             platform="linux/arm64",
-            image_tag="bora-pkg:x",
+            image_tag="ageval-pkg:x",
             image_digest="sha256:img",
             build_input_digest="sha256:d",
         ),
@@ -133,12 +133,12 @@ def test_fence_agent_writers_keeps_container_and_network() -> None:
     runtime.target_ledger.targets[target.target_id] = target  # type: ignore[union-attr]
     runtime.agent_container_ids = ["cid1"]
 
-    with patch("bora.adapters.provider_docker.multi_actor.subprocess.run", side_effect=fake_run):
+    with patch("ageval.adapters.provider_docker.multi_actor.subprocess.run", side_effect=fake_run):
         DockerProvider().fence_agent_writers(runtime)
 
     assert runtime.writer_stop_confirmed is True
     assert target.container_id == "cid1"
-    assert target.workspace_volume == "bora-home-abc"
+    assert target.workspace_volume == "ageval-home-abc"
     assert runtime.agent_container_ids == ["cid1"]
     assert not any(cmd[:2] == ["docker", "rm"] for cmd in cmds)
     assert not any(cmd[:2] == ["docker", "network"] for cmd in cmds)
@@ -158,7 +158,7 @@ def test_prepare_rollback_removes_container_and_volume() -> None:
         image_lock=DockerImageLock(
             kind="t",
             platform="linux/arm64",
-            image_tag="bora-pkg:x",
+            image_tag="ageval-pkg:x",
             image_digest="sha256:img",
             build_input_digest="sha256:d",
         ),
@@ -174,7 +174,7 @@ def test_prepare_rollback_removes_container_and_volume() -> None:
         patch.object(provider, "_start_long_lived_target", return_value=started),
         patch.object(provider, "_bootstrap_actor_fs", side_effect=fail_bootstrap),
         patch(
-            "bora.adapters.provider_docker.multi_actor.subprocess.run",
+            "ageval.adapters.provider_docker.multi_actor.subprocess.run",
             side_effect=fake_run,
         ),
     ):
@@ -186,7 +186,7 @@ def test_prepare_rollback_removes_container_and_volume() -> None:
             raise AssertionError("expected bootstrap failure")
 
     assert ["docker", "rm", "-fv", "cid1"] in cmds
-    assert ["docker", "volume", "rm", "-f", "bora-home-abc"] in cmds
+    assert ["docker", "volume", "rm", "-f", "ageval-home-abc"] in cmds
     assert started.workspace_volume is None
 
 
@@ -198,17 +198,17 @@ def test_teardown_closes_manager_and_marker_even_if_keep_workspace(
     pkg.mkdir()
     run_dir = tmp_path / "run"
     run_dir.mkdir()
-    (run_dir / ENV_CONTAINER_MARKER).write_text("bora-env-abc123\n", encoding="utf-8")
+    (run_dir / ENV_CONTAINER_MARKER).write_text("ageval-env-abc123\n", encoding="utf-8")
 
     class FakeEnv:
         def stop(self) -> None:
             stopped.append("manager")
 
     mgr = EnvironmentManager(attempt_id="a")
-    mgr._resources["postgresql:bora-env-live"] = FakeEnv()
+    mgr._resources["postgresql:ageval-env-live"] = FakeEnv()
     ctx = SimpleNamespace(
         env_manager=mgr,
-        agent_meta={"environment": {"resource_id": "postgresql:bora-env-live"}},
+        agent_meta={"environment": {"resource_id": "postgresql:ageval-env-live"}},
         package_root=pkg,
         run_dir=run_dir,
         attempt=None,
@@ -221,7 +221,7 @@ def test_teardown_closes_manager_and_marker_even_if_keep_workspace(
 
     with (
         patch(
-            "bora.application.attempt.extension_hooks.hook_env_teardown",
+            "ageval.application.attempt.extension_hooks.hook_env_teardown",
             return_value=None,
         ),
         patch.object(PostgresEnvironment, "stop", fake_stop),
@@ -231,7 +231,7 @@ def test_teardown_closes_manager_and_marker_even_if_keep_workspace(
     assert ctx.env_manager is None
     assert mgr.closed is True
     assert "manager" in stopped
-    assert "bora-env-abc123" in stopped
+    assert "ageval-env-abc123" in stopped
     assert not (run_dir / ENV_CONTAINER_MARKER).exists()
 
 
@@ -242,12 +242,12 @@ def test_rm_target_never_prunes_unrelated_volumes() -> None:
         cmds.append(list(cmd))
         return _Proc()
 
-    target = _target(volume="bora-home-only")
-    with patch("bora.adapters.provider_docker.multi_actor.subprocess.run", side_effect=fake_run):
+    target = _target(volume="ageval-home-only")
+    with patch("ageval.adapters.provider_docker.multi_actor.subprocess.run", side_effect=fake_run):
         DockerMultiActorMixin._rm_target(target)
 
     volume_rms = [c for c in cmds if c[:3] == ["docker", "volume", "rm"]]
-    assert volume_rms == [["docker", "volume", "rm", "-f", "bora-home-only"]]
+    assert volume_rms == [["docker", "volume", "rm", "-f", "ageval-home-only"]]
     assert not any("prune" in c for c in cmds)
-    assert not any("bora-attempt:l1" in c for c in cmds)
+    assert not any("ageval-attempt:l1" in c for c in cmds)
     assert not any("registry" in " ".join(c) for c in cmds)

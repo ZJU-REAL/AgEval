@@ -1,4 +1,4 @@
-"""nooa native dump → bora.trajectory.event/1 (no ACP masquerade)."""
+"""nooa native dump → ageval.trajectory.event/1 (no ACP masquerade)."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ import json
 import sys
 from pathlib import Path
 
-from bora.evidence.trajectory import write_trajectory_jsonl
+from ageval.evidence.trajectory import write_trajectory_jsonl
 
 _NOOA_SRC = Path(__file__).resolve().parents[2] / "plugins" / "nooa" / "src"
 if str(_NOOA_SRC) not in sys.path:
     sys.path.insert(0, str(_NOOA_SRC))
 
-from nooa_plugin.trajectory import SCHEMA, to_bora_trajectory_events  # noqa: E402
+from nooa_plugin.trajectory import SCHEMA, to_ageval_trajectory_events  # noqa: E402
 
 
 def _read_lines(path: Path) -> list[dict]:
@@ -36,7 +36,7 @@ def test_python_output_folds_to_tool_observation(tmp_path: Path) -> None:
         {"event_type": "Message", "content": "answer is 42"},
         {"event_type": "BeforeTurn", "method_name": "run"},
     )
-    mapped = to_bora_trajectory_events(native)
+    mapped = to_ageval_trajectory_events(native)
     assert all(e.get("schema") == SCHEMA for e in mapped)
     assert all(e.get("source") == "nooa" for e in mapped)
     assert not any("sessionUpdate" in e or e.get("type") == "session_update" for e in mapped)
@@ -68,7 +68,7 @@ def test_python_output_folds_to_tool_observation(tmp_path: Path) -> None:
 
 
 def test_tool_call_event_with_result() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "event_type": "ToolCallEvent",
@@ -86,7 +86,7 @@ def test_tool_call_event_with_result() -> None:
 
 
 def test_python_output_derives_elapsed_from_vendor_timestamp() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "event_type": "ToolCallEvent",
@@ -115,7 +115,7 @@ def test_python_output_derives_elapsed_from_vendor_timestamp() -> None:
 
 
 def test_mapper_skips_tap_duplicates_when_vendor_tools_exist() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "event_type": "ToolCallEvent",
@@ -157,7 +157,7 @@ def test_mapper_skips_tap_duplicates_when_vendor_tools_exist() -> None:
 
 
 def test_llmcomplete_does_not_steal_execute_span() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "event_type": "LLMComplete",
@@ -200,7 +200,7 @@ def test_llmcomplete_does_not_steal_execute_span() -> None:
 
 
 def test_tool_call_copies_vendor_elapsed_ms() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "event_type": "ToolCallEvent",
@@ -219,7 +219,7 @@ def test_tool_call_copies_vendor_elapsed_ms() -> None:
 
 
 def test_return_result_emits_assistant_with_last_llm_elapsed() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "event_type": "LLMCallStart",
@@ -349,7 +349,7 @@ class _FakeEvent:
 
 
 def test_event_tap_keeps_notify_only_runtime_events() -> None:
-    from nooa_plugin.trajectory import attach_event_tap, to_bora_trajectory_events
+    from nooa_plugin.trajectory import attach_event_tap, to_ageval_trajectory_events
 
     em = _FakeEventManager()
     agent = _FakeAgent(em)
@@ -381,7 +381,7 @@ def test_event_tap_keeps_notify_only_runtime_events() -> None:
     kinds = [r.get("event_type") for r in native]
     assert "LLMComplete" in kinds
     assert "PythonOutput" in kinds
-    mapped = to_bora_trajectory_events(native)
+    mapped = to_ageval_trajectory_events(native)
     channels = [e.get("channel") for e in mapped if e.get("kind") == "text"]
     assert "thought" in channels
     tools = [e for e in mapped if e.get("kind") == "tool"]
@@ -390,9 +390,9 @@ def test_event_tap_keeps_notify_only_runtime_events() -> None:
 
 
 def test_llm_complete_tool_calls_fold_without_duplicate() -> None:
-    from nooa_plugin.trajectory import to_bora_trajectory_events
+    from nooa_plugin.trajectory import to_ageval_trajectory_events
 
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "event_type": "LLMComplete",

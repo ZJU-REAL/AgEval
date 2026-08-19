@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from bora.evidence.redaction import (
+from ageval.evidence.redaction import (
     RedactionError,
     assert_clean,
     redact_and_assert,
     redact_text,
     scan_for_secrets,
 )
-from bora.evidence.store import AttemptEvidenceStore
+from ageval.evidence.store import AttemptEvidenceStore
 
 
 def test_redact_bearer_and_sk() -> None:

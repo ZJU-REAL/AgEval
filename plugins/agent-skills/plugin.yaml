@@ -1,9 +1,9 @@
-format: bora.plugin/1
+format: ageval.plugin/1
 plugin_id: agent-skills
 version: 0.1.0
 plugin_requires:
   - plugin_id: home-files
-    hint: "bora plugin install plugins/home-files"
+    hint: "ageval plugin install plugins/home-files"
 slots:
   "on":
     - id: home_overlay

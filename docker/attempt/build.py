@@ -2,16 +2,16 @@
 
 Usage:
   uv run python docker/attempt/build.py --platform linux/arm64 \\
-      --output-lock .bora/runtime-images/provider-l1.json
+      --output-lock .ageval/runtime-images/provider-l1.json
 
 Optional process / host-env knobs (empty = official Debian / PyPI):
 
-  BORA_APT_MIRROR   e.g. http://mirrors.aliyun.com/debian
-  BORA_PIP_INDEX    e.g. https://pypi.tuna.tsinghua.edu.cn/simple
+  AGEVAL_APT_MIRROR   e.g. http://mirrors.aliyun.com/debian
+  AGEVAL_PIP_INDEX    e.g. https://pypi.tuna.tsinghua.edu.cn/simple
 
-``bora run`` already loads Database / cwd / repo ``.env`` before prepare.
+``ageval run`` already loads Database / cwd / repo ``.env`` before prepare.
 This script loads the same host env files when the package is importable.
-Dataset ``.env`` is applied by ``bora run``, not by a bare invocation here.
+Dataset ``.env`` is applied by ``ageval run``, not by a bare invocation here.
 Do not put these knobs in ``~/.zshrc`` — process env would mask Dataset ``.env``.
 """
 
@@ -28,7 +28,7 @@ _SRC = _REPO_ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from bora.adapters.provider_docker.official_base import (  # noqa: E402
+from ageval.adapters.provider_docker.official_base import (  # noqa: E402
     BUILD_INPUT_NAMES,
     official_attempt_dir,
     official_build_input_digest,
@@ -39,7 +39,7 @@ from bora.adapters.provider_docker.official_base import (  # noqa: E402
 
 def _load_host_env(repo_root: Path) -> None:
     try:
-        from bora.application.attempt.env_bootstrap import load_host_env_files
+        from ageval.application.attempt.env_bootstrap import load_host_env_files
     except ImportError:
         return
     load_host_env_files(package_root=repo_root)
@@ -51,9 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--output-lock",
         type=Path,
-        default=Path(".bora/runtime-images/provider-l1.json"),
+        default=Path(".ageval/runtime-images/provider-l1.json"),
     )
-    parser.add_argument("--tag", default="bora-attempt:l1")
+    parser.add_argument("--tag", default="ageval-attempt:l1")
     args = parser.parse_args(argv)
 
     root = _REPO_ROOT

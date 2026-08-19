@@ -9,7 +9,7 @@ from typing import Any
 from services.registry.dataset import is_draft_version
 
 DEFAULT_OFFICIAL_ORGS: tuple[str, ...] = ("official",)
-ENV_OFFICIAL_ORGS = "BORA_OFFICIAL_ORGS"
+ENV_OFFICIAL_ORGS = "AGEVAL_OFFICIAL_ORGS"
 
 
 def official_orgs() -> frozenset[str]:

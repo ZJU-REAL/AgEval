@@ -22,7 +22,7 @@ def test_environment_action_denied_public_cli() -> None:
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(PKG),
             "--task",

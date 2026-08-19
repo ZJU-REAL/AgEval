@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from tests.helpers.extension_registry import registry_with_executor
 
-from bora.adapters.agent_contract import AgentResult
-from bora.plugins.protocol import TargetPlacement
-from bora.runtime.parent_agent_service import ParentAgentService
+from ageval.adapters.agent_contract import AgentResult
+from ageval.plugins.protocol import TargetPlacement
+from ageval.runtime.parent_agent_service import ParentAgentService
 
 
 class _FakeExecutor:

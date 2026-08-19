@@ -14,8 +14,8 @@ dist/
 build/
 *.egg-info/
 
-# BORA runtime state
-.bora/
+# ageval runtime state
+.ageval/
 /tmp
 
 # Editors / OS
@@ -37,6 +37,6 @@ out/
 *.pem
 credentials/
 COMMIT.md
-.bora/
-*.bora_env_result.json
+.ageval/
+*.ageval_env_result.json
 .pi-subagents/

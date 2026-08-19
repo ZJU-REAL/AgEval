@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
-from bora.provider.isolation import parse_logical_topology
-from bora.provider.targets import IsolationMode
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
+from ageval.provider.isolation import parse_logical_topology
+from ageval.provider.targets import IsolationMode
 
 ROOT = Path(__file__).resolve().parents[2]
 TASK = ROOT / "examples" / "l1" / "tasks" / "multi-agent-container-per-group"

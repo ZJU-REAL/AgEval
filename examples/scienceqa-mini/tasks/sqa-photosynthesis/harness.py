@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 
 LETTER_RE = re.compile(r"\b([ABCD])\b")
 

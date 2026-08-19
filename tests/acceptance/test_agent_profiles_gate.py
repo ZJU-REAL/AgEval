@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from bora.application.attempt.attempt_stages import AttemptStageContext, DockerL1Stages
-from bora.application.attempt.run_l1_phases import prepare_l1_session
-from bora.runtime.identity import IdentityFactory
+from ageval.application.attempt.attempt_stages import AttemptStageContext, DockerL1Stages
+from ageval.application.attempt.run_l1_phases import prepare_l1_session
+from ageval.runtime.identity import IdentityFactory
 
 
 def test_l1_empty_profiles_without_profiles_is_unsupported(tmp_path: Path) -> None:

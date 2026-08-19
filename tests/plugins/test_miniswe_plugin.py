@@ -20,7 +20,7 @@ from miniswe_plugin.factory import (  # noqa: E402
     describe_miniswe,
 )
 from miniswe_plugin.hooks import image_contribute, trajectory_collect  # noqa: E402
-from miniswe_plugin.trajectory import SCHEMA, to_bora_trajectory_events  # noqa: E402
+from miniswe_plugin.trajectory import SCHEMA, to_ageval_trajectory_events  # noqa: E402
 
 
 def test_describe_and_bind_to_target() -> None:
@@ -84,14 +84,14 @@ def test_official_mini_yaml_loads() -> None:
 
 
 def test_invalid_step_limit() -> None:
-    from bora.plugins.errors import ExtensionMaterializeError
+    from ageval.plugins.errors import ExtensionMaterializeError
 
     with pytest.raises(ExtensionMaterializeError, match="step_limit"):
         build_executor(options={"step_limit": -1})
 
 
 def test_offline_invoke_does_not_import_vendor(monkeypatch: object) -> None:
-    monkeypatch.setenv("BORA_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
+    monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
     spi = MinisweExecutorSPI(model="openai/x", api_key="litellm_api_key")
     result = spi.invoke("ping")
     assert result.ok is False
@@ -99,7 +99,7 @@ def test_offline_invoke_does_not_import_vendor(monkeypatch: object) -> None:
 
 
 def test_messages_map_to_layer_b() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {"role": "user", "content": "fix the bug"},
             {
@@ -132,7 +132,7 @@ async def test_image_contribute_declares_plugin() -> None:
 
 @pytest.mark.asyncio
 async def test_trajectory_collect_stamps_own_source() -> None:
-    events = to_bora_trajectory_events(({"role": "user", "content": "hi"},))
+    events = to_ageval_trajectory_events(({"role": "user", "content": "hi"},))
 
     async def nxt(value: object) -> object:
         return value

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from bora.provider.errors import ProviderError
-from bora.provider.workspace_plan import WorkspacePlan
-from bora.runtime.identity import IdentityFactory
+from ageval.provider.errors import ProviderError
+from ageval.provider.workspace_plan import WorkspacePlan
+from ageval.runtime.identity import IdentityFactory
 
 
 def _attempt():

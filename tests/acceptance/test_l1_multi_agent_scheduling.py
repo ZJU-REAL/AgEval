@@ -24,7 +24,7 @@ PER_GROUP = ROOT / "examples" / "l1"
 def test_lock_multi_agent_packages(pkg: Path, task: str) -> None:
     assert pkg.is_dir()
     proc = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "lock", str(pkg), "--task", task],
+        [sys.executable, "-m", "ageval.cli.main", "lock", str(pkg), "--task", task],
         cwd=str(ROOT),
         capture_output=True,
         text=True,
@@ -42,9 +42,9 @@ def test_lock_multi_agent_packages(pkg: Path, task: str) -> None:
 )
 def test_offline_multi_agent_fail_closed(pkg: Path, task: str) -> None:
     env = os.environ.copy()
-    env["BORA_OFFLINE_AGENT"] = "1"
+    env["AGEVAL_OFFLINE_AGENT"] = "1"
     proc = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "run", str(pkg), "--task", task],
+        [sys.executable, "-m", "ageval.cli.main", "run", str(pkg), "--task", task],
         cwd=str(ROOT),
         capture_output=True,
         text=True,

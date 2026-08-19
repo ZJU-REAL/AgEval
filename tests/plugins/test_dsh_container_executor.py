@@ -8,8 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from bora.provider.outcomes import ProcessOutcome, ProcessTerminalKind
-from bora.runtime.identity import IdentityFactory
+from ageval.provider.outcomes import ProcessOutcome, ProcessTerminalKind
+from ageval.runtime.identity import IdentityFactory
 
 _DSH_SRC = Path(__file__).resolve().parents[2] / "plugins" / "dsh" / "src"
 if str(_DSH_SRC) not in sys.path:
@@ -46,7 +46,7 @@ def test_describe_and_bind_to_target() -> None:
 
 
 def test_offline_invoke_does_not_start(monkeypatch: object) -> None:
-    monkeypatch.setenv("BORA_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
+    monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
     spi = DshExecutorSPI(model="deepseek-v4-flash", api_key="deepseek_api_key")
     result = spi.invoke("ping")
     assert result.ok is False

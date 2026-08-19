@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from bora.application.attempt.env_bootstrap import apply_dotenv_file, load_host_env_files
+from ageval.application.attempt.env_bootstrap import apply_dotenv_file, load_host_env_files
 
 
 def test_apply_dotenv_no_override(tmp_path: Path, monkeypatch: object) -> None:
@@ -20,14 +20,14 @@ def test_apply_dotenv_no_override(tmp_path: Path, monkeypatch: object) -> None:
 
 
 def test_load_host_env_finds_repo_style_env(tmp_path: Path, monkeypatch: object) -> None:
-    # Simulate package under a repo root with pyproject + src/bora and .env
+    # Simulate package under a repo root with pyproject + src/ageval and .env
     repo = tmp_path / "repo"
-    (repo / "src" / "bora").mkdir(parents=True)
+    (repo / "src" / "ageval").mkdir(parents=True)
     (repo / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
-    (repo / ".env").write_text("BORA_TEST_LOCATOR=ok\n", encoding="utf-8")
+    (repo / ".env").write_text("AGEVAL_TEST_LOCATOR=ok\n", encoding="utf-8")
     pkg = repo / "examples" / "pkg"
     pkg.mkdir(parents=True)
-    monkeypatch.delenv("BORA_TEST_LOCATOR", raising=False)  # type: ignore[attr-defined]
+    monkeypatch.delenv("AGEVAL_TEST_LOCATOR", raising=False)  # type: ignore[attr-defined]
     loaded = load_host_env_files(package_root=pkg)
     assert any(str(repo / ".env") == p or p.endswith(".env") for p in loaded)
-    assert os.environ.get("BORA_TEST_LOCATOR") == "ok"
+    assert os.environ.get("AGEVAL_TEST_LOCATOR") == "ok"

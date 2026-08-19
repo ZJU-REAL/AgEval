@@ -1,7 +1,7 @@
 # ACP job binding for terminal-jsonl-agg.
 # entry: pi  model: litellm/dashscope/deepseek-v4-pro
 # LiteLLM catalog is a Database overlay (home-files), not a Core prefix.
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: acp

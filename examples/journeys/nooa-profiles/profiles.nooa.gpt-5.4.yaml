@@ -1,6 +1,6 @@
 # LiteLLM feasibility overlay for terminal-jsonl-agg (nooa).
 # model: openai/gpt-5.4
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: nooa

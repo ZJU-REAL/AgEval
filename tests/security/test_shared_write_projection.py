@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from bora.config.errors import ConfigError
-from bora.provider.isolation import parse_logical_topology
+from ageval.config.errors import ConfigError
+from ageval.provider.isolation import parse_logical_topology
 
 
 def test_shared_write_relative_ok() -> None:

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from bora.provider.isolation import parse_logical_topology
-from bora.provider.targets import IsolationMode
+from ageval.provider.isolation import parse_logical_topology
+from ageval.provider.targets import IsolationMode
 
 
 def test_shared_container_two_actors_same_group() -> None:

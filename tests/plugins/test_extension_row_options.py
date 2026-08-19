@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from bora.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
-from bora.plugins.registry import ExtensionRegistry
-from bora.plugins.resolve import resolve
-from bora.plugins.slots import EXECUTOR
+from ageval.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import EXECUTOR
 
 
 def _factory(

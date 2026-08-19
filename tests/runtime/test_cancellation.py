@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
-from bora.runtime.cancellation import CancellationSignal
-from bora.runtime.coordinator import LifecycleCoordinator
-from bora.runtime.identity import IdentityFactory
-from bora.runtime.lifecycle import LifecyclePhase
-from bora.runtime.outcomes import RuntimeTerminalKind
+from ageval.runtime.cancellation import CancellationSignal
+from ageval.runtime.coordinator import LifecycleCoordinator
+from ageval.runtime.identity import IdentityFactory
+from ageval.runtime.lifecycle import LifecyclePhase
+from ageval.runtime.outcomes import RuntimeTerminalKind
 
 
 def _attempt():
@@ -44,7 +44,7 @@ async def test_timeout_deadline() -> None:
 
 @pytest.mark.asyncio
 async def test_stage_returns_cancelled() -> None:
-    from bora.runtime.outcomes import PhaseStatus
+    from ageval.runtime.outcomes import PhaseStatus
 
     stages = ScriptedLifecycleStages(
         fail_at=LifecyclePhase.RUN,

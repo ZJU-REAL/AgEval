@@ -1,6 +1,6 @@
 """Example harness module for config-minimal.
 
-Config Core must never import or execute this file during ``bora lock``.
+Config Core must never import or execute this file during ``ageval lock``.
 It exists only so package layout and entrypoint locator validation succeed.
 """
 

@@ -19,9 +19,9 @@ from services.registry.app import build_default_state
 from services.registry.asgi import build_asgi_app
 from services.registry.http_api import RegistryHttpApi
 
-from bora.registry.archive import MEDIA_TYPE, build_archive
-from bora.registry.client import RegistryClient
-from bora.registry.digest import compute_package_digest
+from ageval.registry.archive import MEDIA_TYPE, build_archive
+from ageval.registry.client import RegistryClient
+from ageval.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
@@ -104,7 +104,7 @@ def test_http_api_matches_asgi_health(tmp_path: Path) -> None:
     api = RegistryHttpApi(state)
     result = api.dispatch(method="GET", path="/health", headers={}, body=io.BytesIO())
     assert result.status == 200
-    assert json.loads(result.body.decode())["service"] == "bora-registry"
+    assert json.loads(result.body.decode())["service"] == "ageval-registry"
 
 
 def _free_port() -> int:
@@ -130,7 +130,7 @@ def _wait_health(url: str, *, timeout: float = 15.0) -> None:
 
 
 @pytest.mark.skipif(
-    os.environ.get("BORA_SKIP_UVICORN_WORKERS") == "1",
+    os.environ.get("AGEVAL_SKIP_UVICORN_WORKERS") == "1",
     reason="operator skipped multi-worker smoke",
 )
 def test_uvicorn_workers_health_not_starved(tmp_path: Path) -> None:
@@ -140,10 +140,10 @@ def test_uvicorn_workers_health_not_starved(tmp_path: Path) -> None:
     data = tmp_path / "reg"
     data.mkdir()
     env = os.environ.copy()
-    env["BORA_REGISTRY_FORCE_LOCAL"] = "1"
-    env["BORA_REGISTRY_DATA_DIR"] = str(data)
-    env["BORA_REGISTRY_BOOTSTRAP_TOKEN"] = "worker-token"
-    env["BORA_REGISTRY_WORKERS"] = "2"
+    env["AGEVAL_REGISTRY_FORCE_LOCAL"] = "1"
+    env["AGEVAL_REGISTRY_DATA_DIR"] = str(data)
+    env["AGEVAL_REGISTRY_BOOTSTRAP_TOKEN"] = "worker-token"
+    env["AGEVAL_REGISTRY_WORKERS"] = "2"
     proc = subprocess.Popen(  # noqa: S603
         [
             sys.executable,

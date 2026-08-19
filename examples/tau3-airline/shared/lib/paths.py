@@ -11,9 +11,9 @@ def package_root() -> Path:
     # .../shared/lib/paths.py
     if here.parent.name == "lib" and here.parents[1].name == "shared":
         return here.parents[2]
-    # Fallback: walk up for bora.yaml
+    # Fallback: walk up for ageval.yaml
     for parent in here.parents:
-        if (parent / "bora.yaml").is_file():
+        if (parent / "ageval.yaml").is_file():
             return parent
     return here.parents[2]
 

@@ -377,8 +377,8 @@ class PackageService:
         if label:
             payload["display_name"] = label
         try:
-            from bora.registry.media_types import AGENT_MEDIA_TYPE
-            from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+            from ageval.registry.media_types import AGENT_MEDIA_TYPE
+            from ageval.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
             if row.media_type == PLUGIN_MEDIA_TYPE:
                 data = read_blob(self.blobs, row.blob_digest, prefix="packages")
@@ -587,11 +587,11 @@ class PackageService:
         return row
 
     def _version_from_archive(self, archive: bytes) -> str:
-        from bora.config.database import load_database_manifest
-        from bora.registry.archive import extract_archive
+        from ageval.config.database import load_database_manifest
+        from ageval.registry.archive import extract_archive
 
         try:
-            with tempfile.TemporaryDirectory(prefix="bora-rel-") as tmp:
+            with tempfile.TemporaryDirectory(prefix="ageval-rel-") as tmp:
                 extract_archive(archive, Path(tmp))
                 man = load_database_manifest(Path(tmp))
                 return str(man.version or "").strip()
@@ -625,16 +625,16 @@ class PackageService:
         media_type: str,
         package_digest: str,
     ) -> None:
-        from bora.registry.archive import extract_archive
-        from bora.registry.digest import compute_package_digest
-        from bora.registry.plugin_package import (
+        from ageval.registry.archive import extract_archive
+        from ageval.registry.digest import compute_package_digest
+        from ageval.registry.plugin_package import (
             PLUGIN_MEDIA_TYPE,
             assert_plugin_package,
             compute_plugin_digest,
         )
 
         try:
-            with tempfile.TemporaryDirectory(prefix="bora-reg-") as tmp:
+            with tempfile.TemporaryDirectory(prefix="ageval-reg-") as tmp:
                 extract_archive(archive, Path(tmp))
                 tmp_path = Path(tmp)
                 if package_kind == "plugin":
@@ -651,12 +651,12 @@ class PackageService:
                     except Exception as exc:  # noqa: BLE001
                         raise RegistryAppError(
                             "invalid_format",
-                            f"not a valid bora.plugin/1: {exc}",
+                            f"not a valid ageval.plugin/1: {exc}",
                             http_status=400,
                         ) from exc
-                    if (tmp_path / "bora.yaml").is_file() and not (
+                    if (tmp_path / "ageval.yaml").is_file() and not (
                         (tmp_path / "plugin.yaml").is_file()
-                        or (tmp_path / "bora.plugin.yaml").is_file()
+                        or (tmp_path / "ageval.plugin.yaml").is_file()
                     ):
                         raise RegistryAppError(
                             "invalid_format",
@@ -665,7 +665,7 @@ class PackageService:
                         )
                     got = compute_plugin_digest(tmp_path)
                 elif package_kind == "agent":
-                    from bora.registry.agent_package import (
+                    from ageval.registry.agent_package import (
                         AGENT_MEDIA_TYPE,
                         assert_agent_package,
                         compute_agent_digest,
@@ -684,22 +684,22 @@ class PackageService:
                     except Exception as exc:  # noqa: BLE001
                         raise RegistryAppError(
                             "invalid_format",
-                            f"not a valid bora.agent/1: {exc}",
+                            f"not a valid ageval.agent/1: {exc}",
                             http_status=400,
                         ) from exc
                     got = compute_agent_digest(tmp_path)
                 else:
                     if (
                         (tmp_path / "plugin.yaml").is_file()
-                        or (tmp_path / "bora.plugin.yaml").is_file()
-                    ) and not (tmp_path / "bora.yaml").is_file():
+                        or (tmp_path / "ageval.plugin.yaml").is_file()
+                    ) and not (tmp_path / "ageval.yaml").is_file():
                         raise RegistryAppError(
                             "invalid_format",
                             "plugin package must use package_kind=plugin",
                             http_status=400,
                         )
                     if (tmp_path / "agent.yaml").is_file() and not (
-                        tmp_path / "bora.yaml"
+                        tmp_path / "ageval.yaml"
                     ).is_file():
                         raise RegistryAppError(
                             "invalid_format",
@@ -721,11 +721,11 @@ class PackageService:
 
 def _agent_preview_from_archive(archive: bytes) -> dict[str, Any]:
     """Secret-free agent detail preview (design/14): manifest + binding + files."""
-    from bora.agents.manifest import load_agent_manifest
-    from bora.config.profiles import project_job_overlay
-    from bora.registry.archive import extract_archive
+    from ageval.agents.manifest import load_agent_manifest
+    from ageval.config.profiles import project_job_overlay
+    from ageval.registry.archive import extract_archive
 
-    with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="ageval-prev-") as tmp:
         root = Path(tmp)
         extract_archive(archive, root)
         man = load_agent_manifest(root)
@@ -738,7 +738,7 @@ def _agent_preview_from_archive(archive: bytes) -> dict[str, Any]:
         return {
             "agent_id": man.agent_id,
             "version": man.version,
-            "format": "bora.agent/1",
+            "format": "ageval.agent/1",
             "label": man.label,
             "description": man.description,
             "tags": list(man.tags),
@@ -748,11 +748,11 @@ def _agent_preview_from_archive(archive: bytes) -> dict[str, Any]:
 
 
 def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
-    from bora.plugins.manifest import load_manifest
-    from bora.plugins.slots import slot_level
-    from bora.registry.archive import extract_archive
+    from ageval.plugins.manifest import load_manifest
+    from ageval.plugins.slots import slot_level
+    from ageval.registry.archive import extract_archive
 
-    with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="ageval-prev-") as tmp:
         root = Path(tmp)
         extract_archive(archive, root)
         man = load_manifest(root)

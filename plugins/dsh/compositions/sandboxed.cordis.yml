@@ -1,8 +1,8 @@
-# BORA-owned sandboxed composition for the bundled dsh-jsonrpc-agent runtime.
+# ageval-owned sandboxed composition for the bundled dsh-jsonrpc-agent runtime.
 # Same jsonrpc + llm + sessions as slim. File writes go through dsh-fs-sandbox
 # (in the 0.1.0rc6 jsonrpc bin). dsh-bash-sandbox is NOT compiled into that
 # bin — keep dsh-bash-local or the runtime fails to start. Isolation hard
-# boundary is still BORA mount/UID; this is a DSH file-effect policy, not
+# boundary is still ageval mount/UID; this is a DSH file-effect policy, not
 # isolated. Batch approval is never: an unattended Attempt cannot answer
 # prompts.
 

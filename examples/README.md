@@ -1,11 +1,11 @@
-# BORA examples
+# ageval examples
 
 Tracked **Databases** (suites) for public smokes, case-class journeys, and
 selected popular-bench **conversion** packages.
 
 ```text
 examples/
-├── agents/         # bora.agent/1 examples (mock-default / cc-default / pi-default / grok-jsonl-agg)
+├── agents/         # ageval.agent/1 examples (mock-default / cc-default / pi-default / grok-jsonl-agg)
 ├── alfworld-mini/  # Database eval/alfworld-mini — ALFWorld-style text household eval
 ├── core/           # Database example/core — Core surface gates
 ├── journeys/       # Database example/journeys — case-class fidelity
@@ -17,47 +17,47 @@ examples/
 ```
 
 The three `*-mini` Databases are agent-eval suites: `profiles.yaml` binds the
-CI-safe `mock` executor so `bora lock` works offline; real evals swap the whole
+CI-safe `mock` executor so `ageval lock` works offline; real evals swap the whole
 binding via the Agent lane (design/14), e.g.
 
 ```bash
-uv run bora agent install examples/agents/cc-default
-uv run bora run examples/webshop-mini --agent local/cc-default@0.1.0   # needs host claude-code entry
+uv run ageval agent install examples/agents/cc-default
+uv run ageval run examples/webshop-mini --agent local/cc-default@0.1.0   # needs host claude-code entry
 ```
 
-Each top-level directory is one Database (`bora.database/1`). Members live under
+Each top-level directory is one Database (`ageval.dataset/1`). Members live under
 `tasks/<task_id>/task.yaml`. CLI path is always the Database root:
 
 ```bash
-uv run bora lock  examples/<database> --task <task_id>
-uv run bora run   examples/<database> --task <task_id>
-uv run bora tasks examples/<database>
+uv run ageval lock  examples/<database> --task <task_id>
+uv run ageval run   examples/<database> --task <task_id>
+uv run ageval tasks examples/<database>
 ```
 
 ## Suite run (Spec 22)
 
 ```bash
 # Full Database suite (no --task); concurrency from CLI or Database defaults
-uv run bora run tests/fixtures/databases/suite-min --max-concurrent-tasks 2
+uv run ageval run tests/fixtures/databases/suite-min --max-concurrent-tasks 2
 # Single member still first-class
-uv run bora run examples/core --task config-minimal
+uv run ageval run examples/core --task config-minimal
 ```
 
 ## Frozen smoke commands (Spec 20)
 
 ```bash
-uv run bora lock examples/core --task config-minimal
-uv run bora lock examples/journeys --task terminal-jsonl-agg
-uv run bora lock examples/l1 --task sdk-session-single-actor
-uv run bora lock examples/tau3-airline --task airline-00   # conversion package; needs tau2 pin for run
+uv run ageval lock examples/core --task config-minimal
+uv run ageval lock examples/journeys --task terminal-jsonl-agg
+uv run ageval lock examples/l1 --task sdk-session-single-actor
+uv run ageval lock examples/tau3-airline --task airline-00   # conversion package; needs tau2 pin for run
 
-uv run bora run examples/core --task sdk-agent-session   # real agent path when credentials available
-uv run bora tasks examples/journeys
+uv run ageval run examples/core --task sdk-agent-session   # real agent path when credentials available
+uv run ageval tasks examples/journeys
 
 # Expected failures
-uv run bora lock examples/journeys --task does-not-exist   # exit ≠ 0
-uv run bora lock examples/core                            # missing --task → exit ≠ 0
-uv run bora lock examples/core --task config-invalid       # exit 2, unknown_profile
+uv run ageval lock examples/journeys --task does-not-exist   # exit ≠ 0
+uv run ageval lock examples/core                            # missing --task → exit ≠ 0
+uv run ageval lock examples/core --task config-invalid       # exit 2, unknown_profile
 ```
 
 ## `journeys/` (`database_id: example/journeys`)
@@ -77,10 +77,10 @@ rewrites Database profiles — bind with a separate profiles file:
 
 ```bash
 uv sync --extra nooa
-uv run bora plugin install plugins/nooa
+uv run ageval plugin install plugins/nooa
 # repo/.env: litellm_api_key (+ litellm_base_url) or set profile base_url
-unset BORA_OFFLINE_AGENT
-uv run bora run examples/journeys --profiles examples/journeys/profiles.nooa.yaml
+unset AGEVAL_OFFLINE_AGENT
+uv run ageval run examples/journeys --profiles examples/journeys/profiles.nooa.yaml
 ```
 
 Package agents under each task’s `lib/agents.py` are `nooa.Agent` subclasses
@@ -96,13 +96,13 @@ JSON-RPC SDK (`deepseek-harness-sdk`), not ACP. Same journeys harness; bind
 `--extra dsh` is only for L0 host SPI. `executor:` alone does not bake.
 
 ```bash
-uv run bora plugin install plugins/dsh
+uv run ageval plugin install plugins/dsh
 # repo/.env: deepseek_api_key (projected as DEEPSEEK_API_KEY)
-unset BORA_OFFLINE_AGENT
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+unset AGEVAL_OFFLINE_AGENT
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml
 # Optional DSH file-effect policy (omit permission to keep unrestricted local tools):
-# uv run bora run examples/journeys --task terminal-jsonl-agg \
+# uv run ageval run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
@@ -111,9 +111,9 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 Multi-slot extension e2e (not a default public smoke). Requires:
 
 ```bash
-uv run bora plugin install plugins/nooa
-uv run bora plugin install plugins/slot-probe
-uv run bora run examples/slot-probe --task l0-env-agent
+uv run ageval plugin install plugins/nooa
+uv run ageval plugin install plugins/slot-probe
+uv run ageval run examples/slot-probe --task l0-env-agent
 ```
 
 See [`slot-probe/README.md`](slot-probe/README.md).
@@ -122,8 +122,8 @@ See [`slot-probe/README.md`](slot-probe/README.md).
 
 | Task                                                                       | Role                                    |
 | -------------------------------------------------------------------------- | --------------------------------------- |
-| [`config-minimal`](core/tasks/config-minimal/)                             | `bora lock` success                     |
-| [`config-invalid`](core/tasks/config-invalid/)                             | `bora lock` expected-failure            |
+| [`config-minimal`](core/tasks/config-minimal/)                             | `ageval lock` success                     |
+| [`config-invalid`](core/tasks/config-invalid/)                             | `ageval lock` expected-failure            |
 | [`harness-minimal`](core/tasks/harness-minimal/)                           | Worker harness, no agent                |
 | [`evaluator-negative`](core/tasks/evaluator-negative/)                     | completed ≠ PASS                        |
 | [`sdk-agent-session`](core/tasks/sdk-agent-session/)                       | L0 multi-invoke Agent + PASS            |
@@ -141,7 +141,7 @@ See [`slot-probe/README.md`](slot-probe/README.md).
 | Task                                                                           | Role                                    |
 | ------------------------------------------------------------------------------ | --------------------------------------- |
 | [`sdk-session-single-actor`](l1/tasks/sdk-session-single-actor/)               | L1 SDK session → attempt-container PASS |
-| [`executor-image-official`](l1/tasks/executor-image-official/)                 | Dockerfile `FROM bora-attempt:l1`       |
+| [`executor-image-official`](l1/tasks/executor-image-official/)                 | Dockerfile `FROM ageval-attempt:l1`       |
 | [`executor-image-upstream`](l1/tasks/executor-image-upstream/)                 | Upstream base + install-executors       |
 | [`multi-agent-shared-container`](l1/tasks/multi-agent-shared-container/)       | shared-container multi-UID              |
 | [`multi-agent-container-per-group`](l1/tasks/multi-agent-container-per-group/) | container-per-group                     |
@@ -167,11 +167,11 @@ bridge and independent evaluator (tau2 ENV+COMMUNICATE).
 | Evidence     | **Not** a public smoke upgrade path; package / Hub publish **≠** `real-benchmark-verified`                                                   |
 
 ```bash
-uv run bora lock examples/tau3-airline --task airline-00
-uv run bora tasks examples/tau3-airline
+uv run ageval lock examples/tau3-airline --task airline-00
+uv run ageval tasks examples/tau3-airline
 uv run python scripts/check_shared_lib_collisions.py examples/tau3-airline
 # Full suite (long; needs agent credentials + tau2):
-# uv run bora run examples/tau3-airline
+# uv run ageval run examples/tau3-airline
 ```
 
 Package-local detail: [`tau3-airline/README.md`](tau3-airline/README.md). Regenerate members
@@ -210,8 +210,8 @@ Package presence, Hub publish, or a suite job on the board does **not** raise ev
 ## Suggested first runs
 
 ```bash
-uv run bora lock examples/core --task config-minimal
-uv run bora lock examples/core --task config-invalid   # expect exit 2
-uv run bora run examples/core --task sdk-agent-session
+uv run ageval lock examples/core --task config-minimal
+uv run ageval lock examples/core --task config-invalid   # expect exit 2
+uv run ageval run examples/core --task sdk-agent-session
 uv run pytest tests/provider_l1/test_harness_isolation_contracts.py -q
 ```

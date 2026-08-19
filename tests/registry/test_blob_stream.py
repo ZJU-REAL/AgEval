@@ -63,7 +63,7 @@ def test_s3_stub_uses_upload_fileobj(tmp_path: Path) -> None:
     from services.registry.store import S3BlobStore
 
     store = object.__new__(S3BlobStore)
-    store.bucket = "bora"
+    store.bucket = "ageval"
     store._ClientError = KeyError  # type: ignore[assignment]
     store._client = _Client()  # type: ignore[assignment]
     src = tmp_path / "s3.bin"
@@ -74,7 +74,7 @@ def test_s3_stub_uses_upload_fileobj(tmp_path: Path) -> None:
 
 def test_spool_and_multipart_do_not_require_bytes_archive(tmp_path: Path) -> None:
     archive = b"ARCHIVE-BYTES-NOT-IN-RAM-CONTRACT"
-    boundary = "bora-test"
+    boundary = "ageval-test"
     meta = b'{"database_id":"a/b"}'
     body = (
         f"--{boundary}\r\n"

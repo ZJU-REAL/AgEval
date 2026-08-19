@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
-from bora.config.profiles import (
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
+from ageval.config.profiles import (
     assert_slots_have_no_inline_binding,
     display_agent_name,
     display_labels_from_overlay,
@@ -29,7 +29,7 @@ def _write_task(tmp: Path, *, slots: list[dict], task_id: str = "t") -> Path:
     (pkg / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
     doc = {
-        "format": "bora.task/1",
+        "format": "ageval.task/1",
         "task_id": task_id,
         "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {"models": {"default": slots[0]["id"]}} if slots else {},
@@ -130,7 +130,7 @@ def test_profiles_document_parse(tmp_path: Path) -> None:
     path.write_text(
         yaml.safe_dump(
             {
-                "format": "bora.profiles/1",
+                "format": "ageval.profiles/1",
                 "bindings": {
                     "solver": {
                         "executor": "acp",
@@ -178,7 +178,7 @@ def test_job_overlay_omits_secrets() -> None:
 
 
 def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
-    from bora.config.profiles import (
+    from ageval.config.profiles import (
         job_overlay_to_profiles_document,
         load_profiles_document,
         write_profiles_yaml,
@@ -290,7 +290,7 @@ def test_unknown_binding_key_fail_closed(tmp_path: Path) -> None:
     path.write_text(
         yaml.safe_dump(
             {
-                "format": "bora.profiles/1",
+                "format": "ageval.profiles/1",
                 "bindings": {"solver": {"executor": "mock", "not_a_field": 1}},
             }
         ),
@@ -307,7 +307,7 @@ def test_top_level_overlays_fail_closed(tmp_path: Path) -> None:
     path.write_text(
         yaml.safe_dump(
             {
-                "format": "bora.profiles/1",
+                "format": "ageval.profiles/1",
                 "overlays": ["overlays/AGENTS.md"],
                 "bindings": {"solver": {"executor": "mock"}},
             }
@@ -343,7 +343,7 @@ def test_job_overlay_omits_empty_overlays() -> None:
 
 
 def test_export_profiles_roundtrips_overlays(tmp_path: Path) -> None:
-    from bora.config.profiles import job_overlay_to_profiles_document, write_profiles_yaml
+    from ageval.config.profiles import job_overlay_to_profiles_document, write_profiles_yaml
 
     overlay = project_job_overlay(
         {

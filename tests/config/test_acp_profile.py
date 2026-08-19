@@ -8,17 +8,17 @@ from typing import Any
 import pytest
 import yaml
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
 
 
 def _write_pkg(root: Path, slot_ids: list[str]) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     doc = {
-        "format": "bora.task/1",
+        "format": "ageval.task/1",
         "task_id": "acp-lock-test",
         "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {},

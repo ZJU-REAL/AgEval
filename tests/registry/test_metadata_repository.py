@@ -21,7 +21,7 @@ def _sqlite(tmp_path: Path) -> MetadataStore:
 
 
 def _postgres() -> MetadataStore | None:
-    url = os.environ.get("BORA_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    url = os.environ.get("AGEVAL_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not url:
         return None
     try:
@@ -94,7 +94,7 @@ def test_postgres_token_roundtrip_against_live_types() -> None:
     from services.registry.envload import load_env_file
 
     load_env_file()
-    url = os.environ.get("BORA_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    url = os.environ.get("AGEVAL_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not url:
         pytest.skip("postgres daemon absent")
     try:
@@ -102,7 +102,7 @@ def test_postgres_token_roundtrip_against_live_types() -> None:
     except Exception:
         pytest.skip("postgres daemon absent")
     tokens = PostgresTokenStore(url)
-    raw = "bora-registry-token-type-probe"
+    raw = "ageval-registry-token-type-probe"
     digest = tokens.hash_token(raw)
     try:
         tokens.add(raw, {"results:read"}, github_user="probe")

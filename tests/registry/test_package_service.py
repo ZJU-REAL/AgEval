@@ -15,8 +15,8 @@ from services.registry.store import (
     TokenInfo,
 )
 
-from bora.registry.archive import MEDIA_TYPE, build_archive
-from bora.registry.digest import compute_package_digest
+from ageval.registry.archive import MEDIA_TYPE, build_archive
+from ageval.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"

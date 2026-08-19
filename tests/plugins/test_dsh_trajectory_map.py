@@ -1,4 +1,4 @@
-"""dsh native dump → bora.trajectory.event/1 (no ACP masquerade)."""
+"""dsh native dump → ageval.trajectory.event/1 (no ACP masquerade)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from bora.evidence.trajectory import write_trajectory_jsonl
+from ageval.evidence.trajectory import write_trajectory_jsonl
 
 _DSH_SRC = Path(__file__).resolve().parents[2] / "plugins" / "dsh" / "src"
 if str(_DSH_SRC) not in sys.path:
@@ -16,7 +16,7 @@ from dsh_plugin.trajectory import (  # noqa: E402
     SCHEMA,
     extract_finish_reason,
     extract_usage,
-    to_bora_trajectory_events,
+    to_ageval_trajectory_events,
 )
 
 
@@ -81,10 +81,10 @@ def test_tool_call_and_result_map_to_layer_b(tmp_path: Path) -> None:
         {"type": "turn/end", "data": {"reason": {"kind": "completed"}}},
         {"type": "assistant/chunk", "data": {"chunk": {"type": "text", "text": "skip"}}},
     )
-    mapped = to_bora_trajectory_events(native, session_id="bora-s")
+    mapped = to_ageval_trajectory_events(native, session_id="ageval-s")
     assert all(e.get("schema") == SCHEMA for e in mapped)
     assert all(e.get("source") == "dsh" for e in mapped)
-    assert all(e.get("session_id") == "bora-s" for e in mapped)
+    assert all(e.get("session_id") == "ageval-s" for e in mapped)
     assert not any("sessionUpdate" in e or e.get("type") == "session_update" for e in mapped)
     kinds = [e["kind"] for e in mapped]
     assert kinds.count("tool") == 2
@@ -176,7 +176,7 @@ def test_extract_usage_sums_committed_steps_not_last_or_chunks() -> None:
 
 
 def test_foreign_wrapped_event_unwraps() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "method": "session.event",
@@ -193,7 +193,7 @@ def test_foreign_wrapped_event_unwraps() -> None:
 
 
 def test_assistant_elapsed_from_step_start() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {"type": "step/start", "time": 1_786_675_378_000, "data": {"step": 1}},
             {
@@ -232,7 +232,7 @@ def test_assistant_elapsed_from_step_start() -> None:
 
 
 def test_tool_result_derives_elapsed_from_epoch_time() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "type": "tool/call",
@@ -269,7 +269,7 @@ def test_tool_result_derives_elapsed_from_epoch_time() -> None:
 
 
 def test_tool_result_copies_vendor_elapsed_ms() -> None:
-    mapped = to_bora_trajectory_events(
+    mapped = to_ageval_trajectory_events(
         (
             {
                 "type": "tool/call",

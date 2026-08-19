@@ -8,7 +8,7 @@ body:
     attributes:
       label: 现象
       description: 一句话说明实际 vs 期望。
-      placeholder: e.g. bora run 在 X 包上 ERROR，期望 PASS
+      placeholder: e.g. ageval run 在 X 包上 ERROR，期望 PASS
     validations:
       required: true
 
@@ -18,8 +18,8 @@ body:
       label: 复现
       description: 最小命令与环境。不要粘贴 secret / token。
       placeholder: |
-        uv run bora run examples/core/... --task ...
-        # 相关版本：bora / executor / OS
+        uv run ageval run examples/core/... --task ...
+        # 相关版本：ageval / executor / OS
     validations:
       required: true
 

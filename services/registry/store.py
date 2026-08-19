@@ -1719,8 +1719,8 @@ class PostgresMetadataStore(MetadataStore):
 def package_kind_for_media_type(media_type: str) -> str:
     """Derive list/meta ``package_kind`` without opening the blob."""
     try:
-        from bora.registry.media_types import AGENT_MEDIA_TYPE
-        from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+        from ageval.registry.media_types import AGENT_MEDIA_TYPE
+        from ageval.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
         if media_type == PLUGIN_MEDIA_TYPE:
             return "plugin"

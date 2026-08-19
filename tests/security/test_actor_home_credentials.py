@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bora.provider.targets import ActorPhysicalBinding
+from ageval.provider.targets import ActorPhysicalBinding
 
 
 def test_binding_public_view_no_home_bytes() -> None:

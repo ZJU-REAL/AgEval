@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 
 CMD_RE = re.compile(
     r"^\s*(look|inventory|open\s+(?P<open_r>[\w ]+)|take\s+(?P<take_o>[\w ]+)"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 
 CMD_RE = re.compile(
     r"^\s*(search\s+(?P<q>.+)|click\s+(?P<item>[a-z0-9_-]+)"

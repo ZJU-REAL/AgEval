@@ -6,9 +6,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora.evidence.schema import EVENT_SCHEMA_VERSION
-from bora.evidence.trajectory import write_trajectory_jsonl
-from bora.plugins.contrib.acp.trajectory_map import acp_session_events_to_bora
+from ageval.evidence.schema import EVENT_SCHEMA_VERSION
+from ageval.evidence.trajectory import write_trajectory_jsonl
+from ageval.plugins.contrib.acp.trajectory_map import acp_session_events_to_ageval
 
 
 def _read_lines(path: Path) -> list[dict]:
@@ -69,11 +69,11 @@ def test_writer_ignores_non_contract_events(tmp_path: Path) -> None:
     assert "tool_call" not in types
     assert "acp_session_id" not in lines[0]
     assert lines[1]["source"] == "acp"
-    assert lines[0]["source"] == "bora"
+    assert lines[0]["source"] == "ageval"
 
 
 def test_no_tool_events_unchanged_shape(tmp_path: Path) -> None:
-    mapped = acp_session_events_to_bora(
+    mapped = acp_session_events_to_ageval(
         (
             {
                 "type": "session_update",
@@ -172,7 +172,7 @@ def test_tool_call_and_update_merged(tmp_path: Path) -> None:
     )
     path = _write(
         tmp_path,
-        events=acp_session_events_to_bora(events),
+        events=acp_session_events_to_ageval(events),
         prompt="inspect config",
         final_text="Done.",
         metadata={"executor_kind": "acp", "acp_entry_id": "pi", "turn_index": 2},
@@ -238,7 +238,7 @@ def test_multiple_tool_calls_order_preserved(tmp_path: Path) -> None:
             },
         },
     )
-    path = _write(tmp_path, events=acp_session_events_to_bora(events), prompt="p")
+    path = _write(tmp_path, events=acp_session_events_to_ageval(events), prompt="p")
     lines = _read_lines(path)
     tool_ids = [x["tool_call_id"] for x in lines if x["type"] == "tool_call"]
     assert tool_ids == ["a", "b"]
@@ -267,7 +267,7 @@ def test_tool_args_redacted(tmp_path: Path) -> None:
     )
     path = _write(
         tmp_path,
-        events=acp_session_events_to_bora(events),
+        events=acp_session_events_to_ageval(events),
         prompt=f"use {sentinel}",
         final_text="ok",
         redaction_sentinels=[sentinel],
@@ -347,7 +347,7 @@ def test_terminal_meta_stdout_and_title_command(tmp_path: Path) -> None:
     )
     path = _write(
         tmp_path,
-        events=acp_session_events_to_bora(events),
+        events=acp_session_events_to_ageval(events),
         prompt="list dir",
         final_text="done",
     )
@@ -372,7 +372,7 @@ def test_permission_decision_still_emitted(tmp_path: Path) -> None:
             "source": "acp_client",
         },
     )
-    path = _write(tmp_path, events=acp_session_events_to_bora(events), prompt="p")
+    path = _write(tmp_path, events=acp_session_events_to_ageval(events), prompt="p")
     lines = _read_lines(path)
     types = [x["type"] for x in lines]
     assert "permission_decision" in types
@@ -528,7 +528,7 @@ def test_acp_mapper_copies_vendor_elapsed_and_at(tmp_path: Path) -> None:
             },
         },
     )
-    mapped = acp_session_events_to_bora(events)
+    mapped = acp_session_events_to_ageval(events)
     tools = [e for e in mapped if e.get("kind") == "tool"]
     assert tools[0]["at"] == "2026-08-14T12:00:00Z"
     assert tools[0]["started_at"] == "2026-08-14T12:00:00Z"
@@ -572,7 +572,7 @@ def test_acp_mapper_copies_at_onto_text_and_core_derives_thought_elapsed(
             },
         },
     )
-    mapped = acp_session_events_to_bora(events)
+    mapped = acp_session_events_to_ageval(events)
     texts = [e for e in mapped if e.get("kind") == "text"]
     assert all(e.get("at") for e in texts)
     tools = [e for e in mapped if e.get("kind") == "tool"]

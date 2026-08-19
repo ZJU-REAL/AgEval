@@ -1,4 +1,4 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: terminal-jsonl-agg
 provenance:
   kind: reimplementation
@@ -11,7 +11,7 @@ provenance:
     - protocol
     known_gaps:
     - single synthetic jsonl-agg task; not Terminal-Bench task suite
-    - no TerminalBenchAdapter; BORA Core surfaces only
+    - no TerminalBenchAdapter; ageval Core surfaces only
 harness:
   runtime: python
   entrypoint: harness:run

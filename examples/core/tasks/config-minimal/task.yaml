@@ -1,6 +1,6 @@
 # Minimal Task Package for v0.1 Config checkpoint.
-# This package proves load_and_lock + bora lock only — not runnable-mvp.
-format: bora.task/1
+# This package proves load_and_lock + ageval lock only — not runnable-mvp.
+format: ageval.task/1
 task_id: config-minimal
 harness:
   runtime: python

@@ -6,17 +6,17 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.database import (
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.database import (
     list_tasks,
     load_database_manifest,
     member_paths_for_digest,
     resolve_task,
     validate_database_id,
 )
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
 
 REPO = Path(__file__).resolve().parents[2]
 CORE_DB = REPO / "examples" / "core"
@@ -33,7 +33,7 @@ def _write_db(
 ) -> None:
     root.mkdir(parents=True, exist_ok=True)
     body = (
-        f"format: bora.database/1\n"
+        f"format: ageval.dataset/1\n"
         f"database_id: {database_id}\n"
         f'version: "{version}"\n'
         f"tasks:\n  root: tasks\n"
@@ -41,14 +41,14 @@ def _write_db(
     if defaults:
         body += f"defaults:\n{defaults}"
     body += extra_root
-    (root / "bora.yaml").write_text(body, encoding="utf-8")
+    (root / "ageval.yaml").write_text(body, encoding="utf-8")
 
 
 def _write_task(task_dir: Path, task_id: str) -> None:
     task_dir.mkdir(parents=True, exist_ok=True)
     (task_dir / "task.yaml").write_text(
         f"""
-format: bora.task/1
+format: ageval.task/1
 task_id: {task_id}
 harness: {{runtime: python, entrypoint: harness:run}}
 parameters: {{}}
@@ -74,7 +74,7 @@ evaluation:
 def test_examples_core_manifest() -> None:
     man = load_database_manifest(CORE_DB)
     assert man.database_id == "example/core"
-    assert man.format == "bora.database/1"
+    assert man.format == "ageval.dataset/1"
     ids = list_tasks(CORE_DB, manifest=man)
     assert "config-minimal" in ids
     assert "sdk-agent-session" in ids
@@ -82,7 +82,7 @@ def test_examples_core_manifest() -> None:
 
 
 def test_resolve_and_lock_public_example() -> None:
-    from bora.config.profiles import load_database_profiles
+    from ageval.config.profiles import load_database_profiles
 
     resolved = resolve_task(CORE_DB, "config-minimal")
     assert resolved.database_id == "example/core"
@@ -125,8 +125,8 @@ def test_directory_task_id_mismatch(tmp_path: Path) -> None:
 
 
 def test_task_schema_at_database_root_rejected(tmp_path: Path) -> None:
-    (tmp_path / "bora.yaml").write_text(
-        "format: bora.task/1\ntask_id: x\n",
+    (tmp_path / "ageval.yaml").write_text(
+        "format: ageval.task/1\ntask_id: x\n",
         encoding="utf-8",
     )
     with pytest.raises(ConfigError) as ei:
@@ -174,7 +174,7 @@ def test_member_paths_stable_order(tmp_path: Path) -> None:
     _write_task(tmp_path / "tasks" / "b", "b")
     _write_task(tmp_path / "tasks" / "a", "a")
     paths = member_paths_for_digest(tmp_path)
-    assert paths[0] == "bora.yaml"
+    assert paths[0] == "ageval.yaml"
     # Members sorted by task id
     a_idx = next(i for i, p in enumerate(paths) if p.startswith("tasks/a/"))
     b_idx = next(i for i, p in enumerate(paths) if p.startswith("tasks/b/"))
@@ -217,7 +217,7 @@ def test_member_paths_include_only_declared_overlays(tmp_path: Path) -> None:
     alt = tmp_path / "acp-profiles"
     alt.mkdir()
     (alt / "profiles.acp.demo.yaml").write_text(
-        "format: bora.profiles/1\n"
+        "format: ageval.profiles/1\n"
         "bindings:\n"
         "  solver:\n"
         "    executor: mock\n"
@@ -251,7 +251,7 @@ def test_member_paths_without_shared_unchanged_shape(tmp_path: Path) -> None:
     _write_task(tmp_path / "tasks" / "a", "a")
     paths = member_paths_for_digest(tmp_path)
     assert not any(p.startswith("shared/") for p in paths)
-    assert paths[0] == "bora.yaml"
+    assert paths[0] == "ageval.yaml"
 
 
 def test_journeys_list() -> None:

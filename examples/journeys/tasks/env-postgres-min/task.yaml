@@ -1,7 +1,7 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: env-postgres-min
 
-# BORA Core env smoke — not an upstream port.
+# ageval Core env smoke — not an upstream port.
 provenance:
   kind: original
 

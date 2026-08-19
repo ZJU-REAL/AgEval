@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.provider_local import LocalProcessProvider
-from bora.provider.contract import ExecutableGrant, ProcessLaunchPlan, TerminationPolicy
-from bora.provider.outcomes import ProcessTerminalKind
-from bora.provider.workspace_plan import WorkspacePlan
-from bora.runtime.identity import IdentityFactory
+from ageval.adapters.provider_local import LocalProcessProvider
+from ageval.provider.contract import ExecutableGrant, ProcessLaunchPlan, TerminationPolicy
+from ageval.provider.outcomes import ProcessTerminalKind
+from ageval.provider.workspace_plan import WorkspacePlan
+from ageval.runtime.identity import IdentityFactory
 
 HELPER = Path(__file__).resolve().parents[1] / "helpers" / "provider_probe_child.py"
 

@@ -8,17 +8,17 @@ from pathlib import Path
 
 import pytest
 
-from bora.viewer import jobs
+from ageval.viewer import jobs
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
 
 
 def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
         "database_id": "test/suite-min",
         "database_version": "0.1.0",
@@ -54,21 +54,21 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
 
 
 def _clean_db(tmp_path: Path) -> Path:
-    """Copy fixture without leftover .bora suite-runs from local smokes."""
+    """Copy fixture without leftover .ageval suite-runs from local smokes."""
     db = tmp_path / "db"
-    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".bora"))
+    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".ageval"))
     return db
 
 
 def test_get_job_from_attempts_only_summary(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = "suite_attempts_only"
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     (suite_dir / "summary.json").write_text(
         json.dumps(
             {
-                "schema": "bora.suite.summary/1",
+                "schema": "ageval.suite.summary/1",
                 "suite_run_id": job_id,
                 "attempts": [
                     {
@@ -122,7 +122,7 @@ def test_job_task_detail_and_command(tmp_path: Path) -> None:
     payload = jobs.get_job_task(db, job_id, "beta")
     assert payload["task"]["status"] == "FAIL"
     assert payload["trials"][0]["reward"] == 0.0
-    assert "bora run" in (payload.get("run_command") or "")
+    assert "ageval run" in (payload.get("run_command") or "")
     assert "--task beta" in (payload.get("run_command") or "")
     crumbs = payload["breadcrumb"]
     assert crumbs[0]["label"] == "Jobs"
@@ -142,7 +142,7 @@ def test_list_empty_without_suite_runs(tmp_path: Path) -> None:
 def test_list_includes_single_task_attempt(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     run_id = "run_single_alpha"
-    evidence = db / ".bora" / "runs" / run_id
+    evidence = db / ".ageval" / "runs" / run_id
     evidence.mkdir(parents=True)
     (evidence / "result.json").write_text(
         json.dumps(
@@ -170,7 +170,7 @@ def test_list_includes_single_task_attempt(tmp_path: Path) -> None:
 def test_list_includes_task_local_single_attempt(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     run_id = "run_task_local_beta"
-    evidence = db / "tasks" / "beta" / ".bora" / "runs" / run_id
+    evidence = db / "tasks" / "beta" / ".ageval" / "runs" / run_id
     evidence.mkdir(parents=True)
     (evidence / "result.json").write_text(
         json.dumps(
@@ -194,10 +194,10 @@ def test_list_includes_task_local_single_attempt(tmp_path: Path) -> None:
 def test_job_task_exposes_attempt_run_ids_for_k(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = "suite_k2"
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
         "database_id": "test/suite-min",
         "n_attempts": 2,
@@ -239,7 +239,7 @@ def test_job_task_exposes_attempt_run_ids_for_k(tmp_path: Path) -> None:
 
     payload = jobs.get_job_task(db, job_id, "alpha")
     assert [t["run_id"] for t in payload["trials"]] == ["run_alpha_0", "run_alpha_1"]
-    extra = db / ".bora" / "runs" / "run_alpha_other"
+    extra = db / ".ageval" / "runs" / "run_alpha_other"
     extra.mkdir(parents=True)
     (extra / "result.json").write_text(
         json.dumps({"task_id": "alpha", "status": "PASS", "score": 1.0}) + "\n",
@@ -256,7 +256,7 @@ def test_job_task_exposes_attempt_run_ids_for_k(tmp_path: Path) -> None:
 def test_single_task_not_duplicated_when_in_suite(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     _seed_suite_run(db)
-    evidence = db / ".bora" / "runs" / "run_a"
+    evidence = db / ".ageval" / "runs" / "run_a"
     evidence.mkdir(parents=True)
     (evidence / "result.json").write_text(
         json.dumps({"task_id": "alpha", "status": "PASS", "score": 1.0}) + "\n",

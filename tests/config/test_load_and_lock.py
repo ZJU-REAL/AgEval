@@ -8,14 +8,14 @@ from typing import Any
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.digest import digest_payload
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
-from bora.config.overrides import parse_set_override
-from bora.config.profiles import load_database_profiles
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.digest import digest_payload
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
+from ageval.config.overrides import parse_set_override
+from ageval.config.profiles import load_database_profiles
 
 REPO = Path(__file__).resolve().parents[2]
 MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
@@ -106,7 +106,7 @@ def test_invalid_format(
     pkg = tmp_path / "pkg"
     pkg.mkdir()
     yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
-    yaml = yaml.replace("format: bora.task/1", "format: bora.task/999")
+    yaml = yaml.replace("format: ageval.task/1", "format: ageval.task/999")
     (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
     (pkg / "harness.py").write_text("#\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
@@ -203,7 +203,7 @@ def test_duplicate_key_rejected(
     pkg = tmp_path / "pkg"
     pkg.mkdir()
     (pkg / "task.yaml").write_text(
-        "format: bora.task/1\nformat: bora.task/1\ntask_id: config-minimal\n",
+        "format: ageval.task/1\nformat: ageval.task/1\ntask_id: config-minimal\n",
         encoding="utf-8",
     )
     (pkg / "harness.py").write_text("#\n", encoding="utf-8")

@@ -1,4 +1,4 @@
-"""Spec 00: bora lock writes per-profile extension_bindings."""
+"""Spec 00: ageval lock writes per-profile extension_bindings."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def _lock(*args: str) -> dict:
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "lock",
             str(ROOT / "examples/journeys"),
             "--task",
@@ -52,7 +52,7 @@ def test_lock_cli_extension_bindings_solver_acp() -> None:
 
 
 def _installed_plugin_ids() -> set[str]:
-    from bora.plugins.store import list_installed
+    from ageval.plugins.store import list_installed
 
     return {entry.plugin_id for entry in list_installed()}
 

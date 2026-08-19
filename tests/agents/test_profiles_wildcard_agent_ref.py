@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from bora.config.errors import ConfigError
-from bora.config.profiles import (
+from ageval.config.errors import ConfigError
+from ageval.config.profiles import (
     job_overlay_to_profiles_document,
     merge_bindings_onto_slots,
     parse_profiles_mapping,
@@ -13,7 +13,7 @@ from bora.config.profiles import (
 )
 
 WILDCARD_DOC = {
-    "format": "bora.profiles/1",
+    "format": "ageval.profiles/1",
     "bindings": {
         "*": {"executor": "mock", "model": "none", "agent_ref": "local/m@0.1.0+sha256:abc"},
         "critic": {"executor": "mock", "model": "other"},
@@ -27,7 +27,7 @@ def test_parse_accepts_wildcard_key() -> None:
 
 
 def test_parse_still_rejects_bad_role_ids() -> None:
-    doc = {"format": "bora.profiles/1", "bindings": {"**": {"executor": "mock", "model": "x"}}}
+    doc = {"format": "ageval.profiles/1", "bindings": {"**": {"executor": "mock", "model": "x"}}}
     with pytest.raises(ConfigError):
         parse_profiles_mapping(doc)
 
@@ -44,7 +44,7 @@ def test_merge_exact_wins_wildcard_falls_back() -> None:
 
 def test_merge_without_wildcard_still_fails_closed() -> None:
     bindings = parse_profiles_mapping(
-        {"format": "bora.profiles/1", "bindings": {"critic": {"executor": "mock", "model": "x"}}}
+        {"format": "ageval.profiles/1", "bindings": {"critic": {"executor": "mock", "model": "x"}}}
     )
     with pytest.raises(ConfigError):
         merge_bindings_onto_slots([{"id": "solver"}], bindings)
@@ -68,7 +68,7 @@ def test_agent_ref_round_trips_via_profiles_document() -> None:
 
 
 def test_task_yaml_slots_reject_agent_ref_inline() -> None:
-    from bora.config.profiles import assert_slots_have_no_inline_binding
+    from ageval.config.profiles import assert_slots_have_no_inline_binding
 
     with pytest.raises(ConfigError):
         assert_slots_have_no_inline_binding([{"id": "solver", "agent_ref": "x@1"}])
@@ -76,7 +76,7 @@ def test_task_yaml_slots_reject_agent_ref_inline() -> None:
 
 def test_suite_compat_and_labels_with_wildcard_binding() -> None:
     """Found via live eval: '*' suite binding blanked labels / homogeneity."""
-    from bora.application.suite.suite_config_fingerprint import (
+    from ageval.application.suite.suite_config_fingerprint import (
         compute_suite_config_fields,
         job_overlays_compatible,
     )
@@ -102,7 +102,7 @@ def test_suite_compat_and_labels_with_wildcard_binding() -> None:
 
 def test_wildcard_and_explicit_spellings_share_fingerprint() -> None:
     """Identity must not depend on '*'-vs-explicit spelling (design/14)."""
-    from bora.application.suite.suite_config_fingerprint import compute_suite_config_fields
+    from ageval.application.suite.suite_config_fingerprint import compute_suite_config_fields
 
     binding = {
         "executor": "acp",
@@ -124,7 +124,7 @@ def test_overlays_do_not_inherit_onto_exact_row() -> None:
     """``--agent xx --agent user=yy`` must not copy xx's overlay tree onto user."""
     bindings = parse_profiles_mapping(
         {
-            "format": "bora.profiles/1",
+            "format": "ageval.profiles/1",
             "bindings": {
                 "*": {
                     "executor": "mock",
@@ -150,11 +150,11 @@ def test_overlays_do_not_inherit_onto_exact_row() -> None:
 
 def test_exact_row_overrides_wildcard_field_wise() -> None:
     """--set on one field of a wildcard-bound agent must not drop the rest."""
-    from bora.config.profiles import apply_binding_override, effective_binding
+    from ageval.config.profiles import apply_binding_override, effective_binding
 
     bindings = parse_profiles_mapping(
         {
-            "format": "bora.profiles/1",
+            "format": "ageval.profiles/1",
             "bindings": {
                 "*": {
                     "executor": "acp",

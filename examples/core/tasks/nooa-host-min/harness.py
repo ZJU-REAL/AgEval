@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 
 
 def _payload(inv: dict[str, Any]) -> dict[str, Any] | None:

@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from bora.viewer.server import make_handler
+from ageval.viewer.server import make_handler
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
@@ -22,7 +22,7 @@ def _minimal_spa(tmp_path: Path) -> Path:
     root = tmp_path / "spa"
     root.mkdir()
     (root / "index.html").write_text(
-        "<!doctype html><html><head><title>BORA Viewer</title></head>"
+        "<!doctype html><html><head><title>ageval Viewer</title></head>"
         '<body><div id="root"></div></body></html>\n',
         encoding="utf-8",
     )
@@ -31,7 +31,7 @@ def _minimal_spa(tmp_path: Path) -> Path:
 
 def _clean_db(tmp_path: Path) -> Path:
     db = tmp_path / "db"
-    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".bora"))
+    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".ageval"))
     return db
 
 
@@ -42,16 +42,16 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def _seed_attempt(db: Path, run_id: str) -> None:
     _write_json(
-        db / ".bora" / "runs" / run_id / "result.json",
+        db / ".ageval" / "runs" / run_id / "result.json",
         {"task_id": "alpha", "status": "PASS", "score": 1.0},
     )
 
 
 def _seed_suite(db: Path, job_id: str, run_ids: list[str]) -> None:
     _write_json(
-        db / ".bora" / "suite-runs" / job_id / "summary.json",
+        db / ".ageval" / "suite-runs" / job_id / "summary.json",
         {
-            "schema": "bora.suite.summary/1",
+            "schema": "ageval.suite.summary/1",
             "suite_run_id": job_id,
             "tasks": [{"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": run_ids[0]}],
             "task_refs": [
@@ -107,7 +107,7 @@ def test_http_delete_single(viewer_db: tuple[Path, str]) -> None:
     assert deleted["ok"] is True
     listed = _json(f"{base}/api/jobs")
     assert all(item["job_id"] != "run_http_single" for item in listed["items"])
-    assert not (db / ".bora" / "runs" / "run_http_single").exists()
+    assert not (db / ".ageval" / "runs" / "run_http_single").exists()
 
 
 def test_http_delete_suite_cascade(viewer_db: tuple[Path, str]) -> None:

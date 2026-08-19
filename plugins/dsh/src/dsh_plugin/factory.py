@@ -16,10 +16,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult, parse_validated_text_structured
-from bora.plugins.errors import ExtensionMaterializeError
+from ageval.adapters.agent_contract import AgentResult, parse_validated_text_structured
+from ageval.plugins.errors import ExtensionMaterializeError
 from dsh_plugin import PLUGIN_ID
-from dsh_plugin.trajectory import extract_usage, to_bora_trajectory_events
+from dsh_plugin.trajectory import extract_usage, to_ageval_trajectory_events
 
 DEFAULT_MODEL = "deepseek-v4-flash"
 DEFAULT_PROVIDER = "deepseek-official"
@@ -151,7 +151,7 @@ def _write_backend_raw(
 
 
 def _offline() -> bool:
-    return os.environ.get("BORA_OFFLINE_AGENT") == "1"
+    return os.environ.get("AGEVAL_OFFLINE_AGENT") == "1"
 
 
 def _ok_from_reason(reason: str | None, text: str) -> bool:
@@ -195,7 +195,7 @@ class DshExecutorSPI:
         self.default_workdir = str(workdir).strip() if workdir else None
         self._harness: Any = None
         self._session: Any = None
-        self._session_id = f"bora-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
+        self._session_id = f"ageval-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
         self._session_root: str | None = None
         self._tmp_session: tempfile.TemporaryDirectory[str] | None = None
         self._ready = False
@@ -306,7 +306,7 @@ class DshExecutorSPI:
             if isinstance(payload, dict):
                 notes.append({"method": method, **payload})
         _write_backend_raw(collect_dir, native, notes)
-        mapped = tuple(to_bora_trajectory_events(native, session_id=result.session_id))
+        mapped = tuple(to_ageval_trajectory_events(native, session_id=result.session_id))
         text = str(result.final_response or "")
         reason = result.finish_reason
         ok = _ok_from_reason(reason, text)
@@ -360,7 +360,7 @@ class DshExecutorSPI:
         cordis = resolve_composition_path(self.composition)
         cwd = str(Path(workdir or Path.cwd()).expanduser().resolve(strict=False))
         if self._session_root is None:
-            self._tmp_session = tempfile.TemporaryDirectory(prefix="bora-dsh-")
+            self._tmp_session = tempfile.TemporaryDirectory(prefix="ageval-dsh-")
             self._session_root = self._tmp_session.name
         env: dict[str, str] = {}
         if key:

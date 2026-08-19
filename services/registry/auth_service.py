@@ -46,14 +46,14 @@ class AuthService:
         if not allow:
             raise RegistryAppError(
                 "login_not_allowed",
-                "BORA_GITHUB_LOGIN_ALLOWLIST is empty; "
+                "AGEVAL_GITHUB_LOGIN_ALLOWLIST is empty; "
                 "set comma-separated GitHub logins before login",
                 http_status=403,
             )
         if login.casefold() not in {u.casefold() for u in allow}:
             raise RegistryAppError(
                 "login_not_allowed",
-                f"GitHub user {login!r} is not on BORA_GITHUB_LOGIN_ALLOWLIST "
+                f"GitHub user {login!r} is not on AGEVAL_GITHUB_LOGIN_ALLOWLIST "
                 f"(allowed: {', '.join(sorted(allow))})",
                 http_status=403,
             )
@@ -91,7 +91,7 @@ class AuthService:
         if not self.github_client_id:
             raise RegistryAppError(
                 "oauth_not_configured",
-                "BORA_GITHUB_CLIENT_ID not set",
+                "AGEVAL_GITHUB_CLIENT_ID not set",
                 http_status=503,
             )
         try:
@@ -146,7 +146,7 @@ class AuthService:
         if not self.github_client_id:
             raise RegistryAppError(
                 "oauth_not_configured",
-                "BORA_GITHUB_CLIENT_ID not set",
+                "AGEVAL_GITHUB_CLIENT_ID not set",
                 http_status=503,
             )
         if not self._allowed_web_redirect(redirect_uri):
@@ -154,7 +154,7 @@ class AuthService:
                 "invalid_redirect_uri",
                 "redirect_uri not allowed "
                 "(default: http://127.0.0.1:5174/login/callback; "
-                "extend via BORA_GITHUB_WEB_REDIRECT_URIS)",
+                "extend via AGEVAL_GITHUB_WEB_REDIRECT_URIS)",
                 http_status=400,
             )
         self._purge_stale_oauth_states()
@@ -227,7 +227,7 @@ class AuthService:
             "http://127.0.0.1:5174/login/callback",
             "http://localhost:5174/login/callback",
         }
-        extra = os.environ.get("BORA_GITHUB_WEB_REDIRECT_URIS") or ""
+        extra = os.environ.get("AGEVAL_GITHUB_WEB_REDIRECT_URIS") or ""
         for part in extra.split(","):
             p = part.strip()
             if p:

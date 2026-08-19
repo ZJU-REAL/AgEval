@@ -21,7 +21,7 @@ async def trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:
     out = await nxt(value)
     if not isinstance(out, dict):
         return out
-    from dsh_plugin.trajectory import SCHEMA, to_bora_trajectory_events
+    from dsh_plugin.trajectory import SCHEMA, to_ageval_trajectory_events
 
     events = out.get("events")
     if not isinstance(events, (list, tuple)) or not events:
@@ -32,7 +32,7 @@ async def trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:
         meta = dict(out.get("metadata") or {})
         meta.setdefault("trajectory_source", PLUGIN_ID)
         return {**out, "metadata": meta}
-    mapped = to_bora_trajectory_events(tuple(e for e in events if isinstance(e, dict)))
+    mapped = to_ageval_trajectory_events(tuple(e for e in events if isinstance(e, dict)))
     meta = dict(out.get("metadata") or {})
     meta.setdefault("trajectory_source", PLUGIN_ID)
     return {**out, "events": tuple(mapped), "metadata": meta}

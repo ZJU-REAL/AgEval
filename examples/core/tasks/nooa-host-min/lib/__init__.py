@@ -1,1 +1,1 @@
-"""Package-local task agents (not BORA plugins)."""
+"""Package-local task agents (not ageval plugins)."""

@@ -7,17 +7,17 @@ from pathlib import Path
 
 import yaml
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
 
 
 def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
     doc = {
-        "format": "bora.task/1",
+        "format": "ageval.task/1",
         "task_id": "t",
         "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {},

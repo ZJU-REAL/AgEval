@@ -6,18 +6,18 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.application.attempt.run_capability_probe import run_capability_probe
-from bora.capabilities.errors import CapabilityError
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.load_and_lock import ConfigCore
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.application.attempt.run_capability_probe import run_capability_probe
+from ageval.capabilities.errors import CapabilityError
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.load_and_lock import ConfigCore
 
 REPO = Path(__file__).resolve().parents[2]
 MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
 
 
 def _lock():
-    from bora.config.profiles import load_database_profiles
+    from ageval.config.profiles import load_database_profiles
 
     bindings = load_database_profiles(REPO / "examples" / "core")
     return ConfigCore(package_reader=LocalPackageReader()).load_and_lock(

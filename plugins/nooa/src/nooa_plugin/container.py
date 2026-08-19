@@ -6,13 +6,13 @@ import json
 import os
 from typing import Any
 
-from bora.adapters.agent_container import wrap_docker_exec
-from bora.adapters.agent_contract import AgentExecutor, AgentResult
-from bora.adapters.provider_docker.cli_supervise import supervise_docker_cli
-from bora.provider.contract import TerminationPolicy
-from bora.provider.outcomes import ProcessTerminalKind
+from ageval.adapters.agent_container import wrap_docker_exec
+from ageval.adapters.agent_contract import AgentExecutor, AgentResult
+from ageval.adapters.provider_docker.cli_supervise import supervise_docker_cli
+from ageval.provider.contract import TerminationPolicy
+from ageval.provider.outcomes import ProcessTerminalKind
 
-WORKER_PATH = "/usr/local/bin/bora-executor-nooa"
+WORKER_PATH = "/usr/local/bin/ageval-executor-nooa"
 PACKAGE_ROOT_CONTAINER = "/attempt/package"
 WORKDIR_CONTAINER = "/attempt/workspace"
 
@@ -74,7 +74,7 @@ class NooaContainerExecutor(AgentExecutor):
     def _resolve_base_url(self) -> str | None:
         if self.base_url:
             return self.base_url
-        for key in ("OPENAI_BASE_URL", "litellm_base_url", "BORA_OPENAI_BASE_URL"):
+        for key in ("OPENAI_BASE_URL", "litellm_base_url", "AGEVAL_OPENAI_BASE_URL"):
             val = os.environ.get(key)
             if val and val.strip():
                 return val.strip()

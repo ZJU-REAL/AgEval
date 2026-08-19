@@ -6,7 +6,7 @@ import ast
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SRC = REPO / "src" / "bora"
+SRC = REPO / "src" / "ageval"
 
 
 def test_l0_production_uses_coordinator() -> None:
@@ -47,17 +47,17 @@ def test_cli_imports_only_composition() -> None:
             stripped = line.strip()
             if stripped.startswith("#"):
                 continue
-            if "bora.application." not in stripped:
+            if "ageval.application." not in stripped:
                 continue
-            if "bora.application.composition" in stripped:
+            if "ageval.application.composition" in stripped:
                 continue
             offenders.append(f"{path.name}:{i}:{stripped}")
     assert offenders == []
 
 
-def test_bora_runs_layout_owned_by_evidence() -> None:
+def test_ageval_runs_layout_owned_by_evidence() -> None:
     offenders: list[str] = []
-    needle = '/ ".bora" / "runs"'
+    needle = '/ ".ageval" / "runs"'
     for path in SRC.rglob("*.py"):
         rel = path.relative_to(SRC)
         if rel.parts[0] == "evidence":
@@ -66,7 +66,7 @@ def test_bora_runs_layout_owned_by_evidence() -> None:
             s = line.strip()
             if s.startswith("#"):
                 continue
-            if needle in s or s.replace("'", '"').find('/ ".bora" / "runs"') >= 0:
+            if needle in s or s.replace("'", '"').find('/ ".ageval" / "runs"') >= 0:
                 offenders.append(f"{rel}:{i}:{s}")
     assert offenders == []
 

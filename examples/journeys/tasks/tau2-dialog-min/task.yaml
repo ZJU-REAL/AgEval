@@ -1,4 +1,4 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: tau2-dialog-min
 provenance:
   kind: reimplementation
@@ -10,7 +10,7 @@ provenance:
     claims:
     - protocol
     known_gaps:
-    - minimal BORA case class, not full tau2 suite or task pin
+    - minimal ageval case class, not full tau2 suite or task pin
     - synthetic retail fixture; not upstream scenario dump
 harness:
   runtime: python

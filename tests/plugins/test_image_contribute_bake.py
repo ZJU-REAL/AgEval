@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from bora.adapters.provider_docker.types import DockerImageLock
-from bora.application.plugin_ops.image_contribute_bake import (
+from ageval.adapters.provider_docker.types import DockerImageLock
+from ageval.application.plugin_ops.image_contribute_bake import (
     ImageContributeError,
     apply_image_contribute_bake,
     bake_layer_content_digest,
@@ -18,7 +18,7 @@ from bora.application.plugin_ops.image_contribute_bake import (
     baked_image_tag,
     bound_executor_ids,
 )
-from bora.config.model import LockedTaskConfig
+from ageval.config.model import LockedTaskConfig
 
 
 def _lock_with_profiles(profiles: list[dict[str, Any]]) -> LockedTaskConfig:
@@ -29,7 +29,7 @@ def _base() -> DockerImageLock:
     return DockerImageLock(
         kind="t",
         platform="linux/arm64",
-        image_tag="bora-pkg:x",
+        image_tag="ageval-pkg:x",
         image_digest="sha256:abc",
         build_input_digest="sha256:d",
     )
@@ -50,18 +50,18 @@ def test_apply_skips_first_party_only() -> None:
     lock = _lock_with_profiles([{"id": "s", "executor": "acp"}])
     with (
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
+            "ageval.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[{"plugin": "acp"}],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
             return_value=[],
         ),
     ):
         out, meta = apply_image_contribute_bake(
             lock=lock, base_image=_base(), platform="linux/arm64"
         )
-    assert out.image_tag == "bora-pkg:x"
+    assert out.image_tag == "ageval-pkg:x"
     assert meta["status"] == "skipped"
 
 
@@ -71,11 +71,11 @@ def test_apply_fail_closed_when_bound_but_no_declare() -> None:
     )
     with (
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
+            "ageval.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
             return_value=[],
         ),
         pytest.raises(ImageContributeError) as ei,
@@ -90,15 +90,15 @@ def test_apply_fail_closed_when_not_installed() -> None:
     )
     with (
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
+            "ageval.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[{"plugin": "nooa"}],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
             return_value=["nooa"],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
+            "ageval.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
             return_value=None,
         ),
         pytest.raises(ImageContributeError) as ei,
@@ -140,7 +140,7 @@ def test_bake_suffix_from_inputs_not_inspect_id(tmp_path: Path) -> None:
     )
     assert first == second
     tag = baked_image_tag(_base(), "nooa", first)
-    assert tag.startswith("bora-pkg:x-nooa-")
+    assert tag.startswith("ageval-pkg:x-nooa-")
     assert "abc" not in tag
     other_base = bake_layer_content_digest(
         plugin_id="nooa",
@@ -167,15 +167,15 @@ def test_apply_fail_closed_when_bake_file_missing(tmp_path: Path) -> None:
     lock = _lock_with_profiles([{"id": "s", "executor": "nooa"}])
     with (
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
+            "ageval.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[{"plugin": "nooa"}],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
             return_value=["nooa"],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
+            "ageval.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
             return_value=empty,
         ),
         pytest.raises(ImageContributeError) as ei,
@@ -194,25 +194,25 @@ def test_apply_reuses_baked_tag_without_inspect_suffix(tmp_path: Path) -> None:
     baked = DockerImageLock(
         kind="docker-package-attempt",
         platform="linux/arm64",
-        image_tag="bora-pkg:x-nooa-deadbeefcaf0",
+        image_tag="ageval-pkg:x-nooa-deadbeefcaf0",
         image_digest="sha256:baked",
         build_input_digest="sha256:bake",
     )
     with (
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
+            "ageval.application.plugin_ops.image_contribute_bake.collect_declares_for_lock",
             return_value=[{"plugin": "nooa"}],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
+            "ageval.application.plugin_ops.image_contribute_bake.selected_contribute_plugin_ids",
             return_value=["nooa"],
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
+            "ageval.application.plugin_ops.image_contribute_bake._find_installed_plugin_root",
             return_value=root,
         ),
         patch(
-            "bora.application.plugin_ops.image_contribute_bake.bake_plugin_layer",
+            "ageval.application.plugin_ops.image_contribute_bake.bake_plugin_layer",
             return_value=baked,
         ) as bake_layer,
     ):
@@ -222,7 +222,7 @@ def test_apply_reuses_baked_tag_without_inspect_suffix(tmp_path: Path) -> None:
     assert out.image_tag == baked.image_tag
     assert meta["status"] == "baked"
     out_tag = bake_layer.call_args.kwargs["out_tag"]
-    assert out_tag.startswith("bora-pkg:x-nooa-")
+    assert out_tag.startswith("ageval-pkg:x-nooa-")
     assert "abc" not in out_tag
     assert _base().image_digest not in out_tag
 
@@ -234,16 +234,16 @@ def test_bake_plugin_layer_skips_buildx_when_tag_exists(tmp_path: Path) -> None:
         {"worker/x.py": "print(1)\n"},
     )
     with patch(
-        "bora.application.plugin_ops.image_contribute_bake.inspect_image_digest",
+        "ageval.application.plugin_ops.image_contribute_bake.inspect_image_digest",
         return_value="sha256:cached-bake",
     ):
         out = bake_plugin_layer(
             base_image=_base(),
             platform="linux/arm64",
-            out_tag="bora-pkg:x-nooa-abc123abc123",
+            out_tag="ageval-pkg:x-nooa-abc123abc123",
             plugin_id="nooa",
             plugin_root=root,
         )
     assert out.image_digest == "sha256:cached-bake"
-    assert out.image_tag == "bora-pkg:x-nooa-abc123abc123"
+    assert out.image_tag == "ageval-pkg:x-nooa-abc123abc123"
     assert out.build_input_digest.startswith("sha256:")

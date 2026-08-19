@@ -19,13 +19,13 @@ Profiles: Database `profiles.yaml` (default ACP mix), `acp-profiles/` overlays
 shipped `jsonl-agg` skill).
 
 ```bash
-uv run bora run examples/journeys --task terminal-jsonl-agg
+uv run ageval run examples/journeys --task terminal-jsonl-agg
 # switch ACP entry via allowlisted override
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --set '/parameters/active_profile="terminal-opencode"'
 ```
 
-Requires `bora-attempt:l1` image with ACP entries baked in, host credentials for
+Requires `ageval-attempt:l1` image with ACP entries baked in, host credentials for
 the chosen entry, and Docker.
 
 ## dsh plugin (optional)
@@ -33,17 +33,17 @@ the chosen entry, and Docker.
 Same harness; bind DeepSeek Harness via an alternate profiles file (not ACP):
 
 ```bash
-uv run bora plugin install plugins/dsh
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval plugin install plugins/dsh
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml
 ```
 
 This journey writes `aggregates.json`, so omit `options.permission` or use
 `workspace-write`. `read-only` fences DSH file-tool writes only; bash can
-still write on the bundled jsonrpc runtime. It is not BORA isolation.
+still write on the bundled jsonrpc runtime. It is not ageval isolation.
 
 ```bash
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.read-only.yaml
 # or: --set '/bindings/solver/options/permission="read-only"'
 ```
@@ -51,5 +51,5 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 Needs locator `deepseek_api_key` in repo `.env`. L1 bake installs
 `deepseek-harness-sdk` in the Attempt image.
 
-`BORA_L1_USE_SOLUTION=1` seeds `solution/*` into the Attempt workspace for L1
+`AGEVAL_L1_USE_SOLUTION=1` seeds `solution/*` into the Attempt workspace for L1
 isolation smoke only — **not** the real Agent acceptance path for this journey.

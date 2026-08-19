@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from bora.application.attempt.attempt_stages import AttemptStageContext
-from bora.application.attempt.run_l0 import cleanup_l0, drop_l0_host_work, prepare_l0_attempt
-from bora.runtime.identity import IdentityFactory
+from ageval.application.attempt.attempt_stages import AttemptStageContext
+from ageval.application.attempt.run_l0 import cleanup_l0, drop_l0_host_work, prepare_l0_attempt
+from ageval.runtime.identity import IdentityFactory
 
 
 def _attempt():
@@ -48,7 +48,7 @@ def _lock() -> SimpleNamespace:
 
 
 def test_drop_l0_host_work_removes_dir(tmp_path: Path) -> None:
-    host = tmp_path / "bora-l0-x"
+    host = tmp_path / "ageval-l0-x"
     (host / "workspace").mkdir(parents=True)
     (host / "attempt-home" / ".config").mkdir(parents=True)
     (host / "workspace" / "out.py").write_text("x = 1\n", encoding="utf-8")
@@ -57,7 +57,7 @@ def test_drop_l0_host_work_removes_dir(tmp_path: Path) -> None:
 
 
 def test_drop_l0_host_work_keep_retains(tmp_path: Path) -> None:
-    host = tmp_path / "bora-l0-y"
+    host = tmp_path / "ageval-l0-y"
     (host / "workspace").mkdir(parents=True)
     (host / "workspace" / "out.py").write_text("x = 1\n", encoding="utf-8")
     drop_l0_host_work(host, keep_workspace=True)
@@ -69,7 +69,7 @@ def test_cleanup_l0_drops_cred_and_host_not_run_dir(tmp_path: Path) -> None:
     run_dir.mkdir()
     (run_dir / "result.json").write_text("{}\n", encoding="utf-8")
     host = tmp_path / "host"
-    cred_root = host / "bora-cred-x"
+    cred_root = host / "ageval-cred-x"
     cred_root.mkdir(parents=True)
     (cred_root / "openai_api_key").write_text("SECRET\n", encoding="utf-8")
     (host / "workspace").mkdir()
@@ -87,7 +87,7 @@ def test_cleanup_l0_drops_cred_and_host_not_run_dir(tmp_path: Path) -> None:
     assert cred.cleanup_calls == 1
     assert not host.exists()
     assert (run_dir / "result.json").is_file()
-    assert not (run_dir / "bora-cred-x").exists()
+    assert not (run_dir / "ageval-cred-x").exists()
     assert not (run_dir / "attempt-home").exists()
     assert not (run_dir / "workspace").exists()
 
@@ -99,7 +99,7 @@ def test_prepare_l0_uses_host_root_not_run_dir(tmp_path: Path, monkeypatch) -> N
         captured["work_root"] = str(value["work_root"])
         captured["workspace_root"] = str(value["workspace_root"])
         root = Path(value["work_root"])
-        cred_root = root / "bora-cred-test"
+        cred_root = root / "ageval-cred-test"
         cred_root.mkdir()
         (cred_root / "openai_api_key").write_text("SECRET\n", encoding="utf-8")
         home = root / "attempt-home"
@@ -114,15 +114,15 @@ def test_prepare_l0_uses_host_root_not_run_dir(tmp_path: Path, monkeypatch) -> N
         return SimpleNamespace(invocations_completed=0), 30.0, None
 
     monkeypatch.setattr(
-        "bora.application.attempt.extension_hooks.hook_home_overlay",
+        "ageval.application.attempt.extension_hooks.hook_home_overlay",
         _hook,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.agent_service_assemble.assemble_parent_agent_service",
+        "ageval.application.attempt.agent_service_assemble.assemble_parent_agent_service",
         _assemble,
     )
     monkeypatch.setattr(
-        "bora.runtime.agent_service_protocol.AgentServiceServer",
+        "ageval.runtime.agent_service_protocol.AgentServiceServer",
         lambda *_a, **_k: _FakeServer(),
     )
 
@@ -145,7 +145,7 @@ def test_prepare_l0_uses_host_root_not_run_dir(tmp_path: Path, monkeypatch) -> N
     assert captured["workspace_root"] == str(ctx.workspace_host)
     assert captured["workdir"] == str(ctx.workspace_host)
     assert captured["home"] == str(ctx.host_work_root / "attempt-home")
-    assert not list(run_dir.glob("bora-cred-*"))
+    assert not list(run_dir.glob("ageval-cred-*"))
     assert not (run_dir / "attempt-home").exists()
     assert not (run_dir / "workspace").exists()
     assert ctx.agent_meta.get("workspace") == str(ctx.workspace_host)

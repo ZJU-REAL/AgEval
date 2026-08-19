@@ -7,16 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.application.attempt.run_provider_probe import run_provider_probe
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.load_and_lock import ConfigCore
-from bora.provider.contract import ExecutableGrant, ProcessLaunchPlan
-from bora.provider.errors import ProviderError
-from bora.provider.outcomes import ProcessTerminalKind
-from bora.provider.workspace_plan import WorkspacePlan
-from bora.runtime.identity import IdentityFactory
-from bora.runtime.outcomes import RuntimeTerminalKind
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.application.attempt.run_provider_probe import run_provider_probe
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.load_and_lock import ConfigCore
+from ageval.provider.contract import ExecutableGrant, ProcessLaunchPlan
+from ageval.provider.errors import ProviderError
+from ageval.provider.outcomes import ProcessTerminalKind
+from ageval.provider.workspace_plan import WorkspacePlan
+from ageval.runtime.identity import IdentityFactory
+from ageval.runtime.outcomes import RuntimeTerminalKind
 
 REPO = Path(__file__).resolve().parents[2]
 MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
@@ -24,7 +24,7 @@ HELPER = REPO / "tests" / "helpers" / "provider_probe_child.py"
 
 
 def _lock():
-    from bora.config.profiles import load_database_profiles
+    from ageval.config.profiles import load_database_profiles
 
     core = ConfigCore(package_reader=LocalPackageReader())
     bindings = load_database_profiles(REPO / "examples" / "core")
@@ -123,7 +123,7 @@ async def test_timeout_tree(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_cancel_tree(tmp_path: Path) -> None:
-    from bora.runtime.cancellation import CancellationSignal
+    from ageval.runtime.cancellation import CancellationSignal
 
     lock = _lock()
     attempt = _attempt_for_lock(lock)

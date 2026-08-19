@@ -2,7 +2,7 @@
 # model: openai/DeepSeek-V4-Pro
 # nooa LiteLLM client needs an openai/ prefix to hit litellm_base_url
 # (bare catalog id → "LLM Provider NOT provided").
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: nooa

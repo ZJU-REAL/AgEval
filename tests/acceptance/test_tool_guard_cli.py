@@ -13,12 +13,12 @@ REPO = Path(__file__).resolve().parents[2]
 
 def _run(package: str, task: str) -> dict:
     env = os.environ.copy()
-    env["BORA_OFFLINE_AGENT"] = "1"
+    env["AGEVAL_OFFLINE_AGENT"] = "1"
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(REPO / "examples" / "core"),
             "--task",

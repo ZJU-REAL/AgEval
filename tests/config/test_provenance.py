@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.database import load_database_manifest
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
-from bora.config.provenance import merge_provenance, validate_provenance
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.database import load_database_manifest
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
+from ageval.config.provenance import merge_provenance, validate_provenance
 
 REPO = Path(__file__).resolve().parents[2]
 MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
@@ -193,10 +193,10 @@ def test_invalid_port_fails_lock(
 def test_database_manifest_accepts_provenance(tmp_path: Path) -> None:
     root = tmp_path / "db"
     root.mkdir()
-    (root / "bora.yaml").write_text(
+    (root / "ageval.yaml").write_text(
         textwrap.dedent(
             """
-            format: bora.database/1
+            format: ageval.dataset/1
             database_id: test/prov-db
             version: "0.1.0"
             tasks:
@@ -211,7 +211,7 @@ def test_database_manifest_accepts_provenance(tmp_path: Path) -> None:
     (root / "tasks" / "alpha" / "task.yaml").write_text(
         textwrap.dedent(
             """
-            format: bora.task/1
+            format: ageval.task/1
             task_id: alpha
             harness:
               runtime: python

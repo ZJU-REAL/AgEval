@@ -10,10 +10,10 @@ SKILLS = REPO / "skills"
 AGENTS_SKILLS = REPO / ".agents" / "skills"
 
 EXPECTED = (
-    "bora-platform",
-    "bora-cli",
-    "bora-config-package",
-    "bora-sdk-harness",
+    "ageval-platform",
+    "ageval-cli",
+    "ageval-config-package",
+    "ageval-sdk-harness",
 )
 
 
@@ -60,19 +60,19 @@ def test_four_skills_are_proper_packages() -> None:
 
 
 def test_cli_skill_commands_exist_in_production_cli() -> None:
-    skill = (SKILLS / "bora-cli" / "SKILL.md").read_text(encoding="utf-8")
-    cli_dir = REPO / "src" / "bora" / "cli"
+    skill = (SKILLS / "ageval-cli" / "SKILL.md").read_text(encoding="utf-8")
+    cli_dir = REPO / "src" / "ageval" / "cli"
     sources = "\n".join(p.read_text(encoding="utf-8") for p in cli_dir.glob("*.py"))
-    claimed = set(re.findall(r"`bora (lock|run|campaign|evidence|status|submit|cancel)\b", skill))
-    assert claimed, "cli skill must document bora commands"
+    claimed = set(re.findall(r"`ageval (lock|run|campaign|evidence|status|submit|cancel)\b", skill))
+    assert claimed, "cli skill must document ageval commands"
     for cmd in claimed:
         assert f'@app.command("{cmd}")' in sources, cmd
 
 
 def test_platform_skill_forbids_trajectory_as_pass() -> None:
-    platform = (SKILLS / "bora-platform" / "SKILL.md").read_text(encoding="utf-8")
+    platform = (SKILLS / "ageval-platform" / "SKILL.md").read_text(encoding="utf-8")
     assert "Trajectory ≠ PASS" in platform or "trajectory ≠ PASS" in platform
-    refs = (SKILLS / "bora-platform" / "references" / "red-lines.md").read_text(encoding="utf-8")
+    refs = (SKILLS / "ageval-platform" / "references" / "red-lines.md").read_text(encoding="utf-8")
     assert "PASS" in refs
 
 

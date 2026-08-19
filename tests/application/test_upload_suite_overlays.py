@@ -11,8 +11,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bora.application.registry_ops.results_command import ResultsCommands
-from bora.config.errors import ConfigError
+from ageval.application.registry_ops.results_command import ResultsCommands
+from ageval.config.errors import ConfigError
 
 
 def _write_db(
@@ -23,8 +23,8 @@ def _write_db(
 ) -> tuple[Path, str]:
     db = tmp / "db"
     db.mkdir()
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
@@ -35,7 +35,7 @@ def _write_db(
     blob.mkdir(parents=True)
     (blob / "SKILL.md").write_text("# skill\n" + ("x" * 4096), encoding="utf-8")
     suite_run_id = "suite_overlays"
-    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_run_id
     suite_dir.mkdir(parents=True)
     binding: dict[str, Any] = {
         "executor": "acp",
@@ -45,7 +45,7 @@ def _write_db(
     if include_overlays:
         binding["overlays"] = ["overlays/cfg.json", "overlays/skills/jsonl-agg"]
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
         "database_id": "example/overlays",
         "database_version": "0.1.0",
@@ -101,7 +101,7 @@ def test_upload_suite_sends_overlay_paths_not_bytes(tmp_path: Path) -> None:
     with tarfile.open(fileobj=io.BytesIO(captured["archive_bytes"]), mode="r:gz") as tar:
         names = tar.getnames()
     assert names
-    assert all(name == ".bora" or name.startswith(".bora/") for name in names)
+    assert all(name == ".ageval" or name.startswith(".ageval/") for name in names)
     assert not any("overlays/cfg.json" in name for name in names)
     assert not any("overlays/skills/" in name for name in names)
     assert any(name.endswith("summary.json") for name in names)

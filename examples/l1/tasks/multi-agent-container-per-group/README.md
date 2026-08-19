@@ -7,6 +7,6 @@ Docker L1 **container-per-group** multi-actor package (Spec 18).
 - SDK `actor_id` is the isolation principal; profile selects executor template.
 
 ```bash
-uv run bora run examples/l1 --task multi-agent-container-per-group \
+uv run ageval run examples/l1 --task multi-agent-container-per-group \
   --task multi-agent-container-per-group
 ```

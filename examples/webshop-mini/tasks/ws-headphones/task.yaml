@@ -1,4 +1,4 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: ws-headphones
 harness:
   runtime: python

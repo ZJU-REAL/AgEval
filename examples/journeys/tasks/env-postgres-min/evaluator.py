@@ -12,7 +12,7 @@ def evaluate(inputs: dict[str, Any]) -> dict[str, Any]:
     ok = (
         data.get("query_ok") is True
         and data.get("env_action") == "query"
-        and label == "bora"
+        and label == "ageval"
         and int(data.get("tool_calls") or 0) >= 1
     )
     return {

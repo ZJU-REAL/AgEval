@@ -34,13 +34,13 @@ pytestmark = pytest.mark.skipif(not _docker_ok(), reason="Docker daemon unavaila
 
 def test_terminal_jsonl_l1_solution_seed() -> None:
     e = os.environ.copy()
-    e["BORA_L1_USE_SOLUTION"] = "1"
-    e["BORA_OFFLINE_AGENT"] = "1"
+    e["AGEVAL_L1_USE_SOLUTION"] = "1"
+    e["AGEVAL_OFFLINE_AGENT"] = "1"
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(REPO / "examples" / "journeys"),
             "--task",

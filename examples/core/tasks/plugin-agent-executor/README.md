@@ -15,11 +15,11 @@ Harness only materializes parent agent result and publishes; evaluator requires
 ## Requirements
 
 - OpenAI-compatible credentials / network for the configured model
-- Plugin package for `openai-http` installed in the environment that runs BORA
+- Plugin package for `openai-http` installed in the environment that runs ageval
 
 ## Run
 
 ```bash
-uv run bora lock examples/core --task plugin-agent-executor
-uv run bora run  examples/core --task plugin-agent-executor
+uv run ageval lock examples/core --task plugin-agent-executor
+uv run ageval run  examples/core --task plugin-agent-executor
 ```

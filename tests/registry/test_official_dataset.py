@@ -7,7 +7,7 @@ from services.registry.official import is_official_dataset, official_dataset_ids
 from services.registry.runtime_service import is_plaza_source_suite
 from services.registry.store import ReleaseRow, release_to_dict
 
-from bora.registry.media_types import DATABASE_MEDIA_TYPE, PLUGIN_MEDIA_TYPE
+from ageval.registry.media_types import DATABASE_MEDIA_TYPE, PLUGIN_MEDIA_TYPE
 
 
 def _row(

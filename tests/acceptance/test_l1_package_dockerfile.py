@@ -16,9 +16,9 @@ OFFICIAL = L1_DB / "tasks" / "executor-image-official"
 UPSTREAM = L1_DB / "tasks" / "executor-image-upstream"
 
 
-def _run_bora(*args: str) -> subprocess.CompletedProcess[str]:
+def _run_ageval(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", *args],
+        [sys.executable, "-m", "ageval.cli.main", *args],
         check=False,
         capture_output=True,
         text=True,
@@ -30,7 +30,7 @@ def _run_bora(*args: str) -> subprocess.CompletedProcess[str]:
 def test_official_package_has_environment_dockerfile() -> None:
     assert (OFFICIAL / "environment" / "Dockerfile").is_file()
     text = (OFFICIAL / "environment" / "Dockerfile").read_text(encoding="utf-8")
-    assert "bora-attempt:l1" in text
+    assert "ageval-attempt:l1" in text
 
 
 def test_upstream_package_from_python_slim() -> None:
@@ -41,14 +41,14 @@ def test_upstream_package_from_python_slim() -> None:
 
 
 def test_lock_official_package() -> None:
-    r = _run_bora("lock", str(L1_DB), "--task", "executor-image-official")
+    r = _run_ageval("lock", str(L1_DB), "--task", "executor-image-official")
     assert r.returncode == 0, r.stderr
     data = json.loads(r.stdout)
     assert data["task_id"] == "executor-image-official"
 
 
 def test_lock_upstream_package() -> None:
-    r = _run_bora("lock", str(L1_DB), "--task", "executor-image-upstream")
+    r = _run_ageval("lock", str(L1_DB), "--task", "executor-image-upstream")
     assert r.returncode == 0, r.stderr
 
 
@@ -72,11 +72,11 @@ def _assert_trajectory_layout(logs: Path) -> None:
 
 
 @pytest.mark.skipif(
-    os.environ.get("BORA_SKIP_L1_DOCKER") == "1",
-    reason="BORA_SKIP_L1_DOCKER=1",
+    os.environ.get("AGEVAL_SKIP_L1_DOCKER") == "1",
+    reason="AGEVAL_SKIP_L1_DOCKER=1",
 )
 def test_run_official_persists_trajectory_and_container() -> None:
-    r = _run_bora("run", str(L1_DB), "--task", "executor-image-official")
+    r = _run_ageval("run", str(L1_DB), "--task", "executor-image-official")
     if r.returncode != 0 and "Docker daemon" in (r.stderr or r.stdout or ""):
         pytest.skip("docker unavailable")
     assert r.returncode == 0, r.stderr or r.stdout
@@ -93,7 +93,7 @@ def test_run_official_persists_trajectory_and_container() -> None:
 
 
 def test_run_upstream_persists_trajectory_and_container() -> None:
-    r = _run_bora("run", str(L1_DB), "--task", "executor-image-upstream")
+    r = _run_ageval("run", str(L1_DB), "--task", "executor-image-upstream")
     if r.returncode != 0 and "Docker daemon" in (r.stderr or r.stdout or ""):
         pytest.skip("docker unavailable")
     assert r.returncode == 0, r.stderr or r.stdout

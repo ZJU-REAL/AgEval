@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from bora.plugins.install import install_extracted_hub, install_from_local
-from bora.plugins.plugin_requires import PluginRequiresError
-from bora.plugins.store import list_installed, uninstall
+from ageval.plugins.install import install_extracted_hub, install_from_local
+from ageval.plugins.plugin_requires import PluginRequiresError
+from ageval.plugins.store import list_installed, uninstall
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -25,7 +25,7 @@ def _write_plugin(root: Path, plugin_id: str, *, requires: list[str] | None = No
         rows = f"plugin_requires:\n{req_yaml}\n"
     (root / "plugin.yaml").write_text(
         (
-            "format: bora.plugin/1\n"
+            "format: ageval.plugin/1\n"
             f"plugin_id: {plugin_id}\n"
             "version: 0.1.0\n"
             f"{rows}"
@@ -51,20 +51,20 @@ def _write_plugin(root: Path, plugin_id: str, *, requires: list[str] | None = No
 
 
 @pytest.fixture()
-def bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
+def ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
     return home
 
 
-def test_local_sibling_installs_both(bora_home: Path, tmp_path: Path) -> None:
-    del bora_home
+def test_local_sibling_installs_both(ageval_home: Path, tmp_path: Path) -> None:
+    del ageval_home
     plugins = tmp_path / "plugins"
     _write_plugin(plugins / "home-files", "home-files")
     _write_plugin(plugins / "agent-skills", "agent-skills", requires=["home-files"])
@@ -78,8 +78,8 @@ def test_local_sibling_installs_both(bora_home: Path, tmp_path: Path) -> None:
     assert all(item.status == "already_present" for item in again.items)
 
 
-def test_short_id_missing_sibling_no_partial_row(bora_home: Path, tmp_path: Path) -> None:
-    del bora_home
+def test_short_id_missing_sibling_no_partial_row(ageval_home: Path, tmp_path: Path) -> None:
+    del ageval_home
     plugins = tmp_path / "plugins"
     _write_plugin(plugins / "agent-skills", "agent-skills", requires=["home-files"])
     fetched: list[str] = []
@@ -95,8 +95,8 @@ def test_short_id_missing_sibling_no_partial_row(bora_home: Path, tmp_path: Path
     assert list_installed() == []
 
 
-def test_hub_dep_uses_declared_org_not_parent(bora_home: Path, tmp_path: Path) -> None:
-    del bora_home
+def test_hub_dep_uses_declared_org_not_parent(ageval_home: Path, tmp_path: Path) -> None:
+    del ageval_home
     parent = _write_plugin(tmp_path / "a", "a", requires=["OrgB/b"])
     dep = _write_plugin(tmp_path / "b", "b")
     fetched: list[str] = []
@@ -113,8 +113,8 @@ def test_hub_dep_uses_declared_org_not_parent(bora_home: Path, tmp_path: Path) -
     assert result.entry.plugin_id == "OrgA/a"
 
 
-def test_hub_parent_short_dep_does_not_guess_org(bora_home: Path, tmp_path: Path) -> None:
-    del bora_home
+def test_hub_parent_short_dep_does_not_guess_org(ageval_home: Path, tmp_path: Path) -> None:
+    del ageval_home
     parent = _write_plugin(tmp_path / "a", "a", requires=["b"])
     fetched: list[str] = []
 
@@ -129,8 +129,8 @@ def test_hub_parent_short_dep_does_not_guess_org(bora_home: Path, tmp_path: Path
     assert list_installed() == []
 
 
-def test_cycle_fail_closed(bora_home: Path, tmp_path: Path) -> None:
-    del bora_home
+def test_cycle_fail_closed(ageval_home: Path, tmp_path: Path) -> None:
+    del ageval_home
     plugins = tmp_path / "plugins"
     _write_plugin(plugins / "alpha", "alpha", requires=["beta"])
     _write_plugin(plugins / "beta", "beta", requires=["alpha"])
@@ -140,8 +140,8 @@ def test_cycle_fail_closed(bora_home: Path, tmp_path: Path) -> None:
     assert list_installed() == []
 
 
-def test_uninstall_depender_leaves_dep(bora_home: Path, tmp_path: Path) -> None:
-    del bora_home
+def test_uninstall_depender_leaves_dep(ageval_home: Path, tmp_path: Path) -> None:
+    del ageval_home
     plugins = tmp_path / "plugins"
     _write_plugin(plugins / "home-files", "home-files")
     _write_plugin(plugins / "agent-skills", "agent-skills", requires=["home-files"])
@@ -151,13 +151,20 @@ def test_uninstall_depender_leaves_dep(bora_home: Path, tmp_path: Path) -> None:
     assert ids == {"home-files"}
 
 
-def test_cli_install_sibling_json(bora_home: Path, tmp_path: Path) -> None:
+def test_cli_install_sibling_json(ageval_home: Path, tmp_path: Path) -> None:
     plugins = tmp_path / "plugins"
     _write_plugin(plugins / "home-files", "home-files")
     _write_plugin(plugins / "agent-skills", "agent-skills", requires=["home-files"])
-    env = {**os.environ, "BORA_HOME": str(bora_home)}
+    env = {**os.environ, "AGEVAL_HOME": str(ageval_home)}
     proc = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "plugin", "install", str(plugins / "agent-skills")],
+        [
+            sys.executable,
+            "-m",
+            "ageval.cli.main",
+            "plugin",
+            "install",
+            str(plugins / "agent-skills"),
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,

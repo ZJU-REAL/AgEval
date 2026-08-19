@@ -17,8 +17,8 @@ before agent-backed journeys (`multiagent-env-min`, …).
 Non-orchestration functional code lives under **`lib/`**.
 
 ```bash
-uv run bora lock examples/journeys --task env-postgres-min
-uv run bora run  examples/journeys --task env-postgres-min
+uv run ageval lock examples/journeys --task env-postgres-min
+uv run ageval run  examples/journeys --task env-postgres-min
 ```
 
 Requires Docker for Attempt-local PostgreSQL. No ACP binary needed on this path.

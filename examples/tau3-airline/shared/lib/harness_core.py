@@ -1,6 +1,6 @@
 """Dual-role airline dialog harness (orchestration only).
 
-User-sim and service agent use BORA Agent sessions (profiles). Tools execute
+User-sim and service agent use ageval Agent sessions (profiles). Tools execute
 via upstream tau2 airline Environment. Gold stays out of agent prompts.
 """
 
@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 from shared.lib.agent_json import agent_struct
 from shared.lib.bridge import (
     agent_facing_user_scenario,
@@ -157,7 +157,7 @@ async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTe
             for _u in range(max_user_turns):
                 # --- user turn ---
                 user_prompt = (
-                    "BORA fixture: simulate ONE airline customer utterance.\n"
+                    "ageval fixture: simulate ONE airline customer utterance.\n"
                     f"{user_guidelines}\n\n"
                     f"<scenario>\n{scenario_text}\n</scenario>\n\n"
                     f"Dialog so far:\n{json.dumps(dialog_for_user, ensure_ascii=False)}\n\n"

@@ -1,7 +1,7 @@
 # LiteLLM feasibility overlay for terminal-jsonl-agg (nooa).
 # model: openai/anthropic/claude-sonnet-4-6
 # nooa LiteLLM client: anthropic/* routes to native Anthropic, not the proxy.
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: nooa

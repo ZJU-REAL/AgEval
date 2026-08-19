@@ -16,11 +16,11 @@ def _run(
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     if offline:
-        env["BORA_OFFLINE_AGENT"] = "1"
+        env["AGEVAL_OFFLINE_AGENT"] = "1"
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", *args],
+        [sys.executable, "-m", "ageval.cli.main", *args],
         check=False,
         capture_output=True,
         text=True,

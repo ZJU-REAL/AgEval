@@ -8,12 +8,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite.suite_metrics import (
+from ageval.application.suite.suite_metrics import (
     MISSING_SCORE_AS,
     aggregate_task_metrics,
     task_refs_for_summary,
 )
-from bora.application.suite.suite_run import execute_suite_run, plan_suite_run
+from ageval.application.suite.suite_run import execute_suite_run, plan_suite_run
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"

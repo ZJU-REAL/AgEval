@@ -6,13 +6,13 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
-from bora.application.attempt import extension_hooks as hooks
-from bora.plugins.defaults import register_defaults
-from bora.plugins.lock_bind import extension_graph_to_lock
-from bora.plugins.protocol import BindingIntent, ExtensionSelect
-from bora.plugins.registry import ExtensionRegistry
-from bora.plugins.resolve import resolve
-from bora.plugins.slots import EVALUATION_INPUT_CONTRIBUTE, EVALUATION_RUNTIME, SCORE_POSTPROCESS
+from ageval.application.attempt import extension_hooks as hooks
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.lock_bind import extension_graph_to_lock
+from ageval.plugins.protocol import BindingIntent, ExtensionSelect
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import EVALUATION_INPUT_CONTRIBUTE, EVALUATION_RUNTIME, SCORE_POSTPROCESS
 
 
 def _lock() -> Any:

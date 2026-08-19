@@ -6,11 +6,11 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
-from bora.plugins.defaults.home_overlay import (
+from ageval.plugins.defaults.home_overlay import (
     copy_home_overlay_tree,
     default_home_overlay,
 )
-from bora.plugins.slots import HOME_OVERLAY, SlotKind, get_slot_kind
+from ageval.plugins.slots import HOME_OVERLAY, SlotKind, get_slot_kind
 
 
 def test_home_overlay_is_public_multi() -> None:

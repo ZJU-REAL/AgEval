@@ -46,7 +46,7 @@ def _ctx(tmp: Path) -> dict[str, str]:
 def test_acp_entries_from_lock() -> None:
     from types import SimpleNamespace
 
-    from bora.application.attempt.extension_hooks import acp_entries_from_lock
+    from ageval.application.attempt.extension_hooks import acp_entries_from_lock
 
     lock = SimpleNamespace(
         job_overlay={
@@ -206,34 +206,34 @@ def test_does_not_collide_with_home_files_litellm(tmp_path: Path) -> None:
 
 
 @pytest.fixture()
-def bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
+def ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
     return home
 
 
-def test_home_overlay_src_from_agent_package_not_dataset(bora_home: Path, tmp_path: Path) -> None:
+def test_home_overlay_src_from_agent_package_not_dataset(ageval_home: Path, tmp_path: Path) -> None:
     """agent_ref bindings copy skills from the Agent cache, never Dataset overlays/."""
     from types import SimpleNamespace
 
     import yaml
 
-    from bora.adapters.package_fs import LocalPackageReader
-    from bora.agents import store
-    from bora.application.attempt.extension_hooks import hook_home_overlay
-    from bora.config.capabilities import DeclarationCapabilityCatalog
-    from bora.config.load_and_lock import ConfigCore
-    from bora.plugins.install import install_from_local
+    from ageval.adapters.package_fs import LocalPackageReader
+    from ageval.agents import store
+    from ageval.application.attempt.extension_hooks import hook_home_overlay
+    from ageval.config.capabilities import DeclarationCapabilityCatalog
+    from ageval.config.load_and_lock import ConfigCore
+    from ageval.plugins.install import install_from_local
 
     install_from_local(ROOT / "plugins" / "agent-skills")
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -246,7 +246,7 @@ def test_home_overlay_src_from_agent_package_not_dataset(bora_home: Path, tmp_pa
     (pkg / "agent.yaml").write_text(
         yaml.safe_dump(
             {
-                "format": "bora.agent/1",
+                "format": "ageval.agent/1",
                 "agent_id": "xx",
                 "version": "0.1.0",
                 "binding": {
@@ -272,13 +272,13 @@ def test_home_overlay_src_from_agent_package_not_dataset(bora_home: Path, tmp_pa
 
     db = tmp_path / "db"
     (db / "tasks" / "t").mkdir(parents=True)
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\ndatabase_id: example/ov\nversion: '0.1.0'\n"
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\ndatabase_id: example/ov\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
     (db / "profiles.yaml").write_text(
-        "format: bora.profiles/1\nbindings:\n  solver:\n    executor: mock\n    model: none\n",
+        "format: ageval.profiles/1\nbindings:\n  solver:\n    executor: mock\n    model: none\n",
         encoding="utf-8",
     )
     task = db / "tasks" / "t"
@@ -287,7 +287,7 @@ def test_home_overlay_src_from_agent_package_not_dataset(bora_home: Path, tmp_pa
     (task / "task.yaml").write_text(
         yaml.safe_dump(
             {
-                "format": "bora.task/1",
+                "format": "ageval.task/1",
                 "task_id": "t",
                 "harness": {"runtime": "python", "entrypoint": "harness:run"},
                 "parameters": {"models": {"default": "solver"}},
@@ -349,13 +349,13 @@ def test_home_overlay_src_from_agent_package_not_dataset(bora_home: Path, tmp_pa
     assert not (db / "overlays").exists()
 
 
-def test_install_agent_skills_pulls_home_files(bora_home: Path) -> None:
-    env = {**os.environ, "BORA_HOME": str(bora_home)}
+def test_install_agent_skills_pulls_home_files(ageval_home: Path) -> None:
+    env = {**os.environ, "AGEVAL_HOME": str(ageval_home)}
     proc = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "plugin",
             "install",
             str(ROOT / "plugins" / "agent-skills"),
@@ -373,24 +373,24 @@ def test_install_agent_skills_pulls_home_files(bora_home: Path) -> None:
 
 
 def test_journeys_agent_skills_profile_locks(
-    bora_home: Path, monkeypatch: pytest.MonkeyPatch
+    ageval_home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.plugins.install import install_from_local
+    from ageval.plugins.install import install_from_local
 
     install_from_local(ROOT / "plugins" / "agent-skills")
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
     env = os.environ.copy()
-    env["BORA_HOME"] = str(bora_home)
+    env["AGEVAL_HOME"] = str(ageval_home)
     env.setdefault("XAI_API_KEY", "ci-test-key")
     proc = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "lock",
             str(ROOT / "examples/journeys"),
             "--task",

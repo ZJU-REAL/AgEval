@@ -1,7 +1,7 @@
 [project]
-name = "bora-sdk"
+name = "ageval-sdk"
 dynamic = ["version"]
-description = "BORA Harness Core SDK (HC-1) — types for package harness authors"
+description = "ageval task SDK — types for dataset task run.py authors"
 requires-python = ">=3.12"
 dependencies = []
 
@@ -14,4 +14,4 @@ path = "VERSION"
 pattern = "(?P<version>\\S+)"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bora_sdk"]
+packages = ["src/ageval_sdk"]

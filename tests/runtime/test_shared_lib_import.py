@@ -7,18 +7,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.application.attempt.run_command_evaluator import run_evaluator_worker
-from bora.application.attempt.run_harness import run_harness_package
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import freeze
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.application.attempt.run_command_evaluator import run_evaluator_worker
+from ageval.application.attempt.run_harness import run_harness_package
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import freeze
 
 
 def _scaffold(root: Path, *, with_task_lib: bool = False) -> Path:
     root.mkdir(parents=True, exist_ok=True)
-    (root / "bora.yaml").write_text(
-        "format: bora.database/1\n"
+    (root / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\n"
         "database_id: test/shared-import\n"
         'version: "0.1.0"\n'
         "tasks:\n  root: tasks\n",
@@ -36,7 +36,7 @@ def _scaffold(root: Path, *, with_task_lib: bool = False) -> Path:
     task = root / "tasks" / "t1"
     task.mkdir(parents=True)
     (task / "task.yaml").write_text(
-        """format: bora.task/1
+        """format: ageval.task/1
 task_id: t1
 harness:
   runtime: python
@@ -77,7 +77,7 @@ evaluation:
             encoding="utf-8",
         )
         harness_body = """
-from bora_sdk.terminal import HarnessTerminal
+from ageval_sdk.terminal import HarnessTerminal
 from lib.bridge_mod import TOKEN as TASK_TOKEN
 from shared.lib.bridge_mod import TOKEN as SHARED_TOKEN
 
@@ -102,7 +102,7 @@ def evaluate(payload):
 """
     else:
         harness_body = """
-from bora_sdk.terminal import HarnessTerminal
+from ageval_sdk.terminal import HarnessTerminal
 from shared.lib.bridge_mod import TOKEN
 
 def run(ctx):

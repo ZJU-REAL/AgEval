@@ -9,14 +9,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite.suite_run import (
+from ageval.application.suite.suite_run import (
     execute_suite_run,
     get_inflight_peak,
     plan_suite_run,
     planned_units,
     reset_inflight_metrics,
 )
-from bora.config.errors import ConfigError
+from ageval.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
@@ -49,7 +49,7 @@ async def test_always_k_produces_k_attempts() -> None:
     async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         calls.append(task_id)
         run_id = f"sha256_dead_run_{task_id}_{len(calls)}"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         # 2 pass, 1 fail across 3 calls
         status = "PASS" if len(calls) <= 2 else "FAIL"
@@ -114,7 +114,7 @@ async def test_resume_skips_completed_and_appends() -> None:
         call_n["n"] += 1
         i = call_n["n"]
         run_id = f"sha256_dead_run_alpha_{i}"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",
@@ -158,7 +158,7 @@ async def test_resume_other_tasks_preserved() -> None:
 
     async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         run_id = f"sha256_dead_run_{task_id}"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",
@@ -182,7 +182,7 @@ async def test_resume_other_tasks_preserved() -> None:
     async def runner2(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         call_tasks.append(task_id)
         run_id = f"sha256_dead_run_{task_id}_extra"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",

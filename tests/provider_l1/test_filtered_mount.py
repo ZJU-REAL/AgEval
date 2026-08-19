@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.provider_docker import DockerProvider, ensure_image_lock
-from bora.runtime.identity import IdentityFactory
+from ageval.adapters.provider_docker import DockerProvider, ensure_image_lock
+from ageval.runtime.identity import IdentityFactory
 
 REPO = Path(__file__).resolve().parents[2]
 

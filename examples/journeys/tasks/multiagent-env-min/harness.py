@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 from lib.agent_json import agent_struct
 from lib.db_tools import build_db_toolset, load_env_meta
 from lib.diagnostics import ALLOWED_LABELS, SPECIALIST_SQL

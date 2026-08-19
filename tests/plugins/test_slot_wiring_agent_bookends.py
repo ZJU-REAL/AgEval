@@ -6,7 +6,7 @@ from typing import Any
 
 from tests.helpers.extension_registry import registry_with_executor
 
-from bora.plugins.slots import (
+from ageval.plugins.slots import (
     AFTER_AGENT_CLOSE,
     AFTER_AGENT_OPEN,
     BEFORE_AGENT_CLOSE,
@@ -14,7 +14,7 @@ from bora.plugins.slots import (
     BEFORE_AGENT_OPEN,
     NORMALIZE_AGENT_RESULT,
 )
-from bora.runtime.parent_agent_service import ParentAgentService
+from ageval.runtime.parent_agent_service import ParentAgentService
 
 
 class _FakeResult:

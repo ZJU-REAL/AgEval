@@ -7,13 +7,13 @@ FROM ${BASE_IMAGE}
 
 USER root
 COPY src/nooa_plugin /opt/nooa/nooa_plugin
-COPY worker/bora_executor_nooa.py /usr/local/bin/bora-executor-nooa
+COPY worker/ageval_executor_nooa.py /usr/local/bin/ageval-executor-nooa
 # NVIDIA OO Agents (LiteLLM-backed). Bake needs network at image build time.
-RUN chmod 755 /usr/local/bin/bora-executor-nooa \
-    && test -f /usr/local/bin/bora-executor-nooa \
-    && python3 -m py_compile /usr/local/bin/bora-executor-nooa \
+RUN chmod 755 /usr/local/bin/ageval-executor-nooa \
+    && test -f /usr/local/bin/ageval-executor-nooa \
+    && python3 -m py_compile /usr/local/bin/ageval-executor-nooa \
     && python3 -m pip install --no-cache-dir "nooa>=0.0.7"
 
 # Prefer non-root actor when base defines it.
-USER bora
+USER ageval
 WORKDIR /attempt/workspace

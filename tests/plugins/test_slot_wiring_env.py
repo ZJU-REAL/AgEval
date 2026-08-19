@@ -7,13 +7,13 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from bora.application.attempt import extension_hooks as hooks
-from bora.environment.manager import EnvironmentManager
-from bora.plugins.defaults import register_defaults
-from bora.plugins.protocol import BindingIntent, ExtensionSelect
-from bora.plugins.registry import ExtensionRegistry
-from bora.plugins.resolve import resolve
-from bora.plugins.slots import ENV_ACTION, ENV_INJECT, ENV_PREPARE_COMMANDS, ENV_TEARDOWN_COMMANDS
+from ageval.application.attempt import extension_hooks as hooks
+from ageval.environment.manager import EnvironmentManager
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.protocol import BindingIntent, ExtensionSelect
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import ENV_ACTION, ENV_INJECT, ENV_PREPARE_COMMANDS, ENV_TEARDOWN_COMMANDS
 
 
 def _lock() -> Any:

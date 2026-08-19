@@ -1,7 +1,0 @@
-# Database root — Spec 20 / Constitution multi-task Database package
-format: bora.database/1
-database_id: example/core
-version: "0.1.0"
-description: "Core surface mechanism packages"
-tasks:
-  root: tasks

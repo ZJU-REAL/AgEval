@@ -8,7 +8,7 @@ both invokes succeeded, and the SDK session handle stays null (parent-bound).
 
 ## What you learn
 
-- `bora_sdk.Agent` + `session` multi-invoke API
+- `ageval_sdk.Agent` + `session` multi-invoke API
 - Same Attempt, multiple turns under one session budget
 - Session is parent-bound — package code does not own provider credentials
 
@@ -19,6 +19,6 @@ both invokes succeeded, and the SDK session handle stays null (parent-bound).
 ## Run
 
 ```bash
-uv run bora lock examples/core --task sdk-agent-session
-uv run bora run  examples/core --task sdk-agent-session
+uv run ageval lock examples/core --task sdk-agent-session
+uv run ageval run  examples/core --task sdk-agent-session
 ```

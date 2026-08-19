@@ -8,11 +8,11 @@ from typing import Any
 
 import pytest
 
-from bora.application.attempt.run_l1_evaluator import (
+from ageval.application.attempt.run_l1_evaluator import (
     clean_eval_tmpfs_mount,
     run_clean_evaluator_container,
 )
-from bora.config.constants import DEFAULT_EVAL_TMPFS_MB
+from ageval.config.constants import DEFAULT_EVAL_TMPFS_MB
 
 
 def test_clean_eval_tmpfs_mount_default_and_override() -> None:
@@ -37,13 +37,13 @@ def test_run_clean_evaluator_uses_declared_tmpfs(
         return SimpleNamespace(returncode=0, stdout='{"status":"PASS","score":1.0}\n', stderr="")
 
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        "ageval.application.attempt.run_l1_evaluator.subprocess.run",
         _run,
     )
     staging = tmp_path / "eval"
     staging.mkdir()
     raw, meta = run_clean_evaluator_container(
-        image_tag="bora-attempt:l1",
+        image_tag="ageval-attempt:l1",
         staging=staging,
         artifact_filename="workspace-snapshot.tar.gz",
         artifact_key="workspace-snapshot",
@@ -72,13 +72,13 @@ def test_run_clean_evaluator_defaults_to_32m(
         return SimpleNamespace(returncode=0, stdout='{"status":"PASS","score":1.0}\n', stderr="")
 
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        "ageval.application.attempt.run_l1_evaluator.subprocess.run",
         _run,
     )
     staging = tmp_path / "eval"
     staging.mkdir()
     run_clean_evaluator_container(
-        image_tag="bora-attempt:l1",
+        image_tag="ageval-attempt:l1",
         staging=staging,
         artifact_filename="out.json",
         artifact_key="out",
@@ -89,8 +89,8 @@ def test_run_clean_evaluator_defaults_to_32m(
 
 
 def test_evaluate_l1_passes_lock_tmpfs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from bora.application.attempt.attempt_stages import AttemptStageContext
-    from bora.application.attempt.run_l1_phases import evaluate_l1
+    from ageval.application.attempt.attempt_stages import AttemptStageContext
+    from ageval.application.attempt.run_l1_phases import evaluate_l1
 
     captured: dict[str, Any] = {}
 
@@ -102,19 +102,19 @@ def test_evaluate_l1_passes_lock_tmpfs(tmp_path: Path, monkeypatch: pytest.Monke
         )
 
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_phases.run_clean_evaluator_container",
+        "ageval.application.attempt.run_l1_phases.run_clean_evaluator_container",
         _fake_eval,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.extension_hooks.hook_evaluation_input",
+        "ageval.application.attempt.extension_hooks.hook_evaluation_input",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.extension_hooks.hook_evaluation_runtime",
+        "ageval.application.attempt.extension_hooks.hook_evaluation_runtime",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.extension_hooks.hook_score_postprocess",
+        "ageval.application.attempt.extension_hooks.hook_score_postprocess",
         lambda _lock, raw: raw,
     )
 
@@ -124,7 +124,7 @@ def test_evaluate_l1_passes_lock_tmpfs(tmp_path: Path, monkeypatch: pytest.Monke
     staging.mkdir()
     lock = SimpleNamespace(evaluation={"tmpfs_mb": 256})
     runtime = SimpleNamespace(
-        image_lock=SimpleNamespace(image_tag="bora-pkg:test"),
+        image_lock=SimpleNamespace(image_tag="ageval-pkg:test"),
         writer_inventory=[],
         writer_stop_confirmed=True,
     )
@@ -141,14 +141,14 @@ def test_evaluate_l1_passes_lock_tmpfs(tmp_path: Path, monkeypatch: pytest.Monke
     )
     evaluate_l1(ctx)
     assert captured["tmpfs_mb"] == 256
-    assert captured["image_tag"] == "bora-pkg:test"
+    assert captured["image_tag"] == "ageval-pkg:test"
 
 
 def test_evaluate_l1_reuse_attempt_skips_new_container(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.application.attempt.attempt_stages import AttemptStageContext
-    from bora.application.attempt.run_l1_phases import evaluate_l1
+    from ageval.application.attempt.attempt_stages import AttemptStageContext
+    from ageval.application.attempt.run_l1_phases import evaluate_l1
 
     isolated: dict[str, Any] = {}
     reused: dict[str, Any] = {}
@@ -165,23 +165,23 @@ def test_evaluate_l1_reuse_attempt_skips_new_container(
         )
 
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_phases.run_clean_evaluator_container",
+        "ageval.application.attempt.run_l1_phases.run_clean_evaluator_container",
         _fake_isolated,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_phases.run_reuse_attempt_evaluator",
+        "ageval.application.attempt.run_l1_phases.run_reuse_attempt_evaluator",
         _fake_reuse,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.extension_hooks.hook_evaluation_input",
+        "ageval.application.attempt.extension_hooks.hook_evaluation_input",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.extension_hooks.hook_evaluation_runtime",
+        "ageval.application.attempt.extension_hooks.hook_evaluation_runtime",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.extension_hooks.hook_score_postprocess",
+        "ageval.application.attempt.extension_hooks.hook_score_postprocess",
         lambda _lock, raw: raw,
     )
 
@@ -191,7 +191,7 @@ def test_evaluate_l1_reuse_attempt_skips_new_container(
     staging.mkdir()
     lock = SimpleNamespace(evaluation={"reuse_attempt": True, "network": "bridge", "tmpfs_mb": 256})
     runtime = SimpleNamespace(
-        image_lock=SimpleNamespace(image_tag="bora-pkg:test"),
+        image_lock=SimpleNamespace(image_tag="ageval-pkg:test"),
         writer_inventory=[],
         writer_stop_confirmed=True,
         agent_container_ids=["cid-live"],
@@ -221,8 +221,8 @@ def test_evaluate_l1_reuse_attempt_skips_new_container(
 
 
 def test_seal_l1_inputs_copies_hidden_package_path(tmp_path: Path) -> None:
-    from bora.application.attempt.attempt_stages import AttemptStageContext
-    from bora.application.attempt.run_l1_phases import seal_l1_inputs
+    from ageval.application.attempt.attempt_stages import AttemptStageContext
+    from ageval.application.attempt.run_l1_phases import seal_l1_inputs
 
     pkg = tmp_path / "pkg"
     ev = pkg / "evaluation"
@@ -268,7 +268,7 @@ def test_run_clean_evaluator_rejects_bad_tmpfs_before_docker(tmp_path: Path) -> 
     staging.mkdir()
     with pytest.raises(ValueError, match="positive integer"):
         run_clean_evaluator_container(
-            image_tag="bora-attempt:l1",
+            image_tag="ageval-attempt:l1",
             staging=staging,
             artifact_filename="out.json",
             artifact_key="out",

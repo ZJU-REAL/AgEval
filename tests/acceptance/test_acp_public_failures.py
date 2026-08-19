@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.agent_registry import resolve_executor
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.plugins.contrib.acp import AcpExecutor
+from ageval.adapters.agent_registry import resolve_executor
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.plugins.contrib.acp import AcpExecutor
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -25,7 +25,7 @@ def test_unknown_entry_lock_fails(tmp_path: Path) -> None:
     pkg.mkdir()
     (pkg / "task.yaml").write_text(
         """
-format: bora.task/1
+format: ageval.task/1
 task_id: t
 harness: {runtime: python, entrypoint: harness:run}
 parameters: {}
@@ -63,7 +63,7 @@ def test_private_kind_resolve_fails_closed() -> None:
 
 def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object, tmp_path: Path) -> None:
     """Mode 1 adapter missing → readiness adapter-missing; no private invoke."""
-    from bora.plugins.contrib.acp.registry import get_entry, readiness_for
+    from ageval.plugins.contrib.acp.registry import get_entry, readiness_for
 
     desc = get_entry("codex")
     assert desc is not None
@@ -75,13 +75,13 @@ def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object, tmp_pat
 
     row = readiness_for(desc, which=which)
     assert row["readiness"] == "adapter-missing"
-    os.environ["BORA_OFFLINE_AGENT"] = "0"
+    os.environ["AGEVAL_OFFLINE_AGENT"] = "0"
     # Executor still constructs but host readiness fails at ensure_session.
     # workdir is required before the PATH probe; pass a dummy so we reach it.
     ex = AcpExecutor(entry_id="codex", model="entry-default")
     # Force host path probe by ensuring no command_override
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.plugins.contrib.acp.executor.readiness_for",
+        "ageval.plugins.contrib.acp.executor.readiness_for",
         lambda *_a, **_k: row,
     )
     r = ex.invoke("hi", timeout=5, workdir=str(tmp_path))
@@ -91,12 +91,12 @@ def test_adapter_missing_readiness_no_host_fallback(monkeypatch: object, tmp_pat
 
 def test_offline_cli_subprocess_nonzero() -> None:
     env = os.environ.copy()
-    env["BORA_OFFLINE_AGENT"] = "1"
+    env["AGEVAL_OFFLINE_AGENT"] = "1"
     proc = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(REPO / "examples/core"),
             "--task",

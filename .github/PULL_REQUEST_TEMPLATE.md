@@ -10,7 +10,7 @@
 ## 验证
 
 ```bash
-# 实际跑过的命令（pytest / bora lock|run / validate…）
+# 实际跑过的命令（pytest / ageval lock|run / validate…）
 ```
 
 ## Checklist

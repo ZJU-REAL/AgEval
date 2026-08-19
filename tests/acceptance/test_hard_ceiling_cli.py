@@ -21,7 +21,7 @@ def test_n_plus_one_invoke_denied_public_cli() -> None:
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(PKG),
             "--task",

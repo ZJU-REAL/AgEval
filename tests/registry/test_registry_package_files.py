@@ -21,8 +21,8 @@ from services.registry.package_files import (
     read_member,
 )
 
-from bora.application.composition import build_publish_command
-from bora.registry.client import RegistryClient, RegistryError
+from ageval.application.composition import build_publish_command
+from ageval.registry.client import RegistryClient, RegistryError
 
 publish_database = build_publish_command().publish_database
 
@@ -35,10 +35,10 @@ def _ensure_org() -> None:
     """Create default test org owned by current token (idempotent)."""
     import os
 
-    from bora.registry.client import RegistryClient, RegistryError
+    from ageval.registry.client import RegistryClient, RegistryError
 
-    url = os.environ.get("BORA_REGISTRY_URL") or ""
-    token = os.environ.get("BORA_REGISTRY_TOKEN") or ""
+    url = os.environ.get("AGEVAL_REGISTRY_URL") or ""
+    token = os.environ.get("AGEVAL_REGISTRY_TOKEN") or ""
     if not url or not token:
         return
     client = RegistryClient(url, token=token)
@@ -64,8 +64,8 @@ def registry_server(tmp_path: Path):
 
 
 def _publish_public(registry_server, monkeypatch: pytest.MonkeyPatch) -> dict:
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org()
     return publish_database(FIXTURE, public=True, org=TEST_ORG)
 
@@ -94,13 +94,13 @@ def test_public_list_and_read_without_token(
     assert listing["database_id"] == summary["database_id"]
     assert listing["digest"] == summary["package_digest"]
     paths = {item["path"] for item in listing["items"]}
-    assert "bora.yaml" in paths
+    assert "ageval.yaml" in paths
     assert any(p.startswith("tasks/") for p in paths)
 
     body = client.get_package_file(
         database_id=summary["database_id"],
         package_digest=summary["package_digest"],
-        file_path="bora.yaml",
+        file_path="ageval.yaml",
     )
     assert body["encoding"] == "utf-8"
     assert "database_id" in body["content"] or "format" in body["content"]
@@ -112,8 +112,8 @@ def test_public_list_and_read_without_token(
 def test_private_without_token_404(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org()
     summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
 
@@ -164,9 +164,9 @@ def test_version_alias_files(registry_server, monkeypatch: pytest.MonkeyPatch) -
     body = client.get_package_file(
         database_id=summary["database_id"],
         version=summary["version"],
-        file_path="bora.yaml",
+        file_path="ageval.yaml",
     )
-    assert body["path"] == "bora.yaml"
+    assert body["path"] == "ageval.yaml"
 
 
 def _gzip_tar_with_file(path: str, data: bytes) -> bytes:

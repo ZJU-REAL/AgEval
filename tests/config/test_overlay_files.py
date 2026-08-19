@@ -8,17 +8,17 @@ from typing import Any
 import pytest
 import yaml
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
-from bora.config.overlay_files import (
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
+from ageval.config.overlay_files import (
     normalize_overlay_path,
     overlay_secret_hits,
     parse_overlay_paths,
 )
-from bora.config.profiles import load_profiles_document
+from ageval.config.profiles import load_profiles_document
 
 
 def _write_database(
@@ -29,13 +29,13 @@ def _write_database(
 ) -> Path:
     db = tmp / "db"
     (db / "tasks" / "t").mkdir(parents=True)
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
     (db / "profiles.yaml").write_text(
-        yaml.safe_dump({"format": "bora.profiles/1", "bindings": bindings}),
+        yaml.safe_dump({"format": "ageval.profiles/1", "bindings": bindings}),
         encoding="utf-8",
     )
     task = db / "tasks" / "t"
@@ -44,7 +44,7 @@ def _write_database(
     (task / "task.yaml").write_text(
         yaml.safe_dump(
             {
-                "format": "bora.task/1",
+                "format": "ageval.task/1",
                 "task_id": "t",
                 "harness": {"runtime": "python", "entrypoint": "harness:run"},
                 "parameters": {"models": {"default": "solver"}},
@@ -244,7 +244,7 @@ def test_standalone_task_cannot_declare_overlays(tmp_path: Path) -> None:
     (pkg / "task.yaml").write_text(
         yaml.safe_dump(
             {
-                "format": "bora.task/1",
+                "format": "ageval.task/1",
                 "task_id": "t",
                 "harness": {"runtime": "python", "entrypoint": "harness:run"},
                 "parameters": {"models": {"default": "solver"}},
@@ -289,7 +289,7 @@ def test_profiles_document_normalizes_overlays(tmp_path: Path) -> None:
     path.write_text(
         yaml.safe_dump(
             {
-                "format": "bora.profiles/1",
+                "format": "ageval.profiles/1",
                 "bindings": {
                     "solver": {
                         "executor": "mock",

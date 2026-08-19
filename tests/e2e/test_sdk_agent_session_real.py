@@ -1,7 +1,7 @@
 """Spec 06 named path: real AgentSession multi-invoke public smoke (optional network).
 
 Default CI stays offline-safe: asserts fail-closed without silent PASS.
-Real Codex PASS is recorded under package .bora/runs and scratch case-runs.
+Real Codex PASS is recorded under package .ageval/runs and scratch case-runs.
 """
 
 from __future__ import annotations
@@ -19,13 +19,13 @@ REPO = Path(__file__).resolve().parents[2]
 
 def test_sdk_agent_session_offline_not_pass() -> None:
     env = os.environ.copy()
-    env["BORA_OFFLINE_AGENT"] = "1"
-    env.pop("BORA_SDK_SESSION_STUB", None)
+    env["AGEVAL_OFFLINE_AGENT"] = "1"
+    env.pop("AGEVAL_SDK_SESSION_STUB", None)
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(REPO / "examples" / "core"),
             "--task",
@@ -45,18 +45,18 @@ def test_sdk_agent_session_offline_not_pass() -> None:
 
 
 @pytest.mark.skipif(
-    os.environ.get("BORA_RUN_REAL_AGENT") != "1",
-    reason="set BORA_RUN_REAL_AGENT=1 for live Codex multi-invoke",
+    os.environ.get("AGEVAL_RUN_REAL_AGENT") != "1",
+    reason="set AGEVAL_RUN_REAL_AGENT=1 for live Codex multi-invoke",
 )
 def test_sdk_agent_session_real_multi_invoke_pass() -> None:
     env = os.environ.copy()
-    env.pop("BORA_OFFLINE_AGENT", None)
-    env.pop("BORA_SDK_SESSION_STUB", None)
+    env.pop("AGEVAL_OFFLINE_AGENT", None)
+    env.pop("AGEVAL_SDK_SESSION_STUB", None)
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(REPO / "examples" / "core"),
             "--task",

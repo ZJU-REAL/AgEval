@@ -10,11 +10,11 @@ from types import SimpleNamespace
 import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
-from bora.adapters.provider_docker.types import DockerImageLock, DockerRuntime
-from bora.application.attempt.run_command import run_task
-from bora.application.attempt.run_l1_prepare import prepare_l1_runtime
-from bora.application.attempt.run_lifecycle import run_lifecycle
-from bora.runtime.identity import IdentityFactory
+from ageval.adapters.provider_docker.types import DockerImageLock, DockerRuntime
+from ageval.application.attempt.run_command import run_task
+from ageval.application.attempt.run_l1_prepare import prepare_l1_runtime
+from ageval.application.attempt.run_lifecycle import run_lifecycle
+from ageval.runtime.identity import IdentityFactory
 
 REPO = Path(__file__).resolve().parents[2]
 CORE = REPO / "examples" / "core"
@@ -39,10 +39,10 @@ def _attempt(digest: str = "sha256:" + "a" * 64):
 
 @pytest.mark.asyncio
 async def test_run_lifecycle_uses_passed_attempt() -> None:
-    from bora.adapters.package_fs import LocalPackageReader
-    from bora.config.capabilities import DeclarationCapabilityCatalog
-    from bora.config.load_and_lock import ConfigCore
-    from bora.config.profiles import load_database_profiles
+    from ageval.adapters.package_fs import LocalPackageReader
+    from ageval.config.capabilities import DeclarationCapabilityCatalog
+    from ageval.config.load_and_lock import ConfigCore
+    from ageval.config.profiles import load_database_profiles
 
     lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
         CORE / "tasks" / "config-minimal",
@@ -89,15 +89,15 @@ async def test_run_task_mints_one_run_identity(tmp_path: Path) -> None:
 def test_prepare_l1_runtime_uses_passed_attempt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import bora.application.attempt.extension_hooks as hooks
-    import bora.application.attempt.run_l1_prepare as prep
-    import bora.application.plugin_ops.image_contribute_bake as bake
+    import ageval.application.attempt.extension_hooks as hooks
+    import ageval.application.attempt.run_l1_prepare as prep
+    import ageval.application.plugin_ops.image_contribute_bake as bake
 
     attempt = _attempt()
     image = DockerImageLock(
         kind="attempt",
         platform="linux/arm64",
-        image_tag="bora-pkg:t-dead",
+        image_tag="ageval-pkg:t-dead",
         image_digest="sha256:abc",
         build_input_digest="sha256:def",
     )

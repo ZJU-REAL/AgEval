@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from bora.environment.manager import EnvironmentManager
+from ageval.environment.manager import EnvironmentManager
 
 
 def _docker_ok() -> bool:

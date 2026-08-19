@@ -1,6 +1,6 @@
 # Invalid Task Package: parameters.models references an unknown profile id.
-# Expected: bora lock → exit 2, error_code unknown_profile.
-format: bora.task/1
+# Expected: ageval lock → exit 2, error_code unknown_profile.
+format: ageval.task/1
 task_id: config-invalid
 harness:
   runtime: python

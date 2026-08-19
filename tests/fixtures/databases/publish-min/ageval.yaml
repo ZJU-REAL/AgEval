@@ -1,0 +1,6 @@
+format: ageval.dataset/1
+database_id: test/publish-min
+version: "0.1.0"
+description: "Minimal Database for registry publish e2e"
+tasks:
+  root: tasks

@@ -1,4 +1,4 @@
-"""bora.agent/1 manifest parse + fail-closed secret scan (design/14)."""
+"""ageval.agent/1 manifest parse + fail-closed secret scan (design/14)."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from bora.agents.manifest import AGENT_FILENAME, load_agent_manifest, parse_agent_document
-from bora.config.errors import ConfigError
+from ageval.agents.manifest import AGENT_FILENAME, load_agent_manifest, parse_agent_document
+from ageval.config.errors import ConfigError
 
 GOOD_DOC = {
-    "format": "bora.agent/1",
+    "format": "ageval.agent/1",
     "agent_id": "mock-default",
     "version": "0.1.0",
     "label": "Mock Default",
@@ -47,7 +47,7 @@ def test_unknown_top_key_fails() -> None:
 
 def test_bad_format_fails() -> None:
     doc = dict(GOOD_DOC)
-    doc["format"] = "bora.agent/2"
+    doc["format"] = "ageval.agent/2"
     with pytest.raises(ConfigError):
         parse_agent_document(doc)
 
@@ -70,7 +70,7 @@ def test_unknown_binding_key_rejected() -> None:
 def test_load_from_dir_and_bare_yaml(tmp_path: Path) -> None:
     pkg = _write_pkg(
         tmp_path / "agent-pkg",
-        "format: bora.agent/1\nagent_id: a1\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: a1\nversion: '1.0'\n"
         "binding: {executor: mock, model: none}\n",
     )
     m = load_agent_manifest(pkg)
@@ -83,7 +83,7 @@ def test_load_from_dir_and_bare_yaml(tmp_path: Path) -> None:
 def test_secret_in_package_fails_closed(tmp_path: Path) -> None:
     pkg = _write_pkg(
         tmp_path / "leaky",
-        "format: bora.agent/1\nagent_id: leaky\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: leaky\nversion: '1.0'\n"
         "binding: {executor: mock, model: none}\n",
     )
     (pkg / "notes.txt").write_text("api_key = sk-abc123def456ghi789jkl000\n", encoding="utf-8")
@@ -94,7 +94,7 @@ def test_secret_in_package_fails_closed(tmp_path: Path) -> None:
 def test_listed_overlay_must_exist_in_package(tmp_path: Path) -> None:
     pkg = _write_pkg(
         tmp_path / "missing-overlay",
-        "format: bora.agent/1\nagent_id: missing\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: missing\nversion: '1.0'\n"
         "binding:\n  executor: mock\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
     )
@@ -106,7 +106,7 @@ def test_listed_overlay_must_exist_in_package(tmp_path: Path) -> None:
 def test_listed_overlay_files_are_accepted(tmp_path: Path) -> None:
     pkg = _write_pkg(
         tmp_path / "with-overlay",
-        "format: bora.agent/1\nagent_id: withov\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: withov\nversion: '1.0'\n"
         "binding:\n  executor: mock\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
     )
@@ -123,7 +123,7 @@ def test_listed_overlay_files_are_accepted(tmp_path: Path) -> None:
 def test_listed_overlay_missing_from_bare_yaml_fails_closed(tmp_path: Path) -> None:
     pkg = _write_pkg(
         tmp_path / "missing-overlay-yaml",
-        "format: bora.agent/1\nagent_id: missing\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: missing\nversion: '1.0'\n"
         "binding:\n  executor: mock\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
     )
@@ -135,7 +135,7 @@ def test_listed_overlay_missing_from_bare_yaml_fails_closed(tmp_path: Path) -> N
 def test_secret_in_overlay_file_fails_closed(tmp_path: Path) -> None:
     pkg = _write_pkg(
         tmp_path / "secret-overlay",
-        "format: bora.agent/1\nagent_id: secretov\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: secretov\nversion: '1.0'\n"
         "binding:\n  executor: mock\n  model: none\n"
         "  overlays: [overlays/secret.md]\n",
     )
@@ -150,7 +150,7 @@ def test_secret_in_overlay_file_fails_closed(tmp_path: Path) -> None:
 def test_locator_name_is_clean(tmp_path: Path) -> None:
     pkg = _write_pkg(
         tmp_path / "locator",
-        "format: bora.agent/1\nagent_id: locator\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: locator\nversion: '1.0'\n"
         "binding: {executor: mock, model: none, api_key: '${OPENAI_API_KEY}'}\n",
     )
     m = load_agent_manifest(pkg)

@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.provider_local import LocalProcessProvider
-from bora.provider.contract import ExecutableGrant, ProcessLaunchPlan
-from bora.provider.errors import ProviderError
-from bora.provider.outcomes import ProcessTerminalKind
-from bora.provider.workspace_plan import WorkspacePlan
-from bora.runtime.cancellation import CancellationSignal
-from bora.runtime.identity import IdentityFactory
+from ageval.adapters.provider_local import LocalProcessProvider
+from ageval.provider.contract import ExecutableGrant, ProcessLaunchPlan
+from ageval.provider.errors import ProviderError
+from ageval.provider.outcomes import ProcessTerminalKind
+from ageval.provider.workspace_plan import WorkspacePlan
+from ageval.runtime.cancellation import CancellationSignal
+from ageval.runtime.identity import IdentityFactory
 
 HELPER = Path(__file__).resolve().parents[1] / "helpers" / "provider_probe_child.py"
 
@@ -86,12 +86,12 @@ async def test_spawn_via_venv_symlink_keeps_site_packages(tmp_path: Path) -> Non
         f"home = {real.parent}\ninclude-system-site-packages = false\n",
         encoding="utf-8",
     )
-    (site / "bora_venv_probe.py").write_text("MARKER = 'venv-site'\n", encoding="utf-8")
+    (site / "ageval_venv_probe.py").write_text("MARKER = 'venv-site'\n", encoding="utf-8")
     link = bindir / "python3"
     link.symlink_to(real)
 
     attempt = _attempt()
-    code = "import bora_venv_probe, sys; print(bora_venv_probe.MARKER); print(sys.prefix)"
+    code = "import ageval_venv_probe, sys; print(ageval_venv_probe.MARKER); print(sys.prefix)"
     plan = ProcessLaunchPlan(
         attempt=attempt,
         workspace=WorkspacePlan(attempt=attempt, base_dir=tmp_path, relative_workdir="ws"),

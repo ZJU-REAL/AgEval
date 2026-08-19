@@ -14,11 +14,11 @@ class PublicBackendError(RuntimeError):
 
 
 def postgres_url() -> str:
-    return (os.environ.get("BORA_REGISTRY_DATABASE_URL") or "").strip()
+    return (os.environ.get("AGEVAL_REGISTRY_DATABASE_URL") or "").strip()
 
 
 def s3_endpoint() -> str:
-    return (os.environ.get("BORA_REGISTRY_S3_ENDPOINT") or "").strip()
+    return (os.environ.get("AGEVAL_REGISTRY_S3_ENDPOINT") or "").strip()
 
 
 def public_env_ready() -> bool:
@@ -31,7 +31,7 @@ def require_public_backend() -> tuple[str, str]:
     endpoint = s3_endpoint()
     if not database_url or not endpoint:
         raise PublicBackendError(
-            "public registry start requires BORA_REGISTRY_DATABASE_URL and "
-            "BORA_REGISTRY_S3_ENDPOINT; use --local or --memory-blob for dev/test"
+            "public registry start requires AGEVAL_REGISTRY_DATABASE_URL and "
+            "AGEVAL_REGISTRY_S3_ENDPOINT; use --local or --memory-blob for dev/test"
         )
     return database_url, endpoint

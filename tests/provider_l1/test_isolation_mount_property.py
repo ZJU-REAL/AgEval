@@ -11,15 +11,15 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.provider_docker import (
+from ageval.adapters.provider_docker import (
     DockerImageLock,
     DockerProvider,
     DockerRuntime,
     ensure_base_image,
 )
-from bora.provider.isolation import parse_logical_topology
-from bora.provider.targets import IsolationMode
-from bora.runtime.identity import IdentityFactory
+from ageval.provider.isolation import parse_logical_topology
+from ageval.provider.targets import IsolationMode
+from ageval.runtime.identity import IdentityFactory
 
 
 def _docker_ok() -> bool:
@@ -47,7 +47,7 @@ def _prepare_runtime(tmp_path: Path) -> tuple[DockerProvider, DockerRuntime, Pat
     img = DockerImageLock(
         kind="probe",
         platform=lock.platform,
-        image_tag=lock.image_tag or "bora-attempt:l1",
+        image_tag=lock.image_tag or "ageval-attempt:l1",
         image_digest=lock.image_digest,
         build_input_digest=lock.build_input_digest,
     )

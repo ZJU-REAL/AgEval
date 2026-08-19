@@ -5,15 +5,15 @@ from __future__ import annotations
 import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
-from bora.application.attempt.phase_timing import (
+from ageval.application.attempt.phase_timing import (
     PhaseTimer,
     bucket_phase_timing,
     format_duration_ms,
     phase_facts_to_timing,
 )
-from bora.runtime.coordinator import LifecycleCoordinator
-from bora.runtime.identity import IdentityFactory
-from bora.runtime.outcomes import RuntimeTerminalKind
+from ageval.runtime.coordinator import LifecycleCoordinator
+from ageval.runtime.identity import IdentityFactory
+from ageval.runtime.outcomes import RuntimeTerminalKind
 
 
 def test_phase_timer_as_dict() -> None:
@@ -23,7 +23,7 @@ def test_phase_timer_as_dict() -> None:
     t.add_ms("run", 1500.0)
     t.add_ms("evaluate", 250.0)
     doc = t.as_dict()
-    assert doc["schema"] == "bora.phase_timing/1"
+    assert doc["schema"] == "ageval.phase_timing/1"
     ids = [p["id"] for p in doc["phases"]]
     assert "prepare" in ids
     assert "run" in ids

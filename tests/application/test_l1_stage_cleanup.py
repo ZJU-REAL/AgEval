@@ -8,12 +8,12 @@ from types import SimpleNamespace
 import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
-from bora.application.attempt.attempt_stages import AttemptStageContext, DockerL1Stages
-from bora.application.attempt.run_l1 import _l1_host_cleanup
-from bora.runtime.coordinator import LifecycleCoordinator
-from bora.runtime.identity import IdentityFactory
-from bora.runtime.lifecycle import LifecyclePhase
-from bora.runtime.outcomes import PhaseFact, PhaseStatus, RuntimeTerminalKind
+from ageval.application.attempt.attempt_stages import AttemptStageContext, DockerL1Stages
+from ageval.application.attempt.run_l1 import _l1_host_cleanup
+from ageval.runtime.coordinator import LifecycleCoordinator
+from ageval.runtime.identity import IdentityFactory
+from ageval.runtime.lifecycle import LifecyclePhase
+from ageval.runtime.outcomes import PhaseFact, PhaseStatus, RuntimeTerminalKind
 
 
 def _attempt():
@@ -76,7 +76,7 @@ class FakeServer:
 
 def _image() -> SimpleNamespace:
     return SimpleNamespace(
-        image_tag="bora-attempt:l1", image_digest="sha256:img", platform="linux/arm64"
+        image_tag="ageval-attempt:l1", image_digest="sha256:img", platform="linux/arm64"
     )
 
 
@@ -125,7 +125,7 @@ def _install_l1_fakes(
     cred.root.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_phases.prepare_l1_runtime",
+        "ageval.application.attempt.run_l1_phases.prepare_l1_runtime",
         lambda *_a, **_k: (docker, runtime, {"containment": "full_l1_attempt"}),
     )
 
@@ -138,11 +138,11 @@ def _install_l1_fakes(
         return {"cred": cred}
 
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_phases.hook_home_overlay",
+        "ageval.application.attempt.run_l1_phases.hook_home_overlay",
         _fake_home_overlay,
     )
     monkeypatch.setattr(
-        "bora.application.attempt.run_l1_phases.seed_l1_workspace", lambda **_k: None
+        "ageval.application.attempt.run_l1_phases.seed_l1_workspace", lambda **_k: None
     )
 
     if assemble_exc is not None:
@@ -151,16 +151,16 @@ def _install_l1_fakes(
             raise assemble_exc
 
         monkeypatch.setattr(
-            "bora.application.attempt.agent_service_assemble.assemble_parent_agent_service",
+            "ageval.application.attempt.agent_service_assemble.assemble_parent_agent_service",
             _boom_assemble,
         )
     else:
         monkeypatch.setattr(
-            "bora.application.attempt.agent_service_assemble.assemble_parent_agent_service",
+            "ageval.application.attempt.agent_service_assemble.assemble_parent_agent_service",
             lambda **_k: (FakeService(), 30.0, object()),
         )
 
-    monkeypatch.setattr("bora.runtime.agent_service_protocol.AgentServiceServer", FakeServer)
+    monkeypatch.setattr("ageval.runtime.agent_service_protocol.AgentServiceServer", FakeServer)
 
     async def _harness(*_a: object, **_k: object) -> dict[str, object]:
         hold = tmp_path / "hold"
@@ -176,7 +176,7 @@ def _install_l1_fakes(
             "artifact_hold": str(hold),
         }
 
-    monkeypatch.setattr("bora.application.attempt.run_harness.run_harness_package", _harness)
+    monkeypatch.setattr("ageval.application.attempt.run_harness.run_harness_package", _harness)
 
     if eval_exc is not None:
 
@@ -184,11 +184,11 @@ def _install_l1_fakes(
             raise eval_exc
 
         monkeypatch.setattr(
-            "bora.application.attempt.run_l1_phases.run_clean_evaluator_container", _boom_eval
+            "ageval.application.attempt.run_l1_phases.run_clean_evaluator_container", _boom_eval
         )
     else:
         monkeypatch.setattr(
-            "bora.application.attempt.run_l1_phases.run_clean_evaluator_container",
+            "ageval.application.attempt.run_l1_phases.run_clean_evaluator_container",
             lambda **_k: (
                 {"status": "PASS", "score": 1.0},
                 {"ok": True, "writer_stop_confirmed": True},
@@ -368,7 +368,7 @@ async def test_run_l1_harness_stops_agent_targets_before_seal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Writers must be confirmed stopped in run finally, not only in cleanup."""
-    from bora.application.attempt.run_l1_phases import run_l1_harness
+    from ageval.application.attempt.run_l1_phases import run_l1_harness
 
     attempt = _attempt()
     docker, runtime, _cred = _install_l1_fakes(monkeypatch, tmp_path, attempt)
@@ -397,7 +397,7 @@ async def test_run_l1_harness_stops_agent_targets_before_seal(
 async def test_run_l1_harness_fences_writers_when_reuse_attempt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.application.attempt.run_l1_phases import run_l1_harness
+    from ageval.application.attempt.run_l1_phases import run_l1_harness
 
     attempt = _attempt()
     docker, runtime, _cred = _install_l1_fakes(monkeypatch, tmp_path, attempt)

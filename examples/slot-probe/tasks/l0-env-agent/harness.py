@@ -6,13 +6,13 @@ import json
 import os
 from pathlib import Path
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 
 
 def _load_env_doc(package_dir: Path) -> dict:
     for cand in (
-        package_dir / ".bora_env_result.json",
-        Path(os.environ.get("BORA_WORKSPACE_ROOT") or ".") / ".bora_env_result.json",
+        package_dir / ".ageval_env_result.json",
+        Path(os.environ.get("AGEVAL_WORKSPACE_ROOT") or ".") / ".ageval_env_result.json",
     ):
         if cand.is_file():
             return json.loads(cand.read_text(encoding="utf-8"))

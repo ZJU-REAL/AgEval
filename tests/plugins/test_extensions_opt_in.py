@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from bora.plugins.defaults import register_defaults
-from bora.plugins.errors import ExtensionPluginNotFoundError, UnknownExtensionSlotError
-from bora.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
-from bora.plugins.registry import ExtensionRegistry
-from bora.plugins.resolve import resolve
-from bora.plugins.slots import EXECUTOR, IMAGE_CONTRIBUTE, TRAJECTORY_COLLECT
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.errors import ExtensionPluginNotFoundError, UnknownExtensionSlotError
+from ageval.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import EXECUTOR, IMAGE_CONTRIBUTE, TRAJECTORY_COLLECT
 
 
 class _FakeExec:

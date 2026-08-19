@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 
-from bora.application.composition import build_agent_commands
-from bora.registry.client import RegistryClient
-from bora.registry.media_types import AGENT_MEDIA_TYPE
+from ageval.application.composition import build_agent_commands
+from ageval.registry.client import RegistryClient
+from ageval.registry.media_types import AGENT_MEDIA_TYPE
 
 _agents = build_agent_commands()
 install_agent_from_registry = _agents.install_agent_from_registry
@@ -41,11 +41,11 @@ def registry_server(tmp_path: Path):
 
 @pytest.fixture()
 def env(registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
-    home = tmp_path / "bora-home"
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
     with contextlib.suppress(Exception):  # already created
         client.create_org(name=TEST_ORG, display_name="Test Org")
@@ -102,7 +102,7 @@ def test_publish_agent_archives_listed_overlays(env: dict[str, str], tmp_path: P
     pkg = tmp_path / "overlay-agent"
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: overlay-demo\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: overlay-demo\nversion: '1.0'\n"
         "binding:\n  executor: mock\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
         encoding="utf-8",
@@ -138,12 +138,12 @@ def test_publish_agent_archives_listed_overlays(env: dict[str, str], tmp_path: P
 
 
 def test_publish_rejects_missing_listed_overlay(env: dict[str, str], tmp_path: Path) -> None:
-    from bora.config.errors import ConfigError
+    from ageval.config.errors import ConfigError
 
     pkg = tmp_path / "missing-overlay-agent"
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: missing-ov\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: missing-ov\nversion: '1.0'\n"
         "binding:\n  executor: mock\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
         encoding="utf-8",
@@ -154,12 +154,12 @@ def test_publish_rejects_missing_listed_overlay(env: dict[str, str], tmp_path: P
 
 
 def test_reject_secret_bearing_agent(env: dict[str, str], tmp_path: Path) -> None:
-    from bora.config.errors import ConfigError
+    from ageval.config.errors import ConfigError
 
     pkg = tmp_path / "leaky-agent"
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: leaky\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: leaky\nversion: '1.0'\n"
         "binding: {executor: mock, model: none}\n",
         encoding="utf-8",
     )
@@ -171,7 +171,7 @@ def test_reject_secret_bearing_agent(env: dict[str, str], tmp_path: Path) -> Non
 def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> None:
     """agent.yaml trees must not slip through as package_kind=database.
 
-    The client already fails closed locally (no bora.yaml); the server guard
+    The client already fails closed locally (no ageval.yaml); the server guard
     in ``_validate_archive`` is exercised directly as defense in depth.
     """
     import tarfile
@@ -182,11 +182,11 @@ def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> N
     pkg = tmp_path / "sneaky"
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: sneaky\nversion: '1.0'\n"
+        "format: ageval.agent/1\nagent_id: sneaky\nversion: '1.0'\n"
         "binding: {executor: mock, model: none}\n",
         encoding="utf-8",
     )
-    # Hand-rolled tarball: bora.registry.archive validates database trees.
+    # Hand-rolled tarball: ageval.registry.archive validates database trees.
     archive_path = tmp_path / "sneaky.tar.gz"
     with tarfile.open(archive_path, "w:gz") as tar:
         tar.add(pkg / "agent.yaml", arcname="agent.yaml")
@@ -196,7 +196,7 @@ def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> N
         svc._validate_archive(
             archive_path,
             package_kind="database",
-            media_type="application/vnd.bora.database.v1.tar+gzip",
+            media_type="application/vnd.ageval.database.v1.tar+gzip",
             package_digest="sha256:" + "0" * 64,  # guard fires before digest compare
         )
     assert "package_kind=agent" in str(exc.value)

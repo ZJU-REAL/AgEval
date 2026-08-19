@@ -12,11 +12,11 @@ Companion plugin: [`plugins/slot-probe`](../../plugins/slot-probe/).
 ## Prerequisites
 
 ```bash
-export BORA_HOME="${BORA_HOME:-$HOME/.bora}"
-export BORA_SLOT_PROBE_DIR="${BORA_SLOT_PROBE_DIR:-/tmp/bora-slot-probe-obs}"
+export AGEVAL_HOME="${AGEVAL_HOME:-$HOME/.ageval}"
+export AGEVAL_SLOT_PROBE_DIR="${AGEVAL_SLOT_PROBE_DIR:-/tmp/ageval-slot-probe-obs}"
 
-uv run bora plugin install plugins/slot-probe
-uv run bora plugin install plugins/nooa   # L0 host SPI agent
+uv run ageval plugin install plugins/slot-probe
+uv run ageval plugin install plugins/nooa   # L0 host SPI agent
 ```
 
 L1 PASS needs ACP credentials (profile `probe-acp` uses `api_key: ${glm_coding_api_key}`).
@@ -26,14 +26,14 @@ Copy from another Database `.env` or set the locator env var on the host
 ## Commands
 
 ```bash
-uv run bora tasks examples/slot-probe
-uv run bora lock examples/slot-probe --task l0-env-agent \
+uv run ageval tasks examples/slot-probe
+uv run ageval lock examples/slot-probe --task l0-env-agent \
   --profiles examples/slot-probe/profiles.yaml
 
-uv run bora run examples/slot-probe --task l0-env-agent \
+uv run ageval run examples/slot-probe --task l0-env-agent \
   --profiles examples/slot-probe/profiles.yaml
 
-uv run bora run examples/slot-probe --task l1-agent \
+uv run ageval run examples/slot-probe --task l1-agent \
   --profiles examples/slot-probe/profiles.yaml
 ```
 
@@ -41,7 +41,7 @@ uv run bora run examples/slot-probe --task l1-agent \
 
 | Signal                | Where                                                            |
 | --------------------- | ---------------------------------------------------------------- |
-| Hook order / presence | `$BORA_SLOT_PROBE_DIR/hooks.jsonl`                               |
+| Hook order / presence | `$AGEVAL_SLOT_PROBE_DIR/hooks.jsonl`                               |
 | Env post-setup shell  | `post_setup.ok` (task workdir during run) + handoff `post_setup` |
 | Prompt rewrite        | trajectory **user** turn contains `[slot-probe]`                 |
 | Trajectory enrich     | terminal `metadata.slot_probe` / `slot_probe_enrich`             |

@@ -18,7 +18,7 @@ def test_submit_status_cancel(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "submit",
             str(REPO / "examples" / "core"),
             "--task",
@@ -37,7 +37,7 @@ def test_submit_status_cancel(tmp_path: Path) -> None:
     data = json.loads(submit.stdout)
     run_id = data["run_id"]
     st = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "status", run_id, "--store", str(store)],
+        [sys.executable, "-m", "ageval.cli.main", "status", run_id, "--store", str(store)],
         check=False,
         capture_output=True,
         text=True,
@@ -49,7 +49,7 @@ def test_submit_status_cancel(tmp_path: Path) -> None:
     assert rec["ok"] is True
     assert rec["status"] in {"completed", "failed", "running"}
     cancel = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "cancel", run_id, "--store", str(store)],
+        [sys.executable, "-m", "ageval.cli.main", "cancel", run_id, "--store", str(store)],
         check=False,
         capture_output=True,
         text=True,

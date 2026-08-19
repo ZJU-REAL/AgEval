@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from bora_sdk import AllowList, CallLimit, Tool, ToolSet
+from ageval_sdk import AllowList, CallLimit, Tool, ToolSet
 
 
 def test_call_limit_denies_third_without_side_effect() -> None:

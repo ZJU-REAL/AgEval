@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from bora.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
+from ageval.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
 
 
 def test_layout_contract(tmp_path: Path) -> None:
@@ -118,7 +118,7 @@ def test_redaction_fail_closed_on_unredactable_residual(tmp_path: Path) -> None:
 
 def test_effects_and_summary(tmp_path: Path) -> None:
     db = tmp_path / "db"
-    run = db / ".bora" / "runs" / "sha256_test_run_r"
+    run = db / ".ageval" / "runs" / "sha256_test_run_r"
     store = AttemptEvidenceStore(root=run, attempt_id="a", run_id="r", database_root=db)
     store.append_effect({"decision": "allow", "capability": "tool", "name": "read"})
     store.write_summary({"status": "PASS", "score": 1.0})
@@ -127,5 +127,5 @@ def test_effects_and_summary(tmp_path: Path) -> None:
     summary = json.loads((store.root / "summary.json").read_text(encoding="utf-8"))
     assert summary["status"] == "PASS"
     assert summary["evidence_root"] == store.locator
-    assert summary["evidence_root"] == ".bora/runs/sha256_test_run_r"
+    assert summary["evidence_root"] == ".ageval/runs/sha256_test_run_r"
     assert not Path(summary["evidence_root"]).is_absolute()

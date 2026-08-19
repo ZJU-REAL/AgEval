@@ -11,7 +11,7 @@ from services.registry.app import build_default_state, make_handler
 from services.registry.errors import RegistryAppError
 from services.registry.upload_slots import UploadSlotPool
 
-from bora.registry.client import RegistryClient, RegistryError
+from ageval.registry.client import RegistryClient, RegistryError
 
 
 def test_pool_hold_and_exhaust() -> None:
@@ -48,7 +48,7 @@ def test_http_429_when_slot_held(tmp_path: Path) -> None:
                     package_digest="sha256:" + "ab" * 32,
                     blob_digest="sha256:" + "cd" * 32,
                     size=4,
-                    media_type="application/vnd.bora.database.v1.tar+gzip",
+                    media_type="application/vnd.ageval.database.v1.tar+gzip",
                     visibility="private",
                     archive=bogus,
                     org_id="test",

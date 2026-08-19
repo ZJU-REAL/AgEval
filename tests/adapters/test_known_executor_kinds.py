@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from bora.adapters.executor_inventory import known_executor_kinds, supported_executor_kinds
-from bora.adapters.path_probe import probe_commands
-from bora.config.capabilities import DeclarationCapabilityCatalog
+from ageval.adapters.executor_inventory import known_executor_kinds, supported_executor_kinds
+from ageval.adapters.path_probe import probe_commands
+from ageval.config.capabilities import DeclarationCapabilityCatalog
 
 
 def test_catalog_matches_known_executor_kinds() -> None:

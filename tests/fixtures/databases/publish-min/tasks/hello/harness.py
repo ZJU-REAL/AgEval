@@ -11,7 +11,7 @@ async def run(ctx):  # type: ignore[no-untyped-def]
     (out / "result.json").write_text('{"ok": true, "task": "hello"}\n', encoding="utf-8")
     # Return completed terminal if SDK types available; else plain dict envelope.
     try:
-        from bora_sdk import HarnessTerminal
+        from ageval_sdk import HarnessTerminal
 
         ctx.publish_json("result", {"ok": True, "task": "hello"})
         return HarnessTerminal.completed()

@@ -1,8 +1,8 @@
 # nooa — ecosystem executor plugin (NVIDIA OO Agents)
 
-External `bora.plugin/1` package. **Not** first-party BORA core (only ACP is first-party).
+External `ageval.plugin/1` package. **Not** first-party ageval core (only ACP is first-party).
 
-This plugin binds BORA profiles to **[NVIDIA-labs OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents)**:
+This plugin binds ageval profiles to **[NVIDIA-labs OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents)**:
 
 ```python
 from nooa.unifiedllm import get_llm_client
@@ -24,11 +24,11 @@ Host needs the NVIDIA package:
 
 ```bash
 uv sync --extra nooa          # or: pip install nooa
-uv run bora plugin install plugins/nooa
+uv run ageval plugin install plugins/nooa
 ```
 
-Install updates `~/.bora/plugins` (or `$BORA_HOME/plugins`) only — **never** edits
-`profiles.yaml` / `bora.yaml` / `task.yaml`.
+Install updates `~/.ageval/plugins` (or `$AGEVAL_HOME/plugins`) only — **never** edits
+`profiles.yaml` / `ageval.yaml` / `task.yaml`.
 
 ## Bind
 
@@ -50,9 +50,9 @@ bindings:
 
 ```bash
 uv sync --extra nooa
-uv run bora plugin install plugins/nooa
-unset BORA_OFFLINE_AGENT
-uv run bora run examples/journeys \
+uv run ageval plugin install plugins/nooa
+unset AGEVAL_OFFLINE_AGENT
+uv run ageval run examples/journeys \
   --profiles examples/journeys/profiles.nooa.yaml
 ```
 
@@ -63,7 +63,7 @@ uv run bora run examples/journeys \
 - **profiles `executor: nooa`** → bind provide only (+ model / base_url / api_key)
 - **`extensions: [{plugin: nooa}]`** → opt-in bake / trajectory collect (required for L1 Ready)
 - **`--probe`** → binding-aware feasibility; no Agent, no bake
-- **L1 bake-declared** → this profile selected `image_contribute` bake installs `nooa` + `bora-executor-nooa` in the Attempt image; invoke is **docker exec** with projected credentials
+- **L1 bake-declared** → this profile selected `image_contribute` bake installs `nooa` + `ageval-executor-nooa` in the Attempt image; invoke is **docker exec** with projected credentials
 
 ## L1 Ready strategy
 

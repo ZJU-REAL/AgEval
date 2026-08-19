@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from bora.application.attempt import extension_hooks as hooks
-from bora.plugins.protocol import BindingIntent, ExtensionGraph
+from ageval.application.attempt import extension_hooks as hooks
+from ageval.plugins.protocol import BindingIntent, ExtensionGraph
 
 
 def _fake_lock() -> Any:
@@ -101,7 +101,7 @@ def test_hook_run_fail_open_on_error() -> None:
 
 
 def test_graph_for_lock_empty_profiles_resolves() -> None:
-    from bora.plugins.bootstrap import ensure_bootstrapped
+    from ageval.plugins.bootstrap import ensure_bootstrapped
 
     ensure_bootstrapped()
     g = hooks.graph_for_lock(_fake_lock())

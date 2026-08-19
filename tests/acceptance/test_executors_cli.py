@@ -1,4 +1,4 @@
-"""Public entrypoint: bora executors lists ACP + openai-http."""
+"""Public entrypoint: ageval executors lists ACP + openai-http."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 
 
-def _run_bora(*args: str) -> subprocess.CompletedProcess[str]:
+def _run_ageval(*args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    cmd = [sys.executable, "-m", "bora.cli.main", *args]
+    cmd = [sys.executable, "-m", "ageval.cli.main", *args]
     return subprocess.run(
         cmd,
         check=False,
@@ -25,7 +25,7 @@ def _run_bora(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_executors_lists_supported_and_host_probe() -> None:
-    result = _run_bora("executors")
+    result = _run_ageval("executors")
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
 
@@ -52,7 +52,7 @@ def test_executors_lists_supported_and_host_probe() -> None:
 
 
 def test_executors_verbose_adds_detail() -> None:
-    result = _run_bora("executors", "-v")
+    result = _run_ageval("executors", "-v")
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
     by_kind = {r["kind"]: r for r in data["executors"]}

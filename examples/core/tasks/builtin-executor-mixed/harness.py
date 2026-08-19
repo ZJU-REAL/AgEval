@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 
 
 async def run(ctx: HarnessContext) -> HarnessTerminal:

@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from bora.adapters.environment_postgres import new_postgres_environment
+from ageval.adapters.environment_postgres import new_postgres_environment
 
 
 def _docker_ok() -> bool:

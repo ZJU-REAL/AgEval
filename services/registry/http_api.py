@@ -24,10 +24,10 @@ from services.registry.routes import match_route
 from services.registry.spool import extract_multipart_archive, spool_body
 from services.registry.store import TokenInfo
 
-from bora.registry.media_types import (
+from ageval.registry.media_types import (
     ATTEMPT_RESULT_MEDIA_TYPE as RESULT_MEDIA_TYPE,
 )
-from bora.registry.media_types import SUITE_RESULT_MEDIA_TYPE
+from ageval.registry.media_types import SUITE_RESULT_MEDIA_TYPE
 
 _ctx: ContextVar[RequestCtx] = ContextVar("registry_http_ctx")
 
@@ -48,7 +48,7 @@ class HttpResult:
 
 
 def cors_headers() -> dict[str, str]:
-    origin = (os.environ.get("BORA_REGISTRY_CORS_ORIGIN") or "*").strip() or "*"
+    origin = (os.environ.get("AGEVAL_REGISTRY_CORS_ORIGIN") or "*").strip() or "*"
     out = {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
@@ -205,7 +205,7 @@ class RegistryHttpApi:
         raw = getattr(self.state, "spool_dir", None)
         if isinstance(raw, Path):
             return raw
-        return Path(tempfile.gettempdir()) / "bora-registry-spool"
+        return Path(tempfile.gettempdir()) / "ageval-registry-spool"
 
     def _read_multipart_archive(self) -> tuple[dict[str, Any], Path, Path] | HttpResult:
         """Return metadata, archive path, and the parent spool dir to delete later."""
@@ -221,7 +221,7 @@ class RegistryHttpApi:
             )
         parent = self._spool_dir()
         parent.mkdir(parents=True, exist_ok=True)
-        work = Path(tempfile.mkdtemp(prefix="bora-up-", dir=str(parent)))
+        work = Path(tempfile.mkdtemp(prefix="ageval-up-", dir=str(parent)))
         try:
             spool = spool_body(
                 ctx.body,
@@ -259,7 +259,7 @@ class RegistryHttpApi:
         return visibility
 
     def _health(self) -> HttpResult:
-        return json_result(200, {"ok": True, "service": "bora-registry"})
+        return json_result(200, {"ok": True, "service": "ageval-registry"})
 
     def _auth_web_start(self) -> HttpResult:
         body = self._read_json_body()
@@ -398,7 +398,7 @@ class RegistryHttpApi:
             return _caught(exc)
         return octet_result(
             None,
-            {"X-Bora-Blob-Digest": row.blob_digest},
+            {"X-Ageval-Blob-Digest": row.blob_digest},
             stream=fh,
             size=size,
         )
@@ -484,8 +484,8 @@ class RegistryHttpApi:
         return octet_result(
             None,
             {
-                "X-Bora-Blob-Digest": row.blob_digest,
-                "X-Bora-Media-Type": RESULT_MEDIA_TYPE,
+                "X-Ageval-Blob-Digest": row.blob_digest,
+                "X-Ageval-Media-Type": RESULT_MEDIA_TYPE,
             },
             stream=fh,
             size=size,
@@ -565,8 +565,8 @@ class RegistryHttpApi:
         return octet_result(
             None,
             {
-                "X-Bora-Blob-Digest": row.blob_digest,
-                "X-Bora-Media-Type": SUITE_RESULT_MEDIA_TYPE,
+                "X-Ageval-Blob-Digest": row.blob_digest,
+                "X-Ageval-Media-Type": SUITE_RESULT_MEDIA_TYPE,
             },
             stream=fh,
             size=size,

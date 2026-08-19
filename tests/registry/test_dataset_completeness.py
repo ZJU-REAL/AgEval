@@ -22,7 +22,7 @@ def test_draft_version_reserved() -> None:
 def test_task_ids_from_archive_paths() -> None:
     ids = task_ids_from_file_paths(
         [
-            "bora.yaml",
+            "ageval.yaml",
             "tasks/alpha/task.yaml",
             "tasks/alpha/harness.py",
             "tasks/beta/task.yaml",

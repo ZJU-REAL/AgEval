@@ -7,19 +7,19 @@
 #   cp services/registry/.env.example services/registry/.env  # fill secrets
 #   uv sync --extra registry
 #   uv run --extra registry python -m services.registry.app
-#   export BORA_REGISTRY_URL=http://127.0.0.1:8700
+#   export AGEVAL_REGISTRY_URL=http://127.0.0.1:8700
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: bora
-      POSTGRES_PASSWORD: bora
-      POSTGRES_DB: bora_registry
+      POSTGRES_USER: ageval
+      POSTGRES_PASSWORD: ageval
+      POSTGRES_DB: ageval_registry
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bora -d bora_registry"]
+      test: ["CMD-SHELL", "pg_isready -U ageval -d ageval_registry"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -30,8 +30,8 @@ services:
     # silently switch the product default to MinIO.
     image: rustfs/rustfs:latest
     environment:
-      RUSTFS_ACCESS_KEY: bora
-      RUSTFS_SECRET_KEY: boraborabora
+      RUSTFS_ACCESS_KEY: ageval
+      RUSTFS_SECRET_KEY: agevalageval
     ports:
       - "9000:9000"
     volumes:

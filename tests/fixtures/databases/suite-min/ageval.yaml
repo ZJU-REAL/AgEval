@@ -1,0 +1,8 @@
+format: ageval.dataset/1
+database_id: test/suite-min
+version: "0.1.0"
+description: "≥3 task fixture for Spec 22 suite concurrency"
+tasks:
+  root: tasks
+defaults:
+  max_concurrent_tasks: 2

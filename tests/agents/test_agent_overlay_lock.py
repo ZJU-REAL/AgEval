@@ -8,31 +8,31 @@ from typing import Any
 import pytest
 import yaml
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.agents import store
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.agents import store
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
 
 
 @pytest.fixture(autouse=True)
-def _bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
-    monkeypatch.setenv("BORA_HOME", str(home))
+def _ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     return home
 
 
 def _write_database(tmp: Path, *, overlay_files: dict[str, str] | None = None) -> Path:
     db = tmp / "db"
     (db / "tasks" / "t").mkdir(parents=True)
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
     (db / "profiles.yaml").write_text(
-        "format: bora.profiles/1\nbindings:\n  solver:\n    executor: mock\n    model: none\n",
+        "format: ageval.profiles/1\nbindings:\n  solver:\n    executor: mock\n    model: none\n",
         encoding="utf-8",
     )
     task = db / "tasks" / "t"
@@ -41,7 +41,7 @@ def _write_database(tmp: Path, *, overlay_files: dict[str, str] | None = None) -
     (task / "task.yaml").write_text(
         yaml.safe_dump(
             {
-                "format": "bora.task/1",
+                "format": "ageval.task/1",
                 "task_id": "t",
                 "harness": {"runtime": "python", "entrypoint": "harness:run"},
                 "parameters": {"models": {"default": "solver"}},
@@ -87,7 +87,7 @@ def _make_agent(
     (pkg / "agent.yaml").write_text(
         yaml.safe_dump(
             {
-                "format": "bora.agent/1",
+                "format": "ageval.agent/1",
                 "agent_id": agent_id.rsplit("/", 1)[-1],
                 "version": version,
                 "binding": binding,

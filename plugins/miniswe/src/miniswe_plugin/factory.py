@@ -9,11 +9,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult, parse_validated_text_structured
-from bora.plugins.errors import ExtensionMaterializeError
+from ageval.adapters.agent_contract import AgentResult, parse_validated_text_structured
+from ageval.plugins.errors import ExtensionMaterializeError
 from miniswe_plugin import PLUGIN_ID
 from miniswe_plugin.env import DockerExecEnv, LocalBashEnv
-from miniswe_plugin.trajectory import to_bora_trajectory_events
+from miniswe_plugin.trajectory import to_ageval_trajectory_events
 
 _CREDENTIAL_ENV_NAMES = ("OPENAI_API_KEY", "litellm_api_key", "LITELLM_API_KEY")
 _BASE_URL_ENV_FALLBACKS = ("OPENAI_BASE_URL", "litellm_base_url", "LITELLM_BASE_URL")
@@ -32,7 +32,7 @@ def describe_miniswe() -> dict[str, Any]:
 
 
 def _offline() -> bool:
-    return os.environ.get("BORA_OFFLINE_AGENT") == "1"
+    return os.environ.get("AGEVAL_OFFLINE_AGENT") == "1"
 
 
 def _as_positive_int(raw: Any, *, name: str, default: int) -> int:
@@ -120,7 +120,7 @@ def _config_search_roots() -> list[Path]:
         roots.append(Path(str(files("minisweagent").joinpath("config"))))
     except Exception:
         pass
-    # Last resort: official mini.yaml copied into the plugin (not a BORA-authored prompt).
+    # Last resort: official mini.yaml copied into the plugin (not a ageval-authored prompt).
     roots.append(Path(__file__).resolve().parents[2] / "vendor")
     return roots
 
@@ -189,7 +189,7 @@ class MinisweExecutorSPI:
         self.step_limit = _as_positive_int(opts.get("step_limit"), name="step_limit", default=30)
         self.cost_limit = _as_nonneg_float(opts.get("cost_limit"), name="cost_limit", default=0.0)
         self.cmd_timeout = _as_positive_int(opts.get("cmd_timeout"), name="cmd_timeout", default=30)
-        self.session_id = f"bora-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
+        self.session_id = f"ageval-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
         self._placement: Any | None = None
         self.execution_location = "host"
         self._ready = False
@@ -275,7 +275,7 @@ class MinisweExecutorSPI:
             )
         messages = extra.get("messages") if isinstance(extra.get("messages"), list) else []
         _write_backend_raw(collect_dir, extra)
-        mapped = tuple(to_bora_trajectory_events(messages, session_id=self.session_id))
+        mapped = tuple(to_ageval_trajectory_events(messages, session_id=self.session_id))
         submission = str(extra.get("submission") or extra.get("exit_content") or "")
         status = str(extra.get("exit_status") or "")
         ok = status == "Submitted"

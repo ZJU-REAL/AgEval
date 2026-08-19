@@ -19,9 +19,9 @@ import os
 from dataclasses import replace
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult
-from bora.plugins.errors import ExtensionMaterializeError
-from nooa_plugin.trajectory import attach_event_tap, to_bora_trajectory_events
+from ageval.adapters.agent_contract import AgentResult
+from ageval.plugins.errors import ExtensionMaterializeError
+from nooa_plugin.trajectory import attach_event_tap, to_ageval_trajectory_events
 
 PLUGIN_ID = "nooa"
 
@@ -42,7 +42,7 @@ def describe_nooa() -> dict[str, Any]:
 _BASE_URL_ENV_FALLBACKS = (
     "OPENAI_BASE_URL",
     "litellm_base_url",
-    "BORA_OPENAI_BASE_URL",
+    "AGEVAL_OPENAI_BASE_URL",
 )
 
 
@@ -183,7 +183,7 @@ def _normalize_raw(
 class NooaExecutorSPI:
     """ExecutorSPI: load package agent + invoke via NVIDIA nooa + real LLM.
 
-    Host SPI for L0. L1 Ready uses in-container worker (``bora-executor-nooa``).
+    Host SPI for L0. L1 Ready uses in-container worker (``ageval-executor-nooa``).
     Plain (non-``nooa.Agent``) classes remain supported for deterministic probes
     such as slot-probe ``FixedAnswerAgent`` / unit fixtures — those paths do not
     call the network.
@@ -277,7 +277,7 @@ class NooaExecutorSPI:
                 kind="extension_materialize_failed",
             ) from exc
 
-        from bora.runtime.offline import is_offline_agent
+        from ageval.runtime.offline import is_offline_agent
 
         base = _resolve_base_url(self.base_url if isinstance(self.base_url, str) else None)
         key = _resolve_api_key_value(
@@ -380,7 +380,7 @@ class NooaExecutorSPI:
     ) -> AgentResult:
         del timeout, redaction_sentinels
         effective_workdir = workdir or self.default_workdir
-        if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+        if os.environ.get("AGEVAL_OFFLINE_AGENT") == "1":
             return AgentResult(
                 model=self.model,
                 text="",
@@ -434,7 +434,7 @@ class NooaExecutorSPI:
             )
         native = tap.finish(self._agent)
         _write_backend_raw(collect_dir, native)
-        mapped = tuple(to_bora_trajectory_events(native))
+        mapped = tuple(to_ageval_trajectory_events(native))
         result = _normalize_raw(
             raw,
             model=self.model,

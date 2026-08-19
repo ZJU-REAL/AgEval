@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from tests.helpers.extension_registry import registry_with_executor
 
-from bora.runtime.parent_agent_service import ParentAgentService, SessionBinding
+from ageval.runtime.parent_agent_service import ParentAgentService, SessionBinding
 
 
 def test_unknown_actor_open_fail_closed() -> None:

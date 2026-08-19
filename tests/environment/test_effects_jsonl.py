@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.environment.manager import EnvironmentManager
-from bora.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
+from ageval.environment.manager import EnvironmentManager
+from ageval.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
 
 
 def test_deny_unknown_kind_writes_effect(tmp_path: Path) -> None:

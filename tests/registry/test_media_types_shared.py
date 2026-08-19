@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from services.registry import app as registry_app
 
-from bora.registry import results_archive
-from bora.registry.archive import MEDIA_TYPE as DATABASE_MT
-from bora.registry.media_types import (
+from ageval.registry import results_archive
+from ageval.registry.archive import MEDIA_TYPE as DATABASE_MT
+from ageval.registry.media_types import (
     ATTEMPT_RESULT_MEDIA_TYPE,
     DATABASE_MEDIA_TYPE,
     PLUGIN_MEDIA_TYPE,
     SUITE_RESULT_MEDIA_TYPE,
 )
-from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE as PLUGIN_MT
-from bora.registry.types import ReleaseInfo
+from ageval.registry.plugin_package import PLUGIN_MEDIA_TYPE as PLUGIN_MT
+from ageval.registry.types import ReleaseInfo
 
 
 def test_media_types_aligned() -> None:

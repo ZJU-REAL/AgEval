@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from bora_sdk import HarnessContext, HarnessTerminal
+from ageval_sdk import HarnessContext, HarnessTerminal
 
 
 async def run(ctx: HarnessContext) -> HarnessTerminal:
-    meta_path = Path.cwd() / ".bora_env_result.json"
+    meta_path = Path.cwd() / ".ageval_env_result.json"
     if not meta_path.is_file():
-        meta_path = Path(__file__).resolve().parent / ".bora_env_result.json"
+        meta_path = Path(__file__).resolve().parent / ".ageval_env_result.json"
     if not meta_path.is_file():
         return HarnessTerminal.failed("environment_result_missing")
 

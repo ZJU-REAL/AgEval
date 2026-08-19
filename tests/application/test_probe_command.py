@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from bora.application.composition import build_lock_command, build_probe_command
-from bora.plugins.store import install_from_path
+from ageval.application.composition import build_lock_command, build_probe_command
+from ageval.plugins.store import install_from_path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "tests/fixtures/plugins/host-probe"
@@ -16,12 +16,12 @@ SECRET = "sk-probe-must-never-appear"
 
 
 @pytest.fixture()
-def bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
+def ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -39,8 +39,8 @@ def _vendor_sdk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     importlib.invalidate_caches()
 
 
-def test_l0_missing_import_fails_probe(bora_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    del bora_home
+def test_l0_missing_import_fails_probe(ageval_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    del ageval_home
     monkeypatch.delenv("PROBE_API_KEY", raising=False)
     payload, ready = build_probe_command().run(
         database_root=DB,
@@ -56,9 +56,9 @@ def test_l0_missing_import_fails_probe(bora_home: Path, monkeypatch: pytest.Monk
 
 
 def test_l0_import_present_and_locator_ready(
-    bora_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ageval_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    del bora_home
+    del ageval_home
     _vendor_sdk(tmp_path, monkeypatch)
     payload, ready = build_probe_command().run(
         database_root=DB,
@@ -74,8 +74,8 @@ def test_l0_import_present_and_locator_ready(
     assert loc[0]["present"] == ["PROBE_API_KEY"]
 
 
-def test_l1_passes_without_host_import(bora_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    del bora_home
+def test_l1_passes_without_host_import(ageval_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    del ageval_home
     monkeypatch.delenv("PROBE_API_KEY", raising=False)
     payload, ready = build_probe_command().run(
         database_root=DB,
@@ -96,8 +96,8 @@ def test_l1_passes_without_host_import(bora_home: Path, monkeypatch: pytest.Monk
     assert bake["ok"] is True
 
 
-def test_l1_executor_without_extensions_fails(bora_home: Path) -> None:
-    del bora_home
+def test_l1_executor_without_extensions_fails(ageval_home: Path) -> None:
+    del ageval_home
     payload, ready = build_probe_command().run(
         database_root=DB,
         task_id="l1-task",
@@ -112,8 +112,8 @@ def test_l1_executor_without_extensions_fails(bora_home: Path) -> None:
     assert bake["ok"] is False
 
 
-def test_l1_docker_down_fails(bora_home: Path) -> None:
-    del bora_home
+def test_l1_docker_down_fails(ageval_home: Path) -> None:
+    del ageval_home
     payload, ready = build_probe_command().run(
         database_root=DB,
         task_id="l1-task",
@@ -125,8 +125,8 @@ def test_l1_docker_down_fails(bora_home: Path) -> None:
     assert docker["ok"] is False
 
 
-def test_probe_does_not_change_lock_digest(bora_home: Path) -> None:
-    del bora_home
+def test_probe_does_not_change_lock_digest(ageval_home: Path) -> None:
+    del ageval_home
     locked = build_lock_command().run(database_root=DB, task_id="l0-task")
     probed, _ready = build_probe_command().run(
         database_root=DB,
@@ -139,9 +139,9 @@ def test_probe_does_not_change_lock_digest(bora_home: Path) -> None:
 
 
 def test_probe_reads_dataset_dotenv(
-    bora_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ageval_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    del bora_home
+    del ageval_home
     monkeypatch.delenv("PROBE_API_KEY", raising=False)
     env_file = tmp_path / ".env"
     env_file.write_text("PROBE_API_KEY=from-dotenv-secret\n", encoding="utf-8")
@@ -164,9 +164,9 @@ def test_probe_reads_dataset_dotenv(
     assert "from-dotenv-secret" not in str(payload)
 
 
-def test_offline_is_reported(bora_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    del bora_home
-    monkeypatch.setenv("BORA_OFFLINE_AGENT", "1")
+def test_offline_is_reported(ageval_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    del ageval_home
+    monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")
     payload, _ready = build_probe_command().run(
         database_root=DB,
         task_id="l0-task",
@@ -176,14 +176,14 @@ def test_offline_is_reported(bora_home: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_probe_walks_extension_plugin_requires(
-    bora_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ageval_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.application.attempt.probe_command import probe_locked
-    from bora.application.composition import build_lock_command
-    from bora.plugins.install import install_from_local
-    from bora.plugins.store import uninstall
+    from ageval.application.attempt.probe_command import probe_locked
+    from ageval.application.composition import build_lock_command
+    from ageval.plugins.install import install_from_local
+    from ageval.plugins.store import uninstall
 
-    del bora_home
+    del ageval_home
     monkeypatch.setenv("PROBE_API_KEY", "x")
     plugins = tmp_path / "plugins"
     for name in ("neighbor", "needs-neighbor"):
@@ -192,7 +192,7 @@ def test_probe_walks_extension_plugin_requires(
         requires = "plugin_requires:\n  - plugin_id: neighbor\n" if name == "needs-neighbor" else ""
         (root / "plugin.yaml").write_text(
             (
-                "format: bora.plugin/1\n"
+                "format: ageval.plugin/1\n"
                 f"plugin_id: {name}\n"
                 "version: 0.1.0\n"
                 f"{requires}"
@@ -218,7 +218,7 @@ def test_probe_walks_extension_plugin_requires(
     profiles = tmp_path / "profiles.yaml"
     profiles.write_text(
         (
-            "format: bora.profiles/1\n"
+            "format: ageval.profiles/1\n"
             "bindings:\n"
             "  solver:\n"
             "    executor: host-probe\n"
@@ -230,8 +230,8 @@ def test_probe_walks_extension_plugin_requires(
         ),
         encoding="utf-8",
     )
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -272,7 +272,7 @@ def test_no_plugin_id_extra_table() -> None:
     text = (
         Path(__file__).resolve().parents[2]
         / "src"
-        / "bora"
+        / "ageval"
         / "application"
         / "attempt"
         / "probe_command.py"

@@ -8,13 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.adapters.agent_contract import (
+from ageval.adapters.agent_contract import (
     RESULT_HEALTH_NOOP_TURN,
     observational_result_health,
     parse_validated_text_structured,
 )
-from bora.plugins.contrib.acp import AcpExecutor, normalize_acp_usage
-from bora.plugins.contrib.acp.executor import (
+from ageval.plugins.contrib.acp import AcpExecutor, normalize_acp_usage
+from ageval.plugins.contrib.acp.executor import (
     _find_reasoning_config_option,
     _select_option_values,
 )
@@ -29,7 +29,7 @@ def test_validated_text_structured_policy() -> None:
 
 
 def test_offline_forced() -> None:
-    os.environ["BORA_OFFLINE_AGENT"] = "1"
+    os.environ["AGEVAL_OFFLINE_AGENT"] = "1"
     try:
         ex = AcpExecutor(entry_id="opencode", model="entry-default")
         r = ex.invoke("hi", timeout=5)
@@ -38,18 +38,18 @@ def test_offline_forced() -> None:
         assert r.metadata is not None
         assert r.metadata.get("executor_kind") == "acp"
     finally:
-        os.environ.pop("BORA_OFFLINE_AGENT", None)
+        os.environ.pop("AGEVAL_OFFLINE_AGENT", None)
 
 
 def test_ensure_session_requires_workdir() -> None:
-    os.environ.pop("BORA_OFFLINE_AGENT", None)
+    os.environ.pop("AGEVAL_OFFLINE_AGENT", None)
     ex = AcpExecutor(entry_id="opencode", model="entry-default")
     err = ex._ensure_session(workdir=None, timeout=1.0)
     assert err == "acp_workdir_required"
 
 
 def test_child_env_is_allowlist_not_parent_copy(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
     monkeypatch.setenv("PATH", "/bin")
     monkeypatch.setenv("HOME", "/home/u")
     monkeypatch.setenv("LANG", "C")
@@ -67,7 +67,7 @@ def test_child_env_is_allowlist_not_parent_copy(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_child_env_projects_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
     monkeypatch.setenv("PATH", "/bin")
     monkeypatch.setenv("HOME", "/h")
     for name in (
@@ -111,7 +111,7 @@ def _clear_acp_cred_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ensure_session_fail_closed_when_required_key_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
     _clear_acp_cred_env(monkeypatch)
     ex = AcpExecutor(entry_id="pi", model="entry-default")
     err = ex._ensure_session(workdir="/tmp", timeout=1.0)
@@ -121,7 +121,7 @@ def test_ensure_session_fail_closed_when_required_key_missing(
 def test_ensure_session_warns_only_for_keyless_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
     _clear_acp_cred_env(monkeypatch)
     ex = AcpExecutor(entry_id="codex", model="entry-default")
     err = ex._ensure_session(workdir="/tmp", timeout=1.0)
@@ -162,7 +162,7 @@ def test_result_health_noop_turn() -> None:
 def test_command_override_child_env_keeps_docker_host(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
     monkeypatch.setenv("PATH", "/bin")
     monkeypatch.setenv("HOME", "/h")
     monkeypatch.setenv("DOCKER_HOST", "unix:///run/user/1000/docker.sock")
@@ -182,7 +182,7 @@ def test_command_override_child_env_keeps_docker_host(
 
 
 def test_child_env_extra_home_overrides_host(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
     monkeypatch.setenv("PATH", "/bin")
     monkeypatch.setenv("HOME", "/host-home")
     ex = AcpExecutor(
@@ -402,7 +402,7 @@ async def _bind(ex: AcpExecutor, session: SimpleNamespace) -> None:
 
 
 def test_acp_plugin_forwards_reasoning_effort_to_executor_and_l1() -> None:
-    from bora.plugins.contrib.acp import AcpExecutorSPI
+    from ageval.plugins.contrib.acp import AcpExecutorSPI
 
     spi = AcpExecutorSPI(
         options={"entry": "pi", "reasoning_effort": "high"},
@@ -416,7 +416,7 @@ def test_acp_plugin_forwards_reasoning_effort_to_executor_and_l1() -> None:
 
 
 def test_grok_build_argv_inserts_model_and_effort() -> None:
-    from bora.plugins.contrib.acp.entry_local import acp_stdio_argv
+    from ageval.plugins.contrib.acp.entry_local import acp_stdio_argv
 
     assert acp_stdio_argv(
         "grok-build",
@@ -439,7 +439,7 @@ def test_grok_build_argv_inserts_model_and_effort() -> None:
 
 
 def test_grok_build_host_and_l1_share_rewritten_argv() -> None:
-    from bora.plugins.contrib.acp import AcpExecutorSPI
+    from ageval.plugins.contrib.acp import AcpExecutorSPI
 
     ex = AcpExecutor(entry_id="grok-build", model="grok-4.5", reasoning_effort="low")
     assert ex.host_stdio_argv() == [

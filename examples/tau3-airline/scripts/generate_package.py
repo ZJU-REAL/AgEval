@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate BORA task members from upstream airline tasks.json (shared.lib.*)."""
+"""Generate ageval task members from upstream airline tasks.json (shared.lib.*)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ TASKS_DIR = ROOT / "tasks"
 POLICY = ROOT / "shared" / "assets" / "policy.md"
 
 TASK_YAML = """\
-format: bora.task/1
+format: ageval.task/1
 task_id: {task_id}
 provenance:
   kind: port
@@ -30,7 +30,7 @@ provenance:
       - protocol
       - scoring
     known_gaps:
-      - "BORA ACP dual-agent loop; not tau2 litellm runner"
+      - "ageval ACP dual-agent loop; not tau2 litellm runner"
       - "Host must provide tau2==1.0.1 for tools/DB when package-local data omitted"
 harness:
   runtime: python
@@ -79,7 +79,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora_sdk import HarnessContext, HarnessTerminal
+from ageval_sdk import HarnessContext, HarnessTerminal
 from shared.lib.harness_core import run as _run
 
 _TASK = Path(__file__).resolve().parent

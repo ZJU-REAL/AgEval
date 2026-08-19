@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
 
-from bora.runtime.coordinator import LifecycleCoordinator
-from bora.runtime.identity import IdentityFactory
-from bora.runtime.lifecycle import LifecyclePhase, LifecycleState, success_path
-from bora.runtime.outcomes import PhaseStatus, RuntimeTerminalKind
+from ageval.runtime.coordinator import LifecycleCoordinator
+from ageval.runtime.identity import IdentityFactory
+from ageval.runtime.lifecycle import LifecyclePhase, LifecycleState, success_path
+from ageval.runtime.outcomes import PhaseStatus, RuntimeTerminalKind
 
 
 def _attempt():

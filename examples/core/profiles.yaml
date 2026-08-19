@@ -1,4 +1,4 @@
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   mock-default:
     executor: mock
@@ -30,7 +30,7 @@ bindings:
     model: zai-coding-cn/glm-5.2
     api_key: ${glm_coding_api_key}
 
-  # External nooa host SPI (task-local lib.agents; after bora plugin install)
+  # External nooa host SPI (task-local lib.agents; after ageval plugin install)
   nooa-solver:
     executor: nooa
     extensions:

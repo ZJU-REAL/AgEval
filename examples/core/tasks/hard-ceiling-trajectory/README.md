@@ -20,6 +20,6 @@ negative mechanism.
 ## Run
 
 ```bash
-uv run bora lock examples/core --task hard-ceiling-trajectory
-uv run bora run  examples/core --task hard-ceiling-trajectory
+uv run ageval lock examples/core --task hard-ceiling-trajectory
+uv run ageval run  examples/core --task hard-ceiling-trajectory
 ```

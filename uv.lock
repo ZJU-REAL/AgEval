@@ -23,6 +23,83 @@ wheels = [
 ]
 
 [[package]]
+name = "ageval"
+source = { editable = "." }
+dependencies = [
+    { name = "agent-client-protocol" },
+    { name = "ageval-sdk" },
+    { name = "pyyaml" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+dsh = [
+    { name = "deepseek-harness-sdk" },
+]
+miniswe = [
+    { name = "mini-swe-agent" },
+    { name = "socksio" },
+]
+nooa = [
+    { name = "httpx", extra = ["socks"] },
+    { name = "nooa" },
+    { name = "socksio" },
+]
+registry = [
+    { name = "boto3" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "agent-client-protocol", specifier = "==0.12.0" },
+    { name = "ageval-sdk", editable = "sdk/python" },
+    { name = "boto3", marker = "extra == 'registry'", specifier = ">=1.35.0" },
+    { name = "deepseek-harness-sdk", marker = "extra == 'dsh'", specifier = "==0.1.0rc6" },
+    { name = "httpx", extras = ["socks"], marker = "extra == 'nooa'", specifier = ">=0.28.1" },
+    { name = "mini-swe-agent", marker = "extra == 'miniswe'", specifier = ">=2.0" },
+    { name = "nooa", marker = "extra == 'nooa'", specifier = ">=0.0.7" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'registry'", specifier = ">=3.2.0" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.400" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },
+    { name = "socksio", marker = "extra == 'miniswe'", specifier = ">=1.0.0" },
+    { name = "socksio", marker = "extra == 'nooa'", specifier = ">=1.0.0" },
+    { name = "starlette", marker = "extra == 'registry'", specifier = ">=0.41.0" },
+    { name = "typer", specifier = ">=0.16.0" },
+    { name = "uvicorn", marker = "extra == 'registry'", specifier = ">=0.32.0" },
+]
+provides-extras = ["dev", "dsh", "miniswe", "nooa", "registry"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.400" },
+    { name = "pytest", specifier = ">=8.3.0" },
+    { name = "pytest-asyncio", specifier = ">=1.4.0" },
+    { name = "ruff", specifier = ">=0.12.0" },
+]
+
+[[package]]
+name = "ageval-sdk"
+source = { editable = "sdk/python" }
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -183,83 +260,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c0314
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
 ]
-
-[[package]]
-name = "bora"
-source = { editable = "." }
-dependencies = [
-    { name = "agent-client-protocol" },
-    { name = "bora-sdk" },
-    { name = "pyyaml" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-dsh = [
-    { name = "deepseek-harness-sdk" },
-]
-miniswe = [
-    { name = "mini-swe-agent" },
-    { name = "socksio" },
-]
-nooa = [
-    { name = "httpx", extra = ["socks"] },
-    { name = "nooa" },
-    { name = "socksio" },
-]
-registry = [
-    { name = "boto3" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "starlette" },
-    { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "agent-client-protocol", specifier = "==0.12.0" },
-    { name = "bora-sdk", editable = "sdk/python" },
-    { name = "boto3", marker = "extra == 'registry'", specifier = ">=1.35.0" },
-    { name = "deepseek-harness-sdk", marker = "extra == 'dsh'", specifier = "==0.1.0rc6" },
-    { name = "httpx", extras = ["socks"], marker = "extra == 'nooa'", specifier = ">=0.28.1" },
-    { name = "mini-swe-agent", marker = "extra == 'miniswe'", specifier = ">=2.0" },
-    { name = "nooa", marker = "extra == 'nooa'", specifier = ">=0.0.7" },
-    { name = "psycopg", extras = ["binary"], marker = "extra == 'registry'", specifier = ">=3.2.0" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.400" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },
-    { name = "socksio", marker = "extra == 'miniswe'", specifier = ">=1.0.0" },
-    { name = "socksio", marker = "extra == 'nooa'", specifier = ">=1.0.0" },
-    { name = "starlette", marker = "extra == 'registry'", specifier = ">=0.41.0" },
-    { name = "typer", specifier = ">=0.16.0" },
-    { name = "uvicorn", marker = "extra == 'registry'", specifier = ">=0.32.0" },
-]
-provides-extras = ["dev", "dsh", "miniswe", "nooa", "registry"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.400" },
-    { name = "pytest", specifier = ">=8.3.0" },
-    { name = "pytest-asyncio", specifier = ">=1.4.0" },
-    { name = "ruff", specifier = ">=0.12.0" },
-]
-
-[[package]]
-name = "bora-sdk"
-source = { editable = "sdk/python" }
 
 [[package]]
 name = "boto3"

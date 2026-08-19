@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from bora.provider.outcomes import ProcessOutcome, ProcessTerminalKind
-from bora.runtime.identity import IdentityFactory
+from ageval.provider.outcomes import ProcessOutcome, ProcessTerminalKind
+from ageval.runtime.identity import IdentityFactory
 
 _NOOA_SRC = Path(__file__).resolve().parents[2] / "plugins" / "nooa" / "src"
 if str(_NOOA_SRC) not in sys.path:
@@ -78,7 +78,7 @@ def test_worker_script_loads_agent(tmp_path: Path) -> None:
         / "plugins"
         / "nooa"
         / "worker"
-        / "bora_executor_nooa.py"
+        / "ageval_executor_nooa.py"
     )
     req = {
         "prompt": "p",

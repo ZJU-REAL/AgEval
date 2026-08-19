@@ -193,7 +193,7 @@ class OrgService:
                     "expires_in_days must be positive number",
                     http_status=400,
                 ) from exc
-        plain = f"bora-inv_{secrets.token_urlsafe(24)}"
+        plain = f"ageval-inv_{secrets.token_urlsafe(24)}"
         token_hash = hashlib.sha256(plain.encode("utf-8")).hexdigest()
         prefix = plain[:16] + "…"
         try:

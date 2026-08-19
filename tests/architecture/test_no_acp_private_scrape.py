@@ -6,8 +6,8 @@ import ast
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-ADAPTERS = REPO / "src" / "bora" / "adapters"
-ACP_PKG = REPO / "src" / "bora" / "plugins" / "contrib" / "acp"
+ADAPTERS = REPO / "src" / "ageval" / "adapters"
+ACP_PKG = REPO / "src" / "ageval" / "plugins" / "contrib" / "acp"
 
 
 def _acp_sources() -> str:
@@ -54,7 +54,7 @@ def test_container_module_has_no_vendor_scrape() -> None:
 
 
 def test_agent_container_scrape_not_used_for_acp_kind() -> None:
-    app = REPO / "src" / "bora" / "application" / "attempt"
+    app = REPO / "src" / "ageval" / "application" / "attempt"
     sources = "\n".join(p.read_text(encoding="utf-8") for p in sorted(app.glob("run_l1*.py")))
     assert "make_l1_placement_resolver" in sources
     assert "migrated_to_acp" not in sources
@@ -76,7 +76,7 @@ def test_agent_acp_imports_typed_sdk() -> None:
 
 
 def test_private_kinds_not_resolvable() -> None:
-    from bora.adapters.agent_registry import resolve_executor
+    from ageval.adapters.agent_registry import resolve_executor
 
     for kind in ("codex", "pi", "opencode", "claude-code"):
         try:

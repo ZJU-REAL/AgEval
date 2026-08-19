@@ -1,4 +1,4 @@
-"""Public entrypoint acceptance: bora lock success / failure / determinism."""
+"""Public entrypoint acceptance: ageval lock success / failure / determinism."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ MINIMAL = REPO / "examples" / "core"
 INVALID = REPO / "examples" / "core"
 
 
-def _run_bora(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def _run_ageval(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     # Prefer the installed console script when available; fall back to module.
-    cmd = [sys.executable, "-m", "bora.cli.main", *args]
+    cmd = [sys.executable, "-m", "ageval.cli.main", *args]
     return subprocess.run(
         cmd,
         check=False,
@@ -28,12 +28,12 @@ def _run_bora(*args: str, cwd: Path | None = None) -> subprocess.CompletedProces
 
 
 def test_success_smoke() -> None:
-    result = _run_bora("lock", str(MINIMAL), "--task", "config-minimal")
+    result = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal")
     assert result.returncode == 0, result.stderr
     assert result.stderr == "" or "warning" in result.stderr.lower()
     data = json.loads(result.stdout)
     assert data["task_id"] == "config-minimal"
-    assert data["format"] == "bora.task/1"
+    assert data["format"] == "ageval.task/1"
     assert data["database_id"] == "example/core"
     assert data["database_version"] == "0.1.0"
     assert data["digest"].startswith("sha256:")
@@ -47,18 +47,18 @@ def test_success_smoke() -> None:
 
 
 def test_expected_failure_unknown_profile() -> None:
-    result = _run_bora("lock", str(INVALID), "--task", "config-invalid")
+    result = _run_ageval("lock", str(INVALID), "--task", "config-invalid")
     assert result.returncode == 2
     assert result.stdout.strip() == ""
     assert "unknown_profile" in result.stderr
-    # Lock path must not create lock-store artifacts (run evidence under .bora is unrelated).
-    assert not (INVALID / ".bora" / "locks").exists()
-    assert not (REPO / ".bora" / "locks").exists()
+    # Lock path must not create lock-store artifacts (run evidence under .ageval is unrelated).
+    assert not (INVALID / ".ageval" / "locks").exists()
+    assert not (REPO / ".ageval" / "locks").exists()
 
 
 def test_determinism() -> None:
-    r1 = _run_bora("lock", str(MINIMAL), "--task", "config-minimal")
-    r2 = _run_bora("lock", str(MINIMAL), "--task", "config-minimal")
+    r1 = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal")
+    r2 = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal")
     assert r1.returncode == 0 and r2.returncode == 0
     assert r1.stdout == r2.stdout
     d1 = json.loads(r1.stdout)["digest"]
@@ -67,8 +67,8 @@ def test_determinism() -> None:
 
 
 def test_override_changes_digest() -> None:
-    base = _run_bora("lock", str(MINIMAL), "--task", "config-minimal")
-    over = _run_bora(
+    base = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal")
+    over = _run_ageval(
         "lock",
         str(MINIMAL),
         "--task",
@@ -84,29 +84,29 @@ def test_override_changes_digest() -> None:
     assert "cli-override" in sources
 
 
-def test_no_bora_artifacts_on_success(tmp_path: Path) -> None:
-    result = _run_bora("lock", str(MINIMAL), "--task", "config-minimal", cwd=tmp_path)
+def test_no_ageval_artifacts_on_success(tmp_path: Path) -> None:
+    result = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal", cwd=tmp_path)
     assert result.returncode == 0, result.stderr
-    # `bora lock` is read-only: must not create a lock store under cwd or Database.
-    assert not (tmp_path / ".bora").exists()
-    assert not (MINIMAL / ".bora" / "locks").exists()
+    # `ageval lock` is read-only: must not create a lock store under cwd or Database.
+    assert not (tmp_path / ".ageval").exists()
+    assert not (MINIMAL / ".ageval" / "locks").exists()
 
 
 def test_missing_task_flag_fails() -> None:
-    result = _run_bora("lock", str(MINIMAL))
+    result = _run_ageval("lock", str(MINIMAL))
     assert result.returncode == 2
     assert "--task" in result.stderr
     assert result.stdout.strip() == ""
 
 
 def test_unknown_task_cli_fails() -> None:
-    result = _run_bora("lock", str(MINIMAL), "--task", "does-not-exist")
+    result = _run_ageval("lock", str(MINIMAL), "--task", "does-not-exist")
     assert result.returncode == 2
     assert "unknown_task" in result.stderr
 
 
 def test_tasks_list_journeys() -> None:
-    result = _run_bora("tasks", str(REPO / "examples" / "journeys"))
+    result = _run_ageval("tasks", str(REPO / "examples" / "journeys"))
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
     assert data["database_id"] == "example/journeys"
@@ -120,7 +120,7 @@ def test_no_task_local_import_on_lock() -> None:
     code = f"""
 import json, sys
 from pathlib import Path
-from bora.application.composition import build_lock_command
+from ageval.application.composition import build_lock_command
 repo = Path({str(REPO)!r})
 cmd = build_lock_command()
 summary = cmd.run(package_root=repo / "examples" / "core", task_id="config-minimal")

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.application.attempt.run_l1_evaluator import (
+from ageval.application.attempt.run_l1_evaluator import (
     clean_eval_tmpfs_mount,
     run_clean_evaluator_container,
 )
-from bora.config.eval_placement import resolve_eval_placement
+from ageval.config.eval_placement import resolve_eval_placement
 
 
 def test_clean_eval_tmpfs_mount_exec_flag() -> None:
@@ -28,7 +28,7 @@ def test_writable_run_sets_workdir_env(tmp_path: Path, monkeypatch: object) -> N
         return SimpleNamespace(returncode=0, stdout='{"status":"PASS","score":1.0}\n', stderr="")
 
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        "ageval.application.attempt.run_l1_evaluator.subprocess.run",
         _run,
     )
     spec = resolve_eval_placement(
@@ -49,7 +49,7 @@ def test_writable_run_sets_workdir_env(tmp_path: Path, monkeypatch: object) -> N
     assert cmd[cmd.index("--tmpfs") + 1] == "/tmp:rw,exec,nosuid,size=4096m"
     assert cmd[cmd.index("--network") + 1] == "none"
     assert cmd[cmd.index("--entrypoint") + 1] == "python"
-    assert "BORA_EVAL_WORKDIR=/tmp/eval-work" in cmd
+    assert "AGEVAL_EVAL_WORKDIR=/tmp/eval-work" in cmd
     assert captured["timeout"] == 180.0
 
 
@@ -64,7 +64,7 @@ def test_bridge_run_sets_network(tmp_path: Path, monkeypatch: object) -> None:
         return SimpleNamespace(returncode=0, stdout='{"status":"PASS","score":1.0}\n', stderr="")
 
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        "ageval.application.attempt.run_l1_evaluator.subprocess.run",
         _run,
     )
     spec = resolve_eval_placement({"network": "bridge", "tmpfs_mb": 32})
@@ -88,7 +88,7 @@ def test_bridge_run_sets_network(tmp_path: Path, monkeypatch: object) -> None:
 def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: object) -> None:
     from types import SimpleNamespace
 
-    from bora.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
+    from ageval.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
 
     captured: list[list[str]] = []
 
@@ -101,7 +101,7 @@ def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: objec
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        "ageval.application.attempt.run_l1_evaluator.subprocess.run",
         _run,
     )
     spec = resolve_eval_placement({"reuse_attempt": True, "network": "bridge", "tmpfs_mb": 32})
@@ -156,7 +156,7 @@ def test_reuse_attempt_exec_not_new_container(tmp_path: Path, monkeypatch: objec
 def test_reuse_attempt_hide_creds_failure_is_error(tmp_path: Path, monkeypatch: object) -> None:
     from types import SimpleNamespace
 
-    from bora.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
+    from ageval.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
 
     captured: list[list[str]] = []
 
@@ -167,7 +167,7 @@ def test_reuse_attempt_hide_creds_failure_is_error(tmp_path: Path, monkeypatch: 
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        "ageval.application.attempt.run_l1_evaluator.subprocess.run",
         _run,
     )
     spec = resolve_eval_placement({"reuse_attempt": True, "tmpfs_mb": 32})
@@ -192,7 +192,7 @@ def test_reuse_attempt_exec_env_includes_actor_user_site(
 ) -> None:
     from types import SimpleNamespace
 
-    from bora.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
+    from ageval.application.attempt.run_l1_evaluator import run_reuse_attempt_evaluator
 
     captured: list[list[str]] = []
 
@@ -205,7 +205,7 @@ def test_reuse_attempt_exec_env_includes_actor_user_site(
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(  # type: ignore[attr-defined]
-        "bora.application.attempt.run_l1_evaluator.subprocess.run",
+        "ageval.application.attempt.run_l1_evaluator.subprocess.run",
         _run,
     )
     spec = resolve_eval_placement({"reuse_attempt": True, "tmpfs_mb": 32})

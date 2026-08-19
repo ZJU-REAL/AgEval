@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from bora.capabilities.authority import AttemptCapabilityAuthority
-from bora.capabilities.quota import AgentInvocationQuota
-from bora.runtime.identity import IdentityFactory
+from ageval.capabilities.authority import AttemptCapabilityAuthority
+from ageval.capabilities.quota import AgentInvocationQuota
+from ageval.runtime.identity import IdentityFactory
 
 
 def test_quota_try_consume_exhausts() -> None:
@@ -42,10 +42,10 @@ def test_authority_consumes_shared_quota() -> None:
 
 
 def test_parent_service_uses_shared_quota(monkeypatch: pytest.MonkeyPatch) -> None:
-    from bora.plugins.bootstrap import ensure_bootstrapped
-    from bora.runtime.parent_agent_service import ParentAgentService
+    from ageval.plugins.bootstrap import ensure_bootstrapped
+    from ageval.runtime.parent_agent_service import ParentAgentService
 
-    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
     q = AgentInvocationQuota(limit=1)
     svc = ParentAgentService(
         profiles=[{"id": "p", "executor": "mock", "model": "m"}],
@@ -61,11 +61,11 @@ def test_parent_service_uses_shared_quota(monkeypatch: pytest.MonkeyPatch) -> No
     out = svc.invoke(session_id=opened["session_id"], prompt="hi")
     assert out.get("ok") is False
     assert out.get("error") == "agent_invocation_limit"
-    assert os.environ.get("BORA_OFFLINE_AGENT") != "1"
+    assert os.environ.get("AGEVAL_OFFLINE_AGENT") != "1"
 
 
 def test_assemble_parent_and_authority_share_quota(tmp_path: Path) -> None:
-    from bora.application.attempt.agent_service_assemble import assemble_parent_agent_service
+    from ageval.application.attempt.agent_service_assemble import assemble_parent_agent_service
 
     factory = IdentityFactory()
     run = factory.new_run()

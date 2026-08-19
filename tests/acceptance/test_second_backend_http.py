@@ -1,4 +1,4 @@
-"""Spec 08: public second-backend (openai-http) via production bora run + local mock."""
+"""Spec 08: public second-backend (openai-http) via production ageval run + local mock."""
 
 from __future__ import annotations
 
@@ -44,14 +44,14 @@ def test_plugin_agent_executor_http_public_pass() -> None:
     thread.start()
     try:
         env = os.environ.copy()
-        env["BORA_OPENAI_BASE_URL"] = f"http://127.0.0.1:{port}/v1"
+        env["AGEVAL_OPENAI_BASE_URL"] = f"http://127.0.0.1:{port}/v1"
         env["OPENAI_API_KEY"] = "test-local-mock"
-        env.pop("BORA_OFFLINE_AGENT", None)
+        env.pop("AGEVAL_OFFLINE_AGENT", None)
         result = subprocess.run(
             [
                 sys.executable,
                 "-m",
-                "bora.cli.main",
+                "ageval.cli.main",
                 "run",
                 str(REPO / "examples" / "core"),
                 "--task",

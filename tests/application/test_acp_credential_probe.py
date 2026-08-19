@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from bora.adapters.executor_inventory import describe_acp_entry
-from bora.application.attempt.probe_command import _probe_first_party
+from ageval.adapters.executor_inventory import describe_acp_entry
+from ageval.application.attempt.probe_command import _probe_first_party
 
 
 def _cred_check(entry: str, environ: dict[str, str], *, api_key: str | None = None) -> dict:

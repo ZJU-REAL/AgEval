@@ -6,8 +6,8 @@ import json
 
 from tests.helpers.extension_registry import registry_with_executor
 
-from bora.adapters.agent_contract import AgentResult
-from bora.runtime.parent_agent_service import ParentAgentService
+from ageval.adapters.agent_contract import AgentResult
+from ageval.runtime.parent_agent_service import ParentAgentService
 
 
 def test_parent_service_response_has_no_secret_keys() -> None:

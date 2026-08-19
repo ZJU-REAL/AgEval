@@ -8,18 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from bora.config.errors import ConfigError
-from bora.viewer import jobs, trials
+from ageval.config.errors import ConfigError
+from ageval.viewer import jobs, trials
 
 REPO = Path(__file__).resolve().parents[2]
 SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
 
 
 def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
         "database_id": "test/suite-min",
         "database_version": "0.1.0",
@@ -53,7 +53,7 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
 
 
 def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
-    root = db / ".bora" / "runs" / run_id
+    root = db / ".ageval" / "runs" / run_id
     inv = root / "agent" / "invocations" / "0001-inv_test"
     inv.mkdir(parents=True, exist_ok=True)
     (root / "evaluation").mkdir(parents=True, exist_ok=True)
@@ -96,7 +96,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
     (root / "summary.json").write_text(
         json.dumps(
             {
-                "schema": "bora.evidence.summary/1",
+                "schema": "ageval.evidence.summary/1",
                 "run_id": run_id,
                 "status": "PASS",
                 "score": 1.0,
@@ -130,7 +130,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
         encoding="utf-8",
     )
     traj = [
-        {"type": "turn", "role": "user", "content": "hello", "turn_index": 1, "source": "bora"},
+        {"type": "turn", "role": "user", "content": "hello", "turn_index": 1, "source": "ageval"},
         {
             "type": "turn",
             "role": "assistant",
@@ -142,7 +142,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
             "type": "terminal",
             "ok": True,
             "stop_reason": "end_turn",
-            "source": "bora",
+            "source": "ageval",
             "turn_index": 1,
             "usage": {
                 "input_tokens": 100,
@@ -166,7 +166,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
 
 def _clean_db(tmp_path: Path) -> Path:
     db = tmp_path / "db"
-    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".bora"))
+    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".ageval"))
     return db
 
 
@@ -351,10 +351,10 @@ def test_missing_run_raises(tmp_path: Path) -> None:
 def test_get_trial_opens_previous_without_listing_it(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = "suite_amended"
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     suite_dir.mkdir(parents=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
         "database_id": "test/suite-min",
         "tasks": [{"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_new"}],
@@ -448,7 +448,7 @@ def test_missing_evidence_suite_row_ok(tmp_path: Path) -> None:
 
 def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
     """Two profiles, multiple invs; last usage per profile wins; old used-only shape."""
-    root = db / ".bora" / "runs" / run_id
+    root = db / ".ageval" / "runs" / run_id
     inv_root = root / "agent" / "invocations"
     inv_root.mkdir(parents=True, exist_ok=True)
     (root / "evaluation").mkdir(parents=True, exist_ok=True)
@@ -542,7 +542,7 @@ def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha")
             "type": "terminal",
             "ok": True,
             "stop_reason": "end_turn",
-            "source": "bora",
+            "source": "ageval",
             "turn_index": 1,
         }
         if usage is not None:
@@ -621,7 +621,7 @@ def test_legacy_usage_cost_only_no_used_as_tokens(tmp_path: Path) -> None:
     """Old evidence with only {used,size,cost}: show cost, never used as tokens."""
     db = _clean_db(tmp_path)
     job_id = _seed_suite_run(db)
-    root = db / ".bora" / "runs" / "run_alpha_1"
+    root = db / ".ageval" / "runs" / "run_alpha_1"
     inv = root / "agent" / "invocations" / "0001-inv_x"
     inv.mkdir(parents=True, exist_ok=True)
     (root / "lock.json").write_text(

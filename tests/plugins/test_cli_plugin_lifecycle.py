@@ -1,4 +1,4 @@
-"""Spec 03: bora plugin install/list/uninstall/materialize + load into registry."""
+"""Spec 03: ageval plugin install/list/uninstall/materialize + load into registry."""
 
 from __future__ import annotations
 
@@ -15,23 +15,23 @@ FIXTURE = ROOT / "tests/fixtures/plugins/sample-echo"
 
 
 @pytest.fixture()
-def bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
+def ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     # Force re-bootstrap next ensure_bootstrapped with this home.
-    from bora.plugins import bootstrap as boot
+    from ageval.plugins import bootstrap as boot
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
-    from bora.plugins.registry import reset_global_registry
+    from ageval.plugins.registry import reset_global_registry
 
     reset_global_registry()
     return home
 
 
-def test_install_list_uninstall_atomic(bora_home: Path) -> None:
-    from bora.plugins.paths import index_path, plugins_root
-    from bora.plugins.store import install_from_path, list_installed, uninstall
+def test_install_list_uninstall_atomic(ageval_home: Path) -> None:
+    from ageval.plugins.paths import index_path, plugins_root
+    from ageval.plugins.store import install_from_path, list_installed, uninstall
 
     assert FIXTURE.is_dir()
     entry = install_from_path(FIXTURE)
@@ -52,9 +52,9 @@ def test_install_list_uninstall_atomic(bora_home: Path) -> None:
     assert uninstall("sample-echo") is False
 
 
-def test_bad_manifest_fail_closed(bora_home: Path, tmp_path: Path) -> None:
-    from bora.plugins.manifest import PluginManifestError
-    from bora.plugins.store import install_from_path
+def test_bad_manifest_fail_closed(ageval_home: Path, tmp_path: Path) -> None:
+    from ageval.plugins.manifest import PluginManifestError
+    from ageval.plugins.store import install_from_path
 
     bad = tmp_path / "bad-plugin"
     bad.mkdir()
@@ -64,18 +64,18 @@ def test_bad_manifest_fail_closed(bora_home: Path, tmp_path: Path) -> None:
     assert ei.value.kind == "plugin_format_invalid"
     # No half install
     assert (
-        not (bora_home / "plugins" / "index.json").exists()
-        or list((bora_home / "plugins").glob("*/*")) == []
+        not (ageval_home / "plugins" / "index.json").exists()
+        or list((ageval_home / "plugins").glob("*/*")) == []
     )
 
 
-def test_install_does_not_touch_profiles(bora_home: Path, tmp_path: Path) -> None:
-    from bora.plugins.store import install_from_path
+def test_install_does_not_touch_profiles(ageval_home: Path, tmp_path: Path) -> None:
+    from ageval.plugins.store import install_from_path
 
     project = tmp_path / "proj"
     project.mkdir()
     profiles = project / "profiles.yaml"
-    original = "format: bora.profiles/1\nbindings: {}\n"
+    original = "format: ageval.profiles/1\nbindings: {}\n"
     profiles.write_text(original, encoding="utf-8")
     cwd = Path.cwd()
     try:
@@ -86,10 +86,10 @@ def test_install_does_not_touch_profiles(bora_home: Path, tmp_path: Path) -> Non
     assert profiles.read_text(encoding="utf-8") == original
 
 
-def test_cli_install_list_json(bora_home: Path) -> None:
-    env = {**os.environ, "BORA_HOME": str(bora_home)}
+def test_cli_install_list_json(ageval_home: Path) -> None:
+    env = {**os.environ, "AGEVAL_HOME": str(ageval_home)}
     proc = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "plugin", "install", str(FIXTURE)],
+        [sys.executable, "-m", "ageval.cli.main", "plugin", "install", str(FIXTURE)],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -102,7 +102,7 @@ def test_cli_install_list_json(bora_home: Path) -> None:
     assert data["plugin_id"] == "sample-echo"
 
     proc2 = subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", "plugin", "list"],
+        [sys.executable, "-m", "ageval.cli.main", "plugin", "list"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -114,14 +114,14 @@ def test_cli_install_list_json(bora_home: Path) -> None:
     assert any(p["plugin_id"] == "sample-echo" for p in listed["plugins"])
 
 
-def test_load_installed_into_registry(bora_home: Path) -> None:
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.bootstrap import bootstrap_registry
-    from bora.plugins.protocol import BindingIntent
-    from bora.plugins.registry import ExtensionRegistry, reset_global_registry
-    from bora.plugins.resolve import resolve
-    from bora.plugins.slots import EXECUTOR
-    from bora.plugins.store import install_from_path
+def test_load_installed_into_registry(ageval_home: Path) -> None:
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.bootstrap import bootstrap_registry
+    from ageval.plugins.protocol import BindingIntent
+    from ageval.plugins.registry import ExtensionRegistry, reset_global_registry
+    from ageval.plugins.resolve import resolve
+    from ageval.plugins.slots import EXECUTOR
+    from ageval.plugins.store import install_from_path
 
     install_from_path(FIXTURE)
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
@@ -139,9 +139,9 @@ def test_load_installed_into_registry(bora_home: Path) -> None:
     assert getattr(impl, "kind", None) == "sample-echo"
 
 
-def test_materialize_docs(bora_home: Path, tmp_path: Path) -> None:
-    from bora.plugins.materialize import materialize_docs
-    from bora.plugins.store import install_from_path
+def test_materialize_docs(ageval_home: Path, tmp_path: Path) -> None:
+    from ageval.plugins.materialize import materialize_docs
+    from ageval.plugins.store import install_from_path
 
     install_from_path(FIXTURE)
     target = tmp_path / "docs-out"
@@ -151,11 +151,11 @@ def test_materialize_docs(bora_home: Path, tmp_path: Path) -> None:
     assert (target / "skills" / "echo" / "SKILL.md").is_file()
 
 
-def test_recognition_discovers_sample_echo(bora_home: Path) -> None:
-    from bora.adapters.agent_registry import discover_executor_kinds
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
-    from bora.plugins.store import install_from_path
+def test_recognition_discovers_sample_echo(ageval_home: Path) -> None:
+    from ageval.adapters.agent_registry import discover_executor_kinds
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
+    from ageval.plugins.store import install_from_path
 
     install_from_path(FIXTURE)
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]

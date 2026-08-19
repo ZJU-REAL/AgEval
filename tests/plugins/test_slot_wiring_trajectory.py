@@ -6,16 +6,16 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora.plugins.defaults import register_defaults
-from bora.plugins.protocol import BindingIntent, ExtensionSelect
-from bora.plugins.registry import ExtensionRegistry
-from bora.plugins.resolve import resolve
-from bora.plugins.slots import (
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.protocol import BindingIntent, ExtensionSelect
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import (
     EVIDENCE_EXTRA,
     TRAJECTORY_COLLECT,
     TRAJECTORY_ENRICH,
 )
-from bora.runtime.agent_service_evidence import seal_invoke_result
+from ageval.runtime.agent_service_evidence import seal_invoke_result
 
 
 class _FakeResult:

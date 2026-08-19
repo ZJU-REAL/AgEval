@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from bora.plugins.bootstrap import bootstrap_registry
-from bora.plugins.contrib.acp import PLUGIN_ID as ACP_ID
-from bora.plugins.errors import ExtensionMaterializeError
-from bora.plugins.lock_bind import extension_graph_to_lock
-from bora.plugins.protocol import BindingIntent, ExtensionSelect
-from bora.plugins.registry import ExtensionRegistry, reset_global_registry
-from bora.plugins.resolve import resolve
-from bora.plugins.slots import EXECUTOR
-from bora.runtime.parent_agent_service import ParentAgentService
+from ageval.plugins.bootstrap import bootstrap_registry
+from ageval.plugins.contrib.acp import PLUGIN_ID as ACP_ID
+from ageval.plugins.errors import ExtensionMaterializeError
+from ageval.plugins.lock_bind import extension_graph_to_lock
+from ageval.plugins.protocol import BindingIntent, ExtensionSelect
+from ageval.plugins.registry import ExtensionRegistry, reset_global_registry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import EXECUTOR
+from ageval.runtime.parent_agent_service import ParentAgentService
 
 ROOT = Path(__file__).resolve().parents[2]
 NOOA_PKG = ROOT / "plugins" / "nooa"
@@ -22,12 +22,12 @@ NOOA_ID = "nooa"
 
 
 @pytest.fixture()
-def bora_home_with_nooa(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
+def ageval_home_with_nooa(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.store import install_from_path
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.store import install_from_path
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -54,10 +54,10 @@ def test_acp_provide_selected_by_profile_executor() -> None:
 
 def test_bootstrap_default_has_no_nooa(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """nooa is ecosystem-only — not first-party bootstrap (isolated cache)."""
-    home = tmp_path / "bora-home-empty"
+    home = tmp_path / "ageval-home-empty"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -66,8 +66,8 @@ def test_bootstrap_default_has_no_nooa(tmp_path: Path, monkeypatch: pytest.Monke
     assert NOOA_ID not in reg.plugins_for_slot(EXECUTOR)
 
 
-def test_nooa_require_options_agent(bora_home_with_nooa: Path) -> None:
-    del bora_home_with_nooa
+def test_nooa_require_options_agent(ageval_home_with_nooa: Path) -> None:
+    del ageval_home_with_nooa
     reg = ExtensionRegistry()
     bootstrap_registry(reg, include_mock=False, include_openai_http=False)
     with pytest.raises(ExtensionMaterializeError) as ei:
@@ -79,8 +79,8 @@ def test_nooa_require_options_agent(bora_home_with_nooa: Path) -> None:
     assert "nooa_options_agent_required" in str(ei.value)
 
 
-def test_nooa_installed_resolve(bora_home_with_nooa: Path) -> None:
-    del bora_home_with_nooa
+def test_nooa_installed_resolve(ageval_home_with_nooa: Path) -> None:
+    del ageval_home_with_nooa
     reg = ExtensionRegistry()
     bootstrap_registry(reg, include_mock=False, include_openai_http=False)
     assert NOOA_ID in reg.plugins_for_slot(EXECUTOR)
@@ -99,8 +99,8 @@ def test_nooa_installed_resolve(bora_home_with_nooa: Path) -> None:
     assert lock["executor"]["source"] == "profile_executor_field"
 
 
-def test_dual_profile_acp_and_nooa_session_graphs(bora_home_with_nooa: Path) -> None:
-    del bora_home_with_nooa
+def test_dual_profile_acp_and_nooa_session_graphs(ageval_home_with_nooa: Path) -> None:
+    del ageval_home_with_nooa
     reg = ExtensionRegistry()
     bootstrap_registry(reg, include_mock=False, include_openai_http=False)
     svc = ParentAgentService(
@@ -145,9 +145,9 @@ def test_dual_profile_acp_and_nooa_session_graphs(bora_home_with_nooa: Path) -> 
 def test_nooa_uninstalled_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "empty-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.errors import ExtensionPluginNotFoundError
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.errors import ExtensionPluginNotFoundError
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()

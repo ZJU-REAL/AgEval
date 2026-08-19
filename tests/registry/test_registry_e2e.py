@@ -9,12 +9,12 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 
-from bora.application.composition import build_lock_command, build_publish_command
-from bora.config.errors import ConfigError
-from bora.registry.cache import PackageCache
-from bora.registry.client import RegistryClient
-from bora.registry.credentials import write_credentials
-from bora.registry.digest import compute_package_digest
+from ageval.application.composition import build_lock_command, build_publish_command
+from ageval.config.errors import ConfigError
+from ageval.registry.cache import PackageCache
+from ageval.registry.client import RegistryClient
+from ageval.registry.credentials import write_credentials
+from ageval.registry.digest import compute_package_digest
 
 publish_database = build_publish_command().publish_database
 
@@ -28,10 +28,10 @@ def _ensure_org() -> None:
     """Create default test org owned by current token (idempotent)."""
     import os
 
-    from bora.registry.client import RegistryClient, RegistryError
+    from ageval.registry.client import RegistryClient, RegistryError
 
-    url = os.environ.get("BORA_REGISTRY_URL") or ""
-    token = os.environ.get("BORA_REGISTRY_TOKEN") or ""
+    url = os.environ.get("AGEVAL_REGISTRY_URL") or ""
+    token = os.environ.get("AGEVAL_REGISTRY_TOKEN") or ""
     if not url or not token:
         return
     client = RegistryClient(url, token=token)
@@ -65,10 +65,10 @@ def test_publish_and_lock_by_ref(
         token=registry_server["token"],
         path=creds,
     )
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     cache_root = tmp_path / "cache"
-    monkeypatch.setenv("BORA_CACHE_ROOT", str(cache_root))
+    monkeypatch.setenv("AGEVAL_CACHE_ROOT", str(cache_root))
     _ensure_org()
 
     summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
@@ -87,7 +87,7 @@ def test_publish_and_lock_by_ref(
     # Cache should now contain verified tree.
     cached = PackageCache(cache_root).lookup("test/publish-min", summary["package_digest"])
     assert cached is not None
-    assert (cached / "bora.yaml").is_file()
+    assert (cached / "ageval.yaml").is_file()
 
     # Offline: stop server, digest ref still works from cache.
     # (server still up here — stop then retry)
@@ -102,8 +102,8 @@ def test_publish_and_lock_by_ref(
 def test_private_without_token_is_not_found(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org()
     summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
 
@@ -116,8 +116,8 @@ def test_private_without_token_is_not_found(
 
 
 def test_publish_requires_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("BORA_REGISTRY_TOKEN", raising=False)
-    monkeypatch.setenv("BORA_REGISTRY_URL", "http://127.0.0.1:9")
+    monkeypatch.delenv("AGEVAL_REGISTRY_TOKEN", raising=False)
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", "http://127.0.0.1:9")
     # Empty token via missing credentials
     monkeypatch.setenv("HOME", str(tmp_path))
     with pytest.raises(ConfigError) as ei:

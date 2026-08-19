@@ -6,16 +6,16 @@ from pathlib import Path
 
 import pytest
 
-from bora.agents import store
-from bora.agents.refs import package_root_from_agent_ref, published_agent_ref_parts
-from bora.config.errors import ConfigError
-from bora.plugins.store import compute_tree_digest
+from ageval.agents import store
+from ageval.agents.refs import package_root_from_agent_ref, published_agent_ref_parts
+from ageval.config.errors import ConfigError
+from ageval.plugins.store import compute_tree_digest
 
 
 @pytest.fixture(autouse=True)
-def _bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
-    monkeypatch.setenv("BORA_HOME", str(home))
+def _ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     return home
 
 
@@ -23,7 +23,7 @@ def _make_pkg(tmp_path: Path, agent_id: str = "mock-default", version: str = "0.
     pkg = tmp_path / f"pkg-{agent_id.replace('/', '-')}"
     pkg.mkdir(parents=True, exist_ok=True)
     (pkg / "agent.yaml").write_text(
-        f"format: bora.agent/1\nagent_id: {agent_id.rsplit('/', 1)[-1]}\nversion: '{version}'\n"
+        f"format: ageval.agent/1\nagent_id: {agent_id.rsplit('/', 1)[-1]}\nversion: '{version}'\n"
         "binding: {executor: mock, model: none}\n",
         encoding="utf-8",
     )
@@ -56,12 +56,12 @@ def test_file_ref_resolves_agent_yaml(tmp_path: Path) -> None:
 
 
 def test_file_ref_yaml_with_overlays_shares_package_root(tmp_path: Path) -> None:
-    from bora.agents.manifest import load_agent_manifest
+    from ageval.agents.manifest import load_agent_manifest
 
     pkg = _make_pkg(tmp_path)
     yaml_path = pkg / "agent.yaml"
     yaml_path.write_text(
-        "format: bora.agent/1\nagent_id: mock-default\nversion: '0.1.0'\n"
+        "format: ageval.agent/1\nagent_id: mock-default\nversion: '0.1.0'\n"
         "binding:\n  executor: mock\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
         encoding="utf-8",

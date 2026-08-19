@@ -1,11 +1,11 @@
 # dsh — DeepSeek Harness executor plugin
 
-External `bora.plugin/1` package. **Not** first-party BORA core.
+External `ageval.plugin/1` package. **Not** first-party ageval core.
 
 Drives [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) over
 the official Python JSON-RPC SDK (`deepseek-harness-sdk` + bundled
 `dsh-jsonrpc-agent`). This is **not** ACP: DSH's shipped ACP wire is too thin
-for BORA evidence (no tools / reasoning / usage; model is not on
+for ageval evidence (no tools / reasoning / usage; model is not on
 `config_options`).
 
 ```python
@@ -23,13 +23,13 @@ not the task workspace.
 
 ```bash
 uv sync --extra dsh          # L0 host SPI only; L1 bake installs the wheels in-image
-uv run bora plugin install plugins/dsh
-uv run bora lock examples/journeys --task terminal-jsonl-agg \
+uv run ageval plugin install plugins/dsh
+uv run ageval lock examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml --probe
 ```
 
-Install updates `$BORA_HOME/plugins` (default `~/.bora/plugins`) only — **never**
-edits `profiles.yaml` / `bora.yaml` / `task.yaml`.
+Install updates `$AGEVAL_HOME/plugins` (default `~/.ageval/plugins`) only — **never**
+edits `profiles.yaml` / `ageval.yaml` / `task.yaml`.
 
 ## Bind
 
@@ -58,9 +58,9 @@ The bundled `dsh-jsonrpc-agent` (`deepseek-harness-sdk==0.1.0rc6`) ships
 keeps `dsh-bash-local`. File-tool writes are fenced; a bash redirect can still
 write. Do not claim bash confinement on this runtime.
 
-Batch approval is `never` in the sandboxed tree so an unattended `bora run`
+Batch approval is `never` in the sandboxed tree so an unattended `ageval run`
 cannot hang on a permission prompt. This is a DSH file-effect policy, not
-BORA isolation. L1 Docker + landlock / Seatbelt may fail to start
+ageval isolation. L1 Docker + landlock / Seatbelt may fail to start
 (`SANDBOX_UNAVAILABLE`); that fails closed. Do not claim `isolated` from this
 knob.
 
@@ -70,12 +70,12 @@ Same harness; switch only via profiles or
 ## Journeys smoke (L1, real API)
 
 ```bash
-uv run bora plugin install plugins/dsh
-unset BORA_OFFLINE_AGENT
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval plugin install plugins/dsh
+unset AGEVAL_OFFLINE_AGENT
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml
 # file-effect policy (file-tool writes denied; bash can still write):
-# uv run bora run examples/journeys --task terminal-jsonl-agg \
+# uv run ageval run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
@@ -87,7 +87,7 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 - **`extensions: [{plugin: dsh}]`** → opt-in bake / trajectory collect (required for L1 Ready)
 - **`--probe`** → binding-aware feasibility (`provider.kind` local vs docker); no Agent, no bake
 - **L1 bake-declared** → this profile selected `image_contribute` + `docker/Dockerfile.bake`; prepare bakes wheels +
-  `bora-executor-dsh`; invoke is **docker exec** with projected `DEEPSEEK_API_KEY`
+  `ageval-executor-dsh`; invoke is **docker exec** with projected `DEEPSEEK_API_KEY`
 
-Host SPI success is not L1 Ready. Offline (`BORA_OFFLINE_AGENT=1`) fail-closes
+Host SPI success is not L1 Ready. Offline (`AGEVAL_OFFLINE_AGENT=1`) fail-closes
 without spawning the runtime.

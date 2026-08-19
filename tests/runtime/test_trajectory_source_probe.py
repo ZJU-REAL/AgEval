@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.agent_contract import parse_validated_text_structured
-from bora.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
-from bora.plugins.contrib.acp import AcpExecutor
+from ageval.adapters.agent_contract import parse_validated_text_structured
+from ageval.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
+from ageval.plugins.contrib.acp import AcpExecutor
 
 
 def test_validated_text_no_regex_salvage() -> None:
@@ -19,7 +19,7 @@ def test_validated_text_no_regex_salvage() -> None:
 
 
 def test_acp_offline_still_emits_lifecycle_events() -> None:
-    os.environ["BORA_OFFLINE_AGENT"] = "1"
+    os.environ["AGEVAL_OFFLINE_AGENT"] = "1"
     try:
         r = AcpExecutor(entry_id="opencode", model="entry-default").invoke("hi")
         assert r.ok is False
@@ -28,11 +28,11 @@ def test_acp_offline_still_emits_lifecycle_events() -> None:
         assert r.metadata is not None
         assert r.metadata.get("executor_kind") == "acp"
     finally:
-        os.environ.pop("BORA_OFFLINE_AGENT", None)
+        os.environ.pop("AGEVAL_OFFLINE_AGENT", None)
 
 
 @pytest.mark.skipif(
-    os.environ.get("BORA_SKIP_REAL_ACP") == "1",
+    os.environ.get("AGEVAL_SKIP_REAL_ACP") == "1",
     reason="explicit skip real ACP probe",
 )
 def test_real_acp_opencode_events_when_available(tmp_path: Path) -> None:
@@ -40,7 +40,7 @@ def test_real_acp_opencode_events_when_available(tmp_path: Path) -> None:
 
     if shutil.which("opencode") is None:
         pytest.skip("opencode not on PATH")
-    if os.environ.get("BORA_OFFLINE_AGENT") == "1":
+    if os.environ.get("AGEVAL_OFFLINE_AGENT") == "1":
         pytest.skip("offline forced")
 
     store = AttemptEvidenceStore(root=tmp_path / "ev", attempt_id="probe")

@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from bora.adapters.agent_container import wrap_docker_exec
-from bora.adapters.agent_contract import AgentExecutor, AgentResult
-from bora.adapters.provider_docker.cli_supervise import supervise_docker_cli
-from bora.provider.contract import TerminationPolicy
-from bora.provider.outcomes import ProcessTerminalKind
+from ageval.adapters.agent_container import wrap_docker_exec
+from ageval.adapters.agent_contract import AgentExecutor, AgentResult
+from ageval.adapters.provider_docker.cli_supervise import supervise_docker_cli
+from ageval.provider.contract import TerminationPolicy
+from ageval.provider.outcomes import ProcessTerminalKind
 from dsh_plugin import PLUGIN_ID
 from dsh_plugin.factory import (
     DEFAULT_COMPOSITION,
@@ -23,7 +23,7 @@ from dsh_plugin.factory import (
     resolve_permission,
 )
 
-WORKER_PATH = "/usr/local/bin/bora-executor-dsh"
+WORKER_PATH = "/usr/local/bin/ageval-executor-dsh"
 WORKDIR_CONTAINER = "/attempt/workspace"
 HOME_CONTAINER = "/attempt/home"
 

@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.eval_placement import (
+from ageval.adapters.package_fs import LocalPackageReader
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.errors import ConfigError
+from ageval.config.eval_placement import (
     PLACEMENT_STAGING,
     PLACEMENT_WRITABLE,
     resolve_eval_placement,
 )
-from bora.config.load_and_lock import ConfigCore
+from ageval.config.load_and_lock import ConfigCore
 
 
 def test_defaults_staging() -> None:
@@ -97,10 +97,10 @@ def _pkg(root: Path, extra: str) -> None:
     (root / "evaluator.py").write_text("def evaluate(ctx): ...\n", encoding="utf-8")
     env = root / "environment"
     env.mkdir(parents=True, exist_ok=True)
-    (env / "Dockerfile").write_text("FROM bora-attempt:l1\n", encoding="utf-8")
+    (env / "Dockerfile").write_text("FROM ageval-attempt:l1\n", encoding="utf-8")
     (root / "task.yaml").write_text(
         f"""
-format: bora.task/1
+format: ageval.task/1
 task_id: eval-place
 
 harness:

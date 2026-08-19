@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Install BORA first-party coding-agent engines + ACP entries into a Debian/Ubuntu
+# Install ageval first-party coding-agent engines + ACP entries into a Debian/Ubuntu
 # image layer (official L1 base). Exact pins match docker/attempt/acp-entries.lock.json
-# and src/bora/adapters/acp_entries.json (Spec 19).
+# and src/ageval/adapters/acp_entries.json (Spec 19).
 #
 # Rules:
 # - No floating tags / latest.

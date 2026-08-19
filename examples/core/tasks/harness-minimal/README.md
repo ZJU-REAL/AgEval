@@ -15,6 +15,6 @@ projection, and publish paths.
 ## Run
 
 ```bash
-uv run bora lock examples/core --task harness-minimal
-uv run bora run  examples/core --task harness-minimal
+uv run ageval lock examples/core --task harness-minimal
+uv run ageval run  examples/core --task harness-minimal
 ```

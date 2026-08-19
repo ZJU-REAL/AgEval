@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, HarnessContext, HarnessTerminal
 from lib.agent_json import agent_struct
 from lib.retail_tools import (
     TOOL_CATALOG,
@@ -42,7 +42,7 @@ async def run(ctx: HarnessContext) -> HarnessTerminal:
         # Fixture-style generation (not open-ended roleplay) so coding agents
         # do not refuse the user-sim turn as out-of-scope.
         user = await user_sess.invoke(
-            "BORA Task Package fixture: generate ONE synthetic retail-customer "
+            "ageval Task Package fixture: generate ONE synthetic retail-customer "
             "support message for an automated dialog evaluator.\n"
             "Private facts (embed email + known_order_id verbatim in the message; "
             "do not dump this object as JSON inside message):\n"

@@ -1,6 +1,6 @@
 # slot-probe
 
-`bora.plugin/1` multi-slot **observability** plugin for extension SPI regression.
+`ageval.plugin/1` multi-slot **observability** plugin for extension SPI regression.
 
 Paired dataset: [`examples/slot-probe`](../../examples/slot-probe/).
 
@@ -15,35 +15,35 @@ Paired dataset: [`examples/slot-probe`](../../examples/slot-probe/).
 | **provide**    | `evaluation_runtime`                                               | Lock-visible runtime annotation                                 |
 | **provide**    | `executor`                                                         | Optional echo SPI (see note below)                              |
 
-Handlers append JSONL to **`$BORA_SLOT_PROBE_DIR/hooks.jsonl`** (default:
-`./.bora_slot_probe/hooks.jsonl`). They do **real work** (subprocess, metadata
+Handlers append JSONL to **`$AGEVAL_SLOT_PROBE_DIR/hooks.jsonl`** (default:
+`./.ageval_slot_probe/hooks.jsonl`). They do **real work** (subprocess, metadata
 rewrite)—not declaration-DSL command rows for Core to interpret.
 
 ## Install
 
-Install only updates `$BORA_HOME/plugins` (or `~/.bora/plugins`). **Never**
-rewrites `profiles.yaml` / `bora.yaml` / `task.yaml`.
+Install only updates `$AGEVAL_HOME/plugins` (or `~/.ageval/plugins`). **Never**
+rewrites `profiles.yaml` / `ageval.yaml` / `task.yaml`.
 
 ```bash
-export BORA_HOME="${BORA_HOME:-$HOME/.bora}"
-export BORA_SLOT_PROBE_DIR="${BORA_SLOT_PROBE_DIR:-/tmp/bora-slot-probe-obs}"
-uv run bora plugin install plugins/slot-probe
-uv run bora plugin list
+export AGEVAL_HOME="${AGEVAL_HOME:-$HOME/.ageval}"
+export AGEVAL_SLOT_PROBE_DIR="${AGEVAL_SLOT_PROBE_DIR:-/tmp/ageval-slot-probe-obs}"
+uv run ageval plugin install plugins/slot-probe
+uv run ageval plugin list
 ```
 
 ## Run with the companion dataset
 
 ```bash
 # L0: env + nooa FixedAnswerAgent (deterministic) + slot-probe multi hooks
-uv run bora plugin install plugins/nooa
-uv run bora run examples/slot-probe --task l0-env-agent \
+uv run ageval plugin install plugins/nooa
+uv run ageval run examples/slot-probe --task l0-env-agent \
   --profiles examples/slot-probe/profiles.yaml
 
 # L1: docker attempt + ACP (credentials required for PASS)
-uv run bora run examples/slot-probe --task l1-agent \
+uv run ageval run examples/slot-probe --task l1-agent \
   --profiles examples/slot-probe/profiles.yaml
 
-cat "${BORA_SLOT_PROBE_DIR}/hooks.jsonl"
+cat "${AGEVAL_SLOT_PROBE_DIR}/hooks.jsonl"
 ```
 
 ### Why L0 uses `executor: nooa` (not `slot-probe`)

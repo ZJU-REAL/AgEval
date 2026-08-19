@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import os
 
-from bora.adapters.agent_openai_http import OpenAIHTTPExecutor
-from bora.adapters.agent_registry import discover_executor_kinds, resolve_executor
+from ageval.adapters.agent_openai_http import OpenAIHTTPExecutor
+from ageval.adapters.agent_registry import discover_executor_kinds, resolve_executor
 
 
 def test_discover_includes_builtins() -> None:

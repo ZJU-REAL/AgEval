@@ -19,7 +19,7 @@ def test_lock_sdk_session_single_actor() -> None:
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "lock",
             str(PKG),
             "--task",
@@ -37,12 +37,12 @@ def test_lock_sdk_session_single_actor() -> None:
 def test_offline_sdk_l1_fail_closed_no_host() -> None:
     """Offline: fail closed without inventing PASS or host fallback."""
     env = os.environ.copy()
-    env["BORA_OFFLINE_AGENT"] = "1"
+    env["AGEVAL_OFFLINE_AGENT"] = "1"
     proc = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(PKG),
             "--task",

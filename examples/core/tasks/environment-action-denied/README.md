@@ -4,7 +4,7 @@
 denied **before mutation**.
 
 No Agent profiles. Runtime runs a deny probe against the package Environment
-(PostgreSQL resource class). Harness reads `.bora_env_result.json`, asserts
+(PostgreSQL resource class). Harness reads `.ageval_env_result.json`, asserts
 `denied_before_mutation`, and publishes the denial record for evaluation.
 
 ## What you learn
@@ -20,6 +20,6 @@ No Agent profiles. Runtime runs a deny probe against the package Environment
 ## Run
 
 ```bash
-uv run bora lock examples/core --task environment-action-denied
-uv run bora run  examples/core --task environment-action-denied
+uv run ageval lock examples/core --task environment-action-denied
+uv run ageval run  examples/core --task environment-action-denied
 ```

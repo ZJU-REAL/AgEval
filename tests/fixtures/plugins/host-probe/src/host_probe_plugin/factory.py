@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult
+from ageval.adapters.agent_contract import AgentResult
 
 
 def describe_host_probe() -> dict[str, Any]:

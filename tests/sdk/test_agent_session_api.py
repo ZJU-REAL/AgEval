@@ -6,7 +6,7 @@ import asyncio
 import os
 
 import pytest
-from bora_sdk import Agent, AgentSession
+from ageval_sdk import Agent, AgentSession
 
 
 def test_session_rejects_profile_overrides() -> None:
@@ -20,8 +20,8 @@ def test_session_rejects_profile_overrides() -> None:
 
 
 def test_local_max_turns_soft_stop() -> None:
-    os.environ["BORA_SDK_SESSION_STUB"] = "1"
-    os.environ.pop("BORA_AGENT_SERVICE_SOCK", None)
+    os.environ["AGEVAL_SDK_SESSION_STUB"] = "1"
+    os.environ.pop("AGEVAL_AGENT_SERVICE_SOCK", None)
     try:
         session = AgentSession(attempt_id="attempt_x", profile_id="p", max_turns=1)
 
@@ -33,7 +33,7 @@ def test_local_max_turns_soft_stop() -> None:
 
         asyncio.run(_run())
     finally:
-        os.environ.pop("BORA_SDK_SESSION_STUB", None)
+        os.environ.pop("AGEVAL_SDK_SESSION_STUB", None)
 
 
 def test_agent_facade_builds_session() -> None:

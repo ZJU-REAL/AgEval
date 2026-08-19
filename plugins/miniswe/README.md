@@ -1,6 +1,6 @@
 # miniswe — mini-swe-agent executor plugin
 
-External `bora.plugin/1`. **Not** first-party BORA core.
+External `ageval.plugin/1`. **Not** first-party ageval core.
 
 Drives [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) on the
 **parent host**. The Attempt container only runs `bash` via `docker exec`.
@@ -22,15 +22,15 @@ Model HTTP stays on the parent, so `provider.network: none` can still invoke.
 
 ```bash
 uv sync --extra miniswe
-uv run bora plugin install plugins/miniswe
+uv run ageval plugin install plugins/miniswe
 ```
 
-Install updates `$BORA_HOME/plugins` only — never edits package yaml.
+Install updates `$AGEVAL_HOME/plugins` only — never edits package yaml.
 
 ## Bind
 
 ```yaml
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: miniswe
@@ -50,7 +50,7 @@ Same harness: `Agent.session(...).invoke`. Switch with `--profiles`.
 ## Slots
 
 `provide(executor)` + `on: image_contribute` + `on: trajectory_collect`.
-Bake is nearly a no-op (bash already on `bora-attempt:l1`) but the file is
+Bake is nearly a no-op (bash already on `ageval-attempt:l1`) but the file is
 required for L1 bind. PASS stays the package evaluator.
 
 ## Evidence

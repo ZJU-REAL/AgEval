@@ -1,4 +1,4 @@
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: host-probe

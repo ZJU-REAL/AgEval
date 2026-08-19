@@ -15,7 +15,7 @@ operators never treat a green harness terminal as a benchmark PASS.
 ## Run
 
 ```bash
-uv run bora run examples/core --task evaluator-negative
+uv run ageval run examples/core --task evaluator-negative
 ```
 
 Expect overall evaluation **FAIL** (or Result status that reflects FAIL), not PASS.

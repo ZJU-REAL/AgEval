@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite.suite_run import (
+from ageval.application.suite.suite_run import (
     _existing_attempt_keys,
     execute_suite_run,
     is_suite_cancel_requested,
@@ -83,7 +83,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
             await asyncio.sleep(0.05)
         await asyncio.sleep(0.02)
         run_id = f"sha256_dead_run_{task_id}_1"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",
@@ -112,7 +112,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
     async def runner2(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         second_calls.append(task_id)
         run_id = f"sha256_dead_run_{task_id}_2"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from bora.application.attempt.campaign import MatrixAxis, expand_matrix, parse_matrix_arg
-from bora.config.errors import ConfigError
+from ageval.application.attempt.campaign import MatrixAxis, expand_matrix, parse_matrix_arg
+from ageval.config.errors import ConfigError
 
 
 def test_expand_cartesian() -> None:

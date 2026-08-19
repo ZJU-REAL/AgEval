@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from bora_sdk import HarnessTerminal
+from ageval_sdk import HarnessTerminal
 
 
 async def run(ctx):
