@@ -5,11 +5,15 @@ import {
   decodeFileContent,
   getPackageFile,
   listPackageFiles,
+  resolveAgentPackageDigest,
+  splitJobOverlaySources,
   RegistryHttpError,
   type FileItem,
+  type SuiteRow,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, pathMatchesPrefixes } from "@/lib/file-tree";
+import { cn } from "@/lib/utils";
 
 /** Package-file preview limited to a binding's declared ``overlays:`` prefixes. */
 export function OverlayFilePanel({
@@ -126,16 +130,144 @@ export function OverlayFilePanel({
   if (!canPreview) return null;
 
   return (
-    <div className="rounded-[8px] border border-hairline overflow-hidden">
-      <FileSplitPanel
-        tree={tree}
-        treeLoading={treeLoading}
-        selectedPath={selectedPath}
-        onSelect={setSelectedPath}
-        fileContent={fileContent}
-        fileLoading={fileLoading}
-        fileNote={fileNote}
-        rootPrefix="overlays"
+    <FileSplitPanel
+      tree={tree}
+      treeLoading={treeLoading}
+      selectedPath={selectedPath}
+      onSelect={setSelectedPath}
+      fileContent={fileContent}
+      fileLoading={fileLoading}
+      fileNote={fileNote}
+      rootPrefix="overlays"
+    />
+  );
+}
+
+type OverlaySource = {
+  key: string;
+  label: string;
+  packageId: string;
+  digest: string;
+  prefixes: string[];
+};
+
+/** Dataset overlays (no agent_ref) and Agent-package overlays, tabbed like Local/Shared. */
+export function JobOverlayPreview({
+  overlay,
+  datasetId,
+  datasetDigest,
+}: {
+  overlay: SuiteRow["job_overlay"] | null | undefined;
+  datasetId: string;
+  datasetDigest: string;
+}) {
+  const token = getToken();
+  const split = useMemo(() => splitJobOverlaySources(overlay), [overlay]);
+  const [agentDigests, setAgentDigests] = useState<Record<string, string>>({});
+  const [scope, setScope] = useState<string | null>(null);
+
+  const agentKey = split.agents.map((a) => a.ref).join("\n");
+  useEffect(() => {
+    let cancelled = false;
+    if (!split.agents.length) {
+      setAgentDigests({});
+      return;
+    }
+    void Promise.all(
+      split.agents.map(async (agent) => {
+        const resolved = await resolveAgentPackageDigest(agent.ref, token);
+        return [agent.packageId, resolved?.digest || ""] as const;
+      }),
+    ).then((rows) => {
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      for (const [id, digest] of rows) {
+        if (digest) next[id] = digest;
+      }
+      setAgentDigests(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentKey, token, split.agents]);
+
+  const sources = useMemo(() => {
+    const out: OverlaySource[] = [];
+    if (split.jobPrefixes.length && datasetId && datasetDigest) {
+      out.push({
+        key: "job",
+        label: "Job",
+        packageId: datasetId,
+        digest: datasetDigest,
+        prefixes: split.jobPrefixes,
+      });
+    }
+    const oneAgent = split.agents.length === 1;
+    for (const agent of split.agents) {
+      const digest = agentDigests[agent.packageId];
+      if (!digest) continue;
+      const leaf = agent.packageId.includes("/")
+        ? agent.packageId.slice(agent.packageId.lastIndexOf("/") + 1)
+        : agent.packageId;
+      out.push({
+        key: agent.packageId,
+        label: oneAgent ? "Agent" : leaf,
+        packageId: agent.packageId,
+        digest,
+        prefixes: agent.prefixes,
+      });
+    }
+    return out;
+  }, [agentDigests, datasetDigest, datasetId, split]);
+
+  useEffect(() => {
+    if (!sources.length) {
+      setScope(null);
+      return;
+    }
+    if (!scope || !sources.some((s) => s.key === scope)) {
+      setScope(sources[0].key);
+    }
+  }, [scope, sources]);
+
+  const active = sources.find((s) => s.key === scope) ?? sources[0];
+  if (!active) return null;
+
+  return (
+    <div className="space-y-2">
+      {sources.length > 1 ? (
+        <div
+          className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
+          role="group"
+          aria-label="Overlay source"
+        >
+          {sources.map((src) => (
+            <button
+              key={src.key}
+              type="button"
+              onClick={() => setScope(src.key)}
+              className={cn(
+                "px-2 py-0.5 text-[11px] rounded-[4px] transition-colors",
+                active.key === src.key
+                  ? "bg-canvas-soft text-ink font-medium shadow-sm"
+                  : "text-mute hover:text-ink",
+              )}
+            >
+              {src.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-mute">
+          {active.key === "job"
+            ? "Overlays from this job's Dataset package."
+            : "Overlays from the bound Agent package."}
+        </p>
+      )}
+      <OverlayFilePanel
+        databaseId={active.packageId}
+        packageDigest={active.digest}
+        prefixes={active.prefixes}
       />
     </div>
   );

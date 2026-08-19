@@ -195,8 +195,11 @@ export type SuiteRow = {
         model?: string;
         base_url?: string;
         api_key?: string;
+        label?: string;
+        agent_ref?: string;
         options?: { entry?: string; reasoning_effort?: string };
         overlays?: string[];
+        extensions?: Array<{ plugin?: string; options?: Record<string, unknown> }>;
       }
     >;
   };
@@ -271,6 +274,65 @@ export function agentRefPackageId(ref: string | undefined | null): string | null
   const id = ref.split("@", 1)[0] ?? "";
   if (!id.includes("/") || id.startsWith("local/")) return null;
   return id;
+}
+
+function overlayPathList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const path = String(item || "").trim();
+    if (!path.startsWith("overlays/") || seen.has(path)) continue;
+    seen.add(path);
+    out.push(path);
+  }
+  return out;
+}
+
+/** Split job_overlay overlay paths: Dataset (no published agent_ref) vs Agent packages. */
+export function splitJobOverlaySources(
+  overlay: SuiteRow["job_overlay"] | null | undefined,
+): {
+  jobPrefixes: string[];
+  agents: { ref: string; packageId: string; prefixes: string[] }[];
+} {
+  const jobPrefixes: string[] = [];
+  const jobSeen = new Set<string>();
+  const byPackage = new Map<string, { ref: string; prefixes: string[]; seen: Set<string> }>();
+  const bindings = overlay?.bindings;
+  if (!bindings) return { jobPrefixes, agents: [] };
+  for (const raw of Object.values(bindings)) {
+    if (!raw) continue;
+    const paths = overlayPathList(raw.overlays);
+    if (!paths.length) continue;
+    const parsed = parsePublishedAgentRef(raw.agent_ref);
+    if (parsed) {
+      let group = byPackage.get(parsed.packageId);
+      if (!group) {
+        group = { ref: String(raw.agent_ref).trim(), prefixes: [], seen: new Set() };
+        byPackage.set(parsed.packageId, group);
+      }
+      for (const path of paths) {
+        if (group.seen.has(path)) continue;
+        group.seen.add(path);
+        group.prefixes.push(path);
+      }
+      continue;
+    }
+    for (const path of paths) {
+      if (jobSeen.has(path)) continue;
+      jobSeen.add(path);
+      jobPrefixes.push(path);
+    }
+  }
+  return {
+    jobPrefixes,
+    agents: [...byPackage.entries()].map(([packageId, group]) => ({
+      ref: group.ref,
+      packageId,
+      prefixes: group.prefixes,
+    })),
+  };
 }
 
 /** Full package digest for a published agent_ref (short digest prefix-matched). */
@@ -990,8 +1052,25 @@ export function pluginsUsedBySuite(
         : { plugin_id: marketplaceId },
     );
   }
-  if (fromStore.length) return fromStore;
   const bindings = suite.job_overlay?.bindings;
+  if (bindings && typeof bindings === "object") {
+    for (const raw of Object.values(bindings)) {
+      const rows = raw?.extensions;
+      if (!Array.isArray(rows)) continue;
+      for (const row of rows) {
+        const id = String(row?.plugin || "").trim();
+        const key = id.toLowerCase();
+        if (!id || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {
+          continue;
+        }
+        seen.add(key);
+        fromStore.push({
+          plugin_id: resolveMarketplacePluginId(id, catalog, preferredOrgId),
+        });
+      }
+    }
+  }
+  if (fromStore.length) return fromStore;
   if (!bindings || typeof bindings !== "object") return [];
   for (const raw of Object.values(bindings)) {
     const exec = String(raw?.executor || "").trim();

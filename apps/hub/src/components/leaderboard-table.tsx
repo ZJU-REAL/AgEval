@@ -38,9 +38,8 @@ import {
 } from "@/lib/suite-metrics";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
-import { OverlayFilePanel } from "@/components/overlay-file-panel";
+import { JobOverlayPreview } from "@/components/overlay-file-panel";
 import { ScrollTable } from "@/components/scroll-table";
-import { overlayPathsFromJobOverlay } from "@/lib/file-tree";
 
 /** Shared column widths — keep Agent/Model tight so columns stay similar. */
 const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
@@ -510,7 +509,6 @@ export function LeaderboardTable({
               const nPass = typeof m.n_pass === "number" ? m.n_pass : null;
               const open = openId === s.suite_run_id;
               const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
-              const overlayPrefixes = overlayPathsFromJobOverlay(s.job_overlay);
               const overlayDigest =
                 versions?.find((row) => row.version === s.database_version)
                   ?.package_digest || packageDigest;
@@ -697,19 +695,11 @@ export function LeaderboardTable({
                                 content={rehydrateScript}
                                 maxHeightClass="max-h-40"
                               />
-                              {overlayPrefixes.length && overlayDigest ? (
-                                <div className="space-y-2">
-                                  <p className="text-xs text-mute">
-                                    Declared overlays from this job binding.
-                                    Bytes stay in the bound Dataset release.
-                                  </p>
-                                  <OverlayFilePanel
-                                    databaseId={databaseId}
-                                    packageDigest={overlayDigest}
-                                    prefixes={overlayPrefixes}
-                                  />
-                                </div>
-                              ) : null}
+                              <JobOverlayPreview
+                                overlay={s.job_overlay}
+                                datasetId={databaseId}
+                                datasetDigest={overlayDigest || ""}
+                              />
                             </>
                           ) : expandTab === "plugin" ? (
                             <div className="space-y-2">
