@@ -36,7 +36,7 @@ bindings:
 uv run bora executors -v
 ```
 
-看 `engine_ready` 与 `acp_entry_ready`。L0 子进程环境只投影 allowlist（`PATH` / `HOME` / `LANG`、entry 声明的 credential 名、binding 的 `api_key` / `base_url`）；宿主里未声明的 token 进不了 entry。
+看 `engine_ready` 与 `acp_entry_ready`。`-v` 还会标 `credential_missing`：声明的 credential 名全空、且 binding 没有 `api_key` 时出现。需要密钥的 entry（如 `pi`）在 `--probe` / session-open 会 fail closed；支持 OAuth / 本机登录的 entry 只警告。L0 子进程环境只投影 allowlist（`PATH` / `HOME` / `LANG`、entry 声明的 credential 名、binding 的 `api_key` / `base_url`）；宿主里未声明的 token 进不了 entry。
 
 ## 运行时切换
 

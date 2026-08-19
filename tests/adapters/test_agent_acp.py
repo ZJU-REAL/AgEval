@@ -8,7 +8,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.adapters.agent_contract import parse_validated_text_structured
+from bora.adapters.agent_contract import (
+    RESULT_HEALTH_NOOP_TURN,
+    observational_result_health,
+    parse_validated_text_structured,
+)
 from bora.plugins.contrib.acp import AcpExecutor, normalize_acp_usage
 from bora.plugins.contrib.acp.executor import (
     _find_reasoning_config_option,
@@ -88,6 +92,71 @@ def test_child_env_projects_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch
     assert env["ZAI_API_KEY"] == "secret-glm"
     assert env["ANTHROPIC_BASE_URL"] == "https://example.test/v1"
     assert env["OPENAI_BASE_URL"] == "https://example.test/v1"
+
+
+def _clear_acp_cred_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "ZAI_API_KEY",
+        "ZAI_CODING_CN_API_KEY",
+        "ZHIPU_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "XAI_API_KEY",
+        "OPENCODE_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_ensure_session_fail_closed_when_required_key_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    _clear_acp_cred_env(monkeypatch)
+    ex = AcpExecutor(entry_id="pi", model="entry-default")
+    err = ex._ensure_session(workdir="/tmp", timeout=1.0)
+    assert err == "credential_missing"
+
+
+def test_ensure_session_warns_only_for_keyless_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    _clear_acp_cred_env(monkeypatch)
+    ex = AcpExecutor(entry_id="codex", model="entry-default")
+    err = ex._ensure_session(workdir="/tmp", timeout=1.0)
+    assert err != "credential_missing"
+
+
+def test_result_health_noop_turn() -> None:
+    assert (
+        observational_result_health(ok=True, usage=None, actual_model=None, events=())
+        == RESULT_HEALTH_NOOP_TURN
+    )
+    assert (
+        observational_result_health(
+            ok=True, usage={"input_tokens": 1}, actual_model=None, events=()
+        )
+        is None
+    )
+    assert observational_result_health(ok=True, usage=None, actual_model="gpt", events=()) is None
+    assert (
+        observational_result_health(
+            ok=True,
+            usage=None,
+            actual_model=None,
+            events=({"kind": "tool", "phase": "start"},),
+        )
+        is None
+    )
+    ex = AcpExecutor(entry_id="pi", model="entry-default")
+    ex._actual_model = None
+    result = ex._result(text="pi v0.83.0 banner", ok=True, error=None, stop="end_turn")
+    assert result.ok is True
+    assert result.usage is None
+    assert result.metadata is not None
+    assert result.metadata["result_health"] == RESULT_HEALTH_NOOP_TURN
+    assert result.metadata["actual_model"] is None
 
 
 def test_child_env_extra_home_overrides_host(monkeypatch: pytest.MonkeyPatch) -> None:

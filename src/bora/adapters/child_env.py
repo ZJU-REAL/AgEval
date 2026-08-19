@@ -187,6 +187,27 @@ def project_cli_child_env(
     return {k: v for k, v in env.items() if v}
 
 
+def entry_credentials_missing(
+    credential_env_names: Sequence[str],
+    *,
+    api_key_env: str | None = None,
+    host_environ: Mapping[str, str] | None = None,
+) -> bool:
+    """True when no declared locator or credential env name has a value.
+
+    Empty ``credential_env_names`` and no ``api_key_env`` is not missing
+    (the entry does not declare an env key — e.g. OAuth-only).
+    Values are never returned.
+    """
+    host = host_environ if host_environ is not None else os.environ
+    if api_key_env and str(host.get(api_key_env) or "").strip():
+        return False
+    names = [n for n in credential_env_names if n]
+    if not names:
+        return False
+    return not any(str(host.get(n) or "").strip() for n in names)
+
+
 def cli_credential_available(
     kind: str,
     *,

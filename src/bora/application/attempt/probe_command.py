@@ -12,6 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from bora.adapters.child_env import entry_credentials_missing
 from bora.adapters.executor_capabilities import get_capabilities
 from bora.adapters.executor_inventory import FIRST_PARTY_KINDS
 from bora.application.attempt.lock_command import LockCommand
@@ -192,33 +193,59 @@ def _probe_first_party(
     kind = str(binding["executor"])
     role = binding["role"]
     checks: list[dict[str, Any]] = []
-    if kind == "acp" and path == "l0":
+    if kind == "acp":
         entry = binding.get("entry")
+        desc = None
         if isinstance(entry, str) and entry.strip():
             try:
                 from bora.plugins.contrib.acp.registry import load_acp_entries
 
                 desc = load_acp_entries()[entry.strip()]
-                ready = readiness_for(desc, which=which)
-                checks.append(
-                    {
-                        "id": "acp_entry",
-                        "ok": ready["readiness"] == "ready",
-                        "entry_id": entry.strip(),
-                        "role": role,
-                        "status": ready["readiness"],
-                    }
-                )
             except KeyError:
-                checks.append(
-                    {
-                        "id": "acp_entry",
-                        "ok": False,
-                        "entry_id": entry.strip(),
-                        "role": role,
-                        "status": "unknown_entry",
-                    }
-                )
+                if path == "l0":
+                    checks.append(
+                        {
+                            "id": "acp_entry",
+                            "ok": False,
+                            "entry_id": entry.strip(),
+                            "role": role,
+                            "status": "unknown_entry",
+                        }
+                    )
+        if desc is not None and path == "l0":
+            ready = readiness_for(desc, which=which)
+            checks.append(
+                {
+                    "id": "acp_entry",
+                    "ok": ready["readiness"] == "ready",
+                    "entry_id": desc.entry_id,
+                    "role": role,
+                    "status": ready["readiness"],
+                }
+            )
+        if desc is not None:
+            api_key = binding.get("api_key")
+            missing = entry_credentials_missing(
+                desc.credential_env_names,
+                api_key_env=api_key if isinstance(api_key, str) else None,
+                host_environ=environ,
+            )
+            required = bool(desc.credential_env_names) and not desc.keyless_auth
+            policy = (
+                "optional" if desc.keyless_auth or not desc.credential_env_names else "required"
+            )
+            checks.append(
+                {
+                    "id": "credential_missing",
+                    "ok": not (missing and required),
+                    "missing": missing,
+                    "status": "credential_missing" if missing else "ok",
+                    "policy": policy,
+                    "entry_id": desc.entry_id,
+                    "role": role,
+                    "names": list(desc.credential_env_names),
+                }
+            )
     names = _locator_names_for(binding, kind)
     if names:
         ok, present = locator_names_present(names, environ)

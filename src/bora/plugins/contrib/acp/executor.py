@@ -15,9 +15,10 @@ from bora import __version__ as BORA_VERSION
 from bora.adapters.agent_contract import (
     AgentExecutor,
     AgentResult,
+    observational_result_health,
     parse_validated_text_structured,
 )
-from bora.adapters.child_env import project_cli_child_env
+from bora.adapters.child_env import entry_credentials_missing, project_cli_child_env
 from bora.plugins.contrib.acp.client import (
     _BoraAcpClient,
     _map_stop_reason,
@@ -453,6 +454,14 @@ class AcpExecutor(AgentExecutor):
                 prompt_usage=self._client.prompt_usage,
                 usage_update=self._client.latest_usage_update,
             )
+        health = observational_result_health(
+            ok=ok,
+            usage=usage,
+            actual_model=self._actual_model,
+            events=events,
+        )
+        if health:
+            meta["result_health"] = health
         return AgentResult(
             model=str(self._actual_model or self.model),
             text=text,
@@ -476,6 +485,15 @@ class AcpExecutor(AgentExecutor):
         cwd = workdir or self.workdir
         if not cwd:
             return "acp_workdir_required"
+        if (
+            not self.descriptor.keyless_auth
+            and self.descriptor.credential_env_names
+            and entry_credentials_missing(
+                self.descriptor.credential_env_names,
+                api_key_env=self.api_key_env,
+            )
+        ):
+            return "credential_missing"
         if self._command_override is None and self._process_launcher is None:
             ready = readiness_for(self.descriptor)
             if ready["readiness"] != "ready":

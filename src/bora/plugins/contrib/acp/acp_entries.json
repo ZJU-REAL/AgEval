@@ -20,6 +20,7 @@
       "acp_version": "1.1.9",
       "install_command": "npm install -g @agentclientprotocol/codex-acp@1.1.9 @openai/codex@0.146.0",
       "credential_env_names": [],
+      "keyless_auth": true,
       "model_binding": "config-option",
       "platforms": ["darwin", "linux"],
       "fixed_env": {
@@ -40,6 +41,7 @@
       "acp_version": "0.64.2",
       "install_command": "npm install -g @agentclientprotocol/claude-agent-acp@0.64.2 @anthropic-ai/claude-code@2.1.221",
       "credential_env_names": ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"],
+      "keyless_auth": true,
       "model_binding": "config-option",
       "platforms": ["darwin", "linux"],
       "fixed_env": {
@@ -68,6 +70,7 @@
         "ANTHROPIC_AUTH_TOKEN",
         "XAI_API_KEY"
       ],
+      "keyless_auth": false,
       "model_binding": "config-option",
       "platforms": ["darwin", "linux"],
       "fixed_env": {
@@ -95,6 +98,7 @@
         "OPENCODE_API_KEY",
         "XAI_API_KEY"
       ],
+      "keyless_auth": true,
       "model_binding": "config-option",
       "platforms": ["darwin", "linux"],
       "fixed_env": {
@@ -115,6 +119,7 @@
       "acp_version": "0.2.120",
       "install_command": "npm install -g @xai-official/grok@0.2.120",
       "credential_env_names": ["XAI_API_KEY"],
+      "keyless_auth": false,
       "model_binding": "config-option",
       "platforms": ["darwin", "linux"],
       "fixed_env": {
