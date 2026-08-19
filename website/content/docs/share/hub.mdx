@@ -22,7 +22,7 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - 登录后的 **Home**：你上传的 Jobs、组织、可维护 Dataset / Task、你上传的插件（标记与标题同 marketplace）。未登录会去登录页。无 publish / upload / release 按钮  
 - 列表搜索与 **Your organizations | Explore** 同一行；文件树分栏高度固定；轨迹按密封文件顺序展示、tool-call 可折叠；步骤头只在密封行带 `elapsed_ms` 时显示耗时  
 
-- Runtime 详情：无密钥 YAML；该 role 声明了 `overlays:` 时打开只读文件树。带 `agent_ref` 的绑定预览已发布 Agent 包；否则走绑定的 Dataset release。省略 `overlays` 则只有 YAML。
+- Agent 详情：已发布包，加上用 `agent_ref` 点名该 Agent 的官方公开 suite 出场。这些行的 overlay 预览走 Agent 包。只用 `--profiles` 的 suite 留在 Dataset Leaderboard。
 
 - **用 GitHub 登录**（浏览器 OAuth；CLI 仍是 Device Flow）
 
@@ -47,8 +47,8 @@ pnpm dev   # http://127.0.0.1:5174
 | `/datasets/:id/tasks/:task` | README · Files（Local \| Shared \| Overlays）· Jobs |
 | `/plugins` | 插件 marketplace |
 | `/plugins/:id` | 插件详情（声明槽时间线 · 文件预览 · CLI 安装命令） |
-| `/runtimes` | Runtime plaza（从官方公开 Leaderboard 派生的 harness 卡片） |
-| `/runtimes/:id` | 出场表；点行看该 role 的 overlay 树；点 Dataset 回到该 suite 的公开榜 |
+| `/agents` | 已发布 Agent 目录 |
+| `/agents/:id` | 绑定、文件、按 version 分组的出场 |
 | `/organizations` | 我的组织 · 加入组织 · Dataset / 插件计数 |
 | `/organizations/:orgId` | 概览（成员 · Dataset · 插件）· 设置 |
 | `/users/:login` | 公开用户页（只列官方组织；未登录可看） |

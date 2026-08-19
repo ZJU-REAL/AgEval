@@ -64,9 +64,6 @@ export function Shell({
           <NavLink to="/agents" className={navClass} end={false}>
             Agents
           </NavLink>
-          <NavLink to="/runtimes" className={navClass} end={false}>
-            Runtimes
-          </NavLink>
           <NavLink to="/organizations" className={navClass}>
             Organizations
           </NavLink>

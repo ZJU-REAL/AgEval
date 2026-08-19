@@ -35,7 +35,7 @@ extensions:
 
 Secrets stay locators. Overlay JSON must not embed tokens. No JSON deep-merge.
 
-To show the same files on the Hub Runtime plaza, list them on this role as
+To show the same files on Hub Agent appearances, list them on this role as
 `overlays:` (paths under `overlays/`, resolved from the Agent package when
 `agent_ref` is set). That field is the
 published set; this plugin still copies only its own `files[].src`.

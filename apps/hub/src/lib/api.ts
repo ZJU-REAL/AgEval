@@ -38,12 +38,6 @@ export type SuitePluginRef = {
   version?: string;
 };
 
-export type RuntimeRef = {
-  role: string;
-  runtime_id: string;
-  display_name: string;
-};
-
 const BUILTIN_EXECUTOR_KINDS = new Set(["acp", "openai-http"]);
 
 export type PackageRelease = {
@@ -216,18 +210,13 @@ export type SuiteRow = {
   complete?: boolean;
   bound_kind?: "release" | "draft" | "unknown" | string;
   task_set_digest?: string;
-  /** Official public board only; Hub must not invent plaza ids. */
-  runtime_refs?: RuntimeRef[];
+  /** Official public board only; derived from published agent_ref. */
+  agent_refs?: AgentRefLink[];
 };
 
-export type RuntimeCard = {
-  runtime_id: string;
-  display_name: string;
-  executor: string;
-  entry: string;
-  options: Record<string, unknown>;
-  n_datasets: number;
-  n_appearances: number;
+export type AgentRefLink = {
+  role: string;
+  package_id: string;
 };
 
 export type RuntimeTeammate = {
@@ -237,7 +226,9 @@ export type RuntimeTeammate = {
   display_name: string;
 };
 
-export type RuntimeAppearance = {
+export type AgentAppearance = {
+  package_id: string;
+  agent_version: string;
   database_id: string;
   database_version?: string;
   package_digest?: string;
@@ -251,7 +242,6 @@ export type RuntimeAppearance = {
   created_at?: number;
   teammates?: RuntimeTeammate[];
   overlays?: string[];
-  /** Provenance: bora.agent/1 ref that produced this binding (design/14). */
   agent_ref?: string;
 };
 
@@ -301,10 +291,6 @@ export async function resolveAgentPackageDigest(
   if (!match?.package_digest) return null;
   return { packageId: parsed.packageId, digest: match.package_digest };
 }
-
-export type RuntimeDetail = RuntimeCard & {
-  appearances: RuntimeAppearance[];
-};
 
 export type AttemptMeta = {
   run_id: string;
@@ -411,13 +397,26 @@ export async function listPackages(
   return Array.isArray(data.items) ? data.items : [];
 }
 
+export async function listPackageVersionsWithAppearances(
+  databaseId: string,
+  token: string | null,
+): Promise<{ items: PackageRelease[]; appearances: AgentAppearance[] }> {
+  const path = `/v1/packages/${databaseId.split("/").map(encodeURIComponent).join("/")}`;
+  const data = await requestJson<{
+    items?: PackageRelease[];
+    appearances?: AgentAppearance[];
+  }>(path, { token });
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    appearances: Array.isArray(data.appearances) ? data.appearances : [],
+  };
+}
+
 export async function listPackageVersions(
   databaseId: string,
   token: string | null,
 ): Promise<PackageRelease[]> {
-  const path = `/v1/packages/${databaseId.split("/").map(encodeURIComponent).join("/")}`;
-  const data = await requestJson<{ items?: PackageRelease[] }>(path, { token });
-  return Array.isArray(data.items) ? data.items : [];
+  return (await listPackageVersionsWithAppearances(databaseId, token)).items;
 }
 
 /** Package meta by digest (includes plugin_preview for bora.plugin/1). */
@@ -533,24 +532,12 @@ export async function listSuites(
   return Array.isArray(data.items) ? data.items : [];
 }
 
-export async function listRuntimes(token: string | null): Promise<RuntimeCard[]> {
-  const data = await requestJson<{ items?: RuntimeCard[] }>("/v1/runtimes", { token });
-  return Array.isArray(data.items) ? data.items : [];
-}
-
-export async function getRuntime(
-  runtimeId: string,
-  token: string | null,
-): Promise<RuntimeDetail> {
-  return requestJson(`/v1/runtimes/${encodeURIComponent(runtimeId)}`, { token });
-}
-
-export function uniqueRuntimeRefs(refs: RuntimeRef[] | undefined): RuntimeRef[] {
+export function uniqueAgentRefs(refs: AgentRefLink[] | undefined): AgentRefLink[] {
   if (!refs?.length) return [];
   const seen = new Set<string>();
-  const out: RuntimeRef[] = [];
+  const out: AgentRefLink[] = [];
   for (const ref of refs) {
-    const id = (ref.runtime_id || "").trim();
+    const id = (ref.package_id || "").trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
     out.push(ref);

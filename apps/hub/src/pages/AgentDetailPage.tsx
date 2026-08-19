@@ -7,21 +7,33 @@ import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   decodeDatasetId,
   decodeFileContent,
+  encodeDatasetId,
   getOrg,
   getPackageByDigest,
   getPackageFile,
   listPackageFiles,
-  listPackageVersions,
+  listPackageVersionsWithAppearances,
   splitPackageId,
   updatePackageDisplayName,
+  type AgentAppearance,
   type AgentPreview,
+  type FileItem,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
+import { buildNestedTree, pathMatchesPrefixes, type TreeNode } from "@/lib/file-tree";
+import { formatScore } from "@/lib/utils";
 
 export function AgentDetailPage() {
   const { agentId: rawId } = useParams();
@@ -39,6 +51,17 @@ export function AgentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [canEditName, setCanEditName] = useState(false);
+  const [appearances, setAppearances] = useState<AgentAppearance[]>([]);
+  const [versions, setVersions] = useState<PackageRelease[]>([]);
+  const [selectedAppearanceKey, setSelectedAppearanceKey] = useState<string | null>(
+    null,
+  );
+  const [overlayItems, setOverlayItems] = useState<FileItem[]>([]);
+  const [overlayPath, setOverlayPath] = useState<string | null>(null);
+  const [overlayContent, setOverlayContent] = useState<string | null>(null);
+  const [overlayNote, setOverlayNote] = useState<string | null>(null);
+  const [overlayTreeLoading, setOverlayTreeLoading] = useState(false);
+  const [overlayFileLoading, setOverlayFileLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,10 +70,13 @@ export function AgentDetailPage() {
       setTreeLoading(true);
       setError(null);
       try {
-        const versions = await listPackageVersions(agentId, token);
+        const listed = await listPackageVersionsWithAppearances(agentId, token);
+        const versions = listed.items;
         if (!versions.length) {
           throw new RegistryHttpError(404, "not_found", "agent not found");
         }
+        setVersions(versions);
+        setAppearances(listed.appearances);
         const latest = [...versions].sort(
           (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
         )[0];
@@ -106,6 +132,8 @@ export function AgentDetailPage() {
         setRelease(null);
         setPreview(null);
         setTree([]);
+        setAppearances([]);
+        setVersions([]);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -174,6 +202,124 @@ export function AgentDetailPage() {
     const binding = preview?.binding || {};
     return Object.entries(binding).filter(([, v]) => v !== null && v !== undefined);
   }, [preview]);
+
+  const appearancesByVersion = useMemo(() => {
+    const groups = new Map<string, AgentAppearance[]>();
+    for (const row of appearances) {
+      const key = row.agent_version || "unknown";
+      const list = groups.get(key) ?? [];
+      list.push(row);
+      groups.set(key, list);
+    }
+    return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a));
+  }, [appearances]);
+
+  const selectedAppearance = useMemo(() => {
+    if (!appearances.length) return null;
+    return (
+      appearances.find(
+        (row) => `${row.suite_run_id}:${row.role}` === selectedAppearanceKey,
+      ) ?? appearances[0]
+    );
+  }, [appearances, selectedAppearanceKey]);
+
+  const overlayDigest = useMemo(() => {
+    if (!selectedAppearance) return "";
+    const match = versions.find((row) => row.version === selectedAppearance.agent_version);
+    return match?.package_digest || "";
+  }, [selectedAppearance, versions]);
+
+  const overlayKey = (selectedAppearance?.overlays ?? []).join("\n");
+  const overlayPrefixes = overlayKey ? overlayKey.split("\n") : [];
+  const canPreviewOverlays = Boolean(overlayDigest && overlayPrefixes.length);
+
+  useEffect(() => {
+    if (!canPreviewOverlays || !overlayDigest) {
+      setOverlayItems([]);
+      setOverlayPath(null);
+      setOverlayContent(null);
+      setOverlayNote(null);
+      setOverlayTreeLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setOverlayTreeLoading(true);
+    listPackageFiles(agentId, overlayDigest, token)
+      .then((files) => {
+        if (cancelled) return;
+        const matched = files.items.filter(
+          (item) => item.type !== "dir" && pathMatchesPrefixes(item.path, overlayPrefixes),
+        );
+        setOverlayItems(matched);
+        const prefer =
+          overlayPrefixes
+            .map((prefix) =>
+              matched.find((item) => item.path === prefix || item.path.startsWith(`${prefix}/`)),
+            )
+            .find(Boolean) || matched[0];
+        setOverlayPath(prefer?.path ?? null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setOverlayItems([]);
+        setOverlayPath(null);
+        setOverlayNote(
+          err instanceof RegistryHttpError
+            ? `${err.code}: ${err.message}`
+            : err instanceof Error
+              ? err.message
+              : String(err),
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setOverlayTreeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId, canPreviewOverlays, overlayDigest, overlayKey, token]);
+
+  const overlayTree = useMemo(
+    () => (canPreviewOverlays ? buildNestedTree(overlayItems, "overlays") : []),
+    [canPreviewOverlays, overlayItems],
+  );
+
+  useEffect(() => {
+    if (!canPreviewOverlays || !overlayDigest || !overlayPath) {
+      setOverlayContent(null);
+      return;
+    }
+    let cancelled = false;
+    setOverlayFileLoading(true);
+    getPackageFile(agentId, overlayDigest, overlayPath, token)
+      .then((file) => {
+        if (cancelled) return;
+        try {
+          setOverlayContent(decodeFileContent(file));
+          setOverlayNote(null);
+        } catch {
+          setOverlayContent(null);
+          setOverlayNote("Could not decode file content.");
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setOverlayContent(null);
+        setOverlayNote(
+          err instanceof RegistryHttpError
+            ? `${err.code}: ${err.message}`
+            : err instanceof Error
+              ? err.message
+              : String(err),
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setOverlayFileLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId, canPreviewOverlays, overlayDigest, overlayPath, token]);
 
   return (
     <>
@@ -293,6 +439,100 @@ export function AgentDetailPage() {
                 </dl>
               </div>
             )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium text-ink">Appearances</h2>
+            <p className="text-xs text-mute">
+              Official public complete release-bound suites that named this Agent
+              via <span className="font-mono">agent_ref</span>. Observational
+              metrics only — PASS stays on the independent evaluator.
+            </p>
+            {appearancesByVersion.length === 0 ? (
+              <p className="text-sm text-mute">
+                No Hub appearances yet. Run with{" "}
+                <span className="font-mono">--agent {agentId}@&lt;version&gt;</span>{" "}
+                and upload a complete official suite.
+              </p>
+            ) : (
+              appearancesByVersion.map(([version, rows]) => (
+                <div key={version} className="space-y-2">
+                  <h3 className="text-xs font-mono text-mute">v{version}</h3>
+                  <div className="rounded-[8px] border border-hairline overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Dataset</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Model</TableHead>
+                          <TableHead className="text-right">Pass rate</TableHead>
+                          <TableHead className="text-right">Mean</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows.map((row) => {
+                          const key = `${row.suite_run_id}:${row.role}`;
+                          const selected =
+                            (selectedAppearanceKey ??
+                              `${appearances[0]?.suite_run_id}:${appearances[0]?.role}`) ===
+                            key;
+                          return (
+                            <TableRow
+                              key={key}
+                              className="cursor-pointer"
+                              data-state={selected ? "open" : undefined}
+                              onClick={() => setSelectedAppearanceKey(key)}
+                            >
+                              <TableCell className="font-mono text-xs">
+                                <Link
+                                  to={`/datasets/${encodeDatasetId(row.database_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="hover:underline underline-offset-2"
+                                >
+                                  {row.database_id}
+                                </Link>
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {row.role}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {row.model || "—"}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {formatScore(row.pass_rate)}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-xs">
+                                {formatScore(row.mean_score)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ))
+            )}
+            {canPreviewOverlays ? (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-ink">Published overlays</h3>
+                <p className="text-xs text-mute">
+                  Prefix closure from this Agent package, not the Dataset.
+                </p>
+                <div className="rounded-[8px] border border-hairline overflow-hidden">
+                  <FileSplitPanel
+                    tree={overlayTree}
+                    treeLoading={overlayTreeLoading}
+                    selectedPath={overlayPath}
+                    onSelect={setOverlayPath}
+                    fileContent={overlayContent}
+                    fileLoading={overlayFileLoading}
+                    fileNote={overlayNote}
+                    rootPrefix="overlays"
+                  />
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section id="agent-files" className="space-y-2">

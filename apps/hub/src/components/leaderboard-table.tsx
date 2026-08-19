@@ -22,7 +22,7 @@ import {
   latestPackageByDatabase,
   listPackages,
   pluginsUsedBySuite,
-  uniqueRuntimeRefs,
+  uniqueAgentRefs,
   type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
@@ -528,7 +528,7 @@ export function LeaderboardTable({
               const powK = passPowerPrimaryK(m);
               const agentText = s.agent_label || "";
               const modelText = s.model_label || "";
-              const runtimeLinks = uniqueRuntimeRefs(s.runtime_refs);
+              const runtimeLinks = uniqueAgentRefs(s.agent_refs);
 
               return (
                 <Fragment key={s.suite_run_id}>
@@ -542,13 +542,13 @@ export function LeaderboardTable({
                         <span className="flex flex-col gap-0.5 min-w-0">
                           {runtimeLinks.map((ref) => (
                             <Link
-                              key={ref.runtime_id}
-                              to={`/runtimes/${encodeURIComponent(ref.runtime_id)}`}
+                              key={ref.package_id}
+                              to={`/agents/${encodeDatasetId(ref.package_id)}`}
                               onClick={(e) => e.stopPropagation()}
                               className="inline-block max-w-full text-sm hover:text-ink hover:underline underline-offset-2"
                             >
                               <TruncateTip
-                                text={ref.display_name}
+                                text={ref.package_id}
                                 className="text-sm"
                               />
                             </Link>

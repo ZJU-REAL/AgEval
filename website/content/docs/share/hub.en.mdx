@@ -22,7 +22,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
 - List search sits on the same row as **Your organizations | Explore**; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
-- Runtime detail: secret-free YAML plus, when that role lists `overlays:`, a read-only file tree. Bindings with `agent_ref` preview from the published Agent package; others use the bound Dataset release. Omit `overlays` and the page stays YAML-only.
+- Agent detail: published package plus appearances from official public suites that named it with `agent_ref`. Overlay preview for those rows comes from the Agent package. Suites run with `--profiles` only stay on the Dataset Leaderboard.
 
 - **Sign in with GitHub** (browser OAuth; CLI stays on Device Flow)
 
@@ -47,8 +47,8 @@ pnpm dev   # http://127.0.0.1:5174
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs |
 | `/plugins` | Plugin marketplace |
 | `/plugins/:id` | Plugin detail (declared-slot timeline · file preview · CLI install) |
-| `/runtimes` | Runtime plaza (harness cards derived from official public Leaderboards) |
-| `/runtimes/:id` | Appearance table; select a row for that role’s overlay tree; dataset cell opens the suite on the public board |
+| `/agents` | Published Agent catalog |
+| `/agents/:id` | Binding, files, appearances grouped by version |
 | `/organizations` | Your orgs · Join · dataset and plugin counts |
 | `/organizations/:orgId` | Overview (members · datasets · plugins) · Settings |
 | `/users/:login` | Public user profile (official orgs only; signed-out OK) |
