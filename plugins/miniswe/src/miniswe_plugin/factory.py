@@ -162,7 +162,7 @@ def _write_backend_raw(collect_dir: str | None, payload: dict[str, Any]) -> None
 
 
 class MinisweExecutorSPI:
-    """Host SPI. L1 bind_to_target switches bash to docker exec; LLM stays here."""
+    """Executor SPI. The box runs the shell; the LLM client stays on this side."""
 
     kind = PLUGIN_ID
 
@@ -197,19 +197,6 @@ class MinisweExecutorSPI:
     @staticmethod
     def describe() -> dict[str, Any]:
         return describe_miniswe()
-
-    def bind_to_target(self, placement: Any) -> MinisweExecutorSPI:
-        bound = MinisweExecutorSPI(
-            options=self.options,
-            profile_id=self.profile_id,
-            model=self.model,
-            base_url=self.base_url,
-            api_key=self.api_key_env,
-            workdir=str(getattr(placement, "workdir", None) or "/attempt/workspace"),
-        )
-        bound._placement = placement
-        bound.execution_location = "attempt-container"
-        return bound
 
     def open(self, **kwargs: Any) -> None:
         del kwargs

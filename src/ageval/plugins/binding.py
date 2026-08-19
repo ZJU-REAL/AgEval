@@ -15,6 +15,19 @@ from ageval.plugins.protocol import ExtensionGraph
 from ageval.plugins.registry import ExtensionRegistry
 
 
+def _accepted(factory: Any, context: dict[str, Any]) -> dict[str, Any]:
+    """Pass only the context this factory declared; extras are not its business."""
+    import inspect
+
+    try:
+        parameters = inspect.signature(factory).parameters
+    except (TypeError, ValueError):
+        return context
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()):
+        return context
+    return {key: value for key, value in context.items() if key in parameters}
+
+
 def bind_winner(
     registry: ExtensionRegistry,
     graph: ExtensionGraph,
@@ -42,7 +55,9 @@ def bind_winner(
             kind="extension_materialize_failed",
         )
     try:
-        return registration.impl(options=dict(winner.options or {}), **context)
+        return registration.impl(
+            options=dict(winner.options or {}), **_accepted(registration.impl, context)
+        )
     except ExtensionMaterializeError:
         raise
     except Exception as exc:  # noqa: BLE001 — one bind failure, no retry

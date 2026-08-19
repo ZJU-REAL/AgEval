@@ -1,263 +1,150 @@
-"""L1 dsh executor: docker exec the baked in-container worker."""
+"""In-box dsh executor: run the baked worker through the box, not through docker.
+
+The plugin no longer knows what kind of box it is in. It asks the environment to
+run one command and reads the worker's JSON back, so the same code works for a
+container, a sandbox or a remote machine.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 from typing import Any
 
-from ageval.adapters.agent_container import wrap_docker_exec
 from ageval.plugins.agent_result import AgentExecutor, AgentResult
-from ageval.adapters.provider_docker.cli_supervise import supervise_docker_cli
-from ageval.provider.contract import TerminationPolicy
-from ageval.provider.outcomes import ProcessTerminalKind
-from dsh_plugin import PLUGIN_ID
-from dsh_plugin.factory import (
-    DEFAULT_COMPOSITION,
-    DEFAULT_MODEL,
-    DEFAULT_PROVIDER,
-    container_cordis_path,
-    permission_child_env,
-    resolve_api_key_value,
-    resolve_base_url,
-    resolve_effective_composition,
-    resolve_permission,
-)
 
 WORKER_PATH = "/usr/local/bin/ageval-executor-dsh"
-WORKDIR_CONTAINER = "/attempt/workspace"
-HOME_CONTAINER = "/attempt/home"
+_ENV_API_KEYS = ("OPENAI_API_KEY", "litellm_api_key")
+_ENV_BASE_URLS = ("OPENAI_BASE_URL", "litellm_base_url", "AGEVAL_OPENAI_BASE_URL")
 
 
-class DshContainerExecutor(AgentExecutor):
-    """Invoke DeepSeekHarness inside the Attempt container via baked worker."""
+class DshBoxExecutor(AgentExecutor):
+    """Invoke a task-local dsh agent inside the Attempt's box.
 
-    kind = PLUGIN_ID
-    execution_location = "attempt-container"
+    The parent never imports the task's ``lib.agents``: the worker baked into the
+    image does, on the far side of the box boundary.
+    """
+
+    kind = "dsh"
 
     def __init__(
         self,
         *,
-        container_id: str,
-        model: str = DEFAULT_MODEL,
-        provider: str = DEFAULT_PROVIDER,
-        composition: str = DEFAULT_COMPOSITION,
-        permission: str | None = None,
+        host: Any,
+        placement: Any,
+        agent_ref: str,
+        method: str = "run",
+        model: str = "dsh",
         base_url: str | None = None,
         api_key_env: str | None = None,
-        uid: int = 10001,
-        gid: int = 10001,
-        workdir_container: str = WORKDIR_CONTAINER,
-        home_container: str = HOME_CONTAINER,
-        session_id: str | None = None,
     ) -> None:
-        self.container_id = container_id
-        self.model = model or DEFAULT_MODEL
-        self.provider = provider or DEFAULT_PROVIDER
-        self.permission = resolve_permission(permission)
-        self.composition = resolve_effective_composition(
-            composition=composition, permission=self.permission
-        )
-        self.cordis_container = container_cordis_path(self.composition)
+        self._host = host
+        self._placement = placement
+        self.agent_ref = agent_ref
+        self.method = method or "run"
+        self.model = model or "dsh"
         self.base_url = (base_url or "").strip() or None
         self.api_key_env = (api_key_env or "").strip() or None
-        self.uid = uid
-        self.gid = gid
-        self.workdir_container = workdir_container
-        self.home_container = home_container
-        self.workdir = workdir_container
-        self.session_id = session_id
-        self._ready = False
 
     def open(self, **kwargs: Any) -> None:
         del kwargs
-        self._ready = True
 
     def close(self) -> None:
-        self._ready = False
-
-    def _child_env(self) -> dict[str, str]:
-        env: dict[str, str] = {
-            "DSH_CWD": self.workdir_container,
-            "DSH_SESSION_ROOT": f"{self.home_container.rstrip('/')}/dsh-sessions",
-            "DSH_CORDIS_CONFIG": self.cordis_container,
-            **permission_child_env(self.permission),
-        }
-        key = resolve_api_key_value(self.api_key_env)
-        if key:
-            env["DEEPSEEK_API_KEY"] = key
-        base = resolve_base_url(self.base_url)
-        if base:
-            env["DEEPSEEK_BASE_URL"] = base
-        return env
+        return None
 
     def invoke(
         self,
         prompt: str,
         *,
         timeout: float = 60.0,
-        workdir: str | None = None,
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
         del redaction_sentinels
-        effective_workdir = workdir or self.workdir_container
-        payload: dict[str, Any] = {
+        request = {
             "prompt": prompt,
+            "agent": self.agent_ref,
+            "method": self.method,
             "model": self.model,
-            "provider": self.provider,
-            "composition": self.composition,
-            "permission": self.permission,
-            "workdir": effective_workdir,
-            "session_root": f"{self.home_container.rstrip('/')}/dsh-sessions",
-            "cordis": self.cordis_container,
-            "session_id": self.session_id,
+            "workdir": self._placement.workdir,
         }
-        env = self._child_env()
-        env["DSH_CWD"] = effective_workdir
-        cmd = wrap_docker_exec(
-            container_id=self.container_id,
-            uid=self.uid,
-            gid=self.gid,
-            workdir=effective_workdir,
-            env=env,
-            argv=["python3", WORKER_PATH],
+        base_url = self._first_env(_ENV_BASE_URLS, self.base_url)
+        api_key = self._first_env(_ENV_API_KEYS, None, locator=self.api_key_env)
+        if base_url:
+            request["api_base"] = base_url
+
+        env = {"DSH_MODEL": self.model}
+        if base_url:
+            env["OPENAI_BASE_URL"] = base_url
+        if api_key:
+            env["OPENAI_API_KEY"] = api_key
+
+        result = asyncio.run(
+            self._host.exec(
+                ["python3", WORKER_PATH, json.dumps(request, sort_keys=True)],
+                cwd=self._placement.workdir,
+                env=env,
+                timeout_sec=timeout,
+            )
         )
-        teardown_requested = {"value": False}
+        if result.exit_code != 0:
+            return AgentResult(
+                model=self.model,
+                text="",
+                structured=None,
+                ok=False,
+                error="dsh_worker_failed",
+                stderr=result.stderr[-2000:],
+                metadata={"executor_kind": self.kind, "exit_code": result.exit_code},
+            )
+        return self._result_from(result.stdout, collect_dir=collect_dir)
 
-        def _terminate() -> str | None:
-            teardown_requested["value"] = True
-            return None
-
-        def _is_alive() -> bool:
-            return teardown_requested["value"]
-
+    def _result_from(self, stdout: str, *, collect_dir: str | None) -> AgentResult:
         try:
-            outcome = supervise_docker_cli(
-                cmd,
-                timeout_seconds=max(1.0, float(timeout)),
-                stdin_bytes=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-                termination=TerminationPolicy(terminate=_terminate, is_alive=_is_alive),
-            )
-        except FileNotFoundError as exc:
+            payload = json.loads(stdout.strip().splitlines()[-1])
+        except (IndexError, json.JSONDecodeError):
             return AgentResult(
                 model=self.model,
-                text="",
+                text=stdout[-2000:],
                 structured=None,
                 ok=False,
-                error=f"dsh_container_exec:{exc}",
-                metadata={
-                    "plugin": PLUGIN_ID,
-                    "execution_location": self.execution_location,
-                },
+                error="dsh_worker_unreadable",
+                metadata={"executor_kind": self.kind},
             )
-
-        if outcome.terminal == ProcessTerminalKind.TIMED_OUT:
-            return AgentResult(
-                model=self.model,
-                text="",
-                structured=None,
-                ok=False,
-                error="dsh_timeout",
-                metadata={
-                    "plugin": PLUGIN_ID,
-                    "execution_location": self.execution_location,
-                },
-            )
-        if outcome.terminal == ProcessTerminalKind.SPAWN_FAILED:
-            return AgentResult(
-                model=self.model,
-                text="",
-                structured=None,
-                ok=False,
-                error=f"dsh_container_exec:{(outcome.stderr_summary or '')[:200]}",
-                metadata={
-                    "plugin": PLUGIN_ID,
-                    "execution_location": self.execution_location,
-                },
-            )
-
-        stdout = (outcome.stdout_summary or "").strip()
-        stderr = (outcome.stderr_summary or "")[-2000:]
-        if not stdout:
-            return AgentResult(
-                model=self.model,
-                text="",
-                structured=None,
-                ok=False,
-                error="dsh_container_empty_stdout",
-                stderr=stderr,
-                metadata={
-                    "plugin": PLUGIN_ID,
-                    "execution_location": self.execution_location,
-                    "returncode": outcome.exit_code,
-                },
-            )
-        line = stdout.splitlines()[-1]
-        try:
-            doc = json.loads(line)
-        except json.JSONDecodeError:
-            return AgentResult(
-                model=self.model,
-                text=stdout[:2000],
-                structured=None,
-                ok=False,
-                error="dsh_container_bad_json",
-                stderr=stderr,
-                metadata={
-                    "plugin": PLUGIN_ID,
-                    "execution_location": self.execution_location,
-                },
-            )
-        if not isinstance(doc, dict):
-            return AgentResult(
-                model=self.model,
-                text=str(doc),
-                structured=None,
-                ok=False,
-                error="dsh_container_result_not_object",
-                metadata={
-                    "plugin": PLUGIN_ID,
-                    "execution_location": self.execution_location,
-                },
-            )
-        base_meta: dict[str, Any] = {}
-        raw_meta = doc.get("metadata")
-        if isinstance(raw_meta, dict):
-            base_meta = {str(k): v for k, v in raw_meta.items()}
-        structured = doc.get("structured") if isinstance(doc.get("structured"), dict) else None
-        raw_events = doc.get("events")
-        events: tuple[dict[str, Any], ...] = ()
-        if isinstance(raw_events, list):
-            events = tuple(e for e in raw_events if isinstance(e, dict))
-        raw_native = doc.get("native_events")
-        native: list[dict[str, Any]] = []
-        if isinstance(raw_native, list):
-            native = [e for e in raw_native if isinstance(e, dict)]
-        usage = doc.get("usage") if isinstance(doc.get("usage"), dict) else None
-        meta: dict[str, Any] = {
-            **base_meta,
-            "plugin": PLUGIN_ID,
-            "execution_location": self.execution_location,
-            "returncode": outcome.exit_code,
-            "native_event_count": len(native),
-        }
-        if collect_dir and native:
+        if collect_dir:
             from pathlib import Path
 
             root = Path(collect_dir)
             root.mkdir(parents=True, exist_ok=True)
-            (root / "dsh_events.jsonl").write_text(
-                "\n".join(json.dumps(e, ensure_ascii=False, default=str) for e in native) + "\n",
-                encoding="utf-8",
-            )
+            (root / "dsh_worker.json").write_text(stdout, encoding="utf-8")
+        text = str(payload.get("text") or "")
+        structured = payload.get("structured")
         return AgentResult(
-            model=str(doc.get("model") or self.model),
-            text=str(doc.get("text") or ""),
-            structured=structured,
-            ok=bool(doc.get("ok", False)),
-            error=str(doc["error"]) if doc.get("error") else None,
-            stderr=stderr,
-            events=events,
-            usage=usage,
-            metadata=meta,
+            model=str(payload.get("model") or self.model),
+            text=text,
+            structured=structured if isinstance(structured, dict) else None,
+            ok=bool(payload.get("ok", True)),
+            error=payload.get("error"),
+            events=tuple(payload.get("events") or ()),
+            usage=payload.get("usage") if isinstance(payload.get("usage"), dict) else None,
+            metadata={"executor_kind": self.kind, "agent": self.agent_ref},
         )
+
+    def _first_env(
+        self,
+        names: tuple[str, ...],
+        declared: str | None,
+        *,
+        locator: str | None = None,
+    ) -> str | None:
+        if declared:
+            return declared
+        for name in (locator, *names):
+            value = os.environ.get(name or "", "").strip()
+            if value:
+                return value
+        return None
+
+
+__all__ = ["WORKER_PATH", "DshBoxExecutor"]

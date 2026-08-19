@@ -79,69 +79,7 @@ async def trajectory_enrich(ctx: Any, value: Any, nxt: Any) -> Any:
     return out
 
 
-async def evidence_extra(ctx: Any, value: Any, nxt: Any) -> Any:
-    out = await nxt(value)
-    items = list(out) if isinstance(out, list) else []
-    items.append({"plugin": "slot-probe", "kind": "slot_probe_note", "payload": {"ok": True}})
-    audit("evidence_extra", n=len(items))
-    return items
-
-
-async def after_env_prepare(ctx: Any, value: Any, nxt: Any) -> Any:
-    """Tail of env prepare: run plugin shell, rewrite handoff (real SPI)."""
-    value = await nxt(value)
-    workdir = getattr(ctx, "workdir", None) or getattr(ctx, "package_root", None)
-    workdir_p = Path(str(workdir)) if workdir else Path.cwd()
-    if POST_SETUP.is_file():
-        subprocess.run(
-            ["bash", str(POST_SETUP)],
-            check=True,
-            cwd=str(workdir_p),
-        )
-    marker = workdir_p / "post_setup.ok"
-    # Also copy marker into probe dir for easy host-side discovery after run.
-    if marker.is_file():
-        dest = probe_dir() / "post_setup.ok"
-        dest.write_text(marker.read_text(encoding="utf-8"), encoding="utf-8")
-    if isinstance(value, dict):
-        value = {
-            **value,
-            "post_setup": {
-                "plugin": "slot-probe",
-                "ok": marker.is_file(),
-                "path": str(marker),
-            },
-        }
-    audit("env_prepare_commands", post_setup_ok=marker.is_file(), workdir=str(workdir_p))
-    return value
-
-
-async def env_inject(ctx: Any, value: Any, nxt: Any) -> Any:
-    out = await nxt(value)
-    if isinstance(out, dict):
-        out = {**out, "slot_probe_inject": True, "slot_probe_plugin": "slot-probe"}
-    audit("env_inject")
-    return out
-
-
-async def env_teardown(ctx: Any, value: Any, nxt: Any) -> Any:
-    audit("env_teardown_commands")
+async def cleanup_report(ctx: Any, value: Any, nxt: Any) -> Any:
+    """Audit that cleanup reported, without being able to prevent it."""
+    audit(ctx, "cleanup_report")
     return await nxt(value)
-
-
-async def evaluation_input_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
-    out = await nxt(value)
-    if isinstance(out, dict):
-        out = {**out, "slot_probe_eval_input": True}
-    audit("evaluation_input_contribute")
-    return out
-
-
-async def score_postprocess(ctx: Any, value: Any, nxt: Any) -> Any:
-    out = await nxt(value)
-    if isinstance(out, dict):
-        metrics = dict(out.get("metrics") or {})
-        metrics["slot_probe"] = 1
-        out = {**out, "metrics": metrics}
-    audit("score_postprocess")
-    return out

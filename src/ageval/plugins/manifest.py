@@ -125,6 +125,9 @@ class PluginManifest:
     inject: tuple[InjectRow, ...] = ()
     host_requires: tuple[HostRequire, ...] = ()
     plugin_requires: tuple[PluginRequire, ...] = ()
+    # ``config.image_layers``: a Dockerfile fragment the environment winner bakes
+    # on top of the base. Deliberately not a slot — an image is not a timeline.
+    image_layers: str | None = None
     source_path: str | None = None
 
     def slots_summary(self) -> dict[str, list[str]]:
@@ -217,8 +220,35 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
         inject=_parse_inject(raw.get("inject")),
         host_requires=_parse_host_requires(raw.get("host_requires")),
         plugin_requires=_parse_plugin_requires(raw.get("plugin_requires")),
+        image_layers=_parse_image_layers(raw.get("config")),
         source_path=location,
     )
+
+
+def _parse_image_layers(raw: Any) -> str | None:
+    """``config.image_layers``: one package-relative Dockerfile fragment."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise PluginManifestError("config must be a mapping", kind="plugin_manifest_invalid")
+    unknown = sorted(str(k) for k in raw if str(k) != "image_layers")
+    if unknown:
+        raise PluginManifestError(f"unknown config keys: {unknown}", kind="plugin_manifest_invalid")
+    layers = raw.get("image_layers")
+    if layers is None:
+        return None
+    if not isinstance(layers, str) or not layers.strip():
+        raise PluginManifestError(
+            "config.image_layers must be a package-relative path",
+            kind="plugin_manifest_invalid",
+        )
+    path = layers.strip()
+    if path.startswith("/") or ".." in Path(path).parts:
+        raise PluginManifestError(
+            f"config.image_layers must stay inside the plugin package: {path!r}",
+            kind="plugin_manifest_invalid",
+        )
+    return path
 
 
 def _parse_services(raw: Any) -> tuple[ServiceExport, ...]:

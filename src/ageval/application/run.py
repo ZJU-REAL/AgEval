@@ -26,6 +26,7 @@ from ageval.evidence.locators import default_runs_root
 from ageval.evidence.store import AttemptEvidenceStore
 from ageval.plugins.binding import bind_winner
 from ageval.plugins.bootstrap import ensure_bootstrapped
+from ageval.plugins.protocol import ExtensionGraph
 from ageval.plugins.services import ServiceTable
 from ageval.plugins.slots import ENVIRONMENT
 from ageval.runtime.agent_binding import AgentBinder
@@ -108,6 +109,7 @@ async def run_attempt(
             task_root=task_root,
             attempt_root=evidence.path("box"),
         ),
+        plugin_layers=_plugin_image_layers(graph),
     )
     services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
     await host.preflight()
@@ -190,6 +192,16 @@ def _selected_profile_id(lock: LockedTaskConfig) -> str:
     if isinstance(active, str) and active.strip():
         return active.strip()
     return str(rows[0].get("id"))
+
+
+def _plugin_image_layers(graph: ExtensionGraph) -> tuple[tuple[str, str], ...]:
+    """Dockerfile fragments the bound plugins declared, for kinds that build."""
+    from ageval.plugins.image_layers import layers_for_plugins
+
+    bound = {ref.plugin_id for ref in graph.winners.values()}
+    for chain in graph.chains.values():
+        bound.update(handler.plugin_id for handler in chain)
+    return tuple((layer.plugin_id, layer.body) for layer in layers_for_plugins(frozenset(bound)))
 
 
 def _environment_options(lock: LockedTaskConfig) -> dict[str, Any]:

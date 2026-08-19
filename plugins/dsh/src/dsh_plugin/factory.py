@@ -2,7 +2,7 @@
 
 Drive ``deepseek-harness-sdk`` / ``dsh-jsonrpc-agent``. Model is passed on
 ``initialize``. Credentials arrive as projected env (locator name on the
-profile). Host SPI is Recognition / L0 only; L1 Ready uses bind_to_target.
+profile). The box runs the worker; this side only builds the request.
 """
 
 from __future__ import annotations
@@ -203,26 +203,6 @@ class DshExecutorSPI:
     @staticmethod
     def describe() -> dict[str, Any]:
         return describe_dsh()
-
-    def bind_to_target(self, placement: Any) -> Any:
-        from dsh_plugin.container import DshContainerExecutor
-
-        workdir = str(getattr(placement, "workdir", None) or "/attempt/workspace")
-        home = str(getattr(placement, "home", None) or "/attempt/home")
-        return DshContainerExecutor(
-            container_id=str(placement.container_id),
-            uid=int(placement.uid),
-            gid=int(placement.gid),
-            workdir_container=workdir,
-            home_container=home,
-            model=self.model,
-            provider=self.provider,
-            composition=self.composition,
-            permission=self.permission,
-            base_url=self.base_url if isinstance(self.base_url, str) else None,
-            api_key_env=self.api_key_env if isinstance(self.api_key_env, str) else None,
-            session_id=self._session_id,
-        )
 
     def open(self, **kwargs: Any) -> None:
         del kwargs

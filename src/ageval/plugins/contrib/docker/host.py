@@ -98,8 +98,10 @@ class DockerHost:
         *,
         spec: BoxSpec,
         options: Mapping[str, object] | None = None,
+        plugin_layers: Sequence[tuple[str, str]] = (),
     ) -> None:
         opts = dict(options or {})
+        self._plugin_layers = tuple(plugin_layers)
         self._root = spec.attempt_root.expanduser().resolve(strict=False)
         self._task_root = spec.task_root.resolve(strict=False)
         self._repo_root = spec.repo_root.resolve(strict=False)
@@ -137,6 +139,7 @@ class DockerHost:
             declared_image=self._declared_image,
             platform=self._platform,
             force_build=force_build,
+            plugin_layers=self._plugin_layers,
         )
         self._image = tag
         # Sidecars come up first: the Attempt container joins their network, so

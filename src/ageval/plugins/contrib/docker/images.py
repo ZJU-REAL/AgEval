@@ -94,11 +94,13 @@ def resolve_image(
     declared_image: str | None,
     platform: str,
     force_build: bool,
+    plugin_layers: Sequence[tuple[str, str]] = (),
 ) -> tuple[str, str]:
     """Return ``(tag, digest)`` for this Attempt's image.
 
     A declared ``docker_image`` is used as-is. A task recipe is built on top of
-    the official base. With neither, the base itself is the box.
+    the official base, and the bound plugins' declared layers are baked on top of
+    that. With neither, the base itself is the box.
     """
     if declared_image:
         digest = image_digest(declared_image)
@@ -114,7 +116,7 @@ def resolve_image(
         return declared_image, digest
 
     base_digest = ensure_base_image(repo_root)
-    if dockerfile_rel is None:
+    if dockerfile_rel is None and not plugin_layers:
         return BASE_TAG, base_digest
     return build_task_image(
         task_root=task_root,
@@ -122,18 +124,66 @@ def resolve_image(
         platform=platform,
         base_digest=base_digest,
         force_build=force_build,
+        plugin_layers=plugin_layers,
     )
 
 
 def build_task_image(
     *,
     task_root: Path,
-    dockerfile_rel: str,
+    dockerfile_rel: str | None,
     platform: str,
     base_digest: str,
     force_build: bool,
+    plugin_layers: Sequence[tuple[str, str]] = (),
 ) -> tuple[str, str]:
-    """Build the task recipe with the task directory as build context."""
+    """Build the task recipe, plus plugin layers, in the task directory."""
+    recipe = _recipe_text(task_root, dockerfile_rel)
+    for plugin_id, body in plugin_layers:
+        recipe = f"{recipe.rstrip()}\n\n# --- plugin: {plugin_id} ---\n{body.strip()}\n"
+
+    content = content_digest(
+        recipe=recipe,
+        context_root=task_root,
+        platform=platform,
+        base_digest=base_digest,
+    )
+    tag = f"{PACKAGE_TAG_PREFIX}:{content[:12]}"
+    if not force_build:
+        existing = image_digest(tag)
+        if existing is not None:
+            return tag, existing
+
+    generated = task_root / f".ageval-image-{content[:12]}.Dockerfile"
+    generated.write_text(recipe, encoding="utf-8")
+    try:
+        built = docker(
+            "buildx",
+            "build",
+            "--platform",
+            platform,
+            "-f",
+            str(generated),
+            "-t",
+            tag,
+            "--load",
+            str(task_root),
+        )
+    finally:
+        generated.unlink(missing_ok=True)
+    digest = image_digest(tag)
+    if built.returncode != 0 or digest is None:
+        raise EnvironmentFailure(
+            "environment_image_unresolved",
+            f"task image build failed: {(built.stderr or built.stdout or '')[-2000:]}",
+        )
+    return tag, digest
+
+
+def _recipe_text(task_root: Path, dockerfile_rel: str | None) -> str:
+    """The task's recipe, or a bare FROM when only plugins contribute layers."""
+    if dockerfile_rel is None:
+        return f"FROM {BASE_TAG}\n"
     dockerfile = (task_root / dockerfile_rel).resolve()
     try:
         dockerfile.relative_to(task_root.resolve())
@@ -147,57 +197,25 @@ def build_task_image(
             "environment_image_unresolved",
             f"missing task recipe: {dockerfile_rel}",
         )
-
-    content = content_digest(
-        dockerfile=dockerfile,
-        context_root=task_root,
-        platform=platform,
-        base_digest=base_digest,
-    )
-    tag = f"{PACKAGE_TAG_PREFIX}:{content[:12]}"
-    if not force_build:
-        existing = image_digest(tag)
-        if existing is not None:
-            return tag, existing
-
-    built = docker(
-        "buildx",
-        "build",
-        "--platform",
-        platform,
-        "-f",
-        str(dockerfile),
-        "-t",
-        tag,
-        "--load",
-        str(task_root),
-    )
-    digest = image_digest(tag)
-    if built.returncode != 0 or digest is None:
-        raise EnvironmentFailure(
-            "environment_image_unresolved",
-            f"task image build failed: {(built.stderr or built.stdout or '')[-2000:]}",
-        )
-    return tag, digest
+    return dockerfile.read_text(encoding="utf-8")
 
 
 def content_digest(
     *,
-    dockerfile: Path,
+    recipe: str,
     context_root: Path,
     platform: str,
     base_digest: str,
 ) -> str:
     """Recipe + base identity + copied bytes + platform."""
-    text = dockerfile.read_bytes()
     hasher = hashlib.sha256()
     for label, payload in (
-        (b"dockerfile", text),
+        (b"dockerfile", recipe.encode("utf-8")),
         (b"base", base_digest.encode("utf-8")),
         (b"platform", platform.encode("utf-8")),
     ):
         hasher.update(label + b"\0" + payload + b"\0")
-    _hash_copy_sources(context_root, copy_sources(text.decode("utf-8")), hasher)
+    _hash_copy_sources(context_root, copy_sources(recipe), hasher)
     return hasher.hexdigest()
 
 

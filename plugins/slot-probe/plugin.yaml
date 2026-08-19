@@ -1,16 +1,11 @@
 format: ageval.plugin/1
 plugin_id: slot-probe
 version: 0.1.0
+# An audit plugin: it observes the chains that exist and provides nothing.
+# There is deliberately no executor here — a deterministic stand-in must never
+# be able to stand in for a real Agent in a public smoke.
 slots:
-  provide:
-    # Deterministic host executor for L0 e2e (no real LLM).
-    - id: executor
-      priority: 80
-      entry: "slot_probe.factory:build_executor"
-    - id: evaluation_runtime
-      priority: 80
-      entry: "slot_probe.factory:build_evaluation_runtime"
-  "on":
+  chain:
     - id: before_agent_open
       priority: 50
       entry: "slot_probe.hooks:before_agent_open"
@@ -38,21 +33,6 @@ slots:
     - id: trajectory_enrich
       priority: 50
       entry: "slot_probe.hooks:trajectory_enrich"
-    - id: evidence_extra
+    - id: cleanup_report
       priority: 50
-      entry: "slot_probe.hooks:evidence_extra"
-    - id: env_prepare_commands
-      priority: 50
-      entry: "slot_probe.hooks:after_env_prepare"
-    - id: env_inject
-      priority: 50
-      entry: "slot_probe.hooks:env_inject"
-    - id: env_teardown_commands
-      priority: 50
-      entry: "slot_probe.hooks:env_teardown"
-    - id: evaluation_input_contribute
-      priority: 50
-      entry: "slot_probe.hooks:evaluation_input_contribute"
-    - id: score_postprocess
-      priority: 50
-      entry: "slot_probe.hooks:score_postprocess"
+      entry: "slot_probe.hooks:cleanup_report"
