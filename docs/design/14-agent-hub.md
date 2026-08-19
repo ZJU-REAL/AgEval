@@ -4,7 +4,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 权威 | 本文件与同目录其它 design 文档共同构成设计权威 |
-| 摘要 | 一等 Agent 对象：`bora.agent/1` 包格式、可选 `overlays/` 树、本地缓存与 Hub 地址、`--agent` 投影进 profiles 通道、通配 `"*"` 默认绑定、`agent_ref` 溯源非身份、Registry `package_kind=agent`、Hub Agents 页与 plaza 互链 |
+| 摘要 | 一等 Agent 对象：`bora.agent/1` 包格式、可选 `overlays/` 树、本地缓存与 Hub 地址、`--agent` 投影进 profiles 通道、通配 `"*"` 默认绑定、`agent_ref` 溯源非身份、Registry `package_kind=agent`、Hub Agents 页挂派生出场 |
 
 ---
 
@@ -117,21 +117,21 @@ Agent 包**可以**包含一棵 `overlays/` 树。`binding.overlays` 是 publish
 | --- | --- | --- |
 | binding 键（`BINDING_FIELD_KEYS`） | ✅ 新增保留键 | 让合成文档可解析、job_overlay 可 round-trip;task.yaml 槽位自动被禁(inline-binding 断言) |
 | `job_overlay` / lock digest | ✅ 投影透传 | 运行可归因、可 `results export-profiles` 复跑 |
-| suite fingerprint `_ACTOR_KEYS` / plaza `rt_*` | ❌ | **binding 相同的两个 Agent 是同一 runtime**;可比性只看 entry/executor/model/options |
+| suite fingerprint `_ACTOR_KEYS` / `rt_*` | ❌ | 可比性只看 entry/executor/model/options；Hub 目录按已发布 `org/name` 挂接，不按 `rt_*` |
 
 ## Registry / Hub
 
 - `package_kind=agent`;media type `application/vnd.bora.agent.v1.tar+gzip`;走泛型 `/v1/packages` 通道(publish / release / versions / files / by-digest),无新路由。
 - 服务端 publish 校验：解析 `agent.yaml` + 包级 secret 扫描 + 与 `bora.yaml` / `plugin.yaml` **fail closed 互斥**;产出 binding 摘要(secret-free)供详情页。
-- Hub：Agents 列表 / 详情页(binding YAML、版本、文件、install / `--agent` 复跑命令);Dataset 列表继续排除非 database kind。
-- Runtime plaza(12)：suite 行 job_overlay 带 `agent_ref` 时,plaza 详情渲染指向 Agent 详情的链接;`rt_*` 身份不变。带 `agent_ref` 的出场预览 `overlays/` 前缀闭包走 **Agent** 包 files API,不走 Dataset release。
+- Hub：Agents 列表 / 详情页(binding YAML、版本、文件、install / `--agent` 复跑命令、按 version 分组的派生出场);Dataset 列表继续排除非 database kind。无 `/runtimes` 页。
+- 出场采集(12)：官方公开完备 release-bound suite 上,仅当 `job_overlay.bindings.<role>.agent_ref` 解析为已发布 `org/name` 时挂到该 Agent。不按 entry / executor 模糊匹配。`--profiles` 无 `agent_ref` 的 suite 只留 Leaderboard。listed overlays 预览走 **Agent** 包 files API。
 
 ## 产品不变量
 
 1. Agent 只是 binding 选型：Config Core 之下**不得**出现按 Agent 产品分支的 executor / lifecycle。投影后与手写 profiles 同构，**唯一**例外是 overlay 解析根：有 `agent_ref` → 已安装 Agent 包；无 → Database 根。
 2. `agent.yaml` 与缓存包内**永不**出现 secret 值;`api_key` / `base_url` 只承载 locator 名。
 3. lock 内 agent 引用必须钉死 `version+digest`;**禁止**浮动 `@latest` 进 lock。
-4. `agent_ref` 不进 suite fingerprint / `rt_*`;进 `job_overlay` 与 lock digest。overlay 路径与字节亦不进 `rt_*` / `config_fingerprint`。
+4. `agent_ref` 不进 suite fingerprint / `rt_*`;进 `job_overlay` 与 lock digest。overlay 路径与字节亦不进 `rt_*` / `config_fingerprint`。Hub 出场归组用 `org/name`，不用 `rt_*`。
 5. `--agent` 与 `--profiles` 互斥;`bora agent install` 只写本地缓存，不写 Dataset `overlays/`。
 6. PASS 仍只来自独立 evaluator;Agent 对象与评分无关。
 
@@ -142,3 +142,5 @@ Agent 包**可以**包含一棵 `overlays/` 树。`binding.overlays` 是 publish
 - 不从插件 `options.src` 推断 `binding.overlays`。
 - 不做开放商店信任：信任来自 pin + digest + org allowlist 展示策略(同 11)。
 - 不引入 Agent 级评分 / 榜单权威:Leaderboard 仍由 suite 结果派生。
+- 不按 entry / executor 把未署名 suite 认亲到已发布 Agent。
+- 不保留 Hub `/runtimes` 作为产品目录。
