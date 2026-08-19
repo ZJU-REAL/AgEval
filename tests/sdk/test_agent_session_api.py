@@ -1,9 +1,8 @@
-"""Spec 06 named SDK path: AgentSession contract (no Runtime authority)."""
+"""The SDK session surface: bounded turns, no authority, no invented success."""
 
 from __future__ import annotations
 
 import asyncio
-import os
 
 import pytest
 from ageval_sdk import Agent, AgentSession
@@ -19,26 +18,45 @@ def test_session_rejects_profile_overrides() -> None:
     asyncio.run(_run())
 
 
-def test_local_max_turns_soft_stop() -> None:
-    os.environ["AGEVAL_SDK_SESSION_STUB"] = "1"
-    os.environ.pop("AGEVAL_AGENT_SERVICE_SOCK", None)
-    try:
-        session = AgentSession(attempt_id="attempt_x", profile_id="p", max_turns=1)
+def test_unbound_session_reports_failure_instead_of_answering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("AGEVAL_AGENT_SERVICE_SOCK", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    session = AgentSession(attempt_id="attempt_x", profile_id="p", max_turns=2)
 
-        async def _run() -> None:
-            first = await session.invoke("one")
-            assert first.get("ok") is True
-            with pytest.raises(RuntimeError, match="max_turns"):
-                await session.invoke("two")
+    answer = asyncio.run(session.invoke("one"))
 
-        asyncio.run(_run())
-    finally:
-        os.environ.pop("AGEVAL_SDK_SESSION_STUB", None)
+    assert answer["ok"] is False
+    assert answer["error"] == "agent_session_unbound"
+    assert answer["text"] == ""
+    assert answer["structured"] is None
+
+
+def test_offline_gate_refuses_before_the_socket(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")
+    session = AgentSession(attempt_id="attempt_x", profile_id="p", max_turns=2)
+
+    answer = asyncio.run(session.invoke("one"))
+
+    assert (answer["ok"], answer["error"]) == (False, "offline_forced")
+
+
+def test_local_turn_budget_stops_the_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AGEVAL_AGENT_SERVICE_SOCK", raising=False)
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    session = AgentSession(attempt_id="attempt_x", profile_id="p", max_turns=1)
+
+    async def _run() -> None:
+        await session.invoke("one")
+        with pytest.raises(RuntimeError, match="max_turns"):
+            await session.invoke("two")
+
+    asyncio.run(_run())
 
 
 def test_agent_facade_builds_session() -> None:
-    agent = Agent(attempt_id="attempt_abc")
-    session = agent.session("codex-mini", max_turns=3)
+    session = Agent(attempt_id="attempt_abc").session("solver", max_turns=3)
     assert isinstance(session, AgentSession)
-    assert session.profile_id == "codex-mini"
+    assert session.profile_id == "solver"
     assert session.provider_session_handle is None
