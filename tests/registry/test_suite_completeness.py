@@ -205,7 +205,7 @@ def test_later_draft_task_does_not_drop_old_release_run(tmp_path: Path) -> None:
         .replace("task_id: hello", "task_id: world"),
         encoding="utf-8",
     )
-    shutil.copy(hello / "harness.py", world / "harness.py")
+    shutil.copy(hello / "run.py", world / "run.py")
     shutil.copy(hello / "evaluator.py", world / "evaluator.py")
     pkg, blob_digest, size = build_archive(wider)
     packages.publish(

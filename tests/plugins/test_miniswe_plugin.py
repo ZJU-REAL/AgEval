@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -17,10 +16,11 @@ from miniswe_plugin.factory import (  # noqa: E402
     MinisweExecutorSPI,
     _load_official_mini_config,
     build_executor,
-    describe_miniswe,
 )
 from miniswe_plugin.hooks import image_contribute, trajectory_collect  # noqa: E402
 from miniswe_plugin.trajectory import SCHEMA, to_ageval_trajectory_events  # noqa: E402
+
+
 def test_docker_exec_argv_uses_core_placement() -> None:
     argv = build_docker_exec_argv(
         container_id="abc",

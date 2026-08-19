@@ -71,7 +71,7 @@ def test_publish_plugin_preview_and_install(
     assert summary["ok"] is True
     assert summary["package_kind"] == "plugin"
     assert summary["media_type"] == PLUGIN_MEDIA_TYPE
-    assert "executor" in summary["slots_summary"]["provide"]
+    assert "executor" in summary["slots_summary"]["exclusive"]
     ref = summary["ref"]
 
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
@@ -89,14 +89,13 @@ def test_publish_plugin_preview_and_install(
     with urllib.request.urlopen(req) as resp:  # noqa: S310
         body = json.loads(resp.read().decode("utf-8"))
     assert body.get("package_kind") == "plugin"
-    assert body.get("plugin_preview", {}).get("slots", {}).get("provide") == ["executor"]
+    assert body.get("plugin_preview", {}).get("slots", {}).get("exclusive") == ["executor"]
     declared = body.get("plugin_preview", {}).get("declared") or []
     ids = {d.get("id") for d in declared}
     assert "executor" in ids
     assert "before_agent_invoke" in ids
     exec_row = next(d for d in declared if d.get("id") == "executor")
-    assert exec_row.get("kind") == "provide"
-    assert exec_row.get("level") == 2
+    assert exec_row.get("kind") == "exclusive"
     assert "plugin.yaml" in body.get("plugin_preview", {}).get("files", [])
 
     # Spec 06: list exposes package_kind without opening blob; filter works.

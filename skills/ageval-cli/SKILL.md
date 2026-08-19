@@ -1,7 +1,7 @@
 ---
 name: ageval-cli
 description: >
-  Operate ageval public CLI (ageval lock/run/plugin/view/publish/release/executors/campaign/evidence/status/submit/cancel):
+  Operate ageval public CLI (ageval lock/run/plugin/view/publish/release/executors/campaign/evidence/status/cancel):
   install with uv, command flags, allowlisted --set pointers, exit codes, Result.logs
   trajectory locator, offline fail-closed (AGEVAL_OFFLINE_AGENT), list supported executor
   kinds and ACP entry readiness, plugin install/list/uninstall, dataset draft/release,
@@ -63,7 +63,7 @@ uv run ageval --help
 | `ageval registry org-create\|org-list`                          | Create / list orgs. Allowlisted official slugs (default `official`) need admin bootstrap token     |
 | `ageval registry org-add-member\|org-remove-member`             | Owner or admin add / remove members by GitHub login; target need not be logged in                |
 | `ageval registry org-set-role\|org-transfer`                    | Change an existing member's role, or hand the org to a current member (caller becomes member)    |
-| `ageval submit` / `ageval status` / `ageval cancel`                 | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`)                       |
+| `ageval results upload` / `ageval status` / `ageval cancel`                 | Durable Run **or suite job** (8-hex id; status/cancel may take `--database`)                       |
 
 Discover flags with `uv run ageval <cmd> --help`. Source of truth: `src/ageval/cli/main.py`.
 

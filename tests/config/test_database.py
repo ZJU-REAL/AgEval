@@ -5,8 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from tests.helpers.lock import lock_task, lock_with_profiles
+from tests.helpers.lock import lock_task
 
 from ageval.config.dataset import (
     list_tasks,
@@ -79,12 +78,10 @@ def test_examples_core_manifest() -> None:
 
 
 def test_resolve_and_lock_public_example() -> None:
-    from ageval.config.profiles import resolve_job_document
 
     resolved = resolve_task(CORE_DB, "config-minimal")
     assert resolved.dataset_id == "example/core"
     assert resolved.task_dir.name == "config-minimal"
-    agent_profiles = resolve_job_document(CORE_DB)
     lock = lock_task(CORE_DB, "config-minimal")
     assert lock.task_id == "config-minimal"
     assert lock.digest.startswith("sha256:")

@@ -637,7 +637,7 @@ async def execute_suite_run(
     plan: SuitePlan,
     *,
     overrides: dict[str, Any] | None = None,
-    run_fn: Callable[..., Awaitable[tuple[int, Any, dict[str, Any]]]] | None = None,
+    run_fn: Callable[..., Awaitable[tuple[int, Any]]] | None = None,
     profiles_path: Path | str | None = None,
     resume: bool = False,
     replace_slots: set[tuple[str, int]] | None = None,

@@ -7,10 +7,10 @@ from typing import Any
 
 import pytest
 import yaml
+from tests.helpers.lock import lock_with_profiles
 
 from ageval.config.errors import ConfigError
 from ageval.config.model import thaw
-from tests.helpers.lock import lock_with_profiles
 
 
 def _write_pkg(root: Path, slot_ids: list[str]) -> Path:

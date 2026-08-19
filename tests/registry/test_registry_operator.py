@@ -386,7 +386,11 @@ def test_suite_results_upload_get_list_roundtrip(
     assert listed["items"][0]["suite_run_id"] == suite_run_id
     assert listed["items"][0]["agent_label"] == "codex"
     assert (
-        listed["items"][0].get("job_overlay", {}).get("agent_profiles", {}).get("solver", {}).get("model")
+        listed["items"][0]
+        .get("job_overlay", {})
+        .get("agent_profiles", {})
+        .get("solver", {})
+        .get("model")
         == "m1"
     )
 
@@ -394,9 +398,9 @@ def test_suite_results_upload_get_list_roundtrip(
     assert got["ok"] is True
     assert got["metrics"]["n_pass"] == 2
     assert got["task_refs"][0]["task_id"] == "a"
-    assert got.get("job_overlay", {}).get("agent_profiles", {}).get("solver", {}).get("api_key") == (
-        "LOCATOR_ONLY"
-    )
+    assert got.get("job_overlay", {}).get("agent_profiles", {}).get("solver", {}).get(
+        "api_key"
+    ) == ("LOCATOR_ONLY")
 
     out = tmp_path / "suite-restored"
     got_arch = get_suite_result(suite_run_id, out_dir=out)

@@ -118,6 +118,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
         json.dumps(
             {
                 "invocation_id": "inv_test",
+                "session_id": "sess_test",
                 "profile_id": "main",
                 "executor_kind": "acp",
                 "model": "test-model",
@@ -130,13 +131,21 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
         encoding="utf-8",
     )
     traj = [
-        {"type": "turn", "role": "user", "content": "hello", "turn_index": 1, "source": "ageval"},
+        {
+            "type": "turn",
+            "role": "user",
+            "content": "hello",
+            "turn_index": 1,
+            "source": "ageval",
+            "session_id": "sess_test",
+        },
         {
             "type": "turn",
             "role": "assistant",
             "content": "world",
             "turn_index": 1,
             "source": "acp",
+            "session_id": "sess_test",
         },
         {
             "type": "terminal",
@@ -144,6 +153,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
             "stop_reason": "end_turn",
             "source": "ageval",
             "turn_index": 1,
+            "session_id": "sess_test",
             "usage": {
                 "input_tokens": 100,
                 "output_tokens": 20,
@@ -155,7 +165,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
             },
         },
     ]
-    (inv / "trajectory.jsonl").write_text(
+    (inv.parent.parent.parent / "trajectory.jsonl").write_text(
         "\n".join(json.dumps(x) for x in traj) + "\n", encoding="utf-8"
     )
     (inv / "final-response.json").write_text(
@@ -258,7 +268,7 @@ def test_trajectory_tool_call_and_observation_steps(tmp_path: Path) -> None:
         {"type": "turn", "role": "assistant", "content": "done", "turn_index": 1},
         {"type": "terminal", "ok": True, "turn_index": 1},
     ]
-    (inv / "trajectory.jsonl").write_text(
+    (inv.parent.parent.parent / "trajectory.jsonl").write_text(
         "\n".join(json.dumps(x) for x in traj) + "\n", encoding="utf-8"
     )
 
@@ -286,7 +296,9 @@ def test_tree_and_file_and_traversal(tmp_path: Path) -> None:
 
     tree = trials.trial_tree(db, job_id, "alpha", "run_alpha_1", scope="agent")
     paths = {e["path"] for e in tree["entries"]}
-    assert any("trajectory.jsonl" in p for p in paths)
+    # The agent scope holds the per-invocation record; the trajectory itself is
+    # one file at the Attempt root.
+    assert any("invocations" in p for p in paths)
 
     file_payload = trials.trial_file(
         db,
@@ -528,6 +540,7 @@ def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha")
             json.dumps(
                 {
                     "invocation_id": dirname.split("-", 1)[-1],
+                    "session_id": f"sess_{profile_id}",
                     "profile_id": profile_id,
                     "executor_kind": "acp",
                     "model": model,
@@ -544,17 +557,32 @@ def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha")
             "stop_reason": "end_turn",
             "source": "ageval",
             "turn_index": 1,
+            "session_id": f"sess_{profile_id}",
         }
         if usage is not None:
             terminal["usage"] = usage
+        session = f"sess_{profile_id}"
         lines = [
-            {"type": "turn", "role": "user", "content": "hi", "turn_index": 1},
-            {"type": "turn", "role": "assistant", "content": "ok", "turn_index": 1},
+            {
+                "type": "turn",
+                "role": "user",
+                "content": "hi",
+                "turn_index": 1,
+                "session_id": session,
+            },
+            {
+                "type": "turn",
+                "role": "assistant",
+                "content": "ok",
+                "turn_index": 1,
+                "session_id": session,
+            },
             terminal,
         ]
-        (inv / "trajectory.jsonl").write_text(
-            "\n".join(json.dumps(x) for x in lines) + "\n", encoding="utf-8"
-        )
+        attempt_trajectory = inv.parent.parent.parent / "trajectory.jsonl"
+        with attempt_trajectory.open("a", encoding="utf-8") as handle:
+            for row in lines:
+                handle.write(json.dumps(row) + "\n")
     return root
 
 
@@ -664,7 +692,9 @@ def test_legacy_usage_cost_only_no_used_as_tokens(tmp_path: Path) -> None:
             "sessionUpdate": "usage_update",
         },
     }
-    (inv / "trajectory.jsonl").write_text(json.dumps(terminal) + "\n", encoding="utf-8")
+    (inv.parent.parent.parent / "trajectory.jsonl").write_text(
+        json.dumps(terminal) + "\n", encoding="utf-8"
+    )
 
     detail = trials.get_trial(db, job_id, "alpha", "run_alpha_1")
     actor = (detail["trial"].get("actors") or [])[0]

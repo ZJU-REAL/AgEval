@@ -8,11 +8,11 @@ import shutil
 from pathlib import Path
 
 import pytest
+from tests.helpers.box import local_box
 
 from ageval.environments.protocol import Placement
 from ageval.plugins.agent_result import parse_validated_text_structured
 from ageval.plugins.contrib.acp import AcpExecutor
-from tests.helpers.box import local_box
 
 REAL_ENTRY = "pi"
 

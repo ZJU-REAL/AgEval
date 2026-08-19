@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from ageval.plugins.binding import bind_winner
 from ageval.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
 from ageval.plugins.registry import ExtensionRegistry
-from ageval.plugins.binding import bind_winner
 from ageval.plugins.resolve import resolve
 from ageval.plugins.slots import EXECUTOR
 

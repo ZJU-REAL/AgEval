@@ -83,12 +83,12 @@ class RuntimeService:
 def _agent_refs_from_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str, str]]:
     if not isinstance(overlay, Mapping):
         return []
-    bindings = overlay.get("bindings")
-    if not isinstance(bindings, Mapping):
+    profiles = overlay.get("agent_profiles")
+    if not isinstance(profiles, Mapping):
         return []
     out: list[dict[str, str]] = []
     seen: set[tuple[str, str]] = set()
-    for role, raw in bindings.items():
+    for role, raw in profiles.items():
         if not isinstance(raw, Mapping):
             continue
         parts = published_agent_ref_parts(raw.get("agent_ref"))
@@ -144,12 +144,12 @@ def _appearances_from_suite(
     overlay = suite.get("job_overlay")
     if not isinstance(overlay, Mapping):
         return []
-    bindings = overlay.get("bindings")
-    if not isinstance(bindings, Mapping) or not bindings:
+    profiles = overlay.get("agent_profiles")
+    if not isinstance(profiles, Mapping) or not profiles:
         return []
     teammates_all: list[dict[str, str]] = []
     valid: list[tuple[str, Mapping[str, Any], tuple[str, str]]] = []
-    for role, raw in bindings.items():
+    for role, raw in profiles.items():
         if not isinstance(raw, Mapping):
             continue
         role_id = str(role).strip()

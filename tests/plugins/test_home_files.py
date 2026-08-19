@@ -157,7 +157,10 @@ def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.Monk
     assert proc.returncode == 0, proc.stderr or proc.stdout
     data = json.loads(proc.stdout)
     solver = data["extension_bindings"]["solver"]
-    plugins = {item.get("plugin") for item in (solver["slots"].get("after_environment_ready") or {}).get("chain") or []}
+    plugins = {
+        item.get("plugin")
+        for item in (solver["slots"].get("after_environment_ready") or {}).get("chain") or []
+    }
     assert "home-files" in plugins
 
 

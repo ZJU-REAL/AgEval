@@ -448,10 +448,17 @@ def acp_entry_from_profile(profile: Mapping[str, Any]) -> str | None:
 
 
 def display_agent_name(profile: Mapping[str, Any]) -> str:
-    """Jobs / Hub agent axis: ``label`` → ACP ``entry`` → ``executor``."""
+    """Jobs / Hub agent axis: ``label`` → the entry → ``executor``.
+
+    Reads a projected actor row (which carries ``entry`` directly) as readily as
+    a full profile, because both describe the same actor.
+    """
     label = profile.get("label")
     if isinstance(label, str) and label.strip():
         return label.strip()
+    projected = profile.get("entry")
+    if isinstance(projected, str) and projected.strip():
+        return projected.strip()
     executor = str(profile.get("executor") or "").strip()
     if executor == "acp":
         return acp_entry_from_profile(profile) or executor

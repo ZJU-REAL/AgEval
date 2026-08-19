@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval.evidence.attempt_record import has_attempt_result, read_attempt_result
+from ageval.evidence.trajectory import TRAJECTORY_FILENAME
 from ageval.viewer.trials.paths import _read_json_object
 from ageval.viewer.trials.usage import (
     _format_latency_ms,
@@ -32,14 +33,8 @@ def _has_any_file(path: Path) -> bool:
 
 def _available_tabs(evidence: Path) -> list[str]:
     tabs: list[str] = []
-    # Trajectory: any trajectory.jsonl under agent/invocations
-    inv = evidence / "agent" / "invocations"
-    has_traj = False
-    if inv.is_dir():
-        try:
-            has_traj = any(p.name == "trajectory.jsonl" for p in inv.rglob("trajectory.jsonl"))
-        except OSError:
-            has_traj = False
+    # One trajectory per Attempt, written by the record phase.
+    has_traj = (evidence / TRAJECTORY_FILENAME).is_file()
     if has_traj:
         tabs.append("trajectory")
     if (evidence / "agent").is_dir() and _has_any_file(evidence / "agent"):
@@ -254,7 +249,11 @@ def _agent_surface(
                 lat = meta.get("latency_ms")
                 if isinstance(lat, (int, float)) and not isinstance(lat, bool):
                     latency_sum[pid] = latency_sum.get(pid, 0.0) + float(lat)
-                usage = _read_terminal_usage(inv / "trajectory.jsonl")
+                session = meta.get("session_id")
+                usage = _read_terminal_usage(
+                    evidence / TRAJECTORY_FILENAME,
+                    session_id=str(session) if isinstance(session, str) and session else None,
+                )
                 if usage is not None:
                     # Last invoke wins (session cumulative semantics).
                     last_usage[pid] = usage

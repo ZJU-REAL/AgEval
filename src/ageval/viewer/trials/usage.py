@@ -7,8 +7,16 @@ from pathlib import Path
 from typing import Any
 
 
-def _read_terminal_usage(traj_path: Path) -> dict[str, Any] | None:
-    """Last terminal.usage object from a trajectory.jsonl (fail-open)."""
+def _read_terminal_usage(
+    traj_path: Path,
+    *,
+    session_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Last terminal.usage in a trajectory, optionally for one session.
+
+    The trajectory is one file per Attempt, so a multi-role run has every
+    actor's turns in it; ``session_id`` is how one actor's usage is read out.
+    """
     if not traj_path.is_file():
         return None
     last: dict[str, Any] | None = None
@@ -25,6 +33,8 @@ def _read_terminal_usage(traj_path: Path) -> dict[str, Any] | None:
                 if not isinstance(obj, dict):
                     continue
                 if obj.get("type") != "terminal":
+                    continue
+                if session_id is not None and str(obj.get("session_id") or "") != session_id:
                     continue
                 usage = obj.get("usage")
                 if isinstance(usage, dict) and usage:

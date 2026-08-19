@@ -90,7 +90,7 @@ def _record(store: AttemptEvidenceStore) -> None:
         attempt_id="attempt_sec",
         lock=None,  # type: ignore[arg-type] — record only reads evidence
         profile_id="solver",
-        agent_profiles=None,  # type: ignore[arg-type] — no chains bound
+        bindings=None,  # type: ignore[arg-type] — no chains bound
         services=None,  # type: ignore[arg-type]
         host=None,  # type: ignore[arg-type]
         evidence=store,

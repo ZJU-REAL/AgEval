@@ -6,7 +6,9 @@ import os
 import shutil
 
 import pytest
+from tests.helpers.box import local_box
 
+from ageval.environments.protocol import HOME_PATH, Placement
 from ageval.plugins.contrib.acp import AcpExecutor
 from ageval.plugins.contrib.acp.registry import get_entry, list_entry_ids, readiness_for
 from ageval.plugins.executor_capabilities import BUILTIN_CAPABILITIES
@@ -15,7 +17,13 @@ from ageval.plugins.executor_capabilities import BUILTIN_CAPABILITIES
 def test_acp_offline_forced() -> None:
     os.environ["AGEVAL_OFFLINE_AGENT"] = "1"
     try:
-        r = AcpExecutor(entry_id="opencode", model="entry-default").invoke("hi")
+        executor = AcpExecutor(
+            host=local_box("/nowhere"),
+            placement=Placement(target_id="unstarted", home=HOME_PATH),
+            entry_id="opencode",
+            model="entry-default",
+        )
+        r = executor.invoke("hi")
         assert r.ok is False
         assert r.error == "offline_forced"
     finally:

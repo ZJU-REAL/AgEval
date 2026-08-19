@@ -7,6 +7,7 @@ import os
 from types import SimpleNamespace
 
 import pytest
+from tests.helpers.box import local_box
 
 from ageval.environments.protocol import Placement
 from ageval.plugins.agent_result import (
@@ -19,7 +20,6 @@ from ageval.plugins.contrib.acp.executor import (
     _find_reasoning_config_option,
     _select_option_values,
 )
-from tests.helpers.box import local_box
 
 BOX_HOME = "/attempt/home"
 

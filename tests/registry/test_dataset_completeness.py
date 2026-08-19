@@ -24,7 +24,7 @@ def test_task_ids_from_archive_paths() -> None:
         [
             "ageval.yaml",
             "tasks/alpha/task.yaml",
-            "tasks/alpha/harness.py",
+            "tasks/alpha/run.py",
             "tasks/beta/task.yaml",
             "README.md",
         ]

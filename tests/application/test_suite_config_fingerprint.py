@@ -140,7 +140,9 @@ def test_job_overlays_compatible_helper() -> None:
             },
         }
     }
-    assert job_overlays_compatible(suite, [None, {"agent_profiles": {"a": suite["agent_profiles"]["a"]}}])
+    assert job_overlays_compatible(
+        suite, [None, {"agent_profiles": {"a": suite["agent_profiles"]["a"]}}]
+    )
     assert not job_overlays_compatible(
         suite,
         [
@@ -313,7 +315,7 @@ def test_journeys_profiles_are_suite_homogeneous() -> None:
     assert fields.get("job_overlay", {}).get("agent_profiles")
     roles = set(fields["job_overlay"]["agent_profiles"])
     assert roles == {"*"} or "solver" in roles
-    assert "user" in roles or "specialist" in roles
+    assert roles == {"*"} or "user" in roles or "specialist" in roles
 
 
 def test_plugins_from_extension_bindings_skip_defaults() -> None:

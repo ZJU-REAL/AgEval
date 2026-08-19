@@ -734,7 +734,7 @@ def _agent_preview_from_archive(archive: bytes) -> dict[str, Any]:
             for p in root.rglob("*")
             if p.is_file() and "__pycache__" not in p.parts
         )
-        overlay = project_job_overlay({"agent": man.binding})
+        overlay = project_job_overlay({"agent": man.binding}, environment="local")
         return {
             "agent_id": man.agent_id,
             "version": man.version,
@@ -742,14 +742,13 @@ def _agent_preview_from_archive(archive: bytes) -> dict[str, Any]:
             "label": man.label,
             "description": man.description,
             "tags": list(man.tags),
-            "binding": overlay["bindings"].get("agent", {}),
+            "binding": overlay["agent_profiles"].get("agent", {}),
             "files": files[:200],
         }
 
 
 def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
     from ageval.plugins.manifest import load_manifest
-    from ageval.plugins.slots import slot_level
     from ageval.registry.archive import extract_archive
 
     with tempfile.TemporaryDirectory(prefix="ageval-prev-") as tmp:
@@ -762,18 +761,16 @@ def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
             if p.is_file() and "__pycache__" not in p.parts
         )
         declared: list[dict[str, Any]] = []
-        for kind, entries in (("provide", man.provide), ("on", man.on)):
+        for kind, entries in (("exclusive", man.exclusive), ("chain", man.chain)):
             for slot in entries:
-                row: dict[str, Any] = {
-                    "id": slot.id,
-                    "kind": kind,
-                    "entry": slot.entry,
-                    "priority": slot.priority,
-                }
-                level = slot_level(slot.id)
-                if level is not None:
-                    row["level"] = level
-                declared.append(row)
+                declared.append(
+                    {
+                        "id": slot.id,
+                        "kind": kind,
+                        "entry": slot.entry,
+                        "priority": slot.priority,
+                    }
+                )
         return {
             "plugin_id": man.plugin_id,
             "version": man.version,

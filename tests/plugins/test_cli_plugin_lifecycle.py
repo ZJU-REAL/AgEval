@@ -116,10 +116,10 @@ def test_cli_install_list_json(ageval_home: Path) -> None:
 
 def test_load_installed_into_registry(ageval_home: Path) -> None:
     from ageval.plugins import bootstrap as boot
+    from ageval.plugins.binding import bind_winner
     from ageval.plugins.bootstrap import bootstrap_registry
     from ageval.plugins.protocol import BindingIntent
     from ageval.plugins.registry import ExtensionRegistry, reset_global_registry
-    from ageval.plugins.binding import bind_winner
     from ageval.plugins.resolve import resolve
     from ageval.plugins.slots import EXECUTOR
     from ageval.plugins.store import install_from_path

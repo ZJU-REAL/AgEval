@@ -26,16 +26,16 @@ _SKIP_PLUGIN_IDS = frozenset({"default", "acp", "openai-http"})
 
 
 def _profile_entry(profile: Mapping[str, Any]) -> str:
-    """Display id: ACP ``options.entry``, else plugin ``options.agent``, else kind."""
-    from ageval.config.profiles import acp_entry_from_profile, executor_plugin_options
+    """Display id: the ACP entry, else the executor.
+
+    Never ``options.agent``: that is a code reference inside a task, not the
+    name of a product anyone recognises on a card.
+    """
+    from ageval.config.profiles import acp_entry_from_profile
 
     entry = acp_entry_from_profile(profile)
     if entry:
         return entry
-    plugin_opts = executor_plugin_options(profile)
-    agent = plugin_opts.get("agent")
-    if agent is not None and str(agent).strip():
-        return str(agent).strip()
     executor = profile.get("executor")
     if executor is not None and str(executor).strip():
         return str(executor).strip()

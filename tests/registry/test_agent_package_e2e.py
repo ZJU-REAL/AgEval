@@ -73,8 +73,8 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
     assert body.get("package_kind") == "agent"
     preview = body.get("agent_preview") or {}
     assert preview.get("agent_id") == "http-default"
-    assert preview.get("label") == "Mock Default"
-    assert preview.get("binding", {}).get("executor") == "mock"
+    assert preview.get("label") == "OpenAI-compatible HTTP"
+    assert preview.get("binding", {}).get("executor") == "openai-http"
     assert "agent.yaml" in (preview.get("files") or [])
 
     listed = _get(env["url"], env["token"], "/v1/packages?package_kind=agent")
