@@ -45,9 +45,9 @@ def test_parse_agent_spec_forms() -> None:
 
 def test_bindings_from_path_spec(tmp_path: Path) -> None:
     pkg = _make_pkg(tmp_path)
-    bindings = bindings_from_agent_specs([str(pkg)])
-    assert set(bindings) == {"*"}
-    row = bindings["*"]
+    agent_profiles = bindings_from_agent_specs([str(pkg)])
+    assert set(agent_profiles) == {"*"}
+    row = agent_profiles["*"]
     assert row["executor"] == "mock"
     assert row["agent_ref"].startswith("file:")
     assert "+sha256:" in row["agent_ref"]
@@ -58,8 +58,8 @@ def test_bindings_from_cache_ref_with_local_fallback(tmp_path: Path) -> None:
 
     install_from_path(_make_pkg(tmp_path))
     for ref in ("local/http-default@0.1.0", "http-default@0.1.0"):
-        bindings = bindings_from_agent_specs([f"solver={ref}"])
-        assert bindings["solver"]["agent_ref"].startswith("local/http-default@0.1.0+sha256:")
+        agent_profiles = bindings_from_agent_specs([f"solver={ref}"])
+        assert agent_profiles["solver"]["agent_ref"].startswith("local/http-default@0.1.0+sha256:")
 
 
 def test_both_installed_versions_project(tmp_path: Path) -> None:

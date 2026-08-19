@@ -17,16 +17,16 @@ PACKAGE = REPO / "examples" / "core"
 # entry_id → (model, optional extra --set pairs)
 _ENTRY_BINDINGS: dict[str, list[str]] = {
     "codex": [
-        '/bindings/solver/options/entry="codex"',
-        '/bindings/solver/model="gpt-5.4-mini"',
+        '/agent_profiles/solver/options/entry="codex"',
+        '/agent_profiles/solver/model="gpt-5.4-mini"',
     ],
     "pi": [
-        '/bindings/solver/options/entry="pi"',
-        '/bindings/solver/model="claude-haiku-4-5"',
+        '/agent_profiles/solver/options/entry="pi"',
+        '/agent_profiles/solver/model="claude-haiku-4-5"',
     ],
     "opencode": [
-        '/bindings/solver/options/entry="opencode"',
-        '/bindings/solver/model="zai-coding-plan/glm-4.7"',
+        '/agent_profiles/solver/options/entry="opencode"',
+        '/agent_profiles/solver/model="zai-coding-plan/glm-4.7"',
     ],
 }
 

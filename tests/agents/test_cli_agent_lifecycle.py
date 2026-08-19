@@ -107,8 +107,8 @@ def test_lock_with_agent_records_agent_ref_and_matches_profiles_lane(
     assert _cli(env, "agent", "install", str(EXAMPLE_AGENT)).returncode == 0
 
     summary = _lock_summary(env, "--agent", "local/http-default@0.1.0")
-    bindings = summary["job_overlay"]["bindings"]
-    refs = {row.get("agent_ref") for row in bindings.values()}
+    agent_profiles = summary["job_overlay"]["agent_profiles"]
+    refs = {row.get("agent_ref") for row in agent_profiles.values()}
     assert len(refs) == 1
     (ref,) = refs
     assert ref.startswith("local/http-default@0.1.0+sha256:")
@@ -117,12 +117,12 @@ def test_lock_with_agent_records_agent_ref_and_matches_profiles_lane(
     again = _lock_summary(env, "--agent", "local/http-default@0.1.0")
     assert again["digest"] == summary["digest"]
 
-    # Equivalent hand-written profiles file (same bindings incl. agent_ref)
+    # Equivalent hand-written profiles file (same agent_profiles incl. agent_ref)
     # must produce the identical lock digest — the lanes are the same lane.
     import yaml
 
-    profiles_doc = {"format": "ageval.profiles/1", "bindings": {}}
-    for role, row in bindings.items():
+    profiles_doc = {"format": "ageval.profiles/1", "agent_profiles": {}}
+    for role, row in agent_profiles.items():
         clone = dict(row)
         api_key = clone.get("api_key")
         if isinstance(api_key, str) and api_key and not api_key.startswith("${"):

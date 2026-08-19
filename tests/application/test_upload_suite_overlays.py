@@ -52,7 +52,7 @@ def _write_db(
         "exit_code": 0,
         "metrics": {"pass_rate": 1.0, "mean_score": 1.0, "n_tasks": 1},
         "task_refs": [{"task_id": "t", "status": "PASS", "score": 1.0}],
-        "job_overlay": {"bindings": {"solver": binding}},
+        "job_overlay": {"agent_profiles": {"solver": binding}},
     }
     (suite_dir / "summary.json").write_text(json.dumps(summary) + "\n", encoding="utf-8")
     return db, suite_run_id
@@ -91,7 +91,7 @@ def test_upload_suite_sends_overlay_paths_not_bytes(tmp_path: Path) -> None:
     out = cmds.upload_suite_result(db, suite_run_id=suite_id)
     assert out["ok"] is True
     overlay = captured["job_overlay"]
-    assert overlay["bindings"]["solver"]["overlays"] == [
+    assert overlay["agent_profiles"]["solver"]["overlays"] == [
         "overlays/cfg.json",
         "overlays/skills/jsonl-agg",
     ]
@@ -128,4 +128,4 @@ def test_upload_suite_omit_overlays_skips_scan(tmp_path: Path) -> None:
     cmds, captured = _cmds()
     out = cmds.upload_suite_result(db, suite_run_id=suite_id)
     assert out["ok"] is True
-    assert "overlays" not in captured["job_overlay"]["bindings"]["solver"]
+    assert "overlays" not in captured["job_overlay"]["agent_profiles"]["solver"]

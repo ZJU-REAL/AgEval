@@ -330,7 +330,7 @@ def _write_suite_summary(db: Path, suite_run_id: str) -> Path:
             {"profile_id": "solver", "entry": "pi", "model": "m1"},
         ],
         "job_overlay": {
-            "bindings": {
+            "agent_profiles": {
                 "solver": {
                     "executor": "acp",
                     "options": {"entry": "pi"},
@@ -373,7 +373,7 @@ def test_suite_results_upload_get_list_roundtrip(
     assert "suite-level PASS" in up.get("note", "") or "no suite-level PASS" in up.get("note", "")
     assert (
         up.get("job_overlay", {})
-        .get("bindings", {})
+        .get("agent_profiles", {})
         .get("solver", {})
         .get("options", {})
         .get("entry")
@@ -386,7 +386,7 @@ def test_suite_results_upload_get_list_roundtrip(
     assert listed["items"][0]["suite_run_id"] == suite_run_id
     assert listed["items"][0]["agent_label"] == "codex"
     assert (
-        listed["items"][0].get("job_overlay", {}).get("bindings", {}).get("solver", {}).get("model")
+        listed["items"][0].get("job_overlay", {}).get("agent_profiles", {}).get("solver", {}).get("model")
         == "m1"
     )
 
@@ -394,7 +394,7 @@ def test_suite_results_upload_get_list_roundtrip(
     assert got["ok"] is True
     assert got["metrics"]["n_pass"] == 2
     assert got["task_refs"][0]["task_id"] == "a"
-    assert got.get("job_overlay", {}).get("bindings", {}).get("solver", {}).get("api_key") == (
+    assert got.get("job_overlay", {}).get("agent_profiles", {}).get("solver", {}).get("api_key") == (
         "LOCATOR_ONLY"
     )
 

@@ -50,7 +50,7 @@ def test_acp_entries_from_lock() -> None:
 
     lock = SimpleNamespace(
         job_overlay={
-            "bindings": {
+            "agent_profiles": {
                 "solver": {
                     "executor": "acp",
                     "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
@@ -219,7 +219,7 @@ def ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_home_overlay_src_from_agent_package_not_dataset(ageval_home: Path, tmp_path: Path) -> None:
-    """agent_ref bindings copy skills from the Agent cache, never Dataset overlays/."""
+    """agent_ref agent_profiles copy skills from the Agent cache, never Dataset overlays/."""
     from types import SimpleNamespace
 
     import yaml

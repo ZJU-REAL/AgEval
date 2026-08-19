@@ -60,10 +60,10 @@ def test_extension_row_with_home_files_still_resolves() -> None:
     assert profile_options(overlay_binding) == {"entry": "opencode"}
 
 
-def test_profile_options_entry_is_not_identity() -> None:
-    stale = {"executor": "acp", "options": {"entry": "grok-build"}}
-    assert resolve_agent_id(stale) == ""
-    assert agent_fingerprint(stale) == ""
+def test_profile_options_entry_is_the_identity() -> None:
+    named = {"executor": "acp", "options": {"entry": "grok-build"}}
+    assert resolve_agent_id(named) == "grok-build"
+    assert agent_fingerprint(named) == GROK_BUILD_ID
 
 
 def test_acp_entries_are_distinct_agents() -> None:

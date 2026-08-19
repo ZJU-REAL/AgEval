@@ -20,7 +20,7 @@ def registry_with_executor(
     reg = ExtensionRegistry()
     if include_defaults:
         register_defaults(reg)
-    reg.provide(
+    reg.exclusive(
         EXECUTOR,
         plugin_id,
         impl,

@@ -28,8 +28,8 @@ def test_factory_sees_only_its_row_options() -> None:
         captured.append({"plugin": "dsh", **_factory(**kwargs)})
         return captured[-1]
 
-    reg.provide(EXECUTOR, "acp", acp_factory, source="first-party", is_factory=True)
-    reg.provide(EXECUTOR, "dsh", dsh_factory, source="installed", is_factory=True)
+    reg.exclusive(EXECUTOR, "acp", acp_factory, source="first-party", is_factory=True)
+    reg.exclusive(EXECUTOR, "dsh", dsh_factory, source="installed", is_factory=True)
 
     intent = intent_from_profile(
         {
@@ -56,7 +56,7 @@ def test_profile_options_are_not_plugin_input() -> None:
     def acp_factory(**kwargs: Any) -> dict[str, Any]:
         return _factory(**kwargs)
 
-    reg.provide(EXECUTOR, "acp", acp_factory, source="first-party", is_factory=True)
+    reg.exclusive(EXECUTOR, "acp", acp_factory, source="first-party", is_factory=True)
     graph = resolve(
         BindingIntent(
             profile_id="s",

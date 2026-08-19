@@ -155,7 +155,7 @@ def test_unknown_profile_key_fails_closed(tmp_path: Path) -> None:
 def test_unknown_top_level_key_fails_closed() -> None:
     with pytest.raises(ConfigError):
         parse_job_mapping(
-            {"format": "ageval.profiles/1", "agent_profiles": {}, "bindings": {"x": {}}}
+            {"format": "ageval.profiles/1", "agent_profiles": {}, "not_a_job_key": {"x": {}}}
         )
 
 

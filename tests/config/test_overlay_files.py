@@ -22,7 +22,7 @@ from ageval.config.profiles import load_job_document
 def _write_dataset(
     tmp: Path,
     *,
-    bindings: dict[str, Any],
+    agent_profiles: dict[str, Any],
     overlay_files: dict[str, str] | None = None,
 ) -> Path:
     db = tmp / "db"
@@ -33,7 +33,7 @@ def _write_dataset(
         encoding="utf-8",
     )
     (db / "profiles.yaml").write_text(
-        yaml.safe_dump({"format": "ageval.profiles/1", "bindings": bindings}),
+        yaml.safe_dump({"format": "ageval.profiles/1", "agent_profiles": agent_profiles}),
         encoding="utf-8",
     )
     task = db / "tasks" / "t"
@@ -66,11 +66,11 @@ def _write_dataset(
     return db
 
 
-def _lock(db: Path, bindings: dict[str, dict[str, Any]]):
+def _lock(db: Path, agent_profiles: dict[str, dict[str, Any]]):
     return lock_with_profiles(
         db / "tasks" / "t",
         "t",
-        bindings,
+        agent_profiles,
     )
 
 
@@ -118,7 +118,7 @@ def test_pem_and_token_are_secrets() -> None:
 def test_omit_overlays_lock_unchanged(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={
+        agent_profiles={
             "solver": {
                 "executor": "acp",
                 "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
@@ -137,13 +137,13 @@ def test_omit_overlays_lock_unchanged(tmp_path: Path) -> None:
         },
     )
     overlay = thaw(locked.job_overlay)
-    assert "overlays" not in overlay["bindings"]["solver"]
+    assert "overlays" not in overlay["agent_profiles"]["solver"]
 
 
 def test_lock_requires_existing_overlay_path(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={"solver": {"executor": "openai-http", "model": "none"}},
+        agent_profiles={"solver": {"executor": "openai-http", "model": "none"}},
     )
     with pytest.raises(ConfigError) as ei:
         _lock(
@@ -162,22 +162,22 @@ def test_lock_requires_existing_overlay_path(tmp_path: Path) -> None:
 def test_lock_accepts_file_and_directory(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={"solver": {"executor": "openai-http", "model": "none"}},
+        agent_profiles={"solver": {"executor": "openai-http", "model": "none"}},
         overlay_files={
             "overlays/AGENTS.md": "# hello\n",
             "overlays/skills/jsonl-agg/SKILL.md": "# skill\n",
         },
     )
-    bindings = {
+    agent_profiles = {
         "solver": {
             "executor": "openai-http",
             "model": "none",
             "overlays": ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"],
         }
     }
-    locked = _lock(db, bindings)
+    locked = _lock(db, agent_profiles)
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["overlays"] == [
+    assert overlay["agent_profiles"]["solver"]["overlays"] == [
         "overlays/skills/jsonl-agg",
         "overlays/AGENTS.md",
     ]
@@ -186,7 +186,7 @@ def test_lock_accepts_file_and_directory(tmp_path: Path) -> None:
 def test_lock_rejects_secret_in_overlay_file(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={"solver": {"executor": "openai-http", "model": "none"}},
+        agent_profiles={"solver": {"executor": "openai-http", "model": "none"}},
         overlay_files={"overlays/secret.md": "-----BEGIN PRIVATE KEY-----\nabc\n"},
     )
     with pytest.raises(ConfigError) as ei:
@@ -207,7 +207,7 @@ def test_lock_rejects_secret_in_overlay_file(tmp_path: Path) -> None:
 def test_lock_allows_env_locator_in_overlay_json(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={"solver": {"executor": "openai-http", "model": "none"}},
+        agent_profiles={"solver": {"executor": "openai-http", "model": "none"}},
         overlay_files={
             "overlays/cfg.json": '{"apiKey": "{env:litellm_api_key}"}\n',
         },
@@ -223,7 +223,7 @@ def test_lock_allows_env_locator_in_overlay_json(tmp_path: Path) -> None:
         },
     )
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["overlays"] == ["overlays/cfg.json"]
+    assert overlay["agent_profiles"]["solver"]["overlays"] == ["overlays/cfg.json"]
 
 
 def test_standalone_task_cannot_declare_overlays(tmp_path: Path) -> None:
@@ -272,7 +272,7 @@ def test_profiles_document_normalizes_overlays(tmp_path: Path) -> None:
         yaml.safe_dump(
             {
                 "format": "ageval.profiles/1",
-                "bindings": {
+                "agent_profiles": {
                     "solver": {
                         "executor": "openai-http",
                         "overlays": ["overlays/AGENTS.md"],
@@ -282,5 +282,5 @@ def test_profiles_document_normalizes_overlays(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    bindings = load_job_document(path)
-    assert bindings["solver"]["overlays"] == ["overlays/AGENTS.md"]
+    agent_profiles = load_job_document(path)
+    assert agent_profiles.profiles["solver"]["overlays"] == ["overlays/AGENTS.md"]

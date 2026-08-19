@@ -1,4 +1,4 @@
-"""Config lock surface for executor: acp + options.entry (#59 bindings)."""
+"""Config lock surface for executor: acp + options.entry (#59 agent_profiles)."""
 
 from __future__ import annotations
 
@@ -8,11 +8,9 @@ from typing import Any
 import pytest
 import yaml
 
-from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
-from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
-from ageval.config.package_fs import LocalPackageReader
+from tests.helpers.lock import lock_with_profiles
 
 
 def _write_pkg(root: Path, slot_ids: list[str]) -> Path:
@@ -40,13 +38,8 @@ def _write_pkg(root: Path, slot_ids: list[str]) -> Path:
     return root
 
 
-def _lock(pkg: Path, bindings: dict[str, dict[str, Any]]):
-    return ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        pkg,
-        "acp-lock-test",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=bindings,
-    )
+def _lock(pkg: Path, agent_profiles: dict[str, dict[str, Any]]):
+    return lock_with_profiles(pkg, "acp-lock-test", agent_profiles)
 
 
 def test_acp_profile_lock_snapshot(tmp_path: Path) -> None:
@@ -114,7 +107,7 @@ def test_acp_reasoning_effort_option_survives_lock(tmp_path: Path) -> None:
 
 def test_acp_package_cannot_override_command(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path / "pkg", ["bad"])
-    with pytest.raises(ConfigError, match="not package-overridable"):
+    with pytest.raises(ConfigError, match="belongs to the entry registry"):
         _lock(
             pkg,
             {

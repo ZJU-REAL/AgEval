@@ -108,6 +108,7 @@ class ConfigCore:
         assert_slots_have_no_inline_binding(slots_raw)
         if slots_raw:
             self._expand_profile_env_refs(job_doc)
+            self._assert_overlays(job_doc, task_root=root)
             merged["agent_profiles"] = merge_job_onto_slots(
                 slots_raw, job_doc, selected_profile=selected_profile
             )
@@ -287,6 +288,24 @@ class ConfigCore:
             else:
                 param_overrides[pointer_s] = value
         return param_overrides
+
+    @staticmethod
+    def _assert_overlays(job: JobDocument, *, task_root: Path) -> None:
+        """A declared overlay must exist and must not carry a secret.
+
+        Checked at lock time, because a run that discovers a missing overlay
+        halfway through has already started a box for nothing.
+        """
+        from ageval.config.overlay_files import assert_overlays_at_lock, overlay_root_for_binding
+        from ageval.config.shared import infer_dataset_root_from_task
+
+        dataset_root = infer_dataset_root_from_task(task_root)
+        for role_id, row in job.profiles.items():
+            assert_overlays_at_lock(
+                overlay_root_for_binding(row, dataset_root),
+                row,
+                location=f"/agent_profiles/{role_id}/overlays",
+            )
 
     @staticmethod
     def _expand_profile_env_refs(job: JobDocument) -> None:

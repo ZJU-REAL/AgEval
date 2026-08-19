@@ -12,8 +12,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _chain_plugins(bindings: dict, slot: str) -> set[str]:
-    row = bindings.get(slot) or {}
+def _chain_plugins(agent_profiles: dict, slot: str) -> set[str]:
+    row = agent_profiles.get(slot) or {}
     return {str(item.get("plugin")) for item in (row.get("chain") or [])}
 
 
@@ -40,15 +40,15 @@ def _lock(*args: str) -> dict:
 
 def test_lock_cli_extension_bindings_solver_acp() -> None:
     data = _lock()
-    bindings = data["extension_bindings"]
-    assert "solver" in bindings
-    assert bindings["solver"]["executor"]["plugin"] == "acp"
-    assert bindings["solver"]["executor"]["source"] == "profile_executor_field"
-    assert bindings["solver"]["executor"]["kind"] == "provide"
-    assert bindings["solver"]["before_agent_invoke"]["kind"] == "on"
+    agent_profiles = data["extension_bindings"]
+    assert "solver" in agent_profiles
+    assert agent_profiles["solver"]["executor"]["plugin"] == "acp"
+    assert agent_profiles["solver"]["executor"]["source"] == "profile_executor_field"
+    assert agent_profiles["solver"]["executor"]["kind"] == "provide"
+    assert agent_profiles["solver"]["before_agent_invoke"]["kind"] == "on"
     assert any(e.get("pointer") == "/extension_bindings" for e in data.get("resolution") or [])
-    assert "dsh" not in _chain_plugins(bindings["solver"], "image_contribute")
-    assert "nooa" not in _chain_plugins(bindings["solver"], "image_contribute")
+    assert "dsh" not in _chain_plugins(agent_profiles["solver"], "image_contribute")
+    assert "nooa" not in _chain_plugins(agent_profiles["solver"], "image_contribute")
 
 
 def _installed_plugin_ids() -> set[str]:

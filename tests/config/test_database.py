@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from ageval.config.capabilities import DeclarationCapabilityCatalog
+from tests.helpers.lock import lock_task, lock_with_profiles
+
 from ageval.config.dataset import (
     list_tasks,
     load_dataset_manifest,
@@ -15,8 +16,6 @@ from ageval.config.dataset import (
     validate_dataset_id,
 )
 from ageval.config.errors import ConfigError
-from ageval.config.load_and_lock import ConfigCore
-from ageval.config.package_fs import LocalPackageReader
 
 REPO = Path(__file__).resolve().parents[2]
 CORE_DB = REPO / "examples" / "core"
@@ -85,13 +84,8 @@ def test_resolve_and_lock_public_example() -> None:
     resolved = resolve_task(CORE_DB, "config-minimal")
     assert resolved.dataset_id == "example/core"
     assert resolved.task_dir.name == "config-minimal"
-    bindings = resolve_job_document(CORE_DB)
-    lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        resolved.task_dir,
-        "config-minimal",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=bindings,
-    )
+    agent_profiles = resolve_job_document(CORE_DB)
+    lock = lock_task(CORE_DB, "config-minimal")
     assert lock.task_id == "config-minimal"
     assert lock.digest.startswith("sha256:")
     assert lock.job_overlay is not None
@@ -216,7 +210,7 @@ def test_member_paths_include_only_declared_overlays(tmp_path: Path) -> None:
     alt.mkdir()
     (alt / "profiles.acp.demo.yaml").write_text(
         "format: ageval.profiles/1\n"
-        "bindings:\n"
+        "agent_profiles:\n"
         "  solver:\n"
         "    executor: openai-http\n"
         "    overlays:\n"

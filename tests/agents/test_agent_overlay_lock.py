@@ -96,11 +96,11 @@ def _make_agent(
     return pkg
 
 
-def _lock(db: Path, bindings: dict[str, dict[str, Any]]):
+def _lock(db: Path, agent_profiles: dict[str, dict[str, Any]]):
     return lock_with_profiles(
         db / "tasks" / "t",
         "t",
-        bindings,
+        agent_profiles,
     )
 
 
@@ -126,7 +126,7 @@ def test_lock_with_agent_ref_uses_agent_cache_not_dataset(tmp_path: Path) -> Non
         },
     )
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["overlays"] == ["overlays/skills/demo"]
+    assert overlay["agent_profiles"]["solver"]["overlays"] == ["overlays/skills/demo"]
     assert (db / "overlays").exists() is False
 
 
@@ -183,10 +183,10 @@ def test_lock_exact_role_without_overlays_not_attributed(tmp_path: Path) -> None
         },
     )
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["overlays"] == ["overlays/skills/demo"]
-    assert overlay["bindings"]["solver"]["agent_ref"].startswith("official/xx@")
-    assert "overlays" not in overlay["bindings"]["user"]
-    assert overlay["bindings"]["user"]["agent_ref"].startswith("official/yy@")
+    assert overlay["agent_profiles"]["solver"]["overlays"] == ["overlays/skills/demo"]
+    assert overlay["agent_profiles"]["solver"]["agent_ref"].startswith("official/xx@")
+    assert "overlays" not in overlay["agent_profiles"]["user"]
+    assert overlay["agent_profiles"]["user"]["agent_ref"].startswith("official/yy@")
 
 
 def test_handwritten_profiles_still_use_dataset_root(tmp_path: Path) -> None:
@@ -206,5 +206,5 @@ def test_handwritten_profiles_still_use_dataset_root(tmp_path: Path) -> None:
         },
     )
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["overlays"] == ["overlays/AGENTS.md"]
-    assert "overlays" not in overlay["bindings"]["user"]
+    assert overlay["agent_profiles"]["solver"]["overlays"] == ["overlays/AGENTS.md"]
+    assert "overlays" not in overlay["agent_profiles"]["user"]

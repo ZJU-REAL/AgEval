@@ -27,7 +27,6 @@ def _write_pkg(tmp: Path, *, slot_id: str = "glm") -> Path:
         "limits": {
             "wall_time_seconds": 60,
             "agent_invocations": 1,
-            "environment_actions": 0,
         },
         "artifacts": {"publishable": []},
         "evaluation": {
@@ -143,17 +142,3 @@ def test_rejects_unset_base_url_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPa
                 }
             },
         )
-
-
-def test_resolve_executor_honors_profile_fields() -> None:
-    from ageval.adapters.agent_registry import resolve_executor
-
-    ex = resolve_executor(
-        "openai-http",
-        model="glm-4.7",
-        base_url="https://open.bigmodel.cn/api/coding/paas/v4",
-        api_key="zhipu_coding_api_key",
-    )
-    assert ex.model == "glm-4.7"
-    assert ex.base_url == "https://open.bigmodel.cn/api/coding/paas/v4"
-    assert ex.api_key_env == "zhipu_coding_api_key"

@@ -25,10 +25,10 @@ _TRANSPORT = "acp"
 
 
 def resolve_agent_id(profile: Mapping[str, Any] | None) -> str:
-    """Product id: ACP extension-row ``entry``, else non-transport executor.
+    """Product id: the ACP entry the profile names, else a non-transport executor.
 
-    Empty when the profile is transport-only ``acp`` (no entry). Does not read
-    profile-level ``options.entry`` — same contract as ``acp_entry_from_profile``.
+    Empty when the profile is transport-only ``acp`` with no entry, because
+    ``acp`` names how the Agent is reached, never which Agent it is.
     """
     raw = profile if isinstance(profile, Mapping) else {}
     executor = str(raw.get("executor") or "").strip()

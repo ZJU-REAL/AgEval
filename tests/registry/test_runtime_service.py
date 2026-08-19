@@ -102,7 +102,7 @@ def _suite_meta(
     *,
     suite_run_id: str,
     dataset_id: str,
-    bindings: dict[str, dict[str, object]] | None,
+    agent_profiles: dict[str, dict[str, object]] | None,
     visibility: str = "public",
     version: str = "0.1.0",
     task_refs: list[dict[str, object]] | None = None,
@@ -113,8 +113,8 @@ def _suite_meta(
     archive = suite_run_id.encode()
     blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
     overlay: dict[str, object] | None = None
-    if bindings is not None:
-        overlay = {"bindings": bindings}
+    if agent_profiles is not None:
+        overlay = {"agent_profiles": agent_profiles}
         if extra_overlay:
             overlay.update(extra_overlay)
     meta: dict[str, object] = {
@@ -159,14 +159,14 @@ def test_official_public_suite_appears_community_does_not(tmp_path: Path) -> Non
         tmp_path,
         suite_run_id="suite_official",
         dataset_id="official/gaia",
-        bindings={"solver": binding},
+        agent_profiles={"solver": binding},
     )
     _upload(
         results,
         tmp_path,
         suite_run_id="suite_community",
         dataset_id="acme/looks-official",
-        bindings={"solver": binding},
+        agent_profiles={"solver": binding},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
     rows = runtimes.appearances_for_agent("official/http-default", auth)
@@ -197,7 +197,7 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_private",
         dataset_id="official/gaia",
-        bindings={"solver": bound},
+        agent_profiles={"solver": bound},
         visibility="private",
     )
     _upload(
@@ -205,7 +205,7 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_incomplete",
         dataset_id="official/gaia",
-        bindings={"solver": bound},
+        agent_profiles={"solver": bound},
         task_refs=[],
     )
     _upload(
@@ -214,7 +214,7 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         suite_run_id="suite_draft",
         dataset_id="official/gaia-draft",
         version="0.1.0",
-        bindings={"solver": bound},
+        agent_profiles={"solver": bound},
     )
     auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
     assert runtimes.appearances_for_agent("official/http-default", auth) == []
@@ -232,7 +232,7 @@ def test_profiles_only_suite_does_not_appear(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_profiles",
         dataset_id="official/gaia",
-        bindings={"solver": dict(GROK)},
+        agent_profiles={"solver": dict(GROK)},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
     assert runtimes.appearances_for_agent("official/http-default", auth) == []
@@ -248,14 +248,14 @@ def test_two_agents_same_entry_stay_separate(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_a",
         dataset_id="official/gaia",
-        bindings={"solver": _bound("official/foo", entry="claude-code")},
+        agent_profiles={"solver": _bound("official/foo", entry="claude-code")},
     )
     _upload(
         results,
         tmp_path,
         suite_run_id="suite_b",
         dataset_id="official/gaia",
-        bindings={"solver": _bound("official/bar", entry="claude-code")},
+        agent_profiles={"solver": _bound("official/bar", entry="claude-code")},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
     foo = runtimes.appearances_for_agent("official/foo", auth)
@@ -272,14 +272,14 @@ def test_versions_group_on_same_package(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_v1",
         dataset_id="official/gaia",
-        bindings={"solver": _bound("official/foo", version="0.1.0")},
+        agent_profiles={"solver": _bound("official/foo", version="0.1.0")},
     )
     _upload(
         results,
         tmp_path,
         suite_run_id="suite_v2",
         dataset_id="official/gaia",
-        bindings={"solver": _bound("official/foo", version="0.2.0")},
+        agent_profiles={"solver": _bound("official/foo", version="0.2.0")},
     )
     rows = runtimes.appearances_for_agent("official/foo", TokenInfo(scopes=frozenset(), user_id=""))
     versions = {r["suite_run_id"]: r["agent_version"] for r in rows}
@@ -294,7 +294,7 @@ def test_file_and_local_refs_do_not_appear(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_file",
         dataset_id="official/gaia",
-        bindings={
+        agent_profiles={
             "solver": {
                 **GROK,
                 "agent_ref": "file:/tmp/agent@dev+sha256:aaaaaaaaaaaa",
@@ -306,7 +306,7 @@ def test_file_and_local_refs_do_not_appear(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_local",
         dataset_id="official/gaia",
-        bindings={
+        agent_profiles={
             "solver": {
                 **GROK,
                 "agent_ref": "local/http-default@0.1.0+sha256:aaaaaaaaaaaa",
@@ -334,7 +334,7 @@ def test_appearance_overlays_and_teammates(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_overlays",
         dataset_id="official/gaia",
-        bindings={"solver": solver, "user": user},
+        agent_profiles={"solver": solver, "user": user},
         pass_rate=0.5,
         mean_score=0.5,
     )
@@ -381,7 +381,7 @@ def test_appearances_on_package_versions(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_pkg",
         dataset_id="official/gaia",
-        bindings={"solver": _bound("official/http-default")},
+        agent_profiles={"solver": _bound("official/http-default")},
     )
     state, token = build_default_state(tmp_path / "http2", bootstrap_token="tok", memory_blob=True)
     # Reuse the same sqlite? build_default_state is a new empty registry.

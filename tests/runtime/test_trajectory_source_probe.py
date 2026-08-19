@@ -12,7 +12,7 @@ import pytest
 from ageval.environments.protocol import Placement
 from ageval.plugins.agent_result import parse_validated_text_structured
 from ageval.plugins.contrib.acp import AcpExecutor
-from ageval.plugins.contrib.local.host import LocalHost
+from tests.helpers.box import local_box
 
 REAL_ENTRY = "pi"
 
@@ -28,7 +28,7 @@ def test_offline_refuses_before_touching_the_box(
     monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")
     executor = AcpExecutor(
         entry_id="opencode",
-        host=LocalHost(attempt_root=tmp_path / "box"),
+        host=local_box(tmp_path / "box"),
         placement=Placement(target_id="unstarted"),
     )
     result = executor.invoke("hi")
@@ -51,7 +51,7 @@ def test_a_real_entry_answers_over_the_attached_pipe(
         pytest.skip(f"{REAL_ENTRY} not on PATH")
     monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
 
-    host = LocalHost(attempt_root=tmp_path / "box")
+    host = local_box(tmp_path / "box")
     asyncio.run(host.preflight())
     asyncio.run(host.start())
     executor = AcpExecutor(entry_id=REAL_ENTRY, host=host, placement=host.placement())

@@ -78,7 +78,7 @@ def _profiles(tmp: Path, extra_plugin: str) -> Path:
         yaml.safe_dump(
             {
                 "format": "ageval.profiles/1",
-                "bindings": {
+                "agent_profiles": {
                     "solver": {
                         "executor": "host-probe",
                         "extensions": [

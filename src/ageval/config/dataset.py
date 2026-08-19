@@ -467,10 +467,10 @@ def _declared_overlay_member_paths(dataset_root: Path) -> list[str]:
     source_docs: list[str] = []
     for yaml_path in _iter_profiles_documents(root):
         try:
-            bindings = load_job_document(yaml_path)
+            job = load_job_document(yaml_path)
         except ConfigError:
             continue
-        found = overlay_paths_from_job_overlay({"agent_profiles": bindings})
+        found = overlay_paths_from_job_overlay({"agent_profiles": job.profiles})
         if not found:
             continue
         rel_doc = _digest_member_file(root, yaml_path)
@@ -527,6 +527,12 @@ def member_paths_for_digest(
     for name in ("profiles.yaml", "env.example", "README.md"):
         if (root / name).is_file():
             paths.append(name)
+    # Any job document the dataset ships can change what a run does, so it is
+    # digest input wherever it lives — not only at the root.
+    for document in _iter_profiles_documents(root):
+        rel = _digest_member_file(root, document)
+        if rel is not None and rel not in paths:
+            paths.append(rel)
     # #65 Dataset-level shared tree (if present) enters packageDigest / publish.
     shared_dir = root / "shared"
     if shared_dir.is_dir():
