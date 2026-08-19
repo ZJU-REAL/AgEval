@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -18,6 +17,7 @@ from bora.adapters.agent_contract import (
     AgentResult,
     parse_validated_text_structured,
 )
+from bora.adapters.child_env import project_cli_child_env
 from bora.plugins.contrib.acp.client import (
     _BoraAcpClient,
     _map_stop_reason,
@@ -145,16 +145,17 @@ class AcpExecutor(AgentExecutor):
         self._cm: Any = None  # async context manager for spawn
 
     def _child_env(self) -> dict[str, str]:
-        env = os.environ.copy()
-        # Strip nothing globally; only ensure fixed safety env + allowlisted credentials.
+        """L0 spawn env: allowlist projection, not a copy of the parent environ."""
+        env = project_cli_child_env(
+            self.entry_id,
+            api_key_env=self.api_key_env,
+            base_url=self.base_url,
+            credential_env_names=self.descriptor.credential_env_names,
+        )
         for k, v in self.descriptor.fixed_env.items():
-            env[str(k)] = str(v)
-        for name in self.descriptor.credential_env_names:
-            if name in os.environ:
-                env[name] = os.environ[name]
-        if self.api_key_env and self.api_key_env in os.environ:
-            env[self.api_key_env] = os.environ[self.api_key_env]
-        env.update(self._extra_env)
+            if v:
+                env[str(k)] = str(v)
+        env.update({k: str(v) for k, v in self._extra_env.items() if v})
         return env
 
     def _ensure_loop(self) -> asyncio.AbstractEventLoop:

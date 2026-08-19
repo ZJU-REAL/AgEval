@@ -21,6 +21,9 @@ Stdout JSON (high level):
 - ACP registry: `bora.plugins.contrib.acp.registry` (static pins; not package-overridable)
 - Plugin `host_ready` uses declared `host_requires` / reachable `describe()` — not “installed” and not PATH-probing wheel binaries
 - `-v` adds tools/session/stream + richer entry fields
+- L0 ACP spawn env is `project_cli_child_env` (allowlist only: core keys +
+  entry credential names + binding locators + `fixed_env`). Undeclared host
+  tokens do not reach the entry. `HOME` is still projected.
 - No package path; no secrets; exit 0
 
 **Author packages with:** `executor: acp` + `- plugin: acp` / `options.entry: <entry_id from acp_entries>`.

@@ -44,6 +44,65 @@ def test_ensure_session_requires_workdir() -> None:
     assert err == "acp_workdir_required"
 
 
+def test_child_env_is_allowlist_not_parent_copy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("PATH", "/bin")
+    monkeypatch.setenv("HOME", "/home/u")
+    monkeypatch.setenv("LANG", "C")
+    monkeypatch.setenv("ZAI_API_KEY", "k-pi")
+    monkeypatch.setenv("UNRELATED_SECRET", "nope")
+    monkeypatch.setenv("CLOUD_TOKEN", "leak")
+    ex = AcpExecutor(entry_id="pi", model="entry-default")
+    env = ex._child_env()
+    assert env["HOME"] == "/home/u"
+    assert env["PATH"] == "/bin"
+    assert env["ZAI_API_KEY"] == "k-pi"
+    assert env.get("NO_BROWSER") == "1"
+    assert "UNRELATED_SECRET" not in env
+    assert "CLOUD_TOKEN" not in env
+
+
+def test_child_env_projects_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("PATH", "/bin")
+    monkeypatch.setenv("HOME", "/h")
+    for name in (
+        "ZAI_API_KEY",
+        "ZAI_CODING_CN_API_KEY",
+        "ZHIPU_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "XAI_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MY_LOCATOR", "secret-glm")
+    ex = AcpExecutor(
+        entry_id="pi",
+        model="entry-default",
+        api_key_env="MY_LOCATOR",
+        base_url="https://example.test/v1",
+    )
+    env = ex._child_env()
+    assert env["MY_LOCATOR"] == "secret-glm"
+    assert env["ZAI_API_KEY"] == "secret-glm"
+    assert env["ANTHROPIC_BASE_URL"] == "https://example.test/v1"
+    assert env["OPENAI_BASE_URL"] == "https://example.test/v1"
+
+
+def test_child_env_extra_home_overrides_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("PATH", "/bin")
+    monkeypatch.setenv("HOME", "/host-home")
+    ex = AcpExecutor(
+        entry_id="pi",
+        model="entry-default",
+        env={"HOME": "/attempt/home"},
+    )
+    env = ex._child_env()
+    assert env["HOME"] == "/attempt/home"
+
+
 def test_unknown_entry_raises() -> None:
     try:
         AcpExecutor(entry_id="not-an-entry", model="x")

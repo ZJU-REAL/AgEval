@@ -34,6 +34,8 @@ No command/version/install in package yaml.
 uv run bora executors -v
 ```
 
+The L0 child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
+
 ## Runtime switch
 
 ```bash
