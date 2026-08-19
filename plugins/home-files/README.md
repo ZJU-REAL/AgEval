@@ -1,6 +1,6 @@
 # home-files
 
-`bora.plugin/1` that copies Database-relative overlay files into Attempt
+`bora.plugin/1` that copies overlay files into Attempt
 `$HOME` or workspace. Registers `on: home_overlay` only. No bake.
 
 ## Install
@@ -29,14 +29,15 @@ extensions:
 
 | Field | Rule |
 | --- | --- |
-| `src` | Relative to Database root. No `..`, no absolute path. |
+| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Database root. No `..`, no absolute path. |
 | `dest_root` | Required: `home` or `workspace`. |
 | `dest` | Relative to that root. No `..`. Not under `evaluation/`. |
 
 Secrets stay locators. Overlay JSON must not embed tokens. No JSON deep-merge.
 
-To show the same files on the Hub Runtime plaza, list them on this role as
-`overlays:` (Database-relative paths under `overlays/`). That field is the
+To show the same files on Hub Agent appearances, list them on this role as
+`overlays:` (paths under `overlays/`, resolved from the Agent package when
+`agent_ref` is set). That field is the
 published set; this plugin still copies only its own `files[].src`.
 
 ## Run

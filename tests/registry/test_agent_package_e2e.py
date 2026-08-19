@@ -98,6 +98,61 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
     assert by_digest["ok"] is True
 
 
+def test_publish_agent_archives_listed_overlays(env: dict[str, str], tmp_path: Path) -> None:
+    pkg = tmp_path / "overlay-agent"
+    pkg.mkdir()
+    (pkg / "agent.yaml").write_text(
+        "format: bora.agent/1\nagent_id: overlay-demo\nversion: '1.0'\n"
+        "binding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/skills/demo]\n",
+        encoding="utf-8",
+    )
+    skill = pkg / "overlays" / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("# demo\n", encoding="utf-8")
+
+    summary = publish_agent(pkg, public=False, org=TEST_ORG)
+    assert summary["ok"] is True
+    body = _get(
+        env["url"],
+        env["token"],
+        f"/v1/packages/{summary['package_id']}/versions/{summary['version']}",
+    )
+    files = body.get("agent_preview", {}).get("files") or []
+    assert "overlays/skills/demo/SKILL.md" in files
+
+    installed = install_agent_from_registry(summary["ref"])
+    assert installed["ok"] is True
+    cached = (
+        Path(env["home"])
+        / "agents"
+        / installed["agent_id"]
+        / installed["version"]
+        / "overlays"
+        / "skills"
+        / "demo"
+        / "SKILL.md"
+    )
+    assert cached.is_file()
+    assert not (pkg.parent / "dataset-overlays").exists()
+
+
+def test_publish_rejects_missing_listed_overlay(env: dict[str, str], tmp_path: Path) -> None:
+    from bora.config.errors import ConfigError
+
+    pkg = tmp_path / "missing-overlay-agent"
+    pkg.mkdir()
+    (pkg / "agent.yaml").write_text(
+        "format: bora.agent/1\nagent_id: missing-ov\nversion: '1.0'\n"
+        "binding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/skills/demo]\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError) as ei:
+        publish_agent(pkg, public=False, org=TEST_ORG)
+    assert ei.value.error_code == "missing_reference"
+
+
 def test_reject_secret_bearing_agent(env: dict[str, str], tmp_path: Path) -> None:
     from bora.config.errors import ConfigError
 

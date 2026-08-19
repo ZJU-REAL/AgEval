@@ -120,6 +120,34 @@ def test_wildcard_and_explicit_spellings_share_fingerprint() -> None:
     assert [a["profile_id"] for a in via_wildcard["actors_summary"]] == ["solver"]
 
 
+def test_overlays_do_not_inherit_onto_exact_row() -> None:
+    """``--agent xx --agent user=yy`` must not copy xx's overlay tree onto user."""
+    bindings = parse_profiles_mapping(
+        {
+            "format": "bora.profiles/1",
+            "bindings": {
+                "*": {
+                    "executor": "mock",
+                    "model": "none",
+                    "overlays": ["overlays/skills/demo"],
+                    "agent_ref": "official/xx@0.1.0+sha256:aaaaaaaaaaaa",
+                },
+                "user": {
+                    "executor": "mock",
+                    "model": "other",
+                    "agent_ref": "official/yy@0.1.0+sha256:bbbbbbbbbbbb",
+                },
+            },
+        }
+    )
+    overlay = project_job_overlay(bindings, role_ids=["solver", "user"])
+    rows = overlay["bindings"]
+    assert rows["solver"]["overlays"] == ["overlays/skills/demo"]
+    assert rows["solver"]["agent_ref"].startswith("official/xx@")
+    assert "overlays" not in rows["user"]
+    assert rows["user"]["agent_ref"].startswith("official/yy@")
+
+
 def test_exact_row_overrides_wildcard_field_wise() -> None:
     """--set on one field of a wildcard-bound agent must not drop the rest."""
     from bora.config.profiles import apply_binding_override, effective_binding

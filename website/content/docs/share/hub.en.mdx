@@ -7,7 +7,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 
 - Dataset list (**Your organizations** / **Explore**), README, task file preview  
 - When the package has root `shared/`: Dataset **Shared** tab; Task **Files** header **Local | Shared** (Local default; Attempt evidence does not switch)  
-- When profiles declare `overlays:`: Dataset **Overlays** tab; Task **Files** adds an Overlays scope; Leaderboard **profiles** expand shows the same tree from the bound release (not the suite archive)  
+- When profiles declare `overlays:`: Dataset **Overlays** tab; Task **Files** adds an Overlays scope; Leaderboard **profiles** expand shows a Job tree (Dataset package) and/or an Agent tree (`agent_ref` package). One source hides the extra tab; none hides the tree. Not the suite archive.  
 - Large file preview: oversize members return a truncated head with a `truncated` flag (not full download)  
 - **Organizations**: members, org datasets and plugins (separate tables), shared suite results  
 - **Org settings**: invite keys (shown once on create); owners add members by GitHub login, change role, remove, or transfer ownership; leave or dissolve  
@@ -22,7 +22,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
 - List search sits on the same row as **Your organizations | Explore**; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
-- Runtime detail: secret-free YAML plus, when that role lists `overlays:`, a read-only file tree from the bound Dataset release (same package files API as Dataset / Plugin pages). Omit `overlays` and the page stays YAML-only.
+- Agent detail: published package (binding + files, including bundled `overlays/`) plus appearances from official public suites that named it with `agent_ref`. Suites run with `--profiles` only stay on the Dataset Leaderboard.
 
 - **Sign in with GitHub** (browser OAuth; CLI stays on Device Flow)
 
@@ -47,8 +47,8 @@ pnpm dev   # http://127.0.0.1:5174
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs |
 | `/plugins` | Plugin marketplace |
 | `/plugins/:id` | Plugin detail (declared-slot timeline · file preview · CLI install) |
-| `/runtimes` | Runtime plaza (harness cards derived from official public Leaderboards) |
-| `/runtimes/:id` | Appearance table; select a row for that role’s overlay tree; dataset cell opens the suite on the public board |
+| `/agents` | Published Agent catalog |
+| `/agents/:id` | Binding, files, appearances grouped by version |
 | `/organizations` | Your orgs · Join · dataset and plugin counts |
 | `/organizations/:orgId` | Overview (members · datasets · plugins) · Settings |
 | `/users/:login` | Public user profile (official orgs only; signed-out OK) |

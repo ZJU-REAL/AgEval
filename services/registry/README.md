@@ -261,26 +261,19 @@ files (no `..`, 2 MiB cap, **413** when larger):
 | PATCH | `/v1/results/suites/{suite_run_id}` | uploader (or `admin`); `{ "visibility" }` |
 | GET | `/v1/results/suites/{suite_run_id}/content` | same |
 
-### Runtime plaza (derived)
+### Agent appearances (derived)
 
-Read-only. No Runtime table and no upload. Source rows are **public**,
-**complete**, **release-bound** suites on a Dataset that has a non-draft
-official-org database release. Identity is the agent product (ACP
-``options.entry``, else plugin executor) — not transport ``acp``
-(`rt_` + 16 hex). Scores are the source suite's observational metrics.
+Read-only. No Runtime table, no appearance table, and no upload. Source rows
+are **public**, **complete**, **release-bound** suites on an official Dataset.
+Group key is the published Hub id ``org/name`` parsed from
+``job_overlay.bindings.*.agent_ref``. ``file:`` / ``local/`` refs and
+hand-written ``--profiles`` suites do not attach. ``GET /v1/runtimes`` is gone
+(404). Scores are the source suite's observational metrics.
 
-| Method | Path | Scope |
-| --- | --- | --- |
-| GET | `/v1/runtimes` | bearer (anonymous allowed); public official boards only |
-| GET | `/v1/runtimes/{runtime_id}` | same; **404** when no public official appearance |
-
-List cards have counts (`n_datasets`, `n_appearances`) and **no** headline
-score. Detail adds `appearances` (one row per role on that suite) with bound
-release coordinates (`database_id`, `database_version`, `package_digest`) and
-optional `overlays` paths from that binding. Hub opens those paths via the
-existing package files API; there is no `/v1/runtimes/{id}/files`. Public
-official board suite JSON may include `runtime_refs` (`role`, `runtime_id`,
-`display_name`); other suites omit it.
+``GET /v1/packages/{org/name}`` includes ``appearances`` for ``package_kind=agent``.
+Overlay bytes preview via the existing Agent package files API. Public official
+board suite JSON may include ``agent_refs`` (``role``, ``package_id``); other
+suites omit it.
 
 Row fields: `database_id`, `database_version`, `pass_rate`, `mean_score`, `metrics`,
 `task_refs`, optional `agent_label` / `model_label`, `exit_code`, and optional

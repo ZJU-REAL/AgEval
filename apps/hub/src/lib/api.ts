@@ -38,12 +38,6 @@ export type SuitePluginRef = {
   version?: string;
 };
 
-export type RuntimeRef = {
-  role: string;
-  runtime_id: string;
-  display_name: string;
-};
-
 const BUILTIN_EXECUTOR_KINDS = new Set(["acp", "openai-http"]);
 
 export type PackageRelease = {
@@ -201,8 +195,11 @@ export type SuiteRow = {
         model?: string;
         base_url?: string;
         api_key?: string;
+        label?: string;
+        agent_ref?: string;
         options?: { entry?: string; reasoning_effort?: string };
         overlays?: string[];
+        extensions?: Array<{ plugin?: string; options?: Record<string, unknown> }>;
       }
     >;
   };
@@ -216,18 +213,13 @@ export type SuiteRow = {
   complete?: boolean;
   bound_kind?: "release" | "draft" | "unknown" | string;
   task_set_digest?: string;
-  /** Official public board only; Hub must not invent plaza ids. */
-  runtime_refs?: RuntimeRef[];
+  /** Official public board only; derived from published agent_ref. */
+  agent_refs?: AgentRefLink[];
 };
 
-export type RuntimeCard = {
-  runtime_id: string;
-  display_name: string;
-  executor: string;
-  entry: string;
-  options: Record<string, unknown>;
-  n_datasets: number;
-  n_appearances: number;
+export type AgentRefLink = {
+  role: string;
+  package_id: string;
 };
 
 export type RuntimeTeammate = {
@@ -237,7 +229,9 @@ export type RuntimeTeammate = {
   display_name: string;
 };
 
-export type RuntimeAppearance = {
+export type AgentAppearance = {
+  package_id: string;
+  agent_version: string;
   database_id: string;
   database_version?: string;
   package_digest?: string;
@@ -251,9 +245,28 @@ export type RuntimeAppearance = {
   created_at?: number;
   teammates?: RuntimeTeammate[];
   overlays?: string[];
-  /** Provenance: bora.agent/1 ref that produced this binding (design/14). */
   agent_ref?: string;
 };
+
+/** Published Hub id + version from an agent_ref. Null for file:/local/ refs. */
+export function parsePublishedAgentRef(
+  ref: string | undefined | null,
+): { packageId: string; version: string; digest12: string } | null {
+  if (!ref || ref.startsWith("file:")) return null;
+  const at = ref.indexOf("@");
+  if (at <= 0) return null;
+  const packageId = ref.slice(0, at);
+  if (!packageId.includes("/") || packageId.startsWith("local/")) return null;
+  const rest = ref.slice(at + 1);
+  const plus = rest.indexOf("+");
+  const version = (plus >= 0 ? rest.slice(0, plus) : rest).trim();
+  if (!version) return null;
+  const digestPart = plus >= 0 ? rest.slice(plus + 1).trim() : "";
+  const digest12 = digestPart.startsWith("sha256:")
+    ? digestPart.slice("sha256:".length)
+    : digestPart;
+  return { packageId, version, digest12 };
+}
 
 /** Hub package id from an agent_ref (`org/name@ver+sha…`); null for local/file refs. */
 export function agentRefPackageId(ref: string | undefined | null): string | null {
@@ -263,9 +276,83 @@ export function agentRefPackageId(ref: string | undefined | null): string | null
   return id;
 }
 
-export type RuntimeDetail = RuntimeCard & {
-  appearances: RuntimeAppearance[];
-};
+function overlayPathList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const path = String(item || "").trim();
+    if (!path.startsWith("overlays/") || seen.has(path)) continue;
+    seen.add(path);
+    out.push(path);
+  }
+  return out;
+}
+
+/** Split job_overlay overlay paths: Dataset (no published agent_ref) vs Agent packages. */
+export function splitJobOverlaySources(
+  overlay: SuiteRow["job_overlay"] | null | undefined,
+): {
+  jobPrefixes: string[];
+  agents: { ref: string; packageId: string; prefixes: string[] }[];
+} {
+  const jobPrefixes: string[] = [];
+  const jobSeen = new Set<string>();
+  const byPackage = new Map<string, { ref: string; prefixes: string[]; seen: Set<string> }>();
+  const bindings = overlay?.bindings;
+  if (!bindings) return { jobPrefixes, agents: [] };
+  for (const raw of Object.values(bindings)) {
+    if (!raw) continue;
+    const paths = overlayPathList(raw.overlays);
+    if (!paths.length) continue;
+    const parsed = parsePublishedAgentRef(raw.agent_ref);
+    if (parsed) {
+      let group = byPackage.get(parsed.packageId);
+      if (!group) {
+        group = { ref: String(raw.agent_ref).trim(), prefixes: [], seen: new Set() };
+        byPackage.set(parsed.packageId, group);
+      }
+      for (const path of paths) {
+        if (group.seen.has(path)) continue;
+        group.seen.add(path);
+        group.prefixes.push(path);
+      }
+      continue;
+    }
+    for (const path of paths) {
+      if (jobSeen.has(path)) continue;
+      jobSeen.add(path);
+      jobPrefixes.push(path);
+    }
+  }
+  return {
+    jobPrefixes,
+    agents: [...byPackage.entries()].map(([packageId, group]) => ({
+      ref: group.ref,
+      packageId,
+      prefixes: group.prefixes,
+    })),
+  };
+}
+
+/** Full package digest for a published agent_ref (short digest prefix-matched). */
+export async function resolveAgentPackageDigest(
+  ref: string,
+  token: string | null,
+): Promise<{ packageId: string; digest: string } | null> {
+  const parsed = parsePublishedAgentRef(ref);
+  if (!parsed) return null;
+  const versions = await listPackageVersions(parsed.packageId, token);
+  const match =
+    versions.find((row) => {
+      if (row.version !== parsed.version) return false;
+      if (!parsed.digest12) return true;
+      const hex = (row.package_digest || "").replace(/^sha256:/, "");
+      return hex.startsWith(parsed.digest12);
+    }) ?? versions.find((row) => row.version === parsed.version);
+  if (!match?.package_digest) return null;
+  return { packageId: parsed.packageId, digest: match.package_digest };
+}
 
 export type AttemptMeta = {
   run_id: string;
@@ -372,13 +459,26 @@ export async function listPackages(
   return Array.isArray(data.items) ? data.items : [];
 }
 
+export async function listPackageVersionsWithAppearances(
+  databaseId: string,
+  token: string | null,
+): Promise<{ items: PackageRelease[]; appearances: AgentAppearance[] }> {
+  const path = `/v1/packages/${databaseId.split("/").map(encodeURIComponent).join("/")}`;
+  const data = await requestJson<{
+    items?: PackageRelease[];
+    appearances?: AgentAppearance[];
+  }>(path, { token });
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    appearances: Array.isArray(data.appearances) ? data.appearances : [],
+  };
+}
+
 export async function listPackageVersions(
   databaseId: string,
   token: string | null,
 ): Promise<PackageRelease[]> {
-  const path = `/v1/packages/${databaseId.split("/").map(encodeURIComponent).join("/")}`;
-  const data = await requestJson<{ items?: PackageRelease[] }>(path, { token });
-  return Array.isArray(data.items) ? data.items : [];
+  return (await listPackageVersionsWithAppearances(databaseId, token)).items;
 }
 
 /** Package meta by digest (includes plugin_preview for bora.plugin/1). */
@@ -494,24 +594,12 @@ export async function listSuites(
   return Array.isArray(data.items) ? data.items : [];
 }
 
-export async function listRuntimes(token: string | null): Promise<RuntimeCard[]> {
-  const data = await requestJson<{ items?: RuntimeCard[] }>("/v1/runtimes", { token });
-  return Array.isArray(data.items) ? data.items : [];
-}
-
-export async function getRuntime(
-  runtimeId: string,
-  token: string | null,
-): Promise<RuntimeDetail> {
-  return requestJson(`/v1/runtimes/${encodeURIComponent(runtimeId)}`, { token });
-}
-
-export function uniqueRuntimeRefs(refs: RuntimeRef[] | undefined): RuntimeRef[] {
+export function uniqueAgentRefs(refs: AgentRefLink[] | undefined): AgentRefLink[] {
   if (!refs?.length) return [];
   const seen = new Set<string>();
-  const out: RuntimeRef[] = [];
+  const out: AgentRefLink[] = [];
   for (const ref of refs) {
-    const id = (ref.runtime_id || "").trim();
+    const id = (ref.package_id || "").trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
     out.push(ref);
@@ -964,8 +1052,25 @@ export function pluginsUsedBySuite(
         : { plugin_id: marketplaceId },
     );
   }
-  if (fromStore.length) return fromStore;
   const bindings = suite.job_overlay?.bindings;
+  if (bindings && typeof bindings === "object") {
+    for (const raw of Object.values(bindings)) {
+      const rows = raw?.extensions;
+      if (!Array.isArray(rows)) continue;
+      for (const row of rows) {
+        const id = String(row?.plugin || "").trim();
+        const key = id.toLowerCase();
+        if (!id || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {
+          continue;
+        }
+        seen.add(key);
+        fromStore.push({
+          plugin_id: resolveMarketplacePluginId(id, catalog, preferredOrgId),
+        });
+      }
+    }
+  }
+  if (fromStore.length) return fromStore;
   if (!bindings || typeof bindings !== "object") return [];
   for (const raw of Object.values(bindings)) {
     const exec = String(raw?.executor || "").trim();

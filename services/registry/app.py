@@ -34,8 +34,6 @@ Endpoints:
   POST /v1/results/suites
   GET  /v1/results/suites
   GET  /v1/results/suites/{suite_run_id}
-  GET  /v1/runtimes
-  GET  /v1/runtimes/{runtime_id}
   DELETE /v1/results/suites/{suite_run_id}[?with_attempts=1]
   PATCH /v1/results/suites/{suite_run_id}  (visibility)
   GET  /v1/results/suites/{suite_run_id}/content

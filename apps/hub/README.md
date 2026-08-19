@@ -4,9 +4,10 @@ Registry **Dataset catalog** SPA: list packages, open README and tasks, preview
 files, browse Task Jobs, and Leaderboard.
 
 Also covers the **Plugin marketplace** (`/plugins` — `bora.plugin/1` browse +
-CLI install copy; no browser-side install), **Runtime plaza** (`/runtimes` —
-derived harness cards from official public Leaderboards; not a stored Runtime
-and not suite PASS), **organizations** (members, org
+CLI install copy; no browser-side install), **Agents** (`/agents` —
+published `bora.agent/1` plus derived appearances from official public
+Leaderboards that carry `agent_ref`; not a stored Runtime and not suite PASS),
+**organizations** (members, org
 datasets and plugins, shared suite results, invite keys, member add / role /
 transfer, leave / dissolve), **GitHub
 browser login**, and opening a Job’s run detail when the corresponding Attempt
@@ -65,8 +66,8 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs (row opens detail when uploaded) |
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
 | `/plugins/:id` | Plugin detail (declared L0–L5 timeline · files · CLI install) |
-| `/runtimes` | Runtime plaza (derived from official public Leaderboards) |
-| `/runtimes/:id` | Results table; select a row for that role’s overlay tree; dataset cell opens `?tab=leaderboard&suite=` |
+| `/agents` | Published Agent catalog |
+| `/agents/:id` | Agent detail (binding, files, appearances grouped by version) |
 | `/datasets/:id?tab=leaderboard&suite=` | Public Leaderboard with that suite row expanded |
 | `/organizations` | Your orgs · Join |
 | `/organizations/:orgId` | Overview (members · datasets · plugins) · Settings |

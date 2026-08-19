@@ -37,7 +37,7 @@ extensions:
 
 | Field | Rule |
 | --- | --- |
-| `src` | Relative to Database root. No `..`, no absolute path, no host `~`. |
+| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Database root. No `..`, no absolute path, no host `~`. |
 | `dest` | Not author-written. Dest comes from the entry table. |
 | `skills[]` | One folder per row. Folder must contain `SKILL.md`. Folder name is the skill name. |
 | `instructions[]` | `AGENTS.md` and (when `claude-code` is bound) `CLAUDE.md`. |
@@ -63,7 +63,7 @@ Instruction files (same bytes as each `instructions[]` src):
 
 Do not drop `AGENTS.md` at `$HOME/AGENTS.md`. Engines do not look there.
 
-To publish the same skill / instruction files on the Hub Runtime plaza, list
+To publish the same skill / instruction files on Hub Agent appearances, list
 them on this role as `overlays:` (for example `overlays/skills/jsonl-agg` and
 `overlays/AGENTS.md`). Core does not infer that list from `src`.
 

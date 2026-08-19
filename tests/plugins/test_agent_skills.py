@@ -218,6 +218,137 @@ def bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
+def test_home_overlay_src_from_agent_package_not_dataset(bora_home: Path, tmp_path: Path) -> None:
+    """agent_ref bindings copy skills from the Agent cache, never Dataset overlays/."""
+    from types import SimpleNamespace
+
+    import yaml
+
+    from bora.adapters.package_fs import LocalPackageReader
+    from bora.agents import store
+    from bora.application.attempt.extension_hooks import hook_home_overlay
+    from bora.config.capabilities import DeclarationCapabilityCatalog
+    from bora.config.load_and_lock import ConfigCore
+    from bora.plugins.install import install_from_local
+
+    install_from_local(ROOT / "plugins" / "agent-skills")
+    from bora.plugins import bootstrap as boot
+    from bora.plugins.registry import reset_global_registry
+
+    boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
+    reset_global_registry()
+
+    pkg = tmp_path / "agent-pkg"
+    pkg.mkdir()
+    skill = pkg / "overlays" / "skills" / "demo"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("# demo from agent\n", encoding="utf-8")
+    (pkg / "agent.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "format": "bora.agent/1",
+                "agent_id": "xx",
+                "version": "0.1.0",
+                "binding": {
+                    "executor": "mock",
+                    "model": "none",
+                    "overlays": ["overlays/skills/demo"],
+                    "extensions": [
+                        {
+                            "plugin": "agent-skills",
+                            "options": {
+                                "dest_roots": ["home"],
+                                "skills": [{"src": "overlays/skills/demo"}],
+                            },
+                        }
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    entry = store.install_from_path(pkg, agent_id="official/xx")
+    short = entry.digest[len("sha256:") :][:12]
+
+    db = tmp_path / "db"
+    (db / "tasks" / "t").mkdir(parents=True)
+    (db / "bora.yaml").write_text(
+        "format: bora.database/1\ndatabase_id: example/ov\nversion: '0.1.0'\n"
+        "tasks:\n  root: tasks\n",
+        encoding="utf-8",
+    )
+    (db / "profiles.yaml").write_text(
+        "format: bora.profiles/1\nbindings:\n  solver:\n    executor: mock\n    model: none\n",
+        encoding="utf-8",
+    )
+    task = db / "tasks" / "t"
+    (task / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
+    (task / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
+    (task / "task.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "format": "bora.task/1",
+                "task_id": "t",
+                "harness": {"runtime": "python", "entrypoint": "harness:run"},
+                "parameters": {"models": {"default": "solver"}},
+                "provider": {"kind": "local", "assurance": "l0"},
+                "agent_profiles": [{"id": "solver"}],
+                "limits": {
+                    "wall_time_seconds": 60,
+                    "agent_invocations": 1,
+                    "environment_actions": 0,
+                },
+                "artifacts": {"publishable": []},
+                "evaluation": {
+                    "runtime": "python",
+                    "entrypoint": "evaluator:evaluate",
+                    "network": "none",
+                    "inputs": [],
+                    "output": {"format": "json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    # Dataset same-path must not be used (and is missing here).
+    locked = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
+        task,
+        "t",
+        capabilities=DeclarationCapabilityCatalog(),
+        profile_bindings={
+            "solver": {
+                "executor": "mock",
+                "model": "none",
+                "overlays": ["overlays/skills/demo"],
+                "agent_ref": f"official/xx@0.1.0+sha256:{short}",
+                "extensions": [
+                    {
+                        "plugin": "agent-skills",
+                        "options": {
+                            "dest_roots": ["home"],
+                            "skills": [{"src": "overlays/skills/demo"}],
+                        },
+                    }
+                ],
+            }
+        },
+    )
+    work = tmp_path / "work"
+    work.mkdir()
+    overlay_ctx = SimpleNamespace(work_root=work, package_root=db, workspace_root=work / "ws")
+    out = hook_home_overlay(
+        locked,
+        {"package_root": str(db), "workspace_root": str(work / "ws"), "work_root": str(work)},
+        ctx=overlay_ctx,
+    )
+    home = Path(out["home_root"])
+    skill_dest = home / ".agents" / "skills" / "demo" / "SKILL.md"
+    assert skill_dest.is_file()
+    assert skill_dest.read_text(encoding="utf-8") == "# demo from agent\n"
+    assert not (home / "agent.yaml").exists()
+    assert not (db / "overlays").exists()
+
+
 def test_install_agent_skills_pulls_home_files(bora_home: Path) -> None:
     env = {**os.environ, "BORA_HOME": str(bora_home)}
     proc = subprocess.run(

@@ -67,7 +67,7 @@ export function FilePreview({
           `\n\n… truncated for preview (${content.length.toLocaleString()} chars total)`
         : content;
     return (
-      <div className="p-4 overflow-auto h-full">
+      <div className="p-4 overflow-auto h-full min-h-full bg-canvas">
         {note ? <p className="text-xs text-mute mb-2">{note}</p> : null}
         {content.length > PLAIN_PREVIEW_MAX_CHARS ? (
           <p className="text-xs text-mute mb-2">
