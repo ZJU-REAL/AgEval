@@ -16,8 +16,10 @@ from bora import __version__ as BORA_VERSION
 from bora.adapters.agent_contract import (
     AgentExecutor,
     AgentResult,
+    observational_result_health,
     parse_validated_text_structured,
 )
+from bora.adapters.child_env import entry_credentials_missing, project_cli_child_env
 from bora.plugins.contrib.acp.client import (
     _BoraAcpClient,
     _map_stop_reason,
@@ -38,6 +40,19 @@ from bora.plugins.contrib.acp.usage import _as_plain_mapping, normalize_acp_usag
 # that omit the category or use a vendor-shaped id.
 _REASONING_OPTION_IDS = frozenset(
     {"thought_level", "reasoning_effort", "reasoning", "thinking", "effort"}
+)
+
+# Local docker CLI (L1 command_override) needs these; they are stripped from
+# container ``-e`` by wrap_docker_exec and must not reach a host ACP entry.
+_DOCKER_CLIENT_ENV_KEYS = (
+    "DOCKER_HOST",
+    "DOCKER_CONTEXT",
+    "DOCKER_CONFIG",
+    "DOCKER_TLS_VERIFY",
+    "DOCKER_CERT_PATH",
+    "DOCKER_TLS_CERTDIR",
+    "DOCKER_API_VERSION",
+    "SSL_CERT_FILE",
 )
 
 
@@ -145,16 +160,26 @@ class AcpExecutor(AgentExecutor):
         self._cm: Any = None  # async context manager for spawn
 
     def _child_env(self) -> dict[str, str]:
-        env = os.environ.copy()
-        # Strip nothing globally; only ensure fixed safety env + allowlisted credentials.
+        """L0 spawn env: allowlist projection, not a copy of the parent environ.
+
+        When ``command_override`` is set the spawned process is the local
+        docker CLI (L1), not the entry. Docker client locator keys stay.
+        """
+        env = project_cli_child_env(
+            self.entry_id,
+            api_key_env=self.api_key_env,
+            base_url=self.base_url,
+            credential_env_names=self.descriptor.credential_env_names,
+        )
         for k, v in self.descriptor.fixed_env.items():
-            env[str(k)] = str(v)
-        for name in self.descriptor.credential_env_names:
-            if name in os.environ:
-                env[name] = os.environ[name]
-        if self.api_key_env and self.api_key_env in os.environ:
-            env[self.api_key_env] = os.environ[self.api_key_env]
-        env.update(self._extra_env)
+            if v:
+                env[str(k)] = str(v)
+        env.update({k: str(v) for k, v in self._extra_env.items() if v})
+        if self._command_override:
+            for key in _DOCKER_CLIENT_ENV_KEYS:
+                val = os.environ.get(key)
+                if val:
+                    env[key] = val
         return env
 
     def _ensure_loop(self) -> asyncio.AbstractEventLoop:
@@ -452,6 +477,14 @@ class AcpExecutor(AgentExecutor):
                 prompt_usage=self._client.prompt_usage,
                 usage_update=self._client.latest_usage_update,
             )
+        health = observational_result_health(
+            ok=ok,
+            usage=usage,
+            actual_model=self._actual_model,
+            events=events,
+        )
+        if health:
+            meta["result_health"] = health
         return AgentResult(
             model=str(self._actual_model or self.model),
             text=text,
@@ -475,6 +508,15 @@ class AcpExecutor(AgentExecutor):
         cwd = workdir or self.workdir
         if not cwd:
             return "acp_workdir_required"
+        if (
+            not self.descriptor.keyless_auth
+            and self.descriptor.credential_env_names
+            and entry_credentials_missing(
+                self.descriptor.credential_env_names,
+                api_key_env=self.api_key_env,
+            )
+        ):
+            return "credential_missing"
         if self._command_override is None and self._process_launcher is None:
             ready = readiness_for(self.descriptor)
             if ready["readiness"] != "ready":

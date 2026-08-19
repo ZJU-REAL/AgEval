@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from bora.adapters.child_env import cli_credential_available, project_cli_child_env
+from bora.adapters.child_env import (
+    cli_credential_available,
+    entry_credentials_missing,
+    project_cli_child_env,
+)
 
 
 def test_allowlist_drops_unrelated_secrets() -> None:
@@ -76,3 +80,14 @@ def test_acp_entry_credential_allowlist_projection() -> None:
     env = project_cli_child_env("opencode", host_environ=host)
     assert env.get("ZHIPU_API_KEY") == "z"
     assert "UNRELATED_SECRET" not in env
+
+
+def test_entry_credentials_missing() -> None:
+    names = ("ZAI_API_KEY", "OPENAI_API_KEY")
+    assert entry_credentials_missing(names, host_environ={}) is True
+    assert entry_credentials_missing(names, host_environ={"OPENAI_API_KEY": "k"}) is False
+    assert (
+        entry_credentials_missing(names, api_key_env="MY_KEY", host_environ={"MY_KEY": "k"})
+        is False
+    )
+    assert entry_credentials_missing((), host_environ={}) is False

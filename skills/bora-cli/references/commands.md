@@ -15,12 +15,15 @@ Stdout JSON (high level):
 | `host_ready` | Subset of kinds whose **L0 host SPI** can be constructed here |
 | `missing_binary` | Legacy CLI kinds missing PATH binary (ACP uses per-entry fields) |
 | `executors[]` | Per kind: `execution_mode` (from `describe()` when published), L0 `host_ready`, plugin `l1_bake_declared` |
-| `acp_entries[]` | Per ACP `entry_id`: `acp_command`, `engine_ready`, `acp_entry_ready`, `host_ready`, credential env *names* |
+| `acp_entries[]` | Per ACP `entry_id`: `acp_command`, `engine_ready`, `acp_entry_ready`, `host_ready`, credential env *names*; `-v` adds `credential_missing` / `keyless_auth` |
 
 - Logic: `bora.adapters.executor_inventory` (CLI is thin print)
 - ACP registry: `bora.plugins.contrib.acp.registry` (static pins; not package-overridable)
 - Plugin `host_ready` uses declared `host_requires` / reachable `describe()` — not “installed” and not PATH-probing wheel binaries
 - `-v` adds tools/session/stream + richer entry fields
+- L0 ACP spawn env is `project_cli_child_env` (allowlist only: core keys +
+  entry credential names + binding locators + `fixed_env`). Undeclared host
+  tokens do not reach the entry. `HOME` is still projected.
 - No package path; no secrets; exit 0
 
 **Author packages with:** `executor: acp` + `- plugin: acp` / `options.entry: <entry_id from acp_entries>`.
@@ -34,7 +37,9 @@ Stdout JSON (high level):
 - `--probe`: same lock plus observational `probe` (path, ready, checks). Does not
   change the digest. Exit 1 when the **selected** `provider.kind` path is unsatisfied.
   L0 runs declared `host_requires`; L1 checks bake file + Docker daemon + locator
-  **names** (never values). `BORA_OFFLINE_AGENT=1` is reported; probe still does not spawn.
+  **names** (never values). ACP entries add `credential_missing` (fail-closed when
+  the entry requires a key; warning-only when `keyless_auth`). `BORA_OFFLINE_AGENT=1`
+  is reported; probe still does not spawn.
 
 ## `bora run`
 

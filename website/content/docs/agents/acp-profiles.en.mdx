@@ -34,6 +34,8 @@ No command/version/install in package yaml.
 uv run bora executors -v
 ```
 
+`-v` also reports `credential_missing` when every declared credential env name is unset and the binding has no `api_key`. Entries that require a key (for example `pi`) fail closed at `--probe` / session-open; entries that document keyless (OAuth) auth warn only. The L0 child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
+
 ## Runtime switch
 
 ```bash

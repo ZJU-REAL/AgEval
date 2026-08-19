@@ -135,6 +135,14 @@ Harness / Harness Core 的 `Agent(..., model_profile=params.planner_model)` **�
 
 `session/request_permission` 的 approve 只是「允许 agent 继续该 tool」；Linux DAC 与容器 mount 仍是硬边界（non-root 无法写 root 私有目录）。Elicitation 默认 decline。
 
+**L0 ACP child env（allowlist-only）：** Host spawn 的子进程环境与 `project_cli_child_env` 同一套投影，**不是** `os.environ.copy()`。默认只带 `_CORE_HOST_KEYS`（`PATH` / `HOME` / `LANG`，空值丢弃）、entry 的 `credential_env_names`、`_KIND_EXTRA_HOST_KEYS`、binding `api_key` / `base_url` locator 以及 descriptor `fixed_env`。未声明的 host token **不得**到达 entry。`HOME` 仍投影，engine 在 attempt home 下的 OAuth 文件仍可读。调试若要全量继承，必须显式 env 且默认关闭；禁止静默 fallback。L1 容器内仍走 `cli_env_for_container`（不把 host `PATH`/`HOME`/`XDG_*` 拷进容器）。本机 `docker exec` 客户端（`command_override`）额外透传 `DOCKER_HOST` / `DOCKER_CONTEXT` / TLS 等 docker client 配置键，这些键仍不进容器 `-e`。
+
+**Credential probe 与 `result_health`（观测，≠ PASS）：** 某后端无法真正调用模型时，必须在 Attempt 前或 session-open 给出明确事实，而不是 `ok=true` 再被 evaluator 打成可比的 FAIL。
+
+- **Presence。** 当 entry 的 `credential_env_names` **全部未设**且 binding 没有 `api_key` locator：`bora executors -v` 与 `--probe` 报告 `credential_missing`。`credential_env_names` 为空表示该 entry 不声明 env 密钥（如 Codex OAuth）。
+- **Fail-closed vs warning。** descriptor `keyless_auth: true`（OAuth / 本机 auth 文件，凭据可在 `HOME` 下）只警告，不挡 `--probe` / session-open。`keyless_auth` 缺省或 false、且声明了 credential 名：`--probe` 与 session-open **fail closed**（error kind `credential_missing`）。
+- **Observational health floor。** turn 以 `ok=true` 结束且 `usage == null`、`actual_model == null`、零 tool 事件时，在 `AgentResult.metadata` 与 trajectory metadata 写 `result_health: "noop_turn"`。**不**改 evaluation status。suite `pass_rate` 仍计 evaluator FAIL；操作者可按 `result_health` 过滤。PASS 仍只来自独立 evaluator。
+
 **非目标：** parent 内 vendor 私有协议第二套 parser；invoke 时网络装包；把 ACP permission 当作 filesystem 提权。
 
 ## 归一化 invoke 契约（跨后端）
@@ -152,7 +160,7 @@ result = await ctx.agent.invoke(
 # result: content, structured_output?, usage, session_handle?
 ```
 
-后端能力差（有的无 structured output、有的 tool 形态不同）由 **Adapter 适配 + profile/options 声明**，不由 Task Harness 分支 `if executor == "acp" and entry == "codex"`。若某后端无法满足 task 所需契约，Config validation 在 Attempt 前失败，而不是运行中静默降级出不可比分数。
+后端能力差（有的无 structured output、有的 tool 形态不同）由 **Adapter 适配 + profile/options 声明**，不由 Task Harness 分支 `if executor == "acp" and entry == "codex"`。若某后端无法满足 task 所需契约（含无可用 credential、banner-only 无模型调用），Config validation / session-open / `--probe` 在 Attempt 前失败或打上观测 `result_health`，而不是运行中静默降级出不可比分数。
 
 ## 热路径与限制
 

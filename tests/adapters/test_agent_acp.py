@@ -8,7 +8,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.adapters.agent_contract import parse_validated_text_structured
+from bora.adapters.agent_contract import (
+    RESULT_HEALTH_NOOP_TURN,
+    observational_result_health,
+    parse_validated_text_structured,
+)
 from bora.plugins.contrib.acp import AcpExecutor, normalize_acp_usage
 from bora.plugins.contrib.acp.executor import (
     _find_reasoning_config_option,
@@ -42,6 +46,152 @@ def test_ensure_session_requires_workdir() -> None:
     ex = AcpExecutor(entry_id="opencode", model="entry-default")
     err = ex._ensure_session(workdir=None, timeout=1.0)
     assert err == "acp_workdir_required"
+
+
+def test_child_env_is_allowlist_not_parent_copy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("PATH", "/bin")
+    monkeypatch.setenv("HOME", "/home/u")
+    monkeypatch.setenv("LANG", "C")
+    monkeypatch.setenv("ZAI_API_KEY", "k-pi")
+    monkeypatch.setenv("UNRELATED_SECRET", "nope")
+    monkeypatch.setenv("CLOUD_TOKEN", "leak")
+    ex = AcpExecutor(entry_id="pi", model="entry-default")
+    env = ex._child_env()
+    assert env["HOME"] == "/home/u"
+    assert env["PATH"] == "/bin"
+    assert env["ZAI_API_KEY"] == "k-pi"
+    assert env.get("NO_BROWSER") == "1"
+    assert "UNRELATED_SECRET" not in env
+    assert "CLOUD_TOKEN" not in env
+
+
+def test_child_env_projects_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("PATH", "/bin")
+    monkeypatch.setenv("HOME", "/h")
+    for name in (
+        "ZAI_API_KEY",
+        "ZAI_CODING_CN_API_KEY",
+        "ZHIPU_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "XAI_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MY_LOCATOR", "secret-glm")
+    ex = AcpExecutor(
+        entry_id="pi",
+        model="entry-default",
+        api_key_env="MY_LOCATOR",
+        base_url="https://example.test/v1",
+    )
+    env = ex._child_env()
+    assert env["MY_LOCATOR"] == "secret-glm"
+    assert env["ZAI_API_KEY"] == "secret-glm"
+    assert env["ANTHROPIC_BASE_URL"] == "https://example.test/v1"
+    assert env["OPENAI_BASE_URL"] == "https://example.test/v1"
+
+
+def _clear_acp_cred_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "ZAI_API_KEY",
+        "ZAI_CODING_CN_API_KEY",
+        "ZHIPU_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "XAI_API_KEY",
+        "OPENCODE_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_ensure_session_fail_closed_when_required_key_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    _clear_acp_cred_env(monkeypatch)
+    ex = AcpExecutor(entry_id="pi", model="entry-default")
+    err = ex._ensure_session(workdir="/tmp", timeout=1.0)
+    assert err == "credential_missing"
+
+
+def test_ensure_session_warns_only_for_keyless_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    _clear_acp_cred_env(monkeypatch)
+    ex = AcpExecutor(entry_id="codex", model="entry-default")
+    err = ex._ensure_session(workdir="/tmp", timeout=1.0)
+    assert err != "credential_missing"
+
+
+def test_result_health_noop_turn() -> None:
+    assert (
+        observational_result_health(ok=True, usage=None, actual_model=None, events=())
+        == RESULT_HEALTH_NOOP_TURN
+    )
+    assert (
+        observational_result_health(
+            ok=True, usage={"input_tokens": 1}, actual_model=None, events=()
+        )
+        is None
+    )
+    assert observational_result_health(ok=True, usage=None, actual_model="gpt", events=()) is None
+    assert (
+        observational_result_health(
+            ok=True,
+            usage=None,
+            actual_model=None,
+            events=({"kind": "tool", "phase": "start"},),
+        )
+        is None
+    )
+    ex = AcpExecutor(entry_id="pi", model="entry-default")
+    ex._actual_model = None
+    result = ex._result(text="pi v0.83.0 banner", ok=True, error=None, stop="end_turn")
+    assert result.ok is True
+    assert result.usage is None
+    assert result.metadata is not None
+    assert result.metadata["result_health"] == RESULT_HEALTH_NOOP_TURN
+    assert result.metadata["actual_model"] is None
+
+
+def test_command_override_child_env_keeps_docker_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("PATH", "/bin")
+    monkeypatch.setenv("HOME", "/h")
+    monkeypatch.setenv("DOCKER_HOST", "unix:///run/user/1000/docker.sock")
+    monkeypatch.setenv("DOCKER_CONTEXT", "rootless")
+    monkeypatch.setenv("UNRELATED_SECRET", "nope")
+    host = AcpExecutor(entry_id="pi", model="entry-default")
+    assert "DOCKER_HOST" not in host._child_env()
+    ex = AcpExecutor(
+        entry_id="pi",
+        model="entry-default",
+        command_override=["docker", "exec", "c1", "pi-acp"],
+    )
+    env = ex._child_env()
+    assert env["DOCKER_HOST"] == "unix:///run/user/1000/docker.sock"
+    assert env["DOCKER_CONTEXT"] == "rootless"
+    assert "UNRELATED_SECRET" not in env
+
+
+def test_child_env_extra_home_overrides_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("PATH", "/bin")
+    monkeypatch.setenv("HOME", "/host-home")
+    ex = AcpExecutor(
+        entry_id="pi",
+        model="entry-default",
+        env={"HOME": "/attempt/home"},
+    )
+    env = ex._child_env()
+    assert env["HOME"] == "/attempt/home"
 
 
 def test_unknown_entry_raises() -> None:

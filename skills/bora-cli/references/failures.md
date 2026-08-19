@@ -10,6 +10,7 @@
 | `image_contribute_unsatisfied` | Bound external executor but bake chain empty / no `Dockerfile.bake` — `$bora-plugin` |
 | `nooa_package_missing` / `No module named 'nooa'` | Host SPI needs `uv sync --extra nooa`; L1 bake installs it in the image |
 | ACP entry not ready | `bora executors -v` → that `entry_id` `host_ready` / install pin; no invoke-time `npm i` |
+| `credential_missing` | All declared credential env names unset and no `api_key` locator. Required entries fail at `--probe` / session-open; keyless (OAuth) entries warn only. Banner-only `ok=true` turns may record observational `result_health=noop_turn` — not PASS. |
 | PASS without real model | Forbidden — do not use fixtures as public proof |
 | Trajectory empty | Non-empty `agent_profiles` + harness `Agent.session`/`invoke`. Plugin L1 with no tools: worker import / collect — `$bora-plugin` |
 | Resume skipped an ERROR | Default `--resume-suite` skips finished PASS / FAIL / ERROR. Use `--replace-slot --task T` on the same suite. |

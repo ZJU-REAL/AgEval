@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
+
+RESULT_HEALTH_NOOP_TURN: str = "noop_turn"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,3 +55,25 @@ def parse_validated_text_structured(text: str) -> dict[str, object] | None:
     if isinstance(val, dict):
         return val  # type: ignore[return-value]
     return None
+
+
+def _is_tool_event(event: Mapping[str, Any]) -> bool:
+    if event.get("kind") == "tool":
+        return True
+    return event.get("type") in {"tool", "tool_call", "tool_call_update"}
+
+
+def observational_result_health(
+    *,
+    ok: bool,
+    usage: Mapping[str, Any] | None,
+    actual_model: Any,
+    events: Sequence[Mapping[str, Any]] | None,
+) -> str | None:
+    """Flag banner-only ok turns. Observational — never a PASS source."""
+    if not ok or usage is not None or actual_model is not None:
+        return None
+    for event in events or ():
+        if isinstance(event, Mapping) and _is_tool_event(event):
+            return None
+    return RESULT_HEALTH_NOOP_TURN

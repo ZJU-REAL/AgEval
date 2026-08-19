@@ -72,6 +72,7 @@ binding:                        # 恰好一条 bora.profiles/1 binding；同一�
 | `--agent` 引用 | 本地 index 中的 id（`local/x@0.1.0` / `acme/x@1.0.0`）,或**直连文件路径**（开发环） |
 
 缓存布局镜像 plugins：`$BORA_HOME/agents/<id>/<version>/` + `index.json`。
+**index 按 `(agent_id, version)` 一行**（包目录本来就是按 version 分的）。同 id 可并排 pin（`x@1.0` 与 `x@2.0` 同时可 resolve）。`find(id)` / `bora agent show <id>` 返回最新一行；`resolve_installed_ref` 与 `--agent id@version` 查精确行。`uninstall id@version` 只删该 version；裸 `id` 删该 id 下全部 version。旧的「一 id 一行」index 仍能加载；缺行时从磁盘 `<id>/<version>/` 补建。plugins 缓存仍可一 id 一活跃 version。
 install **只写本地缓存**,永不改写 profiles / task.yaml（同 11 不变量 3），也永不把 overlay 字节写进 Dataset `overlays/`。
 
 ## Agent 包内 `overlays/`
@@ -116,8 +117,10 @@ Agent 包**可以**包含一棵 `overlays/` 树。`binding.overlays` 是 publish
 | 去向 | 是否包含 | 理由 |
 | --- | --- | --- |
 | binding 键（`BINDING_FIELD_KEYS`） | ✅ 新增保留键 | 让合成文档可解析、job_overlay 可 round-trip;task.yaml 槽位自动被禁(inline-binding 断言) |
-| `job_overlay` / lock digest | ✅ 投影透传 | 运行可归因、可 `results export-profiles` 复跑 |
-| suite fingerprint `_ACTOR_KEYS` / `rt_*` | ❌ | 可比性只看 entry/executor/model/options；Hub 目录按已发布 `org/name` 挂接，不按 `rt_*` |
+| `job_overlay` / lock digest / Trial identity | ✅ 投影透传 | 运行可归因、可 `results export-profiles` 复跑;包树 digest 经 `agent_ref` 进入 Trial（overlay 字节只记路径） |
+| suite fingerprint `_ACTOR_KEYS` / plaza `rt_*` | ❌ | **binding 相同的两个 Agent 是同一 runtime**;可比性只看 entry/executor/model/options；Hub 目录按已发布 `org/name` 挂接，不按 `rt_*` |
+
+`canonical_payload` 含整份 `job_overlay`，因此 **`agent_ref` 在 lock digest / Trial 身份里**。手写 `--profiles` 若缺 `agent_ref`，即便 executor/model/options 与某次 `--agent` 投影相同，也是**另一 Trial**。`--agent` 与一份 **round-trip 了同一 `agent_ref`** 的 `--profiles` 仍是同一 Trial。不要把 `agent_ref` 从 digest 里拿掉：去掉之后，两个声明路径相同、包树不同的 Agent 会撞成一个 Trial。
 
 ## Registry / Hub
 
@@ -131,7 +134,7 @@ Agent 包**可以**包含一棵 `overlays/` 树。`binding.overlays` 是 publish
 1. Agent 只是 binding 选型：Config Core 之下**不得**出现按 Agent 产品分支的 executor / lifecycle。投影后与手写 profiles 同构，**唯一**例外是 overlay 解析根：有 `agent_ref` → 已安装 Agent 包；无 → Database 根。
 2. `agent.yaml` 与缓存包内**永不**出现 secret 值;`api_key` / `base_url` 只承载 locator 名。
 3. lock 内 agent 引用必须钉死 `version+digest`;**禁止**浮动 `@latest` 进 lock。
-4. `agent_ref` 不进 suite fingerprint / `rt_*`;进 `job_overlay` 与 lock digest。overlay 路径与字节亦不进 `rt_*` / `config_fingerprint`。Hub 出场归组用 `org/name`，不用 `rt_*`。
+4. `agent_ref` 不进 suite fingerprint / `rt_*`；进 `job_overlay` 与 lock digest / Trial identity。缺 `agent_ref` 的手写 profiles 与带同一 binding 的 `--agent` 不是同一 Trial。overlay 路径与字节亦不进 `rt_*` / `config_fingerprint`。Hub 出场归组用 `org/name`，不用 `rt_*`。
 5. `--agent` 与 `--profiles` 互斥;`bora agent install` 只写本地缓存，不写 Dataset `overlays/`。
 6. PASS 仍只来自独立 evaluator;Agent 对象与评分无关。
 

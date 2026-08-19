@@ -58,6 +58,7 @@ class AcpEntryDescriptor:
     acp_version: str
     install_command: str
     credential_env_names: tuple[str, ...]
+    keyless_auth: bool
     model_binding: ModelBinding
     platforms: tuple[str, ...]
     fixed_env: Mapping[str, str]
@@ -77,6 +78,7 @@ class AcpEntryDescriptor:
             "acp_version": self.acp_version,
             "model_binding": self.model_binding,
             "credential_env_names": list(self.credential_env_names),
+            "keyless_auth": self.keyless_auth,
             "descriptor_digest": self.descriptor_digest,
             "platforms": list(self.platforms),
         }
@@ -87,6 +89,7 @@ class AcpEntryDescriptor:
         d["engine_detect_commands"] = list(self.engine_detect_commands)
         d["acp_detect_commands"] = list(self.acp_detect_commands)
         d["credential_env_names"] = list(self.credential_env_names)
+        d["keyless_auth"] = bool(self.keyless_auth)
         d["platforms"] = list(self.platforms)
         d["fixed_env"] = dict(self.fixed_env)
         return d
@@ -168,6 +171,7 @@ def _parse_entry(raw: Mapping[str, Any], *, index: int) -> AcpEntryDescriptor:
         "acp_version": raw["acp_version"],
         "model_binding": raw["model_binding"],
         "credential_env_names": list(raw["credential_env_names"]),
+        "keyless_auth": bool(raw.get("keyless_auth", False)),
         "platforms": list(raw["platforms"]),
         "fixed_env": fixed_env,
     }
@@ -191,6 +195,7 @@ def _parse_entry(raw: Mapping[str, Any], *, index: int) -> AcpEntryDescriptor:
         acp_version=str(raw["acp_version"]),
         install_command=str(raw["install_command"]),
         credential_env_names=tuple(str(x) for x in raw["credential_env_names"]),
+        keyless_auth=bool(raw.get("keyless_auth", False)),
         model_binding=str(raw["model_binding"]),  # type: ignore[arg-type]
         platforms=tuple(str(x) for x in raw["platforms"]),
         fixed_env=fixed_env,

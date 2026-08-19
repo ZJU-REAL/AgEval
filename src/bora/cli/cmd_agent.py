@@ -169,9 +169,12 @@ def agent_show(
 
 @agent_app.command("uninstall")
 def agent_uninstall(
-    agent_id: Annotated[str, typer.Argument(help="Installed id to remove from cache")],
+    agent_id: Annotated[
+        str,
+        typer.Argument(help="Installed id, or id@version to remove one version"),
+    ],
 ) -> None:
-    """Remove an agent from cache/index. Does not edit profiles."""
+    """Remove one version or every installed version of an id. Does not edit profiles."""
     from bora.agents.store import uninstall
 
     if not uninstall(agent_id):

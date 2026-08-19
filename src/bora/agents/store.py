@@ -1,8 +1,8 @@
 """Agent cache index + install/uninstall (design/14).
 
 Mirrors the plugins cache: install only writes ``$BORA_HOME/agents``; it
-never rewrites profiles / task.yaml. Index keys are the local id (short
-``agent_id`` recorded as ``local/<agent_id>``) or the Hub id ``org/name``.
+never rewrites profiles / task.yaml. Index rows are keyed by
+``(agent_id, version)`` so side-by-side pins stay resolvable.
 """
 
 from __future__ import annotations
@@ -57,13 +57,35 @@ class AgentIndex:
         return {"agents": [a.as_dict() for a in self.agents]}
 
     def find(self, agent_id: str) -> AgentIndexEntry | None:
+        """Newest installed row for *agent_id*, or None."""
+        matches = [a for a in self.agents if a.agent_id == agent_id]
+        if not matches:
+            return None
+        return max(matches, key=lambda a: _version_sort_key(a.version))
+
+    def find_version(self, agent_id: str, version: str) -> AgentIndexEntry | None:
         for a in self.agents:
-            if a.agent_id == agent_id:
+            if a.agent_id == agent_id and a.version == version:
                 return a
         return None
 
 
-def load_index() -> AgentIndex:
+def _version_sort_key(version: str) -> tuple[int, tuple[int, ...], str]:
+    nums: list[int] = []
+    leftover = False
+    for token in version.split("."):
+        if token.isdigit():
+            nums.append(int(token))
+        else:
+            leftover = True
+            break
+    return (0 if not leftover else 1, tuple(nums), version)
+
+
+_PROJECTIONS_DIR = ".projections"
+
+
+def _read_index_file() -> AgentIndex:
     path = index_path()
     if not path.is_file():
         return AgentIndex()
@@ -75,24 +97,87 @@ def load_index() -> AgentIndex:
     if not isinstance(rows, list):
         return AgentIndex()
     entries: list[AgentIndexEntry] = []
+    seen: set[tuple[str, str]] = set()
     for row in rows:
         if not isinstance(row, dict):
             continue
         try:
-            entries.append(
-                AgentIndexEntry(
-                    agent_id=str(row["agent_id"]),
-                    version=str(row["version"]),
-                    digest=str(row["digest"]),
-                    path=str(row["path"]),
-                    format=str(row.get("format") or "bora.agent/1"),
-                    label=str(row["label"]) if row.get("label") else None,
-                    tags=[str(t) for t in row.get("tags") or []],
-                )
+            entry = AgentIndexEntry(
+                agent_id=str(row["agent_id"]),
+                version=str(row["version"]),
+                digest=str(row["digest"]),
+                path=str(row["path"]),
+                format=str(row.get("format") or "bora.agent/1"),
+                label=str(row["label"]) if row.get("label") else None,
+                tags=[str(t) for t in row.get("tags") or []],
             )
         except KeyError:
             continue
+        key = (entry.agent_id, entry.version)
+        if key in seen:
+            continue
+        seen.add(key)
+        entries.append(entry)
     return AgentIndex(agents=entries)
+
+
+def _iter_on_disk_packages() -> list[tuple[str, str, Path]]:
+    root = agents_root()
+    if not root.is_dir():
+        return []
+    found: list[tuple[str, str, Path]] = []
+    for yaml_path in root.rglob("agent.yaml"):
+        if _PROJECTIONS_DIR in yaml_path.parts:
+            continue
+        pkg = yaml_path.parent
+        try:
+            rel = pkg.relative_to(root)
+        except ValueError:
+            continue
+        parts = rel.parts
+        if len(parts) < 2:
+            continue
+        version = parts[-1]
+        agent_id = "/".join(parts[:-1])
+        found.append((agent_id, version, pkg))
+    return found
+
+
+def _reconcile_index(index: AgentIndex) -> bool:
+    """Add missing (id, version) rows from on-disk packages. Returns True if changed."""
+    known = {(a.agent_id, a.version) for a in index.agents}
+    changed = False
+    for agent_id, version, pkg in _iter_on_disk_packages():
+        if (agent_id, version) in known:
+            continue
+        try:
+            manifest = load_agent_manifest(pkg)
+        except (OSError, ConfigError):
+            continue
+        digest = compute_tree_digest(pkg)
+        index.agents.append(
+            AgentIndexEntry(
+                agent_id=agent_id,
+                version=version,
+                digest=digest,
+                path=f"{agent_id}/{version}",
+                format="bora.agent/1",
+                label=manifest.label,
+                tags=list(manifest.tags),
+            )
+        )
+        known.add((agent_id, version))
+        changed = True
+    if changed:
+        index.agents.sort(key=lambda a: (a.agent_id, a.version))
+    return changed
+
+
+def load_index(*, reconcile: bool = True) -> AgentIndex:
+    index = _read_index_file()
+    if reconcile and _reconcile_index(index):
+        save_index(index)
+    return index
 
 
 def save_index(index: AgentIndex) -> None:
@@ -180,27 +265,43 @@ def install_from_path(source: Path, *, agent_id: str | None = None) -> AgentInde
 
 
 def _upsert_index(entry: AgentIndexEntry) -> None:
-    index = load_index()
-    index.agents = [a for a in index.agents if a.agent_id != entry.agent_id]
+    index = load_index(reconcile=False)
+    index.agents = [
+        a for a in index.agents if not (a.agent_id == entry.agent_id and a.version == entry.version)
+    ]
     index.agents.append(entry)
-    index.agents.sort(key=lambda a: a.agent_id)
+    index.agents.sort(key=lambda a: (a.agent_id, a.version))
     save_index(index)
 
 
-def uninstall(agent_id: str) -> bool:
+def _parse_cache_ref(raw: str) -> tuple[str, str | None]:
+    agent_id, sep, version = raw.rpartition("@")
+    if sep and agent_id and version and not version.startswith("sha256:"):
+        return agent_id, version
+    return raw, None
+
+
+def uninstall(ref: str) -> bool:
+    """Remove one ``id@version`` or every installed version of bare ``id``."""
     index = load_index()
-    entry = index.find(agent_id)
-    if entry is None:
+    agent_id, version = _parse_cache_ref(ref)
+    if version is None:
+        rows = [a for a in index.agents if a.agent_id == agent_id]
+    else:
+        rows = [a for a in index.agents if a.agent_id == agent_id and a.version == version]
+    if not rows:
         return False
-    dest = agents_root() / entry.path
-    if dest.is_dir():
-        shutil.rmtree(dest)
-    parent = dest.parent
     root = agents_root()
-    while parent != root and parent.is_dir() and not any(parent.iterdir()):
-        parent.rmdir()
-        parent = parent.parent
-    index.agents = [a for a in index.agents if a.agent_id != agent_id]
+    for entry in rows:
+        dest = root / entry.path
+        if dest.is_dir():
+            shutil.rmtree(dest)
+        parent = dest.parent
+        while parent != root and parent.is_dir() and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
+    drop = {(a.agent_id, a.version) for a in rows}
+    index.agents = [a for a in index.agents if (a.agent_id, a.version) not in drop]
     save_index(index)
     return True
 
@@ -215,17 +316,19 @@ def resolve_package_root(entry: AgentIndexEntry) -> Path:
 
 def resolve_installed_ref(agent_id: str, version: str) -> tuple[AgentIndexEntry, Path]:
     """Resolve a pinned ``<id>@<version>`` against the local cache, fail closed."""
-    entry = load_index().find(agent_id)
+    index = load_index()
+    entry = index.find_version(agent_id, version)
     if entry is None:
+        installed = [a.version for a in index.agents if a.agent_id == agent_id]
+        if not installed:
+            raise ConfigError(
+                ERROR_INVALID_PACKAGE,
+                f"agent not installed: {agent_id!r} (run: bora agent install …)",
+                location=agent_id,
+            )
         raise ConfigError(
             ERROR_INVALID_PACKAGE,
-            f"agent not installed: {agent_id!r} (run: bora agent install …)",
-            location=agent_id,
-        )
-    if entry.version != version:
-        raise ConfigError(
-            ERROR_INVALID_PACKAGE,
-            f"agent {agent_id!r} installed at version {entry.version!r}, "
+            f"agent {agent_id!r} installed at {installed!r}, "
             f"requested {version!r} (run: bora agent install)",
             location=f"{agent_id}@{version}",
         )

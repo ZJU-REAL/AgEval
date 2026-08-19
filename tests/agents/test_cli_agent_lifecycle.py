@@ -57,6 +57,28 @@ def test_agent_install_list_show_uninstall(env: dict[str, str]) -> None:
     assert json.loads(_cli(env, "agent", "list").stdout)["agents"] == []
 
 
+def test_agent_side_by_side_versions(env: dict[str, str], tmp_path: Path) -> None:
+    def _pkg(version: str) -> Path:
+        pkg = tmp_path / f"ag-{version}"
+        pkg.mkdir()
+        (pkg / "agent.yaml").write_text(
+            f"format: bora.agent/1\nagent_id: mock-default\nversion: '{version}'\n"
+            "label: T\nbinding: {executor: mock, model: none}\n",
+            encoding="utf-8",
+        )
+        return pkg
+
+    assert _cli(env, "agent", "install", str(_pkg("1.0.0"))).returncode == 0
+    assert _cli(env, "agent", "install", str(_pkg("2.0.0"))).returncode == 0
+    shown = json.loads(_cli(env, "agent", "show", "local/mock-default").stdout)
+    assert shown["version"] == "2.0.0"
+    assert _cli(env, "agent", "uninstall", "local/mock-default@1.0.0").returncode == 0
+    listed = json.loads(_cli(env, "agent", "list").stdout)
+    assert [a["version"] for a in listed["agents"]] == ["2.0.0"]
+    assert _cli(env, "agent", "uninstall", "local/mock-default").returncode == 0
+    assert json.loads(_cli(env, "agent", "list").stdout)["agents"] == []
+
+
 def test_agent_and_profiles_mutually_exclusive(env: dict[str, str]) -> None:
     proc = _cli(
         env,

@@ -41,7 +41,12 @@ def map_error_status(error: str | None) -> str:
         return "timeout"
     if error in {"CancelledError", "cancelled", "KeyboardInterrupt"}:
         return "cancelled"
-    if error in {"offline_forced", "codex_binary_missing", "missing_credential"}:
+    if error in {
+        "offline_forced",
+        "codex_binary_missing",
+        "missing_credential",
+        "credential_missing",
+    }:
         return "failed"
     if error.startswith("exit_"):
         return "failed"

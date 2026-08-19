@@ -59,3 +59,5 @@ def test_executors_verbose_adds_detail() -> None:
     assert by_kind["acp"].get("tools") is not None or data.get("acp_entries")
     acp_rows = {r["entry_id"]: r for r in data["acp_entries"]}
     assert "credential_env_names" in acp_rows["opencode"]
+    assert "credential_missing" in acp_rows["pi"]
+    assert "keyless_auth" in acp_rows["codex"]

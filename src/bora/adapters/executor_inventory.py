@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from typing import Any
 
 from bora.adapters.agent_registry import discover_executor_kinds
+from bora.adapters.child_env import entry_credentials_missing
 from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES, get_capabilities
 from bora.adapters.path_probe import WhichFn, probe_commands
 from bora.plugins.contrib.acp.registry import list_entry_ids, load_acp_entries, readiness_for
@@ -196,10 +198,12 @@ def describe_acp_entry(
     *,
     which: WhichFn | None = None,
     verbose: bool = False,
+    environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     entries = load_acp_entries()
     desc = entries[entry_id]
     ready = readiness_for(desc, which=which)
+    host = environ if environ is not None else os.environ
     row: dict[str, Any] = {
         "kind": "acp",
         "entry_id": desc.entry_id,
@@ -219,6 +223,11 @@ def describe_acp_entry(
     }
     if verbose:
         row["credential_env_names"] = list(desc.credential_env_names)
+        row["keyless_auth"] = desc.keyless_auth
+        row["credential_missing"] = entry_credentials_missing(
+            desc.credential_env_names,
+            host_environ=host,
+        )
         row["install_command"] = desc.install_command
         row["descriptor_digest"] = desc.descriptor_digest
         row["model_binding"] = desc.model_binding
