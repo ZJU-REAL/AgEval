@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ageval.application.attempt.campaign import MatrixAxis, expand_matrix, parse_matrix_arg
+from ageval.application.campaign import MatrixAxis, expand_matrix, parse_matrix_arg
 from ageval.config.errors import ConfigError
 
 
@@ -29,7 +29,7 @@ def test_parse_ok() -> None:
     assert axis.values == (1, 2, 3)
 
 
-def test_parse_binding_axis() -> None:
-    axis = parse_matrix_arg('/bindings/solver/model=["a","b"]')
-    assert axis.pointer == "/bindings/solver/model"
+def test_parse_profile_axis() -> None:
+    axis = parse_matrix_arg('/agent_profiles/solver/model=["a","b"]')
+    assert axis.pointer == "/agent_profiles/solver/model"
     assert axis.values == ("a", "b")

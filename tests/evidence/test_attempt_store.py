@@ -13,10 +13,8 @@ from ageval.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
 def test_layout_contract(tmp_path: Path) -> None:
     store = AttemptEvidenceStore(root=tmp_path / "run", attempt_id="attempt_a", run_id="run_a")
     assert (store.root / "agent" / "invocations").is_dir()
-    assert (store.root / "effects.jsonl").is_file()
     assert (store.root / "agent" / "events.jsonl").is_file()
     assert (store.root / "evaluation").is_dir()
-    assert (store.root / "harness").is_dir()
 
 
 def test_invocation_sequence_and_seal(tmp_path: Path) -> None:
@@ -116,14 +114,11 @@ def test_redaction_fail_closed_on_unredactable_residual(tmp_path: Path) -> None:
     assert "supersecrettokenvalue99" not in json.dumps(final)
 
 
-def test_effects_and_summary(tmp_path: Path) -> None:
+def test_summary_seals_a_portable_locator(tmp_path: Path) -> None:
     db = tmp_path / "db"
     run = db / ".ageval" / "runs" / "sha256_test_run_r"
     store = AttemptEvidenceStore(root=run, attempt_id="a", run_id="r", dataset_root=db)
-    store.append_effect({"decision": "allow", "capability": "tool", "name": "read"})
     store.write_summary({"status": "PASS", "score": 1.0})
-    effects = parse_jsonl_recover(store.root / "effects.jsonl")
-    assert effects[0]["decision"] == "allow"
     summary = json.loads((store.root / "summary.json").read_text(encoding="utf-8"))
     assert summary["status"] == "PASS"
     assert summary["evidence_root"] == store.locator

@@ -1,16 +1,20 @@
-"""ACP trajectory source probe — offline lifecycle + validated-text policy."""
+"""ACP source probe: offline refuses cleanly; a real entry produces real events."""
 
 from __future__ import annotations
 
-import json
+import asyncio
 import os
+import shutil
 from pathlib import Path
 
 import pytest
 
+from ageval.environments.protocol import Placement
 from ageval.plugins.agent_result import parse_validated_text_structured
-from ageval.evidence.store import AttemptEvidenceStore, parse_jsonl_recover
 from ageval.plugins.contrib.acp import AcpExecutor
+from ageval.plugins.contrib.local.host import LocalHost
+
+REAL_ENTRY = "pi"
 
 
 def test_validated_text_no_regex_salvage() -> None:
@@ -18,66 +22,45 @@ def test_validated_text_no_regex_salvage() -> None:
     assert parse_validated_text_structured('prefix {"answer": 1}') is None
 
 
-def test_acp_offline_still_emits_lifecycle_events() -> None:
-    os.environ["AGEVAL_OFFLINE_AGENT"] = "1"
-    try:
-        r = AcpExecutor(entry_id="opencode", model="entry-default").invoke("hi")
-        assert r.ok is False
-        assert r.error == "offline_forced"
-        assert any(e.get("type") == "lifecycle" for e in r.events)
-        assert r.metadata is not None
-        assert r.metadata.get("executor_kind") == "acp"
-    finally:
-        os.environ.pop("AGEVAL_OFFLINE_AGENT", None)
+def test_offline_refuses_before_touching_the_box(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")
+    executor = AcpExecutor(
+        entry_id="opencode",
+        host=LocalHost(attempt_root=tmp_path / "box"),
+        placement=Placement(target_id="unstarted"),
+    )
+    result = executor.invoke("hi")
+
+    assert result.ok is False
+    assert result.error == "offline_forced"
+    assert any(event.get("type") == "lifecycle" for event in result.events)
+    assert result.metadata is not None
+    assert result.metadata.get("executor_kind") == "acp"
 
 
 @pytest.mark.skipif(
     os.environ.get("AGEVAL_SKIP_REAL_ACP") == "1",
     reason="explicit skip real ACP probe",
 )
-def test_real_acp_opencode_events_when_available(tmp_path: Path) -> None:
-    import shutil
+def test_a_real_entry_answers_over_the_attached_pipe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if shutil.which(REAL_ENTRY) is None:
+        pytest.skip(f"{REAL_ENTRY} not on PATH")
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
 
-    if shutil.which("opencode") is None:
-        pytest.skip("opencode not on PATH")
-    if os.environ.get("AGEVAL_OFFLINE_AGENT") == "1":
-        pytest.skip("offline forced")
-
-    store = AttemptEvidenceStore(root=tmp_path / "ev", attempt_id="probe")
-    h = store.begin_invocation(profile_id="p", executor_kind="acp", model="entry-default")
-    h.write_request(
-        {
-            "messages": [{"role": "user", "content": 'Reply with JSON {"ok":true} only.'}],
-            "acp_entry_id": "opencode",
-        }
-    )
-    ex = AcpExecutor(entry_id="opencode", model="entry-default")
+    host = LocalHost(attempt_root=tmp_path / "box")
+    asyncio.run(host.preflight())
+    asyncio.run(host.start())
+    executor = AcpExecutor(entry_id=REAL_ENTRY, host=host, placement=host.placement())
     try:
-        result = ex.invoke(
-            'Reply with ONLY JSON {"ok": true} and nothing else.',
-            timeout=120.0,
-            collect_dir=str(h.directory / "backend_raw"),
-        )
+        result = executor.invoke('Reply with ONLY JSON {"ok": true} and nothing else.', timeout=180)
     finally:
-        ex.close()
-    for ev in result.events:
-        h.append_event(ev)
-    status = "completed" if result.ok else "failed"
-    h.seal(
-        status=status,
-        final_response=(
-            {
-                "content": result.text,
-                "structured_output": result.structured,
-                "usage": result.usage,
-            }
-            if result.ok
-            else None
-        ),
-        error=result.error,
-        latency_ms=1.0,
-    )
-    events = parse_jsonl_recover(h.directory / "events.jsonl")
-    assert len(events) >= 1
-    meta = json.loads((h.directory / "metadata.json").read_text(encoding="utf-8"))
-    assert meta["status"] in {"completed", "failed", "timeout"}
+        executor.close()
+        asyncio.run(host.stop(delete=True))
+
+    assert result.metadata is not None
+    assert result.metadata["acp_entry_id"] == REAL_ENTRY
+    assert result.events, "a real session must leave a trajectory"

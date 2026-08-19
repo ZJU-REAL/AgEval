@@ -30,8 +30,8 @@ def _write_plugin(root: Path, plugin_id: str, *, requires: list[str] | None = No
             "version: 0.1.0\n"
             f"{rows}"
             "slots:\n"
-            '  "on":\n'
-            "    - id: home_overlay\n"
+            "  chain:\n"
+            "    - id: after_environment_ready\n"
             "      priority: 120\n"
             "      entry: demo.hooks:build\n"
         ),

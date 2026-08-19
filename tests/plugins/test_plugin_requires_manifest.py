@@ -12,7 +12,11 @@ def _base(**extra: object) -> dict[str, object]:
         "format": "ageval.plugin/1",
         "plugin_id": "demo",
         "version": "0.1.0",
-        "slots": {"on": [{"id": "home_overlay", "priority": 120, "entry": "demo.hooks:build"}]},
+        "slots": {
+            "chain": [
+                {"id": "after_environment_ready", "priority": 120, "entry": "demo.hooks:build"}
+            ]
+        },
     }
     payload.update(extra)
     return payload

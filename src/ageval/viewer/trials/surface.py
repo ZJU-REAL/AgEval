@@ -83,7 +83,7 @@ def _overlay_bindings(lock: dict[str, Any]) -> dict[str, dict[str, Any]]:
     overlay = lock.get("job_overlay")
     if not isinstance(overlay, dict):
         return {}
-    bindings = overlay.get("bindings")
+    bindings = overlay.get("agent_profiles")
     if not isinstance(bindings, dict):
         return {}
     out: dict[str, dict[str, Any]] = {}

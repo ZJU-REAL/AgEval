@@ -1,361 +1,236 @@
-"""Dataset profiles.yaml merge + fail-closed role binding (#59)."""
+"""The job document: who binds a role slot, and what may never leak into it."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
 
-from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.profiles import (
+    apply_profile_override,
     assert_slots_have_no_inline_binding,
     display_agent_name,
     display_labels_from_overlay,
+    job_overlay_to_profiles_document,
     join_display_names,
     load_job_document,
-    merge_bindings_onto_slots,
+    merge_job_onto_slots,
+    parse_job_mapping,
     project_job_overlay,
+    write_profiles_yaml,
 )
 
-
-def _write_task(tmp: Path, *, slots: list[dict], task_id: str = "t") -> Path:
-    pkg = tmp / "pkg"
-    pkg.mkdir()
-    (pkg / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
-    (pkg / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
-    doc = {
-        "format": "ageval.task/1",
-        "task_id": task_id,
-        "harness": {"runtime": "python", "entrypoint": "harness:run"},
-        "parameters": {"models": {"default": slots[0]["id"]}} if slots else {},
-        "provider": {"kind": "local", "assurance": "l0"},
-        "agent_profiles": slots,
-        "limits": {
-            "wall_time_seconds": 60,
-            "agent_invocations": 1,
-            "environment_actions": 0,
-        },
-        "artifacts": {"publishable": []},
-        "evaluation": {
-            "runtime": "python",
-            "entrypoint": "evaluator:evaluate",
-            "network": "none",
-            "inputs": [],
-            "output": {"format": "json"},
-        },
-    }
-    (pkg / "task.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
-    return pkg
+ACP_SOLVER = {
+    "executor": "acp",
+    "model": "m",
+    "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
+}
 
 
-def test_reject_inline_binding_in_task_yaml(tmp_path: Path) -> None:
-    pkg = _write_task(
-        tmp_path,
-        slots=[{"id": "solver", "executor": "mock", "model": "none"}],
+def _job(profiles: dict[str, Any], *, environment: str = "local") -> Any:
+    return parse_job_mapping(
+        {"format": "ageval.profiles/1", "environment": environment, "agent_profiles": profiles}
     )
+
+
+def _task(root: Path, body: str) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "task.yaml").write_text(body, encoding="utf-8")
+    (root / "run.py").write_text("async def run(ctx): pass\n", encoding="utf-8")
+    (root / "evaluator.py").write_text("def evaluate(i): return {}\n", encoding="utf-8")
+    return root
+
+
+def _lock(task_root: Path, job: Any, **kwargs: Any) -> Any:
     core = ConfigCore(package_reader=LocalPackageReader())
-    with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
-            pkg,
-            "t",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={"solver": {"executor": "mock", "model": "none"}},
-        )
-    assert ei.value.error_code == "invalid_schema"
-    assert "role slots only" in str(ei.value).lower() or "job binding" in str(ei.value).lower()
-
-
-def test_missing_binding_fail_closed(tmp_path: Path) -> None:
-    pkg = _write_task(tmp_path, slots=[{"id": "solver"}])
-    core = ConfigCore(package_reader=LocalPackageReader())
-    with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
-            pkg,
-            "t",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={},
-        )
-    assert ei.value.error_code == "missing_binding"
-
-
-def test_merge_bindings_and_cli_override(tmp_path: Path) -> None:
-    pkg = _write_task(tmp_path, slots=[{"id": "solver"}])
-    core = ConfigCore(package_reader=LocalPackageReader())
-    locked = core.load_and_lock(
-        pkg,
+    return core.load_and_lock(
+        task_root,
         "t",
+        dataset_id="test/db",
+        dataset_version="0.1.0",
+        job=job,
         capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings={
-            "solver": {
-                "executor": "acp",
-                "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
-                "model": "gpt-5.4-mini",
-            }
-        },
-        overrides={
-            "/bindings/solver/options/entry": "pi",
-            "/bindings/solver/model": "claude-haiku-4-5",
-        },
+        **kwargs,
     )
-    profiles = thaw(locked.agent_profiles)
-    assert profiles[0]["id"] == "solver"
-    assert profiles[0]["executor"] == "acp"
-    assert profiles[0]["extensions"][0]["options"]["entry"] == "pi"
-    assert profiles[0]["model"] == "claude-haiku-4-5"
-    assert locked.job_overlay is not None
-    overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["extensions"][0]["options"]["entry"] == "pi"
 
 
-def test_empty_slots_need_no_bindings(tmp_path: Path) -> None:
-    pkg = _write_task(tmp_path, slots=[])
-    core = ConfigCore(package_reader=LocalPackageReader())
-    locked = core.load_and_lock(
-        pkg,
-        "t",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=None,
+# --- role slots vs job binding --------------------------------------------
+
+
+def test_task_yaml_may_not_bind_a_role_slot(tmp_path: Path) -> None:
+    root = _task(
+        tmp_path / "t",
+        "format: ageval.task/1\ntask_id: t\nagent_profiles:\n  - id: solver\n    executor: acp\n",
     )
-    assert thaw(locked.agent_profiles) == []
-    assert locked.job_overlay is None
+    with pytest.raises(ConfigError) as caught:
+        _lock(root, _job({"solver": dict(ACP_SOLVER)}))
+    assert "role slots only" in str(caught.value)
 
 
-def test_profiles_document_parse(tmp_path: Path) -> None:
+def test_assert_slots_helper_rejects_binding_fields() -> None:
+    with pytest.raises(ConfigError):
+        assert_slots_have_no_inline_binding([{"id": "x", "executor": "acp"}])
+    assert_slots_have_no_inline_binding([{"id": "x"}])
+
+
+def test_declared_role_without_a_profile_fails_closed(tmp_path: Path) -> None:
+    root = _task(
+        tmp_path / "t",
+        "format: ageval.task/1\ntask_id: t\nagent_profiles:\n  - id: solver\n",
+    )
+    with pytest.raises(ConfigError) as caught:
+        _lock(root, _job({"critic": dict(ACP_SOLVER)}))
+    assert caught.value.error_code == "missing_binding"
+
+
+def test_task_without_role_slots_needs_no_profile(tmp_path: Path) -> None:
+    root = _task(tmp_path / "t", "format: ageval.task/1\ntask_id: t\n")
+    lock = _lock(root, _job({}))
+    assert lock.agent_profiles == ()
+
+
+def test_profile_binds_the_slot_and_cli_override_wins(tmp_path: Path) -> None:
+    root = _task(
+        tmp_path / "t",
+        "format: ageval.task/1\ntask_id: t\nagent_profiles:\n  - id: solver\n",
+    )
+    lock = _lock(
+        root,
+        _job({"solver": dict(ACP_SOLVER)}),
+        overrides={"/agent_profiles/solver/model": "other-model"},
+    )
+    (row,) = thaw(lock.agent_profiles)
+    assert row["id"] == "solver"
+    assert row["executor"] == "acp"
+    assert row["model"] == "other-model"
+
+
+def test_merge_helper_binds_every_declared_slot() -> None:
+    rows = merge_job_onto_slots([{"id": "solver"}], _job({"solver": dict(ACP_SOLVER)}))
+    assert rows[0]["executor"] == "acp"
+    assert rows[0]["id"] == "solver"
+
+
+def test_override_on_an_unnamed_role_inherits_the_rest() -> None:
+    job = _job({"*": dict(ACP_SOLVER)})
+    apply_profile_override(job, "/agent_profiles/solver/model", "opus")
+    (row,) = merge_job_onto_slots([{"id": "solver"}], job)
+    assert row["model"] == "opus"
+    assert row["extensions"][0]["options"]["entry"] == "pi"
+
+
+# --- document parsing ------------------------------------------------------
+
+
+def test_document_round_trips_through_yaml(tmp_path: Path) -> None:
     path = tmp_path / "profiles.yaml"
     path.write_text(
         yaml.safe_dump(
             {
                 "format": "ageval.profiles/1",
-                "bindings": {
-                    "solver": {
-                        "executor": "acp",
-                        "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
-                        "model": "m",
-                    }
-                },
+                "environment": "local",
+                "agent_profiles": {"solver": dict(ACP_SOLVER)},
             }
         ),
         encoding="utf-8",
     )
-    bindings = load_job_document(path)
-    assert "solver" in bindings
-    assert bindings["solver"]["model"] == "m"
+    job = load_job_document(path)
+    assert job.environment == "local"
+    assert job.profiles["solver"]["model"] == "m"
 
 
-def test_assert_slots_helper() -> None:
+def test_unknown_profile_key_fails_closed(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError) as caught:
+        _job({"solver": {**ACP_SOLVER, "not_a_field": 1}})
+    assert "unknown profile keys" in str(caught.value)
+
+
+def test_unknown_top_level_key_fails_closed() -> None:
     with pytest.raises(ConfigError):
-        assert_slots_have_no_inline_binding([{"id": "x", "executor": "mock"}])
-    assert_slots_have_no_inline_binding([{"id": "x"}])
+        parse_job_mapping(
+            {"format": "ageval.profiles/1", "agent_profiles": {}, "bindings": {"x": {}}}
+        )
 
 
-def test_merge_helper() -> None:
-    rows = merge_bindings_onto_slots(
-        [{"id": "solver"}],
-        {"solver": {"executor": "mock", "model": "none"}},
-    )
-    assert rows[0]["executor"] == "mock"
+# --- the secret-free projection --------------------------------------------
 
 
-def test_job_overlay_omits_secrets() -> None:
+def test_overlay_carries_the_locator_name_not_a_value() -> None:
     overlay = project_job_overlay(
-        {
-            "solver": {
-                "executor": "acp",
-                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
-                "model": "m",
-                "api_key": "MY_KEY_LOCATOR",
-            }
-        }
+        {"solver": {**ACP_SOLVER, "api_key": "MY_KEY_LOCATOR"}},
+        environment="local",
     )
-    assert overlay["bindings"]["solver"]["api_key"] == "MY_KEY_LOCATOR"
-    # values never present — locator only
+    assert overlay["agent_profiles"]["solver"]["api_key"] == "MY_KEY_LOCATOR"
     assert "sk-" not in str(overlay)
 
 
-def test_job_overlay_to_profiles_roundtrip(tmp_path: Path) -> None:
-    from ageval.config.profiles import (
-        job_overlay_to_profiles_document,
-        load_job_document,
-        write_profiles_yaml,
+def test_overlay_round_trips_into_a_profiles_document(tmp_path: Path) -> None:
+    overlay = project_job_overlay(
+        {"solver": {**ACP_SOLVER, "api_key": "LOC"}},
+        environment="local",
     )
+    path = tmp_path / "profiles.from-suite.yaml"
+    write_profiles_yaml(path, job_overlay_to_profiles_document(overlay))
+    loaded = load_job_document(path)
+    assert loaded.environment == "local"
+    assert loaded.profiles["solver"]["extensions"][0]["options"]["entry"] == "pi"
+    assert loaded.profiles["solver"]["api_key"] == "${LOC}"
 
+
+def test_overlay_keeps_plugin_options_but_drops_registry_truth() -> None:
     overlay = project_job_overlay(
         {
             "solver": {
                 "executor": "acp",
-                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
                 "model": "m",
-                "api_key": "LOC",
-            }
-        }
-    )
-    doc = job_overlay_to_profiles_document(overlay)
-    path = tmp_path / "profiles.from-suite.yaml"
-    write_profiles_yaml(path, doc)
-    loaded = load_job_document(path)
-    assert loaded["solver"]["extensions"][0]["options"]["entry"] == "pi"
-    assert loaded["solver"]["api_key"] == "${LOC}"
-
-
-def test_job_overlay_keeps_plugin_options() -> None:
-    overlay = project_job_overlay(
-        {
-            "solver": {
-                "executor": "nooa",
-                "model": "openai/glm-5.2",
                 "extensions": [
                     {
-                        "plugin": "nooa",
+                        "plugin": "acp",
                         "options": {
-                            "agent": "lib.agents:JsonlAggAgent",
-                            "method": "run",
-                            "command": ["secret"],
-                            "_acp_lock": {"entry_id": "x"},
+                            "entry": "pi",
+                            "reasoning_effort": "high",
+                            "command": ["should-not-ride-the-job-axis"],
+                            "acp_version": "9.9.9",
                         },
                     }
                 ],
             }
-        }
+        },
+        environment="local",
     )
-    opts = overlay["bindings"]["solver"]["extensions"][0]["options"]
-    assert opts["agent"] == "lib.agents:JsonlAggAgent"
-    assert opts["method"] == "run"
-    assert "command" not in opts
-    assert "_acp_lock" not in opts
+    options = overlay["agent_profiles"]["solver"]["extensions"][0]["options"]
+    assert options == {"entry": "pi", "reasoning_effort": "high"}
 
 
-def test_display_agent_name_never_uses_options_agent() -> None:
-    assert (
-        display_agent_name(
-            {
-                "executor": "nooa",
-                "extensions": [
-                    {"plugin": "nooa", "options": {"agent": "lib.agents:JsonlAggAgent"}}
-                ],
-            }
-        )
-        == "nooa"
+def test_overlay_expands_the_wildcard_onto_real_roles() -> None:
+    overlay = project_job_overlay(
+        {"*": dict(ACP_SOLVER)},
+        environment="local",
+        role_ids=["solver", "critic"],
     )
-    assert (
-        display_agent_name(
-            {
-                "executor": "nooa",
-                "label": "nooa",
-                "extensions": [
-                    {"plugin": "nooa", "options": {"agent": "lib.agents:JsonlAggAgent"}}
-                ],
-            }
-        )
-        == "nooa"
-    )
-    assert (
-        display_agent_name(
-            {"executor": "acp", "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}]}
-        )
-        == "pi"
-    )
-    assert display_agent_name({"executor": "dsh"}) == "dsh"
+    assert set(overlay["agent_profiles"]) == {"solver", "critic"}
 
 
-def test_display_labels_from_overlay_joins_distinct() -> None:
+# --- display axis ----------------------------------------------------------
+
+
+def test_agent_name_prefers_label_then_entry() -> None:
+    assert display_agent_name({"label": "Pi (glm)", **ACP_SOLVER}) == "Pi (glm)"
+    assert display_agent_name(dict(ACP_SOLVER)) == "pi"
+    assert display_agent_name({"executor": "openai-http"}) == "openai-http"
+
+
+def test_labels_collapse_identical_and_join_distinct() -> None:
+    assert join_display_names(["pi", "pi"]) == "pi"
+    assert join_display_names(["pi", "codex"]) == "pi+codex"
     agent, model = display_labels_from_overlay(
-        {
-            "bindings": {
-                "a": {
-                    "executor": "acp",
-                    "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
-                    "model": "m1",
-                },
-                "b": {"executor": "dsh", "model": "m2"},
-            }
-        }
+        {"agent_profiles": {"solver": dict(ACP_SOLVER), "critic": dict(ACP_SOLVER)}}
     )
-    assert agent == "pi+dsh"
-    assert model == "m1+m2"
-    assert join_display_names(["nooa", "nooa"]) == "nooa"
-
-
-def test_project_job_overlay_keeps_label() -> None:
-    overlay = project_job_overlay({"solver": {"executor": "nooa", "label": "nooa", "model": "x"}})
-    assert overlay["bindings"]["solver"]["label"] == "nooa"
-
-
-def test_unknown_binding_key_fail_closed(tmp_path: Path) -> None:
-    path = tmp_path / "profiles.yaml"
-    path.write_text(
-        yaml.safe_dump(
-            {
-                "format": "ageval.profiles/1",
-                "bindings": {"solver": {"executor": "mock", "not_a_field": 1}},
-            }
-        ),
-        encoding="utf-8",
-    )
-    with pytest.raises(ConfigError) as ei:
-        load_job_document(path)
-    assert ei.value.error_code == "invalid_schema"
-    assert "unknown binding keys" in str(ei.value)
-
-
-def test_top_level_overlays_fail_closed(tmp_path: Path) -> None:
-    path = tmp_path / "profiles.yaml"
-    path.write_text(
-        yaml.safe_dump(
-            {
-                "format": "ageval.profiles/1",
-                "overlays": ["overlays/AGENTS.md"],
-                "bindings": {"solver": {"executor": "mock"}},
-            }
-        ),
-        encoding="utf-8",
-    )
-    with pytest.raises(ConfigError) as ei:
-        load_job_document(path)
-    assert ei.value.error_code == "invalid_schema"
-    assert "unknown profiles keys" in str(ei.value)
-
-
-def test_overlays_allowlisted_and_projected() -> None:
-    overlay = project_job_overlay(
-        {
-            "solver": {
-                "executor": "acp",
-                "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
-                "overlays": ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"],
-            }
-        }
-    )
-    assert overlay["bindings"]["solver"]["overlays"] == [
-        "overlays/skills/jsonl-agg",
-        "overlays/AGENTS.md",
-    ]
-    assert "-----BEGIN" not in str(overlay)
-
-
-def test_job_overlay_omits_empty_overlays() -> None:
-    overlay = project_job_overlay({"solver": {"executor": "mock", "overlays": []}})
-    assert "overlays" not in overlay["bindings"]["solver"]
-
-
-def test_export_profiles_roundtrips_overlays(tmp_path: Path) -> None:
-    from ageval.config.profiles import job_overlay_to_profiles_document, write_profiles_yaml
-
-    overlay = project_job_overlay(
-        {
-            "solver": {
-                "executor": "acp",
-                "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
-                "overlays": ["overlays/AGENTS.md"],
-            }
-        }
-    )
-    doc = job_overlay_to_profiles_document(overlay)
-    path = tmp_path / "profiles.from-suite.yaml"
-    write_profiles_yaml(path, doc)
-    loaded = load_job_document(path)
-    assert loaded["solver"]["overlays"] == ["overlays/AGENTS.md"]
+    assert (agent, model) == ("pi", "m")

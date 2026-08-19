@@ -36,8 +36,8 @@ def _write_plugin(
             "version: 0.1.0\n"
             f"{rows}"
             "slots:\n"
-            '  "on":\n'
-            "    - id: home_overlay\n"
+            "  chain:\n"
+            "    - id: after_environment_ready\n"
             "      priority: 120\n"
             f"      entry: {module}.hooks:build\n"
         ),
@@ -131,7 +131,9 @@ def test_lock_ok_when_required_plugin_installed(
         task_id="l0-task",
         profiles_path=_profiles(tmp_path, "needs-neighbor"),
     )
-    chain = (summary["extension_bindings"]["solver"].get("home_overlay") or {}).get("chain") or []
+    chain = (summary["extension_bindings"]["solver"].get("after_environment_ready") or {}).get(
+        "chain"
+    ) or []
     plugins_in_chain = {item.get("plugin") for item in chain}
     assert "needs-neighbor" in plugins_in_chain
 

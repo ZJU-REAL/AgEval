@@ -33,7 +33,8 @@ PROFILES_FILENAME = "profiles.yaml"
 PROFILES_FORMAT = "ageval.profiles/1"
 DEFAULT_ENVIRONMENT = "docker"
 
-# Keys allowed on one agent profile.
+# Keys allowed on one agent profile. ``agent_ref`` is provenance injected by the
+# ``--agent`` projection — it names where a profile came from, never identity.
 PROFILE_FIELD_KEYS = frozenset(
     {
         "executor",
@@ -43,6 +44,8 @@ PROFILE_FIELD_KEYS = frozenset(
         "base_url",
         "extensions",
         "label",
+        "agent_ref",
+        "overlays",
     }
 )
 
@@ -312,7 +315,13 @@ def apply_profile_override(job: JobDocument, pointer: str, value: Any) -> None:
             f"profile field not allowlisted for override: {field}",
             location=pointer,
         )
-    target = job.profiles.setdefault(role_id, {})
+    target = job.profiles.get(role_id)
+    if target is None:
+        # An override on an unnamed role starts from what that role would have
+        # got anyway — the wildcard — so one --set does not blank the rest.
+        wildcard = job.profiles.get(WILDCARD_ROLE)
+        target = copy.deepcopy(wildcard) if isinstance(wildcard, Mapping) else {}
+        job.profiles[role_id] = target
     if field.startswith("options/"):
         options = target.setdefault("options", {})
         if not isinstance(options, dict):
@@ -503,11 +512,14 @@ def project_job_overlay(
     for rid in keys:
         raw = profiles.get(rid)
         if not isinstance(raw, Mapping):
+            # A role the job did not name takes the wildcard profile whole.
+            raw = profiles.get(WILDCARD_ROLE)
+        if not isinstance(raw, Mapping):
             continue
         row: dict[str, Any] = {}
-        for key in ("executor", "model", "base_url", "api_key", "label"):
+        for key in ("executor", "model", "base_url", "api_key", "label", "agent_ref", "overlays"):
             if raw.get(key) is not None:
-                row[key] = raw[key]
+                row[key] = copy.deepcopy(raw[key])
         options = secret_free_options(
             raw.get("options") if isinstance(raw.get("options"), Mapping) else None
         )

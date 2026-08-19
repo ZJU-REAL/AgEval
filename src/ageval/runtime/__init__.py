@@ -1,19 +1,15 @@
-"""ageval Core 2 — Lifecycle: identity, state machine, coordinator, outcomes.
+"""ageval runtime: Attempt identity, the parent Agent Service, and the worker.
 
-v0.2 delivers in-process Run/Trial/Attempt orchestration with test-double stages.
-It does not start real Provider/Harness/Evaluator processes.
+Orchestration lives in ``ageval.attempt``; this package owns what a running
+Attempt needs from the host side.
 """
 
 from ageval.runtime.errors import LifecycleError
 from ageval.runtime.identity import AttemptIdentity, RunIdentity, TrialIdentity
-from ageval.runtime.outcomes import AttemptRecord, PhaseFact, RuntimeTerminalKind
 
 __all__ = [
     "AttemptIdentity",
-    "AttemptRecord",
     "LifecycleError",
-    "PhaseFact",
     "RunIdentity",
-    "RuntimeTerminalKind",
     "TrialIdentity",
 ]

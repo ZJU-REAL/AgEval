@@ -7,14 +7,14 @@ import pytest
 from ageval.config.errors import ConfigError
 from ageval.config.profiles import (
     job_overlay_to_profiles_document,
-    merge_bindings_onto_slots,
-    parse_profiles_mapping,
+    merge_job_onto_slots,
+    parse_job_mapping,
     project_job_overlay,
 )
 
 WILDCARD_DOC = {
     "format": "ageval.profiles/1",
-    "bindings": {
+    "agent_profiles": {
         "*": {"executor": "mock", "model": "none", "agent_ref": "local/m@0.1.0+sha256:abc"},
         "critic": {"executor": "mock", "model": "other"},
     },
@@ -22,19 +22,22 @@ WILDCARD_DOC = {
 
 
 def test_parse_accepts_wildcard_key() -> None:
-    bindings = parse_profiles_mapping(WILDCARD_DOC)
-    assert set(bindings) == {"*", "critic"}
+    job = parse_job_mapping(WILDCARD_DOC)
+    assert set(job.profiles) == {"*", "critic"}
 
 
 def test_parse_still_rejects_bad_role_ids() -> None:
-    doc = {"format": "ageval.profiles/1", "bindings": {"**": {"executor": "mock", "model": "x"}}}
+    doc = {
+        "format": "ageval.profiles/1",
+        "agent_profiles": {"**": {"executor": "mock", "model": "x"}},
+    }
     with pytest.raises(ConfigError):
-        parse_profiles_mapping(doc)
+        parse_job_mapping(doc)
 
 
 def test_merge_exact_wins_wildcard_falls_back() -> None:
-    bindings = parse_profiles_mapping(WILDCARD_DOC)
-    merged = merge_bindings_onto_slots([{"id": "solver"}, {"id": "critic"}], bindings)
+    job = parse_job_mapping(WILDCARD_DOC)
+    merged = merge_job_onto_slots([{"id": "solver"}, {"id": "critic"}], job)
     by_id = {row["id"]: row for row in merged}
     assert by_id["solver"]["model"] == "none"  # wildcard fallback
     assert by_id["solver"]["agent_ref"] == "local/m@0.1.0+sha256:abc"
@@ -43,17 +46,22 @@ def test_merge_exact_wins_wildcard_falls_back() -> None:
 
 
 def test_merge_without_wildcard_still_fails_closed() -> None:
-    bindings = parse_profiles_mapping(
-        {"format": "ageval.profiles/1", "bindings": {"critic": {"executor": "mock", "model": "x"}}}
+    job = parse_job_mapping(
+        {
+            "format": "ageval.profiles/1",
+            "agent_profiles": {"critic": {"executor": "mock", "model": "x"}},
+        }
     )
     with pytest.raises(ConfigError):
-        merge_bindings_onto_slots([{"id": "solver"}], bindings)
+        merge_job_onto_slots([{"id": "solver"}], job)
 
 
 def test_project_expands_wildcard_to_real_roles() -> None:
-    bindings = parse_profiles_mapping(WILDCARD_DOC)
-    overlay = project_job_overlay(bindings, role_ids=["solver", "critic"])
-    rows = overlay["bindings"]
+    job = parse_job_mapping(WILDCARD_DOC)
+    overlay = project_job_overlay(
+        job.profiles, environment=job.environment, role_ids=["solver", "critic"]
+    )
+    rows = overlay["agent_profiles"]
     assert set(rows) == {"solver", "critic"}
     assert rows["solver"]["agent_ref"] == "local/m@0.1.0+sha256:abc"
     assert rows["critic"]["model"] == "other"
@@ -61,10 +69,10 @@ def test_project_expands_wildcard_to_real_roles() -> None:
 
 
 def test_agent_ref_round_trips_via_profiles_document() -> None:
-    bindings = parse_profiles_mapping(WILDCARD_DOC)
-    overlay = project_job_overlay(bindings, role_ids=["solver"])
+    job = parse_job_mapping(WILDCARD_DOC)
+    overlay = project_job_overlay(job.profiles, environment=job.environment, role_ids=["solver"])
     doc = job_overlay_to_profiles_document(overlay)
-    assert doc["bindings"]["solver"]["agent_ref"] == "local/m@0.1.0+sha256:abc"
+    assert doc["agent_profiles"]["solver"]["agent_ref"] == "local/m@0.1.0+sha256:abc"
 
 
 def test_task_yaml_slots_reject_agent_ref_inline() -> None:
@@ -87,12 +95,12 @@ def test_suite_compat_and_labels_with_wildcard_binding() -> None:
         "label": "Claude Code (entry default)",
         "extensions": [{"plugin": "acp", "options": {"entry": "claude-code"}}],
     }
-    suite_overlay = {"bindings": {"*": binding}}
-    per_task = [{"bindings": {"solver": dict(binding)}}]
+    suite_overlay = {"agent_profiles": {"*": binding}}
+    per_task = [{"agent_profiles": {"solver": dict(binding)}}]
 
     assert job_overlays_compatible(suite_overlay, per_task) is True
     # A conflicting model for the same role still breaks compatibility.
-    conflicting = [{"bindings": {"solver": {**binding, "model": "other"}}}]
+    conflicting = [{"agent_profiles": {"solver": {**binding, "model": "other"}}}]
     assert job_overlays_compatible(suite_overlay, conflicting) is False
 
     fields = compute_suite_config_fields([], job_overlay=suite_overlay, per_task_overlays=per_task)
@@ -109,12 +117,12 @@ def test_wildcard_and_explicit_spellings_share_fingerprint() -> None:
         "model": "entry-default",
         "extensions": [{"plugin": "acp", "options": {"entry": "claude-code"}}],
     }
-    per_task = [{"bindings": {"solver": dict(binding)}}]
+    per_task = [{"agent_profiles": {"solver": dict(binding)}}]
     via_wildcard = compute_suite_config_fields(
-        [], job_overlay={"bindings": {"*": binding}}, per_task_overlays=per_task
+        [], job_overlay={"agent_profiles": {"*": binding}}, per_task_overlays=per_task
     )
     via_explicit = compute_suite_config_fields(
-        [], job_overlay={"bindings": {"solver": dict(binding)}}, per_task_overlays=per_task
+        [], job_overlay={"agent_profiles": {"solver": dict(binding)}}, per_task_overlays=per_task
     )
     assert via_wildcard["config_fingerprint"] == via_explicit["config_fingerprint"]
     assert [a["profile_id"] for a in via_wildcard["actors_summary"]] == ["solver"]
@@ -122,10 +130,10 @@ def test_wildcard_and_explicit_spellings_share_fingerprint() -> None:
 
 def test_overlays_do_not_inherit_onto_exact_row() -> None:
     """``--agent xx --agent user=yy`` must not copy xx's overlay tree onto user."""
-    bindings = parse_profiles_mapping(
+    job = parse_job_mapping(
         {
             "format": "ageval.profiles/1",
-            "bindings": {
+            "agent_profiles": {
                 "*": {
                     "executor": "mock",
                     "model": "none",
@@ -140,8 +148,10 @@ def test_overlays_do_not_inherit_onto_exact_row() -> None:
             },
         }
     )
-    overlay = project_job_overlay(bindings, role_ids=["solver", "user"])
-    rows = overlay["bindings"]
+    overlay = project_job_overlay(
+        job.profiles, environment=job.environment, role_ids=["solver", "user"]
+    )
+    rows = overlay["agent_profiles"]
     assert rows["solver"]["overlays"] == ["overlays/skills/demo"]
     assert rows["solver"]["agent_ref"].startswith("official/xx@")
     assert "overlays" not in rows["user"]
@@ -150,12 +160,12 @@ def test_overlays_do_not_inherit_onto_exact_row() -> None:
 
 def test_exact_row_overrides_wildcard_field_wise() -> None:
     """--set on one field of a wildcard-bound agent must not drop the rest."""
-    from ageval.config.profiles import apply_binding_override, effective_profile
+    from ageval.config.profiles import apply_profile_override, effective_profile
 
-    bindings = parse_profiles_mapping(
+    job = parse_job_mapping(
         {
             "format": "ageval.profiles/1",
-            "bindings": {
+            "agent_profiles": {
                 "*": {
                     "executor": "acp",
                     "model": "entry-default",
@@ -164,13 +174,13 @@ def test_exact_row_overrides_wildcard_field_wise() -> None:
             },
         }
     )
-    apply_binding_override(bindings, "/bindings/solver/model", "claude-opus-5")
-    merged = merge_bindings_onto_slots([{"id": "solver"}, {"id": "critic"}], bindings)
+    apply_profile_override(job, "/agent_profiles/solver/model", "claude-opus-5")
+    merged = merge_job_onto_slots([{"id": "solver"}, {"id": "critic"}], job)
     by_id = {row["id"]: row for row in merged}
     assert by_id["solver"]["model"] == "claude-opus-5"  # override wins
     assert by_id["solver"]["executor"] == "acp"  # inherited from wildcard
     assert by_id["solver"]["extensions"][0]["options"]["entry"] == "claude-code"
     assert by_id["critic"]["model"] == "entry-default"  # untouched fallback
 
-    eff = effective_profile(bindings, "solver")
+    eff = effective_profile(job.profiles, "solver")
     assert eff is not None and eff["model"] == "claude-opus-5" and eff["executor"] == "acp"

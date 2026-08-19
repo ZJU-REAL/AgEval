@@ -100,7 +100,7 @@ def actors_summary_from_job_overlay(
     """Project secret-free job_overlay.bindings into actors_summary rows."""
     if not isinstance(overlay, Mapping):
         return []
-    bindings = overlay.get("bindings")
+    bindings = overlay.get("agent_profiles")
     if not isinstance(bindings, Mapping):
         return []
     rows: list[dict[str, Any]] = []
@@ -184,7 +184,7 @@ def plugins_from_job_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str
     """Infer marketplace plugin ids from job_overlay executor kinds."""
     if not isinstance(overlay, Mapping):
         return []
-    bindings = overlay.get("bindings")
+    bindings = overlay.get("agent_profiles")
     if not isinstance(bindings, Mapping):
         return []
     found: dict[str, dict[str, str]] = {}
@@ -264,14 +264,14 @@ def job_overlays_compatible(
     """
     suite_bindings: Mapping[str, Any] = {}
     if isinstance(suite_overlay, Mapping):
-        raw = suite_overlay.get("bindings")
+        raw = suite_overlay.get("agent_profiles")
         if isinstance(raw, Mapping):
             suite_bindings = raw
 
     for ov in per_task:
         if not isinstance(ov, Mapping):
             continue
-        bindings = ov.get("bindings")
+        bindings = ov.get("agent_profiles")
         if not isinstance(bindings, Mapping) or not bindings:
             continue
         for role_id, binding in bindings.items():
@@ -325,14 +325,14 @@ def _expand_wildcard_overlay(
     """
     from ageval.config.profiles import WILDCARD_ROLE, effective_profile
 
-    bindings = job_overlay.get("bindings")
+    bindings = job_overlay.get("agent_profiles")
     if not isinstance(bindings, Mapping) or WILDCARD_ROLE not in bindings:
         return job_overlay
     role_ids: set[str] = set()
     for ov in per_task_overlays:
         if not isinstance(ov, Mapping):
             continue
-        rows = ov.get("bindings")
+        rows = ov.get("agent_profiles")
         if isinstance(rows, Mapping):
             role_ids.update(str(r) for r in rows if str(r) != WILDCARD_ROLE)
     role_ids.update(str(r) for r in bindings if str(r) != WILDCARD_ROLE)
@@ -343,7 +343,7 @@ def _expand_wildcard_overlay(
         row = effective_profile(bindings, rid)
         if row is not None:
             expanded[rid] = row
-    return {**dict(job_overlay), "bindings": expanded}
+    return {**dict(job_overlay), "agent_profiles": expanded}
 
 
 def compute_suite_config_fields(
@@ -362,7 +362,7 @@ def compute_suite_config_fields(
     of roles actually used when overlay is empty.
     """
     # --- Preferred path: suite-level job binding (#59) -----------------------
-    if isinstance(job_overlay, Mapping) and isinstance(job_overlay.get("bindings"), Mapping):
+    if isinstance(job_overlay, Mapping) and isinstance(job_overlay.get("agent_profiles"), Mapping):
         overlays = list(per_task_overlays or [])
         # Fingerprint identity must not depend on wildcard-vs-explicit spelling:
         # expand "*" onto the roles the tasks actually used before digesting.
@@ -621,19 +621,19 @@ def collect_suite_config(
     )
     # Prefer full suite profiles map; fall back to union of task overlays.
     if suite_overlay is None:
-        non_null = [o for o in overlays if isinstance(o, dict) and o.get("bindings")]
+        non_null = [o for o in overlays if isinstance(o, dict) and o.get("agent_profiles")]
         if non_null:
             # Union bindings by role (first wins); locators only already.
             merged: dict[str, Any] = {}
             for ov in non_null:
-                bindings = ov.get("bindings") if isinstance(ov, Mapping) else None
+                bindings = ov.get("agent_profiles") if isinstance(ov, Mapping) else None
                 if not isinstance(bindings, Mapping):
                     continue
                 for rid, b in bindings.items():
                     if rid not in merged and isinstance(b, Mapping):
                         merged[str(rid)] = dict(b)
             if merged:
-                suite_overlay = {"bindings": merged}
+                suite_overlay = {"agent_profiles": merged}
 
     fields = compute_suite_config_fields(
         per_task,

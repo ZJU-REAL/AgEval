@@ -1,5 +1,6 @@
 format: ageval.profiles/1
-bindings:
+environment: local
+agent_profiles:
   solver:
     executor: host-probe
     model: none

@@ -1,172 +1,53 @@
-"""Attempt / job phase wall-time recording (#47 D).
+"""Attempt phase wall-time, for job views and progress bars.
 
-Standard display phases (Harbor-like labels; ageval keys underneath):
-
-- ``prepare``  — Env / lock / provider / agent service setup
-- ``run``      — Harness (agent execution)
-- ``evaluate`` — Seal inputs + independent evaluator (+ bind)
-- ``cleanup``  — Teardown
-
-Metrics are observational only — never PASS authority, never fingerprint.
+Observational only — never PASS authority, never part of a fingerprint.
 """
 
 from __future__ import annotations
 
-import time
-from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
 from typing import Any
 
-# Canonical order for bars / summary.
-STANDARD_PHASES: tuple[str, ...] = ("prepare", "run", "evaluate", "cleanup")
+TIMING_SCHEMA = "ageval.phase_timing/1"
 
-# Harbor-ish labels for UI (keys stay stable for APIs).
+# Canonical order for bars / summary.
+STANDARD_PHASES: tuple[str, ...] = ("environment", "run", "evaluate", "record", "cleanup")
+
 PHASE_LABELS: dict[str, str] = {
-    "prepare": "Env Setup",
+    "environment": "Env Setup",
     "run": "Agent Execution",
     "evaluate": "Verifier",
+    "record": "Trajectory",
     "cleanup": "Cleanup",
-    # Lifecycle-internal names (coordinator) map into the four buckets.
-    "seal": "Verifier",
-    "bind": "Verifier",
-}
-
-# Map fine-grained lifecycle phases → display buckets.
-_BUCKET: dict[str, str] = {
-    "prepare": "prepare",
-    "run": "run",
-    "seal": "evaluate",
-    "evaluate": "evaluate",
-    "bind": "evaluate",
-    "cleanup": "cleanup",
 }
 
 
-@dataclass
-class PhaseTimer:
-    """Accumulate wall durations for named phases (monotonic clock)."""
-
-    _clock: Any = field(default=time.monotonic, repr=False)
-    _segments: dict[str, float] = field(default_factory=dict)
-    _started_at_wall: float | None = None
-    _finished_at_wall: float | None = None
-
-    def __post_init__(self) -> None:
-        self._started_at_wall = time.time()
-
-    @contextmanager
-    def phase(self, name: str) -> Iterator[None]:
-        """Time a phase; nested/re-entry adds to the same key."""
-        key = str(name or "").strip() or "unknown"
-        t0 = self._clock()
-        try:
-            yield
-        finally:
-            dt_ms = max(0.0, (self._clock() - t0) * 1000.0)
-            self._segments[key] = self._segments.get(key, 0.0) + dt_ms
-
-    def add_ms(self, name: str, duration_ms: float) -> None:
-        key = str(name or "").strip() or "unknown"
-        if duration_ms < 0:
-            duration_ms = 0.0
-        self._segments[key] = self._segments.get(key, 0.0) + float(duration_ms)
-
-    def finish(self) -> None:
-        self._finished_at_wall = time.time()
-
-    def as_dict(self) -> dict[str, Any]:
-        """Serializable ``phase_timing`` block for result / summary / suite."""
-        self.finish()
-        phases = [
-            {
-                "id": name,
-                "label": PHASE_LABELS.get(name, name),
-                "duration_ms": round(self._segments.get(name, 0.0), 3),
-            }
-            for name in STANDARD_PHASES
-            if name in self._segments
-        ]
-        # Include any non-standard keys (e.g. environment-only) after standard.
-        for name, ms in self._segments.items():
-            if name in STANDARD_PHASES:
-                continue
-            phases.append(
-                {
-                    "id": name,
-                    "label": PHASE_LABELS.get(name, name),
-                    "duration_ms": round(ms, 3),
-                }
-            )
-        total = sum(float(p["duration_ms"]) for p in phases)
-        return {
-            "schema": "ageval.phase_timing/1",
-            "phases": phases,
-            "total_ms": round(total, 3),
-            "started_at": (
-                time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self._started_at_wall))
-                if self._started_at_wall is not None
-                else None
-            ),
-            "finished_at": (
-                time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self._finished_at_wall))
-                if self._finished_at_wall is not None
-                else None
-            ),
-        }
-
-
-def bucket_phase_timing(raw_phases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Collapse fine-grained phase rows into the four display buckets."""
-    buckets: dict[str, float] = {k: 0.0 for k in STANDARD_PHASES}
-    for row in raw_phases:
-        if not isinstance(row, Mapping):
+def timing_from_facts(facts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Build the timing block from ``phase_finished`` facts, in phase order."""
+    totals: dict[str, float] = {}
+    for fact in facts:
+        if fact.get("name") != "phase_finished":
             continue
-        pid = str(row.get("id") or row.get("phase") or "").strip()
-        ms = row.get("duration_ms")
-        if not isinstance(ms, int | float) or isinstance(ms, bool):
+        detail = fact.get("detail")
+        if not isinstance(detail, Mapping):
             continue
-        bucket = _BUCKET.get(pid, pid if pid in STANDARD_PHASES else None)
-        if bucket is None:
+        phase = str(detail.get("phase") or "")
+        duration = detail.get("duration_ms")
+        if not phase or not isinstance(duration, int | float) or isinstance(duration, bool):
             continue
-        buckets[bucket] = buckets.get(bucket, 0.0) + float(ms)
+        totals[phase] = totals.get(phase, 0.0) + float(duration)
+
+    ordered = [p for p in STANDARD_PHASES if p in totals]
+    ordered.extend(sorted(p for p in totals if p not in STANDARD_PHASES))
     phases = [
-        {
-            "id": name,
-            "label": PHASE_LABELS.get(name, name),
-            "duration_ms": round(buckets[name], 3),
-        }
-        for name in STANDARD_PHASES
-        if buckets.get(name, 0.0) > 0 or name in buckets
+        {"id": name, "label": PHASE_LABELS.get(name, name), "duration_ms": round(totals[name], 3)}
+        for name in ordered
     ]
-    # Drop zero-only trailing noise: keep zeros only if something else exists.
-    if any(p["duration_ms"] > 0 for p in phases):
-        phases = [p for p in phases if p["duration_ms"] > 0 or p["id"] in ("prepare", "run")]
-    total = sum(float(p["duration_ms"]) for p in phases)
     return {
-        "schema": "ageval.phase_timing/1",
+        "schema": TIMING_SCHEMA,
         "phases": phases,
-        "total_ms": round(total, 3),
+        "total_ms": round(sum(float(p["duration_ms"]) for p in phases), 3),
     }
-
-
-def phase_facts_to_timing(phase_facts: Sequence[Any]) -> dict[str, Any]:
-    """Build phase_timing from coordinator ``PhaseFact`` rows (duration_ms field)."""
-    rows: list[dict[str, Any]] = []
-    for fact in phase_facts:
-        phase = getattr(fact, "phase", None)
-        # Enum PhaseFact.phase → .value; avoid optional member access for pyright.
-        raw_id = getattr(phase, "value", None) if phase is not None else None
-        pid = str(raw_id if raw_id is not None else (phase or ""))
-        ms = getattr(fact, "duration_ms", None)
-        if ms is None:
-            detail = getattr(fact, "detail", None) or {}
-            if isinstance(detail, Mapping):
-                ms = detail.get("duration_ms")
-        if not isinstance(ms, int | float) or isinstance(ms, bool):
-            continue
-        rows.append({"id": pid, "duration_ms": float(ms)})
-    return bucket_phase_timing(rows)
 
 
 def format_duration_ms(ms: float | None) -> str | None:

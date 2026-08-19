@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval.evidence.schema import EVENT_SCHEMA_VERSION
-from ageval.evidence.trajectory import write_trajectory_jsonl
+from ageval.evidence.trajectory import turn_rows, write_attempt_trajectory
 from ageval.plugins.contrib.acp.trajectory_map import acp_session_events_to_ageval
 
 
@@ -30,8 +30,8 @@ def _write(
     metadata: dict[str, Any] | None = None,
     redaction_sentinels: list[str] | None = None,
 ) -> Path:
-    return write_trajectory_jsonl(
-        tmp / "inv",
+    """Fold one turn and write it the way the record phase does."""
+    rows = turn_rows(
         prompt=prompt,
         events=events,
         final_text=final_text,
@@ -40,6 +40,10 @@ def _write(
         ok=ok,
         error=error,
         metadata=metadata,
+    )
+    return write_attempt_trajectory(
+        tmp / "inv",
+        [rows],
         redaction_sentinels=redaction_sentinels,
     )
 

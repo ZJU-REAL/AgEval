@@ -52,7 +52,7 @@ def overlay_paths_from_job_overlay(overlay: Mapping[str, Any] | None) -> list[st
     """Unique ``overlays/…`` paths from secret-free ``job_overlay.bindings``."""
     if not isinstance(overlay, Mapping):
         return []
-    bindings = overlay.get("bindings")
+    bindings = overlay.get("agent_profiles")
     if not isinstance(bindings, Mapping):
         return []
     raw: list[str] = []
@@ -259,7 +259,7 @@ def assert_job_overlay_files(
     """Scan ``job_overlay.bindings.*.overlays`` before upload-suite."""
     if not isinstance(overlay, Mapping):
         return
-    bindings = overlay.get("bindings")
+    bindings = overlay.get("agent_profiles")
     if not isinstance(bindings, Mapping):
         return
     for role_id, raw in bindings.items():

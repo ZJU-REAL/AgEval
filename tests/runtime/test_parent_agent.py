@@ -1,0 +1,198 @@
+"""Parent Agent Service: every ceiling holds before the external effect."""
+
+from __future__ import annotations
+
+import json
+import tempfile
+import time
+from pathlib import Path
+
+import pytest
+from tests.helpers.agent_binding import ScriptedBinder, ScriptedExecutor
+
+from ageval.evidence.store import AttemptEvidenceStore
+from ageval.runtime.agent_service_protocol import AgentServiceServer, agent_service_client_call
+from ageval.runtime.parent_agent import (
+    DEFAULT_INVOKE_TIMEOUT_SECONDS,
+    AgentInvocationQuota,
+    ParentAgentService,
+    resolve_invoke_timeout_seconds,
+)
+
+ATTEMPT = "attempt_" + "a" * 16
+
+
+def _service(
+    tmp_path: Path,
+    *,
+    limit: int = 2,
+    executor: ScriptedExecutor | None = None,
+    deadline_monotonic: float | None = None,
+    invoke_timeout_seconds: float = DEFAULT_INVOKE_TIMEOUT_SECONDS,
+    evidence: bool = True,
+    offline_env: str = "",
+) -> tuple[ParentAgentService, ScriptedExecutor]:
+    backend = executor or ScriptedExecutor()
+    store = (
+        AttemptEvidenceStore(root=tmp_path / "run", attempt_id=ATTEMPT, run_id="run_x")
+        if evidence
+        else None
+    )
+    service = ParentAgentService(
+        attempt_id=ATTEMPT,
+        binder=ScriptedBinder(backend),
+        agent_invocation_limit=limit,
+        evidence_store=store,
+        deadline_monotonic=deadline_monotonic,
+        invoke_timeout_seconds=invoke_timeout_seconds,
+        # Hermetic by default: only the offline case reads the real env gate.
+        offline_env=offline_env,
+    )
+    return service, backend
+
+
+def _open(service: ParentAgentService, profile_id: str = "solver") -> str:
+    opened = service.open_session(profile_id=profile_id)
+    assert opened["ok"], opened
+    return str(opened["session_id"])
+
+
+def test_session_invokes_carry_turns_and_evidence(tmp_path: Path) -> None:
+    service, backend = _service(tmp_path)
+    session = _open(service)
+
+    first = service.invoke(session_id=session, prompt="one")
+    second = service.invoke(session_id=session, prompt="two")
+
+    assert [first["ok"], second["ok"]] == [True, True]
+    assert second["structured"] == {"answer": 42, "turn": 2}
+    assert backend.prompts == ["one", "two"]
+    assert first["provider_session_handle"] is None
+    assert service.invocations_completed == 2
+    assert service.evidence_store is not None
+    assert len(service.evidence_store.list_invocations()) == 2
+
+
+def test_unknown_profile_never_opens(tmp_path: Path) -> None:
+    service, _ = _service(tmp_path)
+    assert service.open_session(profile_id="nobody") == {
+        "ok": False,
+        "error": "unknown_profile",
+        "profile_id": "nobody",
+    }
+
+
+def test_invocation_ceiling_refuses_before_the_executor_runs(tmp_path: Path) -> None:
+    service, backend = _service(tmp_path, limit=1)
+    session = _open(service)
+
+    assert service.invoke(session_id=session, prompt="one")["ok"] is True
+    refused = service.invoke(session_id=session, prompt="two")
+
+    assert refused == {"ok": False, "error": "agent_invocation_limit"}
+    assert backend.prompts == ["one"], "the ceiling must hold before the effect"
+
+
+def test_expired_wall_deadline_refuses_before_the_executor_runs(tmp_path: Path) -> None:
+    service, backend = _service(tmp_path, deadline_monotonic=time.monotonic() - 1.0)
+    assert service.open_session(profile_id="solver")["error"] == "wall_time_exceeded"
+
+    service.deadline_monotonic = None
+    session = _open(service)
+    service.deadline_monotonic = time.monotonic() - 1.0
+    refused = service.invoke(session_id=session, prompt="one")
+
+    assert refused["error"] == "wall_time_exceeded"
+    assert backend.prompts == []
+
+
+def test_remaining_wall_time_caps_the_invoke_timeout(tmp_path: Path) -> None:
+    service, backend = _service(
+        tmp_path,
+        deadline_monotonic=time.monotonic() + 5.0,
+        invoke_timeout_seconds=300.0,
+    )
+    service.invoke(session_id=_open(service), prompt="one")
+    assert backend.timeouts[0] <= 5.0
+
+
+def test_closed_session_refuses_and_closes_the_executor(tmp_path: Path) -> None:
+    service, backend = _service(tmp_path)
+    session = _open(service)
+
+    assert service.close_session(session_id=session) == {"ok": True}
+    assert backend.closed is True
+    assert service.invoke(session_id=session, prompt="one")["error"] == "session_closed"
+    assert service.invoke(session_id="sess_missing", prompt="one")["error"] == "unknown_session"
+
+
+def test_executor_crash_is_sealed_as_evidence(tmp_path: Path) -> None:
+    service, _ = _service(tmp_path, executor=ScriptedExecutor(raises=RuntimeError("boom")))
+    answer = service.invoke(session_id=_open(service), prompt="one")
+
+    assert answer["ok"] is False
+    assert answer["error"] == "RuntimeError"
+    assert service.evidence_store is not None
+    (directory,) = service.evidence_store.list_invocations()
+    metadata = json.loads((directory / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["status"] == "crash"
+    assert not (directory / "final-response.json").exists()
+
+
+def test_offline_gate_refuses_every_invoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")
+    service, backend = _service(tmp_path, offline_env="AGEVAL_OFFLINE_AGENT")
+    session = _open(service)
+
+    refused = service.invoke(session_id=session, prompt="one")
+
+    assert refused["error"] == "offline_forced"
+    assert backend.prompts == []
+
+
+def test_socket_round_trip_gives_the_worker_a_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # This is the transport, not the offline gate: the client refuses first.
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    service, backend = _service(tmp_path)
+    # A Unix socket name has ~100 usable bytes; pytest's tmp_path does not fit.
+    server = AgentServiceServer(service, Path(tempfile.mkdtemp(prefix="ageval-")) / "agent.sock")
+    server.start()
+    try:
+        opened = agent_service_client_call(
+            str(server.socket_path),
+            {"op": "open", "profile_id": "solver", "attempt_id": "ignored"},
+        )
+        assert opened["ok"] is True
+        answer = agent_service_client_call(
+            str(server.socket_path),
+            {"op": "invoke", "session_id": opened["session_id"], "prompt": "one"},
+        )
+        assert answer["ok"] is True
+        assert backend.prompts == ["one"]
+        assert agent_service_client_call(
+            str(server.socket_path),
+            {"op": "nonsense"},
+        ) == {"ok": False, "error": "unknown_op"}
+    finally:
+        server.stop()
+
+    assert not server.socket_path.exists()
+    assert backend.closed is True, "stopping the service must close open sessions"
+
+
+def test_quota_never_refunds() -> None:
+    quota = AgentInvocationQuota(limit=2)
+    assert [quota.try_consume(), quota.try_consume(), quota.try_consume()] == [True, True, False]
+    assert quota.remaining == 0
+    assert AgentInvocationQuota(limit=-5).limit == 0
+
+
+def test_task_declared_invoke_timeout_wins() -> None:
+    assert resolve_invoke_timeout_seconds({"agent_timeout_seconds": 12.5}) == 12.5
+    assert resolve_invoke_timeout_seconds({"agent_timeout_seconds": 0}) == (
+        DEFAULT_INVOKE_TIMEOUT_SECONDS
+    )
+    assert resolve_invoke_timeout_seconds({}) == DEFAULT_INVOKE_TIMEOUT_SECONDS
+    assert resolve_invoke_timeout_seconds(None) == DEFAULT_INVOKE_TIMEOUT_SECONDS

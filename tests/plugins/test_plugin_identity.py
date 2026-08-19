@@ -41,7 +41,7 @@ def test_parse_manifest_keeps_short_id() -> None:
             "format": "ageval.plugin/1",
             "plugin_id": "dsh",
             "version": "0.1.0",
-            "slots": {"provide": [{"id": "executor", "entry": "pkg:fn"}]},
+            "slots": {"exclusive": [{"id": "executor", "entry": "pkg:fn"}]},
         }
     )
     assert manifest.plugin_id == "dsh"

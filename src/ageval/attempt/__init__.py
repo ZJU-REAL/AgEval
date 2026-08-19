@@ -11,8 +11,13 @@ deadline, ``cleanup`` always running, and PASS entering only through
 
 from __future__ import annotations
 
+import time
+from collections.abc import Awaitable, Callable
+
 from ageval.attempt.ctx import AttemptCtx
 from ageval.attempt.phases import cleanup, environment, evaluate, record, run
+
+Phase = Callable[[AttemptCtx], Awaitable[None]]
 
 
 async def run_attempt(ctx: AttemptCtx) -> None:
@@ -23,17 +28,27 @@ async def run_attempt(ctx: AttemptCtx) -> None:
     (``BaseException``) still propagates, and cleanup still runs either way.
     """
     try:
-        await environment.run(ctx)
-        await run.run(ctx)
-        await evaluate.run(ctx)
-        await record.run(ctx)
+        for phase in (environment.run, run.run, evaluate.run, record.run):
+            await _timed(ctx, phase)
     except Exception as exc:  # noqa: BLE001 — the phase name is the operator's answer
         ctx.record_fact(
             "phase_failed",
             {"phase": ctx.phase, "error": f"{type(exc).__name__}: {exc}"},
         )
     finally:
-        await cleanup.run(ctx)
+        await _timed(ctx, cleanup.run)
+
+
+async def _timed(ctx: AttemptCtx, phase: Phase) -> None:
+    """Run one phase and record how long it took (observational only)."""
+    started = time.monotonic()
+    try:
+        await phase(ctx)
+    finally:
+        ctx.record_fact(
+            "phase_finished",
+            {"phase": ctx.phase, "duration_ms": round((time.monotonic() - started) * 1000.0, 3)},
+        )
 
 
 __all__ = ["AttemptCtx", "run_attempt"]

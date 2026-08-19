@@ -16,7 +16,9 @@ def _base(**extra: object) -> dict[str, object]:
         "plugin_id": "demo",
         "version": "0.1.0",
         "slots": {
-            "provide": [{"id": "executor", "priority": 10, "entry": "demo.factory:build_executor"}]
+            "exclusive": [
+                {"id": "executor", "priority": 10, "entry": "demo.factory:build_executor"}
+            ]
         },
     }
     payload.update(extra)

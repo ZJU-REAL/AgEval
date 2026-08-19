@@ -470,7 +470,7 @@ def _declared_overlay_member_paths(dataset_root: Path) -> list[str]:
             bindings = load_job_document(yaml_path)
         except ConfigError:
             continue
-        found = overlay_paths_from_job_overlay({"bindings": bindings})
+        found = overlay_paths_from_job_overlay({"agent_profiles": bindings})
         if not found:
             continue
         rel_doc = _digest_member_file(root, yaml_path)

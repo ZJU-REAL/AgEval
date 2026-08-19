@@ -1,69 +1,57 @@
-"""Phase timing helpers + coordinator duration_ms (#47 D)."""
+"""Phase timing is built from the Attempt's own ``phase_finished`` facts."""
 
 from __future__ import annotations
 
-import pytest
-from tests.doubles.lifecycle_stages import ScriptedLifecycleStages
-
-from ageval.application.attempt.phase_timing import (
-    PhaseTimer,
-    bucket_phase_timing,
+from ageval.application.phase_timing import (
+    TIMING_SCHEMA,
     format_duration_ms,
-    phase_facts_to_timing,
+    timing_from_facts,
 )
-from ageval.runtime.coordinator import LifecycleCoordinator
-from ageval.runtime.identity import IdentityFactory
-from ageval.runtime.outcomes import RuntimeTerminalKind
 
 
-def test_phase_timer_as_dict() -> None:
-    t = PhaseTimer()
-    with t.phase("prepare"):
-        pass
-    t.add_ms("run", 1500.0)
-    t.add_ms("evaluate", 250.0)
-    doc = t.as_dict()
-    assert doc["schema"] == "ageval.phase_timing/1"
-    ids = [p["id"] for p in doc["phases"]]
-    assert "prepare" in ids
-    assert "run" in ids
-    assert doc["total_ms"] >= 1500.0
-    assert any(p["label"] == "Agent Execution" for p in doc["phases"] if p["id"] == "run")
+def _fact(phase: str, duration_ms: float) -> dict[str, object]:
+    return {
+        "phase": phase,
+        "name": "phase_finished",
+        "detail": {"phase": phase, "duration_ms": duration_ms},
+    }
 
 
-def test_format_duration() -> None:
-    assert format_duration_ms(500) == "500ms"
-    assert format_duration_ms(12_000) == "12s"
-    assert format_duration_ms(72_000) == "1m 12s"
-
-
-def test_bucket_merges_seal_bind_into_evaluate() -> None:
-    doc = bucket_phase_timing(
+def test_phases_come_back_in_pipeline_order() -> None:
+    timing = timing_from_facts(
         [
-            {"id": "prepare", "duration_ms": 100},
-            {"id": "run", "duration_ms": 1000},
-            {"id": "seal", "duration_ms": 50},
-            {"id": "evaluate", "duration_ms": 200},
-            {"id": "bind", "duration_ms": 30},
-            {"id": "cleanup", "duration_ms": 40},
+            _fact("cleanup", 5.0),
+            _fact("run", 200.0),
+            _fact("environment", 50.0),
         ]
     )
-    by_id = {p["id"]: p["duration_ms"] for p in doc["phases"]}
-    assert by_id["evaluate"] == pytest.approx(280.0)
-    assert "seal" not in by_id
+    assert timing["schema"] == TIMING_SCHEMA
+    assert [p["id"] for p in timing["phases"]] == ["environment", "run", "cleanup"]
+    assert timing["total_ms"] == 255.0
 
 
-@pytest.mark.asyncio
-async def test_coordinator_records_duration_ms() -> None:
-    stages = ScriptedLifecycleStages()
-    f = IdentityFactory()
-    run = f.new_run()
-    trial = f.new_trial(run, "sha256:" + "a" * 64)
-    attempt = f.new_attempt(trial)
-    record = await LifecycleCoordinator(stages=stages).run(attempt)
-    assert record.terminal == RuntimeTerminalKind.SUCCEEDED
-    assert record.phase_facts
-    assert all(f.duration_ms is not None and f.duration_ms >= 0 for f in record.phase_facts)
-    timing = phase_facts_to_timing(record.phase_facts)
-    assert timing["total_ms"] >= 0
-    assert any(p["id"] == "run" for p in timing["phases"])
+def test_repeated_phase_accumulates() -> None:
+    timing = timing_from_facts([_fact("run", 10.0), _fact("run", 15.5)])
+    assert timing["phases"] == [
+        {"id": "run", "label": "Agent Execution", "duration_ms": 25.5},
+    ]
+
+
+def test_unrelated_facts_and_bad_durations_are_ignored() -> None:
+    timing = timing_from_facts(
+        [
+            {"phase": "run", "name": "task_run", "detail": {"duration_ms": 999.0}},
+            {"phase": "run", "name": "phase_finished", "detail": {"phase": "run"}},
+            {"phase": "run", "name": "phase_finished"},
+        ]
+    )
+    assert timing["phases"] == []
+    assert timing["total_ms"] == 0.0
+
+
+def test_duration_labels_read_like_a_clock() -> None:
+    assert format_duration_ms(None) is None
+    assert format_duration_ms(830) == "830ms"
+    assert format_duration_ms(4500) == "4.5s"
+    assert format_duration_ms(72000) == "1m 12s"
+    assert format_duration_ms(120000) == "2m"

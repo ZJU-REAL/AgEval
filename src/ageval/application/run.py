@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ageval.application.phase_timing import timing_from_facts
 from ageval.attempt import run_attempt as run_attempt_pipeline
 from ageval.attempt.ctx import AttemptCtx
 from ageval.config.constants import (
@@ -136,7 +137,14 @@ async def run_attempt(
         error_phase=_fact_detail(ctx, "phase_failed", "phase"),
         facts=tuple(ctx.facts_as_list()),
     )
-    evidence.write_summary({"result": result.as_dict(), "facts": ctx.facts_as_list()})
+    facts = ctx.facts_as_list()
+    evidence.write_summary(
+        {
+            "result": result.as_dict(),
+            "facts": facts,
+            "phase_timing": timing_from_facts(facts),
+        }
+    )
     _write_result(evidence, result)
     return _exit_code(result), result
 

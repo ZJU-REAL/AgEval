@@ -34,8 +34,7 @@ def test_stable_fingerprint_vector() -> None:
     assert project_agent_identity(GROK_BUILD) == {"agent": "grok-build"}
     assert agent_fingerprint(GROK_BUILD) == GROK_BUILD_ID
     assert (
-        agent_fingerprint(_acp("grok-build", model="other-model", label="ignored"))
-        == GROK_BUILD_ID
+        agent_fingerprint(_acp("grok-build", model="other-model", label="ignored")) == GROK_BUILD_ID
     )
     with_overlays = dict(GROK_BUILD)
     with_overlays["overlays"] = ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"]
