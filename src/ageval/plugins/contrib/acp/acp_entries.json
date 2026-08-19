@@ -81,8 +81,7 @@
         ".claude"
       ],
       "keyless_auth_paths": [
-        ".claude/.credentials.json",
-        ".claude.json"
+        ".claude/.credentials.json"
       ]
     },
     {

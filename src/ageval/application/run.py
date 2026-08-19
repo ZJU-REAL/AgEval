@@ -150,9 +150,8 @@ def _open_evidence(
 ) -> AttemptEvidenceStore:
     runs_root = default_runs_root(dataset_root)
     runs_root.mkdir(parents=True, exist_ok=True)
-    run_dir = runs_root / f"{lock.digest.replace(':', '_')[:48]}_{run_id[:16]}"
     return AttemptEvidenceStore(
-        root=run_dir,
+        root=runs_root / attempt_id,
         attempt_id=attempt_id,
         run_id=run_id,
         dataset_root=dataset_root,

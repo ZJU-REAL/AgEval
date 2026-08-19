@@ -141,6 +141,7 @@ class InvocationHandle:
         error: str | None = None,
         latency_ms: float | None = None,
         error_detail: str | None = None,
+        executor_metadata: dict[str, Any] | None = None,
     ) -> None:
         """Atomically finalize metadata (+ optional final-response). Idempotent."""
         with self._lock:
@@ -167,6 +168,10 @@ class InvocationHandle:
             }
             if error_detail:
                 meta["error_detail"] = error_detail
+            if executor_metadata:
+                # What the backend reported about itself; the record phase folds
+                # this into the trajectory turn.
+                meta["executor_metadata"] = executor_metadata
             try:
                 # Redact first; fail closed only on residual secrets after redaction.
                 cleaned_meta = redact_value(meta, extra_sentinels=self.store.sentinels)
@@ -270,13 +275,9 @@ class AttemptEvidenceStore:
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "agent" / "invocations").mkdir(parents=True, exist_ok=True)
         (self.root / "evaluation").mkdir(parents=True, exist_ok=True)
-        (self.root / "harness").mkdir(parents=True, exist_ok=True)
-        # Touch empty JSONL skeletons.
-        for rel in ("agent/events.jsonl", "effects.jsonl"):
-            p = self.root / rel
-            if not p.exists():
-                p.parent.mkdir(parents=True, exist_ok=True)
-                p.write_text("", encoding="utf-8")
+        index = self.root / "agent" / "events.jsonl"
+        if not index.exists():
+            index.write_text("", encoding="utf-8")
 
     @property
     def locator(self) -> str:
@@ -290,27 +291,15 @@ class AttemptEvidenceStore:
         cleaned = redact_and_assert(lock_doc, extra_sentinels=self.sentinels)
         _atomic_write_json(self.root / "lock.json", cleaned)
 
-    def append_effect(self, decision: dict[str, Any]) -> None:
-        cleaned = redact_and_assert(decision, extra_sentinels=self.sentinels)
-        self._append_jsonl(self.root / "effects.jsonl", cleaned)
-
     def append_agent_index(self, event: dict[str, Any]) -> None:
         cleaned = redact_and_assert(event, extra_sentinels=self.sentinels)
         self._append_jsonl(self.root / "agent" / "events.jsonl", cleaned)
-
-    def write_harness_terminal(self, terminal: dict[str, Any]) -> None:
-        cleaned = redact_and_assert(terminal, extra_sentinels=self.sentinels)
-        _atomic_write_json(self.root / "harness" / "terminal.json", cleaned)
 
     def write_evaluation(self, name: str, doc: dict[str, Any]) -> None:
         if ".." in name or "/" in name or "\\" in name:
             raise ValueError("evaluation name must be a simple file stem")
         cleaned = redact_and_assert(doc, extra_sentinels=self.sentinels)
         _atomic_write_json(self.root / "evaluation" / f"{name}.json", cleaned)
-
-    def write_cleanup(self, cleanup: dict[str, Any]) -> None:
-        cleaned = redact_and_assert(cleanup, extra_sentinels=self.sentinels)
-        _atomic_write_json(self.root / "cleanup.json", cleaned)
 
     def write_summary(self, summary: dict[str, Any]) -> None:
         doc = {

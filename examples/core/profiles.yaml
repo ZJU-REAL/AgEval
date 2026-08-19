@@ -6,9 +6,10 @@ environment: local
 agent_profiles:
   solver:
     executor: acp
-    model: entry-default
+    model: zai-coding-cn/glm-5.2
+    api_key: ${ZHIPU_API_KEY}
     options:
-      entry: codex
+      entry: pi
     extensions:
       - plugin: acp
       - plugin: local

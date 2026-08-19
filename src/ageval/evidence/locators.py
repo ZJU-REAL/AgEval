@@ -92,7 +92,7 @@ def portable_run_locator(
     name = path.name
     if name and name not in {".", ".."} and not _looks_like_host_root(path):
         # Prefer .ageval/runs/<name> when name looks like a run directory.
-        if name.startswith("sha256_") or "_run_" in name or name.startswith("run_"):
+        if name.startswith(("attempt_", "run_", "sha256_")) or "_run_" in name:
             return f".ageval/runs/{name}"
         if not path.is_absolute():
             return path.as_posix()
@@ -326,31 +326,3 @@ def portable_artifact_ref(
         except (ValueError, OSError):
             continue
     return p.name
-
-
-def seal_harness_for_evidence(
-    harness_out: dict[str, Any],
-    *,
-    run_dir: Path | str | None = None,
-) -> dict[str, Any]:
-    """Copy harness_out for sealed harness.json without host temp absolute paths.
-
-    Runtime evaluation still uses the original in-memory absolute hold paths.
-    """
-    import copy
-
-    doc = copy.deepcopy(harness_out)
-    hold_raw = doc.get("artifact_hold")
-    hold_path = Path(str(hold_raw)) if hold_raw else None
-    # Omit absolute hold; record only that a hold existed (boolean).
-    if "artifact_hold" in doc:
-        doc["artifact_hold"] = bool(hold_raw)
-    envelope = doc.get("envelope")
-    if isinstance(envelope, dict):
-        published = envelope.get("published")
-        if isinstance(published, dict):
-            envelope["published"] = {
-                str(k): portable_artifact_ref(v, run_dir=run_dir, hold_dir=hold_path)
-                for k, v in published.items()
-            }
-    return doc

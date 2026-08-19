@@ -64,6 +64,7 @@ def main(argv: list[str]) -> int:
         {
             "artifacts": _published(artifacts_dir),
             "artifacts_dir": str(artifacts_dir),
+            "workspace_dir": os.environ["AGEVAL_WORKSPACE"],
             "evaluation_dir": os.environ["AGEVAL_EVALUATION"],
             "inputs": request.get("inputs") or [],
             "parameters": request.get("parameters") or {},

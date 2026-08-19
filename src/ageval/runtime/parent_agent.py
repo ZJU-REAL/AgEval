@@ -272,16 +272,7 @@ class ParentAgentService:
 
         latency = (time.monotonic() - started) * 1000.0
         if handle is not None:
-            redaction_error = seal_invoke_result(
-                handle,
-                result=result,
-                prompt=sent if isinstance(sent, str) else prompt,
-                kind=binding.executor_kind,
-                turn_index=self.invocations_completed + 1,
-                latency_ms=latency,
-                extension_graph=binding.graph,
-                extension_ctx=binding,
-            )
+            redaction_error = seal_invoke_result(handle, result=result, latency_ms=latency)
             if redaction_error is not None:
                 return self._failed(binding, handle, error=redaction_error)
 

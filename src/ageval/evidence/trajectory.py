@@ -1,7 +1,8 @@
-"""Core trajectory.jsonl writer — consumes ``ageval.trajectory.event/1`` only.
+"""Core trajectory writer — consumes ``ageval.trajectory.event/1`` only.
 
-Adapters map vendor-native streams into the neutral event contract. This module
-folds those events into Viewer/Hub turn steps. Observational — never PASS.
+Adapters map vendor-native streams into the neutral event contract; this module
+folds those events into turn rows and the engine writes the Attempt's
+``trajectory.jsonl`` from them. Observational — never PASS.
 """
 
 from __future__ import annotations
@@ -14,11 +15,33 @@ from typing import Any
 
 from ageval.evidence.schema import EVENT_SCHEMA_VERSION
 
+TRAJECTORY_FILENAME = "trajectory.jsonl"
 _TOOL_PHASES = frozenset({"start", "update"})
 
 
-def write_trajectory_jsonl(
-    inv_dir: Path,
+def write_attempt_trajectory(
+    run_dir: Path,
+    turns: list[list[dict[str, Any]]],
+    *,
+    redaction_sentinels: tuple[str, ...] | list[str] | None = None,
+) -> Path:
+    """Write the Attempt trajectory: every turn's rows, in invocation order.
+
+    The engine is the only writer of this file. Plugins shape the payloads that
+    produced *turns*; they never author the evidence.
+    """
+    from ageval.evidence.redaction import redact_value
+
+    sentinels = tuple(s for s in (redaction_sentinels or ()) if s)
+    rows = [redact_value(row, extra_sentinels=sentinels) for turn in turns for row in turn]
+    path = run_dir / TRAJECTORY_FILENAME
+    run_dir.mkdir(parents=True, exist_ok=True)
+    body = "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows)
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def turn_rows(
     *,
     prompt: str,
     events: tuple[dict[str, Any], ...] | list[dict[str, Any]],
@@ -28,9 +51,8 @@ def write_trajectory_jsonl(
     ok: bool,
     error: str | None,
     metadata: dict[str, Any] | None = None,
-    redaction_sentinels: tuple[str, ...] | list[str] | None = None,
-) -> Path:
-    """Write turn-level training trajectory for one ageval invoke.
+) -> list[dict[str, Any]]:
+    """Fold one invocation's events into turn-level training rows.
 
     Consumes only events with ``schema == ageval.trajectory.event/1``. Other
     rows are ignored (vendor raw belongs in ``backend_raw/`` / ``events.jsonl``).
@@ -38,9 +60,6 @@ def write_trajectory_jsonl(
     Row order: user → (thought? → tool_call → observation)* →
     assistant (final) → permission* → terminal.
     """
-    inv_dir.mkdir(parents=True, exist_ok=True)
-    path = inv_dir / "trajectory.jsonl"
-
     thought_parts: list[str] = []
     assistant_parts: list[str] = []
     thought_timing: dict[str, Any] = {}
@@ -207,16 +226,7 @@ def write_trajectory_jsonl(
         }
     )
 
-    from ageval.evidence.redaction import redact_value
-
-    sentinels = tuple(s for s in (redaction_sentinels or ()) if s)
-    lines = [redact_value(line, extra_sentinels=sentinels) for line in lines]
-
-    path.write_text(
-        "\n".join(json.dumps(x, ensure_ascii=False, sort_keys=True) for x in lines) + "\n",
-        encoding="utf-8",
-    )
-    return path
+    return lines
 
 
 def _emit_tool_rows(
