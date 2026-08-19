@@ -1,0 +1,25 @@
+format: ageval.task/1
+task_id: hard-ceiling-min
+description: A ceiling of zero invocations. The Agent must never be attached.
+
+parameters:
+  instruction: Write the number 42 into answer.txt.
+
+agent_profiles:
+  - id: solver
+
+limits:
+  wall_time_seconds: 300
+  # Zero is a real ceiling, not a formality: the engine refuses before the
+  # external effect, so no entry process is ever started.
+  agent_invocations: 0
+
+artifacts:
+  publishable:
+    - id: reply
+      path: artifacts/reply.json
+
+evaluation:
+  inputs:
+    - artifact: reply
+      target: artifacts/reply.json

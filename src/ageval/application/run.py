@@ -20,6 +20,7 @@ from ageval.config.constants import (
     SEED_DIR,
 )
 from ageval.config.model import LockedTaskConfig, locked_to_summary, thaw
+from ageval.environments.protocol import BoxSpec
 from ageval.evaluation.bind import AttemptResult, bind_result
 from ageval.evidence.locators import default_runs_root
 from ageval.evidence.store import AttemptEvidenceStore
@@ -88,11 +89,8 @@ async def run_attempt(
         requires=thaw(lock.requires),
     )
     graph = binder.graph(profile_id)
-    host = bind_winner(registry, graph, ENVIRONMENT, attempt_root=str(evidence.path("box")))
-    services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
-    await host.preflight()
-
     deadline = _deadline(lock)
+    # The service comes up first so the box can carry its socket in.
     agent_service = _agent_service(
         attempt_id=attempt_ident.value,
         binder=binder,
@@ -100,6 +98,19 @@ async def run_attempt(
         evidence=evidence,
         deadline_monotonic=deadline,
     )
+    host = bind_winner(
+        registry,
+        graph,
+        ENVIRONMENT,
+        spec=_box_spec(
+            lock,
+            task_root=task_root,
+            attempt_root=evidence.path("box"),
+        ),
+    )
+    services.register(ENVIRONMENT, host, plugin_id=graph.winners[ENVIRONMENT].plugin_id)
+    await host.preflight()
+
     ctx = AttemptCtx(
         run_id=run_ident.value,
         trial_id=trial_ident.value,
@@ -167,14 +178,34 @@ def _open_evidence(
 
 
 def _selected_profile_id(lock: LockedTaskConfig) -> str:
-    """The role slot this Attempt runs. Extra roles open on demand per session."""
+    """The role slot this Attempt runs, or "" for a task with no Agent at all.
+
+    Extra roles open on demand, per session.
+    """
     rows = list(lock.agent_profiles)
     if not rows:
-        raise RuntimeError("task declares no agent profile role slot to run")
+        return ""
     active = thaw(lock.parameters).get("active_profile")
     if isinstance(active, str) and active.strip():
         return active.strip()
     return str(rows[0].get("id"))
+
+
+def _box_spec(
+    lock: LockedTaskConfig,
+    *,
+    task_root: Path,
+    attempt_root: Path,
+) -> BoxSpec:
+    """Engine context for the box: the work root plus whatever recipe shipped."""
+    references = thaw(lock.resolved_references)
+    return BoxSpec(
+        attempt_root=attempt_root,
+        task_root=task_root,
+        repo_root=Path.cwd(),
+        dockerfile=references.get("environment_dockerfile"),
+        compose_file=references.get("environment_compose"),
+    )
 
 
 def _agent_service(

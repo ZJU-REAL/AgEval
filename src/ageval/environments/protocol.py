@@ -70,6 +70,23 @@ class Placement:
 
 
 @dataclass(frozen=True, slots=True)
+class BoxSpec:
+    """What the engine hands a kind when it binds the ``environment`` slot.
+
+    The kind decides what it needs: a local box uses only the work root, a
+    docker box also reads the recipe the task shipped. Job ``options`` stay
+    separate — this is engine-owned context, not user configuration.
+    """
+
+    attempt_root: Path
+    task_root: Path
+    repo_root: Path
+    # Task-relative recipes, present only when the task actually ships them.
+    dockerfile: str | None = None
+    compose_file: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ExecResult:
     """Result of a completed in-box command."""
 

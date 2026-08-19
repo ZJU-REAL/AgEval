@@ -56,6 +56,9 @@ class AgentServiceServer:
         self.socket_path.parent.mkdir(parents=True, exist_ok=True)
         srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         srv.bind(str(self.socket_path))
+        # A box may run as its own uid; the socket sits in a private directory,
+        # so the reachable surface is still only this Attempt.
+        self.socket_path.chmod(0o666)
         srv.listen(8)
         srv.settimeout(0.5)
         self._server = srv

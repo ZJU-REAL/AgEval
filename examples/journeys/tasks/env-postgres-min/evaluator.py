@@ -1,3 +1,5 @@
+"""PASS only when the sidecar answered from inside the box."""
+
 from __future__ import annotations
 
 import json
@@ -6,17 +8,17 @@ from typing import Any
 
 
 def evaluate(inputs: dict[str, Any]) -> dict[str, Any]:
-    data = json.loads(Path(inputs["artifacts"]["env-result"]).read_text(encoding="utf-8"))
-    rows = data.get("rows") if isinstance(data.get("rows"), list) else []
-    label = rows[0].get("label") if rows and isinstance(rows[0], dict) else None
-    ok = (
-        data.get("query_ok") is True
-        and data.get("env_action") == "query"
-        and label == "ageval"
-        and int(data.get("tool_calls") or 0) >= 1
-    )
+    probe_path = Path(inputs["workspace_dir"]) / "db-probe.json"
+    if not probe_path.is_file():
+        return {"status": "FAIL", "score": 0.0, "metrics": {"reason": "setup left no probe"}}
+    probe = json.loads(probe_path.read_text(encoding="utf-8"))
+    reachable = probe.get("reachable") is True
     return {
-        "status": "PASS" if ok else "FAIL",
-        "score": 1.0 if ok else 0.0,
-        "metrics": data,
+        "status": "PASS" if reachable else "FAIL",
+        "score": 1.0 if reachable else 0.0,
+        "metrics": {
+            "sidecar": probe.get("service"),
+            "reachable": reachable,
+            "error": probe.get("error"),
+        },
     }

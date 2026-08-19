@@ -9,7 +9,6 @@ import shutil
 import signal
 import subprocess
 import sys
-import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from ageval.environments.protocol import (
     EVALUATION_PATH,
     HOME_PATH,
     WORKSPACE_PATH,
+    BoxSpec,
     EnvironmentCapabilities,
     EnvironmentFailure,
     ExecResult,
@@ -78,13 +78,11 @@ class LocalHost:
     def __init__(
         self,
         *,
+        spec: BoxSpec,
         options: Mapping[str, object] | None = None,
-        attempt_root: Path | str | None = None,
     ) -> None:
-        del options  # local takes no job options
-        self._root = (
-            Path(str(attempt_root)).expanduser().resolve(strict=False) if attempt_root else None
-        )
+        del options  # local takes no job options and builds no image
+        self._root = spec.attempt_root.expanduser().resolve(strict=False)
         self._started = False
         self._stopped = False
         self._attached: list[LocalStdio] = []
@@ -92,7 +90,7 @@ class LocalHost:
     # --- lifecycle -----------------------------------------------------------
 
     async def preflight(self) -> None:
-        parent = self._root.parent if self._root is not None else Path(tempfile.gettempdir())
+        parent = self._root.parent
         parent.mkdir(parents=True, exist_ok=True)
         if not os.access(parent, os.W_OK):
             raise EnvironmentFailure(
@@ -104,8 +102,6 @@ class LocalHost:
         del force_build  # local has no image to build
         if self._started:
             raise EnvironmentFailure("environment_already_started", "local box already started")
-        if self._root is None:
-            self._root = Path(tempfile.mkdtemp(prefix="ageval-attempt-")).resolve(strict=False)
         for rel in ("workspace", "home", "artifacts"):
             (self._root / rel).mkdir(parents=True, exist_ok=True)
         self._started = True
@@ -117,7 +113,7 @@ class LocalHost:
         for pipe in self._attached:
             pipe.terminate()
         self._attached.clear()
-        if delete and self._root is not None and self._root.is_dir():
+        if delete and self._root.is_dir():
             shutil.rmtree(self._root, ignore_errors=True)
 
     # --- transport -----------------------------------------------------------
@@ -233,11 +229,6 @@ class LocalHost:
 
     @property
     def root(self) -> Path:
-        if self._root is None:
-            raise EnvironmentFailure(
-                "environment_not_started",
-                "local box has no work root yet (start() not called)",
-            )
         return self._root
 
     def placement(self) -> Placement:

@@ -1,7 +1,10 @@
-"""environment phase: open the box, seed it, let plugins prepare it.
+"""environment phase: open the box, put the task in it, let plugins prepare it.
 
 Slot order here is the authority. ``environment_setup`` is the last slot, not a
 separate provision phase: by the time ``run`` starts, the box is ready.
+
+What goes in: the task's ``data/`` seed and whatever the plugins prepare. Gold
+is not among them — it arrives in the evaluate phase, after the Agent stops.
 """
 
 from __future__ import annotations

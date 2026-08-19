@@ -1,24 +1,19 @@
 # env-postgres-min
 
-Minimal Environment Manager + package seed + package-local DB tool smoke.
+A sidecar without an orchestrator.
 
-No Agent on the default path — validates Core env handoff and package `lib/` tools
-before agent-backed journeys (`multiagent-env-min`, …).
+The task ships `environment/compose.yaml`. The box brings that project up and
+joins its network, so `db:5432` is an ordinary hostname inside the Attempt.
+`environment/setup.sh` probes it as the last slot of the environment phase, and
+`evaluator.py` passes only if the sidecar answered.
 
-## Package layout
+Shipping a compose file means the task *requires* `compose`. A kind that cannot
+deliver that capability fails the lock instead of starting a box it could not
+finish.
 
-| Path | Role |
-| --- | --- |
-| `harness.py` | Orchestration only (load env handoff → call tool → publish) |
-| `evaluator.py` | Independent PASS |
-| `lib/db_tools.py` | `db_query` ToolSet + env meta load |
-| `environment/seed.sql` | Package seed applied by Core (generic, no task hardcode) |
-
-Non-orchestration functional code lives under **`lib/`**.
+## Run
 
 ```bash
-uv run ageval lock examples/journeys --task env-postgres-min
-uv run ageval run  examples/journeys --task env-postgres-min
+ageval lock examples/journeys --task env-postgres-min
+ageval run  examples/journeys --task env-postgres-min
 ```
-
-Requires Docker for Attempt-local PostgreSQL. No ACP binary needed on this path.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +51,7 @@ def evaluate(
 
     task = load_eval_task(upstream_task_id, task_dir / "evaluation" / "task.json")
 
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from tau2.data_model.simulation import SimulationRun, TerminationReason
     from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
@@ -69,7 +70,7 @@ def evaluate(
         }
         term = mapping.get(term_raw, TerminationReason.USER_STOP)
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     simulation = SimulationRun(
         id=f"ageval-{upstream_task_id}",
         task_id=str(upstream_task_id),

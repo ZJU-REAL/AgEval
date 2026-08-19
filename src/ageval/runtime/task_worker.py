@@ -54,7 +54,11 @@ class _Frames:
 
 
 def _claim_stdout() -> _Frames:
-    """Take fd 1 for framing and give task code stderr instead."""
+    """Take fd 1 for framing and give task code stderr instead.
+
+    A ``print`` in ``run.py`` is diagnostics, not protocol, so it must not land
+    in the middle of the result envelope.
+    """
     frame_fd = os.dup(1)
     os.dup2(2, 1)
     sys.stdout = sys.stderr

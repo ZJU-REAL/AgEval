@@ -1,9 +1,13 @@
-"""Attach the task worker inside the box and collect its envelope.
+"""Run the task's own ``run.py`` in a child process of the control plane.
 
-The worker is a process the box starts, not a process the control plane forks:
-the only channel is ``attach_stdio``, so the same launch path works for a local
-directory box and for a remote one. Agent invocations do not travel here — they
-go back over the Agent Service socket named in the worker env.
+The task drives its Agent session and publishes artifacts; it never touches the
+box. That is why the worker is a child here rather than a process inside the
+Attempt's box: the Agent is what runs in the box, reached over the Agent Service
+socket, and the same arrangement works whether the box is this machine, a
+container, or a sandbox on someone else's.
+
+The channel is length-prefixed JSON over the child's own pipes: one launch
+message in, one result envelope out.
 """
 
 from __future__ import annotations
@@ -13,11 +17,11 @@ import json
 import os
 import struct
 import sys
+from pathlib import Path
 from typing import Any
 
 from ageval.attempt.ctx import AttemptCtx
 from ageval.config.model import thaw
-from ageval.environments.protocol import StdioTransport
 from ageval.runtime.offline import DEFAULT_OFFLINE_ENV, is_offline_agent
 
 WORKER_MODULE = "ageval.runtime.task_worker"
@@ -26,18 +30,29 @@ _STDERR_TAIL_BYTES = 4000
 
 
 async def launch_task_worker(ctx: AttemptCtx) -> dict[str, Any]:
-    """Run the task entrypoint inside the box; return its result envelope."""
-    argv = [*ctx.host.python_command, "-m", WORKER_MODULE]
-    pipe = await ctx.host.attach_stdio(
-        argv,
-        placement=ctx.host.placement(),
-        env=_worker_env(ctx),
+    """Run the task entrypoint and return its result envelope."""
+    workspace = ctx.evidence.path("task-workspace")
+    artifacts = ctx.evidence.path("task-artifacts")
+    for directory in (workspace, artifacts):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        WORKER_MODULE,
+        cwd=str(workspace),
+        env=_worker_env(ctx, workspace=workspace, artifacts=artifacts),
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        start_new_session=True,
     )
-    try:
-        _send(pipe, _launch_message(ctx))
-        envelope = await _collect(pipe, timeout=ctx.remaining_seconds())
-    finally:
-        pipe.terminate()
+    assert process.stdin is not None
+    process.stdin.write(_frame(_launch_message(ctx)))
+    await process.stdin.drain()
+    process.stdin.close()
+
+    envelope = await _collect(process, timeout=ctx.remaining_seconds())
     _record_artifacts(ctx, envelope)
     return envelope
 
@@ -55,12 +70,16 @@ def _launch_message(ctx: AttemptCtx) -> dict[str, Any]:
     }
 
 
-def _worker_env(ctx: AttemptCtx) -> dict[str, str]:
-    """Least privilege: a socket name, an import path, no host credential."""
+def _worker_env(ctx: AttemptCtx, *, workspace: Path, artifacts: Path) -> dict[str, str]:
+    """Least privilege: where to write, whom to call, and nothing else."""
     env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "PYTHONPATH": os.pathsep.join(p for p in sys.path if p and not p.endswith(".zip")),
         "PYTHONUNBUFFERED": "1",
+        "LANG": os.environ.get("LANG", "C"),
         "AGEVAL_ATTEMPT_ID": ctx.attempt_id,
+        "AGEVAL_WORKSPACE": str(workspace),
+        "AGEVAL_ARTIFACTS": str(artifacts),
     }
     if ctx.agent_service is not None:
         env["AGEVAL_AGENT_SERVICE_SOCK"] = str(ctx.agent_service.socket_path)
@@ -69,27 +88,44 @@ def _worker_env(ctx: AttemptCtx) -> dict[str, str]:
     return env
 
 
-async def _collect(pipe: StdioTransport, *, timeout: float | None) -> dict[str, Any]:
-    """Read the envelope while draining stderr, then reap the worker."""
-    loop = asyncio.get_running_loop()
-    stderr_task = loop.run_in_executor(None, _drain, pipe.stderr)
+async def _collect(
+    process: asyncio.subprocess.Process,
+    *,
+    timeout: float | None,
+) -> dict[str, Any]:
+    """Read the envelope, keep the stderr tail, and reap the child."""
+    assert process.stdout is not None
     try:
-        envelope = await asyncio.wait_for(loop.run_in_executor(None, _recv, pipe.stdout), timeout)
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
     except TimeoutError:
-        pipe.terminate()
-        envelope = {"ok": False, "error": "task_run_timeout"}
-    except EOFError as exc:
-        envelope = {"ok": False, "error": "task_worker_no_result", "message": str(exc)}
-    exit_code = await loop.run_in_executor(None, pipe.wait, 10.0)
-    stderr = await stderr_task
-    envelope["exit_code"] = exit_code
-    if stderr:
-        envelope["stderr"] = stderr[-_STDERR_TAIL_BYTES:]
+        process.kill()
+        await process.wait()
+        return {"ok": False, "error": "task_run_timeout", "exit_code": process.returncode}
+
+    envelope = _parse(stdout)
+    envelope["exit_code"] = process.returncode
+    tail = stderr.decode("utf-8", errors="replace")[-_STDERR_TAIL_BYTES:]
+    if tail:
+        envelope["stderr"] = tail
     return envelope
 
 
+def _parse(stdout: bytes) -> dict[str, Any]:
+    if len(stdout) < 4:
+        return {"ok": False, "error": "task_worker_no_result"}
+    (size,) = struct.unpack("!I", stdout[:4])
+    body = stdout[4 : 4 + size]
+    if len(body) < size:
+        return {"ok": False, "error": "task_worker_truncated_result"}
+    try:
+        parsed = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return {"ok": False, "error": "task_worker_unreadable_result"}
+    return parsed if isinstance(parsed, dict) else {"ok": False, "error": "task_worker_bad_result"}
+
+
 def _record_artifacts(ctx: AttemptCtx, envelope: dict[str, Any]) -> None:
-    """Keep artifact names in evidence; the bytes stay in the box."""
+    """Keep artifact names in evidence; the bytes stay where they were written."""
     published = envelope.get("published")
     if not isinstance(published, dict):
         return
@@ -98,31 +134,6 @@ def _record_artifacts(ctx: AttemptCtx, envelope: dict[str, Any]) -> None:
     ctx.record_fact("artifacts_published", {"ids": sorted(names)})
 
 
-def _send(pipe: StdioTransport, obj: dict[str, Any]) -> None:
+def _frame(obj: dict[str, Any]) -> bytes:
     raw = json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    stdin = pipe.stdin
-    assert hasattr(stdin, "write") and hasattr(stdin, "flush")
-    stdin.write(struct.pack("!I", len(raw)) + raw)  # type: ignore[attr-defined]
-    stdin.flush()  # type: ignore[attr-defined]
-
-
-def _recv(stdout: Any) -> dict[str, Any]:
-    header = _read_exact(stdout, 4)
-    (size,) = struct.unpack("!I", header)
-    return json.loads(_read_exact(stdout, size).decode("utf-8"))
-
-
-def _read_exact(stream: Any, size: int) -> bytes:
-    buf = b""
-    while len(buf) < size:
-        chunk = stream.read(size - len(buf))
-        if not chunk:
-            raise EOFError("worker closed the channel before sending a result")
-        buf += chunk
-    return buf
-
-
-def _drain(stream: Any) -> str:
-    if stream is None:
-        return ""
-    return stream.read().decode("utf-8", errors="replace")
+    return struct.pack("!I", len(raw)) + raw

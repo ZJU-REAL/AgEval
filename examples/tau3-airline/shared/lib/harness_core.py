@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval_sdk import Agent, RunContext, RunTerminal
+
 from shared.lib.agent_json import agent_struct
 from shared.lib.bridge import (
     agent_facing_user_scenario,
@@ -21,7 +22,6 @@ from shared.lib.bridge import (
     tool_catalog,
 )
 from shared.lib.paths import assets_root
-
 
 STOP_TOKEN = "###STOP###"
 TRANSFER_TOKEN = "###TRANSFER###"

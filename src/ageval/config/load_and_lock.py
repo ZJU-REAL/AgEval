@@ -47,6 +47,7 @@ from ageval.config.validate import (
     validate_top_level_layout,
 )
 from ageval.config.yaml_io import parse_yaml
+from ageval.plugins.slots import ENVIRONMENT
 
 
 class ConfigCore:
@@ -153,7 +154,7 @@ class ConfigCore:
         extension_bindings = self._resolve_extension_bindings(
             profiles_rows,
             environment=job_doc.environment,
-            requires=merged.get("requires") or {},
+            requires=_required_capabilities(merged.get("requires") or {}, resolved_refs),
         )
         if extension_bindings:
             resolution.append(
@@ -355,3 +356,24 @@ class ConfigCore:
                 ) from exc
             out[pid] = extension_graph_to_lock(graph)
         return out or None
+
+
+def _required_capabilities(
+    requires: Mapping[str, Any],
+    resolved_refs: Mapping[str, Any],
+) -> dict[str, tuple[str, ...]]:
+    """Capabilities the box must deliver, from the task and from what it ships.
+
+    A task that ships ``environment/compose.yaml`` needs ``compose`` whether or
+    not it said so, and a kind that cannot compose must fail the lock rather
+    than start a box it cannot finish.
+    """
+    wanted: dict[str, list[str]] = {}
+    for service, names in requires.items():
+        if isinstance(names, (list, tuple)):
+            wanted[str(service)] = [str(name) for name in names]
+    if resolved_refs.get("environment_compose"):
+        box = wanted.setdefault(ENVIRONMENT, [])
+        if "compose" not in box:
+            box.append("compose")
+    return {service: tuple(names) for service, names in wanted.items()}

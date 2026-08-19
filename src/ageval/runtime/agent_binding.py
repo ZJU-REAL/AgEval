@@ -52,11 +52,15 @@ class AgentBinder:
         raise UnknownProfileError(profile_id)
 
     def graph(self, profile_id: str) -> ExtensionGraph:
-        """Resolved graph for *profile_id* (one resolve per profile per Attempt)."""
+        """Resolved graph for *profile_id* (one resolve per profile per Attempt).
+
+        The empty id is the Attempt of a task that declares no role slot: it
+        still needs a box, it just never opens a session.
+        """
         found = self._graphs.get(profile_id)
         if found is not None:
             return found
-        row = self.profile(profile_id)
+        row = self.profile(profile_id) if profile_id else {}
         intent = intent_from_profile(row, environment=self.environment, requires=self.requires)
         intent.profile_id = profile_id
         graph = resolve(intent, self.registry)

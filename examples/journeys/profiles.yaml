@@ -1,48 +1,15 @@
 format: ageval.profiles/1
-bindings:
-  solver:
+
+# Journeys run in a container: these tasks ship image recipes and sidecars.
+environment: docker
+
+agent_profiles:
+  "*":
     executor: acp
-    extensions:
-      - plugin: acp
-        options:
-          entry: pi
     model: zai-coding-cn/glm-5.2
-    api_key: ${glm_coding_api_key}
-  user:
-    executor: acp
+    api_key: ${ZHIPU_API_KEY}
+    options:
+      entry: pi
     extensions:
       - plugin: acp
-        options:
-          entry: grok-build
-    model: entry-default
-  service:
-    executor: acp
-    extensions:
-      - plugin: acp
-        options:
-          entry: opencode
-    model: zai-coding-plan/glm-5.2
-    api_key: ${glm_coding_api_key}
-  specialist:
-    executor: acp
-    extensions:
-      - plugin: acp
-        options:
-          entry: pi
-    model: zai-coding-cn/glm-5.2
-    api_key: ${glm_coding_api_key}
-  planner:
-    executor: acp
-    extensions:
-      - plugin: acp
-        options:
-          entry: opencode
-    model: zai-coding-plan/glm-5.2
-    api_key: ${glm_coding_api_key}
-  reducer:
-    executor: acp
-    extensions:
-      - plugin: acp
-        options:
-          entry: grok-build
-    model: entry-default
+      - plugin: docker

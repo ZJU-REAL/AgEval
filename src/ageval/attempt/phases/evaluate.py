@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from ageval.attempt.ctx import AttemptCtx
 from ageval.attempt.emit import emit
-from ageval.environments.protocol import EVALUATION_PATH
+from ageval.environments.protocol import ARTIFACTS_PATH, EVALUATION_PATH
 from ageval.plugins.slots import AFTER_EVALUATE, BEFORE_EVALUATE
 
 PHASE = "evaluate"
@@ -19,6 +19,7 @@ async def run(ctx: AttemptCtx) -> None:
     ctx.phase = PHASE
     ctx.assert_writers_stopped()
     await emit(ctx, BEFORE_EVALUATE)
+    await _upload_task_artifacts(ctx)
     if ctx.evaluation_src is not None and ctx.evaluation_src.is_dir():
         await ctx.host.upload(ctx.evaluation_src, EVALUATION_PATH)
         ctx.record_fact("gold_materialized", {"at": PHASE})
@@ -29,6 +30,14 @@ async def run(ctx: AttemptCtx) -> None:
     after = await emit(ctx, AFTER_EVALUATE, result)
     if isinstance(after, dict) and str(after.get("status") or "") != status_before:
         raise RuntimeError("after_evaluate must not change the evaluation status")
+
+
+async def _upload_task_artifacts(ctx: AttemptCtx) -> None:
+    """The task published on this side; the evaluator judges inside the box."""
+    staged = ctx.evidence.path("task-artifacts")
+    if staged.is_dir() and any(staged.iterdir()):
+        await ctx.host.upload(staged, ARTIFACTS_PATH)
+        ctx.record_fact("artifacts_materialized", {"at": PHASE})
 
 
 async def _evaluate(ctx: AttemptCtx) -> dict[str, object]:

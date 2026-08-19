@@ -10,6 +10,7 @@ from ageval.config.capabilities import CapabilityCatalog
 from ageval.config.constants import (
     ALLOWED_TOP_LEVEL_DIRS,
     ALLOWED_TOP_LEVEL_FILES,
+    COMPOSE_DEFAULT,
     DOCKERFILE_DEFAULT,
     EVALUATION_DIR,
     EVALUATOR_ENTRYPOINT_DEFAULT,
@@ -446,6 +447,8 @@ def collect_resolved_references(
     }
     if reader.exists(root, DOCKERFILE_DEFAULT):
         refs["environment_dockerfile"] = DOCKERFILE_DEFAULT
+    if reader.exists(root, COMPOSE_DEFAULT):
+        refs["environment_compose"] = COMPOSE_DEFAULT
     if reader.exists(root, SETUP_SCRIPT_DEFAULT):
         refs["environment_setup"] = SETUP_SCRIPT_DEFAULT
     if reader.exists(root, SEED_DIR):
