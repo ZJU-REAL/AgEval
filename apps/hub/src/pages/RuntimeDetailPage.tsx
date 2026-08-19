@@ -35,6 +35,8 @@ import {
   getPackageFile,
   getRuntime,
   listPackageFiles,
+  parsePublishedAgentRef,
+  resolveAgentPackageDigest,
   RegistryHttpError,
   type FileItem,
   type RuntimeAppearance,
@@ -107,6 +109,9 @@ export function RuntimeDetailPage() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [fileNote, setFileNote] = useState<string | null>(null);
+  const [previewPkg, setPreviewPkg] = useState<{ id: string; digest: string } | null>(
+    null,
+  );
   const token = getToken();
 
   useEffect(() => {
@@ -172,33 +177,62 @@ export function RuntimeDetailPage() {
   );
 
   const overlayKey = (selectedAppearance?.overlays ?? []).join("\n");
-  const canPreview = Boolean(
-    selectedAppearance?.database_id &&
-      selectedAppearance.package_digest &&
-      overlayKey,
+  const publishedRef = parsePublishedAgentRef(selectedAppearance?.agent_ref);
+  const canPreview = Boolean(overlayKey) && Boolean(
+    publishedRef ||
+      (selectedAppearance?.database_id && selectedAppearance.package_digest),
   );
 
   useEffect(() => {
-    if (!canPreview || !selectedAppearance?.database_id || !selectedAppearance.package_digest) {
+    if (!overlayKey || !selectedAppearance) {
       setFileItems([]);
       setSelectedPath(null);
       setFileContent(null);
       setFileNote(null);
+      setPreviewPkg(null);
       setTreeLoading(false);
       return;
     }
-    const databaseId = selectedAppearance.database_id;
-    const digest = selectedAppearance.package_digest;
     const prefixes = selectedAppearance.overlays ?? [];
+    const appearance = selectedAppearance;
     let cancelled = false;
     setTreeLoading(true);
     setFileNote(null);
-    listPackageFiles(databaseId, digest, token)
-      .then((files) => {
+    void (async () => {
+      try {
+        let pkg: { id: string; digest: string } | null = null;
+        if (appearance.agent_ref) {
+          const resolved = await resolveAgentPackageDigest(appearance.agent_ref, token);
+          pkg = resolved
+            ? { id: resolved.packageId, digest: resolved.digest }
+            : null;
+          if (!pkg) {
+            if (cancelled) return;
+            setFileItems([]);
+            setSelectedPath(null);
+            setPreviewPkg(null);
+            setFileNote(
+              parsePublishedAgentRef(appearance.agent_ref)
+                ? "Agent package not found for overlay preview"
+                : "file:/local/ agent_ref has no Hub overlay preview",
+            );
+            return;
+          }
+        } else if (appearance.database_id && appearance.package_digest) {
+          pkg = { id: appearance.database_id, digest: appearance.package_digest };
+        }
+        if (!pkg) {
+          if (cancelled) return;
+          setFileItems([]);
+          setPreviewPkg(null);
+          return;
+        }
+        const files = await listPackageFiles(pkg.id, pkg.digest, token);
         if (cancelled) return;
         const matched = files.items.filter(
           (item) => item.type !== "dir" && pathMatchesPrefixes(item.path, prefixes),
         );
+        setPreviewPkg(pkg);
         setFileItems(matched);
         const prefer =
           prefixes
@@ -207,24 +241,24 @@ export function RuntimeDetailPage() {
             )
             .find(Boolean) || matched[0];
         setSelectedPath(prefer?.path ?? null);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (cancelled) return;
         setFileItems([]);
         setSelectedPath(null);
+        setPreviewPkg(null);
         if (err instanceof RegistryHttpError) {
           setFileNote(`${err.code}: ${err.message}`);
         } else {
           setFileNote(err instanceof Error ? err.message : String(err));
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setTreeLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [canPreview, overlayKey, selectedAppearance, token]);
+  }, [overlayKey, selectedAppearance, token]);
 
   const tree: TreeNode[] = useMemo(
     () => (canPreview ? buildNestedTree(fileItems, "overlays") : []),
@@ -232,15 +266,15 @@ export function RuntimeDetailPage() {
   );
 
   useEffect(() => {
-    if (!canPreview || !selectedAppearance || !selectedPath) {
+    if (!canPreview || !previewPkg || !selectedPath) {
       setFileContent(null);
       return;
     }
     let cancelled = false;
     setFileLoading(true);
     getPackageFile(
-      selectedAppearance.database_id,
-      selectedAppearance.package_digest || "",
+      previewPkg.id,
+      previewPkg.digest,
       selectedPath,
       token,
     )
@@ -269,7 +303,7 @@ export function RuntimeDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [canPreview, selectedAppearance, selectedPath, token]);
+  }, [canPreview, previewPkg, selectedPath, token]);
 
   function onSort(key: string) {
     const next = nextSort(sortKey, sortDir, key);
@@ -508,8 +542,11 @@ export function RuntimeDetailPage() {
             <section className="space-y-2">
               <h2 className="text-sm font-medium text-ink">Published files</h2>
               <p className="text-xs text-mute">
-                Prefix closure of this role&apos;s overlays from the bound Dataset
-                release. Read-only.
+                Prefix closure of this role&apos;s overlays
+                {publishedRef
+                  ? " from the published Agent package"
+                  : " from the bound Dataset release"}
+                . Read-only.
               </p>
               <div className="rounded-[8px] border border-hairline overflow-hidden">
                 <FileSplitPanel

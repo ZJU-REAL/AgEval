@@ -251,12 +251,13 @@ bindings:
   #   api_key: ${zhipu_coding_api_key}
 ```
 
-`overlays` is a list of Database-relative paths under `overlays/`. Omit or `[]`
-means no Runtime plaza file tree. Config does **not** infer this list from
-plugin `src`. Listed files must stay locator-only (no tokens / PEM). Two roles
-that publish the same path each list it; the Dataset still has one blob.
-`bora publish` packs **only** those declared paths (directory prefix closure),
-not everything under `overlays/`.
+`overlays` is a list of paths under `overlays/`. Omit or `[]` means no Hub file
+tree. With `agent_ref`, those files live in the Agent package and resolve from
+the installed Agent; without `agent_ref`, they are Database-relative. Config
+does **not** infer this list from plugin `src`. Listed files must stay
+locator-only (no tokens / PEM). `bora publish` of a Dataset packs **only**
+those declared Dataset paths; Agent publish archives listed Agent-package
+paths.
 
 ## Ownership rules
 

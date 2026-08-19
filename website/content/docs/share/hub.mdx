@@ -22,7 +22,7 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - 登录后的 **Home**：你上传的 Jobs、组织、可维护 Dataset / Task、你上传的插件（标记与标题同 marketplace）。未登录会去登录页。无 publish / upload / release 按钮  
 - 列表搜索与 **Your organizations | Explore** 同一行；文件树分栏高度固定；轨迹按密封文件顺序展示、tool-call 可折叠；步骤头只在密封行带 `elapsed_ms` 时显示耗时  
 
-- Runtime 详情：无密钥 YAML；该 role 声明了 `overlays:` 时，从绑定的 Dataset release 打开只读文件树（与 Dataset / Plugin 页同一套包文件 API）。省略 `overlays` 则只有 YAML。
+- Runtime 详情：无密钥 YAML；该 role 声明了 `overlays:` 时打开只读文件树。带 `agent_ref` 的绑定预览已发布 Agent 包；否则走绑定的 Dataset release。省略 `overlays` 则只有 YAML。
 
 - **用 GitHub 登录**（浏览器 OAuth；CLI 仍是 Device Flow）
 

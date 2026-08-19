@@ -298,8 +298,9 @@ export function AgentDetailPage() {
           <section id="agent-files" className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Files</h2>
             <p className="text-xs text-mute">
-              Read-only preview. Agent packages carry configuration only — locator
-              names, never secret values.
+              Read-only preview of this package, including any bundled{" "}
+              <span className="font-mono">overlays/</span> files. Locator names
+              only, never secret values.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <FileSplitPanel

@@ -255,12 +255,51 @@ export type RuntimeAppearance = {
   agent_ref?: string;
 };
 
+/** Published Hub id + version from an agent_ref. Null for file:/local/ refs. */
+export function parsePublishedAgentRef(
+  ref: string | undefined | null,
+): { packageId: string; version: string; digest12: string } | null {
+  if (!ref || ref.startsWith("file:")) return null;
+  const at = ref.indexOf("@");
+  if (at <= 0) return null;
+  const packageId = ref.slice(0, at);
+  if (!packageId.includes("/") || packageId.startsWith("local/")) return null;
+  const rest = ref.slice(at + 1);
+  const plus = rest.indexOf("+");
+  const version = (plus >= 0 ? rest.slice(0, plus) : rest).trim();
+  if (!version) return null;
+  const digestPart = plus >= 0 ? rest.slice(plus + 1).trim() : "";
+  const digest12 = digestPart.startsWith("sha256:")
+    ? digestPart.slice("sha256:".length)
+    : digestPart;
+  return { packageId, version, digest12 };
+}
+
 /** Hub package id from an agent_ref (`org/name@ver+sha…`); null for local/file refs. */
 export function agentRefPackageId(ref: string | undefined | null): string | null {
   if (!ref || ref.startsWith("file:")) return null;
   const id = ref.split("@", 1)[0] ?? "";
   if (!id.includes("/") || id.startsWith("local/")) return null;
   return id;
+}
+
+/** Full package digest for a published agent_ref (short digest prefix-matched). */
+export async function resolveAgentPackageDigest(
+  ref: string,
+  token: string | null,
+): Promise<{ packageId: string; digest: string } | null> {
+  const parsed = parsePublishedAgentRef(ref);
+  if (!parsed) return null;
+  const versions = await listPackageVersions(parsed.packageId, token);
+  const match =
+    versions.find((row) => {
+      if (row.version !== parsed.version) return false;
+      if (!parsed.digest12) return true;
+      const hex = (row.package_digest || "").replace(/^sha256:/, "");
+      return hex.startsWith(parsed.digest12);
+    }) ?? versions.find((row) => row.version === parsed.version);
+  if (!match?.package_digest) return null;
+  return { packageId: parsed.packageId, digest: match.package_digest };
 }
 
 export type RuntimeDetail = RuntimeCard & {

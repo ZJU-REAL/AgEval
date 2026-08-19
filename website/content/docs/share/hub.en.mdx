@@ -22,7 +22,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
 - List search sits on the same row as **Your organizations | Explore**; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
-- Runtime detail: secret-free YAML plus, when that role lists `overlays:`, a read-only file tree from the bound Dataset release (same package files API as Dataset / Plugin pages). Omit `overlays` and the page stays YAML-only.
+- Runtime detail: secret-free YAML plus, when that role lists `overlays:`, a read-only file tree. Bindings with `agent_ref` preview from the published Agent package; others use the bound Dataset release. Omit `overlays` and the page stays YAML-only.
 
 - **Sign in with GitHub** (browser OAuth; CLI stays on Device Flow)
 
