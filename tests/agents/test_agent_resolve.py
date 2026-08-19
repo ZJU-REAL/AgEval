@@ -22,11 +22,11 @@ def _bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
-def _make_pkg(tmp_path: Path, agent_id: str = "mock-default") -> Path:
-    pkg = tmp_path / f"pkg-{agent_id}"
+def _make_pkg(tmp_path: Path, agent_id: str = "mock-default", version: str = "0.1.0") -> Path:
+    pkg = tmp_path / f"pkg-{agent_id}-{version}"
     pkg.mkdir(parents=True, exist_ok=True)
     (pkg / "agent.yaml").write_text(
-        f"format: bora.agent/1\nagent_id: {agent_id}\nversion: '0.1.0'\n"
+        f"format: bora.agent/1\nagent_id: {agent_id}\nversion: '{version}'\n"
         "label: T\nbinding: {executor: mock, model: none}\n",
         encoding="utf-8",
     )
@@ -60,6 +60,17 @@ def test_bindings_from_cache_ref_with_local_fallback(tmp_path: Path) -> None:
     for ref in ("local/mock-default@0.1.0", "mock-default@0.1.0"):
         bindings = bindings_from_agent_specs([f"solver={ref}"])
         assert bindings["solver"]["agent_ref"].startswith("local/mock-default@0.1.0+sha256:")
+
+
+def test_both_installed_versions_project(tmp_path: Path) -> None:
+    from bora.agents.store import install_from_path
+
+    install_from_path(_make_pkg(tmp_path, version="1.0.0"))
+    install_from_path(_make_pkg(tmp_path, version="2.0.0"))
+    b1 = bindings_from_agent_specs(["local/mock-default@1.0.0"])
+    b2 = bindings_from_agent_specs(["local/mock-default@2.0.0"])
+    assert b1["*"]["agent_ref"].startswith("local/mock-default@1.0.0+sha256:")
+    assert b2["*"]["agent_ref"].startswith("local/mock-default@2.0.0+sha256:")
 
 
 def test_missing_cache_ref_fails_closed() -> None:

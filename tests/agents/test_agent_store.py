@@ -18,7 +18,7 @@ def _bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _make_pkg(tmp_path: Path, agent_id: str = "mock-default", version: str = "0.1.0") -> Path:
-    pkg = tmp_path / f"pkg-{agent_id}"
+    pkg = tmp_path / f"pkg-{agent_id}-{version}"
     pkg.mkdir(parents=True, exist_ok=True)
     (pkg / "agent.yaml").write_text(
         f"format: bora.agent/1\nagent_id: {agent_id}\nversion: '{version}'\n"
@@ -76,3 +76,48 @@ def test_uninstall(tmp_path: Path) -> None:
     assert store.uninstall("local/mock-default") is True
     assert store.list_installed() == []
     assert store.uninstall("local/mock-default") is False
+
+
+def test_side_by_side_versions(tmp_path: Path) -> None:
+    store.install_from_path(_make_pkg(tmp_path, version="1.0.0"))
+    store.install_from_path(_make_pkg(tmp_path, version="2.0.0"))
+    rows = store.list_installed()
+    assert sorted(r.version for r in rows) == ["1.0.0", "2.0.0"]
+    v1, _ = store.resolve_installed_ref("local/mock-default", "1.0.0")
+    v2, _ = store.resolve_installed_ref("local/mock-default", "2.0.0")
+    assert v1.version == "1.0.0"
+    assert v2.version == "2.0.0"
+    newest = store.load_index().find("local/mock-default")
+    assert newest is not None
+    assert newest.version == "2.0.0"
+
+
+def test_uninstall_one_version_leaves_other(tmp_path: Path) -> None:
+    store.install_from_path(_make_pkg(tmp_path, version="1.0.0"))
+    store.install_from_path(_make_pkg(tmp_path, version="2.0.0"))
+    assert store.uninstall("local/mock-default@1.0.0") is True
+    versions = [r.version for r in store.list_installed()]
+    assert versions == ["2.0.0"]
+    store.resolve_installed_ref("local/mock-default", "2.0.0")
+    with pytest.raises(ConfigError):
+        store.resolve_installed_ref("local/mock-default", "1.0.0")
+
+
+def test_uninstall_bare_id_removes_all_versions(tmp_path: Path) -> None:
+    store.install_from_path(_make_pkg(tmp_path, version="1.0.0"))
+    store.install_from_path(_make_pkg(tmp_path, version="2.0.0"))
+    assert store.uninstall("local/mock-default") is True
+    assert store.list_installed() == []
+
+
+def test_reconcile_missing_version_row_from_disk(tmp_path: Path) -> None:
+    store.install_from_path(_make_pkg(tmp_path, version="1.0.0"))
+    store.install_from_path(_make_pkg(tmp_path, version="2.0.0"))
+    newest = store.load_index(reconcile=False).find("local/mock-default")
+    assert newest is not None
+    store.save_index(store.AgentIndex(agents=[newest]))
+    got, root = store.resolve_installed_ref("local/mock-default", "1.0.0")
+    assert got.version == "1.0.0"
+    assert (root / "agent.yaml").is_file()
+    versions = sorted(r.version for r in store.list_installed())
+    assert versions == ["1.0.0", "2.0.0"]
