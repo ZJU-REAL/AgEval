@@ -21,7 +21,7 @@ install_agent_from_registry = _agents.install_agent_from_registry
 publish_agent = _agents.publish_agent
 
 REPO = Path(__file__).resolve().parents[2]
-AGENT_FIXTURE = REPO / "examples" / "agents" / "mock-default"
+AGENT_FIXTURE = REPO / "examples" / "agents" / "http-default"
 TEST_ORG = "test"
 
 
@@ -63,7 +63,7 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
     assert summary["ok"] is True
     assert summary["package_kind"] == "agent"
     assert summary["media_type"] == AGENT_MEDIA_TYPE
-    assert summary["package_id"] == f"{TEST_ORG}/mock-default"
+    assert summary["package_id"] == f"{TEST_ORG}/http-default"
 
     body = _get(
         env["url"],
@@ -72,7 +72,7 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
     )
     assert body.get("package_kind") == "agent"
     preview = body.get("agent_preview") or {}
-    assert preview.get("agent_id") == "mock-default"
+    assert preview.get("agent_id") == "http-default"
     assert preview.get("label") == "Mock Default"
     assert preview.get("binding", {}).get("executor") == "mock"
     assert "agent.yaml" in (preview.get("files") or [])
@@ -89,7 +89,7 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
 
     installed = install_agent_from_registry(summary["ref"])
     assert installed["ok"] is True
-    assert installed["agent_id"] == f"{TEST_ORG}/mock-default"
+    assert installed["agent_id"] == f"{TEST_ORG}/http-default"
     assert installed["digest"].startswith("sha256:")
     assert (Path(env["home"]) / "agents" / "index.json").is_file()
 
@@ -103,7 +103,7 @@ def test_publish_agent_archives_listed_overlays(env: dict[str, str], tmp_path: P
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
         "format: ageval.agent/1\nagent_id: overlay-demo\nversion: '1.0'\n"
-        "binding:\n  executor: mock\n  model: none\n"
+        "binding:\n  executor: openai-http\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
         encoding="utf-8",
     )
@@ -144,7 +144,7 @@ def test_publish_rejects_missing_listed_overlay(env: dict[str, str], tmp_path: P
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
         "format: ageval.agent/1\nagent_id: missing-ov\nversion: '1.0'\n"
-        "binding:\n  executor: mock\n  model: none\n"
+        "binding:\n  executor: openai-http\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
         encoding="utf-8",
     )
@@ -160,7 +160,7 @@ def test_reject_secret_bearing_agent(env: dict[str, str], tmp_path: Path) -> Non
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
         "format: ageval.agent/1\nagent_id: leaky\nversion: '1.0'\n"
-        "binding: {executor: mock, model: none}\n",
+        "binding: {executor: openai-http, model: none}\n",
         encoding="utf-8",
     )
     (pkg / "notes.txt").write_text("api_key = sk-abc123def456ghi789jkl000\n", encoding="utf-8")
@@ -183,7 +183,7 @@ def test_reject_agent_yaml_as_dataset(env: dict[str, str], tmp_path: Path) -> No
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
         "format: ageval.agent/1\nagent_id: sneaky\nversion: '1.0'\n"
-        "binding: {executor: mock, model: none}\n",
+        "binding: {executor: openai-http, model: none}\n",
         encoding="utf-8",
     )
     # Hand-rolled tarball: ageval.registry.archive validates dataset trees.

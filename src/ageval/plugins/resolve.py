@@ -179,7 +179,11 @@ def _resolve_chain(
     slot_explicit: list[ExplicitBinding],
     materialize: bool,
 ) -> None:
-    if not candidates and not slot_explicit:
+    # Opt-in: a plugin only joins a chain when the job listed it. Engine
+    # defaults are the exception — that is what makes them defaults.
+    named = {row.plugin for row in slot_explicit}
+    candidates = [c for c in candidates if c.is_default or c.plugin_id in named]
+    if not candidates:
         return
     chain = order_chain(candidates, explicit, slot=slot)
     if not chain:

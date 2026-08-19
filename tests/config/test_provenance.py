@@ -6,7 +6,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
-from tests.helpers.lock import lock_with_profiles
+from tests.helpers.lock import CONFIG_MIN, lock_with_profiles
 
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.dataset import load_dataset_manifest
@@ -16,12 +16,11 @@ from ageval.config.model import thaw
 from ageval.config.package_fs import LocalPackageReader
 from ageval.config.provenance import merge_provenance, validate_provenance
 
-REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
-MOCK_BINDINGS = {"mock-default": {"executor": "mock", "model": "none"}}
+MINIMAL = CONFIG_MIN / "tasks" / "minimal"
+HTTP_PROFILES = {"solver": {"executor": "openai-http", "model": "gpt-4.1-mini"}}
 
 
-def _minimal_task_yaml(*, extra: str = "", task_id: str = "config-minimal") -> str:
+def _minimal_task_yaml(*, extra: str = "", task_id: str = "minimal") -> str:
     base = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
     if not extra:
         return base
@@ -29,11 +28,11 @@ def _minimal_task_yaml(*, extra: str = "", task_id: str = "config-minimal") -> s
     return base.rstrip() + "\n\n" + textwrap.dedent(extra).lstrip() + "\n"
 
 
-def _write_task_pkg(tmp: Path, *, yaml_text: str, task_id: str = "config-minimal") -> Path:
+def _write_task_pkg(tmp: Path, *, yaml_text: str, task_id: str = "minimal") -> Path:
     pkg = tmp / task_id
     pkg.mkdir(parents=True)
     (pkg / "task.yaml").write_text(yaml_text, encoding="utf-8")
-    (pkg / "harness.py").write_text("#\n", encoding="utf-8")
+    (pkg / "run.py").write_text("#\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
     return pkg
 
@@ -103,16 +102,16 @@ def test_lock_includes_task_provenance(
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
     locked = lock_with_profiles(
         pkg,
-        "config-minimal",
-        MOCK_BINDINGS,
+        "minimal",
+        HTTP_PROFILES,
     )
     assert thaw(locked.provenance) == {"kind": "original"}
     assert "provenance" in locked.canonical_payload()
     # Digest changes vs no-provenance baseline from examples/core
     base = lock_with_profiles(
         MINIMAL,
-        "config-minimal",
-        MOCK_BINDINGS,
+        "minimal",
+        HTTP_PROFILES,
     )
     assert locked.digest != base.digest
 
@@ -123,8 +122,8 @@ def test_dataset_default_applied(
     pkg = _write_task_pkg(tmp_path, yaml_text=_minimal_task_yaml())
     locked = lock_with_profiles(
         pkg,
-        "config-minimal",
-        MOCK_BINDINGS,
+        "minimal",
+        HTTP_PROFILES,
         dataset_provenance={
             "kind": "wrapper",
             "upstream": {
@@ -152,8 +151,8 @@ def test_task_provenance_overrides_dataset(
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
     locked = lock_with_profiles(
         pkg,
-        "config-minimal",
-        MOCK_BINDINGS,
+        "minimal",
+        HTTP_PROFILES,
         dataset_provenance={
             "kind": "port",
             "upstream": {
@@ -180,8 +179,8 @@ def test_invalid_port_fails_lock(
     with pytest.raises(ConfigError) as ei:
         lock_with_profiles(
             pkg,
-            "config-minimal",
-            MOCK_BINDINGS,
+            "minimal",
+            HTTP_PROFILES,
         )
     assert ei.value.error_code == "invalid_schema"
 
@@ -209,31 +208,20 @@ def test_dataset_manifest_accepts_provenance(tmp_path: Path) -> None:
             """
             format: ageval.task/1
             task_id: alpha
-            harness:
-              runtime: python
-              entrypoint: harness:run
-            provider:
-              kind: local
-            agent_profiles: []
             limits:
               wall_time_seconds: 60
               agent_invocations: 0
-              environment_actions: 0
-              memory_mb: 256
+                          memory_mb: 256
             artifacts:
               publishable: []
             evaluation:
-              runtime: python
               entrypoint: evaluator:evaluate
-              network: none
               inputs: []
-              output:
-                format: json
             """
         ).lstrip(),
         encoding="utf-8",
     )
-    (root / "tasks" / "alpha" / "harness.py").write_text("#\n", encoding="utf-8")
+    (root / "tasks" / "alpha" / "run.py").write_text("#\n", encoding="utf-8")
     (root / "tasks" / "alpha" / "evaluator.py").write_text("#\n", encoding="utf-8")
 
     man = load_dataset_manifest(root)

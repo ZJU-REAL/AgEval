@@ -1,0 +1,12 @@
+format: ageval.agent/1
+agent_id: http-default
+version: "0.1.0"
+label: "OpenAI-compatible HTTP"
+description: >-
+  Plain chat-completions backend for lock-lane demos: no box, no coding tools,
+  one API key locator. Real coding-agent runs bind an ACP entry instead.
+tags: [api, smoke]
+binding:
+  executor: openai-http
+  model: gpt-4.1-mini
+  api_key: ${OPENAI_API_KEY}

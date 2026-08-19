@@ -15,8 +15,8 @@ from ageval.config.profiles import (
 WILDCARD_DOC = {
     "format": "ageval.profiles/1",
     "agent_profiles": {
-        "*": {"executor": "mock", "model": "none", "agent_ref": "local/m@0.1.0+sha256:abc"},
-        "critic": {"executor": "mock", "model": "other"},
+        "*": {"executor": "openai-http", "model": "none", "agent_ref": "local/m@0.1.0+sha256:abc"},
+        "critic": {"executor": "openai-http", "model": "other"},
     },
 }
 
@@ -29,7 +29,7 @@ def test_parse_accepts_wildcard_key() -> None:
 def test_parse_still_rejects_bad_role_ids() -> None:
     doc = {
         "format": "ageval.profiles/1",
-        "agent_profiles": {"**": {"executor": "mock", "model": "x"}},
+        "agent_profiles": {"**": {"executor": "openai-http", "model": "x"}},
     }
     with pytest.raises(ConfigError):
         parse_job_mapping(doc)
@@ -49,7 +49,7 @@ def test_merge_without_wildcard_still_fails_closed() -> None:
     job = parse_job_mapping(
         {
             "format": "ageval.profiles/1",
-            "agent_profiles": {"critic": {"executor": "mock", "model": "x"}},
+            "agent_profiles": {"critic": {"executor": "openai-http", "model": "x"}},
         }
     )
     with pytest.raises(ConfigError):
@@ -135,13 +135,13 @@ def test_overlays_do_not_inherit_onto_exact_row() -> None:
             "format": "ageval.profiles/1",
             "agent_profiles": {
                 "*": {
-                    "executor": "mock",
+                    "executor": "openai-http",
                     "model": "none",
                     "overlays": ["overlays/skills/demo"],
                     "agent_ref": "official/xx@0.1.0+sha256:aaaaaaaaaaaa",
                 },
                 "user": {
-                    "executor": "mock",
+                    "executor": "openai-http",
                     "model": "other",
                     "agent_ref": "official/yy@0.1.0+sha256:bbbbbbbbbbbb",
                 },

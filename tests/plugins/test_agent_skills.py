@@ -250,7 +250,7 @@ def test_home_overlay_src_from_agent_package_not_dataset(ageval_home: Path, tmp_
                 "agent_id": "xx",
                 "version": "0.1.0",
                 "binding": {
-                    "executor": "mock",
+                    "executor": "openai-http",
                     "model": "none",
                     "overlays": ["overlays/skills/demo"],
                     "extensions": [
@@ -278,33 +278,29 @@ def test_home_overlay_src_from_agent_package_not_dataset(ageval_home: Path, tmp_
         encoding="utf-8",
     )
     (db / "profiles.yaml").write_text(
-        "format: ageval.profiles/1\nbindings:\n  solver:\n    executor: mock\n    model: none\n",
+        "format: ageval.profiles/1\n"
+        "environment: local\n"
+        "agent_profiles:\n  solver:\n    executor: openai-http\n",
         encoding="utf-8",
     )
     task = db / "tasks" / "t"
-    (task / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
+    (task / "run.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
     (task / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
     (task / "task.yaml").write_text(
         yaml.safe_dump(
             {
                 "format": "ageval.task/1",
                 "task_id": "t",
-                "harness": {"runtime": "python", "entrypoint": "harness:run"},
                 "parameters": {"models": {"default": "solver"}},
-                "provider": {"kind": "local", "assurance": "l0"},
                 "agent_profiles": [{"id": "solver"}],
                 "limits": {
                     "wall_time_seconds": 60,
                     "agent_invocations": 1,
-                    "environment_actions": 0,
                 },
                 "artifacts": {"publishable": []},
                 "evaluation": {
-                    "runtime": "python",
                     "entrypoint": "evaluator:evaluate",
-                    "network": "none",
                     "inputs": [],
-                    "output": {"format": "json"},
                 },
             }
         ),
@@ -317,7 +313,7 @@ def test_home_overlay_src_from_agent_package_not_dataset(ageval_home: Path, tmp_
         capabilities=DeclarationCapabilityCatalog(),
         profile_bindings={
             "solver": {
-                "executor": "mock",
+                "executor": "openai-http",
                 "model": "none",
                 "overlays": ["overlays/skills/demo"],
                 "agent_ref": f"official/xx@0.1.0+sha256:{short}",

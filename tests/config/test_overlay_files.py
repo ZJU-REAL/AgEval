@@ -10,14 +10,12 @@ import yaml
 from tests.helpers.lock import lock_with_profiles
 
 from ageval.config.errors import ConfigError
-from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
 from ageval.config.overlay_files import (
     normalize_overlay_path,
     overlay_secret_hits,
     parse_overlay_paths,
 )
-from ageval.config.package_fs import LocalPackageReader
 from ageval.config.profiles import load_job_document
 
 
@@ -39,29 +37,23 @@ def _write_dataset(
         encoding="utf-8",
     )
     task = db / "tasks" / "t"
-    (task / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
+    (task / "run.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
     (task / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
     (task / "task.yaml").write_text(
         yaml.safe_dump(
             {
                 "format": "ageval.task/1",
                 "task_id": "t",
-                "harness": {"runtime": "python", "entrypoint": "harness:run"},
                 "parameters": {"models": {"default": "solver"}},
-                "provider": {"kind": "local", "assurance": "l0"},
                 "agent_profiles": [{"id": "solver"}],
                 "limits": {
                     "wall_time_seconds": 60,
                     "agent_invocations": 1,
-                    "environment_actions": 0,
                 },
                 "artifacts": {"publishable": []},
                 "evaluation": {
-                    "runtime": "python",
                     "entrypoint": "evaluator:evaluate",
-                    "network": "none",
                     "inputs": [],
-                    "output": {"format": "json"},
                 },
             }
         ),
@@ -75,7 +67,6 @@ def _write_dataset(
 
 
 def _lock(db: Path, bindings: dict[str, dict[str, Any]]):
-    core = ConfigCore(package_reader=LocalPackageReader())
     return lock_with_profiles(
         db / "tasks" / "t",
         "t",
@@ -152,14 +143,14 @@ def test_omit_overlays_lock_unchanged(tmp_path: Path) -> None:
 def test_lock_requires_existing_overlay_path(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={"solver": {"executor": "mock", "model": "none"}},
+        bindings={"solver": {"executor": "openai-http", "model": "none"}},
     )
     with pytest.raises(ConfigError) as ei:
         _lock(
             db,
             {
                 "solver": {
-                    "executor": "mock",
+                    "executor": "openai-http",
                     "model": "none",
                     "overlays": ["overlays/missing.md"],
                 }
@@ -171,7 +162,7 @@ def test_lock_requires_existing_overlay_path(tmp_path: Path) -> None:
 def test_lock_accepts_file_and_directory(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={"solver": {"executor": "mock", "model": "none"}},
+        bindings={"solver": {"executor": "openai-http", "model": "none"}},
         overlay_files={
             "overlays/AGENTS.md": "# hello\n",
             "overlays/skills/jsonl-agg/SKILL.md": "# skill\n",
@@ -179,7 +170,7 @@ def test_lock_accepts_file_and_directory(tmp_path: Path) -> None:
     )
     bindings = {
         "solver": {
-            "executor": "mock",
+            "executor": "openai-http",
             "model": "none",
             "overlays": ["overlays/skills/jsonl-agg", "overlays/AGENTS.md"],
         }
@@ -195,7 +186,7 @@ def test_lock_accepts_file_and_directory(tmp_path: Path) -> None:
 def test_lock_rejects_secret_in_overlay_file(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={"solver": {"executor": "mock", "model": "none"}},
+        bindings={"solver": {"executor": "openai-http", "model": "none"}},
         overlay_files={"overlays/secret.md": "-----BEGIN PRIVATE KEY-----\nabc\n"},
     )
     with pytest.raises(ConfigError) as ei:
@@ -203,7 +194,7 @@ def test_lock_rejects_secret_in_overlay_file(tmp_path: Path) -> None:
             db,
             {
                 "solver": {
-                    "executor": "mock",
+                    "executor": "openai-http",
                     "model": "none",
                     "overlays": ["overlays/secret.md"],
                 }
@@ -216,7 +207,7 @@ def test_lock_rejects_secret_in_overlay_file(tmp_path: Path) -> None:
 def test_lock_allows_env_locator_in_overlay_json(tmp_path: Path) -> None:
     db = _write_dataset(
         tmp_path,
-        bindings={"solver": {"executor": "mock", "model": "none"}},
+        bindings={"solver": {"executor": "openai-http", "model": "none"}},
         overlay_files={
             "overlays/cfg.json": '{"apiKey": "{env:litellm_api_key}"}\n',
         },
@@ -225,7 +216,7 @@ def test_lock_allows_env_locator_in_overlay_json(tmp_path: Path) -> None:
         db,
         {
             "solver": {
-                "executor": "mock",
+                "executor": "openai-http",
                 "model": "none",
                 "overlays": ["overlays/cfg.json"],
             }
@@ -238,42 +229,35 @@ def test_lock_allows_env_locator_in_overlay_json(tmp_path: Path) -> None:
 def test_standalone_task_cannot_declare_overlays(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    (pkg / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
+    (pkg / "run.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
     (pkg / "task.yaml").write_text(
         yaml.safe_dump(
             {
                 "format": "ageval.task/1",
                 "task_id": "t",
-                "harness": {"runtime": "python", "entrypoint": "harness:run"},
                 "parameters": {"models": {"default": "solver"}},
-                "provider": {"kind": "local", "assurance": "l0"},
                 "agent_profiles": [{"id": "solver"}],
                 "limits": {
                     "wall_time_seconds": 60,
                     "agent_invocations": 1,
-                    "environment_actions": 0,
                 },
                 "artifacts": {"publishable": []},
                 "evaluation": {
-                    "runtime": "python",
                     "entrypoint": "evaluator:evaluate",
-                    "network": "none",
                     "inputs": [],
-                    "output": {"format": "json"},
                 },
             }
         ),
         encoding="utf-8",
     )
-    core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei:
         lock_with_profiles(
             pkg,
             "t",
             {
                 "solver": {
-                    "executor": "mock",
+                    "executor": "openai-http",
                     "model": "none",
                     "overlays": ["overlays/AGENTS.md"],
                 }
@@ -290,7 +274,7 @@ def test_profiles_document_normalizes_overlays(tmp_path: Path) -> None:
                 "format": "ageval.profiles/1",
                 "bindings": {
                     "solver": {
-                        "executor": "mock",
+                        "executor": "openai-http",
                         "overlays": ["overlays/AGENTS.md"],
                     }
                 },

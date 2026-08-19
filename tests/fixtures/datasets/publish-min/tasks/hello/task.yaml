@@ -3,9 +3,9 @@ task_id: hello
 parameters:
   seed: 1
   models:
-    default: mock-default
+    default: http-default
 agent_profiles:
-- id: mock-default
+- id: http-default
 limits:
   wall_time_seconds: 60
   agent_invocations: 1

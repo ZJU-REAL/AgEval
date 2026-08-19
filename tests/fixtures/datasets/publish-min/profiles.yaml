@@ -1,6 +1,6 @@
 format: ageval.profiles/1
 environment: local
 agent_profiles:
-  mock-default:
-    executor: mock
+  http-default:
+    executor: openai-http
     model: none

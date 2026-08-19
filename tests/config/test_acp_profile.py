@@ -20,26 +20,20 @@ def _write_pkg(root: Path, slot_ids: list[str]) -> Path:
     doc = {
         "format": "ageval.task/1",
         "task_id": "acp-lock-test",
-        "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {},
-        "provider": {"kind": "local", "assurance": "l0"},
         "agent_profiles": [{"id": s} for s in slot_ids],
         "limits": {
             "wall_time_seconds": 60,
             "agent_invocations": 2,
-            "environment_actions": 0,
         },
         "artifacts": {"publishable": []},
         "evaluation": {
-            "runtime": "python",
             "entrypoint": "evaluator:evaluate",
-            "network": "none",
             "inputs": [],
-            "output": {"format": "json"},
         },
     }
     (root / "task.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
-    (root / "harness.py").write_text("def run(ctx):\n    pass\n", encoding="utf-8")
+    (root / "run.py").write_text("def run(ctx):\n    pass\n", encoding="utf-8")
     (root / "evaluator.py").write_text(
         "def evaluate(inputs):\n    return {'verdict': 'PASS'}\n", encoding="utf-8"
     )

@@ -57,15 +57,13 @@ agent_profiles: []
 limits: {{wall_time_seconds: 10, agent_invocations: 1, environment_actions: 0}}
 artifacts: {{publishable: []}}
 evaluation:
-  runtime: python
   entrypoint: evaluator:evaluate
-  network: none
   inputs: []
   output: {{format: json}}
 """,
         encoding="utf-8",
     )
-    (task_dir / "harness.py").write_text("async def run(ctx): pass\n", encoding="utf-8")
+    (task_dir / "run.py").write_text("async def run(ctx): pass\n", encoding="utf-8")
     (task_dir / "evaluator.py").write_text(
         "def evaluate(i): return {'status':'PASS','score':1}\n", encoding="utf-8"
     )
@@ -220,7 +218,7 @@ def test_member_paths_include_only_declared_overlays(tmp_path: Path) -> None:
         "format: ageval.profiles/1\n"
         "bindings:\n"
         "  solver:\n"
-        "    executor: mock\n"
+        "    executor: openai-http\n"
         "    overlays:\n"
         "      - overlays/skills/jsonl-agg\n"
         "      - overlays/AGENTS.md\n",

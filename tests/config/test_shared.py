@@ -5,17 +5,23 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from tests.helpers.lock import lock_with_profiles
 
-from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
-from ageval.config.load_and_lock import ConfigCore
-from ageval.config.package_fs import LocalPackageReader
 from ageval.config.shared import (
     find_lib_collisions,
     find_task_shared_shadows,
     top_level_import_names,
     validate_shared_layout,
 )
+
+ACP_SOLVER = {
+    "solver": {
+        "executor": "acp",
+        "options": {"entry": "codex"},
+        "extensions": [{"plugin": "acp"}, {"plugin": "local"}],
+    }
+}
 
 
 def _write_db(root: Path) -> None:
@@ -34,30 +40,19 @@ def _write_task(task_dir: Path, task_id: str, *, lib_mod: str | None = None) -> 
     (task_dir / "task.yaml").write_text(
         f"""format: ageval.task/1
 task_id: {task_id}
-harness:
-  runtime: python
-  entrypoint: harness:run
-provider:
-  kind: local
-  assurance: l0
 agent_profiles: []
 limits:
   wall_time_seconds: 60
   agent_invocations: 0
-  environment_actions: 0
 artifacts:
   publishable: []
 evaluation:
-  runtime: python
   entrypoint: evaluator:evaluate
-  network: none
   inputs: []
-  output:
-    format: json
 """,
         encoding="utf-8",
     )
-    (task_dir / "harness.py").write_text(
+    (task_dir / "run.py").write_text(
         "def run(ctx):\n    return None\n",
         encoding="utf-8",
     )
@@ -137,12 +132,17 @@ def test_lock_fails_on_task_shared_shadow(tmp_path: Path) -> None:
     task = tmp_path / "tasks" / "t1"
     _write_task(task, "t1")
     (task / "shared").mkdir()
-    core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
+        lock_with_profiles(
             task,
             "t1",
-            capabilities=DeclarationCapabilityCatalog(),
+            {
+                "solver": {
+                    "executor": "acp",
+                    "options": {"entry": "codex"},
+                    "extensions": [{"plugin": "acp"}, {"plugin": "local"}],
+                }
+            },
         )
     assert "shared" in ei.value.message
 
@@ -153,11 +153,16 @@ def test_lock_ok_with_same_stem(tmp_path: Path) -> None:
     shared_lib.mkdir(parents=True)
     (shared_lib / "bridge.py").write_text("V=1\n", encoding="utf-8")
     _write_task(tmp_path / "tasks" / "t1", "t1", lib_mod="bridge")
-    core = ConfigCore(package_reader=LocalPackageReader())
-    lock = core.load_and_lock(
+    lock = lock_with_profiles(
         tmp_path / "tasks" / "t1",
         "t1",
-        capabilities=DeclarationCapabilityCatalog(),
+        {
+            "solver": {
+                "executor": "acp",
+                "options": {"entry": "codex"},
+                "extensions": [{"plugin": "acp"}, {"plugin": "local"}],
+            }
+        },
     )
     assert lock.digest.startswith("sha256:")
 
@@ -168,11 +173,16 @@ def test_lock_ok_with_shared_no_shadow(tmp_path: Path) -> None:
     shared_lib.mkdir(parents=True)
     (shared_lib / "bridge.py").write_text("V=1\n", encoding="utf-8")
     _write_task(tmp_path / "tasks" / "t1", "t1", lib_mod="task_only")
-    core = ConfigCore(package_reader=LocalPackageReader())
-    lock = core.load_and_lock(
+    lock = lock_with_profiles(
         tmp_path / "tasks" / "t1",
         "t1",
-        capabilities=DeclarationCapabilityCatalog(),
+        {
+            "solver": {
+                "executor": "acp",
+                "options": {"entry": "codex"},
+                "extensions": [{"plugin": "acp"}, {"plugin": "local"}],
+            }
+        },
     )
     assert lock.digest.startswith("sha256:")
 
@@ -198,7 +208,16 @@ def test_infer_walks_up_for_nested_tasks_root(tmp_path: Path) -> None:
     with pytest.raises(ConfigError) as ei:
         validate_shared_layout(tmp_path, tasks_root="members/group")
     assert "shared" in ei.value.message
-    core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei2:
-        core.load_and_lock(task, "t1", capabilities=DeclarationCapabilityCatalog())
+        lock_with_profiles(
+            task,
+            "t1",
+            {
+                "solver": {
+                    "executor": "acp",
+                    "options": {"entry": "codex"},
+                    "extensions": [{"plugin": "acp"}, {"plugin": "local"}],
+                }
+            },
+        )
     assert "shared" in ei2.value.message

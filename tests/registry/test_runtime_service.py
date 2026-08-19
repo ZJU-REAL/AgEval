@@ -153,7 +153,7 @@ def test_official_public_suite_appears_community_does_not(tmp_path: Path) -> Non
     packages, results, runtimes = _services(tmp_path)
     _publish(packages, tmp_path, dataset_id="official/gaia", org_id="official")
     _publish(packages, tmp_path, dataset_id="acme/looks-official", org_id="acme")
-    binding = _bound("official/mock-default")
+    binding = _bound("official/http-default")
     _upload(
         results,
         tmp_path,
@@ -169,12 +169,12 @@ def test_official_public_suite_appears_community_does_not(tmp_path: Path) -> Non
         bindings={"solver": binding},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    rows = runtimes.appearances_for_agent("official/mock-default", auth)
+    rows = runtimes.appearances_for_agent("official/http-default", auth)
     assert [r["suite_run_id"] for r in rows] == ["suite_official"]
     official_suites = results.list_suites(auth=auth, dataset_id=None)
     by_id = {i["suite_run_id"]: i for i in official_suites["items"]}
     assert by_id["suite_official"]["agent_refs"] == [
-        {"role": "solver", "package_id": "official/mock-default"}
+        {"role": "solver", "package_id": "official/http-default"}
     ]
     assert "agent_refs" not in by_id["suite_community"]
     assert "runtime_refs" not in by_id["suite_official"]
@@ -191,7 +191,7 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         slot="draft",
         visibility="private",
     )
-    bound = _bound("official/mock-default")
+    bound = _bound("official/http-default")
     _upload(
         results,
         tmp_path,
@@ -217,7 +217,7 @@ def test_private_incomplete_draft_excluded(tmp_path: Path) -> None:
         bindings={"solver": bound},
     )
     auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
-    assert runtimes.appearances_for_agent("official/mock-default", auth) == []
+    assert runtimes.appearances_for_agent("official/http-default", auth) == []
     jobs = results.list_suites(auth=auth, dataset_id=None)
     for item in jobs["items"]:
         assert "agent_refs" not in item
@@ -235,7 +235,7 @@ def test_profiles_only_suite_does_not_appear(tmp_path: Path) -> None:
         bindings={"solver": dict(GROK)},
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    assert runtimes.appearances_for_agent("official/mock-default", auth) == []
+    assert runtimes.appearances_for_agent("official/http-default", auth) == []
     suites = results.list_suites(auth=auth, dataset_id=None)
     assert "agent_refs" not in suites["items"][0]
 
@@ -309,13 +309,13 @@ def test_file_and_local_refs_do_not_appear(tmp_path: Path) -> None:
         bindings={
             "solver": {
                 **GROK,
-                "agent_ref": "local/mock-default@0.1.0+sha256:aaaaaaaaaaaa",
+                "agent_ref": "local/http-default@0.1.0+sha256:aaaaaaaaaaaa",
             }
         },
     )
     auth = TokenInfo(scopes=frozenset(), user_id="")
-    assert runtimes.appearances_for_agent("official/mock-default", auth) == []
-    assert runtimes.appearances_for_agent("local/mock-default", auth) == []
+    assert runtimes.appearances_for_agent("official/http-default", auth) == []
+    assert runtimes.appearances_for_agent("local/http-default", auth) == []
     suites = results.list_suites(auth=auth, dataset_id=None)
     for item in suites["items"]:
         assert "agent_refs" not in item
@@ -381,13 +381,13 @@ def test_appearances_on_package_versions(tmp_path: Path) -> None:
         tmp_path,
         suite_run_id="suite_pkg",
         dataset_id="official/gaia",
-        bindings={"solver": _bound("official/mock-default")},
+        bindings={"solver": _bound("official/http-default")},
     )
     state, token = build_default_state(tmp_path / "http2", bootstrap_token="tok", memory_blob=True)
     # Reuse the same sqlite? build_default_state is a new empty registry.
     # Call the service directly for this assertion; HTTP wiring is covered above.
     rows = runtimes.appearances_for_agent(
-        "official/mock-default", TokenInfo(scopes=frozenset(), user_id="")
+        "official/http-default", TokenInfo(scopes=frozenset(), user_id="")
     )
     assert rows[0]["agent_version"] == "0.1.0"
-    assert rows[0]["package_id"] == "official/mock-default"
+    assert rows[0]["package_id"] == "official/http-default"
