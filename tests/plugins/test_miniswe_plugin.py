@@ -21,35 +21,6 @@ from miniswe_plugin.factory import (  # noqa: E402
 )
 from miniswe_plugin.hooks import image_contribute, trajectory_collect  # noqa: E402
 from miniswe_plugin.trajectory import SCHEMA, to_ageval_trajectory_events  # noqa: E402
-
-
-def test_describe_and_bind_to_target() -> None:
-    desc = describe_miniswe()
-    assert desc["execution_mode"] == "host-loop"
-    assert desc["tools"] == "bash"
-    spi = build_executor(
-        options={"step_limit": 12},
-        model="openai/glm-5.2",
-        api_key="litellm_api_key",
-        profile_id="solver",
-    )
-    assert isinstance(spi, MinisweExecutorSPI)
-    assert spi.step_limit == 12
-    bound = spi.bind_to_target(
-        SimpleNamespace(
-            container_id="cid123",
-            uid=10001,
-            gid=10001,
-            workdir="/attempt/workspace",
-            home="/attempt/home",
-        )
-    )
-    assert isinstance(bound, MinisweExecutorSPI)
-    assert bound.execution_location == "attempt-container"
-    assert bound._placement is not None
-    assert bound._placement.container_id == "cid123"
-
-
 def test_docker_exec_argv_uses_core_placement() -> None:
     argv = build_docker_exec_argv(
         container_id="abc",

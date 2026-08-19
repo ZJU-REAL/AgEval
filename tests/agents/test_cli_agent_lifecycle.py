@@ -50,7 +50,7 @@ def test_agent_install_list_show_uninstall(env: dict[str, str]) -> None:
     assert [a["agent_id"] for a in listed["agents"]] == ["local/http-default"]
 
     shown = json.loads(_cli(env, "agent", "show", "local/http-default@0.1.0").stdout)
-    assert shown["binding"]["executor"] == "mock"
+    assert shown["binding"]["executor"] == "openai-http"
     assert shown["digest"].startswith("sha256:")
 
     assert _cli(env, "agent", "uninstall", "local/http-default").returncode == 0

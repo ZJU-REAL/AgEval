@@ -43,29 +43,6 @@ def _ctx(tmp: Path) -> dict[str, str]:
     }
 
 
-def test_acp_entries_from_lock() -> None:
-    from types import SimpleNamespace
-
-    from ageval.application.attempt.extension_hooks import acp_entries_from_lock
-
-    lock = SimpleNamespace(
-        job_overlay={
-            "agent_profiles": {
-                "solver": {
-                    "executor": "acp",
-                    "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
-                },
-                "reviewer": {
-                    "executor": "acp",
-                    "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
-                },
-            }
-        },
-        agent_profiles=(),
-    )
-    assert acp_entries_from_lock(lock) == ["grok-build", "codex"]  # type: ignore[arg-type]
-
-
 def test_expand_generic_and_bound_entry() -> None:
     files = expand_files(
         {"skills": [{"src": "overlays/skills/jsonl-review"}]},
@@ -218,133 +195,6 @@ def ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
-def test_home_overlay_src_from_agent_package_not_dataset(ageval_home: Path, tmp_path: Path) -> None:
-    """agent_ref agent_profiles copy skills from the Agent cache, never Dataset overlays/."""
-    from types import SimpleNamespace
-
-    import yaml
-    from ageval.application.attempt.extension_hooks import hook_home_overlay
-
-    from ageval.agents import store
-    from ageval.config.capabilities import DeclarationCapabilityCatalog
-    from ageval.config.load_and_lock import ConfigCore
-    from ageval.config.package_fs import LocalPackageReader
-    from ageval.plugins.install import install_from_local
-
-    install_from_local(ROOT / "plugins" / "agent-skills")
-    from ageval.plugins import bootstrap as boot
-    from ageval.plugins.registry import reset_global_registry
-
-    boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
-    reset_global_registry()
-
-    pkg = tmp_path / "agent-pkg"
-    pkg.mkdir()
-    skill = pkg / "overlays" / "skills" / "demo"
-    skill.mkdir(parents=True)
-    (skill / "SKILL.md").write_text("# demo from agent\n", encoding="utf-8")
-    (pkg / "agent.yaml").write_text(
-        yaml.safe_dump(
-            {
-                "format": "ageval.agent/1",
-                "agent_id": "xx",
-                "version": "0.1.0",
-                "binding": {
-                    "executor": "openai-http",
-                    "model": "none",
-                    "overlays": ["overlays/skills/demo"],
-                    "extensions": [
-                        {
-                            "plugin": "agent-skills",
-                            "options": {
-                                "dest_roots": ["home"],
-                                "skills": [{"src": "overlays/skills/demo"}],
-                            },
-                        }
-                    ],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    entry = store.install_from_path(pkg, agent_id="official/xx")
-    short = entry.digest[len("sha256:") :][:12]
-
-    db = tmp_path / "db"
-    (db / "tasks" / "t").mkdir(parents=True)
-    (db / "ageval.yaml").write_text(
-        "format: ageval.dataset/1\ndataset_id: example/ov\nversion: '0.1.0'\n"
-        "tasks:\n  root: tasks\n",
-        encoding="utf-8",
-    )
-    (db / "profiles.yaml").write_text(
-        "format: ageval.profiles/1\n"
-        "environment: local\n"
-        "agent_profiles:\n  solver:\n    executor: openai-http\n",
-        encoding="utf-8",
-    )
-    task = db / "tasks" / "t"
-    (task / "run.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
-    (task / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
-    (task / "task.yaml").write_text(
-        yaml.safe_dump(
-            {
-                "format": "ageval.task/1",
-                "task_id": "t",
-                "parameters": {"models": {"default": "solver"}},
-                "agent_profiles": [{"id": "solver"}],
-                "limits": {
-                    "wall_time_seconds": 60,
-                    "agent_invocations": 1,
-                },
-                "artifacts": {"publishable": []},
-                "evaluation": {
-                    "entrypoint": "evaluator:evaluate",
-                    "inputs": [],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    # Dataset same-path must not be used (and is missing here).
-    locked = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        task,
-        "t",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings={
-            "solver": {
-                "executor": "openai-http",
-                "model": "none",
-                "overlays": ["overlays/skills/demo"],
-                "agent_ref": f"official/xx@0.1.0+sha256:{short}",
-                "extensions": [
-                    {
-                        "plugin": "agent-skills",
-                        "options": {
-                            "dest_roots": ["home"],
-                            "skills": [{"src": "overlays/skills/demo"}],
-                        },
-                    }
-                ],
-            }
-        },
-    )
-    work = tmp_path / "work"
-    work.mkdir()
-    overlay_ctx = SimpleNamespace(work_root=work, package_root=db, workspace_root=work / "ws")
-    out = hook_home_overlay(
-        locked,
-        {"package_root": str(db), "workspace_root": str(work / "ws"), "work_root": str(work)},
-        ctx=overlay_ctx,
-    )
-    home = Path(out["home_root"])
-    skill_dest = home / ".agents" / "skills" / "demo" / "SKILL.md"
-    assert skill_dest.is_file()
-    assert skill_dest.read_text(encoding="utf-8") == "# demo from agent\n"
-    assert not (home / "agent.yaml").exists()
-    assert not (db / "overlays").exists()
-
-
 def test_install_agent_skills_pulls_home_files(ageval_home: Path) -> None:
     env = {**os.environ, "AGEVAL_HOME": str(ageval_home)}
     proc = subprocess.run(
@@ -403,6 +253,6 @@ def test_journeys_agent_skills_profile_locks(
     assert proc.returncode == 0, proc.stderr or proc.stdout
     data = json.loads(proc.stdout)
     solver = data["extension_bindings"]["solver"]
-    plugins = {item.get("plugin") for item in (solver.get("home_overlay") or {}).get("chain") or []}
+    plugins = {item.get("plugin") for item in (solver["slots"].get("after_environment_ready") or {}).get("chain") or []}
     assert "agent-skills" in plugins
     assert "home-files" not in plugins

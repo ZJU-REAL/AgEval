@@ -1,20 +1,12 @@
-# Journeys profiles: dsh with DSH file-effect policy read-only.
-# Usage:
-#   uv run ageval plugin install plugins/dsh
-#   uv run ageval run examples/journeys --task terminal-jsonl-agg \
-#     --profiles examples/journeys/profiles.dsh.read-only.yaml
-#
-# Coding tasks that must write workspace files should omit permission
-# (or use workspace-write). This binding fences file-tool writes.
-# bash redirects still write on the bundled jsonrpc runtime.
-# Same harness as profiles.dsh.yaml — only the job binding changes.
 format: ageval.profiles/1
-bindings:
+environment: docker
+agent_profiles:
   solver:
     executor: dsh
     extensions:
-      - plugin: dsh
-        options:
-          permission: read-only
+    - plugin: dsh
+      options:
+        permission: read-only
+    - plugin: docker
     model: deepseek-v4-flash
     api_key: ${deepseek_api_key}

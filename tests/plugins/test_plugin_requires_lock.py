@@ -131,7 +131,7 @@ def test_lock_ok_when_required_plugin_installed(
         task_id="l0-task",
         profiles_path=_profiles(tmp_path, "needs-neighbor"),
     )
-    chain = (summary["extension_bindings"]["solver"].get("after_environment_ready") or {}).get(
+    chain = (summary["extension_bindings"]["solver"]["slots"].get("after_environment_ready") or {}).get(
         "chain"
     ) or []
     plugins_in_chain = {item.get("plugin") for item in chain}

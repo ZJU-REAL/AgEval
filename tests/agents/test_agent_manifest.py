@@ -32,7 +32,7 @@ def test_parse_good_document() -> None:
     m = parse_agent_document(dict(GOOD_DOC))
     assert m.agent_id == "http-default"
     assert m.version == "0.1.0"
-    assert m.binding["executor"] == "mock"
+    assert m.binding["executor"] == "openai-http"
     # label sinks into binding.label when binding omits it
     assert m.binding["label"] == "Mock Default"
     assert m.tags == ("ci",)

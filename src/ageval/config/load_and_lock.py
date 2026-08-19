@@ -357,11 +357,15 @@ class ConfigCore:
         """
         from ageval.plugins.bootstrap import ensure_bootstrapped
         from ageval.plugins.errors import ExtensionRegistryError
+        from ageval.plugins.plugin_requires import PluginRequiresError
         from ageval.plugins.lock_bind import extension_graph_to_lock
         from ageval.plugins.protocol import intent_from_profile
         from ageval.plugins.resolve import resolve as resolve_extensions
 
-        registry = ensure_bootstrapped()
+        try:
+            registry = ensure_bootstrapped()
+        except PluginRequiresError as exc:
+            raise ConfigError(exc.kind, str(exc), location="/agent_profiles") from exc
         out: dict[str, dict[str, Any]] = {}
         rows = list(profiles_rows) or [{}]
         for profile in rows:

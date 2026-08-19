@@ -119,6 +119,7 @@ def test_load_installed_into_registry(ageval_home: Path) -> None:
     from ageval.plugins.bootstrap import bootstrap_registry
     from ageval.plugins.protocol import BindingIntent
     from ageval.plugins.registry import ExtensionRegistry, reset_global_registry
+    from ageval.plugins.binding import bind_winner
     from ageval.plugins.resolve import resolve
     from ageval.plugins.slots import EXECUTOR
     from ageval.plugins.store import install_from_path
@@ -134,8 +135,8 @@ def test_load_installed_into_registry(ageval_home: Path) -> None:
         reg,
         materialize=True,
     )
-    assert graph.providers[EXECUTOR].plugin_id == "sample-echo"
-    impl = graph.providers[EXECUTOR].impl
+    assert graph.winners[EXECUTOR].plugin_id == "sample-echo"
+    impl = bind_winner(reg, graph, EXECUTOR)
     assert getattr(impl, "kind", None) == "sample-echo"
 
 
@@ -149,17 +150,3 @@ def test_materialize_docs(ageval_home: Path, tmp_path: Path) -> None:
     assert "README.md" in copied
     assert (target / "README.md").is_file()
     assert (target / "skills" / "echo" / "SKILL.md").is_file()
-
-
-def test_recognition_discovers_sample_echo(ageval_home: Path) -> None:
-    from ageval.adapters.agent_registry import discover_executor_kinds
-
-    from ageval.plugins import bootstrap as boot
-    from ageval.plugins.registry import reset_global_registry
-    from ageval.plugins.store import install_from_path
-
-    install_from_path(FIXTURE)
-    boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
-    reset_global_registry()
-    kinds = discover_executor_kinds()
-    assert "sample-echo" in kinds

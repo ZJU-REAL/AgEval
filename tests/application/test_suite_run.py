@@ -66,7 +66,7 @@ async def test_concurrency_cap_with_stub_runner() -> None:
             evidence_path=str(abs_run),
             logs=str(abs_run),
         )
-        return 0, result, {"digest": f"sha256:{task_id}", "run_dir": str(abs_run)}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=slow_run)
     assert summary["exit_code"] == 0
@@ -95,9 +95,9 @@ async def test_fail_continues_others() -> None:
         await asyncio.sleep(0.05)
         if task_id == "delta-fail":
             result = SimpleNamespace(status="FAIL", score=0.0, evidence_path="x", logs="x")
-            return 1, result, {"digest": "sha256:fail", "run_dir": "x"}
+            return 1, result
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path="y", logs="y")
-        return 0, result, {"digest": "sha256:ok", "run_dir": "y"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=mixed)
     assert summary["exit_code"] == 1
@@ -114,9 +114,9 @@ async def test_error_exit_code() -> None:
     async def one_error(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         if task_id == "beta":
             result = SimpleNamespace(status="ERROR", score=None, evidence_path=None, logs=None)
-            return 2, result, {"digest": None}
+            return 2, result
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path="y", logs="y")
-        return 0, result, {"digest": "sha256:ok"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=one_error)
     assert summary["exit_code"] == 2

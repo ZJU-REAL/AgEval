@@ -41,16 +41,16 @@ def test_success_smoke() -> None:
     assert "resolution" in data
     # #59 job overlay is exportable with lock summary (no secrets).
     assert "job_overlay" in data
-    assert data["job_overlay"]["agent_profiles"]["http-default"]["executor"] == "mock"
+    assert data["job_overlay"]["agent_profiles"]["solver"]["executor"] == "acp"
     # No host absolute package path leakage.
     assert str(MINIMAL.resolve()) not in result.stdout
 
 
-def test_expected_failure_unknown_profile() -> None:
-    result = _run_ageval("lock", str(INVALID), "--task", "config-invalid")
+def test_expected_failure_unknown_task() -> None:
+    result = _run_ageval("lock", str(INVALID), "--task", "not-a-member")
     assert result.returncode == 2
     assert result.stdout.strip() == ""
-    assert "unknown_profile" in result.stderr
+    assert "unknown_task" in result.stderr
     # Lock path must not create lock-store artifacts (run evidence under .ageval is unrelated).
     assert not (INVALID / ".ageval" / "locks").exists()
     assert not (REPO / ".ageval" / "locks").exists()
@@ -123,7 +123,7 @@ from pathlib import Path
 from ageval.application.composition import build_lock_command
 repo = Path({str(REPO)!r})
 cmd = build_lock_command()
-summary = cmd.run(package_root=repo / "examples" / "core", task_id="config-minimal")
+summary = cmd.run(dataset_root=repo / "examples" / "core", task_id="config-minimal")
 assert summary["task_id"] == "config-minimal"
 # harness.py is not a Python package import path under examples
 assert not any("config-minimal" in m and m.endswith("harness") for m in sys.modules)

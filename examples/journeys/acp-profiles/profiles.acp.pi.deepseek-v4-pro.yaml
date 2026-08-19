@@ -1,20 +1,19 @@
-# ACP job binding for terminal-jsonl-agg.
-# entry: pi  model: litellm/dashscope/deepseek-v4-pro
-# LiteLLM catalog is a Database overlay (home-files), not a Core prefix.
 format: ageval.profiles/1
-bindings:
+environment: docker
+agent_profiles:
   solver:
     executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: pi
-      - plugin: home-files
-        options:
-          files:
-            - src: overlays/pi.litellm.json
-              dest: .pi/agent/models.json
-              dest_root: home
+    - plugin: acp
+    - plugin: home-files
+      options:
+        files:
+        - src: overlays/pi.litellm.json
+          dest: .pi/agent/models.json
+          dest_root: home
+    - plugin: docker
     model: litellm/dashscope/deepseek-v4-pro
     api_key: ${litellm_api_key}
     base_url: ${litellm_base_url}
+    options:
+      entry: pi

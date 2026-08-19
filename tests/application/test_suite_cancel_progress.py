@@ -34,7 +34,7 @@ async def test_cancel_stops_new_units() -> None:
             await asyncio.sleep(0.05)
         await asyncio.sleep(0.02)
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
-        return 0, result, {"digest": f"sha256:{task_id}"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=runner)
     assert summary.get("cancelled") is True
@@ -91,7 +91,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
             evidence_path=str(abs_run),
             logs=str(abs_run),
         )
-        return 0, result, {"digest": f"sha256:{task_id}", "run_dir": str(abs_run)}
+        return 0, result
 
     first = await execute_suite_run(plan, run_fn=runner1)
     assert first.get("cancelled") is True
@@ -120,7 +120,7 @@ async def test_resume_retries_cancelled_placeholders() -> None:
             evidence_path=str(abs_run),
             logs=str(abs_run),
         )
-        return 0, result, {"digest": f"sha256:{task_id}2", "run_dir": str(abs_run)}
+        return 0, result
 
     second = await execute_suite_run(plan2, run_fn=runner2, resume=True)
     assert second.get("resumed") is True
@@ -149,7 +149,7 @@ async def test_progress_callback_events() -> None:
 
     async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
-        return 0, result, {"digest": "sha256:x"}
+        return 0, result
 
     def on_progress(ev: dict) -> None:
         events.append(str(ev.get("type")))

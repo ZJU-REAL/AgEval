@@ -39,7 +39,7 @@ def test_sdk_tool_guard_success() -> None:
     data = _run("sdk-tool-guard", "sdk-tool-guard")
     assert data["status"] == "PASS"
     assert data["score"] == 1.0
-    assert data.get("assurance") == "l0"
+    assert data.get("kind") == "local"
 
 
 def test_sdk_tool_guard_denied() -> None:

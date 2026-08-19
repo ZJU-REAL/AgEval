@@ -1,19 +1,15 @@
-# Journeys binding for the miniswe plugin (host loop + docker-exec bash).
-# Usage:
-#   uv sync --extra miniswe
-#   uv run ageval plugin install plugins/miniswe
-#   uv run ageval run examples/journeys --task terminal-jsonl-agg \
-#     --profiles examples/journeys/profiles.miniswe.yaml
 format: ageval.profiles/1
-bindings:
+environment: docker
+agent_profiles:
   solver:
     executor: miniswe
     extensions:
-      - plugin: miniswe
-        options:
-          step_limit: 20
-          cost_limit: 0
-          cmd_timeout: 60
+    - plugin: miniswe
+      options:
+        step_limit: 20
+        cost_limit: 0
+        cmd_timeout: 60
+    - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}
     base_url: ${litellm_base_url}

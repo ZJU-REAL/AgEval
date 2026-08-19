@@ -37,7 +37,7 @@ def _runner(status: str = "PASS", score: float | None = 1.0, *, prefix: str = "c
         sc = score
         code = 0 if st == "PASS" else (1 if st == "FAIL" else 2)
         result = SimpleNamespace(status=st, score=sc, evidence_path=str(abs_run), logs=str(abs_run))
-        return code, result, {"digest": f"sha256:{run_id}", "run_dir": str(abs_run)}
+        return code, result
 
     run.calls = n  # type: ignore[attr-defined]
     return run

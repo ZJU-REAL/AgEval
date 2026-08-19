@@ -11,7 +11,11 @@ from typing import Any
 
 from ageval.plugins.host_requires import installed_plugin
 from ageval.plugins.manifest import PluginManifest, PluginManifestError, load_manifest
-from ageval.plugins.plugin_requires import PluginRequiresError, assert_no_plugin_requires_cycle
+from ageval.plugins.plugin_requires import (
+    PluginRequiresError,
+    assert_no_plugin_requires_cycle,
+    assert_plugin_requires_installed,
+)
 from ageval.plugins.protocol import InjectRequirement
 from ageval.plugins.registry import ExtensionRegistry
 from ageval.plugins.slots import SlotKind, get_slot_kind
@@ -155,6 +159,9 @@ def load_installed_plugins(registry: ExtensionRegistry) -> list[str]:
             manifest = load_manifest(root)
         except PluginManifestError as exc:
             raise PluginLoadError(str(exc), kind=exc.kind) from exc
+        # A plugin that declares a neighbour cannot work without it, so this is
+        # the moment to say so — before anything resolves against it.
+        assert_plugin_requires_installed(manifest)
         # Index id wins (Hub install stores org/name; path install keeps short id).
         register_manifest(
             registry,

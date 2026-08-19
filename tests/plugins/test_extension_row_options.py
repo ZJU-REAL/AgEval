@@ -1,4 +1,8 @@
-"""extensions[].options is the only map a plugin factory sees."""
+"""What a plugin factory sees: the profile's options, then its own row on top.
+
+The profile is where a job names its entry, so the winner reads it. Another
+plugin's row is still none of its business.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +10,7 @@ from typing import Any
 
 from ageval.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
 from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.binding import bind_winner
 from ageval.plugins.resolve import resolve
 from ageval.plugins.slots import EXECUTOR
 
@@ -43,14 +48,15 @@ def test_factory_sees_only_its_row_options() -> None:
         }
     )
     graph = resolve(intent, reg)
-    impl = graph.providers[EXECUTOR].impl
+    impl = bind_winner(reg, graph, EXECUTOR)
     assert impl["plugin"] == "dsh"
-    assert impl["options"] == {"composition": "slim"}
-    assert "entry" not in impl["options"]
+    # The row wins over the profile for the same key, and the profile's own
+    # entry reaches the winner because that is where a job declares it.
+    assert impl["options"] == {"entry": "opencode", "composition": "slim"}
     assert "must-not-leak" not in str(impl["options"])
 
 
-def test_profile_options_are_not_plugin_input() -> None:
+def test_profile_options_reach_the_winner() -> None:
     reg = ExtensionRegistry()
 
     def acp_factory(**kwargs: Any) -> dict[str, Any]:
@@ -66,4 +72,4 @@ def test_profile_options_are_not_plugin_input() -> None:
         ),
         reg,
     )
-    assert graph.providers[EXECUTOR].impl["options"] == {}
+    assert bind_winner(reg, graph, EXECUTOR)["options"] == {"entry": "pi"}

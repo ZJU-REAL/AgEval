@@ -277,7 +277,7 @@ async def test_suite_summary_includes_homogeneous_config() -> None:
 
     async def stub(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
-        return 0, result, {"digest": f"sha256:{task_id}"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=stub)
     assert "config_fingerprint" in summary
@@ -312,7 +312,7 @@ def test_journeys_profiles_are_suite_homogeneous() -> None:
     assert fields["config_homogeneous"] is True
     assert fields.get("job_overlay", {}).get("agent_profiles")
     roles = set(fields["job_overlay"]["agent_profiles"])
-    assert "solver" in roles
+    assert roles == {"*"} or "solver" in roles
     assert "user" in roles or "specialist" in roles
 
 

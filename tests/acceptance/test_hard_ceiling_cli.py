@@ -25,7 +25,7 @@ def test_n_plus_one_invoke_denied_public_cli() -> None:
             "run",
             str(PKG),
             "--task",
-            "hard-ceiling-trajectory",
+            "hard-ceiling-min",
         ],
         check=False,
         capture_output=True,
@@ -36,7 +36,8 @@ def test_n_plus_one_invoke_denied_public_cli() -> None:
     assert result.returncode == 0, (result.stdout, result.stderr)
     data = json.loads(result.stdout.strip().splitlines()[-1])
     assert data["status"] == "PASS"
-    assert data.get("agent_invocations") == 1
+    # Refused before the external effect, so nothing was counted as spent.
+    assert data.get("agent_invocations") == 0
     logs = Path(data.get("logs") or data["evidence_path"])
     if not logs.is_absolute():
         logs = PKG / logs

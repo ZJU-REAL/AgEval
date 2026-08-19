@@ -42,13 +42,13 @@ def test_lock_cli_extension_bindings_solver_acp() -> None:
     data = _lock()
     agent_profiles = data["extension_bindings"]
     assert "solver" in agent_profiles
-    assert agent_profiles["solver"]["executor"]["plugin"] == "acp"
-    assert agent_profiles["solver"]["executor"]["source"] == "profile_executor_field"
-    assert agent_profiles["solver"]["executor"]["kind"] == "provide"
-    assert agent_profiles["solver"]["before_agent_invoke"]["kind"] == "on"
+    assert agent_profiles["solver"]["slots"]["executor"]["plugin"] == "acp"
+    assert agent_profiles["solver"]["slots"]["executor"]["source"] == "profile_executor_field"
+    assert agent_profiles["solver"]["slots"]["executor"]["kind"] == "exclusive"
+    assert agent_profiles["solver"]["slots"]["trajectory_collect"]["kind"] == "chain"
     assert any(e.get("pointer") == "/extension_bindings" for e in data.get("resolution") or [])
-    assert "dsh" not in _chain_plugins(agent_profiles["solver"], "image_contribute")
-    assert "nooa" not in _chain_plugins(agent_profiles["solver"], "image_contribute")
+    assert "dsh" not in _chain_plugins(agent_profiles["solver"], "trajectory_collect")
+    assert "nooa" not in _chain_plugins(agent_profiles["solver"], "trajectory_collect")
 
 
 def _installed_plugin_ids() -> set[str]:
@@ -63,7 +63,7 @@ def test_lock_dsh_profile_selects_dsh_not_nooa() -> None:
         pytest.skip("path-install dsh and nooa to lock the journeys dsh profile")
     data = _lock("--profiles", str(ROOT / "examples/journeys/profiles.dsh.yaml"))
     solver = data["extension_bindings"]["solver"]
-    assert solver["executor"]["plugin"] == "dsh"
+    assert solver["slots"]["executor"]["plugin"] == "dsh"
     contribute = _chain_plugins(solver, "image_contribute")
     collect = _chain_plugins(solver, "trajectory_collect")
     assert "dsh" in contribute

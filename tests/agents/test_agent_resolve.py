@@ -48,7 +48,7 @@ def test_bindings_from_path_spec(tmp_path: Path) -> None:
     agent_profiles = bindings_from_agent_specs([str(pkg)])
     assert set(agent_profiles) == {"*"}
     row = agent_profiles["*"]
-    assert row["executor"] == "mock"
+    assert row["executor"] == "openai-http"
     assert row["agent_ref"].startswith("file:")
     assert "+sha256:" in row["agent_ref"]
 

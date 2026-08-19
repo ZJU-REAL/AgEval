@@ -99,7 +99,7 @@ async def test_suite_summary_includes_metrics() -> None:
             evidence_path=None,
             logs=None,
         )
-        return 0, result, {"digest": f"sha256:{task_id}"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=runner)
     assert "metrics" in summary

@@ -1,66 +1,63 @@
-# Journeys profiles bound to external nooa plugin (NVIDIA OO Agents + real LLM).
-# Usage:
-#   uv sync --extra nooa
-#   uv run ageval plugin install plugins/nooa
-#   # ensure repo/.env has litellm_api_key (+ litellm_base_url) or set base_url below
-#   uv run ageval run examples/journeys --profiles examples/journeys/profiles.nooa.yaml
-#
-# api_key = env locator name (never a secret value).
-# base_url optional — factory falls back to litellm_base_url / OPENAI_BASE_URL.
-# Agents are package-local nooa.Agent subclasses; generation methods hit LiteLLM.
 format: ageval.profiles/1
-bindings:
+environment: docker
+agent_profiles:
   solver:
     executor: nooa
     extensions:
-      - plugin: nooa
-        options:
-          agent: "lib.agents:JsonlAggAgent"
-          method: "run"
+    - plugin: nooa
+      options:
+        agent: lib.agents:JsonlAggAgent
+        method: run
+    - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}
   user:
     executor: nooa
     extensions:
-      - plugin: nooa
-        options:
-          agent: "lib.agents:UserSimAgent"
-          method: "run"
+    - plugin: nooa
+      options:
+        agent: lib.agents:UserSimAgent
+        method: run
+    - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}
   service:
     executor: nooa
     extensions:
-      - plugin: nooa
-        options:
-          agent: "lib.agents:ServiceAgent"
-          method: "run"
+    - plugin: nooa
+      options:
+        agent: lib.agents:ServiceAgent
+        method: run
+    - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}
   specialist:
     executor: nooa
     extensions:
-      - plugin: nooa
-        options:
-          agent: "lib.agents:SpecialistAgent"
-          method: "run"
+    - plugin: nooa
+      options:
+        agent: lib.agents:SpecialistAgent
+        method: run
+    - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}
   planner:
     executor: nooa
     extensions:
-      - plugin: nooa
-        options:
-          agent: "lib.agents:PlannerAgent"
-          method: "run"
+    - plugin: nooa
+      options:
+        agent: lib.agents:PlannerAgent
+        method: run
+    - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}
   reducer:
     executor: nooa
     extensions:
-      - plugin: nooa
-        options:
-          agent: "lib.agents:ReducerAgent"
-          method: "run"
+    - plugin: nooa
+      options:
+        agent: lib.agents:ReducerAgent
+        method: run
+    - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}

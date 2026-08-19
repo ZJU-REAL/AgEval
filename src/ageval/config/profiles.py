@@ -433,10 +433,17 @@ def effective_profile(
 
 
 def acp_entry_from_profile(profile: Mapping[str, Any]) -> str | None:
-    """ACP ``entry`` from profile options or the ``- plugin: acp`` row."""
-    entry = plugin_row_options(profile, "acp").get("entry")
-    if entry is not None and str(entry).strip():
-        return str(entry).strip()
+    """Which ACP entry this profile names.
+
+    The profile's own ``options`` is where a job says it; the ``- plugin: acp``
+    row is the older spelling and still reads the same.
+    """
+    for source in (profile.get("options"), plugin_row_options(profile, "acp")):
+        if not isinstance(source, Mapping):
+            continue
+        entry = source.get("entry")
+        if entry is not None and str(entry).strip():
+            return str(entry).strip()
     return None
 
 

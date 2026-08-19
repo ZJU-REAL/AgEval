@@ -139,7 +139,7 @@ def test_hub_install_records_namespaced_id(tmp_path: Path, monkeypatch: pytest.M
     src.mkdir()
     (src / "plugin.yaml").write_text(
         "format: ageval.plugin/1\nplugin_id: nooa\nversion: 0.1.0\n"
-        "slots:\n  provide:\n    - id: executor\n      entry: missing:fn\n",
+        "slots:\n  exclusive:\n    - id: executor\n      entry: missing:fn\n",
         encoding="utf-8",
     )
     entry = install_from_path(src, plugin_id="Official/nooa")
