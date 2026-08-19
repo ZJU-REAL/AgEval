@@ -27,7 +27,6 @@ class ExecutorSPI(Protocol):
         prompt: str,
         *,
         timeout: float = 60.0,
-        workdir: str | None = None,
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> Any: ...

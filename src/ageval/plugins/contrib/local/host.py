@@ -214,12 +214,11 @@ class LocalHost:
         parts = [str(part) for part in argv]
         if not parts:
             raise EnvironmentFailure("environment_attach_invalid", "attach_stdio requires argv")
-        workdir = self.host_path(placement.workdir or WORKSPACE_PATH)
         child_env = self._child_env(env)
-        child_env.setdefault("HOME", str(self.host_path(placement.home or HOME_PATH)))
+        child_env.setdefault("HOME", self.visible_path(placement.home))
         process = subprocess.Popen(  # noqa: S603 — argv comes from the entry registry
             parts,
-            cwd=str(workdir),
+            cwd=self.visible_path(placement.workdir),
             env=child_env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -250,6 +249,10 @@ class LocalHost:
             home=HOME_PATH,
         )
 
+    def visible_path(self, box_path: str) -> str:
+        """In-box path as this machine's processes see it."""
+        return str(self.host_path(box_path))
+
     def host_path(self, box_path: str) -> Path:
         """Map an in-box path onto this work root; reject anything outside."""
         text = str(box_path or "").strip()
@@ -277,9 +280,9 @@ class LocalHost:
         out = {str(k): str(v) for k, v in (env or {}).items()}
         out.setdefault("PATH", os.environ.get("PATH", "/usr/bin:/bin"))
         out.setdefault("LANG", os.environ.get("LANG", "C"))
-        out.setdefault("AGEVAL_WORKSPACE", str(self.host_path(WORKSPACE_PATH)))
-        out.setdefault("AGEVAL_ARTIFACTS", str(self.host_path(ARTIFACTS_PATH)))
-        out.setdefault("AGEVAL_EVALUATION", str(self.host_path(EVALUATION_PATH)))
+        out.setdefault("AGEVAL_WORKSPACE", self.visible_path(WORKSPACE_PATH))
+        out.setdefault("AGEVAL_ARTIFACTS", self.visible_path(ARTIFACTS_PATH))
+        out.setdefault("AGEVAL_EVALUATION", self.visible_path(EVALUATION_PATH))
         return out
 
     def _assert_started(self) -> None:

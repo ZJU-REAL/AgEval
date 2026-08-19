@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from ageval.environments.protocol import EnvironmentFailure
+from ageval.plugins.contrib.acp.child_env import entry_credentials_missing
 from ageval.plugins.contrib.acp.registry import AcpEntryDescriptor, get_entry
 from ageval.plugins.errors import ExtensionMaterializeError
 from ageval.plugins.protocol import NextFn
@@ -19,7 +20,7 @@ ENSURE_RUNTIME_PRIORITY = 100
 
 
 def ensure_runtime(**kwargs: Any) -> Any:
-    """Factory: bind the entry id from options, return the chain handler."""
+    """Factory: bind the entry and its credential locator, return the handler."""
     options = dict(kwargs.get("options") or {})
     entry_id = str(options.get("entry") or "").strip()
     if not entry_id:
@@ -33,12 +34,49 @@ def ensure_runtime(**kwargs: Any) -> Any:
             f"unknown acp entry: {entry_id!r}",
             kind="extension_materialize_failed",
         )
+    api_key_env = kwargs.get("api_key")
 
     async def _handler(ctx: Any, value: Any, nxt: NextFn) -> Any:
+        await _prepare_attempt_home(ctx, descriptor, api_key_env=api_key_env)
         await _ensure_entry_present(ctx, descriptor)
         return await nxt(value)
 
     return _handler
+
+
+async def _prepare_attempt_home(
+    ctx: Any,
+    descriptor: AcpEntryDescriptor,
+    *,
+    api_key_env: str | None,
+) -> None:
+    """Give the entry its own HOME, and refuse to run it with no credential.
+
+    An entry authenticates either from a file it declared (BYOA) or from a host
+    env name it declared (BYOK). With neither, this fails once here — before any
+    Agent effect — instead of letting the entry start and time out on auth.
+    """
+    from ageval.plugins.contrib.acp.home import prepare_home
+
+    prepared = await prepare_home(
+        ctx.host,
+        descriptor,
+        timeout_sec=ctx.remaining_seconds(),
+    )
+    auth_files = prepared["auth_files"]
+    ctx.record_fact(
+        "acp_home_prepared",
+        {"entry": descriptor.entry_id, "auth_files": auth_files},
+    )
+    if not auth_files and entry_credentials_missing(
+        descriptor.credential_env_names,
+        api_key_env=api_key_env,
+    ):
+        raise EnvironmentFailure(
+            "acp_credentials_missing",
+            f"acp entry {descriptor.entry_id!r} has neither a declared auth file on this "
+            f"host nor any of {list(descriptor.credential_env_names)} set",
+        )
 
 
 async def _ensure_entry_present(ctx: Any, descriptor: AcpEntryDescriptor) -> None:

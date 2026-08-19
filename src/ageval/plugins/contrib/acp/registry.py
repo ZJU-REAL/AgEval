@@ -59,6 +59,11 @@ class AcpEntryDescriptor:
     install_command: str
     credential_env_names: tuple[str, ...]
     keyless_auth: bool
+    # Directories this entry expects under the attempt HOME (engines hard-fail
+    # when a configured dir is absent), and host HOME files to copy when the
+    # entry authenticates without an API key.
+    home_dirs: tuple[str, ...]
+    keyless_auth_paths: tuple[str, ...]
     model_binding: ModelBinding
     platforms: tuple[str, ...]
     fixed_env: Mapping[str, str]
@@ -90,6 +95,8 @@ class AcpEntryDescriptor:
         d["acp_detect_commands"] = list(self.acp_detect_commands)
         d["credential_env_names"] = list(self.credential_env_names)
         d["keyless_auth"] = bool(self.keyless_auth)
+        d["home_dirs"] = list(self.home_dirs)
+        d["keyless_auth_paths"] = list(self.keyless_auth_paths)
         d["platforms"] = list(self.platforms)
         d["fixed_env"] = dict(self.fixed_env)
         return d
@@ -157,6 +164,11 @@ def _parse_entry(raw: Mapping[str, Any], *, index: int) -> AcpEntryDescriptor:
     if not isinstance(fixed_env_raw, dict):
         raise ValueError(f"/entries/{index}/fixed_env: must be object")
     fixed_env = {str(k): str(v) for k, v in fixed_env_raw.items()}
+    home_dirs = tuple(str(x) for x in (raw.get("home_dirs") or ()))
+    keyless_auth_paths = tuple(str(x) for x in (raw.get("keyless_auth_paths") or ()))
+    for rel in (*home_dirs, *keyless_auth_paths):
+        if rel.startswith("/") or ".." in Path(rel).parts:
+            raise ValueError(f"/entries/{index}: home path must stay under HOME: {rel!r}")
     digest_payload = {
         "entry_id": raw["entry_id"],
         "integration_mode": raw["integration_mode"],
@@ -172,6 +184,8 @@ def _parse_entry(raw: Mapping[str, Any], *, index: int) -> AcpEntryDescriptor:
         "model_binding": raw["model_binding"],
         "credential_env_names": list(raw["credential_env_names"]),
         "keyless_auth": bool(raw.get("keyless_auth", False)),
+        "home_dirs": list(home_dirs),
+        "keyless_auth_paths": list(keyless_auth_paths),
         "platforms": list(raw["platforms"]),
         "fixed_env": fixed_env,
     }
@@ -196,6 +210,8 @@ def _parse_entry(raw: Mapping[str, Any], *, index: int) -> AcpEntryDescriptor:
         install_command=str(raw["install_command"]),
         credential_env_names=tuple(str(x) for x in raw["credential_env_names"]),
         keyless_auth=bool(raw.get("keyless_auth", False)),
+        home_dirs=home_dirs,
+        keyless_auth_paths=keyless_auth_paths,
         model_binding=str(raw["model_binding"]),  # type: ignore[arg-type]
         platforms=tuple(str(x) for x in raw["platforms"]),
         fixed_env=fixed_env,

@@ -56,7 +56,12 @@ class EnvironmentCapabilities:
 
 @dataclass(frozen=True, slots=True)
 class Placement:
-    """Where a foreground process attaches. Opaque to callers by design."""
+    """Where a foreground process attaches. Issued by the kind, opaque above it.
+
+    Paths are in the in-box contract form, like every other path a caller hands
+    to a box. Use ``visible_path`` when a path must be handed *to* a process
+    (an argv element, an env value) instead of to the box.
+    """
 
     target_id: str
     user: str | None = None
@@ -108,6 +113,15 @@ class EnvironmentProvider(Protocol):
 
     def placement(self) -> Placement:
         """Engine-issued attach facts for the open box (no vendor handle)."""
+        ...
+
+    def visible_path(self, box_path: str) -> str:
+        """An in-box path as the processes inside this box see it.
+
+        Identical to *box_path* for kinds that really own ``/attempt``; a local
+        box maps it onto its work root. Callers use this only when a path must
+        travel *into* a process (argv, env), never to talk to the box itself.
+        """
         ...
 
     async def exec(

@@ -32,11 +32,10 @@ class OpenAIHTTPExecutor(AgentExecutor):
         prompt: str,
         *,
         timeout: float = 60.0,
-        workdir: str | None = None,
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
-        del workdir, collect_dir, redaction_sentinels  # unused on HTTP path
+        del collect_dir, redaction_sentinels  # unused on HTTP path
         key_env = self.api_key_env or _DEFAULT_KEY_ENV
         key = os.environ.get(key_env, "")
         base = self.base_url or os.environ.get("AGEVAL_OPENAI_BASE_URL") or _DEFAULT_BASE

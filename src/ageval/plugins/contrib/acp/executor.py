@@ -1,25 +1,30 @@
-"""AcpExecutor: parent-side ACP process/session invoke (Spec 19)."""
+"""AcpExecutor: parent-side ACP session over a pipe the box handed us.
+
+The parent is the only ACP JSON-RPC client. It never spawns a process itself and
+never learns how the box is implemented: the pipe comes from
+``environment.attach_stdio``, so there is no container id, sandbox handle or ssh
+target anywhere in this file.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
-import os
 import threading
 import time
-from collections.abc import Mapping, Sequence
 from contextlib import suppress as contextlib_suppress
 from pathlib import Path
 from typing import Any
 
 from ageval import __version__ as AGEVAL_VERSION
+from ageval.environments.protocol import Placement, StdioTransport
 from ageval.plugins.agent_result import (
     AgentExecutor,
     AgentResult,
     observational_result_health,
     parse_validated_text_structured,
 )
-from ageval.plugins.contrib.acp.child_env import entry_credentials_missing, project_cli_child_env
+from ageval.plugins.contrib.acp.child_env import project_credential_env
 from ageval.plugins.contrib.acp.client import (
     _AgevalAcpClient,
     _map_stop_reason,
@@ -30,9 +35,9 @@ from ageval.plugins.contrib.acp.entry_local import (
     apply_grok_build_bind,
     uses_entry_local_bind,
 )
-from ageval.plugins.contrib.acp.registry import AcpEntryDescriptor, get_entry, readiness_for
+from ageval.plugins.contrib.acp.home import home_env
+from ageval.plugins.contrib.acp.registry import AcpEntryDescriptor, get_entry
 from ageval.plugins.contrib.acp.trajectory_map import acp_session_events_to_ageval
-from ageval.plugins.contrib.acp.types import ProcessLauncher
 from ageval.plugins.contrib.acp.usage import _as_plain_mapping, normalize_acp_usage
 
 # Advertised ACP config option ids that mean thinking / reasoning effort.
@@ -40,19 +45,6 @@ from ageval.plugins.contrib.acp.usage import _as_plain_mapping, normalize_acp_us
 # that omit the category or use a vendor-shaped id.
 _REASONING_OPTION_IDS = frozenset(
     {"thought_level", "reasoning_effort", "reasoning", "thinking", "effort"}
-)
-
-# Local docker CLI (L1 command_override) needs these; they are stripped from
-# container ``-e`` by wrap_docker_exec and must not reach a host ACP entry.
-_DOCKER_CLIENT_ENV_KEYS = (
-    "DOCKER_HOST",
-    "DOCKER_CONTEXT",
-    "DOCKER_CONFIG",
-    "DOCKER_TLS_VERIFY",
-    "DOCKER_CERT_PATH",
-    "DOCKER_TLS_CERTDIR",
-    "DOCKER_API_VERSION",
-    "SSL_CERT_FILE",
 )
 
 
@@ -110,7 +102,7 @@ def _find_reasoning_config_option(config_options: Any) -> Any:
 
 
 class AcpExecutor(AgentExecutor):
-    """Descriptor-driven ACP executor; one process/session per ageval session reuse."""
+    """Descriptor-driven ACP executor; one entry process per ageval session."""
 
     kind: str = "acp"
 
@@ -118,15 +110,13 @@ class AcpExecutor(AgentExecutor):
         self,
         *,
         entry_id: str,
+        host: Any,
+        placement: Placement,
         model: str = "entry-default",
         reasoning_effort: str | None = None,
         base_url: str | None = None,
         api_key_env: str | None = None,
         descriptor: AcpEntryDescriptor | None = None,
-        workdir: str | None = None,
-        env: Mapping[str, str] | None = None,
-        process_launcher: ProcessLauncher | None = None,
-        command_override: Sequence[str] | None = None,
     ) -> None:
         self.entry_id = entry_id
         self.model = model
@@ -139,15 +129,13 @@ class AcpExecutor(AgentExecutor):
         if resolved is None:
             raise KeyError(f"unknown_acp_entry:{entry_id}")
         self.descriptor: AcpEntryDescriptor = resolved
-        self.workdir = workdir
-        self._extra_env = dict(env or {})
-        self._process_launcher = process_launcher
-        self._command_override = list(command_override) if command_override else None
+        self._host = host
+        self._placement = placement
 
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
         self._conn: Any = None
-        self._process: Any = None
+        self._pipe: StdioTransport | None = None
         self._client: _AgevalAcpClient | None = None
         self._acp_session_id: str | None = None
         self._agent_info: dict[str, Any] | None = None
@@ -157,29 +145,21 @@ class AcpExecutor(AgentExecutor):
         self._last_error_detail: str | None = None
         self._lock = threading.Lock()
         self._closed = False
-        self._cm: Any = None  # async context manager for spawn
 
     def _child_env(self) -> dict[str, str]:
-        """L0 spawn env: allowlist projection, not a copy of the parent environ.
-
-        When ``command_override`` is set the spawned process is the local
-        docker CLI (L1), not the entry. Docker client locator keys stay.
-        """
-        env = project_cli_child_env(
-            self.entry_id,
-            api_key_env=self.api_key_env,
-            base_url=self.base_url,
-            credential_env_names=self.descriptor.credential_env_names,
+        """Entry env: this Attempt's HOME plus an allowlisted credential set."""
+        env = home_env(self.descriptor, self._host.visible_path(self._placement.home))
+        env.update(
+            project_credential_env(
+                self.entry_id,
+                credential_env_names=self.descriptor.credential_env_names,
+                api_key_env=self.api_key_env,
+                base_url=self.base_url,
+            )
         )
-        for k, v in self.descriptor.fixed_env.items():
-            if v:
-                env[str(k)] = str(v)
-        env.update({k: str(v) for k, v in self._extra_env.items() if v})
-        if self._command_override:
-            for key in _DOCKER_CLIENT_ENV_KEYS:
-                val = os.environ.get(key)
-                if val:
-                    env[key] = val
+        for key, value in self.descriptor.fixed_env.items():
+            if value:
+                env[str(key)] = str(value)
         return env
 
     def _ensure_loop(self) -> asyncio.AbstractEventLoop:
@@ -202,30 +182,27 @@ class AcpExecutor(AgentExecutor):
         fut = asyncio.run_coroutine_threadsafe(coro, loop)
         return fut.result(timeout=timeout)
 
-    async def _spawn_and_init(self, *, cwd: str) -> None:
+    async def _attach_and_init(self) -> None:
+        """Attach the entry inside the box and bring the ACP session up."""
         import acp
-        from acp.stdio import spawn_agent_process
+        from acp.client.connection import ClientSideConnection
+        from acp.schema import Implementation
 
+        from ageval.environments.streams import open_streams
+
+        argv = self.stdio_argv()
+        if not argv:
+            raise RuntimeError("acp_entry_missing")
         client = _AgevalAcpClient()
         self._client = client
-        cmd = self._command_override or self.host_stdio_argv()
-        if not cmd:
-            raise RuntimeError("acp_entry_missing")
-        command, *args = cmd
-        env = self._child_env()
-
-        if self._process_launcher is not None:
-            # Custom launcher must yield (conn, process) compatible pair or set streams.
-            self._cm = self._process_launcher(client, command, *args, env=env, cwd=cwd)
-            self._conn, self._process = await self._cm.__aenter__()
-        else:
-            # Host entry uses package workdir. docker-exec override must not
-            # chdir the docker client into a container path.
-            spawn_cwd = None if self._command_override else cwd
-            self._cm = spawn_agent_process(client, command, *args, env=env, cwd=spawn_cwd)
-            self._conn, self._process = await self._cm.__aenter__()
-
-        from acp.schema import Implementation
+        pipe = await self._host.attach_stdio(
+            argv,
+            placement=self._placement,
+            env=self._child_env(),
+        )
+        self._pipe = pipe
+        reader, writer = await open_streams(pipe)
+        self._conn = ClientSideConnection(client, writer, reader)
 
         # No IDE filesystem/terminal proxy capabilities (tools run in entry process).
         init = await self._conn.initialize(
@@ -247,15 +224,19 @@ class AcpExecutor(AgentExecutor):
                     "version": getattr(agent_info, "version", None),
                 }
 
-        new = await self._conn.new_session(cwd=cwd, mcp_servers=[])
+        # The entry reads this path itself, so it must be its own view of the box.
+        new = await self._conn.new_session(
+            cwd=self._host.visible_path(self._placement.workdir),
+            mcp_servers=[],
+        )
         self._acp_session_id = getattr(new, "session_id", None)
         if not self._acp_session_id:
             raise RuntimeError("acp_protocol_error")
 
         await self._bind_entry(init, new)
 
-    def host_stdio_argv(self) -> list[str]:
-        """ACP stdio argv for a host spawn (no docker-exec prefix)."""
+    def stdio_argv(self) -> list[str]:
+        """ACP stdio argv for this entry, as run inside the box."""
         return acp_stdio_argv(
             self.entry_id,
             list(self.descriptor.acp_command),
@@ -496,35 +477,21 @@ class AcpExecutor(AgentExecutor):
             metadata=meta,
         )
 
-    def _ensure_session(self, *, workdir: str | None, timeout: float) -> str | None:
-        """Start ACP process/session if needed. Returns error kind or None."""
+    def _ensure_session(self, *, timeout: float) -> str | None:
+        """Attach the entry if needed. Returns an error kind or None.
+
+        Entry presence and credentials were settled during the environment phase
+        (``after_environment_ready``), so nothing probes the host here.
+        """
         with self._lock:
             if self._closed:
                 return "session_closed"
             if self._conn is not None and self._acp_session_id is not None:
                 return None
-        # Host PATH readiness only when launching locally. L1 uses command_override
-        # (docker exec) and image BOM preflight for entry presence.
-        cwd = workdir or self.workdir
-        if not cwd:
-            return "acp_workdir_required"
-        if (
-            not self.descriptor.keyless_auth
-            and self.descriptor.credential_env_names
-            and entry_credentials_missing(
-                self.descriptor.credential_env_names,
-                api_key_env=self.api_key_env,
-            )
-        ):
-            return "credential_missing"
-        if self._command_override is None and self._process_launcher is None:
-            ready = readiness_for(self.descriptor)
-            if ready["readiness"] != "ready":
-                return str(ready["readiness"]).replace("-", "_")
         try:
-            self._run(self._spawn_and_init(cwd=cwd), timeout=min(timeout, 120.0))
+            self._run(self._attach_and_init(), timeout=min(timeout, 120.0))
         except RuntimeError as exc:
-            # Bare kind raised by _spawn_and_init; no extra detail to carry.
+            # Bare kind raised by _attach_and_init; no extra detail to carry.
             self._last_error_detail = None
             return str(exc) or "acp_protocol_error"
         except Exception as exc:  # noqa: BLE001
@@ -540,7 +507,6 @@ class AcpExecutor(AgentExecutor):
         prompt: str,
         *,
         timeout: float = 60.0,
-        workdir: str | None = None,
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
@@ -550,7 +516,7 @@ class AcpExecutor(AgentExecutor):
         if is_offline_agent():
             return _offline_result(self.model)
 
-        err = self._ensure_session(workdir=workdir, timeout=timeout)
+        err = self._ensure_session(timeout=timeout)
         if err is not None:
             detail = self._last_error_detail
             event: dict[str, Any] = {
@@ -650,23 +616,38 @@ class AcpExecutor(AgentExecutor):
             self._closed = True
         try:
             if self._loop is not None:
-
-                async def _shutdown() -> None:
-                    if self._conn is not None and self._acp_session_id is not None:
-                        with contextlib_suppress(Exception):
-                            await self._conn.close_session(session_id=self._acp_session_id)
-                    if self._cm is not None:
-                        with contextlib_suppress(Exception):
-                            await self._cm.__aexit__(None, None, None)
-                    if self._process is not None:
-                        with contextlib_suppress(Exception):
-                            self._process.terminate()
-
                 with contextlib_suppress(Exception):
-                    self._run(_shutdown(), timeout=10.0)
-                if self._loop is not None:
-                    self._loop.call_soon_threadsafe(self._loop.stop)
+                    self._run(self._shutdown(), timeout=10.0)
+                self._stop_loop()
         finally:
+            # The box owns the process; dropping the pipe is our whole part.
+            if self._pipe is not None:
+                with contextlib_suppress(Exception):
+                    self._pipe.terminate()
             self._conn = None
-            self._process = None
+            self._pipe = None
             self._acp_session_id = None
+
+    async def _shutdown(self) -> None:
+        """End the ACP session and leave no task behind on the private loop."""
+        if self._conn is not None and self._acp_session_id is not None:
+            with contextlib_suppress(Exception):
+                await self._conn.close_session(session_id=self._acp_session_id)
+            with contextlib_suppress(Exception):
+                await self._conn.close()
+        pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    def _stop_loop(self) -> None:
+        loop, thread = self._loop, self._thread
+        self._loop, self._thread = None, None
+        if loop is None:
+            return
+        loop.call_soon_threadsafe(loop.stop)
+        if thread is not None:
+            thread.join(timeout=5.0)
+        with contextlib_suppress(Exception):
+            loop.close()
