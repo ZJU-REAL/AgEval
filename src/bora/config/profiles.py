@@ -79,10 +79,12 @@ def effective_binding(
             continue
         for key, val in source.items():
             out[key] = copy.deepcopy(val)
-    # Provenance never inherits: a role with its own row is not "produced by"
-    # the wildcard's agent unless the exact row says so itself.
+    # Provenance and overlay trees never inherit: a role with its own row is
+    # not "produced by" the wildcard's agent unless the exact row says so.
     if exact is not None and "agent_ref" not in exact:
         out.pop("agent_ref", None)
+    if exact is not None and "overlays" not in exact:
+        out.pop("overlays", None)
     return out
 
 

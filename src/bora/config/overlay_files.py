@@ -1,7 +1,10 @@
-"""Binding ``overlays`` — published Database file set (paths only).
+"""Binding ``overlays`` — published file set (paths only).
 
 Config owns this list. Plugin ``options.src`` is never read to build or
 check it. Listed files must stay secret-free (locators only).
+
+Resolve root is the installed Agent package when the binding has
+``agent_ref``, otherwise the Database root (design/14).
 """
 
 from __future__ import annotations
@@ -90,7 +93,7 @@ def parse_overlay_paths(raw: Any, *, location: str) -> list[str]:
 
 
 def normalize_overlay_path(raw: Any, *, location: str) -> str:
-    """Database-relative path that must start with ``overlays/``."""
+    """Package-relative path that must start with ``overlays/``."""
     if not isinstance(raw, str) or not raw.strip():
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
@@ -107,7 +110,7 @@ def normalize_overlay_path(raw: Any, *, location: str) -> str:
     if text.startswith("/") or Path(text).is_absolute():
         raise ConfigError(
             ERROR_PATH_OUTSIDE_PACKAGE,
-            "overlay path must be Database-relative",
+            "overlay path must be package-relative",
             location=location,
         )
     raw_parts = text.split("/")
@@ -121,7 +124,7 @@ def normalize_overlay_path(raw: Any, *, location: str) -> str:
     if not parts or ".." in parts:
         raise ConfigError(
             ERROR_PATH_OUTSIDE_PACKAGE,
-            "overlay path must not escape the Database root",
+            "overlay path must not escape the overlay root",
             location=location,
         )
     if parts[0] != "overlays" or len(parts) < 2:
@@ -133,16 +136,16 @@ def normalize_overlay_path(raw: Any, *, location: str) -> str:
     return "/".join(parts)
 
 
-def resolve_overlay_target(database_root: Path, rel: str, *, location: str) -> Path:
-    """Resolve *rel* under the Database root; fail if missing or escaping."""
-    root = database_root.expanduser().resolve(strict=False)
+def resolve_overlay_target(overlay_root: Path, rel: str, *, location: str) -> Path:
+    """Resolve *rel* under the overlay root; fail if missing or escaping."""
+    root = overlay_root.expanduser().resolve(strict=False)
     target = (root / rel).resolve(strict=False)
     try:
         target.relative_to(root)
     except ValueError as exc:
         raise ConfigError(
             ERROR_PATH_OUTSIDE_PACKAGE,
-            f"overlay path escapes Database root: {rel}",
+            f"overlay path escapes overlay root: {rel}",
             location=location,
         ) from exc
     if not target.exists():
@@ -154,23 +157,24 @@ def resolve_overlay_target(database_root: Path, rel: str, *, location: str) -> P
     return target
 
 
-def iter_overlay_files(database_root: Path, paths: Sequence[str], *, location: str) -> list[Path]:
+def iter_overlay_files(overlay_root: Path, paths: Sequence[str], *, location: str) -> list[Path]:
     """Expand declared files/dirs to regular files (recursive)."""
     files: list[Path] = []
     seen: set[Path] = set()
+    root = overlay_root.expanduser().resolve(strict=False)
     for rel in paths:
-        target = resolve_overlay_target(database_root, rel, location=location)
+        target = resolve_overlay_target(overlay_root, rel, location=location)
         if target.is_dir():
             for child in sorted(target.rglob("*")):
                 if not child.is_file():
                     continue
                 resolved = child.resolve(strict=False)
                 try:
-                    resolved.relative_to(database_root.expanduser().resolve(strict=False))
+                    resolved.relative_to(root)
                 except ValueError as exc:
                     raise ConfigError(
                         ERROR_PATH_OUTSIDE_PACKAGE,
-                        f"overlay path escapes Database root: {rel}",
+                        f"overlay path escapes overlay root: {rel}",
                         location=location,
                     ) from exc
                 if resolved not in seen:
@@ -235,6 +239,19 @@ def scan_overlay_files(files: Iterable[Path], *, location: str) -> None:
             )
 
 
+def overlay_root_for_binding(
+    binding: Mapping[str, Any],
+    database_root: Path | None,
+) -> Path | None:
+    """Agent package when ``agent_ref`` is set, else the Database root."""
+    ref = binding.get("agent_ref")
+    if isinstance(ref, str) and ref.strip():
+        from bora.agents.refs import package_root_from_agent_ref
+
+        return package_root_from_agent_ref(ref.strip())
+    return database_root
+
+
 def assert_job_overlay_files(
     database_root: Path,
     overlay: Mapping[str, Any] | None,
@@ -250,14 +267,14 @@ def assert_job_overlay_files(
             continue
         rid = str(role_id).strip() or str(role_id)
         assert_overlays_at_lock(
-            database_root,
+            overlay_root_for_binding(raw, database_root),
             raw,
             location=f"/job_overlay/bindings/{rid}/overlays",
         )
 
 
 def assert_overlays_at_lock(
-    database_root: Path | None,
+    overlay_root: Path | None,
     binding: Mapping[str, Any],
     *,
     location: str,
@@ -268,13 +285,13 @@ def assert_overlays_at_lock(
     paths = parse_overlay_paths(binding.get("overlays"), location=location)
     if not paths:
         return
-    if database_root is None:
+    if overlay_root is None:
         raise ConfigError(
             ERROR_INVALID_PACKAGE,
-            "overlays require a Database root",
+            "overlays require an overlay root",
             location=location,
         )
-    files = iter_overlay_files(database_root, paths, location=location)
+    files = iter_overlay_files(overlay_root, paths, location=location)
     scan_overlay_files(files, location=location)
 
 

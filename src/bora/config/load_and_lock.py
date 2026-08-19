@@ -29,7 +29,7 @@ from bora.config.model import (
     ResolutionRecord,
     freeze,
 )
-from bora.config.overlay_files import assert_overlays_at_lock
+from bora.config.overlay_files import assert_overlays_at_lock, overlay_root_for_binding
 from bora.config.overrides import apply_json_pointer, is_allowlisted_override_pointer
 from bora.config.ports import PackageReader
 from bora.config.profiles import (
@@ -292,7 +292,7 @@ class ConfigCore:
             for role_id, row in bindings.items():
                 expand_binding_env_refs(row, location=f"/bindings/{role_id}")
                 assert_overlays_at_lock(
-                    db_root,
+                    overlay_root_for_binding(row, db_root),
                     row,
                     location=f"/bindings/{role_id}/overlays",
                 )
