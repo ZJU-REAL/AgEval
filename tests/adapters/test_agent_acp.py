@@ -159,6 +159,28 @@ def test_result_health_noop_turn() -> None:
     assert result.metadata["actual_model"] is None
 
 
+def test_command_override_child_env_keeps_docker_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("PATH", "/bin")
+    monkeypatch.setenv("HOME", "/h")
+    monkeypatch.setenv("DOCKER_HOST", "unix:///run/user/1000/docker.sock")
+    monkeypatch.setenv("DOCKER_CONTEXT", "rootless")
+    monkeypatch.setenv("UNRELATED_SECRET", "nope")
+    host = AcpExecutor(entry_id="pi", model="entry-default")
+    assert "DOCKER_HOST" not in host._child_env()
+    ex = AcpExecutor(
+        entry_id="pi",
+        model="entry-default",
+        command_override=["docker", "exec", "c1", "pi-acp"],
+    )
+    env = ex._child_env()
+    assert env["DOCKER_HOST"] == "unix:///run/user/1000/docker.sock"
+    assert env["DOCKER_CONTEXT"] == "rootless"
+    assert "UNRELATED_SECRET" not in env
+
+
 def test_child_env_extra_home_overrides_host(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BORA_OFFLINE_AGENT", raising=False)
     monkeypatch.setenv("PATH", "/bin")

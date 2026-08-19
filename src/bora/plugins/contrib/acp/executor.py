@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -39,6 +40,19 @@ from bora.plugins.contrib.acp.usage import _as_plain_mapping, normalize_acp_usag
 # that omit the category or use a vendor-shaped id.
 _REASONING_OPTION_IDS = frozenset(
     {"thought_level", "reasoning_effort", "reasoning", "thinking", "effort"}
+)
+
+# Local docker CLI (L1 command_override) needs these; they are stripped from
+# container ``-e`` by wrap_docker_exec and must not reach a host ACP entry.
+_DOCKER_CLIENT_ENV_KEYS = (
+    "DOCKER_HOST",
+    "DOCKER_CONTEXT",
+    "DOCKER_CONFIG",
+    "DOCKER_TLS_VERIFY",
+    "DOCKER_CERT_PATH",
+    "DOCKER_TLS_CERTDIR",
+    "DOCKER_API_VERSION",
+    "SSL_CERT_FILE",
 )
 
 
@@ -146,7 +160,11 @@ class AcpExecutor(AgentExecutor):
         self._cm: Any = None  # async context manager for spawn
 
     def _child_env(self) -> dict[str, str]:
-        """L0 spawn env: allowlist projection, not a copy of the parent environ."""
+        """L0 spawn env: allowlist projection, not a copy of the parent environ.
+
+        When ``command_override`` is set the spawned process is the local
+        docker CLI (L1), not the entry. Docker client locator keys stay.
+        """
         env = project_cli_child_env(
             self.entry_id,
             api_key_env=self.api_key_env,
@@ -157,6 +175,11 @@ class AcpExecutor(AgentExecutor):
             if v:
                 env[str(k)] = str(v)
         env.update({k: str(v) for k, v in self._extra_env.items() if v})
+        if self._command_override:
+            for key in _DOCKER_CLIENT_ENV_KEYS:
+                val = os.environ.get(key)
+                if val:
+                    env[key] = val
         return env
 
     def _ensure_loop(self) -> asyncio.AbstractEventLoop:
