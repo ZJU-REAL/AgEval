@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { BindingPreview } from "@/components/binding-preview";
 import { BreadcrumbNav } from "@/components/breadcrumb";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
@@ -27,12 +28,11 @@ import {
   updatePackageDisplayName,
   type AgentAppearance,
   type AgentPreview,
-  type FileItem,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { buildNestedTree, pathMatchesPrefixes, type TreeNode } from "@/lib/file-tree";
+import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 import { formatScore } from "@/lib/utils";
 
 export function AgentDetailPage() {
@@ -43,6 +43,7 @@ export function AgentDetailPage() {
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [preview, setPreview] = useState<AgentPreview | null>(null);
   const [tree, setTree] = useState<TreeNode[]>([]);
+  const [filePaths, setFilePaths] = useState<string[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileNote, setFileNote] = useState<string | null>(null);
@@ -52,16 +53,6 @@ export function AgentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [canEditName, setCanEditName] = useState(false);
   const [appearances, setAppearances] = useState<AgentAppearance[]>([]);
-  const [versions, setVersions] = useState<PackageRelease[]>([]);
-  const [selectedAppearanceKey, setSelectedAppearanceKey] = useState<string | null>(
-    null,
-  );
-  const [overlayItems, setOverlayItems] = useState<FileItem[]>([]);
-  const [overlayPath, setOverlayPath] = useState<string | null>(null);
-  const [overlayContent, setOverlayContent] = useState<string | null>(null);
-  const [overlayNote, setOverlayNote] = useState<string | null>(null);
-  const [overlayTreeLoading, setOverlayTreeLoading] = useState(false);
-  const [overlayFileLoading, setOverlayFileLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +66,6 @@ export function AgentDetailPage() {
         if (!versions.length) {
           throw new RegistryHttpError(404, "not_found", "agent not found");
         }
-        setVersions(versions);
         setAppearances(listed.appearances);
         const latest = [...versions].sort(
           (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0),
@@ -117,6 +107,7 @@ export function AgentDetailPage() {
         if (cancelled) return;
         const nested = buildNestedTree(files.items);
         setTree(nested);
+        setFilePaths(files.items.filter((e) => e.type !== "dir").map((e) => e.path));
         const prefer =
           files.items.find((e) => e.path === "agent.yaml") ||
           files.items.find((e) => e.path === "README.md") ||
@@ -132,8 +123,8 @@ export function AgentDetailPage() {
         setRelease(null);
         setPreview(null);
         setTree([]);
+        setFilePaths([]);
         setAppearances([]);
-        setVersions([]);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -198,10 +189,20 @@ export function AgentDetailPage() {
 
   const packageParts = useMemo(() => splitPackageId(agentId), [agentId]);
 
-  const bindingRows = useMemo(() => {
-    const binding = preview?.binding || {};
-    return Object.entries(binding).filter(([, v]) => v !== null && v !== undefined);
-  }, [preview]);
+  const binding = (preview?.binding || {}) as Record<string, unknown>;
+  const hasBinding = Object.keys(binding).length > 0;
+
+  function openOverlayPath(declared: string) {
+    const prefix = declared.endsWith("/") ? declared : `${declared}/`;
+    const resolved =
+      filePaths.find((p) => p === declared) ||
+      filePaths.find((p) => p.startsWith(prefix)) ||
+      declared;
+    setSelectedPath(resolved);
+    document
+      .getElementById("agent-files")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   const appearancesByVersion = useMemo(() => {
     const groups = new Map<string, AgentAppearance[]>();
@@ -213,113 +214,6 @@ export function AgentDetailPage() {
     }
     return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a));
   }, [appearances]);
-
-  const selectedAppearance = useMemo(() => {
-    if (!appearances.length) return null;
-    return (
-      appearances.find(
-        (row) => `${row.suite_run_id}:${row.role}` === selectedAppearanceKey,
-      ) ?? appearances[0]
-    );
-  }, [appearances, selectedAppearanceKey]);
-
-  const overlayDigest = useMemo(() => {
-    if (!selectedAppearance) return "";
-    const match = versions.find((row) => row.version === selectedAppearance.agent_version);
-    return match?.package_digest || "";
-  }, [selectedAppearance, versions]);
-
-  const overlayKey = (selectedAppearance?.overlays ?? []).join("\n");
-  const overlayPrefixes = overlayKey ? overlayKey.split("\n") : [];
-  const canPreviewOverlays = Boolean(overlayDigest && overlayPrefixes.length);
-
-  useEffect(() => {
-    if (!canPreviewOverlays || !overlayDigest) {
-      setOverlayItems([]);
-      setOverlayPath(null);
-      setOverlayContent(null);
-      setOverlayNote(null);
-      setOverlayTreeLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setOverlayTreeLoading(true);
-    listPackageFiles(agentId, overlayDigest, token)
-      .then((files) => {
-        if (cancelled) return;
-        const matched = files.items.filter(
-          (item) => item.type !== "dir" && pathMatchesPrefixes(item.path, overlayPrefixes),
-        );
-        setOverlayItems(matched);
-        const prefer =
-          overlayPrefixes
-            .map((prefix) =>
-              matched.find((item) => item.path === prefix || item.path.startsWith(`${prefix}/`)),
-            )
-            .find(Boolean) || matched[0];
-        setOverlayPath(prefer?.path ?? null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setOverlayItems([]);
-        setOverlayPath(null);
-        setOverlayNote(
-          err instanceof RegistryHttpError
-            ? `${err.code}: ${err.message}`
-            : err instanceof Error
-              ? err.message
-              : String(err),
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setOverlayTreeLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [agentId, canPreviewOverlays, overlayDigest, overlayKey, token]);
-
-  const overlayTree = useMemo(
-    () => (canPreviewOverlays ? buildNestedTree(overlayItems, "overlays") : []),
-    [canPreviewOverlays, overlayItems],
-  );
-
-  useEffect(() => {
-    if (!canPreviewOverlays || !overlayDigest || !overlayPath) {
-      setOverlayContent(null);
-      return;
-    }
-    let cancelled = false;
-    setOverlayFileLoading(true);
-    getPackageFile(agentId, overlayDigest, overlayPath, token)
-      .then((file) => {
-        if (cancelled) return;
-        try {
-          setOverlayContent(decodeFileContent(file));
-          setOverlayNote(null);
-        } catch {
-          setOverlayContent(null);
-          setOverlayNote("Could not decode file content.");
-        }
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setOverlayContent(null);
-        setOverlayNote(
-          err instanceof RegistryHttpError
-            ? `${err.code}: ${err.message}`
-            : err instanceof Error
-              ? err.message
-              : String(err),
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setOverlayFileLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [agentId, canPreviewOverlays, overlayDigest, overlayPath, token]);
 
   return (
     <>
@@ -421,23 +315,10 @@ export function AgentDetailPage() {
 
           <section className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Job binding</h2>
-            {bindingRows.length === 0 ? (
-              <p className="text-sm text-mute">No binding preview available.</p>
+            {hasBinding ? (
+              <BindingPreview binding={binding} onOpenOverlay={openOverlayPath} />
             ) : (
-              <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4">
-                <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm">
-                  {bindingRows.map(([key, value]) => (
-                    <div key={key} className="contents">
-                      <dt className="font-mono text-xs text-mute pt-0.5">{key}</dt>
-                      <dd className="font-mono text-xs text-body break-all">
-                        {typeof value === "string"
-                          ? value
-                          : JSON.stringify(value, null, 1)}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
+              <p className="text-sm text-mute">No binding preview available.</p>
             )}
           </section>
 
@@ -472,17 +353,8 @@ export function AgentDetailPage() {
                       <TableBody>
                         {rows.map((row) => {
                           const key = `${row.suite_run_id}:${row.role}`;
-                          const selected =
-                            (selectedAppearanceKey ??
-                              `${appearances[0]?.suite_run_id}:${appearances[0]?.role}`) ===
-                            key;
                           return (
-                            <TableRow
-                              key={key}
-                              className="cursor-pointer"
-                              data-state={selected ? "open" : undefined}
-                              onClick={() => setSelectedAppearanceKey(key)}
-                            >
+                            <TableRow key={key}>
                               <TableCell className="font-mono text-xs">
                                 <Link
                                   to={`/datasets/${encodeDatasetId(row.database_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
@@ -513,26 +385,6 @@ export function AgentDetailPage() {
                 </div>
               ))
             )}
-            {canPreviewOverlays ? (
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-ink">Published overlays</h3>
-                <p className="text-xs text-mute">
-                  Prefix closure from this Agent package, not the Dataset.
-                </p>
-                <div className="rounded-[8px] border border-hairline overflow-hidden">
-                  <FileSplitPanel
-                    tree={overlayTree}
-                    treeLoading={overlayTreeLoading}
-                    selectedPath={overlayPath}
-                    onSelect={setOverlayPath}
-                    fileContent={overlayContent}
-                    fileLoading={overlayFileLoading}
-                    fileNote={overlayNote}
-                    rootPrefix="overlays"
-                  />
-                </div>
-              </div>
-            ) : null}
           </section>
 
           <section id="agent-files" className="space-y-2">
