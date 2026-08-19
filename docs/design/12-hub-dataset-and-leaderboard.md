@@ -4,7 +4,7 @@
 | --- | --- |
 | 产品 | Bounded Orchestration for Runtime Agents（BORA） |
 | 权威 | 本文件是 Dataset draft/release、dataset ACL、Leaderboard 完备性、suite 插件出处、个人主页过滤与 Hub/Viewer chrome 的机制权威 |
-| 摘要 | Dataset 按工作树 + 不可变 release 维护；公开榜只排完备且绑定 release 的 suite；写路径只在 CLI。Leaderboard 展开分 profiles / plugin；Runtime plaza 用 binding.overlays 连接包文件预览（不随 suite 再传字节）；插件页是声明槽时间线；个人主页按 uploader / ACL 聚合。 |
+| 摘要 | Dataset 按工作树 + 不可变 release 维护；公开榜只排完备且绑定 release 的 suite；写路径只在 CLI。Leaderboard 展开分 profiles / plugin；Runtime plaza 用 binding.overlays 连接包文件预览（有 `agent_ref` 走 Agent 包，否则 Dataset release；不随 suite 再传字节）；插件页是声明槽时间线；个人主页按 uploader / ACL 聚合。 |
 
 ---
 
@@ -167,22 +167,23 @@ Plugin 页把 provide/on chips 换成 **L0–L5 声明槽时间线**：
 
 Hub `/runtimes` 是官方公开、完备、**release-bound** Leaderboard suite 的派生视图。**不**存 Runtime 行。身份是 agent 产品（ACP `options.entry`，否则插件 executor）。运输层 `acp`、model、凭据、`label`、role、组队 **不是** plaza id。`rt_*` **不得**哈希 overlay 路径或文件字节。
 
-`GET /v1/runtimes/{id}` 的每条 appearance 带绑定 release 坐标：`database_id`、`database_version`、`package_digest`（或 suite 行上已有的等价字段）。Hub 用已有
+`GET /v1/runtimes/{id}` 的每条 appearance 带绑定 release 坐标：`database_id`、`database_version`、`package_digest`（或 suite 行上已有的等价字段）。**不**新增 Runtime 表，**不**提供 `/v1/runtimes/{id}/files`。
 
-`GET /v1/packages/{database_id}/by-digest/{digest}/files` 与 `…/files/{path}`
+Overlay 文件预览的解析根随 `agent_ref`（见 14）：
 
-打开 Dataset 包内文件。**不**新增 Runtime 表，**不**提供 `/v1/runtimes/{id}/files`。
+- 出场 binding **有** `agent_ref`：listed `overlays/` 前缀闭包走 **Agent** 包 `GET /v1/packages/{org/name}/by-digest/{digest}/files`（及 `…/files/{path}`）。Dataset 同路径不算。Hub Agent 详情的文件树已列出包内文件，bundled overlays 出现在那里。
+- 出场 binding **无** `agent_ref`（手写 `--profiles`）：走 Dataset `GET /v1/packages/{database_id}/by-digest/{digest}/files`。
 
 详情页：
 
 1. Header + 无密钥 profiles YAML（含该出场 binding 的 `overlays:`）。
 2. 选中 Results 行 → 该 role `overlays:` 的前缀闭包。
-3. 复用 Dataset / Plugin 页的文件树分栏（`FileSplitPanel`）。
+3. 复用 Dataset / Plugin / Agent 页的文件树分栏（`FileSplitPanel`）。
 4. 换行换树。一个 `rt_*` 可对应多棵树。该 binding 省略 `overlays` → 无树（只 YAML）。
 
-`bora results upload-suite` 继续只上传 secret-free `job_overlay` JSON（现含 `bindings.*.overlays` **路径**）。**不**把 overlay 字节打进 suite archive。字节留在 suite 绑定的官方 Dataset **release**。Hub 只读，无写按钮。两 role 列同一路径时 Dataset 仍是一份 blob。`bora results export-profiles` 写回 `overlays:`；再跑仍要 Database 里那些相对路径上的文件，Hub 不另下一份。
+`bora results upload-suite` 继续只上传 secret-free `job_overlay` JSON（现含 `bindings.*.overlays` **路径**）。**不**把 overlay 字节打进 suite archive。有 `agent_ref` 时字节留在已发布 Agent 包；无则留在 suite 绑定的官方 Dataset **release**。Hub 只读，无写按钮。`bora results export-profiles` 写回 `overlays:` 与 `agent_ref`。带 `agent_ref` 再跑走 `--agent`（Agent 仍须已安装），或把导出文档交给 `--profiles`（仍只在 Agent 缓存解析；缓存缺失 fail closed）。无 `agent_ref` 的手写 `--profiles` 仍走 Dataset / Database 根。
 
-同一套声明列表也出现在 Dataset **Overlays** tab、Task Files 的 Overlays 范围、Leaderboard 展开的 profiles 条，以及本地 Viewer 的 suite Job 详情。仍走已有包文件 / Database 根预览，不新建 Runtime files API。
+同一套声明列表也出现在 Dataset **Overlays** tab、Task Files 的 Overlays 范围、Leaderboard 展开的 profiles 条，以及本地 Viewer 的 suite Job 详情。无 `agent_ref` 时仍走 Dataset 包文件 / Database 根预览。不新建 Runtime files API。`rt_*` / suite `config_fingerprint` 仍不得哈希 overlay 路径或字节。
 
 ## 非目标
 
