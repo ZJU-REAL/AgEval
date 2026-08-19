@@ -118,6 +118,7 @@ BORA/
 │   │   ├── suite/             # suite_run、fingerprint、suite_metrics
 │   │   ├── registry_ops/      # results / publish / login / org / list（注入 client factory）
 │   │   ├── plugin_ops/        # plugin install / publish / image_contribute bake
+│   │   ├── agent_ops/         # agent 投影（--agent → 合成 profiles）/ publish / install（design/14）
 │   │   └── local_jobs/        # 本机 Job 删除（Viewer / bora jobs delete；suite 级联 Attempt）
 │   ├── config/                # Core 1（load_and_lock + constants/yaml_io/overrides/digest/validate）
 │   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker、
@@ -175,7 +176,7 @@ BORA/
 │   ├── config/
 │   ├── plugins/               # registry / lock bindings / slot wiring / CLI lifecycle
 │   └── test_package_baseline.py
-├── docs/                      # 设计权威（00–12）
+├── docs/                      # 设计权威（00–14）
 └── website/                   # 读者向文档站（Fumadocs；非设计权威）
 ```
 

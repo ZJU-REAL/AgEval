@@ -278,7 +278,10 @@ def job_overlays_compatible(
             if not isinstance(binding, Mapping):
                 continue
             rid = str(role_id)
-            suite_b = suite_bindings.get(rid)
+            # Wildcard default binding covers any role id, field-wise (design/14).
+            from bora.config.profiles import effective_binding
+
+            suite_b = effective_binding(suite_bindings, rid)
             if not isinstance(suite_b, Mapping):
                 # Task used a role not in suite profiles map → incompatible
                 return False
@@ -310,6 +313,39 @@ def derive_labels(actors: Sequence[Mapping[str, str]]) -> tuple[str, str]:
     return join_display_names(agents), join_display_names(models)
 
 
+def _expand_wildcard_overlay(
+    job_overlay: Mapping[str, Any],
+    per_task_overlays: Sequence[Mapping[str, Any] | None],
+) -> Mapping[str, Any]:
+    """Expand a ``"*"`` default binding onto the role ids the tasks used.
+
+    Identity rule (design/14): wildcard and explicit spellings of the same
+    bindings are the same job configuration. Without per-task roles to expand
+    against, the overlay is returned unchanged.
+    """
+    from bora.config.profiles import WILDCARD_ROLE, effective_binding
+
+    bindings = job_overlay.get("bindings")
+    if not isinstance(bindings, Mapping) or WILDCARD_ROLE not in bindings:
+        return job_overlay
+    role_ids: set[str] = set()
+    for ov in per_task_overlays:
+        if not isinstance(ov, Mapping):
+            continue
+        rows = ov.get("bindings")
+        if isinstance(rows, Mapping):
+            role_ids.update(str(r) for r in rows if str(r) != WILDCARD_ROLE)
+    role_ids.update(str(r) for r in bindings if str(r) != WILDCARD_ROLE)
+    if not role_ids:
+        return job_overlay
+    expanded: dict[str, Any] = {}
+    for rid in sorted(role_ids):
+        row = effective_binding(bindings, rid)
+        if row is not None:
+            expanded[rid] = row
+    return {**dict(job_overlay), "bindings": expanded}
+
+
 def compute_suite_config_fields(
     per_task_actors: Sequence[Sequence[Mapping[str, str]] | list[dict[str, str]]],
     *,
@@ -327,16 +363,20 @@ def compute_suite_config_fields(
     """
     # --- Preferred path: suite-level job binding (#59) -----------------------
     if isinstance(job_overlay, Mapping) and isinstance(job_overlay.get("bindings"), Mapping):
-        actors = actors_summary_from_job_overlay(job_overlay)
         overlays = list(per_task_overlays or [])
+        # Fingerprint identity must not depend on wildcard-vs-explicit spelling:
+        # expand "*" onto the roles the tasks actually used before digesting.
+        effective = _expand_wildcard_overlay(job_overlay, overlays)
+        actors = actors_summary_from_job_overlay(effective)
         homogeneous = job_overlays_compatible(job_overlay, overlays)
         agent_label, model_label = derive_labels(actors) if homogeneous else ("", "")
         return {
-            "config_fingerprint": fingerprint_for_job_overlay(job_overlay),
+            "config_fingerprint": fingerprint_for_job_overlay(effective),
             "config_homogeneous": homogeneous,
             "actors_summary": actors,
             "agent_label": agent_label,
             "model_label": model_label,
+            # Stored overlay keeps the operator-authored shape (re-run fidelity).
             "job_overlay": dict(job_overlay),
         }
 

@@ -5,11 +5,24 @@ selected popular-bench **conversion** packages.
 
 ```text
 examples/
+├── agents/         # bora.agent/1 examples (mock-default / cc-default / pi-default)
+├── alfworld-mini/  # Database eval/alfworld-mini — ALFWorld-style text household eval
 ├── core/           # Database example/core — Core surface gates
 ├── journeys/       # Database example/journeys — case-class fidelity
 ├── l1/             # Database example/l1 — Provider L1
+├── scienceqa-mini/ # Database eval/scienceqa-mini — ScienceQA-style MCQ eval
 ├── slot-probe/     # multi-slot plugin e2e (install plugins first)
-└── tau3-airline/   # Database my-lab/tau3-airline — τ³-bench airline port
+├── tau3-airline/   # Database my-lab/tau3-airline — τ³-bench airline port
+└── webshop-mini/   # Database eval/webshop-mini — WebShop-style shopping eval (graded reward)
+```
+
+The three `*-mini` Databases are agent-eval suites: `profiles.yaml` binds the
+CI-safe `mock` executor so `bora lock` works offline; real evals swap the whole
+binding via the Agent lane (design/14), e.g.
+
+```bash
+uv run bora agent install examples/agents/cc-default
+uv run bora run examples/webshop-mini --agent local/cc-default@0.1.0   # needs host claude-code entry
 ```
 
 Each top-level directory is one Database (`bora.database/1`). Members live under

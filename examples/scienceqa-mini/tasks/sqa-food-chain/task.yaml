@@ -1,0 +1,36 @@
+format: bora.task/1
+task_id: sqa-food-chain
+harness:
+  runtime: python
+  entrypoint: harness:run
+parameters:
+  question: In a grassland food chain, which organism is a producer?
+  options:
+    A: Grass
+    B: Rabbit
+    C: Fox
+    D: Mushroom
+provider:
+  kind: local
+  assurance: l0
+agent_profiles:
+- id: solver
+limits:
+  wall_time_seconds: 300
+  agent_invocations: 2
+  environment_actions: 0
+artifacts:
+  publishable:
+  - id: answer
+    producer: harness
+    path: artifacts/answer.json
+    media_type: application/json
+evaluation:
+  runtime: python
+  entrypoint: evaluator:evaluate
+  network: none
+  inputs:
+  - artifact: answer
+    target: answer.json
+  output:
+    format: json

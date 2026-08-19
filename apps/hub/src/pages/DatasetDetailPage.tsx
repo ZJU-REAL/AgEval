@@ -145,6 +145,13 @@ export function DatasetDetailPage() {
             "not a database package (open Plugin marketplace instead)",
           );
         }
+        if (meta.package_kind === "agent" || selected.package_kind === "agent") {
+          throw new RegistryHttpError(
+            404,
+            "not_found",
+            "not a database package (open Agent hub instead)",
+          );
+        }
         const chosen = meta.package_digest ? meta : selected;
         setRelease(chosen);
         const files = await listPackageFiles(

@@ -297,11 +297,18 @@ def seal_invoke_result(
                 latency_ms=latency_ms,
             )
         else:
+            detail = None
+            res_meta = getattr(result, "metadata", None)
+            if isinstance(res_meta, dict):
+                raw_detail = res_meta.get("error_detail")
+                if isinstance(raw_detail, str) and raw_detail.strip():
+                    detail = raw_detail.strip()
             handle.seal(
                 status=status,
                 final_response=None,
                 error=result.error,
                 latency_ms=latency_ms,
+                error_detail=detail,
             )
     except RedactionError:
         return "redaction_failed"

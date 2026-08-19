@@ -121,9 +121,7 @@ def build_index_from_archive(archive: bytes, *, package_digest: str) -> PackageF
                     d_entry = FileEntry(path=d, type="dir", size=0)
                     by_path[d] = d_entry
                     entries.append(d_entry)
-    return PackageFileIndex(
-        package_digest=package_digest, entries=entries, _by_path=by_path
-    )
+    return PackageFileIndex(package_digest=package_digest, entries=entries, _by_path=by_path)
 
 
 def get_or_build_index(archive: bytes, *, package_digest: str) -> PackageFileIndex:

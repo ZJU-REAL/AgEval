@@ -14,6 +14,7 @@ from typing import Annotated
 import typer
 
 from bora.cli import (
+    cmd_agent,
     cmd_cache,
     cmd_campaign_run,
     cmd_cancel_submit,
@@ -64,6 +65,7 @@ cmd_evidence_status.register(app)
 cmd_cancel_submit.register(app)
 cmd_executors_publish_login.register(app)
 cmd_plugin.register(app)
+cmd_agent.register(app)
 cmd_registry.register(app)
 cmd_cache.register(app)
 cmd_results.register(app)

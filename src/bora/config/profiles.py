@@ -31,6 +31,8 @@ PROFILES_FILENAME = "profiles.yaml"
 PROFILES_FORMAT = "bora.profiles/1"
 
 # Fields that constitute job binding — forbidden on member task.yaml slots.
+# ``agent_ref`` is provenance injected by the --agent projection (design/14);
+# it rides job_overlay / lock but never suite fingerprint identity.
 BINDING_FIELD_KEYS = frozenset(
     {
         "executor",
@@ -41,8 +43,48 @@ BINDING_FIELD_KEYS = frozenset(
         "extensions",
         "label",
         "overlays",
+        "agent_ref",
     }
 )
+
+# Wildcard bindings key: default binding for any role id (design/14). An exact
+# role row overrides the wildcard **field-wise** (missing fields fall back to
+# the wildcard), so binding overrides can tweak one field of a wildcard-bound
+# agent; projection expands per real role.
+WILDCARD_ROLE = "*"
+
+
+def effective_binding(
+    bindings: Mapping[str, Mapping[str, Any]],
+    role_id: str,
+) -> dict[str, Any] | None:
+    """Resolve one role's binding with wildcard field-level fallback.
+
+    Exact row fields win; fields absent on the exact row fall back to the
+    wildcard row (top-level fields only — ``options``/``extensions`` are
+    replaced wholesale by an exact row that sets them). ``None`` when neither
+    row exists.
+    """
+    exact = bindings.get(role_id)
+    wild = bindings.get(WILDCARD_ROLE) if role_id != WILDCARD_ROLE else None
+    if not isinstance(exact, Mapping):
+        exact = None
+    if not isinstance(wild, Mapping):
+        wild = None
+    if exact is None and wild is None:
+        return None
+    out: dict[str, Any] = {}
+    for source in (wild, exact):
+        if source is None:
+            continue
+        for key, val in source.items():
+            out[key] = copy.deepcopy(val)
+    # Provenance never inherits: a role with its own row is not "produced by"
+    # the wildcard's agent unless the exact row says so itself.
+    if exact is not None and "agent_ref" not in exact:
+        out.pop("agent_ref", None)
+    return out
+
 
 # Allowlisted nested binding override leaves under /bindings/<role_id>/…
 _BINDING_OVERRIDE_LEAVES = frozenset(
@@ -189,7 +231,7 @@ def parse_profiles_mapping(
                 location=f"{location}:/bindings",
             )
         rid = role_id.strip()
-        if not _ROLE_ID_RE.fullmatch(rid):
+        if rid != WILDCARD_ROLE and not _ROLE_ID_RE.fullmatch(rid):
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
                 f"invalid binding role id: {rid!r}",
@@ -279,13 +321,13 @@ def merge_bindings_onto_slots(
                 location=f"{loc}/id",
             )
         role_id = pid.strip()
-        binding = bindings.get(role_id)
+        binding = effective_binding(bindings, role_id)
         if binding is None:
             raise ConfigError(
                 ERROR_MISSING_BINDING,
                 f"no job binding for role {role_id!r} "
                 f"(add bindings.{role_id} in Database {PROFILES_FILENAME} "
-                "or pass --profiles / binding overrides)",
+                "or pass --profiles / --agent / binding overrides)",
                 location=f"{loc}/id",
             )
         # Slot identity + non-binding fields, then binding fields on top.
@@ -558,11 +600,15 @@ def project_job_overlay(
     keys = role_ids if role_ids is not None else sorted(bindings.keys())
     out: dict[str, Any] = {}
     for rid in keys:
-        raw = bindings.get(rid)
+        if role_ids is not None:
+            # Wildcard expands (field-wise) onto the real role ids (design/14).
+            raw: Mapping[str, Any] | None = effective_binding(bindings, rid)
+        else:
+            raw = bindings.get(rid)
         if not isinstance(raw, Mapping):
             continue
         row: dict[str, Any] = {}
-        for k in ("executor", "model", "base_url", "api_key", "label"):
+        for k in ("executor", "model", "base_url", "api_key", "label", "agent_ref"):
             if k in raw and raw[k] is not None:
                 row[k] = raw[k]
         extensions = raw.get("extensions")

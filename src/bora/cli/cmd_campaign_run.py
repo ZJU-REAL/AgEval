@@ -8,6 +8,8 @@ from typing import Annotated
 
 import typer
 
+from bora.cli.cmd_agent import AGENT_OPTION_HELP, resolve_agent_option
+
 
 def register(app: typer.Typer) -> None:
     """Attach commands to the root Typer app."""
@@ -39,6 +41,10 @@ def register(app: typer.Typer) -> None:
                 help="Alternate profiles.yaml replacing Database-root job bindings.",
             ),
         ] = None,
+        agent: Annotated[
+            list[str] | None,
+            typer.Option("--agent", help=AGENT_OPTION_HELP),
+        ] = None,
     ) -> None:
         """Foreground serial campaign over a parameter matrix (v0.11)."""
         import asyncio
@@ -46,6 +52,7 @@ def register(app: typer.Typer) -> None:
         from bora.application.composition import build_campaign_runner
         from bora.config.errors import ConfigError
 
+        profiles = resolve_agent_option(agent, profiles)
         run_campaign = build_campaign_runner()
         try:
             summary = asyncio.run(
@@ -157,6 +164,10 @@ def register(app: typer.Typer) -> None:
                 help="Alternate profiles.yaml replacing Database-root job bindings.",
             ),
         ] = None,
+        agent: Annotated[
+            list[str] | None,
+            typer.Option("--agent", help=AGENT_OPTION_HELP),
+        ] = None,
         keep_workspace: Annotated[
             bool,
             typer.Option(
@@ -188,6 +199,7 @@ def register(app: typer.Typer) -> None:
             build_suite_runner,
         )
 
+        profiles = resolve_agent_option(agent, profiles)
         _suite = build_suite_runner()
         execute_suite_run = _suite.execute_suite_run
         plan_suite_run = _suite.plan_suite_run

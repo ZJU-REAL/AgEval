@@ -71,6 +71,14 @@ class AcpExecutorSPI(ExecutorSPI):
                 "XDG_STATE_HOME": f"{home_s}/.local/state",
                 "XDG_DATA_HOME": f"{home_s}/.local/share",
             }
+            # Engines hard-fail when a pointed-to dir is missing (codex exits 1
+            # on absent CODEX_HOME); the attempt home exists but subdirs don't.
+            import contextlib
+            from pathlib import Path
+
+            for sub in (".codex", ".config", ".cache", ".local/state", ".local/share"):
+                with contextlib.suppress(OSError):
+                    Path(home_s, sub).mkdir(parents=True, exist_ok=True)
         workdir = _kwargs.get("workdir")
         workdir_s = str(workdir).strip() if workdir else None
         self._inner = AcpExecutor(

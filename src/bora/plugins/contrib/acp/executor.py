@@ -139,6 +139,7 @@ class AcpExecutor(AgentExecutor):
         self._protocol_version: int | None = None
         self._actual_model: str | None = None
         self._actual_reasoning_effort: str | None = None
+        self._last_error_detail: str | None = None
         self._lock = threading.Lock()
         self._closed = False
         self._cm: Any = None  # async context manager for spawn
@@ -331,6 +332,22 @@ class AcpExecutor(AgentExecutor):
         )
         self._actual_reasoning_effort = desired
 
+    @staticmethod
+    def _exc_detail(exc: BaseException) -> str | None:
+        """Human-actionable detail from an ACP failure (RequestError.data first).
+
+        Adapters put the underlying cause in ``error.data.details`` (e.g. the
+        engine's stderr); losing it leaves operators with a bare error kind.
+        """
+        data = getattr(exc, "data", None)
+        if isinstance(data, dict):
+            for key in ("details", "detail", "message"):
+                val = data.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()[:300]
+        text = str(exc).strip()
+        return text[:300] if text else None
+
     async def _prompt_once(self, prompt: str) -> AgentResult:
         import acp
 
@@ -357,11 +374,17 @@ class AcpExecutor(AgentExecutor):
                 err = "acp_unexpected_eof"
             else:
                 err = "acp_protocol_error"
+            detail = self._exc_detail(exc)
+            if detail:
+                self._client.record(
+                    {"type": "lifecycle", "phase": "error", "reason": err, "detail": detail}
+                )
             return self._result(
                 text="".join(self._client.text_chunks),
                 ok=False,
                 error=err,
                 stop=None,
+                error_detail=detail,
             )
 
         # Token authority: PromptResponse.usage (may be absent on older agents).
@@ -400,9 +423,10 @@ class AcpExecutor(AgentExecutor):
         ok: bool,
         error: str | None,
         stop: Any,
+        error_detail: str | None = None,
     ) -> AgentResult:
         structured = parse_validated_text_structured(text) if ok else None
-        meta = {
+        meta: dict[str, Any] = {
             "executor_kind": "acp",
             "acp_entry_id": self.entry_id,
             "acp_version": self.descriptor.acp_version,
@@ -416,6 +440,8 @@ class AcpExecutor(AgentExecutor):
             "stop_reason": str(stop) if stop is not None else None,
             "integration_mode": self.descriptor.integration_mode,
         }
+        if error_detail:
+            meta["error_detail"] = error_detail
         vendor_events = tuple(self._client.events) if self._client else ()
         events = tuple(acp_session_events_to_bora(vendor_events))
         # Dual-source normalize: tokens from PromptResponse.usage; cost/context
@@ -456,8 +482,11 @@ class AcpExecutor(AgentExecutor):
         try:
             self._run(self._spawn_and_init(cwd=cwd), timeout=min(timeout, 120.0))
         except RuntimeError as exc:
+            # Bare kind raised by _spawn_and_init; no extra detail to carry.
+            self._last_error_detail = None
             return str(exc) or "acp_protocol_error"
         except Exception as exc:  # noqa: BLE001
+            self._last_error_detail = self._exc_detail(exc)
             msg = str(exc).lower()
             if "auth" in msg:
                 return "acp_auth_required"
@@ -481,25 +510,29 @@ class AcpExecutor(AgentExecutor):
 
         err = self._ensure_session(workdir=workdir, timeout=timeout)
         if err is not None:
+            detail = self._last_error_detail
+            event: dict[str, Any] = {
+                "type": "lifecycle",
+                "phase": "failed",
+                "reason": err,
+                "source": "acp_adapter",
+            }
+            meta: dict[str, Any] = {
+                "executor_kind": "acp",
+                "acp_entry_id": self.entry_id,
+                "descriptor_digest": self.descriptor.descriptor_digest,
+            }
+            if detail:
+                event["detail"] = detail
+                meta["error_detail"] = detail
             return AgentResult(
                 model=self.model,
                 text="",
                 structured=None,
                 ok=False,
                 error=err,
-                events=(
-                    {
-                        "type": "lifecycle",
-                        "phase": "failed",
-                        "reason": err,
-                        "source": "acp_adapter",
-                    },
-                ),
-                metadata={
-                    "executor_kind": "acp",
-                    "acp_entry_id": self.entry_id,
-                    "descriptor_digest": self.descriptor.descriptor_digest,
-                },
+                events=(event,),
+                metadata=meta,
             )
 
         started = time.monotonic()

@@ -1,0 +1,7 @@
+# Default job binding so `bora lock` works offline. Real evals bind a real
+# agent instead: `bora run <db> --agent <id>@<version>` (design/14).
+format: bora.profiles/1
+bindings:
+  solver:
+    executor: mock
+    model: none

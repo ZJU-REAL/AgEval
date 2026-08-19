@@ -1,0 +1,12 @@
+format: bora.agent/1
+agent_id: pi-default
+version: "0.1.0"
+label: "Pi (entry default)"
+description: "Pi coding agent via ACP with the entry's default model. Needs a provider API key."
+tags: [coding, acp, eval]
+binding:
+  executor: acp
+  model: entry-default
+  extensions:
+    - plugin: acp
+      options: { entry: pi }

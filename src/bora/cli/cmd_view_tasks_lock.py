@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from bora.application.composition import build_lock_command
+from bora.cli.cmd_agent import AGENT_OPTION_HELP
 from bora.config.errors import ConfigError
 
 
@@ -150,6 +151,10 @@ def register(app: typer.Typer) -> None:
                 ),
             ),
         ] = None,
+        agent: Annotated[
+            list[str] | None,
+            typer.Option("--agent", help=AGENT_OPTION_HELP),
+        ] = None,
         probe: Annotated[
             bool,
             typer.Option(
@@ -169,7 +174,9 @@ def register(app: typer.Typer) -> None:
                 err=True,
             )
             raise typer.Exit(code=2)
+        from bora.cli.cmd_agent import resolve_agent_option
 
+        profiles = resolve_agent_option(agent, profiles)
         try:
             if probe:
                 from bora.application.composition import build_probe_command
