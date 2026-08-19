@@ -1,6 +1,0 @@
-format: ageval.dataset/1
-dataset_id: example/slot-probe
-version: "0.1.0"
-description: "Multi-slot extension SPI regression (#71): L0 env+agent and L1 ACP."
-tasks:
-  root: tasks

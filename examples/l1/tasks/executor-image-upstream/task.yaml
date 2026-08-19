@@ -1,33 +1,17 @@
 format: ageval.task/1
 task_id: executor-image-upstream
-harness:
-  runtime: python
-  entrypoint: harness:run
 parameters:
   harness_timeout_seconds: 300
-provider:
-  kind: docker
-  assurance: l1
-  platform: linux/arm64
-  network: bridge
 agent_profiles:
 - id: pi-solver
 limits:
   wall_time_seconds: 300
   agent_invocations: 1
-  environment_actions: 0
 artifacts:
   publishable:
   - id: agent-output
-    producer: harness
     path: artifacts/agent-output.json
-    media_type: application/json
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
   - artifact: agent-output
     target: artifacts/agent-output.json
-  output:
-    format: json

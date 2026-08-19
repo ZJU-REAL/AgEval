@@ -1,6 +1,0 @@
-format: ageval.dataset/1
-dataset_id: eval/webshop-mini
-version: 0.1.0
-description: WebShop-style simulated shopping mini suite (graded reward)
-tasks:
-  root: tasks

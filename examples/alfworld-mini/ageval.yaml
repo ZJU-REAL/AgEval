@@ -1,6 +1,0 @@
-format: ageval.dataset/1
-dataset_id: eval/alfworld-mini
-version: 0.1.0
-description: ALFWorld-style text household mini suite
-tasks:
-  root: tasks

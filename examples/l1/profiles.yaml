@@ -1,38 +1,45 @@
+# The l1 journeys run in containers: these tasks are about isolation.
 format: ageval.profiles/1
-bindings:
+environment: docker
+agent_profiles:
   solver:
     executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: codex
+    - plugin: acp
+    - plugin: docker
     model: gpt-5.4-mini
+    options:
+      entry: codex
   pi-solver:
     executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: pi
+    - plugin: acp
+    - plugin: docker
     model: zai-coding-cn/glm-5.2
     api_key: ${glm_coding_api_key}
+    options:
+      entry: pi
   planner:
     executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: codex
+    - plugin: acp
+    - plugin: docker
     model: gpt-5.4-mini
+    options:
+      entry: codex
   reviewer:
     executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: codex
+    - plugin: acp
+    - plugin: docker
     model: gpt-5.4-mini
+    options:
+      entry: codex
   worker:
     executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: codex
+    - plugin: acp
+    - plugin: docker
     model: gpt-5.4-mini
+    options:
+      entry: codex

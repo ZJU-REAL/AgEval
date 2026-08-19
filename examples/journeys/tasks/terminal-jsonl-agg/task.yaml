@@ -12,9 +12,6 @@ provenance:
     known_gaps:
     - single synthetic jsonl-agg task; not Terminal-Bench task suite
     - no TerminalBenchAdapter; ageval Core surfaces only
-harness:
-  runtime: python
-  entrypoint: harness:run
 parameters:
   workspace_output: aggregates.json
   harness_timeout_seconds: 420
@@ -22,29 +19,16 @@ parameters:
   active_profile: solver
   models:
     default: solver
-provider:
-  kind: docker
-  assurance: l1
-  platform: linux/arm64
-  network: bridge
 agent_profiles:
 - id: solver
 limits:
   wall_time_seconds: 720
   agent_invocations: 1
-  environment_actions: 0
 artifacts:
   publishable:
   - id: aggregates
-    producer: harness
     path: artifacts/aggregates.json
-    media_type: application/json
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
   - artifact: aggregates
     target: artifacts/aggregates.json
-  output:
-    format: json
