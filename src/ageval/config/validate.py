@@ -270,22 +270,22 @@ def _validate_routing(profile: dict[str, Any], *, loc: str) -> None:
 
 
 def _validate_parameter_model_refs(parameters: dict[str, Any], profile_ids: set[str]) -> None:
-    models = parameters.get("models")
-    if not isinstance(models, dict):
+    """``parameters.active_profile`` must name a role slot the task declared."""
+    active = parameters.get("active_profile")
+    if active is None:
         return
-    for key, ref in models.items():
-        if not isinstance(ref, str):
-            raise ConfigError(
-                ERROR_INVALID_SCHEMA,
-                "parameters.models values must be profile id strings",
-                location=f"/parameters/models/{key}",
-            )
-        if ref not in profile_ids:
-            raise ConfigError(
-                ERROR_UNKNOWN_PROFILE,
-                f"unknown agent profile reference: {ref}",
-                location=f"/parameters/models/{key}",
-            )
+    if not isinstance(active, str) or not active.strip():
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "parameters.active_profile must be a role slot id",
+            location="/parameters/active_profile",
+        )
+    if active.strip() not in profile_ids:
+        raise ConfigError(
+            ERROR_UNKNOWN_PROFILE,
+            f"unknown agent profile reference: {active.strip()}",
+            location="/parameters/active_profile",
+        )
 
 
 def _validate_requires(requires: Any) -> None:

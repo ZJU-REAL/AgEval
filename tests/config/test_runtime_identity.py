@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from ageval.config.runtime_identity import (
-    profile_options,
     agent_display_name,
     agent_fingerprint,
+    profile_options,
     project_agent_identity,
     resolve_agent_id,
 )

@@ -7,9 +7,8 @@ from typing import Any
 
 import pytest
 import yaml
+from tests.helpers.lock import lock_with_profiles
 
-from ageval.config.package_fs import LocalPackageReader
-from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
@@ -18,6 +17,7 @@ from ageval.config.overlay_files import (
     overlay_secret_hits,
     parse_overlay_paths,
 )
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.profiles import load_job_document
 
 
@@ -76,11 +76,10 @@ def _write_dataset(
 
 def _lock(db: Path, bindings: dict[str, dict[str, Any]]):
     core = ConfigCore(package_reader=LocalPackageReader())
-    return core.load_and_lock(
+    return lock_with_profiles(
         db / "tasks" / "t",
         "t",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=bindings,
+        bindings,
     )
 
 
@@ -269,11 +268,10 @@ def test_standalone_task_cannot_declare_overlays(tmp_path: Path) -> None:
     )
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "t",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "solver": {
                     "executor": "mock",
                     "model": "none",

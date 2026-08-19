@@ -7,21 +7,31 @@ must never include host secrets or raw stack traces on the public path.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
-
-@dataclass(frozen=True, slots=True)
 class ConfigError(Exception):
-    """Fail-closed Config error with a stable operator-facing code."""
+    """Fail-closed Config error with a stable operator-facing code.
 
-    error_code: str
-    message: str
-    location: str | None = None
+    A plain exception on purpose: a frozen dataclass cannot carry the traceback
+    Python assigns while an exception travels, which turns any raise through a
+    context manager into an unrelated TypeError.
+    """
+
+    def __init__(self, error_code: str, message: str, location: str | None = None) -> None:
+        super().__init__(error_code, message, location)
+        self.error_code = error_code
+        self.message = message
+        self.location = location
 
     def __str__(self) -> str:
         if self.location:
             return f"{self.error_code}: {self.message} ({self.location})"
         return f"{self.error_code}: {self.message}"
+
+    def __repr__(self) -> str:
+        return (
+            f"ConfigError(error_code={self.error_code!r}, message={self.message!r}, "
+            f"location={self.location!r})"
+        )
 
 
 # Stable codes required by Spec 00 / Roadmap v0.1.

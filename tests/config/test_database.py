@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.dataset import (
     list_tasks,
@@ -17,6 +16,7 @@ from ageval.config.dataset import (
 )
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
+from ageval.config.package_fs import LocalPackageReader
 
 REPO = Path(__file__).resolve().parents[2]
 CORE_DB = REPO / "examples" / "core"

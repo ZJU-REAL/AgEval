@@ -10,7 +10,6 @@ absolute paths (via ``extract_run_id``-style parsing).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 
 def default_runs_root(dataset_root: Path | str) -> Path:

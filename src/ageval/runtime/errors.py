@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
-
-@dataclass(frozen=True, slots=True)
 class LifecycleError(Exception):
-    """Stable lifecycle failure with an operator-facing code."""
+    """Stable lifecycle failure with an operator-facing code.
 
-    error_code: str
-    message: str
+    Plain exception, not a frozen dataclass: an exception must be able to carry
+    the traceback Python assigns to it while it travels.
+    """
+
+    def __init__(self, error_code: str, message: str) -> None:
+        super().__init__(error_code, message)
+        self.error_code = error_code
+        self.message = message
 
     def __str__(self) -> str:
         return f"{self.error_code}: {self.message}"

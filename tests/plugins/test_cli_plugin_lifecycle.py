@@ -153,6 +153,7 @@ def test_materialize_docs(ageval_home: Path, tmp_path: Path) -> None:
 
 def test_recognition_discovers_sample_echo(ageval_home: Path) -> None:
     from ageval.adapters.agent_registry import discover_executor_kinds
+
     from ageval.plugins import bootstrap as boot
     from ageval.plugins.registry import reset_global_registry
     from ageval.plugins.store import install_from_path

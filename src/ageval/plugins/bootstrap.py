@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from ageval.plugins.contrib.acp import register_acp_contrib
 from ageval.plugins.contrib.local import register_local_contrib
+from ageval.plugins.contrib.openai_http import register_openai_http_contrib
 from ageval.plugins.defaults import register_defaults
 from ageval.plugins.registry import ExtensionRegistry, get_global_registry, reset_global_registry
 
@@ -32,6 +33,7 @@ def bootstrap_registry(
     register_defaults(reg)
     register_local_contrib(reg)
     register_acp_contrib(reg)
+    register_openai_http_contrib(reg)
 
     from ageval.plugins.load_installed import load_installed_plugins
 

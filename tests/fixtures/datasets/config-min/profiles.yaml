@@ -1,0 +1,11 @@
+format: ageval.profiles/1
+environment: local
+agent_profiles:
+  solver:
+    executor: acp
+    model: entry-default
+    options:
+      entry: codex
+    extensions:
+      - plugin: acp
+      - plugin: local

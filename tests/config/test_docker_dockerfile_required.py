@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from tests.helpers.lock import lock_with_profiles
 
-from ageval.config.package_fs import LocalPackageReader
-from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ERROR_MISSING_REFERENCE, ConfigError
 from ageval.config.load_and_lock import ConfigCore
+from ageval.config.package_fs import LocalPackageReader
 
 
 def _write_minimal_docker_pkg(root: Path, *, with_dockerfile: bool) -> None:
@@ -73,11 +73,10 @@ def test_docker_missing_dockerfile_fails(tmp_path: Path) -> None:
     _write_minimal_docker_pkg(pkg, with_dockerfile=False)
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "docker-df-probe",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings=_P1_BINDINGS,
+            _P1_BINDINGS,
         )
     assert ei.value.error_code == ERROR_MISSING_REFERENCE
     assert "Dockerfile" in str(ei.value)
@@ -87,10 +86,9 @@ def test_docker_with_environment_dockerfile_locks(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     _write_minimal_docker_pkg(pkg, with_dockerfile=True)
     core = ConfigCore(package_reader=LocalPackageReader())
-    lock = core.load_and_lock(
+    lock = lock_with_profiles(
         pkg,
         "docker-df-probe",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=_P1_BINDINGS,
+        _P1_BINDINGS,
     )
     assert lock.task_id == "docker-df-probe"

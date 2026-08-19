@@ -7,13 +7,13 @@ from typing import Any
 
 import pytest
 import yaml
+from tests.helpers.lock import lock_with_profiles
 
-from ageval.config.package_fs import LocalPackageReader
 from ageval.agents import store
-from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
+from ageval.config.package_fs import LocalPackageReader
 
 
 @pytest.fixture(autouse=True)
@@ -104,11 +104,10 @@ def _make_agent(
 
 def _lock(db: Path, bindings: dict[str, dict[str, Any]]):
     core = ConfigCore(package_reader=LocalPackageReader())
-    return core.load_and_lock(
+    return lock_with_profiles(
         db / "tasks" / "t",
         "t",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=bindings,
+        bindings,
     )
 
 

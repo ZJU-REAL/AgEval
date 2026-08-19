@@ -6,13 +6,14 @@ import textwrap
 from pathlib import Path
 
 import pytest
+from tests.helpers.lock import lock_with_profiles
 
-from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.dataset import load_dataset_manifest
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.provenance import merge_provenance, validate_provenance
 
 REPO = Path(__file__).resolve().parents[2]
@@ -100,20 +101,18 @@ def test_lock_includes_task_provenance(
         """
     )
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
         "config-minimal",
-        capabilities=catalog,
-        profile_bindings=MOCK_BINDINGS,
+        MOCK_BINDINGS,
     )
     assert thaw(locked.provenance) == {"kind": "original"}
     assert "provenance" in locked.canonical_payload()
     # Digest changes vs no-provenance baseline from examples/core
-    base = core.load_and_lock(
+    base = lock_with_profiles(
         MINIMAL,
         "config-minimal",
-        capabilities=catalog,
-        profile_bindings=MOCK_BINDINGS,
+        MOCK_BINDINGS,
     )
     assert locked.digest != base.digest
 
@@ -122,11 +121,10 @@ def test_dataset_default_applied(
     core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
 ) -> None:
     pkg = _write_task_pkg(tmp_path, yaml_text=_minimal_task_yaml())
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
         "config-minimal",
-        capabilities=catalog,
-        profile_bindings=MOCK_BINDINGS,
+        MOCK_BINDINGS,
         dataset_provenance={
             "kind": "wrapper",
             "upstream": {
@@ -152,11 +150,10 @@ def test_task_provenance_overrides_dataset(
         """
     )
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
         "config-minimal",
-        capabilities=catalog,
-        profile_bindings=MOCK_BINDINGS,
+        MOCK_BINDINGS,
         dataset_provenance={
             "kind": "port",
             "upstream": {
@@ -181,11 +178,10 @@ def test_invalid_port_fails_lock(
     )
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
     with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "config-minimal",
-            capabilities=catalog,
-            profile_bindings=MOCK_BINDINGS,
+            MOCK_BINDINGS,
         )
     assert ei.value.error_code == "invalid_schema"
 

@@ -26,11 +26,14 @@ def test_registry_loads_five_entries() -> None:
         assert desc.descriptor_digest.startswith("sha256:")
         assert desc.acp_command
         assert "latest" not in " ".join(desc.acp_command)
-    assert entries["codex"].keyless_auth is True
-    assert entries["claude-code"].keyless_auth is True
-    assert entries["opencode"].keyless_auth is True
-    assert entries["pi"].keyless_auth is False
-    assert entries["grok-build"].keyless_auth is False
+    # Every official entry can authenticate from a file it declares, and every
+    # declared path stays under HOME.
+    for desc in entries.values():
+        assert desc.keyless_auth is True
+        assert desc.keyless_auth_paths
+        for rel in (*desc.home_dirs, *desc.keyless_auth_paths):
+            assert not rel.startswith("/")
+            assert ".." not in rel
 
 
 def test_unknown_entry() -> None:

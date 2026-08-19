@@ -11,17 +11,17 @@ PLUGIN_ID = "openai-http"
 PRIORITY = 120
 
 
-def _factory(
+def build_openai_http_executor(
     *,
     options: dict[str, Any] | None = None,
     profile_id: str | None = None,
     model: str | None = None,
     base_url: str | None = None,
     api_key: str | None = None,
-    plugin_id: str | None = None,
     **_kwargs: Any,
 ) -> Any:
-    del options, profile_id, plugin_id
+    """Bind the ``executor`` slot for a plain HTTP API backend (no box needed)."""
+    del options, profile_id
     from ageval.plugins.contrib.openai_http.executor import OpenAIHTTPExecutor
 
     return OpenAIHTTPExecutor(model=model or "gpt-4.1-mini", base_url=base_url, api_key_env=api_key)
@@ -31,17 +31,8 @@ def register_openai_http_contrib(registry: ExtensionRegistry) -> None:
     registry.exclusive(
         EXECUTOR,
         PLUGIN_ID,
-        _factory,
+        build_openai_http_executor,
         priority=PRIORITY,
-        source="first-party",
-        is_factory=True,
-    )
-    # Alias used by older profiles/tests.
-    registry.exclusive(
-        EXECUTOR,
-        "openai",
-        _factory,
-        priority=PRIORITY + 1,
         source="first-party",
         is_factory=True,
     )

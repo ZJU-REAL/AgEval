@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 import yaml
+from tests.helpers.lock import lock_with_profiles
 
-from ageval.config.package_fs import LocalPackageReader
-from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
 from ageval.config.model import thaw
+from ageval.config.package_fs import LocalPackageReader
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -49,11 +49,10 @@ def _write_pkg(tmp: Path, *, slot_id: str = "glm") -> Path:
 def test_accepts_base_url_and_api_key_locator(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path, slot_id="glm")
     core = ConfigCore(package_reader=LocalPackageReader())
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
         "profile-upstream",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings={
+        {
             "glm": {
                 "executor": "openai-http",
                 "model": "glm-4.7",
@@ -71,11 +70,10 @@ def test_rejects_secret_like_api_key(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path, slot_id="bad")
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "profile-upstream",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "bad": {
                     "executor": "openai-http",
                     "model": "glm-4.7",
@@ -90,11 +88,10 @@ def test_rejects_non_url_base(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path, slot_id="bad")
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError):
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "profile-upstream",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "bad": {
                     "executor": "openai-http",
                     "model": "glm-4.7",
@@ -108,11 +105,10 @@ def test_expands_base_url_env_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("TEST_LITELLM_BASE", "http://127.0.0.1:8010/v1")
     pkg = _write_pkg(tmp_path, slot_id="glm")
     core = ConfigCore(package_reader=LocalPackageReader())
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
         "profile-upstream",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings={
+        {
             "glm": {
                 "executor": "openai-http",
                 "model": "glm-4.7",
@@ -130,11 +126,10 @@ def test_rejects_bare_api_key_locator(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path, slot_id="glm")
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError, match=r"\$\{ENV_NAME\}"):
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "profile-upstream",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "glm": {
                     "executor": "openai-http",
                     "model": "glm-4.7",
@@ -149,11 +144,10 @@ def test_rejects_unset_base_url_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     pkg = _write_pkg(tmp_path, slot_id="glm")
     core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError, match="unset"):
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "profile-upstream",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "glm": {
                     "executor": "openai-http",
                     "model": "glm-4.7",

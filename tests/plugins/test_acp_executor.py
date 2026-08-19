@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from ageval.environments.protocol import Placement
 from ageval.plugins.agent_result import (
     RESULT_HEALTH_NOOP_TURN,
     observational_result_health,
@@ -18,6 +19,22 @@ from ageval.plugins.contrib.acp.executor import (
     _find_reasoning_config_option,
     _select_option_values,
 )
+from ageval.plugins.contrib.local.host import LocalHost
+
+BOX_HOME = "/attempt/home"
+
+
+def _executor(**kwargs: object) -> AcpExecutor:
+    """An executor bound to a local box that was never started.
+
+    These cases exercise binding and env projection, which happen before any
+    process is attached.
+    """
+    return AcpExecutor(
+        host=LocalHost(attempt_root="/nowhere"),
+        placement=Placement(target_id="unstarted", home=BOX_HOME),
+        **kwargs,  # type: ignore[arg-type]
+    )
 
 
 def test_validated_text_structured_policy() -> None:
@@ -31,7 +48,7 @@ def test_validated_text_structured_policy() -> None:
 def test_offline_forced() -> None:
     os.environ["AGEVAL_OFFLINE_AGENT"] = "1"
     try:
-        ex = AcpExecutor(entry_id="opencode", model="entry-default")
+        ex = _executor(entry_id="opencode", model="entry-default")
         r = ex.invoke("hi", timeout=5)
         assert r.ok is False
         assert r.error == "offline_forced"
@@ -41,27 +58,21 @@ def test_offline_forced() -> None:
         os.environ.pop("AGEVAL_OFFLINE_AGENT", None)
 
 
-def test_ensure_session_requires_workdir() -> None:
-    os.environ.pop("AGEVAL_OFFLINE_AGENT", None)
-    ex = AcpExecutor(entry_id="opencode", model="entry-default")
-    err = ex._ensure_session(workdir=None, timeout=1.0)
-    assert err == "acp_workdir_required"
-
-
-def test_child_env_is_allowlist_not_parent_copy(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_child_env_takes_credentials_from_the_host_and_paths_from_the_box(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
-    monkeypatch.setenv("PATH", "/bin")
     monkeypatch.setenv("HOME", "/home/u")
-    monkeypatch.setenv("LANG", "C")
     monkeypatch.setenv("ZAI_API_KEY", "k-pi")
     monkeypatch.setenv("UNRELATED_SECRET", "nope")
     monkeypatch.setenv("CLOUD_TOKEN", "leak")
-    ex = AcpExecutor(entry_id="pi", model="entry-default")
-    env = ex._child_env()
-    assert env["HOME"] == "/home/u"
-    assert env["PATH"] == "/bin"
+    env = _executor(entry_id="pi", model="entry-default")._child_env()
+
     assert env["ZAI_API_KEY"] == "k-pi"
-    assert env.get("NO_BROWSER") == "1"
+    assert env["NO_BROWSER"] == "1"
+    assert env["HOME"].endswith("/home"), "the attempt HOME, never the operator's"
+    assert env["HOME"] != "/home/u"
+    assert "PATH" not in env, "the box publishes its own PATH"
     assert "UNRELATED_SECRET" not in env
     assert "CLOUD_TOKEN" not in env
 
@@ -81,7 +92,7 @@ def test_child_env_projects_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("MY_LOCATOR", "secret-glm")
-    ex = AcpExecutor(
+    ex = _executor(
         entry_id="pi",
         model="entry-default",
         api_key_env="MY_LOCATOR",
@@ -108,26 +119,6 @@ def _clear_acp_cred_env(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(name, raising=False)
 
 
-def test_ensure_session_fail_closed_when_required_key_missing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
-    _clear_acp_cred_env(monkeypatch)
-    ex = AcpExecutor(entry_id="pi", model="entry-default")
-    err = ex._ensure_session(workdir="/tmp", timeout=1.0)
-    assert err == "credential_missing"
-
-
-def test_ensure_session_warns_only_for_keyless_entry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
-    _clear_acp_cred_env(monkeypatch)
-    ex = AcpExecutor(entry_id="codex", model="entry-default")
-    err = ex._ensure_session(workdir="/tmp", timeout=1.0)
-    assert err != "credential_missing"
-
-
 def test_result_health_noop_turn() -> None:
     assert (
         observational_result_health(ok=True, usage=None, actual_model=None, events=())
@@ -149,7 +140,7 @@ def test_result_health_noop_turn() -> None:
         )
         is None
     )
-    ex = AcpExecutor(entry_id="pi", model="entry-default")
+    ex = _executor(entry_id="pi", model="entry-default")
     ex._actual_model = None
     result = ex._result(text="pi v0.83.0 banner", ok=True, error=None, stop="end_turn")
     assert result.ok is True
@@ -159,44 +150,9 @@ def test_result_health_noop_turn() -> None:
     assert result.metadata["actual_model"] is None
 
 
-def test_command_override_child_env_keeps_docker_host(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
-    monkeypatch.setenv("PATH", "/bin")
-    monkeypatch.setenv("HOME", "/h")
-    monkeypatch.setenv("DOCKER_HOST", "unix:///run/user/1000/docker.sock")
-    monkeypatch.setenv("DOCKER_CONTEXT", "rootless")
-    monkeypatch.setenv("UNRELATED_SECRET", "nope")
-    host = AcpExecutor(entry_id="pi", model="entry-default")
-    assert "DOCKER_HOST" not in host._child_env()
-    ex = AcpExecutor(
-        entry_id="pi",
-        model="entry-default",
-        command_override=["docker", "exec", "c1", "pi-acp"],
-    )
-    env = ex._child_env()
-    assert env["DOCKER_HOST"] == "unix:///run/user/1000/docker.sock"
-    assert env["DOCKER_CONTEXT"] == "rootless"
-    assert "UNRELATED_SECRET" not in env
-
-
-def test_child_env_extra_home_overrides_host(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
-    monkeypatch.setenv("PATH", "/bin")
-    monkeypatch.setenv("HOME", "/host-home")
-    ex = AcpExecutor(
-        entry_id="pi",
-        model="entry-default",
-        env={"HOME": "/attempt/home"},
-    )
-    env = ex._child_env()
-    assert env["HOME"] == "/attempt/home"
-
-
 def test_unknown_entry_raises() -> None:
     try:
-        AcpExecutor(entry_id="not-an-entry", model="x")
+        _executor(entry_id="not-an-entry", model="x")
         raise AssertionError("expected KeyError")
     except KeyError:
         pass
@@ -341,7 +297,7 @@ def _thought_opt(
 
 
 def test_bind_reasoning_effort_after_model() -> None:
-    ex = AcpExecutor(entry_id="pi", model="m1", reasoning_effort="high")
+    ex = _executor(entry_id="pi", model="m1", reasoning_effort="high")
     conn = _FakeConn()
     ex._conn = conn
     ex._acp_session_id = "sess"
@@ -353,7 +309,7 @@ def test_bind_reasoning_effort_after_model() -> None:
 
 def test_bind_reasoning_uses_options_refreshed_after_model() -> None:
     after = [_model_opt("m1"), _thought_opt("off", "xhigh", current="off")]
-    ex = AcpExecutor(entry_id="pi", model="m1", reasoning_effort="high")
+    ex = _executor(entry_id="pi", model="m1", reasoning_effort="high")
     conn = _FakeConn(after_model=after)
     ex._conn = conn
     ex._acp_session_id = "sess"
@@ -363,7 +319,7 @@ def test_bind_reasoning_uses_options_refreshed_after_model() -> None:
 
 
 def test_bind_reasoning_skips_when_already_current() -> None:
-    ex = AcpExecutor(entry_id="pi", model="entry-default", reasoning_effort="high")
+    ex = _executor(entry_id="pi", model="entry-default", reasoning_effort="high")
     conn = _FakeConn()
     ex._conn = conn
     ex._acp_session_id = "sess"
@@ -378,7 +334,7 @@ def test_bind_reasoning_skips_when_already_current() -> None:
 
 
 def test_bind_reasoning_missing_option_fails() -> None:
-    ex = AcpExecutor(entry_id="pi", model="entry-default", reasoning_effort="high")
+    ex = _executor(entry_id="pi", model="entry-default", reasoning_effort="high")
     conn = _FakeConn()
     ex._conn = conn
     ex._acp_session_id = "sess"
@@ -387,7 +343,7 @@ def test_bind_reasoning_missing_option_fails() -> None:
 
 
 def test_bind_skips_reasoning_when_unset() -> None:
-    ex = AcpExecutor(entry_id="pi", model="entry-default")
+    ex = _executor(entry_id="pi", model="entry-default")
     conn = _FakeConn()
     ex._conn = conn
     ex._acp_session_id = "sess"
@@ -399,20 +355,6 @@ def test_bind_skips_reasoning_when_unset() -> None:
 async def _bind(ex: AcpExecutor, session: SimpleNamespace) -> None:
     latest = await ex._bind_model(session)
     await ex._bind_reasoning_effort(latest)
-
-
-def test_acp_plugin_forwards_reasoning_effort_to_executor_and_l1() -> None:
-    from ageval.plugins.contrib.acp import AcpExecutorSPI
-
-    spi = AcpExecutorSPI(
-        options={"entry": "pi", "reasoning_effort": "high"},
-        model="m",
-    )
-    assert spi._inner.reasoning_effort == "high"
-    bound = spi.bind_to_target(
-        SimpleNamespace(container_id="c", uid=1, gid=1, workdir="/w", home="/h")
-    )
-    assert bound._inner.reasoning_effort == "high"
 
 
 def test_grok_build_argv_inserts_model_and_effort() -> None:
@@ -436,38 +378,6 @@ def test_grok_build_argv_inserts_model_and_effort() -> None:
         model="grok-4.5",
         reasoning_effort="low",
     ) == ["pi-acp"]
-
-
-def test_grok_build_host_and_l1_share_rewritten_argv() -> None:
-    from ageval.plugins.contrib.acp import AcpExecutorSPI
-
-    ex = AcpExecutor(entry_id="grok-build", model="grok-4.5", reasoning_effort="low")
-    assert ex.host_stdio_argv() == [
-        "grok",
-        "agent",
-        "--model",
-        "grok-4.5",
-        "--reasoning-effort",
-        "low",
-        "stdio",
-    ]
-    spi = AcpExecutorSPI(
-        options={"entry": "grok-build", "reasoning_effort": "low"},
-        model="grok-4.5",
-    )
-    bound = spi.bind_to_target(
-        SimpleNamespace(container_id="c", uid=1, gid=1, workdir="/w", home="/h")
-    )
-    override = list(bound._inner._command_override or [])
-    assert override[-7:] == [
-        "grok",
-        "agent",
-        "--model",
-        "grok-4.5",
-        "--reasoning-effort",
-        "low",
-        "stdio",
-    ]
 
 
 def _grok_init(*, current: str = "grok-4.6") -> dict[str, object]:
@@ -524,7 +434,7 @@ def _grok_session(*, model: str = "grok-4.6", effort: str = "xhigh") -> SimpleNa
 
 
 def test_grok_build_records_actuals_from_meta_and_skips_set_config() -> None:
-    ex = AcpExecutor(entry_id="grok-build", model="grok-4.5", reasoning_effort="low")
+    ex = _executor(entry_id="grok-build", model="grok-4.5", reasoning_effort="low")
     conn = _FakeConn()
     ex._conn = conn
     ex._acp_session_id = "sess"
@@ -539,20 +449,20 @@ def test_grok_build_records_actuals_from_meta_and_skips_set_config() -> None:
 
 
 def test_grok_build_unset_effort_records_default_and_does_not_fail() -> None:
-    ex = AcpExecutor(entry_id="grok-build", model="entry-default")
+    ex = _executor(entry_id="grok-build", model="entry-default")
     asyncio.run(ex._bind_entry(_grok_init(), _grok_session()))
     assert ex._actual_model == "grok-4.6"
     assert ex._actual_reasoning_effort == "xhigh"
 
 
 def test_grok_build_unknown_model_fails_closed() -> None:
-    ex = AcpExecutor(entry_id="grok-build", model="not-a-model")
+    ex = _executor(entry_id="grok-build", model="not-a-model")
     with pytest.raises(RuntimeError, match="acp_model_unavailable"):
         asyncio.run(ex._bind_entry(_grok_init(), _grok_session()))
 
 
 def test_grok_build_unknown_effort_fails_closed() -> None:
-    ex = AcpExecutor(entry_id="grok-build", model="grok-4.5", reasoning_effort="xhigh")
+    ex = _executor(entry_id="grok-build", model="grok-4.5", reasoning_effort="xhigh")
     with pytest.raises(RuntimeError, match="acp_reasoning_effort_unavailable"):
         asyncio.run(
             ex._bind_entry(
@@ -562,7 +472,7 @@ def test_grok_build_unknown_effort_fails_closed() -> None:
 
 
 def test_grok_build_effort_on_model_without_selector_fails() -> None:
-    ex = AcpExecutor(entry_id="grok-build", model="glm-coding", reasoning_effort="low")
+    ex = _executor(entry_id="grok-build", model="glm-coding", reasoning_effort="low")
     with pytest.raises(RuntimeError, match="acp_reasoning_effort_unavailable"):
         asyncio.run(
             ex._bind_entry(

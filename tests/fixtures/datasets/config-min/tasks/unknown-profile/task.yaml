@@ -1,0 +1,9 @@
+format: ageval.task/1
+task_id: unknown-profile
+description: parameters.active_profile names a role the task never declared.
+parameters:
+  active_profile: does-not-exist
+agent_profiles:
+  - id: solver
+limits:
+  wall_time_seconds: 60

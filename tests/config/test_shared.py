@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from ageval.config.package_fs import LocalPackageReader
 from ageval.config.capabilities import DeclarationCapabilityCatalog
 from ageval.config.errors import ConfigError
 from ageval.config.load_and_lock import ConfigCore
+from ageval.config.package_fs import LocalPackageReader
 from ageval.config.shared import (
     find_lib_collisions,
     find_task_shared_shadows,
