@@ -15,7 +15,7 @@ from services.registry.store import TokenInfo
 
 from ageval.agents.refs import published_agent_ref_parts
 from ageval.config.runtime_identity import (
-    harness_display_name,
+    agent_display_name,
     resolve_agent_id,
 )
 
@@ -160,7 +160,7 @@ def _appearances_from_suite(
                 "role": role_id,
                 "executor": str(raw.get("executor") or "").strip(),
                 "entry": resolve_agent_id(raw),
-                "display_name": harness_display_name(raw),
+                "display_name": agent_display_name(raw),
             }
         )
         parts = published_agent_ref_parts(raw.get("agent_ref"))
