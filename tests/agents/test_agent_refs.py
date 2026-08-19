@@ -55,6 +55,28 @@ def test_file_ref_resolves_agent_yaml(tmp_path: Path) -> None:
     assert root == pkg.resolve()
 
 
+def test_file_ref_yaml_with_overlays_shares_package_root(tmp_path: Path) -> None:
+    from bora.agents.manifest import load_agent_manifest
+
+    pkg = _make_pkg(tmp_path)
+    yaml_path = pkg / "agent.yaml"
+    yaml_path.write_text(
+        "format: bora.agent/1\nagent_id: mock-default\nversion: '0.1.0'\n"
+        "binding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/skills/demo]\n",
+        encoding="utf-8",
+    )
+    skill = pkg / "overlays" / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("# demo\n", encoding="utf-8")
+    manifest = load_agent_manifest(yaml_path)
+    assert manifest.root is None
+    assert manifest.binding["overlays"] == ["overlays/skills/demo"]
+    root = package_root_from_agent_ref(f"file:{yaml_path}@dev")
+    assert root == pkg.resolve()
+    assert (root / "overlays" / "skills" / "demo" / "SKILL.md").is_file()
+
+
 def test_cache_ref_resolves_installed(tmp_path: Path) -> None:
     pkg = _make_pkg(tmp_path)
     entry = store.install_from_path(pkg, agent_id="official/mock-default")

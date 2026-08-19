@@ -115,6 +115,21 @@ def test_listed_overlay_files_are_accepted(tmp_path: Path) -> None:
     skill.write_text("# demo\n", encoding="utf-8")
     m = load_agent_manifest(pkg)
     assert m.binding["overlays"] == ["overlays/skills/demo"]
+    m_yaml = load_agent_manifest(pkg / AGENT_FILENAME)
+    assert m_yaml.root is None
+    assert m_yaml.binding["overlays"] == ["overlays/skills/demo"]
+
+
+def test_listed_overlay_missing_from_bare_yaml_fails_closed(tmp_path: Path) -> None:
+    pkg = _write_pkg(
+        tmp_path / "missing-overlay-yaml",
+        "format: bora.agent/1\nagent_id: missing\nversion: '1.0'\n"
+        "binding:\n  executor: mock\n  model: none\n"
+        "  overlays: [overlays/skills/demo]\n",
+    )
+    with pytest.raises(ConfigError) as ei:
+        load_agent_manifest(pkg / AGENT_FILENAME)
+    assert ei.value.error_code == "missing_reference"
 
 
 def test_secret_in_overlay_file_fails_closed(tmp_path: Path) -> None:

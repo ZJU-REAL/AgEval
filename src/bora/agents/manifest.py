@@ -216,14 +216,9 @@ def load_agent_manifest(path: Path) -> AgentManifest:
         location=f"{yaml_path}:/binding/overlays",
     )
     if listed:
-        if root is None:
-            raise ConfigError(
-                ERROR_INVALID_PACKAGE,
-                "listed overlays require an agent package directory",
-                location=f"{yaml_path}:/binding/overlays",
-            )
+        # Direct agent.yaml: listed overlays resolve from the sibling package dir.
         assert_overlays_at_lock(
-            root,
+            root if root is not None else yaml_path.parent,
             manifest.binding,
             location=f"{yaml_path}:/binding/overlays",
         )
