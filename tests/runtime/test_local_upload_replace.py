@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from tests.helpers.box import local_box
 
 from ageval.environments.protocol import EVALUATION_PATH
-from tests.helpers.box import local_box
 
 
 @pytest.mark.asyncio
