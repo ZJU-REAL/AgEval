@@ -13,5 +13,8 @@ slots:
     - id: trajectory_collect
       priority: 110
       entry: "miniswe_plugin.hooks:trajectory_collect"
+inject:
+  - service: environment
+    capabilities: [exec]
 config:
   image_layers: docker/Dockerfile.bake
