@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from ageval.plugins.binding import bind_winner
+from ageval.plugins.defaults import register_defaults
 from ageval.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
 from ageval.plugins.registry import ExtensionRegistry
 from ageval.plugins.resolve import resolve
@@ -23,6 +24,7 @@ def _factory(
 
 def test_factory_sees_only_its_row_options() -> None:
     reg = ExtensionRegistry()
+    register_defaults(reg)
     captured: list[dict[str, Any]] = []
 
     def acp_factory(**kwargs: Any) -> dict[str, Any]:
@@ -58,6 +60,7 @@ def test_factory_sees_only_its_row_options() -> None:
 
 def test_profile_options_reach_the_winner() -> None:
     reg = ExtensionRegistry()
+    register_defaults(reg)
 
     def acp_factory(**kwargs: Any) -> dict[str, Any]:
         return _factory(**kwargs)

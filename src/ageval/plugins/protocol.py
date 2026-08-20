@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -34,6 +35,24 @@ class ExecutorSPI(Protocol):
     def close(self) -> None:
         """Release process / session resources."""
         ...
+
+
+@runtime_checkable
+class EvaluationRuntimeSPI(Protocol):
+    """Exclusive slot ``evaluation_runtime``: launch the evaluator, return raw.
+
+    Must not call ``bind_evaluation``. PASS enters only when the evaluate
+    phase binds the returned document.
+    """
+
+    async def evaluate(self, ctx: Any) -> dict[str, Any]: ...
+
+
+@runtime_checkable
+class TrajectorySealSPI(Protocol):
+    """Exclusive slot ``trajectory_seal``: author layer C ``trajectory.jsonl``."""
+
+    def seal(self, ctx: Any, turns: list[list[dict[str, Any]]]) -> Path: ...
 
 
 # Chain middleware: async (ctx, value, next) -> value

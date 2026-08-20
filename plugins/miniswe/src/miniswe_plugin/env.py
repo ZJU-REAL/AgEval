@@ -1,39 +1,21 @@
-"""Bash environments for mini-swe-agent.
-
-L0 runs on the host. L1 execs into a Core-owned container — this module
-never starts or stops Docker containers.
-"""
+"""Bash environment for mini-swe-agent, via the injected environment Protocol."""
 
 from __future__ import annotations
 
-import os
-import platform
-import subprocess
+import asyncio
 from typing import Any
 
 SUBMIT_MARK = "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT"
 
 
-def build_docker_exec_argv(
-    *,
-    container_id: str,
-    command: str,
-    uid: int,
-    gid: int,
-    workdir: str,
-) -> list[str]:
-    return [
-        "docker",
-        "exec",
-        "-u",
-        f"{uid}:{gid}",
-        "-w",
-        workdir,
-        container_id,
-        "bash",
-        "-lc",
-        command,
-    ]
+def _run_host_exec(host: Any, command: list[str], **kwargs: Any) -> Any:
+    """Run ``host.exec`` from the mini-swe-agent thread (no running loop there)."""
+    coro = host.exec(command, **kwargs)
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    raise RuntimeError("miniswe env.execute cannot call host.exec on a running event loop")
 
 
 def _check_submitted(output: dict[str, Any]) -> None:
@@ -56,109 +38,35 @@ def _check_submitted(output: dict[str, Any]) -> None:
     )
 
 
-class LocalBashEnv:
-    """Host subprocess bash. Duck-types minisweagent.Environment."""
+class ProtocolEnv:
+    """Duck-types minisweagent.Environment; every bash action is ``host.exec``."""
 
-    def __init__(self, *, cwd: str, timeout: int = 30) -> None:
-        self.cwd = cwd
+    def __init__(self, *, host: Any, placement: Any, timeout: int = 30) -> None:
+        self.host = host
+        self.placement = placement
         self.timeout = timeout
-        self.config = type("Cfg", (), {"cwd": cwd, "timeout": timeout})()
-
-    def execute(self, action: dict, cwd: str = "", *, timeout: int | None = None) -> dict[str, Any]:
-        command = str(action.get("command") or "")
-        work = cwd or self.cwd or os.getcwd()
-        try:
-            proc = subprocess.run(
-                command,
-                shell=True,
-                text=True,
-                cwd=work,
-                encoding="utf-8",
-                errors="replace",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                timeout=timeout or self.timeout,
-            )
-            out: dict[str, Any] = {
-                "output": proc.stdout or "",
-                "returncode": proc.returncode,
-                "exception_info": "",
-            }
-        except Exception as exc:  # noqa: BLE001
-            out = {
-                "output": "",
-                "returncode": -1,
-                "exception_info": f"{type(exc).__name__}:{exc}",
-            }
-        _check_submitted(out)
-        return out
-
-    def get_template_vars(self, **kwargs: Any) -> dict[str, Any]:
-        u = platform.uname()
-        return {
-            "system": u.system,
-            "release": u.release,
-            "version": u.version,
-            "machine": u.machine,
-            **kwargs,
-        }
-
-    def serialize(self) -> dict[str, Any]:
-        return {
-            "info": {
-                "config": {
-                    "environment": {"cwd": self.cwd, "kind": "local"},
-                    "environment_type": "miniswe_plugin.env.LocalBashEnv",
-                }
-            }
-        }
-
-
-class DockerExecEnv:
-    """docker exec into a Runtime-owned Attempt container."""
-
-    def __init__(
-        self,
-        *,
-        container_id: str,
-        uid: int,
-        gid: int,
-        workdir: str,
-        timeout: int = 30,
-    ) -> None:
-        self.container_id = container_id
-        self.uid = uid
-        self.gid = gid
-        self.workdir = workdir
-        self.timeout = timeout
-        self.config = type("Cfg", (), {"cwd": workdir, "timeout": timeout})()
+        self.workdir = str(getattr(placement, "workdir", None) or "/attempt/workspace")
+        self.user = getattr(placement, "user", None)
+        self.config = type("Cfg", (), {"cwd": self.workdir, "timeout": timeout})()
 
     def execute(self, action: dict, cwd: str = "", *, timeout: int | None = None) -> dict[str, Any]:
         command = str(action.get("command") or "")
         work = cwd or self.workdir
-        argv = build_docker_exec_argv(
-            container_id=self.container_id,
-            command=command,
-            uid=self.uid,
-            gid=self.gid,
-            workdir=work,
-        )
+        kwargs: dict[str, Any] = {
+            "cwd": work,
+            "timeout_sec": float(timeout or self.timeout),
+        }
+        if self.user:
+            kwargs["user"] = self.user
         try:
-            proc = subprocess.run(
-                argv,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                timeout=timeout or self.timeout,
-            )
+            result = _run_host_exec(self.host, ["bash", "-lc", command], **kwargs)
+            output = f"{result.stdout or ''}{result.stderr or ''}"
             out: dict[str, Any] = {
-                "output": proc.stdout or "",
-                "returncode": proc.returncode,
+                "output": output,
+                "returncode": int(result.exit_code),
                 "exception_info": "",
             }
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — surface to the agent as a failed command
             out = {
                 "output": "",
                 "returncode": -1,
@@ -170,10 +78,9 @@ class DockerExecEnv:
     def get_template_vars(self, **kwargs: Any) -> dict[str, Any]:
         return {
             "system": "Linux",
-            "release": "container",
-            "version": "l1",
-            "machine": "x86_64",
-            "container_id": self.container_id,
+            "release": "attempt",
+            "version": "",
+            "machine": "",
             **kwargs,
         }
 
@@ -182,11 +89,10 @@ class DockerExecEnv:
             "info": {
                 "config": {
                     "environment": {
-                        "kind": "docker_exec",
-                        "container_id": self.container_id,
+                        "kind": getattr(self.host, "kind", None),
                         "workdir": self.workdir,
                     },
-                    "environment_type": "miniswe_plugin.env.DockerExecEnv",
+                    "environment_type": "miniswe_plugin.env.ProtocolEnv",
                 }
             }
         }

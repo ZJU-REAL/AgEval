@@ -69,6 +69,20 @@ def test_lock_cli_extension_bindings_solver_acp() -> None:
     assert agent_profiles["solver"]["slots"]["executor"]["plugin"] == "acp"
     assert agent_profiles["solver"]["slots"]["executor"]["source"] == "profile_executor_field"
     assert agent_profiles["solver"]["slots"]["executor"]["kind"] == "exclusive"
+    runtime = agent_profiles["solver"]["slots"]["evaluation_runtime"]
+    assert runtime == {
+        "kind": "exclusive",
+        "plugin": "default",
+        "priority": 1000,
+        "source": "default",
+    }
+    seal = agent_profiles["solver"]["slots"]["trajectory_seal"]
+    assert seal == {
+        "kind": "exclusive",
+        "plugin": "default",
+        "priority": 1000,
+        "source": "default",
+    }
     assert agent_profiles["solver"]["slots"]["trajectory_collect"]["kind"] == "chain"
     assert any(e.get("pointer") == "/extension_bindings" for e in data.get("resolution") or [])
     assert "dsh" not in _chain_plugins(agent_profiles["solver"], "trajectory_collect")

@@ -11,9 +11,9 @@ run 结束 → mark_writers_stopped
 evaluate
   before_evaluate
   upload artifacts（题包 publish 的 + harvest 补上的）
-  upload evaluation/          # gold 此刻才在盒内（引擎代码，不挂链槽）
-  exec evaluator.py
-  bind_evaluation             # Result.status 只在这里写入
+  upload evaluation/          # gold 此刻才在盒内（引擎代码，不挂链槽，也不是 evaluation SPI）
+  evaluation_runtime.evaluate # 独占槽赢家；默认盒内 evaluator.py via host.exec
+  bind_evaluation             # Result.status 只在这里写入；赢家返回 raw，不得 bind
   after_evaluate              # 可注 metrics，改 status → RuntimeError
 ```
 

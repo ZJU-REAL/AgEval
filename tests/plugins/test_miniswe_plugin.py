@@ -1,17 +1,36 @@
-"""miniswe host SPI + docker-exec env (no live mini-swe-agent run)."""
+"""miniswe executor talks to the box only through the environment Protocol."""
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-_SRC = Path(__file__).resolve().parents[2] / "plugins" / "miniswe" / "src"
+from ageval.environments.protocol import (
+    WORKSPACE_PATH,
+    EnvironmentCapabilities,
+    ExecResult,
+    Placement,
+)
+from ageval.plugins.contrib.local.host import LocalHost
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.errors import InjectUnsatisfiedError
+from ageval.plugins.protocol import BindingIntent, InjectRequirement
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import ENVIRONMENT, EXECUTOR
+
+ROOT = Path(__file__).resolve().parents[2]
+_SRC = ROOT / "plugins" / "miniswe" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from miniswe_plugin.env import DockerExecEnv, build_docker_exec_argv  # noqa: E402
+from miniswe_plugin.env import ProtocolEnv  # noqa: E402
 from miniswe_plugin.factory import (  # noqa: E402
     MinisweExecutorSPI,
     _load_official_mini_config,
@@ -21,30 +40,72 @@ from miniswe_plugin.hooks import image_contribute, trajectory_collect  # noqa: E
 from miniswe_plugin.trajectory import SCHEMA, to_ageval_trajectory_events  # noqa: E402
 
 
-def test_docker_exec_argv_uses_core_placement() -> None:
-    argv = build_docker_exec_argv(
-        container_id="abc",
-        command="ls -la",
-        uid=10001,
-        gid=10001,
-        workdir="/attempt/workspace",
-    )
-    assert argv[:3] == ["docker", "exec", "-u"]
-    assert argv[3] == "10001:10001"
-    assert argv[4:6] == ["-w", "/attempt/workspace"]
-    assert argv[6] == "abc"
-    assert argv[7:9] == ["bash", "-lc"]
-    assert argv[9] == "ls -la"
+def _placement() -> Placement:
+    return Placement(target_id="box", user="10001:10001", workdir=WORKSPACE_PATH)
 
 
-def test_docker_env_never_starts_container() -> None:
-    env = DockerExecEnv(
-        container_id="already-running",
-        uid=10001,
-        gid=10001,
-        workdir="/attempt/workspace",
-    )
-    assert env.container_id == "already-running"
+def _isolated_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *plugin_ids: str
+) -> dict[str, str]:
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
+    from ageval.plugins.store import install_from_path
+
+    home = tmp_path / "ageval-home"
+    home.mkdir()
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
+    reset_global_registry()
+    for plugin_id in plugin_ids:
+        install_from_path(ROOT / "plugins" / plugin_id)
+    env = os.environ.copy()
+    env["AGEVAL_HOME"] = str(home)
+    env["litellm_api_key"] = "sk-lock-must-not-see"
+    env["litellm_base_url"] = "https://example.invalid/v1"
+    return env
+
+
+def test_package_has_no_docker_exec_or_container_id() -> None:
+    root = ROOT / "plugins" / "miniswe"
+    offenders: list[str] = []
+    for path in root.rglob("*"):
+        if not path.is_file() or "__pycache__" in path.parts or path.suffix == ".pyc":
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        rel = str(path.relative_to(root))
+        if "docker" + " exec" in text:
+            offenders.append(f"{rel}: host docker CLI")
+        if "container" + "_id" in text:
+            offenders.append(f"{rel}: box handle field")
+    assert offenders == []
+
+
+def test_factory_stores_host_and_placement() -> None:
+    host = SimpleNamespace(kind="local")
+    placement = _placement()
+    spi = build_executor(host=host, placement=placement, model="openai/x")
+    assert spi.host is host
+    assert spi.placement is placement
+    assert isinstance(spi, MinisweExecutorSPI)
+
+
+def test_protocol_env_calls_host_exec() -> None:
+    recorded: list[dict[str, object]] = []
+
+    class SpyHost:
+        kind = "docker"
+
+        async def exec(self, command, **kwargs):  # noqa: ANN001
+            recorded.append({"command": list(command), **kwargs})
+            return ExecResult(exit_code=0, stdout="ok\n", stderr="")
+
+    env = ProtocolEnv(host=SpyHost(), placement=_placement(), timeout=5)
+    out = env.execute({"command": "echo hi"})
+    assert out["returncode"] == 0
+    assert out["output"] == "ok\n"
+    assert recorded[0]["command"] == ["bash", "-lc", "echo hi"]
+    assert recorded[0]["cwd"] == WORKSPACE_PATH
+    assert recorded[0]["user"] == "10001:10001"
 
 
 def test_official_mini_yaml_loads() -> None:
@@ -58,15 +119,97 @@ def test_invalid_step_limit() -> None:
     from ageval.plugins.errors import ExtensionMaterializeError
 
     with pytest.raises(ExtensionMaterializeError, match="step_limit"):
-        build_executor(options={"step_limit": -1})
+        build_executor(
+            host=SimpleNamespace(kind="local"),
+            placement=_placement(),
+            options={"step_limit": -1},
+        )
 
 
 def test_offline_invoke_does_not_import_vendor(monkeypatch: object) -> None:
     monkeypatch.setenv("AGEVAL_OFFLINE_AGENT", "1")  # type: ignore[attr-defined]
-    spi = MinisweExecutorSPI(model="openai/x", api_key="litellm_api_key")
+    spi = MinisweExecutorSPI(
+        host=SimpleNamespace(kind="local"),
+        placement=_placement(),
+        model="openai/x",
+        api_key="litellm_api_key",
+    )
     result = spi.invoke("ping")
     assert result.ok is False
     assert result.error == "offline_forced"
+
+
+def test_lock_fails_when_environment_cannot_exec() -> None:
+    class MuteHost:
+        capabilities = EnvironmentCapabilities(upload=True)
+
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    registry.exclusive(ENVIRONMENT, "mute", MuteHost, source="test", is_factory=True)
+    registry.exclusive(EXECUTOR, "miniswe", build_executor, source="test", is_factory=True)
+    registry.declare_inject(
+        "miniswe",
+        (InjectRequirement(service=ENVIRONMENT, capabilities=("exec",)),),
+    )
+    with pytest.raises(InjectUnsatisfiedError, match="exec"):
+        resolve(
+            BindingIntent(profile_id="solver", environment="mute", executor="miniswe"),
+            registry,
+        )
+
+
+def test_lock_records_inject_when_box_can_exec() -> None:
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    registry.exclusive(ENVIRONMENT, "local", LocalHost, source="test", is_factory=True)
+    registry.exclusive(EXECUTOR, "miniswe", build_executor, source="test", is_factory=True)
+    registry.declare_inject(
+        "miniswe",
+        (InjectRequirement(service=ENVIRONMENT, capabilities=("exec",)),),
+    )
+    graph = resolve(
+        BindingIntent(profile_id="solver", environment="local", executor="miniswe"),
+        registry,
+    )
+    rows = graph.injects["miniswe"]
+    assert rows[0].service == "environment"
+    assert set(rows[0].capabilities) == {"exec"}
+
+
+def test_lock_cli_miniswe_profile_records_inject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _isolated_home(tmp_path, monkeypatch, "miniswe")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ageval.cli.main",
+            "lock",
+            str(ROOT / "examples/journeys"),
+            "--task",
+            "terminal-jsonl-agg",
+            "--profiles",
+            str(ROOT / "examples/journeys/profiles.miniswe.yaml"),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    data = json.loads(proc.stdout)
+    solver = data["extension_bindings"]["solver"]
+    assert solver["slots"]["executor"]["plugin"] == "miniswe"
+    inject = (solver.get("inject") or {}).get("miniswe") or []
+    caps = next(
+        tuple(row.get("capabilities") or ())
+        for row in inject
+        if row.get("service") == "environment"
+    )
+    assert set(caps) == {"exec"}
+    assert "sk-lock-must-not-see" not in json.dumps(data)
 
 
 def test_messages_map_to_layer_b() -> None:

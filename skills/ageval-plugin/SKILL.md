@@ -12,7 +12,7 @@ Host declares slots in `src/ageval/plugins/slots.py`. Plugins fill them.
 
 | Kind | Meaning | Examples |
 | --- | --- | --- |
-| exclusive | One winner = same-name service | `environment`, `executor` |
+| exclusive | One winner = same-name service | `environment`, `executor`, `evaluation_runtime`, `trajectory_seal` |
 | chain | `(ctx, value, nxt)` | `after_environment_ready`, `environment_setup`, `trajectory_collect` |
 
 `ageval plugin install` writes `~/.ageval/plugins` only. Never rewrites profiles.
