@@ -22,26 +22,21 @@ async function readAttemptStartedAt(
   runId: string,
   token: string | null,
 ): Promise<string | null> {
-  for (const rel of ["summary.json", "result.json"]) {
-    try {
-      const file = await getAttemptFile(runId, toArchivePath(rel, runId), token);
-      const text = decodeFileContent(file);
-      if (!text) continue;
-      const data = JSON.parse(text) as {
-        started_at?: unknown;
-        started?: unknown;
-        phase_timing?: { started_at?: unknown };
-      };
-      for (const raw of [
-        data.started_at,
-        data.started,
-        data.phase_timing?.started_at,
-      ]) {
-        if (typeof raw === "string" && raw.trim()) return raw.trim();
-      }
-    } catch {
-      continue;
-    }
+  try {
+    const file = await getAttemptFile(
+      runId,
+      toArchivePath("summary.json", runId),
+      token,
+    );
+    const text = decodeFileContent(file);
+    if (!text) return null;
+    const data = JSON.parse(text) as {
+      phase_timing?: { started_at?: unknown };
+    };
+    const raw = data.phase_timing?.started_at;
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+  } catch {
+    return null;
   }
   return null;
 }

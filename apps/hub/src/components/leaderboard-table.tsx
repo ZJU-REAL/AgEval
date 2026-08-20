@@ -19,15 +19,22 @@ import {
 } from "@/components/ui/table";
 import {
   encodeDatasetId,
+  environmentFromOverlay,
   latestPackageByDataset,
   listPackages,
+  overlayAgentProfiles,
   pluginsUsedBySuite,
   uniqueAgentRefs,
   type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { cn, formatScore, reasoningEffortFromOverlay } from "@/lib/utils";
+import {
+  cn,
+  displayLabelsFromOverlay,
+  formatScore,
+  reasoningEffortFromOverlay,
+} from "@/lib/utils";
 import { CodeHighlight } from "@/lib/code-highlight";
 import {
   formatPassMetric,
@@ -41,7 +48,7 @@ import { ModelLabel } from "@/components/model-label";
 import { JobOverlayPreview } from "@/components/overlay-file-panel";
 import { ScrollTable } from "@/components/scroll-table";
 
-/** Shared column widths — keep Agent/Model tight so columns stay similar. */
+/** Shared column widths — keep Harness/Model tight so columns stay similar. */
 const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
 const COL_METRIC = "w-[5.5rem] max-w-[5.5rem]";
 
@@ -57,18 +64,21 @@ function shortSuiteId(id: string): string {
 
 /** Render secret-free job_overlay as ageval.profiles/1 YAML for rehydrate display. */
 function jobOverlayToProfilesYaml(overlay: SuiteRow["job_overlay"]): string {
-  const bindings = overlay?.bindings;
-  if (!bindings || typeof bindings !== "object") {
+  const profiles = overlayAgentProfiles(overlay);
+  const environment = environmentFromOverlay(overlay);
+  if (!environment && !Object.keys(profiles).length) {
     return "# no job_overlay on this suite\n";
   }
-  const lines: string[] = ["format: ageval.profiles/1", "bindings:"];
-  const roles = Object.keys(bindings).sort();
+  const lines: string[] = ["format: ageval.profiles/1"];
+  if (environment) lines.push(`environment: ${environment}`);
+  lines.push("agent_profiles:");
+  const roles = Object.keys(profiles).sort();
   if (roles.length === 0) {
     lines.push("  {}");
     return lines.join("\n") + "\n";
   }
   for (const role of roles) {
-    const b = bindings[role];
+    const b = profiles[role];
     if (!b || typeof b !== "object") continue;
     lines.push(`  ${role}:`);
     if (b.executor != null) lines.push(`    executor: ${String(b.executor)}`);
@@ -161,6 +171,7 @@ function TruncateCell({
 type SortKey =
   | "agent_label"
   | "model_label"
+  | "environment"
   | "pass_rate"
   | "mean_score"
   | "n_attempts"
@@ -174,9 +185,11 @@ function suiteSortValue(s: SuiteRow, key: SortKey): unknown {
   const m = s.metrics || {};
   switch (key) {
     case "agent_label":
-      return s.agent_label || "";
+      return displayLabelsFromOverlay(s.job_overlay).agent || s.agent_label || "";
     case "model_label":
       return s.model_label || "";
+    case "environment":
+      return environmentFromOverlay(s.job_overlay) || "";
     case "pass_rate":
       return s.pass_rate ?? null;
     case "mean_score":
@@ -392,7 +405,7 @@ export function LeaderboardTable({
   const showKColumns = suites.some(
     (s) => primaryDisplayK(s.metrics || {}) != null,
   );
-  const colCount = showKColumns ? 10 : 7;
+  const colCount = showKColumns ? 11 : 8;
 
   const rows = useMemo(() => {
     const list = [...suites];
@@ -458,10 +471,13 @@ export function LeaderboardTable({
           <TableHeader>
             <TableRow>
               <TableHead className={COL_TEXT}>
-                {head("agent_label", "Agent")}
+                {head("agent_label", "Harness")}
               </TableHead>
               <TableHead className={COL_TEXT}>
                 {head("model_label", "Model")}
+              </TableHead>
+              <TableHead className={COL_METRIC}>
+                {head("environment", "Environment")}
               </TableHead>
               <TableHead className={`text-right ${COL_METRIC}`}>
                 {head("pass_rate", "Pass rate", true)}
@@ -524,8 +540,9 @@ export function LeaderboardTable({
               const nAtt = metricsNAttempts(m);
               const atK = passAtPrimaryK(m);
               const powK = passPowerPrimaryK(m);
-              const agentText = s.agent_label || "";
-              const modelText = s.model_label || "";
+              const derived = displayLabelsFromOverlay(s.job_overlay);
+              const agentText = derived.agent || s.agent_label || "";
+              const modelText = derived.model || s.model_label || "";
               const runtimeLinks = uniqueAgentRefs(s.agent_refs);
 
               return (
@@ -562,6 +579,11 @@ export function LeaderboardTable({
                         effort={reasoningEffortFromOverlay(s.job_overlay)}
                         className="font-mono text-xs"
                       />
+                    </TableCell>
+                    <TableCell
+                      className={`font-mono text-xs ${COL_METRIC}`}
+                    >
+                      {environmentFromOverlay(s.job_overlay) || "—"}
                     </TableCell>
                     <TableCell
                       className={`text-right tabular-nums text-xs ${COL_METRIC}`}

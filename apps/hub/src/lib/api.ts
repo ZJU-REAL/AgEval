@@ -145,6 +145,41 @@ export type FileContent = {
   truncated?: boolean;
 };
 
+export type JobOverlayProfile = {
+  executor?: string;
+  model?: string;
+  base_url?: string;
+  api_key?: string;
+  label?: string;
+  agent_ref?: string;
+  options?: { entry?: string; reasoning_effort?: string };
+  overlays?: string[];
+  extensions?: Array<{ plugin?: string; options?: Record<string, unknown> }>;
+};
+
+/** Current lock/suite overlay: box kind + agent_profiles. */
+export type JobOverlay = {
+  environment?: string;
+  environment_options?: Record<string, unknown>;
+  agent_profiles?: Record<string, JobOverlayProfile>;
+};
+
+export function overlayAgentProfiles(
+  overlay: JobOverlay | null | undefined,
+): Record<string, JobOverlayProfile> {
+  const profiles = overlay?.agent_profiles;
+  if (!profiles || typeof profiles !== "object") return {};
+  return profiles;
+}
+
+export function environmentFromOverlay(
+  overlay: JobOverlay | null | undefined,
+): string | null {
+  const env = overlay?.environment;
+  if (typeof env === "string" && env.trim()) return env.trim();
+  return null;
+}
+
 export type SuiteRow = {
   suite_run_id: string;
   dataset_id?: string;
@@ -186,22 +221,7 @@ export type SuiteRow = {
   config_homogeneous?: boolean;
   actors_summary?: Array<Record<string, string>>;
   /** Secret-free job binding (#59) for rehydrate / re-run. */
-  job_overlay?: {
-    bindings?: Record<
-      string,
-      {
-        executor?: string;
-        model?: string;
-        base_url?: string;
-        api_key?: string;
-        label?: string;
-        agent_ref?: string;
-        options?: { entry?: string; reasoning_effort?: string };
-        overlays?: string[];
-        extensions?: Array<{ plugin?: string; options?: Record<string, unknown> }>;
-      }
-    >;
-  };
+  job_overlay?: JobOverlay;
   /** Secret-free marketplace plugins used by this job. */
   plugins?: SuitePluginRef[];
   exit_code?: number | null;
@@ -298,9 +318,9 @@ export function splitJobOverlaySources(
   const jobPrefixes: string[] = [];
   const jobSeen = new Set<string>();
   const byPackage = new Map<string, { ref: string; prefixes: string[]; seen: Set<string> }>();
-  const bindings = overlay?.bindings;
-  if (!bindings) return { jobPrefixes, agents: [] };
-  for (const raw of Object.values(bindings)) {
+  const profiles = overlayAgentProfiles(overlay);
+  if (!Object.keys(profiles).length) return { jobPrefixes, agents: [] };
+  for (const raw of Object.values(profiles)) {
     if (!raw) continue;
     const paths = overlayPathList(raw.overlays);
     if (!paths.length) continue;
@@ -365,7 +385,27 @@ export type AttemptMeta = {
   uploaded_by?: string;
   suite_run_id?: string;
   lock_digest?: string;
+  environment?: string;
+  agent_label?: string;
+  model_label?: string;
+  score?: number | null;
 };
+
+export async function listAttempts(
+  datasetId: string | null,
+  token: string | null,
+  opts?: { taskId?: string; standalone?: boolean },
+): Promise<AttemptMeta[]> {
+  const q = new URLSearchParams();
+  if (datasetId) q.set("dataset_id", datasetId);
+  if (opts?.taskId) q.set("task_id", opts.taskId);
+  if (opts?.standalone) q.set("standalone", "1");
+  const path = q.toString()
+    ? `/v1/results/attempts?${q.toString()}`
+    : "/v1/results/attempts";
+  const data = await requestJson<{ items?: AttemptMeta[] }>(path, { token });
+  return Array.isArray(data.items) ? data.items : [];
+}
 
 export class RegistryHttpError extends Error {
   status: number;
@@ -1051,27 +1091,25 @@ export function pluginsUsedBySuite(
         : { plugin_id: marketplaceId },
     );
   }
-  const bindings = suite.job_overlay?.bindings;
-  if (bindings && typeof bindings === "object") {
-    for (const raw of Object.values(bindings)) {
-      const rows = raw?.extensions;
-      if (!Array.isArray(rows)) continue;
-      for (const row of rows) {
-        const id = String(row?.plugin || "").trim();
-        const key = id.toLowerCase();
-        if (!id || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {
-          continue;
-        }
-        seen.add(key);
-        fromStore.push({
-          plugin_id: resolveMarketplacePluginId(id, catalog, preferredOrgId),
-        });
+  const profiles = overlayAgentProfiles(suite.job_overlay);
+  for (const raw of Object.values(profiles)) {
+    const rows = raw?.extensions;
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      const id = String(row?.plugin || "").trim();
+      const key = id.toLowerCase();
+      if (!id || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {
+        continue;
       }
+      seen.add(key);
+      fromStore.push({
+        plugin_id: resolveMarketplacePluginId(id, catalog, preferredOrgId),
+      });
     }
   }
   if (fromStore.length) return fromStore;
-  if (!bindings || typeof bindings !== "object") return [];
-  for (const raw of Object.values(bindings)) {
+  if (!Object.keys(profiles).length) return [];
+  for (const raw of Object.values(profiles)) {
     const exec = String(raw?.executor || "").trim();
     const key = exec.toLowerCase();
     if (!exec || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {

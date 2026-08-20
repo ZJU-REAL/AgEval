@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import type { Trial } from "@/lib/trial-types";
 
-/** Actors: Role | Agent | Model | Time | Usage — observational ≠ PASS */
+/** Actors: Role | Harness | Model | Time | Usage — observational ≠ PASS */
 export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }) {
   if (actors.length === 0) return null;
 
@@ -21,7 +21,7 @@ export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Role</TableHead>
-              <TableHead>Agent</TableHead>
+              <TableHead>Harness</TableHead>
               <TableHead>Model</TableHead>
               <TableHead>Time</TableHead>
               <TableHead>Usage</TableHead>

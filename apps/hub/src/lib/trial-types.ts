@@ -41,7 +41,8 @@ export type Trial = {
   agent_invocations?: number | null;
   harness_kind?: string | null;
   framework?: string | null;
-  docker?: string | null;
+  /** Box kind: local | docker | e2b | ssh */
+  environment?: string | null;
   actors?: TrialActor[];
   agent_label?: string | null;
   model_label?: string | null;

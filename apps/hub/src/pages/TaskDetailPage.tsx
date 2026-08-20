@@ -18,8 +18,10 @@ import { VersionSwitcher } from "@/components/version-switcher";
 import {
   decodeDatasetId,
   decodeFileContent,
+  environmentFromOverlay,
   getPackageFile,
   hasSharedFiles,
+  listAttempts,
   listPackageFiles,
   listPackageVersions,
   listSuites,
@@ -34,7 +36,13 @@ import { buildNestedTree, overlayPathsFromProfilesYaml, type TreeNode } from "@/
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
-import { cn, formatDate, formatScore, reasoningEffortFromOverlay } from "@/lib/utils";
+import {
+  cn,
+  displayLabelsFromOverlay,
+  formatDate,
+  formatScore,
+  reasoningEffortFromOverlay,
+} from "@/lib/utils";
 
 type Tab = "readme" | "files" | "jobs";
 type FilesScope = "local" | "shared" | "overlays";
@@ -102,12 +110,14 @@ export function TaskDetailPage() {
   const [readme, setReadme] = useState<string | null>(null);
   const [jobs, setJobs] = useState<
     Array<{
-      suite_run_id: string;
+      job_id: string;
+      job_kind: "suite" | "attempt";
       status?: string | null;
       score?: number | null;
       agent_label?: string;
       model_label?: string;
       reasoning_effort?: string;
+      environment?: string | null;
       created_at?: number | string;
       run_id?: string | null;
       has_attempt_content?: boolean;
@@ -202,25 +212,50 @@ export function TaskDetailPage() {
         }
 
         try {
-          const suites: SuiteRow[] = await listSuites(datasetId, token);
+          const [suites, attempts] = await Promise.all([
+            listSuites(datasetId, token),
+            listAttempts(datasetId, token, { taskId, standalone: true }),
+          ]);
           if (cancelled) return;
           const rows: typeof jobs = [];
           for (const s of suites) {
             const refs = s.task_refs || [];
             const hit = refs.find((r) => r.task_id === taskId);
             if (!hit) continue;
+            const derived = displayLabelsFromOverlay(s.job_overlay);
             rows.push({
-              suite_run_id: s.suite_run_id,
+              job_id: s.suite_run_id,
+              job_kind: "suite",
               status: hit.status,
               score: hit.score,
-              agent_label: s.agent_label,
-              model_label: s.model_label,
+              agent_label: derived.agent || s.agent_label,
+              model_label: derived.model || s.model_label,
               reasoning_effort: reasoningEffortFromOverlay(s.job_overlay),
+              environment: environmentFromOverlay(s.job_overlay),
               created_at: s.created_at,
               run_id: hit.run_id ?? null,
               has_attempt_content: Boolean(hit.has_attempt_content),
             });
           }
+          for (const a of attempts) {
+            rows.push({
+              job_id: a.run_id,
+              job_kind: "attempt",
+              status: a.status,
+              score: a.score ?? null,
+              agent_label: a.agent_label,
+              model_label: a.model_label,
+              environment: a.environment || null,
+              created_at: a.created_at,
+              run_id: a.run_id,
+              has_attempt_content: true,
+            });
+          }
+          rows.sort((left, right) => {
+            const lt = Date.parse(String(left.created_at ?? "")) || Number(left.created_at) || 0;
+            const rt = Date.parse(String(right.created_at ?? "")) || Number(right.created_at) || 0;
+            return rt - lt;
+          });
           setJobs(rows);
         } catch {
           if (!cancelled) setJobs([]);
@@ -449,31 +484,33 @@ export function TaskDetailPage() {
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
             <p className="text-sm text-ink font-medium">No Jobs for this task</p>
             <p className="text-sm text-mute">
-              Upload suite results after a suite run. Full Attempt evidence is
-              optional — add{" "}
-              <code className="font-mono">--with-attempts</code> when you want
-              Jobs to open a read-only evidence browser.
+              Upload a standalone Attempt after{" "}
+              <code className="font-mono">ageval run --task</code>, or a suite
+              after a full dataset run. Add{" "}
+              <code className="font-mono">--with-attempts</code> on suite upload
+              when you want the row to open evidence.
             </p>
             <CommandStrip
-              command={`ageval results upload-suite <dataset-root> --suite-run <id> --with-attempts`}
+              command={`ageval results upload <dataset-root> --run <attempt-id> --public`}
             />
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-mute">
-              Each row is this task&apos;s result inside a suite run. Click a
-              row with full Attempt evidence to open the detail view (like local
-              viewer). Grey rows are summary-only.
+              Each row is a standalone Attempt or this task inside a suite run.
+              Click a row with full evidence to open the detail view. Grey rows
+              are summary-only.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Suite run</TableHead>
+                    <TableHead>Job</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Score</TableHead>
-                    <TableHead>Agent</TableHead>
+                    <TableHead>Harness</TableHead>
                     <TableHead>Model</TableHead>
+                    <TableHead>Environment</TableHead>
                     <TableHead>Time</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -492,7 +529,7 @@ export function TaskDetailPage() {
                         : "No run_id for this task";
                     return (
                       <TableRow
-                        key={j.suite_run_id}
+                        key={`${j.job_kind}:${j.job_id}`}
                         className={cn(
                           canOpen && "cursor-pointer",
                           !canOpen && "opacity-70",
@@ -513,7 +550,7 @@ export function TaskDetailPage() {
                       >
                         <TableCell className="font-mono text-xs">
                           <HoverTip content={rowTip}>
-                          <span className="text-ink">{j.suite_run_id}</span>
+                          <span className="text-ink">{j.job_id}</span>
                           </HoverTip>
                           {!canOpen ? (
                             <span className="ml-2 text-[11px] text-mute font-sans">
@@ -535,6 +572,9 @@ export function TaskDetailPage() {
                             value={j.model_label}
                             effort={j.reasoning_effort}
                           />
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {j.environment || "-"}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-mute tabular">
                           {j.created_at != null && j.created_at !== ""

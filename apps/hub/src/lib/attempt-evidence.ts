@@ -18,6 +18,7 @@ import {
   TREE_SCOPES,
   type TabId,
 } from "@/components/trial/tabs";
+import { environmentFromOverlay, type JobOverlay } from "@/lib/api";
 
 const MAX_TRAJECTORY_STEPS = 2_000;
 const MAX_JSONL_LINE = 64_000;
@@ -50,14 +51,21 @@ export function hasAnyUnder(relPaths: string[], dir: string): boolean {
   return relPaths.some((p) => p === d || p.startsWith(d + "/"));
 }
 
+/** Attempt-root record-phase file, then any per-invocation copies. */
+export function trajectoryRelPaths(relFiles: string[]): string[] {
+  if (relFiles.includes("trajectory.jsonl")) return ["trajectory.jsonl"];
+  return relFiles
+    .filter(
+      (p) =>
+        p.startsWith("agent/invocations/") && p.endsWith("/trajectory.jsonl"),
+    )
+    .sort();
+}
+
 /** Same rules as `ageval.viewer.trials.surface._available_tabs`. */
 export function availableTabsFromPaths(relFiles: string[]): TabId[] {
   const tabs: string[] = [];
-  const hasTraj = relFiles.some(
-    (p) =>
-      p.startsWith("agent/invocations/") && p.endsWith("/trajectory.jsonl"),
-  );
-  if (hasTraj) tabs.push("trajectory");
+  if (trajectoryRelPaths(relFiles).length) tabs.push("trajectory");
   if (hasAnyUnder(relFiles, "agent")) tabs.push("agent");
   if (
     hasAnyUnder(relFiles, "evaluation") ||
@@ -206,33 +214,29 @@ function profileVariant(profile: Record<string, unknown>): string | null {
   return null;
 }
 
-function dockerLabel(
+function environmentKind(
+  lock: Record<string, unknown>,
   result: Record<string, unknown>,
-  summary: Record<string, unknown>,
 ): string | null {
-  const runtimeKind = String(result.runtime_kind || summary.runtime_kind || "");
-  const assurance = String(result.assurance || summary.assurance || "");
-  let l1 = result.l1;
-  if (!l1 || typeof l1 !== "object") l1 = summary.l1;
-  const isDocker =
-    runtimeKind.toLowerCase().includes("docker") ||
-    assurance.toLowerCase() === "l1" ||
-    (l1 != null && typeof l1 === "object");
-  if (!isDocker) return null;
-  const parts = ["docker"];
-  if (l1 && typeof l1 === "object" && !Array.isArray(l1)) {
-    const o = l1 as Record<string, unknown>;
-    if (typeof o.platform === "string" && o.platform) parts.push(o.platform);
-    const iso = o.isolation;
-    if (iso && typeof iso === "object" && !Array.isArray(iso)) {
-      const net = (iso as Record<string, unknown>).network;
-      if (typeof net === "string" && net) parts.push(net);
-    }
-    if (typeof o.execution_location === "string" && o.execution_location) {
-      if (!parts.includes(o.execution_location)) parts.push(o.execution_location);
-    }
+  for (const raw of [lock.environment, result.kind]) {
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
   }
-  return parts.join(" · ");
+  return environmentFromOverlay(lock.job_overlay as JobOverlay | undefined);
+}
+
+function durationFromPhaseTiming(phaseTiming: Trial["phase_timing"]): string | null {
+  if (!phaseTiming || typeof phaseTiming.total_ms !== "number") return null;
+  const ms = phaseTiming.total_ms;
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const totalS = ms / 1000;
+  if (totalS < 60) {
+    if (totalS < 10) return `${totalS.toFixed(1)}s`;
+    return `${Math.round(totalS)}s`;
+  }
+  const minutes = Math.floor(totalS / 60);
+  const seconds = Math.round(totalS - minutes * 60);
+  if (seconds === 60) return `${minutes + 1}m`;
+  return seconds ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${minutes}m`;
 }
 
 function formatLatencyMs(
@@ -303,9 +307,10 @@ export function buildTrialMeta(opts: {
   const overlayBindings =
     lock.job_overlay &&
     typeof lock.job_overlay === "object" &&
-    (lock.job_overlay as Record<string, unknown>).bindings &&
-    typeof (lock.job_overlay as Record<string, unknown>).bindings === "object"
-      ? ((lock.job_overlay as Record<string, unknown>).bindings as Record<
+    (lock.job_overlay as Record<string, unknown>).agent_profiles &&
+    typeof (lock.job_overlay as Record<string, unknown>).agent_profiles ===
+      "object"
+      ? ((lock.job_overlay as Record<string, unknown>).agent_profiles as Record<
           string,
           unknown
         >)
@@ -386,41 +391,15 @@ export function buildTrialMeta(opts: {
       : null;
 
   const phaseTimingRaw =
-    (result.phase_timing && typeof result.phase_timing === "object"
-      ? result.phase_timing
-      : null) ||
-    (summary.phase_timing && typeof summary.phase_timing === "object"
+    summary.phase_timing && typeof summary.phase_timing === "object"
       ? summary.phase_timing
-      : null);
+      : null;
   const phase_timing = phaseTimingRaw as Trial["phase_timing"];
-
-  const startedRaw =
-    summary.started_at ??
-    (phase_timing && typeof phase_timing.started_at === "string"
+  const started =
+    phase_timing && typeof phase_timing.started_at === "string"
       ? phase_timing.started_at
-      : null) ??
-    summary.started ??
-    null;
-  let started: string | null = null;
-  if (typeof startedRaw === "string") started = startedRaw;
-  else if (typeof startedRaw === "number") {
-    started = new Date(startedRaw * (startedRaw < 1e12 ? 1000 : 1)).toISOString();
-  }
-
-  let duration: string | null =
-    (typeof result.duration === "string" && result.duration) ||
-    (typeof summary.duration === "string" && summary.duration) ||
-    null;
-  if (!duration && phase_timing && typeof phase_timing.total_ms === "number") {
-    const ms = phase_timing.total_ms;
-    if (ms < 1000) duration = `${Math.round(ms)}ms`;
-    else if (ms < 60_000) duration = `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
-    else {
-      const m = Math.floor(ms / 60_000);
-      const s = Math.round((ms % 60_000) / 1000);
-      duration = s ? `${m}m ${String(s).padStart(2, "0")}s` : `${m}m`;
-    }
-  }
+      : null;
+  const duration = durationFromPhaseTiming(phase_timing);
 
   // Token bar from actor usage when present (often null on Hub until usage wired).
   let token_timing: Trial["token_timing"] = null;
@@ -487,7 +466,7 @@ export function buildTrialMeta(opts: {
       (typeof summary.harness_kind === "string" && summary.harness_kind) ||
       null,
     framework,
-    docker: dockerLabel(result, summary),
+    environment: environmentKind(lock, result),
     actors,
     agent_label: actors.length === 1 ? actors[0].role : null,
     model_label: actors.length === 1 ? actors[0].model ?? null : null,

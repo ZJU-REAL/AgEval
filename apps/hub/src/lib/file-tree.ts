@@ -88,13 +88,13 @@ export function pathMatchesPrefixes(path: string, prefixes: string[]): boolean {
 
 /** Unique ``overlays/…`` paths from a secret-free job_overlay. */
 export function overlayPathsFromJobOverlay(overlay: {
-  bindings?: Record<string, { overlays?: string[] } | undefined>;
+  agent_profiles?: Record<string, { overlays?: string[] } | undefined>;
 } | null | undefined): string[] {
-  const bindings = overlay?.bindings;
-  if (!bindings) return [];
+  const profiles = overlay?.agent_profiles;
+  if (!profiles) return [];
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const raw of Object.values(bindings)) {
+  for (const raw of Object.values(profiles)) {
     const list = raw?.overlays;
     if (!Array.isArray(list)) continue;
     for (const item of list) {

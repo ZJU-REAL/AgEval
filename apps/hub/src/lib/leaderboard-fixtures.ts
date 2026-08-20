@@ -67,7 +67,8 @@ export const LEADERBOARD_K_FIXTURES: SuiteRow[] = [
       },
     ],
     job_overlay: {
-      bindings: {
+      environment: "docker",
+      agent_profiles: {
         solver: {
           executor: "acp",
           options: { entry: "codex" },
@@ -105,7 +106,8 @@ export const LEADERBOARD_K_FIXTURES: SuiteRow[] = [
       { task_id: "d", status: "FAIL", score: 0.0, run_id: "r4" },
     ],
     job_overlay: {
-      bindings: {
+      environment: "local",
+      agent_profiles: {
         solver: {
           executor: "acp",
           options: { entry: "pi" },

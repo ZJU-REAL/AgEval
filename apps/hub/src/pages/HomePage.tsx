@@ -6,6 +6,7 @@ import { PageHead } from "@/components/page-head";
 import { ScrollTable } from "@/components/scroll-table";
 import {
   encodeDatasetId,
+  environmentFromOverlay,
   latestPackageByDataset,
   listOrgs,
   listPackageFiles,
@@ -310,7 +311,7 @@ export function HomePage() {
           >
             {jobs.length ? (
               <ScrollTable
-                headers={["Suite", "Dataset", "Pass rate", "Uploaded"]}
+                headers={["Suite", "Dataset", "Environment", "Pass rate", "Uploaded"]}
                 rows={jobs.map((s) => ({
                   key: s.suite_run_id,
                   onClick: () => {
@@ -329,6 +330,9 @@ export function HomePage() {
                       {s.suite_run_id}
                     </span>,
                     s.dataset_id || "—",
+                    <span key="env" className="font-mono text-xs">
+                      {environmentFromOverlay(s.job_overlay) || "—"}
+                    </span>,
                     s.pass_rate == null
                       ? "—"
                       : `${(Number(s.pass_rate) * 100).toFixed(1)}%`,
