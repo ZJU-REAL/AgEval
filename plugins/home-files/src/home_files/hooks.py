@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -105,14 +106,37 @@ def _copy_one(src: Path, dest: Path) -> None:
     shutil.copy2(src, dest)
 
 
-def build_home_overlay(**kwargs: Any) -> Any:
-    options = dict(kwargs.get("options") or {})
-    files = options.get("files")
+def _files_from_ctx(ctx: Any) -> Any:
+    graph = getattr(ctx, "bindings", None)
+    if graph is None:
+        return None
+    for href in graph.chain("after_environment_ready"):
+        if getattr(href, "plugin_id", None) == PLUGIN_ID and href.options:
+            return dict(href.options).get("files")
+    return None
 
-    async def handler(ctx: Any, value: Any, nxt: Any) -> Any:
-        del ctx
-        payload = dict(value) if isinstance(value, dict) else {}
-        apply_files(files, payload)
-        return await nxt(payload)
 
-    return handler
+async def build_home_overlay(ctx: Any, value: Any, nxt: Any) -> Any:
+    """Copy declared overlay files into the box HOME or workspace."""
+    files = _files_from_ctx(ctx)
+    payload = dict(value) if isinstance(value, dict) else {}
+    if files:
+        host = ctx.host
+        package_root = Path(str(ctx.dataset_root or ctx.task_root))
+        for i, item in enumerate(files):
+            if not isinstance(item, Mapping):
+                raise HomeFilesError(f"files[{i}]_not_mapping", kind="home_files_options_invalid")
+            src_rel = _safe_rel(item.get("src"), what="src")
+            dest_rel = _safe_rel(item.get("dest"), what="dest")
+            dest_root = item.get("dest_root")
+            if dest_root not in DEST_ROOTS:
+                raise HomeFilesError(
+                    f"dest_root_invalid:{dest_root!r}",
+                    kind="home_files_dest_invalid",
+                )
+            src = (package_root / src_rel).resolve()
+            if not src.exists():
+                raise HomeFilesError(f"src_missing:{src_rel}", kind="home_files_src_missing")
+            box_base = "/attempt/home" if dest_root == "home" else "/attempt/workspace"
+            await host.upload(src, f"{box_base}/{dest_rel.as_posix()}")
+    return await nxt(payload)
