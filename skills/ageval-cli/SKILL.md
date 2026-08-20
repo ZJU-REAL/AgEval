@@ -3,7 +3,7 @@ name: ageval-cli
 description: >
   Operate ageval CLI (lock/run/plugin/view/publish/release/executors/campaign/evidence/status/cancel/jobs/results):
   flags, --set pointers, exit codes, --probe, offline fail-closed (AGEVAL_OFFLINE_AGENT),
-  ACP entry readiness, plugin install, suite upload. Use for ageval run/lock, PASS/FAIL/ERROR,
+  ACP entry readiness, plugin install, suite upload. Use when running ageval lock/run, PASS/FAIL/ERROR,
   trajectory export, Hub upload. Do not invent flags.
 ---
 
@@ -14,7 +14,7 @@ uv sync --frozen --all-packages
 uv run ageval --help
 ```
 
-Public commands: `lock` `run` `campaign` `tasks` `jobs` `view` `plugin` `evidence` `status` `cancel` `executors` `publish` `release` `login` `agent` `registry` `cache` `results`. No `submit`. Path arguments are **dataset** roots.
+Public commands: `ageval lock` `ageval run` `ageval campaign` `tasks` `jobs` `view` `plugin` `evidence` `ageval status` `ageval cancel` `executors` `publish` `release` `login` `agent` `registry` `cache` `results`. No `submit`. Path arguments are **dataset** roots.
 
 ```bash
 uv run ageval lock examples/core --task config-minimal

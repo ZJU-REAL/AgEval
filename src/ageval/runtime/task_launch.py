@@ -83,7 +83,8 @@ def _worker_workspace(ctx: AttemptCtx) -> Path:
     """
     host_path = getattr(ctx.host, "host_path", None)
     if callable(host_path):
-        return Path(host_path(WORKSPACE_PATH))
+        mapped = host_path(WORKSPACE_PATH)
+        return Path(str(mapped))
     workspace = ctx.evidence.path("task-workspace")
     seed = ctx.seed_dir
     if seed is not None and seed.is_dir():

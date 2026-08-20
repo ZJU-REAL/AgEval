@@ -10,12 +10,10 @@ Reads one JSON object from argv[1] or stdin. Credentials arrive via env
       "method": "run",
       "model": "openai/glm-5.2",
       "api_base": "https://…/v1",
-      "api_key": "<secret projected by parent>",
       "package_root": "/attempt/package",
       "workdir": "/attempt/workspace"
     }
 
-Credentials may also arrive via env (OPENAI_API_KEY / OPENAI_BASE_URL).
 Writes one AgentResult-shaped JSON object to stdout.
 """
 
