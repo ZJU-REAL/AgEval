@@ -37,4 +37,4 @@ evaluation:
 | artifact id | 必须和 `run.py` 实际写出的文件对上 |
 | `tmpfs_mb` | 只改盒内 evaluator `/tmp`；省略 32 MiB。大 snapshot 在 **task** 上声明，不要写进 `limits` |
 
-读结果时 runtime 与 evaluation 是分开的事实。见 [结果与 PASS](/docs/reference/results-and-pass)。
+盒内 `evaluator.py` 由独占槽 `evaluation_runtime` 的默认赢家经 `host.exec` 拉起；PASS 仍只经引擎 bind。读结果时 runtime 与 evaluation 是分开的事实。见 [结果与 PASS](/docs/reference/results-and-pass)。

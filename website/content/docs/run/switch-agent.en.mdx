@@ -39,3 +39,5 @@ uv run ageval run examples/core --task builtin-executor-conformance \
 Only allowlisted `--set` pointers work, e.g. `/bindings/solver/options/reasoning_effort="high"` — see [CLI](/docs/reference/cli).
 
 `api_key` is always an env **name**, never the secret. More: [ACP profiles](/docs/agents/acp-profiles).
+
+Non-ACP mechanisms (nooa / dsh / miniswe) switch with a whole `--profiles` file. See [Mechanism plugins](/docs/run/plugins).

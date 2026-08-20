@@ -22,6 +22,7 @@ description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能
 ```bash
 uv run ageval plugin install plugins/nooa
 # 或：uv run ageval plugin install plugins/dsh
+# 或：uv run ageval plugin install plugins/miniswe   # host-loop；bash 走 environment.exec
 uv run ageval plugin list
 ```
 
@@ -83,6 +84,8 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 
 ## 与 ACP 的关系
 
-默认 coding-agent 路径仍是 `executor: acp` + `options.entry`。插件是 **可选** 机制；同一 `run.py` 只靠 profiles 切换。
+默认 coding-agent 路径仍是 `executor: acp` + `options.entry`。插件是 **可选** 机制；同一 `run.py` 只靠 profiles 切换。miniswe 是 host-loop：LLM 留在 parent，bash 只经 `host.exec`；缺 `exec` 在 lock 失败。
+
+盒内 `evaluator.py` 与层 C 轨迹写入是独占槽 `evaluation_runtime` / `trajectory_seal`（引擎 default 赢，没有 job 字段糖）。PASS 仍只经引擎 bind。
 
 机制契约见仓库 `docs/design/11`。本页不改变证据等级。

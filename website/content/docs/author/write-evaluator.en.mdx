@@ -34,4 +34,4 @@ evaluation:
 | Artifact ids | Must match files `run.py` actually writes |
 | `tmpfs_mb` | In-box evaluator `/tmp` only; omit → 32 MiB. Declare a larger sandbox on the **task**, not under `limits` |
 
-Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).
+The in-box `evaluator.py` is launched by the exclusive-slot `evaluation_runtime` default winner via `host.exec`. PASS still binds only in the engine. Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).

@@ -18,7 +18,7 @@ Attempt 流水线在 `src/ageval/attempt/` 里一眼可见。题包作者写 `ru
 ### 能做什么
 
 - 装上仓内 skill，让 coding agent 选例子、跑 `ageval run`、读结果
-- 同一份 `run.py`，用 profiles 换 ACP entry，或绑定 nooa / dsh
+- 同一份 `run.py`，用 profiles 换 ACP entry，或绑定 nooa / dsh / miniswe
 - `ageval plugin install` 只装本机；install 永不改写 dataset
 - 整份 dataset（省略 `--task`）或 campaign 矩阵
 - `ageval view` 看本机 Jobs

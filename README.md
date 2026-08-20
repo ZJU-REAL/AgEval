@@ -18,7 +18,7 @@ The Attempt pipeline is visible in `src/ageval/attempt/`. Task authors write `ru
 ### What you can do
 
 - Load the in-repo skills and let a coding agent pick examples, run `ageval run`, and read results
-- Keep one task `run.py` and switch ACP entries (pi / Codex / Claude / OpenCode / Grok) or bind nooa / dsh from profiles
+- Keep one task `run.py` and switch ACP entries (pi / Codex / Claude / OpenCode / Grok) or bind nooa / dsh / miniswe from profiles
 - `ageval plugin install` then bind in `profiles.yaml` — install never rewrites the dataset
 - Run a full dataset (omit `--task`) or a campaign matrix
 - Browse local jobs with `ageval view`

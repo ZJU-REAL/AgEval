@@ -36,7 +36,7 @@
 | [design/08-conversion-security-testing.md](design/08-conversion-security-testing.md) | 转换、安全、测试 |
 | [design/09-owner-matrix-and-structure.md](design/09-owner-matrix-and-structure.md) | Owner 矩阵、目标树、§4.10 结构规范 |
 | [design/10-examples-database-52.md](design/10-examples-database-52.md) | 点名示例（非进度） |
-| [design/11-extension-plugins.md](design/11-extension-plugins.md) | 独占槽 / 链槽、export / inject、`ageval.plugin/1` |
+| [design/11-extension-plugins.md](design/11-extension-plugins.md) | 独占槽 / 链槽、export / inject、`evaluation_runtime` / `trajectory_seal`、`ageval.plugin/1` |
 | [design/12-hub-dataset-and-leaderboard.md](design/12-hub-dataset-and-leaderboard.md) | Hub / Registry |
 | [design/13-web-ui-tokens.md](design/13-web-ui-tokens.md) | Web UI 令牌 |
 | [design/14-agent-hub.md](design/14-agent-hub.md) | `ageval.agent/1` |
