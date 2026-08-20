@@ -636,7 +636,16 @@ export function OrganizationDetailPage() {
                       </TableHeader>
                       <TableBody>
                         {sharedSuites.map((s) => (
-                          <TableRow key={s.suite_run_id}>
+                          <TableRow
+                            key={s.suite_run_id}
+                            className={s.dataset_id ? "cursor-pointer" : undefined}
+                            onClick={() => {
+                              if (!s.dataset_id) return;
+                              navigate(
+                                `/datasets/${encodeDatasetId(s.dataset_id)}?tab=leaderboard&suite=${encodeURIComponent(s.suite_run_id)}`,
+                              );
+                            }}
+                          >
                             <TableCell className="font-mono text-xs">
                               {s.suite_run_id}
                             </TableCell>

@@ -74,7 +74,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/organizations` | Your orgs · Create · Join |
 | `/organizations/:orgId` | Overview (members · datasets · plugins · agents) · Settings |
 | `/users/:login` | Public user profile (official orgs only; signed-out OK) |
-| `/jobs/...` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |
+| `/datasets/:id/tasks/:task/attempts/:runId` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |
 | `/login` | Starts browser OAuth |
 | `/login/callback` | OAuth redirect target |
 

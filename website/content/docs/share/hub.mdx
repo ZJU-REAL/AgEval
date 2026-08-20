@@ -14,7 +14,7 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - Task 下的 **Jobs**：已上传运行产物时可点进详情（界面与本机 Viewer 相近，含轨迹）  
 - Dataset 版本切换：有权限的人能看到 **draft (current)**，其他人只能切已发布 release。org owner 可改当前版本可见性、删除该版本，或把 draft 发布成 release  
 - Tasks 表：README 是否存在、近期 job 数、最近一次分数/状态  
-- Leaderboard：**Public**（默认）只列完备且绑定 release 的 suite；**Internal** 用同一张表列出当前可见的缺题 / draft 绑定跑次。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）。Task Jobs 不变。  
+- Leaderboard：**Public**（默认）只列完备且绑定 release 的 suite；**Internal** 用同一张表列出当前可见的缺题 / draft 绑定跑次。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）。上传者可在 **share** 页签改可见性、分享给 org/user、或删除。Task Jobs 不变。  
 - 插件详情：独占 / 链 **声明槽**时间线，点开跳到包内文件预览；浏览器不执行插件  
 - 官方组织、这些组织的成员、以及这些组织上的插件显示已验证对勾  
 - 公开用户页只展示身份和官方组织，不列出私有成员关系  
@@ -52,7 +52,7 @@ pnpm dev   # http://127.0.0.1:5174
 | `/organizations` | 我的组织 · 创建 / 加入 · Dataset / 插件 / Agent 计数 |
 | `/organizations/:orgId` | 概览（成员 · Dataset · 插件 · Agent）· 设置 |
 | `/users/:login` | 公开用户页（官方组织与公开 Dataset / 插件 / Agent；未登录可看） |
-| `/jobs/...` | 远程 Attempt 详情（需已上传对应运行产物） |
+| `/datasets/:id/tasks/:task/attempts/:runId` | 远程 Attempt 详情（需已上传对应运行产物） |
 
 登录：点 **Sign in with GitHub** 即可。命令与部署细节见 `apps/hub/README.md`、`services/registry/README.md`。
 

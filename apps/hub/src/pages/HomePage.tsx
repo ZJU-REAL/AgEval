@@ -370,9 +370,7 @@ export function HomePage() {
                     s.pass_rate == null
                       ? "—"
                       : `${(Number(s.pass_rate) * 100).toFixed(1)}%`,
-                    typeof s.created_at === "number"
-                      ? formatDate(new Date(s.created_at * 1000).toISOString())
-                      : "—",
+                    formatDate(s.created_at),
                   ],
                 }))}
               />

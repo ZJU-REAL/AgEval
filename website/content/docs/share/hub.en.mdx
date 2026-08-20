@@ -14,7 +14,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
 - Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases. Org owners can flip the current version public/private, delete it, or promote a draft to a release  
 - Tasks table: README present, recent job count, last score/status  
-- Leaderboard: **Public** (default) lists complete, release-bound suite rows only. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). Task Jobs stay as they are.  
+- Leaderboard: **Public** (default) lists complete, release-bound suite rows only. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). The uploader gets a **share** tab to flip visibility, share with an org/user, or delete. Task Jobs stay as they are.  
 - Plugin detail: exclusive / chain **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
 - Official orgs, members of those orgs, and plugins from those orgs show a verified check  
 - Public user page lists identity and official orgs only — private memberships stay hidden  
@@ -52,7 +52,7 @@ pnpm dev   # http://127.0.0.1:5174
 | `/organizations` | Your orgs · Create / Join · dataset / plugin / agent counts |
 | `/organizations/:orgId` | Overview (members · datasets · plugins · agents) · Settings |
 | `/users/:login` | Public user profile (official orgs and public datasets / plugins / agents; signed-out OK) |
-| `/jobs/...` | Remote Attempt detail (needs uploaded run artifacts) |
+| `/datasets/:id/tasks/:task/attempts/:runId` | Remote Attempt detail (needs uploaded run artifacts) |
 
 Click **Sign in with GitHub** to authenticate. Ops detail: `apps/hub/README.md`, `services/registry/README.md`.
 

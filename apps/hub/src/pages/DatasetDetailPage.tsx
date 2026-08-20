@@ -643,6 +643,20 @@ export function DatasetDetailPage() {
             orgId={release?.org_id}
             packageDigest={release?.package_digest}
             versions={versions}
+            onSuiteUpdated={(id, patch) => {
+              const apply = (rows: SuiteRow[]) =>
+                rows.map((row) =>
+                  row.suite_run_id === id ? { ...row, ...patch } : row,
+                );
+              setJobSuites(apply);
+              setBoardSuites(apply);
+            }}
+            onSuiteDeleted={(id) => {
+              const drop = (rows: SuiteRow[]) =>
+                rows.filter((row) => row.suite_run_id !== id);
+              setJobSuites(drop);
+              setBoardSuites(drop);
+            }}
             openSuiteId={
               boardView === "public" && !demoLeaderboard
                 ? search.get("suite")
