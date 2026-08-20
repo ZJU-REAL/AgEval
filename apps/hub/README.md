@@ -1,11 +1,11 @@
-# BORA Hub (`apps/hub`)
+# ageval Hub (`apps/hub`)
 
 Registry **Dataset catalog** SPA: list packages, open README and tasks, preview
 files, browse Task Jobs, and Leaderboard.
 
-Also covers the **Plugin marketplace** (`/plugins` — `bora.plugin/1` browse +
+Also covers the **Plugin marketplace** (`/plugins` — `ageval.plugin/1` browse +
 CLI install copy; no browser-side install), **Agents** (`/agents` —
-published `bora.agent/1` plus derived appearances from official public
+published `ageval.agent/1` plus derived appearances from official public
 Leaderboards that carry `agent_ref`; not a stored Runtime and not suite PASS),
 **organizations** (members, org
 datasets and plugins, shared suite results, invite keys, member add / role /
@@ -13,7 +13,7 @@ transfer, leave / dissolve), **GitHub
 browser login**, and opening a Job’s run detail when the corresponding Attempt
 artifacts were uploaded.
 
-**Not** the local results viewer (`apps/viewer` / `bora view`).
+**Not** the local results viewer (`apps/viewer` / `ageval view`).
 
 ## Stack
 
@@ -48,7 +48,7 @@ Hub uses **Authorization Code**, not Device Flow. GitHub OAuth App callbacks:
 **Sign in with GitHub** → authorize → `/login/callback` → Registry token in
 `localStorage` (header shows avatar / display name when available).
 
-CLI stays on Device Flow: `bora login` (see `services/registry/README.md`).
+CLI stays on Device Flow: `ageval login` (see `services/registry/README.md`).
 
 ### Invite keys
 
