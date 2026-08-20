@@ -29,12 +29,12 @@
 
 | 槽 | 语义 | 例子 |
 | --- | --- | --- |
-| 独占 | 全 Attempt 一个赢家；登记为同名 service | `environment`、`executor` |
+| 独占 | 全 Attempt 一个赢家；登记为同名 service | `environment`、`executor`、`evaluation_runtime`、`trajectory_seal` |
 | 链 | `(ctx, value, nxt)` | `after_environment_ready`、`environment_setup`、`trajectory_collect` |
 
-`profiles.environment` / `profiles.executor` = 选独占槽赢家。`extensions` 是链槽 opt-in。未列入 `extensions` 的不进链、不进服务表。
+`profiles.environment` / `profiles.executor` = 选独占槽赢家。`evaluation_runtime` / `trajectory_seal` **没有** job 字段糖；默认赢家即可，替换只能走显式 `extensions` 行（`slot` + `plugin`）。`extensions` 也是链槽 opt-in。未列入 `extensions` 的不进链、不进服务表（引擎默认除外）。
 
-Current 独占槽只有 `environment` 与 `executor`。层 C 轨迹写入与盒内 evaluator 是引擎代码，不是可 export 的服务。
+Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者默认是引擎（`plugin_id: default`）。PASS 仍只经 `bind_evaluation` 进入；`pass` / `identity` / `cleanup` / `evidence` 不准 export。
 
 ## 声明（形状）
 
@@ -82,7 +82,7 @@ agent_profiles:
 - `ageval plugin install` 只写 `~/.ageval/plugins`，永不改 profiles。
 - 按机制命名（`acp` / `docker` / `e2b` / `ssh` / `nooa`）。禁止按 bench 名。
 
-独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 `agent_profiles.*.executor` 选出（coding-agent 默认 acp）。
+独占槽默认赢家（Current）：`environment` 由 job `environment:` 选出（缺省常见 local 或 docker，以 profiles 为准）；`executor` 由 `agent_profiles.*.executor` 选出（coding-agent 默认 acp）；`evaluation_runtime` / `trajectory_seal` 由引擎 `plugin_id: default` 赢（盒内 `evaluator.py` / 层 C writer）。缺默认注册 → lock fail-closed。
 
 链默认：`after_environment_ready`（ACP 探测安装 + HOME overlay）；`environment_setup`（`setup.sh`，引擎 defaults）。
 
@@ -102,7 +102,7 @@ Resolve：显式 binding > 更低 priority 赢；并列且无显式挑选 → fa
 
 ## 包
 
-manifest：`ageval.plugin/1`。first-party：`src/ageval/plugins/contrib/{acp,docker,local,e2b,ssh,openai_http}`。引擎默认：`plugins/defaults`（`environment_setup`）。外置包在仓库根 `plugins/`（nooa、dsh、miniswe、home-files、agent-skills）。
+manifest：`ageval.plugin/1`。first-party：`src/ageval/plugins/contrib/{acp,docker,local,e2b,ssh,openai_http}`。引擎默认：`plugins/defaults`（`environment_setup`、`evaluation_runtime`、`trajectory_seal`）。外置包在仓库根 `plugins/`（nooa、dsh、miniswe、home-files、agent-skills）。
 
 Recognition（list/lock 认得）≠ 本机能跑 ≠ 镜像已 bake。缺 extra / 钥 → skip，不要假绿。
 

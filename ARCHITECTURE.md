@@ -233,7 +233,7 @@ src/ageval/
 | `plugins/contrib/e2b/` | E2B SDK、template alias（缓存在该账号，Core 不实现） | Core 缓存层 |
 | `plugins/contrib/ssh/` | ssh A/B、`ssh -T` / `docker exec` | 本机假 agent |
 | `plugins/contrib/acp/` | parent ACP client、entry registry、`attach_stdio` 消费方 | 层 C writer；vendor stdout scrape |
-| `plugins/defaults/` | `environment_setup` 认 `setup.sh` | 假 executor |
+| `plugins/defaults/` | `environment_setup` 认 `setup.sh`；`evaluation_runtime` / `trajectory_seal` 默认赢家 | 假 executor；PASS |
 | `runtime/` | identity、parent Agent Service、task worker 子进程、取消/超时 | 盒子实现、评分 |
 | `evaluation/` | barrier 顺序、盒内 runner、扁平 Result | 题包评分算法 |
 | `evidence/` | store / redaction / 层 C `trajectory.jsonl` | vendor 协议解析；PASS |
@@ -288,7 +288,7 @@ ageval_sdk ──► 仅最小公开 DTO / 协议形状
 
 Host **awaits** 已注册的链槽 / 独占赢家。插件经 `(ctx, value, nxt)` 改写或短路，**不是**丢声明行给 Core 事后解释。
 
-槽名权威：`src/ageval/plugins/slots.py`。只有 **exclusive** 与 **chain** 两种。Current 独占槽：`environment`、`executor`。盒内 evaluator 与层 C 轨迹写入是引擎代码，不是插件服务。
+槽名权威：`src/ageval/plugins/slots.py`。只有 **exclusive** 与 **chain** 两种。Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者默认赢家是引擎（`plugin_id: default`）。PASS 仍只经 `bind_evaluation` 进入 Result；`evaluation_runtime` 返回 raw，不得自己写 verdict。`pass` / `identity` / `cleanup` / `evidence` 不是服务。
 
 ```text
 environment phase
@@ -312,14 +312,14 @@ run phase
 
 evaluate phase
   before_evaluate
-  upload evaluation/           # gold 此刻才进盒
-  盒内 evaluator.py
+  upload evaluation/           # gold 此刻才进盒（引擎代码，不挂槽）
+  evaluation_runtime.evaluate  # 独占槽赢家；默认盒内 evaluator.py
   bind_evaluation              # PASS 只在这里进 Result
   after_evaluate               # 不得改 status
 
 record phase
-  trajectory_collect → enrich
-  引擎写 trajectory.jsonl      # 层 C；插件不能替代
+  trajectory_collect → enrich  # fail-open 链
+  trajectory_seal              # 独占槽赢家写 trajectory.jsonl（层 C）
 
 cleanup (finally)
   cleanup_report

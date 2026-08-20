@@ -62,14 +62,16 @@ Current 实现把前四相放进循环并在相位失败时记 `phase_failed`，
 
 | 槽种类 | 语义 | 例子 |
 | --- | --- | --- |
-| **独占** | 全 Attempt 一个赢家；自动登记为同名 **service** | `environment`、`executor` |
+| **独占** | 全 Attempt 一个赢家；自动登记为同名 **service** | `environment`、`executor`、`evaluation_runtime`、`trajectory_seal` |
 | **链** | `(ctx, value, nxt)` | `after_environment_ready`、`environment_setup` |
 
 `profiles.executor: acp` = 选独占槽 `executor` 的赢家，不是另一套插件系统。
 
 槽名权威：`src/ageval/plugins/slots.py`。新**时间线**槽仍要改 attempt 宿主；插件不可自造槽名。
 
-Current 独占槽只有 `environment` 与 `executor`。打分运行时与层 C 轨迹写入是**引擎代码**，不是可 export 的服务（不要把 `evaluation_runtime` / `trajectory_seal` 做成插件可替换槽）。
+Current 独占槽：`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`。后两者的默认赢家是引擎（`plugin_id: default`，`is_default=True`）：盒内 `evaluator.py`（via `host.exec`）与层 C `trajectory.jsonl` 写入。没有 job 字段糖；替换只能走显式 `extensions` 行（`slot` + `plugin`）。缺默认注册 → lock fail-closed。
+
+PASS 仍只经 `AttemptCtx.bind_evaluation` 进入 Result。`evaluation_runtime` 赢家返回 raw，不得自己写 verdict。`pass` / `identity` / `cleanup` / `evidence` 仍不是服务。
 
 默认 phase：
 
@@ -77,8 +79,8 @@ Current 独占槽只有 `environment` 与 `executor`。打分运行时与层 C �
 | --- | --- |
 | `environment` | `host.start` + upload seed + 槽（见下） |
 | `run` | 调 task `run.py`；内含 agent open/invoke/close **子槽** |
-| `evaluate` | 停 writer、materialize、跑 `evaluator.py`、绑定 PASS |
-| `record` | collect/enrich → **引擎写** `trajectory.jsonl` → seal |
+| `evaluate` | 停 writer、materialize gold、调 `evaluation_runtime` 赢家、`bind_evaluation` |
+| `record` | collect/enrich → `trajectory_seal` 赢家写 `trajectory.jsonl` |
 | `cleanup` | `host.stop`；实现可加报告，不能选择跳过 |
 
 **没有 `provision` phase。**
@@ -113,8 +115,8 @@ async def run(ctx) -> None:
     # 引擎 upload gold —— 不挂在 before_evaluate 链上
     if ctx.evaluation_src.exists():
         await ctx.host.upload(ctx.evaluation_src, "/attempt/evaluation")
-    result = await ctx.evaluation_runtime.evaluate(ctx)  # Current：盒内 evaluator.py
-    ctx.bind_evaluation(result)                 # PASS 只从这里进
+    result = await ctx.evaluation_runtime.evaluate(ctx)  # 独占槽赢家；默认盒内 evaluator.py
+    ctx.bind_evaluation(result)                 # PASS 只从这里进；赢家不得 bind
     await emit(ctx, "after_evaluate")            # 不得改 status
 ```
 
@@ -127,8 +129,8 @@ async def run(ctx) -> None:
 | 挂在 | slot |
 | --- | --- |
 | run | `before_run` / `after_run`；`before/after_agent_open\|invoke\|close`；`normalize_agent_result` |
-| evaluate | `before_evaluate` / `after_evaluate`（可注 metrics，**不能改 PASS**）。**upload gold 是引擎代码** |
-| record | `trajectory_collect` / `trajectory_enrich`（fail-open）；层 C 由引擎写，插件不能替代 |
+| evaluate | `before_evaluate` / `after_evaluate`（可注 metrics，**不能改 PASS**）。**upload gold 是引擎代码**，不是 `evaluation_runtime` 的方法。独占槽 `evaluation_runtime` 默认跑盒内 `evaluator.py` |
+| record | `trajectory_collect` / `trajectory_enrich`（fail-open）；独占槽 `trajectory_seal` 写层 C（fail-closed：丢文件即相位失败） |
 | cleanup | `cleanup_report`（链）；cleanup phase 本身由 finally 调用 |
 
 `executor` 是 **run 里的独占槽**，不是 attempt 上的独立 phase。ACP attach 发生在第一次 invoke，不是独立 phase。

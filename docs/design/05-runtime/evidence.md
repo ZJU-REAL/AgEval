@@ -8,7 +8,7 @@
 | --- | --- |
 | `lock.json` | 无 secret 的 lock 摘要 |
 | `result.json` | 扁平 Result（status/score/kind/logs） |
-| `trajectory.jsonl` | 层 C；引擎写 |
+| `trajectory.jsonl` | 层 C；`trajectory_seal` 独占槽默认引擎写 |
 | `summary.json` | 相位事实 / timing |
 | `agent/` | invoke 级观察 |
 
@@ -21,7 +21,7 @@
 ```text
 A  vendor raw     后端原样
 B  中立事件       ageval.trajectory.event/1（adapter 只映射）
-C  trajectory.jsonl  只有 evidence writer 折叠
+C  trajectory.jsonl  `trajectory_seal` 赢家写（默认引擎折叠）
 ```
 
 lock 与 evidence 禁止 host token。密钥 locator 只留名字。

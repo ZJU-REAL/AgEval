@@ -37,17 +37,17 @@ run
 evaluate
   before_evaluate
   upload evaluation/          # 引擎代码；不是 before_evaluate 链槽
-  evaluator.py in-box
-  bind_evaluation
-  after_evaluate          # 不得改 status
+  evaluation_runtime          # 独占槽；默认盒内 evaluator.py
+  bind_evaluation             # PASS 只从这里进
+  after_evaluate              # 不得改 status
 
 record
   trajectory_collect → enrich
-  engine writes trajectory.jsonl
+  trajectory_seal             # 独占槽；默认引擎写 trajectory.jsonl
 
 cleanup (finally)
   cleanup_report
   host.stop
 ```
 
-槽种类只有 exclusive（`environment`、`executor`）与 chain。
+槽种类只有 exclusive（`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`）与 chain。PASS 仍只经 `bind_evaluation`。
