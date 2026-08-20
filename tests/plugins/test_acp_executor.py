@@ -16,9 +16,9 @@ from ageval.plugins.agent_result import (
     parse_validated_text_structured,
 )
 from ageval.plugins.contrib.acp import AcpExecutor, normalize_acp_usage
-from ageval.plugins.contrib.acp.executor import (
-    _find_reasoning_config_option,
-    _select_option_values,
+from ageval.plugins.contrib.acp.config_bind import (
+    find_reasoning_config_option,
+    select_option_values,
 )
 
 BOX_HOME = "/attempt/home"
@@ -237,14 +237,14 @@ def test_find_reasoning_option_prefers_thought_level_category() -> None:
         {"id": "effort", "options": [{"value": "high"}]},
         {"id": "thinking", "category": "thought_level", "options": [{"value": "off"}]},
     ]
-    found = _find_reasoning_config_option(opts)
+    found = find_reasoning_config_option(opts)
     assert found is not None
     assert found["id"] == "thinking"
 
 
 def test_find_reasoning_option_falls_back_to_known_id() -> None:
     opts = [{"id": "reasoning_effort", "options": [{"value": "high"}]}]
-    found = _find_reasoning_config_option(opts)
+    found = find_reasoning_config_option(opts)
     assert found is not None
     assert found["id"] == "reasoning_effort"
 
@@ -257,7 +257,7 @@ def test_select_option_values_flattens_groups() -> None:
             {"value": "xhigh"},
         ],
     }
-    assert _select_option_values(opt) == ["off", "high", "xhigh"]
+    assert select_option_values(opt) == ["off", "high", "xhigh"]
 
 
 class _FakeConn:
