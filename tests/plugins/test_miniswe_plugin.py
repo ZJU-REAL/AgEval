@@ -73,10 +73,10 @@ def test_package_has_no_docker_exec_or_container_id() -> None:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         rel = str(path.relative_to(root))
-        if "docker exec" in text:
-            offenders.append(f"{rel}: docker exec")
-        if "container_id" in text:
-            offenders.append(f"{rel}: container_id")
+        if "docker" + " exec" in text:
+            offenders.append(f"{rel}: host docker CLI")
+        if "container" + "_id" in text:
+            offenders.append(f"{rel}: box handle field")
     assert offenders == []
 
 
