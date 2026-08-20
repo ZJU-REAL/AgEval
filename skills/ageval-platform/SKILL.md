@@ -35,7 +35,7 @@ Runtime owns lock, Attempt, the box, hard ceilings, trajectory, independent eval
 2. No secrets in lock / yaml / evidence. Env vars are locators.
 3. Adapters named by mechanism (`acp`, `docker`, `e2b`, `ssh`). Never by benchmark.
 4. Kind is `environment: local|docker|e2b|ssh`.
-5. No `bora.*` format mapping. Unknown format → one error.
+5. Unknown format → one error.
 6. Coding agents: `executor: acp` + `options.entry`. Not `executor: pi`.
 7. Plugins: exclusive / chain slots only. `ageval plugin install` never rewrites profiles.
 8. Do not claim `isolated` / `real-benchmark-verified` from one happy path.

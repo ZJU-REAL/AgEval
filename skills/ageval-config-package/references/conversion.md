@@ -19,7 +19,7 @@ Authority: `docs/design/08-conversion-security-testing.md`, `docs/design/02-task
 4. Write per-task `data/` (agent-visible) and `evaluation/` (gold) as needed.
 5. Stay idempotent: re-run regenerates members without hand-editing fifty files.
 
-Do not write `provider.kind` / `assurance` / `bora.yaml`. Generate `run.py`.
+Do not write `provider.kind` / `assurance`. Generate `run.py`.
 
 ### Import migration
 
