@@ -1,6 +1,8 @@
 """Attempt phase wall-time, for job views and progress bars.
 
 Observational only — never PASS authority, never part of a fingerprint.
+``phase_finished`` facts carry ``duration_ms`` plus wall ``started_at`` /
+``finished_at``; this module folds them into ``ageval.phase_timing/1``.
 """
 
 from __future__ import annotations
@@ -22,9 +24,17 @@ PHASE_LABELS: dict[str, str] = {
 }
 
 
+def _iso_stamp(raw: object) -> str | None:
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
 def timing_from_facts(facts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Build the timing block from ``phase_finished`` facts, in phase order."""
     totals: dict[str, float] = {}
+    started_at: str | None = None
+    finished_at: str | None = None
     for fact in facts:
         if fact.get("name") != "phase_finished":
             continue
@@ -36,6 +46,12 @@ def timing_from_facts(facts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         if not phase or not isinstance(duration, int | float) or isinstance(duration, bool):
             continue
         totals[phase] = totals.get(phase, 0.0) + float(duration)
+        started = _iso_stamp(detail.get("started_at"))
+        finished = _iso_stamp(detail.get("finished_at"))
+        if started and (started_at is None or started < started_at):
+            started_at = started
+        if finished and (finished_at is None or finished > finished_at):
+            finished_at = finished
 
     ordered = [p for p in STANDARD_PHASES if p in totals]
     ordered.extend(sorted(p for p in totals if p not in STANDARD_PHASES))
@@ -43,11 +59,16 @@ def timing_from_facts(facts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         {"id": name, "label": PHASE_LABELS.get(name, name), "duration_ms": round(totals[name], 3)}
         for name in ordered
     ]
-    return {
+    out: dict[str, Any] = {
         "schema": TIMING_SCHEMA,
         "phases": phases,
         "total_ms": round(sum(float(p["duration_ms"]) for p in phases), 3),
     }
+    if started_at is not None:
+        out["started_at"] = started_at
+    if finished_at is not None:
+        out["finished_at"] = finished_at
+    return out
 
 
 def format_duration_ms(ms: float | None) -> str | None:

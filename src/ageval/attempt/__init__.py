@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 
 from ageval.attempt.ctx import AttemptCtx
 from ageval.attempt.phases import cleanup, environment, evaluate, record, run
@@ -39,15 +40,25 @@ async def run_attempt(ctx: AttemptCtx) -> None:
         await _timed(ctx, cleanup.run)
 
 
+def _utc_now() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 async def _timed(ctx: AttemptCtx, phase: Phase) -> None:
     """Run one phase and record how long it took (observational only)."""
-    started = time.monotonic()
+    started_mono = time.monotonic()
+    started_at = _utc_now()
     try:
         await phase(ctx)
     finally:
         ctx.record_fact(
             "phase_finished",
-            {"phase": ctx.phase, "duration_ms": round((time.monotonic() - started) * 1000.0, 3)},
+            {
+                "phase": ctx.phase,
+                "duration_ms": round((time.monotonic() - started_mono) * 1000.0, 3),
+                "started_at": started_at,
+                "finished_at": _utc_now(),
+            },
         )
 
 

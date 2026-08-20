@@ -55,3 +55,32 @@ def test_duration_labels_read_like_a_clock() -> None:
     assert format_duration_ms(4500) == "4.5s"
     assert format_duration_ms(72000) == "1m 12s"
     assert format_duration_ms(120000) == "2m"
+
+
+def test_wall_clock_comes_from_phase_finished_facts() -> None:
+    timing = timing_from_facts(
+        [
+            {
+                "phase": "environment",
+                "name": "phase_finished",
+                "detail": {
+                    "phase": "environment",
+                    "duration_ms": 50.0,
+                    "started_at": "2026-08-20T10:00:00Z",
+                    "finished_at": "2026-08-20T10:00:01Z",
+                },
+            },
+            {
+                "phase": "run",
+                "name": "phase_finished",
+                "detail": {
+                    "phase": "run",
+                    "duration_ms": 200.0,
+                    "started_at": "2026-08-20T10:00:01Z",
+                    "finished_at": "2026-08-20T10:00:03Z",
+                },
+            },
+        ]
+    )
+    assert timing["started_at"] == "2026-08-20T10:00:00Z"
+    assert timing["finished_at"] == "2026-08-20T10:00:03Z"
