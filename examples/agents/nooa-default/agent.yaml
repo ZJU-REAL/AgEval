@@ -1,0 +1,18 @@
+format: ageval.agent/1
+agent_id: nooa-default
+version: "0.1.0"
+label: "NVIDIA OO Agents (JsonlAggAgent)"
+description: >-
+  NVIDIA OO Agents in-box worker. Default class is lib.agents:JsonlAggAgent
+  (journeys terminal-jsonl-agg). Install plugins/nooa first.
+tags: [coding, nooa]
+binding:
+  executor: nooa
+  model: openai/glm-5.2
+  api_key: ${litellm_api_key}
+  base_url: ${litellm_base_url}
+  extensions:
+    - plugin: nooa
+      options:
+        agent: "lib.agents:JsonlAggAgent"
+        method: "run"

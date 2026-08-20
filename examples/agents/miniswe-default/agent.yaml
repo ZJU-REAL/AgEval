@@ -1,0 +1,19 @@
+format: ageval.agent/1
+agent_id: miniswe-default
+version: "0.1.0"
+label: "mini-swe-agent (glm-5.2)"
+description: >-
+  mini-swe-agent on the parent host. Model HTTP stays on the parent;
+  credentials are litellm locators. Install plugins/miniswe first.
+tags: [coding, miniswe]
+binding:
+  executor: miniswe
+  model: openai/glm-5.2
+  api_key: ${litellm_api_key}
+  base_url: ${litellm_base_url}
+  extensions:
+    - plugin: miniswe
+      options:
+        step_limit: 20
+        cost_limit: 0
+        cmd_timeout: 60

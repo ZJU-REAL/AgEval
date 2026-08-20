@@ -1,0 +1,17 @@
+format: ageval.agent/1
+agent_id: dsh-default
+version: "0.1.0"
+label: "DeepSeek Harness (slim)"
+description: >-
+  DeepSeek Harness JSON-RPC in the box (composition slim). Not ACP.
+  Install plugins/dsh first. Credentials stay locators until invoke.
+tags: [coding, dsh]
+binding:
+  executor: dsh
+  model: dashscope/deepseek-v4-flash
+  api_key: ${litellm_api_key}
+  base_url: ${litellm_base_url}
+  extensions:
+    - plugin: dsh
+      options:
+        composition: slim

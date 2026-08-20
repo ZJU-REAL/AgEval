@@ -5,7 +5,7 @@ selected popular-bench **conversion** packages.
 
 ```text
 examples/
-├── agents/         # ageval.agent/1 examples (cc-default / pi-default / grok-jsonl-agg / http-default)
+├── agents/         # ageval.agent/1 (cc/pi/codex/opencode/dsh/nooa/miniswe)
 ├── core/           # dataset example/core — Core surface gates
 ├── journeys/       # dataset example/journeys — case-class fidelity
 └── tau3-airline/   # dataset my-lab/tau3-airline — τ³-bench airline port
@@ -55,7 +55,7 @@ uv run ageval lock examples/core --task config-invalid       # exit 2, unknown_p
 | [`env-postgres-min`](journeys/tasks/env-postgres-min/)     | Environment + DB tools (no agent) |
 | [`multiagent-env-min`](journeys/tasks/multiagent-env-min/) | Multi-session + SQL tools         |
 | [`tau2-dialog-min`](journeys/tasks/tau2-dialog-min/)       | Dual-role dialog + tools          |
-| [`terminal-jsonl-agg`](journeys/tasks/terminal-jsonl-agg/) | workspace file + clean eval    |
+| [`terminal-jsonl-agg`](journeys/tasks/terminal-jsonl-agg/) | workspace file + clean eval       |
 
 ### External nooa plugin (optional profiles)
 
@@ -100,11 +100,11 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 
 | Task                                                                       | Role                                    |
 | -------------------------------------------------------------------------- | --------------------------------------- |
-| [`config-minimal`](core/tasks/config-minimal/)                             | `ageval lock` success                     |
-| [`config-invalid`](core/tasks/config-invalid/)                             | `ageval lock` expected-failure            |
+| [`config-minimal`](core/tasks/config-minimal/)                             | `ageval lock` success                   |
+| [`config-invalid`](core/tasks/config-invalid/)                             | `ageval lock` expected-failure          |
 | [`harness-minimal`](core/tasks/harness-minimal/)                           | Worker harness, no agent                |
 | [`evaluator-negative`](core/tasks/evaluator-negative/)                     | completed ≠ PASS                        |
-| [`sdk-agent-session`](core/tasks/sdk-agent-session/)                       | multi-invoke Agent + PASS            |
+| [`sdk-agent-session`](core/tasks/sdk-agent-session/)                       | multi-invoke Agent + PASS               |
 | [`plugin-agent-executor`](core/tasks/plugin-agent-executor/)               | `openai-http` second mechanism          |
 | [`attempt-trajectory`](core/tasks/attempt-trajectory/)                     | §8.9 trajectory + `Result.logs`         |
 | [`hard-ceiling-trajectory`](core/tasks/hard-ceiling-trajectory/)           | N+1 invoke denied                       |
@@ -126,14 +126,14 @@ Popular-bench **port** of [tau2-bench](https://github.com/sierra-research/tau2-b
 (`user` + `service` via `profiles.yaml` → ACP `grok-build`) with package-local tools/DB
 bridge and independent evaluator (tau2 ENV+COMMUNICATE).
 
-| Item         | Notes                                                                                                                                        |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Upstream pin | `tau2-bench` @ `v1.0.1` (`fc0055dc…`); paper [2506.07982](https://arxiv.org/abs/2506.07982)                                                  |
-| Members      | **50** tasks: `airline-00` … `airline-49` (upstream ids `0`…`49`)                                                                            |
+| Item         | Notes                                                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Upstream pin | `tau2-bench` @ `v1.0.1` (`fc0055dc…`); paper [2506.07982](https://arxiv.org/abs/2506.07982)                                            |
+| Members      | **50** tasks: `airline-00` … `airline-49` (upstream ids `0`…`49`)                                                                      |
 | Layout       | Dataset-level [`shared/lib`](tau3-airline/shared/lib/) + [`shared/assets`](tau3-airline/shared/assets/); **no** per-task `lib/` copies |
-| Gold         | Under each `tasks/airline-NN/evaluation/` only — not under `shared/`                                                                         |
-| Host deps    | `tau2==1.0.1` (see [`tau3-airline/requirements.txt`](tau3-airline/requirements.txt)) for run/eval                                            |
-| Evidence     | **Not** a public smoke upgrade path; package / Hub publish **≠** `real-benchmark-verified`                                                   |
+| Gold         | Under each `tasks/airline-NN/evaluation/` only — not under `shared/`                                                                   |
+| Host deps    | `tau2==1.0.1` (see [`tau3-airline/requirements.txt`](tau3-airline/requirements.txt)) for run/eval                                      |
+| Evidence     | **Not** a public smoke upgrade path; package / Hub publish **≠** `real-benchmark-verified`                                             |
 
 ```bash
 uv run ageval lock examples/tau3-airline --task airline-00
@@ -152,10 +152,10 @@ Only **`tau3-airline`** lands in this monorepo. Larger popular-bench ports stay 
 `examples/`** and ship as **Hub packages** (publish + suite upload), so clone size and CI
 paths stay bounded:
 
-| Upstream | Hub package id (org `my-lab`) | Notes |
-| --- | --- | --- |
+| Upstream           | Hub package id (org `my-lab`)                    | Notes                                 |
+| ------------------ | ------------------------------------------------ | ------------------------------------- |
 | Terminal-Bench 2.0 | `terminal-bench-2` / light `terminal-bench-2-10` | Docker + Harbor pytest-style verifier |
-| MARBLE coding | `marble-coding` / light `marble-coding-10` | shared-container multi-agent coding |
+| MARBLE coding      | `marble-coding` / light `marble-coding-10`       | shared-container multi-agent coding   |
 
 Package presence, Hub publish, or a suite job on the board does **not** raise evidence grade
 (`package ≠ real-benchmark-verified`).
@@ -165,14 +165,16 @@ Package presence, Hub publish, or a suite job on the board does **not** raise ev
 
 ## What was removed
 
-| Former package                                                    | Reason                                                 |
-| ----------------------------------------------------------------- | ------------------------------------------------------ |
-| `core/agent-eval`                                                 | `sdk-agent-session`                                    |
-| `core/acp-agent-conformance`                                      | `builtin-executor-conformance`                         |
-| `core/orchestration-environment`                                  | `journeys/multiagent-env-min`                          |
-| `examples/l1` (entire dataset)                                    | docker topology; isolation stays in `tests/provider_l1/` |
-| `examples/slot-probe` / `plugins/slot-probe`                      | multi-slot probe, not a public smoke                   |
-| `echo-contract` / `workspace-file-eval`                           | Earlier redundancy                                     |
+| Former package                               | Reason                                                   |
+| -------------------------------------------- | -------------------------------------------------------- |
+| `core/agent-eval`                            | `sdk-agent-session`                                      |
+| `core/acp-agent-conformance`                 | `builtin-executor-conformance`                           |
+| `core/orchestration-environment`             | `journeys/multiagent-env-min`                            |
+| `examples/l1` (entire dataset)               | docker topology; isolation stays in `tests/provider_l1/` |
+| `examples/slot-probe` / `plugins/slot-probe` | multi-slot probe, not a public smoke                     |
+| `echo-contract` / `workspace-file-eval`      | Earlier redundancy                                       |
+| `agents/http-default`                        | openai-http lock-lane demo; not a catalog Agent          |
+| `agents/grok-jsonl-agg`                      | task-specific overlay; catalog Agents stay entry-default |
 
 ## Suggested first runs
 

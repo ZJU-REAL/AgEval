@@ -21,7 +21,7 @@ install_agent_from_registry = _agents.install_agent_from_registry
 publish_agent = _agents.publish_agent
 
 REPO = Path(__file__).resolve().parents[2]
-AGENT_FIXTURE = REPO / "examples" / "agents" / "http-default"
+AGENT_FIXTURE = REPO / "examples" / "agents" / "pi-default"
 TEST_ORG = "test"
 
 
@@ -63,7 +63,7 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
     assert summary["ok"] is True
     assert summary["package_kind"] == "agent"
     assert summary["media_type"] == AGENT_MEDIA_TYPE
-    assert summary["package_id"] == f"{TEST_ORG}/http-default"
+    assert summary["package_id"] == f"{TEST_ORG}/pi-default"
 
     body = _get(
         env["url"],
@@ -72,9 +72,9 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
     )
     assert body.get("package_kind") == "agent"
     preview = body.get("agent_preview") or {}
-    assert preview.get("agent_id") == "http-default"
-    assert preview.get("label") == "OpenAI-compatible HTTP"
-    assert preview.get("binding", {}).get("executor") == "openai-http"
+    assert preview.get("agent_id") == "pi-default"
+    assert preview.get("label") == "Pi (entry default)"
+    assert preview.get("binding", {}).get("executor") == "acp"
     assert "agent.yaml" in (preview.get("files") or [])
 
     listed = _get(env["url"], env["token"], "/v1/packages?package_kind=agent")
@@ -89,7 +89,7 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
 
     installed = install_agent_from_registry(summary["ref"])
     assert installed["ok"] is True
-    assert installed["agent_id"] == f"{TEST_ORG}/http-default"
+    assert installed["agent_id"] == f"{TEST_ORG}/pi-default"
     assert installed["digest"].startswith("sha256:")
     assert (Path(env["home"]) / "agents" / "index.json").is_file()
 

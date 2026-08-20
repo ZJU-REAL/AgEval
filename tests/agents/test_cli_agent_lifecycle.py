@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-EXAMPLE_AGENT = ROOT / "examples/agents/http-default"
+EXAMPLE_AGENT = ROOT / "examples/agents/pi-default"
 DATABASE = ROOT / "examples/core"
 
 
@@ -44,16 +44,16 @@ def test_agent_install_list_show_uninstall(env: dict[str, str]) -> None:
     assert proc.returncode == 0, proc.stderr
     data = json.loads(proc.stdout)
     assert data["ok"] is True
-    assert data["ref"] == "local/http-default@0.1.0"
+    assert data["ref"] == "local/pi-default@0.1.0"
 
     listed = json.loads(_cli(env, "agent", "list").stdout)
-    assert [a["agent_id"] for a in listed["agents"]] == ["local/http-default"]
+    assert [a["agent_id"] for a in listed["agents"]] == ["local/pi-default"]
 
-    shown = json.loads(_cli(env, "agent", "show", "local/http-default@0.1.0").stdout)
-    assert shown["binding"]["executor"] == "openai-http"
+    shown = json.loads(_cli(env, "agent", "show", "local/pi-default@0.1.0").stdout)
+    assert shown["binding"]["executor"] == "acp"
     assert shown["digest"].startswith("sha256:")
 
-    assert _cli(env, "agent", "uninstall", "local/http-default").returncode == 0
+    assert _cli(env, "agent", "uninstall", "local/pi-default").returncode == 0
     assert json.loads(_cli(env, "agent", "list").stdout)["agents"] == []
 
 
@@ -106,15 +106,15 @@ def test_lock_with_agent_records_agent_ref_and_matches_profiles_lane(
 ) -> None:
     assert _cli(env, "agent", "install", str(EXAMPLE_AGENT)).returncode == 0
 
-    summary = _lock_summary(env, "--agent", "local/http-default@0.1.0")
+    summary = _lock_summary(env, "--agent", "local/pi-default@0.1.0")
     agent_profiles = summary["job_overlay"]["agent_profiles"]
     refs = {row.get("agent_ref") for row in agent_profiles.values()}
     assert len(refs) == 1
     (ref,) = refs
-    assert ref.startswith("local/http-default@0.1.0+sha256:")
+    assert ref.startswith("local/pi-default@0.1.0+sha256:")
 
     # Same run twice → deterministic digest.
-    again = _lock_summary(env, "--agent", "local/http-default@0.1.0")
+    again = _lock_summary(env, "--agent", "local/pi-default@0.1.0")
     assert again["digest"] == summary["digest"]
 
     # Equivalent hand-written profiles file (same agent_profiles incl. agent_ref)
