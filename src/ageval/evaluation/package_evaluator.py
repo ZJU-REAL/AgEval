@@ -7,6 +7,7 @@ Same box, later in time: the evaluator sees ``/attempt/evaluation`` (gold) and
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -39,9 +40,21 @@ async def evaluate_in_box(ctx: AttemptCtx) -> dict[str, Any]:
     }
     # argv is relative to the mapped cwd: an in-box absolute path would be a
     # literal string to a local box, which has no ``/attempt`` on disk.
+    #
+    # Local boxes share this interpreter's filesystem, so the evaluator process
+    # gets the same import contract as ``run.py``: dataset root then task dir
+    # (``from shared.lib…``). Docker/e2b/ssh must bake or COPY ``shared/``.
+    exec_env = None
+    if getattr(ctx.host, "kind", None) == "local":
+        exec_env = {
+            "PYTHONPATH": os.pathsep.join(
+                [str(ctx.dataset_root.resolve()), str(ctx.task_root.resolve())]
+            )
+        }
     result = await ctx.host.exec(
         [*ctx.host.python_command, _RUNNER_NAME, json.dumps(request)],
         cwd=_BOX_EVALUATOR_DIR,
+        env=exec_env,
         timeout_sec=ctx.remaining_seconds(),
     )
     ctx.record_fact("evaluator_exec", {"exit_code": result.exit_code})
