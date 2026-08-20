@@ -2,7 +2,7 @@
 
 export type DeclaredSlot = {
   id: string;
-  kind: "provide" | "on" | string;
+  kind: "exclusive" | "chain";
   entry?: string;
   priority?: number;
   level?: number;
@@ -13,9 +13,8 @@ export type PluginPreview = {
   version?: string;
   format?: string;
   slots?: {
-    provide?: string[];
-    on?: string[];
-    [key: string]: unknown;
+    exclusive?: string[];
+    chain?: string[];
   };
   declared?: DeclaredSlot[];
   files?: string[];
@@ -538,7 +537,7 @@ export function isPluginPackage(row: PackageRelease): boolean {
 }
 
 export function isDatasetPackage(row: PackageRelease): boolean {
-  return !isPluginPackage(row);
+  return row.package_kind === "dataset";
 }
 
 function packageIdPath(datasetId: string): string {

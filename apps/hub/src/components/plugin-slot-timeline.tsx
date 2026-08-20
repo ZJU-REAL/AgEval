@@ -1,21 +1,15 @@
 import { HoverTip } from "@/components/hover-tip";
 import type { DeclaredSlot, PluginPreview } from "@/lib/api";
 
+/** Host slot vocabulary from src/ageval/plugins/slots.py — exclusive + chain only. */
 const SLOT_LEVEL: Record<string, number> = {
-  before_prepare: 0,
-  after_prepare: 0,
-  before_run: 0,
-  after_run: 0,
-  before_evaluate: 0,
-  after_evaluate: 0,
-  before_cleanup: 0,
-  after_cleanup: 0,
-  image_contribute: 1,
-  home_overlay: 1,
-  env_prepare_commands: 1,
-  env_inject: 1,
-  env_action: 1,
-  env_teardown_commands: 1,
+  environment: 0,
+  before_environment: 0,
+  after_environment_ready: 0,
+  environment_setup: 0,
+  after_environment: 0,
+  before_run: 1,
+  after_run: 1,
   executor: 2,
   before_agent_open: 2,
   after_agent_open: 2,
@@ -24,18 +18,13 @@ const SLOT_LEVEL: Record<string, number> = {
   before_agent_close: 2,
   after_agent_close: 2,
   normalize_agent_result: 2,
-  evaluation_input_contribute: 3,
-  evaluation_runtime: 3,
-  score_postprocess: 3,
+  before_evaluate: 3,
+  after_evaluate: 3,
   trajectory_collect: 4,
   trajectory_enrich: 4,
-  trajectory_seal: 4,
-  evidence_extra: 4,
-  cleanup_actions: 5,
   cleanup_report: 5,
 };
 
-/** Prefer registry `declared`; fall back to provide/on chip ids. */
 export function declaredSlotsFromPreview(
   preview: PluginPreview | null,
 ): DeclaredSlot[] {
@@ -47,21 +36,21 @@ export function declaredSlotsFromPreview(
     }));
   }
   const out: DeclaredSlot[] = [];
-  for (const id of preview?.slots?.provide || []) {
-    out.push({ id, kind: "provide", level: SLOT_LEVEL[id] });
+  for (const id of preview?.slots?.exclusive || []) {
+    out.push({ id, kind: "exclusive", level: SLOT_LEVEL[id] });
   }
-  for (const id of preview?.slots?.on || []) {
-    out.push({ id, kind: "on", level: SLOT_LEVEL[id] });
+  for (const id of preview?.slots?.chain || []) {
+    out.push({ id, kind: "chain", level: SLOT_LEVEL[id] });
   }
   return out;
 }
 
 const LEVEL_LABELS = [
-  "Attempt / phase bookends",
-  "Environment and image",
+  "Environment",
+  "Run",
   "Agent executor and session",
-  "Evaluation adjacency",
-  "Trajectory and evidence",
+  "Evaluation",
+  "Trajectory",
   "Cleanup",
 ] as const;
 
@@ -71,7 +60,9 @@ export function resolvePluginEntryPath(
 ): string {
   const fallback = files.includes("plugin.yaml")
     ? "plugin.yaml"
-    : files[0] || "plugin.yaml";
+    : files.includes("ageval.plugin.yaml")
+      ? "ageval.plugin.yaml"
+      : files[0] || "plugin.yaml";
   if (!entry) return fallback;
   const mod = entry.split(":")[0]?.trim();
   if (!mod) return fallback;

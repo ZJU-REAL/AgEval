@@ -65,7 +65,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/datasets/:id?tab=leaderboard&demo=1` | Leaderboard with mock pass@k rows (local smoke only) |
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs (row opens detail when uploaded) |
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
-| `/plugins/:id` | Plugin detail (declared L0–L5 timeline · files · CLI install) |
+| `/plugins/:id` | Plugin detail (exclusive/chain timeline · files · CLI install) |
 | `/agents` | Published Agent catalog |
 | `/agents/:id` | Agent detail (binding, files, appearances grouped by version) |
 | `/datasets/:id?tab=leaderboard&suite=` | Public Leaderboard with that suite row expanded |
@@ -76,7 +76,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/login` | Starts browser OAuth |
 | `/login/callback` | OAuth redirect target |
 
-`:id` is URL-encoded `database_id` (`encodeURIComponent`).
+`:id` is URL-encoded `dataset_id` (`encodeURIComponent`).
 
 ### Leaderboard metrics (#60)
 

@@ -30,14 +30,11 @@ export type TokenTiming = {
 };
 
 const PHASE_COLORS: Record<string, string> = {
-  prepare: "bg-[var(--viewer-phase-5)]",
+  environment: "bg-[var(--viewer-phase-5)]",
   run: "bg-[var(--viewer-phase-1)]",
   evaluate: "bg-[var(--viewer-phase-3)]",
+  record: "bg-[var(--viewer-phase-4)]",
   cleanup: "bg-[var(--viewer-phase-6)]",
-  env_setup: "bg-[var(--viewer-phase-5)]",
-  agent_setup: "bg-[var(--viewer-phase-1)]",
-  agent_execution: "bg-[var(--viewer-phase-1)]",
-  verifier: "bg-[var(--viewer-phase-3)]",
 };
 
 const TOKEN_COLORS: Record<string, string> = {
