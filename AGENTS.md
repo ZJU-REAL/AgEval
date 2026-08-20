@@ -134,14 +134,15 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 1. `attempt/` 是深模块。打开 `attempt/__init__.py` 能说出相位。禁止再摊成按隔离档分叉的生命周期文件。
 2. 测试面 = **真实 kind + 公开 CLI**。docker / e2b 的 seam 成立条件是两个真实赢家，不是 FakeHost。
-3. locality：`docker exec` 只在 docker contrib。ACP / `attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。
-4. 一条路径：选盒子 / executor 只经独占槽。禁止第二套 resolve。
-5. 平台对象只在 `application/composition.py` 的 `build_*` 接线。
-6. 控制面不 import 题包模块。
-7. PASS / 身份 / cleanup 不是插件服务。cleanup 在 `try/finally`。
-8. 适配器按机制命名。禁止按 bench / task 名分支。
-9. 布局字符串只在 `evidence/`。lock / evidence 不写 host token。
-10. inject 在 lock 完成。缺 `attach_stdio` 就 lock 失败。
+3. **禁止文案 grep 测试。** 不要 `read_text` 落地页 / `website/` snippet / README，再 `assert "某字符串" in/not in text`。那不证明 invoke、lock 或 Protocol，改一句宣传就假红。读者向对了就改文档；行为对了就测 `ageval lock` / `run` / 盒子方法。架构测试只钉运行时红线（import、slot、composition root）。
+4. locality：`docker exec` 只在 docker contrib。ACP / `attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。
+5. 一条路径：选盒子 / executor 只经独占槽。禁止第二套 resolve。
+6. 平台对象只在 `application/composition.py` 的 `build_*` 接线。
+7. 控制面不 import 题包模块。
+8. PASS / 身份 / cleanup 不是插件服务。cleanup 在 `try/finally`。
+9. 适配器按机制命名。禁止按 bench / task 名分支。
+10. 布局字符串只在 `evidence/`。lock / evidence 不写 host token。
+11. inject 在 lock 完成。缺 `attach_stdio` 就 lock 失败。
 
 ### 安全与评测
 
@@ -178,6 +179,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 
 - **新工作默认开 GitHub Issue**（写清 Acceptance / 非目标 / 证据）；**不**新建仓内 Active Spec / ROADMAP。
 - Fixture/mock 只能作自动化回归，**不能**单独充当公开 smoke 或升级证据等级。
+- 不要为落地页 / README / website snippet 写「文件里有没有某句」的 pytest；见结构红线第 3 条。
 - 实现期安全可逆选择可自行推进；需新权限/不可逆/改产品安全语义时先问用户或写在 Issue。
 - `docs/reference/` 是归档，**不是**权威，也不是 vault 入口。
 - **有 `website/` ≠** 证据等级升级。
