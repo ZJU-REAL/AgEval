@@ -91,9 +91,7 @@ EXCLUSIVE_SLOTS: Final[tuple[str, ...]] = tuple(
 
 # Must have a winner at lock even with no job field. ``environment`` /
 # ``executor`` are selected by sugar; these two are engine defaults.
-REQUIRED_EXCLUSIVE_SLOTS: Final[frozenset[str]] = frozenset(
-    {EVALUATION_RUNTIME, TRAJECTORY_SEAL}
-)
+REQUIRED_EXCLUSIVE_SLOTS: Final[frozenset[str]] = frozenset({EVALUATION_RUNTIME, TRAJECTORY_SEAL})
 
 # Chain slots whose handler failure is recorded and stepped over. Everything
 # else fails its phase.
