@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
 import struct
 import sys
 from pathlib import Path
@@ -22,6 +23,7 @@ from typing import Any
 
 from ageval.attempt.ctx import AttemptCtx
 from ageval.config.model import thaw
+from ageval.environments.protocol import WORKSPACE_PATH
 from ageval.runtime.offline import DEFAULT_OFFLINE_ENV, is_offline_agent
 
 WORKER_MODULE = "ageval.runtime.task_worker"
@@ -31,10 +33,10 @@ _STDERR_TAIL_BYTES = 4000
 
 async def launch_task_worker(ctx: AttemptCtx) -> dict[str, Any]:
     """Run the task entrypoint and return its result envelope."""
-    workspace = ctx.evidence.path("task-workspace")
+    workspace = _worker_workspace(ctx)
     artifacts = ctx.evidence.path("task-artifacts")
-    for directory in (workspace, artifacts):
-        directory.mkdir(parents=True, exist_ok=True)
+    artifacts.mkdir(parents=True, exist_ok=True)
+    workspace.mkdir(parents=True, exist_ok=True)
 
     process = await asyncio.create_subprocess_exec(
         sys.executable,
@@ -68,6 +70,35 @@ def _launch_message(ctx: AttemptCtx) -> dict[str, Any]:
         "trial_id": ctx.trial_id,
         "run_id": ctx.run_id,
     }
+
+
+def _worker_workspace(ctx: AttemptCtx) -> Path:
+    """The directory ``run.py`` sees as the workspace.
+
+    Seed is uploaded into the box. When this machine can see that directory
+    (local, docker bind-mount), the worker must look there — a parallel empty
+    evidence folder is not the workspace. Remote kinds without a shared
+    filesystem keep a host-side copy of the seed so ``run.py`` can still read
+    instruction files.
+    """
+    host_path = getattr(ctx.host, "host_path", None)
+    if callable(host_path):
+        return Path(host_path(WORKSPACE_PATH))
+    workspace = ctx.evidence.path("task-workspace")
+    seed = ctx.seed_dir
+    if seed is not None and seed.is_dir():
+        _copy_seed(seed, workspace)
+    return workspace
+
+
+def _copy_seed(source: Path, dest: Path) -> None:
+    dest.mkdir(parents=True, exist_ok=True)
+    for path in source.iterdir():
+        target = dest / path.name
+        if path.is_dir():
+            shutil.copytree(path, target, dirs_exist_ok=True)
+        else:
+            shutil.copy2(path, target)
 
 
 def _worker_env(ctx: AttemptCtx, *, workspace: Path, artifacts: Path) -> dict[str, str]:
