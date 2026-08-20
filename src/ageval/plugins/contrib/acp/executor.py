@@ -302,17 +302,16 @@ class AcpExecutor(AgentExecutor):
                     mid = getattr(m, "model_id", None) or getattr(m, "modelId", None)
                     if mid:
                         ids.append(str(mid))
-                if desired not in ids and not any(desired in i for i in ids):
+                if desired not in ids:
                     raise RuntimeError("acp_model_unavailable")
             self._actual_model = desired if desired != "entry-default" else "entry-default"
             return initial
 
-        # No model surface — accept entry default only.
-        if desired not in ("entry-default",):
-            # Soft: allow if entry has no config options (use as hint only).
-            self._actual_model = desired
-        else:
-            self._actual_model = "entry-default"
+        # No model surface — entry default only. Do not treat the profile
+        # string as a silent hint.
+        if desired not in ("entry-default", "", None):
+            raise RuntimeError("acp_model_unavailable")
+        self._actual_model = "entry-default"
         return initial
 
     async def _bind_reasoning_effort(self, config_options: Any) -> None:
