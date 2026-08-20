@@ -54,25 +54,25 @@
 }
 
 :root {
-  --bora-link: #1b54e8;
-  --bora-link-deep: #001f73;
+  --ageval-link: #1b54e8;
+  --ageval-link-deep: #001f73;
 }
 
 .dark {
-  --bora-link: #5b7bff;
-  --bora-link-deep: #8aa0ff;
+  --ageval-link: #5b7bff;
+  --ageval-link-deep: #8aa0ff;
 }
 
 #nd-page a:not([class]):not(:is(h1, h2, h3, h4) a),
 .docs-reading-body a:not(:is(h1, h2, h3, h4) a) {
-  color: var(--bora-link);
+  color: var(--ageval-link);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
 }
 
 #nd-page a:not([class]):not(:is(h1, h2, h3, h4) a):hover,
 .docs-reading-body a:not(:is(h1, h2, h3, h4) a):hover {
-  color: var(--bora-link-deep);
+  color: var(--ageval-link-deep);
 }
 
 .docs-display-title,
@@ -100,7 +100,7 @@ body {
   font-family: var(--font-geist-sans), var(--font-noto-sans-sc), sans-serif;
 }
 
-.bora-nav-logo {
+.ageval-nav-logo {
   display: block;
   width: 7.5rem;
   height: auto;

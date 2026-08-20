@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/ZJU-REAL/BORA?display_name=tag&sort=semver)](https://github.com/ZJU-REAL/BORA/releases)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
 
-The GitHub repository is still `ZJU-REAL/BORA`. The product, CLI, and packages are **ageval**. There is no BORA alias.
+The GitHub repository is still `ZJU-REAL/BORA`. The product, CLI, and packages are **ageval**.
 
 Agent benchmarks usually score the model and leave orchestration, isolation, visibility, and the eval barrier to each vendor stack. Swap the coding agent or the box, and scores stop lining up.
 

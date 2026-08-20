@@ -4,7 +4,7 @@ description: >
   Author ageval datasets (ageval.yaml + tasks/*/task.yaml, run.py/evaluator.py,
   profiles.yaml, environment kinds local|docker|e2b|ssh, limits, gold isolation).
   Triggers: ageval.yaml, task.yaml, profiles.yaml, dataset, environment kind.
-  Never secrets in yaml. Never provider.kind / bora.yaml.
+  Never secrets in yaml. Never provider.kind.
 ---
 
 # Config / dataset + task

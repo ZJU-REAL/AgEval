@@ -12,7 +12,7 @@ tasks:
   root: tasks
 ```
 
-文件名 `ageval.yaml`。旧 `bora.yaml` / `bora.database/1` lock 失败：`invalid_format` 于 `/format`。
+文件名 `ageval.yaml`。未知 format lock 失败：`invalid_format` 于 `/format`。
 
 CLI 路径永远是 dataset 根：
 
@@ -72,7 +72,7 @@ tasks/<id>/
 | seed | 存在 `data/` → environment 相位 upload |
 | gold | 存在 `evaluation/` → evaluate 相位 upload |
 
-yaml 显式字段覆盖缺省。旧 `harness.entrypoint` / `bora.yaml` / `bora.*` format **拒绝**，不映射。
+yaml 显式字段覆盖缺省。旧 `harness.entrypoint` 与未知 format **拒绝**，不映射。
 
 不要：`provider.kind`、`assurance`、`harness:` 块、角色上的 `executor` / `api_key`（那些在 profiles）。
 

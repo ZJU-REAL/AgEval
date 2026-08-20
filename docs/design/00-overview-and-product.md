@@ -2,7 +2,7 @@
 
 ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一个 **盒子**，跑题包 `run.py`，再由独立 `evaluator.py` 出分。编排始终在本机 `ageval run`；盒子可以在本机、本机 Docker、E2B 或 SSH 上。
 
-旧称 BORA。未发版硬切，不留别名。题包根叫 **dataset**，不是 SQL，也不是侧车 Postgres。
+未发版硬切，不留别名。题包根叫 **dataset**，不是 SQL，也不是侧车 Postgres。
 
 本文件吸收产品模型（目标、非目标、用户故事、三层、命名、术语对照）。机制细节在 [01](01-ageval-core.md) 与 [05-runtime/](05-runtime/)。结构地图：[ARCHITECTURE.md](../../ARCHITECTURE.md)。施工红线：[AGENTS.md](../../AGENTS.md)。
 
@@ -15,11 +15,11 @@ ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一�
 | 产品名 / 文档站 / README | **ageval**（agent eval） |
 | CLI | `ageval lock` / `ageval run` |
 | Python 包与 import | `ageval` / `ageval_sdk` |
-| 环境变量 / 家目录 | `AGEVAL_*`、`~/.ageval`（不留 `BORA_*`） |
+| 环境变量 / 家目录 | `AGEVAL_*`、`~/.ageval` |
 | 配置 format | `ageval.dataset/1`、`ageval.task/1`、`ageval.plugin/1`、`ageval.profiles/1` |
 | GitHub 路径 | 目前仍是 `ZJU-REAL/BORA`；产品名不是仓库名 |
 
-未知 format：**一个**错误（`invalid_format` 于 `/format`），停。不要 `if fmt.startswith("bora.")`，不要在报错里教旧名映射。
+未知 format：**一个**错误（`invalid_format` 于 `/format`），停。不要在报错里教映射。
 
 ## 规范交付单位：dataset
 
@@ -92,7 +92,7 @@ ageval.yaml (ageval.dataset/1)
 - 不单开 `provision` phase，不要 `before/after_provision`。
 - 插件不能取消 cleanup、不能发明 PASS、不能重排「先打分再跑 agent」。
 - Core 仍拥有：Attempt 身份与 lock digest、deadline/cancel、`try/finally` 必进 cleanup、PASS 只从 evaluate 进入。
-- 不兼容 `bora.*` format、`BORA_*`、`bora.yaml`。
+- 未知 format 一个错误，不映射。
 - Core 内不建通用 Graph / Handoff / BranchAuthority 平台。
 - 不是开放插件商店。
 - 适配器禁止按 Benchmark / task 名分支。
@@ -156,7 +156,7 @@ Agent / `run.py` 阶段 **不得** `upload` `evaluation/`。evaluate phase 开�
 3. 适配器按机制命名（`acp` / `docker` / `e2b` / `ssh`），禁止按 bench 名分支。
 4. ACP / `attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。
 5. Agent 阶段磁盘上没有 `evaluation/`。gold 在 evaluate 开头才 upload。
-6. 未知 format 一个错误。不映射 `bora.*`。
+6. 未知 format 一个错误（`invalid_format` 于 `/format`）。
 7. 没有产品 `executor: mock`、没有 FakeHost 当完成证据。
 8. cleanup 在 `try/finally`。插件不能取消 cleanup，不能发明 PASS。
 9. CLI 只 import `ageval.application.composition`。

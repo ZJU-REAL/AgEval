@@ -74,7 +74,6 @@ Current 还含 `viewer/`、`control/`、`agents/`（见 ARCHITECTURE Current 树
 
 **刻意不建（Current 已删除，Target 也不得回潮）：**
 
-- `src/bora/`
 - `environment/manager.py`
 - `adapters/` 大杂烩、`agent_container.wrap_docker_exec`
 - `run_l0.py` / `run_l1_*.py`
