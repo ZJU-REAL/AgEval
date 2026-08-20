@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """In-container dsh worker — official DeepSeek Harness JSON-RPC SDK.
 
-Reads one JSON object from stdin (no secrets required in the payload;
-DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL arrive via projected env)::
+Reads one JSON object from argv[1] or stdin (no secrets required in the
+payload; DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL arrive via projected env)::
 
     {
       "prompt": "...",
@@ -76,15 +76,23 @@ def _emit(doc: dict[str, Any], *, code: int) -> int:
     return code
 
 
+def _read_request() -> dict[str, Any]:
+    raw = sys.argv[1] if len(sys.argv) > 1 else (sys.stdin.read() or "{}")
+    req = json.loads(raw)
+    if not isinstance(req, dict):
+        raise TypeError("request_not_object")
+    return req
+
+
 def main() -> int:
     try:
-        req = json.loads(sys.stdin.read() or "{}")
+        req = _read_request()
     except json.JSONDecodeError as exc:
         return _emit(
             {"ok": False, "error": f"bad_request_json:{exc}", "model": "dsh", "text": ""},
             code=2,
         )
-    if not isinstance(req, dict):
+    except TypeError:
         return _emit(
             {"ok": False, "error": "request_not_object", "model": "dsh", "text": ""},
             code=2,
@@ -116,7 +124,7 @@ def main() -> int:
                 "error": "offline_forced",
                 "model": model,
                 "text": "",
-                "metadata": {"plugin": "dsh"},
+                "metadata": {"plugin": "dsh", "execution_location": "attempt-container"},
             },
             code=1,
         )

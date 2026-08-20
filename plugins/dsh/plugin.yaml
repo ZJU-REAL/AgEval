@@ -14,5 +14,8 @@ slots:
     - id: trajectory_collect
       priority: 110
       entry: "dsh_plugin.hooks:trajectory_collect"
+inject:
+  - service: environment
+    capabilities: [exec, upload]
 config:
   image_layers: docker/Dockerfile.bake

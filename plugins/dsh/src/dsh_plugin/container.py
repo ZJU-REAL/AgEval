@@ -1,51 +1,70 @@
-"""In-box dsh executor: run the baked worker through the box, not through docker.
-
-The plugin no longer knows what kind of box it is in. It asks the environment to
-run one command and reads the worker's JSON back, so the same code works for a
-container, a sandbox or a remote machine.
-"""
+"""In-box dsh executor: run the worker through the environment Protocol."""
 
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 import os
+from pathlib import Path
 from typing import Any
 
-from ageval.plugins.agent_result import AgentExecutor, AgentResult
+from ageval.environments.protocol import HOME_PATH, WORKSPACE_PATH
+from ageval.plugins.agent_result import AgentResult
+from dsh_plugin import PLUGIN_ID
 
-WORKER_PATH = "/usr/local/bin/ageval-executor-dsh"
-_ENV_API_KEYS = ("OPENAI_API_KEY", "litellm_api_key")
-_ENV_BASE_URLS = ("OPENAI_BASE_URL", "litellm_base_url", "AGEVAL_OPENAI_BASE_URL")
+BOX_PLUGIN = f"{HOME_PATH}/_dsh"
+BOX_WORKER = f"{BOX_PLUGIN}/ageval_executor_dsh.py"
+BOX_SRC = f"{BOX_PLUGIN}/src"
+BOX_COMPOSITIONS = f"{BOX_PLUGIN}/compositions"
+BOX_SESSIONS = f"{HOME_PATH}/dsh-sessions"
 
 
-class DshBoxExecutor(AgentExecutor):
-    """Invoke a task-local dsh agent inside the Attempt's box.
+def _run_coro(coro: Any) -> Any:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
 
-    The parent never imports the task's ``lib.agents``: the worker baked into the
-    image does, on the far side of the box boundary.
-    """
 
-    kind = "dsh"
+class DshBoxExecutor:
+    """Invoke DeepSeek Harness inside the Attempt box via ``host.exec``."""
+
+    kind = PLUGIN_ID
 
     def __init__(
         self,
         *,
         host: Any,
         placement: Any,
-        agent_ref: str,
-        method: str = "run",
-        model: str = "dsh",
-        base_url: str | None = None,
-        api_key_env: str | None = None,
+        plugin_root: Path,
+        model: str,
+        provider: str,
+        composition: str,
+        permission: str | None,
+        base_url: str | None,
+        api_key_env: str | None,
+        session_id: str,
     ) -> None:
         self._host = host
         self._placement = placement
-        self.agent_ref = agent_ref
-        self.method = method or "run"
-        self.model = model or "dsh"
+        self._plugin_root = Path(plugin_root)
+        self.model = model
+        self.provider = provider
+        self.composition = composition
+        self.permission = permission
         self.base_url = (base_url or "").strip() or None
         self.api_key_env = (api_key_env or "").strip() or None
+        self.session_id = session_id
+        self._prepared = False
+
+    @staticmethod
+    def describe() -> dict[str, Any]:
+        from dsh_plugin.factory import describe_dsh
+
+        return describe_dsh()
 
     def open(self, **kwargs: Any) -> None:
         del kwargs
@@ -58,93 +77,134 @@ class DshBoxExecutor(AgentExecutor):
         prompt: str,
         *,
         timeout: float = 60.0,
-        collect_dir: str | None = None,
+        collect_dir: str | os.PathLike[str] | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
         del redaction_sentinels
+        return _run_coro(self._ainvoke(prompt, timeout=timeout, collect_dir=collect_dir))
+
+    async def _ainvoke(
+        self,
+        prompt: str,
+        *,
+        timeout: float,
+        collect_dir: str | os.PathLike[str] | None,
+    ) -> AgentResult:
+        await self._prepare()
         request = {
             "prompt": prompt,
-            "agent": self.agent_ref,
-            "method": self.method,
             "model": self.model,
-            "workdir": self._placement.workdir,
+            "provider": self.provider,
+            "workdir": self._host.visible_path(self._placement.workdir or WORKSPACE_PATH),
+            "session_root": self._host.visible_path(BOX_SESSIONS),
+            "cordis": self._host.visible_path(
+                f"{BOX_COMPOSITIONS}/{self.composition}.cordis.yml"
+            ),
+            "session_id": self.session_id,
+            "composition": self.composition,
         }
-        base_url = self._first_env(_ENV_BASE_URLS, self.base_url)
-        api_key = self._first_env(_ENV_API_KEYS, None, locator=self.api_key_env)
-        if base_url:
-            request["api_base"] = base_url
-
-        env = {"DSH_MODEL": self.model}
-        if base_url:
-            env["OPENAI_BASE_URL"] = base_url
-        if api_key:
-            env["OPENAI_API_KEY"] = api_key
-
-        result = asyncio.run(
-            self._host.exec(
-                ["python3", WORKER_PATH, json.dumps(request, sort_keys=True)],
-                cwd=self._placement.workdir,
-                env=env,
-                timeout_sec=timeout,
-            )
+        if self.permission:
+            request["permission"] = self.permission
+        env = self._exec_env()
+        result = await self._host.exec(
+            [
+                *self._host.python_command,
+                self._host.visible_path(BOX_WORKER),
+                json.dumps(request, sort_keys=True),
+            ],
+            cwd=self._placement.workdir or WORKSPACE_PATH,
+            env=env,
+            timeout_sec=timeout,
         )
-        if result.exit_code != 0:
-            return AgentResult(
-                model=self.model,
-                text="",
-                structured=None,
-                ok=False,
-                error="dsh_worker_failed",
-                stderr=result.stderr[-2000:],
-                metadata={"executor_kind": self.kind, "exit_code": result.exit_code},
-            )
-        return self._result_from(result.stdout, collect_dir=collect_dir)
+        return self._result_from(result, collect_dir=collect_dir)
 
-    def _result_from(self, stdout: str, *, collect_dir: str | None) -> AgentResult:
-        try:
-            payload = json.loads(stdout.strip().splitlines()[-1])
-        except (IndexError, json.JSONDecodeError):
+    async def _prepare(self) -> None:
+        if self._prepared:
+            return
+        await self._host.upload(self._plugin_root / "worker" / "ageval_executor_dsh.py", BOX_WORKER)
+        await self._host.upload(self._plugin_root / "src" / "dsh_plugin", f"{BOX_SRC}/dsh_plugin")
+        await self._host.upload(self._plugin_root / "compositions", BOX_COMPOSITIONS)
+        self._prepared = True
+
+    def _exec_env(self) -> dict[str, str]:
+        from dsh_plugin.factory import PERMISSION_ENV, resolve_api_key_value, resolve_base_url
+
+        env: dict[str, str] = {
+            "DSH_MODEL": self.model,
+            "PYTHONPATH": self._host.visible_path(BOX_SRC),
+            "DSH_CORDIS_CONFIG": self._host.visible_path(
+                f"{BOX_COMPOSITIONS}/{self.composition}.cordis.yml"
+            ),
+        }
+        key = resolve_api_key_value(self.api_key_env)
+        if key:
+            env["DEEPSEEK_API_KEY"] = key
+        base = resolve_base_url(self.base_url)
+        if base:
+            env["DEEPSEEK_BASE_URL"] = base
+        if self.permission:
+            env[PERMISSION_ENV] = self.permission
+        if os.environ.get("AGEVAL_OFFLINE_AGENT") == "1":
+            env["AGEVAL_OFFLINE_AGENT"] = "1"
+        return env
+
+    def _result_from(self, result: Any, *, collect_dir: str | os.PathLike[str] | None) -> AgentResult:
+        stdout = str(getattr(result, "stdout", "") or "")
+        stderr = str(getattr(result, "stderr", "") or "")
+        exit_code = int(getattr(result, "exit_code", 1) or 0)
+        payload = _payload_from_stdout(stdout)
+        if collect_dir and payload is not None:
+            root = Path(collect_dir)
+            root.mkdir(parents=True, exist_ok=True)
+            (root / "dsh_worker.json").write_text(
+                json.dumps(payload, ensure_ascii=False, default=str) + "\n",
+                encoding="utf-8",
+            )
+        if payload is None:
             return AgentResult(
                 model=self.model,
                 text=stdout[-2000:],
                 structured=None,
                 ok=False,
-                error="dsh_worker_unreadable",
-                metadata={"executor_kind": self.kind},
+                error="dsh_worker_unreadable" if exit_code == 0 else "dsh_worker_failed",
+                stderr=stderr[-2000:],
+                metadata={
+                    "plugin": PLUGIN_ID,
+                    "execution_location": "attempt-container",
+                    "exit_code": exit_code,
+                },
             )
-        if collect_dir:
-            from pathlib import Path
-
-            root = Path(collect_dir)
-            root.mkdir(parents=True, exist_ok=True)
-            (root / "dsh_worker.json").write_text(stdout, encoding="utf-8")
-        text = str(payload.get("text") or "")
+        metadata = dict(payload.get("metadata") or {})
+        metadata.setdefault("plugin", PLUGIN_ID)
+        metadata.setdefault("execution_location", "attempt-container")
+        metadata["composition"] = self.composition
+        if self.permission:
+            metadata["permission"] = self.permission
         structured = payload.get("structured")
+        events = payload.get("events") or ()
+        usage = payload.get("usage")
         return AgentResult(
             model=str(payload.get("model") or self.model),
-            text=text,
+            text=str(payload.get("text") or ""),
             structured=structured if isinstance(structured, dict) else None,
             ok=bool(payload.get("ok", True)),
-            error=payload.get("error"),
-            events=tuple(payload.get("events") or ()),
-            usage=payload.get("usage") if isinstance(payload.get("usage"), dict) else None,
-            metadata={"executor_kind": self.kind, "agent": self.agent_ref},
+            error=str(payload["error"]) if payload.get("error") else None,
+            stderr=stderr[-2000:],
+            events=tuple(events) if isinstance(events, list) else (),
+            usage=usage if isinstance(usage, dict) else None,
+            metadata=metadata,
         )
 
-    def _first_env(
-        self,
-        names: tuple[str, ...],
-        declared: str | None,
-        *,
-        locator: str | None = None,
-    ) -> str | None:
-        if declared:
-            return declared
-        for name in (locator, *names):
-            value = os.environ.get(name or "", "").strip()
-            if value:
-                return value
+
+def _payload_from_stdout(stdout: str) -> dict[str, Any] | None:
+    text = stdout.strip()
+    if not text:
         return None
+    try:
+        payload = json.loads(text.splitlines()[-1])
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
-__all__ = ["WORKER_PATH", "DshBoxExecutor"]
+__all__ = ["BOX_WORKER", "DshBoxExecutor"]
