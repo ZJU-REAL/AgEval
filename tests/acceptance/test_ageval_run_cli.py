@@ -17,6 +17,8 @@ TASK = "acp-local-min"
 def _ageval(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     # The automated suite stays bounded; the real Agent path is the public smoke.
     env = {**os.environ, "AGEVAL_OFFLINE_AGENT": "1"}
+    # Locators must exist for lock; values are never used under AGEVAL_OFFLINE_AGENT.
+    env.setdefault("ZHIPU_API_KEY", "ci-offline-placeholder")
     return subprocess.run(
         [sys.executable, "-m", "ageval.cli.main", *args],
         check=False,

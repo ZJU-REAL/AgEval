@@ -18,7 +18,9 @@ Do not put these knobs in ``~/.zshrc`` — process env would mask Dataset ``.env
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -28,13 +30,47 @@ _SRC = _REPO_ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from ageval.adapters.provider_docker.official_base import (  # noqa: E402
-    BUILD_INPUT_NAMES,
-    official_attempt_dir,
-    official_build_input_digest,
-    official_buildx_command,
-    prepare_official_build_env,
-)
+BUILD_INPUT_NAMES = ("Dockerfile", "install-executors.sh", "acp-entries.lock.json")
+
+
+def official_attempt_dir(root: Path) -> Path:
+    return root / "docker" / "attempt"
+
+
+def prepare_official_build_env(root: Path) -> tuple[str, str]:
+    del root
+    return (os.environ.get("AGEVAL_APT_MIRROR") or "").strip(), (
+        os.environ.get("AGEVAL_PIP_INDEX") or ""
+    ).strip()
+
+
+def official_build_input_digest(attempt_dir: Path, *, apt_mirror: str, pip_index: str) -> str:
+    hasher = hashlib.sha256()
+    hasher.update(f"{apt_mirror}\n{pip_index}\n".encode())
+    for name in BUILD_INPUT_NAMES:
+        path = attempt_dir / name
+        if not path.is_file():
+            raise FileNotFoundError(f"missing build input: {path}")
+        hasher.update(path.read_bytes())
+    return hasher.hexdigest()
+
+
+def official_buildx_command(
+    *,
+    dockerfile: Path,
+    tag: str,
+    platform: str,
+    context: Path,
+    apt_mirror: str,
+    pip_index: str,
+) -> list[str]:
+    cmd = ["docker", "build", "--platform", platform, "-f", str(dockerfile), "-t", tag]
+    if apt_mirror:
+        cmd.extend(["--build-arg", f"AGEVAL_APT_MIRROR={apt_mirror}"])
+    if pip_index:
+        cmd.extend(["--build-arg", f"AGEVAL_PIP_INDEX={pip_index}"])
+    cmd.append(str(context))
+    return cmd
 
 
 def _load_host_env(repo_root: Path) -> None:
