@@ -17,7 +17,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import shlex
 import subprocess
+import threading
 import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -52,6 +54,25 @@ class SSHStdio:
         self.stdin = process.stdin
         self.stdout = process.stdout
         self.stderr = process.stderr
+        self._stderr_tail = ""
+        if process.stderr is not None:
+            threading.Thread(target=self._drain_stderr, name="ssh-stderr", daemon=True).start()
+
+    def _drain_stderr(self) -> None:
+        stream = self._process.stderr
+        if stream is None:
+            return
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            buf = stream.read(4096)
+            if not buf:
+                break
+            if total < _MAX_STREAM_BYTES:
+                take = buf[: _MAX_STREAM_BYTES - total]
+                chunks.append(take)
+                total += len(take)
+        self._stderr_tail = b"".join(chunks).decode("utf-8", errors="replace")
 
     def terminate(self) -> None:
         if self._process.poll() is not None:
@@ -195,13 +216,19 @@ class SSHHost:
                 f"upload source does not exist: {source}",
             )
         remote = self._remote_path(dest)
-        made = await self._ssh(["mkdir", "-p", _parent(remote)], timeout_sec=60.0)
+        made = await self._ssh(
+            ["mkdir", "-p", remote if src.is_dir() else _parent(remote)],
+            timeout_sec=60.0,
+        )
         if made.exit_code != 0:
             raise EnvironmentFailure(
                 "environment_upload_failed",
                 f"could not prepare {remote}: {made.stderr.strip()[-300:]}",
             )
-        copied = await self._scp(str(src), f"{self._target()}:{remote}", recursive=src.is_dir())
+        # scp -r src dest/  (when dest exists) nests as dest/src. Copy contents.
+        scp_src = f"{src}/." if src.is_dir() else str(src)
+        scp_dst = f"{self._target()}:{remote}/" if src.is_dir() else f"{self._target()}:{remote}"
+        copied = await self._scp(scp_src, scp_dst, recursive=src.is_dir())
         if copied.exit_code != 0:
             raise EnvironmentFailure(
                 "environment_upload_failed",
@@ -224,8 +251,15 @@ class SSHHost:
                 timeout_sec=300.0,
             )
         target = Path(dest).expanduser()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        copied = await self._scp(f"{self._target()}:{remote}", str(target), recursive=True)
+        listing = await self._ssh(["test", "-d", remote], timeout_sec=30.0)
+        is_dir = listing.exit_code == 0
+        if is_dir:
+            target.mkdir(parents=True, exist_ok=True)
+            scp_src, scp_dst = f"{self._target()}:{remote}/.", f"{target}/"
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            scp_src, scp_dst = f"{self._target()}:{remote}", str(target)
+        copied = await self._scp(scp_src, scp_dst, recursive=is_dir)
         if copied.exit_code != 0:
             raise EnvironmentFailure(
                 "environment_download_failed",
@@ -247,13 +281,15 @@ class SSHHost:
         command = [
             "ssh",
             "-T",
+            "-o",
+            "RequestTTY=no",
             *self._ssh_flags(),
             self._target(),
             "--",
             *self._remote_argv(
                 parts,
                 cwd=placement.workdir,
-                env={"HOME": placement.home, **dict(env or {})},
+                env={"HOME": self.visible_path(placement.home), **dict(env or {})},
             ),
         ]
         process = subprocess.Popen(  # noqa: S603 — argv built here, no shell
@@ -317,8 +353,15 @@ class SSHHost:
             for key, value in exported.items():
                 flags.extend(["-e", f"{key}={value}"])
             return ["docker", "exec", "-i", "-w", cwd, *flags, self._container, *argv]
-        assignments = [f"{key}={value}" for key, value in exported.items()]
-        return ["env", "-C", self._remote_path(cwd), *assignments, *argv]
+        # OpenSSH joins argv after ``--`` with spaces into one shell -c string.
+        # Nested ``sh -c mkdir -p …`` would then run as ``sh -c mkdir``. One
+        # shlex-joined argument keeps env -C, assignments, and the command intact.
+        parts: list[str] = ["env", "-C", self._remote_path(cwd)]
+        for key, value in exported.items():
+            parts.append(f"{key}={value}")
+        parts.extend(str(part) for part in argv)
+        # ``exec`` so the login shell is replaced and stdin stays on the entry.
+        return ["exec " + shlex.join(parts)]
 
     def _box_env(self, env: Mapping[str, str] | None) -> dict[str, str]:
         """Caller env plus this box's own path publication."""
@@ -458,6 +501,10 @@ def _parent(remote_path: str) -> str:
 
 
 def _text(raw: object) -> str | None:
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return str(raw)
     if isinstance(raw, str) and raw.strip():
         return raw.strip()
     return None

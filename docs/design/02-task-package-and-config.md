@@ -85,7 +85,7 @@ yaml 显式字段覆盖缺省。旧 `harness.entrypoint` 与未知 format **拒�
 ```yaml
 format: ageval.profiles/1
 environment: local          # 或 docker / e2b / ssh
-# environment_options:      # ssh：host / user / key_env / image
+# environment_options:      # ssh：host / user / port / key_env / image
 agent_profiles:
   solver:
     executor: acp
