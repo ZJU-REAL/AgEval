@@ -31,7 +31,7 @@ CLI --task / --profiles / --set
   → LockedTaskConfig（冻结）
 ```
 
-未知 format：`invalid_format` 于 `/format`。不映射 `bora.*`。`api_key` 只留 locator 名。两个插件抢同一独占槽或同一 export id → fail closed。绑定图进 lock digest。未列入 `extensions` 的不进链、不进服务表。
+未知 format：`invalid_format` 于 `/format`。`api_key` 只留 locator 名。两个插件抢同一独占槽或同一 export id → fail closed。绑定图进 lock digest。未列入 `extensions` 的不进链、不进服务表。
 
 `--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。`--set` 白名单见 [02](02-task-package-and-config.md)。`limits.*` 不可 `--set`。
 

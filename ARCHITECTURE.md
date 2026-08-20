@@ -14,7 +14,6 @@ GitHub 仓库路径目前仍是 `ZJU-REAL/BORA`。产品名、包、CLI 是 **ag
 | 字段 | 值 |
 | --- | --- |
 | 产品 | ageval（agent eval） |
-| 旧称 | BORA；硬切，无别名 |
 | 实现状态 | Attempt 五相位已接；盒子 kind `local` / `docker` / `e2b` / `ssh`；公开命令以 `ageval --help` 为准 |
 | 证据等级 | **限定 `runnable-mvp`**：local ACP、docker ACP、点名 journeys 已有公开 run。e2b/ssh **代码在、缺钥则 skip，不得标 isolated** |
 | 设计权威 | [docs/README.md](docs/README.md) |
@@ -78,7 +77,7 @@ dataset 根 (ageval.yaml / ageval.dataset/1)
 | Smoke local ACP | `uv run ageval run examples/core --task acp-local-min` |
 | Smoke docker ACP | `uv run ageval run examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml` |
 | Smoke journeys | `uv run ageval run examples/journeys --task terminal-jsonl-agg`；`… --task env-postgres-min` |
-| Expected failure | 旧 `bora.database/1` → `invalid_format` exit 2；缺 `--task` 视 CLI；e2b/ssh 缺钥 `--probe` `ready:false` |
+| Expected failure | 未知 format → `invalid_format` exit 2；缺 `--task` 视 CLI；e2b/ssh 缺钥 `--probe` `ready:false` |
 | Observable result | 无 secret 的 lock summary + digest；Attempt 有 `lock.json` / `result.json` / `trajectory.jsonl` |
 | 证据等级 | **限定 `runnable-mvp`**（上列公开命令；不得从文档推导升级） |
 
@@ -106,7 +105,7 @@ git diff --check
 ### Current Source Layout
 
 ```text
-ageval/                              # GitHub 仓名仍为 BORA
+ageval/                              # GitHub 仓路径仍为 ZJU-REAL/BORA
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md
@@ -207,7 +206,6 @@ src/ageval/
 
 **刻意不建（Current 已删除，Target 也不得回潮）：**
 
-- `src/bora/`
 - `environment/manager.py`
 - `adapters/` 大杂烩、`agent_container.wrap_docker_exec`
 - 分叉的生命周期模块（Attempt 只走 `attempt/phases/`）

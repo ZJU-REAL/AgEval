@@ -3,7 +3,6 @@
 | 字段 | 值 |
 | --- | --- |
 | 产品名 | **ageval**（agent eval） |
-| 旧称 | BORA；不兼容、不留别名 |
 | 设计权威 | 本仓 [README.md](README.md) 与 [design/](design/)（自包含；不要读仓外 BRIEF） |
 | 结构权威 | [ARCHITECTURE.md](../ARCHITECTURE.md) |
 | 状态 | 机制以本目录为准；实现与验收见代码与 GitHub Issues |
@@ -36,7 +35,7 @@ ageval **统一** lock、开盒、invoke、评测、存证、拆盒；**不统�
 2. 换盒子只改 job `environment:`，ACP / `run.py` 不见 `container_id`。
 3. 同一份 `environment/Dockerfile` 可供 docker 与 e2b 使用。
 4. PASS 只来自独立 evaluator；`RunTerminal.completed` 不是 PASS。
-5. 旧 format（`bora.*`）lock 失败，一个错误，不映射。
+5. 未知 format lock 失败：`invalid_format` 于 `/format`，一个错误，不映射。
 6. 一次 Trial 的参数、envelope、kind 与 evaluator 输入可锁定、可比较。
 7. 每次真实 Agent invocation 落盘为可解析轨迹；`Result.logs` 指向该树。
 
@@ -63,7 +62,7 @@ ageval **统一** lock、开盒、invoke、评测、存证、拆盒；**不统�
 - 不单开 `provision` phase。
 
 - 插件不能取消 cleanup、不能发明 PASS、不能重排「先打分再跑 agent」。
-- 不兼容 `bora.*` format、`BORA_*`、`bora.yaml`。
+- 未知 format 不映射。
 - Core 内通用 Graph / Handoff / BranchAuthority 平台。
 - 开放插件商店。
 - 按 Benchmark 名的 Core 分支。

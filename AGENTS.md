@@ -8,13 +8,12 @@
 | 项 | 值 |
 | --- | --- |
 | 全称 / 发版名 | **ageval**（agent eval） |
-| 旧称 | BORA（Bounded Orchestration for Runtime Agents）；**硬切，不留别名** |
 | 题包根 | **dataset**（`ageval.dataset/1`），不是 SQL |
 | CLI / 包 | `ageval` / import `ageval` |
 | 家目录 / 环境变量 | `~/.ageval`、`AGEVAL_*` |
 | GitHub 路径 | 目前仍是 `ZJU-REAL/BORA`；产品名不是仓库名 |
-| 代际 | greenfield；不兼容归档 v1，也不兼容 `bora.*` format |
-| v1 只读参考 | 本机 `Developer/Archived/bora-v1`（勿 import、勿假设 API 兼容） |
+| 代际 | greenfield；不兼容归档 v1；未知 format 为 `invalid_format` |
+| v1 只读参考 | 本机归档 v1（勿 import、勿假设 API 兼容） |
 
 ## 必读顺序
 
@@ -78,9 +77,9 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 硬切。没有迁移层、没有双读、没有旧名别名。
 
 - format 只认 `ageval.dataset/1`、`ageval.task/1`、`ageval.plugin/1`、`ageval.profiles/1`。
-- 未知 format：**一个**错误，停。不要写 `if fmt.startswith("bora.")`，不要在报错里教旧名怎么映射。
-- 环境变量 / 家目录 / CLI 只有 `AGEVAL_*`、`ageval`、`~/.ageval`。不留 `BORA_*`。
-- `provider.kind`、`assurance`、`bora.yaml`：拒绝或删除，不翻译。
+- 未知 format：**一个**错误（`invalid_format` 于 `/format`），停。不要在报错里教映射。
+- 环境变量 / 家目录 / CLI 只有 `AGEVAL_*`、`ageval`、`~/.ageval`。
+- `provider.kind`、`assurance`：拒绝或删除，不翻译。
 
 ### 2. 删除优先于缝补
 
