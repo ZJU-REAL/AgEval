@@ -1,0 +1,24 @@
+format: ageval.profiles/1
+
+# ssh A + dsh: worker via host.exec. GLM Coding Plan OpenAI-compatible endpoint.
+environment: ssh
+environment_options:
+  host: ${AGEVAL_SSH_HOST}
+  user: ${AGEVAL_SSH_USER}
+  port: ${AGEVAL_SSH_PORT}
+  key_env: AGEVAL_SSH_KEY
+  image: ""
+
+agent_profiles:
+  solver:
+    executor: dsh
+    extensions:
+      - plugin: dsh
+        options:
+          composition: slim
+          provider: deepseek-official
+          max_tokens: 8192
+      - plugin: ssh
+    model: glm-5.2
+    api_key: ${glm_coding_api_key}
+    base_url: https://open.bigmodel.cn/api/coding/paas/v4
