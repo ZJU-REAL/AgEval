@@ -1,18 +1,10 @@
-"""Multi-slot on-handlers for dsh (image_contribute / trajectory_collect)."""
+"""trajectory_collect handler for dsh."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from dsh_plugin import PLUGIN_ID
-
-
-async def image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
-    """Declare this plugin on the image_contribute chain (L1 Ready)."""
-    del ctx
-    base = list(value) if isinstance(value, list) else []
-    base.append({"plugin": PLUGIN_ID})
-    return await nxt(base)
 
 
 async def trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:

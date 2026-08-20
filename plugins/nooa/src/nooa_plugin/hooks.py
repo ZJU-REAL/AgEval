@@ -1,24 +1,10 @@
-"""Multi-slot on-handlers for nooa (image_contribute / trajectory_collect)."""
+"""trajectory_collect handler for nooa."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from nooa_plugin import PLUGIN_ID
-
-
-async def image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
-    """Declare this plugin on the image_contribute chain (L1 Ready).
-
-    install = Recognition only. Core bakes ``docker/Dockerfile.bake`` if present.
-    """
-    del ctx
-    declare = {
-        "plugin": PLUGIN_ID,
-    }
-    base = list(value) if isinstance(value, list) else []
-    base.append(declare)
-    return await nxt(base)
 
 
 async def trajectory_collect(ctx: Any, value: Any, nxt: Any) -> Any:

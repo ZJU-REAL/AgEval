@@ -2,28 +2,22 @@
 
 External `ageval.plugin/1` package. **Not** first-party ageval core (only ACP is first-party).
 
-This plugin binds ageval profiles to **[NVIDIA-labs OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents)**:
+This plugin binds ageval profiles to **[NVIDIA-labs OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents)**.
+The parent does not import NVIDIA nooa or LiteLLM as the success path. It
+injects the `environment` service (`exec`, `upload`), uploads the worker and
+the task's agent module into the box, and runs the worker with `host.exec`.
 
-```python
-from nooa.unifiedllm import get_llm_client
-from nooa import Agent
+Package-local agents should subclass `nooa.Agent` and use generation methods.
+Plain deterministic classes (e.g. `FixedAnswerAgent`) still run inside the box
+without a network.
 
-llm = get_llm_client(model, api_base=base_url, api_key=secret)
-agent = PackageAgent(llm=llm)
-await agent.run(prompt, workdir=...)
-```
-
-Profile `base_url` + `api_key` (env locator) are projected into that client.
-Package-local agents should subclass `nooa.Agent` and use generation methods (`...`).
-
-Plain deterministic classes (e.g. slot-probe `FixedAnswerAgent`) still work without network.
+Profile `base_url` + `api_key` (env locator) project into the exec env as
+`OPENAI_BASE_URL` / `OPENAI_API_KEY`. Values never enter the lock.
 
 ## Install
 
-Host needs the NVIDIA package:
-
 ```bash
-uv sync --extra nooa          # or: pip install nooa
+uv sync --extra nooa          # local kind: the box Python is this interpreter
 uv run ageval plugin install plugins/nooa
 ```
 
@@ -33,7 +27,9 @@ Install updates `~/.ageval/plugins` (or `$AGEVAL_HOME/plugins`) only — **never
 ## Bind
 
 ```yaml
-bindings:
+format: ageval.profiles/1
+environment: docker
+agent_profiles:
   solver:
     executor: nooa
     extensions:
@@ -41,6 +37,7 @@ bindings:
         options:
           agent: "lib.agents:JsonlAggAgent"   # package-local nooa.Agent
           method: "run"
+      - plugin: docker
     model: openai/glm-5.2
     api_key: ${litellm_api_key}          # env locator
     # base_url: http://127.0.0.1:8000/v1   # optional; else litellm_base_url / OPENAI_BASE_URL
@@ -56,16 +53,15 @@ uv run ageval run examples/journeys \
   --profiles examples/journeys/profiles.nooa.yaml
 ```
 
-## Recognition ≠ L0 host-ready ≠ L1 bake-declared
+Evidence for a successful invoke includes worker metadata
+`execution_location: attempt-container`. A kind that cannot `exec` fails at
+`ageval lock`, not mid-invoke.
+
+## Recognition ≠ this host can run ≠ image baked
 
 - **install** → Recognition only (`plugin list` / executor visible)
-- **`host_requires`** → L0 needs the `nooa` import (`uv sync --extra nooa`); L1 bake does not
-- **profiles `executor: nooa`** → bind provide only (+ model / base_url / api_key)
-- **`extensions: [{plugin: nooa}]`** → opt-in bake / trajectory collect (required for L1 Ready)
+- **`host_requires`** → local kind needs the `nooa` import (`uv sync --extra nooa`); docker bake does not
+- **profiles `executor: nooa`** → exclusive slot winner (+ model / base_url / api_key)
+- **`extensions: [{plugin: nooa}]`** → opt-in bake / trajectory collect
 - **`--probe`** → binding-aware feasibility; no Agent, no bake
-- **L1 bake-declared** → this profile selected `image_contribute` bake installs `nooa` + `ageval-executor-nooa` in the Attempt image; invoke is **docker exec** with projected credentials
-
-## L1 Ready strategy
-
-For Docker L1 tasks, nooa uses **in-container worker**. Parent does **not**
-materialize package agents on the host for L1 success. See Dockerfile.bake + worker/.
+- **image baked** → `config.image_layers` bake installs `nooa` + `ageval-executor-nooa`; invoke is still `host.exec` with projected credentials

@@ -74,16 +74,18 @@ uv run ageval run examples/journeys --profiles examples/journeys/profiles.nooa.y
 ```
 
 Package agents under each task’s `lib/agents.py` are `nooa.Agent` subclasses
-(generation methods). Docker bake installs `nooa` + in-container worker and projects
-credentials — not parent host SPI success.
+(generation methods). Invoke runs the in-box worker through `host.exec` and
+projects locators into that exec env. Docker bake installs `nooa` so the box
+Python can import it.
 
 ### External dsh plugin (optional profiles)
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) path: official
 JSON-RPC SDK (`deepseek-harness-sdk`), not ACP. Same journeys harness; bind
 `executor: dsh` + `extensions: [{plugin: dsh}]` + `model` + locator
-`deepseek_api_key`. Docker bake installs the wheels in the Attempt image — host
-`--extra dsh` is for local import. `executor:` alone does not bake.
+`deepseek_api_key`. Invoke runs the in-box worker through `host.exec`. Docker
+bake installs the wheels in the Attempt image — `--extra dsh` is for the local
+kind's interpreter. `executor:` alone does not bake.
 
 ```bash
 uv run ageval plugin install plugins/dsh
