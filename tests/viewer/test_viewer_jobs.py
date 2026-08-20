@@ -25,7 +25,7 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
         "agent_label": "codex",
         "model_label": "gpt-test",
         "provider_label": "openai",
-        "environment": "local",
+        "job_overlay": {"environment": "docker", "agent_profiles": {}},
         "created_at": "2026-07-14T19:46:20Z",
         "tasks": [
             {"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_a"},
@@ -109,11 +109,67 @@ def test_list_and_get_job(tmp_path: Path) -> None:
     assert listed["items"][0]["job_id"] == job_id
     assert listed["items"][0]["mean_score"] == pytest.approx(2 / 3)
     assert listed["items"][0]["agent_label"] == "codex"
+    assert listed["items"][0]["environment"] == "docker"
+    assert listed["items"][0]["started"] == "2026-07-14T19:46:20Z"
 
     detail = jobs.get_job(db, job_id)
     assert detail["task_count"] == 3
     assert detail["tasks"][0]["task_id"] == "alpha"
     assert detail["tasks"][1]["status"] == "FAIL"
+
+
+def test_suite_job_axes_come_from_attempt_lock_overlay(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    run_id = "run_e2b_dsh"
+    evidence = _write_attempt_evidence(db, run_id, task_id="alpha", kind="e2b")
+    (evidence / "lock.json").write_text(
+        json.dumps(
+            {
+                "task_id": "alpha",
+                "environment": "e2b",
+                "job_overlay": {
+                    "environment": "e2b",
+                    "agent_profiles": {
+                        "solver": {"executor": "dsh", "model": "glm-5.2"},
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    job_id = "suite_e2b_dsh"
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
+    suite_dir.mkdir(parents=True, exist_ok=True)
+    (suite_dir / "summary.json").write_text(
+        json.dumps(
+            {
+                "schema": "ageval.suite.summary/1",
+                "suite_run_id": job_id,
+                "agent_label": "e2b/dsh",
+                "model_label": "glm-5.2",
+                "tasks": [
+                    {
+                        "task_id": "alpha",
+                        "status": "PASS",
+                        "score": 1.0,
+                        "run_id": run_id,
+                    }
+                ],
+                "metrics": {
+                    "n_tasks": 1,
+                    "n_pass": 1,
+                    "n_fail": 0,
+                    "mean_score": 1.0,
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    row = next(item for item in jobs.list_jobs(db)["items"] if item["job_id"] == job_id)
+    assert row["environment"] == "e2b"
+    assert row["agent_label"] == "dsh"
 
 
 def test_job_task_detail_and_command(tmp_path: Path) -> None:
@@ -150,7 +206,6 @@ def test_list_includes_single_task_attempt(tmp_path: Path) -> None:
                 "task_id": "alpha",
                 "status": "PASS",
                 "score": 1.0,
-                "created_at": "2026-08-13T12:00:00Z",
             }
         )
         + "\n",
@@ -162,6 +217,9 @@ def test_list_includes_single_task_attempt(tmp_path: Path) -> None:
     assert row["job_id"] == run_id
     assert row["source_kind"] == "single"
     assert row["source"] == "alpha"
+    assert row["environment"] is None
+    assert row["started"] is None
+    assert row["duration"] is None
     detail = jobs.get_job(db, run_id)
     assert detail["task_count"] == 1
     assert detail["tasks"][0]["task_id"] == "alpha"
@@ -178,7 +236,6 @@ def test_list_includes_task_local_single_attempt(tmp_path: Path) -> None:
                 "task_id": "beta",
                 "status": "FAIL",
                 "score": 0.0,
-                "created_at": "2026-08-13T13:00:00Z",
             }
         )
         + "\n",
@@ -266,3 +323,97 @@ def test_single_task_not_duplicated_when_in_suite(tmp_path: Path) -> None:
     kinds = {item["job_id"]: item.get("source_kind") for item in listed["items"]}
     assert kinds.get("suite_demo_job_001") == "suite"
     assert "run_a" not in kinds
+
+
+def _write_attempt_evidence(
+    db: Path,
+    run_id: str,
+    *,
+    task_id: str,
+    kind: str,
+    status: str = "PASS",
+    score: float = 1.0,
+) -> Path:
+    evidence = db / ".ageval" / "runs" / run_id
+    evidence.mkdir(parents=True)
+    (evidence / "lock.json").write_text(
+        json.dumps(
+            {
+                "task_id": task_id,
+                "environment": kind,
+                "job_overlay": {"environment": kind, "agent_profiles": {}},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (evidence / "result.json").write_text(
+        json.dumps(
+            {
+                "task_id": task_id,
+                "status": status,
+                "score": score,
+                "kind": kind,
+                "agent_invocations": 1,
+                "capabilities_used": [],
+                "cleanup_warning": None,
+                "error": None,
+                "evidence_path": f".ageval/runs/{run_id}",
+                "gold_materialized_at": "evaluate",
+                "logs": f".ageval/runs/{run_id}",
+                "metrics": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (evidence / "summary.json").write_text(
+        json.dumps(
+            {
+                "schema": "ageval.evidence.summary/1",
+                "attempt_id": run_id,
+                "run_id": run_id,
+                "phase_timing": {
+                    "schema": "ageval.phase_timing/1",
+                    "phases": [
+                        {"id": "run", "label": "Agent Execution", "duration_ms": 4500.0},
+                    ],
+                    "total_ms": 4500.0,
+                    "started_at": "2026-08-20T10:00:00Z",
+                    "finished_at": "2026-08-20T10:00:04Z",
+                },
+                "facts": [],
+                "result": {"kind": kind, "status": status, "score": score},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return evidence
+
+
+def test_single_job_environment_and_timing_from_current_evidence(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    _write_attempt_evidence(db, "run_e2b_alpha", task_id="alpha", kind="e2b")
+    _write_attempt_evidence(db, "run_ssh_beta", task_id="beta", kind="ssh")
+
+    listed = jobs.list_jobs(db)
+    by_id = {item["job_id"]: item for item in listed["items"]}
+    e2b = by_id["run_e2b_alpha"]
+    assert e2b["environment"] == "e2b"
+    assert e2b["started"] == "2026-08-20T10:00:00Z"
+    assert e2b["duration"] == "4.5s"
+    ssh = by_id["run_ssh_beta"]
+    assert ssh["environment"] == "ssh"
+    assert ssh["started"] == "2026-08-20T10:00:00Z"
+    assert ssh["duration"] == "4.5s"
+
+    detail = jobs.get_job(db, "run_e2b_alpha")
+    assert detail["job"]["environment"] == "e2b"
+    assert detail["job"]["started"] == "2026-08-20T10:00:00Z"
+    assert detail["job"]["duration"] == "4.5s"
+    assert detail["tasks"][0]["duration"] == "4.5s"
+
+    task = jobs.get_job_task(db, "run_e2b_alpha", "alpha")
+    assert task["trials"][0]["started"] == "2026-08-20T10:00:00Z"
+    assert task["trials"][0]["duration"] == "4.5s"

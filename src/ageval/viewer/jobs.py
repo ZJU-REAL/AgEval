@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ageval.application.phase_timing import format_duration_ms
 from ageval.application.suite import (
     aggregate_task_metrics,
     ensure_suite_task_refs,
@@ -211,7 +212,7 @@ def _in_progress_suite_row(
         "model_label": "",
         "reasoning_effort": "",
         "provider_label": "",
-        "environment": "local",
+        "environment": None,
         "result": None,
         "pass_rate": None,
         "mean_score": None,
@@ -252,8 +253,15 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, dataset_root: Path) ->
     with contextlib.suppress(ConfigError):
         man = load_dataset_manifest(dataset_root)
 
-    overlay = summary.get("job_overlay") if isinstance(summary.get("job_overlay"), dict) else None
+    overlay = _overlay_from_job_summary(summary, dataset_root=dataset_root)
     from ageval.config.overlay_files import overlay_paths_from_job_overlay
+    from ageval.config.profiles import display_labels_from_overlay
+
+    agent_label, model_label = display_labels_from_overlay(overlay)
+    if not agent_label:
+        agent_label = str(summary.get("agent_label") or "")
+    if not model_label:
+        model_label = str(summary.get("model_label") or "")
 
     return {
         "job_id": str(summary.get("suite_run_id") or suite_dir.name),
@@ -264,12 +272,12 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, dataset_root: Path) ->
         ),
         "dataset_id": summary.get("dataset_id") or (man.dataset_id if man else None),
         "dataset_version": summary.get("dataset_version") or (man.version if man else None),
-        "agent_label": str(summary.get("agent_label") or ""),
-        "model_label": str(summary.get("model_label") or ""),
+        "agent_label": agent_label,
+        "model_label": model_label,
         "reasoning_effort": _reasoning_effort_from_summary(summary),
         "overlays": overlay_paths_from_job_overlay(overlay),
         "provider_label": str(summary.get("provider_label") or ""),
-        "environment": str(summary.get("environment") or "local"),
+        "environment": _environment_from_overlay(overlay),
         "result": metrics.get("mean_score"),
         "pass_rate": metrics.get("pass_rate"),
         "mean_score": metrics.get("mean_score"),
@@ -387,28 +395,97 @@ def _read_json_object(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def _started_from_evidence(evidence: Path, result: dict[str, Any] | None = None) -> str | None:
-    """Single-task result.json has no created_at; wall start lives on phase_timing."""
-    src = result if isinstance(result, dict) else {}
-    for key in ("created_at", "started_at"):
-        val = src.get(key)
-        if isinstance(val, str) and val.strip():
-            return val
-    pt = src.get("phase_timing")
-    if isinstance(pt, dict):
-        val = pt.get("started_at")
-        if isinstance(val, str) and val.strip():
-            return val
-    summary = _read_json_object(evidence / "summary.json") or {}
-    for key in ("started_at", "created_at"):
-        val = summary.get(key)
-        if isinstance(val, str) and val.strip():
-            return val
-    spt = summary.get("phase_timing")
-    if isinstance(spt, dict):
-        val = spt.get("started_at")
-        if isinstance(val, str) and val.strip():
-            return val
+def _environment_kind(lock: dict[str, Any], result: dict[str, Any]) -> str | None:
+    """Box kind as written today: lock.environment, else result.kind."""
+    for raw in (lock.get("environment"), result.get("kind")):
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
+    return _environment_from_overlay(overlay)
+
+
+def _environment_from_overlay(overlay: dict[str, Any] | None) -> str | None:
+    if not isinstance(overlay, dict):
+        return None
+    raw = overlay.get("environment")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
+def _first_run_id(summary: dict[str, Any]) -> str | None:
+    for ref in _ensure_task_refs(summary):
+        rid = ref.get("run_id")
+        if isinstance(rid, str) and rid.strip():
+            return rid.strip()
+        ids = ref.get("attempt_run_ids")
+        if isinstance(ids, list):
+            for item in ids:
+                if isinstance(item, str) and item.strip():
+                    return item.strip()
+    attempts = summary.get("attempts")
+    if isinstance(attempts, list):
+        for row in attempts:
+            if not isinstance(row, dict):
+                continue
+            rid = row.get("run_id")
+            if isinstance(rid, str) and rid.strip():
+                return rid.strip()
+    return None
+
+
+def _overlay_from_job_summary(
+    summary: dict[str, Any], *, dataset_root: Path
+) -> dict[str, Any] | None:
+    """Suite overlay, else the Attempt lock written from profiles.yaml."""
+    overlay = summary.get("job_overlay") if isinstance(summary.get("job_overlay"), dict) else None
+    if _environment_from_overlay(overlay):
+        return overlay
+    profiles = overlay.get("agent_profiles") if isinstance(overlay, dict) else None
+    if isinstance(profiles, dict) and profiles:
+        return overlay
+    from ageval.application.suite.suite_config_fingerprint import load_run_lock_doc
+
+    lock = load_run_lock_doc(dataset_root, _first_run_id(summary))
+    if not isinstance(lock, dict):
+        return overlay
+    lock_overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
+    env = _environment_from_overlay(lock_overlay) or (
+        str(lock["environment"]).strip()
+        if isinstance(lock.get("environment"), str) and str(lock.get("environment")).strip()
+        else None
+    )
+    if lock_overlay is not None:
+        if env and not _environment_from_overlay(lock_overlay):
+            return {**lock_overlay, "environment": env}
+        return lock_overlay
+    if env:
+        return {"environment": env}
+    return overlay
+
+
+def _phase_timing(src: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(src, dict):
+        return None
+    timing = src.get("phase_timing")
+    return timing if isinstance(timing, dict) else None
+
+
+def _started_at(phase_timing: dict[str, Any] | None) -> str | None:
+    if not isinstance(phase_timing, dict):
+        return None
+    raw = phase_timing.get("started_at")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
+def _duration_label(phase_timing: dict[str, Any] | None) -> str | None:
+    if not isinstance(phase_timing, dict):
+        return None
+    total_ms = phase_timing.get("total_ms")
+    if isinstance(total_ms, int | float) and not isinstance(total_ms, bool):
+        return format_duration_ms(float(total_ms))
     return None
 
 
@@ -456,10 +533,12 @@ def _single_job_row(evidence: Path, *, run_id: str, dataset_root: Path) -> dict[
 
     result = read_attempt_result(evidence) or {}
     lock = _read_json_object(evidence / "lock.json") or {}
+    summary = _read_json_object(evidence / "summary.json") or {}
     task_id = str(result.get("task_id") or lock.get("task_id") or "")
-    status = str(result.get("status") or result.get("verdict") or "")
+    status = str(result.get("status") or "")
     score = result.get("score")
-    started = _started_from_evidence(evidence, result)
+    phase_timing = _phase_timing(summary)
+    started = _started_at(phase_timing)
     agent_label, model_label = _labels_from_lock(lock, result)
     from ageval.config.overlay_files import overlay_paths_from_job_overlay
     from ageval.config.profiles import reasoning_effort_from_overlay
@@ -480,13 +559,13 @@ def _single_job_row(evidence: Path, *, run_id: str, dataset_root: Path) -> dict[
         "reasoning_effort": reasoning_effort_from_overlay(overlay),
         "overlays": overlay_paths_from_job_overlay(overlay) if overlay else [],
         "provider_label": str(lock.get("provider_label") or result.get("provider_label") or ""),
-        "environment": str(result.get("environment") or "local"),
+        "environment": _environment_kind(lock, result),
         "result": score,
         "pass_rate": 1.0 if status.upper() == "PASS" else 0.0,
         "mean_score": score,
         "metrics": {"n_tasks": 1, "n_pass": 1 if status.upper() == "PASS" else 0},
         "started": started,
-        "duration": result.get("duration"),
+        "duration": _duration_label(phase_timing),
         "n_attempts": 1,
         "trials_done": 1,
         "trials_total": 1,

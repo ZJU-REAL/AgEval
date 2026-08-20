@@ -22,9 +22,9 @@ When UI conflicts with taste: **DESIGN.md wins**.
 2. **Job → tasks** — task table with scores / status / agent-model meta
 3. **Task detail** — trials/run row(s), status/error coloring, **copyable CLI**
 4. **Attempt / trial detail** — `Jobs > job > task > run_id`; Outcome + actors
-   (Role / Agent / Model / Time / Usage) + tabs from real evidence only
+   (Role / Harness / Model / Time / Usage) + tabs from real evidence only
    (Trajectory · Agent · Verifier · Artifacts · Lock · Runtime). Top bar may show
-   framework / docker / `provenance.upstream.url`. Multi-role groups Trajectory
+   framework / environment kind / `provenance.upstream.url`. Multi-role groups Trajectory
    and Agent tree by `profile_id`. Usage/trajectory are observational ≠ PASS.
 5. **Breadcrumb** — `Jobs > jobId > taskId > runId` with `>` separators; click to navigate
 6. **Delete a local Job** — Jobs row menu or bulk selection. Preview paths /

@@ -26,7 +26,7 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
         "agent_label": "codex",
         "model_label": "gpt-test",
         "provider_label": "openai",
-        "environment": "local",
+        "job_overlay": {"environment": "docker", "agent_profiles": {}},
         "created_at": "2026-07-14T19:46:20Z",
         "tasks": [
             {"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_alpha_1"},
@@ -64,6 +64,8 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
             {
                 "task_id": task_id,
                 "digest": "sha256:deadbeef",
+                "environment": "e2b",
+                "job_overlay": {"environment": "e2b", "agent_profiles": {}},
                 "profiles": [
                     {
                         "id": "main",
@@ -84,6 +86,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
             {
                 "status": "PASS",
                 "score": 1.0,
+                "kind": "e2b",
                 "error": None,
                 "agent_invocations": 1,
                 "harness_kind": "completed",
@@ -101,6 +104,15 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
                 "status": "PASS",
                 "score": 1.0,
                 "agent_invocations": 1,
+                "phase_timing": {
+                    "schema": "ageval.phase_timing/1",
+                    "phases": [
+                        {"id": "run", "label": "Agent Execution", "duration_ms": 4500.0},
+                    ],
+                    "total_ms": 4500.0,
+                    "started_at": "2026-08-20T10:00:00Z",
+                    "finished_at": "2026-08-20T10:00:04Z",
+                },
             },
             indent=2,
         )
@@ -200,7 +212,9 @@ def test_resolve_and_trial_detail(tmp_path: Path) -> None:
     assert "lock" in tabs
     assert "runtime" in tabs
     assert detail["trial"].get("framework") == "acp"
-    assert detail["trial"].get("docker") is None
+    assert detail["trial"].get("environment") == "e2b"
+    assert detail["trial"].get("started") == "2026-08-20T10:00:00Z"
+    assert detail["trial"].get("duration") == "4.5s"
     actors = detail["trial"].get("actors") or []
     assert len(actors) == 1
     assert actors[0]["role"] == "main"

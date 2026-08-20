@@ -70,8 +70,8 @@ export type Trial = {
   harness_kind?: string | null;
   /** Framework kind, e.g. acp */
   framework?: string | null;
-  /** Docker placement label when L1/docker, else null */
-  docker?: string | null;
+  /** Box kind: local | docker | e2b | ssh */
+  environment?: string | null;
   /** Per-role rows for the actors table above Trajectory */
   actors?: Array<{
     role: string;

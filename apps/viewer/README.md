@@ -15,7 +15,7 @@ Local results console for a dataset package:
 ### Attempt detail (highlights)
 
 - **Subtitle**: `task · framework · docker · upstream.url` (omit missing; url is an external link when present)
-- **Actors**: Role / Agent / Model / **Time** / **Usage**
+- **Actors**: Role / Harness / Model / **Time** / **Usage**
   - Time = sum of inv `latency_ms` for that `profile_id`
   - Usage = last inv normalized ACP usage for that profile (tokens / cache hit / cost when reported)
   - Fail-open `-` when the entry did not report usage (e.g. some `pi` / `grok-build` paths)

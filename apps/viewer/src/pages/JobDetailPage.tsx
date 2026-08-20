@@ -199,7 +199,7 @@ export function JobDetailPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>{head("task_id", "Task")}</TableHead>
-                <TableHead>{head("agent_label", "Agent")}</TableHead>
+                <TableHead>{head("agent_label", "Harness")}</TableHead>
                 <TableHead>{head("model_label", "Model")}</TableHead>
                 <TableHead>Dataset</TableHead>
                 <TableHead>{head("score", "Avg Reward")}</TableHead>

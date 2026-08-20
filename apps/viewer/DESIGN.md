@@ -188,7 +188,7 @@ Prefer **shadcn/ui** (Radix + Tailwind), tokens mapped to CSS variables in
 | shadcn | Role |
 | --- | --- |
 | `Input` | Search boxes |
-| `Select` / `DropdownMenu` | Agent / provider / model / time filters |
+| `Select` / `DropdownMenu` | Harness / model / time filters |
 | `Table` | Jobs, tasks, trials |
 | `Button` | Copy command, ghost icon actions |
 | `Breadcrumb` | Path navigation |

@@ -307,11 +307,11 @@ export function JobsPage() {
             </Select>
           ) : null}
           <Select value={agent} onValueChange={setAgent}>
-            <SelectTrigger aria-label="Filter agents">
-              <SelectValue placeholder="All agents" />
+            <SelectTrigger aria-label="Filter harnesses">
+              <SelectValue placeholder="All harnesses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All agents</SelectItem>
+              <SelectItem value="all">All harnesses</SelectItem>
               {agents.map((a) => (
                 <SelectItem key={a} value={a}>
                   {a}
@@ -367,7 +367,7 @@ export function JobsPage() {
                   />
                 </TableHead>
                 <TableHead>{head("job_name", "Job Name")}</TableHead>
-                <TableHead>{head("agent_label", "Agents")}</TableHead>
+                <TableHead>{head("agent_label", "Harness")}</TableHead>
                 <TableHead>{head("model_label", "Models")}</TableHead>
                 <TableHead>{head("result", "Result")}</TableHead>
                 <TableHead>{head("environment", "Environment")}</TableHead>
@@ -460,7 +460,7 @@ export function JobsPage() {
                     <TableCell className="tabular">
                       {formatScore(job.mean_score ?? job.result)}
                     </TableCell>
-                    <TableCell>{job.environment || "local"}</TableCell>
+                    <TableCell>{job.environment || "-"}</TableCell>
                     <TableCell className="tabular text-body">
                       {formatDate(job.started)}
                     </TableCell>

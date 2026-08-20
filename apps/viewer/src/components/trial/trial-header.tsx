@@ -37,7 +37,7 @@ export function TrialHeader({
         <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono truncate">
           {runId}
         </h1>
-        {/* Same mute/body style: task · framework · docker · upstream(if any) */}
+        {/* Same mute/body style: task · framework · environment · upstream(if any) */}
         <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
           <span>
             task <span className="text-body font-medium">{taskId}</span>
@@ -52,13 +52,13 @@ export function TrialHeader({
               </span>
             </>
           ) : null}
-          {trial?.docker ? (
+          {trial?.environment ? (
             <>
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
               <span className="text-body font-medium font-mono text-[13px]">
-                {trial.docker}
+                {trial.environment}
               </span>
             </>
           ) : null}

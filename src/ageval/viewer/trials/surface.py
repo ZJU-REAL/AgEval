@@ -9,6 +9,7 @@ from typing import Any
 
 from ageval.evidence.attempt_record import has_attempt_result, read_attempt_result
 from ageval.evidence.trajectory import TRAJECTORY_FILENAME
+from ageval.viewer.jobs import _duration_label, _environment_kind, _phase_timing, _started_at
 from ageval.viewer.trials.paths import _read_json_object
 from ageval.viewer.trials.usage import (
     _format_latency_ms,
@@ -137,31 +138,6 @@ def _actor_agent_name(
     return ""
 
 
-def _docker_label(result: dict[str, Any], summary: dict[str, Any]) -> str | None:
-    """Short docker placement label when this Attempt used Docker/L1; else None."""
-    runtime_kind = str(result.get("runtime_kind") or summary.get("runtime_kind") or "")
-    assurance = str(result.get("assurance") or summary.get("assurance") or "")
-    l1 = result.get("l1") if isinstance(result.get("l1"), dict) else None
-    if l1 is None:
-        l1 = summary.get("l1") if isinstance(summary.get("l1"), dict) else None
-    is_docker = "docker" in runtime_kind.lower() or assurance.lower() == "l1" or l1 is not None
-    if not is_docker:
-        return None
-    parts: list[str] = ["docker"]
-    if isinstance(l1, dict):
-        platform = l1.get("platform")
-        if isinstance(platform, str) and platform:
-            parts.append(platform)
-        iso = l1.get("isolation") if isinstance(l1.get("isolation"), dict) else {}
-        net = iso.get("network") if isinstance(iso, dict) else None
-        if isinstance(net, str) and net:
-            parts.append(net)
-        loc = l1.get("execution_location")
-        if isinstance(loc, str) and loc and loc not in parts:
-            parts.append(loc)
-    return " · ".join(parts)
-
-
 def _provenance_surface(lock: dict[str, Any]) -> dict[str, Any]:
     """Project lock provenance for Attempt top bar (url only when present)."""
     prov = lock.get("provenance")
@@ -188,8 +164,6 @@ def _agent_surface(
     evidence: Path,
     *,
     lock: dict[str, Any],
-    result: dict[str, Any],
-    summary: dict[str, Any],
 ) -> dict[str, Any]:
     """Deterministic agent surface from lock profiles + invocation metadata.
 
@@ -309,13 +283,10 @@ def _agent_surface(
         )
 
     framework = executors[0] if executors else None
-
-    docker = _docker_label(result, summary)
     prov = _provenance_surface(lock)
 
     return {
         "framework": framework,
-        "docker": docker,
         "actors": actors,
         # Keep thin aliases for older clients / tests
         "agent_label": actors[0]["role"] if len(actors) == 1 else None,
@@ -357,29 +328,11 @@ def _trial_meta_from_evidence(
         except (TypeError, ValueError):
             error = str(error)
     locked_task = lock.get("task_id") if isinstance(lock.get("task_id"), str) else None
-    surface = _agent_surface(evidence, lock=lock, result=result, summary=summary)
+    surface = _agent_surface(evidence, lock=lock)
 
-    # Phase timing (#47 D): prefer result, then summary, then suite attempt row.
-    phase_timing = None
-    for src in (result, summary, suite_row):
-        if isinstance(src, dict) and isinstance(src.get("phase_timing"), dict):
-            phase_timing = src["phase_timing"]
-            break
-    duration = suite_row.get("duration") or result.get("duration") or summary.get("duration")
-    if duration is None and isinstance(phase_timing, dict):
-        total_ms = phase_timing.get("total_ms")
-        if isinstance(total_ms, (int, float)) and not isinstance(total_ms, bool):
-            from ageval.application.suite import format_duration_ms
-
-            duration = format_duration_ms(float(total_ms))
-    started = (
-        summary.get("started_at")
-        or summary.get("created_at")
-        or result.get("started_at")
-        or result.get("created_at")
-        or (phase_timing or {}).get("started_at")
-        or suite_row.get("started")
-    )
+    phase_timing = _phase_timing(summary) or _phase_timing(suite_row)
+    duration = _duration_label(phase_timing)
+    started = _started_at(phase_timing)
 
     # Token breakdown from actors (observational; Harbor-style bar when present).
     token_timing = _token_bar_from_actors(surface.get("actors") or [])
@@ -403,7 +356,7 @@ def _trial_meta_from_evidence(
         "agent_invocations": result.get("agent_invocations") or summary.get("agent_invocations"),
         "harness_kind": result.get("harness_kind") or summary.get("harness_kind"),
         "framework": surface.get("framework"),
-        "docker": surface.get("docker"),
+        "environment": _environment_kind(lock, result),
         "actors": surface.get("actors") or [],
         "agent_label": surface.get("agent_label"),
         "model_label": surface.get("model_label"),
