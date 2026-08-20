@@ -98,7 +98,7 @@ class DockerHost:
         *,
         spec: BoxSpec,
         options: Mapping[str, object] | None = None,
-        plugin_layers: Sequence[tuple[str, str]] = (),
+        plugin_layers: Sequence[tuple[str, str, str, str]] = (),
     ) -> None:
         opts = dict(options or {})
         self._plugin_layers = tuple(plugin_layers)

@@ -255,14 +255,17 @@ def _selected_profile_id(lock: LockedTaskConfig) -> str:
     return str(rows[0].get("id"))
 
 
-def _plugin_image_layers(graph: ExtensionGraph) -> tuple[tuple[str, str], ...]:
-    """Dockerfile fragments the bound plugins declared, for kinds that build."""
+def _plugin_image_layers(graph: ExtensionGraph) -> tuple[tuple[str, str, str, str], ...]:
+    """Bake files the bound plugins declared, for kinds that build."""
     from ageval.plugins.image_layers import layers_for_plugins
 
     bound = {ref.plugin_id for ref in graph.winners.values()}
     for chain in graph.chains.values():
         bound.update(handler.plugin_id for handler in chain)
-    return tuple((layer.plugin_id, layer.body) for layer in layers_for_plugins(frozenset(bound)))
+    return tuple(
+        (layer.plugin_id, str(layer.dockerfile), str(layer.package_root), layer.body)
+        for layer in layers_for_plugins(frozenset(bound))
+    )
 
 
 def _environment_options(lock: LockedTaskConfig) -> dict[str, Any]:

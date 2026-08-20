@@ -94,13 +94,15 @@ def resolve_image(
     declared_image: str | None,
     platform: str,
     force_build: bool,
-    plugin_layers: Sequence[tuple[str, str]] = (),
+    plugin_layers: Sequence[tuple[str, str, str, str]] = (),
 ) -> tuple[str, str]:
     """Return ``(tag, digest)`` for this Attempt's image.
 
     A declared ``docker_image`` is used as-is. A task recipe is built on top of
     the official base, and the bound plugins' declared layers are baked on top of
     that. With neither, the base itself is the box.
+
+    Each plugin layer is ``(plugin_id, dockerfile_path, package_root, body)``.
     """
     if declared_image:
         digest = image_digest(declared_image)
@@ -135,15 +137,13 @@ def build_task_image(
     platform: str,
     base_digest: str,
     force_build: bool,
-    plugin_layers: Sequence[tuple[str, str]] = (),
+    plugin_layers: Sequence[tuple[str, str, str, str]] = (),
 ) -> tuple[str, str]:
-    """Build the task recipe, plus plugin layers, in the task directory."""
+    """Build the task recipe, then each plugin bake with its own context."""
     recipe = _recipe_text(task_root, dockerfile_rel)
-    for plugin_id, body in plugin_layers:
-        recipe = f"{recipe.rstrip()}\n\n# --- plugin: {plugin_id} ---\n{body.strip()}\n"
-
+    layer_key = "\n".join(f"{plugin_id}\n{body}" for plugin_id, _, _, body in plugin_layers)
     content = content_digest(
-        recipe=recipe,
+        recipe=recipe + "\n" + layer_key,
         context_root=task_root,
         platform=platform,
         base_digest=base_digest,
@@ -154,23 +154,72 @@ def build_task_image(
         if existing is not None:
             return tag, existing
 
-    generated = task_root / f".ageval-image-{content[:12]}.Dockerfile"
-    generated.write_text(recipe, encoding="utf-8")
-    try:
-        built = docker(
-            "buildx",
-            "build",
-            "--platform",
-            platform,
-            "-f",
-            str(generated),
-            "-t",
-            tag,
-            "--load",
-            str(task_root),
+    current, _ = _build_named(
+        recipe=recipe,
+        context_root=task_root,
+        tag=f"{PACKAGE_TAG_PREFIX}:{content[:12]}-base",
+        platform=platform,
+        build_args=(),
+    )
+    for plugin_id, dockerfile, package_root, _body in plugin_layers:
+        current, _ = _build_named(
+            recipe=None,
+            dockerfile=Path(dockerfile),
+            context_root=Path(package_root),
+            tag=f"{PACKAGE_TAG_PREFIX}:{content[:12]}-{plugin_id}",
+            platform=platform,
+            build_args=(f"BASE_IMAGE={current}",),
         )
+    tagged = docker("tag", current, tag)
+    if tagged.returncode != 0:
+        raise EnvironmentFailure(
+            "environment_image_unresolved",
+            f"could not tag plugin image as {tag}: {(tagged.stderr or '')[-300:]}",
+        )
+    digest = image_digest(tag)
+    if digest is None:
+        raise EnvironmentFailure(
+            "environment_image_unresolved",
+            f"task image build failed for {tag}",
+        )
+    return tag, digest
+
+
+def _build_named(
+    *,
+    recipe: str | None,
+    context_root: Path,
+    tag: str,
+    platform: str,
+    build_args: Sequence[str],
+    dockerfile: Path | None = None,
+) -> tuple[str, str]:
+    generated: Path | None = None
+    file_arg = dockerfile
+    if recipe is not None:
+        generated = context_root / f".ageval-image-{tag.split(':')[-1]}.Dockerfile"
+        generated.write_text(recipe, encoding="utf-8")
+        file_arg = generated
+    assert file_arg is not None
+    args = [
+        "buildx",
+        "build",
+        "--platform",
+        platform,
+        "-f",
+        str(file_arg),
+        "-t",
+        tag,
+        "--load",
+    ]
+    for item in build_args:
+        args.extend(["--build-arg", item])
+    args.append(str(context_root))
+    try:
+        built = docker(*args)
     finally:
-        generated.unlink(missing_ok=True)
+        if generated is not None:
+            generated.unlink(missing_ok=True)
     digest = image_digest(tag)
     if built.returncode != 0 or digest is None:
         raise EnvironmentFailure(

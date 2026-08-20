@@ -16,14 +16,16 @@ from ageval.plugins.store import list_installed, resolve_package_root
 
 @dataclass(frozen=True, slots=True)
 class ImageLayer:
-    """One plugin's Dockerfile fragment, already read from its package."""
+    """One plugin's bake file, built with the plugin package as context."""
 
     plugin_id: str
+    dockerfile: Path
+    package_root: Path
     body: str
 
 
 def layers_for_plugins(plugin_ids: frozenset[str]) -> tuple[ImageLayer, ...]:
-    """Fragments declared by the installed plugins among *plugin_ids*.
+    """Bake files declared by the installed plugins among *plugin_ids*.
 
     Ordered by plugin id so the image key does not depend on resolve order.
     """
@@ -38,7 +40,14 @@ def layers_for_plugins(plugin_ids: frozenset[str]) -> tuple[ImageLayer, ...]:
         fragment = root / manifest.image_layers
         if not fragment.is_file():
             continue
-        found.append(ImageLayer(plugin_id=entry.plugin_id, body=fragment.read_text("utf-8")))
+        found.append(
+            ImageLayer(
+                plugin_id=entry.plugin_id,
+                dockerfile=fragment,
+                package_root=root,
+                body=fragment.read_text("utf-8"),
+            )
+        )
     return tuple(sorted(found, key=lambda layer: layer.plugin_id))
 
 
