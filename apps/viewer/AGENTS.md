@@ -1,6 +1,6 @@
 # ageval Viewer — Agent constraints
 
-This directory is the **local Database / suite-results Web UI**.
+This directory is the **local dataset / suite-results Web UI**.
 Python serves the built SPA; React app lives here.
 
 ## Authority
@@ -31,7 +31,7 @@ When UI conflicts with taste: **DESIGN.md wins**.
    bytes / cascade `run_id`s, then confirm. Suite delete always removes
    referenced Attempts. No delete control on an inner trial. Does not call
    Registry. Same Application use case as `ageval jobs delete --local … --yes`.
-7. **Pin / note (this browser)** — `localStorage` keyed by `database_id` +
+7. **Pin / note (this browser)** — `localStorage` keyed by `dataset_id` +
    `job_id`. Not written to evidence, lock, or Registry. Pinned rows sort
    first. Action icon (always on): note, else pin, else hover settings.
    Hover a note icon to read the note.
@@ -127,9 +127,9 @@ usage). Cache hit rate uses inclusion/disjoint heuristics; never treat
 
 SPA file preview: JSON/JSONL pretty-print + lightweight syntax highlight (no extra deps).
 
-Package-file browse routes (`/api/database`, `/api/tasks/*`, `/api/commands`) were removed with the old SPA.  
-All paths confined to the opened Database root (`job_id` / `task_id` / `run_id` single-segment; file paths fail closed on `..`). No Registry required.  
-Evidence roots: `{db}/.ageval/runs/{run_id}` or task-local `.ageval/runs/`; lock `task_id` must match when present.
+Package-file browse routes were removed with the old SPA.  
+All paths confined to the opened dataset root (`job_id` / `task_id` / `run_id` single-segment; file paths fail closed on `..`). No Registry required.  
+Evidence roots: `{dataset}/.ageval/runs/{run_id}` or task-local `.ageval/runs/`; lock `task_id` must match when present.
 
 ## Build & serve
 
@@ -138,7 +138,7 @@ Evidence roots: `{db}/.ageval/runs/{run_id}` or task-local `.ageval/runs/`; lock
 pnpm install
 pnpm build          # → dist/
 # from repo root
-uv run ageval view <database> --no-browser
+uv run ageval view <dataset> --no-browser
 ```
 
 Python must serve **`apps/viewer/dist/`** (production build). There is **no** separate `static/` source tree.  

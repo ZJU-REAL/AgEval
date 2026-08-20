@@ -1,6 +1,6 @@
 # ageval Viewer
 
-Local results console for a Database package:
+Local results console for a dataset package:
 
 **Jobs → Tasks → Attempt (trial / run_id)**, with search, sortable columns, breadcrumbs, and copyable CLI.
 
@@ -35,7 +35,7 @@ SPA lives under `src/`; Python serves the built `dist/` only.
 `ageval view --dev` starts the API and **tries** to start `pnpm --dir apps/viewer dev` (same API). No pre-built SPA. If the repo / pnpm / `node_modules` is missing, it prints the two-process fallback instead of failing.
 
 ```bash
-uv run ageval view tests/fixtures/databases/suite-min --dev --port 8765
+uv run ageval view tests/fixtures/datasets/suite-min --dev --port 8765
 ```
 
 Manual fallback (only if Vite did not start):
@@ -60,7 +60,7 @@ If the port is already in use, stop the other `ageval view` process or pass `--p
 cd apps/viewer
 pnpm install
 pnpm build   # writes dist/
-uv run ageval view <database>
+uv run ageval view <dataset>
 ```
 
 Package manager: **pnpm** only (`packageManager` field; do not use npm/yarn).
@@ -72,7 +72,7 @@ Python serves **`apps/viewer/dist/`** only (no separate `static/` tree). `dist/`
 | Path | Description |
 | --- | --- |
 | `GET /api/health` | Liveness |
-| `GET /api/jobs` | Suite runs and single-task Attempts in this Database |
+| `GET /api/jobs` | Suite runs and single-task Attempts in this dataset |
 | `GET /api/jobs/{id}` | Job + task rows |
 | `GET /api/jobs/{id}/tasks/{task_id}` | Task detail, trials list, copyable `ageval run` |
 | `GET /api/jobs/{id}/tasks/{task_id}/trials` | Trials (suite + local evidence) |

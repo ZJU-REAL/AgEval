@@ -56,7 +56,7 @@ type SortKey =
 export function JobsPage() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [dbId, setDbId] = useState<string>("");
+  const [datasetId, setDatasetId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -79,7 +79,7 @@ export function JobsPage() {
       .then((data) => {
         if (cancelled) return;
         setJobs(data.items || []);
-        setDbId(data.dataset_id || "");
+        setDatasetId(data.dataset_id || "");
         setError(null);
       })
       .catch((e: Error) => {
@@ -94,15 +94,15 @@ export function JobsPage() {
   }, [reloadToken]);
 
   useEffect(() => {
-    setPrefs(loadJobPrefs(dbId));
-  }, [dbId]);
+    setPrefs(loadJobPrefs(datasetId));
+  }, [datasetId]);
 
   const writePrefs = useCallback(
     (next: Record<string, JobPref>) => {
       setPrefs(next);
-      saveJobPrefs(dbId, next);
+      saveJobPrefs(datasetId, next);
     },
-    [dbId],
+    [datasetId],
   );
 
   function prefFor(jobId: string): JobPref {
@@ -253,8 +253,8 @@ export function JobsPage() {
   return (
     <Shell
       meta={
-        dbId ? (
-          <span className="text-xs text-mute font-mono truncate max-w-[40ch]">{dbId}</span>
+        datasetId ? (
+          <span className="text-xs text-mute font-mono truncate max-w-[40ch]">{datasetId}</span>
         ) : null
       }
     >
