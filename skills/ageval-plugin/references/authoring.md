@@ -71,7 +71,7 @@ credential_env_names, binary
 ## Trajectory
 
 Layer B: each event row has `schema: ageval.trajectory.event/1`, `source` = this plugin id, `session_id`.
-Layer C: only Core writes `trajectory.jsonl`. Plugins must not emit layer-C rows.
+Layer C: the `trajectory_seal` winner writes `trajectory.jsonl` (engine default). Plugins must not emit layer-C rows unless they won that slot.
 
 `trajectory_collect` may map **this** plugin's vendor dump into layer B.
 Never stamp `trajectory_source` onto another plugin's `source`. Never emit ACP `session_update`.
