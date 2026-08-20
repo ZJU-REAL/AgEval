@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { CatalogHead } from "@/components/page-head";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { HoverTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
@@ -288,12 +288,12 @@ export function OrganizationDetailPage() {
   if (!token) {
     return (
       <>
-        <BreadcrumbNav
-          items={[
+        <CatalogHead
+          title="Organizations"
+          crumbs={[
             { label: "Organizations", href: "/organizations" },
             { label: orgId || "…" },
           ]}
-          className="mb-4"
         />
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm">
           <p className="font-medium text-ink">Sign in required</p>
@@ -307,12 +307,12 @@ export function OrganizationDetailPage() {
 
   return (
     <>
-      <BreadcrumbNav
-        items={[
+      <CatalogHead
+        title="Organizations"
+        crumbs={[
           { label: "Organizations", href: "/organizations" },
           { label: title },
         ]}
-        className="mb-4"
       />
 
       {loading ? (

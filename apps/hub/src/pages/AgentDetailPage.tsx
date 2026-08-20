@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { BindingPreview } from "@/components/binding-preview";
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
@@ -217,9 +217,12 @@ export function AgentDetailPage() {
 
   return (
     <>
-      <BreadcrumbNav
-        items={[{ label: "Agent hub", href: "/agents" }, { label: agentId || "…" }]}
-        className="mb-4"
+      <CatalogHead
+        title="Agent hub"
+        crumbs={[
+          { label: "Agent hub", href: "/agents" },
+          { label: agentId || "…" },
+        ]}
       />
 
       <div className="mb-4">

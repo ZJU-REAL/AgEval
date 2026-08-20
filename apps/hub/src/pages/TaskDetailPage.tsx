@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { OverlayFilePanel } from "@/components/overlay-file-panel";
@@ -28,7 +28,6 @@ import {
   pickPackageVersion,
   type FileItem,
   type PackageRelease,
-  type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
@@ -362,9 +361,10 @@ export function TaskDetailPage() {
 
   return (
     <>
-      <BreadcrumbNav
-        items={[
-          { label: "Datasets", href: "/datasets" },
+      <CatalogHead
+        title="Your datasets"
+        crumbs={[
+          { label: "Your datasets", href: "/datasets" },
           {
             label: datasetId,
             href: `/datasets/${encodeURIComponent(datasetId)}${
@@ -373,7 +373,6 @@ export function TaskDetailPage() {
           },
           { label: taskId },
         ]}
-        className="mb-4"
       />
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>

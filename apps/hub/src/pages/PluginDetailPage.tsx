@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
@@ -194,12 +194,12 @@ export function PluginDetailPage() {
 
   return (
     <>
-      <BreadcrumbNav
-        items={[
+      <CatalogHead
+        title="Plugin marketplace"
+        crumbs={[
           { label: "Plugin marketplace", href: "/plugins" },
           { label: pluginId || "…" },
         ]}
-        className="mb-4"
       />
 
       <div className="mb-4">

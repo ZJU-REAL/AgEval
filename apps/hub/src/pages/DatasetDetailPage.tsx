@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { LeaderboardTable } from "@/components/leaderboard-table";
@@ -346,12 +346,12 @@ export function DatasetDetailPage() {
 
   return (
     <>
-      <BreadcrumbNav
-        items={[
-          { label: "Datasets", href: "/datasets" },
+      <CatalogHead
+        title="Your datasets"
+        crumbs={[
+          { label: "Your datasets", href: "/datasets" },
           { label: datasetId },
         ]}
-        className="mb-4"
       />
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>

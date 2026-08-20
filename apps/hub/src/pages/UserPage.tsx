@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { PageHead } from "@/components/page-head";
 import { OfficialMark } from "@/components/official-mark";
 import {
   Table,
@@ -98,10 +98,7 @@ export function UserPage() {
 
   return (
     <>
-      <BreadcrumbNav
-        items={[{ label: title || "…" }]}
-        className="mb-4"
-      />
+      <PageHead title={title || "…"} />
 
       {loading ? (
         <p className="text-sm text-mute">Loading…</p>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { ActorsTable } from "@/components/trial/actors-table";
 import { EvidenceTabs } from "@/components/trial/evidence-tabs";
@@ -148,19 +148,19 @@ export function AttemptEvidencePage() {
 
   return (
     <>
+      <CatalogHead
+        title="Your datasets"
+        crumbs={[
+          { label: "Your datasets", href: "/datasets" },
+          {
+            label: datasetId,
+            href: `/datasets/${encodeURIComponent(datasetId)}`,
+          },
+          { label: taskId, href: jobsHref },
+          { label: runId, href: null },
+        ]}
+      />
       <div className="space-y-5">
-        <BreadcrumbNav
-          items={[
-            { label: "Datasets", href: "/datasets" },
-            {
-              label: datasetId,
-              href: `/datasets/${encodeURIComponent(datasetId)}`,
-            },
-            { label: taskId, href: jobsHref },
-            { label: runId, href: null },
-          ]}
-        />
-
         <TrialHeader
           runId={runId}
           taskId={taskId}
