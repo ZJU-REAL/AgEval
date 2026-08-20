@@ -70,6 +70,7 @@ export function OrganizationDetailPage() {
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
   const [plugins, setPlugins] = useState<PackageRelease[]>([]);
+  const [agents, setAgents] = useState<PackageRelease[]>([]);
   const [sharedSuites, setSharedSuites] = useState<SuiteRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,12 +114,14 @@ export function OrganizationDetailPage() {
 
     (async () => {
       try {
-        const [orgRow, memberRows, datasetRows, pluginRows] = await Promise.all([
-          getOrg(orgId, token),
-          listOrgMembers(orgId, token),
-          listPackages(token, { packageKind: "dataset" }),
-          listPackages(token, { packageKind: "plugin" }),
-        ]);
+        const [orgRow, memberRows, datasetRows, pluginRows, agentRows] =
+          await Promise.all([
+            getOrg(orgId, token),
+            listOrgMembers(orgId, token),
+            listPackages(token, { packageKind: "dataset" }),
+            listPackages(token, { packageKind: "plugin" }),
+            listPackages(token, { packageKind: "agent" }),
+          ]);
         if (cancelled) return;
         setOrg(orgRow);
         setMembers(memberRows);
@@ -126,6 +129,7 @@ export function OrganizationDetailPage() {
           latestPackageByDataset(rows).filter((p) => p.org_id === orgId);
         setDatasets(inOrg(datasetRows));
         setPlugins(inOrg(pluginRows));
+        setAgents(inOrg(agentRows));
         setError(null);
 
         // Invite keys: owner-only; ignore 403 for non-owners.
@@ -468,7 +472,10 @@ export function OrganizationDetailPage() {
                               role="link"
                             >
                               <TableCell className="font-mono text-sm">
-                                {d.dataset_id}
+                                {packageDisplayTitle(
+                                  d.dataset_id,
+                                  d.display_name,
+                                )}
                               </TableCell>
                               <TableCell className="font-mono text-xs text-body">
                                 {d.version}
@@ -534,6 +541,65 @@ export function OrganizationDetailPage() {
                               </TableCell>
                               <TableCell className="text-sm text-body">
                                 {p.visibility}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h2 className="text-sm font-medium text-ink mb-2">Agents</h2>
+                {agents.length === 0 ? (
+                  <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
+                    No agents published under this org yet.
+                  </div>
+                ) : (
+                  <div className="rounded-[8px] border border-hairline overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>Agent</TableHead>
+                          <TableHead>Version</TableHead>
+                          <TableHead>Visibility</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {agents.map((a) => {
+                          const href = `/agents/${encodeDatasetId(a.dataset_id)}`;
+                          return (
+                            <TableRow
+                              key={a.dataset_id}
+                              className="cursor-pointer"
+                              onClick={() => navigate(href)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  navigate(href);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="link"
+                            >
+                              <TableCell>
+                                <span className="inline-flex items-center gap-1.5 font-mono text-sm min-w-0">
+                                  <span className="truncate">
+                                    {packageDisplayTitle(
+                                      a.dataset_id,
+                                      a.display_name,
+                                    )}
+                                  </span>
+                                  {a.official ? <OfficialMark /> : null}
+                                </span>
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-body">
+                                {a.version}
+                              </TableCell>
+                              <TableCell className="text-sm text-body">
+                                {a.visibility}
                               </TableCell>
                             </TableRow>
                           );

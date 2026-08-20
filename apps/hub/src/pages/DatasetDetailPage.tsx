@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
+import { DisplayNameEditor } from "@/components/display-name-editor";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { LeaderboardTable } from "@/components/leaderboard-table";
+import { OfficialMark } from "@/components/official-mark";
 import { OverlayFilePanel } from "@/components/overlay-file-panel";
 import { Markdown } from "@/components/markdown";
 import { VersionSwitcher } from "@/components/version-switcher";
@@ -20,6 +22,7 @@ import {
   decodeDatasetId,
   decodeFileContent,
   encodeDatasetId,
+  getOrg,
   getPackageByDigest,
   getPackageFile,
   hasSharedFiles,
@@ -28,6 +31,8 @@ import {
   listPackageVersions,
   listSuites,
   pickPackageVersion,
+  splitPackageId,
+  updatePackageDisplayName,
   versionLabel,
   type FileItem,
   type PackageRelease,
@@ -110,7 +115,9 @@ export function DatasetDetailPage() {
   const [sharedNote, setSharedNote] = useState<string | null>(null);
   const [sharedFileLoading, setSharedFileLoading] = useState(false);
   const [overlayPrefixes, setOverlayPrefixes] = useState<string[]>([]);
+  const [canEditName, setCanEditName] = useState(false);
   const token = getToken();
+  const packageParts = useMemo(() => splitPackageId(datasetId), [datasetId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +161,18 @@ export function DatasetDetailPage() {
         }
         const chosen = meta.package_digest ? meta : selected;
         setRelease(chosen);
+        if (token && chosen.org_id) {
+          try {
+            const org = await getOrg(chosen.org_id, token);
+            if (!cancelled) {
+              setCanEditName((org.role || "").toLowerCase() === "owner");
+            }
+          } catch {
+            if (!cancelled) setCanEditName(false);
+          }
+        } else if (!cancelled) {
+          setCanEditName(false);
+        }
         const files = await listPackageFiles(
           datasetId,
           chosen.package_digest,
@@ -355,9 +374,25 @@ export function DatasetDetailPage() {
       />
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink font-mono">
-            {datasetId}
-          </h1>
+          <DisplayNameEditor
+            value={release?.display_name?.trim() || packageParts.name}
+            prefix={packageParts.org ? `${packageParts.org}/` : null}
+            canEdit={Boolean(token && canEditName && release)}
+            headingClassName="text-xl font-semibold tracking-tight text-ink font-mono"
+            afterTitle={release?.official ? <OfficialMark /> : null}
+            onSave={async (next) => {
+              const updated = await updatePackageDisplayName(
+                datasetId,
+                next,
+                token,
+              );
+              setRelease((prev) =>
+                prev
+                  ? { ...prev, display_name: updated.display_name || next }
+                  : prev,
+              );
+            }}
+          />
           {release ? (
             <p className="text-sm text-mute mt-1">
               <span className="font-mono">{versionLabel(release)}</span> ·{" "}
@@ -431,6 +466,16 @@ export function DatasetDetailPage() {
                 className="underline underline-offset-2"
               >
                 Open in Plugin marketplace
+              </Link>
+            </p>
+          ) : null}
+          {error.includes("Agent hub") || error.includes("agent") ? (
+            <p className="text-body">
+              <Link
+                to={`/agents/${encodeDatasetId(datasetId)}`}
+                className="underline underline-offset-2"
+              >
+                Open in Agent hub
               </Link>
             </p>
           ) : null}

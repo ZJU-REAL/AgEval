@@ -34,6 +34,7 @@ export function OrganizationsPage() {
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
   const [plugins, setPlugins] = useState<PackageRelease[]>([]);
+  const [agents, setAgents] = useState<PackageRelease[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -60,11 +61,13 @@ export function OrganizationsPage() {
       listOrgs(token),
       listPackages(token, { packageKind: "dataset" }),
       listPackages(token, { packageKind: "plugin" }),
+      listPackages(token, { packageKind: "agent" }),
     ])
-      .then(([orgRows, datasetRows, pluginRows]) => {
+      .then(([orgRows, datasetRows, pluginRows, agentRows]) => {
         setOrgs(orgRows);
         setDatasets(datasetRows);
         setPlugins(pluginRows);
+        setAgents(agentRows);
         setError(null);
       })
       .catch((err: unknown) => {
@@ -90,12 +93,14 @@ export function OrganizationsPage() {
       listOrgs(token),
       listPackages(token, { packageKind: "dataset" }),
       listPackages(token, { packageKind: "plugin" }),
+      listPackages(token, { packageKind: "agent" }),
     ])
-      .then(([orgRows, datasetRows, pluginRows]) => {
+      .then(([orgRows, datasetRows, pluginRows, agentRows]) => {
         if (cancelled) return;
         setOrgs(orgRows);
         setDatasets(datasetRows);
         setPlugins(pluginRows);
+        setAgents(agentRows);
         setError(null);
       })
       .catch((err: unknown) => {
@@ -132,6 +137,15 @@ export function OrganizationsPage() {
     }
     return counts;
   }, [plugins]);
+
+  const agentCountByOrg = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of latestPackageByDataset(agents)) {
+      if (!row.org_id) continue;
+      counts.set(row.org_id, (counts.get(row.org_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [agents]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -299,6 +313,9 @@ export function OrganizationsPage() {
                     <TableHead className="text-right tabular-nums">
                       Plugins
                     </TableHead>
+                    <TableHead className="text-right tabular-nums">
+                      Agents
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -341,6 +358,9 @@ export function OrganizationsPage() {
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-body">
                         {pluginCountByOrg.get(org.org_id) ?? 0}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-body">
+                        {agentCountByOrg.get(org.org_id) ?? 0}
                       </TableCell>
                     </TableRow>
                   ))}
