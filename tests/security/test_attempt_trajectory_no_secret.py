@@ -9,6 +9,12 @@ from tests.helpers.agent_binding import ScriptedBinder
 from ageval.attempt.ctx import AttemptCtx
 from ageval.evidence.store import AttemptEvidenceStore
 from ageval.plugins.agent_result import AgentResult
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.protocol import BindingIntent
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.services import ServiceTable
+from ageval.runtime.cancellation import CancellationSignal
 from ageval.runtime.parent_agent import ParentAgentService
 
 SENTINEL = "SENTINEL_TOKEN_NOT_FOR_DISK"
@@ -84,17 +90,21 @@ def _record(store: AttemptEvidenceStore) -> None:
 
     from ageval.attempt.phases import record
 
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(BindingIntent(profile_id="solver"), registry)
     ctx = AttemptCtx(
         run_id="run_sec",
         trial_id="trial_sec",
         attempt_id="attempt_sec",
         lock=None,  # type: ignore[arg-type] — record only reads evidence
         profile_id="solver",
-        bindings=None,  # type: ignore[arg-type] — no chains bound
-        services=None,  # type: ignore[arg-type]
+        bindings=graph,
+        registry=registry,
+        services=ServiceTable(),
         host=None,  # type: ignore[arg-type]
         evidence=store,
-        cancellation=None,  # type: ignore[arg-type]
+        cancellation=CancellationSignal(),
         task_root=store.root,
         dataset_root=store.root,
     )

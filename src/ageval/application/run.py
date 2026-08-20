@@ -184,6 +184,7 @@ async def run_attempt(
         lock=lock,
         profile_id=profile_id,
         bindings=graph,
+        registry=registry,
         services=services,
         host=host,
         evidence=evidence,

@@ -15,6 +15,7 @@ from typing import Any
 from ageval.config.model import LockedTaskConfig
 from ageval.environments.protocol import EnvironmentProvider
 from ageval.plugins.protocol import ExtensionGraph
+from ageval.plugins.registry import ExtensionRegistry
 from ageval.plugins.services import ServiceTable
 from ageval.runtime.cancellation import CancellationSignal
 
@@ -42,6 +43,7 @@ class AttemptCtx:
     lock: LockedTaskConfig
     profile_id: str
     bindings: ExtensionGraph
+    registry: ExtensionRegistry
     services: ServiceTable
     host: EnvironmentProvider
     evidence: Any

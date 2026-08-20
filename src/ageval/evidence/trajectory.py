@@ -27,8 +27,9 @@ def write_attempt_trajectory(
 ) -> Path:
     """Write the Attempt trajectory: every turn's rows, in invocation order.
 
-    The engine is the only writer of this file. Plugins shape the payloads that
-    produced *turns*; they never author the evidence.
+    The ``trajectory_seal`` winner writes this file; the engine default is this
+    function. Plugins on collect/enrich shape the payloads that produced
+    *turns*; they are not the author of the sealed evidence.
     """
     from ageval.evidence.redaction import redact_value
 
