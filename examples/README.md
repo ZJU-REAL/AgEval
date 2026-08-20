@@ -5,28 +5,18 @@ selected popular-bench **conversion** packages.
 
 ```text
 examples/
-├── agents/         # ageval.agent/1 examples (mock-default / cc-default / pi-default / grok-jsonl-agg)
-├── alfworld-mini/  # Database eval/alfworld-mini — ALFWorld-style text household eval
-├── core/           # Database example/core — Core surface gates
-├── journeys/       # Database example/journeys — case-class fidelity
-├── l1/             # Database example/l1 — Provider L1
-├── scienceqa-mini/ # Database eval/scienceqa-mini — ScienceQA-style MCQ eval
-├── slot-probe/     # multi-slot plugin e2e (install plugins first)
-├── tau3-airline/   # Database my-lab/tau3-airline — τ³-bench airline port
-└── webshop-mini/   # Database eval/webshop-mini — WebShop-style shopping eval (graded reward)
+├── agents/         # ageval.agent/1 examples (cc-default / pi-default / grok-jsonl-agg / http-default)
+├── core/           # dataset example/core — Core surface gates
+├── journeys/       # dataset example/journeys — case-class fidelity
+├── l1/             # dataset example/l1 — docker topology packages
+└── tau3-airline/   # dataset my-lab/tau3-airline — τ³-bench airline port
 ```
 
-The three `*-mini` Datasets are agent-eval suites: `profiles.yaml` binds the
-CI-safe `mock` executor so `ageval lock` works offline; real evals swap the whole
-binding via the Agent lane (design/14), e.g.
+There is no product `executor: mock`. Offline lock uses the real kinds; a missing
+credential fails closed. Bind a real Agent with `--agent` or `--profiles`.
 
-```bash
-uv run ageval agent install examples/agents/cc-default
-uv run ageval run examples/webshop-mini --agent local/cc-default@0.1.0   # needs host claude-code entry
-```
-
-Each top-level directory is one Database (`ageval.dataset/1`). Members live under
-`tasks/<task_id>/task.yaml`. CLI path is always the Database root:
+Each top-level directory is one dataset (`ageval.dataset/1`). Members live under
+`tasks/<task_id>/task.yaml`. CLI path is always the dataset root:
 
 ```bash
 uv run ageval lock  examples/<database> --task <task_id>
@@ -37,7 +27,7 @@ uv run ageval tasks examples/<database>
 ## Suite run (Spec 22)
 
 ```bash
-# Full Database suite (no --task); concurrency from CLI or Database defaults
+# Full dataset suite (no --task); concurrency from CLI or dataset defaults
 uv run ageval run tests/fixtures/databases/suite-min --max-concurrent-tasks 2
 # Single member still first-class
 uv run ageval run examples/core --task config-minimal
@@ -73,7 +63,7 @@ uv run ageval lock examples/core --task config-invalid       # exit 2, unknown_p
 
 NVIDIA [OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents) path: real LiteLLM
 calls via profile `model` / `base_url` / `api_key` (env locator). Install never
-rewrites Database profiles — bind with a separate profiles file:
+rewrites dataset profiles — bind with a separate profiles file:
 
 ```bash
 uv sync --extra nooa

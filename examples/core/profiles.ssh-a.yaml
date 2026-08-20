@@ -1,0 +1,20 @@
+format: ageval.profiles/1
+
+# Spec 03 ssh A: the box is the remote machine. Locator is key_env, not the key.
+environment: ssh
+environment_options:
+  host: ${AGEVAL_SSH_HOST}
+  user: ${AGEVAL_SSH_USER}
+  key_env: AGEVAL_SSH_KEY
+  image: ""
+
+agent_profiles:
+  solver:
+    executor: acp
+    model: zai-coding-cn/glm-5.2
+    api_key: ${ZHIPU_API_KEY}
+    options:
+      entry: pi
+    extensions:
+      - plugin: acp
+      - plugin: ssh

@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ageval_sdk import Agent, RunContext, RunTerminal
+from ageval_sdk import RunContext, RunTerminal
 
 
 def _parse_obj(raw: Any) -> dict[str, Any] | None:
@@ -58,9 +58,7 @@ async def run(ctx: RunContext) -> RunTerminal:
         return RunTerminal.failed("instruction_missing")
     instruction = instruction_path.read_text(encoding="utf-8")
 
-    agent = Agent(attempt_id=ctx.scope.attempt_id)
-    # L1 implicit single-actor topology uses actor_id="default".
-    async with agent.session(profile_id, actor_id="default", max_turns=1) as session:
+    async with ctx.agent.session(profile_id, max_turns=1) as session:
         inv = await session.invoke(instruction)
 
     if not inv.get("ok"):
