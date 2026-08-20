@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval.config.model import thaw
-from ageval.environments.protocol import WORKSPACE_PATH, EnvironmentFailure
+from ageval.environments.protocol import ARTIFACTS_PATH, WORKSPACE_PATH, EnvironmentFailure
 
 
 async def harvest_workspace_artifacts(ctx: Any) -> None:
@@ -38,18 +38,31 @@ async def harvest_workspace_artifacts(ctx: Any) -> None:
         rel = str(item.get("path") or "").strip()
         if not aid or not rel:
             continue
-        name = Path(rel).name
+        rel_path = Path(rel)
+        if rel_path.is_absolute() or ".." in rel_path.parts:
+            missing.append(aid)
+            continue
+        name = rel_path.name
         dest = staged / f"{aid}{Path(name).suffix or '.json'}"
         if dest.is_file():
             skipped.append(aid)
             continue
-        source = f"{WORKSPACE_PATH}/{name}"
-        try:
-            await ctx.host.download(source, dest)
-        except EnvironmentFailure:
+        posix = rel_path.as_posix().lstrip("/")
+        candidates = [f"{WORKSPACE_PATH}/{posix}"]
+        if posix != name:
+            candidates.append(f"{ARTIFACTS_PATH}/{name}")
+            candidates.append(f"{WORKSPACE_PATH}/{name}")
+        pulled_one = False
+        for source in candidates:
+            try:
+                await ctx.host.download(source, dest)
+            except EnvironmentFailure:
+                continue
+            pulled.append(aid)
+            pulled_one = True
+            break
+        if not pulled_one:
             missing.append(aid)
-            continue
-        pulled.append(aid)
     ctx.record_fact(
         "artifacts_harvested",
         {"pulled": pulled, "skipped": skipped, "missing": missing},
