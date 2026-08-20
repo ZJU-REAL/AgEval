@@ -36,7 +36,7 @@
 | `accent-deep` | `#001f73` | `#8aa0ff` | hover / active |
 | `dark`（landing 底） | `#11141c` | `#0c0e14` | landing 深色面 |
 
-参考：`bora-ppt` 的 IKB 主题；viewer / hub 的冷灰 ink 仅作对比，不把 viewer link 蓝搬进本站。
+参考：IKB / Klein Blue 主题（#002FA7 / #5B7BFF）；viewer / hub 的冷灰 ink 仅作对比，不把 viewer link 蓝搬进本站。
 
 ### 使用规则
 

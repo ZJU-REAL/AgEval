@@ -32,7 +32,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
   const text = landingCopy[lang];
 
   return (
-    <div className="bora-landing">
+    <div className="ageval-landing">
       <a className="skip" href="#main">
         {text.skip}
       </a>

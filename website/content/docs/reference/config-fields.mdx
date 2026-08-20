@@ -18,7 +18,7 @@ description: ageval.yaml / task.yaml 字段与校验要点速查。
 
 **不在** yaml 里：`n_attempts` / Always-k（只走 CLI/job，见 [Suite](/docs/run/suite)）。
 
-空 suite → lock 失败。旧 `bora.yaml` / `bora.database/1` → `invalid_format`。
+空 suite → lock 失败。未知 format → `invalid_format`。
 
 ## 成员 `task.yaml`
 

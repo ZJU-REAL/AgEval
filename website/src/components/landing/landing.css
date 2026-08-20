@@ -1,20 +1,20 @@
-html:has(.bora-landing) {
+html:has(.ageval-landing) {
   scroll-behavior: smooth;
   scroll-padding-top: 80px;
   color-scheme: dark;
 }
 
-html:has(.bora-landing) body {
+html:has(.ageval-landing) body {
   background: oklch(15.4% 0.018 264);
 }
 
-.bora-landing {
+.ageval-landing {
   --bg: oklch(15.4% 0.018 264);
   --surface: oklch(18.8% 0.022 264);
   --fg: oklch(95.2% 0.012 264);
   --muted: oklch(68% 0.022 264);
   --border: oklch(95.2% 0.012 264 / 0.14);
-  /* trial: Klein Blue from bora-ppt (IKB #002FA7 / bright #5B7BFF) */
+  /* trial: Klein Blue / IKB #002FA7 / bright #5B7BFF */
   --accent: #5b7bff;
   --accent-deep: #002fa7;
 
@@ -52,25 +52,25 @@ html:has(.bora-landing) body {
   color-scheme: dark;
 }
 
-.bora-landing *,
-.bora-landing *::before,
-.bora-landing *::after {
+.ageval-landing *,
+.ageval-landing *::before,
+.ageval-landing *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-.bora-landing img {
+.ageval-landing img {
   max-width: 100%;
   display: block;
 }
 
-.bora-landing a {
+.ageval-landing a {
   color: inherit;
   text-decoration: none;
 }
 
-.bora-landing button {
+.ageval-landing button {
   font: inherit;
   color: inherit;
   background: none;
@@ -78,22 +78,22 @@ html:has(.bora-landing) body {
   cursor: pointer;
 }
 
-.bora-landing ul,
-.bora-landing ol {
+.ageval-landing ul,
+.ageval-landing ol {
   list-style: none;
 }
 
-.bora-landing :focus-visible {
+.ageval-landing :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
-.bora-landing ::selection {
+.ageval-landing ::selection {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
   color: var(--fg);
 }
 
-.bora-landing .skip {
+.ageval-landing .skip {
   position: absolute;
   left: 12px;
   top: -48px;
@@ -103,21 +103,21 @@ html:has(.bora-landing) body {
   padding: 10px 16px;
 }
 
-.bora-landing .skip:focus {
+.ageval-landing .skip:focus {
   top: 12px;
 }
 
-.bora-landing .wrap {
+.ageval-landing .wrap {
   width: min(1180px, calc(100% - 48px));
   margin: 0 auto;
 }
 
-.bora-landing .wrap-wide {
+.ageval-landing .wrap-wide {
   width: min(1280px, calc(100% - 48px));
   margin: 0 auto;
 }
 
-.bora-landing nav {
+.ageval-landing nav {
   position: sticky;
   top: 0;
   z-index: 80;
@@ -128,7 +128,7 @@ html:has(.bora-landing) body {
   border-bottom: 1px solid var(--border);
 }
 
-.bora-landing .nav-inner {
+.ageval-landing .nav-inner {
   height: 64px;
   display: flex;
   align-items: center;
@@ -136,7 +136,7 @@ html:has(.bora-landing) body {
   gap: 24px;
 }
 
-.bora-landing .logo {
+.ageval-landing .logo {
   font-family: var(--font-display);
   font-size: 28px;
   letter-spacing: 0.04em;
@@ -147,27 +147,27 @@ html:has(.bora-landing) body {
   gap: 10px;
 }
 
-.bora-landing .logo .nav-owl {
+.ageval-landing .logo .nav-owl {
   width: 24px;
   height: 24px;
 }
 
 /* Outdent the nav logo so its owl aligns with the wider hero .wrap-wide. */
-.bora-landing nav .logo {
+.ageval-landing nav .logo {
   margin-left: calc(-1 * clamp(0px, (100vw - 1228px) / 2, 50px));
 }
 
-.bora-landing .logo span {
+.ageval-landing .logo span {
   color: var(--red);
 }
 
-.bora-landing .nav-links {
+.ageval-landing .nav-links {
   display: flex;
   align-items: center;
   gap: 22px;
 }
 
-.bora-landing .nav-links a:not(.btn) {
+.ageval-landing .nav-links a:not(.btn) {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -176,16 +176,16 @@ html:has(.bora-landing) body {
   transition: color var(--t) var(--ease);
 }
 
-.bora-landing .nav-links a:not(.btn):hover {
+.ageval-landing .nav-links a:not(.btn):hover {
   color: var(--cream);
 }
 
-.bora-landing .nav-drawer {
+.ageval-landing .nav-drawer {
   display: none;
   position: relative;
 }
 
-.bora-landing .nav-drawer-btn {
+.ageval-landing .nav-drawer-btn {
   list-style: none;
   display: inline-flex;
   align-items: center;
@@ -201,15 +201,15 @@ html:has(.bora-landing) body {
   cursor: pointer;
 }
 
-.bora-landing .nav-drawer-btn::-webkit-details-marker {
+.ageval-landing .nav-drawer-btn::-webkit-details-marker {
   display: none;
 }
 
-.bora-landing .nav-drawer-btn:hover {
+.ageval-landing .nav-drawer-btn:hover {
   color: var(--cream);
 }
 
-.bora-landing .nav-drawer-panel {
+.ageval-landing .nav-drawer-panel {
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
@@ -220,7 +220,7 @@ html:has(.bora-landing) body {
   z-index: 90;
 }
 
-.bora-landing .nav-drawer-panel a {
+.ageval-landing .nav-drawer-panel a {
   display: flex;
   align-items: center;
   min-height: 44px;
@@ -229,12 +229,12 @@ html:has(.bora-landing) body {
   transition: background var(--t) var(--ease);
 }
 
-.bora-landing .nav-drawer-panel a:hover {
+.ageval-landing .nav-drawer-panel a:hover {
   background: var(--ink-3);
   color: var(--cream);
 }
 
-.bora-landing .btn {
+.ageval-landing .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -252,46 +252,46 @@ html:has(.bora-landing) body {
     box-shadow var(--t) var(--ease);
 }
 
-.bora-landing .btn:active {
+.ageval-landing .btn:active {
   transform: translateY(1px);
 }
 
-.bora-landing .btn:focus-visible {
+.ageval-landing .btn:focus-visible {
   outline: none;
   box-shadow:
     0 0 0 3px var(--bg),
     0 0 0 6px var(--focus);
 }
 
-.bora-landing .btn-pri {
+.ageval-landing .btn-pri {
   background: var(--accent);
   color: var(--on-accent);
 }
 
-.bora-landing .btn-pri:hover {
+.ageval-landing .btn-pri:hover {
   background: var(--accent-deep);
   color: var(--on-accent);
 }
 
-.bora-landing .btn-ghost {
+.ageval-landing .btn-ghost {
   background: transparent;
   color: var(--cream);
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
-.bora-landing .btn-ghost:hover {
+.ageval-landing .btn-ghost:hover {
   box-shadow: inset 0 0 0 1px var(--cream);
   color: var(--cream);
 }
 
-.bora-landing .btn-ghost:focus-visible {
+.ageval-landing .btn-ghost:focus-visible {
   box-shadow:
     inset 0 0 0 1px var(--cream),
     0 0 0 3px var(--bg),
     0 0 0 6px var(--focus);
 }
 
-.bora-landing .nav-cta {
+.ageval-landing .nav-cta {
   background: transparent;
   color: var(--cream);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -299,12 +299,12 @@ html:has(.bora-landing) body {
   padding: 0 16px;
 }
 
-.bora-landing .nav-cta:hover {
+.ageval-landing .nav-cta:hover {
   box-shadow: inset 0 0 0 1px var(--cream);
   color: var(--cream);
 }
 
-.bora-landing .nav-cta:focus-visible {
+.ageval-landing .nav-cta:focus-visible {
   outline: none;
   box-shadow:
     inset 0 0 0 1px var(--cream),
@@ -312,7 +312,7 @@ html:has(.bora-landing) body {
     0 0 0 6px var(--focus);
 }
 
-.bora-landing .hero {
+.ageval-landing .hero {
   position: relative;
   min-height: calc(100dvh - 64px);
   display: flex;
@@ -324,7 +324,7 @@ html:has(.bora-landing) body {
     var(--ink);
 }
 
-.bora-landing .hero-grid {
+.ageval-landing .hero-grid {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -335,7 +335,7 @@ html:has(.bora-landing) body {
   mask-image: radial-gradient(ellipse 62% 58% at 78% 48%, #000 10%, transparent 72%);
 }
 
-.bora-landing .hero-layout {
+.ageval-landing .hero-layout {
   position: relative;
   z-index: 2;
   display: grid;
@@ -344,7 +344,7 @@ html:has(.bora-landing) body {
   align-items: center;
 }
 
-.bora-landing .hero-tag {
+.ageval-landing .hero-tag {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -356,14 +356,14 @@ html:has(.bora-landing) body {
   color: var(--muted);
 }
 
-.bora-landing .hero-tag::before {
+.ageval-landing .hero-tag::before {
   content: "";
   width: 18px;
   height: 1px;
   background: var(--red);
 }
 
-.bora-landing .hero-brand {
+.ageval-landing .hero-brand {
   font-family: var(--font-display);
   font-size: clamp(64px, 8.4vw, 96px);
   font-weight: 400;
@@ -373,11 +373,11 @@ html:has(.bora-landing) body {
   margin: 0 0 16px;
 }
 
-.bora-landing .hero-brand span {
+.ageval-landing .hero-brand span {
   color: var(--red);
 }
 
-.bora-landing .hero-sub {
+.ageval-landing .hero-sub {
   font-family: var(--font-cjk);
   font-size: clamp(20px, 2.4vw, 30px);
   font-weight: 700;
@@ -387,7 +387,7 @@ html:has(.bora-landing) body {
   max-width: 18em;
 }
 
-.bora-landing .hero-lead {
+.ageval-landing .hero-lead {
   margin-top: 20px;
   max-width: 34em;
   font-size: 16.5px;
@@ -395,14 +395,14 @@ html:has(.bora-landing) body {
   color: var(--muted);
 }
 
-.bora-landing .hero-ctas {
+.ageval-landing .hero-ctas {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 32px;
 }
 
-.bora-landing .stage {
+.ageval-landing .stage {
   position: relative;
   background: oklch(11.6% 0.022 264 / 0.42);
   -webkit-backdrop-filter: blur(6px);
@@ -412,45 +412,45 @@ html:has(.bora-landing) body {
   padding: 28px 24px 22px;
 }
 
-.bora-landing .cross {
+.ageval-landing .cross {
   position: absolute;
   width: 12px;
   height: 12px;
   color: var(--red);
 }
 
-.bora-landing .cross::before,
-.bora-landing .cross::after {
+.ageval-landing .cross::before,
+.ageval-landing .cross::after {
   content: "";
   position: absolute;
   background: currentColor;
 }
 
-.bora-landing .cross::before {
+.ageval-landing .cross::before {
   width: 12px;
   height: 1px;
   top: 5px;
   left: 0;
 }
 
-.bora-landing .cross::after {
+.ageval-landing .cross::after {
   width: 1px;
   height: 12px;
   top: 0;
   left: 5px;
 }
 
-.bora-landing .cross.tl {
+.ageval-landing .cross.tl {
   top: 8px;
   left: 8px;
 }
 
-.bora-landing .cross.br {
+.ageval-landing .cross.br {
   right: 8px;
   bottom: 8px;
 }
 
-.bora-landing .stage-head {
+.ageval-landing .stage-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -462,18 +462,18 @@ html:has(.bora-landing) body {
   margin: 4px 4px 20px;
 }
 
-.bora-landing .stage-head b {
+.ageval-landing .stage-head b {
   color: var(--cream);
   font-weight: 500;
 }
 
-.bora-landing .inspect {
+.ageval-landing .inspect {
   display: grid;
   gap: 0;
   margin: 0 4px;
 }
 
-.bora-landing .inspect li {
+.ageval-landing .inspect li {
   display: grid;
   grid-template-columns: 108px 1fr;
   gap: 12px;
@@ -482,11 +482,11 @@ html:has(.bora-landing) body {
   border-top: 1px solid var(--border);
 }
 
-.bora-landing .inspect li:last-child {
+.ageval-landing .inspect li:last-child {
   border-bottom: 1px solid var(--border);
 }
 
-.bora-landing .inspect .k {
+.ageval-landing .inspect .k {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -494,21 +494,21 @@ html:has(.bora-landing) body {
   margin: 0;
 }
 
-.bora-landing .inspect strong {
+.ageval-landing .inspect strong {
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
   color: var(--cream);
 }
 
-.bora-landing .inspect span {
+.ageval-landing .inspect span {
   display: block;
   margin-top: 3px;
   font-size: 12px;
   color: var(--muted);
 }
 
-.bora-landing .stage-foot {
+.ageval-landing .stage-foot {
   margin: 18px 4px 2px;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -517,7 +517,7 @@ html:has(.bora-landing) body {
   line-height: 1.7;
 }
 
-.bora-landing .stage-foot code {
+.ageval-landing .stage-foot code {
   display: block;
   margin-top: 6px;
   color: var(--cream);
@@ -525,27 +525,27 @@ html:has(.bora-landing) body {
   font-size: 11.5px;
 }
 
-.bora-landing .pact {
+.ageval-landing .pact {
   border-block: 1px solid var(--border);
   background: var(--ink-2);
 }
 
-.bora-landing .pact-inner {
+.ageval-landing .pact-inner {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   min-height: 88px;
 }
 
-.bora-landing .pact article {
+.ageval-landing .pact article {
   padding: 22px 28px;
   border-right: 1px solid var(--border);
 }
 
-.bora-landing .pact article:last-child {
+.ageval-landing .pact article:last-child {
   border-right: 0;
 }
 
-.bora-landing .pact .en {
+.ageval-landing .pact .en {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
@@ -553,26 +553,26 @@ html:has(.bora-landing) body {
   margin-bottom: 8px;
 }
 
-.bora-landing .pact .zh {
+.ageval-landing .pact .zh {
   font-family: var(--font-cjk);
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.bora-landing .pact p {
+.ageval-landing .pact p {
   margin-top: 6px;
   font-size: 13px;
   color: var(--muted);
   line-height: 1.55;
 }
 
-.bora-landing section.block {
+.ageval-landing section.block {
   padding: 112px 0;
   position: relative;
 }
 
-.bora-landing .sec-head {
+.ageval-landing .sec-head {
   display: flex;
   align-items: baseline;
   gap: 14px;
@@ -580,14 +580,14 @@ html:has(.bora-landing) body {
   font-family: var(--font-mono);
 }
 
-.bora-landing .sec-index {
+.ageval-landing .sec-index {
   color: var(--red);
   letter-spacing: 0.08em;
   font-size: 13px;
   font-weight: 600;
 }
 
-.bora-landing .sec-name {
+.ageval-landing .sec-name {
   font-family: var(--font-display);
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -595,7 +595,7 @@ html:has(.bora-landing) body {
   color: var(--muted);
 }
 
-.bora-landing .sec-head::after {
+.ageval-landing .sec-head::after {
   content: "";
   flex: 1;
   height: 1px;
@@ -604,7 +604,7 @@ html:has(.bora-landing) body {
   opacity: 0.14;
 }
 
-.bora-landing .block h2 {
+.ageval-landing .block h2 {
   font-family: var(--font-cjk);
   font-size: clamp(28px, 3.8vw, 46px);
   font-weight: 700;
@@ -613,7 +613,7 @@ html:has(.bora-landing) body {
   max-width: 16em;
 }
 
-.bora-landing .lead {
+.ageval-landing .lead {
   margin-top: 16px;
   max-width: 40em;
   font-size: 16px;
@@ -621,11 +621,11 @@ html:has(.bora-landing) body {
   color: var(--muted);
 }
 
-.bora-landing .barrier .lead {
+.ageval-landing .barrier .lead {
   margin-top: 0;
 }
 
-.bora-landing .problem-grid {
+.ageval-landing .problem-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
@@ -633,21 +633,21 @@ html:has(.bora-landing) body {
   border-top: 1px solid var(--border);
 }
 
-.bora-landing .problem-grid article {
+.ageval-landing .problem-grid article {
   padding: 32px 28px 28px 0;
   border-right: 1px solid var(--border);
 }
 
-.bora-landing .problem-grid article + article {
+.ageval-landing .problem-grid article + article {
   padding-left: 24px;
 }
 
-.bora-landing .problem-grid article:last-child {
+.ageval-landing .problem-grid article:last-child {
   border-right: 0;
   padding-right: 0;
 }
 
-.bora-landing .k {
+.ageval-landing .k {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.16em;
@@ -655,21 +655,21 @@ html:has(.bora-landing) body {
   margin-bottom: 14px;
 }
 
-.bora-landing .problem-grid h3 {
+.ageval-landing .problem-grid h3 {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin-bottom: 10px;
 }
 
-.bora-landing .problem-grid p {
+.ageval-landing .problem-grid p {
   font-size: 14px;
   line-height: 1.7;
   color: var(--muted);
   max-width: 28em;
 }
 
-.bora-landing .sol {
+.ageval-landing .sol {
   margin-top: 32px;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -677,53 +677,53 @@ html:has(.bora-landing) body {
   color: var(--muted);
 }
 
-.bora-landing .sol b {
+.ageval-landing .sol b {
   color: var(--cream);
   font-weight: 500;
 }
 
-.bora-landing .split {
+.ageval-landing .split {
   display: grid;
   grid-template-columns: 1fr 1fr;
   border: 1px solid var(--border);
   margin-top: 40px;
 }
 
-.bora-landing .split > div {
+.ageval-landing .split > div {
   padding: 40px 36px;
 }
 
-.bora-landing .split .owned {
+.ageval-landing .split .owned {
   background: var(--ink-2);
 }
 
-.bora-landing .split .not {
+.ageval-landing .split .not {
   background: var(--ink-3);
 }
 
-.bora-landing .split h3 {
+.ageval-landing .split h3 {
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.16em;
   margin-bottom: 14px;
 }
 
-.bora-landing .split .owned h3 {
+.ageval-landing .split .owned h3 {
   color: var(--red);
 }
 
-.bora-landing .split .not h3 {
+.ageval-landing .split .not h3 {
   color: var(--muted);
 }
 
-.bora-landing .split p {
+.ageval-landing .split p {
   font-size: 16px;
   line-height: 1.7;
   color: var(--cream);
   max-width: 32em;
 }
 
-.bora-landing .split small {
+.ageval-landing .split small {
   display: block;
   margin-top: 22px;
   font-family: var(--font-mono);
@@ -732,21 +732,21 @@ html:has(.bora-landing) body {
   color: var(--muted);
 }
 
-.bora-landing .ink-banner {
+.ageval-landing .ink-banner {
   margin-top: 48px;
   padding: 36px 36px 32px;
   background: var(--cream);
   color: var(--paper-ink);
 }
 
-.bora-landing .ink-banner .en {
+.ageval-landing .ink-banner .en {
   font-family: var(--font-display);
   font-size: clamp(28px, 3.4vw, 42px);
   line-height: 0.98;
   letter-spacing: 0.02em;
 }
 
-.bora-landing .ink-banner .zh {
+.ageval-landing .ink-banner .zh {
   margin-top: 16px;
   max-width: 52em;
   font-size: 15px;
@@ -754,13 +754,13 @@ html:has(.bora-landing) body {
   color: var(--paper-muted);
 }
 
-.bora-landing .principles {
+.ageval-landing .principles {
   display: grid;
   gap: 0;
   margin-top: 40px;
 }
 
-.bora-landing .principles li {
+.ageval-landing .principles li {
   display: grid;
   grid-template-columns: 140px 1fr;
   gap: 24px;
@@ -768,23 +768,23 @@ html:has(.bora-landing) body {
   border-top: 1px solid var(--border);
 }
 
-.bora-landing .principles li:last-child {
+.ageval-landing .principles li:last-child {
   border-bottom: 1px solid var(--border);
 }
 
-.bora-landing .principles strong {
+.ageval-landing .principles strong {
   font-family: var(--font-cjk);
   font-size: 22px;
   font-weight: 700;
 }
 
-.bora-landing .principles p {
+.ageval-landing .principles p {
   color: var(--muted);
   font-size: 15.5px;
   line-height: 1.75;
 }
 
-.bora-landing .core-grid {
+.ageval-landing .core-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
@@ -793,7 +793,7 @@ html:has(.bora-landing) body {
   border: 1px solid var(--border);
 }
 
-.bora-landing .core-grid article {
+.ageval-landing .core-grid article {
   background: var(--ink-2);
   padding: 26px 24px 22px;
   min-height: 214px;
@@ -802,39 +802,39 @@ html:has(.bora-landing) body {
   transition: background var(--t) var(--ease);
 }
 
-.bora-landing .core-grid article:hover {
+.ageval-landing .core-grid article:hover {
   background: var(--ink-3);
 }
 
-.bora-landing .core-grid article.hot {
+.ageval-landing .core-grid article.hot {
   background: color-mix(in srgb, var(--accent) 10%, var(--ink-2));
 }
 
-.bora-landing .core-grid article.hot:hover {
+.ageval-landing .core-grid article.hot:hover {
   background: color-mix(in srgb, var(--accent) 16%, var(--ink-2));
 }
 
-.bora-landing .core-grid .id {
+.ageval-landing .core-grid .id {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
   color: var(--red);
 }
 
-.bora-landing .core-grid h3 {
+.ageval-landing .core-grid h3 {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.03em;
   margin: 16px 0 10px;
 }
 
-.bora-landing .core-grid p {
+.ageval-landing .core-grid p {
   font-size: 13.5px;
   line-height: 1.65;
   color: var(--muted);
 }
 
-.bora-landing .core-grid .own {
+.ageval-landing .core-grid .own {
   margin-top: auto;
   padding-top: 18px;
   font-family: var(--font-mono);
@@ -843,14 +843,14 @@ html:has(.bora-landing) body {
   color: var(--cream);
 }
 
-.bora-landing .tiers {
+.ageval-landing .tiers {
   display: grid;
   grid-template-columns: 1fr 1.12fr 1fr;
   gap: 16px;
   margin-top: 48px;
 }
 
-.bora-landing .tiers article {
+.ageval-landing .tiers article {
   border: 1px solid var(--border);
   background: var(--ink-2);
   padding: 26px 24px 24px;
@@ -859,12 +859,12 @@ html:has(.bora-landing) body {
   flex-direction: column;
 }
 
-.bora-landing .tiers article.hot {
+.ageval-landing .tiers article.hot {
   background: color-mix(in srgb, var(--accent) 10%, var(--ink-2));
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
-.bora-landing .tiers .st {
+.ageval-landing .tiers .st {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
@@ -872,24 +872,24 @@ html:has(.bora-landing) body {
   margin-bottom: 28px;
 }
 
-.bora-landing .tiers .hot .st {
+.ageval-landing .tiers .hot .st {
   color: var(--red);
 }
 
-.bora-landing .tiers h3 {
+.ageval-landing .tiers h3 {
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.03em;
 }
 
-.bora-landing .tiers p {
+.ageval-landing .tiers p {
   margin-top: 12px;
   color: var(--muted);
   font-size: 14.5px;
   line-height: 1.7;
 }
 
-.bora-landing .tiers .tag {
+.ageval-landing .tiers .tag {
   margin-top: auto;
   padding-top: 22px;
   font-family: var(--font-mono);
@@ -898,7 +898,7 @@ html:has(.bora-landing) body {
   color: var(--cream);
 }
 
-.bora-landing .barrier {
+.ageval-landing .barrier {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 56px;
@@ -906,13 +906,13 @@ html:has(.bora-landing) body {
   margin-top: 8px;
 }
 
-.bora-landing .barrier-note {
+.ageval-landing .barrier-note {
   background: var(--ink-2);
   border: 1px solid var(--border);
   padding: 28px 26px;
 }
 
-.bora-landing .barrier-note dt {
+.ageval-landing .barrier-note dt {
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.1em;
@@ -920,18 +920,18 @@ html:has(.bora-landing) body {
   margin-top: 18px;
 }
 
-.bora-landing .barrier-note dt:first-child {
+.ageval-landing .barrier-note dt:first-child {
   margin-top: 0;
 }
 
-.bora-landing .barrier-note dd {
+.ageval-landing .barrier-note dd {
   margin-top: 6px;
   color: var(--muted);
   font-size: 14.5px;
   line-height: 1.7;
 }
 
-.bora-landing .ne {
+.ageval-landing .ne {
   font-family: var(--font-display);
   font-size: clamp(36px, 5vw, 64px);
   line-height: 0.95;
@@ -939,11 +939,11 @@ html:has(.bora-landing) body {
   margin-top: 28px;
 }
 
-.bora-landing .ne span {
+.ageval-landing .ne span {
   color: var(--red);
 }
 
-.bora-landing .slots {
+.ageval-landing .slots {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1px;
@@ -952,38 +952,38 @@ html:has(.bora-landing) body {
   border: 1px solid var(--border);
 }
 
-.bora-landing .slots article {
+.ageval-landing .slots article {
   background: var(--ink-2);
   padding: 22px 20px 20px;
   min-height: 176px;
   transition: background var(--t) var(--ease);
 }
 
-.bora-landing .slots article:hover {
+.ageval-landing .slots article:hover {
   background: var(--ink-3);
 }
 
-.bora-landing .slots .lv {
+.ageval-landing .slots .lv {
   font-family: var(--font-display);
   font-size: 28px;
   color: var(--red);
   letter-spacing: 0.04em;
 }
 
-.bora-landing .slots h3 {
+.ageval-landing .slots h3 {
   margin-top: 18px;
   font-size: 16px;
   font-weight: 700;
 }
 
-.bora-landing .slots p {
+.ageval-landing .slots p {
   margin-top: 8px;
   font-size: 13px;
   color: var(--muted);
   line-height: 1.6;
 }
 
-.bora-landing .duo {
+.ageval-landing .duo {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 0;
@@ -991,7 +991,7 @@ html:has(.bora-landing) body {
   align-items: stretch;
 }
 
-.bora-landing .duo-col {
+.ageval-landing .duo-col {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -999,16 +999,16 @@ html:has(.bora-landing) body {
   position: relative;
 }
 
-.bora-landing .duo-col:first-child {
+.ageval-landing .duo-col:first-child {
   padding-right: 36px;
 }
 
-.bora-landing .duo-col + .duo-col {
+.ageval-landing .duo-col + .duo-col {
   padding-left: 36px;
   border-left: 1px solid var(--border);
 }
 
-.bora-landing .duo-tag {
+.ageval-landing .duo-tag {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1019,7 +1019,7 @@ html:has(.bora-landing) body {
   color: var(--muted);
 }
 
-.bora-landing .duo-tag .num {
+.ageval-landing .duo-tag .num {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1032,12 +1032,12 @@ html:has(.bora-landing) body {
   letter-spacing: 0.08em;
 }
 
-.bora-landing .duo-col.accent .duo-tag .num {
+.ageval-landing .duo-col.accent .duo-tag .num {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.bora-landing .code-panel {
+.ageval-landing .code-panel {
   position: relative;
   z-index: 1;
   background: oklch(24% 0.026 264 / 0.58);
@@ -1053,24 +1053,24 @@ html:has(.bora-landing) body {
   tab-size: 4;
 }
 
-.bora-landing .code-panel .ck {
+.ageval-landing .code-panel .ck {
   color: var(--accent);
 }
 
-.bora-landing .code-panel .cc {
+.ageval-landing .code-panel .cc {
   color: var(--comment);
 }
 
-.bora-landing .code-panel .cs {
+.ageval-landing .code-panel .cs {
   color: oklch(95.2% 0.012 264 / 0.7);
 }
 
-.bora-landing .code-panel.mini {
+.ageval-landing .code-panel.mini {
   font-size: 12px;
   padding: 16px 18px 14px;
 }
 
-.bora-landing .code-note {
+.ageval-landing .code-note {
   margin-top: auto;
   padding-top: 4px;
   font-size: 13.5px;
@@ -1078,7 +1078,7 @@ html:has(.bora-landing) body {
   color: var(--muted);
 }
 
-.bora-landing .duo-foot {
+.ageval-landing .duo-foot {
   margin-top: 28px;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -1087,7 +1087,7 @@ html:has(.bora-landing) body {
   line-height: 1.7;
 }
 
-.bora-landing .dsh-whale {
+.ageval-landing .dsh-whale {
   position: absolute;
   right: -6px;
   top: -8px;
@@ -1098,24 +1098,24 @@ html:has(.bora-landing) body {
   z-index: 0;
 }
 
-.bora-landing .dsh-whale path {
+.ageval-landing .dsh-whale path {
   fill: var(--accent);
 }
 
-.bora-landing .flow {
+.ageval-landing .flow {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 28px 0;
   margin-top: 48px;
 }
 
-.bora-landing .flow li {
+.ageval-landing .flow li {
   padding: 0 16px 0 0;
   border-top: 2px solid var(--border);
   position: relative;
 }
 
-.bora-landing .flow li::before {
+.ageval-landing .flow li::before {
   content: "";
   position: absolute;
   top: -5px;
@@ -1126,7 +1126,7 @@ html:has(.bora-landing) body {
   background: var(--red);
 }
 
-.bora-landing .flow .n {
+.ageval-landing .flow .n {
   display: block;
   margin-top: 16px;
   font-family: var(--font-mono);
@@ -1135,13 +1135,13 @@ html:has(.bora-landing) body {
   color: var(--red);
 }
 
-.bora-landing .flow strong {
+.ageval-landing .flow strong {
   display: block;
   margin-top: 8px;
   font-size: 16px;
 }
 
-.bora-landing .flow span {
+.ageval-landing .flow span {
   display: block;
   margin-top: 6px;
   font-size: 13px;
@@ -1149,7 +1149,7 @@ html:has(.bora-landing) body {
   line-height: 1.55;
 }
 
-.bora-landing .traj {
+.ageval-landing .traj {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 28px;
@@ -1158,7 +1158,7 @@ html:has(.bora-landing) body {
   border-top: 1px solid var(--border);
 }
 
-.bora-landing .traj h3 {
+.ageval-landing .traj h3 {
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.12em;
@@ -1166,19 +1166,19 @@ html:has(.bora-landing) body {
   margin-bottom: 8px;
 }
 
-.bora-landing .traj p {
+.ageval-landing .traj p {
   font-size: 14.5px;
   color: var(--muted);
   line-height: 1.7;
 }
 
-.bora-landing .take {
+.ageval-landing .take {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
   min-height: 520px;
 }
 
-.bora-landing .take-left {
+.ageval-landing .take-left {
   background: var(--accent-ink);
   color: var(--cream);
   padding: 52px 44px;
@@ -1187,15 +1187,15 @@ html:has(.bora-landing) body {
   justify-content: space-between;
 }
 
-.bora-landing .take-left .hero-tag {
+.ageval-landing .take-left .hero-tag {
   color: oklch(95.2% 0.012 264 / 0.78);
 }
 
-.bora-landing .take-left .hero-tag::before {
+.ageval-landing .take-left .hero-tag::before {
   background: var(--cream);
 }
 
-.bora-landing .take-left h2 {
+.ageval-landing .take-left h2 {
   font-family: var(--font-display);
   font-size: clamp(40px, 5.4vw, 72px);
   line-height: 0.94;
@@ -1204,24 +1204,24 @@ html:has(.bora-landing) body {
   max-width: none;
 }
 
-.bora-landing .take-left p {
+.ageval-landing .take-left p {
   max-width: 28em;
   font-size: 16px;
   line-height: 1.7;
   color: oklch(95.2% 0.012 264 / 0.88);
 }
 
-.bora-landing .take-right {
+.ageval-landing .take-right {
   background: var(--paper);
   color: var(--paper-ink);
   padding: 44px 40px 28px;
 }
 
-.bora-landing .take-right ol {
+.ageval-landing .take-right ol {
   margin-top: 12px;
 }
 
-.bora-landing .take-right li {
+.ageval-landing .take-right li {
   display: grid;
   grid-template-columns: 56px 1fr;
   gap: 18px;
@@ -1229,40 +1229,40 @@ html:has(.bora-landing) body {
   border-top: 1px solid oklch(18% 0.024 264 / 0.12);
 }
 
-.bora-landing .take-right li:last-child {
+.ageval-landing .take-right li:last-child {
   border-bottom: 2px solid var(--red);
 }
 
-.bora-landing .take-right .num {
+.ageval-landing .take-right .num {
   font-family: var(--font-display);
   font-size: 40px;
   line-height: 0.9;
   color: var(--paper-ink);
 }
 
-.bora-landing .take-right li:last-child .num,
-.bora-landing .take-right li:last-child h3 {
+.ageval-landing .take-right li:last-child .num,
+.ageval-landing .take-right li:last-child h3 {
   color: var(--red);
 }
 
-.bora-landing .take-right h3 {
+.ageval-landing .take-right h3 {
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 8px;
 }
 
-.bora-landing .take-right p {
+.ageval-landing .take-right p {
   color: var(--paper-muted);
   font-size: 14.5px;
   line-height: 1.65;
 }
 
-.bora-landing .cta-band {
+.ageval-landing .cta-band {
   padding: 104px 0;
   background: var(--ink-deep);
 }
 
-.bora-landing .cta-band h2 {
+.ageval-landing .cta-band h2 {
   max-width: 10em;
   font-family: var(--font-cjk);
   font-size: clamp(28px, 3.8vw, 46px);
@@ -1271,20 +1271,20 @@ html:has(.bora-landing) body {
   letter-spacing: -0.02em;
 }
 
-.bora-landing .cta-band .hero-ctas {
+.ageval-landing .cta-band .hero-ctas {
   margin-top: 28px;
 }
 
-.bora-landing .faq-list {
+.ageval-landing .faq-list {
   margin-top: 32px;
   border-top: 1px solid var(--border);
 }
 
-.bora-landing .faq-item {
+.ageval-landing .faq-item {
   border-bottom: 1px solid var(--border);
 }
 
-.bora-landing .faq-q {
+.ageval-landing .faq-q {
   width: 100%;
   min-height: 64px;
   display: flex;
@@ -1302,17 +1302,17 @@ html:has(.bora-landing) body {
   transition: background var(--t) var(--ease);
 }
 
-.bora-landing .faq-q::-webkit-details-marker {
+.ageval-landing .faq-q::-webkit-details-marker {
   display: none;
 }
 
-.bora-landing .faq-item:hover .faq-q,
-.bora-landing .faq-item:focus-within .faq-q {
+.ageval-landing .faq-item:hover .faq-q,
+.ageval-landing .faq-item:focus-within .faq-q {
   background: var(--ink-2);
   color: var(--cream);
 }
 
-.bora-landing .faq-q::after {
+.ageval-landing .faq-q::after {
   content: "+";
   font-family: var(--font-display);
   font-size: 22px;
@@ -1320,13 +1320,13 @@ html:has(.bora-landing) body {
   flex-shrink: 0;
 }
 
-.bora-landing .faq-item:hover .faq-q::after,
-.bora-landing .faq-item:focus-within .faq-q::after {
+.ageval-landing .faq-item:hover .faq-q::after,
+.ageval-landing .faq-item:focus-within .faq-q::after {
   content: "−";
   color: var(--red);
 }
 
-.bora-landing .faq-a {
+.ageval-landing .faq-a {
   display: none;
   color: var(--muted);
   font-size: 14.5px;
@@ -1334,12 +1334,12 @@ html:has(.bora-landing) body {
   padding: 0 8px 20px;
 }
 
-.bora-landing .faq-item:hover .faq-a,
-.bora-landing .faq-item:focus-within .faq-a {
+.ageval-landing .faq-item:hover .faq-a,
+.ageval-landing .faq-item:focus-within .faq-a {
   display: block;
 }
 
-.bora-landing .owl-wash {
+.ageval-landing .owl-wash {
   position: absolute;
   right: 3%;
   bottom: 2%;
@@ -1352,29 +1352,29 @@ html:has(.bora-landing) body {
   user-select: none;
 }
 
-.bora-landing footer {
+.ageval-landing footer {
   border-top: 1px solid var(--border);
   padding: 36px 0 40px;
 }
 
-.bora-landing .foot {
+.ageval-landing .foot {
   display: flex;
   justify-content: space-between;
   align-items: end;
   gap: 24px;
 }
 
-.bora-landing .foot .logo {
+.ageval-landing .foot .logo {
   font-size: 24px;
 }
 
-.bora-landing .foot p {
+.ageval-landing .foot p {
   font-size: 13px;
   color: var(--muted);
   max-width: 42em;
 }
 
-.bora-landing .foot small {
+.ageval-landing .foot small {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -1382,42 +1382,42 @@ html:has(.bora-landing) body {
 }
 
 @media (max-width: 1100px) {
-  .bora-landing .slots {
+  .ageval-landing .slots {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .bora-landing .flow {
+  .ageval-landing .flow {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 1024px) {
-  .bora-landing .hero-layout,
-  .bora-landing .split,
-  .bora-landing .barrier,
-  .bora-landing .take,
-  .bora-landing .duo {
+  .ageval-landing .hero-layout,
+  .ageval-landing .split,
+  .ageval-landing .barrier,
+  .ageval-landing .take,
+  .ageval-landing .duo {
     grid-template-columns: 1fr;
   }
 
-  .bora-landing .problem-grid,
-  .bora-landing .core-grid {
+  .ageval-landing .problem-grid,
+  .ageval-landing .core-grid {
     grid-template-columns: 1fr 1fr;
   }
 
-  .bora-landing .problem-grid article {
+  .ageval-landing .problem-grid article {
     padding-left: 24px;
   }
 
-  .bora-landing .problem-grid article:nth-child(odd) {
+  .ageval-landing .problem-grid article:nth-child(odd) {
     padding-left: 0;
   }
 
-  .bora-landing .duo-col:first-child {
+  .ageval-landing .duo-col:first-child {
     padding-right: 0;
   }
 
-  .bora-landing .duo-col + .duo-col {
+  .ageval-landing .duo-col + .duo-col {
     padding-left: 0;
     border-left: 0;
     padding-top: 28px;
@@ -1426,133 +1426,133 @@ html:has(.bora-landing) body {
 }
 
 @media (max-width: 860px) {
-  .bora-landing .nav-links > a:not(.nav-cta) {
+  .ageval-landing .nav-links > a:not(.nav-cta) {
     display: none;
   }
 
-  .bora-landing .nav-drawer {
+  .ageval-landing .nav-drawer {
     display: block;
   }
 
-  .bora-landing .pact-inner,
-  .bora-landing .tiers,
-  .bora-landing .traj {
+  .ageval-landing .pact-inner,
+  .ageval-landing .tiers,
+  .ageval-landing .traj {
     grid-template-columns: 1fr;
   }
 
-  .bora-landing .pact article {
+  .ageval-landing .pact article {
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
 
-  .bora-landing .pact article:last-child {
+  .ageval-landing .pact article:last-child {
     border-bottom: 0;
   }
 }
 
 @media (max-width: 768px) {
-  .bora-landing .wrap,
-  .bora-landing .wrap-wide {
+  .ageval-landing .wrap,
+  .ageval-landing .wrap-wide {
     width: min(100% - 32px, 1180px);
   }
 
-  .bora-landing .hero {
+  .ageval-landing .hero {
     padding: 56px 0 48px;
     min-height: 0;
   }
 
-  .bora-landing .hero-brand {
+  .ageval-landing .hero-brand {
     font-size: 56px;
   }
 
-  .bora-landing .hero-sub {
+  .ageval-landing .hero-sub {
     font-size: 20px;
   }
 
-  .bora-landing .stage {
+  .ageval-landing .stage {
     min-height: 0;
   }
 
-  .bora-landing .problem-grid,
-  .bora-landing .slots,
-  .bora-landing .flow,
-  .bora-landing .core-grid {
+  .ageval-landing .problem-grid,
+  .ageval-landing .slots,
+  .ageval-landing .flow,
+  .ageval-landing .core-grid {
     grid-template-columns: 1fr;
   }
 
-  .bora-landing .problem-grid article {
+  .ageval-landing .problem-grid article {
     border-right: 0;
     border-bottom: 1px solid var(--border);
     padding: 24px 0;
   }
 
-  .bora-landing .principles li {
+  .ageval-landing .principles li {
     grid-template-columns: 1fr;
     gap: 8px;
   }
 
-  .bora-landing .take-left,
-  .bora-landing .take-right,
-  .bora-landing .split > div {
+  .ageval-landing .take-left,
+  .ageval-landing .take-right,
+  .ageval-landing .split > div {
     padding: 28px 22px;
   }
 
-  .bora-landing .inspect li {
+  .ageval-landing .inspect li {
     grid-template-columns: 1fr;
     gap: 4px;
   }
 
-  .bora-landing .foot {
+  .ageval-landing .foot {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .bora-landing section.block {
+  .ageval-landing section.block {
     padding: 80px 0;
   }
 
-  .bora-landing .dsh-whale {
+  .ageval-landing .dsh-whale {
     display: none;
   }
 
-  .bora-landing .owl-wash {
+  .ageval-landing .owl-wash {
     right: 2%;
     bottom: 4%;
     width: min(300px, 60vw);
     opacity: 0.09;
   }
 
-  .bora-landing .code-panel,
-  .bora-landing .code-panel.mini {
+  .ageval-landing .code-panel,
+  .ageval-landing .code-panel.mini {
     font-size: 12px;
   }
 }
 
 @media (max-width: 560px) {
-  .bora-landing .hero-ctas {
+  .ageval-landing .hero-ctas {
     width: 100%;
   }
 
-  .bora-landing .hero-ctas .btn {
+  .ageval-landing .hero-ctas .btn {
     flex: 1 1 auto;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html:has(.bora-landing) {
+  html:has(.ageval-landing) {
     scroll-behavior: auto;
   }
 
-  .bora-landing .btn,
-  .bora-landing .faq-q,
-  .bora-landing .nav-links a,
-  .bora-landing .core-grid article,
-  .bora-landing .slots article,
-  .bora-landing .nav-drawer-panel a {
+  .ageval-landing .btn,
+  .ageval-landing .faq-q,
+  .ageval-landing .nav-links a,
+  .ageval-landing .core-grid article,
+  .ageval-landing .slots article,
+  .ageval-landing .nav-drawer-panel a {
     transition: none;
   }
 
-  .bora-landing .btn:active {
+  .ageval-landing .btn:active {
     transform: none;
   }
 }
