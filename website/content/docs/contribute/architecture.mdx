@@ -3,14 +3,14 @@ title: 架构地图
 description: 源码目录与结构权威。
 ---
 
-模块放哪、谁依赖谁，以仓库根 **[`ARCHITECTURE.md`](https://github.com/ZJU-REAL/BORA/blob/main/ARCHITECTURE.md)** 为准。
+模块放哪、谁依赖谁、生命周期与数据流，以仓库根 **[`ARCHITECTURE.md`](https://github.com/ZJU-REAL/BORA/blob/main/ARCHITECTURE.md)** 为准（含 Current 源码树、emit 图、失败归属表）。
 
-| 路径                       | 角色                 |
-| -------------------------- | -------------------- |
-| `src/bora/`                | Runtime、适配器、CLI |
-| `sdk/python/`              | harness SDK          |
-| `apps/viewer` · `apps/hub` | 结果台 / 目录 SPA    |
-| `website/`                 | 本站                 |
-| `docs/`                    | 设计长文             |
+| 路径 | 角色 |
+| --- | --- |
+| `src/ageval/` | Attempt 流水线、盒子、CLI |
+| `sdk/python/` | `ageval_sdk`（`run.py` 用） |
+| `apps/viewer` · `apps/hub` | 本机 Jobs / Hub SPA |
+| `website/` | 本站 |
+| `docs/` | 设计 |
 
-机制「为什么」在 [`docs/design/`](https://github.com/ZJU-REAL/BORA/tree/main/docs/design)。
+机制「为什么」在仓库 `docs/design/`。executor 与 environment 通过 **export / inject 服务名** 解耦，不互相 import：见 `docs/design/11`。

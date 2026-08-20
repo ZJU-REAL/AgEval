@@ -1,32 +1,46 @@
 ---
 title: 机制插件
-description: 安装 bora.plugin/1、绑定 executor、Recognition 与 L1 Ready 的区别。
+description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能跑的区别。
 ---
 
-机制插件扩展 **如何** 执行 Agent / 环境 / 轨迹等，不改变 package harness 业务循环。
+机制插件扩展 **如何** 执行 Agent / 环境 / 轨迹，不改变题包 `run.py` 的业务循环。槽只有独占与链。
+
+## executor 与 environment：按名 inject，不绑 kind
+
+`executor` 不 import docker / e2b / ssh。它声明需要名为 `environment` 的服务，并列出要用的能力；盒子赢家以该槽名 **export** 进服务表。lock 核过再跑。
+
+| | 含义 |
+| --- | --- |
+| **export** | 盒子说「我是 `environment`」 |
+| **inject** | Agent 后端说「我要 `environment`，且要 `attach_stdio` 或 `exec`」 |
+| **调用** | 只打 Protocol：`attach_stdio`（长会话）或 `exec` / `upload`（跑完收结果） |
+
+换 `environment: docker` 为 `e2b` / `ssh` 时，ACP 的 profiles 只改盒子赢家，不必改 ACP 代码。`exec` 不是独立服务。本机 SDK 绑宿主机路径不算走通这条接口。契约见 `docs/design/11`。
 
 ## 安装（只写本地缓存）
 
 ```bash
-uv run bora plugin install plugins/nooa
-# 或：uv run bora plugin install plugins/dsh
-uv run bora plugin list
+uv run ageval plugin install plugins/nooa
+# 或：uv run ageval plugin install plugins/dsh
+uv run ageval plugin list
 ```
 
-安装只更新 `$BORA_HOME/plugins`（默认 `~/.bora/plugins`），**不会**改写
-`profiles.yaml`、`bora.yaml` 或 `task.yaml`。
+安装只更新 `$AGEVAL_HOME/plugins`（默认 `~/.ageval/plugins`），**不会**改写
+`profiles.yaml`、`ageval.yaml` 或 `task.yaml`。
 
 卸载：
 
 ```bash
-uv run bora plugin uninstall nooa
+uv run ageval plugin uninstall nooa
 ```
 
 ## 绑定（profiles）
 
 ```yaml
-# profiles 片段 — job binding
-bindings:
+# profiles.yaml
+format: ageval.profiles/1
+environment: local
+agent_profiles:
   solver:
     executor: nooa
     extensions:
@@ -36,57 +50,37 @@ bindings:
           method: "run"
 ```
 
-`executor:` 只选 `provide(executor)`，**不**自动 bake 或挂上其它 `on:`。插件 knobs 只写在该插件的 `extensions` 行上。L1 需要 bake / 轨迹收集时，在同一 role 下写 `extensions`（短 id 与路径安装一致）。ACP 的 `entry` 写在 `- plugin: acp`。Hub 发布存 `org/name`；从 Hub 安装后本地 index 记这个带命名空间的 id，该 cache 行的 profiles 必须写同一地址。
+`executor:` 选独占槽赢家，**不**自动 bake。插件 knobs 只写在该插件的 `extensions` 行上。docker 镜像层由 environment 赢家在 `host.start()` 读 `config.image_layers`。ACP 的 `entry` 写在 `- plugin: acp` / `options.entry`。
 
-运行时用备用 profiles 文件切换，不必改 Database 默认 ACP 配置：
+运行时用备用 profiles 文件切换，不必改 dataset 默认 ACP 配置：
 
 ```bash
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.nooa.yaml
-# DeepSeek Harness（非 ACP）：
-# uv run bora run examples/journeys --task terminal-jsonl-agg \
-#   --profiles examples/journeys/profiles.dsh.yaml
-# 可选 DSH 文件效果策略（插件自有 options.permission）：
-# uv run bora run examples/journeys --task terminal-jsonl-agg \
-#   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
-`dsh` 的 `options.permission` 只接受 `read-only`、`workspace-write`、
-`danger-full-access`。省略则仍用不受限的本地 bash/fs。非法值 fail-closed。
-随 jsonrpc 运行时：文件工具写入受围栏，bash 仍是本地。这不是 BORA isolation 声明。
-
-`bora lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
-
-跑之前可用同一套输入做本机可行性探针（不 invoke Agent、不 bake、不改 lock digest）：
+`ageval lock` 会把解析后的扩展图写入摘要中的 `extension_bindings`。
 
 ```bash
-uv run bora lock examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml --probe
-# 或：uv run bora run … --probe
 ```
 
-`--probe` 按 **`provider.kind`** 分支：L0 检查插件声明的 `host_requires`（如 `import: deepseek_harness`）；
-L1 不要求宿主 extra，只看本 profile `extensions` 是否选中 `image_contribute`、bake 文件、Docker daemon
-与 locator **名**是否存在。`executor:` 单独不够。缺项非零退出。
+`--probe` 按 **`environment`** 检查本机能否开这个盒子：`host_requires`、Docker daemon（docker kind）、locator **名**。缺项非零退出。skip ≠ 通过。
 
-## Recognition ≠ L0 host-ready ≠ L1 bake-declared
+## Recognition ≠ 本机能跑 ≠ 镜像已 bake
 
 | 阶段 | 含义 |
 | --- | --- |
-| **install / list** | 本机识别到 provide（Recognition） |
-| **L0 host-ready** | 宿主能构造 host SPI（声明的 `host_requires` 满足） |
-| **profiles 绑定** | Job 选择该 executor |
-| **L1 bake-declared** | 本 profile `extensions` 选中 `image_contribute` 且 `Dockerfile.bake` 存在 |
+| **install / list** | 本机认得这个插件 |
+| **host-ready** | 声明的 `host_requires` 满足，能在本机构造 |
+| **profiles 绑定** | Job 选择该 executor / environment |
+| **image bake** | docker kind 下 `image_layers` 存在且 bake 成功 |
 
-`bora executors.host_ready` 回答的是 L0 host-ready，不是「已安装」或「L1 将 bake」。
-有 install 成功 **不等于** L0 extra 已装，也不等于 L1 隔离路径已就绪。Docker L1
-任务需该 profile 的 `extensions` 选中 `image_contribute` 并 bake 成功后，才在
-容器内调用 worker（例如 nooa / dsh 的 in-container 路径）。已安装但未写入
-`extensions` 的插件不会进 Attempt 镜像。
+`ageval executors.host_ready` 不是「已安装」也不是「镜像已 bake」。已安装但未写入 `extensions` 的插件不会进 Attempt 镜像。
 
 ## 与 ACP 的关系
 
-默认 coding-agent 路径仍是 `executor: acp` + `- plugin: acp` / `options.entry`。插件是 **可选** 机制，
-与 ACP first-party 并列；同一 harness 只靠 profiles 切换。
+默认 coding-agent 路径仍是 `executor: acp` + `options.entry`。插件是 **可选** 机制；同一 `run.py` 只靠 profiles 切换。
 
-更多机制契约见设计文档（贡献者侧 `docs/design`）；本页不改变证据等级声明。
+机制契约见仓库 `docs/design/11`。本页不改变证据等级。

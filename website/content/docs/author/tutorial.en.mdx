@@ -1,80 +1,35 @@
 ---
 title: Task authoring tutorial
-description: Copy from examples/core, change harness and eval, run it.
+description: Copy a task from examples/core, edit run.py and the evaluator, run it.
 ---
 
-Goal: a task that locks, runs, and produces an evaluation result. You don’t need the full field encyclopedia first.
+Goal: lock, run, and get an evaluation result on this machine.
 
-## 1. Start from an example
-
-[`examples/core`](https://github.com/ZJU-REAL/BORA/tree/main/examples/core) is a full Dataset. Either edit a task in place or copy `tasks/<id>/` and rename **both** the directory and `task_id`.
-
-Minimal member:
-
-```text
-tasks/hello/
-├── task.yaml
-├── harness.py
-└── evaluator.py
-```
-
-## 2. Skeleton `task.yaml`
+Copy a `tasks/<id>/` directory from [`examples/core`](https://github.com/ZJU-REAL/BORA/tree/main/examples/core). The directory name must equal `task_id`.
 
 ```yaml
-format: bora.task/1
+format: ageval.task/1
 task_id: hello
-
-harness:
-  runtime: python
-  entrypoint: harness:run
-
 parameters:
-  active_profile: main
-  harness_timeout_seconds: 300
-
-provider:
-  kind: local
-  assurance: l0
-
+  instruction: "Reply DONE"
 agent_profiles:
-  - id: main
-
+  - id: solver
 limits:
   wall_time_seconds: 300
-  agent_invocations: 2
-  environment_actions: 0
-
+  agent_invocations: 1
 artifacts:
   publishable:
-    - id: session-output
-      producer: harness
-      path: artifacts/session-output.json
-      media_type: application/json
-
+    - id: reply
+      path: artifacts/reply.json
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
-    - artifact: session-output
-      target: artifacts/session-output.json
-  output:
-    format: json
+    - artifact: reply
+      target: artifacts/reply.json
 ```
 
-No agent? Use `agent_profiles: []` and `agent_invocations: 0`.
-
-## 3. Lock, then run
+Do not write `harness:`, `provider:`, or `assurance`. The box and ACP entry live in `profiles.yaml`.
 
 ```bash
-uv run bora lock <dataset> --task hello
-uv run bora run <dataset> --task hello
+uv run ageval lock examples/core --task hello
+uv run ageval run  examples/core --task hello
 ```
-
-## 4–6. Harness, evaluator, results
-
-- Harness owns the workflow → [Write harness](/docs/author/write-harness)
-- Evaluator owns the score → [Write evaluator](/docs/author/write-evaluator)
-- Browse → [Viewer](/docs/run/local-viewer)
-
-Full field map: [Config fields](/docs/reference/config-fields).

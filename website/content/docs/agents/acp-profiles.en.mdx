@@ -6,8 +6,10 @@ description: "Plug coding agents with executor: acp and - plugin: acp options.en
 ## Recommended config
 
 ```yaml
-# Database profiles.yaml
-bindings:
+# profiles.yaml
+format: ageval.profiles/1
+environment: local
+agent_profiles:
   main:
     executor: acp
     extensions:
@@ -21,7 +23,7 @@ bindings:
 | Field | Note |
 | --- | --- |
 | `executor` | Use `acp` for coding agents |
-| `- plugin: acp` / `options.entry` | **Required**; discover with `bora executors -v` |
+| `- plugin: acp` / `options.entry` | **Required**; discover with `ageval executors -v` |
 | `options.reasoning_effort` | Optional. Entries with an advertised thinking selector use `set_config_option`. `grok-build` adds `--reasoning-effort` on `grok agent … stdio` |
 | `model` | Model id for that entry |
 | `api_key` | Optional env **name** |
@@ -31,15 +33,15 @@ No command/version/install in package yaml.
 ## Host readiness
 
 ```bash
-uv run bora executors -v
+uv run ageval executors -v
 ```
 
-`-v` also reports `credential_missing` when every declared credential env name is unset and the binding has no `api_key`. Entries that require a key (for example `pi`) fail closed at `--probe` / session-open; entries that document keyless (OAuth) auth warn only. The L0 child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
+`-v` also reports `credential_missing` when every declared credential env name is unset and the binding has no `api_key`. Entries that require a key (for example `pi`) fail closed at `--probe` / session-open; entries that document keyless (OAuth) auth warn only. The child environment is allowlisted (`PATH` / `HOME` / `LANG`, the entry’s credential names, and the binding’s `api_key` / `base_url`). Undeclared host tokens do not reach the entry.
 
 ## Runtime switch
 
 ```bash
-uv run bora run <dataset> --task <id> \
+uv run ageval run <dataset> --task <id> \
   --set '/parameters/active_profile="main"'
 ```
 

@@ -36,7 +36,7 @@ export function LandingNav({ lang, copy, navAria, repoUrl }: LandingNavProps) {
       <div className="wrap nav-inner">
         <a className="logo" href="#top">
           <OwlFlatIcon className="nav-owl" />
-          BORA<span>.</span>
+          ageval<span>.</span>
         </a>
         <div className="nav-links">
           {anchors.map(([href, key]) =>

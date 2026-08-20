@@ -5,7 +5,7 @@ description: How to read Result; pass@k is a job metric, not suite PASS.
 
 ## Hard boundaries
 
-1. Harness completed **≠** PASS  
+1. `run.py` completed **≠** PASS  
 2. Trajectory / tokens / agent self-report **≠** score  
 3. PASS / FAIL from the **independent evaluator** only  
 4. Suite / job aggregates (including pass@k) **≠** suite-level PASS authority  
@@ -13,7 +13,7 @@ description: How to read Result; pass@k is a job metric, not suite PASS.
 ## On the terminal
 
 - **Result** — status and evaluation for this Attempt  
-- **`logs`** — Attempt evidence locator under the Dataset root (e.g. `.bora/runs/<run_id>`; typical when `k=1`)  
+- **`logs`** — Attempt evidence locator under the Dataset root (e.g. `.ageval/runs/<run_id>`; typical when `k=1`)  
 - Suite `pass_rate` / `mean_score` — observational  
 
 ## Always-k and pass@k / pass^k
@@ -48,7 +48,7 @@ Each key is a **stringified k** (`"1"`, `"2"`, `"5"`, …). Value shape:
 
 **Upload / Registry:**
 
-- `bora results upload-suite` **ensures / recomputes** k metrics locally (from `attempts[]` or per-task `n`/`c`) before POST of the full `metrics` blob.
+- `ageval results upload-suite` **ensures / recomputes** k metrics locally (from `attempts[]` or per-task `n`/`c`) before POST of the full `metrics` blob.
 - Registry stores `metrics_json` as-is; list/get suite **does not strip** `pass_at_k` / `pass_power_k`.
 - First-class columns remain `pass_rate` / `mean_score`; k metrics live under `metrics`.
 - **Not** part of `config_fingerprint` / job identity; different k jobs may sit side by side.
@@ -62,8 +62,8 @@ These are **observational aggregates**, not suite-level PASS.
 
 | Upload command | Artifact | Hub primary UI |
 | --- | --- | --- |
-| `bora results upload --run …` | Single Attempt | **Usually not** on Dataset Leaderboard / Task Jobs |
-| `bora results upload-suite --suite-run …` | Suite row + metrics / task_refs | **Leaderboard** only when complete and release-bound; incomplete or draft-bound rows stay on Task Jobs |
+| `ageval results upload --run …` | Single Attempt | **Usually not** on Dataset Leaderboard / Task Jobs |
+| `ageval results upload-suite --suite-run …` | Suite row + metrics / task_refs | **Leaderboard** only when complete and release-bound; incomplete or draft-bound rows stay on Task Jobs |
 | `… --with-attempts` | Also packs attempt dirs | Jobs can open Attempt detail / trajectory |
 
 So: to show a package run on the public board, use **suite run → upload-suite** against a published release, not attempt-only upload. See [Suite](/docs/run/suite) and [Hub](/docs/share/hub).
@@ -82,4 +82,4 @@ Attempt pages may show **Timing** (and **Tokens** when present). Trajectory step
 | FAIL | Evaluator says no |
 | PASS | Evaluator says yes |
 
-Exit codes: current CLI + skill `bora-cli`.
+Exit codes: current CLI + skill `ageval-cli`.

@@ -8,7 +8,7 @@ description: 用 profile 和 --set 切换 coding-agent 入口。
 ## 先看本机有什么
 
 ```bash
-uv run bora executors -v
+uv run ageval executors -v
 ```
 
 关注 ACP entry 的 `engine_ready` / `acp_entry_ready`。yaml 写对了但本机没装，照样跑不起来。
@@ -16,8 +16,10 @@ uv run bora executors -v
 ## 配置里声明
 
 ```yaml
-# Database profiles.yaml
-bindings:
+# profiles.yaml
+format: ageval.profiles/1
+environment: local
+agent_profiles:
   solver:
     executor: acp
     extensions:
@@ -25,21 +27,17 @@ bindings:
         options:
           entry: codex
     model: gpt-5.4-mini
-  # 或换一条 binding / --profiles / --set
+  # 或换一条 agent_profiles / --profiles / --set
   # solver:
   #   executor: acp
-  #   extensions:
-  #     - plugin: acp
-  #       options:
-  #         entry: pi
-  #   model: zai-coding-cn/glm-5.2
-  #   api_key: ${glm_coding_api_key}
+  #   options:
+  #     entry: pi
 ```
 
 ## 临时切换（不用改文件）
 
 ```bash
-uv run bora run examples/core --task builtin-executor-conformance \
+uv run ageval run examples/core --task builtin-executor-conformance \
   --set '/parameters/active_profile="pi-mini"'
 ```
 

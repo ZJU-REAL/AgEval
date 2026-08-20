@@ -1,105 +1,50 @@
 ---
 title: Task 编写教程
-description: 从 examples/core 抄一题，改 harness 与评测并跑通。
+description: 从 examples/core 抄一题，改 run.py 与评测并跑通。
 ---
 
-目标：在本机做出「能 lock、能 run、能出评测结果」的一题。不必先背完整字段表。
+目标：本机能 lock、能 run、能出评测结果。
 
 ## 1. 复制最小结构
 
-仓库 [`examples/core`](https://github.com/ZJU-REAL/BORA/tree/main/examples/core) 已是完整 Dataset。你可以：
-
-- 直接改某个 task 做实验，或
-- 复制一个 `tasks/<id>/` 目录，改掉 `task_id` 与目录名（二者必须一致）
-
-最小成员目录：
+[`examples/core`](https://github.com/ZJU-REAL/BORA/tree/main/examples/core) 已是完整 dataset。复制一个 `tasks/<id>/`，目录名必须等于 `task_id`。
 
 ```text
 tasks/hello/
 ├── task.yaml
-├── harness.py
+├── run.py
 └── evaluator.py
 ```
 
-根上的 `bora.yaml` 只要能找到 `tasks/` 即可（见 [package 布局](/docs/author/package-layout)）。
-
-## 2. 写 `task.yaml` 骨架
+## 2. `task.yaml`
 
 ```yaml
-format: bora.task/1
+format: ageval.task/1
 task_id: hello
-
-harness:
-  runtime: python
-  entrypoint: harness:run
-
 parameters:
-  active_profile: main
-  harness_timeout_seconds: 300
-
-provider:
-  kind: local
-  assurance: l0
-
+  instruction: "Reply DONE"
 agent_profiles:
-  - id: main
-
+  - id: solver
 limits:
   wall_time_seconds: 300
-  agent_invocations: 2
-  environment_actions: 0
-
+  agent_invocations: 1
 artifacts:
   publishable:
-    - id: session-output
-      producer: harness
-      path: artifacts/session-output.json
-      media_type: application/json
-
+    - id: reply
+      path: artifacts/reply.json
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
-    - artifact: session-output
-      target: artifacts/session-output.json
-  output:
-    format: json
+    - artifact: reply
+      target: artifacts/reply.json
 ```
 
-不需要 agent 的题可以把 `agent_profiles: []`，并相应把 `agent_invocations` 设为 0。
+不要写 `harness:`、`provider:`、`assurance`。盒子和 ACP entry 在根上 `profiles.yaml`。
 
-## 3. 先 lock，再 run
+## 3. 跑
 
 ```bash
-uv run bora lock <dataset> --task hello
-uv run bora run <dataset> --task hello
+uv run ageval lock examples/core --task hello
+uv run ageval run  examples/core --task hello
 ```
 
-lock 报错时对照 [配置字段](/docs/reference/config-fields) 和文末「常见失败」。  
-agent 相关失败先看 [ACP](/docs/agents/acp-profiles)。
-
-## 4. 改 harness
-
-Harness 负责业务流程：开 session、`invoke`、把结果写到 `artifacts/` 声明的路径。  
-SDK 写法见 [写 harness](/docs/author/write-harness)。记住：**跑完 ≠ PASS**。
-
-## 5. 改 evaluator
-
-Evaluator 读 `evaluation.inputs` 准备好的文件，输出分数 / 判定。  
-接线见 [写 evaluator](/docs/author/write-evaluator)。
-
-## 6. 看结果
-
-终端 Result + `logs` 路径；或 [Viewer](/docs/run/local-viewer)。
-
-## 常见失败（编写时）
-
-| 问题                     | 处理                                                     |
-| ------------------------ | -------------------------------------------------------- |
-| `task_id` 和目录名不一致 | 改到一致                                                 |
-| 缺 `- plugin: acp` / `entry` | ACP 必填；写在 Database `profiles.yaml`               |
-| docker 无 Dockerfile     | 见 [Docker 与可见性](/docs/author/docker-and-visibility) |
-| 评测找不到 artifact      | harness 是否写出、id 是否对上                            |
-
-字段全表：[配置字段](/docs/reference/config-fields)。
+ACP 缺 entry：先 `ageval executors -v`。详见 [ACP Profiles](/docs/agents/acp-profiles)。

@@ -3,27 +3,27 @@ title: 本地结果查看器
 description: 浏览器里翻 suite 跑次，不连 Registry。
 ---
 
-跑完 suite 或单题后，想对照分数、点开轨迹、复制命令——用 Viewer。它读打开的那一个 Dataset：`.bora/suite-runs/` 与 `.bora/runs/`，不连 Registry。
+跑完 suite 或单题后，想对照分数、点开轨迹、复制命令——用 Viewer。它读打开的那一个 Dataset：`.ageval/suite-runs/` 与 `.ageval/runs/`，不连 Registry。
 
-Jobs 表可以删掉本机一行 Job（先 preview 路径，再确认）。删 suite 会一并删掉它引用的全部 Attempt，不会再以 single 冒出来。不能从 suite 里单独删一条 Attempt。这是擦本地证据，不是 Registry 删除（`bora results delete` 是另一对象）。CLI 对等：`bora jobs delete --local <dataset> --job <id> --yes`。
+Jobs 表可以删掉本机一行 Job（先 preview 路径，再确认）。删 suite 会一并删掉它引用的全部 Attempt，不会再以 single 冒出来。不能从 suite 里单独删一条 Attempt。这是擦本地证据，不是 Registry 删除（`ageval results delete` 是另一对象）。CLI 对等：`ageval jobs delete --local <dataset> --job <id> --yes`。
 
 置顶和备注只存在**这个浏览器**，不写进 evidence / lock / Registry。
 
 ## 打开
 
 ```bash
-# 首次构建前端（生产 bora view）
+# 首次构建前端（生产 ageval view）
 cd apps/viewer && pnpm install && pnpm build && cd ../..
 
-uv run bora view examples/core
+uv run ageval view examples/core
 # 或
-uv run bora view examples/core --no-browser --port 8765
+uv run ageval view examples/core --no-browser --port 8765
 
 # 开发：一条命令（能起 Vite 就起；否则打印两行 fallback）
-uv run bora view examples/core --dev --port 8765
+uv run ageval view examples/core --dev --port 8765
 
 # 跑完后深链到该 job / task / run
-uv run bora view examples/core --open /jobs/<id>
+uv run ageval view examples/core --open /jobs/<id>
 ```
 
 `--dev` 对着**同一套**本地 API，并尽量自己拉起 Vite。起不了会在终端打印 `pnpm --dir apps/viewer dev`。两进程：API 端口（默认 8765）+ UI 端口（默认 5173）。服务的生产包是 `apps/viewer/dist/`。端口占用就换 `--port`。

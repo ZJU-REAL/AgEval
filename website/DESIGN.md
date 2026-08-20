@@ -1,4 +1,4 @@
-# BORA Website Design System
+# ageval Website Design System
 
 本文档是 `website/` 的视觉与交互规范。
 

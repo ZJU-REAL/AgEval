@@ -3,38 +3,38 @@ title: CLI 参考
 description: 命令、--task、Always-k、--set 白名单。
 ---
 
-以本机 `uv run bora --help` 为准。
+以本机 `uv run ageval --help` 为准。
 
 ```bash
-uv run bora tasks <dataset>
-uv run bora lock <dataset> --task <id>
-uv run bora lock <dataset> --task <id> --probe
-uv run bora run <dataset> --task <id>
-uv run bora run <dataset> --task <id> --probe
-uv run bora run <dataset>                         # suite
-uv run bora run <dataset> --max-concurrent-tasks 2
-uv run bora run <dataset> -k 5                    # Always-k（每题 k 次）
-uv run bora run <dataset> --resume-suite <suite_run_id> --task <id> -k 5
-uv run bora campaign <dataset> --task <id> ...
-uv run bora status <suite_run_id> --database <dataset>
-uv run bora cancel <suite_run_id> --database <dataset>
-uv run bora executors -v
-uv run bora plugin install <path|ref>
-uv run bora plugin list
-uv run bora plugin uninstall <plugin_id>
-uv run bora evidence --help
-uv run bora view <dataset> [--dev] [--open /jobs/<id>]
-uv run bora jobs delete --local <dataset> --job <id> --yes
+uv run ageval tasks <dataset>
+uv run ageval lock <dataset> --task <id>
+uv run ageval lock <dataset> --task <id> --probe
+uv run ageval run <dataset> --task <id>
+uv run ageval run <dataset> --task <id> --probe
+uv run ageval run <dataset>                         # suite
+uv run ageval run <dataset> --max-concurrent-tasks 2
+uv run ageval run <dataset> -k 5                    # Always-k（每题 k 次）
+uv run ageval run <dataset> --resume-suite <suite_run_id> --task <id> -k 5
+uv run ageval campaign <dataset> --task <id> ...
+uv run ageval status <suite_run_id> --dataset <dataset>
+uv run ageval cancel <suite_run_id> --dataset <dataset>
+uv run ageval executors -v
+uv run ageval plugin install <path|ref>
+uv run ageval plugin list
+uv run ageval plugin uninstall <plugin_id>
+uv run ageval evidence --help
+uv run ageval view <dataset> [--dev] [--open /jobs/<id>]
+uv run ageval jobs delete --local <dataset> --job <id> --yes
 # Registry / 结果（需 login；细节见 [Registry](/docs/share/registry)）
-uv run bora publish <dataset> --org <org> [--draft] [--public] [--replace]
-uv run bora release <database_id> [--public] [--replace]
-uv run bora registry list|show|set-visibility|delete|org-create|org-list|org-add-member|org-set-role|org-transfer|org-remove-member …
-uv run bora results upload|upload-suite|share|unshare|set-visibility|delete …
+uv run ageval publish <dataset> --org <org> [--draft] [--public] [--replace]
+uv run ageval release <dataset_id> [--public] [--replace]
+uv run ageval registry list|show|set-visibility|delete|org-create|org-list|org-add-member|org-set-role|org-transfer|org-remove-member …
+uv run ageval results upload|upload-suite|share|unshare|set-visibility|delete …
 ```
 
-路径 = Dataset 根（含 `bora.yaml`）。删除类命令须显式 `--yes`；同 identity 覆盖须显式 `--replace`（默认 409）。
+路径 = Dataset 根（含 `ageval.yaml`）。删除类命令须显式 `--yes`；同 identity 覆盖须显式 `--replace`（默认 409）。
 
-## `bora run` 常用选项
+## `ageval run` 常用选项
 
 | 选项 | 含义 |
 | --- | --- |
@@ -44,16 +44,16 @@ uv run bora results upload|upload-suite|share|unshare|set-visibility|delete …
 | `--resume-suite <suite_run_id>` | 并进已有 job：跳过已完成 unit，追加 Attempt，重算 pass@k / pass^k |
 | `--replace-slot` | 配合 `--resume-suite --task`：重跑该已完成槽；新 Attempt；旧行进 `previous[]` |
 | `--attempt-index N` | Always-k 要换的格（默认 0）。只与 `--replace-slot` 一起用 |
-| `--keep-workspace` | 仅 L1：清理后保留 host `l1-work/`（默认删除；上传不打包）。Docker volume 仍删除 |
+| `--keep-workspace` | 清理后保留盒子工作根（默认删除）。 |
 | `--set` / `--profiles` | 见下；与 job binding 相关 |
-| `--probe` | 只做可行性：按绑定 / `provider.kind` 打印 plan + readiness。不 invoke Agent、不 bake、不改 lock digest。选中路径不满足则 exit 1。 |
+| `--probe` | 只做可行性：按绑定 / `environment` 打印 plan + readiness。不 invoke Agent、不 bake、不改 lock digest。选中路径不满足则 exit 1。 |
 
 ## `status` / `cancel`
 
 | 命令 | 含义 |
 | --- | --- |
-| `bora status <run_id\|suite_run_id>` | ControlStore；suite 可加 `--database` 读 `progress.json`（系统 id 默认为 8 hex） |
-| `bora cancel <run_id\|suite_…>` | 单 Run 或 suite job；suite 可加 `--database` 写 `cancel.requested` |
+| `ageval status <run_id\|suite_run_id>` | ControlStore；suite 可加 `--dataset` 读 `progress.json` |
+| `ageval cancel <run_id\|suite_…>` | 单 Run 或 suite job；suite 可加 `--dataset` 写 `cancel.requested` |
 
 ## `--set`
 
@@ -68,4 +68,4 @@ uv run bora results upload|upload-suite|share|unshare|set-visibility|delete …
 
 Intent `limits.*` **不能**经 `--set` 覆盖。其它指针在 lock 阶段失败。
 
-细节：`src/bora/cli/README.md` · skill `bora-cli`。
+细节：`src/ageval/cli/README.md` · skill `ageval-cli`。

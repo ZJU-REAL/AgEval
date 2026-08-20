@@ -8,7 +8,7 @@ One task can declare several `agent_profiles` and pick which to use at run time.
 ## What’s on this host?
 
 ```bash
-uv run bora executors -v
+uv run ageval executors -v
 ```
 
 Check `engine_ready` / `acp_entry_ready` per ACP entry.
@@ -16,8 +16,10 @@ Check `engine_ready` / `acp_entry_ready` per ACP entry.
 ## Declare in config
 
 ```yaml
-# Database profiles.yaml
-bindings:
+# profiles.yaml
+format: ageval.profiles/1
+environment: local
+agent_profiles:
   solver:
     executor: acp
     extensions:
@@ -30,7 +32,7 @@ bindings:
 ## Temporary switch
 
 ```bash
-uv run bora run examples/core --task builtin-executor-conformance \
+uv run ageval run examples/core --task builtin-executor-conformance \
   --set '/parameters/active_profile="pi-mini"'
 ```
 

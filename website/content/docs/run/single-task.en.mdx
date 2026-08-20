@@ -6,41 +6,41 @@ description: Use --task, read the Result and logs path.
 ## Command
 
 ```bash
-uv run bora run <dataset> --task <task_id>
+uv run ageval run <dataset> --task <task_id>
 ```
 
 Example:
 
 ```bash
-uv run bora run examples/core --task sdk-agent-session
+uv run ageval run examples/core --task sdk-agent-session
 
 # Always-k: fixed k independent Attempts for one task (CLI only; default k=1)
-uv run bora run examples/core --task sdk-agent-session -k 5
+uv run ageval run examples/core --task sdk-agent-session -k 5
 ```
 
 Config only, no agent:
 
 ```bash
-uv run bora lock examples/core --task config-minimal
+uv run ageval lock examples/core --task config-minimal
 ```
 
 `--task` must match the member directory name and `task_id` in `task.yaml`.  
-With `k=1` and no `--resume-suite`, stdout stays a single Attempt JSON (legacy-friendly). With `k>1`, the run is a suite job under `.bora/suite-runs/`. See [Suite](/docs/run/suite).
+With `k=1` and no `--resume-suite`, stdout stays a single Attempt JSON (legacy-friendly). With `k>1`, the run is a suite job under `.ageval/suite-runs/`. See [Suite](/docs/run/suite).
 
 ## What you get
 
 - A **Result** summary on the terminal  
-- A **`logs` path** under the Dataset root: `.bora/runs/<run_id>/` (when `k=1`)  
+- A **`logs` path** under the Dataset root: `.ageval/runs/<run_id>/` (when `k=1`)  
 - For `k>1`: job metrics such as **pass@k / pass^k** in suite `summary.json`  
 
-PASS / FAIL comes from the **independent evaluator**, not harness completion. See [Results and PASS](/docs/reference/results-and-pass).
+PASS / FAIL comes from the **independent evaluator**, not `run.py` completion. See [Results and PASS](/docs/reference/results-and-pass).
 
 ## Common failures
 
 | Symptom | Check |
 | --- | --- |
 | Lock fails | Config / ids / layout → [Config fields](/docs/reference/config-fields) |
-| Agent won’t start | `bora executors -v`, credentials → [ACP](/docs/agents/acp-profiles) |
+| Agent won’t start | `ageval executors -v`, credentials → [ACP](/docs/agents/acp-profiles) |
 | Eval FAIL | Artifacts / evaluator inputs → [Write evaluator](/docs/author/write-evaluator) |
 
 Next: [Suite](/docs/run/suite) · [Switch agent](/docs/run/switch-agent) · [Plugins](/docs/run/plugins) · [Viewer](/docs/run/local-viewer).

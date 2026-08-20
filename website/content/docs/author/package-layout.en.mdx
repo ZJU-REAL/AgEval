@@ -7,14 +7,14 @@ description: Dataset root vs task members; how the two yamls split work.
 
 | Layer | File | Owns |
 | --- | --- | --- |
-| Dataset | Root `bora.yaml` | Suite identity, version, member root |
+| Dataset | Root `ageval.yaml` | Suite identity, version, member root |
 | Task | `tasks/<id>/task.yaml` | How this task runs and is scored |
 
 CLI path is always the Dataset root; `--task` selects a member.
 
 ```text
 my-dataset/
-├── bora.yaml
+├── ageval.yaml
 ├── profiles.yaml           # optional job binding defaults
 ├── shared/                 # optional cross-task share (in packageDigest)
 │   ├── lib/                # import as shared.lib.*
@@ -23,7 +23,7 @@ my-dataset/
 └── tasks/
     └── hello/
         ├── task.yaml
-        ├── harness.py
+        ├── run.py
         ├── evaluator.py
         ├── prompts/
         ├── environment/
@@ -44,7 +44,7 @@ Homogeneous multi-task packages can keep shared bridges and domain assets under 
 | `shared/assets/` | Read-only fixtures / policy / db | code paths |
 | `tasks/*/lib/` | Task-only extensions | `from lib…` |
 
-Runtime path prefix is **`[task_dir, database_root]`** — the `shared/lib` leaf is **not** injected as a path root.
+Runtime path prefix is **`[task_dir, dataset_root]`** — the `shared/lib` leaf is **not** injected as a path root.
 
 Hard rules (summary):
 
@@ -52,29 +52,30 @@ Hard rules (summary):
 - Not Agent-mounted by default; gold stays under `tasks/*/evaluation/` only  
 - Task members must **not** own top-level name `shared` (`shared/` dir or `shared.py`) — lock fails closed  
 - Same stem under `shared/lib` and `tasks/*/lib` is **allowed** (namespaces differ)  
-- Core never silently COPYs `shared/` into L1 images — task Dockerfile must declare it and put **Database root** on `PYTHONPATH`  
+- Core never silently COPYs `shared/` into docker images — task Dockerfile must declare it and put **dataset root** on `PYTHONPATH`  
 - Author gate: `uv run python scripts/check_shared_lib_collisions.py <dataset-root>`  
 
 Authority: design `02-task-package-and-config` (Dataset-level shared/). **Having `shared/`, changing the import contract, or Hub Shared browse ≠ evidence-grade upgrade.**
 
-## Root `bora.yaml`
+## Root `ageval.yaml`
 
 ```yaml
-format: bora.database/1
-database_id: org/my-suite
+format: ageval.dataset/1
+dataset_id: org/my-suite
 version: "0.1.0"
 tasks:
   root: tasks
 ```
 
-`database_id` has a strict charset; it is **not** part of scoring.  
-Do **not** put harness / provider / profiles / evaluation on the root.
+`dataset_id` has a strict charset; it is **not** part of scoring.  
+Do **not** put `harness` / `provider` / `agent_profiles` / `evaluation` on the root.
 
 ## parameters vs envelope
 
-- **`parameters`** → harness (`ctx.params`)  
-- **provider / limits / profiles / evaluation** → Runtime  
+- **`parameters`** → `run.py` (`ctx.params`)
+- **`limits` / `evaluation` / `environment/`** → Runtime
+- Box and ACP entry → root `profiles.yaml`
 
-No second config truth in harness. Runtime knobs: `--set` ([CLI](/docs/reference/cli)).
+No second config truth in `run.py`. Runtime knobs: `--set` ([CLI](/docs/reference/cli)).
 
 Full map: [Config fields](/docs/reference/config-fields).

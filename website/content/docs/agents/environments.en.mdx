@@ -1,0 +1,27 @@
+---
+title: Box kinds
+description: local / docker / e2b / ssh on one ACP chain.
+---
+
+The box is the exclusive job slot `environment`. The winner is exported under that
+name. ACP **injects** the name plus `attach_stdio` — never `plugin_id: docker`.
+Changing kind does not change ACP. `exec` is a one-shot method on the same service,
+not a second box.
+
+| kind | Opens | To actually run |
+| --- | --- | --- |
+| `local` | Host directory | Default `examples/core/profiles.yaml` |
+| `docker` | Local container | `--profiles examples/core/profiles.docker.yaml` |
+| `e2b` | Cloud sandbox | `E2B_API_KEY`; same Dockerfile |
+| `ssh` A | Remote machine | `AGEVAL_SSH_HOST` / `USER` / `KEY` |
+| `ssh` B | Remote existing image | Same locators plus `image:` already on the host |
+
+```bash
+uv run ageval run examples/core --task acp-local-min
+uv run ageval run examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml
+uv run ageval run examples/core --task acp-docker-min --profiles examples/core/profiles.e2b.yaml --probe
+```
+
+Missing keys: `--probe` must report `ready: false` and `started: false`. ACP only sees `attach_stdio`.
+
+`environment/setup.sh` is the last environment slot, not its own phase. Gold (`evaluation/`) enters the box at evaluate. `--agent` and `--profiles` are mutually exclusive.

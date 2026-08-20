@@ -1,67 +1,65 @@
 ---
 title: 配置字段参考
-description: bora.yaml / task.yaml 字段与校验要点速查。
+description: ageval.yaml / task.yaml 字段与校验要点速查。
 ---
 
 主路径教程见 [Task 编写教程](/docs/author/tutorial)。本页用于字段速查。
 
-## 根 `bora.yaml`
+## 根 `ageval.yaml`
 
 | 字段 | 规则 |
 | --- | --- |
-| `format` | `bora.database/1` |
-| `database_id` | 1–128；`^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$`；禁 `..` / `//`；推荐 `org/name` |
+| `format` | `ageval.dataset/1` |
+| `dataset_id` | 1–128；`^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$`；禁 `..` / `//`；推荐 `org/name` |
 | `version` | 非空 |
 | `tasks.root` | 默认 `tasks` |
 | `defaults` | 仅 `max_concurrent_tasks`（≥1） |
-| 禁止 | harness / provider / limits / evaluation / agent_profiles |
+| 禁止 | `harness` / `provider` / `limits` / `evaluation` / `agent_profiles` |
 
 **不在** yaml 里：`n_attempts` / Always-k（只走 CLI/job，见 [Suite](/docs/run/suite)）。
 
-空 suite → lock 失败。
+空 suite → lock 失败。旧 `bora.yaml` / `bora.database/1` → `invalid_format`。
 
 ## 成员 `task.yaml`
 
 | 区块 | 要点 |
 | --- | --- |
-| `format` | `bora.task/1` |
+| `format` | `ageval.task/1` |
 | `task_id` | = 目录名 = `--task` |
-| `harness` | `runtime` + `entrypoint`（`模块:函数`） |
-| `parameters` | 给 harness；常见 `active_profile`、`harness_timeout_seconds`、`agent_timeout_seconds`、`roles`、`seed`、`environment_resource` |
-| `provider` | `kind: local\|docker`；docker 要 `environment/Dockerfile` |
-| `agent_profiles` | 成员只写 `{id}`；ACP `entry` 写在 Database `profiles.yaml` 的 `- plugin: acp`；`api_key` 只写环境变量名 |
+| `parameters` | 给 `run.py`（`ctx.params`） |
+| `agent_profiles` | 成员只写 `{id}`；ACP `entry` 写在根 `profiles.yaml` |
 | `limits` | wall / agent_invocations / environment_actions / memory_mb |
 | `artifacts.publishable` | id + path + producer |
-| `evaluation` | entrypoint、network、inputs、output.format；可选 `tmpfs_mb`（L1 clean-eval `/tmp`，正整数 MiB，省略 32；**不是** `limits.*`） |
-| `provenance` | 可选；成员整块替换根默认 |
+| `evaluation` | 可选 inputs / output；有 `evaluator.py` 就认。可选 `tmpfs_mb`（盒内 evaluator `/tmp`，正整数 MiB，省略 32；**不是** `limits.*`） |
+| `provenance` | 可选 |
+| 禁止 | `harness:` 块、`provider.kind`、`assurance`、角色上的 `executor` / `api_key` |
+
+有文件就认：`run.py`、`evaluator.py`、`environment/Dockerfile`、`environment/setup.sh`。
 
 ## Job binding（`profiles.yaml`）
 
-role 上可选 `label`，作为 Jobs / Hub 的 Agents 轴。缺省：ACP 用 `- plugin: acp` 的 `options.entry`，其它 kind 用 `executor`。**不要**把 `options.agent` 当展示名。
+```yaml
+format: ageval.profiles/1
+environment: docker
+agent_profiles:
+  solver:
+    executor: acp
+    api_key: ${ZHIPU_API_KEY}
+    options:
+      entry: pi
+    extensions:
+      - plugin: acp
+      - plugin: docker
+```
 
-可选 `overlays` 是该 role 在 Hub 上的发布文件集（路径必须以 `overlays/` 开头）。带 `agent_ref` 时字节在 Agent 包里解析；无 `agent_ref` 时是 Database 相对路径。省略或 `[]` = 只有 YAML、无文件树。Core **不会**从插件 `src` 推断这份列表。列出的文件只能含 locator，不能含密钥。
+role 上可选 `label`。缺省：ACP 用 `options.entry`，其它 kind 用 `executor`。**不要**把 `options.agent` 当展示名。`--agent` 与 `--profiles` 互斥。
+
+可选 `overlays` 是该 role 在 Hub 上的发布文件集（路径必须以 `overlays/` 开头）。列出的文件只能含 locator，不能含密钥。
 
 ## 成员一级目录白名单
 
 `prompts` · `schemas` · `environment` · `evaluation` · `data` · `lib` · `upstream` · `solution`
 
-## ACP profile 片段
-
-```yaml
-# Database profiles.yaml
-bindings:
-  main:
-    executor: acp
-    extensions:
-      - plugin: acp
-        options:
-          entry: codex
-          # reasoning_effort: high
-    model: gpt-5.4-mini
-```
-
-`bora executors -v` 查 entry 与就绪状态。`options.reasoning_effort` 可选，值必须是该 session 广告的 thinking selector；`grok-build` 经 argv 绑定，不走 `set_config_option`。
-
 ## lock 常见失败
 
-task_id 不一致 · format 错 · database_id 非法 · docker 无 Dockerfile · ACP 缺 entry · 密钥写进 yaml · 非法一级目录 · 空 suite
+task_id 不一致 · format 错 · dataset_id 非法 · docker 无 Dockerfile · ACP 缺 entry · 密钥写进 yaml · 非法一级目录 · 空 suite

@@ -1,6 +1,6 @@
 ---
 title: 安装
-description: 使用 uv 安装 BORA CLI。
+description: 使用 uv 安装 ageval CLI。
 ---
 
 ## 环境要求
@@ -8,29 +8,27 @@ description: 使用 uv 安装 BORA CLI。
 - [uv](https://docs.astral.sh/uv/)
 - CPython **3.12+**
 
-执行真实 coding agent 路径时，需要本机 ACP 入口与对应凭据。仅执行 `bora lock` 时不需要 agent。
-
-## 安装步骤
+真实 coding agent 路径需要本机 ACP 入口与凭据。仅 `ageval lock` 不需要 agent。
 
 ```bash
 git clone https://github.com/ZJU-REAL/BORA.git
 cd BORA
 uv sync --frozen --all-packages
-uv run bora -V
+uv run ageval -V
 ```
 
-确认输出版本号后即可继续。
+GitHub 路径仍是 `ZJU-REAL/BORA`。命令是 `ageval`。
 
-## 可选：Coding agent Skills
+## Skills
 
-仓库 [`skills/`](https://github.com/ZJU-REAL/BORA/tree/main/skills) 可通过 `.agents/skills` 被常见 coding agent 发现：
+仓库 [`skills/`](https://github.com/ZJU-REAL/BORA/tree/main/skills)：
 
-| Skill                 | 用途                  |
-| --------------------- | --------------------- |
-| `bora-platform`       | 产品边界与文档路由    |
-| `bora-cli`            | CLI 与失败解读        |
-| `bora-plugin`         | 编写 `bora.plugin/1`  |
-| `bora-config-package` | Dataset / Task 配置   |
-| `bora-sdk-harness`    | Harness SDK 编写      |
+| Skill | 用途 |
+| --- | --- |
+| `ageval-platform` | 边界与文档路由 |
+| `ageval-cli` | CLI |
+| `ageval-plugin` | `ageval.plugin/1` |
+| `ageval-config-package` | dataset / task |
+| `ageval-sdk-harness` | `run.py` / SDK |
 
 下一步：[首次运行](/docs/getting-started/first-run)。

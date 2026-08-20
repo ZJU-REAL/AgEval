@@ -1,33 +1,43 @@
 ---
 title: Mechanism plugins
-description: Install bora.plugin/1 packages, bind executors, and distinguish Recognition from L1 Ready.
+description: Install ageval.plugin/1, bind executors, and distinguish Recognition from “this host can run”.
 ---
 
 Mechanism plugins extend **how** agents, environments, and trajectories run — not the
-package harness business loop.
+task `run.py` loop. Slots are exclusive and chain only.
+
+## Executor and environment: inject by name, not by kind
+
+An executor does not import docker, e2b, or ssh. It **injects** the service named
+`environment` and the capabilities it will call. The box winner **exports** that
+name automatically. Lock checks the graph before any invoke.
+
+| | Meaning |
+| --- | --- |
+| **export** | The box is the `environment` service |
+| **inject** | The agent backend needs `environment` plus `attach_stdio` or `exec` |
+| **call** | Protocol only: `attach_stdio` (live session) or `exec` / `upload` (run to completion) |
+
+Switching `environment: docker` to `e2b` or `ssh` changes the box winner, not ACP
+code. `exec` is a method on that service, not a second service. A host SDK bound to
+a parent path does not satisfy this seam. Contract: `docs/design/11`.
 
 ## Install (local cache only)
 
 ```bash
-uv run bora plugin install plugins/nooa
-# or: uv run bora plugin install plugins/dsh
-uv run bora plugin list
+uv run ageval plugin install plugins/nooa
+uv run ageval plugin list
 ```
 
-Install updates `$BORA_HOME/plugins` (default `~/.bora/plugins`) only. It **never**
-rewrites `profiles.yaml`, `bora.yaml`, or `task.yaml`.
-
-Uninstall:
-
-```bash
-uv run bora plugin uninstall nooa
-```
+Install updates `$AGEVAL_HOME/plugins` (default `~/.ageval/plugins`) only. It **never**
+rewrites `profiles.yaml`, `ageval.yaml`, or `task.yaml`.
 
 ## Bind (profiles)
 
 ```yaml
-# profiles fragment — job binding
-bindings:
+format: ageval.profiles/1
+environment: local
+agent_profiles:
   solver:
     executor: nooa
     extensions:
@@ -37,66 +47,35 @@ bindings:
           method: "run"
 ```
 
-`executor:` selects `provide(executor)` only — it does **not** bake or attach
-other `on:` slots. Plugin knobs live on that plugin's `extensions` row. Add
-`extensions` on the same role when L1 needs bake / trajectory collect (short
-ids match a path install). ACP `entry` lives on `- plugin: acp`. Hub publish
-stores `org/name`; a Hub install records that namespaced id, and profiles for
-that cache row must use the same address.
-
-Use an alternate profiles file at run time without changing Database ACP defaults:
+`executor:` picks the exclusive-slot winner — it does **not** bake. Plugin knobs live on that plugin's `extensions` row. Docker image layers are read by the environment winner at `host.start()`. ACP `entry` lives on `- plugin: acp` / `options.entry`.
 
 ```bash
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.nooa.yaml
-# DeepSeek Harness (not ACP):
-# uv run bora run examples/journeys --task terminal-jsonl-agg \
-#   --profiles examples/journeys/profiles.dsh.yaml
-# Optional DSH file-effect policy (plugin-owned options.permission):
-# uv run bora run examples/journeys --task terminal-jsonl-agg \
-#   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
-`dsh` `options.permission` accepts `read-only`, `workspace-write`, or
-`danger-full-access`. Omit it to keep unrestricted local bash/fs. Invalid
-values fail closed. On the bundled jsonrpc runtime, file-tool writes are
-fenced; bash stays local. This is not a BORA isolation claim.
-
-`bora lock` writes the resolved extension graph into `extension_bindings` in the lock summary.
-
-Before a run, probe the same inputs for host feasibility (no Agent invoke, no bake, no lock digest change):
+`ageval lock` writes the resolved graph as `extension_bindings`.
 
 ```bash
-uv run bora lock examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml --probe
-# or: uv run bora run … --probe
 ```
 
-`--probe` branches on **`provider.kind`**: L0 checks declared `host_requires` (for example
-`import: deepseek_harness`); L1 does not require a host extra and checks that this
-profile's `extensions` selected `image_contribute`, plus the bake file, Docker daemon,
-and whether credential locator **names** exist. `executor:` alone is not enough.
-Unsatisfied paths exit non-zero.
+`--probe` checks whether this **`environment`** can open here: `host_requires`, Docker daemon (docker kind), locator **names**. Unsatisfied paths exit non-zero. Skip ≠ pass.
 
-## Recognition ≠ L0 host-ready ≠ L1 bake-declared
+## Recognition ≠ this host can run ≠ image baked
 
 | Stage | Meaning |
 | --- | --- |
-| **install / list** | Host recognizes a provide (Recognition) |
-| **L0 host-ready** | Host SPI can be constructed (declared `host_requires` satisfied) |
-| **profiles bind** | Job selects that executor |
-| **L1 bake-declared** | this profile's `extensions` selected `image_contribute` and `Dockerfile.bake` exists |
+| **install / list** | Host recognizes the plugin |
+| **host-ready** | Declared `host_requires` satisfied |
+| **profiles bind** | Job selects that executor / environment |
+| **image bake** | docker kind: `image_layers` present and bake succeeded |
 
-`bora executors.host_ready` means L0 host-ready, not “installed” and not “L1 will bake”.
-A successful install does **not** imply the host extra is present, and does **not** imply
-the L1 isolated path is ready. Docker L1 tasks need this profile's `extensions` to
-select `image_contribute` and a successful bake before the container worker runs
-(for example nooa or dsh in-container). Installed plugins that are not listed stay
-off the Attempt image.
+`ageval executors.host_ready` is not “installed” and not “image will bake”. Unlisted installed plugins stay off the Attempt image.
 
 ## Relation to ACP
 
-The default coding-agent path remains `executor: acp` + `- plugin: acp` / `options.entry`. Plugins are
-**optional** mechanisms beside first-party ACP; the same harness switches only via profiles.
+The default coding-agent path remains `executor: acp` + `options.entry`. Plugins are optional mechanisms; the same `run.py` switches only via profiles.
 
-Mechanism contracts live in design docs (`docs/design`); this page does not raise evidence grades.
+Contracts: `docs/design/11`. This page does not raise evidence grades.

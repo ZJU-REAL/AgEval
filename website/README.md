@@ -1,11 +1,11 @@
-# BORA documentation website
+# ageval documentation website
 
-Bilingual Fumadocs site for **Bounded Orchestration for Runtime Agents**.
+Bilingual Fumadocs site for **ageval**.
 
 This directory is a **reader-facing product projection**. It does **not**:
 
 - own design or delivery truth
-- import production `src/bora` runtime packages
+- import production `src/ageval` runtime packages
 - replace `apps/viewer` (local suite UI) or `apps/hub` (Registry SPA)
 
 ## Authority boundary

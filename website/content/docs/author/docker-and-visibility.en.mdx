@@ -5,27 +5,30 @@ description: When to use docker, Dockerfile, what the agent can see.
 
 ## local vs docker
 
+The box is on **`profiles.yaml`**, not `provider.kind` on the task:
+
 ```yaml
-provider:
-  kind: local    # or docker
-  assurance: l0
+# profiles.yaml
+format: ageval.profiles/1
+environment: docker    # or local / e2b / ssh
 ```
 
-| Mode | Fit |
+| kind | Fit |
 | --- | --- |
 | `local` | Dev and most examples |
-| `docker` | Container boundary / L1 paths |
+| `docker` | Container boundary |
+| `e2b` / `ssh` | Cloud boxes; missing keys fail `--probe` |
 
-`docker` requires **`environment/Dockerfile`** (or `provider.dockerfile`) or lock fails.
+`docker` (and `e2b`) need **`environment/Dockerfile`** (or an image option) or lock fails. Same recipe for both.
 
 ## Visibility
 
 | Path | Who |
 | --- | --- |
 | `prompts/`, `data/`, … | Business / maybe agent-visible |
-| `evaluation/` | Evaluator only (after barrier) |
-| `environment/` | Seeds, Dockerfile |
+| `evaluation/` | Evaluator only (uploaded at evaluate) |
+| `environment/` | Dockerfile, `setup.sh` |
 
-Real isolation is **unmounted + barrier materialize**, not deleted yaml fields.
+Real isolation is **unmounted + upload at evaluate**, not deleted yaml fields. That is not `path_views`.
 
-Multi-actor L1: [L1 Docker](/docs/agents/l1-docker).
+Boxes: [Box kinds](/docs/agents/environments).

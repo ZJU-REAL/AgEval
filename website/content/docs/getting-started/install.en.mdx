@@ -1,36 +1,30 @@
 ---
 title: Install
-description: Install the BORA CLI with uv.
+description: Install the ageval CLI with uv.
 ---
-
-## Requirements
 
 - [uv](https://docs.astral.sh/uv/)
 - CPython **3.12+**
 
-Real coding-agent runs require a host ACP entry and credentials. `bora lock` alone does not.
-
-## Install
+A real coding-agent path needs a host ACP entry and credentials. `ageval lock` does not.
 
 ```bash
 git clone https://github.com/ZJU-REAL/BORA.git
 cd BORA
 uv sync --frozen --all-packages
-uv run bora -V
+uv run ageval -V
 ```
 
-A version string means the CLI is ready.
+The GitHub path is still `ZJU-REAL/BORA`. The command is `ageval`.
 
-## Optional: coding agent skills
+## Skills
 
-Skills under [`skills/`](https://github.com/ZJU-REAL/BORA/tree/main/skills) are discoverable via `.agents/skills`:
-
-| Skill                 | Use                         |
-| --------------------- | --------------------------- |
-| `bora-platform`       | Product map and routing     |
-| `bora-cli`            | CLI and failure reading     |
-| `bora-plugin`         | Author `bora.plugin/1`      |
-| `bora-config-package` | Dataset / Task config       |
-| `bora-sdk-harness`    | Harness SDK authoring       |
+| Skill | Use |
+| --- | --- |
+| `ageval-platform` | Boundaries and doc routing |
+| `ageval-cli` | CLI |
+| `ageval-plugin` | `ageval.plugin/1` |
+| `ageval-config-package` | dataset / task |
+| `ageval-sdk-harness` | `run.py` / SDK |
 
 Next: [First run](/docs/getting-started/first-run).
