@@ -1,80 +1,86 @@
-# BORA Architecture
+# ageval Architecture
 
 本文只维护**实现结构**：当前 vs 目标布局、模块所有权、依赖方向、composition root、运行生命周期、跨边界数据流、失败/清理归属、证据分类与变更同步。
 
 - **不**写产品长文、版本勾选清单、Phase 任务表。
-- 产品与机制设计权威：[docs/](docs/README.md)（尤其 [docs/design/](docs/design/)）。
+- 产品与机制设计权威：[docs/](docs/README.md)（尤其 [docs/design/](docs/design/)）。**自包含**；不要读仓外 BRIEF。
 - 增量交付与验收跟踪：[GitHub Issues](https://github.com/ZJU-REAL/BORA/issues)。
 - 读者向文档：[website/](website/)（非设计权威）。
 
+GitHub 仓库路径目前仍是 `ZJU-REAL/BORA`。产品名、包、CLI 是 **ageval**。
+
 ## Document Status
 
-| 字段             | 值                                                                                                                                                                                                                                             |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 产品             | Bounded Orchestration for Runtime Agents（BORA）                                                                                                                                                                                               |
-| 代际             | v2 greenfield                                                                                                                                                                                                                                  |
-| 实现状态         | **v0.1–v0.13 L0 竖切 + Attempt evidence** — `bora lock`/`run`/`campaign`；§8.9 trajectory store（Codex path）；Docker L1 multi-actor SDK scheduling（`agent_isolation` shared-container / container-per-group）+ multi-executor / env 部分切片 |
-| 证据等级         | **限定 `runnable-mvp`**（L0 core/journeys 烟测；见 `examples/README.md`；升级声明以 Issues + 公开 smoke 为准）                                                                                                                                 |
-| 设计权威         | [docs/README.md](docs/README.md)                                                                                                                                                                                                               |
-| 结构权威         | **本文**（模块/依赖/生命周期地图）                                                                                                                                                                                                             |
-| 近端目标结构依据 | [docs/design/01](docs/design/01-bora-core.md)、[docs/design/09](docs/design/09-owner-matrix-and-structure.md)、GitHub Issues                                                                                                                   |
-| 更新触发         | 见文末 [Change Ownership](#change-ownership)                                                                                                                                                                                                   |
+| 字段 | 值 |
+| --- | --- |
+| 产品 | ageval（agent eval） |
+| 旧称 | BORA；硬切，无别名 |
+| 实现状态 | Attempt 五相位已接；盒子 kind `local` / `docker` / `e2b` / `ssh`；公开命令以 `ageval --help` 为准 |
+| 证据等级 | **限定 `runnable-mvp`**：local ACP、docker ACP、点名 journeys 已有公开 run。e2b/ssh **代码在、缺钥则 skip，不得标 isolated** |
+| 设计权威 | [docs/README.md](docs/README.md) |
+| 结构权威 | **本文** |
+| 近端目标结构依据 | [docs/design/00](docs/design/00-overview-and-product.md)、[docs/design/01](docs/design/01-ageval-core.md)、[docs/design/09](docs/design/09-owner-matrix-and-structure.md) |
+| 更新触发 | 见文末 [Change Ownership](#change-ownership) |
 
 **禁止**把下方 Target 树或流程图当作「已实现」。Current 与 Target 必须分开阅读。
 
 ## System Overview
 
-BORA 是 **Harness 的 Harness**：外层执行内核准备并锁定运行边界，注入 Capability，启动 package 自带的 Harness（或 upstream bridge），在 writers 停止后独立评测并绑定扁平结果。
+ageval 锁定一份 **dataset**，打开一个 **盒子**（独占槽 `environment`），在可见 Attempt 流水线里跑题包 `run.py`，writers 停止后由独立 `evaluator.py` 出分并绑定扁平 Result。
+
+Coding agent 经 parent **ACP** client + `host.attach_stdio` 进入盒子。其它执行机制以 `ageval.plugin/1` 填独占槽 `executor`。
 
 ### 主要参与者
 
-| 参与者                 | 职责                                                                                    | 不负责                                       |
-| ---------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------- |
-| 操作者 / CLI           | 发起 run/inspect、读 exit code 与摘要                                                   | 业务 workflow、评分算法                      |
-| Application            | use case 编排、**唯一 composition root**                                                | 框架无关领域规则的「第二份」实现             |
-| BORA Core 1 Config     | `load_and_lock` → `LockedTaskConfig`                                                    | 解释 Python workflow                         |
-| BORA Core 2 Lifecycle  | Run/Trial/Attempt 身份与外层顺序                                                        | Attempt 内业务 loop                          |
-| BORA Core 3 Provider   | 物理隔离、mount/network/secret 投影、进程生命周期                                       | Benchmark 业务语义                           |
-| BORA Core 4 Capability | 向 Harness 暴露已授权操作面                                                             | 颁发 final PASS                              |
-| BORA Core 5 Evaluation | barrier、evaluator 运行、Result 绑定、evidence                                          | 统一所有评分算法                             |
-| Harness Core（SDK）    | 可选类型与薄 helper                                                                     | Run/credential/verdict                       |
-| Task Harness           | 业务 loop、本地 Tool、参数使用                                                          | Docker/credential/final PASS                 |
-| Adapters / plugins     | ACP/nooa 协议与 Provider 实现；`src/bora/plugins/` 为扩展点注册表与 first-party contrib | 按 Benchmark 名分支；禁止 executor dual path |
-| Evaluator（package）   | task truth                                                                              | 启动 Agent、持有 host secret                 |
+| 参与者 | 职责 | 不负责 |
+| --- | --- | --- |
+| 操作者 / CLI | 发起 lock/run/inspect，读 exit code 与摘要 | 业务 workflow、评分算法 |
+| Application | use case 编排、**唯一 composition root** | 框架无关领域规则的第二份实现 |
+| Config | `load_and_lock` → `LockedTaskConfig` + `extension_bindings` | 解释 Python workflow |
+| Attempt 宿主 | `run_attempt`：environment → run → evaluate → record；`finally` cleanup | 厂商 SDK、题 loop |
+| 盒子（environment 赢家） | `preflight` / `start` / `exec` / `upload` / `download` / `attach_stdio` / `stop` | ACP 协议、PASS |
+| Capability | 向 `run.py` 暴露已授权操作面 | 颁发 final PASS |
+| Evaluation | barrier、盒内 evaluator、`bind_evaluation`、evidence | 统一所有评分算法 |
+| SDK（`ageval_sdk`） | `RunContext`、`AgentSession`、Tool 软限 | Run identity、凭据、verdict |
+| 题包 `run.py` | 业务 loop、本地 Tool、`ctx.params` | Docker / 凭据 / final PASS |
+| Plugins | 独占槽 / 链槽实现；`src/ageval/plugins/` 注册表 + first-party contrib | 按 Benchmark 名分支；第二套 resolve |
+| Evaluator（package） | task truth | 启动 Agent、持有 host secret |
 
 ### 目标数据/控制主流（validated output 方向）
 
 ```text
-Database root (bora.yaml / bora.database/1)
+dataset 根 (ageval.yaml / ageval.dataset/1)
   → resolve_task(--task) → tasks/<id>/task.yaml
-  → load_and_lock → LockedTaskConfig
-  → RunCoordinator 创建 Run/Trial/Attempt + evidence 根
-  → Provider.prepare（workspace / network / secret 投影）
-  → 注入 HarnessContext（Capability）
-  → harness entrypoint
-       ↘ agent / environment / workspace / artifacts（仅经 Capability）
-  → HarnessTerminal
-  → close capabilities + stop writers
-  → materialize allowlisted evaluator inputs
-  → evaluator → raw → bind flat Result
-  → cleanup（失败 → warning，不覆盖已形成 score）
+  → 合并 profiles.yaml（environment + agent_profiles）
+  → load_and_lock → LockedTaskConfig + extension_bindings + digest
+  → IdentityFactory：Run / Trial / Attempt + evidence 根
+  → host.preflight
+  → run_attempt
+       environment  host.start → upload data/ → after_environment_ready → environment_setup
+       run          子进程 run.py ← Agent Service socket ← attach_stdio
+       evaluate     停 writer → upload evaluation/ → 盒内 evaluator.py → bind
+       record       trajectory_collect → 引擎写 trajectory.jsonl
+       finally      cleanup → host.stop
+  → .ageval/runs/<attempt_id>/
 ```
 
-箭头含义：**控制流推进**；跨信任边界的数据流见 [Data Flow](#data-flowtarget)。
+箭头含义：**控制流推进**。跨信任边界的数据流见 [Data Flow](#data-flowcurrent)。
 
 ## Runnable System Path
 
-### Current（已验证）
+### Current（已验证公开命令）
 
-| 项                          | 值                                                                                                        |
-| --------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Public entrypoint           | `bora lock` / `bora run`（含 `--probe`）/ `bora tasks` / `bora campaign` / `bora view` 等（以 CLI 为准） |
-| Production composition root | `src/bora/application/composition.py`                                                                     |
-| Smoke journey               | `uv run bora lock examples/core --task config-minimal`（exit 0，确定性 JSON 摘要含 `database_id`）        |
-| Expected failure            | `uv run bora lock examples/core --task config-invalid`（exit 2，`unknown_profile`）；缺 `--task` → exit 2 |
-| Observable result           | 无 secret 的 lock summary + digest；无 Run/Attempt/Agent/Evaluator                                        |
-| Lifecycle checkpoint        | `uv run pytest tests/acceptance/test_lifecycle_application.py -k success_trace -q`                        |
-| 证据等级                    | **限定 `runnable-mvp`**（仅上述 L0 真实 journeys；不得从文档推导升级）                                    |
+| 项 | 值 |
+| --- | --- |
+| Public entrypoint | `ageval lock` / `run`（含 `--probe`）/ `tasks` / `campaign` / `view` / `plugin` / `evidence` / `status` / `cancel` / `executors` / `jobs` / `results` / `publish` / `release` / `agent` / `registry`（以 CLI 为准） |
+| Production composition root | `src/ageval/application/composition.py` |
+| Smoke lock | `uv run ageval lock examples/core --task config-minimal`（exit 0，摘要含 `dataset_id`，无 `database_id`） |
+| Smoke local ACP | `uv run ageval run examples/core --task acp-local-min` |
+| Smoke docker ACP | `uv run ageval run examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml` |
+| Smoke journeys | `uv run ageval run examples/journeys --task terminal-jsonl-agg`；`… --task env-postgres-min` |
+| Expected failure | 旧 `bora.database/1` → `invalid_format` exit 2；缺 `--task` 视 CLI；e2b/ssh 缺钥 `--probe` `ready:false` |
+| Observable result | 无 secret 的 lock summary + digest；Attempt 有 `lock.json` / `result.json` / `trajectory.jsonl` |
+| 证据等级 | **限定 `runnable-mvp`**（上列公开命令；不得从文档推导升级） |
 
 文档变更建议：
 
@@ -83,335 +89,357 @@ git diff --check
 # website 变更时：pnpm --dir website build
 ```
 
-### Target — 首条产品竖切（历史 checkpoint；已交付路径）
+### Target — 未宣称完成的结构/证据
 
-| 项                | 计划值                                                                                                                                                               |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public entrypoint | `bora run <package> --task <id>`（精确 flags 以 CLI / 代码为准）                                                                                                     |
-| Composition root  | `src/bora/application/` 内 bootstrap（名称以实现为准）                                                                                                               |
-| 最短路径          | CLI → application → load_and_lock → Attempt(L0 或 L1 Provider) → harness → AgentExecutor（coding-agent：`acp` + entry）→ evaluator → Result + `.bora/runs/<run-id>/` |
-| 证据              | CLI 分离展示 runtime vs evaluation；evidence 目录可定位                                                                                                              |
+| 项 | 计划值 |
+| --- | --- |
+| e2b / ssh 真 ACP | 同一题 `environment: e2b` 与 ssh A+B 公开 `ageval run`（有凭证才勾）。缺钥 skip ≠ 通过。Protocol seam 需要第二个真实云赢家 |
+| 外置插件真跑 | nooa / dsh 各一条真 `ageval run`；miniswe 至少 lock。install 认得 ≠ 真跑 |
+| 树核对 | `plugins/defaults` 与 `contrib/defaults` 不要两套；CLI 只 import composition |
+| 点名示例硬切 | [docs/design/10](docs/design/10-examples-database-52.md) 列出的 lock/run；旧 format 留在树里必须 lock 失败 |
+| 文档 | 本文 Current = `src/ageval` + 五相位 |
 
-更早的中间可运行检查点（如 lock-only）以代码与 examples 为准。
+更早的中间检查点以代码与 examples 为准。**禁止**把 Target 当 Current。
 
 ## Source Layout
 
 ### Current Source Layout
 
 ```text
-BORA/
+ageval/                              # GitHub 仓名仍为 BORA
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md
-├── .gitignore
-├── .python-version
-├── pyproject.toml
+├── pyproject.toml                   # name = "ageval"；script ageval =
 ├── uv.lock
-├── src/bora/
-│   ├── __init__.py
-│   ├── cli/                   # Typer：argv、help、exit code（main 挂载 + cmd_*）
-│   ├── application/           # 唯一 composition root + 按产品流拆的 use case
-│   │   ├── composition.py     # CLI 只从此处 import builders（含 registry client factory）
-│   │   ├── attempt/           # run_task → run_lifecycle(LocalL0Stages | DockerL1Stages, attempt=)
-│   │   │                      # phase 体在 run_l0.py / run_l1_phases.py
-│   │   │                      # lock_command / probe_command（--probe；不进 lock digest）
-│   │   ├── suite/             # suite_run、fingerprint、suite_metrics
-│   │   ├── registry_ops/      # results / publish / login / org / list（注入 client factory）
-│   │   ├── plugin_ops/        # plugin install / publish / image_contribute bake
-│   │   ├── agent_ops/         # agent 投影（--agent → 合成 profiles）/ publish / install（design/14）
-│   │   └── local_jobs/        # 本机 Job 删除（Viewer / bora jobs delete；suite 级联 Attempt）
-│   ├── config/                # Core 1（load_and_lock + constants/yaml_io/overrides/digest/validate）
-│   ├── runtime/               # Core 2：identity、lifecycle、coordinator、task_worker、
-│   │                          # parent_agent_service + agent_service_protocol/evidence
-│   ├── provider/              # Core 3：L0 contract / workspace plan / outcomes / targets+isolation
-│   ├── capabilities/          # Core 4：Attempt authority（进程内）
-│   ├── evaluation/            # Core 5：flat Result binder（含 Result.logs locator）
-│   ├── evidence/              # Attempt evidence store / redaction / §8.9 layout
-│   │                          # + Core trajectory.jsonl writer (bora.trajectory.event/1)
-│   ├── plugins/               # 扩展点注册表（slots/registry/resolve/defaults/contrib）
-│   │   ├── defaults/          # L0–L5 默认 multi/provide（无 legacy executor 桥）
-│   │   ├── lifecycle.py       # emit helpers：host 在控制点 await chain / provide SPI
-│   │   ├── manifest.py        # bora.plugin/1 + host_requires / plugin_requires allowlist
-│   │   └── contrib/           # first-party：acp / openai_http / mock（nooa 为外置包）
-│   │       └── acp/           # parent ACP client + executor + entry registry
-│   │           ├── acp_entries.json
-│   │           └── registry.py  # pins + host readiness（不拥有 trajectory.jsonl writer）
-│   ├── viewer/                # 本地 Jobs/Trial HTTP API（trials/ 包）
-│   └── adapters/
-│       ├── package_fs.py
-│       ├── provider_local.py  # LocalProcessProvider
-│       ├── provider_docker/   # Docker L1 + multi-actor ExecutionTarget
-│       ├── agent_container.py # L1 placement helpers / docker exec wrap
-│       └── agent_openai_http.py
-├── sdk/python/bora_sdk/       # Harness Core HC-1/2/3 helpers
+├── src/ageval/
+│   ├── cli/                         # Typer：argv、help、exit code
+│   ├── application/
+│   │   ├── composition.py           # CLI 只从此处 import builders
+│   │   ├── lock.py                  # load_and_lock + 能力/inject 图
+│   │   ├── run.py                   # 铸造 identity → ctx → run_attempt
+│   │   ├── campaign.py
+│   │   ├── suite/                   # suite_run、fingerprint、suite_metrics
+│   │   ├── registry_ops/            # results / publish / login / org / list
+│   │   ├── plugin_ops/
+│   │   ├── agent_ops/               # --agent 投影进 profiles
+│   │   └── local_jobs/              # 本机 Job 删除
+│   ├── attempt/                     # 深模块：一次 Attempt 的可见流水线
+│   │   ├── __init__.py              # run_attempt 五行相位
+│   │   ├── ctx.py
+│   │   ├── emit.py                  # 链槽 next()
+│   │   └── phases/
+│   │       ├── environment.py
+│   │       ├── run.py
+│   │       ├── evaluate.py
+│   │       ├── record.py
+│   │       └── cleanup.py
+│   ├── config/                      # dataset 根 + task.yaml + profiles
+│   ├── environments/
+│   │   ├── protocol.py              # EnvironmentProvider · StdioTransport · caps
+│   │   └── streams.py
+│   ├── plugins/
+│   │   ├── slots.py                 # exclusive / chain id
+│   │   ├── registry.py / resolve.py / bootstrap.py
+│   │   ├── defaults/                # environment_setup 认 setup.sh
+│   │   └── contrib/
+│   │       ├── acp/                 # 独占槽 executor + attach_stdio client
+│   │       ├── docker/              # 独占槽 environment
+│   │       ├── local/
+│   │       ├── e2b/
+│   │       ├── ssh/                 # A 整机 / B 远端容器
+│   │       └── openai_http/
+│   ├── runtime/
+│   │   ├── identity.py
+│   │   ├── parent_agent.py          # 只认 executor 服务 + host.attach_stdio
+│   │   ├── task_launch.py           # 控制面子进程跑 run.py
+│   │   └── task_worker.py
+│   ├── evaluation/                  # barrier + 盒内 runner + bind PASS
+│   ├── evidence/                    # 布局字符串的唯一主人
+│   ├── capabilities/
+│   ├── registry/                    # Hub 客户端
+│   ├── viewer/                      # 本地 Jobs HTTP
+│   ├── control/
+│   └── agents/
+├── sdk/python/src/ageval_sdk/       # RunContext / RunTerminal / AgentSession
 ├── apps/
-│   ├── viewer/                # 本地 `bora view` SPA（Jobs → Trial；非 Registry）
-│   └── hub/                   # Registry Dataset / Plugin / Agent / Home / Leaderboard SPA
-├── services/registry/         # 独立 HTTP：Route.access + _dispatch 强制策略
-│   ├── app.py                 # 启动 / 后端选择；stdlib Handler 是薄 HTTP adapter
-│   ├── http_api.py            # Route.access + *Service → HttpResult（stdlib 与 ASGI 共用）
-│   ├── asgi.py                # Starlette/uvicorn 管；不持有 ACL
-│   ├── backend.py             # 公网 fail-closed：Postgres + S3；--local 才 SQLite
-│   ├── upload_slots.py        # 进程内 in-flight upload 上限
-│   ├── auth_service.py / package_service.py / result_service.py / org_service.py / runtime_service.py
-│   ├── queries.py             # 唯一 SQL / schema 文本
-│   ├── dataset.py             # draft 槽常量、task 集指纹、suite 完备谓词
-│   ├── sql_adapter.py         # sqlite/postgres 只 connect / placeholder / row-map
-│   ├── store.py               # 一份 MetadataStore + 薄 Postgres 适配
-│   ├── blob_io.py / spool.py  # 整包 put/open 走 Path；上传 spool 后再校验
-│   └── routes.py              # ROUTES 必须声明 access；skip_auth 仅 access=none
-├── examples/                  # 见 examples/README.md
-│   ├── journeys/              # case-class：env / multiagent / tau2 / terminal（+ profiles.nooa / profiles.dsh[.read-only]）
-│   ├── core/                  # config / harness / eval / agent / SDK
-│   ├── l1/                    # Provider L1 isolation probes
-│   └── slot-probe/            # multi-slot 插件 e2e（需 bora plugin install）
-├── plugins/                   # 外置 bora.plugin/1 示例（不进 Core contrib）
-│   ├── nooa/                  # executor provide + image_contribute Ready
-│   ├── dsh/                   # DeepSeek Harness JSON-RPC executor + bake
-│   ├── home-files/            # on: home_overlay 复制原语
-│   ├── agent-skills/          # home_overlay dest 展开（plugin_requires: home-files）
-│   └── slot-probe/            # multi 钩子可观测探针
+│   ├── viewer/                      # `ageval view` SPA
+│   └── hub/                         # Registry Dataset / Plugin / Agent / Leaderboard
+├── services/registry/               # 独立 HTTP：Route.access + *Service
+│   ├── app.py / http_api.py / asgi.py / backend.py
+│   ├── auth_service.py / package_service.py / result_service.py / org_service.py
+│   ├── queries.py / dataset.py / sql_adapter.py / store.py
+│   └── routes.py                    # ROUTES 必须声明 access
+├── examples/
+│   ├── core/                        # acp-local-min / acp-docker-min / …
+│   ├── journeys/                    # terminal-jsonl-agg / env-postgres-min / …
+│   ├── l1/                          # docker topology 示例（多 group 真调度不承诺）
+│   ├── tau3-airline/                # airline-00 lock
+│   └── agents/
+├── plugins/                         # 外置 ageval.plugin/1
+│   ├── nooa/ / dsh/ / miniswe/
+│   ├── home-files/ / agent-skills/
+│   └── slot-probe/
+├── docker/attempt/                  # 官方基座：ACP entries bake-in
 ├── tests/
-│   ├── acceptance/
-│   ├── config/
-│   ├── plugins/               # registry / lock bindings / slot wiring / CLI lifecycle
-│   └── test_package_baseline.py
-├── docs/                      # 设计权威（00–14）
-└── website/                   # 读者向文档站（Fumadocs；非设计权威）
+├── docs/
+└── website/
 ```
 
-Hub Agent appearances are a **derived view** over official public suite rows whose `job_overlay` carries a published `agent_ref` (`org/name`); not a Core object and not a stored Runtime. There is no `/runtimes` product surface.
+Hub Agent appearances 是官方公开 suite 行上 `job_overlay.agent_ref` 的**派生视图**，不是 Core 对象。没有 `/runtimes` 产品面。
 
-Production Attempt path: `run_task` mints identity once, then `run_lifecycle(lock, LocalL0Stages | DockerL1Stages, attempt=)`. L1 `agent_server.stop` and writer confirmation (`stop_agent_targets`, or `fence_agent_writers` when `evaluation.reuse_attempt`) stay in the run `finally`; network / `l1-work` teardown still goes through `DockerL1Stages.cleanup`. Parent + authority share one `AgentInvocationQuota` object from `assemble_parent_agent_service`.
+Production Attempt：`application/run.py` 铸造 identity 一次，然后 `attempt.run_attempt`。cleanup 在 `try/finally`。Parent Agent Service 与硬顶共享同一配额对象。
 
-### Target Source Layout（planned — 随 Core 交付出现）
+### Target Source Layout（尚未全部兑现）
 
-以下树是**接受的方向**，不是当前工作树。模块命名可微调，但 **Core 所有权不得并入 Harness workflow 包**。
+以下是接受的方向，**不是**把 Current 再拆回 `adapters/` + `run_l0.py`。
 
 ```text
-BORA/
-├── pyproject.toml
-├── src/bora/
-│   ├── cli/                   # Typer：参数、帮助、输出、exit code
-│   ├── application/           # use cases + 唯一 composition root（bootstrap）
-│   ├── config/                # Core 1：model、load_and_lock、校验
-│   ├── runtime/               # Core 2：identity、coordinator、lifecycle、outcomes
-│   ├── provider/              # Core 3：契约与 workspace plan（非 Docker 细节）
-│   ├── capabilities/          # Core 4：agent/env/workspace/artifacts/events 契约
-│   ├── evaluation/            # Core 5：barrier、bind、result 模型
-│   ├── domain/                # 薄共享 value types / 错误类型
-│   ├── plugins/contrib/acp/   # first-party ACP：parent client + entry registry
-│   └── adapters/              # 具体 I/O：package fs、docker、credentials、evidence
-│       ├── agent_container.py # L1 placement helpers
-│       └── agent_openai_http.py
-├── sdk/python/bora_sdk/       # Harness Core：HarnessContext 等（可选 import）
-├── examples/                  # 仓库拥有的回归 package
-├── tests/                     # unit / integration / opt-in e2e
-├── docker/attempt/            # L1 基座：install-executors + acp-entries.lock（engine+ACP bake-in）
-└── （可选）benchmarks/
+src/ageval/
+  cli/ application/ attempt/phases/ config/
+  environments/protocol.py          # 仍无厂商 SDK
+  plugins/contrib/{acp,docker,local,e2b,ssh,openai_http}
+  plugins/defaults/                 # 或迁到 contrib/defaults，二选一，不要两套
+  runtime/{identity,parent_agent,task_launch,task_worker}
+  evaluation/{bind,package_evaluator,box_runner}
+  evidence/{locators,store,trajectory}
 ```
+
+**刻意不建（Current 已删除，Target 也不得回潮）：**
+
+- `src/bora/`
+- `environment/manager.py`
+- `adapters/` 大杂烩、`agent_container.wrap_docker_exec`
+- 分叉的生命周期模块（Attempt 只走 `attempt/phases/`）
+- 产品 `executor: mock` / FakeHost
 
 ### 生成物（非源码所有权）
 
-| 路径/模式                                                  | 说明                                       |
-| ---------------------------------------------------------- | ------------------------------------------ |
-| `.bora/`                                                   | runs、locks、本地 profile、转换 receipt 等 |
-| `.venv/`、`__pycache__/`、`.pytest_cache/`、`.ruff_cache/` | 工具链                                     |
-| `dist/`、`*.egg-info/`                                     | 构建产物                                   |
+| 路径/模式 | 说明 |
+| --- | --- |
+| `.ageval/` | runs、suite-runs、本机 plugin cache、credentials |
+| `.venv/`、`__pycache__/`、`.pytest_cache/`、`.ruff_cache/` | 工具链 |
+| `dist/`、`*.egg-info/` | 构建产物 |
 
-## Module Ownership（Target）
+## Module Ownership（Current）
 
-| 路径                                        | 唯一责任                                                                                                                        | 不负责                                                          |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `cli/`                                      | argv、帮助、人类可读输出、exit code 映射                                                                                        | 读 package 业务、启 Docker、写 evidence 细节                    |
-| `application/`                              | run/inspect/campaign 等 use case；**装配 adapters**                                                                             | 把业务规则藏在 bootstrap 外的隐式全局单例                       |
-| `config/`                                   | Database resolve；读成员 `task.yaml`、合并、校验、canonicalize、digest、`LockedTaskConfig`                                      | 执行 harness、评测                                              |
-| `registry/`（client）+ `services/registry/` | PackageRef resolve、publish client、verified cache；独立 Registry HTTP 服务                                                     | 不做 PASS / 不持有 store credential 给 CLI                      |
-| `runtime/`                                  | Run/Trial/Attempt、外层状态机、取消/超时进入 cleanup                                                                            | Provider 实现细节、评分                                         |
-| `provider/`（契约）                         | 隔离档、workspace plan、进程/容器生命周期接口                                                                                   | Benchmark 名分支                                                |
-| `capabilities/`                             | Capability 面与 Attempt 注入契约                                                                                                | 具体 Codex/DB 实现                                              |
-| `evaluation/`                               | barrier 顺序、raw 校验、扁平 Result、与 evidence 衔接                                                                           | package 内评分逻辑                                              |
-| `evidence/`                                 | Attempt store / redaction / 层 C `trajectory.jsonl` writer（只消费 `bora.trajectory.event/1`） | vendor 协议解析；PASS | 
-| `plugins/contrib/acp/`                      | first-party parent ACP client、entry registry、entry-local bind                                                                  | 层 C writer；`bora plugin install`；按 vendor 再写 stdout scrape |
-| `adapters/*`                                | package fs、Docker、credentials；`openai-http` api-client                                                                        | 解释 Benchmark 业务 action catalog；第二套 vendor stdout scrape；写层 C；拥有 ACP client |
-| `domain/`                                   | 跨模块稳定值对象与错误分类                                                                                                      | I/O、Typer、Docker SDK                                          |
-| `bora_sdk`                                  | Harness 侧类型与薄 helper                                                                                                       | Control Plane 内部类型、verdict                                 |
-| `examples/`                                 | 可信回归 package                                                                                                                | 声称支持完整 upstream suite                                     |
-| `tests/`                                    | 契约与回归证据                                                                                                                  | 成为 production composition root                                |
-| `docs/`                                     | 设计与产品规格                                                                                                                  | 版本勾选状态、Phase 清单                                        |
-| `website/`                                  | 读者向产品文档（中/英）；不拥有设计真理                                                                                         | 设计权威、Runtime                                               |
+| 路径 | 唯一责任 | 不负责 |
+| --- | --- | --- |
+| `cli/` | argv、帮助、exit code | 读题包业务、启 Docker、拼 evidence 路径 |
+| `application/` | lock/run/campaign/suite/registry/plugin/agent/jobs；**装配** | 把业务规则藏在 bootstrap 外的全局单例 |
+| `application/composition.py` | 唯一 production `build_*` | 业务算法 |
+| `config/` | dataset resolve；读 `task.yaml` / profiles；digest | 执行 `run.py`、评测 |
+| `attempt/` | 相位序、`emit`、AttemptCtx | 厂商 SDK、`container_id` |
+| `environments/` | Protocol + caps + 流形状 | `import e2b` / `docker` / `paramiko` |
+| `plugins/contrib/docker/` | `docker exec`、compose、uid/gid、镜像 | ACP 协议 |
+| `plugins/contrib/e2b/` | E2B SDK、template alias（缓存在该账号，Core 不实现） | Core 缓存层 |
+| `plugins/contrib/ssh/` | ssh A/B、`ssh -T` / `docker exec` | 本机假 agent |
+| `plugins/contrib/acp/` | parent ACP client、entry registry、`attach_stdio` 消费方 | 层 C writer；vendor stdout scrape |
+| `plugins/defaults/` | `environment_setup` 认 `setup.sh` | 假 executor |
+| `runtime/` | identity、parent Agent Service、task worker 子进程、取消/超时 | 盒子实现、评分 |
+| `evaluation/` | barrier 顺序、盒内 runner、扁平 Result | 题包评分算法 |
+| `evidence/` | store / redaction / 层 C `trajectory.jsonl` | vendor 协议解析；PASS |
+| `registry/` + `services/registry/` | PackageRef、publish、verified cache；独立 HTTP | PASS；把 store credential 交给 CLI |
+| `ageval_sdk` | 题包类型与薄 helper | Control Plane 内部类型、verdict |
+| `examples/` | 可信回归 dataset | 声称支持完整 upstream suite |
+| `tests/` | 契约与回归 | 成为 production composition root |
+| `docs/` | 设计与产品规格 | 版本勾选状态 |
+| `website/` | 读者向用法 | 设计权威 |
 
 ## Dependency Direction
 
-依赖箭头含义：**Python import 允许方向**（编译期/静态依赖）。
+依赖箭头 = **Python import 允许方向**。
 
 ```text
-cli ──────────────► application
-                       │
-                       ├─► config / runtime / capabilities / evaluation / domain
-                       │
-                       └─► adapters ──► domain + 契约模块
-                                        （adapters 不反向被 domain import）
+cli ──────────────► application.composition
+                         │
+                         ├─► config / attempt / runtime / capabilities / evaluation
+                         │
+                         └─► plugins.bootstrap ──► contrib/* ──► environments.protocol
+                                                    （contrib 不反向被 protocol import）
 
-bora_sdk ──► 仅最小公开 DTO / 协议形状
-             （禁止 import application、adapters 内部、Control Plane 私有模块）
+ageval_sdk ──► 仅最小公开 DTO / 协议形状
+               （禁止 import application、contrib 内部、Control Plane 私有模块）
 ```
 
 ### 禁止
 
-- `domain/` 或纯契约模块依赖 Typer、Docker SDK、SQLAlchemy、随意 `subprocess` 副作用。
-- CLI 直接调用 Codex、直接写 evidence 树、直接解析 package 业务。
-- Control Plane import/execute task-local `harness.py` / evaluator **作为 Python 模块**。
-- Harness / SDK 取得 host credential 文件内容、Docker socket 控制面、final-result 发布权。
+- `environments/protocol.py` 依赖 Typer、Docker SDK、e2b SDK、SQLAlchemy。
+- CLI 直接调用 Codex、直接写 evidence 树、直接解析题包业务；CLI 绕过 composition。
+- Control Plane import/execute 题包 `run.py` / `evaluator.py` **作为 Python 模块**（必须进程或适配器边界）。
+- SDK 取得 host credential 文件内容、Docker socket 控制面、final-result 发布权。
 - 在 composition root **之外**隐式注册全局 Adapter 单例。
-- Adapter 根据 Benchmark 名称、task id、upstream 品牌选择行为。
+- 适配器根据 Benchmark 名称、task id、upstream 品牌选择行为。
+- ACP / `attempt` / `run.py` 出现 `container_id`、`if kind == e2b`。
+- 第二套 `resolve_executor` / CLI 旁路 / application 里手 new Docker。
 - 测试 helper 被 production 代码 import 作为唯一装配路径。
 
-第三方 workflow SDK：仅允许 task package 或**明确**的 bridge adapter 依赖；不得反向成为 Core authority。
+第三方 workflow SDK：仅允许题包或**明确**的外置 plugin 依赖；不得反向成为 Core authority。
 
 ## Composition Root
 
-| 项             | 规则                                                                                            |
-| -------------- | ----------------------------------------------------------------------------------------------- |
-| 唯一生产装配点 | `application` 内 bootstrap（实现后写入具体模块路径）                                            |
-| 测试           | 可有测试专用 wiring，但公开 smoke 必须走 production CLI 入口                                    |
-| 插件发现       | 扩展注册表 + `bora plugin install` 本地 cache；失败 fail-closed；禁止 agent_executors dual path |
+| 项 | 规则 |
+| --- | --- |
+| 唯一生产装配点 | `src/ageval/application/composition.py` 的 `build_*` |
+| 新公开 usecase | 必须有对应 `build_*` |
+| CLI | 只 import `ageval.application.composition`（及 `ageval.cli` 自己） |
+| 测试 | 可有测试专用 wiring；公开 smoke 必须走 production CLI |
+| 插件发现 | 扩展注册表 + `ageval plugin install` 本地 cache；失败 fail-closed；禁止 `ageval.agent_executors` dual path |
 
 ## Extension emit map（Current）
 
-Host **awaits** registered multi handlers / provide SPI at fixed control points.
-Plugins rewrite or short-circuit via `(ctx, value, next)` — **not** by appending
-declaration rows for Core to interpret later.
+Host **awaits** 已注册的链槽 / 独占赢家。插件经 `(ctx, value, nxt)` 改写或短路，**不是**丢声明行给 Core 事后解释。
+
+槽名权威：`src/ageval/plugins/slots.py`。只有 **exclusive** 与 **chain** 两种。Current 独占槽：`environment`、`executor`。盒内 evaluator 与层 C 轨迹写入是引擎代码，不是插件服务。
 
 ```text
-open_session → resolve graph pin → before/after_agent_open
-invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
-             → normalize_agent_result
-             → seal: trajectory_collect → enrich
-                    → Core evidence writer (bora.trajectory.event/1 → trajectory.jsonl)
-                    → trajectory_seal provide → evidence_extra
-close_session → before_agent_close → executor.close → after_agent_close
+environment phase
+  before_environment
+  host.start
+  upload data/ → /attempt/workspace
+  after_environment_ready      # ACP which / 探测再装
+  environment_setup            # setup.sh（defaults）
+  after_environment
 
-home_overlay → Core default builds cred tree → nxt (plugin files) → copy actor HOME
-env prepare  → seed/health → env_prepare multi (live ctx)
-             → env_inject multi → env_action provide (optional action_gate)
-env teardown → env_teardown multi → EnvironmentManager.close
+run phase
+  before_run
+  子进程 python -m ageval.runtime.task_worker → run.py
+    Agent.session → unix socket → ParentAgentService
+      before/after_agent_open
+      before_agent_invoke → executor.invoke(attach_stdio) → after_agent_invoke
+      normalize_agent_result
+      before/after_agent_close
+  stop Agent Service；mark_writers_stopped
+  after_run
 
-evaluate     → evaluation_input_contribute → evaluation_runtime provide
-             → package evaluator → score_postprocess
+evaluate phase
+  before_evaluate
+  upload evaluation/           # gold 此刻才进盒
+  盒内 evaluator.py
+  bind_evaluation              # PASS 只在这里进 Result
+  after_evaluate               # 不得改 status
+
+record phase
+  trajectory_collect → enrich
+  引擎写 trajectory.jsonl      # 层 C；插件不能替代
+
+cleanup (finally)
+  cleanup_report
+  host.stop
 ```
 
-Authority / inventory: `src/bora/plugins/slots.py`，[`docs/design/11-extension-plugins.md`](docs/design/11-extension-plugins.md)。
+`FAIL_OPEN_SLOTS`：`before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `cleanup_report`。其余槽失败即该相位失败。
 
-**回归包（非默认 smoke）：** 外置 [`plugins/slot-probe`](plugins/slot-probe/) +
-Database [`examples/slot-probe`](examples/slot-probe/)。
-`bora plugin install` 后 `bora run`；观测 hooks audit 与 trajectory metadata。
-详见 `examples/README.md` § slot-probe。
-
-## Lifecycle（Target）
+## Lifecycle（Current）
 
 ### 外层状态（Attempt）
 
 ```text
 created
-  → preparing      # Provider + resources
-  → running_harness
-  → harness_terminal
-  → sealing_inputs # stop writers + materialize
-  → evaluating
-  → binding_result
-  → cleaning_up
-  → terminal       # succeeded | failed | cancelled | …（精确枚举由实现 Spec 固定）
+  → locking          # load_and_lock
+  → preflight        # host.preflight；缺钥在此失败
+  → environment      # start + seed + setup
+  → run              # run.py + ACP
+  → evaluate         # 停写 + gold + bind
+  → record
+  → cleanup          # finally，任何失败路径都进
+  → terminal         # PASS | FAIL | ERROR
 ```
 
 ### 顺序不变量
 
-1. 未 `load_and_lock` 成功不得启动 harness。
-2. Evaluator 不得与可写 Agent/Harness writer 并发写同一评测输入。
+1. 未 `load_and_lock` 成功不得 `start` 盒子、不得 invoke。
+2. Evaluator 不得与可写 Agent/`run.py` writer 并发面对同一评测输入。gold 在 evaluate 开头才 upload。
 3. `cleanup` 必须可从超时/取消/异常进入；cleanup 失败 → warning，不覆盖已 bind 的 score。
-4. retry / 重跑 → **新 Attempt**，不静默改写旧 Attempt identity。
-5. Campaign 只调度 Trial，不与 Attempt 内 workflow scheduler 合并。
+4. retry / 重跑 → **新 Attempt**，不静默改写旧 Attempt identity。一次 Attempt 只 `IdentityFactory.new_run` 一次。
+5. Campaign 只调度 Trial/格点，不与 `run.py` 内 workflow 合并。
 
-详细状态机见 [docs/design/05-runtime/lifecycle.md](docs/design/05-runtime/lifecycle.md)。
+详细相位见 [docs/design/05-runtime/lifecycle.md](docs/design/05-runtime/lifecycle.md)。
 
-## Data Flow（Target）
+## Data Flow（Current）
 
-| 数据                                                | 生产者                 | 消费者                                      | 边界规则                       |
-| --------------------------------------------------- | ---------------------- | ------------------------------------------- | ------------------------------ |
-| Database `bora.yaml` + 成员 `task.yaml` / overrides | 作者 / CLI             | Config Core                                 | 唯一规范读取                   |
-| `LockedTaskConfig`                                  | Config                 | Lifecycle、Provider、Capability、Evaluation | 可复盘；无 secret 明文         |
-| `ctx.params`                                        | Config 投影            | Harness                                     | 只读；无 gold/credential       |
-| Agent prompt / tools                                | Harness                | AgentExecutor                               | 不得默认含 secret              |
-| Credential material                                 | 宿主 store             | 仅获准 Adapter 进程                         | 投影最小集；不进 lock/evidence |
-| Workspace bytes                                     | Provider mount         | Harness/Agent 视图                          | path view 限制                 |
-| Published artifacts                                 | Harness via capability | Evaluation materialize                      | logical name + allowlist       |
-| Evaluator raw                                       | task evaluator         | Result binder                               | 独立 materialization           |
-| Flat Result                                         | Evaluation Core        | CLI / evidence / 后期聚合                   | status/score/metrics 最小集    |
-| Evidence tree                                       | adapters/filesystem    | 人类与后续工具                              | 无 secret；可定位 raw          |
+| 数据 | 生产者 | 消费者 | 边界规则 |
+| --- | --- | --- | --- |
+| `ageval.yaml` + `task.yaml` + `profiles.yaml` | 作者 / CLI | Config | 唯一规范读取；未知 format 一个错误 |
+| `LockedTaskConfig` + `extension_bindings` | Config | Attempt、盒子、executor、Evaluation | 可复盘；无 secret 明文 |
+| `ctx.params` | Config 投影 | `run.py` | 只读；无 gold/credential |
+| Agent prompt / tools | `run.py` | ACP / 其它 executor | 不得默认含 secret |
+| Credential material | 宿主 env | 仅获准 executor 子进程 | locator；不进 lock/evidence |
+| Workspace bytes | 盒子 upload/bind | Agent 与 `run.py` 可见面 | 合同路径 `/attempt/workspace` |
+| Published artifacts | `ctx.publish_json` | evaluate materialize | logical name + allowlist |
+| Evaluator raw | 题包 `evaluator.py` | `bind_evaluation` | 独立 materialization；同盒 |
+| Flat Result | Evaluation | CLI / evidence / 聚合 | `status`/`score`/`kind`/`logs` |
+| Evidence tree | `evidence/` | 人类与后续工具 | 无 secret；可定位 |
 
-## Platform Boundary（Target）
+## Platform Boundary（Current）
 
-| 平台能力                | Owner                              | 备注                    |
-| ----------------------- | ---------------------------------- | ----------------------- |
-| 本机 process（L0）      | Provider adapter                   | `v0.3`                  |
-| Docker Attempt（L1）    | Provider adapter                   | `v0.8`                  |
-| ACP coding-agent        | first-party `plugins/contrib/acp`  | 唯一 coding-agent inlet；entry-local bind 留在插件内 |
-| 其他 Agent 后端         | `openai-http` / 插件 Executor kind | 非 vendor stdout scrape |
-| DB/浏览器等             | Environment adapter                | `v0.10`                 |
-| 宿主持久化 ControlStore | 未定；默认不做                     | 勿提前引入              |
+| 平台能力 | Owner | 备注 |
+| --- | --- | --- |
+| `environment: local` | `plugins/contrib/local` | 真目录 |
+| `environment: docker` | `plugins/contrib/docker` | 真容器；compose / uid_gid / path_views |
+| `environment: e2b` | `plugins/contrib/e2b` | SDK 只在本包；缺 `E2B_API_KEY` preflight 失败 |
+| `environment: ssh` A/B | `plugins/contrib/ssh` | A 无 image；B 有远端 tag |
+| ACP coding-agent | `plugins/contrib/acp` | 唯一 coding-agent inlet；`attach_stdio` |
+| 其他 Agent 后端 | `openai-http` / 外置 `nooa` `dsh` | 非 vendor stdout scrape |
+| 官方基座镜像 | `docker/attempt/` | build 期 bake ACP entries；invoke 禁止 `npm i` |
+| Registry HTTP | `services/registry/` | Handler 不直接 `state.meta` |
 
-## Failure and Privacy Boundary（Target）
+## Failure and Privacy Boundary
 
-| 失败类             | 表现                                        | 归属                  |
-| ------------------ | ------------------------------------------- | --------------------- |
-| 配置/锁失败        | 非 0；无伪 PASS                             | Config / CLI          |
-| 未授权 effect      | 执行前拒绝                                  | Capability / Provider |
-| Agent 基础设施错误 | runtime failed；可无 score                  | Runtime / Executor    |
-| 评测低分           | evaluation fail/score；runtime 可 succeeded | Evaluation            |
-| Evaluator crash    | 明确错误相位                                | Evaluation            |
-| Cleanup 失败       | warning                                     | Provider / Lifecycle  |
-| 用户取消/超时      | 进入 cleanup                                | Lifecycle             |
+| 失败类 | 表现 | 归属 |
+| --- | --- | --- |
+| 配置/锁失败 | 非 0；无伪 PASS | Config / CLI |
+| 未知 format | `invalid_format` 于 `/format` | Config |
+| 缺 cap / 缺 inject | lock 失败 | Config / plugins |
+| 缺钥（e2b/ssh/ACP） | preflight 或 invoke 一次失败 | 盒子 / executor |
+| 未授权 effect | 执行前拒绝 | Capability / 盒子 |
+| Agent 基础设施错误 | ERROR；可无 score | runtime / executor |
+| 评测低分 | FAIL + score；Attempt 仍完整 | Evaluation |
+| Evaluator crash | `error.phase = evaluate` | Evaluation |
+| Cleanup 失败 | warning | 盒子 / Attempt |
+| 用户取消/超时 | 进入 cleanup | Attempt / runtime |
 
-隐私：token、`CODEX_HOME` 内容、DB 密码不得出现在 lock、默认日志、evidence 正文。
+隐私：token、`CODEX_HOME` 内容、DB 密码、SSH 私钥不得出现在 lock、默认日志、evidence 正文。
 
 ## Testing and Evidence
 
-| 等级                      | 含义                                                                                                                          |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `design-only`             | 仅文档 / 未跑通真实 Agent 的表面                                                                                              |
-| `runnable-mvp`            | 真实 public entrypoint + 真实 Agent（**当前限定** `examples/core/sdk-agent-session` 与 journeys 类；见 `examples/README.md`） |
-| `isolated`                | 隔离 Attempt + 红线负向                                                                                                       |
-| `real-benchmark-verified` | 固定 upstream、限定范围公开 journey                                                                                           |
+| 等级 | 含义 | 何时可声称 |
+| --- | --- | --- |
+| `design-only` | 仅文档 | 未被公开 smoke 覆盖的路径（含 e2b/ssh 真跑，在无钥时） |
+| `runnable-mvp` | 真实 public entrypoint + 真实 Agent | 有对应公开 journey（当前：core local/docker ACP、journeys 点名题） |
+| `isolated` | 隔离 Attempt + 隔离红线 | 有对应验收证据；不得从 docker 一次 PASS 推导 |
+| `real-benchmark-verified` | 固定 upstream + 限定范围公开 journey | 有对应验收；不得扩成全 suite |
 
-| 测试层           | 用途                    | 不能单独证明    |
-| ---------------- | ----------------------- | --------------- |
-| unit             | 纯规则、schema、状态机  | 产品可运行      |
-| integration      | adapter 接线、本地 fake | 真实 Codex/上游 |
-| e2e / 公开 smoke | production CLI          | —               |
+| 测试层 | 用途 | 不能单独证明 |
+| --- | --- | --- |
+| unit | 纯规则、schema、相位 | 产品可运行 |
+| integration | 接线 | 真实 ACP / E2B / SSH |
+| e2e / 公开 smoke | production CLI | — |
 
-Fixture 与 mock 不得升级证据等级。
+Fixture 与 mock 不得升级证据等级。`AGEVAL_SKIP_REAL_ACP=1` 只表示 CI 没跑这条。
 
 ## Change Ownership
 
-| 变更类型                                                 | 首先更新                                     | 同步                             |
-| -------------------------------------------------------- | -------------------------------------------- | -------------------------------- |
-| 顶层目录、模块所有权、import direction、composition root | **本文**                                     | 根 `AGENTS.md`、代码             |
-| 产品/机制设计、红线、Capability 契约语义                 | `docs/design/*`（必要时 PRD）                | 本文相关节、Issues、website 摘要 |
-| 实现期用户点名绑定决策                                   | 写入相关 `docs/design/*` 或 `AGENTS.md` 红线 | 代码、Issues                     |
-| 增量交付与验收跟踪                                       | GitHub Issues                                | PR、smoke、README 状态           |
-| 实现 delta 与证据                                        | 代码 / 测试 / 公开 smoke                     | Issues                           |
-| CLI 用户入口或公开支持范围                               | `README.md` + `website/`                     | docs 摘要                        |
-| 读者向用法（CLI / Viewer / Hub）                         | `website/`                                   | 与 docs 冲突时以 docs 为准       |
+| 变更类型 | 首先更新 | 同步 |
+| --- | --- | --- |
+| 顶层目录、模块所有权、import direction、composition root | **本文** | 根 `AGENTS.md`、代码 |
+| 产品/机制设计、红线、盒子 Protocol | `docs/design/*`（必要时 PRD） | 本文相关节、Issues、website |
+| 实现期用户点名绑定决策 | 写入相关 `docs/design/*` 或 `AGENTS.md` 红线 | 代码、Issues |
+| 增量交付与验收跟踪 | GitHub Issues | PR、smoke、README 状态 |
+| 实现 delta 与证据 | 代码 / 测试 / 公开 smoke | Issues |
+| CLI 用户入口或公开支持范围 | `README.md` + `website/` | docs 摘要 |
+| 读者向用法（CLI / Viewer / Hub） | `website/` | 与 docs 冲突时以 docs 为准 |
 
 ## 与设计文档的分工
 
-| 问题                         | 读哪里                                                                                                                 |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 为什么这样切 Core？          | [docs/design/01](docs/design/01-bora-core.md)                                                                          |
-| `bora.yaml` 字段与 lock？    | [docs/design/02](docs/design/02-task-package-and-config.md)                                                            |
-| Harness / SDK API 形状？     | [docs/design/03](docs/design/03-harness-layer.md)、[04](docs/design/04-harness-core-sdk.md)                            |
-| Runtime/Agent Service 细节？ | [docs/design/05-runtime/](docs/design/05-runtime/)（ACP：[agent-service.md](docs/design/05-runtime/agent-service.md)） |
-| 插件与可见性？               | [docs/design/06](docs/design/06-capability-adapter-visibility.md)                                                      |
-| 评测与失败语义？             | [docs/design/07](docs/design/07-budget-evaluation-failure.md)                                                          |
-| Owner 矩阵全文？             | [docs/design/09](docs/design/09-owner-matrix-and-structure.md)                                                         |
-| 源码放哪、谁依赖谁？         | **本文**                                                                                                               |
+| 问题 | 读哪里 |
+| --- | --- |
+| 产品故事 / 命名 / 非目标？ | [docs/design/00](docs/design/00-overview-and-product.md) |
+| 为什么这样切 Core / 五相位？ | [docs/design/01](docs/design/01-ageval-core.md) |
+| `ageval.yaml` 字段与 lock？ | [docs/design/02](docs/design/02-task-package-and-config.md) |
+| `run.py` / SDK API？ | [docs/design/03](docs/design/03-task-run-and-sdk.md) |
+| 盒子 kind / ACP / evaluate / evidence？ | [docs/design/05-runtime/](docs/design/05-runtime/) |
+| 插件独占/链？ | [docs/design/11](docs/design/11-extension-plugins.md) |
+| 评测与失败语义？ | [docs/design/07](docs/design/07-budget-evaluation-failure.md) |
+| Owner 矩阵全文？ | [docs/design/09](docs/design/09-owner-matrix-and-structure.md) |
+| 源码放哪、谁依赖谁、生命周期图？ | **本文** |
