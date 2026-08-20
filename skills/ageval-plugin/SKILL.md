@@ -17,7 +17,8 @@ Host declares slots in `src/ageval/plugins/slots.py`. Plugins fill them.
 
 `ageval plugin install` writes `~/.ageval/plugins` only. Never rewrites profiles.
 
-inject: `service: environment` (need `attach_stdio`). Do not pin `plugin_id: e2b` from ACP.
+inject: `service: environment`. ACP needs `attach_stdio`. In-box workers
+(dsh / nooa) need `exec` and `upload`. Do not pin `plugin_id: e2b`.
 
 Name by mechanism (`acp`, `e2b`, `ssh`, `nooa`). First-party lives in `src/ageval/plugins/contrib/`. External packages under `plugins/`.
 

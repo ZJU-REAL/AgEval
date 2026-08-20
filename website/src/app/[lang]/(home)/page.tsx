@@ -331,29 +331,21 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                   {"      "}
                   <span className="ck">entry:</span> <span className="cs">&quot;dsh_plugin.factory:build_executor&quot;</span>
                   {"\n"}
-                  {"  "}
-                  <span className="ck">chain:</span>
+                  <span className="ck">inject:</span>
                   {"\n"}
-                  {"    "}- <span className="ck">id:</span> trajectory_collect
+                  {"  "}- <span className="ck">service:</span> environment{"\n"}
+                  {"    "}
+                  <span className="ck">capabilities:</span> [exec, upload]
                 </pre>
                 <pre className="code-panel mini" tabIndex={0}>
-                  <span className="cc"># plugins/dsh/src/dsh_plugin/factory.py</span>
+                  <span className="cc"># plugins/dsh — parent never imports the harness</span>
                   {"\n"}
-                  <span className="ck">DEFAULT_MODEL</span> = <span className="cs">&quot;deepseek-v4-flash&quot;</span>
+                  <span className="ck">def</span> build_executor(*, host, placement, **kw) -&gt; DshBoxExecutor:{"\n"}
+                  {"    "}
+                  <span className="ck">return</span> DshBoxExecutor(host=host, placement=placement, **kw)
                   {"\n\n"}
-                  <span className="ck">def</span> build_executor(**kwargs) -&gt; DshExecutorSPI:{"\n"}
-                  {"    "}
-                  <span className="ck">return</span> DshExecutorSPI(**kwargs){"\n\n"}
-                  <span className="ck">class</span> DshExecutorSPI:{"\n"}
-                  {"    "}kind = <span className="cs">&quot;dsh&quot;</span>
-                  {"\n"}
-                  {"    "}
-                  <span className="ck">def</span> bind_to_target(self, placement):{"\n"}
-                  {"        "}
-                  <span className="cc"># bind into the box Core already opened</span>
-                  {"\n"}
-                  {"        "}
-                  <span className="ck">return</span> DshContainerExecutor(...)
+                  <span className="ck">await</span> host.upload(worker, <span className="cs">&quot;/attempt/home/_dsh/…&quot;</span>){"\n"}
+                  <span className="ck">await</span> host.exec([*host.python_command, worker, request], env=creds)
                 </pre>
               </div>
             </div>

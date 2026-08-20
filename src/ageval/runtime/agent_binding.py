@@ -83,10 +83,6 @@ class AgentBinder:
         host = self.services.require(ENVIRONMENT)
         model = str(row.get("model") or "entry-default")
         placement = host.placement()
-        workdir = None
-        host_path = getattr(host, "host_path", None)
-        if callable(host_path):
-            workdir = str(host_path(placement.workdir))
         package_root = str(self.task_root) if self.task_root is not None else None
         executor = bind_winner(
             self.registry,
@@ -98,7 +94,6 @@ class AgentBinder:
             api_key=_text(row.get("api_key")),
             host=host,
             placement=placement,
-            workdir=workdir,
             package_root=package_root,
         )
         return BoundAgent(

@@ -8,21 +8,18 @@ the official Python JSON-RPC SDK (`deepseek-harness-sdk` + bundled
 for ageval evidence (no tools / reasoning / usage; model is not on
 `config_options`).
 
-```python
-from deepseek_harness import DeepSeekHarness
+The parent does not import the harness. It injects the `environment` service
+(`exec`, `upload`), uploads the worker into the box, and runs it with
+`host.exec`. Credentials stay locators until invoke, then project into the
+exec env as `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL`.
 
-with DeepSeekHarness(model="deepseek-v4-flash", cwd=workdir, session_root=attempt_dir) as h:
-    result = h.start_session(session_id).run(prompt)
-```
-
-Profile `model` is passed on `initialize`. `api_key` is an env locator
-(never a secret value). Sessions persist under the Attempt (`DSH_SESSION_ROOT`),
-not the task workspace.
+Profile `model` is passed on `initialize`. Sessions persist under the Attempt
+home (`/attempt/home/dsh-sessions`), not the task workspace.
 
 ## Install
 
 ```bash
-uv sync --extra dsh          # L0 host SPI only; L1 bake installs the wheels in-image
+uv sync --extra dsh          # local kind: the box Python is this interpreter
 uv run ageval plugin install plugins/dsh
 uv run ageval lock examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/profiles.dsh.yaml --probe
@@ -34,7 +31,9 @@ edits `profiles.yaml` / `ageval.yaml` / `task.yaml`.
 ## Bind
 
 ```yaml
-bindings:
+format: ageval.profiles/1
+environment: docker
+agent_profiles:
   solver:
     executor: dsh
     extensions:
@@ -42,6 +41,7 @@ bindings:
         options:
           composition: slim               # omit permission → unrestricted local bash/fs
           # permission: read-only         # or workspace-write | danger-full-access
+      - plugin: docker
     model: deepseek-v4-flash
     api_key: ${deepseek_api_key}          # env locator
 ```
@@ -60,14 +60,14 @@ write. Do not claim bash confinement on this runtime.
 
 Batch approval is `never` in the sandboxed tree so an unattended `ageval run`
 cannot hang on a permission prompt. This is a DSH file-effect policy, not
-ageval isolation. L1 Docker + landlock / Seatbelt may fail to start
+ageval isolation. Docker + landlock / Seatbelt may fail to start
 (`SANDBOX_UNAVAILABLE`); that fails closed. Do not claim `isolated` from this
 knob.
 
-Same harness; switch only via profiles or
+Same `run.py`; switch only via profiles or
 `--set '/bindings/<role>/options/permission="read-only"'`.
 
-## Journeys smoke (L1, real API)
+## Journeys smoke (real API)
 
 ```bash
 uv run ageval plugin install plugins/dsh
@@ -79,15 +79,17 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
-## Recognition ≠ L0 host-ready ≠ L1 bake-declared
+Evidence for a successful invoke includes worker metadata
+`execution_location: attempt-container`. A kind that cannot `exec` fails at
+`ageval lock`, not mid-invoke.
+
+## Recognition ≠ this host can run ≠ image baked
 
 - **install** → Recognition only (`plugin list` / executor visible)
-- **`host_requires`** → L0 needs `deepseek_harness` on the host (`uv sync --extra dsh`); L1 does not
-- **profiles `executor: dsh`** → bind provide only (+ model / api_key locator)
-- **`extensions: [{plugin: dsh}]`** → opt-in bake / trajectory collect (required for L1 Ready)
-- **`--probe`** → binding-aware feasibility (`provider.kind` local vs docker); no Agent, no bake
-- **L1 bake-declared** → this profile selected `image_contribute` + `docker/Dockerfile.bake`; prepare bakes wheels +
-  `ageval-executor-dsh`; invoke is **docker exec** with projected `DEEPSEEK_API_KEY`
+- **`host_requires`** → local kind needs `deepseek_harness` on this interpreter (`uv sync --extra dsh`); docker bake installs the wheels in-image
+- **profiles `executor: dsh`** → exclusive slot winner (+ model / api_key locator)
+- **`extensions: [{plugin: dsh}]`** → opt-in bake / trajectory collect
+- **`--probe`** → binding-aware feasibility; no Agent, no bake
+- **image baked** → `Dockerfile.bake` installs `deepseek-harness-sdk` into the box Python. The worker script is uploaded at invoke and run with `host.exec` + projected `DEEPSEEK_API_KEY`
 
-Host SPI success is not L1 Ready. Offline (`AGEVAL_OFFLINE_AGENT=1`) fail-closes
-without spawning the runtime.
+Offline (`AGEVAL_OFFLINE_AGENT=1`) fail-closes without calling the provider.

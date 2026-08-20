@@ -36,6 +36,9 @@ slots:
     - id: trajectory_collect
       priority: 110
       entry: "my_mech.hooks:trajectory_collect"
+inject:
+  - service: environment
+    capabilities: [exec, upload]   # ACP uses attach_stdio instead
 config:
   image_layers: docker/Dockerfile.bake
 ```
@@ -52,9 +55,10 @@ An environment plugin fills exclusive slot `environment` and implements
 ## Executor
 
 Host factory: `build_executor(**kwargs)`. Common kwargs: `options`, `profile_id`,
-`model`, `base_url`, `api_key` (locator name), `plugin_id`.
+`model`, `base_url`, `api_key` (locator name), `host`, `placement`, `package_root`.
 
-On docker, the box owns `attach_stdio` / in-box workers. Missing bind → fail closed.
+ACP attaches with `host.attach_stdio`. dsh / nooa run a baked (or uploaded)
+worker with `host.exec` and `host.upload`. Missing capability → lock fails.
 Core must not reconstruct a container executor by kind. No silent host fallback.
 
 `describe()` keys already in production (copy semantics):

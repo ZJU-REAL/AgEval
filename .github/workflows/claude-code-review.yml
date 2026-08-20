@@ -1,20 +1,32 @@
-# Automatic PR review via Claude Code Action, backed by GLM Coding Plan
-# (Anthropic-compatible endpoint). Secrets live under:
-#   Settings → Secrets and variables → Actions
-# Not under "Agents" (that is for Copilot cloud agent only).
+# Claude Code PR review via GLM Coding Plan (Anthropic-compatible endpoint).
+#
+# Auto: non-draft pull requests whose base is `main`.
+# Manual: Actions → "Claude Code Review (GLM)" → Run workflow (write access).
+#   Select the branch that contains this file (usually `main`) and pass a PR
+#   number. Works for any base, including canary, and for drafts.
+#
+# Secrets: Settings → Secrets and variables → Actions
+# (not "Agents" — that is Copilot cloud agent only).
 name: Claude Code Review (GLM)
 
 on:
   pull_request:
+    branches: [main]
     types: [opened, synchronize, ready_for_review, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to review (any base branch; drafts allowed)
+        required: true
+        type: string
 
 concurrency:
-  group: claude-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+  group: claude-review-${{ github.repository }}-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   review:
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -34,19 +46,48 @@ jobs:
       ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'glm-5.3' }}
 
     steps:
-      - name: Checkout repository
+      - name: Resolve PR number
+        id: pr
+        env:
+          EVENT: ${{ github.event_name }}
+          DISPATCH_PR: ${{ inputs.pr_number }}
+          AUTO_PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            NUMBER="$DISPATCH_PR"
+          else
+            NUMBER="$AUTO_PR"
+          fi
+          case "$NUMBER" in
+            ''|*[!0-9]*)
+              echo "Invalid PR number: ${NUMBER:-<empty>}" >&2
+              exit 1
+              ;;
+          esac
+          echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout merge commit
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Checkout pull request head
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: refs/pull/${{ steps.pr.outputs.number }}/head
 
       - name: Claude PR review
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          track_progress: true
+          # Keep an explicit prompt (agent mode). Tag mode rejects
+          # workflow_dispatch and requires this file to match `main` byte-for-byte.
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR NUMBER: ${{ steps.pr.outputs.number }}
 
             You are reviewing a PR for **ageval** (Bounded Orchestration for Runtime Agents).
             Read `AGENTS.md` and, if touched, relevant `docs/design/*`, `ARCHITECTURE.md`,
