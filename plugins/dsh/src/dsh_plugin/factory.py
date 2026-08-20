@@ -19,6 +19,7 @@ from typing import Any
 from ageval.plugins.agent_result import AgentResult, parse_validated_text_structured
 from ageval.plugins.errors import ExtensionMaterializeError
 from dsh_plugin import PLUGIN_ID
+from dsh_plugin.sse_sanitize import start_sanitizing_proxy
 from dsh_plugin.trajectory import extract_usage, to_ageval_trajectory_events
 
 DEFAULT_MODEL = "deepseek-v4-flash"
@@ -27,8 +28,17 @@ DEFAULT_COMPOSITION = "slim"
 SANDBOXED_COMPOSITION = "sandboxed"
 PERMISSION_ENV = "DSH_PERMISSION_MODE"
 PERMISSION_MODES = frozenset({"read-only", "workspace-write", "danger-full-access"})
-_CREDENTIAL_ENV_NAMES = ("DEEPSEEK_API_KEY", "deepseek_api_key")
-_BASE_URL_ENV_FALLBACKS = ("DEEPSEEK_BASE_URL", "deepseek_base_url")
+_CREDENTIAL_ENV_NAMES = (
+    "DEEPSEEK_API_KEY",
+    "deepseek_api_key",
+    "litellm_api_key",
+)
+_BASE_URL_ENV_FALLBACKS = (
+    "DEEPSEEK_BASE_URL",
+    "deepseek_base_url",
+    "litellm_base_url",
+    "OPENAI_BASE_URL",
+)
 _OK_REASONS = frozenset({"completed", "max-tokens"})
 
 
@@ -177,9 +187,11 @@ class DshExecutorSPI:
         api_key: str | None = None,
         plugin_id: str | None = None,
         workdir: str | None = None,
+        host: Any = None,
+        placement: Any = None,
         **_kwargs: Any,
     ) -> None:
-        del plugin_id
+        del plugin_id, _kwargs
         opts = dict(options or {})
         self.options = opts
         self.profile_id = profile_id
@@ -192,12 +204,15 @@ class DshExecutorSPI:
         )
         self.base_url = base_url
         self.api_key_env = api_key
+        self._host = host
+        self._placement = placement
         self.default_workdir = str(workdir).strip() if workdir else None
         self._harness: Any = None
         self._session: Any = None
         self._session_id = f"ageval-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
         self._session_root: str | None = None
         self._tmp_session: tempfile.TemporaryDirectory[str] | None = None
+        self._sse_proxy: Any = None
         self._ready = False
 
     @staticmethod
@@ -221,6 +236,11 @@ class DshExecutorSPI:
         if harness is not None:
             with contextlib.suppress(Exception):
                 harness.close()
+        proxy = self._sse_proxy
+        self._sse_proxy = None
+        if proxy is not None:
+            with contextlib.suppress(Exception):
+                proxy.close()
         tmp = self._tmp_session
         self._tmp_session = None
         if tmp is not None:
@@ -338,7 +358,7 @@ class DshExecutorSPI:
                 kind="extension_materialize_failed",
             )
         cordis = resolve_composition_path(self.composition)
-        cwd = str(Path(workdir or Path.cwd()).expanduser().resolve(strict=False))
+        cwd = self._resolve_cwd(workdir)
         if self._session_root is None:
             self._tmp_session = tempfile.TemporaryDirectory(prefix="ageval-dsh-")
             self._session_root = self._tmp_session.name
@@ -346,7 +366,9 @@ class DshExecutorSPI:
         if key:
             env["DEEPSEEK_API_KEY"] = key
         if base:
-            env["DEEPSEEK_BASE_URL"] = base
+            proxy = start_sanitizing_proxy(base)
+            self._sse_proxy = proxy
+            env["DEEPSEEK_BASE_URL"] = proxy.local_base_url
         env.update(permission_child_env(self.permission))
         self._harness = DeepSeekHarness(
             provider=self.provider,
@@ -359,6 +381,17 @@ class DshExecutorSPI:
         self._harness.start()
         self._session = self._harness.start_session(self._session_id)
         self._ready = True
+
+    def _resolve_cwd(self, workdir: str | None) -> str:
+        if workdir:
+            return str(Path(workdir).expanduser().resolve(strict=False))
+        if self.default_workdir:
+            return str(Path(self.default_workdir).expanduser().resolve(strict=False))
+        host_path = getattr(self._host, "host_path", None)
+        placement = self._placement
+        if callable(host_path) and placement is not None:
+            return str(host_path(placement.workdir))
+        return str(Path.cwd().resolve())
 
 
 def build_executor(**kwargs: Any) -> DshExecutorSPI:

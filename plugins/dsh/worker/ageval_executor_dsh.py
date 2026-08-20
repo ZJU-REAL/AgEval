@@ -165,14 +165,30 @@ def main() -> int:
         child_env["DSH_PERMISSION_MODE"] = permission
         os.environ["DSH_PERMISSION_MODE"] = permission
     try:
-        with DeepSeekHarness(
-            provider=provider,
-            model=model,
-            cwd=workdir,
-            session_root=session_root,
-            cordis=cordis,
-            env=child_env,
-        ) as harness:
+        from dsh_plugin.sse_sanitize import sanitizing_base_url
+    except ImportError as exc:
+        return _emit(
+            {
+                "ok": False,
+                "error": f"dsh_sanitize_missing:{exc}",
+                "model": model,
+                "text": "",
+                "metadata": {"plugin": "dsh"},
+            },
+            code=2,
+        )
+    try:
+        with (
+            sanitizing_base_url(),
+            DeepSeekHarness(
+                provider=provider,
+                model=model,
+                cwd=workdir,
+                session_root=session_root,
+                cordis=cordis,
+                env=child_env,
+            ) as harness,
+        ):
             session = harness.start_session(session_id_s)
             result = session.run(prompt)
         native = [e for e in (result.events or []) if isinstance(e, dict)]
