@@ -12,7 +12,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - **Organizations**: create from the list page or join with an invite key; members, org datasets / plugins / agents (separate tables), shared suite results  
 - **Org settings**: invite keys (shown once on create); owners add members by GitHub login, change role, remove, or transfer ownership; leave or dissolve  
 - Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
-- Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases  
+- Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases. Org owners can flip the current version public/private, delete it, or promote a draft to a release  
 - Tasks table: README present, recent job count, last score/status  
 - Leaderboard: **Public** (default) lists complete, release-bound suite rows only. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). Task Jobs stay as they are.  
 - Plugin detail: exclusive / chain **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  

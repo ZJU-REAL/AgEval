@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BindingPreview } from "@/components/binding-preview";
 import { CatalogHead } from "@/components/page-head";
@@ -7,6 +7,7 @@ import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
+import { PackageOwnerOps } from "@/components/package-owner-ops";
 import {
   Table,
   TableBody,
@@ -22,7 +23,9 @@ import {
   getOrg,
   getPackageByDigest,
   getPackageFile,
+  isDraftRelease,
   listPackageFiles,
+  listPackageVersions,
   listPackageVersionsWithAppearances,
   splitPackageId,
   updatePackageDisplayName,
@@ -39,6 +42,8 @@ export function AgentDetailPage() {
   const { agentId: rawId } = useParams();
   const agentId = decodeDatasetId(rawId || "");
   const token = getToken();
+  const navigate = useNavigate();
+  const [reloadAt, setReloadAt] = useState(0);
 
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [preview, setPreview] = useState<AgentPreview | null>(null);
@@ -136,7 +141,7 @@ export function AgentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [agentId, token]);
+  }, [agentId, token, reloadAt]);
 
   useEffect(() => {
     if (!release || !selectedPath) {
@@ -254,7 +259,7 @@ export function AgentDetailPage() {
           <p className="text-sm text-mute mt-1">
             <span className="font-mono">@{agentId}</span>
             {" · "}
-            v{release.version} · {release.visibility}
+            {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
             {release.org_id ? (
               <>
                 {" "}
@@ -271,6 +276,24 @@ export function AgentDetailPage() {
               </>
             ) : null}
           </p>
+        ) : null}
+        {release ? (
+          <div className="mt-3">
+            <PackageOwnerOps
+              packageId={agentId}
+              release={release}
+              canManage={canEditName}
+              token={token}
+              onUpdated={(next) => setRelease(next)}
+              onDeleted={() => {
+                void listPackageVersions(agentId, token).then((rows) => {
+                  if (!rows.length) navigate("/agents");
+                  else setReloadAt((n) => n + 1);
+                });
+              }}
+              onReleased={() => setReloadAt((n) => n + 1)}
+            />
+          </div>
         ) : null}
         {preview?.description ? (
           <p className="text-sm text-body mt-2 max-w-2xl">{preview.description}</p>

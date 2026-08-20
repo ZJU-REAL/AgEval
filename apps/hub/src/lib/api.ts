@@ -735,6 +735,45 @@ export async function updatePackageDisplayName(
   });
 }
 
+export async function setPackageVisibility(
+  packageId: string,
+  version: string,
+  visibility: "public" | "private",
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(
+    `/v1/packages/${packageIdPath(packageId)}/versions/${encodeURIComponent(version)}`,
+    { token, method: "PATCH", body: { visibility } },
+  );
+}
+
+export async function deletePackageRelease(
+  packageId: string,
+  version: string,
+  token: string | null,
+): Promise<{ ok?: boolean }> {
+  return requestJson(
+    `/v1/packages/${packageIdPath(packageId)}/versions/${encodeURIComponent(version)}`,
+    { token, method: "DELETE" },
+  );
+}
+
+export async function releasePackageDraft(
+  packageId: string,
+  body: {
+    visibility?: "public" | "private";
+    version?: string;
+    replace?: boolean;
+  },
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}/release`, {
+    token,
+    method: "POST",
+    body,
+  });
+}
+
 export async function listOrgMembers(
   orgId: string,
   token: string | null,

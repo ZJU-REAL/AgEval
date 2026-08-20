@@ -9,6 +9,7 @@ import { LeaderboardTable } from "@/components/leaderboard-table";
 import { OfficialMark } from "@/components/official-mark";
 import { OverlayFilePanel } from "@/components/overlay-file-panel";
 import { Markdown } from "@/components/markdown";
+import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { VersionSwitcher } from "@/components/version-switcher";
 import {
   Table,
@@ -411,13 +412,38 @@ export function DatasetDetailPage() {
             </p>
           ) : null}
         </div>
-        {versions.length > 0 ? (
-          <VersionSwitcher
-            versions={versions}
-            value={release?.version || versions[0].version}
-            onChange={setVersion}
-          />
-        ) : null}
+        <div className="flex flex-col items-end gap-2">
+          {versions.length > 0 ? (
+            <VersionSwitcher
+              versions={versions}
+              value={release?.version || versions[0].version}
+              onChange={setVersion}
+            />
+          ) : null}
+          {release ? (
+            <PackageOwnerOps
+              packageId={datasetId}
+              release={release}
+              canManage={canEditName}
+              token={token}
+              onUpdated={(next) => setRelease(next)}
+              onDeleted={() => {
+                const rest = versions.filter((v) => v.version !== release.version);
+                if (!rest.length) {
+                  navigate("/datasets");
+                  return;
+                }
+                const next = pickPackageVersion(rest);
+                setVersions(rest);
+                if (next) setVersion(next.version);
+              }}
+              onReleased={(next) => {
+                setRelease(next);
+                setVersion(next.version);
+              }}
+            />
+          ) : null}
+        </div>
       </div>
 
       <div className="mb-4 max-w-3xl">

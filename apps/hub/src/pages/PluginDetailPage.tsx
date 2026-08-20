@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
+import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { InlineMarkdown } from "@/components/markdown";
 import {
   declaredSlotsFromPreview,
@@ -17,6 +18,7 @@ import {
   getOrg,
   getPackageByDigest,
   getPackageFile,
+  isDraftRelease,
   listPackageFiles,
   listPackageVersions,
   splitPackageId,
@@ -32,6 +34,8 @@ export function PluginDetailPage() {
   const { pluginId: rawId } = useParams();
   const pluginId = decodeDatasetId(rawId || "");
   const token = getToken();
+  const navigate = useNavigate();
+  const [reloadAt, setReloadAt] = useState(0);
 
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [preview, setPreview] = useState<PluginPreview | null>(null);
@@ -135,7 +139,7 @@ export function PluginDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [pluginId, token]);
+  }, [pluginId, token, reloadAt]);
 
   useEffect(() => {
     if (!release || !selectedPath) {
@@ -228,7 +232,7 @@ export function PluginDetailPage() {
           <p className="text-sm text-mute mt-1">
             <span className="font-mono">@{pluginId}</span>
             {" · "}
-            v{release.version} · {release.visibility}
+            {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
             {release.org_id ? (
               <>
                 {" "}
@@ -245,6 +249,24 @@ export function PluginDetailPage() {
               </>
             ) : null}
           </p>
+        ) : null}
+        {release ? (
+          <div className="mt-3">
+            <PackageOwnerOps
+              packageId={pluginId}
+              release={release}
+              canManage={canEditName}
+              token={token}
+              onUpdated={(next) => setRelease(next)}
+              onDeleted={() => {
+                void listPackageVersions(pluginId, token).then((rows) => {
+                  if (!rows.length) navigate("/plugins");
+                  else setReloadAt((n) => n + 1);
+                });
+              }}
+              onReleased={() => setReloadAt((n) => n + 1)}
+            />
+          </div>
         ) : null}
       </div>
 

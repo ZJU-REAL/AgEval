@@ -12,7 +12,7 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - **组织**：可在列表页创建或用邀请码加入；成员、组织内的 Dataset / 插件 / Agent（分表）、别人分享过来的 suite 结果  
 - **组织设置**：邀请码（创建后只展示一次）；owner 可按 GitHub login 加人、改角色、移除或转让；离开或解散组织  
 - Task 下的 **Jobs**：已上传运行产物时可点进详情（界面与本机 Viewer 相近，含轨迹）  
-- Dataset 版本切换：有权限的人能看到 **draft (current)**，其他人只能切已发布 release  
+- Dataset 版本切换：有权限的人能看到 **draft (current)**，其他人只能切已发布 release。org owner 可改当前版本可见性、删除该版本，或把 draft 发布成 release  
 - Tasks 表：README 是否存在、近期 job 数、最近一次分数/状态  
 - Leaderboard：**Public**（默认）只列完备且绑定 release 的 suite；**Internal** 用同一张表列出当前可见的缺题 / draft 绑定跑次。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）。Task Jobs 不变。  
 - 插件详情：独占 / 链 **声明槽**时间线，点开跳到包内文件预览；浏览器不执行插件  
