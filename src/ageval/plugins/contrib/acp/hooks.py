@@ -96,7 +96,7 @@ async def _ensure_entry_present(ctx: Any, descriptor: AcpEntryDescriptor) -> Non
             "declares no install command",
         )
     result = await host.exec(
-        ["sh", "-lc", descriptor.install_command],
+        ["bash", "-lc", descriptor.install_command],
         timeout_sec=ctx.remaining_seconds(),
     )
     ctx.record_fact(
@@ -136,7 +136,7 @@ def _needed_commands(descriptor: AcpEntryDescriptor) -> list[str]:
 
 async def _present(host: Any, command: str, *, ctx: Any) -> bool:
     result = await host.exec(
-        ["sh", "-lc", f"command -v {command}"],
+        ["bash", "-lc", f"command -v {command}"],
         timeout_sec=ctx.remaining_seconds(),
     )
     return result.exit_code == 0

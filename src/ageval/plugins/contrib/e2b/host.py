@@ -9,11 +9,13 @@ alias and the sandbox id lives in this package.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import os
+import threading
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 from ageval.environments.protocol import (
     ARTIFACTS_PATH,
@@ -27,23 +29,59 @@ from ageval.environments.protocol import (
 )
 
 API_KEY_ENV = "E2B_API_KEY"
+_API_KEY_ALIASES = (API_KEY_ENV, "e2b_api_key")
 BOX_ROOT = "/attempt"
 _MAX_STREAM_BYTES = 256 * 1024
 
 
 class E2BStdio:
-    """Live pipe to a foreground command in the sandbox."""
+    """ACP needs real fds. Pump the sandbox command onto OS pipes."""
 
-    def __init__(self, handle: Any, stdin: Any, stdout: Any, stderr: Any) -> None:
+    def __init__(self, handle: Any) -> None:
         self._handle = handle
-        self.stdin = stdin
-        self.stdout = stdout
-        self.stderr = stderr
+        self.stderr = None
+        in_r, in_w = os.pipe()
+        out_r, out_w = os.pipe()
+        self.stdin: IO[bytes] = os.fdopen(in_w, "wb", buffering=0)
+        self.stdout: IO[bytes] = os.fdopen(out_r, "rb", buffering=0)
+        self._in_r: IO[bytes] = os.fdopen(in_r, "rb", buffering=0)
+        self._out_w: IO[bytes] = os.fdopen(out_w, "wb", buffering=0)
+        threading.Thread(target=self._pump_in, name="e2b-stdin", daemon=True).start()
+        threading.Thread(target=self._pump_out, name="e2b-stdout", daemon=True).start()
+
+    def _pump_in(self) -> None:
+        send = getattr(self._handle, "send_stdin", None)
+        try:
+            while True:
+                chunk = self._in_r.read(4096)
+                if not chunk:
+                    break
+                if callable(send):
+                    send(chunk.decode("utf-8", errors="replace"))
+        finally:
+            with contextlib.suppress(Exception):
+                self._in_r.close()
+
+    def _pump_out(self) -> None:
+        try:
+            for event in self._handle:
+                text = _stdout_from_event(event)
+                if not text:
+                    continue
+                payload = text.encode("utf-8") if isinstance(text, str) else bytes(text)
+                self._out_w.write(payload)
+                self._out_w.flush()
+        finally:
+            with contextlib.suppress(Exception):
+                self._out_w.close()
 
     def terminate(self) -> None:
         kill = getattr(self._handle, "kill", None)
         if callable(kill):
             kill()
+        for stream in (self.stdin, self.stdout, self._in_r, self._out_w):
+            with contextlib.suppress(Exception):
+                stream.close()
 
     def wait(self, timeout: float | None = None) -> int | None:
         del timeout
@@ -83,6 +121,9 @@ class E2BHost:
         self._task_root = spec.task_root
         self._dockerfile = spec.dockerfile
         self._declared_image = _text(opts.get("image") or opts.get("docker_image"))
+        # Exact dashboard alias: skip Dockerfile build. Distinct from the
+        # default prefix used when we hash a recipe into ``name__digest``.
+        self._ready_template = _text(opts.get("template_id"))
         self._template_name = _text(opts.get("template")) or "ageval-attempt"
         self._timeout_seconds = _seconds(opts.get("timeout_seconds"), default=900)
         self._sandbox: Any = None
@@ -93,7 +134,7 @@ class E2BHost:
 
     async def preflight(self) -> None:
         """No key, no sandbox — and no attempt to create one."""
-        if not os.environ.get(API_KEY_ENV, "").strip():
+        if not _api_key():
             raise EnvironmentFailure(
                 "environment_preflight_failed",
                 f"{API_KEY_ENV} is not set; the e2b kind cannot open a sandbox",
@@ -149,13 +190,23 @@ class E2BHost:
         argv = [str(part) for part in command]
         if not argv:
             raise EnvironmentFailure("environment_exec_invalid", "exec requires a command")
-        result = await asyncio.to_thread(
-            self._sandbox.commands.run,
-            _shell_line(argv),
-            cwd=cwd or WORKSPACE_PATH,
-            envs=self._child_env(env),
-            timeout=int(timeout_sec) if timeout_sec else 0,
-        )
+        try:
+            result = await asyncio.to_thread(
+                self._sandbox.commands.run,
+                _shell_line(argv),
+                cwd=cwd or WORKSPACE_PATH,
+                envs=self._child_env(env),
+                timeout=int(timeout_sec) if timeout_sec else 0,
+            )
+        except Exception as exc:  # noqa: BLE001 — vendor raises on nonzero
+            code = getattr(exc, "exit_code", None)
+            if code is None:
+                raise
+            return ExecResult(
+                exit_code=int(code or 1),
+                stdout=str(getattr(exc, "stdout", "") or "")[:_MAX_STREAM_BYTES],
+                stderr=str(getattr(exc, "stderr", "") or str(exc))[:_MAX_STREAM_BYTES],
+            )
         return ExecResult(
             exit_code=int(getattr(result, "exit_code", 0) or 0),
             stdout=str(getattr(result, "stdout", "") or "")[:_MAX_STREAM_BYTES],
@@ -175,11 +226,62 @@ class E2BHost:
             await asyncio.to_thread(self._sandbox.files.write, target, payload)
 
     async def download(self, source: str, dest: Path) -> None:
+        """Copy a file or a directory's contents. ``files.read`` is files only."""
         self._assert_started()
         target = Path(dest).expanduser()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        payload = await asyncio.to_thread(self._sandbox.files.read, source, "bytes")
-        target.write_bytes(bytes(payload))
+        try:
+            info = await asyncio.to_thread(self._sandbox.files.get_info, source)
+        except Exception as exc:  # noqa: BLE001 — vendor stat
+            if _is_missing(exc):
+                raise EnvironmentFailure(
+                    "environment_download_missing",
+                    f"download source does not exist in box: {source}",
+                ) from exc
+            raise EnvironmentFailure(
+                "environment_download_failed",
+                f"stat {source} failed: {exc}",
+            ) from exc
+        if _entry_kind(info) == "file":
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(await self._read_bytes(source))
+            return
+        target.mkdir(parents=True, exist_ok=True)
+        for remote in await self._walk_files(source):
+            rel = _rel_to(remote, source)
+            if rel is None:
+                continue
+            local = target / rel
+            local.parent.mkdir(parents=True, exist_ok=True)
+            local.write_bytes(await self._read_bytes(remote))
+
+    async def _read_bytes(self, path: str) -> bytes:
+        try:
+            payload = await asyncio.to_thread(self._sandbox.files.read, path, "bytes")
+        except Exception as exc:  # noqa: BLE001 — vendor read
+            raise EnvironmentFailure(
+                "environment_download_failed",
+                f"read {path} failed: {exc}",
+            ) from exc
+        return bytes(payload)
+
+    async def _walk_files(self, root: str) -> list[str]:
+        """Immediate children, then recurse. Depth-1 list is the portable API."""
+        try:
+            entries = await asyncio.to_thread(self._sandbox.files.list, root, 1)
+        except Exception as exc:  # noqa: BLE001 — vendor list
+            raise EnvironmentFailure(
+                "environment_download_failed",
+                f"list {root} failed: {exc}",
+            ) from exc
+        found: list[str] = []
+        for entry in entries or ():
+            path = _remote_path(root, entry)
+            kind = _entry_kind(entry)
+            if kind == "file":
+                found.append(path)
+            elif kind == "dir" and path.rstrip("/") != root.rstrip("/"):
+                found.extend(await self._walk_files(path))
+        return found
 
     async def attach_stdio(
         self,
@@ -202,12 +304,7 @@ class E2BHost:
             stdin=True,
             timeout=0,
         )
-        return E2BStdio(
-            handle,
-            stdin=_SandboxStdin(handle),
-            stdout=_SandboxStdout(handle),
-            stderr=None,
-        )
+        return E2BStdio(handle)
 
     # --- e2b specifics -------------------------------------------------------
 
@@ -227,6 +324,8 @@ class E2BHost:
 
     async def _ensure_template(self, sdk: Any, *, force_build: bool) -> str:
         """Reuse a template keyed by the recipe; build it only when new."""
+        if self._ready_template:
+            return self._ready_template
         if self._declared_image is not None and self._dockerfile is None:
             return await self._build_template(
                 sdk, from_image=self._declared_image, force=force_build
@@ -276,63 +375,23 @@ class E2BHost:
             raise EnvironmentFailure("environment_stopped", "e2b sandbox is already killed")
 
 
-class _SandboxStdin:
-    """Write side of an attached command."""
-
-    def __init__(self, handle: Any) -> None:
-        self._handle = handle
-
-    def write(self, payload: bytes) -> int:
-        self._handle.send_stdin(payload.decode("utf-8", errors="replace"))
-        return len(payload)
-
-    def flush(self) -> None:
-        return None
-
-
-class _SandboxStdout:
-    """Read side of an attached command, exposed as a byte stream."""
-
-    def __init__(self, handle: Any) -> None:
-        self._iterator = iter(handle)
-        self._buffer = b""
-
-    def read(self, size: int = -1) -> bytes:
-        while size < 0 or len(self._buffer) < size:
-            chunk = self._next_chunk()
-            if chunk is None:
-                break
-            self._buffer += chunk
-        if size < 0:
-            payload, self._buffer = self._buffer, b""
-            return payload
-        payload, self._buffer = self._buffer[:size], self._buffer[size:]
-        return payload
-
-    def readline(self) -> bytes:
-        while b"\n" not in self._buffer:
-            chunk = self._next_chunk()
-            if chunk is None:
-                break
-            self._buffer += chunk
-        line, _, rest = self._buffer.partition(b"\n")
-        self._buffer = rest
-        return line + b"\n" if rest or line else b""
-
-    def _next_chunk(self) -> bytes | None:
-        for event in self._iterator:
-            text = _stdout_from_event(event)
-            if text:
-                return text.encode("utf-8") if isinstance(text, str) else bytes(text)
-        return None
-
-
 def _stdout_from_event(event: Any) -> str | bytes | None:
     """Background ``commands.run`` yields ``(stdout, stderr, _)`` tuples."""
     if isinstance(event, tuple):
         return event[0] if event else None
     text = getattr(event, "stdout", None)
     return text if text else None
+
+
+def _api_key() -> str:
+    """SDK reads ``E2B_API_KEY``; accept the lowercase locator too."""
+    for name in _API_KEY_ALIASES:
+        val = os.environ.get(name, "").strip()
+        if val:
+            if name != API_KEY_ENV:
+                os.environ[API_KEY_ENV] = val
+            return val
+    return ""
 
 
 def _import_sdk() -> Any:
@@ -375,6 +434,48 @@ def _text(raw: object) -> str | None:
     if isinstance(raw, str) and raw.strip():
         return raw.strip()
     return None
+
+
+def _entry_kind(entry: Any) -> str:
+    kind = getattr(entry, "type", None)
+    value = getattr(kind, "value", kind)
+    text = str(value or "").strip().lower()
+    if text in {"file", "filetype.file"}:
+        return "file"
+    if text in {"dir", "directory", "filetype.dir"}:
+        return "dir"
+    return text
+
+
+def _remote_path(root: str, entry: Any) -> str:
+    path = str(getattr(entry, "path", "") or "").strip()
+    if path.startswith("/"):
+        return path
+    name = str(getattr(entry, "name", "") or path).strip()
+    if not name:
+        return root
+    return f"{root.rstrip('/')}/{name.lstrip('/')}"
+
+
+def _rel_to(path: str, root: str) -> str | None:
+    root_n = root.rstrip("/")
+    path_n = path.rstrip("/")
+    if path_n == root_n:
+        return None
+    prefix = f"{root_n}/"
+    if not path_n.startswith(prefix):
+        return None
+    rel = path_n[len(prefix) :]
+    if not rel or Path(rel).is_absolute() or ".." in Path(rel).parts:
+        return None
+    return rel
+
+
+def _is_missing(exc: BaseException) -> bool:
+    name = type(exc).__name__
+    if name in {"FileNotFoundException", "NotFoundException", "FileNotFoundError"}:
+        return True
+    return "not found" in str(exc).lower()
 
 
 __all__ = ["API_KEY_ENV", "E2BHost", "E2BStdio"]
