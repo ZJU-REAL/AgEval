@@ -11,6 +11,7 @@ import pytest
 from tests.helpers.box import local_box
 
 from ageval.environments.protocol import EnvironmentCapabilities
+from ageval.plugins.defaults import register_defaults
 from ageval.plugins.errors import ExtensionMaterializeError, InjectUnsatisfiedError
 from ageval.plugins.manifest import load_manifest
 from ageval.plugins.protocol import BindingIntent, InjectRequirement
@@ -92,6 +93,7 @@ def test_lock_fails_when_environment_cannot_exec() -> None:
         capabilities = EnvironmentCapabilities(upload=True)
 
     registry = ExtensionRegistry()
+    register_defaults(registry)
     registry.exclusive(ENVIRONMENT, "mute", MuteHost, source="test", is_factory=True)
     registry.exclusive(EXECUTOR, "nooa", build_executor, source="test", is_factory=True)
     registry.declare_inject(

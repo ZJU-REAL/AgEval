@@ -32,6 +32,7 @@ from ageval.plugins.slots import (
     ALL_SLOTS,
     ENVIRONMENT,
     EXECUTOR,
+    REQUIRED_EXCLUSIVE_SLOTS,
     SlotKind,
     get_slot_kind,
     is_slot,
@@ -142,6 +143,11 @@ def _resolve_exclusive(
         # No job field and no explicit row: only a registered default may win.
         candidates = [c for c in candidates if c.is_default]
         if not candidates:
+            if slot in REQUIRED_EXCLUSIVE_SLOTS:
+                raise ExtensionPluginNotFoundError(
+                    f"no plugin fills exclusive slot {slot!r}",
+                    kind="extension_plugin_not_found",
+                )
             return
     winner = pick_one(candidates, explicit, slot=slot)
     reg = winner.impl

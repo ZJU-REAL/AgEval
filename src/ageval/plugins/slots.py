@@ -25,6 +25,8 @@ class SlotKind(StrEnum):
 # --- exclusive slots (winner is also a service) ---
 ENVIRONMENT: Final = "environment"
 EXECUTOR: Final = "executor"
+EVALUATION_RUNTIME: Final = "evaluation_runtime"
+TRAJECTORY_SEAL: Final = "trajectory_seal"
 
 # --- environment phase chain ---
 BEFORE_ENVIRONMENT: Final = "before_environment"
@@ -60,6 +62,8 @@ DEFAULT_PRIORITY: Final = 1000
 _SLOT_KINDS: Final[dict[str, SlotKind]] = {
     ENVIRONMENT: SlotKind.EXCLUSIVE,
     EXECUTOR: SlotKind.EXCLUSIVE,
+    EVALUATION_RUNTIME: SlotKind.EXCLUSIVE,
+    TRAJECTORY_SEAL: SlotKind.EXCLUSIVE,
     BEFORE_ENVIRONMENT: SlotKind.CHAIN,
     AFTER_ENVIRONMENT_READY: SlotKind.CHAIN,
     ENVIRONMENT_SETUP: SlotKind.CHAIN,
@@ -83,6 +87,12 @@ _SLOT_KINDS: Final[dict[str, SlotKind]] = {
 ALL_SLOTS: Final[tuple[str, ...]] = tuple(_SLOT_KINDS)
 EXCLUSIVE_SLOTS: Final[tuple[str, ...]] = tuple(
     s for s, k in _SLOT_KINDS.items() if k is SlotKind.EXCLUSIVE
+)
+
+# Must have a winner at lock even with no job field. ``environment`` /
+# ``executor`` are selected by sugar; these two are engine defaults.
+REQUIRED_EXCLUSIVE_SLOTS: Final[frozenset[str]] = frozenset(
+    {EVALUATION_RUNTIME, TRAJECTORY_SEAL}
 )
 
 # Chain slots whose handler failure is recorded and stepped over. Everything

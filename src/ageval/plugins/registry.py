@@ -112,6 +112,15 @@ class ExtensionRegistry:
         sid = service_id.strip()
         if not sid:
             raise UnknownExtensionSlotError("service id required", kind="service_not_found")
+        from ageval.plugins.services import RESERVED_SERVICE_IDS
+
+        if sid in RESERVED_SERVICE_IDS:
+            from ageval.plugins.errors import ServiceConflictError
+
+            raise ServiceConflictError(
+                f"service {sid!r} is an engine invariant and cannot be provided by a plugin",
+                kind="service_conflict",
+            )
         if is_slot(sid):
             from ageval.plugins.errors import ServiceConflictError
 
