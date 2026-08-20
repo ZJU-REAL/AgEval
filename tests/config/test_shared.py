@@ -9,7 +9,6 @@ from tests.helpers.lock import lock_with_profiles
 
 from ageval.config.errors import ConfigError
 from ageval.config.shared import (
-    find_lib_collisions,
     find_task_shared_shadows,
     top_level_import_names,
     validate_shared_layout,
@@ -89,7 +88,6 @@ def test_same_stem_across_shared_and_task_lib_allowed(tmp_path: Path) -> None:
     shared_lib.mkdir(parents=True)
     (shared_lib / "bridge.py").write_text("x=1\n", encoding="utf-8")
     _write_task(tmp_path / "tasks" / "a", "a", lib_mod="bridge")
-    assert find_lib_collisions(tmp_path) == []
     validate_shared_layout(tmp_path)  # no raise
 
 

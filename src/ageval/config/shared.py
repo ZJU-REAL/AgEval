@@ -21,14 +21,6 @@ _FORBIDDEN_SHARED_TOP_LEVEL = frozenset(
 _RESERVED_TOP_LEVEL_PACKAGE = "shared"
 
 
-def shared_dir(dataset_root: Path) -> Path:
-    return dataset_root.expanduser().resolve(strict=False) / "shared"
-
-
-def shared_lib_dir(dataset_root: Path) -> Path:
-    return shared_dir(dataset_root) / "lib"
-
-
 def infer_dataset_root_from_task(task_dir: Path) -> Path | None:
     """Best-effort dataset root from a member task directory.
 
@@ -68,30 +60,6 @@ def top_level_import_names(lib_dir: Path) -> set[str]:
             # Treat any non-cache directory as an importable package name.
             names.add(child.name)
     return names
-
-
-def collect_shared_lib_names(dataset_root: Path) -> set[str]:
-    """Top-level stems under ``shared/lib`` (informational; no longer a lock ban)."""
-    return top_level_import_names(shared_lib_dir(dataset_root))
-
-
-def collect_task_lib_names(task_dir: Path) -> set[str]:
-    return top_level_import_names(task_dir / "lib")
-
-
-def find_lib_collisions(
-    dataset_root: Path,
-    *,
-    tasks_root: str = "tasks",
-    task_ids: list[str] | None = None,
-) -> list[tuple[str, str, str]]:
-    """Deprecated under #68: same stem under shared/lib and task lib is allowed.
-
-    Kept as an empty-list API for callers that still import the name; always
-    returns ``[]``. Prefer :func:`find_task_shared_shadows`.
-    """
-    _ = (dataset_root, tasks_root, task_ids)
-    return []
 
 
 def _task_ids_under(

@@ -333,11 +333,6 @@ def _options_for(
     return options_for_plugin(intent, plugin_id)
 
 
-def resolve_for_lock(intent: BindingIntent, registry: ExtensionRegistry) -> ExtensionGraph:
-    """Resolve without constructing heavy SPI instances (lock field only)."""
-    return resolve(intent, registry, materialize=False)
-
-
 def expand_extension_selects(
     selects: list[ExtensionSelect],
     registry: ExtensionRegistry,
@@ -378,45 +373,3 @@ def expand_extension_selects(
                 )
             )
     return out
-
-
-def inject_rows_from_manifest(raw: Any) -> tuple[InjectRequirement, ...]:
-    """Parse ``inject:`` rows from a plugin manifest mapping."""
-    if raw is None:
-        return ()
-    if not isinstance(raw, list):
-        from ageval.plugins.errors import ExtensionRegistryError
-
-        raise ExtensionRegistryError("inject must be a list", kind="invalid_extension_binding")
-    out: list[InjectRequirement] = []
-    for row in raw:
-        if not isinstance(row, dict):
-            from ageval.plugins.errors import ExtensionRegistryError
-
-            raise ExtensionRegistryError(
-                "inject rows must be mappings",
-                kind="invalid_extension_binding",
-            )
-        service = str(row.get("service") or "").strip()
-        if not service:
-            from ageval.plugins.errors import ExtensionRegistryError
-
-            raise ExtensionRegistryError(
-                "inject row requires service",
-                kind="invalid_extension_binding",
-            )
-        caps_raw = row.get("capabilities") or []
-        if not isinstance(caps_raw, list):
-            from ageval.plugins.errors import ExtensionRegistryError
-
-            raise ExtensionRegistryError(
-                "inject.capabilities must be a list",
-                kind="invalid_extension_binding",
-            )
-        out.append(
-            InjectRequirement(
-                service=service,
-                capabilities=tuple(str(c).strip() for c in caps_raw if str(c).strip()),
-            )
-        )
-    return tuple(out)

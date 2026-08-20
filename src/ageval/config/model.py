@@ -8,7 +8,7 @@ truth.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
@@ -115,12 +115,6 @@ class LockedTaskConfig:
                 return row
         return None
 
-    def bindings_for(self, profile_id: str) -> Mapping[str, Any] | None:
-        if self.extension_bindings is None:
-            return None
-        found = self.extension_bindings.get(profile_id)
-        return found if isinstance(found, Mapping) else None
-
 
 @dataclass(frozen=True, slots=True)
 class LockSummary:
@@ -177,10 +171,3 @@ def locked_to_summary(lock: LockedTaskConfig) -> LockSummary:
         job_overlay=lock.job_overlay,
         extension_bindings=lock.extension_bindings,
     )
-
-
-def model_as_dict(obj: Any) -> dict[str, Any]:
-    """Helper for tests — convert frozen dataclasses when needed."""
-    if hasattr(obj, "as_dict"):
-        return obj.as_dict()  # type: ignore[no-any-return]
-    return asdict(obj)

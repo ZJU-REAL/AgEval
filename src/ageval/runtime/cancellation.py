@@ -1,17 +1,8 @@
-"""Cancellation signal and monotonic clock helpers for Lifecycle Coordinator."""
+"""Cancellation signal observed by the Attempt host."""
 
 from __future__ import annotations
 
-import time
-from collections.abc import Callable
 from dataclasses import dataclass, field
-
-MonotonicClock = Callable[[], float]
-
-
-def default_monotonic_clock() -> float:
-    """Production monotonic clock (seconds)."""
-    return time.monotonic()
 
 
 @dataclass

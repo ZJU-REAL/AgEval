@@ -54,19 +54,3 @@ def extension_graph_to_lock(graph: ExtensionGraph) -> dict[str, Any]:
             for plugin_id, rows in sorted(graph.injects.items())
         }
     return out
-
-
-def extension_bindings_for_profiles(
-    graphs: dict[str, ExtensionGraph],
-) -> dict[str, dict[str, Any]]:
-    """Map profile id → lock extension_bindings subtree."""
-    return {pid: extension_graph_to_lock(g) for pid, g in graphs.items()}
-
-
-def winner_plugin(lock_fragment: dict[str, Any], slot: str) -> str | None:
-    """Plugin id bound to *slot* in a lock fragment, if any."""
-    row = (lock_fragment.get("slots") or {}).get(slot)
-    if not isinstance(row, dict) or row.get("kind") != "exclusive":
-        return None
-    plugin = row.get("plugin")
-    return str(plugin) if plugin else None

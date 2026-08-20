@@ -114,12 +114,3 @@ class IdentityFactory:
             trial=trial,
             retry_of_attempt_id=retry_of.value if retry_of is not None else None,
         )
-
-
-def assert_same_attempt(expected: AttemptIdentity, actual: AttemptIdentity) -> None:
-    """Fail closed if a fact/event identity does not match the active Attempt."""
-    if expected != actual:
-        raise LifecycleError(
-            "cross_attempt",
-            f"attempt mismatch: expected {expected.value}, got {actual.value}",
-        )
