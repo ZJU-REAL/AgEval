@@ -14,6 +14,20 @@ from typing import Any
 from ageval.plugins.manifest import PluginManifestError, load_manifest
 from ageval.plugins.paths import index_path, package_dir, plugins_root
 
+# Process-local index. Keyed by path + mtime + size so a write on disk
+# (install, uninstall, or a test replacing the file) is seen on the next read.
+_UNSET = object()
+_index_cache: PluginIndex | None = None
+_index_cache_key: object = _UNSET
+
+
+def _index_file_key(path: Path) -> tuple[str, int, int] | None:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (str(path), int(st.st_mtime_ns), int(st.st_size))
+
 
 @dataclass
 class IndexEntry:
@@ -73,15 +87,25 @@ def compute_tree_digest(root: Path) -> str:
 
 
 def load_index() -> PluginIndex:
+    global _index_cache, _index_cache_key
     path = index_path()
-    if not path.is_file():
+    key = _index_file_key(path)
+    if _index_cache is not None and _index_cache_key == key:
+        return PluginIndex(plugins=list(_index_cache.plugins))
+    if key is None:
+        _index_cache = PluginIndex()
+        _index_cache_key = None
         return PluginIndex()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
+        _index_cache = PluginIndex()
+        _index_cache_key = key
         return PluginIndex()
     plugins_raw = raw.get("plugins") if isinstance(raw, dict) else None
     if not isinstance(plugins_raw, list):
+        _index_cache = PluginIndex()
+        _index_cache_key = key
         return PluginIndex()
     entries: list[IndexEntry] = []
     for row in plugins_raw:
@@ -100,10 +124,13 @@ def load_index() -> PluginIndex:
             )
         except KeyError:
             continue
-    return PluginIndex(plugins=entries)
+    _index_cache = PluginIndex(plugins=entries)
+    _index_cache_key = key
+    return PluginIndex(plugins=list(entries))
 
 
 def save_index(index: PluginIndex) -> None:
+    global _index_cache, _index_cache_key
     root = plugins_root()
     root.mkdir(parents=True, exist_ok=True)
     path = index_path()
@@ -120,6 +147,8 @@ def save_index(index: PluginIndex) -> None:
         with contextlib_suppress():
             os.unlink(tmp_name)
         raise
+    _index_cache = PluginIndex(plugins=list(index.plugins))
+    _index_cache_key = _index_file_key(path)
 
 
 class contextlib_suppress:

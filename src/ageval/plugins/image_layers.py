@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ageval.plugins.manifest import PluginManifest, load_manifest
-from ageval.plugins.store import list_installed, resolve_package_root
+from ageval.plugins.store import load_index, resolve_package_root
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,9 +29,13 @@ def layers_for_plugins(plugin_ids: frozenset[str]) -> tuple[ImageLayer, ...]:
 
     Ordered by plugin id so the image key does not depend on resolve order.
     """
+    if not plugin_ids:
+        return ()
+    index = load_index()
     found: list[ImageLayer] = []
-    for entry in list_installed():
-        if entry.plugin_id not in plugin_ids:
+    for plugin_id in sorted(plugin_ids):
+        entry = index.find(plugin_id)
+        if entry is None:
             continue
         root = resolve_package_root(entry)
         manifest = _manifest(root)
@@ -48,7 +52,7 @@ def layers_for_plugins(plugin_ids: frozenset[str]) -> tuple[ImageLayer, ...]:
                 body=fragment.read_text("utf-8"),
             )
         )
-    return tuple(sorted(found, key=lambda layer: layer.plugin_id))
+    return tuple(found)
 
 
 def _manifest(root: Path) -> PluginManifest | None:

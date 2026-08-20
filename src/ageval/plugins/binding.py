@@ -14,18 +14,29 @@ from ageval.plugins.errors import ExtensionMaterializeError, ExtensionPluginNotF
 from ageval.plugins.protocol import ExtensionGraph
 from ageval.plugins.registry import ExtensionRegistry
 
+# Factory id → accepted kwarg names (None = pass the whole context).
+_accepted_names: dict[int, frozenset[str] | None] = {}
+
 
 def _accepted(factory: Any, context: dict[str, Any]) -> dict[str, Any]:
     """Pass only the context this factory declared; extras are not its business."""
     import inspect
 
-    try:
-        parameters = inspect.signature(factory).parameters
-    except (TypeError, ValueError):
+    key = id(factory)
+    if key not in _accepted_names:
+        try:
+            parameters = inspect.signature(factory).parameters
+        except (TypeError, ValueError):
+            _accepted_names[key] = None
+        else:
+            if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()):
+                _accepted_names[key] = None
+            else:
+                _accepted_names[key] = frozenset(parameters)
+    names = _accepted_names[key]
+    if names is None:
         return context
-    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()):
-        return context
-    return {key: value for key, value in context.items() if key in parameters}
+    return {name: value for name, value in context.items() if name in names}
 
 
 def bind_winner(
