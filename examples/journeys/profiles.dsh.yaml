@@ -8,5 +8,6 @@ agent_profiles:
       options:
         composition: slim
     - plugin: docker
-    model: deepseek-v4-flash
-    api_key: ${deepseek_api_key}
+    model: dashscope/deepseek-v4-flash
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}

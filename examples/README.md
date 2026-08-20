@@ -57,7 +57,7 @@ uv run ageval lock examples/core --task config-invalid       # exit 2, unknown_p
 | [`env-postgres-min`](journeys/tasks/env-postgres-min/)     | Environment + DB tools (no agent) |
 | [`multiagent-env-min`](journeys/tasks/multiagent-env-min/) | Multi-session + SQL tools         |
 | [`tau2-dialog-min`](journeys/tasks/tau2-dialog-min/)       | Dual-role dialog + tools          |
-| [`terminal-jsonl-agg`](journeys/tasks/terminal-jsonl-agg/) | L1 workspace file + clean eval    |
+| [`terminal-jsonl-agg`](journeys/tasks/terminal-jsonl-agg/) | workspace file + clean eval    |
 
 ### External nooa plugin (optional profiles)
 
@@ -74,7 +74,7 @@ uv run ageval run examples/journeys --profiles examples/journeys/profiles.nooa.y
 ```
 
 Package agents under each task’s `lib/agents.py` are `nooa.Agent` subclasses
-(generation methods). L1 Ready bakes `nooa` + in-container worker and projects
+(generation methods). Docker bake installs `nooa` + in-container worker and projects
 credentials — not parent host SPI success.
 
 ### External dsh plugin (optional profiles)
@@ -82,8 +82,8 @@ credentials — not parent host SPI success.
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) path: official
 JSON-RPC SDK (`deepseek-harness-sdk`), not ACP. Same journeys harness; bind
 `executor: dsh` + `extensions: [{plugin: dsh}]` + `model` + locator
-`deepseek_api_key`. L1 bake installs the wheels in the Attempt image — host
-`--extra dsh` is only for L0 host SPI. `executor:` alone does not bake.
+`deepseek_api_key`. Docker bake installs the wheels in the Attempt image — host
+`--extra dsh` is for local import. `executor:` alone does not bake.
 
 ```bash
 uv run ageval plugin install plugins/dsh
@@ -116,7 +116,7 @@ See [`slot-probe/README.md`](slot-probe/README.md).
 | [`config-invalid`](core/tasks/config-invalid/)                             | `ageval lock` expected-failure            |
 | [`harness-minimal`](core/tasks/harness-minimal/)                           | Worker harness, no agent                |
 | [`evaluator-negative`](core/tasks/evaluator-negative/)                     | completed ≠ PASS                        |
-| [`sdk-agent-session`](core/tasks/sdk-agent-session/)                       | L0 multi-invoke Agent + PASS            |
+| [`sdk-agent-session`](core/tasks/sdk-agent-session/)                       | multi-invoke Agent + PASS            |
 | [`plugin-agent-executor`](core/tasks/plugin-agent-executor/)               | `openai-http` second mechanism          |
 | [`attempt-trajectory`](core/tasks/attempt-trajectory/)                     | §8.9 trajectory + `Result.logs`         |
 | [`hard-ceiling-trajectory`](core/tasks/hard-ceiling-trajectory/)           | N+1 invoke denied                       |
@@ -126,12 +126,12 @@ See [`slot-probe/README.md`](slot-probe/README.md).
 | [`sdk-tool-guard-denied`](core/tasks/sdk-tool-guard-denied/)               | Tool policy denial                      |
 | [`environment-action-denied`](core/tasks/environment-action-denied/)       | Env undeclared/dangerous action deny    |
 
-## `l1/` (`dataset_id: example/l1`)
+## docker topology 示例 (`dataset_id: example/l1`)
 
 | Task                                                                           | Role                                    |
 | ------------------------------------------------------------------------------ | --------------------------------------- |
-| [`sdk-session-single-actor`](l1/tasks/sdk-session-single-actor/)               | L1 SDK session → attempt-container PASS |
-| [`executor-image-official`](l1/tasks/executor-image-official/)                 | Dockerfile `FROM ageval-attempt:l1`       |
+| [`sdk-session-single-actor`](l1/tasks/sdk-session-single-actor/)               | SDK session in a container              |
+| [`executor-image-official`](l1/tasks/executor-image-official/)                 | Dockerfile `FROM ageval-attempt:base`   |
 | [`executor-image-upstream`](l1/tasks/executor-image-upstream/)                 | Upstream base + install-executors       |
 | [`multi-agent-shared-container`](l1/tasks/multi-agent-shared-container/)       | shared-container multi-UID              |
 | [`multi-agent-container-per-group`](l1/tasks/multi-agent-container-per-group/) | container-per-group                     |
@@ -175,13 +175,13 @@ paths stay bounded:
 
 | Upstream | Hub package id (org `my-lab`) | Notes |
 | --- | --- | --- |
-| Terminal-Bench 2.0 | `terminal-bench-2` / light `terminal-bench-2-10` | L1 Docker + Harbor pytest-style verifier |
-| MARBLE coding | `marble-coding` / light `marble-coding-10` | L1 shared-container multi-agent coding |
+| Terminal-Bench 2.0 | `terminal-bench-2` / light `terminal-bench-2-10` | Docker + Harbor pytest-style verifier |
+| MARBLE coding | `marble-coding` / light `marble-coding-10` | shared-container multi-agent coding |
 
 Package presence, Hub publish, or a suite job on the board does **not** raise evidence grade
 (`package ≠ real-benchmark-verified`).
 
-> **Agent scheduling:** non-empty `agent_profiles` ⇒ Parent Agent Service / L1 SDK
+> **Agent scheduling:** non-empty `agent_profiles` ⇒ Parent Agent Service / SDK
 > session; harness owns every `Agent.session` / `invoke`. No Runtime one-shot.
 
 ## What was removed
@@ -193,7 +193,7 @@ Package presence, Hub publish, or a suite job on the board does **not** raise ev
 | `core/orchestration-environment`                                  | `journeys/multiagent-env-min`                          |
 | `l1/provider-l1-agent-eval`                                       | `sdk-session-single-actor`                             |
 | `l1/builtin-executor-visibility` (+ denied)                       | single-actor + provider_l1 tests                       |
-| `l1/acp-agent-placement`                                          | L1 SDK session packages                                |
+| `l1/acp-agent-placement`                                          | SDK session packages                                   |
 | `l1/provider-l1-denied` / `projection-denied` / `residual-writer` | Application probe paths removed → `tests/provider_l1/` |
 | `echo-contract` / `workspace-file-eval`                           | Earlier redundancy                                     |
 

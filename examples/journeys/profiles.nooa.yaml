@@ -9,8 +9,9 @@ agent_profiles:
         agent: lib.agents:JsonlAggAgent
         method: run
     - plugin: docker
-    model: openai/glm-5.2
+    model: openai/dashscope/qwen3.8-max
     api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
   user:
     executor: nooa
     extensions:
@@ -19,8 +20,9 @@ agent_profiles:
         agent: lib.agents:UserSimAgent
         method: run
     - plugin: docker
-    model: openai/glm-5.2
+    model: openai/dashscope/qwen3.8-max
     api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
   service:
     executor: nooa
     extensions:
@@ -29,8 +31,9 @@ agent_profiles:
         agent: lib.agents:ServiceAgent
         method: run
     - plugin: docker
-    model: openai/glm-5.2
+    model: openai/dashscope/qwen3.8-max
     api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
   specialist:
     executor: nooa
     extensions:
@@ -39,8 +42,9 @@ agent_profiles:
         agent: lib.agents:SpecialistAgent
         method: run
     - plugin: docker
-    model: openai/glm-5.2
+    model: openai/dashscope/qwen3.8-max
     api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
   planner:
     executor: nooa
     extensions:
@@ -49,8 +53,9 @@ agent_profiles:
         agent: lib.agents:PlannerAgent
         method: run
     - plugin: docker
-    model: openai/glm-5.2
+    model: openai/dashscope/qwen3.8-max
     api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
   reducer:
     executor: nooa
     extensions:
@@ -59,5 +64,6 @@ agent_profiles:
         agent: lib.agents:ReducerAgent
         method: run
     - plugin: docker
-    model: openai/glm-5.2
+    model: openai/dashscope/qwen3.8-max
     api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}
