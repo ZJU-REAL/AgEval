@@ -49,17 +49,24 @@ type FilesScope = "local" | "shared" | "overlays";
 function FilesScopeSwitch({
   filesScope,
   onChange,
+  localPresent,
+  sharedPresent,
   overlaysPresent,
 }: {
   filesScope: FilesScope;
   onChange: (next: FilesScope) => void;
+  localPresent: boolean;
+  sharedPresent: boolean;
   overlaysPresent: boolean;
 }) {
   const items: Array<[FilesScope, string]> = [
-    ["local", "Local"],
-    ["shared", "Shared"],
-    ...(overlaysPresent ? ([["overlays", "Overlays"]] as Array<[FilesScope, string]>) : []),
+    ...(localPresent ? ([["local", "Local"]] as Array<[FilesScope, string]>) : []),
+    ...(sharedPresent ? ([["shared", "Shared"]] as Array<[FilesScope, string]>) : []),
+    ...(overlaysPresent
+      ? ([["overlays", "Overlays"]] as Array<[FilesScope, string]>)
+      : []),
   ];
+  if (items.length < 2) return null;
   return (
     <div
       className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
@@ -128,6 +135,14 @@ export function TaskDetailPage() {
   const localPrefix = `tasks/${taskId}`;
   const prefix = filesScope === "shared" ? "shared" : localPrefix;
   const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
+  const localPresent = useMemo(
+    () =>
+      fileItems.some(
+        (item) =>
+          item.path === localPrefix || item.path.startsWith(`${localPrefix}/`),
+      ),
+    [fileItems, localPrefix],
+  );
   const overlaysPresent = overlayPrefixes.length > 0;
 
   useEffect(() => {
@@ -303,6 +318,18 @@ export function TaskDetailPage() {
   }, [filesScope, fileItems, localPrefix]);
 
   useEffect(() => {
+    const available: FilesScope[] = [];
+    if (localPresent) available.push("local");
+    if (sharedPresent) available.push("shared");
+    if (overlaysPresent) available.push("overlays");
+    if (!available.length) {
+      if (filesScope !== "local") setFilesScope("local");
+      return;
+    }
+    if (!available.includes(filesScope)) setFilesScope(available[0]);
+  }, [filesScope, localPresent, overlaysPresent, sharedPresent]);
+
+  useEffect(() => {
     if (!release || !selectedPath || filesScope === "overlays") {
       setFileContent(null);
       return;
@@ -358,6 +385,17 @@ export function TaskDetailPage() {
     n.set("v", next);
     setSearch(n, { replace: true });
   }
+
+  const filesScopeSwitch =
+    [localPresent, sharedPresent, overlaysPresent].filter(Boolean).length >= 2 ? (
+      <FilesScopeSwitch
+        filesScope={filesScope}
+        onChange={setFilesScope}
+        localPresent={localPresent}
+        sharedPresent={sharedPresent}
+        overlaysPresent={overlaysPresent}
+      />
+    ) : undefined;
 
   return (
     <>
@@ -435,20 +473,12 @@ export function TaskDetailPage() {
 
       {tab === "files" ? (
         filesScope === "overlays" && release && overlaysPresent ? (
-          <div className="space-y-2">
-            <div className="flex justify-end">
-              <FilesScopeSwitch
-                filesScope={filesScope}
-                onChange={setFilesScope}
-                overlaysPresent={overlaysPresent}
-              />
-            </div>
-            <OverlayFilePanel
-              datasetId={datasetId}
-              packageDigest={release.package_digest}
-              prefixes={overlayPrefixes}
-            />
-          </div>
+          <OverlayFilePanel
+            datasetId={datasetId}
+            packageDigest={release.package_digest}
+            prefixes={overlayPrefixes}
+            headerEnd={filesScopeSwitch}
+          />
         ) : (
         <FileSplitPanel
           tree={tree}
@@ -467,13 +497,7 @@ export function TaskDetailPage() {
               : fileNote
           }
           rootPrefix={prefix}
-          headerEnd={
-            <FilesScopeSwitch
-              filesScope={filesScope}
-              onChange={setFilesScope}
-              overlaysPresent={overlaysPresent}
-            />
-          }
+          headerEnd={filesScopeSwitch}
         />
         )
       ) : null}

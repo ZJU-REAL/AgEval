@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { FileSplitPanel } from "@/components/file-split-panel";
 import {
@@ -20,10 +20,12 @@ export function OverlayFilePanel({
   datasetId,
   packageDigest,
   prefixes,
+  headerEnd,
 }: {
   datasetId: string;
   packageDigest: string;
   prefixes: string[];
+  headerEnd?: ReactNode;
 }) {
   const token = getToken();
   const overlayKey = prefixes.join("\n");
@@ -139,6 +141,7 @@ export function OverlayFilePanel({
       fileLoading={fileLoading}
       fileNote={fileNote}
       rootPrefix="overlays"
+      headerEnd={headerEnd}
     />
   );
 }
