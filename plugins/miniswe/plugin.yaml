@@ -1,7 +1,7 @@
 format: ageval.plugin/1
 plugin_id: miniswe
 version: 0.1.0
-description: Drive mini-swe-agent on the parent host; the Attempt container only runs bash via docker exec. Not ACP.
+description: Drive mini-swe-agent on the parent host; the Attempt box only runs bash through environment.exec. Not ACP.
 host_requires:
   - import: minisweagent
     hint: "uv sync --extra miniswe"
