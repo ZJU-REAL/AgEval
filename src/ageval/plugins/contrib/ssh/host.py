@@ -91,12 +91,16 @@ class SSHHost:
         options: Mapping[str, object] | None = None,
     ) -> None:
         opts = dict(options or {})
-        self._host = _required(opts, "host")
-        self._user = _text(opts.get("user"))
-        self._port = _text(opts.get("port"))
+        self._host_raw = _required(opts, "host")
+        self._user_raw = _text(opts.get("user"))
+        self._port_raw = _text(opts.get("port"))
         self._key_env = _text(opts.get("key_env"))
         # Shape B when an image is named; shape A when it is not.
-        self._image = _text(opts.get("image"))
+        self._image_raw = _text(opts.get("image"))
+        self._host = ""
+        self._user: str | None = None
+        self._port: str | None = None
+        self._image: str | None = None
         self._remote_root = _text(opts.get("root")) or f"/tmp/ageval-{uuid.uuid4().hex[:12]}"
         self._attempt_id = spec.attempt_root.name
         self._container: str | None = None
@@ -108,6 +112,10 @@ class SSHHost:
 
     async def preflight(self) -> None:
         """One failure, before anything remote happens."""
+        self._host = _expand_option(self._host_raw, field="host") or ""
+        self._user = _expand_option(self._user_raw, field="user")
+        self._port = _expand_option(self._port_raw, field="port")
+        self._image = _expand_option(self._image_raw, field="image")
         if self._key_env is not None and not os.environ.get(self._key_env, "").strip():
             raise EnvironmentFailure(
                 "environment_preflight_failed",
@@ -415,6 +423,23 @@ class SSHHost:
             raise EnvironmentFailure("environment_not_started", "ssh box is not started")
         if self._stopped:
             raise EnvironmentFailure("environment_stopped", "ssh box is already stopped")
+
+
+def _expand_option(raw: str | None, *, field: str) -> str | None:
+    """``${NAME}`` in host/user/port/image is a locator, resolved at preflight."""
+    if raw is None:
+        return None
+    text = raw.strip()
+    if text.startswith("${") and text.endswith("}") and len(text) > 3:
+        name = text[2:-1]
+        value = os.environ.get(name, "").strip()
+        if not value:
+            raise EnvironmentFailure(
+                "environment_preflight_failed",
+                f"{name} is not set; ssh {field} has no value",
+            )
+        return value
+    return text
 
 
 def _required(options: Mapping[str, object], key: str) -> str:
