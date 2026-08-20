@@ -7,6 +7,7 @@ credential or the box handle.
 
 from __future__ import annotations
 
+from ageval.attempt.artifact_harvest import harvest_workspace_artifacts
 from ageval.attempt.ctx import AttemptCtx
 from ageval.attempt.emit import emit
 from ageval.plugins.slots import AFTER_RUN, BEFORE_RUN
@@ -26,6 +27,7 @@ async def run(ctx: AttemptCtx) -> None:
             await _stop_agent_service(ctx)
         # No Agent can write after this point; evaluate may now start.
         ctx.mark_writers_stopped()
+    await harvest_workspace_artifacts(ctx)
     await emit(ctx, AFTER_RUN)
 
 

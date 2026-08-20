@@ -258,17 +258,21 @@ class ParentAgentService:
             result = self._chain(binding, NORMALIZE_AGENT_RESULT, result)
         except Exception as exc:  # noqa: BLE001 — a crash still leaves evidence
             latency = (time.monotonic() - started) * 1000.0
+            kind = str(getattr(exc, "kind", None) or type(exc).__name__)
+            detail = str(getattr(exc, "message", None) or exc).strip()[:500]
             if handle is not None:
-                handle.append_event(
-                    {
-                        "type": "lifecycle",
-                        "phase": "crash",
-                        "error_type": type(exc).__name__,
-                        "source": "agent_service",
-                    }
-                )
-                seal_failure(handle, status="crash", error=type(exc).__name__, latency_ms=latency)
-            return self._failed(binding, handle, error=type(exc).__name__)
+                event = {
+                    "type": "lifecycle",
+                    "phase": "crash",
+                    "error_type": type(exc).__name__,
+                    "kind": kind,
+                    "source": "agent_service",
+                }
+                if detail:
+                    event["detail"] = detail
+                handle.append_event(event)
+                seal_failure(handle, status="crash", error=kind, latency_ms=latency)
+            return self._failed(binding, handle, error=kind)
 
         latency = (time.monotonic() - started) * 1000.0
         if handle is not None:

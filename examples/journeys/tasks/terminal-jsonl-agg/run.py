@@ -38,9 +38,7 @@ async def run(ctx: RunContext) -> RunTerminal:
     # RunParameterView supports dotted get — do not coerce via dict().
     models = ctx.params.get("models") if isinstance(ctx.params.get("models"), dict) else {}
     # Prefer allowlisted CLI override, then package models.default.
-    profile_id = str(
-        ctx.params.get("active_profile") or models.get("default") or "solver"
-    )
+    profile_id = str(ctx.params.get("active_profile") or models.get("default") or "solver")
     out_name = str(ctx.params.get("workspace_output") or "aggregates.json")
     out_path = Path(out_name)
     if out_path.is_absolute() or ".." in out_path.parts:
@@ -66,10 +64,14 @@ async def run(ctx: RunContext) -> RunTerminal:
 
     if target.is_file():
         data = json.loads(target.read_text(encoding="utf-8"))
-    else:
-        data = _parse_obj(inv.get("structured")) or _parse_obj(inv.get("text"))
-        if data is None:
-            return RunTerminal.failed("workspace_output_missing")
+        ctx.publish_json("aggregates", data)
+        return RunTerminal.completed("terminal-jsonl-agg")
 
-    ctx.publish_json("aggregates", data)
+    data = _parse_obj(inv.get("structured")) or _parse_obj(inv.get("text"))
+    if data is not None:
+        ctx.publish_json("aggregates", data)
+        return RunTerminal.completed("terminal-jsonl-agg")
+
+    # Agent wrote in the box; parent may not share that disk. Runtime harvests
+    # publishable files after writers stop. Chat text is not the authority.
     return RunTerminal.completed("terminal-jsonl-agg")

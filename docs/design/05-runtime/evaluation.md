@@ -6,9 +6,11 @@ writer 必须先停。然后 upload `evaluation/`，再在**同一盒子**里 `h
 
 ```text
 run 结束 → mark_writers_stopped
+         → harvest 缺的 publishable：从盒内 /attempt/workspace/<basename>
+           download 到 evidence/task-artifacts（已有则跳过）
 evaluate
   before_evaluate
-  upload artifacts（题包 publish 的）
+  upload artifacts（题包 publish 的 + harvest 补上的）
   upload evaluation/          # gold 此刻才在盒内（引擎代码，不挂链槽）
   exec evaluator.py
   bind_evaluation             # Result.status 只在这里写入

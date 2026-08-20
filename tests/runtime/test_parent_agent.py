@@ -136,7 +136,39 @@ def test_executor_crash_is_sealed_as_evidence(tmp_path: Path) -> None:
     (directory,) = service.evidence_store.list_invocations()
     metadata = json.loads((directory / "metadata.json").read_text(encoding="utf-8"))
     assert metadata["status"] == "crash"
+    assert metadata["error"] == "RuntimeError"
+    events = [
+        json.loads(line)
+        for line in (directory / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    crash = next(event for event in events if event.get("phase") == "crash")
+    assert crash["error_type"] == "RuntimeError"
+    assert crash["detail"] == "boom"
     assert not (directory / "final-response.json").exists()
+
+
+def test_successful_invoke_does_not_download_workspace(tmp_path: Path) -> None:
+    """Agent Service returns AgentResult only. No per-invoke workspace harvest."""
+
+    class _Host:
+        def __init__(self) -> None:
+            self.downloads: list[tuple[object, object]] = []
+
+        async def download(self, source: object, dest: object) -> None:
+            self.downloads.append((source, dest))
+
+    class _RemoteExecutor(ScriptedExecutor):
+        def __init__(self) -> None:
+            super().__init__()
+            self._host = _Host()
+
+    backend = _RemoteExecutor()
+    service, _ = _service(tmp_path, executor=backend)
+    answer = service.invoke(session_id=_open(service), prompt="one")
+
+    assert answer["ok"] is True
+    assert backend._host.downloads == []
 
 
 def test_offline_gate_refuses_every_invoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -38,11 +38,13 @@ run.py  Agent.session(profile).invoke
   → unix socket AGEVAL_AGENT_SERVICE_SOCK
   → ParentAgentService
        before_agent_invoke
-       executor.invoke → host.attach_stdio(entry argv)
+       executor.invoke → host.attach_stdio(entry argv) 或 host.exec（盒内 worker）
        after_agent_invoke
        normalize_agent_result
   → 层 C：evidence 写 trajectory.jsonl
 ```
+
+`ParentAgentService.invoke` 只回 `AgentResult`。**不**在每次 invoke 后 `download` 盒内 workspace。轨迹来自 executor events。缺的 publishable 文件在 **writer 停后** 由 run 相位 harvest（Protocol `download`），evaluate 再把 `task-artifacts` upload 进盒。
 
 ACP attach 发生在第一次 invoke，不是独立 phase。
 

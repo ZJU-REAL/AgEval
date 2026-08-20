@@ -10,7 +10,7 @@ job 文档：
 # profiles.yaml — 选独占槽 environment 的赢家
 format: ageval.profiles/1
 environment: e2b    # local | docker | e2b | ssh
-# environment_options:   # ssh：host / user / key_env / image
+# environment_options:   # ssh：host / user / port / key_env / image
 ```
 
 取消隔离档产品面。不要写 `provider.kind`、`assurance: l0/l1`。Result 记 `kind` + `capabilities_used`。
@@ -72,6 +72,8 @@ contrib/local   → 本机目录
 ```
 
 `docker exec` 只在 `plugins/contrib/docker/`。ACP 禁止 import docker/e2b/ssh。`attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。换 kind 不必改 executor 源码。
+
+`run.py` 是 parent 子进程。seed 在 launch 投影到 `ctx.workspace_root`（local/docker 即共享盘；ssh/e2b 是 evidence 上的 seed 拷贝）。Agent Service **不**在每次 invoke 后 `download` workspace。writer 停后 runtime 按 `artifacts.publishable` 收 **缺的** 文件：盒内 `/attempt/workspace/<basename>` → parent `task-artifacts/`。共享盘上 `run.py` 已 `publish_json` 的跳过；ssh/e2b 走 Protocol `download`。搬哪些由题包声明，不写 `if ssh`。聊天文本不是 Terminal 类题的权威产物。
 
 ## setup.sh 与侧车
 
