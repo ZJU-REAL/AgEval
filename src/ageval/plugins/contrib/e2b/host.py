@@ -8,6 +8,7 @@ alias and the sandbox id lives in this package.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 from collections.abc import Mapping, Sequence
@@ -103,11 +104,15 @@ class E2BHost:
         if self._started:
             raise EnvironmentFailure("environment_already_started", "e2b sandbox already started")
         sdk = _import_sdk()
-        template = self._ensure_template(sdk, force_build=force_build)
-        self._sandbox = sdk.Sandbox.create(template=template, timeout=self._timeout_seconds)
+        template = await self._ensure_template(sdk, force_build=force_build)
+        self._sandbox = await asyncio.to_thread(
+            sdk.Sandbox.create,
+            template=template,
+            timeout=self._timeout_seconds,
+        )
         self._started = True
         for path in (WORKSPACE_PATH, HOME_PATH, ARTIFACTS_PATH):
-            self._sandbox.files.make_dir(path)
+            await asyncio.to_thread(self._sandbox.files.make_dir, path)
 
     async def stop(self, *, delete: bool) -> None:
         # Ephemeral by nature: keeping it alive is not on offer, and evidence
@@ -116,7 +121,7 @@ class E2BHost:
         if self._stopped or self._sandbox is None:
             return
         self._stopped = True
-        self._sandbox.kill()
+        await asyncio.to_thread(self._sandbox.kill)
 
     # --- transport -----------------------------------------------------------
 
@@ -144,11 +149,12 @@ class E2BHost:
         argv = [str(part) for part in command]
         if not argv:
             raise EnvironmentFailure("environment_exec_invalid", "exec requires a command")
-        result = self._sandbox.commands.run(
+        result = await asyncio.to_thread(
+            self._sandbox.commands.run,
             _shell_line(argv),
             cwd=cwd or WORKSPACE_PATH,
             envs=self._child_env(env),
-            timeout=int(timeout_sec) if timeout_sec else None,
+            timeout=int(timeout_sec) if timeout_sec else 0,
         )
         return ExecResult(
             exit_code=int(getattr(result, "exit_code", 0) or 0),
@@ -165,14 +171,15 @@ class E2BHost:
                 f"upload source does not exist: {source}",
             )
         for path, target in _walk_for_upload(src, dest):
-            self._sandbox.files.write(target, path.read_bytes())
+            payload = path.read_bytes()
+            await asyncio.to_thread(self._sandbox.files.write, target, payload)
 
     async def download(self, source: str, dest: Path) -> None:
         self._assert_started()
         target = Path(dest).expanduser()
         target.parent.mkdir(parents=True, exist_ok=True)
-        payload = self._sandbox.files.read(source, format="bytes")
-        target.write_bytes(payload)
+        payload = await asyncio.to_thread(self._sandbox.files.read, source, "bytes")
+        target.write_bytes(bytes(payload))
 
     async def attach_stdio(
         self,
@@ -186,12 +193,14 @@ class E2BHost:
         parts = [str(part) for part in argv]
         if not parts:
             raise EnvironmentFailure("environment_attach_invalid", "attach_stdio requires argv")
-        handle = self._sandbox.commands.run(
+        handle = await asyncio.to_thread(
+            self._sandbox.commands.run,
             _shell_line(parts),
+            background=True,
             cwd=placement.workdir,
             envs={"HOME": placement.home, **self._child_env(env)},
-            background=True,
             stdin=True,
+            timeout=0,
         )
         return E2BStdio(
             handle,
@@ -216,27 +225,31 @@ class E2BHost:
         """The sandbox really owns ``/attempt``."""
         return box_path
 
-    def _ensure_template(self, sdk: Any, *, force_build: bool) -> str:
+    async def _ensure_template(self, sdk: Any, *, force_build: bool) -> str:
         """Reuse a template keyed by the recipe; build it only when new."""
         if self._declared_image is not None and self._dockerfile is None:
-            return self._build_template(sdk, from_image=self._declared_image, force=force_build)
+            return await self._build_template(
+                sdk, from_image=self._declared_image, force=force_build
+            )
         if self._dockerfile is None:
             raise EnvironmentFailure(
                 "environment_image_unresolved",
                 "the e2b kind needs environment/Dockerfile or an image option",
             )
-        return self._build_template(sdk, from_image=None, force=force_build)
+        return await self._build_template(sdk, from_image=None, force=force_build)
 
-    def _build_template(self, sdk: Any, *, from_image: str | None, force: bool) -> str:
+    async def _build_template(self, sdk: Any, *, from_image: str | None, force: bool) -> str:
         alias = self._alias(from_image)
-        if not force and sdk.Template.exists(alias):
+        if not force and await sdk.AsyncTemplate.alias_exists(alias):
             return alias
+        context = str(self._task_root)
+        builder = sdk.Template(file_context_path=context)
         template = (
-            sdk.Template.from_image(from_image)
+            builder.from_image(from_image)
             if from_image is not None
-            else sdk.Template.from_dockerfile(str(self._task_root / str(self._dockerfile)))
+            else builder.from_dockerfile(str(self._task_root / str(self._dockerfile)))
         )
-        template.build(alias=alias)
+        await sdk.AsyncTemplate.build(template, alias=alias)
         return alias
 
     def _alias(self, from_image: str | None) -> str:
@@ -308,10 +321,18 @@ class _SandboxStdout:
 
     def _next_chunk(self) -> bytes | None:
         for event in self._iterator:
-            text = getattr(event, "stdout", None)
+            text = _stdout_from_event(event)
             if text:
-                return str(text).encode("utf-8")
+                return text.encode("utf-8") if isinstance(text, str) else bytes(text)
         return None
+
+
+def _stdout_from_event(event: Any) -> str | bytes | None:
+    """Background ``commands.run`` yields ``(stdout, stderr, _)`` tuples."""
+    if isinstance(event, tuple):
+        return event[0] if event else None
+    text = getattr(event, "stdout", None)
+    return text if text else None
 
 
 def _import_sdk() -> Any:
