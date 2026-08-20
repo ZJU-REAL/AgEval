@@ -384,6 +384,10 @@ class RegistryClient:
         archive: Path,
         suite_run_id: str | None = None,
         replace: bool = False,
+        environment: str | None = None,
+        agent_label: str | None = None,
+        model_label: str | None = None,
+        score: float | None = None,
     ) -> dict[str, Any]:
         meta: dict[str, Any] = {
             "run_id": run_id,
@@ -399,6 +403,14 @@ class RegistryClient:
             meta["suite_run_id"] = suite_run_id
         if replace:
             meta["replace"] = True
+        if environment:
+            meta["environment"] = environment
+        if agent_label:
+            meta["agent_label"] = agent_label
+        if model_label:
+            meta["model_label"] = model_label
+        if score is not None:
+            meta["score"] = score
         http_status, raw, _ = self._put_multipart(
             "/v1/results/attempts",
             meta=meta,
@@ -423,12 +435,25 @@ class RegistryClient:
         path = f"/v1/results/attempts/{quote(run_id, safe='')}/content"
         return self._download_to(path, dest)
 
-    def list_attempts(self, *, dataset_id: str | None = None) -> list[dict[str, Any]]:
+    def list_attempts(
+        self,
+        *,
+        dataset_id: str | None = None,
+        task_id: str | None = None,
+        standalone: bool = False,
+    ) -> list[dict[str, Any]]:
         from urllib.parse import urlencode
 
         path = "/v1/results/attempts"
+        query: dict[str, str] = {}
         if dataset_id:
-            path = f"{path}?{urlencode({'dataset_id': dataset_id})}"
+            query["dataset_id"] = dataset_id
+        if task_id:
+            query["task_id"] = task_id
+        if standalone:
+            query["standalone"] = "1"
+        if query:
+            path = f"{path}?{urlencode(query)}"
         status, raw, _ = self._request("GET", path, auth=True)
         if status != 200:
             raise RegistryError("list_failed", f"status {status}", status=status)

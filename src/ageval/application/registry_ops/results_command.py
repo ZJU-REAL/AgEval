@@ -20,6 +20,46 @@ from ageval.registry.results_archive import (
 )
 
 
+def _attempt_job_fields(run_dir: Path, meta: dict[str, Any]) -> dict[str, Any]:
+    """Labels Hub Jobs needs for a standalone Attempt (not a suite row)."""
+    from ageval.config.profiles import display_labels_from_overlay, environment_from_overlay
+
+    lock: dict[str, Any] = {}
+    lock_path = run_dir / "lock.json"
+    if lock_path.is_file():
+        try:
+            loaded = json.loads(lock_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            loaded = None
+        if isinstance(loaded, dict):
+            lock = loaded
+    overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
+    environment = ""
+    for raw in (
+        lock.get("environment"),
+        meta.get("kind"),
+        environment_from_overlay(overlay),
+    ):
+        if isinstance(raw, str) and raw.strip():
+            environment = raw.strip()
+            break
+    agent_label, model_label = display_labels_from_overlay(overlay)
+    task_id = str(meta.get("task_id") or lock.get("task_id") or "").strip()
+    raw_score = meta.get("score")
+    score = (
+        None
+        if isinstance(raw_score, bool) or not isinstance(raw_score, int | float)
+        else float(raw_score)
+    )
+    return {
+        "task_id": task_id,
+        "environment": environment,
+        "agent_label": agent_label,
+        "model_label": model_label,
+        "score": score,
+    }
+
+
 def _read_run_meta(run_dir: Path) -> dict[str, Any]:
     from ageval.evidence.attempt_record import read_attempt_result
 
@@ -219,7 +259,8 @@ class ResultsCommands:
         run_dir = resolve_attempt_run_dir(root, run_id)
         archive_bytes, blob_digest, size = build_attempt_archive(run_dir, run_id=run_id)
         meta = _read_run_meta(run_dir)
-        task_id = str(meta.get("task_id") or "")
+        job = _attempt_job_fields(run_dir, meta)
+        task_id = str(job.get("task_id") or "")
         lock_digest = str(meta.get("lock_digest") or meta.get("digest") or "")
         status = str(meta.get("status") or meta.get("verdict") or meta.get("outcome") or "")
         suite_link = (suite_run_id or str(meta.get("suite_run_id") or "")).strip() or None
@@ -245,6 +286,10 @@ class ResultsCommands:
                     archive=archive,
                     suite_run_id=suite_link,
                     replace=replace,
+                    environment=job.get("environment") or None,
+                    agent_label=job.get("agent_label") or None,
+                    model_label=job.get("model_label") or None,
+                    score=job.get("score"),
                 )
             except RegistryError as exc:
                 if allow_existing and (

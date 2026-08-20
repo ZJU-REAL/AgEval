@@ -122,6 +122,15 @@ class ResultService:
         blob_digest = str(meta.get("blob_digest") or "")
         size = int(meta.get("size") or size_on_disk)
         suite_run_id = str(meta.get("suite_run_id") or "").strip()
+        environment = str(meta.get("environment") or "").strip()
+        agent_label = str(meta.get("agent_label") or "").strip()
+        model_label = str(meta.get("model_label") or "").strip()
+        score: float | None = None
+        raw_score = meta.get("score")
+        if isinstance(raw_score, bool):
+            raw_score = None
+        if isinstance(raw_score, int | float):
+            score = float(raw_score)
         if not run_id or not dataset_id:
             raise RegistryAppError(
                 "invalid_request",
@@ -175,6 +184,10 @@ class ResultService:
             created_at=now(),
             uploaded_by=auth.user_id or "",
             suite_run_id=suite_run_id,
+            environment=environment,
+            agent_label=agent_label,
+            model_label=model_label,
+            score=score,
         )
         try:
             self.blobs.put_if_absent(blob_digest, archive, prefix="results")
@@ -190,8 +203,20 @@ class ResultService:
             payload["replaced"] = True
         return payload
 
-    def list_attempts(self, *, auth: TokenInfo, dataset_id: str | None) -> dict[str, Any]:
-        rows = self.meta.list_attempts(dataset_id=dataset_id or None, include_private=True)
+    def list_attempts(
+        self,
+        *,
+        auth: TokenInfo,
+        dataset_id: str | None,
+        task_id: str | None = None,
+        standalone: bool = False,
+    ) -> dict[str, Any]:
+        rows = self.meta.list_attempts(
+            dataset_id=dataset_id or None,
+            task_id=task_id or None,
+            standalone=standalone,
+            include_private=True,
+        )
         items = [attempt_to_dict(r) for r in rows if self._visible_attempt(r, auth)]
         return {"items": items}
 

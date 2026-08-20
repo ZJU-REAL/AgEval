@@ -47,9 +47,7 @@ def list_releases_query(
     return sql, params
 
 
-def list_versions_query(
-    dataset_id: str, *, include_private: bool = False
-) -> tuple[str, list[Any]]:
+def list_versions_query(dataset_id: str, *, include_private: bool = False) -> tuple[str, list[Any]]:
     clauses = ["dataset_id = ?"]
     params: list[Any] = [dataset_id]
     if not include_private:
@@ -64,8 +62,8 @@ INSERT_ATTEMPT = """
 INSERT INTO attempt_results(
     run_id, dataset_id, task_id, lock_digest, status,
     visibility, blob_digest, size, created_at, uploaded_by,
-    suite_run_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    suite_run_id, environment, agent_label, model_label, score
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 SELECT_ATTEMPT = "SELECT * FROM attempt_results WHERE run_id=?"
@@ -313,6 +311,10 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("releases", "org_id", "TEXT"),
     ("attempt_results", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
     ("attempt_results", "suite_run_id", "TEXT NOT NULL DEFAULT ''"),
+    ("attempt_results", "environment", "TEXT NOT NULL DEFAULT ''"),
+    ("attempt_results", "agent_label", "TEXT NOT NULL DEFAULT ''"),
+    ("attempt_results", "model_label", "TEXT NOT NULL DEFAULT ''"),
+    ("attempt_results", "score", "REAL"),
     ("suite_results", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
     ("suite_results", "complete", "INTEGER NOT NULL DEFAULT 0"),
     ("suite_results", "bound_kind", "TEXT NOT NULL DEFAULT 'unknown'"),
@@ -445,6 +447,8 @@ SELECT_USER_PROFILE = "SELECT * FROM user_profiles WHERE user_id=?"
 def list_attempts_query(
     *,
     dataset_id: str | None = None,
+    task_id: str | None = None,
+    standalone: bool = False,
     include_private: bool = False,
 ) -> tuple[str, list[Any]]:
     clauses: list[str] = []
@@ -454,6 +458,11 @@ def list_attempts_query(
     if dataset_id:
         clauses.append("dataset_id = ?")
         params.append(dataset_id)
+    if task_id:
+        clauses.append("task_id = ?")
+        params.append(task_id)
+    if standalone:
+        clauses.append("(suite_run_id IS NULL OR suite_run_id = '')")
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     return f"SELECT * FROM attempt_results {where} ORDER BY created_at DESC", params
 

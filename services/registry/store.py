@@ -60,6 +60,10 @@ class AttemptResultRow:
     uploaded_by: str = ""
     # Optional link to parent suite/job (#43); empty on standalone uploads.
     suite_run_id: str = ""
+    environment: str = ""
+    agent_label: str = ""
+    model_label: str = ""
+    score: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -642,6 +646,10 @@ class MetadataStore(MetadataStoreProtocol):
                         row.created_at,
                         row.uploaded_by or "",
                         row.suite_run_id or "",
+                        row.environment or "",
+                        row.agent_label or "",
+                        row.model_label or "",
+                        row.score,
                     ),
                 )
                 conn.commit()
@@ -675,9 +683,16 @@ class MetadataStore(MetadataStoreProtocol):
         self,
         *,
         dataset_id: str | None = None,
+        task_id: str | None = None,
+        standalone: bool = False,
         include_private: bool = False,
     ) -> list[AttemptResultRow]:
-        sql, params = Q.list_attempts_query(dataset_id=dataset_id, include_private=include_private)
+        sql, params = Q.list_attempts_query(
+            dataset_id=dataset_id,
+            task_id=task_id,
+            standalone=standalone,
+            include_private=include_private,
+        )
         with self._connect() as conn:
             cur = self._exec(conn, sql, params)
             return [self._attempt_row(r) for r in cur.fetchall()]
@@ -1015,6 +1030,15 @@ class MetadataStore(MetadataStoreProtocol):
         suite_run_id = (
             str(r["suite_run_id"]) if "suite_run_id" in keys and r["suite_run_id"] else ""
         )
+        environment = str(r["environment"]) if "environment" in keys and r["environment"] else ""
+        agent_label = str(r["agent_label"]) if "agent_label" in keys and r["agent_label"] else ""
+        model_label = str(r["model_label"]) if "model_label" in keys and r["model_label"] else ""
+        score: float | None = None
+        if "score" in keys and r["score"] is not None:
+            try:
+                score = float(r["score"])
+            except (TypeError, ValueError):
+                score = None
         return AttemptResultRow(
             run_id=r["run_id"],
             dataset_id=r["dataset_id"],
@@ -1027,6 +1051,10 @@ class MetadataStore(MetadataStoreProtocol):
             created_at=float(r["created_at"]),
             uploaded_by=uploaded_by,
             suite_run_id=suite_run_id,
+            environment=environment,
+            agent_label=agent_label,
+            model_label=model_label,
+            score=score,
         )
 
     @staticmethod
@@ -1774,6 +1802,14 @@ def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
         out["uploaded_by"] = row.uploaded_by
     if row.suite_run_id:
         out["suite_run_id"] = row.suite_run_id
+    if row.environment:
+        out["environment"] = row.environment
+    if row.agent_label:
+        out["agent_label"] = row.agent_label
+    if row.model_label:
+        out["model_label"] = row.model_label
+    if row.score is not None:
+        out["score"] = row.score
     return out
 
 

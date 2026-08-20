@@ -359,9 +359,7 @@ class RegistryHttpApi:
             if any(
                 isinstance(item, dict) and item.get("package_kind") == "agent" for item in items
             ):
-                payload["appearances"] = self.state.runtimes.appearances_for_agent(
-                    dataset_id, auth
-                )
+                payload["appearances"] = self.state.runtimes.appearances_for_agent(dataset_id, auth)
         except RegistryAppError as exc:
             return _caught(exc)
         return json_result(200, payload)
@@ -464,6 +462,8 @@ class RegistryHttpApi:
             payload = self.state.results.list_attempts(
                 auth=auth,
                 dataset_id=(qs.get("dataset_id") or [None])[0],
+                task_id=(qs.get("task_id") or [None])[0],
+                standalone=(qs.get("standalone") or ["0"])[0] in {"1", "true", "yes"},
             )
         except RegistryAppError as exc:
             return _caught(exc)

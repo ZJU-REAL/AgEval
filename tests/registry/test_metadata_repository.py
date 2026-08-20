@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from services.registry.store import (
+    AttemptResultRow,
     MetadataStore,
     PostgresMetadataStore,
     PostgresTokenStore,
@@ -71,6 +72,39 @@ def test_postgres_store_is_thin_adapter() -> None:
         if callable(val) and name not in {"__init__"}
     ]
     assert own == [], own
+
+
+def test_attempt_row_stores_environment(tmp_path: Path) -> None:
+    meta = _sqlite(tmp_path)
+    row = AttemptResultRow(
+        run_id="attempt_env_1",
+        dataset_id="example/journeys",
+        task_id="terminal-jsonl-agg",
+        lock_digest="sha256:abc",
+        status="PASS",
+        visibility="public",
+        blob_digest="sha256:" + "c" * 64,
+        size=12,
+        created_at=now(),
+        environment="e2b",
+        agent_label="acp",
+        model_label="glm-5.2",
+        score=1.0,
+    )
+    meta.insert_attempt(row)
+    got = meta.get_attempt("attempt_env_1")
+    assert got is not None
+    assert got.environment == "e2b"
+    assert got.agent_label == "acp"
+    assert got.model_label == "glm-5.2"
+    assert got.score == 1.0
+    listed = meta.list_attempts(
+        dataset_id="example/journeys",
+        task_id="terminal-jsonl-agg",
+        standalone=True,
+        include_private=True,
+    )
+    assert any(item.run_id == "attempt_env_1" and item.environment == "e2b" for item in listed)
 
 
 def test_schema_owned_by_queries() -> None:
