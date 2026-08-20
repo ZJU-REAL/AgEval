@@ -50,7 +50,7 @@ def test_insert_and_get_release(meta: MetadataStore) -> None:
         package_digest="sha256:" + "a" * 64,
         blob_digest="sha256:" + "b" * 64,
         size=4,
-        media_type="application/gzip",
+        media_type="application/vnd.ageval.dataset.v1.tar+gzip",
         created_at=now(),
         org_id="acme",
     )

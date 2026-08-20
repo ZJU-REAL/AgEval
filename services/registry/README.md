@@ -160,6 +160,8 @@ Env overrides: `AGEVAL_REGISTRY_URL`, `AGEVAL_REGISTRY_TOKEN`, optional
 | Kind | Digest | Media type |
 | --- | --- | --- |
 | Dataset package | packageDigest + blobDigest | `application/vnd.ageval.dataset.v1.tar+gzip` |
+| Plugin package | packageDigest + blobDigest | `application/vnd.ageval.plugin.v1.tar+gzip` |
+| Agent package | packageDigest + blobDigest | `application/vnd.ageval.agent.v1.tar+gzip` |
 | Attempt result | blobDigest of archive | `application/vnd.ageval.attempt-result.v1.tar+gzip` |
 | Suite/job result | blobDigest of suite-run tree | `application/vnd.ageval.suite-result.v1.tar+gzip` |
 
@@ -181,8 +183,9 @@ Browse published package contents **without** downloading the whole tar to the b
 | GET | `/v1/packages/{id}/versions/{ver}/files/{path}` | resolves to digest |
 
 List/get package meta (`GET /v1/packages`, versions, by-digest) includes
-`package_kind` (`dataset` | `plugin`, derived from media type). List accepts
-optional `?package_kind=dataset|plugin` (Hub plugin marketplace).
+`package_kind` (`dataset` | `plugin` | `agent`, derived from media type). List
+accepts optional `?package_kind=dataset|plugin|agent`. Unknown media types are
+not classified as dataset.
 
 
 - List JSON: `{ dataset_id, digest, version, items: [{path, type, size}, …] }`

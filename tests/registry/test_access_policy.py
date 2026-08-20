@@ -19,7 +19,7 @@ def test_visible_package_public_and_org_member(tmp_path: Path) -> None:
         package_digest="sha256:" + "a" * 64,
         blob_digest="sha256:" + "b" * 64,
         size=1,
-        media_type="application/gzip",
+        media_type="application/vnd.ageval.dataset.v1.tar+gzip",
         created_at=now(),
         org_id="acme",
     )
@@ -31,7 +31,7 @@ def test_visible_package_public_and_org_member(tmp_path: Path) -> None:
         package_digest="sha256:" + "c" * 64,
         blob_digest="sha256:" + "d" * 64,
         size=1,
-        media_type="application/gzip",
+        media_type="application/vnd.ageval.dataset.v1.tar+gzip",
         created_at=now(),
         org_id="acme",
     )
@@ -59,7 +59,7 @@ def test_can_manage_package_owner_only(tmp_path: Path) -> None:
         package_digest="sha256:" + "a" * 64,
         blob_digest="sha256:" + "b" * 64,
         size=1,
-        media_type="application/gzip",
+        media_type="application/vnd.ageval.dataset.v1.tar+gzip",
         created_at=now(),
         org_id="acme",
     )

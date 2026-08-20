@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,14 @@ from services.registry.access import AccessPolicy
 from services.registry.blob_io import read_blob, sha256_file
 from services.registry.dataset import DRAFT_SLOT, is_draft_version
 from services.registry.errors import RegistryAppError
-from services.registry.store import DraftRow, ReleaseRow, TokenInfo, now, release_to_dict
+from services.registry.store import (
+    DraftRow,
+    ReleaseRow,
+    TokenInfo,
+    now,
+    package_kind_for_media_type,
+    release_to_dict,
+)
 
 
 def _normalize_plugin_name_segment(dataset_id: str, raw: object) -> str:
@@ -337,12 +345,12 @@ class PackageService:
         out: list[dict[str, Any]] = []
         for item in items:
             uploader = str(item.get("uploaded_by") or "")
-            db_id = str(item.get("dataset_id") or "")
-            kind = str(item.get("package_kind") or "dataset")
+            dataset_id = str(item.get("dataset_id") or "")
+            kind = str(item.get("package_kind") or "")
             if uploader and uploader == uid:
                 out.append(item)
                 continue
-            if kind == "dataset" and db_id in maintainable:
+            if kind == "dataset" and dataset_id in maintainable:
                 out.append(item)
         return out
 
@@ -377,23 +385,20 @@ class PackageService:
         if label:
             payload["display_name"] = label
         try:
-            from ageval.registry.media_types import AGENT_MEDIA_TYPE
-            from ageval.registry.plugin_package import PLUGIN_MEDIA_TYPE
-
-            if row.media_type == PLUGIN_MEDIA_TYPE:
-                data = read_blob(self.blobs, row.blob_digest, prefix="packages")
-                payload["package_kind"] = "plugin"
-                if data is not None:
+            kind = package_kind_for_media_type(row.media_type)
+        except ValueError as exc:
+            raise RegistryAppError("invalid_format", str(exc), http_status=400) from exc
+        payload["package_kind"] = kind
+        if kind == "plugin":
+            data = read_blob(self.blobs, row.blob_digest, prefix="packages")
+            if data is not None:
+                with contextlib.suppress(Exception):
                     payload["plugin_preview"] = _plugin_preview_from_archive(data)
-            elif row.media_type == AGENT_MEDIA_TYPE:
-                data = read_blob(self.blobs, row.blob_digest, prefix="packages")
-                payload["package_kind"] = "agent"
-                if data is not None:
+        elif kind == "agent":
+            data = read_blob(self.blobs, row.blob_digest, prefix="packages")
+            if data is not None:
+                with contextlib.suppress(Exception):
                     payload["agent_preview"] = _agent_preview_from_archive(data)
-            else:
-                payload["package_kind"] = "dataset"
-        except Exception:  # noqa: BLE001 — preview is best-effort
-            payload.setdefault("package_kind", "dataset")
         return payload
 
     def serve_content(
@@ -627,6 +632,7 @@ class PackageService:
     ) -> None:
         from ageval.registry.archive import extract_archive
         from ageval.registry.digest import compute_package_digest
+        from ageval.registry.media_types import DATASET_MEDIA_TYPE
         from ageval.registry.plugin_package import (
             PLUGIN_MEDIA_TYPE,
             assert_plugin_package,
@@ -689,6 +695,12 @@ class PackageService:
                         ) from exc
                     got = compute_agent_digest(tmp_path)
                 else:
+                    if media_type != DATASET_MEDIA_TYPE:
+                        raise RegistryAppError(
+                            "invalid_format",
+                            f"dataset media_type must be {DATASET_MEDIA_TYPE}",
+                            http_status=400,
+                        )
                     if (
                         (tmp_path / "plugin.yaml").is_file()
                         or (tmp_path / "ageval.plugin.yaml").is_file()

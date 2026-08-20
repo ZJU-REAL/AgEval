@@ -23,7 +23,7 @@ def test_archive_roundtrip_and_blob_digest(tmp_path: Path) -> None:
     archive, blob_digest, size = build_archive(FIXTURE)
     assert size == len(archive)
     assert blob_digest.startswith("sha256:")
-    assert MEDIA_TYPE.endswith("gzip")
+    assert MEDIA_TYPE == "application/vnd.ageval.dataset.v1.tar+gzip"
     dest = tmp_path / "out"
     extract_archive(archive, dest)
     assert (dest / "ageval.yaml").is_file()

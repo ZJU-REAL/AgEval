@@ -12,6 +12,7 @@ based (admin bypass); scopes alone no longer grant global private sight.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import sqlite3
@@ -676,9 +677,7 @@ class MetadataStore(MetadataStoreProtocol):
         dataset_id: str | None = None,
         include_private: bool = False,
     ) -> list[AttemptResultRow]:
-        sql, params = Q.list_attempts_query(
-            dataset_id=dataset_id, include_private=include_private
-        )
+        sql, params = Q.list_attempts_query(dataset_id=dataset_id, include_private=include_private)
         with self._connect() as conn:
             cur = self._exec(conn, sql, params)
             return [self._attempt_row(r) for r in cur.fetchall()]
@@ -1717,18 +1716,20 @@ class PostgresMetadataStore(MetadataStore):
 
 
 def package_kind_for_media_type(media_type: str) -> str:
-    """Derive list/meta ``package_kind`` without opening the blob."""
-    try:
-        from ageval.registry.media_types import AGENT_MEDIA_TYPE
-        from ageval.registry.plugin_package import PLUGIN_MEDIA_TYPE
+    """Derive list/meta ``package_kind`` from the current vnd.ageval types only."""
+    from ageval.registry.media_types import (
+        AGENT_MEDIA_TYPE,
+        DATASET_MEDIA_TYPE,
+        PLUGIN_MEDIA_TYPE,
+    )
 
-        if media_type == PLUGIN_MEDIA_TYPE:
-            return "plugin"
-        if media_type == AGENT_MEDIA_TYPE:
-            return "agent"
-    except Exception:  # noqa: BLE001 — kind is best-effort for clients
-        pass
-    return "dataset"
+    if media_type == PLUGIN_MEDIA_TYPE:
+        return "plugin"
+    if media_type == AGENT_MEDIA_TYPE:
+        return "agent"
+    if media_type == DATASET_MEDIA_TYPE:
+        return "dataset"
+    raise ValueError(f"unknown package media_type: {media_type!r}")
 
 
 def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
@@ -1740,9 +1741,10 @@ def release_to_dict(row: ReleaseRow) -> dict[str, Any]:
         "blob_digest": row.blob_digest,
         "size": row.size,
         "media_type": row.media_type,
-        "package_kind": package_kind_for_media_type(row.media_type),
         "created_at": row.created_at,
     }
+    with contextlib.suppress(ValueError):
+        out["package_kind"] = package_kind_for_media_type(row.media_type)
     if row.org_id:
         out["org_id"] = row.org_id
     from services.registry.official import is_official_upload_org

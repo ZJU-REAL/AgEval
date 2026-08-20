@@ -35,7 +35,10 @@ def official_dataset_ids(releases: Iterable[Any]) -> frozenset[str]:
         dataset_id = str(row.dataset_id or "").strip()
         if not dataset_id or is_draft_version(row.version):
             continue
-        if package_kind_for_media_type(str(row.media_type or "")) != "dataset":
+        try:
+            if package_kind_for_media_type(str(row.media_type or "")) != "dataset":
+                continue
+        except ValueError:
             continue
         if is_official_upload_org(row.org_id):
             out.add(dataset_id)
