@@ -27,6 +27,7 @@ class PluginPublishCommand:
         org: str | None = None,
         registry_url: str | None = None,
         token: str | None = None,
+        replace: bool = False,
     ) -> dict[str, Any]:
         root = plugin_root.expanduser().resolve(strict=False)
         try:
@@ -74,6 +75,7 @@ class PluginPublishCommand:
                     visibility=visibility,
                     archive=archive_path,
                     org_id=org_id,
+                    replace=replace,
                     package_kind="plugin",
                 )
             except RegistryError as exc:

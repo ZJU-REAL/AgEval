@@ -97,6 +97,13 @@ def plugin_publish(
     source: Annotated[Path, typer.Argument(help="Local ageval.plugin/1 package directory")],
     org: Annotated[str, typer.Option("--org", help="Organization id (required)")],
     public: Annotated[bool, typer.Option("--public", help="Publish as public")] = False,
+    replace: Annotated[
+        bool,
+        typer.Option(
+            "--replace",
+            help="Overwrite same package_id@version if org owner (default: conflict 409).",
+        ),
+    ] = False,
 ) -> None:
     """Publish a plugin package to the Registry (package_kind=plugin)."""
     from ageval.application.composition import build_plugin_commands
@@ -105,7 +112,7 @@ def plugin_publish(
     from ageval.config.errors import ConfigError
 
     try:
-        summary = publish_plugin(source, public=public, org=org)
+        summary = publish_plugin(source, public=public, org=org, replace=replace)
     except ConfigError as exc:
         typer.echo(
             json.dumps({"ok": False, "error": exc.error_code, "message": str(exc)}),
