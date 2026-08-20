@@ -71,6 +71,7 @@ async def probe_attempt(
         environment=lock.environment,
         environment_options=_environment_options(lock),
         requires=thaw(lock.requires),
+        task_root=locked.resolved.task_dir,
     )
     graph = binder.graph(_selected_profile_id(lock))
     host = bind_winner(
@@ -150,6 +151,7 @@ async def run_attempt(
         environment=lock.environment,
         environment_options=_environment_options(lock),
         requires=thaw(lock.requires),
+        task_root=task_root,
     )
     graph = binder.graph(profile_id)
     deadline = _deadline(lock)

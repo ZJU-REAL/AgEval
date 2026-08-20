@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from ageval.plugins.binding import bind_winner
@@ -44,6 +45,7 @@ class AgentBinder:
     environment: str | None = None
     environment_options: Mapping[str, Any] = field(default_factory=dict)
     requires: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    task_root: Path | None = None
     _graphs: dict[str, ExtensionGraph] = field(default_factory=dict, repr=False)
 
     def profile(self, profile_id: str) -> Mapping[str, Any]:
@@ -80,6 +82,12 @@ class AgentBinder:
         winner = graph.winners[EXECUTOR]
         host = self.services.require(ENVIRONMENT)
         model = str(row.get("model") or "entry-default")
+        placement = host.placement()
+        workdir = None
+        host_path = getattr(host, "host_path", None)
+        if callable(host_path):
+            workdir = str(host_path(placement.workdir))
+        package_root = str(self.task_root) if self.task_root is not None else None
         executor = bind_winner(
             self.registry,
             graph,
@@ -89,7 +97,9 @@ class AgentBinder:
             base_url=_text(row.get("base_url")),
             api_key=_text(row.get("api_key")),
             host=host,
-            placement=host.placement(),
+            placement=placement,
+            workdir=workdir,
+            package_root=package_root,
         )
         return BoundAgent(
             profile_id=profile_id,
