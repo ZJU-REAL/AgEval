@@ -34,7 +34,7 @@ class ConfigError(Exception):
         )
 
 
-# Stable codes required by Spec 00 / Roadmap v0.1.
+# Stable public error codes.
 ERROR_INVALID_PACKAGE = "invalid_package"
 ERROR_INVALID_FORMAT = "invalid_format"
 ERROR_UNKNOWN_TASK = "unknown_task"
