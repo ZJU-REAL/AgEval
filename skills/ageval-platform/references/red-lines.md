@@ -3,26 +3,31 @@
 ## Trajectory ≠ PASS
 
 - **OK:** Agent invoke fails; Result status ERROR/FAIL; trajectory dirs still present.
-- **Forbidden:** Infer PASS because `final-response.json` exists or harness returned `completed`.
+- **Forbidden:** Infer PASS because `final-response.json` exists or `run.py` returned `completed`.
 
-`HarnessTerminal.completed` ≠ PASS. Evaluator is independent.
+`RunTerminal.completed` ≠ PASS. Evaluator is independent.
 
 ## Secrets
 
-- **OK:** Database bindings with `executor` / ACP `- plugin: acp` / `options.entry` / model id only; credentials via host env locators.
+- **OK:** Dataset bindings with `executor` / ACP `- plugin: acp` / `options.entry` / model id only; credentials via host env locators.
 - **Forbidden:** API keys, DSN passwords, Bearer tokens in `ageval.yaml`, lock JSON, evidence files, skill text, or examples committed to git.
 
 ## Adapter naming
 
-- **OK:** yaml `executor: acp` + `- plugin: acp` / `options.entry: codex|pi|opencode|…`; `openai-http`; `postgresql`; docker provider.
-- **Forbidden:** `executor: codex|pi|opencode|claude-code` as private CLI kinds (migrated); `TerminalBenchAdapter`; task-id branches; domain names as production adapter modules.
+- **OK:** yaml `executor: acp` + `- plugin: acp` / `options.entry: codex|pi|opencode|…`; `openai-http`; docker environment winner.
+- **Forbidden:** `executor: codex|pi|opencode|claude-code` as private CLI kinds; `TerminalBenchAdapter`; task-id branches.
 
 ## Plugins
 
-- **OK:** `ageval plugin install plugins/nooa` then bind `executor: nooa` in profiles; L1 Ready only after `image_contribute` bake.
-- **Forbidden:** Treat install as L1-ready; rewrite profiles from install; `if kind == "nooa"` in Core.
+- **OK:** `ageval plugin install plugins/nooa` then bind `executor: nooa` in profiles; docker Ready only after image layers bake.
+- **Forbidden:** Treat install as docker-ready; rewrite profiles from install; `if kind == "nooa"` in Core; product `executor: mock`.
 
 ## Evidence grade inflation
 
-- **OK:** Document `execution_location: parent-api-client` or `attempt-container` as measured.
-- **Forbidden:** Claim full `isolated` because harness container passed once.
+- **OK:** Document measured `execution_location`.
+- **Forbidden:** Claim full `isolated` because one docker Attempt passed once. Skip CI ACP/E2B is not a pass.
+
+## Box kind
+
+- **OK:** `environment: local|docker|e2b|ssh`.
+- **Forbidden:** `provider.kind`, `assurance: l0/l1`, calling cloud sandboxes L2.

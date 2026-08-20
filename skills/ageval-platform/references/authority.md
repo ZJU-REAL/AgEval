@@ -6,6 +6,10 @@
 docs/design/*  →  ARCHITECTURE.md  →  GitHub Issues  →  code/tests/examples
 ```
 
+`docs/` is self-contained. Do not read an external BRIEF / vault as design truth.
+
+`ARCHITECTURE.md` 拥有 Current 源码树、依赖图、五相位状态机、emit 图、数据流表、失败归属。施工红线与 CI 命令在根 `AGENTS.md`。不要在 skill 里复制那两份图。
+
 `website/` is reader-facing product documentation only — never design truth.  
 `apps/*` and `services/*` READMEs own SPA/service **dev** detail, not product tutorials.
 

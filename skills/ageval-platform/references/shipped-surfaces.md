@@ -1,27 +1,27 @@
 # Shipped public surfaces (orientation)
 
-Prefer mechanism packages under `examples/core/` and `examples/l1/`. Full list: `examples/README.md`.
+Prefer mechanism packages under `examples/core/`. Full list: `examples/README.md`.
+Evidence grade is **limited `runnable-mvp`**. Do not claim `isolated` from one happy path.
 
 | Package | Demonstrates |
 | --- | --- |
-| `examples/core --task config-minimal` | `ageval lock` success |
+| `examples/core --task config-minimal` | `ageval lock` success (`dataset_id`, no `database_id`) |
+| `examples/core --task acp-local-min` | local ACP public run |
+| `examples/core --task acp-docker-min` | docker ACP public run (`--profiles examples/core/profiles.docker.yaml`) |
 | `examples/core --task sdk-agent-session` | Host multi-invoke + independent PASS |
-| `examples/core --task attempt-trajectory` | Per-invoke Core `trajectory.jsonl` + `Result.logs` |
-| `examples/core --task builtin-executor-conformance` | Profile-only switch (`executor: acp` + `- plugin: acp` / `options.entry`) |
-| `examples/core --task builtin-executor-mixed` | Two ACP profiles, independent sessions/trees |
-| `examples/core --task hard-ceiling-trajectory` | N+1 invoke denied pre-effect |
-| `examples/core --task environment-action-denied` | Env action deny-before-mutation |
 | `examples/core --task plugin-agent-executor` | Second executor mechanism (`openai-http`) |
-| `examples/l1 --task sdk-session-single-actor` | L1 SDK session → attempt-container |
-| `tests/provider_l1/test_harness_isolation_contracts.py` | Gold hide / no-cred harness / writer-stop (Provider) |
-| `examples/journeys/*` | Case-class demos (env / multiagent / tau2 / terminal) |
+| `examples/journeys --task terminal-jsonl-agg` | Named journey |
+| `examples/journeys --task env-postgres-min` | Sidecar / compose path |
+| docker topology `sdk-session-single-actor` | lock 有 topology 即可 |
+
+e2b / ssh: code exists; missing key → `--probe` `ready: false`. Skip ≠ pass.
 
 ## Install (repo root)
 
 ```bash
 uv sync --frozen --all-packages
 uv run ageval --help
-uv run ageval executors -v   # executor kinds + ACP entry readiness
+uv run ageval executors -v
 ```
 
-Design anchors: `docs/design/00-overview-and-product.md`, `docs/design/01-ageval-core.md`, `docs/design/05-runtime/agent-service.md` / `evidence.md`, `docs/design/09-owner-matrix-and-structure.md`.
+Design: `docs/design/00-overview-and-product.md`, `docs/design/01-ageval-core.md`, `ARCHITECTURE.md`.

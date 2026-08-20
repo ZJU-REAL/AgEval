@@ -6,13 +6,13 @@ Package: `ageval_sdk` (see `sdk/python/src/ageval_sdk/`).
 
 | Symbol | Role |
 | --- | --- |
-| `HarnessContext` | params, scope, publish helpers |
+| `RunContext` | params, workspace, artifact_dir, agent, publish |
 | `RunScope` | attempt/trial/run identity (parent-owned) |
 | `Agent` | factory for sessions bound to attempt |
 | `AgentSession` | `open` / `invoke` / `close` via parent socket |
 | `Tool` / `ToolSet` | local tools |
 | `AllowList` / `CallLimit` | soft local guards |
-| `HarnessTerminal` | completed / failed |
+| `RunTerminal` | completed / failed — not PASS |
 | `bounded_gather` / `collect_results` / `first_success` | workflow helpers |
 
 ## AgentSession.invoke return keys (parent path)
@@ -23,4 +23,4 @@ Includes `ok`, `error`, `text`, `structured`, `provider_session_handle`, `invoca
 
 When `AGEVAL_OFFLINE_AGENT=1`, invoke fails closed (`offline_forced`) — never stub PASS on public paths.
 
-Design: `docs/design/03-harness-layer.md`, `docs/design/04-harness-core-sdk.md`.
+Design: `docs/design/03-task-run-and-sdk.md`.
