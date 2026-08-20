@@ -1,6 +1,6 @@
 # 13 — Web UI 令牌与不变量
 
-适用面:website(landing + docs)、apps/hub、apps/viewer 三个 web 表面的**风格一致性**。
+适用面:ageval website(landing + docs)、apps/hub、apps/viewer 三个 web 表面的**风格一致性**。
 权威顺序:本文件 → 各端令牌定义文件 → 业务代码(只允许引用语义令牌)。
 机检:`python3 scripts/check_design_tokens.py`(CI job `design-tokens`),文档表格与脚本内置值**互相校验**,改值必须两侧同步。
 

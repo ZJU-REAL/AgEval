@@ -1,137 +1,205 @@
-# 00 — 产品目标、背景与边界
+# 00 — 产品与红线
 
-| 字段 | 值 |
+ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一个 **盒子**，跑题包 `run.py`，再由独立 `evaluator.py` 出分。编排始终在本机 `ageval run`；盒子可以在本机、本机 Docker、E2B 或 SSH 上。
+
+旧称 BORA。未发版硬切，不留别名。题包根叫 **dataset**，不是 SQL，也不是侧车 Postgres。
+
+本文件吸收产品模型（目标、非目标、用户故事、三层、命名、术语对照）。机制细节在 [01](01-ageval-core.md) 与 [05-runtime/](05-runtime/)。结构地图：[ARCHITECTURE.md](../../ARCHITECTURE.md)。施工红线：[AGENTS.md](../../AGENTS.md)。
+
+**权威只在本仓 `docs/`。** 不要去仓外 BRIEF / vault 找第二套产品形状。
+
+## 产品更名（硬切）
+
+| 面 | 值 |
 | --- | --- |
-| 产品 | Bounded Orchestration for Runtime Agents（BORA） |
-| 权威 | **本文件与同目录其它 design 文档共同构成设计权威**（自包含） |
-| 摘要 | 产品定位、成功标准、红线、可见性投影、问题背景与设计修正。 |
+| 产品名 / 文档站 / README | **ageval**（agent eval） |
+| CLI | `ageval lock` / `ageval run` |
+| Python 包与 import | `ageval` / `ageval_sdk` |
+| 环境变量 / 家目录 | `AGEVAL_*`、`~/.ageval`（不留 `BORA_*`） |
+| 配置 format | `ageval.dataset/1`、`ageval.task/1`、`ageval.plugin/1`、`ageval.profiles/1` |
+| GitHub 路径 | 目前仍是 `ZJU-REAL/BORA`；产品名不是仓库名 |
 
----
+未知 format：**一个**错误（`invalid_format` 于 `/format`），停。不要 `if fmt.startswith("bora.")`，不要在报错里教旧名映射。
 
-> [!important] 设计决定
-> **Bounded Orchestration for Runtime Agents（BORA）** v2 的产品目标是在简洁 Core 上，使大部分上游 Agent Benchmark / Harness 能以可重复方式转换为 BORA Task Package，并完成自动测评与结果绑定。Core 保留配置锁定、Attempt 生命周期、Provider 物理隔离、**可见性投影**、Capability 和独立 Evaluator；`harness.py` 或 upstream Framework 拥有 workflow。设计口令是：**边界硬、契约薄、实现可胖**；精简只针对过度设计，不砍可见性等核心机制。
->
-> **扩展原则：** Core 在稳定契约上允许用户/第三方实现**定制化插件**并分发（entry point + 包安装，如 `pip`）。**不限于 Agent 后端**——Pi 的 `invoke` 只是示例；Provider、Environment、Artifact 等采用同一「接口 + 注册 + 配置选型」模式。调度面（如 Agent Service）留在主仓；可插拔的是各 Adapter 实现，不是开放应用商店。
+## 规范交付单位：dataset
 
-本文围绕两个问题展开：不同上游 Harness 如何沿同一转换路径接入 BORA，以及 Core 用多薄的公共契约守住可复盘、物理隔离和 evaluator truth。文中的 `database-52-mvp/` 与 `database-52/` 是概念 package 名称：前者展示最短可用路径，后者展开完整 envelope；相关配置、Harness 和 Runtime 对照已完整写入 [02-task-package-and-config.md](02-task-package-and-config.md) 与 [10-examples-database-52.md](10-examples-database-52.md)，不依赖仓库外目录。单个示例只证明一种模式，不定义 BORA 的能力边界。
+现在叫 Database 的东西是历史误名。它是评测 **数据集 / 题包**（根配置 + 若干 task 成员），不是 SQL。
 
-后续实现与 Issues **只以本目录 `docs/design/` 为设计权威**。与历史 vault 长文的章节对照与变更规则见 [../README.md](../README.md) 中「与 vault 总设计的对齐」。
+不要和侧车 Postgres、`host.exec(service="db")` 混为一谈。那些仍叫数据库资源 / compose service。
 
-## 产品目标与 MVP 边界
-
-### 成功标准
-
-BORA v2 的成功标准是：面对结构不同的 Agent Benchmark，转换者可以复用同一套 owner map、Capability 和 evaluator barrier，优先保留 upstream workflow，只补齐配置、物理边界、外部效果与结果绑定。仓内 examples 与 Issues 中的 task 是回归样例，不能成为 shared Adapter 按 Benchmark 名称分支的理由。
-
-成功度量是可转换 Harness 的覆盖面与单个转换的人工/代码成本，不是示例数量；`database-52*` 只承担回归样例职责。
-
-转换能力同时满足四项要求：
-
-1. **精简：** 只去掉讨论过的过度设计与过度防御仪式（例如 Config 多阶段公开 DTO、Artifact 用户类型阶梯、未证明必要的九步/四提交叙事）。**不**精简核心且实现成本合理的机制——包括**可见性控制（projection / view / mount / materialize）**与**Attempt evidence / Agent 轨迹落盘**。package 作者仍主要面对一份 `bora.yaml`、一个 Harness 入口、一个 Evaluator 入口和少量 Capability。
-2. **可拓展：** 隔离、Environment 终态和 transport 按档位或策略增加，不要求每个 task 预先配置能力全集。
-3. **泛化转换：** [design/08](08-conversion-security-testing.md) 规定自动、半自动与手工 bridge 的判断方式；shared 实现以第二领域绑定证明通用性。
-4. **可观察与可训练：** 一次 Attempt 结束后，操作者与训练管线必须能从固定 evidence 目录读取 Agent 执行轨迹（请求/事件流/归一化输出/usage 等），用于人工复盘、失败分析与轨迹训练数据导出。扁平 `Result` 不够；**轨迹落盘是 Core 义务**，不是 Harness 可选副作用。
-
-### 红线
-
-| 能力 | 最小保证 |
+| 面 | 值 |
 | --- | --- |
-| Database / Task 配置与 Trial 锁定 | 参数、外部 envelope 和 evaluator contract 可比较、可复盘 |
-| Code-first Harness | workflow、Actor、Router、Tool 组合、branch 和 handoff 由 `harness.py` 或 upstream Framework 掌握 |
-| Attempt 与 Provider | Runtime 掌握执行身份、物理隔离、writer stop 和 cleanup |
-| Capability | Harness 只经 agent、environment、workspace、artifacts 等窄操作面触达外部能力 |
-| **可见性控制** | 不同消费者（Harness / Agent / Evaluator / Adapter）只获得声明范围内的路径、secret、网络与参数视图；见下文「可见性投影」 |
-| 独立 Evaluator | `HarnessTerminal.completed` 不等于 PASS，评分只能由独立 evaluator 形成 |
-| 硬顶与 allowlist | Runtime 强制 wall time、memory、Agent invocation、Environment action，并在执行前拒绝未声明 action |
-| hidden material | gold、hidden test 和 evaluator-only material 不挂载给 Agent，也不挂载给 Harness |
-| **Agent 轨迹落盘** | 每次经 Agent Service 的真实 invocation 必须在 Attempt evidence 树中落盘（默认 per-invocation JSONL 事件流 + 归一化摘要）；`Result.logs` 指向该树；轨迹不得含 host credential；轨迹**不得**代替 evaluator verdict |
+| 产品用语 / CLI help | **dataset** |
+| 根 format | `format: ageval.dataset/1` |
+| 根清单文件 | `ageval.yaml` |
+| 标识符 | `dataset_id`、`dataset_root`、`load_dataset` |
+| 成员 | `tasks/<id>/task.yaml`（`ageval.task/1`） |
 
-### MVP 假设与非目标
+`shared/` 相对 **dataset 根** 解释；gold 仍在 `tasks/*/evaluation/`。
 
-MVP 默认单 Attempt、前台串行、进程内 Harness。Environment 的最小生命周期是 prepare / action / teardown；artifact-only 评测不强制 freeze。Provider 通过 `assurance` 选择 L0/L1/L2 隔离档，本轮主示意使用 L1 path views。
+## 控制流
 
-**精简范围**仅针对过度设计。下列内容可以保留为内部实现或未来扩展，但不进入「package 作者必学」的公共仪式：
+```text
+ageval.yaml (ageval.dataset/1)
+  → task.yaml + profiles.yaml
+  → load_and_lock → digest + extension_bindings
+  → host.preflight
+  → run_attempt
+       environment → run → evaluate → record
+       finally cleanup
+  → .ageval/runs/<attempt_id>/
+```
 
-- Loaded / Resolved / 多套可持久化 *Config* projection **DTO 阶梯**（不是「可见性 projection」能力本身）；
-- ArtifactRef / MaterializedArtifact / SealedArtifact **用户类型**阶梯（内部 materialize/digest 仍可存在）；
-- 九步评测仪式和四个公开 commit point；
-- 不把 Port 提升为 package 作者必学层，也不强制 Capability → Port → Adapter → Service 四层主叙事；对外只讲 Capability + Adapter；
-- 每次 Agent invocation 重复核验已经绑定的 Attempt/profile/workspace；
-- 对外完整**阶段结果树**作为聚合器必选 schema（内部/操作者 evidence 树**必须**存在，见上文「红线」轨迹落盘）；
-- 所有 task **强制** freeze、per-actor UID/GID、durable/reopen；
-- 默认把 **Capability transport** 做成 JSONL/stdio 跨进程（与 evidence 目录里的 JSONL **不是同一件事**；轨迹落盘默认 JSONL 文件）；
-- 通用 Handoff、BranchAuthority、Graph IR 和 workflow receipt 系统。
+打开 `src/ageval/attempt/__init__.py` 能说出相位。插件改的是 lock 时的绑定，不是运行时改写这五行。
 
-### 可见性投影（保留的一等机制）
+## 三层各管什么
 
-**控制可见性是一等能力，不是被精简掉的对象。** `projection` / `view` 在本文中的正当含义是：给某个消费者一份**声明范围内的受限视图**。实现上按边界拆分 owner，而不是用 Config 字段 ACL 假装隔离。
-
-| 视图 / 投影 | Owner | 作用 |
+| 层 | 文件 | 干什么 |
 | --- | --- | --- |
-| Workspace path view | Provider + `provider.workspace.views` | Harness / 各 Agent 能读哪些路径、写哪些路径 |
-| Secret / credential projection | Runtime credential store | 只有获准的 Adapter/进程拿到 token，不进 Agent prompt 默认可见面 |
-| Network projection | Provider network policy | 进程能连哪些 endpoint |
-| Artifact materialize 视图 | Artifact capability | 跨 sandbox 或进 evaluator 时的只读副本与 consumer scope |
-| Parameter view（`ctx.params`） | Config lock + HarnessContext | Harness 只读 `parameters`，不必也不应解析整份 YAML / gold |
-| 文本 / prompt 可见性 | Harness Context 或 upstream memory | 模型消息过滤；**不能**替代物理 mount 隔离 |
+| 产品 | `src/ageval/attempt/` + `attempt/phases/*.py` | 开盒 → run → eval → 归档 → 拆盒 |
+| Job | `profiles.yaml` / `extensions` | 选独占槽赢家（`environment` / `executor`）、列 extensions |
+| Task | `run.py` / `evaluator.py` / `environment/` | 这一题的业务、打分、盒子配方 |
 
-**硬规则：** gold 与 evaluator-only material 的隔离必须靠 **不 mount + 评测前 materialize**（以及按需的网络/secret 边界），不能只靠「配置投影时删掉字段」。Config 侧可以提供轻量只读 view（如 `ctx.params`），但不发明多消费者 Loaded→Resolved→Projected 公开流水线作为安全边界。
+要换整条链：换 job 用的 attempt 模块或默认插件图。**不要**在 50 个 task 里复制编排。
 
-## 项目背景
+## 命名（已拍板）
 
-### BORA 要解决的问题
+| 角色 | 用这个 |
+| --- | --- |
+| 产品里串 phase | **`src/ageval/attempt/__init__.py`**（`run_attempt`） |
+| task 里只做 run | **`run.py`**（`async def run(ctx)`） |
+| 打分 | `evaluator.py` |
+| 盒子运输面 | 独占槽 **`environment`**；`ctx.host` / `ctx.services.require("environment")` |
+| Agent 后端 | 独占槽 **`executor`**（赢家常是 acp） |
 
-BORA 用同一个公开入口执行不同 Agent Benchmark。一个 Benchmark 通常包含 task loader、Agent loop、Tool、Environment、workspace、evaluator 和结果聚合，但这些部分的组织方式差异很大：
+## 目标
 
-- Terminal 类任务可能只启动一个 Agent，让它在容器里完成文件或终端操作；
-- Tool-Agent-User Benchmark 会维护 Agent、用户模拟器和外部业务状态之间的多轮交互；
-- 多 Agent Benchmark 可能包含 Planner、多个 specialist、动态 follow-up、Reducer 和 team memory；
-- Browser、VM、数据库和桌面 Benchmark 依赖不同的 Environment lifecycle；
-- hidden tests、gold labels、外部终态和 trajectory metrics 对 evaluator 隔离有不同要求。
+1. 一次 Attempt 的链写在产品包 `attempt/`：串行调 phase；每个 phase 文件内串行 `emit(slot)`。打开就能看见。
+2. **phase**（提供默认实现，可换独占赢家）与 **slot**（链）分开。插件改绑定，不改 `run_attempt` 的默认顺序。
+3. 盒子一张口：独占槽 `environment`（`local` / `docker` / `e2b` / `ssh`）。能力 `requires ⊆ capabilities`，缺则 lock 失败。
+4. `environment/Dockerfile`（或 `docker_image`）对 docker 与 e2b 同一配方。`setup.sh` 是 environment 的末槽，不是单独 phase。
+5. **Task 不包含流水线文件。** 业务只在 `run.py`，打分在 `evaluator.py`。`task.yaml` **缺省有文件就认**。
+6. Agent 仍是 `executor: acp` + `options.entry`。附着 `host.attach_stdio`。PASS 只来自独立 evaluate。
+7. 产品 / CLI / 包名为 ageval；交付单位为 dataset。
 
-BORA 需要统一的是一次实验如何准备、运行、评测、保存结果和清理资源。Benchmark 内部如何组织 Agent 和数据流，继续由它自己的 Harness 或上游 Framework 决定。失败模式是每接入一个 Benchmark 就给 Runtime 增加一组 task-aware service、Adapter 或 workflow schema；成功模式是大部分转换复用相同外层边界，只在 Task Package 中保留必要的业务 glue。
+## 非目标
 
-### 从静态配置驱动开始
+- 不把 Harbor 的全部云厂商一次搬进来。
+- 不把 vendor SDK、alias 缓存写进 Core。Core 只调 `host.start()`。
+- 不保留 Environment Manager。
+- 不把盒子做成 `provide(executor)`。没有第三种叫 `provide()` 的扩展模型。
+- **不在每个 task 里复制 `attempt.py` / phase 文件。**
+- 不单开 `provision` phase，不要 `before/after_provision`。
+- 插件不能取消 cleanup、不能发明 PASS、不能重排「先打分再跑 agent」。
+- Core 仍拥有：Attempt 身份与 lock digest、deadline/cancel、`try/finally` 必进 cleanup、PASS 只从 evaluate 进入。
+- 不兼容 `bora.*` format、`BORA_*`、`bora.yaml`。
+- Core 内不建通用 Graph / Handoff / BranchAuthority 平台。
+- 不是开放插件商店。
+- 适配器禁止按 Benchmark / task 名分支。
 
-早期方案接近 Harbor 类静态编译模型：Benchmark 的 Actor、Graph、Tool、Policy、Environment 和 Evaluator 都写进配置，Compiler 再生成统一执行计划。这个设计容易做运行前检查，也能形成确定的 plan，但它要求 BORA 预先理解每一种工作流结构。
+## 用户故事（产品形状）
 
-真实 Benchmark 接入后，静态模型不断扩张：
+这些故事是产品约束，不是进度勾选。实现是否兑现看代码与公开 smoke（见 [ARCHITECTURE.md](../../ARCHITECTURE.md) Current / Target）。
 
-- 动态 speaker 需要 Router schema；
-- 多 Agent 结果传递需要 Context、Handoff 和 visibility schema；
-- output-dependent follow-up 需要 Branch、Join 和 Planner authority；
-- Tool 调用检查需要 Tool declaration、dispatcher、budget 和 receipt；
-- 上游 memory、team object 和 loop 需要再次映射为 BORA DTO。
+### US1 — 换盒子只改 kind
 
-Config、Compiler 和 Runtime 逐渐承担了第二套 workflow engine 的职责。接入一个 Benchmark 的工作量开始取决于“能否把 upstream 代码翻译成 BORA 的静态语言”，而不是“能否在 BORA 的外部执行边界中运行 upstream Harness”。
+`ageval run` 选独占槽 `environment: e2b`（或 `local` / `docker` / `ssh`）。`run_attempt` 调用串不变。缺 `E2B_API_KEY` 在 preflight/lock 失败。
 
-### 引入 `harness.py` 后的问题
+### US2 — 一份 Dockerfile，两种盒子
 
-`harness.py` 让循环、条件、并发和动态数据依赖回到 Python，控制流表达能力得到改善。但旧设计仍把 Actor、Tool、branch、join 和 collaboration 信息写入 `bora.yaml`、locked plan 与 Runtime authority。于是同一语义出现多个 owner：
+`environment/Dockerfile`（或 `docker_image`）。docker 本机编；e2b `Template.from_dockerfile`。要 compose 而 kind 没有该 cap → lock 失败。
 
-- `harness.py` 已经实现 Agent loop，YAML 仍重复声明 Actor 和 branch；
-- Tool 的业务名称、Actor 绑定和调用次数同时存在于 YAML、SDK 和 Runtime dispatcher；
-- 上游 Framework 已经维护 memory，BORA 仍要求生产 `HandoffRef`；
-- 一个进程内计数器可以完成的限制，被扩展成宿主 Port、Service 和 receipt 链；
-- 每个配置字段都可能要求修改 schema、Compiler、locked DTO、Runtime 和 Adapter。
+### US3 — setup 是 environment 末槽，不进 run.py
 
-这类耦合没有随着 `harness.py` 出现而自动消失。必须重新划分 Config、Harness 与 Runtime 的所有权。
+有 `environment/setup.sh` 则 environment phase 最后 `emit("environment_setup")` → `host.exec`。无文件则默认 no-op。失败是 environment 相位失败，不是 Agent 轨迹。重依赖进 Dockerfile。
 
-### 动态工作流与精简 Agent Core 的启发
+### US4 — ACP 进任意盒子
 
-[Anthropic 的动态工作流](https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code)把 loop、branch 和中间结果留在脚本中，运行环境负责 sandbox、权限和资源上限。这个做法说明，统一执行环境可以容纳不同的内部工作流。
+ACP `inject: [service: environment]`，`host.attach_stdio`。Placement 无 `container_id`。ACP 禁止 import docker/e2b/ssh。
 
-[earendil-works/pi](https://github.com/earendil-works/pi)展示了另一条有用边界：Agent loop 可以由 messages、tools、状态和少量 hooks 组成。`transformContext`、`beforeToolCall`、`afterToolCall`、`shouldStopAfterTurn` 都是普通函数或可组合对象。数据库、宿主权限和完整 workflow platform 不需要进入最小 Agent Core。
+### US5 — 能力 lock
 
-BORA 面向的对象比单个 Agent loop 更外层。可以把它理解为 Harness 的执行内核：Harness 负责算法，BORA 负责配置、运行位置、外部能力、产物和评测。
+`requires` 缺省为空。非空则必须 ⊆ kind.capabilities。Result 记 `kind` + `capabilities_used`。
 
-### 本轮设计修正
+### US6 — 无 Manager
 
-动态 Harness 解决了工作流表达问题，但参数管理仍需要一个统一入口。Tool 上限、Agent 轮数、模型 profile、并发、retry、context strategy 等值如果散落在 `harness.py`、环境变量和附加配置中，实验难以比较，也无法确认一次 Trial 实际使用了什么参数。
+侧车 = compose 或 `host.exec(service=)`。`run.py` 读投影 DSN。
 
-本轮设计增加一条强约束：
+### US7 — 厂商扩 kind
 
-> [!note] 单一配置来源
-> 规范交付单位是 **Database**（根 `bora.yaml` / `bora.database/1`）。每个成员 Task 只有一个规范配置文件 `task.yaml`（`bora.task/1`）。Config Core 是唯一读取者：先 resolve 成员，再 `load_and_lock`。所有可调整、可比较、可被 experiment variant 覆盖的值都从成员配置进入同一份 `LockedTaskConfig`。锁定后做轻量可见性投影：Harness 通过 `ctx.params` 读取 `parameters`，Runtime 从锁定对象读取 envelope 并实施 workspace / secret / network mount。gold 隔离依靠 Provider mount 与 evaluator materialization，**不**依靠 Config 字段 ACL，也**不**取消 projection 能力本身。
+实现独占槽 `environment` 的赢家（同一 Protocol）。不改 `attempt/` / ACP / `run.py`。
 
-参数写入配置，不意味着 Runtime 要解释其业务含义。`max_tool_calls` 可以由 Config Core 读取、由 Harness 的 `CallLimit` 执行；`wall_time_seconds` 同样来自 `bora.yaml`，但由 Provider 强制。配置位置统一，执行 authority 按边界分层。
+### US8 — 缓存对 Core 无感
+
+只调 `host.start()`。alias/hash 在 e2b 实现里。Core 不实现 E2B 模板缓存。
+
+### US9 — 打开 attempt 看见整条链
+
+贡献者 / 任务作者不读 lifecycle 迷宫。产品包里的 `run_attempt` 五行 + `phases/environment.py` 里的 slot 顺序就是权威时间线。
+
+### US10 — task 目录很薄
+
+作者只维护 `run.py`、`evaluator.py`、`environment/`。不写入口字段也能跑（见 [02](02-task-package-and-config.md) 缺省）。
+
+### US11 — gold 进 evaluate 再上传
+
+Agent / `run.py` 阶段 **不得** `upload` `evaluation/`。evaluate phase 开头再 `host.upload` gold/测例，然后 exec evaluator。同盒即可。这是默认隔离，**不**等于 `path_views`。
+
+### US12 — 云上已有 image：连上 + 探测再装 agent
+
+`environment: ssh`。**A** 无 `image`：盒子=整机，`attach_stdio` = `ssh -T -- argv`。**B** 有已有 tag：`start` 远端 `docker run`，`attach_stdio` = `ssh -- docker exec -i`。两种 agent 都在云上。ACP 挂 `after_environment_ready`：先 `which`，缺再装。
+
+## 红线
+
+1. PASS 只来自 evaluate 绑定。轨迹、`RunTerminal.completed`、ACP `end_turn` 都不是 PASS。
+2. lock / evidence / 默认环境不写 host token。环境变量只作 locator。
+3. 适配器按机制命名（`acp` / `docker` / `e2b` / `ssh`），禁止按 bench 名分支。
+4. ACP / `attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。
+5. Agent 阶段磁盘上没有 `evaluation/`。gold 在 evaluate 开头才 upload。
+6. 未知 format 一个错误。不映射 `bora.*`。
+7. 没有产品 `executor: mock`、没有 FakeHost 当完成证据。
+8. cleanup 在 `try/finally`。插件不能取消 cleanup，不能发明 PASS。
+9. CLI 只 import `ageval.application.composition`。
+10. 一次 Attempt 只 `new_run` 一次。
+11. 测试面 = 真实 kind + 公开 CLI。无凭证 skip 该 job，不标完成。
+12. inject 在 lock 完成。缺 `attach_stdio` 就 lock 失败，不在 invoke 时探测管子。
+
+## 可见性
+
+gold 隔离是**时间切**：不 mount，evaluate 再 upload。这是默认，不等于 `path_views`。`path_views` 只有盒子真能兑现时才报 yes（当前：docker）。
+
+## Harbor 对照（实现事实，不是产品名）
+
+对照 Harbor 只取运输形状，不 import、不抄 20 个 vendor adapter：
+
+- 盒子五个动词：`start` / `exec` / `upload_*` / `download_*` / `stop`。ageval 再加 `attach_stdio` 与 `preflight`。
+- 编排器和 parent ACP client 在本机；远程的是 workspace。
+- **Dockerfile 不是 docker 私货。** e2b 云上也可从同一配方编 template。多数 cloud 厂商不认 compose。
+- 模板缓存（内容 SHA → alias）若存在，只活在 e2b contrib。**ageval Core 不实现这套缓存**——只调 `host.start()`。
+- Harbor trial 把 setup agent 单开一步。ageval 把「setup agent」收进 run 里的 ACP attach，不单开 phase。灌数 / `setup.sh` 是 **environment 的最后一个 slot**。
+
+## 说法
+
+- 盒子：`environment: local | docker | e2b | ssh`。能力记在 `kind` + `capabilities_used`。
+- 题包入口：`run.py` / `RunContext`。编排：`attempt/__init__.py` 的 `run_attempt`。
+- 装依赖：environment 末槽 `environment_setup`（`setup.sh`），不是单独 phase。
+- 侧车：compose 或 `host.exec(service=)`。
+- Agent 后端：独占槽 `executor`。盒子：独占槽 `environment`。扩展只有 exclusive 与 chain。
+- 题包根：**dataset**，format `ageval.dataset/1`。CLI：`ageval lock` / `ageval.yaml`。
+- gold：同盒；evaluate 开头再 upload。
+- ACP：`after_environment_ready` 先 `which`，缺再装。
+- ssh：A 整机 / B 远端已有容器。inject：`service: environment`。
+
+## 审查问题（实现时对照）
+
+1. `attempt/__init__.py` 能否不打开别的文件就说出相位顺序？
+2. ACP / `run.py` 有没有 `if kind == e2b`？
+3. ACP 还能不能看见 container/sandbox id？
+4. 缺 cap 会不会仍开跑？
+5. task 目录里有没有编排文件？
+6. Agent 阶段磁盘上有没有 `evaluation/`？
+7. 云镜像已有 `pi` 时还会不会再装一遍？
+
+## 近端不做（不是洞）
+
+下列不是「设计漏了」：gaia / tau3 全 suite 手改；五条 ACP 全部付费 invoke；Harbor 其它云厂商；默认 CI 真打 E2B；多 group 真调度 run（lock 有 topology 即可）；Hub REST 全表。要做先改 `docs/` 再编码。
