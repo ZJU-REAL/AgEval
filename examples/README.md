@@ -8,7 +8,6 @@ examples/
 ├── agents/         # ageval.agent/1 examples (cc-default / pi-default / grok-jsonl-agg / http-default)
 ├── core/           # dataset example/core — Core surface gates
 ├── journeys/       # dataset example/journeys — case-class fidelity
-├── l1/             # dataset example/l1 — docker topology packages
 └── tau3-airline/   # dataset my-lab/tau3-airline — τ³-bench airline port
 ```
 
@@ -38,7 +37,6 @@ uv run ageval run examples/core --task config-minimal
 ```bash
 uv run ageval lock examples/core --task config-minimal
 uv run ageval lock examples/journeys --task terminal-jsonl-agg
-uv run ageval lock examples/l1 --task sdk-session-single-actor
 uv run ageval lock examples/tau3-airline --task airline-00   # conversion package; needs tau2 pin for run
 
 uv run ageval run examples/core --task sdk-agent-session   # real agent path when credentials available
@@ -98,18 +96,6 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 #   --profiles examples/journeys/profiles.dsh.read-only.yaml
 ```
 
-## `slot-probe/` (`dataset_id: example/slot-probe`)
-
-Multi-slot extension e2e (not a default public smoke). Requires:
-
-```bash
-uv run ageval plugin install plugins/nooa
-uv run ageval plugin install plugins/slot-probe
-uv run ageval run examples/slot-probe --task l0-env-agent
-```
-
-See [`slot-probe/README.md`](slot-probe/README.md).
-
 ## `core/` (`dataset_id: example/core`)
 
 | Task                                                                       | Role                                    |
@@ -128,19 +114,10 @@ See [`slot-probe/README.md`](slot-probe/README.md).
 | [`sdk-tool-guard-denied`](core/tasks/sdk-tool-guard-denied/)               | Tool policy denial                      |
 | [`environment-action-denied`](core/tasks/environment-action-denied/)       | Env undeclared/dangerous action deny    |
 
-## docker topology 示例 (`dataset_id: example/l1`)
-
-| Task                                                                           | Role                                    |
-| ------------------------------------------------------------------------------ | --------------------------------------- |
-| [`sdk-session-single-actor`](l1/tasks/sdk-session-single-actor/)               | SDK session in a container              |
-| [`executor-image-official`](l1/tasks/executor-image-official/)                 | Dockerfile `FROM ageval-attempt:base`   |
-| [`executor-image-upstream`](l1/tasks/executor-image-upstream/)                 | Upstream base + install-executors       |
-| [`multi-agent-shared-container`](l1/tasks/multi-agent-shared-container/)       | shared-container multi-UID              |
-| [`multi-agent-container-per-group`](l1/tasks/multi-agent-container-per-group/) | container-per-group                     |
-
-Isolation (hidden gold, harness without credentials, writer-stop) is covered by
-**Provider tests**: `tests/provider_l1/test_harness_isolation_contracts.py`,
-`tests/provider_l1/test_filtered_mount.py` — not public probe packages.
+Docker topology and isolation (hidden gold, harness without credentials,
+writer-stop) stay in **Provider tests**, not public probe packages:
+`tests/provider_l1/test_harness_isolation_contracts.py`,
+`tests/provider_l1/test_filtered_mount.py`.
 
 ## `tau3-airline/` (`dataset_id: my-lab/tau3-airline`)
 
@@ -193,10 +170,8 @@ Package presence, Hub publish, or a suite job on the board does **not** raise ev
 | `core/agent-eval`                                                 | `sdk-agent-session`                                    |
 | `core/acp-agent-conformance`                                      | `builtin-executor-conformance`                         |
 | `core/orchestration-environment`                                  | `journeys/multiagent-env-min`                          |
-| `l1/provider-l1-agent-eval`                                       | `sdk-session-single-actor`                             |
-| `l1/builtin-executor-visibility` (+ denied)                       | single-actor + provider_l1 tests                       |
-| `l1/acp-agent-placement`                                          | SDK session packages                                   |
-| `l1/provider-l1-denied` / `projection-denied` / `residual-writer` | Application probe paths removed → `tests/provider_l1/` |
+| `examples/l1` (entire dataset)                                    | docker topology; isolation stays in `tests/provider_l1/` |
+| `examples/slot-probe` / `plugins/slot-probe`                      | multi-slot probe, not a public smoke                   |
 | `echo-contract` / `workspace-file-eval`                           | Earlier redundancy                                     |
 
 ## Suggested first runs
