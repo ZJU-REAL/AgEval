@@ -9,7 +9,7 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - When the package has root `shared/`: Dataset **Shared** tab; Task **Files** header **Local | Shared** (Local default; Attempt evidence does not switch)  
 - When profiles declare `overlays:`: Dataset **Overlays** tab; Task **Files** adds an Overlays scope; Leaderboard **profiles** expand shows a Job tree (Dataset package) and/or an Agent tree (`agent_ref` package). One source hides the extra tab; none hides the tree. Not the suite archive.  
 - Large file preview: oversize members return a truncated head with a `truncated` flag (not full download)  
-- **Organizations**: members, org datasets and plugins (separate tables), shared suite results  
+- **Organizations**: create from the list page or join with an invite key; members, org datasets and plugins (separate tables), shared suite results  
 - **Org settings**: invite keys (shown once on create); owners add members by GitHub login, change role, remove, or transfer ownership; leave or dissolve  
 - Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
 - Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases  
@@ -49,7 +49,7 @@ pnpm dev   # http://127.0.0.1:5174
 | `/plugins/:id` | Plugin detail (declared-slot timeline · file preview · CLI install) |
 | `/agents` | Published Agent catalog |
 | `/agents/:id` | Binding, files, appearances grouped by version |
-| `/organizations` | Your orgs · Join · dataset and plugin counts |
+| `/organizations` | Your orgs · Create / Join · dataset and plugin counts |
 | `/organizations/:orgId` | Overview (members · datasets · plugins) · Settings |
 | `/users/:login` | Public user profile (official orgs only; signed-out OK) |
 | `/jobs/...` | Remote Attempt detail (needs uploaded run artifacts) |

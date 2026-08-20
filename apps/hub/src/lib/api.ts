@@ -690,6 +690,20 @@ export async function listOrgs(token: string | null): Promise<OrgRow[]> {
   return Array.isArray(data.items) ? data.items : [];
 }
 
+export async function createOrg(
+  body: { name: string; display_name?: string },
+  token: string | null,
+): Promise<OrgRow> {
+  return requestJson("/v1/orgs", {
+    token,
+    method: "POST",
+    body: {
+      name: body.name,
+      display_name: body.display_name || body.name,
+    },
+  });
+}
+
 export async function getOrg(
   orgId: string,
   token: string | null,

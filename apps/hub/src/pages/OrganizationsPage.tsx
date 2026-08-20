@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  createOrg,
   joinOrgWithInvite,
   listOrgs,
   latestPackageByDataset,
@@ -41,6 +42,16 @@ export function OrganizationsPage() {
   const [inviteKey, setInviteKey] = useState("");
   const [joinBusy, setJoinBusy] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [orgName, setOrgName] = useState("");
+  const [orgDisplayName, setOrgDisplayName] = useState("");
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const orgNameOk = /^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$/.test(
+    orgName.trim().toLowerCase(),
+  );
 
   function reload() {
     if (!token) return;
@@ -133,6 +144,38 @@ export function OrganizationsPage() {
     );
   }, [orgs, query]);
 
+  async function submitCreate() {
+    if (!token) return;
+    const name = orgName.trim().toLowerCase();
+    if (!/^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$/.test(name)) {
+      setCreateError("Slug must be lowercase [a-z0-9][a-z0-9_-]*");
+      return;
+    }
+    setCreateBusy(true);
+    setCreateError(null);
+    try {
+      const created = await createOrg(
+        {
+          name,
+          display_name: orgDisplayName.trim() || name,
+        },
+        token,
+      );
+      setCreateOpen(false);
+      setOrgName("");
+      setOrgDisplayName("");
+      navigate(`/organizations/${encodeURIComponent(created.org_id || name)}`);
+    } catch (err: unknown) {
+      if (err instanceof RegistryHttpError) {
+        setCreateError(`${err.code}: ${err.message}`);
+      } else {
+        setCreateError(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      setCreateBusy(false);
+    }
+  }
+
   async function submitJoin() {
     if (!token) return;
     const key = inviteKey.trim();
@@ -207,6 +250,17 @@ export function OrganizationsPage() {
               <Plus className="h-4 w-4" />
             </Button>
             </HoverTip>
+            <Button
+              type="button"
+              size="sm"
+              className="shrink-0"
+              onClick={() => {
+                setCreateOpen(true);
+                setCreateError(null);
+              }}
+            >
+              New org
+            </Button>
           </div>
           {filtered.length === 0 ? (
             <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm">
@@ -217,12 +271,19 @@ export function OrganizationsPage() {
               </div>
               <p className="font-medium text-ink">No organizations</p>
               <p className="mt-1 text-mute">
-                Create one with{" "}
-                <code className="font-mono text-xs">
-                  ageval registry org-create &lt;name&gt;
-                </code>
-                , or join with an invite key via +.
+                Create one here, or join with an invite key.
               </p>
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setCreateOpen(true);
+                    setCreateError(null);
+                  }}
+                >
+                  Create organization
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="rounded-[8px] border border-hairline overflow-hidden">
@@ -293,6 +354,96 @@ export function OrganizationsPage() {
           </p>
         </>
       )}
+
+      {createOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-org-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !createBusy) setCreateOpen(false);
+          }}
+        >
+          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-lg p-5 space-y-4">
+            <div>
+              <h2
+                id="create-org-title"
+                className="text-lg font-semibold tracking-tight text-ink"
+              >
+                Create organization
+              </h2>
+              <p className="text-sm text-mute mt-1">
+                You become the owner. Packages publish under this slug.
+              </p>
+            </div>
+            <div>
+              <label
+                htmlFor="org-name-input"
+                className="text-xs font-medium text-mute uppercase tracking-wide"
+              >
+                Slug
+              </label>
+              <Input
+                id="org-name-input"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="my-lab"
+                className="mt-1.5 font-mono text-sm"
+                autoFocus
+                disabled={createBusy}
+                maxLength={64}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void submitCreate();
+                }}
+              />
+              <p className="mt-1 text-xs text-mute">
+                Lowercase letters, digits, hyphen, underscore.
+              </p>
+            </div>
+            <div>
+              <label
+                htmlFor="org-display-input"
+                className="text-xs font-medium text-mute uppercase tracking-wide"
+              >
+                Display name
+              </label>
+              <Input
+                id="org-display-input"
+                value={orgDisplayName}
+                onChange={(e) => setOrgDisplayName(e.target.value)}
+                placeholder="Optional — defaults to the slug"
+                className="mt-1.5 text-sm"
+                disabled={createBusy}
+                maxLength={80}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void submitCreate();
+                }}
+              />
+            </div>
+            {createError ? (
+              <p className="text-sm text-error font-mono">{createError}</p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createBusy}
+                onClick={() => setCreateOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={createBusy || !orgNameOk}
+                onClick={() => void submitCreate()}
+              >
+                {createBusy ? "Creating…" : "Create"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {joinOpen ? (
         <div
