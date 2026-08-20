@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/ZJU-REAL/BORA?display_name=tag&sort=semver)](https://github.com/ZJU-REAL/BORA/releases)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
 
-GitHub 仓库路径仍是 `ZJU-REAL/BORA`。产品名、CLI、包是 **ageval**。没有 BORA 别名。
+GitHub 仓库路径仍是 `ZJU-REAL/BORA`。产品名、CLI、包是 **ageval**。
 
 Agent 评测常只给模型打分，把编排、隔离、可见性和打分权威留给各家私有栈。换 coding agent 或换盒子，分数就不可比。
 
