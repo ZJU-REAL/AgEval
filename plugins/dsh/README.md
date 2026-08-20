@@ -90,6 +90,6 @@ Evidence for a successful invoke includes worker metadata
 - **profiles `executor: dsh`** → exclusive slot winner (+ model / api_key locator)
 - **`extensions: [{plugin: dsh}]`** → opt-in bake / trajectory collect
 - **`--probe`** → binding-aware feasibility; no Agent, no bake
-- **image baked** → `config.image_layers` + `docker/Dockerfile.bake`; invoke is still `host.exec` with projected `DEEPSEEK_API_KEY`
+- **image baked** → `Dockerfile.bake` installs `deepseek-harness-sdk` into the box Python. The worker script is uploaded at invoke and run with `host.exec` + projected `DEEPSEEK_API_KEY`
 
 Offline (`AGEVAL_OFFLINE_AGENT=1`) fail-closes without calling the provider.

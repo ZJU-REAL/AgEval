@@ -64,4 +64,4 @@ Evidence for a successful invoke includes worker metadata
 - **profiles `executor: nooa`** → exclusive slot winner (+ model / base_url / api_key)
 - **`extensions: [{plugin: nooa}]`** → opt-in bake / trajectory collect
 - **`--probe`** → binding-aware feasibility; no Agent, no bake
-- **image baked** → `config.image_layers` bake installs `nooa` + `ageval-executor-nooa`; invoke is still `host.exec` with projected credentials
+- **image baked** → `Dockerfile.bake` installs `nooa` into the box Python. The worker script is uploaded at invoke and run with `host.exec` + projected credentials
