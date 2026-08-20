@@ -96,9 +96,7 @@ def test_lock_dsh_profile_selects_dsh_not_nooa(
     assert "sk-lock-must-not-see" not in json.dumps(data)
 
 
-def test_lock_nooa_profile_records_inject(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_lock_nooa_profile_records_inject(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env = _isolated_home(tmp_path, monkeypatch, "nooa")
     data = _lock("--profiles", str(ROOT / "examples/journeys/profiles.nooa.yaml"), env=env)
     solver = data["extension_bindings"]["solver"]
