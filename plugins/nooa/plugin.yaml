@@ -13,6 +13,9 @@ slots:
     - id: trajectory_collect
       priority: 110
       entry: "nooa_plugin.hooks:trajectory_collect"
+inject:
+  - service: environment
+    capabilities: [exec, upload]
 config:
   # Layers the docker box bakes on top of the official base. Not a slot: the
   # environment winner reads this when it builds the image.

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """In-container nooa worker — NVIDIA OO Agents + real LLM.
 
-Reads one JSON object from stdin::
+Reads one JSON object from argv[1] or stdin. Credentials arrive via env
+(OPENAI_API_KEY / OPENAI_BASE_URL), not the payload::
 
     {
       "prompt": "...",
@@ -225,9 +226,17 @@ async def _invoke(
     return out
 
 
+def _read_request() -> dict[str, Any]:
+    raw = sys.argv[1] if len(sys.argv) > 1 else (sys.stdin.read() or "{}")
+    req = json.loads(raw)
+    if not isinstance(req, dict):
+        raise TypeError("request_not_object")
+    return req
+
+
 def main() -> int:
     try:
-        req = json.loads(sys.stdin.read() or "{}")
+        req = _read_request()
     except json.JSONDecodeError as exc:
         print(
             json.dumps(
@@ -235,7 +244,7 @@ def main() -> int:
             )
         )
         return 2
-    if not isinstance(req, dict):
+    except TypeError:
         print(json.dumps({"ok": False, "error": "request_not_object", "model": "nooa", "text": ""}))
         return 2
 
@@ -245,8 +254,6 @@ def main() -> int:
     model = str(req.get("model") or os.environ.get("NOOA_MODEL") or "openai/gpt-4.1-mini")
     api_base = req.get("api_base") or req.get("base_url")
     api_base_s = str(api_base).strip() if isinstance(api_base, str) and api_base.strip() else None
-    api_key = req.get("api_key")
-    api_key_s = str(api_key).strip() if isinstance(api_key, str) and api_key.strip() else None
     package_root = Path(str(req.get("package_root") or "/attempt/package")).expanduser()
     workdir = str(req.get("workdir") or "/attempt/workspace")
 
@@ -266,7 +273,11 @@ def main() -> int:
                     "error": "offline_forced",
                     "model": model,
                     "text": "",
-                    "metadata": {"plugin": "nooa", "agent": agent_ref},
+                    "metadata": {
+                        "plugin": "nooa",
+                        "agent": agent_ref,
+                        "execution_location": "attempt-container",
+                    },
                 }
             )
         )
@@ -276,7 +287,7 @@ def main() -> int:
         cls = _load_agent_class(agent_ref, package_root)
         llm_backed = _is_nooa_agent_type(cls)
         if llm_backed:
-            llm = _build_llm(model=model, api_base=api_base_s, api_key=api_key_s)
+            llm = _build_llm(model=model, api_base=api_base_s, api_key=None)
             agent = cls(llm=llm)
         else:
             agent = cls() if callable(cls) else cls

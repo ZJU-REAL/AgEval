@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nooa_plugin.factory import PLUGIN_ID
+from nooa_plugin import PLUGIN_ID
 
 
 async def image_contribute(ctx: Any, value: Any, nxt: Any) -> Any:
