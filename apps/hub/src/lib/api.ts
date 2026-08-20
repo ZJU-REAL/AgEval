@@ -12,6 +12,7 @@ export type PluginPreview = {
   plugin_id?: string;
   version?: string;
   format?: string;
+  description?: string | null;
   slots?: {
     exclusive?: string[];
     chain?: string[];

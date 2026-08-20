@@ -1,5 +1,5 @@
 import type { Components } from "react-markdown";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -65,6 +65,40 @@ function FencedCode({ lang, text }: { lang: string; text: string }) {
   );
 }
 
+function isHttpUrl(href: string | undefined): href is string {
+  if (!href) return false;
+  try {
+    const url = new URL(href);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function MarkdownLink({
+  href,
+  children,
+}: {
+  href?: string;
+  children?: ReactNode;
+}) {
+  if (!isHttpUrl(href)) {
+    return <span>{children}</span>;
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-link hover:text-link-deep underline-offset-2 hover:underline"
+    >
+      {children}
+    </a>
+  );
+}
+
+const INLINE_ELEMENTS = ["p", "a", "strong", "em", "code"] as const;
+
 const components: Components = {
   h1: ({ children }) => (
     <h1 className="text-xl font-semibold tracking-tight text-ink mt-6 mb-3 first:mt-0">
@@ -91,16 +125,7 @@ const components: Components = {
     <ol className="list-decimal pl-5 mb-3 space-y-1 text-sm text-body">{children}</ol>
   ),
   li: ({ children }) => <li className="leading-6">{children}</li>,
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="text-link hover:text-link-deep underline-offset-2 hover:underline"
-    >
-      {children}
-    </a>
-  ),
+  a: MarkdownLink,
   blockquote: ({ children }) => (
     <blockquote className="border-l-2 border-hairline-strong pl-3 my-3 text-sm text-mute">
       {children}
@@ -163,6 +188,42 @@ function FrontmatterTable({ fields }: { fields: { key: string; value: string }[]
         </div>
       ))}
     </dl>
+  );
+}
+
+/** One paragraph of Hub copy. Markdown links only; no card, no headings. */
+export function InlineMarkdown({
+  source,
+  className,
+}: {
+  source: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("text-sm text-body max-w-4xl [&_p]:mb-0", className)}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        allowedElements={[...INLINE_ELEMENTS]}
+        unwrapDisallowed
+        components={{
+          p: ({ children }) => (
+            <p className="text-sm text-body leading-6">{children}</p>
+          ),
+          a: MarkdownLink,
+          strong: ({ children }) => (
+            <strong className="font-semibold text-ink">{children}</strong>
+          ),
+          em: ({ children }) => <em className="italic">{children}</em>,
+          code: ({ children }) => (
+            <code className="font-mono text-[12px] bg-canvas-soft-2 text-ink px-1 py-0.5 rounded-[4px]">
+              {String(children).replace(/\n$/, "")}
+            </code>
+          ),
+        }}
+      >
+        {source}
+      </ReactMarkdown>
+    </div>
   );
 }
 

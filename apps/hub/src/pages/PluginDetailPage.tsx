@@ -6,6 +6,7 @@ import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
+import { InlineMarkdown } from "@/components/markdown";
 import {
   declaredSlotsFromPreview,
   PluginSlotTimeline,
@@ -262,6 +263,10 @@ export function PluginDetailPage() {
 
       {!loading && !error && release && (
         <div className="space-y-6">
+          {preview?.description ? (
+            <InlineMarkdown source={preview.description} />
+          ) : null}
+
           <section className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Install (CLI)</h2>
             <CommandStrip command={installCmd} />
