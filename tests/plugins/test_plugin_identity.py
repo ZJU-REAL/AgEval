@@ -45,6 +45,58 @@ def test_parse_manifest_keeps_short_id() -> None:
         }
     )
     assert manifest.plugin_id == "dsh"
+    assert manifest.description is None
+
+
+def test_parse_manifest_description() -> None:
+    manifest = parse_manifest_mapping(
+        {
+            "format": "ageval.plugin/1",
+            "plugin_id": "dsh",
+            "version": "0.1.0",
+            "description": "  Run DeepSeek Harness in the box.  ",
+            "slots": {"exclusive": [{"id": "executor", "entry": "pkg:fn"}]},
+        }
+    )
+    assert manifest.description == "Run DeepSeek Harness in the box."
+
+
+def test_parse_manifest_description_keeps_markdown_link() -> None:
+    url = "https://github.com/NVIDIA-NeMo/labs-OO-Agents"
+    manifest = parse_manifest_mapping(
+        {
+            "format": "ageval.plugin/1",
+            "plugin_id": "nooa",
+            "version": "0.1.0",
+            "description": f"Run [NVIDIA OO Agents]({url}) in the box.",
+        }
+    )
+    assert manifest.description == f"Run [NVIDIA OO Agents]({url}) in the box."
+
+
+@pytest.mark.parametrize("raw", ["", "   ", 12, []])
+def test_parse_manifest_description_fail_closed(raw: object) -> None:
+    with pytest.raises(PluginManifestError) as ei:
+        parse_manifest_mapping(
+            {
+                "format": "ageval.plugin/1",
+                "plugin_id": "dsh",
+                "version": "0.1.0",
+                "description": raw,
+            }
+        )
+    assert ei.value.kind == "plugin_manifest_invalid"
+    assert "description" in str(ei.value)
+
+
+def test_repo_plugins_declare_description() -> None:
+    from ageval.plugins.manifest import load_manifest
+
+    root = Path(__file__).resolve().parents[2] / "plugins"
+    names = ("agent-skills", "dsh", "home-files", "miniswe", "nooa")
+    for name in names:
+        man = load_manifest(root / name)
+        assert man.description, f"{name} missing description"
 
 
 def test_hub_publish_concatenates_short_id() -> None:

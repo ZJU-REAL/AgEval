@@ -89,6 +89,9 @@ def test_publish_plugin_preview_and_install(
     with urllib.request.urlopen(req) as resp:  # noqa: S310
         body = json.loads(resp.read().decode("utf-8"))
     assert body.get("package_kind") == "plugin"
+    assert body.get("plugin_preview", {}).get("description") == (
+        "Fixture executor used by registry plugin publish tests."
+    )
     assert body.get("plugin_preview", {}).get("slots", {}).get("exclusive") == ["executor"]
     declared = body.get("plugin_preview", {}).get("declared") or []
     ids = {d.get("id") for d in declared}

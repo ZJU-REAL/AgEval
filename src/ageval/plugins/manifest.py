@@ -119,6 +119,7 @@ class PluginManifest:
     format: str
     plugin_id: str
     version: str
+    description: str | None = None
     exclusive: tuple[SlotEntry, ...] = ()
     chain: tuple[SlotEntry, ...] = ()
     services: tuple[ServiceExport, ...] = ()
@@ -162,6 +163,7 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
     plugin_id = normalize_plugin_id(plugin_id)
     if not isinstance(version, str) or not version.strip():
         raise PluginManifestError("version required", kind="plugin_manifest_invalid")
+    description = _optional_description(raw.get("description"))
 
     slots = raw.get("slots")
     if slots is None:
@@ -214,6 +216,7 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
         format=PLUGIN_FORMAT,
         plugin_id=plugin_id,
         version=version.strip(),
+        description=description,
         exclusive=_entries("exclusive"),
         chain=_entries("chain"),
         services=_parse_services(raw.get("exports")),
@@ -223,6 +226,18 @@ def parse_manifest_mapping(raw: dict[str, Any], *, location: str = "plugin.yaml"
         image_layers=_parse_image_layers(raw.get("config")),
         source_path=location,
     )
+
+
+def _optional_description(raw: Any) -> str | None:
+    """Hub-facing paragraph. Optional; empty/non-string fails closed."""
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not raw.strip():
+        raise PluginManifestError(
+            "description must be a non-empty string when set",
+            kind="plugin_manifest_invalid",
+        )
+    return raw.strip()
 
 
 def _parse_image_layers(raw: Any) -> str | None:

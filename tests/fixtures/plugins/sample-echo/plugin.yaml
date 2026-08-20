@@ -1,6 +1,7 @@
 format: ageval.plugin/1
 plugin_id: sample-echo
 version: 0.1.0
+description: Fixture executor used by registry plugin publish tests.
 slots:
   exclusive:
     - id: executor

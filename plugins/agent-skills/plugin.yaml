@@ -1,6 +1,7 @@
 format: ageval.plugin/1
 plugin_id: agent-skills
 version: 0.1.0
+description: Expand Dataset skill folders and instruction files into the dests each bound ACP entry reads. File copy stays in home-files.
 plugin_requires:
   - plugin_id: home-files
     hint: "ageval plugin install plugins/home-files"

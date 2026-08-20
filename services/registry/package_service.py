@@ -783,7 +783,7 @@ def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
                         "priority": slot.priority,
                     }
                 )
-        return {
+        preview: dict[str, Any] = {
             "plugin_id": man.plugin_id,
             "version": man.version,
             "format": man.format,
@@ -791,3 +791,6 @@ def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
             "declared": declared,
             "files": files[:200],
         }
+        if man.description:
+            preview["description"] = man.description
+        return preview

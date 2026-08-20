@@ -1,6 +1,7 @@
 format: ageval.plugin/1
 plugin_id: home-files
 version: 0.1.0
+description: Copy overlay files into Attempt $HOME or workspace after the environment is ready. No image bake.
 slots:
   chain:
     - id: after_environment_ready
