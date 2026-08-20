@@ -42,6 +42,7 @@ Current 独占槽只有 `environment` 与 `executor`。层 C 轨迹写入与盒�
 # plugins/e2b/plugin.yaml（示意；contrib 也可内建注册）
 format: ageval.plugin/1
 plugin_id: e2b
+description: Open the Attempt box on E2B. Exclusive environment winner.
 slots:
   exclusive:
     - id: environment
@@ -50,6 +51,7 @@ slots:
 # plugins/acp/plugin.yaml（示意）
 format: ageval.plugin/1
 plugin_id: acp
+description: Parent ACP JSON-RPC client. Coding-agent executor; injects environment attach_stdio.
 slots:
   exclusive:
     - id: executor
@@ -71,6 +73,8 @@ agent_profiles:
 ```
 
 外置包实例见 `plugins/nooa/plugin.yaml`：`slots.exclusive` / `slots.chain`，`host_requires`，`config.image_layers`（给 environment 赢家 bake，**不是**时间线槽）。
+
+`description` 可选。一段功能说明；Hub 插件详情把它画在 Install (CLI) 上方。缺省不展示。空字符串 / 非字符串 fail closed。Hub 渲染 Markdown 链接（`[text](https://…)`）；其它块级语法不展示。
 
 ## 规则
 

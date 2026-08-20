@@ -24,6 +24,7 @@ plugins/my-mech/
 format: ageval.plugin/1
 plugin_id: my-mech
 version: "0.1.0"
+description: "One paragraph Hub shows above Install (CLI). Links: [text](https://example.com)."
 host_requires:
   - import: my_vendor_sdk
     hint: "uv sync --extra my-mech"
@@ -44,6 +45,7 @@ config:
 ```
 
 Hub: `package_kind=plugin`. Dataset vs plugin fail-closes.
+`description` is optional Hub copy (one paragraph above Install (CLI)). Empty / non-string fails closed. Markdown links (`[text](https://…)`) render on Hub; other block syntax does not.
 
 `host_requires` allowlist keys: `import`, `file`, `hint`. Unknown keys fail closed.
 `import:` is `importlib.util.find_spec` (no spawn). Core does not map plugin-id → pip extra.
