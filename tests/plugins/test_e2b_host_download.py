@@ -46,7 +46,7 @@ class FakeFiles:
     def read(self, path: str, format: str = "text") -> bytes | str:
         self.reads.append(path)
         payload = self.files[path]
-        return bytearray(payload) if format == "bytes" else payload.decode()
+        return bytes(payload) if format == "bytes" else payload.decode()
 
 
 class FakeSandbox:
