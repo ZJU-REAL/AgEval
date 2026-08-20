@@ -72,6 +72,20 @@ def resolve_composition_path(name: str | None) -> Path:
     return path
 
 
+def resolve_max_tokens(raw: Any) -> int | None:
+    """Validate ``options.max_tokens``. Omit / blank / null → no harness override."""
+    if raw is None:
+        return None
+    if isinstance(raw, str) and not raw.strip():
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw <= 0:
+        raise ExtensionMaterializeError(
+            f"dsh_max_tokens_invalid:{raw!r}",
+            kind="extension_materialize_failed",
+        )
+    return raw
+
+
 def resolve_permission(raw: Any) -> str | None:
     """Validate ``options.permission``. Omit / blank → None (keep slim)."""
     if raw is None:
@@ -136,6 +150,7 @@ def build_executor(
     """plugin.yaml exclusive entry: factory(**kwargs) → in-box executor."""
     opts = dict(options or {})
     permission = resolve_permission(opts.get("permission"))
+    max_tokens = resolve_max_tokens(opts.get("max_tokens"))
     composition = resolve_effective_composition(
         composition=str(opts.get("composition") or "").strip() or None,
         permission=permission,
@@ -151,6 +166,7 @@ def build_executor(
         provider=provider,
         composition=composition,
         permission=permission,
+        max_tokens=max_tokens,
         base_url=base_url if isinstance(base_url, str) else None,
         api_key_env=api_key if isinstance(api_key, str) else None,
         session_id=session_id,
@@ -168,5 +184,6 @@ __all__ = [
     "resolve_api_key_value",
     "resolve_base_url",
     "resolve_effective_composition",
+    "resolve_max_tokens",
     "resolve_permission",
 ]

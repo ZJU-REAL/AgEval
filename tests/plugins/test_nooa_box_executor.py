@@ -139,7 +139,9 @@ async def test_invoke_runs_worker_through_local_exec(
     assert result.metadata.get("plugin") == "nooa"
     assert host.uploads
     assert host.commands
-    command, env = host.commands[0]
+    command, env = next(
+        (cmd, env) for cmd, env in host.commands if cmd and str(cmd[-1]).lstrip().startswith("{")
+    )
     assert command[0] == sys.executable
     request = json.loads(command[-1])
     assert request["agent"] == "lib.agents:FixedAnswerAgent"

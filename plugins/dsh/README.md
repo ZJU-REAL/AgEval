@@ -53,6 +53,19 @@ loads the sandboxed composition (`dsh-fs-sandbox` + `dsh-sandbox-policy` +
 slim / unrestricted local tools. Invalid values fail closed at materialize —
 no spawn.
 
+`options.max_tokens` is also plugin-owned. Omit / blank / `null` → do **not**
+pass `max_tokens` into DeepSeek Harness (adapter default). A positive integer
+is forwarded on the worker request. Anything else (≤0, bool, string, float)
+fails closed at materialize. GLM Coding Plan’s completion window is 131072;
+the adapter default 256000 is rejected there — set `max_tokens: 8192` (or
+another value in range) on that profile.
+
+```yaml
+        options:
+          composition: slim
+          max_tokens: 8192    # omit this key to keep the adapter default
+```
+
 The bundled `dsh-jsonrpc-agent` (`deepseek-harness-sdk==0.1.0rc6`) ships
 `dsh-fs-sandbox` but **not** `dsh-bash-sandbox`. The sandboxed tree therefore
 keeps `dsh-bash-local`. File-tool writes are fenced; a bash redirect can still

@@ -185,17 +185,36 @@ def main() -> int:
             },
             code=2,
         )
+    harness_kwargs: dict[str, Any] = {
+        "provider": provider,
+        "model": model,
+        "cwd": workdir,
+        "session_root": session_root,
+        "cordis": cordis,
+        "env": child_env,
+    }
+    raw_tokens = req.get("max_tokens")
+    if raw_tokens is not None:
+        try:
+            tokens = int(raw_tokens)
+        except (TypeError, ValueError):
+            tokens = 0
+        if tokens <= 0:
+            return _emit(
+                {
+                    "ok": False,
+                    "error": f"dsh_max_tokens_invalid:{raw_tokens!r}",
+                    "model": model,
+                    "text": "",
+                    "metadata": {"plugin": "dsh"},
+                },
+                code=2,
+            )
+        harness_kwargs["max_tokens"] = tokens
     try:
         with (
             sanitizing_base_url(),
-            DeepSeekHarness(
-                provider=provider,
-                model=model,
-                cwd=workdir,
-                session_root=session_root,
-                cordis=cordis,
-                env=child_env,
-            ) as harness,
+            DeepSeekHarness(**harness_kwargs) as harness,
         ):
             session = harness.start_session(session_id_s)
             result = session.run(prompt)

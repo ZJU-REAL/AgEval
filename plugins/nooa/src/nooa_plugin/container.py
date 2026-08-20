@@ -134,6 +134,12 @@ class NooaBoxExecutor:
         )
         await self._host.upload(self._plugin_root / "src" / "nooa_plugin", f"{BOX_SRC}/nooa_plugin")
         await self._upload_agent_module()
+        await _ensure_import(
+            self._host,
+            self._placement,
+            module="nooa",
+            spec="nooa>=0.0.7",
+        )
         self._prepared = True
 
     async def _upload_agent_module(self) -> None:
@@ -178,7 +184,9 @@ class NooaBoxExecutor:
             env["AGEVAL_OFFLINE_AGENT"] = "1"
         return env
 
-    def _result_from(self, result: Any, *, collect_dir: str | os.PathLike[str] | None) -> AgentResult:
+    def _result_from(
+        self, result: Any, *, collect_dir: str | os.PathLike[str] | None
+    ) -> AgentResult:
         stdout = str(getattr(result, "stdout", "") or "")
         stderr = str(getattr(result, "stderr", "") or "")
         exit_code = int(getattr(result, "exit_code", 1) or 0)
@@ -223,6 +231,142 @@ class NooaBoxExecutor:
             usage=usage if isinstance(usage, dict) else None,
             metadata=metadata,
         )
+
+
+async def _ensure_import(host: Any, placement: Any, *, module: str, spec: str) -> None:
+    """Import ``module`` in the box; bootstrap pip / CPython when the image has none.
+
+    Debian-style templates often ship ``python3`` without ``pip`` or
+    ``ensurepip``, and PEP 668 then needs ``--break-system-packages``. Some
+    wheels (nooa) require 3.12+ while the box still has 3.11.
+    """
+    cwd = placement.workdir or WORKSPACE_PATH
+    notes: list[str] = []
+
+    async def _run(argv: list[str], *, timeout_sec: float) -> Any:
+        return await host.exec(argv, cwd=cwd, timeout_sec=timeout_sec)
+
+    def _py() -> list[str]:
+        return [str(part) for part in host.python_command]
+
+    def _tail(result: Any) -> str:
+        return str(getattr(result, "stderr", None) or getattr(result, "stdout", "") or "")[-300:]
+
+    probe = await _run([*_py(), "-c", f"import {module}"], timeout_sec=30)
+    if probe.exit_code == 0:
+        return
+
+    async def _install() -> bool:
+        for extra in ([], ["--break-system-packages"], ["--user", "--break-system-packages"]):
+            last = await _run(
+                [
+                    *_py(),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--quiet",
+                    "--disable-pip-version-check",
+                    *extra,
+                    spec,
+                ],
+                timeout_sec=300,
+            )
+            notes.append(_tail(last))
+            if last.exit_code != 0:
+                continue
+            check = await _run([*_py(), "-c", f"import {module}"], timeout_sec=30)
+            if check.exit_code == 0:
+                return True
+            notes.append(_tail(check))
+        return False
+
+    async def _ensure_pip() -> bool:
+        pip_probe = await _run([*_py(), "-m", "pip", "--version"], timeout_sec=30)
+        if pip_probe.exit_code == 0:
+            return True
+        boot = await _run([*_py(), "-m", "ensurepip", "--default-pip"], timeout_sec=120)
+        notes.append(f"ensurepip:{_tail(boot)}")
+        if boot.exit_code == 0:
+            return True
+        fetched = await _run([*_py(), "-c", _GET_PIP], timeout_sec=60)
+        notes.append(f"get-pip-fetch:{_tail(fetched)}")
+        if fetched.exit_code != 0:
+            return False
+        for extra in (["--break-system-packages"], ["--user", "--break-system-packages"]):
+            inst = await _run([*_py(), "/tmp/get-pip.py", *extra], timeout_sec=180)
+            notes.append(f"get-pip:{_tail(inst)}")
+            if inst.exit_code == 0:
+                return True
+        return False
+
+    if await _ensure_pip() and await _install():
+        return
+    if (
+        _needs_newer_python(notes)
+        and await _bootstrap_cpython(host, notes, run=_run)
+        and await _ensure_pip()
+        and await _install()
+    ):
+        return
+
+    raise RuntimeError(
+        f"box missing {module}; pip install {spec} failed: "
+        + " | ".join(n for n in notes if n)[-800:]
+    )
+
+
+_GET_PIP = (
+    "import urllib.request; "
+    "urllib.request.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')"
+)
+
+_BOOTSTRAP_CPYTHON = """
+set -e
+export PATH="$HOME/.local/bin:$PATH"
+if ! command -v uv >/dev/null 2>&1; then
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+uv python install 3.12
+for cand in /attempt/home/_ageval-py /tmp/ageval-py; do
+  if uv venv "$cand" --python 3.12; then
+    echo "AGEVAL_VENV=$cand"
+    exit 0
+  fi
+done
+echo "AGEVAL_VENV="
+exit 1
+"""
+
+
+def _needs_newer_python(notes: list[str]) -> bool:
+    blob = "\n".join(notes).lower()
+    return any(
+        needle in blob
+        for needle in (
+            "requires-python",
+            "does not match your python",
+            "could not find a version that satisfies",
+        )
+    )
+
+
+async def _bootstrap_cpython(host: Any, notes: list[str], *, run: Any) -> bool:
+    """Install CPython 3.12 in the box and point ``host.python_command`` at it."""
+    result = await run(["sh", "-c", _BOOTSTRAP_CPYTHON], timeout_sec=180)
+    notes.append(
+        f"cpython:{(getattr(result, 'stderr', '') or getattr(result, 'stdout', '') or '')[-300:]}"
+    )
+    if int(getattr(result, "exit_code", 1)) != 0:
+        return False
+    venv = ""
+    for line in str(getattr(result, "stdout", "") or "").splitlines():
+        if line.startswith("AGEVAL_VENV="):
+            venv = line.split("=", 1)[1].strip()
+    if not venv:
+        return False
+    host.python_command = (f"{venv}/bin/python",)
+    return True
 
 
 def _payload_from_stdout(stdout: str) -> dict[str, Any] | None:
