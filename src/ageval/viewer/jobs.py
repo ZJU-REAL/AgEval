@@ -192,12 +192,17 @@ def _previous_entries(
 
 
 def _in_progress_suite_row(
-    progress: dict[str, Any], *, suite_dir: Path, dataset_root: Path
+    progress: dict[str, Any],
+    *,
+    suite_dir: Path,
+    dataset_root: Path,
+    manifest: Any = None,
 ) -> dict[str, Any]:
     """Suite that has progress.json but no summary yet — still running."""
-    man = None
-    with contextlib.suppress(ConfigError):
-        man = load_dataset_manifest(dataset_root)
+    man = manifest
+    if man is None:
+        with contextlib.suppress(ConfigError):
+            man = load_dataset_manifest(dataset_root)
     sid = str(progress.get("suite_run_id") or suite_dir.name)
     total = int(progress.get("total") or 0)
     done = int(progress.get("done") or 0)
@@ -231,7 +236,13 @@ def _in_progress_suite_row(
     }
 
 
-def _job_row(summary: dict[str, Any], *, suite_dir: Path, dataset_root: Path) -> dict[str, Any]:
+def _job_row(
+    summary: dict[str, Any],
+    *,
+    suite_dir: Path,
+    dataset_root: Path,
+    manifest: Any = None,
+) -> dict[str, Any]:
     metrics = _ensure_metrics(summary)
     refs = _ensure_task_refs(summary)
     n_tasks = int(metrics.get("n_tasks") or len(refs) or 0)
@@ -249,9 +260,10 @@ def _job_row(summary: dict[str, Any], *, suite_dir: Path, dataset_root: Path) ->
         # Prefer counting actual refs
         trials_done = len(refs) if refs else n_tasks
 
-    man = None
-    with contextlib.suppress(ConfigError):
-        man = load_dataset_manifest(dataset_root)
+    man = manifest
+    if man is None:
+        with contextlib.suppress(ConfigError):
+            man = load_dataset_manifest(dataset_root)
 
     overlay = _overlay_from_job_summary(summary, dataset_root=dataset_root)
     from ageval.config.overlay_files import overlay_paths_from_job_overlay
@@ -314,6 +326,29 @@ def _suite_run_ids(items: list[dict[str, Any]]) -> set[str]:
     return ids
 
 
+def _run_ids_from_summary(summary: dict[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    for ref in _ensure_task_refs(summary):
+        rid = str(ref.get("run_id") or "").strip()
+        if rid:
+            ids.add(rid)
+        extra = ref.get("attempt_run_ids")
+        if isinstance(extra, list):
+            for item in extra:
+                text = str(item or "").strip()
+                if text:
+                    ids.add(text)
+    for task in _task_dicts(summary):
+        rid = str(task.get("run_id") or "").strip()
+        if rid:
+            ids.add(rid)
+    for attempt in _attempt_dicts(summary):
+        rid = str(attempt.get("run_id") or "").strip()
+        if rid:
+            ids.add(rid)
+    return ids
+
+
 def _referenced_run_ids(dataset_root: Path, suite_items: list[dict[str, Any]]) -> set[str]:
     ids: set[str] = set()
     root = dataset_root.expanduser().resolve(strict=False)
@@ -325,28 +360,11 @@ def _referenced_run_ids(dataset_root: Path, suite_items: list[dict[str, Any]]) -
             summary = _load_summary(_suite_root(root) / job_id / "summary.json")
         except ConfigError:
             continue
-        for ref in _ensure_task_refs(summary):
-            rid = str(ref.get("run_id") or "").strip()
-            if rid:
-                ids.add(rid)
-            extra = ref.get("attempt_run_ids")
-            if isinstance(extra, list):
-                for item in extra:
-                    text = str(item or "").strip()
-                    if text:
-                        ids.add(text)
-        for task in _task_dicts(summary):
-            rid = str(task.get("run_id") or "").strip()
-            if rid:
-                ids.add(rid)
-        for attempt in _attempt_dicts(summary):
-            rid = str(attempt.get("run_id") or "").strip()
-            if rid:
-                ids.add(rid)
+        ids.update(_run_ids_from_summary(summary))
     return ids
 
 
-def _iter_attempt_dirs(dataset_root: Path) -> list[tuple[str, Path]]:
+def _iter_attempt_dirs(dataset_root: Path, *, manifest: Any = None) -> list[tuple[str, Path]]:
     root = dataset_root.expanduser().resolve(strict=False)
     found: list[tuple[str, Path]] = []
     seen: set[str] = set()
@@ -368,8 +386,11 @@ def _iter_attempt_dirs(dataset_root: Path) -> list[tuple[str, Path]]:
                 _add(child.name, child)
 
     tasks_root_name = "tasks"
-    with contextlib.suppress(ConfigError):
-        man = load_dataset_manifest(root)
+    man = manifest
+    if man is None:
+        with contextlib.suppress(ConfigError):
+            man = load_dataset_manifest(root)
+    if man is not None:
         tasks_root_name = man.tasks_root or "tasks"
     tasks_dir = root / tasks_root_name
     if tasks_dir.is_dir():
@@ -528,7 +549,9 @@ def _labels_from_lock(lock: dict[str, Any], result: dict[str, Any]) -> tuple[str
     return a or derived_a, m or derived_m
 
 
-def _single_job_row(evidence: Path, *, run_id: str, dataset_root: Path) -> dict[str, Any]:
+def _single_job_row(
+    evidence: Path, *, run_id: str, dataset_root: Path, manifest: Any = None
+) -> dict[str, Any]:
     from ageval.evidence.attempt_record import read_attempt_result
 
     result = read_attempt_result(evidence) or {}
@@ -544,9 +567,10 @@ def _single_job_row(evidence: Path, *, run_id: str, dataset_root: Path) -> dict[
     from ageval.config.profiles import reasoning_effort_from_overlay
 
     overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
-    man = None
-    with contextlib.suppress(ConfigError):
-        man = load_dataset_manifest(dataset_root)
+    man = manifest
+    if man is None:
+        with contextlib.suppress(ConfigError):
+            man = load_dataset_manifest(dataset_root)
     return {
         "job_id": run_id,
         "job_name": run_id,
@@ -583,7 +607,11 @@ def _single_job_row(evidence: Path, *, run_id: str, dataset_root: Path) -> dict[
 def list_jobs(dataset_root: Path) -> dict[str, Any]:
     root = dataset_root.expanduser().resolve(strict=False)
     suite_root = _suite_root(root)
+    man = None
+    with contextlib.suppress(ConfigError):
+        man = load_dataset_manifest(root)
     items: list[dict[str, Any]] = []
+    claimed: set[str] = set()
     if suite_root.is_dir():
         for child in sorted(suite_root.iterdir(), key=lambda p: p.name, reverse=True):
             if not child.is_dir():
@@ -594,30 +622,36 @@ def list_jobs(dataset_root: Path) -> dict[str, Any]:
                     summary = _load_summary(summary_path)
                 except ConfigError:
                     continue
-                items.append(_job_row(summary, suite_dir=child, dataset_root=root))
+                row = _job_row(summary, suite_dir=child, dataset_root=root, manifest=man)
+                items.append(row)
+                jid = str(row.get("job_id") or "")
+                if jid:
+                    claimed.add(jid)
+                claimed.update(_run_ids_from_summary(summary))
                 continue
             progress = _load_progress(child)
             if progress is not None:
-                items.append(_in_progress_suite_row(progress, suite_dir=child, dataset_root=root))
+                row = _in_progress_suite_row(
+                    progress, suite_dir=child, dataset_root=root, manifest=man
+                )
+                items.append(row)
+                jid = str(row.get("job_id") or "")
+                if jid:
+                    claimed.add(jid)
 
-    claimed = _referenced_run_ids(root, items) | _suite_run_ids(items)
-    for run_id, evidence in _iter_attempt_dirs(root):
+    claimed.update(_suite_run_ids(items))
+    for run_id, evidence in _iter_attempt_dirs(root, manifest=man):
         if run_id in claimed:
             continue
         if not (evidence / "result.json").is_file():
             # Live/incomplete Attempt — not a finished Job; delete would
             # rmtree a suite that is still writing.
             continue
-        items.append(_single_job_row(evidence, run_id=run_id, dataset_root=root))
+        items.append(_single_job_row(evidence, run_id=run_id, dataset_root=root, manifest=man))
     items.sort(key=lambda r: str(r.get("started") or r.get("job_id") or ""), reverse=True)
 
-    try:
-        man = load_dataset_manifest(root)
-        dataset_id = man.dataset_id
-        version = man.version
-    except ConfigError:
-        dataset_id = None
-        version = None
+    dataset_id = man.dataset_id if man is not None else None
+    version = man.version if man is not None else None
 
     return {
         "ok": True,
