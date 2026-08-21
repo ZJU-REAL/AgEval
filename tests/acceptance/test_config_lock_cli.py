@@ -9,8 +9,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "core"
-INVALID = REPO / "examples" / "core"
+MINIMAL = REPO / "examples" / "journeys"
+INVALID = REPO / "examples" / "journeys"
+TASK = "terminal-jsonl-agg"
 
 
 def _run_ageval(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -28,14 +29,14 @@ def _run_ageval(*args: str, cwd: Path | None = None) -> subprocess.CompletedProc
 
 
 def test_success_smoke() -> None:
-    result = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal")
+    result = _run_ageval("lock", str(MINIMAL), "--task", TASK)
     assert result.returncode == 0, result.stderr
     assert result.stderr == "" or "warning" in result.stderr.lower()
     data = json.loads(result.stdout)
-    assert data["task_id"] == "config-minimal"
+    assert data["task_id"] == TASK
     assert data["format"] == "ageval.task/1"
-    assert data["dataset_id"] == "example/core"
-    assert data["dataset_version"] == "0.1.0"
+    assert data["dataset_id"] == "example/journeys"
+    assert data["dataset_version"] == "0.1.3"
     assert data["digest"].startswith("sha256:")
     assert "resolved_references" in data
     assert "resolution" in data
@@ -57,8 +58,8 @@ def test_expected_failure_unknown_task() -> None:
 
 
 def test_determinism() -> None:
-    r1 = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal")
-    r2 = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal")
+    r1 = _run_ageval("lock", str(MINIMAL), "--task", TASK)
+    r2 = _run_ageval("lock", str(MINIMAL), "--task", TASK)
     assert r1.returncode == 0 and r2.returncode == 0
     assert r1.stdout == r2.stdout
     d1 = json.loads(r1.stdout)["digest"]
@@ -67,14 +68,14 @@ def test_determinism() -> None:
 
 
 def test_override_changes_digest() -> None:
-    base = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal")
+    base = _run_ageval("lock", str(MINIMAL), "--task", TASK)
     over = _run_ageval(
         "lock",
         str(MINIMAL),
         "--task",
-        "config-minimal",
+        TASK,
         "--set",
-        "/parameters/seed=7",
+        '/agent_profiles/solver/model="other-model"',
     )
     assert base.returncode == 0 and over.returncode == 0
     b = json.loads(base.stdout)
@@ -85,7 +86,7 @@ def test_override_changes_digest() -> None:
 
 
 def test_no_ageval_artifacts_on_success(tmp_path: Path) -> None:
-    result = _run_ageval("lock", str(MINIMAL), "--task", "config-minimal", cwd=tmp_path)
+    result = _run_ageval("lock", str(MINIMAL), "--task", TASK, cwd=tmp_path)
     assert result.returncode == 0, result.stderr
     # `ageval lock` is read-only: must not create a lock store under cwd or Dataset.
     assert not (tmp_path / ".ageval").exists()
@@ -110,7 +111,7 @@ def test_tasks_list_journeys() -> None:
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
     assert data["dataset_id"] == "example/journeys"
-    assert data["count"] == 4
+    assert data["count"] == 3
     assert "terminal-jsonl-agg" in data["tasks"]
 
 
@@ -123,10 +124,9 @@ from pathlib import Path
 from ageval.application.composition import build_lock_command
 repo = Path({str(REPO)!r})
 cmd = build_lock_command()
-summary = cmd.run(dataset_root=repo / "examples" / "core", task_id="config-minimal")
-assert summary["task_id"] == "config-minimal"
-# harness.py is not a Python package import path under examples
-assert not any("config-minimal" in m and m.endswith("harness") for m in sys.modules)
+summary = cmd.run(dataset_root=repo / "examples" / "journeys", task_id="terminal-jsonl-agg")
+assert summary["task_id"] == "terminal-jsonl-agg"
+assert not any("terminal-jsonl-agg" in m and m.endswith("run") for m in sys.modules)
 print(json.dumps({{"ok": True, "digest": summary["digest"]}}))
 """
     result = subprocess.run(

@@ -17,7 +17,6 @@ from ageval.config.dataset import (
 from ageval.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
-CORE_DB = REPO / "examples" / "core"
 JOURNEYS_DB = REPO / "examples" / "journeys"
 
 
@@ -67,23 +66,24 @@ evaluation:
     )
 
 
-def test_examples_core_manifest() -> None:
-    man = load_dataset_manifest(CORE_DB)
-    assert man.dataset_id == "example/core"
+def test_examples_journeys_manifest() -> None:
+    man = load_dataset_manifest(JOURNEYS_DB)
+    assert man.dataset_id == "example/journeys"
     assert man.format == "ageval.dataset/1"
-    ids = list_tasks(CORE_DB, manifest=man)
-    assert "config-minimal" in ids
-    assert "sdk-agent-session" in ids
-    assert len(ids) >= 10
+    ids = list_tasks(JOURNEYS_DB, manifest=man)
+    assert "terminal-jsonl-agg" in ids
+    assert "tau2-dialog-min" in ids
+    assert "multiagent-env-min" in ids
+    assert len(ids) == 3
 
 
 def test_resolve_and_lock_public_example() -> None:
 
-    resolved = resolve_task(CORE_DB, "config-minimal")
-    assert resolved.dataset_id == "example/core"
-    assert resolved.task_dir.name == "config-minimal"
-    lock = lock_task(CORE_DB, "config-minimal")
-    assert lock.task_id == "config-minimal"
+    resolved = resolve_task(JOURNEYS_DB, "terminal-jsonl-agg")
+    assert resolved.dataset_id == "example/journeys"
+    assert resolved.task_dir.name == "terminal-jsonl-agg"
+    lock = lock_task(JOURNEYS_DB, "terminal-jsonl-agg")
+    assert lock.task_id == "terminal-jsonl-agg"
     assert lock.digest.startswith("sha256:")
     assert lock.job_overlay is not None
 
@@ -246,7 +246,6 @@ def test_member_paths_without_shared_unchanged_shape(tmp_path: Path) -> None:
 def test_journeys_list() -> None:
     ids = list_tasks(JOURNEYS_DB)
     assert set(ids) >= {
-        "env-postgres-min",
         "multiagent-env-min",
         "tau2-dialog-min",
         "terminal-jsonl-agg",

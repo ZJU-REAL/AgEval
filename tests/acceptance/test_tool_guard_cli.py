@@ -8,7 +8,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
+
+if not (REPO / "examples" / "core" / "tasks" / "sdk-tool-guard").is_dir():
+    pytest.skip("examples/core tool-guard tasks were removed", allow_module_level=True)
 
 
 def _run(package: str, task: str) -> dict:

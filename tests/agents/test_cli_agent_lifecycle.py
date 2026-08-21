@@ -13,7 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE_AGENT = ROOT / "examples/agents/pi-default"
-DATABASE = ROOT / "examples/core"
+DATABASE = ROOT / "examples/journeys"
 
 
 @pytest.fixture()
@@ -85,7 +85,7 @@ def test_agent_and_profiles_mutually_exclusive(env: dict[str, str]) -> None:
         "lock",
         str(DATABASE),
         "--task",
-        "sdk-agent-session",
+        "terminal-jsonl-agg",
         "--agent",
         str(EXAMPLE_AGENT),
         "--profiles",
@@ -96,7 +96,7 @@ def test_agent_and_profiles_mutually_exclusive(env: dict[str, str]) -> None:
 
 
 def _lock_summary(env: dict[str, str], *extra: str) -> dict[str, Any]:
-    proc = _cli(env, "lock", str(DATABASE), "--task", "sdk-agent-session", *extra)
+    proc = _cli(env, "lock", str(DATABASE), "--task", "terminal-jsonl-agg", *extra)
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout)
 

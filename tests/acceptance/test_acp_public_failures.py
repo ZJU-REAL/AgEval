@@ -15,7 +15,7 @@ from ageval.plugins.contrib.acp.registry import get_entry, readiness_for
 from ageval.plugins.errors import ExtensionMaterializeError
 
 REPO = Path(__file__).resolve().parents[2]
-CORE = REPO / "examples" / "core"
+CORE = REPO / "examples" / "journeys"
 
 
 def _cli(*args: str, offline: bool = True) -> subprocess.CompletedProcess[str]:
@@ -36,7 +36,7 @@ def test_unknown_entry_fails_the_lock() -> None:
         "lock",
         str(CORE),
         "--task",
-        "acp-local-min",
+        "terminal-jsonl-agg",
         "--set",
         '/agent_profiles/solver/options/entry="not-registered"',
     )
@@ -61,7 +61,7 @@ def test_missing_adapter_reports_adapter_missing() -> None:
 
 
 def test_offline_run_never_claims_pass() -> None:
-    proc = _cli("run", str(CORE), "--task", "acp-local-min")
+    proc = _cli("run", str(CORE), "--task", "terminal-jsonl-agg")
     assert proc.returncode != 0
     last = (proc.stdout or "").strip().splitlines()
     if last and last[-1].startswith("{"):
