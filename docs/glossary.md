@@ -18,7 +18,8 @@
 | **独占槽** | 全 Attempt 一个赢家；登记为同名 service |
 | **链槽** | phase 内钩子，handler `(ctx, value, nxt)` |
 | **environment**（槽） | 盒子赢家：`local` / `docker` / `e2b` / `ssh`，同一 Protocol |
-| **executor**（槽） | Agent 后端赢家，常为 acp |
+| **executor**（槽） | Agent 后端赢家。coding-agent 默认 `acp`（parent client + `attach_stdio`）；`acp-oneshot` 是盒内一次性 client + `exec` |
+| **acp-oneshot** | 外置 executor 插件：parent 一次 `host.exec` 跑盒内 ACP server+client；不要求 `attach_stdio` |
 | **service / inject** | 按名取能力：独占赢家以槽名 export；调用方 inject 服务名 + capabilities；lock 期解析。`exec` 是 Protocol 方法，不是独立 service |
 | **attach_stdio** | host 在已开盒里起前台进程并交回 stdin/stdout |
 | **ACP entry** | `options.entry`：`pi` / `codex` / `claude-code` / `opencode` / `grok-build` |

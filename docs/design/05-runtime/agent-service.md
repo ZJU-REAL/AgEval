@@ -1,8 +1,15 @@
 # Agent Service / ACP
 
-parent **唯一** ACP JSON-RPC client。实现：`src/ageval/runtime/parent_agent.py` + `plugins/contrib/acp/`。结构约束见 [ARCHITECTURE.md](../../../ARCHITECTURE.md)。
+两条 **独立** 的 coding-agent inlet，都占独占槽 `executor`。不要把第二条折进 ACP 插件，也不要写成 `executor: pi` / `executor: claude`。
 
-coding-agent inlet：
+| 赢家 | JSON-RPC client 在哪 | 盒子 cap | 完成信号 |
+| --- | --- | --- | --- |
+| `executor: acp` | **parent 唯一** ACP client（`attach_stdio` 管子） | `attach_stdio` | ACP 帧（`stopReason`） |
+| `executor: acp-oneshot` | **盒内** 一次性 client + ACP server | `exec` only | wrapper 进程退出 |
+
+`executor: acp` 的规则不变：parent 是这条路径上**唯一**的 ACP JSON-RPC client。实现：`src/ageval/runtime/parent_agent.py` + `plugins/contrib/acp/`。结构约束见 [ARCHITECTURE.md](../../../ARCHITECTURE.md)。
+
+## `executor: acp`（parent client）
 
 ```yaml
 # profiles.yaml
@@ -19,7 +26,7 @@ agent_profiles:
       - plugin: docker   # 与 environment 赢家一致
 ```
 
-ACP `inject: [service: environment]`（按服务名拿 host，**不**绑 `plugin_id: e2b`），要求 capability `attach_stdio`。缺则 lock 失败，不在 invoke 时探测管子。这是稳定接口：docker / e2b / ssh 都登记为同一个服务名；内部运输收在 `attach_stdio` 里。`exec` 是同一服务上的另一个方法（盒内一次性命令），不是第二 service。dsh / nooa 应 inject `exec` / `upload`，经 `host.exec` 跑盒内 worker，不得在 parent 里假定本机 POSIX 路径。
+ACP `inject: [service: environment]`（按服务名拿 host，**不**绑 `plugin_id: e2b`），要求 capability `attach_stdio`。缺则 lock 失败，不在 invoke 时探测管子。这是稳定接口：docker / e2b / ssh 都登记为同一个服务名；内部运输收在 `attach_stdio` 里。`exec` 是同一服务上的另一个方法（盒内一次性命令），不是第二 service。dsh / nooa inject `exec` / `upload`；`acp-oneshot` 只要 `exec`。三者都经 `host.exec` 跑盒内 worker，不得在 parent 里假定本机 POSIX 路径。盒子没有 `attach_stdio` 时 **`executor: acp` 仍 lock 失败**；改走 `acp-oneshot`（或其它 exec 赢家），不是给 ACP 插件加 fallback。
 
 ```python
 host = ctx.services.require("environment")
@@ -29,7 +36,32 @@ pipe = await host.attach_stdio(argv, placement=placement, env=child_env)
 
 Placement 无 `container_id`。ACP 禁止 import docker / e2b / ssh。`wrap_docker_exec` 缩进 docker 插件。`run_attempt` 也会把赢家放进 `ctx.host`；inject 是 lock 时的依赖声明。
 
-不要写 `executor: pi` / `executor: codex`。entry 是 ACP 选项，不是独占槽赢家。
+不要写 `executor: pi` / `executor: codex`。entry 是 ACP / oneshot 的 `options.entry`，不是独占槽赢家。
+
+## `executor: acp-oneshot`（盒内 oneshot client）
+
+外置 `ageval.plugin/1`，`plugin_id: acp-oneshot`（机制名，不是产品名）。模式同 `plugins/miniswe/` / `plugins/dsh/`：parent 只 `host.exec`，不 `attach_stdio`。
+
+```yaml
+environment: docker   # 或任何声明 exec 的 kind
+agent_profiles:
+  solver:
+    executor: acp-oneshot
+    options:
+      entry: pi   # 或 claude-code / opencode / …；与 ACP 同一组 id
+    extensions: [acp-oneshot, docker]
+```
+
+1. `inject: { service: environment, capabilities: [exec] }`。缺 `exec` 则 lock 失败。**不要** `attach_stdio`。
+2. 一次 `invoke` = 一次 `host.exec`。parent 把 entry 的 `acp_command`（来自 ACP entry 表）、prompt、cwd、模型绑定交给盒内 wrapper；等进程退出后解析 `AgentResult`。
+3. wrapper 在盒内 spawn 该 entry 的 ACP stdio server，自己当一次性 client：`initialize` → `session/new` → `session/prompt`，permission RPC 与 `stopReason` 都留在盒内。默认 **不** 跨 `invoke` 复用 session。
+4. `trajectory_collect` 映射 wrapper 写出的事件。Core **不** 刮 vendor CLI 日志。
+5. entry 表与 ACP 共用 id（pi / claude-code / opencode / …）；本插件的 `execution_mode` 是 oneshot wrap，不是 `acp-stdio`。切厂商只改 `options.entry`。
+6. 笛卡尔积：任何报 `exec` 的盒子（docker / ssh B / e2b / 只提供 exec 的云 kind）。`executor: acp` 在没有 `attach_stdio` 的盒子上仍然 lock 失败。
+
+盒内 wrapper 是 stdlib JSON-RPC，**不是** 把 Python ACP SDK 装进 Attempt 镜像。SDK 仍只在 parent，且只服务 `executor: acp`。
+
+无新 CLI flag。凭证仍是 locator，投影进 **exec** env（与 ACP 同一套 BYOK，不是 attach 管子）。空 job / 未装此插件 = 现行为。
 
 ## 调用链
 
@@ -38,7 +70,8 @@ run.py  Agent.session(profile).invoke
   → unix socket AGEVAL_AGENT_SERVICE_SOCK
   → ParentAgentService
        before_agent_invoke
-       executor.invoke → host.attach_stdio(entry argv) 或 host.exec（盒内 worker）
+       executor.invoke → host.attach_stdio(entry argv)   # executor: acp
+                      或 host.exec（盒内 worker）        # acp-oneshot / dsh / nooa
        after_agent_invoke
        normalize_agent_result
   → 层 C：evidence 写 trajectory.jsonl
@@ -46,7 +79,7 @@ run.py  Agent.session(profile).invoke
 
 `ParentAgentService.invoke` 只回 `AgentResult`。**不**在每次 invoke 后 `download` 盒内 workspace。轨迹来自 executor events。缺的 publishable 文件在 **writer 停后** 由 run 相位 harvest（Protocol `download`），evaluate 再把 `task-artifacts` upload 进盒。
 
-ACP attach 发生在第一次 invoke，不是独立 phase。
+ACP attach 发生在第一次 invoke，不是独立 phase。`acp-oneshot` 每次 invoke 都 exec 一次 wrapper，完成 = 该进程退出码 + 解析出的 `AgentResult`。Harness completed / 轨迹 **不是** PASS。
 
 ## 凭证：BYOK / BYOA
 

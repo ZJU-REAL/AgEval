@@ -58,10 +58,10 @@ ACP 挂 `after_environment_ready`：先 `which`，缺再装。云镜像已 bake 
 
 ## locality
 
-executor **inject** 名为 `environment` 的服务（独占赢家自动 export 该名），lock 时核 capabilities。ACP 要 `attach_stdio`；盒内 worker（dsh / nooa）要 `exec` / `upload`。调用只打 Protocol 方法。`exec` 不是独立 service。
+executor **inject** 名为 `environment` 的服务（独占赢家自动 export 该名），lock 时核 capabilities。`executor: acp` 要 `attach_stdio`；盒内 worker（dsh / nooa / `acp-oneshot`）要 `exec`。调用只打 Protocol 方法。`exec` 不是独立 service。
 
 ```text
-ACP / dsh / nooa  invoke
+ACP / acp-oneshot / dsh / nooa  invoke
         │  inject service: environment
         │  只看见 Protocol（attach_stdio / exec / upload）
         ▼
