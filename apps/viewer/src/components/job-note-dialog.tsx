@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import type { Job } from "@/lib/api";
 import { jobDisplayName } from "@/lib/routes";
 
@@ -39,7 +40,7 @@ export function JobNoteDialog({ job, initialNote, onClose, onSave }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-lg rounded-[8px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
+        className="w-full max-w-lg rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-hairline px-4 py-3">
@@ -51,7 +52,7 @@ export function JobNoteDialog({ job, initialNote, onClose, onSave }: Props) {
           </p>
         </div>
         <div className="px-4 py-3 space-y-2">
-          <textarea
+          <Textarea
             autoFocus
             value={text}
             maxLength={NOTE_MAX}
@@ -63,7 +64,6 @@ export function JobNoteDialog({ job, initialNote, onClose, onSave }: Props) {
               }
             }}
             placeholder="Local note for this browser. Not written to evidence."
-            className="min-h-[8rem] w-full resize-y rounded-[6px] border border-hairline bg-canvas px-3 py-2 text-sm text-ink placeholder:text-mute focus-visible:outline-none focus-visible:border-link"
             aria-label="Job note"
           />
           <p className="text-xs text-mute tabular">
