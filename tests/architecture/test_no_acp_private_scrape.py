@@ -58,7 +58,13 @@ def test_agent_acp_imports_typed_sdk() -> None:
 def test_acp_never_learns_how_the_box_is_built() -> None:
     """The pipe comes from attach_stdio, so no vendor handle can appear here."""
     src = _acp_sources()
-    for forbidden in ("import docker", "container_id", "wrap_docker_exec", "subprocess.Popen"):
+    for forbidden in (
+        "import docker",
+        "import daytona",
+        "container_id",
+        "wrap_docker_exec",
+        "subprocess.Popen",
+    ):
         assert forbidden not in src, forbidden
     assert "attach_stdio" in src
 

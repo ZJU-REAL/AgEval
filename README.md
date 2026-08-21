@@ -27,9 +27,9 @@ ageval is a **bounded evaluation runtime** for agents, not another agent.
 
 - **The unit of delivery is a dataset**, not a full copy of a vendor suite. The root is `ageval.yaml`; members are `tasks/<id>/task.yaml`. CLI paths are always the dataset root.
 - **An Attempt is visible.** Phases are environment → run → evaluate → record, with cleanup in `finally`. Opening `src/ageval/attempt/` shows the order.
-- **The environment is a single slot:** `local` / `docker` / `e2b` / `ssh`. The Protocol is the same (`upload` / `exec` / `attach_stdio`). Change kind on `profiles.yaml`; `run.py` does not need to change.
-- **Coding agents are real CLIs over ACP** (pi, Codex, Claude, OpenCode, Grok, and others). The parent process is the only JSON-RPC client.
-- **Other backends are plugins** (`ageval.plugin/1`): nooa, dsh, miniswe. Install into the local cache, then bind from profiles. Install never rewrites the dataset.
+- **The environment is a single slot:** `local` / `docker` / `e2b` / `ssh` / `daytona`. The Protocol is the same (`upload` / `exec` / `attach_stdio`). Change kind on `profiles.yaml`; `run.py` does not need to change.
+- **Coding agents are real CLIs over ACP** (pi, Codex, Claude, OpenCode, Grok, and others). Parent ACP is the JSON-RPC client on `attach_stdio`; `acp-oneshot` runs the pair inside the box over `exec`.
+- **Other backends are plugins** (`ageval.plugin/1`): nooa, dsh, miniswe, acp-oneshot. Install into the local cache, then bind from profiles. Install never rewrites the dataset.
 - **PASS is not completion of the Agent.** `evaluator.py` runs after gold is uploaded. Trajectories are for inspection.
 
 ## How it works
@@ -45,7 +45,7 @@ ageval is a **bounded evaluation runtime** for agents, not another agent.
               ┌─────────────────────────────┼─────────────────────────────┐
               ▼                             ▼                             ▼
         ┌───────────┐                 ┌───────────┐                 ┌───────────┐
-        │   local   │                 │  docker   │                 │ e2b / ssh │
+        │   local   │                 │  docker   │                 │ e2b/ssh/daytona │
         └─────┬─────┘                 └─────┬─────┘                 └─────┬─────┘
               └──────── Protocol: upload · exec · attach_stdio ───────────┘
                                             │
@@ -79,10 +79,10 @@ Changing the environment or the Agent does not require changing the task `run.py
 
 **Environment**
 
-- **Four kinds, one Protocol.** `local` directory, `docker` container, `e2b` sandbox, `ssh` remote host. ACP does not import docker, e2b, or ssh.
+- **Five kinds, one Protocol.** `local` directory, `docker` container, `e2b` sandbox, `ssh` remote host, `daytona` sandbox. ACP does not import docker, e2b, daytona, or ssh.
 - **Gold is outside the Agent view.** `evaluation/` is not mounted; it is uploaded at evaluate.
 - **Limits are enforced before invocation.** Wall time, memory, processes, and invocation ceilings are enforced by the runtime; `run.py` cannot raise them.
-- **ssh A** does not support live ACP stdio; journeys ssh A profiles use dsh / nooa `exec`. Default CI does not treat live e2b / ssh Agent runs as verified.
+- **ssh A** does not support live ACP stdio; journeys ssh A profiles use dsh / nooa `exec`. Default CI does not treat live e2b / ssh / daytona Agent runs as verified.
 
 **Inspect results**
 
@@ -166,7 +166,7 @@ ageval/
 │   ├── environments/protocol.py     # EnvironmentProvider · caps; no vendor SDK
 │   ├── plugins/
 │   │   ├── slots.py                 # exclusive / chain
-│   │   └── contrib/                 # acp · local · docker · e2b · ssh
+│   │   └── contrib/                 # acp · local · docker · e2b · daytona · ssh
 │   ├── runtime/                     # identity, parent Agent Service, task_worker
 │   ├── evaluation/                  # barrier + bind PASS
 │   └── evidence/                    # trajectory.jsonl layout

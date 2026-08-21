@@ -23,7 +23,7 @@ environment: e2b    # local | docker | e2b | ssh | daytona
 | cap | local | docker | e2b | ssh | daytona |
 | --- | --- | --- | --- | --- | --- |
 | exec / upload / download | yes | yes | yes | yes | yes |
-| attach_stdio | 本机进程 | `docker exec -i` | **yes**（SDK 双向 stdin 流；旧 envd 在 start 探针失败） | ssh / 远端 docker exec | **frozen at implementation**（见下；不是每次 start / `--probe` 再测） |
+| attach_stdio | 本机进程 | `docker exec -i` | **yes**（SDK 双向 stdin 流；旧 envd 在 start 探针失败） | ssh / 远端 docker exec | **yes**（session stdin + `suppress_input_echo`，泵到 `fileno()`；实现期 ACP `initialize` 握手成功。不是每次 start / `--probe` 再测） |
 | uid_gid / path_views | no | yes | 通常 no | 通常 no | no |
 | compose | no | yes | no | 视远端而定，默认 no | no |
 
@@ -44,7 +44,7 @@ environment: e2b    # local | docker | e2b | ssh | daytona
 | ssh **A** 盒子=整机 | `Popen(["ssh","-T", …, "--", *argv])`，agent 就是这台 VM 上的进程 |
 | ssh **B** 盒子=远端容器 | `start()` 远端 `docker run` 已有 tag；`attach_stdio` = `ssh -- docker exec -i <cid> argv` |
 | e2b | SDK 双向流（`stdin=True` + send stdin）。只跑完收 stdout 不够 ACP |
-| daytona | **frozen** 常量。实现期试 session stdin（`send_session_command_input`）泵到 `fileno()` 管子；PTY 只作失败后备。结果写进本表与 `BoxCapabilities.attach_stdio`，之后不再探测 |
+| daytona | **yes**。`create_session` + async session command + `send_session_command_input`（`suppress_input_echo`），stdout 用 HTTP logs 泵到 `os.pipe()`。未回退 PTY。kind 常量，之后不再探测 |
 
 两种 ssh **agent 都在云上**。差别是隔离单元：整机 vs 机上容器。options：无 `image` → A；有已有 tag → B。`stop(delete=False)` 默认不 terminate 云主机。密钥 locator 不进 lock。
 
@@ -66,7 +66,7 @@ Locator：`DAYTONA_API_KEY`（接受 `daytona_api_key`）。缺钥或缺 SDK imp
 
 无 `snapshot` 时：有 `image` 则 snapshot-from-OCI；否则用题包 `environment/Dockerfile`（`Image.from_dockerfile`）。snapshot 名按配方 digest 复用。盒内路径仍是 `/attempt/workspace` 等。
 
-`attach_stdio` 是 kind 常量，与 e2b 一样。实现者必须在本 issue 内用真钥试过 ACP `initialize`（优先 raw session stdin，不是登录壳）。**true**：`executor: acp` + daytona lock 成功。**false**：ACP inject 仍失败；exec 赢家（miniswe / dsh / nooa / acp-oneshot）仍可用。缺钥的 skip 不是这条 cap 的证据。
+`attach_stdio` 是 kind 常量，与 e2b 一样。实现期用真钥在 session stdin 上完成 ACP `initialize`（echo fixture，干净 JSON，无 TTY echo）。因此 `executor: acp` + `environment: daytona` lock 成功。缺钥的 skip 不是这条 cap 的证据。
 
 ## ssh A / B
 

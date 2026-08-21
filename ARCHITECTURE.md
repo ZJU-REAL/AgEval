@@ -14,7 +14,7 @@ GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product nam
 | Field | Value |
 | --- | --- |
 | Product | ageval (agent eval) |
-| Implementation | Attempt five-phase pipeline is wired; box kinds `local` / `docker` / `e2b` / `ssh`; public commands follow `ageval --help` |
+| Implementation | Attempt five-phase pipeline is wired; box kinds `local` / `docker` / `e2b` / `ssh` / `daytona`; public commands follow `ageval --help` |
 | Evidence grade | **Limited to `runnable-mvp`**: local ACP, docker ACP, and named journeys have public runs. e2b/ssh **code exists; skip without keys — do not mark isolated** |
 | Design authority | [docs/README.md](docs/README.md) |
 | Structure authority | **This document** |
@@ -77,7 +77,7 @@ Arrows mean **control-flow progress**. Cross-trust-boundary data flow is in [Dat
 | Smoke docker ACP | `uv run ageval run examples/journeys --task terminal-jsonl-agg` (default journeys box is docker) |
 | Smoke local ACP | `uv run ageval lock examples/tau3-airline --task airline-00` (default box is local; run needs credentials + tau2) |
 | Smoke journeys | `uv run ageval run examples/journeys --task terminal-jsonl-agg`; `… --task tau2-dialog-min` |
-| Expected failure | Unknown format → `invalid_format` exit 2; missing `--task` follows CLI; e2b/ssh without keys `--probe` `ready:false` |
+| Expected failure | Unknown format → `invalid_format` exit 2; missing `--task` follows CLI; e2b/ssh/daytona without keys `--probe` `ready:false` |
 | Observable result | Secret-free lock summary + digest; Attempt has `lock.json` / `result.json` / `trajectory.jsonl` |
 | Evidence grade | **Limited to `runnable-mvp`** (commands above; do not upgrade from documentation) |
 
@@ -146,6 +146,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   │       ├── docker/              # exclusive environment
 │   │       ├── local/
 │   │       ├── e2b/
+│   │       ├── daytona/
 │   │       ├── ssh/                 # A whole host / B remote container
 │   │       └── openai_http/
 │   ├── runtime/
@@ -194,7 +195,7 @@ This is the accepted direction, **not** splitting Current back into `adapters/` 
 src/ageval/
   cli/ application/ attempt/phases/ config/
   environments/protocol.py          # still no vendor SDK
-  plugins/contrib/{acp,docker,local,e2b,ssh,openai_http}
+  plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http}
   plugins/defaults/                 # or move to contrib/defaults — pick one, not both
   runtime/{identity,parent_agent,task_launch,task_worker}
   evaluation/{bind,package_evaluator,box_runner}

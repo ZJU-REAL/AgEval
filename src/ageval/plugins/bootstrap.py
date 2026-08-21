@@ -7,6 +7,7 @@ Ecosystem plugins load only after ``ageval plugin install``.
 from __future__ import annotations
 
 from ageval.plugins.contrib.acp import register_acp_contrib
+from ageval.plugins.contrib.daytona import register_daytona_contrib
 from ageval.plugins.contrib.docker import register_docker_contrib
 from ageval.plugins.contrib.e2b import register_e2b_contrib
 from ageval.plugins.contrib.local import register_local_contrib
@@ -37,6 +38,7 @@ def bootstrap_registry(
     register_local_contrib(reg)
     register_docker_contrib(reg)
     register_e2b_contrib(reg)
+    register_daytona_contrib(reg)
     register_ssh_contrib(reg)
     register_acp_contrib(reg)
     register_openai_http_contrib(reg)

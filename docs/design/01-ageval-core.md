@@ -10,7 +10,7 @@ Core 拥有：配置锁定、Attempt 身份、盒子 Protocol、硬顶、evaluat
 | --- | --- | --- |
 | Config | `src/ageval/config/` | `load_and_lock`、digest、profiles、能力校验 |
 | Lifecycle | `src/ageval/attempt/` + `runtime/identity.py` | Run/Trial/Attempt 身份；五相位顺序 |
-| Box | `environments/protocol.py` + `plugins/contrib/{local,docker,e2b,ssh}` | 物理隔离与运输 |
+| Box | `environments/protocol.py` + `plugins/contrib/{local,docker,e2b,daytona,ssh}` | 物理隔离与运输 |
 | Capability | `capabilities/` + lock `requires` | 已授权操作面；缺 cap 则 lock 失败 |
 | Evaluation | `evaluation/` | barrier、盒内 evaluator、`bind_evaluation` |
 

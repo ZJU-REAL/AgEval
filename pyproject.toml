@@ -38,6 +38,10 @@ miniswe = [
 e2b = [
     "e2b>=2.25.0",
 ]
+daytona = [
+    "daytona>=0.21.0",
+    "socksio>=1.0.0",
+]
 
 [project.scripts]
 ageval = "ageval.cli.main:app"

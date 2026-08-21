@@ -27,9 +27,9 @@ ageval 是面向 Agent 的**有边界的评测运行时**，而不是又一个 A
 
 - **交付单位是 dataset**，而非某厂商 suite 的完整镜像。根目录为 `ageval.yaml`，成员为 `tasks/<id>/task.yaml`。CLI 路径始终是 dataset 根。
 - **一次 Attempt 可见。** 阶段为 environment → run → evaluate → record，cleanup 在 `finally` 中执行。打开 `src/ageval/attempt/` 即可读出顺序。
-- **环境是一个槽：** `local` / `docker` / `e2b` / `ssh`。Protocol 相同（`upload` / `exec` / `attach_stdio`）。更换 kind 时修改 `profiles.yaml`，无需改动 `run.py`。
-- **Coding agent 为真实 CLI，经 ACP 接入**（pi、Codex、Claude、OpenCode、Grok 等）。Parent 是唯一的 JSON-RPC client。
-- **其它后端为插件**（`ageval.plugin/1`）：nooa、dsh、miniswe。安装到本机缓存，再通过 profiles 绑定。install 不会改写 dataset。
+- **环境是一个槽：** `local` / `docker` / `e2b` / `ssh` / `daytona`。Protocol 相同（`upload` / `exec` / `attach_stdio`）。更换 kind 时修改 `profiles.yaml`，无需改动 `run.py`。
+- **Coding agent 为真实 CLI，经 ACP 接入**（pi、Codex、Claude、OpenCode、Grok 等）。Parent ACP 走 `attach_stdio`；`acp-oneshot` 在盒内用 `exec` 跑一对 client+server。
+- **其它后端为插件**（`ageval.plugin/1`）：nooa、dsh、miniswe、acp-oneshot。安装到本机缓存，再通过 profiles 绑定。install 不会改写 dataset。
 - **PASS 并不等于 Agent 执行完成。** gold 上传之后才执行 `evaluator.py`。轨迹用于检查。
 
 ## 如何运行
@@ -45,7 +45,7 @@ ageval 是面向 Agent 的**有边界的评测运行时**，而不是又一个 A
               ┌────────────────────────────┼────────────────────────────┐
               ▼                            ▼                            ▼
         ┌───────────┐                ┌───────────┐                ┌───────────┐
-        │   local   │                │  docker   │                │ e2b / ssh │
+        │   local   │                │  docker   │                │ e2b/ssh/daytona │
         └─────┬─────┘                └─────┬─────┘                └─────┬─────┘
               └──────── Protocol: upload · exec · attach_stdio ─────────┘
                                            │
@@ -79,10 +79,10 @@ ageval 是面向 Agent 的**有边界的评测运行时**，而不是又一个 A
 
 **环境**
 
-- **四种 kind，一套 Protocol。** `local` 目录、`docker` 容器、`e2b` sandbox、`ssh` 远端。ACP 不 import docker / e2b / ssh。
+- **五种 kind，一套 Protocol。** `local` 目录、`docker` 容器、`e2b` sandbox、`ssh` 远端、`daytona` sandbox。ACP 不 import docker / e2b / daytona / ssh。
 - **gold 不进入 Agent 可见范围。** `evaluation/` 不会被 mount，仅在 evaluate 阶段 upload。
 - **上限在调用前强制。** 墙钟、内存、进程与调用次数由 runtime 执行，不能由 `run.py` 自行提升。
-- **ssh A** 不支持 live ACP stdio；journeys 的 ssh A profiles 使用 dsh / nooa 的 `exec`。默认 CI **不**将 e2b / ssh 的真实 Agent 运行标为已验证。
+- **ssh A** 不支持 live ACP stdio；journeys 的 ssh A profiles 使用 dsh / nooa 的 `exec`。默认 CI **不**将 e2b / ssh / daytona 的真实 Agent 运行标为已验证。
 
 **查看结果**
 
@@ -166,7 +166,7 @@ ageval/
 │   ├── environments/protocol.py     # EnvironmentProvider · 能力；不含厂商 SDK
 │   ├── plugins/
 │   │   ├── slots.py                 # 独占槽 / 链槽
-│   │   └── contrib/                 # acp · local · docker · e2b · ssh
+│   │   └── contrib/                 # acp · local · docker · e2b · daytona · ssh
 │   ├── runtime/                     # 身份、父进程 Agent Service、task_worker
 │   ├── evaluation/                  # 评测屏障 + 绑定 PASS
 │   └── evidence/                    # trajectory.jsonl 布局
