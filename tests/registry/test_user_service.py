@@ -120,12 +120,13 @@ def test_login_upsert_preserves_description(tmp_path: Path) -> None:
     svc = _users(tmp_path)
     svc.meta.upsert_user_profile(user_id="alice", display_name="Alice")
     svc.meta.set_user_description("alice", "keeps this")
-    svc.meta.upsert_user_profile(
+    stored = svc.meta.upsert_user_profile(
         user_id="alice",
         display_name="Alice Chen",
         avatar_url="https://example.test/a.png",
         github_id="1",
     )
+    assert stored.description == "keeps this"
     payload = svc.get_public("alice")
     assert payload["display_name"] == "Alice Chen"
     assert payload["avatar_url"] == "https://example.test/a.png"
@@ -212,6 +213,20 @@ def test_patch_user_http_self_only(tmp_path: Path) -> None:
         conn.close()
         assert resp.status == 403
         assert denied["error"] == "forbidden"
+
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request(
+            "PATCH",
+            "/v1/users/alice",
+            body=json.dumps({"description": "x", "display_name": "nope"}).encode("utf-8"),
+            headers=headers,
+        )
+        resp = conn.getresponse()
+        extra = json.loads(resp.read().decode("utf-8"))
+        conn.close()
+        assert resp.status == 400
+        assert extra["error"] == "invalid_request"
+        assert extra["message"] == "unknown keys"
     finally:
         server.shutdown()
         server.server_close()

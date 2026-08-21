@@ -583,6 +583,13 @@ class RegistryHttpApi:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
+        unknown = [
+            key
+            for key in body
+            if key not in {"name", "display_name", "is_claimable", "description"}
+        ]
+        if unknown:
+            return json_result(400, {"error": "invalid_request", "message": "unknown keys"})
         try:
             payload = self.state.orgs.create(
                 name=str(body.get("name") or ""),
@@ -634,10 +641,12 @@ class RegistryHttpApi:
         unknown = [key for key in body if key not in {"description"}]
         if unknown:
             return json_result(400, {"error": "invalid_request", "message": "unknown keys"})
+        if "description" not in body:
+            return json_result(400, {"error": "invalid_request", "message": "description required"})
         try:
             payload = self.state.users.patch(
                 user_id=user_id,
-                description=body.get("description"),
+                description=body["description"],
                 auth=auth,
             )
         except RegistryAppError as exc:

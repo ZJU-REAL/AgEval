@@ -22,7 +22,6 @@ from services.registry.store import (
 _ORG_NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$")
 _DISPLAY_NAME_MAX = 80
 _DESCRIPTION_MAX = 500
-_USER_DESCRIPTION_MAX = 280
 
 
 def _normalize_display_name(raw: object) -> str:

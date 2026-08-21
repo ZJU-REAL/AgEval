@@ -6,8 +6,10 @@ from typing import Any
 
 from services.registry.errors import RegistryAppError
 from services.registry.official import is_official_upload_org
-from services.registry.org_service import _USER_DESCRIPTION_MAX, normalize_description
+from services.registry.org_service import normalize_description
 from services.registry.store import TokenInfo, _normalize_user_id, org_to_dict
+
+_USER_DESCRIPTION_MAX = 280
 
 
 class UserService:

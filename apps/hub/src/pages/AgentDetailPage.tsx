@@ -259,17 +259,20 @@ export function AgentDetailPage() {
             ) : null}
           </div>
           {release ? (
-            <p className="text-sm text-mute mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
               <span className="font-mono">@{agentId}</span>
-              {" · "}
-              {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
-              {" · "}
+              <span aria-hidden>·</span>
+              <span>
+                {isDraftRelease(release) ? "draft" : `v${release.version}`} ·{" "}
+                {release.visibility}
+              </span>
+              <span aria-hidden>·</span>
               <DownloadCount count={release.download_count} />
               {release.org_id ? (
                 <>
-                  {" "}
-                  · org{" "}
+                  <span aria-hidden>·</span>
                   <span className="inline-flex items-center gap-1">
+                    org{" "}
                     <Link
                       to={`/organizations/${encodeURIComponent(release.org_id)}`}
                       className="font-mono text-xs text-body hover:text-ink"
@@ -280,7 +283,7 @@ export function AgentDetailPage() {
                   </span>
                 </>
               ) : null}
-            </p>
+            </div>
           ) : null}
         </div>
         {release ? (

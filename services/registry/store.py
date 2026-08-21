@@ -1716,7 +1716,10 @@ class MetadataStore(MetadataStoreProtocol):
                 ),
             )
             conn.commit()
-        return row
+        stored = self.get_user_profile(uid)
+        if stored is None:
+            raise LookupError("user not found")
+        return stored
 
     def get_user_profile(self, user_id: str) -> UserProfileRow | None:
         uid = _normalize_user_id(user_id) or user_id

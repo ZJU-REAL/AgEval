@@ -152,7 +152,7 @@ export function UserPage() {
                     className="inline-flex text-mute hover:text-ink"
                     aria-label={`${user.user_id} on GitHub`}
                   >
-                    <GitHubIcon className="h-4 w-4" title="GitHub" />
+                    <GitHubIcon className="h-4 w-4" />
                   </a>
                 ) : null}
               </p>

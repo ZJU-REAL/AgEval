@@ -21,9 +21,10 @@ export function DownloadCount({
         className,
       )}
       title={label}
+      aria-label={label}
     >
       <Download className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} strokeWidth={1.75} aria-hidden />
-      <span>{compact ? formatCount(n) : label}</span>
+      <span aria-hidden>{compact ? formatCount(n) : label}</span>
     </span>
   );
 }

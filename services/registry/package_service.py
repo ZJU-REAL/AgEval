@@ -431,7 +431,7 @@ class PackageService:
         fh = self.blobs.open(row.blob_digest, prefix="packages")
         if fh is None or size is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
-        self.meta.increment_package_download(dataset_id)
+        self.meta.increment_package_download(row.dataset_id)
         return fh, int(size), row
 
     def list_files(
