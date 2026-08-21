@@ -618,13 +618,16 @@ class RegistryClient:
         *,
         name: str,
         display_name: str | None = None,
+        description: str | None = None,
         is_claimable: bool = False,
     ) -> dict[str, Any]:
-        body = {
+        body: dict[str, Any] = {
             "name": name,
             "display_name": display_name or name,
             "is_claimable": is_claimable,
         }
+        if description is not None:
+            body["description"] = description
         status, raw, _ = self._request(
             "POST",
             "/v1/orgs",
@@ -641,15 +644,37 @@ class RegistryClient:
             raise RegistryError("org_list_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
 
-    def patch_org(self, org_id: str, *, display_name: str) -> dict[str, Any]:
+    def patch_org(
+        self,
+        org_id: str,
+        *,
+        display_name: str | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {}
+        if display_name is not None:
+            body["display_name"] = display_name
+        if description is not None:
+            body["description"] = description
         status, raw, _ = self._request(
             "PATCH",
             f"/v1/orgs/{quote(org_id, safe='')}",
-            body=json.dumps({"display_name": display_name}, sort_keys=True).encode("utf-8"),
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
             headers=self._headers(content_type="application/json"),
         )
         if status != 200:
             raise RegistryError("org_patch_failed", f"status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
+    def patch_user(self, user_id: str, *, description: str) -> dict[str, Any]:
+        status, raw, _ = self._request(
+            "PATCH",
+            f"/v1/users/{quote(user_id, safe='')}",
+            body=json.dumps({"description": description}, sort_keys=True).encode("utf-8"),
+            headers=self._headers(content_type="application/json"),
+        )
+        if status != 200:
+            raise RegistryError("user_patch_failed", f"status {status}", status=status)
         return json.loads(raw.decode("utf-8"))
 
     def patch_package_display_name(self, dataset_id: str, *, display_name: str) -> dict[str, Any]:

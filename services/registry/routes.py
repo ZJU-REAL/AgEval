@@ -392,6 +392,13 @@ ROUTES: tuple[Route, ...] = (
     ),
     Route(
         "PATCH",
+        "patch_user",
+        access="bearer",
+        pattern=r"/v1/users/([^/]+)",
+        groups=("user_id",),
+    ),
+    Route(
+        "PATCH",
         "patch_package_display_name",
         access="bearer",
         pattern=r"/v1/packages/([^/]+(?:/[^/]+)*)",

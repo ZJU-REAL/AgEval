@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 from services.registry.errors import RegistryAppError
-from services.registry.store import MetadataStore
+from services.registry.store import DEFAULT_LOGIN_SCOPES, MetadataStore
 from services.registry.user_service import UserService
 
 
@@ -31,6 +31,7 @@ def test_official_member_is_marked(tmp_path: Path) -> None:
     assert payload["user_id"] == "alice"
     assert payload["display_name"] == "Alice Chen"
     assert payload["avatar_url"] == "https://example.test/a.png"
+    assert payload["description"] == ""
     assert payload["official"] is True
     assert payload["official_orgs"] == [
         {"org_id": "official", "display_name": "Official", "official": True}
@@ -65,6 +66,7 @@ def test_admin_added_never_logged_in_still_200(tmp_path: Path) -> None:
     assert payload["official"] is True
     assert payload["display_name"] == ""
     assert payload["avatar_url"] == ""
+    assert payload["description"] == ""
 
 
 def test_profile_without_membership_is_not_official(tmp_path: Path) -> None:
@@ -82,6 +84,52 @@ def test_unknown_login_is_not_found(tmp_path: Path) -> None:
         svc.get_public("missing")
     assert ei.value.http_status == 404
     assert ei.value.error == "not_found"
+
+
+def test_self_can_patch_description(tmp_path: Path) -> None:
+    from services.registry.store import TokenInfo
+
+    svc = _users(tmp_path)
+    svc.meta.upsert_user_profile(user_id="alice", display_name="Alice")
+    payload = svc.patch(
+        user_id="Alice",
+        description="  hello\nworld  ",
+        auth=TokenInfo(scopes=frozenset({"results:read"}), user_id="alice"),
+    )
+    assert payload["description"] == "hello\nworld"
+    assert svc.get_public("alice")["description"] == "hello\nworld"
+
+
+def test_patch_other_user_is_forbidden(tmp_path: Path) -> None:
+    from services.registry.store import TokenInfo
+
+    svc = _users(tmp_path)
+    svc.meta.upsert_user_profile(user_id="alice", display_name="Alice")
+    svc.meta.upsert_user_profile(user_id="bob", display_name="Bob")
+    with pytest.raises(RegistryAppError) as ei:
+        svc.patch(
+            user_id="bob",
+            description="nope",
+            auth=TokenInfo(scopes=frozenset({"results:read"}), user_id="alice"),
+        )
+    assert ei.value.http_status == 403
+    assert svc.get_public("bob")["description"] == ""
+
+
+def test_login_upsert_preserves_description(tmp_path: Path) -> None:
+    svc = _users(tmp_path)
+    svc.meta.upsert_user_profile(user_id="alice", display_name="Alice")
+    svc.meta.set_user_description("alice", "keeps this")
+    svc.meta.upsert_user_profile(
+        user_id="alice",
+        display_name="Alice Chen",
+        avatar_url="https://example.test/a.png",
+        github_id="1",
+    )
+    payload = svc.get_public("alice")
+    assert payload["display_name"] == "Alice Chen"
+    assert payload["avatar_url"] == "https://example.test/a.png"
+    assert payload["description"] == "keeps this"
 
 
 def test_empty_user_id_is_invalid(tmp_path: Path) -> None:
@@ -118,6 +166,52 @@ def test_get_user_http_is_public(tmp_path: Path) -> None:
         conn.close()
         assert resp.status == 404
         assert missing["error"] == "not_found"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_patch_user_http_self_only(tmp_path: Path) -> None:
+    state, _token = build_default_state(
+        tmp_path / "reg", bootstrap_token="admin-tok", memory_blob=True
+    )
+    state.meta.upsert_user_profile(user_id="alice", display_name="Alice")
+    state.meta.upsert_user_profile(user_id="bob", display_name="Bob")
+    state.tokens.add("alice-tok", DEFAULT_LOGIN_SCOPES, github_user="alice")
+    handler = make_handler(state)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+    headers = {
+        "Authorization": "Bearer alice-tok",
+        "Content-Type": "application/json",
+    }
+    try:
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request(
+            "PATCH",
+            "/v1/users/alice",
+            body=json.dumps({"description": "Hub bio"}).encode("utf-8"),
+            headers=headers,
+        )
+        resp = conn.getresponse()
+        payload = json.loads(resp.read().decode("utf-8"))
+        conn.close()
+        assert resp.status == 200
+        assert payload["description"] == "Hub bio"
+
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request(
+            "PATCH",
+            "/v1/users/bob",
+            body=json.dumps({"description": "stolen"}).encode("utf-8"),
+            headers=headers,
+        )
+        resp = conn.getresponse()
+        denied = json.loads(resp.read().decode("utf-8"))
+        conn.close()
+        assert resp.status == 403
+        assert denied["error"] == "forbidden"
     finally:
         server.shutdown()
         server.server_close()

@@ -67,6 +67,18 @@ class PackageService:
     def can_manage(self, row: ReleaseRow, auth: TokenInfo) -> bool:
         return self.access.can_manage_package(row, auth)
 
+    def _with_download_count(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self._with_download_counts([payload])
+        return payload
+
+    def _with_download_counts(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        ids = [str(item.get("dataset_id") or "") for item in items]
+        counts = self.meta.package_download_counts(ids)
+        for item in items:
+            did = str(item.get("dataset_id") or "")
+            item["download_count"] = int(counts.get(did, 0))
+        return items
+
     def publish(self, *, meta: dict[str, Any], archive: Path, auth: TokenInfo) -> dict[str, Any]:
         size_on_disk = archive.stat().st_size
         if size_on_disk > self.max_upload:
@@ -150,7 +162,7 @@ class PackageService:
             self.meta.insert(row)
         except ValueError as exc:
             raise RegistryAppError("conflict", "release already exists", http_status=409) from exc
-        payload = release_to_dict(row)
+        payload = self._with_download_count(release_to_dict(row))
         if existing_rel is not None and replace:
             payload["replaced"] = True
         return payload
@@ -228,7 +240,7 @@ class PackageService:
             self.meta.upsert_dataset_acl(dataset_id, user_id, role="owner")
         if old_blob and old_blob != blob_digest:
             self._gc_blob(old_blob)
-        payload = release_to_dict(stored.as_release())
+        payload = self._with_download_count(release_to_dict(stored.as_release()))
         payload["replaced"] = existing is not None
         return payload
 
@@ -281,7 +293,7 @@ class PackageService:
             self.meta.insert(row)
         except ValueError as exc:
             raise RegistryAppError("conflict", "release already exists", http_status=409) from exc
-        payload = release_to_dict(row)
+        payload = self._with_download_count(release_to_dict(row))
         if existing_rel is not None and replace:
             payload["replaced"] = True
         payload["from_draft"] = True
@@ -330,6 +342,7 @@ class PackageService:
             label = labels.get(str(item.get("dataset_id") or ""))
             if label:
                 item["display_name"] = label
+        self._with_download_counts(items)
         return {"items": items}
 
     def _filter_mine(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
@@ -364,6 +377,7 @@ class PackageService:
         if label:
             for item in items:
                 item["display_name"] = label
+        self._with_download_counts(items)
         return {"dataset_id": dataset_id, "items": items}
 
     def serve_meta(
@@ -380,7 +394,7 @@ class PackageService:
             package_digest=package_digest,
             version=version,
         )
-        payload = release_to_dict(row)
+        payload = self._with_download_count(release_to_dict(row))
         label = self.meta.get_package_display_name(dataset_id)
         if label:
             payload["display_name"] = label
@@ -417,6 +431,7 @@ class PackageService:
         fh = self.blobs.open(row.blob_digest, prefix="packages")
         if fh is None or size is None:
             raise RegistryAppError("not_found", "blob missing", http_status=404)
+        self.meta.increment_package_download(dataset_id)
         return fh, int(size), row
 
     def list_files(
@@ -523,7 +538,7 @@ class PackageService:
         row = self._latest_managed_release(dataset_id, auth)
         name = _normalize_plugin_name_segment(dataset_id, display_name)
         stored = self.meta.set_package_display_name(dataset_id, name)
-        payload = release_to_dict(row)
+        payload = self._with_download_count(release_to_dict(row))
         if stored:
             payload["display_name"] = stored
         return payload
@@ -560,7 +575,7 @@ class PackageService:
             updated = self.meta.set_release_visibility(dataset_id, version, visibility)
         except LookupError as exc:
             raise RegistryAppError("not_found", "release not found", http_status=404) from exc
-        return release_to_dict(updated)
+        return self._with_download_count(release_to_dict(updated))
 
     def _visible_release(
         self,

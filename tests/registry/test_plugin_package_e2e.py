@@ -114,6 +114,7 @@ def test_publish_plugin_preview_and_install(
     echo_row = next(i for i in plugin_items if i.get("dataset_id") == summary["package_id"])
     assert echo_row.get("official") is False
     assert echo_row.get("org_id") == TEST_ORG
+    assert echo_row.get("download_count") == 0
     db_req = urllib.request.Request(
         registry_server["url"] + "/v1/packages?package_kind=dataset",
         headers={"Authorization": f"Bearer {registry_server['token']}"},
@@ -127,6 +128,12 @@ def test_publish_plugin_preview_and_install(
     installed = install_plugin_from_registry(ref)
     assert installed["ok"] is True
     assert installed["plugin_id"] == f"{TEST_ORG}/sample-echo"
+    with urllib.request.urlopen(list_req) as resp:  # noqa: S310
+        listed_after = json.loads(resp.read().decode("utf-8"))
+    echo_after = next(
+        i for i in (listed_after.get("items") or []) if i.get("dataset_id") == summary["package_id"]
+    )
+    assert echo_after.get("download_count") == 1
     assert installed["version"] == summary["version"]
     assert installed["digest"].startswith("sha256:")
     assert (home / "plugins" / "index.json").is_file()
