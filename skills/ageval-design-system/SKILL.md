@@ -42,8 +42,9 @@ fix the surfaces to match docs/13 + the script.
   clip-path chamfer on buttons.
 - Underline tabs use `UnderlineTabs` (sliding IKB bar). Page heads use
   `PageHead` (h1 + optional sub + hairline; no numbered kicker).
-- Plugin / agent marketplace lists are `CatalogCard` grids. Datasets, jobs,
-  leaderboard, members stay hairline tables. Do not invert that split.
+- Plugin / agent marketplace lists are `CatalogCard` grids (`org/name` + date,
+  two-line description, tags at the bottom). Datasets, jobs, leaderboard,
+  and members are hairline tables.
 - Motion is CSS only on hub/viewer (`200ms` / `ease-smooth`). Landing may
   stagger the hero and reveal sections 8px; no GSAP/Motion, no pin/scrub.
 - Focus: buttons `ring-2 ring-link/70`; fields `border-link` 1px, no extra ring;

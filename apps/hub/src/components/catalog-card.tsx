@@ -3,30 +3,19 @@ import {
   useMemo,
   useRef,
   useState,
-  type ComponentType,
   type KeyboardEvent,
-  type MouseEvent,
 } from "react";
-import { Bot, Puzzle } from "lucide-react";
-import { Link } from "react-router-dom";
 
 import { OfficialMark } from "@/components/official-mark";
 import {
   getPackageByDigest,
   packageDisplayTitle,
-  versionLabel,
   type PackageRelease,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { cn, formatDay } from "@/lib/utils";
 
 type CatalogKind = "plugin" | "agent";
-type Glyph = ComponentType<{ className?: string; strokeWidth?: number }>;
-
-const KIND_GLYPH: Record<CatalogKind, Glyph> = {
-  plugin: Puzzle,
-  agent: Bot,
-};
 
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -86,7 +75,6 @@ export function CatalogCard({
   row: PackageRelease;
   onOpen: (id: string) => void;
 }) {
-  const Icon = KIND_GLYPH[kind];
   const title = packageDisplayTitle(row.dataset_id, row.display_name);
   const chips = kind === "plugin" ? pluginChips(row) : agentChips(row);
   const description = descriptionOf(kind, row);
@@ -103,10 +91,6 @@ export function CatalogCard({
     }
   }
 
-  function onOrgClick(event: MouseEvent) {
-    event.stopPropagation();
-  }
-
   return (
     <article
       role="link"
@@ -114,46 +98,42 @@ export function CatalogCard({
       onClick={open}
       onKeyDown={onKeyDown}
       className={cn(
-        "group flex h-full flex-col rounded-[12px] border border-hairline bg-canvas p-4 text-left",
-        "transition-[background-color,transform,border-color] duration-200 ease-smooth",
-        "hover:bg-canvas-soft motion-safe:hover:-translate-y-px",
-        "active:scale-[0.99]",
+        "flex h-full flex-col rounded-[12px] border border-hairline bg-canvas p-4 text-left",
+        "transition-colors duration-200 ease-smooth",
+        "hover:bg-canvas-soft",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70",
         "cursor-pointer",
       )}
     >
-      <div className="flex items-start gap-3 min-w-0">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-hairline bg-canvas-soft text-mute group-hover:text-ink">
-          <Icon className="h-5 w-5" strokeWidth={1.5} aria-hidden />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <p className="inline-flex min-w-0 items-center gap-1.5 font-medium text-ink">
-              <span className="truncate">{title}</span>
-              {row.official ? <OfficialMark /> : null}
-            </p>
-            <span className="shrink-0 font-mono text-[11px] tabular-nums text-mute">
-              {versionLabel(row)}
-            </span>
-          </div>
-          <p className="mt-0.5 font-mono text-[11px] text-mute truncate">
-            {row.dataset_id}
+      <div className="min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <p className="inline-flex min-w-0 items-center gap-1.5 font-medium text-ink">
+            <span className="truncate">{title}</span>
+            {row.official ? <OfficialMark /> : null}
           </p>
+          {updated ? (
+            <span className="shrink-0 font-mono text-[11px] tabular-nums text-mute">
+              {updated}
+            </span>
+          ) : null}
         </div>
       </div>
 
-      {description ? (
-        <p className="mt-3 line-clamp-2 text-sm text-body" title={description}>
-          {description}
-        </p>
-      ) : (
-        <p className="mt-3 text-sm text-mute">
-          {kind === "plugin" ? "ageval.plugin/1 package" : "ageval.agent/1 package"}
-        </p>
-      )}
+      <p
+        className={cn(
+          "mt-3 h-10 line-clamp-2 text-sm leading-5",
+          description ? "text-body" : "text-mute",
+        )}
+        title={description ?? undefined}
+      >
+        {description ??
+          (kind === "plugin"
+            ? "ageval.plugin/1 package"
+            : "ageval.agent/1 package")}
+      </p>
 
       {chips.length ? (
-        <ul className="mt-3 flex flex-wrap gap-1.5">
+        <ul className="mt-auto flex flex-wrap gap-1.5 pt-3">
           {chips.map((chip) => (
             <li
               key={chip}
@@ -163,26 +143,9 @@ export function CatalogCard({
             </li>
           ))}
         </ul>
-      ) : null}
-
-      <div className="mt-auto flex items-center justify-between gap-2 pt-4 text-[11px] text-mute">
-        {row.org_id ? (
-          <Link
-            to={`/organizations/${encodeURIComponent(row.org_id)}`}
-            onClick={onOrgClick}
-            className="inline-flex min-w-0 items-center gap-1 font-mono hover:text-ink"
-          >
-            <span className="truncate">@{row.org_id}</span>
-            {row.official ? <OfficialMark kind="org" /> : null}
-          </Link>
-        ) : (
-          <span>—</span>
-        )}
-        <span className="flex shrink-0 items-center gap-2 tabular-nums">
-          <span>{row.visibility}</span>
-          {updated ? <span>{updated}</span> : null}
-        </span>
-      </div>
+      ) : (
+        <div className="mt-auto" />
+      )}
     </article>
   );
 }

@@ -13,22 +13,19 @@ Do not invent a second marketing skin or hand-rolled full-page CSS over shadcn.
 
 | Surface | UI | Why |
 | --- | --- | --- |
-| Plugins (`/plugins`, Home, org, user public) | **Catalog cards** (`CatalogCard` / `CatalogCardGrid`) | Marketplace identity: name, official mark, org, version, optional slot/binding chips |
-| Agents (`/agents`, Home, org, user public) | **Catalog cards** | Same: one job binding is a package, not a sortable trial row |
+| Plugins (`/plugins`, Home, org, user public) | **Catalog cards** (`CatalogCard` / `CatalogCardGrid`) | Marketplace identity: `org/name`, official mark, date, description, slot/binding tags |
+| Agents (`/agents`, Home, org, user public) | **Catalog cards** | Same: one job binding is a package |
 | Datasets, jobs, leaderboard, members, suites | **Hairline tables** | Dense comparable rows (sort, scan, bulk) |
-
-Do not render plugin or agent packages as a one-row `Table` again. Do not turn
-jobs / leaderboard / members into cards.
 
 ### Catalog card rules
 
-- Radius 12px, hairline border, `canvas` fill. Hover: `canvas-soft` + `motion-safe:-translate-y-px`. Active: `scale-[0.99]`. Focus: `ring-2 ring-link/70`.
-- Motion: `200ms` / `cubic-bezier(0.22, 1, 0.36, 1)` only. No 3D tilt, glare, or IKB fill.
-- Grid: `1 / 2 / 3` columns (`grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`). N packages → N cells; no empty filler tiles.
-- Glyphs: lucide `Puzzle` (plugin) / `Bot` (agent). No third icon set.
-- Card body is the plugin/agent `description`, max two lines (`line-clamp-2`, ellipsis). List rows that omit preview are filled from by-digest meta. If there is no description, fall back to `ageval.plugin/1 package` / `ageval.agent/1 package` — not invented marketing.
-- Nested org link uses `stopPropagation`; the card itself is the package `role="link"`.
-- Loading uses `CatalogCardSkeleton` (same grid, pulse). Do not go back to a `Loading…` line on catalog pages.
+- Radius 12px, hairline border, `canvas` fill. Hover: `canvas-soft`. Focus: `ring-2 ring-link/70`.
+- Motion: `200ms` / `cubic-bezier(0.22, 1, 0.36, 1)`.
+- Grid: `1 / 2 / 3` columns (`grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`). N packages → N cells.
+- Header: `org/name` title plus official mark on the left, updated date on the right.
+- Description: fixed two-line block (`h-10` / `leading-5` / `line-clamp-2`). Missing description uses `ageval.plugin/1 package` / `ageval.agent/1 package`. List rows without preview load by-digest meta.
+- Tags sit at the bottom of the card (`mt-auto`).
+- Loading uses `CatalogCardSkeleton` (same grid, pulse). Empty states use a dashed well.
 
 ## Motion
 
