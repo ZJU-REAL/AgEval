@@ -12,10 +12,12 @@ import pytest
 
 from ageval.environments.protocol import BoxSpec, EnvironmentFailure
 from ageval.plugins.contrib.daytona.host import (
+    _BOX_PATH,
     API_KEY_ENV,
     ATTACH_STDIO,
     DaytonaHost,
     _assert_image_tag,
+    _auto_stop_minutes,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -42,6 +44,21 @@ async def test_preflight_fails_without_key(tmp_path: Path, monkeypatch: pytest.M
     with pytest.raises(EnvironmentFailure) as ei:
         await host.preflight()
     assert ei.value.kind == "environment_preflight_failed"
+
+
+def test_timeout_seconds_map_to_auto_stop_minutes() -> None:
+    assert _auto_stop_minutes(900) == 15
+    assert _auto_stop_minutes(60) == 1
+    assert _auto_stop_minutes(1) == 1
+    assert _auto_stop_minutes(3600) == 60
+
+
+def test_child_env_overwrites_host_path(tmp_path: Path) -> None:
+    host = DaytonaHost(spec=_spec(tmp_path))
+    env = host._child_env({"PATH": "/Users/me/bin", "ZHIPU_API_KEY": "sk-not-for-lock"})
+    assert env["PATH"] == _BOX_PATH
+    assert "/Users/" not in env["PATH"]
+    assert env["ZHIPU_API_KEY"] == "sk-not-for-lock"
 
 
 def test_rejects_floating_image_tags() -> None:
@@ -72,7 +89,11 @@ def test_acp_and_attempt_do_not_import_daytona() -> None:
             if path.suffix not in {".py", ".yaml", ".yml"}:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-            if "if kind == daytona" in text or "if kind == 'daytona'" in text:
+            if (
+                "if kind == daytona" in text
+                or "if kind == 'daytona'" in text
+                or 'if kind == "daytona"' in text
+            ):
                 offenders.append(str(path.relative_to(ROOT)))
             if "import daytona" in text and "contrib/daytona" not in str(path):
                 offenders.append(str(path.relative_to(ROOT)))
@@ -126,8 +147,71 @@ def test_probe_without_key_is_not_ready(tmp_path: Path, monkeypatch: pytest.Monk
         check=False,
         env=env,
     )
-    assert proc.returncode != 0 or '"ready": false' in proc.stdout.lower() or "ready" in proc.stdout
+    assert proc.returncode != 0, proc.stderr or proc.stdout
     data = json.loads(proc.stdout)
     assert data.get("ready") is False
     assert data.get("started") is False
     assert "stdio" not in str(data.get("error") or "").lower()
+
+
+def test_lock_acp_plus_daytona_succeeds_without_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in (API_KEY_ENV, "daytona_api_key"):
+        monkeypatch.delenv(name, raising=False)
+    profiles = tmp_path / "profiles.yaml"
+    profiles.write_text(
+        "\n".join(
+            [
+                "format: ageval.profiles/1",
+                "environment: daytona",
+                "environment_options:",
+                "  image: python:3.12.7",
+                "agent_profiles:",
+                '  "*":',
+                "    executor: acp",
+                "    model: entry-default",
+                "    options:",
+                "      entry: pi",
+                "    extensions:",
+                "      - plugin: acp",
+                "      - plugin: daytona",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env.pop(API_KEY_ENV, None)
+    env.pop("daytona_api_key", None)
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ageval.cli.main",
+            "lock",
+            str(ROOT / "examples/journeys"),
+            "--task",
+            "terminal-jsonl-agg",
+            "--profiles",
+            str(profiles),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    data = json.loads(proc.stdout)
+    assert data.get("environment") == "daytona"
+    solver = data["extension_bindings"]["solver"]
+    assert solver["slots"]["environment"]["plugin"] == "daytona"
+    assert solver["slots"]["executor"]["plugin"] == "acp"
+    inject = (solver.get("inject") or {}).get("acp") or []
+    caps = next(
+        tuple(row.get("capabilities") or ())
+        for row in inject
+        if row.get("service") == "environment"
+    )
+    assert "attach_stdio" in caps

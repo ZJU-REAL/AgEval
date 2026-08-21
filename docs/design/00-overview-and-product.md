@@ -1,6 +1,6 @@
 # 00 — 产品与红线
 
-ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一个 **盒子**，跑题包 `run.py`，再由独立 `evaluator.py` 出分。编排始终在本机 `ageval run`；盒子可以在本机、本机 Docker、E2B 或 SSH 上。
+ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一个 **盒子**，跑题包 `run.py`，再由独立 `evaluator.py` 出分。编排始终在本机 `ageval run`；盒子可以在本机、本机 Docker、E2B、SSH 或 Daytona 上。
 
 未发版硬切，不留别名。题包根叫 **dataset**，不是 SQL，也不是侧车 Postgres。
 

@@ -167,8 +167,8 @@ class AcpOneshotBoxExecutor:
             if value:
                 env[str(key)] = str(value)
         env[WORKER_ENV] = self._worker_b64
-        env.setdefault("PATH", os.environ.get("PATH", "/usr/bin:/bin"))
-        env.setdefault("LANG", os.environ.get("LANG", "C.UTF-8"))
+        env.setdefault("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+        env.setdefault("LANG", "C.UTF-8")
         return env
 
     def _result_from(

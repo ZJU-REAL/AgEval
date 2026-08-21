@@ -62,7 +62,7 @@ Locator：`DAYTONA_API_KEY`（接受 `daytona_api_key`）。缺钥或缺 SDK imp
 
 - `snapshot` — 已有 Daytona snapshot 名，跳过编 snapshot
 - `image` — 公开 OCI tag/digest（禁止 `latest` / `lts` / `stable`）
-- `timeout_seconds` — sandbox 寿命
+- `timeout_seconds` — sandbox 寿命（映射 Daytona `auto_stop_interval`，分钟向上取整；默认 900）
 
 无 `snapshot` 时：有 `image` 则 snapshot-from-OCI；否则用题包 `environment/Dockerfile`（`Image.from_dockerfile`）。snapshot 名按配方 digest 复用。盒内路径仍是 `/attempt/workspace` 等。
 
@@ -108,4 +108,4 @@ contrib/local    → 本机目录
 | e2b / ssh / daytona | 代码在；缺钥 `--probe` fail-closed | 有凭证时同一题公开 `ageval run`（ssh 含 A+B） |
 | Protocol seam | docker 已是真实赢家 | 第二个云赢家（e2b **或** ssh）真跑后 seam 才算成立 |
 
-默认 CI **无**真 E2B/SSH。skip ≠ 通过。不得从 docker 一次 PASS 推导 `isolated`。
+默认 CI **无**真 E2B/SSH/Daytona。skip ≠ 通过。不得从 docker 一次 PASS 推导 `isolated`。

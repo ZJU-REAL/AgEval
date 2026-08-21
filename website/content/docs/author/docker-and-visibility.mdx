@@ -10,16 +10,16 @@ description: 何时用 docker、Dockerfile、agent 能看见什么。
 ```yaml
 # profiles.yaml
 format: ageval.profiles/1
-environment: docker    # 或 local / e2b / ssh
+environment: docker    # 或 local / e2b / ssh / daytona
 ```
 
 | kind | 适合 |
 | --- | --- |
 | `local` | 开发、多数 example |
 | `docker` | 需要容器边界 |
-| `e2b` / `ssh` | 云上环境；缺钥 `--probe` 失败 |
+| `e2b` / `ssh` / `daytona` | 云上环境；缺钥 `--probe` 失败 |
 
-选 `docker`（或 `e2b`）时，成员下应有 **`environment/Dockerfile`**（或 image 选项），否则 lock 失败。docker 与 e2b 用同一份配方。
+选 `docker`（或 `e2b` / `daytona`）时，成员下应有 **`environment/Dockerfile`**（或 image 选项），否则 lock 失败。docker / e2b / daytona 用同一份配方。
 
 ## 谁看得见什么
 

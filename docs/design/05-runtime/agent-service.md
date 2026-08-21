@@ -26,7 +26,7 @@ agent_profiles:
       - plugin: docker   # 与 environment 赢家一致
 ```
 
-ACP `inject: [service: environment]`（按服务名拿 host，**不**绑 `plugin_id: e2b`），要求 capability `attach_stdio`。缺则 lock 失败，不在 invoke 时探测管子。这是稳定接口：docker / e2b / ssh 都登记为同一个服务名；内部运输收在 `attach_stdio` 里。`exec` 是同一服务上的另一个方法（盒内一次性命令），不是第二 service。dsh / nooa inject `exec` / `upload`；`acp-oneshot` 只要 `exec`。三者都经 `host.exec` 跑盒内 worker，不得在 parent 里假定本机 POSIX 路径。盒子没有 `attach_stdio` 时 **`executor: acp` 仍 lock 失败**；改走 `acp-oneshot`（或其它 exec 赢家），不是给 ACP 插件加 fallback。
+ACP `inject: [service: environment]`（按服务名拿 host，**不**绑 `plugin_id: e2b`），要求 capability `attach_stdio`。缺则 lock 失败，不在 invoke 时探测管子。这是稳定接口：docker / e2b / ssh / daytona 都登记为同一个服务名；内部运输收在 `attach_stdio` 里。`exec` 是同一服务上的另一个方法（盒内一次性命令），不是第二 service。dsh / nooa inject `exec` / `upload`；`acp-oneshot` 只要 `exec`。三者都经 `host.exec` 跑盒内 worker，不得在 parent 里假定本机 POSIX 路径。盒子没有 `attach_stdio` 时 **`executor: acp` 仍 lock 失败**；改走 `acp-oneshot`（或其它 exec 赢家），不是给 ACP 插件加 fallback。
 
 ```python
 host = ctx.services.require("environment")
@@ -34,7 +34,7 @@ pipe = await host.attach_stdio(argv, placement=placement, env=child_env)
 # JSON-RPC 走 pipe.stdin / pipe.stdout
 ```
 
-Placement 无 `container_id`。ACP 禁止 import docker / e2b / ssh。`wrap_docker_exec` 缩进 docker 插件。`run_attempt` 也会把赢家放进 `ctx.host`；inject 是 lock 时的依赖声明。
+Placement 无 `container_id`。ACP 禁止 import docker / e2b / daytona / ssh。`wrap_docker_exec` 缩进 docker 插件。`run_attempt` 也会把赢家放进 `ctx.host`；inject 是 lock 时的依赖声明。
 
 不要写 `executor: pi` / `executor: codex`。entry 是 ACP / oneshot 的 `options.entry`，不是独占槽赢家。
 

@@ -13,7 +13,7 @@
 
 ## 稳定接口：export / inject / capabilities
 
-扩展要解的是 **实现之间的编译期耦合**，不是「多几个钩子」。以独占槽 `executor` 与 `environment` 为范例（ACP × docker / e2b / ssh 是同一条规则）：
+扩展要解的是 **实现之间的编译期耦合**，不是「多几个钩子」。以独占槽 `executor` 与 `environment` 为范例（ACP × docker / e2b / ssh / daytona 是同一条规则）：
 
 | | 含义 | 不该变成 |
 | --- | --- | --- |

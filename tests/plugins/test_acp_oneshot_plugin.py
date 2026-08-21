@@ -212,6 +212,8 @@ async def test_invoke_is_one_exec_against_echo_agent(
     assert env is not None
     assert env.get("ZHIPU_API_KEY") == "sk-not-for-lock"
     assert "AGEVAL_ACP_ONESHOT_WORKER" in env
+    assert env.get("PATH") == "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    assert "/Users/" not in (env.get("PATH") or "")
 
 
 def test_lock_cli_selects_oneshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

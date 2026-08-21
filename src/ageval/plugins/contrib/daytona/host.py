@@ -13,6 +13,7 @@ import hashlib
 import os
 import shlex
 import threading
+import time
 import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -33,6 +34,7 @@ from ageval.environments.protocol import (
 API_KEY_ENV = "DAYTONA_API_KEY"
 _API_KEY_ALIASES = (API_KEY_ENV, "daytona_api_key")
 BOX_ROOT = "/attempt"
+_BOX_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 _MAX_STREAM_BYTES = 256 * 1024
 _FORBIDDEN_TAGS = frozenset({"latest", "lts", "stable"})
 
@@ -60,27 +62,26 @@ class DaytonaStdio:
         threading.Thread(target=self._pump_out, name="daytona-stdout", daemon=True).start()
 
     def _pump_in(self) -> None:
-        send = getattr(self._sandbox.process, "send_session_command_input", None)
+        send = self._sandbox.process.send_session_command_input
         try:
             while True:
                 chunk = self._in_r.read(4096)
                 if not chunk:
                     break
-                if callable(send):
-                    send(self._session_id, self._cmd_id, chunk.decode("utf-8", errors="replace"))
+                send(
+                    self._session_id,
+                    self._cmd_id,
+                    chunk.decode("utf-8", errors="replace"),
+                )
         finally:
             with contextlib.suppress(Exception):
                 self._in_r.close()
 
     def _pump_out(self) -> None:
-        import time
-
         seen = 0
+        getter = self._sandbox.process.get_session_command_logs
+        status = self._sandbox.process.get_session_command
         try:
-            getter = getattr(self._sandbox.process, "get_session_command_logs", None)
-            status = getattr(self._sandbox.process, "get_session_command", None)
-            if not callable(getter):
-                return
             while True:
                 try:
                     logs = getter(self._session_id, self._cmd_id)
@@ -88,36 +89,29 @@ class DaytonaStdio:
                     if "not found" in str(exc).lower():
                         break
                     raise
-                text = str(getattr(logs, "stdout", None) or getattr(logs, "output", None) or "")
+                text = str(getattr(logs, "stdout", None) or "")
                 if len(text) > seen:
-                    payload = text[seen:].encode("utf-8")
-                    self._out_w.write(payload)
+                    self._out_w.write(text[seen:].encode("utf-8"))
                     self._out_w.flush()
                     seen = len(text)
-                if callable(status):
-                    cmd = status(self._session_id, self._cmd_id)
-                    if getattr(cmd, "exit_code", None) is not None:
-                        break
+                cmd = status(self._session_id, self._cmd_id)
+                if getattr(cmd, "exit_code", None) is not None:
+                    break
                 time.sleep(0.05)
         finally:
             with contextlib.suppress(Exception):
                 self._out_w.close()
 
     def terminate(self) -> None:
-        delete = getattr(self._sandbox.process, "delete_session", None)
-        if callable(delete):
-            with contextlib.suppress(Exception):
-                delete(self._session_id)
+        with contextlib.suppress(Exception):
+            self._sandbox.process.delete_session(self._session_id)
         for stream in (self.stdin, self.stdout, self._in_r, self._out_w):
             with contextlib.suppress(Exception):
                 stream.close()
 
     def wait(self, timeout: float | None = None) -> int | None:
         del timeout
-        get = getattr(self._sandbox.process, "get_session_command", None)
-        if not callable(get):
-            return None
-        cmd = get(self._session_id, self._cmd_id)
+        cmd = self._sandbox.process.get_session_command(self._session_id, self._cmd_id)
         code = getattr(cmd, "exit_code", None)
         return int(code) if code is not None else None
 
@@ -172,24 +166,26 @@ class DaytonaHost:
         sdk = _import_sdk()
         self._client = sdk.Daytona()
         snapshot = await self._ensure_snapshot(sdk, force_build=force_build)
-        create_params = sdk.CreateSandboxFromSnapshotParams(snapshot=snapshot)
+        create_params = sdk.CreateSandboxFromSnapshotParams(
+            snapshot=snapshot,
+            auto_stop_interval=_auto_stop_minutes(self._timeout_seconds),
+            ephemeral=True,
+        )
         self._sandbox = await asyncio.to_thread(self._client.create, create_params)
         self._started = True
-        mkdir = (
-            "sudo mkdir -p "
-            f"{WORKSPACE_PATH} {HOME_PATH} {ARTIFACTS_PATH} {EVALUATION_PATH} "
-            f"&& sudo chmod -R a+rwx {BOX_ROOT}"
-        )
-        await asyncio.to_thread(self._sandbox.process.exec, mkdir)
+        for path in (BOX_ROOT, WORKSPACE_PATH, HOME_PATH, ARTIFACTS_PATH, EVALUATION_PATH):
+            await asyncio.to_thread(self._sandbox.fs.create_folder, path, "777")
 
     async def stop(self, *, delete: bool) -> None:
         del delete
         if self._stopped or self._sandbox is None:
             return
         self._stopped = True
-        kill = getattr(self._sandbox, "delete", None) or getattr(self._sandbox, "stop", None)
-        if callable(kill):
-            await asyncio.to_thread(kill)
+        sandbox = self._sandbox
+        client = self._client
+        self._sandbox = None
+        if client is not None:
+            await asyncio.to_thread(client.delete, sandbox)
 
     async def exec(
         self,
@@ -263,7 +259,7 @@ class DaytonaHost:
                 quoted = shlex.quote(parent)
                 await asyncio.to_thread(
                     self._sandbox.process.exec,
-                    f"sudo mkdir -p {quoted} && sudo chmod -R a+rwx {quoted}",
+                    f"mkdir -p {quoted} && chmod -R a+rwx {quoted}",
                 )
             payload = path.read_bytes()
             await asyncio.to_thread(self._sandbox.fs.upload_file, payload, target)
@@ -349,7 +345,7 @@ class DaytonaHost:
             session_id,
             request,
         )
-        cmd_id = str(getattr(result, "cmd_id", None) or getattr(result, "cmdId", "") or "")
+        cmd_id = str(getattr(result, "cmd_id", "") or "")
         if not cmd_id:
             raise EnvironmentFailure(
                 "environment_attach_invalid",
@@ -404,15 +400,17 @@ class DaytonaHost:
         return name
 
     async def _existing_snapshot(self, name: str) -> bool:
-        get = getattr(getattr(self._client, "snapshot", None), "get", None)
-        if not callable(get):
-            return False
         try:
-            snap = await asyncio.to_thread(get, name)
-        except Exception:  # noqa: BLE001 — missing snapshot
-            return False
+            snap = await asyncio.to_thread(self._client.snapshot.get, name)
+        except Exception as exc:  # noqa: BLE001 — vendor missing-snapshot
+            msg = str(exc).lower()
+            if "not found" in msg or "does not exist" in msg:
+                return False
+            raise
         state = str(getattr(snap, "state", "") or "").lower()
-        return state in {"", "active"}
+        if state and state != "active":
+            await asyncio.to_thread(self._client.snapshot.activate, name)
+        return True
 
     def _alias(self, from_image: str | None) -> str:
         if from_image is not None:
@@ -424,7 +422,7 @@ class DaytonaHost:
 
     def _child_env(self, env: Mapping[str, str] | None) -> dict[str, str]:
         out = {str(k): str(v) for k, v in (env or {}).items() if v}
-        out.setdefault("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+        out["PATH"] = _BOX_PATH
         out.setdefault("HOME", HOME_PATH)
         out.setdefault("AGEVAL_WORKSPACE", WORKSPACE_PATH)
         out.setdefault("AGEVAL_ARTIFACTS", ARTIFACTS_PATH)
@@ -507,6 +505,11 @@ def _seconds(raw: object, *, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return value if value > 0 else default
+
+
+def _auto_stop_minutes(seconds: int) -> int:
+    """Daytona ``auto_stop_interval`` is minutes. 0 means never auto-stop."""
+    return max(1, (int(seconds) + 59) // 60)
 
 
 def _text(raw: object) -> str | None:
