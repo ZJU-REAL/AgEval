@@ -430,10 +430,12 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
             <h2>{text.faq.title}</h2>
             <div className="faq-list">
               {text.faq.items.map(([question, answer]) => (
-                <article key={question} className="faq-item" tabIndex={0}>
-                  <p className="faq-q">{question}</p>
-                  <div className="faq-a">{answer}</div>
-                </article>
+                <details key={question} className="faq-item">
+                  <summary className="faq-q">{question}</summary>
+                  <div className="faq-panel">
+                    <div className="faq-a">{answer}</div>
+                  </div>
+                </details>
               ))}
             </div>
           </div>

@@ -18,7 +18,7 @@
 | 参数 | 值 | 含义 |
 | --- | --- | --- |
 | Design variance | 5/10 | 允许非对称构图，保持工程秩序 |
-| Motion intensity | 2/10 | 只呈现状态变化和直接反馈 |
+| Motion intensity | 4/10 | Hero 进场 + 短距章节揭示 + FAQ 开合；产品 chrome 仍是 200ms 反馈 |
 | Visual density | 4/10 | 技术信息清晰，保留足够留白 |
 
 ## 颜色
@@ -112,24 +112,30 @@
 
 - 优先使用配置片段、运行状态、事件表、审计工件和结果摘要。
 - 不使用 AI 生成图片作为产品能力解释。
-- 不使用装饰性悬浮节点、视差背景或与滚动位置绑定的元素位移。
+- 不使用装饰性悬浮节点或视差背景。章节允许 8px 的一次性 view-timeline 揭示，禁止 pin / scrub / 横向劫持。
 
 ## 动效
+
+缓动统一 `cubic-bezier(0.22, 1, 0.36, 1)`（`--ease`）。文档站 chrome 默认 `200ms`（`--t`）。
 
 ### 允许
 
 - `160-240ms` 的颜色、边框和背景过渡。
-- tab、inspector 和 disclosure 的内容切换。
+- Landing hero 一次性 stagger（40ms 间隔，进场 400ms；强调瞬间，不是 chrome 默认）。
+- Landing 章节 8px `view-timeline` 揭示（`@supports` 回退为静止）。浏览器不支持时不得把内容停在 `opacity: 0`。
+- FAQ 用 `<details>` + `grid-template-rows` 开合，不用 hover 展开。
+- Landing 卡片 hover 最多 `translateY(-1px)`。
+- 按钮 `:active` 的 1px 按下。
 
 ### 禁止
 
-- 视差滚动。
+- 视差滚动、滚动钉住、横向 hijack、GSAP / Motion 进 landing 或 docs。
 - 无限漂浮、无限旋转和无限脉冲。
-- hover 位移、缩放或磁吸。
-- 长距离 scroll reveal。
+- 磁吸、3D tilt、自定义光标。
+- 超过 12px 的 scroll travel。
 - 多段 sticky 叙事；全站只保留导航栏 sticky。
 
-所有动效必须支持 `prefers-reduced-motion: reduce`，此模式下直接显示最终状态。
+所有动效必须支持 `prefers-reduced-motion: reduce`，此模式下直接显示最终状态、关掉 animation 与 hover 位移。
 
 ## 组件规范
 
@@ -137,7 +143,7 @@
 
 - 高度最少 `44px`，圆角 `4px`。
 - Label 使用 Geist Mono，保持短且不换行。
-- hover 仅改变背景、边框或文字色。
+- hover 改变背景、边框或文字色。Landing 卡片允许 1px 上移；CTA 本身不位移。
 - focus-visible 使用 3px 半透明 accent ring。
 
 ### 卡片与数据区

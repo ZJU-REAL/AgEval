@@ -798,11 +798,20 @@ html:has(.ageval-landing) body {
   min-height: 214px;
   display: flex;
   flex-direction: column;
-  transition: background var(--t) var(--ease);
+  transition:
+    background var(--t) var(--ease),
+    transform var(--t) var(--ease);
 }
 
 .ageval-landing .core-grid article:hover {
   background: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ageval-landing .core-grid article:hover,
+  .ageval-landing .slots article:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .ageval-landing .core-grid article.hot {
@@ -955,7 +964,9 @@ html:has(.ageval-landing) body {
   background: var(--ink-2);
   padding: 22px 20px 20px;
   min-height: 176px;
-  transition: background var(--t) var(--ease);
+  transition:
+    background var(--t) var(--ease),
+    transform var(--t) var(--ease);
 }
 
 .ageval-landing .slots article:hover {
@@ -1306,7 +1317,8 @@ html:has(.ageval-landing) body {
 }
 
 .ageval-landing .faq-item:hover .faq-q,
-.ageval-landing .faq-item:focus-within .faq-q {
+.ageval-landing .faq-item:focus-within .faq-q,
+.ageval-landing .faq-item[open] .faq-q {
   background: var(--ink-2);
   color: var(--cream);
 }
@@ -1317,25 +1329,32 @@ html:has(.ageval-landing) body {
   font-size: 22px;
   color: var(--muted);
   flex-shrink: 0;
+  transition:
+    transform var(--t) var(--ease),
+    color var(--t) var(--ease);
 }
 
-.ageval-landing .faq-item:hover .faq-q::after,
-.ageval-landing .faq-item:focus-within .faq-q::after {
-  content: "−";
+.ageval-landing .faq-item[open] .faq-q::after {
+  transform: rotate(45deg);
   color: var(--red);
 }
 
+.ageval-landing .faq-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--t) var(--ease);
+}
+
+.ageval-landing .faq-item[open] .faq-panel {
+  grid-template-rows: 1fr;
+}
+
 .ageval-landing .faq-a {
-  display: none;
+  overflow: hidden;
   color: var(--muted);
   font-size: 14.5px;
   line-height: 1.75;
   padding: 0 8px 20px;
-}
-
-.ageval-landing .faq-item:hover .faq-a,
-.ageval-landing .faq-item:focus-within .faq-a {
-  display: block;
 }
 
 .ageval-landing .owl-wash {
@@ -1537,6 +1556,53 @@ html:has(.ageval-landing) body {
   }
 }
 
+@keyframes ageval-land-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ageval-landing .hero-brand,
+  .ageval-landing .hero-sub,
+  .ageval-landing .hero-lead,
+  .ageval-landing .hero-ctas,
+  .ageval-landing .stage {
+    animation: ageval-land-in 400ms var(--ease) both;
+  }
+
+  .ageval-landing .hero-sub {
+    animation-delay: 40ms;
+  }
+
+  .ageval-landing .hero-lead {
+    animation-delay: 80ms;
+  }
+
+  .ageval-landing .hero-ctas,
+  .ageval-landing .stage {
+    animation-delay: 120ms;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ageval-landing .pact,
+    .ageval-landing .block,
+    .ageval-landing .take,
+    .ageval-landing .cta-band {
+      animation: ageval-land-in 400ms var(--ease) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 28%;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html:has(.ageval-landing) {
     scroll-behavior: auto;
@@ -1544,6 +1610,8 @@ html:has(.ageval-landing) body {
 
   .ageval-landing .btn,
   .ageval-landing .faq-q,
+  .ageval-landing .faq-panel,
+  .ageval-landing .faq-q::after,
   .ageval-landing .nav-links a,
   .ageval-landing .core-grid article,
   .ageval-landing .slots article,
@@ -1551,7 +1619,22 @@ html:has(.ageval-landing) body {
     transition: none;
   }
 
-  .ageval-landing .btn:active {
+  .ageval-landing .btn:active,
+  .ageval-landing .core-grid article:hover,
+  .ageval-landing .slots article:hover,
+  .ageval-landing .faq-item[open] .faq-q::after {
     transform: none;
+  }
+
+  .ageval-landing .hero-brand,
+  .ageval-landing .hero-sub,
+  .ageval-landing .hero-lead,
+  .ageval-landing .hero-ctas,
+  .ageval-landing .stage,
+  .ageval-landing .pact,
+  .ageval-landing .block,
+  .ageval-landing .take,
+  .ageval-landing .cta-band {
+    animation: none;
   }
 }
