@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from bora.evidence.store import AttemptEvidenceStore
+from ageval.evidence.store import AttemptEvidenceStore
 
 
 def test_minimal_fields_present(tmp_path: Path) -> None:

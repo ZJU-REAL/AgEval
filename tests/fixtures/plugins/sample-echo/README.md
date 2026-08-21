@@ -1,3 +1,3 @@
 # sample-echo
 
-Fixture plugin for BORA plugin install smoke.
+Fixture plugin for ageval plugin install smoke.

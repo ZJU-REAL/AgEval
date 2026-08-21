@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * BORA flat-crown owl mark (owl-v2, full body), fill and stroke use
+ * AGEVAL flat-crown owl mark (owl-v2, full body), fill and stroke use
  * currentColor.
  */
 export function OwlIcon({ className }: { className?: string }) {

@@ -44,10 +44,10 @@ def build_asgi_app(state: Any) -> Any:
         root = (
             parent
             if isinstance(parent, Path)
-            else Path(tempfile.gettempdir()) / "bora-registry-spool"
+            else Path(tempfile.gettempdir()) / "ageval-registry-spool"
         )
         root.mkdir(parents=True, exist_ok=True)
-        work = Path(tempfile.mkdtemp(prefix="bora-asgi-", dir=str(root)))
+        work = Path(tempfile.mkdtemp(prefix="ageval-asgi-", dir=str(root)))
         dest = work / "body.spool"
         written = 0
         try:
@@ -161,23 +161,23 @@ def app_factory() -> Any:
     from services.registry.envload import load_env_file
 
     load_env_file()
-    force_local = (os.environ.get("BORA_REGISTRY_FORCE_LOCAL") or "").strip() in {
+    force_local = (os.environ.get("AGEVAL_REGISTRY_FORCE_LOCAL") or "").strip() in {
         "1",
         "true",
         "yes",
     }
-    memory_blob = (os.environ.get("BORA_REGISTRY_MEMORY_BLOB") or "").strip() in {
+    memory_blob = (os.environ.get("AGEVAL_REGISTRY_MEMORY_BLOB") or "").strip() in {
         "1",
         "true",
         "yes",
     }
     state, token = build_state_from_env(
-        bootstrap_token=os.environ.get("BORA_REGISTRY_BOOTSTRAP_TOKEN"),
+        bootstrap_token=os.environ.get("AGEVAL_REGISTRY_BOOTSTRAP_TOKEN"),
         force_local=force_local or memory_blob,
         memory_blob=memory_blob,
     )
     # One line per worker so operators can see the token without stdout dumps.
-    if token and not os.environ.get("BORA_REGISTRY_BOOTSTRAP_TOKEN"):
+    if token and not os.environ.get("AGEVAL_REGISTRY_BOOTSTRAP_TOKEN"):
         sys.stderr.write(f"worker bootstrap token: {token}\n")
     return build_asgi_app(state)
 
@@ -203,14 +203,14 @@ def serve_uvicorn(
         ) from exc
 
     if bootstrap_token:
-        os.environ["BORA_REGISTRY_BOOTSTRAP_TOKEN"] = bootstrap_token
+        os.environ["AGEVAL_REGISTRY_BOOTSTRAP_TOKEN"] = bootstrap_token
     elif token:
-        os.environ.setdefault("BORA_REGISTRY_BOOTSTRAP_TOKEN", token)
-    os.environ["BORA_REGISTRY_DATA_DIR"] = data_dir
+        os.environ.setdefault("AGEVAL_REGISTRY_BOOTSTRAP_TOKEN", token)
+    os.environ["AGEVAL_REGISTRY_DATA_DIR"] = data_dir
     if local:
-        os.environ["BORA_REGISTRY_FORCE_LOCAL"] = "1"
+        os.environ["AGEVAL_REGISTRY_FORCE_LOCAL"] = "1"
     if memory_blob:
-        os.environ["BORA_REGISTRY_MEMORY_BLOB"] = "1"
+        os.environ["AGEVAL_REGISTRY_MEMORY_BLOB"] = "1"
 
     config_kw: dict[str, Any] = {
         "host": host,

@@ -1,6 +1,0 @@
-format: bora.database/1
-database_id: test/probe-min
-version: "0.1.0"
-description: "Fixture Database for lock/run --probe"
-tasks:
-  root: tasks

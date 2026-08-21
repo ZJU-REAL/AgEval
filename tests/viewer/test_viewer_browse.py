@@ -12,25 +12,25 @@ from urllib.request import urlopen
 
 import pytest
 
-from bora.viewer import browse
-from bora.viewer.server import make_handler, serve_viewer
+from ageval.viewer import browse
+from ageval.viewer.server import make_handler, serve_viewer
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
-def test_database_overview_suite_min() -> None:
-    ov = browse.database_overview(SUITE)
-    assert ov["database_id"] == "test/suite-min"
+def test_dataset_overview_suite_min() -> None:
+    ov = browse.dataset_overview(SUITE)
+    assert ov["dataset_id"] == "test/suite-min"
     assert ov["task_count"] >= 3
     assert "alpha" in ov["task_ids"]
 
 
 def test_commands_include_run_task() -> None:
     cmds = browse.commands_for(SUITE, task_id="alpha")
-    assert "bora run" in cmds["run_task"]
+    assert "ageval run" in cmds["run_task"]
     assert "--task alpha" in cmds["run_task"]
-    assert "bora lock" in cmds["lock_task"]
+    assert "ageval lock" in cmds["lock_task"]
 
 
 def test_serve_viewer_bind_in_use_includes_host_port(tmp_path: Path) -> None:
@@ -43,7 +43,7 @@ def test_serve_viewer_bind_in_use_includes_host_port(tmp_path: Path) -> None:
     try:
         want_url = f"http://{host}:{port}/"
         with (
-            patch("bora.viewer.server.static_dir", return_value=assets),
+            patch("ageval.viewer.server.static_dir", return_value=assets),
             pytest.raises(OSError, match=r"address already in use: http://") as ei,
         ):
             serve_viewer(
@@ -66,7 +66,7 @@ def _minimal_spa(tmp_path: Path) -> Path:
     root = tmp_path / "spa"
     root.mkdir()
     (root / "index.html").write_text(
-        "<!doctype html><html><head><title>BORA Viewer</title></head>"
+        "<!doctype html><html><head><title>ageval Viewer</title></head>"
         '<body><div id="root"></div></body></html>\n',
         encoding="utf-8",
     )
@@ -96,7 +96,7 @@ def test_http_health_jobs_and_spa(viewer_server: str) -> None:
     base = viewer_server
     health = _get_json(f"{base}/api/health")
     assert health["ok"] is True
-    assert health["service"] == "bora-viewer"
+    assert health["service"] == "ageval-viewer"
 
     jobs_payload = _get_json(f"{base}/api/jobs")
     assert "items" in jobs_payload
@@ -105,12 +105,12 @@ def test_http_health_jobs_and_spa(viewer_server: str) -> None:
 
     with urlopen(f"{base}/", timeout=5) as resp:  # noqa: S310
         html = resp.read().decode("utf-8")
-    assert "BORA Viewer" in html
+    assert "ageval Viewer" in html
     assert 'id="root"' in html
 
 
 def test_serve_viewer_dev_skips_spa_bundle(tmp_path: Path) -> None:
-    from bora.viewer.server import serve_viewer
+    from ageval.viewer.server import serve_viewer
 
     info = serve_viewer(
         SUITE,
@@ -141,7 +141,7 @@ def test_serve_viewer_dev_skips_spa_bundle(tmp_path: Path) -> None:
 
 
 def test_normalize_open_path_rejects_urls() -> None:
-    from bora.viewer.server import normalize_open_path
+    from ageval.viewer.server import normalize_open_path
 
     assert normalize_open_path("jobs/x") == "/jobs/x"
     with pytest.raises(Exception, match="invalid open path"):
@@ -151,7 +151,7 @@ def test_normalize_open_path_rejects_urls() -> None:
 def test_http_removed_package_browse_404(viewer_server: str) -> None:
     """Old package-file browse endpoints are not part of the product surface."""
     for path in (
-        "/api/database",
+        "/api/dataset",
         "/api/commands",
         "/api/tasks/alpha",
         "/api/tasks/alpha/tree",

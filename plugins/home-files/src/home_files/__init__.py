@@ -1,4 +1,4 @@
-"""home-files — copy Database overlay files into Attempt HOME or workspace."""
+"""home-files — copy Dataset overlay files into Attempt HOME or workspace."""
 
 from __future__ import annotations
 

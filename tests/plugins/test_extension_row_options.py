@@ -1,13 +1,19 @@
-"""extensions[].options is the only map a plugin factory sees."""
+"""What a plugin factory sees: the profile's options, then its own row on top.
+
+The profile is where a job names its entry, so the winner reads it. Another
+plugin's row is still none of its business.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
-from bora.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
-from bora.plugins.registry import ExtensionRegistry
-from bora.plugins.resolve import resolve
-from bora.plugins.slots import EXECUTOR
+from ageval.plugins.binding import bind_winner
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.protocol import BindingIntent, ExtensionSelect, intent_from_profile
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.slots import EXECUTOR
 
 
 def _factory(
@@ -18,6 +24,7 @@ def _factory(
 
 def test_factory_sees_only_its_row_options() -> None:
     reg = ExtensionRegistry()
+    register_defaults(reg)
     captured: list[dict[str, Any]] = []
 
     def acp_factory(**kwargs: Any) -> dict[str, Any]:
@@ -28,8 +35,8 @@ def test_factory_sees_only_its_row_options() -> None:
         captured.append({"plugin": "dsh", **_factory(**kwargs)})
         return captured[-1]
 
-    reg.provide(EXECUTOR, "acp", acp_factory, source="first-party", is_factory=True)
-    reg.provide(EXECUTOR, "dsh", dsh_factory, source="installed", is_factory=True)
+    reg.exclusive(EXECUTOR, "acp", acp_factory, source="first-party", is_factory=True)
+    reg.exclusive(EXECUTOR, "dsh", dsh_factory, source="installed", is_factory=True)
 
     intent = intent_from_profile(
         {
@@ -43,20 +50,22 @@ def test_factory_sees_only_its_row_options() -> None:
         }
     )
     graph = resolve(intent, reg)
-    impl = graph.providers[EXECUTOR].impl
+    impl = bind_winner(reg, graph, EXECUTOR)
     assert impl["plugin"] == "dsh"
-    assert impl["options"] == {"composition": "slim"}
-    assert "entry" not in impl["options"]
+    # The row wins over the profile for the same key, and the profile's own
+    # entry reaches the winner because that is where a job declares it.
+    assert impl["options"] == {"entry": "opencode", "composition": "slim"}
     assert "must-not-leak" not in str(impl["options"])
 
 
-def test_profile_options_are_not_plugin_input() -> None:
+def test_profile_options_reach_the_winner() -> None:
     reg = ExtensionRegistry()
+    register_defaults(reg)
 
     def acp_factory(**kwargs: Any) -> dict[str, Any]:
         return _factory(**kwargs)
 
-    reg.provide(EXECUTOR, "acp", acp_factory, source="first-party", is_factory=True)
+    reg.exclusive(EXECUTOR, "acp", acp_factory, source="first-party", is_factory=True)
     graph = resolve(
         BindingIntent(
             profile_id="s",
@@ -66,4 +75,4 @@ def test_profile_options_are_not_plugin_input() -> None:
         ),
         reg,
     )
-    assert graph.providers[EXECUTOR].impl["options"] == {}
+    assert bind_winner(reg, graph, EXECUTOR)["options"] == {"entry": "pi"}

@@ -1,0 +1,9 @@
+format: ageval.profiles/1
+environment: local
+agent_profiles:
+  solver:
+    executor: host-probe
+    extensions:
+    - plugin: host-probe
+    model: none
+    api_key: ${PROBE_API_KEY}

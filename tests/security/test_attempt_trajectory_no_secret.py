@@ -1,66 +1,112 @@
-"""Security: trajectory tree has zero plain sentinel / credential hits."""
+"""A leaky backend must not put a credential on disk."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from tests.helpers.extension_registry import registry_with_executor
+from tests.helpers.agent_binding import ScriptedBinder
 
-from bora.adapters.agent_contract import AgentResult
-from bora.evidence.store import AttemptEvidenceStore
-from bora.runtime.parent_agent_service import ParentAgentService
+from ageval.attempt.ctx import AttemptCtx
+from ageval.evidence.store import AttemptEvidenceStore
+from ageval.plugins.agent_result import AgentResult
+from ageval.plugins.defaults import register_defaults
+from ageval.plugins.protocol import BindingIntent
+from ageval.plugins.registry import ExtensionRegistry
+from ageval.plugins.resolve import resolve
+from ageval.plugins.services import ServiceTable
+from ageval.runtime.cancellation import CancellationSignal
+from ageval.runtime.parent_agent import ParentAgentService
+
+SENTINEL = "SENTINEL_TOKEN_NOT_FOR_DISK"
 
 
-class _LeakyExecutor:
-    """Executor that would try to leak a sentinel via events/response."""
+class LeakyExecutor:
+    """Tries every route out: text, structured, events, stderr, metadata."""
 
-    def __init__(self, sentinel: str) -> None:
-        self.sentinel = sentinel
+    kind = "leaky"
 
     def invoke(self, prompt: str, **kwargs: object) -> AgentResult:
         del prompt, kwargs
         return AgentResult(
-            model="fake",
-            text=f'{{"answer": 1, "note": "{self.sentinel}"}}',
-            structured={"answer": 1, "note": self.sentinel},
+            model="leaky-model",
+            text=f"here it is: {SENTINEL}",
+            structured={"token": SENTINEL},
             ok=True,
+            error=None,
+            stderr=f"trace {SENTINEL}",
             events=(
                 {
-                    "type": "message",
-                    "text": f"token={self.sentinel}",
-                    "source": "fake",
+                    "schema": "ageval.trajectory.event/1",
+                    "seq": 1,
+                    "source": "leaky",
+                    "kind": "text",
+                    "channel": "assistant",
+                    "text": SENTINEL,
                 },
             ),
-            stderr=f"auth cookie={self.sentinel}\n",
-            source_refs=(),
+            metadata={"executor_kind": "leaky", "note": SENTINEL},
         )
 
+    def close(self) -> None:
+        return None
 
-def test_sentinel_never_on_disk(tmp_path: Path) -> None:
-    sentinel = "TRAJ_SEC_SENTINEL_7c9e2f"
+
+def test_no_sealed_file_contains_the_sentinel(tmp_path: Path) -> None:
     store = AttemptEvidenceStore(
-        root=tmp_path / "ev",
+        root=tmp_path / "run",
         attempt_id="attempt_sec",
-        sentinels=[sentinel],
+        run_id="run_sec",
+        sentinels=[SENTINEL],
     )
-    fake = _LeakyExecutor(sentinel)
-    svc = ParentAgentService(
-        profiles=[{"id": "p1", "executor": "fake", "model": "fake"}],
+    service = ParentAgentService(
+        attempt_id="attempt_sec",
+        binder=ScriptedBinder(LeakyExecutor()),
         agent_invocation_limit=1,
-        attempt_id="attempt_sec",
-        offline_env="",
-        extension_registry=registry_with_executor("fake", fake),
         evidence_store=store,
+        offline_env="",
     )
-    sid = svc.open_session(profile_id="p1")["session_id"]
-    r = svc.invoke(session_id=sid, prompt=f"use {sentinel}")
-    assert r.get("error") in (None, "redaction_failed") or r.get("ok") is False
-    blob_parts: list[str] = []
-    for p in store.root.rglob("*"):
-        if p.is_file():
-            try:
-                blob_parts.append(p.read_text(encoding="utf-8"))
-            except UnicodeDecodeError:
-                continue
-    tree = "\n".join(blob_parts)
-    assert sentinel not in tree
+    answer = service.invoke(session_id=_open(service), prompt="go")
+    assert answer["ok"] is True
+
+    _record(store)
+
+    leaked = [
+        path
+        for path in store.root.rglob("*")
+        if path.is_file() and SENTINEL in path.read_text(encoding="utf-8", errors="replace")
+    ]
+    assert leaked == [], f"sentinel reached {[p.name for p in leaked]}"
+
+
+def _open(service: ParentAgentService) -> str:
+    opened = service.open_session(profile_id="solver")
+    assert opened["ok"], opened
+    return str(opened["session_id"])
+
+
+def _record(store: AttemptEvidenceStore) -> None:
+    """Run the record phase against this store, as a real Attempt would."""
+    import asyncio
+
+    from ageval.attempt.phases import record
+
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(BindingIntent(profile_id="solver"), registry)
+    ctx = AttemptCtx(
+        run_id="run_sec",
+        trial_id="trial_sec",
+        attempt_id="attempt_sec",
+        lock=None,  # type: ignore[arg-type] — record only reads evidence
+        profile_id="solver",
+        bindings=graph,
+        registry=registry,
+        services=ServiceTable(),
+        host=None,  # type: ignore[arg-type]
+        evidence=store,
+        cancellation=CancellationSignal(),
+        task_root=store.root,
+        dataset_root=store.root,
+    )
+    asyncio.run(record.run(ctx))
+    assert (store.root / "trajectory.jsonl").is_file()

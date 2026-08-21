@@ -1,6 +1,6 @@
 # miniswe loop stays on the host. Attempt image only needs bash (already on
-# bora-attempt:l1). Bake file is required for L1 bind of an external executor.
+# ageval-attempt:base). This file is bake input for the environment winner.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
-USER bora
+USER ageval
 WORKDIR /attempt/workspace

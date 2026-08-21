@@ -119,20 +119,20 @@ def test_dest_file_src_dir_fails(tmp_path: Path) -> None:
 
 
 def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
-    from bora.plugins.store import install_from_path
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
+    from ageval.plugins.store import install_from_path
 
-    home = tmp_path / "bora-home"
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
     install_from_path(Path(__file__).resolve().parents[2] / "plugins" / "home-files")
 
     root = Path(__file__).resolve().parents[2]
     env = os.environ.copy()
-    env["BORA_HOME"] = str(home)
+    env["AGEVAL_HOME"] = str(home)
     # Overlay profiles expand ${litellm_base_url}; CI has no repo .env.
     env.setdefault("litellm_api_key", "ci-test-key")
     env.setdefault("litellm_base_url", "http://127.0.0.1:9")
@@ -140,7 +140,7 @@ def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.Monk
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "lock",
             str(root / "examples/journeys"),
             "--task",
@@ -157,7 +157,10 @@ def test_journeys_overlay_profile_locks(tmp_path: Path, monkeypatch: pytest.Monk
     assert proc.returncode == 0, proc.stderr or proc.stdout
     data = json.loads(proc.stdout)
     solver = data["extension_bindings"]["solver"]
-    plugins = {item.get("plugin") for item in (solver.get("home_overlay") or {}).get("chain") or []}
+    plugins = {
+        item.get("plugin")
+        for item in (solver["slots"].get("after_environment_ready") or {}).get("chain") or []
+    }
     assert "home-files" in plugins
 
 

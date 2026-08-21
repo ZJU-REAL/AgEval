@@ -9,17 +9,27 @@ from typing import Any
 
 def evaluate(inputs: dict[str, Any]) -> dict[str, Any]:
     arts = inputs.get("artifacts") or {}
-    path = Path(arts["aggregates"])
+    raw = arts.get("aggregates")
+    if not raw:
+        return {
+            "status": "FAIL",
+            "score": 0.0,
+            "metrics": {"reason": "aggregates_missing"},
+        }
+    path = Path(str(raw))
+    if not path.is_file():
+        return {
+            "status": "FAIL",
+            "score": 0.0,
+            "metrics": {"reason": "aggregates_missing"},
+        }
     data = json.loads(path.read_text(encoding="utf-8"))
     expected_raw = arts.get("expected")
     if expected_raw:
         expected = json.loads(Path(str(expected_raw)).read_text(encoding="utf-8"))
     else:
-        expected = json.loads(
-            (Path(__file__).resolve().parent / "evaluation" / "expected.json").read_text(
-                encoding="utf-8"
-            )
-        )
+        gold = Path(str(inputs["evaluation_dir"])) / "expected.json"
+        expected = json.loads(gold.read_text(encoding="utf-8"))
     ok = data == expected
     return {
         "status": "PASS" if ok else "FAIL",

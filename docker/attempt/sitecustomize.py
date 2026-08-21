@@ -2,7 +2,7 @@
 
 Pip prefers env over config, so pip.conf cannot beat a dead ``HTTP_PROXY``
 injected into every ``RUN``. Auto-applies only when imported as
-``sitecustomize`` (site hook). Empty ``BORA_PIP_INDEX`` does not install this
+``sitecustomize`` (site hook). Empty ``AGEVAL_PIP_INDEX`` does not install this
 file, so official PyPI is unchanged.
 """
 

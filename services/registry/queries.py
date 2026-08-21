@@ -12,19 +12,19 @@ from typing import Any
 
 INSERT_RELEASE = """
 INSERT INTO releases(
-    database_id, version, visibility, package_digest,
+    dataset_id, version, visibility, package_digest,
     blob_digest, size, media_type, created_at, org_id, uploaded_by
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
-SELECT_RELEASE_BY_VERSION = "SELECT * FROM releases WHERE database_id=? AND version=?"
+SELECT_RELEASE_BY_VERSION = "SELECT * FROM releases WHERE dataset_id=? AND version=?"
 
-SELECT_RELEASE_BY_DIGEST = "SELECT * FROM releases WHERE database_id=? AND package_digest=?"
+SELECT_RELEASE_BY_DIGEST = "SELECT * FROM releases WHERE dataset_id=? AND package_digest=?"
 
 
 def list_releases_query(
     *,
-    database_id_prefix: str | None = None,
+    dataset_id_prefix: str | None = None,
     visibility: str | None = None,
     version: str | None = None,
     include_private: bool = False,
@@ -36,22 +36,20 @@ def list_releases_query(
     elif visibility in {"public", "private"}:
         clauses.append("visibility = ?")
         params.append(visibility)
-    if database_id_prefix:
-        clauses.append("database_id LIKE ?")
-        params.append(f"{database_id_prefix}%")
+    if dataset_id_prefix:
+        clauses.append("dataset_id LIKE ?")
+        params.append(f"{dataset_id_prefix}%")
     if version:
         clauses.append("version = ?")
         params.append(version)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    sql = f"SELECT * FROM releases {where} ORDER BY database_id, version"
+    sql = f"SELECT * FROM releases {where} ORDER BY dataset_id, version"
     return sql, params
 
 
-def list_versions_query(
-    database_id: str, *, include_private: bool = False
-) -> tuple[str, list[Any]]:
-    clauses = ["database_id = ?"]
-    params: list[Any] = [database_id]
+def list_versions_query(dataset_id: str, *, include_private: bool = False) -> tuple[str, list[Any]]:
+    clauses = ["dataset_id = ?"]
+    params: list[Any] = [dataset_id]
     if not include_private:
         clauses.append("visibility = 'public'")
     where = " AND ".join(clauses)
@@ -62,17 +60,17 @@ def list_versions_query(
 
 INSERT_ATTEMPT = """
 INSERT INTO attempt_results(
-    run_id, database_id, task_id, lock_digest, status,
+    run_id, dataset_id, task_id, lock_digest, status,
     visibility, blob_digest, size, created_at, uploaded_by,
-    suite_run_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    suite_run_id, environment, agent_label, model_label, score
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 SELECT_ATTEMPT = "SELECT * FROM attempt_results WHERE run_id=?"
 
 INSERT_SUITE = """
 INSERT INTO suite_results(
-    suite_run_id, database_id, database_version, visibility,
+    suite_run_id, dataset_id, dataset_version, visibility,
     pass_rate, mean_score, metrics_json, tasks_json,
     agent_label, model_label, blob_digest, size,
     exit_code, created_at, config_json, uploaded_by,
@@ -100,16 +98,16 @@ SELECT_ORG = "SELECT * FROM organizations WHERE org_id=?"
 UPDATE_ORG_DISPLAY_NAME = "UPDATE organizations SET display_name=? WHERE org_id=?"
 
 UPSERT_PACKAGE_DISPLAY_NAME = """
-INSERT INTO package_display_names(database_id, display_name, updated_at)
+INSERT INTO package_display_names(dataset_id, display_name, updated_at)
 VALUES (?, ?, ?)
-ON CONFLICT(database_id) DO UPDATE SET
+ON CONFLICT(dataset_id) DO UPDATE SET
     display_name=excluded.display_name,
     updated_at=excluded.updated_at
 """
 
-SELECT_PACKAGE_DISPLAY_NAME = "SELECT display_name FROM package_display_names WHERE database_id=?"
+SELECT_PACKAGE_DISPLAY_NAME = "SELECT display_name FROM package_display_names WHERE dataset_id=?"
 
-SELECT_PACKAGE_DISPLAY_NAMES = "SELECT database_id, display_name FROM package_display_names"
+SELECT_PACKAGE_DISPLAY_NAMES = "SELECT dataset_id, display_name FROM package_display_names"
 
 SELECT_MEMBERSHIP = "SELECT * FROM org_memberships WHERE org_id=? AND user_id=?"
 
@@ -119,7 +117,7 @@ SELECT_USER_ORG_IDS = "SELECT org_id FROM org_memberships WHERE user_id=?"
 SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS releases (
-        database_id TEXT NOT NULL,
+        dataset_id TEXT NOT NULL,
         version TEXT NOT NULL,
         visibility TEXT NOT NULL,
         package_digest TEXT NOT NULL,
@@ -127,17 +125,17 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         size INTEGER NOT NULL,
         media_type TEXT NOT NULL,
         created_at REAL NOT NULL,
-        PRIMARY KEY (database_id, version)
+        PRIMARY KEY (dataset_id, version)
     )
     """,
     """
     CREATE UNIQUE INDEX IF NOT EXISTS idx_releases_digest
-    ON releases(database_id, package_digest)
+    ON releases(dataset_id, package_digest)
     """,
     """
     CREATE TABLE IF NOT EXISTS attempt_results (
         run_id TEXT PRIMARY KEY,
-        database_id TEXT NOT NULL,
+        dataset_id TEXT NOT NULL,
         task_id TEXT NOT NULL,
         lock_digest TEXT NOT NULL,
         status TEXT NOT NULL,
@@ -150,8 +148,8 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS suite_results (
         suite_run_id TEXT PRIMARY KEY,
-        database_id TEXT NOT NULL,
-        database_version TEXT NOT NULL,
+        dataset_id TEXT NOT NULL,
+        dataset_version TEXT NOT NULL,
         visibility TEXT NOT NULL,
         pass_rate REAL NOT NULL,
         mean_score REAL NOT NULL,
@@ -228,30 +226,30 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     """,
     """
     CREATE TABLE IF NOT EXISTS dataset_drafts (
-        database_id TEXT PRIMARY KEY,
+        dataset_id TEXT PRIMARY KEY,
         org_id TEXT NOT NULL,
         visibility TEXT NOT NULL,
         package_digest TEXT NOT NULL,
         blob_digest TEXT NOT NULL,
         size INTEGER NOT NULL,
         media_type TEXT NOT NULL,
-        package_kind TEXT NOT NULL DEFAULT 'database',
+        package_kind TEXT NOT NULL DEFAULT 'dataset',
         uploaded_by TEXT NOT NULL,
         updated_at REAL NOT NULL
     )
     """,
     """
     CREATE TABLE IF NOT EXISTS dataset_acl (
-        database_id TEXT NOT NULL,
+        dataset_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         role TEXT NOT NULL,
         created_at REAL NOT NULL,
-        PRIMARY KEY (database_id, user_id)
+        PRIMARY KEY (dataset_id, user_id)
     )
     """,
     """
     CREATE TABLE IF NOT EXISTS package_display_names (
-        database_id TEXT PRIMARY KEY,
+        dataset_id TEXT PRIMARY KEY,
         display_name TEXT NOT NULL DEFAULT '',
         updated_at REAL NOT NULL
     )
@@ -262,11 +260,11 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
 
 UPSERT_DRAFT = """
 INSERT INTO dataset_drafts(
-    database_id, org_id, visibility, package_digest,
+    dataset_id, org_id, visibility, package_digest,
     blob_digest, size, media_type, package_kind,
     uploaded_by, updated_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(database_id) DO UPDATE SET
+ON CONFLICT(dataset_id) DO UPDATE SET
     org_id=excluded.org_id,
     visibility=excluded.visibility,
     package_digest=excluded.package_digest,
@@ -278,31 +276,31 @@ ON CONFLICT(database_id) DO UPDATE SET
     updated_at=excluded.updated_at
 """
 
-SELECT_DRAFT = "SELECT * FROM dataset_drafts WHERE database_id=?"
+SELECT_DRAFT = "SELECT * FROM dataset_drafts WHERE dataset_id=?"
 
-SELECT_DRAFT_BY_DIGEST = "SELECT * FROM dataset_drafts WHERE database_id=? AND package_digest=?"
+SELECT_DRAFT_BY_DIGEST = "SELECT * FROM dataset_drafts WHERE dataset_id=? AND package_digest=?"
 
-LIST_DRAFTS = "SELECT * FROM dataset_drafts ORDER BY database_id"
+LIST_DRAFTS = "SELECT * FROM dataset_drafts ORDER BY dataset_id"
 
-DELETE_DRAFT = "DELETE FROM dataset_drafts WHERE database_id=?"
+DELETE_DRAFT = "DELETE FROM dataset_drafts WHERE dataset_id=?"
 
 UPSERT_DATASET_ACL = """
-INSERT INTO dataset_acl(database_id, user_id, role, created_at)
+INSERT INTO dataset_acl(dataset_id, user_id, role, created_at)
 VALUES (?, ?, ?, ?)
-ON CONFLICT(database_id, user_id) DO UPDATE SET
+ON CONFLICT(dataset_id, user_id) DO UPDATE SET
     role=excluded.role
 """
 
-SELECT_DATASET_ACL = "SELECT * FROM dataset_acl WHERE database_id=? AND user_id=?"
+SELECT_DATASET_ACL = "SELECT * FROM dataset_acl WHERE dataset_id=? AND user_id=?"
 
-LIST_DATASET_ACL = "SELECT * FROM dataset_acl WHERE database_id=? ORDER BY role, user_id"
+LIST_DATASET_ACL = "SELECT * FROM dataset_acl WHERE dataset_id=? ORDER BY role, user_id"
 
 LIST_DATASET_ACL_FOR_USER = (
     "SELECT * FROM dataset_acl WHERE user_id=? AND role IN ('owner', 'collaborator') "
-    "ORDER BY database_id"
+    "ORDER BY dataset_id"
 )
 
-DELETE_DATASET_ACL = "DELETE FROM dataset_acl WHERE database_id=? AND user_id=?"
+DELETE_DATASET_ACL = "DELETE FROM dataset_acl WHERE dataset_id=? AND user_id=?"
 
 # Live Postgres may have created these as BOOLEAN; inserts bind 0/1 (INTEGER).
 SCHEMA_INTEGER_FLAGS: tuple[tuple[str, str], ...] = (("organizations", "is_claimable"),)
@@ -313,6 +311,10 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("releases", "org_id", "TEXT"),
     ("attempt_results", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
     ("attempt_results", "suite_run_id", "TEXT NOT NULL DEFAULT ''"),
+    ("attempt_results", "environment", "TEXT NOT NULL DEFAULT ''"),
+    ("attempt_results", "agent_label", "TEXT NOT NULL DEFAULT ''"),
+    ("attempt_results", "model_label", "TEXT NOT NULL DEFAULT ''"),
+    ("attempt_results", "score", "REAL"),
     ("suite_results", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
     ("suite_results", "complete", "INTEGER NOT NULL DEFAULT 0"),
     ("suite_results", "bound_kind", "TEXT NOT NULL DEFAULT 'unknown'"),
@@ -355,8 +357,8 @@ COUNT_ATTEMPT_BLOB_REFS = "SELECT COUNT(*) AS n FROM attempt_results WHERE blob_
 COUNT_SUITE_BLOB_REFS = "SELECT COUNT(*) AS n FROM suite_results WHERE blob_digest=?"
 COUNT_PACKAGE_BLOB_REFS = "SELECT COUNT(*) AS n FROM releases WHERE blob_digest=?"
 COUNT_DRAFT_BLOB_REFS = "SELECT COUNT(*) AS n FROM dataset_drafts WHERE blob_digest=?"
-DELETE_RELEASE = "DELETE FROM releases WHERE database_id=? AND version=?"
-UPDATE_RELEASE_VISIBILITY = "UPDATE releases SET visibility=? WHERE database_id=? AND version=?"
+DELETE_RELEASE = "DELETE FROM releases WHERE dataset_id=? AND version=?"
+UPDATE_RELEASE_VISIBILITY = "UPDATE releases SET visibility=? WHERE dataset_id=? AND version=?"
 
 SELECT_USER_ORGS = """
 SELECT o.*, m.role AS membership_role
@@ -444,32 +446,39 @@ SELECT_USER_PROFILE = "SELECT * FROM user_profiles WHERE user_id=?"
 
 def list_attempts_query(
     *,
-    database_id: str | None = None,
+    dataset_id: str | None = None,
+    task_id: str | None = None,
+    standalone: bool = False,
     include_private: bool = False,
 ) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     if not include_private:
         clauses.append("visibility = 'public'")
-    if database_id:
-        clauses.append("database_id = ?")
-        params.append(database_id)
+    if dataset_id:
+        clauses.append("dataset_id = ?")
+        params.append(dataset_id)
+    if task_id:
+        clauses.append("task_id = ?")
+        params.append(task_id)
+    if standalone:
+        clauses.append("(suite_run_id IS NULL OR suite_run_id = '')")
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     return f"SELECT * FROM attempt_results {where} ORDER BY created_at DESC", params
 
 
 def list_suites_query(
     *,
-    database_id: str | None = None,
+    dataset_id: str | None = None,
     include_private: bool = False,
 ) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     if not include_private:
         clauses.append("visibility = 'public'")
-    if database_id:
-        clauses.append("database_id = ?")
-        params.append(database_id)
+    if dataset_id:
+        clauses.append("dataset_id = ?")
+        params.append(dataset_id)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     return f"SELECT * FROM suite_results {where} ORDER BY created_at DESC", params
 

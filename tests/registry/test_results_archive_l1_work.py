@@ -7,7 +7,7 @@ import io
 import tarfile
 from pathlib import Path
 
-from bora.registry.results_archive import build_attempt_archive, build_suite_archive
+from ageval.registry.results_archive import build_attempt_archive, build_suite_archive
 
 
 def _arcnames(archive: bytes) -> set[str]:
@@ -37,7 +37,7 @@ def test_build_attempt_archive_excludes_l1_work(tmp_path: Path) -> None:
     assert digest.startswith("sha256:")
 
     names = _arcnames(archive)
-    prefix = f".bora/runs/{run_id}"
+    prefix = f".ageval/runs/{run_id}"
     assert f"{prefix}/result.json" in names
     assert f"{prefix}/lock.json" in names
     assert f"{prefix}/agent/trajectory.jsonl" in names
@@ -55,5 +55,5 @@ def test_build_suite_archive_excludes_nested_l1_work(tmp_path: Path) -> None:
 
     archive, _, _ = build_suite_archive(suite_dir, suite_run_id=suite_id)
     names = _arcnames(archive)
-    assert f".bora/suite-runs/{suite_id}/summary.json" in names
+    assert f".ageval/suite-runs/{suite_id}/summary.json" in names
     assert not any("l1-work" in n for n in names)

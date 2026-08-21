@@ -1,49 +1,28 @@
 ---
 title: First run
-description: Lock configuration, run an example task, and locate results.
+description: Lock config, run a sample task, find the result directory.
 ---
 
-The examples below use `examples/core`. The CLI path is always the **Dataset root** (the directory that contains `bora.yaml`), not `tasks/<id>/`.
-
-## Basic commands
+CLI paths are always the **dataset root** (the directory with `ageval.yaml`), not `tasks/<id>/`.
 
 ```bash
-uv run bora tasks examples/core
-uv run bora lock examples/core --task config-minimal
-uv run bora lock examples/core --task config-minimal --probe
-uv run bora run examples/core --task sdk-agent-session
+uv run ageval tasks examples/core
+uv run ageval lock examples/core --task config-minimal
+uv run ageval run  examples/core --task acp-local-min
+uv run ageval run  examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml
 ```
 
-A successful `bora run` prints a **`logs` path** pointing at Attempt evidence for that run.
-
-### Terms
+A successful `ageval run` prints `logs` / `evidence_path` under `.ageval/runs/<id>/`.
 
 | Term | Meaning |
 | --- | --- |
-| **Dataset** | Deliverable suite: root `bora.yaml` plus task members |
-| **Attempt** | One bounded execution under a lock (harness / agent / evaluation) |
-
-## Without an agent
-
-`config-minimal` only exercises lock. `--probe` adds a host-feasibility report
-on the same lock (no Agent, no digest change). If `sdk-agent-session` fails because an entry is missing:
+| **dataset** | Root `ageval.yaml` plus task members |
+| **Attempt** | One execution under a locked config |
+| **environment** | Box kind: local / docker / e2b / ssh |
 
 ```bash
-uv run bora executors -v
+uv run ageval executors -v
+uv run ageval view examples/core --no-browser
 ```
 
-Install and log into the ACP entry, then retry. See [ACP profiles](/docs/agents/acp-profiles).
-
-## Browse results locally (optional)
-
-```bash
-cd apps/viewer && pnpm install && pnpm build && cd ../..
-uv run bora view examples/core --no-browser
-```
-
-Open the printed URL and navigate **Jobs → Tasks → Attempt**. See [Local results viewer](/docs/run/local-viewer).
-
-## Next
-
-- Run existing packages: [Single task](/docs/run/single-task) · [Suite](/docs/run/suite) · [Switch agent](/docs/run/switch-agent)  
-- Author tasks: [Task authoring tutorial](/docs/author/tutorial)  
+`--probe` is lock + preflight only. `--profiles` replaces the job document. `--agent` and `--profiles` are mutually exclusive.

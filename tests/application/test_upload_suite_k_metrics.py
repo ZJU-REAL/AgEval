@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bora.application.composition import build_results_commands
-from bora.application.registry_ops.results_command import (
+from ageval.application.composition import build_results_commands
+from ageval.application.registry_ops.results_command import (
     ResultsCommands,
     _run_ids_from_task_refs,
     _suite_metrics_and_refs,
@@ -22,13 +22,13 @@ upload_suite_result = _results.upload_suite_result
 
 
 def _write_summary(db: Path, suite_run_id: str, summary: dict[str, Any]) -> Path:
-    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     payload = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "test/db",
-        "database_version": "0.1.0",
+        "dataset_id": "test/db",
+        "dataset_version": "0.1.0",
         "exit_code": 0,
         **summary,
     }
@@ -39,8 +39,8 @@ def _write_summary(db: Path, suite_run_id: str, summary: dict[str, Any]) -> Path
 def test_suite_metrics_and_refs_recompute_k_for_local_get(tmp_path: Path) -> None:
     db = tmp_path / "db"
     db.mkdir()
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\nid: test/db\nversion: 0.1.0\n",
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\nid: test/db\nversion: 0.1.0\n",
         encoding="utf-8",
     )
     suite_run_id = "suite_recompute_local"
@@ -100,9 +100,9 @@ def test_upload_payload_includes_recomputed_pass_at_k(
 ) -> None:
     db = tmp_path / "db-up"
     db.mkdir()
-    # Minimal database root so upload can resolve id when needed
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\nid: test/db\nversion: 0.1.0\n",
+    # Minimal dataset root so upload can resolve id when needed
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\nid: test/db\nversion: 0.1.0\n",
         encoding="utf-8",
     )
     suite_run_id = "suite_upload_k"
@@ -144,8 +144,8 @@ def test_upload_payload_includes_recomputed_pass_at_k(
         captured.update(kwargs)
         return {
             "suite_run_id": kwargs["suite_run_id"],
-            "database_id": kwargs["database_id"],
-            "database_version": kwargs["database_version"],
+            "dataset_id": kwargs["dataset_id"],
+            "dataset_version": kwargs["dataset_version"],
             "pass_rate": kwargs["pass_rate"],
             "mean_score": kwargs["mean_score"],
             "metrics": kwargs["metrics"],

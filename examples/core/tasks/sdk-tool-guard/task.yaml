@@ -1,39 +1,18 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: sdk-tool-guard
-
-harness:
-  runtime: python
-  entrypoint: harness:run
-
 parameters:
   seed: 1
   call_limit: 2
   mode: success
-
-provider:
-  kind: local
-  assurance: l0
-
 agent_profiles: []
-
 limits:
   wall_time_seconds: 60
   agent_invocations: 0
-  environment_actions: 0
-
 artifacts:
   publishable:
-    - id: tool-trace
-      producer: harness
-      path: artifacts/tool-trace.json
-      media_type: application/json
-
+  - id: tool-trace
+    path: artifacts/tool-trace.json
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
-    - artifact: tool-trace
-      target: artifacts/tool-trace.json
-  output:
-    format: json
+  - artifact: tool-trace
+    target: artifacts/tool-trace.json

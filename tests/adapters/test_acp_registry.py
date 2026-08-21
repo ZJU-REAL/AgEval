@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from bora.plugins.contrib.acp.registry import (
+from ageval.plugins.contrib.acp.registry import (
     clear_registry_cache,
     get_entry,
     list_entry_ids,
@@ -26,11 +26,14 @@ def test_registry_loads_five_entries() -> None:
         assert desc.descriptor_digest.startswith("sha256:")
         assert desc.acp_command
         assert "latest" not in " ".join(desc.acp_command)
-    assert entries["codex"].keyless_auth is True
-    assert entries["claude-code"].keyless_auth is True
-    assert entries["opencode"].keyless_auth is True
-    assert entries["pi"].keyless_auth is False
-    assert entries["grok-build"].keyless_auth is False
+    # Every official entry can authenticate from a file it declares, and every
+    # declared path stays under HOME.
+    for desc in entries.values():
+        assert desc.keyless_auth is True
+        assert desc.keyless_auth_paths
+        for rel in (*desc.home_dirs, *desc.keyless_auth_paths):
+            assert not rel.startswith("/")
+            assert ".." not in rel
 
 
 def test_unknown_entry() -> None:
@@ -39,7 +42,7 @@ def test_unknown_entry() -> None:
 
 def test_duplicate_entry_rejected(tmp_path: Path) -> None:
     clear_registry_cache()
-    src = Path(__file__).resolve().parents[2] / "src/bora/plugins/contrib/acp/acp_entries.json"
+    src = Path(__file__).resolve().parents[2] / "src/ageval/plugins/contrib/acp/acp_entries.json"
     doc = json.loads(src.read_text(encoding="utf-8"))
     doc["entries"].append(doc["entries"][0])
     bad = tmp_path / "bad.json"

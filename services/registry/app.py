@@ -1,4 +1,4 @@
-"""Stdlib HTTP Database Registry + results service.
+"""Stdlib HTTP Dataset Registry + results service.
 
 Endpoints:
   GET  /health
@@ -86,10 +86,10 @@ from services.registry.upload_slots import (  # noqa: E402
     slots_from_env,
 )
 
-from bora.registry.media_types import (  # noqa: E402
+from ageval.registry.media_types import (  # noqa: E402
     ATTEMPT_RESULT_MEDIA_TYPE as RESULT_MEDIA_TYPE,
 )
-from bora.registry.media_types import SUITE_RESULT_MEDIA_TYPE  # noqa: E402
+from ageval.registry.media_types import SUITE_RESULT_MEDIA_TYPE  # noqa: E402
 
 __all__ = [
     "RESULT_MEDIA_TYPE",
@@ -142,7 +142,7 @@ class RegistryState:
         self.orgs = OrgService(meta, self.access)
         self.users = UserService(meta)
         self.max_upload = max_upload
-        self.spool_dir = Path(tempfile.gettempdir()) / "bora-registry-spool"
+        self.spool_dir = Path(tempfile.gettempdir()) / "ageval-registry-spool"
         self.spool_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -223,8 +223,8 @@ def build_default_state(
             meta=meta,
             blobs=blobs,
             tokens=tokens,
-            github_client_id=os.environ.get("BORA_GITHUB_CLIENT_ID"),
-            github_client_secret=os.environ.get("BORA_GITHUB_CLIENT_SECRET"),
+            github_client_id=os.environ.get("AGEVAL_GITHUB_CLIENT_ID"),
+            github_client_secret=os.environ.get("AGEVAL_GITHUB_CLIENT_SECRET"),
             github_login_allowlist=_parse_login_allowlist(),
         ),
         token,
@@ -232,7 +232,7 @@ def build_default_state(
 
 
 def _parse_login_allowlist() -> frozenset[str]:
-    raw = os.environ.get("BORA_GITHUB_LOGIN_ALLOWLIST") or ""
+    raw = os.environ.get("AGEVAL_GITHUB_LOGIN_ALLOWLIST") or ""
     return frozenset(part.strip() for part in raw.split(",") if part.strip())
 
 
@@ -246,7 +246,7 @@ def build_state_from_env(
     load_env_file()
     if force_local:
         data_dir = (
-            Path(os.environ.get("BORA_REGISTRY_DATA_DIR") or ".bora/registry-data")
+            Path(os.environ.get("AGEVAL_REGISTRY_DATA_DIR") or ".ageval/registry-data")
             .expanduser()
             .resolve()
         )
@@ -260,10 +260,10 @@ def build_state_from_env(
     tokens = PostgresTokenStore(database_url)
     blobs = S3BlobStore(
         endpoint=s3_endpoint,
-        access_key=os.environ.get("BORA_REGISTRY_S3_ACCESS_KEY") or "bora",
-        secret_key=os.environ.get("BORA_REGISTRY_S3_SECRET_KEY") or "boraborabora",
-        bucket=os.environ.get("BORA_REGISTRY_S3_BUCKET") or "bora",
-        region=os.environ.get("BORA_REGISTRY_S3_REGION") or "us-east-1",
+        access_key=os.environ.get("AGEVAL_REGISTRY_S3_ACCESS_KEY") or "ageval",
+        secret_key=os.environ.get("AGEVAL_REGISTRY_S3_SECRET_KEY") or "agevalageval",
+        bucket=os.environ.get("AGEVAL_REGISTRY_S3_BUCKET") or "ageval",
+        region=os.environ.get("AGEVAL_REGISTRY_S3_REGION") or "us-east-1",
     )
     token = bootstrap_token or secrets.token_urlsafe(24)
     tokens.add(token, ADMIN_SCOPES, github_user="bootstrap")
@@ -272,8 +272,8 @@ def build_state_from_env(
             meta=meta,
             blobs=blobs,
             tokens=tokens,
-            github_client_id=os.environ.get("BORA_GITHUB_CLIENT_ID"),
-            github_client_secret=os.environ.get("BORA_GITHUB_CLIENT_SECRET"),
+            github_client_id=os.environ.get("AGEVAL_GITHUB_CLIENT_ID"),
+            github_client_secret=os.environ.get("AGEVAL_GITHUB_CLIENT_SECRET"),
             github_login_allowlist=_parse_login_allowlist(),
         ),
         token,
@@ -282,25 +282,25 @@ def build_state_from_env(
 
 def main(argv: list[str] | None = None) -> int:
     load_env_file()
-    parser = argparse.ArgumentParser(description="BORA Database Registry service")
+    parser = argparse.ArgumentParser(description="ageval Dataset Registry service")
     parser.add_argument(
         "--host",
-        default=os.environ.get("BORA_REGISTRY_HOST") or "127.0.0.1",
+        default=os.environ.get("AGEVAL_REGISTRY_HOST") or "127.0.0.1",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.environ.get("BORA_REGISTRY_PORT") or "8700"),
+        default=int(os.environ.get("AGEVAL_REGISTRY_PORT") or "8700"),
     )
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=Path(os.environ.get("BORA_REGISTRY_DATA_DIR") or ".bora/registry-data"),
+        default=Path(os.environ.get("AGEVAL_REGISTRY_DATA_DIR") or ".ageval/registry-data"),
         help="SQLite + filesystem blob root when not using Postgres/S3",
     )
     parser.add_argument(
         "--bootstrap-token",
-        default=os.environ.get("BORA_REGISTRY_BOOTSTRAP_TOKEN"),
+        default=os.environ.get("AGEVAL_REGISTRY_BOOTSTRAP_TOKEN"),
         help="API token (default: random, printed once to stderr)",
     )
     parser.add_argument(
@@ -316,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--workers",
         type=int,
-        default=int(os.environ.get("BORA_REGISTRY_WORKERS") or "0"),
+        default=int(os.environ.get("AGEVAL_REGISTRY_WORKERS") or "0"),
         help="ASGI worker count (uvicorn). 0 = stdlib ThreadingHTTPServer (dev)",
     )
     args = parser.parse_args(argv)
@@ -347,12 +347,12 @@ def main(argv: list[str] | None = None) -> int:
     workers = max(0, int(args.workers))
     public = not (args.local or args.memory_blob)
     if public and workers <= 0:
-        workers = int(os.environ.get("BORA_REGISTRY_WORKERS") or "2")
+        workers = int(os.environ.get("AGEVAL_REGISTRY_WORKERS") or "2")
     sys.stderr.write(
-        f"bora-registry listening on http://{args.host}:{args.port} "
+        f"ageval-registry listening on http://{args.host}:{args.port} "
         f"backend={backend} workers={workers or 1} http="
         f"{'asgi' if workers > 0 else 'stdlib'}\n"
-        f"bootstrap token (store in ~/.bora/credentials; not logged elsewhere): {token}\n"
+        f"bootstrap token (store in ~/.ageval/credentials; not logged elsewhere): {token}\n"
     )
     if workers > 0:
         from services.registry.asgi import serve_uvicorn

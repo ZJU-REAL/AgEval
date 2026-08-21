@@ -18,7 +18,7 @@ export const translations = i18n
 export function baseOptions(locale: SiteLocale): BaseLayoutProps {
   return {
     nav: {
-      title: createElement(OwlFlatLockup, { className: "bora-nav-logo" }),
+      title: createElement(OwlFlatLockup, { className: "ageval-nav-logo" }),
       url: `/${locale}`,
     },
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,

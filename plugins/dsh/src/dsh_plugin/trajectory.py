@@ -1,7 +1,7 @@
-"""Map DeepSeek Harness session events to ``bora.trajectory.event/1``.
+"""Map DeepSeek Harness session events to ``ageval.trajectory.event/1``.
 
 Vendor-native rows stay in ``backend_raw/``. This module never emits ACP
-``session_update`` shapes. Importable in-image (no BORA Core).
+``session_update`` shapes. Importable in-image (no ageval Core).
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
-SCHEMA = "bora.trajectory.event/1"
+SCHEMA = "ageval.trajectory.event/1"
 _SOURCE = "dsh"
 _OPAQUE_CLIP = 8_000
 
@@ -35,7 +35,7 @@ _SKIP_TYPES = frozenset(
 )
 
 
-def to_bora_trajectory_events(
+def to_ageval_trajectory_events(
     raw_events: list[dict[str, Any]] | tuple[dict[str, Any], ...],
     *,
     session_id: str = "dsh",

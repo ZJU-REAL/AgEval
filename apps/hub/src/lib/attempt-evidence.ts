@@ -1,6 +1,6 @@
 /**
  * Client-side projection of uploaded Attempt archives into viewer trial shapes.
- * Mirrors `bora.viewer.trials` tab / tree / trajectory rules (read-only).
+ * Mirrors `ageval.viewer.trials` tab / tree / trajectory rules (read-only).
  */
 
 import type {
@@ -9,7 +9,7 @@ import type {
   TrajectoryStep,
   TreeEntry,
 } from "@/lib/trial-types";
-import { reasoningEffortFromBinding } from "@/lib/utils";
+import { displayAgentName, reasoningEffortFromBinding } from "@/lib/utils";
 
 import {
   FIRST_TAB_ORDER,
@@ -18,12 +18,13 @@ import {
   TREE_SCOPES,
   type TabId,
 } from "@/components/trial/tabs";
+import { environmentFromOverlay, type JobOverlay } from "@/lib/api";
 
 const MAX_TRAJECTORY_STEPS = 2_000;
 const MAX_JSONL_LINE = 64_000;
 
 export function runRootPrefix(runId: string): string {
-  return `.bora/runs/${runId}`;
+  return `.ageval/runs/${runId}`;
 }
 
 /** Map archive path → path relative to run root (or null if outside). */
@@ -50,14 +51,21 @@ export function hasAnyUnder(relPaths: string[], dir: string): boolean {
   return relPaths.some((p) => p === d || p.startsWith(d + "/"));
 }
 
-/** Same rules as `bora.viewer.trials.surface._available_tabs`. */
+/** Attempt-root record-phase file, then any per-invocation copies. */
+export function trajectoryRelPaths(relFiles: string[]): string[] {
+  if (relFiles.includes("trajectory.jsonl")) return ["trajectory.jsonl"];
+  return relFiles
+    .filter(
+      (p) =>
+        p.startsWith("agent/invocations/") && p.endsWith("/trajectory.jsonl"),
+    )
+    .sort();
+}
+
+/** Same rules as `ageval.viewer.trials.surface._available_tabs`. */
 export function availableTabsFromPaths(relFiles: string[]): TabId[] {
   const tabs: string[] = [];
-  const hasTraj = relFiles.some(
-    (p) =>
-      p.startsWith("agent/invocations/") && p.endsWith("/trajectory.jsonl"),
-  );
-  if (hasTraj) tabs.push("trajectory");
+  if (trajectoryRelPaths(relFiles).length) tabs.push("trajectory");
   if (hasAnyUnder(relFiles, "agent")) tabs.push("agent");
   if (
     hasAnyUnder(relFiles, "evaluation") ||
@@ -195,44 +203,68 @@ export function scopeForTab(tab: TabId): string | null {
   return TREE_SCOPES[tab] ?? null;
 }
 
-function profileVariant(profile: Record<string, unknown>): string | null {
-  const opts = profile.options;
-  if (!opts || typeof opts !== "object" || Array.isArray(opts)) return null;
-  const rec = opts as Record<string, unknown>;
-  for (const key of ["entry", "agent", "label"] as const) {
-    const val = rec[key];
+function projectedAcpEntry(profile: unknown): string {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return "";
+  const rec = profile as Record<string, unknown>;
+  if (typeof rec.entry === "string" && rec.entry.trim()) return rec.entry.trim();
+  const opts = rec.options;
+  if (opts && typeof opts === "object" && !Array.isArray(opts)) {
+    const val = (opts as Record<string, unknown>).entry;
     if (typeof val === "string" && val.trim()) return val.trim();
   }
-  return null;
+  return "";
 }
 
-function dockerLabel(
+function displayBinding(
+  profile: Record<string, unknown>,
+  overlay: unknown,
+): Record<string, unknown> {
+  const src =
+    overlay && typeof overlay === "object" && !Array.isArray(overlay)
+      ? (overlay as Record<string, unknown>)
+      : profile;
+  const entry = projectedAcpEntry(src) || projectedAcpEntry(profile);
+  if (!entry || src.entry === entry) return src;
+  return { ...src, entry };
+}
+
+/** Same axis as Jobs: label → ACP entry → executor. Never show transport ``acp``. */
+function actorAgentName(
+  profile: Record<string, unknown>,
+  overlay: unknown,
+  invEntry: string | undefined,
+): string {
+  const name = displayAgentName(displayBinding(profile, overlay));
+  if (name && name !== "acp") return name;
+  if (invEntry && invEntry.trim()) return invEntry.trim();
+  const pid = profile.id;
+  if (typeof pid === "string" && pid.trim()) return pid.trim();
+  return "";
+}
+
+function environmentKind(
+  lock: Record<string, unknown>,
   result: Record<string, unknown>,
-  summary: Record<string, unknown>,
 ): string | null {
-  const runtimeKind = String(result.runtime_kind || summary.runtime_kind || "");
-  const assurance = String(result.assurance || summary.assurance || "");
-  let l1 = result.l1;
-  if (!l1 || typeof l1 !== "object") l1 = summary.l1;
-  const isDocker =
-    runtimeKind.toLowerCase().includes("docker") ||
-    assurance.toLowerCase() === "l1" ||
-    (l1 != null && typeof l1 === "object");
-  if (!isDocker) return null;
-  const parts = ["docker"];
-  if (l1 && typeof l1 === "object" && !Array.isArray(l1)) {
-    const o = l1 as Record<string, unknown>;
-    if (typeof o.platform === "string" && o.platform) parts.push(o.platform);
-    const iso = o.isolation;
-    if (iso && typeof iso === "object" && !Array.isArray(iso)) {
-      const net = (iso as Record<string, unknown>).network;
-      if (typeof net === "string" && net) parts.push(net);
-    }
-    if (typeof o.execution_location === "string" && o.execution_location) {
-      if (!parts.includes(o.execution_location)) parts.push(o.execution_location);
-    }
+  for (const raw of [lock.environment, result.kind]) {
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
   }
-  return parts.join(" · ");
+  return environmentFromOverlay(lock.job_overlay as JobOverlay | undefined);
+}
+
+function durationFromPhaseTiming(phaseTiming: Trial["phase_timing"]): string | null {
+  if (!phaseTiming || typeof phaseTiming.total_ms !== "number") return null;
+  const ms = phaseTiming.total_ms;
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const totalS = ms / 1000;
+  if (totalS < 60) {
+    if (totalS < 10) return `${totalS.toFixed(1)}s`;
+    return `${Math.round(totalS)}s`;
+  }
+  const minutes = Math.floor(totalS / 60);
+  const seconds = Math.round(totalS - minutes * 60);
+  if (seconds === 60) return `${minutes + 1}m`;
+  return seconds ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${minutes}m`;
 }
 
 function formatLatencyMs(
@@ -299,13 +331,15 @@ export function buildTrialMeta(opts: {
   const orderedIds: string[] = [];
   const invModel = new Map<string, string>();
   const invExecutor = new Map<string, string>();
+  const invEntry = new Map<string, string>();
   const invEffort = new Map<string, string>();
   const overlayBindings =
     lock.job_overlay &&
     typeof lock.job_overlay === "object" &&
-    (lock.job_overlay as Record<string, unknown>).bindings &&
-    typeof (lock.job_overlay as Record<string, unknown>).bindings === "object"
-      ? ((lock.job_overlay as Record<string, unknown>).bindings as Record<
+    (lock.job_overlay as Record<string, unknown>).agent_profiles &&
+    typeof (lock.job_overlay as Record<string, unknown>).agent_profiles ===
+      "object"
+      ? ((lock.job_overlay as Record<string, unknown>).agent_profiles as Record<
           string,
           unknown
         >)
@@ -321,6 +355,10 @@ export function buildTrialMeta(opts: {
     if (typeof mid === "string" && mid) invModel.set(pid, mid);
     const ek = meta.executor_kind;
     if (typeof ek === "string" && ek) invExecutor.set(pid, ek);
+    const acpEntry = meta.acp_entry_id;
+    if (typeof acpEntry === "string" && acpEntry.trim()) {
+      invEntry.set(pid, acpEntry.trim());
+    }
     const effort =
       (typeof meta.actual_reasoning_effort === "string" &&
         meta.actual_reasoning_effort.trim()) ||
@@ -343,7 +381,6 @@ export function buildTrialMeta(opts: {
   const executors: string[] = [];
   for (const pid of orderedIds) {
     const p = byId.get(pid) || { id: pid };
-    const variant = profileVariant(p);
     let ex = typeof p.executor === "string" ? p.executor : null;
     if (!ex) ex = invExecutor.get(pid) || null;
     if (ex && !executors.includes(ex)) executors.push(ex);
@@ -356,7 +393,8 @@ export function buildTrialMeta(opts: {
       reasoningEffortFromBinding(overlay) ||
       reasoningEffortFromBinding(p) ||
       null;
-    const agentCol = variant || ex || pid;
+    const agentCol =
+      actorAgentName(p, overlay, invEntry.get(pid)) || pid;
     const roleCol = pid;
     const nInv = invokeCount.get(pid) || 0;
     const latTotal = latencySum.get(pid);
@@ -386,41 +424,15 @@ export function buildTrialMeta(opts: {
       : null;
 
   const phaseTimingRaw =
-    (result.phase_timing && typeof result.phase_timing === "object"
-      ? result.phase_timing
-      : null) ||
-    (summary.phase_timing && typeof summary.phase_timing === "object"
+    summary.phase_timing && typeof summary.phase_timing === "object"
       ? summary.phase_timing
-      : null);
+      : null;
   const phase_timing = phaseTimingRaw as Trial["phase_timing"];
-
-  const startedRaw =
-    summary.started_at ??
-    (phase_timing && typeof phase_timing.started_at === "string"
+  const started =
+    phase_timing && typeof phase_timing.started_at === "string"
       ? phase_timing.started_at
-      : null) ??
-    summary.started ??
-    null;
-  let started: string | null = null;
-  if (typeof startedRaw === "string") started = startedRaw;
-  else if (typeof startedRaw === "number") {
-    started = new Date(startedRaw * (startedRaw < 1e12 ? 1000 : 1)).toISOString();
-  }
-
-  let duration: string | null =
-    (typeof result.duration === "string" && result.duration) ||
-    (typeof summary.duration === "string" && summary.duration) ||
-    null;
-  if (!duration && phase_timing && typeof phase_timing.total_ms === "number") {
-    const ms = phase_timing.total_ms;
-    if (ms < 1000) duration = `${Math.round(ms)}ms`;
-    else if (ms < 60_000) duration = `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
-    else {
-      const m = Math.floor(ms / 60_000);
-      const s = Math.round((ms % 60_000) / 1000);
-      duration = s ? `${m}m ${String(s).padStart(2, "0")}s` : `${m}m`;
-    }
-  }
+      : null;
+  const duration = durationFromPhaseTiming(phase_timing);
 
   // Token bar from actor usage when present (often null on Hub until usage wired).
   let token_timing: Trial["token_timing"] = null;
@@ -446,7 +458,7 @@ export function buildTrialMeta(opts: {
     }
     if (anyTok) {
       token_timing = {
-        schema: "bora.token_timing/1",
+        schema: "ageval.token_timing/1",
         segments: [
           { id: "cached_input", label: "Cached Input", tokens: Math.round(cached) },
           {
@@ -487,7 +499,7 @@ export function buildTrialMeta(opts: {
       (typeof summary.harness_kind === "string" && summary.harness_kind) ||
       null,
     framework,
-    docker: dockerLabel(result, summary),
+    environment: environmentKind(lock, result),
     actors,
     agent_label: actors.length === 1 ? actors[0].role : null,
     model_label: actors.length === 1 ? actors[0].model ?? null : null,

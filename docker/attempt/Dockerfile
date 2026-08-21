@@ -1,6 +1,6 @@
-# BORA L1 Attempt base image — non-privileged, no Docker socket.
+# ageval L1 Attempt base image — non-privileged, no Docker socket.
 # Preinstalls coding-agent engines + ACP entries (Spec 19 BOM, five entries).
-# Build once (docker/attempt/build.py); packages FROM bora-attempt:l1 or extend upstream.
+# Build once (docker/attempt/build.py); packages FROM ageval-attempt:l1 or extend upstream.
 # Python ACP SDK stays on the parent host — never installed here.
 
 FROM python:3.12-slim-bookworm
@@ -10,14 +10,14 @@ USER root
 # install-executors.sh so apt-get sees rewritten sources. Child images that
 # FROM this tag inherit debian.sources + /etc/pip.conf. Do not ENV an empty
 # PIP_INDEX_URL — a blank value overrides pip's default index.
-ARG BORA_APT_MIRROR=
-ARG BORA_PIP_INDEX=
+ARG AGEVAL_APT_MIRROR=
+ARG AGEVAL_PIP_INDEX=
 RUN set -eu; \
-    if [ -n "${BORA_APT_MIRROR}" ]; then \
-      mirror="${BORA_APT_MIRROR%/}"; \
+    if [ -n "${AGEVAL_APT_MIRROR}" ]; then \
+      mirror="${AGEVAL_APT_MIRROR%/}"; \
       src=/etc/apt/sources.list.d/debian.sources; \
       if [ ! -f "${src}" ]; then \
-        echo "BORA_APT_MIRROR set but ${src} missing" >&2; \
+        echo "AGEVAL_APT_MIRROR set but ${src} missing" >&2; \
         exit 1; \
       fi; \
       sec="${mirror}"; \
@@ -41,10 +41,10 @@ RUN set -eu; \
       printf '%s\n' \
         'Acquire::http::Proxy "false";' \
         'Acquire::https::Proxy "false";' \
-        > /etc/apt/apt.conf.d/99bora-no-proxy; \
+        > /etc/apt/apt.conf.d/99ageval-no-proxy; \
     fi; \
-    if [ -n "${BORA_PIP_INDEX}" ]; then \
-      index="${BORA_PIP_INDEX%/}"; \
+    if [ -n "${AGEVAL_PIP_INDEX}" ]; then \
+      index="${AGEVAL_PIP_INDEX%/}"; \
       host="${index#*://}"; \
       host="${host%%/*}"; \
       printf '%s\n' \
@@ -54,28 +54,28 @@ RUN set -eu; \
         > /etc/pip.conf; \
     fi
 
-COPY sitecustomize.py /tmp/bora-sitecustomize.py
+COPY sitecustomize.py /tmp/ageval-sitecustomize.py
 RUN set -eu; \
     if [ -f /etc/pip.conf ]; then \
       sitepkg="$(python3 -c 'import site; print(site.getsitepackages()[0])')"; \
-      cp /tmp/bora-sitecustomize.py "${sitepkg}/sitecustomize.py"; \
+      cp /tmp/ageval-sitecustomize.py "${sitepkg}/sitecustomize.py"; \
     fi; \
-    rm -f /tmp/bora-sitecustomize.py
+    rm -f /tmp/ageval-sitecustomize.py
 
 COPY install-executors.sh /tmp/install-executors.sh
-COPY acp-entries.lock.json /etc/bora/acp-entries.lock.json
+COPY acp-entries.lock.json /etc/ageval/acp-entries.lock.json
 RUN bash /tmp/install-executors.sh \
     && rm -f /tmp/install-executors.sh \
-    && test -f /etc/bora/acp-entries.lock.json
+    && test -f /etc/ageval/acp-entries.lock.json
 
-RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin bora \
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin ageval \
     && mkdir -p /attempt/workspace /attempt/package /attempt/artifacts \
-    && chown -R bora:bora /attempt
+    && chown -R ageval:ageval /attempt
 
 # Post-user PATH verify as actor UID 10001 (numeric non-root).
 RUN set -e; \
     export PATH="/usr/local/bin:/usr/bin:/bin"; \
-    su -s /bin/bash bora -c '\
+    su -s /bin/bash ageval -c '\
       command -v codex && command -v codex-acp && \
       command -v pi && command -v pi-acp && \
       command -v opencode && \
@@ -83,10 +83,10 @@ RUN set -e; \
       command -v grok \
     '
 
-USER bora
+USER ageval
 WORKDIR /attempt/workspace
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/usr/local/bin:/home/bora/.local/bin:${PATH}"
+    PATH="/usr/local/bin:/home/ageval/.local/bin:${PATH}"
 
-CMD ["python", "-c", "print('bora-attempt-ready')"]
+CMD ["python", "-c", "print('ageval-attempt-ready')"]

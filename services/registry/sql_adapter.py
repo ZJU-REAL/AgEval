@@ -16,7 +16,7 @@ from services.registry.dialect import pg_sql
 
 _SQL_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-# pg_advisory_xact_lock(int, int). 0x424F5241 == b"BORA"; 1 = schema init.
+# pg_advisory_xact_lock(int, int). 0x424F5241 == b"ageval"; 1 = schema init.
 _SCHEMA_LOCK_NS = 0x424F5241
 _SCHEMA_LOCK_ID = 1
 

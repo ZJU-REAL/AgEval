@@ -1,5 +1,0 @@
-format: bora.profiles/1
-bindings:
-  mock-default:
-    executor: mock
-    model: none

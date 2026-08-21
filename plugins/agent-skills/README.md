@@ -1,6 +1,6 @@
 # agent-skills
 
-`bora.plugin/1` that expands Database skill folders and instruction files
+`ageval.plugin/1` that expands Dataset skill folders and instruction files
 into the dests each bound ACP entry actually reads. Copy stays in
 `home-files`. Registers `on: home_overlay` only. No bake.
 
@@ -11,11 +11,11 @@ when an `instructions` row is present.
 ## Install
 
 ```bash
-uv run bora plugin install plugins/agent-skills
+uv run ageval plugin install plugins/agent-skills
 ```
 
 That also installs sibling `plugins/home-files` when the cache is empty.
-Install writes `$BORA_HOME/plugins` only. It never rewrites profiles and
+Install writes `$AGEVAL_HOME/plugins` only. It never rewrites profiles and
 never inserts `home-files` into `extensions[]`.
 
 ## Bind
@@ -37,7 +37,7 @@ extensions:
 
 | Field | Rule |
 | --- | --- |
-| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Database root. No `..`, no absolute path, no host `~`. |
+| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Dataset root. No `..`, no absolute path, no host `~`. |
 | `dest` | Not author-written. Dest comes from the entry table. |
 | `skills[]` | One folder per row. Folder must contain `SKILL.md`. Folder name is the skill name. |
 | `instructions[]` | `AGENTS.md` and (when `claude-code` is bound) `CLAUDE.md`. |
@@ -70,9 +70,9 @@ them on this role as `overlays:` (for example `overlays/skills/jsonl-agg` and
 ## Run
 
 ```bash
-uv run bora plugin install plugins/agent-skills
-uv run bora lock examples/journeys --task terminal-jsonl-agg \
+uv run ageval plugin install plugins/agent-skills
+uv run ageval lock examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
 ```

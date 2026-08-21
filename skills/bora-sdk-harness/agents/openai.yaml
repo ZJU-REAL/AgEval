@@ -1,4 +1,0 @@
-interface:
-  display_name: "BORA SDK Harness"
-  short_description: "AgentSession, tools, terminals"
-  default_prompt: "Use $bora-sdk-harness to write a package harness with AgentSession and HarnessTerminal without owning PASS or credentials."

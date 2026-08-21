@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.control.store import ControlStore
+from ageval.control.store import ControlStore
 
 
 def test_put_get_version(tmp_path: Path) -> None:

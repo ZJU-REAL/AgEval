@@ -1,352 +1,189 @@
-"""Config Core unit tests: merge, digest, immutability, failures."""
+"""Config Core: merge order, digest stability, immutability, fail-closed errors."""
 
 from __future__ import annotations
 
 import copy
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
+from tests.helpers.lock import CONFIG_MIN, job_document, lock_standalone, lock_task
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.digest import digest_payload
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
-from bora.config.overrides import parse_set_override
-from bora.config.profiles import load_database_profiles
+from ageval.config.digest import digest_payload
+from ageval.config.errors import ConfigError
+from ageval.config.model import thaw
+from ageval.config.overrides import parse_set_override
 
-REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
-INVALID = REPO / "examples" / "core" / "tasks" / "config-invalid"
-CORE_DB = REPO / "examples" / "core"
-
-# Role bindings for config-minimal / config-invalid (from Database profiles.yaml).
-MOCK_BINDINGS: dict[str, dict[str, Any]] = {
-    "mock-default": {"executor": "mock", "model": "none"},
+SOLVER = {
+    "executor": "acp",
+    "model": "entry-default",
+    "options": {"entry": "codex"},
+    "extensions": [{"plugin": "acp"}, {"plugin": "local"}],
 }
+TASK_YAML = (CONFIG_MIN / "tasks" / "minimal" / "task.yaml").read_text(encoding="utf-8")
 
 
-@pytest.fixture
-def core() -> ConfigCore:
-    return ConfigCore(package_reader=LocalPackageReader())
+def _standalone(root: Path, *, task_yaml: str = TASK_YAML, files: tuple[str, ...] = ()) -> Path:
+    """A task directory written by the test, with the files it should ship."""
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "task.yaml").write_text(task_yaml, encoding="utf-8")
+    for name in files:
+        (root / name).write_text("#\n", encoding="utf-8")
+    return root
 
 
-@pytest.fixture
-def catalog() -> DeclarationCapabilityCatalog:
-    return DeclarationCapabilityCatalog()
+def _lock_standalone(root: Path, **kwargs: Any) -> Any:
+    return lock_standalone(root, "minimal", job=job_document({"solver": dict(SOLVER)}), **kwargs)
 
 
-def _lock(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, root: Path, task_id: str, **kw: Any
-):
-    bindings = kw.pop("profile_bindings", MOCK_BINDINGS)
-    return core.load_and_lock(
-        root,
-        task_id,
-        capabilities=catalog,
-        profile_bindings=bindings,
-        **kw,
-    )
+def _expect(root: Path, code: str, **kwargs: Any) -> None:
+    with pytest.raises(ConfigError) as caught:
+        _lock_standalone(root, **kwargs)
+    assert caught.value.error_code == code
 
 
-def test_lock_success_deterministic(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog
-) -> None:
-    a = _lock(core, catalog, MINIMAL, "config-minimal")
-    b = _lock(core, catalog, MINIMAL, "config-minimal")
-    assert a.digest == b.digest
-    assert a.canonical_payload() == b.canonical_payload()
-    assert a.digest.startswith("sha256:")
-    assert len(a.digest) == len("sha256:") + 64
-    assert thaw(a.agent_profiles)[0]["executor"] == "mock"
-    assert a.job_overlay is not None
+# --- digest ----------------------------------------------------------------
 
 
-def test_override_changes_digest(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
-    base = _lock(core, catalog, MINIMAL, "config-minimal")
-    overridden = _lock(
-        core,
-        catalog,
-        MINIMAL,
-        "config-minimal",
-        overrides={"/parameters/seed": 7},
-    )
+def test_lock_is_deterministic() -> None:
+    first = lock_task(CONFIG_MIN, "minimal")
+    second = lock_task(CONFIG_MIN, "minimal")
+    assert first.digest == second.digest
+    assert first.canonical_payload() == second.canonical_payload()
+    assert first.digest.startswith("sha256:")
+    assert len(first.digest) == len("sha256:") + 64
+    assert thaw(first.agent_profiles)[0]["executor"] == "acp"
+    assert first.job_overlay is not None
+
+
+def test_override_changes_the_digest() -> None:
+    base = lock_task(CONFIG_MIN, "minimal")
+    overridden = lock_task(CONFIG_MIN, "minimal", overrides={"/parameters/seed": 7})
     assert overridden.digest != base.digest
     assert thaw(overridden.parameters)["seed"] == 7
-    sources = [e.source for e in overridden.resolution.entries]
-    assert "cli-override" in sources
+    assert "cli-override" in [entry.source for entry in overridden.resolution.entries]
 
 
-def test_variant_merge_order(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
-    locked = _lock(
-        core,
-        catalog,
-        MINIMAL,
-        "config-minimal",
-        variant={"parameters": {"seed": 99}},
-        overrides={"/parameters/seed": 3},
-    )
-    assert thaw(locked.parameters)["seed"] == 3
-    sources = [(e.source, e.pointer) for e in locked.resolution.entries]
-    assert ("campaign-variant", "/") in sources
-    assert ("cli-override", "/parameters/seed") in sources
+def test_digest_ignores_where_the_checkout_lives(tmp_path: Path) -> None:
+    digests = set()
+    for name in ("a", "b"):
+        root = _standalone(tmp_path / name, files=("run.py", "evaluator.py"))
+        digests.add(_lock_standalone(root).digest)
+    assert len(digests) == 1
 
 
-def test_unknown_profile(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, INVALID, "config-invalid")
-    assert ei.value.error_code == "unknown_profile"
+def test_digest_payload_is_key_order_stable() -> None:
+    assert digest_payload({"z": 1, "a": [2, 1]}) == digest_payload({"a": [2, 1], "z": 1})
 
 
-def test_invalid_format(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
-) -> None:
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
-    yaml = yaml.replace("format: bora.task/1", "format: bora.task/999")
-    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
-    (pkg / "harness.py").write_text("#\n", encoding="utf-8")
-    (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, pkg, "config-minimal")
-    assert ei.value.error_code == "invalid_format"
+def test_payload_holds_no_secret_and_no_host_path() -> None:
+    locked = lock_task(CONFIG_MIN, "minimal")
+    blob = str(locked.canonical_payload()) + locked.digest
+    assert "sk-" not in blob
+    assert str(CONFIG_MIN.resolve()) not in blob
 
 
-def test_unsupported_capability(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
-) -> None:
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
-    yaml = yaml.replace("kind: local", "kind: quantum-cloud")
-    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
-    (pkg / "harness.py").write_text("#\n", encoding="utf-8")
-    (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, pkg, "config-minimal")
-    assert ei.value.error_code == "unsupported_capability"
+# --- immutability ----------------------------------------------------------
 
 
-def test_missing_reference(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
-) -> None:
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    (pkg / "task.yaml").write_text(
-        (MINIMAL / "task.yaml").read_text(encoding="utf-8"),
-        encoding="utf-8",
-    )
-    # harness.py intentionally omitted
-    (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, pkg, "config-minimal")
-    assert ei.value.error_code == "missing_reference"
-
-
-def test_limits_not_overridable(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
-    """#59: intent limits are pure task contract — never job-overridable."""
-    with pytest.raises(ConfigError) as ei:
-        _lock(
-            core,
-            catalog,
-            MINIMAL,
-            "config-minimal",
-            overrides={"/limits/memory_mb": 256},
-        )
-    assert ei.value.error_code == "invalid_override"
-
-
-def test_unknown_task(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, MINIMAL, "wrong-id")
-    assert ei.value.error_code == "unknown_task"
-
-
-def test_unknown_top_level_path(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
-) -> None:
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    (pkg / "task.yaml").write_text(
-        (MINIMAL / "task.yaml").read_text(encoding="utf-8"),
-        encoding="utf-8",
-    )
-    (pkg / "harness.py").write_text("#\n", encoding="utf-8")
-    (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
-    (pkg / "helpers").mkdir()  # forbidden top-level name
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, pkg, "config-minimal")
-    assert ei.value.error_code == "unknown_package_path"
-
-
-def test_path_escape_rejected(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
-) -> None:
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
-    yaml = yaml.replace("path: artifacts/result.json", "path: ../escape.json")
-    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
-    (pkg / "harness.py").write_text("#\n", encoding="utf-8")
-    (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, pkg, "config-minimal")
-    assert ei.value.error_code == "path_outside_package"
-
-
-def test_duplicate_key_rejected(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
-) -> None:
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    (pkg / "task.yaml").write_text(
-        "format: bora.task/1\nformat: bora.task/1\ntask_id: config-minimal\n",
-        encoding="utf-8",
-    )
-    (pkg / "harness.py").write_text("#\n", encoding="utf-8")
-    (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, pkg, "config-minimal")
-    assert ei.value.error_code == "invalid_schema"
-
-
-def test_immutability(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
-    locked = _lock(core, catalog, MINIMAL, "config-minimal")
+def test_locked_config_cannot_be_mutated() -> None:
+    locked = lock_task(CONFIG_MIN, "minimal")
     payload_before = copy.deepcopy(locked.canonical_payload())
     digest_before = locked.digest
 
-    # Mutating the thawed view must not affect the lock.
     thawed = thaw(locked.parameters)
     thawed["seed"] = 999
     assert locked.digest == digest_before
     assert locked.canonical_payload() == payload_before
 
-    # MappingProxyType should reject item assignment.
     with pytest.raises(TypeError):
         locked.parameters["seed"] = 123  # type: ignore[index]
 
 
-def test_digest_independent_of_checkout_location(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
-) -> None:
-    """Same logical package at two absolute locations → same digest."""
-    for name in ("a", "b"):
-        pkg = tmp_path / name
-        pkg.mkdir()
-        for fname in ("task.yaml", "harness.py", "evaluator.py"):
-            (pkg / fname).write_text(
-                (MINIMAL / fname).read_text(encoding="utf-8"),
-                encoding="utf-8",
-            )
-    d1 = _lock(core, catalog, tmp_path / "a", "config-minimal").digest
-    d2 = _lock(core, catalog, tmp_path / "b", "config-minimal").digest
-    assert d1 == d2
+# --- fail closed -----------------------------------------------------------
 
 
-def test_no_secret_or_host_paths_in_payload(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog
-) -> None:
-    locked = _lock(core, catalog, MINIMAL, "config-minimal")
-    blob = str(locked.canonical_payload()) + locked.digest
-    assert "OPENAI" not in blob
-    assert "sk-" not in blob
-    # Digest/payload must not embed the absolute checkout path.
-    assert str(MINIMAL.resolve()) not in blob
+def test_active_profile_must_name_a_declared_role() -> None:
+    with pytest.raises(ConfigError) as caught:
+        lock_task(CONFIG_MIN, "unknown-profile")
+    assert caught.value.error_code == "unknown_profile"
 
 
-def test_parse_set_override_rejects_unknown_pointer() -> None:
-    with pytest.raises(ConfigError) as ei:
+def test_unknown_task_format(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=TASK_YAML.replace("format: ageval.task/1", "format: ageval.task/999"),
+        files=("run.py", "evaluator.py"),
+    )
+    _expect(root, "invalid_format")
+
+
+def test_retired_provider_key_is_rejected(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=TASK_YAML + "provider:\n  kind: local\n",
+        files=("run.py", "evaluator.py"),
+    )
+    _expect(root, "invalid_schema")
+
+
+def test_task_without_a_run_module(tmp_path: Path) -> None:
+    root = _standalone(tmp_path / "pkg", files=("evaluator.py",))
+    _expect(root, "missing_reference")
+
+
+def test_limits_are_not_overridable() -> None:
+    with pytest.raises(ConfigError) as caught:
+        lock_task(CONFIG_MIN, "minimal", overrides={"/limits/wall_time_seconds": 1})
+    assert caught.value.error_code == "invalid_override"
+
+
+def test_task_id_must_match_the_selection(tmp_path: Path) -> None:
+    root = _standalone(tmp_path / "pkg", files=("run.py", "evaluator.py"))
+    with pytest.raises(ConfigError) as caught:
+        lock_standalone(root, "wrong-id", job=job_document({"solver": dict(SOLVER)}))
+    assert caught.value.error_code == "unknown_task"
+
+
+def test_unknown_top_level_path(tmp_path: Path) -> None:
+    root = _standalone(tmp_path / "pkg", files=("run.py", "evaluator.py"))
+    (root / "helpers").mkdir()
+    _expect(root, "unknown_package_path")
+
+
+def test_artifact_path_may_not_escape_the_task(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml=TASK_YAML.replace("artifacts/result.json", "../escape.json"),
+        files=("run.py", "evaluator.py"),
+    )
+    _expect(root, "path_outside_package")
+
+
+def test_duplicate_yaml_key_is_rejected(tmp_path: Path) -> None:
+    root = _standalone(
+        tmp_path / "pkg",
+        task_yaml="format: ageval.task/1\nformat: ageval.task/1\ntask_id: minimal\n",
+        files=("run.py", "evaluator.py"),
+    )
+    _expect(root, "invalid_schema")
+
+
+# --- boundaries ------------------------------------------------------------
+
+
+def test_locking_never_imports_the_task_module() -> None:
+    for key in [k for k in sys.modules if "ageval_task_" in k]:
+        del sys.modules[key]
+    lock_task(CONFIG_MIN, "minimal")
+    assert not any("ageval_task_" in key for key in sys.modules)
+
+
+def test_set_override_pointer_allowlist() -> None:
+    with pytest.raises(ConfigError) as caught:
         parse_set_override('/harness/entrypoint="x:y"')
-    assert ei.value.error_code == "invalid_override"
+    assert caught.value.error_code == "invalid_override"
 
-
-def test_parse_set_override_accepts_binding_pointer() -> None:
-    pointer, value = parse_set_override('/bindings/solver/model="gpt-test"')
-    assert pointer == "/bindings/solver/model"
-    assert value == "gpt-test"
-
-
-def test_digest_payload_stable() -> None:
-    a = digest_payload({"z": 1, "a": [2, 1]})
-    b = digest_payload({"a": [2, 1], "z": 1})
-    assert a == b
-
-
-def test_does_not_import_harness_module(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog
-) -> None:
-    import sys
-
-    # Clear any accidental prior import.
-    for key in list(sys.modules):
-        if "harness" in key and "examples" in key:
-            del sys.modules[key]
-    _lock(core, catalog, MINIMAL, "config-minimal")
-    assert not any(
-        "examples.config_minimal" in k or k.endswith("config-minimal.harness") for k in sys.modules
-    )
-
-
-def test_database_profiles_load_via_cli_path(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog
-) -> None:
-    """End-to-end: Database profiles.yaml merges onto role slots."""
-    bindings = load_database_profiles(CORE_DB)
-    locked = core.load_and_lock(
-        MINIMAL,
-        "config-minimal",
-        capabilities=catalog,
-        profile_bindings=bindings,
-    )
-    assert thaw(locked.agent_profiles)[0]["id"] == "mock-default"
-    assert thaw(locked.agent_profiles)[0]["executor"] == "mock"
-
-
-def _clone_minimal(tmp_path: Path, *, evaluation_extra: str = "") -> Path:
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    yaml = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
-    if evaluation_extra:
-        yaml = yaml.replace(
-            "  output:\n    format: json\n",
-            f"  output:\n    format: json\n{evaluation_extra}",
-        )
-    (pkg / "task.yaml").write_text(yaml, encoding="utf-8")
-    (pkg / "harness.py").write_text((MINIMAL / "harness.py").read_text(encoding="utf-8"))
-    (pkg / "evaluator.py").write_text((MINIMAL / "evaluator.py").read_text(encoding="utf-8"))
-    return pkg
-
-
-def test_eval_tmpfs_defaults_to_32(core: ConfigCore, catalog: DeclarationCapabilityCatalog) -> None:
-    locked = _lock(core, catalog, MINIMAL, "config-minimal")
-    assert thaw(locked.evaluation)["tmpfs_mb"] == 32
-    assert "eval_tmpfs" not in thaw(locked.limits)
-    sources = {(e.source, e.pointer) for e in locked.resolution.entries}
-    assert ("default", "/evaluation/tmpfs_mb") in sources
-
-
-def test_eval_tmpfs_override_accepted(
-    core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
-) -> None:
-    pkg = _clone_minimal(tmp_path, evaluation_extra="  tmpfs_mb: 256\n")
-    locked = _lock(core, catalog, pkg, "config-minimal")
-    assert thaw(locked.evaluation)["tmpfs_mb"] == 256
-    sources = {(e.source, e.pointer) for e in locked.resolution.entries}
-    assert ("default", "/evaluation/tmpfs_mb") not in sources
-
-
-@pytest.mark.parametrize("raw", ["0", "-1", "true", "32.5", '"256"'])
-def test_eval_tmpfs_rejects_bad_value(
-    core: ConfigCore,
-    catalog: DeclarationCapabilityCatalog,
-    tmp_path: Path,
-    raw: str,
-) -> None:
-    pkg = _clone_minimal(tmp_path, evaluation_extra=f"  tmpfs_mb: {raw}\n")
-    with pytest.raises(ConfigError) as ei:
-        _lock(core, catalog, pkg, "config-minimal")
-    assert ei.value.error_code == "invalid_schema"
-    assert ei.value.location == "/evaluation/tmpfs_mb"
+    pointer, value = parse_set_override('/agent_profiles/solver/model="gpt-test"')
+    assert (pointer, value) == ("/agent_profiles/solver/model", "gpt-test")

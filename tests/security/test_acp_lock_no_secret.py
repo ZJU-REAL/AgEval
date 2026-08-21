@@ -1,65 +1,62 @@
-"""ACP lock snapshot contains no secrets or absolute host paths."""
+"""The lock names a credential locator; it never carries a value or a host path."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import yaml
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
+from ageval.config.package_fs import LocalPackageReader
+from ageval.config.profiles import parse_job_mapping
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
+TASK_YAML = """format: ageval.task/1
+task_id: t
+agent_profiles:
+  - id: solver
+limits:
+  wall_time_seconds: 10
+  agent_invocations: 1
+"""
 
 
-def test_acp_lock_snapshot_is_safe(tmp_path: Path) -> None:
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    doc = {
-        "format": "bora.task/1",
-        "task_id": "t",
-        "harness": {"runtime": "python", "entrypoint": "harness:run"},
-        "parameters": {},
-        "provider": {"kind": "local", "assurance": "l0"},
-        "agent_profiles": [{"id": "p"}],
-        "limits": {
-            "wall_time_seconds": 10,
-            "agent_invocations": 1,
-            "environment_actions": 0,
-        },
-        "artifacts": {"publishable": []},
-        "evaluation": {
-            "runtime": "python",
-            "entrypoint": "evaluator:evaluate",
-            "network": "none",
-            "inputs": [],
-            "output": {"format": "json"},
-        },
-    }
-    (pkg / "task.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
-    (pkg / "harness.py").write_text("async def run(ctx): pass\n", encoding="utf-8")
-    (pkg / "evaluator.py").write_text(
-        "def evaluate(i): return {'status':'PASS','score':1}\n", encoding="utf-8"
-    )
+def test_acp_lock_snapshot_is_safe(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-not-for-the-lock")
+    task = tmp_path / "pkg"
+    task.mkdir()
+    (task / "task.yaml").write_text(TASK_YAML, encoding="utf-8")
+    (task / "run.py").write_text("async def run(ctx): pass\n", encoding="utf-8")
+    (task / "evaluator.py").write_text("def evaluate(i): return {}\n", encoding="utf-8")
+
     lock = ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        pkg,
+        task,
         "t",
+        dataset_id="test/db",
+        dataset_version="0.1.0",
         capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings={
-            "p": {
-                "executor": "acp",
-                "model": "entry-default",
-                "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
-                "api_key": "${OPENAI_API_KEY}",
+        job=parse_job_mapping(
+            {
+                "format": "ageval.profiles/1",
+                "environment": "local",
+                "agent_profiles": {
+                    "solver": {
+                        "executor": "acp",
+                        "model": "entry-default",
+                        "api_key": "${OPENAI_API_KEY}",
+                        "extensions": [
+                            {"plugin": "acp", "options": {"entry": "codex"}},
+                            {"plugin": "local"},
+                        ],
+                    }
+                },
             }
-        },
+        ),
     )
-    payload = json.dumps(thaw(lock.agent_profiles), sort_keys=True)
+
+    (profile,) = thaw(lock.agent_profiles)
+    assert profile["api_key"] == "OPENAI_API_KEY", "the locator name, not the value"
+    payload = json.dumps({"profiles": thaw(lock.agent_profiles), "overlay": thaw(lock.job_overlay)})
     assert "sk-" not in payload
     assert "/Users/" not in payload
-    assert "/home/" not in payload
-    assert "OPENAI_API_KEY" in payload  # locator ok
-    opts = thaw(lock.agent_profiles)[0]["extensions"][0]["options"]
-    assert opts["entry"] == "codex"
-    assert "_acp_lock" not in opts
+    assert str(tmp_path) not in payload

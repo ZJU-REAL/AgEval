@@ -1,1 +1,1 @@
-"""Standalone Database Registry service (not BORA Core)."""
+"""Standalone Dataset Registry service (not ageval Core)."""

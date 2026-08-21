@@ -9,7 +9,7 @@ from typing import Any
 from services.registry.dataset import is_draft_version
 
 DEFAULT_OFFICIAL_ORGS: tuple[str, ...] = ("official",)
-ENV_OFFICIAL_ORGS = "BORA_OFFICIAL_ORGS"
+ENV_OFFICIAL_ORGS = "AGEVAL_OFFICIAL_ORGS"
 
 
 def official_orgs() -> frozenset[str]:
@@ -27,24 +27,27 @@ def is_official_upload_org(org_id: str | None) -> bool:
 
 
 def official_dataset_ids(releases: Iterable[Any]) -> frozenset[str]:
-    """Database ids that have a non-draft official-org database release."""
+    """Dataset ids that have a non-draft official-org dataset release."""
     from services.registry.store import package_kind_for_media_type
 
     out: set[str] = set()
     for row in releases:
-        database_id = str(row.database_id or "").strip()
-        if not database_id or is_draft_version(row.version):
+        dataset_id = str(row.dataset_id or "").strip()
+        if not dataset_id or is_draft_version(row.version):
             continue
-        if package_kind_for_media_type(str(row.media_type or "")) != "database":
+        try:
+            if package_kind_for_media_type(str(row.media_type or "")) != "dataset":
+                continue
+        except ValueError:
             continue
         if is_official_upload_org(row.org_id):
-            out.add(database_id)
+            out.add(dataset_id)
     return frozenset(out)
 
 
-def is_official_dataset(database_id: str, releases: Iterable[Any]) -> bool:
-    """True iff any non-draft database release for *database_id* is official-org."""
-    want = (database_id or "").strip()
+def is_official_dataset(dataset_id: str, releases: Iterable[Any]) -> bool:
+    """True iff any non-draft dataset release for *dataset_id* is official-org."""
+    want = (dataset_id or "").strip()
     if not want:
         return False
     return want in official_dataset_ids(releases)

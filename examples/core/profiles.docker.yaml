@@ -1,0 +1,15 @@
+format: ageval.profiles/1
+
+# Spec 02 job: same solver, docker box.
+environment: docker
+
+agent_profiles:
+  solver:
+    executor: acp
+    model: zai-coding-cn/glm-5.2
+    api_key: ${ZHIPU_API_KEY}
+    options:
+      entry: pi
+    extensions:
+      - plugin: acp
+      - plugin: docker

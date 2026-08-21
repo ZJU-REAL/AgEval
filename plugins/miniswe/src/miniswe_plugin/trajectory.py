@@ -1,17 +1,17 @@
-"""Map mini-swe-agent messages to ``bora.trajectory.event/1``.
+"""Map mini-swe-agent messages to ``ageval.trajectory.event/1``.
 
-No ACP ``session_update`` shapes. Importable without BORA Core.
+No ACP ``session_update`` shapes. Importable without ageval Core.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-SCHEMA = "bora.trajectory.event/1"
+SCHEMA = "ageval.trajectory.event/1"
 _SOURCE = "miniswe"
 
 
-def to_bora_trajectory_events(
+def to_ageval_trajectory_events(
     messages: list[dict[str, Any]] | tuple[dict[str, Any], ...],
     *,
     session_id: str = "miniswe",

@@ -7,7 +7,7 @@ import "./index.css";
 
 // Avoid FOUC: apply stored theme before first paint when possible
 try {
-  const stored = localStorage.getItem("bora-viewer-theme");
+  const stored = localStorage.getItem("ageval-viewer-theme");
   const mode =
     stored === "light" || stored === "dark" || stored === "system"
       ? stored

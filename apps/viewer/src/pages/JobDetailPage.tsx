@@ -199,7 +199,7 @@ export function JobDetailPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>{head("task_id", "Task")}</TableHead>
-                <TableHead>{head("agent_label", "Agent")}</TableHead>
+                <TableHead>{head("agent_label", "Harness")}</TableHead>
                 <TableHead>{head("model_label", "Model")}</TableHead>
                 <TableHead>Dataset</TableHead>
                 <TableHead>{head("score", "Avg Reward")}</TableHead>
@@ -298,7 +298,7 @@ export function JobDetailPage() {
             <h2 className="text-sm font-medium text-ink">Published files</h2>
             <p className="text-xs text-mute">
               Declared <code className="font-mono">overlays:</code> from this
-              job binding. Files are read from the opened Database root.
+              job binding. Files are read from the opened Dataset root.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <FileSplitPanel

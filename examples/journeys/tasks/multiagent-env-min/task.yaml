@@ -1,4 +1,4 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: multiagent-env-min
 provenance:
   kind: reimplementation
@@ -11,11 +11,8 @@ provenance:
     claims:
     - protocol
     known_gaps:
-    - BORA journey mini-package; not full MultiAgentBench suite
+    - ageval journey mini-package; not full MultiAgentBench suite
     - no MultiAgentBenchAdapter; roles via profiles + env tools only
-harness:
-  runtime: python
-  entrypoint: harness:run
 parameters:
   harness_timeout_seconds: 900
   environment_resource: postgresql
@@ -25,9 +22,6 @@ parameters:
     reducer: reducer
   models:
     default: specialist
-provider:
-  kind: local
-  assurance: l0
 agent_profiles:
 - id: specialist
 - id: planner
@@ -35,19 +29,11 @@ agent_profiles:
 limits:
   wall_time_seconds: 900
   agent_invocations: 16
-  environment_actions: 20
 artifacts:
   publishable:
   - id: reducer-output
-    producer: harness
     path: artifacts/reducer-output.json
-    media_type: application/json
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
   - artifact: reducer-output
     target: artifacts/reducer-output.json
-  output:
-    format: json

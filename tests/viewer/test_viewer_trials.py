@@ -8,25 +8,25 @@ from pathlib import Path
 
 import pytest
 
-from bora.config.errors import ConfigError
-from bora.viewer import jobs, trials
+from ageval.config.errors import ConfigError
+from ageval.viewer import jobs, trials
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
-        "database_id": "test/suite-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/suite-min",
+        "dataset_version": "0.1.0",
         "agent_label": "codex",
         "model_label": "gpt-test",
         "provider_label": "openai",
-        "environment": "local",
+        "job_overlay": {"environment": "docker", "agent_profiles": {}},
         "created_at": "2026-07-14T19:46:20Z",
         "tasks": [
             {"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_alpha_1"},
@@ -53,7 +53,7 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
 
 
 def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
-    root = db / ".bora" / "runs" / run_id
+    root = db / ".ageval" / "runs" / run_id
     inv = root / "agent" / "invocations" / "0001-inv_test"
     inv.mkdir(parents=True, exist_ok=True)
     (root / "evaluation").mkdir(parents=True, exist_ok=True)
@@ -64,6 +64,8 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
             {
                 "task_id": task_id,
                 "digest": "sha256:deadbeef",
+                "environment": "e2b",
+                "job_overlay": {"environment": "e2b", "agent_profiles": {}},
                 "profiles": [
                     {
                         "id": "main",
@@ -84,6 +86,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
             {
                 "status": "PASS",
                 "score": 1.0,
+                "kind": "e2b",
                 "error": None,
                 "agent_invocations": 1,
                 "harness_kind": "completed",
@@ -96,11 +99,20 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
     (root / "summary.json").write_text(
         json.dumps(
             {
-                "schema": "bora.evidence.summary/1",
+                "schema": "ageval.evidence.summary/1",
                 "run_id": run_id,
                 "status": "PASS",
                 "score": 1.0,
                 "agent_invocations": 1,
+                "phase_timing": {
+                    "schema": "ageval.phase_timing/1",
+                    "phases": [
+                        {"id": "run", "label": "Agent Execution", "duration_ms": 4500.0},
+                    ],
+                    "total_ms": 4500.0,
+                    "started_at": "2026-08-20T10:00:00Z",
+                    "finished_at": "2026-08-20T10:00:04Z",
+                },
             },
             indent=2,
         )
@@ -118,6 +130,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
         json.dumps(
             {
                 "invocation_id": "inv_test",
+                "session_id": "sess_test",
                 "profile_id": "main",
                 "executor_kind": "acp",
                 "model": "test-model",
@@ -130,20 +143,29 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
         encoding="utf-8",
     )
     traj = [
-        {"type": "turn", "role": "user", "content": "hello", "turn_index": 1, "source": "bora"},
+        {
+            "type": "turn",
+            "role": "user",
+            "content": "hello",
+            "turn_index": 1,
+            "source": "ageval",
+            "session_id": "sess_test",
+        },
         {
             "type": "turn",
             "role": "assistant",
             "content": "world",
             "turn_index": 1,
             "source": "acp",
+            "session_id": "sess_test",
         },
         {
             "type": "terminal",
             "ok": True,
             "stop_reason": "end_turn",
-            "source": "bora",
+            "source": "ageval",
             "turn_index": 1,
+            "session_id": "sess_test",
             "usage": {
                 "input_tokens": 100,
                 "output_tokens": 20,
@@ -155,7 +177,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
             },
         },
     ]
-    (inv / "trajectory.jsonl").write_text(
+    (inv.parent.parent.parent / "trajectory.jsonl").write_text(
         "\n".join(json.dumps(x) for x in traj) + "\n", encoding="utf-8"
     )
     (inv / "final-response.json").write_text(
@@ -166,7 +188,7 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
 
 def _clean_db(tmp_path: Path) -> Path:
     db = tmp_path / "db"
-    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".bora"))
+    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".ageval"))
     return db
 
 
@@ -190,7 +212,9 @@ def test_resolve_and_trial_detail(tmp_path: Path) -> None:
     assert "lock" in tabs
     assert "runtime" in tabs
     assert detail["trial"].get("framework") == "acp"
-    assert detail["trial"].get("docker") is None
+    assert detail["trial"].get("environment") == "e2b"
+    assert detail["trial"].get("started") == "2026-08-20T10:00:00Z"
+    assert detail["trial"].get("duration") == "4.5s"
     actors = detail["trial"].get("actors") or []
     assert len(actors) == 1
     assert actors[0]["role"] == "main"
@@ -258,7 +282,7 @@ def test_trajectory_tool_call_and_observation_steps(tmp_path: Path) -> None:
         {"type": "turn", "role": "assistant", "content": "done", "turn_index": 1},
         {"type": "terminal", "ok": True, "turn_index": 1},
     ]
-    (inv / "trajectory.jsonl").write_text(
+    (inv.parent.parent.parent / "trajectory.jsonl").write_text(
         "\n".join(json.dumps(x) for x in traj) + "\n", encoding="utf-8"
     )
 
@@ -286,7 +310,9 @@ def test_tree_and_file_and_traversal(tmp_path: Path) -> None:
 
     tree = trials.trial_tree(db, job_id, "alpha", "run_alpha_1", scope="agent")
     paths = {e["path"] for e in tree["entries"]}
-    assert any("trajectory.jsonl" in p for p in paths)
+    # The agent scope holds the per-invocation record; the trajectory itself is
+    # one file at the Attempt root.
+    assert any("invocations" in p for p in paths)
 
     file_payload = trials.trial_file(
         db,
@@ -351,12 +377,12 @@ def test_missing_run_raises(tmp_path: Path) -> None:
 def test_get_trial_opens_previous_without_listing_it(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = "suite_amended"
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     suite_dir.mkdir(parents=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
-        "database_id": "test/suite-min",
+        "dataset_id": "test/suite-min",
         "tasks": [{"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_new"}],
         "attempts": [
             {
@@ -448,7 +474,7 @@ def test_missing_evidence_suite_row_ok(tmp_path: Path) -> None:
 
 def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
     """Two profiles, multiple invs; last usage per profile wins; old used-only shape."""
-    root = db / ".bora" / "runs" / run_id
+    root = db / ".ageval" / "runs" / run_id
     inv_root = root / "agent" / "invocations"
     inv_root.mkdir(parents=True, exist_ok=True)
     (root / "evaluation").mkdir(parents=True, exist_ok=True)
@@ -528,6 +554,7 @@ def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha")
             json.dumps(
                 {
                     "invocation_id": dirname.split("-", 1)[-1],
+                    "session_id": f"sess_{profile_id}",
                     "profile_id": profile_id,
                     "executor_kind": "acp",
                     "model": model,
@@ -542,19 +569,34 @@ def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha")
             "type": "terminal",
             "ok": True,
             "stop_reason": "end_turn",
-            "source": "bora",
+            "source": "ageval",
             "turn_index": 1,
+            "session_id": f"sess_{profile_id}",
         }
         if usage is not None:
             terminal["usage"] = usage
+        session = f"sess_{profile_id}"
         lines = [
-            {"type": "turn", "role": "user", "content": "hi", "turn_index": 1},
-            {"type": "turn", "role": "assistant", "content": "ok", "turn_index": 1},
+            {
+                "type": "turn",
+                "role": "user",
+                "content": "hi",
+                "turn_index": 1,
+                "session_id": session,
+            },
+            {
+                "type": "turn",
+                "role": "assistant",
+                "content": "ok",
+                "turn_index": 1,
+                "session_id": session,
+            },
             terminal,
         ]
-        (inv / "trajectory.jsonl").write_text(
-            "\n".join(json.dumps(x) for x in lines) + "\n", encoding="utf-8"
-        )
+        attempt_trajectory = inv.parent.parent.parent / "trajectory.jsonl"
+        with attempt_trajectory.open("a", encoding="utf-8") as handle:
+            for row in lines:
+                handle.write(json.dumps(row) + "\n")
     return root
 
 
@@ -621,7 +663,7 @@ def test_legacy_usage_cost_only_no_used_as_tokens(tmp_path: Path) -> None:
     """Old evidence with only {used,size,cost}: show cost, never used as tokens."""
     db = _clean_db(tmp_path)
     job_id = _seed_suite_run(db)
-    root = db / ".bora" / "runs" / "run_alpha_1"
+    root = db / ".ageval" / "runs" / "run_alpha_1"
     inv = root / "agent" / "invocations" / "0001-inv_x"
     inv.mkdir(parents=True, exist_ok=True)
     (root / "lock.json").write_text(
@@ -664,7 +706,9 @@ def test_legacy_usage_cost_only_no_used_as_tokens(tmp_path: Path) -> None:
             "sessionUpdate": "usage_update",
         },
     }
-    (inv / "trajectory.jsonl").write_text(json.dumps(terminal) + "\n", encoding="utf-8")
+    (inv.parent.parent.parent / "trajectory.jsonl").write_text(
+        json.dumps(terminal) + "\n", encoding="utf-8"
+    )
 
     detail = trials.get_trial(db, job_id, "alpha", "run_alpha_1")
     actor = (detail["trial"].get("actors") or [])[0]

@@ -1,4 +1,4 @@
-# BORA Website Design System
+# ageval Website Design System
 
 本文档是 `website/` 的视觉与交互规范。
 
@@ -9,7 +9,7 @@
 ### 产品气质
 
 - 面向 benchmark 作者、研究工程师和 Agent infrastructure 团队。
-- **Landing** 使用深色冷墨 + Anton 字标 + Geist / Noto Sans SC + 切角按钮。
+- **Landing** 使用深色冷墨 + Anton 字标 + Geist / Noto Sans SC + 圆角按钮。
 - **文档阅读层** 使用同一套克莱因蓝与冷墨中性色；标题与正文都走 Geist / Noto Sans SC，不再用衬线。
 - 装饰服从信息，不使用生成插画、拟真场景图或无语义的发光背景。
 
@@ -36,7 +36,7 @@
 | `accent-deep` | `#001f73` | `#8aa0ff` | hover / active |
 | `dark`（landing 底） | `#11141c` | `#0c0e14` | landing 深色面 |
 
-参考：`bora-ppt` 的 IKB 主题；viewer / hub 的冷灰 ink 仅作对比，不把 viewer link 蓝搬进本站。
+参考：IKB / Klein Blue 主题（#002FA7 / #5B7BFF）；viewer / hub 的冷灰 ink 仅作对比，不把 viewer link 蓝搬进本站。
 
 ### 使用规则
 

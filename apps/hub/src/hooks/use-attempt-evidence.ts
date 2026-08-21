@@ -6,6 +6,7 @@ import {
   firstTab,
   invDirFromTrajPath,
   parseTrajectoryJsonl,
+  trajectoryRelPaths,
   scopeForTab,
   toArchivePath,
   toRelPath,
@@ -199,14 +200,7 @@ export function useAttemptEvidence(
       setSteps([]);
       (async () => {
         try {
-          const trajPaths = relFiles
-            .map((f) => f.path)
-            .filter(
-              (p) =>
-                p.startsWith("agent/invocations/") &&
-                p.endsWith("/trajectory.jsonl"),
-            )
-            .sort();
+          const trajPaths = trajectoryRelPaths(relFiles.map((f) => f.path));
           const all: TrajectoryStep[] = [];
           for (const rel of trajPaths) {
             if (all.length >= 2000) break;
@@ -235,9 +229,7 @@ export function useAttemptEvidence(
           if (cancelled) return;
           setSteps(all);
           setTrajNote(
-            all.length
-              ? null
-              : "No trajectory.jsonl steps under agent/invocations/.",
+            all.length ? null : "No trajectory.jsonl steps for this Attempt.",
           );
         } catch (e) {
           if (!cancelled) {
@@ -313,10 +305,10 @@ export function useAttemptEvidence(
   }, [selectedPath, runId, token]);
 
   const runCommand = useMemo(() => {
-    const db = meta?.database_id;
+    const db = meta?.dataset_id;
     const t = trial?.task_id || taskId;
-    if (db && t) return `bora run registry://${db} --task ${t}`;
-    if (t) return `bora run <database> --task ${t}`;
+    if (db && t) return `ageval run registry://${db} --task ${t}`;
+    if (t) return `ageval run <dataset> --task ${t}`;
     return "";
   }, [meta, trial, taskId]);
 

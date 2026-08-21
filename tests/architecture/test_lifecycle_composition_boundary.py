@@ -22,10 +22,10 @@ def test_src_does_not_import_tests() -> None:
 
 
 def test_composition_has_no_lifecycle_double() -> None:
-    composition = (SRC / "bora" / "application" / "composition.py").read_text(encoding="utf-8")
+    composition = (SRC / "ageval" / "application" / "composition.py").read_text(encoding="utf-8")
     assert "ScriptedLifecycleStages" not in composition
     assert "lifecycle_stages" not in composition
-    cli = SRC / "bora" / "cli"
+    cli = SRC / "ageval" / "cli"
     offenders: list[str] = []
     for path in cli.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
@@ -37,7 +37,7 @@ def test_composition_has_no_lifecycle_double() -> None:
 def test_cli_has_lock_and_run() -> None:
     from typer.testing import CliRunner
 
-    from bora.cli.main import app
+    from ageval.cli.main import app
 
     result = CliRunner().invoke(app, ["--help"])
     assert result.exit_code == 0

@@ -11,7 +11,7 @@ The evaluator owns **scoring and truth** — no agent start, no host secrets. PA
 artifacts:
   publishable:
     - id: session-output
-      producer: harness
+      producer: run
       path: artifacts/session-output.json
       media_type: application/json
 
@@ -19,7 +19,7 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
-  # tmpfs_mb: 256   # optional L1 clean-eval /tmp (MiB); omit → 32. Not limits.*
+  # tmpfs_mb: 256   # optional in-box evaluator /tmp (MiB); omit → 32. Not limits.*
   inputs:
     - artifact: session-output
       target: artifacts/session-output.json
@@ -29,9 +29,9 @@ evaluation:
 
 | Point | Note |
 | --- | --- |
-| Barrier | Inputs materialize after harness ends |
-| Gold | Under `evaluation/`; omitting yaml paths ≠ isolation |
-| Artifact ids | Must match files the harness actually writes |
-| `tmpfs_mb` | L1 clean-eval `/tmp` only; omit → 32 MiB. Declare a larger sandbox on the **task**, not under `limits` |
+| Barrier | Inputs materialize after `run.py` ends |
+| Gold | Under `evaluation/`; uploaded at evaluate |
+| Artifact ids | Must match files `run.py` actually writes |
+| `tmpfs_mb` | In-box evaluator `/tmp` only; omit → 32 MiB. Declare a larger sandbox on the **task**, not under `limits` |
 
-Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).
+The in-box `evaluator.py` is launched by the exclusive-slot `evaluation_runtime` default winner via `host.exec`. PASS still binds only in the engine. Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).

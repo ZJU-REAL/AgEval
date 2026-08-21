@@ -5,7 +5,7 @@ export type JobPref = {
   note: string;
 };
 
-const STORAGE_KEY = "bora-viewer-job-prefs";
+const STORAGE_KEY = "ageval-viewer-job-prefs";
 
 type Store = Record<string, Record<string, JobPref>>;
 
@@ -13,8 +13,8 @@ export function emptyJobPref(): JobPref {
   return { pinned: false, note: "" };
 }
 
-export function prefsScope(databaseId: string | null | undefined): string {
-  const text = (databaseId || "").trim();
+export function prefsScope(datasetId: string | null | undefined): string {
+  const text = (datasetId || "").trim();
   return text || "_";
 }
 
@@ -42,8 +42,8 @@ function writeStore(store: Store): void {
   }
 }
 
-export function loadJobPrefs(databaseId: string): Record<string, JobPref> {
-  const scope = prefsScope(databaseId);
+export function loadJobPrefs(datasetId: string): Record<string, JobPref> {
+  const scope = prefsScope(datasetId);
   const bucket = readStore()[scope];
   if (!bucket || typeof bucket !== "object") return {};
   const out: Record<string, JobPref> = {};
@@ -58,10 +58,10 @@ export function loadJobPrefs(databaseId: string): Record<string, JobPref> {
 }
 
 export function saveJobPrefs(
-  databaseId: string,
+  datasetId: string,
   prefs: Record<string, JobPref>,
 ): void {
-  const scope = prefsScope(databaseId);
+  const scope = prefsScope(datasetId);
   const store = readStore();
   const bucket: Record<string, JobPref> = {};
   for (const [jobId, pref] of Object.entries(prefs)) {

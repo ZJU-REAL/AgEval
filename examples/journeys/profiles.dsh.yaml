@@ -1,21 +1,13 @@
-# Journeys profiles bound to external dsh plugin (DeepSeek Harness JSON-RPC).
-# Usage:
-#   uv run bora plugin install plugins/dsh
-#   # repo/.env should define deepseek_api_key (projected as DEEPSEEK_API_KEY)
-#   uv run bora run examples/journeys --task terminal-jsonl-agg \
-#     --profiles examples/journeys/profiles.dsh.yaml
-# File-effect policy: profiles.dsh.read-only.yaml, or
-#   --set '/bindings/solver/options/permission="read-only"'
-#
-# api_key = ${ENV_NAME} locator (never a secret value).
-# Same harness as ACP / nooa — only the job binding changes.
-format: bora.profiles/1
-bindings:
+format: ageval.profiles/1
+environment: docker
+agent_profiles:
   solver:
     executor: dsh
     extensions:
-      - plugin: dsh
-        options:
-          composition: slim
-    model: deepseek-v4-flash
-    api_key: ${deepseek_api_key}
+    - plugin: dsh
+      options:
+        composition: slim
+    - plugin: docker
+    model: dashscope/deepseek-v4-flash
+    api_key: ${litellm_api_key}
+    base_url: ${litellm_base_url}

@@ -13,7 +13,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 DATABASE = REPO / "examples" / "core"
 TASK_DIR = DATABASE / "tasks" / "attempt-trajectory"
-PACKAGE = DATABASE  # CLI path = Database root
+PACKAGE = DATABASE  # CLI path = Dataset root
 
 
 def _run_cli(
@@ -26,7 +26,7 @@ def _run_cli(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(PACKAGE),
             "--task",
@@ -43,7 +43,7 @@ def _run_cli(
 
 
 def test_offline_trajectory_not_pass() -> None:
-    result = _run_cli(env={"BORA_OFFLINE_AGENT": "1"}, timeout=120)
+    result = _run_cli(env={"AGEVAL_OFFLINE_AGENT": "1"}, timeout=120)
     assert result.returncode != 0
     # stdout may be empty on some failures; prefer last JSON line
     lines = [ln for ln in (result.stdout or "").splitlines() if ln.strip().startswith("{")]
@@ -56,8 +56,8 @@ def test_partial_failure_force_hook_no_pseudo_pass() -> None:
     """Second invoke forced fail → partial evidence, status not PASS, no final-response."""
     result = _run_cli(
         env={
-            "BORA_FORCE_INVOCATION_ERROR": "timeout",
-            "BORA_FORCE_INVOCATION_N": "2",
+            "AGEVAL_FORCE_INVOCATION_ERROR": "timeout",
+            "AGEVAL_FORCE_INVOCATION_N": "2",
         },
         timeout=300,
     )
@@ -83,7 +83,7 @@ def test_partial_failure_force_hook_no_pseudo_pass() -> None:
 
 
 @pytest.mark.skipif(
-    os.environ.get("BORA_SKIP_REAL_CODEX") == "1",
+    os.environ.get("AGEVAL_SKIP_REAL_CODEX") == "1",
     reason="skip real multi-invoke trajectory",
 )
 def test_success_multi_invoke_trajectory_tree() -> None:

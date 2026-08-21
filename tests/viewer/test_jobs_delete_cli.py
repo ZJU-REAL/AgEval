@@ -1,4 +1,4 @@
-"""CLI ``bora jobs delete`` uses the local Job delete use case."""
+"""CLI ``ageval jobs delete`` uses the local Job delete use case."""
 
 from __future__ import annotations
 
@@ -8,21 +8,21 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from bora.cli.main import app
+from ageval.cli.main import app
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _clean_db(tmp_path: Path) -> Path:
     db = tmp_path / "db"
-    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".bora"))
+    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".ageval"))
     return db
 
 
 def test_cli_jobs_delete_requires_yes(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
-    evidence = db / ".bora" / "runs" / "run_cli_single"
+    evidence = db / ".ageval" / "runs" / "run_cli_single"
     evidence.mkdir(parents=True)
     (evidence / "result.json").write_text(
         json.dumps({"task_id": "alpha", "status": "PASS", "score": 1.0}) + "\n",
@@ -52,12 +52,12 @@ def test_cli_jobs_delete_requires_yes(tmp_path: Path) -> None:
 
 def test_cli_jobs_delete_suite_cascade(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
-    suite_dir = db / ".bora" / "suite-runs" / "suite_cli"
+    suite_dir = db / ".ageval" / "suite-runs" / "suite_cli"
     suite_dir.mkdir(parents=True)
     (suite_dir / "summary.json").write_text(
         json.dumps(
             {
-                "schema": "bora.suite.summary/1",
+                "schema": "ageval.suite.summary/1",
                 "suite_run_id": "suite_cli",
                 "task_refs": [
                     {
@@ -72,7 +72,7 @@ def test_cli_jobs_delete_suite_cascade(tmp_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
-    attempt = db / ".bora" / "runs" / "run_cli_a"
+    attempt = db / ".ageval" / "runs" / "run_cli_a"
     attempt.mkdir(parents=True)
     (attempt / "result.json").write_text(
         json.dumps({"task_id": "alpha", "status": "PASS", "score": 1.0}) + "\n",

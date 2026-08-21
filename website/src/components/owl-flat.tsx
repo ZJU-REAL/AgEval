@@ -113,7 +113,7 @@ export function OwlFlatPlate({
   );
 }
 
-/** Full-body owl + BORA wordmark, `currentColor` (`lockup-flat.svg`). */
+/** Full-body owl + ageval wordmark, `currentColor` (`lockup-flat.svg`). */
 export function OwlFlatLockup({ className }: OwlFlatProps) {
   return (
     <svg
@@ -135,7 +135,7 @@ export function OwlFlatLockup({ className }: OwlFlatProps) {
         fontWeight={600}
         letterSpacing="0.14em"
       >
-        BORA
+        ageval
       </text>
     </svg>
   );

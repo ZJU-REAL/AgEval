@@ -9,17 +9,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite.suite_run import (
+from ageval.application.suite.suite_run import (
     execute_suite_run,
     get_inflight_peak,
     plan_suite_run,
     planned_units,
     reset_inflight_metrics,
 )
-from bora.config.errors import ConfigError
+from ageval.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def test_plan_n_attempts_default_and_reject() -> None:
@@ -49,7 +49,7 @@ async def test_always_k_produces_k_attempts() -> None:
     async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         calls.append(task_id)
         run_id = f"sha256_dead_run_{task_id}_{len(calls)}"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         # 2 pass, 1 fail across 3 calls
         status = "PASS" if len(calls) <= 2 else "FAIL"
@@ -60,7 +60,7 @@ async def test_always_k_produces_k_attempts() -> None:
             logs=str(abs_run),
         )
         code = 0 if status == "PASS" else 1
-        return code, result, {"digest": "sha256:x", "run_dir": str(abs_run)}
+        return code, result
 
     summary = await execute_suite_run(plan, run_fn=runner)
     assert len(calls) == 3
@@ -96,7 +96,7 @@ async def test_parallel_does_not_change_k() -> None:
     async def slow(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         await asyncio.sleep(0.08)
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
-        return 0, result, {"digest": "sha256:x"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=slow)
     assert len(summary["attempts"]) == 4
@@ -114,7 +114,7 @@ async def test_resume_skips_completed_and_appends() -> None:
         call_n["n"] += 1
         i = call_n["n"]
         run_id = f"sha256_dead_run_alpha_{i}"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",
@@ -122,7 +122,7 @@ async def test_resume_skips_completed_and_appends() -> None:
             evidence_path=str(abs_run),
             logs=str(abs_run),
         )
-        return 0, result, {"digest": f"sha256:{i}", "run_dir": str(abs_run)}
+        return 0, result
 
     first = await execute_suite_run(plan, run_fn=runner)
     assert len(first["attempts"]) == 2
@@ -158,7 +158,7 @@ async def test_resume_other_tasks_preserved() -> None:
 
     async def runner(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         run_id = f"sha256_dead_run_{task_id}"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",
@@ -166,7 +166,7 @@ async def test_resume_other_tasks_preserved() -> None:
             evidence_path=str(abs_run),
             logs=str(abs_run),
         )
-        return 0, result, {"digest": f"sha256:{task_id}", "run_dir": str(abs_run)}
+        return 0, result
 
     first = await execute_suite_run(plan, run_fn=runner)
     suite_id = first["suite_run_id"]
@@ -182,7 +182,7 @@ async def test_resume_other_tasks_preserved() -> None:
     async def runner2(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         call_tasks.append(task_id)
         run_id = f"sha256_dead_run_{task_id}_extra"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",
@@ -190,7 +190,7 @@ async def test_resume_other_tasks_preserved() -> None:
             evidence_path=str(abs_run),
             logs=str(abs_run),
         )
-        return 0, result, {"digest": "sha256:extra", "run_dir": str(abs_run)}
+        return 0, result
 
     second = await execute_suite_run(plan_alpha, run_fn=runner2, resume=True)
     task_ids_present = {a["task_id"] for a in second["attempts"]}

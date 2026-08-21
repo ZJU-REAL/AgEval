@@ -32,7 +32,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
   const text = landingCopy[lang];
 
   return (
-    <div className="bora-landing">
+    <div className="ageval-landing">
       <a className="skip" href="#main">
         {text.skip}
       </a>
@@ -281,22 +281,22 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                   <span className="num">01</span> {text.pluginCode.coreTag}
                 </p>
                 <pre className="code-panel" tabIndex={0}>
-                  <span className="cc"># src/bora/plugins/slots.py</span>
+                  <span className="cc"># src/ageval/plugins/slots.py</span>
                   {"\n"}
                   <span className="ck">class</span> SlotKind(StrEnum):{"\n"}
-                  {"    "}MULTI = <span className="cs">&quot;multi&quot;</span>
+                  {"    "}CHAIN = <span className="cs">&quot;chain&quot;</span>
                   {"      "}
-                  <span className="cc"># 有序链 (ctx, value, next)</span>
+                  <span className="cc"># (ctx, value, nxt)</span>
                   {"\n"}
-                  {"    "}PROVIDE = <span className="cs">&quot;provide&quot;</span>
+                  {"    "}EXCLUSIVE = <span className="cs">&quot;exclusive&quot;</span>
                   {"  "}
-                  <span className="cc"># 单赢家</span>
+                  <span className="cc"># 一个赢家</span>
                   {"\n\n"}
-                  EXECUTOR: Final = <span className="cs">&quot;executor&quot;</span>
+                  ENVIRONMENT: Final = <span className="cs">&quot;environment&quot;</span>
                   {"\n"}
-                  BEFORE_AGENT_INVOKE: Final = <span className="cs">&quot;before_agent_invoke&quot;</span>
+                  EXECUTOR: Final = <span className="cs">&quot;executor&quot;</span>
                   {"\n\n"}
-                  <span className="cc"># src/bora/plugins/protocol.py</span>
+                  <span className="cc"># src/ageval/environments/protocol.py</span>
                   {"\n"}
                   <span className="ck">class</span> ExecutorSPI(Protocol):{"\n"}
                   {"    "}kind: str{"\n"}
@@ -317,7 +317,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                 <pre className="code-panel" tabIndex={0}>
                   <span className="cc"># plugins/dsh/plugin.yaml</span>
                   {"\n"}
-                  <span className="ck">format:</span> bora.plugin/1{"\n"}
+                  <span className="ck">format:</span> ageval.plugin/1{"\n"}
                   <span className="ck">plugin_id:</span> dsh{"\n"}
                   <span className="ck">host_requires:</span>
                   {"\n"}
@@ -325,35 +325,27 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
                   <span className="ck">slots:</span>
                   {"\n"}
                   {"  "}
-                  <span className="ck">provide:</span>
+                  <span className="ck">exclusive:</span>
                   {"\n"}
                   {"    "}- <span className="ck">id:</span> executor{"\n"}
                   {"      "}
                   <span className="ck">entry:</span> <span className="cs">&quot;dsh_plugin.factory:build_executor&quot;</span>
                   {"\n"}
-                  {"  "}
-                  <span className="cs">&quot;on&quot;</span>:{"\n"}
-                  {"    "}- <span className="ck">id:</span> image_contribute{"\n"}
-                  {"    "}- <span className="ck">id:</span> trajectory_collect
+                  <span className="ck">inject:</span>
+                  {"\n"}
+                  {"  "}- <span className="ck">service:</span> environment{"\n"}
+                  {"    "}
+                  <span className="ck">capabilities:</span> [exec, upload]
                 </pre>
                 <pre className="code-panel mini" tabIndex={0}>
-                  <span className="cc"># plugins/dsh/src/dsh_plugin/factory.py</span>
+                  <span className="cc"># plugins/dsh — parent never imports the harness</span>
                   {"\n"}
-                  <span className="ck">DEFAULT_MODEL</span> = <span className="cs">&quot;deepseek-v4-flash&quot;</span>
+                  <span className="ck">def</span> build_executor(*, host, placement, **kw) -&gt; DshBoxExecutor:{"\n"}
+                  {"    "}
+                  <span className="ck">return</span> DshBoxExecutor(host=host, placement=placement, **kw)
                   {"\n\n"}
-                  <span className="ck">def</span> build_executor(**kwargs) -&gt; DshExecutorSPI:{"\n"}
-                  {"    "}
-                  <span className="ck">return</span> DshExecutorSPI(**kwargs){"\n\n"}
-                  <span className="ck">class</span> DshExecutorSPI:{"\n"}
-                  {"    "}kind = <span className="cs">&quot;dsh&quot;</span>
-                  {"\n"}
-                  {"    "}
-                  <span className="ck">def</span> bind_to_target(self, placement):{"\n"}
-                  {"        "}
-                  <span className="cc"># L1:接进 Core 拥有的容器</span>
-                  {"\n"}
-                  {"        "}
-                  <span className="ck">return</span> DshContainerExecutor(...)
+                  <span className="ck">await</span> host.upload(worker, <span className="cs">&quot;/attempt/home/_dsh/…&quot;</span>){"\n"}
+                  <span className="ck">await</span> host.exec([*host.python_command, worker, request], env=creds)
                 </pre>
               </div>
             </div>
@@ -452,7 +444,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
         <div className="wrap foot">
           <div>
             <a className="logo" href="#top">
-              BORA<span>.</span>
+              ageval<span>.</span>
             </a>
             <p>{text.footer.body}</p>
           </div>

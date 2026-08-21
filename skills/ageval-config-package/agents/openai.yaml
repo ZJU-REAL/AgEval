@@ -1,0 +1,4 @@
+interface:
+  display_name: "ageval Config Package"
+  short_description: "ageval.yaml and package layout rules"
+  default_prompt: "Use $ageval-config-package to author or review a Task Package ageval.yaml without secrets or ownership violations."

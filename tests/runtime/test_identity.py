@@ -6,8 +6,8 @@ import re
 
 import pytest
 
-from bora.runtime.errors import LifecycleError
-from bora.runtime.identity import IdentityFactory
+from ageval.runtime.errors import LifecycleError
+from ageval.runtime.identity import IdentityFactory
 
 
 def test_default_prefixes() -> None:

@@ -17,7 +17,7 @@ DEFAULT_UPLOAD_SLOTS = 4
 
 
 def slots_from_env(*, default: int = DEFAULT_UPLOAD_SLOTS) -> int:
-    raw = (os.environ.get("BORA_REGISTRY_UPLOAD_SLOTS") or "").strip()
+    raw = (os.environ.get("AGEVAL_REGISTRY_UPLOAD_SLOTS") or "").strip()
     if not raw:
         return default
     try:

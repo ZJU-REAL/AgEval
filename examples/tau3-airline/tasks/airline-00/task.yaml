@@ -1,4 +1,4 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: airline-00
 provenance:
   kind: port
@@ -7,20 +7,17 @@ provenance:
     url: https://github.com/sierra-research/tau2-bench
     ref: v1.0.1
     commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
-    task_id: "0"
+    task_id: '0'
     paper: https://arxiv.org/abs/2506.07982
   parity:
     claims:
-      - protocol
-      - scoring
+    - protocol
+    - scoring
     known_gaps:
-      - "BORA ACP dual-agent loop; not tau2 litellm runner"
-      - "Host must provide tau2==1.0.1 for tools/DB when package-local data omitted"
-harness:
-  runtime: python
-  entrypoint: harness:run
+    - ageval ACP dual-agent loop; not tau2 litellm runner
+    - Host must provide tau2==1.0.1 for tools/DB when package-local data omitted
 parameters:
-  upstream_task_id: "0"
+  upstream_task_id: '0'
   harness_timeout_seconds: 1200
   max_user_turns: 12
   max_service_steps: 40
@@ -29,28 +26,17 @@ parameters:
     service: service
   models:
     default: service
-provider:
-  kind: local
-  assurance: l0
 agent_profiles:
-  - id: user
-  - id: service
+- id: user
+- id: service
 limits:
   wall_time_seconds: 1200
   agent_invocations: 80
-  environment_actions: 0
 artifacts:
   publishable:
-    - id: simulation
-      producer: harness
-      path: artifacts/simulation.json
-      media_type: application/json
+  - id: simulation
+    path: artifacts/simulation.json
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
-    - artifact: simulation
-      target: artifacts/simulation.json
-  output:
-    format: json
+  - artifact: simulation
+    target: artifacts/simulation.json

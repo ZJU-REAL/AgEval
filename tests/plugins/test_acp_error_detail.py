@@ -7,7 +7,7 @@ executor surfaced only ``acp_protocol_error``.
 
 from __future__ import annotations
 
-from bora.plugins.contrib.acp.executor import AcpExecutor
+from ageval.plugins.contrib.acp.executor import AcpExecutor
 
 
 class _RequestErrorLike(Exception):
@@ -38,19 +38,3 @@ def test_exc_detail_truncates_long_payloads() -> None:
     exc = _RequestErrorLike("Internal error", {"details": "x" * 1000})
     detail = AcpExecutor._exc_detail(exc)
     assert detail is not None and len(detail) == 300
-
-
-def test_spi_creates_pointed_home_subdirs(tmp_path) -> None:
-    """codex exits 1 when CODEX_HOME points at a missing dir (live-eval find)."""
-    from bora.plugins.contrib.acp import AcpExecutorSPI
-
-    home = tmp_path / "attempt-home"
-    home.mkdir()
-    AcpExecutorSPI(
-        options={"entry": "codex"},
-        profile_id="solver",
-        model="entry-default",
-        home=str(home),
-    )
-    for sub in (".codex", ".config", ".cache", ".local/state", ".local/share"):
-        assert (home / sub).is_dir(), sub

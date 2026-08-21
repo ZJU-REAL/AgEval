@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { OverlayFilePanel } from "@/components/overlay-file-panel";
@@ -18,15 +18,16 @@ import { VersionSwitcher } from "@/components/version-switcher";
 import {
   decodeDatasetId,
   decodeFileContent,
+  environmentFromOverlay,
   getPackageFile,
   hasSharedFiles,
+  listAttempts,
   listPackageFiles,
   listPackageVersions,
   listSuites,
   pickPackageVersion,
   type FileItem,
   type PackageRelease,
-  type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
@@ -34,7 +35,13 @@ import { buildNestedTree, overlayPathsFromProfilesYaml, type TreeNode } from "@/
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
-import { cn, formatDate, formatScore, reasoningEffortFromOverlay } from "@/lib/utils";
+import {
+  cn,
+  displayLabelsFromOverlay,
+  formatDate,
+  formatScore,
+  reasoningEffortFromOverlay,
+} from "@/lib/utils";
 
 type Tab = "readme" | "files" | "jobs";
 type FilesScope = "local" | "shared" | "overlays";
@@ -42,17 +49,24 @@ type FilesScope = "local" | "shared" | "overlays";
 function FilesScopeSwitch({
   filesScope,
   onChange,
+  localPresent,
+  sharedPresent,
   overlaysPresent,
 }: {
   filesScope: FilesScope;
   onChange: (next: FilesScope) => void;
+  localPresent: boolean;
+  sharedPresent: boolean;
   overlaysPresent: boolean;
 }) {
   const items: Array<[FilesScope, string]> = [
-    ["local", "Local"],
-    ["shared", "Shared"],
-    ...(overlaysPresent ? ([["overlays", "Overlays"]] as Array<[FilesScope, string]>) : []),
+    ...(localPresent ? ([["local", "Local"]] as Array<[FilesScope, string]>) : []),
+    ...(sharedPresent ? ([["shared", "Shared"]] as Array<[FilesScope, string]>) : []),
+    ...(overlaysPresent
+      ? ([["overlays", "Overlays"]] as Array<[FilesScope, string]>)
+      : []),
   ];
+  if (items.length < 2) return null;
   return (
     <div
       className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
@@ -102,12 +116,14 @@ export function TaskDetailPage() {
   const [readme, setReadme] = useState<string | null>(null);
   const [jobs, setJobs] = useState<
     Array<{
-      suite_run_id: string;
+      job_id: string;
+      job_kind: "suite" | "attempt";
       status?: string | null;
       score?: number | null;
       agent_label?: string;
       model_label?: string;
       reasoning_effort?: string;
+      environment?: string | null;
       created_at?: number | string;
       run_id?: string | null;
       has_attempt_content?: boolean;
@@ -119,6 +135,14 @@ export function TaskDetailPage() {
   const localPrefix = `tasks/${taskId}`;
   const prefix = filesScope === "shared" ? "shared" : localPrefix;
   const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
+  const localPresent = useMemo(
+    () =>
+      fileItems.some(
+        (item) =>
+          item.path === localPrefix || item.path.startsWith(`${localPrefix}/`),
+      ),
+    [fileItems, localPrefix],
+  );
   const overlaysPresent = overlayPrefixes.length > 0;
 
   useEffect(() => {
@@ -202,25 +226,50 @@ export function TaskDetailPage() {
         }
 
         try {
-          const suites: SuiteRow[] = await listSuites(datasetId, token);
+          const [suites, attempts] = await Promise.all([
+            listSuites(datasetId, token),
+            listAttempts(datasetId, token, { taskId, standalone: true }),
+          ]);
           if (cancelled) return;
           const rows: typeof jobs = [];
           for (const s of suites) {
             const refs = s.task_refs || [];
             const hit = refs.find((r) => r.task_id === taskId);
             if (!hit) continue;
+            const derived = displayLabelsFromOverlay(s.job_overlay);
             rows.push({
-              suite_run_id: s.suite_run_id,
+              job_id: s.suite_run_id,
+              job_kind: "suite",
               status: hit.status,
               score: hit.score,
-              agent_label: s.agent_label,
-              model_label: s.model_label,
+              agent_label: derived.agent || s.agent_label,
+              model_label: derived.model || s.model_label,
               reasoning_effort: reasoningEffortFromOverlay(s.job_overlay),
+              environment: environmentFromOverlay(s.job_overlay),
               created_at: s.created_at,
               run_id: hit.run_id ?? null,
               has_attempt_content: Boolean(hit.has_attempt_content),
             });
           }
+          for (const a of attempts) {
+            rows.push({
+              job_id: a.run_id,
+              job_kind: "attempt",
+              status: a.status,
+              score: a.score ?? null,
+              agent_label: a.agent_label,
+              model_label: a.model_label,
+              environment: a.environment || null,
+              created_at: a.created_at,
+              run_id: a.run_id,
+              has_attempt_content: true,
+            });
+          }
+          rows.sort((left, right) => {
+            const lt = Date.parse(String(left.created_at ?? "")) || Number(left.created_at) || 0;
+            const rt = Date.parse(String(right.created_at ?? "")) || Number(right.created_at) || 0;
+            return rt - lt;
+          });
           setJobs(rows);
         } catch {
           if (!cancelled) setJobs([]);
@@ -269,6 +318,18 @@ export function TaskDetailPage() {
   }, [filesScope, fileItems, localPrefix]);
 
   useEffect(() => {
+    const available: FilesScope[] = [];
+    if (localPresent) available.push("local");
+    if (sharedPresent) available.push("shared");
+    if (overlaysPresent) available.push("overlays");
+    if (!available.length) {
+      if (filesScope !== "local") setFilesScope("local");
+      return;
+    }
+    if (!available.includes(filesScope)) setFilesScope(available[0]);
+  }, [filesScope, localPresent, overlaysPresent, sharedPresent]);
+
+  useEffect(() => {
     if (!release || !selectedPath || filesScope === "overlays") {
       setFileContent(null);
       return;
@@ -308,8 +369,8 @@ export function TaskDetailPage() {
   }, [datasetId, filesScope, release, selectedPath, token]);
 
   const runCmd = useMemo(() => {
-    if (!release) return `bora run ${datasetId} --task ${taskId}`;
-    return `bora run registry://${datasetId}@${release.version} --task ${taskId}`;
+    if (!release) return `ageval run ${datasetId} --task ${taskId}`;
+    return `ageval run registry://${datasetId}@${release.version} --task ${taskId}`;
   }, [datasetId, release, taskId]);
 
   function setTab(next: Tab) {
@@ -325,11 +386,23 @@ export function TaskDetailPage() {
     setSearch(n, { replace: true });
   }
 
+  const filesScopeSwitch =
+    [localPresent, sharedPresent, overlaysPresent].filter(Boolean).length >= 2 ? (
+      <FilesScopeSwitch
+        filesScope={filesScope}
+        onChange={setFilesScope}
+        localPresent={localPresent}
+        sharedPresent={sharedPresent}
+        overlaysPresent={overlaysPresent}
+      />
+    ) : undefined;
+
   return (
     <>
-      <BreadcrumbNav
-        items={[
-          { label: "Datasets", href: "/datasets" },
+      <CatalogHead
+        title="Your datasets"
+        crumbs={[
+          { label: "Your datasets", href: "/datasets" },
           {
             label: datasetId,
             href: `/datasets/${encodeURIComponent(datasetId)}${
@@ -338,7 +411,6 @@ export function TaskDetailPage() {
           },
           { label: taskId },
         ]}
-        className="mb-4"
       />
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -401,20 +473,12 @@ export function TaskDetailPage() {
 
       {tab === "files" ? (
         filesScope === "overlays" && release && overlaysPresent ? (
-          <div className="space-y-2">
-            <div className="flex justify-end">
-              <FilesScopeSwitch
-                filesScope={filesScope}
-                onChange={setFilesScope}
-                overlaysPresent={overlaysPresent}
-              />
-            </div>
-            <OverlayFilePanel
-              databaseId={datasetId}
-              packageDigest={release.package_digest}
-              prefixes={overlayPrefixes}
-            />
-          </div>
+          <OverlayFilePanel
+            datasetId={datasetId}
+            packageDigest={release.package_digest}
+            prefixes={overlayPrefixes}
+            headerEnd={filesScopeSwitch}
+          />
         ) : (
         <FileSplitPanel
           tree={tree}
@@ -433,13 +497,7 @@ export function TaskDetailPage() {
               : fileNote
           }
           rootPrefix={prefix}
-          headerEnd={
-            <FilesScopeSwitch
-              filesScope={filesScope}
-              onChange={setFilesScope}
-              overlaysPresent={overlaysPresent}
-            />
-          }
+          headerEnd={filesScopeSwitch}
         />
         )
       ) : null}
@@ -449,31 +507,33 @@ export function TaskDetailPage() {
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
             <p className="text-sm text-ink font-medium">No Jobs for this task</p>
             <p className="text-sm text-mute">
-              Upload suite results after a suite run. Full Attempt evidence is
-              optional — add{" "}
-              <code className="font-mono">--with-attempts</code> when you want
-              Jobs to open a read-only evidence browser.
+              Upload a standalone Attempt after{" "}
+              <code className="font-mono">ageval run --task</code>, or a suite
+              after a full dataset run. Add{" "}
+              <code className="font-mono">--with-attempts</code> on suite upload
+              when you want the row to open evidence.
             </p>
             <CommandStrip
-              command={`bora results upload-suite <database-root> --suite-run <id> --with-attempts`}
+              command={`ageval results upload <dataset-root> --run <attempt-id> --public`}
             />
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-mute">
-              Each row is this task&apos;s result inside a suite run. Click a
-              row with full Attempt evidence to open the detail view (like local
-              viewer). Grey rows are summary-only.
+              Each row is a standalone Attempt or this task inside a suite run.
+              Click a row with full evidence to open the detail view. Grey rows
+              are summary-only.
             </p>
             <div className="rounded-[8px] border border-hairline overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Suite run</TableHead>
+                    <TableHead>Job</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Score</TableHead>
-                    <TableHead>Agent</TableHead>
+                    <TableHead>Harness</TableHead>
                     <TableHead>Model</TableHead>
+                    <TableHead>Environment</TableHead>
                     <TableHead>Time</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -492,7 +552,7 @@ export function TaskDetailPage() {
                         : "No run_id for this task";
                     return (
                       <TableRow
-                        key={j.suite_run_id}
+                        key={`${j.job_kind}:${j.job_id}`}
                         className={cn(
                           canOpen && "cursor-pointer",
                           !canOpen && "opacity-70",
@@ -513,7 +573,7 @@ export function TaskDetailPage() {
                       >
                         <TableCell className="font-mono text-xs">
                           <HoverTip content={rowTip}>
-                          <span className="text-ink">{j.suite_run_id}</span>
+                          <span className="text-ink">{j.job_id}</span>
                           </HoverTip>
                           {!canOpen ? (
                             <span className="ml-2 text-[11px] text-mute font-sans">
@@ -536,6 +596,9 @@ export function TaskDetailPage() {
                             effort={j.reasoning_effort}
                           />
                         </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {j.environment || "-"}
+                        </TableCell>
                         <TableCell className="font-mono text-xs text-mute tabular">
                           {j.created_at != null && j.created_at !== ""
                             ? formatDate(j.created_at)
@@ -554,12 +617,12 @@ export function TaskDetailPage() {
                   enable the evidence browser:
                 </p>
                 <CommandStrip
-                  command={`bora results upload-suite <database-root> --suite-run <id> --with-attempts`}
+                  command={`ageval results upload-suite <dataset-root> --suite-run <id> --with-attempts`}
                 />
                 <p className="text-xs text-mute">
                   Or backfill one run:{" "}
                   <code className="font-mono">
-                    bora results upload &lt;db&gt; --run &lt;run_id&gt;
+                    ageval results upload &lt;db&gt; --run &lt;run_id&gt;
                   </code>
                 </p>
               </div>

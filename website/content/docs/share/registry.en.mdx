@@ -4,16 +4,16 @@ description: Publish Datasets, org access, result archives, and sharing.
 ---
 
 Registry is a standalone HTTP service: publish packages, manage orgs, store results, sign in.  
-It is **not** the local Viewer and **not** BORA Core.
+It is **not** the local Viewer and **not** ageval Core.
 
 ## Flow
 
 1. Start it per [`services/registry/README.md`](https://github.com/ZJU-REAL/BORA/blob/main/services/registry/README.md). Public mode needs Postgres + S3 behind a reverse proxy — do not expose the Python port. Use `--local` only for development
-2. After CLI login: create an org. Upload a Dataset draft with `bora publish --draft`; an owner promotes it with `bora release`. Direct `bora publish` still creates a release. Upload suite / Attempt results as needed
+2. After CLI login: create an org. Upload a Dataset draft with `ageval publish --draft`; an owner promotes it with `ageval release`. Direct `ageval publish` still creates a release. Upload suite / Attempt results as needed
 3. Share private results with an org or user when you want
 4. Browse in [Hub](/docs/share/hub); Hub uses browser OAuth, CLI uses Device Flow
 
-Exact commands: `bora --help` and the registry README.
+Exact commands: `ageval --help` and the registry README.
 
 ## Ownership (summary)
 
@@ -25,7 +25,7 @@ Exact commands: `bora --help` and the registry README.
 Joining an org does **not** reveal others’ private results until they share.  
 Any org **member** may `publish` under that org; **package delete / set-visibility / `--replace`** require **org owner**.  
 Invite keys show the full secret only once at create time; later you only see a prefix.  
-Owners or admins add / remove members by GitHub login (`bora registry org-add-member` / `org-remove-member`); change an existing member’s role with `org-set-role`; hand the org to a current member with `org-transfer` (caller becomes `member`). The last owner cannot leave, be demoted, or be removed. The person need not be logged in. Allowlisted official slugs (default `official`) cannot be self-serve created or claimed — only an admin bootstrap token can `org-create` them.
+Owners or admins add / remove members by GitHub login (`ageval registry org-add-member` / `org-remove-member`); change an existing member’s role with `org-set-role`; hand the org to a current member with `org-transfer` (caller becomes `member`). The last owner cannot leave, be demoted, or be removed. The person need not be logged in. Allowlisted official slugs (default `official`) cannot be self-serve created or claimed — only an admin bootstrap token can `org-create` them.
 
 ## Owner ops after create (CLI)
 
@@ -33,26 +33,26 @@ Owners or admins add / remove members by GitHub login (`bora registry org-add-me
 
 ```bash
 # Members by GitHub login (owner or admin; target need not be logged in)
-# uv run bora registry org-add-member my-lab alice --role member
-# uv run bora registry org-set-role my-lab alice --role owner
-# uv run bora registry org-transfer my-lab alice
-# uv run bora registry org-remove-member my-lab alice
+# uv run ageval registry org-add-member my-lab alice --role member
+# uv run ageval registry org-set-role my-lab alice --role owner
+# uv run ageval registry org-transfer my-lab alice
+# uv run ageval registry org-remove-member my-lab alice
 
 # Package: visibility / delete (delete requires --yes)
-uv run bora registry set-visibility 'my-org/dataset@0.1.0' --visibility public
-# uv run bora registry delete 'my-org/dataset@0.1.0' --yes
+uv run ageval registry set-visibility 'my-org/dataset@0.1.0' --visibility public
+# uv run ageval registry delete 'my-org/dataset@0.1.0' --yes
 
 # Results: visibility / unshare / delete
-uv run bora results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
-uv run bora results unshare <id> --kind attempt --share-org my-lab
-# uv run bora results delete <id> --kind suite --yes
+uv run ageval results set-visibility <run_or_suite_id> --kind attempt|suite --visibility private
+uv run ageval results unshare <id> --kind attempt --share-org my-lab
+# uv run ageval results delete <id> --kind suite --yes
 # Suite delete does not cascade attempts by default:
-# uv run bora results delete <suite_id> --kind suite --with-attempts --yes
+# uv run ageval results delete <suite_id> --kind suite --with-attempts --yes
 ```
 
-**Replace:** same `database_id@version` / `run_id` / `suite_run_id` still **409** by default.  
-Owners may pass `--replace` on `bora publish` / `results upload` / `upload-suite` to overwrite blob, metrics/labels, and visibility — never silent.
+**Replace:** same `dataset_id@version` / `run_id` / `suite_run_id` still **409** by default.  
+Owners may pass `--replace` on `ageval publish` / `results upload` / `upload-suite` to overwrite blob, metrics/labels, and visibility — never silent.
 
-Details: `bora --help`, [`src/bora/cli/README.md`](https://github.com/ZJU-REAL/BORA/blob/main/src/bora/cli/README.md), and the registry README.
+Details: `ageval --help`, [`src/ageval/cli/README.md`](https://github.com/ZJU-REAL/BORA/blob/main/src/ageval/cli/README.md), and the registry README.
 
 Whether the service is public is an ops choice.

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import type { Trial } from "@/lib/api";
 
-/** Actors: Role | Agent | Model | Time | Usage — observational ≠ PASS */
+/** Actors: Role | Harness | Model | Time | Usage — observational ≠ PASS */
 export function ActorsTable({
   actors,
 }: {
@@ -26,7 +26,7 @@ export function ActorsTable({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Role</TableHead>
-              <TableHead>Agent</TableHead>
+              <TableHead>Harness</TableHead>
               <TableHead>Model</TableHead>
               <TableHead>Time</TableHead>
               <TableHead>Usage</TableHead>

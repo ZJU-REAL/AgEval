@@ -1,6 +1,6 @@
 # multiagent-env-min
 
-v1 **multiagentbench / database-52** case class on BORA v2 Core surfaces.
+v1 **multiagentbench / database-52** case class on ageval v2 Core surfaces.
 
 | v1 oracle                            | v2 mapping                                                    |
 | ------------------------------------ | ------------------------------------------------------------- |
@@ -36,9 +36,9 @@ Harness reads profile ids from `parameters.roles` — it never branches on entry
 | `evaluation/`          | Evaluator-only gold                                 |
 
 ```bash
-uv run bora lock examples/journeys --task multiagent-env-min
-uv run bora run  examples/journeys --task multiagent-env-min
+uv run ageval lock examples/journeys --task multiagent-env-min
+uv run ageval run  examples/journeys --task multiagent-env-min
 ```
 
-Requires host ACP readiness for `pi`, `opencode`, and `grok-build` (`uv run bora executors -v`),
+Requires host ACP readiness for `pi`, `opencode`, and `grok-build` (`uv run ageval executors -v`),
 plus Docker for the Attempt-local PostgreSQL environment.

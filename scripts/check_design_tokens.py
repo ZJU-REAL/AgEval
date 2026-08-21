@@ -66,8 +66,8 @@ VAR_MAP: list[tuple[str, str, str, bool]] = [
     ("website/src/app/global.css", "--color-fd-primary", "link", True),
     ("website/src/app/global.css", "--color-fd-ring", "link", True),
     ("website/src/app/global.css", "--color-fd-border", "hairline", True),
-    ("website/src/app/global.css", "--bora-link", "link", True),
-    ("website/src/app/global.css", "--bora-link-deep", "link-deep", True),
+    ("website/src/app/global.css", "--ageval-link", "link", True),
+    ("website/src/app/global.css", "--ageval-link-deep", "link-deep", True),
     # landing accents
     ("website/src/components/landing/landing.css", "--accent", "accent", True),
     ("website/src/components/landing/landing.css", "--accent-deep", "accent", True),

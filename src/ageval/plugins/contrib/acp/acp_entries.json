@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "protocol_version": 1,
+  "python_sdk": {
+    "package": "agent-client-protocol",
+    "version": "0.12.0"
+  },
+  "entries": [
+    {
+      "entry_id": "codex",
+      "integration_mode": 1,
+      "execution_mode": "acp-stdio",
+      "engine_command": "codex",
+      "engine_detect_commands": [
+        "codex"
+      ],
+      "engine_package": "@openai/codex",
+      "engine_version": "0.146.0",
+      "acp_command": [
+        "codex-acp"
+      ],
+      "acp_detect_commands": [
+        "codex-acp"
+      ],
+      "acp_package": "@agentclientprotocol/codex-acp",
+      "acp_version": "1.1.9",
+      "install_command": "npm install -g @agentclientprotocol/codex-acp@1.1.9 @openai/codex@0.146.0",
+      "credential_env_names": [],
+      "keyless_auth": true,
+      "model_binding": "config-option",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "fixed_env": {
+        "NO_BROWSER": "1",
+        "TERM": "dumb"
+      },
+      "home_dirs": [
+        ".codex"
+      ],
+      "keyless_auth_paths": [
+        ".codex/auth.json"
+      ]
+    },
+    {
+      "entry_id": "claude-code",
+      "integration_mode": 1,
+      "execution_mode": "acp-stdio",
+      "engine_command": "claude",
+      "engine_detect_commands": [
+        "claude",
+        "claude-code"
+      ],
+      "engine_package": "@anthropic-ai/claude-code",
+      "engine_version": "2.1.221",
+      "acp_command": [
+        "claude-agent-acp"
+      ],
+      "acp_detect_commands": [
+        "claude-agent-acp"
+      ],
+      "acp_package": "@agentclientprotocol/claude-agent-acp",
+      "acp_version": "0.64.2",
+      "install_command": "npm install -g @agentclientprotocol/claude-agent-acp@0.64.2 @anthropic-ai/claude-code@2.1.221",
+      "credential_env_names": [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN"
+      ],
+      "keyless_auth": true,
+      "model_binding": "config-option",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "fixed_env": {
+        "NO_BROWSER": "1",
+        "TERM": "dumb"
+      },
+      "home_dirs": [
+        ".claude"
+      ],
+      "keyless_auth_paths": [
+        ".claude/.credentials.json"
+      ]
+    },
+    {
+      "entry_id": "pi",
+      "integration_mode": 1,
+      "execution_mode": "acp-stdio",
+      "engine_command": "pi",
+      "engine_detect_commands": [
+        "pi"
+      ],
+      "engine_package": "@earendil-works/pi-coding-agent",
+      "engine_version": "0.83.0",
+      "acp_command": [
+        "pi-acp"
+      ],
+      "acp_detect_commands": [
+        "pi-acp"
+      ],
+      "acp_package": "pi-acp",
+      "acp_version": "0.0.33",
+      "install_command": "npm install -g pi-acp@0.0.33 @earendil-works/pi-coding-agent@0.83.0",
+      "credential_env_names": [
+        "ZAI_API_KEY",
+        "ZAI_CODING_CN_API_KEY",
+        "ZHIPU_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "XAI_API_KEY"
+      ],
+      "keyless_auth": true,
+      "model_binding": "config-option",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "fixed_env": {
+        "NO_BROWSER": "1",
+        "TERM": "dumb"
+      },
+      "home_dirs": [
+        ".pi/agent"
+      ],
+      "keyless_auth_paths": [
+        ".pi/agent/auth.json"
+      ]
+    },
+    {
+      "entry_id": "opencode",
+      "integration_mode": 2,
+      "execution_mode": "acp-stdio",
+      "engine_command": "opencode",
+      "engine_detect_commands": [
+        "opencode"
+      ],
+      "engine_package": "opencode-ai",
+      "engine_version": "1.18.12",
+      "acp_command": [
+        "opencode",
+        "acp"
+      ],
+      "acp_detect_commands": [
+        "opencode"
+      ],
+      "acp_package": "opencode-ai",
+      "acp_version": "1.18.12",
+      "install_command": "npm install -g opencode-ai@1.18.12",
+      "credential_env_names": [
+        "ZHIPU_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "OPENCODE_API_KEY",
+        "XAI_API_KEY"
+      ],
+      "keyless_auth": true,
+      "model_binding": "config-option",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "fixed_env": {
+        "NO_BROWSER": "1",
+        "TERM": "dumb"
+      },
+      "home_dirs": [
+        ".local/share/opencode",
+        ".local/state",
+        ".config",
+        ".cache"
+      ],
+      "keyless_auth_paths": [
+        ".local/share/opencode/auth.json"
+      ]
+    },
+    {
+      "entry_id": "grok-build",
+      "integration_mode": 3,
+      "execution_mode": "acp-stdio",
+      "engine_command": "grok",
+      "engine_detect_commands": [
+        "grok"
+      ],
+      "engine_package": null,
+      "engine_version": null,
+      "acp_command": [
+        "grok",
+        "agent",
+        "stdio"
+      ],
+      "acp_detect_commands": [
+        "grok"
+      ],
+      "acp_package": "@xai-official/grok",
+      "acp_version": "0.2.120",
+      "install_command": "npm install -g @xai-official/grok@0.2.120",
+      "credential_env_names": [
+        "XAI_API_KEY"
+      ],
+      "keyless_auth": true,
+      "model_binding": "config-option",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "fixed_env": {
+        "NO_BROWSER": "1",
+        "TERM": "dumb"
+      },
+      "home_dirs": [
+        ".grok"
+      ],
+      "keyless_auth_paths": [
+        ".grok/auth.json"
+      ]
+    }
+  ]
+}

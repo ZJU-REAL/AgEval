@@ -82,12 +82,69 @@ export function reasoningEffortFromBinding(binding: unknown): string {
   return "";
 }
 
+function acpEntryFromProfile(profile: Record<string, unknown>): string {
+  const sources: unknown[] = [profile.options];
+  const extensions = profile.extensions;
+  if (Array.isArray(extensions)) {
+    for (const item of extensions) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      if (String(row.plugin || "") === "acp") sources.push(row.options);
+    }
+  }
+  for (const source of sources) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) continue;
+    const entry = (source as Record<string, unknown>).entry;
+    if (typeof entry === "string" && entry.trim()) return entry.trim();
+  }
+  return "";
+}
+
+/** Jobs Agent axis from job_overlay.agent_profiles (label → ACP entry → executor). */
+export function displayAgentName(profile: unknown): string {
+  if (!profile || typeof profile !== "object") return "";
+  const rec = profile as Record<string, unknown>;
+  const label = rec.label;
+  if (typeof label === "string" && label.trim()) return label.trim();
+  const projected = rec.entry;
+  if (typeof projected === "string" && projected.trim()) return projected.trim();
+  const executor = String(rec.executor || "").trim();
+  if (executor === "acp") return acpEntryFromProfile(rec) || executor;
+  return executor;
+}
+
+export function displayLabelsFromOverlay(overlay: unknown): {
+  agent: string;
+  model: string;
+} {
+  if (!overlay || typeof overlay !== "object") return { agent: "", model: "" };
+  const profiles = (overlay as Record<string, unknown>).agent_profiles;
+  if (!profiles || typeof profiles !== "object") return { agent: "", model: "" };
+  const agents: string[] = [];
+  const models: string[] = [];
+  for (const raw of Object.values(profiles as Record<string, unknown>)) {
+    if (!raw || typeof raw !== "object") continue;
+    const rec = raw as Record<string, unknown>;
+    const name = displayAgentName(rec);
+    if (name) agents.push(name);
+    const model = rec.model;
+    models.push(typeof model === "string" ? model.trim() : "");
+  }
+  const join = (values: string[]) => {
+    const cleaned = values.filter(Boolean);
+    if (!cleaned.length) return "";
+    if (new Set(cleaned).size === 1) return cleaned[0];
+    return cleaned.join("+");
+  };
+  return { agent: join(agents), model: join(models) };
+}
+
 export function reasoningEffortFromOverlay(overlay: unknown): string {
   if (!overlay || typeof overlay !== "object") return "";
-  const bindings = (overlay as Record<string, unknown>).bindings;
-  if (!bindings || typeof bindings !== "object") return "";
+  const profiles = (overlay as Record<string, unknown>).agent_profiles;
+  if (!profiles || typeof profiles !== "object") return "";
   const found: string[] = [];
-  for (const raw of Object.values(bindings as Record<string, unknown>)) {
+  for (const raw of Object.values(profiles as Record<string, unknown>)) {
     const effort = reasoningEffortFromBinding(raw);
     if (effort) found.push(effort);
   }

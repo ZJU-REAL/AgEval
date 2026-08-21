@@ -1,16 +1,19 @@
-format: bora.profiles/1
-bindings:
+format: ageval.profiles/1
+environment: local
+agent_profiles:
   user:
     executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: grok-build
+    - plugin: acp
+    - plugin: local
     model: entry-default
+    options:
+      entry: grok-build
   service:
     executor: acp
     extensions:
-      - plugin: acp
-        options:
-          entry: grok-build
+    - plugin: acp
+    - plugin: local
     model: entry-default
+    options:
+      entry: grok-build

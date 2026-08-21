@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { FileSplitPanel } from "@/components/file-split-panel";
 import {
@@ -17,13 +17,15 @@ import { cn } from "@/lib/utils";
 
 /** Package-file preview limited to a binding's declared ``overlays:`` prefixes. */
 export function OverlayFilePanel({
-  databaseId,
+  datasetId,
   packageDigest,
   prefixes,
+  headerEnd,
 }: {
-  databaseId: string;
+  datasetId: string;
   packageDigest: string;
   prefixes: string[];
+  headerEnd?: ReactNode;
 }) {
   const token = getToken();
   const overlayKey = prefixes.join("\n");
@@ -38,7 +40,7 @@ export function OverlayFilePanel({
   const [fileLoading, setFileLoading] = useState(false);
   const [fileNote, setFileNote] = useState<string | null>(null);
 
-  const canPreview = Boolean(databaseId && packageDigest && overlayKey);
+  const canPreview = Boolean(datasetId && packageDigest && overlayKey);
 
   useEffect(() => {
     if (!canPreview) {
@@ -52,7 +54,7 @@ export function OverlayFilePanel({
     let cancelled = false;
     setTreeLoading(true);
     setFileNote(null);
-    listPackageFiles(databaseId, packageDigest, token)
+    listPackageFiles(datasetId, packageDigest, token)
       .then((files) => {
         if (cancelled) return;
         const matched = files.items.filter(
@@ -85,7 +87,7 @@ export function OverlayFilePanel({
     return () => {
       cancelled = true;
     };
-  }, [canPreview, databaseId, overlayKey, packageDigest, prefixList, token]);
+  }, [canPreview, datasetId, overlayKey, packageDigest, prefixList, token]);
 
   const tree = useMemo(
     () => (canPreview ? buildNestedTree(fileItems, "overlays") : []),
@@ -99,7 +101,7 @@ export function OverlayFilePanel({
     }
     let cancelled = false;
     setFileLoading(true);
-    getPackageFile(databaseId, packageDigest, selectedPath, token)
+    getPackageFile(datasetId, packageDigest, selectedPath, token)
       .then((file) => {
         if (cancelled) return;
         try {
@@ -125,7 +127,7 @@ export function OverlayFilePanel({
     return () => {
       cancelled = true;
     };
-  }, [canPreview, databaseId, packageDigest, selectedPath, token]);
+  }, [canPreview, datasetId, packageDigest, selectedPath, token]);
 
   if (!canPreview) return null;
 
@@ -139,6 +141,7 @@ export function OverlayFilePanel({
       fileLoading={fileLoading}
       fileNote={fileNote}
       rootPrefix="overlays"
+      headerEnd={headerEnd}
     />
   );
 }
@@ -265,7 +268,7 @@ export function JobOverlayPreview({
         </p>
       )}
       <OverlayFilePanel
-        databaseId={active.packageId}
+        datasetId={active.packageId}
         packageDigest={active.digest}
         prefixes={active.prefixes}
       />

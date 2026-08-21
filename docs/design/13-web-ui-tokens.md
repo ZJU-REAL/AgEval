@@ -1,6 +1,6 @@
 # 13 — Web UI 令牌与不变量
 
-适用面:website(landing + docs)、apps/hub、apps/viewer 三个 web 表面的**风格一致性**。
+适用面:ageval website(landing + docs)、apps/hub、apps/viewer 三个 web 表面的**风格一致性**。
 权威顺序:本文件 → 各端令牌定义文件 → 业务代码(只允许引用语义令牌)。
 机检:`python3 scripts/check_design_tokens.py`(CI job `design-tokens`),文档表格与脚本内置值**互相校验**,改值必须两侧同步。
 
@@ -38,14 +38,11 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 
 ## 形状与动效
 
-- **切角(chamfer)**:`polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px))`
-  ——主 CTA / 品牌位专用。切角控件的焦点用 `chamfer-focus`(`drop-shadow` 沿轮廓描边,
-  不受 `clip-path` 裁剪;IKB 面上用 ink 描边保证对比)。
 - **圆角**:6 / 8 / 12px 三档(sm 控件、md 默认、lg 卡片);不发明新档,hero 面板上限 16px。
+  按钮走 6px,不要 `clip-path` 切角。
 - **动效**:`cubic-bezier(0.22, 1, 0.36, 1)`,默认 200ms。
 - **焦点**:IKB 是唯一焦点色。按钮 / 链接用 `ring-2 ring-link/70`(landing 3px outline);
-  输入框 / select / textarea 只把描边换成 1px `border-link`,不叠 ring;
-  切角控件用 `chamfer-focus` 描边。
+  输入框 / select / textarea 只把描边换成 1px `border-link`,不叠 ring。
 - **选区**:`::selection` 用 IKB 28% 透明底(三端统一)。
 - **深度**:弹层阴影用 `--viewer-shadow-pop` 令牌(hub/viewer);禁硬投影。
   `backdrop-blur` 至多两档(sticky header 用薄档)。
@@ -54,11 +51,12 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 
 | 语汇 | 规则 |
 | --- | --- |
-| 主按钮(SPA Button `default`) | IKB 填充 + `chamfer chamfer-focus` + `font-mono text-[13px] font-semibold`,hover `link-deep` |
+| 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep` |
 | 下划线 tab | `font-mono text-xs uppercase tracking-wide`,active `border-link font-semibold`,inactive `text-mute` |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6`(IKB 主导 + 中性梯度),禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop` |
+| 危险确认 | Modal：较大标题 + mute 说明后果 + Cancel / Confirm 两枚按钮 |
 
 ## 不变量(十条)
 
@@ -66,10 +64,9 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 2. IKB 只落在链接 / 焦点 / 主 CTA / 品牌位,禁大面积底色(landing ink-banner 例外)。
 3. 中性色三层语义:`canvas*` 是面、`hairline` 是线、`ink/body/mute` 是字;`mute` 永不做正文。
 4. `Anton` 只做 wordmark;正文一律 sans 栈 + CJK 回退;中文标题粗细上限 semibold。
-5. 主 CTA 用 9px 切角 + IKB 填充;表格 / 输入 / 普通控件用圆角三档。
-   切角控件的焦点走 `chamfer-focus`(drop-shadow 描边),焦点可见性优先于形状。
+5. 主 CTA 用 6px 圆角 + IKB 填充;表格 / 输入 / 普通控件用同一套圆角三档。不要切角 `clip-path`。
 6. 焦点可见性不妥协。字段用 1px IKB 描边;其它控件用 2px IKB 环
-   (landing 3px / 切角 `chamfer-focus`)。
+   (landing 3px outline)。
 7. 选区、hover、active 的色彩表达一律引用令牌,不自调 hex / opacity 组合。
 8. 动效只允许统一缓动曲线;时长偏离 200ms 需要说明理由。
 9. 图标两套:品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`),功能用 lucide;不引入第三套。

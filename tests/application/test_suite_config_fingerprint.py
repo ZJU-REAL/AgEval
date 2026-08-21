@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite.suite_config_fingerprint import (
+from ageval.application.suite.suite_config_fingerprint import (
     actors_summary_from_profiles,
     compute_suite_config_fields,
     fingerprint_for_actors,
@@ -16,10 +16,10 @@ from bora.application.suite.suite_config_fingerprint import (
     plugins_from_extension_bindings,
     plugins_from_job_overlay,
 )
-from bora.application.suite.suite_run import execute_suite_run, plan_suite_run
+from ageval.application.suite.suite_run import execute_suite_run, plan_suite_run
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 JOURNEYS = REPO / "examples" / "journeys"
 
 
@@ -54,7 +54,7 @@ def test_actors_summary_sorted_and_secret_free() -> None:
 def test_job_overlay_axis_ignores_role_topology_diff() -> None:
     """Different role ids across tasks still share one profiles.yaml job axis (#59)."""
     suite_overlay = {
-        "bindings": {
+        "agent_profiles": {
             "solver": {
                 "executor": "acp",
                 "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
@@ -74,11 +74,11 @@ def test_job_overlay_axis_ignores_role_topology_diff() -> None:
     }
     # Task A used only solver; task B used user+service — topology differs.
     per_task_overlays = [
-        {"bindings": {"solver": suite_overlay["bindings"]["solver"]}},
+        {"agent_profiles": {"solver": suite_overlay["agent_profiles"]["solver"]}},
         {
-            "bindings": {
-                "user": suite_overlay["bindings"]["user"],
-                "service": suite_overlay["bindings"]["service"],
+            "agent_profiles": {
+                "user": suite_overlay["agent_profiles"]["user"],
+                "service": suite_overlay["agent_profiles"]["service"],
             }
         },
         None,  # no-agent task
@@ -100,7 +100,7 @@ def test_job_overlay_axis_ignores_role_topology_diff() -> None:
 
 def test_job_overlay_conflict_not_homogeneous() -> None:
     suite_overlay = {
-        "bindings": {
+        "agent_profiles": {
             "solver": {
                 "executor": "acp",
                 "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
@@ -109,7 +109,7 @@ def test_job_overlay_conflict_not_homogeneous() -> None:
         }
     }
     conflict = {
-        "bindings": {
+        "agent_profiles": {
             "solver": {
                 "executor": "acp",
                 "extensions": [{"plugin": "acp", "options": {"entry": "codex"}}],
@@ -127,7 +127,7 @@ def test_job_overlay_conflict_not_homogeneous() -> None:
 
 def test_job_overlays_compatible_helper() -> None:
     suite = {
-        "bindings": {
+        "agent_profiles": {
             "a": {
                 "executor": "acp",
                 "extensions": [{"plugin": "acp", "options": {"entry": "pi"}}],
@@ -140,12 +140,14 @@ def test_job_overlays_compatible_helper() -> None:
             },
         }
     }
-    assert job_overlays_compatible(suite, [None, {"bindings": {"a": suite["bindings"]["a"]}}])
+    assert job_overlays_compatible(
+        suite, [None, {"agent_profiles": {"a": suite["agent_profiles"]["a"]}}]
+    )
     assert not job_overlays_compatible(
         suite,
         [
             {
-                "bindings": {
+                "agent_profiles": {
                     "a": {
                         "executor": "acp",
                         "extensions": [{"plugin": "acp", "options": {"entry": "opencode"}}],
@@ -251,7 +253,7 @@ def test_fingerprint_stable() -> None:
 
 def test_overlays_do_not_change_config_fingerprint() -> None:
     base = {
-        "bindings": {
+        "agent_profiles": {
             "solver": {
                 "executor": "acp",
                 "extensions": [{"plugin": "acp", "options": {"entry": "grok-build"}}],
@@ -260,9 +262,9 @@ def test_overlays_do_not_change_config_fingerprint() -> None:
         }
     }
     with_overlays = {
-        "bindings": {
+        "agent_profiles": {
             "solver": {
-                **base["bindings"]["solver"],
+                **base["agent_profiles"]["solver"],
                 "overlays": ["overlays/AGENTS.md"],
             }
         }
@@ -277,7 +279,7 @@ async def test_suite_summary_includes_homogeneous_config() -> None:
 
     async def stub(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path=None, logs=None)
-        return 0, result, {"digest": f"sha256:{task_id}"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=stub)
     assert "config_fingerprint" in summary
@@ -291,7 +293,7 @@ async def test_suite_summary_includes_homogeneous_config() -> None:
 
 def test_journeys_profiles_are_suite_homogeneous() -> None:
     """example/journeys multi-topology package shares one profiles.yaml axis."""
-    from bora.application.suite.suite_config_fingerprint import collect_suite_config
+    from ageval.application.suite.suite_config_fingerprint import collect_suite_config
 
     # Fake per-task rows without needing a full run
     fields = collect_suite_config(
@@ -310,14 +312,14 @@ def test_journeys_profiles_are_suite_homogeneous() -> None:
         ],
     )
     assert fields["config_homogeneous"] is True
-    assert fields.get("job_overlay", {}).get("bindings")
-    roles = set(fields["job_overlay"]["bindings"])
-    assert "solver" in roles
-    assert "user" in roles or "specialist" in roles
+    assert fields.get("job_overlay", {}).get("agent_profiles")
+    roles = set(fields["job_overlay"]["agent_profiles"])
+    assert roles == {"*"} or "solver" in roles
+    assert roles == {"*"} or "user" in roles or "specialist" in roles
 
 
 def test_plugins_from_extension_bindings_skip_defaults() -> None:
-    bindings = {
+    agent_profiles = {
         "solver": {
             "executor": {
                 "kind": "provide",
@@ -333,14 +335,14 @@ def test_plugins_from_extension_bindings_skip_defaults() -> None:
             },
         }
     }
-    refs = plugins_from_extension_bindings(bindings)
+    refs = plugins_from_extension_bindings(agent_profiles)
     assert [r["plugin_id"] for r in refs] == ["nooa", "slot-probe"]
     assert refs[0]["version"] == "0.1.0"
 
 
 def test_plugins_from_job_overlay_skips_builtin_executors() -> None:
     overlay = {
-        "bindings": {
+        "agent_profiles": {
             "solver": {"executor": "nooa", "model": "m"},
             "user": {
                 "executor": "acp",

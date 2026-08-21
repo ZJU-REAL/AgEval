@@ -5,36 +5,31 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
-from bora.application import composition
-from bora.cli import main as cli_main
+from ageval.application import composition
+from ageval.cli import main as cli_main
 
 
-def test_build_probe_command_uses_lock() -> None:
-    probe = composition.build_probe_command()
-    assert callable(probe.run)
+def test_build_lock_command_is_wired() -> None:
+    assert callable(composition.build_lock_command().lock)
 
 
-def test_build_run_task_returns_callable() -> None:
-    run_task = composition.build_run_task()
-    assert callable(run_task)
-    assert inspect.iscoroutinefunction(run_task)
+def test_build_run_attempt_returns_the_use_case() -> None:
+    run_attempt = composition.build_run_attempt()
+    assert inspect.iscoroutinefunction(run_attempt)
 
 
-def test_cli_run_uses_composition_not_direct_run_command() -> None:
-    # Commands live in cmd_* modules after chore #31 split; scan CLI package.
+def test_cli_reaches_run_only_through_composition() -> None:
     cli_dir = Path(cli_main.__file__).resolve().parent
     sources = "\n".join(p.read_text(encoding="utf-8") for p in cli_dir.glob("*.py"))
-    assert "build_run_task" in sources
-    assert "from bora.application.composition import build_run_task" in sources
-    # Direct use-case import is forbidden on the public run path (B-04).
-    assert "from bora.application.attempt.run_command import run_task" not in sources
+    assert "build_run_attempt" in sources
+    assert "from ageval.application.run import" not in sources
 
 
 def test_cli_campaign_uses_composition() -> None:
     cli_dir = Path(cli_main.__file__).resolve().parent
     sources = "\n".join(p.read_text(encoding="utf-8") for p in cli_dir.glob("*.py"))
     assert "build_campaign_runner" in sources
-    assert "from bora.application.attempt.campaign import run_campaign" not in sources
+    assert "from ageval.application.campaign import run_campaign" not in sources
 
 
 def test_cli_imports_composition_only() -> None:
@@ -45,9 +40,9 @@ def test_cli_imports_composition_only() -> None:
             stripped = line.strip()
             if stripped.startswith("#"):
                 continue
-            if "bora.application." not in stripped:
+            if "ageval.application." not in stripped:
                 continue
-            if "bora.application.composition" in stripped:
+            if "ageval.application.composition" in stripped:
                 continue
             offenders.append(f"{path.name}:{i}:{stripped}")
     assert offenders == []

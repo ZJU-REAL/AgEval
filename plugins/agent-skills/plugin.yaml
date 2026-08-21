@@ -1,11 +1,12 @@
-format: bora.plugin/1
+format: ageval.plugin/1
 plugin_id: agent-skills
 version: 0.1.0
+description: Expand Dataset skill folders and instruction files into the dests each bound ACP entry reads. File copy stays in home-files.
 plugin_requires:
   - plugin_id: home-files
-    hint: "bora plugin install plugins/home-files"
+    hint: "ageval plugin install plugins/home-files"
 slots:
-  "on":
-    - id: home_overlay
+  chain:
+    - id: after_environment_ready
       priority: 120
       entry: "agent_skills.hooks:build_home_overlay"

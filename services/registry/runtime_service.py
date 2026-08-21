@@ -13,9 +13,9 @@ from services.registry.dataset import BOUND_RELEASE
 from services.registry.official import official_dataset_ids
 from services.registry.store import TokenInfo
 
-from bora.agents.refs import published_agent_ref_parts
-from bora.config.runtime_identity import (
-    harness_display_name,
+from ageval.agents.refs import published_agent_ref_parts
+from ageval.config.runtime_identity import (
+    agent_display_name,
     resolve_agent_id,
 )
 
@@ -26,7 +26,7 @@ def is_plaza_source_suite(payload: Mapping[str, Any], official_ids: frozenset[st
         payload.get("visibility") == "public"
         and bool(payload.get("complete"))
         and payload.get("bound_kind") == BOUND_RELEASE
-        and str(payload.get("database_id") or "") in official_ids
+        and str(payload.get("dataset_id") or "") in official_ids
     )
 
 
@@ -65,7 +65,7 @@ class RuntimeService:
 
     def _reduce(self, auth: TokenInfo) -> dict[str, list[dict[str, Any]]]:
         official = official_dataset_ids(self.meta.list_releases(include_private=True))
-        listed = self.results.list_suites(auth=auth, database_id=None)
+        listed = self.results.list_suites(auth=auth, dataset_id=None)
         grouped: dict[str, list[dict[str, Any]]] = {}
         digest_cache: dict[tuple[str, str], str] = {}
         for suite in listed.get("items") or []:
@@ -83,12 +83,12 @@ class RuntimeService:
 def _agent_refs_from_overlay(overlay: Mapping[str, Any] | None) -> list[dict[str, str]]:
     if not isinstance(overlay, Mapping):
         return []
-    bindings = overlay.get("bindings")
-    if not isinstance(bindings, Mapping):
+    profiles = overlay.get("agent_profiles")
+    if not isinstance(profiles, Mapping):
         return []
     out: list[dict[str, str]] = []
     seen: set[tuple[str, str]] = set()
-    for role, raw in bindings.items():
+    for role, raw in profiles.items():
         if not isinstance(raw, Mapping):
             continue
         parts = published_agent_ref_parts(raw.get("agent_ref"))
@@ -111,16 +111,16 @@ def _package_digest_for_suite(
     suite: Mapping[str, Any],
     cache: dict[tuple[str, str], str],
 ) -> str:
-    database_id = str(suite.get("database_id") or "")
-    version = str(suite.get("database_version") or "")
-    if not database_id or not version:
+    dataset_id = str(suite.get("dataset_id") or "")
+    version = str(suite.get("dataset_version") or "")
+    if not dataset_id or not version:
         return ""
-    key = (database_id, version)
+    key = (dataset_id, version)
     if key in cache:
         return cache[key]
     digest = ""
     try:
-        release = meta.get_by_version(database_id, version)
+        release = meta.get_by_version(dataset_id, version)
     except Exception:  # noqa: BLE001 — appearance stays YAML-only
         release = None
     if release is not None:
@@ -144,12 +144,12 @@ def _appearances_from_suite(
     overlay = suite.get("job_overlay")
     if not isinstance(overlay, Mapping):
         return []
-    bindings = overlay.get("bindings")
-    if not isinstance(bindings, Mapping) or not bindings:
+    profiles = overlay.get("agent_profiles")
+    if not isinstance(profiles, Mapping) or not profiles:
         return []
     teammates_all: list[dict[str, str]] = []
     valid: list[tuple[str, Mapping[str, Any], tuple[str, str]]] = []
-    for role, raw in bindings.items():
+    for role, raw in profiles.items():
         if not isinstance(raw, Mapping):
             continue
         role_id = str(role).strip()
@@ -160,7 +160,7 @@ def _appearances_from_suite(
                 "role": role_id,
                 "executor": str(raw.get("executor") or "").strip(),
                 "entry": resolve_agent_id(raw),
-                "display_name": harness_display_name(raw),
+                "display_name": agent_display_name(raw),
             }
         )
         parts = published_agent_ref_parts(raw.get("agent_ref"))
@@ -179,8 +179,8 @@ def _appearances_from_suite(
         row: dict[str, Any] = {
             "package_id": package_id,
             "agent_version": agent_version,
-            "database_id": str(suite.get("database_id") or ""),
-            "database_version": str(suite.get("database_version") or ""),
+            "dataset_id": str(suite.get("dataset_id") or ""),
+            "dataset_version": str(suite.get("dataset_version") or ""),
             "suite_run_id": str(suite.get("suite_run_id") or ""),
             "role": role_id,
             "model": model.strip() if isinstance(model, str) else "",

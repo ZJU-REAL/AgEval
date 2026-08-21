@@ -6,20 +6,28 @@ import os
 import shutil
 
 import pytest
+from tests.helpers.box import local_box
 
-from bora.adapters.executor_capabilities import BUILTIN_CAPABILITIES
-from bora.plugins.contrib.acp import AcpExecutor
-from bora.plugins.contrib.acp.registry import get_entry, list_entry_ids, readiness_for
+from ageval.environments.protocol import HOME_PATH, Placement
+from ageval.plugins.contrib.acp import AcpExecutor
+from ageval.plugins.contrib.acp.registry import get_entry, list_entry_ids, readiness_for
+from ageval.plugins.executor_capabilities import BUILTIN_CAPABILITIES
 
 
 def test_acp_offline_forced() -> None:
-    os.environ["BORA_OFFLINE_AGENT"] = "1"
+    os.environ["AGEVAL_OFFLINE_AGENT"] = "1"
     try:
-        r = AcpExecutor(entry_id="opencode", model="entry-default").invoke("hi")
+        executor = AcpExecutor(
+            host=local_box("/nowhere"),
+            placement=Placement(target_id="unstarted", home=HOME_PATH),
+            entry_id="opencode",
+            model="entry-default",
+        )
+        r = executor.invoke("hi")
         assert r.ok is False
         assert r.error == "offline_forced"
     finally:
-        os.environ.pop("BORA_OFFLINE_AGENT", None)
+        os.environ.pop("AGEVAL_OFFLINE_AGENT", None)
 
 
 def test_capability_credential_names_are_locators_only() -> None:

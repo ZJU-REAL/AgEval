@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from bora.config.checks import reject_env_interpolation, require_agent_profiles_list
-from bora.config.errors import ConfigError
+from ageval.config.checks import reject_env_interpolation, require_agent_profiles_list
+from ageval.config.errors import ConfigError
 
 
 def test_reject_env_interpolation() -> None:

@@ -1,16 +1,17 @@
 ---
 title: Architecture map
-description: Code layout and structural authority.
+description: Source layout and structure authority.
 ---
 
-Module ownership lives in root **[`ARCHITECTURE.md`](https://github.com/ZJU-REAL/BORA/blob/main/ARCHITECTURE.md)**.
+Module placement, dependency direction, lifecycle, and data flow: **[`ARCHITECTURE.md`](https://github.com/ZJU-REAL/BORA/blob/main/ARCHITECTURE.md)** (current tree, emit map, failure table).
 
-| Path                       | Role                   |
-| -------------------------- | ---------------------- |
-| `src/bora/`                | Runtime, adapters, CLI |
-| `sdk/python/`              | Harness SDK            |
-| `apps/viewer` · `apps/hub` | Results / catalog SPAs |
-| `website/`                 | This site              |
-| `docs/`                    | Design long-form       |
+| Path | Role |
+| --- | --- |
+| `src/ageval/` | Attempt pipeline, boxes, CLI |
+| `sdk/python/` | `ageval_sdk` for `run.py` |
+| `apps/viewer` · `apps/hub` | Local Jobs / Hub SPA |
+| `website/` | This site |
+| `docs/` | Design |
 
-Why the system is cut that way: [`docs/design/`](https://github.com/ZJU-REAL/BORA/tree/main/docs/design).
+Why: in-repo `docs/design/`. Executor and environment decouple through **named
+export / inject**, not imports — see `docs/design/11`.

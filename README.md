@@ -1,211 +1,72 @@
-# BORA
+# ageval
 
-**Bounded Orchestration for Runtime Agents**
+**agent eval** — lock a dataset, open a box, run the task, let an independent evaluator own the score.
 
-[中文文档](README.zh-CN.md)
+[中文](README.zh-CN.md)
 
 [![Release](https://img.shields.io/github/v/release/ZJU-REAL/BORA?display_name=tag&sort=semver)](https://github.com/ZJU-REAL/BORA/releases)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
-[![Issues](https://img.shields.io/github/issues/ZJU-REAL/BORA)](https://github.com/ZJU-REAL/BORA/issues)
-[![Pull Requests](https://img.shields.io/github/issues-pr/ZJU-REAL/BORA)](https://github.com/ZJU-REAL/BORA/pulls)
 
----
+The GitHub repository is still `ZJU-REAL/BORA`. The product, CLI, and packages are **ageval**.
 
-Agent benchmarks usually score the model and leave the **harness**—orchestration, isolation, visibility, and evaluation boundaries—to each vendor’s private stack. Swap the coding agent, isolation mode, or upstream framework, and scores stop lining up; reproduction and trajectories fragment the same way.
+Agent benchmarks usually score the model and leave orchestration, isolation, visibility, and the eval barrier to each vendor stack. Swap the coding agent or the box, and scores stop lining up.
 
-**BORA** is that outer runtime: lock task config, run a bounded Attempt, control what the agent can see, and let an independent evaluator own the score. Coding agents go through **ACP**; other execution mechanisms install as `bora.plugin/1` packages and bind from job profiles—no per-vendor scraper in Core.
+**ageval** is that outer runtime: lock config, run a bounded Attempt, project what the agent can see, and bind PASS only from an independent evaluator. Coding agents enter through **ACP**. Other mechanisms install as `ageval.plugin/1` and bind from job profiles. The box is an exclusive slot: `local` / `docker` / `e2b` / `ssh`.
 
-### What you can do with it
+The Attempt pipeline is visible in `src/ageval/attempt/`. Task authors write `run.py` and `evaluator.py`, not a copy of the pipeline.
 
-- **Automate evaluation with agent + skill** — after clone, load the repo skills so a coding agent can pick examples, run `bora run`, and read results and trajectories for you
-- **Compose Harness × Agent × Model freely** — keep one task harness and switch Codex / Claude / Pi / OpenCode (and models) via ACP, or bind an installed mechanism plugin such as nooa or dsh, for near-cartesian comparison—no per-vendor stdout scraper
-- **Install a mechanism plugin** — `bora plugin install` caches a plugin locally; bind it from `profiles.yaml`
-- **Drop an existing harness into a shared boundary** — keep your workflow; the outer layer unifies config lock, isolation (host / Docker), visibility, and independent scoring for cross-framework reproduction
-- **Batch a full Dataset or a parameter matrix** — run every task in a suite, or campaign over allowlisted overrides such as seed / profile
-- **Aggregate suite scores and archive job results** — suite runs write observational `pass_rate` / `mean_score`; push them to the Registry when you need a shared results store
-- **Browse local runs in a Web UI** — `bora view` opens Jobs → Tasks → Attempt for suite jobs and single-task Attempts in the opened Database; drill into a run for Trajectory, multi-role Time/Usage, and optional provenance links. A Jobs row can delete that local tree (suite delete always cascades Attempts); `bora jobs delete --local … --yes` is the same use case
-- **Share packages and results on Registry / Hub** — upload a Dataset draft then `bora release`, or publish a release directly; invite members; share private results. Public Leaderboard lists complete, release-bound suite runs; incomplete or draft-bound rows stay on Jobs
-- **Review and export trajectories** — each invoke lands on disk; `bora evidence` exports a sealed copy for failure analysis or training pipelines
+### What you can do
 
----
+- Load the in-repo skills and let a coding agent pick examples, run `ageval run`, and read results
+- Keep one task `run.py` and switch ACP entries (pi / Codex / Claude / OpenCode / Grok) or bind nooa / dsh / miniswe from profiles
+- `ageval plugin install` then bind in `profiles.yaml` — install never rewrites the dataset
+- Run a full dataset (omit `--task`) or a campaign matrix
+- Browse local jobs with `ageval view`
+- Publish datasets to Registry / Hub; public Leaderboard is complete, release-bound suites only
+- Export trajectories with `ageval evidence` — trajectory is never PASS
 
 ## Quick start
 
-Requires [uv](https://docs.astral.sh/uv/) and CPython **3.12+**.
+[uv](https://docs.astral.sh/uv/) and CPython **3.12+**.
 
 ```bash
 git clone https://github.com/ZJU-REAL/BORA.git
 cd BORA
 uv sync --frozen --all-packages
-uv run bora -V
+uv run ageval -V
 ```
-
-### Common CLI
 
 ```bash
-# List tasks in a Dataset
-uv run bora tasks examples/core
-
-# Lock only (no agent / evaluator)
-uv run bora lock examples/core --task config-minimal
-# Same lock plus host/L1 feasibility (no Agent, no digest change)
-# uv run bora lock examples/core --task config-minimal --probe
-
-# Real multi-turn agent path (host ACP entry + credentials required)
-uv run bora run examples/core --task sdk-agent-session
-
-# Switch coding-agent entry via job binding override
-uv run bora run examples/core --task builtin-executor-conformance \
-  --set '/bindings/solver/options/entry="pi"'
-
-# Full Dataset suite (omit --task)
-uv run bora run examples/core --max-concurrent-tasks 2
-
-# Always-k: k independent Attempts per task (CLI/job only; feeds pass@k / pass^k)
-uv run bora run examples/core -k 5 --max-concurrent-tasks 2
-# uv run bora run examples/core --task sdk-agent-session -k 5
-# uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
-# uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
-
-# Suite job control (optional --database for progress / cancel.requested)
-# uv run bora status <suite_run_id> --database examples/core
-# uv run bora cancel <suite_run_id> --database examples/core
-
-# Local results console (build SPA once: cd apps/viewer && pnpm build)
-uv run bora view examples/core --no-browser
-# uv run bora view examples/core --dev --open /jobs/<id>
-
-# List executor kinds / ACP entries ready on this host
-uv run bora executors -v
-
-# Mechanism plugins
-# uv run bora plugin install plugins/nooa
-# uv run bora plugin install plugins/dsh
-# uv run bora plugin list
-
-# Dataset draft → immutable release (Registry login + --org required)
-# uv run bora publish <dataset> --org <org> --draft
-# uv run bora release <org/dataset>
+uv run ageval tasks examples/core
+uv run ageval lock examples/core --task config-minimal
+uv run ageval run  examples/core --task acp-local-min
+uv run ageval run  examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml
+uv run ageval run  examples/journeys --task terminal-jsonl-agg
+uv run ageval executors -v
+uv run ageval view examples/core --no-browser
 ```
 
-### Let a coding agent drive it
+`--probe` locks and preflights without opening a long Agent run. Missing `E2B_API_KEY` / SSH locators fail closed.
 
-Skills under [`skills/`](skills/) are discoverable via [`.agents/skills`](.agents/skills). Point your agent at them to run a Dataset under `examples/`, or edit `harness.py` yourself.
+Job binding: `--profiles` replaces the dataset `profiles.yaml`. `--agent` and `--profiles` are mutually exclusive.
 
-| Skill                                                | Use when                          |
-| ---------------------------------------------------- | --------------------------------- |
-| [`bora-platform`](skills/bora-platform/)             | Product map and red lines         |
-| [`bora-cli`](skills/bora-cli/)                       | CLI and result interpretation     |
-| [`bora-plugin`](skills/bora-plugin/)                 | Author `bora.plugin/1` packages   |
-| [`bora-config-package`](skills/bora-config-package/) | Authoring Dataset / task config   |
-| [`bora-sdk-harness`](skills/bora-sdk-harness/)       | Writing harnesses with `bora_sdk` |
+## Docs
 
----
+In-repo docs are self-contained. You do not need an external design vault.
 
-## Reading a package
+- Design (authority): [`docs/`](docs/README.md)
+- How to use: [`website/`](website/)
+- Examples: [`examples/README.md`](examples/README.md)
+- Contributor routing: [`AGENTS.md`](AGENTS.md)
+- Structure map: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 
-A **Dataset** is the delivery unit: root `bora.yaml` plus member tasks.
+## Layout
 
 ```text
-examples/core/                    # one Dataset
-├── bora.yaml                     # suite metadata, tasks root
-├── profiles.yaml                 # job binding (role → entry/model)
-├── env.example                   # credential locator names only
-└── tasks/
-    └── sdk-agent-session/
-        ├── task.yaml             # role slots + intent (no entry/model)
-        ├── harness.py            # workflow inside the Attempt
-        ├── evaluator.py          # independent PASS/FAIL
-        └── …
+src/ageval/          runtime
+sdk/python/          ageval_sdk for run.py
+plugins/             external ageval.plugin/1
+examples/            named datasets
+apps/viewer hub      local Jobs UI / Hub SPA
+services/registry    package + results HTTP
 ```
-
-| Path                                               | Role                                               |
-| -------------------------------------------------- | -------------------------------------------------- |
-| [`examples/core/`](examples/core/)                 | Core smokes                                        |
-| [`examples/journeys/`](examples/journeys/)         | Case demos (env / multi-agent / dialog / terminal) |
-| [`examples/l1/`](examples/l1/)                     | Docker L1 probes                                   |
-| [`examples/tau3-airline/`](examples/tau3-airline/) | τ³-bench airline conversion                        |
-
-CLI takes the **Dataset root**; `--task <id>` selects a member. Full list: [`examples/README.md`](examples/README.md).
-
-```yaml
-# task.yaml — role slots only
-agent_profiles:
-  - id: solver
-
-# Database profiles.yaml — job binding
-# format: bora.profiles/1
-# bindings:
-#   solver:
-#     executor: acp
-#     extensions:
-#       - plugin: acp
-#         options: { entry: codex }  # see: bora executors
-#     model: gpt-5.4-mini
-```
-
----
-
-## Reading run outputs
-
-Attempt evidence lands under the Dataset root at `.bora/runs/<run_id>/`:
-
-```text
-.bora/runs/<run_id>/
-├── lock.json              # locked config snapshot (no secrets)
-├── result.json            # flat Result (status, score, …)
-├── summary.json
-├── harness.json           # harness terminal / publish facts
-├── agent.json
-├── effects.jsonl
-├── cleanup.json
-└── agent/
-    ├── events.jsonl
-    └── invocations/
-        └── 0001-<inv_id>/
-            ├── request.json
-            ├── final-response.json
-            ├── metadata.json
-            ├── events.jsonl
-            ├── trajectory.jsonl   # turn-level rows (when produced)
-            └── backend_raw/       # redacted backend stream
-```
-
-`bora run` prints a single JSON object: `status` / `score` are the evaluation verdict; `logs` is a portable path relative to the Dataset root (`.bora/runs/<run_id>`).
-
-```bash
-uv run bora evidence <dataset>/.bora/runs/<run_id> --out /tmp/bora-export
-```
-
-A **full suite** (omit `--task`), or a single task with `-k` / `--n-attempts` > 1, also writes a suite job under the Dataset root:
-
-```text
-.bora/suite-runs/<suite_run_id>/
-├── summary.json     # metrics.pass_rate / mean_score / pass_at_k / pass_power_k, task_refs
-├── progress.json    # multi-unit progress (when running / after)
-└── cancel.requested # present if suite cancel was requested
-```
-
-| Metric                       | Role                                                                 |
-| ---------------------------- | -------------------------------------------------------------------- |
-| `pass_rate` / `mean_score`   | Observational skim                                                   |
-| `pass_at_k` / `pass_power_k` | Job stats after Always-k (mean over tasks); **not** package identity |
-| `n_attempts`                 | Job k budget                                                         |
-
-PASS remains **per-task** only. `n_attempts` is **CLI/job only** (never `task.yaml` / fingerprint). Attempt `result.json` may include `phase_timing`. Optional Registry archive: `bora results upload-suite` (see CLI README). Local UI: `bora view <dataset>` (Timing / Tokens on Attempt pages).
-
----
-
-## Further reading
-
-| Audience     | Start here                                                            |
-| ------------ | --------------------------------------------------------------------- |
-| Design       | [`docs/design/`](docs/design/)                                        |
-| Structure    | [`ARCHITECTURE.md`](ARCHITECTURE.md)                                  |
-| Product docs | [`website/`](website/) — bilingual reader docs (not design authority) |
-| CLI          | [`src/bora/cli/README.md`](src/bora/cli/README.md)                    |
-| Viewer       | [`apps/viewer/README.md`](apps/viewer/README.md) — local SPA dev      |
-| Hub          | [`apps/hub/README.md`](apps/hub/README.md) — Registry SPA dev         |
-| Registry     | [`services/registry/README.md`](services/registry/README.md)          |
-| Issues       | [GitHub Issues](https://github.com/ZJU-REAL/BORA/issues)              |
-| Releases     | [Releases](https://github.com/ZJU-REAL/BORA/releases)                 |

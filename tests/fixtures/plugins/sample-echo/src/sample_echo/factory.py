@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult
+from ageval.plugins.agent_result import AgentResult
 
 
 class EchoExecutor:

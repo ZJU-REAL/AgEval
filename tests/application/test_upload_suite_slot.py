@@ -8,23 +8,23 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bora.application.registry_ops.results_command import ResultsCommands
-from bora.config.errors import ConfigError
+from ageval.application.registry_ops.results_command import ResultsCommands
+from ageval.config.errors import ConfigError
 
 
 def _seed(db: Path, *, suite_id: str = "suite1") -> None:
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\ndatabase_id: test/db\nversion: 0.1.0\n",
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\ndataset_id: test/db\nversion: 0.1.0\n",
         encoding="utf-8",
     )
-    suite_dir = db / ".bora" / "suite-runs" / suite_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_id
     suite_dir.mkdir(parents=True)
     suite_dir.joinpath("summary.json").write_text(
         """{
-  "schema": "bora.suite.summary/1",
+  "schema": "ageval.suite.summary/1",
   "suite_run_id": "suite1",
-  "database_id": "test/db",
-  "database_version": "0.1.0",
+  "dataset_id": "test/db",
+  "dataset_version": "0.1.0",
   "exit_code": 0,
   "config_fingerprint": "sha256:fp",
   "amended": true,
@@ -66,7 +66,7 @@ def _seed(db: Path, *, suite_id: str = "suite1") -> None:
         encoding="utf-8",
     )
     for rid in ("newrun", "oldrun"):
-        run_dir = db / ".bora" / "runs" / rid
+        run_dir = db / ".ageval" / "runs" / rid
         run_dir.mkdir(parents=True)
         run_dir.joinpath("result.json").write_text(
             f'{{"status": "PASS", "task_id": "hello", "run_id": "{rid}"}}\n',
@@ -108,18 +108,18 @@ def test_append_slot_uploads_attempt_and_patches_suite(tmp_path: Path) -> None:
 def test_append_slot_resolves_always_k_index_from_attempts(tmp_path: Path) -> None:
     db = tmp_path / "dbk"
     db.mkdir()
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\ndatabase_id: test/db\nversion: 0.1.0\n",
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\ndataset_id: test/db\nversion: 0.1.0\n",
         encoding="utf-8",
     )
-    suite_dir = db / ".bora" / "suite-runs" / "suitek"
+    suite_dir = db / ".ageval" / "suite-runs" / "suitek"
     suite_dir.mkdir(parents=True)
     suite_dir.joinpath("summary.json").write_text(
         """{
-  "schema": "bora.suite.summary/1",
+  "schema": "ageval.suite.summary/1",
   "suite_run_id": "suitek",
-  "database_id": "test/db",
-  "database_version": "0.1.0",
+  "dataset_id": "test/db",
+  "dataset_version": "0.1.0",
   "exit_code": 0,
   "attempts": [
     {"task_id": "hello", "attempt_index": 0, "status": "FAIL", "run_id": "idx0"},
@@ -141,7 +141,7 @@ def test_append_slot_resolves_always_k_index_from_attempts(tmp_path: Path) -> No
         encoding="utf-8",
     )
     for rid in ("idx0", "idx2", "idx1new", "idx1old"):
-        run_dir = db / ".bora" / "runs" / rid
+        run_dir = db / ".ageval" / "runs" / rid
         run_dir.mkdir(parents=True)
         run_dir.joinpath("result.json").write_text("{}\n", encoding="utf-8")
 
@@ -167,8 +167,8 @@ def test_append_slot_refuses_foreign_run(tmp_path: Path) -> None:
     db = tmp_path / "db"
     db.mkdir()
     _seed(db)
-    (db / ".bora" / "runs" / "other").mkdir(parents=True)
-    (db / ".bora" / "runs" / "other" / "result.json").write_text("{}\n", encoding="utf-8")
+    (db / ".ageval" / "runs" / "other").mkdir(parents=True)
+    (db / ".ageval" / "runs" / "other" / "result.json").write_text("{}\n", encoding="utf-8")
     cmds = ResultsCommands(client_factory=lambda **_kw: MagicMock())
     with pytest.raises(ConfigError, match="current pointer"):
         cmds.append_suite_slot_result(db, suite_run_id="suite1", task_id="hello", run_id="other")

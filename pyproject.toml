@@ -1,13 +1,13 @@
 [project]
-name = "bora"
+name = "ageval"
 dynamic = ["version"]
-description = "Bounded Orchestration for Runtime Agents — Config Core (v0.1)"
+description = "ageval — agent evaluation runtime (Attempt pipeline + environment kinds)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pyyaml>=6.0.2",
     "typer>=0.16.0",
-    "bora-sdk",
+    "ageval-sdk",
     "agent-client-protocol==0.12.0",
 ]
 
@@ -35,13 +35,12 @@ miniswe = [
     "mini-swe-agent>=2.0",
     "socksio>=1.0.0",
 ]
+e2b = [
+    "e2b>=2.25.0",
+]
 
 [project.scripts]
-bora = "bora.cli.main:app"
-
-[project.entry-points."bora.agent_executors"]
-acp = "bora.adapters.agent_registry:_builtin_acp_factory"
-openai-http = "bora.adapters.agent_registry:_builtin_openai_factory"
+ageval = "ageval.cli.main:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -52,7 +51,7 @@ path = "VERSION"
 pattern = "(?P<version>\\S+)"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bora"]
+packages = ["src/ageval"]
 # Viewer SPA is built on demand (apps/viewer: pnpm build → dist/).
 # Do not force-include dist: it is gitignored and breaks CI `uv sync --frozen`.
 
@@ -91,8 +90,10 @@ include = ["src", "tests"]
 extraPaths = ["plugins/nooa/src", "plugins/dsh/src", "plugins/home-files/src", "plugins/agent-skills/src", "plugins/miniswe/src"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
+# Optional-extra SDKs are imported inside their own contrib and nowhere else.
+reportMissingImports = "warning"
 venvPath = "."
 venv = ".venv"
 
 [tool.uv.sources]
-bora-sdk = { path = "sdk/python", editable = true }
+ageval-sdk = { path = "sdk/python", editable = true }

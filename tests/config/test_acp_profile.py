@@ -1,4 +1,4 @@
-"""Config lock surface for executor: acp + options.entry (#59 bindings)."""
+"""Config lock surface for executor: acp + options.entry (#59 agent_profiles)."""
 
 from __future__ import annotations
 
@@ -7,52 +7,39 @@ from typing import Any
 
 import pytest
 import yaml
+from tests.helpers.lock import lock_with_profiles
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
+from ageval.config.errors import ConfigError
+from ageval.config.model import thaw
 
 
 def _write_pkg(root: Path, slot_ids: list[str]) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     doc = {
-        "format": "bora.task/1",
+        "format": "ageval.task/1",
         "task_id": "acp-lock-test",
-        "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {},
-        "provider": {"kind": "local", "assurance": "l0"},
         "agent_profiles": [{"id": s} for s in slot_ids],
         "limits": {
             "wall_time_seconds": 60,
             "agent_invocations": 2,
-            "environment_actions": 0,
         },
         "artifacts": {"publishable": []},
         "evaluation": {
-            "runtime": "python",
             "entrypoint": "evaluator:evaluate",
-            "network": "none",
             "inputs": [],
-            "output": {"format": "json"},
         },
     }
     (root / "task.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
-    (root / "harness.py").write_text("def run(ctx):\n    pass\n", encoding="utf-8")
+    (root / "run.py").write_text("def run(ctx):\n    pass\n", encoding="utf-8")
     (root / "evaluator.py").write_text(
         "def evaluate(inputs):\n    return {'verdict': 'PASS'}\n", encoding="utf-8"
     )
     return root
 
 
-def _lock(pkg: Path, bindings: dict[str, dict[str, Any]]):
-    return ConfigCore(package_reader=LocalPackageReader()).load_and_lock(
-        pkg,
-        "acp-lock-test",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=bindings,
-    )
+def _lock(pkg: Path, agent_profiles: dict[str, dict[str, Any]]):
+    return lock_with_profiles(pkg, "acp-lock-test", agent_profiles)
 
 
 def test_acp_profile_lock_snapshot(tmp_path: Path) -> None:
@@ -120,7 +107,7 @@ def test_acp_reasoning_effort_option_survives_lock(tmp_path: Path) -> None:
 
 def test_acp_package_cannot_override_command(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path / "pkg", ["bad"])
-    with pytest.raises(ConfigError, match="not package-overridable"):
+    with pytest.raises(ConfigError, match="belongs to the entry registry"):
         _lock(
             pkg,
             {

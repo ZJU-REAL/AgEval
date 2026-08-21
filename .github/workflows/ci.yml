@@ -113,12 +113,12 @@ jobs:
       - name: Pytest (core, exclude registry)
         if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         env:
-          BORA_OFFLINE_AGENT: "1"
-          BORA_SKIP_DOCKER: "1"
-          BORA_SKIP_REAL_CODEX: "1"
-          BORA_SKIP_REAL_PI: "1"
-          BORA_SKIP_REAL_OPENCODE: "1"
-          BORA_SKIP_REAL_ACP: "1"
+          AGEVAL_OFFLINE_AGENT: "1"
+          AGEVAL_SKIP_DOCKER: "1"
+          AGEVAL_SKIP_REAL_CODEX: "1"
+          AGEVAL_SKIP_REAL_PI: "1"
+          AGEVAL_SKIP_REAL_OPENCODE: "1"
+          AGEVAL_SKIP_REAL_ACP: "1"
         run: |
           uv run pytest \
             --ignore=tests/registry \
@@ -172,8 +172,8 @@ jobs:
       - name: Pytest (registry)
         if: needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
         env:
-          BORA_OFFLINE_AGENT: "1"
-          BORA_SKIP_DOCKER: "1"
+          AGEVAL_OFFLINE_AGENT: "1"
+          AGEVAL_SKIP_DOCKER: "1"
         run: uv run pytest tests/registry -q
 
   viewer-app:

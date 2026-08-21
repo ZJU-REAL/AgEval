@@ -16,6 +16,10 @@ const buttonVariants = cva(
         ghost: "text-body hover:bg-canvas-soft hover:text-ink",
         outline:
           "border border-hairline bg-canvas text-ink hover:bg-canvas-soft",
+        danger:
+          "bg-error text-on-accent hover:bg-error/80 font-mono text-[13px] font-semibold",
+        dangerOutline:
+          "border border-hairline bg-canvas text-ink hover:border-transparent hover:bg-error/15 hover:text-error",
       },
       size: {
         default: "h-9 px-3",

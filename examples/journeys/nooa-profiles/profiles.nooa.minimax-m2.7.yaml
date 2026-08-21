@@ -1,7 +1,7 @@
 # LiteLLM feasibility overlay for terminal-jsonl-agg (nooa).
 # model: openai/MiniMax-M2.7
 # nooa LiteLLM client needs an openai/ prefix to hit litellm_base_url.
-format: bora.profiles/1
+format: ageval.profiles/1
 bindings:
   solver:
     executor: nooa

@@ -24,10 +24,10 @@ from services.registry.routes import match_route
 from services.registry.spool import extract_multipart_archive, spool_body
 from services.registry.store import TokenInfo
 
-from bora.registry.media_types import (
+from ageval.registry.media_types import (
     ATTEMPT_RESULT_MEDIA_TYPE as RESULT_MEDIA_TYPE,
 )
-from bora.registry.media_types import SUITE_RESULT_MEDIA_TYPE
+from ageval.registry.media_types import SUITE_RESULT_MEDIA_TYPE
 
 _ctx: ContextVar[RequestCtx] = ContextVar("registry_http_ctx")
 
@@ -48,7 +48,7 @@ class HttpResult:
 
 
 def cors_headers() -> dict[str, str]:
-    origin = (os.environ.get("BORA_REGISTRY_CORS_ORIGIN") or "*").strip() or "*"
+    origin = (os.environ.get("AGEVAL_REGISTRY_CORS_ORIGIN") or "*").strip() or "*"
     out = {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
@@ -205,7 +205,7 @@ class RegistryHttpApi:
         raw = getattr(self.state, "spool_dir", None)
         if isinstance(raw, Path):
             return raw
-        return Path(tempfile.gettempdir()) / "bora-registry-spool"
+        return Path(tempfile.gettempdir()) / "ageval-registry-spool"
 
     def _read_multipart_archive(self) -> tuple[dict[str, Any], Path, Path] | HttpResult:
         """Return metadata, archive path, and the parent spool dir to delete later."""
@@ -221,7 +221,7 @@ class RegistryHttpApi:
             )
         parent = self._spool_dir()
         parent.mkdir(parents=True, exist_ok=True)
-        work = Path(tempfile.mkdtemp(prefix="bora-up-", dir=str(parent)))
+        work = Path(tempfile.mkdtemp(prefix="ageval-up-", dir=str(parent)))
         try:
             spool = spool_body(
                 ctx.body,
@@ -259,7 +259,7 @@ class RegistryHttpApi:
         return visibility
 
     def _health(self) -> HttpResult:
-        return json_result(200, {"ok": True, "service": "bora-registry"})
+        return json_result(200, {"ok": True, "service": "ageval-registry"})
 
     def _auth_web_start(self) -> HttpResult:
         body = self._read_json_body()
@@ -321,13 +321,13 @@ class RegistryHttpApi:
                 shutil.rmtree(work, ignore_errors=True)
         return json_result(201, payload)
 
-    def _release_draft(self, *, database_id: str, auth: TokenInfo) -> HttpResult:
+    def _release_draft(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
         try:
             payload = self.state.packages.release_draft(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 auth=auth,
                 visibility=str(body.get("visibility") or "") or None,
                 replace=bool(body.get("replace")),
@@ -342,7 +342,7 @@ class RegistryHttpApi:
             mine_raw = (qs.get("mine") or [""])[0]
             payload = self.state.packages.list_packages(
                 auth=auth,
-                prefix=(qs.get("database_id_prefix") or [None])[0],
+                prefix=(qs.get("dataset_id_prefix") or [None])[0],
                 visibility=(qs.get("visibility") or [None])[0],
                 version=(qs.get("version") or [None])[0],
                 package_kind=(qs.get("package_kind") or [None])[0],
@@ -352,16 +352,14 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(200, payload)
 
-    def _list_package_versions(self, *, database_id: str, auth: TokenInfo) -> HttpResult:
+    def _list_package_versions(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
         try:
-            payload = self.state.packages.list_versions(database_id=database_id, auth=auth)
+            payload = self.state.packages.list_versions(dataset_id=dataset_id, auth=auth)
             items = payload.get("items") or []
             if any(
                 isinstance(item, dict) and item.get("package_kind") == "agent" for item in items
             ):
-                payload["appearances"] = self.state.runtimes.appearances_for_agent(
-                    database_id, auth
-                )
+                payload["appearances"] = self.state.runtimes.appearances_for_agent(dataset_id, auth)
         except RegistryAppError as exc:
             return _caught(exc)
         return json_result(200, payload)
@@ -369,14 +367,14 @@ class RegistryHttpApi:
     def _serve_meta(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         version: str | None,
         package_digest: str | None,
         auth: TokenInfo,
     ) -> HttpResult:
         try:
             payload = self.state.packages.serve_meta(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 version=version,
                 package_digest=package_digest,
                 auth=auth,
@@ -386,11 +384,11 @@ class RegistryHttpApi:
         return json_result(200, payload)
 
     def _serve_content(
-        self, *, database_id: str, package_digest: str, auth: TokenInfo
+        self, *, dataset_id: str, package_digest: str, auth: TokenInfo
     ) -> HttpResult:
         try:
             fh, size, row = self.state.packages.serve_content(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 package_digest=package_digest,
                 auth=auth,
             )
@@ -398,7 +396,7 @@ class RegistryHttpApi:
             return _caught(exc)
         return octet_result(
             None,
-            {"X-Bora-Blob-Digest": row.blob_digest},
+            {"X-Ageval-Blob-Digest": row.blob_digest},
             stream=fh,
             size=size,
         )
@@ -406,14 +404,14 @@ class RegistryHttpApi:
     def _serve_package_files_list(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         auth: TokenInfo,
         package_digest: str | None = None,
         version: str | None = None,
     ) -> HttpResult:
         try:
             payload = self.state.packages.list_files(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 auth=auth,
                 package_digest=package_digest,
                 version=version,
@@ -425,7 +423,7 @@ class RegistryHttpApi:
     def _serve_package_file(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         file_path: str,
         auth: TokenInfo,
         package_digest: str | None = None,
@@ -433,7 +431,7 @@ class RegistryHttpApi:
     ) -> HttpResult:
         try:
             payload = self.state.packages.read_file(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 file_path=file_path,
                 auth=auth,
                 package_digest=package_digest,
@@ -463,7 +461,9 @@ class RegistryHttpApi:
         try:
             payload = self.state.results.list_attempts(
                 auth=auth,
-                database_id=(qs.get("database_id") or [None])[0],
+                dataset_id=(qs.get("dataset_id") or [None])[0],
+                task_id=(qs.get("task_id") or [None])[0],
+                standalone=(qs.get("standalone") or ["0"])[0] in {"1", "true", "yes"},
             )
         except RegistryAppError as exc:
             return _caught(exc)
@@ -484,8 +484,8 @@ class RegistryHttpApi:
         return octet_result(
             None,
             {
-                "X-Bora-Blob-Digest": row.blob_digest,
-                "X-Bora-Media-Type": RESULT_MEDIA_TYPE,
+                "X-Ageval-Blob-Digest": row.blob_digest,
+                "X-Ageval-Media-Type": RESULT_MEDIA_TYPE,
             },
             stream=fh,
             size=size,
@@ -540,7 +540,7 @@ class RegistryHttpApi:
             board_raw = (qs.get("board") or [""])[0]
             payload = self.state.results.list_suites(
                 auth=auth,
-                database_id=(qs.get("database_id") or [None])[0],
+                dataset_id=(qs.get("dataset_id") or [None])[0],
                 board=str(board_raw).strip().lower() in {"1", "true", "yes"},
                 uploaded_by=(qs.get("uploaded_by") or [None])[0],
             )
@@ -565,8 +565,8 @@ class RegistryHttpApi:
         return octet_result(
             None,
             {
-                "X-Bora-Blob-Digest": row.blob_digest,
-                "X-Bora-Media-Type": SUITE_RESULT_MEDIA_TYPE,
+                "X-Ageval-Blob-Digest": row.blob_digest,
+                "X-Ageval-Media-Type": SUITE_RESULT_MEDIA_TYPE,
             },
             stream=fh,
             size=size,
@@ -622,13 +622,13 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(200, payload)
 
-    def _patch_package_display_name(self, *, database_id: str, auth: TokenInfo) -> HttpResult:
+    def _patch_package_display_name(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
         try:
             payload = self.state.packages.patch_display_name(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 display_name=body.get("display_name"),
                 auth=auth,
             )
@@ -849,25 +849,25 @@ class RegistryHttpApi:
         return json_result(200, payload)
 
     def _delete_package_release(
-        self, *, database_id: str, version: str, auth: TokenInfo
+        self, *, dataset_id: str, version: str, auth: TokenInfo
     ) -> HttpResult:
         try:
             payload = self.state.packages.delete_release(
-                database_id=database_id, version=version, auth=auth
+                dataset_id=dataset_id, version=version, auth=auth
             )
         except RegistryAppError as exc:
             return _caught(exc)
         return json_result(200, payload)
 
     def _patch_package_release(
-        self, *, database_id: str, version: str, auth: TokenInfo
+        self, *, dataset_id: str, version: str, auth: TokenInfo
     ) -> HttpResult:
         visibility = self._visibility_body()
         if isinstance(visibility, HttpResult):
             return visibility
         try:
             payload = self.state.packages.patch_visibility(
-                database_id=database_id,
+                dataset_id=dataset_id,
                 version=version,
                 visibility=visibility,
                 auth=auth,

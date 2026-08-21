@@ -1,0 +1,16 @@
+format: ageval.task/1
+task_id: beta
+parameters:
+  sleep_ms: 200
+  expect_pass: true
+limits:
+  wall_time_seconds: 60
+  agent_invocations: 0
+artifacts:
+  publishable:
+  - id: result
+    path: artifacts/result.json
+evaluation:
+  inputs:
+  - artifact: result
+    target: artifacts/result.json

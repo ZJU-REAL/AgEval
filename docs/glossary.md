@@ -1,36 +1,49 @@
-# BORA Glossary
+# ageval Glossary
 
-定义以 [design/](design/) 为准；本表为统一短定义。
+定义以 [design/](design/) 为准。
 
 | 术语 | 定义 |
 | --- | --- |
-| **BORA** | Bounded Orchestration for Runtime Agents；Harness 外层编排运行时 |
-| **BORA Core** | 外层五组机制：Config、Lifecycle、Provider、Capability、Evaluation |
-| **Harness Core** | 可选 Python SDK（`HarnessContext` 等）；可被 upstream 替代；无 Run/verdict authority |
-| **Harness** | task 成员内 workflow（`harness.py`）或 upstream Framework 入口 |
-| **Database** | 规范交付/分发单位（schema 名）：根 `bora.yaml`（`bora.database/1`）+ `tasks/<id>/` 成员 |
-| **Dataset** | 产品/读者向别名，指同一交付单位（Database）；Hub/Registry 文案可写 Dataset，机制规格仍用 Database schema |
-| **Task / Task Package** | Database 成员：`task.yaml` + Harness 入口 + evaluation + 可选 lib/assets |
-| **`bora.yaml`** | Database 根配置（identity / version / tasks 根）；**不是** task 执行契约 |
-| **`task.yaml`** | 成员规范配置：parameters + 外部 envelope（`bora.task/1`） |
-| **`load_and_lock`** | Config Core 原子入口：读 `task.yaml` → `LockedTaskConfig` |
-| **`resolve_task`** | Database 根 + task_id → 成员目录 / `task.yaml` |
-| **LockedTaskConfig** | 一次 Trial 可复盘的锁定配置 |
-| **HarnessTerminal** | Harness 结束信号；`completed` ≠ PASS |
-| **Capability** | Attempt 内已授权操作面：agent、environment、workspace、artifacts… |
-| **Adapter / Plugin** | Capability/Provider 的实现；entry point 可分发 |
-| **Agent Service** | 主仓调度面：按 profile 路由 AgentExecutor、session、额度、投影、轨迹落盘 |
-| **AgentExecutor** | 具体 Agent 后端实现；coding-agent 为 `acp`（+ `- plugin: acp` / `options.entry`），另有 `openai-http` 与可分发自定义 kind |
-| **ACP entry** | registry `entry_id`（如 `codex` / `pi`）；Mode 1 常与 engine + ACP 桥包（如 `pi` + npm `pi-acp`）双装 |
-| **Provider** | 物理运行时与隔离（process/container、mount、network、secret） |
-| **可见性投影** | 消费者受限视图（path/secret/network/params/materialize） |
-| **Run / Trial / Attempt** | 外层执行身份；retry → 新 Attempt |
-| **Evaluator** | task-local 真值所有者 |
-| **Evaluator barrier** | stop writers → materialize → evaluate → bind |
-| **Campaign** | 多 Trial 调度（Application 层） |
-| **硬顶（hard ceiling）** | **执行前上限**：次数/时长等限制在「还没真正调 Agent、还没改外部资源」之前就必须拦住；拦不住的（如事后 token 统计）不算硬顶，只算观测 |
-| **软限** | 写在 `parameters` 里、由 Harness 自己控制的策略上限（如 max turns）；可被 Harness 改口，不替代 Runtime 硬顶 |
-| **assurance** | 隔离档位（L0/L1/L2…）；Result 记录实际档位 |
-| **Attempt evidence** | 一次 Attempt 的 filesystem 事实树（`.bora/runs/<id>/`）；含 Result 投影与轨迹 |
-| **Agent 轨迹落盘** | 每次 Agent invocation 的 metadata / request / events.jsonl / final-response 等；供复盘与训练；≠ PASS |
-| **`Result.logs`** | 指向 Attempt evidence 根的 locator；必须可解析 |
+| **ageval** | 产品名（agent eval）。CLI / 包 / format 硬切 |
+| **dataset** | 规范交付单位：根 `ageval.yaml`（`ageval.dataset/1`）+ `tasks/<id>/`。不是 SQL |
+| **task** | dataset 成员：`task.yaml` + `run.py` + `evaluator.py` + 可选 `environment/` |
+| **profiles.yaml** | job 文档：`environment` 赢家 + 角色绑定。`--agent` 与 `--profiles` 互斥 |
+| **Run / Trial / Attempt** | Run = 一次 CLI 顶层；Trial = 一题 × 一套 profile（lock digest）；Attempt = 一次外层执行（失败重试 = 新 Attempt） |
+| **Campaign** | 矩阵展开的多 Trial（`ageval campaign`） |
+| **suite** | 一份 dataset 去掉 `--task` 的全成员跑。suite 指标是观测，不是 suite PASS |
+| **run.py** | 题包 run phase 入口（`async def run(ctx)`）。不可读 `evaluation/` |
+| **evaluator.py** | 题包打分；PASS 只从 evaluate 相位绑定进入 |
+| **RunTerminal** | 题包结束信号；`completed` ≠ PASS |
+| **phase** | attempt 上的一大步（environment / run / evaluate / record / cleanup） |
+| **独占槽** | 全 Attempt 一个赢家；登记为同名 service |
+| **链槽** | phase 内钩子，handler `(ctx, value, nxt)` |
+| **environment**（槽） | 盒子赢家：`local` / `docker` / `e2b` / `ssh`，同一 Protocol |
+| **executor**（槽） | Agent 后端赢家，常为 acp |
+| **service / inject** | 按名取能力：独占赢家以槽名 export；调用方 inject 服务名 + capabilities；lock 期解析。`exec` 是 Protocol 方法，不是独立 service |
+| **attach_stdio** | host 在已开盒里起前台进程并交回 stdin/stdout |
+| **ACP entry** | `options.entry`：`pi` / `codex` / `claude-code` / `opencode` / `grok-build` |
+| **BYOK** | 声明过的 API key env 投影进盒；缺则 fail-closed |
+| **BYOA** | `keyless_auth`；allowlist copy 本机 auth 文件进 attempt HOME |
+| **capabilities** | kind 声明能兑现什么；lock 期 `requires ⊆ capabilities` |
+| **path_views** | 同时多角色不同盘（mount+UID），仅 docker 类能兑现。gold 隔离不靠它 |
+| **environment_setup** | environment 末槽；有 `setup.sh` 才 exec |
+| **ssh A / ssh B** | A 盒子=整机；B 盒子=远端已有容器。同一 kind 的两种 options |
+| **gold** | `tasks/*/evaluation/`。evaluate 开头再 upload |
+| **composition root** | `application/composition.py`；CLI 只 import 它 |
+| **LockedTaskConfig** | lock 产物与其 digest（含 `extension_bindings`） |
+| **ageval SDK** | `RunContext` / `RunTerminal` / `Agent.session`。不拥有 identity / credential / PASS |
+| **硬顶** | 执行前上限。事后 token 只是观测 |
+| **evidence** | `.ageval/runs/<id>/`；布局字符串只在 `evidence/` 模块 |
+| **轨迹** | `trajectory.jsonl`；复盘用，不能发明 PASS |
+
+## format
+
+| format |
+| --- |
+| `ageval.dataset/1` |
+| `ageval.task/1` |
+| `ageval.plugin/1` |
+| `ageval.profiles/1` |
+| `ageval.trajectory.event/1` |
+
+未知 format：一个错误，停。

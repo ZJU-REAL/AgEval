@@ -1,45 +1,58 @@
 ---
 title: Config field reference
-description: bora.yaml / task.yaml field and validation cheat sheet.
+description: ageval.yaml / task.yaml field and validation cheat sheet.
 ---
 
 Tutorial path: [Author a task](/docs/author/tutorial). This page is for lookup.
 
-## Root `bora.yaml`
+## Root `ageval.yaml`
 
 | Field | Rules |
 | --- | --- |
-| `format` | `bora.database/1` |
-| `database_id` | 1–128; charset `^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$`; no `..` / `//` |
+| `format` | `ageval.dataset/1` |
+| `dataset_id` | 1–128; charset `^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?$`; no `..` / `//` |
 | `version` | Non-empty |
 | `tasks.root` | Default `tasks` |
 | `defaults` | Only `max_concurrent_tasks` (≥1) |
-| Forbidden | harness / provider / limits / evaluation / profiles |
+| Forbidden | `harness` / `provider` / `limits` / `evaluation` / profiles |
 
 **Not** in yaml: `n_attempts` / Always-k (CLI/job only — see [Suite](/docs/run/suite)).
 
-Empty suite fails lock.
+Empty suite fails lock. Unknown format → `invalid_format`.
 
 ## Member `task.yaml`
 
 | Block | Notes |
 | --- | --- |
-| `format` | `bora.task/1` |
+| `format` | `ageval.task/1` |
 | `task_id` | = dir name = `--task` |
-| `harness` | `runtime` + `entrypoint` |
-| `parameters` | For harness; common keys: `active_profile`, `harness_timeout_seconds`, `agent_timeout_seconds`, `roles`, `seed` |
-| `provider` | `local` \| `docker` (+ Dockerfile) |
-| `agent_profiles` | Role slots `{id}` only; ACP `entry` lives on Database `- plugin: acp`; `api_key` = env name |
+| `parameters` | For `run.py` (`ctx.params`) |
+| `agent_profiles` | Role slots `{id}` only; ACP `entry` lives on root `profiles.yaml` |
 | `limits` | wall / invokes / env actions / memory |
 | `artifacts` | publishable id + path |
-| `evaluation` | entrypoint, network, inputs, output; optional `tmpfs_mb` (L1 clean-eval `/tmp`, positive MiB, default 32; **not** `limits.*`) |
-| `provenance` | optional; member replaces root |
+| `evaluation` | optional inputs / output; `evaluator.py` is recognized. Optional `tmpfs_mb` (in-box evaluator `/tmp`, positive MiB, default 32; **not** `limits.*`) |
+| `provenance` | optional |
+| Forbidden | `harness:` block, `provider.kind`, `assurance`, `executor` / `api_key` on the member role |
+
+Files present are recognized: `run.py`, `evaluator.py`, Dockerfile, `setup.sh`.
 
 ## Job binding (`profiles.yaml`)
 
-Optional `label` on a role is the Jobs / Hub Agents axis. If omitted: ACP uses `- plugin: acp` / `options.entry`, other kinds use `executor`. Never treat `options.agent` as a display name. Optional `options.reasoning_effort` must match an advertised thinking value; `grok-build` applies it on `grok agent --reasoning-effort`, other entries use ACP `set_config_option`.
+```yaml
+format: ageval.profiles/1
+environment: docker
+agent_profiles:
+  solver:
+    executor: acp
+    api_key: ${ZHIPU_API_KEY}
+    options:
+      entry: pi
+    extensions:
+      - plugin: acp
+      - plugin: docker
+```
 
-Optional `overlays` is that role’s published file set on Hub (paths under `overlays/`). With `agent_ref`, files resolve from the Agent package; otherwise they are Database-relative. Omit or `[]` = YAML only, no tree. Core does not infer the list from plugin `src`. Listed files stay locator-only.
+Optional `label` on a role. `--agent` is mutually exclusive with `--profiles`. Optional `overlays` paths must start with `overlays/` and stay locator-only.
 
 ## Allowed top-level dirs
 
@@ -47,4 +60,4 @@ Optional `overlays` is that role’s published file set on Hub (paths under `ove
 
 ## Common lock failures
 
-id mismatch · bad format · illegal database_id · docker without Dockerfile · missing ACP entry · secrets in yaml · illegal folders · empty suite
+id mismatch · bad format · illegal dataset_id · docker without Dockerfile · missing ACP entry · secrets in yaml · illegal folders · empty suite

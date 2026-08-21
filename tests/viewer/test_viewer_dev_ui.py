@@ -1,11 +1,11 @@
-"""Best-effort Vite spawn for bora view --dev (no real pnpm process)."""
+"""Best-effort Vite spawn for ageval view --dev (no real pnpm process)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import patch
 
-from bora.viewer.dev_ui import (
+from ageval.viewer.dev_ui import (
     fallback_commands,
     try_start_dev_ui,
     viewer_app_dir,
@@ -45,7 +45,7 @@ def test_try_start_skipped_when_not_requested() -> None:
 
 
 def test_try_start_reuses_listening_port() -> None:
-    with patch("bora.viewer.dev_ui.port_listening", return_value=True):
+    with patch("ageval.viewer.dev_ui.port_listening", return_value=True):
         result = try_start_dev_ui(
             api_origin="http://127.0.0.1:8765",
             ui_port=5173,
@@ -58,7 +58,7 @@ def test_try_start_reuses_listening_port() -> None:
 
 
 def test_try_start_no_app() -> None:
-    with patch("bora.viewer.dev_ui.viewer_app_dir", return_value=None):
+    with patch("ageval.viewer.dev_ui.viewer_app_dir", return_value=None):
         result = try_start_dev_ui(
             api_origin="http://127.0.0.1:8765",
             ui_port=5173,
@@ -75,9 +75,9 @@ def test_try_start_no_pnpm(tmp_path: Path) -> None:
     (app / "vite.config.ts").write_text("export default {}\n", encoding="utf-8")
     (app / "node_modules").mkdir()
     with (
-        patch("bora.viewer.dev_ui.viewer_app_dir", return_value=app),
-        patch("bora.viewer.dev_ui.port_listening", return_value=False),
-        patch("bora.viewer.dev_ui.shutil.which", return_value=None),
+        patch("ageval.viewer.dev_ui.viewer_app_dir", return_value=app),
+        patch("ageval.viewer.dev_ui.port_listening", return_value=False),
+        patch("ageval.viewer.dev_ui.shutil.which", return_value=None),
     ):
         result = try_start_dev_ui(
             api_origin="http://127.0.0.1:8765",
@@ -94,9 +94,9 @@ def test_try_start_no_modules(tmp_path: Path) -> None:
     (app / "package.json").write_text("{}\n", encoding="utf-8")
     (app / "vite.config.ts").write_text("export default {}\n", encoding="utf-8")
     with (
-        patch("bora.viewer.dev_ui.viewer_app_dir", return_value=app),
-        patch("bora.viewer.dev_ui.port_listening", return_value=False),
-        patch("bora.viewer.dev_ui.shutil.which", return_value="/usr/bin/pnpm"),
+        patch("ageval.viewer.dev_ui.viewer_app_dir", return_value=app),
+        patch("ageval.viewer.dev_ui.port_listening", return_value=False),
+        patch("ageval.viewer.dev_ui.shutil.which", return_value="/usr/bin/pnpm"),
     ):
         result = try_start_dev_ui(
             api_origin="http://127.0.0.1:8765",

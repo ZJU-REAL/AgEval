@@ -1,0 +1,4 @@
+interface:
+  display_name: "ageval CLI"
+  short_description: "lock/run/evidence and exit codes"
+  default_prompt: "Use $ageval-cli to run the correct ageval lock/run/evidence commands and interpret Result.logs without inventing flags."

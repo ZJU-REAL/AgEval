@@ -19,8 +19,8 @@ export function CatalogScopeBar({
   searchPlaceholder: string;
 }) {
   return (
-    <div className="flex items-end gap-3 border-b border-hairline mb-4">
-      <div className="flex gap-1 min-w-0 shrink-0">
+    <div className="mb-4">
+      <div className="flex gap-1 border-b border-hairline">
         {(
           [
             ["orgs", "Your organizations"],
@@ -42,12 +42,13 @@ export function CatalogScopeBar({
           </button>
         ))}
       </div>
-      <div className="ml-auto w-40 sm:w-64 shrink-0 pb-1.5">
+      <div className="pt-3">
         <Input
           value={query}
           onChange={(e) => onQuery(e.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchLabel}
+          className="w-full max-w-sm"
         />
       </div>
     </div>

@@ -19,15 +19,23 @@ import {
 } from "@/components/ui/table";
 import {
   encodeDatasetId,
-  latestPackageByDatabase,
+  environmentFromOverlay,
+  latestPackageByDataset,
   listPackages,
+  overlayAgentProfiles,
   pluginsUsedBySuite,
   uniqueAgentRefs,
   type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
-import { getToken } from "@/lib/auth";
-import { cn, formatScore, reasoningEffortFromOverlay } from "@/lib/utils";
+import { getGithubUser, getToken } from "@/lib/auth";
+import { ResultOwnerOps } from "@/components/result-owner-ops";
+import {
+  cn,
+  displayLabelsFromOverlay,
+  formatScore,
+  reasoningEffortFromOverlay,
+} from "@/lib/utils";
 import { CodeHighlight } from "@/lib/code-highlight";
 import {
   formatPassMetric,
@@ -41,7 +49,7 @@ import { ModelLabel } from "@/components/model-label";
 import { JobOverlayPreview } from "@/components/overlay-file-panel";
 import { ScrollTable } from "@/components/scroll-table";
 
-/** Shared column widths — keep Agent/Model tight so columns stay similar. */
+/** Shared column widths — keep Harness/Model tight so columns stay similar. */
 const COL_TEXT = "w-[6.5rem] max-w-[6.5rem] overflow-hidden";
 const COL_METRIC = "w-[5.5rem] max-w-[5.5rem]";
 
@@ -55,20 +63,23 @@ function shortSuiteId(id: string): string {
   return `${raw.slice(0, 10)}…`;
 }
 
-/** Render secret-free job_overlay as bora.profiles/1 YAML for rehydrate display. */
+/** Render secret-free job_overlay as ageval.profiles/1 YAML for rehydrate display. */
 function jobOverlayToProfilesYaml(overlay: SuiteRow["job_overlay"]): string {
-  const bindings = overlay?.bindings;
-  if (!bindings || typeof bindings !== "object") {
+  const profiles = overlayAgentProfiles(overlay);
+  const environment = environmentFromOverlay(overlay);
+  if (!environment && !Object.keys(profiles).length) {
     return "# no job_overlay on this suite\n";
   }
-  const lines: string[] = ["format: bora.profiles/1", "bindings:"];
-  const roles = Object.keys(bindings).sort();
+  const lines: string[] = ["format: ageval.profiles/1"];
+  if (environment) lines.push(`environment: ${environment}`);
+  lines.push("agent_profiles:");
+  const roles = Object.keys(profiles).sort();
   if (roles.length === 0) {
     lines.push("  {}");
     return lines.join("\n") + "\n";
   }
   for (const role of roles) {
-    const b = bindings[role];
+    const b = profiles[role];
     if (!b || typeof b !== "object") continue;
     lines.push(`  ${role}:`);
     if (b.executor != null) lines.push(`    executor: ${String(b.executor)}`);
@@ -161,6 +172,7 @@ function TruncateCell({
 type SortKey =
   | "agent_label"
   | "model_label"
+  | "environment"
   | "pass_rate"
   | "mean_score"
   | "n_attempts"
@@ -174,9 +186,11 @@ function suiteSortValue(s: SuiteRow, key: SortKey): unknown {
   const m = s.metrics || {};
   switch (key) {
     case "agent_label":
-      return s.agent_label || "";
+      return displayLabelsFromOverlay(s.job_overlay).agent || s.agent_label || "";
     case "model_label":
       return s.model_label || "";
+    case "environment":
+      return environmentFromOverlay(s.job_overlay) || "";
     case "pass_rate":
       return s.pass_rate ?? null;
     case "mean_score":
@@ -218,15 +232,15 @@ function defaultCompare(a: SuiteRow, b: SuiteRow): number {
  * Column headers are clickable (Viewer Jobs pattern). pass@k / pass^k sort by
  * primary display k (max k_values / n_attempts); not job identity.
  */
-type ExpandTab = "profiles" | "plugin" | "jobs";
+type ExpandTab = "profiles" | "plugin" | "jobs" | "share";
 
 function SuiteJobsList({
   suite,
-  databaseId,
+  datasetId,
   onOpen,
 }: {
   suite: SuiteRow;
-  databaseId: string;
+  datasetId: string;
   onOpen: (href: string) => void;
 }) {
   const rows = suiteJobRows(suite);
@@ -234,7 +248,7 @@ function SuiteJobsList({
     return (
       <p className="text-sm text-mute">
         No task results on this suite. Upload with{" "}
-        <code className="font-mono">bora results upload-suite</code>.
+        <code className="font-mono">ageval results upload-suite</code>.
       </p>
     );
   }
@@ -249,7 +263,7 @@ function SuiteJobsList({
         rows={rows.map((j) => {
           const href =
             j.hasAttempt && j.runId
-              ? `/datasets/${encodeDatasetId(databaseId)}/tasks/${encodeURIComponent(j.taskId)}/attempts/${encodeURIComponent(j.runId)}`
+              ? `/datasets/${encodeDatasetId(datasetId)}/tasks/${encodeURIComponent(j.taskId)}/attempts/${encodeURIComponent(j.runId)}`
               : null;
           return {
             key: j.key,
@@ -333,16 +347,18 @@ function suiteJobRows(suite: SuiteRow): Array<{
 
 export function LeaderboardTable({
   suites,
-  databaseId,
+  datasetId,
   orgId,
   emptyTitle,
   emptyBody,
   openSuiteId,
   packageDigest,
   versions,
+  onSuiteUpdated,
+  onSuiteDeleted,
 }: {
   suites: SuiteRow[];
-  databaseId: string;
+  datasetId: string;
   /** Dataset owning org — used to pick `my-lab/nooa` over another org's copy. */
   orgId?: string | null;
   emptyTitle?: string;
@@ -352,8 +368,11 @@ export function LeaderboardTable({
   /** Currently viewed Dataset release digest (fallback for overlay preview). */
   packageDigest?: string;
   versions?: PackageRelease[];
+  onSuiteUpdated?: (suiteRunId: string, patch: Partial<SuiteRow>) => void;
+  onSuiteDeleted?: (suiteRunId: string) => void;
 }) {
   const navigate = useNavigate();
+  const selfLogin = (getGithubUser() || "").toLowerCase();
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandTab, setExpandTab] = useState<ExpandTab>("profiles");
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
@@ -371,7 +390,7 @@ export function LeaderboardTable({
     let cancelled = false;
     listPackages(getToken(), { packageKind: "plugin" })
       .then((items) => {
-        if (!cancelled) setPluginCatalog(latestPackageByDatabase(items));
+        if (!cancelled) setPluginCatalog(latestPackageByDataset(items));
       })
       .catch(() => {
         if (!cancelled) setPluginCatalog([]);
@@ -392,7 +411,7 @@ export function LeaderboardTable({
   const showKColumns = suites.some(
     (s) => primaryDisplayK(s.metrics || {}) != null,
   );
-  const colCount = showKColumns ? 10 : 7;
+  const colCount = showKColumns ? 11 : 8;
 
   const rows = useMemo(() => {
     const list = [...suites];
@@ -439,7 +458,7 @@ export function LeaderboardTable({
         </p>
         <p className="text-sm text-mute">
           {emptyBody ||
-            "Public board lists complete, release-bound suite uploads only. Incomplete or draft-bound runs stay on Internal and the task Jobs list. Upload with bora results upload-suite. Metrics are observational, not a suite-level PASS."}
+            "Public board lists complete, release-bound suite uploads only. Incomplete or draft-bound runs stay on Internal and the task Jobs list. Upload with ageval results upload-suite. Metrics are observational, not a suite-level PASS."}
         </p>
       </div>
     );
@@ -448,7 +467,7 @@ export function LeaderboardTable({
   return (
     <div className="space-y-3">
       <p className="text-xs text-mute">
-        <span className="font-mono">{databaseId}</span>
+        <span className="font-mono">{datasetId}</span>
         {" · "}metrics only (not suite PASS)
         {" · "}click headers to sort
         {showKColumns ? " · pass@k uses job max k" : null}
@@ -458,10 +477,13 @@ export function LeaderboardTable({
           <TableHeader>
             <TableRow>
               <TableHead className={COL_TEXT}>
-                {head("agent_label", "Agent")}
+                {head("agent_label", "Harness")}
               </TableHead>
               <TableHead className={COL_TEXT}>
                 {head("model_label", "Model")}
+              </TableHead>
+              <TableHead className={COL_METRIC}>
+                {head("environment", "Environment")}
               </TableHead>
               <TableHead className={`text-right ${COL_METRIC}`}>
                 {head("pass_rate", "Pass rate", true)}
@@ -510,22 +532,23 @@ export function LeaderboardTable({
               const open = openId === s.suite_run_id;
               const yamlText = jobOverlayToProfilesYaml(s.job_overlay);
               const overlayDigest =
-                versions?.find((row) => row.version === s.database_version)
+                versions?.find((row) => row.version === s.dataset_version)
                   ?.package_digest || packageDigest;
               const plugins = pluginsUsedBySuite(s, pluginCatalog, orgId);
               const rehydrateScript = [
                 "# Export this suite's job binding as profiles.yaml (locators only; no secrets)",
-                `bora results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
+                `ageval results export-profiles ${s.suite_run_id} --out profiles.from-suite.yaml`,
                 "",
-                "# Re-run with that binding (fill Database .env locally for credentials)",
-                "bora run <database-root> --profiles profiles.from-suite.yaml",
+                "# Re-run with that binding (fill Dataset .env locally for credentials)",
+                "ageval run <dataset-root> --profiles profiles.from-suite.yaml",
                 "",
               ].join("\n");
               const nAtt = metricsNAttempts(m);
               const atK = passAtPrimaryK(m);
               const powK = passPowerPrimaryK(m);
-              const agentText = s.agent_label || "";
-              const modelText = s.model_label || "";
+              const derived = displayLabelsFromOverlay(s.job_overlay);
+              const agentText = derived.agent || s.agent_label || "";
+              const modelText = derived.model || s.model_label || "";
               const runtimeLinks = uniqueAgentRefs(s.agent_refs);
 
               return (
@@ -562,6 +585,11 @@ export function LeaderboardTable({
                         effort={reasoningEffortFromOverlay(s.job_overlay)}
                         className="font-mono text-xs"
                       />
+                    </TableCell>
+                    <TableCell
+                      className={`font-mono text-xs ${COL_METRIC}`}
+                    >
+                      {environmentFromOverlay(s.job_overlay) || "—"}
                     </TableCell>
                     <TableCell
                       className={`text-right tabular-nums text-xs ${COL_METRIC}`}
@@ -666,7 +694,10 @@ export function LeaderboardTable({
                                 ["profiles", "profiles"],
                                 ["plugin", "plugin"],
                                 ["jobs", "jobs"],
-                              ] as const
+                                ...(((s.uploaded_by || "").toLowerCase() === selfLogin
+                                  ? ([["share", "share"]] as const)
+                                  : []) as ReadonlyArray<readonly [ExpandTab, string]>),
+                              ] as ReadonlyArray<readonly [ExpandTab, string]>
                             ).map(([id, label]) => (
                               <button
                                 key={id}
@@ -697,7 +728,7 @@ export function LeaderboardTable({
                               />
                               <JobOverlayPreview
                                 overlay={s.job_overlay}
-                                datasetId={databaseId}
+                                datasetId={datasetId}
                                 datasetDigest={overlayDigest || ""}
                               />
                             </>
@@ -728,10 +759,27 @@ export function LeaderboardTable({
                                 </ul>
                               )}
                             </div>
+                          ) : expandTab === "share" ? (
+                            <ResultOwnerOps
+                              kind="suite"
+                              resultId={s.suite_run_id}
+                              visibility={s.visibility}
+                              canManage
+                              token={getToken()}
+                              onVisibility={(next) =>
+                                onSuiteUpdated?.(s.suite_run_id, {
+                                  visibility: next,
+                                })
+                              }
+                              onDeleted={() => {
+                                setOpenId(null);
+                                onSuiteDeleted?.(s.suite_run_id);
+                              }}
+                            />
                           ) : (
                             <SuiteJobsList
                               suite={s}
-                              databaseId={databaseId}
+                              datasetId={datasetId}
                               onOpen={(href) => navigate(href)}
                             />
                           )}

@@ -1,15 +1,15 @@
 # home-files
 
-`bora.plugin/1` that copies overlay files into Attempt
+`ageval.plugin/1` that copies overlay files into Attempt
 `$HOME` or workspace. Registers `on: home_overlay` only. No bake.
 
 ## Install
 
 ```bash
-uv run bora plugin install plugins/home-files
+uv run ageval plugin install plugins/home-files
 ```
 
-Install writes `$BORA_HOME/plugins` only. It never rewrites profiles.
+Install writes `$AGEVAL_HOME/plugins` only. It never rewrites profiles.
 
 ## Bind
 
@@ -29,7 +29,7 @@ extensions:
 
 | Field | Rule |
 | --- | --- |
-| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Database root. No `..`, no absolute path. |
+| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Dataset root. No `..`, no absolute path. |
 | `dest_root` | Required: `home` or `workspace`. |
 | `dest` | Relative to that root. No `..`. Not under `evaluation/`. |
 
@@ -43,9 +43,9 @@ published set; this plugin still copies only its own `files[].src`.
 ## Run
 
 ```bash
-uv run bora plugin install plugins/home-files
-uv run bora lock examples/journeys --task terminal-jsonl-agg \
+uv run ageval plugin install plugins/home-files
+uv run ageval lock examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/acp-profiles/profiles.acp.opencode.glm-5.2.yaml
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/acp-profiles/profiles.acp.opencode.glm-5.2.yaml
 ```

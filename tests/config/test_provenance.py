@@ -1,4 +1,4 @@
-"""Package provenance field validation, lock inclusion, Database→task merge (#18)."""
+"""Package provenance field validation, lock inclusion, Dataset→task merge (#18)."""
 
 from __future__ import annotations
 
@@ -6,21 +6,21 @@ import textwrap
 from pathlib import Path
 
 import pytest
+from tests.helpers.lock import CONFIG_MIN, lock_with_profiles
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.database import load_database_manifest
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
-from bora.config.provenance import merge_provenance, validate_provenance
+from ageval.config.capabilities import DeclarationCapabilityCatalog
+from ageval.config.dataset import load_dataset_manifest
+from ageval.config.errors import ConfigError
+from ageval.config.load_and_lock import ConfigCore
+from ageval.config.model import thaw
+from ageval.config.package_fs import LocalPackageReader
+from ageval.config.provenance import merge_provenance, validate_provenance
 
-REPO = Path(__file__).resolve().parents[2]
-MINIMAL = REPO / "examples" / "core" / "tasks" / "config-minimal"
-MOCK_BINDINGS = {"mock-default": {"executor": "mock", "model": "none"}}
+MINIMAL = CONFIG_MIN / "tasks" / "minimal"
+HTTP_PROFILES = {"solver": {"executor": "openai-http", "model": "gpt-4.1-mini"}}
 
 
-def _minimal_task_yaml(*, extra: str = "", task_id: str = "config-minimal") -> str:
+def _minimal_task_yaml(*, extra: str = "", task_id: str = "minimal") -> str:
     base = (MINIMAL / "task.yaml").read_text(encoding="utf-8")
     if not extra:
         return base
@@ -28,11 +28,11 @@ def _minimal_task_yaml(*, extra: str = "", task_id: str = "config-minimal") -> s
     return base.rstrip() + "\n\n" + textwrap.dedent(extra).lstrip() + "\n"
 
 
-def _write_task_pkg(tmp: Path, *, yaml_text: str, task_id: str = "config-minimal") -> Path:
+def _write_task_pkg(tmp: Path, *, yaml_text: str, task_id: str = "minimal") -> Path:
     pkg = tmp / task_id
     pkg.mkdir(parents=True)
     (pkg / "task.yaml").write_text(yaml_text, encoding="utf-8")
-    (pkg / "harness.py").write_text("#\n", encoding="utf-8")
+    (pkg / "run.py").write_text("#\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("#\n", encoding="utf-8")
     return pkg
 
@@ -82,12 +82,12 @@ def test_validate_port_requires_url_and_pin() -> None:
     assert ok["parity"]["claims"] == ["protocol"]
 
 
-def test_merge_task_overrides_database() -> None:
+def test_merge_task_overrides_dataset() -> None:
     db = {"kind": "port", "upstream": {"url": "https://a.example", "ref": "v1"}}
     task = {"kind": "original"}
-    assert merge_provenance(database=db, task=task) == task
-    assert merge_provenance(database=db, task=None) == db
-    assert merge_provenance(database=None, task=None) is None
+    assert merge_provenance(dataset=db, task=task) == task
+    assert merge_provenance(dataset=db, task=None) == db
+    assert merge_provenance(dataset=None, task=None) is None
 
 
 def test_lock_includes_task_provenance(
@@ -100,34 +100,31 @@ def test_lock_includes_task_provenance(
         """
     )
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
-        "config-minimal",
-        capabilities=catalog,
-        profile_bindings=MOCK_BINDINGS,
+        "minimal",
+        HTTP_PROFILES,
     )
     assert thaw(locked.provenance) == {"kind": "original"}
     assert "provenance" in locked.canonical_payload()
     # Digest changes vs no-provenance baseline from examples/core
-    base = core.load_and_lock(
+    base = lock_with_profiles(
         MINIMAL,
-        "config-minimal",
-        capabilities=catalog,
-        profile_bindings=MOCK_BINDINGS,
+        "minimal",
+        HTTP_PROFILES,
     )
     assert locked.digest != base.digest
 
 
-def test_database_default_applied(
+def test_dataset_default_applied(
     core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
 ) -> None:
     pkg = _write_task_pkg(tmp_path, yaml_text=_minimal_task_yaml())
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
-        "config-minimal",
-        capabilities=catalog,
-        profile_bindings=MOCK_BINDINGS,
-        database_provenance={
+        "minimal",
+        HTTP_PROFILES,
+        dataset_provenance={
             "kind": "wrapper",
             "upstream": {
                 "url": "https://github.com/example/suite",
@@ -139,10 +136,10 @@ def test_database_default_applied(
     assert prov["kind"] == "wrapper"
     assert prov["upstream"]["ref"] == "v0.2.0"
     sources = [e.source for e in locked.resolution.entries]
-    assert "database" in sources
+    assert "dataset" in sources
 
 
-def test_task_provenance_overrides_database(
+def test_task_provenance_overrides_dataset(
     core: ConfigCore, catalog: DeclarationCapabilityCatalog, tmp_path: Path
 ) -> None:
     yaml = _minimal_task_yaml(
@@ -152,12 +149,11 @@ def test_task_provenance_overrides_database(
         """
     )
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
-        "config-minimal",
-        capabilities=catalog,
-        profile_bindings=MOCK_BINDINGS,
-        database_provenance={
+        "minimal",
+        HTTP_PROFILES,
+        dataset_provenance={
             "kind": "port",
             "upstream": {
                 "url": "https://github.com/example/x",
@@ -181,23 +177,22 @@ def test_invalid_port_fails_lock(
     )
     pkg = _write_task_pkg(tmp_path, yaml_text=yaml)
     with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
-            "config-minimal",
-            capabilities=catalog,
-            profile_bindings=MOCK_BINDINGS,
+            "minimal",
+            HTTP_PROFILES,
         )
     assert ei.value.error_code == "invalid_schema"
 
 
-def test_database_manifest_accepts_provenance(tmp_path: Path) -> None:
+def test_dataset_manifest_accepts_provenance(tmp_path: Path) -> None:
     root = tmp_path / "db"
     root.mkdir()
-    (root / "bora.yaml").write_text(
+    (root / "ageval.yaml").write_text(
         textwrap.dedent(
             """
-            format: bora.database/1
-            database_id: test/prov-db
+            format: ageval.dataset/1
+            dataset_id: test/prov-db
             version: "0.1.0"
             tasks:
               root: tasks
@@ -211,35 +206,24 @@ def test_database_manifest_accepts_provenance(tmp_path: Path) -> None:
     (root / "tasks" / "alpha" / "task.yaml").write_text(
         textwrap.dedent(
             """
-            format: bora.task/1
+            format: ageval.task/1
             task_id: alpha
-            harness:
-              runtime: python
-              entrypoint: harness:run
-            provider:
-              kind: local
-            agent_profiles: []
             limits:
               wall_time_seconds: 60
               agent_invocations: 0
-              environment_actions: 0
-              memory_mb: 256
+                          memory_mb: 256
             artifacts:
               publishable: []
             evaluation:
-              runtime: python
               entrypoint: evaluator:evaluate
-              network: none
               inputs: []
-              output:
-                format: json
             """
         ).lstrip(),
         encoding="utf-8",
     )
-    (root / "tasks" / "alpha" / "harness.py").write_text("#\n", encoding="utf-8")
+    (root / "tasks" / "alpha" / "run.py").write_text("#\n", encoding="utf-8")
     (root / "tasks" / "alpha" / "evaluator.py").write_text("#\n", encoding="utf-8")
 
-    man = load_database_manifest(root)
+    man = load_dataset_manifest(root)
     assert man.provenance is not None
     assert man.provenance["kind"] == "original"

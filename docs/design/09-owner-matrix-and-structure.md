@@ -1,91 +1,98 @@
-# 09 — Owner 矩阵、决策检查表与最终结构
+# 09 — Owner 与目标树
 
-| 字段 | 值 |
-| --- | --- |
-| 产品 | Bounded Orchestration for Runtime Agents（BORA） |
-| 权威 | **本文件与同目录其它 design 文档共同构成设计权威**（自包含；不依赖 vault 总文档） |
-| 摘要 | 职责归属、决策检查、目标仓库结构。 |
-
----
+完整模块表、依赖图、生命周期图以 [ARCHITECTURE.md](../../ARCHITECTURE.md) 为结构权威。本文给设计侧的 owner 决策表与不可退化的结构规范（产品模型 §4.9 / §4.10 的仓内正文）。
 
 ## Owner 矩阵
 
-| 行为 | `bora.yaml` | Config Core | `harness.py` / upstream | Harness Core | Runtime Core |
-| --- | --- | --- | --- | --- | --- |
-| Harness entrypoint | 声明 | 校验并锁定 | 实现 | 无 | 启动 |
-| 实验超参数 | 声明唯一值 | 合并、校验、锁定 | 通过 `ctx.params` 解释并使用 | typed view/helper | 记录 Trial identity |
-| Agent loop、Actor、Router | 参数可提供 profile 引用和上限 | 不解释算法 | 拥有 | 可选 Agent helper | 执行真实 invocation（经 Agent Service） |
-| Agent 后端（ACP entry：Codex / Claude Code / Pi…） | `agent_profiles` + `parameters.models` 引用 | 校验 profile→executor/entry 并锁定 | 只传 profile id | `ctx.agent.invoke` | **Agent Service** + **Executor**（`acp` + entry / `openai-http` / 插件） |
-| 用户自研 Core 插件（含非 Agent 面） | 声明对应 kind / 配置选型 | kind 必须已注册；lock 写 `extension_bindings` | 不直接依赖插件 SDK | 经 Capability / 配置消费 | 扩展注册表 resolve、凭据投影、digest 锁定；`bora plugin install` 不改 profiles |
-| 同 task 多后端 / 换后端实验 | 多 profile 或 variant 改引用 | 同上 | 不改 workflow 代码 | 同上 | 同上 |
-| messages、Context | 参数可声明 strategy | 原样锁定参数 | 拥有状态 | transform、compaction | 不保存 team memory |
-| 本地 Tool | 参数声明上限 | 锁定参数 | 定义 callable 和 policy | ToolSet、hooks、guards | 无 |
-| 外部 Tool action | 声明 Environment 和硬上限 | 校验 capability | 决定何时调用 | client helper | Environment/Network/Secret |
-| branch、fan-out、join | 参数声明并发或最大次数 | 锁定参数 | 拥有算法 | workflow helper | Provider capacity ceiling |
-| 普通 typed handoff | 无 | 无 | Python object/message | 可选 typed helper | 无 |
-| 跨 sandbox 文件 | 声明 WorkspaceView 和 output path | 校验引用 | publish declared output | publish helper | 路径检查、digest、materialize |
-| wall time、memory、process | 声明 | 校验范围 | 可提前停止 | RunScope | 最终强制 |
-| evaluator verdict | 声明入口和输入 | 校验引用 | 不发布 verdict | 无 | clean runtime 和结果绑定 |
+| 谁 | 拥有 | 不拥有 |
+| --- | --- | --- |
+| Core Config | lock、digest、format 校验 | 开盒、打分 |
+| Attempt 宿主 | 相位序、identity、deadline、cleanup | 厂商 SDK |
+| 盒子 contrib | 一种 kind 的运输 | ACP 协议、PASS |
+| ACP contrib | parent client、`attach_stdio` 消费 | `docker exec` 实现 |
+| 题包 `run.py` | 业务、本地 Tool、publish | PASS、凭据、开盒 |
+| evaluator | 真值算法 | 启动 Agent |
+| evidence | 路径字符串、轨迹层 C | PASS |
+| CLI | argv、exit code | 业务规则（只调 `build_*`） |
+| Registry HTTP | 包与结果存储 | 颁发 PASS |
+| SDK | 题包 helper | identity / 凭据 / verdict |
 
-## 决策检查表
+词汇：module / interface / seam / adapter / locality / depth。施工纪律以 [AGENTS.md](../../AGENTS.md) 为准。
 
-新增能力前按顺序检查：
+## 目标树（`src/ageval/`）
 
-1. 这个值是否需要配置、比较或覆盖？需要则写入 `bora.yaml`，由 Config Core 读取。
-2. 这个行为能否由一个 Harness 在当前进程中用普通 Python 完成？可以则留在 `harness.py`。
-3. 多个 Harness 是否反复编写同一种样板？是则提炼为可选 Harness Core。
-4. 这个动作是否跨进程、信任域、外部资源或宿主权限？是则进入 Runtime capability。
-5. 是否已经出现并发竞争、崩溃恢复、后台 reopen 或跨进程共享状态？出现后再增加 durable store 或独立 lifecycle component。
-6. Shared 实现是否需要读取 Benchmark、task、角色或业务 action 才能工作？需要则返回 Task Package。
-7. 能否用普通 callable 或已有 Capability 完成？可以则不新增 Adapter；内部是否使用 Port 由实现决定。
-8. 真实 journey + negative evaluator、fail-closed + cleanup、Adapter 第二领域三道门是否有证据？缺少哪一道，就不能宣称转换或通用能力完成。
-
-## 最终结构
+包名 `ageval`。CLI 只 import `ageval.application.composition`。`.ageval/runs` 路径字符串只出现在 `evidence/`。
 
 ```text
-bora.yaml
-  = Task 的唯一规范配置入口
-
-Config Core
-  = load_and_lock：读取、合并、校验、canonicalize、digest 和锁定配置
-
-harness.py / upstream Framework
-  = Agent loop、Context、Tool、Router 和动态工作流
-
-Harness Core
-  = Agent、Context、Tool、Hook、Guard 和 Workflow helper
-
-Runtime Core
-  = Attempt、Provider、Environment、Workspace、declared output、硬顶和 Evaluator authority
-
-Adapter / 插件
-  = 按 Core 契约实现资源、协议或执行机制（可 first-party 或外置分发）
+src/ageval/
+  __init__.py
+  cli/                      # 薄：解析 argv，调 composition.build_*
+  application/
+    composition.py          # 唯一 composition root：接线，不写业务规则
+    lock.py                 # load_and_lock + 能力/inject 图
+    run.py                  # 公开 usecase：开 Attempt，调 attempt.run_attempt
+    suite/
+    plugin_ops/
+    registry_ops/
+    agent_ops/              # --agent 投影进 profiles
+    local_jobs/
+  attempt/                  # 深模块：一次 Attempt 的可见流水线
+    __init__.py             # run_attempt — 五行相位
+    ctx.py                  # AttemptCtx：host / services / lock / bindings
+    emit.py                 # 链槽 next()
+    phases/
+      environment.py        # start · ready · setup
+      run.py                # 调题包 run.py
+      evaluate.py           # 停写 · upload gold · evaluator
+      record.py             # collect → 引擎写层 C
+      cleanup.py            # finally；host.stop
+  config/                   # dataset 根 + task.yaml 缺省；无 Database 名
+  plugins/                  # 槽表 + 服务表 + inject；不是业务
+    slots.py                # 独占 / 链 id（宿主定名）
+    registry.py / resolve.py / bootstrap.py
+    contrib/                # first-party；按机制命名
+      acp/                  # 独占槽 executor
+      openai_http/
+      docker/               # 独占槽 environment；attach_stdio=exec -i
+      local/
+      e2b/                  # SDK 只在本包
+      ssh/                  # A 整机 / B 远端容器
+    defaults/               # environment_setup 认 setup.sh；透传链
+  environments/             # 只有 Protocol + caps，无厂商 SDK
+    protocol.py
+  runtime/                  # 身份、协调、硬顶、ParentAgentService
+    identity.py             # 一次 Attempt 一次 new_run
+    parent_agent.py         # 只认 executor 服务 + host.attach_stdio
+    task_launch.py / task_worker.py
+  evaluation/               # barrier + 绑定 PASS；算法在题包
+  evidence/                 # 布局字符串的唯一主人
+  capabilities/             # 配额 / 授权面；不发明 PASS
+  registry/                 # Hub 客户端
 ```
 
-端到端链路是：
+Current 还含 `viewer/`、`control/`、`agents/`（见 ARCHITECTURE Current 树）。外置插件仍在仓库根 `plugins/`（install 进 `~/.ageval/plugins`），不进 `src/ageval`。`sdk/` 仍是题包 `run.py` 用的薄 SDK，不拥有 identity / credential / PASS。
 
-```text
-bora.yaml
-  → Config Core.load_and_lock()
-  → LockedTaskConfig
-  → Runtime 准备 Provider、Workspace 和 Environment
-  → Runtime 注入 HarnessContext
-  → harness.py 动态编排
-  → Agent / Environment / Workspace / Artifact Capability
-  → HarnessTerminal
-  → stop writers 与 materialize evaluation inputs
-  → 独立 Evaluator
-  → flat Result + cleanup warning
-```
+**刻意不建（Current 已删除，Target 也不得回潮）：**
 
-## 相关资料
+- `environment/manager.py`
+- `adapters/` 大杂烩、`agent_container.wrap_docker_exec`
+- `run_l0.py` / `run_l1_*.py`
+- 产品 `executor: mock` / FakeHost
+- ACP 里的 `wrap_docker_exec`
 
-历史讨论与外部参考（保留标题，便于追溯；**不构成**本仓设计权威）：
+Target 未全部兑现：`plugins/defaults` 与 `contrib/defaults` 不要两套；e2b/ssh 真跑证据；外置 nooa/dsh 真 run。对照 [ARCHITECTURE.md](../../ARCHITECTURE.md) Target。
 
-- BORA 动态 Harness 与精简 Core 决策（vault 历史笔记）
-- BORA Code-first Harness 转向评估（vault 历史笔记）
-- 流行 Benchmark 与 Harness 抽象研究（vault 历史笔记）
-- Graph Engineering SDK 与 BORA 插件边界调研（vault 历史笔记）
-- [A harness for every task：Dynamic workflows in Claude Code](https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code)
-- [Claude Code workflows](https://code.claude.com/docs/en/workflows)
-- [earendil-works/pi](https://github.com/earendil-works/pi)
+## 结构规范（不可退化）
+
+1. **深模块，少文件跳转。** `attempt/` 是生命周期的深模块：打开 `attempt/__init__.py` 能说出相位。禁止再拆出 `run_l1_prepare.py` 这类把复杂度摊到十个浅文件。删除测试：删掉一个文件若只是把逻辑搬到邻居，说明它是浅的，不要新建。
+2. **测试面是公开 CLI + 真实 kind。** `local` 用真目录；`docker` / `e2b` / `ssh` 用真盒子。禁止 `FakeHost` / `executor: mock` / 空 Agent Service 当完成证据。两个真实赢家（docker + e2b/ssh）才使 Protocol seam 成立。无凭证就 skip 该 job，不要标完成。
+3. **locality。** `docker exec` 只活在 `plugins/contrib/docker/`。ACP / `attempt` / `run.py` 不得出现 `container_id`、`if kind == e2b`。厂商 SDK 不得进 `environments/protocol.py`。
+4. **一条路径。** 选 executor / environment 只经注册表独占槽。禁止第二套 `resolve_executor`、CLI 旁路、application 里手 new Docker。
+5. **composition root 唯一。** 平台对象（SDK client、docker CLI、SSH）只在 `application/composition.py` 的 `build_*` 连接。新公开 usecase 必须有 `build_*`。CLI 只 import composition。
+6. **控制面不 import 题包模块当权威。** 经进程/适配器边界调 `run.py` / `evaluator.py`。一次 Attempt 只 `IdentityFactory.new_run` 一次。
+7. **PASS / 身份 / cleanup 不是服务。** 插件 `exports` 不得覆盖这三样。cleanup 必须在 `try/finally`。
+8. **adapter 按机制命名**（`docker` / `ssh` / `acp`），禁止按 bench / task 名分支。
+9. **layout 字符串只在 `evidence/`。** lock / evidence / 默认环境禁止写入 host token。
+10. **inject 在 lock 完成。** executor 只通过已 inject 的 `environment` 服务调用 Protocol。ACP 要 `attach_stdio`；盒内 worker 要 `exec` / `upload`。缺则 fail closed，不在 invoke 时探测管子。`exec` 不是独立 service。
+
+决策检查：改树先改 ARCHITECTURE；改红线先改 design；不要在代码里发明第二套 owner。

@@ -1,8 +1,8 @@
 ---
 version: alpha
-name: BORA-Viewer-IKB
+name: ageval-Viewer-IKB
 description: >
-  Local BORA Database results viewer. Product chrome on the shared Klein Blue
+  Local ageval dataset results viewer. Product chrome on the shared Klein Blue
   / cool-ink system (website landing + docs). Hairline tables, Geist/Inter +
   mono captions. Surface is Jobs → Tasks → Trial drill-down — not a marketing site.
 
@@ -130,11 +130,11 @@ components:
 
 ## Overview
 
-BORA Viewer is a **local results console** for one opened Database (no Registry).
+ageval Viewer is a **local results console** for one opened dataset (no Registry).
 
-1. **Jobs** — suite runs under `.bora/suite-runs/` and unclaimed single Attempts
+1. **Jobs** — suite runs under `.ageval/suite-runs/` and unclaimed single Attempts
 2. **Tasks** — per-task rows inside a job summary
-3. **Trial / task detail** — run meta, reward/status, copyable `bora` command
+3. **Trial / task detail** — run meta, reward/status, copyable `ageval` command
 4. **Job row menu** — action slot is note, else pin, else hover settings.
    Hover a note icon for the text. Click for Pin / Note / Delete.
    Checkboxes select rows; with a selection, the filter-row count becomes
@@ -188,7 +188,7 @@ Prefer **shadcn/ui** (Radix + Tailwind), tokens mapped to CSS variables in
 | shadcn | Role |
 | --- | --- |
 | `Input` | Search boxes |
-| `Select` / `DropdownMenu` | Agent / provider / model / time filters |
+| `Select` / `DropdownMenu` | Harness / model / time filters |
 | `Table` | Jobs, tasks, trials |
 | `Button` | Copy command, ghost icon actions |
 | `Breadcrumb` | Path navigation |

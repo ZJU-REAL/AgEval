@@ -1,0 +1,6 @@
+format: ageval.profiles/1
+environment: local
+agent_profiles:
+  http-default:
+    executor: openai-http
+    model: none

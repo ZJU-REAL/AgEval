@@ -17,16 +17,16 @@ PACKAGE = REPO / "examples" / "core"
 # entry_id → (model, optional extra --set pairs)
 _ENTRY_BINDINGS: dict[str, list[str]] = {
     "codex": [
-        '/bindings/solver/options/entry="codex"',
-        '/bindings/solver/model="gpt-5.4-mini"',
+        '/agent_profiles/solver/options/entry="codex"',
+        '/agent_profiles/solver/model="gpt-5.4-mini"',
     ],
     "pi": [
-        '/bindings/solver/options/entry="pi"',
-        '/bindings/solver/model="claude-haiku-4-5"',
+        '/agent_profiles/solver/options/entry="pi"',
+        '/agent_profiles/solver/model="claude-haiku-4-5"',
     ],
     "opencode": [
-        '/bindings/solver/options/entry="opencode"',
-        '/bindings/solver/model="zai-coding-plan/glm-4.7"',
+        '/agent_profiles/solver/options/entry="opencode"',
+        '/agent_profiles/solver/model="zai-coding-plan/glm-4.7"',
     ],
 }
 
@@ -40,7 +40,7 @@ def _run(
     cmd = [
         sys.executable,
         "-m",
-        "bora.cli.main",
+        "ageval.cli.main",
         "run",
         str(PACKAGE),
         "--task",
@@ -61,14 +61,14 @@ def _run(
 
 def test_unknown_executor_fail_closed() -> None:
     # Offline never PASS.
-    result = _run("codex", env={"BORA_OFFLINE_AGENT": "1"}, timeout=120)
+    result = _run("codex", env={"AGEVAL_OFFLINE_AGENT": "1"}, timeout=120)
     assert result.returncode != 0
     lines = [ln for ln in (result.stdout or "").splitlines() if ln.strip().startswith("{")]
     if lines:
         assert json.loads(lines[-1]).get("status") != "PASS"
 
 
-@pytest.mark.skipif(os.environ.get("BORA_SKIP_REAL_CODEX") == "1", reason="skip real")
+@pytest.mark.skipif(os.environ.get("AGEVAL_SKIP_REAL_CODEX") == "1", reason="skip real")
 def test_codex_profile_success() -> None:
     if shutil.which("codex") is None:
         pytest.skip("codex missing")
@@ -86,7 +86,7 @@ def test_codex_profile_success() -> None:
 
 @pytest.mark.skipif(shutil.which("pi") is None, reason="pi missing")
 def test_pi_profile_success() -> None:
-    if os.environ.get("BORA_SKIP_REAL_PI") == "1":
+    if os.environ.get("AGEVAL_SKIP_REAL_PI") == "1":
         pytest.skip("skip real pi")
     result = _run("pi", timeout=300)
     assert result.returncode == 0, (result.stdout, result.stderr)
@@ -101,7 +101,7 @@ def test_pi_profile_success() -> None:
 
 @pytest.mark.skipif(shutil.which("opencode") is None, reason="opencode missing")
 def test_opencode_profile_success() -> None:
-    if os.environ.get("BORA_SKIP_REAL_OPENCODE") == "1":
+    if os.environ.get("AGEVAL_SKIP_REAL_OPENCODE") == "1":
         pytest.skip("skip real opencode")
     result = _run("opencode", timeout=300)
     assert result.returncode == 0, (result.stdout, result.stderr)
@@ -119,13 +119,13 @@ def test_opencode_profile_success() -> None:
     reason="need codex+pi",
 )
 def test_mixed_profile_independent_trees() -> None:
-    if os.environ.get("BORA_SKIP_REAL_CODEX") == "1":
+    if os.environ.get("AGEVAL_SKIP_REAL_CODEX") == "1":
         pytest.skip("skip real")
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(REPO / "examples" / "core"),
             "--task",

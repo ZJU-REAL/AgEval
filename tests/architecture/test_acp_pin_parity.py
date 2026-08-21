@@ -10,7 +10,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 def test_host_registry_and_image_lock_pins_match() -> None:
     entries = json.loads(
-        (REPO / "src/bora/plugins/contrib/acp/acp_entries.json").read_text(encoding="utf-8")
+        (REPO / "src/ageval/plugins/contrib/acp/acp_entries.json").read_text(encoding="utf-8")
     )
     lock = json.loads((REPO / "docker/attempt/acp-entries.lock.json").read_text(encoding="utf-8"))
     assert entries["python_sdk"]["version"] == lock["python_sdk"]["version"]

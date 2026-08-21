@@ -1,33 +1,19 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: sdk-agent-session
-harness:
-  runtime: python
-  entrypoint: harness:run
+description: Two real parent-bound Agent invokes through the SDK session API.
 parameters:
-  harness_timeout_seconds: 360
   models:
     default: solver
-provider:
-  kind: local
-  assurance: l0
 agent_profiles:
-- id: solver
+  - id: solver
 limits:
   wall_time_seconds: 360
   agent_invocations: 2
-  environment_actions: 0
 artifacts:
   publishable:
-  - id: session-output
-    producer: harness
-    path: artifacts/session-output.json
-    media_type: application/json
+    - id: session-output
+      path: artifacts/session-output.json
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
-  - artifact: session-output
-    target: artifacts/session-output.json
-  output:
-    format: json
+    - artifact: session-output
+      target: artifacts/session-output.json

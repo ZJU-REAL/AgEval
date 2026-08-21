@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 
-from bora.application.composition import build_plugin_commands
-from bora.registry.client import RegistryClient
-from bora.registry.credentials import write_credentials
-from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
+from ageval.application.composition import build_plugin_commands
+from ageval.registry.client import RegistryClient
+from ageval.registry.credentials import write_credentials
+from ageval.registry.plugin_package import PLUGIN_MEDIA_TYPE
 
 _plugins = build_plugin_commands()
 install_plugin_from_registry = _plugins.install_plugin_from_registry
@@ -54,13 +54,13 @@ def test_publish_plugin_preview_and_install(
         token=registry_server["token"],
         path=creds,
     )
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
-    home = tmp_path / "bora-home"
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -71,11 +71,11 @@ def test_publish_plugin_preview_and_install(
     assert summary["ok"] is True
     assert summary["package_kind"] == "plugin"
     assert summary["media_type"] == PLUGIN_MEDIA_TYPE
-    assert "executor" in summary["slots_summary"]["provide"]
+    assert "executor" in summary["slots_summary"]["exclusive"]
     ref = summary["ref"]
 
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
-    meta = client.get_metadata(database_id=summary["package_id"], version=summary["version"])
+    meta = client.get_metadata(dataset_id=summary["package_id"], version=summary["version"])
     assert meta.media_type == PLUGIN_MEDIA_TYPE
     # Raw client returns ReleaseInfo; full preview via direct HTTP
     import json
@@ -89,14 +89,16 @@ def test_publish_plugin_preview_and_install(
     with urllib.request.urlopen(req) as resp:  # noqa: S310
         body = json.loads(resp.read().decode("utf-8"))
     assert body.get("package_kind") == "plugin"
-    assert body.get("plugin_preview", {}).get("slots", {}).get("provide") == ["executor"]
+    assert body.get("plugin_preview", {}).get("description") == (
+        "Fixture executor used by registry plugin publish tests."
+    )
+    assert body.get("plugin_preview", {}).get("slots", {}).get("exclusive") == ["executor"]
     declared = body.get("plugin_preview", {}).get("declared") or []
     ids = {d.get("id") for d in declared}
     assert "executor" in ids
     assert "before_agent_invoke" in ids
     exec_row = next(d for d in declared if d.get("id") == "executor")
-    assert exec_row.get("kind") == "provide"
-    assert exec_row.get("level") == 2
+    assert exec_row.get("kind") == "exclusive"
     assert "plugin.yaml" in body.get("plugin_preview", {}).get("files", [])
 
     # Spec 06: list exposes package_kind without opening blob; filter works.
@@ -107,19 +109,19 @@ def test_publish_plugin_preview_and_install(
     with urllib.request.urlopen(list_req) as resp:  # noqa: S310
         listed = json.loads(resp.read().decode("utf-8"))
     plugin_items = listed.get("items") or []
-    assert any(i.get("database_id") == summary["package_id"] for i in plugin_items)
+    assert any(i.get("dataset_id") == summary["package_id"] for i in plugin_items)
     assert all(i.get("package_kind") == "plugin" for i in plugin_items)
-    echo_row = next(i for i in plugin_items if i.get("database_id") == summary["package_id"])
+    echo_row = next(i for i in plugin_items if i.get("dataset_id") == summary["package_id"])
     assert echo_row.get("official") is False
     assert echo_row.get("org_id") == TEST_ORG
     db_req = urllib.request.Request(
-        registry_server["url"] + "/v1/packages?package_kind=database",
+        registry_server["url"] + "/v1/packages?package_kind=dataset",
         headers={"Authorization": f"Bearer {registry_server['token']}"},
     )
     with urllib.request.urlopen(db_req) as resp:  # noqa: S310
         db_listed = json.loads(resp.read().decode("utf-8"))
     assert not any(
-        i.get("database_id") == summary["package_id"] for i in (db_listed.get("items") or [])
+        i.get("dataset_id") == summary["package_id"] for i in (db_listed.get("items") or [])
     )
 
     installed = install_plugin_from_registry(ref)
@@ -130,18 +132,18 @@ def test_publish_plugin_preview_and_install(
     assert (home / "plugins" / "index.json").is_file()
 
 
-def test_reject_database_as_plugin(
+def test_reject_dataset_as_plugin(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.registry.archive import build_archive
-    from bora.registry.client import RegistryClient, RegistryError
-    from bora.registry.digest import compute_package_digest
+    from ageval.registry.archive import build_archive
+    from ageval.registry.client import RegistryClient, RegistryError
+    from ageval.registry.digest import compute_package_digest
 
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     _ensure_org(registry_server["url"], registry_server["token"])
 
-    db = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+    db = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
     archive, blob_digest, size = build_archive(db)
     package_digest = compute_package_digest(db)
     archive_path = tmp_path / "not-plugin.tar.gz"
@@ -149,7 +151,7 @@ def test_reject_database_as_plugin(
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
     with pytest.raises(RegistryError) as ei:
         client.publish(
-            database_id=f"{TEST_ORG}/not-a-plugin",
+            dataset_id=f"{TEST_ORG}/not-a-plugin",
             version="0.0.1",
             package_digest=package_digest,
             blob_digest=blob_digest,

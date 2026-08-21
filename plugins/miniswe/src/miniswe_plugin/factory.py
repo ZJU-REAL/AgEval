@@ -1,4 +1,4 @@
-"""miniswe ExecutorSPI — host mini-swe-agent loop, bash via local or docker exec."""
+"""miniswe ExecutorSPI — host mini-swe-agent loop, bash via environment.exec."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from bora.adapters.agent_contract import AgentResult, parse_validated_text_structured
-from bora.plugins.errors import ExtensionMaterializeError
+from ageval.plugins.agent_result import AgentResult, parse_validated_text_structured
+from ageval.plugins.errors import ExtensionMaterializeError
 from miniswe_plugin import PLUGIN_ID
-from miniswe_plugin.env import DockerExecEnv, LocalBashEnv
-from miniswe_plugin.trajectory import to_bora_trajectory_events
+from miniswe_plugin.env import ProtocolEnv
+from miniswe_plugin.trajectory import to_ageval_trajectory_events
 
 _CREDENTIAL_ENV_NAMES = ("OPENAI_API_KEY", "litellm_api_key", "LITELLM_API_KEY")
 _BASE_URL_ENV_FALLBACKS = ("OPENAI_BASE_URL", "litellm_base_url", "LITELLM_BASE_URL")
@@ -32,7 +32,7 @@ def describe_miniswe() -> dict[str, Any]:
 
 
 def _offline() -> bool:
-    return os.environ.get("BORA_OFFLINE_AGENT") == "1"
+    return os.environ.get("AGEVAL_OFFLINE_AGENT") == "1"
 
 
 def _as_positive_int(raw: Any, *, name: str, default: int) -> int:
@@ -120,7 +120,7 @@ def _config_search_roots() -> list[Path]:
         roots.append(Path(str(files("minisweagent").joinpath("config"))))
     except Exception:
         pass
-    # Last resort: official mini.yaml copied into the plugin (not a BORA-authored prompt).
+    # Last resort: official mini.yaml copied into the plugin (not a ageval-authored prompt).
     roots.append(Path(__file__).resolve().parents[2] / "vendor")
     return roots
 
@@ -162,54 +162,42 @@ def _write_backend_raw(collect_dir: str | None, payload: dict[str, Any]) -> None
 
 
 class MinisweExecutorSPI:
-    """Host SPI. L1 bind_to_target switches bash to docker exec; LLM stays here."""
+    """Executor SPI. The box runs the shell; the LLM client stays on this side."""
 
     kind = PLUGIN_ID
 
     def __init__(
         self,
         *,
+        host: Any,
+        placement: Any,
         options: dict[str, Any] | None = None,
         profile_id: str | None = None,
         model: str | None = None,
         base_url: str | None = None,
         api_key: str | None = None,
         plugin_id: str | None = None,
-        workdir: str | None = None,
         **_kwargs: Any,
     ) -> None:
         del plugin_id
         opts = dict(options or {})
+        self.host = host
+        self.placement = placement
         self.options = opts
         self.profile_id = profile_id
         self.model = (model or "").strip() or "openai/gpt-4o-mini"
         self.base_url = base_url if isinstance(base_url, str) else None
         self.api_key_env = api_key if isinstance(api_key, str) else None
-        self.default_workdir = str(workdir).strip() if workdir else None
         self.step_limit = _as_positive_int(opts.get("step_limit"), name="step_limit", default=30)
         self.cost_limit = _as_nonneg_float(opts.get("cost_limit"), name="cost_limit", default=0.0)
         self.cmd_timeout = _as_positive_int(opts.get("cmd_timeout"), name="cmd_timeout", default=30)
-        self.session_id = f"bora-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
-        self._placement: Any | None = None
-        self.execution_location = "host"
+        self.session_id = f"ageval-{self.profile_id or 'solver'}-{uuid.uuid4().hex[:12]}"
+        self.execution_location = getattr(host, "kind", None) or "box"
         self._ready = False
 
     @staticmethod
     def describe() -> dict[str, Any]:
         return describe_miniswe()
-
-    def bind_to_target(self, placement: Any) -> MinisweExecutorSPI:
-        bound = MinisweExecutorSPI(
-            options=self.options,
-            profile_id=self.profile_id,
-            model=self.model,
-            base_url=self.base_url,
-            api_key=self.api_key_env,
-            workdir=str(getattr(placement, "workdir", None) or "/attempt/workspace"),
-        )
-        bound._placement = placement
-        bound.execution_location = "attempt-container"
-        return bound
 
     def open(self, **kwargs: Any) -> None:
         del kwargs
@@ -232,7 +220,7 @@ class MinisweExecutorSPI:
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
     ) -> AgentResult:
-        del redaction_sentinels
+        del redaction_sentinels, workdir
         if _offline():
             return AgentResult(
                 model=self.model,
@@ -243,9 +231,7 @@ class MinisweExecutorSPI:
                 metadata={"plugin": PLUGIN_ID},
             )
         try:
-            extra = self._run_agent(
-                prompt, timeout=timeout, workdir=workdir or self.default_workdir
-            )
+            extra = self._run_agent(prompt, timeout=timeout)
         except ExtensionMaterializeError as exc:
             return AgentResult(
                 model=self.model,
@@ -275,11 +261,11 @@ class MinisweExecutorSPI:
             )
         messages = extra.get("messages") if isinstance(extra.get("messages"), list) else []
         _write_backend_raw(collect_dir, extra)
-        mapped = tuple(to_bora_trajectory_events(messages, session_id=self.session_id))
+        mapped = tuple(to_ageval_trajectory_events(messages, session_id=self.session_id))
         submission = str(extra.get("submission") or extra.get("exit_content") or "")
         status = str(extra.get("exit_status") or "")
         ok = status == "Submitted"
-        location = "attempt-container" if self._placement is not None else "host"
+        location = self.execution_location
         return AgentResult(
             model=self.model,
             text=submission,
@@ -297,20 +283,10 @@ class MinisweExecutorSPI:
             },
         )
 
-    def _make_env(self, workdir: str | None) -> LocalBashEnv | DockerExecEnv:
-        cwd = str(Path(workdir or Path.cwd()).expanduser().resolve(strict=False))
-        place = self._placement
-        if place is None:
-            return LocalBashEnv(cwd=cwd, timeout=self.cmd_timeout)
-        return DockerExecEnv(
-            container_id=str(place.container_id),
-            uid=int(place.uid),
-            gid=int(place.gid),
-            workdir=str(getattr(place, "workdir", None) or "/attempt/workspace"),
-            timeout=self.cmd_timeout,
-        )
+    def _make_env(self) -> ProtocolEnv:
+        return ProtocolEnv(host=self.host, placement=self.placement, timeout=self.cmd_timeout)
 
-    def _run_agent(self, prompt: str, *, timeout: float, workdir: str | None) -> dict[str, Any]:
+    def _run_agent(self, prompt: str, *, timeout: float) -> dict[str, Any]:
         try:
             from minisweagent.agents.default import DefaultAgent
             from minisweagent.models.litellm_model import LitellmModel
@@ -343,7 +319,7 @@ class MinisweExecutorSPI:
             **({} if not obs else {"observation_template": obs}),
             **({} if not fmt else {"format_error_template": fmt}),
         )
-        env = self._make_env(workdir)
+        env = self._make_env()
         system_template = str(agent_cfg.get("system_template") or "")
         instance_template = str(agent_cfg.get("instance_template") or "")
         if not system_template or not instance_template:
@@ -385,6 +361,25 @@ class MinisweExecutorSPI:
                 raise TimeoutError("miniswe_timeout") from exc
 
 
-def build_executor(**kwargs: Any) -> MinisweExecutorSPI:
-    """plugin.yaml provide entry."""
-    return MinisweExecutorSPI(**kwargs)
+def build_executor(
+    *,
+    host: Any,
+    placement: Any,
+    options: dict[str, Any] | None = None,
+    profile_id: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    package_root: str | None = None,
+) -> MinisweExecutorSPI:
+    """plugin.yaml exclusive entry: factory receives host + placement from bind_winner."""
+    del package_root
+    return MinisweExecutorSPI(
+        host=host,
+        placement=placement,
+        options=options,
+        profile_id=profile_id,
+        model=model,
+        base_url=base_url,
+        api_key=api_key,
+    )

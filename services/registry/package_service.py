@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -10,15 +11,22 @@ from services.registry.access import AccessPolicy
 from services.registry.blob_io import read_blob, sha256_file
 from services.registry.dataset import DRAFT_SLOT, is_draft_version
 from services.registry.errors import RegistryAppError
-from services.registry.store import DraftRow, ReleaseRow, TokenInfo, now, release_to_dict
+from services.registry.store import (
+    DraftRow,
+    ReleaseRow,
+    TokenInfo,
+    now,
+    package_kind_for_media_type,
+    release_to_dict,
+)
 
 
-def _normalize_plugin_name_segment(database_id: str, raw: object) -> str:
+def _normalize_plugin_name_segment(dataset_id: str, raw: object) -> str:
     """Store only the name leaf. ``org/name`` ids cannot change the org prefix."""
     from services.registry.org_service import _normalize_display_name
 
     name = _normalize_display_name(raw)
-    org, _leaf = (database_id.split("/", 1) + [""])[:2] if "/" in database_id else ("", database_id)
+    org, _leaf = (dataset_id.split("/", 1) + [""])[:2] if "/" in dataset_id else ("", dataset_id)
     if "/" in name:
         prefix, rest = name.split("/", 1)
         if org and prefix.casefold() != org.casefold():
@@ -53,8 +61,8 @@ class PackageService:
         self.access = access
         self.max_upload = max_upload
 
-    def get(self, database_id: str, version: str) -> ReleaseRow | None:
-        return self.meta.get_by_version(database_id, version)
+    def get(self, dataset_id: str, version: str) -> ReleaseRow | None:
+        return self.meta.get_by_version(dataset_id, version)
 
     def can_manage(self, row: ReleaseRow, auth: TokenInfo) -> bool:
         return self.access.can_manage_package(row, auth)
@@ -67,7 +75,7 @@ class PackageService:
                 f"max {self.max_upload} bytes",
                 http_status=413,
             )
-        database_id = str(meta.get("database_id") or "")
+        dataset_id = str(meta.get("dataset_id") or "")
         version = str(meta.get("version") or "")
         package_digest = str(meta.get("package_digest") or "")
         blob_digest = str(meta.get("blob_digest") or "")
@@ -99,11 +107,11 @@ class PackageService:
                 "blob digest or size mismatch",
                 http_status=400,
             )
-        package_kind = str(meta.get("package_kind") or "database").strip().casefold()
-        if package_kind not in {"database", "plugin", "agent"}:
+        package_kind = str(meta.get("package_kind") or "dataset").strip().casefold()
+        if package_kind not in {"dataset", "plugin", "agent"}:
             raise RegistryAppError(
                 "invalid_request",
-                "package_kind must be database, plugin or agent",
+                "package_kind must be dataset, plugin or agent",
                 http_status=400,
             )
         self._validate_archive(
@@ -117,16 +125,16 @@ class PackageService:
             "true",
             "yes",
         }
-        existing_rel = self.meta.get_by_version(database_id, version)
+        existing_rel = self.meta.get_by_version(dataset_id, version)
         if existing_rel is not None:
             if not replace:
                 raise RegistryAppError("conflict", "release already exists", http_status=409)
             if not self._may_replace(existing_rel, auth):
                 raise RegistryAppError("not_found", "release not found", http_status=404)
-            self.meta.delete_release(database_id, version)
+            self.meta.delete_release(dataset_id, version)
             self._gc_blob(existing_rel.blob_digest)
         row = ReleaseRow(
-            database_id=database_id,
+            dataset_id=dataset_id,
             version=version,
             visibility=visibility,
             package_digest=package_digest,
@@ -157,7 +165,7 @@ class PackageService:
                 f"max {self.max_upload} bytes",
                 http_status=413,
             )
-        database_id = str(meta.get("database_id") or "")
+        dataset_id = str(meta.get("dataset_id") or "")
         package_digest = str(meta.get("package_digest") or "")
         blob_digest = str(meta.get("blob_digest") or "")
         media_type = str(meta.get("media_type") or "")
@@ -166,22 +174,22 @@ class PackageService:
         org_id = raw_org.casefold() if raw_org else None
         size = int(meta.get("size") or size_on_disk)
         user_id = auth.user_id or ""
-        if not database_id:
-            raise RegistryAppError("invalid_request", "database_id required", http_status=400)
+        if not dataset_id:
+            raise RegistryAppError("invalid_request", "dataset_id required", http_status=400)
         if visibility not in {"private", "public"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
         if not org_id:
             raise RegistryAppError("org_required", "draft requires org_id", http_status=400)
         if self.meta.get_org(org_id) is None:
             raise RegistryAppError("org_not_found", f"org {org_id!r} not found", http_status=400)
-        package_kind = str(meta.get("package_kind") or "database").strip().casefold()
-        if package_kind != "database":
+        package_kind = str(meta.get("package_kind") or "dataset").strip().casefold()
+        if package_kind != "dataset":
             raise RegistryAppError(
                 "invalid_request",
-                "draft slot is only for database packages",
+                "draft slot is only for dataset packages",
                 http_status=400,
             )
-        existing = self.meta.get_draft(database_id)
+        existing = self.meta.get_draft(dataset_id)
         if not self.access.can_write_draft(existing, org_id=org_id, auth=auth):
             raise RegistryAppError(
                 "forbidden",
@@ -197,27 +205,27 @@ class PackageService:
             )
         self._validate_archive(
             archive,
-            package_kind="database",
+            package_kind="dataset",
             media_type=media_type,
             package_digest=package_digest,
         )
         old_blob = existing.blob_digest if existing else None
         row = DraftRow(
-            database_id=database_id,
+            dataset_id=dataset_id,
             org_id=org_id,
             visibility=visibility,
             package_digest=package_digest,
             blob_digest=blob_digest,
             size=size,
             media_type=media_type,
-            package_kind="database",
+            package_kind="dataset",
             uploaded_by=user_id,
             updated_at=now(),
         )
         self.blobs.put_if_absent(blob_digest, archive, prefix="packages")
         stored = self.meta.upsert_draft(row)
         if existing is None and user_id:
-            self.meta.upsert_dataset_acl(database_id, user_id, role="owner")
+            self.meta.upsert_dataset_acl(dataset_id, user_id, role="owner")
         if old_blob and old_blob != blob_digest:
             self._gc_blob(old_blob)
         payload = release_to_dict(stored.as_release())
@@ -227,13 +235,13 @@ class PackageService:
     def release_draft(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         auth: TokenInfo,
         visibility: str | None = None,
         replace: bool = False,
         version: str | None = None,
     ) -> dict[str, Any]:
-        draft = self.meta.get_draft(database_id)
+        draft = self.meta.get_draft(dataset_id)
         if draft is None or not self.access.can_release_draft(draft, auth):
             raise RegistryAppError("not_found", "draft not found", http_status=404)
         archive = read_blob(self.blobs, draft.blob_digest, prefix="packages")
@@ -249,16 +257,16 @@ class PackageService:
         vis = visibility or draft.visibility
         if vis not in {"private", "public"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
-        existing_rel = self.meta.get_by_version(database_id, rel_version)
+        existing_rel = self.meta.get_by_version(dataset_id, rel_version)
         if existing_rel is not None:
             if not replace:
                 raise RegistryAppError("conflict", "release already exists", http_status=409)
             if not self._may_replace(existing_rel, auth):
                 raise RegistryAppError("not_found", "release not found", http_status=404)
-            self.meta.delete_release(database_id, rel_version)
+            self.meta.delete_release(dataset_id, rel_version)
             self._gc_blob(existing_rel.blob_digest)
         row = ReleaseRow(
-            database_id=database_id,
+            dataset_id=dataset_id,
             version=rel_version,
             visibility=vis,
             package_digest=draft.package_digest,
@@ -291,24 +299,24 @@ class PackageService:
     ) -> dict[str, Any]:
         if visibility is not None and visibility not in {"public", "private"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
-        if package_kind is not None and package_kind not in {"database", "plugin", "agent"}:
+        if package_kind is not None and package_kind not in {"dataset", "plugin", "agent"}:
             raise RegistryAppError(
                 "invalid_request",
-                "package_kind must be database, plugin or agent",
+                "package_kind must be dataset, plugin or agent",
                 http_status=400,
             )
         rows = self.meta.list_releases(
-            database_id_prefix=prefix or None,
+            dataset_id_prefix=prefix or None,
             visibility=visibility,
             version=version or None,
             include_private=True,
         )
         items = [release_to_dict(r) for r in rows if self.access.visible_package(r, auth)]
-        if package_kind in (None, "database"):
+        if package_kind in (None, "dataset"):
             for draft in self.meta.list_drafts():
                 if not self.access.entitled_to_draft(draft, auth):
                     continue
-                if prefix and not draft.database_id.startswith(prefix):
+                if prefix and not draft.dataset_id.startswith(prefix):
                     continue
                 if visibility in {"public", "private"} and draft.visibility != visibility:
                     continue
@@ -319,7 +327,7 @@ class PackageService:
             items = self._filter_mine(items, auth)
         labels = self.meta.package_display_names()
         for item in items:
-            label = labels.get(str(item.get("database_id") or ""))
+            label = labels.get(str(item.get("dataset_id") or ""))
             if label:
                 item["display_name"] = label
         return {"items": items}
@@ -330,81 +338,78 @@ class PackageService:
         if not uid:
             return []
         maintainable = {
-            row.database_id
+            row.dataset_id
             for row in self.meta.list_dataset_acl_for_user(uid)
             if row.role in {"owner", "collaborator"}
         }
         out: list[dict[str, Any]] = []
         for item in items:
             uploader = str(item.get("uploaded_by") or "")
-            db_id = str(item.get("database_id") or "")
-            kind = str(item.get("package_kind") or "database")
+            dataset_id = str(item.get("dataset_id") or "")
+            kind = str(item.get("package_kind") or "")
             if uploader and uploader == uid:
                 out.append(item)
                 continue
-            if kind == "database" and db_id in maintainable:
+            if kind == "dataset" and dataset_id in maintainable:
                 out.append(item)
         return out
 
-    def list_versions(self, *, database_id: str, auth: TokenInfo) -> dict[str, Any]:
-        rows = self.meta.list_versions(database_id, include_private=True)
+    def list_versions(self, *, dataset_id: str, auth: TokenInfo) -> dict[str, Any]:
+        rows = self.meta.list_versions(dataset_id, include_private=True)
         items = [release_to_dict(r) for r in rows if self.access.visible_package(r, auth)]
-        draft = self.meta.get_draft(database_id)
+        draft = self.meta.get_draft(dataset_id)
         if draft is not None and self.access.entitled_to_draft(draft, auth):
             items.insert(0, release_to_dict(draft.as_release()))
-        label = self.meta.get_package_display_name(database_id)
+        label = self.meta.get_package_display_name(dataset_id)
         if label:
             for item in items:
                 item["display_name"] = label
-        return {"database_id": database_id, "items": items}
+        return {"dataset_id": dataset_id, "items": items}
 
     def serve_meta(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         version: str | None,
         package_digest: str | None,
         auth: TokenInfo,
     ) -> dict[str, Any]:
         row = self._visible_release(
-            database_id=database_id,
+            dataset_id=dataset_id,
             auth=auth,
             package_digest=package_digest,
             version=version,
         )
         payload = release_to_dict(row)
-        label = self.meta.get_package_display_name(database_id)
+        label = self.meta.get_package_display_name(dataset_id)
         if label:
             payload["display_name"] = label
         try:
-            from bora.registry.media_types import AGENT_MEDIA_TYPE
-            from bora.registry.plugin_package import PLUGIN_MEDIA_TYPE
-
-            if row.media_type == PLUGIN_MEDIA_TYPE:
-                data = read_blob(self.blobs, row.blob_digest, prefix="packages")
-                payload["package_kind"] = "plugin"
-                if data is not None:
+            kind = package_kind_for_media_type(row.media_type)
+        except ValueError as exc:
+            raise RegistryAppError("invalid_format", str(exc), http_status=400) from exc
+        payload["package_kind"] = kind
+        if kind == "plugin":
+            data = read_blob(self.blobs, row.blob_digest, prefix="packages")
+            if data is not None:
+                with contextlib.suppress(Exception):
                     payload["plugin_preview"] = _plugin_preview_from_archive(data)
-            elif row.media_type == AGENT_MEDIA_TYPE:
-                data = read_blob(self.blobs, row.blob_digest, prefix="packages")
-                payload["package_kind"] = "agent"
-                if data is not None:
+        elif kind == "agent":
+            data = read_blob(self.blobs, row.blob_digest, prefix="packages")
+            if data is not None:
+                with contextlib.suppress(Exception):
                     payload["agent_preview"] = _agent_preview_from_archive(data)
-            else:
-                payload["package_kind"] = "database"
-        except Exception:  # noqa: BLE001 — preview is best-effort
-            payload.setdefault("package_kind", "database")
         return payload
 
     def serve_content(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         package_digest: str,
         auth: TokenInfo,
     ) -> tuple[Any, int, ReleaseRow]:
         row = self._visible_release(
-            database_id=database_id,
+            dataset_id=dataset_id,
             auth=auth,
             package_digest=package_digest,
         )
@@ -417,7 +422,7 @@ class PackageService:
     def list_files(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         auth: TokenInfo,
         package_digest: str | None = None,
         version: str | None = None,
@@ -425,7 +430,7 @@ class PackageService:
         from services.registry.package_files import get_or_build_index
 
         row = self._visible_release(
-            database_id=database_id,
+            dataset_id=dataset_id,
             auth=auth,
             package_digest=package_digest,
             version=version,
@@ -442,7 +447,7 @@ class PackageService:
                 http_status=500,
             ) from exc
         return {
-            "database_id": row.database_id,
+            "dataset_id": row.dataset_id,
             "digest": row.package_digest,
             "version": row.version,
             "items": index.list_items(),
@@ -451,7 +456,7 @@ class PackageService:
     def read_file(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         file_path: str,
         auth: TokenInfo,
         package_digest: str | None = None,
@@ -468,7 +473,7 @@ class PackageService:
         )
 
         row = self._visible_release(
-            database_id=database_id,
+            dataset_id=dataset_id,
             auth=auth,
             package_digest=package_digest,
             version=version,
@@ -499,38 +504,38 @@ class PackageService:
             ) from exc
         return file_payload(safe_path, data, size=size, truncated=truncated)
 
-    def delete_release(self, *, database_id: str, version: str, auth: TokenInfo) -> dict[str, Any]:
-        row = self.meta.get_by_version(database_id, version)
+    def delete_release(self, *, dataset_id: str, version: str, auth: TokenInfo) -> dict[str, Any]:
+        row = self.meta.get_by_version(dataset_id, version)
         if row is None or not self.can_manage(row, auth):
             raise RegistryAppError("not_found", "release not found", http_status=404)
-        self.meta.delete_release(database_id, version)
+        self.meta.delete_release(dataset_id, version)
         blob_deleted = self._gc_blob(row.blob_digest)
         return {
             "ok": True,
-            "database_id": database_id,
+            "dataset_id": dataset_id,
             "version": version,
             "blob_deleted": blob_deleted,
         }
 
     def patch_display_name(
-        self, *, database_id: str, display_name: object, auth: TokenInfo
+        self, *, dataset_id: str, display_name: object, auth: TokenInfo
     ) -> dict[str, Any]:
-        row = self._latest_managed_release(database_id, auth)
-        name = _normalize_plugin_name_segment(database_id, display_name)
-        stored = self.meta.set_package_display_name(database_id, name)
+        row = self._latest_managed_release(dataset_id, auth)
+        name = _normalize_plugin_name_segment(dataset_id, display_name)
+        stored = self.meta.set_package_display_name(dataset_id, name)
         payload = release_to_dict(row)
         if stored:
             payload["display_name"] = stored
         return payload
 
-    def _latest_managed_release(self, database_id: str, auth: TokenInfo) -> Any:
+    def _latest_managed_release(self, dataset_id: str, auth: TokenInfo) -> Any:
         rows = self.meta.list_releases(
-            database_id_prefix=database_id,
+            dataset_id_prefix=dataset_id,
             include_private=True,
         )
-        owned = [r for r in rows if r.database_id == database_id and self.can_manage(r, auth)]
+        owned = [r for r in rows if r.dataset_id == dataset_id and self.can_manage(r, auth)]
         if not owned:
-            draft = self.meta.get_draft(database_id)
+            draft = self.meta.get_draft(dataset_id)
             if draft is not None and self.access.can_write_draft(
                 draft, org_id=draft.org_id, auth=auth
             ):
@@ -540,9 +545,9 @@ class PackageService:
         return owned[0]
 
     def patch_visibility(
-        self, *, database_id: str, version: str, visibility: str, auth: TokenInfo
+        self, *, dataset_id: str, version: str, visibility: str, auth: TokenInfo
     ) -> dict[str, Any]:
-        row = self.meta.get_by_version(database_id, version)
+        row = self.meta.get_by_version(dataset_id, version)
         if row is None or not self.can_manage(row, auth):
             raise RegistryAppError("not_found", "release not found", http_status=404)
         if visibility not in {"public", "private"}:
@@ -552,7 +557,7 @@ class PackageService:
                 http_status=400,
             )
         try:
-            updated = self.meta.set_release_visibility(database_id, version, visibility)
+            updated = self.meta.set_release_visibility(dataset_id, version, visibility)
         except LookupError as exc:
             raise RegistryAppError("not_found", "release not found", http_status=404) from exc
         return release_to_dict(updated)
@@ -560,22 +565,22 @@ class PackageService:
     def _visible_release(
         self,
         *,
-        database_id: str,
+        dataset_id: str,
         auth: TokenInfo,
         package_digest: str | None = None,
         version: str | None = None,
     ) -> ReleaseRow:
         draft: DraftRow | None = None
         if package_digest:
-            row = self.meta.get_by_digest(database_id, package_digest)
+            row = self.meta.get_by_digest(dataset_id, package_digest)
             if row is None:
-                draft = self.meta.get_draft_by_digest(database_id, package_digest)
+                draft = self.meta.get_draft_by_digest(dataset_id, package_digest)
         elif version:
             if is_draft_version(version):
-                draft = self.meta.get_draft(database_id)
+                draft = self.meta.get_draft(dataset_id)
                 row = None
             else:
-                row = self.meta.get_by_version(database_id, version)
+                row = self.meta.get_by_version(dataset_id, version)
         else:
             row = None
         if draft is not None:
@@ -587,13 +592,13 @@ class PackageService:
         return row
 
     def _version_from_archive(self, archive: bytes) -> str:
-        from bora.config.database import load_database_manifest
-        from bora.registry.archive import extract_archive
+        from ageval.config.dataset import load_dataset_manifest
+        from ageval.registry.archive import extract_archive
 
         try:
-            with tempfile.TemporaryDirectory(prefix="bora-rel-") as tmp:
+            with tempfile.TemporaryDirectory(prefix="ageval-rel-") as tmp:
                 extract_archive(archive, Path(tmp))
-                man = load_database_manifest(Path(tmp))
+                man = load_dataset_manifest(Path(tmp))
                 return str(man.version or "").strip()
         except Exception as exc:  # noqa: BLE001
             raise RegistryAppError(
@@ -625,16 +630,17 @@ class PackageService:
         media_type: str,
         package_digest: str,
     ) -> None:
-        from bora.registry.archive import extract_archive
-        from bora.registry.digest import compute_package_digest
-        from bora.registry.plugin_package import (
+        from ageval.registry.archive import extract_archive
+        from ageval.registry.digest import compute_package_digest
+        from ageval.registry.media_types import DATASET_MEDIA_TYPE
+        from ageval.registry.plugin_package import (
             PLUGIN_MEDIA_TYPE,
             assert_plugin_package,
             compute_plugin_digest,
         )
 
         try:
-            with tempfile.TemporaryDirectory(prefix="bora-reg-") as tmp:
+            with tempfile.TemporaryDirectory(prefix="ageval-reg-") as tmp:
                 extract_archive(archive, Path(tmp))
                 tmp_path = Path(tmp)
                 if package_kind == "plugin":
@@ -651,21 +657,21 @@ class PackageService:
                     except Exception as exc:  # noqa: BLE001
                         raise RegistryAppError(
                             "invalid_format",
-                            f"not a valid bora.plugin/1: {exc}",
+                            f"not a valid ageval.plugin/1: {exc}",
                             http_status=400,
                         ) from exc
-                    if (tmp_path / "bora.yaml").is_file() and not (
+                    if (tmp_path / "ageval.yaml").is_file() and not (
                         (tmp_path / "plugin.yaml").is_file()
-                        or (tmp_path / "bora.plugin.yaml").is_file()
+                        or (tmp_path / "ageval.plugin.yaml").is_file()
                     ):
                         raise RegistryAppError(
                             "invalid_format",
-                            "database package cannot be published as plugin",
+                            "dataset package cannot be published as plugin",
                             http_status=400,
                         )
                     got = compute_plugin_digest(tmp_path)
                 elif package_kind == "agent":
-                    from bora.registry.agent_package import (
+                    from ageval.registry.agent_package import (
                         AGENT_MEDIA_TYPE,
                         assert_agent_package,
                         compute_agent_digest,
@@ -684,22 +690,28 @@ class PackageService:
                     except Exception as exc:  # noqa: BLE001
                         raise RegistryAppError(
                             "invalid_format",
-                            f"not a valid bora.agent/1: {exc}",
+                            f"not a valid ageval.agent/1: {exc}",
                             http_status=400,
                         ) from exc
                     got = compute_agent_digest(tmp_path)
                 else:
+                    if media_type != DATASET_MEDIA_TYPE:
+                        raise RegistryAppError(
+                            "invalid_format",
+                            f"dataset media_type must be {DATASET_MEDIA_TYPE}",
+                            http_status=400,
+                        )
                     if (
                         (tmp_path / "plugin.yaml").is_file()
-                        or (tmp_path / "bora.plugin.yaml").is_file()
-                    ) and not (tmp_path / "bora.yaml").is_file():
+                        or (tmp_path / "ageval.plugin.yaml").is_file()
+                    ) and not (tmp_path / "ageval.yaml").is_file():
                         raise RegistryAppError(
                             "invalid_format",
                             "plugin package must use package_kind=plugin",
                             http_status=400,
                         )
                     if (tmp_path / "agent.yaml").is_file() and not (
-                        tmp_path / "bora.yaml"
+                        tmp_path / "ageval.yaml"
                     ).is_file():
                         raise RegistryAppError(
                             "invalid_format",
@@ -721,11 +733,11 @@ class PackageService:
 
 def _agent_preview_from_archive(archive: bytes) -> dict[str, Any]:
     """Secret-free agent detail preview (design/14): manifest + binding + files."""
-    from bora.agents.manifest import load_agent_manifest
-    from bora.config.profiles import project_job_overlay
-    from bora.registry.archive import extract_archive
+    from ageval.agents.manifest import load_agent_manifest
+    from ageval.config.profiles import project_job_overlay
+    from ageval.registry.archive import extract_archive
 
-    with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="ageval-prev-") as tmp:
         root = Path(tmp)
         extract_archive(archive, root)
         man = load_agent_manifest(root)
@@ -734,25 +746,24 @@ def _agent_preview_from_archive(archive: bytes) -> dict[str, Any]:
             for p in root.rglob("*")
             if p.is_file() and "__pycache__" not in p.parts
         )
-        overlay = project_job_overlay({"agent": man.binding})
+        overlay = project_job_overlay({"agent": man.binding}, environment="local")
         return {
             "agent_id": man.agent_id,
             "version": man.version,
-            "format": "bora.agent/1",
+            "format": "ageval.agent/1",
             "label": man.label,
             "description": man.description,
             "tags": list(man.tags),
-            "binding": overlay["bindings"].get("agent", {}),
+            "binding": overlay["agent_profiles"].get("agent", {}),
             "files": files[:200],
         }
 
 
 def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
-    from bora.plugins.manifest import load_manifest
-    from bora.plugins.slots import slot_level
-    from bora.registry.archive import extract_archive
+    from ageval.plugins.manifest import load_manifest
+    from ageval.registry.archive import extract_archive
 
-    with tempfile.TemporaryDirectory(prefix="bora-prev-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="ageval-prev-") as tmp:
         root = Path(tmp)
         extract_archive(archive, root)
         man = load_manifest(root)
@@ -762,19 +773,17 @@ def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
             if p.is_file() and "__pycache__" not in p.parts
         )
         declared: list[dict[str, Any]] = []
-        for kind, entries in (("provide", man.provide), ("on", man.on)):
+        for kind, entries in (("exclusive", man.exclusive), ("chain", man.chain)):
             for slot in entries:
-                row: dict[str, Any] = {
-                    "id": slot.id,
-                    "kind": kind,
-                    "entry": slot.entry,
-                    "priority": slot.priority,
-                }
-                level = slot_level(slot.id)
-                if level is not None:
-                    row["level"] = level
-                declared.append(row)
-        return {
+                declared.append(
+                    {
+                        "id": slot.id,
+                        "kind": kind,
+                        "entry": slot.entry,
+                        "priority": slot.priority,
+                    }
+                )
+        preview: dict[str, Any] = {
             "plugin_id": man.plugin_id,
             "version": man.version,
             "format": man.format,
@@ -782,3 +791,6 @@ def _plugin_preview_from_archive(archive: bytes) -> dict[str, Any]:
             "declared": declared,
             "files": files[:200],
         }
+        if man.description:
+            preview["description"] = man.description
+        return preview

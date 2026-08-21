@@ -1,6 +1,6 @@
-# BORA Viewer — Agent constraints
+# ageval Viewer — Agent constraints
 
-This directory is the **local Database / suite-results Web UI**.
+This directory is the **local dataset / suite-results Web UI**.
 Python serves the built SPA; React app lives here.
 
 ## Authority
@@ -9,7 +9,7 @@ Python serves the built SPA; React app lives here.
 | --- | --- |
 | [DESIGN.md](./DESIGN.md) | Visual + IA authority (IKB / cool-ink product chrome) |
 | This file | Implementation constraints for agents |
-| `src/bora/viewer/` | HTTP API + static file serving (stdlib) |
+| `src/ageval/viewer/` | HTTP API + static file serving (stdlib) |
 
 When UI conflicts with taste: **DESIGN.md wins**.
 
@@ -18,20 +18,20 @@ When UI conflicts with taste: **DESIGN.md wins**.
 **In scope (MVP):**
 
 1. **Jobs list** — search; filter dropdowns; sortable columns; row click  
-   Jobs = suite runs under `.bora/suite-runs/` and single-task Attempts under `.bora/runs/`
+   Jobs = suite runs under `.ageval/suite-runs/` and single-task Attempts under `.ageval/runs/`
 2. **Job → tasks** — task table with scores / status / agent-model meta
 3. **Task detail** — trials/run row(s), status/error coloring, **copyable CLI**
 4. **Attempt / trial detail** — `Jobs > job > task > run_id`; Outcome + actors
-   (Role / Agent / Model / Time / Usage) + tabs from real evidence only
+   (Role / Harness / Model / Time / Usage) + tabs from real evidence only
    (Trajectory · Agent · Verifier · Artifacts · Lock · Runtime). Top bar may show
-   framework / docker / `provenance.upstream.url`. Multi-role groups Trajectory
+   framework / environment kind / `provenance.upstream.url`. Multi-role groups Trajectory
    and Agent tree by `profile_id`. Usage/trajectory are observational ≠ PASS.
 5. **Breadcrumb** — `Jobs > jobId > taskId > runId` with `>` separators; click to navigate
 6. **Delete a local Job** — Jobs row menu or bulk selection. Preview paths /
    bytes / cascade `run_id`s, then confirm. Suite delete always removes
    referenced Attempts. No delete control on an inner trial. Does not call
-   Registry. Same Application use case as `bora jobs delete --local … --yes`.
-7. **Pin / note (this browser)** — `localStorage` keyed by `database_id` +
+   Registry. Same Application use case as `ageval jobs delete --local … --yes`.
+7. **Pin / note (this browser)** — `localStorage` keyed by `dataset_id` +
    `job_id`. Not written to evidence, lock, or Registry. Pinned rows sort
    first. Action icon (always on): note, else pin, else hover settings.
    Hover a note icon to read the note.
@@ -96,7 +96,7 @@ shipped** (`Select` on Jobs filters, `DropdownMenu` on theme / row actions,
 
 ## Backend contract
 
-Python API under `/api/*` (see `src/bora/viewer/`):
+Python API under `/api/*` (see `src/ageval/viewer/`):
 
 | Path | Purpose |
 | --- | --- |
@@ -127,9 +127,9 @@ usage). Cache hit rate uses inclusion/disjoint heuristics; never treat
 
 SPA file preview: JSON/JSONL pretty-print + lightweight syntax highlight (no extra deps).
 
-Package-file browse routes (`/api/database`, `/api/tasks/*`, `/api/commands`) were removed with the old SPA.  
-All paths confined to the opened Database root (`job_id` / `task_id` / `run_id` single-segment; file paths fail closed on `..`). No Registry required.  
-Evidence roots: `{db}/.bora/runs/{run_id}` or task-local `.bora/runs/`; lock `task_id` must match when present.
+Package-file browse routes were removed with the old SPA.  
+All paths confined to the opened dataset root (`job_id` / `task_id` / `run_id` single-segment; file paths fail closed on `..`). No Registry required.  
+Evidence roots: `{dataset}/.ageval/runs/{run_id}` or task-local `.ageval/runs/`; lock `task_id` must match when present.
 
 ## Build & serve
 
@@ -138,16 +138,16 @@ Evidence roots: `{db}/.bora/runs/{run_id}` or task-local `.bora/runs/`; lock `ta
 pnpm install
 pnpm build          # → dist/
 # from repo root
-uv run bora view <database> --no-browser
+uv run ageval view <dataset> --no-browser
 ```
 
 Python must serve **`apps/viewer/dist/`** (production build). There is **no** separate `static/` source tree.  
-Dev: `bora view --dev` starts the API and tries to spawn Vite. If that cannot run, it prints `pnpm --dir apps/viewer dev`. Same API as production `bora view`. Deep-link with `--open /jobs/...`.
+Dev: `ageval view --dev` starts the API and tries to spawn Vite. If that cannot run, it prints `pnpm --dir apps/viewer dev`. Same API as production `ageval view`. Deep-link with `--open /jobs/...`.
 
 ## Theme
 
 - Modes: **light** | **dark** | **system** (default system).
-- Toggle in top-right header; persist `localStorage` key `bora-viewer-theme`.
+- Toggle in top-right header; persist `localStorage` key `ageval-viewer-theme`.
 - Tokens via `data-theme` + CSS variables in `src/index.css`.
 
 ## CLI command strip
@@ -160,7 +160,7 @@ Dev: `bora view --dev` starts the API and tries to spawn Vite. If that cannot ru
 - Prefer phase commits: design docs → API → scaffold → pages → polish.
 - Do not claim #22 Leaderboard done.
 - Keep tests green: `uv run pytest tests/viewer/ -q` and `pnpm build`.
-- Column labels map BORA fields for operators, e.g. `Result` ≈ `mean_score` / `pass_rate`, `Trials` ≈ task counts.
+- Column labels map ageval fields for operators, e.g. `Result` ≈ `mean_score` / `pass_rate`, `Trials` ≈ task counts.
 
 ## Anti-patterns (reject in review)
 
@@ -168,6 +168,6 @@ Dev: `bora view --dev` starts the API and tries to spawn Vite. If that cannot ru
 - Fake marketing hero inside the results console
 - Ignoring breadcrumb click-through
 - Unsortable tables when columns are metric-like
-- Shipping unbuilt `src/` only (always produce `dist/` for `bora view`)
+- Shipping unbuilt `src/` only (always produce `dist/` for `ageval view`)
 - Native `<select>` for a product list when shadcn `Select` already exists
 - Digest / `run_id` as the visible label in a version or filter menu

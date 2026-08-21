@@ -1,0 +1,7 @@
+# Database root — Spec 20 / Constitution multi-task Database package
+format: ageval.dataset/1
+dataset_id: example/journeys
+version: "0.1.3"
+description: "Case-class journey packages"
+tasks:
+  root: tasks

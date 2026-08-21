@@ -56,7 +56,7 @@ type SortKey =
 export function JobsPage() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [dbId, setDbId] = useState<string>("");
+  const [datasetId, setDatasetId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -79,7 +79,7 @@ export function JobsPage() {
       .then((data) => {
         if (cancelled) return;
         setJobs(data.items || []);
-        setDbId(data.database_id || "");
+        setDatasetId(data.dataset_id || "");
         setError(null);
       })
       .catch((e: Error) => {
@@ -94,15 +94,15 @@ export function JobsPage() {
   }, [reloadToken]);
 
   useEffect(() => {
-    setPrefs(loadJobPrefs(dbId));
-  }, [dbId]);
+    setPrefs(loadJobPrefs(datasetId));
+  }, [datasetId]);
 
   const writePrefs = useCallback(
     (next: Record<string, JobPref>) => {
       setPrefs(next);
-      saveJobPrefs(dbId, next);
+      saveJobPrefs(datasetId, next);
     },
-    [dbId],
+    [datasetId],
   );
 
   function prefFor(jobId: string): JobPref {
@@ -253,8 +253,8 @@ export function JobsPage() {
   return (
     <Shell
       meta={
-        dbId ? (
-          <span className="text-xs text-mute font-mono truncate max-w-[40ch]">{dbId}</span>
+        datasetId ? (
+          <span className="text-xs text-mute font-mono truncate max-w-[40ch]">{datasetId}</span>
         ) : null
       }
     >
@@ -307,11 +307,11 @@ export function JobsPage() {
             </Select>
           ) : null}
           <Select value={agent} onValueChange={setAgent}>
-            <SelectTrigger aria-label="Filter agents">
-              <SelectValue placeholder="All agents" />
+            <SelectTrigger aria-label="Filter harnesses">
+              <SelectValue placeholder="All harnesses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All agents</SelectItem>
+              <SelectItem value="all">All harnesses</SelectItem>
               {agents.map((a) => (
                 <SelectItem key={a} value={a}>
                   {a}
@@ -336,9 +336,8 @@ export function JobsPage() {
           {selectedCount > 0 ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="dangerOutline"
               size="sm"
-              className="text-error hover:text-error"
               onClick={() => {
                 const rows = filtered.filter((j) => selected[j.job_id]);
                 if (rows.length) setPendingDelete(rows);
@@ -367,7 +366,7 @@ export function JobsPage() {
                   />
                 </TableHead>
                 <TableHead>{head("job_name", "Job Name")}</TableHead>
-                <TableHead>{head("agent_label", "Agents")}</TableHead>
+                <TableHead>{head("agent_label", "Harness")}</TableHead>
                 <TableHead>{head("model_label", "Models")}</TableHead>
                 <TableHead>{head("result", "Result")}</TableHead>
                 <TableHead>{head("environment", "Environment")}</TableHead>
@@ -399,11 +398,11 @@ export function JobsPage() {
                   <TableCell colSpan={10} className="text-mute py-10 text-center">
                     No jobs yet. Run{" "}
                     <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
-                      bora run &lt;database&gt;
+                      ageval run &lt;dataset&gt;
                     </code>{" "}
                     or a single-task{" "}
                     <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
-                      bora run &lt;database&gt; --task &lt;id&gt;
+                      ageval run &lt;dataset&gt; --task &lt;id&gt;
                     </code>{" "}
                     then refresh.
                   </TableCell>
@@ -460,7 +459,7 @@ export function JobsPage() {
                     <TableCell className="tabular">
                       {formatScore(job.mean_score ?? job.result)}
                     </TableCell>
-                    <TableCell>{job.environment || "local"}</TableCell>
+                    <TableCell>{job.environment || "-"}</TableCell>
                     <TableCell className="tabular text-body">
                       {formatDate(job.started)}
                     </TableCell>

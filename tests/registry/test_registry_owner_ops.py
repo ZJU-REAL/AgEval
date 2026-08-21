@@ -12,16 +12,16 @@ import pytest
 from services.registry.app import build_default_state, make_handler
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.composition import (
+from ageval.application.composition import (
     build_publish_command,
     build_registry_list_commands,
     build_results_commands,
 )
-from bora.config.errors import ConfigError
-from bora.registry.client import RegistryClient, RegistryError
-from bora.registry.credentials import write_credentials
+from ageval.config.errors import ConfigError
+from ageval.registry.client import RegistryClient, RegistryError
+from ageval.registry.credentials import write_credentials
 
-publish_database = build_publish_command().publish_database
+publish_dataset = build_publish_command().publish_dataset
 _list = build_registry_list_commands()
 delete_package_release = _list.delete_package_release
 set_package_visibility = _list.set_package_visibility
@@ -34,7 +34,7 @@ upload_attempt_result = _results.upload_attempt_result
 upload_suite_result = _results.upload_suite_result
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 @pytest.fixture()
@@ -65,8 +65,8 @@ def _env_as(
 ) -> None:
     write_credentials(url=url, token=token, path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("BORA_REGISTRY_URL", url)
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", token)
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", url)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", token)
 
 
 def _seed_attempt(
@@ -78,7 +78,7 @@ def _seed_attempt(
     db = tmp_path / "db"
     if not db.exists():
         shutil.copytree(FIXTURE, db)
-    run_dir = db / ".bora" / "runs" / run_id
+    run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "result.json").write_text(
         json.dumps({"task_id": "hello", "status": "PASS"}),
@@ -89,12 +89,12 @@ def _seed_attempt(
 
 def _seed_suite(tmp_path: Path, *, suite_run_id: str, attempt_run_id: str) -> Path:
     db = _seed_attempt(tmp_path, run_id=attempt_run_id, suite_run_id=suite_run_id)
-    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0.1.0",
         "pass_rate": 1.0,
         "mean_score": 1.0,
         "metrics": {"pass_rate": 1.0, "mean_score": 1.0},
@@ -147,11 +147,11 @@ def test_attempt_delete_and_visibility_owner_only(
 
     # non-owner cannot delete
     with pytest.raises(ConfigError):
-        monkeypatch.setenv("BORA_REGISTRY_TOKEN", bob_tok)
+        monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", bob_tok)
         delete_result(result_kind="attempt", result_id=run_id)
 
     # owner deletes
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", alice_tok)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", alice_tok)
     deleted = delete_result(result_kind="attempt", result_id=run_id)
     assert deleted["ok"] is True
     assert deleted["result_id"] == run_id
@@ -231,7 +231,7 @@ def test_unshare_application_and_non_owner_denied(
 
     # non-owner cannot unshare (even if no share remains, manage denied → 404)
     with pytest.raises(ConfigError):
-        monkeypatch.setenv("BORA_REGISTRY_TOKEN", bob_tok)
+        monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", bob_tok)
         unshare_result(
             result_kind="attempt",
             result_id=run_id,
@@ -258,14 +258,14 @@ def test_package_delete_and_visibility_org_owner_only(
     boot.add_org_member(org_id="ownlab", user_id="bob", role="member")
 
     _env_as(monkeypatch, tmp_path, url=url, token=registry_server["token"])
-    pub = publish_database(FIXTURE, public=False, org="ownlab")
-    ref = f"{pub['database_id']}@{pub['version']}"
+    pub = publish_dataset(FIXTURE, public=False, org="ownlab")
+    ref = f"{pub['dataset_id']}@{pub['version']}"
 
     # owner (bootstrap) can set visibility
     flipped = set_package_visibility(ref, visibility="public")
     assert flipped["visibility"] == "public"
     bob = RegistryClient(url, token=bob_tok)
-    assert bob.get_metadata(database_id=pub["database_id"], version=pub["version"]).visibility == (
+    assert bob.get_metadata(dataset_id=pub["dataset_id"], version=pub["version"]).visibility == (
         "public"
     )
 
@@ -273,15 +273,15 @@ def test_package_delete_and_visibility_org_owner_only(
 
     # member cannot delete
     with pytest.raises(ConfigError):
-        monkeypatch.setenv("BORA_REGISTRY_TOKEN", alice_tok)
+        monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", alice_tok)
         delete_package_release(ref)
 
     # owner deletes
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     deleted = delete_package_release(ref)
     assert deleted["ok"] is True
     with pytest.raises(RegistryError) as ei:
-        boot.get_metadata(database_id=pub["database_id"], version=pub["version"])
+        boot.get_metadata(dataset_id=pub["dataset_id"], version=pub["version"])
     assert ei.value.status == 404
 
 
@@ -310,16 +310,16 @@ def test_attempt_replace_requires_flag_and_owner(
     assert "already exists" in str(ei.value).lower() or "conflict" in str(ei.value).lower()
 
     # non-owner replace → fail-closed
-    (db / ".bora" / "runs" / run_id / "result.json").write_text(
+    (db / ".ageval" / "runs" / run_id / "result.json").write_text(
         json.dumps({"task_id": "hello", "status": "FAIL"}),
         encoding="utf-8",
     )
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", bob_tok)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", bob_tok)
     with pytest.raises(ConfigError):
         upload_attempt_result(db, run_id=run_id, public=False, replace=True)
 
     # owner replace succeeds and rewrites blob/meta
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", alice_tok)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", alice_tok)
     replaced = upload_attempt_result(db, run_id=run_id, public=True, replace=True)
     assert replaced["ok"] is True
     assert replaced.get("replaced") is True
@@ -338,16 +338,16 @@ def test_package_replace_conflict_and_owner(
     boot.create_org(name="replacelab")
     _env_as(monkeypatch, tmp_path, url=url, token=registry_server["token"])
 
-    first = publish_database(FIXTURE, public=False, org="replacelab")
+    first = publish_dataset(FIXTURE, public=False, org="replacelab")
     assert first["ok"] is True
 
     with pytest.raises(ConfigError) as ei:
-        publish_database(FIXTURE, public=False, org="replacelab")
+        publish_dataset(FIXTURE, public=False, org="replacelab")
     assert "already exists" in str(ei.value).lower() or "conflict" in str(ei.value).lower()
 
-    again = publish_database(FIXTURE, public=True, org="replacelab", replace=True)
+    again = publish_dataset(FIXTURE, public=True, org="replacelab", replace=True)
     assert again["ok"] is True
     assert again.get("replaced") is True
     assert again["visibility"] == "public"
-    meta = boot.get_metadata(database_id=first["database_id"], version=first["version"])
+    meta = boot.get_metadata(dataset_id=first["dataset_id"], version=first["version"])
     assert meta.visibility == "public"

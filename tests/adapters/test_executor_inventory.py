@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from bora.adapters.executor_inventory import (
+from ageval.plugins.executor_inventory import (
     build_executor_inventory,
     describe_acp_entry,
     describe_executor,
@@ -58,13 +58,13 @@ def test_describe_acp_entry_adapter_missing() -> None:
 def test_plugin_without_describe_is_not_host_ready(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.plugins.store import install_from_path
+    from ageval.plugins.store import install_from_path
 
-    home = tmp_path / "bora-home"
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -76,20 +76,20 @@ def test_plugin_without_describe_is_not_host_ready(
     row = describe_executor("sample-echo", which=lambda _n: None, verbose=True)
     assert row["execution_mode"] == "unknown"
     assert row["host_ready"] is False
-    assert row["l1_bake_declared"] is False
+    assert row["bake_recipe_declared"] is False
     assert row["binary_on_path"] is None
 
 
 def test_plugin_host_ready_uses_host_requires(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.plugins.store import install_from_path
+    from ageval.plugins.store import install_from_path
 
-    home = tmp_path / "bora-home"
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
-    from bora.plugins import bootstrap as boot
-    from bora.plugins.registry import reset_global_registry
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
+    from ageval.plugins import bootstrap as boot
+    from ageval.plugins.registry import reset_global_registry
 
     boot._BOOTSTRAPPED = False  # type: ignore[attr-defined]
     reset_global_registry()
@@ -101,7 +101,7 @@ def test_plugin_host_ready_uses_host_requires(
     row = describe_executor("host-probe", which=lambda _n: "/bin/host-probe-bin", verbose=True)
     assert row["execution_mode"] == "container-worker"
     assert row["host_ready"] is False
-    assert row["l1_bake_declared"] is True
+    assert row["bake_recipe_declared"] is True
     assert row["binary"] == "host-probe-bin"
     assert row["binary_on_path"] is None
     assert row["binary_path"] is None

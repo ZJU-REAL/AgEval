@@ -34,7 +34,7 @@ def main(argv: list[str] | None = None) -> int:
         "database_roots",
         nargs="+",
         type=Path,
-        help="Database root(s) containing bora.yaml",
+        help="Database root(s) containing ageval.yaml",
     )
     args = parser.parse_args(argv)
 
@@ -44,14 +44,14 @@ def main(argv: list[str] | None = None) -> int:
     if src.is_dir() and str(src) not in sys.path:
         sys.path.insert(0, str(src))
 
-    from bora.config.errors import ConfigError
-    from bora.config.shared import find_task_shared_shadows, validate_shared_layout
+    from ageval.config.errors import ConfigError
+    from ageval.config.shared import find_task_shared_shadows, validate_shared_layout
 
     failed = 0
     for raw in args.database_roots:
         root = raw.expanduser().resolve(strict=False)
-        if not (root / "bora.yaml").is_file():
-            print(f"FAIL {root}: missing bora.yaml", file=sys.stderr)
+        if not (root / "ageval.yaml").is_file():
+            print(f"FAIL {root}: missing ageval.yaml", file=sys.stderr)
             failed += 1
             continue
         try:

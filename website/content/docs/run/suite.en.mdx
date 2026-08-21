@@ -3,11 +3,11 @@ title: Run a Dataset suite
 description: Run every task; optional Always-k and pass@k; aggregates are not suite-level PASS.
 ---
 
-Omit `--task` and `bora run` schedules **every** member — each locks, runs, and evaluates independently:
+Omit `--task` and `ageval run` schedules **every** member — each locks, runs, and evaluates independently:
 
 ```bash
-uv run bora run examples/core
-uv run bora run examples/core --max-concurrent-tasks 2
+uv run ageval run examples/core
+uv run ageval run examples/core --max-concurrent-tasks 2
 ```
 
 ## Two axes (do not mix)
@@ -19,18 +19,18 @@ uv run bora run examples/core --max-concurrent-tasks 2
 
 ```bash
 # Full suite, k=5 per task (CLI/job only)
-uv run bora run examples/core -k 5 --max-concurrent-tasks 2
+uv run ageval run examples/core -k 5 --max-concurrent-tasks 2
 
 # Always-k on one task
-uv run bora run examples/core --task sdk-agent-session -k 5
+uv run ageval run examples/core --task sdk-agent-session -k 5
 
 # Resume: append into an existing suite job and recompute metrics
-uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
+uv run ageval run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
 
 # Replace one finished slot (PASS / FAIL / ERROR): new Attempt, same suite id
-uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
+uv run ageval run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
 # Always-k: one (task_id, attempt_index)
-# uv run bora run examples/core --resume-suite <id> --task sdk-agent-session --replace-slot --attempt-index 1
+# uv run ageval run examples/core --resume-suite <id> --task sdk-agent-session --replace-slot --attempt-index 1
 ```
 
 Hard rules:
@@ -46,7 +46,7 @@ Hard rules:
 
 ## Aggregate metrics
 
-Under `.bora/suite-runs/<suite_run_id>/summary.json` → `metrics`:
+Under `.ageval/suite-runs/<suite_run_id>/summary.json` → `metrics`:
 
 | Field | Meaning |
 | --- | --- |
@@ -62,8 +62,8 @@ Same directory: `progress.json`. Attempt `result.json` may include `phase_timing
 ## Progress and cancel
 
 ```bash
-uv run bora status <suite_run_id> --database examples/core
-uv run bora cancel <suite_run_id> --database examples/core
+uv run ageval status <suite_run_id> --dataset examples/core
+uv run ageval cancel <suite_run_id> --dataset examples/core
 ```
 
 - **status** — ControlStore record + suite progress when present  
@@ -71,7 +71,7 @@ uv run bora cancel <suite_run_id> --database examples/core
 
 Unlike [Campaign](/docs/run/campaign): suite is the **task axis**; campaign sweeps **parameters on one task**. Always-k is **not** the campaign matrix axis.
 
-Runs land under `.bora/suite-runs/` — browse Timing bars with [Viewer](/docs/run/local-viewer).
+Runs land under `.ageval/suite-runs/` — browse Timing bars with [Viewer](/docs/run/local-viewer).
 
 ## Upload to Hub (Leaderboard / Jobs)
 
@@ -79,21 +79,21 @@ Hub **Dataset → Leaderboard** and **Task → Jobs** list Registry **suite** ro
 
 | Step | Command |
 | --- | --- |
-| 1. Run suite | `uv run bora run <database>` (**omit** `--task`; optional `--profiles`) |
+| 1. Run suite | `uv run ageval run <database>` (**omit** `--task`; optional `--profiles`) |
 | 2. Note id | `suite_run_id` in stdout / `summary.json` (default 8 hex) |
-| 3. Upload suite | `uv run bora results upload-suite <database> --suite-run <id> --public` |
+| 3. Upload suite | `uv run ageval results upload-suite <database> --suite-run <id> --public` |
 | 4. Deep-link trajectory | Add `--with-attempts` |
 
 ```bash
-uv run bora run examples/journeys --profiles examples/journeys/profiles.yaml
+uv run ageval run examples/journeys --profiles examples/journeys/profiles.yaml
 # suite_run_id e.g. d3e5fba6
-uv run bora results upload-suite examples/journeys \
+uv run ageval results upload-suite examples/journeys \
   --suite-run d3e5fba6 --public --with-attempts \
   --agent acp-pi --model zai-coding-cn/glm-5.2
 ```
 
-**Common mistake:** only `bora run … --task X` then `bora results upload --run …` — the attempt may exist in Registry, but **Leaderboard usually still has no row**. Leaderboard needs a suite job + `upload-suite`.
+**Common mistake:** only `ageval run … --task X` then `ageval results upload --run …` — the attempt may exist in Registry, but **Leaderboard usually still has no row**. Leaderboard needs a suite job + `upload-suite`.
 
-The public board has two more gates: the suite must be **complete** (every task on the bound version has a result; FAIL / ERROR still count) and bound to a **release**. Incomplete or draft-bound rows stay on Task **Jobs**. Upload a working tree with `bora publish --draft`, then an owner runs `bora release` — or `bora publish` a release directly.
+The public board has two more gates: the suite must be **complete** (every task on the bound version has a result; FAIL / ERROR still count) and bound to a **release**. Incomplete or draft-bound rows stay on Task **Jobs**. Upload a working tree with `ageval publish --draft`, then an owner runs `ageval release` — or `ageval publish` a release directly.
 
 See [Results and PASS](/docs/reference/results-and-pass) and [Hub](/docs/share/hub).

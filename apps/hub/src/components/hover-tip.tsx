@@ -17,9 +17,11 @@ import { cn } from "@/lib/utils";
 export function HoverTip({
   content,
   children,
+  side = "top",
 }: {
   content?: ReactNode;
   children: ReactElement;
+  side?: "top" | "right" | "bottom" | "left";
 }) {
   const enabled = content != null && content !== "";
   return (
@@ -28,7 +30,7 @@ export function HoverTip({
         <TooltipTrigger asChild>{children}</TooltipTrigger>
         {enabled ? (
           <TooltipContent
-            side="top"
+            side={side}
             className="max-w-sm px-3 py-2 text-sm leading-5 break-all"
           >
             {content}

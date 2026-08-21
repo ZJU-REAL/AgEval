@@ -19,7 +19,7 @@ def _run(package: str, task: str, timeout: float = 360) -> subprocess.CompletedP
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(REPO / "examples" / "l1"),
             "--task",
@@ -33,8 +33,8 @@ def _run(package: str, task: str, timeout: float = 360) -> subprocess.CompletedP
     )
 
 
-@pytest.mark.skipif(os.environ.get("BORA_SKIP_DOCKER") == "1", reason="docker skipped")
-@pytest.mark.skipif(os.environ.get("BORA_OFFLINE_AGENT") == "1", reason="offline agent")
+@pytest.mark.skipif(os.environ.get("AGEVAL_SKIP_DOCKER") == "1", reason="docker skipped")
+@pytest.mark.skipif(os.environ.get("AGEVAL_OFFLINE_AGENT") == "1", reason="offline agent")
 def test_sdk_session_records_attempt_container_location() -> None:
     """Positive L1 path records attempt-container."""
     if shutil.which("docker") is None:

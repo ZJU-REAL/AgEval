@@ -41,7 +41,8 @@ export type Trial = {
   agent_invocations?: number | null;
   harness_kind?: string | null;
   framework?: string | null;
-  docker?: string | null;
+  /** Box kind: local | docker | e2b | ssh */
+  environment?: string | null;
   actors?: TrialActor[];
   agent_label?: string | null;
   model_label?: string | null;
@@ -51,7 +52,7 @@ export type Trial = {
   upstream_name?: string | null;
   upstream_ref?: string | null;
   note?: string | null;
-  /** #47 D — wall-time phases (prepare/run/evaluate/cleanup) */
+  /** Wall-time phases (environment/run/evaluate/record/cleanup) */
   phase_timing?: {
     schema?: string;
     phases?: Array<{ id: string; label?: string; duration_ms?: number }>;

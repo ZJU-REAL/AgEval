@@ -1,36 +1,39 @@
 ---
 title: Multi-agent and multi-role
-description: Several profiles, role maps, harness scheduling.
+description: Several profiles, role maps, run.py scheduling.
 ---
 
-A task can declare multiple `agent_profiles`; the harness opens sessions per role.
+A task can declare multiple `agent_profiles`; **`run.py`** opens sessions per role.
 
 ```yaml
+# task.yaml
 parameters:
   roles:
     planner: planner-pi
     worker: worker-codex
 
-# Database profiles.yaml
-bindings:
+# profiles.yaml
+format: ageval.profiles/1
+environment: docker
+agent_profiles:
   planner-pi:
     executor: acp
+    options:
+      entry: pi
     extensions:
       - plugin: acp
-        options:
-          entry: pi
-    model: …
+      - plugin: docker
   worker-codex:
     executor: acp
+    options:
+      entry: codex
     extensions:
       - plugin: acp
-        options:
-          entry: codex
-    model: …
+      - plugin: docker
 ```
 
-- Harness decides **when** to invoke whom; Core owns bounds and trajectory  
-- Per-profile invokes land in evidence; Viewer groups by `profile_id`  
-- L1 also needs actors / isolation groups → [L1 Docker](/docs/agents/l1-docker)  
+- `run.py` decides **when** to invoke whom; Core owns bounds and trajectory
+- Per-profile invokes land in evidence; Viewer groups by `profile_id`
+- On docker, multi-actor must use the same SDK surface as local: `Agent.session(...).invoke`. YAML declares logical isolation only (`shared-container` / `container-per-group`); container id / UID stay with Runtime. This round does not promise a true multi-group scheduled run (lock with topology is enough)
 
-See multi-role packages under `examples/journeys` and `examples/l1`.
+See multi-role packages under `examples/journeys`.

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from services.registry.store import (
+    AttemptResultRow,
     MetadataStore,
     PostgresMetadataStore,
     PostgresTokenStore,
@@ -21,7 +22,7 @@ def _sqlite(tmp_path: Path) -> MetadataStore:
 
 
 def _postgres() -> MetadataStore | None:
-    url = os.environ.get("BORA_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    url = os.environ.get("AGEVAL_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not url:
         return None
     try:
@@ -44,13 +45,13 @@ def meta(request: pytest.FixtureRequest, tmp_path: Path) -> MetadataStore:
 
 def test_insert_and_get_release(meta: MetadataStore) -> None:
     row = ReleaseRow(
-        database_id="acme/db",
+        dataset_id="acme/db",
         version="1.0.0",
         visibility="public",
         package_digest="sha256:" + "a" * 64,
         blob_digest="sha256:" + "b" * 64,
         size=4,
-        media_type="application/gzip",
+        media_type="application/vnd.ageval.dataset.v1.tar+gzip",
         created_at=now(),
         org_id="acme",
     )
@@ -60,7 +61,7 @@ def test_insert_and_get_release(meta: MetadataStore) -> None:
     assert got is not None
     assert got.package_digest == row.package_digest
     assert got.org_id == "acme"
-    listed = meta.list_releases(database_id_prefix="acme/")
+    listed = meta.list_releases(dataset_id_prefix="acme/")
     assert any(r.version == "1.0.0" for r in listed)
 
 
@@ -71,6 +72,39 @@ def test_postgres_store_is_thin_adapter() -> None:
         if callable(val) and name not in {"__init__"}
     ]
     assert own == [], own
+
+
+def test_attempt_row_stores_environment(tmp_path: Path) -> None:
+    meta = _sqlite(tmp_path)
+    row = AttemptResultRow(
+        run_id="attempt_env_1",
+        dataset_id="example/journeys",
+        task_id="terminal-jsonl-agg",
+        lock_digest="sha256:abc",
+        status="PASS",
+        visibility="public",
+        blob_digest="sha256:" + "c" * 64,
+        size=12,
+        created_at=now(),
+        environment="e2b",
+        agent_label="acp",
+        model_label="glm-5.2",
+        score=1.0,
+    )
+    meta.insert_attempt(row)
+    got = meta.get_attempt("attempt_env_1")
+    assert got is not None
+    assert got.environment == "e2b"
+    assert got.agent_label == "acp"
+    assert got.model_label == "glm-5.2"
+    assert got.score == 1.0
+    listed = meta.list_attempts(
+        dataset_id="example/journeys",
+        task_id="terminal-jsonl-agg",
+        standalone=True,
+        include_private=True,
+    )
+    assert any(item.run_id == "attempt_env_1" and item.environment == "e2b" for item in listed)
 
 
 def test_schema_owned_by_queries() -> None:
@@ -94,7 +128,7 @@ def test_postgres_token_roundtrip_against_live_types() -> None:
     from services.registry.envload import load_env_file
 
     load_env_file()
-    url = os.environ.get("BORA_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    url = os.environ.get("AGEVAL_REGISTRY_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not url:
         pytest.skip("postgres daemon absent")
     try:
@@ -102,7 +136,7 @@ def test_postgres_token_roundtrip_against_live_types() -> None:
     except Exception:
         pytest.skip("postgres daemon absent")
     tokens = PostgresTokenStore(url)
-    raw = "bora-registry-token-type-probe"
+    raw = "ageval-registry-token-type-probe"
     digest = tokens.hash_token(raw)
     try:
         tokens.add(raw, {"results:read"}, github_user="probe")

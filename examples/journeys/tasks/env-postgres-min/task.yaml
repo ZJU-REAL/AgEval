@@ -1,42 +1,28 @@
-format: bora.task/1
+format: ageval.task/1
 task_id: env-postgres-min
+description: A sidecar the box brings up itself, with no orchestrator in between.
 
-# BORA Core env smoke — not an upstream port.
 provenance:
   kind: original
 
-harness:
-  runtime: python
-  entrypoint: harness:run
-
-# Env + package-local tool smoke. No agent on the default path.
-parameters:
-  environment_resource: postgresql
-
-provider:
-  kind: local
-  assurance: l0
+# Shipping environment/compose.yaml means this task needs a box that can
+# compose; a kind that cannot say so fails the lock.
+requires:
+  environment:
+    - compose
 
 agent_profiles: []
 
 limits:
-  wall_time_seconds: 300
+  wall_time_seconds: 600
   agent_invocations: 0
-  environment_actions: 5
 
 artifacts:
   publishable:
     - id: env-result
-      producer: harness
       path: artifacts/env-result.json
-      media_type: application/json
 
 evaluation:
-  runtime: python
-  entrypoint: evaluator:evaluate
-  network: none
   inputs:
     - artifact: env-result
       target: artifacts/env-result.json
-  output:
-    format: json

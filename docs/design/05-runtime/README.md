@@ -1,76 +1,53 @@
-# 05 — Runtime（索引）
+# 05 — 执行链
 
-| 字段 | 值 |
+Runtime 在这里指：**盒子、ACP、evaluate、evidence、campaign**。结构总图见 [ARCHITECTURE.md](../../../ARCHITECTURE.md)。产品故事 US1–US12 见 [00](../00-overview-and-product.md)。
+
+| 文件 | 内容 |
 | --- | --- |
-| 产品 | Bounded Orchestration for Runtime Agents（BORA） |
-| 权威 | **本目录与同级其它 design 文档共同构成设计权威**（自包含） |
-| 摘要 | Runtime 稳定机制：Lifecycle、Provider/L1、Agent Service（ACP）、Environment、Evaluation、Evidence、Campaign/Suite。 |
+| [lifecycle.md](lifecycle.md) | Run / Trial / Attempt 身份与五相位状态机 |
+| [environment.md](environment.md) | Protocol 与四 kind |
+| [agent-service.md](agent-service.md) | parent ACP client + `attach_stdio` |
+| [evaluation.md](evaluation.md) | 停写、upload gold、绑定 PASS |
+| [evidence.md](evidence.md) | `.ageval/runs/` |
+| [campaign-suite.md](campaign-suite.md) | campaign 与 suite |
 
-> **兼容入口：** 历史路径 [`../05-runtime-core.md`](../05-runtime-core.md) 为 stub，正文在本目录。
+Core 保留：身份、deadline、硬顶、cleanup、PASS 入口。题包保留 loop。插件填槽。
 
----
-
-## Runtime 职责边界
-
-Runtime Core 保留 Harness 无法可靠强制的外部职责：
-
-- Run、Trial、Attempt 和 Invocation identity；
-- Provider、container、process、mount 和 workspace lifecycle，以及高隔离档的 UID/GID；
-- Agent Provider invocation、credential projection 和外部成本边界；
-- network、secret、path 和 resource capability；
-- 数据库、Browser、VM 等 Environment 的 prepare、action 和 teardown，以及按需 reset/freeze/getter；
-- declared Artifact 的 publish registry 与内部 materialization；
-- writer barrier、独立 evaluator、hidden material 和结果绑定；
-- wall time、memory、process、Agent invocation 和外部 action ceiling；
-- Runtime、Harness、Evaluation 和 Cleanup 事实的分离；
-- **Attempt evidence 与 Agent 轨迹落盘**（观察复盘与轨迹训练的数据源；见 [evidence.md](evidence.md)）。
-
-Runtime 不解释 Retail action、AgentVerse memory、MARBLE branch、Planner、Reducer 或 Tool 业务名称。
-
-## 与 Core 其它组的关系
-
-| Core | Runtime 如何协作 |
-| --- | --- |
-| Core 1 Config | 消费 `LockedTaskConfig`；运行中不热更新 |
-| Core 2 Lifecycle | Run Coordinator 拥有外层状态机（本目录 [lifecycle.md](lifecycle.md)） |
-| Core 3 Provider | 物理隔离与投影（[provider-l1.md](provider-l1.md)） |
-| Core 4 Capability | Agent / Env / Workspace / Artifact 面由 Runtime 注入 |
-| Core 5 Evaluation | barrier 后绑定扁平 Result（[evaluation.md](evaluation.md)） |
-
-Application 层拥有 CLI 与 Campaign 调度；Harness 拥有 Attempt 内业务 loop。两类 scheduler **不合并**。
-
-## 子文目录与阅读顺序
-
-按**设计上的执行链**阅读：
+## emit 总图（与 slots.py 对齐）
 
 ```text
-lifecycle
-  → provider-l1
-  → agent-service（ACP first-party inlet + 已安装插件 bind_to_target）
-  → environment（按需）
-  → evaluation
-  → evidence
-  → campaign-suite（外层编排，与单 Attempt 正交）
+environment
+  before_environment
+  host.start
+  upload data/
+  after_environment_ready
+  environment_setup
+  after_environment
+
+run
+  before_run
+  task_worker → run.py
+    before/after_agent_open
+    before_agent_invoke → executor.invoke → after_agent_invoke
+    normalize_agent_result
+    before/after_agent_close
+  stop Agent Service；writers stopped
+  after_run
+
+evaluate
+  before_evaluate
+  upload evaluation/          # 引擎代码；不是 before_evaluate 链槽
+  evaluation_runtime          # 独占槽；默认盒内 evaluator.py
+  bind_evaluation             # PASS 只从这里进
+  after_evaluate              # 不得改 status
+
+record
+  trajectory_collect → enrich
+  trajectory_seal             # 独占槽；默认引擎写 trajectory.jsonl
+
+cleanup (finally)
+  cleanup_report
+  host.stop
 ```
 
-| 文件 | 稳定设计内容 |
-| --- | --- |
-| [lifecycle.md](lifecycle.md) | Run Coordinator、三段路径、外层状态机、不变量 |
-| [provider-l1.md](provider-l1.md) | Provider、Docker L1 镜像/BOM、多 Actor isolation |
-| [agent-service.md](agent-service.md) | Agent Service、ACP first-party coding inlet、已安装插件 L1 `bind_to_target`、归一化契约 |
-| [environment.md](environment.md) | Environment prepare / action / teardown |
-| [evaluation.md](evaluation.md) | Workspace/Artifact、Evaluator barrier、Result 绑定 |
-| [evidence.md](evidence.md) | Attempt evidence 树与 trajectory 契约 |
-| [campaign-suite.md](campaign-suite.md) | Campaign matrix vs Suite task 轴 |
-
-## 文档原则
-
-本目录写的是 **稳定设计方案**，不是实现进度板。
-
-| 应写 | 不应写 |
-| --- | --- |
-| 机制契约、边界、红线、配置形状 | 「目前处于 xx 状态」「迁移完成前仍…」 |
-| 设计内的非目标 / 明确不做 | Issue 勾选、证据等级日报 |
-| 模块应有的结构 | 「Current residual 代码可能仍…」 |
-
-实现是否跟上 → **GitHub Issues + 代码 + `examples/`**。[ARCHITECTURE.md](../../../ARCHITECTURE.md) 描述实现结构地图（current vs target 树），不把 design 写成 changelog。
+槽种类只有 exclusive（`environment`、`executor`、`evaluation_runtime`、`trajectory_seal`）与 chain。PASS 仍只经 `bind_evaluation`。

@@ -1,6 +1,6 @@
 # tau2-dialog-min
 
-v1 **tau2-bench retail** case class on BORA v2 package surfaces.
+v1 **tau2-bench retail** case class on ageval v2 package surfaces.
 
 ## Package layout
 
@@ -30,6 +30,6 @@ Non-orchestration functional code (Tool bodies, workflow allow prefix, JSON load
 lives under **`lib/`** — not in the harness entrypoint.
 
 ```bash
-uv run bora lock examples/journeys --task tau2-dialog-min
-uv run bora run  examples/journeys --task tau2-dialog-min
+uv run ageval lock examples/journeys --task tau2-dialog-min
+uv run ageval run  examples/journeys --task tau2-dialog-min
 ```

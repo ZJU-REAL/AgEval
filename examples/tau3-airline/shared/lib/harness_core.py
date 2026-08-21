@@ -1,6 +1,6 @@
 """Dual-role airline dialog harness (orchestration only).
 
-User-sim and service agent use BORA Agent sessions (profiles). Tools execute
+User-sim and service agent use ageval Agent sessions (profiles). Tools execute
 via upstream tau2 airline Environment. Gold stays out of agent prompts.
 """
 
@@ -10,7 +10,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bora_sdk import Agent, HarnessContext, HarnessTerminal
+from ageval_sdk import Agent, RunContext, RunTerminal
+
 from shared.lib.agent_json import agent_struct
 from shared.lib.bridge import (
     agent_facing_user_scenario,
@@ -21,7 +22,6 @@ from shared.lib.bridge import (
     tool_catalog,
 )
 from shared.lib.paths import assets_root
-
 
 STOP_TOKEN = "###STOP###"
 TRANSFER_TOKEN = "###TRANSFER###"
@@ -82,7 +82,7 @@ def _parse_service_action(payload: dict[str, Any] | None) -> dict[str, Any]:
     return {"kind": "invalid", "raw": payload}
 
 
-def _params_map(ctx: HarnessContext) -> dict[str, Any]:
+def _params_map(ctx: RunContext) -> dict[str, Any]:
     raw = ctx.params
     if isinstance(raw, dict):
         return dict(raw)
@@ -96,12 +96,12 @@ def _params_map(ctx: HarnessContext) -> dict[str, Any]:
     return {}
 
 
-async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTerminal:
+async def run(ctx: RunContext, *, task_dir: Path | None = None) -> RunTerminal:
     params = _params_map(ctx)
     # Prefer parameters; fall back to task-local constant if generator embedded it.
     task_id = str(params.get("upstream_task_id") or "").strip()
     if not task_id:
-        return HarnessTerminal.failed("missing_upstream_task_id")
+        return RunTerminal.failed("missing_upstream_task_id")
 
     tdir = task_dir or Path.cwd()
     user_profile = _role_profile(params, "user", "user")
@@ -157,7 +157,7 @@ async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTe
             for _u in range(max_user_turns):
                 # --- user turn ---
                 user_prompt = (
-                    "BORA fixture: simulate ONE airline customer utterance.\n"
+                    "ageval fixture: simulate ONE airline customer utterance.\n"
                     f"{user_guidelines}\n\n"
                     f"<scenario>\n{scenario_text}\n</scenario>\n\n"
                     f"Dialog so far:\n{json.dumps(dialog_for_user, ensure_ascii=False)}\n\n"
@@ -170,7 +170,7 @@ async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTe
                 )
                 ures = await user_sess.invoke(user_prompt)
                 if not ures.get("ok"):
-                    return HarnessTerminal.failed(ures.get("error") or "user_sim_failed")
+                    return RunTerminal.failed(ures.get("error") or "user_sim_failed")
                 uobj = agent_struct(ures) or {}
                 user_text = str(uobj.get("content") or uobj.get("message") or "").strip()
                 if not user_text:
@@ -178,7 +178,7 @@ async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTe
                     raw = str(ures.get("text") or "").strip()
                     user_text = raw[:2000] if raw else ""
                 if not user_text:
-                    return HarnessTerminal.failed("empty_user_message")
+                    return RunTerminal.failed("empty_user_message")
 
                 trajectory.append(UserMessage(role="user", content=user_text))
                 dialog_for_user.append({"role": "user", "content": user_text})
@@ -212,7 +212,7 @@ async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTe
                     )
                     sres = await svc_sess.invoke(svc_prompt)
                     if not sres.get("ok"):
-                        return HarnessTerminal.failed(
+                        return RunTerminal.failed(
                             sres.get("error") or "service_failed"
                         )
                     action = _parse_service_action(agent_struct(sres))
@@ -301,7 +301,7 @@ async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTe
                     ]
 
                 if not spoke:
-                    return HarnessTerminal.failed("service_did_not_message_user")
+                    return RunTerminal.failed("service_did_not_message_user")
 
             if not finished:
                 # natural end without STOP — treat as agent stop if last speaker was agent
@@ -337,4 +337,4 @@ async def run(ctx: HarnessContext, *, task_dir: Path | None = None) -> HarnessTe
             "provider_session_handle": None,
         },
     )
-    return HarnessTerminal.completed(f"tau3-airline-{task_id}")
+    return RunTerminal.completed(f"tau3-airline-{task_id}")

@@ -5,8 +5,8 @@ unbound LiteLLM model ids with `- plugin: home-files` and a Database overlay
 file. No Core model-prefix switch.
 
 ```bash
-uv run bora plugin install plugins/home-files
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval plugin install plugins/home-files
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/acp-profiles/profiles.acp.opencode.qwen3.8-max.yaml
 ```
 
@@ -15,7 +15,7 @@ uv run bora run examples/journeys --task terminal-jsonl-agg \
 To ship skill folders for a cwd-scanning ACP entry (generic `.agents/skills`):
 
 ```bash
-uv run bora plugin install plugins/agent-skills
-uv run bora run examples/journeys --task terminal-jsonl-agg \
+uv run ageval plugin install plugins/agent-skills
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
   --profiles examples/journeys/acp-profiles/profiles.acp.grok-build.agent-skills.yaml
 ```

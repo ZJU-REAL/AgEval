@@ -1,22 +1,23 @@
-# ACP job binding for terminal-jsonl-agg.
-# entry: grok-build  model: entry-default
-# Skills land in Attempt HOME and workspace .agents/skills (cwd-scanning).
-format: bora.profiles/1
-bindings:
+format: ageval.profiles/1
+environment: docker
+agent_profiles:
   solver:
     executor: acp
     overlays:
-      - overlays/skills/jsonl-agg
-      - overlays/AGENTS.md
+    - overlays/skills/jsonl-agg
+    - overlays/AGENTS.md
     extensions:
-      - plugin: acp
-        options:
-          entry: grok-build
-      - plugin: agent-skills
-        options:
-          dest_roots: [home, workspace]
-          skills:
-            - src: overlays/skills/jsonl-agg
-          instructions:
-            - src: overlays/AGENTS.md
+    - plugin: acp
+    - plugin: agent-skills
+      options:
+        dest_roots:
+        - home
+        - workspace
+        skills:
+        - src: overlays/skills/jsonl-agg
+        instructions:
+        - src: overlays/AGENTS.md
+    - plugin: docker
     model: entry-default
+    options:
+      entry: grok-build

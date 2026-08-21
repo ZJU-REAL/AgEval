@@ -12,16 +12,16 @@ from pathlib import Path
 import pytest
 from services.registry.app import build_default_state, make_handler
 
-from bora.application.composition import build_agent_commands
-from bora.registry.client import RegistryClient
-from bora.registry.media_types import AGENT_MEDIA_TYPE
+from ageval.application.composition import build_agent_commands
+from ageval.registry.client import RegistryClient
+from ageval.registry.media_types import AGENT_MEDIA_TYPE
 
 _agents = build_agent_commands()
 install_agent_from_registry = _agents.install_agent_from_registry
 publish_agent = _agents.publish_agent
 
 REPO = Path(__file__).resolve().parents[2]
-AGENT_FIXTURE = REPO / "examples" / "agents" / "mock-default"
+AGENT_FIXTURE = REPO / "examples" / "agents" / "pi-default"
 TEST_ORG = "test"
 
 
@@ -41,11 +41,11 @@ def registry_server(tmp_path: Path):
 
 @pytest.fixture()
 def env(registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
-    home = tmp_path / "bora-home"
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
+    home = tmp_path / "ageval-home"
     home.mkdir()
-    monkeypatch.setenv("BORA_HOME", str(home))
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
     with contextlib.suppress(Exception):  # already created
         client.create_org(name=TEST_ORG, display_name="Test Org")
@@ -63,7 +63,7 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
     assert summary["ok"] is True
     assert summary["package_kind"] == "agent"
     assert summary["media_type"] == AGENT_MEDIA_TYPE
-    assert summary["package_id"] == f"{TEST_ORG}/mock-default"
+    assert summary["package_id"] == f"{TEST_ORG}/pi-default"
 
     body = _get(
         env["url"],
@@ -72,24 +72,24 @@ def test_publish_agent_preview_list_and_install(env: dict[str, str]) -> None:
     )
     assert body.get("package_kind") == "agent"
     preview = body.get("agent_preview") or {}
-    assert preview.get("agent_id") == "mock-default"
-    assert preview.get("label") == "Mock Default"
-    assert preview.get("binding", {}).get("executor") == "mock"
+    assert preview.get("agent_id") == "pi-default"
+    assert preview.get("label") == "Pi (entry default)"
+    assert preview.get("binding", {}).get("executor") == "acp"
     assert "agent.yaml" in (preview.get("files") or [])
 
     listed = _get(env["url"], env["token"], "/v1/packages?package_kind=agent")
     items = listed.get("items") or []
-    assert any(i.get("database_id") == summary["package_id"] for i in items)
+    assert any(i.get("dataset_id") == summary["package_id"] for i in items)
     assert all(i.get("package_kind") == "agent" for i in items)
 
-    db_listed = _get(env["url"], env["token"], "/v1/packages?package_kind=database")
+    db_listed = _get(env["url"], env["token"], "/v1/packages?package_kind=dataset")
     assert not any(
-        i.get("database_id") == summary["package_id"] for i in (db_listed.get("items") or [])
+        i.get("dataset_id") == summary["package_id"] for i in (db_listed.get("items") or [])
     )
 
     installed = install_agent_from_registry(summary["ref"])
     assert installed["ok"] is True
-    assert installed["agent_id"] == f"{TEST_ORG}/mock-default"
+    assert installed["agent_id"] == f"{TEST_ORG}/pi-default"
     assert installed["digest"].startswith("sha256:")
     assert (Path(env["home"]) / "agents" / "index.json").is_file()
 
@@ -102,8 +102,8 @@ def test_publish_agent_archives_listed_overlays(env: dict[str, str], tmp_path: P
     pkg = tmp_path / "overlay-agent"
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: overlay-demo\nversion: '1.0'\n"
-        "binding:\n  executor: mock\n  model: none\n"
+        "format: ageval.agent/1\nagent_id: overlay-demo\nversion: '1.0'\n"
+        "binding:\n  executor: openai-http\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
         encoding="utf-8",
     )
@@ -138,13 +138,13 @@ def test_publish_agent_archives_listed_overlays(env: dict[str, str], tmp_path: P
 
 
 def test_publish_rejects_missing_listed_overlay(env: dict[str, str], tmp_path: Path) -> None:
-    from bora.config.errors import ConfigError
+    from ageval.config.errors import ConfigError
 
     pkg = tmp_path / "missing-overlay-agent"
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: missing-ov\nversion: '1.0'\n"
-        "binding:\n  executor: mock\n  model: none\n"
+        "format: ageval.agent/1\nagent_id: missing-ov\nversion: '1.0'\n"
+        "binding:\n  executor: openai-http\n  model: none\n"
         "  overlays: [overlays/skills/demo]\n",
         encoding="utf-8",
     )
@@ -154,13 +154,13 @@ def test_publish_rejects_missing_listed_overlay(env: dict[str, str], tmp_path: P
 
 
 def test_reject_secret_bearing_agent(env: dict[str, str], tmp_path: Path) -> None:
-    from bora.config.errors import ConfigError
+    from ageval.config.errors import ConfigError
 
     pkg = tmp_path / "leaky-agent"
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: leaky\nversion: '1.0'\n"
-        "binding: {executor: mock, model: none}\n",
+        "format: ageval.agent/1\nagent_id: leaky\nversion: '1.0'\n"
+        "binding: {executor: openai-http, model: none}\n",
         encoding="utf-8",
     )
     (pkg / "notes.txt").write_text("api_key = sk-abc123def456ghi789jkl000\n", encoding="utf-8")
@@ -168,10 +168,10 @@ def test_reject_secret_bearing_agent(env: dict[str, str], tmp_path: Path) -> Non
         publish_agent(pkg, public=False, org=TEST_ORG)
 
 
-def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> None:
-    """agent.yaml trees must not slip through as package_kind=database.
+def test_reject_agent_yaml_as_dataset(env: dict[str, str], tmp_path: Path) -> None:
+    """agent.yaml trees must not slip through as package_kind=dataset.
 
-    The client already fails closed locally (no bora.yaml); the server guard
+    The client already fails closed locally (no ageval.yaml); the server guard
     in ``_validate_archive`` is exercised directly as defense in depth.
     """
     import tarfile
@@ -182,11 +182,11 @@ def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> N
     pkg = tmp_path / "sneaky"
     pkg.mkdir()
     (pkg / "agent.yaml").write_text(
-        "format: bora.agent/1\nagent_id: sneaky\nversion: '1.0'\n"
-        "binding: {executor: mock, model: none}\n",
+        "format: ageval.agent/1\nagent_id: sneaky\nversion: '1.0'\n"
+        "binding: {executor: openai-http, model: none}\n",
         encoding="utf-8",
     )
-    # Hand-rolled tarball: bora.registry.archive validates database trees.
+    # Hand-rolled tarball: ageval.registry.archive validates dataset trees.
     archive_path = tmp_path / "sneaky.tar.gz"
     with tarfile.open(archive_path, "w:gz") as tar:
         tar.add(pkg / "agent.yaml", arcname="agent.yaml")
@@ -195,8 +195,8 @@ def test_reject_agent_yaml_as_database(env: dict[str, str], tmp_path: Path) -> N
     with pytest.raises(RegistryAppError) as exc:
         svc._validate_archive(
             archive_path,
-            package_kind="database",
-            media_type="application/vnd.bora.database.v1.tar+gzip",
+            package_kind="dataset",
+            media_type="application/vnd.ageval.dataset.v1.tar+gzip",
             package_digest="sha256:" + "0" * 64,  # guard fires before digest compare
         )
     assert "package_kind=agent" in str(exc.value)

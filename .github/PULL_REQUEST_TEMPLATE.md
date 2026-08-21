@@ -1,21 +1,21 @@
-## 摘要
+## Summary
 
-<!-- 改了什么、为什么。机制/产品语义变更须先改 docs/design（或说明已改）。 -->
+<!-- What changed and why. Mechanism / product-semantics changes must update docs/design first (or say it already did). -->
 
-## 关联
+## Related
 
-- Issue：
-- 证据等级（若声称）：
+- Issue:
+- Evidence grade (if claimed):
 
-## 验证
+## Verification
 
 ```bash
-# 实际跑过的命令（pytest / bora lock|run / validate…）
+# Commands actually run (pytest / ageval lock|run / validate…)
 ```
 
 ## Checklist
 
-- [ ] 未把 credential / token 写入 yaml、lock、evidence、示例
-- [ ] 未把 trajectory / `HarnessTerminal.completed` 当作 PASS
-- [ ] 产品/机制变更已同步最高权威（design → Architecture / Issues 按需）
-- [ ] 有回归或公开 smoke；fixture 未单独冒充 `runnable-mvp`
+- [ ] No credentials / tokens in yaml, lock, evidence, or examples
+- [ ] Trajectory / `RunTerminal.completed` is not treated as PASS
+- [ ] Product / mechanism changes updated the highest authority (design → Architecture / Issues as needed)
+- [ ] Regression or public smoke exists; a fixture alone is not `runnable-mvp`

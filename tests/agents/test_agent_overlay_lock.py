@@ -7,58 +7,52 @@ from typing import Any
 
 import pytest
 import yaml
+from tests.helpers.lock import lock_with_profiles
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.agents import store
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
+from ageval.agents import store
+from ageval.config.errors import ConfigError
+from ageval.config.model import thaw
 
 
 @pytest.fixture(autouse=True)
-def _bora_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    home = tmp_path / "bora-home"
-    monkeypatch.setenv("BORA_HOME", str(home))
+def _ageval_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "ageval-home"
+    monkeypatch.setenv("AGEVAL_HOME", str(home))
     return home
 
 
-def _write_database(tmp: Path, *, overlay_files: dict[str, str] | None = None) -> Path:
+def _write_dataset(tmp: Path, *, overlay_files: dict[str, str] | None = None) -> Path:
     db = tmp / "db"
     (db / "tasks" / "t").mkdir(parents=True)
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\ndataset_id: example/overlays\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
     (db / "profiles.yaml").write_text(
-        "format: bora.profiles/1\nbindings:\n  solver:\n    executor: mock\n    model: none\n",
+        "format: ageval.profiles/1\n"
+        "environment: local\n"
+        "agent_profiles:\n  solver:\n    executor: openai-http\n",
         encoding="utf-8",
     )
     task = db / "tasks" / "t"
-    (task / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
+    (task / "run.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
     (task / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
     (task / "task.yaml").write_text(
         yaml.safe_dump(
             {
-                "format": "bora.task/1",
+                "format": "ageval.task/1",
                 "task_id": "t",
-                "harness": {"runtime": "python", "entrypoint": "harness:run"},
                 "parameters": {"models": {"default": "solver"}},
-                "provider": {"kind": "local", "assurance": "l0"},
                 "agent_profiles": [{"id": "solver"}, {"id": "user"}],
                 "limits": {
                     "wall_time_seconds": 60,
                     "agent_invocations": 1,
-                    "environment_actions": 0,
                 },
                 "artifacts": {"publishable": []},
                 "evaluation": {
-                    "runtime": "python",
                     "entrypoint": "evaluator:evaluate",
-                    "network": "none",
                     "inputs": [],
-                    "output": {"format": "json"},
                 },
             }
         ),
@@ -81,13 +75,13 @@ def _make_agent(
 ) -> Path:
     pkg = tmp / f"agent-{agent_id.replace('/', '-')}"
     pkg.mkdir(parents=True)
-    binding: dict[str, Any] = {"executor": "mock", "model": "none"}
+    binding: dict[str, Any] = {"executor": "openai-http", "model": "none"}
     if listed:
         binding["overlays"] = listed
     (pkg / "agent.yaml").write_text(
         yaml.safe_dump(
             {
-                "format": "bora.agent/1",
+                "format": "ageval.agent/1",
                 "agent_id": agent_id.rsplit("/", 1)[-1],
                 "version": version,
                 "binding": binding,
@@ -102,13 +96,11 @@ def _make_agent(
     return pkg
 
 
-def _lock(db: Path, bindings: dict[str, dict[str, Any]]):
-    core = ConfigCore(package_reader=LocalPackageReader())
-    return core.load_and_lock(
+def _lock(db: Path, agent_profiles: dict[str, dict[str, Any]]):
+    return lock_with_profiles(
         db / "tasks" / "t",
         "t",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings=bindings,
+        agent_profiles,
     )
 
 
@@ -120,13 +112,13 @@ def test_lock_with_agent_ref_uses_agent_cache_not_dataset(tmp_path: Path) -> Non
         listed=["overlays/skills/demo"],
     )
     entry = store.install_from_path(pkg, agent_id="official/xx")
-    db = _write_database(tmp_path)
+    db = _write_dataset(tmp_path)
     short = entry.digest[len("sha256:") :][:12]
     locked = _lock(
         db,
         {
             "*": {
-                "executor": "mock",
+                "executor": "openai-http",
                 "model": "none",
                 "overlays": ["overlays/skills/demo"],
                 "agent_ref": f"official/xx@0.1.0+sha256:{short}",
@@ -134,14 +126,14 @@ def test_lock_with_agent_ref_uses_agent_cache_not_dataset(tmp_path: Path) -> Non
         },
     )
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["overlays"] == ["overlays/skills/demo"]
+    assert overlay["agent_profiles"]["solver"]["overlays"] == ["overlays/skills/demo"]
     assert (db / "overlays").exists() is False
 
 
 def test_lock_agent_ref_ignores_dataset_same_path(tmp_path: Path) -> None:
     pkg = _make_agent(tmp_path, agent_id="official/xx")
     entry = store.install_from_path(pkg, agent_id="official/xx")
-    db = _write_database(
+    db = _write_dataset(
         tmp_path,
         overlay_files={"overlays/skills/demo/SKILL.md": "# dataset copy\n"},
     )
@@ -151,7 +143,7 @@ def test_lock_agent_ref_ignores_dataset_same_path(tmp_path: Path) -> None:
             db,
             {
                 "solver": {
-                    "executor": "mock",
+                    "executor": "openai-http",
                     "model": "none",
                     "overlays": ["overlays/skills/demo"],
                     "agent_ref": f"official/xx@0.1.0+sha256:{short}",
@@ -171,34 +163,34 @@ def test_lock_exact_role_without_overlays_not_attributed(tmp_path: Path) -> None
     yy = _make_agent(tmp_path, agent_id="official/yy")
     xx_entry = store.install_from_path(xx, agent_id="official/xx")
     yy_entry = store.install_from_path(yy, agent_id="official/yy")
-    db = _write_database(tmp_path)
+    db = _write_dataset(tmp_path)
     xx_short = xx_entry.digest[len("sha256:") :][:12]
     yy_short = yy_entry.digest[len("sha256:") :][:12]
     locked = _lock(
         db,
         {
             "*": {
-                "executor": "mock",
+                "executor": "openai-http",
                 "model": "none",
                 "overlays": ["overlays/skills/demo"],
                 "agent_ref": f"official/xx@0.1.0+sha256:{xx_short}",
             },
             "user": {
-                "executor": "mock",
+                "executor": "openai-http",
                 "model": "none",
                 "agent_ref": f"official/yy@0.1.0+sha256:{yy_short}",
             },
         },
     )
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["overlays"] == ["overlays/skills/demo"]
-    assert overlay["bindings"]["solver"]["agent_ref"].startswith("official/xx@")
-    assert "overlays" not in overlay["bindings"]["user"]
-    assert overlay["bindings"]["user"]["agent_ref"].startswith("official/yy@")
+    assert overlay["agent_profiles"]["solver"]["overlays"] == ["overlays/skills/demo"]
+    assert overlay["agent_profiles"]["solver"]["agent_ref"].startswith("official/xx@")
+    assert "overlays" not in overlay["agent_profiles"]["user"]
+    assert overlay["agent_profiles"]["user"]["agent_ref"].startswith("official/yy@")
 
 
-def test_handwritten_profiles_still_use_database_root(tmp_path: Path) -> None:
-    db = _write_database(
+def test_handwritten_profiles_still_use_dataset_root(tmp_path: Path) -> None:
+    db = _write_dataset(
         tmp_path,
         overlay_files={"overlays/AGENTS.md": "# hello\n"},
     )
@@ -206,13 +198,13 @@ def test_handwritten_profiles_still_use_database_root(tmp_path: Path) -> None:
         db,
         {
             "solver": {
-                "executor": "mock",
+                "executor": "openai-http",
                 "model": "none",
                 "overlays": ["overlays/AGENTS.md"],
             },
-            "user": {"executor": "mock", "model": "none"},
+            "user": {"executor": "openai-http", "model": "none"},
         },
     )
     overlay = thaw(locked.job_overlay)
-    assert overlay["bindings"]["solver"]["overlays"] == ["overlays/AGENTS.md"]
-    assert "overlays" not in overlay["bindings"]["user"]
+    assert overlay["agent_profiles"]["solver"]["overlays"] == ["overlays/AGENTS.md"]
+    assert "overlays" not in overlay["agent_profiles"]["user"]

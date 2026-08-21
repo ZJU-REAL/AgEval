@@ -1,4 +1,4 @@
-"""CLI: bora agent install/list/show/uninstall + lock --agent acceptance (design/14)."""
+"""CLI: ageval agent install/list/show/uninstall + lock --agent acceptance (design/14)."""
 
 from __future__ import annotations
 
@@ -12,25 +12,25 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-EXAMPLE_AGENT = ROOT / "examples/agents/mock-default"
+EXAMPLE_AGENT = ROOT / "examples/agents/pi-default"
 DATABASE = ROOT / "examples/core"
 
 
 @pytest.fixture()
 def env(tmp_path: Path) -> dict[str, str]:
-    home = tmp_path / "bora-home"
+    home = tmp_path / "ageval-home"
     home.mkdir()
     return {
         **os.environ,
-        "BORA_HOME": str(home),
-        "BORA_OFFLINE_AGENT": "1",
-        "BORA_SKIP_DOCKER": "1",
+        "AGEVAL_HOME": str(home),
+        "AGEVAL_OFFLINE_AGENT": "1",
+        "AGEVAL_SKIP_DOCKER": "1",
     }
 
 
 def _cli(env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "bora.cli.main", *args],
+        [sys.executable, "-m", "ageval.cli.main", *args],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -44,16 +44,16 @@ def test_agent_install_list_show_uninstall(env: dict[str, str]) -> None:
     assert proc.returncode == 0, proc.stderr
     data = json.loads(proc.stdout)
     assert data["ok"] is True
-    assert data["ref"] == "local/mock-default@0.1.0"
+    assert data["ref"] == "local/pi-default@0.1.0"
 
     listed = json.loads(_cli(env, "agent", "list").stdout)
-    assert [a["agent_id"] for a in listed["agents"]] == ["local/mock-default"]
+    assert [a["agent_id"] for a in listed["agents"]] == ["local/pi-default"]
 
-    shown = json.loads(_cli(env, "agent", "show", "local/mock-default@0.1.0").stdout)
-    assert shown["binding"]["executor"] == "mock"
+    shown = json.loads(_cli(env, "agent", "show", "local/pi-default@0.1.0").stdout)
+    assert shown["binding"]["executor"] == "acp"
     assert shown["digest"].startswith("sha256:")
 
-    assert _cli(env, "agent", "uninstall", "local/mock-default").returncode == 0
+    assert _cli(env, "agent", "uninstall", "local/pi-default").returncode == 0
     assert json.loads(_cli(env, "agent", "list").stdout)["agents"] == []
 
 
@@ -62,20 +62,20 @@ def test_agent_side_by_side_versions(env: dict[str, str], tmp_path: Path) -> Non
         pkg = tmp_path / f"ag-{version}"
         pkg.mkdir()
         (pkg / "agent.yaml").write_text(
-            f"format: bora.agent/1\nagent_id: mock-default\nversion: '{version}'\n"
-            "label: T\nbinding: {executor: mock, model: none}\n",
+            f"format: ageval.agent/1\nagent_id: http-default\nversion: '{version}'\n"
+            "label: T\nbinding: {executor: openai-http, model: none}\n",
             encoding="utf-8",
         )
         return pkg
 
     assert _cli(env, "agent", "install", str(_pkg("1.0.0"))).returncode == 0
     assert _cli(env, "agent", "install", str(_pkg("2.0.0"))).returncode == 0
-    shown = json.loads(_cli(env, "agent", "show", "local/mock-default").stdout)
+    shown = json.loads(_cli(env, "agent", "show", "local/http-default").stdout)
     assert shown["version"] == "2.0.0"
-    assert _cli(env, "agent", "uninstall", "local/mock-default@1.0.0").returncode == 0
+    assert _cli(env, "agent", "uninstall", "local/http-default@1.0.0").returncode == 0
     listed = json.loads(_cli(env, "agent", "list").stdout)
     assert [a["version"] for a in listed["agents"]] == ["2.0.0"]
-    assert _cli(env, "agent", "uninstall", "local/mock-default").returncode == 0
+    assert _cli(env, "agent", "uninstall", "local/http-default").returncode == 0
     assert json.loads(_cli(env, "agent", "list").stdout)["agents"] == []
 
 
@@ -106,28 +106,28 @@ def test_lock_with_agent_records_agent_ref_and_matches_profiles_lane(
 ) -> None:
     assert _cli(env, "agent", "install", str(EXAMPLE_AGENT)).returncode == 0
 
-    summary = _lock_summary(env, "--agent", "local/mock-default@0.1.0")
-    bindings = summary["job_overlay"]["bindings"]
-    refs = {row.get("agent_ref") for row in bindings.values()}
+    summary = _lock_summary(env, "--agent", "local/pi-default@0.1.0")
+    agent_profiles = summary["job_overlay"]["agent_profiles"]
+    refs = {row.get("agent_ref") for row in agent_profiles.values()}
     assert len(refs) == 1
     (ref,) = refs
-    assert ref.startswith("local/mock-default@0.1.0+sha256:")
+    assert ref.startswith("local/pi-default@0.1.0+sha256:")
 
     # Same run twice → deterministic digest.
-    again = _lock_summary(env, "--agent", "local/mock-default@0.1.0")
+    again = _lock_summary(env, "--agent", "local/pi-default@0.1.0")
     assert again["digest"] == summary["digest"]
 
-    # Equivalent hand-written profiles file (same bindings incl. agent_ref)
+    # Equivalent hand-written profiles file (same agent_profiles incl. agent_ref)
     # must produce the identical lock digest — the lanes are the same lane.
     import yaml
 
-    profiles_doc = {"format": "bora.profiles/1", "bindings": {}}
-    for role, row in bindings.items():
+    profiles_doc = {"format": "ageval.profiles/1", "agent_profiles": {}}
+    for role, row in agent_profiles.items():
         clone = dict(row)
         api_key = clone.get("api_key")
         if isinstance(api_key, str) and api_key and not api_key.startswith("${"):
             clone["api_key"] = f"${{{api_key}}}"
-        profiles_doc["bindings"][role] = clone
+        profiles_doc["agent_profiles"][role] = clone
     profiles_path = tmp_path / "equiv-profiles.yaml"
     profiles_path.write_text(yaml.safe_dump(profiles_doc, sort_keys=False), encoding="utf-8")
 

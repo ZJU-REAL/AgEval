@@ -1,6 +1,6 @@
-# BORA-owned slim composition for the bundled dsh-jsonrpc-agent runtime.
+# ageval-owned slim composition for the bundled dsh-jsonrpc-agent runtime.
 # Must include @deepseek-ai/dsh-sdk-jsonrpc-server. stdout is reserved for JSON-RPC.
-# Isolation hard boundary is BORA mount/UID; this tree uses local bash/fs (no
+# Isolation hard boundary is ageval mount/UID; this tree uses local bash/fs (no
 # landlock helper, no approval ask). Do not add a console logger or web tools.
 
 - id: sdk-jsonrpc-server

@@ -11,8 +11,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bora.application.registry_ops.results_command import ResultsCommands
-from bora.config.errors import ConfigError
+from ageval.application.registry_ops.results_command import ResultsCommands
+from ageval.config.errors import ConfigError
 
 
 def _write_db(
@@ -23,8 +23,8 @@ def _write_db(
 ) -> tuple[Path, str]:
     db = tmp / "db"
     db.mkdir()
-    (db / "bora.yaml").write_text(
-        "format: bora.database/1\ndatabase_id: example/overlays\nversion: '0.1.0'\n"
+    (db / "ageval.yaml").write_text(
+        "format: ageval.dataset/1\ndataset_id: example/overlays\nversion: '0.1.0'\n"
         "tasks:\n  root: tasks\n",
         encoding="utf-8",
     )
@@ -35,7 +35,7 @@ def _write_db(
     blob.mkdir(parents=True)
     (blob / "SKILL.md").write_text("# skill\n" + ("x" * 4096), encoding="utf-8")
     suite_run_id = "suite_overlays"
-    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_run_id
     suite_dir.mkdir(parents=True)
     binding: dict[str, Any] = {
         "executor": "acp",
@@ -45,14 +45,14 @@ def _write_db(
     if include_overlays:
         binding["overlays"] = ["overlays/cfg.json", "overlays/skills/jsonl-agg"]
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "example/overlays",
-        "database_version": "0.1.0",
+        "dataset_id": "example/overlays",
+        "dataset_version": "0.1.0",
         "exit_code": 0,
         "metrics": {"pass_rate": 1.0, "mean_score": 1.0, "n_tasks": 1},
         "task_refs": [{"task_id": "t", "status": "PASS", "score": 1.0}],
-        "job_overlay": {"bindings": {"solver": binding}},
+        "job_overlay": {"agent_profiles": {"solver": binding}},
     }
     (suite_dir / "summary.json").write_text(json.dumps(summary) + "\n", encoding="utf-8")
     return db, suite_run_id
@@ -68,8 +68,8 @@ def _cmds() -> tuple[ResultsCommands, dict[str, Any]]:
             captured["archive_bytes"] = Path(archive).read_bytes()
         return {
             "suite_run_id": kwargs["suite_run_id"],
-            "database_id": kwargs["database_id"],
-            "database_version": kwargs["database_version"],
+            "dataset_id": kwargs["dataset_id"],
+            "dataset_version": kwargs["dataset_version"],
             "pass_rate": kwargs["pass_rate"],
             "mean_score": kwargs["mean_score"],
             "metrics": kwargs["metrics"],
@@ -91,7 +91,7 @@ def test_upload_suite_sends_overlay_paths_not_bytes(tmp_path: Path) -> None:
     out = cmds.upload_suite_result(db, suite_run_id=suite_id)
     assert out["ok"] is True
     overlay = captured["job_overlay"]
-    assert overlay["bindings"]["solver"]["overlays"] == [
+    assert overlay["agent_profiles"]["solver"]["overlays"] == [
         "overlays/cfg.json",
         "overlays/skills/jsonl-agg",
     ]
@@ -101,7 +101,7 @@ def test_upload_suite_sends_overlay_paths_not_bytes(tmp_path: Path) -> None:
     with tarfile.open(fileobj=io.BytesIO(captured["archive_bytes"]), mode="r:gz") as tar:
         names = tar.getnames()
     assert names
-    assert all(name == ".bora" or name.startswith(".bora/") for name in names)
+    assert all(name == ".ageval" or name.startswith(".ageval/") for name in names)
     assert not any("overlays/cfg.json" in name for name in names)
     assert not any("overlays/skills/" in name for name in names)
     assert any(name.endswith("summary.json") for name in names)
@@ -128,4 +128,4 @@ def test_upload_suite_omit_overlays_skips_scan(tmp_path: Path) -> None:
     cmds, captured = _cmds()
     out = cmds.upload_suite_result(db, suite_run_id=suite_id)
     assert out["ok"] is True
-    assert "overlays" not in captured["job_overlay"]["bindings"]["solver"]
+    assert "overlays" not in captured["job_overlay"]["agent_profiles"]["solver"]

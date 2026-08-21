@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from bora.evidence.export import export_trajectory
-from bora.evidence.store import AttemptEvidenceStore
+from ageval.evidence.export import export_trajectory
+from ageval.evidence.store import AttemptEvidenceStore
 
 
 def test_export_redacts_and_preserves_source(tmp_path: Path) -> None:
@@ -30,7 +30,7 @@ def test_export_redacts_and_preserves_source(tmp_path: Path) -> None:
     src_req = (store.list_invocations()[0] / "request.json").read_text(encoding="utf-8")
     assert "EXPORT_SECRET_XYZ" not in src_req
     man = json.loads((dest / "manifest.json").read_text(encoding="utf-8"))
-    assert man["schema"] == "bora.trajectory.export/1"
+    assert man["schema"] == "ageval.trajectory.export/1"
     assert man["invocation_count"] == 1
     inv = man["invocations"][0]
     assert inv["sealed"] is True

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bora.registry.archive import MEDIA_TYPE, build_archive, extract_archive
-from bora.registry.digest import compute_package_digest
+from ageval.registry.archive import MEDIA_TYPE, build_archive, extract_archive
+from ageval.registry.digest import compute_package_digest
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 def test_package_digest_stable() -> None:
@@ -23,10 +23,10 @@ def test_archive_roundtrip_and_blob_digest(tmp_path: Path) -> None:
     archive, blob_digest, size = build_archive(FIXTURE)
     assert size == len(archive)
     assert blob_digest.startswith("sha256:")
-    assert MEDIA_TYPE.endswith("gzip")
+    assert MEDIA_TYPE == "application/vnd.ageval.dataset.v1.tar+gzip"
     dest = tmp_path / "out"
     extract_archive(archive, dest)
-    assert (dest / "bora.yaml").is_file()
+    assert (dest / "ageval.yaml").is_file()
     assert (dest / "tasks" / "hello" / "task.yaml").is_file()
     assert compute_package_digest(dest) == compute_package_digest(FIXTURE)
 

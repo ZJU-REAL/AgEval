@@ -3,11 +3,11 @@ title: 运行 Dataset（Suite）
 description: 一次跑 Dataset 里所有 task；可 Always-k 与 pass@k；汇总分不是整包 PASS。
 ---
 
-省略 `--task` 时，`bora run` 按 suite 调度**每一个**成员 task，各自独立 lock / 执行 / 评测：
+省略 `--task` 时，`ageval run` 按 suite 调度**每一个**成员 task，各自独立 lock / 执行 / 评测：
 
 ```bash
-uv run bora run examples/core
-uv run bora run examples/core --max-concurrent-tasks 2
+uv run ageval run examples/core
+uv run ageval run examples/core --max-concurrent-tasks 2
 ```
 
 ## 两轴别混
@@ -19,18 +19,18 @@ uv run bora run examples/core --max-concurrent-tasks 2
 
 ```bash
 # 整包每题 k=5（CLI/job 参数 only）
-uv run bora run examples/core -k 5 --max-concurrent-tasks 2
+uv run ageval run examples/core -k 5 --max-concurrent-tasks 2
 
 # 只对一题 Always-k
-uv run bora run examples/core --task sdk-agent-session -k 5
+uv run ageval run examples/core --task sdk-agent-session -k 5
 
 # 补跑：并进已有 suite job，重算指标（可加 --task 只补一题）
-uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
+uv run ageval run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
 
 # 点名换槽（PASS / FAIL / ERROR）：新 Attempt，同一 suite id
-uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
+uv run ageval run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
 # Always-k：只换一格 (task_id, attempt_index)
-# uv run bora run examples/core --resume-suite <id> --task sdk-agent-session --replace-slot --attempt-index 1
+# uv run ageval run examples/core --resume-suite <id> --task sdk-agent-session --replace-slot --attempt-index 1
 ```
 
 硬约束：
@@ -46,7 +46,7 @@ uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-ses
 
 ## 汇总指标
 
-写在 `.bora/suite-runs/<suite_run_id>/summary.json` 的 `metrics`：
+写在 `.ageval/suite-runs/<suite_run_id>/summary.json` 的 `metrics`：
 
 | 字段 | 含义 |
 | --- | --- |
@@ -62,8 +62,8 @@ uv run bora run examples/core --resume-suite <suite_run_id> --task sdk-agent-ses
 ## 进度与取消
 
 ```bash
-uv run bora status <suite_run_id> --database examples/core
-uv run bora cancel <suite_run_id> --database examples/core
+uv run ageval status <suite_run_id> --dataset examples/core
+uv run ageval cancel <suite_run_id> --dataset examples/core
 ```
 
 - **status**：ControlStore 记录 + 可读 progress  
@@ -71,7 +71,7 @@ uv run bora cancel <suite_run_id> --database examples/core
 
 和 [Campaign](/docs/run/campaign) 的区别：suite 是 **task 轴**（多题）；campaign 是 **同一题扫参数**。Always-k **不是** campaign 矩阵轴。
 
-跑次落在 Dataset 下的 `.bora/suite-runs/`，可用 [Viewer](/docs/run/local-viewer) 浏览 Timing 条。
+跑次落在 Dataset 下的 `.ageval/suite-runs/`，可用 [Viewer](/docs/run/local-viewer) 浏览 Timing 条。
 
 ## 上传到 Hub（Leaderboard / Jobs）
 
@@ -79,21 +79,21 @@ Hub 的 **Dataset → Leaderboard** 和 **Task → Jobs** 读的是 Registry 的
 
 | 步骤 | 命令 |
 | --- | --- |
-| 1. 跑 suite | `uv run bora run <database>`（**不要**加 `--task`；可用 `--profiles`） |
+| 1. 跑 suite | `uv run ageval run <database>`（**不要**加 `--task`；可用 `--profiles`） |
 | 2. 记下 id | 输出 / `summary.json` 里的 `suite_run_id`（默认 8 位 hex） |
-| 3. 上传 suite | `uv run bora results upload-suite <database> --suite-run <id> --public` |
+| 3. 上传 suite | `uv run ageval results upload-suite <database> --suite-run <id> --public` |
 | 4. 需要点开轨迹时 | 加上 `--with-attempts` |
 
 ```bash
-uv run bora run examples/journeys --profiles examples/journeys/profiles.yaml
+uv run ageval run examples/journeys --profiles examples/journeys/profiles.yaml
 # suite_run_id 例：d3e5fba6
-uv run bora results upload-suite examples/journeys \
+uv run ageval results upload-suite examples/journeys \
   --suite-run d3e5fba6 --public --with-attempts \
   --agent acp-pi --model zai-coding-cn/glm-5.2
 ```
 
-**常见误解：** 只跑 `bora run … --task X` 再 `bora results upload --run …`——attempt 可能已经进 Registry，但 **Leaderboard 通常仍没有一行**。要上榜必须先 suite 再 `upload-suite`。
+**常见误解：** 只跑 `ageval run … --task X` 再 `ageval results upload --run …`——attempt 可能已经进 Registry，但 **Leaderboard 通常仍没有一行**。要上榜必须先 suite 再 `upload-suite`。
 
-公开榜还有两道门：suite **完备**（绑定版本的每题都有一条 result；题上 FAIL / ERROR 也算），且绑定 **release**。缺题或绑定 draft 的行只出现在 Task **Jobs**。先 `bora publish --draft`、owner 再 `bora release`，或直接 `bora publish` 发 release。
+公开榜还有两道门：suite **完备**（绑定版本的每题都有一条 result；题上 FAIL / ERROR 也算），且绑定 **release**。缺题或绑定 draft 的行只出现在 Task **Jobs**。先 `ageval publish --draft`、owner 再 `ageval release`，或直接 `ageval publish` 发 release。
 
 详情见 [结果与 PASS](/docs/reference/results-and-pass) 与 [Hub](/docs/share/hub)。

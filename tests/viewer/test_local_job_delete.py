@@ -8,17 +8,17 @@ from pathlib import Path
 
 import pytest
 
-from bora.application.composition import build_local_jobs_commands
-from bora.config.errors import ConfigError
-from bora.viewer import jobs
+from ageval.application.composition import build_local_jobs_commands
+from ageval.config.errors import ConfigError
+from ageval.viewer import jobs
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def _clean_db(tmp_path: Path) -> Path:
     db = tmp_path / "db"
-    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".bora"))
+    shutil.copytree(SUITE, db, ignore=shutil.ignore_patterns(".ageval"))
     return db
 
 
@@ -31,9 +31,9 @@ def _seed_attempt(
     db: Path, run_id: str, *, task_id: str = "alpha", task_local: bool = False
 ) -> Path:
     evidence = (
-        db / "tasks" / task_id / ".bora" / "runs" / run_id
+        db / "tasks" / task_id / ".ageval" / "runs" / run_id
         if task_local
-        else db / ".bora" / "runs" / run_id
+        else db / ".ageval" / "runs" / run_id
     )
     _write_json(
         evidence / "result.json",
@@ -50,7 +50,7 @@ def _seed_suite(
     extra_attempts: list[str] | None = None,
 ) -> str:
     run_ids = run_ids or ["run_a", "run_b"]
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     tasks = [
         {"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": run_ids[0]},
     ]
@@ -71,9 +71,9 @@ def _seed_suite(
     _write_json(
         suite_dir / "summary.json",
         {
-            "schema": "bora.suite.summary/1",
+            "schema": "ageval.suite.summary/1",
             "suite_run_id": job_id,
-            "database_id": "test/suite-min",
+            "dataset_id": "test/suite-min",
             "tasks": tasks,
             "task_refs": refs,
             "attempts": [
@@ -101,14 +101,14 @@ def test_delete_single_removes_attempt_dir(tmp_path: Path) -> None:
     assert preview["can_delete"] is True
     assert preview["bytes"] > 0
     locators = [p["locator"] for p in preview["paths"]]
-    assert ".bora/runs/run_single_alpha" in locators
+    assert ".ageval/runs/run_single_alpha" in locators
 
     with pytest.raises(ConfigError, match="confirm_required"):
         cmds.delete_job(db, job_id="run_single_alpha")
 
     out = cmds.delete_job(db, job_id="run_single_alpha", yes=True)
     assert out["ok"] is True
-    assert not (db / ".bora" / "runs" / "run_single_alpha").exists()
+    assert not (db / ".ageval" / "runs" / "run_single_alpha").exists()
     assert "run_single_alpha" not in _job_ids(db)
 
 
@@ -142,20 +142,20 @@ def test_delete_suite_cascades_attempts(tmp_path: Path) -> None:
     assert "run_b2" not in listed
     assert "run_other" in listed
     assert leftover.is_dir()
-    assert not (db / ".bora" / "suite-runs" / job_id).exists()
-    assert not (db / ".bora" / "runs" / "run_a").exists()
+    assert not (db / ".ageval" / "suite-runs" / job_id).exists()
+    assert not (db / ".ageval" / "runs" / "run_a").exists()
 
 
 def test_delete_suite_cascades_previous_attempts(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = "suite_hist"
-    suite_dir = db / ".bora" / "suite-runs" / job_id
+    suite_dir = db / ".ageval" / "suite-runs" / job_id
     _write_json(
         suite_dir / "summary.json",
         {
-            "schema": "bora.suite.summary/1",
+            "schema": "ageval.suite.summary/1",
             "suite_run_id": job_id,
-            "database_id": "test/suite-min",
+            "dataset_id": "test/suite-min",
             "tasks": [{"task_id": "alpha", "status": "PASS", "run_id": "run_new"}],
             "task_refs": [
                 {
@@ -184,13 +184,13 @@ def test_delete_suite_cascades_previous_attempts(tmp_path: Path) -> None:
     inner = cmds.preview_delete_job(db, job_id="run_old")
     assert inner["can_delete"] is False
     cmds.delete_job(db, job_id=job_id, yes=True)
-    assert not (db / ".bora" / "runs" / "run_old").exists()
+    assert not (db / ".ageval" / "runs" / "run_old").exists()
     assert leftover.is_dir()
 
 
 def test_refuse_delete_attempt_without_result(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
-    live = db / ".bora" / "runs" / "run_live"
+    live = db / ".ageval" / "runs" / "run_live"
     live.mkdir(parents=True)
     (live / "lock.json").write_text("{}\n", encoding="utf-8")
     cmds = build_local_jobs_commands()
@@ -205,11 +205,11 @@ def test_refuse_delete_attempt_without_result(tmp_path: Path) -> None:
 
 def test_list_jobs_includes_progress_only_suite(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
-    suite_dir = db / ".bora" / "suite-runs" / "suite_live"
+    suite_dir = db / ".ageval" / "suite-runs" / "suite_live"
     _write_json(
         suite_dir / "progress.json",
         {
-            "schema": "bora.suite.progress/1",
+            "schema": "ageval.suite.progress/1",
             "suite_run_id": "suite_live",
             "status": "running",
             "done": 1,
@@ -242,7 +242,7 @@ def test_refuse_inner_attempt_delete(tmp_path: Path) -> None:
     assert preview["error"]["code"] == "job_inner_attempt"
     with pytest.raises(ConfigError, match="job_inner_attempt"):
         cmds.delete_job(db, job_id="run_a", yes=True)
-    assert (db / ".bora" / "runs" / "run_a").is_dir()
+    assert (db / ".ageval" / "runs" / "run_a").is_dir()
 
 
 def test_in_progress_suite_warns_but_deletes(tmp_path: Path) -> None:
@@ -250,27 +250,29 @@ def test_in_progress_suite_warns_but_deletes(tmp_path: Path) -> None:
     job_id = _seed_suite(db)
     _seed_attempt(db, "run_a")
     _write_json(
-        db / ".bora" / "suite-runs" / job_id / "progress.json",
-        {"schema": "bora.suite.progress/1", "status": "running", "done": 0, "total": 2},
+        db / ".ageval" / "suite-runs" / job_id / "progress.json",
+        {"schema": "ageval.suite.progress/1", "status": "running", "done": 0, "total": 2},
     )
     cmds = build_local_jobs_commands()
     preview = cmds.preview_delete_job(db, job_id=job_id)
     assert preview["can_delete"] is True
     assert preview["warning"]["code"] == "job_in_progress"
     cmds.delete_job(db, job_id=job_id, yes=True)
-    assert not (db / ".bora" / "suite-runs" / job_id).exists()
+    assert not (db / ".ageval" / "suite-runs" / job_id).exists()
 
 
 def test_live_cancel_request_warns_but_deletes(tmp_path: Path) -> None:
     db = _clean_db(tmp_path)
     job_id = _seed_suite(db)
-    (db / ".bora" / "suite-runs" / job_id / "cancel.requested").write_text("{}\n", encoding="utf-8")
+    (db / ".ageval" / "suite-runs" / job_id / "cancel.requested").write_text(
+        "{}\n", encoding="utf-8"
+    )
     cmds = build_local_jobs_commands()
     preview = cmds.preview_delete_job(db, job_id=job_id)
     assert preview["can_delete"] is True
     assert preview["warning"]["code"] == "job_in_progress"
     cmds.delete_job(db, job_id=job_id, yes=True)
-    assert not (db / ".bora" / "suite-runs" / job_id).exists()
+    assert not (db / ".ageval" / "suite-runs" / job_id).exists()
 
 
 def test_complete_progress_allows_delete(tmp_path: Path) -> None:
@@ -279,8 +281,8 @@ def test_complete_progress_allows_delete(tmp_path: Path) -> None:
     _seed_attempt(db, "run_a")
     _seed_attempt(db, "run_b")
     _write_json(
-        db / ".bora" / "suite-runs" / job_id / "progress.json",
-        {"schema": "bora.suite.progress/1", "status": "complete", "done": 2, "total": 2},
+        db / ".ageval" / "suite-runs" / job_id / "progress.json",
+        {"schema": "ageval.suite.progress/1", "status": "complete", "done": 2, "total": 2},
     )
     cmds = build_local_jobs_commands()
     cmds.delete_job(db, job_id=job_id, yes=True)
@@ -299,7 +301,7 @@ def test_refuse_claimed_by_another_suite(tmp_path: Path) -> None:
     assert preview["error"]["code"] == "job_claimed_elsewhere"
     with pytest.raises(ConfigError, match="job_claimed_elsewhere"):
         cmds.delete_job(db, job_id="suite_one", yes=True)
-    assert (db / ".bora" / "runs" / "run_shared").is_dir()
+    assert (db / ".ageval" / "runs" / "run_shared").is_dir()
 
 
 def test_refuse_path_escape(tmp_path: Path) -> None:

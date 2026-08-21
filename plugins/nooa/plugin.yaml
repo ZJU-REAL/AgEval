@@ -1,18 +1,23 @@
-format: bora.plugin/1
+format: ageval.plugin/1
 plugin_id: nooa
 version: 0.1.0
+description: "Run [NVIDIA OO Agents](https://github.com/NVIDIA-NeMo/labs-OO-Agents) inside the box via environment exec and upload. Not ACP."
 host_requires:
   - import: nooa
     hint: "uv sync --extra nooa"
 slots:
-  provide:
+  exclusive:
     - id: executor
       priority: 110
       entry: "nooa_plugin.factory:build_executor"
-  "on":
-    - id: image_contribute
-      priority: 110
-      entry: "nooa_plugin.hooks:image_contribute"
+  chain:
     - id: trajectory_collect
       priority: 110
       entry: "nooa_plugin.hooks:trajectory_collect"
+inject:
+  - service: environment
+    capabilities: [exec, upload]
+config:
+  # Layers the docker box bakes on top of the official base. Not a slot: the
+  # environment winner reads this when it builds the image.
+  image_layers: docker/Dockerfile.bake

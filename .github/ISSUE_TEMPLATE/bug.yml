@@ -1,40 +1,40 @@
 name: Bug
-description: 可复现的行为错误（CLI / runtime / package / docs 偏差）
+description: Reproducible behavior error (CLI / runtime / package / docs mismatch)
 title: "bug: "
 labels: ["type:bug"]
 body:
   - type: textarea
     id: summary
     attributes:
-      label: 现象
-      description: 一句话说明实际 vs 期望。
-      placeholder: e.g. bora run 在 X 包上 ERROR，期望 PASS
+      label: What happened
+      description: One sentence for actual vs expected.
+      placeholder: e.g. ageval run ERROR on package X; expected PASS
     validations:
       required: true
 
   - type: textarea
     id: repro
     attributes:
-      label: 复现
-      description: 最小命令与环境。不要粘贴 secret / token。
+      label: Repro
+      description: Minimal command and environment. Do not paste secrets or tokens.
       placeholder: |
-        uv run bora run examples/core/... --task ...
-        # 相关版本：bora / executor / OS
+        uv run ageval run examples/core/... --task ...
+        # versions: ageval / executor / OS
     validations:
       required: true
 
   - type: textarea
     id: evidence
     attributes:
-      label: 证据
-      description: exit code、stdout 摘要、`Result.logs` 路径下非敏感文件（result.json / metadata）。勿贴 key。
+      label: Evidence
+      description: Exit code, stdout excerpt, non-secret files under `Result.logs` (result.json / metadata). No keys.
     validations:
       required: false
 
   - type: dropdown
     id: surface
     attributes:
-      label: 表面
+      label: Surface
       options:
         - CLI (lock/run/campaign/evidence/…)
         - Config / package

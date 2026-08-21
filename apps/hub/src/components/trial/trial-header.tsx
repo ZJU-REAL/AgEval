@@ -43,13 +43,13 @@ export function TrialHeader({
               </span>
             </>
           ) : null}
-          {trial?.docker ? (
+          {trial?.environment ? (
             <>
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
               <span className="text-body font-medium font-mono text-[13px]">
-                {trial.docker}
+                {trial.environment}
               </span>
             </>
           ) : null}

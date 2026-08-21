@@ -1,0 +1,6 @@
+format: ageval.dataset/1
+dataset_id: test/probe-min
+version: "0.1.0"
+description: "Fixture Dataset for lock/run --probe"
+tasks:
+  root: tasks

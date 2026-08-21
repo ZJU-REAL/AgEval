@@ -1,22 +1,15 @@
-# Layer dsh in-container worker + DeepSeek Harness Python wheels onto a package Attempt image.
-# Build context = installed dsh plugin package root (path install cache).
+# Bake DeepSeek Harness wheels into the Attempt image.
+# The worker script is uploaded at invoke (same path for local / docker / e2b / ssh).
+# Build context = installed dsh plugin package root (unused except as docker context).
 # Usage (host):
 #   docker build --build-arg BASE_IMAGE=<pkg-tag> -f docker/Dockerfile.bake -t <out> .
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 USER root
-COPY src/dsh_plugin /opt/dsh/dsh_plugin
-COPY worker/bora_executor_dsh.py /usr/local/bin/bora-executor-dsh
-COPY compositions/ /opt/dsh/compositions/
-# Pin official wheels at image build. No invoke-time npm i / floating pip.
-RUN chmod 755 /usr/local/bin/bora-executor-dsh \
-    && test -f /usr/local/bin/bora-executor-dsh \
-    && test -f /opt/dsh/compositions/slim.cordis.yml \
-    && test -f /opt/dsh/compositions/sandboxed.cordis.yml \
-    && python3 -m py_compile /usr/local/bin/bora-executor-dsh \
-    && python3 -m pip install --no-cache-dir "deepseek-harness-sdk==0.1.0rc6"
+# Pin official wheels at image build. No invoke-time pip / floating npx.
+RUN python3 -m pip install --no-cache-dir "deepseek-harness-sdk==0.1.0rc6"
 
 # Prefer non-root actor when base defines it.
-USER bora
+USER ageval
 WORKDIR /attempt/workspace

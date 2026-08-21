@@ -6,8 +6,10 @@ description: "用 executor: acp 与 - plugin: acp 的 options.entry 接 coding a
 ## 推荐配置
 
 ```yaml
-# Database profiles.yaml
-bindings:
+# profiles.yaml
+format: ageval.profiles/1
+environment: local
+agent_profiles:
   main:
     executor: acp
     extensions:
@@ -22,7 +24,7 @@ bindings:
 | 字段 | 说明 |
 | --- | --- |
 | `executor` | coding agent 用 `acp`（不要用已废弃的 `executor: codex` 等） |
-| `- plugin: acp` / `options.entry` | **必填**；本机可用 id 以 `bora executors -v` 为准 |
+| `- plugin: acp` / `options.entry` | **必填**；本机可用 id 以 `ageval executors -v` 为准 |
 | `options.reasoning_effort` | 可选；广告了 thinking selector 的 entry 走 `set_config_option`。`grok-build` 写进 `grok agent --reasoning-effort … stdio` |
 | `model` | 交给该 entry 的模型 |
 | `api_key` | 可选；`${ENV_NAME}` locator |
@@ -33,15 +35,15 @@ bindings:
 ## 本机就绪
 
 ```bash
-uv run bora executors -v
+uv run ageval executors -v
 ```
 
-看 `engine_ready` 与 `acp_entry_ready`。`-v` 还会标 `credential_missing`：声明的 credential 名全空、且 binding 没有 `api_key` 时出现。需要密钥的 entry（如 `pi`）在 `--probe` / session-open 会 fail closed；支持 OAuth / 本机登录的 entry 只警告。L0 子进程环境只投影 allowlist（`PATH` / `HOME` / `LANG`、entry 声明的 credential 名、binding 的 `api_key` / `base_url`）；宿主里未声明的 token 进不了 entry。
+看 `engine_ready` 与 `acp_entry_ready`。`-v` 还会标 `credential_missing`：声明的 credential 名全空、且 binding 没有 `api_key` 时出现。需要密钥的 entry（如 `pi`）在 `--probe` / session-open 会 fail closed；支持 OAuth / 本机登录的 entry 只警告。子进程环境只投影 allowlist（`PATH` / `HOME` / `LANG`、entry 声明的 credential 名、binding 的 `api_key` / `base_url`）；宿主里未声明的 token 进不了 entry。
 
 ## 运行时切换
 
 ```bash
-uv run bora run <dataset> --task <id> \
+uv run ageval run <dataset> --task <id> \
   --set '/parameters/active_profile="main"'
 ```
 

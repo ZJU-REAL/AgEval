@@ -1,55 +1,28 @@
 ---
 title: 首次运行
-description: 锁定配置、执行示例 Task，并定位结果目录。
+description: 锁定配置、执行示例 task，并定位结果目录。
 ---
 
-以下示例使用仓库内 `examples/core`。CLI 路径参数始终为 **Dataset 根目录**（包含 `bora.yaml` 的目录），而不是 `tasks/<id>/`。
-
-## 基本命令
+CLI 路径参数始终是 **dataset 根**（含 `ageval.yaml` 的目录），不是 `tasks/<id>/`。
 
 ```bash
-# 列出 Dataset 内的 task
-uv run bora tasks examples/core
-
-# 仅锁定配置（不启动 agent、不评测）
-uv run bora lock examples/core --task config-minimal
-
-# 同一 lock 上做本机可行性探针（不 invoke、不 bake）
-uv run bora lock examples/core --task config-minimal --probe
-
-# 执行真实多轮 agent 路径（需要本机 ACP 入口与凭据）
-uv run bora run examples/core --task sdk-agent-session
+uv run ageval tasks examples/core
+uv run ageval lock examples/core --task config-minimal
+uv run ageval run  examples/core --task acp-local-min
+uv run ageval run  examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml
 ```
 
-`bora run` 成功时会输出 **`logs` 路径**，指向本次 Attempt 的证据目录。
-
-### 相关术语
+`ageval run` 成功时输出 `logs` / `evidence_path`，指向 `.ageval/runs/<id>/`。
 
 | 术语 | 说明 |
 | --- | --- |
-| **Dataset** | 可交付套件：根目录 `bora.yaml` + 若干 task 成员 |
-| **Attempt** | 在锁定配置与边界约束下的一次执行（含 harness / agent / 评测） |
-
-## 无 agent 时的验证
-
-`config-minimal` 仅验证 lock。`--probe` 在同一 lock 上附加本机可行性报告（不 invoke Agent、不改 digest）。若 `sdk-agent-session` 因入口缺失失败，先执行：
+| **dataset** | 根 `ageval.yaml` + 若干 task |
+| **Attempt** | 一次锁定配置下的执行 |
+| **environment** | 盒子 kind：local / docker / e2b / ssh |
 
 ```bash
-uv run bora executors -v
+uv run ageval executors -v
+uv run ageval view examples/core --no-browser
 ```
 
-完成对应 ACP 入口安装与登录后再运行。详见 [ACP Profiles](/docs/agents/acp-profiles)。
-
-## 本地查看结果（可选）
-
-```bash
-cd apps/viewer && pnpm install && pnpm build && cd ../..
-uv run bora view examples/core --no-browser
-```
-
-在浏览器中打开终端给出的地址，按 **Jobs → Tasks → Attempt** 浏览。详见 [本地结果查看器](/docs/run/local-viewer)。
-
-## 后续文档
-
-- 运行现有包：[运行单个 Task](/docs/run/single-task) · [运行 Dataset（Suite）](/docs/run/suite) · [切换 Agent 与模型](/docs/run/switch-agent)  
-- 编写 Task：[Task 编写教程](/docs/author/tutorial)  
+`--probe` 只做 lock + preflight，不 invoke。`--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。

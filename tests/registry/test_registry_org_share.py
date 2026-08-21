@@ -12,18 +12,18 @@ import pytest
 from services.registry.app import build_default_state, make_handler
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.composition import build_publish_command, build_results_commands
-from bora.application.registry_ops.registry_org_command import RegistryOrgCommands
-from bora.registry.client import RegistryClient, RegistryError
-from bora.registry.credentials import write_credentials
+from ageval.application.composition import build_publish_command, build_results_commands
+from ageval.application.registry_ops.registry_org_command import RegistryOrgCommands
+from ageval.registry.client import RegistryClient, RegistryError
+from ageval.registry.credentials import write_credentials
 
-publish_database = build_publish_command().publish_database
+publish_dataset = build_publish_command().publish_dataset
 _results = build_results_commands()
 list_attempt_results = _results.list_attempt_results
 upload_attempt_result = _results.upload_attempt_result
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 
 @pytest.fixture()
@@ -87,18 +87,18 @@ def test_org_create_list_and_publish_requires_org(
 
     write_credentials(url=url, token=registry_server["token"], path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("BORA_REGISTRY_URL", url)
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", url)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
 
     with pytest.raises(Exception) as ei:
-        publish_database(FIXTURE, public=False)
+        publish_dataset(FIXTURE, public=False)
     assert "org" in str(ei.value).lower()
 
-    summary = publish_database(FIXTURE, public=False, org="acme")
+    summary = publish_dataset(FIXTURE, public=False, org="acme")
     assert summary["ok"] is True
     assert summary["org_id"] == "acme"
 
-    meta = boot.get_metadata(database_id=summary["database_id"], version=summary["version"])
+    meta = boot.get_metadata(dataset_id=summary["dataset_id"], version=summary["version"])
     assert meta.org_id == "acme"
 
 
@@ -114,9 +114,9 @@ def test_owner_can_patch_org_and_package_display_name(
 
     write_credentials(url=url, token=registry_server["token"], path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("BORA_REGISTRY_URL", url)
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
-    from bora.application.composition import build_plugin_commands
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", url)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
+    from ageval.application.composition import build_plugin_commands
 
     plugin = REPO / "tests/fixtures/plugins/sample-echo"
     summary = build_plugin_commands().publish_plugin(plugin, public=True, org="lab")
@@ -145,16 +145,16 @@ def test_private_package_visible_to_org_member_only(
 
     write_credentials(url=url, token=alice_tok, path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("BORA_REGISTRY_URL", url)
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", alice_tok)
-    summary = publish_database(FIXTURE, public=False, org="lab")
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", url)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", alice_tok)
+    summary = publish_dataset(FIXTURE, public=False, org="lab")
 
     alice = RegistryClient(url, token=alice_tok)
-    alice.get_metadata(database_id=summary["database_id"], version=summary["version"])
+    alice.get_metadata(dataset_id=summary["dataset_id"], version=summary["version"])
 
     bob = RegistryClient(url, token=bob_tok)
     with pytest.raises(RegistryError) as ei:
-        bob.get_metadata(database_id=summary["database_id"], version=summary["version"])
+        bob.get_metadata(dataset_id=summary["dataset_id"], version=summary["version"])
     assert ei.value.status == 404
 
 
@@ -173,7 +173,7 @@ def test_result_uploaded_by_and_share_org(
     db = tmp_path / "db"
     shutil.copytree(FIXTURE, db)
     run_id = "sha256_share_run1"
-    run_dir = db / ".bora" / "runs" / run_id
+    run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True)
     (run_dir / "result.json").write_text(
         json.dumps({"task_id": "hello", "status": "PASS"}),
@@ -182,8 +182,8 @@ def test_result_uploaded_by_and_share_org(
 
     write_credentials(url=url, token=alice_tok, path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("BORA_REGISTRY_URL", url)
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", alice_tok)
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", url)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", alice_tok)
 
     up = upload_attempt_result(db, run_id=run_id, public=False)
     assert up["ok"] is True
@@ -226,8 +226,8 @@ def test_result_uploaded_by_and_share_org(
         )
 
     # list does not leak to bob
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", bob_tok)
-    listed = list_attempt_results(database_id="test/publish-min")
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", bob_tok)
+    listed = list_attempt_results(dataset_id="test/publish-min")
     assert listed["count"] == 0
 
 
@@ -247,7 +247,7 @@ def test_org_invite_key_create_join_and_limits(registry_server) -> None:
     )
     assert st == 201, raw
     created = json.loads(raw.decode())
-    assert created.get("invite_key", "").startswith("bora-inv_")
+    assert created.get("invite_key", "").startswith("ageval-inv_")
     assert created["max_uses"] == 1
     key = created["invite_key"]
     # List never re-materializes the secret; only prefix metadata.
@@ -262,7 +262,7 @@ def test_org_invite_key_create_join_and_limits(registry_server) -> None:
     match = next((i for i in items if i.get("key_id") == created["key_id"]), None)
     assert match is not None, listed
     assert "invite_key" not in match
-    assert match.get("token_prefix", "").startswith("bora-inv_")
+    assert match.get("token_prefix", "").startswith("ageval-inv_")
 
     carol = _user_token(state, user="carol")
     carol_cli = RegistryClient(url, token=carol)

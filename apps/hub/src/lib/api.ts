@@ -2,7 +2,7 @@
 
 export type DeclaredSlot = {
   id: string;
-  kind: "provide" | "on" | string;
+  kind: "exclusive" | "chain";
   entry?: string;
   priority?: number;
   level?: number;
@@ -12,10 +12,10 @@ export type PluginPreview = {
   plugin_id?: string;
   version?: string;
   format?: string;
+  description?: string | null;
   slots?: {
-    provide?: string[];
-    on?: string[];
-    [key: string]: unknown;
+    exclusive?: string[];
+    chain?: string[];
   };
   declared?: DeclaredSlot[];
   files?: string[];
@@ -41,15 +41,15 @@ export type SuitePluginRef = {
 const BUILTIN_EXECUTOR_KINDS = new Set(["acp", "openai-http"]);
 
 export type PackageRelease = {
-  database_id: string;
+  dataset_id: string;
   version: string;
   visibility: string;
   package_digest: string;
   blob_digest: string;
   size: number;
   media_type?: string;
-  /** Registry package_kind: database | plugin | agent. */
-  package_kind?: "database" | "plugin" | "agent" | string;
+  /** Registry package_kind: dataset | plugin | agent. */
+  package_kind?: "dataset" | "plugin" | "agent" | string;
   created_at?: number;
   org_id?: string;
   /** Registry marketplace display: upload org is on the official-org allowlist. */
@@ -62,7 +62,7 @@ export type PackageRelease = {
   is_draft?: boolean;
   slot?: string;
   uploaded_by?: string;
-  /** Owner-set marketplace title; id stays database_id. */
+  /** Owner-set marketplace title; id stays dataset_id. */
   display_name?: string;
 };
 
@@ -146,10 +146,45 @@ export type FileContent = {
   truncated?: boolean;
 };
 
+export type JobOverlayProfile = {
+  executor?: string;
+  model?: string;
+  base_url?: string;
+  api_key?: string;
+  label?: string;
+  agent_ref?: string;
+  options?: { entry?: string; reasoning_effort?: string };
+  overlays?: string[];
+  extensions?: Array<{ plugin?: string; options?: Record<string, unknown> }>;
+};
+
+/** Current lock/suite overlay: box kind + agent_profiles. */
+export type JobOverlay = {
+  environment?: string;
+  environment_options?: Record<string, unknown>;
+  agent_profiles?: Record<string, JobOverlayProfile>;
+};
+
+export function overlayAgentProfiles(
+  overlay: JobOverlay | null | undefined,
+): Record<string, JobOverlayProfile> {
+  const profiles = overlay?.agent_profiles;
+  if (!profiles || typeof profiles !== "object") return {};
+  return profiles;
+}
+
+export function environmentFromOverlay(
+  overlay: JobOverlay | null | undefined,
+): string | null {
+  const env = overlay?.environment;
+  if (typeof env === "string" && env.trim()) return env.trim();
+  return null;
+}
+
 export type SuiteRow = {
   suite_run_id: string;
-  database_id?: string;
-  database_version?: string;
+  dataset_id?: string;
+  dataset_version?: string;
   visibility?: string;
   pass_rate?: number | null;
   mean_score?: number | null;
@@ -187,22 +222,7 @@ export type SuiteRow = {
   config_homogeneous?: boolean;
   actors_summary?: Array<Record<string, string>>;
   /** Secret-free job binding (#59) for rehydrate / re-run. */
-  job_overlay?: {
-    bindings?: Record<
-      string,
-      {
-        executor?: string;
-        model?: string;
-        base_url?: string;
-        api_key?: string;
-        label?: string;
-        agent_ref?: string;
-        options?: { entry?: string; reasoning_effort?: string };
-        overlays?: string[];
-        extensions?: Array<{ plugin?: string; options?: Record<string, unknown> }>;
-      }
-    >;
-  };
+  job_overlay?: JobOverlay;
   /** Secret-free marketplace plugins used by this job. */
   plugins?: SuitePluginRef[];
   exit_code?: number | null;
@@ -232,8 +252,8 @@ export type RuntimeTeammate = {
 export type AgentAppearance = {
   package_id: string;
   agent_version: string;
-  database_id: string;
-  database_version?: string;
+  dataset_id: string;
+  dataset_version?: string;
   package_digest?: string;
   suite_run_id: string;
   role: string;
@@ -299,9 +319,9 @@ export function splitJobOverlaySources(
   const jobPrefixes: string[] = [];
   const jobSeen = new Set<string>();
   const byPackage = new Map<string, { ref: string; prefixes: string[]; seen: Set<string> }>();
-  const bindings = overlay?.bindings;
-  if (!bindings) return { jobPrefixes, agents: [] };
-  for (const raw of Object.values(bindings)) {
+  const profiles = overlayAgentProfiles(overlay);
+  if (!Object.keys(profiles).length) return { jobPrefixes, agents: [] };
+  for (const raw of Object.values(profiles)) {
     if (!raw) continue;
     const paths = overlayPathList(raw.overlays);
     if (!paths.length) continue;
@@ -356,7 +376,7 @@ export async function resolveAgentPackageDigest(
 
 export type AttemptMeta = {
   run_id: string;
-  database_id?: string;
+  dataset_id?: string;
   task_id?: string;
   status?: string;
   visibility?: string;
@@ -366,7 +386,27 @@ export type AttemptMeta = {
   uploaded_by?: string;
   suite_run_id?: string;
   lock_digest?: string;
+  environment?: string;
+  agent_label?: string;
+  model_label?: string;
+  score?: number | null;
 };
+
+export async function listAttempts(
+  datasetId: string | null,
+  token: string | null,
+  opts?: { taskId?: string; standalone?: boolean },
+): Promise<AttemptMeta[]> {
+  const q = new URLSearchParams();
+  if (datasetId) q.set("dataset_id", datasetId);
+  if (opts?.taskId) q.set("task_id", opts.taskId);
+  if (opts?.standalone) q.set("standalone", "1");
+  const path = q.toString()
+    ? `/v1/results/attempts?${q.toString()}`
+    : "/v1/results/attempts";
+  const data = await requestJson<{ items?: AttemptMeta[] }>(path, { token });
+  return Array.isArray(data.items) ? data.items : [];
+}
 
 export class RegistryHttpError extends Error {
   status: number;
@@ -446,7 +486,7 @@ export function decodeDatasetId(param: string): string {
 
 export async function listPackages(
   token: string | null,
-  opts?: { packageKind?: "database" | "plugin" | "agent"; mine?: boolean },
+  opts?: { packageKind?: "dataset" | "plugin" | "agent"; mine?: boolean },
 ): Promise<PackageRelease[]> {
   // With token, server may include private; without, public only.
   const q = new URLSearchParams();
@@ -460,10 +500,10 @@ export async function listPackages(
 }
 
 export async function listPackageVersionsWithAppearances(
-  databaseId: string,
+  datasetId: string,
   token: string | null,
 ): Promise<{ items: PackageRelease[]; appearances: AgentAppearance[] }> {
-  const path = `/v1/packages/${databaseId.split("/").map(encodeURIComponent).join("/")}`;
+  const path = `/v1/packages/${datasetId.split("/").map(encodeURIComponent).join("/")}`;
   const data = await requestJson<{
     items?: PackageRelease[];
     appearances?: AgentAppearance[];
@@ -475,13 +515,13 @@ export async function listPackageVersionsWithAppearances(
 }
 
 export async function listPackageVersions(
-  databaseId: string,
+  datasetId: string,
   token: string | null,
 ): Promise<PackageRelease[]> {
-  return (await listPackageVersionsWithAppearances(databaseId, token)).items;
+  return (await listPackageVersionsWithAppearances(datasetId, token)).items;
 }
 
-/** Package meta by digest (includes plugin_preview for bora.plugin/1). */
+/** Package meta by digest (includes plugin_preview for ageval.plugin/1). */
 export async function getPackageByDigest(
   packageId: string,
   digest: string,
@@ -515,34 +555,34 @@ export function pickPackageVersion(
   return [...pool].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
 }
 
-/** One catalog row per database_id. Draft is never preferred over a release. */
-export function latestPackageByDatabase(
+/** One catalog row per dataset_id. Draft is never preferred over a release. */
+export function latestPackageByDataset(
   items: PackageRelease[],
 ): PackageRelease[] {
   const byId = new Map<string, PackageRelease[]>();
   for (const row of items) {
-    const list = byId.get(row.database_id) ?? [];
+    const list = byId.get(row.dataset_id) ?? [];
     list.push(row);
-    byId.set(row.database_id, list);
+    byId.set(row.dataset_id, list);
   }
   const out: PackageRelease[] = [];
   for (const rows of byId.values()) {
     const picked = pickPackageVersion(rows);
     if (picked) out.push(picked);
   }
-  return out.sort((a, b) => a.database_id.localeCompare(b.database_id));
+  return out.sort((a, b) => a.dataset_id.localeCompare(b.dataset_id));
 }
 
 export function isPluginPackage(row: PackageRelease): boolean {
   return row.package_kind === "plugin";
 }
 
-export function isDatabasePackage(row: PackageRelease): boolean {
-  return !isPluginPackage(row);
+export function isDatasetPackage(row: PackageRelease): boolean {
+  return row.package_kind === "dataset";
 }
 
-function packageIdPath(databaseId: string): string {
-  return databaseId.split("/").map(encodeURIComponent).join("/");
+function packageIdPath(datasetId: string): string {
+  return datasetId.split("/").map(encodeURIComponent).join("/");
 }
 
 /** Keep ``sha256:`` colon unescaped (matches Registry path regex). */
@@ -554,22 +594,22 @@ function digestPath(digest: string): string {
 }
 
 export async function listPackageFiles(
-  databaseId: string,
+  datasetId: string,
   digest: string,
   token: string | null,
 ): Promise<{ items: FileItem[]; digest: string; version?: string }> {
-  const id = packageIdPath(databaseId);
+  const id = packageIdPath(datasetId);
   const dig = digestPath(digest);
   return requestJson(`/v1/packages/${id}/by-digest/${dig}/files`, { token });
 }
 
 export async function getPackageFile(
-  databaseId: string,
+  datasetId: string,
   digest: string,
   filePath: string,
   token: string | null,
 ): Promise<FileContent> {
-  const id = packageIdPath(databaseId);
+  const id = packageIdPath(datasetId);
   const dig = digestPath(digest);
   const fp = filePath
     .split("/")
@@ -579,12 +619,12 @@ export async function getPackageFile(
 }
 
 export async function listSuites(
-  databaseId: string | null,
+  datasetId: string | null,
   token: string | null,
   opts?: { board?: boolean; uploadedBy?: string },
 ): Promise<SuiteRow[]> {
   const q = new URLSearchParams();
-  if (databaseId) q.set("database_id", databaseId);
+  if (datasetId) q.set("dataset_id", datasetId);
   if (opts?.board) q.set("board", "1");
   if (opts?.uploadedBy) q.set("uploaded_by", opts.uploadedBy);
   const path = q.toString()
@@ -650,6 +690,20 @@ export async function listOrgs(token: string | null): Promise<OrgRow[]> {
   return Array.isArray(data.items) ? data.items : [];
 }
 
+export async function createOrg(
+  body: { name: string; display_name?: string },
+  token: string | null,
+): Promise<OrgRow> {
+  return requestJson("/v1/orgs", {
+    token,
+    method: "POST",
+    body: {
+      name: body.name,
+      display_name: body.display_name || body.name,
+    },
+  });
+}
+
 export async function getOrg(
   orgId: string,
   token: string | null,
@@ -678,6 +732,45 @@ export async function updatePackageDisplayName(
     token,
     method: "PATCH",
     body: { display_name: displayName },
+  });
+}
+
+export async function setPackageVisibility(
+  packageId: string,
+  version: string,
+  visibility: "public" | "private",
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(
+    `/v1/packages/${packageIdPath(packageId)}/versions/${encodeURIComponent(version)}`,
+    { token, method: "PATCH", body: { visibility } },
+  );
+}
+
+export async function deletePackageRelease(
+  packageId: string,
+  version: string,
+  token: string | null,
+): Promise<{ ok?: boolean }> {
+  return requestJson(
+    `/v1/packages/${packageIdPath(packageId)}/versions/${encodeURIComponent(version)}`,
+    { token, method: "DELETE" },
+  );
+}
+
+export async function releasePackageDraft(
+  packageId: string,
+  body: {
+    visibility?: "public" | "private";
+    version?: string;
+    replace?: boolean;
+  },
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}/release`, {
+    token,
+    method: "POST",
+    body,
   });
 }
 
@@ -826,6 +919,64 @@ export async function listResultShares(
     { token },
   );
   return Array.isArray(data.items) ? data.items : [];
+}
+
+function resultPath(kind: "attempt" | "suite", resultId: string): string {
+  const kindPath = kind === "attempt" ? "attempts" : "suites";
+  return `/v1/results/${kindPath}/${encodeURIComponent(resultId)}`;
+}
+
+export async function addResultShare(
+  kind: "attempt" | "suite",
+  resultId: string,
+  target: { type: "org" | "user"; id: string },
+  token: string | null,
+): Promise<ResultShare> {
+  return requestJson(`${resultPath(kind, resultId)}/shares`, {
+    token,
+    method: "POST",
+    body: { target_type: target.type, target_id: target.id },
+  });
+}
+
+export async function removeResultShare(
+  kind: "attempt" | "suite",
+  resultId: string,
+  target: { type: "org" | "user"; id: string },
+  token: string | null,
+): Promise<{ ok: boolean }> {
+  return requestJson(`${resultPath(kind, resultId)}/shares`, {
+    token,
+    method: "DELETE",
+    body: { target_type: target.type, target_id: target.id },
+  });
+}
+
+export async function setResultVisibility(
+  kind: "attempt" | "suite",
+  resultId: string,
+  visibility: "public" | "private",
+  token: string | null,
+): Promise<{ visibility?: string }> {
+  return requestJson(resultPath(kind, resultId), {
+    token,
+    method: "PATCH",
+    body: { visibility },
+  });
+}
+
+export async function deleteResult(
+  kind: "attempt" | "suite",
+  resultId: string,
+  token: string | null,
+  opts?: { withAttempts?: boolean },
+): Promise<{ ok?: boolean }> {
+  const extra =
+    kind === "suite" && opts?.withAttempts ? "?with_attempts=1" : "";
+  return requestJson(`${resultPath(kind, resultId)}${extra}`, {
+    token,
+    method: "DELETE",
+  });
 }
 
 export async function deviceCode(): Promise<{
@@ -999,11 +1150,11 @@ export function resolveMarketplacePluginId(
 ): string {
   const id = pluginId.trim();
   if (!id) return id;
-  if (catalog.some((p) => p.database_id === id)) return id;
+  if (catalog.some((p) => p.dataset_id === id)) return id;
 
   const previewHits = catalog.filter((p) => p.plugin_preview?.plugin_id === id);
   const suffixHits = catalog.filter((p) => {
-    const db = p.database_id;
+    const db = p.dataset_id;
     return db === id || db.endsWith(`/${id}`);
   });
 
@@ -1012,7 +1163,7 @@ export function resolveMarketplacePluginId(
     if (preferredOrgId) {
       const org = preferredOrgId;
       const hit = rows.find(
-        (p) => p.org_id === org || p.database_id.startsWith(`${org}/`),
+        (p) => p.org_id === org || p.dataset_id.startsWith(`${org}/`),
       );
       if (hit) return hit;
     }
@@ -1020,7 +1171,7 @@ export function resolveMarketplacePluginId(
   };
 
   return (
-    pick(previewHits)?.database_id ?? pick(suffixHits)?.database_id ?? id
+    pick(previewHits)?.dataset_id ?? pick(suffixHits)?.dataset_id ?? id
   );
 }
 
@@ -1052,27 +1203,25 @@ export function pluginsUsedBySuite(
         : { plugin_id: marketplaceId },
     );
   }
-  const bindings = suite.job_overlay?.bindings;
-  if (bindings && typeof bindings === "object") {
-    for (const raw of Object.values(bindings)) {
-      const rows = raw?.extensions;
-      if (!Array.isArray(rows)) continue;
-      for (const row of rows) {
-        const id = String(row?.plugin || "").trim();
-        const key = id.toLowerCase();
-        if (!id || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {
-          continue;
-        }
-        seen.add(key);
-        fromStore.push({
-          plugin_id: resolveMarketplacePluginId(id, catalog, preferredOrgId),
-        });
+  const profiles = overlayAgentProfiles(suite.job_overlay);
+  for (const raw of Object.values(profiles)) {
+    const rows = raw?.extensions;
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      const id = String(row?.plugin || "").trim();
+      const key = id.toLowerCase();
+      if (!id || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {
+        continue;
       }
+      seen.add(key);
+      fromStore.push({
+        plugin_id: resolveMarketplacePluginId(id, catalog, preferredOrgId),
+      });
     }
   }
   if (fromStore.length) return fromStore;
-  if (!bindings || typeof bindings !== "object") return [];
-  for (const raw of Object.values(bindings)) {
+  if (!Object.keys(profiles).length) return [];
+  for (const raw of Object.values(profiles)) {
     const exec = String(raw?.executor || "").trim();
     const key = exec.toLowerCase();
     if (!exec || seen.has(key) || BUILTIN_EXECUTOR_KINDS.has(key) || key === "default") {

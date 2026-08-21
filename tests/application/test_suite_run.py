@@ -8,33 +8,33 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite.suite_run import (
+from ageval.application.suite.suite_run import (
     execute_suite_run,
     extract_run_id,
     get_inflight_peak,
     plan_suite_run,
     reset_inflight_metrics,
 )
-from bora.config.errors import ConfigError
+from ageval.config.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def test_extract_run_id_from_absolute_or_relative(tmp_path: Path) -> None:
     root = tmp_path / "db"
     run_id = "sha256_abc_run_deadbeef"
-    abs_run = root / ".bora" / "runs" / run_id
+    abs_run = root / ".ageval" / "runs" / run_id
     abs_run.mkdir(parents=True)
     assert extract_run_id(root, abs_run) == run_id
     assert extract_run_id(root, str(abs_run)) == run_id
-    assert extract_run_id(root, f".bora/runs/{run_id}") == run_id
+    assert extract_run_id(root, f".ageval/runs/{run_id}") == run_id
     assert extract_run_id(root, run_id) == run_id
 
 
 def test_plan_full_and_single() -> None:
     plan = plan_suite_run(SUITE)
-    assert plan.database_id == "test/suite-min"
+    assert plan.dataset_id == "test/suite-min"
     assert set(plan.task_ids) >= {"alpha", "beta", "gamma", "delta-fail"}
     assert plan.max_concurrent_tasks == 2  # from defaults
 
@@ -58,7 +58,7 @@ async def test_concurrency_cap_with_stub_runner() -> None:
     async def slow_run(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         await asyncio.sleep(0.15)
         run_id = f"sha256_dead_run_{task_id}"
-        abs_run = Path(root) / ".bora" / "runs" / run_id
+        abs_run = Path(root) / ".ageval" / "runs" / run_id
         abs_run.mkdir(parents=True, exist_ok=True)
         result = SimpleNamespace(
             status="PASS",
@@ -66,7 +66,7 @@ async def test_concurrency_cap_with_stub_runner() -> None:
             evidence_path=str(abs_run),
             logs=str(abs_run),
         )
-        return 0, result, {"digest": f"sha256:{task_id}", "run_dir": str(abs_run)}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=slow_run)
     assert summary["exit_code"] == 0
@@ -95,9 +95,9 @@ async def test_fail_continues_others() -> None:
         await asyncio.sleep(0.05)
         if task_id == "delta-fail":
             result = SimpleNamespace(status="FAIL", score=0.0, evidence_path="x", logs="x")
-            return 1, result, {"digest": "sha256:fail", "run_dir": "x"}
+            return 1, result
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path="y", logs="y")
-        return 0, result, {"digest": "sha256:ok", "run_dir": "y"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=mixed)
     assert summary["exit_code"] == 1
@@ -114,9 +114,9 @@ async def test_error_exit_code() -> None:
     async def one_error(root, task_id, *, overrides=None, profiles_path=None, **kwargs):  # noqa: ANN001
         if task_id == "beta":
             result = SimpleNamespace(status="ERROR", score=None, evidence_path=None, logs=None)
-            return 2, result, {"digest": None}
+            return 2, result
         result = SimpleNamespace(status="PASS", score=1.0, evidence_path="y", logs="y")
-        return 0, result, {"digest": "sha256:ok"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=one_error)
     assert summary["exit_code"] == 2

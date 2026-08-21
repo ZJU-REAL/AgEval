@@ -1,8 +1,9 @@
-format: bora.plugin/1
+format: ageval.plugin/1
 plugin_id: home-files
 version: 0.1.0
+description: Copy overlay files into Attempt $HOME or workspace after the environment is ready. No image bake.
 slots:
-  "on":
-    - id: home_overlay
+  chain:
+    - id: after_environment_ready
       priority: 110
       entry: "home_files.hooks:build_home_overlay"

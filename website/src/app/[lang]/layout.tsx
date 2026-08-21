@@ -18,9 +18,9 @@ const notoSansSC = Noto_Sans_SC({
 });
 
 export const metadata: Metadata = {
-  title: { default: "BORA Docs", template: "%s · BORA Docs" },
+  title: { default: "ageval Docs", template: "%s · ageval Docs" },
   description:
-    "BORA — Bounded Orchestration for Runtime Agents: lock, bounded Attempts, visibility, ACP inlets, and independent evaluation.",
+    "ageval — lock a dataset, open a box, run the task, let an independent evaluator own the score.",
 };
 
 export function generateStaticParams() {

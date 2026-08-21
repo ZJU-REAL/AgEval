@@ -1,4 +1,4 @@
-"""Map NVIDIA nooa event_manager dumps to ``bora.trajectory.event/1``.
+"""Map NVIDIA nooa event_manager dumps to ``ageval.trajectory.event/1``.
 
 Vendor-native rows stay in ``backend_raw/``. This module never emits ACP
 ``session_update`` shapes.
@@ -18,7 +18,7 @@ from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Any
 
-SCHEMA = "bora.trajectory.event/1"
+SCHEMA = "ageval.trajectory.event/1"
 _SOURCE = "nooa"
 _OPAQUE_CLIP = 8_000
 _SKIP_KINDS = frozenset(
@@ -258,7 +258,7 @@ def dump_native_events(agent: Any) -> list[dict[str, Any]]:
     return list(tap._rows)
 
 
-def to_bora_trajectory_events(
+def to_ageval_trajectory_events(
     raw_events: list[dict[str, Any]] | tuple[dict[str, Any], ...],
     *,
     session_id: str = "nooa",

@@ -6,7 +6,8 @@ import { PageHead } from "@/components/page-head";
 import { ScrollTable } from "@/components/scroll-table";
 import {
   encodeDatasetId,
-  latestPackageByDatabase,
+  environmentFromOverlay,
+  latestPackageByDataset,
   listOrgs,
   listPackageFiles,
   listPackages,
@@ -22,9 +23,9 @@ import {
 import { getGithubUser, getToken } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 
-const RETURN_KEY = "bora-hub-return";
+const RETURN_KEY = "ageval-hub-return";
 
-type TaskRow = { databaseId: string; taskId: string };
+type TaskRow = { datasetId: string; taskId: string };
 
 export function rememberReturnPath(path: string): void {
   try {
@@ -54,6 +55,7 @@ export function HomePage() {
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
   const [plugins, setPlugins] = useState<PackageRelease[]>([]);
+  const [agents, setAgents] = useState<PackageRelease[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [taskNote, setTaskNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,17 +68,20 @@ export function HomePage() {
     Promise.all([
       listSuites(null, token, { uploadedBy: "me" }),
       listOrgs(token),
-      listPackages(token, { packageKind: "database", mine: true }),
+      listPackages(token, { packageKind: "dataset", mine: true }),
       listPackages(token, { packageKind: "plugin", mine: true }),
+      listPackages(token, { packageKind: "agent", mine: true }),
     ])
-      .then(async ([suiteRows, orgRows, datasetRows, pluginRows]) => {
+      .then(async ([suiteRows, orgRows, datasetRows, pluginRows, agentRows]) => {
         if (cancelled) return;
-        const ds = latestPackageByDatabase(datasetRows);
-        const plugs = latestPackageByDatabase(pluginRows);
+        const ds = latestPackageByDataset(datasetRows);
+        const plugs = latestPackageByDataset(pluginRows);
+        const ags = latestPackageByDataset(agentRows);
         setJobs(suiteRows);
         setOrgs(orgRows);
         setDatasets(ds);
         setPlugins(plugs);
+        setAgents(ags);
         setTaskNote(null);
         setError(null);
 
@@ -84,19 +89,19 @@ export function HomePage() {
           ds.map(async (row) => {
             try {
               const files = await listPackageFiles(
-                row.database_id,
+                row.dataset_id,
                 row.package_digest,
                 token,
               );
               return {
                 ok: true as const,
-                databaseId: row.database_id,
+                datasetId: row.dataset_id,
                 ids: taskIdsFromFiles(files.items),
               };
             } catch {
               return {
                 ok: false as const,
-                databaseId: row.database_id,
+                datasetId: row.dataset_id,
                 ids: [] as string[],
               };
             }
@@ -104,22 +109,22 @@ export function HomePage() {
         );
         const taskRows: TaskRow[] = [];
         const seen = new Set<string>();
-        function addTask(databaseId: string, taskId: string) {
-          const key = `${databaseId}/${taskId}`;
+        function addTask(datasetId: string, taskId: string) {
+          const key = `${datasetId}/${taskId}`;
           if (seen.has(key)) return;
           seen.add(key);
-          taskRows.push({ databaseId, taskId });
+          taskRows.push({ datasetId, taskId });
         }
         for (const listing of listings) {
-          for (const tid of listing.ids) addTask(listing.databaseId, tid);
+          for (const tid of listing.ids) addTask(listing.datasetId, tid);
         }
-        const maintainable = new Set(ds.map((d) => d.database_id));
+        const maintainable = new Set(ds.map((d) => d.dataset_id));
         if (!taskRows.length) {
           for (const s of suiteRows) {
-            if (!s.database_id || !maintainable.has(s.database_id)) continue;
+            if (!s.dataset_id || !maintainable.has(s.dataset_id)) continue;
             for (const ref of s.task_refs || []) {
               const tid = String(ref.task_id || "").trim();
-              if (tid) addTask(s.database_id, tid);
+              if (tid) addTask(s.dataset_id, tid);
             }
           }
         }
@@ -227,12 +232,12 @@ export function HomePage() {
               <ScrollTable
                 headers={["Dataset", "Version", "Visibility"]}
                 rows={datasets.map((d) => ({
-                  key: d.database_id,
+                  key: d.dataset_id,
                   onClick: () =>
-                    navigate(`/datasets/${encodeDatasetId(d.database_id)}`),
+                    navigate(`/datasets/${encodeDatasetId(d.dataset_id)}`),
                   cells: [
                     <span key="id" className="font-mono text-sm">
-                      {d.database_id}
+                      {packageDisplayTitle(d.dataset_id, d.display_name)}
                     </span>,
                     versionLabel(d),
                     d.visibility,
@@ -254,14 +259,14 @@ export function HomePage() {
               <ScrollTable
                 headers={["Dataset", "Task"]}
                 rows={tasks.map((t) => ({
-                  key: `${t.databaseId}/${t.taskId}`,
+                  key: `${t.datasetId}/${t.taskId}`,
                   onClick: () =>
                     navigate(
-                      `/datasets/${encodeDatasetId(t.databaseId)}/tasks/${encodeURIComponent(t.taskId)}`,
+                      `/datasets/${encodeDatasetId(t.datasetId)}/tasks/${encodeURIComponent(t.taskId)}`,
                     ),
                   cells: [
                     <span key="db" className="font-mono text-xs">
-                      {t.databaseId}
+                      {t.datasetId}
                     </span>,
                     <span key="t" className="font-mono text-sm">
                       {t.taskId}
@@ -282,20 +287,50 @@ export function HomePage() {
               <ScrollTable
                 headers={["Plugin", "Version"]}
                 rows={plugins.map((p) => ({
-                  key: p.database_id,
+                  key: p.dataset_id,
                   onClick: () =>
-                    navigate(`/plugins/${encodeDatasetId(p.database_id)}`),
+                    navigate(`/plugins/${encodeDatasetId(p.dataset_id)}`),
                   cells: [
                     <span
                       key="id"
                       className="inline-flex items-center gap-1.5 min-w-0"
                     >
                       <span className="font-mono text-sm truncate">
-                        {packageDisplayTitle(p.database_id, p.display_name)}
+                        {packageDisplayTitle(p.dataset_id, p.display_name)}
                       </span>
                       {p.official ? <OfficialMark /> : null}
                     </span>,
                     `v${p.version}`,
+                  ],
+                }))}
+              />
+            ) : null}
+          </HomeSection>
+
+          <HomeSection
+            title="Agents"
+            hint="Agent packages you uploaded."
+            empty="No agent packages uploaded by this account."
+            count={agents.length}
+          >
+            {agents.length ? (
+              <ScrollTable
+                headers={["Agent", "Version"]}
+                rows={agents.map((a) => ({
+                  key: a.dataset_id,
+                  onClick: () =>
+                    navigate(`/agents/${encodeDatasetId(a.dataset_id)}`),
+                  cells: [
+                    <span
+                      key="id"
+                      className="inline-flex items-center gap-1.5 min-w-0"
+                    >
+                      <span className="font-mono text-sm truncate">
+                        {packageDisplayTitle(a.dataset_id, a.display_name)}
+                      </span>
+                      {a.official ? <OfficialMark /> : null}
+                    </span>,
+                    `v${a.version}`,
                   ],
                 }))}
               />
@@ -310,14 +345,14 @@ export function HomePage() {
           >
             {jobs.length ? (
               <ScrollTable
-                headers={["Suite", "Dataset", "Pass rate", "Uploaded"]}
+                headers={["Suite", "Dataset", "Environment", "Pass rate", "Uploaded"]}
                 rows={jobs.map((s) => ({
                   key: s.suite_run_id,
                   onClick: () => {
-                    if (!s.database_id) return;
+                    if (!s.dataset_id) return;
                     const tid = (s.task_refs || []).find((r) => r.task_id)
                       ?.task_id;
-                    const ds = `/datasets/${encodeDatasetId(s.database_id)}`;
+                    const ds = `/datasets/${encodeDatasetId(s.dataset_id)}`;
                     navigate(
                       tid
                         ? `${ds}/tasks/${encodeURIComponent(tid)}?tab=jobs`
@@ -328,13 +363,14 @@ export function HomePage() {
                     <span key="id" className="font-mono text-xs">
                       {s.suite_run_id}
                     </span>,
-                    s.database_id || "—",
+                    s.dataset_id || "—",
+                    <span key="env" className="font-mono text-xs">
+                      {environmentFromOverlay(s.job_overlay) || "—"}
+                    </span>,
                     s.pass_rate == null
                       ? "—"
                       : `${(Number(s.pass_rate) * 100).toFixed(1)}%`,
-                    typeof s.created_at === "number"
-                      ? formatDate(new Date(s.created_at * 1000).toISOString())
-                      : "—",
+                    formatDate(s.created_at),
                   ],
                 }))}
               />

@@ -1,4 +1,4 @@
-export const appName = "BORA";
+export const appName = "ageval";
 export const docsRoute = "/docs";
 
 export const gitConfig = {

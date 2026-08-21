@@ -13,12 +13,12 @@ REPO = Path(__file__).resolve().parents[2]
 
 def _run(package: str, task: str) -> dict:
     env = os.environ.copy()
-    env["BORA_OFFLINE_AGENT"] = "1"
+    env["AGEVAL_OFFLINE_AGENT"] = "1"
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "bora.cli.main",
+            "ageval.cli.main",
             "run",
             str(REPO / "examples" / "core"),
             "--task",
@@ -39,7 +39,7 @@ def test_sdk_tool_guard_success() -> None:
     data = _run("sdk-tool-guard", "sdk-tool-guard")
     assert data["status"] == "PASS"
     assert data["score"] == 1.0
-    assert data.get("assurance") == "l0"
+    assert data.get("kind") == "local"
 
 
 def test_sdk_tool_guard_denied() -> None:

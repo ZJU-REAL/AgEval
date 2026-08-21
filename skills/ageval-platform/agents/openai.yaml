@@ -1,0 +1,4 @@
+interface:
+  display_name: "ageval Platform"
+  short_description: "Authority, ownership, red lines map"
+  default_prompt: "Use $ageval-platform to orient on ageval authority order, Core vs package ownership, and red lines before changing this repo."

@@ -63,7 +63,7 @@ class AccessPolicy:
             return True
         if not auth.user_id:
             return False
-        acl = self.meta.dataset_acl(draft.database_id, auth.user_id)
+        acl = self.meta.dataset_acl(draft.dataset_id, auth.user_id)
         if acl is not None:
             return True
         return bool(draft.org_id and self.meta.membership(draft.org_id, auth.user_id) is not None)
@@ -75,7 +75,7 @@ class AccessPolicy:
             return False
         if draft is None:
             return self.meta.membership(org_id, auth.user_id) is not None
-        acl = self.meta.dataset_acl(draft.database_id, auth.user_id)
+        acl = self.meta.dataset_acl(draft.dataset_id, auth.user_id)
         return bool(acl is not None and acl.role in {"owner", "collaborator"})
 
     def can_release_draft(self, draft: DraftRow, auth: TokenInfo) -> bool:
@@ -83,7 +83,7 @@ class AccessPolicy:
             return True
         if not auth.user_id:
             return False
-        acl = self.meta.dataset_acl(draft.database_id, auth.user_id)
+        acl = self.meta.dataset_acl(draft.dataset_id, auth.user_id)
         if acl is not None and acl.role == "owner":
             return True
         if draft.org_id:
@@ -171,10 +171,10 @@ class AccessPolicy:
         if access == "org_owner":
             org_id = str(kwargs.get("org_id") or "")
             if not org_id:
-                database_id = str(kwargs.get("database_id") or "")
+                dataset_id = str(kwargs.get("dataset_id") or "")
                 version = str(kwargs.get("version") or "")
-                if database_id and version:
-                    row = self.meta.get_by_version(database_id, version)
+                if dataset_id and version:
+                    row = self.meta.get_by_version(dataset_id, version)
                     if row is None:
                         return 404, {"error": "not_found", "message": "package not found"}
                     if not self.can_manage_package(row, auth):

@@ -30,7 +30,7 @@ def test_match_route_release_draft() -> None:
     assert matched is not None
     route, kwargs = matched
     assert route.name == "release_draft"
-    assert kwargs["database_id"] == "acme/db"
+    assert kwargs["dataset_id"] == "acme/db"
 
 
 def test_match_route_package_version_meta() -> None:
@@ -38,7 +38,7 @@ def test_match_route_package_version_meta() -> None:
     assert matched is not None
     route, kwargs = matched
     assert route.name == "serve_meta"
-    assert kwargs["database_id"] == "acme/db"
+    assert kwargs["dataset_id"] == "acme/db"
     assert kwargs["version"] == "1.0.0"
     assert kwargs["package_digest"] is None
 

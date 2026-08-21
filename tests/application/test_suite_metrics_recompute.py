@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bora.application.suite.suite_metrics import (
+from ageval.application.suite.suite_metrics import (
     ensure_suite_metrics,
     ensure_suite_task_refs,
     has_k_metrics,
@@ -149,7 +149,7 @@ def test_n_without_c_pass_does_not_invent_perfect_multi_attempt() -> None:
 
 
 def test_n_without_c_fail_recovers_zero_passes() -> None:
-    """Rolled FAIL + n without c ⇒ c=0 under BORA rollup (no PASS existed)."""
+    """Rolled FAIL + n without c ⇒ c=0 under ageval rollup (no PASS existed)."""
     summary = {
         "n_attempts": 3,
         "tasks": [

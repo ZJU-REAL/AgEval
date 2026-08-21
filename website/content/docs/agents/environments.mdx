@@ -1,0 +1,24 @@
+---
+title: 盒子 kind
+description: local / docker / e2b / ssh，同一条 ACP 链。
+---
+
+盒子是 job 文档上的独占槽 `environment`。赢家以该名进入服务表；ACP 只 **inject** 这个名字和 `attach_stdio`，不写 `plugin_id: docker`。换 kind 不必改 ACP。`exec` 是同一服务上的一次性命令，不是第二种盒子。
+
+| kind | 怎么开 | 真跑条件 |
+| --- | --- | --- |
+| `local` | 本机目录 | 默认 `examples/core/profiles.yaml` |
+| `docker` | 本机容器 | `--profiles examples/core/profiles.docker.yaml` |
+| `e2b` | 云 sandbox | `E2B_API_KEY`；同一份 Dockerfile |
+| `ssh` A | 远端整机 | `AGEVAL_SSH_HOST` / `USER` / `KEY` |
+| `ssh` B | 远端已有 image | 同上，且 `image:` 已在远端 |
+
+```bash
+uv run ageval run examples/core --task acp-local-min
+uv run ageval run examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml
+uv run ageval run examples/core --task acp-docker-min --profiles examples/core/profiles.e2b.yaml --probe
+```
+
+缺钥时 `--probe` 应 `ready: false`、`started: false`。ACP 只使用 `attach_stdio`，代码里不应出现 `container_id`。
+
+`environment/setup.sh` 是 environment 末槽，不是独立 phase。gold（`evaluation/`）在 evaluate 才进盒。`--agent` 与 `--profiles` 互斥。

@@ -6,12 +6,10 @@ from pathlib import Path
 
 import pytest
 import yaml
+from tests.helpers.lock import lock_with_profiles
 
-from bora.adapters.package_fs import LocalPackageReader
-from bora.config.capabilities import DeclarationCapabilityCatalog
-from bora.config.errors import ConfigError
-from bora.config.load_and_lock import ConfigCore
-from bora.config.model import thaw
+from ageval.config.errors import ConfigError
+from ageval.config.model import thaw
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -19,27 +17,21 @@ REPO = Path(__file__).resolve().parents[2]
 def _write_pkg(tmp: Path, *, slot_id: str = "glm") -> Path:
     pkg = tmp / "pkg"
     pkg.mkdir()
-    (pkg / "harness.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
+    (pkg / "run.py").write_text("async def run(ctx):\n    pass\n", encoding="utf-8")
     (pkg / "evaluator.py").write_text("def evaluate(i):\n    return {}\n", encoding="utf-8")
     doc = {
-        "format": "bora.task/1",
+        "format": "ageval.task/1",
         "task_id": "profile-upstream",
-        "harness": {"runtime": "python", "entrypoint": "harness:run"},
         "parameters": {},
-        "provider": {"kind": "local", "assurance": "l0"},
         "agent_profiles": [{"id": slot_id}],
         "limits": {
             "wall_time_seconds": 60,
             "agent_invocations": 1,
-            "environment_actions": 0,
         },
         "artifacts": {"publishable": []},
         "evaluation": {
-            "runtime": "python",
             "entrypoint": "evaluator:evaluate",
-            "network": "none",
             "inputs": [],
-            "output": {"format": "json"},
         },
     }
     (pkg / "task.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
@@ -48,12 +40,10 @@ def _write_pkg(tmp: Path, *, slot_id: str = "glm") -> Path:
 
 def test_accepts_base_url_and_api_key_locator(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path, slot_id="glm")
-    core = ConfigCore(package_reader=LocalPackageReader())
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
         "profile-upstream",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings={
+        {
             "glm": {
                 "executor": "openai-http",
                 "model": "glm-4.7",
@@ -69,13 +59,11 @@ def test_accepts_base_url_and_api_key_locator(tmp_path: Path) -> None:
 
 def test_rejects_secret_like_api_key(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path, slot_id="bad")
-    core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError) as ei:
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "profile-upstream",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "bad": {
                     "executor": "openai-http",
                     "model": "glm-4.7",
@@ -88,13 +76,11 @@ def test_rejects_secret_like_api_key(tmp_path: Path) -> None:
 
 def test_rejects_non_url_base(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path, slot_id="bad")
-    core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError):
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "profile-upstream",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "bad": {
                     "executor": "openai-http",
                     "model": "glm-4.7",
@@ -107,12 +93,10 @@ def test_rejects_non_url_base(tmp_path: Path) -> None:
 def test_expands_base_url_env_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TEST_LITELLM_BASE", "http://127.0.0.1:8010/v1")
     pkg = _write_pkg(tmp_path, slot_id="glm")
-    core = ConfigCore(package_reader=LocalPackageReader())
-    locked = core.load_and_lock(
+    locked = lock_with_profiles(
         pkg,
         "profile-upstream",
-        capabilities=DeclarationCapabilityCatalog(),
-        profile_bindings={
+        {
             "glm": {
                 "executor": "openai-http",
                 "model": "glm-4.7",
@@ -128,13 +112,11 @@ def test_expands_base_url_env_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 def test_rejects_bare_api_key_locator(tmp_path: Path) -> None:
     pkg = _write_pkg(tmp_path, slot_id="glm")
-    core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError, match=r"\$\{ENV_NAME\}"):
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "profile-upstream",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "glm": {
                     "executor": "openai-http",
                     "model": "glm-4.7",
@@ -147,13 +129,11 @@ def test_rejects_bare_api_key_locator(tmp_path: Path) -> None:
 def test_rejects_unset_base_url_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MISSING_BASE_URL", raising=False)
     pkg = _write_pkg(tmp_path, slot_id="glm")
-    core = ConfigCore(package_reader=LocalPackageReader())
     with pytest.raises(ConfigError, match="unset"):
-        core.load_and_lock(
+        lock_with_profiles(
             pkg,
             "profile-upstream",
-            capabilities=DeclarationCapabilityCatalog(),
-            profile_bindings={
+            {
                 "glm": {
                     "executor": "openai-http",
                     "model": "glm-4.7",
@@ -162,17 +142,3 @@ def test_rejects_unset_base_url_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPa
                 }
             },
         )
-
-
-def test_resolve_executor_honors_profile_fields() -> None:
-    from bora.adapters.agent_registry import resolve_executor
-
-    ex = resolve_executor(
-        "openai-http",
-        model="glm-4.7",
-        base_url="https://open.bigmodel.cn/api/coding/paas/v4",
-        api_key="zhipu_coding_api_key",
-    )
-    assert ex.model == "glm-4.7"
-    assert ex.base_url == "https://open.bigmodel.cn/api/coding/paas/v4"
-    assert ex.api_key_env == "zhipu_coding_api_key"

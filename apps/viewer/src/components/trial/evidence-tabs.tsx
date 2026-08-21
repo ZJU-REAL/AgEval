@@ -47,7 +47,7 @@ export function EvidenceTabs({
   if (availableTabs.length === 0) {
     return (
       <p className="text-sm text-mute">
-        No evidence files found for this run under the Database root.
+        No evidence files found for this run under the Dataset root.
       </p>
     );
   }

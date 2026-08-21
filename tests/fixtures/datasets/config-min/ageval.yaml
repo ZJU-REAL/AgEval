@@ -1,0 +1,6 @@
+format: ageval.dataset/1
+dataset_id: test/config-min
+version: "0.1.0"
+description: "Config Core unit fixture: lock only, never run"
+tasks:
+  root: tasks

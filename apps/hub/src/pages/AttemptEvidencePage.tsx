@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { BreadcrumbNav } from "@/components/breadcrumb";
+import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { ActorsTable } from "@/components/trial/actors-table";
 import { EvidenceTabs } from "@/components/trial/evidence-tabs";
@@ -9,39 +9,37 @@ import { OutcomeStrip } from "@/components/trial/outcome-strip";
 import { PhaseTimingBar } from "@/components/trial/phase-timing-bar";
 import { TrialHeader } from "@/components/trial/trial-header";
 import { useAttemptEvidence } from "@/hooks/use-attempt-evidence";
+import { ResultOwnerOps } from "@/components/result-owner-ops";
 import {
   decodeDatasetId,
   decodeFileContent,
+  getAttempt,
   getAttemptFile,
   listSuites,
+  type AttemptMeta,
 } from "@/lib/api";
 import { toArchivePath } from "@/lib/attempt-evidence";
-import { getToken } from "@/lib/auth";
+import { getGithubUser, getToken } from "@/lib/auth";
 
 async function readAttemptStartedAt(
   runId: string,
   token: string | null,
 ): Promise<string | null> {
-  for (const rel of ["summary.json", "result.json"]) {
-    try {
-      const file = await getAttemptFile(runId, toArchivePath(rel, runId), token);
-      const text = decodeFileContent(file);
-      if (!text) continue;
-      const data = JSON.parse(text) as {
-        started_at?: unknown;
-        started?: unknown;
-        phase_timing?: { started_at?: unknown };
-      };
-      for (const raw of [
-        data.started_at,
-        data.started,
-        data.phase_timing?.started_at,
-      ]) {
-        if (typeof raw === "string" && raw.trim()) return raw.trim();
-      }
-    } catch {
-      continue;
-    }
+  try {
+    const file = await getAttemptFile(
+      runId,
+      toArchivePath("summary.json", runId),
+      token,
+    );
+    const text = decodeFileContent(file);
+    if (!text) return null;
+    const data = JSON.parse(text) as {
+      phase_timing?: { started_at?: unknown };
+    };
+    const raw = data.phase_timing?.started_at;
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+  } catch {
+    return null;
   }
   return null;
 }
@@ -72,6 +70,7 @@ export function AttemptEvidencePage() {
       replaced_at?: string | null;
     }>
   >([]);
+  const [attemptMeta, setAttemptMeta] = useState<AttemptMeta | null>(null);
 
   const {
     trial,
@@ -94,6 +93,24 @@ export function AttemptEvidencePage() {
     fileNote,
     fileLoading,
   } = useAttemptEvidence(runId, taskId, token);
+
+  useEffect(() => {
+    if (!runId) {
+      setAttemptMeta(null);
+      return;
+    }
+    let cancelled = false;
+    getAttempt(runId, token)
+      .then((meta) => {
+        if (!cancelled) setAttemptMeta(meta);
+      })
+      .catch(() => {
+        if (!cancelled) setAttemptMeta(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,19 +170,19 @@ export function AttemptEvidencePage() {
 
   return (
     <>
+      <CatalogHead
+        title="Your datasets"
+        crumbs={[
+          { label: "Your datasets", href: "/datasets" },
+          {
+            label: datasetId,
+            href: `/datasets/${encodeURIComponent(datasetId)}`,
+          },
+          { label: taskId, href: jobsHref },
+          { label: runId, href: null },
+        ]}
+      />
       <div className="space-y-5">
-        <BreadcrumbNav
-          items={[
-            { label: "Datasets", href: "/datasets" },
-            {
-              label: datasetId,
-              href: `/datasets/${encodeURIComponent(datasetId)}`,
-            },
-            { label: taskId, href: jobsHref },
-            { label: runId, href: null },
-          ]}
-        />
-
         <TrialHeader
           runId={runId}
           taskId={taskId}
@@ -178,6 +195,24 @@ export function AttemptEvidencePage() {
 
         {runCommand ? <CommandStrip command={runCommand} /> : null}
 
+        {attemptMeta &&
+        (attemptMeta.uploaded_by || "").toLowerCase() ===
+          (getGithubUser() || "").toLowerCase() ? (
+          <ResultOwnerOps
+            kind="attempt"
+            resultId={runId}
+            visibility={attemptMeta.visibility}
+            canManage
+            token={token}
+            onVisibility={(next) =>
+              setAttemptMeta((prev) =>
+                prev ? { ...prev, visibility: next } : prev,
+              )
+            }
+            onDeleted={() => navigate(jobsHref)}
+          />
+        ) : null}
+
         {loading && <p className="text-sm text-mute">Loading attempt evidence…</p>}
 
         {error ? (
@@ -185,7 +220,7 @@ export function AttemptEvidencePage() {
             <p className="text-sm text-error font-mono">{error}</p>
             <p className="text-sm text-mute">
               Full evidence may not be uploaded yet. Upload with{" "}
-              <code className="font-mono">bora results upload</code> or{" "}
+              <code className="font-mono">ageval results upload</code> or{" "}
               <code className="font-mono">upload-suite --with-attempts</code>,
               then return from{" "}
               <Link
@@ -197,7 +232,7 @@ export function AttemptEvidencePage() {
               .
             </p>
             <CommandStrip
-              command={`bora results upload <database-root> --run ${runId}`}
+              command={`ageval results upload <dataset-root> --run ${runId}`}
             />
           </div>
         ) : null}

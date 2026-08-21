@@ -2,23 +2,25 @@
 
 Usage:
   uv run python docker/attempt/build.py --platform linux/arm64 \\
-      --output-lock .bora/runtime-images/provider-l1.json
+      --output-lock .ageval/runtime-images/provider-l1.json
 
 Optional process / host-env knobs (empty = official Debian / PyPI):
 
-  BORA_APT_MIRROR   e.g. http://mirrors.aliyun.com/debian
-  BORA_PIP_INDEX    e.g. https://pypi.tuna.tsinghua.edu.cn/simple
+  AGEVAL_APT_MIRROR   e.g. http://mirrors.aliyun.com/debian
+  AGEVAL_PIP_INDEX    e.g. https://pypi.tuna.tsinghua.edu.cn/simple
 
-``bora run`` already loads Database / cwd / repo ``.env`` before prepare.
+``ageval run`` already loads Database / cwd / repo ``.env`` before prepare.
 This script loads the same host env files when the package is importable.
-Dataset ``.env`` is applied by ``bora run``, not by a bare invocation here.
+Dataset ``.env`` is applied by ``ageval run``, not by a bare invocation here.
 Do not put these knobs in ``~/.zshrc`` — process env would mask Dataset ``.env``.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -28,18 +30,52 @@ _SRC = _REPO_ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from bora.adapters.provider_docker.official_base import (  # noqa: E402
-    BUILD_INPUT_NAMES,
-    official_attempt_dir,
-    official_build_input_digest,
-    official_buildx_command,
-    prepare_official_build_env,
-)
+BUILD_INPUT_NAMES = ("Dockerfile", "install-executors.sh", "acp-entries.lock.json")
+
+
+def official_attempt_dir(root: Path) -> Path:
+    return root / "docker" / "attempt"
+
+
+def prepare_official_build_env(root: Path) -> tuple[str, str]:
+    del root
+    return (os.environ.get("AGEVAL_APT_MIRROR") or "").strip(), (
+        os.environ.get("AGEVAL_PIP_INDEX") or ""
+    ).strip()
+
+
+def official_build_input_digest(attempt_dir: Path, *, apt_mirror: str, pip_index: str) -> str:
+    hasher = hashlib.sha256()
+    hasher.update(f"{apt_mirror}\n{pip_index}\n".encode())
+    for name in BUILD_INPUT_NAMES:
+        path = attempt_dir / name
+        if not path.is_file():
+            raise FileNotFoundError(f"missing build input: {path}")
+        hasher.update(path.read_bytes())
+    return hasher.hexdigest()
+
+
+def official_buildx_command(
+    *,
+    dockerfile: Path,
+    tag: str,
+    platform: str,
+    context: Path,
+    apt_mirror: str,
+    pip_index: str,
+) -> list[str]:
+    cmd = ["docker", "build", "--platform", platform, "-f", str(dockerfile), "-t", tag]
+    if apt_mirror:
+        cmd.extend(["--build-arg", f"AGEVAL_APT_MIRROR={apt_mirror}"])
+    if pip_index:
+        cmd.extend(["--build-arg", f"AGEVAL_PIP_INDEX={pip_index}"])
+    cmd.append(str(context))
+    return cmd
 
 
 def _load_host_env(repo_root: Path) -> None:
     try:
-        from bora.application.attempt.env_bootstrap import load_host_env_files
+        from ageval.application.attempt.env_bootstrap import load_host_env_files
     except ImportError:
         return
     load_host_env_files(package_root=repo_root)
@@ -51,9 +87,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--output-lock",
         type=Path,
-        default=Path(".bora/runtime-images/provider-l1.json"),
+        default=Path(".ageval/runtime-images/provider-l1.json"),
     )
-    parser.add_argument("--tag", default="bora-attempt:l1")
+    parser.add_argument("--tag", default="ageval-attempt:l1")
     args = parser.parse_args(argv)
 
     root = _REPO_ROOT

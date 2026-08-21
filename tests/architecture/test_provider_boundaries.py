@@ -21,13 +21,13 @@ def test_src_does_not_import_tests() -> None:
 
 
 def test_composition_does_not_wire_provider_probe() -> None:
-    text = (SRC / "bora" / "application" / "composition.py").read_text(encoding="utf-8")
+    text = (SRC / "ageval" / "application" / "composition.py").read_text(encoding="utf-8")
     assert "LocalProcessProvider" not in text
     assert "run_provider_probe" not in text
     assert "provider_probe" not in text
 
 
 def test_provider_helper_not_imported_from_src() -> None:
-    for path in (SRC / "bora").rglob("*.py"):
+    for path in (SRC / "ageval").rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         assert "provider_probe_child" not in text

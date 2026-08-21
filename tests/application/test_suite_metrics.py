@@ -8,15 +8,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from bora.application.suite.suite_metrics import (
+from ageval.application.suite.suite_metrics import (
     MISSING_SCORE_AS,
     aggregate_task_metrics,
     task_refs_for_summary,
 )
-from bora.application.suite.suite_run import execute_suite_run, plan_suite_run
+from ageval.application.suite.suite_run import execute_suite_run, plan_suite_run
 
 REPO = Path(__file__).resolve().parents[2]
-SUITE = REPO / "tests" / "fixtures" / "databases" / "suite-min"
+SUITE = REPO / "tests" / "fixtures" / "datasets" / "suite-min"
 
 
 def test_aggregate_empty() -> None:
@@ -99,7 +99,7 @@ async def test_suite_summary_includes_metrics() -> None:
             evidence_path=None,
             logs=None,
         )
-        return 0, result, {"digest": f"sha256:{task_id}"}
+        return 0, result
 
     summary = await execute_suite_run(plan, run_fn=runner)
     assert "metrics" in summary

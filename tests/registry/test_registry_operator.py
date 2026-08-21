@@ -14,15 +14,15 @@ from services.registry.app import build_default_state, make_handler
 from services.registry.oauth_github import DeviceCodeResponse, GitHubIdentity
 from services.registry.store import DEFAULT_LOGIN_SCOPES
 
-from bora.application.composition import (
+from ageval.application.composition import (
     build_publish_command,
     build_registry_list_commands,
     build_results_commands,
 )
-from bora.registry.client import RegistryClient
-from bora.registry.credentials import write_credentials
+from ageval.registry.client import RegistryClient
+from ageval.registry.credentials import write_credentials
 
-publish_database = build_publish_command().publish_database
+publish_dataset = build_publish_command().publish_dataset
 _list = build_registry_list_commands()
 cache_list = _list.cache_list
 list_packages = _list.list_packages
@@ -36,7 +36,7 @@ upload_attempt_result = _results.upload_attempt_result
 upload_suite_result = _results.upload_suite_result
 
 REPO = Path(__file__).resolve().parents[2]
-FIXTURE = REPO / "tests" / "fixtures" / "databases" / "publish-min"
+FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
 
 TEST_ORG = "test"
 
@@ -45,10 +45,10 @@ def _ensure_org() -> None:
     """Create default test org owned by current token (idempotent)."""
     import os
 
-    from bora.registry.client import RegistryClient, RegistryError
+    from ageval.registry.client import RegistryClient, RegistryError
 
-    url = os.environ.get("BORA_REGISTRY_URL") or ""
-    token = os.environ.get("BORA_REGISTRY_TOKEN") or ""
+    url = os.environ.get("AGEVAL_REGISTRY_URL") or ""
+    token = os.environ.get("AGEVAL_REGISTRY_TOKEN") or ""
     if not url or not token:
         return
     client = RegistryClient(url, token=token)
@@ -85,11 +85,11 @@ def _auth_env(
         token=registry_server["token"],
         path=creds,
     )
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", registry_server["token"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", registry_server["token"])
     monkeypatch.setenv("HOME", str(tmp_path))
     # credentials load uses default path under HOME
-    monkeypatch.setenv("BORA_CACHE_ROOT", str(tmp_path / "cache"))
+    monkeypatch.setenv("AGEVAL_CACHE_ROOT", str(tmp_path / "cache"))
 
 
 def test_list_private_packages_with_and_without_token(
@@ -97,18 +97,18 @@ def test_list_private_packages_with_and_without_token(
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
     _ensure_org()
-    publish_database(FIXTURE, public=False, org=TEST_ORG)
+    publish_dataset(FIXTURE, public=False, org=TEST_ORG)
     listed = list_packages()
     assert listed["count"] >= 1
-    assert any(i["database_id"] == "test/publish-min" for i in listed["items"])
+    assert any(i["dataset_id"] == "test/publish-min" for i in listed["items"])
 
     # No token: private packages filtered out.
-    monkeypatch.delenv("BORA_REGISTRY_TOKEN", raising=False)
+    monkeypatch.delenv("AGEVAL_REGISTRY_TOKEN", raising=False)
     # Force empty credentials
     empty = tmp_path / "empty-home"
     empty.mkdir()
     monkeypatch.setenv("HOME", str(empty))
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
     listed_anon = list_packages()
     assert listed_anon["count"] == 0
     assert listed_anon["items"] == []
@@ -119,7 +119,7 @@ def test_show_matches_publish(
 ) -> None:
     _auth_env(monkeypatch, registry_server, tmp_path)
     _ensure_org()
-    summary = publish_database(FIXTURE, public=False, org=TEST_ORG)
+    summary = publish_dataset(FIXTURE, public=False, org=TEST_ORG)
     shown = show_package(summary["ref"])
     assert shown["package_digest"] == summary["package_digest"]
     assert shown["blob_digest"] == summary["blob_digest"]
@@ -137,7 +137,7 @@ def test_results_upload_get_roundtrip(
 
     shutil.copytree(FIXTURE, db)
     run_id = "sha256_deadbeef_run_test1"
-    run_dir = db / ".bora" / "runs" / run_id
+    run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True)
     (run_dir / "result.json").write_text(
         json.dumps({"task_id": "hello", "status": "PASS", "ok": True}),
@@ -149,7 +149,7 @@ def test_results_upload_get_roundtrip(
     assert up["ok"] is True
     assert up["run_id"] == run_id
 
-    listed = list_attempt_results(database_id="test/publish-min")
+    listed = list_attempt_results(dataset_id="test/publish-min")
     assert listed["count"] == 1
 
     out = tmp_path / "restored"
@@ -171,7 +171,7 @@ def test_results_private_without_token_404(
 
     shutil.copytree(FIXTURE, db)
     run_id = "sha256_cafe_run_priv"
-    run_dir = db / ".bora" / "runs" / run_id
+    run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True)
     (run_dir / "result.json").write_text("{}", encoding="utf-8")
     upload_attempt_result(db, run_id=run_id)
@@ -185,7 +185,7 @@ def test_results_private_without_token_404(
 def test_oauth_device_flow_mocked(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("BORA_REGISTRY_URL", registry_server["url"])
+    monkeypatch.setenv("AGEVAL_REGISTRY_URL", registry_server["url"])
     client = RegistryClient(registry_server["url"], token=None)
 
     with (
@@ -219,16 +219,16 @@ def test_oauth_device_flow_mocked(
 
     # Issued token can create org + publish
     tok = done["token"]
-    monkeypatch.setenv("BORA_REGISTRY_TOKEN", tok)
+    monkeypatch.setenv("AGEVAL_REGISTRY_TOKEN", tok)
     write_credentials(url=registry_server["url"], token=tok, path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))
     _ensure_org()
-    summary = publish_database(FIXTURE, public=True, org=TEST_ORG)
+    summary = publish_dataset(FIXTURE, public=True, org=TEST_ORG)
     assert summary["ok"] is True
 
 
 def test_cache_list_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("BORA_CACHE_ROOT", str(tmp_path / "empty-cache"))
+    monkeypatch.setenv("AGEVAL_CACHE_ROOT", str(tmp_path / "empty-cache"))
     out = cache_list()
     assert out["count"] == 0
 
@@ -278,7 +278,7 @@ def test_results_upload_scope_cannot_read_private(
 
     shutil.copytree(FIXTURE, db)
     run_id = "sha256_upload_only_run"
-    run_dir = db / ".bora" / "runs" / run_id
+    run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True)
     (run_dir / "result.json").write_text("{}", encoding="utf-8")
 
@@ -294,13 +294,13 @@ def test_results_upload_scope_cannot_read_private(
 
 
 def _write_suite_summary(db: Path, suite_run_id: str) -> Path:
-    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0.1.0",
         "tasks": [
             {"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "r1"},
             {"task_id": "b", "status": "FAIL", "score": 0.0, "run_id": "r2"},
@@ -330,7 +330,7 @@ def _write_suite_summary(db: Path, suite_run_id: str) -> Path:
             {"profile_id": "solver", "entry": "pi", "model": "m1"},
         ],
         "job_overlay": {
-            "bindings": {
+            "agent_profiles": {
                 "solver": {
                     "executor": "acp",
                     "options": {"entry": "pi"},
@@ -373,7 +373,7 @@ def test_suite_results_upload_get_list_roundtrip(
     assert "suite-level PASS" in up.get("note", "") or "no suite-level PASS" in up.get("note", "")
     assert (
         up.get("job_overlay", {})
-        .get("bindings", {})
+        .get("agent_profiles", {})
         .get("solver", {})
         .get("options", {})
         .get("entry")
@@ -381,12 +381,16 @@ def test_suite_results_upload_get_list_roundtrip(
     )
     assert "sk-" not in str(up.get("job_overlay"))
 
-    listed = list_suite_results(database_id="test/publish-min")
+    listed = list_suite_results(dataset_id="test/publish-min")
     assert listed["count"] == 1
     assert listed["items"][0]["suite_run_id"] == suite_run_id
     assert listed["items"][0]["agent_label"] == "codex"
     assert (
-        listed["items"][0].get("job_overlay", {}).get("bindings", {}).get("solver", {}).get("model")
+        listed["items"][0]
+        .get("job_overlay", {})
+        .get("agent_profiles", {})
+        .get("solver", {})
+        .get("model")
         == "m1"
     )
 
@@ -394,9 +398,9 @@ def test_suite_results_upload_get_list_roundtrip(
     assert got["ok"] is True
     assert got["metrics"]["n_pass"] == 2
     assert got["task_refs"][0]["task_id"] == "a"
-    assert got.get("job_overlay", {}).get("bindings", {}).get("solver", {}).get("api_key") == (
-        "LOCATOR_ONLY"
-    )
+    assert got.get("job_overlay", {}).get("agent_profiles", {}).get("solver", {}).get(
+        "api_key"
+    ) == ("LOCATOR_ONLY")
 
     out = tmp_path / "suite-restored"
     got_arch = get_suite_result(suite_run_id, out_dir=out)
@@ -437,13 +441,13 @@ def test_suite_results_recompute_metrics_when_missing(tmp_path: Path) -> None:
     db = tmp_path / "db-legacy-suite"
     shutil.copytree(FIXTURE, db)
     suite_run_id = "suite_legacy_no_metrics"
-    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0.1.0",
         "tasks": [
             {"task_id": "a", "status": "PASS", "score": 1.0, "run_id": "r1"},
             {"task_id": "b", "status": "FAIL", "score": 0.0, "run_id": "r2"},
@@ -470,13 +474,13 @@ def test_suite_upload_preserves_pass_at_k_metrics(
     db = tmp_path / "db-suite-k"
     shutil.copytree(FIXTURE, db)
     suite_run_id = "suite_pass_at_k_roundtrip"
-    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
-        "schema": "bora.suite.summary/1",
+        "schema": "ageval.suite.summary/1",
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0.1.0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0.1.0",
         "n_attempts": 2,
         "attempts": [
             {"task_id": "a", "attempt_index": 0, "status": "PASS", "run_id": "a0"},
@@ -518,7 +522,7 @@ def test_suite_upload_preserves_pass_at_k_metrics(
     assert up["metrics"]["n_attempts"] == 2
     assert up["task_refs"][0]["attempt_run_ids"] == ["a0", "a1"]
 
-    listed = list_suite_results(database_id="test/publish-min")
+    listed = list_suite_results(dataset_id="test/publish-min")
     item = next(i for i in listed["items"] if i["suite_run_id"] == suite_run_id)
     assert item["metrics"]["pass_at_k"]["2"]["n_tasks"] == 2
     assert item["metrics"]["k_values"] == [1, 2]
@@ -570,7 +574,7 @@ def test_suite_upload_rejects_suite_pass_field(
     _ensure_org()
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
     # Craft a minimal valid archive
-    from bora.registry.results_archive import build_suite_archive
+    from ageval.registry.results_archive import build_suite_archive
 
     suite_dir = tmp_path / "suite_dir"
     suite_dir.mkdir()
@@ -581,8 +585,8 @@ def test_suite_upload_rejects_suite_pass_field(
 
     meta = {
         "suite_run_id": "suite_bad",
-        "database_id": "test/x",
-        "database_version": "0",
+        "dataset_id": "test/x",
+        "dataset_version": "0",
         "visibility": "private",
         "pass_rate": 1.0,
         "mean_score": 1.0,
@@ -595,7 +599,7 @@ def test_suite_upload_rejects_suite_pass_field(
         "size": size,
         "pass": True,  # forbidden
     }
-    boundary = f"bora-suite-{_secrets.token_hex(8)}"
+    boundary = f"ageval-suite-{_secrets.token_hex(8)}"
     body = b""
     body += f"--{boundary}\r\n".encode()
     body += b'Content-Disposition: form-data; name="metadata"\r\n'
@@ -608,7 +612,7 @@ def test_suite_upload_rejects_suite_pass_field(
     body += archive
     body += b"\r\n"
     body += f"--{boundary}--\r\n".encode()
-    from bora.registry.client import RegistryError
+    from ageval.registry.client import RegistryError
 
     with pytest.raises(RegistryError) as ei:
         client._request(
@@ -649,7 +653,7 @@ def test_multipart_payload_trailing_lf_preserved() -> None:
 
 
 def _write_local_attempt(db: Path, run_id: str, *, task_id: str = "a") -> Path:
-    run_dir = db / ".bora" / "runs" / run_id
+    run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "result.json").write_text(
         json.dumps({"task_id": task_id, "status": "PASS", "score": 1.0}, indent=2) + "\n",
@@ -681,7 +685,7 @@ def test_suite_upload_with_attempts_and_has_content_projection(
     up_summary = upload_suite_result(db, suite_run_id=suite_run_id, public=True)
     assert up_summary["ok"] is True
     assert "attempts" not in up_summary or up_summary.get("with_attempts") is not True
-    listed = list_suite_results(database_id="test/publish-min")
+    listed = list_suite_results(dataset_id="test/publish-min")
     refs0 = listed["items"][0]["task_refs"]
     assert all(r.get("has_attempt_content") is False for r in refs0)
 
@@ -742,7 +746,7 @@ def test_suite_with_attempts_missing_run_dir_fails_closed(
     _ensure_org()
     import shutil
 
-    from bora.config.errors import ConfigError
+    from ageval.config.errors import ConfigError
 
     db = tmp_path / "db-missing-runs"
     shutil.copytree(FIXTURE, db)
@@ -756,7 +760,7 @@ def test_suite_with_attempts_missing_run_dir_fails_closed(
     assert ei.value.error_code == "invalid_package"
     assert "missing local run dir" in str(ei.value).lower() or "missing" in str(ei.value).lower()
     # Suite must not have been uploaded when preflight fails
-    listed = list_suite_results(database_id="test/publish-min")
+    listed = list_suite_results(dataset_id="test/publish-min")
     assert all(i.get("suite_run_id") != suite_run_id for i in listed["items"])
 
 
@@ -783,7 +787,7 @@ def test_has_attempt_content_respects_attempt_visibility(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """#43: private attempt must not show has_attempt_content to principals who cannot open it."""
-    from bora.registry.client import RegistryError
+    from ageval.registry.client import RegistryError
 
     _auth_env(monkeypatch, registry_server, tmp_path)
     _ensure_org()
@@ -807,7 +811,7 @@ def test_has_attempt_content_respects_attempt_visibility(
     )
 
     anon = RegistryClient(registry_server["url"], token=None)
-    items = anon.list_suites(database_id="test/publish-min")
+    items = anon.list_suites(dataset_id="test/publish-min")
     hit = next(i for i in items if i.get("suite_run_id") == suite_run_id)
     for ref in hit["task_refs"]:
         if ref.get("run_id"):
@@ -822,7 +826,7 @@ def test_has_attempt_content_respects_attempt_visibility(
 def test_attempt_file_path_traversal_rejected(
     registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from bora.registry.client import RegistryError
+    from ageval.registry.client import RegistryError
 
     _auth_env(monkeypatch, registry_server, tmp_path)
     _ensure_org()
@@ -835,7 +839,7 @@ def test_attempt_file_path_traversal_rejected(
     upload_attempt_result(db, run_id=run_id, public=True)
 
     client = RegistryClient(registry_server["url"], token=registry_server["token"])
-    for bad in ("../secret", ".bora/runs/../../etc/passwd", "/etc/passwd"):
+    for bad in ("../secret", ".ageval/runs/../../etc/passwd", "/etc/passwd"):
         with pytest.raises(RegistryError) as ei:
             client._request(
                 "GET",
@@ -853,17 +857,17 @@ def test_with_attempts_rejects_traversal_run_id(
     _ensure_org()
     import shutil
 
-    from bora.config.errors import ConfigError
+    from ageval.config.errors import ConfigError
 
     db = tmp_path / "db-bad-runid"
     shutil.copytree(FIXTURE, db)
     suite_run_id = "suite_bad_runid"
-    suite_dir = db / ".bora" / "suite-runs" / suite_run_id
+    suite_dir = db / ".ageval" / "suite-runs" / suite_run_id
     suite_dir.mkdir(parents=True, exist_ok=True)
     summary = {
         "suite_run_id": suite_run_id,
-        "database_id": "test/publish-min",
-        "database_version": "0",
+        "dataset_id": "test/publish-min",
+        "dataset_version": "0",
         "pass_rate": 1.0,
         "mean_score": 1.0,
         "metrics": {"n_pass": 1, "n_fail": 0, "n_error": 0, "n_total": 1},

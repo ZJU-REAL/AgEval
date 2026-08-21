@@ -3,7 +3,7 @@
 #
 # Align client_max_body / request_body with the application cap
 # (512 MiB after whole-object streaming).
-# In-flight uploads: workers × BORA_REGISTRY_UPLOAD_SLOTS.
+# In-flight uploads: workers × AGEVAL_REGISTRY_UPLOAD_SLOTS.
 
 {
 	# optional
