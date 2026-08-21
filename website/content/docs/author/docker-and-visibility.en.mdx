@@ -5,7 +5,7 @@ description: When to use docker, Dockerfile, what the agent can see.
 
 ## local vs docker
 
-The box is on **`profiles.yaml`**, not `provider.kind` on the task:
+The environment is on **`profiles.yaml`**, not `provider.kind` on the task:
 
 ```yaml
 # profiles.yaml
@@ -17,7 +17,7 @@ environment: docker    # or local / e2b / ssh
 | --- | --- |
 | `local` | Dev and most examples |
 | `docker` | Container boundary |
-| `e2b` / `ssh` | Cloud boxes; missing keys fail `--probe` |
+| `e2b` / `ssh` | Cloud environments; missing keys fail `--probe` |
 
 `docker` (and `e2b`) need **`environment/Dockerfile`** (or an image option) or lock fails. Same recipe for both.
 
@@ -31,4 +31,4 @@ environment: docker    # or local / e2b / ssh
 
 Real isolation is **unmounted + upload at evaluate**, not deleted yaml fields. That is not `path_views`.
 
-Boxes: [Box kinds](/docs/agents/environments).
+Environments: [Environment kinds](/docs/agents/environments).

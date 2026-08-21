@@ -17,7 +17,7 @@ ageval 把一次评测收成可见的 Attempt：锁定 **dataset**，打开一�
 | Python 包与 import | `ageval` / `ageval_sdk` |
 | 环境变量 / 家目录 | `AGEVAL_*`、`~/.ageval` |
 | 配置 format | `ageval.dataset/1`、`ageval.task/1`、`ageval.plugin/1`、`ageval.profiles/1` |
-| GitHub 路径 | 目前仍是 `ZJU-REAL/BORA`；产品名不是仓库名 |
+| GitHub 路径 | [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval) |
 
 未知 format：**一个**错误（`invalid_format` 于 `/format`），停。不要在报错里教映射。
 

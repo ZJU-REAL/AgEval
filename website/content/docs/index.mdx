@@ -1,12 +1,12 @@
 ---
 title: ageval 是什么
-description: 锁定 dataset，打开盒子，由独立 evaluator 出分。
+description: 锁定 dataset，打开环境，由独立 evaluator 出分。
 icon: BookOpen
 ---
 
-Agent 评测常只盯模型分数，把编排、可见范围和打分权威留在各家实现里。换 coding agent 或换盒子，结果与轨迹就对不齐。
+Agent 评测常只盯模型分数，把编排、可见范围和打分权威留在各家实现里。换 coding agent 或换环境，结果与轨迹就对不齐。
 
-**ageval**（agent eval）提供这层外层边界：锁定 dataset，在约定盒子里跑 Attempt，控制可见范围，并由**独立评测**给出结果。轨迹用于复盘，**不得作为评分依据**。
+**ageval**（agent eval）提供这层外层边界：锁定 dataset，在约定环境里跑 Attempt，控制可见范围，并由**独立评测**给出结果。
 
 CLI 与包名是 `ageval`。题包根叫 dataset，不是 SQL。
 
@@ -17,10 +17,10 @@ CLI 与包名是 `ageval`。题包根叫 dataset，不是 SQL。
 | 安装并首次运行 | [安装](/docs/getting-started/install) → [首次运行](/docs/getting-started/first-run) |
 | 运行现有 dataset | [运行](/docs/run/single-task) |
 | 编写 dataset | [Task 编写教程](/docs/author/tutorial) |
-| 接入 coding agent | [ACP Profiles](/docs/agents/acp-profiles) |
-| 盒子 kind | [盒子](/docs/agents/environments) |
+| 接入 coding agent | [ACP Profiles](/docs/agents/acp-profiles) · [切换 Agent](/docs/run/switch-agent) |
+| 环境 kind | [环境](/docs/agents/environments) |
 | 机制插件 | [机制插件](/docs/run/plugins) |
 | 命令与字段 | [CLI](/docs/reference/cli) · [配置字段](/docs/reference/config-fields) |
 | 本机结果 / Hub | [本地查看器](/docs/run/local-viewer) · [Hub](/docs/share/hub) |
 
-机制设计在仓库 [`docs/design/`](https://github.com/ZJU-REAL/BORA/tree/main/docs/design)。本站按使用路径组织。
+机制设计在仓库 [`docs/design/`](https://github.com/ZJU-REAL/ageval/tree/main/docs/design)。本站按使用路径组织。

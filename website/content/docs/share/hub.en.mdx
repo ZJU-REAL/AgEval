@@ -70,7 +70,7 @@ Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**.
 
 | You want | Upload | How |
 | --- | --- | --- |
-| A **Public Leaderboard** row | A **complete**, **release-bound** suite | `ageval publish --draft` then `ageval release` (or a direct `ageval publish`) → `ageval run <database>` **without** `--task` → `upload-suite --suite-run <id>` |
+| A **Public Leaderboard** row | A **complete**, **release-bound** suite | `ageval publish --draft` then `ageval release` (or a direct `ageval publish`) → `ageval run <dataset>` **without** `--task` → `upload-suite --suite-run <id>` |
 | Leaderboard **Internal** | A caller-visible incomplete or draft-bound suite | Same `upload-suite`; does not appear on Public |
 | Task **Jobs** with openable Attempt / trajectory | Suite + **attempt** evidence | `upload-suite --with-attempts`; incomplete / draft-bound suites stay here |
 | Patch one finished slot on an uploaded suite | New Attempt + suite slot pointer | Local `--resume-suite --replace-slot`, then `upload-suite --suite-run <id> --task <id> [--run <run_id>]`. Hub/Viewer default to current; the version list is `patch N` plus that Attempt’s start time |
@@ -78,12 +78,12 @@ Jobs rows with uploaded run artifacts open detail; others show **Not uploaded**.
 
 ```bash
 # Correct path for Leaderboard
-uv run ageval run <database> --profiles <profiles.yaml>
-uv run ageval results upload-suite <database> --suite-run <8-hex> --public --with-attempts
+uv run ageval run <dataset> --profiles <profiles.yaml>
+uv run ageval results upload-suite <dataset> --suite-run <8-hex> --public --with-attempts
 
 # Not enough for Leaderboard: single-task attempt upload alone
-# uv run ageval run <database> --task <id>
-# uv run ageval results upload <database> --run <run_id>
+# uv run ageval run <dataset> --task <id>
+# uv run ageval results upload <dataset> --run <run_id>
 ```
 
 Point Hub at the **same** Registry as `ageval login` / `~/.ageval/credentials` (local dev often `127.0.0.1:8700`). See [Run a Dataset suite](/docs/run/suite).

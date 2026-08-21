@@ -6,7 +6,7 @@
 
 ```yaml
 format: ageval.dataset/1
-dataset_id: example/core
+dataset_id: example/journeys
 version: "0.1.0"
 tasks:
   root: tasks
@@ -17,9 +17,9 @@ tasks:
 CLI 路径永远是 dataset 根：
 
 ```bash
-ageval lock examples/core --task acp-local-min
-ageval run  examples/core --task acp-local-min
-ageval tasks examples/core
+ageval lock examples/journeys --task terminal-jsonl-agg
+ageval run  examples/journeys --task terminal-jsonl-agg
+ageval tasks examples/journeys
 ```
 
 `--profiles` 整份替换根上的 job 文档。`--agent` 与 `--profiles` 互斥。`--set` 白名单：`/parameters/seed`、`/parameters/active_profile`、`/bindings/<role>/{model,executor,api_key,base_url,options/<key>}`。`limits.*` 不可 `--set`。

@@ -20,13 +20,13 @@ must be discovered from seeded DB rows via tools.
 | planner                 | `planner-opencode` | `opencode`      |
 | reducer                 | `reducer-grok`     | `grok-build`    |
 
-Harness reads profile ids from `parameters.roles` — it never branches on entry name.
+`run.py` reads profile ids from `parameters.roles` — it never branches on entry name.
 
 ## Package layout
 
 | Path                   | Role                                                |
 | ---------------------- | --------------------------------------------------- |
-| `harness.py`           | Orchestration only (specialist → planner → reducer) |
+| `run.py`               | Orchestration only (specialist → planner → reducer) |
 | `evaluator.py`         | Independent PASS vs gold labels                     |
 | `lib/db_tools.py`      | `db_query` ToolSet + env handoff load               |
 | `lib/diagnostics.py`   | Specialist SQL probes + allowed label set           |

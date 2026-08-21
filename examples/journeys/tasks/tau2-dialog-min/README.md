@@ -6,7 +6,7 @@ v1 **tau2-bench retail** case class on ageval v2 package surfaces.
 
 | Path                  | Role                                                                      |
 | --------------------- | ------------------------------------------------------------------------- |
-| `harness.py`          | Orchestration only (user sim → service agent loop → order gate → publish) |
+| `run.py`              | Orchestration only (user sim → service agent loop → order gate → publish) |
 | `evaluator.py`        | Independent PASS vs gold                                                  |
 | `lib/retail_tools.py` | Domain tools + state helpers (`find_customer` / `get_order` / …)          |
 | `lib/agent_json.py`   | Invoke → JSON parse helpers                                               |

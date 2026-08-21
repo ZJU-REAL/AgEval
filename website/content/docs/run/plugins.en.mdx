@@ -9,16 +9,16 @@ task `run.py` loop. Slots are exclusive and chain only.
 ## Executor and environment: inject by name, not by kind
 
 An executor does not import docker, e2b, or ssh. It **injects** the service named
-`environment` and the capabilities it will call. The box winner **exports** that
+`environment` and the capabilities it will call. The environment winner **exports** that
 name automatically. Lock checks the graph before any invoke.
 
 | | Meaning |
 | --- | --- |
-| **export** | The box is the `environment` service |
+| **export** | The environment is the `environment` service |
 | **inject** | The agent backend needs `environment` plus `attach_stdio` or `exec` |
 | **call** | Protocol only: `attach_stdio` (live session) or `exec` / `upload` (run to completion) |
 
-Switching `environment: docker` to `e2b` or `ssh` changes the box winner, not ACP
+Switching `environment: docker` to `e2b` or `ssh` changes the environment winner, not ACP
 code. `exec` is a method on that service, not a second service. A host SDK bound to
 a parent path does not satisfy this seam. Contract: `docs/design/11`.
 
@@ -82,6 +82,6 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 
 The default coding-agent path remains `executor: acp` + `options.entry`. Plugins are optional mechanisms; the same `run.py` switches only via profiles. miniswe is a host-loop: the LLM stays on the parent; bash goes only through `host.exec`. Missing `exec` fails at lock.
 
-In-box `evaluator.py` and layer-C trajectory writes are exclusive slots `evaluation_runtime` / `trajectory_seal` (engine `default` wins; no job-field sugar). PASS still binds only in the engine.
+In-environment `evaluator.py` and layer-C trajectory writes are exclusive slots `evaluation_runtime` / `trajectory_seal` (engine `default` wins; no job-field sugar). PASS still binds only in the engine.
 
 Contracts: `docs/design/11`. This page does not raise evidence grades.

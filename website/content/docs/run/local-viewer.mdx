@@ -15,15 +15,15 @@ Jobs 表可以删掉本机一行 Job（先 preview 路径，再确认）。删 s
 # 首次构建前端（生产 ageval view）
 cd apps/viewer && pnpm install && pnpm build && cd ../..
 
-uv run ageval view examples/core
+uv run ageval view examples/journeys
 # 或
-uv run ageval view examples/core --no-browser --port 8765
+uv run ageval view examples/journeys --no-browser --port 8765
 
 # 开发：一条命令（能起 Vite 就起；否则打印两行 fallback）
-uv run ageval view examples/core --dev --port 8765
+uv run ageval view examples/journeys --dev --port 8765
 
 # 跑完后深链到该 job / task / run
-uv run ageval view examples/core --open /jobs/<id>
+uv run ageval view examples/journeys --open /jobs/<id>
 ```
 
 `--dev` 对着**同一套**本地 API，并尽量自己拉起 Vite。起不了会在终端打印 `pnpm --dir apps/viewer dev`。两进程：API 端口（默认 8765）+ UI 端口（默认 5173）。服务的生产包是 `apps/viewer/dist/`。端口占用就换 `--port`。
@@ -35,7 +35,7 @@ uv run ageval view examples/core --open /jobs/<id>
 | 层 | 内容 |
 | --- | --- |
 | Jobs | 本地 suite 跑次 **和** 单题 Attempt（Kind：suite / single）。Kind / Source 是过滤器；suite 的 Source 只列 task id |
-| Tasks | 每题状态 / 分数。suite 题且只有 1 次 Attempt 时，点进后直接打开该 trial |
+| Tasks | 每题状态 / 分数。suite 题且只有 1 次 Attempt 时，点进后直接打开该 Attempt |
 | Attempt | 结果条、**Timing**（有数据时还有 **Tokens**）、角色、证据页签（Trajectory / Agent / …） |
 
 Timing 来自 Attempt `phase_timing`（prepare / run / evaluate / cleanup）；hover 色条看分段耗时。  

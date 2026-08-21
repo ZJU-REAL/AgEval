@@ -6,8 +6,8 @@ description: Run every task; optional Always-k and pass@k; aggregates are not su
 Omit `--task` and `ageval run` schedules **every** member — each locks, runs, and evaluates independently:
 
 ```bash
-uv run ageval run examples/core
-uv run ageval run examples/core --max-concurrent-tasks 2
+uv run ageval run examples/journeys
+uv run ageval run examples/journeys --max-concurrent-tasks 2
 ```
 
 ## Two axes (do not mix)
@@ -19,18 +19,18 @@ uv run ageval run examples/core --max-concurrent-tasks 2
 
 ```bash
 # Full suite, k=5 per task (CLI/job only)
-uv run ageval run examples/core -k 5 --max-concurrent-tasks 2
+uv run ageval run examples/journeys -k 5 --max-concurrent-tasks 2
 
 # Always-k on one task
-uv run ageval run examples/core --task sdk-agent-session -k 5
+uv run ageval run examples/journeys --task terminal-jsonl-agg -k 5
 
 # Resume: append into an existing suite job and recompute metrics
-uv run ageval run examples/core --resume-suite <suite_run_id> --task sdk-agent-session -k 5
+uv run ageval run examples/journeys --resume-suite <suite_run_id> --task terminal-jsonl-agg -k 5
 
 # Replace one finished slot (PASS / FAIL / ERROR): new Attempt, same suite id
-uv run ageval run examples/core --resume-suite <suite_run_id> --task sdk-agent-session --replace-slot
+uv run ageval run examples/journeys --resume-suite <suite_run_id> --task terminal-jsonl-agg --replace-slot
 # Always-k: one (task_id, attempt_index)
-# uv run ageval run examples/core --resume-suite <id> --task sdk-agent-session --replace-slot --attempt-index 1
+# uv run ageval run examples/journeys --resume-suite <id> --task terminal-jsonl-agg --replace-slot --attempt-index 1
 ```
 
 Hard rules:
@@ -62,8 +62,8 @@ Same directory: `progress.json`. Attempt `result.json` may include `phase_timing
 ## Progress and cancel
 
 ```bash
-uv run ageval status <suite_run_id> --dataset examples/core
-uv run ageval cancel <suite_run_id> --dataset examples/core
+uv run ageval status <suite_run_id> --dataset examples/journeys
+uv run ageval cancel <suite_run_id> --dataset examples/journeys
 ```
 
 - **status** — ControlStore record + suite progress when present  
@@ -79,9 +79,9 @@ Hub **Dataset → Leaderboard** and **Task → Jobs** list Registry **suite** ro
 
 | Step | Command |
 | --- | --- |
-| 1. Run suite | `uv run ageval run <database>` (**omit** `--task`; optional `--profiles`) |
+| 1. Run suite | `uv run ageval run <dataset>` (**omit** `--task`; optional `--profiles`) |
 | 2. Note id | `suite_run_id` in stdout / `summary.json` (default 8 hex) |
-| 3. Upload suite | `uv run ageval results upload-suite <database> --suite-run <id> --public` |
+| 3. Upload suite | `uv run ageval results upload-suite <dataset> --suite-run <id> --public` |
 | 4. Deep-link trajectory | Add `--with-attempts` |
 
 ```bash

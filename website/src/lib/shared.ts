@@ -3,6 +3,6 @@ export const docsRoute = "/docs";
 
 export const gitConfig = {
   user: "ZJU-REAL",
-  repo: "BORA",
+  repo: "ageval",
   branch: "main",
 };

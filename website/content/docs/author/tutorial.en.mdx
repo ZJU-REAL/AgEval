@@ -1,11 +1,11 @@
 ---
 title: Task authoring tutorial
-description: Copy a task from examples/core, edit run.py and the evaluator, run it.
+description: Copy a task from examples/journeys, edit run.py and the evaluator, run it.
 ---
 
 Goal: lock, run, and get an evaluation result on this machine.
 
-Copy a `tasks/<id>/` directory from [`examples/core`](https://github.com/ZJU-REAL/BORA/tree/main/examples/core). The directory name must equal `task_id`.
+Copy a `tasks/<id>/` directory from [`examples/journeys`](https://github.com/ZJU-REAL/ageval/tree/main/examples/journeys) (start from `terminal-jsonl-agg`). The directory name must equal `task_id`.
 
 ```yaml
 format: ageval.task/1
@@ -27,9 +27,9 @@ evaluation:
       target: artifacts/reply.json
 ```
 
-Do not write `harness:`, `provider:`, or `assurance`. The box and ACP entry live in `profiles.yaml`.
+Do not write `harness:`, `provider:`, or `assurance`. The environment and ACP entry live in `profiles.yaml`.
 
 ```bash
-uv run ageval lock examples/core --task hello
-uv run ageval run  examples/core --task hello
+uv run ageval lock examples/journeys --task hello
+uv run ageval run  examples/journeys --task hello
 ```

@@ -5,11 +5,14 @@ description: 锁定配置、执行示例 task，并定位结果目录。
 
 CLI 路径参数始终是 **dataset 根**（含 `ageval.yaml` 的目录），不是 `tasks/<id>/`。
 
+公开示例以 [`examples/journeys`](https://github.com/ZJU-REAL/ageval/tree/main/examples/journeys) 为主。默认 `profiles.yaml` 的环境是 **docker**。
+
 ```bash
-uv run ageval tasks examples/core
-uv run ageval lock examples/core --task config-minimal
-uv run ageval run  examples/core --task acp-local-min
-uv run ageval run  examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml
+uv run ageval tasks examples/journeys
+uv run ageval lock examples/journeys --task terminal-jsonl-agg
+uv run ageval run  examples/journeys --task terminal-jsonl-agg
+uv run ageval run  examples/journeys --task terminal-jsonl-agg \
+  --profiles examples/journeys/profiles.e2b-acp.yaml --probe
 ```
 
 `ageval run` 成功时输出 `logs` / `evidence_path`，指向 `.ageval/runs/<id>/`。
@@ -18,11 +21,11 @@ uv run ageval run  examples/core --task acp-docker-min --profiles examples/core/
 | --- | --- |
 | **dataset** | 根 `ageval.yaml` + 若干 task |
 | **Attempt** | 一次锁定配置下的执行 |
-| **environment** | 盒子 kind：local / docker / e2b / ssh |
+| **environment** | 环境 kind：local / docker / e2b / ssh |
 
 ```bash
 uv run ageval executors -v
-uv run ageval view examples/core --no-browser
+uv run ageval view examples/journeys --no-browser
 ```
 
 `--probe` 只做 lock + preflight，不 invoke。`--profiles` 整份替换 job 文档。`--agent` 与 `--profiles` 互斥。

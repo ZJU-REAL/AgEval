@@ -19,7 +19,7 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
-  # tmpfs_mb: 256   # optional in-box evaluator /tmp (MiB); omit → 32. Not limits.*
+  # tmpfs_mb: 256   # optional in-environment evaluator /tmp (MiB); omit → 32. Not limits.*
   inputs:
     - artifact: session-output
       target: artifacts/session-output.json
@@ -32,6 +32,6 @@ evaluation:
 | Barrier | Inputs materialize after `run.py` ends |
 | Gold | Under `evaluation/`; uploaded at evaluate |
 | Artifact ids | Must match files `run.py` actually writes |
-| `tmpfs_mb` | In-box evaluator `/tmp` only; omit → 32 MiB. Declare a larger sandbox on the **task**, not under `limits` |
+| `tmpfs_mb` | In-environment evaluator `/tmp` only; omit → 32 MiB. Declare a larger sandbox on the **task**, not under `limits` |
 
-The in-box `evaluator.py` is launched by the exclusive-slot `evaluation_runtime` default winner via `host.exec`. PASS still binds only in the engine. Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).
+The in-environment `evaluator.py` is launched by the exclusive-slot `evaluation_runtime` default winner via `host.exec`. PASS still binds only in the engine. Runtime and evaluation stay separate facts. See [Results and PASS](/docs/reference/results-and-pass).

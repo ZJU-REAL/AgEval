@@ -19,7 +19,7 @@ evaluation:
   runtime: python
   entrypoint: evaluator:evaluate
   network: none
-  # tmpfs_mb: 256   # 可选；盒内 evaluator /tmp（MiB），省略则 32。不是 limits.*
+  # tmpfs_mb: 256   # 可选；环境内 evaluator /tmp（MiB），省略则 32。不是 limits.*
   inputs:
     - artifact: session-output
       target: artifacts/session-output.json
@@ -35,6 +35,6 @@ evaluation:
 | 屏障 | `run.py` 结束后才 materialize 输入 |
 | gold | 放 `evaluation/`，evaluate 相位才 upload |
 | artifact id | 必须和 `run.py` 实际写出的文件对上 |
-| `tmpfs_mb` | 只改盒内 evaluator `/tmp`；省略 32 MiB。大 snapshot 在 **task** 上声明，不要写进 `limits` |
+| `tmpfs_mb` | 只改环境内 evaluator `/tmp`；省略 32 MiB。大 snapshot 在 **task** 上声明，不要写进 `limits` |
 
-盒内 `evaluator.py` 由独占槽 `evaluation_runtime` 的默认赢家经 `host.exec` 拉起；PASS 仍只经引擎 bind。读结果时 runtime 与 evaluation 是分开的事实。见 [结果与 PASS](/docs/reference/results-and-pass)。
+环境内 `evaluator.py` 由独占槽 `evaluation_runtime` 的默认赢家经 `host.exec` 拉起；PASS 仍只经引擎 bind。读结果时 runtime 与 evaluation 是分开的事实。见 [结果与 PASS](/docs/reference/results-and-pass)。

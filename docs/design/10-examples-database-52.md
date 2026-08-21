@@ -6,11 +6,11 @@
 
 | 包 | 点名 |
 | --- | --- |
-| `examples/core` | `acp-local-min`、`acp-docker-min`、`config-minimal`、`sdk-agent-session`、`hard-ceiling-min`、`nooa-host-min` |
-| `examples/journeys` | `terminal-jsonl-agg`、`env-postgres-min` |
+| `examples/journeys` | `terminal-jsonl-agg`、`tau2-dialog-min`、`multiagent-env-min` |
 | docker topology 示例 | `sdk-session-single-actor` lock；`multi-agent-*` lock 有 topology 即可（本轮不承诺多 group 真调度 run） |
 | `examples/tau3-airline` | `airline-00` lock |
+| `examples/agents` | `pi-default` 等 `ageval.agent/1`；`--agent` 绑定 |
 
-docker / e2b / ssh job 文档：`examples/core/profiles.docker.yaml` 等。
+docker 默认在 `examples/journeys/profiles.yaml`。e2b / ssh A 见同目录 `profiles.e2b-*.yaml`、`profiles.ssh-a-*.yaml`。ssh A 不支持 live ACP stdio。
 
 不要把 gaia / tau3 全 suite、五条 ACP 全付费 invoke 当成「设计漏了」。产品禁止 `examples/agents/mock-default`。

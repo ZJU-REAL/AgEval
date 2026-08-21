@@ -18,13 +18,13 @@ shared/                 # real package (shared/__init__.py)
   lib/                  # shared.lib.harness_core / bridge / evaluator_core
   assets/               # db.json, policy.md, tasks.json (in packageDigest)
 tasks/airline-NN/
-  task.yaml / harness.py / evaluator.py   # thin; import shared.lib.*
+  task.yaml / run.py / evaluator.py       # thin; import shared.lib.*
   data/                 # agent-visible scenario + policy copy
   evaluation/           # gold / full task JSON (evaluator-only)
 ```
 
 No per-task `lib/` copies — modules live once under `shared/lib` and are imported
-as `shared.lib.*` (Runtime puts Database root on `sys.path`, not the `lib/` leaf).
+as `shared.lib.*` (Runtime puts the dataset root on `sys.path`, not the `lib/` leaf).
 
 ## Run
 

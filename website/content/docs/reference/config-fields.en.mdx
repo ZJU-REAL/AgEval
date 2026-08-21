@@ -30,7 +30,7 @@ Empty suite fails lock. Unknown format → `invalid_format`.
 | `agent_profiles` | Role slots `{id}` only; ACP `entry` lives on root `profiles.yaml` |
 | `limits` | wall / invokes / env actions / memory |
 | `artifacts` | publishable id + path |
-| `evaluation` | optional inputs / output; `evaluator.py` is recognized. Optional `tmpfs_mb` (in-box evaluator `/tmp`, positive MiB, default 32; **not** `limits.*`) |
+| `evaluation` | optional inputs / output; `evaluator.py` is recognized. Optional `tmpfs_mb` (in-environment evaluator `/tmp`, positive MiB, default 32; **not** `limits.*`) |
 | `provenance` | optional |
 | Forbidden | `harness:` block, `provider.kind`, `assurance`, `executor` / `api_key` on the member role |
 

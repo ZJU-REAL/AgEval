@@ -30,7 +30,7 @@ description: ageval.yaml / task.yaml 字段与校验要点速查。
 | `agent_profiles` | 成员只写 `{id}`；ACP `entry` 写在根 `profiles.yaml` |
 | `limits` | wall / agent_invocations / environment_actions / memory_mb |
 | `artifacts.publishable` | id + path + producer |
-| `evaluation` | 可选 inputs / output；有 `evaluator.py` 就认。可选 `tmpfs_mb`（盒内 evaluator `/tmp`，正整数 MiB，省略 32；**不是** `limits.*`） |
+| `evaluation` | 可选 inputs / output；有 `evaluator.py` 就认。可选 `tmpfs_mb`（环境内 evaluator `/tmp`，正整数 MiB，省略 32；**不是** `limits.*`） |
 | `provenance` | 可选 |
 | 禁止 | `harness:` 块、`provider.kind`、`assurance`、角色上的 `executor` / `api_key` |
 

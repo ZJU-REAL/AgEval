@@ -1,12 +1,12 @@
 ---
 title: What is ageval
-description: Lock a dataset, open a box, let an independent evaluator own the score.
+description: Lock a dataset, pick an environment, let an independent evaluator own the score.
 icon: BookOpen
 ---
 
-Agent evaluation often focuses on model scores while orchestration, visibility, and scoring authority stay in vendor stacks. Changing the coding agent or the box makes results hard to compare.
+Agent evaluation often focuses on model scores while orchestration, visibility, and scoring authority stay in vendor stacks. Changing the coding agent or the environment makes results hard to compare.
 
-**ageval** (agent eval) is that outer boundary: lock a dataset, run a bounded Attempt in a chosen box, control visibility, and let an **independent evaluator** produce the result. Trajectories support inspection; they are **not** scoring authority.
+**ageval** (agent eval) is that outer boundary: lock a dataset, run a bounded Attempt in a chosen environment, control visibility, and let an **independent evaluator** produce the result.
 
 The CLI and packages are `ageval`. The delivery unit is a dataset, not SQL.
 
@@ -17,10 +17,10 @@ The CLI and packages are `ageval`. The delivery unit is a dataset, not SQL.
 | Install and first run | [Install](/docs/getting-started/install) → [First run](/docs/getting-started/first-run) |
 | Run an existing dataset | [Run](/docs/run/single-task) |
 | Author a dataset | [Task authoring](/docs/author/tutorial) |
-| Coding agents | [ACP profiles](/docs/agents/acp-profiles) |
-| Box kinds | [Boxes](/docs/agents/environments) |
+| Coding agents | [ACP profiles](/docs/agents/acp-profiles) · [Switch agent](/docs/run/switch-agent) |
+| Environments | [Environments](/docs/agents/environments) |
 | Plugins | [Mechanism plugins](/docs/run/plugins) |
 | Commands and fields | [CLI](/docs/reference/cli) · [Config](/docs/reference/config-fields) |
 | Local results / Hub | [Viewer](/docs/run/local-viewer) · [Hub](/docs/share/hub) |
 
-Mechanism design lives under [`docs/design/`](https://github.com/ZJU-REAL/BORA/tree/main/docs/design).
+Mechanism design lives under [`docs/design/`](https://github.com/ZJU-REAL/ageval/tree/main/docs/design).

@@ -1,6 +1,6 @@
 ---
 title: Switch agent and model
-description: Swap coding-agent entries with profiles and --set.
+description: Swap coding-agent entries with profiles, --agent, or --set.
 ---
 
 One task can declare several `agent_profiles` and pick which to use at run time.
@@ -18,22 +18,35 @@ Check `engine_ready` / `acp_entry_ready` per ACP entry.
 ```yaml
 # profiles.yaml
 format: ageval.profiles/1
-environment: local
+environment: docker
 agent_profiles:
   solver:
     executor: acp
     extensions:
       - plugin: acp
         options:
-          entry: codex
+          entry: pi
     model: gpt-5.4-mini
+```
+
+ACP `entry` lives on `- plugin: acp` / `options.entry`.
+
+## Agent packages (`--agent`)
+
+`ageval.agent/1` is its own package. Install it into the local cache, then bind
+the job with `--agent`. `--agent` and `--profiles` are mutually exclusive.
+
+```bash
+uv run ageval agent install examples/agents/pi-default
+uv run ageval agent list
+uv run ageval run examples/journeys --task terminal-jsonl-agg --agent pi-default
 ```
 
 ## Temporary switch
 
 ```bash
-uv run ageval run examples/core --task builtin-executor-conformance \
-  --set '/parameters/active_profile="pi-mini"'
+uv run ageval run examples/journeys --task terminal-jsonl-agg \
+  --set '/bindings/solver/options/entry="codex"'
 ```
 
 Only allowlisted `--set` pointers work, e.g. `/bindings/solver/options/reasoning_effort="high"` — see [CLI](/docs/reference/cli).

@@ -4,10 +4,10 @@ This document maintains **implementation structure** only: current vs target lay
 
 - Do **not** write product essays, version checklists, or Phase task tables.
 - Product and mechanism design authority: [docs/](docs/README.md) (especially [docs/design/](docs/design/)). **Self-contained**; do not read an out-of-repo BRIEF.
-- Incremental delivery and acceptance tracking: [GitHub Issues](https://github.com/ZJU-REAL/BORA/issues).
+- Incremental delivery and acceptance tracking: [GitHub Issues](https://github.com/ZJU-REAL/ageval/issues).
 - Reader-facing docs: [website/](website/) (not design authority).
 
-The GitHub repository path is still `ZJU-REAL/BORA`. The product name, packages, and CLI are **ageval**.
+GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product name, packages, and CLI are **ageval**.
 
 ## Document Status
 
@@ -73,10 +73,10 @@ Arrows mean **control-flow progress**. Cross-trust-boundary data flow is in [Dat
 | --- | --- |
 | Public entrypoint | `ageval lock` / `run` (including `--probe`) / `tasks` / `campaign` / `view` / `plugin` / `evidence` / `status` / `cancel` / `executors` / `jobs` / `results` / `publish` / `release` / `agent` / `registry` (CLI is authoritative) |
 | Production composition root | `src/ageval/application/composition.py` |
-| Smoke lock | `uv run ageval lock examples/core --task config-minimal` (exit 0; summary has `dataset_id`, no `database_id`) |
-| Smoke local ACP | `uv run ageval run examples/core --task acp-local-min` |
-| Smoke docker ACP | `uv run ageval run examples/core --task acp-docker-min --profiles examples/core/profiles.docker.yaml` |
-| Smoke journeys | `uv run ageval run examples/journeys --task terminal-jsonl-agg`; `… --task env-postgres-min` |
+| Smoke lock | `uv run ageval lock examples/journeys --task terminal-jsonl-agg` (exit 0; summary has `dataset_id`, no `database_id`) |
+| Smoke docker ACP | `uv run ageval run examples/journeys --task terminal-jsonl-agg` (default journeys box is docker) |
+| Smoke local ACP | `uv run ageval lock examples/tau3-airline --task airline-00` (default box is local; run needs credentials + tau2) |
+| Smoke journeys | `uv run ageval run examples/journeys --task terminal-jsonl-agg`; `… --task tau2-dialog-min` |
 | Expected failure | Unknown format → `invalid_format` exit 2; missing `--task` follows CLI; e2b/ssh without keys `--probe` `ready:false` |
 | Observable result | Secret-free lock summary + digest; Attempt has `lock.json` / `result.json` / `trajectory.jsonl` |
 | Evidence grade | **Limited to `runnable-mvp`** (commands above; do not upgrade from documentation) |
@@ -105,7 +105,7 @@ Earlier intermediate checkpoints follow code and examples. **Do not** treat Targ
 ### Current Source Layout
 
 ```text
-ageval/                              # GitHub repo path is still ZJU-REAL/BORA
+ageval/                              # GitHub: ZJU-REAL/ageval
 ├── AGENTS.md
 ├── ARCHITECTURE.md
 ├── README.md
@@ -170,10 +170,9 @@ ageval/                              # GitHub repo path is still ZJU-REAL/BORA
 │   ├── queries.py / dataset.py / sql_adapter.py / store.py
 │   └── routes.py                    # ROUTES must declare access
 ├── examples/
-│   ├── core/                        # acp-local-min / acp-docker-min / …
-│   ├── journeys/                    # terminal-jsonl-agg / env-postgres-min / …
+│   ├── journeys/                    # terminal-jsonl-agg / tau2-dialog-min / multiagent-env-min
 │   ├── tau3-airline/                # airline-00 lock
-│   └── agents/
+│   └── agents/                      # ageval.agent/1 catalog packages
 ├── plugins/                         # external ageval.plugin/1
 │   ├── nooa/ / dsh/ / miniswe/
 │   └── home-files/ / agent-skills/
