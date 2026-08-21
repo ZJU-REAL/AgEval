@@ -8,6 +8,7 @@ import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
+import { InlineMarkdown } from "@/components/markdown";
 import {
   Table,
   TableBody,
@@ -230,55 +231,57 @@ export function AgentDetailPage() {
         ]}
       />
 
-      <div className="mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <DisplayNameEditor
-            value={
-              release?.display_name?.trim() ||
-              preview?.label?.trim() ||
-              packageParts.name
-            }
-            prefix={packageParts.org ? `${packageParts.org}/` : null}
-            canEdit={Boolean(token && canEditName && release)}
-            headingClassName="text-xl font-semibold tracking-tight text-ink"
-            afterTitle={release?.official ? <OfficialMark /> : null}
-            onSave={async (next) => {
-              const updated = await updatePackageDisplayName(agentId, next, token);
-              setRelease((prev) =>
-                prev ? { ...prev, display_name: updated.display_name || next } : prev,
-              );
-            }}
-          />
-          {formatBadge ? (
-            <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
-              {formatBadge}
-            </span>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <DisplayNameEditor
+              value={
+                release?.display_name?.trim() ||
+                preview?.label?.trim() ||
+                packageParts.name
+              }
+              prefix={packageParts.org ? `${packageParts.org}/` : null}
+              canEdit={Boolean(token && canEditName && release)}
+              headingClassName="text-xl font-semibold tracking-tight text-ink"
+              afterTitle={release?.official ? <OfficialMark /> : null}
+              onSave={async (next) => {
+                const updated = await updatePackageDisplayName(agentId, next, token);
+                setRelease((prev) =>
+                  prev ? { ...prev, display_name: updated.display_name || next } : prev,
+                );
+              }}
+            />
+            {formatBadge ? (
+              <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
+                {formatBadge}
+              </span>
+            ) : null}
+          </div>
+          {release ? (
+            <p className="text-sm text-mute mt-1">
+              <span className="font-mono">@{agentId}</span>
+              {" · "}
+              {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
+              {release.org_id ? (
+                <>
+                  {" "}
+                  · org{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <Link
+                      to={`/organizations/${encodeURIComponent(release.org_id)}`}
+                      className="font-mono text-xs text-body hover:text-ink"
+                    >
+                      {release.org_id}
+                    </Link>
+                    {release.official ? <OfficialMark kind="org" /> : null}
+                  </span>
+                </>
+              ) : null}
+            </p>
           ) : null}
         </div>
         {release ? (
-          <p className="text-sm text-mute mt-1">
-            <span className="font-mono">@{agentId}</span>
-            {" · "}
-            {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
-            {release.org_id ? (
-              <>
-                {" "}
-                · org{" "}
-                <span className="inline-flex items-center gap-1">
-                  <Link
-                    to={`/organizations/${encodeURIComponent(release.org_id)}`}
-                    className="font-mono text-xs text-body hover:text-ink"
-                  >
-                    {release.org_id}
-                  </Link>
-                  {release.official ? <OfficialMark kind="org" /> : null}
-                </span>
-              </>
-            ) : null}
-          </p>
-        ) : null}
-        {release ? (
-          <div className="mt-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <PackageOwnerOps
               packageId={agentId}
               release={release}
@@ -294,21 +297,6 @@ export function AgentDetailPage() {
               onReleased={() => setReloadAt((n) => n + 1)}
             />
           </div>
-        ) : null}
-        {preview?.description ? (
-          <p className="text-sm text-body mt-2 max-w-2xl">{preview.description}</p>
-        ) : null}
-        {preview?.tags?.length ? (
-          <p className="mt-2 flex flex-wrap gap-1.5">
-            {preview.tags.map((t) => (
-              <span
-                key={t}
-                className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-hairline bg-canvas-soft text-mute"
-              >
-                {t}
-              </span>
-            ))}
-          </p>
         ) : null}
       </div>
 
@@ -327,6 +315,10 @@ export function AgentDetailPage() {
 
       {!loading && !error && release && (
         <div className="space-y-6">
+          {preview?.description ? (
+            <InlineMarkdown source={preview.description} />
+          ) : null}
+
           <section className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Install &amp; run (CLI)</h2>
             <CommandStrip command={installCmd} />
