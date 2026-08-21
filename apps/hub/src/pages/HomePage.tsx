@@ -55,6 +55,7 @@ export function HomePage() {
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
   const [plugins, setPlugins] = useState<PackageRelease[]>([]);
+  const [agents, setAgents] = useState<PackageRelease[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [taskNote, setTaskNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,15 +70,18 @@ export function HomePage() {
       listOrgs(token),
       listPackages(token, { packageKind: "dataset", mine: true }),
       listPackages(token, { packageKind: "plugin", mine: true }),
+      listPackages(token, { packageKind: "agent", mine: true }),
     ])
-      .then(async ([suiteRows, orgRows, datasetRows, pluginRows]) => {
+      .then(async ([suiteRows, orgRows, datasetRows, pluginRows, agentRows]) => {
         if (cancelled) return;
         const ds = latestPackageByDataset(datasetRows);
         const plugs = latestPackageByDataset(pluginRows);
+        const ags = latestPackageByDataset(agentRows);
         setJobs(suiteRows);
         setOrgs(orgRows);
         setDatasets(ds);
         setPlugins(plugs);
+        setAgents(ags);
         setTaskNote(null);
         setError(null);
 
@@ -233,7 +237,7 @@ export function HomePage() {
                     navigate(`/datasets/${encodeDatasetId(d.dataset_id)}`),
                   cells: [
                     <span key="id" className="font-mono text-sm">
-                      {d.dataset_id}
+                      {packageDisplayTitle(d.dataset_id, d.display_name)}
                     </span>,
                     versionLabel(d),
                     d.visibility,
@@ -304,6 +308,36 @@ export function HomePage() {
           </HomeSection>
 
           <HomeSection
+            title="Agents"
+            hint="Agent packages you uploaded."
+            empty="No agent packages uploaded by this account."
+            count={agents.length}
+          >
+            {agents.length ? (
+              <ScrollTable
+                headers={["Agent", "Version"]}
+                rows={agents.map((a) => ({
+                  key: a.dataset_id,
+                  onClick: () =>
+                    navigate(`/agents/${encodeDatasetId(a.dataset_id)}`),
+                  cells: [
+                    <span
+                      key="id"
+                      className="inline-flex items-center gap-1.5 min-w-0"
+                    >
+                      <span className="font-mono text-sm truncate">
+                        {packageDisplayTitle(a.dataset_id, a.display_name)}
+                      </span>
+                      {a.official ? <OfficialMark /> : null}
+                    </span>,
+                    `v${a.version}`,
+                  ],
+                }))}
+              />
+            ) : null}
+          </HomeSection>
+
+          <HomeSection
             title="Jobs"
             hint="Suites you uploaded (uploaded_by), not every job in your orgs."
             empty="No suite uploads under this account yet."
@@ -336,9 +370,7 @@ export function HomePage() {
                     s.pass_rate == null
                       ? "—"
                       : `${(Number(s.pass_rate) * 100).toFixed(1)}%`,
-                    typeof s.created_at === "number"
-                      ? formatDate(new Date(s.created_at * 1000).toISOString())
-                      : "—",
+                    formatDate(s.created_at),
                   ],
                 }))}
               />

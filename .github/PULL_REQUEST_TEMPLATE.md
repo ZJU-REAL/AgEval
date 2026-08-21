@@ -16,6 +16,6 @@
 ## Checklist
 
 - [ ] No credentials / tokens in yaml, lock, evidence, or examples
-- [ ] Trajectory / `HarnessTerminal.completed` is not treated as PASS
+- [ ] Trajectory / `RunTerminal.completed` is not treated as PASS
 - [ ] Product / mechanism changes updated the highest authority (design → Architecture / Issues as needed)
 - [ ] Regression or public smoke exists; a fixture alone is not `runnable-mvp`

@@ -32,6 +32,7 @@ export function UserPage() {
   const [user, setUser] = useState<UserPublic | null>(null);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
   const [plugins, setPlugins] = useState<PackageRelease[]>([]);
+  const [agents, setAgents] = useState<PackageRelease[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -50,11 +51,14 @@ export function UserPage() {
         setUser(profile);
         setError(null);
         const uid = profile.user_id;
-        const [datasetRows, pluginRows] = await Promise.all([
+        const [datasetRows, pluginRows, agentRows] = await Promise.all([
           listPackages(token, { packageKind: "dataset" }).catch(
             () => [] as PackageRelease[],
           ),
           listPackages(token, { packageKind: "plugin" }).catch(
+            () => [] as PackageRelease[],
+          ),
+          listPackages(token, { packageKind: "agent" }).catch(
             () => [] as PackageRelease[],
           ),
         ]);
@@ -67,11 +71,13 @@ export function UserPage() {
           );
         setDatasets(mine(datasetRows));
         setPlugins(mine(pluginRows));
+        setAgents(mine(agentRows));
       } catch (err: unknown) {
         if (cancelled) return;
         setUser(null);
         setDatasets([]);
         setPlugins([]);
+        setAgents([]);
         if (err instanceof RegistryHttpError) {
           setError(`${err.code}: ${err.message}`);
         } else {
@@ -179,7 +185,14 @@ export function UserPage() {
             empty="No public plugins uploaded by this account."
             rows={plugins}
             href={(row) => `/plugins/${encodeDatasetId(row.dataset_id)}`}
-            plugin
+            kind="plugin"
+          />
+          <UserPackageSection
+            title="Public agents"
+            empty="No public agents uploaded by this account."
+            rows={agents}
+            href={(row) => `/agents/${encodeDatasetId(row.dataset_id)}`}
+            kind="agent"
           />
         </div>
       ) : null}
@@ -192,14 +205,16 @@ function UserPackageSection({
   empty,
   rows,
   href,
-  plugin = false,
+  kind = "dataset",
 }: {
   title: string;
   empty: string;
   rows: PackageRelease[];
   href: (row: PackageRelease) => string;
-  plugin?: boolean;
+  kind?: "dataset" | "plugin" | "agent";
 }) {
+  const head =
+    kind === "plugin" ? "Plugin" : kind === "agent" ? "Agent" : "Dataset";
   return (
     <section className="space-y-2">
       <h2 className="text-sm font-medium text-ink">{title}</h2>
@@ -212,7 +227,7 @@ function UserPackageSection({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>{plugin ? "Plugin" : "Dataset"}</TableHead>
+                <TableHead>{head}</TableHead>
                 <TableHead>Version</TableHead>
               </TableRow>
             </TableHeader>
@@ -225,14 +240,11 @@ function UserPackageSection({
                       className="inline-flex items-center gap-1.5 font-mono text-sm hover:underline min-w-0"
                     >
                       <span className="truncate">
-                        {plugin
-                          ? packageDisplayTitle(
-                              row.dataset_id,
-                              row.display_name,
-                            )
-                          : row.dataset_id}
+                        {packageDisplayTitle(row.dataset_id, row.display_name)}
                       </span>
-                      {plugin && row.official ? <OfficialMark /> : null}
+                      {kind !== "dataset" && row.official ? (
+                        <OfficialMark />
+                      ) : null}
                     </Link>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-body">

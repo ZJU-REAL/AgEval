@@ -336,9 +336,8 @@ export function JobsPage() {
           {selectedCount > 0 ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="dangerOutline"
               size="sm"
-              className="text-error hover:text-error"
               onClick={() => {
                 const rows = filtered.filter((j) => selected[j.job_id]);
                 if (rows.length) setPendingDelete(rows);

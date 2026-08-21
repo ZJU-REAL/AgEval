@@ -3,7 +3,7 @@ name: ageval-design-system
 description: >
   ageval web UI style rules for coding agents editing website (landing + docs),
   apps/hub, or apps/viewer: canonical color tokens (cool paper/ink + IKB
-  #1B54E8/#5B7BFF), font stacks (Geist/Anton wordmark-only), chamfer/radius,
+  #1B54E8/#5B7BFF), font stacks (Geist/Anton wordmark-only), radius,
   focus and selection language, the ten invariants, and the machine check
   scripts/check_design_tokens.py. Use when adding or restyling UI in any of the
   three web surfaces, picking colors or fonts, adding icons, or when a change
@@ -38,8 +38,8 @@ fix the surfaces to match docs/13 + the script.
   `ink` / `body` / `mute` are type.
 - Anton is wordmark-only. Body is Geist (+ CJK fallback). Mono is Geist Mono.
 - Radii are 6 / 8 / 12px only. Primary CTA (SPA Button `default`) is IKB fill +
-  `chamfer chamfer-focus` + mono 13px. Chamfered controls use `chamfer-focus`
-  (drop-shadow stroke; ink stroke on IKB fill).
+  `rounded-[6px]` + mono 13px + `focus-visible:ring-2 ring-link/70`. Do not use
+  clip-path chamfer on buttons.
 - Underline tabs are `font-mono text-xs uppercase tracking-wide` with an IKB
   active underline. Page heads use `PageHead` (h1 + optional sub + hairline;
   no numbered kicker).

@@ -63,7 +63,7 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | --- | --- |
 | `/home` | Personal home (uploaded jobs, orgs, maintainable datasets/tasks, uploaded plugins) |
 | `/datasets` | Dataset list (**Your organizations** / **Explore** + search on one row) |
-| `/datasets/:id` | README · Tasks · Shared · Overlays (when declared) · Leaderboard |
+| `/datasets/:id` | README · Tasks · Shared · Overlays (when declared) · Leaderboard. Org owner: visibility / delete version / release draft |
 | `/datasets/:id?tab=leaderboard&demo=1` | Leaderboard with mock pass@k rows (local smoke only) |
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs (row opens detail when uploaded) |
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |
@@ -71,10 +71,10 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | `/agents` | Published Agent catalog |
 | `/agents/:id` | Agent detail (binding, files, appearances grouped by version) |
 | `/datasets/:id?tab=leaderboard&suite=` | Public Leaderboard with that suite row expanded |
-| `/organizations` | Your orgs · Join |
-| `/organizations/:orgId` | Overview (members · datasets · plugins) · Settings |
+| `/organizations` | Your orgs · Create · Join |
+| `/organizations/:orgId` | Overview (members · datasets · plugins · agents) · Settings |
 | `/users/:login` | Public user profile (official orgs only; signed-out OK) |
-| `/jobs/...` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |
+| `/datasets/:id/tasks/:task/attempts/:runId` | Remote Attempt detail (Timing / Tokens when present, tabs + trajectory) |
 | `/login` | Starts browser OAuth |
 | `/login/callback` | OAuth redirect target |
 

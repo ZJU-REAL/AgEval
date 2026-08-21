@@ -30,7 +30,10 @@ export function VersionSwitcher({
   const ordered = byNewest(versions);
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger aria-label="Package version" className="min-w-0 w-auto font-mono">
+      <SelectTrigger
+        aria-label="Package version"
+        className="h-8 min-w-0 w-auto font-mono text-xs"
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent className="w-max min-w-0">

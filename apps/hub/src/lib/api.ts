@@ -690,6 +690,20 @@ export async function listOrgs(token: string | null): Promise<OrgRow[]> {
   return Array.isArray(data.items) ? data.items : [];
 }
 
+export async function createOrg(
+  body: { name: string; display_name?: string },
+  token: string | null,
+): Promise<OrgRow> {
+  return requestJson("/v1/orgs", {
+    token,
+    method: "POST",
+    body: {
+      name: body.name,
+      display_name: body.display_name || body.name,
+    },
+  });
+}
+
 export async function getOrg(
   orgId: string,
   token: string | null,
@@ -718,6 +732,45 @@ export async function updatePackageDisplayName(
     token,
     method: "PATCH",
     body: { display_name: displayName },
+  });
+}
+
+export async function setPackageVisibility(
+  packageId: string,
+  version: string,
+  visibility: "public" | "private",
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(
+    `/v1/packages/${packageIdPath(packageId)}/versions/${encodeURIComponent(version)}`,
+    { token, method: "PATCH", body: { visibility } },
+  );
+}
+
+export async function deletePackageRelease(
+  packageId: string,
+  version: string,
+  token: string | null,
+): Promise<{ ok?: boolean }> {
+  return requestJson(
+    `/v1/packages/${packageIdPath(packageId)}/versions/${encodeURIComponent(version)}`,
+    { token, method: "DELETE" },
+  );
+}
+
+export async function releasePackageDraft(
+  packageId: string,
+  body: {
+    visibility?: "public" | "private";
+    version?: string;
+    replace?: boolean;
+  },
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}/release`, {
+    token,
+    method: "POST",
+    body,
   });
 }
 
@@ -866,6 +919,64 @@ export async function listResultShares(
     { token },
   );
   return Array.isArray(data.items) ? data.items : [];
+}
+
+function resultPath(kind: "attempt" | "suite", resultId: string): string {
+  const kindPath = kind === "attempt" ? "attempts" : "suites";
+  return `/v1/results/${kindPath}/${encodeURIComponent(resultId)}`;
+}
+
+export async function addResultShare(
+  kind: "attempt" | "suite",
+  resultId: string,
+  target: { type: "org" | "user"; id: string },
+  token: string | null,
+): Promise<ResultShare> {
+  return requestJson(`${resultPath(kind, resultId)}/shares`, {
+    token,
+    method: "POST",
+    body: { target_type: target.type, target_id: target.id },
+  });
+}
+
+export async function removeResultShare(
+  kind: "attempt" | "suite",
+  resultId: string,
+  target: { type: "org" | "user"; id: string },
+  token: string | null,
+): Promise<{ ok: boolean }> {
+  return requestJson(`${resultPath(kind, resultId)}/shares`, {
+    token,
+    method: "DELETE",
+    body: { target_type: target.type, target_id: target.id },
+  });
+}
+
+export async function setResultVisibility(
+  kind: "attempt" | "suite",
+  resultId: string,
+  visibility: "public" | "private",
+  token: string | null,
+): Promise<{ visibility?: string }> {
+  return requestJson(resultPath(kind, resultId), {
+    token,
+    method: "PATCH",
+    body: { visibility },
+  });
+}
+
+export async function deleteResult(
+  kind: "attempt" | "suite",
+  resultId: string,
+  token: string | null,
+  opts?: { withAttempts?: boolean },
+): Promise<{ ok?: boolean }> {
+  const extra =
+    kind === "suite" && opts?.withAttempts ? "?with_attempts=1" : "";
+  return requestJson(`${resultPath(kind, resultId)}${extra}`, {
+    token,
+    method: "DELETE",
+  });
 }
 
 export async function deviceCode(): Promise<{

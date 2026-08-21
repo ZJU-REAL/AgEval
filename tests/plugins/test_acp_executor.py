@@ -471,6 +471,26 @@ def test_grok_build_unknown_effort_fails_closed() -> None:
         )
 
 
+def test_bind_model_available_models_is_exact_not_substring() -> None:
+    ex = _executor(entry_id="pi", model="gpt")
+    ex._conn = _FakeConn()
+    ex._acp_session_id = "sess"
+    session = SimpleNamespace(
+        config_options=None,
+        models=SimpleNamespace(available_models=[SimpleNamespace(model_id="gpt-4.1")]),
+    )
+    with pytest.raises(RuntimeError, match="acp_model_unavailable"):
+        asyncio.run(ex._bind_model(session))
+
+
+def test_bind_model_without_surface_rejects_non_default() -> None:
+    ex = _executor(entry_id="pi", model="gpt-4.1")
+    ex._conn = _FakeConn()
+    ex._acp_session_id = "sess"
+    with pytest.raises(RuntimeError, match="acp_model_unavailable"):
+        asyncio.run(ex._bind_model(SimpleNamespace(config_options=None)))
+
+
 def test_grok_build_effort_on_model_without_selector_fails() -> None:
     ex = _executor(entry_id="grok-build", model="glm-coding", reasoning_effort="low")
     with pytest.raises(RuntimeError, match="acp_reasoning_effort_unavailable"):

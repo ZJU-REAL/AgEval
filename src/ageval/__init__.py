@@ -1,10 +1,7 @@
-"""ageval — Bounded Orchestration for Runtime Agents.
+"""ageval — agent evaluation runtime.
 
-Delivered checkpoints:
-- v0.1 Config Core (``load_and_lock`` + ``ageval lock``)
-- v0.2 Lifecycle Core (identity + coordinator; application probe, no ``ageval run``)
-
-Evidence remains ``design-only`` until Roadmap product verticals land.
+Lock a dataset, run one Attempt through the five phases, and bind PASS only
+from an independent evaluator. CLI: ``ageval``.
 """
 
 from __future__ import annotations

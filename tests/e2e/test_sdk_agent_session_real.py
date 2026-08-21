@@ -41,7 +41,7 @@ def test_sdk_agent_session_offline_not_pass() -> None:
     assert result.returncode != 0
     data = json.loads(result.stdout)
     assert data["status"] != "PASS"
-    assert data.get("assurance") == "l0"
+    assert "assurance" not in data
 
 
 @pytest.mark.skipif(
@@ -73,4 +73,4 @@ def test_sdk_agent_session_real_multi_invoke_pass() -> None:
     data = json.loads(result.stdout)
     assert data["status"] == "PASS"
     assert data["agent_invocations"] == 2
-    assert data.get("assurance") == "l0"
+    assert "assurance" not in data

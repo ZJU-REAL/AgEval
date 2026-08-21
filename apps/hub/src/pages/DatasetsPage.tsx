@@ -19,6 +19,7 @@ import {
   listOrgs,
   latestPackageByDataset,
   listPackages,
+  packageDisplayTitle,
   versionLabel,
   type PackageRelease,
   RegistryHttpError,
@@ -87,6 +88,9 @@ export function DatasetsPage() {
     return scoped.filter(
       (r) =>
         r.dataset_id.toLowerCase().includes(q) ||
+        packageDisplayTitle(r.dataset_id, r.display_name)
+          .toLowerCase()
+          .includes(q) ||
         (r.org_id && r.org_id.toLowerCase().includes(q)),
     );
   }, [items, scope, myOrgIds, query, token]);
@@ -189,7 +193,7 @@ export function DatasetsPage() {
                       role="link"
                     >
                       <TableCell className="font-medium font-mono text-sm">
-                        {row.dataset_id}
+                        {packageDisplayTitle(row.dataset_id, row.display_name)}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-mute">
                         {row.org_id ? (

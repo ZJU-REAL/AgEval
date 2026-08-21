@@ -1,3 +1,4 @@
+import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
 import {
@@ -34,7 +35,7 @@ export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }
                   {a.role}
                 </TableCell>
                 <TableCell className="font-mono text-[13px] text-body">
-                  {a.agent}
+                  <AxisLabel value={a.agent} />
                 </TableCell>
                 <TableCell className="font-mono text-[13px] text-mute">
                   <ModelLabel value={a.model} effort={a.reasoning_effort} />
