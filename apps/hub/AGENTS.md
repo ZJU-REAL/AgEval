@@ -29,6 +29,9 @@ Stack is Vite + React + Tailwind + **shadcn/ui** under `src/components/ui/`
 4. **Copy an existing pattern.** Package versions → `VersionSwitcher`. Slot
    history on Attempt evidence → the same `Select` shape (label + trailing
    time). Jobs filters in Viewer are the same `Select` primitive.
+5. **Catalog cards for plugins and agents.** Marketplace packages use
+   `CatalogCard` / `CatalogCardGrid` (see `DESIGN.md`). Datasets, jobs,
+   leaderboard, members, and suites stay hairline tables.
 
 New chrome requires a new `src/components/ui/` primitive first, used by both
 Hub and Viewer. Do not one-off style a native element.

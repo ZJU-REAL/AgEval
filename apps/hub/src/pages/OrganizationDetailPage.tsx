@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 
+import { CatalogCardGrid } from "@/components/catalog-card";
 import { CatalogHead } from "@/components/page-head";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { HoverTip } from "@/components/hover-tip";
@@ -566,55 +567,13 @@ export function OrganizationDetailPage() {
                     No plugins published under this org yet.
                   </div>
                 ) : (
-                  <div className="rounded-[8px] border border-hairline overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead>Plugin</TableHead>
-                          <TableHead>Version</TableHead>
-                          <TableHead>Visibility</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {plugins.map((p) => {
-                          const href = `/plugins/${encodeDatasetId(p.dataset_id)}`;
-                          return (
-                            <TableRow
-                              key={p.dataset_id}
-                              className="cursor-pointer"
-                              onClick={() => navigate(href)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  navigate(href);
-                                }
-                              }}
-                              tabIndex={0}
-                              role="link"
-                            >
-                              <TableCell>
-                                <span className="inline-flex items-center gap-1.5 font-mono text-sm min-w-0">
-                                  <span className="truncate">
-                                    {packageDisplayTitle(
-                                      p.dataset_id,
-                                      p.display_name,
-                                    )}
-                                  </span>
-                                  {p.official ? <OfficialMark /> : null}
-                                </span>
-                              </TableCell>
-                              <TableCell className="font-mono text-xs text-body">
-                                {p.version}
-                              </TableCell>
-                              <TableCell className="text-sm text-body">
-                                {p.visibility}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <CatalogCardGrid
+                    kind="plugin"
+                    rows={plugins}
+                    onOpen={(id) =>
+                      navigate(`/plugins/${encodeDatasetId(id)}`)
+                    }
+                  />
                 )}
               </section>
 
@@ -625,55 +584,11 @@ export function OrganizationDetailPage() {
                     No agents published under this org yet.
                   </div>
                 ) : (
-                  <div className="rounded-[8px] border border-hairline overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead>Agent</TableHead>
-                          <TableHead>Version</TableHead>
-                          <TableHead>Visibility</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {agents.map((a) => {
-                          const href = `/agents/${encodeDatasetId(a.dataset_id)}`;
-                          return (
-                            <TableRow
-                              key={a.dataset_id}
-                              className="cursor-pointer"
-                              onClick={() => navigate(href)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  navigate(href);
-                                }
-                              }}
-                              tabIndex={0}
-                              role="link"
-                            >
-                              <TableCell>
-                                <span className="inline-flex items-center gap-1.5 font-mono text-sm min-w-0">
-                                  <span className="truncate">
-                                    {packageDisplayTitle(
-                                      a.dataset_id,
-                                      a.display_name,
-                                    )}
-                                  </span>
-                                  {a.official ? <OfficialMark /> : null}
-                                </span>
-                              </TableCell>
-                              <TableCell className="font-mono text-xs text-body">
-                                {a.version}
-                              </TableCell>
-                              <TableCell className="text-sm text-body">
-                                {a.visibility}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <CatalogCardGrid
+                    kind="agent"
+                    rows={agents}
+                    onOpen={(id) => navigate(`/agents/${encodeDatasetId(id)}`)}
+                  />
                 )}
               </section>
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { CatalogCardGrid } from "@/components/catalog-card";
 import { PageHead } from "@/components/page-head";
 import { OfficialMark } from "@/components/official-mark";
 import {
@@ -27,6 +28,7 @@ import { getToken } from "@/lib/auth";
 export function UserPage() {
   const { login: rawLogin } = useParams();
   const login = rawLogin ? decodeURIComponent(rawLogin) : "";
+  const navigate = useNavigate();
   const token = getToken();
 
   const [user, setUser] = useState<UserPublic | null>(null);
@@ -186,6 +188,7 @@ export function UserPage() {
             rows={plugins}
             href={(row) => `/plugins/${encodeDatasetId(row.dataset_id)}`}
             kind="plugin"
+            onOpen={(id) => navigate(`/plugins/${encodeDatasetId(id)}`)}
           />
           <UserPackageSection
             title="Public agents"
@@ -193,6 +196,7 @@ export function UserPage() {
             rows={agents}
             href={(row) => `/agents/${encodeDatasetId(row.dataset_id)}`}
             kind="agent"
+            onOpen={(id) => navigate(`/agents/${encodeDatasetId(id)}`)}
           />
         </div>
       ) : null}
@@ -206,12 +210,14 @@ function UserPackageSection({
   rows,
   href,
   kind = "dataset",
+  onOpen,
 }: {
   title: string;
   empty: string;
   rows: PackageRelease[];
   href: (row: PackageRelease) => string;
   kind?: "dataset" | "plugin" | "agent";
+  onOpen?: (id: string) => void;
 }) {
   const head =
     kind === "plugin" ? "Plugin" : kind === "agent" ? "Agent" : "Dataset";
@@ -222,6 +228,8 @@ function UserPackageSection({
         <div className="rounded-[8px] border border-dashed border-hairline p-6 text-sm text-mute">
           {empty}
         </div>
+      ) : (kind === "plugin" || kind === "agent") && onOpen ? (
+        <CatalogCardGrid kind={kind} rows={rows} onOpen={onOpen} />
       ) : (
         <div className="rounded-[8px] border border-hairline overflow-hidden">
           <Table>
@@ -242,9 +250,6 @@ function UserPackageSection({
                       <span className="truncate">
                         {packageDisplayTitle(row.dataset_id, row.display_name)}
                       </span>
-                      {kind !== "dataset" && row.official ? (
-                        <OfficialMark />
-                      ) : null}
                     </Link>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-body">

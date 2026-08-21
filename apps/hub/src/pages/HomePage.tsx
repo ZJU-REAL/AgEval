@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
+import { CatalogCardGrid } from "@/components/catalog-card";
 import { OfficialMark } from "@/components/official-mark";
 import { PageHead } from "@/components/page-head";
 import { ScrollTable } from "@/components/scroll-table";
@@ -284,25 +285,10 @@ export function HomePage() {
             count={plugins.length}
           >
             {plugins.length ? (
-              <ScrollTable
-                headers={["Plugin", "Version"]}
-                rows={plugins.map((p) => ({
-                  key: p.dataset_id,
-                  onClick: () =>
-                    navigate(`/plugins/${encodeDatasetId(p.dataset_id)}`),
-                  cells: [
-                    <span
-                      key="id"
-                      className="inline-flex items-center gap-1.5 min-w-0"
-                    >
-                      <span className="font-mono text-sm truncate">
-                        {packageDisplayTitle(p.dataset_id, p.display_name)}
-                      </span>
-                      {p.official ? <OfficialMark /> : null}
-                    </span>,
-                    `v${p.version}`,
-                  ],
-                }))}
+              <CatalogCardGrid
+                kind="plugin"
+                rows={plugins}
+                onOpen={(id) => navigate(`/plugins/${encodeDatasetId(id)}`)}
               />
             ) : null}
           </HomeSection>
@@ -314,25 +300,10 @@ export function HomePage() {
             count={agents.length}
           >
             {agents.length ? (
-              <ScrollTable
-                headers={["Agent", "Version"]}
-                rows={agents.map((a) => ({
-                  key: a.dataset_id,
-                  onClick: () =>
-                    navigate(`/agents/${encodeDatasetId(a.dataset_id)}`),
-                  cells: [
-                    <span
-                      key="id"
-                      className="inline-flex items-center gap-1.5 min-w-0"
-                    >
-                      <span className="font-mono text-sm truncate">
-                        {packageDisplayTitle(a.dataset_id, a.display_name)}
-                      </span>
-                      {a.official ? <OfficialMark /> : null}
-                    </span>,
-                    `v${a.version}`,
-                  ],
-                }))}
+              <CatalogCardGrid
+                kind="agent"
+                rows={agents}
+                onOpen={(id) => navigate(`/agents/${encodeDatasetId(id)}`)}
               />
             ) : null}
           </HomeSection>

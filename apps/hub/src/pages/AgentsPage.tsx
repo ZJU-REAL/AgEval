@@ -1,47 +1,20 @@
 import { Bot } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
+import { CatalogCardGrid } from "@/components/catalog-card";
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
-import { OfficialMark } from "@/components/official-mark";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   encodeDatasetId,
+  latestPackageByDataset,
   listOrgs,
   listPackages,
-  packageDisplayTitle,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { formatDate } from "@/lib/utils";
-
-/** Collapse multi-version list to latest per package id (by created_at). */
-function latestByPackage(items: PackageRelease[]): PackageRelease[] {
-  const map = new Map<string, PackageRelease>();
-  for (const row of items) {
-    const prev = map.get(row.dataset_id);
-    if (!prev) {
-      map.set(row.dataset_id, row);
-      continue;
-    }
-    const a = prev.created_at ?? 0;
-    const b = row.created_at ?? 0;
-    if (b >= a) map.set(row.dataset_id, row);
-  }
-  return Array.from(map.values()).sort((x, y) =>
-    x.dataset_id.localeCompare(y.dataset_id),
-  );
-}
 
 type Scope = "orgs" | "explore";
 
@@ -91,7 +64,7 @@ export function AgentsPage() {
   }, [token]);
 
   const agents = useMemo(() => {
-    const latest = latestByPackage(items);
+    const latest = latestPackageByDataset(items);
     const scoped =
       scope === "orgs"
         ? latest.filter((r) => r.org_id && myOrgIds.has(r.org_id) && token)
@@ -178,79 +151,7 @@ export function AgentsPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-[8px] border border-hairline overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Org</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>Visibility</TableHead>
-                    <TableHead className="text-right tabular-nums">Size</TableHead>
-                    <TableHead>Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {agents.map((row) => (
-                    <TableRow
-                      key={`${row.dataset_id}@${row.version}`}
-                      className="cursor-pointer"
-                      onClick={() => openAgent(row.dataset_id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          openAgent(row.dataset_id);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="link"
-                    >
-                      <TableCell className="font-medium font-mono text-sm">
-                        <span className="inline-flex items-center gap-1.5 min-w-0">
-                          <span className="truncate">
-                            {packageDisplayTitle(
-                              row.dataset_id,
-                              row.display_name,
-                            )}
-                          </span>
-                          {row.official ? <OfficialMark /> : null}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-mute">
-                        {row.org_id ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Link
-                              to={`/organizations/${encodeURIComponent(row.org_id)}`}
-                              className="hover:text-ink"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              @{row.org_id}
-                            </Link>
-                            {row.official ? <OfficialMark kind="org" /> : null}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-body">
-                        {row.version}
-                      </TableCell>
-                      <TableCell className="text-body">{row.visibility}</TableCell>
-                      <TableCell className="text-right tabular-nums text-body">
-                        {row.size.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-mute text-xs">
-                        {typeof row.created_at === "number"
-                          ? formatDate(
-                              new Date(row.created_at * 1000).toISOString(),
-                            )
-                          : "-"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <CatalogCardGrid kind="agent" rows={agents} onOpen={openAgent} />
           )}
           <p className="text-xs text-mute mt-3 tabular-nums">
             {agents.length} agent{agents.length === 1 ? "" : "s"}
