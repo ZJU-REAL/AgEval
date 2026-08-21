@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval.plugins.manifest import HostRequire, PluginManifest
-from ageval.plugins.store import list_installed, resolve_package_root
+from ageval.plugins.store import load_index, resolve_package_root
 
 BAKE_REL = Path("docker") / "Dockerfile.bake"
 
@@ -41,15 +41,15 @@ def file_available(root: Path, rel: str) -> bool:
 
 
 def installed_plugin(plugin_id: str) -> tuple[PluginManifest, Path] | None:
-    for entry in list_installed():
-        if entry.plugin_id == plugin_id:
-            root = resolve_package_root(entry)
-            if not root.is_dir():
-                return None
-            from ageval.plugins.manifest import load_manifest
+    entry = load_index().find(plugin_id)
+    if entry is None:
+        return None
+    root = resolve_package_root(entry)
+    if not root.is_dir():
+        return None
+    from ageval.plugins.manifest import load_manifest
 
-            return load_manifest(root), root
-    return None
+    return load_manifest(root), root
 
 
 def bake_recipe_declared(manifest: PluginManifest, root: Path) -> bool:

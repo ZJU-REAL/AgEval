@@ -135,12 +135,3 @@ def _factory_return_type(impl: Any) -> Any | None:
         hints = getattr(impl, "__annotations__", {}) or {}
     ret = hints.get("return")
     return ret if isinstance(ret, type) else None
-
-
-def required_kinds_for_v014() -> frozenset[str]:
-    """Historical name: coding-agent surface is now ACP."""
-    return frozenset({"acp"})
-
-
-def residual_kinds() -> frozenset[str]:
-    return frozenset()

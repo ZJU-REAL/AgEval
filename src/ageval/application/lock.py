@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,9 +31,6 @@ class LockResult:
 
     def summary(self) -> dict[str, Any]:
         return locked_to_summary(self.lock).as_dict()
-
-    def summary_json(self) -> str:
-        return json.dumps(self.summary(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 class LockCommand:

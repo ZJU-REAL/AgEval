@@ -13,7 +13,6 @@ variable *name* — never a value.
 from __future__ import annotations
 
 import copy
-import json
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -609,17 +608,3 @@ def write_profiles_yaml(path: Path, document: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     text = yaml.safe_dump(dict(document), sort_keys=False, allow_unicode=True)
     path.write_text(text, encoding="utf-8")
-
-
-def attach_display_labels(doc: dict[str, Any], overlay: Mapping[str, Any] | None) -> None:
-    """Write sealed ``agent_label`` / ``model_label`` onto a result document."""
-    agent, model_label = display_labels_from_overlay(overlay)
-    if agent:
-        doc["agent_label"] = agent
-    if model_label:
-        doc["model_label"] = model_label
-
-
-def dumps_job(document: Mapping[str, Any]) -> str:
-    """Deterministic JSON form (evidence / tests)."""
-    return json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)

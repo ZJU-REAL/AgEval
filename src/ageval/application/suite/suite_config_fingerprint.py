@@ -226,11 +226,8 @@ def plugins_from_run_lock(
     dataset_root: Path,
     run_id: str | None,
 ) -> list[dict[str, str]]:
-    data = load_run_lock_doc(dataset_root, run_id)
-    if data is None:
-        return []
-    bindings = data.get("extension_bindings")
-    return plugins_from_extension_bindings(bindings if isinstance(bindings, Mapping) else None)
+    _, _, plugins = _projections_from_lock_doc(load_run_lock_doc(dataset_root, run_id))
+    return plugins
 
 
 def fingerprint_for_job_overlay(overlay: Mapping[str, Any] | None) -> str:
@@ -439,6 +436,21 @@ def load_run_lock_doc(
     return data if isinstance(data, dict) else None
 
 
+def _projections_from_lock_doc(
+    data: Mapping[str, Any] | None,
+) -> tuple[list[dict[str, str]] | None, dict[str, Any] | None, list[dict[str, str]]]:
+    """Actors, job overlay, and plugin refs from one Attempt lock document."""
+    if data is None:
+        return None, None, []
+    profiles = data.get("profiles") or data.get("agent_profiles") or []
+    actors = actors_summary_from_profiles(profiles) if isinstance(profiles, list) else None
+    overlay_raw = data.get("job_overlay")
+    overlay = dict(overlay_raw) if isinstance(overlay_raw, dict) else None
+    bindings = data.get("extension_bindings")
+    plugins = plugins_from_extension_bindings(bindings if isinstance(bindings, Mapping) else None)
+    return actors, overlay, plugins
+
+
 def load_actors_from_run_lock(
     dataset_root: Path,
     run_id: str | None,
@@ -447,13 +459,8 @@ def load_actors_from_run_lock(
 
     Returns None if missing/unreadable (caller may fall back to live lock).
     """
-    data = load_run_lock_doc(dataset_root, run_id)
-    if data is None:
-        return None
-    profiles = data.get("profiles") or data.get("agent_profiles") or []
-    if not isinstance(profiles, list):
-        return None
-    return actors_summary_from_profiles(profiles)
+    actors, _, _ = _projections_from_lock_doc(load_run_lock_doc(dataset_root, run_id))
+    return actors
 
 
 def load_job_overlay_from_run_lock(
@@ -461,11 +468,8 @@ def load_job_overlay_from_run_lock(
     run_id: str | None,
 ) -> dict[str, Any] | None:
     """Secret-free ``job_overlay`` from Attempt lock (#59), if recorded."""
-    data = load_run_lock_doc(dataset_root, run_id)
-    if data is None:
-        return None
-    overlay = data.get("job_overlay")
-    return dict(overlay) if isinstance(overlay, dict) else None
+    _, overlay, _ = _projections_from_lock_doc(load_run_lock_doc(dataset_root, run_id))
+    return overlay
 
 
 def load_actors_from_task_lock(
@@ -575,6 +579,44 @@ def collect_suite_config(
             by_id[tid] = row
 
     plugin_groups: list[list[dict[str, str]]] = []
+    lock_docs: dict[str, dict[str, Any] | None] = {}
+    live_locks: dict[str, tuple[list[dict[str, str]], dict[str, Any] | None]] = {}
+
+    def _cached_run_lock(run_id: str | None) -> dict[str, Any] | None:
+        if not run_id or not str(run_id).strip():
+            return None
+        key = str(run_id)
+        if key not in lock_docs:
+            lock_docs[key] = load_run_lock_doc(dataset_root, key)
+        return lock_docs[key]
+
+    def _cached_live_lock(task_id: str) -> tuple[list[dict[str, str]], dict[str, Any] | None]:
+        if task_id not in live_locks:
+            from ageval.application.composition import build_lock_command
+            from ageval.config.model import thaw
+
+            try:
+                result = build_lock_command().lock(
+                    dataset_root,
+                    task_id,
+                    overrides=overrides,
+                    profiles_path=profiles_path,
+                )
+            except Exception:  # noqa: BLE001
+                live_locks[task_id] = ([], None)
+            else:
+                profiles = thaw(result.lock.agent_profiles)
+                actors = (
+                    actors_summary_from_profiles(profiles) if isinstance(profiles, list) else []
+                )
+                overlay = (
+                    dict(thaw(result.lock.job_overlay))
+                    if result.lock.job_overlay is not None
+                    else None
+                )
+                live_locks[task_id] = (actors, overlay)
+        return live_locks[task_id]
+
     for tid in ids:
         if not tid:
             per_task.append([])
@@ -583,36 +625,22 @@ def collect_suite_config(
         row = by_id.get(tid)
         actors: list[dict[str, str]] | None = None
         overlay: dict[str, Any] | None = None
-        run_id: str | None = None
         if row is not None:
             rid = row.get("run_id")
             if isinstance(rid, str) and rid.strip():
                 run_id = rid
             elif rid is not None:
                 run_id = str(rid)
-            actors = load_actors_from_run_lock(dataset_root, run_id)
-            overlay = load_job_overlay_from_run_lock(dataset_root, run_id)
-            plugin_groups.append(plugins_from_run_lock(dataset_root, run_id))
-        if actors is None:
-            try:
-                actors = load_actors_from_task_lock(
-                    dataset_root,
-                    tid,
-                    overrides=overrides,
-                    profiles_path=profiles_path,
-                )
-            except Exception:  # noqa: BLE001
-                actors = []
-        if overlay is None:
-            try:
-                overlay = load_job_overlay_from_task_lock(
-                    dataset_root,
-                    tid,
-                    overrides=overrides,
-                    profiles_path=profiles_path,
-                )
-            except Exception:  # noqa: BLE001
-                overlay = None
+            else:
+                run_id = None
+            actors, overlay, plugins = _projections_from_lock_doc(_cached_run_lock(run_id))
+            plugin_groups.append(plugins)
+        if actors is None or overlay is None:
+            live_actors, live_overlay = _cached_live_lock(tid)
+            if actors is None:
+                actors = live_actors
+            if overlay is None:
+                overlay = live_overlay
         per_task.append(actors)
         overlays.append(overlay)
 

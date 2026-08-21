@@ -19,10 +19,5 @@ class LifecycleError(Exception):
         return f"{self.error_code}: {self.message}"
 
 
-ERROR_ILLEGAL_TRANSITION = "illegal_transition"
-ERROR_CROSS_ATTEMPT = "cross_attempt"
 ERROR_INVALID_IDENTITY = "invalid_identity"
 ERROR_INVALID_RETRY = "invalid_retry"
-ERROR_TERMINAL_REOPEN = "terminal_reopen"
-ERROR_DUPLICATE_STAGE = "duplicate_stage"
-ERROR_INVALID_ARGUMENT = "invalid_argument"

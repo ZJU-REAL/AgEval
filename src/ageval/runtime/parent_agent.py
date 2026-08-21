@@ -39,6 +39,7 @@ from ageval.runtime.agent_service_evidence import (
 from ageval.runtime.offline import is_offline_agent
 
 _LOG = logging.getLogger(__name__)
+_THREAD_LOOPS = threading.local()
 
 # Per-invoke ceiling when the task declares none.
 DEFAULT_INVOKE_TIMEOUT_SECONDS = 300.0
@@ -382,9 +383,12 @@ class ParentAgentService:
 
     def _chain(self, binding: SessionBinding, slot: str, value: Any) -> Any:
         """Run one locked chain slot on this synchronous invoke path."""
-        from ageval.attempt.emit import run_chain
+        from ageval.attempt.emit import run_handlers
 
-        return _drive(run_chain(binding.graph, slot, value, ctx=binding))
+        handlers = binding.graph.chain(slot) if binding.graph is not None else []
+        if not handlers:
+            return value
+        return _drive(run_handlers(handlers, value, ctx=binding))
 
 
 def _refusal(error: str) -> dict[str, Any]:
@@ -405,6 +409,10 @@ def _drive(coro: Any) -> Any:
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(coro)
+        loop = getattr(_THREAD_LOOPS, "loop", None)
+        if loop is None or loop.is_closed():
+            loop = asyncio.new_event_loop()
+            _THREAD_LOOPS.loop = loop
+        return loop.run_until_complete(coro)
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(asyncio.run, coro).result()

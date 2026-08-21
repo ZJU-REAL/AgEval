@@ -19,7 +19,7 @@ from ageval.config.constants import (
     EVALUATION_DIR,
     SEED_DIR,
 )
-from ageval.config.model import LockedTaskConfig, locked_to_summary, thaw
+from ageval.config.model import LockedTaskConfig, thaw
 from ageval.environments.protocol import BoxSpec
 from ageval.evaluation.bind import AttemptResult, bind_result
 from ageval.evidence.locators import default_runs_root
@@ -356,8 +356,3 @@ def _exit_code(result: AttemptResult) -> int:
     if result.status == "FAIL":
         return EXIT_FAIL
     return EXIT_ERROR
-
-
-def lock_summary_json(lock: LockedTaskConfig) -> dict[str, Any]:
-    """Helper for callers that print the lock alongside the result."""
-    return locked_to_summary(lock).as_dict()

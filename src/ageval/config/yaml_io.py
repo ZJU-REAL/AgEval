@@ -1,9 +1,7 @@
-"""YAML parse helpers for Config Core (unique keys, deep merge)."""
+"""YAML parse helpers for Config Core (unique keys)."""
 
 from __future__ import annotations
 
-import copy
-from collections.abc import Mapping
 from typing import Any
 
 import yaml
@@ -54,15 +52,3 @@ def parse_yaml(text: str) -> Any:
             location="task.yaml",
         )
     return data
-
-
-def deep_merge(base: dict[str, Any], overlay: Mapping[str, Any]) -> dict[str, Any]:
-    """Deep-merge overlay onto base; mappings merge, other values replace."""
-    result = copy.deepcopy(base)
-    for key, value in overlay.items():
-        existing = result.get(key)
-        if isinstance(existing, dict) and isinstance(value, Mapping):
-            result[key] = deep_merge(existing, value)
-        else:
-            result[key] = copy.deepcopy(value)
-    return result
