@@ -2,7 +2,7 @@ import { Bot } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { CatalogCardGrid } from "@/components/catalog-card";
+import { CatalogCardGrid, CatalogCardSkeleton } from "@/components/catalog-card";
 import { CatalogScopeBar } from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
@@ -128,7 +128,7 @@ export function AgentsPage() {
           </p>
         </div>
       ) : loading ? (
-        <p className="text-sm text-mute">Loading…</p>
+        <CatalogCardSkeleton />
       ) : error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm text-body">
           <p className="text-error font-medium">Could not load agents</p>

@@ -97,8 +97,7 @@ export function CatalogCard({
       onKeyDown={onKeyDown}
       className={cn(
         "group flex h-full flex-col rounded-[12px] border border-hairline bg-canvas p-4 text-left",
-        "transition-[background-color,transform,border-color] duration-200",
-        "ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "transition-[background-color,transform,border-color] duration-200 ease-smooth",
         "hover:bg-canvas-soft motion-safe:hover:-translate-y-px",
         "active:scale-[0.99]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/70",

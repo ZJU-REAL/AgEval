@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { CatalogHead } from "@/components/page-head";
+import { UnderlineTabs } from "@/components/underline-tabs";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { FileSplitPanel } from "@/components/file-split-panel";
@@ -44,7 +45,7 @@ import {
 import { getToken } from "@/lib/auth";
 import { buildNestedTree, overlayPathsFromProfilesYaml } from "@/lib/file-tree";
 import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
-import { cn, formatScore } from "@/lib/utils";
+import { formatScore } from "@/lib/utils";
 
 type Tab = "readme" | "tasks" | "shared" | "overlays" | "leaderboard";
 type BoardView = "public" | "internal";
@@ -450,35 +451,23 @@ export function DatasetDetailPage() {
         <CommandStrip command={lockCmd} />
       </div>
 
-      <div className="flex gap-1 border-b border-hairline mb-4">
-        {(
-          [
-            ["readme", "README"],
-            ["tasks", "Tasks"],
-            ...(sharedPresent
-              ? ([["shared", "Shared"]] as Array<[Tab, string]>)
-              : []),
-            ...(overlaysPresent
-              ? ([["overlays", "Overlays"]] as Array<[Tab, string]>)
-              : []),
-            ["leaderboard", "Leaderboard"],
-          ] as Array<[Tab, string]>
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={cn(
-              "px-3 py-2 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
-              tab === id
-                ? "border-link text-ink font-semibold"
-                : "border-transparent text-mute hover:text-body",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <UnderlineTabs
+        className="mb-4"
+        ariaLabel="Dataset sections"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: "readme", label: "README" },
+          { id: "tasks", label: "Tasks" },
+          ...(sharedPresent
+            ? ([{ id: "shared" as const, label: "Shared" }] as const)
+            : []),
+          ...(overlaysPresent
+            ? ([{ id: "overlays" as const, label: "Overlays" }] as const)
+            : []),
+          { id: "leaderboard", label: "Leaderboard" },
+        ]}
+      />
 
       {loading ? (
         <p className="text-sm text-mute">Loading…</p>
@@ -602,28 +591,16 @@ export function DatasetDetailPage() {
               local smoke only; not Registry data.
             </p>
           ) : (
-            <div className="flex gap-1 border-b border-hairline">
-              {(
-                [
-                  ["public", "Public"],
-                  ["internal", "Internal"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setBoardView(id)}
-                  className={cn(
-                    "px-3 py-1.5 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
-                    boardView === id
-                      ? "border-link text-ink font-semibold"
-                      : "border-transparent text-mute hover:text-body",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <UnderlineTabs
+              size="sm"
+              ariaLabel="Leaderboard visibility"
+              value={boardView}
+              onChange={setBoardView}
+              items={[
+                { id: "public", label: "Public" },
+                { id: "internal", label: "Internal" },
+              ]}
+            />
           )}
           {boardView === "internal" && !demoLeaderboard ? (
             <p className="text-xs text-mute">

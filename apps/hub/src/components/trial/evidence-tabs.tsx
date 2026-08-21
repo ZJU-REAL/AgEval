@@ -1,5 +1,5 @@
+import { UnderlineTabs } from "@/components/underline-tabs";
 import type { TrajectoryStep, TreeEntry, Trial } from "@/lib/trial-types";
-import { cn } from "@/lib/utils";
 
 import { FileSplitPanel } from "./file-split-panel";
 import { TAB_LABELS, type TabId } from "./tabs";
@@ -54,29 +54,17 @@ export function EvidenceTabs({
 
   return (
     <div className="space-y-3">
-      <div
-        role="tablist"
-        aria-label="Evidence tabs"
-        className="flex flex-wrap gap-1 border-b border-hairline pb-0"
-      >
-        {availableTabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab}
-            onClick={() => onTabChange(tab)}
-            className={cn(
-              "px-3 py-2 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
-              activeTab === tab
-                ? "border-link text-ink font-semibold"
-                : "border-transparent text-mute hover:text-body",
-            )}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </div>
+      {activeTab ? (
+        <UnderlineTabs
+          ariaLabel="Evidence tabs"
+          value={activeTab}
+          onChange={onTabChange}
+          items={availableTabs.map((tab) => ({
+            id: tab,
+            label: TAB_LABELS[tab],
+          }))}
+        />
+      ) : null}
 
       {activeTab === "trajectory" && (
         <TrajectoryPanel

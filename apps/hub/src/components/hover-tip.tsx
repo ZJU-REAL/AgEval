@@ -25,7 +25,7 @@ export function HoverTip({
 }) {
   const enabled = content != null && content !== "";
   return (
-    <TooltipProvider delayDuration={150}>
+    <TooltipProvider delayDuration={80}>
       <Tooltip open={enabled ? undefined : false}>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
         {enabled ? (

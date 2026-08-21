@@ -28,3 +28,11 @@ jobs / leaderboard / members into cards.
 - Glyphs: lucide `Puzzle` (plugin) / `Bot` (agent). No third icon set.
 - Description and chips are optional (list payloads may omit `plugin_preview` / `agent_preview`). Fallback copy is the format name, not invented marketing.
 - Nested org link uses `stopPropagation`; the card itself is the package `role="link"`.
+- Loading uses `CatalogCardSkeleton` (same grid, pulse). Do not go back to a `Loading…` line on catalog pages.
+
+## Motion
+
+- Duration `200ms`, easing `ease-smooth` (`cubic-bezier(0.22, 1, 0.36, 1)`). Close/dismiss can be faster than open; tooltip wait is `80ms` (intent delay, not a travel duration).
+- Underline tabs (`UnderlineTabs`) slide the IKB bar with `transform` + `width`. Do not reintroduce per-page `border-b-2` tab copies.
+- Modal/tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
+- No GSAP or Motion on Hub. No 3D tilt, magnetic hover, or scroll hijack.

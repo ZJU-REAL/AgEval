@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { UnderlineTabs } from "@/components/underline-tabs";
 import {
   compareValues,
   nextSort,
@@ -31,7 +32,6 @@ import {
 import { getGithubUser, getToken } from "@/lib/auth";
 import { ResultOwnerOps } from "@/components/result-owner-ops";
 import {
-  cn,
   displayLabelsFromOverlay,
   formatScore,
   reasoningEffortFromOverlay,
@@ -688,32 +688,24 @@ export function LeaderboardTable({
                               .
                             </p>
                           ) : null}
-                          <div className="flex gap-1 border-b border-hairline">
-                            {(
-                              [
-                                ["profiles", "profiles"],
-                                ["plugin", "plugin"],
-                                ["jobs", "jobs"],
-                                ...(((s.uploaded_by || "").toLowerCase() === selfLogin
-                                  ? ([["share", "share"]] as const)
-                                  : []) as ReadonlyArray<readonly [ExpandTab, string]>),
-                              ] as ReadonlyArray<readonly [ExpandTab, string]>
-                            ).map(([id, label]) => (
-                              <button
-                                key={id}
-                                type="button"
-                                onClick={() => setExpandTab(id)}
-                                className={cn(
-                                  "px-2.5 py-1.5 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
-                                  expandTab === id
-                                    ? "border-link text-ink font-semibold"
-                                    : "border-transparent text-mute hover:text-body",
-                                )}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
+                          <UnderlineTabs
+                            size="sm"
+                            ariaLabel="Suite details"
+                            value={expandTab}
+                            onChange={setExpandTab}
+                            items={[
+                              { id: "profiles" as const, label: "profiles" },
+                              { id: "plugin" as const, label: "plugin" },
+                              { id: "jobs" as const, label: "jobs" },
+                              ...(((s.uploaded_by || "").toLowerCase() ===
+                              selfLogin
+                                ? ([{ id: "share" as const, label: "share" }] as const)
+                                : []) as ReadonlyArray<{
+                                id: ExpandTab;
+                                label: string;
+                              }>),
+                            ]}
+                          />
                           {expandTab === "profiles" ? (
                             <>
                               <CodeBlock

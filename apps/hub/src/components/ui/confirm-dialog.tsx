@@ -43,6 +43,7 @@ export function ConfirmDialog({
 
   return (
     <div
+      data-ageval-scrim=""
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40"
       role="presentation"
       onClick={() => {
@@ -54,6 +55,7 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-desc"
+        data-ageval-pop=""
         className={cn(
           "w-full max-w-md rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)]",
           className,

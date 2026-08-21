@@ -172,6 +172,13 @@ segment is clickable.
 - Row hover = soft canvas `#e8eaf1` / `#1a1e2a`
 - Max content width ~1400px, generous but calm padding
 
+### Motion
+
+- Duration `200ms`, easing `ease-smooth` (`cubic-bezier(0.22, 1, 0.36, 1)`). Tooltip intent delay `80ms`.
+- Evidence tabs use `UnderlineTabs` (sliding IKB bar). Do not copy per-page `border-b-2` tabs.
+- Confirm dialog / tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
+- Jobs / tasks stay hairline tables. No catalog cards, GSAP, Motion, 3D tilt, or scroll hijack on Viewer.
+
 ### Don't
 - Don't invent a second accent palette (no purple AI glow)
 - Don't use heavy drop shadows on tables

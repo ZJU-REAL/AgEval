@@ -30,6 +30,7 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 
   --color-on-accent: #ffffff;
 }
@@ -174,6 +175,36 @@
   ::selection {
     background: color-mix(in srgb, var(--color-link) 28%, transparent);
     color: var(--color-ink);
+  }
+}
+
+@keyframes ageval-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ageval-scrim {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-ageval-pop] {
+    animation: ageval-pop 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  [data-ageval-scrim] {
+    animation: ageval-scrim 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
 

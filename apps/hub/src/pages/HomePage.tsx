@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
-import { CatalogCardGrid } from "@/components/catalog-card";
+import { CatalogCardGrid, CatalogCardSkeleton } from "@/components/catalog-card";
 import { OfficialMark } from "@/components/official-mark";
 import { PageHead } from "@/components/page-head";
 import { ScrollTable } from "@/components/scroll-table";
@@ -183,7 +183,7 @@ export function HomePage() {
         }
       />
 
-      {loading ? <p className="text-sm text-mute">Loading…</p> : null}
+      {loading ? <CatalogCardSkeleton count={3} /> : null}
       {error ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-4 text-sm mb-4">
           <p className="text-error font-medium">Could not load home</p>

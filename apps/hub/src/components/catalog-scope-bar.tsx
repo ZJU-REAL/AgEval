@@ -1,7 +1,12 @@
+import { UnderlineTabs } from "@/components/underline-tabs";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 type Scope = "orgs" | "explore";
+
+const SCOPE_ITEMS = [
+  { id: "orgs" as const, label: "Your organizations" },
+  { id: "explore" as const, label: "Explore" },
+];
 
 export function CatalogScopeBar({
   scope,
@@ -20,28 +25,12 @@ export function CatalogScopeBar({
 }) {
   return (
     <div className="mb-4">
-      <div className="flex gap-1 border-b border-hairline">
-        {(
-          [
-            ["orgs", "Your organizations"],
-            ["explore", "Explore"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onScope(id)}
-            className={cn(
-              "px-3 py-2 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
-              scope === id
-                ? "border-link text-ink font-semibold"
-                : "border-transparent text-mute hover:text-body",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <UnderlineTabs
+        items={SCOPE_ITEMS}
+        value={scope}
+        onChange={onScope}
+        ariaLabel="Catalog scope"
+      />
       <div className="pt-3">
         <Input
           value={query}

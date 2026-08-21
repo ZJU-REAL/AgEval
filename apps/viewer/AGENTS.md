@@ -11,7 +11,9 @@ Python serves the built SPA; React app lives here.
 | This file | Implementation constraints for agents |
 | `src/ageval/viewer/` | HTTP API + static file serving (stdlib) |
 
-When UI conflicts with taste: **DESIGN.md wins**.
+When UI conflicts with taste: **DESIGN.md wins**. Evidence tabs use
+`UnderlineTabs`. Jobs/tasks stay tables. Motion is CSS only (`ease-smooth`,
+200ms, `data-ageval-pop`); no GSAP on Viewer.
 
 ## Product surface (scope lock)
 

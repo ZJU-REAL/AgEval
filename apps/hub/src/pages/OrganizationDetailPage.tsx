@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 
 import { CatalogCardGrid } from "@/components/catalog-card";
 import { CatalogHead } from "@/components/page-head";
+import { UnderlineTabs } from "@/components/underline-tabs";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { HoverTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
@@ -53,7 +54,7 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getGithubUser, getToken } from "@/lib/auth";
-import { cn, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "settings";
 
@@ -415,28 +416,16 @@ export function OrganizationDetailPage() {
             ) : null}
           </div>
 
-          <div className="flex gap-1 border-b border-hairline mb-6">
-            {(
-              [
-                ["overview", "Overview"],
-                ["settings", "Settings"],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={cn(
-                  "px-3 py-2 font-mono text-xs uppercase tracking-wide transition-colors border-b-2 -mb-px",
-                  tab === id
-                    ? "border-link text-ink font-semibold"
-                    : "border-transparent text-mute hover:text-body",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <UnderlineTabs
+            className="mb-6"
+            ariaLabel="Organization sections"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { id: "overview", label: "Overview" },
+              { id: "settings", label: "Settings" },
+            ]}
+          />
 
           {tab === "overview" ? (
             <div className="space-y-8">
