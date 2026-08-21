@@ -41,6 +41,10 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 - **圆角**:6 / 8 / 12px 三档(sm 控件、md 默认、lg 卡片);不发明新档,hero 面板上限 16px。
   按钮走 6px,不要 `clip-path` 切角。
 - **动效**:`cubic-bezier(0.22, 1, 0.36, 1)`,默认 200ms。
+  Hub / Viewer 只允许 CSS(`ease-smooth`、`data-ageval-pop`);landing 允许一次性 hero stagger 与 8px view-timeline 揭示,进场可到 400ms(强调瞬间,须在 `website/DESIGN.md` 写明)。
+  Tooltip 等待 80ms 是意图延迟,不是位移时长。关闭可以快于打开。
+  禁止 GSAP / Motion 进三端产品 chrome;landing 也不引入滚动钉住或横向 hijack。
+  `prefers-reduced-motion: reduce` 必须落到最终态。
 - **焦点**:IKB 是唯一焦点色。按钮 / 链接用 `ring-2 ring-link/70`(landing 3px outline);
   输入框 / select / textarea 只把描边换成 1px `border-link`,不叠 ring。
 - **选区**:`::selection` 用 IKB 28% 透明底(三端统一)。
@@ -52,7 +56,8 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | 语汇 | 规则 |
 | --- | --- |
 | 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep` |
-| 下划线 tab | `font-mono text-xs uppercase tracking-wide`,active `border-link font-semibold`,inactive `text-mute` |
+| 下划线 tab | `UnderlineTabs`:mono uppercase + 滑动 IKB 条(`transform`/`width` 200ms)。不要再复制 `border-b-2` 手写条 |
+| Catalog 卡 | 仅 plugin / agent 市场包:`CatalogCard` 12px 圆角、hairline、hover `canvas-soft` + 1px 上移。Jobs / leaderboard / members / datasets 保持表 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6`(IKB 主导 + 中性梯度),禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop` |
@@ -68,7 +73,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 6. 焦点可见性不妥协。字段用 1px IKB 描边;其它控件用 2px IKB 环
    (landing 3px outline)。
 7. 选区、hover、active 的色彩表达一律引用令牌,不自调 hex / opacity 组合。
-8. 动效只允许统一缓动曲线;时长偏离 200ms 需要说明理由。
+8. 动效只允许统一缓动曲线;时长偏离 200ms 需要说明理由(landing hero/章节揭示 400ms 是已记录的例外)。
 9. 图标两套:品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`),功能用 lucide;不引入第三套。
 10. 深度感不用硬投影;blur 分档封顶,不为单个组件发明新档。
 
