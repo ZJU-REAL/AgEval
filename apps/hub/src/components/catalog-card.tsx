@@ -1,13 +1,23 @@
-import type { ComponentType, KeyboardEvent, MouseEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import { Bot, Puzzle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { OfficialMark } from "@/components/official-mark";
 import {
+  getPackageByDigest,
   packageDisplayTitle,
   versionLabel,
   type PackageRelease,
 } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import { cn, formatDay } from "@/lib/utils";
 
 type CatalogKind = "plugin" | "agent";
@@ -50,13 +60,21 @@ function agentChips(row: PackageRelease): string[] {
   return chips;
 }
 
+function hasPreview(kind: CatalogKind, row: PackageRelease): boolean {
+  return kind === "plugin" ? Boolean(row.plugin_preview) : Boolean(row.agent_preview);
+}
+
 function descriptionOf(kind: CatalogKind, row: PackageRelease): string | null {
   const raw =
     kind === "plugin"
       ? row.plugin_preview?.description
       : row.agent_preview?.description;
-  const text = (raw || "").trim();
+  const text = (raw || "").replace(/\s+/g, " ").trim();
   return text || null;
+}
+
+function rowKey(row: PackageRelease): string {
+  return `${row.dataset_id}@${row.package_digest}`;
 }
 
 export function CatalogCard({
@@ -125,7 +143,9 @@ export function CatalogCard({
       </div>
 
       {description ? (
-        <p className="mt-3 line-clamp-2 text-sm text-body">{description}</p>
+        <p className="mt-3 line-clamp-2 text-sm text-body" title={description}>
+          {description}
+        </p>
       ) : (
         <p className="mt-3 text-sm text-mute">
           {kind === "plugin" ? "ageval.plugin/1 package" : "ageval.agent/1 package"}
@@ -176,9 +196,60 @@ export function CatalogCardGrid({
   rows: PackageRelease[];
   onOpen: (id: string) => void;
 }) {
+  const [previews, setPreviews] = useState<Record<string, PackageRelease>>({});
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const missingKey = rows
+    .filter((row) => !hasPreview(kind, row))
+    .map(rowKey)
+    .join("\n");
+
+  useEffect(() => {
+    const pending = rowsRef.current.filter((row) => !hasPreview(kind, row));
+    if (!pending.length) return;
+    let cancelled = false;
+    const token = getToken();
+    void Promise.all(
+      pending.map(async (row) => {
+        try {
+          const meta = await getPackageByDigest(
+            row.dataset_id,
+            row.package_digest,
+            token,
+          );
+          return [rowKey(row), meta] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((entries) => {
+      if (cancelled) return;
+      const next: Record<string, PackageRelease> = {};
+      for (const entry of entries) {
+        if (entry) next[entry[0]] = entry[1];
+      }
+      if (Object.keys(next).length) {
+        setPreviews((prev) => ({ ...prev, ...next }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, missingKey]);
+
+  const resolved = useMemo(
+    () =>
+      rows.map((row) => {
+        if (hasPreview(kind, row)) return row;
+        const extra = previews[rowKey(row)];
+        return extra ?? row;
+      }),
+    [kind, rows, previews],
+  );
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {rows.map((row) => (
+      {resolved.map((row) => (
         <CatalogCard
           key={`${row.dataset_id}@${row.version}`}
           kind={kind}
