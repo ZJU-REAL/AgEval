@@ -56,7 +56,7 @@ def register(app: typer.Typer) -> None:
             typer.Option("--ui-port", help="Vite UI port used with --dev (default 5173)."),
         ] = 5173,
     ) -> None:
-        """Start local Jobs→Tasks→Trial results UI for a Dataset (no Registry)."""
+        """Start local Jobs→Tasks→Attempt results UI for a dataset (no Registry)."""
         from ageval.config.errors import ConfigError
         from ageval.viewer.server import serve_viewer
 

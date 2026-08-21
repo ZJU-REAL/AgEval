@@ -24,7 +24,7 @@ def register(app: typer.Typer) -> None:
             typer.Option("--out", help="Destination directory for versioned export."),
         ],
     ) -> None:
-        """Export sealed trajectory as re-redacted copy (v0.17). Does not change score."""
+        """Export sealed trajectory as a re-redacted copy. Does not change score."""
         from ageval.evidence.export import export_trajectory
 
         result = export_trajectory(evidence_root, out)

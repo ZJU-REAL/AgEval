@@ -23,10 +23,10 @@ def register(app: typer.Typer) -> None:
             ),
         ] = False,
     ) -> None:
-        """List supported executor kinds, L0 host-ready, and L1 bake-declared.
+        """List supported executor kinds and host-ready / bake-declared status.
 
         Thin CLI: inventory logic lives in ``ageval.plugins.executor_inventory``.
-        Plugin ``host_ready`` is L0 constructability (declared host_requires /
+        Plugin ``host_ready`` is constructability (declared host_requires /
         describe()), not install Recognition or a missing PATH binary.
         """
         from ageval.plugins.executor_inventory import build_executor_inventory

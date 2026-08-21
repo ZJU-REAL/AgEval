@@ -35,10 +35,10 @@ def register(app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> None:
-        """Cancel a durable Run or suite job (#47 D4).
+        """Cancel a durable Run or suite job.
 
         Suite: writes ``cancel.requested`` so no new units start; SIGTERM stored
-        pid when present. Single Run: same as v0.12 ControlStore cancel.
+        pid when present. Single Run: ControlStore cancel.
         """
         import os
         import signal

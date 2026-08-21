@@ -46,7 +46,7 @@ def register(app: typer.Typer) -> None:
             typer.Option("--agent", help=AGENT_OPTION_HELP),
         ] = None,
     ) -> None:
-        """Foreground serial campaign over a parameter matrix (v0.11)."""
+        """Foreground serial campaign over a parameter matrix."""
         import asyncio
 
         from ageval.application.composition import build_campaign_runner
@@ -86,8 +86,8 @@ def register(app: typer.Typer) -> None:
             typer.Option(
                 "--task",
                 help=(
-                    "Member task id (optional). Omit to run the full suite "
-                    "(Spec 22). When set, only that member runs."
+                    "Member task id (optional). Omit to run the full suite. "
+                    "When set, only that member runs."
                 ),
             ),
         ] = None,
@@ -183,7 +183,7 @@ def register(app: typer.Typer) -> None:
             typer.Option(
                 "--keep-workspace",
                 help=(
-                    "L1 only: retain host l1-work/ under the run dir after cleanup "
+                    "Keep the box work root after cleanup "
                     "(default: delete; debug only — never required for Hub upload). "
                     "Docker volumes and env containers are still removed."
                 ),
