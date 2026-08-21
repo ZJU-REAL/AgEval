@@ -1,0 +1,19 @@
+format: ageval.plugin/1
+plugin_id: acp-oneshot
+version: 0.1.0
+description: "In-box one-shot ACP client+server over environment.exec. Not the parent ACP client; not a vendor-named executor."
+slots:
+  exclusive:
+    - id: executor
+      priority: 110
+      entry: "acp_oneshot_plugin.factory:build_executor"
+  chain:
+    - id: after_environment_ready
+      priority: 100
+      entry: "acp_oneshot_plugin.hooks:ensure_runtime"
+    - id: trajectory_collect
+      priority: 110
+      entry: "acp_oneshot_plugin.hooks:trajectory_collect"
+inject:
+  - service: environment
+    capabilities: [exec]

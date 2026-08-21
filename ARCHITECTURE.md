@@ -27,7 +27,7 @@ GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product nam
 
 ageval locks a **dataset**, opens a **box** (exclusive slot `environment`), runs the task `run.py` on a visible Attempt pipeline, then — after writers stop — an independent `evaluator.py` scores and binds a flat Result.
 
-Coding agents enter the box through the parent **ACP** client + `host.attach_stdio`. Other execution mechanisms fill the exclusive slot `executor` via `ageval.plugin/1`.
+Coding agents enter the box through the parent **ACP** client + `host.attach_stdio`, or through the external `acp-oneshot` executor (`host.exec` of an in-box ACP pair). Other execution mechanisms fill the exclusive slot `executor` via `ageval.plugin/1`.
 
 ### Main participants
 
@@ -174,7 +174,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   ├── tau3-airline/                # airline-00 lock
 │   └── agents/                      # ageval.agent/1 catalog packages
 ├── plugins/                         # external ageval.plugin/1
-│   ├── nooa/ / dsh/ / miniswe/
+│   ├── nooa/ / dsh/ / miniswe/ / acp-oneshot/
 │   └── home-files/ / agent-skills/
 ├── docker/attempt/                  # official base: ACP entries bake-in
 ├── tests/
