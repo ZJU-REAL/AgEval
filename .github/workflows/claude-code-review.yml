@@ -89,7 +89,7 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ steps.pr.outputs.number }}
 
-            You are reviewing a PR for **BORA** (Bounded Orchestration for Runtime Agents).
+            You are reviewing a PR for **ageval** (Bounded Orchestration for Runtime Agents).
             Read `AGENTS.md` and, if touched, relevant `docs/design/*`, `ARCHITECTURE.md`,
             and linked GitHub Issues before commenting.
 
