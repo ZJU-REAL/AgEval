@@ -1,9 +1,9 @@
 # Claude Code PR review via GLM Coding Plan (Anthropic-compatible endpoint).
 #
-# Auto: non-draft pull requests whose base is `main`.
+# Auto: non-draft pull requests whose base is `main`, `canary`, or `dev`.
 # Manual: Actions → "Claude Code Review (GLM)" → Run workflow (write access).
 #   Select the branch that contains this file (usually `main`) and pass a PR
-#   number. Works for any base, including canary, and for drafts.
+#   number. Works for any other base, and for drafts.
 #
 # Secrets: Settings → Secrets and variables → Actions
 # (not "Agents" — that is Copilot cloud agent only).
@@ -11,7 +11,7 @@ name: Claude Code Review (GLM)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, canary, dev]
     types: [opened, synchronize, ready_for_review, reopened]
   workflow_dispatch:
     inputs:
