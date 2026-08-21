@@ -163,7 +163,7 @@ class EnvironmentProvider(Protocol):
 
 `exec(..., service=)` 仅 `capabilities.compose`。Placement 只有 opaque `target_id` + user + workdir/home。ACP 只拿 `StdioTransport`，不写 `if docker`。
 
-kind：`local` | `docker` | `e2b` | `ssh`。能力矩阵与 `attach_stdio` 运输见 [05-runtime/environment.md](05-runtime/environment.md)。
+kind：`local` | `docker` | `e2b` | `ssh` | `daytona`。能力矩阵与 `attach_stdio` 运输见 [05-runtime/environment.md](05-runtime/environment.md)。
 
 合同路径：`/attempt/workspace`、`/attempt/home`、`/attempt/artifacts`、`/attempt/evaluation`。
 

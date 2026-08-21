@@ -9,8 +9,9 @@ job 文档：
 ```yaml
 # profiles.yaml — 选独占槽 environment 的赢家
 format: ageval.profiles/1
-environment: e2b    # local | docker | e2b | ssh
+environment: e2b    # local | docker | e2b | ssh | daytona
 # environment_options:   # ssh：host / user / port / key_env / image
+#                        # daytona：image / snapshot / timeout_seconds
 ```
 
 取消隔离档产品面。不要写 `provider.kind`、`assurance: l0/l1`。Result 记 `kind` + `capabilities_used`。
@@ -19,16 +20,16 @@ environment: e2b    # local | docker | e2b | ssh
 
 `requires ∩ capabilities`：task `requires.environment` 缺省为空；非空必须 ⊆ kind.capabilities，否则 lock 失败。不能兑现的 cap 不许报 yes。
 
-| cap | local | docker | e2b | ssh |
-| --- | --- | --- | --- | --- |
-| exec / upload / download | yes | yes | yes | yes |
-| attach_stdio | 本机进程 | `docker exec -i` | **yes**（SDK 双向 stdin 流；旧 envd 在 start 探针失败） | ssh / 远端 docker exec |
-| uid_gid / path_views | no | yes | 通常 no | 通常 no |
-| compose | no | yes | no | 视远端而定，默认 no |
+| cap | local | docker | e2b | ssh | daytona |
+| --- | --- | --- | --- | --- | --- |
+| exec / upload / download | yes | yes | yes | yes | yes |
+| attach_stdio | 本机进程 | `docker exec -i` | **yes**（SDK 双向 stdin 流；旧 envd 在 start 探针失败） | ssh / 远端 docker exec | **frozen at implementation**（见下；不是每次 start / `--probe` 再测） |
+| uid_gid / path_views | no | yes | 通常 no | 通常 no | no |
+| compose | no | yes | no | 视远端而定，默认 no | no |
 
 `path_views` 仅 docker 一类能做 per-actor mount+UID。gold 默认隔离 **不依赖** 它（evaluate 晚上传）。要 compose 而 kind 没有该 cap → lock 失败。
 
-`environment/Dockerfile`（或 `docker_image`）对 docker 与 e2b 是同一配方。docker 本机编；e2b `Template.from_dockerfile` 再 `Sandbox.create`。
+`environment/Dockerfile`（或 `docker_image`）对 docker 与 e2b 是同一配方。docker 本机编；e2b `Template.from_dockerfile` 再 `Sandbox.create`。daytona 把同一配方编成 **snapshot**（`Image.from_dockerfile` 或公开 OCI tag），再 `Sandbox.create` from snapshot。OCI tag 须带具体 tag/digest；Daytona 拒绝 `latest` / `lts` / `stable`。
 
 官方基座由 `docker/attempt/` 构建。题包 Dockerfile 用 `FROM ageval-attempt:base`。invoke 时禁止 `npm i` / 浮动 `npx`。Python ACP SDK 只在 parent，不进 Attempt 镜像。
 
@@ -43,12 +44,29 @@ environment: e2b    # local | docker | e2b | ssh
 | ssh **A** 盒子=整机 | `Popen(["ssh","-T", …, "--", *argv])`，agent 就是这台 VM 上的进程 |
 | ssh **B** 盒子=远端容器 | `start()` 远端 `docker run` 已有 tag；`attach_stdio` = `ssh -- docker exec -i <cid> argv` |
 | e2b | SDK 双向流（`stdin=True` + send stdin）。只跑完收 stdout 不够 ACP |
+| daytona | **frozen** 常量。实现期试 session stdin（`send_session_command_input`）泵到 `fileno()` 管子；PTY 只作失败后备。结果写进本表与 `BoxCapabilities.attach_stdio`，之后不再探测 |
 
 两种 ssh **agent 都在云上**。差别是隔离单元：整机 vs 机上容器。options：无 `image` → A；有已有 tag → B。`stop(delete=False)` 默认不 terminate 云主机。密钥 locator 不进 lock。
 
-缺 `E2B_API_KEY` / ssh locator：preflight 一次失败，不建 sandbox、不开远端容器。`--probe` 必须 `ready: false` 且未 start。
+缺 `E2B_API_KEY` / `DAYTONA_API_KEY` / ssh locator：preflight 一次失败，不建 sandbox、不开远端容器。`--probe` 必须 `ready: false` 且未 start。`--probe` **不**发现 stdio。
 
-E2B 模板 alias/hash 只在 `plugins/contrib/e2b`。Core 只调 `host.start()`。
+E2B 模板 alias/hash 只在 `plugins/contrib/e2b`。Daytona snapshot 名 / sandbox id 只在 `plugins/contrib/daytona`。Core 只调 `host.start()`。
+
+## daytona
+
+独占赢家 `plugin_id: daytona`，first-party，与 e2b 同 locality。厂商 SDK 不得漏进 ACP / `attempt` / `run.py`。
+
+Locator：`DAYTONA_API_KEY`（接受 `daytona_api_key`）。缺钥或缺 SDK import → 一次 `environment_preflight_failed`。
+
+`environment_options`：
+
+- `snapshot` — 已有 Daytona snapshot 名，跳过编 snapshot
+- `image` — 公开 OCI tag/digest（禁止 `latest` / `lts` / `stable`）
+- `timeout_seconds` — sandbox 寿命
+
+无 `snapshot` 时：有 `image` 则 snapshot-from-OCI；否则用题包 `environment/Dockerfile`（`Image.from_dockerfile`）。snapshot 名按配方 digest 复用。盒内路径仍是 `/attempt/workspace` 等。
+
+`attach_stdio` 是 kind 常量，与 e2b 一样。实现者必须在本 issue 内用真钥试过 ACP `initialize`（优先 raw session stdin，不是登录壳）。**true**：`executor: acp` + daytona lock 成功。**false**：ACP inject 仍失败；exec 赢家（miniswe / dsh / nooa / acp-oneshot）仍可用。缺钥的 skip 不是这条 cap 的证据。
 
 ## ssh A / B
 
@@ -65,13 +83,14 @@ ACP / acp-oneshot / dsh / nooa  invoke
         │  inject service: environment
         │  只看见 Protocol（attach_stdio / exec / upload）
         ▼
-contrib/docker  → docker exec / compose / uid_gid / path_views
-contrib/e2b     → e2b SDK、template alias
-contrib/ssh     → ssh A/B、远端 docker
-contrib/local   → 本机目录
+contrib/docker   → docker exec / compose / uid_gid / path_views
+contrib/e2b      → e2b SDK、template alias
+contrib/daytona  → Daytona SDK、snapshot 名、sandbox id
+contrib/ssh      → ssh A/B、远端 docker
+contrib/local    → 本机目录
 ```
 
-`docker exec` 只在 `plugins/contrib/docker/`。ACP 禁止 import docker/e2b/ssh。`attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。换 kind 不必改 executor 源码。
+`docker exec` 只在 `plugins/contrib/docker/`。ACP 禁止 import docker/e2b/daytona/ssh。`attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。换 kind 不必改 executor 源码。
 
 `run.py` 是 parent 子进程。seed 在 launch 投影到 `ctx.workspace_root`（local/docker 即共享盘；ssh/e2b 是 evidence 上的 seed 拷贝）。Agent Service **不**在每次 invoke 后 `download` workspace。writer 停后 runtime 按 `artifacts.publishable` 收 **缺的** 文件：盒内 `/attempt/workspace/<basename>` → parent `task-artifacts/`。共享盘上 `run.py` 已 `publish_json` 的跳过；ssh/e2b 走 Protocol `download`。搬哪些由题包声明，不写 `if ssh`。聊天文本不是 Terminal 类题的权威产物。
 
@@ -86,7 +105,7 @@ contrib/local   → 本机目录
 | 项 | Current | Target（未宣称完成） |
 | --- | --- | --- |
 | local / docker | 公开真 `ageval run`（core ACP、journeys 点名题） | — |
-| e2b / ssh | 代码在；缺钥 `--probe` fail-closed | 有凭证时同一题公开 `ageval run`（ssh 含 A+B） |
+| e2b / ssh / daytona | 代码在；缺钥 `--probe` fail-closed | 有凭证时同一题公开 `ageval run`（ssh 含 A+B） |
 | Protocol seam | docker 已是真实赢家 | 第二个云赢家（e2b **或** ssh）真跑后 seam 才算成立 |
 
 默认 CI **无**真 E2B/SSH。skip ≠ 通过。不得从 docker 一次 PASS 推导 `isolated`。
