@@ -89,7 +89,7 @@ class DaytonaStdio:
                     if "not found" in str(exc).lower():
                         break
                     raise
-                text = str(getattr(logs, "stdout", None) or "")
+                text = str(getattr(logs, "stdout", None) or getattr(logs, "output", None) or "")
                 if len(text) > seen:
                     self._out_w.write(text[seen:].encode("utf-8"))
                     self._out_w.flush()
@@ -173,8 +173,22 @@ class DaytonaHost:
         )
         self._sandbox = await asyncio.to_thread(self._client.create, create_params)
         self._started = True
-        for path in (BOX_ROOT, WORKSPACE_PATH, HOME_PATH, ARTIFACTS_PATH, EVALUATION_PATH):
-            await asyncio.to_thread(self._sandbox.fs.create_folder, path, "777")
+        mkdir = (
+            "sudo mkdir -p "
+            f"{WORKSPACE_PATH} {HOME_PATH} {ARTIFACTS_PATH} {EVALUATION_PATH} "
+            f"&& sudo chmod -R a+rwx {BOX_ROOT}"
+        )
+        try:
+            result = await asyncio.to_thread(self._sandbox.process.exec, mkdir)
+            code = getattr(result, "exit_code", None)
+            if code is None or int(code) != 0:
+                raise EnvironmentFailure(
+                    "environment_start_failed",
+                    f"could not create {BOX_ROOT}: {getattr(result, 'result', '')!s}"[:300],
+                )
+        except Exception:
+            await self.stop(delete=True)
+            raise
 
     async def stop(self, *, delete: bool) -> None:
         del delete
