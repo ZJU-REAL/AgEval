@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,6 +15,7 @@ import {
   isDraftRelease,
   releasePackageDraft,
   setPackageVisibility,
+  versionLabel,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
@@ -37,7 +39,7 @@ export function PackageOwnerOps({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [releaseVisibility, setReleaseVisibility] = useState<
     "public" | "private"
@@ -45,6 +47,7 @@ export function PackageOwnerOps({
   const [releaseVersion, setReleaseVersion] = useState("");
   const [replace, setReplace] = useState(false);
   const draft = isDraftRelease(release);
+  const label = versionLabel(release);
 
   if (!canManage || !token) return null;
 
@@ -76,18 +79,14 @@ export function PackageOwnerOps({
   }
 
   async function remove() {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
       await deletePackageRelease(packageId, release.version, token);
+      setDeleteOpen(false);
       onDeleted();
     } catch (err) {
       fail(err);
-      setConfirmDelete(false);
     } finally {
       setBusy(false);
     }
@@ -116,67 +115,77 @@ export function PackageOwnerOps({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {draft ? (
-          <Button
-            type="button"
-            size="sm"
-            disabled={busy}
-            onClick={() => {
-              setReleaseOpen(true);
-              setError(null);
-              setReleaseVisibility(
-                release.visibility === "public" ? "public" : "private",
-              );
-            }}
-          >
-            Release draft
-          </Button>
-        ) : (
-          <Select
-            value={release.visibility === "public" ? "public" : "private"}
-            onValueChange={(value) => {
-              if (value === "public" || value === "private") {
-                void changeVisibility(value);
-              }
-            }}
-            disabled={busy}
-          >
-            <SelectTrigger
-              aria-label="Package visibility"
-              className="h-8 min-w-0 w-auto font-mono text-xs"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="public">public</SelectItem>
-              <SelectItem value="private">private</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+    <>
+      {draft ? (
         <Button
           type="button"
           size="sm"
-          variant={confirmDelete ? "default" : "outline"}
           disabled={busy}
-          onClick={() => void remove()}
+          onClick={() => {
+            setReleaseOpen(true);
+            setError(null);
+            setReleaseVisibility(
+              release.visibility === "public" ? "public" : "private",
+            );
+          }}
         >
-          {confirmDelete ? "Confirm delete" : "Delete version"}
+          Release draft
         </Button>
-        {confirmDelete ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => setConfirmDelete(false)}
+      ) : (
+        <Select
+          value={release.visibility === "public" ? "public" : "private"}
+          onValueChange={(value) => {
+            if (value === "public" || value === "private") {
+              void changeVisibility(value);
+            }
+          }}
+          disabled={busy}
+        >
+          <SelectTrigger
+            aria-label="Package visibility"
+            className="h-8 min-w-0 w-auto font-mono text-xs"
           >
-            Cancel
-          </Button>
-        ) : null}
-      </div>
-      {error ? <p className="text-xs font-mono text-error">{error}</p> : null}
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="public">public</SelectItem>
+            <SelectItem value="private">private</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+      <Button
+        type="button"
+        size="sm"
+        variant="dangerOutline"
+        disabled={busy}
+        onClick={() => {
+          setError(null);
+          setDeleteOpen(true);
+        }}
+      >
+        Delete version
+      </Button>
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete version"
+        description={
+          <>
+            This removes {label} of {packageId}. Other versions stay. Jobs
+            already uploaded are not deleted. If this is the last version, the
+            package leaves the catalog until you publish again.
+          </>
+        }
+        confirmLabel="Delete"
+        busy={busy}
+        error={error}
+        onCancel={() => {
+          if (!busy) {
+            setDeleteOpen(false);
+            setError(null);
+          }
+        }}
+        onConfirm={() => void remove()}
+      />
 
       {releaseOpen ? (
         <div
@@ -268,6 +277,6 @@ export function PackageOwnerOps({
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

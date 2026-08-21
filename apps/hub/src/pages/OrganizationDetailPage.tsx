@@ -8,6 +8,7 @@ import { HoverTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -55,6 +56,13 @@ import { cn, formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "settings";
 
+type OrgDanger =
+  | { kind: "leave" }
+  | { kind: "dissolve" }
+  | { kind: "remove"; userId: string }
+  | { kind: "transfer"; userId: string }
+  | { kind: "revoke"; keyId: string };
+
 /** Active keys only — revoked rows are dropped from the UI list. */
 function activeInviteKeys(keys: OrgInviteKey[]): OrgInviteKey[] {
   return keys.filter((k) => !k.revoked_at);
@@ -84,11 +92,9 @@ export function OrganizationDetailPage() {
   /** Full key shown once after create (never re-fetched from list). */
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [revealCopied, setRevealCopied] = useState(false);
-  /** First click arms delete; second confirms. */
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [revokeBusy, setRevokeBusy] = useState<string | null>(null);
 
-  const [dangerConfirm, setDangerConfirm] = useState(false);
+  const [orgDanger, setOrgDanger] = useState<OrgDanger | null>(null);
   const [dangerBusy, setDangerBusy] = useState(false);
   const [dangerError, setDangerError] = useState<string | null>(null);
 
@@ -97,8 +103,6 @@ export function OrganizationDetailPage() {
   const [addBusy, setAddBusy] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
   const [memberBusy, setMemberBusy] = useState<string | null>(null);
-  /** First click arms remove/transfer; second confirms. */
-  const [memberConfirm, setMemberConfirm] = useState<string | null>(null);
 
   const isOwner = (org?.role || "").toLowerCase() === "owner";
   const selfLogin = (getGithubUser() || "").toLowerCase();
@@ -223,26 +227,89 @@ export function OrganizationDetailPage() {
     setMembers(memberRows);
   }
 
-  async function confirmMemberAction(
-    key: string,
-    run: () => Promise<void>,
-  ): Promise<void> {
-    if (memberConfirm !== key) {
-      setMemberConfirm(key);
-      setMemberError(null);
-      return;
-    }
-    setMemberBusy(key);
-    setMemberError(null);
+  function closeOrgDanger() {
+    if (dangerBusy || revokeBusy) return;
+    setOrgDanger(null);
+    setDangerError(null);
+  }
+
+  async function runOrgDanger() {
+    if (!orgDanger || !token) return;
+    setDangerError(null);
     try {
-      await run();
-      setMemberConfirm(null);
+      if (orgDanger.kind === "leave" || orgDanger.kind === "dissolve") {
+        setDangerBusy(true);
+        if (orgDanger.kind === "dissolve") {
+          await dissolveOrg(orgId, token);
+        } else {
+          await leaveOrg(orgId, token);
+        }
+        navigate("/organizations");
+        return;
+      }
+      if (orgDanger.kind === "remove") {
+        setDangerBusy(true);
+        await removeMember(orgDanger.userId);
+      } else if (orgDanger.kind === "transfer") {
+        setDangerBusy(true);
+        await transferTo(orgDanger.userId);
+      } else {
+        setRevokeBusy(orgDanger.keyId);
+        await revokeOrgInviteKey(orgId, orgDanger.keyId, token);
+        setInviteKeys((prev) =>
+          prev.filter((row) => row.key_id !== orgDanger.keyId),
+        );
+      }
+      setOrgDanger(null);
     } catch (err: unknown) {
-      setMemberError(memberErr(err));
-      setMemberConfirm(null);
+      setDangerError(memberErr(err));
     } finally {
-      setMemberBusy(null);
+      setDangerBusy(false);
+      setRevokeBusy(null);
     }
+  }
+
+  function orgDangerCopy(action: OrgDanger): {
+    title: string;
+    description: string;
+    confirmLabel: string;
+  } {
+    if (action.kind === "leave") {
+      return {
+        title: "Leave organization",
+        description:
+          "Remove yourself from this organization. You can rejoin later with an invite key.",
+        confirmLabel: "Leave",
+      };
+    }
+    if (action.kind === "dissolve") {
+      return {
+        title: "Dissolve organization",
+        description:
+          "Permanently delete this org, members, and invite keys. Fails if packages are still published under it.",
+        confirmLabel: "Dissolve",
+      };
+    }
+    if (action.kind === "remove") {
+      return {
+        title: "Remove member",
+        description: `Remove @${action.userId} from this organization. They lose access to private org packages.`,
+        confirmLabel: "Remove",
+      };
+    }
+    if (action.kind === "transfer") {
+      return {
+        title: "Transfer ownership",
+        description: `Make @${action.userId} the owner. You remain a member.`,
+        confirmLabel: "Transfer",
+      };
+    }
+    return {
+      title: "Revoke invite key",
+      description:
+        "This key can no longer be used to join. Existing members are unchanged.",
+      confirmLabel: "Revoke",
+    };
   }
 
   async function addMember() {
@@ -790,47 +857,36 @@ export function OrganizationDetailPage() {
                                     {!isSelf ? (
                                       <Button
                                         type="button"
-                                        variant="outline"
+                                        variant="dangerOutline"
                                         size="sm"
                                         disabled={memberBusy === transferKey}
-                                        onClick={() =>
-                                          void confirmMemberAction(
-                                            transferKey,
-                                            () => transferTo(m.user_id),
-                                          )
-                                        }
+                                        onClick={() => {
+                                          setDangerError(null);
+                                          setOrgDanger({
+                                            kind: "transfer",
+                                            userId: m.user_id,
+                                          });
+                                        }}
                                       >
-                                        {memberBusy === transferKey
-                                          ? "…"
-                                          : memberConfirm === transferKey
-                                            ? "Confirm"
-                                            : "Transfer"}
+                                        Transfer
                                       </Button>
                                     ) : null}
                                     <Button
                                       type="button"
-                                      variant="outline"
+                                      variant="dangerOutline"
                                       size="sm"
-                                      className={
-                                        memberConfirm === removeKey
-                                          ? "border-transparent bg-error/15 text-error hover:bg-error/25 hover:text-error"
-                                          : undefined
-                                      }
                                       disabled={
                                         lastOwner || memberBusy === removeKey
                                       }
-                                      onClick={() =>
-                                        void confirmMemberAction(
-                                          removeKey,
-                                          () => removeMember(m.user_id),
-                                        )
-                                      }
+                                      onClick={() => {
+                                        setDangerError(null);
+                                        setOrgDanger({
+                                          kind: "remove",
+                                          userId: m.user_id,
+                                        });
+                                      }}
                                     >
-                                      {memberBusy === removeKey
-                                        ? "…"
-                                        : memberConfirm === removeKey
-                                          ? "Confirm"
-                                          : "Remove"}
+                                      Remove
                                     </Button>
                                   </div>
                                 </TableCell>
@@ -984,7 +1040,6 @@ export function OrganizationDetailPage() {
                                   );
                             const status =
                               k.active === false ? "inactive" : "active";
-                            const confirmDelete = confirmDeleteId === k.key_id;
                             return (
                               <TableRow key={k.key_id}>
                                 <TableCell className="font-mono text-xs max-w-[min(40rem,50vw)]">
@@ -1006,45 +1061,18 @@ export function OrganizationDetailPage() {
                                 <TableCell className="text-right">
                                   <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="dangerOutline"
                                     size="sm"
-                                    className={
-                                      confirmDelete
-                                        ? "border-transparent bg-error/15 text-error hover:bg-error/25 hover:text-error"
-                                        : undefined
-                                    }
                                     disabled={revokeBusy === k.key_id}
                                     onClick={() => {
-                                      if (confirmDeleteId !== k.key_id) {
-                                        setConfirmDeleteId(k.key_id);
-                                        return;
-                                      }
-                                      void (async () => {
-                                        if (!token) return;
-                                        setRevokeBusy(k.key_id);
-                                        try {
-                                          await revokeOrgInviteKey(
-                                            orgId,
-                                            k.key_id,
-                                            token,
-                                          );
-                                          setConfirmDeleteId(null);
-                                          setInviteKeys((prev) =>
-                                            prev.filter(
-                                              (row) => row.key_id !== k.key_id,
-                                            ),
-                                          );
-                                        } finally {
-                                          setRevokeBusy(null);
-                                        }
-                                      })();
+                                      setDangerError(null);
+                                      setOrgDanger({
+                                        kind: "revoke",
+                                        keyId: k.key_id,
+                                      });
                                     }}
                                   >
-                                    {revokeBusy === k.key_id
-                                      ? "…"
-                                      : confirmDelete
-                                        ? "Confirm"
-                                        : "Delete"}
+                                    Delete
                                   </Button>
                                 </TableCell>
                               </TableRow>
@@ -1086,58 +1114,20 @@ export function OrganizationDetailPage() {
                         ? "Permanently delete this org, members, and invite keys. Fails if packages are still published under it."
                         : "Remove yourself from this organization. You can rejoin later with an invite key."}
                     </p>
-                    {dangerError ? (
-                      <p className="text-sm text-error mt-2">{dangerError}</p>
-                    ) : null}
                   </div>
                   <Button
                     type="button"
-                    variant="outline"
-                    className={
-                      dangerConfirm
-                        ? "shrink-0 border-transparent bg-error/15 text-error hover:bg-error/25 hover:text-error"
-                        : "shrink-0"
-                    }
+                    variant="dangerOutline"
+                    className="shrink-0"
                     disabled={dangerBusy}
                     onClick={() => {
-                      if (!dangerConfirm) {
-                        setDangerConfirm(true);
-                        setDangerError(null);
-                        return;
-                      }
-                      void (async () => {
-                        if (!token) return;
-                        setDangerBusy(true);
-                        setDangerError(null);
-                        try {
-                          if (isOwner) {
-                            await dissolveOrg(orgId, token);
-                          } else {
-                            await leaveOrg(orgId, token);
-                          }
-                          navigate("/organizations");
-                        } catch (err: unknown) {
-                          if (err instanceof RegistryHttpError) {
-                            setDangerError(`${err.code}: ${err.message}`);
-                          } else {
-                            setDangerError(
-                              err instanceof Error ? err.message : String(err),
-                            );
-                          }
-                          setDangerConfirm(false);
-                        } finally {
-                          setDangerBusy(false);
-                        }
-                      })();
+                      setDangerError(null);
+                      setOrgDanger({
+                        kind: isOwner ? "dissolve" : "leave",
+                      });
                     }}
                   >
-                    {dangerBusy
-                      ? "…"
-                      : dangerConfirm
-                        ? "Confirm"
-                        : isOwner
-                          ? "Dissolve"
-                          : "Leave"}
+                    {isOwner ? "Dissolve" : "Leave"}
                   </Button>
                 </div>
               </section>
@@ -1278,6 +1268,19 @@ export function OrganizationDetailPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {orgDanger ? (
+        <ConfirmDialog
+          open
+          title={orgDangerCopy(orgDanger).title}
+          description={orgDangerCopy(orgDanger).description}
+          confirmLabel={orgDangerCopy(orgDanger).confirmLabel}
+          busy={dangerBusy || Boolean(revokeBusy)}
+          error={dangerError}
+          onCancel={closeOrgDanger}
+          onConfirm={() => void runOrgDanger()}
+        />
       ) : null}
     </>
   );

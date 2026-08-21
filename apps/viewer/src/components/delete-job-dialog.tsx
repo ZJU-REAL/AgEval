@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   deleteJob,
   fetchDeletePreview,
@@ -138,94 +138,72 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
     setBusy(false);
   }
 
+  const consequence = bulk
+    ? "This removes each selected Job. Suite rows also delete every Attempt they reference."
+    : singleKind === "suite"
+      ? "This removes the suite tree and every Attempt it references. Those Attempts will not come back as singles."
+      : "This removes this Attempt directory.";
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
-      role="presentation"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-job-title"
-        className="w-full max-w-lg rounded-[8px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="border-b border-hairline px-4 py-3">
-          <h2 id="delete-job-title" className="text-sm font-medium text-ink">
-            {bulk ? `Delete ${jobs.length} jobs` : `Delete ${singleKind} job`}
-          </h2>
-          <p className="mt-1 text-xs text-mute font-mono truncate">
+    <ConfirmDialog
+      open
+      className="max-w-lg"
+      title={bulk ? `Delete ${jobs.length} jobs` : `Delete ${singleKind} job`}
+      description={
+        <>
+          <span className="block font-mono text-xs truncate">
             {bulk
               ? jobs.map((j) => jobDisplayName(j)).join(", ")
               : jobDisplayName(jobs[0])}
+          </span>
+          <span className="mt-2 block">{consequence}</span>
+        </>
+      }
+      confirmLabel={bulk ? `Delete ${ready.length}` : "Delete"}
+      busy={busy}
+      confirmDisabled={loading || ready.length === 0}
+      error={error}
+      onCancel={onClose}
+      onConfirm={() => void onConfirm()}
+    >
+      <div className="space-y-3 text-sm">
+        {loading && <p className="text-mute">Loading preview...</p>}
+        {runningHint ? (
+          <p className="text-xs text-body">
+            <span className="text-mute">Still running or canceling. </span>
+            {runningHint}
           </p>
-        </div>
-        <div className="px-4 py-3 space-y-3 text-sm">
-          {bulk ? (
-            <p className="text-body">
-              This removes each selected Job. Suite rows also delete every
-              Attempt they reference.
+        ) : null}
+        {blockedHint ? <p className="text-sm text-body">{blockedHint}</p> : null}
+        {paths.length > 0 ? (
+          <>
+            <ul className="max-h-48 overflow-auto rounded-[6px] border border-hairline bg-canvas-soft divide-y divide-hairline">
+              {paths.map((row) => (
+                <li
+                  key={`${row.locator}-${row.run_id || ""}`}
+                  className="flex items-start justify-between gap-3 px-2.5 py-1.5"
+                >
+                  <span className="font-mono text-xs break-all">
+                    {row.locator}
+                    {!row.exists ? (
+                      <span className="text-mute"> (missing)</span>
+                    ) : null}
+                  </span>
+                  <span className="tabular text-xs text-mute shrink-0">
+                    {formatBytes(row.bytes)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-mute tabular">
+              {formatBytes(bytes)} total
+              {cascade
+                ? ` · ${cascade} attempt${cascade === 1 ? "" : "s"}`
+                : ""}
             </p>
-          ) : singleKind === "suite" ? (
-            <p className="text-body">
-              This removes the suite tree and every Attempt it references. Those
-              Attempts will not come back as singles.
-            </p>
-          ) : (
-            <p className="text-body">This removes this Attempt directory.</p>
-          )}
-          {loading && <p className="text-mute">Loading preview...</p>}
-          {runningHint ? (
-            <p className="text-xs text-body">
-              <span className="text-mute">Still running or canceling. </span>
-              {runningHint}
-            </p>
-          ) : null}
-          {blockedHint ? <p className="text-sm text-body">{blockedHint}</p> : null}
-          {error ? <p className="text-sm text-error">{error}</p> : null}
-          {paths.length > 0 && (
-            <>
-              <ul className="max-h-48 overflow-auto rounded-[6px] border border-hairline bg-canvas-soft divide-y divide-hairline">
-                {paths.map((row) => (
-                  <li
-                    key={`${row.locator}-${row.run_id || ""}`}
-                    className="flex items-start justify-between gap-3 px-2.5 py-1.5"
-                  >
-                    <span className="font-mono text-xs break-all">
-                      {row.locator}
-                      {!row.exists ? (
-                        <span className="text-mute"> (missing)</span>
-                      ) : null}
-                    </span>
-                    <span className="tabular text-xs text-mute shrink-0">
-                      {formatBytes(row.bytes)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-mute tabular">
-                {formatBytes(bytes)} total
-                {cascade
-                  ? ` · ${cascade} attempt${cascade === 1 ? "" : "s"}`
-                  : ""}
-              </p>
-            </>
-          )}
-        </div>
-        <div className="flex justify-end gap-2 border-t border-hairline px-4 py-3">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void onConfirm()}
-            disabled={busy || loading || ready.length === 0}
-          >
-            {busy ? "Deleting..." : bulk ? `Delete ${ready.length}` : "Delete"}
-          </Button>
-        </div>
+          </>
+        ) : null}
       </div>
-    </div>
+    </ConfirmDialog>
   );
 }

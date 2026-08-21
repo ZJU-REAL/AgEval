@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -131,20 +132,16 @@ export function ResultOwnerOps({
   }
 
   async function remove() {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
       await deleteResult(kind, resultId, token, {
         withAttempts: kind === "suite" && withAttempts,
       });
+      setConfirmDelete(false);
       onDeleted?.();
     } catch (err) {
       fail(err);
-      setConfirmDelete(false);
     } finally {
       setBusy(false);
     }
@@ -178,35 +175,47 @@ export function ResultOwnerOps({
         <Button
           type="button"
           size="sm"
-          variant={confirmDelete ? "default" : "outline"}
+          variant="dangerOutline"
           disabled={busy}
-          onClick={() => void remove()}
+          onClick={() => {
+            setError(null);
+            setConfirmDelete(true);
+          }}
         >
-          {confirmDelete ? "Confirm delete" : "Delete"}
+          Delete
         </Button>
-        {confirmDelete ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => setConfirmDelete(false)}
-          >
-            Cancel
-          </Button>
-        ) : null}
       </div>
-      {kind === "suite" && confirmDelete ? (
-        <label className="flex items-center gap-2 text-xs text-body">
-          <input
-            type="checkbox"
-            checked={withAttempts}
-            disabled={busy}
-            onChange={(e) => setWithAttempts(e.target.checked)}
-          />
-          Also delete linked Attempts
-        </label>
-      ) : null}
+      <ConfirmDialog
+        open={confirmDelete}
+        title={kind === "suite" ? "Delete suite result" : "Delete attempt"}
+        description={
+          kind === "suite"
+            ? "This removes the suite row from the Registry. Linked Attempts stay unless you also delete them below."
+            : "This removes this Attempt result and its uploaded evidence from the Registry."
+        }
+        confirmLabel="Delete"
+        busy={busy}
+        error={error}
+        onCancel={() => {
+          if (!busy) {
+            setConfirmDelete(false);
+            setError(null);
+          }
+        }}
+        onConfirm={() => void remove()}
+      >
+        {kind === "suite" ? (
+          <label className="flex items-center gap-2 text-sm text-body">
+            <input
+              type="checkbox"
+              checked={withAttempts}
+              disabled={busy}
+              onChange={(e) => setWithAttempts(e.target.checked)}
+            />
+            Also delete linked Attempts
+          </label>
+        ) : null}
+      </ConfirmDialog>
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-mute uppercase tracking-wide">

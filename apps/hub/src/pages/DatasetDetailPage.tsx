@@ -412,7 +412,7 @@ export function DatasetDetailPage() {
             </p>
           ) : null}
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {versions.length > 0 ? (
             <VersionSwitcher
               versions={versions}
