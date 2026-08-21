@@ -9,7 +9,7 @@ import type {
   TrajectoryStep,
   TreeEntry,
 } from "@/lib/trial-types";
-import { reasoningEffortFromBinding } from "@/lib/utils";
+import { displayAgentName, reasoningEffortFromBinding } from "@/lib/utils";
 
 import {
   FIRST_TAB_ORDER,
@@ -203,15 +203,43 @@ export function scopeForTab(tab: TabId): string | null {
   return TREE_SCOPES[tab] ?? null;
 }
 
-function profileVariant(profile: Record<string, unknown>): string | null {
-  const opts = profile.options;
-  if (!opts || typeof opts !== "object" || Array.isArray(opts)) return null;
-  const rec = opts as Record<string, unknown>;
-  for (const key of ["entry", "agent", "label"] as const) {
-    const val = rec[key];
+function projectedAcpEntry(profile: unknown): string {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return "";
+  const rec = profile as Record<string, unknown>;
+  if (typeof rec.entry === "string" && rec.entry.trim()) return rec.entry.trim();
+  const opts = rec.options;
+  if (opts && typeof opts === "object" && !Array.isArray(opts)) {
+    const val = (opts as Record<string, unknown>).entry;
     if (typeof val === "string" && val.trim()) return val.trim();
   }
-  return null;
+  return "";
+}
+
+function displayBinding(
+  profile: Record<string, unknown>,
+  overlay: unknown,
+): Record<string, unknown> {
+  const src =
+    overlay && typeof overlay === "object" && !Array.isArray(overlay)
+      ? (overlay as Record<string, unknown>)
+      : profile;
+  const entry = projectedAcpEntry(src) || projectedAcpEntry(profile);
+  if (!entry || src.entry === entry) return src;
+  return { ...src, entry };
+}
+
+/** Same axis as Jobs: label → ACP entry → executor. Never show transport ``acp``. */
+function actorAgentName(
+  profile: Record<string, unknown>,
+  overlay: unknown,
+  invEntry: string | undefined,
+): string {
+  const name = displayAgentName(displayBinding(profile, overlay));
+  if (name && name !== "acp") return name;
+  if (invEntry && invEntry.trim()) return invEntry.trim();
+  const pid = profile.id;
+  if (typeof pid === "string" && pid.trim()) return pid.trim();
+  return "";
 }
 
 function environmentKind(
@@ -303,6 +331,7 @@ export function buildTrialMeta(opts: {
   const orderedIds: string[] = [];
   const invModel = new Map<string, string>();
   const invExecutor = new Map<string, string>();
+  const invEntry = new Map<string, string>();
   const invEffort = new Map<string, string>();
   const overlayBindings =
     lock.job_overlay &&
@@ -326,6 +355,10 @@ export function buildTrialMeta(opts: {
     if (typeof mid === "string" && mid) invModel.set(pid, mid);
     const ek = meta.executor_kind;
     if (typeof ek === "string" && ek) invExecutor.set(pid, ek);
+    const acpEntry = meta.acp_entry_id;
+    if (typeof acpEntry === "string" && acpEntry.trim()) {
+      invEntry.set(pid, acpEntry.trim());
+    }
     const effort =
       (typeof meta.actual_reasoning_effort === "string" &&
         meta.actual_reasoning_effort.trim()) ||
@@ -348,7 +381,6 @@ export function buildTrialMeta(opts: {
   const executors: string[] = [];
   for (const pid of orderedIds) {
     const p = byId.get(pid) || { id: pid };
-    const variant = profileVariant(p);
     let ex = typeof p.executor === "string" ? p.executor : null;
     if (!ex) ex = invExecutor.get(pid) || null;
     if (ex && !executors.includes(ex)) executors.push(ex);
@@ -361,7 +393,8 @@ export function buildTrialMeta(opts: {
       reasoningEffortFromBinding(overlay) ||
       reasoningEffortFromBinding(p) ||
       null;
-    const agentCol = variant || ex || pid;
+    const agentCol =
+      actorAgentName(p, overlay, invEntry.get(pid)) || pid;
     const roleCol = pid;
     const nInv = invokeCount.get(pid) || 0;
     const latTotal = latencySum.get(pid);

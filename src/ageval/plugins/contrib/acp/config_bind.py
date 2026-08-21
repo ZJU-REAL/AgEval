@@ -115,13 +115,15 @@ async def bind_model(
                 mid = getattr(item, "model_id", None) or getattr(item, "modelId", None)
                 if mid:
                     ids.append(str(mid))
-            if desired not in ids and not any(desired in i for i in ids):
+            if desired not in ids:
                 raise RuntimeError("acp_model_unavailable")
         actual = desired if desired != "entry-default" else "entry-default"
         return actual, initial
 
-    if desired not in ("entry-default",):
-        return desired, initial
+    # No model surface — entry default only. Do not treat the profile
+    # string as a silent hint.
+    if desired not in ("entry-default", "", None):
+        raise RuntimeError("acp_model_unavailable")
     return "entry-default", initial
 
 

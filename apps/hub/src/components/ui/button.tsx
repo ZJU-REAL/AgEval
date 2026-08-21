@@ -10,12 +10,16 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "chamfer chamfer-focus focus-visible:[--chamfer-focus-ring:var(--color-ink)] bg-link text-on-accent hover:bg-link-deep font-mono text-[13px] font-semibold",
+          "bg-link text-on-accent hover:bg-link-deep font-mono text-[13px] font-semibold",
         secondary:
           "bg-canvas border border-hairline text-ink hover:bg-canvas-soft",
         ghost: "text-body hover:bg-canvas-soft hover:text-ink",
         outline:
           "border border-hairline bg-canvas text-ink hover:bg-canvas-soft",
+        danger:
+          "bg-error text-on-accent hover:bg-error/80 font-mono text-[13px] font-semibold",
+        dangerOutline:
+          "border border-hairline bg-canvas text-ink hover:border-transparent hover:bg-error/15 hover:text-error",
       },
       size: {
         default: "h-9 px-3",

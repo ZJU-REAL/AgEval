@@ -22,6 +22,11 @@ async def run(ctx: AttemptCtx) -> None:
     try:
         outcome = await _run_task_entry(ctx)
         ctx.record_fact("task_run", outcome)
+        if not isinstance(outcome, dict) or outcome.get("ok") is not True:
+            error = "task_run_failed"
+            if isinstance(outcome, dict):
+                error = str(outcome.get("error") or error)
+            raise RuntimeError(error)
     finally:
         if ctx.agent_service is not None:
             await _stop_agent_service(ctx)

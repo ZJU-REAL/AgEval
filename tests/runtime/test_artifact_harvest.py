@@ -8,7 +8,12 @@ from types import SimpleNamespace
 import pytest
 
 from ageval.attempt.artifact_harvest import harvest_workspace_artifacts
-from ageval.environments.protocol import WORKSPACE_PATH, EnvironmentCapabilities, EnvironmentFailure
+from ageval.environments.protocol import (
+    ARTIFACTS_PATH,
+    WORKSPACE_PATH,
+    EnvironmentCapabilities,
+    EnvironmentFailure,
+)
 
 
 class _Evidence:
@@ -60,13 +65,25 @@ def _ctx(tmp_path: Path, host: _Host, *, stopped: bool = True) -> SimpleNamespac
 @pytest.mark.asyncio
 async def test_harvest_pulls_missing_workspace_file(tmp_path: Path) -> None:
     payload = b'{"top_5_users_by_amount": {}}\n'
-    host = _Host({f"{WORKSPACE_PATH}/aggregates.json": payload})
+    source = f"{WORKSPACE_PATH}/artifacts/aggregates.json"
+    host = _Host({source: payload})
     ctx = _ctx(tmp_path, host)
     await harvest_workspace_artifacts(ctx)
     dest = tmp_path / "task-artifacts" / "aggregates.json"
     assert dest.read_bytes() == payload
-    assert host.downloads == [(f"{WORKSPACE_PATH}/aggregates.json", dest)]
+    assert host.downloads[0] == (source, dest)
     assert ctx.facts[-1]["detail"]["pulled"] == ["aggregates"]
+
+
+@pytest.mark.asyncio
+async def test_harvest_falls_back_to_artifacts_dir(tmp_path: Path) -> None:
+    payload = b'{"from":"artifacts"}\n'
+    host = _Host({f"{ARTIFACTS_PATH}/aggregates.json": payload})
+    ctx = _ctx(tmp_path, host)
+    await harvest_workspace_artifacts(ctx)
+    dest = tmp_path / "task-artifacts" / "aggregates.json"
+    assert dest.read_bytes() == payload
+    assert host.downloads[-1][0] == f"{ARTIFACTS_PATH}/aggregates.json"
 
 
 @pytest.mark.asyncio

@@ -9,14 +9,17 @@ import { OutcomeStrip } from "@/components/trial/outcome-strip";
 import { PhaseTimingBar } from "@/components/trial/phase-timing-bar";
 import { TrialHeader } from "@/components/trial/trial-header";
 import { useAttemptEvidence } from "@/hooks/use-attempt-evidence";
+import { ResultOwnerOps } from "@/components/result-owner-ops";
 import {
   decodeDatasetId,
   decodeFileContent,
+  getAttempt,
   getAttemptFile,
   listSuites,
+  type AttemptMeta,
 } from "@/lib/api";
 import { toArchivePath } from "@/lib/attempt-evidence";
-import { getToken } from "@/lib/auth";
+import { getGithubUser, getToken } from "@/lib/auth";
 
 async function readAttemptStartedAt(
   runId: string,
@@ -67,6 +70,7 @@ export function AttemptEvidencePage() {
       replaced_at?: string | null;
     }>
   >([]);
+  const [attemptMeta, setAttemptMeta] = useState<AttemptMeta | null>(null);
 
   const {
     trial,
@@ -89,6 +93,24 @@ export function AttemptEvidencePage() {
     fileNote,
     fileLoading,
   } = useAttemptEvidence(runId, taskId, token);
+
+  useEffect(() => {
+    if (!runId) {
+      setAttemptMeta(null);
+      return;
+    }
+    let cancelled = false;
+    getAttempt(runId, token)
+      .then((meta) => {
+        if (!cancelled) setAttemptMeta(meta);
+      })
+      .catch(() => {
+        if (!cancelled) setAttemptMeta(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,6 +194,24 @@ export function AttemptEvidencePage() {
         />
 
         {runCommand ? <CommandStrip command={runCommand} /> : null}
+
+        {attemptMeta &&
+        (attemptMeta.uploaded_by || "").toLowerCase() ===
+          (getGithubUser() || "").toLowerCase() ? (
+          <ResultOwnerOps
+            kind="attempt"
+            resultId={runId}
+            visibility={attemptMeta.visibility}
+            canManage
+            token={token}
+            onVisibility={(next) =>
+              setAttemptMeta((prev) =>
+                prev ? { ...prev, visibility: next } : prev,
+              )
+            }
+            onDeleted={() => navigate(jobsHref)}
+          />
+        ) : null}
 
         {loading && <p className="text-sm text-mute">Loading attempt evidence…</p>}
 

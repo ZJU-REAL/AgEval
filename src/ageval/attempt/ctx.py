@@ -73,6 +73,8 @@ class AttemptCtx:
             )
         if self.evaluation_result is not None:
             raise EvaluationBindingError("evaluation already bound for this Attempt")
+        if not isinstance(result, dict):
+            raise EvaluationBindingError("evaluator must return a dict")
         self.evaluation_result = result
 
     # --- budget --------------------------------------------------------------

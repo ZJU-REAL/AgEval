@@ -85,7 +85,11 @@ def bind_result(
         return AttemptResult(
             status=STATUS_ERROR, score=None, metrics={}, error_phase="evaluate", **common
         )
-    status = str(evaluator_raw.get("status") or STATUS_FAIL)
+    status = str(evaluator_raw.get("status") or "")
+    if status not in {STATUS_PASS, STATUS_FAIL, STATUS_ERROR}:
+        return AttemptResult(
+            status=STATUS_ERROR, score=None, metrics={}, error_phase="evaluate", **common
+        )
     score = evaluator_raw.get("score")
     raw_metrics = evaluator_raw.get("metrics")
     return AttemptResult(

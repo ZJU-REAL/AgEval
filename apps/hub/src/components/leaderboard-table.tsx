@@ -28,7 +28,8 @@ import {
   type PackageRelease,
   type SuiteRow,
 } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { getGithubUser, getToken } from "@/lib/auth";
+import { ResultOwnerOps } from "@/components/result-owner-ops";
 import {
   cn,
   displayLabelsFromOverlay,
@@ -231,7 +232,7 @@ function defaultCompare(a: SuiteRow, b: SuiteRow): number {
  * Column headers are clickable (Viewer Jobs pattern). pass@k / pass^k sort by
  * primary display k (max k_values / n_attempts); not job identity.
  */
-type ExpandTab = "profiles" | "plugin" | "jobs";
+type ExpandTab = "profiles" | "plugin" | "jobs" | "share";
 
 function SuiteJobsList({
   suite,
@@ -353,6 +354,8 @@ export function LeaderboardTable({
   openSuiteId,
   packageDigest,
   versions,
+  onSuiteUpdated,
+  onSuiteDeleted,
 }: {
   suites: SuiteRow[];
   datasetId: string;
@@ -365,8 +368,11 @@ export function LeaderboardTable({
   /** Currently viewed Dataset release digest (fallback for overlay preview). */
   packageDigest?: string;
   versions?: PackageRelease[];
+  onSuiteUpdated?: (suiteRunId: string, patch: Partial<SuiteRow>) => void;
+  onSuiteDeleted?: (suiteRunId: string) => void;
 }) {
   const navigate = useNavigate();
+  const selfLogin = (getGithubUser() || "").toLowerCase();
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandTab, setExpandTab] = useState<ExpandTab>("profiles");
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
@@ -688,7 +694,10 @@ export function LeaderboardTable({
                                 ["profiles", "profiles"],
                                 ["plugin", "plugin"],
                                 ["jobs", "jobs"],
-                              ] as const
+                                ...(((s.uploaded_by || "").toLowerCase() === selfLogin
+                                  ? ([["share", "share"]] as const)
+                                  : []) as ReadonlyArray<readonly [ExpandTab, string]>),
+                              ] as ReadonlyArray<readonly [ExpandTab, string]>
                             ).map(([id, label]) => (
                               <button
                                 key={id}
@@ -750,6 +759,23 @@ export function LeaderboardTable({
                                 </ul>
                               )}
                             </div>
+                          ) : expandTab === "share" ? (
+                            <ResultOwnerOps
+                              kind="suite"
+                              resultId={s.suite_run_id}
+                              visibility={s.visibility}
+                              canManage
+                              token={getToken()}
+                              onVisibility={(next) =>
+                                onSuiteUpdated?.(s.suite_run_id, {
+                                  visibility: next,
+                                })
+                              }
+                              onDeleted={() => {
+                                setOpenId(null);
+                                onSuiteDeleted?.(s.suite_run_id);
+                              }}
+                            />
                           ) : (
                             <SuiteJobsList
                               suite={s}

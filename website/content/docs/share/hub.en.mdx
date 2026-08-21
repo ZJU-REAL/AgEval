@@ -9,17 +9,17 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - When the package has root `shared/`: Dataset **Shared** tab; Task **Files** header **Local | Shared** (Local default; Attempt evidence does not switch)  
 - When profiles declare `overlays:`: Dataset **Overlays** tab; Task **Files** adds an Overlays scope; Leaderboard **profiles** expand shows a Job tree (Dataset package) and/or an Agent tree (`agent_ref` package). One source hides the extra tab; none hides the tree. Not the suite archive.  
 - Large file preview: oversize members return a truncated head with a `truncated` flag (not full download)  
-- **Organizations**: members, org datasets and plugins (separate tables), shared suite results  
+- **Organizations**: create from the list page or join with an invite key; members, org datasets / plugins / agents (separate tables), shared suite results  
 - **Org settings**: invite keys (shown once on create); owners add members by GitHub login, change role, remove, or transfer ownership; leave or dissolve  
 - Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
-- Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases  
+- Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases. Org owners can flip the current version public/private, delete it, or promote a draft to a release  
 - Tasks table: README present, recent job count, last score/status  
-- Leaderboard: **Public** (default) lists complete, release-bound suite rows only. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). Task Jobs stay as they are.  
+- Leaderboard: **Public** (default) lists complete, release-bound suite rows only. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). The uploader gets a **share** tab to flip visibility, share with an org/user, or delete. Task Jobs stay as they are.  
 - Plugin detail: exclusive / chain **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
 - Official orgs, members of those orgs, and plugins from those orgs show a verified check  
 - Public user page lists identity and official orgs only — private memberships stay hidden  
-- Org and plugin owners can edit the display name (org title, or the leaf after `org/`). The stored plugin id prefix does not change  
-- Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
+- Org, dataset, plugin, and agent owners can edit the display name (org title, or the leaf after `org/`). The stored package id prefix does not change  
+- Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins and agents you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
 - List search sits on the same row as **Your organizations | Explore**; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
 - Agent detail: published package (binding + files, including bundled `overlays/`) plus appearances from official public suites that named it with `agent_ref`. Suites run with `--profiles` only stay on the Dataset Leaderboard.
@@ -49,10 +49,10 @@ pnpm dev   # http://127.0.0.1:5174
 | `/plugins/:id` | Plugin detail (declared-slot timeline · file preview · CLI install) |
 | `/agents` | Published Agent catalog |
 | `/agents/:id` | Binding, files, appearances grouped by version |
-| `/organizations` | Your orgs · Join · dataset and plugin counts |
-| `/organizations/:orgId` | Overview (members · datasets · plugins) · Settings |
-| `/users/:login` | Public user profile (official orgs only; signed-out OK) |
-| `/jobs/...` | Remote Attempt detail (needs uploaded run artifacts) |
+| `/organizations` | Your orgs · Create / Join · dataset / plugin / agent counts |
+| `/organizations/:orgId` | Overview (members · datasets · plugins · agents) · Settings |
+| `/users/:login` | Public user profile (official orgs and public datasets / plugins / agents; signed-out OK) |
+| `/datasets/:id/tasks/:task/attempts/:runId` | Remote Attempt detail (needs uploaded run artifacts) |
 
 Click **Sign in with GitHub** to authenticate. Ops detail: `apps/hub/README.md`, `services/registry/README.md`.
 

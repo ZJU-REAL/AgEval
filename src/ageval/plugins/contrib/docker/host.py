@@ -233,8 +233,13 @@ class DockerHost:
             )
         target = self.host_path(dest)
         if src.is_dir():
-            target.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(src, target, dirs_exist_ok=True)
+            if target.exists():
+                if target.is_dir():
+                    shutil.rmtree(target)
+                else:
+                    target.unlink()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(src, target)
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, target)

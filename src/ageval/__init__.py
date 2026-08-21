@@ -1,4 +1,8 @@
-"""ageval — lock a dataset, run one Attempt, bind an independent evaluator verdict."""
+"""ageval — agent evaluation runtime.
+
+Lock a dataset, run one Attempt through the five phases, and bind PASS only
+from an independent evaluator. CLI: ``ageval``.
+"""
 
 from __future__ import annotations
 

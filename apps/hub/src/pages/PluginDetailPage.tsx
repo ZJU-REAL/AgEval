@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
+import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { InlineMarkdown } from "@/components/markdown";
 import {
   declaredSlotsFromPreview,
@@ -17,6 +18,7 @@ import {
   getOrg,
   getPackageByDigest,
   getPackageFile,
+  isDraftRelease,
   listPackageFiles,
   listPackageVersions,
   splitPackageId,
@@ -32,6 +34,8 @@ export function PluginDetailPage() {
   const { pluginId: rawId } = useParams();
   const pluginId = decodeDatasetId(rawId || "");
   const token = getToken();
+  const navigate = useNavigate();
+  const [reloadAt, setReloadAt] = useState(0);
 
   const [release, setRelease] = useState<PackageRelease | null>(null);
   const [preview, setPreview] = useState<PluginPreview | null>(null);
@@ -135,7 +139,7 @@ export function PluginDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [pluginId, token]);
+  }, [pluginId, token, reloadAt]);
 
   useEffect(() => {
     if (!release || !selectedPath) {
@@ -203,48 +207,68 @@ export function PluginDetailPage() {
         ]}
       />
 
-      <div className="mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <DisplayNameEditor
-            value={release?.display_name?.trim() || packageParts.name}
-            prefix={packageParts.org ? `${packageParts.org}/` : null}
-            canEdit={Boolean(token && canEditName && release)}
-            headingClassName="text-xl font-semibold tracking-tight text-ink"
-            afterTitle={release?.official ? <OfficialMark /> : null}
-            onSave={async (next) => {
-              const updated = await updatePackageDisplayName(pluginId, next, token);
-              setRelease((prev) =>
-                prev ? { ...prev, display_name: updated.display_name || next } : prev,
-              );
-            }}
-          />
-          {formatBadge ? (
-            <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
-              {formatBadge}
-            </span>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <DisplayNameEditor
+              value={release?.display_name?.trim() || packageParts.name}
+              prefix={packageParts.org ? `${packageParts.org}/` : null}
+              canEdit={Boolean(token && canEditName && release)}
+              headingClassName="text-xl font-semibold tracking-tight text-ink"
+              afterTitle={release?.official ? <OfficialMark /> : null}
+              onSave={async (next) => {
+                const updated = await updatePackageDisplayName(pluginId, next, token);
+                setRelease((prev) =>
+                  prev ? { ...prev, display_name: updated.display_name || next } : prev,
+                );
+              }}
+            />
+            {formatBadge ? (
+              <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
+                {formatBadge}
+              </span>
+            ) : null}
+          </div>
+          {release ? (
+            <p className="text-sm text-mute mt-1">
+              <span className="font-mono">@{pluginId}</span>
+              {" · "}
+              {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
+              {release.org_id ? (
+                <>
+                  {" "}
+                  · org{" "}
+                  <span className="inline-flex items-center gap-1">
+                    <Link
+                      to={`/organizations/${encodeURIComponent(release.org_id)}`}
+                      className="font-mono text-xs text-body hover:text-ink"
+                    >
+                      {release.org_id}
+                    </Link>
+                    {release.official ? <OfficialMark kind="org" /> : null}
+                  </span>
+                </>
+              ) : null}
+            </p>
           ) : null}
         </div>
         {release ? (
-          <p className="text-sm text-mute mt-1">
-            <span className="font-mono">@{pluginId}</span>
-            {" · "}
-            v{release.version} · {release.visibility}
-            {release.org_id ? (
-              <>
-                {" "}
-                · org{" "}
-                <span className="inline-flex items-center gap-1">
-                  <Link
-                    to={`/organizations/${encodeURIComponent(release.org_id)}`}
-                    className="font-mono text-xs text-body hover:text-ink"
-                  >
-                    {release.org_id}
-                  </Link>
-                  {release.official ? <OfficialMark kind="org" /> : null}
-                </span>
-              </>
-            ) : null}
-          </p>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <PackageOwnerOps
+              packageId={pluginId}
+              release={release}
+              canManage={canEditName}
+              token={token}
+              onUpdated={(next) => setRelease(next)}
+              onDeleted={() => {
+                void listPackageVersions(pluginId, token).then((rows) => {
+                  if (!rows.length) navigate("/plugins");
+                  else setReloadAt((n) => n + 1);
+                });
+              }}
+              onReleased={() => setReloadAt((n) => n + 1)}
+            />
+          </div>
         ) : null}
       </div>
 

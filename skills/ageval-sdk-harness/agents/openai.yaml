@@ -1,4 +1,4 @@
 interface:
   display_name: "ageval SDK Harness"
   short_description: "AgentSession, tools, terminals"
-  default_prompt: "Use $ageval-sdk-harness to write a package harness with AgentSession and HarnessTerminal without owning PASS or credentials."
+  default_prompt: "Use $ageval-sdk-harness to write a package harness with AgentSession and RunTerminal without owning PASS or credentials."
