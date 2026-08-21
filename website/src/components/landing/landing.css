@@ -40,7 +40,6 @@ html:has(.ageval-landing) body {
   --font-mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --chamfer: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
   --t: 200ms;
 
   font-family: var(--font-body);
@@ -240,12 +239,12 @@ html:has(.ageval-landing) body {
   justify-content: center;
   min-height: 44px;
   padding: 0 20px;
+  border-radius: 6px;
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
   white-space: nowrap;
-  clip-path: var(--chamfer);
   transition:
     background var(--t) var(--ease),
     color var(--t) var(--ease),

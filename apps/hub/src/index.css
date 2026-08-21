@@ -146,20 +146,6 @@
   }
 
   :root {
-    /* Chamfer for primary CTA / brand slots (see docs/design/13-web-ui-tokens.md). */
-    --chamfer: polygon(
-      0 0,
-      calc(100% - 9px) 0,
-      100% 9px,
-      100% 100%,
-      9px 100%,
-      0 calc(100% - 9px)
-    );
-
-    /* Focus edge for chamfered controls: drop-shadow follows the clipped
-       silhouette, unlike ring/outline which clip-path would clip away. */
-    --chamfer-focus-ring: var(--color-link);
-
     /* Phase/token ramp for timing bars: IKB lead + neutral follow (docs/design/13). */
     --viewer-phase-1: var(--viewer-link);
     --viewer-phase-2: var(--viewer-link-deep);
@@ -194,18 +180,4 @@
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-size: 13px;
-}
-
-@utility chamfer {
-  clip-path: var(--chamfer);
-}
-
-@utility chamfer-focus {
-  &:focus-visible {
-    filter:
-      drop-shadow(2px 0 0 var(--chamfer-focus-ring))
-      drop-shadow(-2px 0 0 var(--chamfer-focus-ring))
-      drop-shadow(0 2px 0 var(--chamfer-focus-ring))
-      drop-shadow(0 -2px 0 var(--chamfer-focus-ring));
-  }
 }

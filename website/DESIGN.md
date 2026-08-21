@@ -9,7 +9,7 @@
 ### 产品气质
 
 - 面向 benchmark 作者、研究工程师和 Agent infrastructure 团队。
-- **Landing** 使用深色冷墨 + Anton 字标 + Geist / Noto Sans SC + 切角按钮。
+- **Landing** 使用深色冷墨 + Anton 字标 + Geist / Noto Sans SC + 圆角按钮。
 - **文档阅读层** 使用同一套克莱因蓝与冷墨中性色；标题与正文都走 Geist / Noto Sans SC，不再用衬线。
 - 装饰服从信息，不使用生成插画、拟真场景图或无语义的发光背景。
 
