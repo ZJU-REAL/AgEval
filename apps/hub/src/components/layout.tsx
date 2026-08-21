@@ -447,7 +447,11 @@ export function Shell({
               <>
                 {displayName ? (
                   <Link
-                    to="/home"
+                    to={
+                      githubUser
+                        ? `/users/${encodeURIComponent(githubUser)}`
+                        : "/home"
+                    }
                     className="hidden min-w-0 max-w-[14rem] items-center gap-2 hover:opacity-90 sm:inline-flex"
                   >
                     {githubAvatar || githubUser ? (

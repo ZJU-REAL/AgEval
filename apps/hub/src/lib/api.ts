@@ -64,12 +64,15 @@ export type PackageRelease = {
   uploaded_by?: string;
   /** Owner-set marketplace title; id stays dataset_id. */
   display_name?: string;
+  /** Marketplace observation: successful content GETs for this package id. */
+  download_count?: number;
 };
 
 export type OrgRow = {
   org_id: string;
   name: string;
   display_name?: string;
+  description?: string;
   is_claimable?: boolean;
   created_at?: number;
   role?: string;
@@ -98,6 +101,7 @@ export type UserPublic = {
   user_id: string;
   display_name?: string;
   avatar_url?: string;
+  description?: string;
   official: boolean;
   official_orgs: UserOfficialOrg[];
 };
@@ -691,7 +695,7 @@ export async function listOrgs(token: string | null): Promise<OrgRow[]> {
 }
 
 export async function createOrg(
-  body: { name: string; display_name?: string },
+  body: { name: string; display_name?: string; description?: string },
   token: string | null,
 ): Promise<OrgRow> {
   return requestJson("/v1/orgs", {
@@ -700,6 +704,7 @@ export async function createOrg(
     body: {
       name: body.name,
       display_name: body.display_name || body.name,
+      ...(body.description != null ? { description: body.description } : {}),
     },
   });
 }
@@ -716,10 +721,30 @@ export async function updateOrgDisplayName(
   displayName: string,
   token: string | null,
 ): Promise<OrgRow> {
+  return updateOrg(orgId, { display_name: displayName }, token);
+}
+
+export async function updateOrg(
+  orgId: string,
+  body: { display_name?: string; description?: string },
+  token: string | null,
+): Promise<OrgRow> {
   return requestJson(`/v1/orgs/${encodeURIComponent(orgId)}`, {
     token,
     method: "PATCH",
-    body: { display_name: displayName },
+    body,
+  });
+}
+
+export async function updateUserDescription(
+  userId: string,
+  description: string,
+  token: string | null,
+): Promise<UserPublic> {
+  return requestJson(`/v1/users/${encodeURIComponent(userId)}`, {
+    token,
+    method: "PATCH",
+    body: { description },
   });
 }
 

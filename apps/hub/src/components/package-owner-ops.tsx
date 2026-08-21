@@ -197,7 +197,7 @@ export function PackageOwnerOps({
             if (e.target === e.currentTarget && !busy) setReleaseOpen(false);
           }}
         >
-          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-lg p-5 space-y-4">
+          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="release-draft-title"

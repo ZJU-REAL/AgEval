@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BindingPreview } from "@/components/binding-preview";
+import { DownloadCount } from "@/components/download-count";
 import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
@@ -262,6 +263,8 @@ export function AgentDetailPage() {
               <span className="font-mono">@{agentId}</span>
               {" · "}
               {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
+              {" · "}
+              <DownloadCount count={release.download_count} />
               {release.org_id ? (
                 <>
                   {" "}

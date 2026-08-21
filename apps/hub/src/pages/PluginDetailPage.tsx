@@ -6,6 +6,7 @@ import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
+import { DownloadCount } from "@/components/download-count";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { InlineMarkdown } from "@/components/markdown";
 import {
@@ -234,6 +235,8 @@ export function PluginDetailPage() {
               <span className="font-mono">@{pluginId}</span>
               {" · "}
               {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
+              {" · "}
+              <DownloadCount count={release.download_count} />
               {release.org_id ? (
                 <>
                   {" "}
