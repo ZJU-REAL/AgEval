@@ -52,6 +52,47 @@ def test_session_forwards_tools_without_treating_them_as_overrides(
     assert invoke["messages"] == history
 
 
+def test_record_observation_forwards_to_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[dict[str, object]] = []
+
+    def _fake_call(payload: dict[str, object]) -> dict[str, object]:
+        captured.append(payload)
+        if payload.get("op") == "open":
+            return {"ok": True, "session_id": "sess_test"}
+        if payload.get("op") == "record_observation":
+            return {"ok": True, "tool_call_id": payload.get("tool_call_id")}
+        return {
+            "ok": True,
+            "text": "",
+            "invocation_id": "inv_1",
+            "tool_calls": [
+                {"id": "call_1", "name": "lookup", "arguments": {"q": "a"}},
+            ],
+        }
+
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    monkeypatch.setattr("ageval_sdk.agent._parent_call", _fake_call)
+    session = AgentSession(attempt_id="attempt_x", profile_id="p", max_turns=2)
+    asyncio.run(session.invoke("hi"))
+    observed = asyncio.run(
+        session.record_observation(
+            "call_1",
+            content='{"ok": true}',
+            raw_output={"ok": True},
+            function_name="lookup",
+        )
+    )
+    assert observed["ok"] is True
+    rec = next(item for item in captured if item.get("op") == "record_observation")
+    assert rec["session_id"] == "sess_test"
+    assert rec["invocation_id"] == "inv_1"
+    assert rec["tool_call_id"] == "call_1"
+    assert rec["function_name"] == "lookup"
+    assert rec["raw_output"] == {"ok": True}
+
+
 def test_unbound_session_reports_failure_instead_of_answering(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -112,21 +112,45 @@ class InvocationHandle:
         with self._lock:
             if self.sealed:
                 return
-            self._event_seq += 1
-            env = normalize_event(event, seq=self._event_seq)
-            # Redact secrets/sentinels before append; never write plain secrets.
-            cleaned = redact_value(env, extra_sentinels=self.store.sentinels)
-            self.store._append_jsonl(self.directory / "events.jsonl", cleaned)
-            # Mirror lifecycle markers into attempt-level agent index.
-            self.store.append_agent_index(
-                {
-                    "type": "invocation_event",
-                    "invocation_id": self.invocation_id,
-                    "seq": self.seq,
-                    "event_type": cleaned.get("type"),
-                    "event_seq": cleaned["seq"],
-                }
-            )
+            self._append_event_locked(event)
+
+    def append_supplement(self, event: dict[str, Any]) -> None:
+        """Append a post-invoke observation (domain tool result from run.py).
+
+        Invoke seals as soon as the model returns; package tools run after.
+        Record phase still reads the full events.jsonl.
+        """
+        with self._lock:
+            self._append_event_locked(event)
+            if not self.sealed:
+                return
+            meta_path = self.directory / "metadata.json"
+            if not meta_path.is_file():
+                return
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                return
+            if not isinstance(meta, dict):
+                return
+            meta["event_count"] = self._event_seq
+            cleaned_meta = redact_value(meta, extra_sentinels=self.store.sentinels)
+            self.store._write_json_raw(meta_path, cleaned_meta)
+
+    def _append_event_locked(self, event: dict[str, Any]) -> None:
+        self._event_seq += 1
+        env = normalize_event(event, seq=self._event_seq)
+        cleaned = redact_value(env, extra_sentinels=self.store.sentinels)
+        self.store._append_jsonl(self.directory / "events.jsonl", cleaned)
+        self.store.append_agent_index(
+            {
+                "type": "invocation_event",
+                "invocation_id": self.invocation_id,
+                "seq": self.seq,
+                "event_type": cleaned.get("type"),
+                "event_seq": cleaned["seq"],
+            }
+        )
 
     def write_stderr(self, text: str) -> None:
         cleaned = redact_text(text, extra_sentinels=self.store.sentinels)

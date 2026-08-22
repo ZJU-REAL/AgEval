@@ -56,7 +56,7 @@ from ageval_sdk import (
 | `Agent.session(profile_id)` | 经 unix socket 调 parent Agent Service |
 | `ToolSet` / `CallLimit` | 题包软限，不替代 Runtime 硬顶 |
 
-`ctx.events` 只是补充。权威轨迹由 parent 写入 `trajectory.jsonl`。
+`AgentSession.record_observation` 是补充口：域工具由 `run.py` 执行后，把 observation 挂到刚结束的 invoke。parent 写入该 invoke 的 `events.jsonl`；record 相位折进 `trajectory.jsonl`。SDK **不**自己写 layer C。
 
 `run.py` 通过 `ctx.agent.session(...).invoke` 调 Agent。ACP attach 发生在第一次 invoke。SDK 不拥有 `host.start`、凭据文件内容、final PASS。
 
@@ -88,7 +88,16 @@ reply = await session.invoke(
 )
 for call in reply.get("tool_calls") or ():
     obs = await tools.call(call["name"], call["arguments"])
+    await session.record_observation(
+        str(call.get("id") or ""),
+        content=str(obs),
+        raw_output=obs,
+        function_name=str(call.get("name") or ""),
+        invocation_id=reply.get("invocation_id"),
+    )
 ```
+
+`record_observation` 不消耗 invoke 配额、不是 PASS。缺 session / invocation 则 fail-closed（`no_invocation` / `unknown_session`）。
 
 ## 薄 task
 

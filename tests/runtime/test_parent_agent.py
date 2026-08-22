@@ -80,6 +80,40 @@ def test_invoke_forwards_tools_and_returns_tool_calls(tmp_path: Path) -> None:
     assert backend.messages == [history]
 
 
+def test_record_observation_appends_after_seal(tmp_path: Path) -> None:
+    backend = ScriptedExecutor(
+        tool_calls=({"id": "call_1", "name": "lookup", "arguments": {"q": "a"}},)
+    )
+    service, _ = _service(tmp_path, executor=backend)
+    session = _open(service)
+    answer = service.invoke(session_id=session, prompt="need lookup")
+    observed = service.record_observation(
+        session_id=session,
+        tool_call_id="call_1",
+        content='{"ok": true}',
+        invocation_id=str(answer["invocation_id"]),
+        function_name="lookup",
+        raw_output={"ok": True},
+    )
+    assert observed["ok"] is True
+    assert service.evidence_store is not None
+    dirs = service.evidence_store.list_invocations()
+    assert len(dirs) == 1
+    events = [
+        json.loads(line)
+        for line in (dirs[0] / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    update = next(ev for ev in events if ev.get("phase") == "update")
+    assert update["kind"] == "tool"
+    assert update["tool_call_id"] == "call_1"
+    assert update["content"] == '{"ok": true}'
+    assert update["raw_output"] == {"ok": True}
+    assert update["source"] == "ageval"
+    meta = json.loads((dirs[0] / "metadata.json").read_text(encoding="utf-8"))
+    assert meta["event_count"] == len(events)
+
+
 def test_session_invokes_carry_turns_and_evidence(tmp_path: Path) -> None:
     service, backend = _service(tmp_path)
     session = _open(service)

@@ -57,6 +57,7 @@ class AgentSession:
     _closed: bool = False
     provider_session_handle: None = None  # always null/unsupported for Codex
     _session_id: str | None = field(default=None, repr=False)
+    _last_invocation_id: str | None = field(default=None, repr=False)
 
     def _ensure_open(self) -> Mapping[str, Any]:
         if self._session_id is not None:
@@ -120,6 +121,9 @@ class AgentSession:
         if messages is not None:
             payload["messages"] = messages
         resp = _parent_call(payload)
+        inv = resp.get("invocation_id")
+        if isinstance(inv, str) and inv:
+            self._last_invocation_id = inv
         return {
             "text": resp.get("text") or "",
             "structured": resp.get("structured"),
@@ -131,6 +135,43 @@ class AgentSession:
             "evidence_relative": resp.get("evidence_relative"),
             "tool_calls": list(resp.get("tool_calls") or []),
         }
+
+    async def record_observation(
+        self,
+        tool_call_id: str,
+        *,
+        content: str,
+        raw_output: Any = None,
+        function_name: str | None = None,
+        error: bool = False,
+        invocation_id: str | None = None,
+    ) -> Mapping[str, Any]:
+        """Supplement the last invoke with a domain-tool observation.
+
+        Parent does not execute package tools. Call this after ToolSet.call /
+        Environment.get_response. Not PASS. Does not consume invoke quota.
+        """
+        if self._closed:
+            raise RuntimeError("session closed")
+        if os.environ.get("AGEVAL_OFFLINE_AGENT") == "1":
+            return {"ok": False, "error": "offline_forced"}
+        if not self._session_id:
+            return {"ok": False, "error": "agent_session_unbound"}
+        payload: dict[str, Any] = {
+            "op": "record_observation",
+            "session_id": self._session_id,
+            "tool_call_id": tool_call_id,
+            "content": content,
+            "error": bool(error),
+        }
+        inv = invocation_id or self._last_invocation_id
+        if inv:
+            payload["invocation_id"] = inv
+        if function_name:
+            payload["function_name"] = function_name
+        if raw_output is not None:
+            payload["raw_output"] = raw_output
+        return _parent_call(payload)
 
     async def close(self) -> None:
         if self._closed:

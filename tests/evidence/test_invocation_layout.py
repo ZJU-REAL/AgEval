@@ -58,6 +58,38 @@ def test_minimal_fields_present(tmp_path: Path) -> None:
     assert (d / "stderr.txt").read_text(encoding="utf-8").startswith("diag")
 
 
+def test_append_supplement_after_seal(tmp_path: Path) -> None:
+    store = AttemptEvidenceStore(root=tmp_path / "e", attempt_id="attempt_z")
+    h = store.begin_invocation(profile_id="p", executor_kind="openai-http", model="m")
+    h.write_request({"messages": [{"role": "user", "content": "x"}]})
+    h.append_event(
+        {
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": "c1",
+            "function_name": "lookup",
+        }
+    )
+    h.seal(status="completed", final_response={"content": ""}, latency_ms=1.0)
+    h.append_supplement(
+        {
+            "kind": "tool",
+            "phase": "update",
+            "tool_call_id": "c1",
+            "content": '{"ok": true}',
+            "status": "completed",
+            "source": "ageval",
+        }
+    )
+    events = (h.directory / "events.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    assert len(events) == 2
+    update = json.loads(events[1])
+    assert update["phase"] == "update"
+    assert update["content"] == '{"ok": true}'
+    meta = json.loads((h.directory / "metadata.json").read_text(encoding="utf-8"))
+    assert meta["event_count"] == 2
+
+
 def test_partial_failure_no_final_response(tmp_path: Path) -> None:
     store = AttemptEvidenceStore(root=tmp_path / "e", attempt_id="attempt_y")
     for status in ("failed", "timeout", "cancelled", "crash"):

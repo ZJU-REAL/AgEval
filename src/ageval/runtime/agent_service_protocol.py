@@ -127,6 +127,24 @@ class AgentServiceServer:
             )
         if op == "close":
             return self.service.close_session(session_id=str(req.get("session_id") or ""))
+        if op == "record_observation":
+            return self.service.record_observation(
+                session_id=str(req.get("session_id") or ""),
+                tool_call_id=str(req.get("tool_call_id") or ""),
+                content=str(req.get("content") or ""),
+                invocation_id=(
+                    str(req["invocation_id"])
+                    if isinstance(req.get("invocation_id"), str) and req.get("invocation_id")
+                    else None
+                ),
+                function_name=(
+                    str(req["function_name"])
+                    if isinstance(req.get("function_name"), str) and req.get("function_name")
+                    else None
+                ),
+                raw_output=req.get("raw_output"),
+                error=bool(req.get("error")),
+            )
         return {"ok": False, "error": "unknown_op"}
 
 

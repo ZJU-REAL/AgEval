@@ -10,6 +10,7 @@ limit and apologise afterwards.
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import os
 import threading
@@ -102,6 +103,7 @@ class SessionBinding:
     graph: ExtensionGraph
     actor_id: str | None = None
     closed: bool = False
+    last_handle: InvocationHandle | None = None
 
 
 @dataclass
@@ -294,6 +296,8 @@ class ParentAgentService:
 
         with self._lock:
             self.invocations_completed += 1
+            if handle is not None:
+                binding.last_handle = handle
         return {
             "ok": bool(result.ok),
             "error": result.error,
@@ -305,6 +309,55 @@ class ParentAgentService:
             "invocation_id": handle.invocation_id if handle else None,
             "evidence_relative": handle.relative_path if handle else None,
             "tool_calls": _public_tool_calls(result),
+        }
+
+    def record_observation(
+        self,
+        *,
+        session_id: str,
+        tool_call_id: str,
+        content: str,
+        invocation_id: str | None = None,
+        function_name: str | None = None,
+        raw_output: Any = None,
+        error: bool = False,
+    ) -> dict[str, Any]:
+        """Attach a domain-tool observation to the last sealed invoke.
+
+        Parent does not execute package tools. run.py calls this after
+        Environment.get_response / ToolSet.call. No invoke quota.
+        """
+        call_id = str(tool_call_id or "").strip()
+        if not call_id:
+            return {"ok": False, "error": "missing_tool_call_id"}
+        with self._lock:
+            binding = self._sessions.get(session_id)
+            if binding is None:
+                return {"ok": False, "error": "unknown_session"}
+            if binding.closed:
+                return {"ok": False, "error": "session_closed"}
+            handle = binding.last_handle
+        if handle is None:
+            return {"ok": False, "error": "no_invocation"}
+        if invocation_id and handle.invocation_id != str(invocation_id):
+            return {"ok": False, "error": "invocation_mismatch"}
+        text = content if isinstance(content, str) else json.dumps(content, default=str)
+        event: dict[str, Any] = {
+            "kind": "tool",
+            "phase": "update",
+            "tool_call_id": call_id,
+            "function_name": str(function_name or ""),
+            "content": text,
+            "status": "failed" if error else "completed",
+            "source": "ageval",
+        }
+        if raw_output is not None:
+            event["raw_output"] = raw_output
+        handle.append_supplement(event)
+        return {
+            "ok": True,
+            "invocation_id": handle.invocation_id,
+            "tool_call_id": call_id,
         }
 
     # --- guards --------------------------------------------------------------
@@ -386,6 +439,8 @@ class ParentAgentService:
     ) -> dict[str, Any]:
         with self._lock:
             self.invocations_completed += 1
+            if handle is not None:
+                binding.last_handle = handle
         return {
             "ok": False,
             "error": error,
