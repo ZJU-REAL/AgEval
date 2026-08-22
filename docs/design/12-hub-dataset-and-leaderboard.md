@@ -27,8 +27,18 @@
 - `POST /v1/packages/{id}/favorite`：登录后收藏；须能看见该包。已收藏则幂等返回当前状态。
 - `DELETE /v1/packages/{id}/favorite`：取消收藏；未收藏也幂等。
 - `GET /v1/packages?favorited=1`：只列当前用户收藏且仍可见的包。无登录用户 id 则空列表。
+- `GET /v1/packages?orgs=1`：只列调用方所属组织发布的包。无登录用户 id 则空列表。
+- `GET /v1/packages?visibility=public`：只列公开包（Explore）。
 
-Hub：plugin / agent 卡片与详情把 `favorite_count` 与 `download_count` **同一行**展示。`/plugins` 与 `/agents` 的 scope tab 为 **Your organizations | Explore | Favorites**（dataset 列表不加 Favorites）。未登录点收藏去登录页。
+Hub 列表 tab **就是**这些查询参数（不要再叠一层 `scope=`）：
+
+| URL | Tab |
+| --- | --- |
+| `/plugins`、`/agents`、`/datasets`（无额外参数） | Your organizations（请求带 `orgs=1`） |
+| `?visibility=public` | Explore |
+| `?favorited=1` | Favorites（仅 `/plugins`、`/agents`） |
+
+卡片与详情把 `favorite_count` 与 `download_count` **同一行**展示。未登录点收藏去登录页。组织详情用 `?tab=settings`（默认 overview 省略 `tab`）。
 
 ## 组织成员顺序
 

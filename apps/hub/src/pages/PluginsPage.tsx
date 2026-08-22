@@ -6,6 +6,9 @@ import { CatalogCardGrid, CatalogCardSkeleton } from "@/components/catalog-card"
 import {
   CatalogScopeBar,
   MARKETPLACE_SCOPE_ITEMS,
+  catalogListOpts,
+  catalogScopeFromSearch,
+  catalogScopeSearch,
   type CatalogScope,
 } from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
@@ -13,43 +16,37 @@ import { SignInLink } from "@/components/sign-in-button";
 import {
   encodeDatasetId,
   latestPackageByDataset,
-  listOrgs,
   listPackages,
   type PackageRelease,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
-function parseScope(raw: string | null): CatalogScope {
-  if (raw === "explore" || raw === "favorites") return raw;
-  return "orgs";
-}
-
 export function PluginsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope = parseScope(searchParams.get("scope"));
+  const scope = catalogScopeFromSearch(searchParams);
 
   const [items, setItems] = useState<PackageRelease[]>([]);
-  const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const token = getToken();
+  const needsAuth = scope === "orgs" || scope === "favorites";
 
   useEffect(() => {
+    if (needsAuth && !token) {
+      setItems([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
-    const packagesP = listPackages(token, { packageKind: "plugin" });
-    const orgsP = token
-      ? listOrgs(token).catch(() => [] as Awaited<ReturnType<typeof listOrgs>>)
-      : Promise.resolve([]);
-
-    Promise.all([packagesP, orgsP])
-      .then(([rows, orgs]) => {
+    listPackages(token, { packageKind: "plugin", ...catalogListOpts(scope) })
+      .then((rows) => {
         if (cancelled) return;
         setItems(rows);
-        setMyOrgIds(new Set(orgs.map((o) => o.org_id)));
         setError(null);
       })
       .catch((err: unknown) => {
@@ -67,40 +64,37 @@ export function PluginsPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, scope, needsAuth]);
 
   const plugins = useMemo(() => {
     const latest = latestPackageByDataset(items);
-    const scoped =
-      scope === "orgs"
-        ? latest.filter((r) => r.org_id && myOrgIds.has(r.org_id) && token)
-        : scope === "favorites"
-          ? latest.filter((r) => r.favorited && token)
-          : latest.filter((r) => r.visibility === "public");
     const q = query.trim().toLowerCase();
-    if (!q) return scoped;
-    return scoped.filter(
+    if (!q) return latest;
+    return latest.filter(
       (r) =>
         r.dataset_id.toLowerCase().includes(q) ||
         (r.org_id && r.org_id.toLowerCase().includes(q)),
     );
-  }, [items, scope, myOrgIds, query, token]);
+  }, [items, query]);
 
   function setScope(next: CatalogScope) {
-    setSearchParams(next === "orgs" ? {} : { scope: next }, { replace: true });
+    setSearchParams(catalogScopeSearch(next), { replace: true });
   }
 
   function patchFavorite(
     id: string,
     next: { favorited: boolean; favorite_count: number },
   ) {
-    setItems((prev) =>
-      prev.map((row) =>
+    setItems((prev) => {
+      if (scope === "favorites" && !next.favorited) {
+        return prev.filter((row) => row.dataset_id !== id);
+      }
+      return prev.map((row) =>
         row.dataset_id === id
           ? { ...row, favorited: next.favorited, favorite_count: next.favorite_count }
           : row,
-      ),
-    );
+      );
+    });
   }
 
   function openPlugin(id: string) {

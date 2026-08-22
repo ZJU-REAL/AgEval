@@ -5,6 +5,10 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   CatalogScopeBar,
   DATASET_SCOPE_ITEMS,
+  catalogListOpts,
+  catalogScopeFromSearch,
+  catalogScopeSearch,
+  type CatalogScope,
 } from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
@@ -19,7 +23,6 @@ import {
 import {
   encodeDatasetId,
   isDatasetPackage,
-  listOrgs,
   latestPackageByDataset,
   listPackages,
   packageDisplayTitle,
@@ -30,35 +33,31 @@ import {
 import { getToken } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 
-type Scope = "orgs" | "explore";
-
 export function DatasetsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope: Scope =
-    searchParams.get("scope") === "explore" ? "explore" : "orgs";
+  const scope = catalogScopeFromSearch(searchParams, false);
 
   const [items, setItems] = useState<PackageRelease[]>([]);
-  const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const token = getToken();
+  const needsAuth = scope === "orgs";
 
   useEffect(() => {
+    if (needsAuth && !token) {
+      setItems([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
-    // Datasets surface must not list package_kind=plugin.
-    const packagesP = listPackages(token, { packageKind: "dataset" });
-    const orgsP = token
-      ? listOrgs(token).catch(() => [] as Awaited<ReturnType<typeof listOrgs>>)
-      : Promise.resolve([]);
-
-    Promise.all([packagesP, orgsP])
-      .then(([rows, orgs]) => {
+    listPackages(token, { packageKind: "dataset", ...catalogListOpts(scope) })
+      .then((rows) => {
         if (cancelled) return;
         setItems(rows.filter(isDatasetPackage));
-        setMyOrgIds(new Set(orgs.map((o) => o.org_id)));
         setError(null);
       })
       .catch((err: unknown) => {
@@ -76,19 +75,13 @@ export function DatasetsPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, scope, needsAuth]);
 
   const datasets = useMemo(() => {
     const latest = latestPackageByDataset(items);
-    const scoped =
-      scope === "orgs"
-        ? latest.filter(
-            (r) => r.org_id && myOrgIds.has(r.org_id) && token,
-          )
-        : latest.filter((r) => r.visibility === "public");
     const q = query.trim().toLowerCase();
-    if (!q) return scoped;
-    return scoped.filter(
+    if (!q) return latest;
+    return latest.filter(
       (r) =>
         r.dataset_id.toLowerCase().includes(q) ||
         packageDisplayTitle(r.dataset_id, r.display_name)
@@ -96,12 +89,10 @@ export function DatasetsPage() {
           .includes(q) ||
         (r.org_id && r.org_id.toLowerCase().includes(q)),
     );
-  }, [items, scope, myOrgIds, query, token]);
+  }, [items, query]);
 
-  function setScope(next: Scope) {
-    setSearchParams(next === "explore" ? { scope: "explore" } : {}, {
-      replace: true,
-    });
+  function setScope(next: CatalogScope) {
+    setSearchParams(catalogScopeSearch(next), { replace: true });
   }
 
   function openDataset(id: string) {

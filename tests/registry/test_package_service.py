@@ -390,6 +390,44 @@ def test_favorite_plugin_and_list_favorited(tmp_path: Path) -> None:
     assert empty["items"] == []
 
 
+def test_list_packages_orgs_filter(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    svc.meta.create_org(name="other", owner_user_id="carol", display_name="Other")
+    meta, archive = _plugin_meta_archive(tmp_path)
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=alice)
+    bob = TokenInfo(scopes=frozenset({"results:read"}), user_id="bob")
+    mine = svc.list_packages(
+        auth=alice,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="plugin",
+        orgs=True,
+    )
+    assert [i["dataset_id"] for i in mine["items"]] == ["acme/sample-echo"]
+    outsider = svc.list_packages(
+        auth=bob,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="plugin",
+        orgs=True,
+    )
+    assert outsider["items"] == []
+    anon = TokenInfo(scopes=frozenset({"results:read"}), user_id=None)
+    empty = svc.list_packages(
+        auth=anon,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="plugin",
+        orgs=True,
+    )
+    assert empty["items"] == []
+
+
 def test_favorite_rejects_dataset_and_anonymous(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")

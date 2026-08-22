@@ -359,6 +359,7 @@ class RegistryHttpApi:
         try:
             mine_raw = (qs.get("mine") or [""])[0]
             fav_raw = (qs.get("favorited") or [""])[0]
+            orgs_raw = (qs.get("orgs") or [""])[0]
             payload = self.state.packages.list_packages(
                 auth=auth,
                 prefix=(qs.get("dataset_id_prefix") or [None])[0],
@@ -367,6 +368,7 @@ class RegistryHttpApi:
                 package_kind=(qs.get("package_kind") or [None])[0],
                 mine=str(mine_raw).strip().lower() in {"1", "true", "yes"},
                 favorited=str(fav_raw).strip().lower() in {"1", "true", "yes"},
+                orgs=str(orgs_raw).strip().lower() in {"1", "true", "yes"},
             )
         except RegistryAppError as exc:
             return _caught(exc)

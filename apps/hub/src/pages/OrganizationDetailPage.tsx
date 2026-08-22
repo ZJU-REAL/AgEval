@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 
 import { CatalogCardGrid } from "@/components/catalog-card";
@@ -76,8 +76,16 @@ export function OrganizationDetailPage() {
   const { orgId: rawOrgId } = useParams();
   const orgId = rawOrgId ? decodeURIComponent(rawOrgId) : "";
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const token = getToken();
-  const [tab, setTab] = useState<Tab>("overview");
+  const tab: Tab = searchParams.get("tab") === "settings" ? "settings" : "overview";
+
+  function setTab(next: Tab) {
+    const nextParams = new URLSearchParams(searchParams);
+    if (next === "overview") nextParams.delete("tab");
+    else nextParams.set("tab", next);
+    setSearchParams(nextParams, { replace: true });
+  }
   const [org, setOrg] = useState<OrgRow | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);

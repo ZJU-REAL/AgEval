@@ -318,6 +318,7 @@ class PackageService:
         package_kind: str | None,
         mine: bool = False,
         favorited: bool = False,
+        orgs: bool = False,
     ) -> dict[str, Any]:
         if visibility is not None and visibility not in {"public", "private"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
@@ -347,6 +348,8 @@ class PackageService:
             items = [i for i in items if i.get("package_kind") == package_kind]
         if mine:
             items = self._filter_mine(items, auth)
+        if orgs:
+            items = self._filter_orgs(items, auth)
         labels = self.meta.package_display_names()
         for item in items:
             label = labels.get(str(item.get("dataset_id") or ""))
@@ -356,6 +359,14 @@ class PackageService:
         if favorited:
             items = [i for i in items if i.get("favorited")]
         return {"items": items}
+
+    def _filter_orgs(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
+        """Keep packages published by organizations the caller belongs to."""
+        uid = auth.user_id or ""
+        if not uid:
+            return []
+        org_ids = self.meta.user_org_ids(uid)
+        return [item for item in items if str(item.get("org_id") or "") in org_ids]
 
     def _filter_mine(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
         """Keep packages the caller uploaded or can maintain (ACL)."""

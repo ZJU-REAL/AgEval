@@ -498,6 +498,8 @@ export async function listPackages(
     packageKind?: "dataset" | "plugin" | "agent";
     mine?: boolean;
     favorited?: boolean;
+    orgs?: boolean;
+    visibility?: "public" | "private";
   },
 ): Promise<PackageRelease[]> {
   // With token, server may include private; without, public only.
@@ -505,6 +507,8 @@ export async function listPackages(
   if (opts?.packageKind) q.set("package_kind", opts.packageKind);
   if (opts?.mine) q.set("mine", "1");
   if (opts?.favorited) q.set("favorited", "1");
+  if (opts?.orgs) q.set("orgs", "1");
+  if (opts?.visibility) q.set("visibility", opts.visibility);
   const path = q.toString() ? `/v1/packages?${q.toString()}` : "/v1/packages";
   const data = await requestJson<{ items?: PackageRelease[] }>(path, {
     token,
