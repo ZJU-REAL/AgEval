@@ -49,8 +49,7 @@ def _pins(cfg):
 
 def _handshake(command, payload, timeout):
     try:
-        spawn = getattr(subprocess, "Popen")
-        proc = spawn(
+        proc = subprocess.Popen(
             command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

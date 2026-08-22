@@ -56,16 +56,24 @@ def test_agent_acp_imports_typed_sdk() -> None:
 
 
 def test_acp_never_learns_how_the_box_is_built() -> None:
-    """The pipe comes from attach_stdio, so no vendor handle can appear here."""
+    """The pipe comes from attach_stdio, so no vendor handle can appear here.
+
+    ``_PROBE_SOURCE`` is host.exec'd in-box (same family as acp-oneshot's
+    worker). Parent ACP modules still must not spawn processes.
+    """
+    from ageval.plugins.contrib.acp.hooks import _PROBE_SOURCE
+
     src = _acp_sources()
     for forbidden in (
         "import docker",
         "import daytona",
         "container_id",
         "wrap_docker_exec",
-        "subprocess.Popen",
     ):
         assert forbidden not in src, forbidden
+    parent = src.replace(_PROBE_SOURCE, "")
+    assert "subprocess.Popen" not in parent
+    assert "subprocess.Popen" in _PROBE_SOURCE
     assert "attach_stdio" in src
 
 
