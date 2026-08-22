@@ -14,6 +14,7 @@ export const DropdownMenuContent = React.forwardRef<
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
+      data-ageval-menu=""
       className={cn(
         "z-50 min-w-[8rem] overflow-hidden rounded-[8px] border border-hairline bg-canvas p-1 text-ink shadow-[var(--viewer-shadow-pop)]",
         className,
@@ -31,7 +32,7 @@ export const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm outline-none focus:bg-canvas-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-pointer select-none items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm outline-none transition-colors duration-200 ease-smooth data-[highlighted]:bg-canvas-soft focus:bg-canvas-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     {...props}
