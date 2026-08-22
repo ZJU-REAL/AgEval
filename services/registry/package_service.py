@@ -9,6 +9,7 @@ from typing import Any
 
 from services.registry.access import AccessPolicy
 from services.registry.blob_io import read_blob, sha256_file
+from services.registry.brand_marks import normalize_icon_github, normalize_icon_key
 from services.registry.dataset import DRAFT_SLOT, is_draft_version
 from services.registry.errors import RegistryAppError
 from services.registry.store import (
@@ -86,6 +87,19 @@ class PackageService:
             item["download_count"] = int(counts.get(did, 0))
             item["favorite_count"] = int(fav_counts.get(did, 0))
             item["favorited"] = did in starred
+        return items
+
+    def _apply_icons(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        icons = self.meta.package_icons()
+        for item in items:
+            pair = icons.get(str(item.get("dataset_id") or ""))
+            if not pair:
+                continue
+            key, github = pair
+            if key:
+                item["icon_key"] = key
+            if github:
+                item["icon_github"] = github
         return items
 
     def publish(self, *, meta: dict[str, Any], archive: Path, auth: TokenInfo) -> dict[str, Any]:
@@ -355,6 +369,7 @@ class PackageService:
             label = labels.get(str(item.get("dataset_id") or ""))
             if label:
                 item["display_name"] = label
+        self._apply_icons(items)
         self._with_download_counts(items, auth=auth)
         if favorited:
             items = [i for i in items if i.get("favorited")]
@@ -400,6 +415,7 @@ class PackageService:
         if label:
             for item in items:
                 item["display_name"] = label
+        self._apply_icons(items)
         self._with_download_counts(items, auth=auth)
         return {"dataset_id": dataset_id, "items": items}
 
@@ -421,6 +437,7 @@ class PackageService:
         label = self.meta.get_package_display_name(dataset_id)
         if label:
             payload["display_name"] = label
+        self._apply_icons([payload])
         try:
             kind = package_kind_for_media_type(row.media_type)
         except ValueError as exc:
@@ -558,12 +575,54 @@ class PackageService:
     def patch_display_name(
         self, *, dataset_id: str, display_name: object, auth: TokenInfo
     ) -> dict[str, Any]:
+        return self.patch_marketplace(
+            dataset_id=dataset_id,
+            auth=auth,
+            display_name=display_name,
+            has_display_name=True,
+        )
+
+    def patch_marketplace(
+        self,
+        *,
+        dataset_id: str,
+        auth: TokenInfo,
+        display_name: object = None,
+        icon_key: object = None,
+        icon_github: object = None,
+        has_display_name: bool = False,
+        has_icon_key: bool = False,
+        has_icon_github: bool = False,
+    ) -> dict[str, Any]:
         row = self._latest_managed_release(dataset_id, auth)
-        name = _normalize_plugin_name_segment(dataset_id, display_name)
-        stored = self.meta.set_package_display_name(dataset_id, name)
+        next_name: str | None = None
+        next_key: str | None = None
+        next_github: str | None = None
+        if has_display_name:
+            next_name = _normalize_plugin_name_segment(dataset_id, display_name)
+        if has_icon_key:
+            next_key = normalize_icon_key(icon_key)
+        if has_icon_github:
+            next_github = normalize_icon_github(icon_github)
+        stored_name = None
+        if next_name is not None:
+            stored_name = self.meta.set_package_display_name(dataset_id, next_name)
+        if has_icon_key or has_icon_github:
+            cur_key, cur_github = self.meta.get_package_icon(dataset_id)
+            key = next_key if has_icon_key else cur_key
+            github = next_github if has_icon_github else cur_github
+            if has_icon_key and has_icon_github:
+                key, github = next_key or "", next_github or ""
+            self.meta.set_package_icon(dataset_id, icon_key=key or "", icon_github=github or "")
         payload = self._with_download_count(release_to_dict(row), auth)
-        if stored:
-            payload["display_name"] = stored
+        label = (
+            stored_name
+            if stored_name is not None
+            else self.meta.get_package_display_name(dataset_id)
+        )
+        if label:
+            payload["display_name"] = label
+        self._apply_icons([payload])
         return payload
 
     def _latest_managed_release(self, dataset_id: str, auth: TokenInfo) -> Any:

@@ -88,5 +88,7 @@ export function hydrateCatalogRow(row: PackageRelease): PackageRelease {
     download_count: row.download_count,
     favorite_count: row.favorite_count,
     favorited: row.favorited,
+    icon_key: row.icon_key,
+    icon_github: row.icon_github,
   };
 }
