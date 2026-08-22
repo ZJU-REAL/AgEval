@@ -233,6 +233,37 @@ def test_cache_list_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert out["count"] == 0
 
 
+def test_oauth_empty_allowlist_allows_any_github_user(
+    registry_server, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry_server["state"].auth.github_login_allowlist = frozenset()
+    client = RegistryClient(registry_server["url"], token=None)
+    with (
+        patch(
+            "services.registry.auth_service.request_device_code",
+            return_value=DeviceCodeResponse(
+                device_code="dev-open",
+                user_code="AAAA-0000",
+                verification_uri="https://github.com/login/device",
+                expires_in=900,
+                interval=1,
+            ),
+        ),
+        patch(
+            "services.registry.auth_service.poll_access_token",
+            return_value="gho_open",
+        ),
+        patch(
+            "services.registry.auth_service.fetch_user",
+            return_value=GitHubIdentity(login="anyone", id=7),
+        ),
+    ):
+        client.device_code()
+        done = client.device_poll("dev-open")
+    assert done.get("github_user") == "anyone"
+    assert done.get("token")
+
+
 def test_oauth_allowlist_denies_unknown_user(
     registry_server, monkeypatch: pytest.MonkeyPatch
 ) -> None:
