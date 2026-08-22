@@ -1,25 +1,19 @@
 import { Bot } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogCardGrid, CatalogCardSkeleton } from "@/components/catalog-card";
 import {
   CatalogScopeBar,
   MARKETPLACE_SCOPE_ITEMS,
-  catalogListOpts,
   catalogScopeFromSearch,
   catalogScopeSearch,
   type CatalogScope,
 } from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
-import {
-  encodeDatasetId,
-  latestPackageByDataset,
-  listPackages,
-  type PackageRelease,
-  RegistryHttpError,
-} from "@/lib/api";
+import { useCatalogList } from "@/hooks/use-catalog-list";
+import { encodeDatasetId, latestPackageByDataset } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
 export function AgentsPage() {
@@ -27,44 +21,15 @@ export function AgentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = catalogScopeFromSearch(searchParams);
 
-  const [items, setItems] = useState<PackageRelease[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const token = getToken();
   const needsAuth = scope === "orgs" || scope === "favorites";
-
-  useEffect(() => {
-    if (needsAuth && !token) {
-      setItems([]);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    listPackages(token, { packageKind: "agent", ...catalogListOpts(scope) })
-      .then((rows) => {
-        if (cancelled) return;
-        setItems(rows);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof RegistryHttpError) {
-          setError(`${err.code}: ${err.message}`);
-        } else {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-        setItems([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, scope, needsAuth]);
+  const { items, error, loading } = useCatalogList(
+    "agent",
+    scope,
+    token,
+    needsAuth,
+  );
 
   const agents = useMemo(() => {
     const latest = latestPackageByDataset(items);
@@ -79,22 +44,6 @@ export function AgentsPage() {
 
   function setScope(next: CatalogScope) {
     setSearchParams(catalogScopeSearch(next), { replace: true });
-  }
-
-  function patchFavorite(
-    id: string,
-    next: { favorited: boolean; favorite_count: number },
-  ) {
-    setItems((prev) => {
-      if (scope === "favorites" && !next.favorited) {
-        return prev.filter((row) => row.dataset_id !== id);
-      }
-      return prev.map((row) =>
-        row.dataset_id === id
-          ? { ...row, favorited: next.favorited, favorite_count: next.favorite_count }
-          : row,
-      );
-    });
   }
 
   function openAgent(id: string) {
@@ -129,13 +78,13 @@ export function AgentsPage() {
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
           <p className="font-medium text-ink">
             {scope === "favorites"
-              ? "Sign in to see favorite agents"
+              ? "Sign in to see starred agents"
               : "Sign in to see org agents"}
           </p>
           <p className="mt-1 text-mute">
             <SignInLink /> to list{" "}
             {scope === "favorites"
-              ? "agents you favorited"
+              ? "agents you starred"
               : "agents from your organizations"}
             . Public agents are under{" "}
             <button
@@ -169,17 +118,12 @@ export function AgentsPage() {
                 {scope === "orgs"
                   ? "No agent packages from your organizations yet. Publish with ageval agent publish <path> --org <id>."
                   : scope === "favorites"
-                    ? "No favorite agents yet. Star an agent from Explore."
+                    ? "No starred agents yet. Star an agent from its page."
                     : "No public agent packages on this Registry yet."}
               </p>
             </div>
           ) : (
-            <CatalogCardGrid
-              kind="agent"
-              rows={agents}
-              onOpen={openAgent}
-              onFavoriteChange={patchFavorite}
-            />
+            <CatalogCardGrid kind="agent" rows={agents} onOpen={openAgent} />
           )}
           <p className="text-xs text-mute mt-3 tabular-nums">
             {agents.length} agent{agents.length === 1 ? "" : "s"}

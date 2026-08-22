@@ -5,18 +5,21 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { OfficialMark } from "@/components/official-mark";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
 import {
+  catalogPreviewKey,
+  hydrateCatalogRow,
+  readCatalogPreview,
+  writeCatalogPreview,
+} from "@/lib/catalog-cache";
+import {
   getPackageByDigest,
   packageDisplayTitle,
-  setPackageFavorite,
   type PackageRelease,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { rememberReturnPath } from "@/lib/return-path";
 import { cn, formatDay } from "@/lib/utils";
 
 type CatalogKind = "plugin" | "agent";
@@ -67,61 +70,26 @@ function descriptionOf(kind: CatalogKind, row: PackageRelease): string | null {
 }
 
 function rowKey(row: PackageRelease): string {
-  return `${row.dataset_id}@${row.package_digest}`;
+  return catalogPreviewKey(row);
 }
 
 export function CatalogCard({
   kind,
   row,
   onOpen,
-  onFavoriteChange,
 }: {
   kind: CatalogKind;
   row: PackageRelease;
   onOpen: (id: string) => void;
-  onFavoriteChange?: (
-    id: string,
-    next: { favorited: boolean; favorite_count: number },
-  ) => void;
 }) {
-  const navigate = useNavigate();
   const title = packageDisplayTitle(row.dataset_id, row.display_name);
   const chips = kind === "plugin" ? pluginChips(row) : agentChips(row);
   const description = descriptionOf(kind, row);
+  const previewReady = hasPreview(kind, row);
   const updated = row.created_at != null ? formatDay(row.created_at) : null;
-  const [favBusy, setFavBusy] = useState(false);
-  const [fav, setFav] = useState({
-    on: Boolean(row.favorited),
-    count: row.favorite_count,
-  });
-
-  useEffect(() => {
-    setFav({ on: Boolean(row.favorited), count: row.favorite_count });
-  }, [row.dataset_id, row.favorited, row.favorite_count]);
 
   function open() {
     onOpen(row.dataset_id);
-  }
-
-  async function toggleFavorite() {
-    if (favBusy) return;
-    const token = getToken();
-    if (!token) {
-      rememberReturnPath(window.location.pathname + window.location.search);
-      navigate("/login");
-      return;
-    }
-    setFavBusy(true);
-    try {
-      const next = await setPackageFavorite(row.dataset_id, !fav.on, token);
-      setFav({ on: next.favorited, count: next.favorite_count });
-      onFavoriteChange?.(row.dataset_id, {
-        favorited: next.favorited,
-        favorite_count: next.favorite_count,
-      });
-    } finally {
-      setFavBusy(false);
-    }
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -166,10 +134,13 @@ export function CatalogCard({
         )}
         title={description ?? undefined}
       >
-        {description ??
-          (kind === "plugin"
-            ? "ageval.plugin/1 package"
-            : "ageval.agent/1 package")}
+        {description
+          ? description
+          : previewReady
+            ? kind === "plugin"
+              ? "ageval.plugin/1 package"
+              : "ageval.agent/1 package"
+            : "\u00a0"}
       </p>
 
       <div className="mt-auto flex items-end justify-between gap-2 pt-3">
@@ -189,11 +160,9 @@ export function CatalogCard({
         )}
         <MarketplaceCounts
           downloadCount={row.download_count}
-          favoriteCount={fav.count}
-          favorited={fav.on}
+          favoriteCount={row.favorite_count}
           compact
           className="shrink-0"
-          onToggleFavorite={toggleFavorite}
         />
       </div>
     </article>
@@ -204,26 +173,30 @@ export function CatalogCardGrid({
   kind,
   rows,
   onOpen,
-  onFavoriteChange,
 }: {
   kind: CatalogKind;
   rows: PackageRelease[];
   onOpen: (id: string) => void;
-  onFavoriteChange?: (
-    id: string,
-    next: { favorited: boolean; favorite_count: number },
-  ) => void;
 }) {
-  const [previews, setPreviews] = useState<Record<string, PackageRelease>>({});
+  const [previews, setPreviews] = useState<Record<string, PackageRelease>>(() => {
+    const initial: Record<string, PackageRelease> = {};
+    for (const row of rows) {
+      const hit = readCatalogPreview(rowKey(row));
+      if (hit) initial[rowKey(row)] = hit;
+    }
+    return initial;
+  });
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const missingKey = rows
-    .filter((row) => !hasPreview(kind, row))
+    .filter((row) => !hasPreview(kind, hydrateCatalogRow(row)))
     .map(rowKey)
     .join("\n");
 
   useEffect(() => {
-    const pending = rowsRef.current.filter((row) => !hasPreview(kind, row));
+    const pending = rowsRef.current.filter(
+      (row) => !hasPreview(kind, hydrateCatalogRow(row)),
+    );
     if (!pending.length) return;
     let cancelled = false;
     const token = getToken();
@@ -235,6 +208,7 @@ export function CatalogCardGrid({
             row.package_digest,
             token,
           );
+          writeCatalogPreview(meta);
           return [rowKey(row), meta] as const;
         } catch {
           return null;
@@ -258,10 +232,17 @@ export function CatalogCardGrid({
   const resolved = useMemo(
     () =>
       rows.map((row) => {
-        if (hasPreview(kind, row)) return row;
+        const hydrated = hasPreview(kind, row) ? row : hydrateCatalogRow(row);
+        if (hasPreview(kind, hydrated)) {
+          return {
+            ...hydrated,
+            download_count: row.download_count,
+            favorite_count: row.favorite_count,
+            favorited: row.favorited,
+          };
+        }
         const extra = previews[rowKey(row)];
         if (!extra) return row;
-        // List/patch owns marketplace stats; by-digest preview must not clobber them.
         return {
           ...extra,
           download_count: row.download_count,
@@ -280,7 +261,6 @@ export function CatalogCardGrid({
           kind={kind}
           row={row}
           onOpen={onOpen}
-          onFavoriteChange={onFavoriteChange}
         />
       ))}
     </div>

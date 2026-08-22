@@ -8,6 +8,7 @@ import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
+import { PackageStarButton } from "@/components/star-toggle";
 import { InlineMarkdown } from "@/components/markdown";
 import {
   declaredSlotsFromPreview,
@@ -23,14 +24,12 @@ import {
   listPackageFiles,
   listPackageVersions,
   splitPackageId,
-  setPackageFavorite,
   updatePackageDisplayName,
   type PackageRelease,
   type PluginPreview,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { rememberReturnPath } from "@/lib/return-path";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 
 export function PluginDetailPage() {
@@ -144,8 +143,10 @@ export function PluginDetailPage() {
     };
   }, [pluginId, token, reloadAt]);
 
+  const packageDigest = release?.package_digest;
+
   useEffect(() => {
-    if (!release || !selectedPath) {
+    if (!packageDigest || !selectedPath) {
       setFileContent(null);
       setFileNote(null);
       return;
@@ -153,7 +154,7 @@ export function PluginDetailPage() {
     let cancelled = false;
     setFileLoading(true);
     setFileNote(null);
-    getPackageFile(pluginId, release.package_digest, selectedPath, token)
+    getPackageFile(pluginId, packageDigest, selectedPath, token)
       .then((f) => {
         if (cancelled) return;
         try {
@@ -178,7 +179,7 @@ export function PluginDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [pluginId, release, selectedPath, token]);
+  }, [pluginId, packageDigest, selectedPath, token]);
 
   const installCmd = useMemo(() => {
     if (!release) return `ageval plugin install ${pluginId}@<version>`;
@@ -237,38 +238,12 @@ export function PluginDetailPage() {
               <span className="font-mono">@{pluginId}</span>
               <span aria-hidden>·</span>
               <span>
-                {isDraftRelease(release) ? "draft" : `v${release.version}`} ·{" "}
-                {release.visibility}
+                {isDraftRelease(release) ? "draft" : `v${release.version}`}
               </span>
               <span aria-hidden>·</span>
               <MarketplaceCounts
                 downloadCount={release.download_count}
                 favoriteCount={release.favorite_count}
-                favorited={Boolean(release.favorited)}
-                onToggleFavorite={() => {
-                  if (!token) {
-                    rememberReturnPath(
-                      window.location.pathname + window.location.search,
-                    );
-                    navigate("/login");
-                    return;
-                  }
-                  void setPackageFavorite(
-                    pluginId,
-                    !release.favorited,
-                    token,
-                  ).then((next) => {
-                    setRelease((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            favorited: next.favorited,
-                            favorite_count: next.favorite_count,
-                          }
-                        : prev,
-                    );
-                  });
-                }}
               />
               {release.org_id ? (
                 <>
@@ -290,6 +265,21 @@ export function PluginDetailPage() {
         </div>
         {release ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <PackageStarButton
+              packageId={pluginId}
+              release={release}
+              onUpdated={(next) => {
+                setRelease((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        favorited: next.favorited,
+                        favorite_count: next.favorite_count,
+                      }
+                    : prev,
+                );
+              }}
+            />
             <PackageOwnerOps
               packageId={pluginId}
               release={release}

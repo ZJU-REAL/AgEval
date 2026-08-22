@@ -10,7 +10,7 @@ export const DATASET_SCOPE_ITEMS = [
 
 export const MARKETPLACE_SCOPE_ITEMS = [
   ...DATASET_SCOPE_ITEMS,
-  { id: "favorites" as const, label: "Favorites" },
+  { id: "favorites" as const, label: "Stars" },
 ];
 
 function truthyParam(raw: string | null): boolean {
