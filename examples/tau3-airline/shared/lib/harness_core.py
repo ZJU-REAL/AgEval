@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 from ageval_sdk import Agent, RunContext, RunTerminal
@@ -20,6 +21,7 @@ from shared.lib.bridge import (
     load_task_dict,
     make_environment,
     tool_catalog,
+    tool_schemas,
 )
 from shared.lib.paths import assets_root
 
@@ -38,6 +40,27 @@ def _load_user_scenario(task_dir: Path, task_id: str) -> dict[str, Any]:
     if local.is_file():
         return json.loads(local.read_text(encoding="utf-8"))
     return agent_facing_user_scenario(load_task_dict(task_id))
+
+
+def _native_tool_calls(resp: Mapping[str, Any] | dict[str, Any]) -> list[dict[str, Any]]:
+    raw = resp.get("tool_calls") if isinstance(resp.get("tool_calls"), list) else []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "")
+        if not name:
+            continue
+        args = item.get("arguments") if isinstance(item.get("arguments"), dict) else {}
+        out.append(
+            {
+                "kind": "tool_call",
+                "name": name,
+                "arguments": args,
+                "id": str(item.get("id") or ""),
+            }
+        )
+    return out
 
 
 def _parse_service_action(payload: dict[str, Any] | None) -> dict[str, Any]:
@@ -112,6 +135,7 @@ async def run(ctx: RunContext, *, task_dir: Path | None = None) -> RunTerminal:
     env = make_environment()
     policy = env.get_policy()
     catalog = tool_catalog(env)
+    catalog_tools = tool_schemas(env)
     scenario = _load_user_scenario(tdir, task_id)
     scenario_text = format_user_scenario(scenario)
 
@@ -205,17 +229,49 @@ async def run(ctx: RunContext, *, task_dir: Path | None = None) -> RunTerminal:
                         f"<tools_openai_schema>\n{catalog}\n</tools_openai_schema>\n\n"
                         f"Dialog:\n{json.dumps(dialog_for_svc, ensure_ascii=False)}\n\n"
                         f"Latest tool observations:\n{json.dumps(pending_tool_obs, ensure_ascii=False)}\n\n"
-                        "Return ONLY JSON in one of these forms:\n"
+                        "Prefer native tool calls from the catalog. Send a user-facing "
+                        "message when you need to speak. Do not invent tool results. "
+                        "Copy ids byte-for-byte from tools/user.\n"
+                        "If native tools are unavailable, return ONLY JSON in one of these forms:\n"
                         '1) {"type":"message","content":"<text to customer>"}\n'
                         '2) {"type":"tool_call","name":"<tool>","arguments":{...}}\n'
-                        "Do not invent tool results. Copy ids byte-for-byte from tools/user.\n"
                     )
-                    sres = await svc_sess.invoke(svc_prompt)
+                    svc_messages: list[dict[str, Any]] = [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are an airline customer-service agent. Follow the "
+                                "policy strictly. Call domain tools via the native tool "
+                                "channel. Send a user-facing message when you need to "
+                                "speak — never invent tool results.\n\n"
+                                f"<policy>\n{policy}\n</policy>"
+                            ),
+                        },
+                        *dialog_for_svc,
+                    ]
+                    sres = await svc_sess.invoke(
+                        svc_prompt,
+                        tools=catalog_tools or None,
+                        messages=svc_messages,
+                    )
                     if not sres.get("ok"):
                         return RunTerminal.failed(
                             sres.get("error") or "service_failed"
                         )
-                    action = _parse_service_action(agent_struct(sres))
+                    native = _native_tool_calls(sres)
+                    if native:
+                        action = native[0]
+                    else:
+                        parsed = agent_struct(sres)
+                        if parsed:
+                            action = _parse_service_action(parsed)
+                        elif str(sres.get("text") or "").strip():
+                            action = {
+                                "kind": "message",
+                                "content": str(sres.get("text") or "").strip(),
+                            }
+                        else:
+                            action = {"kind": "invalid", "raw": None}
                     if action["kind"] == "tool_call":
                         name = action["name"]
                         args = action["arguments"] or {}
@@ -265,7 +321,26 @@ async def run(ctx: RunContext, *, task_dir: Path | None = None) -> RunTerminal:
                         ]
                         dialog_for_svc.append(
                             {
+                                "role": "assistant",
+                                "content": None,
+                                "tool_calls": [
+                                    {
+                                        "id": call_id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": name,
+                                            "arguments": json.dumps(
+                                                args, ensure_ascii=False
+                                            ),
+                                        },
+                                    }
+                                ],
+                            }
+                        )
+                        dialog_for_svc.append(
+                            {
                                 "role": "tool",
+                                "tool_call_id": call_id,
                                 "name": name,
                                 "content": content
                                 if isinstance(content, str)

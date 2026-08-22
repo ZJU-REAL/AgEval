@@ -245,9 +245,7 @@ class ParentAgentService:
                 return {"ok": False, "error": "agent_invocation_limit"}
 
         started = time.monotonic()
-        handle, refused = self._begin_evidence(
-            binding, prompt, tools=tools, messages=messages
-        )
+        handle, refused = self._begin_evidence(binding, prompt, tools=tools, messages=messages)
         if refused is not None:
             return self._failed(binding, handle, error=refused)
 

@@ -19,11 +19,13 @@ def _prefix_in_order(used: list[str]) -> bool:
 
 def evaluate(inputs: dict[str, Any]) -> dict[str, Any]:
     data = json.loads(Path(inputs["artifacts"]["final-state"]).read_text(encoding="utf-8"))
-    expected = json.loads(
-        (Path(__file__).resolve().parent / "evaluation" / "expected.json").read_text(
-            encoding="utf-8"
-        )
+    evaluation_dir = inputs.get("evaluation_dir")
+    expected_path = (
+        Path(str(evaluation_dir)) / "expected.json"
+        if evaluation_dir
+        else Path(__file__).resolve().parent / "evaluation" / "expected.json"
     )
+    expected = json.loads(expected_path.read_text(encoding="utf-8"))
     used = (
         [str(x) for x in (data.get("tools_used") or [])]
         if isinstance(data.get("tools_used"), list)
