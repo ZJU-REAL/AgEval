@@ -4,24 +4,31 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PACKAGE = REPO / "examples" / "core"
+PACKAGE = REPO / "examples" / "journeys"
+TASK = "terminal-jsonl-agg"
 
 
-def test_unknown_executor_fail_closed() -> None:
+def test_unknown_executor_fail_closed(tmp_path: Path) -> None:
+    dataset = Path(
+        shutil.copytree(PACKAGE, tmp_path / "journeys", ignore=shutil.ignore_patterns(".ageval"))
+    )
+    env = {**os.environ, "AGEVAL_OFFLINE_AGENT": "1"}
+    env.setdefault("ZHIPU_API_KEY", "ci-offline-placeholder")
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "ageval.cli.main",
             "run",
-            str(PACKAGE),
+            str(dataset),
             "--task",
-            "builtin-executor-conformance",
+            TASK,
             "--set",
             '/agent_profiles/solver/options/entry="codex"',
             "--set",
@@ -31,10 +38,9 @@ def test_unknown_executor_fail_closed() -> None:
         capture_output=True,
         text=True,
         cwd=str(REPO),
-        env={**os.environ, "AGEVAL_OFFLINE_AGENT": "1"},
-        timeout=120,
+        env=env,
+        timeout=180,
     )
-    assert result.returncode != 0
-    lines = [ln for ln in (result.stdout or "").splitlines() if ln.strip().startswith("{")]
-    if lines:
-        assert json.loads(lines[-1]).get("status") != "PASS"
+    assert result.returncode != 0, result.stdout
+    data = json.loads(result.stdout)
+    assert data.get("status") != "PASS"
