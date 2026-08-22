@@ -34,8 +34,6 @@ export function entityHintFromPackage(
         ? (binding.options as { entry?: unknown } | undefined)?.entry
         : null,
     ),
-    executor: asString(binding?.executor),
-    model: asString(binding?.model),
   };
 }
 

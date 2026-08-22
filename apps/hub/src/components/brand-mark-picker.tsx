@@ -45,6 +45,7 @@ export function BrandMarkPicker({
       title="Choose icon"
       description="Closed catalog only. Default uses the name alias, or a letter if nothing matches."
       confirmLabel="Save"
+      confirmVariant="default"
       busy={busy}
       error={error}
       className="max-w-lg"

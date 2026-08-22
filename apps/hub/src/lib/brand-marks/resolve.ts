@@ -1,8 +1,4 @@
-import {
-  BRAND_MARK_IDS,
-  matchBrandMarkExact,
-  matchBrandMarkToken,
-} from "@/lib/brand-marks/catalog";
+import { BRAND_MARK_IDS, matchBrandMarkExact } from "@/lib/brand-marks/catalog";
 
 export type EntityMarkHint = {
   iconKey?: string | null;
@@ -10,8 +6,6 @@ export type EntityMarkHint = {
   displayName?: string | null;
   slots?: string[];
   entry?: string | null;
-  executor?: string | null;
-  model?: string | null;
 };
 
 export type ResolvedMark = {
@@ -37,30 +31,19 @@ export function resolveEntityMark(hint: EntityMarkHint): ResolvedMark {
     return { key: stored, letter: firstLetter(stored) };
   }
 
-  const exactSources = [
-    ...packageParts(hint.packageId || ""),
-    hint.packageId || "",
-    ...(hint.slots || []),
-  ];
-  for (const src of exactSources) {
+  const leaf = packageParts(hint.packageId || "").slice(-1)[0] || "";
+  for (const src of [leaf, ...(hint.slots || []), hint.entry]) {
     const key = matchBrandMarkExact(src);
     if (key) return { key, letter: firstLetter(key) };
   }
 
-  for (const src of [hint.entry, hint.executor, hint.model]) {
-    const key = matchBrandMarkToken(src);
-    if (key) return { key, letter: firstLetter(key) };
-  }
-
   const label =
-    (hint.displayName || "").trim() ||
-    packageParts(hint.packageId || "").slice(-1)[0] ||
-    (hint.packageId || "").trim();
+    (hint.displayName || "").trim() || leaf || (hint.packageId || "").trim();
   return { key: null, letter: firstLetter(label) };
 }
 
 export function resolveMechanismMark(
   raw: string | null | undefined,
 ): string | null {
-  return matchBrandMarkToken(raw);
+  return matchBrandMarkExact(raw);
 }

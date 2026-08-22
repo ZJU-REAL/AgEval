@@ -15,14 +15,8 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
 
 def normalize_icon_key(raw: object) -> str:
     """Return a catalog key, or empty string to clear. Unknown keys fail closed."""
-    if raw is None:
-        return ""
     if not isinstance(raw, str):
-        raise RegistryAppError(
-            "invalid_request",
-            "icon_key must be a string",
-            http_status=400,
-        )
+        raise RegistryAppError("invalid_request", "unknown icon_key", http_status=400)
     key = raw.strip().lower()
     if not key:
         return ""

@@ -565,13 +565,17 @@ class PackageService:
         has_icon_key: bool = False,
     ) -> dict[str, Any]:
         row = self._latest_managed_release(dataset_id, auth)
-        stored_name = None
+        next_name: str | None = None
+        next_key: str | None = None
         if has_display_name:
-            name = _normalize_plugin_name_segment(dataset_id, display_name)
-            stored_name = self.meta.set_package_display_name(dataset_id, name)
+            next_name = _normalize_plugin_name_segment(dataset_id, display_name)
         if has_icon_key:
-            key = normalize_icon_key(icon_key)
-            self.meta.set_package_icon_key(dataset_id, key)
+            next_key = normalize_icon_key(icon_key)
+        stored_name = None
+        if next_name is not None:
+            stored_name = self.meta.set_package_display_name(dataset_id, next_name)
+        if has_icon_key:
+            self.meta.set_package_icon_key(dataset_id, next_key or "")
         payload = self._with_download_count(release_to_dict(row))
         label = (
             stored_name

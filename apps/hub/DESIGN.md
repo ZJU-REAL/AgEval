@@ -22,7 +22,7 @@ Do not invent a second marketing skin or hand-rolled full-page CSS over shadcn.
 - Radius 12px, hairline border, `canvas` fill. Hover: `canvas-soft`. Focus: `ring-2 ring-link/70`.
 - Motion: `200ms` / `cubic-bezier(0.22, 1, 0.36, 1)`.
 - Grid: `1 / 2 / 3` columns (`grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`). N packages → N cells.
-- Header: `org/name` title plus official mark on the left, updated date on the right.
+- Header: 20px entity mark + `org/name` title plus official mark on the left, updated date on the right.
 - Description: fixed two-line block (`h-10` / `leading-5` / `line-clamp-2`). Missing description uses `ageval.plugin/1 package` / `ageval.agent/1 package`. List rows without preview load by-digest meta.
 - Tags sit at the bottom of the card (`mt-auto`).
 - Loading uses `CatalogCardSkeleton` (same grid, pulse). Empty states use a dashed well.

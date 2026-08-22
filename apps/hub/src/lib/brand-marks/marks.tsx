@@ -170,6 +170,10 @@ const MARKS: Record<string, (props: MarkProps) => ReactElement> = {
   xai: XaiMark,
 };
 
+export function hasBrandMarkGlyph(id: string): boolean {
+  return Boolean(MARKS[id]) && BRAND_MARK_IDS.has(id);
+}
+
 export function BrandMarkSvg({
   id,
   size = 16,

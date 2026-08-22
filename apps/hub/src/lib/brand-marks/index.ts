@@ -2,11 +2,10 @@ export {
   BRAND_MARKS,
   BRAND_MARK_IDS,
   matchBrandMarkExact,
-  matchBrandMarkToken,
   type BrandMarkEntry,
   type BrandMarkKind,
 } from "@/lib/brand-marks/catalog";
-export { BrandMarkSvg } from "@/lib/brand-marks/marks";
+export { BrandMarkSvg, hasBrandMarkGlyph } from "@/lib/brand-marks/marks";
 export {
   resolveEntityMark,
   resolveMechanismMark,

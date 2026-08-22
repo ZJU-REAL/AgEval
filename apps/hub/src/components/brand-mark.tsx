@@ -1,4 +1,8 @@
-import { BrandMarkSvg, type ResolvedMark } from "@/lib/brand-marks";
+import {
+  BrandMarkSvg,
+  hasBrandMarkGlyph,
+  type ResolvedMark,
+} from "@/lib/brand-marks";
 import { cn } from "@/lib/utils";
 
 export function BrandMark({
@@ -12,7 +16,7 @@ export function BrandMark({
   className?: string;
   title?: string;
 }) {
-  if (mark.key) {
+  if (mark.key && hasBrandMarkGlyph(mark.key)) {
     return (
       <span
         className={cn("inline-flex shrink-0 text-ink", className)}

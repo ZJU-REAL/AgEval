@@ -579,7 +579,7 @@ export function LeaderboardTable({
                                 onClick={(e) => e.stopPropagation()}
                                 className="inline-flex max-w-full items-center gap-1.5 text-sm hover:text-ink hover:underline underline-offset-2"
                               >
-                                <BrandMark mark={mark} size={14} />
+                                <BrandMark mark={mark} size={16} />
                                 <TruncateTip
                                   text={ref.package_id}
                                   className="text-sm"
@@ -595,9 +595,8 @@ export function LeaderboardTable({
                           <BrandMark
                             mark={resolveEntityMark({
                               displayName: agentText,
-                              model: modelText,
                             })}
-                            size={14}
+                            size={16}
                           />
                           <TruncateTip
                             text={agentText || "—"}
@@ -623,7 +622,7 @@ export function LeaderboardTable({
                               key: environmentKey,
                               letter: environment.slice(0, 1).toUpperCase() || "?",
                             }}
-                            size={14}
+                            size={16}
                           />
                         ) : null}
                         {environment || "—"}

@@ -51,7 +51,10 @@ def test_hub_catalog_keys_match_registry_allowlist() -> None:
     )
     ts = (REPO / "apps/hub/src/lib/brand-marks/catalog.ts").read_text(encoding="utf-8")
     ids = re.findall(r'id: "([a-z0-9-]+)"', ts)
+    marks = (REPO / "apps/hub/src/lib/brand-marks/marks.tsx").read_text(encoding="utf-8")
+    glyphs = re.findall(r"^  ([a-z0-9-]+): \w+Mark,$", marks, flags=re.M)
     assert sorted(allow) == sorted(ids)
+    assert sorted(allow) == sorted(glyphs)
     assert frozenset(allow) == ALLOWED_KEYS
 
 
@@ -61,6 +64,16 @@ def test_patch_icon_key_roundtrip(tmp_path: Path) -> None:
     meta, archive = _meta_archive(tmp_path)
     auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=auth)
+
+    listed = svc.list_packages(
+        auth=auth,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind=None,
+    )
+    fresh = next(i for i in listed["items"] if i["dataset_id"] == "test/publish-min")
+    assert "icon_key" not in fresh
 
     stored = svc.patch_marketplace(
         dataset_id="test/publish-min",
@@ -96,12 +109,42 @@ def test_patch_icon_key_roundtrip(tmp_path: Path) -> None:
     )
     assert "icon_key" not in cleared
 
+    named = svc.patch_marketplace(
+        dataset_id="test/publish-min",
+        auth=auth,
+        display_name="Kept",
+        has_display_name=True,
+    )
+    assert named["display_name"] == "Kept"
+
     with pytest.raises(RegistryAppError) as ei:
         svc.patch_marketplace(
             dataset_id="test/publish-min",
             auth=auth,
+            display_name="Lost",
             icon_key="not-a-brand",
+            has_display_name=True,
             has_icon_key=True,
         )
     assert ei.value.error == "invalid_request"
     assert ei.value.http_status == 400
+    assert ei.value.message == "unknown icon_key"
+    after = svc.serve_meta(
+        dataset_id="test/publish-min",
+        version="0.1.0",
+        package_digest=None,
+        auth=auth,
+    )
+    assert after["display_name"] == "Kept"
+    assert "icon_key" not in after
+
+    for bad in ("claude-code", None, 1):
+        with pytest.raises(RegistryAppError) as bad_ei:
+            svc.patch_marketplace(
+                dataset_id="test/publish-min",
+                auth=auth,
+                icon_key=bad,
+                has_icon_key=True,
+            )
+        assert bad_ei.value.error == "invalid_request"
+        assert bad_ei.value.message == "unknown icon_key"

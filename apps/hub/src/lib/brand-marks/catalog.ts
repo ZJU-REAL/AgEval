@@ -78,28 +78,10 @@ export function normalizeMarkToken(raw: string): string {
   return raw.trim().toLowerCase().replace(/_/g, "-");
 }
 
-/** Exact catalog id or alias. No substring search. */
+/** Exact catalog id or alias. No substring or prefix search. */
 export function matchBrandMarkExact(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const token = normalizeMarkToken(raw);
   if (!token) return null;
   return ALIAS_TO_ID.get(token) ?? null;
-}
-
-/**
- * Exact match, or ``alias-`` / ``alias/`` prefix (model ids like ``claude-sonnet``).
- * Only against this catalog — not a vendor library.
- */
-export function matchBrandMarkToken(raw: string | null | undefined): string | null {
-  const exact = matchBrandMarkExact(raw);
-  if (exact) return exact;
-  if (!raw) return null;
-  const token = normalizeMarkToken(raw);
-  if (!token) return null;
-  for (const [alias, id] of ALIAS_TO_ID) {
-    if (token.startsWith(`${alias}-`) || token.startsWith(`${alias}/`)) {
-      return id;
-    }
-  }
-  return null;
 }
