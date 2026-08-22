@@ -3,7 +3,7 @@ export {
   BRAND_MARK_IDS,
   BRAND_MARK_BY_ID,
   type BrandMarkEntry,
-  type BrandMarkGroup,
+  type BrandMarkTone,
 } from "@/lib/brand-marks/catalog";
 export { catalogAssetUrl } from "@/lib/brand-marks/assets";
 export { githubAvatarUrl, parseGithubLogin } from "@/lib/brand-marks/github";

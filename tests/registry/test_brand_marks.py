@@ -57,7 +57,7 @@ def test_hub_catalog_keys_match_assets() -> None:
     assert frozenset(allow) == ALLOWED_KEYS
     for name in files:
         assert (ASSETS / name).is_file(), name
-    assert (ASSETS / "e2b.png").stat().st_size > 1000
+        assert (ASSETS / name).stat().st_size > 80, name
 
 
 def test_normalize_icon_github() -> None:

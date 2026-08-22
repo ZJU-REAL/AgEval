@@ -1,37 +1,36 @@
 /** Closed Hub catalog. Keys must match services/registry/brand_marks.json.
  *
  * Product marks: official kit / Lobe static SVG / Simple Icons path + official hex.
- * Generic marks: original geometry in assets/. Never invent a vendor logo.
+ * tone: color = as-is; ink = black mark on a fixed white plate;
+ * paper = white-heavy mark on a fixed black plate. Plates do not follow theme.
  */
 
-export type BrandMarkGroup = "product" | "generic";
+export type BrandMarkTone = "color" | "ink" | "paper";
 
 export type BrandMarkEntry = {
   id: string;
   label: string;
-  group: BrandMarkGroup;
   file: string;
+  tone: BrandMarkTone;
 };
 
 export const BRAND_MARKS: readonly BrandMarkEntry[] = [
-  { id: "anthropic", label: "Anthropic", group: "product", file: "anthropic.svg" },
-  { id: "claude", label: "Claude", group: "product", file: "claude.svg" },
-  { id: "claude-code", label: "Claude Code", group: "product", file: "claude-code.svg" },
-  { id: "codex", label: "Codex", group: "product", file: "codex.svg" },
-  { id: "docker", label: "Docker", group: "product", file: "docker.svg" },
-  { id: "e2b", label: "E2B", group: "product", file: "e2b.png" },
-  { id: "gemini", label: "Gemini", group: "product", file: "gemini.svg" },
-  { id: "github", label: "GitHub", group: "product", file: "github.svg" },
-  { id: "grok", label: "Grok", group: "product", file: "grok.svg" },
-  { id: "openai", label: "OpenAI", group: "product", file: "openai.svg" },
-  { id: "opencode", label: "OpenCode", group: "product", file: "opencode.svg" },
-  { id: "pi", label: "Pi", group: "product", file: "pi.svg" },
-  { id: "grid", label: "Grid", group: "generic", file: "grid.svg" },
-  { id: "hex", label: "Hex", group: "generic", file: "hex.svg" },
-  { id: "orbit", label: "Orbit", group: "generic", file: "orbit.svg" },
-  { id: "pulse", label: "Pulse", group: "generic", file: "pulse.svg" },
-  { id: "spark", label: "Spark", group: "generic", file: "spark.svg" },
-  { id: "stack", label: "Stack", group: "generic", file: "stack.svg" },
+  { id: "anthropic", label: "Anthropic", file: "anthropic.svg", tone: "ink" },
+  { id: "claude", label: "Claude", file: "claude.svg", tone: "color" },
+  { id: "claude-code", label: "Claude Code", file: "claude-code.svg", tone: "color" },
+  { id: "codex", label: "Codex", file: "codex.svg", tone: "paper" },
+  { id: "deepseek", label: "DeepSeek", file: "deepseek.svg", tone: "color" },
+  { id: "docker", label: "Docker", file: "docker.svg", tone: "color" },
+  { id: "gemini", label: "Gemini", file: "gemini.svg", tone: "color" },
+  { id: "github", label: "GitHub", file: "github.svg", tone: "ink" },
+  { id: "grok", label: "Grok", file: "grok.svg", tone: "ink" },
+  { id: "kimi", label: "Kimi", file: "kimi.svg", tone: "paper" },
+  { id: "minimax", label: "MiniMax", file: "minimax.svg", tone: "color" },
+  { id: "openai", label: "OpenAI", file: "openai.svg", tone: "ink" },
+  { id: "opencode", label: "OpenCode", file: "opencode.svg", tone: "ink" },
+  { id: "pi", label: "Pi", file: "pi.svg", tone: "ink" },
+  { id: "qwen", label: "Qwen", file: "qwen.svg", tone: "color" },
+  { id: "zhipu", label: "GLM", file: "zhipu.svg", tone: "color" },
 ];
 
 export const BRAND_MARK_IDS: ReadonlySet<string> = new Set(

@@ -3,18 +3,16 @@
   "claude",
   "claude-code",
   "codex",
+  "deepseek",
   "docker",
-  "e2b",
   "gemini",
   "github",
-  "grid",
   "grok",
-  "hex",
+  "kimi",
+  "minimax",
   "openai",
   "opencode",
-  "orbit",
   "pi",
-  "pulse",
-  "spark",
-  "stack"
+  "qwen",
+  "zhipu"
 ]
