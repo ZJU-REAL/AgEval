@@ -46,9 +46,9 @@ BUILTIN_CAPABILITIES: Final[dict[str, ExecutorCapabilities]] = {
     ),
     "openai-http": ExecutorCapabilities(
         kind="openai-http",
-        tools="unsupported",
+        tools="native",
         structured_output="validated-text",
-        session="unsupported",
+        session="new-only",
         stream="synthetic-lifecycle",
         execution_mode="api-client",
         credential_env_names=("OPENAI_API_KEY",),

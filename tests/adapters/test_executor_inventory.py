@@ -36,10 +36,12 @@ def test_describe_acp_kind() -> None:
 
 
 def test_describe_api_client_no_binary() -> None:
-    row = describe_executor("openai-http", which=lambda _n: None, verbose=False)
+    row = describe_executor("openai-http", which=lambda _n: None, verbose=True)
     assert row["execution_mode"] == "api-client"
     assert row["binary_on_path"] is None
     assert row["host_ready"] is True
+    assert row["tools"] == "native"
+    assert row["session"] == "new-only"
 
 
 def test_describe_acp_entry_adapter_missing() -> None:
