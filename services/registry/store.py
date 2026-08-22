@@ -793,12 +793,14 @@ class MetadataStore(MetadataStoreProtocol):
         return updated
 
     def delete_suite(self, suite_run_id: str) -> SuiteResultRow:
-        """Delete suite row and its shares (does not cascade attempts)."""
+        """Delete suite row, shares, consents, and requests (does not cascade attempts)."""
         row = self.get_suite(suite_run_id)
         if row is None:
             raise LookupError("suite not found")
         with self._connect() as conn:
             self._exec(conn, Q.DELETE_SUITE_SHARES, (suite_run_id,))
+            self._exec(conn, Q.DELETE_SUITE_CONSENTS, (suite_run_id,))
+            self._exec(conn, Q.DELETE_SUITE_REQUESTS, (suite_run_id,))
             self._exec(conn, Q.DELETE_SUITE, (suite_run_id,))
             conn.commit()
         return row

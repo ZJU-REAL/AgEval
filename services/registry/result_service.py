@@ -750,7 +750,15 @@ class ResultService:
                 granted_by=auth.user_id or "",
                 source="attach",
             )
-        payload = self.serve_suite_meta(suite_run_id=suite_run_id, auth=auth)
+        if skip_owner_check:
+            stored = self.meta.get_suite(suite_run_id)
+            if stored is None:
+                raise RegistryAppError("not_found", "suite not found", http_status=404)
+            official = official_dataset_ids(self.meta.list_releases(include_private=True))
+            consented = set(self.meta.list_agent_consents(suite_run_id))
+            payload = attach_agent_refs(suite_to_dict(stored), official, consented=consented)
+        else:
+            payload = self.serve_suite_meta(suite_run_id=suite_run_id, auth=auth)
         payload["attached"] = True
         payload["idempotent"] = not result.changed
         payload["attached_roles"] = list(result.roles)

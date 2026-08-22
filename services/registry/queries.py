@@ -420,6 +420,8 @@ DELETE_ATTEMPT_SHARES = "DELETE FROM result_shares WHERE result_kind='attempt' A
 DELETE_ATTEMPT = "DELETE FROM attempt_results WHERE run_id=?"
 UPDATE_ATTEMPT_VISIBILITY = "UPDATE attempt_results SET visibility=? WHERE run_id=?"
 DELETE_SUITE_SHARES = "DELETE FROM result_shares WHERE result_kind='suite' AND result_id=?"
+DELETE_SUITE_CONSENTS = "DELETE FROM suite_agent_consents WHERE suite_run_id=?"
+DELETE_SUITE_REQUESTS = "DELETE FROM resource_requests WHERE suite_run_id=?"
 DELETE_SUITE = "DELETE FROM suite_results WHERE suite_run_id=?"
 UPDATE_SUITE_VISIBILITY = "UPDATE suite_results SET visibility=? WHERE suite_run_id=?"
 UPDATE_SUITE_SLOT = """

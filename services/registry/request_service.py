@@ -181,16 +181,19 @@ class RequestService:
         return request_to_dict(row)
 
     def _approve(self, row: ResourceRequestRow, auth: TokenInfo) -> None:
-        if row.kind == "leaderboard_list":
-            self.meta.set_suite_board_listed(row.suite_run_id, True)
-            return
-        self.results.attach_agent(
-            suite_run_id=row.suite_run_id,
-            agent=row.agent_ref,
-            auth=auth,
-            grant_consent=True,
-            skip_owner_check=True,
-        )
+        try:
+            if row.kind == "leaderboard_list":
+                self.meta.set_suite_board_listed(row.suite_run_id, True)
+                return
+            self.results.attach_agent(
+                suite_run_id=row.suite_run_id,
+                agent=row.agent_ref,
+                auth=auth,
+                grant_consent=True,
+                skip_owner_check=True,
+            )
+        except LookupError as exc:
+            raise RegistryAppError("not_found", "suite not found", http_status=404) from exc
 
     def _dataset_org_id(self, dataset_id: str, version: str) -> str:
         release = self.meta.get_by_version(dataset_id, version)

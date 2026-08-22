@@ -113,6 +113,8 @@ def _upload(
     user_id: str,
     agent_profiles: dict[str, dict[str, object]] | None = None,
     task_refs: list[dict[str, object]] | None = None,
+    visibility: str = "public",
+    replace: bool = False,
 ) -> dict[str, object]:
     archive = suite_run_id.encode()
     blob = f"sha256:{hashlib.sha256(archive).hexdigest()}"
@@ -120,7 +122,7 @@ def _upload(
         "suite_run_id": suite_run_id,
         "dataset_id": dataset_id,
         "dataset_version": "0.1.0",
-        "visibility": "public",
+        "visibility": visibility,
         "blob_digest": blob,
         "size": len(archive),
         "pass_rate": 0.4,
@@ -133,6 +135,8 @@ def _upload(
     }
     if agent_profiles is not None:
         meta["job_overlay"] = {"agent_profiles": agent_profiles}
+    if replace:
+        meta["replace"] = True
     return results.upload_suite(
         meta=meta,
         archive=_as_path(tmp_path, archive, f"{suite_run_id}.bin"),
@@ -282,3 +286,111 @@ def test_batch_decide_and_unknown_kind(tmp_path: Path) -> None:
     assert {i["suite_run_id"] for i in board["items"]} == {"s1", "s2"}
     with pytest.raises(RegistryAppError, match="unknown request kind"):
         requests.apply(kind="org_join", suite_run_id="s1", auth=bob)
+
+
+def test_appearance_approve_private_suite_and_mismatch(tmp_path: Path) -> None:
+    packages, results, requests, runtimes = _svcs(tmp_path)
+    _publish_dataset(
+        packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
+    )
+    _publish_agent(
+        packages, tmp_path, package_id="official/pi-default", org_id="official", owner="alice"
+    )
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_priv",
+        dataset_id="official/gaia",
+        user_id="bob",
+        agent_profiles={"solver": dict(PI)},
+        visibility="private",
+    )
+    applied = requests.apply(
+        kind="agent_appearance",
+        suite_run_id="s_priv",
+        auth=bob,
+        agent="official/pi-default@0.1.0",
+    )
+    decided = requests.decide(request_ids=[applied["request_id"]], action="approve", auth=alice)
+    assert decided["items"][0]["status"] == "approved"
+    meta = results.serve_suite_meta(suite_run_id="s_priv", auth=bob)
+    assert str(meta["job_overlay"]["agent_profiles"]["solver"]["agent_ref"]).startswith(
+        "official/pi-default@0.1.0+"
+    )
+    assert runtimes.appearances_for_agent("official/pi-default", alice) == []
+
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_mis",
+        dataset_id="official/gaia",
+        user_id="bob",
+        agent_profiles={"solver": {**PI, "model": "other"}},
+    )
+    bad = requests.apply(
+        kind="agent_appearance",
+        suite_run_id="s_mis",
+        auth=bob,
+        agent="official/pi-default@0.1.0",
+    )
+    overlay_before = results.serve_suite_meta(suite_run_id="s_mis", auth=bob)["job_overlay"]
+    with pytest.raises(RegistryAppError, match="match"):
+        requests.decide(request_ids=[bad["request_id"]], action="approve", auth=alice)
+    still = results.meta.get_resource_request(bad["request_id"])
+    assert still is not None and still.status == "pending"
+    after = results.serve_suite_meta(suite_run_id="s_mis", auth=bob)
+    assert after["job_overlay"] == overlay_before
+    assert "agent_ref" not in after["job_overlay"]["agent_profiles"]["solver"]
+
+
+def test_delete_and_replace_drop_requests_and_consent(tmp_path: Path) -> None:
+    packages, results, requests, runtimes = _svcs(tmp_path)
+    _publish_dataset(
+        packages, tmp_path, dataset_id="official/gaia", org_id="official", owner="alice"
+    )
+    _publish_agent(
+        packages, tmp_path, package_id="official/pi-default", org_id="official", owner="alice"
+    )
+    alice = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:upload"}), user_id="bob")
+    _upload(results, tmp_path, suite_run_id="s_drop", dataset_id="official/gaia", user_id="bob")
+    listing = requests.apply(kind="leaderboard_list", suite_run_id="s_drop", auth=bob)
+    assert [i["request_id"] for i in requests.inbox(auth=alice)["items"]] == [listing["request_id"]]
+    results.delete_suite(suite_run_id="s_drop", with_attempts=False, auth=bob)
+    assert requests.inbox(auth=alice)["items"] == []
+    with pytest.raises(RegistryAppError) as missing:
+        requests.decide(request_ids=[listing["request_id"]], action="approve", auth=alice)
+    assert missing.value.http_status == 404
+
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_keep",
+        dataset_id="official/gaia",
+        user_id="alice",
+        agent_profiles={"solver": dict(PI)},
+    )
+    requests.apply(
+        kind="agent_appearance",
+        suite_run_id="s_keep",
+        auth=alice,
+        agent="official/pi-default@0.1.0",
+    )
+    assert [
+        r["suite_run_id"] for r in runtimes.appearances_for_agent("official/pi-default", alice)
+    ] == ["s_keep"]
+    _upload(
+        results,
+        tmp_path,
+        suite_run_id="s_keep",
+        dataset_id="official/gaia",
+        user_id="alice",
+        agent_profiles={
+            "solver": {**PI, "agent_ref": "official/pi-default@0.1.0+sha256:aaaaaaaaaaaa"}
+        },
+        replace=True,
+    )
+    assert results.meta.list_agent_consents("s_keep") == []
+    assert runtimes.appearances_for_agent("official/pi-default", alice) == []
