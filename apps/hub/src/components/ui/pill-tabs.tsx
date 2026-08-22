@@ -20,6 +20,7 @@ export function PillTabs<T extends string>({
   const listRef = useRef<HTMLDivElement>(null);
   const [bar, setBar] = useState({ x: 0, y: 0, w: 0, h: 0 });
   const [ready, setReady] = useState(false);
+  const itemsKey = items.map((item) => item.id).join("\0");
 
   useLayoutEffect(() => {
     const root = listRef.current;
@@ -36,7 +37,6 @@ export function PillTabs<T extends string>({
         w: btn.offsetWidth,
         h: btn.offsetHeight,
       });
-      setReady(true);
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;
@@ -44,7 +44,13 @@ export function PillTabs<T extends string>({
     ro.observe(root);
     ro.observe(btn);
     return () => ro.disconnect();
-  }, [value, items]);
+  }, [value, itemsKey]);
+
+  useLayoutEffect(() => {
+    if (bar.w === 0 || ready) return;
+    const frame = window.requestAnimationFrame(() => setReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [bar.w, ready]);
 
   return (
     <div
@@ -56,19 +62,21 @@ export function PillTabs<T extends string>({
         className,
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute top-0 left-0 rounded-[4px] bg-canvas-soft",
-          ready &&
-            "motion-safe:transition-[transform,width,height] motion-safe:duration-[400ms] motion-safe:ease-glide",
-        )}
-        style={{
-          width: bar.w,
-          height: bar.h,
-          transform: `translate(${bar.x}px, ${bar.y}px)`,
-        }}
-      />
+      {bar.w > 0 ? (
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute top-0 left-0 rounded-[4px] bg-canvas-soft",
+            ready &&
+              "motion-safe:transition-[transform,width,height] motion-safe:duration-[250ms] motion-safe:ease-glide",
+          )}
+          style={{
+            width: bar.w,
+            height: bar.h,
+            transform: `translate(${bar.x}px, ${bar.y}px)`,
+          }}
+        />
+      ) : null}
       {items.map((item) => (
         <button
           key={item.id}

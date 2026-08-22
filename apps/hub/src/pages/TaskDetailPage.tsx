@@ -5,7 +5,6 @@ import { CatalogHead } from "@/components/page-head";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
-import { OverlayFilePanel } from "@/components/overlay-file-panel";
 import { Markdown } from "@/components/markdown";
 import {
   Table,
@@ -33,7 +32,12 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { buildNestedTree, overlayPathsFromProfilesYaml, type TreeNode } from "@/lib/file-tree";
+import {
+  buildNestedTree,
+  overlayPathsFromProfilesYaml,
+  pathMatchesPrefixes,
+  type TreeNode,
+} from "@/lib/file-tree";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
@@ -122,7 +126,12 @@ export function TaskDetailPage() {
   const token = getToken();
 
   const localPrefix = `tasks/${taskId}`;
-  const prefix = filesScope === "shared" ? "shared" : localPrefix;
+  const prefix =
+    filesScope === "shared"
+      ? "shared"
+      : filesScope === "overlays"
+        ? "overlays"
+        : localPrefix;
   const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
   const localPresent = useMemo(
     () =>
@@ -284,6 +293,21 @@ export function TaskDetailPage() {
   useEffect(() => {
     if (!fileItems.length) return;
     if (filesScope === "overlays") {
+      const matched = fileItems.filter(
+        (item) =>
+          item.type !== "dir" && pathMatchesPrefixes(item.path, overlayPrefixes),
+      );
+      setTree(buildNestedTree(matched, "overlays"));
+      const prefer =
+        overlayPrefixes
+          .map(
+            (path) =>
+              matched.find(
+                (item) => item.path === path || item.path.startsWith(`${path}/`),
+              ),
+          )
+          .find(Boolean) || matched[0];
+      setSelectedPath(prefer?.path ?? null);
       setFileContent(null);
       setFileNote(null);
       return;
@@ -304,7 +328,7 @@ export function TaskDetailPage() {
     setSelectedPath(prefer?.path ?? null);
     setFileContent(null);
     setFileNote(null);
-  }, [filesScope, fileItems, localPrefix]);
+  }, [filesScope, fileItems, localPrefix, overlayPrefixes]);
 
   useEffect(() => {
     const available: FilesScope[] = [];
@@ -319,7 +343,7 @@ export function TaskDetailPage() {
   }, [filesScope, localPresent, overlaysPresent, sharedPresent]);
 
   useEffect(() => {
-    if (!release || !selectedPath || filesScope === "overlays") {
+    if (!release || !selectedPath) {
       setFileContent(null);
       return;
     }
@@ -449,14 +473,6 @@ export function TaskDetailPage() {
       ) : null}
 
       {tab === "files" ? (
-        filesScope === "overlays" && release && overlaysPresent ? (
-          <OverlayFilePanel
-            datasetId={datasetId}
-            packageDigest={release.package_digest}
-            prefixes={overlayPrefixes}
-            headerEnd={filesScopeSwitch}
-          />
-        ) : (
         <FileSplitPanel
           tree={tree}
           treeLoading={treeLoading}
@@ -476,7 +492,6 @@ export function TaskDetailPage() {
           rootPrefix={prefix}
           headerEnd={filesScopeSwitch}
         />
-        )
       ) : null}
 
       {tab === "jobs" ? (
