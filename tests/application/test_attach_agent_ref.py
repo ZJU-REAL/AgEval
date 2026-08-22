@@ -8,7 +8,6 @@ from ageval.application.suite.attach_agent_ref import (
     AttachAgentRefError,
     format_published_agent_ref,
     inject_published_agent_ref,
-    overlay_fingerprint_unchanged,
     parse_published_agent_spec,
 )
 from ageval.application.suite.suite_config_fingerprint import fingerprint_for_job_overlay
@@ -54,7 +53,6 @@ def test_inject_matches_all_roles_and_keeps_fingerprint() -> None:
     assert result.changed is True
     assert result.overlay["agent_profiles"]["solver"]["agent_ref"] == ref
     assert "agent_ref" not in result.overlay["agent_profiles"]["user"]
-    assert overlay_fingerprint_unchanged(overlay, result.overlay)
     assert fingerprint_for_job_overlay(result.overlay) == before
 
 

@@ -7,8 +7,6 @@ identity, lock bytes, or PASS.
 
 from __future__ import annotations
 
-import copy
-import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -17,7 +15,6 @@ from typing import Any
 from ageval.agents.refs import published_agent_ref_parts
 from ageval.application.suite.suite_config_fingerprint import _binding_role_key
 from ageval.config.errors import ERROR_INVALID_SCHEMA, ConfigError
-from ageval.config.profiles import WILDCARD_ROLE
 
 _ROLE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _DIGEST_SHORT_HEX = 12
@@ -127,8 +124,6 @@ def inject_published_agent_ref(
 
     want_key = _binding_role_key(published_binding)
     want_role = role.strip() if isinstance(role, str) and role.strip() else None
-    if want_role == WILDCARD_ROLE:
-        want_role = WILDCARD_ROLE
     if want_role is not None and want_role not in profiles:
         raise AttachAgentRefError(
             ERROR_INVALID_SCHEMA,
@@ -158,20 +153,17 @@ def inject_published_agent_ref(
             new_profiles[rid] = row
             continue
         existing = row.get("agent_ref")
-        if isinstance(existing, str) and existing.strip():
-            if existing.strip() != agent_ref:
-                existing_parts = published_agent_ref_parts(existing)
-                if existing_parts != (package_id, version):
-                    raise AttachAgentRefError(
-                        ERROR_INVALID_SCHEMA,
-                        "overlay role already has a different agent_ref",
-                        location=f"/job_overlay/agent_profiles/{rid}/agent_ref",
-                    )
-                # Same published id@version with a different digest spelling.
-                if existing.strip() != agent_ref:
-                    row["agent_ref"] = agent_ref
-                    changed = True
-        else:
+        if isinstance(existing, str) and existing.strip() and existing.strip() != agent_ref:
+            existing_parts = published_agent_ref_parts(existing)
+            if existing_parts != (package_id, version):
+                raise AttachAgentRefError(
+                    ERROR_INVALID_SCHEMA,
+                    "overlay role already has a different agent_ref",
+                    location=f"/job_overlay/agent_profiles/{rid}/agent_ref",
+                )
+            row["agent_ref"] = agent_ref
+            changed = True
+        elif not (isinstance(existing, str) and existing.strip()):
             row["agent_ref"] = agent_ref
             changed = True
         attached.append(rid)
@@ -184,8 +176,7 @@ def inject_published_agent_ref(
             location="/job_overlay/agent_profiles",
         )
 
-    new_overlay = copy.deepcopy(dict(overlay))
-    new_overlay["agent_profiles"] = new_profiles
+    new_overlay = {**dict(overlay), "agent_profiles": new_profiles}
     return AttachAgentResult(
         overlay=new_overlay,
         roles=tuple(attached),
@@ -194,16 +185,3 @@ def inject_published_agent_ref(
         package_id=package_id,
         version=version,
     )
-
-
-def overlay_fingerprint_unchanged(
-    before: Mapping[str, Any] | None, after: Mapping[str, Any] | None
-) -> bool:
-    """True when injecting agent_ref did not move ``_binding_role_key`` material."""
-    from ageval.application.suite.suite_config_fingerprint import fingerprint_for_job_overlay
-
-    return fingerprint_for_job_overlay(before) == fingerprint_for_job_overlay(after)
-
-
-def dump_overlay(overlay: Mapping[str, Any]) -> str:
-    return json.dumps(overlay, sort_keys=True, separators=(",", ":"), default=str)
