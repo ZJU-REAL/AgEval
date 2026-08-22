@@ -179,6 +179,7 @@ ROUTES: tuple[Route, ...] = (
         groups=("run_id",),
     ),
     Route("GET", "list_suites", access="bearer", exact="/v1/results/suites", pass_qs=True),
+    Route("GET", "list_requests", access="bearer", exact="/v1/requests", pass_qs=True),
     Route(
         "GET",
         "serve_suite_content",
@@ -280,6 +281,8 @@ ROUTES: tuple[Route, ...] = (
         exact="/v1/results/attempts",
     ),
     Route("POST", "upload_suite", access="results_upload", exact="/v1/results/suites"),
+    Route("POST", "apply_request", access="bearer", exact="/v1/requests"),
+    Route("POST", "decide_requests", access="bearer", exact="/v1/requests/decide"),
     Route(
         "POST",
         "append_suite_slot",

@@ -618,12 +618,21 @@ class ResultService:
             )
             visible = [] if not want else [r for r in visible if r.uploaded_by == want]
         if board:
-            visible = [r for r in visible if r.complete and r.bound_kind == BOUND_RELEASE]
+            visible = [
+                r
+                for r in visible
+                if r.complete and r.bound_kind == BOUND_RELEASE and r.board_listed
+            ]
         attempt_ids = self._suite_visible_attempt_ids(visible, auth=auth)
         official = official_dataset_ids(self.meta.list_releases(include_private=True))
+        consents = self.meta.list_agent_consents_for_suites([r.suite_run_id for r in visible])
         return {
             "items": [
-                attach_agent_refs(suite_to_dict(r, attempt_content_ids=attempt_ids), official)
+                attach_agent_refs(
+                    suite_to_dict(r, attempt_content_ids=attempt_ids),
+                    official,
+                    consented=consents.get(r.suite_run_id) or set(),
+                )
                 for r in visible
             ]
         }
@@ -632,7 +641,12 @@ class ResultService:
         row = self._require_visible_suite(suite_run_id, auth)
         attempt_ids = self._suite_visible_attempt_ids([row], auth=auth)
         official = official_dataset_ids(self.meta.list_releases(include_private=True))
-        return attach_agent_refs(suite_to_dict(row, attempt_content_ids=attempt_ids), official)
+        consented = set(self.meta.list_agent_consents(suite_run_id))
+        return attach_agent_refs(
+            suite_to_dict(row, attempt_content_ids=attempt_ids),
+            official,
+            consented=consented,
+        )
 
     def attach_agent(
         self,
@@ -642,6 +656,7 @@ class ResultService:
         auth: TokenInfo,
         role: str | None = None,
         grant_consent: bool | None = None,
+        skip_owner_check: bool = False,
     ) -> dict[str, Any]:
         """Write published ``agent_ref`` onto the stored suite overlay.
 
@@ -661,8 +676,9 @@ class ResultService:
         )
 
         row = self.meta.get_suite(suite_run_id)
-        if row is None or not self.access.can_manage_result(
-            "suite", suite_run_id, auth, for_read=False
+        if row is None or (
+            not skip_owner_check
+            and not self.access.can_manage_result("suite", suite_run_id, auth, for_read=False)
         ):
             raise RegistryAppError("not_found", "suite not found", http_status=404)
         try:
