@@ -8,12 +8,17 @@ import concurrent.futures
 import gzip
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from acp_oneshot_plugin import PLUGIN_ID
 from acp_oneshot_plugin.trajectory import to_ageval_trajectory_events
-from ageval.environments.protocol import HOME_PATH, WORKSPACE_PATH
+from ageval.environments.protocol import (
+    HOME_PATH,
+    WORKSPACE_PATH,
+    EnvironmentFailure,
+)
 from ageval.plugins.agent_result import (
     AgentResult,
     observational_result_health,
@@ -134,6 +139,7 @@ class AcpOneshotBoxExecutor:
     ) -> AgentResult:
         workdir = self._placement.workdir or WORKSPACE_PATH
         cwd = self._host.visible_path(workdir)
+        box_result = f"{HOME_PATH}/.acp-oneshot-result.json"
         request = {
             "prompt": prompt,
             "cwd": cwd,
@@ -143,6 +149,7 @@ class AcpOneshotBoxExecutor:
             "entry_id": self.entry_id,
             "timeout_sec": float(timeout),
             "protocol_version": 1,
+            "result_path": self._host.visible_path(box_result),
         }
         result = await self._host.exec(
             [*self._host.python_command, "-c", _BOOTSTRAP, json.dumps(request, sort_keys=True)],
@@ -150,7 +157,10 @@ class AcpOneshotBoxExecutor:
             env=self._exec_env(),
             timeout_sec=timeout,
         )
-        return self._result_from(result, collect_dir=collect_dir)
+        payload = _payload_from_stdout(str(getattr(result, "stdout", "") or ""))
+        if payload is None:
+            payload = await self._payload_from_file(box_result)
+        return self._result_from(result, collect_dir=collect_dir, payload=payload)
 
     def _exec_env(self) -> dict[str, str]:
         home = self._host.visible_path(self._placement.home or HOME_PATH)
@@ -171,13 +181,30 @@ class AcpOneshotBoxExecutor:
         env.setdefault("LANG", "C.UTF-8")
         return env
 
+    async def _payload_from_file(self, box_path: str) -> dict[str, Any] | None:
+        download = getattr(self._host, "download", None)
+        if not callable(download):
+            return None
+        dest = Path(tempfile.mkdtemp(prefix="acp-oneshot-")) / "result.json"
+        try:
+            await download(box_path, dest)
+            data = json.loads(dest.read_text(encoding="utf-8"))
+        except (EnvironmentFailure, OSError, json.JSONDecodeError):
+            return None
+        return data if isinstance(data, dict) else None
+
     def _result_from(
-        self, result: Any, *, collect_dir: str | os.PathLike[str] | None
+        self,
+        result: Any,
+        *,
+        collect_dir: str | os.PathLike[str] | None,
+        payload: dict[str, Any] | None = None,
     ) -> AgentResult:
         stdout = str(getattr(result, "stdout", "") or "")
         stderr = str(getattr(result, "stderr", "") or "")
         exit_code = int(getattr(result, "exit_code", 1) or 0)
-        payload = _payload_from_stdout(stdout)
+        if payload is None:
+            payload = _payload_from_stdout(stdout)
         if collect_dir and payload is not None:
             root = Path(collect_dir)
             root.mkdir(parents=True, exist_ok=True)

@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from tests.helpers.box import local_box
 
-from ageval.environments.protocol import EnvironmentCapabilities
+from ageval.environments.protocol import EnvironmentCapabilities, ExecResult
 from ageval.plugins.contrib.acp import build_acp_executor
 from ageval.plugins.defaults import register_defaults
 from ageval.plugins.errors import ExtensionMaterializeError, InjectUnsatisfiedError
@@ -52,6 +52,14 @@ class SpyHost:
         env = kwargs.get("env")
         self.commands.append((list(command), dict(env) if env else None))
         return await self._inner.exec(command, **kwargs)
+
+
+class EmptyStdoutHost(SpyHost):
+    """Remote exec often returns exit 0 with empty stdout (e2b)."""
+
+    async def exec(self, command, **kwargs: Any):  # type: ignore[no-untyped-def]
+        result = await super().exec(command, **kwargs)
+        return ExecResult(exit_code=result.exit_code, stdout="", stderr=result.stderr)
 
 
 def _descriptor() -> Any:
@@ -214,6 +222,24 @@ async def test_invoke_is_one_exec_against_echo_agent(
     assert "AGEVAL_ACP_ONESHOT_WORKER" in env
     assert env.get("PATH") == "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     assert "/Users/" not in (env.get("PATH") or "")
+    assert request.get("result_path", "").endswith(".acp-oneshot-result.json")
+
+
+@pytest.mark.asyncio
+async def test_invoke_reads_result_file_when_stdout_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    monkeypatch.setenv("ZHIPU_API_KEY", "sk-not-for-lock")
+    host = EmptyStdoutHost(tmp_path)
+    await host.start()
+    try:
+        result = _executor(host).invoke("hello", timeout=15)
+    finally:
+        await host.stop(delete=True)
+    assert result.ok is True
+    assert result.error is None
+    assert result.text == '{"answer": 42}'
 
 
 def test_lock_cli_selects_oneshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

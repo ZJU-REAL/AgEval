@@ -13,12 +13,14 @@ import os
 import subprocess
 import sys
 import threading
+from pathlib import Path
 from queue import Empty, Queue
 from typing import Any
 
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    result_path: str | None = None
     if not args:
         return _emit({"ok": False, "error": "acp_oneshot_request_missing", "text": ""}, 1)
     try:
@@ -27,9 +29,16 @@ def main(argv: list[str] | None = None) -> int:
         return _emit({"ok": False, "error": "acp_oneshot_request_invalid", "text": ""}, 1)
     if not isinstance(request, dict):
         return _emit({"ok": False, "error": "acp_oneshot_request_invalid", "text": ""}, 1)
+    raw_path = request.get("result_path")
+    if isinstance(raw_path, str) and raw_path.strip():
+        result_path = raw_path.strip()
     command = request.get("acp_command")
     if not isinstance(command, list) or not command:
-        return _emit({"ok": False, "error": "acp_entry_missing", "text": ""}, 1)
+        return _emit(
+            {"ok": False, "error": "acp_entry_missing", "text": ""},
+            1,
+            result_path=result_path,
+        )
     prompt = str(request.get("prompt") or "")
     cwd = str(request.get("cwd") or os.getcwd())
     timeout = float(request.get("timeout_sec") or 60.0)
@@ -51,7 +60,11 @@ def main(argv: list[str] | None = None) -> int:
             env=env,
         )
     except TimeoutError:
-        return _emit({"ok": False, "error": "acp_timeout", "text": "", "model": model}, 1)
+        return _emit(
+            {"ok": False, "error": "acp_timeout", "text": "", "model": model},
+            1,
+            result_path=result_path,
+        )
     except Exception as exc:  # noqa: BLE001 — wrapper boundary
         return _emit(
             {
@@ -61,8 +74,13 @@ def main(argv: list[str] | None = None) -> int:
                 "detail": f"{type(exc).__name__}:{exc}"[:300],
             },
             1,
+            result_path=result_path,
         )
-    return _emit(payload, 0 if payload.get("ok") or payload.get("error") else 1)
+    return _emit(
+        payload,
+        0 if payload.get("ok") or payload.get("error") else 1,
+        result_path=result_path,
+    )
 
 
 def _run_oneshot(
@@ -418,8 +436,13 @@ def _auto_approve(options: Any) -> str:
     return "allow"
 
 
-def _emit(payload: dict[str, Any], code: int) -> int:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+def _emit(payload: dict[str, Any], code: int, *, result_path: str | None = None) -> int:
+    line = json.dumps(payload, ensure_ascii=False, default=str) + "\n"
+    if result_path:
+        path = Path(result_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(line, encoding="utf-8")
+    sys.stdout.write(line)
     sys.stdout.flush()
     return code
 
