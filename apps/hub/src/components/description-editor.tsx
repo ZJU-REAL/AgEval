@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 
 import { HoverTip } from "@/components/hover-tip";
 import { Button } from "@/components/ui/button";
+import { FloatingField } from "@/components/ui/floating-field";
 import { toast } from "@/components/ui/toast";
-import { Textarea } from "@/components/ui/textarea";
 
 export function DescriptionEditor({
   value,
@@ -61,10 +61,11 @@ export function DescriptionEditor({
           void submit();
         }}
       >
-        <Textarea
+        <FloatingField
+          multiline
+          label="Description"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          aria-label="Description"
           maxLength={maxLength}
           autoFocus
           disabled={busy}

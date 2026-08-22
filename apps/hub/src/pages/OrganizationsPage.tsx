@@ -7,8 +7,8 @@ import { OfficialMark } from "@/components/official-mark";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
+import { FloatingField } from "@/components/ui/floating-field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -445,23 +445,15 @@ export function OrganizationsPage() {
                 }}
               />
             </div>
-            <div>
-              <label
-                htmlFor="org-description-input"
-                className="text-xs font-medium text-mute uppercase tracking-wide"
-              >
-                Description
-              </label>
-              <Textarea
-                id="org-description-input"
-                value={orgDescription}
-                onChange={(e) => setOrgDescription(e.target.value)}
-                placeholder="Optional"
-                className="mt-1.5 min-h-[4.5rem] text-sm"
-                disabled={createBusy}
-                maxLength={500}
-              />
-            </div>
+            <FloatingField
+              multiline
+              id="org-description-input"
+              label="Description"
+              value={orgDescription}
+              onChange={(e) => setOrgDescription(e.target.value)}
+              disabled={createBusy}
+              maxLength={500}
+            />
             {createError ? (
               <p className="text-sm text-error font-mono">{createError}</p>
             ) : null}
