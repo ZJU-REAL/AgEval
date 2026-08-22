@@ -1,12 +1,15 @@
 """ACP ``after_environment_ready`` hook: probe the box, install only if missing.
 
-The recipe comes from ``acp_entries.json``. Nothing here hardcodes a package
-manager: if the box image already baked the entry, the probe hits and this hook
-does nothing.
+The recipe comes from ``acp_entries.json``. A hit is the binary name, the pinned
+npm version, and one cheap stdio ``initialize``. Bake that already matches
+skips install. A same-named binary that speaks TCP ACP (or the wrong pin) does
+not.
 """
 
 from __future__ import annotations
 
+import json
+import shlex
 from typing import Any
 
 from ageval.environments.protocol import EnvironmentFailure
@@ -17,6 +20,110 @@ from ageval.plugins.protocol import NextFn
 
 # Runs before the task's own setup.sh (500) and after cheaper box preparation.
 ENSURE_RUNTIME_PRIORITY = 100
+_HANDSHAKE_TIMEOUT_SEC = 8
+_PROBE_EXEC_TIMEOUT_SEC = 25
+_PROTOCOL_VERSION = 1
+
+# In-box stdlib probe. Parent execs this via host.python_command; it must not
+# import ageval. Name + pin first; initialize only when those already match,
+# so a wrong-version TCP binary does not eat the handshake timeout.
+_PROBE_SOURCE = r"""
+import json, os, select, shutil, subprocess, sys, time
+
+def _pins(cfg):
+    out = []
+    for pkg, pin in cfg.get("pins") or []:
+        found = None
+        try:
+            proc = subprocess.run(
+                ["npm", "ls", "-g", "--depth=0", "--json", pkg],
+                capture_output=True, text=True, timeout=20,
+            )
+            data = json.loads(proc.stdout or "{}")
+            info = (data.get("dependencies") or {}).get(pkg) or {}
+            found = info.get("version")
+        except Exception:
+            found = None
+        out.append({"package": pkg, "wanted": pin, "found": found, "ok": found == pin})
+    return out
+
+def _handshake(command, payload, timeout):
+    try:
+        proc = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=0,
+        )
+    except Exception as exc:
+        return {"ok": False, "reason": type(exc).__name__}
+    try:
+        assert proc.stdin is not None and proc.stdout is not None
+        proc.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
+        proc.stdin.flush()
+        deadline = time.monotonic() + float(timeout)
+        buf = b""
+        fd = proc.stdout.fileno()
+        while time.monotonic() < deadline:
+            remain = max(0.0, deadline - time.monotonic())
+            ready, _, _ = select.select([fd], [], [], min(0.2, remain))
+            if not ready:
+                if proc.poll() is not None:
+                    break
+                continue
+            chunk = os.read(fd, 8192)
+            if not chunk:
+                break
+            buf += chunk
+            if len(buf) > 65536:
+                buf = buf[-65536:]
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                line = line.strip().lstrip(b"\x00\x01\x02\x03")
+                if not line:
+                    continue
+                try:
+                    msg = json.loads(line.decode("utf-8", errors="replace"))
+                except Exception:
+                    continue
+                if (
+                    isinstance(msg, dict)
+                    and msg.get("id") == 1
+                    and ("result" in msg or "error" in msg)
+                ):
+                    return {"ok": True, "reason": "jsonrpc"}
+        return {"ok": False, "reason": "no_jsonrpc_result"}
+    finally:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        try:
+            proc.wait(timeout=2)
+        except Exception:
+            pass
+
+cfg = json.loads(sys.argv[1])
+wanted = list(cfg.get("wanted") or [])
+missing = [name for name in wanted if not shutil.which(name)]
+versions = _pins(cfg)
+pins_ok = all(row["ok"] for row in versions) if versions else True
+init = {"ok": False, "reason": "skipped"}
+if not missing and pins_ok:
+    init = _handshake(
+        list(cfg.get("acp_command") or []),
+        cfg.get("payload") or {},
+        cfg.get("handshake_timeout_sec") or 8,
+    )
+ok = (not missing) and pins_ok and bool(init.get("ok"))
+sys.stdout.write(json.dumps({
+    "ok": ok,
+    "missing": missing,
+    "versions": versions,
+    "initialize": init,
+}))
+"""
 
 
 def ensure_runtime(**kwargs: Any) -> Any:
@@ -80,23 +187,18 @@ async def _prepare_attempt_home(
 
 
 async def _ensure_entry_present(ctx: Any, descriptor: AcpEntryDescriptor) -> None:
-    host = ctx.host
-    wanted = _needed_commands(descriptor)
-    missing = [name for name in wanted if not await _present(host, name, ctx=ctx)]
-    ctx.record_fact(
-        "acp_runtime_probe",
-        {"entry": descriptor.entry_id, "wanted": wanted, "missing": missing},
-    )
-    if not missing:
+    probe = await _run_probe(ctx, descriptor)
+    ctx.record_fact("acp_runtime_probe", {"entry": descriptor.entry_id, **probe})
+    if probe.get("ok"):
         return
     if not descriptor.install_command:
         raise EnvironmentFailure(
             "acp_runtime_missing",
-            f"acp entry {descriptor.entry_id!r} needs {missing} in the box and "
-            "declares no install command",
+            f"acp entry {descriptor.entry_id!r} failed runtime probe "
+            f"({_probe_reason(probe)}) and declares no install command",
         )
-    result = await host.exec(
-        ["bash", "-lc", descriptor.install_command],
+    result = await ctx.host.exec(
+        ["bash", "-lc", _install_line(descriptor.install_command)],
         timeout_sec=ctx.remaining_seconds(),
     )
     ctx.record_fact(
@@ -104,17 +206,29 @@ async def _ensure_entry_present(ctx: Any, descriptor: AcpEntryDescriptor) -> Non
         {"entry": descriptor.entry_id, "exit_code": result.exit_code},
     )
     if result.exit_code != 0:
+        detail = (result.stderr or result.stdout or "").strip()[-500:]
         raise EnvironmentFailure(
             "acp_runtime_install_failed",
-            f"installing acp entry {descriptor.entry_id!r} exited "
-            f"{result.exit_code}: {result.stderr.strip()[-500:]}",
+            f"installing acp entry {descriptor.entry_id!r} exited {result.exit_code}: {detail}",
         )
-    still_missing = [name for name in missing if not await _present(host, name, ctx=ctx)]
-    if still_missing:
+    again = await _run_probe(ctx, descriptor)
+    ctx.record_fact("acp_runtime_probe_after_install", {"entry": descriptor.entry_id, **again})
+    if not again.get("ok"):
         raise EnvironmentFailure(
             "acp_runtime_missing",
-            f"acp entry {descriptor.entry_id!r} still missing {still_missing} after install",
+            f"acp entry {descriptor.entry_id!r} still failing runtime probe "
+            f"after install ({_probe_reason(again)})",
         )
+
+
+def _install_line(install_command: str) -> str:
+    """Run the entry recipe as the box user; same recipe under passwordless sudo.
+
+    Cloud snapshots often ship npm on a prefix the sandbox user cannot write.
+    The recipe stays on the ACP entry; sudo is only the privilege to apply it.
+    """
+    quoted = shlex.quote(install_command)
+    return f'({install_command}) || sudo -n env PATH="$PATH" bash -lc {quoted}'
 
 
 def _needed_commands(descriptor: AcpEntryDescriptor) -> list[str]:
@@ -134,9 +248,93 @@ def _needed_commands(descriptor: AcpEntryDescriptor) -> list[str]:
     return out
 
 
-async def _present(host: Any, command: str, *, ctx: Any) -> bool:
-    result = await host.exec(
-        ["bash", "-lc", f"command -v {command}"],
-        timeout_sec=ctx.remaining_seconds(),
-    )
-    return result.exit_code == 0
+def _pinned_packages(descriptor: AcpEntryDescriptor) -> list[tuple[str, str]]:
+    """Unique (package, version) pins the probe must observe via ``npm ls -g``."""
+    pins: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for pkg, ver in (
+        (descriptor.acp_package, descriptor.acp_version),
+        (descriptor.engine_package, descriptor.engine_version),
+    ):
+        if not pkg or not ver:
+            continue
+        item = (str(pkg), str(ver))
+        if item in seen:
+            continue
+        seen.add(item)
+        pins.append(item)
+    return pins
+
+
+def _probe_config(descriptor: AcpEntryDescriptor) -> dict[str, Any]:
+    return {
+        "wanted": _needed_commands(descriptor),
+        "pins": [list(item) for item in _pinned_packages(descriptor)],
+        "acp_command": list(descriptor.acp_command),
+        "handshake_timeout_sec": _HANDSHAKE_TIMEOUT_SEC,
+        "payload": {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": _PROTOCOL_VERSION,
+                "clientInfo": {"name": "ageval-probe", "version": "0"},
+                "capabilities": {},
+            },
+        },
+    }
+
+
+def _probe_argv(host: Any, descriptor: AcpEntryDescriptor) -> list[str]:
+    python = [str(part) for part in getattr(host, "python_command", ()) or ("python3",)]
+    return [
+        *python,
+        "-c",
+        _PROBE_SOURCE,
+        json.dumps(_probe_config(descriptor), separators=(",", ":")),
+    ]
+
+
+def _parse_probe_stdout(stdout: str) -> dict[str, Any]:
+    for line in reversed((stdout or "").splitlines()):
+        text = line.strip()
+        if not text.startswith("{"):
+            continue
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict) and "ok" in data:
+            return data
+    return {"ok": False, "reason": "unparseable_probe"}
+
+
+def _probe_reason(probe: dict[str, Any]) -> str:
+    if probe.get("reason"):
+        return str(probe["reason"])
+    missing = probe.get("missing") or []
+    if missing:
+        return f"missing {missing}"
+    bad_pins = [
+        f"{row.get('package')}@{row.get('found') or 'missing'}!={row.get('wanted')}"
+        for row in (probe.get("versions") or [])
+        if isinstance(row, dict) and not row.get("ok")
+    ]
+    if bad_pins:
+        return "version " + ", ".join(bad_pins)
+    raw_init = probe.get("initialize")
+    init: dict[str, Any] = raw_init if isinstance(raw_init, dict) else {}
+    return f"initialize {init.get('reason') or 'failed'}"
+
+
+async def _run_probe(ctx: Any, descriptor: AcpEntryDescriptor) -> dict[str, Any]:
+    host = ctx.host
+    timeout = min(float(ctx.remaining_seconds()), float(_PROBE_EXEC_TIMEOUT_SEC))
+    try:
+        result = await host.exec(_probe_argv(host, descriptor), timeout_sec=timeout)
+    except Exception as exc:  # noqa: BLE001 — probe is fail-closed
+        return {"ok": False, "reason": type(exc).__name__, "missing": _needed_commands(descriptor)}
+    parsed = _parse_probe_stdout(result.stdout)
+    if parsed.get("reason") == "unparseable_probe" and result.exit_code != 0:
+        parsed["exit_code"] = result.exit_code
+    return parsed

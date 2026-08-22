@@ -72,7 +72,7 @@ Locator：`DAYTONA_API_KEY`（接受 `daytona_api_key`）。缺钥或缺 SDK imp
 
 ssh A / B 由 `environment_options.image` 是否为空决定。host/user/`key_env` 是 locator，preflight 解析，不进 lock 明文密钥。
 
-ACP 挂 `after_environment_ready`：先 `which`，缺再装。云镜像已 bake entry 时探测命中，不得再装一遍。
+ACP 挂 `after_environment_ready`：名字 + 钉死包版本 + 一次 stdio `initialize`，不对再按 ACP entry 的 `install_command` 装。云镜像已 bake 且版本/协议对得上时探测命中，不得再装一遍。同名但不是 stdio ACP 的二进制不算命中。
 
 ## locality
 

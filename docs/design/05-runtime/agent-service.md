@@ -96,11 +96,11 @@ ACP attach 发生在第一次 invoke，不是独立 phase。`acp-oneshot` 每次
 
 ## Agent 运行时（挂 `after_environment_ready`）
 
-1. 读 `options.entry`（如 `pi`）→ 需要哪些盒内二进制（`pi`、`pi-acp`、…）。
-2. `host.exec` 探测：`command -v` / `which`。
-3. **齐了就跳过。** 缺了再按 entry 的安装配方 `exec`（官方安装脚本 / 镜像内包管理器）。失败 = environment 相位失败。
+1. 读 `options.entry`（如 `pi`）→ 需要哪些盒内二进制（`pi`、`pi-acp`、…）以及 entry 表钉死的包版本。
+2. `host.exec` 探测三件事：名字（`which`）、钉死的 npm 包版本（`npm ls -g pkg@pin`）、一次便宜的 stdio JSON-RPC `initialize`（不是 `session/prompt`）。同名但协议不是 stdio ACP（例如只开 TCP 的旧 `opencode`）算未命中。
+3. **三件都齐就跳过。** 任一不对再按 **ACP entry 自己的** `install_command` `exec`，装完再探一次。失败 = environment 相位失败。不把「怎么装 opencode」下放到 environment 插件。
 4. 不把安装写进 task `setup.sh`。`setup.sh` 只本题依赖。
-5. docker 官方基座已 bake entry 时，探测命中，云上瘦镜像才会走到安装。invoke 禁止 `npm i` / 浮动 `npx`。
+5. docker 官方基座已 bake 且版本+stdio 对得上时，探测命中；云上瘦镜像或 snapshot 里是错版本/错协议才会走到安装。invoke 禁止 `npm i` / 浮动 `npx`。
 
 Python ACP SDK 只在 parent，不进 Attempt 镜像。
 

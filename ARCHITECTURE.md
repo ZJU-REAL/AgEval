@@ -293,7 +293,7 @@ environment phase
   before_environment
   host.start
   upload data/ → /attempt/workspace
-  after_environment_ready      # ACP which / probe then install
+  after_environment_ready      # ACP name+pin+stdio initialize, else install
   environment_setup            # setup.sh (defaults)
   after_environment
 
