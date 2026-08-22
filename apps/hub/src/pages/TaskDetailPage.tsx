@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PillTabs } from "@/components/ui/pill-tabs";
 import { VersionSwitcher } from "@/components/version-switcher";
 import {
   decodeDatasetId,
@@ -60,36 +61,23 @@ function FilesScopeSwitch({
   sharedPresent: boolean;
   overlaysPresent: boolean;
 }) {
-  const items: Array<[FilesScope, string]> = [
-    ...(localPresent ? ([["local", "Local"]] as Array<[FilesScope, string]>) : []),
-    ...(sharedPresent ? ([["shared", "Shared"]] as Array<[FilesScope, string]>) : []),
+  const items = [
+    ...(localPresent ? ([{ id: "local" as const, label: "Local" }] as const) : []),
+    ...(sharedPresent
+      ? ([{ id: "shared" as const, label: "Shared" }] as const)
+      : []),
     ...(overlaysPresent
-      ? ([["overlays", "Overlays"]] as Array<[FilesScope, string]>)
+      ? ([{ id: "overlays" as const, label: "Overlays" }] as const)
       : []),
   ];
   if (items.length < 2) return null;
   return (
-    <div
-      className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
-      role="group"
-      aria-label="Files scope"
-    >
-      {items.map(([id, label]) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => onChange(id)}
-          className={cn(
-            "px-2 py-0.5 text-[11px] rounded-[4px] transition-colors",
-            filesScope === id
-              ? "bg-canvas-soft text-ink font-medium shadow-sm"
-              : "text-mute hover:text-ink",
-          )}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <PillTabs
+      items={items}
+      value={filesScope}
+      onChange={onChange}
+      ariaLabel="Files scope"
+    />
   );
 }
 

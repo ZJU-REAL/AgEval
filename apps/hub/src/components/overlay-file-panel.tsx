@@ -12,8 +12,8 @@ import {
   type SuiteRow,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { PillTabs } from "@/components/ui/pill-tabs";
 import { buildNestedTree, pathMatchesPrefixes } from "@/lib/file-tree";
-import { cn } from "@/lib/utils";
 
 /** Package-file preview limited to a binding's declared ``overlays:`` prefixes. */
 export function OverlayFilePanel({
@@ -239,27 +239,12 @@ export function JobOverlayPreview({
   return (
     <div className="space-y-2">
       {sources.length > 1 ? (
-        <div
-          className="inline-flex rounded-[6px] border border-hairline p-0.5 bg-canvas shrink-0"
-          role="group"
-          aria-label="Overlay source"
-        >
-          {sources.map((src) => (
-            <button
-              key={src.key}
-              type="button"
-              onClick={() => setScope(src.key)}
-              className={cn(
-                "px-2 py-0.5 text-[11px] rounded-[4px] transition-colors",
-                active.key === src.key
-                  ? "bg-canvas-soft text-ink font-medium shadow-sm"
-                  : "text-mute hover:text-ink",
-              )}
-            >
-              {src.label}
-            </button>
-          ))}
-        </div>
+        <PillTabs
+          items={sources.map((src) => ({ id: src.key, label: src.label }))}
+          value={active.key}
+          onChange={setScope}
+          ariaLabel="Overlay source"
+        />
       ) : (
         <p className="text-xs text-mute">
           {active.key === "job"
