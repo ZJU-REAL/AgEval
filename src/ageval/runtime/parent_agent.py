@@ -227,7 +227,14 @@ class ParentAgentService:
 
     # --- invoke --------------------------------------------------------------
 
-    def invoke(self, *, session_id: str, prompt: str) -> dict[str, Any]:
+    def invoke(
+        self,
+        *,
+        session_id: str,
+        prompt: str,
+        tools: Any = None,
+        messages: Any = None,
+    ) -> dict[str, Any]:
         refusal = self._refuse_before_effect(session_id)
         if refusal is not None:
             return refusal
@@ -238,7 +245,7 @@ class ParentAgentService:
                 return {"ok": False, "error": "agent_invocation_limit"}
 
         started = time.monotonic()
-        handle, refused = self._begin_evidence(binding, prompt)
+        handle, refused = self._begin_evidence(binding, prompt, tools=tools, messages=messages)
         if refused is not None:
             return self._failed(binding, handle, error=refused)
 
@@ -249,12 +256,16 @@ class ParentAgentService:
 
         try:
             sent = self._chain(binding, BEFORE_AGENT_INVOKE, prompt)
-            result = binding.executor.invoke(
-                sent,
-                timeout=self._invoke_timeout(),
-                collect_dir=collect_dir,
-                redaction_sentinels=sentinels,
-            )
+            invoke_kwargs: dict[str, Any] = {
+                "timeout": self._invoke_timeout(),
+                "collect_dir": collect_dir,
+                "redaction_sentinels": sentinels,
+            }
+            if tools is not None:
+                invoke_kwargs["tools"] = tools
+            if messages is not None:
+                invoke_kwargs["messages"] = messages
+            result = binding.executor.invoke(sent, **invoke_kwargs)
             result = self._chain(binding, AFTER_AGENT_INVOKE, result)
             result = self._chain(binding, NORMALIZE_AGENT_RESULT, result)
         except Exception as exc:  # noqa: BLE001 — a crash still leaves evidence
@@ -293,6 +304,7 @@ class ParentAgentService:
             "remaining_after": self._remaining(),
             "invocation_id": handle.invocation_id if handle else None,
             "evidence_relative": handle.relative_path if handle else None,
+            "tool_calls": _public_tool_calls(result),
         }
 
     # --- guards --------------------------------------------------------------
@@ -338,7 +350,12 @@ class ParentAgentService:
     # --- evidence ------------------------------------------------------------
 
     def _begin_evidence(
-        self, binding: SessionBinding, prompt: str
+        self,
+        binding: SessionBinding,
+        prompt: str,
+        *,
+        tools: Any = None,
+        messages: Any = None,
     ) -> tuple[InvocationHandle | None, str | None]:
         """Open the invocation record. A redaction failure refuses the invoke."""
         if self.evidence_store is None:
@@ -356,6 +373,8 @@ class ParentAgentService:
                 kind=binding.executor_kind,
                 model=binding.model,
                 actor_id=binding.actor_id,
+                tools=tools,
+                messages=messages,
             )
         except RedactionError:
             # The store already sealed this invocation as redaction_failed.
@@ -377,6 +396,7 @@ class ParentAgentService:
             "remaining_after": self._remaining(),
             "invocation_id": handle.invocation_id if handle else None,
             "evidence_relative": handle.relative_path if handle else None,
+            "tool_calls": [],
         }
 
     # --- chains --------------------------------------------------------------
@@ -391,6 +411,23 @@ class ParentAgentService:
         return _drive(run_handlers(handlers, value, ctx=binding))
 
 
+def _public_tool_calls(result: Any) -> list[dict[str, Any]]:
+    raw = getattr(result, "tool_calls", None) or ()
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, dict) and str(item.get("name") or ""):
+            out.append(
+                {
+                    "id": str(item.get("id") or ""),
+                    "name": str(item.get("name") or ""),
+                    "arguments": item.get("arguments")
+                    if isinstance(item.get("arguments"), dict)
+                    else {},
+                }
+            )
+    return out
+
+
 def _refusal(error: str) -> dict[str, Any]:
     return {
         "ok": False,
@@ -398,6 +435,7 @@ def _refusal(error: str) -> dict[str, Any]:
         "text": "",
         "structured": None,
         "provider_session_handle": None,
+        "tool_calls": [],
     }
 
 

@@ -22,6 +22,8 @@ class AgentResult:
     usage: dict[str, Any] | None = None
     # ACP / executor metadata (lock-safe, no secrets).
     metadata: dict[str, Any] | None = None
+    # Native tool channel (openai-http). Empty when the turn is text-only.
+    tool_calls: tuple[dict[str, Any], ...] = ()
 
 
 class AgentExecutor(Protocol):
@@ -34,6 +36,8 @@ class AgentExecutor(Protocol):
         timeout: float = 60.0,
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
+        tools: Sequence[Mapping[str, Any]] | None = None,
+        messages: Sequence[Mapping[str, Any]] | None = None,
     ) -> AgentResult: ...
 
 

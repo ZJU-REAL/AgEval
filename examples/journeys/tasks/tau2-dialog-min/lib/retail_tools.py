@@ -28,6 +28,78 @@ For color/variant exchanges: from_item_ids = item currently on the order;
 to_item_ids = catalog id whose name matches the requested variant (e.g. black).
 """
 
+OPENAI_TOOLS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "find_customer",
+            "description": "Find a customer by email.",
+            "parameters": {
+                "type": "object",
+                "properties": {"email": {"type": "string"}},
+                "required": ["email"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_order",
+            "description": "Get an order by id; includes line_items and product_catalog.",
+            "parameters": {
+                "type": "object",
+                "properties": {"order_id": {"type": "string"}},
+                "required": ["order_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_product",
+            "description": "Get a product by item_id; includes other_products for variants.",
+            "parameters": {
+                "type": "object",
+                "properties": {"item_id": {"type": "string"}},
+                "required": ["item_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_exchange",
+            "description": "Exchange items on a delivered order.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string"},
+                    "from_item_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "to_item_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["order_id", "from_item_ids", "to_item_ids"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "done",
+            "description": "End the service dialog after the exchange is requested.",
+            "parameters": {
+                "type": "object",
+                "properties": {"note": {"type": "string"}},
+            },
+        },
+    },
+]
+
 
 def package_root() -> Path:
     return Path(__file__).resolve().parents[1]

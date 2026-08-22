@@ -39,14 +39,31 @@ run.py  Agent.session(profile).invoke
   → ParentAgentService
        before_agent_invoke
        executor.invoke → host.attach_stdio(entry argv) 或 host.exec（盒内 worker）
+                        或 openai-http POST /chat/completions
        after_agent_invoke
        normalize_agent_result
   → 层 C：evidence 写 trajectory.jsonl
 ```
 
-`ParentAgentService.invoke` 只回 `AgentResult`。**不**在每次 invoke 后 `download` 盒内 workspace。轨迹来自 executor events。缺的 publishable 文件在 **writer 停后** 由 run 相位 harvest（Protocol `download`），evaluate 再把 `task-artifacts` upload 进盒。
+`ParentAgentService.invoke` 只回 `AgentResult`（含可选 `tool_calls`）。**不**在每次 invoke 后 `download` 盒内 workspace。轨迹来自 executor events。缺的 publishable 文件在 **writer 停后** 由 run 相位 harvest（Protocol `download`），evaluate 再把 `task-artifacts` upload 进盒。
 
 ACP attach 发生在第一次 invoke，不是独立 phase。
+
+Socket 帧可带 `tools` / `messages`（省略 = prompt-only）。parent 原样转给 executor；ACP 忽略这两项。`tool_calls` 回 worker。request.json / trajectory **只记 locator 与目录名，不记密钥**。
+
+## openai-http 原生 tools
+
+kind 名仍是 `openai-http`（api-client）。没有第二套 dialect、没有 Core 里的 LiteLLM、没有 Anthropic/Dashscope 直连——那些走 OpenAI-compatible gateway。
+
+| | 行为 |
+| --- | --- |
+| 省略 `tools` | 今日路径：`messages: [{role: user, content: prompt}]`，读 `choices[0].message.content` |
+| 题包传入 `tools` | POST body 带 `tools`；读 `choices[0].message.tool_calls` → `AgentResult.tool_calls` |
+| `messages` | 若提供，作为 chat 历史（不再只包一轮 prompt） |
+| capability | `tools: native`，`session: new-only`（逻辑 session，无 provider resume） |
+| 凭证 | 一等字段 `model` / `base_url` / `api_key`（env locator）。缺钥 fail-closed（loopback 空钥仅用于本机 mock） |
+
+tau2-class harness（journeys `tau2-dialog-min`、`examples/tau3-*`）把域 schema 传入 invoke；收到 `tool_calls` 后走 package `Environment.get_response` / `ToolSet.call`。原生 `tool_calls` 是 **openai-http 的主动作通道**；「Return ONLY JSON」只留给没有 `tool_calls` 的文本 executor（ACP）。禁止在 Core 里 scrape vendor stdout 当工具通道。
 
 ## 凭证：BYOK / BYOA
 

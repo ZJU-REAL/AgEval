@@ -6,7 +6,7 @@ Runtime 在这里指：**盒子、ACP、evaluate、evidence、campaign**。结�
 | --- | --- |
 | [lifecycle.md](lifecycle.md) | Run / Trial / Attempt 身份与五相位状态机 |
 | [environment.md](environment.md) | Protocol 与四 kind |
-| [agent-service.md](agent-service.md) | parent ACP client + `attach_stdio` |
+| [agent-service.md](agent-service.md) | parent ACP client + `attach_stdio`；openai-http 原生 `tools=` |
 | [evaluation.md](evaluation.md) | 停写、upload gold、绑定 PASS |
 | [evidence.md](evidence.md) | `.ageval/runs/` |
 | [campaign-suite.md](campaign-suite.md) | campaign 与 suite |

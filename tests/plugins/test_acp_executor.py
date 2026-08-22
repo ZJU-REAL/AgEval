@@ -49,7 +49,11 @@ def test_offline_forced() -> None:
     os.environ["AGEVAL_OFFLINE_AGENT"] = "1"
     try:
         ex = _executor(entry_id="opencode", model="entry-default")
-        r = ex.invoke("hi", timeout=5)
+        r = ex.invoke(
+            "hi",
+            timeout=5,
+            tools=[{"type": "function", "function": {"name": "unused"}}],
+        )
         assert r.ok is False
         assert r.error == "offline_forced"
         assert r.metadata is not None

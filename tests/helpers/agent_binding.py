@@ -22,12 +22,21 @@ class ScriptedExecutor:
 
     kind = "scripted"
 
-    def __init__(self, *, raises: BaseException | None = None, ok: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        raises: BaseException | None = None,
+        ok: bool = True,
+        tool_calls: tuple[dict[str, Any], ...] | None = None,
+    ) -> None:
         self.prompts: list[str] = []
         self.timeouts: list[float] = []
+        self.tools: list[Any] = []
+        self.messages: list[Any] = []
         self.closed = False
         self._raises = raises
         self._ok = ok
+        self._tool_calls = tool_calls or ()
 
     def invoke(
         self,
@@ -36,10 +45,14 @@ class ScriptedExecutor:
         timeout: float = 60.0,
         collect_dir: Any = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
+        tools: Any = None,
+        messages: Any = None,
     ) -> AgentResult:
         del collect_dir, redaction_sentinels
         self.prompts.append(prompt)
         self.timeouts.append(timeout)
+        self.tools.append(tools)
+        self.messages.append(messages)
         if self._raises is not None:
             raise self._raises
         turn = len(self.prompts)
@@ -50,6 +63,7 @@ class ScriptedExecutor:
             ok=self._ok,
             error=None if self._ok else "scripted_failure",
             metadata={"executor_kind": self.kind},
+            tool_calls=self._tool_calls,
         )
 
     def close(self) -> None:

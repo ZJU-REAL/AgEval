@@ -59,14 +59,26 @@ def make_environment():
     return get_environment()
 
 
-def tool_catalog(env) -> str:
-    lines: list[str] = []
+def tool_schemas(env) -> list[dict[str, Any]]:
+    """OpenAI-style tool catalog from the package Environment."""
+    out: list[dict[str, Any]] = []
     for t in env.get_tools():
         schema = getattr(t, "openai_schema", None)
-        if schema:
-            lines.append(json.dumps(schema, ensure_ascii=False))
-        else:
-            lines.append(f"- {t.name}: {getattr(t, 'short_desc', '')}")
+        if isinstance(schema, dict):
+            out.append(schema)
+        elif schema:
+            out.append(dict(schema))
+    return out
+
+
+def tool_catalog(env) -> str:
+    lines: list[str] = []
+    for schema in tool_schemas(env):
+        lines.append(json.dumps(schema, ensure_ascii=False))
+    if lines:
+        return "\n".join(lines)
+    for t in env.get_tools():
+        lines.append(f"- {t.name}: {getattr(t, 'short_desc', '')}")
     return "\n".join(lines)
 
 
