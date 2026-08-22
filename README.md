@@ -1,15 +1,18 @@
 # ageval
 
-**agent eval** — lock a dataset, pick an environment, run the task, let an independent evaluator own the score.
+**agent eval** — lock a dataset, bind environment and agent, run the same task.
 
-[中文](README.zh-CN.md)
+<p align="center">
+  <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/ZJU-REAL/ageval/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ZJU-REAL/ageval?display_name=tag&sort=semver"></a>
+  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.12%2B-blue"></a>
+</p>
 
-[![Release](https://img.shields.io/github/v/release/ZJU-REAL/ageval?display_name=tag&sort=semver)](https://github.com/ZJU-REAL/ageval/releases)
-[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+> [!IMPORTANT]
+> Most agent evaluation still sits at the **model**: same prompts, same tool contract, different weights or APIs. That split is failing. A shippable agent is a Model plus a Harness: the same weights on a different coding-agent runtime, tool policy, or isolation change behavior and cost. Harness has to be a first-class eval axis, locked with the Model and the environment.
 
-> Agent evaluation typically scores the **model**, while orchestration, isolation, visibility, and scoring authority remain inside each vendor harness. After changing the coding agent or the environment, scores are no longer comparable.
->
-> **ageval** is the outer runtime that stays fixed when those parts change: lock a dataset, open one environment, execute the task `run.py`, and bind PASS only from an independent `evaluator.py`. Coding agents enter through **ACP**. Other backends are installed as plugins and bound from job profiles.
+**ageval** decouples the runtime of a bench run. Environment and Agent combine through plugins, so one `run.py` runs under each binding.
 
 ## Contents
 
@@ -23,14 +26,12 @@
 
 ## What it is
 
-ageval is a **bounded evaluation runtime** for agents, not another agent.
+ageval treats **Harness** as a first-class evaluation axis.
 
-- **The unit of delivery is a dataset**, not a full copy of a vendor suite. The root is `ageval.yaml`; members are `tasks/<id>/task.yaml`. CLI paths are always the dataset root.
-- **An Attempt is visible.** Phases are environment → run → evaluate → record, with cleanup in `finally`. Opening `src/ageval/attempt/` shows the order.
-- **The environment is a single slot:** `local` / `docker` / `e2b` / `ssh` / `daytona`. The Protocol is the same (`upload` / `exec` / `attach_stdio`). Change kind on `profiles.yaml`; `run.py` does not need to change.
-- **Coding agents are real CLIs over ACP** (pi, Codex, Claude, OpenCode, Grok, and others). Parent ACP is the JSON-RPC client on `attach_stdio`; `acp-oneshot` runs the pair inside the box over `exec`.
-- **Other backends are plugins** (`ageval.plugin/1`): nooa, dsh, miniswe, acp-oneshot. Install into the local cache, then bind from profiles. Install never rewrites the dataset.
-- **PASS is not completion of the Agent.** `evaluator.py` runs after gold is uploaded. Trajectories are for inspection.
+- **The unit of delivery is a dataset.** A dataset holds tasks; each task owns the loop (`run.py`), the score (`evaluator.py`), and gold. Environment and Agent bind on the job, not in the task.
+- **An Attempt is visible.** Order is environment → run → evaluate → record; cleanup always runs.
+- **Environment is injected by name.** The environment winner **exports** the service name `environment`. An agent backend **injects** that name and **requires** the capabilities it needs (`attach_stdio` or `exec`). Missing capability fails at lock. Calls stay on the Protocol. Default is the host and local docker; cloud sandboxes [e2b](https://e2b.dev) and [daytona](https://www.daytona.io) are optional.
+- **Coding agents enter through plugins.** Default is [ACP](https://agentclientprotocol.com) ([pi](https://pi.dev), [Codex](https://github.com/openai/codex), [Claude Code](https://github.com/anthropics/claude-code), [OpenCode](https://github.com/sst/opencode)); heterogeneous harnesses such as [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) join the same way. Open slots extend the harness set and run on the same Attempt path and leaderboard.
 
 ## How it works
 
@@ -52,7 +53,7 @@ ageval is a **bounded evaluation runtime** for agents, not another agent.
                                             ▼
                                    ┌─────────────────┐
                                    │     run.py      │  task loop · Agent invoke
-                                   │  ACP / plugin   │  executor slot
+                                   │  ACP / plugin   │  plugin inlet
                                    └────────┬────────┘
                                             ▼
                                    ┌─────────────────┐
@@ -60,41 +61,43 @@ ageval is a **bounded evaluation runtime** for agents, not another agent.
                                    └─────────────────┘
 ```
 
-1. **Lock the experiment.** `ageval lock` merges dataset, task, and profiles, checks capabilities, and writes a digest. Secrets remain locators; they are not stored as plaintext in the lock.
-2. **Open one environment.** Kind comes from `environment:` on `profiles.yaml`. `--probe` performs lock and preflight only: missing `E2B_API_KEY` or SSH locators fail closed.
-3. **Run the task, not the pipeline.** `run.py` owns the loop, tools, and Agent invocation. ACP takes `attach_stdio` from the environment; dsh / nooa / miniswe use `exec` / `upload`.
-4. **Score independently.** Writers are stopped, gold (`evaluation/`) is uploaded, and `evaluator.py` binds PASS / FAIL / ERROR. Cleanup always runs.
-
-Changing the environment or the Agent does not require changing the task `run.py`.
+1. **Lock the experiment.** Dataset, Environment, and Agent are composed into a digest. Secrets remain locators; they are not stored as plaintext in the lock.
+2. **Open an environment.** Host, docker, a cloud sandbox, or a remote. Insufficient capability or missing credentials fail before the environment opens.
+3. **Execute the task.** `run.py` owns the loop, tools, and Agent invocation. Changing the environment or the Agent does not require rewriting the task.
+4. **Score independently.** Gold enters the environment at this point. `evaluator.py` binds PASS / FAIL / ERROR. Cleanup always runs.
 
 ## Features
 
-**Execution**
+**Evaluation**
 
-- **`ageval lock` / `run` / `campaign`.** A single task, a full dataset suite (omit `--task`), or a parameter matrix on one task. Always-k (`-k`) is a job axis, not a campaign axis.
-- **ACP entries.** The same `run.py` with a different `options.entry` (pi / Codex / Claude / OpenCode / Grok). `--set` covers allowlisted pointers; `--profiles` replaces the entire job document.
-- **Agent packages.** After installing `ageval.agent/1`, bind with `--agent` on lock / run / campaign. `--agent` and `--profiles` are mutually exclusive.
-- **Plugins.** `ageval plugin install plugins/nooa` (or `dsh`, `miniswe`), then bind `executor:` and `extensions`. Docker bakes plugin layers from the plugin package.
-- **`--probe`.** Prints plan and readiness for this binding and environment. No Agent invocation, no bake, no digest change.
+- **Lock one experiment.** Dataset, Harness, and environment lock together into a reproducible digest. Scores are not comparable across different bindings.
+- **One task, a suite, a matrix, or repeats.** Run a single task, a full dataset, a parameter matrix on one task, or multiple independent Attempts of the same job (pass@k).
+- **Scoring is separate from the Agent.** Gold does not enter the Agent view. PASS comes only from `evaluator.py`; trajectories are for inspection.
+- **Limits are enforced before invocation.** Wall time, memory, processes, and invocation ceilings are enforced by the runtime before invoke; `run.py` cannot raise them.
+
+**Composition**
+
+- **One `run.py` under each binding.** Environment and Agent combine through plugins. Default is [ACP](https://agentclientprotocol.com); heterogeneous harnesses such as [nooa](https://github.com/NVIDIA-NeMo/labs-OO-Agents), [dsh](https://github.com/deepseek-ai/deepseek-harness), and [miniswe](https://github.com/SWE-agent/mini-swe-agent) join through the same plugin path. Open slots extend or replace a harness and participate in the same Attempt path and leaderboard.
+- **Agent packages.** A job's Agent binding is packaged as `ageval.agent/1` and bound after install.
+- **Multiple roles and sessions.** The task owns dialog, tools, and handoff; the runtime supplies the environment and the Agent inlet.
+- **Validate before invoke.** Capabilities and credentials are checked before the Agent is called; absence fails and invoke does not start.
 
 **Environment**
 
-- **Five kinds, one Protocol.** `local` directory, `docker` container, `e2b` sandbox, `ssh` remote host, `daytona` sandbox. ACP does not import docker, e2b, daytona, or ssh.
-- **Gold is outside the Agent view.** `evaluation/` is not mounted; it is uploaded at evaluate.
-- **Limits are enforced before invocation.** Wall time, memory, processes, and invocation ceilings are enforced by the runtime; `run.py` cannot raise them.
-- **ssh A** does not support live ACP stdio; journeys ssh A profiles use dsh / nooa `exec`. Default CI does not treat live e2b / ssh / daytona Agent runs as verified.
+- **Host, container, cloud sandbox, remote — one Protocol.** local, docker, [e2b](https://e2b.dev), ssh, [daytona](https://www.daytona.io): `upload` / `exec` / `attach_stdio`.
+- **Visibility is isolated.** The Agent sees only the projected workspace; gold and host credentials do not enter the task default environment.
+- **Official Attempt image.** Docker installs ACP entries at build time; they are not installed at invoke.
 
-**Inspect results**
+**Results**
 
-- **`ageval view`.** Local Jobs → Tasks → Attempt. Reads `.ageval/suite-runs/` and `.ageval/runs/` under the opened dataset. Does not connect to Registry.
-- **`ageval evidence`.** Exports a sealed trajectory copy without changing the score.
-- **Hub + Registry.** Publish datasets, plugins, and Agent packages; upload suites. The public Leaderboard lists complete, release-bound suites only. Organization owners manage members, visibility, versions, and releases.
+- **Local Viewer.** Inspect trajectory, environment, and score along Jobs → Tasks → Attempt.
+- **Sealed trajectory.** Export a copy without modifying the score.
+- **Hub.** Publish datasets, plugins, and Agent packages; upload suites. Organizations manage members, visibility, and versions. The public Leaderboard lists complete, release-bound suites only.
 
-**Author tasks**
+**Authoring**
 
-- **Dataset layout.** `ageval.yaml` + `profiles.yaml` + `tasks/<id>/{task.yaml,run.py,evaluator.py}`. Optional `environment/` and `shared/`.
-- **`ageval_sdk`.** `RunContext`, `Agent.session`, tools, and terminals — optional. The SDK does not decide PASS and does not hold host credentials.
-- **Mechanism plugins.** Exclusive slots (`environment`, `executor`, `evaluation_runtime`, `trajectory_seal`) and chain slots. Named by mechanism, not by benchmark.
+- **The task owns only that task.** Loop, tools, scoring, and gold; orchestration does not belong in the task.
+- **SDK is optional.** Sessions, tools, terminals. It does not decide PASS and does not hold host credentials.
 
 ## Getting started
 
@@ -141,9 +144,9 @@ In-repo examples: [`examples/README.md`](examples/README.md) — journeys, `tau3
  local Jobs           publish · upload-suite · Leaderboard
 ```
 
-- **Config Core** is the only reader of dataset YAML. An unknown format yields a single `invalid_format` error.
-- **Attempt** owns identity, deadlines, cleanup, and PASS binding. Plugins change lock-time bindings; they do not reorder the five phases.
-- **CLI** talks only to `ageval.application.composition`. Hub is a Registry SPA; Viewer reads local files.
+- lock is the normative gate: unknown format fails once. Plugins change the binding, not the five Attempt phases.
+- Attempt owns identity, deadlines, cleanup, and the score.
+- Local Viewer reads files; Hub talks to Registry.
 
 ## Project structure
 

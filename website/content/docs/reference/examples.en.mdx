@@ -7,13 +7,13 @@ description: When to use journeys / Agent packages / conversion packages.
 | --- | --- |
 | [`examples/journeys`](https://github.com/ZJU-REAL/ageval/tree/main/examples/journeys) | Dialog / terminal / multi-agent cases; docker by default |
 | [`examples/agents`](https://github.com/ZJU-REAL/ageval/tree/main/examples/agents) | `ageval.agent/1` catalog packages for `--agent` |
-| [`examples/tau3-airline`](https://github.com/ZJU-REAL/ageval/tree/main/examples/tau3-airline) | Upstream airline dialog conversion: dual roles + independent eval |
+| [`examples/tau3-airline`](https://github.com/ZJU-REAL/ageval/tree/main/examples/tau3-airline) | Upstream airline dialog conversion: dual roles + separate scoring |
 
 List members with `ageval tasks <path>`. Copy layout from journeys when authoring.
 
 ## `tau3-airline`
 
-Conversion of the [tau2-bench](https://github.com/sierra-research/tau2-bench) (τ³-bench) **airline** domain onto ageval’s outer lifecycle: dual-role `user` / `service` dialog over ACP, tools and DB via an in-package bridge, PASS still only from an independent evaluator (not `run.py` completion). About 50 task members in one dataset; shared bridge code and domain assets live under root `shared/lib` and `shared/assets` so each task need not ship its own `lib/` copy (see [Package layout](/docs/author/package-layout)).
+Conversion of the [tau2-bench](https://github.com/sierra-research/tau2-bench) (τ³-bench) **airline** domain onto ageval’s outer lifecycle: dual-role `user` / `service` dialog over ACP, tools and DB via an in-package bridge, PASS only from `evaluator.py` (not `run.py` completion). About 50 task members in one dataset; shared bridge code and domain assets live under root `shared/lib` and `shared/assets` so each task need not ship its own `lib/` copy (see [Package layout](/docs/author/package-layout)).
 
 Full runs need the `tau2` pin in the package `requirements.txt`; `ageval lock` does not. Package notes: [`examples/tau3-airline/README.md`](https://github.com/ZJU-REAL/ageval/blob/main/examples/tau3-airline/README.md). Shipping the package does **not** raise evidence grade.
 

@@ -33,7 +33,7 @@ With `k=1` and no `--resume-suite`, stdout stays a single Attempt JSON (legacy-f
 - A **`logs` path** under the Dataset root: `.ageval/runs/<run_id>/` (when `k=1`)  
 - For `k>1`: job metrics such as **pass@k / pass^k** in suite `summary.json`  
 
-PASS / FAIL comes from the **independent evaluator**, not `run.py` completion. See [Results and PASS](/docs/reference/results-and-pass).
+PASS / FAIL comes only from `evaluator.py`, not `run.py` completion. See [Results and PASS](/docs/reference/results-and-pass).
 
 ## Common failures
 

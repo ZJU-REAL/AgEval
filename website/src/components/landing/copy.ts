@@ -2,9 +2,9 @@ import type { SiteLocale } from "@/lib/i18n";
 
 export const landingCopy = {
   "zh-CN": {
-    metaTitle: "ageval · 有边界的 Agent 评测运行时",
+    metaTitle: "ageval · 把 Harness 作为一等评测维度",
     metaDescription:
-      "ageval 锁定 dataset、打开环境、跑 Attempt，再由独立 evaluator 出分。统一实验，不统一工作流。",
+      "大多数 Agent 评测仍停留在模型层面。ageval 把 Harness 作为一等评测维度，与 Model、运行环境一并锁定。Environment 与 Agent 经插件组合，同一份 run.py 在不同绑定下运行。",
     skip: "跳到正文",
     navAria: "页面导航",
     nav: {
@@ -21,18 +21,18 @@ export const landingCopy = {
     },
     hero: {
       brand: "ageval",
-      title: ["锁定题包，打开环境，", "让独立评测出分"],
-      lead: "统一实验，不统一工作流。ageval 把 lock、可见 Attempt、环境 kind 和独立 evaluator 收成同一套契约。换 Agent 或换环境，分数仍然可比。",
+      title: ["把 Harness 作为一等评测维度，", "与 Model、运行环境一并锁定"],
+      lead: "大多数 Agent 评测仍停留在模型层面：同一套提示、同一套工具约定，比较不同权重或不同 API。可交付的 Agent 是 Model 与 Harness 的组合。ageval 把一次 bench 的 runtime 组成拆开：Environment 与 Agent 经插件组合，同一份 run.py 在不同绑定下运行。",
       primary: "打开仓库",
-      secondary: "阅读设计",
+      secondary: "阅读文档",
       stageAria: "ageval 锁定面",
       stagePkg: "examples/journeys",
       stagePhase: "load_and_lock",
       rows: [
         ["format", "ageval.task/1", "task_id · terminal-jsonl-agg"],
         ["lock", "Config 唯一入口", "合并、校验、规范化，算出 digest。Lock 里没有密钥明文。"],
-        ["bound", "environment: local", "环境是独占槽。资源上限执行前强制。"],
-        ["judge", "evaluator.py", "completed 不能发明 PASS。"],
+        ["bound", "environment: docker", "Environment 按名注入。缺能力则 lock 失败。"],
+        ["judge", "evaluator.py", "PASS 仅来自 evaluator.py。"],
       ] as const,
       foot: "公开入口以",
       help: "ageval --help",
@@ -48,23 +48,39 @@ export const landingCopy = {
     problem: {
       index: "// 01",
       name: "The Problem",
-      title: ["换一个 Agent，", "分数就不可比。"],
+      title: ["评测仍停留在模型层面。", "这一划分正在失效。"],
       items: [
-        ["01 / HARNESS", "私有 harness", "编排、隔离、可见性、评测边界散落在各家 vendor 的 harness 里。"],
-        ["02 / COMPARE", "分数不可比", "换 coding agent 或换环境，结果就失去可比性。"],
-        ["03 / REPRO", "复现困难", "准备、运行、评测、保存没有统一契约。"],
-        ["04 / TRACE", "轨迹碎片化", "每家一套 trace，轨迹与评分混在一起。"],
+        [
+          "01 / MODEL",
+          "模型层评测",
+          "同一套提示、同一套工具约定，比较不同权重或不同 API。",
+        ],
+        [
+          "02 / HARNESS",
+          "Agent 是组合",
+          "可交付的 Agent 是 Model 与 Harness 的组合。",
+        ],
+        [
+          "03 / DRIFT",
+          "行为与成本都会变",
+          "同一套权重接到不同的 coding-agent 运行时、工具策略或环境隔离上，行为与成本都会变。",
+        ],
+        [
+          "04 / AXIS",
+          "一等评测维度",
+          "要把 Harness 作为一等评测维度，与 Model、运行环境一并锁定。",
+        ],
       ] as const,
       solLabel: "SOLUTION →",
-      sol: "统一实验的编排契约，而不是统一题包内部工作流",
+      sol: "把一次 bench 的 runtime 组成拆开：Environment 与 Agent 经插件组合",
     },
     position: {
       index: "// 02",
       name: "Positioning",
-      title: "ageval 管环境和流水线，不管题怎么 loop。",
-      lead: "给运行划边界。打开 attempt.py 能看见相位。Agent 评测的外层：lock、开环境、invoke、打分、存证、拆环境。",
+      title: "ageval 把 Harness 作为一等评测维度。",
+      lead: "Environment 与 Agent 经插件组合，同一份 run.py 在不同绑定下运行。题包拥有 loop；runtime 拥有 lock、环境、评分与 cleanup。",
       ownedLabel: "OWNED · ageval 统一",
-      owned: "lock、可见 Attempt、独立 evaluator、evidence、cleanup。",
+      owned: "lock、可见 Attempt、Environment 服务、评分屏障、evidence、cleanup。",
       ownedNote: "ageval.yaml · task.yaml · profiles.yaml",
       notLabel: "NOT OWNED · 留给题包",
       not: "loop、角色、本地 Tool 全部留在 run.py。",
@@ -80,7 +96,7 @@ export const landingCopy = {
         ["实现自由", "复杂实现下沉到 run.py，不进 YAML 工作流引擎。"],
       ] as const,
       bannerEn: ["Hard boundaries.", "Thin contracts.", "Fat implementations."],
-      bannerZh: "给运行划边界，给实现留自由。",
+      bannerZh: "把一次 bench 的 runtime 组成拆开。",
     },
     core: {
       index: "// 04",
@@ -90,7 +106,13 @@ export const landingCopy = {
       items: [
         ["CORE_01", "Config", "load_and_lock：digest。Lock 里没有密钥明文。", "CORE OWNS", false],
         ["CORE_02", "Attempt", "environment → run → evaluate → record；finally cleanup。", "CORE OWNS", false],
-        ["CORE_03", "Environment", "独占槽 environment：local / docker / e2b / ssh。", "CORE OWNS", false],
+        [
+          "CORE_03",
+          "Environment",
+          "按名注入：local / docker / e2b / ssh / daytona。",
+          "CORE OWNS",
+          false,
+        ],
         ["CORE_04", "Capability", "requires ⊆ capabilities，缺则 lock 失败。", "NARROW SURFACE", true],
         ["CORE_05", "Evaluation", "停写，再 upload gold，独立打分后绑定。", "CORE OWNS", false],
         ["CORE_06", "Evidence", "trajectory.jsonl。凭据先脱敏。", "CORE OWNS", false],
@@ -99,19 +121,25 @@ export const landingCopy = {
     isolation: {
       index: "// 05",
       name: "Environment",
-      title: "四种环境，同一 Protocol。",
-      lead: "换 kind 不换 run.py。ACP 只拿 attach_stdio。",
+      title: "本机、容器、云沙箱、远端，同一套 Protocol。",
+      lead: "更换 kind 无需修改 run.py。Environment 按名注入；调用只打 Protocol。",
       items: [
         ["KIND · LOCAL", "本机目录", "真文件系统，子进程 worker。", "VERIFIED", false],
         ["KIND · DOCKER", "本机容器", "同一份 Dockerfile。gold 在 evaluate 才进环境。", "VERIFIED", true],
-        ["KIND · E2B / SSH", "云上环境", "编排在本机。缺钥 preflight 失败。ssh 分整机与远端容器。", "CODE COMPLETE", false],
+        [
+          "KIND · E2B / SSH / DAYTONA",
+          "云沙箱与远端",
+          "编排在本机。凭证缺失时 preflight 失败。",
+          "CODE COMPLETE",
+          false,
+        ],
       ] as const,
     },
     eval: {
       index: "// 06",
       name: "Barrier",
       title: "完成，不等于通过。",
-      lead: "PASS 只来自独立 evaluator。",
+      lead: "PASS 仅来自 evaluator.py。评分与 Agent 分离。",
       neLeft: "completed",
       neRight: "PASS",
       steps: [
@@ -123,15 +151,15 @@ export const landingCopy = {
     plugin: {
       index: "// 07",
       name: "Plugin",
-      title: "宿主定槽，插件填位。",
-      lead: "ageval.plugin/1 按机制命名。链槽走 (ctx, value, nxt)，独占槽一个赢家。",
+      title: "Coding agent 通过插件接入。",
+      lead: "默认 ACP；异构 harness 同样经插件进入 runtime。开放 slot 以补充和替换 harness。",
       slots: [
-        ["EXCL", "environment", "环境赢家。local / docker / e2b / ssh。"],
-        ["EXCL", "executor", "Agent 后端。常是 acp。"],
+        ["EXCL", "environment", "环境赢家。local / docker / e2b / ssh / daytona。"],
+        ["EXCL", "executor", "默认 acp；亦可 nooa / dsh / miniswe。"],
         ["CHAIN", "ready / setup", "探测 ACP、跑 setup.sh。"],
         ["CHAIN", "trajectory", "采集映射。不发明分数。"],
         ["CHAIN", "cleanup", "报告。不能跳过拆环境。"],
-        ["LOCK", "inject", "ACP 要 attach_stdio。缺则 lock 失败。"],
+        ["LOCK", "inject", "按名注入 environment，并 require 能力。缺则 lock 失败。"],
       ] as const,
     },
     pluginCode: {
@@ -163,20 +191,24 @@ export const landingCopy = {
       ] as const,
     },
     take: {
-      tag: "BOUND THE RUN",
-      title: "Bound the run, not the agent.",
-      body: "给运行划边界，给实现留自由。",
+      tag: "LOCK THE BINDING",
+      title: "与 Model、Harness、环境一并锁定。",
+      body: "把一次 bench 的 runtime 组成拆开。",
       items: [
-        ["01", "可信来自边界", "PASS 只属于独立 evaluator。"],
-        ["02", "换环境，契约不变", "四种 kind 同一 SDK 与 ACP inlet。"],
-        ["03", "插件填槽", "ageval.plugin/1 按机制命名。"],
+        ["01", "一等评测维度", "Harness 与 Model、运行环境一并锁定。"],
+        [
+          "02",
+          "插件组合",
+          "Environment 与 Agent 经插件组合，同一份 run.py 在不同绑定下运行。",
+        ],
+        ["03", "评分分离", "PASS 仅来自 evaluator.py。"],
       ] as const,
     },
     cta: {
-      title: ["先锁定实验，", "再比较分数。"],
+      title: ["先锁定绑定，", "再比较分数。"],
       lead: "clone 仓库，跑 examples/journeys。公开入口以 ageval --help 为准。",
       primary: "打开仓库",
-      docs: "阅读设计",
+      docs: "阅读文档",
     },
     faq: {
       index: "// 10",
@@ -184,16 +216,16 @@ export const landingCopy = {
       title: "常见问题",
       items: [
         [
-          "ageval 是又一个 Agent 吗？",
-          "不是。它是评测运行时。题内部 loop 在 run.py。Coding agent 走 ACP。",
+          "ageval 评测的是模型吗？",
+          "大多数评测仍停留在模型层面。ageval 把 Harness 作为一等评测维度，与 Model、运行环境一并锁定。",
         ],
         [
           "轨迹完整，是不是就算通过？",
-          "不算。RunTerminal.completed 不等于 PASS。",
+          "不算。RunTerminal.completed 不等于 PASS。PASS 仅来自 evaluator.py。",
         ],
         [
           "local 和 docker 要写两套 run.py 吗？",
-          "不用。换的是 profiles 里的 environment。",
+          "不用。更换的是 job 上的 Environment 绑定。",
         ],
         [
           "参考答案怎么保证 Agent 看不见？",
@@ -211,9 +243,9 @@ export const landingCopy = {
     },
   },
   en: {
-    metaTitle: "ageval · bounded agent evaluation",
+    metaTitle: "ageval · Harness as a first-class eval axis",
     metaDescription:
-      "ageval locks a dataset, opens an environment, runs an Attempt, and lets an independent evaluator own the score.",
+      "Most agent evaluation still sits at the model. ageval treats Harness as a first-class eval axis, locked with the Model and the environment. Environment and Agent combine through plugins; one run.py runs under each binding.",
     skip: "Skip to content",
     navAria: "Page navigation",
     nav: {
@@ -230,18 +262,18 @@ export const landingCopy = {
     },
     hero: {
       brand: "ageval",
-      title: ["Lock the dataset.", "Open an environment. Judge independently."],
-      lead: "Unify the experiment, not the workflow. Swap the agent or the environment. Scores stay comparable.",
+      title: ["Treat Harness as a first-class eval axis.", "Lock it with the Model and the environment."],
+      lead: "Most agent evaluation still sits at the model: same prompts, same tool contract, different weights or APIs. A shippable agent is a Model plus a Harness. ageval decouples the runtime of a bench run: Environment and Agent combine through plugins, so one run.py runs under each binding.",
       primary: "Open repo",
-      secondary: "Read the design",
+      secondary: "Read the docs",
       stageAria: "ageval lock surface",
       stagePkg: "examples/journeys",
       stagePhase: "load_and_lock",
       rows: [
         ["format", "ageval.task/1", "task_id · terminal-jsonl-agg"],
         ["lock", "Config is the only reader", "Merge, validate, digest. No secret plaintext."],
-        ["bound", "environment: local", "The environment is an exclusive slot. Ceilings lock before execution."],
-        ["judge", "evaluator.py", "completed cannot invent PASS."],
+        ["bound", "environment: docker", "Environment is injected by name. Missing capability fails at lock."],
+        ["judge", "evaluator.py", "PASS comes only from evaluator.py."],
       ] as const,
       foot: "Public entrypoints follow",
       help: "ageval --help",
@@ -257,23 +289,39 @@ export const landingCopy = {
     problem: {
       index: "// 01",
       name: "The Problem",
-      title: ["Swap the agent,", "and scores stop comparing."],
+      title: ["Evaluation still sits at the model.", "That split is failing."],
       items: [
-        ["01 / HARNESS", "Private harness", "Orchestration and the eval barrier live in each vendor stack."],
-        ["02 / COMPARE", "Scores do not compare", "Change the agent or the environment, and the result loses comparability."],
-        ["03 / REPRO", "Hard to reproduce", "Prepare, run, score, and save have no shared contract."],
-        ["04 / TRACE", "Fragmented traces", "Each vendor mixes trajectory and score."],
+        [
+          "01 / MODEL",
+          "Model-level eval",
+          "Same prompts, same tool contract, different weights or APIs.",
+        ],
+        [
+          "02 / HARNESS",
+          "Agent is a combination",
+          "A shippable agent is a Model plus a Harness.",
+        ],
+        [
+          "03 / DRIFT",
+          "Behavior and cost change",
+          "The same weights on a different coding-agent runtime, tool policy, or isolation change behavior and cost.",
+        ],
+        [
+          "04 / AXIS",
+          "First-class axis",
+          "Harness has to be a first-class eval axis, locked with the Model and the environment.",
+        ],
       ] as const,
       solLabel: "SOLUTION →",
-      sol: "Unify the experiment contract, not the task-internal workflow",
+      sol: "Decouple the runtime of a bench run: Environment and Agent combine through plugins",
     },
     position: {
       index: "// 02",
       name: "Positioning",
-      title: "ageval owns the environment and the pipeline, not the loop.",
-      lead: "Bound the run. Open attempt.py and see the phases.",
+      title: "ageval treats Harness as a first-class evaluation axis.",
+      lead: "Environment and Agent combine through plugins, so one run.py runs under each binding. The task owns the loop; the runtime owns lock, environment, scoring, and cleanup.",
       ownedLabel: "OWNED · ageval",
-      owned: "lock, visible Attempt, independent evaluator, evidence, cleanup.",
+      owned: "lock, visible Attempt, Environment service, scoring barrier, evidence, cleanup.",
       ownedNote: "ageval.yaml · task.yaml · profiles.yaml",
       notLabel: "NOT OWNED · the task",
       not: "loop, roles, local tools in run.py.",
@@ -289,7 +337,7 @@ export const landingCopy = {
         ["Fat implementation", "Complexity sinks into run.py, not a YAML workflow engine."],
       ] as const,
       bannerEn: ["Hard boundaries.", "Thin contracts.", "Fat implementations."],
-      bannerZh: "Bound the run. Leave implementation free.",
+      bannerZh: "Decouple the runtime of a bench run.",
     },
     core: {
       index: "// 04",
@@ -299,7 +347,13 @@ export const landingCopy = {
       items: [
         ["CORE_01", "Config", "load_and_lock. No secret plaintext.", "CORE OWNS", false],
         ["CORE_02", "Attempt", "environment → run → evaluate → record; finally cleanup.", "CORE OWNS", false],
-        ["CORE_03", "Environment", "Exclusive slot: local / docker / e2b / ssh.", "CORE OWNS", false],
+        [
+          "CORE_03",
+          "Environment",
+          "Injected by name: local / docker / e2b / ssh / daytona.",
+          "CORE OWNS",
+          false,
+        ],
         ["CORE_04", "Capability", "requires ⊆ capabilities or lock fails.", "NARROW SURFACE", true],
         ["CORE_05", "Evaluation", "Stop writers, upload gold, bind once.", "CORE OWNS", false],
         ["CORE_06", "Evidence", "trajectory.jsonl. Credentials redacted.", "CORE OWNS", false],
@@ -308,19 +362,25 @@ export const landingCopy = {
     isolation: {
       index: "// 05",
       name: "Environment",
-      title: "Four kinds. One protocol.",
-      lead: "Swap the kind. Keep run.py. ACP only sees attach_stdio.",
+      title: "Host, container, cloud sandbox, remote — one Protocol.",
+      lead: "Change the kind without rewriting run.py. Environment is injected by name; calls stay on the Protocol.",
       items: [
         ["KIND · LOCAL", "Host directory", "Real filesystem. Child-process worker.", "VERIFIED", false],
         ["KIND · DOCKER", "Local container", "Same Dockerfile. Gold arrives at evaluate.", "VERIFIED", true],
-        ["KIND · E2B / SSH", "Cloud environment", "Orchestration stays local. Missing keys fail preflight.", "CODE COMPLETE", false],
+        [
+          "KIND · E2B / SSH / DAYTONA",
+          "Cloud sandbox and remote",
+          "Orchestration stays local. Missing credentials fail preflight.",
+          "CODE COMPLETE",
+          false,
+        ],
       ] as const,
     },
     eval: {
       index: "// 06",
       name: "Barrier",
       title: "Completed is not passed.",
-      lead: "PASS comes only from an independent evaluator.",
+      lead: "PASS comes only from evaluator.py. Scoring is separate from the Agent.",
       neLeft: "completed",
       neRight: "PASS",
       steps: [
@@ -332,15 +392,15 @@ export const landingCopy = {
     plugin: {
       index: "// 07",
       name: "Plugin",
-      title: "The host defines slots. Plugins fill them.",
-      lead: "ageval.plugin/1 is named by mechanism. Chains are (ctx, value, nxt). Exclusive slots have one winner.",
+      title: "Coding agents enter through plugins.",
+      lead: "Default is ACP; heterogeneous harnesses join the runtime through the same plugin path. Open slots extend or replace a harness.",
       slots: [
-        ["EXCL", "environment", "Environment winner: local / docker / e2b / ssh."],
-        ["EXCL", "executor", "Agent backend, usually acp."],
+        ["EXCL", "environment", "Environment winner: local / docker / e2b / ssh / daytona."],
+        ["EXCL", "executor", "Default acp; also nooa / dsh / miniswe."],
         ["CHAIN", "ready / setup", "Probe ACP, run setup.sh."],
         ["CHAIN", "trajectory", "Map events. Do not invent scores."],
         ["CHAIN", "cleanup", "Report. Cannot skip teardown."],
-        ["LOCK", "inject", "ACP needs attach_stdio or lock fails."],
+        ["LOCK", "inject", "Inject environment by name and require capabilities, or lock fails."],
       ] as const,
     },
     pluginCode: {
@@ -372,20 +432,24 @@ export const landingCopy = {
       ] as const,
     },
     take: {
-      tag: "BOUND THE RUN",
-      title: "Bound the run, not the agent.",
-      body: "Bound the run. Leave implementation free.",
+      tag: "LOCK THE BINDING",
+      title: "Lock Model, Harness, and environment together.",
+      body: "Decouple the runtime of a bench run.",
       items: [
-        ["01", "Trust comes from the boundary", "PASS belongs only to the evaluator."],
-        ["02", "Swap the environment. Keep the contract.", "Four kinds, one SDK and ACP inlet."],
-        ["03", "Plugins fill slots", "ageval.plugin/1 is named by mechanism."],
+        ["01", "First-class axis", "Harness is locked with the Model and the environment."],
+        [
+          "02",
+          "Plugin composition",
+          "Environment and Agent combine through plugins; one run.py runs under each binding.",
+        ],
+        ["03", "Separate scoring", "PASS comes only from evaluator.py."],
       ] as const,
     },
     cta: {
-      title: ["Lock the experiment first.", "Then compare the scores."],
+      title: ["Lock the binding first.", "Then compare the scores."],
       lead: "Clone the repo. Run examples/journeys. Public entrypoints follow ageval --help.",
       primary: "Open repo",
-      docs: "Read the design",
+      docs: "Read the docs",
     },
     faq: {
       index: "// 10",
@@ -393,16 +457,16 @@ export const landingCopy = {
       title: "FAQ",
       items: [
         [
-          "Is ageval another agent?",
-          "No. It is an evaluation runtime. The task loop lives in run.py. Coding agents enter via ACP.",
+          "Does ageval evaluate the model?",
+          "Most evaluation still sits at the model. ageval treats Harness as a first-class eval axis, locked with the Model and the environment.",
         ],
         [
           "Does a complete trajectory count as a pass?",
-          "No. RunTerminal.completed is not PASS.",
+          "No. RunTerminal.completed is not PASS. PASS comes only from evaluator.py.",
         ],
         [
           "Do local and docker need two run.py files?",
-          "No. Change environment on the profiles document.",
+          "No. Change the Environment binding on the job.",
         ],
         [
           "How do you keep gold invisible?",

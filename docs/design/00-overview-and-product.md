@@ -76,7 +76,7 @@ ageval.yaml (ageval.dataset/1)
 
 1. 一次 Attempt 的链写在产品包 `attempt/`：串行调 phase；每个 phase 文件内串行 `emit(slot)`。打开就能看见。
 2. **phase**（提供默认实现，可换独占赢家）与 **slot**（链）分开。插件改绑定，不改 `run_attempt` 的默认顺序。
-3. 盒子一张口：独占槽 `environment`（`local` / `docker` / `e2b` / `ssh`）。能力 `requires ⊆ capabilities`，缺则 lock 失败。
+3. 盒子一张口：独占槽 `environment`（`local` / `docker` / `e2b` / `ssh` / `daytona`）。能力 `requires ⊆ capabilities`，缺则 lock 失败。
 4. `environment/Dockerfile`（或 `docker_image`）对 docker 与 e2b 同一配方。`setup.sh` 是 environment 的末槽，不是单独 phase。
 5. **Task 不包含流水线文件。** 业务只在 `run.py`，打分在 `evaluator.py`。`task.yaml` **缺省有文件就认**。
 6. Agent 仍是 `executor: acp` + `options.entry`。附着 `host.attach_stdio`。PASS 只来自独立 evaluate。
@@ -180,7 +180,7 @@ gold 隔离是**时间切**：不 mount，evaluate 再 upload。这是默认，�
 
 ## 说法
 
-- 盒子：`environment: local | docker | e2b | ssh`。能力记在 `kind` + `capabilities_used`。
+- 盒子：`environment: local | docker | e2b | ssh | daytona`。能力记在 `kind` + `capabilities_used`。
 - 题包入口：`run.py` / `RunContext`。编排：`attempt/__init__.py` 的 `run_attempt`。
 - 装依赖：environment 末槽 `environment_setup`（`setup.sh`），不是单独 phase。
 - 侧车：compose 或 `host.exec(service=)`。

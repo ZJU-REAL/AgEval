@@ -5,7 +5,7 @@ authoring agents only; it does not own new contract.
 
 ## Registry
 
-- First-party contrib: `acp`, `openai-http`, `local`, `docker`, `e2b`, `ssh`. No product mock executor.
+- First-party contrib: `acp`, `openai-http`, `local`, `docker`, `e2b`, `ssh`, `daytona`. No product mock executor.
 - External `ageval plugin install` joins the same table.
 - `profiles.executor` / `environment` pick exclusive winners. Chain slots are opt-in via `extensions`.
 - `extensions:` is the opt-in list (`- plugin: nooa`, or `slots: [...]`, or `{slot, plugin}`). Installed-but-unlisted plugins stay off MULTI chains and off the image.

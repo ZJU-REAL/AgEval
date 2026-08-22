@@ -33,7 +33,7 @@ uv run ageval lock examples/journeys --task terminal-jsonl-agg
 - **`logs` 路径**：Dataset 根下 `.ageval/runs/<run_id>/`（`k=1`）  
 - `k>1` 时：suite `summary.json` 里的 **pass@k / pass^k** 等 job 指标  
 
-PASS / FAIL 来自**独立评测**，不是 `run.py`「跑完了」。更细的读法见 [结果与 PASS](/docs/reference/results-and-pass)。
+PASS / FAIL 仅来自 `evaluator.py`，与 Agent 完成态分离。更细的读法见 [结果与 PASS](/docs/reference/results-and-pass)。
 
 ## 常见失败
 

@@ -1,14 +1,14 @@
 ---
 title: ageval 是什么
-description: 锁定 dataset，打开环境，由独立 evaluator 出分。
+description: 把 Harness 作为一等评测维度，与 Model、运行环境一并锁定。
 icon: BookOpen
 ---
 
-Agent 评测常只盯模型分数，把编排、可见范围和打分权威留在各家实现里。换 coding agent 或换环境，结果与轨迹就对不齐。
+大多数 Agent 评测仍停留在**模型**层面：同一套提示、同一套工具约定，比较不同权重或不同 API。这一划分正在失效——可交付的 Agent 是 Model 与 Harness 的组合：同一套权重接到不同的 coding-agent 运行时、工具策略或环境隔离上，行为与成本都会变。因此要把 Harness 作为一等评测维度，与 Model、运行环境一并锁定。
 
-**ageval**（agent eval）提供这层外层边界：锁定 dataset，在约定环境里跑 Attempt，控制可见范围，并由**独立评测**给出结果。
+**ageval**（agent eval）把一次 bench 的 runtime 组成拆开：Environment 与 Agent 经插件组合，同一份 `run.py` 在不同绑定下运行。
 
-CLI 与包名是 `ageval`。题包根叫 dataset，不是 SQL。
+CLI 与包名是 `ageval`。交付单位是 dataset。
 
 ## 文档导航
 

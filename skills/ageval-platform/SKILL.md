@@ -34,7 +34,7 @@ Runtime owns lock, Attempt, the box, hard ceilings, trajectory, independent eval
 1. Trajectory ≠ PASS.
 2. No secrets in lock / yaml / evidence. Env vars are locators.
 3. Adapters named by mechanism (`acp`, `docker`, `e2b`, `ssh`). Never by benchmark.
-4. Kind is `environment: local|docker|e2b|ssh`.
+4. Kind is `environment: local|docker|e2b|ssh|daytona`.
 5. Unknown format → one error.
 6. Coding agents: `executor: acp` + `options.entry`. Not `executor: pi`.
 7. Plugins: exclusive / chain slots only. `ageval plugin install` never rewrites profiles.

@@ -29,5 +29,5 @@
 
 ## Box kind
 
-- **OK:** `environment: local|docker|e2b|ssh`.
+- **OK:** `environment: local|docker|e2b|ssh|daytona`.
 - **Forbidden:** `provider.kind`, `assurance: l0/l1`, calling cloud sandboxes L2.

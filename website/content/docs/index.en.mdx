@@ -1,14 +1,14 @@
 ---
 title: What is ageval
-description: Lock a dataset, pick an environment, let an independent evaluator own the score.
+description: Treat Harness as a first-class eval axis, locked with the Model and the environment.
 icon: BookOpen
 ---
 
-Agent evaluation often focuses on model scores while orchestration, visibility, and scoring authority stay in vendor stacks. Changing the coding agent or the environment makes results hard to compare.
+Most agent evaluation still sits at the **model**: same prompts, same tool contract, different weights or APIs. That split is failing. A shippable agent is a Model plus a Harness: the same weights on a different coding-agent runtime, tool policy, or isolation change behavior and cost. Harness has to be a first-class eval axis, locked with the Model and the environment.
 
-**ageval** (agent eval) is that outer boundary: lock a dataset, run a bounded Attempt in a chosen environment, control visibility, and let an **independent evaluator** produce the result.
+**ageval** (agent eval) decouples the runtime of a bench run. Environment and Agent combine through plugins, so one `run.py` runs under each binding.
 
-The CLI and packages are `ageval`. The delivery unit is a dataset, not SQL.
+The CLI and packages are `ageval`. The delivery unit is a dataset.
 
 ## Where to go
 

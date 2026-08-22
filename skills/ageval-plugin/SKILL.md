@@ -20,7 +20,7 @@ Host declares slots in `src/ageval/plugins/slots.py`. Plugins fill them.
 inject: `service: environment`. ACP needs `attach_stdio`. In-box workers
 (dsh / nooa) need `exec` and `upload`. Do not pin `plugin_id: e2b`.
 
-Name by mechanism (`acp`, `e2b`, `ssh`, `nooa`). First-party lives in `src/ageval/plugins/contrib/`. External packages under `plugins/`.
+Name by mechanism (`acp`, `e2b`, `daytona`, `ssh`, `nooa`). First-party lives in `src/ageval/plugins/contrib/`. External packages under `plugins/`.
 
 Recognition ≠ this host can run ≠ image baked. Missing extra / key → skip, do not fake green.
 

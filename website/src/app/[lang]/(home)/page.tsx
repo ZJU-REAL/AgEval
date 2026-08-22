@@ -257,7 +257,7 @@ export default async function HomePage({ params }: { params: Promise<HomeParams>
             <p className="lead">{text.plugin.lead}</p>
             <div className="slots">
               {text.plugin.slots.map(([lv, title, body]) => (
-                <article key={lv}>
+                <article key={title}>
                   <div className="lv">{lv}</div>
                   <h3>{title}</h3>
                   <p>{body}</p>
