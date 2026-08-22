@@ -251,7 +251,7 @@ export function OrganizationsPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search your organizations…"
               aria-label="Search organizations"
-              className="flex-1 min-w-0"
+              className="flex-1 min-w-0 focus-visible:border-hairline"
             />
             <HoverTip content="Join with invite key">
             <Button

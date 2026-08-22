@@ -81,7 +81,7 @@ export function BrandMarkPicker({
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Search catalog"
         aria-label="Search icons"
-        className="mb-3"
+        className="mb-3 focus-visible:border-hairline"
         autoFocus
       />
       <div className="grid max-h-56 grid-cols-4 gap-1.5 overflow-auto sm:grid-cols-5">

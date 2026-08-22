@@ -266,7 +266,7 @@ export function JobsPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search for jobs..."
-            className="pl-9 h-10"
+            className="pl-9 h-10 focus-visible:border-hairline"
             aria-label="Search jobs"
           />
         </div>

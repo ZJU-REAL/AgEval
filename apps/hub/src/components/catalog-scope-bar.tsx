@@ -82,7 +82,7 @@ export function CatalogScopeBar<T extends string>({
           onChange={(e) => onQuery(e.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchLabel}
-          className="w-full max-w-sm"
+          className="w-full max-w-sm focus-visible:border-hairline"
         />
       </div>
     </div>

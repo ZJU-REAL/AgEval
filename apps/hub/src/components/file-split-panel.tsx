@@ -283,7 +283,7 @@ export function FileSplitPanel({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
-              className="h-8 pl-7 text-xs bg-canvas"
+              className="h-8 pl-7 text-xs bg-canvas focus-visible:border-hairline"
               aria-label="Search files"
             />
           </div>
