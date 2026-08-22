@@ -245,7 +245,9 @@ export type SuiteRow = {
   complete?: boolean;
   bound_kind?: "release" | "draft" | "unknown" | string;
   task_set_digest?: string;
-  /** Official public board only; derived from published agent_ref. */
+  /** Dataset-org listing approval; public ≠ listed. */
+  board_listed?: boolean;
+  /** Official public board only; derived from consented published agent_ref. */
   agent_refs?: AgentRefLink[];
 };
 
@@ -1019,6 +1021,20 @@ export async function removeResultShare(
     method: "DELETE",
     body: { target_type: target.type, target_id: target.id },
   });
+}
+
+export async function attachSuiteAgent(
+  suiteRunId: string,
+  agent: string,
+  token: string | null,
+  opts?: { role?: string },
+): Promise<SuiteRow & { attached?: boolean; idempotent?: boolean }> {
+  const body: { agent: string; role?: string } = { agent };
+  if (opts?.role) body.role = opts.role;
+  return requestJson(
+    `/v1/results/suites/${encodeURIComponent(suiteRunId)}/agent-ref`,
+    { token, method: "PATCH", body },
+  );
 }
 
 export async function setResultVisibility(

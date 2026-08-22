@@ -13,11 +13,13 @@ import {
 } from "@/components/ui/select";
 import {
   addResultShare,
+  attachSuiteAgent,
   deleteResult,
   listResultShares,
   removeResultShare,
   setResultVisibility,
   type ResultShare,
+  type SuiteRow,
   RegistryHttpError,
 } from "@/lib/api";
 
@@ -29,6 +31,7 @@ export function ResultOwnerOps({
   token,
   onVisibility,
   onDeleted,
+  onAttached,
 }: {
   kind: "attempt" | "suite";
   resultId: string;
@@ -37,6 +40,7 @@ export function ResultOwnerOps({
   token: string | null;
   onVisibility?: (next: "public" | "private") => void;
   onDeleted?: () => void;
+  onAttached?: (suite: Partial<SuiteRow>) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +49,7 @@ export function ResultOwnerOps({
   const [targetId, setTargetId] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [withAttempts, setWithAttempts] = useState(false);
+  const [agentRef, setAgentRef] = useState("");
 
   useEffect(() => {
     if (!canManage || !token || !resultId) {
@@ -128,6 +133,22 @@ export function ResultOwnerOps({
         ),
       );
       toast("Share removed");
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function attachAgent() {
+    const spec = agentRef.trim();
+    if (!spec || kind !== "suite") return;
+    setBusy(true);
+    setError(null);
+    try {
+      const row = await attachSuiteAgent(resultId, spec, token);
+      onAttached?.(row);
+      toast(row.idempotent ? "Agent ref already attached" : "Agent ref attached");
     } catch (err) {
       fail(err);
     } finally {
@@ -221,6 +242,39 @@ export function ResultOwnerOps({
           </label>
         ) : null}
       </ConfirmDialog>
+
+      {kind === "suite" ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-mute uppercase tracking-wide">
+            Attach published agent
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={agentRef}
+              onChange={(e) => setAgentRef(e.target.value)}
+              placeholder="org/name@version"
+              className="h-8 w-56 font-mono text-xs"
+              disabled={busy}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void attachAgent();
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || !agentRef.trim()}
+              onClick={() => void attachAgent()}
+            >
+              Attach
+            </Button>
+          </div>
+          <p className="text-xs text-mute">
+            Stamps provenance on the stored overlay when the binding matches.
+            Does not rewrite lock or fingerprint.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-mute uppercase tracking-wide">

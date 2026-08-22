@@ -762,6 +762,9 @@ export function LeaderboardTable({
                                   visibility: next,
                                 })
                               }
+                              onAttached={(row) =>
+                                onSuiteUpdated?.(s.suite_run_id, row)
+                              }
                               onDeleted={() => {
                                 setOpenId(null);
                                 onSuiteDeleted?.(s.suite_run_id);
