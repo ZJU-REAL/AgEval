@@ -80,9 +80,12 @@ def _parse_tool_calls(raw: Any) -> tuple[dict[str, Any], ...]:
             args = parsed if isinstance(parsed, dict) else {}
         elif not isinstance(args, dict):
             args = {}
+        call_id = str(item.get("id") or "")
+        if not call_id:
+            call_id = f"call_{len(out) + 1}"
         out.append(
             {
-                "id": str(item.get("id") or ""),
+                "id": call_id,
                 "name": name,
                 "arguments": args,
             }
@@ -109,7 +112,7 @@ class OpenAIHTTPExecutor(AgentExecutor):
         tools: Sequence[Mapping[str, Any]] | None = None,
         messages: Sequence[Mapping[str, Any]] | None = None,
     ) -> AgentResult:
-        del collect_dir, redaction_sentinels
+        del redaction_sentinels
         key_env = self.api_key_env or _DEFAULT_KEY_ENV
         key = os.environ.get(key_env, "")
         base = self.base_url or os.environ.get("AGEVAL_OPENAI_BASE_URL") or _DEFAULT_BASE
@@ -173,6 +176,12 @@ class OpenAIHTTPExecutor(AgentExecutor):
         text = message.get("content") if isinstance(message.get("content"), str) else ""
         if not text and not message:
             text = json.dumps(raw)[:4000]
+        thought = ""
+        for key in ("reasoning_content", "reasoning"):
+            raw_thought = message.get(key)
+            if isinstance(raw_thought, str) and raw_thought.strip():
+                thought = raw_thought
+                break
         tool_calls = _parse_tool_calls(message.get("tool_calls"))
         structured = None
         try:
@@ -181,21 +190,44 @@ class OpenAIHTTPExecutor(AgentExecutor):
                 structured = None
         except json.JSONDecodeError:
             structured = None
-        events = tuple(
+        events: list[dict[str, Any]] = []
+        if thought:
+            events.append(
+                {
+                    "kind": "text",
+                    "channel": "thought",
+                    "text": thought[-8000:],
+                    "source": "openai-http",
+                }
+            )
+        events.extend(
             {
-                "type": "tool_call",
-                "id": call["id"],
-                "name": call["name"],
+                "kind": "tool",
+                "phase": "start",
+                "tool_call_id": call["id"],
+                "function_name": call["name"],
+                "title": call["name"],
+                "args": call["arguments"],
+                "status": "pending",
                 "source": "openai-http",
             }
             for call in tool_calls
         )
+        if collect_dir:
+            from pathlib import Path
+
+            out = Path(collect_dir)
+            out.mkdir(parents=True, exist_ok=True)
+            (out / "response.json").write_text(
+                json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
         return AgentResult(
             model=self.model,
             text=(text or "")[-8000:],
             structured=structured,
             ok=True,
             error=None,
-            events=events,
+            events=tuple(events),
             tool_calls=tool_calls,
         )

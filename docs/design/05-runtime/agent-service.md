@@ -95,7 +95,9 @@ kind 名仍是 `openai-http`（api-client）。没有第二套 dialect、没有 
 | capability | `tools: native`，`session: new-only`（逻辑 session，无 provider resume） |
 | 凭证 | 一等字段 `model` / `base_url` / `api_key`（env locator）。缺钥 fail-closed（loopback 空钥仅用于本机 mock） |
 
-tau2-class harness（journeys `tau2-dialog-min`、`examples/tau3-*`）把域 schema 传入 invoke；收到 `tool_calls` 后走 package `Environment.get_response` / `ToolSet.call`。原生 `tool_calls` 是 **openai-http 的主动作通道**；「Return ONLY JSON」只留给没有 `tool_calls` 的文本 executor（ACP）。禁止在 Core 里 scrape vendor stdout 当工具通道。
+tau2-class harness（journeys `tau2-dialog-min`、`examples/tau3-*`）把域 schema 传入 invoke；收到 `tool_calls` 后走 package `Environment.get_response` / `ToolSet.call`，再 `record_observation` 把回包挂到该 invoke。原生 `tool_calls` 是 **openai-http 的主动作通道**；「Return ONLY JSON」只留给没有 `tool_calls` 的文本 executor（ACP）。禁止在 Core 里 scrape vendor stdout 当工具通道。
+
+`openai-http` 的 executor events 用 Core 合同：`kind: tool` + `phase: start` + `tool_call_id` / `function_name` / `args`。环境观察是 `phase: update`（source `ageval`），不是 HTTP 响应的一部分。
 
 ## 凭证：BYOK / BYOA
 

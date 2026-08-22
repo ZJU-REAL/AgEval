@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from threading import Thread
 from typing import Any
 
@@ -104,12 +105,80 @@ def test_tools_round_trip_on_loopback() -> None:
             "arguments": {"email": "alex@example.com"},
         },
     )
+    assert result.events == (
+        {
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": "call_1",
+            "function_name": "find_customer",
+            "title": "find_customer",
+            "args": {"email": "alex@example.com"},
+            "status": "pending",
+            "source": "openai-http",
+        },
+    )
     assert captured["path"].endswith("/chat/completions")
     assert "tools" in captured["body"]
     assert captured["body"]["tools"][0]["function"]["name"] == "find_customer"
     dumped = json.dumps(captured["body"])
     assert "sk-" not in dumped
     assert "Bearer" not in dumped
+
+
+def test_reasoning_content_becomes_thought_event(tmp_path: Path) -> None:
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            self.rfile.read(length)
+            payload = {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "reasoning_content": "need lookup first",
+                            "tool_calls": [
+                                {
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "lookup",
+                                        "arguments": '{"q":"hi"}',
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                ]
+            }
+            raw = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+            del format, args
+
+    server, base = _serve(Handler)
+    collect = tmp_path / "raw"
+    try:
+        result = OpenAIHTTPExecutor(model="mock", base_url=base).invoke(
+            "lookup",
+            tools=[{"type": "function", "function": {"name": "lookup"}}],
+            collect_dir=str(collect),
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert result.text == ""
+    assert result.events[0]["channel"] == "thought"
+    assert result.events[0]["text"] == "need lookup first"
+    assert result.events[1]["kind"] == "tool"
+    dumped = json.loads((collect / "response.json").read_text(encoding="utf-8"))
+    assert dumped["choices"][0]["message"]["reasoning_content"] == "need lookup first"
 
 
 def test_omit_tools_keeps_content_path() -> None:
