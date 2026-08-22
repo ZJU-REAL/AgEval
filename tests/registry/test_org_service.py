@@ -35,6 +35,29 @@ def test_regular_org_is_not_official(tmp_path: Path) -> None:
         auth=_user(),
     )
     assert payload["official"] is False
+    assert payload["description"] == ""
+
+
+def test_create_and_patch_org_description(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    created = svc.create(
+        name="acme",
+        display_name="Acme",
+        description="Lab notes.",
+        is_claimable=False,
+        auth=_user(),
+    )
+    assert created["description"] == "Lab notes."
+    patched = svc.patch(
+        org_id="acme",
+        description="Updated bio",
+        auth=_user(),
+    )
+    assert patched["description"] == "Updated bio"
+    assert patched["display_name"] == "Acme"
+    named = svc.patch(org_id="acme", display_name="Acme Lab", auth=_user())
+    assert named["display_name"] == "Acme Lab"
+    assert named["description"] == "Updated bio"
 
 
 def test_list_members_visible_to_member(tmp_path: Path) -> None:

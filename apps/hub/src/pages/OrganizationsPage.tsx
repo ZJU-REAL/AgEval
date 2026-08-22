@@ -8,6 +8,7 @@ import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -47,6 +48,7 @@ export function OrganizationsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [orgDisplayName, setOrgDisplayName] = useState("");
+  const [orgDescription, setOrgDescription] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -172,12 +174,14 @@ export function OrganizationsPage() {
         {
           name,
           display_name: orgDisplayName.trim() || name,
+          description: orgDescription.trim(),
         },
         token,
       );
       setCreateOpen(false);
       setOrgName("");
       setOrgDisplayName("");
+      setOrgDescription("");
       navigate(`/organizations/${encodeURIComponent(created.org_id || name)}`);
     } catch (err: unknown) {
       if (err instanceof RegistryHttpError) {
@@ -385,7 +389,7 @@ export function OrganizationsPage() {
             if (e.target === e.currentTarget && !createBusy) setCreateOpen(false);
           }}
         >
-          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-lg p-5 space-y-4">
+          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="create-org-title"
@@ -441,6 +445,23 @@ export function OrganizationsPage() {
                 }}
               />
             </div>
+            <div>
+              <label
+                htmlFor="org-description-input"
+                className="text-xs font-medium text-mute uppercase tracking-wide"
+              >
+                Description
+              </label>
+              <Textarea
+                id="org-description-input"
+                value={orgDescription}
+                onChange={(e) => setOrgDescription(e.target.value)}
+                placeholder="Optional"
+                className="mt-1.5 min-h-[4.5rem] text-sm"
+                disabled={createBusy}
+                maxLength={500}
+              />
+            </div>
             {createError ? (
               <p className="text-sm text-error font-mono">{createError}</p>
             ) : null}
@@ -475,7 +496,7 @@ export function OrganizationsPage() {
             if (e.target === e.currentTarget && !joinBusy) setJoinOpen(false);
           }}
         >
-          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-lg p-5 space-y-4">
+          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="join-org-title"

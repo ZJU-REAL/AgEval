@@ -1,4 +1,4 @@
-import { Search, Trash2 } from "lucide-react";
+import { ListChecks, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -353,7 +353,28 @@ export function JobsPage() {
           )}
         </div>
 
-        <div className="rounded-[8px] border border-hairline overflow-hidden">
+        {!loading && !error && jobs.length === 0 ? (
+          <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-10 text-center text-sm">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-[12px] border border-hairline bg-canvas text-mute">
+                <ListChecks className="h-8 w-8" strokeWidth={1.5} aria-hidden />
+              </div>
+            </div>
+            <p className="font-medium text-ink">No jobs yet</p>
+            <p className="mt-1 text-mute">
+              Run{" "}
+              <code className="font-mono text-xs bg-canvas px-1.5 py-0.5 rounded-[6px] text-body">
+                ageval run &lt;dataset&gt;
+              </code>{" "}
+              or a single-task{" "}
+              <code className="font-mono text-xs bg-canvas px-1.5 py-0.5 rounded-[6px] text-body">
+                ageval run &lt;dataset&gt; --task &lt;id&gt;
+              </code>
+              , then refresh.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-[8px] border border-hairline overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -396,15 +417,7 @@ export function JobsPage() {
               {!loading && !error && filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={10} className="text-mute py-10 text-center">
-                    No jobs yet. Run{" "}
-                    <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
-                      ageval run &lt;dataset&gt;
-                    </code>{" "}
-                    or a single-task{" "}
-                    <code className="font-mono text-xs bg-canvas-soft px-1.5 py-0.5 rounded">
-                      ageval run &lt;dataset&gt; --task &lt;id&gt;
-                    </code>{" "}
-                    then refresh.
+                    No matching jobs.
                   </TableCell>
                 </TableRow>
               )}
@@ -484,7 +497,8 @@ export function JobsPage() {
                 ))}
             </TableBody>
           </Table>
-        </div>
+          </div>
+        )}
       </div>
       {pendingNote ? (
         <JobNoteDialog

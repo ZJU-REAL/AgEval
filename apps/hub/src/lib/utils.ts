@@ -171,6 +171,18 @@ function parseDisplayDate(iso: string | number | null | undefined): Date | null 
   }
 }
 
+export function formatCount(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0";
+  const value = Math.floor(n);
+  if (value < 1000) return String(value);
+  if (value < 1_000_000) {
+    const k = value / 1000;
+    return `${(k >= 10 ? k.toFixed(0) : k.toFixed(1)).replace(/\.0$/, "")}k`;
+  }
+  const m = value / 1_000_000;
+  return `${(m >= 10 ? m.toFixed(0) : m.toFixed(1)).replace(/\.0$/, "")}m`;
+}
+
 export function formatDay(
   iso: string | number | null | undefined,
 ): string {

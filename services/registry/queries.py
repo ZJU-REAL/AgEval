@@ -84,8 +84,8 @@ SELECT_SUITE = "SELECT * FROM suite_results WHERE suite_run_id=?"
 
 INSERT_ORG = """
 INSERT INTO organizations(
-    org_id, name, display_name, is_claimable, created_at
-) VALUES (?, ?, ?, ?, ?)
+    org_id, name, display_name, description, is_claimable, created_at
+) VALUES (?, ?, ?, ?, ?, ?)
 """
 
 INSERT_ORG_OWNER_MEMBERSHIP = """
@@ -96,6 +96,10 @@ VALUES (?, ?, 'owner', ?)
 SELECT_ORG = "SELECT * FROM organizations WHERE org_id=?"
 
 UPDATE_ORG_DISPLAY_NAME = "UPDATE organizations SET display_name=? WHERE org_id=?"
+UPDATE_ORG_DESCRIPTION = "UPDATE organizations SET description=? WHERE org_id=?"
+UPDATE_ORG_DISPLAY_AND_DESCRIPTION = (
+    "UPDATE organizations SET display_name=?, description=? WHERE org_id=?"
+)
 
 UPSERT_PACKAGE_DISPLAY_NAME = """
 INSERT INTO package_display_names(dataset_id, display_name, updated_at)
@@ -169,6 +173,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         org_id TEXT PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
         display_name TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
         is_claimable INTEGER NOT NULL DEFAULT 0,
         created_at REAL NOT NULL
     )
@@ -198,6 +203,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         display_name TEXT NOT NULL DEFAULT '',
         avatar_url TEXT NOT NULL DEFAULT '',
         github_id TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
         updated_at REAL NOT NULL
     )
     """,
@@ -252,6 +258,12 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         dataset_id TEXT PRIMARY KEY,
         display_name TEXT NOT NULL DEFAULT '',
         updated_at REAL NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS package_download_counts (
+        dataset_id TEXT PRIMARY KEY,
+        download_count INTEGER NOT NULL DEFAULT 0
     )
     """,
 )
@@ -320,6 +332,8 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("suite_results", "bound_kind", "TEXT NOT NULL DEFAULT 'unknown'"),
     ("suite_results", "task_set_digest", "TEXT NOT NULL DEFAULT ''"),
     ("releases", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
+    ("organizations", "description", "TEXT NOT NULL DEFAULT ''"),
+    ("user_profiles", "description", "TEXT NOT NULL DEFAULT ''"),
 )
 
 # Do not bind created_at. Pre-unification Postgres token tables are
@@ -433,8 +447,8 @@ LIMIT 1
 """
 UPSERT_USER_PROFILE = """
 INSERT INTO user_profiles(
-    user_id, display_name, avatar_url, github_id, updated_at
-) VALUES (?, ?, ?, ?, ?)
+    user_id, display_name, avatar_url, github_id, description, updated_at
+) VALUES (?, ?, ?, ?, '', ?)
 ON CONFLICT(user_id) DO UPDATE SET
     display_name=excluded.display_name,
     avatar_url=excluded.avatar_url,
@@ -442,6 +456,20 @@ ON CONFLICT(user_id) DO UPDATE SET
     updated_at=excluded.updated_at
 """
 SELECT_USER_PROFILE = "SELECT * FROM user_profiles WHERE user_id=?"
+UPSERT_USER_DESCRIPTION = """
+INSERT INTO user_profiles(
+    user_id, display_name, avatar_url, github_id, description, updated_at
+) VALUES (?, '', '', '', ?, ?)
+ON CONFLICT(user_id) DO UPDATE SET
+    description=excluded.description,
+    updated_at=excluded.updated_at
+"""
+INCREMENT_PACKAGE_DOWNLOAD = """
+INSERT INTO package_download_counts(dataset_id, download_count)
+VALUES (?, 1)
+ON CONFLICT(dataset_id) DO UPDATE SET
+    download_count = package_download_counts.download_count + 1
+"""
 
 
 def list_attempts_query(
@@ -491,6 +519,14 @@ def select_attempts_in_query(n: int) -> str:
 def select_user_profiles_in_query(n: int) -> str:
     placeholders = ",".join("?" for _ in range(n))
     return f"SELECT * FROM user_profiles WHERE user_id IN ({placeholders})"
+
+
+def select_package_download_counts_query(n: int) -> str:
+    placeholders = ",".join("?" for _ in range(n))
+    return (
+        "SELECT dataset_id, download_count FROM package_download_counts "
+        f"WHERE dataset_id IN ({placeholders})"
+    )
 
 
 def select_result_shared_orgs_query(n: int) -> str:

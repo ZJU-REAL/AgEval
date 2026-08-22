@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { CatalogCardGrid } from "@/components/catalog-card";
+import { DescriptionEditor } from "@/components/description-editor";
+import { GitHubIcon } from "@/components/github-icon";
 import { PageHead } from "@/components/page-head";
 import { OfficialMark } from "@/components/official-mark";
 import {
@@ -18,18 +20,22 @@ import {
   latestPackageByDataset,
   listPackages,
   packageDisplayTitle,
+  updateUserDescription,
   versionLabel,
   type PackageRelease,
   type UserPublic,
   RegistryHttpError,
 } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { getGithubUser, getToken } from "@/lib/auth";
+
+const USER_DESCRIPTION_MAX = 280;
 
 export function UserPage() {
   const { login: rawLogin } = useParams();
   const login = rawLogin ? decodeURIComponent(rawLogin) : "";
   const navigate = useNavigate();
   const token = getToken();
+  const selfLogin = (getGithubUser() || "").toLowerCase();
 
   const [user, setUser] = useState<UserPublic | null>(null);
   const [datasets, setDatasets] = useState<PackageRelease[]>([]);
@@ -98,6 +104,10 @@ export function UserPage() {
     () => user?.display_name || user?.user_id || login,
     [user, login],
   );
+  const isSelf = Boolean(token && user && user.user_id === selfLogin);
+  const githubHref = user
+    ? `https://github.com/${encodeURIComponent(user.user_id)}`
+    : "";
   const avatar =
     user?.avatar_url ||
     (user?.user_id
@@ -132,11 +142,36 @@ export function UserPage() {
                 <span className="truncate">{title}</span>
                 {user.official ? <OfficialMark kind="org" /> : null}
               </h1>
-              <p className="font-mono text-sm text-mute mt-1">
-                @{user.user_id}
+              <p className="mt-1 flex flex-wrap items-center gap-2 font-mono text-sm text-mute">
+                <span>@{user.user_id}</span>
+                {githubHref ? (
+                  <a
+                    href={githubHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex text-mute hover:text-ink"
+                    aria-label={`${user.user_id} on GitHub`}
+                  >
+                    <GitHubIcon className="h-4 w-4" />
+                  </a>
+                ) : null}
               </p>
             </div>
           </div>
+          <DescriptionEditor
+            value={user.description || ""}
+            canEdit={isSelf}
+            maxLength={USER_DESCRIPTION_MAX}
+            emptyLabel=""
+            onSave={async (next) => {
+              const updated = await updateUserDescription(
+                user.user_id,
+                next,
+                token,
+              );
+              setUser(updated);
+            }}
+          />
 
           {user.official_orgs.length ? (
             <section className="space-y-2">

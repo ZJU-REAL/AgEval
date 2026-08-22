@@ -21,6 +21,7 @@ from services.registry.store import (
 
 _ORG_NAME_RE = re.compile(r"^[a-z0-9]([a-z0-9_-]{0,62}[a-z0-9])?$")
 _DISPLAY_NAME_MAX = 80
+_DESCRIPTION_MAX = 500
 
 
 def _normalize_display_name(raw: object) -> str:
@@ -42,6 +43,29 @@ def _normalize_display_name(raw: object) -> str:
     return name
 
 
+def normalize_description(raw: object, *, max_len: int) -> str:
+    if not isinstance(raw, str):
+        raise RegistryAppError(
+            "invalid_request",
+            "description must be a string",
+            http_status=400,
+        )
+    text = raw.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if any(ord(ch) < 32 and ch != "\n" for ch in text):
+        raise RegistryAppError(
+            "invalid_request",
+            "description cannot include control characters",
+            http_status=400,
+        )
+    if len(text) > max_len:
+        raise RegistryAppError(
+            "invalid_request",
+            f"description must be at most {max_len} characters",
+            http_status=400,
+        )
+    return text
+
+
 class OrgService:
     def __init__(self, meta: Any, access: AccessPolicy) -> None:
         self.meta = meta
@@ -60,6 +84,7 @@ class OrgService:
         display_name: str,
         is_claimable: bool,
         auth: TokenInfo,
+        description: object = "",
     ) -> dict[str, Any]:
         if not auth.scopes:
             raise RegistryAppError("unauthorized", "login required", http_status=401)
@@ -67,6 +92,7 @@ class OrgService:
             raise RegistryAppError("unauthorized", "user identity required", http_status=401)
         name = name.strip().casefold()
         display_name = display_name or name
+        desc = normalize_description(description, max_len=_DESCRIPTION_MAX)
         if not name or not _ORG_NAME_RE.match(name):
             raise RegistryAppError(
                 "invalid_request",
@@ -86,6 +112,7 @@ class OrgService:
                 name=name,
                 owner_user_id=auth.user_id,
                 display_name=display_name,
+                description=desc,
                 is_claimable=is_claimable,
             )
         except ValueError as exc:
@@ -102,12 +129,30 @@ class OrgService:
             items.append(d)
         return {"items": items}
 
-    def patch(self, *, org_id: str, display_name: object, auth: TokenInfo) -> dict[str, Any]:
+    def patch(
+        self,
+        *,
+        org_id: str,
+        auth: TokenInfo,
+        display_name: object = None,
+        description: object = None,
+    ) -> dict[str, Any]:
         org_id = org_id.casefold()
         self._require_owner(org_id, auth)
-        name = _normalize_display_name(display_name)
+        if display_name is None and description is None:
+            raise RegistryAppError(
+                "invalid_request",
+                "display_name or description required",
+                http_status=400,
+            )
+        name = None if display_name is None else _normalize_display_name(display_name)
+        desc = (
+            None
+            if description is None
+            else normalize_description(description, max_len=_DESCRIPTION_MAX)
+        )
         try:
-            org = self.meta.update_org_display_name(org_id, name)
+            org = self.meta.update_org(org_id, display_name=name, description=desc)
         except LookupError as exc:
             raise RegistryAppError("not_found", "org not found", http_status=404) from exc
         payload = org_to_dict(org)

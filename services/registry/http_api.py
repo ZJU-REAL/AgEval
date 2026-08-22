@@ -583,11 +583,19 @@ class RegistryHttpApi:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
+        unknown = [
+            key
+            for key in body
+            if key not in {"name", "display_name", "is_claimable", "description"}
+        ]
+        if unknown:
+            return json_result(400, {"error": "invalid_request", "message": "unknown keys"})
         try:
             payload = self.state.orgs.create(
                 name=str(body.get("name") or ""),
                 display_name=str(body.get("display_name") or ""),
                 is_claimable=bool(body.get("is_claimable", False)),
+                description=body.get("description", ""),
                 auth=auth,
             )
         except RegistryAppError as exc:
@@ -612,10 +620,33 @@ class RegistryHttpApi:
         body = self._read_json_body()
         if isinstance(body, HttpResult):
             return body
+        unknown = [key for key in body if key not in {"display_name", "description"}]
+        if unknown:
+            return json_result(400, {"error": "invalid_request", "message": "unknown keys"})
         try:
             payload = self.state.orgs.patch(
                 org_id=org_id,
-                display_name=body.get("display_name"),
+                display_name=body["display_name"] if "display_name" in body else None,  # noqa: SIM401
+                description=body["description"] if "description" in body else None,  # noqa: SIM401
+                auth=auth,
+            )
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
+    def _patch_user(self, *, user_id: str, auth: TokenInfo) -> HttpResult:
+        body = self._read_json_body()
+        if isinstance(body, HttpResult):
+            return body
+        unknown = [key for key in body if key not in {"description"}]
+        if unknown:
+            return json_result(400, {"error": "invalid_request", "message": "unknown keys"})
+        if "description" not in body:
+            return json_result(400, {"error": "invalid_request", "message": "description required"})
+        try:
+            payload = self.state.users.patch(
+                user_id=user_id,
+                description=body["description"],
                 auth=auth,
             )
         except RegistryAppError as exc:
