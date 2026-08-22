@@ -47,7 +47,7 @@ import {
 import { BrandMark } from "@/components/brand-mark";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
-import { markFromPackage, resolveEntityMark, resolveMechanismMark } from "@/lib/brand-marks";
+import { resolveMechanismMark } from "@/lib/brand-marks";
 import { JobOverlayPreview } from "@/components/overlay-file-panel";
 import { ScrollTable } from "@/components/scroll-table";
 
@@ -361,7 +361,6 @@ export function LeaderboardTable({
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pluginCatalog, setPluginCatalog] = useState<PackageRelease[]>([]);
-  const [agentCatalog, setAgentCatalog] = useState<PackageRelease[]>([]);
 
   useEffect(() => {
     if (!openSuiteId) return;
@@ -380,13 +379,6 @@ export function LeaderboardTable({
       .catch(() => {
         if (!cancelled) setPluginCatalog([]);
       });
-    listPackages(token, { packageKind: "agent" })
-      .then((items) => {
-        if (!cancelled) setAgentCatalog(latestPackageByDataset(items));
-      })
-      .catch(() => {
-        if (!cancelled) setAgentCatalog([]);
-      });
     return () => {
       cancelled = true;
     };
@@ -399,12 +391,6 @@ export function LeaderboardTable({
       return next;
     });
   }
-
-  const agentById = useMemo(() => {
-    const map = new Map<string, PackageRelease>();
-    for (const row of agentCatalog) map.set(row.dataset_id, row);
-    return map;
-  }, [agentCatalog]);
 
   const showKColumns = suites.some(
     (s) => primaryDisplayK(s.metrics || {}) != null,
@@ -561,40 +547,27 @@ export function LeaderboardTable({
                     {runtimeLinks.length ? (
                       <TableCell className={COL_TEXT}>
                         <span className="flex flex-col gap-0.5 min-w-0">
-                          {runtimeLinks.map((ref) => {
-                            const pkg = agentById.get(ref.package_id);
-                            const mark = pkg
-                              ? markFromPackage(pkg)
-                              : resolveEntityMark({ packageId: ref.package_id });
-                            return (
-                              <Link
-                                key={ref.package_id}
-                                to={`/agents/${encodeDatasetId(ref.package_id)}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex max-w-full items-center gap-1.5 text-sm hover:text-ink hover:underline underline-offset-2"
-                              >
-                                <BrandMark mark={mark} size={16} />
-                                <TruncateTip
-                                  text={ref.package_id}
-                                  className="text-sm"
-                                />
-                              </Link>
-                            );
-                          })}
+                          {runtimeLinks.map((ref) => (
+                            <Link
+                              key={ref.package_id}
+                              to={`/agents/${encodeDatasetId(ref.package_id)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex max-w-full text-sm hover:text-ink hover:underline underline-offset-2"
+                            >
+                              <TruncateTip
+                                text={ref.package_id}
+                                className="text-sm"
+                              />
+                            </Link>
+                          ))}
                         </span>
                       </TableCell>
                     ) : (
                       <TableCell className={COL_TEXT}>
-                        <span className="inline-flex max-w-full items-center gap-1.5">
-                          <BrandMark
-                            mark={resolveEntityMark({ displayName: agentText })}
-                            size={16}
-                          />
-                          <TruncateTip
-                            text={agentText || "—"}
-                            className="text-sm"
-                          />
-                        </span>
+                        <TruncateTip
+                          text={agentText || "—"}
+                          className="text-sm"
+                        />
                       </TableCell>
                     )}
                     <TableCell className={COL_TEXT}>

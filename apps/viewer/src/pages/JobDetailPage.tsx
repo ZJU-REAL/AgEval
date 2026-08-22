@@ -30,6 +30,7 @@ import { taskHref, taskRunIds } from "@/lib/routes";
 import { AxisLabel } from "@/components/axis-label";
 import { HoverTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
+import { useDocumentTitle } from "@/lib/document-title";
 import { formatError, formatScore } from "@/lib/utils";
 
 type SortKey = "task_id" | "agent_label" | "model_label" | "score" | "status";
@@ -37,6 +38,7 @@ type SortKey = "task_id" | "agent_label" | "model_label" | "score" | "status";
 export function JobDetailPage() {
   const { jobId = "" } = useParams();
   const navigate = useNavigate();
+  useDocumentTitle(jobId || "Job");
   const [job, setJob] = useState<Job | null>(null);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [error, setError] = useState<string | null>(null);

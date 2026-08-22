@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { useDocumentTitle } from "@/lib/document-title";
+
 type PageHeadProps = {
   title: ReactNode;
   sub?: ReactNode;
@@ -8,6 +10,9 @@ type PageHeadProps = {
 
 /** Page header: title + optional sub over a hairline rule. */
 export function PageHead({ title, sub, actions }: PageHeadProps) {
+  const text = typeof title === "string" ? title : null;
+  useDocumentTitle(text);
+
   return (
     <header className="mb-5 border-b border-hairline pb-4">
       <div className="flex flex-wrap items-end justify-between gap-3">

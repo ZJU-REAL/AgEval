@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { HoverTip } from "@/components/hover-tip";
+import { useDocumentTitle } from "@/lib/document-title";
 import {
   SlotHistorySelect,
   type SlotHistoryEntry,
@@ -31,6 +32,8 @@ export function TrialHeader({
   slotPrevious?: SlotHistoryEntry[];
   onSlotSelect?: (id: string) => void;
 }) {
+  useDocumentTitle(runId);
+
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0 flex-1">

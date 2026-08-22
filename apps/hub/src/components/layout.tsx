@@ -353,6 +353,12 @@ export function Shell({
 
   return (
     <PageHeadSlotProvider slot={headSlot}>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[80] focus:rounded-[6px] focus:bg-link focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-on-accent"
+      >
+        Skip to content
+      </a>
       <div className="flex h-full min-h-full bg-canvas">
         {mobileOpen ? (
           <button
@@ -491,7 +497,11 @@ export function Shell({
               <SignInButton />
             )}
           </header>
-          <main className="min-h-0 flex-1 overflow-auto px-4 pb-5 pt-5 sm:px-6">
+          <main
+            id="main"
+            tabIndex={-1}
+            className="min-h-0 flex-1 overflow-auto px-4 pb-5 pt-5 sm:px-6"
+          >
             {children}
           </main>
         </div>

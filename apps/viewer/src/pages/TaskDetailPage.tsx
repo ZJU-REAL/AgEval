@@ -14,12 +14,14 @@ import {
 } from "@/components/ui/table";
 import { fetchJobTask, type Job, type TaskRow, type Trial } from "@/lib/api";
 import { ModelLabel } from "@/components/model-label";
+import { useDocumentTitle } from "@/lib/document-title";
 import { jobPath, trialPath } from "@/lib/routes";
 import { cn, formatDate, formatError, formatScore } from "@/lib/utils";
 
 export function TaskDetailPage() {
   const { jobId = "", taskId = "" } = useParams();
   const navigate = useNavigate();
+  useDocumentTitle(taskId || "Task");
   const [job, setJob] = useState<Job | null>(null);
   const [task, setTask] = useState<TaskRow | null>(null);
   const [trials, setTrials] = useState<Trial[]>([]);
