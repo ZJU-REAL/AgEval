@@ -2,7 +2,10 @@ import { Database } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { CatalogScopeBar } from "@/components/catalog-scope-bar";
+import {
+  CatalogScopeBar,
+  DATASET_SCOPE_ITEMS,
+} from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
 import {
@@ -119,6 +122,7 @@ export function DatasetsPage() {
       <CatalogScopeBar
         scope={scope}
         onScope={setScope}
+        items={DATASET_SCOPE_ITEMS}
         query={query}
         onQuery={setQuery}
         searchLabel="Search datasets"

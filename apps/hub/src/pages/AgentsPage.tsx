@@ -3,7 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogCardGrid, CatalogCardSkeleton } from "@/components/catalog-card";
-import { CatalogScopeBar } from "@/components/catalog-scope-bar";
+import {
+  CatalogScopeBar,
+  MARKETPLACE_SCOPE_ITEMS,
+  type CatalogScope,
+} from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
 import {
@@ -16,13 +20,15 @@ import {
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
-type Scope = "orgs" | "explore";
+function parseScope(raw: string | null): CatalogScope {
+  if (raw === "explore" || raw === "favorites") return raw;
+  return "orgs";
+}
 
 export function AgentsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope: Scope =
-    searchParams.get("scope") === "explore" ? "explore" : "orgs";
+  const scope = parseScope(searchParams.get("scope"));
 
   const [items, setItems] = useState<PackageRelease[]>([]);
   const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
@@ -68,7 +74,9 @@ export function AgentsPage() {
     const scoped =
       scope === "orgs"
         ? latest.filter((r) => r.org_id && myOrgIds.has(r.org_id) && token)
-        : latest.filter((r) => r.visibility === "public");
+        : scope === "favorites"
+          ? latest.filter((r) => r.favorited && token)
+          : latest.filter((r) => r.visibility === "public");
     const q = query.trim().toLowerCase();
     if (!q) return scoped;
     return scoped.filter(
@@ -78,10 +86,21 @@ export function AgentsPage() {
     );
   }, [items, scope, myOrgIds, query, token]);
 
-  function setScope(next: Scope) {
-    setSearchParams(next === "explore" ? { scope: "explore" } : {}, {
-      replace: true,
-    });
+  function setScope(next: CatalogScope) {
+    setSearchParams(next === "orgs" ? {} : { scope: next }, { replace: true });
+  }
+
+  function patchFavorite(
+    id: string,
+    next: { favorited: boolean; favorite_count: number },
+  ) {
+    setItems((prev) =>
+      prev.map((row) =>
+        row.dataset_id === id
+          ? { ...row, favorited: next.favorited, favorite_count: next.favorite_count }
+          : row,
+      ),
+    );
   }
 
   function openAgent(id: string) {
@@ -105,18 +124,26 @@ export function AgentsPage() {
       <CatalogScopeBar
         scope={scope}
         onScope={setScope}
+        items={MARKETPLACE_SCOPE_ITEMS}
         query={query}
         onQuery={setQuery}
         searchLabel="Search agents"
         searchPlaceholder="Search agents…"
       />
 
-      {scope === "orgs" && !token ? (
+      {(scope === "orgs" || scope === "favorites") && !token ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
-          <p className="font-medium text-ink">Sign in to see org agents</p>
+          <p className="font-medium text-ink">
+            {scope === "favorites"
+              ? "Sign in to see favorite agents"
+              : "Sign in to see org agents"}
+          </p>
           <p className="mt-1 text-mute">
-            <SignInLink /> to list agents from your organizations. Public
-            agents are under{" "}
+            <SignInLink /> to list{" "}
+            {scope === "favorites"
+              ? "agents you favorited"
+              : "agents from your organizations"}
+            . Public agents are under{" "}
             <button
               type="button"
               className="underline underline-offset-2"
@@ -147,11 +174,18 @@ export function AgentsPage() {
               <p className="mt-1 text-mute max-w-md mx-auto">
                 {scope === "orgs"
                   ? "No agent packages from your organizations yet. Publish with ageval agent publish <path> --org <id>."
-                  : "No public agent packages on this Registry yet."}
+                  : scope === "favorites"
+                    ? "No favorite agents yet. Star an agent from Explore."
+                    : "No public agent packages on this Registry yet."}
               </p>
             </div>
           ) : (
-            <CatalogCardGrid kind="agent" rows={agents} onOpen={openAgent} />
+            <CatalogCardGrid
+              kind="agent"
+              rows={agents}
+              onOpen={openAgent}
+              onFavoriteChange={patchFavorite}
+            />
           )}
           <p className="text-xs text-mute mt-3 tabular-nums">
             {agents.length} agent{agents.length === 1 ? "" : "s"}

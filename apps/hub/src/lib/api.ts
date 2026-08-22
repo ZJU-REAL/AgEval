@@ -66,6 +66,10 @@ export type PackageRelease = {
   display_name?: string;
   /** Marketplace observation: successful content GETs for this package id. */
   download_count?: number;
+  /** Marketplace observation: signed-in users who favorited this package id. */
+  favorite_count?: number;
+  /** True when the current caller has favorited this package. */
+  favorited?: boolean;
 };
 
 export type OrgRow = {
@@ -490,17 +494,37 @@ export function decodeDatasetId(param: string): string {
 
 export async function listPackages(
   token: string | null,
-  opts?: { packageKind?: "dataset" | "plugin" | "agent"; mine?: boolean },
+  opts?: {
+    packageKind?: "dataset" | "plugin" | "agent";
+    mine?: boolean;
+    favorited?: boolean;
+  },
 ): Promise<PackageRelease[]> {
   // With token, server may include private; without, public only.
   const q = new URLSearchParams();
   if (opts?.packageKind) q.set("package_kind", opts.packageKind);
   if (opts?.mine) q.set("mine", "1");
+  if (opts?.favorited) q.set("favorited", "1");
   const path = q.toString() ? `/v1/packages?${q.toString()}` : "/v1/packages";
   const data = await requestJson<{ items?: PackageRelease[] }>(path, {
     token,
   });
   return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function setPackageFavorite(
+  packageId: string,
+  favorited: boolean,
+  token: string | null,
+): Promise<{
+  dataset_id: string;
+  favorite_count: number;
+  favorited: boolean;
+}> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}/favorite`, {
+    token,
+    method: favorited ? "POST" : "DELETE",
+  });
 }
 
 export async function listPackageVersionsWithAppearances(

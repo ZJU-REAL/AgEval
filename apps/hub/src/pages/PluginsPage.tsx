@@ -3,7 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogCardGrid, CatalogCardSkeleton } from "@/components/catalog-card";
-import { CatalogScopeBar } from "@/components/catalog-scope-bar";
+import {
+  CatalogScopeBar,
+  MARKETPLACE_SCOPE_ITEMS,
+  type CatalogScope,
+} from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
 import {
@@ -16,13 +20,15 @@ import {
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
-type Scope = "orgs" | "explore";
+function parseScope(raw: string | null): CatalogScope {
+  if (raw === "explore" || raw === "favorites") return raw;
+  return "orgs";
+}
 
 export function PluginsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope: Scope =
-    searchParams.get("scope") === "explore" ? "explore" : "orgs";
+  const scope = parseScope(searchParams.get("scope"));
 
   const [items, setItems] = useState<PackageRelease[]>([]);
   const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
@@ -68,7 +74,9 @@ export function PluginsPage() {
     const scoped =
       scope === "orgs"
         ? latest.filter((r) => r.org_id && myOrgIds.has(r.org_id) && token)
-        : latest.filter((r) => r.visibility === "public");
+        : scope === "favorites"
+          ? latest.filter((r) => r.favorited && token)
+          : latest.filter((r) => r.visibility === "public");
     const q = query.trim().toLowerCase();
     if (!q) return scoped;
     return scoped.filter(
@@ -78,10 +86,21 @@ export function PluginsPage() {
     );
   }, [items, scope, myOrgIds, query, token]);
 
-  function setScope(next: Scope) {
-    setSearchParams(next === "explore" ? { scope: "explore" } : {}, {
-      replace: true,
-    });
+  function setScope(next: CatalogScope) {
+    setSearchParams(next === "orgs" ? {} : { scope: next }, { replace: true });
+  }
+
+  function patchFavorite(
+    id: string,
+    next: { favorited: boolean; favorite_count: number },
+  ) {
+    setItems((prev) =>
+      prev.map((row) =>
+        row.dataset_id === id
+          ? { ...row, favorited: next.favorited, favorite_count: next.favorite_count }
+          : row,
+      ),
+    );
   }
 
   function openPlugin(id: string) {
@@ -104,18 +123,26 @@ export function PluginsPage() {
       <CatalogScopeBar
         scope={scope}
         onScope={setScope}
+        items={MARKETPLACE_SCOPE_ITEMS}
         query={query}
         onQuery={setQuery}
         searchLabel="Search plugins"
         searchPlaceholder="Search plugins…"
       />
 
-      {scope === "orgs" && !token ? (
+      {(scope === "orgs" || scope === "favorites") && !token ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
-          <p className="font-medium text-ink">Sign in to see org plugins</p>
+          <p className="font-medium text-ink">
+            {scope === "favorites"
+              ? "Sign in to see favorite plugins"
+              : "Sign in to see org plugins"}
+          </p>
           <p className="mt-1 text-mute">
-            <SignInLink /> to list plugins from your organizations. Public
-            plugins are under{" "}
+            <SignInLink /> to list{" "}
+            {scope === "favorites"
+              ? "plugins you favorited"
+              : "plugins from your organizations"}
+            . Public plugins are under{" "}
             <button
               type="button"
               className="underline underline-offset-2"
@@ -146,7 +173,9 @@ export function PluginsPage() {
               <p className="mt-1 text-mute max-w-md mx-auto">
                 {scope === "orgs"
                   ? "No plugin packages from your organizations yet. Publish with ageval plugin publish <path> --org <id>."
-                  : "No public plugin packages on this Registry yet."}
+                  : scope === "favorites"
+                    ? "No favorite plugins yet. Star a plugin from Explore."
+                    : "No public plugin packages on this Registry yet."}
               </p>
             </div>
           ) : (
@@ -154,6 +183,7 @@ export function PluginsPage() {
               kind="plugin"
               rows={plugins}
               onOpen={openPlugin}
+              onFavoriteChange={patchFavorite}
             />
           )}
           <p className="text-xs text-mute mt-3 tabular-nums">

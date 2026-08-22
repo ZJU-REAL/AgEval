@@ -111,6 +111,14 @@ export function OrganizationDetailPage() {
   const isOwner = (org?.role || "").toLowerCase() === "owner";
   const selfLogin = (getGithubUser() || "").toLowerCase();
   const ownerCount = members.filter((m) => m.role === "owner").length;
+  const orderedMembers = useMemo(() => {
+    return [...members].sort((a, b) => {
+      const ar = a.role === "owner" ? 0 : 1;
+      const br = b.role === "owner" ? 0 : 1;
+      if (ar !== br) return ar - br;
+      return a.user_id.localeCompare(b.user_id);
+    });
+  }, [members]);
 
   useEffect(() => {
     if (!orgId || !token) {
@@ -463,7 +471,7 @@ export function OrganizationDetailPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {members.map((m) => {
+                        {orderedMembers.map((m) => {
                           const avatar =
                             m.avatar_url ||
                             `https://github.com/${encodeURIComponent(m.user_id)}.png?size=64`;
@@ -712,7 +720,7 @@ export function OrganizationDetailPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {members.map((m) => {
+                          {orderedMembers.map((m) => {
                             const isSelf = m.user_id === selfLogin;
                             const lastOwner =
                               m.role === "owner" && ownerCount <= 1;

@@ -5,7 +5,7 @@ import { SignInLink } from "@/components/sign-in-button";
 import { completeWebLogin, RegistryHttpError } from "@/lib/api";
 import { setToken } from "@/lib/auth";
 import { formatLoginError } from "@/lib/github-login";
-import { takeReturnPath } from "@/pages/HomePage";
+import { takeReturnPath } from "@/lib/return-path";
 
 /** OAuth redirect target: ?code=&state= → Registry token → /datasets */
 export function LoginCallbackPage() {

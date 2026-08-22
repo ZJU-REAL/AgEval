@@ -5,15 +5,18 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { OfficialMark } from "@/components/official-mark";
-import { DownloadCount } from "@/components/download-count";
+import { MarketplaceCounts } from "@/components/marketplace-counts";
 import {
   getPackageByDigest,
   packageDisplayTitle,
+  setPackageFavorite,
   type PackageRelease,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { rememberReturnPath } from "@/lib/return-path";
 import { cn, formatDay } from "@/lib/utils";
 
 type CatalogKind = "plugin" | "agent";
@@ -71,18 +74,54 @@ export function CatalogCard({
   kind,
   row,
   onOpen,
+  onFavoriteChange,
 }: {
   kind: CatalogKind;
   row: PackageRelease;
   onOpen: (id: string) => void;
+  onFavoriteChange?: (
+    id: string,
+    next: { favorited: boolean; favorite_count: number },
+  ) => void;
 }) {
+  const navigate = useNavigate();
   const title = packageDisplayTitle(row.dataset_id, row.display_name);
   const chips = kind === "plugin" ? pluginChips(row) : agentChips(row);
   const description = descriptionOf(kind, row);
   const updated = row.created_at != null ? formatDay(row.created_at) : null;
+  const [favBusy, setFavBusy] = useState(false);
+  const [fav, setFav] = useState({
+    on: Boolean(row.favorited),
+    count: row.favorite_count,
+  });
+
+  useEffect(() => {
+    setFav({ on: Boolean(row.favorited), count: row.favorite_count });
+  }, [row.dataset_id, row.favorited, row.favorite_count]);
 
   function open() {
     onOpen(row.dataset_id);
+  }
+
+  async function toggleFavorite() {
+    if (favBusy) return;
+    const token = getToken();
+    if (!token) {
+      rememberReturnPath(window.location.pathname + window.location.search);
+      navigate("/login");
+      return;
+    }
+    setFavBusy(true);
+    try {
+      const next = await setPackageFavorite(row.dataset_id, !fav.on, token);
+      setFav({ on: next.favorited, count: next.favorite_count });
+      onFavoriteChange?.(row.dataset_id, {
+        favorited: next.favorited,
+        favorite_count: next.favorite_count,
+      });
+    } finally {
+      setFavBusy(false);
+    }
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -148,7 +187,14 @@ export function CatalogCard({
         ) : (
           <span />
         )}
-        <DownloadCount count={row.download_count} compact className="shrink-0" />
+        <MarketplaceCounts
+          downloadCount={row.download_count}
+          favoriteCount={fav.count}
+          favorited={fav.on}
+          compact
+          className="shrink-0"
+          onToggleFavorite={toggleFavorite}
+        />
       </div>
     </article>
   );
@@ -158,10 +204,15 @@ export function CatalogCardGrid({
   kind,
   rows,
   onOpen,
+  onFavoriteChange,
 }: {
   kind: CatalogKind;
   rows: PackageRelease[];
   onOpen: (id: string) => void;
+  onFavoriteChange?: (
+    id: string,
+    next: { favorited: boolean; favorite_count: number },
+  ) => void;
 }) {
   const [previews, setPreviews] = useState<Record<string, PackageRelease>>({});
   const rowsRef = useRef(rows);
@@ -222,6 +273,7 @@ export function CatalogCardGrid({
           kind={kind}
           row={row}
           onOpen={onOpen}
+          onFavoriteChange={onFavoriteChange}
         />
       ))}
     </div>

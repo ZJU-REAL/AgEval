@@ -1,23 +1,30 @@
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { Input } from "@/components/ui/input";
 
-type Scope = "orgs" | "explore";
+export type CatalogScope = "orgs" | "explore" | "favorites";
 
-const SCOPE_ITEMS = [
+export const DATASET_SCOPE_ITEMS = [
   { id: "orgs" as const, label: "Your organizations" },
   { id: "explore" as const, label: "Explore" },
 ];
 
-export function CatalogScopeBar({
+export const MARKETPLACE_SCOPE_ITEMS = [
+  ...DATASET_SCOPE_ITEMS,
+  { id: "favorites" as const, label: "Favorites" },
+];
+
+export function CatalogScopeBar<T extends string>({
   scope,
   onScope,
+  items,
   query,
   onQuery,
   searchLabel,
   searchPlaceholder,
 }: {
-  scope: Scope;
-  onScope: (next: Scope) => void;
+  scope: T;
+  onScope: (next: T) => void;
+  items: readonly { id: T; label: string }[];
   query: string;
   onQuery: (next: string) => void;
   searchLabel: string;
@@ -26,7 +33,7 @@ export function CatalogScopeBar({
   return (
     <div className="mb-4">
       <UnderlineTabs
-        items={SCOPE_ITEMS}
+        items={items}
         value={scope}
         onChange={onScope}
         ariaLabel="Catalog scope"

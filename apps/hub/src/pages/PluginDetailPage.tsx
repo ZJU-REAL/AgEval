@@ -6,7 +6,7 @@ import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
-import { DownloadCount } from "@/components/download-count";
+import { MarketplaceCounts } from "@/components/marketplace-counts";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { InlineMarkdown } from "@/components/markdown";
 import {
@@ -23,12 +23,14 @@ import {
   listPackageFiles,
   listPackageVersions,
   splitPackageId,
+  setPackageFavorite,
   updatePackageDisplayName,
   type PackageRelease,
   type PluginPreview,
   RegistryHttpError,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import { rememberReturnPath } from "@/lib/return-path";
 import { buildNestedTree, type TreeNode } from "@/lib/file-tree";
 
 export function PluginDetailPage() {
@@ -239,7 +241,35 @@ export function PluginDetailPage() {
                 {release.visibility}
               </span>
               <span aria-hidden>·</span>
-              <DownloadCount count={release.download_count} />
+              <MarketplaceCounts
+                downloadCount={release.download_count}
+                favoriteCount={release.favorite_count}
+                favorited={Boolean(release.favorited)}
+                onToggleFavorite={() => {
+                  if (!token) {
+                    rememberReturnPath(
+                      window.location.pathname + window.location.search,
+                    );
+                    navigate("/login");
+                    return;
+                  }
+                  void setPackageFavorite(
+                    pluginId,
+                    !release.favorited,
+                    token,
+                  ).then((next) => {
+                    setRelease((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            favorited: next.favorited,
+                            favorite_count: next.favorite_count,
+                          }
+                        : prev,
+                    );
+                  });
+                }}
+              />
               {release.org_id ? (
                 <>
                   <span aria-hidden>·</span>
