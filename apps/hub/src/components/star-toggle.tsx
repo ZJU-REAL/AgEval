@@ -2,7 +2,6 @@ import { useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Star } from "lucide-react";
 
-import { toast } from "@/components/ui/toast";
 import { setPackageFavorite, type PackageRelease } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { rememberReturnPath } from "@/lib/return-path";
@@ -45,8 +44,8 @@ export function StarToggle({
     if (nextBits.length === 0) return;
     setPop(true);
     setBits(nextBits);
-    window.setTimeout(() => setPop(false), 400);
-    window.setTimeout(() => setBits([]), 600);
+    window.setTimeout(() => setPop(false), 220);
+    window.setTimeout(() => setBits([]), 400);
   }
 
   return (
@@ -70,8 +69,8 @@ export function StarToggle({
     >
       <Star
         className={cn(
-          "h-4 w-4 motion-safe:transition-transform motion-safe:duration-[400ms] motion-safe:ease-spring",
-          pop && "scale-[1.35]",
+          "h-4 w-4 motion-safe:transition-transform motion-safe:duration-[240ms] motion-safe:ease-spring",
+          pop && "scale-[1.22]",
         )}
         strokeWidth={1.75}
         fill={starred || pop ? "currentColor" : "none"}
@@ -119,10 +118,7 @@ export function PackageStarButton({
         setBusy(true);
         const next = !release.favorited;
         void setPackageFavorite(packageId, next, token)
-          .then((updated) => {
-            onUpdated(updated);
-            toast(next ? "Starred" : "Removed from Stars");
-          })
+          .then(onUpdated)
           .finally(() => setBusy(false));
       }}
     />

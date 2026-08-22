@@ -3,7 +3,6 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import {
   compareValues,
@@ -120,7 +119,6 @@ function CodeBlock({
     try {
       await navigator.clipboard.writeText(content);
       setCopied(true);
-      toast("Copied");
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
       /* ignore */

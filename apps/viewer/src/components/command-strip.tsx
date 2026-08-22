@@ -2,7 +2,6 @@ import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
 import { ShellCode } from "@/lib/shell-highlight";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +18,6 @@ export function CommandStrip({
     try {
       await navigator.clipboard.writeText(command);
       setCopied(true);
-      toast("Copied");
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
       /* ignore */
@@ -49,11 +47,20 @@ export function CommandStrip({
         aria-label="Copy command"
         className="shrink-0"
       >
-        {copied ? (
-          <Check className="h-4 w-4 text-ink" />
-        ) : (
-          <Copy className="h-4 w-4 text-mute" />
-        )}
+        <span className="relative h-4 w-4">
+          <Copy
+            className={cn(
+              "absolute inset-0 h-4 w-4 text-mute motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-smooth",
+              copied ? "scale-50 opacity-0" : "scale-100 opacity-100",
+            )}
+          />
+          <Check
+            className={cn(
+              "absolute inset-0 h-4 w-4 text-ink motion-safe:transition-[opacity,transform] motion-safe:duration-200 motion-safe:ease-spring",
+              copied ? "scale-100 opacity-100" : "scale-50 opacity-0",
+            )}
+          />
+        </span>
       </Button>
     </div>
   );

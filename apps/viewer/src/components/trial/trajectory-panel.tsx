@@ -24,7 +24,6 @@ import {
 
 import { HoverTip } from "@/components/hover-tip";
 import type { TrajectoryStep } from "@/lib/api";
-import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 import { actorLabel, type ActorRow } from "./types";
@@ -57,7 +56,6 @@ function CopyBodyButton({ text }: { text: string }) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast("Copied");
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
       /* ignore */
