@@ -582,6 +582,7 @@ export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
     steps.push({
       type: stepType,
       role: typeof role === "string" ? role : null,
+      part: typeof rec.part === "string" ? rec.part : null,
       content: typeof content === "string" ? content : null,
       turn_index: typeof rec.turn_index === "number" ? rec.turn_index : null,
       session_id: typeof rec.session_id === "string" ? rec.session_id : null,

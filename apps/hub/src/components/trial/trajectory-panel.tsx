@@ -6,18 +6,18 @@ import {
   type MouseEvent,
 } from "react";
 import {
-  Bot,
+  BotMessageSquare,
+  Brain,
   Check,
   Copy,
   Eye,
   FilePenLine,
   FileSearch,
-  Flag,
   FoldVertical,
   UnfoldVertical,
   MessageSquare,
   Shield,
-  Terminal,
+  SquareTerminal,
   User,
   Wrench,
 } from "lucide-react";
@@ -138,6 +138,7 @@ function StepBody({
 function stepIcon(opts: {
   isUser: boolean;
   isAsst: boolean;
+  isThought: boolean;
   isToolCall: boolean;
   isObservation: boolean;
   isTerminal: boolean;
@@ -146,13 +147,14 @@ function stepIcon(opts: {
   functionName?: string | null;
 }): IconComp {
   if (opts.isUser) return User;
-  if (opts.isAsst) return Bot;
+  if (opts.isThought) return Brain;
+  if (opts.isAsst) return BotMessageSquare;
   if (opts.isObservation) return Eye;
-  if (opts.isTerminal) return Flag;
+  if (opts.isTerminal) return SquareTerminal;
   if (opts.isPermission) return Shield;
   if (opts.isToolCall) {
     const k = (opts.kind || opts.functionName || "").toLowerCase();
-    if (k === "execute" || k === "bash" || k === "shell") return Terminal;
+    if (k === "execute" || k === "bash" || k === "shell") return SquareTerminal;
     if (k === "read" || k === "search" || k === "fetch") return FileSearch;
     if (k === "edit" || k === "write" || k === "delete" || k === "move")
       return FilePenLine;
@@ -228,18 +230,22 @@ export function TrajectoryPanel({
                   : stepType || "event")
           ).toString();
           const isUser = role === "user";
-          const isAsst = role === "assistant";
+          const isThought = (s.part || "").toString() === "thought";
+          const isAsst = role === "assistant" && !isThought;
           const isTerminal = stepType === "terminal";
           const label = isToolCall
             ? s.function_name || s.kind || s.title || "tool_call"
             : isObservation
               ? "observation"
-              : isAsst
-                ? "agent"
-                : role;
+              : isThought
+                ? "thought"
+                : isAsst
+                  ? "agent"
+                  : role;
           const Icon = stepIcon({
             isUser,
             isAsst,
+            isThought,
             isToolCall,
             isObservation,
             isTerminal,

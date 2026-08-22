@@ -194,6 +194,7 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                     {
                         "type": step_type,
                         "role": role,
+                        "part": obj.get("part") if isinstance(obj.get("part"), str) else None,
                         "content": content,
                         "turn_index": obj.get("turn_index"),
                         "session_id": obj.get("session_id"),

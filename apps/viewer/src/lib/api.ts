@@ -139,6 +139,7 @@ export type TreeEntry = {
 export type TrajectoryStep = {
   type?: string;
   role?: string | null;
+  part?: string | null;
   content?: string | null;
   turn_index?: number | null;
   session_id?: string | null;
