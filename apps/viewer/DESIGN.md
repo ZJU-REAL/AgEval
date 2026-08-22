@@ -11,7 +11,7 @@ colors:
   on-primary: "#f4f5f8"
   ink: "#14161f"
   body: "#4a4e5c"
-  mute: "#7a7f90"
+  mute: "#5e6376"
   hairline: "#d5d8e2"
   hairline-strong: "#9aa0b4"
   canvas: "#f4f5f8"
@@ -20,7 +20,7 @@ colors:
   link: "#002FA7"
   link-deep: "#001f73"
   success: "#002FA7"
-  error: "#ee0000"
+  error: "#d40000"
   error-soft: "#f7d4d6"
   warning: "#f5a623"
   selection-bg: "#002FA7"
@@ -168,7 +168,7 @@ segment is clickable.
 - Tabular numbers for Result / score / duration / trial counts
 - Mono only for commands, digests, technical labels
 - Primary action = ink (copy, primary buttons); links use IKB
-- Error / exception text in `#ee0000`
+- Error / exception text in `#d40000`
 - Row hover = soft canvas `#e8eaf1` / `#1a1e2a`
 - Max content width ~1400px, generous but calm padding
 

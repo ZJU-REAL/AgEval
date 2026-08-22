@@ -18,10 +18,10 @@
 | hairline | `#D5D8E2` | `#2A2F3E` | 分隔线 / ring | `hairline` | `border` |
 | ink | `#14161F` | `#EEF0F6` | 标题 / 强文字 | `ink` | `foreground` |
 | body | `#4A4E5C` | `#9AA0B4` | 正文 | `body` | `muted-foreground` |
-| mute | `#7A7F90` | `#6E7488` | 次要文字 / 图标 | `mute` | — |
+| mute | `#5E6376` | `#8A90A4` | 次要文字 / 图标 | `mute` | — |
 | link | `#1B54E8` | `#5B7BFF` | 链接 / 主色 / 焦点(IKB) | `link` | `primary`、`ring` |
 | link-deep | `#001F73` | `#8AA0FF` | hover(浅色加深 / 深色提亮) | `link-deep` | — |
-| error | `#EE0000` | `#FF5C5C` | 错误 | `error` | — |
+| error | `#D40000` | `#FF5C5C` | 错误 | `error` | — |
 | warning | `#F5A623` | `#F5A623` | 警告 | `warning` | — |
 | star | `#E3B341` | `#F5C84C` | Star 填实金 | `star` | — |
 | code-bg | `#F4F5F8` | `#0C0E14` | 代码底 | `code-bg` | — |

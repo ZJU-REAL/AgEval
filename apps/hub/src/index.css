@@ -43,7 +43,7 @@
 [data-theme="light"] {
   --viewer-ink: #14161f;
   --viewer-body: #4a4e5c;
-  --viewer-mute: #7a7f90;
+  --viewer-mute: #5e6376;
   --viewer-hairline: #d5d8e2;
   --viewer-hairline-strong: #9aa0b4;
   --viewer-canvas: #f4f5f8;
@@ -51,7 +51,7 @@
   --viewer-canvas-soft-2: #e4e7f0;
   --viewer-link: #1b54e8;
   --viewer-link-deep: #001f73;
-  --viewer-error: #ee0000;
+  --viewer-error: #d40000;
   --viewer-error-soft: #f7d4d6;
   --viewer-warning: #f5a623;
   --viewer-star: #e3b341;
@@ -61,7 +61,7 @@
   --viewer-shell-flag: #6b4fbb;
   --viewer-shell-string: #0b6e4f;
   --viewer-shell-path: #0d7a4f;
-  --viewer-shell-punct: #7a7f90;
+  --viewer-shell-punct: #5e6376;
   --viewer-shell-plain: #14161f;
 
   --viewer-shadow-pop: 0 1px 1px rgb(0 0 0 / 3%), 0 8px 16px -4px rgb(0 0 0 / 8%);
@@ -70,7 +70,7 @@
 [data-theme="dark"] {
   --viewer-ink: #eef0f6;
   --viewer-body: #9aa0b4;
-  --viewer-mute: #6e7488;
+  --viewer-mute: #8a90a4;
   --viewer-hairline: #2a2f3e;
   --viewer-hairline-strong: #52586a;
   --viewer-canvas: #11141c;
@@ -96,7 +96,7 @@
   [data-theme="system"] {
     --viewer-ink: #eef0f6;
     --viewer-body: #9aa0b4;
-    --viewer-mute: #6e7488;
+    --viewer-mute: #8a90a4;
     --viewer-hairline: #2a2f3e;
     --viewer-hairline-strong: #52586a;
     --viewer-canvas: #11141c;
@@ -125,7 +125,7 @@
   [data-theme="system"] {
     --viewer-ink: #14161f;
     --viewer-body: #4a4e5c;
-    --viewer-mute: #7a7f90;
+    --viewer-mute: #5e6376;
     --viewer-hairline: #d5d8e2;
     --viewer-hairline-strong: #9aa0b4;
     --viewer-canvas: #f4f5f8;
@@ -133,7 +133,7 @@
     --viewer-canvas-soft-2: #e4e7f0;
     --viewer-link: #1b54e8;
     --viewer-link-deep: #001f73;
-    --viewer-error: #ee0000;
+    --viewer-error: #d40000;
     --viewer-error-soft: #f7d4d6;
     --viewer-warning: #f5a623;
     --viewer-star: #e3b341;
@@ -143,7 +143,7 @@
     --viewer-shell-flag: #6b4fbb;
     --viewer-shell-string: #0b6e4f;
     --viewer-shell-path: #0d7a4f;
-    --viewer-shell-punct: #7a7f90;
+    --viewer-shell-punct: #5e6376;
     --viewer-shell-plain: #14161f;
   }
 }
