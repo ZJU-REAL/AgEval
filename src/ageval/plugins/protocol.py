@@ -30,6 +30,8 @@ class ExecutorSPI(Protocol):
         timeout: float = 60.0,
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
+        tools: Sequence[Mapping[str, Any]] | None = None,
+        messages: Sequence[Mapping[str, Any]] | None = None,
     ) -> Any: ...
 
     def close(self) -> None:

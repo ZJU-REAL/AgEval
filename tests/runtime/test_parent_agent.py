@@ -57,6 +57,29 @@ def _open(service: ParentAgentService, profile_id: str = "solver") -> str:
     return str(opened["session_id"])
 
 
+def test_invoke_forwards_tools_and_returns_tool_calls(tmp_path: Path) -> None:
+    backend = ScriptedExecutor(
+        tool_calls=({"id": "call_1", "name": "lookup", "arguments": {"q": "a"}},)
+    )
+    service, _ = _service(tmp_path, executor=backend)
+    catalog = [{"type": "function", "function": {"name": "lookup"}}]
+    history = [{"role": "user", "content": "need lookup"}]
+
+    answer = service.invoke(
+        session_id=_open(service),
+        prompt="need lookup",
+        tools=catalog,
+        messages=history,
+    )
+
+    assert answer["ok"] is True
+    assert answer["tool_calls"] == [
+        {"id": "call_1", "name": "lookup", "arguments": {"q": "a"}},
+    ]
+    assert backend.tools == [catalog]
+    assert backend.messages == [history]
+
+
 def test_session_invokes_carry_turns_and_evidence(tmp_path: Path) -> None:
     service, backend = _service(tmp_path)
     session = _open(service)

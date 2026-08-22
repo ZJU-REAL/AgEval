@@ -77,6 +77,8 @@ class AgentSession:
     async def invoke(self, prompt: str, **kwargs: Any) -> Mapping[str, Any]:
         if self._closed:
             raise RuntimeError("session closed")
+        tools = kwargs.pop("tools", None)
+        messages = kwargs.pop("messages", None)
         if kwargs:
             # Disallow profile/workspace/executor overrides mid-session.
             raise ValueError("session invoke does not accept profile overrides")
@@ -92,6 +94,7 @@ class AgentSession:
                 "turn": self._turns,
                 "ok": False,
                 "error": "offline_forced",
+                "tool_calls": [],
             }
 
         opened = self._ensure_open()
@@ -103,16 +106,20 @@ class AgentSession:
                 "turn": self._turns,
                 "ok": False,
                 "error": opened.get("error") or "agent_session_unbound",
+                "tool_calls": [],
             }
 
-        resp = _parent_call(
-            {
-                "op": "invoke",
-                "session_id": self._session_id,
-                "attempt_id": self.attempt_id,
-                "prompt": prompt,
-            }
-        )
+        payload: dict[str, Any] = {
+            "op": "invoke",
+            "session_id": self._session_id,
+            "attempt_id": self.attempt_id,
+            "prompt": prompt,
+        }
+        if tools is not None:
+            payload["tools"] = tools
+        if messages is not None:
+            payload["messages"] = messages
+        resp = _parent_call(payload)
         return {
             "text": resp.get("text") or "",
             "structured": resp.get("structured"),
@@ -122,6 +129,7 @@ class AgentSession:
             "error": resp.get("error"),
             "invocation_id": resp.get("invocation_id"),
             "evidence_relative": resp.get("evidence_relative"),
+            "tool_calls": list(resp.get("tool_calls") or []),
         }
 
     async def close(self) -> None:

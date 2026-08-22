@@ -46,16 +46,21 @@ def write_invoke_request(
     kind: str,
     model: str,
     actor_id: str | None = None,
+    tools: Any = None,
+    messages: Any = None,
 ) -> None:
     """Write request.json + invoke_start lifecycle event. Raises RedactionError."""
+    chat = messages if isinstance(messages, list) and messages else None
     request: dict[str, Any] = {
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": chat if chat is not None else [{"role": "user", "content": prompt}],
         "profile_id": profile_id,
         "executor_kind": kind,
         "model": model,
     }
     if actor_id:
         request["actor_id"] = actor_id
+    if isinstance(tools, list) and tools:
+        request["tools"] = tools
     handle.write_request(request)
     handle.append_event(
         {

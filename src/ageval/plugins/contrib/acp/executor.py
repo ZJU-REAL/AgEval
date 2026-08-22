@@ -391,10 +391,12 @@ class AcpExecutor(AgentExecutor):
         timeout: float = 60.0,
         collect_dir: str | None = None,
         redaction_sentinels: tuple[str, ...] | list[str] | None = None,
+        tools: Any = None,
+        messages: Any = None,
     ) -> AgentResult:
         from ageval.runtime.offline import is_offline_agent
 
-        del redaction_sentinels
+        del redaction_sentinels, tools, messages
         if is_offline_agent():
             return _offline_result(self.model)
 
