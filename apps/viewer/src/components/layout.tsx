@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { OwlIcon } from "@/components/owl-icon";
+import { Toaster } from "@/components/ui/toast";
 
 export function Shell({
   children,
@@ -27,6 +28,7 @@ export function Shell({
         <ThemeToggle />
       </header>
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-6 py-5">{children}</main>
+      <Toaster />
     </div>
   );
 }

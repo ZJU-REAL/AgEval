@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { Textarea } from "@/components/ui/textarea";
 import type { Job } from "@/lib/api";
 import { jobDisplayName } from "@/lib/routes";
@@ -28,6 +29,7 @@ export function JobNoteDialog({ job, initialNote, onClose, onSave }: Props) {
 
   function submit() {
     onSave(text.trim());
+    toast("Note saved");
   }
 
   return (

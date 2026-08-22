@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
 import {
   Select,
   SelectContent,
@@ -80,6 +81,7 @@ export function ResultOwnerOps({
     try {
       await setResultVisibility(kind, resultId, next, token);
       onVisibility?.(next);
+      toast(`Visibility set to ${next}`);
     } catch (err) {
       fail(err);
     } finally {
@@ -101,6 +103,7 @@ export function ResultOwnerOps({
       );
       setShares((prev) => [...prev, row]);
       setTargetId("");
+      toast("Share added");
     } catch (err) {
       fail(err);
     } finally {
@@ -124,6 +127,7 @@ export function ResultOwnerOps({
             !(s.target_type === row.target_type && s.target_id === row.target_id),
         ),
       );
+      toast("Share removed");
     } catch (err) {
       fail(err);
     } finally {
@@ -139,6 +143,7 @@ export function ResultOwnerOps({
         withAttempts: kind === "suite" && withAttempts,
       });
       setConfirmDelete(false);
+      toast("Result deleted");
       onDeleted?.();
     } catch (err) {
       fail(err);

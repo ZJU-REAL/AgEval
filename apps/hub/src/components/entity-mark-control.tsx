@@ -5,6 +5,7 @@ import {
   BrandMarkPicker,
   type MarkDraft,
 } from "@/components/brand-mark-picker";
+import { toast } from "@/components/ui/toast";
 import { updatePackageIcon } from "@/lib/api";
 import {
   resolveEntityMark,
@@ -85,6 +86,7 @@ export function EntityMarkControl({
                 icon_github: updated.icon_github || "",
               });
               setOpen(false);
+              toast("Icon updated");
             })
             .catch((err: unknown) => {
               setError(err instanceof Error ? err.message : String(err));

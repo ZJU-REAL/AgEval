@@ -204,6 +204,24 @@
   }
 }
 
+@keyframes ageval-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(72px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ageval-toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   [data-ageval-pop] {
     animation: ageval-pop 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -211,6 +229,14 @@
 
   [data-ageval-scrim] {
     animation: ageval-scrim 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  [data-ageval-toast] {
+    animation: ageval-toast-in 550ms var(--ease-spring) both;
+  }
+
+  [data-ageval-toast][data-leaving] {
+    animation: ageval-toast-out 200ms var(--ease-smooth) both;
   }
 }
 

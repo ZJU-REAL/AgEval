@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Star } from "lucide-react";
 
+import { toast } from "@/components/ui/toast";
 import { setPackageFavorite, type PackageRelease } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { rememberReturnPath } from "@/lib/return-path";
@@ -65,8 +66,12 @@ export function PackageStarButton({
           return;
         }
         setBusy(true);
-        void setPackageFavorite(packageId, !release.favorited, token)
-          .then(onUpdated)
+        const next = !release.favorited;
+        void setPackageFavorite(packageId, next, token)
+          .then((updated) => {
+            onUpdated(updated);
+            toast(next ? "Starred" : "Removed from Stars");
+          })
           .finally(() => setBusy(false));
       }}
     />

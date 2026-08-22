@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
 import {
   Select,
   SelectContent,
@@ -71,6 +72,7 @@ export function PackageOwnerOps({
         token,
       );
       onUpdated({ ...release, ...updated, visibility: next });
+      toast(`Visibility set to ${next}`);
     } catch (err) {
       fail(err);
     } finally {
@@ -84,6 +86,7 @@ export function PackageOwnerOps({
     try {
       await deletePackageRelease(packageId, release.version, token);
       setDeleteOpen(false);
+      toast("Version deleted");
       onDeleted();
     } catch (err) {
       fail(err);
@@ -106,6 +109,7 @@ export function PackageOwnerOps({
         token,
       );
       setReleaseOpen(false);
+      toast("Draft released");
       onReleased(updated);
     } catch (err) {
       fail(err);

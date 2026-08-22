@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { HoverTip } from "@/components/hover-tip";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { Textarea } from "@/components/ui/textarea";
 
 export function DescriptionEditor({
@@ -43,6 +44,7 @@ export function DescriptionEditor({
     try {
       await onSave(next);
       setEditing(false);
+      toast("Description saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

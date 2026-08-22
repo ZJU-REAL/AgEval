@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { HoverTip } from "@/components/hover-tip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 export function DisplayNameEditor({
@@ -52,6 +53,7 @@ export function DisplayNameEditor({
     try {
       await onSave(next);
       setEditing(false);
+      toast("Name saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/toast";
 import {
   deleteJob,
   fetchDeletePreview,
@@ -130,10 +131,17 @@ export function DeleteJobDialog({ jobs, onClose, onDeleted }: Props) {
       }
     }
     if (deleted.length && !failures.length) {
+      toast(deleted.length === 1 ? "Job deleted" : `${deleted.length} jobs deleted`);
       onDeleted(deleted);
       return;
     }
-    if (deleted.length) onDeleted(deleted);
+    if (deleted.length) {
+      toast(
+        deleted.length === 1 ? "Job deleted" : `${deleted.length} jobs deleted`,
+        { tone: "error" },
+      );
+      onDeleted(deleted);
+    }
     setError(failures.join(" · ") || "nothing can be deleted");
     setBusy(false);
   }

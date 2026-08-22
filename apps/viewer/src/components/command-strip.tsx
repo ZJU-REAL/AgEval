@@ -2,6 +2,7 @@ import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { ShellCode } from "@/lib/shell-highlight";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ export function CommandStrip({
     try {
       await navigator.clipboard.writeText(command);
       setCopied(true);
+      toast("Copied");
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
       /* ignore */
