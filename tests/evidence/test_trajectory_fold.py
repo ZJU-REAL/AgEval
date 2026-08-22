@@ -481,6 +481,47 @@ def test_writer_derives_elapsed_ms_from_started_and_ended(tmp_path: Path) -> Non
     assert tool["ended_at"] == "2026-08-14T12:00:02.25Z"
 
 
+def test_writer_skips_empty_assistant_when_tools_ran(tmp_path: Path) -> None:
+    events = (
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 1,
+            "source": "openai-http",
+            "kind": "text",
+            "channel": "thought",
+            "text": "look up the user",
+        },
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 2,
+            "source": "openai-http",
+            "kind": "tool",
+            "phase": "start",
+            "tool_call_id": "c1",
+            "function_name": "find_user_id_by_name_zip",
+            "args": {"zip": "19122"},
+        },
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "seq": 3,
+            "source": "ageval",
+            "kind": "tool",
+            "phase": "update",
+            "tool_call_id": "c1",
+            "content": "yusuf_rossi_9620",
+            "status": "completed",
+        },
+    )
+    path = _write(tmp_path, events=events, prompt="p", final_text="")
+    types = [x["type"] for x in _read_lines(path)]
+    assert types == ["turn", "turn", "tool_call", "observation", "terminal"]
+    lines = _read_lines(path)
+    assert lines[1]["role"] == "assistant"
+    assert lines[1]["part"] == "thought"
+    assert lines[1]["content"] == "look up the user"
+    assert not any(x.get("role") == "assistant" and not x.get("part") for x in lines)
+
+
 def test_writer_omits_timing_when_absent(tmp_path: Path) -> None:
     events = (
         {

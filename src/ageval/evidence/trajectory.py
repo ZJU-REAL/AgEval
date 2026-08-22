@@ -192,18 +192,20 @@ def turn_rows(
 
     flush_thought()
     flush_tools()
-    merged_assistant = final_text if final_text else "".join(assistant_parts)
-    assistant_line: dict[str, Any] = {
-        "type": "turn",
-        "role": "assistant",
-        "content": merged_assistant,
-        "turn_index": turn_index,
-        "session_id": session_id,
-        "source": producer,
-    }
-    _finalize_timing(assistant_timing)
-    _copy_timing(assistant_line, assistant_timing)
-    lines.append(_drop_nulls(assistant_line, keep={"type", "role", "turn_index", "source"}))
+    merged_assistant = (final_text if final_text else "".join(assistant_parts)).strip()
+    emitted_tool = any(row.get("type") == "tool_call" for row in lines)
+    if merged_assistant or not emitted_tool:
+        assistant_line: dict[str, Any] = {
+            "type": "turn",
+            "role": "assistant",
+            "content": merged_assistant,
+            "turn_index": turn_index,
+            "session_id": session_id,
+            "source": producer,
+        }
+        _finalize_timing(assistant_timing)
+        _copy_timing(assistant_line, assistant_timing)
+        lines.append(_drop_nulls(assistant_line, keep={"type", "role", "turn_index", "source"}))
     for pe in permission_events:
         pe = {**pe, "turn_index": turn_index, "session_id": session_id}
         lines.append(pe)
@@ -249,7 +251,7 @@ def _emit_tool_rows(
         "status": state.get("status"),
         "turn_index": turn_index,
         "session_id": session_id,
-        "source": producer,
+        "source": state.get("call_source") or producer,
     }
     args = state.get("args")
     if args is not None:
@@ -264,7 +266,7 @@ def _emit_tool_rows(
         "status": state.get("status"),
         "turn_index": turn_index,
         "session_id": session_id,
-        "source": producer,
+        "source": state.get("obs_source") or producer,
     }
     if state.get("content") is not None:
         obs["content"] = state["content"]
@@ -316,6 +318,13 @@ def _merge_tool(tool_states: dict[str, dict[str, Any]], ev: dict[str, Any]) -> N
 
     if ev.get("raw_output") is not None:
         state["raw_output"] = ev["raw_output"]
+
+    src = ev.get("source")
+    if isinstance(src, str) and src:
+        if phase == "start" or not state.get("call_source"):
+            state["call_source"] = src
+        if phase == "update":
+            state["obs_source"] = src
 
     content = ev.get("content")
     if isinstance(content, str) and content:
