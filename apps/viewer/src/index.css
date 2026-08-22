@@ -32,6 +32,8 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-glide: cubic-bezier(0.65, 0, 0.35, 1);
 
   --color-on-accent: #ffffff;
 }
@@ -217,6 +219,27 @@
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-size: 13px;
+}
+
+@utility squish {
+  transition-property: color, background-color, border-color, transform;
+  transition-duration: 200ms, 200ms, 200ms, 500ms;
+  transition-timing-function: var(--ease-smooth), var(--ease-smooth),
+    var(--ease-smooth), var(--ease-spring);
+  &:active {
+    transform: scale(0.94);
+    transition-duration: 200ms, 200ms, 200ms, 80ms;
+    transition-timing-function: var(--ease-smooth), var(--ease-smooth),
+      var(--ease-smooth), ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .squish,
+  .squish:active {
+    transition: none;
+    transform: none;
+  }
 }
 
 /* Table-row hover is more reliable than Tailwind group-hover on <tr>. */

@@ -248,11 +248,14 @@ html:has(.ageval-landing) body {
   transition:
     background var(--t) var(--ease),
     color var(--t) var(--ease),
-    box-shadow var(--t) var(--ease);
+    box-shadow var(--t) var(--ease),
+    transform 200ms var(--ease);
 }
 
 .ageval-landing .btn:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
+  transition-duration: 80ms;
+  transition-timing-function: ease-out;
 }
 
 .ageval-landing .btn:focus-visible {
@@ -1619,11 +1622,13 @@ html:has(.ageval-landing) body {
     transition: none;
   }
 
+  .ageval-landing .btn,
   .ageval-landing .btn:active,
   .ageval-landing .core-grid article:hover,
   .ageval-landing .slots article:hover,
   .ageval-landing .faq-item[open] .faq-q::after {
     transform: none;
+    transition: none;
   }
 
   .ageval-landing .hero-brand,
