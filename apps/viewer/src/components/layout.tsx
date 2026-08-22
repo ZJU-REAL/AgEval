@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { OwlIcon } from "@/components/owl-icon";
-import { Toaster } from "@/components/ui/toast";
+import { Toaster } from "@/components/ui/toaster";
 
 export function Shell({
   children,

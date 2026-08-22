@@ -1,30 +1,18 @@
 import { useEffect, useState } from "react";
 
+import { bindToast, type ToastInput } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-
-type Tone = "ok" | "error";
-
-type ToastInput = {
-  message: string;
-  tone?: Tone;
-  duration?: number;
-};
 
 type ToastItem = ToastInput & { id: number; leaving?: boolean };
 
 let seed = 0;
-let notify: ((input: ToastInput) => void) | null = null;
-
-export function toast(message: string, opts?: Omit<ToastInput, "message">) {
-  notify?.({ message, ...opts });
-}
 
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
 
   useEffect(() => {
     const timers = new Map<number, number>();
-    notify = (input) => {
+    bindToast((input) => {
       const id = ++seed;
       setItems((prev) => [...prev.slice(-2), { ...input, id }]);
       const hold = input.duration ?? 2400;
@@ -39,9 +27,9 @@ export function Toaster() {
         timers.set(id, gone);
       }, hold);
       timers.set(id, hide);
-    };
+    });
     return () => {
-      notify = null;
+      bindToast(null);
       for (const timer of timers.values()) window.clearTimeout(timer);
     };
   }, []);

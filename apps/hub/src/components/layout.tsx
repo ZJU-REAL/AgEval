@@ -27,7 +27,7 @@ import { PageHeadSlotProvider } from "@/components/page-head";
 import { SignInButton } from "@/components/sign-in-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Toaster } from "@/components/ui/toast";
+import { Toaster } from "@/components/ui/toaster";
 import { usePublicUser } from "@/hooks/use-public-user";
 import {
   clearToken,
