@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 
 import { CatalogCardGrid } from "@/components/catalog-card";
+import { DescriptionEditor } from "@/components/description-editor";
 import { CatalogHead } from "@/components/page-head";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { DisplayNameEditor } from "@/components/display-name-editor";
@@ -38,6 +39,7 @@ import {
   listOrgInviteKeys,
   listOrgMembers,
   latestPackageByDataset,
+  updateOrg,
   updateOrgDisplayName,
   listPackages,
   listResultShares,
@@ -409,8 +411,26 @@ export function OrganizationDetailPage() {
               }}
             />
             <p className="font-mono text-sm text-mute mt-1">@{orgId}</p>
+            {org ? (
+              <div className="mt-3">
+                <DescriptionEditor
+                  value={org.description || ""}
+                  canEdit={isOwner}
+                  maxLength={500}
+                  emptyLabel=""
+                  onSave={async (next) => {
+                    const updated = await updateOrg(
+                      orgId,
+                      { description: next },
+                      token,
+                    );
+                    setOrg(updated);
+                  }}
+                />
+              </div>
+            ) : null}
             {org?.role ? (
-              <p className="text-xs text-body mt-1 capitalize">
+              <p className="text-xs text-body mt-2 capitalize">
                 Your role: {org.role}
               </p>
             ) : null}
@@ -654,19 +674,6 @@ export function OrganizationDetailPage() {
             </div>
           ) : (
             <div className="space-y-8">
-              <section>
-                <h2 className="text-sm font-medium text-ink mb-1">
-                  Organization description
-                </h2>
-                <p className="text-sm text-mute">
-                  No description field on Registry yet. Display name:{" "}
-                  <span className="text-body">
-                    {org?.display_name || org?.name || "—"}
-                  </span>
-                  .
-                </p>
-              </section>
-
               {(org?.role || "").toLowerCase() === "owner" ? (
                 <section className="space-y-4">
                   <div className="flex items-center gap-2">
@@ -1053,7 +1060,7 @@ export function OrganizationDetailPage() {
             }
           }}
         >
-          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-lg p-5 space-y-4">
+          <div className="w-full max-w-md rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="add-member-title"
@@ -1129,7 +1136,7 @@ export function OrganizationDetailPage() {
             }
           }}
         >
-          <div className="w-full max-w-lg rounded-[12px] border border-hairline bg-canvas shadow-lg p-5 space-y-4">
+          <div className="w-full max-w-lg rounded-[12px] border border-hairline bg-canvas shadow-[var(--viewer-shadow-pop)] p-5 space-y-4">
             <div>
               <h2
                 id="invite-key-reveal-title"

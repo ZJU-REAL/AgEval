@@ -6,6 +6,7 @@ import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
+import { DownloadCount } from "@/components/download-count";
 import { PackageOwnerOps } from "@/components/package-owner-ops";
 import { InlineMarkdown } from "@/components/markdown";
 import {
@@ -230,15 +231,20 @@ export function PluginDetailPage() {
             ) : null}
           </div>
           {release ? (
-            <p className="text-sm text-mute mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
               <span className="font-mono">@{pluginId}</span>
-              {" · "}
-              {isDraftRelease(release) ? "draft" : `v${release.version}`} · {release.visibility}
+              <span aria-hidden>·</span>
+              <span>
+                {isDraftRelease(release) ? "draft" : `v${release.version}`} ·{" "}
+                {release.visibility}
+              </span>
+              <span aria-hidden>·</span>
+              <DownloadCount count={release.download_count} />
               {release.org_id ? (
                 <>
-                  {" "}
-                  · org{" "}
+                  <span aria-hidden>·</span>
                   <span className="inline-flex items-center gap-1">
+                    org{" "}
                     <Link
                       to={`/organizations/${encodeURIComponent(release.org_id)}`}
                       className="font-mono text-xs text-body hover:text-ink"
@@ -249,7 +255,7 @@ export function PluginDetailPage() {
                   </span>
                 </>
               ) : null}
-            </p>
+            </div>
           ) : null}
         </div>
         {release ? (

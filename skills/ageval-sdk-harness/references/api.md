@@ -17,7 +17,9 @@ Package: `ageval_sdk` (see `sdk/python/src/ageval_sdk/`).
 
 ## AgentSession.invoke return keys (parent path)
 
-Includes `ok`, `error`, `text`, `structured`, `provider_session_handle`, `invocation_id`, `evidence_relative` when parent provides them.
+Includes `ok`, `error`, `text`, `structured`, `provider_session_handle`, `invocation_id`, `evidence_relative`, and `tool_calls` (list of `{id, name, arguments}`; empty when the turn is text-only).
+
+Optional invoke kwargs: `tools` (OpenAI-style catalog) and `messages` (chat history). Omit both for prompt-only invoke. Profile / workspace / executor overrides stay rejected. ACP ignores the catalog.
 
 ## Offline
 

@@ -111,6 +111,9 @@ def test_owner_can_patch_org_and_package_display_name(
     patched = boot.patch_org("lab", display_name="My Lab")
     assert patched["display_name"] == "My Lab"
     assert patched["org_id"] == "lab"
+    bio = boot.patch_org("lab", description="A research lab.")
+    assert bio["description"] == "A research lab."
+    assert bio["display_name"] == "My Lab"
 
     write_credentials(url=url, token=registry_server["token"], path=tmp_path / "c")
     monkeypatch.setenv("HOME", str(tmp_path))

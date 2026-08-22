@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { OfficialMark } from "@/components/official-mark";
+import { DownloadCount } from "@/components/download-count";
 import {
   getPackageByDigest,
   packageDisplayTitle,
@@ -132,20 +133,23 @@ export function CatalogCard({
             : "ageval.agent/1 package")}
       </p>
 
-      {chips.length ? (
-        <ul className="mt-auto flex flex-wrap gap-1.5 pt-3">
-          {chips.map((chip) => (
-            <li
-              key={chip}
-              className="rounded-[6px] bg-canvas-soft px-1.5 py-0.5 font-mono text-[11px] text-body"
-            >
-              {chip}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="mt-auto" />
-      )}
+      <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+        {chips.length ? (
+          <ul className="flex min-w-0 flex-wrap gap-1.5">
+            {chips.map((chip) => (
+              <li
+                key={chip}
+                className="rounded-[6px] bg-canvas-soft px-1.5 py-0.5 font-mono text-[11px] text-body"
+              >
+                {chip}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span />
+        )}
+        <DownloadCount count={row.download_count} compact className="shrink-0" />
+      </div>
     </article>
   );
 }

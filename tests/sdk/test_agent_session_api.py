@@ -18,6 +18,40 @@ def test_session_rejects_profile_overrides() -> None:
     asyncio.run(_run())
 
 
+def test_session_forwards_tools_without_treating_them_as_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[dict[str, object]] = []
+
+    def _fake_call(payload: dict[str, object]) -> dict[str, object]:
+        captured.append(payload)
+        if payload.get("op") == "open":
+            return {"ok": True, "session_id": "sess_test"}
+        return {
+            "ok": True,
+            "text": "",
+            "tool_calls": [
+                {"id": "call_1", "name": "lookup", "arguments": {"q": "a"}},
+            ],
+        }
+
+    monkeypatch.delenv("AGEVAL_OFFLINE_AGENT", raising=False)
+    monkeypatch.setattr("ageval_sdk.agent._parent_call", _fake_call)
+    session = AgentSession(attempt_id="attempt_x", profile_id="p", max_turns=2)
+    catalog = [{"type": "function", "function": {"name": "lookup"}}]
+    history = [{"role": "user", "content": "hi"}]
+
+    answer = asyncio.run(session.invoke("hi", tools=catalog, messages=history))
+
+    assert answer["ok"] is True
+    assert answer["tool_calls"] == [
+        {"id": "call_1", "name": "lookup", "arguments": {"q": "a"}},
+    ]
+    invoke = next(item for item in captured if item.get("op") == "invoke")
+    assert invoke["tools"] == catalog
+    assert invoke["messages"] == history
+
+
 def test_unbound_session_reports_failure_instead_of_answering(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

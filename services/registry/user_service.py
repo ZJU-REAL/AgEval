@@ -6,7 +6,10 @@ from typing import Any
 
 from services.registry.errors import RegistryAppError
 from services.registry.official import is_official_upload_org
-from services.registry.store import _normalize_user_id, org_to_dict
+from services.registry.org_service import normalize_description
+from services.registry.store import TokenInfo, _normalize_user_id, org_to_dict
+
+_USER_DESCRIPTION_MAX = 280
 
 
 class UserService:
@@ -37,6 +40,25 @@ class UserService:
             "user_id": uid,
             "display_name": profile.display_name if profile else "",
             "avatar_url": profile.avatar_url if profile else "",
+            "description": profile.description if profile else "",
             "official": bool(official_orgs),
             "official_orgs": official_orgs,
         }
+
+    def patch(
+        self,
+        *,
+        user_id: str,
+        description: object,
+        auth: TokenInfo,
+    ) -> dict[str, Any]:
+        uid = _normalize_user_id(user_id)
+        if not uid:
+            raise RegistryAppError("invalid_request", "user_id required", http_status=400)
+        if not auth.user_id:
+            raise RegistryAppError("unauthorized", "login required", http_status=401)
+        if _normalize_user_id(auth.user_id) != uid:
+            raise RegistryAppError("forbidden", "cannot edit another user", http_status=403)
+        text = normalize_description(description, max_len=_USER_DESCRIPTION_MAX)
+        self.meta.set_user_description(uid, text)
+        return self.get_public(uid)

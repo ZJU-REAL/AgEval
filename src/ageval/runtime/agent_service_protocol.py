@@ -117,9 +117,13 @@ class AgentServiceServer:
                 actor_id=actor_id,
             )
         if op == "invoke":
+            tools = req.get("tools")
+            messages = req.get("messages")
             return self.service.invoke(
                 session_id=str(req.get("session_id") or ""),
                 prompt=str(req.get("prompt") or ""),
+                tools=tools if isinstance(tools, list) else None,
+                messages=messages if isinstance(messages, list) else None,
             )
         if op == "close":
             return self.service.close_session(session_id=str(req.get("session_id") or ""))

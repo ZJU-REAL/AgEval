@@ -6,7 +6,7 @@ Endpoints:
   POST /v1/auth/github/device/poll
   POST /v1/auth/github/web/start
   POST /v1/auth/github/web/callback
-  GET  /v1/users/{user_id}
+  GET  /v1/users/{user_id} | PATCH /v1/users/{user_id} (self, description)
   POST /v1/orgs | GET /v1/orgs | GET /v1/orgs/{id} | DELETE /v1/orgs/{id}
   POST /v1/orgs/join | POST /v1/orgs/{id}/leave
   POST /v1/orgs/{id}/claim | GET|POST /v1/orgs/{id}/members | PATCH .../members/{user}

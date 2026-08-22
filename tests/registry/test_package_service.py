@@ -100,6 +100,53 @@ def test_publish_happy_path(tmp_path: Path) -> None:
         mine=True,
     )
     assert empty["items"] == []
+    assert payload["download_count"] == 0
+
+
+def test_content_increments_download_count_files_do_not(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive, _raw = _meta_archive(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    payload = svc.publish(meta=meta, archive=archive, auth=auth)
+    digest = str(payload["package_digest"])
+    svc.list_files(dataset_id="test/publish-min", auth=auth, package_digest=digest)
+    svc.read_file(
+        dataset_id="test/publish-min",
+        file_path="ageval.yaml",
+        auth=auth,
+        package_digest=digest,
+    )
+    listed = svc.list_packages(
+        auth=auth,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="dataset",
+    )
+    row = next(i for i in listed["items"] if i["dataset_id"] == "test/publish-min")
+    assert row["download_count"] == 0
+    fh, size, release = svc.serve_content(
+        dataset_id="test/publish-min", package_digest=digest, auth=auth
+    )
+    assert size > 0
+    assert release.dataset_id == "test/publish-min"
+    fh.close()
+    after = svc.serve_meta(
+        dataset_id="test/publish-min",
+        version=None,
+        package_digest=digest,
+        auth=auth,
+    )
+    assert after["download_count"] == 1
+    svc.list_files(dataset_id="test/publish-min", auth=auth, package_digest=digest)
+    still = svc.serve_meta(
+        dataset_id="test/publish-min",
+        version=None,
+        package_digest=digest,
+        auth=auth,
+    )
+    assert still["download_count"] == 1
 
 
 def test_draft_overwrite_and_entitled_list(tmp_path: Path) -> None:

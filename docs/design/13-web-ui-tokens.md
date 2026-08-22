@@ -57,7 +57,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | --- | --- |
 | 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep` |
 | 下划线 tab | `UnderlineTabs`:mono uppercase + 滑动 IKB 条(`transform`/`width` 200ms)。不要再复制 `border-b-2` 手写条 |
-| Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 `org/name`(+ official),右侧更新日期。描述固定两行高,tag 贴底。Datasets / jobs / leaderboard / members 用表 |
+| Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 `org/name`(+ official),右侧更新日期。描述固定两行高,tag 贴底；`download_count` 为 mute 计量，贴在 tag 行右侧（lucide `Download` + 数字）。Datasets / jobs / leaderboard / members 用表 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6`(IKB 主导 + 中性梯度),禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop` |

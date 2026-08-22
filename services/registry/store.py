@@ -139,6 +139,7 @@ class OrgRow:
     org_id: str
     name: str
     display_name: str
+    description: str
     is_claimable: bool
     created_at: float
 
@@ -159,6 +160,7 @@ class UserProfileRow:
     display_name: str
     avatar_url: str
     github_id: str
+    description: str
     updated_at: float
 
 
@@ -1099,6 +1101,7 @@ class MetadataStore(MetadataStoreProtocol):
         name: str,
         owner_user_id: str,
         display_name: str = "",
+        description: str = "",
         is_claimable: bool = False,
     ) -> OrgRow:
         org_id = name
@@ -1106,6 +1109,7 @@ class MetadataStore(MetadataStoreProtocol):
             org_id=org_id,
             name=name,
             display_name=display_name or name,
+            description=description,
             is_claimable=is_claimable,
             created_at=now(),
         )
@@ -1118,6 +1122,7 @@ class MetadataStore(MetadataStoreProtocol):
                         row.org_id,
                         row.name,
                         row.display_name,
+                        row.description,
                         1 if row.is_claimable else 0,
                         row.created_at,
                     ),
@@ -1133,8 +1138,28 @@ class MetadataStore(MetadataStoreProtocol):
         return row
 
     def update_org_display_name(self, org_id: str, display_name: str) -> OrgRow:
+        return self.update_org(org_id, display_name=display_name)
+
+    def update_org(
+        self,
+        org_id: str,
+        *,
+        display_name: str | None = None,
+        description: str | None = None,
+    ) -> OrgRow:
+        if display_name is None and description is None:
+            raise ValueError("nothing to update")
         with self._connect() as conn:
-            cur = self._exec(conn, Q.UPDATE_ORG_DISPLAY_NAME, (display_name, org_id))
+            if display_name is not None and description is not None:
+                cur = self._exec(
+                    conn,
+                    Q.UPDATE_ORG_DISPLAY_AND_DESCRIPTION,
+                    (display_name, description, org_id),
+                )
+            elif display_name is not None:
+                cur = self._exec(conn, Q.UPDATE_ORG_DISPLAY_NAME, (display_name, org_id))
+            else:
+                cur = self._exec(conn, Q.UPDATE_ORG_DESCRIPTION, (description, org_id))
             if getattr(cur, "rowcount", 1) == 0:
                 raise LookupError("org not found")
             conn.commit()
@@ -1656,6 +1681,7 @@ class MetadataStore(MetadataStoreProtocol):
             org_id=str(r["org_id"]),
             name=str(r["name"]),
             display_name=str(r["display_name"] or ""),
+            description=str(r["description"] or ""),
             is_claimable=bool(int(r["is_claimable"])),
             created_at=float(r["created_at"]),
         )
@@ -1674,6 +1700,7 @@ class MetadataStore(MetadataStoreProtocol):
             display_name=(display_name or "").strip(),
             avatar_url=(avatar_url or "").strip(),
             github_id=str(github_id or "").strip(),
+            description="",
             updated_at=now(),
         )
         with self._connect() as conn:
@@ -1689,7 +1716,10 @@ class MetadataStore(MetadataStoreProtocol):
                 ),
             )
             conn.commit()
-        return row
+        stored = self.get_user_profile(uid)
+        if stored is None:
+            raise LookupError("user not found")
+        return stored
 
     def get_user_profile(self, user_id: str) -> UserProfileRow | None:
         uid = _normalize_user_id(user_id) or user_id
@@ -1707,8 +1737,39 @@ class MetadataStore(MetadataStoreProtocol):
                 display_name=str(r["display_name"] or ""),
                 avatar_url=str(r["avatar_url"] or ""),
                 github_id=str(r["github_id"] or ""),
+                description=str(r["description"] or ""),
                 updated_at=float(r["updated_at"]),
             )
+
+    def set_user_description(self, user_id: str, description: str) -> UserProfileRow:
+        uid = _normalize_user_id(user_id) or user_id
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPSERT_USER_DESCRIPTION,
+                (uid, description, now()),
+            )
+            conn.commit()
+        row = self.get_user_profile(uid)
+        if row is None:
+            raise LookupError("user not found")
+        return row
+
+    def increment_package_download(self, dataset_id: str) -> None:
+        did = (dataset_id or "").strip()
+        if not did:
+            raise ValueError("dataset_id required")
+        with self._connect() as conn:
+            self._exec(conn, Q.INCREMENT_PACKAGE_DOWNLOAD, (did,))
+            conn.commit()
+
+    def package_download_counts(self, dataset_ids: list[str] | set[str]) -> dict[str, int]:
+        ids = sorted({d for d in dataset_ids if d})
+        if not ids:
+            return {}
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.select_package_download_counts_query(len(ids)), ids)
+            return {str(r["dataset_id"]): int(r["download_count"] or 0) for r in cur.fetchall()}
 
     def get_user_profiles(self, user_ids: list[str] | set[str]) -> dict[str, UserProfileRow]:
         ids = sorted({_normalize_user_id(u) or u for u in user_ids if u})
@@ -1727,6 +1788,7 @@ class MetadataStore(MetadataStoreProtocol):
                     display_name=str(r["display_name"] or ""),
                     avatar_url=str(r["avatar_url"] or ""),
                     github_id=str(r["github_id"] or ""),
+                    description=str(r["description"] or ""),
                     updated_at=float(r["updated_at"]),
                 )
                 out[p.user_id] = p
@@ -1820,6 +1882,7 @@ def org_to_dict(row: OrgRow) -> dict[str, Any]:
         "org_id": row.org_id,
         "name": row.name,
         "display_name": row.display_name,
+        "description": row.description,
         "is_claimable": row.is_claimable,
         "created_at": row.created_at,
         "official": is_official_upload_org(row.org_id),
