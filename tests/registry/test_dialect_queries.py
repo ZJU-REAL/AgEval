@@ -33,6 +33,19 @@ def test_match_route_release_draft() -> None:
     assert kwargs["dataset_id"] == "acme/db"
 
 
+def test_match_route_package_favorite() -> None:
+    posted = match_route("POST", "/v1/packages/acme/echo/favorite")
+    assert posted is not None
+    assert posted[0].name == "put_package_favorite"
+    assert posted[1]["dataset_id"] == "acme/echo"
+    deleted = match_route("DELETE", "/v1/packages/acme/echo/favorite")
+    assert deleted is not None
+    assert deleted[0].name == "delete_package_favorite"
+    listed = match_route("GET", "/v1/packages/acme/echo")
+    assert listed is not None
+    assert listed[0].name == "list_package_versions"
+
+
 def test_match_route_package_version_meta() -> None:
     matched = match_route("GET", "/v1/packages/acme/db/versions/1.0.0")
     assert matched is not None

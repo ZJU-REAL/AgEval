@@ -337,9 +337,28 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(201, payload)
 
+    def _put_package_favorite(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
+        try:
+            payload = self.state.packages.set_favorite(
+                dataset_id=dataset_id, auth=auth, favorited=True
+            )
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
+    def _delete_package_favorite(self, *, dataset_id: str, auth: TokenInfo) -> HttpResult:
+        try:
+            payload = self.state.packages.set_favorite(
+                dataset_id=dataset_id, auth=auth, favorited=False
+            )
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
     def _list_packages(self, *, auth: TokenInfo, qs: dict[str, list[str]]) -> HttpResult:
         try:
             mine_raw = (qs.get("mine") or [""])[0]
+            fav_raw = (qs.get("favorited") or [""])[0]
             payload = self.state.packages.list_packages(
                 auth=auth,
                 prefix=(qs.get("dataset_id_prefix") or [None])[0],
@@ -347,6 +366,7 @@ class RegistryHttpApi:
                 version=(qs.get("version") or [None])[0],
                 package_kind=(qs.get("package_kind") or [None])[0],
                 mine=str(mine_raw).strip().lower() in {"1", "true", "yes"},
+                favorited=str(fav_raw).strip().lower() in {"1", "true", "yes"},
             )
         except RegistryAppError as exc:
             return _caught(exc)

@@ -17,9 +17,15 @@ from services.registry.store import (
 
 from ageval.registry.archive import MEDIA_TYPE, build_archive
 from ageval.registry.digest import compute_package_digest
+from ageval.registry.plugin_package import (
+    PLUGIN_MEDIA_TYPE,
+    build_plugin_archive,
+    compute_plugin_digest,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "datasets" / "publish-min"
+PLUGIN_FIXTURE = REPO / "tests" / "fixtures" / "plugins" / "sample-echo"
 
 
 def _service(tmp_path: Path) -> PackageService:
@@ -297,3 +303,95 @@ def test_draft_first_upload_requires_org_membership(tmp_path: Path) -> None:
         svc.publish(meta=meta, archive=archive, auth=bob)
     assert ei.value.error == "forbidden"
     assert ei.value.http_status == 403
+
+
+def _plugin_meta_archive(tmp_path: Path) -> tuple[dict[str, object], Path]:
+    archive, blob_digest, size = build_plugin_archive(PLUGIN_FIXTURE)
+    path = tmp_path / "plugin.tar.gz"
+    path.write_bytes(archive)
+    return (
+        {
+            "dataset_id": "acme/sample-echo",
+            "version": "0.1.0",
+            "package_digest": compute_plugin_digest(PLUGIN_FIXTURE),
+            "blob_digest": blob_digest,
+            "media_type": PLUGIN_MEDIA_TYPE,
+            "visibility": "public",
+            "org_id": "acme",
+            "package_kind": "plugin",
+            "size": size,
+        },
+        path,
+    )
+
+
+def test_favorite_plugin_and_list_favorited(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive = _plugin_meta_archive(tmp_path)
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:read"}), user_id="bob")
+    published = svc.publish(meta=meta, archive=archive, auth=alice)
+    assert published["favorite_count"] == 0
+    assert published["favorited"] is False
+
+    added = svc.set_favorite(dataset_id="acme/sample-echo", auth=bob, favorited=True)
+    assert added["favorited"] is True
+    assert added["favorite_count"] == 1
+    again = svc.set_favorite(dataset_id="acme/sample-echo", auth=bob, favorited=True)
+    assert again["favorite_count"] == 1
+
+    listed = svc.list_packages(
+        auth=bob,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="plugin",
+        favorited=True,
+    )
+    assert [i["dataset_id"] for i in listed["items"]] == ["acme/sample-echo"]
+    row = listed["items"][0]
+    assert row["favorited"] is True
+    assert row["favorite_count"] == 1
+
+    alice_list = svc.list_packages(
+        auth=alice,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="plugin",
+    )
+    alice_row = next(i for i in alice_list["items"] if i["dataset_id"] == "acme/sample-echo")
+    assert alice_row["favorited"] is False
+    assert alice_row["favorite_count"] == 1
+
+    removed = svc.set_favorite(dataset_id="acme/sample-echo", auth=bob, favorited=False)
+    assert removed["favorited"] is False
+    assert removed["favorite_count"] == 0
+    empty = svc.list_packages(
+        auth=bob,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="plugin",
+        favorited=True,
+    )
+    assert empty["items"] == []
+
+
+def test_favorite_rejects_dataset_and_anonymous(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive, _raw = _meta_archive(tmp_path)
+    meta["visibility"] = "public"
+    alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    svc.publish(meta=meta, archive=archive, auth=alice)
+    bob = TokenInfo(scopes=frozenset({"results:read"}), user_id="bob")
+    with pytest.raises(RegistryAppError) as ei:
+        svc.set_favorite(dataset_id="test/publish-min", auth=bob, favorited=True)
+    assert ei.value.error == "invalid_request"
+    assert ei.value.http_status == 400
+    anon = TokenInfo(scopes=frozenset({"results:read"}), user_id=None)
+    with pytest.raises(RegistryAppError) as anon_err:
+        svc.set_favorite(dataset_id="test/publish-min", auth=anon, favorited=True)
+    assert anon_err.value.http_status == 401
