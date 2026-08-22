@@ -365,6 +365,17 @@ def test_favorite_plugin_and_list_favorited(tmp_path: Path) -> None:
     assert alice_row["favorited"] is False
     assert alice_row["favorite_count"] == 1
 
+    anon = TokenInfo(scopes=frozenset({"results:read"}), user_id=None)
+    anon_fav = svc.list_packages(
+        auth=anon,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind="plugin",
+        favorited=True,
+    )
+    assert anon_fav["items"] == []
+
     removed = svc.set_favorite(dataset_id="acme/sample-echo", auth=bob, favorited=False)
     assert removed["favorited"] is False
     assert removed["favorite_count"] == 0

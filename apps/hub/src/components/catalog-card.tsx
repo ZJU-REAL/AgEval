@@ -133,8 +133,8 @@ export function CatalogCard({
 
   return (
     <article
-      role="link"
       tabIndex={0}
+      aria-label={title}
       onClick={open}
       onKeyDown={onKeyDown}
       className={cn(
@@ -260,7 +260,14 @@ export function CatalogCardGrid({
       rows.map((row) => {
         if (hasPreview(kind, row)) return row;
         const extra = previews[rowKey(row)];
-        return extra ?? row;
+        if (!extra) return row;
+        // List/patch owns marketplace stats; by-digest preview must not clobber them.
+        return {
+          ...extra,
+          download_count: row.download_count,
+          favorite_count: row.favorite_count,
+          favorited: row.favorited,
+        };
       }),
     [kind, rows, previews],
   );
