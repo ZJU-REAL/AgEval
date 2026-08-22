@@ -678,11 +678,25 @@ class RegistryClient:
         return json.loads(raw.decode("utf-8"))
 
     def patch_package_display_name(self, dataset_id: str, *, display_name: str) -> dict[str, Any]:
+        return self.patch_package(dataset_id, display_name=display_name)
+
+    def patch_package(
+        self,
+        dataset_id: str,
+        *,
+        display_name: str | None = None,
+        icon_key: str | None = None,
+    ) -> dict[str, Any]:
         path = f"/v1/packages/{quote(dataset_id, safe='/')}"
+        body: dict[str, Any] = {}
+        if display_name is not None:
+            body["display_name"] = display_name
+        if icon_key is not None:
+            body["icon_key"] = icon_key
         status, raw, _ = self._request(
             "PATCH",
             path,
-            body=json.dumps({"display_name": display_name}, sort_keys=True).encode("utf-8"),
+            body=json.dumps(body, sort_keys=True).encode("utf-8"),
             headers=self._headers(content_type="application/json"),
         )
         if status != 200:

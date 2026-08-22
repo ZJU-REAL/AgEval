@@ -1195,6 +1195,36 @@ class MetadataStore(MetadataStoreProtocol):
                 if r["display_name"]
             }
 
+    def set_package_icon_key(self, dataset_id: str, icon_key: str) -> str:
+        with self._connect() as conn:
+            if icon_key:
+                self._exec(
+                    conn,
+                    Q.UPSERT_PACKAGE_ICON_KEY,
+                    (dataset_id, icon_key, now()),
+                )
+            else:
+                self._exec(conn, Q.DELETE_PACKAGE_ICON_KEY, (dataset_id,))
+            conn.commit()
+        return icon_key
+
+    def get_package_icon_key(self, dataset_id: str) -> str:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_ICON_KEY, (dataset_id,))
+            row = cur.fetchone()
+        if row is None:
+            return ""
+        return str(row["icon_key"] or "")
+
+    def package_icon_keys(self) -> dict[str, str]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_ICON_KEYS)
+            return {
+                str(r["dataset_id"]): str(r["icon_key"] or "")
+                for r in cur.fetchall()
+                if r["icon_key"]
+            }
+
     def get_org(self, org_id: str) -> OrgRow | None:
         with self._connect() as conn:
             cur = self._exec(conn, Q.SELECT_ORG, (org_id,))

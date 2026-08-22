@@ -9,6 +9,7 @@ from typing import Any
 
 from services.registry.access import AccessPolicy
 from services.registry.blob_io import read_blob, sha256_file
+from services.registry.brand_marks import normalize_icon_key
 from services.registry.dataset import DRAFT_SLOT, is_draft_version
 from services.registry.errors import RegistryAppError
 from services.registry.store import (
@@ -77,6 +78,14 @@ class PackageService:
         for item in items:
             did = str(item.get("dataset_id") or "")
             item["download_count"] = int(counts.get(did, 0))
+        return items
+
+    def _with_icon_keys(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        keys = self.meta.package_icon_keys()
+        for item in items:
+            icon = keys.get(str(item.get("dataset_id") or ""))
+            if icon:
+                item["icon_key"] = icon
         return items
 
     def publish(self, *, meta: dict[str, Any], archive: Path, auth: TokenInfo) -> dict[str, Any]:
@@ -342,6 +351,7 @@ class PackageService:
             label = labels.get(str(item.get("dataset_id") or ""))
             if label:
                 item["display_name"] = label
+        self._with_icon_keys(items)
         self._with_download_counts(items)
         return {"items": items}
 
@@ -377,6 +387,7 @@ class PackageService:
         if label:
             for item in items:
                 item["display_name"] = label
+        self._with_icon_keys(items)
         self._with_download_counts(items)
         return {"dataset_id": dataset_id, "items": items}
 
@@ -398,6 +409,7 @@ class PackageService:
         label = self.meta.get_package_display_name(dataset_id)
         if label:
             payload["display_name"] = label
+        self._with_icon_keys([payload])
         try:
             kind = package_kind_for_media_type(row.media_type)
         except ValueError as exc:
@@ -535,12 +547,40 @@ class PackageService:
     def patch_display_name(
         self, *, dataset_id: str, display_name: object, auth: TokenInfo
     ) -> dict[str, Any]:
+        return self.patch_marketplace(
+            dataset_id=dataset_id,
+            display_name=display_name,
+            auth=auth,
+            has_display_name=True,
+        )
+
+    def patch_marketplace(
+        self,
+        *,
+        dataset_id: str,
+        auth: TokenInfo,
+        display_name: object = None,
+        icon_key: object = None,
+        has_display_name: bool = False,
+        has_icon_key: bool = False,
+    ) -> dict[str, Any]:
         row = self._latest_managed_release(dataset_id, auth)
-        name = _normalize_plugin_name_segment(dataset_id, display_name)
-        stored = self.meta.set_package_display_name(dataset_id, name)
+        stored_name = None
+        if has_display_name:
+            name = _normalize_plugin_name_segment(dataset_id, display_name)
+            stored_name = self.meta.set_package_display_name(dataset_id, name)
+        if has_icon_key:
+            key = normalize_icon_key(icon_key)
+            self.meta.set_package_icon_key(dataset_id, key)
         payload = self._with_download_count(release_to_dict(row))
-        if stored:
-            payload["display_name"] = stored
+        label = (
+            stored_name
+            if stored_name is not None
+            else self.meta.get_package_display_name(dataset_id)
+        )
+        if label:
+            payload["display_name"] = label
+        self._with_icon_keys([payload])
         return payload
 
     def _latest_managed_release(self, dataset_id: str, auth: TokenInfo) -> Any:
