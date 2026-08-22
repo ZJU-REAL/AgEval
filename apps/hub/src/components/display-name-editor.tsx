@@ -11,6 +11,7 @@ export function DisplayNameEditor({
   canEdit,
   headingClassName,
   prefix,
+  beforeTitle,
   afterTitle,
   onSave,
 }: {
@@ -19,6 +20,7 @@ export function DisplayNameEditor({
   headingClassName?: string;
   /** Locked ``org/`` prefix for plugin ids. Saved value is the leaf only. */
   prefix?: string | null;
+  beforeTitle?: ReactNode;
   afterTitle?: ReactNode;
   onSave: (next: string) => Promise<void>;
 }) {
@@ -67,6 +69,7 @@ export function DisplayNameEditor({
         }}
       >
         <div className="flex items-center gap-1.5">
+          {beforeTitle}
           {locked ? (
             <span className="font-mono text-sm text-mute shrink-0">{locked}</span>
           ) : null}
@@ -112,6 +115,7 @@ export function DisplayNameEditor({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+      {beforeTitle}
       <h1 className={cn("min-w-0 truncate", headingClassName)}>{title}</h1>
       {afterTitle}
       {canEdit ? (

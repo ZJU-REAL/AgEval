@@ -4,6 +4,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { CatalogHead } from "@/components/page-head";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
+import { EntityMarkControl } from "@/components/entity-mark-control";
+import { entityHintFromPackage } from "@/lib/brand-marks";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { DownloadCount } from "@/components/download-count";
@@ -216,6 +218,24 @@ export function PluginDetailPage() {
               prefix={packageParts.org ? `${packageParts.org}/` : null}
               canEdit={Boolean(token && canEditName && release)}
               headingClassName="text-xl font-semibold tracking-tight text-ink"
+              beforeTitle={
+                release ? (
+                  <EntityMarkControl
+                    hint={entityHintFromPackage(
+                      { ...release, plugin_preview: preview || release.plugin_preview },
+                      "plugin",
+                    )}
+                    packageId={pluginId}
+                    token={token}
+                    canEdit={Boolean(token && canEditName)}
+                    onUpdated={(iconKey) => {
+                      setRelease((prev) =>
+                        prev ? { ...prev, icon_key: iconKey } : prev,
+                      );
+                    }}
+                  />
+                ) : null
+              }
               afterTitle={release?.official ? <OfficialMark /> : null}
               onSave={async (next) => {
                 const updated = await updatePackageDisplayName(pluginId, next, token);

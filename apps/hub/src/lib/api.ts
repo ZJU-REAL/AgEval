@@ -64,6 +64,8 @@ export type PackageRelease = {
   uploaded_by?: string;
   /** Owner-set marketplace title; id stays dataset_id. */
   display_name?: string;
+  /** Owner-set closed-catalog mark; omit means alias or letter. */
+  icon_key?: string;
   /** Marketplace observation: successful content GETs for this package id. */
   download_count?: number;
 };
@@ -757,6 +759,18 @@ export async function updatePackageDisplayName(
     token,
     method: "PATCH",
     body: { display_name: displayName },
+  });
+}
+
+export async function updatePackageIconKey(
+  packageId: string,
+  iconKey: string,
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}`, {
+    token,
+    method: "PATCH",
+    body: { icon_key: iconKey },
   });
 }
 
