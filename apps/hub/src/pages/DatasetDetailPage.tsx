@@ -605,7 +605,7 @@ export function DatasetDetailPage() {
           {boardView === "internal" && !demoLeaderboard ? (
             <p className="text-xs text-mute">
               Incomplete or draft-bound suite runs visible to you. Observational
-              metrics only — not suite PASS. Public board is unchanged.
+              metrics only — not suite PASS. Public board still needs Dataset org listing approval.
             </p>
           ) : null}
           <LeaderboardTable

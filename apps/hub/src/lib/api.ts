@@ -1023,6 +1023,49 @@ export async function removeResultShare(
   });
 }
 
+export type ResourceRequest = {
+  request_id: string;
+  kind: "leaderboard_list" | "agent_appearance" | string;
+  status: "pending" | "approved" | "rejected" | string;
+  suite_run_id: string;
+  dataset_id: string;
+  applicant: string;
+  owner_org_id: string;
+  agent_ref?: string;
+  created_at?: number;
+  decided_at?: number;
+  decided_by?: string;
+};
+
+export async function applyRequest(
+  body: { kind: string; suite_run_id: string; agent?: string },
+  token: string | null,
+): Promise<ResourceRequest & { direct_attach?: boolean; attached?: boolean }> {
+  return requestJson("/v1/requests", { token, method: "POST", body });
+}
+
+export async function listInbox(
+  token: string | null,
+): Promise<ResourceRequest[]> {
+  const data = await requestJson<{ items?: ResourceRequest[] }>(
+    "/v1/requests?inbox=1",
+    { token },
+  );
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function decideRequests(
+  ids: string[],
+  action: "approve" | "reject",
+  token: string | null,
+): Promise<{ items?: ResourceRequest[]; action?: string }> {
+  return requestJson("/v1/requests/decide", {
+    token,
+    method: "POST",
+    body: { ids, action },
+  });
+}
+
 export async function attachSuiteAgent(
   suiteRunId: string,
   agent: string,

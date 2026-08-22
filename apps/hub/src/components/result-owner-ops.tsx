@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import {
   addResultShare,
+  applyRequest,
   attachSuiteAgent,
   deleteResult,
   listResultShares,
@@ -27,6 +28,9 @@ export function ResultOwnerOps({
   kind,
   resultId,
   visibility,
+  complete,
+  boundKind,
+  boardListed,
   canManage,
   token,
   onVisibility,
@@ -36,6 +40,9 @@ export function ResultOwnerOps({
   kind: "attempt" | "suite";
   resultId: string;
   visibility?: string;
+  complete?: boolean;
+  boundKind?: string;
+  boardListed?: boolean;
   canManage: boolean;
   token: string | null;
   onVisibility?: (next: "public" | "private") => void;
@@ -133,6 +140,46 @@ export function ResultOwnerOps({
         ),
       );
       toast("Share removed");
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestListing() {
+    if (kind !== "suite") return;
+    setBusy(true);
+    setError(null);
+    try {
+      await applyRequest(
+        { kind: "leaderboard_list", suite_run_id: resultId },
+        token,
+      );
+      toast("Listing requested");
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestAppearance() {
+    const spec = agentRef.trim();
+    if (!spec || kind !== "suite") return;
+    setBusy(true);
+    setError(null);
+    try {
+      const row = await applyRequest(
+        { kind: "agent_appearance", suite_run_id: resultId, agent: spec },
+        token,
+      );
+      if (row.direct_attach || row.attached) {
+        onAttached?.(row);
+        toast("Agent ref attached");
+      } else {
+        toast("Appearance requested");
+      }
     } catch (err) {
       fail(err);
     } finally {
@@ -268,9 +315,30 @@ export function ResultOwnerOps({
             >
               Attach
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={busy || !agentRef.trim()}
+              onClick={() => void requestAppearance()}
+            >
+              Request appearance
+            </Button>
           </div>
+          {complete && boundKind === "release" && !boardListed ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void requestListing()}
+            >
+              Request listing
+            </Button>
+          ) : null}
           <p className="text-xs text-mute">
-            Stamps provenance on the stored overlay when the binding matches.
+            Attach stamps provenance on the stored overlay. Listing and
+            appearance requests go to the Dataset or Agent org owner Inbox.
             Does not rewrite lock or fingerprint.
           </p>
         </div>
