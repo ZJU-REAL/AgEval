@@ -387,6 +387,13 @@ ROUTES: tuple[Route, ...] = (
     ),
     Route(
         "PATCH",
+        "attach_suite_agent",
+        access="result_manage",
+        pattern=r"/v1/results/suites/([^/]+)/agent-ref",
+        groups=("suite_run_id",),
+    ),
+    Route(
+        "PATCH",
         "patch_suite",
         access="result_manage",
         pattern=r"/v1/results/suites/([^/]+)",

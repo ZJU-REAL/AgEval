@@ -579,6 +579,30 @@ class RegistryClient:
             raise RegistryError("not_found", f"suite not found ({status})", status=status)
         return json.loads(raw.decode("utf-8"))
 
+    def attach_suite_agent(
+        self,
+        *,
+        suite_run_id: str,
+        agent: str,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        """PATCH published agent_ref onto a stored suite overlay. Owner only."""
+        body: dict[str, Any] = {"agent": agent}
+        if role:
+            body["role"] = role
+        raw_body = json.dumps(body, sort_keys=True).encode("utf-8")
+        path = f"/v1/results/suites/{quote(suite_run_id, safe='')}/agent-ref"
+        status, raw, _ = self._request(
+            "PATCH",
+            path,
+            body=raw_body,
+            headers=self._headers(content_type="application/json", auth=True),
+            auth=True,
+        )
+        if status != 200:
+            raise RegistryError("attach_failed", f"unexpected status {status}", status=status)
+        return json.loads(raw.decode("utf-8"))
+
     def fetch_suite_content(self, suite_run_id: str, dest: Path) -> Path:
         path = f"/v1/results/suites/{quote(suite_run_id, safe='')}/content"
         return self._download_to(path, dest)

@@ -560,4 +560,44 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=2) from exc
         typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
 
+    @sub.command("attach-agent")
+    def results_attach_agent_command(
+        suite_run: Annotated[
+            str,
+            typer.Option("--suite-run", help="Uploaded suite_run_id on the Registry."),
+        ],
+        agent: Annotated[
+            str,
+            typer.Option(
+                "--agent",
+                help="Published org/name@version (optional role= prefix, like run --agent).",
+            ),
+        ],
+        role: Annotated[
+            str | None,
+            typer.Option("--role", help="Attach one overlay role only."),
+        ] = None,
+        registry_url: Annotated[
+            str | None,
+            typer.Option("--registry-url", help="Override registry / results URL."),
+        ] = None,
+    ) -> None:
+        """Stamp a published agent_ref onto a stored suite overlay after upload."""
+        from ageval.application.composition import build_results_commands
+
+        attach_suite_agent = build_results_commands().attach_suite_agent
+        from ageval.config.errors import ConfigError
+
+        try:
+            summary = attach_suite_agent(
+                suite_run_id=suite_run,
+                agent=agent,
+                role=role,
+                registry_url=registry_url,
+            )
+        except ConfigError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(json.dumps(summary, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+
     app.add_typer(sub, name="results")

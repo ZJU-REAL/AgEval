@@ -821,6 +821,58 @@ class MetadataStore(MetadataStoreProtocol):
         assert updated is not None
         return updated
 
+    def update_suite_config_json(self, suite_run_id: str, config_json: str) -> SuiteResultRow:
+        """Patch stored suite config_json (overlay provenance). Lock bytes stay put."""
+        row = self.get_suite(suite_run_id)
+        if row is None:
+            raise LookupError("suite not found")
+        with self._connect() as conn:
+            self._exec(conn, Q.UPDATE_SUITE_CONFIG_JSON, (config_json, suite_run_id))
+            conn.commit()
+        updated = self.get_suite(suite_run_id)
+        assert updated is not None
+        return updated
+
+    def grant_agent_consent(
+        self,
+        *,
+        suite_run_id: str,
+        package_id: str,
+        granted_by: str,
+        source: str,
+    ) -> None:
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPSERT_SUITE_AGENT_CONSENT,
+                (suite_run_id, package_id, granted_by, source, now()),
+            )
+            conn.commit()
+
+    def has_agent_consent(self, suite_run_id: str, package_id: str) -> bool:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_SUITE_AGENT_CONSENT, (suite_run_id, package_id))
+            return cur.fetchone() is not None
+
+    def list_agent_consents(self, suite_run_id: str) -> list[str]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.LIST_SUITE_AGENT_CONSENTS, (suite_run_id,))
+            return [str(r["package_id"]) for r in cur.fetchall()]
+
+    def list_agent_consents_for_suites(self, suite_run_ids: list[str]) -> dict[str, set[str]]:
+        out: dict[str, set[str]] = {sid: set() for sid in suite_run_ids}
+        ids = [sid for sid in suite_run_ids if sid]
+        if not ids:
+            return out
+        placeholders = ",".join("?" * len(ids))
+        sql = Q.LIST_AGENT_CONSENTS_FOR_SUITES.format(placeholders=placeholders)
+        with self._connect() as conn:
+            cur = self._exec(conn, sql, tuple(ids))
+            for r in cur.fetchall():
+                sid = str(r["suite_run_id"])
+                out.setdefault(sid, set()).add(str(r["package_id"]))
+        return out
+
     def set_suite_visibility(self, suite_run_id: str, visibility: str) -> SuiteResultRow:
         if visibility not in {"public", "private"}:
             raise ValueError("bad visibility")

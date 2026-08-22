@@ -908,6 +908,32 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(200, payload)
 
+    def _attach_suite_agent(self, *, suite_run_id: str, auth: TokenInfo) -> HttpResult:
+        body = self._read_json_body()
+        if isinstance(body, HttpResult):
+            return body
+        extra = set(body) - {"agent", "role"}
+        if extra:
+            return json_result(
+                400,
+                {
+                    "error": "invalid_request",
+                    "message": "unknown keys: " + ", ".join(sorted(extra)),
+                },
+            )
+        agent = str(body.get("agent") or "").strip()
+        if not agent:
+            return json_result(400, {"error": "invalid_request", "message": "agent is required"})
+        role_raw = body.get("role")
+        role = str(role_raw).strip() if isinstance(role_raw, str) and role_raw.strip() else None
+        try:
+            payload = self.state.results.attach_agent(
+                suite_run_id=suite_run_id, agent=agent, role=role, auth=auth
+            )
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
     def _patch_suite(self, *, suite_run_id: str, auth: TokenInfo) -> HttpResult:
         visibility = self._visibility_body()
         if isinstance(visibility, HttpResult):

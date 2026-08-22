@@ -828,6 +828,34 @@ class ResultsCommands:
             raise ConfigError(exc.code, exc.message, location="registry") from exc
         return {"ok": True, "items": items, "count": len(items), "source": "registry"}
 
+    def attach_suite_agent(
+        self,
+        *,
+        suite_run_id: str,
+        agent: str,
+        role: str | None = None,
+        registry_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Attach a published ``org/name@version`` onto a Registry suite overlay."""
+        sid = suite_run_id.strip()
+        spec = agent.strip()
+        if not sid:
+            raise ConfigError("invalid_request", "suite-run is required", location="--suite-run")
+        if not spec:
+            raise ConfigError("invalid_request", "agent is required", location="--agent")
+        client = self._client_factory(
+            registry_url=registry_url, require_token=True, accept_results_url=True
+        )
+        try:
+            payload = client.attach_suite_agent(
+                suite_run_id=sid,
+                agent=spec,
+                role=role.strip() if isinstance(role, str) and role.strip() else None,
+            )
+        except RegistryError as exc:
+            raise ConfigError(exc.code, exc.message, location="registry") from exc
+        return {"ok": True, **payload}
+
     def share_result(
         self,
         *,

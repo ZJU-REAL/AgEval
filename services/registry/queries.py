@@ -297,6 +297,16 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         updated_at REAL NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS suite_agent_consents (
+        suite_run_id TEXT NOT NULL,
+        package_id TEXT NOT NULL,
+        granted_by TEXT NOT NULL,
+        source TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        PRIMARY KEY (suite_run_id, package_id)
+    )
+    """,
 )
 
 # ---- dataset draft / ACL ---------------------------------------------------
@@ -395,6 +405,20 @@ UPDATE suite_results SET
     exit_code=?, complete=?
 WHERE suite_run_id=?
 """
+UPDATE_SUITE_CONFIG_JSON = "UPDATE suite_results SET config_json=? WHERE suite_run_id=?"
+UPSERT_SUITE_AGENT_CONSENT = """
+INSERT INTO suite_agent_consents(
+    suite_run_id, package_id, granted_by, source, created_at
+) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(suite_run_id, package_id) DO NOTHING
+"""
+SELECT_SUITE_AGENT_CONSENT = (
+    "SELECT * FROM suite_agent_consents WHERE suite_run_id=? AND package_id=?"
+)
+LIST_SUITE_AGENT_CONSENTS = "SELECT * FROM suite_agent_consents WHERE suite_run_id=?"
+LIST_AGENT_CONSENTS_FOR_SUITES = (
+    "SELECT * FROM suite_agent_consents WHERE suite_run_id IN ({placeholders})"
+)
 SELECT_ATTEMPTS_FOR_SUITE = (
     "SELECT * FROM attempt_results WHERE suite_run_id=? ORDER BY created_at DESC"
 )
