@@ -6,8 +6,9 @@
 
 ## 色彩令牌
 
-色板只有一个品牌强调色:International Klein Blue(IKB)双阶。中性色为冷灰(cool paper / cool ink)。
-所有值为 hex,比较大小写不敏感。
+品牌强调色仍是 International Klein Blue(IKB)双阶;中性色为冷灰(cool paper / cool ink)。
+功能色可以另有**命名令牌**(error / warning / star 金等),不把界面锁成只有墨、纸、蓝。
+所有值为 hex,比较大小写不敏感。业务代码仍只写语义令牌名,hex 留在令牌文件。
 
 | 令牌 | 浅色 | 深色 | 用途 | hub/viewer(`--viewer-*`) | docs(`--color-fd-*`) |
 | --- | --- | --- | --- | --- | --- |
@@ -22,6 +23,7 @@
 | link-deep | `#001F73` | `#8AA0FF` | hover(浅色加深 / 深色提亮) | `link-deep` | — |
 | error | `#EE0000` | `#FF5C5C` | 错误 | `error` | — |
 | warning | `#F5A623` | `#F5A623` | 警告 | `warning` | — |
+| star | `#E3B341` | `#F5C84C` | Star 填实金 | `star` | — |
 | code-bg | `#F4F5F8` | `#0C0E14` | 代码底 | `code-bg` | — |
 | accent(landing) | `#5B7BFF`(亮)/ `#002FA7`(深) | 同左 | landing `--accent` / `--accent-deep` | — | — |
 
@@ -57,7 +59,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | --- | --- |
 | 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep` |
 | 下划线 tab | `UnderlineTabs`:mono uppercase + 滑动 IKB 条(`transform`/`width` 200ms)。不要再复制 `border-b-2` 手写条 |
-| Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 `org/name`(+ official),右侧更新日期。描述固定两行高,tag 贴底；`download_count` 与 `favorite_count` 为 mute 计量，**同一行**贴在 tag 行右侧（lucide `Download` + 数字，lucide `Star` + 数字）。Datasets / jobs / leaderboard / members 用表 |
+| Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 `org/name`(+ official),右侧更新日期。描述固定两行高,tag 贴底；`download_count` 与 star 数为 mute 计量，**同一行**贴在 tag 行右侧（lucide `Download` / `Star` + 数字，卡上不可点 star）。Star 操作只在详情页头右侧无描边 icon;填实用 `star` 金。Datasets / jobs / leaderboard / members 用表 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6`(IKB 主导 + 中性梯度),禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop` |
@@ -66,7 +68,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 ## 不变量(十条)
 
 1. 色值只允许出现在令牌定义文件与品牌资产(owl 组件);业务代码只写语义令牌名。
-2. IKB 只落在链接 / 焦点 / 主 CTA / 品牌位,禁大面积底色(landing ink-banner 例外)。
+2. IKB 仍是链接 / 焦点 / 主 CTA / 品牌位,禁大面积底色(landing ink-banner 例外)。error / warning / star 等功能色走各自令牌,不挤进 IKB,也不要求界面只有墨纸蓝。
 3. 中性色三层语义:`canvas*` 是面、`hairline` 是线、`ink/body/mute` 是字;`mute` 永不做正文。
 4. `Anton` 只做 wordmark;正文一律 sans 栈 + CJK 回退;中文标题粗细上限 semibold。
 5. 主 CTA 用 6px 圆角 + IKB 填充;表格 / 输入 / 普通控件用同一套圆角三档。不要切角 `clip-path`。
