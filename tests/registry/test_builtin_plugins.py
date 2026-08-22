@@ -129,25 +129,32 @@ def test_mine_orgs_favorited_omit_builtin(tmp_path: Path) -> None:
     meta, archive = _plugin_meta(tmp_path)
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
     svc.publish(meta=meta, archive=archive, auth=alice)
-    for kwargs in (
-        {"mine": True},
-        {"orgs": True},
-        {"favorited": True},
-        {"visibility": "private"},
-        {"package_kind": "dataset"},
-        {"package_kind": "agent"},
-    ):
+    probes: list[tuple[str | None, str, bool, bool, bool]] = [
+        (None, "plugin", True, False, False),
+        (None, "plugin", False, True, False),
+        (None, "plugin", False, False, True),
+        ("private", "plugin", False, False, False),
+        (None, "dataset", False, False, False),
+        (None, "agent", False, False, False),
+    ]
+    for visibility, package_kind, mine, orgs, favorited in probes:
         listed = svc.list_packages(
             auth=alice,
             prefix=None,
-            visibility=kwargs.get("visibility"),
+            visibility=visibility,
             version=None,
-            package_kind=kwargs.get("package_kind", "plugin"),
-            mine=bool(kwargs.get("mine")),
-            orgs=bool(kwargs.get("orgs")),
-            favorited=bool(kwargs.get("favorited")),
+            package_kind=package_kind,
+            mine=mine,
+            orgs=orgs,
+            favorited=favorited,
         )
-        assert not any(i.get("builtin") for i in listed["items"]), kwargs
+        assert not any(i.get("builtin") for i in listed["items"]), (
+            visibility,
+            package_kind,
+            mine,
+            orgs,
+            favorited,
+        )
 
 
 def test_detail_has_no_blob(tmp_path: Path) -> None:
