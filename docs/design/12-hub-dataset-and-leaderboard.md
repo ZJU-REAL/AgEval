@@ -35,6 +35,6 @@ Owner `PATCH /v1/packages/{id}` 可改写（与 `display_name` 同权，不进 b
 
 解析顺序：已存 `icon_key` → 已存 `icon_github` → `uploaded_by` 的 `https://github.com/{login}.png?size=64` → 字母占位。裂图走字母。不把图片字节写入 Registry。
 
-闭包目录是 **彩色真实标**（官方 kit / Lobe static SVG / Simple Icons 路径 + 官方 hex）加少量 **通用** 几何标。禁止自造厂商 logo。详情页（`canEdit`）点标打开 modal：搜目录，或填 GitHub link。卡片整卡导航，不在卡上开 picker。Viewer 本轮不做。
+闭包目录是 **彩色真实标**（官方 kit / Lobe static SVG / Simple Icons 路径 + 官方 hex）。禁止自造厂商 logo。黑标（ink，如 OpenAI）固定白底；白标（paper，如 Kimi）固定黑底。底板不跟主题反相。详情页（`canEdit`）点标打开 modal：搜目录，或填 GitHub link。卡片整卡导航，不在卡上开 picker。Viewer 本轮不做。
 
 机制标（Leaderboard Environment 的 `docker` / `e2b` 等）仍走闭包精确 id，不是 uploader 头像。

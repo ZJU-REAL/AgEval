@@ -55,17 +55,27 @@ export function BrandMark({
         />
       );
     }
+    const tone = entry?.tone ?? "color";
     return (
-      <img
-        src={src}
-        alt=""
-        width={size}
-        height={size}
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-[6px]",
+          tone === "ink" && "bg-white p-0.5",
+          tone === "paper" && "bg-black p-0.5",
+          className,
+        )}
         title={title}
-        className={cn("inline-block shrink-0 rounded-[6px] object-contain", className)}
         style={{ width: size, height: size }}
-        onError={() => setBroken(true)}
-      />
+      >
+        <img
+          src={src}
+          alt=""
+          width={size}
+          height={size}
+          className="h-full w-full object-contain"
+          onError={() => setBroken(true)}
+        />
+      </span>
     );
   }
 
