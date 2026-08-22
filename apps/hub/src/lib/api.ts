@@ -1250,7 +1250,7 @@ export function resolveMarketplacePluginId(
   );
 }
 
-/** Marketplace plugins for a suite row (stored list, else executor inference). */
+/** Marketplace plugins for a suite row (stored list, extensions, environment, executor). */
 export function pluginsUsedBySuite(
   suite: SuiteRow,
   catalog: PackageRelease[] = [],
@@ -1304,8 +1304,6 @@ export function pluginsUsedBySuite(
       });
     }
   }
-  if (fromStore.length) return fromStore;
-  if (!Object.keys(profiles).length) return [];
   for (const raw of Object.values(profiles)) {
     const exec = String(raw?.executor || "").trim();
     const key = exec.toLowerCase();
