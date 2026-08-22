@@ -6,8 +6,10 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { BrandMark } from "@/components/brand-mark";
 import { OfficialMark } from "@/components/official-mark";
 import { DownloadCount } from "@/components/download-count";
+import { markFromPackage } from "@/lib/brand-marks";
 import {
   getPackageByDigest,
   packageDisplayTitle,
@@ -107,13 +109,14 @@ export function CatalogCard({
       )}
     >
       <div className="min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <p className="inline-flex min-w-0 items-center gap-1.5 font-medium text-ink">
-            <span className="truncate">{title}</span>
+        <div className="flex items-end justify-between gap-2">
+          <p className="inline-flex min-w-0 items-end gap-2 font-medium leading-none text-ink">
+            <BrandMark mark={markFromPackage(row)} size={24} />
+            <span className="truncate leading-none">{title}</span>
             {row.official ? <OfficialMark /> : null}
           </p>
           {updated ? (
-            <span className="shrink-0 font-mono text-[11px] tabular-nums text-mute">
+            <span className="shrink-0 font-mono text-[11px] leading-none tabular-nums text-mute">
               {updated}
             </span>
           ) : null}

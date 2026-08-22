@@ -113,6 +113,21 @@ SELECT_PACKAGE_DISPLAY_NAME = "SELECT display_name FROM package_display_names WH
 
 SELECT_PACKAGE_DISPLAY_NAMES = "SELECT dataset_id, display_name FROM package_display_names"
 
+UPSERT_PACKAGE_ICON = """
+INSERT INTO package_icons(dataset_id, icon_key, icon_github, updated_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(dataset_id) DO UPDATE SET
+    icon_key=excluded.icon_key,
+    icon_github=excluded.icon_github,
+    updated_at=excluded.updated_at
+"""
+
+DELETE_PACKAGE_ICON = "DELETE FROM package_icons WHERE dataset_id=?"
+
+SELECT_PACKAGE_ICON = "SELECT icon_key, icon_github FROM package_icons WHERE dataset_id=?"
+
+SELECT_PACKAGE_ICONS = "SELECT dataset_id, icon_key, icon_github FROM package_icons"
+
 SELECT_MEMBERSHIP = "SELECT * FROM org_memberships WHERE org_id=? AND user_id=?"
 
 SELECT_USER_ORG_IDS = "SELECT org_id FROM org_memberships WHERE user_id=?"
@@ -264,6 +279,14 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     CREATE TABLE IF NOT EXISTS package_download_counts (
         dataset_id TEXT PRIMARY KEY,
         download_count INTEGER NOT NULL DEFAULT 0
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS package_icons (
+        dataset_id TEXT PRIMARY KEY,
+        icon_key TEXT NOT NULL DEFAULT '',
+        icon_github TEXT NOT NULL DEFAULT '',
+        updated_at REAL NOT NULL
     )
     """,
 )

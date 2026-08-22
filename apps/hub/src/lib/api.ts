@@ -64,6 +64,10 @@ export type PackageRelease = {
   uploaded_by?: string;
   /** Owner-set marketplace title; id stays dataset_id. */
   display_name?: string;
+  /** Closed-catalog mark; omit means GitHub avatar (icon_github or uploader). */
+  icon_key?: string;
+  /** GitHub login override for the entity mark. */
+  icon_github?: string;
   /** Marketplace observation: successful content GETs for this package id. */
   download_count?: number;
 };
@@ -757,6 +761,18 @@ export async function updatePackageDisplayName(
     token,
     method: "PATCH",
     body: { display_name: displayName },
+  });
+}
+
+export async function updatePackageIcon(
+  packageId: string,
+  body: { icon_key: string; icon_github: string },
+  token: string | null,
+): Promise<PackageRelease> {
+  return requestJson(`/v1/packages/${packageIdPath(packageId)}`, {
+    token,
+    method: "PATCH",
+    body,
   });
 }
 

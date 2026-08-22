@@ -9,6 +9,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
+  confirmVariant = "danger",
   busy = false,
   confirmDisabled = false,
   error = null,
@@ -22,6 +23,7 @@ export function ConfirmDialog({
   description: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmVariant?: "danger" | "default";
   busy?: boolean;
   confirmDisabled?: boolean;
   error?: string | null;
@@ -86,7 +88,7 @@ export function ConfirmDialog({
           </Button>
           <Button
             type="button"
-            variant="danger"
+            variant={confirmVariant}
             disabled={busy || confirmDisabled}
             onClick={onConfirm}
           >
