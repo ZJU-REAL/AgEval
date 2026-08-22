@@ -18,7 +18,7 @@ export const BRAND_MARKS: readonly BrandMarkEntry[] = [
   { id: "anthropic", label: "Anthropic", file: "anthropic.svg", tone: "ink" },
   { id: "claude", label: "Claude", file: "claude.svg", tone: "color" },
   { id: "claude-code", label: "Claude Code", file: "claude-code.svg", tone: "color" },
-  { id: "codex", label: "Codex", file: "codex.svg", tone: "paper" },
+  { id: "codex", label: "Codex", file: "codex.svg", tone: "color" },
   { id: "deepseek", label: "DeepSeek", file: "deepseek.svg", tone: "color" },
   { id: "docker", label: "Docker", file: "docker.svg", tone: "color" },
   { id: "gemini", label: "Gemini", file: "gemini.svg", tone: "color" },
