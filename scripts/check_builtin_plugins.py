@@ -14,6 +14,7 @@ import json
 import pkgutil
 import sys
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent
 CATALOG = REPO / "services/registry/builtin_plugins.json"
@@ -37,14 +38,13 @@ def _contrib_register_fns() -> list[object]:
     return fns
 
 
-def _slots_by_plugin(registry: object) -> dict[str, dict[str, list[str]]]:
+def _slots_by_plugin(registry: Any) -> dict[str, dict[str, list[str]]]:
     from ageval.plugins.slots import ALL_SLOTS, SlotKind, get_slot_kind
 
     out: dict[str, dict[str, list[str]]] = {}
-    plugins_for_slot = getattr(registry, "plugins_for_slot")
     for slot in ALL_SLOTS:
         kind = "exclusive" if get_slot_kind(slot) is SlotKind.EXCLUSIVE else "chain"
-        for plugin_id in plugins_for_slot(slot):
+        for plugin_id in registry.plugins_for_slot(slot):
             row = out.setdefault(plugin_id, {"exclusive": [], "chain": []})
             row[kind].append(slot)
     return out

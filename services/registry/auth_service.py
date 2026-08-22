@@ -146,7 +146,7 @@ class AuthService:
             raise RegistryAppError(
                 "invalid_redirect_uri",
                 "redirect_uri not allowed "
-                "(default: http://127.0.0.1:5174/login/callback; "
+                "(default: localhost Vite :5174 and compose Hub :8080; "
                 "extend via AGEVAL_GITHUB_WEB_REDIRECT_URIS)",
                 http_status=400,
             )
@@ -219,6 +219,8 @@ class AuthService:
         defaults = {
             "http://127.0.0.1:5174/login/callback",
             "http://localhost:5174/login/callback",
+            "http://127.0.0.1:8080/login/callback",
+            "http://localhost:8080/login/callback",
         }
         extra = os.environ.get("AGEVAL_GITHUB_WEB_REDIRECT_URIS") or ""
         for part in extra.split(","):

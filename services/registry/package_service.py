@@ -388,7 +388,7 @@ class PackageService:
         if favorited:
             items = [i for i in items if i.get("favorited")]
         if (
-            package_kind in (None, "plugin")
+            package_kind == "plugin"
             and not mine
             and not orgs
             and not favorited

@@ -96,7 +96,10 @@ def builtin_plugin_ids() -> frozenset[str]:
 
 
 def is_builtin_plugin_id(dataset_id: str) -> bool:
-    return dataset_id in builtin_plugin_ids()
+    key = dataset_id.strip().casefold()
+    if not key:
+        return False
+    return any(str(row["plugin_id"]).casefold() == key for row in catalog_rows())
 
 
 def _overlay_item(row: dict[str, Any]) -> dict[str, Any]:
@@ -124,18 +127,21 @@ def _overlay_item(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def builtin_plugin_item(dataset_id: str) -> dict[str, Any] | None:
+    key = dataset_id.strip().casefold()
+    if not key:
+        return None
     for row in catalog_rows():
-        if row["plugin_id"] == dataset_id:
+        if str(row["plugin_id"]).casefold() == key:
             return _overlay_item(row)
     return None
 
 
 def builtin_plugin_items(*, prefix: str | None = None) -> list[dict[str, Any]]:
-    needle = (prefix or "").strip()
+    needle = (prefix or "").strip().casefold()
     out: list[dict[str, Any]] = []
     for row in catalog_rows():
         plugin_id = str(row["plugin_id"])
-        if needle and not plugin_id.startswith(needle):
+        if needle and not plugin_id.casefold().startswith(needle):
             continue
         out.append(_overlay_item(row))
     return out

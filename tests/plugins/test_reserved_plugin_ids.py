@@ -41,6 +41,7 @@ def _write_plugin(root: Path, plugin_id: str) -> None:
     ("raw", "want"),
     [
         ("docker", "docker"),
+        ("Docker", "docker"),
         ("acme/docker", "docker"),
         ("docker@1.0.0", "docker"),
         ("official/openai-http@sha256:abc", "openai-http"),

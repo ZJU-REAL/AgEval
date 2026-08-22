@@ -11,7 +11,7 @@ require this process.
 cp services/registry/.env.example services/registry/.env
 # set AGEVAL_GITHUB_CLIENT_ID / AGEVAL_GITHUB_CLIENT_SECRET for login
 # optional closed Hub: AGEVAL_GITHUB_LOGIN_ALLOWLIST=yourlogin
-# Hub on :8080 needs AGEVAL_GITHUB_WEB_REDIRECT_URIS=http://127.0.0.1:8080/login/callback
+# GitHub OAuth App callback must include http://127.0.0.1:8080/login/callback (compose Hub)
 
 docker compose -f services/registry/docker-compose.yml up -d --build
 # Hub: http://127.0.0.1:8080  (proxies /v1 and /health to Registry)

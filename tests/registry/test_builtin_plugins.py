@@ -102,6 +102,27 @@ def test_explore_unions_builtin_with_store(tmp_path: Path) -> None:
     assert e2b["host_requires"] == ["uv sync --extra e2b"]
 
 
+def test_unfiltered_list_omits_builtin(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    anon = TokenInfo(scopes=frozenset())
+    listed = svc.list_packages(
+        auth=anon,
+        prefix=None,
+        visibility=None,
+        version=None,
+        package_kind=None,
+    )
+    assert listed["items"] == []
+    listed = svc.list_packages(
+        auth=anon,
+        prefix=None,
+        visibility="public",
+        version=None,
+        package_kind=None,
+    )
+    assert listed["items"] == []
+
+
 def test_mine_orgs_favorited_omit_builtin(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
@@ -140,6 +161,9 @@ def test_detail_has_no_blob(tmp_path: Path) -> None:
     meta = svc.serve_meta(dataset_id="acp", version=None, package_digest=None, auth=anon)
     assert meta["builtin"] is True
     assert meta["plugin_preview"]["slots"]["exclusive"] == ["executor"]
+    mixed = svc.serve_meta(dataset_id="Docker", version=None, package_digest=None, auth=anon)
+    assert mixed["dataset_id"] == "docker"
+    assert mixed["builtin"] is True
     with pytest.raises(RegistryAppError) as digest_err:
         svc.serve_meta(
             dataset_id="docker",
@@ -157,12 +181,13 @@ def test_publish_reserved_plugin_id_fail_closed(tmp_path: Path) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
     meta, archive = _plugin_meta(tmp_path)
-    meta["dataset_id"] = "acme/docker"
     alice = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
-    with pytest.raises(RegistryAppError) as ei:
-        svc.publish(meta=meta, archive=archive, auth=alice)
-    assert ei.value.error == "plugin_id_reserved"
-    assert ei.value.http_status == 400
+    for dataset_id in ("acme/docker", "acme/Docker"):
+        meta["dataset_id"] = dataset_id
+        with pytest.raises(RegistryAppError) as ei:
+            svc.publish(meta=meta, archive=archive, auth=alice)
+        assert ei.value.error == "plugin_id_reserved"
+        assert ei.value.http_status == 400
 
 
 def test_registry_sources_do_not_import_contrib() -> None:

@@ -264,6 +264,22 @@ def test_oauth_empty_allowlist_allows_any_github_user(
     assert done.get("token")
 
 
+def test_web_redirect_allows_compose_and_vite_hub() -> None:
+    from services.registry.auth_service import AuthService
+
+    auth = AuthService(
+        tokens=object(),
+        meta=object(),
+        github_client_id="id",
+        github_client_secret="secret",
+        github_login_allowlist=frozenset(),
+    )
+    assert auth._allowed_web_redirect("http://127.0.0.1:8080/login/callback")
+    assert auth._allowed_web_redirect("http://localhost:8080/login/callback")
+    assert auth._allowed_web_redirect("http://127.0.0.1:5174/login/callback")
+    assert not auth._allowed_web_redirect("https://evil.example/login/callback")
+
+
 def test_oauth_allowlist_denies_unknown_user(
     registry_server, monkeypatch: pytest.MonkeyPatch
 ) -> None:
