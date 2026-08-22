@@ -92,7 +92,7 @@ contrib/local    → 本机目录
 
 `docker exec` 只在 `plugins/contrib/docker/`。ACP 禁止 import docker/e2b/daytona/ssh。`attempt` / `run.py` 不见 `container_id`、不见 `if kind == e2b`。换 kind 不必改 executor 源码。
 
-`run.py` 是 parent 子进程。seed 在 launch 投影到 `ctx.workspace_root`（local/docker 即共享盘；ssh/e2b 是 evidence 上的 seed 拷贝）。Agent Service **不**在每次 invoke 后 `download` workspace。writer 停后 runtime 按 `artifacts.publishable` 收 **缺的** 文件：盒内 `/attempt/workspace/<basename>` → parent `task-artifacts/`。共享盘上 `run.py` 已 `publish_json` 的跳过；ssh/e2b 走 Protocol `download`。搬哪些由题包声明，不写 `if ssh`。聊天文本不是 Terminal 类题的权威产物。
+`run.py` 是 parent 子进程。seed 在 launch 投影到 `ctx.workspace_root`（local/docker 即共享盘；ssh/e2b/daytona 是 evidence 上的 seed 拷贝）。Agent Service **不**在每次 invoke 后 `download` workspace。writer 停后 runtime 按题包 `artifacts.publishable` 收 **缺的** 文件：盒内 `/attempt/workspace/<basename>` → parent `task-artifacts/`。共享盘上 `run.py` 已从磁盘 `publish_json` 的跳过；远程盒走 Protocol `download`。搬哪些由题包声明，不写 `if kind`。聊天文本不是 Terminal 类题的权威产物，不得 publish 成功并挡住 harvest。
 
 ## setup.sh 与侧车
 

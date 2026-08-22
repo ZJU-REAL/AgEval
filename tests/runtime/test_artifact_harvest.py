@@ -63,6 +63,23 @@ def _ctx(tmp_path: Path, host: _Host, *, stopped: bool = True) -> SimpleNamespac
 
 
 @pytest.mark.asyncio
+async def test_harvest_pulls_workspace_basename_first(tmp_path: Path) -> None:
+    payload = b'{"top_5_users_by_amount": {"alice": {"total_amount": 1, "total_items": 1}}}\n'
+    host = _Host(
+        {
+            f"{WORKSPACE_PATH}/aggregates.json": payload,
+            f"{WORKSPACE_PATH}/artifacts/aggregates.json": b'{"stale":true}\n',
+        }
+    )
+    ctx = _ctx(tmp_path, host)
+    await harvest_workspace_artifacts(ctx)
+    dest = tmp_path / "task-artifacts" / "aggregates.json"
+    assert dest.read_bytes() == payload
+    assert host.downloads[0][0] == f"{WORKSPACE_PATH}/aggregates.json"
+    assert ctx.facts[-1]["detail"]["pulled"] == ["aggregates"]
+
+
+@pytest.mark.asyncio
 async def test_harvest_pulls_missing_workspace_file(tmp_path: Path) -> None:
     payload = b'{"top_5_users_by_amount": {}}\n'
     source = f"{WORKSPACE_PATH}/artifacts/aggregates.json"
@@ -71,7 +88,7 @@ async def test_harvest_pulls_missing_workspace_file(tmp_path: Path) -> None:
     await harvest_workspace_artifacts(ctx)
     dest = tmp_path / "task-artifacts" / "aggregates.json"
     assert dest.read_bytes() == payload
-    assert host.downloads[0] == (source, dest)
+    assert host.downloads[-1] == (source, dest)
     assert ctx.facts[-1]["detail"]["pulled"] == ["aggregates"]
 
 

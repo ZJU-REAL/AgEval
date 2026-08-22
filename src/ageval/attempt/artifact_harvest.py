@@ -48,10 +48,12 @@ async def harvest_workspace_artifacts(ctx: Any) -> None:
             skipped.append(aid)
             continue
         posix = rel_path.as_posix().lstrip("/")
-        candidates = [f"{WORKSPACE_PATH}/{posix}"]
+        # Declared path is evidence-shaped (artifacts/foo.json). Agents write
+        # the basename in the box workspace. Prefer that, then the posix path.
+        candidates = [f"{WORKSPACE_PATH}/{name}"]
         if posix != name:
+            candidates.append(f"{WORKSPACE_PATH}/{posix}")
             candidates.append(f"{ARTIFACTS_PATH}/{name}")
-            candidates.append(f"{WORKSPACE_PATH}/{name}")
         pulled_one = False
         for source in candidates:
             try:
