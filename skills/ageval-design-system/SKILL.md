@@ -46,8 +46,11 @@ fix the surfaces to match docs/13 + the script.
 - Plugin / agent marketplace lists are `CatalogCard` grids (20px entity mark +
   `org/name` + date, two-line description, tags at the bottom). Datasets, jobs,
   leaderboard, and members are hairline tables.
-- Motion is CSS only on hub/viewer (`200ms` / `ease-smooth`). Landing may
-  stagger the hero and reveal sections 8px; no GSAP/Motion, no pin/scrub.
+- Motion is CSS only on hub/viewer. Default `200ms` / `ease-smooth`. Named
+  exceptions in docs/design/13: `--ease-spring` (toast, star burst, squish
+  release), `--ease-glide` (PillTabs), `--t-press` 80ms. Landing may stagger
+  the hero and reveal sections 8px; no GSAP/Motion, pin/scrub, magnetic hover,
+  or cursor trail.
 - Focus: buttons `ring-2 ring-link/70`; fields `border-link` 1px, no extra ring;
   landing 3px outline.
 - Popover shadow is `--viewer-shadow-pop` only. Phase charts use

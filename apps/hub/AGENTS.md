@@ -32,8 +32,9 @@ Stack is Vite + React + Tailwind + **shadcn/ui** under `src/components/ui/`
 5. **Catalog cards for plugins and agents.** Marketplace packages use
    `CatalogCard` / `CatalogCardGrid` (see `DESIGN.md`). Datasets, jobs,
    leaderboard, members, and suites stay hairline tables.
-6. **Underline tabs.** Section switchers use `UnderlineTabs`. Do not add
-   another `border-b-2` tab strip.
+6. **Underline tabs.** Section switchers use `UnderlineTabs`. File-tree
+   Local / Shared / Overlays use `PillTabs`. Do not add another `border-b-2`
+   tab strip or hard-cut segmented fills.
 
 New chrome requires a new `src/components/ui/` primitive first, used by both
 Hub and Viewer. Do not one-off style a native element.

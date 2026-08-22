@@ -13,7 +13,8 @@ Python serves the built SPA; React app lives here.
 
 When UI conflicts with taste: **DESIGN.md wins**. Evidence tabs use
 `UnderlineTabs`. Jobs/tasks stay tables. Motion is CSS only (`ease-smooth`,
-200ms, `data-ageval-pop`); no GSAP on Viewer.
+named spring/glide exceptions in docs/design/13, `data-ageval-pop`, toast);
+no GSAP on Viewer. No cursor trail or magnetic hover.
 
 ## Product surface (scope lock)
 

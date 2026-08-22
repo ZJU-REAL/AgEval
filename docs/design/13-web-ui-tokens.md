@@ -42,11 +42,15 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 
 - **圆角**:6 / 8 / 12px 三档(sm 控件、md 默认、lg 卡片);不发明新档,hero 面板上限 16px。
   按钮走 6px,不要 `clip-path` 切角。
-- **动效**:`cubic-bezier(0.22, 1, 0.36, 1)`,默认 200ms。
-  Hub / Viewer 只允许 CSS(`ease-smooth`、`data-ageval-pop`);landing 允许一次性 hero stagger 与 8px view-timeline 揭示,进场可到 400ms(强调瞬间,须在 `website/DESIGN.md` 写明)。
-  Tooltip 等待 80ms 是意图延迟,不是位移时长。关闭可以快于打开。
-  禁止 GSAP / Motion 进三端产品 chrome;landing 也不引入滚动钉住或横向 hijack。
-  `prefers-reduced-motion: reduce` 必须落到最终态。
+- **动效**:默认 `--ease-smooth` `cubic-bezier(0.22, 1, 0.36, 1)`、200ms。
+  Hub / Viewer 只允许 CSS(无 GSAP / Motion)。Landing 允许一次性 hero stagger 与 8px view-timeline 揭示,进场可到 400ms(强调瞬间,须在 `website/DESIGN.md` 写明)。
+  第二档命名曲线是已记录例外,不得再发明 playground 弹簧:
+  - `--ease-spring` `cubic-bezier(0.34, 1.56, 0.64, 1)`:toast 进场(可到 550ms)、star burst 回弹、按钮松开回弹(可到 500ms)
+  - `--ease-glide` `cubic-bezier(0.65, 0, 0.35, 1)`:PillTabs 指示条(可到 400ms)
+  按下 `--t-press` 80ms `ease-out`(Squish Button)。Tooltip 等待 80ms 是意图延迟,不是位移时长。关闭可以快于打开。
+  允许的语汇:UnderlineTabs 滑条、PillTabs(文件树 Local / Shared / Overlays)、Toast Overshoot、Like Burst(仅 plugin/agent star;粒子最多 8 颗,色走 `star` 令牌)、Floating Label(描述填写框)、Squish Button、`data-ageval-pop` 弹层。
+  禁止:磁吸、光标拖尾、3D tilt、自定义光标、无限漂浮/旋转/脉冲、滚动钉住、横向 hijack。
+  `prefers-reduced-motion: reduce` 必须落到最终态(toast 仍出现但不位移;burst 无粒子;按钮不缩放)。
 - **焦点**:IKB 是唯一焦点色。按钮 / 链接用 `ring-2 ring-link/70`(landing 3px outline);
   输入框 / select / textarea 只把描边换成 1px `border-link`,不叠 ring。
 - **选区**:`::selection` 用 IKB 28% 透明底(三端统一)。
@@ -57,8 +61,11 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 
 | 语汇 | 规则 |
 | --- | --- |
-| 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep` |
+| 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep`。`:active` 为 Squish(`scale` 约 0.94、80ms 按下 / spring 松开) |
 | 下划线 tab | `UnderlineTabs`:mono uppercase + 滑动 IKB 条(`transform`/`width` 200ms)。不要再复制 `border-b-2` 手写条 |
+| 分段 pill | `PillTabs`:测量目标宽后 glide 指示条。文件树 Local / Shared / Overlays 与同类分段切换用这个,不要手写 `bg-canvas-soft` 硬切 |
+| Toast | 底中 Overshoot 进场;关键写操作成功/失败后出现。hairline + `--viewer-shadow-pop`,无第三方面包 |
+| Floating Label | 描述填写框(plugin / org 等):placeholder 在 focus 或有值时抬成 label;焦点色走 `link` |
 | Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 20px 实体标 + `org/name`(+ official),右侧更新日期。描述固定两行高,tag 贴底；`download_count` 与 star 数为 mute 计量，**同一行**贴在 tag 行右侧（lucide `Download` / `Star` + 数字，卡上不可点 star）。Star 操作只在详情页头右侧无描边 icon;填实用 `star` 金。Datasets / jobs / leaderboard / members 用表 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6`(IKB 主导 + 中性梯度),禁 zinc 等外部灰阶 |
@@ -75,7 +82,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 6. 焦点可见性不妥协。字段用 1px IKB 描边;其它控件用 2px IKB 环
    (landing 3px outline)。
 7. 选区、hover、active 的色彩表达一律引用令牌,不自调 hex / opacity 组合。
-8. 动效只允许统一缓动曲线;时长偏离 200ms 需要说明理由(landing hero/章节揭示 400ms 是已记录的例外)。
+8. 动效默认 `--ease-smooth` 200ms。`--ease-spring` / `--ease-glide`、按下 80ms、toast 550ms、landing hero/章节揭示 400ms 是已记录的例外。其它曲线或时长先改本文件。
 9. 图标三用途:产品品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`);功能用 lucide;plugin/agent 实体标默认 GitHub 头像(`uploaded_by`),可改闭包彩色标或另一个 GitHub login。闭包 SVG/PNG 在 `apps/hub/src/lib/brand-marks/assets/`,彩色,不把第三方 logo 组件库当运行时依赖。文件树仍用 `material-icon-theme`(既有例外)。
 10. 深度感不用硬投影;blur 分档封顶,不为单个组件发明新档。
 

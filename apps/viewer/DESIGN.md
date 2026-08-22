@@ -174,10 +174,11 @@ segment is clickable.
 
 ### Motion
 
-- Duration `200ms`, easing `ease-smooth` (`cubic-bezier(0.22, 1, 0.36, 1)`). Tooltip intent delay `80ms`.
+- Default duration `200ms`, easing `ease-smooth` (`cubic-bezier(0.22, 1, 0.36, 1)`). Tooltip intent delay `80ms`.
+- Named exceptions (docs/design/13): `--ease-spring` (toast enter, button release), `--t-press` 80ms on `:active`.
 - Evidence tabs use `UnderlineTabs` (sliding IKB bar). Do not copy per-page `border-b-2` tabs.
-- Confirm dialog / tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
-- Jobs / tasks stay hairline tables. No catalog cards, GSAP, Motion, 3D tilt, or scroll hijack on Viewer.
+- Toast after key writes (copy, save note, delete job). Confirm dialog / tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
+- Jobs / tasks stay hairline tables. No catalog cards, GSAP, Motion, magnetic hover, cursor trail, 3D tilt, or scroll hijack on Viewer.
 
 ### Don't
 - Don't invent a second accent palette (no purple AI glow)
@@ -216,10 +217,9 @@ Toggle lives in the top-right header. Persist preference client-side.
 Commands render as **shell code** on a dark code surface — not flat link-blue.
 Token roles: command name, flags (`--task`), paths, strings, plain args.
 
-## Motion
+## Motion (chrome)
 
-Minimal: 150–200ms opacity/background transitions on hover/focus.
-No scroll hijack, no marquees, no mesh hero animations.
+Default 200ms `ease-smooth` on hover/focus color. Squish on buttons, toast overshoot on key writes. No scroll hijack, no marquees, no mesh hero, no cursor trail.
 
 ## Accessibility
 

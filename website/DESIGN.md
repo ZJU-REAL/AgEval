@@ -18,7 +18,7 @@
 | 参数 | 值 | 含义 |
 | --- | --- | --- |
 | Design variance | 5/10 | 允许非对称构图，保持工程秩序 |
-| Motion intensity | 4/10 | Hero 进场 + 短距章节揭示 + FAQ 开合；产品 chrome 仍是 200ms 反馈 |
+| Motion intensity | 5/10 | Hero 进场 + 短距章节揭示 + FAQ 开合；SPA 允许 toast / squish / pill glide / star burst |
 | Visual density | 4/10 | 技术信息清晰，保留足够留白 |
 
 ## 颜色
@@ -116,7 +116,8 @@
 
 ## 动效
 
-缓动统一 `cubic-bezier(0.22, 1, 0.36, 1)`（`--ease`）。文档站 chrome 默认 `200ms`（`--t`）。
+缓动默认 `cubic-bezier(0.22, 1, 0.36, 1)`（`--ease`）。文档站 chrome 默认 `200ms`（`--t`）。
+SPA 第二档曲线见 `docs/design/13`（`--ease-spring` / `--ease-glide`）。Landing 不引入 spring 过冲。
 
 ### 允许
 
@@ -125,13 +126,13 @@
 - Landing 章节 8px `view-timeline` 揭示（`@supports` 回退为静止）。浏览器不支持时不得把内容停在 `opacity: 0`。
 - FAQ 用 `<details>` + `grid-template-rows` 开合，不用 hover 展开。
 - Landing 卡片 hover 最多 `translateY(-1px)`。
-- 按钮 `:active` 的 1px 按下。
+- 按钮 Squish：`:active` `scale(0.97)`、80ms 按下；松开用 `--ease` 回弹。不要 6px 实体底边。
 
 ### 禁止
 
 - 视差滚动、滚动钉住、横向 hijack、GSAP / Motion 进 landing 或 docs。
 - 无限漂浮、无限旋转和无限脉冲。
-- 磁吸、3D tilt、自定义光标。
+- 磁吸、光标拖尾、3D tilt、自定义光标。
 - 超过 12px 的 scroll travel。
 - 多段 sticky 叙事；全站只保留导航栏 sticky。
 
@@ -143,7 +144,7 @@
 
 - 高度最少 `44px`，圆角 `4px`。
 - Label 使用 Geist Mono，保持短且不换行。
-- hover 改变背景、边框或文字色。Landing 卡片允许 1px 上移；CTA 本身不位移。
+- hover 改变背景、边框或文字色。Landing 卡片允许 1px 上移；CTA hover 不位移，`:active` 允许 Squish 缩放。
 - focus-visible 使用 3px 半透明 accent ring。
 
 ### 卡片与数据区
