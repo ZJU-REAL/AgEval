@@ -68,11 +68,16 @@ class DaytonaStdio:
                 chunk = self._in_r.read(4096)
                 if not chunk:
                     break
-                send(
-                    self._session_id,
-                    self._cmd_id,
-                    chunk.decode("utf-8", errors="replace"),
-                )
+                try:
+                    send(
+                        self._session_id,
+                        self._cmd_id,
+                        chunk.decode("utf-8", errors="replace"),
+                    )
+                except Exception as exc:  # noqa: BLE001 — command already gone
+                    if "already completed" in str(exc).lower() or "not found" in str(exc).lower():
+                        break
+                    raise
         finally:
             with contextlib.suppress(Exception):
                 self._in_r.close()
@@ -225,9 +230,10 @@ class DaytonaHost:
         argv = [str(part) for part in command]
         if not argv:
             raise EnvironmentFailure("environment_exec_invalid", "exec requires a command")
-        kwargs: dict[str, Any] = {"cwd": cwd or WORKSPACE_PATH}
-        if env:
-            kwargs["env"] = self._child_env(env)
+        kwargs: dict[str, Any] = {
+            "cwd": cwd or WORKSPACE_PATH,
+            "env": self._child_env(env),
+        }
         if timeout_sec:
             kwargs["timeout"] = int(timeout_sec)
         try:
@@ -436,7 +442,16 @@ class DaytonaHost:
 
     def _child_env(self, env: Mapping[str, str] | None) -> dict[str, str]:
         out = {str(k): str(v) for k, v in (env or {}).items() if v}
-        out["PATH"] = _BOX_PATH
+        # Do not clobber the sandbox PATH: ACP probe uses ``command -v`` on the
+        # box default PATH (npm globals). A host Darwin PATH or a short Unix
+        # allowlist makes attach_stdio exit 127 after probe succeeded.
+        incoming = out.get("PATH", "")
+        if incoming and ("/Users/" in incoming or "/home/" in incoming):
+            out["PATH"] = _BOX_PATH
+        elif incoming:
+            out["PATH"] = f"{_BOX_PATH}:{incoming}"
+        else:
+            out["PATH"] = _BOX_PATH
         out.setdefault("HOME", HOME_PATH)
         out.setdefault("AGEVAL_WORKSPACE", WORKSPACE_PATH)
         out.setdefault("AGEVAL_ARTIFACTS", ARTIFACTS_PATH)
@@ -452,7 +467,11 @@ class DaytonaHost:
 
 def _login_command(argv: Sequence[str], *, cwd: str, env: Mapping[str, str]) -> str:
     """Foreground argv in cwd. Not a login shell; ACP needs the process stdin."""
-    assignments = " ".join(f"{shlex.quote(k)}={shlex.quote(v)}" for k, v in env.items())
+    # Leave PATH to the sandbox so npm-global entries stay visible.
+    skip = {"PATH"}
+    assignments = " ".join(
+        f"{shlex.quote(k)}={shlex.quote(v)}" for k, v in env.items() if k not in skip and v
+    )
     body = _shell_line(argv)
     prefix = f"cd {shlex.quote(cwd)} && "
     if assignments:
