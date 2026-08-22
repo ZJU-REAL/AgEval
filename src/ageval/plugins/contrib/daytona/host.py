@@ -34,7 +34,6 @@ from ageval.environments.protocol import (
 API_KEY_ENV = "DAYTONA_API_KEY"
 _API_KEY_ALIASES = (API_KEY_ENV, "daytona_api_key")
 BOX_ROOT = "/attempt"
-_BOX_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 _MAX_STREAM_BYTES = 256 * 1024
 _FORBIDDEN_TAGS = frozenset({"latest", "lts", "stable"})
 
@@ -178,10 +177,10 @@ class DaytonaHost:
         )
         self._sandbox = await asyncio.to_thread(self._client.create, create_params)
         self._started = True
+        paths = f"{WORKSPACE_PATH} {HOME_PATH} {ARTIFACTS_PATH} {EVALUATION_PATH}"
         mkdir = (
-            "sudo mkdir -p "
-            f"{WORKSPACE_PATH} {HOME_PATH} {ARTIFACTS_PATH} {EVALUATION_PATH} "
-            f"&& sudo chmod -R a+rwx {BOX_ROOT}"
+            f"(mkdir -p {paths} && chmod -R a+rwx {BOX_ROOT}) "
+            f"|| (sudo mkdir -p {paths} && sudo chmod -R a+rwx {BOX_ROOT})"
         )
         try:
             result = await asyncio.to_thread(self._sandbox.process.exec, mkdir)
@@ -428,7 +427,7 @@ class DaytonaHost:
                 return False
             raise
         state = str(getattr(snap, "state", "") or "").lower()
-        if state and state != "active":
+        if "active" not in state:
             await asyncio.to_thread(self._client.snapshot.activate, name)
         return True
 
@@ -442,16 +441,12 @@ class DaytonaHost:
 
     def _child_env(self, env: Mapping[str, str] | None) -> dict[str, str]:
         out = {str(k): str(v) for k, v in (env or {}).items() if v}
-        # Do not clobber the sandbox PATH: ACP probe uses ``command -v`` on the
-        # box default PATH (npm globals). A host Darwin PATH or a short Unix
-        # allowlist makes attach_stdio exit 127 after probe succeeded.
+        # Snapshot PATH includes nvm globals. A host Darwin PATH must not leak
+        # in; a short Unix allowlist must not hide those globals either.
+        # attach_stdio already leaves PATH unset so the session keeps this PATH.
         incoming = out.get("PATH", "")
-        if incoming and ("/Users/" in incoming or "/home/" in incoming):
-            out["PATH"] = _BOX_PATH
-        elif incoming:
-            out["PATH"] = f"{_BOX_PATH}:{incoming}"
-        else:
-            out["PATH"] = _BOX_PATH
+        if incoming and ("/Users/" in incoming or "/Library/" in incoming):
+            out.pop("PATH", None)
         out.setdefault("HOME", HOME_PATH)
         out.setdefault("AGEVAL_WORKSPACE", WORKSPACE_PATH)
         out.setdefault("AGEVAL_ARTIFACTS", ARTIFACTS_PATH)

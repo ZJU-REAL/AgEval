@@ -12,7 +12,6 @@ import pytest
 
 from ageval.environments.protocol import BoxSpec, EnvironmentFailure
 from ageval.plugins.contrib.daytona.host import (
-    _BOX_PATH,
     API_KEY_ENV,
     ATTACH_STDIO,
     DaytonaHost,
@@ -53,12 +52,14 @@ def test_timeout_seconds_map_to_auto_stop_minutes() -> None:
     assert _auto_stop_minutes(3600) == 60
 
 
-def test_child_env_overwrites_host_path(tmp_path: Path) -> None:
+def test_child_env_drops_host_path_keeps_box_path(tmp_path: Path) -> None:
     host = DaytonaHost(spec=_spec(tmp_path))
-    env = host._child_env({"PATH": "/Users/me/bin", "ZHIPU_API_KEY": "sk-not-for-lock"})
-    assert env["PATH"] == _BOX_PATH
-    assert "/Users/" not in env["PATH"]
-    assert env["ZHIPU_API_KEY"] == "sk-not-for-lock"
+    leaked = host._child_env({"PATH": "/Users/me/bin", "ZHIPU_API_KEY": "sk-not-for-lock"})
+    assert "PATH" not in leaked
+    assert leaked["ZHIPU_API_KEY"] == "sk-not-for-lock"
+    native = host._child_env({"AGEVAL_WORKSPACE": "/attempt/workspace"})
+    assert "PATH" not in native
+    assert native["AGEVAL_ARTIFACTS"] == "/attempt/artifacts"
 
 
 def test_rejects_floating_image_tags() -> None:
