@@ -61,7 +61,7 @@ apps/* / services/* README  ← SPA / 服务开发细节；非产品教程权威
 | 设计 | `docs/`（PRD + design 00–14 + glossary）**自包含**；不要读仓外 BRIEF |
 | production 源码 | Config → `attempt.run_attempt` 五相位 → 盒子 kind → ACP `attach_stdio` → 盒内 evaluate → evidence；`src/ageval/plugins/` 注册表 + contrib；外置 `plugins/` |
 | 公开 entrypoint | `ageval lock` / `run` / `campaign` / `view` / `evidence` / `plugin` / `jobs` / `results` 等（以 `ageval --help` 为准；`ageval run` 输出 `logs` locator） |
-| 盒子 | `local` / `docker` 有公开真 run；`e2b` / `ssh` 代码在，缺钥 `--probe` fail-closed，**不得**标完成 |
+| 盒子 | `local` / `docker` 有公开真 run；`e2b` / `ssh` / `daytona` 代码在，缺钥 `--probe` fail-closed，**不得**标完成 |
 | 证据等级 | **限定 `runnable-mvp`**（core local/docker ACP、journeys 点名题）；见 [examples/README.md](examples/README.md)；**不得**扩写全 suite `isolated` |
 | 交付跟踪 | **GitHub Issues** |
 | 文档站 | [`website/`](website/) 读者向 Fumadocs；机制权威仍在 `docs/` |

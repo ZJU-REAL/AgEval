@@ -7,7 +7,7 @@ description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能
 
 ## executor 与 environment：按名 inject，不绑 kind
 
-`executor` 不 import docker / e2b / ssh。它声明需要名为 `environment` 的服务，并列出要用的能力；环境赢家以该槽名 **export** 进服务表。lock 核过再跑。
+`executor` 不 import docker / e2b / ssh / daytona。它声明需要名为 `environment` 的服务，并列出要用的能力；环境赢家以该槽名 **export** 进服务表。lock 核过再跑。
 
 | | 含义 |
 | --- | --- |
@@ -15,7 +15,7 @@ description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能
 | **inject** | Agent 后端说「我要 `environment`，且要 `attach_stdio` 或 `exec`」 |
 | **调用** | 只打 Protocol：`attach_stdio`（长会话）或 `exec` / `upload`（跑完收结果） |
 
-换 `environment: docker` 为 `e2b` / `ssh` 时，ACP 的 profiles 只改环境赢家，不必改 ACP 代码。`exec` 不是独立服务。本机 SDK 绑宿主机路径不算走通这条接口。契约见 `docs/design/11`。
+换 `environment: docker` 为 `e2b` / `ssh` / `daytona` 时，ACP 的 profiles 只改环境赢家，不必改 ACP 代码。`exec` 不是独立服务。本机 SDK 绑宿主机路径不算走通这条接口。契约见 `docs/design/11`。
 
 ## 安装（只写本地缓存）
 
@@ -23,6 +23,7 @@ description: 安装 ageval.plugin/1、绑定 executor、Recognition 与本机能
 uv run ageval plugin install plugins/nooa
 # 或：uv run ageval plugin install plugins/dsh
 # 或：uv run ageval plugin install plugins/miniswe   # host-loop；bash 走 environment.exec
+# 或：uv run ageval plugin install plugins/acp-oneshot  # 盒内一次性 ACP client+server，只要 exec
 uv run ageval plugin list
 ```
 
@@ -84,7 +85,7 @@ uv run ageval run examples/journeys --task terminal-jsonl-agg \
 
 ## 与 ACP 的关系
 
-默认 coding-agent 路径仍是 `executor: acp` + `options.entry`。插件是 **可选** 机制；同一 `run.py` 只靠 profiles 切换。miniswe 是 host-loop：LLM 留在 parent，bash 只经 `host.exec`；缺 `exec` 在 lock 失败。
+默认 coding-agent 路径仍是 `executor: acp` + `options.entry`（parent JSON-RPC，要 `attach_stdio`）。`acp-oneshot` 是另一条 coding inlet：盒内一次性 client+server，只要 `exec`。插件是 **可选** 机制；同一 `run.py` 只靠 profiles 切换。miniswe 是 host-loop：LLM 留在 parent，bash 只经 `host.exec`；缺 `exec` 在 lock 失败。
 
 环境内 `evaluator.py` 与层 C 轨迹写入是独占槽 `evaluation_runtime` / `trajectory_seal`（引擎 default 赢，没有 job 字段糖）。PASS 仍只经引擎 bind。
 

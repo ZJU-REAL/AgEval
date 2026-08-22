@@ -10,6 +10,8 @@ _PARENT_PY = (
     REPO / "plugins" / "dsh" / "src" / "dsh_plugin" / "container.py",
     REPO / "plugins" / "nooa" / "src" / "nooa_plugin" / "factory.py",
     REPO / "plugins" / "nooa" / "src" / "nooa_plugin" / "container.py",
+    REPO / "plugins" / "acp-oneshot" / "src" / "acp_oneshot_plugin" / "factory.py",
+    REPO / "plugins" / "acp-oneshot" / "src" / "acp_oneshot_plugin" / "container.py",
 )
 
 
@@ -18,6 +20,7 @@ def test_bind_to_target_absent_from_core_and_dsh_nooa() -> None:
         REPO / "src" / "ageval",
         REPO / "plugins" / "dsh",
         REPO / "plugins" / "nooa",
+        REPO / "plugins" / "acp-oneshot",
     )
     offenders: list[str] = []
     for root in roots:

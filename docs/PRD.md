@@ -9,7 +9,7 @@
 
 ## 1. 一句话
 
-ageval 锁定一份 dataset，在选定的盒子里跑一次 Attempt，由独立 evaluator 出分。盒子可以是本机、Docker、E2B 或 SSH；编排始终在本机 `ageval run`。
+ageval 锁定一份 dataset，在选定的盒子里跑一次 Attempt，由独立 evaluator 出分。盒子可以是本机、Docker、E2B、SSH 或 Daytona；编排始终在本机 `ageval run`。
 
 设计口令：**边界硬、契约薄、实现可胖。** 胖的是题包 `run.py`，不是 Core。
 

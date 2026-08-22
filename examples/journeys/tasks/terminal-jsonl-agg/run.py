@@ -8,30 +8,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 from ageval_sdk import RunContext, RunTerminal
-
-
-def _parse_obj(raw: Any) -> dict[str, Any] | None:
-    if isinstance(raw, dict):
-        return raw
-    text = str(raw or "").strip()
-    if not text:
-        return None
-    try:
-        val = json.loads(text)
-        return val if isinstance(val, dict) else None
-    except json.JSONDecodeError:
-        pass
-    start, end = text.rfind("{"), text.rfind("}")
-    if start >= 0 and end > start:
-        try:
-            val = json.loads(text[start : end + 1])
-            return val if isinstance(val, dict) else None
-        except json.JSONDecodeError:
-            return None
-    return None
 
 
 async def run(ctx: RunContext) -> RunTerminal:
@@ -67,11 +45,7 @@ async def run(ctx: RunContext) -> RunTerminal:
         ctx.publish_json("aggregates", data)
         return RunTerminal.completed("terminal-jsonl-agg")
 
-    data = _parse_obj(inv.get("structured")) or _parse_obj(inv.get("text"))
-    if data is not None:
-        ctx.publish_json("aggregates", data)
-        return RunTerminal.completed("terminal-jsonl-agg")
-
-    # Agent wrote in the box; parent may not share that disk. Runtime harvests
-    # publishable files after writers stop. Chat text is not the authority.
+    # Remote boxes (e2b / daytona / ssh) do not share this disk. Chat text is
+    # not the artifact — Runtime harvests artifacts.publishable after writers
+    # stop via host.download.
     return RunTerminal.completed("terminal-jsonl-agg")

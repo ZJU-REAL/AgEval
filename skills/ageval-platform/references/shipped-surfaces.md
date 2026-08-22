@@ -14,7 +14,7 @@ Evidence grade is **limited `runnable-mvp`**. Do not claim `isolated` from one h
 | `examples/journeys --task env-postgres-min` | Sidecar / compose path |
 | docker topology `sdk-session-single-actor` | lock 有 topology 即可 |
 
-e2b / ssh: code exists; missing key → `--probe` `ready: false`. Skip ≠ pass.
+e2b / ssh / daytona: code exists; missing key → `--probe` `ready: false`. Skip ≠ pass.
 
 ## Install (repo root)
 

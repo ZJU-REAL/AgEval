@@ -14,8 +14,8 @@ GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product nam
 | Field | Value |
 | --- | --- |
 | Product | ageval (agent eval) |
-| Implementation | Attempt five-phase pipeline is wired; box kinds `local` / `docker` / `e2b` / `ssh`; public commands follow `ageval --help` |
-| Evidence grade | **Limited to `runnable-mvp`**: local ACP, docker ACP, and named journeys have public runs. e2b/ssh **code exists; skip without keys — do not mark isolated** |
+| Implementation | Attempt five-phase pipeline is wired; box kinds `local` / `docker` / `e2b` / `ssh` / `daytona`; public commands follow `ageval --help` |
+| Evidence grade | **Limited to `runnable-mvp`**: local ACP, docker ACP, and named journeys have public runs. e2b/ssh/daytona **code exists; skip without keys — do not mark isolated** |
 | Design authority | [docs/README.md](docs/README.md) |
 | Structure authority | **This document** |
 | Near-term target structure | [docs/design/00](docs/design/00-overview-and-product.md), [docs/design/01](docs/design/01-ageval-core.md), [docs/design/09](docs/design/09-owner-matrix-and-structure.md) |
@@ -27,7 +27,7 @@ GitHub: [`ZJU-REAL/ageval`](https://github.com/ZJU-REAL/ageval). The product nam
 
 ageval locks a **dataset**, opens a **box** (exclusive slot `environment`), runs the task `run.py` on a visible Attempt pipeline, then — after writers stop — an independent `evaluator.py` scores and binds a flat Result.
 
-Coding agents enter the box through the parent **ACP** client + `host.attach_stdio`. Other execution mechanisms fill the exclusive slot `executor` via `ageval.plugin/1`.
+Coding agents enter the box through the parent **ACP** client + `host.attach_stdio`, or through the external `acp-oneshot` executor (`host.exec` of an in-box ACP pair). Other execution mechanisms fill the exclusive slot `executor` via `ageval.plugin/1`.
 
 ### Main participants
 
@@ -77,7 +77,7 @@ Arrows mean **control-flow progress**. Cross-trust-boundary data flow is in [Dat
 | Smoke docker ACP | `uv run ageval run examples/journeys --task terminal-jsonl-agg` (default journeys box is docker) |
 | Smoke local ACP | `uv run ageval lock examples/tau3-airline --task airline-00` (default box is local; run needs credentials + tau2) |
 | Smoke journeys | `uv run ageval run examples/journeys --task terminal-jsonl-agg`; `… --task tau2-dialog-min` |
-| Expected failure | Unknown format → `invalid_format` exit 2; missing `--task` follows CLI; e2b/ssh without keys `--probe` `ready:false` |
+| Expected failure | Unknown format → `invalid_format` exit 2; missing `--task` follows CLI; e2b/ssh/daytona without keys `--probe` `ready:false` |
 | Observable result | Secret-free lock summary + digest; Attempt has `lock.json` / `result.json` / `trajectory.jsonl` |
 | Evidence grade | **Limited to `runnable-mvp`** (commands above; do not upgrade from documentation) |
 
@@ -146,6 +146,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   │       ├── docker/              # exclusive environment
 │   │       ├── local/
 │   │       ├── e2b/
+│   │       ├── daytona/
 │   │       ├── ssh/                 # A whole host / B remote container
 │   │       └── openai_http/
 │   ├── runtime/
@@ -174,7 +175,7 @@ ageval/                              # GitHub: ZJU-REAL/ageval
 │   ├── tau3-airline/                # airline-00 lock
 │   └── agents/                      # ageval.agent/1 catalog packages
 ├── plugins/                         # external ageval.plugin/1
-│   ├── nooa/ / dsh/ / miniswe/
+│   ├── nooa/ / dsh/ / miniswe/ / acp-oneshot/
 │   └── home-files/ / agent-skills/
 ├── docker/attempt/                  # official base: ACP entries bake-in
 ├── tests/
@@ -194,7 +195,7 @@ This is the accepted direction, **not** splitting Current back into `adapters/` 
 src/ageval/
   cli/ application/ attempt/phases/ config/
   environments/protocol.py          # still no vendor SDK
-  plugins/contrib/{acp,docker,local,e2b,ssh,openai_http}
+  plugins/contrib/{acp,docker,local,e2b,daytona,ssh,openai_http}
   plugins/defaults/                 # or move to contrib/defaults — pick one, not both
   runtime/{identity,parent_agent,task_launch,task_worker}
   evaluation/{bind,package_evaluator,box_runner}
@@ -292,7 +293,7 @@ environment phase
   before_environment
   host.start
   upload data/ → /attempt/workspace
-  after_environment_ready      # ACP which / probe then install
+  after_environment_ready      # ACP name+pin+stdio initialize, else install
   environment_setup            # setup.sh (defaults)
   after_environment
 

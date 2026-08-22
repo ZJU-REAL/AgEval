@@ -1,6 +1,6 @@
 ---
 title: Environment kinds
-description: local / docker / e2b / ssh on one ACP chain.
+description: local / docker / e2b / ssh / daytona on one ACP chain.
 ---
 
 The environment is the exclusive job slot `environment`. The winner is exported under that
@@ -15,6 +15,7 @@ not a second environment.
 | `e2b` | Cloud sandbox | `E2B_API_KEY`; `--profiles examples/journeys/profiles.e2b-acp.yaml` |
 | `ssh` A | Remote machine | `AGEVAL_SSH_HOST` / `USER` / `KEY`; journeys ssh A profiles are dsh / nooa |
 | `ssh` B | Remote existing image | Same locators plus `image:` already on the host |
+| `daytona` | Cloud sandbox (OCI snapshot) | `DAYTONA_API_KEY`; missing key → `--probe` `ready: false`. Default CI does not run live Daytona |
 
 ```bash
 uv run ageval run examples/journeys --task terminal-jsonl-agg
