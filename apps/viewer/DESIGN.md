@@ -177,7 +177,7 @@ segment is clickable.
 - Default duration `200ms`, easing `ease-smooth` (`cubic-bezier(0.22, 1, 0.36, 1)`). Tooltip intent delay `80ms`.
 - Named exceptions (docs/design/13): `--ease-spring` (toast enter, button release), `--t-press` 80ms on `:active`.
 - Evidence tabs use `UnderlineTabs` (sliding IKB bar). Do not copy per-page `border-b-2` tabs.
-- Toast after key writes (copy, save note, delete job). Confirm dialog / tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
+- Toast after key writes that have no local success state (save note, delete job), overshoot from below. Copy stays on the control. Select / dropdown lists enter with `data-ageval-menu`. Confirm dialog / tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
 - Jobs / tasks stay hairline tables. No catalog cards, GSAP, Motion, magnetic hover, cursor trail, 3D tilt, or scroll hijack on Viewer.
 
 ### Don't

@@ -30,8 +30,8 @@ Do not invent a second marketing skin or hand-rolled full-page CSS over shadcn.
 ## Motion
 
 - Default duration `200ms`, easing `ease-smooth` (`cubic-bezier(0.22, 1, 0.36, 1)`). Close/dismiss can be faster than open; tooltip wait is `80ms` (intent delay, not a travel duration).
-- Named exceptions (docs/design/13): `--ease-spring` (toast enter, star burst, button release), `--ease-glide` (PillTabs indicator, up to 400ms), `--t-press` 80ms on `:active`.
+- Named exceptions (docs/design/13): `--ease-spring` (toast enter, star burst, button release), `--ease-glide` (PillTabs indicator, 250ms), `--t-press` 80ms on `:active`.
 - Underline tabs (`UnderlineTabs`) slide the IKB bar with `transform` + `width`. File-tree Local / Shared / Overlays use `PillTabs` (gliding pill). Do not reintroduce per-page `border-b-2` tab copies or hard-cut segmented fills.
-- Toast (`Toaster` + `toast()`) after key writes (star, copy, save description/name, visibility, delete). Overshoot from below; reduced-motion shows the card with no travel.
-- Modal/tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
+- Toast (`Toaster` + `toast()`) after key writes that have no local success state (save description/name, visibility, delete). Copy and star stay on the control. Overshoot from below; reduced-motion shows the card with no travel.
+- Select / dropdown lists enter with `data-ageval-menu`. Modal/tooltip enter with `data-ageval-pop` / `data-ageval-scrim`. Honor `prefers-reduced-motion`.
 - No GSAP or Motion on Hub. No magnetic hover, cursor trail, 3D tilt, or scroll hijack.
