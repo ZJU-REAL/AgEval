@@ -1195,6 +1195,40 @@ class MetadataStore(MetadataStoreProtocol):
                 if r["display_name"]
             }
 
+    def set_package_icon(
+        self, dataset_id: str, *, icon_key: str, icon_github: str
+    ) -> tuple[str, str]:
+        with self._connect() as conn:
+            if icon_key or icon_github:
+                self._exec(
+                    conn,
+                    Q.UPSERT_PACKAGE_ICON,
+                    (dataset_id, icon_key, icon_github, now()),
+                )
+            else:
+                self._exec(conn, Q.DELETE_PACKAGE_ICON, (dataset_id,))
+            conn.commit()
+        return icon_key, icon_github
+
+    def get_package_icon(self, dataset_id: str) -> tuple[str, str]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_ICON, (dataset_id,))
+            row = cur.fetchone()
+        if row is None:
+            return "", ""
+        return str(row["icon_key"] or ""), str(row["icon_github"] or "")
+
+    def package_icons(self) -> dict[str, tuple[str, str]]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_ICONS)
+            out: dict[str, tuple[str, str]] = {}
+            for r in cur.fetchall():
+                key = str(r["icon_key"] or "")
+                github = str(r["icon_github"] or "")
+                if key or github:
+                    out[str(r["dataset_id"])] = (key, github)
+            return out
+
     def get_org(self, org_id: str) -> OrgRow | None:
         with self._connect() as conn:
             cur = self._exec(conn, Q.SELECT_ORG, (org_id,))
