@@ -44,8 +44,10 @@ import {
   passPowerPrimaryK,
   primaryDisplayK,
 } from "@/lib/suite-metrics";
+import { BrandMark } from "@/components/brand-mark";
 import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
+import { markFromPackage, resolveEntityMark, resolveMechanismMark } from "@/lib/brand-marks";
 import { JobOverlayPreview } from "@/components/overlay-file-panel";
 import { ScrollTable } from "@/components/scroll-table";
 
@@ -147,25 +149,6 @@ function CodeBlock({
         </code>
       </pre>
     </div>
-  );
-}
-
-function TruncateCell({
-  text,
-  className,
-  mono,
-}: {
-  text: string;
-  className?: string;
-  mono?: boolean;
-}) {
-  return (
-    <TableCell className={className}>
-      <TruncateTip
-        text={text}
-        className={mono ? "font-mono text-xs" : "text-sm"}
-      />
-    </TableCell>
   );
 }
 
@@ -378,6 +361,7 @@ export function LeaderboardTable({
   const [sortKey, setSortKey] = useState<string | null>("pass_rate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pluginCatalog, setPluginCatalog] = useState<PackageRelease[]>([]);
+  const [agentCatalog, setAgentCatalog] = useState<PackageRelease[]>([]);
 
   useEffect(() => {
     if (!openSuiteId) return;
@@ -388,12 +372,20 @@ export function LeaderboardTable({
 
   useEffect(() => {
     let cancelled = false;
-    listPackages(getToken(), { packageKind: "plugin" })
+    const token = getToken();
+    listPackages(token, { packageKind: "plugin" })
       .then((items) => {
         if (!cancelled) setPluginCatalog(latestPackageByDataset(items));
       })
       .catch(() => {
         if (!cancelled) setPluginCatalog([]);
+      });
+    listPackages(token, { packageKind: "agent" })
+      .then((items) => {
+        if (!cancelled) setAgentCatalog(latestPackageByDataset(items));
+      })
+      .catch(() => {
+        if (!cancelled) setAgentCatalog([]);
       });
     return () => {
       cancelled = true;
@@ -407,6 +399,12 @@ export function LeaderboardTable({
       return next;
     });
   }
+
+  const agentById = useMemo(() => {
+    const map = new Map<string, PackageRelease>();
+    for (const row of agentCatalog) map.set(row.dataset_id, row);
+    return map;
+  }, [agentCatalog]);
 
   const showKColumns = suites.some(
     (s) => primaryDisplayK(s.metrics || {}) != null,
@@ -550,6 +548,8 @@ export function LeaderboardTable({
               const agentText = derived.agent || s.agent_label || "";
               const modelText = derived.model || s.model_label || "";
               const runtimeLinks = uniqueAgentRefs(s.agent_refs);
+              const environment = environmentFromOverlay(s.job_overlay) || "";
+              const environmentKey = resolveMechanismMark(environment);
 
               return (
                 <Fragment key={s.suite_run_id}>
@@ -561,23 +561,41 @@ export function LeaderboardTable({
                     {runtimeLinks.length ? (
                       <TableCell className={COL_TEXT}>
                         <span className="flex flex-col gap-0.5 min-w-0">
-                          {runtimeLinks.map((ref) => (
-                            <Link
-                              key={ref.package_id}
-                              to={`/agents/${encodeDatasetId(ref.package_id)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-block max-w-full text-sm hover:text-ink hover:underline underline-offset-2"
-                            >
-                              <TruncateTip
-                                text={ref.package_id}
-                                className="text-sm"
-                              />
-                            </Link>
-                          ))}
+                          {runtimeLinks.map((ref) => {
+                            const pkg = agentById.get(ref.package_id);
+                            const mark = pkg
+                              ? markFromPackage(pkg)
+                              : resolveEntityMark({ packageId: ref.package_id });
+                            return (
+                              <Link
+                                key={ref.package_id}
+                                to={`/agents/${encodeDatasetId(ref.package_id)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex max-w-full items-center gap-1.5 text-sm hover:text-ink hover:underline underline-offset-2"
+                              >
+                                <BrandMark mark={mark} size={16} />
+                                <TruncateTip
+                                  text={ref.package_id}
+                                  className="text-sm"
+                                />
+                              </Link>
+                            );
+                          })}
                         </span>
                       </TableCell>
                     ) : (
-                      <TruncateCell text={agentText} className={COL_TEXT} />
+                      <TableCell className={COL_TEXT}>
+                        <span className="inline-flex max-w-full items-center gap-1.5">
+                          <BrandMark
+                            mark={resolveEntityMark({ displayName: agentText })}
+                            size={16}
+                          />
+                          <TruncateTip
+                            text={agentText || "—"}
+                            className="text-sm"
+                          />
+                        </span>
+                      </TableCell>
                     )}
                     <TableCell className={COL_TEXT}>
                       <ModelLabel
@@ -589,7 +607,15 @@ export function LeaderboardTable({
                     <TableCell
                       className={`font-mono text-xs ${COL_METRIC}`}
                     >
-                      {environmentFromOverlay(s.job_overlay) || "—"}
+                      <span className="inline-flex items-center gap-1.5">
+                        {environmentKey ? (
+                          <BrandMark
+                            mark={{ kind: "catalog", id: environmentKey }}
+                            size={16}
+                          />
+                        ) : null}
+                        {environment || "—"}
+                      </span>
                     </TableCell>
                     <TableCell
                       className={`text-right tabular-nums text-xs ${COL_METRIC}`}
