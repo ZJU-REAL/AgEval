@@ -122,23 +122,6 @@ jobs:
         run: |
           uv run pytest \
             --ignore=tests/registry \
-            --ignore=tests/e2e \
-            --ignore=tests/provider_l1 \
-            --ignore=tests/environment \
-            --ignore=tests/executors \
-            --ignore=tests/acceptance/test_provider_l1_cli.py \
-            --ignore=tests/acceptance/test_l1_package_dockerfile.py \
-            --ignore=tests/acceptance/test_l1_sdk_single_actor.py \
-            --ignore=tests/acceptance/test_l1_multi_agent_scheduling.py \
-            --ignore=tests/acceptance/test_l1_multi_agent_expected_failures.py \
-            --ignore=tests/acceptance/test_l1_multi_group_memory_context.py \
-            --ignore=tests/acceptance/test_builtin_executor_visibility.py \
-            --ignore=tests/acceptance/test_builtin_executor_conformance.py \
-            --ignore=tests/acceptance/test_hard_ceiling_cli.py \
-            --ignore=tests/acceptance/test_attempt_trajectory_cli.py \
-            --ignore=tests/acceptance/test_environment_action_denied_cli.py \
-            --ignore=tests/acceptance/test_v1_class_packages.py \
-            --ignore=tests/runtime/test_trajectory_source_probe.py \
             -q
 
   python-registry:

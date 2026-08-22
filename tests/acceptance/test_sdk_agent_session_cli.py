@@ -1,4 +1,4 @@
-"""Public CLI: attempt-trajectory stays fail-closed when no live Agent is available."""
+"""Public CLI: sdk-agent-session stays fail-closed without a live Agent."""
 
 from __future__ import annotations
 
@@ -9,21 +9,21 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PACKAGE = REPO / "examples" / "core"
 
 
-def test_offline_trajectory_not_pass() -> None:
+def test_sdk_agent_session_offline_not_pass() -> None:
     env = os.environ.copy()
     env["AGEVAL_OFFLINE_AGENT"] = "1"
+    env.pop("AGEVAL_SDK_SESSION_STUB", None)
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "ageval.cli.main",
             "run",
-            str(PACKAGE),
+            str(REPO / "examples" / "core"),
             "--task",
-            "attempt-trajectory",
+            "sdk-agent-session",
         ],
         check=False,
         capture_output=True,
@@ -37,3 +37,4 @@ def test_offline_trajectory_not_pass() -> None:
     if lines:
         data = json.loads(lines[-1])
         assert data.get("status") != "PASS"
+        assert "assurance" not in data
