@@ -1805,6 +1805,47 @@ class MetadataStore(MetadataStoreProtocol):
             cur = self._exec(conn, Q.select_package_download_counts_query(len(ids)), ids)
             return {str(r["dataset_id"]): int(r["download_count"] or 0) for r in cur.fetchall()}
 
+    def add_package_favorite(self, user_id: str, dataset_id: str) -> None:
+        uid = _normalize_user_id(user_id) or ""
+        did = (dataset_id or "").strip()
+        if not uid or not did:
+            raise ValueError("user_id and dataset_id required")
+        with self._connect() as conn:
+            self._exec(conn, Q.INSERT_PACKAGE_FAVORITE, (uid, did, now()))
+            conn.commit()
+
+    def remove_package_favorite(self, user_id: str, dataset_id: str) -> None:
+        uid = _normalize_user_id(user_id) or ""
+        did = (dataset_id or "").strip()
+        if not uid or not did:
+            raise ValueError("user_id and dataset_id required")
+        with self._connect() as conn:
+            self._exec(conn, Q.DELETE_PACKAGE_FAVORITE, (uid, did))
+            conn.commit()
+
+    def package_favorite_counts(self, dataset_ids: list[str] | set[str]) -> dict[str, int]:
+        ids = sorted({d for d in dataset_ids if d})
+        if not ids:
+            return {}
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.select_package_favorite_counts_query(len(ids)), ids)
+            return {str(r["dataset_id"]): int(r["favorite_count"] or 0) for r in cur.fetchall()}
+
+    def package_favorites_for_user(
+        self, user_id: str, dataset_ids: list[str] | set[str]
+    ) -> set[str]:
+        uid = _normalize_user_id(user_id) or ""
+        ids = sorted({d for d in dataset_ids if d})
+        if not uid or not ids:
+            return set()
+        with self._connect() as conn:
+            cur = self._exec(
+                conn,
+                Q.select_package_favorites_for_user_query(len(ids)),
+                [uid, *ids],
+            )
+            return {str(r["dataset_id"]) for r in cur.fetchall()}
+
     def get_user_profiles(self, user_ids: list[str] | set[str]) -> dict[str, UserProfileRow]:
         ids = sorted({_normalize_user_id(u) or u for u in user_ids if u})
         if not ids:

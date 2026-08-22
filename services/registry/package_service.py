@@ -68,16 +68,25 @@ class PackageService:
     def can_manage(self, row: ReleaseRow, auth: TokenInfo) -> bool:
         return self.access.can_manage_package(row, auth)
 
-    def _with_download_count(self, payload: dict[str, Any]) -> dict[str, Any]:
-        self._with_download_counts([payload])
+    def _with_download_count(
+        self, payload: dict[str, Any], auth: TokenInfo | None = None
+    ) -> dict[str, Any]:
+        self._with_download_counts([payload], auth=auth)
         return payload
 
-    def _with_download_counts(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _with_download_counts(
+        self, items: list[dict[str, Any]], auth: TokenInfo | None = None
+    ) -> list[dict[str, Any]]:
         ids = [str(item.get("dataset_id") or "") for item in items]
         counts = self.meta.package_download_counts(ids)
+        fav_counts = self.meta.package_favorite_counts(ids)
+        uid = auth.user_id if auth is not None else None
+        starred = self.meta.package_favorites_for_user(uid, ids) if uid else set()
         for item in items:
             did = str(item.get("dataset_id") or "")
             item["download_count"] = int(counts.get(did, 0))
+            item["favorite_count"] = int(fav_counts.get(did, 0))
+            item["favorited"] = did in starred
         return items
 
     def _apply_icons(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -176,7 +185,7 @@ class PackageService:
             self.meta.insert(row)
         except ValueError as exc:
             raise RegistryAppError("conflict", "release already exists", http_status=409) from exc
-        payload = self._with_download_count(release_to_dict(row))
+        payload = self._with_download_count(release_to_dict(row), auth)
         if existing_rel is not None and replace:
             payload["replaced"] = True
         return payload
@@ -254,7 +263,7 @@ class PackageService:
             self.meta.upsert_dataset_acl(dataset_id, user_id, role="owner")
         if old_blob and old_blob != blob_digest:
             self._gc_blob(old_blob)
-        payload = self._with_download_count(release_to_dict(stored.as_release()))
+        payload = self._with_download_count(release_to_dict(stored.as_release()), auth)
         payload["replaced"] = existing is not None
         return payload
 
@@ -307,7 +316,7 @@ class PackageService:
             self.meta.insert(row)
         except ValueError as exc:
             raise RegistryAppError("conflict", "release already exists", http_status=409) from exc
-        payload = self._with_download_count(release_to_dict(row))
+        payload = self._with_download_count(release_to_dict(row), auth)
         if existing_rel is not None and replace:
             payload["replaced"] = True
         payload["from_draft"] = True
@@ -322,6 +331,8 @@ class PackageService:
         version: str | None,
         package_kind: str | None,
         mine: bool = False,
+        favorited: bool = False,
+        orgs: bool = False,
     ) -> dict[str, Any]:
         if visibility is not None and visibility not in {"public", "private"}:
             raise RegistryAppError("invalid_request", "bad visibility", http_status=400)
@@ -351,14 +362,26 @@ class PackageService:
             items = [i for i in items if i.get("package_kind") == package_kind]
         if mine:
             items = self._filter_mine(items, auth)
+        if orgs:
+            items = self._filter_orgs(items, auth)
         labels = self.meta.package_display_names()
         for item in items:
             label = labels.get(str(item.get("dataset_id") or ""))
             if label:
                 item["display_name"] = label
         self._apply_icons(items)
-        self._with_download_counts(items)
+        self._with_download_counts(items, auth=auth)
+        if favorited:
+            items = [i for i in items if i.get("favorited")]
         return {"items": items}
+
+    def _filter_orgs(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
+        """Keep packages published by organizations the caller belongs to."""
+        uid = auth.user_id or ""
+        if not uid:
+            return []
+        org_ids = self.meta.user_org_ids(uid)
+        return [item for item in items if str(item.get("org_id") or "") in org_ids]
 
     def _filter_mine(self, items: list[dict[str, Any]], auth: TokenInfo) -> list[dict[str, Any]]:
         """Keep packages the caller uploaded or can maintain (ACL)."""
@@ -393,7 +416,7 @@ class PackageService:
             for item in items:
                 item["display_name"] = label
         self._apply_icons(items)
-        self._with_download_counts(items)
+        self._with_download_counts(items, auth=auth)
         return {"dataset_id": dataset_id, "items": items}
 
     def serve_meta(
@@ -410,7 +433,7 @@ class PackageService:
             package_digest=package_digest,
             version=version,
         )
-        payload = self._with_download_count(release_to_dict(row))
+        payload = self._with_download_count(release_to_dict(row), auth)
         label = self.meta.get_package_display_name(dataset_id)
         if label:
             payload["display_name"] = label
@@ -591,7 +614,7 @@ class PackageService:
             if has_icon_key and has_icon_github:
                 key, github = next_key or "", next_github or ""
             self.meta.set_package_icon(dataset_id, icon_key=key or "", icon_github=github or "")
-        payload = self._with_download_count(release_to_dict(row))
+        payload = self._with_download_count(release_to_dict(row), auth)
         label = (
             stored_name
             if stored_name is not None
@@ -634,7 +657,48 @@ class PackageService:
             updated = self.meta.set_release_visibility(dataset_id, version, visibility)
         except LookupError as exc:
             raise RegistryAppError("not_found", "release not found", http_status=404) from exc
-        return self._with_download_count(release_to_dict(updated))
+        return self._with_download_count(release_to_dict(updated), auth)
+
+    def set_favorite(self, *, dataset_id: str, auth: TokenInfo, favorited: bool) -> dict[str, Any]:
+        if not auth.user_id:
+            raise RegistryAppError("unauthorized", "login required", http_status=401)
+        row = self._latest_visible_release(dataset_id, auth)
+        try:
+            kind = package_kind_for_media_type(row.media_type)
+        except ValueError as exc:
+            raise RegistryAppError("invalid_format", str(exc), http_status=400) from exc
+        if kind not in {"plugin", "agent"}:
+            raise RegistryAppError(
+                "invalid_request",
+                "only plugin and agent packages can be favorited",
+                http_status=400,
+            )
+        if favorited:
+            self.meta.add_package_favorite(auth.user_id, row.dataset_id)
+        else:
+            self.meta.remove_package_favorite(auth.user_id, row.dataset_id)
+        counts = self.meta.package_favorite_counts([row.dataset_id])
+        starred = self.meta.package_favorites_for_user(auth.user_id, [row.dataset_id])
+        return {
+            "dataset_id": row.dataset_id,
+            "package_kind": kind,
+            "favorite_count": int(counts.get(row.dataset_id, 0)),
+            "favorited": row.dataset_id in starred,
+        }
+
+    def _latest_visible_release(self, dataset_id: str, auth: TokenInfo) -> ReleaseRow:
+        rows = [
+            r
+            for r in self.meta.list_versions(dataset_id, include_private=True)
+            if r.dataset_id == dataset_id and self.access.visible_package(r, auth)
+        ]
+        if rows:
+            rows.sort(key=lambda r: r.created_at, reverse=True)
+            return rows[0]
+        draft = self.meta.get_draft(dataset_id)
+        if draft is not None and self.access.entitled_to_draft(draft, auth):
+            return draft.as_release()
+        raise RegistryAppError("not_found", "package not found", http_status=404)
 
     def _visible_release(
         self,

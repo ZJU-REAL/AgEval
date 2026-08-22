@@ -256,7 +256,7 @@ export AGEVAL_OFFLINE_AGENT=1 AGEVAL_SKIP_DOCKER=1
 export AGEVAL_SKIP_REAL_CODEX=1 AGEVAL_SKIP_REAL_PI=1
 export AGEVAL_SKIP_REAL_OPENCODE=1 AGEVAL_SKIP_REAL_ACP=1
 # pytest 的 --ignore 列表必须与 .github/workflows/ci.yml job python-core 完全一致
-uv run pytest -q   # 复制该 job 里的 ignore 段，不要自己发明
+uv run pytest --ignore=tests/registry -q
 ```
 
 #### Python registry（`python-registry`）

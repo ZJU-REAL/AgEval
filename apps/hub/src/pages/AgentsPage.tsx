@@ -1,87 +1,49 @@
 import { Bot } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogCardGrid, CatalogCardSkeleton } from "@/components/catalog-card";
-import { CatalogScopeBar } from "@/components/catalog-scope-bar";
+import {
+  CatalogScopeBar,
+  MARKETPLACE_SCOPE_ITEMS,
+  catalogScopeFromSearch,
+  catalogScopeSearch,
+  type CatalogScope,
+} from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
-import {
-  encodeDatasetId,
-  latestPackageByDataset,
-  listOrgs,
-  listPackages,
-  type PackageRelease,
-  RegistryHttpError,
-} from "@/lib/api";
+import { useCatalogList } from "@/hooks/use-catalog-list";
+import { encodeDatasetId, latestPackageByDataset } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-
-type Scope = "orgs" | "explore";
 
 export function AgentsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope: Scope =
-    searchParams.get("scope") === "explore" ? "explore" : "orgs";
+  const scope = catalogScopeFromSearch(searchParams);
 
-  const [items, setItems] = useState<PackageRelease[]>([]);
-  const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const token = getToken();
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const packagesP = listPackages(token, { packageKind: "agent" });
-    const orgsP = token
-      ? listOrgs(token).catch(() => [] as Awaited<ReturnType<typeof listOrgs>>)
-      : Promise.resolve([]);
-
-    Promise.all([packagesP, orgsP])
-      .then(([rows, orgs]) => {
-        if (cancelled) return;
-        setItems(rows);
-        setMyOrgIds(new Set(orgs.map((o) => o.org_id)));
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof RegistryHttpError) {
-          setError(`${err.code}: ${err.message}`);
-        } else {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-        setItems([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+  const needsAuth = scope === "orgs" || scope === "favorites";
+  const { items, error, loading } = useCatalogList(
+    "agent",
+    scope,
+    token,
+    needsAuth,
+  );
 
   const agents = useMemo(() => {
     const latest = latestPackageByDataset(items);
-    const scoped =
-      scope === "orgs"
-        ? latest.filter((r) => r.org_id && myOrgIds.has(r.org_id) && token)
-        : latest.filter((r) => r.visibility === "public");
     const q = query.trim().toLowerCase();
-    if (!q) return scoped;
-    return scoped.filter(
+    if (!q) return latest;
+    return latest.filter(
       (r) =>
         r.dataset_id.toLowerCase().includes(q) ||
         (r.org_id && r.org_id.toLowerCase().includes(q)),
     );
-  }, [items, scope, myOrgIds, query, token]);
+  }, [items, query]);
 
-  function setScope(next: Scope) {
-    setSearchParams(next === "explore" ? { scope: "explore" } : {}, {
-      replace: true,
-    });
+  function setScope(next: CatalogScope) {
+    setSearchParams(catalogScopeSearch(next), { replace: true });
   }
 
   function openAgent(id: string) {
@@ -105,18 +67,26 @@ export function AgentsPage() {
       <CatalogScopeBar
         scope={scope}
         onScope={setScope}
+        items={MARKETPLACE_SCOPE_ITEMS}
         query={query}
         onQuery={setQuery}
         searchLabel="Search agents"
         searchPlaceholder="Search agents…"
       />
 
-      {scope === "orgs" && !token ? (
+      {(scope === "orgs" || scope === "favorites") && !token ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
-          <p className="font-medium text-ink">Sign in to see org agents</p>
+          <p className="font-medium text-ink">
+            {scope === "favorites"
+              ? "Sign in to see starred agents"
+              : "Sign in to see org agents"}
+          </p>
           <p className="mt-1 text-mute">
-            <SignInLink /> to list agents from your organizations. Public
-            agents are under{" "}
+            <SignInLink /> to list{" "}
+            {scope === "favorites"
+              ? "agents you starred"
+              : "agents from your organizations"}
+            . Public agents are under{" "}
             <button
               type="button"
               className="underline underline-offset-2"
@@ -147,7 +117,9 @@ export function AgentsPage() {
               <p className="mt-1 text-mute max-w-md mx-auto">
                 {scope === "orgs"
                   ? "No agent packages from your organizations yet. Publish with ageval agent publish <path> --org <id>."
-                  : "No public agent packages on this Registry yet."}
+                  : scope === "favorites"
+                    ? "No starred agents yet. Star an agent from its page."
+                    : "No public agent packages on this Registry yet."}
               </p>
             </div>
           ) : (

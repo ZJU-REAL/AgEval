@@ -50,7 +50,9 @@ class Route:
 
 def _package_id_list_ok(path: str) -> bool:
     rest = path[len("/v1/packages/") :]
-    return bool(rest) and "/versions/" not in rest and "/by-digest/" not in rest
+    if not rest or "/versions/" in rest or "/by-digest/" in rest:
+        return False
+    return not rest.endswith("/favorite") and not rest.endswith("/release")
 
 
 ROUTES: tuple[Route, ...] = (
@@ -266,6 +268,13 @@ ROUTES: tuple[Route, ...] = (
     ),
     Route(
         "POST",
+        "put_package_favorite",
+        access="bearer",
+        pattern=r"/v1/packages/(.+)/favorite",
+        groups=("dataset_id",),
+    ),
+    Route(
+        "POST",
         "upload_attempt",
         access="results_upload",
         exact="/v1/results/attempts",
@@ -353,6 +362,13 @@ ROUTES: tuple[Route, ...] = (
         access="org_owner",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)",
         groups=("dataset_id", "version"),
+    ),
+    Route(
+        "DELETE",
+        "delete_package_favorite",
+        access="bearer",
+        pattern=r"/v1/packages/(.+)/favorite",
+        groups=("dataset_id",),
     ),
     # PATCH
     Route(

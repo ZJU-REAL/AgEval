@@ -282,6 +282,14 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS package_favorites (
+        user_id TEXT NOT NULL,
+        dataset_id TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        PRIMARY KEY (user_id, dataset_id)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS package_icons (
         dataset_id TEXT PRIMARY KEY,
         icon_key TEXT NOT NULL DEFAULT '',
@@ -424,7 +432,9 @@ DELETE_ORG_RESULT_SHARES = "DELETE FROM result_shares WHERE target_type='org' AN
 DELETE_ORG = "DELETE FROM organizations WHERE org_id=?"
 SELECT_ORG_MEMBERS = """
 SELECT org_id, user_id, role, created_at
-FROM org_memberships WHERE org_id=? ORDER BY role, user_id
+FROM org_memberships
+WHERE org_id=?
+ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, user_id
 """
 INSERT_INVITE_KEY = """
 INSERT INTO org_invite_keys(
@@ -493,6 +503,12 @@ VALUES (?, 1)
 ON CONFLICT(dataset_id) DO UPDATE SET
     download_count = package_download_counts.download_count + 1
 """
+INSERT_PACKAGE_FAVORITE = """
+INSERT INTO package_favorites(user_id, dataset_id, created_at)
+VALUES (?, ?, ?)
+ON CONFLICT(user_id, dataset_id) DO NOTHING
+"""
+DELETE_PACKAGE_FAVORITE = "DELETE FROM package_favorites WHERE user_id=? AND dataset_id=?"
 
 
 def list_attempts_query(
@@ -549,6 +565,22 @@ def select_package_download_counts_query(n: int) -> str:
     return (
         "SELECT dataset_id, download_count FROM package_download_counts "
         f"WHERE dataset_id IN ({placeholders})"
+    )
+
+
+def select_package_favorite_counts_query(n: int) -> str:
+    placeholders = ",".join("?" for _ in range(n))
+    return (
+        "SELECT dataset_id, COUNT(*) AS favorite_count FROM package_favorites "
+        f"WHERE dataset_id IN ({placeholders}) GROUP BY dataset_id"
+    )
+
+
+def select_package_favorites_for_user_query(n: int) -> str:
+    placeholders = ",".join("?" for _ in range(n))
+    return (
+        "SELECT dataset_id FROM package_favorites "
+        f"WHERE user_id=? AND dataset_id IN ({placeholders})"
     )
 
 

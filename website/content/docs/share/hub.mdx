@@ -15,14 +15,14 @@ Hub（`apps/hub`）是连 Registry 的网页端，用来浏览共享的包与跑
 - Dataset 版本切换：有权限的人能看到 **draft (current)**，其他人只能切已发布 release。org owner 可改当前版本可见性、删除该版本，或把 draft 发布成 release  
 - Tasks 表：README 是否存在、近期 job 数、最近一次分数/状态  
 - Leaderboard：**Public**（默认）只列完备且绑定 release 的 suite；**Internal** 用同一张表列出当前可见的缺题 / draft 绑定跑次。可点表头排序；观测指标，非 suite PASS。展开行有 **profiles** / **plugin** 页签（无密钥 YAML 与再跑命令；插件进 marketplace）。上传者可在 **share** 页签改可见性、分享给 org/user、或删除。Task Jobs 不变。  
-- 插件 / Agent 市场用 **卡片**（说明、标签、累计 `download_count`）；Dataset、Jobs、成员、suite 仍是细线表  
+- 插件 / Agent 市场用 **卡片**（说明、标签、同一行的累计下载量与收藏量）；Dataset、Jobs、成员、suite 仍是细线表  
 - 插件详情：独占 / 链 **声明槽**时间线，点开跳到包内文件预览；浏览器不执行插件  
 - 官方组织、这些组织的成员、以及这些组织上的插件显示已验证对勾  
 - 公开用户页：身份、GitHub 链（由 login 推导）、可选 bio（本人 PATCH `description`）。组织可有 `description`。不列出私有成员关系  
-- 插件 / Agent 卡片与详情展示 `download_count`（成功拉包 content 加一，按 `dataset_id` 累计，不是 per-version，也不是 PASS）。Dataset 表不展示下载量  
+- 插件 / Agent 卡片与详情同一行展示下载量与 star 数。下载量在成功拉包 content 时加一；star 是登录用户对 plugin / agent 的每人一条记录，操作只在详情页头右侧。Dataset 表不展示这两项。列表 tab 绑查询参数：默认组织（`orgs=1`）、Explore 为 `?visibility=public`、Stars 为 `?favorited=1`（仅 plugin / agent）。组织详情 `?tab=settings`  
 - 组织、Dataset、插件、Agent 的 owner 可改展示名（组织标题，或 `org/` 后面的叶子）。存储的包 id 前缀不变  
 - 登录后的 **Home**：你上传的 Jobs、组织、可维护 Dataset / Task、你上传的插件与 Agent（标记与标题同 marketplace）。未登录会去登录页。无 publish / upload / release 按钮  
-- 列表搜索与 **Your organizations | Explore** 同一行；文件树分栏高度固定；轨迹按密封文件顺序展示、tool-call 可折叠；步骤头只在密封行带 `elapsed_ms` 时显示耗时  
+- 列表搜索与 scope tab 同一组；文件树分栏高度固定；轨迹按密封文件顺序展示、tool-call 可折叠；步骤头只在密封行带 `elapsed_ms` 时显示耗时  
 
 - Agent 详情：已发布包（binding + 文件，含 bundled `overlays/`），加上用 `agent_ref` 点名该 Agent 的官方公开 suite 出场。只用 `--profiles` 的 suite 留在 Dataset Leaderboard。
 

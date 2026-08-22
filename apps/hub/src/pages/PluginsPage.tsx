@@ -1,87 +1,49 @@
 import { Puzzle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { CatalogCardGrid, CatalogCardSkeleton } from "@/components/catalog-card";
-import { CatalogScopeBar } from "@/components/catalog-scope-bar";
+import {
+  CatalogScopeBar,
+  MARKETPLACE_SCOPE_ITEMS,
+  catalogScopeFromSearch,
+  catalogScopeSearch,
+  type CatalogScope,
+} from "@/components/catalog-scope-bar";
 import { PageHead } from "@/components/page-head";
 import { SignInLink } from "@/components/sign-in-button";
-import {
-  encodeDatasetId,
-  latestPackageByDataset,
-  listOrgs,
-  listPackages,
-  type PackageRelease,
-  RegistryHttpError,
-} from "@/lib/api";
+import { useCatalogList } from "@/hooks/use-catalog-list";
+import { encodeDatasetId, latestPackageByDataset } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-
-type Scope = "orgs" | "explore";
 
 export function PluginsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope: Scope =
-    searchParams.get("scope") === "explore" ? "explore" : "orgs";
+  const scope = catalogScopeFromSearch(searchParams);
 
-  const [items, setItems] = useState<PackageRelease[]>([]);
-  const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const token = getToken();
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const packagesP = listPackages(token, { packageKind: "plugin" });
-    const orgsP = token
-      ? listOrgs(token).catch(() => [] as Awaited<ReturnType<typeof listOrgs>>)
-      : Promise.resolve([]);
-
-    Promise.all([packagesP, orgsP])
-      .then(([rows, orgs]) => {
-        if (cancelled) return;
-        setItems(rows);
-        setMyOrgIds(new Set(orgs.map((o) => o.org_id)));
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        if (err instanceof RegistryHttpError) {
-          setError(`${err.code}: ${err.message}`);
-        } else {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-        setItems([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+  const needsAuth = scope === "orgs" || scope === "favorites";
+  const { items, error, loading } = useCatalogList(
+    "plugin",
+    scope,
+    token,
+    needsAuth,
+  );
 
   const plugins = useMemo(() => {
     const latest = latestPackageByDataset(items);
-    const scoped =
-      scope === "orgs"
-        ? latest.filter((r) => r.org_id && myOrgIds.has(r.org_id) && token)
-        : latest.filter((r) => r.visibility === "public");
     const q = query.trim().toLowerCase();
-    if (!q) return scoped;
-    return scoped.filter(
+    if (!q) return latest;
+    return latest.filter(
       (r) =>
         r.dataset_id.toLowerCase().includes(q) ||
         (r.org_id && r.org_id.toLowerCase().includes(q)),
     );
-  }, [items, scope, myOrgIds, query, token]);
+  }, [items, query]);
 
-  function setScope(next: Scope) {
-    setSearchParams(next === "explore" ? { scope: "explore" } : {}, {
-      replace: true,
-    });
+  function setScope(next: CatalogScope) {
+    setSearchParams(catalogScopeSearch(next), { replace: true });
   }
 
   function openPlugin(id: string) {
@@ -104,18 +66,26 @@ export function PluginsPage() {
       <CatalogScopeBar
         scope={scope}
         onScope={setScope}
+        items={MARKETPLACE_SCOPE_ITEMS}
         query={query}
         onQuery={setQuery}
         searchLabel="Search plugins"
         searchPlaceholder="Search plugins…"
       />
 
-      {scope === "orgs" && !token ? (
+      {(scope === "orgs" || scope === "favorites") && !token ? (
         <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-body">
-          <p className="font-medium text-ink">Sign in to see org plugins</p>
+          <p className="font-medium text-ink">
+            {scope === "favorites"
+              ? "Sign in to see starred plugins"
+              : "Sign in to see org plugins"}
+          </p>
           <p className="mt-1 text-mute">
-            <SignInLink /> to list plugins from your organizations. Public
-            plugins are under{" "}
+            <SignInLink /> to list{" "}
+            {scope === "favorites"
+              ? "plugins you starred"
+              : "plugins from your organizations"}
+            . Public plugins are under{" "}
             <button
               type="button"
               className="underline underline-offset-2"
@@ -146,7 +116,9 @@ export function PluginsPage() {
               <p className="mt-1 text-mute max-w-md mx-auto">
                 {scope === "orgs"
                   ? "No plugin packages from your organizations yet. Publish with ageval plugin publish <path> --org <id>."
-                  : "No public plugin packages on this Registry yet."}
+                  : scope === "favorites"
+                    ? "No starred plugins yet. Star a plugin from its page."
+                    : "No public plugin packages on this Registry yet."}
               </p>
             </div>
           ) : (

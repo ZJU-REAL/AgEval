@@ -31,6 +31,7 @@ CANONICAL: dict[str, tuple[str, str]] = {
     "link-deep": ("#001F73", "#8AA0FF"),
     "error": ("#EE0000", "#FF5C5C"),
     "warning": ("#F5A623", "#F5A623"),
+    "star": ("#E3B341", "#F5C84C"),
     "code-bg": ("#F4F5F8", "#0C0E14"),
     "accent": ("#5B7BFF", "#002FA7"),
 }
@@ -53,6 +54,7 @@ VAR_MAP: list[tuple[str, str, str, bool]] = [
             ("link-deep", "link-deep"),
             ("error", "error"),
             ("warning", "warning"),
+            ("star", "star"),
             ("code-bg", "code-bg"),
             ("row-hover", "canvas-soft"),
         ]

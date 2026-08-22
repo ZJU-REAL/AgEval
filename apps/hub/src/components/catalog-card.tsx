@@ -7,9 +7,15 @@ import {
 } from "react";
 
 import { BrandMark } from "@/components/brand-mark";
+import { MarketplaceCounts } from "@/components/marketplace-counts";
 import { OfficialMark } from "@/components/official-mark";
-import { DownloadCount } from "@/components/download-count";
 import { markFromPackage } from "@/lib/brand-marks";
+import {
+  catalogPreviewKey,
+  hydrateCatalogRow,
+  readCatalogPreview,
+  writeCatalogPreview,
+} from "@/lib/catalog-cache";
 import {
   getPackageByDigest,
   packageDisplayTitle,
@@ -66,7 +72,7 @@ function descriptionOf(kind: CatalogKind, row: PackageRelease): string | null {
 }
 
 function rowKey(row: PackageRelease): string {
-  return `${row.dataset_id}@${row.package_digest}`;
+  return catalogPreviewKey(row);
 }
 
 export function CatalogCard({
@@ -81,6 +87,7 @@ export function CatalogCard({
   const title = packageDisplayTitle(row.dataset_id, row.display_name);
   const chips = kind === "plugin" ? pluginChips(row) : agentChips(row);
   const description = descriptionOf(kind, row);
+  const previewReady = hasPreview(kind, row);
   const updated = row.created_at != null ? formatDay(row.created_at) : null;
 
   function open() {
@@ -96,8 +103,8 @@ export function CatalogCard({
 
   return (
     <article
-      role="link"
       tabIndex={0}
+      aria-label={title}
       onClick={open}
       onKeyDown={onKeyDown}
       className={cn(
@@ -130,10 +137,13 @@ export function CatalogCard({
         )}
         title={description ?? undefined}
       >
-        {description ??
-          (kind === "plugin"
-            ? "ageval.plugin/1 package"
-            : "ageval.agent/1 package")}
+        {description
+          ? description
+          : previewReady
+            ? kind === "plugin"
+              ? "ageval.plugin/1 package"
+              : "ageval.agent/1 package"
+            : "\u00a0"}
       </p>
 
       <div className="mt-auto flex items-end justify-between gap-2 pt-3">
@@ -151,7 +161,12 @@ export function CatalogCard({
         ) : (
           <span />
         )}
-        <DownloadCount count={row.download_count} compact className="shrink-0" />
+        <MarketplaceCounts
+          downloadCount={row.download_count}
+          favoriteCount={row.favorite_count}
+          compact
+          className="shrink-0"
+        />
       </div>
     </article>
   );
@@ -166,16 +181,25 @@ export function CatalogCardGrid({
   rows: PackageRelease[];
   onOpen: (id: string) => void;
 }) {
-  const [previews, setPreviews] = useState<Record<string, PackageRelease>>({});
+  const [previews, setPreviews] = useState<Record<string, PackageRelease>>(() => {
+    const initial: Record<string, PackageRelease> = {};
+    for (const row of rows) {
+      const hit = readCatalogPreview(rowKey(row));
+      if (hit) initial[rowKey(row)] = hit;
+    }
+    return initial;
+  });
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const missingKey = rows
-    .filter((row) => !hasPreview(kind, row))
+    .filter((row) => !hasPreview(kind, hydrateCatalogRow(row)))
     .map(rowKey)
     .join("\n");
 
   useEffect(() => {
-    const pending = rowsRef.current.filter((row) => !hasPreview(kind, row));
+    const pending = rowsRef.current.filter(
+      (row) => !hasPreview(kind, hydrateCatalogRow(row)),
+    );
     if (!pending.length) return;
     let cancelled = false;
     const token = getToken();
@@ -187,6 +211,7 @@ export function CatalogCardGrid({
             row.package_digest,
             token,
           );
+          writeCatalogPreview(meta);
           return [rowKey(row), meta] as const;
         } catch {
           return null;
@@ -210,9 +235,27 @@ export function CatalogCardGrid({
   const resolved = useMemo(
     () =>
       rows.map((row) => {
-        if (hasPreview(kind, row)) return row;
+        const hydrated = hasPreview(kind, row) ? row : hydrateCatalogRow(row);
+        if (hasPreview(kind, hydrated)) {
+          return {
+            ...hydrated,
+            download_count: row.download_count,
+            favorite_count: row.favorite_count,
+            favorited: row.favorited,
+            icon_key: row.icon_key,
+            icon_github: row.icon_github,
+          };
+        }
         const extra = previews[rowKey(row)];
-        return extra ?? row;
+        if (!extra) return row;
+        return {
+          ...extra,
+          download_count: row.download_count,
+          favorite_count: row.favorite_count,
+          favorited: row.favorited,
+          icon_key: row.icon_key,
+          icon_github: row.icon_github,
+        };
       }),
     [kind, rows, previews],
   );

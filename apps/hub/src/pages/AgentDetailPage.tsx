@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BindingPreview } from "@/components/binding-preview";
-import { DownloadCount } from "@/components/download-count";
+import { MarketplaceCounts } from "@/components/marketplace-counts";
 import { CatalogHead } from "@/components/page-head";
+import { PackageStarButton } from "@/components/star-toggle";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { EntityMarkControl } from "@/components/entity-mark-control";
@@ -147,8 +148,10 @@ export function AgentDetailPage() {
     };
   }, [agentId, token, reloadAt]);
 
+  const packageDigest = release?.package_digest;
+
   useEffect(() => {
-    if (!release || !selectedPath) {
+    if (!packageDigest || !selectedPath) {
       setFileContent(null);
       setFileNote(null);
       return;
@@ -156,7 +159,7 @@ export function AgentDetailPage() {
     let cancelled = false;
     setFileLoading(true);
     setFileNote(null);
-    getPackageFile(agentId, release.package_digest, selectedPath, token)
+    getPackageFile(agentId, packageDigest, selectedPath, token)
       .then((f) => {
         if (cancelled) return;
         try {
@@ -181,7 +184,7 @@ export function AgentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [agentId, release, selectedPath, token]);
+  }, [agentId, packageDigest, selectedPath, token]);
 
   const installCmd = useMemo(() => {
     if (!release) return `ageval agent install ${agentId}@<version>`;
@@ -289,11 +292,13 @@ export function AgentDetailPage() {
               <span className="font-mono">@{agentId}</span>
               <span aria-hidden>·</span>
               <span>
-                {isDraftRelease(release) ? "draft" : `v${release.version}`} ·{" "}
-                {release.visibility}
+                {isDraftRelease(release) ? "draft" : `v${release.version}`}
               </span>
               <span aria-hidden>·</span>
-              <DownloadCount count={release.download_count} />
+              <MarketplaceCounts
+                downloadCount={release.download_count}
+                favoriteCount={release.favorite_count}
+              />
               {release.org_id ? (
                 <>
                   <span aria-hidden>·</span>
@@ -314,6 +319,21 @@ export function AgentDetailPage() {
         </div>
         {release ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <PackageStarButton
+              packageId={agentId}
+              release={release}
+              onUpdated={(next) => {
+                setRelease((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        favorited: next.favorited,
+                        favorite_count: next.favorite_count,
+                      }
+                    : prev,
+                );
+              }}
+            />
             <PackageOwnerOps
               packageId={agentId}
               release={release}

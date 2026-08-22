@@ -18,6 +18,7 @@
   --color-error: var(--viewer-error);
   --color-error-soft: var(--viewer-error-soft);
   --color-warning: var(--viewer-warning);
+  --color-star: var(--viewer-star);
   --color-row-hover: var(--viewer-row-hover);
   --color-code-bg: var(--viewer-code-bg);
   --color-shell-cmd: var(--viewer-shell-cmd);
@@ -51,6 +52,7 @@
   --viewer-error: #ee0000;
   --viewer-error-soft: #f7d4d6;
   --viewer-warning: #f5a623;
+  --viewer-star: #e3b341;
   --viewer-row-hover: #e8eaf1;
   --viewer-code-bg: #f4f5f8;
   --viewer-shell-cmd: #1b54e8;
@@ -77,6 +79,7 @@
   --viewer-error: #ff5c5c;
   --viewer-error-soft: #3b1414;
   --viewer-warning: #f5a623;
+  --viewer-star: #f5c84c;
   --viewer-row-hover: #1a1e2a;
   --viewer-code-bg: #0c0e14;
   --viewer-shell-cmd: #5b7bff;
@@ -102,6 +105,7 @@
     --viewer-error: #ff5c5c;
     --viewer-error-soft: #3b1414;
     --viewer-warning: #f5a623;
+    --viewer-star: #f5c84c;
     --viewer-row-hover: #1a1e2a;
     --viewer-code-bg: #0c0e14;
     --viewer-shell-cmd: #5b7bff;
@@ -130,6 +134,7 @@
     --viewer-error: #ee0000;
     --viewer-error-soft: #f7d4d6;
     --viewer-warning: #f5a623;
+    --viewer-star: #e3b341;
     --viewer-row-hover: #e8eaf1;
     --viewer-code-bg: #f4f5f8;
     --viewer-shell-cmd: #1b54e8;

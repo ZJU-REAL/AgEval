@@ -69,6 +69,20 @@ def test_list_members_visible_to_member(tmp_path: Path) -> None:
     assert any(item["user_id"] == "alice" for item in payload["items"])
 
 
+def test_list_members_puts_owners_first(tmp_path: Path) -> None:
+    svc = _orgs(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="zack", display_name="Acme")
+    svc.meta.add_member("acme", "amy", role="member")
+    svc.meta.add_member("acme", "bob", role="owner")
+    owner = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="zack")
+    payload = svc.list_members(org_id="acme", auth=owner)
+    ids = [item["user_id"] for item in payload["items"]]
+    roles = [item["role"] for item in payload["items"]]
+    assert roles[:2] == ["owner", "owner"]
+    assert ids[:2] == ["bob", "zack"]
+    assert ids[2:] == ["amy"]
+
+
 def _user(*, admin: bool = False, user_id: str = "alice") -> TokenInfo:
     scopes = frozenset({"admin"}) if admin else frozenset({"registry:publish"})
     return TokenInfo(scopes=scopes, user_id=user_id)

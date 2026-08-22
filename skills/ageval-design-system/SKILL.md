@@ -33,7 +33,8 @@ fix the surfaces to match docs/13 + the script.
 - Hex values live only in token files and owl brand assets. App code uses semantic
   names (`text-ink`, `border-hairline`, …).
 - IKB (`link` / `primary`) is for links, focus, primary CTAs, and brand slots.
-  Do not use it as a large fill.
+  Do not use it as a large fill. Functional accents (error, warning, star gold)
+  have their own tokens; the UI is not ink/paper/IKB-only.
 - `mute` is never body text. `canvas*` is surface, `hairline` is line,
   `ink` / `body` / `mute` are type.
 - Anton is wordmark-only. Body is Geist (+ CJK fallback). Mono is Geist Mono.

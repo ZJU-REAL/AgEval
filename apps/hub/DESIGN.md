@@ -24,7 +24,7 @@ Do not invent a second marketing skin or hand-rolled full-page CSS over shadcn.
 - Grid: `1 / 2 / 3` columns (`grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`). N packages → N cells.
 - Header: `org/name` title plus official mark on the left, updated date on the right.
 - Description: fixed two-line block (`h-10` / `leading-5` / `line-clamp-2`). Missing description uses `ageval.plugin/1 package` / `ageval.agent/1 package`. List rows without preview load by-digest meta.
-- Tags sit at the bottom of the card (`mt-auto`).
+- Tags sit at the bottom of the card (`mt-auto`). Mute counts (`download_count` + star count) share that same row on the right (lucide `Download` / `Star` + number). The star on a card is a count, not a control.
 - Loading uses `CatalogCardSkeleton` (same grid, pulse). Empty states use a dashed well.
 
 ## Motion

@@ -20,6 +20,30 @@
 
 `download_count` 按 `dataset_id` 累计，不是 per-version，也不是 PASS / 安装成功。每次成功 `GET /v1/packages/{id}/by-digest/{dig}/content`（真 blob，不是 `/files` 预览）加一。列表与 by-digest meta 都带该字段（缺记录为 0）。Hub 在 plugin / agent 卡片与详情展示；dataset 表不展示。
 
+## 市场收藏
+
+`favorite_count` 按 `dataset_id` 累计，不是 per-version。每人每个包最多一条收藏。只允许 **plugin** 与 **agent**（dataset 拒绝）。列表与 by-digest meta 带 `favorite_count`（缺记录为 0）；已登录调用方另带 `favorited`。
+
+- `POST /v1/packages/{id}/favorite`：登录后收藏；须能看见该包。已收藏则幂等返回当前状态。
+- `DELETE /v1/packages/{id}/favorite`：取消收藏；未收藏也幂等。
+- `GET /v1/packages?favorited=1`：只列当前用户收藏且仍可见的包。无登录用户 id 则空列表。
+- `GET /v1/packages?orgs=1`：只列调用方所属组织发布的包。无登录用户 id 则空列表。
+- `GET /v1/packages?visibility=public`：只列公开包（Explore）。
+
+Hub 列表 tab **就是**这些查询参数（不要再叠一层 `scope=`）：
+
+| URL | Tab |
+| --- | --- |
+| `/plugins`、`/agents`、`/datasets`（无额外参数） | Your organizations（请求带 `orgs=1`） |
+| `?visibility=public` | Explore |
+| `?favorited=1` | Stars（仅 `/plugins`、`/agents`） |
+
+卡片把 `favorite_count` 与 `download_count` **同一行**展示（star 只是计数）。详情页头右侧用 icon 按钮 star/unstar；未登录点它去登录页。组织详情用 `?tab=settings`（默认 overview 省略 `tab`）。
+
+## 组织成员顺序
+
+`GET /v1/orgs/{id}/members` 的 `items`：**owner 在前**，同角色按 `user_id`。Hub 成员表按该顺序渲染。
+
 ## 市场图标
 
 Plugin / agent 的实体标默认是 **uploader 的 GitHub 头像**（`uploaded_by` 即 GitHub login）。Hub org **不是** GitHub org，不要用 `org_id` 去拼 `github.com/{org}.png`。

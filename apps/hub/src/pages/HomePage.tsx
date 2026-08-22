@@ -22,30 +22,10 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getGithubUser, getToken } from "@/lib/auth";
+import { rememberReturnPath } from "@/lib/return-path";
 import { formatDate } from "@/lib/utils";
 
-const RETURN_KEY = "ageval-hub-return";
-
 type TaskRow = { datasetId: string; taskId: string };
-
-export function rememberReturnPath(path: string): void {
-  try {
-    sessionStorage.setItem(RETURN_KEY, path);
-  } catch {
-    /* ignore */
-  }
-}
-
-export function takeReturnPath(fallback = "/datasets"): string {
-  try {
-    const raw = sessionStorage.getItem(RETURN_KEY);
-    sessionStorage.removeItem(RETURN_KEY);
-    if (raw && raw.startsWith("/")) return raw;
-  } catch {
-    /* ignore */
-  }
-  return fallback;
-}
 
 export function HomePage() {
   const navigate = useNavigate();

@@ -15,14 +15,14 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases. Org owners can flip the current version public/private, delete it, or promote a draft to a release  
 - Tasks table: README present, recent job count, last score/status  
 - Leaderboard: **Public** (default) lists complete, release-bound suite rows only. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). The uploader gets a **share** tab to flip visibility, share with an org/user, or delete. Task Jobs stay as they are.  
-- Plugin / Agent marketplace uses **cards** (description, tags, cumulative `download_count`); datasets, jobs, members, and suites stay hairline tables  
+- Plugin / Agent marketplace uses **cards** (description, tags, download and favorite counts on one row); datasets, jobs, members, and suites stay hairline tables  
 - Plugin detail: exclusive / chain **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
 - Official orgs, members of those orgs, and plugins from those orgs show a verified check  
 - Public user page: identity, GitHub link (from login), optional bio (self-PATCH `description`). Orgs may have a `description`. Private memberships stay hidden  
-- Plugin / Agent cards and detail show `download_count` (increments on a successful package content GET, per `dataset_id`, not per-version, not PASS). Dataset tables do not show downloads  
+- Plugin / Agent cards and detail show download and star counts on one row. Downloads increment on a successful package content GET; stars are one row per signed-in user per plugin/agent, toggled only from the detail header. Dataset tables show neither. List tabs are the list query: default orgs (`orgs=1`), Explore `?visibility=public`, Stars `?favorited=1` (plugins/agents only). Org detail uses `?tab=settings`  
 - Org, dataset, plugin, and agent owners can edit the display name (org title, or the leaf after `org/`). The stored package id prefix does not change  
 - Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins and agents you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
-- List search sits on the same row as **Your organizations | Explore**; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
+- List search sits with the scope tabs; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
 
 - Agent detail: published package (binding + files, including bundled `overlays/`) plus appearances from official public suites that named it with `agent_ref`. Suites run with `--profiles` only stay on the Dataset Leaderboard.
 
