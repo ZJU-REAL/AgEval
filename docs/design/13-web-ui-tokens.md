@@ -57,7 +57,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | --- | --- |
 | 主按钮(SPA Button `default`) | IKB 填充 + `rounded-[6px]` + `font-mono text-[13px] font-semibold` + `focus-visible:ring-2 ring-link/70`,hover `link-deep` |
 | 下划线 tab | `UnderlineTabs`:mono uppercase + 滑动 IKB 条(`transform`/`width` 200ms)。不要再复制 `border-b-2` 手写条 |
-| Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 `org/name`(+ official),右侧更新日期。描述固定两行高,tag 贴底；`download_count` 为 mute 计量，贴在 tag 行右侧（lucide `Download` + 数字）。Datasets / jobs / leaderboard / members 用表 |
+| Catalog 卡 | plugin / agent 市场包用 `CatalogCard`:12px 圆角、hairline、hover `canvas-soft`。标题为 20px 实体标 + `org/name`(+ official),右侧更新日期。描述固定两行高,tag 贴底；`download_count` 为 mute 计量，贴在 tag 行右侧（lucide `Download` + 数字）。Datasets / jobs / leaderboard / members 用表 |
 | 页头(PageHead) | h1 + 可选 sub + hairline(无编号 kicker) |
 | 相位/耗时图谱 | `--viewer-phase-1..6`(IKB 主导 + 中性梯度),禁 zinc 等外部灰阶 |
 | 弹层(tooltip/select/dropdown/dialog) | hairline 边框 + `--viewer-shadow-pop` |
@@ -74,7 +74,7 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
    (landing 3px outline)。
 7. 选区、hover、active 的色彩表达一律引用令牌,不自调 hex / opacity 组合。
 8. 动效只允许统一缓动曲线;时长偏离 200ms 需要说明理由(landing hero/章节揭示 400ms 是已记录的例外)。
-9. 图标两套:品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`),功能用 lucide;不引入第三套。
+9. 图标三用途:产品品牌用 owl 系列(`owl-flat.tsx` / `OwlIcon`);功能用 lucide;实体/机制厂商标用 Hub 闭包目录(`apps/hub/src/lib/brand-marks/`),单色 `currentColor`。不把第三方 logo 组件库当运行时依赖。文件树仍用 `material-icon-theme`(既有例外)。
 10. 深度感不用硬投影;blur 分档封顶,不为单个组件发明新档。
 
 ## 品牌资产入口
@@ -83,5 +83,6 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 | --- | --- | --- |
 | `OwlFlatMark` / `Icon` / `Peek` / `Plate` / `Lockup` / `Watermark` | `website/src/components/owl-flat.tsx` | landing 水印、导航、docs lockup、备用底板 |
 | `OwlIcon`(全身) | `apps/hub/src/components/owl-icon.tsx`、`apps/viewer/src/components/owl-icon.tsx` | 两 SPA 导航品牌位 |
+| 实体/机制标 | `apps/hub/src/lib/brand-marks/` + `BrandMark` | plugin / agent 卡片与详情、Leaderboard Harness / Environment。闭集 SVG,`currentColor`,无第三方图标包 |
 
-/owl-flat 与 owl-icon 内的 IKB、墨、纸、奶油 hex 是品牌资产允许值,纳入机检 allowlist。
+/owl-flat 与 owl-icon 内的 IKB、墨、纸、奶油 hex 是品牌资产允许值,纳入机检 allowlist。厂商标 SVG 只用 `currentColor`,不进 hex 机检。

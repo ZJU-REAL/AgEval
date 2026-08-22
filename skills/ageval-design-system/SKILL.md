@@ -42,17 +42,19 @@ fix the surfaces to match docs/13 + the script.
   clip-path chamfer on buttons.
 - Underline tabs use `UnderlineTabs` (sliding IKB bar). Page heads use
   `PageHead` (h1 + optional sub + hairline; no numbered kicker).
-- Plugin / agent marketplace lists are `CatalogCard` grids (`org/name` + date,
-  two-line description, tags at the bottom). Datasets, jobs, leaderboard,
-  and members are hairline tables.
+- Plugin / agent marketplace lists are `CatalogCard` grids (20px entity mark +
+  `org/name` + date, two-line description, tags at the bottom). Datasets, jobs,
+  leaderboard, and members are hairline tables.
 - Motion is CSS only on hub/viewer (`200ms` / `ease-smooth`). Landing may
   stagger the hero and reveal sections 8px; no GSAP/Motion, no pin/scrub.
 - Focus: buttons `ring-2 ring-link/70`; fields `border-link` 1px, no extra ring;
   landing 3px outline.
 - Popover shadow is `--viewer-shadow-pop` only. Phase charts use
   `--viewer-phase-1..6` only.
-- Icons: brand uses owl (`website/src/components/owl-flat.tsx`, each SPA
-  `OwlIcon`); function icons use lucide. Do not add a third set.
+- Icons: product brand uses owl (`website/src/components/owl-flat.tsx`, each SPA
+  `OwlIcon`); function icons use lucide; entity/mechanism vendor marks use the
+  Hub closed catalog (`apps/hub/src/lib/brand-marks/`, `currentColor`). Do not
+  add a third-party logo component library as a runtime dependency.
 
 ## Machine check
 
