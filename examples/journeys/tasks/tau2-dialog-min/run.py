@@ -209,6 +209,19 @@ async def run(ctx: RunContext) -> RunTerminal:
             obs = await tools.call(tool_name, args)
             result = obs.get("result") if isinstance(obs.get("result"), dict) else obs
             observations.append({"tool": tool_name, "args": args, "result": result})
+            call_id = native[0]["id"] if native else f"call_{len(observations)}"
+            record = getattr(session, "record_observation", None)
+            if callable(record):
+                payload = (
+                    json.dumps(result, default=str) if not isinstance(result, str) else result
+                )
+                await record(
+                    call_id,
+                    content=payload,
+                    raw_output=result,
+                    function_name=tool_name,
+                    invocation_id=svc.get("invocation_id"),
+                )
             _append_tool_turn(
                 svc_messages,
                 name=tool_name,

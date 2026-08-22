@@ -63,6 +63,36 @@ def _native_tool_calls(resp: Mapping[str, Any] | dict[str, Any]) -> list[dict[st
     return out
 
 
+async def _record_env_observation(
+    session: Any,
+    *,
+    call_id: str,
+    name: str,
+    tmsg: Any,
+    invocation_id: object,
+) -> None:
+    content = getattr(tmsg, "content", None)
+    if not isinstance(content, str):
+        content = json.dumps(content, default=str)
+    raw: Any = content
+    try:
+        parsed = json.loads(content)
+        raw = parsed
+    except json.JSONDecodeError:
+        pass
+    record = getattr(session, "record_observation", None)
+    if not callable(record):
+        return
+    await record(
+        call_id,
+        content=content,
+        raw_output=raw,
+        function_name=name,
+        error=bool(getattr(tmsg, "error", False)),
+        invocation_id=str(invocation_id) if invocation_id else None,
+    )
+
+
 def _parse_service_action(payload: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(payload, dict):
         return {"kind": "invalid", "raw": payload}
@@ -310,6 +340,13 @@ async def run(ctx: RunContext, *, task_dir: Path | None = None) -> RunTerminal:
                                 requestor="assistant",
                                 error=True,
                             )
+                        await _record_env_observation(
+                            svc_sess,
+                            call_id=call_id,
+                            name=name,
+                            tmsg=tmsg,
+                            invocation_id=sres.get("invocation_id"),
+                        )
                         trajectory.append(tmsg)
                         content = getattr(tmsg, "content", None)
                         pending_tool_obs = [
