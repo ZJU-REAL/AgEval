@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 export type CatalogScope = "orgs" | "explore" | "favorites";
 
 export const DATASET_SCOPE_ITEMS = [
-  { id: "orgs" as const, label: "Your organizations" },
   { id: "explore" as const, label: "Explore" },
+  { id: "orgs" as const, label: "Your organizations" },
 ];
 
 export const MARKETPLACE_SCOPE_ITEMS = [
@@ -18,7 +18,7 @@ function truthyParam(raw: string | null): boolean {
   return v === "1" || v === "true" || v === "yes";
 }
 
-/** Hub list URL is the list filter: default orgs, `visibility=public`, `favorited=1`. */
+/** Hub list URL is the list filter: default Explore (`visibility=public`), `orgs=1`, `favorited=1`. */
 export function catalogScopeFromSearch(
   params: URLSearchParams,
   allowFavorites = true,
@@ -29,16 +29,16 @@ export function catalogScopeFromSearch(
   ) {
     return "favorites";
   }
-  if (params.get("visibility") === "public" || params.get("scope") === "explore") {
-    return "explore";
+  if (params.get("orgs") === "1" || params.get("scope") === "orgs") {
+    return "orgs";
   }
-  return "orgs";
+  return "explore";
 }
 
 export function catalogScopeSearch(scope: CatalogScope): Record<string, string> {
   if (scope === "favorites") return { favorited: "1" };
-  if (scope === "explore") return { visibility: "public" };
-  return {};
+  if (scope === "orgs") return { orgs: "1" };
+  return { visibility: "public" };
 }
 
 export function catalogListOpts(scope: CatalogScope): {

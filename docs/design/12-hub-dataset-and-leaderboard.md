@@ -32,12 +32,12 @@ Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。�
 - `GET /v1/packages?orgs=1`：只列调用方所属组织发布的包。无登录用户 id 则空列表。
 - `GET /v1/packages?visibility=public`：只列公开包（Explore）。
 
-Hub 列表 tab **就是**这些查询参数（不要再叠一层 `scope=`）：
+Hub 列表 tab **就是**这些查询参数（不要再叠一层 `scope=`）。默认 Explore：
 
 | URL | Tab |
 | --- | --- |
-| `/plugins`、`/agents`、`/datasets`（无额外参数） | Your organizations（请求带 `orgs=1`） |
-| `?visibility=public` | Explore |
+| `/plugins`、`/agents`、`/datasets`（无额外参数或 `?visibility=public`） | Explore |
+| `?orgs=1` | Your organizations（请求带 `orgs=1`） |
 | `?favorited=1` | Stars（仅 `/plugins`、`/agents`） |
 
 卡片把 `favorite_count` 与 `download_count` **同一行**展示（star 只是计数）。详情页头右侧用 icon 按钮 star/unstar；未登录点它去登录页。组织详情用 `?tab=settings`（默认 overview 省略 `tab`）。

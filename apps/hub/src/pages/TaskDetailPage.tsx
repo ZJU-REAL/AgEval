@@ -413,9 +413,9 @@ export function TaskDetailPage() {
   return (
     <>
       <CatalogHead
-        title="Your datasets"
+        title="Datasets"
         crumbs={[
-          { label: "Your datasets", href: "/datasets" },
+          { label: "Datasets", href: "/datasets" },
           {
             label: datasetId,
             href: `/datasets/${encodeURIComponent(datasetId)}${
