@@ -361,6 +361,20 @@ export function DatasetDetailPage() {
       ),
     [jobSuites, login],
   );
+  const suiteQuery = search.get("suite");
+  const publicSuites = useMemo(() => {
+    if (!suiteQuery) return boardSuites;
+    if (boardSuites.some((row) => row.suite_run_id === suiteQuery)) return boardSuites;
+    const extra = jobSuites.find((row) => row.suite_run_id === suiteQuery);
+    return extra ? [...boardSuites, extra] : boardSuites;
+  }, [boardSuites, jobSuites, suiteQuery]);
+  const awaitingListingVisible = useMemo(
+    () =>
+      awaitingListing.filter(
+        (row) => !publicSuites.some((listed) => listed.suite_run_id === row.suite_run_id),
+      ),
+    [awaitingListing, publicSuites],
+  );
 
   function setVersion(next: string) {
     const n = new URLSearchParams(search);
@@ -626,7 +640,7 @@ export function DatasetDetailPage() {
                 ? LEADERBOARD_K_FIXTURES
                 : boardView === "internal"
                   ? internalSuites
-                  : boardSuites
+                  : publicSuites
             }
             datasetId={datasetId}
             orgId={release?.org_id}
@@ -662,14 +676,14 @@ export function DatasetDetailPage() {
                 : undefined
             }
           />
-          {boardView === "public" && !demoLeaderboard && awaitingListing.length > 0 ? (
+          {boardView === "public" && !demoLeaderboard && awaitingListingVisible.length > 0 ? (
             <div className="space-y-2">
               <p className="text-xs text-mute">
                 Your complete release-bound suites that are not listed yet. Request
                 listing from the share tab; Dataset org owners decide in Inbox.
               </p>
               <LeaderboardTable
-                suites={awaitingListing}
+                suites={awaitingListingVisible}
                 datasetId={datasetId}
                 orgId={release?.org_id}
                 packageDigest={release?.package_digest}

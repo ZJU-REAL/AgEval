@@ -2,6 +2,7 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 import * as React from "react";
 
+import { useOverlayRoot } from "@/components/overlay-root";
 import { cn } from "@/lib/utils";
 
 export const Select = SelectPrimitive.Root;
@@ -32,13 +33,15 @@ SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 export const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = "popper", ...props }, ref) => (
-  <SelectPrimitive.Portal>
+>(({ className, children, position = "popper", ...props }, ref) => {
+  const container = useOverlayRoot();
+  return (
+  <SelectPrimitive.Portal container={container}>
     <SelectPrimitive.Content
       ref={ref}
       data-ageval-menu=""
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-[8px] border border-hairline bg-canvas text-ink shadow-[var(--viewer-shadow-pop)]",
+        "z-[70] min-w-[8rem] overflow-hidden rounded-[8px] border border-hairline bg-canvas text-ink shadow-[var(--viewer-shadow-pop)]",
         className,
       )}
       position={position}
@@ -47,7 +50,8 @@ export const SelectContent = React.forwardRef<
       <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
-));
+  );
+});
 SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 export const SelectItem = React.forwardRef<
