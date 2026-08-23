@@ -394,9 +394,9 @@ export function DatasetDetailPage() {
   return (
     <>
       <CatalogHead
-        title="Your datasets"
+        title="Datasets"
         crumbs={[
-          { label: "Your datasets", href: "/datasets" },
+          { label: "Datasets", href: "/datasets" },
           { label: datasetId },
         ]}
       />
@@ -504,7 +504,7 @@ export function DatasetDetailPage() {
             <p className="text-body">
               <Link
                 to={`/plugins/${encodeDatasetId(datasetId)}`}
-                className="underline underline-offset-2"
+                className="text-link hover:text-link-deep underline underline-offset-2"
               >
                 Open in Plugin marketplace
               </Link>
@@ -514,7 +514,7 @@ export function DatasetDetailPage() {
             <p className="text-body">
               <Link
                 to={`/agents/${encodeDatasetId(datasetId)}`}
-                className="underline underline-offset-2"
+                className="text-link hover:text-link-deep underline underline-offset-2"
               >
                 Open in Agent hub
               </Link>

@@ -89,7 +89,7 @@ export function PluginsPage() {
             . Public plugins are under{" "}
             <button
               type="button"
-              className="underline underline-offset-2"
+              className="text-link hover:text-link-deep underline underline-offset-2"
               onClick={() => setScope("explore")}
             >
               Explore

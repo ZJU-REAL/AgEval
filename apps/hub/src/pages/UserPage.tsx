@@ -192,7 +192,7 @@ export function UserPage() {
                         <TableCell>
                           <Link
                             to={`/organizations/${encodeURIComponent(org.org_id)}`}
-                            className="inline-flex items-center gap-1.5 hover:underline"
+                            className="inline-flex items-center gap-1.5 text-link hover:text-link-deep hover:underline"
                           >
                             <span>
                               {org.display_name || org.org_id}

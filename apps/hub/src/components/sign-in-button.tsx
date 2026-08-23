@@ -72,7 +72,7 @@ export function SignInLink({
       type="button"
       disabled={busy}
       className={cn(
-        "underline underline-offset-2 text-inherit disabled:opacity-50",
+        "text-link hover:text-link-deep underline underline-offset-2 disabled:opacity-50",
         className,
       )}
       onClick={() => {

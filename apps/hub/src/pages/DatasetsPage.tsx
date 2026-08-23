@@ -128,7 +128,7 @@ export function DatasetsPage() {
             packages are under{" "}
             <button
               type="button"
-              className="underline underline-offset-2"
+              className="text-link hover:text-link-deep underline underline-offset-2"
               onClick={() => setScope("explore")}
             >
               Explore
@@ -194,7 +194,7 @@ export function DatasetsPage() {
                         {row.org_id ? (
                           <Link
                             to={`/organizations/${encodeURIComponent(row.org_id)}`}
-                            className="hover:text-ink"
+                            className="text-link hover:text-link-deep"
                             onClick={(e) => e.stopPropagation()}
                           >
                             @{row.org_id}

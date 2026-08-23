@@ -30,17 +30,17 @@ export type TokenTiming = {
 };
 
 const PHASE_COLORS: Record<string, string> = {
-  environment: "bg-[var(--viewer-phase-5)]",
+  environment: "bg-[var(--viewer-phase-3)]",
   run: "bg-[var(--viewer-phase-1)]",
-  evaluate: "bg-[var(--viewer-phase-3)]",
+  evaluate: "bg-[var(--viewer-phase-2)]",
   record: "bg-[var(--viewer-phase-4)]",
-  cleanup: "bg-[var(--viewer-phase-6)]",
+  cleanup: "bg-[var(--viewer-phase-5)]",
 };
 
 const TOKEN_COLORS: Record<string, string> = {
-  cached_input: "bg-[var(--viewer-phase-5)]",
+  cached_input: "bg-[var(--viewer-phase-3)]",
   uncached_input: "bg-[var(--viewer-phase-1)]",
-  output: "bg-[var(--viewer-phase-3)]",
+  output: "bg-[var(--viewer-phase-2)]",
 };
 
 function formatMs(ms: number | undefined | null): string {
