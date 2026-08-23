@@ -6,7 +6,9 @@ import { BuiltinMark } from "@/components/builtin-mark";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { EntityMarkControl } from "@/components/entity-mark-control";
-import { entityHintFromPackage } from "@/lib/brand-marks";
+import { BrandMark } from "@/components/brand-mark";
+import { entityHintFromPackage, markFromGithubRepoLink } from "@/lib/brand-marks";
+import { githubRepoUrl } from "@/lib/public-links";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
@@ -21,9 +23,11 @@ import {
   decodeDatasetId,
   decodeFileContent,
   getOrg,
+  getBuiltinPackageFile,
   getPackageByDigest,
   getPackageFile,
   isBuiltinPackage,
+  listBuiltinPackageFiles,
   isDraftRelease,
   listPackageFiles,
   listPackageVersions,
@@ -77,9 +81,18 @@ export function PluginDetailPage() {
           setRelease(latest);
           setPreview(latest.plugin_preview || null);
           setCanEditName(false);
-          setTree([]);
-          setFilePaths([]);
-          setSelectedPath(null);
+          const files = await listBuiltinPackageFiles(pluginId, token);
+          if (cancelled) return;
+          const nested = buildNestedTree(files.items);
+          setTree(nested);
+          setFilePaths(
+            files.items.filter((e) => e.type !== "dir").map((e) => e.path),
+          );
+          const prefer =
+            files.items.find((e) => e.path === "plugin.yaml") ||
+            files.items.find((e) => e.path === "README.md") ||
+            files.items.find((e) => e.type !== "dir");
+          if (prefer) setSelectedPath(prefer.path);
           return;
         }
         if (latest.package_digest) {
@@ -159,9 +172,10 @@ export function PluginDetailPage() {
   }, [pluginId, token, reloadAt]);
 
   const packageDigest = release?.package_digest;
+  const builtin = isBuiltinPackage(release);
 
   useEffect(() => {
-    if (!packageDigest || !selectedPath) {
+    if (!selectedPath || (!builtin && !packageDigest)) {
       setFileContent(null);
       setFileNote(null);
       return;
@@ -169,7 +183,10 @@ export function PluginDetailPage() {
     let cancelled = false;
     setFileLoading(true);
     setFileNote(null);
-    getPackageFile(pluginId, packageDigest, selectedPath, token)
+    const pending = builtin
+      ? getBuiltinPackageFile(pluginId, selectedPath, token)
+      : getPackageFile(pluginId, packageDigest || "", selectedPath, token);
+    pending
       .then((f) => {
         if (cancelled) return;
         try {
@@ -194,7 +211,7 @@ export function PluginDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [pluginId, packageDigest, selectedPath, token]);
+  }, [pluginId, packageDigest, selectedPath, token, builtin]);
 
   const installCmd = useMemo(() => {
     if (!release) return `ageval plugin install ${pluginId}@<version>`;
@@ -209,7 +226,6 @@ export function PluginDetailPage() {
 
   const declared = useMemo(() => declaredSlotsFromPreview(preview), [preview]);
   const previewFiles = filePaths.length ? filePaths : preview?.files || [];
-  const builtin = isBuiltinPackage(release);
 
   function openSlotPath(path: string) {
     setSelectedPath(path);
@@ -236,12 +252,18 @@ export function PluginDetailPage() {
               canEdit={Boolean(token && canEditName && release && !builtin)}
               headingClassName="text-xl font-semibold tracking-tight text-ink"
               beforeTitle={
-                release ? (
+                builtin ? (
+                  <BrandMark
+                    mark={markFromGithubRepoLink()}
+                    size={24}
+                    title={githubRepoUrl() || undefined}
+                  />
+                ) : release ? (
                   <EntityMarkControl
                     hint={entityHintFromPackage(release)}
                     packageId={pluginId}
                     token={token}
-                    canEdit={Boolean(token && canEditName && !builtin)}
+                    canEdit={Boolean(token && canEditName)}
                     onUpdated={(patch) => {
                       setRelease((prev) =>
                         prev
@@ -270,7 +292,7 @@ export function PluginDetailPage() {
                 );
               }}
             />
-            {!builtin && formatBadge ? (
+            {formatBadge ? (
               <span className="text-[11px] font-medium font-mono px-2 py-0.5 rounded border border-hairline bg-canvas-soft text-body">
                 {formatBadge}
               </span>
@@ -279,12 +301,7 @@ export function PluginDetailPage() {
           {release ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
               <span className="font-mono">@{pluginId}</span>
-              {builtin ? (
-                <>
-                  <span aria-hidden>·</span>
-                  <span>ships with ageval</span>
-                </>
-              ) : (
+              {builtin ? null : (
                 <>
                   <span aria-hidden>·</span>
                   <span>
@@ -369,19 +386,7 @@ export function PluginDetailPage() {
             <InlineMarkdown source={preview.description} />
           ) : null}
 
-          {builtin ? (
-            <div className="space-y-1">
-              <p className="text-sm text-mute">
-                Ships with ageval. Listing here does not mean this host can run
-                it.
-              </p>
-              {release.host_requires?.length ? (
-                <p className="font-mono text-xs text-body">
-                  {release.host_requires.join(" · ")}
-                </p>
-              ) : null}
-            </div>
-          ) : (
+          {builtin ? null : (
             <section className="space-y-2">
               <h2 className="text-sm font-medium text-ink">Install (CLI)</h2>
               <CommandStrip command={installCmd} />
@@ -397,7 +402,6 @@ export function PluginDetailPage() {
             />
           </section>
 
-          {builtin ? null : (
           <section id="plugin-files" className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Files</h2>
             <p className="text-xs text-mute">
@@ -415,7 +419,6 @@ export function PluginDetailPage() {
               />
             </div>
           </section>
-          )}
         </div>
       )}
     </>

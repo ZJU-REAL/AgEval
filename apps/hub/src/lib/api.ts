@@ -645,6 +645,14 @@ export async function listPackageFiles(
   return requestJson(`/v1/packages/${id}/by-digest/${dig}/files`, { token });
 }
 
+export async function listBuiltinPackageFiles(
+  datasetId: string,
+  token: string | null,
+): Promise<{ items: FileItem[] }> {
+  const id = packageIdPath(datasetId);
+  return requestJson(`/v1/packages/${id}/files`, { token });
+}
+
 export async function getPackageFile(
   datasetId: string,
   digest: string,
@@ -658,6 +666,19 @@ export async function getPackageFile(
     .map((s) => encodeURIComponent(s))
     .join("/");
   return requestJson(`/v1/packages/${id}/by-digest/${dig}/files/${fp}`, { token });
+}
+
+export async function getBuiltinPackageFile(
+  datasetId: string,
+  filePath: string,
+  token: string | null,
+): Promise<FileContent> {
+  const id = packageIdPath(datasetId);
+  const fp = filePath
+    .split("/")
+    .map((s) => encodeURIComponent(s))
+    .join("/");
+  return requestJson(`/v1/packages/${id}/files/${fp}`, { token });
 }
 
 export async function listSuites(
