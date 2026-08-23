@@ -680,7 +680,8 @@ export function DatasetDetailPage() {
             <div className="space-y-2">
               <p className="text-xs text-mute">
                 Your complete release-bound suites that are not listed yet. Request
-                listing from the share tab; Dataset org owners decide in Inbox.
+                listing from the settings menu Share modal; Dataset org owners
+                decide in Inbox.
               </p>
               <LeaderboardTable
                 suites={awaitingListingVisible}

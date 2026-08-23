@@ -765,7 +765,7 @@ export function LeaderboardTable({
                                         to={`/plugins/${encodeDatasetId(p.plugin_id)}`}
                                         className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-row-hover"
                                       >
-                                        <span className="inline-flex min-w-0 items-center gap-1.5 font-mono text-xs text-ink">
+                                        <span className="inline-flex min-w-0 items-center gap-1.5 font-mono text-xs text-link hover:text-link-deep">
                                           {p.plugin_id}
                                           {bundled ? <BuiltinMark /> : null}
                                         </span>

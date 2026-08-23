@@ -280,7 +280,7 @@ function UserPackageSection({
                   <TableCell>
                     <Link
                       to={href(row)}
-                      className="inline-flex items-center gap-1.5 font-mono text-sm hover:underline min-w-0"
+                      className="inline-flex items-center gap-1.5 font-mono text-sm text-link hover:text-link-deep hover:underline min-w-0"
                     >
                       <span className="truncate">
                         {packageDisplayTitle(row.dataset_id, row.display_name)}

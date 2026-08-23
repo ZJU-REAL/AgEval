@@ -33,13 +33,22 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 
-function normRef(value: string): string {
-  return value.trim().toLowerCase();
+/** Compare Hub appearance specs: optional `role=`, ignore `+digest`. */
+function appearanceKey(value: string | undefined): string {
+  let text = (value || "").trim();
+  if (!text) return "";
+  const eq = text.indexOf("=");
+  if (eq > 0 && /^[A-Za-z_][A-Za-z0-9_-]*$/.test(text.slice(0, eq).trim())) {
+    text = text.slice(eq + 1).trim();
+  }
+  const plus = text.indexOf("+");
+  if (plus >= 0) text = text.slice(0, plus).trim();
+  return text.toLowerCase();
 }
 
 function refsMatch(input: string, stored: string | undefined): boolean {
-  const a = normRef(input);
-  const b = normRef(stored || "");
+  const a = appearanceKey(input);
+  const b = appearanceKey(stored);
   return Boolean(a) && a === b;
 }
 
@@ -84,6 +93,8 @@ export function ResultOwnerOps({
       return;
     }
     let cancelled = false;
+    setShares([]);
+    setRequests([]);
     const shareLoad = listResultShares(kind, resultId, token)
       .then((rows) => {
         if (!cancelled) setShares(rows);
@@ -127,6 +138,7 @@ export function ResultOwnerOps({
   );
 
   if (!canManage || !token) return null;
+  const authToken = token;
 
   function fail(err: unknown) {
     if (err instanceof RegistryHttpError) {
@@ -139,7 +151,7 @@ export function ResultOwnerOps({
   async function reloadRequests() {
     if (kind !== "suite") return;
     try {
-      setRequests(await listSuiteRequests(resultId, token));
+      setRequests(await listSuiteRequests(resultId, authToken));
     } catch {
       /* keep last */
     }
@@ -150,7 +162,7 @@ export function ResultOwnerOps({
     setBusy(true);
     setError(null);
     try {
-      await setResultVisibility(kind, resultId, next, token);
+      await setResultVisibility(kind, resultId, next, authToken);
       onVisibility?.(next);
       toast(`Visibility set to ${next}`);
     } catch (err) {
@@ -170,7 +182,7 @@ export function ResultOwnerOps({
         kind,
         resultId,
         { type: targetType, id },
-        token,
+        authToken,
       );
       setShares((prev) => [...prev, row]);
       setTargetId("");
@@ -190,7 +202,7 @@ export function ResultOwnerOps({
         kind,
         resultId,
         { type: row.target_type as "org" | "user", id: row.target_id },
-        token,
+        authToken,
       );
       setShares((prev) =>
         prev.filter(
@@ -213,7 +225,7 @@ export function ResultOwnerOps({
     try {
       await applyRequest(
         { kind: "leaderboard_list", suite_run_id: resultId },
-        token,
+        authToken,
       );
       await reloadRequests();
       toast("Listing requested");
@@ -237,7 +249,7 @@ export function ResultOwnerOps({
     try {
       const row = await applyRequest(
         { kind: "agent_appearance", suite_run_id: resultId, agent: spec },
-        token,
+        authToken,
       );
       if (row.direct_attach || row.attached) {
         onAttached?.(row as Partial<SuiteRow>);
@@ -263,7 +275,7 @@ export function ResultOwnerOps({
     setBusy(true);
     setError(null);
     try {
-      await deleteResult(kind, resultId, token, {
+      await deleteResult(kind, resultId, authToken, {
         withAttempts: kind === "suite" && withAttempts,
       });
       setConfirmDelete(false);

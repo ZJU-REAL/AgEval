@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,14 +33,27 @@ export function ConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const titleId = useId();
+  const descId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCancelRef = useRef(onCancel);
+  const busyRef = useRef(busy);
+  onCancelRef.current = onCancel;
+  busyRef.current = busy;
+
   useEffect(() => {
     if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape" && !busy) onCancel();
+      if (event.key === "Escape" && !busyRef.current) onCancelRef.current();
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, busy, onCancel]);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      previouslyFocused?.focus?.();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -54,24 +67,26 @@ export function ConfirmDialog({
       }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-desc"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        tabIndex={-1}
         data-ageval-pop=""
         className={cn(
-          "w-full max-w-md rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)]",
+          "w-full max-w-md rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
           className,
         )}
         onClick={(event) => event.stopPropagation()}
       >
         <h2
-          id="confirm-dialog-title"
+          id={titleId}
           className="text-lg font-semibold tracking-tight text-ink"
         >
           {title}
         </h2>
-        <div id="confirm-dialog-desc" className="mt-1 text-sm text-mute">
+        <div id={descId} className="mt-1 text-sm text-mute">
           {description}
         </div>
         {children ? <div className="mt-4">{children}</div> : null}
@@ -119,14 +134,25 @@ export function Modal({
   className?: string;
   onClose: () => void;
 }) {
+  const titleId = useId();
+  const descId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      previouslyFocused?.focus?.();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -138,20 +164,22 @@ export function Modal({
       onClick={onClose}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="panel-dialog-title"
-        aria-describedby={description ? "panel-dialog-desc" : undefined}
+        aria-labelledby={titleId}
+        aria-describedby={description ? descId : undefined}
+        tabIndex={-1}
         data-ageval-pop=""
         className={cn(
-          "w-full max-w-lg rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)]",
+          "w-full max-w-lg rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
           className,
         )}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start gap-3">
           <h2
-            id="panel-dialog-title"
+            id={titleId}
             className="min-w-0 flex-1 text-lg font-semibold tracking-tight text-ink"
           >
             {title}
@@ -168,7 +196,7 @@ export function Modal({
           </Button>
         </div>
         {description ? (
-          <div id="panel-dialog-desc" className="mt-1 text-sm text-mute">
+          <div id={descId} className="mt-1 text-sm text-mute">
             {description}
           </div>
         ) : null}
