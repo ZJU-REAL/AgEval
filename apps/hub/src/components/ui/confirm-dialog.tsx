@@ -1,8 +1,64 @@
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+/** Snapshot the opener before children `autoFocus`; restore only if still mounted. */
+function useDialogFocus(
+  open: boolean,
+  onEscape: () => void,
+  escapeBlocked?: () => boolean,
+): RefObject<HTMLDivElement | null> {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onEscapeRef = useRef(onEscape);
+  const blockedRef = useRef(escapeBlocked);
+  const wasOpenRef = useRef(false);
+  const restoreRef = useRef<HTMLElement | null>(null);
+  onEscapeRef.current = onEscape;
+  blockedRef.current = escapeBlocked;
+
+  if (open !== wasOpenRef.current) {
+    if (open) {
+      const active = document.activeElement;
+      restoreRef.current = active instanceof HTMLElement ? active : null;
+    }
+    wasOpenRef.current = open;
+  }
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    const active = document.activeElement;
+    if (panel && !(active instanceof Node && panel.contains(active))) {
+      panel.focus();
+    }
+    return () => {
+      const node = restoreRef.current;
+      if (node?.isConnected) node.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (blockedRef.current?.()) return;
+      onEscapeRef.current();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return panelRef;
+}
 
 export function ConfirmDialog({
   open,
@@ -35,25 +91,9 @@ export function ConfirmDialog({
 }) {
   const titleId = useId();
   const descId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
-  const onCancelRef = useRef(onCancel);
   const busyRef = useRef(busy);
-  onCancelRef.current = onCancel;
   busyRef.current = busy;
-
-  useEffect(() => {
-    if (!open) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape" && !busyRef.current) onCancelRef.current();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      previouslyFocused?.focus?.();
-    };
-  }, [open]);
+  const panelRef = useDialogFocus(open, onCancel, () => busyRef.current);
 
   if (!open) return null;
 
@@ -136,23 +176,7 @@ export function Modal({
 }) {
   const titleId = useId();
   const descId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    if (!open) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onCloseRef.current();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      previouslyFocused?.focus?.();
-    };
-  }, [open]);
+  const panelRef = useDialogFocus(open, onClose);
 
   if (!open) return null;
 
