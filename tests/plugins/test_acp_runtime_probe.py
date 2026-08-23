@@ -1,4 +1,4 @@
-"""ACP after_environment_ready probe: name + pin + stdio initialize, else install."""
+"""ACP after_environment_ready probe: binary + stdio initialize; install only if missing."""
 
 from __future__ import annotations
 
@@ -78,19 +78,21 @@ def _ok_probe(*, entry: str = "opencode") -> dict[str, Any]:
     }
 
 
-def _mismatch_probe() -> dict[str, Any]:
+def _missing_probe() -> dict[str, Any]:
+    return {
+        "ok": False,
+        "missing": ["opencode"],
+        "versions": [],
+        "initialize": {"ok": False, "reason": "skipped"},
+    }
+
+
+def _present_but_handshake_failed() -> dict[str, Any]:
     return {
         "ok": False,
         "missing": [],
-        "versions": [
-            {
-                "package": "opencode-ai",
-                "wanted": "1.18.12",
-                "found": "1.1.35",
-                "ok": False,
-            }
-        ],
-        "initialize": {"ok": False, "reason": "skipped"},
+        "versions": [],
+        "initialize": {"ok": False, "reason": "no_jsonrpc_result"},
     }
 
 
@@ -108,10 +110,10 @@ async def test_probe_hit_skips_install() -> None:
 
 
 @pytest.mark.asyncio
-async def test_wrong_pin_runs_entry_install_command_then_reprobes() -> None:
+async def test_missing_binary_runs_entry_install_command_then_reprobes() -> None:
     desc = get_entry("opencode")
     assert desc is not None
-    host = _ScriptedHost([_mismatch_probe(), _ok_probe()])
+    host = _ScriptedHost([_missing_probe(), _ok_probe()])
     ctx = _Ctx(host, [])
     await _ensure_entry_present(ctx, desc)
     assert host.commands[1] == ["bash", "-lc", _install_line(desc.install_command)]
@@ -128,10 +130,21 @@ async def test_wrong_pin_runs_entry_install_command_then_reprobes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_present_binary_does_not_npm_install_on_failed_probe() -> None:
+    desc = get_entry("opencode")
+    assert desc is not None
+    host = _ScriptedHost([_present_but_handshake_failed()])
+    ctx = _Ctx(host, [])
+    with pytest.raises(EnvironmentFailure, match="not installing"):
+        await _ensure_entry_present(ctx, desc)
+    assert all(cmd[:2] != ["bash", "-lc"] for cmd in host.commands)
+
+
+@pytest.mark.asyncio
 async def test_install_failure_is_environment_failure() -> None:
     desc = get_entry("opencode")
     assert desc is not None
-    host = _ScriptedHost([_mismatch_probe()], install_code=1)
+    host = _ScriptedHost([_missing_probe()], install_code=1)
     ctx = _Ctx(host, [])
     with pytest.raises(EnvironmentFailure) as ei:
         await _ensure_entry_present(ctx, desc)
@@ -142,7 +155,7 @@ async def test_install_failure_is_environment_failure() -> None:
 async def test_still_wrong_after_install_fails_closed() -> None:
     desc = get_entry("opencode")
     assert desc is not None
-    host = _ScriptedHost([_mismatch_probe(), _mismatch_probe()])
+    host = _ScriptedHost([_missing_probe(), _missing_probe()])
     ctx = _Ctx(host, [])
     with pytest.raises(EnvironmentFailure, match="still failing runtime probe"):
         await _ensure_entry_present(ctx, desc)
@@ -153,7 +166,7 @@ async def test_no_install_command_fails_without_executing_install() -> None:
     real = get_entry("opencode")
     assert real is not None
     desc = SimpleNamespace(**{**real.as_dict(), "install_command": ""})
-    host = _ScriptedHost([_mismatch_probe()])
+    host = _ScriptedHost([_missing_probe()])
     ctx = _Ctx(host, [])
     with pytest.raises(EnvironmentFailure, match="declares no install command"):
         await _ensure_entry_present(ctx, desc)  # type: ignore[arg-type]
@@ -235,11 +248,12 @@ def test_probe_source_accepts_echo_stdio_agent(tmp_path: Path) -> None:
     assert result["initialize"]["ok"] is True
 
 
-def test_probe_source_rejects_wrong_pin_without_handshake(tmp_path: Path) -> None:
+def test_probe_source_ignores_npm_pin_when_binary_handshakes(tmp_path: Path) -> None:
     result = _run_probe_source(tmp_path, npm_version="1.1.35", agent=str(ECHO))
-    assert result["ok"] is False
-    assert result["versions"][0]["ok"] is False
-    assert result["initialize"]["reason"] == "skipped"
+    assert result["ok"] is True
+    assert result["missing"] == []
+    assert result["versions"] == []
+    assert result["initialize"]["ok"] is True
 
 
 def test_probe_source_rejects_non_jsonrpc_stdio(tmp_path: Path) -> None:

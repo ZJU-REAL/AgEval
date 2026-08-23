@@ -21,7 +21,7 @@ from ageval.plugins.protocol import NextFn
 # Runs before the task's own setup.sh (500) and after cheaper box preparation.
 ENSURE_RUNTIME_PRIORITY = 100
 _HANDSHAKE_TIMEOUT_SEC = 8
-_PROBE_EXEC_TIMEOUT_SEC = 25
+_PROBE_EXEC_TIMEOUT_SEC = 90
 _PROTOCOL_VERSION = 1
 
 # In-box stdlib probe. Parent execs this via host.python_command; it must not
@@ -107,16 +107,17 @@ def _handshake(command, payload, timeout):
 cfg = json.loads(sys.argv[1])
 wanted = list(cfg.get("wanted") or [])
 missing = [name for name in wanted if not shutil.which(name)]
-versions = _pins(cfg)
-pins_ok = all(row["ok"] for row in versions) if versions else True
+# Bake-in: binary + initialize is enough. npm ls -g is slow and the
+# unprivileged sandbox cannot npm i -g when the pin check fails.
+versions = []
 init = {"ok": False, "reason": "skipped"}
-if not missing and pins_ok:
+if not missing:
     init = _handshake(
         list(cfg.get("acp_command") or []),
         cfg.get("payload") or {},
         cfg.get("handshake_timeout_sec") or 8,
     )
-ok = (not missing) and pins_ok and bool(init.get("ok"))
+ok = (not missing) and bool(init.get("ok"))
 sys.stdout.write(json.dumps({
     "ok": ok,
     "missing": missing,
@@ -191,6 +192,15 @@ async def _ensure_entry_present(ctx: Any, descriptor: AcpEntryDescriptor) -> Non
     ctx.record_fact("acp_runtime_probe", {"entry": descriptor.entry_id, **probe})
     if probe.get("ok"):
         return
+    missing = probe.get("missing")
+    if not isinstance(missing, list):
+        missing = _needed_commands(descriptor)
+    if not missing:
+        raise EnvironmentFailure(
+            "acp_runtime_missing",
+            f"acp entry {descriptor.entry_id!r} failed runtime probe "
+            f"({_probe_reason(probe)}) with binaries on PATH; not installing",
+        )
     if not descriptor.install_command:
         raise EnvironmentFailure(
             "acp_runtime_missing",
