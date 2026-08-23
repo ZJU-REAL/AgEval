@@ -1081,6 +1081,17 @@ export async function listInbox(
   return Array.isArray(data.items) ? data.items : [];
 }
 
+export async function listSuiteRequests(
+  suiteRunId: string,
+  token: string | null,
+): Promise<ResourceRequest[]> {
+  const data = await requestJson<{ items?: ResourceRequest[] }>(
+    `/v1/requests?suite_run_id=${encodeURIComponent(suiteRunId)}`,
+    { token },
+  );
+  return Array.isArray(data.items) ? data.items : [];
+}
+
 export async function decideRequests(
   ids: string[],
   action: "approve" | "reject",

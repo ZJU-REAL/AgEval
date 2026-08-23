@@ -171,9 +171,9 @@ export function AttemptEvidencePage() {
   return (
     <>
       <CatalogHead
-        title="Your datasets"
+        title="Datasets"
         crumbs={[
-          { label: "Your datasets", href: "/datasets" },
+          { label: "Datasets", href: "/datasets" },
           {
             label: datasetId,
             href: `/datasets/${encodeURIComponent(datasetId)}`,
@@ -191,27 +191,28 @@ export function AttemptEvidencePage() {
           slotCurrentStartedAt={slotCurrentStartedAt}
           slotPrevious={slotPrevious}
           onSlotSelect={(id) => navigate(attemptHref(id))}
+          actions={
+            attemptMeta &&
+            (attemptMeta.uploaded_by || "").toLowerCase() ===
+              (getGithubUser() || "").toLowerCase() ? (
+              <ResultOwnerOps
+                kind="attempt"
+                resultId={runId}
+                visibility={attemptMeta.visibility}
+                canManage
+                token={token}
+                onVisibility={(next) =>
+                  setAttemptMeta((prev) =>
+                    prev ? { ...prev, visibility: next } : prev,
+                  )
+                }
+                onDeleted={() => navigate(jobsHref)}
+              />
+            ) : null
+          }
         />
 
         {runCommand ? <CommandStrip command={runCommand} /> : null}
-
-        {attemptMeta &&
-        (attemptMeta.uploaded_by || "").toLowerCase() ===
-          (getGithubUser() || "").toLowerCase() ? (
-          <ResultOwnerOps
-            kind="attempt"
-            resultId={runId}
-            visibility={attemptMeta.visibility}
-            canManage
-            token={token}
-            onVisibility={(next) =>
-              setAttemptMeta((prev) =>
-                prev ? { ...prev, visibility: next } : prev,
-              )
-            }
-            onDeleted={() => navigate(jobsHref)}
-          />
-        ) : null}
 
         {loading && <p className="text-sm text-mute">Loading attempt evidence…</p>}
 
@@ -225,7 +226,7 @@ export function AttemptEvidencePage() {
               then return from{" "}
               <Link
                 to={jobsHref}
-                className="text-ink underline-offset-2 hover:underline"
+                className="text-link hover:text-link-deep underline-offset-2 hover:underline"
               >
                 Jobs
               </Link>
