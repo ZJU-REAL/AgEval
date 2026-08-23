@@ -216,7 +216,7 @@ def _build_named(
         args.extend(["--build-arg", item])
     args.append(str(context_root))
     try:
-        built = docker(*args)
+        built = docker(*args, timeout=3600.0)
     finally:
         if generated is not None:
             generated.unlink(missing_ok=True)
