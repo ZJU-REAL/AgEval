@@ -98,6 +98,36 @@ def main() -> int:
             got["chain"]
         ):
             return _fail(f"{plugin_id} slots drifted: catalog={want} contrib={got}")
+
+    from ageval.plugins.manifest import load_manifest
+
+    contrib_pkg = importlib.import_module("ageval.plugins.contrib")
+    for info in pkgutil.iter_modules(contrib_pkg.__path__):
+        mod = importlib.import_module(f"{contrib_pkg.__name__}.{info.name}")
+        plugin_id = getattr(mod, "PLUGIN_ID", None)
+        if not isinstance(plugin_id, str):
+            continue
+        root = Path(mod.__file__).resolve().parent
+        manifest = root / "plugin.yaml"
+        readme = root / "README.md"
+        if not manifest.is_file():
+            return _fail(f"{plugin_id}: missing {manifest}")
+        if not readme.is_file():
+            return _fail(f"{plugin_id}: missing {readme}")
+        man = load_manifest(root)
+        if man.plugin_id != plugin_id:
+            return _fail(f"{plugin_id}: plugin.yaml plugin_id is {man.plugin_id!r}")
+        summary = man.slots_summary()
+        want = catalog_slots[plugin_id]
+        if sorted(summary["exclusive"]) != sorted(want["exclusive"]) or sorted(
+            summary["chain"]
+        ) != sorted(want["chain"]):
+            return _fail(f"{plugin_id}: plugin.yaml slots {summary} != catalog {want}")
+        catalog_description = next(
+            item["description"] for item in raw if item["plugin_id"] == plugin_id
+        )
+        if (man.description or "") != catalog_description:
+            return _fail(f"{plugin_id}: plugin.yaml description drifted from catalog JSON")
     print(f"check_builtin_plugins: ok ({len(catalog_ids)} contrib ids)")
     return 0
 

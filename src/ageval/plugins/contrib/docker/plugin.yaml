@@ -1,0 +1,13 @@
+format: ageval.plugin/1
+plugin_id: docker
+version: bundled
+description: >
+  Docker box: the Attempt runs in a container built from the task recipe
+  (`environment: docker`). Container id, `docker exec`, and UID mapping stay
+  inside this package. Neighbors only see Protocol methods (`upload` / `exec`
+  / `attach_stdio`). The host needs a working Docker engine.
+slots:
+  exclusive:
+    - id: environment
+      priority: 100
+      entry: ageval.plugins.contrib.docker.host:DockerHost

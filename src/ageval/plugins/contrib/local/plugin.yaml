@@ -1,0 +1,13 @@
+format: ageval.plugin/1
+plugin_id: local
+version: bundled
+description: >
+  Local box: the Attempt runs in a real directory tree on this machine
+  (`environment: local`). Workspace, home, and evaluation paths map onto the
+  host filesystem. ACP attaches a real process pipe. This is a production
+  kind, not a test double.
+slots:
+  exclusive:
+    - id: environment
+      priority: 100
+      entry: ageval.plugins.contrib.local.host:LocalHost
