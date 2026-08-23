@@ -42,7 +42,7 @@ import {
   RegistryHttpError,
   taskIdsFromFiles,
 } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { getGithubUser, getToken } from "@/lib/auth";
 import { buildNestedTree, overlayPathsFromProfilesYaml } from "@/lib/file-tree";
 import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
 import { formatScore } from "@/lib/utils";
@@ -349,6 +349,32 @@ export function DatasetDetailPage() {
     () => jobSuites.filter(isInternalSuite),
     [jobSuites],
   );
+  const login = (getGithubUser() || "").toLowerCase();
+  const awaitingListing = useMemo(
+    () =>
+      jobSuites.filter(
+        (row) =>
+          Boolean(row.complete) &&
+          row.bound_kind === "release" &&
+          !row.board_listed &&
+          (row.uploaded_by || "").toLowerCase() === login,
+      ),
+    [jobSuites, login],
+  );
+  const suiteQuery = search.get("suite");
+  const publicSuites = useMemo(() => {
+    if (!suiteQuery) return boardSuites;
+    if (boardSuites.some((row) => row.suite_run_id === suiteQuery)) return boardSuites;
+    const extra = jobSuites.find((row) => row.suite_run_id === suiteQuery);
+    return extra ? [...boardSuites, extra] : boardSuites;
+  }, [boardSuites, jobSuites, suiteQuery]);
+  const awaitingListingVisible = useMemo(
+    () =>
+      awaitingListing.filter(
+        (row) => !publicSuites.some((listed) => listed.suite_run_id === row.suite_run_id),
+      ),
+    [awaitingListing, publicSuites],
+  );
 
   function setVersion(next: string) {
     const n = new URLSearchParams(search);
@@ -605,7 +631,7 @@ export function DatasetDetailPage() {
           {boardView === "internal" && !demoLeaderboard ? (
             <p className="text-xs text-mute">
               Incomplete or draft-bound suite runs visible to you. Observational
-              metrics only — not suite PASS. Public board is unchanged.
+              metrics only — not suite PASS. Public board still needs Dataset org listing approval.
             </p>
           ) : null}
           <LeaderboardTable
@@ -614,7 +640,7 @@ export function DatasetDetailPage() {
                 ? LEADERBOARD_K_FIXTURES
                 : boardView === "internal"
                   ? internalSuites
-                  : boardSuites
+                  : publicSuites
             }
             datasetId={datasetId}
             orgId={release?.org_id}
@@ -646,10 +672,39 @@ export function DatasetDetailPage() {
             }
             emptyBody={
               boardView === "internal" && !demoLeaderboard
-                ? "Caller-visible incomplete or draft-bound suite uploads appear here. Complete, release-bound rows stay on Public. Task Jobs and attempt evidence are unchanged."
+                ? "Caller-visible incomplete or draft-bound suite uploads appear here. Complete, release-bound rows stay on Public after listing approval. Task Jobs and attempt evidence are unchanged."
                 : undefined
             }
           />
+          {boardView === "public" && !demoLeaderboard && awaitingListingVisible.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs text-mute">
+                Your complete release-bound suites that are not listed yet. Request
+                listing from the share tab; Dataset org owners decide in Inbox.
+              </p>
+              <LeaderboardTable
+                suites={awaitingListingVisible}
+                datasetId={datasetId}
+                orgId={release?.org_id}
+                packageDigest={release?.package_digest}
+                versions={versions}
+                onSuiteUpdated={(id, patch) => {
+                  const apply = (rows: SuiteRow[]) =>
+                    rows.map((row) =>
+                      row.suite_run_id === id ? { ...row, ...patch } : row,
+                    );
+                  setJobSuites(apply);
+                  setBoardSuites(apply);
+                }}
+                onSuiteDeleted={(id) => {
+                  const drop = (rows: SuiteRow[]) =>
+                    rows.filter((row) => row.suite_run_id !== id);
+                  setJobSuites(drop);
+                  setBoardSuites(drop);
+                }}
+              />
+            </div>
+          ) : null}
         </div>
       )}
     </>
