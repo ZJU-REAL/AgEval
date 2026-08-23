@@ -111,6 +111,7 @@ class DockerHost:
         self._platform = _text(opts.get("platform")) or _host_platform()
         # The Agent runs inside the box and has to reach its provider.
         self._network = _text(opts.get("network")) or "bridge"
+        self._user = _box_user(opts.get("user"))
         self._container: str | None = None
         self._compose_project: str | None = None
         self._image: str | None = None
@@ -155,7 +156,7 @@ class DockerHost:
             "--name",
             name,
             "--user",
-            f"{ATTEMPT_UID}:{ATTEMPT_GID}",
+            self._user,
             "--security-opt",
             "no-new-privileges",
             "--network",
@@ -214,7 +215,7 @@ class DockerHost:
         prefix = [
             "exec",
             "-u",
-            user or f"{ATTEMPT_UID}:{ATTEMPT_GID}",
+            user or self._user,
             "-w",
             cwd or WORKSPACE_PATH,
             *self._env_flags(env),
@@ -279,7 +280,7 @@ class DockerHost:
             "exec",
             "-i",
             "-u",
-            placement.user or f"{ATTEMPT_UID}:{ATTEMPT_GID}",
+            placement.user or self._user,
             "-w",
             placement.workdir,
             *self._env_flags({"HOME": placement.home, **dict(env or {})}),
@@ -305,7 +306,7 @@ class DockerHost:
             raise EnvironmentFailure("environment_not_started", "docker box is not started")
         return Placement(
             target_id=self._container,
-            user=f"{ATTEMPT_UID}:{ATTEMPT_GID}",
+            user=self._user,
             workdir=WORKSPACE_PATH,
             home=HOME_PATH,
         )
@@ -454,8 +455,34 @@ class DockerHost:
             raise EnvironmentFailure("environment_stopped", "docker box is already stopped")
 
 
+def _box_user(raw: object) -> str:
+    """Job ``environment_options.user``. Default is the Attempt uid, not root."""
+    if raw is None or raw == "":
+        return f"{ATTEMPT_UID}:{ATTEMPT_GID}"
+    text = _text(raw)
+    if text is None:
+        raise EnvironmentFailure(
+            "environment_options_invalid",
+            "docker environment_options.user must be root, a uid, or uid:gid",
+        )
+    lowered = text.lower()
+    if lowered in {"root", "0", "0:0"}:
+        return "0:0"
+    if ":" in text:
+        uid, _, gid = text.partition(":")
+        if uid.isdigit() and gid.isdigit():
+            return f"{int(uid)}:{int(gid)}"
+    elif text.isdigit():
+        uid = int(text)
+        return f"{uid}:{uid}"
+    raise EnvironmentFailure(
+        "environment_options_invalid",
+        f"docker environment_options.user must be root, a uid, or uid:gid, got {text!r}",
+    )
+
+
 def _make_box_writable(path: Path) -> None:
-    """The box runs as a non-root uid; a bind mount keeps this machine's owner."""
+    """Bind-mounted /attempt is host-owned; chmod so the box uid can write it."""
     with contextlib.suppress(OSError):
         path.chmod(0o777 if path.is_dir() else 0o666)
     if path.is_dir():

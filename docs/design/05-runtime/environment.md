@@ -33,6 +33,13 @@ environment: e2b    # local | docker | e2b | ssh | daytona
 
 官方基座由 `docker/attempt/` 构建。题包 Dockerfile 用 `FROM ageval-attempt:base`。invoke 时禁止 `npm i` / 浮动 `npx`。Python ACP SDK 只在 parent，不进 Attempt 镜像。
 
+docker `environment_options`：
+
+- `image` / `docker_image` — 已有 tag，跳过本机构建
+- `platform` — 缺省跟本机
+- `network` — 缺省 `bridge`
+- `user` — 盒内身份，`docker run --user` 与 `exec`/`attach_stdio` 同一值。缺省 `10001:10001`。`root` / `0` / `0:0` 开 root（Harbor 式终端题要 `apt` 或写 `/usr/local` 时用）。其它值必须是 `uid` 或 `uid:gid`。未知字符串一次失败。默认仍带 `no-new-privileges`。
+
 ## `attach_stdio`
 
 在**已开的盒**里再起一个前台进程，把 stdin/stdout 交回 parent。ACP 只拿 `StdioTransport`，不写 `if docker`。
