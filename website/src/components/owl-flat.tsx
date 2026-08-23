@@ -1,17 +1,12 @@
 /**
- * Flat-crown owl (owl-v2 plate). Color via `currentColor` unless the
+ * Face owl mark (Figma cubic export). Color via `currentColor` unless the
  * variant fixes a brand pair (plates, watermarks).
  */
 
 type OwlFlatProps = { className?: string };
 
-const BODY_PATH =
-  "M 156 258 C 200 385 248 585 276 720 C 278 1020 190 1680 72 2218 C 50 2262 48 2294 118 2268 C 300 2210 545 1990 662 1720 C 705 1570 590 1455 512 1408 C 488 1384 508 1382 548 1420 C 700 1520 810 1720 796 1900 C 784 2060 690 2180 648 2214 C 622 2236 655 2258 735 2234 C 1100 2130 1420 1840 1500 1480 C 1526 1360 1518 1296 1494 1268 C 1480 1250 1462 1256 1446 1278 C 1340 1430 1140 1518 920 1496 C 720 1474 600 1260 548 1060 C 510 880 518 750 568 680 C 620 610 780 638 980 720 C 1160 795 1270 930 1298 1070 C 1314 1155 1316 1172 1310 1184 C 1302 1198 1330 1190 1362 1148 C 1480 980 1570 720 1548 480 C 1535 300 1400 175 1260 198 C 1205 188 1165 208 1095 210 C 820 210 520 210 300 210 C 235 210 188 206 168 228 C 150 214 136 222 156 258 Z";
-
-const EYE_PATH =
-  "M 1050.5 1003 H 1187.5 A 34.5 34.5 0 0 1 1222.0 1037.5 A 34.5 34.5 0 0 1 1187.5 1072.0 H 1050.5 A 34.5 34.5 0 0 1 1016.0 1037.5 A 34.5 34.5 0 0 1 1050.5 1003 Z";
-
-const CHEVRON_PATH = "M 730 880 L 930 1021 L 730 1163";
+const FACE_PATH =
+  "M119.212 0C116.659 1.50147 114.557 3.00294 113.506 5.70558C110.503 56.305 172.514 69.668 196.988 104.802C199.69 105.703 202.093 107.655 205.095 106.304C209.149 54.3531 144.586 37.0862 119.212 0ZM686.766 0C658.088 36.0352 602.233 54.5032 599.681 104.652C602.233 106.904 604.335 106.454 607.038 105.103C631.962 69.2176 706.585 50.2991 686.766 0ZM719.798 69.0674C624.905 138.435 550.283 236.03 473.708 319.662C469.954 320.563 466.951 323.266 463.498 324.317C439.775 327.17 421.006 315.158 404.34 300.293C387.374 310.954 371.608 327.77 348.185 324.317C341.429 322.965 334.972 319.362 329.417 315.308C254.043 232.577 178.52 140.387 89.1823 70.5689C86.78 70.5689 84.2275 70.5689 81.675 70.5689C66.36 91.7396 52.2462 113.361 44.1383 137.534C47.2914 211.256 92.0351 277.171 150.442 321.013C155.547 353.295 161.103 388.129 189.18 409.3C218.459 428.218 264.253 426.266 288.727 402.243C254.494 400.591 205.696 399.84 207.798 353.295C209.149 350.292 212.002 349.842 214.555 348.34C254.944 357.199 290.979 376.718 322.81 403.894C325.513 403.744 324.312 400.591 326.114 399.69C304.342 333.926 234.975 315.008 178.97 293.987C132.575 254.499 99.6926 197.293 98.1911 138.135C187.528 190.686 271.31 269.964 343.981 344.887C353.891 363.505 362.449 382.423 368.455 402.393C377.164 417.858 387.073 433.023 398.184 447.137C408.094 453.743 415.151 440.83 420.556 434.374C427.162 423.714 431.667 413.053 438.574 402.843C478.362 291.284 595.327 226.721 682.412 152.999C692.772 149.996 701.18 133.931 711.54 137.384C702.381 195.791 675.355 255.55 627.308 293.687C571.003 314.707 497.281 333.776 482.566 403.594C515.148 384.075 550.583 356.899 590.372 348.64C620.401 388.129 547.73 404.495 518.752 404.045C654.034 470.259 674.304 271.015 749.377 200.145C773.701 154.951 755.233 100.298 719.798 69.0674ZM776.854 186.182C777.755 197.593 782.259 208.103 782.86 219.815C824.45 383.024 658.388 571.458 493.077 504.793C600.582 592.178 774.301 495.033 796.373 369.361C807.033 343.686 807.033 312.155 803.88 283.627C803.28 248.793 794.721 216.662 781.358 186.182C779.857 186.182 778.355 186.182 776.854 186.182ZM26.1207 187.683C11.4063 215.611 5.40048 247.892 3.59872 280.474C-28.6828 444.884 162.904 600.436 310.498 514.402C313.201 511.7 316.654 509.147 316.805 505.394C149.541 572.059 -22.5268 381.973 24.6193 215.911C24.319 206.452 30.7753 196.842 26.1207 187.683ZM469.053 489.478C439.775 549.837 432.868 621.907 415.001 687.672C441.126 630.015 467.402 565.903 479.564 501.49C476.26 496.685 475.359 490.679 469.053 489.478ZM335.423 490.979C332.12 492.631 330.618 496.385 329.417 499.688C339.477 577.464 377.914 646.381 399.535 720.253C385.722 646.381 367.254 568.906 344.432 495.784C342.78 492.031 339.477 490.229 335.423 490.979Z";
 
 function OwlFlatGlyph({
   fill,
@@ -21,30 +16,22 @@ function OwlFlatGlyph({
   fillOpacity?: number;
 }) {
   return (
-    <>
-      <g fill={fill} fillOpacity={fillOpacity}>
-        <path d={BODY_PATH} />
-        <path d={EYE_PATH} />
-      </g>
-      <path
-        d={CHEVRON_PATH}
-        fill="none"
-        stroke={fill}
-        strokeWidth={76}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeOpacity={fillOpacity}
-      />
-    </>
+    <path
+      d={FACE_PATH}
+      fill={fill}
+      fillOpacity={fillOpacity}
+      fillRule="evenodd"
+      clipRule="evenodd"
+    />
   );
 }
 
-/** Full body, `currentColor` (`mark-flat.svg`). */
+/** Face mark, `currentColor`. Natural 806×721 aspect. */
 export function OwlFlatMark({ className }: OwlFlatProps) {
   return (
     <svg
       className={className}
-      viewBox="20 60 1580 2300"
+      viewBox="0 0 806 721"
       fill="none"
       aria-hidden="true"
       focusable="false"
@@ -54,12 +41,12 @@ export function OwlFlatMark({ className }: OwlFlatProps) {
   );
 }
 
-/** Full body, `currentColor` (`mark-flat.svg` geometry). */
+/** Square-padded face for 24px nav slots. */
 export function OwlFlatIcon({ className }: OwlFlatProps) {
   return (
     <svg
       className={className}
-      viewBox="20 60 1580 2300"
+      viewBox="-37 -80 880 881"
       fill="none"
       aria-hidden="true"
       focusable="false"
@@ -69,12 +56,12 @@ export function OwlFlatIcon({ className }: OwlFlatProps) {
   );
 }
 
-/** Head crop at the wing root, `currentColor` (`peek-flat.svg`). */
+/** Tighter crop: brows + eyes, less lower beak. */
 export function OwlFlatPeek({ className }: OwlFlatProps) {
   return (
     <svg
       className={className}
-      viewBox="40 60 1540 1320"
+      viewBox="0 0 806 520"
       fill="none"
       aria-hidden="true"
       focusable="false"
@@ -88,32 +75,34 @@ const PLATE_PAIRS = {
   paper: { bg: "#212121", fg: "#F6EDDB" },
   cream: { bg: "#212121", fg: "#E0D1BE" },
   ink: { bg: "#F6EDDB", fg: "#212121" },
-  klein: { bg: "#002FA7", fg: "#F6EDDB" },
+  klein: { bg: "#1B54E8", fg: "#FFFFFF" },
 } as const;
 
 export type OwlFlatPlateVariant = keyof typeof PLATE_PAIRS;
 
-/** Owl on a background plate with fixed brand colors (`plate-flat*.svg`). */
+/** Face on a square plate with fixed brand colors. */
 export function OwlFlatPlate({
   className,
-  variant = "paper",
+  variant = "klein",
 }: OwlFlatProps & { variant?: OwlFlatPlateVariant }) {
   const { bg, fg } = PLATE_PAIRS[variant];
   return (
     <svg
       className={className}
-      viewBox="0 0 1760 2400"
+      viewBox="0 0 880 880"
       fill="none"
       aria-hidden="true"
       focusable="false"
     >
-      <rect x={0} y={0} width={1760} height={2400} fill={bg} />
-      <OwlFlatGlyph fill={fg} />
+      <rect width={880} height={880} fill={bg} />
+      <g transform="translate(37 79.5)">
+        <OwlFlatGlyph fill={fg} />
+      </g>
     </svg>
   );
 }
 
-/** Full-body owl + ageval wordmark, `currentColor` (`lockup-flat.svg`). */
+/** Face + ageval wordmark, `currentColor`. */
 export function OwlFlatLockup({ className }: OwlFlatProps) {
   return (
     <svg
@@ -123,11 +112,11 @@ export function OwlFlatLockup({ className }: OwlFlatProps) {
       aria-hidden="true"
       focusable="false"
     >
-      <svg x={30.5} y={8} width={99} height={144} viewBox="20 60 1580 2300">
+      <svg x={28} y={31} width={108} height={97} viewBox="0 0 806 721">
         <OwlFlatGlyph fill="currentColor" />
       </svg>
       <text
-        x={168}
+        x={156}
         y={108}
         fill="currentColor"
         fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
@@ -146,12 +135,12 @@ export function OwlFlatWatermark({
   className,
   inverse = false,
 }: OwlFlatProps & { inverse?: boolean }) {
-  const color = inverse ? "#FFFFFF" : "#212121";
+  const color = inverse ? "#FFFFFF" : "#14161F";
   const opacity = inverse ? 0.1 : 0.07;
   return (
     <svg
       className={className}
-      viewBox="20 60 1580 2300"
+      viewBox="0 0 806 721"
       fill="none"
       aria-hidden="true"
       focusable="false"

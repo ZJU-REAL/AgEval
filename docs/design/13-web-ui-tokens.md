@@ -91,8 +91,10 @@ landing 的 oklch 系(`oklch(15.4% 0.018 264)` 底等)是本表的 oklch 等值�
 
 | 资产 | 位置 | 用途 |
 | --- | --- | --- |
-| `OwlFlatMark` / `Icon` / `Peek` / `Plate` / `Lockup` / `Watermark` | `website/src/components/owl-flat.tsx` | landing 水印、导航、docs lockup、备用底板 |
-| `OwlIcon`(全身) | `apps/hub/src/components/owl-icon.tsx`、`apps/viewer/src/components/owl-icon.tsx` | 两 SPA 导航品牌位 |
+| `OwlFlatMark` / `Icon` / `Peek` / `Plate` / `Lockup` / `Watermark` | `website/src/components/owl-flat.tsx` | landing 水印、导航、docs lockup、备用底板。字形是面标(Figma cubic),不是全身立姿 |
+| `OwlIcon`(面标) | `apps/hub/src/components/owl-icon.tsx`、`apps/viewer/src/components/owl-icon.tsx` | 两 SPA 导航品牌位。与 website `OwlFlatIcon` 同一 path |
+| favicon | `website/src/app/favicon.ico` + `website/public/favicon.svg`；`apps/{hub,viewer}/public/favicon.{ico,svg}` | 黑方底板 + 白面标。只用 ico（浏览器默认 `/favicon.ico`）和 svg，不另备 png |
 | 实体/机制标 | `apps/hub/src/lib/brand-marks/` | plugin / agent 卡片与详情、Leaderboard。默认 uploader GitHub 头像;闭包为彩色真实标。ink 标固定白底，paper 标固定黑底 |
 
-/owl-flat 与 owl-icon 内的 IKB、墨、纸、奶油 hex 是品牌资产允许值,纳入机检 allowlist。闭包标 hex 只许出现在 `brand-marks/assets/`(svg/png),不进 ts/tsx。
+`owl-flat` 与 `owl-icon` 内的 IKB、墨、纸、奶油 hex 是品牌资产允许值,纳入机检 allowlist。闭包标 hex 只许出现在 `brand-marks/assets/`(svg/png),不进 ts/tsx。
+`OwlFlatPlate` 四色:`paper` / `cream`(深底浅标)、`ink`(浅底深标)、`klein`(IKB `#1B54E8` 底 + 白标)。导航图标走 `currentColor`。

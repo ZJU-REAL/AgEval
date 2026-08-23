@@ -21,6 +21,12 @@ export const metadata: Metadata = {
   title: { default: "ageval Docs", template: "%s · ageval Docs" },
   description:
     "ageval — lock a dataset, open a box, run the task, let an independent evaluator own the score.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export function generateStaticParams() {
