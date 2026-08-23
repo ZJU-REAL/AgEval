@@ -516,7 +516,11 @@ class PackageService:
         package_digest: str | None = None,
         version: str | None = None,
     ) -> dict[str, Any]:
+        from services.registry.builtin_plugins import builtin_list_files
         from services.registry.package_files import get_or_build_index
+
+        if is_builtin_plugin_id(dataset_id):
+            return builtin_list_files(dataset_id)
 
         row = self._visible_release(
             dataset_id=dataset_id,
@@ -551,6 +555,7 @@ class PackageService:
         package_digest: str | None = None,
         version: str | None = None,
     ) -> dict[str, Any]:
+        from services.registry.builtin_plugins import builtin_read_file
         from services.registry.package_files import (
             MAX_FILE_BYTES,
             PackageFileNotFound,
@@ -560,6 +565,9 @@ class PackageService:
             normalize_package_path,
             read_member,
         )
+
+        if is_builtin_plugin_id(dataset_id):
+            return builtin_read_file(dataset_id, file_path)
 
         row = self._visible_release(
             dataset_id=dataset_id,

@@ -96,8 +96,11 @@ def test_explore_unions_builtin_with_store(tmp_path: Path) -> None:
     assert "version" not in docker
     preview = docker["plugin_preview"]
     assert preview["plugin_id"] == "docker"
+    assert preview["format"] == "ageval.plugin/1"
     assert preview["slots"]["exclusive"] == ["environment"]
     assert preview["declared"][0]["id"] == "environment"
+    assert "plugin.yaml" in preview["files"]
+    assert "README.md" in preview["files"]
     e2b = next(i for i in listed["items"] if i["dataset_id"] == "e2b")
     assert e2b["host_requires"] == ["uv sync --extra e2b"]
 
@@ -182,6 +185,20 @@ def test_detail_has_no_blob(tmp_path: Path) -> None:
     with pytest.raises(RegistryAppError) as ver_err:
         svc.serve_meta(dataset_id="docker", version="1.0.0", package_digest=None, auth=anon)
     assert ver_err.value.http_status == 404
+
+
+def test_builtin_files_preview(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    anon = TokenInfo(scopes=frozenset())
+    listed = svc.list_files(dataset_id="docker", auth=anon)
+    paths = {item["path"] for item in listed["items"]}
+    assert "plugin.yaml" in paths
+    assert "README.md" in paths
+    payload = svc.read_file(dataset_id="docker", file_path="plugin.yaml", auth=anon)
+    assert payload["encoding"] == "utf-8"
+    assert "plugin_id: docker" in payload["content"]
+    readme = svc.read_file(dataset_id="Docker", file_path="README.md", auth=anon)
+    assert "docker environment" in readme["content"].lower()
 
 
 def test_publish_reserved_plugin_id_fail_closed(tmp_path: Path) -> None:
