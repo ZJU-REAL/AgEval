@@ -1,0 +1,14 @@
+format: ageval.plugin/1
+plugin_id: ssh
+version: bundled
+description: >
+  SSH box: the Attempt runs on a remote machine, or in a container on it
+  (`environment: ssh`). Empty `environment_options.image` uses the remote
+  host as the box; a pre-existing image tag runs that container over SSH.
+  Host/user/key locators are resolved at preflight and never enter the
+  lock. Live ACP stdio over bare SSH is not a supported path.
+slots:
+  exclusive:
+    - id: environment
+      priority: 100
+      entry: ageval.plugins.contrib.ssh.host:SSHHost

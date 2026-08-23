@@ -1,0 +1,17 @@
+format: ageval.plugin/1
+plugin_id: daytona
+version: bundled
+description: >
+  Daytona box: the Attempt runs in a [Daytona](https://www.daytona.io)
+  sandbox from an OCI snapshot (`environment: daytona`). Snapshot names and
+  sandbox ids stay in this package. This host needs
+  `uv sync --extra daytona` and `DAYTONA_API_KEY`. Hub listing does not
+  mean this machine can run it.
+host_requires:
+  - import: daytona
+    hint: uv sync --extra daytona
+slots:
+  exclusive:
+    - id: environment
+      priority: 100
+      entry: ageval.plugins.contrib.daytona.host:DaytonaHost

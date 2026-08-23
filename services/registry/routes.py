@@ -52,7 +52,16 @@ def _package_id_list_ok(path: str) -> bool:
     rest = path[len("/v1/packages/") :]
     if not rest or "/versions/" in rest or "/by-digest/" in rest:
         return False
+    if rest.endswith("/files") or "/files/" in rest:
+        return False
     return not rest.endswith("/favorite") and not rest.endswith("/release")
+
+
+def _package_root_files_ok(path: str) -> bool:
+    rest = path[len("/v1/packages/") :]
+    if "/by-digest/" in rest or "/versions/" in rest:
+        return False
+    return rest.endswith("/files") or "/files/" in rest
 
 
 ROUTES: tuple[Route, ...] = (
@@ -132,6 +141,22 @@ ROUTES: tuple[Route, ...] = (
         access="bearer",
         pattern=r"/v1/packages/(.+)/versions/([^/]+)/files/(.+)",
         groups=("dataset_id", "version", "file_path"),
+    ),
+    Route(
+        "GET",
+        "serve_package_files_list",
+        access="bearer",
+        pattern=r"/v1/packages/(.+)/files",
+        groups=("dataset_id",),
+        predicate=_package_root_files_ok,
+    ),
+    Route(
+        "GET",
+        "serve_package_file",
+        access="bearer",
+        pattern=r"/v1/packages/(.+)/files/(.+)",
+        groups=("dataset_id", "file_path"),
+        predicate=_package_root_files_ok,
     ),
     Route(
         "GET",

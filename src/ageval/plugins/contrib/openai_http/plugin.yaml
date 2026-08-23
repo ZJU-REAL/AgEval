@@ -1,0 +1,13 @@
+format: ageval.plugin/1
+plugin_id: openai-http
+version: bundled
+description: >
+  OpenAI-compatible HTTP executor (`executor: openai-http`). Posts Chat
+  Completions to `base_url` with a scoped API-key env locator. Native
+  `tools=` / `tool_calls` are first-class. No Attempt box and no
+  `attach_stdio`. Default base is `https://api.openai.com/v1`.
+slots:
+  exclusive:
+    - id: executor
+      priority: 120
+      entry: ageval.plugins.contrib.openai_http:build_openai_http_executor

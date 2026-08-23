@@ -7,9 +7,11 @@ import {
 } from "react";
 
 import { BrandMark } from "@/components/brand-mark";
+import { BuiltinMark } from "@/components/builtin-mark";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
 import { OfficialMark } from "@/components/official-mark";
-import { markFromPackage } from "@/lib/brand-marks";
+import { markFromGithubRepoLink, markFromPackage } from "@/lib/brand-marks";
+import { githubRepoUrl } from "@/lib/public-links";
 import {
   catalogPreviewKey,
   hydrateCatalogRow,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/catalog-cache";
 import {
   getPackageByDigest,
+  isBuiltinPackage,
   packageDisplayTitle,
   type PackageRelease,
 } from "@/lib/api";
@@ -25,38 +28,6 @@ import { getToken } from "@/lib/auth";
 import { cn, formatDay } from "@/lib/utils";
 
 type CatalogKind = "plugin" | "agent";
-
-function asString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function pluginChips(row: PackageRelease): string[] {
-  const preview = row.plugin_preview;
-  if (!preview) return [];
-  const exclusive = preview.slots?.exclusive ?? [];
-  const chain = preview.slots?.chain ?? [];
-  const declared = (preview.declared ?? []).map((slot) => slot.id);
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const id of [...exclusive, ...chain, ...declared]) {
-    const key = id.trim();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(key);
-  }
-  return out.slice(0, 4);
-}
-
-function agentChips(row: PackageRelease): string[] {
-  const binding = row.agent_preview?.binding;
-  if (!binding || typeof binding !== "object") return [];
-  const executor = asString(binding.executor);
-  const model = asString(binding.model);
-  const chips: string[] = [];
-  if (executor) chips.push(executor);
-  if (model) chips.push(model);
-  return chips;
-}
 
 function hasPreview(kind: CatalogKind, row: PackageRelease): boolean {
   return kind === "plugin" ? Boolean(row.plugin_preview) : Boolean(row.agent_preview);
@@ -84,11 +55,12 @@ export function CatalogCard({
   row: PackageRelease;
   onOpen: (id: string) => void;
 }) {
+  const builtin = isBuiltinPackage(row);
   const title = packageDisplayTitle(row.dataset_id, row.display_name);
-  const chips = kind === "plugin" ? pluginChips(row) : agentChips(row);
   const description = descriptionOf(kind, row);
   const previewReady = hasPreview(kind, row);
-  const updated = row.created_at != null ? formatDay(row.created_at) : null;
+  const updated =
+    !builtin && row.created_at != null ? formatDay(row.created_at) : null;
 
   function open() {
     onOpen(row.dataset_id);
@@ -115,20 +87,15 @@ export function CatalogCard({
         "cursor-pointer",
       )}
     >
-      <div className="min-w-0">
-        <div className="flex items-end justify-between gap-2">
-          <p className="inline-flex min-w-0 items-end gap-2 font-medium leading-none text-ink">
-            <BrandMark mark={markFromPackage(row)} size={24} />
-            <span className="truncate leading-none">{title}</span>
-            {row.official ? <OfficialMark /> : null}
-          </p>
-          {updated ? (
-            <span className="shrink-0 font-mono text-[11px] leading-none tabular-nums text-mute">
-              {updated}
-            </span>
-          ) : null}
-        </div>
-      </div>
+      <p className="inline-flex min-w-0 items-end gap-2 font-medium leading-none text-ink">
+        <BrandMark
+          mark={builtin ? markFromGithubRepoLink() : markFromPackage(row)}
+          size={24}
+          title={builtin ? githubRepoUrl() || undefined : undefined}
+        />
+        <span className="truncate leading-none">{title}</span>
+        {builtin ? <BuiltinMark /> : row.official ? <OfficialMark /> : null}
+      </p>
 
       <p
         className={cn(
@@ -146,28 +113,23 @@ export function CatalogCard({
             : "\u00a0"}
       </p>
 
-      <div className="mt-auto flex items-end justify-between gap-2 pt-3">
-        {chips.length ? (
-          <ul className="flex min-w-0 flex-wrap gap-1.5">
-            {chips.map((chip) => (
-              <li
-                key={chip}
-                className="rounded-[6px] bg-canvas-soft px-1.5 py-0.5 font-mono text-[11px] text-body"
-              >
-                {chip}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span />
-        )}
-        <MarketplaceCounts
-          downloadCount={row.download_count}
-          favoriteCount={row.favorite_count}
-          compact
-          className="shrink-0"
-        />
-      </div>
+      {builtin ? null : (
+        <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+          <MarketplaceCounts
+            downloadCount={row.download_count}
+            favoriteCount={row.favorite_count}
+            compact
+            className="shrink-0"
+          />
+          {updated ? (
+            <span className="shrink-0 font-mono text-[11px] leading-none tabular-nums text-mute">
+              {updated}
+            </span>
+          ) : (
+            <span />
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -198,7 +160,10 @@ export function CatalogCardGrid({
 
   useEffect(() => {
     const pending = rowsRef.current.filter(
-      (row) => !hasPreview(kind, hydrateCatalogRow(row)),
+      (row) =>
+        !isBuiltinPackage(row) &&
+        Boolean(row.package_digest) &&
+        !hasPreview(kind, hydrateCatalogRow(row)),
     );
     if (!pending.length) return;
     let cancelled = false;
@@ -264,7 +229,7 @@ export function CatalogCardGrid({
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {resolved.map((row) => (
         <CatalogCard
-          key={`${row.dataset_id}@${row.version}`}
+          key={`${row.dataset_id}@${row.version ?? "builtin"}`}
           kind={kind}
           row={row}
           onOpen={onOpen}

@@ -13,4 +13,8 @@ export {
   type EntityMarkHint,
   type ResolvedMark,
 } from "@/lib/brand-marks/resolve";
-export { entityHintFromPackage, markFromPackage } from "@/lib/brand-marks/from-package";
+export {
+  entityHintFromPackage,
+  markFromGithubRepoLink,
+  markFromPackage,
+} from "@/lib/brand-marks/from-package";

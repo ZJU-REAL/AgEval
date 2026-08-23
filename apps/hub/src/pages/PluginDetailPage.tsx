@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { CatalogHead } from "@/components/page-head";
+import { BuiltinMark } from "@/components/builtin-mark";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
 import { EntityMarkControl } from "@/components/entity-mark-control";
-import { entityHintFromPackage } from "@/lib/brand-marks";
+import { BrandMark } from "@/components/brand-mark";
+import { entityHintFromPackage, markFromGithubRepoLink } from "@/lib/brand-marks";
+import { githubRepoUrl } from "@/lib/public-links";
 import { OfficialMark } from "@/components/official-mark";
 import { FileSplitPanel } from "@/components/file-split-panel";
 import { MarketplaceCounts } from "@/components/marketplace-counts";
@@ -20,8 +23,11 @@ import {
   decodeDatasetId,
   decodeFileContent,
   getOrg,
+  getBuiltinPackageFile,
   getPackageByDigest,
   getPackageFile,
+  isBuiltinPackage,
+  listBuiltinPackageFiles,
   isDraftRelease,
   listPackageFiles,
   listPackageVersions,
@@ -71,14 +77,34 @@ export function PluginDetailPage() {
         if (cancelled) return;
 
         let meta: PackageRelease = latest;
-        try {
-          meta = await getPackageByDigest(
-            pluginId,
-            latest.package_digest,
-            token,
+        if (isBuiltinPackage(latest)) {
+          setRelease(latest);
+          setPreview(latest.plugin_preview || null);
+          setCanEditName(false);
+          const files = await listBuiltinPackageFiles(pluginId, token);
+          if (cancelled) return;
+          const nested = buildNestedTree(files.items);
+          setTree(nested);
+          setFilePaths(
+            files.items.filter((e) => e.type !== "dir").map((e) => e.path),
           );
-        } catch {
-          /* list meta is enough for non-preview fields */
+          const prefer =
+            files.items.find((e) => e.path === "plugin.yaml") ||
+            files.items.find((e) => e.path === "README.md") ||
+            files.items.find((e) => e.type !== "dir");
+          if (prefer) setSelectedPath(prefer.path);
+          return;
+        }
+        if (latest.package_digest) {
+          try {
+            meta = await getPackageByDigest(
+              pluginId,
+              latest.package_digest,
+              token,
+            );
+          } catch {
+            /* list meta is enough for non-preview fields */
+          }
         }
         if (cancelled) return;
 
@@ -107,7 +133,7 @@ export function PluginDetailPage() {
 
         const files = await listPackageFiles(
           pluginId,
-          latest.package_digest,
+          latest.package_digest || "",
           token,
         );
         if (cancelled) return;
@@ -146,9 +172,10 @@ export function PluginDetailPage() {
   }, [pluginId, token, reloadAt]);
 
   const packageDigest = release?.package_digest;
+  const builtin = isBuiltinPackage(release);
 
   useEffect(() => {
-    if (!packageDigest || !selectedPath) {
+    if (!selectedPath || (!builtin && !packageDigest)) {
       setFileContent(null);
       setFileNote(null);
       return;
@@ -156,7 +183,10 @@ export function PluginDetailPage() {
     let cancelled = false;
     setFileLoading(true);
     setFileNote(null);
-    getPackageFile(pluginId, packageDigest, selectedPath, token)
+    const pending = builtin
+      ? getBuiltinPackageFile(pluginId, selectedPath, token)
+      : getPackageFile(pluginId, packageDigest || "", selectedPath, token);
+    pending
       .then((f) => {
         if (cancelled) return;
         try {
@@ -181,7 +211,7 @@ export function PluginDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [pluginId, packageDigest, selectedPath, token]);
+  }, [pluginId, packageDigest, selectedPath, token, builtin]);
 
   const installCmd = useMemo(() => {
     if (!release) return `ageval plugin install ${pluginId}@<version>`;
@@ -219,10 +249,16 @@ export function PluginDetailPage() {
             <DisplayNameEditor
               value={release?.display_name?.trim() || packageParts.name}
               prefix={packageParts.org ? `${packageParts.org}/` : null}
-              canEdit={Boolean(token && canEditName && release)}
+              canEdit={Boolean(token && canEditName && release && !builtin)}
               headingClassName="text-xl font-semibold tracking-tight text-ink"
               beforeTitle={
-                release ? (
+                builtin ? (
+                  <BrandMark
+                    mark={markFromGithubRepoLink()}
+                    size={24}
+                    title={githubRepoUrl() || undefined}
+                  />
+                ) : release ? (
                   <EntityMarkControl
                     hint={entityHintFromPackage(release)}
                     packageId={pluginId}
@@ -242,7 +278,13 @@ export function PluginDetailPage() {
                   />
                 ) : null
               }
-              afterTitle={release?.official ? <OfficialMark /> : null}
+              afterTitle={
+                builtin ? (
+                  <BuiltinMark />
+                ) : release?.official ? (
+                  <OfficialMark />
+                ) : null
+              }
               onSave={async (next) => {
                 const updated = await updatePackageDisplayName(pluginId, next, token);
                 setRelease((prev) =>
@@ -259,15 +301,19 @@ export function PluginDetailPage() {
           {release ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
               <span className="font-mono">@{pluginId}</span>
-              <span aria-hidden>·</span>
-              <span>
-                {isDraftRelease(release) ? "draft" : `v${release.version}`}
-              </span>
-              <span aria-hidden>·</span>
-              <MarketplaceCounts
-                downloadCount={release.download_count}
-                favoriteCount={release.favorite_count}
-              />
+              {builtin ? null : (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>
+                    {isDraftRelease(release) ? "draft" : `v${release.version}`}
+                  </span>
+                  <span aria-hidden>·</span>
+                  <MarketplaceCounts
+                    downloadCount={release.download_count}
+                    favoriteCount={release.favorite_count}
+                  />
+                </>
+              )}
               {release.org_id ? (
                 <>
                   <span aria-hidden>·</span>
@@ -286,7 +332,7 @@ export function PluginDetailPage() {
             </div>
           ) : null}
         </div>
-        {release ? (
+        {release && !builtin ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             <PackageStarButton
               packageId={pluginId}
@@ -340,10 +386,12 @@ export function PluginDetailPage() {
             <InlineMarkdown source={preview.description} />
           ) : null}
 
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium text-ink">Install (CLI)</h2>
-            <CommandStrip command={installCmd} />
-          </section>
+          {builtin ? null : (
+            <section className="space-y-2">
+              <h2 className="text-sm font-medium text-ink">Install (CLI)</h2>
+              <CommandStrip command={installCmd} />
+            </section>
+          )}
 
           <section className="space-y-2">
             <h2 className="text-sm font-medium text-ink">Declared slots</h2>

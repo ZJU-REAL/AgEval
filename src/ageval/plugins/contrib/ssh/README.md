@@ -1,8 +1,17 @@
 # ssh environment
 
-First-party exclusive-slot winner for `environment: ssh`. Implementation:
-`src/ageval/plugins/contrib/ssh/host.py`. Protocol verbs only; no vendor
-handle leaks into ACP / `run.py`.
+First-party exclusive-slot winner for `environment: ssh`.
+Implementation: `src/ageval/plugins/contrib/ssh/host.py`. Protocol verbs
+only; no vendor handle leaks into ACP / `run.py`.
+
+## Bind
+
+```yaml
+environment: ssh
+```
+
+Locators (`host` / `user` / `port` / `key_env`) are resolved at preflight.
+Keys never enter the lock.
 
 ## A vs B
 
@@ -12,9 +21,6 @@ handle leaks into ACP / `run.py`.
 A non-empty **existing** image tag → **B**: `start()` does remote `docker run`
 of that tag; `attach_stdio` is `ssh -- docker exec -i`. The image must already
 exist on the host. Nothing is baked at invoke.
-
-Locators (`host` / `user` / `port` / `key_env`) are resolved at preflight.
-Keys never enter the lock.
 
 ## ACP over ssh A is a known gap
 
@@ -49,3 +55,6 @@ Directory `upload` / `download` copy **contents** (not a nested `dest/src`).
 Agent Service does not harvest the box workspace after every invoke. After
 writers stop, the run phase downloads **missing** publishable files from
 `/attempt/workspace` onto parent `task-artifacts`.
+
+Not a Hub install. `ageval plugin install ssh` fail-closes: the id is
+reserved.

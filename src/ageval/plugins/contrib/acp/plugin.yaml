@@ -1,0 +1,24 @@
+format: ageval.plugin/1
+plugin_id: acp
+version: bundled
+description: >
+  Coding-agent executor: parent is the only [ACP](https://agentclientprotocol.com)
+  JSON-RPC client (`executor: acp` + `options.entry`). Vendor CLIs stay
+  behind a process-out ACP entry (native, shim, or vendor package). Injects
+  `environment.attach_stdio`. Official Attempt images bake entries at
+  build time; invoke does not `npm i`.
+slots:
+  exclusive:
+    - id: executor
+      priority: 100
+      entry: ageval.plugins.contrib.acp:build_acp_executor
+  chain:
+    - id: after_environment_ready
+      priority: 100
+      entry: ageval.plugins.contrib.acp.hooks:ensure_runtime
+    - id: trajectory_collect
+      priority: 100
+      entry: ageval.plugins.contrib.acp:_acp_trajectory_collect
+inject:
+  - service: environment
+    capabilities: [attach_stdio]
