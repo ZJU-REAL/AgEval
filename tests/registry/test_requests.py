@@ -166,6 +166,10 @@ def test_listing_requires_dataset_org_approve(tmp_path: Path) -> None:
     assert [i["request_id"] for i in inbox["items"]] == [listing["request_id"]]
     assert requests.inbox(auth=bob)["items"] == []
     requests.decide(request_ids=[listing["request_id"]], action="approve", auth=alice)
+    history = requests.inbox(auth=alice)["items"]
+    assert any(
+        i["request_id"] == listing["request_id"] and i["status"] == "approved" for i in history
+    )
     board = results.list_suites(auth=alice, dataset_id="official/gaia", board=True)
     assert [i["suite_run_id"] for i in board["items"]] == ["s_off"]
     acme = requests.apply(kind="leaderboard_list", suite_run_id="s_acme", auth=bob)

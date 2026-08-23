@@ -937,15 +937,22 @@ class MetadataStore(MetadataStoreProtocol):
             return [self._request_row(r) for r in cur.fetchall()]
 
     def list_inbox_requests(
-        self, *, org_ids: list[str], status: str = "pending"
+        self, *, org_ids: list[str], status: str | None = "pending"
     ) -> list[ResourceRequestRow]:
         ids = [o for o in org_ids if o]
         if not ids:
             return []
         placeholders = ",".join("?" * len(ids))
         sql = Q.LIST_INBOX_REQUESTS.format(placeholders=placeholders)
+        params: tuple[Any, ...]
+        if status:
+            sql += " AND status=?"
+            params = (*ids, status)
+        else:
+            params = tuple(ids)
+        sql += " ORDER BY created_at DESC"
         with self._connect() as conn:
-            cur = self._exec(conn, sql, (*ids, status))
+            cur = self._exec(conn, sql, params)
             return [self._request_row(r) for r in cur.fetchall()]
 
     def list_suite_requests(self, suite_run_id: str) -> list[ResourceRequestRow]:

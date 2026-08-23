@@ -44,7 +44,7 @@ class RequestService:
 
     def inbox(self, *, auth: TokenInfo) -> dict[str, Any]:
         org_ids = self._owner_org_ids(auth)
-        rows = self.meta.list_inbox_requests(org_ids=list(org_ids), status="pending")
+        rows = self.meta.list_inbox_requests(org_ids=list(org_ids), status=None)
         return {"items": [request_to_dict(r) for r in rows]}
 
     def list_for_suite(self, *, suite_run_id: str, auth: TokenInfo) -> dict[str, Any]:
