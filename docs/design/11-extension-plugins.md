@@ -110,7 +110,7 @@ manifest：`ageval.plugin/1`。first-party：`src/ageval/plugins/contrib/{acp,do
 
 Recognition（list/lock 认得）≠ 本机能跑 ≠ 镜像已 bake。缺 extra / 钥 → skip，不要假绿。
 
-Hub `/plugins` 可以把 first-party contrib 画成 **catalog overlay**，不是 upload。contrib 目录仍是正规 `ageval.plugin/1`（`plugin.yaml` + README）。手写 JSON（`services/registry/builtin_plugins.json`）列出七个 bootstrap id：`local`、`docker`、`e2b`、`ssh`、`daytona`、`acp`、`openai-http`。Registry 读 JSON 与 contrib 文件树；**禁止**在 Registry 进程 `import ageval.plugins.contrib`。行上 `builtin: true`，不绑 `org_id`，不设 `official`（`official` 仍是 upload-org allowlist）。没有 blob / digest / 下载数 / 安装命令；详情仍预览 `plugin.yaml` 与 README。详情路由是短 id（`/plugins/docker`）。`plugins/defaults` 与 `ageval.agent/1` 不进这张表。
+Hub `/plugins` 可以把 first-party contrib 画成 **catalog overlay**，不是 upload。contrib 目录仍是正规 `ageval.plugin/1`（`plugin.yaml` + README）。README 是详情页的公开合同：必须用表格写清 **export / inject 的 capabilities** 与 **读取的参数**（名称、默认值、作用）。作者约定见 `skills/ageval-plugin`。手写 JSON（`services/registry/builtin_plugins.json`）列出七个 bootstrap id：`local`、`docker`、`e2b`、`ssh`、`daytona`、`acp`、`openai-http`。Registry 读 JSON 与 contrib 文件树；**禁止**在 Registry 进程 `import ageval.plugins.contrib`。行上 `builtin: true`，不绑 `org_id`，不设 `official`（`official` 仍是 upload-org allowlist）。没有 blob / digest / 下载数 / 安装命令；详情仍预览 `plugin.yaml` 与 README。详情路由是短 id（`/plugins/docker`）。`plugins/defaults` 与 `ageval.agent/1` 不进这张表。
 
 四条不相等：**Hub 认得** ≠ **本机能跑** ≠ **镜像已 bake** ≠ **`ageval plugin install` 装过**。空店 Explore 仍应看到这七张卡；e2b / ssh / daytona 缺 extra 或缺钥时卡仍在，lock/run 维持既有 skip / fail-closed。七个短 id 保留：`ageval plugin publish` 与 `ageval plugin install` 撞到它们 fail-closed，避免 `/plugins/docker` 和店包抢同一条路由。运行时装载路径仍是 `bootstrap.py`。
 

@@ -14,6 +14,29 @@ without a network.
 Profile `base_url` + `api_key` (env locator) project into the exec env as
 `OPENAI_BASE_URL` / `OPENAI_API_KEY`. Values never enter the lock.
 
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | exclusive `executor` |
+| inject | `environment`: `exec`, `upload` |
+| chain | `trajectory_collect` |
+| bake | `docker/Dockerfile.bake` |
+
+A kind that cannot `exec` / `upload` fails at `ageval lock`, not mid-invoke.
+
+## Parameters
+
+`options` merge: profile `options` then this plugin's `extensions` row (last wins).
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `options.agent` | *(required)* | Package-local `module:Class` (subclass `nooa.Agent`, or a deterministic class). Missing → lock `nooa_options_agent_required`. |
+| `options.method` | `run` | Method invoked on that class. |
+| `model` | `openai/gpt-4.1-mini` | Model id projected into the worker. |
+| `api_key` | `OPENAI_API_KEY` / `litellm_api_key` | Env **locator name**. Value never enters the lock. |
+| `base_url` | `OPENAI_BASE_URL` / `litellm_base_url` / `AGEVAL_OPENAI_BASE_URL` | OpenAI-compatible base projected as `OPENAI_BASE_URL`. |
+
 ## Install
 
 ```bash

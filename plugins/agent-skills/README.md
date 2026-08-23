@@ -2,11 +2,21 @@
 
 `ageval.plugin/1` that expands Dataset skill folders and instruction files
 into the dests each bound ACP entry actually reads. Copy stays in
-`home-files`. Registers `on: home_overlay` only. No bake.
+`home-files`. Chain `after_environment_ready` only. No bake.
 
 Default landing zone is each actor's Attempt `$HOME`. Workspace is opt-in
 for skills (`dest_roots`). Workspace-root `AGENTS.md` is always written
 when an `instructions` row is present.
+
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | — |
+| inject | — |
+| chain | `after_environment_ready` (priority 120, after `home-files`) |
+| bake | — |
+| requires | `plugin_requires: home-files` |
 
 ## Install
 
@@ -35,13 +45,15 @@ extensions:
         - src: overlays/AGENTS.md
 ```
 
-| Field | Rule |
-| --- | --- |
-| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Dataset root. No `..`, no absolute path, no host `~`. |
-| `dest` | Not author-written. Dest comes from the entry table. |
-| `skills[]` | One folder per row. Folder must contain `SKILL.md`. Folder name is the skill name. |
-| `instructions[]` | `AGENTS.md` and (when `claude-code` is bound) `CLAUDE.md`. |
-| `dest_roots` | Default `[home]`. Authors may add `workspace`. |
+## Parameters
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `options.dest_roots` | `[home]` | `home` and/or `workspace`. Empty / non-list / unknown root fail closed. |
+| `options.skills` | `[]` | One folder per row. Folder must contain `SKILL.md`. Folder name is the skill name. |
+| `options.skills[].src` | *(required per row)* | Relative to the overlay root (Agent package when `agent_ref` is set, else Dataset root). No `..`, no absolute path, no host `~`. `dest` is not author-written. |
+| `options.instructions` | `[]` | Source files copied as `AGENTS.md` / `CLAUDE.md` (see dest table). Other filenames fail closed. |
+| `options.instructions[].src` | *(required per row)* | Same path rules as `skills[].src`. `dest` is not author-written. |
 
 Skills copy `<src>` → `<root>/<prefix>/<skill-name>/`. Dests are deduped.
 

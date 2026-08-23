@@ -16,6 +16,31 @@ exec env as `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL`.
 Profile `model` is passed on `initialize`. Sessions persist under the Attempt
 home (`/attempt/home/dsh-sessions`), not the task workspace.
 
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | exclusive `executor` |
+| inject | `environment`: `exec`, `upload` |
+| chain | `trajectory_collect` |
+| bake | `docker/Dockerfile.bake` |
+
+A kind that cannot `exec` / `upload` fails at `ageval lock`, not mid-invoke.
+
+## Parameters
+
+`options` merge: profile `options` then this plugin's `extensions` row (last wins).
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `options.composition` | `slim` | Bundled `compositions/<name>.cordis.yml`. Path separators and leading `.` fail closed. Setting `permission` with omit/`slim` switches to `sandboxed`. |
+| `options.permission` | unset | `read-only` / `workspace-write` / `danger-full-access`. Omit → unrestricted slim tools. Invalid values fail closed at materialize. Sets `DSH_PERMISSION_MODE`. File-tool writes are fenced; bash redirect can still write. |
+| `options.max_tokens` | unset | Omit / blank / `null` → do not pass `max_tokens` (adapter default). A positive int is forwarded. `≤0`, bool, string, float fail closed. |
+| `options.provider` | `deepseek-official` | Provider id on `initialize`. |
+| `model` | `deepseek-v4-flash` | Passed on `initialize`. |
+| `api_key` | `DEEPSEEK_API_KEY` / `deepseek_api_key` / `litellm_api_key` | Env **locator name**. Projected as `DEEPSEEK_API_KEY`. |
+| `base_url` | `DEEPSEEK_BASE_URL` / `deepseek_base_url` / `litellm_base_url` / `OPENAI_BASE_URL` | Projected as `DEEPSEEK_BASE_URL`. |
+
 ## Install
 
 ```bash
@@ -46,19 +71,11 @@ agent_profiles:
     api_key: ${deepseek_api_key}          # env locator
 ```
 
-`options.permission` is plugin-owned (same pattern as `composition`). Allowed
-values: `read-only` | `workspace-write` | `danger-full-access`. Setting it
-loads the sandboxed composition (`dsh-fs-sandbox` + `dsh-sandbox-policy` +
-`dsh-sandbox-local`) and passes `DSH_PERMISSION_MODE`. Omit it to keep today's
-slim / unrestricted local tools. Invalid values fail closed at materialize —
-no spawn.
-
-`options.max_tokens` is also plugin-owned. Omit / blank / `null` → do **not**
-pass `max_tokens` into DeepSeek Harness (adapter default). A positive integer
-is forwarded on the worker request. Anything else (≤0, bool, string, float)
-fails closed at materialize. GLM Coding Plan’s completion window is 131072;
-the adapter default 256000 is rejected there — set `max_tokens: 8192` (or
-another value in range) on that profile.
+`options.permission` loads the sandboxed composition (`dsh-fs-sandbox` +
+`dsh-sandbox-policy` + `dsh-sandbox-local`). GLM Coding Plan’s completion
+window is 131072; the adapter default 256000 is rejected there — set
+`max_tokens: 8192` (or another value in range) on that profile. Defaults
+and fail-closed cases: Parameters above.
 
 ```yaml
         options:

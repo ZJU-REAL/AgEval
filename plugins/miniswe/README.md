@@ -19,6 +19,28 @@ A kind that cannot `exec` fails at `ageval lock`, not mid-invoke. Model HTTP
 stays on the parent. Credentials are locators projected into the parent HTTP
 client; they never enter the lock.
 
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | exclusive `executor` |
+| inject | `environment`: `exec` |
+| chain | `trajectory_collect` |
+| bake | `docker/Dockerfile.bake` |
+
+## Parameters
+
+`options` merge: profile `options` then this plugin's `extensions` row (last wins).
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `options.step_limit` | `30` | Agent step cap. `0` = unlimited. Negative / non-int fail closed. |
+| `options.cost_limit` | `0` | Cost cap. `0` = unlimited. Negative fail closed. |
+| `options.cmd_timeout` | `30` | Seconds per `host.exec` bash action. |
+| `model` | `openai/gpt-4o-mini` | LiteLLM model id on the parent. |
+| `api_key` | `OPENAI_API_KEY` / `litellm_api_key` / `LITELLM_API_KEY` | Env **locator name** for the parent HTTP client. |
+| `base_url` | `OPENAI_BASE_URL` / `litellm_base_url` / `LITELLM_BASE_URL` | OpenAI-compatible base (`api_base`). |
+
 ## Install
 
 ```bash
@@ -48,10 +70,5 @@ agent_profiles:
     base_url: ${litellm_base_url}
 ```
 
-Same harness: `Agent.session(...).invoke`. Switch with `--profiles`.
-
-## Slots
-
-Exclusive `executor` plus `inject: environment` with `exec`. `trajectory_collect`
-maps this plugin's events. `config.image_layers` is bake input for the
-environment winner, not a timeline slot. PASS stays the package evaluator.
+Same harness: `Agent.session(...).invoke`. Switch with `--profiles`. PASS stays
+the package evaluator.

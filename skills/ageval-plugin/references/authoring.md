@@ -11,6 +11,7 @@ Slots are **exclusive** and **chain** only. Do not invent extra slot kinds.
 ```text
 plugins/my-mech/
 ├── plugin.yaml                 # format: ageval.plugin/1
+├── README.md                   # required: capability + parameter tables
 ├── docker/Dockerfile.bake      # optional: docker image layers
 ├── src/my_mech/
 │   ├── __init__.py             # must not import ageval Core at package import
@@ -46,6 +47,9 @@ config:
 
 Hub: `package_kind=plugin`. Dataset vs plugin fail-closes.
 `description` is optional Hub copy (one paragraph above Install (CLI)). Empty / non-string fails closed. Markdown links (`[text](https://…)`) render on Hub; other block syntax does not.
+
+README is the Hub detail contract (previewed next to `plugin.yaml`). A plugin that
+omits capability or parameter tables is unfinished. See **README contract** below.
 
 `host_requires` allowlist keys: `import`, `file`, `hint`. Unknown keys fail closed.
 `import:` is `importlib.util.find_spec` (no spawn). Core does not map plugin-id → pip extra.
@@ -118,6 +122,100 @@ agent_profiles:
 `--set /bindings/<role>/options/<key>=…` writes the executor plugin row
 (ACP still rejects `command` / engine keys). YAML key is `agent_profiles`.
 
+## README contract
+
+Hub previews this file. Authors bind against it. Keep it in the same language
+as the rest of the package README. **No GitHub Issue numbers.**
+
+Two tables are required. Copy the columns; fill from this plugin's code, not
+from a sibling plugin.
+
+### Capabilities
+
+What this plugin **is** on the Attempt graph, and what it **needs**.
+
+| | Value |
+| --- | --- |
+| export | exclusive slot it wins, if any (`environment` / `executor` / …). Exclusive winners register that slot name as a service. |
+| inject | `service` + **capabilities** this plugin calls. Capability names are only those in `src/ageval/environments/protocol.py` `CAPABILITY_NAMES`: `exec`, `upload`, `download`, `attach_stdio`, `uid_gid`, `path_views`, `compose`. |
+| chain | chain slots it fills (`after_environment_ready`, `trajectory_collect`, …) |
+| bake | `config.image_layers` path, or omit the row |
+
+Environment winners also list the caps they **export** (the Protocol methods they actually implement). Declaring a cap the kind cannot deliver is a bug.
+
+Do not invent slot names. Do not write `inject: {plugin_id: e2b}`. Missing a declared cap fails at **lock**, not mid-invoke.
+
+### Parameters
+
+Every knob this plugin **reads**. One row per name. Columns:
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `options.agent` | *(required)* | … |
+| `model` | `openai/gpt-4.1-mini` | … |
+
+**Where the name lives** (prefix it, do not dump a second table of sources):
+
+| Prefix | Who writes it | Who reads it |
+| --- | --- | --- |
+| `environment_options.<key>` | job `profiles.yaml` | environment exclusive winner |
+| `options.<key>` | profile `options` then this plugin's `extensions` row; last wins | executor factory / chain hook |
+| `model` / `base_url` / `api_key` | role profile (job axis) | executor factory kwargs. `api_key` is an **env locator name**, never the secret |
+| `E2B_API_KEY` (host env) | host environment | preflight / invoke locators this plugin itself looks up |
+
+Rules:
+
+- If the plugin reads it, the row exists. If it does not read it, do not list it.
+- Required knobs use `*(required)*` as Default. Omit / blank / `null` behaviour goes in Purpose.
+- Allowed values and fail-closed cases go in Purpose, not a prose dump above the table.
+- Rejected keys (ACP `command` / `engine_command` / …) get their own short table, or a Purpose note “rejected”.
+- `config.image_layers` is bake input, not a job parameter — list it under Capabilities, not here.
+- Do not document Core-owned fields (`environment:`, `executor:`) as this plugin's parameters.
+- Secrets stay locators. Never show a real key as a default.
+
+Template (executor):
+
+```markdown
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | exclusive `executor` |
+| inject | `environment`: `exec`, `upload` |
+| chain | `trajectory_collect` |
+| bake | `docker/Dockerfile.bake` |
+
+## Parameters
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `options.agent` | *(required)* | Package-local `module:Class`. Missing → lock `extension_materialize_failed`. |
+| `options.method` | `run` | Method invoked on that class. |
+| `model` | `openai/gpt-4.1-mini` | Model id projected into the worker. |
+| `api_key` | `OPENAI_API_KEY` | Env **locator name**. Value never enters the lock. |
+| `base_url` | `OPENAI_BASE_URL` / `litellm_base_url` | OpenAI-compatible base. |
+```
+
+Template (environment):
+
+```markdown
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | exclusive `environment` |
+| capabilities | `exec`, `upload`, `download`, `attach_stdio`: yes. `uid_gid`, `path_views`, `compose`: no |
+| inject | — |
+
+## Parameters
+
+Job knobs are `environment_options` (not `extensions[].options`).
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `environment_options.host` | *(required)* | … |
+```
+
 ## Typed failures
 
 | Signal | Typical cause |
@@ -139,3 +237,6 @@ uv run ageval executors
 uv run ageval lock <dataset> --task <id> --profiles path/to/profiles.yaml
 uv run ageval run <dataset> --task <id> --profiles path/to/profiles.yaml --probe
 ```
+
+README: Capabilities table matches `plugin.yaml` inject/slots and Protocol caps.
+Parameters table matches factory / host reads (name, default, purpose). No Issue numbers.

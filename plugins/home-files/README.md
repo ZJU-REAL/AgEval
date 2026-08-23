@@ -1,7 +1,16 @@
 # home-files
 
 `ageval.plugin/1` that copies overlay files into Attempt
-`$HOME` or workspace. Registers `on: home_overlay` only. No bake.
+`$HOME` or workspace. Chain `after_environment_ready` only. No bake.
+
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | — |
+| inject | — (copies through the Attempt host `upload` after the box is ready) |
+| chain | `after_environment_ready` |
+| bake | — |
 
 ## Install
 
@@ -27,11 +36,14 @@ extensions:
           dest_root: home
 ```
 
-| Field | Rule |
-| --- | --- |
-| `src` | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Dataset root. No `..`, no absolute path. |
-| `dest_root` | Required: `home` or `workspace`. |
-| `dest` | Relative to that root. No `..`. Not under `evaluation/`. |
+## Parameters
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `options.files` | unset (no-op) | List of overlay rows. Omit / empty → copy nothing. Must be a list. |
+| `options.files[].src` | *(required per row)* | Relative to the overlay root: the installed Agent package when the binding has `agent_ref`, otherwise the Dataset root. No `..`, no absolute path. |
+| `options.files[].dest` | *(required per row)* | Relative to `dest_root`. No `..`. Not under `evaluation/`. |
+| `options.files[].dest_root` | *(required per row)* | `home` or `workspace`. Any other value fails closed. |
 
 Secrets stay locators. Overlay JSON must not embed tokens. No JSON deep-merge.
 

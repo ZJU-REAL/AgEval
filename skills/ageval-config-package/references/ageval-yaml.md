@@ -8,6 +8,8 @@ Task: `format`, `task_id`, `parameters`, `agent_profiles` (role ids only), `limi
 
 Profiles: `format`, `environment`, `environment_options`, `agent_profiles`. Role rows may have `executor`, `model`, `api_key` (locator), `options.entry`, `extensions`.
 
+Plugin knobs (`environment_options.*`, `extensions[].options`, role `model` / `api_key` / `base_url`) live in **that plugin's README** Parameters table (name, default, purpose). Capabilities (export / inject) are the other required table. Do not copy keys from a sibling plugin.
+
 `api_key: ${ENV}` is a locator name. Value never enters lock.
 
 `--set` allowlist lives in Config Core, not here.

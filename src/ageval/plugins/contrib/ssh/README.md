@@ -13,6 +13,29 @@ environment: ssh
 Locators (`host` / `user` / `port` / `key_env`) are resolved at preflight.
 Keys never enter the lock.
 
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | exclusive `environment` |
+| capabilities | `exec`, `upload`, `download`, `attach_stdio`: yes. `uid_gid`, `path_views`, `compose`: no |
+| inject | — |
+
+`attach_stdio` on A is `ssh -T -- argv`. On B it is `ssh -- docker exec -i`. Live ACP stdio over bare SSH (A) is **not** a supported path — see below.
+
+## Parameters
+
+Job knobs are `environment_options` (not `extensions[].options`). `${NAME}` in host/user/port/image is a locator, expanded at preflight.
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `environment_options.host` | *(required)* | SSH target. Missing → `environment_options_invalid`. |
+| `environment_options.user` | unset | Remote user. Locator ok. |
+| `environment_options.port` | unset (ssh default) | Remote port. Locator ok. |
+| `environment_options.key_env` | unset | Env **name** of the private key. If set, that env must be present at preflight. |
+| `environment_options.image` | empty | Empty → **A** (the remote machine is the box). Non-empty existing tag → **B** (`start()` does remote `docker run`; nothing is baked at invoke). |
+| `environment_options.root` | `/tmp/ageval-<id>` | Remote work root created on `start()`. |
+
 ## A vs B
 
 `environment_options.image` empty → **A**: the remote machine is the box.

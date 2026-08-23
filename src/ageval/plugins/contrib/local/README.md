@@ -8,6 +8,22 @@ map onto those directories. `exec` is a real subprocess; `attach_stdio`
 hands ACP a live `Popen` pipe. Gold stays off the Agent mount and is
 uploaded only before evaluate.
 
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | exclusive `environment` |
+| capabilities | `exec`, `upload`, `download`, `attach_stdio`: yes. `uid_gid`, `path_views`, `compose`: no |
+| inject | — |
+
+## Parameters
+
+This kind reads no `environment_options`.
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| — | — | No job knobs. The process must be able to write the work root. |
+
 ## Bind
 
 ```yaml

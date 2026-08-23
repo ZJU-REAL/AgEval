@@ -11,6 +11,27 @@ Switching pi / Claude Code / OpenCode is `options.entry` (same ids as ACP).
 Do not write `executor: pi`. A box without `attach_stdio` still lock-fails
 `executor: acp`; this plugin only needs `exec`.
 
+## Capabilities
+
+| | Value |
+| --- | --- |
+| export | exclusive `executor` |
+| inject | `environment`: `exec` |
+| chain | `after_environment_ready`, `trajectory_collect` |
+| bake | — (uses the same baked ACP entries as first-party `acp`) |
+
+## Parameters
+
+`options` merge: profile `options` then this plugin's `extensions` row (last wins). Same entry ids as ACP.
+
+| Name | Default | Purpose |
+| --- | --- | --- |
+| `options.entry` | *(required)* | ACP entry id (`codex`, `claude-code`, `pi`, `opencode`, `grok-build`). Missing / unknown → lock `extension_materialize_failed`. |
+| `options.reasoning_effort` | unset | Applied when the entry advertises a reasoning selector. |
+| `model` | `entry-default` | Session model id. |
+| `api_key` | unset | Env **locator name** projected into the **exec** env. Value never enters the lock. |
+| `base_url` | unset | Projected into the exec env when the entry uses an OpenAI-compatible base. |
+
 ## Install
 
 ```bash
