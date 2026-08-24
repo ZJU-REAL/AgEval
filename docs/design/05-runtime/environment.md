@@ -10,7 +10,8 @@ job 文档：
 # profiles.yaml — 选独占槽 environment 的赢家
 format: ageval.profiles/1
 environment: e2b    # local | docker | e2b | ssh | daytona
-# environment_options:   # ssh：host / user / port / key_env / image
+# environment_options:   # docker：image / platform / network / user
+#                        # ssh：host / user / port / key_env / image
 #                        # daytona：image / snapshot / timeout_seconds
 ```
 

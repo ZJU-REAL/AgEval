@@ -88,7 +88,8 @@ yaml 显式字段覆盖缺省。旧 `harness.entrypoint` 与未知 format **拒�
 ```yaml
 format: ageval.profiles/1
 environment: local          # 或 docker / e2b / ssh / daytona
-# environment_options:      # ssh：host / user / port / key_env / image
+# environment_options:      # docker：image / platform / network / user（`root` 开 root）
+#                           # ssh：host / user / port / key_env / image
 #                           # daytona：image / snapshot / timeout_seconds
 agent_profiles:
   solver:
