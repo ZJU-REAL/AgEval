@@ -1,6 +1,8 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ComponentType,
   type MouseEvent,
@@ -9,6 +11,7 @@ import {
   BotMessageSquare,
   Brain,
   Check,
+  ChevronDown,
   Copy,
   Eye,
   FilePenLine,
@@ -30,8 +33,11 @@ import { actorLabel, type ActorRow } from "./types";
 
 type IconComp = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
-const LONG_BODY_CHARS = 240;
-const LONG_BODY_LINES = 4;
+function bodyOverflowsOneLine(el: HTMLElement): boolean {
+  const lh = parseFloat(getComputedStyle(el).lineHeight);
+  const line = Number.isFinite(lh) && lh > 0 ? lh : 20;
+  return el.scrollHeight > line + 1;
+}
 
 function asFiniteNumber(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -59,10 +65,6 @@ function formatElapsedMs(ms: number): string {
   const seconds = Math.round(totalS - minutes * 60);
   if (seconds === 60) return `${minutes + 1}m`;
   return seconds ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${minutes}m`;
-}
-
-function bodyIsLong(body: string): boolean {
-  return body.length > LONG_BODY_CHARS || body.split("\n").length > LONG_BODY_LINES;
 }
 
 function CopyBodyButton({ text }: { text: string }) {
@@ -97,32 +99,31 @@ function CopyBodyButton({ text }: { text: string }) {
 
 function StepBody({
   body,
-  collapsible,
-  defaultCollapsed,
   expandAll,
   expandGen,
 }: {
   body: string;
-  collapsible: boolean;
-  defaultCollapsed: boolean;
   expandAll: boolean;
   expandGen: number;
 }) {
-  const [open, setOpen] = useState(!defaultCollapsed);
-  const preview = body.split("\n")[0]?.slice(0, 160) || "";
+  const measureRef = useRef<HTMLPreElement>(null);
+  const [overflows, setOverflows] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = measureRef.current;
+    if (!el) return;
+    const check = () => setOverflows(bodyOverflowsOneLine(el));
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [body]);
 
   useEffect(() => {
-    if (expandGen === 0) return;
+    if (!overflows || expandGen === 0) return;
     setOpen(expandAll);
-  }, [expandAll, expandGen]);
-
-  if (!collapsible) {
-    return (
-      <pre className="m-0 px-3 pb-2.5 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
-        {body}
-      </pre>
-    );
-  }
+  }, [overflows, expandAll, expandGen]);
 
   function toggle() {
     const sel = window.getSelection();
@@ -131,23 +132,65 @@ function StepBody({
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-expanded={open}
-      className="block w-full cursor-pointer px-3 py-2.5 text-left hover:bg-row-hover"
-    >
-      {open ? (
-        <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
+    <div className="relative">
+      <pre
+        ref={measureRef}
+        aria-hidden
+        className="pointer-events-none invisible absolute left-3 right-3 top-0 m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5"
+      >
+        {body}
+      </pre>
+      {overflows ? (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          className="group flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left hover:bg-row-hover"
+        >
+          <div className="relative min-h-5 min-w-0 flex-1">
+            <div
+              className={cn(
+                "grid",
+                "motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-smooth",
+                open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+              )}
+            >
+              <div className="overflow-hidden">
+                <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
+                  {body}
+                </pre>
+              </div>
+            </div>
+            <pre
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-x-0 top-0 m-0 truncate font-mono text-[13px] leading-5 text-mute",
+                "motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-smooth",
+                open ? "opacity-0" : "opacity-100",
+              )}
+            >
+              {body}
+            </pre>
+          </div>
+          <HoverTip content={open ? "Collapse" : "Expand"}>
+            <span className="shrink-0 rounded-[4px] p-0.5 text-mute group-hover:text-ink">
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5",
+                  "motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-smooth",
+                  open && "rotate-180",
+                )}
+                aria-hidden
+              />
+            </span>
+          </HoverTip>
+        </button>
+      ) : (
+        <pre className="m-0 px-3 pb-2.5 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-body">
           {body}
         </pre>
-      ) : (
-        <pre className="m-0 truncate font-mono text-[13px] leading-5 text-mute">
-          {preview}
-          {body.length > preview.length ? "…" : ""}
-        </pre>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -415,10 +458,6 @@ export function TrajectoryPanel({
               {body ? (
                 <StepBody
                   body={body}
-                  collapsible={isToolCall || isObservation || bodyIsLong(body)}
-                  defaultCollapsed={
-                    isToolCall || isObservation || bodyIsLong(body)
-                  }
                   expandAll={allExpanded}
                   expandGen={expandGen}
                 />
