@@ -7,7 +7,7 @@ import { DescriptionEditor } from "@/components/description-editor";
 import { CatalogHead } from "@/components/page-head";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { DisplayNameEditor } from "@/components/display-name-editor";
-import { HoverTip } from "@/components/hover-tip";
+import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { OfficialMark } from "@/components/official-mark";
 import { SignInLink } from "@/components/sign-in-button";
 import { Button } from "@/components/ui/button";
@@ -971,11 +971,7 @@ export function OrganizationDetailPage() {
                             return (
                               <TableRow key={k.key_id}>
                                 <TableCell className="max-w-[min(40rem,50vw)]">
-                                  <HoverTip content={display}>
-                                    <span className="block truncate">
-                                      {display}
-                                    </span>
-                                  </HoverTip>
+                                  <TruncateTip text={display} copyable />
                                 </TableCell>
                                 <TableCell className="tabular-nums">
                                   {uses}

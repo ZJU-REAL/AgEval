@@ -643,20 +643,16 @@ export function LeaderboardTable({
                           : "—"}
                     </TableCell>
                     <TableCell className={`${COL_TEXT}`}>
-                      <HoverTip content={s.uploaded_by || undefined}>
-                        <span className="block truncate">
-                          {s.uploaded_by || "—"}
-                        </span>
-                      </HoverTip>
+                      <TruncateTip text={s.uploaded_by || ""} copyable />
                     </TableCell>
                     <TableCell
                       className={`${COL_METRIC}`}
                     >
-                      <HoverTip content={s.suite_run_id}>
-                        <span className="block truncate">
-                          {shortSuiteId(s.suite_run_id)}
-                        </span>
-                      </HoverTip>
+                      <TruncateTip
+                        text={shortSuiteId(s.suite_run_id)}
+                        copyValue={s.suite_run_id}
+                        copyable
+                      />
                     </TableCell>
                   </TableRow>
                   {open ? (

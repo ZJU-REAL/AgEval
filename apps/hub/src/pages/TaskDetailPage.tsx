@@ -42,7 +42,7 @@ import {
   type TreeNode,
 } from "@/lib/file-tree";
 import { AxisLabel } from "@/components/axis-label";
-import { HoverTip } from "@/components/hover-tip";
+import { TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
 import {
   cn,
@@ -590,11 +590,6 @@ export function TaskDetailPage() {
                       canOpen && j.run_id
                         ? `/datasets/${encodeURIComponent(datasetId)}/tasks/${encodeURIComponent(taskId)}/attempts/${encodeURIComponent(j.run_id)}`
                         : null;
-                    const rowTip = canOpen
-                      ? "Open attempt detail"
-                      : j.run_id
-                        ? "Summary only — full Attempt not uploaded"
-                        : "No run_id for this task";
                     return (
                       <TableRow
                         key={`${j.job_kind}:${j.job_id}`}
@@ -602,12 +597,16 @@ export function TaskDetailPage() {
                           canOpen && "cursor-pointer",
                           !canOpen && "opacity-70",
                         )}
-                        onClick={() => {
+                        onClick={(e) => {
                           if (!evidenceHref) return;
+                          const el = e.target as HTMLElement;
+                          if (el.closest("button, [role='button']")) return;
                           navigate(evidenceHref);
                         }}
                         onKeyDown={(e) => {
                           if (!evidenceHref) return;
+                          const el = e.target as HTMLElement;
+                          if (el.closest("button, [role='button']")) return;
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             navigate(evidenceHref);
@@ -617,9 +616,7 @@ export function TaskDetailPage() {
                         role={canOpen ? "link" : undefined}
                       >
                         <TableCell>
-                          <HoverTip content={rowTip}>
-                          <span className="text-ink">{j.job_id}</span>
-                          </HoverTip>
+                          <TruncateTip text={j.job_id} copyable />
                           {!canOpen ? (
                             <span className="ml-2 text-[11px] text-mute font-sans">
                               summary only

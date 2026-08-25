@@ -1,4 +1,4 @@
-import { HoverTip } from "@/components/hover-tip";
+import { HoverTip, TruncateTip } from "@/components/hover-tip";
 import { cn, formatModelLabel } from "@/lib/utils";
 
 export function ModelLabel({
@@ -17,16 +17,16 @@ export function ModelLabel({
   if (!value?.trim() || shown === empty) {
     return <span className={className}>{shown}</span>;
   }
-  return (
-    <HoverTip content={title}>
-      <span
-        className={cn(
-          className,
-          "inline-block w-max max-w-full cursor-help",
-        )}
-      >
-        {shown}
-      </span>
-    </HoverTip>
-  );
+  if (title && title !== shown) {
+    return (
+      <HoverTip content={title}>
+        <span
+          className={cn(className, "inline-block w-max max-w-full cursor-help")}
+        >
+          {shown}
+        </span>
+      </HoverTip>
+    );
+  }
+  return <TruncateTip text={shown} className={className} />;
 }

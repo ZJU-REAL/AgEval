@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fetchJobTask, type Job, type TaskRow, type Trial } from "@/lib/api";
+import { TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
 import { useDocumentTitle } from "@/lib/document-title";
 import { jobPath, trialPath } from "@/lib/routes";
@@ -139,12 +140,16 @@ export function TaskDetailPage() {
                     <TableRow
                       key={tr.trial_id || rid}
                       className={cn(openable && "cursor-pointer")}
-                      onClick={() => {
+                      onClick={(e) => {
                         if (!openable) return;
+                        const el = e.target as HTMLElement;
+                        if (el.closest("button, [role='button']")) return;
                         navigate(trialPath(jobId, taskId, rid));
                       }}
                       onKeyDown={(e) => {
                         if (!openable) return;
+                        const el = e.target as HTMLElement;
+                        if (el.closest("button, [role='button']")) return;
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           navigate(trialPath(jobId, taskId, rid));
@@ -153,8 +158,8 @@ export function TaskDetailPage() {
                       tabIndex={openable ? 0 : undefined}
                       role={openable ? "link" : undefined}
                     >
-                      <TableCell className="font-medium">
-                        {tr.trial_id}
+                      <TableCell className="font-medium max-w-[16rem]">
+                        <TruncateTip text={tr.trial_id} copyable />
                         {tr.has_evidence ? (
                           <span className="ml-2 text-[11px] text-mute font-sans">
                             evidence
@@ -179,8 +184,11 @@ export function TaskDetailPage() {
                       <TableCell className="tabular text-body">
                         {formatDate(tr.started || job?.started)}
                       </TableCell>
-                      <TableCell className="text-mute">
-                        {tr.run_id || task?.run_id || "-"}
+                      <TableCell className="text-mute max-w-[16rem]">
+                        <TruncateTip
+                          text={tr.run_id || task?.run_id || ""}
+                          copyable
+                        />
                       </TableCell>
                       <TableCell
                         className={bad ? "text-error" : "text-body"}

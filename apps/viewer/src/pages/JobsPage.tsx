@@ -40,7 +40,7 @@ import {
 } from "@/lib/job-prefs";
 import { jobDisplayName, jobHref } from "@/lib/routes";
 import { AxisLabel } from "@/components/axis-label";
-import { HoverTip } from "@/components/hover-tip";
+import { TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
 import { formatDate, formatModelLabel, formatScore, formatTrials } from "@/lib/utils";
 
@@ -431,14 +431,18 @@ export function JobsPage() {
                     className="group cursor-pointer"
                     onClick={(e) => {
                       const el = e.target as HTMLElement;
-                      if (el.closest("input, button, [role='menu'], [role='menuitem']")) {
+                      if (
+                        el.closest(
+                          "input, button, [role='button'], [role='menu'], [role='menuitem']",
+                        )
+                      ) {
                         return;
                       }
                       navigate(jobHref(job));
                     }}
                     onKeyDown={(e) => {
                       const el = e.target as HTMLElement;
-                      if (el.closest("input, button")) return;
+                      if (el.closest("input, button, [role='button']")) return;
                       if (e.key === "Enter") {
                         navigate(jobHref(job));
                       }
@@ -454,14 +458,10 @@ export function JobsPage() {
                       />
                     </TableCell>
                     <TableCell className="font-medium max-w-[16rem]">
-                      <HoverTip content={jobDisplayName(job)}>
-                        <span className="block truncate">{jobDisplayName(job)}</span>
-                      </HoverTip>
+                      <TruncateTip text={jobDisplayName(job)} copyable />
                     </TableCell>
                     <TableCell className="text-body max-w-[16rem]">
-                      <HoverTip content={job.dataset_ref || ""}>
-                        <span className="block truncate">{job.dataset_ref || "-"}</span>
-                      </HoverTip>
+                      <TruncateTip text={job.dataset_ref || ""} copyable />
                     </TableCell>
                     <TableCell className="max-w-[14rem]">
                       <AxisLabel

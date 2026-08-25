@@ -28,7 +28,7 @@ import {
 } from "@/lib/api";
 import { taskHref, taskRunIds } from "@/lib/routes";
 import { AxisLabel } from "@/components/axis-label";
-import { HoverTip } from "@/components/hover-tip";
+import { TruncateTip } from "@/components/hover-tip";
 import { ModelLabel } from "@/components/model-label";
 import { useDocumentTitle } from "@/lib/document-title";
 import { formatError, formatScore } from "@/lib/utils";
@@ -240,17 +240,21 @@ export function JobDetailPage() {
                       className="cursor-pointer"
                       tabIndex={0}
                       role="link"
-                      onClick={() => navigate(href)}
+                      onClick={(e) => {
+                        const el = e.target as HTMLElement;
+                        if (el.closest("button, [role='button']")) return;
+                        navigate(href);
+                      }}
                       onKeyDown={(e) => {
+                        const el = e.target as HTMLElement;
+                        if (el.closest("button, [role='button']")) return;
                         if (e.key === "Enter") {
                           navigate(href);
                         }
                       }}
                     >
                       <TableCell className="font-medium max-w-[12rem]">
-                        <HoverTip content={t.task_id}>
-                          <span className="block truncate">{t.task_id}</span>
-                        </HoverTip>
+                        <TruncateTip text={t.task_id} copyable />
                       </TableCell>
                       <TableCell className="max-w-[14rem]">
                         <AxisLabel
