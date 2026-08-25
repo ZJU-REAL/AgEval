@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval.evidence.trajectory import TRAJECTORY_FILENAME
+from ageval.evidence.usage import terminal_extra
 from ageval.viewer.jobs import get_job, safe_id_segment
 from ageval.viewer.trials.constants import MAX_JSONL_LINE, MAX_TRAJECTORY_STEPS
 from ageval.viewer.trials.paths import (
@@ -212,7 +213,7 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         "ok": obj.get("ok"),
                         "error": obj.get("error"),
                         "usage": obj.get("usage") if isinstance(obj.get("usage"), dict) else None,
-                        "extra": obj.get("extra") if isinstance(obj.get("extra"), dict) else None,
+                        "extra": terminal_extra(obj),
                         "metadata": obj.get("metadata")
                         if isinstance(obj.get("metadata"), dict)
                         else None,

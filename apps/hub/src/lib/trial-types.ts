@@ -52,6 +52,8 @@ export type Trial = {
   upstream_name?: string | null;
   upstream_ref?: string | null;
   note?: string | null;
+  /** Attempt-grain observational bag from summary.extra; omit when empty. */
+  extra?: Record<string, unknown> | null;
   /** Wall-time phases (environment/run/evaluate/record/cleanup) */
   phase_timing?: {
     schema?: string;

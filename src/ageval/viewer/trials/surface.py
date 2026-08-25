@@ -9,6 +9,7 @@ from typing import Any
 
 from ageval.evidence.attempt_record import has_attempt_result, read_attempt_result
 from ageval.evidence.trajectory import TRAJECTORY_FILENAME
+from ageval.evidence.usage import observational_bag, terminal_extra
 from ageval.viewer.jobs import _duration_label, _environment_kind, _phase_timing, _started_at
 from ageval.viewer.trials.paths import _read_json_object
 from ageval.viewer.trials.usage import (
@@ -376,6 +377,7 @@ def _trial_meta_from_evidence(
         "upstream_name": surface.get("upstream_name"),
         "upstream_ref": surface.get("upstream_ref"),
         "note": None,
+        "extra": observational_bag(summary.get("extra")),
     }
 
 
@@ -413,8 +415,8 @@ def _usage_time_from_trajectory(
                 usage = obj.get("usage")
                 if isinstance(usage, dict) and usage:
                     last_usage[pid] = usage
-                extra = obj.get("extra")
-                if isinstance(extra, dict) and extra:
+                extra = terminal_extra(obj)
+                if extra:
                     last_extra[pid] = extra
                 elapsed = obj.get("elapsed_ms")
                 if not isinstance(elapsed, (int, float)) or isinstance(elapsed, bool):

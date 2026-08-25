@@ -42,3 +42,21 @@ def sealed_extra(extra: Mapping[str, Any] | None) -> dict[str, Any] | None:
             continue
         out[key] = value
     return out or None
+
+
+def observational_bag(value: Any) -> dict[str, Any] | None:
+    """Non-empty object bag, or None. Observational — never PASS."""
+    return value if isinstance(value, dict) and value else None
+
+
+def terminal_extra(row: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Sibling ``extra``, else already-sealed ``usage.extra`` on old jsonl."""
+    if not isinstance(row, Mapping):
+        return None
+    sibling = observational_bag(row.get("extra"))
+    if sibling is not None:
+        return sibling
+    usage = row.get("usage")
+    if isinstance(usage, Mapping):
+        return observational_bag(usage.get("extra"))
+    return None

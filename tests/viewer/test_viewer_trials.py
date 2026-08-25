@@ -800,3 +800,43 @@ def test_first_class_usage_and_jsonl_labels_without_invocation_meta(tmp_path: Pa
     assert terminal.get("profile_id") == "solver"
     assert terminal.get("elapsed_ms") == pytest.approx(142.5)
     assert "usage=" not in (terminal.get("content") or "")
+    assert terminal.get("extra") == {"reasoning_tokens": 3, "foo": True}
+    assert detail["trial"].get("extra") is None
+
+
+def test_old_usage_extra_alias_and_summary_extra(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    root = db / ".ageval" / "runs" / "run_alpha_1"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "lock.json").write_text(
+        json.dumps({"task_id": "alpha", "profiles": [{"id": "solver", "executor": "openai-http"}]})
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "result.json").write_text(json.dumps({"status": "PASS", "score": 1.0}) + "\n")
+    (root / "summary.json").write_text(
+        json.dumps({"status": "PASS", "extra": {"probe": {"foo": True}}}) + "\n"
+    )
+    (root / "trajectory.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "terminal",
+                "ok": True,
+                "usage": {
+                    "prompt_tokens": 2,
+                    "completion_tokens": 1,
+                    "extra": {"reasoning_tokens": 9},
+                },
+                "metadata": {"profile_id": "solver"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    detail = trials.get_trial(db, job_id, "alpha", "run_alpha_1")
+    assert detail["trial"]["extra"] == {"probe": {"foo": True}}
+    traj = trials.trial_trajectory(db, job_id, "alpha", "run_alpha_1")
+    terminal = next(s for s in traj["steps"] if s.get("type") == "terminal")
+    assert terminal.get("extra") == {"reasoning_tokens": 9}
+    assert "extra" in (terminal.get("usage") or {})
