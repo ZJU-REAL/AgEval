@@ -314,9 +314,7 @@ export function HomePage() {
                     <span key="id" className="font-mono text-xs">
                       {s.suite_run_id}
                     </span>,
-                    datasetRef(s.dataset_id, s.dataset_version) ||
-                      s.dataset_id ||
-                      "—",
+                    datasetRef(s.dataset_id, s.dataset_version) || "—",
                     <span key="env" className="font-mono text-xs">
                       {environmentFromOverlay(s.job_overlay) || "—"}
                     </span>,

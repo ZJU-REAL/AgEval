@@ -112,6 +112,15 @@ def _upload_attempt(
     )
 
 
+def test_upload_suite_requires_dataset_version(tmp_path: Path) -> None:
+    results = _services(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    meta, archive = _suite_archive(tmp_path, "suite_no_ver")
+    del meta["dataset_version"]
+    with pytest.raises(RegistryAppError, match="dataset_version"):
+        results.upload_suite(meta=meta, archive=archive, auth=auth)
+
+
 def test_append_slot_updates_metrics_and_keeps_old_attempt(tmp_path: Path) -> None:
     results = _services(tmp_path)
     auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")

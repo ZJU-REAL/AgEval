@@ -315,10 +315,10 @@ class ResultService:
         visibility = str(meta.get("visibility") or "private")
         blob_digest = str(meta.get("blob_digest") or "")
         size = int(meta.get("size") or size_on_disk)
-        if not suite_run_id or not dataset_id:
+        if not suite_run_id or not dataset_id or not dataset_version.strip():
             raise RegistryAppError(
                 "invalid_request",
-                "suite_run_id and dataset_id required",
+                "suite_run_id, dataset_id, and dataset_version required",
                 http_status=400,
             )
         if visibility not in {"private", "public"}:

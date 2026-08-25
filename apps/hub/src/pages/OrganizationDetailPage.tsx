@@ -663,7 +663,7 @@ export function OrganizationDetailPage() {
                                   className="text-link hover:text-link-deep hover:underline"
                                 >
                                   {datasetRef(s.dataset_id, s.dataset_version) ||
-                                    s.dataset_id}
+                                    "—"}
                                 </Link>
                               ) : (
                                 "—"
