@@ -412,7 +412,7 @@ export function DatasetDetailPage() {
             value={release?.display_name?.trim() || packageParts.name}
             prefix={packageParts.org ? `${packageParts.org}/` : null}
             canEdit={Boolean(token && canEditName && release)}
-            headingClassName="text-xl font-semibold tracking-tight text-ink font-mono"
+            headingClassName="text-xl font-semibold tracking-tight text-ink"
             afterTitle={release?.official ? <OfficialMark /> : null}
             onSave={async (next) => {
               const updated = await updatePackageDisplayName(
@@ -571,7 +571,7 @@ export function DatasetDetailPage() {
                       tabIndex={0}
                       role="link"
                     >
-                      <TableCell className="font-mono text-sm font-medium">
+                      <TableCell className="text-sm font-medium">
                         {tid}
                       </TableCell>
                       <TableCell className="text-sm text-body">

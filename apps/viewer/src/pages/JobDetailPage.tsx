@@ -262,7 +262,7 @@ export function JobDetailPage() {
                         <ModelLabel
                           value={t.model_label || job?.model_label}
                           effort={t.reasoning_effort || job?.reasoning_effort}
-                          className="truncate font-mono text-xs"
+                          className="truncate text-xs"
                         />
                       </TableCell>
                       <TableCell className="text-body">

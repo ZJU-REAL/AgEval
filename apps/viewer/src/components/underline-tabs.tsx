@@ -57,7 +57,7 @@ export function UnderlineTabs<T extends string>({
           aria-selected={value === item.id}
           onClick={() => onChange(item.id)}
           className={cn(
-            "relative z-10 font-mono text-xs uppercase tracking-wide",
+            "relative z-10 text-sm font-medium",
             "transition-colors duration-200 ease-smooth",
             size === "sm" ? "px-2.5 py-1.5" : "px-3 py-2",
             value === item.id

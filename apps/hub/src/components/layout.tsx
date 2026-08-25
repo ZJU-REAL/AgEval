@@ -211,7 +211,7 @@ function SidebarGroup({
           <div className="h-px w-full bg-hairline" />
         </div>
       ) : (
-        <p className="mb-1 px-2 font-mono text-xs uppercase tracking-wide text-mute">
+        <p className="mb-1 px-2 text-xs font-medium text-mute">
           {label}
         </p>
       )}

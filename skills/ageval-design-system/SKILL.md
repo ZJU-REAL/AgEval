@@ -41,8 +41,10 @@ fix the surfaces to match docs/13 + the script.
 - Radii are 6 / 8 / 12px only. Primary CTA (SPA Button `default`) is IKB fill +
   `rounded-[6px]` + mono 13px + `focus-visible:ring-2 ring-link/70`. Do not use
   clip-path chamfer on buttons.
-- Underline tabs use `UnderlineTabs` (sliding IKB bar). Page heads use
+- Underline tabs use `UnderlineTabs` (sans `text-sm`, sliding IKB bar). Page heads use
   `PageHead` (h1 + optional sub + hairline; no numbered kicker).
+- List / table primary labels (display titles, scope tabs, sidebar section labels)
+  use the default sans stack. Mono is for commands, digests, and technical IDs.
 - Plugin / agent marketplace lists are `CatalogCard` grids (20px entity mark +
   `org/name` + date, two-line description, tags at the bottom). Datasets, jobs,
   leaderboard, and members are hairline tables.

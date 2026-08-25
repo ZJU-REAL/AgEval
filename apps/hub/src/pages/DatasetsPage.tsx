@@ -187,7 +187,7 @@ export function DatasetsPage() {
                       tabIndex={0}
                       role="link"
                     >
-                      <TableCell className="font-medium font-mono text-sm">
+                      <TableCell className="font-medium text-sm">
                         {packageDisplayTitle(row.dataset_id, row.display_name)}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-mute">

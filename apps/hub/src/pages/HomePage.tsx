@@ -217,7 +217,7 @@ export function HomePage() {
                   onClick: () =>
                     navigate(`/datasets/${encodeDatasetId(d.dataset_id)}`),
                   cells: [
-                    <span key="id" className="font-mono text-sm">
+                    <span key="id" className="text-sm font-medium">
                       {packageDisplayTitle(d.dataset_id, d.display_name)}
                     </span>,
                     versionLabel(d),

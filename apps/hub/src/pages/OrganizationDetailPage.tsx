@@ -564,7 +564,7 @@ export function OrganizationDetailPage() {
                               tabIndex={0}
                               role="link"
                             >
-                              <TableCell className="font-mono text-sm">
+                              <TableCell className="text-sm font-medium">
                                 {packageDisplayTitle(
                                   d.dataset_id,
                                   d.display_name,

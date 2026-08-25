@@ -246,7 +246,7 @@ export function InboxPage() {
                       onChange={() => toggle(row.request_id)}
                     />
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{row.kind}</TableCell>
+                  <TableCell className="text-xs text-body">{row.kind}</TableCell>
                   <TableCell>
                     <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
                   </TableCell>
@@ -285,8 +285,8 @@ export function InboxPage() {
               <TableBody>
                 {history.map((row) => (
                   <TableRow key={row.request_id}>
-                    <TableCell className="font-mono text-xs">{row.status}</TableCell>
-                    <TableCell className="font-mono text-xs">{row.kind}</TableCell>
+                    <TableCell className="text-xs text-body">{row.status}</TableCell>
+                    <TableCell className="text-xs text-body">{row.kind}</TableCell>
                     <TableCell>
                       <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
                     </TableCell>
