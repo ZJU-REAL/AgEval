@@ -58,7 +58,7 @@ dataset root (ageval.yaml / ageval.dataset/1)
        environment  host.start → upload data/ → after_environment_ready → environment_setup
        run          subprocess run.py ← Agent Service socket ← attach_stdio
        evaluate     stop writers → upload evaluation/ → evaluation_runtime → bind
-       record       trajectory_collect → trajectory_seal
+       record       trajectory_collect → trajectory_seal → summary_enrich
        finally      cleanup → host.stop
   → .ageval/runs/<attempt_id>/
 ```
@@ -319,13 +319,14 @@ evaluate phase
 record phase
   trajectory_collect → enrich  # fail-open chain
   trajectory_seal              # exclusive-slot winner writes trajectory.jsonl (layer C)
+  summary_enrich               # fail-open; Attempt summary.extra (omit when empty)
 
 cleanup (finally)
   cleanup_report
   host.stop
 ```
 
-`FAIL_OPEN_SLOTS`: `before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `cleanup_report`. Any other slot failure fails that phase.
+`FAIL_OPEN_SLOTS`: `before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `summary_enrich` / `cleanup_report`. Any other slot failure fails that phase.
 
 ## Lifecycle (Current)
 
