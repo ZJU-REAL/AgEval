@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from contextlib import suppress as contextlib_suppress
 from typing import Any
 
-from ageval.evidence.usage import sealed_usage
+from ageval.evidence.usage import sealed_extra, sealed_usage
 
 
 def _as_plain_mapping(obj: Any) -> dict[str, Any] | None:
@@ -58,7 +58,7 @@ def _pick_number(data: Mapping[str, Any], *keys: str) -> float | int | None:
 def normalize_acp_usage(
     prompt_usage: Any = None,
     usage_update: Any = None,
-) -> dict[str, Any] | None:
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Merge ACP dual-source usage into one observational dict (issue #30).
 
     Two protocol sources with different semantics:
@@ -69,19 +69,8 @@ def normalize_acp_usage(
       (``used`` / ``size``) and optional session **cost** — ``used`` is *not*
       token total.
 
-    Output shape matches layer C ``terminal.usage`` (omit unknown first-class
-    fields; leftovers in ``extra``)::
-
-        {
-          "prompt_tokens": int, "completion_tokens": int,
-          "cached_tokens": int, "cost_usd": number,
-          "extra": {
-            "total_tokens": int, "thought_tokens": int,
-            "cached_read_tokens": int, "cached_write_tokens": int,
-            "context": {"used": int, "size": int},
-            "sources": {"prompt_usage": bool, "usage_update": bool}
-          }
-        }
+    Returns ``(usage, extra)``. Usage is first-class token/cost only; leftovers
+    (context, sources, cache-write) are the sibling extra bag.
 
     ``cached_tokens`` is cached-read. Cache-write and the original cache-read
     count stay in ``extra`` (do not drop them). Missing fields stay absent.
@@ -150,7 +139,7 @@ def normalize_acp_usage(
             pass
 
     if not has_prompt and not has_update:
-        return None
+        return None, None
 
     extra: dict[str, Any] = {}
     if "total_tokens" in out:
@@ -186,10 +175,12 @@ def normalize_acp_usage(
         val = out.get(key)
         return val if isinstance(val, int) and not isinstance(val, bool) else None
 
-    return sealed_usage(
-        prompt_tokens=_int_field("input_tokens"),
-        completion_tokens=_int_field("output_tokens"),
-        cached_tokens=_int_field("cached_read_tokens"),
-        cost_usd=cost_usd,
-        extra=extra or None,
+    return (
+        sealed_usage(
+            prompt_tokens=_int_field("input_tokens"),
+            completion_tokens=_int_field("output_tokens"),
+            cached_tokens=_int_field("cached_read_tokens"),
+            cost_usd=cost_usd,
+        ),
+        sealed_extra(extra or None),
     )

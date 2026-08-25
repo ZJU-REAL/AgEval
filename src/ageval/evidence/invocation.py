@@ -39,6 +39,7 @@ def read_invocation_payload(directory: Path) -> dict[str, Any]:
         "final_text": str(final.get("content") or ""),
         "structured": final.get("structured_output"),
         "usage": final.get("usage"),
+        "extra": final.get("extra"),
         "ok": status == "completed",
         "error": metadata.get("error"),
         "metadata": turn_meta,

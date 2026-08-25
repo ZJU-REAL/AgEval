@@ -49,6 +49,7 @@ def turn_rows(
     final_text: str,
     structured: dict[str, object] | None,
     usage: dict[str, Any] | None,
+    extra: dict[str, Any] | None = None,
     ok: bool,
     error: str | None,
     metadata: dict[str, Any] | None = None,
@@ -226,6 +227,8 @@ def turn_rows(
         "metadata": meta_out,
         "source": "ageval",
     }
+    if isinstance(extra, dict) and extra:
+        terminal["extra"] = extra
     # Invoke wall-clock lives on metadata.latency_ms; cards read elapsed_ms.
     if terminal.get("elapsed_ms") is None and isinstance(metadata, dict):
         elapsed = _coerce_elapsed_ms(metadata.get("elapsed_ms"))

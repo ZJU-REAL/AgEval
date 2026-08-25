@@ -115,6 +115,7 @@ def seal_invoke_result(
                         result.structured if isinstance(result.structured, dict) else None
                     ),
                     "usage": getattr(result, "usage", None),
+                    "extra": getattr(result, "extra", None),
                     "session": {
                         "reusable": False,
                         "handle": None,

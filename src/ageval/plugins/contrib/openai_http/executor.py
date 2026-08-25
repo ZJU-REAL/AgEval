@@ -251,7 +251,7 @@ class OpenAIHTTPExecutor(AgentExecutor):
                 json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
-        usage = normalize_openai_http_usage(
+        usage, extra = normalize_openai_http_usage(
             raw.get("usage") if isinstance(raw, dict) else None,
             response_id=raw.get("id") if isinstance(raw, dict) else None,
         )
@@ -264,6 +264,7 @@ class OpenAIHTTPExecutor(AgentExecutor):
             events=tuple(events),
             tool_calls=tool_calls,
             usage=usage,
+            extra=extra,
             metadata={
                 "executor_kind": "openai-http",
                 "locked_reasoning_effort": effort,

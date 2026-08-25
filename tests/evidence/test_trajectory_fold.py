@@ -25,6 +25,7 @@ def _write(
     final_text: str = "",
     structured: dict[str, object] | None = None,
     usage: dict[str, Any] | None = None,
+    extra: dict[str, Any] | None = None,
     ok: bool = True,
     error: str | None = None,
     metadata: dict[str, Any] | None = None,
@@ -37,6 +38,7 @@ def _write(
         final_text=final_text,
         structured=structured,
         usage=usage,
+        extra=extra,
         ok=ok,
         error=error,
         metadata=metadata,
@@ -886,15 +888,16 @@ def test_terminal_keeps_usage_extra_and_copies_latency_ms(tmp_path: Path) -> Non
         usage={
             "prompt_tokens": 9,
             "completion_tokens": 4,
-            "extra": {"foo": "bar", "reasoning_tokens": 3},
         },
+        extra={"foo": "bar", "reasoning_tokens": 3},
         metadata={"executor_kind": "openai-http", "latency_ms": 142.5, "turn_index": 1},
     )
     terminal = next(x for x in _read_lines(path) if x["type"] == "terminal")
     assert terminal["usage"]["prompt_tokens"] == 9
     assert terminal["usage"]["completion_tokens"] == 4
-    assert terminal["usage"]["extra"]["foo"] == "bar"
-    assert terminal["usage"]["extra"]["reasoning_tokens"] == 3
+    assert terminal["extra"]["foo"] == "bar"
+    assert terminal["extra"]["reasoning_tokens"] == 3
+    assert "extra" not in terminal["usage"]
     assert terminal["elapsed_ms"] == 142.5
     assert terminal["metadata"]["latency_ms"] == 142.5
 

@@ -1,4 +1,4 @@
-"""Sealed ``terminal.usage``: first-class token/cost fields plus extra bag.
+"""Sealed ``terminal.usage`` (first-class token/cost) and sibling ``extra``.
 
 Observational — never PASS. Unknown first-class quantities are omitted;
 do not invent zeros that imply a measurement.
@@ -18,14 +18,8 @@ def sealed_usage(
     completion_tokens: int | None = None,
     cached_tokens: int | None = None,
     cost_usd: float | int | None = None,
-    extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Build a layer-C usage object.
-
-    ``extra`` is the vendor/plugin bag. First-class names passed through
-    ``extra`` are dropped from the bag (they belong on the object itself).
-    Empty extra is omitted. Returns ``None`` when nothing was reported.
-    """
+    """Build layer-C first-class usage. No extra bag."""
     out: dict[str, Any] = {}
     if prompt_tokens is not None:
         out["prompt_tokens"] = prompt_tokens
@@ -35,12 +29,16 @@ def sealed_usage(
         out["cached_tokens"] = cached_tokens
     if cost_usd is not None:
         out["cost_usd"] = cost_usd
-    extra_out: dict[str, Any] = {}
-    if extra:
-        for key, value in extra.items():
-            if key in FIRST_CLASS_KEYS:
-                continue
-            extra_out[key] = value
-    if extra_out:
-        out["extra"] = extra_out
+    return out or None
+
+
+def sealed_extra(extra: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Vendor/plugin bag for the terminal row sibling ``extra``. Empty omitted."""
+    if not extra:
+        return None
+    out: dict[str, Any] = {}
+    for key, value in extra.items():
+        if key in FIRST_CLASS_KEYS:
+            continue
+        out[key] = value
     return out or None

@@ -9,7 +9,7 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
-from ageval.evidence.usage import sealed_usage
+from ageval.evidence.usage import sealed_extra, sealed_usage
 
 _USAGE_RESERVED = frozenset(
     {
@@ -57,18 +57,17 @@ def normalize_openai_http_usage(
     raw: Any,
     *,
     response_id: Any = None,
-) -> dict[str, Any] | None:
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Fold a Chat Completions ``usage`` object (and optional response ``id``).
 
-    First-class: ``prompt_tokens``, ``completion_tokens`` (or text tokens),
-    ``cached_tokens`` (cached prompt tokens), ``cost_usd``.
+    Returns ``(usage, extra)``. First-class usage is token/cost fields.
     Leftovers (``reasoning_tokens``, cache-write, raw ``id``, ``total_tokens``)
-    land in ``extra``. Does not invent zeros for omitted keys.
+    land in sibling extra. Does not invent zeros for omitted keys.
     """
     if not isinstance(raw, dict) or not raw:
         if isinstance(response_id, str) and response_id.strip():
-            return sealed_usage(extra={"id": response_id.strip()})
-        return None
+            return None, sealed_extra({"id": response_id.strip()})
+        return None, None
 
     extra: dict[str, Any] = {}
     prompt_tokens = _pick_int(raw, "prompt_tokens", "input_tokens")
@@ -125,10 +124,12 @@ def normalize_openai_http_usage(
             continue
         extra.setdefault(key, value)
 
-    return sealed_usage(
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        cached_tokens=cached_tokens,
-        cost_usd=cost_usd,
-        extra=extra or None,
+    return (
+        sealed_usage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cached_tokens=cached_tokens,
+            cost_usd=cost_usd,
+        ),
+        sealed_extra(extra or None),
     )

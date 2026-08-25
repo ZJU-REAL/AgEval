@@ -292,24 +292,27 @@ def test_http_usage_maps_first_class_and_extra() -> None:
     assert result.usage["prompt_tokens"] == 11
     assert result.usage["completion_tokens"] == 4
     assert result.usage["cached_tokens"] == 6
-    extra = result.usage["extra"]
+    extra = result.extra
+    assert extra is not None
     assert extra["reasoning_tokens"] == 2
     assert extra["total_tokens"] == 15
     assert extra["id"] == "chatcmpl-abc"
     assert extra["audio_tokens"] == 0
     assert "accepted_prediction_tokens" in extra
     assert "prompt_tokens" not in extra
+    assert "extra" not in result.usage
 
 
 def test_http_usage_omitted_does_not_fabricate_zeros() -> None:
     from ageval.plugins.contrib.openai_http.usage import normalize_openai_http_usage
 
-    assert normalize_openai_http_usage(None) is None
-    assert normalize_openai_http_usage({}) is None
-    out = normalize_openai_http_usage({"prompt_tokens": 3, "completion_tokens": 1})
-    assert out is not None
-    assert out["prompt_tokens"] == 3
-    assert out["completion_tokens"] == 1
-    assert "cached_tokens" not in out
-    assert "cost_usd" not in out
-    assert "extra" not in out
+    assert normalize_openai_http_usage(None) == (None, None)
+    assert normalize_openai_http_usage({}) == (None, None)
+    usage, extra = normalize_openai_http_usage({"prompt_tokens": 3, "completion_tokens": 1})
+    assert usage is not None
+    assert usage["prompt_tokens"] == 3
+    assert usage["completion_tokens"] == 1
+    assert "cached_tokens" not in usage
+    assert "cost_usd" not in usage
+    assert "extra" not in usage
+    assert extra is None

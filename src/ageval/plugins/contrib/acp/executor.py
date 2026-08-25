@@ -334,15 +334,16 @@ class AcpExecutor(AgentExecutor):
         events = tuple(acp_session_events_to_ageval(vendor_events))
         # Dual-source normalize: tokens from PromptResponse.usage; cost/context
         # from latest UsageUpdate. Never maps context.used → prompt_tokens.
-        usage = None
+        usage = extra = None
         if self._client is not None:
-            usage = normalize_acp_usage(
+            usage, extra = normalize_acp_usage(
                 prompt_usage=self._client.prompt_usage,
                 usage_update=self._client.latest_usage_update,
             )
         health = observational_result_health(
             ok=ok,
             usage=usage,
+            extra=extra,
             actual_model=self._actual_model,
             events=events,
         )
@@ -356,6 +357,7 @@ class AcpExecutor(AgentExecutor):
             error=error,
             events=events,
             usage=usage,
+            extra=extra,
             metadata=meta,
         )
 

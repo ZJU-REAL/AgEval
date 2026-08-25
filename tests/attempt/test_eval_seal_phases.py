@@ -206,11 +206,9 @@ async def test_collect_usage_extra_lands_on_terminal(tmp_path: Path) -> None:
         out = await nxt(value)
         if not isinstance(out, dict):
             return out
-        usage = dict(out.get("usage") or {})
-        extra = dict(usage.get("extra") or {})
+        extra = dict(out.get("extra") or {})
         extra["foo"] = True
-        usage["extra"] = extra
-        out["usage"] = usage
+        out["extra"] = extra
         return out
 
     registry = ExtensionRegistry()
@@ -246,5 +244,5 @@ async def test_collect_usage_extra_lands_on_terminal(tmp_path: Path) -> None:
     terminal = next(row for row in lines if row["type"] == "terminal")
     assert terminal["usage"]["prompt_tokens"] == 3
     assert terminal["usage"]["completion_tokens"] == 1
-    assert terminal["usage"]["extra"]["foo"] is True
+    assert terminal["extra"]["foo"] is True
     assert terminal["elapsed_ms"] == 88

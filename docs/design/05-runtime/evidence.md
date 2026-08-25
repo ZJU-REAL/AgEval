@@ -31,10 +31,8 @@ C  trajectory.jsonl  `trajectory_seal` 赢家写（默认引擎折叠）
 对齐 ATIF 的拆法：一等 token/cost 在 turn 上，厂商剩余进袋子。密封后的 `terminal` 行：
 
 ```text
-usage: {
-  prompt_tokens, completion_tokens, cached_tokens, cost_usd,  # 一等；未知则省略
-  extra: { ... }                                              # 厂商 / 插件袋子
-}
+usage: { prompt_tokens, completion_tokens, cached_tokens, cost_usd }  # 一等；未知则省略
+extra: { ... }                                                       # 兄弟字段：厂商 leftover + 插件袋
 ```
 
 规则：
@@ -42,8 +40,8 @@ usage: {
 - 一等字段只在后端报告了该量时出现。后端没给就省略；**不要**编造 0 去冒充测过。
 - `extra` 是 JSON-safe 标量/对象。未知键留在 `extra`，不升格为一等（升格要另改设计）。
 - 典型袋子：`reasoning_tokens`、cache-write、厂商 `id`、ACP 的 `context` / `sources` / 非 USD `cost`、以及插件自写的键。
-- `trajectory_collect` / `trajectory_enrich` 可以在 `usage.extra` 增补或合并键；不得删自己不拥有的一等字段。**不开新槽**（没有 `trajectory_extra` / `hub_display`）。
-- `trajectory_seal` 仍是层 C 的作者；collect/enrich 只塑 payload。`turn_rows` 把 `usage`（含 `extra`）原样拷到 `terminal`，不得丢掉 `extra`。
+- `trajectory_collect` / `trajectory_enrich` 可以在 payload 的兄弟字段 `extra` 增补或合并键；不得删自己不拥有的一等 usage 字段。**不开新槽**（没有 `trajectory_extra` / `hub_display`）。
+- `trajectory_seal` 仍是层 C 的作者；collect/enrich 只塑 payload。`turn_rows` 把 `usage` 与兄弟 `extra` 拷到 `terminal`，不得丢掉 `extra`。
 - `openai-http` 从 Chat Completions `usage` 映射：`prompt_tokens` / `completion_tokens`（或 text tokens）/ `cached_tokens`（cached prompt tokens）。`AgentResult.usage` 与层 C 同一形状。
 - ACP 保持现有双源（`PromptResponse.usage` + `usage_update`），已知量映到一等名；cache-read / cache-write 等剩余进 `extra`，不丢。
 
