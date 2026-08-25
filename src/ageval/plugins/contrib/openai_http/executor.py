@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ageval.plugins.agent_result import AgentExecutor, AgentResult
+from ageval.plugins.contrib.openai_http.usage import normalize_openai_http_usage
 
 _DEFAULT_BASE = "https://api.openai.com/v1"
 _DEFAULT_KEY_ENV = "OPENAI_API_KEY"
@@ -250,6 +251,10 @@ class OpenAIHTTPExecutor(AgentExecutor):
                 json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
+        usage = normalize_openai_http_usage(
+            raw.get("usage") if isinstance(raw, dict) else None,
+            response_id=raw.get("id") if isinstance(raw, dict) else None,
+        )
         return AgentResult(
             model=self.model,
             text=(text or "")[-8000:],
@@ -258,6 +263,7 @@ class OpenAIHTTPExecutor(AgentExecutor):
             error=None,
             events=tuple(events),
             tool_calls=tool_calls,
+            usage=usage,
             metadata={
                 "executor_kind": "openai-http",
                 "locked_reasoning_effort": effort,

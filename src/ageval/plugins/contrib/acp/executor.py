@@ -333,7 +333,7 @@ class AcpExecutor(AgentExecutor):
         vendor_events = tuple(self._client.events) if self._client else ()
         events = tuple(acp_session_events_to_ageval(vendor_events))
         # Dual-source normalize: tokens from PromptResponse.usage; cost/context
-        # from latest UsageUpdate. Never maps context.used → input_tokens.
+        # from latest UsageUpdate. Never maps context.used → prompt_tokens.
         usage = None
         if self._client is not None:
             usage = normalize_acp_usage(

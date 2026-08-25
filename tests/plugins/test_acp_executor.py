@@ -181,19 +181,22 @@ def test_normalize_acp_usage_dual_source_merge() -> None:
         },
     )
     assert out is not None
-    assert out["input_tokens"] == 11433
-    assert out["output_tokens"] == 140
-    assert out["total_tokens"] == 11573
-    assert out["thought_tokens"] == 124
-    assert out["cached_read_tokens"] == 8576
-    assert out["cached_write_tokens"] == 0
-    assert out["context"] == {"used": 15925, "size": 1_000_000}
-    assert out["cost"] == {"amount": 0.012, "currency": "USD"}
-    assert out["sources"] == {"prompt_usage": True, "usage_update": True}
-    # Never invent uncached_* or promote used as tokens.
+    assert out["prompt_tokens"] == 11433
+    assert out["completion_tokens"] == 140
+    assert out["cached_tokens"] == 8576
+    assert out["cost_usd"] == 0.012
+    extra = out["extra"]
+    assert extra["total_tokens"] == 11573
+    assert extra["thought_tokens"] == 124
+    assert extra["cached_read_tokens"] == 8576
+    assert extra["cached_write_tokens"] == 0
+    assert extra["context"] == {"used": 15925, "size": 1_000_000}
+    assert extra["sources"] == {"prompt_usage": True, "usage_update": True}
+    # Never invent uncached_* or promote used as tokens / first-class leftovers.
     assert "uncached_input_tokens" not in out
+    assert "input_tokens" not in out
     assert "used" not in out
-    assert out.get("input_tokens") != out["context"]["used"]
+    assert out["prompt_tokens"] != extra["context"]["used"]
 
 
 def test_normalize_acp_usage_only_usage_update() -> None:
@@ -202,11 +205,12 @@ def test_normalize_acp_usage_only_usage_update() -> None:
         usage_update={"used": 100, "size": 1000, "cost": {"amount": 0.0, "currency": "USD"}},
     )
     assert out is not None
-    assert "input_tokens" not in out
-    assert "output_tokens" not in out
-    assert out["context"] == {"used": 100, "size": 1000}
-    assert out["cost"]["currency"] == "USD"
-    assert out["sources"] == {"prompt_usage": False, "usage_update": True}
+    assert "prompt_tokens" not in out
+    assert "completion_tokens" not in out
+    assert out["cost_usd"] == 0.0
+    extra = out["extra"]
+    assert extra["context"] == {"used": 100, "size": 1000}
+    assert extra["sources"] == {"prompt_usage": False, "usage_update": True}
 
 
 def test_normalize_acp_usage_only_prompt_usage_snake() -> None:
@@ -219,15 +223,17 @@ def test_normalize_acp_usage_only_prompt_usage_snake() -> None:
         usage_update=None,
     )
     assert out is not None
-    assert out["input_tokens"] == 10
-    assert out["output_tokens"] == 2
-    assert out["total_tokens"] == 12  # derived
-    assert out["cached_read_tokens"] == 8
-    assert "context" not in out
-    assert out["sources"]["prompt_usage"] is True
-    assert out["sources"]["usage_update"] is False
-    # Cache hit rate is consumer-side: cached_read / input when input > 0.
-    assert out["cached_read_tokens"] / out["input_tokens"] == 0.8
+    assert out["prompt_tokens"] == 10
+    assert out["completion_tokens"] == 2
+    assert out["cached_tokens"] == 8
+    extra = out["extra"]
+    assert extra["total_tokens"] == 12  # derived
+    assert extra["cached_read_tokens"] == 8
+    assert "context" not in extra
+    assert extra["sources"]["prompt_usage"] is True
+    assert extra["sources"]["usage_update"] is False
+    # Cache hit rate is consumer-side: cached_read / prompt when prompt > 0.
+    assert extra["cached_read_tokens"] / out["prompt_tokens"] == 0.8
 
 
 def test_normalize_acp_usage_empty() -> None:

@@ -195,3 +195,56 @@ async def test_seal_winner_writes_after_collect(tmp_path: Path) -> None:
     text = (ctx.evidence.root / "trajectory.jsonl").read_text(encoding="utf-8")
     assert '"probe": true' in text
     assert ctx.services.owner(TRAJECTORY_SEAL) == "probe-seal"
+
+
+@pytest.mark.asyncio
+async def test_collect_usage_extra_lands_on_terminal(tmp_path: Path) -> None:
+    import json
+
+    async def collect(ctx: Any, value: Any, nxt: Any) -> Any:
+        del ctx
+        out = await nxt(value)
+        if not isinstance(out, dict):
+            return out
+        usage = dict(out.get("usage") or {})
+        extra = dict(usage.get("extra") or {})
+        extra["foo"] = True
+        usage["extra"] = extra
+        out["usage"] = usage
+        return out
+
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(BindingIntent(profile_id="solver"), registry)
+    graph.chains[TRAJECTORY_COLLECT] = [
+        HandlerRef(plugin_id="probe", handler=collect, priority=1, source="test")
+    ]
+    ctx = _ctx(tmp_path, registry=registry, graph=graph)
+    inv = ctx.evidence.root / "agent" / "invocations" / "001"
+    inv.mkdir(parents=True)
+    (inv / "metadata.json").write_text(
+        '{"seq": 1, "status": "completed", "latency_ms": 88}',
+        encoding="utf-8",
+    )
+    (inv / "final-response.json").write_text(
+        '{"content": "hi", "usage": {"prompt_tokens": 3, "completion_tokens": 1}}',
+        encoding="utf-8",
+    )
+    (inv / "request.json").write_text(
+        '{"messages": [{"content": "go"}]}',
+        encoding="utf-8",
+    )
+    (inv / "events.jsonl").write_text("", encoding="utf-8")
+    await record.run(ctx)
+    lines = [
+        json.loads(line)
+        for line in (ctx.evidence.root / "trajectory.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    terminal = next(row for row in lines if row["type"] == "terminal")
+    assert terminal["usage"]["prompt_tokens"] == 3
+    assert terminal["usage"]["completion_tokens"] == 1
+    assert terminal["usage"]["extra"]["foo"] is True
+    assert terminal["elapsed_ms"] == 88

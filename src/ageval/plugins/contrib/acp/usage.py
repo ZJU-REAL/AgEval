@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from contextlib import suppress as contextlib_suppress
 from typing import Any
 
+from ageval.evidence.usage import sealed_usage
+
 
 def _as_plain_mapping(obj: Any) -> dict[str, Any] | None:
     """Best-effort dict from pydantic model / mapping (snake_case preferred)."""
@@ -67,18 +69,23 @@ def normalize_acp_usage(
       (``used`` / ``size``) and optional session **cost** — ``used`` is *not*
       token total.
 
-    Output shape (omit empty sections; no ``uncached_*`` fields)::
+    Output shape matches layer C ``terminal.usage`` (omit unknown first-class
+    fields; leftovers in ``extra``)::
 
         {
-          "input_tokens": int, "output_tokens": int, "total_tokens": int,
-          "thought_tokens": int, "cached_read_tokens": int, "cached_write_tokens": int,
-          "cost": {"amount": number, "currency": "USD"},
-          "context": {"used": int, "size": int},
-          "sources": {"prompt_usage": bool, "usage_update": bool}
+          "prompt_tokens": int, "completion_tokens": int,
+          "cached_tokens": int, "cost_usd": number,
+          "extra": {
+            "total_tokens": int, "thought_tokens": int,
+            "cached_read_tokens": int, "cached_write_tokens": int,
+            "context": {"used": int, "size": int},
+            "sources": {"prompt_usage": bool, "usage_update": bool}
+          }
         }
 
-    Missing fields stay absent. Never invents tokens from ``context.used``.
-    Not PASS authority.
+    ``cached_tokens`` is cached-read. Cache-write and the original cache-read
+    count stay in ``extra`` (do not drop them). Missing fields stay absent.
+    Never invents tokens from ``context.used``. Not PASS authority.
     """
     prompt_map = _as_plain_mapping(prompt_usage)
     update_map = _as_plain_mapping(usage_update)
@@ -145,8 +152,44 @@ def normalize_acp_usage(
     if not has_prompt and not has_update:
         return None
 
-    out["sources"] = {
+    extra: dict[str, Any] = {}
+    if "total_tokens" in out:
+        extra["total_tokens"] = out["total_tokens"]
+    if "thought_tokens" in out:
+        extra["thought_tokens"] = out["thought_tokens"]
+    if "cached_read_tokens" in out:
+        extra["cached_read_tokens"] = out["cached_read_tokens"]
+    if "cached_write_tokens" in out:
+        extra["cached_write_tokens"] = out["cached_write_tokens"]
+    if "context" in out:
+        extra["context"] = out["context"]
+    extra["sources"] = {
         "prompt_usage": has_prompt,
         "usage_update": has_update,
     }
-    return out
+
+    cost_usd: float | int | None = None
+    cost_map = out.get("cost")
+    if isinstance(cost_map, dict):
+        amount = cost_map.get("amount")
+        currency = cost_map.get("currency")
+        cur = currency.strip().upper() if isinstance(currency, str) else ""
+        if isinstance(amount, (int, float)) and not isinstance(amount, bool):
+            if cur in {"", "USD"}:
+                cost_usd = amount
+            else:
+                extra["cost"] = dict(cost_map)
+        else:
+            extra["cost"] = dict(cost_map)
+
+    def _int_field(key: str) -> int | None:
+        val = out.get(key)
+        return val if isinstance(val, int) and not isinstance(val, bool) else None
+
+    return sealed_usage(
+        prompt_tokens=_int_field("input_tokens"),
+        completion_tokens=_int_field("output_tokens"),
+        cached_tokens=_int_field("cached_read_tokens"),
+        cost_usd=cost_usd,
+        extra=extra or None,
+    )
