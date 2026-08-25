@@ -39,6 +39,14 @@ def _seed_attempt(
         evidence / "result.json",
         {"task_id": task_id, "status": "PASS", "score": 1.0},
     )
+    _write_json(
+        evidence / "lock.json",
+        {
+            "task_id": task_id,
+            "dataset_id": "test/suite-min",
+            "dataset_version": "0.1.0",
+        },
+    )
     return evidence
 
 
@@ -74,6 +82,7 @@ def _seed_suite(
             "schema": "ageval.suite.summary/1",
             "suite_run_id": job_id,
             "dataset_id": "test/suite-min",
+            "dataset_version": "0.1.0",
             "tasks": tasks,
             "task_refs": refs,
             "attempts": [
@@ -156,6 +165,7 @@ def test_delete_suite_cascades_previous_attempts(tmp_path: Path) -> None:
             "schema": "ageval.suite.summary/1",
             "suite_run_id": job_id,
             "dataset_id": "test/suite-min",
+            "dataset_version": "0.1.0",
             "tasks": [{"task_id": "alpha", "status": "PASS", "run_id": "run_new"}],
             "task_refs": [
                 {
@@ -211,6 +221,8 @@ def test_list_jobs_includes_progress_only_suite(tmp_path: Path) -> None:
         {
             "schema": "ageval.suite.progress/1",
             "suite_run_id": "suite_live",
+            "dataset_id": "test/suite-min",
+            "dataset_version": "0.1.0",
             "status": "running",
             "done": 1,
             "total": 100,

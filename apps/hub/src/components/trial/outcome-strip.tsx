@@ -28,6 +28,14 @@ export function OutcomeStrip({ trial }: { trial: Trial }) {
         </Outcome>
       </div>
       {trial.note ? <p className="text-xs text-mute">{trial.note}</p> : null}
+      {trial.extra && Object.keys(trial.extra).length > 0 ? (
+        <details className="text-[11px] text-mute">
+          <summary className="cursor-pointer select-none">extra</summary>
+          <pre className="mt-1 m-0 whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-body">
+            {JSON.stringify(trial.extra, null, 2)}
+          </pre>
+        </details>
+      ) : null}
       {trial.error ? (
         <p className="text-sm text-error rounded-[8px] bg-error-soft/40 px-3 py-2">
           {String(trial.error)}

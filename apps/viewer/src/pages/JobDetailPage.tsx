@@ -184,12 +184,12 @@ export function JobDetailPage() {
                   />
                 </>
               ) : null}
-              {job.source ? (
+              {job.dataset_ref ? (
                 <>
                   {job.agent_label || job.model_label ? (
                     <span aria-hidden>/</span>
                   ) : null}
-                  <span>{job.source}</span>
+                  <span className="font-mono">{job.dataset_ref}</span>
                 </>
               ) : null}
             </p>
@@ -266,7 +266,7 @@ export function JobDetailPage() {
                         />
                       </TableCell>
                       <TableCell className="text-body">
-                        {t.dataset || job?.source || "-"}
+                        {t.dataset || job?.dataset_ref || "-"}
                       </TableCell>
                       <TableCell className="tabular">{formatScore(t.score)}</TableCell>
                       <TableCell className="tabular">{trialCount || 1}</TableCell>

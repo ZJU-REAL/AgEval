@@ -375,6 +375,7 @@ class RegistryClient:
         *,
         run_id: str,
         dataset_id: str,
+        dataset_version: str,
         task_id: str,
         lock_digest: str,
         status: str,
@@ -392,6 +393,7 @@ class RegistryClient:
         meta: dict[str, Any] = {
             "run_id": run_id,
             "dataset_id": dataset_id,
+            "dataset_version": dataset_version,
             "task_id": task_id,
             "lock_digest": lock_digest,
             "status": status,

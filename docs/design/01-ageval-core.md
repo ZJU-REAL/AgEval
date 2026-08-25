@@ -130,12 +130,12 @@ async def run(ctx) -> None:
 | --- | --- |
 | run | `before_run` / `after_run`；`before/after_agent_open\|invoke\|close`；`normalize_agent_result` |
 | evaluate | `before_evaluate` / `after_evaluate`（可注 metrics，**不能改 PASS**）。**upload gold 是引擎代码**，不是 `evaluation_runtime` 的方法。独占槽 `evaluation_runtime` 默认跑盒内 `evaluator.py` |
-| record | `trajectory_collect` / `trajectory_enrich`（fail-open）；独占槽 `trajectory_seal` 写层 C（fail-closed：丢文件即相位失败） |
+| record | `trajectory_collect` / `trajectory_enrich`（fail-open）；独占槽 `trajectory_seal` 写层 C（fail-closed：丢文件即相位失败）；`summary_enrich`（fail-open，seal 成功后一次，写 Attempt `summary.extra`） |
 | cleanup | `cleanup_report`（链）；cleanup phase 本身由 finally 调用 |
 
 `executor` 是 **run 里的独占槽**，不是 attempt 上的独立 phase。ACP attach 发生在第一次 invoke，不是独立 phase。
 
-`FAIL_OPEN_SLOTS`：`before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `cleanup_report`。其余槽失败即该相位失败。
+`FAIL_OPEN_SLOTS`：`before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `summary_enrich` / `cleanup_report`。其余槽失败即该相位失败。
 
 完整 emit 图：[ARCHITECTURE.md](../../ARCHITECTURE.md) § Extension emit map、[05-runtime/README.md](05-runtime/README.md)。
 

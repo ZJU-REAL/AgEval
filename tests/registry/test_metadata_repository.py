@@ -79,6 +79,7 @@ def test_attempt_row_stores_environment(tmp_path: Path) -> None:
     row = AttemptResultRow(
         run_id="attempt_env_1",
         dataset_id="example/journeys",
+        dataset_version="0.1.0",
         task_id="terminal-jsonl-agg",
         lock_digest="sha256:abc",
         status="PASS",

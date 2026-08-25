@@ -44,6 +44,7 @@ evaluate
 record
   trajectory_collect → enrich
   trajectory_seal             # 独占槽；默认引擎写 trajectory.jsonl
+  summary_enrich              # fail-open；Attempt summary.extra，空则省略
 
 cleanup (finally)
   cleanup_report

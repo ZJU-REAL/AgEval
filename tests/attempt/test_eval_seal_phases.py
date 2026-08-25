@@ -19,6 +19,7 @@ from ageval.plugins.services import ServiceTable
 from ageval.plugins.slots import (
     AFTER_EVALUATE,
     EVALUATION_RUNTIME,
+    SUMMARY_ENRICH,
     TRAJECTORY_COLLECT,
     TRAJECTORY_SEAL,
 )
@@ -246,3 +247,70 @@ async def test_collect_usage_extra_lands_on_terminal(tmp_path: Path) -> None:
     assert terminal["usage"]["completion_tokens"] == 1
     assert terminal["extra"]["foo"] is True
     assert terminal["elapsed_ms"] == 88
+
+
+def _write_summary_like_run(ctx: AttemptCtx) -> dict[str, Any]:
+    """Same omit-when-empty rule as ``application/run.py``."""
+    import json
+
+    summary: dict[str, Any] = {"result": {"status": "PASS"}, "facts": ctx.facts_as_list()}
+    if ctx.summary_extra:
+        summary["extra"] = ctx.summary_extra
+    ctx.evidence.write_summary(summary)
+    return json.loads((ctx.evidence.root / "summary.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.asyncio
+async def test_summary_enrich_lands_on_summary_json(tmp_path: Path) -> None:
+    async def enrich(ctx: Any, value: Any, nxt: Any) -> Any:
+        del ctx
+        bag = dict(await nxt(value) or {})
+        bag["probe"] = {"foo": True}
+        return bag
+
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(BindingIntent(profile_id="solver"), registry)
+    graph.chains[SUMMARY_ENRICH] = [
+        HandlerRef(plugin_id="probe", handler=enrich, priority=1, source="test")
+    ]
+    ctx = _ctx(tmp_path, registry=registry, graph=graph)
+    await record.run(ctx)
+    assert ctx.summary_extra == {"probe": {"foo": True}}
+    doc = _write_summary_like_run(ctx)
+    assert doc["extra"]["probe"]["foo"] is True
+
+
+@pytest.mark.asyncio
+async def test_summary_enrich_omits_empty_bag(tmp_path: Path) -> None:
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(BindingIntent(profile_id="solver"), registry)
+    ctx = _ctx(tmp_path, registry=registry, graph=graph)
+    await record.run(ctx)
+    assert ctx.summary_extra is None
+    doc = _write_summary_like_run(ctx)
+    assert "extra" not in doc
+
+
+@pytest.mark.asyncio
+async def test_summary_enrich_fail_open_leaves_empty_bag(tmp_path: Path) -> None:
+    async def boom(ctx: Any, value: Any, nxt: Any) -> Any:
+        del ctx, value, nxt
+        raise RuntimeError("summary enrich exploded")
+
+    registry = ExtensionRegistry()
+    register_defaults(registry)
+    graph = resolve(BindingIntent(profile_id="solver"), registry)
+    graph.chains[SUMMARY_ENRICH] = [
+        HandlerRef(plugin_id="probe", handler=boom, priority=1, source="test")
+    ]
+    ctx = _ctx(tmp_path, registry=registry, graph=graph)
+    await record.run(ctx)
+    assert ctx.summary_extra is None
+    assert any(
+        f.name == "slot_failed_open" and f.detail.get("slot") == SUMMARY_ENRICH
+        for f in ctx.phase_facts
+    )
+    doc = _write_summary_like_run(ctx)
+    assert "extra" not in doc

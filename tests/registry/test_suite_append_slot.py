@@ -98,6 +98,7 @@ def _upload_attempt(
         meta={
             "run_id": run_id,
             "dataset_id": dataset_id,
+            "dataset_version": "0.1.0",
             "task_id": "hello",
             "lock_digest": "sha256:x",
             "status": status,
@@ -109,6 +110,15 @@ def _upload_attempt(
         archive=_as_path(tmp_path, raw, f"{run_id}.bin"),
         auth=auth,
     )
+
+
+def test_upload_suite_requires_dataset_version(tmp_path: Path) -> None:
+    results = _services(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    meta, archive = _suite_archive(tmp_path, "suite_no_ver")
+    del meta["dataset_version"]
+    with pytest.raises(RegistryAppError, match="dataset_version"):
+        results.upload_suite(meta=meta, archive=archive, auth=auth)
 
 
 def test_append_slot_updates_metrics_and_keeps_old_attempt(tmp_path: Path) -> None:

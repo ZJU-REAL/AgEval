@@ -1,7 +1,8 @@
-"""record phase: collect, enrich, then the seal winner writes the trajectory.
+"""record phase: collect, enrich, seal, then summary_enrich.
 
 Plugins may shape each turn's payload; the ``trajectory_seal`` winner writes
-the file. Collect/enrich are fail-open; losing the sealed file fails the phase.
+the file. Collect/enrich/summary_enrich are fail-open; losing the sealed file
+fails the phase. ``summary_enrich`` runs once after a successful seal.
 """
 
 from __future__ import annotations
@@ -14,7 +15,12 @@ from ageval.evidence.invocation import read_invocation_payload
 from ageval.evidence.slim import slim_sealed_attempt
 from ageval.evidence.trajectory import turn_rows
 from ageval.plugins.binding import bind_winner
-from ageval.plugins.slots import TRAJECTORY_COLLECT, TRAJECTORY_ENRICH, TRAJECTORY_SEAL
+from ageval.plugins.slots import (
+    SUMMARY_ENRICH,
+    TRAJECTORY_COLLECT,
+    TRAJECTORY_ENRICH,
+    TRAJECTORY_SEAL,
+)
 
 PHASE = "record"
 
@@ -39,6 +45,8 @@ async def run(ctx: AttemptCtx) -> None:
     else:
         slim_sealed_attempt(ctx.evidence.root)
         ctx.record_fact("vendor_raw_dropped", {"keep_vendor_raw": False})
+    bag = await emit(ctx, SUMMARY_ENRICH, {})
+    ctx.summary_extra = bag if isinstance(bag, dict) and bag else None
 
 
 def _fields(shaped: Any, original: dict[str, Any]) -> dict[str, Any]:

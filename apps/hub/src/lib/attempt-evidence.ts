@@ -9,7 +9,7 @@ import type {
   TrajectoryStep,
   TreeEntry,
 } from "@/lib/trial-types";
-import { displayAgentName, reasoningEffortFromBinding } from "@/lib/utils";
+import { datasetRef, displayAgentName, reasoningEffortFromBinding } from "@/lib/utils";
 
 import {
   FIRST_TAB_ORDER,
@@ -22,6 +22,29 @@ import { environmentFromOverlay, type JobOverlay } from "@/lib/api";
 
 const MAX_TRAJECTORY_STEPS = 2_000;
 const MAX_JSONL_LINE = 64_000;
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+/** Sibling extra, else already-sealed usage.extra on old jsonl. Empty omitted. */
+export function terminalExtra(
+  rec: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const sibling = asObject(rec.extra);
+  if (sibling && Object.keys(sibling).length) return sibling;
+  const usage = asObject(rec.usage);
+  const nested = usage ? asObject(usage.extra) : null;
+  if (nested && Object.keys(nested).length) return nested;
+  return null;
+}
+
+function observationalBag(value: unknown): Record<string, unknown> | null {
+  const bag = asObject(value);
+  return bag && Object.keys(bag).length ? bag : null;
+}
 
 export function runRootPrefix(runId: string): string {
   return `.ageval/runs/${runId}`;
@@ -694,6 +717,14 @@ export function buildTrialMeta(opts: {
         ? upstream.ref
         : null,
     note: null,
+    extra: observationalBag(summary.extra),
+    dataset_id: typeof lock.dataset_id === "string" ? lock.dataset_id : null,
+    dataset_version:
+      typeof lock.dataset_version === "string" ? lock.dataset_version : null,
+    dataset_ref: datasetRef(
+      typeof lock.dataset_id === "string" ? lock.dataset_id : null,
+      typeof lock.dataset_version === "string" ? lock.dataset_version : null,
+    ),
   };
 }
 
@@ -771,10 +802,7 @@ export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
         rec.usage && typeof rec.usage === "object"
           ? (rec.usage as Record<string, unknown>)
           : null,
-      extra:
-        rec.extra && typeof rec.extra === "object" && !Array.isArray(rec.extra)
-          ? (rec.extra as Record<string, unknown>)
-          : null,
+      extra: terminalExtra(rec),
       metadata:
         rec.metadata && typeof rec.metadata === "object"
           ? (rec.metadata as Record<string, unknown>)

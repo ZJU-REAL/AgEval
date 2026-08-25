@@ -393,6 +393,7 @@ export async function resolveAgentPackageDigest(
 export type AttemptMeta = {
   run_id: string;
   dataset_id?: string;
+  dataset_version?: string;
   task_id?: string;
   status?: string;
   visibility?: string;

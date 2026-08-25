@@ -13,6 +13,7 @@ from ageval.plugins.services import RESERVED_SERVICE_IDS
 from ageval.plugins.slots import (
     EVALUATION_RUNTIME,
     FAIL_OPEN_SLOTS,
+    SUMMARY_ENRICH,
     TRAJECTORY_SEAL,
 )
 
@@ -25,6 +26,7 @@ def test_sugar_slots_do_not_include_eval_or_seal() -> None:
 def test_eval_and_seal_are_fail_closed() -> None:
     assert EVALUATION_RUNTIME not in FAIL_OPEN_SLOTS
     assert TRAJECTORY_SEAL not in FAIL_OPEN_SLOTS
+    assert SUMMARY_ENRICH in FAIL_OPEN_SLOTS
 
 
 def test_reserved_services_still_block_pass_identity_cleanup_evidence() -> None:

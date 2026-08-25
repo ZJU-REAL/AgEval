@@ -139,6 +139,7 @@ def test_results_upload_get_roundtrip(
     run_id = "sha256_deadbeef_run_test1"
     run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True)
+    _write_lock(run_dir)
     (run_dir / "result.json").write_text(
         json.dumps({"task_id": "hello", "status": "PASS", "ok": True}),
         encoding="utf-8",
@@ -148,9 +149,12 @@ def test_results_upload_get_roundtrip(
     up = upload_attempt_result(db, run_id=run_id)
     assert up["ok"] is True
     assert up["run_id"] == run_id
+    assert up["dataset_id"] == "test/publish-min"
+    assert up["dataset_version"] == "0.1.0"
 
     listed = list_attempt_results(dataset_id="test/publish-min")
     assert listed["count"] == 1
+    assert listed["items"][0]["dataset_version"] == "0.1.0"
 
     out = tmp_path / "restored"
     got = get_attempt_result(run_id, out_dir=out)
@@ -159,6 +163,25 @@ def test_results_upload_get_roundtrip(
     assert (restored / "result.json").is_file()
     data = json.loads((restored / "result.json").read_text(encoding="utf-8"))
     assert data["status"] == "PASS"
+
+
+def test_attempt_upload_fails_closed_without_lock_identity(
+    registry_server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ageval.config.errors import ConfigError
+
+    _auth_env(monkeypatch, registry_server, tmp_path)
+    _ensure_org()
+    db = tmp_path / "db-no-lock"
+    import shutil
+
+    shutil.copytree(FIXTURE, db)
+    run_id = "sha256_missing_lock"
+    run_dir = db / ".ageval" / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "result.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ConfigError, match="missing dataset_id@version"):
+        upload_attempt_result(db, run_id=run_id)
 
 
 def test_results_private_without_token_404(
@@ -173,6 +196,7 @@ def test_results_private_without_token_404(
     run_id = "sha256_cafe_run_priv"
     run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True)
+    _write_lock(run_dir)
     (run_dir / "result.json").write_text("{}", encoding="utf-8")
     upload_attempt_result(db, run_id=run_id)
 
@@ -327,6 +351,7 @@ def test_results_upload_scope_cannot_read_private(
     run_id = "sha256_upload_only_run"
     run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True)
+    _write_lock(run_dir)
     (run_dir / "result.json").write_text("{}", encoding="utf-8")
 
     upload_attempt_result(db, run_id=run_id)
@@ -699,9 +724,24 @@ def test_multipart_payload_trailing_lf_preserved() -> None:
     assert parts["archive"].endswith(b"\n")
 
 
+def _write_lock(run_dir: Path, *, task_id: str = "hello") -> None:
+    (run_dir / "lock.json").write_text(
+        json.dumps(
+            {
+                "task_id": task_id,
+                "dataset_id": "test/publish-min",
+                "dataset_version": "0.1.0",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _write_local_attempt(db: Path, run_id: str, *, task_id: str = "a") -> Path:
     run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+    _write_lock(run_dir, task_id=task_id)
     (run_dir / "result.json").write_text(
         json.dumps({"task_id": task_id, "status": "PASS", "score": 1.0}, indent=2) + "\n",
         encoding="utf-8",

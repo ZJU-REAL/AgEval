@@ -60,10 +60,10 @@ def list_versions_query(dataset_id: str, *, include_private: bool = False) -> tu
 
 INSERT_ATTEMPT = """
 INSERT INTO attempt_results(
-    run_id, dataset_id, task_id, lock_digest, status,
+    run_id, dataset_id, dataset_version, task_id, lock_digest, status,
     visibility, blob_digest, size, created_at, uploaded_by,
     suite_run_id, environment, agent_label, model_label, score
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 SELECT_ATTEMPT = "SELECT * FROM attempt_results WHERE run_id=?"
@@ -429,6 +429,7 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("attempt_results", "agent_label", "TEXT NOT NULL DEFAULT ''"),
     ("attempt_results", "model_label", "TEXT NOT NULL DEFAULT ''"),
     ("attempt_results", "score", "REAL"),
+    ("attempt_results", "dataset_version", "TEXT NOT NULL DEFAULT ''"),
     ("suite_results", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
     ("suite_results", "complete", "INTEGER NOT NULL DEFAULT 0"),
     ("suite_results", "bound_kind", "TEXT NOT NULL DEFAULT 'unknown'"),
