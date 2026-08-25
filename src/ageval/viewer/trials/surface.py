@@ -404,7 +404,8 @@ def _usage_time_from_trajectory(
                     continue
                 if not isinstance(obj, dict) or obj.get("type") != "terminal":
                     continue
-                meta = obj.get("metadata") if isinstance(obj.get("metadata"), dict) else {}
+                meta_raw = obj.get("metadata")
+                meta: dict[str, Any] = dict(meta_raw) if isinstance(meta_raw, dict) else {}
                 pid = meta.get("profile_id")
                 if not isinstance(pid, str) or not pid:
                     continue

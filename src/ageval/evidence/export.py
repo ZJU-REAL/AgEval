@@ -62,8 +62,11 @@ def export_trajectory(
             return ExportResult(False, "", 0, error="secret_residual:trajectory.jsonl")
 
     # Preflight: remaining invocation dirs must be sealed terminals.
-    # Slim trees may have no invocations; layer C jsonl is enough to replay.
+    # Slim trees keep empty invocation dirs (count) without metadata.json;
+    # layer C jsonl is enough to replay those.
     for inv in inv_dirs:
+        if traj_src.is_file() and not (inv / "metadata.json").is_file():
+            continue
         if not is_sealed_invocation(inv):
             return ExportResult(
                 False,
@@ -105,6 +108,8 @@ def export_trajectory(
             )
 
         for inv in inv_dirs:
+            if traj_src.is_file() and not (inv / "metadata.json").is_file():
+                continue
             out_inv = staging / "invocations" / inv.name
             out_inv.mkdir(parents=True)
             source_digests: dict[str, str] = {}

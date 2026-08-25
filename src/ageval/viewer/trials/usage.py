@@ -147,7 +147,8 @@ def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | N
     if not isinstance(usage, dict) or not usage:
         return None
 
-    extra = usage.get("extra") if isinstance(usage.get("extra"), dict) else {}
+    extra_raw = usage.get("extra")
+    extra: dict[str, Any] = dict(extra_raw) if isinstance(extra_raw, dict) else {}
 
     inp = _as_int(usage.get("prompt_tokens"))
     if inp is None:

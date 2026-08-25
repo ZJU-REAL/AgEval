@@ -59,7 +59,8 @@ def trial_trajectory(
                 by_session[session] = row
 
     for entry in rows:
-        row_meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
+        meta_raw = entry.get("metadata")
+        row_meta: dict[str, Any] = dict(meta_raw) if isinstance(meta_raw, dict) else {}
         label = by_session.get(str(entry.get("session_id") or "")) or (
             invocations[0] if len(invocations) == 1 else None
         )
