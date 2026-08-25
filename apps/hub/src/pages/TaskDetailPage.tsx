@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { CatalogHead } from "@/components/page-head";
+import { ListPager } from "@/components/list-pager";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { CommandStrip } from "@/components/command-strip";
 import { FileSplitPanel } from "@/components/file-split-panel";
@@ -27,6 +28,7 @@ import {
   listPackageVersions,
   listSuites,
   pickPackageVersion,
+  TASK_PAGE_SIZE,
   type FileItem,
   type PackageRelease,
   RegistryHttpError,
@@ -102,8 +104,10 @@ export function TaskDetailPage() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileNote, setFileNote] = useState<string | null>(null);
-  const [treeLoading, setTreeLoading] = useState(true);
+  const [treeLoading, setTreeLoading] = useState(false);
   const [fileLoading, setFileLoading] = useState(false);
+  const [readmeLoading, setReadmeLoading] = useState(false);
+  const [jobsLoading, setJobsLoading] = useState(false);
   const [filesScope, setFilesScope] = useState<FilesScope>("local");
   const [overlayPrefixes, setOverlayPrefixes] = useState<string[]>([]);
   const [readme, setReadme] = useState<string | null>(null);
@@ -124,6 +128,11 @@ export function TaskDetailPage() {
   >([]);
   const [error, setError] = useState<string | null>(null);
   const token = getToken();
+  const jobOffsetRaw = Number.parseInt(search.get("offset") || "0", 10);
+  const jobOffset =
+    tab === "jobs" && Number.isFinite(jobOffsetRaw) && jobOffsetRaw > 0
+      ? jobOffsetRaw
+      : 0;
 
   const localPrefix = `tasks/${taskId}`;
   const prefix =
@@ -146,8 +155,8 @@ export function TaskDetailPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setTreeLoading(true);
       setError(null);
+      setReadmeLoading(true);
       try {
         const listed = await listPackageVersions(datasetId, token);
         if (!listed.length) {
@@ -160,57 +169,6 @@ export function TaskDetailPage() {
         if (cancelled) return;
         setVersions(listed);
         setRelease(latest);
-        const files = await listPackageFiles(
-          datasetId,
-          latest.package_digest,
-          token,
-        );
-        if (cancelled) return;
-        setFileItems(files.items);
-        const nested = buildNestedTree(files.items, localPrefix);
-        setTree(nested);
-        const profilePaths = files.items
-          .filter(
-            (item) =>
-              item.type !== "dir" &&
-              item.path.endsWith(".yaml") &&
-              !item.path.startsWith("tasks/") &&
-              /(^|\/)profiles(\.|$)/.test(item.path.split("/").pop() || ""),
-          )
-          .map((item) => item.path);
-        try {
-          const docs = await Promise.all(
-            profilePaths.map((path) =>
-              getPackageFile(datasetId, latest.package_digest, path, token)
-                .then((file) => decodeFileContent(file))
-                .catch(() => ""),
-            ),
-          );
-          if (!cancelled) {
-            const seen = new Set<string>();
-            const prefixes: string[] = [];
-            for (const doc of docs) {
-              for (const path of overlayPathsFromProfilesYaml(doc)) {
-                if (seen.has(path)) continue;
-                seen.add(path);
-                prefixes.push(path);
-              }
-            }
-            setOverlayPrefixes(prefixes);
-          }
-        } catch {
-          if (!cancelled) setOverlayPrefixes([]);
-        }
-
-        // Prefer task.yaml for initial Files selection (when user opens Files)
-        const prefer =
-          files.items.find((e) => e.path === `${localPrefix}/task.yaml`) ||
-          files.items.find((e) => e.path === `${localPrefix}/README.md`) ||
-          files.items.find(
-            (e) => e.type !== "dir" && e.path.startsWith(localPrefix + "/"),
-          );
-        if (prefer) setSelectedPath(prefer.path);
-
         try {
           const r = await getPackageFile(
             datasetId,
@@ -222,55 +180,20 @@ export function TaskDetailPage() {
         } catch {
           if (!cancelled) setReadme(null);
         }
-
         try {
-          const [suites, attempts] = await Promise.all([
-            listSuites(datasetId, token),
-            listAttempts(datasetId, token, { taskId, standalone: true }),
-          ]);
-          if (cancelled) return;
-          const rows: typeof jobs = [];
-          for (const s of suites) {
-            const refs = s.task_refs || [];
-            const hit = refs.find((r) => r.task_id === taskId);
-            if (!hit) continue;
-            const derived = displayLabelsFromOverlay(s.job_overlay);
-            rows.push({
-              job_id: s.suite_run_id,
-              job_kind: "suite",
-              status: hit.status,
-              score: hit.score,
-              agent_label: derived.agent || s.agent_label,
-              model_label: derived.model || s.model_label,
-              reasoning_effort: reasoningEffortFromOverlay(s.job_overlay),
-              environment: environmentFromOverlay(s.job_overlay),
-              created_at: s.created_at,
-              run_id: hit.run_id ?? null,
-              has_attempt_content: Boolean(hit.has_attempt_content),
-            });
+          const profile = await getPackageFile(
+            datasetId,
+            latest.package_digest,
+            "profiles.yaml",
+            token,
+          );
+          if (!cancelled) {
+            setOverlayPrefixes(
+              overlayPathsFromProfilesYaml(decodeFileContent(profile) || ""),
+            );
           }
-          for (const a of attempts) {
-            rows.push({
-              job_id: a.run_id,
-              job_kind: "attempt",
-              status: a.status,
-              score: a.score ?? null,
-              agent_label: a.agent_label,
-              model_label: a.model_label,
-              environment: a.environment || null,
-              created_at: a.created_at,
-              run_id: a.run_id,
-              has_attempt_content: true,
-            });
-          }
-          rows.sort((left, right) => {
-            const lt = Date.parse(String(left.created_at ?? "")) || Number(left.created_at) || 0;
-            const rt = Date.parse(String(right.created_at ?? "")) || Number(right.created_at) || 0;
-            return rt - lt;
-          });
-          setJobs(rows);
         } catch {
-          if (!cancelled) setJobs([]);
+          if (!cancelled) setOverlayPrefixes([]);
         }
       } catch (err) {
         if (cancelled) return;
@@ -280,7 +203,7 @@ export function TaskDetailPage() {
           setError(err instanceof Error ? err.message : String(err));
         }
       } finally {
-        if (!cancelled) setTreeLoading(false);
+        if (!cancelled) setReadmeLoading(false);
       }
     }
     void load();
@@ -288,6 +211,100 @@ export function TaskDetailPage() {
       cancelled = true;
     };
   }, [datasetId, taskId, token, localPrefix, requestedVersion]);
+
+  useEffect(() => {
+    if (!release || tab !== "files") return;
+    let cancelled = false;
+    setTreeLoading(true);
+    listPackageFiles(datasetId, release.package_digest, token)
+      .then((files) => {
+        if (cancelled) return;
+        setFileItems(files.items);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (err instanceof RegistryHttpError) {
+          setError(`${err.code}: ${err.message}`);
+        } else {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+        setFileItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTreeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, release, token, tab, localPrefix]);
+
+  useEffect(() => {
+    if (tab !== "jobs") return;
+    let cancelled = false;
+    setJobsLoading(true);
+    Promise.all([
+      listSuites(datasetId, token, { taskId }),
+      listAttempts(datasetId, token, { taskId, standalone: true }),
+    ])
+      .then(([suites, attempts]) => {
+        if (cancelled) return;
+        const rows: typeof jobs = [];
+        for (const s of suites) {
+          const refs = s.task_refs || [];
+          const hit = refs.find((r) => r.task_id === taskId);
+          if (!hit) continue;
+          const derived = displayLabelsFromOverlay(s.job_overlay);
+          rows.push({
+            job_id: s.suite_run_id,
+            job_kind: "suite",
+            status: hit.status,
+            score: hit.score,
+            agent_label: derived.agent || s.agent_label,
+            model_label: derived.model || s.model_label,
+            reasoning_effort: reasoningEffortFromOverlay(s.job_overlay),
+            environment: environmentFromOverlay(s.job_overlay),
+            created_at: s.created_at,
+            run_id: hit.run_id ?? null,
+            has_attempt_content: Boolean(hit.has_attempt_content),
+          });
+        }
+        for (const a of attempts) {
+          rows.push({
+            job_id: a.run_id,
+            job_kind: "attempt",
+            status: a.status,
+            score: a.score ?? null,
+            agent_label: a.agent_label,
+            model_label: a.model_label,
+            environment: a.environment || null,
+            created_at: a.created_at,
+            run_id: a.run_id,
+            has_attempt_content: true,
+          });
+        }
+        rows.sort((left, right) => {
+          const lt =
+            Date.parse(String(left.created_at ?? "")) ||
+            Number(left.created_at) ||
+            0;
+          const rt =
+            Date.parse(String(right.created_at ?? "")) ||
+            Number(right.created_at) ||
+            0;
+          return rt - lt;
+        });
+        setJobs(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setJobs([]);
+      })
+      .finally(() => {
+        if (!cancelled) setJobsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, taskId, token, tab]);
 
   // Rebuild tree when Local | Shared | Overlays scope changes.
   useEffect(() => {
@@ -390,6 +407,15 @@ export function TaskDetailPage() {
     const n = new URLSearchParams(search);
     if (next === "readme") n.delete("tab");
     else n.set("tab", next);
+    if (next !== "jobs") n.delete("offset");
+    setSearch(n, { replace: true });
+  }
+
+  function setJobOffset(next: number) {
+    const n = new URLSearchParams(search);
+    n.set("tab", "jobs");
+    if (next <= 0) n.delete("offset");
+    else n.set("offset", String(next));
     setSearch(n, { replace: true });
   }
 
@@ -398,6 +424,11 @@ export function TaskDetailPage() {
     n.set("v", next);
     setSearch(n, { replace: true });
   }
+
+  const pagedJobs = useMemo(
+    () => jobs.slice(jobOffset, jobOffset + TASK_PAGE_SIZE),
+    [jobs, jobOffset],
+  );
 
   const filesScopeSwitch =
     [localPresent, sharedPresent, overlaysPresent].filter(Boolean).length >= 2 ? (
@@ -462,7 +493,9 @@ export function TaskDetailPage() {
       ) : null}
 
       {tab === "readme" ? (
-        readme ? (
+        readmeLoading ? (
+          <p className="text-sm text-mute">Loading README…</p>
+        ) : readme ? (
           <Markdown source={readme} />
         ) : (
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-mute">
@@ -495,7 +528,9 @@ export function TaskDetailPage() {
       ) : null}
 
       {tab === "jobs" ? (
-        jobs.length === 0 ? (
+        jobsLoading && jobs.length === 0 ? (
+          <p className="text-sm text-mute">Loading jobs…</p>
+        ) : jobs.length === 0 ? (
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 space-y-3">
             <p className="text-sm text-ink font-medium">No Jobs for this task</p>
             <p className="text-sm text-mute">
@@ -530,7 +565,7 @@ export function TaskDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {jobs.map((j) => {
+                  {pagedJobs.map((j) => {
                     const canOpen =
                       Boolean(j.has_attempt_content) && Boolean(j.run_id);
                     const evidenceHref =
@@ -602,6 +637,13 @@ export function TaskDetailPage() {
                 </TableBody>
               </Table>
             </div>
+            <ListPager
+              offset={jobOffset}
+              limit={TASK_PAGE_SIZE}
+              total={jobs.length}
+              busy={jobsLoading}
+              onOffset={setJobOffset}
+            />
             {jobs.some((j) => !j.has_attempt_content) ? (
               <div className="rounded-[8px] border border-dashed border-hairline bg-canvas-soft p-4 space-y-2">
                 <p className="text-sm text-body">

@@ -115,7 +115,7 @@ export function ConfirmDialog({
         tabIndex={-1}
         data-ageval-pop=""
         className={cn(
-          "w-full max-w-md rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
+          "w-full min-w-0 max-w-md overflow-hidden rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
           className,
         )}
         onClick={(event) => event.stopPropagation()}
@@ -126,7 +126,7 @@ export function ConfirmDialog({
         >
           {title}
         </h2>
-        <div id={descId} className="mt-1 text-sm text-mute">
+        <div id={descId} className="mt-1 text-sm text-pretty break-words text-mute">
           {description}
         </div>
         {children ? <div className="mt-4">{children}</div> : null}
@@ -196,7 +196,7 @@ export function Modal({
         tabIndex={-1}
         data-ageval-pop=""
         className={cn(
-          "w-full max-w-lg rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
+          "flex max-h-[min(90vh,40rem)] w-full min-w-0 max-w-md flex-col overflow-hidden rounded-[12px] border border-hairline bg-canvas p-5 shadow-[var(--viewer-shadow-pop)] outline-none",
           className,
         )}
         onClick={(event) => event.stopPropagation()}
@@ -220,11 +220,16 @@ export function Modal({
           </Button>
         </div>
         {description ? (
-          <div id={descId} className="mt-1 text-sm text-mute">
+          <div
+            id={descId}
+            className="mt-1 text-sm text-pretty break-words text-mute"
+          >
             {description}
           </div>
         ) : null}
-        {children ? <div className="mt-4">{children}</div> : null}
+        {children ? (
+          <div className="mt-4 min-w-0 overflow-y-auto">{children}</div>
+        ) : null}
         {error ? (
           <p className="mt-3 text-sm font-mono text-error">{error}</p>
         ) : null}

@@ -155,7 +155,7 @@
 
   :root {
     /* Phase/token ramp: cool ink grayscale (docs/design/13). IKB is links/CTA only. */
-    --viewer-phase-1: var(--viewer-ink);
+    --viewer-phase-1: color-mix(in srgb, var(--viewer-ink) 55%, var(--viewer-mute));
     --viewer-phase-2: var(--viewer-body);
     --viewer-phase-3: var(--viewer-mute);
     --viewer-phase-4: var(--viewer-hairline-strong);

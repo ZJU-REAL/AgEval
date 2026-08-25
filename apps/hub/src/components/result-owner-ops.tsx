@@ -46,12 +46,6 @@ function appearanceKey(value: string | undefined): string {
   return text.toLowerCase();
 }
 
-function refsMatch(input: string, stored: string | undefined): boolean {
-  const a = appearanceKey(input);
-  const b = appearanceKey(stored);
-  return Boolean(a) && a === b;
-}
-
 export function ResultOwnerOps({
   kind,
   resultId,
@@ -133,7 +127,11 @@ export function ResultOwnerOps({
     [requests],
   );
   const matchingAppearance = useMemo(
-    () => pendingAppearance.find((row) => refsMatch(agentRef, row.agent_ref)),
+    () => {
+      const want = appearanceKey(agentRef);
+      if (!want) return undefined;
+      return pendingAppearance.find((row) => appearanceKey(row.agent_ref) === want);
+    },
     [pendingAppearance, agentRef],
   );
 
@@ -334,8 +332,8 @@ export function ResultOwnerOps({
         title="Share"
         description={
           kind === "suite"
-            ? "Visibility, org or user access, and published agent attach. Attach goes through if you own the agent org; otherwise it waits in that owner's inbox."
-            : "Visibility and org or user access for this attempt."
+            ? "Who can see this suite, and whether it is listed."
+            : "Who can see this attempt."
         }
         error={error}
         onClose={() => {
@@ -382,7 +380,7 @@ export function ResultOwnerOps({
                   value={agentRef}
                   onChange={(e) => setAgentRef(e.target.value)}
                   placeholder="org/name@version"
-                  className="h-8 w-56 font-mono text-xs"
+                  className="h-8 min-w-0 flex-1 font-mono text-xs"
                   disabled={busy}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void attachOrRequest();
@@ -416,27 +414,31 @@ export function ResultOwnerOps({
                   ))}
                 </ul>
               ) : null}
-              {complete && boundKind === "release" && !boardListed ? (
-                pendingListing ? (
-                  <p className="text-xs text-body">
-                    Listing request pending. Waiting on the dataset org owner.
-                  </p>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void requestListing()}
-                  >
-                    Request listing
-                  </Button>
-                )
-              ) : pendingListing ? (
-                <p className="text-xs text-body">
+            </div>
+          ) : null}
+
+          {kind === "suite" &&
+          ((complete && boundKind === "release" && !boardListed) ||
+            pendingListing) ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-mute uppercase tracking-wide">
+                Public board
+              </p>
+              {pendingListing ? (
+                <p className="text-xs text-pretty break-words text-body">
                   Listing request pending. Waiting on the dataset org owner.
                 </p>
-              ) : null}
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void requestListing()}
+                >
+                  Request listing
+                </Button>
+              )}
             </div>
           ) : null}
 
@@ -464,7 +466,7 @@ export function ResultOwnerOps({
                 value={targetId}
                 onChange={(e) => setTargetId(e.target.value)}
                 placeholder={targetType === "org" ? "org-id" : "github-login"}
-                className="h-8 w-40 font-mono text-xs"
+                className="h-8 min-w-0 flex-1 font-mono text-xs"
                 disabled={busy}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void share();
