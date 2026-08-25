@@ -38,77 +38,6 @@ function asFiniteNumber(value: unknown): number | null {
   return value;
 }
 
-function asInt(value: unknown): number | null {
-  const n = asFiniteNumber(value);
-  if (n == null || !Number.isInteger(n)) return null;
-  return n;
-}
-
-function firstClassUsage(usage: Record<string, unknown> | null | undefined): {
-  prompt: number | null;
-  completion: number | null;
-  cached: number | null;
-  costUsd: number | null;
-} {
-  if (!usage) {
-    return { prompt: null, completion: null, cached: null, costUsd: null };
-  }
-  return {
-    prompt: asInt(usage.prompt_tokens),
-    completion: asInt(usage.completion_tokens),
-    cached: asInt(usage.cached_tokens),
-    costUsd: asFiniteNumber(usage.cost_usd),
-  };
-}
-
-function UsageChips({
-  usage,
-  siblingExtra,
-}: {
-  usage: Record<string, unknown> | null | undefined;
-  siblingExtra?: Record<string, unknown> | null;
-}) {
-  const parsed = firstClassUsage(usage);
-  const extra =
-    siblingExtra && Object.keys(siblingExtra).length > 0 ? siblingExtra : null;
-  const chips: Array<{ key: string; text: string }> = [];
-  if (parsed.prompt != null) chips.push({ key: "prompt", text: `prompt ${parsed.prompt}` });
-  if (parsed.completion != null) {
-    chips.push({ key: "completion", text: `completion ${parsed.completion}` });
-  }
-  if (parsed.cached != null) chips.push({ key: "cached", text: `cached ${parsed.cached}` });
-  if (parsed.costUsd != null) {
-    const text =
-      parsed.costUsd === 0 ? "cost $0" : `cost $${Number(parsed.costUsd).toPrecision(4)}`;
-    chips.push({ key: "cost", text });
-  }
-  if (chips.length === 0 && !extra) return null;
-  return (
-    <div className="px-3 pb-2.5 space-y-1.5">
-      {chips.length ? (
-        <div className="flex flex-wrap gap-1">
-          {chips.map((c) => (
-            <span
-              key={c.key}
-              className="rounded-[6px] border border-hairline bg-canvas-soft px-1.5 py-0 font-mono text-[11px] text-body tabular"
-            >
-              {c.text}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {extra ? (
-        <details className="text-[11px] text-mute">
-          <summary className="cursor-pointer select-none">extra</summary>
-          <pre className="mt-1 m-0 whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-body">
-            {JSON.stringify(extra, null, 2)}
-          </pre>
-        </details>
-      ) : null}
-    </div>
-  );
-}
-
 function stepElapsedMs(s: {
   elapsed_ms?: number | null;
   metadata?: Record<string, unknown> | null;
@@ -263,24 +192,46 @@ export function TrajectoryPanel({
   result: Record<string, unknown> | null;
   actors: ActorRow[];
 }) {
-  const groups = useMemo(() => {
-    const actorByPid = new Map(
+  const actorByPid = useMemo(() => {
+    return new Map(
       actors.map((a) => [a.profile_id || `${a.role}-${a.agent}`, a]),
     );
-    const order: string[] = [];
-    const byProfile = new Map<string, TrajectoryStep[]>();
+  }, [actors]);
+  const multiRole = useMemo(() => {
+    const ids = new Set<string>();
     for (const s of steps) {
-      const key =
-        (typeof s.profile_id === "string" && s.profile_id) || "__ungrouped__";
-      if (!byProfile.has(key)) {
-        byProfile.set(key, []);
-        order.push(key);
-      }
-      byProfile.get(key)!.push(s);
+      if (typeof s.profile_id === "string" && s.profile_id) ids.add(s.profile_id);
     }
-    const multi = order.filter((k) => k !== "__ungrouped__").length >= 2;
-    return { order, byProfile, actorByPid, multi };
+    if (ids.size >= 2) return true;
+    const actorIds = new Set(
+      actors
+        .map((a) => a.profile_id)
+        .filter((p): p is string => typeof p === "string" && !!p),
+    );
+    return actorIds.size >= 2;
   }, [steps, actors]);
+  const invokes = useMemo(() => {
+    type Block = {
+      turn: number | null;
+      profileId: string | null;
+      steps: TrajectoryStep[];
+    };
+    const blocks: Block[] = [];
+    for (const s of steps) {
+      const turn = typeof s.turn_index === "number" ? s.turn_index : null;
+      const pid =
+        typeof s.profile_id === "string" && s.profile_id ? s.profile_id : null;
+      const last = blocks[blocks.length - 1];
+      if (last && last.turn != null && last.turn === turn) {
+        last.steps.push(s);
+        if (!last.profileId && pid) last.profileId = pid;
+        continue;
+      }
+      blocks.push({ turn, profileId: pid, steps: [s] });
+    }
+    return blocks;
+  }, [steps]);
+  const showInvokeHeaders = multiRole && invokes.length >= 2;
   const [allExpanded, setAllExpanded] = useState(false);
   const [expandGen, setExpandGen] = useState(0);
 
@@ -298,7 +249,7 @@ export function TrajectoryPanel({
     );
   }
 
-  function renderSteps(list: TrajectoryStep[], showProfileBadge: boolean) {
+  function renderSteps(list: TrajectoryStep[], hideTurnIndex = false) {
     return (
       <ol className="space-y-2">
         {list.map((s, i) => {
@@ -421,14 +372,9 @@ export function TrajectoryPanel({
                     />
                     {label}
                   </span>
-                  {s.turn_index != null ? (
+                  {!hideTurnIndex && s.turn_index != null ? (
                     <span className="text-mute font-mono font-normal normal-case tracking-normal">
                       turn {s.turn_index}
-                    </span>
-                  ) : null}
-                  {showProfileBadge && s.profile_id ? (
-                    <span className="rounded bg-canvas-soft border border-hairline px-1.5 py-0 font-mono text-[11px] text-body font-normal normal-case tracking-normal">
-                      {s.profile_id}
                     </span>
                   ) : null}
                   {s.kind && isToolCall && s.kind !== label ? (
@@ -477,12 +423,6 @@ export function TrajectoryPanel({
                   expandGen={expandGen}
                 />
               ) : null}
-              {isTerminal ? (
-                <UsageChips
-                  usage={s.usage}
-                  siblingExtra={s.extra}
-                />
-              ) : null}
               {!body && !isTerminal ? (
                 s.error ? (
                   <p className="px-3 pb-2.5 text-sm text-error">{String(s.error)}</p>
@@ -526,30 +466,38 @@ export function TrajectoryPanel({
         </button>
         </HoverTip>
       </div>
-      {groups.multi ? (
+      {showInvokeHeaders ? (
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-          {groups.order.map((pid) => {
-            const list = groups.byProfile.get(pid) || [];
-            const actor =
-              pid === "__ungrouped__" ? undefined : groups.actorByPid.get(pid);
+          {invokes.map((block, i) => {
+            const actor = block.profileId
+              ? actorByPid.get(block.profileId)
+              : undefined;
+            const who = block.profileId
+              ? actorLabel(actor, block.profileId)
+              : null;
             const title =
-              pid === "__ungrouped__" ? "ungrouped" : actorLabel(actor, pid);
+              block.turn != null
+                ? who
+                  ? `invoke ${block.turn} · ${who}`
+                  : `invoke ${block.turn}`
+                : who || "invoke";
             return (
-              <section key={pid} className="space-y-2">
+              <section key={`${block.turn ?? "x"}-${i}`} className="space-y-2">
                 <h3 className="text-xs font-medium text-ink sticky top-0 bg-canvas/95 backdrop-blur-sm py-1 border-b border-hairline font-mono">
                   {title}
                   <span className="text-mute font-normal ml-2">
-                    {list.length} step{list.length === 1 ? "" : "s"}
+                    {block.steps.length} step
+                    {block.steps.length === 1 ? "" : "s"}
                   </span>
                 </h3>
-                {renderSteps(list, false)}
+                {renderSteps(block.steps, true)}
               </section>
             );
           })}
         </div>
       ) : (
         <div className="max-h-[70vh] overflow-y-auto pr-1">
-          {renderSteps(steps, false)}
+          {renderSteps(steps)}
         </div>
       )}
     </div>
