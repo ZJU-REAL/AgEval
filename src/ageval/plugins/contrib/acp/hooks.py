@@ -166,10 +166,12 @@ async def _prepare_attempt_home(
     """
     from ageval.plugins.contrib.acp.home import prepare_home
 
+    remaining = ctx.remaining_seconds()
+    home_timeout = 120.0 if remaining is None else max(float(remaining), 120.0)
     prepared = await prepare_home(
         ctx.host,
         descriptor,
-        timeout_sec=ctx.remaining_seconds(),
+        timeout_sec=home_timeout,
     )
     auth_files = prepared["auth_files"]
     ctx.record_fact(
