@@ -1068,6 +1068,60 @@ class MetadataStore(MetadataStoreProtocol):
             cur_d = self._exec(conn, Q.COUNT_DRAFT_BLOB_REFS, (blob_digest,))
             return n + int(cur_d.fetchone()["n"])
 
+    def put_package_task_summary(
+        self,
+        package_digest: str,
+        *,
+        has_shared: bool,
+        tasks: list[dict[str, Any]],
+    ) -> None:
+        with self._connect() as conn:
+            self._exec(
+                conn,
+                Q.UPSERT_PACKAGE_TASK_SUMMARY,
+                (
+                    package_digest,
+                    1 if has_shared else 0,
+                    json.dumps(tasks),
+                    now(),
+                ),
+            )
+            conn.commit()
+
+    def get_package_task_summary(
+        self, package_digest: str
+    ) -> tuple[list[dict[str, Any]], bool] | None:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_PACKAGE_TASK_SUMMARY, (package_digest,))
+            row = cur.fetchone()
+        if row is None:
+            return None
+        try:
+            tasks = json.loads(row["tasks_json"])
+        except (TypeError, json.JSONDecodeError):
+            return None
+        if not isinstance(tasks, list):
+            return None
+        items = [item for item in tasks if isinstance(item, dict)]
+        return items, bool(int(row["has_shared"] or 0))
+
+    def delete_package_task_summary(self, package_digest: str) -> None:
+        with self._connect() as conn:
+            self._exec(conn, Q.DELETE_PACKAGE_TASK_SUMMARY, (package_digest,))
+            conn.commit()
+
+    def count_package_digest_refs(self, package_digest: str) -> int:
+        with self._connect() as conn:
+            cur = self._exec(
+                conn, Q.COUNT_PACKAGE_DIGEST_REFS, (package_digest, package_digest)
+            )
+            return int(cur.fetchone()["n"])
+
+    def list_suite_task_refs(self, dataset_id: str) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            cur = self._exec(conn, Q.SELECT_SUITE_TASK_REFS, (dataset_id,))
+            return [dict(r) for r in cur.fetchall()]
+
     def delete_release(self, dataset_id: str, version: str) -> ReleaseRow:
         row = self.get_by_version(dataset_id, version)
         if row is None:

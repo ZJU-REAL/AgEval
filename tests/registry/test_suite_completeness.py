@@ -135,6 +135,29 @@ def test_list_suites_task_id_and_limit(tmp_path: Path) -> None:
     }
 
 
+def test_list_tasks_attaches_visible_job_stats(tmp_path: Path) -> None:
+    packages, results = _services(tmp_path)
+    _publish_release(packages, tmp_path)
+    auth = TokenInfo(scopes=frozenset({"results:upload", "registry:publish"}), user_id="alice")
+    meta, archive = _suite_meta(
+        tmp_path,
+        suite_run_id="suite_hello_stats",
+        task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
+    )
+    results.upload_suite(meta=meta, archive=archive, auth=auth)
+    release = packages.meta.get_by_version("test/publish-min", "0.1.0")
+    assert release is not None
+    listed = packages.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=release.package_digest,
+    )
+    hello = next(item for item in listed["items"] if item["task_id"] == "hello")
+    assert hello["job_count"] == 1
+    assert hello["last_status"] == "FAIL"
+    assert hello["last_score"] == 0.0
+
+
 def test_missing_task_is_incomplete_hidden_from_board(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
     _publish_release(packages, tmp_path)

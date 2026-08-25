@@ -652,6 +652,9 @@ export const TASK_PAGE_SIZE = 20;
 export type PackageTaskRow = {
   task_id: string;
   has_readme: boolean;
+  job_count?: number;
+  last_status?: string | null;
+  last_score?: number | null;
 };
 
 export type PackageTaskPage = {

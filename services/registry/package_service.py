@@ -200,6 +200,9 @@ class PackageService:
             self.meta.insert(row)
         except ValueError as exc:
             raise RegistryAppError("conflict", "release already exists", http_status=409) from exc
+        self._store_task_summary(archive, package_digest)
+        if existing_rel is not None and existing_rel.package_digest != package_digest:
+            self._gc_task_summary(existing_rel.package_digest)
         payload = self._with_download_count(release_to_dict(row), auth)
         if existing_rel is not None and replace:
             payload["replaced"] = True
@@ -274,8 +277,11 @@ class PackageService:
         )
         self.blobs.put_if_absent(blob_digest, archive, prefix="packages")
         stored = self.meta.upsert_draft(row)
+        self._store_task_summary(archive, package_digest)
         if existing is None and user_id:
             self.meta.upsert_dataset_acl(dataset_id, user_id, role="owner")
+        if existing is not None and existing.package_digest != package_digest:
+            self._gc_task_summary(existing.package_digest)
         if old_blob and old_blob != blob_digest:
             self._gc_blob(old_blob)
         payload = self._with_download_count(release_to_dict(stored.as_release()), auth)
@@ -557,27 +563,18 @@ class PackageService:
         limit: int | None = None,
         offset: int = 0,
     ) -> dict[str, Any]:
-        from services.registry.package_files import get_or_build_index
-
         row = self._visible_release(
             dataset_id=dataset_id,
             auth=auth,
             package_digest=package_digest,
             version=version,
         )
-        archive = read_blob(self.blobs, row.blob_digest, prefix="packages")
-        if archive is None:
-            raise RegistryAppError("not_found", "blob missing", http_status=404)
-        try:
-            index = get_or_build_index(archive, package_digest=row.package_digest)
-        except Exception as exc:  # noqa: BLE001
-            raise RegistryAppError(
-                "archive_error",
-                f"cannot index package: {exc}",
-                http_status=500,
-            ) from exc
-        tasks, has_shared = index.list_tasks()
+        summary = self.meta.get_package_task_summary(row.package_digest)
+        if summary is None:
+            summary = self._backfill_task_summary(row.package_digest, row.blob_digest)
+        tasks, has_shared = summary
         page, total = page_slice(tasks, limit=limit, offset=offset)
+        self._attach_task_job_stats(page, dataset_id=row.dataset_id, auth=auth)
         return {
             "dataset_id": row.dataset_id,
             "digest": row.package_digest,
@@ -844,6 +841,89 @@ class PackageService:
         if self.meta.count_package_blob_refs(blob_digest) > 0:
             return False
         return bool(self.blobs.delete(blob_digest, prefix="packages"))
+
+    def _store_task_summary(self, archive: Path, package_digest: str) -> None:
+        from services.registry.package_files import build_index_from_archive
+
+        index = build_index_from_archive(
+            archive.read_bytes(), package_digest=package_digest
+        )
+        tasks, has_shared = index.list_tasks()
+        self.meta.put_package_task_summary(
+            package_digest, has_shared=has_shared, tasks=tasks
+        )
+
+    def _backfill_task_summary(
+        self, package_digest: str, blob_digest: str
+    ) -> tuple[list[dict[str, Any]], bool]:
+        from services.registry.package_files import get_or_build_index
+
+        archive = read_blob(self.blobs, blob_digest, prefix="packages")
+        if archive is None:
+            raise RegistryAppError("not_found", "blob missing", http_status=404)
+        try:
+            index = get_or_build_index(archive, package_digest=package_digest)
+        except Exception as exc:  # noqa: BLE001
+            raise RegistryAppError(
+                "archive_error",
+                f"cannot index package: {exc}",
+                http_status=500,
+            ) from exc
+        tasks, has_shared = index.list_tasks()
+        self.meta.put_package_task_summary(
+            package_digest, has_shared=has_shared, tasks=tasks
+        )
+        return tasks, has_shared
+
+    def _gc_task_summary(self, package_digest: str) -> None:
+        if not package_digest:
+            return
+        if self.meta.count_package_digest_refs(package_digest) > 0:
+            return
+        self.meta.delete_package_task_summary(package_digest)
+
+    def _attach_task_job_stats(
+        self,
+        page: list[dict[str, Any]],
+        *,
+        dataset_id: str,
+        auth: TokenInfo,
+    ) -> None:
+        from services.registry.dataset import parse_task_refs
+
+        if not page:
+            return
+        wanted = {str(item.get("task_id") or "") for item in page}
+        wanted.discard("")
+        hits: dict[str, list[tuple[float, str | None, float | None]]] = {
+            task_id: [] for task_id in wanted
+        }
+        for row in self.meta.list_suite_task_refs(dataset_id):
+            if not self.access.visible_result(
+                result_kind="suite",
+                result_id=str(row.get("suite_run_id") or ""),
+                visibility=str(row.get("visibility") or ""),
+                uploaded_by=str(row.get("uploaded_by") or ""),
+                auth=auth,
+            ):
+                continue
+            created = float(row.get("created_at") or 0)
+            for ref in parse_task_refs(row.get("tasks_json")):
+                task_id = str(ref.get("task_id") or "").strip()
+                if task_id not in hits:
+                    continue
+                status = str(ref.get("status") or "").strip() or None
+                raw_score = ref.get("score")
+                score = raw_score if isinstance(raw_score, (int, float)) else None
+                hits[task_id].append((created, status, score))
+        for item in page:
+            task_id = str(item.get("task_id") or "")
+            found = hits.get(task_id) or []
+            found.sort(key=lambda row: row[0], reverse=True)
+            last = found[0] if found else None
+            item["job_count"] = len(found)
+            item["last_status"] = last[1] if last else None
+            item["last_score"] = last[2] if last else None
 
     def _validate_archive(
         self,

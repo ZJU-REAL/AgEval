@@ -56,38 +56,6 @@ function isInternalSuite(suite: SuiteRow): boolean {
   return suite.complete !== true || suite.bound_kind !== "release";
 }
 
-function taskJobStats(suites: SuiteRow[], taskId: string): {
-  count: number;
-  lastStatus: string | null;
-  lastScore: number | null;
-} {
-  const hits: Array<{
-    created: number;
-    status: string | null;
-    score: number | null;
-  }> = [];
-  for (const suite of suites) {
-    const ref = (suite.task_refs || []).find((r) => r.task_id === taskId);
-    if (!ref) continue;
-    const created =
-      typeof suite.created_at === "number"
-        ? suite.created_at
-        : Date.parse(String(suite.created_at || "")) || 0;
-    hits.push({
-      created,
-      status: ref.status ?? null,
-      score: ref.score ?? null,
-    });
-  }
-  hits.sort((a, b) => b.created - a.created);
-  const last = hits[0];
-  return {
-    count: hits.length,
-    lastStatus: last?.status ?? null,
-    lastScore: last?.score ?? null,
-  };
-}
-
 export function DatasetDetailPage() {
   const navigate = useNavigate();
   const { datasetId: rawId } = useParams();
@@ -273,24 +241,21 @@ export function DatasetDetailPage() {
   }, [datasetId, release, token, taskOffset]);
 
   useEffect(() => {
-    if (!release) return;
-    if (tab !== "tasks" && tab !== "leaderboard") return;
+    if (!release || tab !== "leaderboard") return;
     let cancelled = false;
     Promise.all([
       listSuites(datasetId, token),
-      tab === "leaderboard"
-        ? listSuites(datasetId, token, { board: true })
-        : Promise.resolve([] as SuiteRow[]),
+      listSuites(datasetId, token, { board: true }),
     ])
       .then(([jobs, board]) => {
         if (cancelled) return;
         setJobSuites(jobs);
-        if (tab === "leaderboard") setBoardSuites(board);
+        setBoardSuites(board);
       })
       .catch(() => {
         if (cancelled) return;
         setJobSuites([]);
-        if (tab === "leaderboard") setBoardSuites([]);
+        setBoardSuites([]);
       });
     return () => {
       cancelled = true;
@@ -606,7 +571,6 @@ export function DatasetDetailPage() {
               <TableBody>
                 {taskRows.map((row) => {
                   const tid = row.task_id;
-                  const stats = taskJobStats(jobSuites, tid);
                   return (
                     <TableRow
                       key={tid}
@@ -628,13 +592,13 @@ export function DatasetDetailPage() {
                         {row.has_readme ? "yes" : "no"}
                       </TableCell>
                       <TableCell className="tabular text-sm">
-                        {stats.count}
+                        {row.job_count ?? 0}
                       </TableCell>
                       <TableCell className="text-sm tabular">
-                        {stats.lastStatus
-                          ? `${stats.lastStatus}${
-                              stats.lastScore != null
-                                ? ` · ${formatScore(stats.lastScore)}`
+                        {row.last_status
+                          ? `${row.last_status}${
+                              row.last_score != null
+                                ? ` · ${formatScore(row.last_score)}`
                                 : ""
                             }`
                           : "-"}

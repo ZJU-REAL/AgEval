@@ -481,7 +481,11 @@ def test_list_tasks_pages_and_flags(tmp_path: Path) -> None:
     )
     assert listed["total"] == 1
     assert listed["has_shared"] is False
-    assert listed["items"] == [{"task_id": "hello", "has_readme": False}]
+    hello = listed["items"][0]
+    assert hello["task_id"] == "hello"
+    assert hello["has_readme"] is False
+    assert hello["job_count"] == 0
+    assert hello["last_status"] is None
     empty = svc.list_tasks(
         dataset_id="test/publish-min",
         auth=auth,
@@ -491,3 +495,24 @@ def test_list_tasks_pages_and_flags(tmp_path: Path) -> None:
     )
     assert empty["items"] == []
     assert empty["total"] == 1
+
+
+def test_list_tasks_skips_blob_after_publish(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive, _raw = _meta_archive(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    payload = svc.publish(meta=meta, archive=archive, auth=auth)
+
+    def _no_blob(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("list_tasks must not read the package blob")
+
+    monkeypatch.setattr("services.registry.package_service.read_blob", _no_blob)
+    listed = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=str(payload["package_digest"]),
+        limit=20,
+        offset=0,
+    )
+    assert listed["items"][0]["task_id"] == "hello"
