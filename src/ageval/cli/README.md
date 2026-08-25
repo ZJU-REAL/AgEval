@@ -81,7 +81,7 @@ Credentials file `~/.ageval/credentials` (mode `0600`):
 | --- | --- |
 | `ageval tasks` | List member task ids in a Dataset |
 | `ageval lock` | Lock config (no Agent) |
-| `ageval run` | Run one member or a full suite (Always-k via `-k` / `--n-attempts`; `--keep-workspace` keeps the host work root, not Docker volumes) |
+| `ageval run` | Run one member or a full suite (Always-k via `-k` / `--n-attempts`; `--keep-workspace` keeps the host work root; `--keep-vendor-raw` keeps invocation dumps after seal) |
 | `ageval campaign` | Serial parameter-matrix campaign (matrix axis ≠ k-attempt) |
 | `ageval executors` | Host executor / ACP entry inventory |
 | `ageval plugin install\|list\|uninstall` | Local `ageval.plugin/1` cache (`$AGEVAL_HOME/plugins`); never rewrites profiles |

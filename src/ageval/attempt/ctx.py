@@ -58,6 +58,7 @@ class AttemptCtx:
     agent_service: Any = None
     deadline_monotonic: float | None = None
     keep_workspace: bool = False
+    keep_vendor_raw: bool = False
     phase_facts: list[PhaseFact] = field(default_factory=list)
     phase: str = "created"
     evaluation_result: Any = None

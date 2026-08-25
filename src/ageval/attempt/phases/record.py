@@ -11,6 +11,7 @@ from typing import Any
 from ageval.attempt.ctx import AttemptCtx
 from ageval.attempt.emit import emit
 from ageval.evidence.invocation import read_invocation_payload
+from ageval.evidence.slim import slim_sealed_attempt
 from ageval.evidence.trajectory import turn_rows
 from ageval.plugins.binding import bind_winner
 from ageval.plugins.slots import TRAJECTORY_COLLECT, TRAJECTORY_ENRICH, TRAJECTORY_SEAL
@@ -33,6 +34,11 @@ async def run(ctx: AttemptCtx) -> None:
     if not path.is_file():
         raise RuntimeError("trajectory_seal did not write the trajectory file")
     ctx.record_fact("trajectory_recorded", {"turns": len(turns), "file": path.name})
+    if ctx.keep_vendor_raw:
+        ctx.record_fact("vendor_raw_kept", {"keep_vendor_raw": True})
+    else:
+        slim_sealed_attempt(ctx.evidence.root)
+        ctx.record_fact("vendor_raw_dropped", {"keep_vendor_raw": False})
 
 
 def _fields(shaped: Any, original: dict[str, Any]) -> dict[str, Any]:

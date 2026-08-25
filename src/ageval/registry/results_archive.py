@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from ageval.evidence.locators import run_locator, suite_run_locator
+from ageval.evidence.slim import is_vendor_raw_rel
 from ageval.registry.media_types import ATTEMPT_RESULT_MEDIA_TYPE, SUITE_RESULT_MEDIA_TYPE
 
 MEDIA_TYPE = ATTEMPT_RESULT_MEDIA_TYPE
@@ -30,11 +31,17 @@ def _is_l1_work_rel(rel: str) -> bool:
     return rel == _L1_WORK_ROOT or rel.startswith(f"{_L1_WORK_ROOT}/")
 
 
-def build_attempt_archive(run_dir: Path, *, run_id: str) -> tuple[bytes, str, int]:
+def build_attempt_archive(
+    run_dir: Path,
+    *,
+    run_id: str,
+    keep_vendor_raw: bool = False,
+) -> tuple[bytes, str, int]:
     """Pack ``run_dir`` as ``.ageval/runs/<run_id>/…``; return bytes, blob_digest, size.
 
     Excludes ``l1-work/**`` even if residual files remain on disk (e.g.
     ``--keep-workspace`` or a failed host cleanup) so Registry blobs stay curated.
+    Vendor raw / layer B is skipped unless ``keep_vendor_raw``.
     """
     root = run_dir.expanduser().resolve(strict=True)
     if not root.is_dir():
@@ -48,6 +55,8 @@ def build_attempt_archive(run_dir: Path, *, run_id: str) -> tuple[bytes, str, in
             continue
         rel = path.relative_to(root).as_posix()
         if _is_l1_work_rel(rel):
+            continue
+        if not keep_vendor_raw and is_vendor_raw_rel(rel):
             continue
         members.append((f"{prefix}/{rel}", path))
 

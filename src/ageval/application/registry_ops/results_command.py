@@ -257,8 +257,12 @@ class ResultsCommands:
             raise ConfigError("invalid_package", str(exc), location=str(root)) from exc
 
         run_dir = resolve_attempt_run_dir(root, run_id)
-        archive_bytes, blob_digest, size = build_attempt_archive(run_dir, run_id=run_id)
         meta = _read_run_meta(run_dir)
+        archive_bytes, blob_digest, size = build_attempt_archive(
+            run_dir,
+            run_id=run_id,
+            keep_vendor_raw=bool(meta.get("keep_vendor_raw")),
+        )
         job = _attempt_job_fields(run_dir, meta)
         task_id = str(job.get("task_id") or "")
         lock_digest = str(meta.get("lock_digest") or meta.get("digest") or "")

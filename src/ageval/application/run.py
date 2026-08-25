@@ -110,6 +110,7 @@ async def run_attempt(
     profiles_path: Path | str | None = None,
     overrides: dict[str, Any] | None = None,
     keep_workspace: bool = False,
+    keep_vendor_raw: bool = False,
     force_build: bool = False,
     identity_factory: IdentityFactory | None = None,
 ) -> tuple[int, AttemptResult]:
@@ -197,6 +198,7 @@ async def run_attempt(
         agent_service=agent_service,
         deadline_monotonic=deadline,
         keep_workspace=keep_workspace,
+        keep_vendor_raw=keep_vendor_raw,
     )
 
     try:
@@ -221,6 +223,7 @@ async def run_attempt(
             "result": result.as_dict(),
             "facts": facts,
             "phase_timing": timing_from_facts(facts),
+            "keep_vendor_raw": ctx.keep_vendor_raw,
         }
     )
     _write_result(evidence, result)
