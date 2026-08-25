@@ -495,9 +495,7 @@ SELECT_RESOURCE_REQUEST = "SELECT * FROM resource_requests WHERE request_id=?"
 LIST_RESOURCE_REQUESTS_BY_IDS = (
     "SELECT * FROM resource_requests WHERE request_id IN ({placeholders})"
 )
-LIST_INBOX_REQUESTS = (
-    "SELECT * FROM resource_requests WHERE owner_org_id IN ({placeholders})"
-)
+LIST_INBOX_REQUESTS = "SELECT * FROM resource_requests WHERE owner_org_id IN ({placeholders})"
 LIST_SUITE_REQUESTS = (
     "SELECT * FROM resource_requests WHERE suite_run_id=? ORDER BY created_at DESC"
 )
