@@ -101,6 +101,7 @@ class OpenAIHTTPExecutor(AgentExecutor):
     model: str = "gpt-4.1-mini"
     base_url: str | None = None
     api_key_env: str | None = None
+    reasoning_effort: str | None = None
 
     def invoke(
         self,
@@ -144,6 +145,9 @@ class OpenAIHTTPExecutor(AgentExecutor):
         catalog = _normalize_tools(tools)
         if catalog:
             payload["tools"] = catalog
+        effort = (self.reasoning_effort or "").strip() or None
+        if effort:
+            payload["reasoning_effort"] = effort
         body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             url,
@@ -157,6 +161,21 @@ class OpenAIHTTPExecutor(AgentExecutor):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 raw = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:800]
+            return AgentResult(
+                model=self.model,
+                text="",
+                structured=None,
+                ok=False,
+                error=f"HTTPError:{exc.code}",
+                metadata={
+                    "executor_kind": "openai-http",
+                    "locked_reasoning_effort": effort,
+                    "actual_reasoning_effort": None,
+                    "http_error_body": detail,
+                },
+            )
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
             return AgentResult(
                 model=self.model,
@@ -164,6 +183,11 @@ class OpenAIHTTPExecutor(AgentExecutor):
                 structured=None,
                 ok=False,
                 error=type(exc).__name__,
+                metadata={
+                    "executor_kind": "openai-http",
+                    "locked_reasoning_effort": effort,
+                    "actual_reasoning_effort": None,
+                },
             )
         message: Mapping[str, Any] = {}
         try:
@@ -218,6 +242,10 @@ class OpenAIHTTPExecutor(AgentExecutor):
 
             out = Path(collect_dir)
             out.mkdir(parents=True, exist_ok=True)
+            (out / "request.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
             (out / "response.json").write_text(
                 json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
@@ -230,4 +258,9 @@ class OpenAIHTTPExecutor(AgentExecutor):
             error=None,
             events=tuple(events),
             tool_calls=tool_calls,
+            metadata={
+                "executor_kind": "openai-http",
+                "locked_reasoning_effort": effort,
+                "actual_reasoning_effort": effort,
+            },
         )

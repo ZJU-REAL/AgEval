@@ -21,10 +21,24 @@ def build_openai_http_executor(
     **_kwargs: Any,
 ) -> Any:
     """Bind the ``executor`` slot for a plain HTTP API backend (no box needed)."""
-    del options, profile_id
+    del profile_id
+    effort = None
+    if isinstance(options, dict):
+        raw = options.get("reasoning_effort")
+        if isinstance(raw, str) and raw.strip():
+            effort = raw.strip()
+        elif raw not in (None, ""):
+            raise ValueError(
+                "openai-http options.reasoning_effort must be a string when set"
+            )
     from ageval.plugins.contrib.openai_http.executor import OpenAIHTTPExecutor
 
-    return OpenAIHTTPExecutor(model=model or "gpt-4.1-mini", base_url=base_url, api_key_env=api_key)
+    return OpenAIHTTPExecutor(
+        model=model or "gpt-4.1-mini",
+        base_url=base_url,
+        api_key_env=api_key,
+        reasoning_effort=effort,
+    )
 
 
 def register_openai_http_contrib(registry: ExtensionRegistry) -> None:

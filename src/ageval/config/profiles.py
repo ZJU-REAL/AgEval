@@ -475,12 +475,20 @@ def join_display_names(names: Sequence[str]) -> str:
 
 
 def reasoning_effort_from_profile(profile: Mapping[str, Any] | None) -> str:
-    """ACP ``options.reasoning_effort`` when set."""
+    """``options.reasoning_effort`` on the profile or the executor plugin row."""
     if not isinstance(profile, Mapping):
         return ""
-    raw = plugin_row_options(profile, "acp").get("reasoning_effort")
-    if isinstance(raw, str) and raw.strip():
-        return raw.strip()
+    executor = str(profile.get("executor") or "").strip()
+    sources = [profile.get("options")]
+    if executor:
+        sources.append(plugin_row_options(profile, executor))
+    sources.append(plugin_row_options(profile, "acp"))
+    for source in sources:
+        if not isinstance(source, Mapping):
+            continue
+        raw = source.get("reasoning_effort")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
     return ""
 
 

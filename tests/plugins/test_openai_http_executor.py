@@ -123,6 +123,43 @@ def test_tools_round_trip_on_loopback() -> None:
     dumped = json.dumps(captured["body"])
     assert "sk-" not in dumped
     assert "Bearer" not in dumped
+    assert "reasoning_effort" not in captured["body"]
+
+
+def test_reasoning_effort_is_posted_when_set() -> None:
+    captured: dict[str, Any] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            captured["body"] = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = {"choices": [{"message": {"role": "assistant", "content": "ok"}}]}
+            raw = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+            del format, args
+
+    server, base = _serve(Handler)
+    try:
+        result = OpenAIHTTPExecutor(
+            model="mock",
+            base_url=base,
+            reasoning_effort="high",
+        ).invoke("hi")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert result.ok is True
+    assert captured["body"]["reasoning_effort"] == "high"
+    assert result.metadata is not None
+    assert result.metadata["locked_reasoning_effort"] == "high"
+    assert result.metadata["actual_reasoning_effort"] == "high"
 
 
 def test_reasoning_content_becomes_thought_event(tmp_path: Path) -> None:
