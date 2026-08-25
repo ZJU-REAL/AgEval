@@ -31,19 +31,19 @@ export function ActorsTable({ actors }: { actors: NonNullable<Trial["actors"]> }
           <TableBody>
             {actors.map((a) => (
               <TableRow key={a.profile_id || `${a.role}-${a.agent}`}>
-                <TableCell className="font-medium text-[13px]">
+                <TableCell className="font-medium">
                   {a.role}
                 </TableCell>
-                <TableCell className="text-[13px] text-body">
+                <TableCell className="text-body">
                   <AxisLabel value={a.agent} />
                 </TableCell>
-                <TableCell className="text-[13px] text-mute">
+                <TableCell className="text-mute">
                   <ModelLabel value={a.model} effort={a.reasoning_effort} />
                 </TableCell>
-                <TableCell className="text-[13px] tabular-nums text-body">
+                <TableCell className="tabular-nums text-body">
                   {a.time_label || "-"}
                 </TableCell>
-                <TableCell className="text-[12px] text-mute max-w-[36ch]">
+                <TableCell className="text-mute max-w-[36ch]">
                   {a.usage_label ? (
                     <HoverTip content="Observational usage (tokens/cost); not PASS authority. Cache hit = cached_read / input when present. Session-last invoke for cumulative fields.">
                       <span className="block truncate">{a.usage_label}</span>

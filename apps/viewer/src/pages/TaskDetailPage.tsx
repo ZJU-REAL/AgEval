@@ -83,7 +83,7 @@ export function TaskDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-ink">{taskId}</h1>
-            <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5">
+            <p className="text-xs text-mute mt-1 flex flex-wrap items-center gap-x-1.5">
               {meta.agent ? <span>{meta.agent}</span> : null}
               {meta.model ? (
                 <>
@@ -153,7 +153,7 @@ export function TaskDetailPage() {
                       tabIndex={openable ? 0 : undefined}
                       role={openable ? "link" : undefined}
                     >
-                      <TableCell className="font-medium text-[13px]">
+                      <TableCell className="font-medium">
                         {tr.trial_id}
                         {tr.has_evidence ? (
                           <span className="ml-2 text-[11px] text-mute font-sans">
@@ -179,7 +179,7 @@ export function TaskDetailPage() {
                       <TableCell className="tabular text-body">
                         {formatDate(tr.started || job?.started)}
                       </TableCell>
-                      <TableCell className="text-[12px] text-mute">
+                      <TableCell className="text-mute">
                         {tr.run_id || task?.run_id || "-"}
                       </TableCell>
                       <TableCell

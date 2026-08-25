@@ -50,7 +50,7 @@ function PeekCell({
   return (
     <button
       type="button"
-      className="text-xs text-link hover:text-link-deep hover:underline underline-offset-2"
+      className="text-link hover:text-link-deep hover:underline underline-offset-2"
       onClick={onPeek}
     >
       {label}
@@ -246,7 +246,7 @@ export function InboxPage() {
                       onChange={() => toggle(row.request_id)}
                     />
                   </TableCell>
-                  <TableCell className="text-xs text-body">{row.kind}</TableCell>
+                  <TableCell className="text-body">{row.kind}</TableCell>
                   <TableCell>
                     <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
                   </TableCell>
@@ -256,7 +256,7 @@ export function InboxPage() {
                   <TableCell>
                     <PeekCell label={row.applicant} onPeek={() => peekApplicant(row)} />
                   </TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell>
                     {row.agent_ref || "—"}
                   </TableCell>
                 </TableRow>
@@ -285,8 +285,8 @@ export function InboxPage() {
               <TableBody>
                 {history.map((row) => (
                   <TableRow key={row.request_id}>
-                    <TableCell className="text-xs text-body">{row.status}</TableCell>
-                    <TableCell className="text-xs text-body">{row.kind}</TableCell>
+                    <TableCell className="text-body">{row.status}</TableCell>
+                    <TableCell className="text-body">{row.kind}</TableCell>
                     <TableCell>
                       <PeekCell label={row.dataset_id} onPeek={() => peekDataset(row)} />
                     </TableCell>
@@ -296,10 +296,10 @@ export function InboxPage() {
                     <TableCell>
                       <PeekCell label={row.applicant} onPeek={() => peekApplicant(row)} />
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell>
                       {row.agent_ref || "—"}
                     </TableCell>
-                    <TableCell className="text-xs text-mute">
+                    <TableCell className="text-mute">
                       {formatDate(row.decided_at ?? row.created_at)}
                     </TableCell>
                   </TableRow>

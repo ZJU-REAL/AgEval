@@ -299,7 +299,7 @@ export function PluginDetailPage() {
             ) : null}
           </div>
           {release ? (
-            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
+            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-mute">
               <span>@{pluginId}</span>
               {builtin ? null : (
                 <>
@@ -321,7 +321,7 @@ export function PluginDetailPage() {
                     org{" "}
                     <Link
                       to={`/organizations/${encodeURIComponent(release.org_id)}`}
-                      className="text-xs text-link hover:text-link-deep"
+                      className="text-link hover:text-link-deep"
                     >
                       {release.org_id}
                     </Link>

@@ -288,7 +288,7 @@ export function AgentDetailPage() {
             ) : null}
           </div>
           {release ? (
-            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-mute">
+            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-mute">
               <span>@{agentId}</span>
               <span aria-hidden>·</span>
               <span>
@@ -306,7 +306,7 @@ export function AgentDetailPage() {
                     org{" "}
                     <Link
                       to={`/organizations/${encodeURIComponent(release.org_id)}`}
-                      className="text-xs text-link hover:text-link-deep"
+                      className="text-link hover:text-link-deep"
                     >
                       {release.org_id}
                     </Link>
@@ -425,7 +425,7 @@ export function AgentDetailPage() {
                           const key = `${row.suite_run_id}:${row.role}`;
                           return (
                             <TableRow key={key}>
-                              <TableCell className="text-xs">
+                              <TableCell>
                                 <Link
                                   to={`/datasets/${encodeDatasetId(row.dataset_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
                                   onClick={(e) => e.stopPropagation()}
@@ -434,16 +434,16 @@ export function AgentDetailPage() {
                                   {row.dataset_id}
                                 </Link>
                               </TableCell>
-                              <TableCell className="text-xs">
+                              <TableCell>
                                 {row.role}
                               </TableCell>
-                              <TableCell className="text-xs">
+                              <TableCell>
                                 {row.model || "—"}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
+                              <TableCell className="text-right tabular-nums">
                                 {formatScore(row.pass_rate)}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums text-xs">
+                              <TableCell className="text-right tabular-nums">
                                 {formatScore(row.mean_score)}
                               </TableCell>
                             </TableRow>

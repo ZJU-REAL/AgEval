@@ -254,13 +254,13 @@ function SuiteJobsList({
             onClick: href ? () => onOpen(href) : undefined,
             muted: !href,
             cells: [
-              <span key="t" className="text-xs">
+              <span key="t">
                 {j.taskId}
               </span>,
               j.status || "—",
               formatScore(j.score),
               j.runId ? (
-                <span key="r" className="text-xs">
+                <span key="r">
                   {shortSuiteId(j.runId)}
                   {!href ? (
                     <span className="ml-2 font-sans text-[11px] text-mute">
@@ -553,33 +553,26 @@ export function LeaderboardTable({
                               key={ref.package_id}
                               to={`/agents/${encodeDatasetId(ref.package_id)}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex max-w-full text-sm text-link hover:text-link-deep hover:underline underline-offset-2"
+                              className="inline-flex max-w-full text-link hover:text-link-deep hover:underline underline-offset-2"
                             >
-                              <TruncateTip
-                                text={ref.package_id}
-                                className="text-sm"
-                              />
+                              <TruncateTip text={ref.package_id} />
                             </Link>
                           ))}
                         </span>
                       </TableCell>
                     ) : (
                       <TableCell className={COL_TEXT}>
-                        <TruncateTip
-                          text={agentText || "—"}
-                          className="text-sm"
-                        />
+                        <TruncateTip text={agentText || "—"} />
                       </TableCell>
                     )}
                     <TableCell className={COL_TEXT}>
                       <ModelLabel
                         value={modelText}
                         effort={reasoningEffortFromOverlay(s.job_overlay)}
-                        className="text-xs"
                       />
                     </TableCell>
                     <TableCell
-                      className={`text-xs ${COL_METRIC}`}
+                      className={`${COL_METRIC}`}
                     >
                       <span className="inline-flex items-center gap-1.5">
                         {environmentKey ? (
@@ -592,26 +585,26 @@ export function LeaderboardTable({
                       </span>
                     </TableCell>
                     <TableCell
-                      className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                      className={`text-right tabular-nums ${COL_METRIC}`}
                     >
                       {s.pass_rate == null
                         ? "—"
                         : `${(Number(s.pass_rate) * 100).toFixed(1)}%`}
                     </TableCell>
                     <TableCell
-                      className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                      className={`text-right tabular-nums ${COL_METRIC}`}
                     >
                       {formatScore(s.mean_score)}
                     </TableCell>
                     {showKColumns ? (
                       <>
                         <TableCell
-                          className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                          className={`text-right tabular-nums ${COL_METRIC}`}
                         >
                           {nAtt == null ? "—" : String(nAtt)}
                         </TableCell>
                         <TableCell
-                          className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                          className={`text-right tabular-nums ${COL_METRIC}`}
                         >
                           {atK.value == null ? (
                             "—"
@@ -625,7 +618,7 @@ export function LeaderboardTable({
                           )}
                         </TableCell>
                         <TableCell
-                          className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                          className={`text-right tabular-nums ${COL_METRIC}`}
                         >
                           {powK.value == null ? (
                             "—"
@@ -641,7 +634,7 @@ export function LeaderboardTable({
                       </>
                     ) : null}
                     <TableCell
-                      className={`text-right tabular-nums text-xs ${COL_METRIC}`}
+                      className={`text-right tabular-nums ${COL_METRIC}`}
                     >
                       {nPass != null && nTasks != null
                         ? `${nPass}/${nTasks}`
@@ -649,7 +642,7 @@ export function LeaderboardTable({
                           ? String(nTasks)
                           : "—"}
                     </TableCell>
-                    <TableCell className={`text-xs ${COL_TEXT}`}>
+                    <TableCell className={`${COL_TEXT}`}>
                       <HoverTip content={s.uploaded_by || undefined}>
                         <span className="block truncate">
                           {s.uploaded_by || "—"}
@@ -657,7 +650,7 @@ export function LeaderboardTable({
                       </HoverTip>
                     </TableCell>
                     <TableCell
-                      className={`text-[11px] ${COL_METRIC}`}
+                      className={`${COL_METRIC}`}
                     >
                       <HoverTip content={s.suite_run_id}>
                         <span className="block truncate">
@@ -765,11 +758,11 @@ export function LeaderboardTable({
                                         to={`/plugins/${encodeDatasetId(p.plugin_id)}`}
                                         className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-row-hover"
                                       >
-                                        <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-link hover:text-link-deep">
+                                        <span className="inline-flex min-w-0 items-center gap-1.5 text-link hover:text-link-deep">
                                           {p.plugin_id}
                                           {bundled ? <BuiltinMark /> : null}
                                         </span>
-                                        <span className="text-[11px] text-mute">
+                                        <span className="text-xs text-mute">
                                           {bundled
                                             ? "bundled"
                                             : p.version

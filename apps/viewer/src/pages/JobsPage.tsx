@@ -458,7 +458,7 @@ export function JobsPage() {
                         <span className="block truncate">{jobDisplayName(job)}</span>
                       </HoverTip>
                     </TableCell>
-                    <TableCell className="text-xs text-body max-w-[16rem]">
+                    <TableCell className="text-body max-w-[16rem]">
                       <HoverTip content={job.dataset_ref || ""}>
                         <span className="block truncate">{job.dataset_ref || "-"}</span>
                       </HoverTip>
@@ -473,7 +473,7 @@ export function JobsPage() {
                       <ModelLabel
                         value={job.model_label}
                         effort={job.reasoning_effort}
-                        className="truncate text-xs"
+                        className="truncate"
                       />
                     </TableCell>
                     <TableCell className="tabular">

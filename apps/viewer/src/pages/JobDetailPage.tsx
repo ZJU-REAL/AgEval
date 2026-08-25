@@ -173,7 +173,7 @@ export function JobDetailPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">{jobId}</h1>
           {job && (
-            <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5">
+            <p className="text-xs text-mute mt-1 flex flex-wrap items-center gap-x-1.5">
               {job.agent_label ? <span>{job.agent_label}</span> : null}
               {job.model_label ? (
                 <>
@@ -262,7 +262,7 @@ export function JobDetailPage() {
                         <ModelLabel
                           value={t.model_label || job?.model_label}
                           effort={t.reasoning_effort || job?.reasoning_effort}
-                          className="truncate text-xs"
+                          className="truncate"
                         />
                       </TableCell>
                       <TableCell className="text-body">

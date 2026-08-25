@@ -188,9 +188,9 @@ export function HomePage() {
                     navigate(`/organizations/${encodeURIComponent(o.org_id)}`),
                   cells: [
                     <span key="id" className="inline-flex items-center gap-1.5 min-w-0">
-                      <span className="text-sm">{o.org_id}</span>
+                      <span>{o.org_id}</span>
                       {o.display_name ? (
-                        <span className="text-mute text-xs">
+                        <span className="text-xs text-mute">
                           {o.display_name}
                         </span>
                       ) : null}
@@ -217,7 +217,7 @@ export function HomePage() {
                   onClick: () =>
                     navigate(`/datasets/${encodeDatasetId(d.dataset_id)}`),
                   cells: [
-                    <span key="id" className="text-sm font-medium">
+                    <span key="id" className="font-medium">
                       {packageDisplayTitle(d.dataset_id, d.display_name)}
                     </span>,
                     versionLabel(d),
@@ -246,10 +246,10 @@ export function HomePage() {
                       `/datasets/${encodeDatasetId(t.datasetId)}/tasks/${encodeURIComponent(t.taskId)}`,
                     ),
                   cells: [
-                    <span key="db" className="text-xs">
+                    <span key="db">
                       {t.datasetId}
                     </span>,
-                    <span key="t" className="text-sm">
+                    <span key="t">
                       {t.taskId}
                     </span>,
                   ],
@@ -311,11 +311,11 @@ export function HomePage() {
                     );
                   },
                   cells: [
-                    <span key="id" className="text-xs">
+                    <span key="id">
                       {s.suite_run_id}
                     </span>,
                     datasetRef(s.dataset_id, s.dataset_version) || "—",
-                    <span key="env" className="text-xs">
+                    <span key="env">
                       {environmentFromOverlay(s.job_overlay) || "—"}
                     </span>,
                     s.pass_rate == null

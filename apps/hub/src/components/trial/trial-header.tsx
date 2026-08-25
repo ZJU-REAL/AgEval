@@ -33,7 +33,7 @@ export function TrialHeader({
         <h1 className="text-2xl font-semibold tracking-tight text-ink font-mono truncate">
           {runId}
         </h1>
-        <p className="text-sm text-mute mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        <p className="text-xs text-mute mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
           <span>
             task <span className="text-body font-medium">{taskId}</span>
           </span>
@@ -42,7 +42,7 @@ export function TrialHeader({
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
-              <span className="text-body font-medium text-[13px]">
+              <span className="text-body font-medium">
                 {trial.dataset_ref}
               </span>
             </>
@@ -52,7 +52,7 @@ export function TrialHeader({
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
-              <span className="text-body font-medium text-[13px]">
+              <span className="text-body font-medium">
                 {trial.framework}
               </span>
             </>
@@ -62,7 +62,7 @@ export function TrialHeader({
               <span className="text-mute select-none" aria-hidden>
                 ·
               </span>
-              <span className="text-body font-medium text-[13px]">
+              <span className="text-body font-medium">
                 {trial.environment}
               </span>
             </>
@@ -77,7 +77,7 @@ export function TrialHeader({
                   href={trial.upstream_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-link hover:text-link-deep text-[13px] truncate max-w-[min(48ch,100%)]"
+                  className="text-link hover:text-link-deep truncate max-w-[min(48ch,100%)]"
                 >
                   {trial.upstream_url}
                 </a>

@@ -426,7 +426,7 @@ export function OrganizationDetailPage() {
                 setOrg(updated);
               }}
             />
-            <p className="text-sm text-mute mt-1">@{orgId}</p>
+            <p className="text-xs text-mute mt-1">@{orgId}</p>
             {org ? (
               <div className="mt-3">
                 <DescriptionEditor
@@ -519,7 +519,7 @@ export function OrganizationDetailPage() {
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-sm capitalize text-body">
+                              <TableCell className="capitalize text-body">
                                 {m.role}
                               </TableCell>
                             </TableRow>
@@ -564,16 +564,16 @@ export function OrganizationDetailPage() {
                               tabIndex={0}
                               role="link"
                             >
-                              <TableCell className="text-sm font-medium">
+                              <TableCell className="font-medium">
                                 {packageDisplayTitle(
                                   d.dataset_id,
                                   d.display_name,
                                 )}
                               </TableCell>
-                              <TableCell className="text-xs text-body">
+                              <TableCell className="text-body">
                                 {d.version}
                               </TableCell>
-                              <TableCell className="text-sm text-body">
+                              <TableCell className="text-body">
                                 {d.visibility}
                               </TableCell>
                             </TableRow>
@@ -653,10 +653,10 @@ export function OrganizationDetailPage() {
                               );
                             }}
                           >
-                            <TableCell className="text-xs">
+                            <TableCell>
                               {s.suite_run_id}
                             </TableCell>
-                            <TableCell className="text-xs text-body">
+                            <TableCell className="text-body">
                               {s.dataset_id ? (
                                 <Link
                                   to={`/datasets/${encodeDatasetId(s.dataset_id)}`}
@@ -669,10 +669,10 @@ export function OrganizationDetailPage() {
                                 "—"
                               )}
                             </TableCell>
-                            <TableCell className="text-xs text-mute">
+                            <TableCell className="text-mute">
                               {s.uploaded_by ? `@${s.uploaded_by}` : "—"}
                             </TableCell>
-                            <TableCell className="text-xs text-mute">
+                            <TableCell className="text-mute">
                               {typeof s.created_at === "number"
                                 ? formatDate(
                                     new Date(s.created_at * 1000).toISOString(),
@@ -740,7 +740,7 @@ export function OrganizationDetailPage() {
                               <TableRow key={m.user_id}>
                                 <TableCell>
                                   <div className="min-w-0 leading-tight">
-                                    <div className="text-sm font-medium text-ink truncate">
+                                    <div className="font-medium text-ink truncate">
                                       {m.display_name || m.user_id}
                                       {isSelf ? (
                                         <span className="ml-2 text-xs font-normal text-mute">
@@ -970,20 +970,20 @@ export function OrganizationDetailPage() {
                               k.active === false ? "inactive" : "active";
                             return (
                               <TableRow key={k.key_id}>
-                                <TableCell className="text-xs max-w-[min(40rem,50vw)]">
+                                <TableCell className="max-w-[min(40rem,50vw)]">
                                   <HoverTip content={display}>
                                     <span className="block truncate">
                                       {display}
                                     </span>
                                   </HoverTip>
                                 </TableCell>
-                                <TableCell className="text-sm tabular-nums">
+                                <TableCell className="tabular-nums">
                                   {uses}
                                 </TableCell>
-                                <TableCell className="text-xs text-mute">
+                                <TableCell className="text-mute">
                                   {exp}
                                 </TableCell>
-                                <TableCell className="text-sm capitalize text-body">
+                                <TableCell className="capitalize text-body">
                                   {status}
                                 </TableCell>
                                 <TableCell className="text-right">

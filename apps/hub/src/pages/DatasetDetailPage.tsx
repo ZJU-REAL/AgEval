@@ -428,18 +428,18 @@ export function DatasetDetailPage() {
             }}
           />
           {release ? (
-            <p className="text-sm text-mute mt-1">
+            <p className="text-xs text-mute mt-1">
               <span>{versionLabel(release)}</span> ·{" "}
               {release.visibility}
               {release.org_id ? (
                 <>
                   {" "}
                   · org{" "}
-                  <span className="text-xs text-body">{release.org_id}</span>
+                  <span>{release.org_id}</span>
                 </>
               ) : null}{" "}
               ·{" "}
-              <span className="text-xs">
+              <span>
                 {release.package_digest.slice(0, 19)}…
               </span>
             </p>
@@ -571,16 +571,16 @@ export function DatasetDetailPage() {
                       tabIndex={0}
                       role="link"
                     >
-                      <TableCell className="text-sm font-medium">
+                      <TableCell className="font-medium">
                         {tid}
                       </TableCell>
-                      <TableCell className="text-sm text-body">
+                      <TableCell className="text-body">
                         {row.has_readme ? "yes" : "no"}
                       </TableCell>
-                      <TableCell className="tabular text-sm">
+                      <TableCell className="tabular">
                         {row.job_count ?? 0}
                       </TableCell>
-                      <TableCell className="text-sm tabular">
+                      <TableCell className="tabular">
                         {row.last_status
                           ? `${row.last_status}${
                               row.last_score != null

@@ -59,7 +59,7 @@ export function ScrollTable({
               }}
             >
               {row.cells.map((cell, i) => (
-                <TableCell key={i} className="text-body text-sm">
+                <TableCell key={i} className="text-body">
                   {cell}
                 </TableCell>
               ))}

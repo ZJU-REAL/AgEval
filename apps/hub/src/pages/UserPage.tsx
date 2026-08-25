@@ -142,7 +142,7 @@ export function UserPage() {
                 <span className="truncate">{title}</span>
                 {user.official ? <OfficialMark kind="org" /> : null}
               </h1>
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-mute">
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-mute">
                 <span>@{user.user_id}</span>
                 {githubHref ? (
                   <a
@@ -200,7 +200,7 @@ export function UserPage() {
                             <OfficialMark kind="org" />
                           </Link>
                         </TableCell>
-                        <TableCell className="text-xs text-mute">
+                        <TableCell className="text-mute">
                           @{org.org_id}
                         </TableCell>
                       </TableRow>
@@ -287,7 +287,7 @@ function UserPackageSection({
                       </span>
                     </Link>
                   </TableCell>
-                  <TableCell className="text-xs text-body">
+                  <TableCell className="text-body">
                     {versionLabel(row)}
                   </TableCell>
                 </TableRow>

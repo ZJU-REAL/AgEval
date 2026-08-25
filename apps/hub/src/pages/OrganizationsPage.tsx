@@ -351,10 +351,10 @@ export function OrganizationsPage() {
                           {org.official ? <OfficialMark kind="org" /> : null}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs text-mute">
+                      <TableCell className="text-mute">
                         @{org.org_id}
                       </TableCell>
-                      <TableCell className="text-body capitalize text-sm">
+                      <TableCell className="text-body capitalize">
                         {org.role || "—"}
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-body">

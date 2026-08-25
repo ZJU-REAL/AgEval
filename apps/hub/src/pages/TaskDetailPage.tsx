@@ -478,7 +478,7 @@ export function TaskDetailPage() {
           <h1 className="text-xl font-semibold tracking-tight text-ink">
             {taskId}
           </h1>
-          <p className="text-sm text-mute mt-1">{datasetId}</p>
+          <p className="text-xs text-mute mt-1">{datasetId}</p>
         </div>
         {versions.length > 0 ? (
           <VersionSwitcher
@@ -616,7 +616,7 @@ export function TaskDetailPage() {
                         tabIndex={canOpen ? 0 : undefined}
                         role={canOpen ? "link" : undefined}
                       >
-                        <TableCell className="text-xs">
+                        <TableCell>
                           <HoverTip content={rowTip}>
                           <span className="text-ink">{j.job_id}</span>
                           </HoverTip>
@@ -626,28 +626,28 @@ export function TaskDetailPage() {
                             </span>
                           ) : null}
                         </TableCell>
-                        <TableCell className="text-xs text-body">
+                        <TableCell className="text-body">
                           {j.dataset_ref || "-"}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell>
                           {j.status || "-"}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {formatScore(j.score)}
                         </TableCell>
-                        <TableCell className="text-sm text-body">
+                        <TableCell className="text-body">
                           <AxisLabel value={j.agent_label} />
                         </TableCell>
-                        <TableCell className="text-sm text-xs">
+                        <TableCell>
                           <ModelLabel
                             value={j.model_label}
                             effort={j.reasoning_effort}
                           />
                         </TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell>
                           {j.environment || "-"}
                         </TableCell>
-                        <TableCell className="text-xs text-mute tabular">
+                        <TableCell className="text-mute tabular">
                           {j.created_at != null && j.created_at !== ""
                             ? formatDate(j.created_at)
                             : "-"}

@@ -187,10 +187,10 @@ export function DatasetsPage() {
                       tabIndex={0}
                       role="link"
                     >
-                      <TableCell className="font-medium text-sm">
+                      <TableCell className="font-medium">
                         {packageDisplayTitle(row.dataset_id, row.display_name)}
                       </TableCell>
-                      <TableCell className="text-xs text-mute">
+                      <TableCell className="text-mute">
                         {row.org_id ? (
                           <Link
                             to={`/organizations/${encodeURIComponent(row.org_id)}`}
@@ -203,14 +203,14 @@ export function DatasetsPage() {
                           "—"
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-body">
+                      <TableCell className="text-body">
                         {versionLabel(row)}
                       </TableCell>
                       <TableCell className="text-body">{row.visibility}</TableCell>
                       <TableCell className="text-right tabular-nums text-body">
                         {row.size.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-mute text-xs">
+                      <TableCell className="text-mute">
                         {typeof row.created_at === "number"
                           ? formatDate(
                               new Date(row.created_at * 1000).toISOString(),
