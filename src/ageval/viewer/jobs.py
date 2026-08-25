@@ -21,6 +21,7 @@ from ageval.application.suite import (
 from ageval.application.suite.suite_metrics import attempt_started_at
 from ageval.config.dataset import load_dataset_manifest
 from ageval.config.errors import ConfigError
+from ageval.evidence.identity import dataset_identity, dataset_ref
 from ageval.evidence.locators import (
     default_runs_root,
     default_suite_runs_root,
@@ -32,34 +33,6 @@ from ageval.viewer.browse import commands_for
 
 def _suite_root(dataset_root: Path) -> Path:
     return default_suite_runs_root(dataset_root.expanduser().resolve(strict=False))
-
-
-def dataset_identity(doc: Any, *, location: str) -> tuple[str, str]:
-    """``dataset_id`` + ``dataset_version`` from a finished record. No yaml fallback."""
-    if not isinstance(doc, dict):
-        raise ConfigError(
-            "invalid_schema",
-            "missing dataset_id@version",
-            location=location,
-        )
-    dataset_id = doc.get("dataset_id")
-    dataset_version = doc.get("dataset_version")
-    if (
-        not isinstance(dataset_id, str)
-        or not dataset_id.strip()
-        or not isinstance(dataset_version, str)
-        or not dataset_version.strip()
-    ):
-        raise ConfigError(
-            "invalid_schema",
-            "missing dataset_id@version",
-            location=location,
-        )
-    return dataset_id.strip(), dataset_version.strip()
-
-
-def dataset_ref(dataset_id: str, dataset_version: str) -> str:
-    return f"{dataset_id}@{dataset_version}"
 
 
 def _load_summary(path: Path) -> dict[str, Any]:

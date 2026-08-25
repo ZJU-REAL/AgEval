@@ -98,6 +98,7 @@ def _upload_attempt(
         meta={
             "run_id": run_id,
             "dataset_id": dataset_id,
+            "dataset_version": "0.1.0",
             "task_id": "hello",
             "lock_digest": "sha256:x",
             "status": status,

@@ -8,16 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from ageval.evidence.attempt_record import has_attempt_result, read_attempt_result
+from ageval.evidence.identity import dataset_identity, dataset_ref
 from ageval.evidence.trajectory import TRAJECTORY_FILENAME
 from ageval.evidence.usage import observational_bag, terminal_extra
-from ageval.viewer.jobs import (
-    _duration_label,
-    _environment_kind,
-    _phase_timing,
-    _started_at,
-    dataset_identity,
-    dataset_ref,
-)
+from ageval.viewer.jobs import _duration_label, _environment_kind, _phase_timing, _started_at
 from ageval.viewer.trials.paths import _read_json_object
 from ageval.viewer.trials.usage import (
     _format_latency_ms,

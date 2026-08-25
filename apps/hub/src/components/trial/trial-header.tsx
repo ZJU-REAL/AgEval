@@ -37,6 +37,16 @@ export function TrialHeader({
           <span>
             task <span className="text-body font-medium">{taskId}</span>
           </span>
+          {trial?.dataset_ref ? (
+            <>
+              <span className="text-mute select-none" aria-hidden>
+                ·
+              </span>
+              <span className="text-body font-medium font-mono text-[13px]">
+                {trial.dataset_ref}
+              </span>
+            </>
+          ) : null}
           {trial?.framework ? (
             <>
               <span className="text-mute select-none" aria-hidden>

@@ -23,7 +23,7 @@ import {
 } from "@/lib/api";
 import { getGithubUser, getToken } from "@/lib/auth";
 import { rememberReturnPath } from "@/lib/return-path";
-import { formatDate } from "@/lib/utils";
+import { datasetRef, formatDate } from "@/lib/utils";
 
 type TaskRow = { datasetId: string; taskId: string };
 
@@ -314,7 +314,9 @@ export function HomePage() {
                     <span key="id" className="font-mono text-xs">
                       {s.suite_run_id}
                     </span>,
-                    s.dataset_id || "—",
+                    datasetRef(s.dataset_id, s.dataset_version) ||
+                      s.dataset_id ||
+                      "—",
                     <span key="env" className="font-mono text-xs">
                       {environmentFromOverlay(s.job_overlay) || "—"}
                     </span>,

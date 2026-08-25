@@ -9,7 +9,7 @@ import type {
   TrajectoryStep,
   TreeEntry,
 } from "@/lib/trial-types";
-import { displayAgentName, reasoningEffortFromBinding } from "@/lib/utils";
+import { datasetRef, displayAgentName, reasoningEffortFromBinding } from "@/lib/utils";
 
 import {
   FIRST_TAB_ORDER,
@@ -718,6 +718,13 @@ export function buildTrialMeta(opts: {
         : null,
     note: null,
     extra: observationalBag(summary.extra),
+    dataset_id: typeof lock.dataset_id === "string" ? lock.dataset_id : null,
+    dataset_version:
+      typeof lock.dataset_version === "string" ? lock.dataset_version : null,
+    dataset_ref: datasetRef(
+      typeof lock.dataset_id === "string" ? lock.dataset_id : null,
+      typeof lock.dataset_version === "string" ? lock.dataset_version : null,
+    ),
   };
 }
 

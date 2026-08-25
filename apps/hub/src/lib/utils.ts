@@ -5,6 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Locked package identity. Empty when either side is missing. */
+export function datasetRef(
+  id?: string | null,
+  version?: string | null,
+): string | null {
+  const a = (id || "").trim();
+  const b = (version || "").trim();
+  if (!a || !b) return null;
+  return `${a}@${b}`;
+}
+
 export function formatScore(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "-";
   return Number(value).toFixed(2);

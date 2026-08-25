@@ -178,6 +178,17 @@ def test_result_uploaded_by_and_share_org(
     run_id = "sha256_share_run1"
     run_dir = db / ".ageval" / "runs" / run_id
     run_dir.mkdir(parents=True)
+    (run_dir / "lock.json").write_text(
+        json.dumps(
+            {
+                "task_id": "hello",
+                "dataset_id": "test/publish-min",
+                "dataset_version": "0.1.0",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     (run_dir / "result.json").write_text(
         json.dumps({"task_id": "hello", "status": "PASS"}),
         encoding="utf-8",

@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from ageval.application.suite import ensure_suite_metrics, ensure_suite_task_refs
-from ageval.config.dataset import load_dataset_manifest
 from ageval.config.errors import ConfigError
+from ageval.evidence.identity import dataset_identity
 from ageval.evidence.locators import default_runs_root, resolve_attempt_run_dir
 from ageval.registry.client import RegistryError
 from ageval.registry.resolve import resolve_dataset_root
@@ -51,8 +51,11 @@ def _attempt_job_fields(run_dir: Path, meta: dict[str, Any]) -> dict[str, Any]:
         if isinstance(raw_score, bool) or not isinstance(raw_score, int | float)
         else float(raw_score)
     )
+    dataset_id, dataset_version = dataset_identity(lock, location=str(lock_path))
     return {
         "task_id": task_id,
+        "dataset_id": dataset_id,
+        "dataset_version": dataset_version,
         "environment": environment,
         "agent_label": agent_label,
         "model_label": model_label,
@@ -248,14 +251,6 @@ class ResultsCommands:
                 location="registry",
             )
         root = dataset_root.expanduser().resolve(strict=False)
-        try:
-            manifest = load_dataset_manifest(root)
-            dataset_id = manifest.dataset_id
-        except ConfigError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            raise ConfigError("invalid_package", str(exc), location=str(root)) from exc
-
         run_dir = resolve_attempt_run_dir(root, run_id)
         meta = _read_run_meta(run_dir)
         archive_bytes, blob_digest, size = build_attempt_archive(
@@ -264,6 +259,8 @@ class ResultsCommands:
             keep_vendor_raw=bool(meta.get("keep_vendor_raw")),
         )
         job = _attempt_job_fields(run_dir, meta)
+        dataset_id = str(job["dataset_id"])
+        dataset_version = str(job["dataset_version"])
         task_id = str(job.get("task_id") or "")
         lock_digest = str(meta.get("lock_digest") or meta.get("digest") or "")
         status = str(meta.get("status") or meta.get("verdict") or meta.get("outcome") or "")
@@ -281,6 +278,7 @@ class ResultsCommands:
                 info = client.upload_attempt(
                     run_id=run_id,
                     dataset_id=dataset_id,
+                    dataset_version=dataset_version,
                     task_id=task_id,
                     lock_digest=lock_digest,
                     status=status,
@@ -304,6 +302,7 @@ class ResultsCommands:
                         "already_exists": True,
                         "run_id": run_id,
                         "dataset_id": dataset_id,
+                        "dataset_version": dataset_version,
                         "blob_digest": blob_digest,
                         "size": size,
                         "visibility": "public" if public else "private",
@@ -317,6 +316,7 @@ class ResultsCommands:
             "already_exists": False,
             "run_id": info.get("run_id", run_id),
             "dataset_id": info.get("dataset_id", dataset_id),
+            "dataset_version": info.get("dataset_version", dataset_version),
             "blob_digest": info.get("blob_digest", blob_digest),
             "size": info.get("size", size),
             "visibility": info.get("visibility", "private"),
@@ -411,17 +411,9 @@ class ResultsCommands:
         except (TypeError, ValueError):
             exit_code = 0
 
-        dataset_id = str(summary.get("dataset_id") or "")
-        dataset_version = str(summary.get("dataset_version") or "")
-        if not dataset_id:
-            try:
-                man = load_dataset_manifest(root)
-                dataset_id = man.dataset_id
-                dataset_version = dataset_version or man.version
-            except ConfigError:
-                raise
-            except Exception as exc:  # noqa: BLE001
-                raise ConfigError("invalid_package", str(exc), location=str(root)) from exc
+        dataset_id, dataset_version = dataset_identity(
+            summary, location=str(suite_dir / "summary.json")
+        )
 
         run_ids = _run_ids_from_task_refs(task_refs) if with_attempts else []
         if with_attempts:

@@ -57,6 +57,7 @@ class AttemptResultRow:
     blob_digest: str
     size: int
     created_at: float
+    dataset_version: str = ""
     uploaded_by: str = ""
     # Optional link to parent suite/job (#43); empty on standalone uploads.
     suite_run_id: str = ""
@@ -655,6 +656,7 @@ class MetadataStore(MetadataStoreProtocol):
                     (
                         row.run_id,
                         row.dataset_id,
+                        row.dataset_version,
                         row.task_id,
                         row.lock_digest,
                         row.status,
@@ -1119,9 +1121,7 @@ class MetadataStore(MetadataStoreProtocol):
 
     def count_package_digest_refs(self, package_digest: str) -> int:
         with self._connect() as conn:
-            cur = self._exec(
-                conn, Q.COUNT_PACKAGE_DIGEST_REFS, (package_digest, package_digest)
-            )
+            cur = self._exec(conn, Q.COUNT_PACKAGE_DIGEST_REFS, (package_digest, package_digest))
             return int(cur.fetchone()["n"])
 
     def list_suite_task_refs(self, dataset_id: str) -> list[dict[str, Any]]:
@@ -1296,6 +1296,9 @@ class MetadataStore(MetadataStoreProtocol):
         return AttemptResultRow(
             run_id=r["run_id"],
             dataset_id=r["dataset_id"],
+            dataset_version=str(r["dataset_version"])
+            if "dataset_version" in keys and r["dataset_version"]
+            else "",
             task_id=r["task_id"],
             lock_digest=r["lock_digest"],
             status=r["status"],
@@ -2183,6 +2186,7 @@ def attempt_to_dict(row: AttemptResultRow) -> dict[str, Any]:
     out: dict[str, Any] = {
         "run_id": row.run_id,
         "dataset_id": row.dataset_id,
+        "dataset_version": row.dataset_version,
         "task_id": row.task_id,
         "lock_digest": row.lock_digest,
         "status": row.status,
