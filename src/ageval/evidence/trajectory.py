@@ -61,6 +61,9 @@ def turn_rows(
 
     Row order: user → (thought? → tool_call → observation)* →
     assistant (final) → permission* → terminal.
+
+    ``profile_id`` on every row is the package role
+    (``Agent.session(profile_id)``), not chat ``role``.
     """
     thought_parts: list[str] = []
     assistant_parts: list[str] = []
@@ -70,6 +73,11 @@ def turn_rows(
     tool_states: dict[str, dict[str, Any]] = {}
     session_id: str | None = None
     producer: str | None = None
+    profile_id: str | None = None
+    if isinstance(metadata, dict):
+        raw_pid = metadata.get("profile_id")
+        if isinstance(raw_pid, str) and raw_pid.strip():
+            profile_id = raw_pid.strip()
 
     for ev in events:
         if not isinstance(ev, dict) or ev.get("schema") != EVENT_SCHEMA_VERSION:
@@ -238,6 +246,9 @@ def turn_rows(
             terminal["elapsed_ms"] = elapsed
     lines.append(terminal)
 
+    if profile_id:
+        for row in lines:
+            row["profile_id"] = profile_id
     return lines
 
 

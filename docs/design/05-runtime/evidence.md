@@ -26,6 +26,8 @@ C  trajectory.jsonl  `trajectory_seal` 赢家写（默认引擎折叠）
 
 层 A/B 是 invoke 期的 scratch；层 C 是 Hub / Viewer / `ageval evidence` 的观察记录。轨迹不是分数，也不绑定 PASS。
 
+层 C 按 invoke 序（Attempt 内 `seq` / `turn_index`）写成一个文件。每一行带一等 `profile_id`：这是 package role（`Agent.session(profile_id)`），不是 chat `role`（user/assistant）。同一 invoke 的 user / tool / assistant / terminal 共用该值。Hub / Viewer 按文件序展示，用 `profile_id` 区分是谁在说话，**不**按 role 重分组。旧 jsonl 若只有 `terminal.metadata.profile_id`，读侧按 `turn_index` 回填到该轮其它行。
+
 ## 层 C `terminal.usage`
 
 对齐 ATIF 的拆法：一等 token/cost 在 turn 上，厂商剩余进袋子。密封后的 `terminal` 行：

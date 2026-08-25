@@ -919,3 +919,88 @@ def test_terminal_prefers_metadata_elapsed_ms_over_latency_ms(tmp_path: Path) ->
     )
     terminal = next(x for x in _read_lines(path) if x["type"] == "terminal")
     assert terminal["elapsed_ms"] == 50.0
+
+
+def test_turn_rows_stamps_profile_id_on_every_row() -> None:
+    events = (
+        {
+            "schema": EVENT_SCHEMA_VERSION,
+            "kind": "text",
+            "channel": "assistant",
+            "text": "hi",
+            "source": "openai-http",
+        },
+    )
+    rows = turn_rows(
+        prompt="hello",
+        events=events,
+        final_text="hi",
+        structured=None,
+        usage=None,
+        ok=True,
+        error=None,
+        metadata={"profile_id": "user", "turn_index": 1, "executor_kind": "openai-http"},
+    )
+    assert [r["type"] for r in rows] == ["turn", "turn", "terminal"]
+    assert all(r.get("profile_id") == "user" for r in rows)
+    assert rows[0]["role"] == "user"
+    assert rows[1]["role"] == "assistant"
+
+
+def test_write_attempt_keeps_invoke_order_across_profiles(tmp_path: Path) -> None:
+    user_turn = turn_rows(
+        prompt="customer",
+        events=(
+            {
+                "schema": EVENT_SCHEMA_VERSION,
+                "kind": "text",
+                "channel": "assistant",
+                "text": "need a refund",
+                "source": "openai-http",
+            },
+        ),
+        final_text="need a refund",
+        structured=None,
+        usage=None,
+        ok=True,
+        error=None,
+        metadata={"profile_id": "user", "turn_index": 1},
+    )
+    svc_turn = turn_rows(
+        prompt="agent",
+        events=(
+            {
+                "schema": EVENT_SCHEMA_VERSION,
+                "kind": "text",
+                "channel": "assistant",
+                "text": "I can help",
+                "source": "openai-http",
+            },
+        ),
+        final_text="I can help",
+        structured=None,
+        usage=None,
+        ok=True,
+        error=None,
+        metadata={"profile_id": "service", "turn_index": 2},
+    )
+    path = write_attempt_trajectory(tmp_path / "run", [user_turn, svc_turn])
+    lines = _read_lines(path)
+    assert [x["type"] for x in lines] == [
+        "turn",
+        "turn",
+        "terminal",
+        "turn",
+        "turn",
+        "terminal",
+    ]
+    assert [x["profile_id"] for x in lines] == [
+        "user",
+        "user",
+        "user",
+        "service",
+        "service",
+        "service",
+    ]
+    assert lines[2]["turn_index"] == 1
+    assert lines[5]["turn_index"] == 2
