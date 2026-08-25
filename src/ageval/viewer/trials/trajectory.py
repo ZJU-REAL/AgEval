@@ -67,9 +67,11 @@ def trial_trajectory(
         )
         if label is not None:
             label["step_count"] = int(label["step_count"]) + 1
-        profile_id = (
+        parsed_pid = entry.get("profile_id") if isinstance(entry.get("profile_id"), str) else None
+        meta_pid = (
             row_meta.get("profile_id") if isinstance(row_meta.get("profile_id"), str) else None
         )
+        profile_id = parsed_pid or meta_pid or (label or {}).get("profile_id")
         model = row_meta.get("model") if isinstance(row_meta.get("model"), str) else None
         elapsed = entry.get("elapsed_ms")
         if elapsed is None:
@@ -83,11 +85,12 @@ def trial_trajectory(
                 "invocation": (label or {}).get("dirname"),
                 "invocation_id": row_meta.get("invocation_id")
                 or (label or {}).get("invocation_id"),
-                "profile_id": profile_id or (label or {}).get("profile_id"),
+                "profile_id": profile_id,
                 "model": model or (label or {}).get("model"),
             }
         )
 
+    _backfill_profile_ids(steps)
     return {
         "ok": True,
         "run_id": rid,
@@ -208,6 +211,11 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
                         "content": content,
                         "turn_index": obj.get("turn_index"),
                         "session_id": obj.get("session_id"),
+                        "profile_id": (
+                            obj.get("profile_id")
+                            if isinstance(obj.get("profile_id"), str)
+                            else None
+                        ),
                         "source": obj.get("source"),
                         "stop_reason": obj.get("stop_reason"),
                         "ok": obj.get("ok"),
@@ -249,3 +257,31 @@ def _parse_trajectory_jsonl(path: Path) -> list[dict[str, Any]]:
     except OSError:
         return steps
     return steps
+
+
+def _backfill_profile_ids(steps: list[dict[str, Any]]) -> None:
+    """Copy package-role profile_id onto rows that only the terminal carried.
+
+    Old sealed jsonl stamped profile_id on ``terminal.metadata`` only. Same
+    ``turn_index`` is one invoke; later rows in that turn (the terminal) win.
+    """
+    by_turn: dict[int, str] = {}
+    for step in steps:
+        ti = step.get("turn_index")
+        if not isinstance(ti, int):
+            continue
+        pid = step.get("profile_id")
+        if not isinstance(pid, str) or not pid:
+            meta = step.get("metadata")
+            raw = meta.get("profile_id") if isinstance(meta, dict) else None
+            pid = raw if isinstance(raw, str) and raw else None
+        if isinstance(pid, str) and pid:
+            by_turn[ti] = pid
+    for step in steps:
+        existing = step.get("profile_id")
+        if isinstance(existing, str) and existing:
+            continue
+        ti = step.get("turn_index")
+        pid = by_turn.get(ti) if isinstance(ti, int) else None
+        if pid:
+            step["profile_id"] = pid

@@ -728,6 +728,29 @@ export function buildTrialMeta(opts: {
   };
 }
 
+/** Copy package-role profile_id onto rows that only the terminal carried. */
+export function backfillStepProfileIds(steps: TrajectoryStep[]): TrajectoryStep[] {
+  const byTurn = new Map<number, string>();
+  for (const step of steps) {
+    const ti = step.turn_index;
+    if (typeof ti !== "number") continue;
+    let pid = typeof step.profile_id === "string" && step.profile_id ? step.profile_id : "";
+    if (!pid) {
+      const meta = step.metadata;
+      const raw = meta && typeof meta.profile_id === "string" ? meta.profile_id : "";
+      if (raw) pid = raw;
+    }
+    if (pid) byTurn.set(ti, pid);
+  }
+  for (const step of steps) {
+    if (typeof step.profile_id === "string" && step.profile_id) continue;
+    const ti = step.turn_index;
+    const pid = typeof ti === "number" ? byTurn.get(ti) : undefined;
+    if (pid) step.profile_id = pid;
+  }
+  return steps;
+}
+
 /** Parse one trajectory.jsonl body into viewer steps. */
 export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
   const steps: TrajectoryStep[] = [];
@@ -837,7 +860,7 @@ export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
       policy: typeof rec.policy === "string" ? rec.policy : null,
     });
   }
-  return steps;
+  return backfillStepProfileIds(steps);
 }
 
 export function invDirFromTrajPath(rel: string): string | null {

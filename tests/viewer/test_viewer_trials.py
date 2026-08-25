@@ -883,3 +883,75 @@ def test_old_usage_extra_alias_and_summary_extra(tmp_path: Path) -> None:
     terminal = next(s for s in traj["steps"] if s.get("type") == "terminal")
     assert terminal.get("extra") == {"reasoning_tokens": 9}
     assert "extra" in (terminal.get("usage") or {})
+
+
+def test_trajectory_backfills_profile_id_by_turn_without_regrouping(
+    tmp_path: Path,
+) -> None:
+    """Slim archives only stamp profile_id on terminal.metadata; keep file order."""
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    root = db / ".ageval" / "runs" / "run_alpha_1"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "lock.json").write_text(
+        json.dumps(
+            {
+                "task_id": "alpha",
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
+                "profiles": [
+                    {"id": "user", "executor": "openai-http"},
+                    {"id": "service", "executor": "openai-http"},
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "result.json").write_text(json.dumps({"status": "PASS", "score": 1.0}) + "\n")
+    rows = [
+        {"type": "turn", "role": "user", "content": "u-prompt", "turn_index": 1},
+        {"type": "turn", "role": "assistant", "content": "need help", "turn_index": 1},
+        {
+            "type": "terminal",
+            "ok": True,
+            "turn_index": 1,
+            "metadata": {"profile_id": "user", "executor_kind": "openai-http"},
+        },
+        {"type": "turn", "role": "user", "content": "s-prompt", "turn_index": 2},
+        {"type": "tool_call", "function_name": "get_user", "turn_index": 2},
+        {"type": "observation", "content": "{}", "turn_index": 2},
+        {"type": "turn", "role": "assistant", "content": "I can help", "turn_index": 2},
+        {
+            "type": "terminal",
+            "ok": True,
+            "turn_index": 2,
+            "metadata": {"profile_id": "service", "executor_kind": "openai-http"},
+        },
+    ]
+    (root / "trajectory.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in rows) + "\n", encoding="utf-8"
+    )
+
+    traj = trials.trial_trajectory(db, job_id, "alpha", "run_alpha_1")
+    steps = traj["steps"]
+    assert [s.get("type") for s in steps] == [
+        "turn",
+        "turn",
+        "terminal",
+        "turn",
+        "tool_call",
+        "observation",
+        "turn",
+        "terminal",
+    ]
+    assert [s.get("profile_id") for s in steps] == [
+        "user",
+        "user",
+        "user",
+        "service",
+        "service",
+        "service",
+        "service",
+        "service",
+    ]
