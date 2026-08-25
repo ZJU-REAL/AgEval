@@ -68,8 +68,8 @@ modal; the list only shows a prefix. Members join from **Organizations → Join*
 | Path | Page |
 | --- | --- |
 | `/home` | Personal home (uploaded jobs, orgs, maintainable datasets/tasks, uploaded plugins) |
-| `/datasets` | Dataset list (**Your organizations** / **Explore** + search on one row) |
-| `/datasets/:id` | README · Tasks · Shared · Overlays (when declared) · Leaderboard. Org owner: visibility / delete version / release draft |
+| `/datasets` | Dataset list (**Explore** / **Your organizations**, Explore default + search on one row) |
+| `/datasets/:id` | README (loads first) · Tasks (paginated) · Shared · Overlays (when declared) · Leaderboard. Org owner: visibility / delete version / release draft |
 | `/datasets/:id?tab=leaderboard&demo=1` | Leaderboard with mock pass@k rows (local smoke only) |
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs (row opens detail when uploaded) |
 | `/plugins` | **Plugin marketplace** list (`package_kind=plugin`) |

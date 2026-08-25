@@ -101,6 +101,36 @@ UPDATE_ORG_DISPLAY_AND_DESCRIPTION = (
     "UPDATE organizations SET display_name=?, description=? WHERE org_id=?"
 )
 
+UPSERT_PACKAGE_TASK_SUMMARY = """
+INSERT INTO package_task_summaries(
+    package_digest, has_shared, tasks_json, overlay_prefixes_json, created_at
+)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(package_digest) DO UPDATE SET
+    has_shared=excluded.has_shared,
+    tasks_json=excluded.tasks_json,
+    overlay_prefixes_json=excluded.overlay_prefixes_json
+"""
+
+SELECT_PACKAGE_TASK_SUMMARY = (
+    "SELECT has_shared, tasks_json, overlay_prefixes_json "
+    "FROM package_task_summaries WHERE package_digest=?"
+)
+
+DELETE_PACKAGE_TASK_SUMMARY = "DELETE FROM package_task_summaries WHERE package_digest=?"
+
+COUNT_PACKAGE_DIGEST_REFS = """
+SELECT (
+    (SELECT COUNT(*) FROM releases WHERE package_digest=?)
+    + (SELECT COUNT(*) FROM dataset_drafts WHERE package_digest=?)
+) AS n
+"""
+
+SELECT_SUITE_TASK_REFS = """
+SELECT suite_run_id, visibility, uploaded_by, created_at, tasks_json
+FROM suite_results WHERE dataset_id=?
+"""
+
 UPSERT_PACKAGE_DISPLAY_NAME = """
 INSERT INTO package_display_names(dataset_id, display_name, updated_at)
 VALUES (?, ?, ?)
@@ -326,6 +356,15 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_resource_requests_inbox
     ON resource_requests(owner_org_id, status, created_at)
     """,
+    """
+    CREATE TABLE IF NOT EXISTS package_task_summaries (
+        package_digest TEXT PRIMARY KEY,
+        has_shared INTEGER NOT NULL,
+        tasks_json TEXT NOT NULL,
+        overlay_prefixes_json TEXT,
+        created_at REAL NOT NULL
+    )
+    """,
 )
 
 # ---- dataset draft / ACL ---------------------------------------------------
@@ -398,6 +437,7 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("releases", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
     ("organizations", "description", "TEXT NOT NULL DEFAULT ''"),
     ("user_profiles", "description", "TEXT NOT NULL DEFAULT ''"),
+    ("package_task_summaries", "overlay_prefixes_json", "TEXT"),
 )
 
 # Do not bind created_at. Pre-unification Postgres token tables are

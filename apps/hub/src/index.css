@@ -154,13 +154,13 @@
   }
 
   :root {
-    /* Phase/token ramp for timing bars: IKB lead + neutral follow (docs/design/13). */
-    --viewer-phase-1: var(--viewer-link);
-    --viewer-phase-2: var(--viewer-link-deep);
-    --viewer-phase-3: var(--viewer-ink);
-    --viewer-phase-4: var(--viewer-body);
-    --viewer-phase-5: var(--viewer-mute);
-    --viewer-phase-6: var(--viewer-hairline-strong);
+    /* Phase/token ramp: cool ink grayscale (docs/design/13). IKB is links/CTA only. */
+    --viewer-phase-1: color-mix(in srgb, var(--viewer-ink) 55%, var(--viewer-mute));
+    --viewer-phase-2: var(--viewer-body);
+    --viewer-phase-3: var(--viewer-mute);
+    --viewer-phase-4: var(--viewer-hairline-strong);
+    --viewer-phase-5: var(--viewer-hairline);
+    --viewer-phase-6: var(--viewer-canvas-soft-2);
   }
 
   html,
@@ -176,6 +176,14 @@
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  a:not([class]) {
+    color: var(--color-link);
+  }
+
+  a:not([class]):hover {
+    color: var(--color-link-deep);
   }
 
   ::selection {

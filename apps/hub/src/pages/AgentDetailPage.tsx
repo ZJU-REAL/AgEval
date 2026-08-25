@@ -306,7 +306,7 @@ export function AgentDetailPage() {
                     org{" "}
                     <Link
                       to={`/organizations/${encodeURIComponent(release.org_id)}`}
-                      className="font-mono text-xs text-body hover:text-ink"
+                      className="font-mono text-xs text-link hover:text-link-deep"
                     >
                       {release.org_id}
                     </Link>
@@ -358,7 +358,7 @@ export function AgentDetailPage() {
           <p className="text-error font-medium">Could not load agent</p>
           <p className="mt-1 font-mono text-xs text-body">{error}</p>
           <p className="mt-3">
-            <Link to="/agents" className="underline underline-offset-2 text-body">
+            <Link to="/agents" className="text-link hover:text-link-deep underline underline-offset-2">
               ← Back to Agent hub
             </Link>
           </p>
@@ -429,7 +429,7 @@ export function AgentDetailPage() {
                                 <Link
                                   to={`/datasets/${encodeDatasetId(row.dataset_id)}?tab=leaderboard&suite=${encodeURIComponent(row.suite_run_id)}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="hover:underline underline-offset-2"
+                                  className="text-link hover:text-link-deep hover:underline underline-offset-2"
                                 >
                                   {row.dataset_id}
                                 </Link>

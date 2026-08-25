@@ -647,6 +647,54 @@ export async function listPackageFiles(
   return requestJson(`/v1/packages/${id}/by-digest/${dig}/files`, { token });
 }
 
+export const TASK_PAGE_SIZE = 20;
+
+export type PackageTaskRow = {
+  task_id: string;
+  has_readme: boolean;
+  job_count?: number;
+  last_status?: string | null;
+  last_score?: number | null;
+};
+
+export type PackageTaskPage = {
+  items: PackageTaskRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_shared: boolean;
+  overlay_prefixes: string[];
+};
+
+export async function listPackageTasks(
+  datasetId: string,
+  digest: string,
+  token: string | null,
+  opts?: { limit?: number; offset?: number },
+): Promise<PackageTaskPage> {
+  const id = packageIdPath(datasetId);
+  const dig = digestPath(digest);
+  const q = new URLSearchParams();
+  q.set("limit", String(opts?.limit ?? TASK_PAGE_SIZE));
+  q.set("offset", String(opts?.offset ?? 0));
+  const data = await requestJson<Partial<PackageTaskPage>>(
+    `/v1/packages/${id}/by-digest/${dig}/tasks?${q.toString()}`,
+    { token },
+  );
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    total: typeof data.total === "number" ? data.total : 0,
+    limit: typeof data.limit === "number" ? data.limit : TASK_PAGE_SIZE,
+    offset: typeof data.offset === "number" ? data.offset : 0,
+    has_shared: Boolean(data.has_shared),
+    overlay_prefixes: Array.isArray(data.overlay_prefixes)
+      ? data.overlay_prefixes.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : [],
+  };
+}
+
 export async function listBuiltinPackageFiles(
   datasetId: string,
   token: string | null,
@@ -686,12 +734,21 @@ export async function getBuiltinPackageFile(
 export async function listSuites(
   datasetId: string | null,
   token: string | null,
-  opts?: { board?: boolean; uploadedBy?: string },
+  opts?: {
+    board?: boolean;
+    uploadedBy?: string;
+    taskId?: string;
+    limit?: number;
+    offset?: number;
+  },
 ): Promise<SuiteRow[]> {
   const q = new URLSearchParams();
   if (datasetId) q.set("dataset_id", datasetId);
   if (opts?.board) q.set("board", "1");
   if (opts?.uploadedBy) q.set("uploaded_by", opts.uploadedBy);
+  if (opts?.taskId) q.set("task_id", opts.taskId);
+  if (opts?.limit != null) q.set("limit", String(opts.limit));
+  if (opts?.offset != null) q.set("offset", String(opts.offset));
   const path = q.toString()
     ? `/v1/results/suites?${q.toString()}`
     : "/v1/results/suites";
@@ -1076,6 +1133,17 @@ export async function listInbox(
 ): Promise<ResourceRequest[]> {
   const data = await requestJson<{ items?: ResourceRequest[] }>(
     "/v1/requests?inbox=1",
+    { token },
+  );
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function listSuiteRequests(
+  suiteRunId: string,
+  token: string | null,
+): Promise<ResourceRequest[]> {
+  const data = await requestJson<{ items?: ResourceRequest[] }>(
+    `/v1/requests?suite_run_id=${encodeURIComponent(suiteRunId)}`,
     { token },
   );
   return Array.isArray(data.items) ? data.items : [];

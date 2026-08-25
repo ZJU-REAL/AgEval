@@ -15,11 +15,13 @@ from services.registry.dataset import (
     BOUND_RELEASE,
     BOUND_UNKNOWN,
     is_draft_version,
+    parse_task_refs,
     suite_is_complete,
     task_ids_from_file_paths,
     task_set_digest,
 )
 from services.registry.errors import RegistryAppError
+from services.registry.paging import page_slice
 from services.registry.official import official_dataset_ids
 from services.registry.runtime_service import attach_agent_refs
 from services.registry.store import (
@@ -607,6 +609,9 @@ class ResultService:
         dataset_id: str | None,
         board: bool = False,
         uploaded_by: str | None = None,
+        task_id: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> dict[str, Any]:
         rows = self.meta.list_suites(dataset_id=dataset_id or None, include_private=True)
         visible = [r for r in rows if self._visible_suite(r, auth)]
@@ -623,19 +628,35 @@ class ResultService:
                 for r in visible
                 if r.complete and r.bound_kind == BOUND_RELEASE and r.board_listed
             ]
-        attempt_ids = self._suite_visible_attempt_ids(visible, auth=auth)
+        want_task = (task_id or "").strip()
+        if want_task:
+            visible = [
+                r
+                for r in visible
+                if any(
+                    str(ref.get("task_id") or "").strip() == want_task
+                    for ref in parse_task_refs(r.tasks_json)
+                )
+            ]
+        page, total = page_slice(visible, limit=limit, offset=offset)
+        attempt_ids = self._suite_visible_attempt_ids(page, auth=auth)
         official = official_dataset_ids(self.meta.list_releases(include_private=True))
-        consents = self.meta.list_agent_consents_for_suites([r.suite_run_id for r in visible])
-        return {
+        consents = self.meta.list_agent_consents_for_suites([r.suite_run_id for r in page])
+        payload: dict[str, Any] = {
             "items": [
                 attach_agent_refs(
                     suite_to_dict(r, attempt_content_ids=attempt_ids),
                     official,
                     consented=consents.get(r.suite_run_id) or set(),
                 )
-                for r in visible
+                for r in page
             ]
         }
+        if limit is not None:
+            payload["total"] = total
+            payload["limit"] = limit
+            payload["offset"] = offset
+        return payload
 
     def serve_suite_meta(self, *, suite_run_id: str, auth: TokenInfo) -> dict[str, Any]:
         row = self._require_visible_suite(suite_run_id, auth)

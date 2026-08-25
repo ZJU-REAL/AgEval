@@ -5,7 +5,7 @@ description: Remote Dataset catalog, organizations, job results, and leaderboard
 
 Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and run results.
 
-- Dataset list (**Your organizations** / **Explore**), README, task file preview  
+- Dataset list (**Explore** / **Your organizations**, Explore default), README, task file preview  
 - When the package has root `shared/`: Dataset **Shared** tab; Task **Files** header **Local | Shared** (Local default; Attempt evidence does not switch)  
 - When profiles declare `overlays:`: Dataset **Overlays** tab; Task **Files** adds an Overlays scope; Leaderboard **profiles** expand shows a Job tree (Dataset package) and/or an Agent tree (`agent_ref` package). One source hides the extra tab; none hides the tree. Not the suite archive.  
 - Large file preview: oversize members return a truncated head with a `truncated` flag (not full download)  
@@ -13,13 +13,13 @@ Hub (`apps/hub`) is the web UI on top of Registry—browse shared packages and r
 - **Org settings**: invite keys (shown once on create); owners add members by GitHub login, change role, remove, or transfer ownership; leave or dissolve  
 - Task **Jobs**: open a row when run artifacts were uploaded (layout close to the local Viewer, including trajectory)  
 - Dataset version switcher: entitled users see **draft (current)**; everyone else switches among published releases. Org owners can flip the current version public/private, delete it, or promote a draft to a release  
-- Tasks table: README present, recent job count, last score/status  
-- Leaderboard: **Public** (default) lists complete, release-bound suite rows that the Dataset org owner approved for listing. `public` is not the same as listed. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). The uploader gets a **share** tab to flip visibility, share with an org/user, attach a published `agent_ref`, or request listing / appearance. Task Jobs stay as they are.  
+- Tasks table: README present, recent job count, last score/status; paginated (`?tab=tasks&offset=`). Dataset and task README load without waiting for the full package file tree.  
+- Leaderboard: **Public** (default) lists complete, release-bound suite rows that the Dataset org owner approved for listing. `public` is not the same as listed. **Internal** lists caller-visible incomplete or draft-bound runs in the same table. Sortable headers. Observational metrics, not suite PASS. Expand a row for **profiles** / **plugin** / **jobs** tabs (secret-free YAML and rehydrate commands; plugins open the marketplace). The uploader opens Share / Delete from a settings menu: Share is a modal for visibility, org/user access, and one Attach control for a published `agent_ref` (direct write if you own the agent org, otherwise Inbox; an inflight request shows status). Task Jobs stay as they are.  
 - Plugin / Agent marketplace uses **cards** (description, tags, download and favorite counts on one row); datasets, jobs, members, and suites stay hairline tables  
 - Plugin detail: exclusive / chain **declared-slot** timeline; expand jumps into the in-package file preview. The browser never executes plugin code  
 - Official orgs, members of those orgs, and plugins from those orgs show a verified check  
 - Public user page: identity, GitHub link (from login), optional bio (self-PATCH `description`). Orgs may have a `description`. Private memberships stay hidden  
-- Plugin / Agent cards and detail show download and star counts on one row. Downloads increment on a successful package content GET; stars are one row per signed-in user per plugin/agent, toggled only from the detail header. Dataset tables show neither. List tabs are the list query: default orgs (`orgs=1`), Explore `?visibility=public`, Stars `?favorited=1` (plugins/agents only). Org detail uses `?tab=settings`  
+- Plugin / Agent cards and detail show download and star counts on one row. Downloads increment on a successful package content GET; stars are one row per signed-in user per plugin/agent, toggled only from the detail header. Dataset tables show neither. List tabs are the list query: Explore default (no params or `?visibility=public`), Your organizations `?orgs=1`, Stars `?favorited=1` (plugins/agents only). Org detail uses `?tab=settings`  
 - Org, dataset, plugin, and agent owners can edit the display name (org title, or the leaf after `org/`). The stored package id prefix does not change  
 - Signed-in **Home**: jobs you uploaded, orgs, datasets/tasks you can maintain, plugins and agents you uploaded (same official mark and title as the marketplace). Signed-out visitors go to sign-in. No publish / upload / release buttons  
 - List search sits with the scope tabs; file-tree pane height is stable; trajectory tool-call rows collapse; steps follow sealed file order; a step shows duration only when `elapsed_ms` is on the sealed row  
@@ -47,7 +47,7 @@ Or `docker compose -f services/registry/docker-compose.yml up -d` for Hub at `ht
 | Path | Page |
 | --- | --- |
 | `/home` | Personal home (signed in) |
-| `/datasets` | List (Your organizations / Explore) |
+| `/datasets` | List (Explore / Your organizations, Explore default) |
 | `/datasets/:id` | README · Tasks · Shared (when `shared/` present) · Overlays (when `overlays:` is declared) · Leaderboard |
 | `/datasets/:id/tasks/:task` | README · Files (Local \| Shared \| Overlays) · Jobs |
 | `/plugins` | Plugin marketplace |

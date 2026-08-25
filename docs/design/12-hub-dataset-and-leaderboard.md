@@ -32,15 +32,31 @@ Inbox：Registry 一等 request 行（`pending` / `approved` / `rejected`）。�
 - `GET /v1/packages?orgs=1`：只列调用方所属组织发布的包。无登录用户 id 则空列表。
 - `GET /v1/packages?visibility=public`：只列公开包（Explore）。
 
-Hub 列表 tab **就是**这些查询参数（不要再叠一层 `scope=`）：
+Hub 列表 tab **就是**这些查询参数（不要再叠一层 `scope=`）。默认 Explore：
 
 | URL | Tab |
 | --- | --- |
-| `/plugins`、`/agents`、`/datasets`（无额外参数） | Your organizations（请求带 `orgs=1`） |
-| `?visibility=public` | Explore |
+| `/plugins`、`/agents`、`/datasets`（无额外参数或 `?visibility=public`） | Explore |
+| `?orgs=1` | Your organizations（请求带 `orgs=1`） |
 | `?favorited=1` | Stars（仅 `/plugins`、`/agents`） |
 
 卡片把 `favorite_count` 与 `download_count` **同一行**展示（star 只是计数）。详情页头右侧用 icon 按钮 star/unstar；未登录点它去登录页。组织详情用 `?tab=settings`（默认 overview 省略 `tab`）。
+
+## Dataset Tasks / Jobs 分页
+
+Hub 表分页**就是**查询参数（不要再叠 `page=` 之外的 scope 层）。默认 `limit=20`，上限 `100`。`offset` 默认 `0`。响应带 `items`、`total`、`limit`、`offset`。
+
+| URL / 请求 | 含义 |
+| --- | --- |
+| Dataset `?tab=tasks` | 第一页 Tasks |
+| Dataset `?tab=tasks&offset=20` | 下一页；Hub 请求 `GET /v1/packages/{id}/by-digest/{dig}/tasks?limit=20&offset=20` |
+| Task Jobs `?tab=jobs&offset=` | 该 task 的 suite/attempt 行 |
+
+`GET /v1/packages/{id}/by-digest/{dig}/tasks` 读 publish 时按 `package_digest` 落下的任务摘要（`task_id`、`has_readme`），并返回 `has_shared` 与 `overlay_prefixes`。`overlay_prefixes` 来自包内全部 overlay 源文档（根 `profiles.yaml` 以及 `tasks/` 之外、basename 为 `profiles` / `profiles.*` 的 yaml），不是只读根文件。分页 item 另带观测字段 `job_count` / `last_status` / `last_score`（调用方可见 suite 的 `task_refs`，不是 PASS）。不把整棵文件树交给浏览器，也不为 Tasks 表拉全量 suite。未知查询键拒绝。缺失摘要时才回退 inflate 一次并写回。
+
+`GET /v1/results/suites` 增加可选 `task_id`、`limit`、`offset`。省略 `limit` 时返回全量（兼容现有客户端）。`task_id` 按 suite `task_refs` 过滤。
+
+Hub Dataset / Task 详情：README 不进整包文件树闸门。默认 README tab 只拉版本元数据与对应 `README.md`；Tasks / Files / Jobs / Leaderboard 按 tab 懒加载。
 
 ## 组织成员顺序
 

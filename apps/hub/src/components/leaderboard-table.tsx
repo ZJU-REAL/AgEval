@@ -216,7 +216,7 @@ function defaultCompare(a: SuiteRow, b: SuiteRow): number {
  * Column headers are clickable (Viewer Jobs pattern). pass@k / pass^k sort by
  * primary display k (max k_values / n_attempts); not job identity.
  */
-type ExpandTab = "profiles" | "plugin" | "jobs" | "share";
+type ExpandTab = "profiles" | "plugin" | "jobs";
 
 function SuiteJobsList({
   suite,
@@ -553,7 +553,7 @@ export function LeaderboardTable({
                               key={ref.package_id}
                               to={`/agents/${encodeDatasetId(ref.package_id)}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex max-w-full text-sm hover:text-ink hover:underline underline-offset-2"
+                              className="inline-flex max-w-full text-sm text-link hover:text-link-deep hover:underline underline-offset-2"
                             >
                               <TruncateTip
                                 text={ref.package_id}
@@ -688,6 +688,8 @@ export function LeaderboardTable({
                               .
                             </p>
                           ) : null}
+                          <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
                           <UnderlineTabs
                             size="sm"
                             ariaLabel="Suite details"
@@ -697,15 +699,34 @@ export function LeaderboardTable({
                               { id: "profiles" as const, label: "profiles" },
                               { id: "plugin" as const, label: "plugin" },
                               { id: "jobs" as const, label: "jobs" },
-                              ...(((s.uploaded_by || "").toLowerCase() ===
-                              selfLogin
-                                ? ([{ id: "share" as const, label: "share" }] as const)
-                                : []) as ReadonlyArray<{
-                                id: ExpandTab;
-                                label: string;
-                              }>),
                             ]}
                           />
+                          </div>
+                          {(s.uploaded_by || "").toLowerCase() === selfLogin ? (
+                            <ResultOwnerOps
+                              kind="suite"
+                              resultId={s.suite_run_id}
+                              visibility={s.visibility}
+                              complete={s.complete}
+                              boundKind={s.bound_kind}
+                              boardListed={s.board_listed}
+                              canManage
+                              token={getToken()}
+                              onVisibility={(next) =>
+                                onSuiteUpdated?.(s.suite_run_id, {
+                                  visibility: next,
+                                })
+                              }
+                              onAttached={(row) =>
+                                onSuiteUpdated?.(s.suite_run_id, row)
+                              }
+                              onDeleted={() => {
+                                setOpenId(null);
+                                onSuiteDeleted?.(s.suite_run_id);
+                              }}
+                            />
+                          ) : null}
+                          </div>
                           {expandTab === "profiles" ? (
                             <>
                               <CodeBlock
@@ -744,7 +765,7 @@ export function LeaderboardTable({
                                         to={`/plugins/${encodeDatasetId(p.plugin_id)}`}
                                         className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-row-hover"
                                       >
-                                        <span className="inline-flex min-w-0 items-center gap-1.5 font-mono text-xs text-ink">
+                                        <span className="inline-flex min-w-0 items-center gap-1.5 font-mono text-xs text-link hover:text-link-deep">
                                           {p.plugin_id}
                                           {bundled ? <BuiltinMark /> : null}
                                         </span>
@@ -762,29 +783,6 @@ export function LeaderboardTable({
                                 </ul>
                               )}
                             </div>
-                          ) : expandTab === "share" ? (
-                            <ResultOwnerOps
-                              kind="suite"
-                              resultId={s.suite_run_id}
-                              visibility={s.visibility}
-                              complete={s.complete}
-                              boundKind={s.bound_kind}
-                              boardListed={s.board_listed}
-                              canManage
-                              token={getToken()}
-                              onVisibility={(next) =>
-                                onSuiteUpdated?.(s.suite_run_id, {
-                                  visibility: next,
-                                })
-                              }
-                              onAttached={(row) =>
-                                onSuiteUpdated?.(s.suite_run_id, row)
-                              }
-                              onDeleted={() => {
-                                setOpenId(null);
-                                onSuiteDeleted?.(s.suite_run_id);
-                              }}
-                            />
                           ) : (
                             <SuiteJobsList
                               suite={s}

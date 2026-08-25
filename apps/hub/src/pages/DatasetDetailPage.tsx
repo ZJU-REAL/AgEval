@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { CatalogHead } from "@/components/page-head";
+import { ListPager } from "@/components/list-pager";
 import { UnderlineTabs } from "@/components/underline-tabs";
 import { CommandStrip } from "@/components/command-strip";
 import { DisplayNameEditor } from "@/components/display-name-editor";
@@ -27,23 +28,24 @@ import {
   getOrg,
   getPackageByDigest,
   getPackageFile,
-  hasSharedFiles,
   isPluginPackage,
   listPackageFiles,
+  listPackageTasks,
   listPackageVersions,
   listSuites,
   pickPackageVersion,
   splitPackageId,
   updatePackageDisplayName,
   versionLabel,
+  TASK_PAGE_SIZE,
   type FileItem,
   type PackageRelease,
+  type PackageTaskRow,
   type SuiteRow,
   RegistryHttpError,
-  taskIdsFromFiles,
 } from "@/lib/api";
 import { getGithubUser, getToken } from "@/lib/auth";
-import { buildNestedTree, overlayPathsFromProfilesYaml } from "@/lib/file-tree";
+import { buildNestedTree } from "@/lib/file-tree";
 import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
 import { formatScore } from "@/lib/utils";
 
@@ -52,43 +54,6 @@ type BoardView = "public" | "internal";
 
 function isInternalSuite(suite: SuiteRow): boolean {
   return suite.complete !== true || suite.bound_kind !== "release";
-}
-
-function taskHasReadme(files: FileItem[], taskId: string): boolean {
-  const path = `tasks/${taskId}/README.md`;
-  return files.some((f) => f.type !== "dir" && f.path === path);
-}
-
-function taskJobStats(suites: SuiteRow[], taskId: string): {
-  count: number;
-  lastStatus: string | null;
-  lastScore: number | null;
-} {
-  const hits: Array<{
-    created: number;
-    status: string | null;
-    score: number | null;
-  }> = [];
-  for (const suite of suites) {
-    const ref = (suite.task_refs || []).find((r) => r.task_id === taskId);
-    if (!ref) continue;
-    const created =
-      typeof suite.created_at === "number"
-        ? suite.created_at
-        : Date.parse(String(suite.created_at || "")) || 0;
-    hits.push({
-      created,
-      status: ref.status ?? null,
-      score: ref.score ?? null,
-    });
-  }
-  hits.sort((a, b) => b.created - a.created);
-  const last = hits[0];
-  return {
-    count: hits.length,
-    lastStatus: last?.status ?? null,
-    lastScore: last?.score ?? null,
-  };
 }
 
 export function DatasetDetailPage() {
@@ -105,13 +70,18 @@ export function DatasetDetailPage() {
 
   const [versions, setVersions] = useState<PackageRelease[]>([]);
   const [release, setRelease] = useState<PackageRelease | null>(null);
-  const [taskIds, setTaskIds] = useState<string[]>([]);
+  const [taskRows, setTaskRows] = useState<PackageTaskRow[]>([]);
+  const [taskTotal, setTaskTotal] = useState(0);
+  const [hasShared, setHasShared] = useState(false);
+  const [flagsReady, setFlagsReady] = useState(false);
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [readme, setReadme] = useState<string | null>(null);
   const [jobSuites, setJobSuites] = useState<SuiteRow[]>([]);
   const [boardSuites, setBoardSuites] = useState<SuiteRow[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [shellLoading, setShellLoading] = useState(true);
+  const [readmeLoading, setReadmeLoading] = useState(false);
+  const [tasksLoading, setTasksLoading] = useState(false);
   const [sharedSelected, setSharedSelected] = useState<string | null>(null);
   const [sharedContent, setSharedContent] = useState<string | null>(null);
   const [sharedNote, setSharedNote] = useState<string | null>(null);
@@ -120,12 +90,23 @@ export function DatasetDetailPage() {
   const [canEditName, setCanEditName] = useState(false);
   const token = getToken();
   const packageParts = useMemo(() => splitPackageId(datasetId), [datasetId]);
+  const taskOffsetRaw = Number.parseInt(search.get("offset") || "0", 10);
+  const taskOffset =
+    tab === "tasks" && Number.isFinite(taskOffsetRaw) && taskOffsetRaw > 0
+      ? taskOffsetRaw
+      : 0;
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setLoading(true);
+      setShellLoading(true);
       setError(null);
+      setFlagsReady(false);
+      setHasShared(false);
+      setTaskRows([]);
+      setTaskTotal(0);
+      setReadme(null);
+      setOverlayPrefixes([]);
       try {
         const listed = await listPackageVersions(datasetId, token);
         if (!listed.length) {
@@ -175,24 +156,9 @@ export function DatasetDetailPage() {
         } else if (!cancelled) {
           setCanEditName(false);
         }
-        const files = await listPackageFiles(
-          datasetId,
-          chosen.package_digest,
-          token,
-        );
-        if (cancelled) return;
-        setFileItems(files.items);
-        setTaskIds(taskIdsFromFiles(files.items));
-        if (hasSharedFiles(files.items)) {
-          const prefer =
-            files.items.find((e) => e.path === "shared/README.md") ||
-            files.items.find(
-              (e) => e.type !== "dir" && e.path.startsWith("shared/"),
-            );
-          if (prefer) setSharedSelected(prefer.path);
-        } else {
-          setSharedSelected(null);
-        }
+        if (!cancelled) setShellLoading(false);
+
+        setReadmeLoading(true);
         try {
           const readmeFile = await getPackageFile(
             datasetId,
@@ -203,53 +169,8 @@ export function DatasetDetailPage() {
           if (!cancelled) setReadme(decodeFileContent(readmeFile));
         } catch {
           if (!cancelled) setReadme(null);
-        }
-        const profilePaths = files.items
-          .filter(
-            (item) =>
-              item.type !== "dir" &&
-              item.path.endsWith(".yaml") &&
-              !item.path.startsWith("tasks/") &&
-              /(^|\/)profiles(\.|$)/.test(item.path.split("/").pop() || ""),
-          )
-          .map((item) => item.path);
-        try {
-          const docs = await Promise.all(
-            profilePaths.map((path) =>
-              getPackageFile(datasetId, chosen.package_digest, path, token)
-                .then((file) => decodeFileContent(file))
-                .catch(() => ""),
-            ),
-          );
-          if (!cancelled) {
-            const seen = new Set<string>();
-            const prefixes: string[] = [];
-            for (const doc of docs) {
-              for (const path of overlayPathsFromProfilesYaml(doc)) {
-                if (seen.has(path)) continue;
-                seen.add(path);
-                prefixes.push(path);
-              }
-            }
-            setOverlayPrefixes(prefixes);
-          }
-        } catch {
-          if (!cancelled) setOverlayPrefixes([]);
-        }
-        try {
-          const [jobs, board] = await Promise.all([
-            listSuites(datasetId, token),
-            listSuites(datasetId, token, { board: true }),
-          ]);
-          if (!cancelled) {
-            setJobSuites(jobs);
-            setBoardSuites(board);
-          }
-        } catch {
-          if (!cancelled) {
-            setJobSuites([]);
-            setBoardSuites([]);
-          }
+        } finally {
+          if (!cancelled) setReadmeLoading(false);
         }
       } catch (err) {
         if (cancelled) return;
@@ -258,8 +179,8 @@ export function DatasetDetailPage() {
         } else {
           setError(err instanceof Error ? err.message : String(err));
         }
-      } finally {
-        if (!cancelled) setLoading(false);
+        setShellLoading(false);
+        setReadmeLoading(false);
       }
     }
     void load();
@@ -273,7 +194,83 @@ export function DatasetDetailPage() {
     return `ageval lock registry://${datasetId}@${release.version} --task <task_id>`;
   }, [datasetId, release]);
 
-  const sharedPresent = useMemo(() => hasSharedFiles(fileItems), [fileItems]);
+  useEffect(() => {
+    if (!release) return;
+    let cancelled = false;
+    setTasksLoading(true);
+    listPackageTasks(datasetId, release.package_digest, token, {
+      limit: TASK_PAGE_SIZE,
+      offset: taskOffset,
+    })
+      .then((page) => {
+        if (cancelled) return;
+        setTaskRows(page.items);
+        setTaskTotal(page.total);
+        setHasShared(page.has_shared);
+        setOverlayPrefixes(page.overlay_prefixes);
+        setFlagsReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTaskRows([]);
+        setTaskTotal(0);
+        setHasShared(false);
+        setOverlayPrefixes([]);
+        setFlagsReady(true);
+      })
+      .finally(() => {
+        if (!cancelled) setTasksLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, release, token, taskOffset]);
+
+  useEffect(() => {
+    if (!release || tab !== "leaderboard") return;
+    let cancelled = false;
+    Promise.all([
+      listSuites(datasetId, token),
+      listSuites(datasetId, token, { board: true }),
+    ])
+      .then(([jobs, board]) => {
+        if (cancelled) return;
+        setJobSuites(jobs);
+        setBoardSuites(board);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setJobSuites([]);
+        setBoardSuites([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, token, tab, release]);
+
+  useEffect(() => {
+    if (!release || tab !== "shared") return;
+    let cancelled = false;
+    listPackageFiles(datasetId, release.package_digest, token)
+      .then((files) => {
+        if (cancelled) return;
+        setFileItems(files.items);
+        const prefer =
+          files.items.find((e) => e.path === "shared/README.md") ||
+          files.items.find(
+            (e) => e.type !== "dir" && e.path.startsWith("shared/"),
+          );
+        setSharedSelected(prefer?.path ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setFileItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, release, token, tab]);
+
+  const sharedPresent = hasShared;
   const overlaysPresent = overlayPrefixes.length > 0;
   const sharedTree = useMemo(
     () => buildNestedTree(fileItems, "shared"),
@@ -282,10 +279,10 @@ export function DatasetDetailPage() {
 
   // Stale ?tab=shared|overlays when the package has neither → fall back to README.
   useEffect(() => {
-    if (loading) return;
+    if (!flagsReady) return;
     if (tab === "shared" && !sharedPresent) setTab("readme");
     if (tab === "overlays" && !overlaysPresent) setTab("readme");
-  }, [loading, tab, sharedPresent, overlaysPresent]);
+  }, [flagsReady, tab, sharedPresent, overlaysPresent]);
 
   useEffect(() => {
     if (!release || !sharedSelected || tab !== "shared" || !sharedPresent) {
@@ -334,6 +331,15 @@ export function DatasetDetailPage() {
       n.delete("board");
       n.delete("suite");
     }
+    if (next !== "tasks") n.delete("offset");
+    setSearch(n, { replace: true });
+  }
+
+  function setTaskOffset(next: number) {
+    const n = new URLSearchParams(search);
+    n.set("tab", "tasks");
+    if (next <= 0) n.delete("offset");
+    else n.set("offset", String(next));
     setSearch(n, { replace: true });
   }
 
@@ -394,9 +400,9 @@ export function DatasetDetailPage() {
   return (
     <>
       <CatalogHead
-        title="Your datasets"
+        title="Datasets"
         crumbs={[
-          { label: "Your datasets", href: "/datasets" },
+          { label: "Datasets", href: "/datasets" },
           { label: datasetId },
         ]}
       />
@@ -495,7 +501,7 @@ export function DatasetDetailPage() {
         ]}
       />
 
-      {loading ? (
+      {shellLoading ? (
         <p className="text-sm text-mute">Loading…</p>
       ) : error ? (
         <div className="space-y-2 text-sm">
@@ -504,7 +510,7 @@ export function DatasetDetailPage() {
             <p className="text-body">
               <Link
                 to={`/plugins/${encodeDatasetId(datasetId)}`}
-                className="underline underline-offset-2"
+                className="text-link hover:text-link-deep underline underline-offset-2"
               >
                 Open in Plugin marketplace
               </Link>
@@ -514,7 +520,7 @@ export function DatasetDetailPage() {
             <p className="text-body">
               <Link
                 to={`/agents/${encodeDatasetId(datasetId)}`}
-                className="underline underline-offset-2"
+                className="text-link hover:text-link-deep underline underline-offset-2"
               >
                 Open in Agent hub
               </Link>
@@ -522,7 +528,9 @@ export function DatasetDetailPage() {
           ) : null}
         </div>
       ) : tab === "readme" ? (
-        readme ? (
+        readmeLoading ? (
+          <p className="text-sm text-mute">Loading README…</p>
+        ) : readme ? (
           <Markdown source={readme} />
         ) : (
           <div className="rounded-[8px] border border-hairline bg-canvas-soft p-6 text-sm text-mute">
@@ -530,10 +538,13 @@ export function DatasetDetailPage() {
           </div>
         )
       ) : tab === "tasks" ? (
-        taskIds.length === 0 ? (
+        tasksLoading && taskRows.length === 0 ? (
+          <p className="text-sm text-mute">Loading tasks…</p>
+        ) : taskTotal === 0 ? (
           <p className="text-sm text-mute">No tasks/ members found.</p>
         ) : (
-          <div className="rounded-[8px] border border-hairline overflow-hidden">
+          <div>
+            <div className="rounded-[8px] border border-hairline overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -544,8 +555,8 @@ export function DatasetDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {taskIds.map((tid) => {
-                  const stats = taskJobStats(jobSuites, tid);
+                {taskRows.map((row) => {
+                  const tid = row.task_id;
                   return (
                     <TableRow
                       key={tid}
@@ -564,16 +575,16 @@ export function DatasetDetailPage() {
                         {tid}
                       </TableCell>
                       <TableCell className="text-sm text-body">
-                        {taskHasReadme(fileItems, tid) ? "yes" : "no"}
+                        {row.has_readme ? "yes" : "no"}
                       </TableCell>
                       <TableCell className="tabular text-sm">
-                        {stats.count}
+                        {row.job_count ?? 0}
                       </TableCell>
                       <TableCell className="text-sm tabular">
-                        {stats.lastStatus
-                          ? `${stats.lastStatus}${
-                              stats.lastScore != null
-                                ? ` · ${formatScore(stats.lastScore)}`
+                        {row.last_status
+                          ? `${row.last_status}${
+                              row.last_score != null
+                                ? ` · ${formatScore(row.last_score)}`
                                 : ""
                             }`
                           : "-"}
@@ -583,6 +594,14 @@ export function DatasetDetailPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
+            <ListPager
+              offset={taskOffset}
+              limit={TASK_PAGE_SIZE}
+              total={taskTotal}
+              busy={tasksLoading}
+              onOffset={setTaskOffset}
+            />
           </div>
         )
       ) : tab === "shared" && sharedPresent ? (
@@ -680,7 +699,8 @@ export function DatasetDetailPage() {
             <div className="space-y-2">
               <p className="text-xs text-mute">
                 Your complete release-bound suites that are not listed yet. Request
-                listing from the share tab; Dataset org owners decide in Inbox.
+                listing from the settings menu Share modal; Dataset org owners
+                decide in Inbox.
               </p>
               <LeaderboardTable
                 suites={awaitingListingVisible}

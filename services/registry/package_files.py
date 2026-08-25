@@ -8,11 +8,17 @@ from __future__ import annotations
 
 import gzip
 import io
+import re
 import tarfile
 import threading
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+# Hub / Config overlay source: root ``profiles.yaml`` plus ``profiles*.yaml``
+# anywhere except ``tasks/`` (basename ``profiles`` or ``profiles.*``).
+_PROFILES_BASENAME = re.compile(r"^profiles(\.|$)")
+_OVERLAY_ITEM = re.compile(r"""^\s*-\s+["']?(overlays/\S+?)["']?\s*$""")
 
 # Hard cap for single-file body (Hub preview). Oversize → HTTP 413.
 MAX_FILE_BYTES = 2 * 1024 * 1024  # 2 MiB
@@ -38,6 +44,32 @@ class PackageFileTooLarge(ValueError):
         self.path = path
         self.size = size
         super().__init__(f"file too large: {path} ({size} bytes > {MAX_FILE_BYTES})")
+
+
+def is_profiles_document(path: str) -> bool:
+    """True for Hub overlay-source yaml (not task trees)."""
+    if not path.endswith(".yaml"):
+        return False
+    if path.startswith("tasks/"):
+        return False
+    name = path.rsplit("/", 1)[-1]
+    return bool(_PROFILES_BASENAME.match(name))
+
+
+def overlay_paths_from_profiles_yaml(text: str) -> list[str]:
+    """Best-effort ``- overlays/…`` list items from a profiles yaml."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for line in text.splitlines():
+        match = _OVERLAY_ITEM.match(line)
+        if not match:
+            continue
+        item = match.group(1)
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
 
 
 def normalize_package_path(raw: str) -> str:
@@ -74,6 +106,7 @@ class PackageFileIndex:
     entries: list[FileEntry]
     # path → (size, is_dir) for O(1) lookup; files only store size
     _by_path: dict[str, FileEntry]
+    overlay_prefixes: list[str] = field(default_factory=list)
 
     def list_items(self) -> list[dict[str, Any]]:
         return [
@@ -84,11 +117,42 @@ class PackageFileIndex:
     def get(self, path: str) -> FileEntry | None:
         return self._by_path.get(path)
 
+    def list_tasks(self) -> tuple[list[dict[str, Any]], bool]:
+        """Return ``(task rows, has_shared)`` from the archive index.
+
+        Each row is ``{task_id, has_readme}``, sorted by task_id.
+        """
+        readme: dict[str, bool] = {}
+        has_shared = False
+        for entry in self.entries:
+            path = entry.path
+            if path == "shared" or path.startswith("shared/"):
+                has_shared = True
+            if not path.startswith("tasks/"):
+                continue
+            rest = path[len("tasks/") :]
+            if not rest:
+                continue
+            task_id = rest.split("/", 1)[0]
+            if not task_id:
+                continue
+            if task_id not in readme:
+                readme[task_id] = False
+            if entry.type == "file" and rest == f"{task_id}/README.md":
+                readme[task_id] = True
+        items = [
+            {"task_id": task_id, "has_readme": readme[task_id]}
+            for task_id in sorted(readme)
+        ]
+        return items, has_shared
+
 
 def build_index_from_archive(archive: bytes, *, package_digest: str) -> PackageFileIndex:
     """List tar members (gzip-compressed package archive)."""
     entries: list[FileEntry] = []
     by_path: dict[str, FileEntry] = {}
+    overlay_prefixes: list[str] = []
+    overlay_seen: set[str] = set()
     with (
         gzip.GzipFile(fileobj=io.BytesIO(archive), mode="rb") as gz,
         tarfile.open(fileobj=gz, mode="r:") as tar,
@@ -106,6 +170,18 @@ def build_index_from_archive(archive: bytes, *, package_digest: str) -> PackageF
                 entry = FileEntry(path=path, type="dir", size=0)
             elif info.isfile():
                 entry = FileEntry(path=path, type="file", size=int(info.size))
+                if is_profiles_document(path):
+                    handle = tar.extractfile(info)
+                    if handle is not None:
+                        try:
+                            text = handle.read(MAX_FILE_BYTES).decode("utf-8")
+                        except UnicodeDecodeError:
+                            text = ""
+                        for item in overlay_paths_from_profiles_yaml(text):
+                            if item in overlay_seen:
+                                continue
+                            overlay_seen.add(item)
+                            overlay_prefixes.append(item)
             else:
                 continue
             # Prefer first occurrence; skip duplicates
@@ -121,7 +197,12 @@ def build_index_from_archive(archive: bytes, *, package_digest: str) -> PackageF
                     d_entry = FileEntry(path=d, type="dir", size=0)
                     by_path[d] = d_entry
                     entries.append(d_entry)
-    return PackageFileIndex(package_digest=package_digest, entries=entries, _by_path=by_path)
+    return PackageFileIndex(
+        package_digest=package_digest,
+        entries=entries,
+        _by_path=by_path,
+        overlay_prefixes=overlay_prefixes,
+    )
 
 
 def get_or_build_index(archive: bytes, *, package_digest: str) -> PackageFileIndex:

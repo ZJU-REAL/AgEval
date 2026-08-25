@@ -660,7 +660,7 @@ export function OrganizationDetailPage() {
                               {s.dataset_id ? (
                                 <Link
                                   to={`/datasets/${encodeDatasetId(s.dataset_id)}`}
-                                  className="hover:underline"
+                                  className="text-link hover:text-link-deep hover:underline"
                                 >
                                   {s.dataset_id}
                                 </Link>

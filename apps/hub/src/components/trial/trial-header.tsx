@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { HoverTip } from "@/components/hover-tip";
 import {
   SlotHistorySelect,
@@ -14,6 +16,7 @@ export function TrialHeader({
   slotCurrentStartedAt,
   slotPrevious,
   onSlotSelect,
+  actions,
 }: {
   runId: string;
   taskId: string;
@@ -22,6 +25,7 @@ export function TrialHeader({
   slotCurrentStartedAt?: string | null;
   slotPrevious?: SlotHistoryEntry[];
   onSlotSelect?: (id: string) => void;
+  actions?: ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -72,14 +76,19 @@ export function TrialHeader({
           ) : null}
         </p>
       </div>
-      {onSlotSelect ? (
-        <SlotHistorySelect
-          viewingRunId={runId}
-          currentRunId={slotCurrentRunId}
-          previous={slotPrevious}
-          currentAt={slotCurrentStartedAt ?? trial?.started}
-          onSelect={onSlotSelect}
-        />
+      {actions || onSlotSelect ? (
+        <div className="flex shrink-0 items-center gap-1">
+          {actions}
+          {onSlotSelect ? (
+            <SlotHistorySelect
+              viewingRunId={runId}
+              currentRunId={slotCurrentRunId}
+              previous={slotPrevious}
+              currentAt={slotCurrentStartedAt ?? trial?.started}
+              onSelect={onSlotSelect}
+            />
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

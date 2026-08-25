@@ -100,6 +100,101 @@ def test_fail_on_all_tasks_is_complete_and_on_board(tmp_path: Path) -> None:
     assert [i["suite_run_id"] for i in board["items"]] == ["suite_fail_all"]
 
 
+def test_list_suites_task_id_and_limit(tmp_path: Path) -> None:
+    packages, results = _services(tmp_path)
+    _publish_release(packages, tmp_path)
+    auth = TokenInfo(scopes=frozenset({"results:upload"}), user_id="alice")
+    first, first_blob = _suite_meta(
+        tmp_path,
+        suite_run_id="suite_hello",
+        task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
+    )
+    results.upload_suite(meta=first, archive=first_blob, auth=auth)
+    second, second_blob = _suite_meta(
+        tmp_path,
+        suite_run_id="suite_other",
+        task_refs=[{"task_id": "other", "status": "PASS", "score": 1.0}],
+    )
+    results.upload_suite(meta=second, archive=second_blob, auth=auth)
+    hello = results.list_suites(auth=auth, dataset_id="test/publish-min", task_id="hello")
+    assert [i["suite_run_id"] for i in hello["items"]] == ["suite_hello"]
+    paged = results.list_suites(auth=auth, dataset_id="test/publish-min", limit=1, offset=0)
+    assert paged["total"] == 2
+    assert len(paged["items"]) == 1
+    rest = results.list_suites(auth=auth, dataset_id="test/publish-min", limit=1, offset=1)
+    assert rest["total"] == 2
+    assert {paged["items"][0]["suite_run_id"], rest["items"][0]["suite_run_id"]} == {
+        "suite_hello",
+        "suite_other",
+    }
+
+
+def test_list_tasks_attaches_visible_job_stats(tmp_path: Path) -> None:
+    packages, results = _services(tmp_path)
+    _publish_release(packages, tmp_path)
+    auth = TokenInfo(scopes=frozenset({"results:upload", "registry:publish"}), user_id="alice")
+    meta, archive = _suite_meta(
+        tmp_path,
+        suite_run_id="suite_hello_stats",
+        task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
+    )
+    results.upload_suite(meta=meta, archive=archive, auth=auth)
+    release = packages.meta.get_by_version("test/publish-min", "0.1.0")
+    assert release is not None
+    listed = packages.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=release.package_digest,
+    )
+    hello = next(item for item in listed["items"] if item["task_id"] == "hello")
+    assert hello["job_count"] == 1
+    assert hello["last_status"] == "FAIL"
+    assert hello["last_score"] == 0.0
+
+
+def test_list_tasks_hides_invisible_job_stats(tmp_path: Path) -> None:
+    packages, results = _services(tmp_path)
+    _publish_release(packages, tmp_path)
+    packages.meta.create_org(name="other", owner_user_id="carol", display_name="Other")
+    alice = TokenInfo(scopes=frozenset({"results:upload", "registry:publish"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:read"}), user_id="bob")
+    carol = TokenInfo(scopes=frozenset({"results:read"}), user_id="carol")
+    meta, archive = _suite_meta(
+        tmp_path,
+        suite_run_id="suite_private_stats",
+        task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
+    )
+    meta["visibility"] = "private"
+    results.upload_suite(meta=meta, archive=archive, auth=alice)
+    results.meta.add_result_share(
+        result_kind="suite",
+        result_id="suite_private_stats",
+        target_type="org",
+        target_id="other",
+    )
+    release = packages.meta.get_by_version("test/publish-min", "0.1.0")
+    assert release is not None
+
+    def _hello_stats(auth: TokenInfo) -> dict[str, object]:
+        listed = packages.list_tasks(
+            dataset_id="test/publish-min",
+            auth=auth,
+            package_digest=release.package_digest,
+        )
+        return next(item for item in listed["items"] if item["task_id"] == "hello")
+
+    hidden = _hello_stats(bob)
+    assert hidden["job_count"] == 0
+    assert hidden["last_status"] is None
+    assert hidden["last_score"] is None
+    shared = _hello_stats(carol)
+    assert shared["job_count"] == 1
+    assert shared["last_status"] == "FAIL"
+    assert shared["last_score"] == 0.0
+    owner = _hello_stats(alice)
+    assert owner["job_count"] == 1
+
+
 def test_missing_task_is_incomplete_hidden_from_board(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
     _publish_release(packages, tmp_path)

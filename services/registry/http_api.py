@@ -20,6 +20,7 @@ from typing import Any, BinaryIO
 from urllib.parse import parse_qs, unquote, urlparse
 
 from services.registry.errors import RegistryAppError
+from services.registry.paging import parse_limit, parse_offset
 from services.registry.routes import match_route
 from services.registry.spool import extract_multipart_archive, spool_body
 from services.registry.store import TokenInfo
@@ -442,6 +443,37 @@ class RegistryHttpApi:
             return _caught(exc)
         return json_result(200, payload)
 
+    def _serve_package_tasks(
+        self,
+        *,
+        dataset_id: str,
+        auth: TokenInfo,
+        qs: dict[str, list[str]],
+        package_digest: str | None = None,
+        version: str | None = None,
+    ) -> HttpResult:
+        extra = set(qs) - {"limit", "offset"}
+        if extra:
+            return json_result(
+                400,
+                {
+                    "error": "invalid_request",
+                    "message": "unknown keys: " + ", ".join(sorted(extra)),
+                },
+            )
+        try:
+            payload = self.state.packages.list_tasks(
+                dataset_id=dataset_id,
+                auth=auth,
+                package_digest=package_digest,
+                version=version,
+                limit=parse_limit((qs.get("limit") or [None])[0]),
+                offset=parse_offset((qs.get("offset") or [None])[0]),
+            )
+        except RegistryAppError as exc:
+            return _caught(exc)
+        return json_result(200, payload)
+
     def _serve_package_file(
         self,
         *,
@@ -629,6 +661,9 @@ class RegistryHttpApi:
                 dataset_id=(qs.get("dataset_id") or [None])[0],
                 board=str(board_raw).strip().lower() in {"1", "true", "yes"},
                 uploaded_by=(qs.get("uploaded_by") or [None])[0],
+                task_id=(qs.get("task_id") or [None])[0],
+                limit=parse_limit((qs.get("limit") or [None])[0], default=None),
+                offset=parse_offset((qs.get("offset") or [None])[0]),
             )
         except RegistryAppError as exc:
             return _caught(exc)

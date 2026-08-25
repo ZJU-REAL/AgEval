@@ -444,3 +444,143 @@ def test_favorite_rejects_dataset_and_anonymous(tmp_path: Path) -> None:
     with pytest.raises(RegistryAppError) as anon_err:
         svc.set_favorite(dataset_id="test/publish-min", auth=anon, favorited=True)
     assert anon_err.value.http_status == 401
+
+
+def test_list_tasks_pages_and_flags(tmp_path: Path) -> None:
+    from services.registry.package_files import FileEntry, PackageFileIndex
+
+    index = PackageFileIndex(
+        package_digest="sha256:abc",
+        entries=[
+            FileEntry(path="tasks/a/task.yaml", type="file", size=1),
+            FileEntry(path="tasks/a/README.md", type="file", size=1),
+            FileEntry(path="tasks/b/task.yaml", type="file", size=1),
+            FileEntry(path="shared/note.txt", type="file", size=1),
+        ],
+        _by_path={},
+    )
+    items, has_shared = index.list_tasks()
+    assert has_shared is True
+    assert items == [
+        {"task_id": "a", "has_readme": True},
+        {"task_id": "b", "has_readme": False},
+    ]
+
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive, _raw = _meta_archive(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    payload = svc.publish(meta=meta, archive=archive, auth=auth)
+    digest = str(payload["package_digest"])
+    listed = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=digest,
+        limit=50,
+        offset=0,
+    )
+    assert listed["total"] == 1
+    assert listed["has_shared"] is False
+    hello = listed["items"][0]
+    assert hello["task_id"] == "hello"
+    assert hello["has_readme"] is False
+    assert hello["job_count"] == 0
+    assert hello["last_status"] is None
+    empty = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=digest,
+        limit=50,
+        offset=50,
+    )
+    assert empty["items"] == []
+    assert empty["total"] == 1
+    assert listed["overlay_prefixes"] == []
+
+
+def test_list_tasks_skips_blob_after_publish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    meta, archive, _raw = _meta_archive(tmp_path)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    payload = svc.publish(meta=meta, archive=archive, auth=auth)
+
+    def _no_blob(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("list_tasks must not read the package blob")
+
+    monkeypatch.setattr("services.registry.package_service.read_blob", _no_blob)
+    listed = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=str(payload["package_digest"]),
+        limit=20,
+        offset=0,
+    )
+    assert listed["items"][0]["task_id"] == "hello"
+    assert listed["overlay_prefixes"] == []
+
+
+def test_list_tasks_reads_variant_profile_overlays(tmp_path: Path) -> None:
+    import shutil
+
+    from services.registry.package_files import (
+        build_index_from_archive,
+        is_profiles_document,
+        overlay_paths_from_profiles_yaml,
+    )
+
+    assert is_profiles_document("profiles.yaml") is True
+    assert is_profiles_document("profiles.docker.yaml") is True
+    assert is_profiles_document("env/profiles.ssh.yaml") is True
+    assert is_profiles_document("tasks/hello/profiles.yaml") is False
+    assert is_profiles_document("shared/note.yaml") is False
+    assert overlay_paths_from_profiles_yaml(
+        'agent_profiles:\n  x:\n    overlays:\n      - overlays/docker\n      - "overlays/ssh"\n'
+    ) == ["overlays/docker", "overlays/ssh"]
+
+    root = tmp_path / "pkg"
+    shutil.copytree(FIXTURE, root)
+    (root / "profiles.docker.yaml").write_text(
+        "format: ageval.profiles/1\n"
+        "agent_profiles:\n"
+        "  docker:\n"
+        "    executor: acp\n"
+        "    overlays:\n"
+        "      - overlays/docker\n",
+        encoding="utf-8",
+    )
+    (root / "overlays").mkdir()
+    (root / "overlays" / "docker").write_text("x\n", encoding="utf-8")
+    archive, blob_digest, size = build_archive(root)
+    index = build_index_from_archive(archive, package_digest="sha256:overlay")
+    assert index.overlay_prefixes == ["overlays/docker"]
+
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    path = tmp_path / "overlay-pkg.tar.gz"
+    path.write_bytes(archive)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    payload = svc.publish(
+        meta={
+            "dataset_id": "test/publish-min",
+            "version": "0.1.0",
+            "package_digest": compute_package_digest(root),
+            "blob_digest": blob_digest,
+            "media_type": MEDIA_TYPE,
+            "visibility": "private",
+            "org_id": "acme",
+            "size": size,
+        },
+        archive=path,
+        auth=auth,
+    )
+    listed = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=str(payload["package_digest"]),
+        limit=20,
+        offset=0,
+    )
+    assert listed["overlay_prefixes"] == ["overlays/docker"]

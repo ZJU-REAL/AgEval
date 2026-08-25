@@ -122,6 +122,39 @@ export function overlayPathsFromProfilesYaml(text: string): string[] {
   return out;
 }
 
+/**
+ * Overlay-source yaml paths: ``profiles.yaml`` / ``profiles*.yaml`` anywhere
+ * except ``tasks/``. Matches Config Core's multi-file profiles set as Hub
+ * used it before README-first loading.
+ */
+export function profileDocumentPaths(
+  items: Array<{ path: string; type?: string }>,
+): string[] {
+  return items
+    .filter(
+      (item) =>
+        item.type !== "dir" &&
+        item.path.endsWith(".yaml") &&
+        !item.path.startsWith("tasks/") &&
+        /^profiles(\.|$)/.test(item.path.split("/").pop() || ""),
+    )
+    .map((item) => item.path);
+}
+
+/** Union overlay prefixes from several profiles yaml bodies, first-seen order. */
+export function unionOverlayPrefixes(docs: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const doc of docs) {
+    for (const path of overlayPathsFromProfilesYaml(doc)) {
+      if (seen.has(path)) continue;
+      seen.add(path);
+      out.push(path);
+    }
+  }
+  return out;
+}
+
 /** Parent directory paths of a file (`src/pkg/hooks.py` → `src`, `src/pkg`). */
 export function ancestorDirPaths(filePath: string): string[] {
   const parts = filePath.split("/").filter(Boolean);

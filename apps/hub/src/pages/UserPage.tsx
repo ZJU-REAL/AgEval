@@ -192,7 +192,7 @@ export function UserPage() {
                         <TableCell>
                           <Link
                             to={`/organizations/${encodeURIComponent(org.org_id)}`}
-                            className="inline-flex items-center gap-1.5 hover:underline"
+                            className="inline-flex items-center gap-1.5 text-link hover:text-link-deep hover:underline"
                           >
                             <span>
                               {org.display_name || org.org_id}
@@ -280,7 +280,7 @@ function UserPackageSection({
                   <TableCell>
                     <Link
                       to={href(row)}
-                      className="inline-flex items-center gap-1.5 font-mono text-sm hover:underline min-w-0"
+                      className="inline-flex items-center gap-1.5 font-mono text-sm text-link hover:text-link-deep hover:underline min-w-0"
                     >
                       <span className="truncate">
                         {packageDisplayTitle(row.dataset_id, row.display_name)}
