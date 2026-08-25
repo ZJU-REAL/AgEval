@@ -152,6 +152,49 @@ def test_list_tasks_attaches_visible_job_stats(tmp_path: Path) -> None:
     assert hello["last_score"] == 0.0
 
 
+def test_list_tasks_hides_invisible_job_stats(tmp_path: Path) -> None:
+    packages, results = _services(tmp_path)
+    _publish_release(packages, tmp_path)
+    packages.meta.create_org(name="other", owner_user_id="carol", display_name="Other")
+    alice = TokenInfo(scopes=frozenset({"results:upload", "registry:publish"}), user_id="alice")
+    bob = TokenInfo(scopes=frozenset({"results:read"}), user_id="bob")
+    carol = TokenInfo(scopes=frozenset({"results:read"}), user_id="carol")
+    meta, archive = _suite_meta(
+        tmp_path,
+        suite_run_id="suite_private_stats",
+        task_refs=[{"task_id": "hello", "status": "FAIL", "score": 0.0}],
+    )
+    meta["visibility"] = "private"
+    results.upload_suite(meta=meta, archive=archive, auth=alice)
+    results.meta.add_result_share(
+        result_kind="suite",
+        result_id="suite_private_stats",
+        target_type="org",
+        target_id="other",
+    )
+    release = packages.meta.get_by_version("test/publish-min", "0.1.0")
+    assert release is not None
+
+    def _hello_stats(auth: TokenInfo) -> dict[str, object]:
+        listed = packages.list_tasks(
+            dataset_id="test/publish-min",
+            auth=auth,
+            package_digest=release.package_digest,
+        )
+        return next(item for item in listed["items"] if item["task_id"] == "hello")
+
+    hidden = _hello_stats(bob)
+    assert hidden["job_count"] == 0
+    assert hidden["last_status"] is None
+    assert hidden["last_score"] is None
+    shared = _hello_stats(carol)
+    assert shared["job_count"] == 1
+    assert shared["last_status"] == "FAIL"
+    assert shared["last_score"] == 0.0
+    owner = _hello_stats(alice)
+    assert owner["job_count"] == 1
+
+
 def test_missing_task_is_incomplete_hidden_from_board(tmp_path: Path) -> None:
     packages, results = _services(tmp_path)
     _publish_release(packages, tmp_path)

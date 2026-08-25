@@ -1074,6 +1074,7 @@ class MetadataStore(MetadataStoreProtocol):
         *,
         has_shared: bool,
         tasks: list[dict[str, Any]],
+        overlay_prefixes: list[str],
     ) -> None:
         with self._connect() as conn:
             self._exec(
@@ -1083,6 +1084,7 @@ class MetadataStore(MetadataStoreProtocol):
                     package_digest,
                     1 if has_shared else 0,
                     json.dumps(tasks),
+                    json.dumps(overlay_prefixes),
                     now(),
                 ),
             )
@@ -1090,20 +1092,25 @@ class MetadataStore(MetadataStoreProtocol):
 
     def get_package_task_summary(
         self, package_digest: str
-    ) -> tuple[list[dict[str, Any]], bool] | None:
+    ) -> tuple[list[dict[str, Any]], bool, list[str]] | None:
         with self._connect() as conn:
             cur = self._exec(conn, Q.SELECT_PACKAGE_TASK_SUMMARY, (package_digest,))
             row = cur.fetchone()
         if row is None:
             return None
+        prefixes_raw = row["overlay_prefixes_json"]
+        if prefixes_raw is None:
+            return None
         try:
             tasks = json.loads(row["tasks_json"])
-        except (TypeError, json.JSONDecodeError):
+            prefixes = json.loads(prefixes_raw)
+        except (TypeError, json.JSONDecodeError, KeyError):
             return None
-        if not isinstance(tasks, list):
+        if not isinstance(tasks, list) or not isinstance(prefixes, list):
             return None
         items = [item for item in tasks if isinstance(item, dict)]
-        return items, bool(int(row["has_shared"] or 0))
+        overlay_prefixes = [str(item) for item in prefixes if isinstance(item, str)]
+        return items, bool(int(row["has_shared"] or 0)), overlay_prefixes
 
     def delete_package_task_summary(self, package_digest: str) -> None:
         with self._connect() as conn:

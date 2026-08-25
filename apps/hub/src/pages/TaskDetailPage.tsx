@@ -36,8 +36,9 @@ import {
 import { getToken } from "@/lib/auth";
 import {
   buildNestedTree,
-  overlayPathsFromProfilesYaml,
   pathMatchesPrefixes,
+  profileDocumentPaths,
+  unionOverlayPrefixes,
   type TreeNode,
 } from "@/lib/file-tree";
 import { AxisLabel } from "@/components/axis-label";
@@ -157,6 +158,8 @@ export function TaskDetailPage() {
     async function load() {
       setError(null);
       setReadmeLoading(true);
+      setOverlayPrefixes([]);
+      setFileItems([]);
       try {
         const listed = await listPackageVersions(datasetId, token);
         if (!listed.length) {
@@ -179,21 +182,6 @@ export function TaskDetailPage() {
           if (!cancelled) setReadme(decodeFileContent(r));
         } catch {
           if (!cancelled) setReadme(null);
-        }
-        try {
-          const profile = await getPackageFile(
-            datasetId,
-            latest.package_digest,
-            "profiles.yaml",
-            token,
-          );
-          if (!cancelled) {
-            setOverlayPrefixes(
-              overlayPathsFromProfilesYaml(decodeFileContent(profile) || ""),
-            );
-          }
-        } catch {
-          if (!cancelled) setOverlayPrefixes([]);
         }
       } catch (err) {
         if (cancelled) return;
@@ -237,6 +225,31 @@ export function TaskDetailPage() {
       cancelled = true;
     };
   }, [datasetId, release, token, tab, localPrefix]);
+
+  useEffect(() => {
+    if (!release || !fileItems.length) {
+      setOverlayPrefixes([]);
+      return;
+    }
+    const profilePaths = profileDocumentPaths(fileItems);
+    if (!profilePaths.length) {
+      setOverlayPrefixes([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      profilePaths.map((path) =>
+        getPackageFile(datasetId, release.package_digest, path, token)
+          .then((file) => decodeFileContent(file) || "")
+          .catch(() => ""),
+      ),
+    ).then((docs) => {
+      if (!cancelled) setOverlayPrefixes(unionOverlayPrefixes(docs));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, release, token, fileItems]);
 
   useEffect(() => {
     if (tab !== "jobs") return;

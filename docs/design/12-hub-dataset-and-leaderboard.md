@@ -52,7 +52,7 @@ Hub 表分页**就是**查询参数（不要再叠 `page=` 之外的 scope 层�
 | Dataset `?tab=tasks&offset=20` | 下一页；Hub 请求 `GET /v1/packages/{id}/by-digest/{dig}/tasks?limit=20&offset=20` |
 | Task Jobs `?tab=jobs&offset=` | 该 task 的 suite/attempt 行 |
 
-`GET /v1/packages/{id}/by-digest/{dig}/tasks` 读 publish 时按 `package_digest` 落下的任务摘要（`task_id`、`has_readme`），并返回 `has_shared`。分页 item 另带观测字段 `job_count` / `last_status` / `last_score`（可见 suite 的 `task_refs`，不是 PASS）。不把整棵文件树交给浏览器，也不为 Tasks 表拉全量 suite。未知查询键拒绝。缺失摘要时才回退 inflate 一次并写回。
+`GET /v1/packages/{id}/by-digest/{dig}/tasks` 读 publish 时按 `package_digest` 落下的任务摘要（`task_id`、`has_readme`），并返回 `has_shared` 与 `overlay_prefixes`。`overlay_prefixes` 来自包内全部 overlay 源文档（根 `profiles.yaml` 以及 `tasks/` 之外、basename 为 `profiles` / `profiles.*` 的 yaml），不是只读根文件。分页 item 另带观测字段 `job_count` / `last_status` / `last_score`（调用方可见 suite 的 `task_refs`，不是 PASS）。不把整棵文件树交给浏览器，也不为 Tasks 表拉全量 suite。未知查询键拒绝。缺失摘要时才回退 inflate 一次并写回。
 
 `GET /v1/results/suites` 增加可选 `task_id`、`limit`、`offset`。省略 `limit` 时返回全量（兼容现有客户端）。`task_id` 按 suite `task_refs` 过滤。
 

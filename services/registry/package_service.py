@@ -572,7 +572,7 @@ class PackageService:
         summary = self.meta.get_package_task_summary(row.package_digest)
         if summary is None:
             summary = self._backfill_task_summary(row.package_digest, row.blob_digest)
-        tasks, has_shared = summary
+        tasks, has_shared, overlay_prefixes = summary
         page, total = page_slice(tasks, limit=limit, offset=offset)
         self._attach_task_job_stats(page, dataset_id=row.dataset_id, auth=auth)
         return {
@@ -584,6 +584,7 @@ class PackageService:
             "limit": limit,
             "offset": offset,
             "has_shared": has_shared,
+            "overlay_prefixes": overlay_prefixes,
         }
 
     def read_file(
@@ -850,12 +851,15 @@ class PackageService:
         )
         tasks, has_shared = index.list_tasks()
         self.meta.put_package_task_summary(
-            package_digest, has_shared=has_shared, tasks=tasks
+            package_digest,
+            has_shared=has_shared,
+            tasks=tasks,
+            overlay_prefixes=index.overlay_prefixes,
         )
 
     def _backfill_task_summary(
         self, package_digest: str, blob_digest: str
-    ) -> tuple[list[dict[str, Any]], bool]:
+    ) -> tuple[list[dict[str, Any]], bool, list[str]]:
         from services.registry.package_files import get_or_build_index
 
         archive = read_blob(self.blobs, blob_digest, prefix="packages")
@@ -871,9 +875,12 @@ class PackageService:
             ) from exc
         tasks, has_shared = index.list_tasks()
         self.meta.put_package_task_summary(
-            package_digest, has_shared=has_shared, tasks=tasks
+            package_digest,
+            has_shared=has_shared,
+            tasks=tasks,
+            overlay_prefixes=index.overlay_prefixes,
         )
-        return tasks, has_shared
+        return tasks, has_shared, index.overlay_prefixes
 
     def _gc_task_summary(self, package_digest: str) -> None:
         if not package_digest:

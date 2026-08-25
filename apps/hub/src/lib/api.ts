@@ -663,6 +663,7 @@ export type PackageTaskPage = {
   limit: number;
   offset: number;
   has_shared: boolean;
+  overlay_prefixes: string[];
 };
 
 export async function listPackageTasks(
@@ -686,6 +687,11 @@ export async function listPackageTasks(
     limit: typeof data.limit === "number" ? data.limit : TASK_PAGE_SIZE,
     offset: typeof data.offset === "number" ? data.offset : 0,
     has_shared: Boolean(data.has_shared),
+    overlay_prefixes: Array.isArray(data.overlay_prefixes)
+      ? data.overlay_prefixes.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : [],
   };
 }
 

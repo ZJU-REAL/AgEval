@@ -45,7 +45,7 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getGithubUser, getToken } from "@/lib/auth";
-import { buildNestedTree, overlayPathsFromProfilesYaml } from "@/lib/file-tree";
+import { buildNestedTree } from "@/lib/file-tree";
 import { LEADERBOARD_K_FIXTURES } from "@/lib/leaderboard-fixtures";
 import { formatScore } from "@/lib/utils";
 
@@ -172,22 +172,6 @@ export function DatasetDetailPage() {
         } finally {
           if (!cancelled) setReadmeLoading(false);
         }
-
-        try {
-          const profile = await getPackageFile(
-            datasetId,
-            chosen.package_digest,
-            "profiles.yaml",
-            token,
-          );
-          if (!cancelled) {
-            setOverlayPrefixes(
-              overlayPathsFromProfilesYaml(decodeFileContent(profile) || ""),
-            );
-          }
-        } catch {
-          if (!cancelled) setOverlayPrefixes([]);
-        }
       } catch (err) {
         if (cancelled) return;
         if (err instanceof RegistryHttpError) {
@@ -223,6 +207,7 @@ export function DatasetDetailPage() {
         setTaskRows(page.items);
         setTaskTotal(page.total);
         setHasShared(page.has_shared);
+        setOverlayPrefixes(page.overlay_prefixes);
         setFlagsReady(true);
       })
       .catch(() => {
@@ -230,6 +215,7 @@ export function DatasetDetailPage() {
         setTaskRows([]);
         setTaskTotal(0);
         setHasShared(false);
+        setOverlayPrefixes([]);
         setFlagsReady(true);
       })
       .finally(() => {

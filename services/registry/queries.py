@@ -102,15 +102,19 @@ UPDATE_ORG_DISPLAY_AND_DESCRIPTION = (
 )
 
 UPSERT_PACKAGE_TASK_SUMMARY = """
-INSERT INTO package_task_summaries(package_digest, has_shared, tasks_json, created_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO package_task_summaries(
+    package_digest, has_shared, tasks_json, overlay_prefixes_json, created_at
+)
+VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(package_digest) DO UPDATE SET
     has_shared=excluded.has_shared,
-    tasks_json=excluded.tasks_json
+    tasks_json=excluded.tasks_json,
+    overlay_prefixes_json=excluded.overlay_prefixes_json
 """
 
 SELECT_PACKAGE_TASK_SUMMARY = (
-    "SELECT has_shared, tasks_json FROM package_task_summaries WHERE package_digest=?"
+    "SELECT has_shared, tasks_json, overlay_prefixes_json "
+    "FROM package_task_summaries WHERE package_digest=?"
 )
 
 DELETE_PACKAGE_TASK_SUMMARY = "DELETE FROM package_task_summaries WHERE package_digest=?"
@@ -357,6 +361,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         package_digest TEXT PRIMARY KEY,
         has_shared INTEGER NOT NULL,
         tasks_json TEXT NOT NULL,
+        overlay_prefixes_json TEXT,
         created_at REAL NOT NULL
     )
     """,
@@ -432,6 +437,7 @@ SCHEMA_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("releases", "uploaded_by", "TEXT NOT NULL DEFAULT ''"),
     ("organizations", "description", "TEXT NOT NULL DEFAULT ''"),
     ("user_profiles", "description", "TEXT NOT NULL DEFAULT ''"),
+    ("package_task_summaries", "overlay_prefixes_json", "TEXT"),
 )
 
 # Do not bind created_at. Pre-unification Postgres token tables are

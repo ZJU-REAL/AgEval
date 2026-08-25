@@ -495,6 +495,7 @@ def test_list_tasks_pages_and_flags(tmp_path: Path) -> None:
     )
     assert empty["items"] == []
     assert empty["total"] == 1
+    assert listed["overlay_prefixes"] == []
 
 
 def test_list_tasks_skips_blob_after_publish(
@@ -518,3 +519,68 @@ def test_list_tasks_skips_blob_after_publish(
         offset=0,
     )
     assert listed["items"][0]["task_id"] == "hello"
+    assert listed["overlay_prefixes"] == []
+
+
+def test_list_tasks_reads_variant_profile_overlays(tmp_path: Path) -> None:
+    import shutil
+
+    from services.registry.package_files import (
+        build_index_from_archive,
+        is_profiles_document,
+        overlay_paths_from_profiles_yaml,
+    )
+
+    assert is_profiles_document("profiles.yaml") is True
+    assert is_profiles_document("profiles.docker.yaml") is True
+    assert is_profiles_document("env/profiles.ssh.yaml") is True
+    assert is_profiles_document("tasks/hello/profiles.yaml") is False
+    assert is_profiles_document("shared/note.yaml") is False
+    assert overlay_paths_from_profiles_yaml(
+        'agent_profiles:\n  x:\n    overlays:\n      - overlays/docker\n      - "overlays/ssh"\n'
+    ) == ["overlays/docker", "overlays/ssh"]
+
+    root = tmp_path / "pkg"
+    shutil.copytree(FIXTURE, root)
+    (root / "profiles.docker.yaml").write_text(
+        "format: ageval.profiles/1\n"
+        "agent_profiles:\n"
+        "  docker:\n"
+        "    executor: acp\n"
+        "    overlays:\n"
+        "      - overlays/docker\n",
+        encoding="utf-8",
+    )
+    (root / "overlays").mkdir()
+    (root / "overlays" / "docker").write_text("x\n", encoding="utf-8")
+    archive, blob_digest, size = build_archive(root)
+    index = build_index_from_archive(archive, package_digest="sha256:overlay")
+    assert index.overlay_prefixes == ["overlays/docker"]
+
+    svc = _service(tmp_path)
+    svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
+    path = tmp_path / "overlay-pkg.tar.gz"
+    path.write_bytes(archive)
+    auth = TokenInfo(scopes=frozenset({"registry:publish"}), user_id="alice")
+    payload = svc.publish(
+        meta={
+            "dataset_id": "test/publish-min",
+            "version": "0.1.0",
+            "package_digest": compute_package_digest(root),
+            "blob_digest": blob_digest,
+            "media_type": MEDIA_TYPE,
+            "visibility": "private",
+            "org_id": "acme",
+            "size": size,
+        },
+        archive=path,
+        auth=auth,
+    )
+    listed = svc.list_tasks(
+        dataset_id="test/publish-min",
+        auth=auth,
+        package_digest=str(payload["package_digest"]),
+        limit=20,
+        offset=0,
+    )
+    assert listed["overlay_prefixes"] == ["overlays/docker"]
