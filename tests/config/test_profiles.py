@@ -173,7 +173,7 @@ def test_overlay_carries_the_locator_name_not_a_value() -> None:
 
 def test_overlay_round_trips_into_a_profiles_document(tmp_path: Path) -> None:
     overlay = project_job_overlay(
-        {"solver": {**ACP_SOLVER, "api_key": "LOC"}},
+        {"solver": {**ACP_SOLVER, "api_key": "LOC", "base_url": "LITELLM_BASE"}},
         environment="local",
     )
     path = tmp_path / "profiles.from-suite.yaml"
@@ -182,6 +182,7 @@ def test_overlay_round_trips_into_a_profiles_document(tmp_path: Path) -> None:
     assert loaded.environment == "local"
     assert loaded.profiles["solver"]["extensions"][0]["options"]["entry"] == "pi"
     assert loaded.profiles["solver"]["api_key"] == "${LOC}"
+    assert loaded.profiles["solver"]["base_url"] == "${LITELLM_BASE}"
 
 
 def test_overlay_keeps_plugin_options_but_drops_registry_truth() -> None:

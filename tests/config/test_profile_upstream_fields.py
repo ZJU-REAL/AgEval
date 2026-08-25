@@ -90,7 +90,9 @@ def test_rejects_non_url_base(tmp_path: Path) -> None:
         )
 
 
-def test_expands_base_url_env_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unwraps_base_url_env_ref_to_locator_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("TEST_LITELLM_BASE", "http://127.0.0.1:8010/v1")
     pkg = _write_pkg(tmp_path, slot_id="glm")
     locked = lock_with_profiles(
@@ -106,8 +108,29 @@ def test_expands_base_url_env_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         },
     )
     profiles = thaw(locked.agent_profiles)
-    assert profiles[0]["base_url"] == "http://127.0.0.1:8010/v1"
+    assert profiles[0]["base_url"] == "TEST_LITELLM_BASE"
     assert profiles[0]["api_key"] == "zhipu_coding_api_key"
+    overlay = thaw(locked.job_overlay)
+    assert overlay["agent_profiles"]["glm"]["base_url"] == "TEST_LITELLM_BASE"
+    payload = str(thaw(locked.job_overlay)) + str(profiles)
+    assert "127.0.0.1" not in payload
+
+
+def test_rejects_bare_base_url_locator(tmp_path: Path) -> None:
+    pkg = _write_pkg(tmp_path, slot_id="glm")
+    with pytest.raises(ConfigError, match=r"\$\{ENV_NAME\}|http\(s\)"):
+        lock_with_profiles(
+            pkg,
+            "profile-upstream",
+            {
+                "glm": {
+                    "executor": "openai-http",
+                    "model": "glm-4.7",
+                    "base_url": "litellm_base_url",
+                    "api_key": "${zhipu_coding_api_key}",
+                }
+            },
+        )
 
 
 def test_rejects_bare_api_key_locator(tmp_path: Path) -> None:
@@ -126,19 +149,30 @@ def test_rejects_bare_api_key_locator(tmp_path: Path) -> None:
         )
 
 
-def test_rejects_unset_base_url_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_lock_keeps_unset_base_url_locator(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MISSING_BASE_URL", raising=False)
     pkg = _write_pkg(tmp_path, slot_id="glm")
+    locked = lock_with_profiles(
+        pkg,
+        "profile-upstream",
+        {
+            "glm": {
+                "executor": "openai-http",
+                "model": "glm-4.7",
+                "base_url": "${MISSING_BASE_URL}",
+                "api_key": "${zhipu_coding_api_key}",
+            }
+        },
+    )
+    assert thaw(locked.agent_profiles)[0]["base_url"] == "MISSING_BASE_URL"
+
+
+def test_resolve_locked_base_url_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ageval.config.env_refs import resolve_locked_base_url
+
+    monkeypatch.setenv("TEST_LITELLM_BASE", "http://127.0.0.1:8010/v1")
+    assert resolve_locked_base_url("TEST_LITELLM_BASE") == "http://127.0.0.1:8010/v1"
+    assert resolve_locked_base_url("https://example.test/v1") == "https://example.test/v1"
+    monkeypatch.delenv("MISSING_BASE_URL", raising=False)
     with pytest.raises(ConfigError, match="unset"):
-        lock_with_profiles(
-            pkg,
-            "profile-upstream",
-            {
-                "glm": {
-                    "executor": "openai-http",
-                    "model": "glm-4.7",
-                    "base_url": "${MISSING_BASE_URL}",
-                    "api_key": "${zhipu_coding_api_key}",
-                }
-            },
-        )
+        resolve_locked_base_url("MISSING_BASE_URL")

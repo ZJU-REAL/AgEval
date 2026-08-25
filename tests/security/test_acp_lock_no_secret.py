@@ -23,6 +23,7 @@ limits:
 
 def test_acp_lock_snapshot_is_safe(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("OPENAI_API_KEY", "sk-not-for-the-lock")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://10.0.0.1:8010/v1")
     task = tmp_path / "pkg"
     task.mkdir()
     (task / "task.yaml").write_text(TASK_YAML, encoding="utf-8")
@@ -44,6 +45,7 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path, monkeypatch) -> None:  # type
                         "executor": "acp",
                         "model": "entry-default",
                         "api_key": "${OPENAI_API_KEY}",
+                        "base_url": "${OPENAI_BASE_URL}",
                         "extensions": [
                             {"plugin": "acp", "options": {"entry": "codex"}},
                             {"plugin": "local"},
@@ -56,7 +58,9 @@ def test_acp_lock_snapshot_is_safe(tmp_path: Path, monkeypatch) -> None:  # type
 
     (profile,) = thaw(lock.agent_profiles)
     assert profile["api_key"] == "OPENAI_API_KEY", "the locator name, not the value"
+    assert profile["base_url"] == "OPENAI_BASE_URL", "the locator name, not the URL"
     payload = json.dumps({"profiles": thaw(lock.agent_profiles), "overlay": thaw(lock.job_overlay)})
     assert "sk-" not in payload
+    assert "10.0.0.1" not in payload
     assert "/Users/" not in payload
     assert str(tmp_path) not in payload

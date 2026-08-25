@@ -597,6 +597,14 @@ def job_overlay_to_profiles_document(overlay: Mapping[str, Any]) -> dict[str, An
         api_key = row.get("api_key")
         if isinstance(api_key, str) and api_key and not api_key.startswith("${"):
             row["api_key"] = f"${{{api_key}}}"
+        base_url = row.get("base_url")
+        if (
+            isinstance(base_url, str)
+            and base_url
+            and not base_url.startswith("${")
+            and not base_url.startswith(("http://", "https://"))
+        ):
+            row["base_url"] = f"${{{base_url}}}"
         profiles[str(role_id)] = row
     document: dict[str, Any] = {
         "format": PROFILES_FORMAT,

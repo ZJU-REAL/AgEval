@@ -35,7 +35,7 @@ Missing `attach_stdio` fails at **lock**, not mid-invoke.
 | `options.reasoning_effort` | unset | Applied when the entry advertises a reasoning selector. Omit to keep the entry default. |
 | `model` | `entry-default` | Session model id. Binding is entry-specific (`config-option` vs entry-default-only). |
 | `api_key` | unset | Env **locator name** projected into the attach env. Value never enters the lock. |
-| `base_url` | unset | Projected into the attach env when the entry uses an OpenAI-compatible base. |
+| `base_url` | unset | `${ENV_NAME}` (lock stores the locator; spawn reads env) or a literal `http(s)` URL (lock stores the URL). |
 
 Rejected on `options` (entry-registry truth; fail closed): `command`, `args`, `detect_command`, `install_command`, `version`, `acp_command`, `engine_command`, `acp_version`, `credential_env_names`.
 

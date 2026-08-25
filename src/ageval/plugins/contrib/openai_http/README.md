@@ -22,7 +22,7 @@ No plugin `options` are consumed. Role profile fields only.
 | Name | Default | Purpose |
 | --- | --- | --- |
 | `model` | `gpt-4.1-mini` | Chat Completions model id the endpoint accepts. |
-| `base_url` | `https://api.openai.com/v1` | OpenAI-compatible base. Override with the profile field or host `AGEVAL_OPENAI_BASE_URL`. |
+| `base_url` | unset (executor default `https://api.openai.com/v1`) | `${ENV_NAME}` (lock stores the locator) or a literal `http(s)` URL. Host `AGEVAL_OPENAI_BASE_URL` is the fallback when the field is omitted. |
 | `api_key` | `OPENAI_API_KEY` | Env **locator name**, not the secret. Empty key is allowed only when `base_url` is loopback. |
 
 ## Bind
@@ -30,8 +30,8 @@ No plugin `options` are consumed. Role profile fields only.
 ```yaml
 executor: openai-http
 model: gpt-4.1-mini          # or another id the endpoint accepts
-base_url: https://api.openai.com/v1   # optional; this is the default
-api_key: OPENAI_API_KEY      # env *name*, not the secret
+base_url: ${AGEVAL_OPENAI_BASE_URL}   # or a literal http(s) URL; omit for default
+api_key: ${OPENAI_API_KEY}            # env locator, not the secret
 ```
 
 Native `tools=` is posted when the session has a catalog. Responses may

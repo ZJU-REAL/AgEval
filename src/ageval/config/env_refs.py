@@ -1,8 +1,8 @@
 """Profile binding ``${ENV_NAME}`` refs.
 
-``api_key: ${NAME}`` unwraps to locator ``NAME`` (secret value never enters the
-binding). ``base_url: ${NAME}`` substitutes the host env value. Bare locator
-names are rejected.
+``api_key: ${NAME}`` unwraps to locator ``NAME`` (value never enters the lock).
+``base_url`` accepts ``${NAME}`` (lock stores the name; spawn reads env) or a
+literal ``http(s)`` URL (lock stores the URL). Bare locator names are rejected.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from typing import Any
 from ageval.config.errors import ERROR_INVALID_SCHEMA, ConfigError
 
 _ENV_REF = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
+_LOCATOR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def parse_env_ref(raw: str) -> str | None:
@@ -34,21 +35,55 @@ def expand_api_key_locator(raw: str, *, location: str) -> str:
     return name
 
 
-def expand_base_url_value(
-    raw: str,
-    *,
-    location: str,
-    environ: Mapping[str, str] | None = None,
-) -> str:
+def is_http_url(raw: str) -> bool:
+    text = raw.strip()
+    return text.startswith(("http://", "https://"))
+
+
+def is_locator_name(raw: str) -> bool:
+    text = raw.strip()
+    return bool(_LOCATOR_NAME_RE.fullmatch(text)) and 0 < len(text) <= 64
+
+
+def expand_base_url_locator(raw: str, *, location: str) -> str:
+    """Unwrap ``${NAME}`` to ``NAME``; keep an ``http(s)`` URL as a literal."""
     name = parse_env_ref(raw)
-    if name is None:
-        return raw.strip()
+    if name is not None:
+        return name
+    text = raw.strip()
+    if is_http_url(text):
+        return text
+    raise ConfigError(
+        ERROR_INVALID_SCHEMA,
+        "profile.base_url must be ${ENV_NAME} or an http(s) URL",
+        location=location,
+    )
+
+
+def resolve_locked_base_url(
+    raw: str | None,
+    *,
+    environ: Mapping[str, str] | None = None,
+    location: str = "/agent_profiles/base_url",
+) -> str | None:
+    """Turn a locked ``base_url`` (locator name or URL) into a URL at spawn."""
+    if raw is None or not str(raw).strip():
+        return None
+    text = str(raw).strip()
+    if is_http_url(text):
+        return text
+    if not is_locator_name(text):
+        raise ConfigError(
+            ERROR_INVALID_SCHEMA,
+            "locked base_url must be an env locator name or an http(s) URL",
+            location=location,
+        )
     env = os.environ if environ is None else environ
-    val = env.get(name)
+    val = env.get(text)
     if not val or not str(val).strip():
         raise ConfigError(
             ERROR_INVALID_SCHEMA,
-            f"profile.base_url ${{{name}}} is unset (set it in process env or package/repo .env)",
+            f"profile.base_url ${{{text}}} is unset (set it in process env or package/repo .env)",
             location=location,
         )
     return str(val).strip()
@@ -61,6 +96,7 @@ def expand_profile_env_refs(
     environ: Mapping[str, str] | None = None,
 ) -> None:
     """Rewrite api_key / base_url ${} refs in place on one profile."""
+    del environ
     api_key = profile.get("api_key")
     if api_key is not None:
         if not isinstance(api_key, str) or not api_key.strip():
@@ -78,8 +114,7 @@ def expand_profile_env_refs(
                 "profile.base_url must be a non-empty string when set",
                 location=f"{location}/base_url",
             )
-        profile["base_url"] = expand_base_url_value(
+        profile["base_url"] = expand_base_url_locator(
             base_url,
             location=f"{location}/base_url",
-            environ=environ,
         )

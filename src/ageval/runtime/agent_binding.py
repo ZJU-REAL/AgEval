@@ -84,13 +84,15 @@ class AgentBinder:
         model = str(row.get("model") or "entry-default")
         placement = host.placement()
         package_root = str(self.task_root) if self.task_root is not None else None
+        from ageval.config.env_refs import resolve_locked_base_url
+
         executor = bind_winner(
             self.registry,
             graph,
             EXECUTOR,
             profile_id=profile_id,
             model=model,
-            base_url=_text(row.get("base_url")),
+            base_url=resolve_locked_base_url(_text(row.get("base_url"))),
             api_key=_text(row.get("api_key")),
             host=host,
             placement=placement,

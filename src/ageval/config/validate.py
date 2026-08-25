@@ -238,7 +238,9 @@ def _validate_acp_profile(
 
 
 def _validate_routing(profile: dict[str, Any], *, loc: str) -> None:
-    """``base_url`` is a literal URL; ``api_key`` is an env var name only."""
+    """``base_url`` is a locator name or http(s) URL; ``api_key`` is a locator."""
+    from ageval.config.env_refs import is_http_url, is_locator_name
+
     base_url = profile.get("base_url")
     if base_url is not None:
         if not isinstance(base_url, str) or not base_url.strip():
@@ -247,10 +249,10 @@ def _validate_routing(profile: dict[str, Any], *, loc: str) -> None:
                 "profile.base_url must be a non-empty string when set",
                 location=f"{loc}/base_url",
             )
-        if not base_url.startswith(("http://", "https://")):
+        if not is_http_url(base_url) and not is_locator_name(base_url):
             raise ConfigError(
                 ERROR_INVALID_SCHEMA,
-                "profile.base_url must start with http:// or https://",
+                "profile.base_url must be ${ENV_NAME} or an http(s) URL",
                 location=f"{loc}/base_url",
             )
     api_key = profile.get("api_key")
