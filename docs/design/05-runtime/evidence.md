@@ -51,6 +51,22 @@ usage: {
 
 invoke 墙钟写在 invocation `metadata.json` 的 `latency_ms`，并进入 `terminal.metadata.latency_ms`。折叠时：该 turn 的事件若还没给 `terminal.elapsed_ms`，则把 invoke `latency_ms` 拷过去。轨迹卡片读 `elapsed_ms`。
 
+## 密封后的默认可持久集合
+
+层 A/B 在 invoke 时照写（record 的 collect 仍读 `events.jsonl` + request）。`trajectory_seal` **成功之后**，默认磁盘与 Hub archive 只留：
+
+```text
+lock.json
+result.json
+trajectory.jsonl
+summary.json
+task-artifacts/**
+```
+
+`summary.json` 是相位墙钟，不是 vendor raw。Verifier 看 `result.json`；默认不留 `evaluation/evaluator_raw.json`。
+
+`--keep-vendor-raw`（默认关）才保留 `backend_raw/`、per-invoke `request.json` / `events.jsonl` / `final-response.json` / `metadata.json`、失败 `stderr.txt`、`agent/events.jsonl`、`evaluator_raw.json`。`--keep-workspace` 只管宿主 work root（`l1-work`），与 vendor raw 无关。`ageval evidence` 跟可持久树走，层 C 优先。只作用于新 run，不改写旧树。删文件不是 PASS。
+
 lock 与 evidence 禁止 host token。密钥 locator 只留名字。
 
 Suite：`<dataset>/.ageval/suite-runs/<id>/summary.json`（`pass_rate` 等是观测，不是 suite PASS）。
