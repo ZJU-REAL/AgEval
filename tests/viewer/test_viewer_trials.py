@@ -769,8 +769,8 @@ def test_first_class_usage_and_jsonl_labels_without_invocation_meta(tmp_path: Pa
                             "completion_tokens": 4,
                             "cached_tokens": 2,
                             "cost_usd": 0.0012,
-                            "extra": {"reasoning_tokens": 3, "foo": True},
                         },
+                        "extra": {"reasoning_tokens": 3, "foo": True},
                         "metadata": {
                             "profile_id": "solver",
                             "executor_kind": "openai-http",

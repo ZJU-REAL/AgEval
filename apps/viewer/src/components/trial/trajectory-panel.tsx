@@ -49,30 +49,15 @@ function firstClassUsage(usage: Record<string, unknown> | null | undefined): {
   completion: number | null;
   cached: number | null;
   costUsd: number | null;
-  extra: Record<string, unknown> | null;
 } {
   if (!usage) {
-    return { prompt: null, completion: null, cached: null, costUsd: null, extra: null };
+    return { prompt: null, completion: null, cached: null, costUsd: null };
   }
-  const extraRaw = usage.extra;
-  const extra =
-    extraRaw && typeof extraRaw === "object" && !Array.isArray(extraRaw)
-      ? (extraRaw as Record<string, unknown>)
-      : null;
-  const costObj =
-    extra?.cost && typeof extra.cost === "object" && !Array.isArray(extra.cost)
-      ? (extra.cost as Record<string, unknown>)
-      : usage.cost && typeof usage.cost === "object" && !Array.isArray(usage.cost)
-        ? (usage.cost as Record<string, unknown>)
-        : null;
   return {
-    prompt: asInt(usage.prompt_tokens) ?? asInt(usage.input_tokens),
-    completion: asInt(usage.completion_tokens) ?? asInt(usage.output_tokens),
-    cached: asInt(usage.cached_tokens) ?? asInt(usage.cached_read_tokens),
-    costUsd:
-      asFiniteNumber(usage.cost_usd) ??
-      (costObj ? asFiniteNumber(costObj.amount) : null),
-    extra,
+    prompt: asInt(usage.prompt_tokens),
+    completion: asInt(usage.completion_tokens),
+    cached: asInt(usage.cached_tokens),
+    costUsd: asFiniteNumber(usage.cost_usd),
   };
 }
 
@@ -85,11 +70,7 @@ function UsageChips({
 }) {
   const parsed = firstClassUsage(usage);
   const extra =
-    parsed.extra && Object.keys(parsed.extra).length > 0
-      ? parsed.extra
-      : siblingExtra && Object.keys(siblingExtra).length > 0
-        ? siblingExtra
-        : null;
+    siblingExtra && Object.keys(siblingExtra).length > 0 ? siblingExtra : null;
   const chips: Array<{ key: string; text: string }> = [];
   if (parsed.prompt != null) chips.push({ key: "prompt", text: `prompt ${parsed.prompt}` });
   if (parsed.completion != null) {

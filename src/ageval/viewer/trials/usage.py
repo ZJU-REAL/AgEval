@@ -136,19 +136,20 @@ def _cache_hit_heuristic(
     }
 
 
-def _usage_summary_for_actor(usage: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Normalize a terminal usage dict into viewer-facing summary fields.
+def _usage_summary_for_actor(
+    usage: dict[str, Any] | None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Normalize a terminal usage dict plus sibling extra into viewer fields.
 
-    Prefers layer-C first-class names (``prompt_tokens`` / ``completion_tokens``
-    / ``cached_tokens`` / ``cost_usd``); aliases older ACP keys and ``usage.extra``
-    leftovers so existing archives still paint. Never treats legacy ``used``
-    (context occupancy) as tokens. Observational only; not PASS authority.
+    First-class names live on ``usage``. Leftovers (context, cache-write) live
+    on sibling ``extra``. Observational only; not PASS authority.
     """
+    extra = extra if isinstance(extra, dict) else {}
     if not isinstance(usage, dict) or not usage:
+        usage = {}
+    if not usage and not extra:
         return None
-
-    extra_raw = usage.get("extra")
-    extra: dict[str, Any] = dict(extra_raw) if isinstance(extra_raw, dict) else {}
 
     inp = _as_int(usage.get("prompt_tokens"))
     if inp is None:

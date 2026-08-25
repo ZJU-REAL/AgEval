@@ -278,13 +278,6 @@ function asInt(value: unknown): number | null {
   return n;
 }
 
-function extraBag(usage: Record<string, unknown> | null | undefined): Record<string, unknown> {
-  const extra = usage?.extra;
-  return extra && typeof extra === "object" && !Array.isArray(extra)
-    ? (extra as Record<string, unknown>)
-    : {};
-}
-
 function fmtTokenCount(n: number): string {
   if (n >= 1_000_000) {
     const v = n / 1_000_000;
@@ -304,36 +297,41 @@ function fmtCost(amount: number): string {
 
 export function summarizeUsage(
   usage: Record<string, unknown> | null | undefined,
+  extraRaw?: Record<string, unknown> | null,
 ): NonNullable<TrialActor["usage"]> | null {
-  if (!usage) return null;
-  const extra = extraBag(usage);
+  if (!usage && !extraRaw) return null;
+  const extra =
+    extraRaw && typeof extraRaw === "object" && !Array.isArray(extraRaw)
+      ? extraRaw
+      : {};
+  const fields = usage ?? {};
   const inp =
-    asInt(usage.prompt_tokens) ??
-    asInt(usage.input_tokens) ??
-    asInt(usage.inputTokens);
+    asInt(fields.prompt_tokens) ??
+    asInt(fields.input_tokens) ??
+    asInt(fields.inputTokens);
   const outp =
-    asInt(usage.completion_tokens) ??
-    asInt(usage.output_tokens) ??
-    asInt(usage.outputTokens);
+    asInt(fields.completion_tokens) ??
+    asInt(fields.output_tokens) ??
+    asInt(fields.outputTokens);
   const cachedRead =
-    asInt(usage.cached_tokens) ??
-    asInt(usage.cached_read_tokens) ??
-    asInt(usage.cachedReadTokens) ??
+    asInt(fields.cached_tokens) ??
+    asInt(fields.cached_read_tokens) ??
+    asInt(fields.cachedReadTokens) ??
     asInt(extra.cached_read_tokens);
   const cachedWrite =
     asInt(extra.cached_write_tokens) ??
-    asInt(usage.cached_write_tokens) ??
-    asInt(usage.cachedWriteTokens);
+    asInt(fields.cached_write_tokens) ??
+    asInt(fields.cachedWriteTokens);
   const total =
-    asInt(extra.total_tokens) ?? asInt(usage.total_tokens) ?? asInt(usage.totalTokens);
+    asInt(extra.total_tokens) ?? asInt(fields.total_tokens) ?? asInt(fields.totalTokens);
 
-  let costAmount = asFiniteNumber(usage.cost_usd);
+  let costAmount = asFiniteNumber(fields.cost_usd);
   let costCurrency: string | null = costAmount != null ? "USD" : null;
   const costRaw =
     extra.cost && typeof extra.cost === "object" && !Array.isArray(extra.cost)
       ? (extra.cost as Record<string, unknown>)
-      : usage.cost && typeof usage.cost === "object" && !Array.isArray(usage.cost)
-        ? (usage.cost as Record<string, unknown>)
+      : fields.cost && typeof fields.cost === "object" && !Array.isArray(fields.cost)
+        ? (fields.cost as Record<string, unknown>)
         : null;
   if (costAmount == null && costRaw) {
     costAmount = asFiniteNumber(costRaw.amount);
@@ -345,11 +343,11 @@ export function summarizeUsage(
   const contextRaw =
     extra.context && typeof extra.context === "object" && !Array.isArray(extra.context)
       ? (extra.context as Record<string, unknown>)
-      : usage.context && typeof usage.context === "object" && !Array.isArray(usage.context)
-        ? (usage.context as Record<string, unknown>)
+      : fields.context && typeof fields.context === "object" && !Array.isArray(fields.context)
+        ? (fields.context as Record<string, unknown>)
         : null;
-  const contextUsed = asInt(contextRaw?.used) ?? asInt(usage.used);
-  const contextSize = asInt(contextRaw?.size) ?? asInt(usage.size);
+  const contextUsed = asInt(contextRaw?.used) ?? asInt(fields.used);
+  const contextSize = asInt(contextRaw?.size) ?? asInt(fields.size);
 
   let cacheHitRate: number | null = null;
   if (inp != null && cachedRead != null && inp > 0) {
@@ -523,6 +521,7 @@ export function buildTrialMeta(opts: {
   }
 
   const jsonlUsage = new Map<string, Record<string, unknown>>();
+  const jsonlExtra = new Map<string, Record<string, unknown>>();
   const jsonlLatency = new Map<string, number>();
   const jsonlCount = new Map<string, number>();
   for (const step of trajectorySteps || []) {
@@ -532,6 +531,9 @@ export function buildTrialMeta(opts: {
     if (!orderedIds.includes(pid)) orderedIds.push(pid);
     if (step.usage && typeof step.usage === "object") {
       jsonlUsage.set(pid, step.usage);
+    }
+    if (step.extra && typeof step.extra === "object") {
+      jsonlExtra.set(pid, step.extra);
     }
     const elapsed = terminalElapsedMs(step);
     if (elapsed != null) {
@@ -568,7 +570,10 @@ export function buildTrialMeta(opts: {
     const roleCol = pid;
     const nInv = jsonlCount.get(pid) || invokeCount.get(pid) || 0;
     const latTotal = jsonlLatency.has(pid) ? jsonlLatency.get(pid) : latencySum.get(pid);
-    const usageSummary = summarizeUsage(jsonlUsage.get(pid) ?? null);
+    const usageSummary = summarizeUsage(
+      jsonlUsage.get(pid) ?? null,
+      jsonlExtra.get(pid) ?? null,
+    );
     actors.push({
       role: roleCol,
       agent: agentCol,
