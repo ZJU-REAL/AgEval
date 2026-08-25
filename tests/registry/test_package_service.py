@@ -497,7 +497,9 @@ def test_list_tasks_pages_and_flags(tmp_path: Path) -> None:
     assert empty["total"] == 1
 
 
-def test_list_tasks_skips_blob_after_publish(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_list_tasks_skips_blob_after_publish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     svc = _service(tmp_path)
     svc.meta.create_org(name="acme", owner_user_id="alice", display_name="Acme")
     meta, archive, _raw = _meta_archive(tmp_path)

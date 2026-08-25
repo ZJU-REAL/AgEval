@@ -116,18 +116,12 @@ def test_list_suites_task_id_and_limit(tmp_path: Path) -> None:
         task_refs=[{"task_id": "other", "status": "PASS", "score": 1.0}],
     )
     results.upload_suite(meta=second, archive=second_blob, auth=auth)
-    hello = results.list_suites(
-        auth=auth, dataset_id="test/publish-min", task_id="hello"
-    )
+    hello = results.list_suites(auth=auth, dataset_id="test/publish-min", task_id="hello")
     assert [i["suite_run_id"] for i in hello["items"]] == ["suite_hello"]
-    paged = results.list_suites(
-        auth=auth, dataset_id="test/publish-min", limit=1, offset=0
-    )
+    paged = results.list_suites(auth=auth, dataset_id="test/publish-min", limit=1, offset=0)
     assert paged["total"] == 2
     assert len(paged["items"]) == 1
-    rest = results.list_suites(
-        auth=auth, dataset_id="test/publish-min", limit=1, offset=1
-    )
+    rest = results.list_suites(auth=auth, dataset_id="test/publish-min", limit=1, offset=1)
     assert rest["total"] == 2
     assert {paged["items"][0]["suite_run_id"], rest["items"][0]["suite_run_id"]} == {
         "suite_hello",
