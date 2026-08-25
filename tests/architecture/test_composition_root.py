@@ -13,6 +13,10 @@ def test_build_lock_command_is_wired() -> None:
     assert callable(composition.build_lock_command().lock)
 
 
+def test_build_dataset_checkout_is_wired() -> None:
+    assert callable(composition.build_dataset_checkout())
+
+
 def test_build_run_attempt_returns_the_use_case() -> None:
     run_attempt = composition.build_run_attempt()
     assert inspect.iscoroutinefunction(run_attempt)
@@ -22,7 +26,9 @@ def test_cli_reaches_run_only_through_composition() -> None:
     cli_dir = Path(cli_main.__file__).resolve().parent
     sources = "\n".join(p.read_text(encoding="utf-8") for p in cli_dir.glob("*.py"))
     assert "build_run_attempt" in sources
+    assert "build_dataset_checkout" in sources
     assert "from ageval.application.run import" not in sources
+    assert "from ageval.registry.resolve import" not in sources
 
 
 def test_cli_campaign_uses_composition() -> None:

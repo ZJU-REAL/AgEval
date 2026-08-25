@@ -46,3 +46,6 @@ def test_cli_has_lock_and_run() -> None:
     assert "run" in result.stdout
     result2 = CliRunner().invoke(app, ["lock", "--help"])
     assert result2.exit_code == 0
+    result3 = CliRunner().invoke(app, ["run", "--help"])
+    assert result3.exit_code == 0
+    assert "--dir" in result3.stdout

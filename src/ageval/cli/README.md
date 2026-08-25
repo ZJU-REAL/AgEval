@@ -261,6 +261,9 @@ uv run ageval publish path/to/db --org my-lab --public
 uv run ageval lock 'test/publish-min@0.1.0' --task hello
 uv run ageval run  'test/publish-min@0.1.0' --task hello
 uv run ageval lock 'test/publish-min@sha256:…' --task hello
+# Checkout under a parent dir (reuse if already there):
+uv run ageval run  'test/publish-min@0.1.0' --dir tmp --task hello
+uv run ageval view tmp/test/publish-min
 ```
 
 ### Catalog and cache

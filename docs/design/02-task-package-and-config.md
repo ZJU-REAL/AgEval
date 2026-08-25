@@ -20,7 +20,10 @@ CLI 路径永远是 dataset 根：
 ageval lock examples/journeys --task terminal-jsonl-agg
 ageval run  examples/journeys --task terminal-jsonl-agg
 ageval tasks examples/journeys
+ageval run  official/demo@0.1.0 --dir tmp
 ```
+
+`run` 第一个参数是本地 dataset 根 **或** Hub ref（`dataset_id@version` / `@sha256:…`）。`--dir <path>` 只配合 Hub ref：在 `<path>/<dataset_id>/` 找包（例：`--dir tmp` + `official/demo@0.1.0` → `tmp/official/demo`）。子目录已是匹配 dataset 就复用，否则 fetch 进去再 run。相对路径相对 cwd。本地路径再加 `--dir` 是 `invalid_override`。`view` / `tasks` / `results upload-suite` 仍只收本地目录。
 
 `--profiles` 整份替换根上的 job 文档。`--agent` 与 `--profiles` 互斥。`--set` 白名单：`/parameters/seed`、`/parameters/active_profile`、`/bindings/<role>/{model,executor,api_key,base_url,options/<key>}`。`limits.*` 不可 `--set`。
 

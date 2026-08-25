@@ -211,17 +211,38 @@ def register(app: typer.Typer) -> None:
                 ),
             ),
         ] = False,
+        install_dir: Annotated[
+            Path | None,
+            typer.Option(
+                "--dir",
+                help=(
+                    "Parent directory for a registry ref. Looks at "
+                    "<dir>/<dataset_id>/; reuses it if that child already matches, "
+                    "otherwise fetches into it and runs. Relative paths are from cwd. "
+                    "Requires dataset_id@version or @sha256:… (not a local path)."
+                ),
+            ),
+        ] = None,
     ) -> None:
         """Run one member or a full Dataset suite (Application-layer task_id axis)."""
         import asyncio
 
         from ageval.application.composition import (
+            build_dataset_checkout,
             build_probe_attempt,
             build_run_attempt,
             build_suite_runner,
         )
 
         profiles = resolve_agent_option(agent, profiles)
+        if install_dir is not None:
+            from ageval.config.errors import ConfigError as DirConfigError
+
+            try:
+                package = str(build_dataset_checkout()(package, dest=install_dir))
+            except DirConfigError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(code=2) from exc
         if probe:
             if not task:
                 typer.echo("probe requires --task", err=True)
