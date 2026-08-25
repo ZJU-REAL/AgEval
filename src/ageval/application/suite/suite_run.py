@@ -423,6 +423,8 @@ def _write_suite_progress(
     doc = {
         "schema": "ageval.suite.progress/1",
         "suite_run_id": plan.suite_run_id,
+        "dataset_id": plan.dataset_id,
+        "dataset_version": plan.dataset_version,
         "status": status,
         "done": done,
         "total": total,

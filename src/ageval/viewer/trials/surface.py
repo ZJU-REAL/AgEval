@@ -10,7 +10,14 @@ from typing import Any
 from ageval.evidence.attempt_record import has_attempt_result, read_attempt_result
 from ageval.evidence.trajectory import TRAJECTORY_FILENAME
 from ageval.evidence.usage import observational_bag, terminal_extra
-from ageval.viewer.jobs import _duration_label, _environment_kind, _phase_timing, _started_at
+from ageval.viewer.jobs import (
+    _duration_label,
+    _environment_kind,
+    _phase_timing,
+    _started_at,
+    dataset_identity,
+    dataset_ref,
+)
 from ageval.viewer.trials.paths import _read_json_object
 from ageval.viewer.trials.usage import (
     _format_latency_ms,
@@ -339,6 +346,8 @@ def _trial_meta_from_evidence(
             error = str(error)
     locked_task = lock.get("task_id") if isinstance(lock.get("task_id"), str) else None
     surface = _agent_surface(evidence, lock=lock)
+    did, ver = dataset_identity(lock, location=str(evidence / "lock.json"))
+    ref = dataset_ref(did, ver)
 
     phase_timing = _phase_timing(summary) or _phase_timing(suite_row)
     duration = _duration_label(phase_timing)
@@ -378,6 +387,9 @@ def _trial_meta_from_evidence(
         "upstream_ref": surface.get("upstream_ref"),
         "note": None,
         "extra": observational_bag(summary.get("extra")),
+        "dataset_id": did,
+        "dataset_version": ver,
+        "dataset_ref": ref,
     }
 
 

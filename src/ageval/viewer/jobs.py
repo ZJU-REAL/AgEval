@@ -34,6 +34,34 @@ def _suite_root(dataset_root: Path) -> Path:
     return default_suite_runs_root(dataset_root.expanduser().resolve(strict=False))
 
 
+def dataset_identity(doc: Any, *, location: str) -> tuple[str, str]:
+    """``dataset_id`` + ``dataset_version`` from a finished record. No yaml fallback."""
+    if not isinstance(doc, dict):
+        raise ConfigError(
+            "invalid_schema",
+            "missing dataset_id@version",
+            location=location,
+        )
+    dataset_id = doc.get("dataset_id")
+    dataset_version = doc.get("dataset_version")
+    if (
+        not isinstance(dataset_id, str)
+        or not dataset_id.strip()
+        or not isinstance(dataset_version, str)
+        or not dataset_version.strip()
+    ):
+        raise ConfigError(
+            "invalid_schema",
+            "missing dataset_id@version",
+            location=location,
+        )
+    return dataset_id.strip(), dataset_version.strip()
+
+
+def dataset_ref(dataset_id: str, dataset_version: str) -> str:
+    return f"{dataset_id}@{dataset_version}"
+
+
 def _load_summary(path: Path) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -199,20 +227,20 @@ def _in_progress_suite_row(
     manifest: Any = None,
 ) -> dict[str, Any]:
     """Suite that has progress.json but no summary yet — still running."""
-    man = manifest
-    if man is None:
-        with contextlib.suppress(ConfigError):
-            man = load_dataset_manifest(dataset_root)
+    del dataset_root, manifest
     sid = str(progress.get("suite_run_id") or suite_dir.name)
     total = int(progress.get("total") or 0)
     done = int(progress.get("done") or 0)
+    did, ver = dataset_identity(progress, location=str(suite_dir / "progress.json"))
+    ref = dataset_ref(did, ver)
     return {
         "job_id": sid,
         "job_name": sid,
         "source_kind": "suite",
-        "source": man.dataset_id if man else dataset_root.name,
-        "dataset_id": man.dataset_id if man else None,
-        "dataset_version": man.version if man else None,
+        "source": did,
+        "dataset_id": did,
+        "dataset_version": ver,
+        "dataset_ref": ref,
         "agent_label": "",
         "model_label": "",
         "reasoning_effort": "",
@@ -260,11 +288,6 @@ def _job_row(
         # Prefer counting actual refs
         trials_done = len(refs) if refs else n_tasks
 
-    man = manifest
-    if man is None:
-        with contextlib.suppress(ConfigError):
-            man = load_dataset_manifest(dataset_root)
-
     overlay = _overlay_from_job_summary(summary, dataset_root=dataset_root)
     from ageval.config.overlay_files import overlay_paths_from_job_overlay
     from ageval.config.profiles import display_labels_from_overlay
@@ -275,15 +298,16 @@ def _job_row(
     if not model_label:
         model_label = str(summary.get("model_label") or "")
 
+    did, ver = dataset_identity(summary, location=str(suite_dir / "summary.json"))
+    ref = dataset_ref(did, ver)
     return {
         "job_id": str(summary.get("suite_run_id") or suite_dir.name),
         "job_name": str(summary.get("suite_run_id") or suite_dir.name),
         "source_kind": "suite",
-        "source": str(
-            summary.get("dataset_id") or (man.dataset_id if man else "") or dataset_root.name
-        ),
-        "dataset_id": summary.get("dataset_id") or (man.dataset_id if man else None),
-        "dataset_version": summary.get("dataset_version") or (man.version if man else None),
+        "source": did,
+        "dataset_id": did,
+        "dataset_version": ver,
+        "dataset_ref": ref,
         "agent_label": agent_label,
         "model_label": model_label,
         "reasoning_effort": _reasoning_effort_from_summary(summary),
@@ -567,17 +591,17 @@ def _single_job_row(
     from ageval.config.profiles import reasoning_effort_from_overlay
 
     overlay = lock.get("job_overlay") if isinstance(lock.get("job_overlay"), dict) else None
-    man = manifest
-    if man is None:
-        with contextlib.suppress(ConfigError):
-            man = load_dataset_manifest(dataset_root)
+    del manifest
+    did, ver = dataset_identity(lock, location=str(evidence / "lock.json"))
+    ref = dataset_ref(did, ver)
     return {
         "job_id": run_id,
         "job_name": run_id,
         "source_kind": "single",
         "source": task_id or "single",
-        "dataset_id": man.dataset_id if man else None,
-        "dataset_version": man.version if man else None,
+        "dataset_id": did,
+        "dataset_version": ver,
+        "dataset_ref": ref,
         "agent_label": agent_label,
         "model_label": model_label,
         "reasoning_effort": reasoning_effort_from_overlay(overlay),
@@ -761,7 +785,7 @@ def get_job(dataset_root: Path, job_id: str) -> dict[str, Any]:
                 "model_label": job.get("model_label") or "",
                 "reasoning_effort": job.get("reasoning_effort") or "",
                 "provider_label": job.get("provider_label") or "",
-                "dataset": job.get("source") or job.get("dataset_id"),
+                "dataset": job.get("dataset_ref") or job.get("dataset_id"),
                 "duration": full.get("duration"),
                 "phase_timing": full.get("phase_timing"),
                 "n": n_val,
@@ -854,7 +878,7 @@ def _get_single_job(root: Path, job_id: str) -> dict[str, Any]:
             "model_label": job.get("model_label") or "",
             "reasoning_effort": job.get("reasoning_effort") or "",
             "provider_label": job.get("provider_label") or "",
-            "dataset": job.get("source") or job.get("dataset_id"),
+            "dataset": job.get("dataset_ref") or job.get("dataset_id"),
             "duration": job.get("duration"),
             "n": 1,
         }

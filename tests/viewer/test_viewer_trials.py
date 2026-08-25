@@ -63,6 +63,8 @@ def _write_evidence(db: Path, run_id: str, *, task_id: str = "alpha") -> Path:
         json.dumps(
             {
                 "task_id": task_id,
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
                 "digest": "sha256:deadbeef",
                 "environment": "e2b",
                 "job_overlay": {"environment": "e2b", "agent_profiles": {}},
@@ -203,6 +205,9 @@ def test_resolve_and_trial_detail(tmp_path: Path) -> None:
 
     detail = trials.get_trial(db, job_id, "alpha", "run_alpha_1")
     assert detail["ok"] is True
+    assert detail["trial"]["dataset_ref"] == "test/suite-min@0.1.0"
+    assert detail["trial"]["dataset_id"] == "test/suite-min"
+    assert detail["trial"]["dataset_version"] == "0.1.0"
     assert detail["trial"]["run_id"] == "run_alpha_1"
     assert detail["trial"]["status"] == "PASS"
     tabs = detail["trial"]["available_tabs"]
@@ -234,6 +239,30 @@ def test_resolve_and_trial_detail(tmp_path: Path) -> None:
     assert actors[0].get("usage_label")
     assert "in " in actors[0]["usage_label"]
     assert detail["trial"].get("upstream_url") is None
+
+
+def test_trial_identity_is_lock_not_opened_yaml(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    evidence = _write_evidence(db, "run_alpha_1", task_id="alpha")
+    lock_path = evidence / "lock.json"
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["dataset_id"] = "official/tau3-airline"
+    lock["dataset_version"] = "0.1.0"
+    lock_path.write_text(json.dumps(lock) + "\n", encoding="utf-8")
+    detail = trials.get_trial(db, job_id, "alpha", "run_alpha_1")
+    assert detail["trial"]["dataset_ref"] == "official/tau3-airline@0.1.0"
+
+
+def test_trial_missing_lock_identity_fails_closed(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    evidence = _write_evidence(db, "run_alpha_1", task_id="alpha")
+    lock = json.loads((evidence / "lock.json").read_text(encoding="utf-8"))
+    del lock["dataset_version"]
+    (evidence / "lock.json").write_text(json.dumps(lock) + "\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="missing dataset_id@version"):
+        trials.get_trial(db, job_id, "alpha", "run_alpha_1")
 
 
 def test_trajectory_steps(tmp_path: Path) -> None:
@@ -383,6 +412,7 @@ def test_get_trial_opens_previous_without_listing_it(tmp_path: Path) -> None:
         "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
         "dataset_id": "test/suite-min",
+        "dataset_version": "0.1.0",
         "tasks": [{"task_id": "alpha", "status": "PASS", "score": 1.0, "run_id": "run_new"}],
         "attempts": [
             {
@@ -483,6 +513,8 @@ def _write_multi_role_evidence(db: Path, run_id: str, *, task_id: str = "alpha")
         json.dumps(
             {
                 "task_id": task_id,
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
                 "digest": "sha256:multi",
                 "provenance": {
                     "kind": "reimplementation",
@@ -670,6 +702,8 @@ def test_legacy_usage_cost_only_no_used_as_tokens(tmp_path: Path) -> None:
         json.dumps(
             {
                 "task_id": "alpha",
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
                 "profiles": [
                     {
                         "id": "main-pi",
@@ -733,6 +767,8 @@ def test_first_class_usage_and_jsonl_labels_without_invocation_meta(tmp_path: Pa
         json.dumps(
             {
                 "task_id": "alpha",
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
                 "profiles": [
                     {
                         "id": "solver",
@@ -810,7 +846,14 @@ def test_old_usage_extra_alias_and_summary_extra(tmp_path: Path) -> None:
     root = db / ".ageval" / "runs" / "run_alpha_1"
     root.mkdir(parents=True, exist_ok=True)
     (root / "lock.json").write_text(
-        json.dumps({"task_id": "alpha", "profiles": [{"id": "solver", "executor": "openai-http"}]})
+        json.dumps(
+            {
+                "task_id": "alpha",
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
+                "profiles": [{"id": "solver", "executor": "openai-http"}],
+            }
+        )
         + "\n",
         encoding="utf-8",
     )

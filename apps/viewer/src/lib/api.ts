@@ -6,6 +6,8 @@ export type Job = {
   source_kind?: "suite" | "single" | string;
   dataset_id?: string | null;
   dataset_version?: string | null;
+  /** Locked package identity: dataset_id@version from summary or lock. */
+  dataset_ref?: string | null;
   agent_label?: string;
   model_label?: string;
   reasoning_effort?: string;
@@ -110,6 +112,9 @@ export type Trial = {
   upstream_name?: string | null;
   upstream_ref?: string | null;
   note?: string | null;
+  dataset_id?: string | null;
+  dataset_version?: string | null;
+  dataset_ref?: string | null;
   /** Attempt-grain observational bag from summary.extra; omit when empty. */
   extra?: Record<string, unknown> | null;
   /** Wall-time phases (environment/run/evaluate/record/cleanup) */

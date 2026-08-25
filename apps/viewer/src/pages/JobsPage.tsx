@@ -169,6 +169,7 @@ export function JobsPage() {
         j.job_name,
         j.source,
         j.source_kind,
+        j.dataset_ref,
         j.job_id,
         j.task_id,
         j.agent_label,
@@ -387,6 +388,7 @@ export function JobsPage() {
                   />
                 </TableHead>
                 <TableHead>{head("job_name", "Job Name")}</TableHead>
+                <TableHead>Dataset</TableHead>
                 <TableHead>{head("agent_label", "Harness")}</TableHead>
                 <TableHead>{head("model_label", "Models")}</TableHead>
                 <TableHead>{head("result", "Result")}</TableHead>
@@ -402,21 +404,21 @@ export function JobsPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-mute py-10 text-center">
+                  <TableCell colSpan={11} className="text-mute py-10 text-center">
                     Loading jobs...
                   </TableCell>
                 </TableRow>
               )}
               {!loading && error && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-error py-10 text-center">
+                  <TableCell colSpan={11} className="text-error py-10 text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               )}
               {!loading && !error && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-mute py-10 text-center">
+                  <TableCell colSpan={11} className="text-mute py-10 text-center">
                     No matching jobs.
                   </TableCell>
                 </TableRow>
@@ -454,6 +456,11 @@ export function JobsPage() {
                     <TableCell className="font-medium max-w-[16rem]">
                       <HoverTip content={jobDisplayName(job)}>
                         <span className="block truncate">{jobDisplayName(job)}</span>
+                      </HoverTip>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-body max-w-[16rem]">
+                      <HoverTip content={job.dataset_ref || ""}>
+                        <span className="block truncate">{job.dataset_ref || "-"}</span>
                       </HoverTip>
                     </TableCell>
                     <TableCell className="max-w-[14rem]">
