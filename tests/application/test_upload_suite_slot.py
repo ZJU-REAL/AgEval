@@ -68,6 +68,10 @@ def _seed(db: Path, *, suite_id: str = "suite1") -> None:
     for rid in ("newrun", "oldrun"):
         run_dir = db / ".ageval" / "runs" / rid
         run_dir.mkdir(parents=True)
+        run_dir.joinpath("lock.json").write_text(
+            '{"task_id": "hello", "dataset_id": "test/db", "dataset_version": "0.1.0"}\n',
+            encoding="utf-8",
+        )
         run_dir.joinpath("result.json").write_text(
             f'{{"status": "PASS", "task_id": "hello", "run_id": "{rid}"}}\n',
             encoding="utf-8",
@@ -143,6 +147,10 @@ def test_append_slot_resolves_always_k_index_from_attempts(tmp_path: Path) -> No
     for rid in ("idx0", "idx2", "idx1new", "idx1old"):
         run_dir = db / ".ageval" / "runs" / rid
         run_dir.mkdir(parents=True)
+        run_dir.joinpath("lock.json").write_text(
+            '{"task_id": "hello", "dataset_id": "test/db", "dataset_version": "0.1.0"}\n',
+            encoding="utf-8",
+        )
         run_dir.joinpath("result.json").write_text("{}\n", encoding="utf-8")
 
     captured: dict[str, Any] = {}
