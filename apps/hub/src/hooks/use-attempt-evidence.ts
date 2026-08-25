@@ -160,6 +160,21 @@ export function useAttemptEvidence(
         if (cancelled) return;
         setInvProfileByDir(profileMap);
 
+        let trajectorySteps: TrajectoryStep[] = [];
+        if (pathSet.has("trajectory.jsonl")) {
+          try {
+            const f = await getAttemptFile(
+              runId,
+              toArchivePath("trajectory.jsonl", runId),
+              token,
+            );
+            if (cancelled) return;
+            trajectorySteps = parseTrajectoryJsonl(decodeFileContent(f) || "");
+          } catch {
+            trajectorySteps = [];
+          }
+        }
+
         const t = buildTrialMeta({
           runId,
           taskId: taskId || m.task_id || "",
@@ -168,6 +183,7 @@ export function useAttemptEvidence(
           summary: summaryJ,
           lock: lockJ,
           invMetas,
+          trajectorySteps,
         });
         setTrial(t);
         const tabs = availableTabsFromPaths(rel.map((f) => f.path));
@@ -222,7 +238,7 @@ export function useAttemptEvidence(
                 ...s,
                 invocation: dirname || undefined,
                 invocation_id: dirname || undefined,
-                profile_id,
+                profile_id: profile_id || s.profile_id,
               });
             }
           }
