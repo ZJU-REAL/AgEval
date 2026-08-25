@@ -28,9 +28,7 @@ def build_openai_http_executor(
         if isinstance(raw, str) and raw.strip():
             effort = raw.strip()
         elif raw not in (None, ""):
-            raise ValueError(
-                "openai-http options.reasoning_effort must be a string when set"
-            )
+            raise ValueError("openai-http options.reasoning_effort must be a string when set")
     from ageval.plugins.contrib.openai_http.executor import OpenAIHTTPExecutor
 
     return OpenAIHTTPExecutor(
