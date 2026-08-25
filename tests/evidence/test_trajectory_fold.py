@@ -25,6 +25,7 @@ def _write(
     final_text: str = "",
     structured: dict[str, object] | None = None,
     usage: dict[str, Any] | None = None,
+    extra: dict[str, Any] | None = None,
     ok: bool = True,
     error: str | None = None,
     metadata: dict[str, Any] | None = None,
@@ -37,6 +38,7 @@ def _write(
         final_text=final_text,
         structured=structured,
         usage=usage,
+        extra=extra,
         ok=ok,
         error=error,
         metadata=metadata,
@@ -447,6 +449,7 @@ def test_writer_copies_elapsed_ms_onto_tool_and_observation(tmp_path: Path) -> N
     assert tool["ended_at"] == "2026-08-14T12:00:01.42Z"
     assert obs["elapsed_ms"] == 1420.5
     assert obs["started_at"] == tool["started_at"]
+    # Tool events do not stamp the terminal row; invoke latency is a separate copy.
     assert "elapsed_ms" not in next(x for x in lines if x["type"] == "terminal")
 
 
@@ -874,3 +877,45 @@ def test_writer_drops_invalid_timing(tmp_path: Path) -> None:
     tool = next(x for x in _read_lines(path) if x["type"] == "tool_call")
     assert "elapsed_ms" not in tool
     assert "started_at" not in tool
+
+
+def test_terminal_keeps_usage_extra_and_copies_latency_ms(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        events=(),
+        prompt="p",
+        final_text="ok",
+        usage={
+            "prompt_tokens": 9,
+            "completion_tokens": 4,
+        },
+        extra={"foo": "bar", "reasoning_tokens": 3},
+        metadata={"executor_kind": "openai-http", "latency_ms": 142.5, "turn_index": 1},
+    )
+    terminal = next(x for x in _read_lines(path) if x["type"] == "terminal")
+    assert terminal["usage"]["prompt_tokens"] == 9
+    assert terminal["usage"]["completion_tokens"] == 4
+    assert terminal["extra"]["foo"] == "bar"
+    assert terminal["extra"]["reasoning_tokens"] == 3
+    assert "extra" not in terminal["usage"]
+    assert terminal["elapsed_ms"] == 142.5
+    assert terminal["metadata"]["latency_ms"] == 142.5
+
+
+def test_terminal_omits_elapsed_ms_when_invoke_latency_missing(tmp_path: Path) -> None:
+    path = _write(tmp_path, events=(), prompt="p", final_text="ok", usage=None)
+    terminal = next(x for x in _read_lines(path) if x["type"] == "terminal")
+    assert "elapsed_ms" not in terminal
+    assert terminal["usage"] is None
+
+
+def test_terminal_prefers_metadata_elapsed_ms_over_latency_ms(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        events=(),
+        prompt="p",
+        final_text="ok",
+        metadata={"elapsed_ms": 50, "latency_ms": 999},
+    )
+    terminal = next(x for x in _read_lines(path) if x["type"] == "terminal")
+    assert terminal["elapsed_ms"] == 50.0

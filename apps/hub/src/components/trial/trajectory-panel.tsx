@@ -33,6 +33,93 @@ type IconComp = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 const LONG_BODY_CHARS = 240;
 const LONG_BODY_LINES = 4;
 
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function asInt(value: unknown): number | null {
+  const n = asFiniteNumber(value);
+  if (n == null || !Number.isInteger(n)) return null;
+  return n;
+}
+
+function firstClassUsage(usage: Record<string, unknown> | null | undefined): {
+  prompt: number | null;
+  completion: number | null;
+  cached: number | null;
+  costUsd: number | null;
+} {
+  if (!usage) {
+    return { prompt: null, completion: null, cached: null, costUsd: null };
+  }
+  return {
+    prompt: asInt(usage.prompt_tokens),
+    completion: asInt(usage.completion_tokens),
+    cached: asInt(usage.cached_tokens),
+    costUsd: asFiniteNumber(usage.cost_usd),
+  };
+}
+
+function UsageChips({
+  usage,
+  siblingExtra,
+}: {
+  usage: Record<string, unknown> | null | undefined;
+  siblingExtra?: Record<string, unknown> | null;
+}) {
+  const parsed = firstClassUsage(usage);
+  const extra =
+    siblingExtra && Object.keys(siblingExtra).length > 0 ? siblingExtra : null;
+  const chips: Array<{ key: string; text: string }> = [];
+  if (parsed.prompt != null) chips.push({ key: "prompt", text: `prompt ${parsed.prompt}` });
+  if (parsed.completion != null) {
+    chips.push({ key: "completion", text: `completion ${parsed.completion}` });
+  }
+  if (parsed.cached != null) chips.push({ key: "cached", text: `cached ${parsed.cached}` });
+  if (parsed.costUsd != null) {
+    const text =
+      parsed.costUsd === 0 ? "cost $0" : `cost $${Number(parsed.costUsd).toPrecision(4)}`;
+    chips.push({ key: "cost", text });
+  }
+  if (chips.length === 0 && !extra) return null;
+  return (
+    <div className="px-3 pb-2.5 space-y-1.5">
+      {chips.length ? (
+        <div className="flex flex-wrap gap-1">
+          {chips.map((c) => (
+            <span
+              key={c.key}
+              className="rounded-[6px] border border-hairline bg-canvas-soft px-1.5 py-0 font-mono text-[11px] text-body tabular"
+            >
+              {c.text}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {extra ? (
+        <details className="text-[11px] text-mute">
+          <summary className="cursor-pointer select-none">extra</summary>
+          <pre className="mt-1 m-0 whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-body">
+            {JSON.stringify(extra, null, 2)}
+          </pre>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function stepElapsedMs(s: {
+  elapsed_ms?: number | null;
+  metadata?: Record<string, unknown> | null;
+}): number | null {
+  const direct = asFiniteNumber(s.elapsed_ms);
+  if (direct != null && direct >= 0) return direct;
+  const lat = asFiniteNumber(s.metadata?.latency_ms);
+  if (lat != null && lat >= 0) return lat;
+  return null;
+}
+
 function formatElapsedMs(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return "";
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -289,9 +376,6 @@ export function TrajectoryPanel({
             else if (s.ok === false) bits.push("not ok");
             if (s.stop_reason) bits.push(`stop=${s.stop_reason}`);
             if (s.error) bits.push(`error=${String(s.error)}`);
-            if (s.usage && typeof s.usage === "object") {
-              bits.push(`usage=${JSON.stringify(s.usage)}`);
-            }
             if (s.metadata && typeof s.metadata === "object") {
               const meta = s.metadata;
               const metaBits = (
@@ -371,13 +455,14 @@ export function TrajectoryPanel({
                   {s.ok === false ? (
                     <span className="text-error">not ok</span>
                   ) : null}
-                  {typeof s.elapsed_ms === "number" &&
-                  Number.isFinite(s.elapsed_ms) &&
-                  s.elapsed_ms >= 0 ? (
-                    <HoverTip content="tool duration (observational)">
-                      <span>{formatElapsedMs(s.elapsed_ms)}</span>
+                  {(() => {
+                    const elapsed = stepElapsedMs(s);
+                    return elapsed != null ? (
+                    <HoverTip content="duration (observational)">
+                      <span>{formatElapsedMs(elapsed)}</span>
                     </HoverTip>
-                  ) : null}
+                    ) : null;
+                  })()}
                 </div>
                 {body ? <CopyBodyButton text={body} /> : null}
               </div>
@@ -391,16 +476,23 @@ export function TrajectoryPanel({
                   expandAll={allExpanded}
                   expandGen={expandGen}
                 />
-              ) : s.error ? (
-                <p className="px-3 pb-2.5 text-sm text-error">{String(s.error)}</p>
-              ) : isTerminal ? (
-                <p className="px-3 pb-2.5 text-sm text-mute">terminal (no summary)</p>
-              ) : isPermission ? (
-                <p className="px-3 pb-2.5 text-sm text-mute">permission (no decision fields)</p>
-              ) : isToolCall || isObservation ? (
-                <p className="px-3 pb-2.5 text-sm text-mute">
-                  {isToolCall ? "tool call (no args)" : "observation (empty)"}
-                </p>
+              ) : null}
+              {isTerminal ? (
+                <UsageChips
+                  usage={s.usage}
+                  siblingExtra={s.extra}
+                />
+              ) : null}
+              {!body && !isTerminal ? (
+                s.error ? (
+                  <p className="px-3 pb-2.5 text-sm text-error">{String(s.error)}</p>
+                ) : isPermission ? (
+                  <p className="px-3 pb-2.5 text-sm text-mute">permission (no decision fields)</p>
+                ) : isToolCall || isObservation ? (
+                  <p className="px-3 pb-2.5 text-sm text-mute">
+                    {isToolCall ? "tool call (no args)" : "observation (empty)"}
+                  </p>
+                ) : null
               ) : null}
             </li>
           );

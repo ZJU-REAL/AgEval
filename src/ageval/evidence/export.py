@@ -51,9 +51,22 @@ def export_trajectory(
 
     inv_src = evidence_root / "agent" / "invocations"
     inv_dirs = sorted(p for p in inv_src.iterdir() if p.is_dir()) if inv_src.is_dir() else []
+    traj_src = evidence_root / "trajectory.jsonl"
 
-    # Preflight: all invocation dirs must be sealed terminals.
+    if traj_src.is_file():
+        hits = scan_for_secrets(
+            traj_src.read_text(encoding="utf-8", errors="replace"),
+            extra_sentinels=extra_sentinels or (),
+        )
+        if hits:
+            return ExportResult(False, "", 0, error="secret_residual:trajectory.jsonl")
+
+    # Preflight: remaining invocation dirs must be sealed terminals.
+    # Slim trees keep empty invocation dirs (count) without metadata.json;
+    # layer C jsonl is enough to replay those.
     for inv in inv_dirs:
+        if traj_src.is_file() and not (inv / "metadata.json").is_file():
+            continue
         if not is_sealed_invocation(inv):
             return ExportResult(
                 False,
@@ -87,7 +100,16 @@ def export_trajectory(
 
     try:
         manifest_invocations: list[dict[str, Any]] = []
+        if traj_src.is_file():
+            dest_traj = staging / "trajectory.jsonl"
+            dest_traj.write_text(
+                traj_src.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
         for inv in inv_dirs:
+            if traj_src.is_file() and not (inv / "metadata.json").is_file():
+                continue
             out_inv = staging / "invocations" / inv.name
             out_inv.mkdir(parents=True)
             source_digests: dict[str, str] = {}
@@ -119,7 +141,8 @@ def export_trajectory(
                         cleaned = redact_value(row, extra_sentinels=extra_sentinels or ())
                         assert_clean(cleaned, extra_sentinels=extra_sentinels or ())
                         fh.write(json.dumps(cleaned, sort_keys=True, separators=(",", ":")) + "\n")
-            meta = json.loads((out_inv / "metadata.json").read_text(encoding="utf-8"))
+            meta_path = out_inv / "metadata.json"
+            meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.is_file() else {}
             manifest_invocations.append(
                 {
                     "dir": inv.name,
@@ -143,8 +166,10 @@ def export_trajectory(
             "source_evidence": portable_run_locator(evidence_root),
             "invocation_count": len(manifest_invocations),
             "invocations": manifest_invocations,
+            "trajectory": "trajectory.jsonl" if traj_src.is_file() else None,
             "note": (
-                "export is a re-redacted sealed copy; score authority remains evaluator binding"
+                "export is a re-redacted sealed copy; layer C trajectory.jsonl "
+                "is the Hub-facing replay; score authority remains evaluator binding"
             ),
         }
         (staging / "manifest.json").write_text(

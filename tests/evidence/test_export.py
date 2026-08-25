@@ -55,3 +55,65 @@ def test_export_missing_root(tmp_path: Path) -> None:
     r = export_trajectory(tmp_path / "nope", tmp_path / "out")
     assert r.ok is False
     assert r.error == "evidence_root_missing"
+
+
+def test_export_succeeds_on_slim_tree_without_invocation_meta(tmp_path: Path) -> None:
+    from ageval.evidence.slim import slim_sealed_attempt
+
+    store = AttemptEvidenceStore(root=tmp_path / "src", attempt_id="a")
+    h = store.begin_invocation(profile_id="p", executor_kind="openai-http", model="m")
+    h.write_request({"messages": [{"role": "user", "content": "hi"}]})
+    h.append_event({"type": "message", "text": "ok"})
+    h.seal(
+        status="completed",
+        final_response={"content": "done", "structured_output": None, "usage": None},
+        latency_ms=4.0,
+    )
+    (store.root / "trajectory.jsonl").write_text(
+        json.dumps({"type": "terminal", "ok": True, "elapsed_ms": 4.0}) + "\n",
+        encoding="utf-8",
+    )
+    slim_sealed_attempt(store.root)
+    dest = tmp_path / "export-slim"
+    result = export_trajectory(store.root, dest)
+    assert result.ok, result.error
+    assert (dest / "trajectory.jsonl").is_file()
+
+
+def test_export_copies_layer_c_trajectory(tmp_path: Path) -> None:
+    store = AttemptEvidenceStore(root=tmp_path / "src", attempt_id="a")
+    h = store.begin_invocation(profile_id="p", executor_kind="openai-http", model="m")
+    h.write_request({"messages": [{"role": "user", "content": "hi"}]})
+    h.append_event({"type": "message", "text": "ok"})
+    h.seal(
+        status="completed",
+        final_response={
+            "content": "done",
+            "structured_output": None,
+            "usage": {"prompt_tokens": 3, "completion_tokens": 1},
+        },
+        latency_ms=12.0,
+    )
+    (store.root / "trajectory.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "terminal",
+                "ok": True,
+                "elapsed_ms": 12.0,
+                "usage": {"prompt_tokens": 3, "completion_tokens": 1},
+                "metadata": {"profile_id": "p", "latency_ms": 12.0},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    dest = tmp_path / "export"
+    result = export_trajectory(store.root, dest)
+    assert result.ok
+    copied = dest / "trajectory.jsonl"
+    assert copied.is_file()
+    man = json.loads((dest / "manifest.json").read_text(encoding="utf-8"))
+    assert man["trajectory"] == "trajectory.jsonl"
+    row = json.loads(copied.read_text(encoding="utf-8").splitlines()[0])
+    assert row["usage"]["prompt_tokens"] == 3
+    assert row["elapsed_ms"] == 12.0

@@ -43,6 +43,7 @@ Stdout JSON (high level):
 - **`--max-concurrent-tasks`**: speeds wall time only; does not change k or PASS.
 - **`--resume-suite` / `--replace-slot` / `--attempt-index`**: suite resume; see `ageval run --help`.
 - **`--keep-workspace`**: after cleanup, do not delete the box work root (host residual may still be named `l1-work/` — historical directory name, not an isolation tier). Default off. Docker volumes are still removed. Upload packs never include `l1-work/**`.
+- **`--keep-vendor-raw`**: after a successful trajectory seal, keep invocation `backend_raw/` / layer B (`request.json`, `events.jsonl`, `final-response.json`, `metadata.json`) and `evaluation/evaluator_raw.json`. Default off: those files are dropped; Hub archives skip them even if residuals remain. Independent of `--keep-workspace`.
 - `--profiles` replaces the dataset job document. `--agent` and `--profiles` are mutually exclusive.
 - Per invocation: Core writes `trajectory.jsonl` (`ageval.trajectory.event/1`). Trajectory ≠ PASS.
 - Docker kind uses the docker environment winner + `attach_stdio`; coding entries stay on the parent ACP client.

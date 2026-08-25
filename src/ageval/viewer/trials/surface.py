@@ -231,6 +231,13 @@ def _agent_surface(
                 if usage is not None:
                     # Last invoke wins (session cumulative semantics).
                     last_usage[pid] = usage
+    jsonl_latency, jsonl_count, jsonl_usage, jsonl_extra = _usage_time_from_trajectory(
+        evidence / TRAJECTORY_FILENAME
+    )
+    for pid, usage in jsonl_usage.items():
+        last_usage[pid] = usage
+        if pid not in ordered_ids:
+            ordered_ids.append(pid)
     if not ordered_ids:
         ordered_ids = [pid for pid in by_id]
 
@@ -260,9 +267,11 @@ def _agent_surface(
             or pid
         )
         role_col = pid
-        n_inv = invoke_count.get(pid, 0)
-        lat_total = latency_sum.get(pid)
-        usage_summary = _usage_summary_for_actor(last_usage.get(pid))
+        n_inv = jsonl_count.get(pid) or invoke_count.get(pid, 0)
+        lat_total = jsonl_latency.get(pid)
+        if lat_total is None:
+            lat_total = latency_sum.get(pid)
+        usage_summary = _usage_summary_for_actor(last_usage.get(pid), jsonl_extra.get(pid))
         actors.append(
             {
                 "role": role_col,
@@ -368,6 +377,54 @@ def _trial_meta_from_evidence(
         "upstream_ref": surface.get("upstream_ref"),
         "note": None,
     }
+
+
+def _usage_time_from_trajectory(
+    traj_path: Path,
+) -> tuple[dict[str, float], dict[str, int], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Last usage/extra + summed elapsed per profile_id from layer C terminals.
+
+    Labels come from ``terminal.metadata.profile_id`` so slim archives without
+    invocation ``metadata.json`` still paint Time / Usage. Observational.
+    """
+    latency: dict[str, float] = {}
+    count: dict[str, int] = {}
+    last_usage: dict[str, dict[str, Any]] = {}
+    last_extra: dict[str, dict[str, Any]] = {}
+    if not traj_path.is_file():
+        return latency, count, last_usage, last_extra
+    try:
+        with traj_path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(obj, dict) or obj.get("type") != "terminal":
+                    continue
+                meta_raw = obj.get("metadata")
+                meta: dict[str, Any] = dict(meta_raw) if isinstance(meta_raw, dict) else {}
+                pid = meta.get("profile_id")
+                if not isinstance(pid, str) or not pid:
+                    continue
+                usage = obj.get("usage")
+                if isinstance(usage, dict) and usage:
+                    last_usage[pid] = usage
+                extra = obj.get("extra")
+                if isinstance(extra, dict) and extra:
+                    last_extra[pid] = extra
+                elapsed = obj.get("elapsed_ms")
+                if not isinstance(elapsed, (int, float)) or isinstance(elapsed, bool):
+                    elapsed = meta.get("latency_ms")
+                if isinstance(elapsed, (int, float)) and not isinstance(elapsed, bool):
+                    latency[pid] = latency.get(pid, 0.0) + float(elapsed)
+                    count[pid] = count.get(pid, 0) + 1
+    except OSError:
+        return latency, count, last_usage, last_extra
+    return latency, count, last_usage, last_extra
 
 
 def _token_bar_from_actors(actors: list[dict[str, Any]]) -> dict[str, Any] | None:

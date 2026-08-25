@@ -123,3 +123,5 @@ async def trajectory_collect(ctx, value, nxt):
     out = await nxt(value)
     return out
 ```
+
+`trajectory_collect` / `trajectory_enrich` 可以在 payload 的兄弟字段 `extra` 增补或合并键（JSON-safe）。不得剥掉自己不拥有的一等 usage 字段（`prompt_tokens` / `completion_tokens` / `cached_tokens` / `cost_usd`）。不要为此新开槽。`turn_rows` 把 `extra` 拷到密封 `terminal` 行；`trajectory_seal` 仍写层 C。详见 [05-runtime/evidence.md](05-runtime/evidence.md)。

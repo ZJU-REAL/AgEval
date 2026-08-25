@@ -49,6 +49,7 @@ def turn_rows(
     final_text: str,
     structured: dict[str, object] | None,
     usage: dict[str, Any] | None,
+    extra: dict[str, Any] | None = None,
     ok: bool,
     error: str | None,
     metadata: dict[str, Any] | None = None,
@@ -214,20 +215,28 @@ def turn_rows(
     if isinstance(metadata, dict):
         for k, v in metadata.items():
             meta_out[k] = v
-    lines.append(
-        {
-            "type": "terminal",
-            "ok": ok,
-            "error": error,
-            "turn_index": turn_index,
-            "session_id": session_id,
-            "structured": structured,
-            "usage": usage,
-            "stop_reason": (metadata or {}).get("stop_reason") if metadata else None,
-            "metadata": meta_out,
-            "source": "ageval",
-        }
-    )
+    terminal: dict[str, Any] = {
+        "type": "terminal",
+        "ok": ok,
+        "error": error,
+        "turn_index": turn_index,
+        "session_id": session_id,
+        "structured": structured,
+        "usage": usage,
+        "stop_reason": (metadata or {}).get("stop_reason") if metadata else None,
+        "metadata": meta_out,
+        "source": "ageval",
+    }
+    if isinstance(extra, dict) and extra:
+        terminal["extra"] = extra
+    # Invoke wall-clock lives on metadata.latency_ms; cards read elapsed_ms.
+    if terminal.get("elapsed_ms") is None and isinstance(metadata, dict):
+        elapsed = _coerce_elapsed_ms(metadata.get("elapsed_ms"))
+        if elapsed is None:
+            elapsed = _coerce_elapsed_ms(metadata.get("latency_ms"))
+        if elapsed is not None:
+            terminal["elapsed_ms"] = elapsed
+    lines.append(terminal)
 
     return lines
 

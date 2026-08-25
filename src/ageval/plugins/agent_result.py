@@ -20,6 +20,7 @@ class AgentResult:
     events: tuple[dict[str, Any], ...] = ()
     source_refs: tuple[dict[str, str], ...] = ()
     usage: dict[str, Any] | None = None
+    extra: dict[str, Any] | None = None
     # ACP / executor metadata (lock-safe, no secrets).
     metadata: dict[str, Any] | None = None
     # Native tool channel (openai-http). Empty when the turn is text-only.
@@ -72,9 +73,10 @@ def observational_result_health(
     usage: Mapping[str, Any] | None,
     actual_model: Any,
     events: Sequence[Mapping[str, Any]] | None,
+    extra: Mapping[str, Any] | None = None,
 ) -> str | None:
     """Flag banner-only ok turns. Observational — never a PASS source."""
-    if not ok or usage is not None or actual_model is not None:
+    if not ok or usage is not None or extra is not None or actual_model is not None:
         return None
     for event in events or ():
         if isinstance(event, Mapping) and _is_tool_event(event):

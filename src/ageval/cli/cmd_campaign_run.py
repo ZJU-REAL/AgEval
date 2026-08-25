@@ -45,6 +45,16 @@ def register(app: typer.Typer) -> None:
             list[str] | None,
             typer.Option("--agent", help=AGENT_OPTION_HELP),
         ] = None,
+        keep_vendor_raw: Annotated[
+            bool,
+            typer.Option(
+                "--keep-vendor-raw",
+                help=(
+                    "Keep invocation vendor raw / layer B after trajectory seal. "
+                    "Default: drop. Independent of --keep-workspace."
+                ),
+            ),
+        ] = False,
     ) -> None:
         """Foreground serial campaign over a parameter matrix."""
         import asyncio
@@ -61,6 +71,7 @@ def register(app: typer.Typer) -> None:
                     list(task),
                     matrix_args=list(matrix or []),
                     profiles_path=profiles,
+                    keep_vendor_raw=keep_vendor_raw,
                 )
             )
         except ConfigError as exc:
@@ -189,6 +200,17 @@ def register(app: typer.Typer) -> None:
                 ),
             ),
         ] = False,
+        keep_vendor_raw: Annotated[
+            bool,
+            typer.Option(
+                "--keep-vendor-raw",
+                help=(
+                    "Keep invocation vendor raw / layer B after trajectory seal "
+                    "(backend_raw, request/events, evaluator_raw). Default: drop. "
+                    "Independent of --keep-workspace."
+                ),
+            ),
+        ] = False,
     ) -> None:
         """Run one member or a full Dataset suite (Application-layer task_id axis)."""
         import asyncio
@@ -272,6 +294,7 @@ def register(app: typer.Typer) -> None:
                         overrides=overrides or None,
                         profiles_path=profiles,
                         keep_workspace=keep_workspace,
+                        keep_vendor_raw=keep_vendor_raw,
                     )
                 )
                 summary = result.as_dict()
@@ -346,6 +369,7 @@ def register(app: typer.Typer) -> None:
                     replace_slots=replace_keys,
                     on_progress=_progress,
                     keep_workspace=keep_workspace,
+                    keep_vendor_raw=keep_vendor_raw,
                 )
             )
             final_status = (

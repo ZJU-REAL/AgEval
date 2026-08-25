@@ -93,6 +93,7 @@ export type TrajectoryStep = {
   model?: string | null;
   line?: number;
   usage?: Record<string, unknown> | null;
+  extra?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
   tool_call_id?: string | null;
   title?: string | null;

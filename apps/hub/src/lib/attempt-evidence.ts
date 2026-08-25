@@ -267,6 +267,151 @@ function durationFromPhaseTiming(phaseTiming: Trial["phase_timing"]): string | n
   return seconds ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${minutes}m`;
 }
 
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function asInt(value: unknown): number | null {
+  const n = asFiniteNumber(value);
+  if (n == null || !Number.isInteger(n)) return null;
+  return n;
+}
+
+function fmtTokenCount(n: number): string {
+  if (n >= 1_000_000) {
+    const v = n / 1_000_000;
+    return v === Math.trunc(v) ? `${v}M` : `${v.toFixed(1)}M`;
+  }
+  if (n >= 1000) {
+    const v = n / 1000;
+    return v === Math.trunc(v) ? `${v}K` : `${v.toFixed(1)}K`;
+  }
+  return String(n);
+}
+
+function fmtCost(amount: number): string {
+  if (amount === 0) return "0";
+  return Number(amount).toPrecision(4).replace(/\.?0+$/, "");
+}
+
+export function summarizeUsage(
+  usage: Record<string, unknown> | null | undefined,
+  extraRaw?: Record<string, unknown> | null,
+): NonNullable<TrialActor["usage"]> | null {
+  if (!usage && !extraRaw) return null;
+  const extra =
+    extraRaw && typeof extraRaw === "object" && !Array.isArray(extraRaw)
+      ? extraRaw
+      : {};
+  const fields = usage ?? {};
+  const inp =
+    asInt(fields.prompt_tokens) ??
+    asInt(fields.input_tokens) ??
+    asInt(fields.inputTokens);
+  const outp =
+    asInt(fields.completion_tokens) ??
+    asInt(fields.output_tokens) ??
+    asInt(fields.outputTokens);
+  const cachedRead =
+    asInt(fields.cached_tokens) ??
+    asInt(fields.cached_read_tokens) ??
+    asInt(fields.cachedReadTokens) ??
+    asInt(extra.cached_read_tokens);
+  const cachedWrite =
+    asInt(extra.cached_write_tokens) ??
+    asInt(fields.cached_write_tokens) ??
+    asInt(fields.cachedWriteTokens);
+  const total =
+    asInt(extra.total_tokens) ?? asInt(fields.total_tokens) ?? asInt(fields.totalTokens);
+
+  let costAmount = asFiniteNumber(fields.cost_usd);
+  let costCurrency: string | null = costAmount != null ? "USD" : null;
+  const costRaw =
+    extra.cost && typeof extra.cost === "object" && !Array.isArray(extra.cost)
+      ? (extra.cost as Record<string, unknown>)
+      : fields.cost && typeof fields.cost === "object" && !Array.isArray(fields.cost)
+        ? (fields.cost as Record<string, unknown>)
+        : null;
+  if (costAmount == null && costRaw) {
+    costAmount = asFiniteNumber(costRaw.amount);
+    if (typeof costRaw.currency === "string" && costRaw.currency.trim()) {
+      costCurrency = costRaw.currency.trim();
+    }
+  }
+
+  const contextRaw =
+    extra.context && typeof extra.context === "object" && !Array.isArray(extra.context)
+      ? (extra.context as Record<string, unknown>)
+      : fields.context && typeof fields.context === "object" && !Array.isArray(fields.context)
+        ? (fields.context as Record<string, unknown>)
+        : null;
+  const contextUsed = asInt(contextRaw?.used) ?? asInt(fields.used);
+  const contextSize = asInt(contextRaw?.size) ?? asInt(fields.size);
+
+  let cacheHitRate: number | null = null;
+  if (inp != null && cachedRead != null && inp > 0) {
+    if (cachedRead <= inp) {
+      cacheHitRate = cachedRead / inp;
+    } else {
+      const denom = inp + cachedRead + (cachedWrite && cachedWrite > 0 ? cachedWrite : 0);
+      cacheHitRate = denom > 0 ? cachedRead / denom : null;
+    }
+  }
+
+  if (
+    inp == null &&
+    outp == null &&
+    costAmount == null &&
+    contextUsed == null &&
+    contextSize == null
+  ) {
+    return null;
+  }
+
+  const parts: string[] = [];
+  if (inp != null || outp != null) {
+    parts.push(
+      `in ${inp != null ? fmtTokenCount(inp) : "-"} / out ${outp != null ? fmtTokenCount(outp) : "-"}`,
+    );
+  }
+  if (cacheHitRate != null) {
+    parts.push(`cache ${Math.round(Math.max(0, Math.min(1, cacheHitRate)) * 100)}%`);
+  }
+  if (costAmount != null) {
+    const cur = (costCurrency || "").toUpperCase();
+    parts.push(cur === "" || cur === "USD" ? `$${fmtCost(costAmount)}` : `${fmtCost(costAmount)} ${cur}`);
+  }
+
+  return {
+    input_tokens: inp,
+    output_tokens: outp,
+    total_tokens: total,
+    cached_read_tokens: cachedRead,
+    cache_hit_rate: cacheHitRate,
+    cost_amount: costAmount,
+    cost_currency: costCurrency,
+    context_used: contextUsed,
+    context_size: contextSize,
+    label: parts.length ? parts.join(" · ") : null,
+  };
+}
+
+function terminalProfileId(step: TrajectoryStep): string | null {
+  if (typeof step.profile_id === "string" && step.profile_id) return step.profile_id;
+  const meta = step.metadata;
+  if (meta && typeof meta.profile_id === "string" && meta.profile_id) return meta.profile_id;
+  return null;
+}
+
+function terminalElapsedMs(step: TrajectoryStep): number | null {
+  const direct = asFiniteNumber(step.elapsed_ms);
+  if (direct != null && direct >= 0) return direct;
+  const lat = asFiniteNumber(step.metadata?.latency_ms);
+  if (lat != null && lat >= 0) return lat;
+  return null;
+}
+
 function formatLatencyMs(
   total: number | undefined,
   nInv: number,
@@ -286,8 +431,9 @@ export function buildTrialMeta(opts: {
   summary: Record<string, unknown>;
   lock: Record<string, unknown>;
   invMetas: Array<{ dirname: string; meta: Record<string, unknown> }>;
+  trajectorySteps?: TrajectoryStep[];
 }): Trial {
-  const { runId, taskId, relFiles, result, summary, lock, invMetas } = opts;
+  const { runId, taskId, relFiles, result, summary, lock, invMetas, trajectorySteps } = opts;
   const tabs = availableTabsFromPaths(relFiles);
 
   let status =
@@ -373,6 +519,32 @@ export function buildTrialMeta(opts: {
     }
     void dirname;
   }
+
+  const jsonlUsage = new Map<string, Record<string, unknown>>();
+  const jsonlExtra = new Map<string, Record<string, unknown>>();
+  const jsonlLatency = new Map<string, number>();
+  const jsonlCount = new Map<string, number>();
+  for (const step of trajectorySteps || []) {
+    if (step.type !== "terminal") continue;
+    const pid = terminalProfileId(step);
+    if (!pid) continue;
+    if (!orderedIds.includes(pid)) orderedIds.push(pid);
+    if (step.usage && typeof step.usage === "object") {
+      jsonlUsage.set(pid, step.usage);
+    }
+    if (step.extra && typeof step.extra === "object") {
+      jsonlExtra.set(pid, step.extra);
+    }
+    const elapsed = terminalElapsedMs(step);
+    if (elapsed != null) {
+      jsonlLatency.set(pid, (jsonlLatency.get(pid) || 0) + elapsed);
+      jsonlCount.set(pid, (jsonlCount.get(pid) || 0) + 1);
+    }
+    const mid = step.model ?? step.metadata?.model ?? step.metadata?.locked_model;
+    if (typeof mid === "string" && mid) invModel.set(pid, mid);
+    const ek = step.metadata?.executor_kind;
+    if (typeof ek === "string" && ek) invExecutor.set(pid, ek);
+  }
   if (orderedIds.length === 0) {
     for (const pid of byId.keys()) orderedIds.push(pid);
   }
@@ -396,8 +568,12 @@ export function buildTrialMeta(opts: {
     const agentCol =
       actorAgentName(p, overlay, invEntry.get(pid)) || pid;
     const roleCol = pid;
-    const nInv = invokeCount.get(pid) || 0;
-    const latTotal = latencySum.get(pid);
+    const nInv = jsonlCount.get(pid) || invokeCount.get(pid) || 0;
+    const latTotal = jsonlLatency.has(pid) ? jsonlLatency.get(pid) : latencySum.get(pid);
+    const usageSummary = summarizeUsage(
+      jsonlUsage.get(pid) ?? null,
+      jsonlExtra.get(pid) ?? null,
+    );
     actors.push({
       role: roleCol,
       agent: agentCol,
@@ -407,8 +583,8 @@ export function buildTrialMeta(opts: {
       invokes: nInv,
       latency_ms_sum: latTotal ?? null,
       time_label: formatLatencyMs(latTotal, nInv),
-      usage: null,
-      usage_label: null,
+      usage: usageSummary,
+      usage_label: usageSummary?.label ?? null,
     });
   }
 
@@ -595,6 +771,10 @@ export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
         rec.usage && typeof rec.usage === "object"
           ? (rec.usage as Record<string, unknown>)
           : null,
+      extra:
+        rec.extra && typeof rec.extra === "object" && !Array.isArray(rec.extra)
+          ? (rec.extra as Record<string, unknown>)
+          : null,
       metadata:
         rec.metadata && typeof rec.metadata === "object"
           ? (rec.metadata as Record<string, unknown>)
@@ -612,6 +792,16 @@ export function parseTrajectoryJsonl(text: string): TrajectoryStep[] {
         typeof rec.elapsed_ms === "number" && Number.isFinite(rec.elapsed_ms)
           ? rec.elapsed_ms
           : null,
+      profile_id:
+        typeof rec.profile_id === "string"
+          ? rec.profile_id
+          : rec.metadata &&
+              typeof rec.metadata === "object" &&
+              !Array.isArray(rec.metadata) &&
+              typeof (rec.metadata as Record<string, unknown>).profile_id ===
+                "string"
+            ? String((rec.metadata as Record<string, unknown>).profile_id)
+            : null,
       started_at: typeof rec.started_at === "string" ? rec.started_at : null,
       ended_at: typeof rec.ended_at === "string" ? rec.ended_at : null,
       outcome: typeof rec.outcome === "string" ? rec.outcome : null,

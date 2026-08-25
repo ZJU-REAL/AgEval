@@ -721,3 +721,82 @@ def test_legacy_usage_cost_only_no_used_as_tokens(tmp_path: Path) -> None:
     # Cost-only label; no token line
     assert "in " not in label
     assert "$" in label or "0" in label
+
+
+def test_first_class_usage_and_jsonl_labels_without_invocation_meta(tmp_path: Path) -> None:
+    """Layer C first-class usage/elapsed label actors without metadata.json."""
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    root = db / ".ageval" / "runs" / "run_alpha_1"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "lock.json").write_text(
+        json.dumps(
+            {
+                "task_id": "alpha",
+                "profiles": [
+                    {
+                        "id": "solver",
+                        "executor": "openai-http",
+                        "model": "gpt-4.1-mini",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "result.json").write_text(json.dumps({"status": "PASS", "score": 1.0}) + "\n")
+    (root / "summary.json").write_text(json.dumps({"status": "PASS"}) + "\n")
+    (root / "trajectory.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "turn",
+                        "role": "user",
+                        "content": "hi",
+                        "turn_index": 1,
+                        "metadata": {"profile_id": "solver"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "terminal",
+                        "ok": True,
+                        "elapsed_ms": 142.5,
+                        "usage": {
+                            "prompt_tokens": 11,
+                            "completion_tokens": 4,
+                            "cached_tokens": 2,
+                            "cost_usd": 0.0012,
+                        },
+                        "extra": {"reasoning_tokens": 3, "foo": True},
+                        "metadata": {
+                            "profile_id": "solver",
+                            "executor_kind": "openai-http",
+                            "latency_ms": 142.5,
+                        },
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    detail = trials.get_trial(db, job_id, "alpha", "run_alpha_1")
+    actor = (detail["trial"].get("actors") or [])[0]
+    assert actor["profile_id"] == "solver"
+    assert actor["latency_ms_sum"] == pytest.approx(142.5)
+    usage = actor.get("usage") or {}
+    assert usage.get("input_tokens") == 11
+    assert usage.get("output_tokens") == 4
+    assert usage.get("cached_read_tokens") == 2
+    assert usage.get("cost_amount") == pytest.approx(0.0012)
+    assert actor.get("usage_label")
+    assert "$" in (actor.get("usage_label") or "")
+    traj = trials.trial_trajectory(db, job_id, "alpha", "run_alpha_1")
+    terminal = next(s for s in traj["steps"] if s.get("type") == "terminal")
+    assert terminal.get("profile_id") == "solver"
+    assert terminal.get("elapsed_ms") == pytest.approx(142.5)
+    assert "usage=" not in (terminal.get("content") or "")

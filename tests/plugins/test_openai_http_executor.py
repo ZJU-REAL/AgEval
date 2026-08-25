@@ -247,4 +247,72 @@ def test_omit_tools_keeps_content_path() -> None:
     assert result.ok is True
     assert result.tool_calls == ()
     assert result.structured == {"ok": True}
+    assert result.usage is None
     assert "tools" not in captured["body"]
+
+
+def test_http_usage_maps_first_class_and_extra() -> None:
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            self.rfile.read(length)
+            payload = {
+                "id": "chatcmpl-abc",
+                "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+                "usage": {
+                    "prompt_tokens": 11,
+                    "completion_tokens": 4,
+                    "total_tokens": 15,
+                    "prompt_tokens_details": {"cached_tokens": 6, "audio_tokens": 0},
+                    "completion_tokens_details": {
+                        "reasoning_tokens": 2,
+                        "accepted_prediction_tokens": 0,
+                    },
+                },
+            }
+            raw = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+            del format, args
+
+    server, base = _serve(Handler)
+    try:
+        result = OpenAIHTTPExecutor(model="mock", base_url=base).invoke("hi")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert result.ok is True
+    assert result.usage is not None
+    assert result.usage["prompt_tokens"] == 11
+    assert result.usage["completion_tokens"] == 4
+    assert result.usage["cached_tokens"] == 6
+    extra = result.extra
+    assert extra is not None
+    assert extra["reasoning_tokens"] == 2
+    assert extra["total_tokens"] == 15
+    assert extra["id"] == "chatcmpl-abc"
+    assert extra["audio_tokens"] == 0
+    assert "accepted_prediction_tokens" in extra
+    assert "prompt_tokens" not in extra
+    assert "extra" not in result.usage
+
+
+def test_http_usage_omitted_does_not_fabricate_zeros() -> None:
+    from ageval.plugins.contrib.openai_http.usage import normalize_openai_http_usage
+
+    assert normalize_openai_http_usage(None) == (None, None)
+    assert normalize_openai_http_usage({}) == (None, None)
+    usage, extra = normalize_openai_http_usage({"prompt_tokens": 3, "completion_tokens": 1})
+    assert usage is not None
+    assert usage["prompt_tokens"] == 3
+    assert usage["completion_tokens"] == 1
+    assert "cached_tokens" not in usage
+    assert "cost_usd" not in usage
+    assert "extra" not in usage
+    assert extra is None

@@ -66,6 +66,7 @@ async def run_campaign(
     *,
     matrix_args: list[str],
     profiles_path: Path | str | None = None,
+    keep_vendor_raw: bool = False,
 ) -> dict[str, Any]:
     """Run every (task, variant) cell serially through the production Attempt.
 
@@ -94,6 +95,7 @@ async def run_campaign(
                 task_id,
                 overrides=variant or None,
                 profiles_path=profiles_path,
+                keep_vendor_raw=keep_vendor_raw,
             )
         except ConfigError as exc:
             row.update({"exit_code": 2, "status": "ERROR", "error": str(exc)})
