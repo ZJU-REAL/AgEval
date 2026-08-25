@@ -56,7 +56,7 @@ import {
   RegistryHttpError,
 } from "@/lib/api";
 import { getGithubUser, getToken } from "@/lib/auth";
-import { formatDate } from "@/lib/utils";
+import { datasetRef, formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "settings";
 
@@ -662,7 +662,8 @@ export function OrganizationDetailPage() {
                                   to={`/datasets/${encodeDatasetId(s.dataset_id)}`}
                                   className="text-link hover:text-link-deep hover:underline"
                                 >
-                                  {s.dataset_id}
+                                  {datasetRef(s.dataset_id, s.dataset_version) ||
+                                    "—"}
                                 </Link>
                               ) : (
                                 "—"

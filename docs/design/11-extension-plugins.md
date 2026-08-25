@@ -30,7 +30,7 @@
 | 槽 | 语义 | 例子 |
 | --- | --- | --- |
 | 独占 | 全 Attempt 一个赢家；登记为同名 service | `environment`、`executor`、`evaluation_runtime`、`trajectory_seal` |
-| 链 | `(ctx, value, nxt)` | `after_environment_ready`、`environment_setup`、`trajectory_collect` |
+| 链 | `(ctx, value, nxt)` | `after_environment_ready`、`environment_setup`、`trajectory_collect`、`summary_enrich` |
 
 `profiles.environment` / `profiles.executor` = 选独占槽赢家。`evaluation_runtime` / `trajectory_seal` **没有** job 字段糖；默认赢家即可，替换只能走显式 `extensions` 行（`slot` + `plugin`）。`extensions` 也是链槽 opt-in。未列入 `extensions` 的不进链、不进服务表（引擎默认除外）。
 
@@ -114,7 +114,7 @@ Hub `/plugins` 可以把 first-party contrib 画成 **catalog overlay**，不是
 
 四条不相等：**Hub 认得** ≠ **本机能跑** ≠ **镜像已 bake** ≠ **`ageval plugin install` 装过**。空店 Explore 仍应看到这七张卡；e2b / ssh / daytona 缺 extra 或缺钥时卡仍在，lock/run 维持既有 skip / fail-closed。七个短 id 保留：`ageval plugin publish` 与 `ageval plugin install` 撞到它们 fail-closed，避免 `/plugins/docker` 和店包抢同一条路由。运行时装载路径仍是 `bootstrap.py`。
 
-`FAIL_OPEN_SLOTS`：`before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `cleanup_report`。其余失败即该相位失败。
+`FAIL_OPEN_SLOTS`：`before_run` / `after_run` / `trajectory_collect` / `trajectory_enrich` / `summary_enrich` / `cleanup_report`。其余失败即该相位失败。
 
 钩子形状：
 
@@ -124,4 +124,6 @@ async def trajectory_collect(ctx, value, nxt):
     return out
 ```
 
-`trajectory_collect` / `trajectory_enrich` 可以在 payload 的兄弟字段 `extra` 增补或合并键（JSON-safe）。不得剥掉自己不拥有的一等 usage 字段（`prompt_tokens` / `completion_tokens` / `cached_tokens` / `cost_usd`）。不要为此新开槽。`turn_rows` 把 `extra` 拷到密封 `terminal` 行；`trajectory_seal` 仍写层 C。详见 [05-runtime/evidence.md](05-runtime/evidence.md)。
+`trajectory_collect` / `trajectory_enrich` 可以在 payload 的兄弟字段 `extra` 增补或合并键（JSON-safe）。不得剥掉自己不拥有的一等 usage 字段（`prompt_tokens` / `completion_tokens` / `cached_tokens` / `cost_usd`）。invoke 这袋不要新开槽。`turn_rows` 把 `extra` 拷到密封 `terminal` 行；`trajectory_seal` 仍写层 C。
+
+Attempt 级观察袋走另一条链：`summary_enrich`。`trajectory_seal` 成功之后 emit 一次，`value` 是 `summary.extra` 袋（引擎起点 `{}`）。插件只写 `extra[<plugin_id>]`，不得剥自己不拥有的键。空袋不进 `summary.json`。不是 PASS。详见 [05-runtime/evidence.md](05-runtime/evidence.md)。

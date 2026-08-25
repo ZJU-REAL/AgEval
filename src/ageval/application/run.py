@@ -218,14 +218,16 @@ async def run_attempt(
         facts=tuple(ctx.facts_as_list()),
     )
     facts = ctx.facts_as_list()
-    evidence.write_summary(
-        {
-            "result": result.as_dict(),
-            "facts": facts,
-            "phase_timing": timing_from_facts(facts),
-            "keep_vendor_raw": ctx.keep_vendor_raw,
-        }
-    )
+    summary: dict[str, Any] = {
+        "result": result.as_dict(),
+        "facts": facts,
+        "phase_timing": timing_from_facts(facts),
+        "keep_vendor_raw": ctx.keep_vendor_raw,
+    }
+    extra = ctx.summary_extra
+    if extra:
+        summary["extra"] = extra
+    evidence.write_summary(summary)
     _write_result(evidence, result)
     return _exit_code(result), result
 

@@ -47,6 +47,7 @@ import { ModelLabel } from "@/components/model-label";
 import {
   cn,
   displayLabelsFromOverlay,
+  datasetRef,
   formatDate,
   formatScore,
   reasoningEffortFromOverlay,
@@ -125,6 +126,7 @@ export function TaskDetailPage() {
       created_at?: number | string;
       run_id?: string | null;
       has_attempt_content?: boolean;
+      dataset_ref?: string | null;
     }>
   >([]);
   const [error, setError] = useState<string | null>(null);
@@ -279,6 +281,7 @@ export function TaskDetailPage() {
             created_at: s.created_at,
             run_id: hit.run_id ?? null,
             has_attempt_content: Boolean(hit.has_attempt_content),
+            dataset_ref: datasetRef(s.dataset_id, s.dataset_version),
           });
         }
         for (const a of attempts) {
@@ -293,6 +296,7 @@ export function TaskDetailPage() {
             created_at: a.created_at,
             run_id: a.run_id,
             has_attempt_content: true,
+            dataset_ref: datasetRef(a.dataset_id, a.dataset_version),
           });
         }
         rows.sort((left, right) => {
@@ -569,6 +573,7 @@ export function TaskDetailPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Job</TableHead>
+                    <TableHead>Dataset</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Score</TableHead>
                     <TableHead>Harness</TableHead>
@@ -620,6 +625,9 @@ export function TaskDetailPage() {
                               summary only
                             </span>
                           ) : null}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-body">
+                          {j.dataset_ref || "-"}
                         </TableCell>
                         <TableCell className="text-sm">
                           {j.status || "-"}

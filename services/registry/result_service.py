@@ -21,8 +21,8 @@ from services.registry.dataset import (
     task_set_digest,
 )
 from services.registry.errors import RegistryAppError
-from services.registry.paging import page_slice
 from services.registry.official import official_dataset_ids
+from services.registry.paging import page_slice
 from services.registry.runtime_service import attach_agent_refs
 from services.registry.store import (
     AttemptResultRow,
@@ -118,6 +118,7 @@ class ResultService:
             )
         run_id = str(meta.get("run_id") or "")
         dataset_id = str(meta.get("dataset_id") or "")
+        dataset_version = str(meta.get("dataset_version") or "").strip()
         task_id = str(meta.get("task_id") or "")
         lock_digest = str(meta.get("lock_digest") or "")
         status = str(meta.get("status") or "")
@@ -134,10 +135,10 @@ class ResultService:
             raw_score = None
         if isinstance(raw_score, int | float):
             score = float(raw_score)
-        if not run_id or not dataset_id:
+        if not run_id or not dataset_id or not dataset_version:
             raise RegistryAppError(
                 "invalid_request",
-                "run_id and dataset_id required",
+                "run_id, dataset_id, and dataset_version required",
                 http_status=400,
             )
         if visibility not in {"private", "public"}:
@@ -178,6 +179,7 @@ class ResultService:
         row = AttemptResultRow(
             run_id=run_id,
             dataset_id=dataset_id,
+            dataset_version=dataset_version,
             task_id=task_id,
             lock_digest=lock_digest,
             status=status,
@@ -313,10 +315,10 @@ class ResultService:
         visibility = str(meta.get("visibility") or "private")
         blob_digest = str(meta.get("blob_digest") or "")
         size = int(meta.get("size") or size_on_disk)
-        if not suite_run_id or not dataset_id:
+        if not suite_run_id or not dataset_id or not dataset_version.strip():
             raise RegistryAppError(
                 "invalid_request",
-                "suite_run_id and dataset_id required",
+                "suite_run_id, dataset_id, and dataset_version required",
                 http_status=400,
             )
         if visibility not in {"private", "public"}:

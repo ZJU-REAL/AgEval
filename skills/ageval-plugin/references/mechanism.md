@@ -18,7 +18,7 @@ Do not revive the deleted `ageval.agent_executors` entry-point bypass.
 
 ## Slots
 
-Ids live in `src/ageval/plugins/slots.py`. Exclusive: `environment`, `executor`, `evaluation_runtime`, `trajectory_seal`. Chain: environment ready/setup, run bookends, agent open/invoke/close, evaluate bookends, `trajectory_collect` / `trajectory_enrich`, `cleanup_report`.
+Ids live in `src/ageval/plugins/slots.py`. Exclusive: `environment`, `executor`, `evaluation_runtime`, `trajectory_seal`. Chain: environment ready/setup, run bookends, agent open/invoke/close, evaluate bookends, `trajectory_collect` / `trajectory_enrich`, `summary_enrich`, `cleanup_report`.
 
 `evaluation_runtime` / `trajectory_seal` have engine defaults (`plugin_id: default`). No job-field sugar; replace only with an explicit `extensions` row. PASS still enters only through `bind_evaluation`.
 
@@ -31,6 +31,7 @@ open_session → pin graph → before/after_agent_open
 invoke       → before_agent_invoke → executor.invoke → after_agent_invoke
              → normalize_agent_result
 record       → trajectory_collect → enrich → trajectory_seal writes trajectory.jsonl
+             → summary_enrich (fail-open; Attempt summary.extra)
 close        → before_agent_close → executor.close → after_agent_close
 ```
 

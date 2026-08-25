@@ -59,6 +59,7 @@ class AttemptCtx:
     deadline_monotonic: float | None = None
     keep_workspace: bool = False
     keep_vendor_raw: bool = False
+    summary_extra: dict[str, Any] | None = None
     phase_facts: list[PhaseFact] = field(default_factory=list)
     phase: str = "created"
     evaluation_result: Any = None

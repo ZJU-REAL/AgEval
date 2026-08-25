@@ -52,6 +52,7 @@ AFTER_EVALUATE: Final = "after_evaluate"
 # --- record phase chain ---
 TRAJECTORY_COLLECT: Final = "trajectory_collect"
 TRAJECTORY_ENRICH: Final = "trajectory_enrich"
+SUMMARY_ENRICH: Final = "summary_enrich"
 
 # --- cleanup phase chain ---
 CLEANUP_REPORT: Final = "cleanup_report"
@@ -81,6 +82,7 @@ _SLOT_KINDS: Final[dict[str, SlotKind]] = {
     AFTER_EVALUATE: SlotKind.CHAIN,
     TRAJECTORY_COLLECT: SlotKind.CHAIN,
     TRAJECTORY_ENRICH: SlotKind.CHAIN,
+    SUMMARY_ENRICH: SlotKind.CHAIN,
     CLEANUP_REPORT: SlotKind.CHAIN,
 }
 
@@ -101,6 +103,7 @@ FAIL_OPEN_SLOTS: Final[frozenset[str]] = frozenset(
         AFTER_RUN,
         TRAJECTORY_COLLECT,
         TRAJECTORY_ENRICH,
+        SUMMARY_ENRICH,
         CLEANUP_REPORT,
     }
 )

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from ageval.config.errors import ConfigError
 from ageval.viewer import jobs
 
 REPO = Path(__file__).resolve().parents[2]
@@ -53,6 +54,20 @@ def _seed_suite_run(db: Path, job_id: str = "suite_demo_job_001") -> str:
     return job_id
 
 
+def _write_lock(evidence: Path, *, task_id: str) -> None:
+    (evidence / "lock.json").write_text(
+        json.dumps(
+            {
+                "task_id": task_id,
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _clean_db(tmp_path: Path) -> Path:
     """Copy fixture without leftover .ageval suite-runs from local smokes."""
     db = tmp_path / "db"
@@ -70,6 +85,8 @@ def test_get_job_from_attempts_only_summary(tmp_path: Path) -> None:
             {
                 "schema": "ageval.suite.summary/1",
                 "suite_run_id": job_id,
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
                 "attempts": [
                     {
                         "task_id": "alpha",
@@ -111,11 +128,65 @@ def test_list_and_get_job(tmp_path: Path) -> None:
     assert listed["items"][0]["agent_label"] == "codex"
     assert listed["items"][0]["environment"] == "docker"
     assert listed["items"][0]["started"] == "2026-07-14T19:46:20Z"
+    assert listed["items"][0]["dataset_ref"] == "test/suite-min@0.1.0"
 
     detail = jobs.get_job(db, job_id)
     assert detail["task_count"] == 3
     assert detail["tasks"][0]["task_id"] == "alpha"
     assert detail["tasks"][1]["status"] == "FAIL"
+    assert detail["job"]["dataset_ref"] == "test/suite-min@0.1.0"
+    assert detail["tasks"][0]["dataset"] == "test/suite-min@0.1.0"
+
+
+def test_suite_identity_is_summary_not_opened_yaml(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    summary_path = db / ".ageval" / "suite-runs" / job_id / "summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["dataset_id"] = "official/tau3-airline"
+    summary["dataset_version"] = "0.1.0"
+    summary_path.write_text(json.dumps(summary) + "\n", encoding="utf-8")
+    row = jobs.list_jobs(db)["items"][0]
+    assert row["dataset_ref"] == "official/tau3-airline@0.1.0"
+    assert row["dataset_id"] == "official/tau3-airline"
+    detail = jobs.get_job(db, job_id)
+    assert detail["job"]["dataset_ref"] == "official/tau3-airline@0.1.0"
+
+
+def test_missing_suite_identity_fails_closed(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    job_id = _seed_suite_run(db)
+    summary_path = db / ".ageval" / "suite-runs" / job_id / "summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    del summary["dataset_version"]
+    summary_path.write_text(json.dumps(summary) + "\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="missing dataset_id@version"):
+        jobs.list_jobs(db)
+
+
+def test_single_job_identity_is_lock_not_opened_yaml(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    evidence = _write_attempt_evidence(db, "run_locked", task_id="alpha", kind="docker")
+    lock_path = evidence / "lock.json"
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["dataset_id"] = "official/tau3-airline"
+    lock["dataset_version"] = "0.1.0"
+    lock_path.write_text(json.dumps(lock) + "\n", encoding="utf-8")
+    row = next(item for item in jobs.list_jobs(db)["items"] if item["job_id"] == "run_locked")
+    assert row["dataset_ref"] == "official/tau3-airline@0.1.0"
+    detail = jobs.get_job(db, "run_locked")
+    assert detail["job"]["dataset_ref"] == "official/tau3-airline@0.1.0"
+    assert detail["tasks"][0]["dataset"] == "official/tau3-airline@0.1.0"
+
+
+def test_missing_lock_identity_fails_closed(tmp_path: Path) -> None:
+    db = _clean_db(tmp_path)
+    evidence = _write_attempt_evidence(db, "run_nolock", task_id="alpha", kind="docker")
+    lock = json.loads((evidence / "lock.json").read_text(encoding="utf-8"))
+    del lock["dataset_id"]
+    (evidence / "lock.json").write_text(json.dumps(lock) + "\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="missing dataset_id@version"):
+        jobs.list_jobs(db)
 
 
 def test_suite_job_axes_come_from_attempt_lock_overlay(tmp_path: Path) -> None:
@@ -126,6 +197,8 @@ def test_suite_job_axes_come_from_attempt_lock_overlay(tmp_path: Path) -> None:
         json.dumps(
             {
                 "task_id": "alpha",
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
                 "environment": "e2b",
                 "job_overlay": {
                     "environment": "e2b",
@@ -146,6 +219,8 @@ def test_suite_job_axes_come_from_attempt_lock_overlay(tmp_path: Path) -> None:
             {
                 "schema": "ageval.suite.summary/1",
                 "suite_run_id": job_id,
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
                 "agent_label": "e2b/dsh",
                 "model_label": "glm-5.2",
                 "tasks": [
@@ -211,11 +286,13 @@ def test_list_includes_single_task_attempt(tmp_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+    _write_lock(evidence, task_id="alpha")
     listed = jobs.list_jobs(db)
     assert listed["count"] == 1
     row = listed["items"][0]
     assert row["job_id"] == run_id
     assert row["source_kind"] == "single"
+    assert row["dataset_ref"] == "test/suite-min@0.1.0"
     assert row["source"] == "alpha"
     assert row["environment"] is None
     assert row["started"] is None
@@ -241,6 +318,7 @@ def test_list_includes_task_local_single_attempt(tmp_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+    _write_lock(evidence, task_id="beta")
     listed = jobs.list_jobs(db)
     row = next(item for item in listed["items"] if item["job_id"] == run_id)
     assert row["source_kind"] == "single"
@@ -257,6 +335,7 @@ def test_job_task_exposes_attempt_run_ids_for_k(tmp_path: Path) -> None:
         "schema": "ageval.suite.summary/1",
         "suite_run_id": job_id,
         "dataset_id": "test/suite-min",
+        "dataset_version": "0.1.0",
         "n_attempts": 2,
         "tasks": [
             {
@@ -302,6 +381,7 @@ def test_job_task_exposes_attempt_run_ids_for_k(tmp_path: Path) -> None:
         json.dumps({"task_id": "alpha", "status": "PASS", "score": 1.0}) + "\n",
         encoding="utf-8",
     )
+    _write_lock(extra, task_id="alpha")
     listed = jobs.list_jobs(db)
     kinds = {item["job_id"]: item.get("source_kind") for item in listed["items"]}
     assert kinds.get(job_id) == "suite"
@@ -340,6 +420,8 @@ def _write_attempt_evidence(
         json.dumps(
             {
                 "task_id": task_id,
+                "dataset_id": "test/suite-min",
+                "dataset_version": "0.1.0",
                 "environment": kind,
                 "job_overlay": {"environment": kind, "agent_profiles": {}},
             }
