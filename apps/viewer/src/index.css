@@ -47,7 +47,7 @@
   --viewer-hairline: #d5d8e2;
   --viewer-hairline-strong: #9aa0b4;
   --viewer-canvas: #f4f5f8;
-  --viewer-canvas-soft: #e8eaf1;
+  --viewer-canvas-soft: #eeeff4;
   --viewer-canvas-soft-2: #e4e7f0;
   --viewer-link: #1b54e8;
   --viewer-link-deep: #001f73;
@@ -55,7 +55,7 @@
   --viewer-error-soft: #f7d4d6;
   --viewer-warning: #f5a623;
   --viewer-star: #e3b341;
-  --viewer-row-hover: #e8eaf1;
+  --viewer-row-hover: #eeeff4;
   --viewer-code-bg: #f4f5f8;
   --viewer-shell-cmd: #1b54e8;
   --viewer-shell-flag: #6b4fbb;
@@ -75,7 +75,7 @@
   --viewer-hairline: #2a2f3e;
   --viewer-hairline-strong: #52586a;
   --viewer-canvas: #11141c;
-  --viewer-canvas-soft: #1a1e2a;
+  --viewer-canvas-soft: #161a24;
   --viewer-canvas-soft-2: #222738;
   --viewer-link: #5b7bff;
   --viewer-link-deep: #8aa0ff;
@@ -83,7 +83,7 @@
   --viewer-error-soft: #3b1414;
   --viewer-warning: #f5a623;
   --viewer-star: #f5c84c;
-  --viewer-row-hover: #1a1e2a;
+  --viewer-row-hover: #161a24;
   --viewer-code-bg: #0c0e14;
   --viewer-shell-cmd: #5b7bff;
   --viewer-shell-flag: #d2a8ff;
@@ -101,7 +101,7 @@
     --viewer-hairline: #2a2f3e;
     --viewer-hairline-strong: #52586a;
     --viewer-canvas: #11141c;
-    --viewer-canvas-soft: #1a1e2a;
+    --viewer-canvas-soft: #161a24;
     --viewer-canvas-soft-2: #222738;
     --viewer-link: #5b7bff;
     --viewer-link-deep: #8aa0ff;
@@ -109,7 +109,7 @@
     --viewer-error-soft: #3b1414;
     --viewer-warning: #f5a623;
     --viewer-star: #f5c84c;
-    --viewer-row-hover: #1a1e2a;
+    --viewer-row-hover: #161a24;
     --viewer-code-bg: #0c0e14;
     --viewer-shell-cmd: #5b7bff;
     --viewer-shell-flag: #d2a8ff;
@@ -130,7 +130,7 @@
     --viewer-hairline: #d5d8e2;
     --viewer-hairline-strong: #9aa0b4;
     --viewer-canvas: #f4f5f8;
-    --viewer-canvas-soft: #e8eaf1;
+    --viewer-canvas-soft: #eeeff4;
     --viewer-canvas-soft-2: #e4e7f0;
     --viewer-link: #1b54e8;
     --viewer-link-deep: #001f73;
@@ -138,7 +138,7 @@
     --viewer-error-soft: #f7d4d6;
     --viewer-warning: #f5a623;
     --viewer-star: #e3b341;
-    --viewer-row-hover: #e8eaf1;
+    --viewer-row-hover: #eeeff4;
     --viewer-code-bg: #f4f5f8;
     --viewer-shell-cmd: #1b54e8;
     --viewer-shell-flag: #6b4fbb;

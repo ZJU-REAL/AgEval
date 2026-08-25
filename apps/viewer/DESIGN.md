@@ -15,7 +15,7 @@ colors:
   hairline: "#d5d8e2"
   hairline-strong: "#9aa0b4"
   canvas: "#f4f5f8"
-  canvas-soft: "#e8eaf1"
+  canvas-soft: "#eeeff4"
   canvas-soft-2: "#e4e7f0"
   link: "#002FA7"
   link-deep: "#001f73"
@@ -25,7 +25,7 @@ colors:
   warning: "#f5a623"
   selection-bg: "#002FA7"
   selection-fg: "#14161f"
-  row-hover: "#e8eaf1"
+  row-hover: "#eeeff4"
 
 typography:
   sans: "Geist, Inter, system-ui, -apple-system, sans-serif"
@@ -169,7 +169,7 @@ segment is clickable.
 - Mono only for commands, digests, technical labels
 - Primary action = ink (copy, primary buttons); links use IKB
 - Error / exception text in `#d40000`
-- Row hover = soft canvas `#e8eaf1` / `#1a1e2a`
+- Row hover = soft canvas `#eeeff4` / `#161a24`
 - Max content width ~1400px, generous but calm padding
 
 ### Motion

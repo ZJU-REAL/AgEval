@@ -28,7 +28,7 @@
 | Token | Light | Dark | 用途 |
 | --- | --- | --- | --- |
 | `canvas` | `#f4f5f8` | `#11141c` | 页面底（冷纸 / 冷墨） |
-| `canvas-soft` | `#e8eaf1` | `#1a1e2a` | 次级面、表头 |
+| `canvas-soft` | `#eeeff4` | `#161a24` | 次级面、表头 |
 | `ink` | `#14161f` | `#eef0f6` | 主文字 |
 | `body` | `#4a4e5c` | `#9aa0b4` | 正文与说明 |
 | `hairline` | `#d5d8e2` | 冷白 12% | 1px 边界 |

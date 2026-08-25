@@ -21,7 +21,7 @@ DOC = REPO / "docs/design/13-web-ui-tokens.md"
 # token -> (light, dark)
 CANONICAL: dict[str, tuple[str, str]] = {
     "canvas": ("#F4F5F8", "#11141C"),
-    "canvas-soft": ("#E8EAF1", "#1A1E2A"),
+    "canvas-soft": ("#EEEFF4", "#161A24"),
     "canvas-soft-2": ("#E4E7F0", "#222738"),
     "hairline": ("#D5D8E2", "#2A2F3E"),
     "ink": ("#14161F", "#EEF0F6"),

@@ -10,7 +10,7 @@
 :root {
   --color-fd-background: #f4f5f8;
   --color-fd-foreground: #14161f;
-  --color-fd-muted: #e8eaf1;
+  --color-fd-muted: #eeeff4;
   --color-fd-muted-foreground: #4a4e5c;
   --color-fd-popover: #f4f5f8;
   --color-fd-popover-foreground: #14161f;
@@ -30,7 +30,7 @@
 .dark {
   --color-fd-background: #11141c;
   --color-fd-foreground: #eef0f6;
-  --color-fd-muted: #1a1e2a;
+  --color-fd-muted: #161a24;
   --color-fd-muted-foreground: #9aa0b4;
   --color-fd-popover: #1a1e2a;
   --color-fd-popover-foreground: #eef0f6;
@@ -48,7 +48,7 @@
 }
 
 .dark #nd-sidebar {
-  --color-fd-muted: #1a1e2a;
+  --color-fd-muted: #161a24;
   --color-fd-secondary: #222738;
   --color-fd-muted-foreground: #9aa0b4;
 }

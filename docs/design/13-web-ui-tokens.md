@@ -13,7 +13,7 @@
 | 令牌 | 浅色 | 深色 | 用途 | hub/viewer(`--viewer-*`) | docs(`--color-fd-*`) |
 | --- | --- | --- | --- | --- | --- |
 | canvas | `#F4F5F8` | `#11141C` | 页面底色 | `canvas` | `background` |
-| canvas-soft | `#E8EAF1` | `#1A1E2A` | 卡片 / 悬浮面 / 行 hover | `canvas-soft`、`row-hover` | `muted`(`fd-card` 为本地近似) |
+| canvas-soft | `#EEEFF4` | `#161A24` | 卡片 / 悬浮面 / 行 hover | `canvas-soft`、`row-hover` | `muted`(`fd-card` 为本地近似) |
 | canvas-soft-2 | `#E4E7F0` | `#222738` | 强填充 / 次级底 | `canvas-soft-2` | `secondary` |
 | hairline | `#D5D8E2` | `#2A2F3E` | 分隔线 / ring | `hairline` | `border` |
 | ink | `#14161F` | `#EEF0F6` | 标题 / 强文字 | `ink` | `foreground` |
